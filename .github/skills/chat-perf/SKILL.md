@@ -82,14 +82,14 @@ Both `--build` and `--baseline-build` accept local paths to VS Code executables.
 ```bash
 # Compare two dev builds (e.g. feature branch vs main):
 npm run perf:chat -- \
-  --build .build/electron/Code\ -\ OSS.app/Contents/MacOS/Code\ -\ OSS \
+  --build .build/electron/Shideh.app/Contents/MacOS/Shideh \
   --baseline-build /path/to/other/Code\ -\ OSS.app/Contents/MacOS/Code\ -\ OSS \
   --runs 5
 
 # Compare two production builds:
 npm run perf:chat -- \
-  --build ../VSCode-darwin-arm64-feature/Code\ -\ OSS.app/Contents/MacOS/Code\ -\ OSS \
-  --baseline-build ../VSCode-darwin-arm64-main/Code\ -\ OSS.app/Contents/MacOS/Code\ -\ OSS \
+  --build ../VSCode-darwin-arm64-feature/Shideh.app/Contents/MacOS/Shideh \
+  --baseline-build ../VSCode-darwin-arm64-main/Shideh.app/Contents/MacOS/Shideh \
   --runs 5
 ```
 

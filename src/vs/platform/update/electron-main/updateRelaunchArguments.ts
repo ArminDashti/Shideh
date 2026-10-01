@@ -93,7 +93,7 @@ const RELAUNCH_PATH_ARGUMENTS: ReadonlySet<keyof NativeParsedArgs> = new Set([
 ]);
 
 /**
- * Quotes a single argument per `CommandLineToArgvW` rules so it survives being appended to the relaunched `Code.exe`
+ * Quotes a single argument per `CommandLineToArgvW` rules so it survives being appended to the relaunched `Shideh.exe`
  * command line even when it contains spaces or quotes (e.g. a path).
  */
 export function quoteWindowsArgument(arg: string): string {

@@ -5,7 +5,7 @@ set ELECTRON_RUN_AS_NODE=
 
 pushd %~dp0\..
 
-:: Get Code.exe location
+:: Get Shideh.exe location
 set "NAMESHORT="
 for /f "tokens=2 delims=:," %%a in ('findstr /R /C:"\"nameShort\":.*" product.json') do if not defined NAMESHORT set "NAMESHORT=%%~a"
 set NAMESHORT=%NAMESHORT: "=%

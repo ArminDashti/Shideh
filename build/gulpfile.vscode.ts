@@ -291,7 +291,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			all = es.merge(all, gulp.src([
 				'resources/win32/bower.ico',
 				'resources/win32/c.ico',
-				'resources/win32/code.ico',
+				'resources/win32/shideh.ico',
 				'resources/win32/config.ico',
 				'resources/win32/cpp.ico',
 				'resources/win32/csharp.ico',
@@ -318,8 +318,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'resources/win32/vue.ico',
 				'resources/win32/xml.ico',
 				'resources/win32/yaml.ico',
-				'resources/win32/code_70x70.png',
-				'resources/win32/code_150x150.png'
+				'resources/win32/shideh_70x70.png',
+				'resources/win32/shideh_150x150.png'
 			], { base: '.' }));
 		} else if (platform === 'linux') {
 			const policyDest = gulp.src('.build/policies/linux/**', { base: '.build/policies/linux' })
@@ -402,6 +402,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 			result = es.merge(result, gulp.src('resources/win32/VisualElementsManifest.xml', { base: 'resources/win32' })
 				.pipe(replace('@@VERSIONFOLDER@@', versionedResourcesFolder ? `${versionedResourcesFolder}\\` : ''))
+				.pipe(replace('@@NAME_SHORT@@', product.nameShort))
 				.pipe(rename(product.nameShort + '.VisualElementsManifest.xml')));
 
 			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })

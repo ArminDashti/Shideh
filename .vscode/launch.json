@@ -578,12 +578,12 @@
 			"request": "launch",
 			"name": "Run Unit Tests",
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
-			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
+			"runtimeExecutable": "${workspaceFolder}/.build/electron/Shideh.app/Contents/MacOS/Shideh",
 			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.exe"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/Shideh.exe"
 			},
 			"linux": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/shideh"
 			},
 			"outputCapture": "std",
 			"args": [
@@ -608,12 +608,12 @@
 			"request": "launch",
 			"name": "Run Unit Tests For Current File",
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
-			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
+			"runtimeExecutable": "${workspaceFolder}/.build/electron/Shideh.app/Contents/MacOS/Shideh",
 			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.exe"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/Shideh.exe"
 			},
 			"linux": {
-				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
+				"runtimeExecutable": "${workspaceFolder}/.build/electron/shideh"
 			},
 			"cascadeTerminateToConfigurations": [
 				"Attach to VS Code"
@@ -644,7 +644,7 @@
 			"timeout": 240000,
 			"args": [
 				"-l",
-				"${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS"
+				"${workspaceFolder}/.build/electron/Shideh.app/Contents/MacOS/Shideh"
 			],
 			"outFiles": [
 				"${cwd}/out/**/*.js"

@@ -81,7 +81,7 @@ ls "$CACHE/electron.exe.pdb"     # e.g. DD081533CD7E33A44C4C44205044422E1
 
 Unzip the downloaded symbols and confirm the same module/hash exists in the zip before copying it in. The zip's internal layout is also `<module>.pdb/<debug-id>/<module>.sym`.
 
-Example (Windows: the shipped main binary is `Code.exe`, but its symbols come from `electron.exe.sym`):
+Example (Windows: the shipped main binary is `Shideh.exe`, but its symbols come from `electron.exe.sym`):
 
 ```bash
 # Unzip somewhere, e.g. ~/stable-symbols/
@@ -114,7 +114,7 @@ Once you have a symbolicated backtrace, turn it into a root cause by answering t
 
 Look at the **top frame of the crashing thread** (marked `(crashed)`) and its module name:
 
-- If it's a **VS Code / Electron module** — `Code.exe`, `runtime.node`, `Electron Framework`, `libnode`, `libffmpeg`, V8 frames — the fault is likely inside the product or Electron.
+- If it's a **VS Code / Electron module** — `Shideh.exe`, `runtime.node`, `Electron Framework`, `libnode`, `libffmpeg`, V8 frames — the fault is likely inside the product or Electron.
 - If it's a **third-party / OS module** — an antivirus, VPN, proxy, or shell-extension DLL injected into the process — the crash is almost certainly caused by that software, not VS Code. Injected DLLs often appear interleaved with `runtime.node`/V8 frames because they hook the runtime.
 
 Find where the module is loaded on disk to confirm it's third-party. On Windows the `strings` of the dump usually reveal the full path, e.g. a DLL under `C:\WINDOWS\system32\` or a vendor folder rather than the VS Code install directory:

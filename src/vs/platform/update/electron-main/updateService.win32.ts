@@ -649,7 +649,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 	/**
 	 * Writes the arguments from {@link getRelaunchArguments} to a file in the update cache and returns its path (or
-	 * `undefined` when there is nothing to carry forward). The installer reads it and passes the arguments to `Code.exe`.
+	 * `undefined` when there is nothing to carry forward). The installer reads it and passes the arguments to `Shideh.exe`.
 	 */
 	private writeRelaunchArgumentsFile(cachePath: string, version: string): string | undefined {
 		const relaunchArguments = getRelaunchArguments(this.environmentMainService.args, process.argv);
