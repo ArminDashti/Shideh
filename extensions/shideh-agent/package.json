@@ -1,0 +1,144 @@
+{
+  "name": "shideh-agent",
+  "displayName": "Shideh",
+  "description": "Opens the Shideh agent and talks to the OpenCode Go API.",
+  "version": "1.0.0",
+  "publisher": "shideh",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "enabledApiProposals": [
+    "defaultChatParticipant",
+    "chatParticipantAdditions"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "configurationDefaults": {
+      "workbench.startupEditor": "none",
+      "chat.agent.enabled": true
+    },
+    "configuration": [
+      {
+        "title": "Shideh",
+        "properties": {
+          "shideh.openAgentOnStartup": {
+            "type": "boolean",
+            "default": true,
+            "description": "Open the agent chat when Shideh starts."
+          },
+          "shideh.opencodeGo.baseUrl": {
+            "type": "string",
+            "default": "https://opencode.ai/zen/go/v1",
+            "description": "OpenCode Go API base URL."
+          }
+        }
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "shideh.agent",
+        "name": "shideh",
+        "fullName": "Shideh",
+        "description": "Shideh coding agent",
+        "isSticky": true,
+        "isDefault": true,
+        "locations": [
+          "panel"
+        ],
+        "modes": [
+          "agent"
+        ]
+      }
+    ],
+    "languageModelChatProviders": [
+      {
+        "vendor": "opencode-go",
+        "displayName": "OpenCode Go"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "shideh_readFile",
+        "toolReferenceName": "readFile",
+        "displayName": "Read file",
+        "modelDescription": "Read a UTF-8 text file inside the open workspace.",
+        "userDescription": "Read a file in the workspace.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative path."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "shideh_writeFile",
+        "toolReferenceName": "writeFile",
+        "displayName": "Edit file",
+        "modelDescription": "Create or replace a UTF-8 text file inside the open workspace.",
+        "userDescription": "Create or replace a file in the workspace.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative path."
+            },
+            "content": {
+              "type": "string",
+              "description": "Full new file contents."
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "shideh_listDirectory",
+        "toolReferenceName": "listDirectory",
+        "displayName": "List directory",
+        "modelDescription": "List files and folders inside the open workspace.",
+        "userDescription": "List a workspace directory.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative directory. Empty means the workspace root."
+            }
+          }
+        }
+      },
+      {
+        "name": "shideh_runTerminal",
+        "toolReferenceName": "runTerminal",
+        "displayName": "Run terminal command",
+        "modelDescription": "Run a PowerShell command in the workspace after the user approves it.",
+        "userDescription": "Run a terminal command after approval.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "PowerShell command to run."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ]
+  }
+}
