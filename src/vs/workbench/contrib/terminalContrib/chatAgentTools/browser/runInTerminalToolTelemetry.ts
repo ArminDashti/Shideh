@@ -576,7 +576,6 @@ const commandAllowList: ReadonlySet<string> = new Set([
 	'aider',
 	'amp',
 	'claude',
-	'codex',
 	'copilot',
 	'gemini',
 	'toad',

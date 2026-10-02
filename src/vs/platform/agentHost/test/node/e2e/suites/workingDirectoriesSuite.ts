@@ -11,7 +11,7 @@ import { join } from '../../../../../../base/common/path.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../../base/common/uuid.js';
 import { editorWindowAgentHostClientInfo } from '../../../../common/agentHostClientInfo.js';
-import { AgentHostClaudeMultiRootEnabledConfigKey, AgentHostCodexMultiRootEnabledConfigKey, AgentHostCopilotMultiRootEnabledConfigKey } from '../../../../common/agentHostSchema.js';
+import { AgentHostClaudeMultiRootEnabledConfigKey, AgentHostCopilotMultiRootEnabledConfigKey } from '../../../../common/agentHostSchema.js';
 import { ChatSourceKind, CompletionItemKind, type CompletionsResult, type ListSessionsResult, type SubscribeResult } from '../../../../common/state/protocol/commands.js';
 import { PROTOCOL_VERSION } from '../../../../common/state/protocol/version/registry.js';
 import { ActionType, type StateAction } from '../../../../common/state/sessionActions.js';
@@ -33,7 +33,7 @@ export function defineWorkingDirectoriesTests(context: IAgentHostE2ETestContext)
 	const { config } = context;
 	const multiRootKey = config.provider === 'claude'
 		? AgentHostClaudeMultiRootEnabledConfigKey
-		: config.provider === 'codex' ? AgentHostCodexMultiRootEnabledConfigKey : AgentHostCopilotMultiRootEnabledConfigKey;
+		: AgentHostCopilotMultiRootEnabledConfigKey;
 	let clientSequence = 30_000;
 
 	async function initialize(prefix: string): Promise<void> {

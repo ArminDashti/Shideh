@@ -433,23 +433,23 @@ suite('SessionModelSelection', () => {
 		}
 	});
 
-	test('new Codex sessions use the most recently selected provider model', () => {
-		const codexModelTarget = 'agent-host-codex';
+	test('new agent-host sessions use the most recently selected provider model', () => {
+		const mycliModelTarget = 'agent-host-mycli';
 		const copilotModel = {
-			...model('codex:@provider=vscode-proxy:gpt-test'),
-			metadata: { ...model('codex:@provider=vscode-proxy:gpt-test').metadata, modelGroup: { id: 'copilot' } },
+			...model('mycli:@provider=vscode-proxy:gpt-test'),
+			metadata: { ...model('mycli:@provider=vscode-proxy:gpt-test').metadata, modelGroup: { id: 'copilot' } },
 		};
 		const chatGPTModel = {
-			...model('codex:@provider=openai:gpt-test'),
-			metadata: { ...model('codex:@provider=openai:gpt-test').metadata, modelGroup: { id: 'openai', sourceId: 'chatgptSubscription' } },
+			...model('mycli:@provider=openai:gpt-test'),
+			metadata: { ...model('mycli:@provider=openai:gpt-test').metadata, modelGroup: { id: 'openai', sourceId: 'chatgptSubscription' } },
 		};
 		const storage = disposables.add(new InMemoryStorageService());
-		storeSelectedModel(storage, ChatAgentLocation.Chat, codexModelTarget, chatGPTModel.identifier);
+		storeSelectedModel(storage, ChatAgentLocation.Chat, mycliModelTarget, chatGPTModel.identifier);
 
-		const draft = createSession('provider', SessionStatus.Untitled, undefined, 'draft', codexModelTarget);
+		const draft = createSession('provider', SessionStatus.Untitled, undefined, 'draft', mycliModelTarget);
 		const provider = disposables.add(createProvider('provider', (identifier, source) => draft.modelId.set(identifier, undefined, source)));
 		provider.models = [copilotModel, chatGPTModel];
-		provider.modelTarget = codexModelTarget;
+		provider.modelTarget = mycliModelTarget;
 		const draftSelection = disposables.add(new SessionModelSelection(
 			observableValue<IActiveSession | undefined>('draftSession', draft.session),
 			{},
@@ -465,10 +465,10 @@ suite('SessionModelSelection', () => {
 		});
 
 		assert.strictEqual(draftSelection.selectModel(copilotModel.identifier), true);
-		const nextDraft = createSession('provider', SessionStatus.Untitled, undefined, 'nextDraft', codexModelTarget);
+		const nextDraft = createSession('provider', SessionStatus.Untitled, undefined, 'nextDraft', mycliModelTarget);
 		const nextProvider = disposables.add(createProvider('provider', (identifier, source) => nextDraft.modelId.set(identifier, undefined, source)));
 		nextProvider.models = [chatGPTModel, copilotModel];
-		nextProvider.modelTarget = codexModelTarget;
+		nextProvider.modelTarget = mycliModelTarget;
 		const nextSelection = disposables.add(new SessionModelSelection(
 			observableValue<IActiveSession | undefined>('nextDraftSession', nextDraft.session),
 			{},

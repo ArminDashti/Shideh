@@ -16,9 +16,6 @@ parameters:
       - smoke-agents-kerberos-pac-proxy
       - smoke-browser-chromium
       - smoke-remote
-      - copilot-extension
-      - copilot-completions-core
-      - copilot-sanity
   - name: condition
     type: string
 

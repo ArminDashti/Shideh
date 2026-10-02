@@ -274,7 +274,9 @@ class QuickChat extends Disposable {
 			const anonymous = this.chatEntitlementService.anonymousObs.read(reader);
 			const requestInProgress = this.chatService.requestInProgressObs.read(reader);
 
-			const showDisclaimer = !sentiment.completed && anonymous && !requestInProgress;
+			// The terms disclaimer links to product-provided ToS/privacy URLs, which only
+			// exist when a default chat agent is configured; never render it without one.
+			const showDisclaimer = !!product.defaultChatAgent && !sentiment.completed && anonymous && !requestInProgress;
 			disclaimerElement.classList.toggle('hidden', !showDisclaimer);
 
 			if (showDisclaimer) {

@@ -12,7 +12,7 @@ import { ChatErrorLevel, IChatResponseErrorDetails } from './chatService/chatSer
  * Mirror of the Copilot extension's `ChatFetchResponseType` (see
  * `extensions/copilot/src/platform/chat/common/commonTypes.ts`). These string
  * values are forwarded verbatim from the agent host harnesses (Copilot CLI,
- * Claude, Codex) over `_meta`, so they MUST stay in sync with the extension.
+ * Claude) over `_meta`, so they MUST stay in sync with the extension.
  */
 export const enum ChatFetchResponseType {
 	OffTopic = 'offTopic',

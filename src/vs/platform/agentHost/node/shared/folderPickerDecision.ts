@@ -10,7 +10,7 @@ import { ISessionFolderPickerDecision } from '../../common/state/sessionState.js
 /**
  * Shared multi-root Folder-picker decision, expressed over a per-provider
  * "does this working directory carry configuration that pins it as the primary"
- * predicate. Each provider (Copilot hooks, Claude MCP/hooks, Codex hooks)
+ * predicate. Each provider (Copilot hooks, Claude MCP/hooks)
  * supplies its own {@link hasSelectionCriteria}; the count of qualifying
  * directories drives a single, uniform rule:
  *

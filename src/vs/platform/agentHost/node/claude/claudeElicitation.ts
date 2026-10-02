@@ -21,8 +21,7 @@ import { ChatInputAnswerState, ChatInputAnswerValueKind, ChatInputQuestionKind, 
  * answer back into the SDK's {@link ElicitationResult}. This module owns those
  * projections so they can be unit-tested without standing up an agent.
  *
- * Unlike the Codex provider — whose `requestedSchema` is a strongly-typed
- * generated schema — the Claude SDK delivers `requestedSchema` as an untyped
+ * The Claude SDK delivers `requestedSchema` as an untyped
  * `Record<string, unknown>`. Each field is runtime-validated with the base-layer
  * {@link vObj} validator ({@link vElicitationField}), which drops malformed
  * fields instead of mis-projecting or throwing. The field type is *derived* from

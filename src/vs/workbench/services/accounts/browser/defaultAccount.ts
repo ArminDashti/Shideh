@@ -12,7 +12,6 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { equals } from '../../../../base/common/objects.js';
 import { isWeb } from '../../../../base/common/platform.js';
-import { IDefaultChatAgent } from '../../../../base/common/product.js';
 import { extUri } from '../../../../base/common/resources.js';
 import { isUndefined, Mutable } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -22,9 +21,10 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
-import { IDefaultAccountProvider, IDefaultAccountRefreshOptions, IDefaultAccountService, IManagedSettingsCompatibilityError, MANAGED_SETTINGS_UPDATE_REQUIRED_ERROR_CODE, ManagedSettingsFetchStatus } from '../../../../platform/defaultAccount/common/defaultAccount.js';
+import { GitHubPaths, IDefaultAccountProvider, IDefaultAccountRefreshOptions, IDefaultAccountService, IManagedSettingsCompatibilityError, MANAGED_SETTINGS_UPDATE_REQUIRED_ERROR_CODE, ManagedSettingsFetchStatus } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IFileManagedSettingsService, INativeManagedSettingsService, ManagedSettingsChannel, ManagedSettingsData, resolveForceRemoteSettingsRefresh } from '../../../../platform/policy/common/copilotManagedSettings.js';
 import { IManagedSettingsFreshness, IManagedSettingsFreshnessScope, isManagedSettingsFreshnessBlocking, isManagedSettingsFreshnessSatisfiedFor, MANAGED_SETTINGS_FRESHNESS_NOT_REQUIRED, ManagedSettingsFreshnessFailure, ManagedSettingsFreshnessState } from '../../../../platform/policy/common/managedSettingsFreshness.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -92,28 +92,38 @@ interface IMcpRegistryResponse {
 	readonly mcp_registries: ReadonlyArray<IMcpRegistryProvider>;
 }
 
-function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent): IDefaultAccountConfig {
+function toDefaultAccountConfig(): IDefaultAccountConfig {
 	return {
-		preferredExtensions: [
-			defaultChatAgent.chatExtensionId,
-			defaultChatAgent.extensionId,
-		],
+		preferredExtensions: [],
 		authenticationProvider: {
 			default: {
-				id: defaultChatAgent.provider.default.id,
-				name: defaultChatAgent.provider.default.name,
+				id: 'github',
+				name: 'GitHub',
 			},
 			enterprise: {
-				id: defaultChatAgent.provider.enterprise.id,
-				name: defaultChatAgent.provider.enterprise.name,
+				id: 'github-enterprise',
+				name: 'GHE',
 			},
-			enterpriseProviderConfig: `${defaultChatAgent.completionsAdvancedSetting}.authProvider`,
-			scopes: defaultChatAgent.providerScopes,
+			enterpriseProviderConfig: 'github.copilot.advanced.authProvider',
+			scopes: [
+				[
+					'read:user',
+					'user:email',
+					'repo',
+					'workflow'
+				],
+				[
+					'user:email'
+				],
+				[
+					'read:user'
+				]
+			],
 		},
-		entitlementUrl: defaultChatAgent.entitlementUrl,
-		tokenEntitlementUrl: defaultChatAgent.tokenEntitlementUrl,
-		mcpRegistryDataUrl: defaultChatAgent.mcpRegistryDataUrl,
-		managedSettingsUrl: defaultChatAgent.managedSettingsUrl,
+		entitlementUrl: '',
+		tokenEntitlementUrl: '',
+		mcpRegistryDataUrl: '',
+		managedSettingsUrl: '',
 	};
 }
 
@@ -151,11 +161,9 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 	private readonly defaultAccountConfig: IDefaultAccountConfig;
 	private defaultAccountProvider: IDefaultAccountProvider | null = null;
 
-	constructor(
-		@IProductService productService: IProductService,
-	) {
+	constructor() {
 		super();
-		this.defaultAccountConfig = toDefaultAccountConfig(productService.defaultChatAgent);
+		this.defaultAccountConfig = toDefaultAccountConfig();
 	}
 
 	async getDefaultAccount(): Promise<IDefaultAccount | null> {
@@ -1634,12 +1642,11 @@ class DefaultAccountProviderContribution extends Disposable implements IWorkbenc
 	static ID = 'workbench.contributions.defaultAccountProvider';
 
 	constructor(
-		@IProductService productService: IProductService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
 	) {
 		super();
-		const defaultAccountProvider = this._register(instantiationService.createInstance(DefaultAccountProvider, toDefaultAccountConfig(productService.defaultChatAgent)));
+		const defaultAccountProvider = this._register(instantiationService.createInstance(DefaultAccountProvider, toDefaultAccountConfig()));
 		defaultAccountService.setDefaultAccountProvider(defaultAccountProvider);
 	}
 }
@@ -1654,6 +1661,55 @@ registerAction2(class extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const defaultAccountService = accessor.get(IDefaultAccountService);
 		await defaultAccountService.signIn();
+	}
+});
+
+// The deleted chat setup wizard used to own these sign-in triggers. They stay as
+// thin aliases so existing command references (account menu, markdown links,
+// notifications, voice, tests) keep resolving; both simply run the accounts
+// sign-in, which prompts through the GitHub auth provider.
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chat.triggerSetup',
+			title: localize2('triggerChatSetupSignIn', 'Sign In'),
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<boolean> {
+		const defaultAccountService = accessor.get(IDefaultAccountService);
+		return !!(await defaultAccountService.signIn());
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chat.triggerSetupForceSignIn',
+			title: localize2('forceSignIn', 'Sign In'),
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<boolean> {
+		const defaultAccountService = accessor.get(IDefaultAccountService);
+		return !!(await defaultAccountService.signIn());
+	}
+});
+
+// The setup wizard also owned the Copilot plan upgrade link; keep the id alive
+// by opening GitHub's upgrade page directly (no extension round trip).
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chat.upgradePlan',
+			title: localize2('upgradePlan', 'Upgrade Plan'),
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const defaultAccountService = accessor.get(IDefaultAccountService);
+		const openerService = accessor.get(IOpenerService);
+		const upgradeUrl = defaultAccountService.resolveGitHubUrl(GitHubPaths.copilotUpgrade);
+		if (upgradeUrl) {
+			openerService.open(URI.parse(upgradeUrl));
+		}
 	}
 });
 

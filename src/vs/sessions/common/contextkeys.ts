@@ -107,12 +107,6 @@ export const SessionHasOpenPullRequestContext = new RawContextKey<boolean>('sess
 
 //#endregion
 
-//#region < --- Welcome --- >
-
-export const SessionsWelcomeVisibleContext = new RawContextKey<boolean>('sessionsWelcomeVisible', false, localize('sessionsWelcomeVisible', "Whether the sessions welcome overlay is visible"));
-
-//#endregion
-
 //#region < --- Experiments --- >
 
 export const SessionsTitleBarNewSessionEnabledContext = new RawContextKey<boolean>('sessionsTitleBarNewSessionEnabled', false, localize('sessionsTitleBarNewSessionEnabled', "Whether the new-session button is shown in the titlebar when the sessions list is hidden (A/B experiment)"));

@@ -16,7 +16,6 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ILifecycleService, LifecyclePhase } from '../../../../workbench/services/lifecycle/common/lifecycle.js';
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
-import { ISessionsSetUpService } from '../../../browser/sessionsSetUpService.js';
 import { WorkspaceSelectionOrigin } from '../../../common/workspaceSelection.js';
 import { ISessionsPartService } from '../../../services/sessions/browser/sessionsPartService.js';
 import { ISessionsService } from '../../../services/sessions/browser/sessionsService.js';
@@ -48,7 +47,6 @@ export class AgentsWindowWorkspaceHandoff extends Disposable {
 		@ISessionsService private readonly sessionsService: ISessionsService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsPartService private readonly sessionsPartService: ISessionsPartService,
-		@ISessionsSetUpService private readonly sessionsSetUpService: ISessionsSetUpService,
 		@INewSessionComposerService private readonly composerService: INewSessionComposerService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IViewsService private readonly viewsService: IViewsService,
@@ -119,11 +117,6 @@ export class AgentsWindowWorkspaceHandoff extends Disposable {
 		try {
 			if (intent.draft && this._hasDraftInput()) {
 				onState('preservedSession');
-				return;
-			}
-			onState('waitingForSetup');
-			await raceCancellationError(this.sessionsSetUpService.whenWelcomeDone(), source.token);
-			if (source.token.isCancellationRequested) {
 				return;
 			}
 			onState('waitingForSessionView');

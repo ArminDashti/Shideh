@@ -11,8 +11,8 @@
  *
  * Store the platform-neutral placeholder in the fixture and expand it back to
  * the running platform's name on replay, so a single capture drives every
- * platform. Only the names that actually vary are mapped: Claude's `Bash` and
- * Codex's `shell` are fixed strings their SDKs use everywhere.
+ * platform. Only the names that actually vary are mapped: fixed strings
+ * like Claude's `Bash` are left alone.
  */
 const SHELL_TOOL_PREFIXES = ['', 'read_', 'write_', 'stop_', 'list_'] as const;
 const SHELL_TOOL_PLACEHOLDERS = new Map<string, string>();

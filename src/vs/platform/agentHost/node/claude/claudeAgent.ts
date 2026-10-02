@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { CCAModel } from '@vscode/copilot-api';
 import type { ModelInfo, OnElicitation, Options, SDKSessionInfo, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { Limiter, retry, SequencerByKey } from '../../../../base/common/async.js';
@@ -19,12 +18,10 @@ import { IInstantiationService } from '../../../instantiation/common/instantiati
 import { INativeEnvironmentService } from '../../../environment/common/environment.js';
 import { ILogService } from '../../../log/common/log.js';
 import { IAgentHostStartupPerformance } from '../agentHostStartupPerformance.js';
-import { IProductService } from '../../../product/common/productService.js';
 import { IAgentPluginManager, ISyncedCustomization } from '../../common/agentPluginManager.js';
 import { IAgentSdkDownloader } from '../agentSdkDownloader.js';
 import { AgentSdkSetupChannel } from '../agentSdkSetupChannel.js';
 import { decodeProviderData, encodeProviderData, type IPersistedChat } from '../agentChatBackings.js';
-import { AgentHostConfigKey, agentHostCustomizationConfigSchema } from '../../common/agentHostCustomizationConfig.js';
 import { AgentHostAutoApprovePolicyRestrictedConfigKey, AgentHostClaudeMultiRootEnabledConfigKey, createSchema, platformRootSchema, platformSessionSchema, schemaProperty } from '../../common/agentHostSchema.js';
 import { ClaudePermissionMode, ClaudeSessionConfigKey, narrowClaudePermissionMode } from '../../common/claudeSessionConfigKeys.js';
 import { createClaudeThinkingLevelSchema, isClaudeEffortLevel } from '../../common/claudeModelConfig.js';
@@ -33,8 +30,7 @@ import { AgentChatMigrationDeferred, type AgentChatMigrationResult, AgentProvide
 import { ensureWorkspacelessScratchDir } from '../workspacelessScratchDir.js';
 import { ActionType } from '../../common/state/sessionActions.js';
 import type { ResolveSessionConfigResult, SessionConfigCompletionsResult } from '../../common/state/protocol/commands.js';
-import { AHP_AUTH_REQUIRED, ProtocolError } from '../../common/state/sessionProtocol.js';
-import { PolicyState, ProtectedResourceMetadata, type AgentSelection, type ModelSelection, type ToolDefinition } from '../../common/state/protocol/state.js';
+import { ProtectedResourceMetadata, type AgentSelection, type ModelSelection, type ToolDefinition } from '../../common/state/protocol/state.js';
 import { buildDefaultChatUri, ChatInputResponseKind, isDefaultChatUri, parseRequiredSessionUriFromChatUri, type ClientPluginCustomization, type Customization, type ISessionFolderPickerDecision, type MessageAttachment, type PendingMessage, type ChatInputAnswer, type ToolCallResult, type Turn } from '../../common/state/sessionState.js';
 import { IFileService } from '../../../files/common/files.js';
 import { computeFolderPickerDecisionForRoots } from '../shared/folderPickerDecision.js';
@@ -45,11 +41,10 @@ import { IAgentHostGitService } from '../../common/agentHostGitService.js';
 import { IAgentHostCheckpointService } from '../../common/agentHostCheckpointService.js';
 import { PendingRequestRegistry } from '../../common/pendingRequestRegistry.js';
 import { projectFromCopilotContext } from '../copilot/copilotGitProject.js';
-import { ICopilotApiService } from '../shared/copilotApiService.js';
 import { ClaudeSdkPackage, IClaudeAgentSdkService } from './claudeAgentSdkService.js';
 import { buildModelEnumerationOptions } from './claudeSdkOptions.js';
-import { isClaudeAccountSetUp, resolveClaudeTransportMode, type ClaudeTransportMode } from './claudeTransportMode.js';
-import { mergeClaudeModelCatalogs, resolveClaudeSessionTransport } from './claudeModelSelection.js';
+import { isClaudeAccountSetUp } from './claudeTransportMode.js';
+import { qualifyClaudeModelCatalog } from './claudeModelSelection.js';
 import { mapSessionMessagesToTurns, resolveForkAnchorUuid } from './claudeReplayMapper.js';
 import { getSubagentTranscript } from './claudeSubagentResolver.js';
 import { SubagentRegistry } from './claudeSubagentRegistry.js';
@@ -57,89 +52,15 @@ import { ClaudeAgentSession } from './claudeAgentSession.js';
 import { handleCanUseTool } from './claudeCanUseTool.js';
 import { handleElicitation } from './claudeElicitationBridge.js';
 import type { IAgentServerToolHost } from '../../common/agentServerTools.js';
-import { createPricingMetaFromBilling, normalizeCAPIBilling } from '../../common/agentModelPricing.js';
-import { tryParseClaudeModelId } from './claudeModelId.js';
 import { resolvePromptToContentBlocks } from './claudePromptResolver.js';
-import { IClaudeProxyHandle, IClaudeProxyService, type ClaudeTransport } from './claudeProxyService.js';
 import { readClaudePermissionMode } from './claudeSessionPermissionMode.js';
 import { ClaudeSessionMetadataStore, IClaudeSessionOverlay } from './claudeSessionMetadataStore.js';
 import { ClaudeTerminalOutputs } from './claudeTerminalOutput.js';
 import { IAgentHostSessionTitleSignal } from '../agentHostSessionTitleSignal.js';
 import { IAgentHostOTelService } from '../../common/otel/agentHostOTelService.js';
 
-const USER_AGENT_PREFIX = 'vscode_claude_code';
-
 /** Where a user goes to establish Claude credentials; the workbench labels the link. */
 const CLAUDE_SETUP_DOCS_URL = 'https://code.claude.com/docs/en/third-party-integrations';
-
-/**
- * Returns true if `m` is a Claude-family model that should be advertised
- * to clients picking a model for the Claude provider.
- *
- * Combines the same surface checks the extension uses (vendor, picker
- * eligibility, tool-call support, `/v1/messages` endpoint) with a parse
- * of the model id via {@link tryParseClaudeModelId}, which excludes
- * synthetic ids like `auto` that aren't real Claude endpoints.
- */
-function isClaudeModel(m: CCAModel): boolean {
-	return (
-		m.vendor === 'Anthropic' &&
-		!!m.supported_endpoints?.includes('/v1/messages') &&
-		!!m.model_picker_enabled &&
-		!!m.capabilities?.supports?.tool_calls &&
-		tryParseClaudeModelId(m.id) !== undefined
-	);
-}
-/**
- * Augments the published `@vscode/copilot-api` `CCAModelSupports` with the
- * per-model `adaptive_thinking` / `reasoning_effort` fields the runtime
- * CAPI `/models` payload already carries but the SDK type doesn't yet
- * declare. Tracked at microsoft/vscode-capi#85; remove this when the SDK
- * catches up. Mirror of the same pattern at
- * `extensions/copilot/src/platform/endpoint/common/endpointProvider.ts`
- * (its locally-declared `IChatModelCapabilities`).
- */
-interface IClaudeModelSupports {
-	readonly adaptive_thinking?: boolean;
-	readonly reasoning_effort?: readonly string[];
-}
-
-/**
- * Project a {@link CCAModel} into the agent host's
- * {@link IAgentModelInfo} surface. The returned `provider` defaults to the
- * agent's id (`'claude'`), NOT the upstream `vendor: 'Anthropic'` field — the
- * chat model picker *groups* (does not filter) the model list by `provider`, so
- * a single, un-merged catalog buckets under the harness. When per-session
- * provider selection is on, {@link mergeClaudeModelCatalogs} re-stamps each model
- * with its transport provider (`copilot`/`anthropic`) to split the picker into a
- * Copilot group and an Anthropic group.
- */
-function toAgentModelInfo(m: CCAModel, provider: AgentProvider): IAgentModelInfo {
-	const supports = m.capabilities?.supports;
-	const supportedEfforts = ((supports as IClaudeModelSupports | undefined)?.reasoning_effort ?? []).filter(isClaudeEffortLevel);
-	const configSchema = createClaudeThinkingLevelSchema(supportedEfforts);
-	const policyState = m.policy?.state as PolicyState | undefined;
-	const billing = normalizeCAPIBilling(m.billing);
-	// priceCategory may appear as a top-level model field depending on the CAPI version.
-	const priceCategory = typeof m.model_picker_price_category === 'string'
-		? m.model_picker_price_category
-		: undefined;
-	return {
-		provider,
-		// CAPI/endpoint format, dotted version (e.g. `claude-haiku-4.5`) — the
-		// canonical id through `ModelSelection.id`. Convert to SDK format at SDK
-		// seams via `toSdkModelId`.
-		id: m.id,
-		name: m.name,
-		maxContextWindow: m.capabilities?.limits?.max_context_window_tokens,
-		maxOutputTokens: m.capabilities?.limits?.max_output_tokens,
-		maxPromptTokens: m.capabilities?.limits?.max_prompt_tokens,
-		supportsVision: !!supports?.vision,
-		...(configSchema ? { configSchema } : {}),
-		...(policyState ? { policyState } : {}),
-		_meta: createPricingMetaFromBilling(billing, priceCategory),
-	};
-}
 
 /**
  * The SDK's synthetic "use whatever the CLI is configured to use" row:
@@ -152,9 +73,8 @@ const SDK_DEFAULT_MODEL_VALUE = 'default';
  * Whether `m` is the SDK's {@link SDK_DEFAULT_MODEL_VALUE} alias rather than a
  * real model. The alias resolves to a concrete model (`ModelInfo.resolvedModel`)
  * that the catalog already offers as its own row, so it adds no reachable
- * capability — and next to the Copilot-routed models it reads as a third,
- * unrelated choice whose target is invisible, which is why it is dropped from
- * the published catalog (microsoft/vscode#329983).
+ * capability — an extra choice whose target the user cannot see — which is why
+ * it is dropped from the published catalog (microsoft/vscode#329983).
  */
 function isSdkDefaultModel(m: ModelInfo): boolean {
 	return m.value === SDK_DEFAULT_MODEL_VALUE;
@@ -162,10 +82,10 @@ function isSdkDefaultModel(m: ModelInfo): boolean {
 
 /**
  * Project an SDK {@link ModelInfo} into the agent host's
- * {@link IAgentModelInfo} surface for the native (BYO-Anthropic) transport.
- * Carries NO commercial metadata (no `policyState`, no pricing `_meta`) —
- * those are Copilot/CAPI concepts. Reuses the shared effort-schema helpers so
- * the thinking-level picker matches the proxied projection.
+ * {@link IAgentModelInfo} surface. Carries no commercial metadata (no
+ * `policyState`, no pricing `_meta`) — credentials and entitlements live in
+ * the SDK's own account state, not a hosted catalog. Reuses the shared
+ * effort-schema helpers so the thinking-level picker matches the schema.
  */
 export function fromSdkModelInfo(m: ModelInfo, provider: AgentProvider): IAgentModelInfo {
 	const supportedEfforts = (m.supportedEffortLevels ?? []).filter(isClaudeEffortLevel);
@@ -347,8 +267,8 @@ class ClaudeActiveClientHandle implements IActiveClient {
 /**
  * {@link IAgent} provider for the Claude Agent SDK.
  *
- * Handles descriptor/auth surfaces, model catalog enumeration (merging
- * proxy and native transports), chat lifecycle (create/resolve/dispose),
+ * Handles descriptor/auth surfaces, model catalog enumeration (from the SDK's
+ * own account state), chat lifecycle (create/resolve/dispose),
  * tool permissions, elicitation, and session persistence.
  */
 export class ClaudeAgent extends Disposable implements IAgent {
@@ -364,17 +284,15 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	private readonly _models = observableValue<readonly IAgentModelInfo[]>(this, []);
 	readonly models: IObservable<readonly IAgentModelInfo[]> = this._models;
 	/**
-	 * In-flight {@link refreshModels} call, so overlapping triggers (an auth
-	 * token change, a transport flip, or a periodic tick from the host's
-	 * model-refresh scheduler) collapse into a single enumeration instead of
-	 * racing each other's writes to {@link _models}.
+	 * In-flight {@link refreshModels} call, so overlapping triggers (the host's
+	 * periodic model-refresh scheduler or an explicit refresh request) collapse
+	 * into a single enumeration instead of racing each other's writes to
+	 * {@link _models}.
 	 */
 	private _modelRefreshInFlight: Promise<void> | undefined;
+	/** Monotonic id of the newest refresh; a superseded one drops its write. */
+	private _modelRefreshSeq = 0;
 
-	private _githubToken: string | undefined;
-	private _gitHubEndpointGeneration = 0;
-	private _gitHubAuthenticationGeneration = 0;
-	private _proxyHandle: IClaudeProxyHandle | undefined;
 	private _serverToolHost: IAgentServerToolHost | undefined;
 
 	/**
@@ -387,8 +305,8 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	/**
 	 * Owns every live SDK conversation, keyed by SDK session id. This is the
 	 * single disposable owner of chat leaves and the reverse index used by
-	 * SDK-originated callbacks (credit reports, `canUseTool`, elicitation),
-	 * which only ever know the SDK's own id.
+	 * SDK-originated callbacks (`canUseTool`, elicitation), which only ever know
+	 * the SDK's own id.
 	 */
 	private readonly _chatEntriesBySdkId = this._register(new DisposableMap<string, ClaudeChatEntry>());
 
@@ -618,8 +536,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 
 	constructor(
 		@ILogService private readonly _logService: ILogService,
-		@ICopilotApiService private readonly _copilotApiService: ICopilotApiService,
-		@IClaudeProxyService private readonly _claudeProxyService: IClaudeProxyService,
 		@IClaudeAgentSdkService private readonly _sdkService: IClaudeAgentSdkService,
 		@IAgentSdkDownloader private readonly _agentSdkDownloader: IAgentSdkDownloader,
 		@IAgentHostSessionTitleSignal private readonly _sessionTitleSignal: IAgentHostSessionTitleSignal,
@@ -630,7 +546,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		@IAgentHostGitHubEndpointService private readonly _gitHubEndpointService: IAgentHostGitHubEndpointService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IAgentPluginManager private readonly _pluginManager: IAgentPluginManager,
-		@IProductService private readonly _productService: IProductService,
 		@INativeEnvironmentService private readonly _environmentService: INativeEnvironmentService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentHostStartupPerformance private readonly _startupPerformance: IAgentHostStartupPerformance,
@@ -638,18 +553,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		super();
 		this._metadataStore = _instantiationService.createInstance(ClaudeSessionMetadataStore);
 		this._terminalOutputs = _instantiationService.createInstance(ClaudeTerminalOutputs);
-		this._register(this._gitHubEndpointService.onDidChange(() => {
-			this._gitHubEndpointGeneration++;
-			void this.authenticate(this._gitHubEndpointService.getCopilotResource().resource, '').catch(error =>
-				this._logService.error('[Claude] Failed to clear authentication after endpoint change', error));
-		}));
-		// CAPI reports each request's billed credits via the proxy (the SDK
-		// strips `copilot_usage` from its `result`). Route every report to
-		// the originating session by the session id the proxy decoded from
-		// the Bearer token, so the session can surface real per-turn credits.
-		this._register(this._claudeProxyService.onDidReportCredits(e => {
-			this._findSessionBySdkId(e.sessionId)?.recordTurnCredits(e.totalNanoAiu);
-		}));
 
 		// Emit a host-produced session-title metadata span whenever this agent's
 		// session title changes. The narrow host seam fires for every provider
@@ -661,13 +564,10 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			}
 		}));
 
-		// The merged catalog enumerates both providers' models — the native half
-		// needs no GitHub token — so bootstrap the model list here rather than
-		// waiting for `authenticate()`. Without this a signed-out window with a local
-		// Claude setup would show an empty picker. `queueMicrotask` runs it off the
-		// ctor stack. The per-session transport is derived on demand at materialize
-		// (see {@link _defaultTransportMode}), so a sign-in state change needs no
-		// reactive re-resolve — the next session simply reads it live.
+		// Bootstrap the model list here — enumeration needs no GitHub sign-in
+		// (credentials come from the SDK's own setup), so a signed-out window with a
+		// local Claude setup would otherwise show an empty picker. `queueMicrotask`
+		// runs it off the ctor stack.
 		queueMicrotask(() => { void this._startModelRefresh(); });
 
 		this._sdkSetupChannel = this._register(new AgentSdkSetupChannel({
@@ -690,25 +590,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	 * models → no account). Two wire sources for one truth could disagree.
 	 */
 	private readonly _sdkSetupChannel: AgentSdkSetupChannel;
-
-	/**
-	 * The fallback transport for a session whose model names no provider (model-less
-	 * or a bare/legacy id). Read on demand at materialize — never cached — from live
-	 * availability: a started {@link _proxyHandle} means Copilot is serveable now, a
-	 * local Claude setup means native is. The precedence (sign-in state, then local
-	 * setup) is delegated to the pure {@link resolveClaudeTransportMode}. A
-	 * provider-qualified model bypasses this and routes on its own provider.
-	 */
-	private _defaultTransportMode(): ClaudeTransportMode {
-		const allowSignedOutWhenUsable = this._configurationService.getRootValue(agentHostCustomizationConfigSchema, AgentHostConfigKey.AllowSignedOutWhenUsable) === true;
-		return resolveClaudeTransportMode({ allowSignedOutWhenUsable, hasGitHubToken: this._proxyHandle !== undefined, hasExistingSetup: this._nativeAccountSetUp });
-	}
-
-	/**
-	 * The SDK's last answer to {@link isClaudeAccountSetUp}, kept current by
-	 * {@link _refreshModels}. Starts `false`: unasked is not evidence of an account.
-	 */
-	private _nativeAccountSetUp = false;
 
 	// #region Descriptor + auth
 
@@ -734,10 +615,9 @@ export class ClaudeAgent extends Disposable implements IAgent {
 
 	getProtectedResources(): ProtectedResourceMetadata[] {
 		// Always listed, always optional. Listing it is what lets the host forward a
-		// token to an already-signed-in user (matching ignores `required`); the
-		// unconditional `required: false` is what stops `resolveSignedOutWindowGate`
-		// walling off the whole Agents window before the user reaches a surface that
-		// could explain itself.
+		// token to an already-signed-in user (matching ignores `required`); keeping
+		// it optional is what lets the Agents window open for a signed-out user and
+		// reach a surface that can explain itself.
 		const copilotResource = this._gitHubEndpointService.getCopilotResource();
 		return [
 			{ ...copilotResource, required: false },
@@ -746,148 +626,22 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	}
 
 	/**
-	 * Resolve the active {@link ClaudeTransport} for a session. The transport is
-	 * derived from `model` via {@link resolveClaudeSessionTransport}: a
-	 * native-Anthropic model routes native and a Copilot-routed model routes
-	 * proxy; a model-less or bare/legacy-id session follows the on-demand
-	 * {@link _defaultTransportMode}. In native mode the transport is always ready (the
-	 * SDK owns credentials); in proxied mode a started proxy handle is required,
-	 * otherwise {@link AHP_AUTH_REQUIRED} is thrown so the client can drive
-	 * Copilot sign-in.
+	 * {@link IAgent.authenticate}. Claude takes no GitHub token: credentials are
+	 * owned by the SDK (`~/.claude`), so a Copilot sign-in or token rotation
+	 * changes nothing here. Still report the resources the host may present as
+	 * accepted, so sign-in is never reported as failed on this agent's account,
+	 * and unknown resources as unhandled (same as before).
 	 */
-	private _ensureAuthenticated(model?: ModelSelection): ClaudeTransport {
-		const transport = resolveClaudeSessionTransport({
-			model,
-			defaultMode: this._defaultTransportMode(),
-		});
-		if (transport !== 'proxy') {
-			return { kind: 'native' };
-		}
-		const handle = this._proxyHandle;
-		if (!handle) {
-			throw new ProtocolError(
-				AHP_AUTH_REQUIRED,
-				'Authentication is required to use Claude',
-				this.getProtectedResources(),
-			);
-		}
-		return { kind: 'proxy', handle };
-	}
-
-	async authenticate(resource: string, token: string): Promise<boolean> {
+	async authenticate(resource: string, _token: string): Promise<boolean> {
 		if (resource === this._gitHubEndpointService.getRepoResource().resource) {
 			return true;
 		}
-		if (resource !== this._gitHubEndpointService.getCopilotResource().resource) {
-			return false;
-		}
-		const endpointGeneration = this._gitHubEndpointGeneration;
-		const authenticationGeneration = ++this._gitHubAuthenticationGeneration;
-		if (!token) {
-			const oldHandle = this._proxyHandle;
-			const changed = this._githubToken !== undefined || oldHandle !== undefined;
-			this._githubToken = undefined;
-			this._proxyHandle = undefined;
-			oldHandle?.dispose();
-			if (changed) {
-				this._models.set([], undefined);
-				void this._startModelRefresh();
-			}
-			this._logService.info(changed ? '[Claude] Auth token cleared' : '[Claude] Auth token unchanged');
-			return true;
-		}
-		// A GitHub Copilot token is arriving (sign-in). Always start the proxy so a
-		// session that picks a Copilot-routed model from the merged catalog has a
-		// started handle to run against — even while model-less sessions still
-		// default to native. Per-session routing is decided later in
-		// `_ensureAuthenticated(model)`; the model-less default reads live
-		// availability (see {@link _defaultTransportMode}), so acquiring the handle
-		// here is all that's needed for it to prefer proxy afterwards.
-		//
-		// Short-circuit only when the token is unchanged AND a handle is already
-		// live. `authenticate` sets `_githubToken` and `_proxyHandle` together and
-		// clears them together (see the failure path below), so requiring the handle
-		// keeps "unchanged, nothing to do" honest — and re-runs `start()` rather than
-		// short-circuiting if any path ever left a token without its handle.
-		if (this._githubToken === token && this._proxyHandle) {
-			this._logService.info('[Claude] Auth token unchanged');
-			return true;
-		}
-		// Acquire the new handle BEFORE committing the token or disposing the old
-		// one. The proxy server's refcount stays >= 1 across the swap because the new
-		// handle is acquired before the old one is disposed; {@link IClaudeProxyService}
-		// applies most-recent-token-wins on subsequent `start()` calls.
-		let newHandle: IClaudeProxyHandle;
-		try {
-			newHandle = await this._claudeProxyService.start(token);
-		} catch (err) {
-			if (endpointGeneration !== this._gitHubEndpointGeneration || authenticationGeneration !== this._gitHubAuthenticationGeneration) {
-				this._logService.debug('[Claude] Superseded Copilot proxy startup failed', err);
-				return true;
-			}
-			// GitHub sign-in itself succeeded; only the Copilot proxy failed to
-			// start. Don't fail sign-in — the merged catalog still serves any native
-			// models, and a Copilot-routed model surfaces `AHP_AUTH_REQUIRED` on its
-			// first send (which re-drives sign-in, retrying `start()`).
-			//
-			// A live handle here means this was a token *replacement* whose new
-			// `start()` failed. The old handle backs a now-superseded account, so tear
-			// it down rather than keep silently serving that stale account behind a
-			// "successful" sign-in; clearing the token with it upholds the
-			// `_githubToken` ↔ `_proxyHandle` invariant (a token never outlives its
-			// handle) and lets the next sign-in retry `start()` instead of
-			// short-circuiting as "unchanged". A first sign-in (no handle) leaves both
-			// refs as-is — already `undefined` — which retries for the same reason.
-			if (this._proxyHandle) {
-				const staleHandle = this._proxyHandle;
-				this._proxyHandle = undefined;
-				this._githubToken = undefined;
-				staleHandle.dispose();
-				// Drop the superseded account's entitlements; the refresh below re-lists
-				// native-only (no handle) and republishes the protected resources.
-				this._models.set([], undefined);
-			}
-			this._logService.warn('[Claude] Copilot proxy start failed; Copilot-routed models unavailable until the next sign-in', err);
-			void this._startModelRefresh();
-			return true;
-		}
-		if (endpointGeneration !== this._gitHubEndpointGeneration || authenticationGeneration !== this._gitHubAuthenticationGeneration || this._store.isDisposed) {
-			newHandle.dispose();
-			return true;
-		}
-		const oldHandle = this._proxyHandle;
-		this._proxyHandle = newHandle;
-		this._githubToken = token;
-		this._logService.info('[Claude] Auth token updated');
-		oldHandle?.dispose();
-		// Blank the catalog only on a *replacement*: a different account can have
-		// different model entitlements, so don't retain the previous list if
-		// enumeration for the new token fails.
-		//
-		// A first sign-in (no `oldHandle`) must NOT blank. It has no superseded
-		// account to drop, and the catalog it would clear is native-only — the
-		// bootstrap list, which is account-independent and stays valid. Blanking
-		// there publishes an empty catalog for the length of the refresh, which the
-		// window gate reads as `SessionTypeAuthRequirement.Unusable` (an agent with
-		// no models is unusable). That closes the `allowSignedOutWhenUsable` gate
-		// mid-startup and forces the sign-in dialog on a user who is already signed
-		// in — the GitHub session resolves before the Copilot default account does,
-		// so the welcome flow still believes it is signed out.
-		if (oldHandle) {
-			this._models.set([], undefined);
-		}
-		void this._startModelRefresh();
-		return true;
+		return resource === this._gitHubEndpointService.getCopilotResource().resource;
 	}
 
 	/**
 	 * {@link IAgent.refreshModels}. Coalesces onto an in-flight refresh and
 	 * never rejects — {@link _refreshModels} already logs and handles failure.
-	 *
-	 * Only safe for callers with no new input to apply (the host's periodic
-	 * scheduler). Triggers that invalidate the in-flight request — a rotated
-	 * token, a transport flip — must call {@link _startModelRefresh} so they
-	 * are not answered by a refresh bound to the superseded input.
 	 */
 	refreshModels(): Promise<void> {
 		return this._modelRefreshInFlight ?? this._startModelRefresh();
@@ -896,7 +650,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	/**
 	 * Unconditionally begins a refresh, superseding any in-flight one as the
 	 * coalescing target. The superseded request stays harmless: its own
-	 * stale-write guard drops the result if the token or transport moved on.
+	 * stale-write guard drops the result once a newer refresh exists.
 	 */
 	private _startModelRefresh(): Promise<void> {
 		const refresh = this._refreshModels().finally(() => {
@@ -909,71 +663,48 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	}
 
 	/**
-	 * Enumerate both providers' catalogs in parallel and publish them as one
-	 * provider-qualified list via {@link mergeClaudeModelCatalogs}. Each source is
-	 * optional — the proxy catalog needs a GitHub token, the native catalog needs the
-	 * SDK on disk — so a source we can't attempt contributes an empty list rather
-	 * than failing the whole refresh. {@link Promise.allSettled} tolerates one source
-	 * erroring; only when *every* source we attempted fails do we keep the last
-	 * known-good catalog instead of blanking, so a transient double failure never
-	 * wipes the picker.
+	 * Enumerate the SDK's catalog and publish it as the agent's model list,
+	 * provider-qualified via {@link qualifyClaudeModelCatalog}. The attempt is
+	 * skipped while the SDK is not on disk: asking it anything costs a
+	 * multi-hundred-megabyte download, and that download is the user's explicit
+	 * choice to make. A failed enumeration keeps the last known-good catalog
+	 * instead of blanking, so a transient failure never wipes the picker.
 	 *
-	 * Gating the native half on the SDK's own account report is deliberate and
+	 * Gating publication on the SDK's own account report is deliberate and
 	 * load-bearing, not just an optimization. `supportedModels()` returns a *static*
 	 * list of models the SDK understands — it is not an entitlement or credential
 	 * check, and it answers even with no `ANTHROPIC_API_KEY`, no
 	 * `CLAUDE_CODE_OAUTH_TOKEN` and an empty `HOME`. Publishing it unconditionally
 	 * would advertise models for an agent that cannot serve a single request, which
-	 * reads downstream as "usable without GitHub" and would hold the Agents window
+	 * reads downstream as "usable" and would hold the Agents window
 	 * open on an agent that fails on its first turn. An empty catalog is the honest
 	 * signal: it surfaces as "no models" (`SessionTypeAuthRequirement.Unusable`)
 	 * rather than a sign-in prompt that would not help. The empty list is also what
 	 * the window reads account state *from*, so it must never be a guess.
-	 *
-	 * The native attempt is skipped while the SDK is not on disk: asking it anything
-	 * costs a multi-hundred-megabyte download, and that download is the user's
-	 * explicit choice to make.
 	 */
 	private async _refreshModels(): Promise<void> {
-		const tokenAtStart = this._githubToken;
+		const seq = ++this._modelRefreshSeq;
 		// True only for a dev override, a dev bare import, or an already-cached SDK.
-		const canAttemptNative = await this._sdkService.canLoadWithoutDownload();
-		if (!canAttemptNative) {
-			// No SDK, so no evidence of an account — say so rather than retaining a stale `true`.
-			this._nativeAccountSetUp = false;
-		}
-		const [proxyOutcome, nativeOutcome] = await Promise.allSettled([
-			tokenAtStart ? this._fetchProxyModels(tokenAtStart) : Promise.resolve<readonly IAgentModelInfo[]>([]),
-			canAttemptNative ? this._fetchNativeModels() : Promise.resolve<readonly IAgentModelInfo[]>([]),
-		]);
-		// Stale-write guard: a newer refresh superseded this one while we were
-		// awaiting — the proxy token rotated (sign-in / sign-out). A merged write
-		// here would clobber the catalog that newer refresh published.
-		if (this._githubToken !== tokenAtStart) {
-			return;
-		}
-		const attempted = (tokenAtStart ? 1 : 0) + (canAttemptNative ? 1 : 0);
-		const failed = (proxyOutcome.status === 'rejected' ? 1 : 0) + (nativeOutcome.status === 'rejected' ? 1 : 0);
-		if (attempted > 0 && failed === attempted) {
-			// Every source we attempted failed — keep the last known-good catalog
-			// rather than blanking. Sources we didn't attempt resolve fulfilled-empty
-			// and are not counted as failures.
-			this._logService.error('[Claude] All attempted model sources failed (merged refresh); keeping last known-good catalog');
+		const canAttempt = await this._sdkService.canLoadWithoutDownload();
+		if (!canAttempt) {
+			// No SDK on disk — nothing to enumerate. Publish the empty catalog (the
+			// honest "no account" signal) rather than retaining stale models.
+			if (seq === this._modelRefreshSeq) {
+				this._models.set([], undefined);
+			}
 		} else {
-			// Unwrap each settled fetch: its models on success, or an empty list on
-			// rejection (logged) so the other provider's catalog still publishes.
-			const settledCatalog = (outcome: PromiseSettledResult<readonly IAgentModelInfo[]>, label: string): readonly IAgentModelInfo[] => {
-				if (outcome.status === 'fulfilled') {
-					return outcome.value;
+			try {
+				const models = await this._fetchNativeModels();
+				// Stale-write guard: a newer refresh superseded this one while we were
+				// awaiting; its write is the one that should stick.
+				if (seq === this._modelRefreshSeq) {
+					const qualified = qualifyClaudeModelCatalog(models);
+					this._logService.info(`[Claude] Models refreshed. Count: ${qualified.length}, ${qualified.map(m => m.name).join(', ')}`);
+					this._models.set(qualified, undefined);
 				}
-				this._logService.error(outcome.reason, `[Claude] Failed to fetch ${label} models (merged refresh); keeping the other provider`);
-				return [];
-			};
-			const proxyModels = settledCatalog(proxyOutcome, 'proxy');
-			const nativeModels = settledCatalog(nativeOutcome, 'native');
-			const merged = mergeClaudeModelCatalogs(proxyModels, nativeModels);
-			this._logService.info(`[Claude] Models refreshed (merged). Count: ${merged.length}, ${merged.map(m => m.name).join(', ')}`);
-			this._models.set(merged, undefined);
+			} catch (err) {
+				this._logService.error(err, '[Claude] Failed to fetch models; keeping last known-good catalog');
+			}
 		}
 		// Last, never first: announcing `ready` before the catalog lands is exactly
 		// how the window renders "no account found".
@@ -1005,7 +736,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		try {
 			const [account, models] = await Promise.all([query.accountInfo(), query.supportedModels()]);
 			const setUp = isClaudeAccountSetUp(account);
-			this._nativeAccountSetUp = setUp;
 			// Origin only — never the credential itself.
 			this._logService.info(`[Claude] Native account check: setUp=${setUp}, provider=${account.apiProvider ?? 'none'}, tokenSource=${account.tokenSource ?? 'absent'}, apiKeySource=${account.apiKeySource ?? 'absent'}`);
 			if (!setUp) {
@@ -1020,23 +750,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			query.close();
 			options.abortController?.abort();
 		}
-	}
-
-	/**
-	 * Proxied (Copilot-CAPI) model source: fetch via {@link ICopilotApiService},
-	 * keep the Claude family, and surface the CAPI-flagged chat-default first.
-	 * The picker treats `models[0]` as the de facto default (modelPicker.ts:144
-	 * — `_selectedModel ?? models[0]`) since `IAgentModelInfo` carries no
-	 * explicit `isDefault` bit; the stable comparator returns 0 for equal-
-	 * priority models so CAPI's ordering wins on ties.
-	 */
-	private async _fetchProxyModels(token: string): Promise<readonly IAgentModelInfo[]> {
-		const userAgent = `${USER_AGENT_PREFIX}/${this._productService.version}`;
-		const all = await this._copilotApiService.models(token, { headers: { 'User-Agent': userAgent }, suppressIntegrationId: true });
-		return all
-			.filter(isClaudeModel)
-			.sort((a, b) => Number(b.is_chat_default) - Number(a.is_chat_default))
-			.map(m => toAgentModelInfo(m, this.id));
 	}
 
 	// #endregion
@@ -1246,7 +959,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	 *
 	 * Failure modes:
 	 * - Missing session entry → programmer error, throws.
-	 * - Missing proxy handle → caller forgot {@link authenticate}, throws.
 	 * - Aborted before SDK init returns → {@link ClaudeAgentSession.materialize}
 	 *   disposes the `WarmQuery` and throws {@link CancellationError}.
 	 * - Customization-directory persistence failure → fatal: the session's
@@ -1262,21 +974,11 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			throw new Error(`Cannot materialize unknown provisional session: ${sessionId}`);
 		}
 		const resource = context.resource;
-		// Fail fast on a signed-out proxy before building anything, keeping the
-		// throw at this pre-`try` site so a transient auth failure leaves the
-		// provisional session intact for the next send to retry (rather than
-		// disposing it). The resolved transport is handed to materialize as a
-		// value: the agent owns transport resolution (it holds the live proxy
-		// handle), the session just consumes it. A later per-session provider
-		// switch is pushed in separately at send time (see `hasPendingTransportSwitch`).
-		const transport = this._ensureAuthenticated(session.provisionalModel);
-
 		const canUseTool = this._makeCanUseTool(sessionId, context.configurationResource);
 		const onElicitation = this._makeOnElicitation(sessionId);
 		this._recordChatScope(context.chat, context.configurationResource, context.resource);
 		try {
 			await session.materialize({
-				transport,
 				canUseTool,
 				onElicitation,
 				isResume: false,
@@ -1286,7 +988,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 				workingDirectories,
 				serverToolHost: this._serverToolHost,
 			});
-			await this._persistSessionOverlay(resource, context.configurationResource, session, transport.kind);
+			await this._persistSessionOverlay(resource, context.configurationResource, session);
 			if (session.abortController.signal.aborted) {
 				throw new CancellationError();
 			}
@@ -1314,13 +1016,12 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		return session;
 	}
 
-	private async _persistSessionOverlay(resource: URI, configResource: URI, session: ClaudeAgentSession, transportKind: ClaudeTransport['kind']): Promise<void> {
+	private async _persistSessionOverlay(resource: URI, configResource: URI, session: ClaudeAgentSession): Promise<void> {
 		try {
 			await this._metadataStore.write(resource, {
 				customizationDirectory: session.workingDirectory,
 				model: session.provisionalModel,
 				permissionMode: readClaudePermissionMode(this._configurationService, configResource) ?? session.permissionModeFallback,
-				transport: transportKind,
 				workingDirectories: session.workingDirectories,
 				...(session.provisionalAgent ? { agent: session.provisionalAgent } : {}),
 			});
@@ -1380,10 +1081,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		// Mutually exclusive with `options.fork` (per the contract), so it never
 		// changes the model a fork inherits below.
 		const model = options?.importConversation?.model ?? options?.model;
-		// An inherited model is resolved from the source conversation at materialization.
-		if (model || !options?.fork) {
-			this._ensureAuthenticated(model);
-		}
 		const chatKey = chat.toString();
 		// Record this chat's own scope now — the only place a later fork
 		// naming this chat as its source resolves that source's scope from.
@@ -1713,17 +1410,11 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		// Resume when the SDK already has a transcript for this chat
 		// (forked or restored); otherwise materialize a fresh one.
 		const sdkInfo = await this._sdkService.getSessionInfo(chatSession.sessionId);
-		// Fail fast on a signed-out proxy before materializing, keeping the throw at
-		// this pre-`try` site so the freshly-built chat is left registered for a
-		// retry rather than disposed. The resolved transport is passed into materialize
-		// as a value; a per-session provider switch is pushed in later at send time.
-		const transport = this._ensureAuthenticated(chatSession.provisionalModel);
 		const canUseTool = this._makeCanUseTool(chatSession.sessionId, configurationResource);
 		const onElicitation = this._makeOnElicitation(chatSession.sessionId);
 		this._recordChatScope(chat, configurationResource, resource);
 		try {
 			await chatSession.materialize({
-				transport,
 				canUseTool,
 				onElicitation,
 				isResume: !!sdkInfo,
@@ -1733,7 +1424,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 				workingDirectories,
 				serverToolHost: this._serverToolHost,
 			});
-			await this._persistSessionOverlay(resource, configurationResource, chatSession, transport.kind);
+			await this._persistSessionOverlay(resource, configurationResource, chatSession);
 		} catch (err) {
 			this._deleteLiveChat(chatKey);
 			throw err;
@@ -2363,8 +2054,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			if (current.customizations) {
 				session.setHostCustomizations(current.customizations);
 			}
-			const switchTransport = session.hasPendingTransportSwitch ? this._ensureAuthenticated(session.provisionalModel) : undefined;
-			await session.send(this._buildSdkPrompt(session.sessionId, prompt, attachments, effectiveTurnId), effectiveTurnId, current.configurationResource, workingDirectories, switchTransport, resolveAgentHostInstructions(operationContext), clientTelemetryContext, !!operationContext && !URI.isUri(operationContext) && operationContext.agentMergeTurn === true);
+			await session.send(this._buildSdkPrompt(session.sessionId, prompt, attachments, effectiveTurnId), effectiveTurnId, current.configurationResource, workingDirectories, resolveAgentHostInstructions(operationContext), clientTelemetryContext, !!operationContext && !URI.isUri(operationContext) && operationContext.agentMergeTurn === true);
 			if (workingDirectories) {
 				await this._metadataStore.write(current.resource, { workingDirectories });
 			}
@@ -2460,10 +2150,8 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			await this._metadataStore.write(current.resource, { model });
 			const sess = current.target;
 			if (sess) {
-				// The session owns the transport-crossing decision: a change that
-				// crosses transports (Copilot ↔ native) on a live session can't
-				// hot-swap and defers to a rebuild on the next send, while a
-				// same-transport (or still-provisional) change hot-swaps in place.
+				// The session owns the provisional/runtime branching — an eager
+				// pre-materialize stash or a hot-swap on a live pipeline.
 				// See {@link ClaudeAgentSession.setModel}.
 				await sess.setModel(model);
 			}
@@ -2678,13 +2366,6 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	// #endregion
 
 	override dispose(): void {
-		// INVARIANT: SDK Query subprocesses (owned by individual
-		// ClaudeAgentSession wrappers) MUST die BEFORE the proxy handle
-		// is disposed. After proxy disposal the proxy may rebind on a
-		// different port and a still-running subprocess would silently
-		// lose its endpoint. See `IClaudeProxyHandle` doc in
-		// `claudeProxyService.ts`.
-		//
 		// Step 1: abort every session AbortController. These are the
 		// same controllers wired into `Options.abortController` at
 		// materialize time, so any in-flight `await sdk.startup()` will
@@ -2692,17 +2373,10 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		// trip its abort gates without reaching registration.
 		//
 		// Step 2: `super.dispose()` synchronously disposes both chat maps.
-		//
-		// Step 3: only then release the proxy handle, preserving the
-		// wrapper-before-proxy ordering invariant. This is locked by
-		// test "dispose disposes the proxy handle and is idempotent".
 		for (const chat of this._allLiveSessions()) {
 			chat.abortController.abort();
 		}
 		super.dispose();
-		this._proxyHandle?.dispose();
-		this._proxyHandle = undefined;
-		this._githubToken = undefined;
 		this._models.set([], undefined);
 	}
 }

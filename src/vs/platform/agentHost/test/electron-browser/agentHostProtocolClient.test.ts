@@ -3972,7 +3972,7 @@ suite('AgentHostProtocolClient', () => {
 		test('restores subscriptions when a cached resource authentication is rejected after a host restart', async function () {
 			this.timeout(20_000);
 			const { client, transports } = createFactoryClient();
-			const sessionUri = URI.parse('codex:/stuck-session');
+			const sessionUri = URI.parse('mycli:/stuck-session');
 			const connectPromise = client.connect();
 			await completeHandshake(transports[0], connectPromise);
 
@@ -4038,7 +4038,7 @@ suite('AgentHostProtocolClient', () => {
 		test('finishes an interrupted post-restart subscription restore on the next reconnect', async function () {
 			this.timeout(20_000);
 			const { client, transports } = createFactoryClient();
-			const sessionUri = URI.parse('codex:/stuck-session');
+			const sessionUri = URI.parse('mycli:/stuck-session');
 			const chatUri = URI.parse('ahp-chat://default/stuck-session');
 			const connectPromise = client.connect();
 			await completeHandshake(transports[0], connectPromise);

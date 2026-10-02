@@ -14,14 +14,12 @@ suite('AgentHostSessionPermissions', () => {
 		assert.deepStrictEqual({
 			copilotOptions: getAgentHostSessionPermissionOptions('copilotcli', false, true).map(option => ({ id: option.id, label: option.label, default: option.isDefault, allowAll: option.isAllowAll, comparisonModeId: option.comparisonModeId })),
 			claudeOptions: getAgentHostSessionPermissionOptions('claude', false, true).map(option => ({ id: option.id, label: option.label, default: option.isDefault, allowAll: option.isAllowAll, comparisonModeId: option.comparisonModeId })),
-			codexOptions: getAgentHostSessionPermissionOptions('codex', false, true).map(option => ({ id: option.id, label: option.label, default: option.isDefault, allowAll: option.isAllowAll, comparisonModeId: option.comparisonModeId })),
 			copilotDefault: getAgentHostSessionPermissionConfig('copilotcli', 'default', false, true),
 			copilotAllowAll: getAgentHostSessionPermissionConfig('copilotcli', 'autoApprove', false, true),
 			copilotAssisted: getAgentHostSessionPermissionConfig('copilotcli', 'assisted', false, true),
 			claudeAllowAll: getAgentHostSessionPermissionConfig('claude', 'bypassPermissions', false, true),
-			codexAllowAll: getAgentHostSessionPermissionConfig('codex', 'full-access', false, true),
 			policyRestricted: getAgentHostSessionPermissionConfig('copilotcli', 'autoApprove', true, true),
-			unknownPermission: getAgentHostSessionPermissionConfig('codex', 'future', false, true),
+			unknownPermission: getAgentHostSessionPermissionConfig('mycli', 'future', false, true),
 		}, {
 			copilotOptions: [
 				{ id: 'default', label: 'Manual permissions', default: true, allowAll: undefined, comparisonModeId: undefined },
@@ -35,16 +33,10 @@ suite('AgentHostSessionPermissions', () => {
 				{ id: 'auto', label: 'Auto Mode', default: undefined, allowAll: undefined, comparisonModeId: undefined },
 				{ id: 'bypassPermissions', label: 'Bypass Permissions', default: undefined, allowAll: true, comparisonModeId: undefined },
 			],
-			codexOptions: [
-				{ id: 'default', label: 'Default Permissions', default: true, allowAll: undefined, comparisonModeId: undefined },
-				{ id: 'auto-review', label: 'Auto-Review', default: undefined, allowAll: undefined, comparisonModeId: undefined },
-				{ id: 'full-access', label: 'Full Access', default: undefined, allowAll: true, comparisonModeId: undefined },
-			],
 			copilotDefault: { mode: 'interactive', autoApprove: 'default' },
 			copilotAllowAll: { mode: 'interactive', autoApprove: 'autoApprove' },
 			copilotAssisted: { mode: 'interactive', autoApprove: 'assisted' },
 			claudeAllowAll: { permissionMode: 'bypassPermissions' },
-			codexAllowAll: { mode: 'interactive', 'codex.permissionsPreset': 'full-access' },
 			policyRestricted: undefined,
 			unknownPermission: undefined,
 		});

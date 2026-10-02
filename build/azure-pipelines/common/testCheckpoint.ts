@@ -26,9 +26,6 @@ export const testIds = [
 	'smoke-agents-kerberos-pac-proxy',
 	'smoke-browser-chromium',
 	'smoke-remote',
-	'copilot-extension',
-	'copilot-completions-core',
-	'copilot-sanity',
 ] as const;
 
 function required(env: NodeJS.ProcessEnv, name: string): string {

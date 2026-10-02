@@ -57,25 +57,23 @@ import { ISessionContext } from '../../../../services/sessions/browser/sessionCo
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
 import type { ISessionsProvider } from '../../../../services/sessions/common/sessionsProvider.js';
 import { type IAgentHostSessionsProvider, isAgentHostProvider, LOCAL_AGENT_HOST_PROVIDER_ID, REMOTE_AGENT_HOST_PROVIDER_RE } from '../../../../common/agentHostSessionsProvider.js';
-import { PermissionPicker } from '../../copilotChatSessions/browser/permissionPicker.js';
-import { MobilePermissionPicker } from '../../copilotChatSessions/browser/mobilePermissionPicker.js';
+import { PermissionPicker } from '../../shared/browser/permissionPicker.js';
+import { MobilePermissionPicker } from '../../shared/browser/mobilePermissionPicker.js';
 import { isPhoneLayout } from '../../../../browser/parts/mobile/mobileLayout.js';
 import { showMobilePickerSheet, IMobilePickerSheetItem, IMobilePickerSheetSearchSource, MOBILE_PICKER_SHEET_CONFIRM } from '../../../../browser/parts/mobile/mobilePickerSheet.js';
 import { AgentHostModePicker } from './agentHostModePicker.js';
 import { MobileAgentHostModePicker } from './mobile/mobileAgentHostModePicker.js';
 import { AgentHostPermissionPickerActionItem } from './agentHostPermissionPickerActionItem.js';
-import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownCodexApprovalsSchema, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
+import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { AGENT_HOST_CHECKOUT_CHANGESET_OPERATION_ID } from '../../../../../platform/agentHost/common/agentHostChangesetOperationService.js';
 import { CheckoutOperationPreAction, checkoutOperationMeta, isCheckoutOperationDirtyWorkingTreeErrorData } from '../../../../../platform/agentHost/common/meta/agentCheckoutOperationMeta.js';
 import { ProtocolError } from '../../../../../platform/agentHost/common/state/sessionProtocol.js';
 import { AgentHostClaudePermissionModePicker } from './agentHostClaudePermissionModePicker.js';
 import { ClaudeSessionConfigKey } from '../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
-import { AgentHostCodexApprovalsPicker } from './agentHostCodexApprovalsPicker.js';
 import { isAutoApproveValuePolicyRestricted } from '../../../../../workbench/contrib/chat/common/agentHostConfigPolicy.js';
 import { getPermissionLevelBadge } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { filterBranchPickerItems } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostBranchPicker.js';
-import { CodexSessionConfigKey } from '../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { type ISessionChangeset, UNCOMMITTED_CHANGES_CHANGESET_ID } from '../../../../services/sessions/common/session.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 
@@ -317,9 +315,6 @@ function isRenderableSessionConfigProperty(property: string, schema: SessionConf
 		return false;
 	}
 	if (property === ClaudeSessionConfigKey.PermissionMode && isWellKnownClaudePermissionModeSchema(schema)) {
-		return false;
-	}
-	if (property === CodexSessionConfigKey.PermissionsPreset && isWellKnownCodexApprovalsSchema(schema)) {
 		return false;
 	}
 	return true;
@@ -1712,14 +1707,6 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 				return new PickerActionViewItem(scopedInstantiationService.createInstance(AgentHostClaudePermissionModePicker, session));
 			},
 		));
-		this._register(actionViewItemService.register(
-			Menus.NewSessionControl,
-			NEW_SESSION_CODEX_APPROVALS_PICKER_ID,
-			(_action, _options, scopedInstantiationService) => {
-				const { session } = scopedInstantiationService.invokeFunction(accessor => accessor.get(ISessionContext));
-				return new PickerActionViewItem(scopedInstantiationService.createInstance(AgentHostCodexApprovalsPicker, session));
-			},
-		));
 		registerRunningSessionPicker(
 			RUNNING_SESSION_CONFIG_PICKER_ID,
 			this._createRunningSessionPermissionPickerFactory(),
@@ -1729,13 +1716,6 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 			(_action, _options, scopedInstantiationService) => {
 				const { session } = scopedInstantiationService.invokeFunction(accessor => accessor.get(ISessionContext));
 				return new PickerActionViewItem(scopedInstantiationService.createInstance(AgentHostClaudePermissionModePicker, session));
-			},
-		);
-		registerRunningSessionPicker(
-			RUNNING_SESSION_CODEX_APPROVALS_PICKER_ID,
-			(_action, _options, scopedInstantiationService) => {
-				const { session } = scopedInstantiationService.invokeFunction(accessor => accessor.get(ISessionContext));
-				return new PickerActionViewItem(scopedInstantiationService.createInstance(AgentHostCodexApprovalsPicker, session));
 			},
 		);
 	}
@@ -1903,32 +1883,6 @@ registerAction2(class extends Action2 {
 	override async run(): Promise<void> { }
 });
 
-// ---- New session Codex approvals picker (NewSessionControl) ----
-// Codex-specific "Approvals" chip. Shares the NewSessionControl navigation
-// group with the Claude permission-mode picker (order 2); the two are
-// mutually exclusive because each hides itself when the active session's
-// schema doesn't expose its backing property.
-
-const NEW_SESSION_CODEX_APPROVALS_PICKER_ID = 'sessions.agentHost.newSessionCodexApprovalsPicker';
-
-registerAction2(class extends Action2 {
-	constructor() {
-		super({
-			id: NEW_SESSION_CODEX_APPROVALS_PICKER_ID,
-			title: localize2('agentHostNewSessionCodexApprovalsPicker', "Approvals"),
-			f1: false,
-			menu: [{
-				id: Menus.NewSessionControl,
-				group: 'navigation',
-				order: 3,
-				when: ContextKeyExpr.or(IsActiveSessionLocalAgentHost, IsActiveSessionRemoteAgentHost),
-			}],
-		});
-	}
-
-	override async run(): Promise<void> { }
-});
-
 // ---- New session mode picker (NewSessionControl) ----
 
 const NEW_SESSION_MODE_PICKER_ID = 'sessions.agentHost.newSessionModePicker';
@@ -2009,37 +1963,6 @@ registerAction2(class extends Action2 {
 
 	override async run(): Promise<void> { }
 });
-
-// ---- Running session Codex approvals picker ----
-// Codex-specific "Approvals" chip for a running session. Mutually exclusive
-// with the Claude permission-mode picker (order 11) — each hides when its
-// backing property is absent from the active session's schema.
-
-const RUNNING_SESSION_CODEX_APPROVALS_PICKER_ID = 'sessions.agentHost.runningSessionCodexApprovalsPicker';
-
-registerAction2(class extends Action2 {
-	constructor() {
-		super({
-			id: RUNNING_SESSION_CODEX_APPROVALS_PICKER_ID,
-			title: localize2('agentHostRunningSessionCodexApprovalsPicker', "Approvals"),
-			f1: false,
-			menu: [{
-				id: MenuId.ChatInput,
-				group: 'navigation',
-				order: 0.4,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout),
-			}, {
-				id: MenuId.ChatInputSecondary,
-				group: 'navigation',
-				order: 12,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout.negate()),
-			}],
-		});
-	}
-
-	override async run(): Promise<void> { }
-});
-
 
 // ---- Running session mode picker (before approvals) ----
 

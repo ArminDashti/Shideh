@@ -6,7 +6,6 @@
 import { toErrorMessage } from '../../../../../../base/common/errorMessage.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { escapeMarkdownSyntaxTokens, MarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, derived, observableValue, type IObservable } from '../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../base/common/uri.js';
@@ -23,10 +22,6 @@ CommandsRegistry.registerCommand(RETRY_CHAT_PREPARATION_COMMAND, async (accessor
 	const session = await accessor.get(IChatSessionsService).getOrCreateChatSession(URI.revive(resource), CancellationToken.None);
 	await session.retryInput?.();
 });
-
-export function codexWriterLockMessage(): string {
-	return localize('agentHost.codexWriterLock', "This conversation is in use by another Codex app. Let any running task finish, then quit the app holding it open, such as ChatGPT, or exit the Codex CLI session.");
-}
 
 /** Keeps chat preparation failures out of the transcript and preserves the unsent draft. */
 export class AgentHostChatInputState extends Disposable {
@@ -85,20 +80,15 @@ export class AgentHostChatInputState extends Disposable {
 		}
 		const checking = retrying || state?.kind === 'checking';
 		const error = retryError ?? (state?.kind === 'blocked' ? state.error : undefined);
-		const locked = error?.errorType === 'CodexThreadInUse';
 		this._notifications.setNotification({
 			id: this._notificationId,
 			telemetryId: 'agentHost.chatInput',
 			severity: ChatInputNotificationSeverity.Error,
-			icon: locked || checking ? Codicon.lock : undefined,
-			message: checking ? localize('agentHost.checkingConversationTitle', "Checking Conversation") : locked ? localize('agentHost.conversationInUse', "This chat is open in another app") : localize('agentHost.conversationUnavailable', "Conversation Unavailable"),
+			icon: checking ? Codicon.lock : undefined,
+			message: checking ? localize('agentHost.checkingConversationTitle', "Checking Conversation") : localize('agentHost.conversationUnavailable', "Conversation Unavailable"),
 			description: checking
 				? localize('agentHost.checkingConversation', "Checking whether this conversation is available…")
-				: locked ? new MarkdownString()
-					.appendMarkdown(escapeMarkdownSyntaxTokens(localize('agentHost.codexWriterLockExplanation', "The other app has locked this chat. It must release the lock before you can continue here.")))
-					.appendMarkdown('  \n')
-					.appendMarkdown(escapeMarkdownSyntaxTokens(localize('agentHost.codexWriterLockRetry', "Quit the other app (e.g. ChatGPT, Codex CLI), then retry.")))
-					: localize('agentHost.prepareChatFailed', "Couldn't prepare this conversation. Select Retry to try again. {0}", error?.message ?? ''),
+				: localize('agentHost.prepareChatFailed', "Couldn't prepare this conversation. Select Retry to try again. {0}", error?.message ?? ''),
 			actions: checking ? [] : [{
 				kind: ChatInputNotificationActionKind.Command,
 				label: localize('agentHost.retryPreparation', "Retry"),

@@ -800,7 +800,7 @@ suite('AgentHostAutomationService', () => {
 		await service.handleUpdate({
 			type: ActionType.AutomationUpdateRequested,
 			resource: 'ahp-automation:/review-changes',
-			changes: { session: { provider: 'codex', config: { mode: 'autopilot', autoApprove: 'autoApprove' } } },
+			changes: { session: { provider: 'mycli', config: { mode: 'autopilot', autoApprove: 'autoApprove' } } },
 		});
 		await release.complete();
 		await started.p;

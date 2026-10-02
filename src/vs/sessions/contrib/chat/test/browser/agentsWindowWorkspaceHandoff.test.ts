@@ -21,7 +21,6 @@ import { ILifecycleService, LifecyclePhase } from '../../../../../workbench/serv
 import { IViewsService } from '../../../../../workbench/services/views/common/viewsService.js';
 import { ISelectNoWorkspaceOptions, ISelectWorkspaceOptions } from '../../../../browser/parts/chatView.js';
 import { SessionView } from '../../../../browser/parts/sessionView.js';
-import { ISessionsSetUpService } from '../../../../browser/sessionsSetUpService.js';
 import { WorkspaceSelectionOrigin } from '../../../../common/workspaceSelection.js';
 import { ISession } from '../../../../services/sessions/common/session.js';
 import { IActiveSession, ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
@@ -61,7 +60,6 @@ suite('Agents Window workspace handoff', () => {
 		let viewReady = true;
 		let applies = true;
 		let defaultAllowed = true;
-		let welcome = Promise.resolve();
 		let resolutionError: Error | undefined;
 		let input: IChatDraft = { inputText: '', attachments: [] };
 		let inputReady = true;
@@ -119,7 +117,6 @@ suite('Agents Window workspace handoff', () => {
 			}) : undefined,
 		});
 		instantiationService.stub(ISessionsPartService, sessionsPartService);
-		instantiationService.stub(ISessionsSetUpService, upcastPartial<ISessionsSetUpService>({ whenWelcomeDone: () => welcome }));
 		instantiationService.stub(INewSessionComposerService, composerService);
 		instantiationService.stub(IStorageService, storage);
 		disposables.add(composerService.registerComposer({
@@ -150,7 +147,6 @@ suite('Agents Window workspace handoff', () => {
 			set viewReady(value: boolean) { viewReady = value; },
 			set applies(value: boolean) { applies = value; },
 			set defaultAllowed(value: boolean) { defaultAllowed = value; },
-			set welcome(value: Promise<void>) { welcome = value; },
 			set resolutionError(value: Error) { resolutionError = value; },
 			set inputReady(value: boolean) { inputReady = value; },
 			set draftReady(value: Promise<void>) { draftReady = value; },
@@ -162,16 +158,12 @@ suite('Agents Window workspace handoff', () => {
 		};
 	}
 
-	test('retains the requested folder through setup and late provider and view readiness, past Eventually', async () => {
+	test('retains the requested folder through late provider and view readiness, past Eventually', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const harness = createHarness();
-			const welcome = new DeferredPromise<void>();
-			harness.welcome = welcome.p;
 			harness.providerReady = false;
 			harness.viewReady = false;
 			const opening = harness.open();
-			await timeout(500);
-			await welcome.complete();
 			await timeout(500);
 			harness.providerReady = true;
 			await timeout(500);
@@ -183,7 +175,7 @@ suite('Agents Window workspace handoff', () => {
 				selections: harness.selections.map(entry => ({ folder: entry.folder.toString(), options: entry.options })),
 				notifications: harness.notifications.length,
 			}, {
-				stages: ['waitingForSetup', 'waitingForSessionView', 'waitingForProvider', 'applied'],
+				stages: ['waitingForSessionView', 'waitingForProvider', 'applied'],
 				openingOptions: [true],
 				selections: [{ folder: folderUri.toString(), options: { providerId: 'local', preferDevContainer: true, selectionOrigin: WorkspaceSelectionOrigin.WindowOpen, isDefault: false } }],
 				notifications: 0,
@@ -213,19 +205,15 @@ suite('Agents Window workspace handoff', () => {
 		}
 	}
 
-	test('applies a draft after setup, provider and view readiness without sending', async () => {
+	test('applies a draft after provider and view readiness without sending', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const harness = createHarness();
-			const welcome = new DeferredPromise<void>();
-			harness.welcome = welcome.p;
 			harness.providerReady = false;
 			harness.viewReady = false;
 			let sends = 0;
 			disposables.add(harness.onWillSend.event(() => sends++));
 			const draft = { inputText: 'Incoming', attachments: [toFileVariableEntry(URI.file('/source/context'))] };
 			const opening = harness.openDraft(draft);
-			await timeout(100);
-			await welcome.complete();
 			await timeout(100);
 			harness.providerReady = true;
 			await timeout(100);
@@ -360,14 +348,12 @@ suite('Agents Window workspace handoff', () => {
 		});
 	});
 
-	for (const waitingFor of ['setup', 'provider', 'workspace'] as const) {
+	for (const waitingFor of ['provider', 'workspace'] as const) {
 		test(`a newer input edit cancels a draft while waiting for ${waitingFor}`, async () => {
 			await runWithFakedTimers({ useFakeTimers: true }, async () => {
 				const harness = createHarness();
 				const ready = new DeferredPromise<void>();
-				if (waitingFor === 'setup') {
-					harness.welcome = ready.p;
-				} else if (waitingFor === 'provider') {
+				if (waitingFor === 'provider') {
 					harness.providerReady = false;
 				} else {
 					harness.draftReady = ready.p;
@@ -404,10 +390,9 @@ suite('Agents Window workspace handoff', () => {
 	});
 
 	for (const action of ['select', 'newComposer', 'send', 'createdSession', 'supersede', 'dispose'] as const) {
-		test(`${action} cancels a workspace handoff waiting for setup`, async () => {
+		test(`${action} cancels a pending workspace handoff`, async () => {
 			const harness = createHarness();
-			const welcome = new DeferredPromise<void>();
-			harness.welcome = welcome.p;
+			harness.providerReady = false;
 			const opening = harness.open();
 			if (action === 'select') {
 				harness.composerService.notifyUserWorkspaceSelection();
@@ -423,7 +408,6 @@ suite('Agents Window workspace handoff', () => {
 				harness.handoff.dispose();
 			}
 			await opening;
-			await welcome.complete();
 			assert.deepStrictEqual({
 				state: harness.states.at(-1),
 				openings: harness.openingOptions.length,
@@ -438,37 +422,32 @@ suite('Agents Window workspace handoff', () => {
 		});
 	}
 
-	for (const waitingFor of ['setup', 'provider'] as const) {
-		test(`direct remote workspace navigation cancels a handoff waiting for ${waitingFor}`, async () => {
-			await runWithFakedTimers({ useFakeTimers: true }, async () => {
-				const harness = createHarness();
-				const welcome = new DeferredPromise<void>();
-				harness.welcome = waitingFor === 'setup' ? welcome.p : Promise.resolve();
-				harness.providerReady = waitingFor !== 'provider';
-				const opening = harness.open();
-				await timeout(100);
+	test('direct remote workspace navigation cancels a handoff waiting for provider', async () => {
+		await runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const harness = createHarness();
+			harness.providerReady = false;
+			const opening = harness.open();
+			await timeout(100);
 
-				const remoteFolder = URI.parse('vscode-remote://ssh-remote+host/project');
-				await harness.sessionsService.openNewSession();
-				harness.sessionsPartService.getSessionView(harness.activeSession.get()?.sessionId)?.selectWorkspace(remoteFolder);
+			const remoteFolder = URI.parse('vscode-remote://ssh-remote+host/project');
+			await harness.sessionsService.openNewSession();
+			harness.sessionsPartService.getSessionView(harness.activeSession.get()?.sessionId)?.selectWorkspace(remoteFolder);
 
-				harness.providerReady = true;
-				await welcome.complete();
-				await opening;
-				assert.deepStrictEqual({
-					state: harness.states.at(-1),
-					folders: harness.selections.map(selection => selection.folder.toString()),
-					workspaceChoices: harness.composerService.userWorkspaceSelectionVersion.get(),
-					navigationChoices: harness.composerService.userNavigationVersion.get(),
-				}, {
-					state: 'userChanged',
-					folders: [remoteFolder.toString()],
-					workspaceChoices: 0,
-					navigationChoices: 0,
-				});
+			harness.providerReady = true;
+			await opening;
+			assert.deepStrictEqual({
+				state: harness.states.at(-1),
+				folders: harness.selections.map(selection => selection.folder.toString()),
+				workspaceChoices: harness.composerService.userWorkspaceSelectionVersion.get(),
+				navigationChoices: harness.composerService.userNavigationVersion.get(),
+			}, {
+				state: 'userChanged',
+				folders: [remoteFolder.toString()],
+				workspaceChoices: 0,
+				navigationChoices: 0,
 			});
 		});
-	}
+	});
 
 	test('a newer explicit folder wins when the older request resumes', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {

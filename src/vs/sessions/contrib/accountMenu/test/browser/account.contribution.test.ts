@@ -20,23 +20,23 @@ import { CHAT_SETUP_ACTION_ID } from '../../../../../workbench/contrib/chat/brow
 import { ChatPetAccessoryId, ChatPetAccessoryIds, ChatPetAchievementId, ChatPetAchievementIds } from '../../../../../workbench/contrib/chat/browser/chatPetAchievements.js';
 import { ChatPetVariant, IChatPetService } from '../../../../../workbench/contrib/chat/browser/chatPetService.js';
 import { Menus } from '../../../../browser/menus.js';
-import { getChatGPTRateLimitResetHover, shouldShowAccountPanelSummary } from '../../browser/account.contribution.js';
+import { shouldShowAccountPanelSummary } from '../../browser/account.contribution.js';
 import { getSessionsChatPetAchievementBadges, SessionsChatPetAchievementBadges } from '../../browser/chatPetAchievementBadges.js';
 
 suite('Sessions - Account Menu', () => {
 
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('labels the signed-out Copilot account action', () => {
+	test('labels the signed-out account action', () => {
 		const signIn = MenuRegistry.getMenuItems(Menus.AccountMenu)
 			.filter(isIMenuItem)
 			.find(item => item.command.id === 'workbench.action.agenticSignIn');
 
 		assert.ok(signIn);
-		assert.strictEqual(typeof signIn.command.title === 'string' ? signIn.command.title : signIn.command.title.value, 'Sign in to use GitHub Copilot');
+		assert.strictEqual(typeof signIn.command.title === 'string' ? signIn.command.title : signIn.command.title.value, 'Sign In');
 	});
 
-	test('uses the shared Chat setup flow for Copilot sign-in', async () => {
+	test('uses the shared Chat setup flow for sign-in', async () => {
 		const executedCommands: string[] = [];
 		const command = CommandsRegistry.getCommand('workbench.action.agenticSignIn');
 		assert.ok(command);
@@ -55,25 +55,13 @@ suite('Sessions - Account Menu', () => {
 
 	test('omits the redundant signed-out summary', () => {
 		assert.deepStrictEqual({
-			signedOut: shouldShowAccountPanelSummary({ source: 'copilot', kind: 'prominent' }, false, false),
-			unavailable: shouldShowAccountPanelSummary({ source: 'copilot', kind: 'warning' }, false, false),
-			loading: shouldShowAccountPanelSummary({ source: 'account', kind: 'default' }, false, true),
+			signedOut: shouldShowAccountPanelSummary({ source: 'copilot', kind: 'prominent' }, false),
+			unavailable: shouldShowAccountPanelSummary({ source: 'copilot', kind: 'warning' }, false),
+			loading: shouldShowAccountPanelSummary({ source: 'account', kind: 'default' }, true),
 		}, {
 			signedOut: false,
 			unavailable: true,
 			loading: false,
-		});
-	});
-
-	test('formats exact ChatGPT rate-limit reset hovers', () => {
-		const weeklyReset = new Date(2026, 9, 5, 16, 59);
-		const fiveHourReset = new Date(2026, 9, 5, 15, 6);
-		assert.deepStrictEqual({
-			weekly: getChatGPTRateLimitResetHover({ usedPercent: 1, windowDurationMins: 7 * 24 * 60, resetsAt: weeklyReset.getTime() / 1000 }),
-			fiveHour: getChatGPTRateLimitResetHover({ usedPercent: 3, windowDurationMins: 5 * 60, resetsAt: fiveHourReset.getTime() / 1000 }),
-		}, {
-			weekly: 'Resets on Oct 5, 2026 at 4:59 PM',
-			fiveHour: 'Resets at 3:06 PM',
 		});
 	});
 

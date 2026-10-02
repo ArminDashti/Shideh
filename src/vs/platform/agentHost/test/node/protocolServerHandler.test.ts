@@ -890,7 +890,7 @@ suite('ProtocolServerHandler', () => {
 		agentService.subscribeBarriers.set(defaultChatUri, barrier);
 		const transport = connectClient('input-client', [sessionUri, defaultChatUri]);
 		const response = waitForResponse(transport, 1);
-		const input = { kind: 'blocked', error: { errorType: 'CodexThreadInUse', message: 'Locked' } } as const;
+		const input = { kind: 'blocked', error: { errorType: 'ThreadInUse', message: 'Locked' } } as const;
 		stateManager.setSessionMeta(sessionUri, withChatInputState({}, defaultChatUri, input));
 		stateManager.dispatchServerAction(sessionUri, { type: ActionType.SessionChatUpdated, chat: defaultChatUri, changes: { interactivity: ChatInteractivity.ReadOnly } });
 		await barrier.complete();

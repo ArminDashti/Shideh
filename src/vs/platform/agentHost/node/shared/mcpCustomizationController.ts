@@ -20,7 +20,7 @@ import { AgentHostStateManager, IAgentHostStateManager } from '../agentHostState
 /**
  * SDK-neutral description of a single MCP server, as the controller's
  * caller sees it. Each provider adapts its own SDK events into this
- * shape (Copilot, Claude, Codex, …) and feeds them to
+ * shape (Copilot, Claude, …) and feeds them to
  * {@link McpCustomizationController}.
  */
 export interface ISdkMcpServer {

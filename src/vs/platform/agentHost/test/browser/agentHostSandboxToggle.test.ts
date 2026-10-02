@@ -189,7 +189,7 @@ suite('AgentHostSandboxToggle', () => {
 
 	test('only the Copilot harness exposes a sandbox toggle', () => {
 		const writes: boolean[] = [];
-		const results = ['claude', 'codex', 'local', 'unknown', undefined].map(provider => {
+		const results = ['claude', 'mycli', 'local', 'unknown', undefined].map(provider => {
 			const state = { provider, sessionEnabled: true, globalEnabled: true, managedEnabled: true, allowsBypass: false };
 			return {
 				state: getAgentHostSandboxToggleState(state),

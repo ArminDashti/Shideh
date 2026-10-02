@@ -52,7 +52,7 @@ suite('AICustomizationDiscoveryPage', () => {
 		...CustomizationMarketplaceSources.PluginMarketplaces,
 		configurationDependencies: [ChatConfiguration.StrictMarketplaces],
 	};
-	const sources = [CustomizationMarketplaceSources.AgentFinderPublicFeed, CustomizationMarketplaceSources.CopilotConnectors, secondSource, pluginSource];
+	const sources = [CustomizationMarketplaceSources.AgentFinderPublicFeed, secondSource, pluginSource];
 	const testIcon = URI.parse('https://example.invalid/icon.png');
 
 	function resource(identifier: string, overrides: Partial<ICustomizationMarketplaceResource> = {}): ICustomizationMarketplaceResource {
@@ -1043,12 +1043,12 @@ suite('AICustomizationDiscoveryPage', () => {
 
 	test('uses connection terminology and offers cancellation for a pending Connector repair', async () => {
 		const candidate = resource('mail', {
-			sourceId: CustomizationMarketplaceSources.CopilotConnectors.id,
+			sourceId: 'other',
 			displayName: 'Mail',
 			installation: { kind: 'copilotConnector', name: 'mail' },
 		});
 		const target = { kind: 'copilotConnector' as const, name: 'mail' };
-		const fixture = createPage([CustomizationMarketplaceSources.CopilotConnectors.id]);
+		const fixture = createPage(['other']);
 		fixture.setInstallState(candidate, { kind: 'missing', target });
 		fixture.page.setSearchQuery('@installed mail');
 		fixture.page.setVisible(true);
@@ -1077,8 +1077,8 @@ suite('AICustomizationDiscoveryPage', () => {
 			cancelAriaLabel: cancel.getAttribute('aria-label'),
 			cancellations: fixture.cancellations,
 		}, {
-			disconnected: { detail: 'MCP server · Copilot Connectors · Disconnected', actions: ['Reconnect', 'Disconnect'] },
-			repairingDetail: 'MCP server · Copilot Connectors · Reconnecting',
+			disconnected: { detail: 'MCP server · Other Feed · Disconnected', actions: ['Reconnect', 'Disconnect'] },
+			repairingDetail: 'MCP server · Other Feed · Reconnecting',
 			cancelAriaLabel: 'Cancel reconnecting Mail',
 			cancellations: ['mail'],
 		});
@@ -1383,7 +1383,7 @@ suite('AICustomizationDiscoveryPage', () => {
 	}
 
 
-	for (const sourceIds of [['agentFinder'], ['copilotConnectors'], ['agentFinder', 'copilotConnectors']]) {
+	for (const sourceIds of [['agentFinder'], ['other'], ['agentFinder', 'other']]) {
 		test(`source gates preserve installed Discover: ${sourceIds.join(', ')}`, async () => {
 			const fixture = createPage(sourceIds);
 			fixture.page.setVisible(true);
@@ -1404,11 +1404,11 @@ suite('AICustomizationDiscoveryPage', () => {
 
 
 	test('source selection uses public display names, cancels the previous query, and resets when disabled', async () => {
-		const fixture = createPage(['agentFinder', 'copilotConnectors']);
+		const fixture = createPage(['agentFinder', 'other']);
 		fixture.page.setVisible(true);
 		const labels = fixture.getSourceActions().map(action => action.label).filter(Boolean);
-		await fixture.selectSource('copilotConnectors');
-		await fixture.requests[1].result.complete({ items: [resource('connector-mail', { sourceId: 'copilotConnectors' })] });
+		await fixture.selectSource('other');
+		await fixture.requests[1].result.complete({ items: [resource('connector-mail', { sourceId: 'other' })] });
 		await fixture.requests[0].result.complete({ items: [resource('stale-mail')] });
 		await timeout(0);
 		const selected = {
@@ -1416,7 +1416,7 @@ suite('AICustomizationDiscoveryPage', () => {
 			cancelled: fixture.requests[0].token.isCancellationRequested,
 			content: fixture.page.getAccessibilityContent().match(/^(?:connector|stale)-mail$/gm),
 		};
-		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled, false);
+		await setEnabled(fixture.configuration, secondSource.enablementSetting, false);
 		await fixture.requests[2].result.complete({ items: [resource('public-mail')] });
 		await timeout(0);
 		assert.deepStrictEqual({
@@ -1424,12 +1424,12 @@ suite('AICustomizationDiscoveryPage', () => {
 			selected,
 			selections: fixture.requests.map(request => request.options.sourceIds),
 			finalLabel: fixture.container.querySelector('.customization-discovery-source .monaco-button')?.textContent,
-			disabledSelectable: fixture.getSourceActions().some(action => action.id === 'customizationDiscovery.source.copilotConnectors'),
+			disabledSelectable: fixture.getSourceActions().some(action => action.id === 'customizationDiscovery.source.other'),
 			content: fixture.page.getAccessibilityContent().match(/^(?:connector|public|stale)-mail$/gm),
 		}, {
-			labels: ['All sources', 'GitHub Feed', 'Copilot Connectors', 'Configured Plugin Marketplaces', 'Configure Marketplaces'],
-			selected: { label: 'Copilot Connectors', cancelled: true, content: ['connector-mail'] },
-			selections: [undefined, ['copilotConnectors'], undefined],
+			labels: ['All sources', 'GitHub Feed', 'Other Feed', 'Configured Plugin Marketplaces', 'Configure Marketplaces'],
+			selected: { label: 'Other Feed', cancelled: true, content: ['connector-mail'] },
+			selections: [undefined, ['other'], undefined],
 			finalLabel: 'All sources',
 			disabledSelectable: false,
 			content: ['public-mail'],
@@ -1438,14 +1438,14 @@ suite('AICustomizationDiscoveryPage', () => {
 
 
 	test('clearing search restores browse results only for the selected source', async () => {
-		const fixture = createPage(['agentFinder', 'copilotConnectors']);
+		const fixture = createPage(['agentFinder', 'other']);
 		fixture.page.setVisible(true);
 		await fixture.requests[0].result.complete({ items: [resource('all-featured')] });
-		await fixture.selectSource('copilotConnectors');
-		await fixture.requests[1].result.complete({ items: [resource('connector-featured', { sourceId: 'copilotConnectors' })] });
+		await fixture.selectSource('other');
+		await fixture.requests[1].result.complete({ items: [resource('connector-featured', { sourceId: 'other' })] });
 		fixture.page.setSearchQuery('mail');
 		await timeout(0);
-		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'copilotConnectors' })] });
+		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'other' })] });
 		fixture.page.setSearchQuery('');
 		const restored = fixture.page.getAccessibilityContent().match(/^(?:all|connector)-(?:featured|search)$/gm);
 		await fixture.selectSource(undefined);
@@ -1456,19 +1456,19 @@ suite('AICustomizationDiscoveryPage', () => {
 		}, {
 			restored: ['connector-featured'],
 			all: ['all-featured'],
-			requests: [[undefined, undefined], [undefined, ['copilotConnectors']], ['mail', ['copilotConnectors']]],
+			requests: [[undefined, undefined], [undefined, ['other']], ['mail', ['other']]],
 		});
 	});
 
 	test('resetting filters restores unfiltered browse results', async () => {
-		const fixture = createPage(['agentFinder', 'copilotConnectors']);
+		const fixture = createPage(['agentFinder', 'other']);
 		fixture.page.setVisible(true);
 		await fixture.requests[0].result.complete({ items: [resource('all-featured')] });
-		await fixture.selectSource('copilotConnectors');
-		await fixture.requests[1].result.complete({ items: [resource('connector-featured', { sourceId: 'copilotConnectors' })] });
+		await fixture.selectSource('other');
+		await fixture.requests[1].result.complete({ items: [resource('connector-featured', { sourceId: 'other' })] });
 		fixture.page.setSearchQuery('mail');
 		await timeout(0);
-		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'copilotConnectors' })] });
+		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'other' })] });
 
 		fixture.page.resetFilters();
 
@@ -1485,9 +1485,9 @@ suite('AICustomizationDiscoveryPage', () => {
 
 
 	test('source recovery during search invalidates cached browse failures', async () => {
-		const fixture = createPage(['agentFinder', 'copilotConnectors']);
-		const sourceErrors = [{ sourceId: 'copilotConnectors', message: 'Sign in to view connectors.' }];
-		fixture.recoveryActions.set('copilotConnectors', { label: 'Sign In', kind: 'signIn', run: async () => { } });
+		const fixture = createPage(['agentFinder', 'other']);
+		const sourceErrors = [{ sourceId: 'other', message: 'Sign in to view connectors.' }];
+		fixture.recoveryActions.set('other', { label: 'Sign In', kind: 'signIn', run: async () => { } });
 		fixture.page.setVisible(true);
 		await fixture.requests[0].result.complete({ items: [resource('old-featured')], sourceErrors });
 		fixture.page.setSearchQuery('mail');
@@ -1498,7 +1498,7 @@ suite('AICustomizationDiscoveryPage', () => {
 		assert.ok(signIn);
 		signIn.click();
 		await timeout(0);
-		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'copilotConnectors' })] });
+		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'other' })] });
 		fixture.page.setSearchQuery('');
 		await timeout(0);
 		const restoredStale = fixture.page.getAccessibilityContent().includes('old-featured');
@@ -1521,12 +1521,12 @@ suite('AICustomizationDiscoveryPage', () => {
 
 
 	test('effective source toggles cancel and clear available results without clearing the installed search', async () => {
-		const fixture = createPage();
+		const fixture = createPage(['agentFinder']);
 		fixture.page.setSearchQuery('mail');
 		fixture.page.setVisible(true);
-		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled, true);
+		await setEnabled(fixture.configuration, secondSource.enablementSetting, true);
 		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled, false);
-		await fixture.requests[2].result.complete({ items: [resource('current mail', { sourceId: 'copilotConnectors' })] });
+		await fixture.requests[2].result.complete({ items: [resource('current mail', { sourceId: 'other' })] });
 		await fixture.requests[0].result.complete({ items: [resource('stale mail')] });
 		await fixture.requests[1].result.complete({ items: [resource('also stale mail')] });
 		await timeout(0);
@@ -1535,20 +1535,20 @@ suite('AICustomizationDiscoveryPage', () => {
 			hasCurrent: fixture.page.getAccessibilityContent().includes('current mail'),
 			hasStale: fixture.page.getAccessibilityContent().includes('stale mail'),
 		};
-		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled, false);
+		await setEnabled(fixture.configuration, secondSource.enablementSetting, false);
 		const disabled = {
 			hasAvailable: fixture.page.getAccessibilityContent().includes('current mail'),
 			hasInstalled: fixture.page.getAccessibilityContent().includes('Local mail skill'),
 			requests: fixture.requests.length,
 		};
 		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled, true);
-		await fixture.requests[4].result.complete({ items: [] });
+		await fixture.requests[3].result.complete({ items: [] });
 		assert.deepStrictEqual({
 			beforeDisable, disabled, searches: fixture.requests.map(request => [request.options.query, request.options.cursor]),
 		}, {
 			beforeDisable: { cancelled: [true, true], hasCurrent: true, hasStale: false },
-			disabled: { hasAvailable: false, hasInstalled: true, requests: 4 },
-			searches: [['mail', undefined], ['mail', undefined], ['mail', undefined], ['mail', undefined], ['mail', undefined]],
+			disabled: { hasAvailable: false, hasInstalled: true, requests: 3 },
+			searches: [['mail', undefined], ['mail', undefined], ['mail', undefined], ['mail', undefined]],
 		});
 	});
 
@@ -1557,7 +1557,7 @@ suite('AICustomizationDiscoveryPage', () => {
 		const fixture = createPage();
 		fixture.page.setVisible(true);
 		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled, true);
-		await setEnabled(fixture.configuration, CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled, false);
+		await setEnabled(fixture.configuration, secondSource.enablementSetting, true);
 		fixture.sentimentChanged.fire();
 		const cancelled = fixture.requests[0].token.isCancellationRequested;
 		await fixture.requests[0].result.complete({ items: [] });
@@ -1566,10 +1566,10 @@ suite('AICustomizationDiscoveryPage', () => {
 
 
 	test('source authorization is explicit, keyboard accessible, and restarts the combined query after consent', async () => {
-		const fixture = createPage(['agentFinder', 'copilotConnectors']);
+		const fixture = createPage(['agentFinder', 'other']);
 		const consent = new DeferredPromise<void>();
 		const authorizations: CancellationToken[] = [];
-		fixture.recoveryActions.set('copilotConnectors', {
+		fixture.recoveryActions.set('other', {
 			label: 'Sign In',
 			kind: 'signIn',
 			run: async token => { authorizations.push(token); await consent.p; },
@@ -1577,7 +1577,7 @@ suite('AICustomizationDiscoveryPage', () => {
 		fixture.page.setVisible(true);
 		await fixture.requests[0].result.complete({
 			items: [resource('public-mail')],
-			sourceErrors: [{ sourceId: 'copilotConnectors', message: 'Sign in to view connectors.' }],
+			sourceErrors: [{ sourceId: 'other', message: 'Sign in to view connectors.' }],
 		});
 		await timeout(0);
 		const action = fixture.container.querySelector<HTMLElement>('.customization-marketplace-source-signin .monaco-button');
@@ -1596,7 +1596,7 @@ suite('AICustomizationDiscoveryPage', () => {
 		const pending = { authorizations: authorizations.length, disabled: action.getAttribute('aria-disabled'), requests: fixture.requests.length };
 		await consent.complete();
 		await timeout(0);
-		await fixture.requests[1].result.complete({ items: [resource('connector-mail', { sourceId: 'copilotConnectors' }), resource('public-mail')] });
+			await fixture.requests[1].result.complete({ items: [resource('connector-mail', { sourceId: 'other' }), resource('public-mail')] });
 		await timeout(0);
 		assert.deepStrictEqual({
 			initial, pending,
@@ -1609,7 +1609,7 @@ suite('AICustomizationDiscoveryPage', () => {
 				authorizations: 0,
 				healthyVisible: true,
 				accessibleAction: true,
-				label: 'Sign In to view Copilot Connectors.',
+				label: 'Sign In to view Other Feed.',
 				primary: true,
 				warnings: 0,
 			},
@@ -1624,10 +1624,10 @@ suite('AICustomizationDiscoveryPage', () => {
 
 	for (const outcome of ['cancelled', 'denied', 'disposed']) {
 		test(`source authorization ${outcome} does not restart discovery or remove healthy results`, async () => {
-			const fixture = createPage(['agentFinder', 'copilotConnectors']);
+			const fixture = createPage(['agentFinder', 'other']);
 			const consent = new DeferredPromise<void>();
 			let authorizationToken = CancellationToken.None;
-			fixture.recoveryActions.set('copilotConnectors', {
+			fixture.recoveryActions.set('other', {
 				label: 'Sign In',
 				kind: 'signIn',
 				run: async token => { authorizationToken = token; await consent.p; },
@@ -1635,7 +1635,7 @@ suite('AICustomizationDiscoveryPage', () => {
 			fixture.page.setVisible(true);
 			await fixture.requests[0].result.complete({
 				items: [resource('public-mail')],
-				sourceErrors: [{ sourceId: 'copilotConnectors', message: 'Sign in to view connectors.' }],
+				sourceErrors: [{ sourceId: 'other', message: 'Sign in to view connectors.' }],
 			});
 			await timeout(0);
 			const action = fixture.container.querySelector<HTMLElement>('.customization-marketplace-source-signin .monaco-button');
@@ -1668,15 +1668,15 @@ suite('AICustomizationDiscoveryPage', () => {
 
 	for (const query of ['', '@type:mcp mail']) {
 		test(`connector sign-in with no ${query ? 'search' : 'browse'} results is an invitation, not a warning or empty success`, async () => {
-			const fixture = createPage(['copilotConnectors']);
-			fixture.recoveryActions.set('copilotConnectors', { label: 'Sign In', kind: 'signIn', run: async () => { } });
+			const fixture = createPage(['other']);
+			fixture.recoveryActions.set('other', { label: 'Sign In', kind: 'signIn', run: async () => { } });
 			if (query) {
 				fixture.page.setSearchQuery(query);
 			}
 			fixture.page.setVisible(true);
 			await fixture.requests[0].result.complete({
 				items: [],
-				sourceErrors: [{ sourceId: 'copilotConnectors', message: 'Sign in to view connectors.' }],
+				sourceErrors: [{ sourceId: 'other', message: 'Sign in to view connectors.' }],
 			});
 			await timeout(0);
 			const state = fixture.container.querySelector(query ? '.customization-discovery-results .customization-discovery-state' : '.customization-discovery-browse .customization-discovery-state');
@@ -1692,12 +1692,12 @@ suite('AICustomizationDiscoveryPage', () => {
 		});
 
 		test(`isolates source failures in ${query ? 'search' : 'welcome browsing'} and restarts ranking on source retry`, async () => {
-			const fixture = createPage(['agentFinder', 'copilotConnectors']);
+			const fixture = createPage(['agentFinder', 'other']);
 			let failing = true;
 			const service = new CustomizationMarketplaceService([
 				{ id: 'agentFinder', query: async () => ({ items: [resource('public-mail', { score: 50 })], total: 1 }) },
 				{
-					id: 'copilotConnectors', query: async () => {
+					id: 'other', query: async () => {
 						if (failing) {
 							throw new Error('Connector catalog unavailable');
 						}
@@ -1711,7 +1711,7 @@ suite('AICustomizationDiscoveryPage', () => {
 			fixture.page.setVisible(true);
 			const complete = async (index: number) => {
 				const request = fixture.requests[index];
-				await request.result.complete(await service.query({ ...request.options, sourceIds: ['agentFinder', 'copilotConnectors'] }, request.token));
+				await request.result.complete(await service.query({ ...request.options, sourceIds: ['agentFinder', 'other'] }, request.token));
 				await timeout(0);
 			};
 			await complete(0);
@@ -1733,7 +1733,7 @@ suite('AICustomizationDiscoveryPage', () => {
 			}, {
 				initial: {
 					healthyVisible: true,
-					warning: 'Copilot Connectors: Connector catalog unavailableRetry',
+					warning: 'Other Feed: Connector catalog unavailableRetry',
 					accessibleWarning: true,
 				},
 				cursors: [undefined, undefined],
@@ -1743,8 +1743,8 @@ suite('AICustomizationDiscoveryPage', () => {
 		});
 
 		test(`all sources failing in ${query ? 'search' : 'welcome browsing'} offers source retries rather than an empty success`, async () => {
-			const fixture = createPage(['agentFinder', 'copilotConnectors']);
-			const sources = ['agentFinder', 'copilotConnectors'].map(id => ({
+			const fixture = createPage(['agentFinder', 'other']);
+			const sources = ['agentFinder', 'other'].map(id => ({
 				id, query: async () => { throw new Error(`${id} unavailable`); },
 			}));
 			const service = new CustomizationMarketplaceService(sources);
@@ -1764,7 +1764,7 @@ suite('AICustomizationDiscoveryPage', () => {
 				state: 'Available customizations could not be fully loaded. Retry an unavailable source.',
 				retries: [
 					'Retry GitHub Feed. Reload all sources from the first page.',
-					'Retry Copilot Connectors. Reload all sources from the first page.',
+					'Retry Other Feed. Reload all sources from the first page.',
 				],
 				accessibleErrors: [true, true],
 			});

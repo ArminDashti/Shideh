@@ -27,7 +27,6 @@ Each pattern is defined in `src/helpers/repo-helpers.ts` → `instructionPattern
 | Convention | File Pattern | Notes |
 |------------|-------------|-------|
 | Copilot | `{repo}/.github/copilot-instructions.md` | Primary repo instructions |
-| Codex / OpenAI | `{repo}/AGENTS.md` | OpenAI model convention |
 | Claude / Anthropic | `{repo}/CLAUDE.md` | Claude model convention |
 | Claude (alt) | `{repo}/.claude/CLAUDE.md` | Secondary Claude location |
 | Gemini / Google | `{repo}/GEMINI.md` | Gemini model convention |

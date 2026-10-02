@@ -39,7 +39,6 @@ import { AgentHostClientType } from '../../common/agentHostClientInfo.js';
 import { AgentHostAutoArchiveMergedSessionsAfterDaysConfigKey, AgentHostAutoDeleteArchivedMergedSessionsAfterDaysConfigKey, AgentHostArtifactToolsConfigKey, AgentHostAutoAttachPullRequestsConfigKey, AgentHostSessionCatalogEnabledConfigKey, AgentHostExternalSessionsMode, AgentHostMigrateLegacyCopilotCliEnabledConfigKey, AgentHostShowExternalSessionsConfigKey } from '../../common/agentHostSchema.js';
 import { buildAnnotationsUri } from '../../common/annotationsUri.js';
 import { ClaudeSessionConfigKey } from '../../common/claudeSessionConfigKeys.js';
-import { CodexSessionConfigKey } from '../../common/codexSessionConfigKeys.js';
 import { ISessionCatalogSyncPendingSnapshot, ISessionCatalogSyncSnapshot, ISessionDatabase, ISessionDataService, SessionCatalogSyncWriteResult } from '../../common/sessionDataService.js';
 import { IAgentHostGitStateService, META_GITHUB_DATA_STATE, META_GITHUB_STATE, META_SOURCE_CONTROL_STATE } from '../../common/agentHostGitStateService.js';
 import { META_CHANGES_SUMMARY, META_CHANGESET_BRANCH, META_CHANGESET_SESSION } from '../../common/agentHostChangesetService.js';
@@ -1244,7 +1243,7 @@ suite('AgentService (node dispatcher)', () => {
 		const session = await service.createSession({ provider: 'copilot' });
 		const chat = URI.parse(buildDefaultChatUri(session.toString()));
 		const calls: string[] = [];
-		const error = { errorType: 'CodexThreadInUse', message: 'thread locked already has an active writer' };
+		const error = { errorType: 'ThreadInUse', message: 'thread locked already has an active writer' };
 		let locked = true;
 		copilotAgent.chats.prepareChat = async resource => { calls.push(resource.toString()); return locked ? { error } : {}; };
 		const stateManager = getStateManager(service);
@@ -1273,7 +1272,7 @@ suite('AgentService (node dispatcher)', () => {
 		copilotAgent.chats.prepareChat = async () => {
 			started.complete();
 			await completed.p;
-			return { error: { errorType: 'CodexThreadInUse', message: 'Locked' } };
+			return { error: { errorType: 'ThreadInUse', message: 'Locked' } };
 		};
 		let active = true;
 		const subscribing = service.subscribe(chat, 'client', () => active);
@@ -1301,7 +1300,7 @@ suite('AgentService (node dispatcher)', () => {
 		stateManager.setSessionMeta(session.toString(), { unrelated: 'preserved' });
 		let firstLocked = true;
 		copilotAgent.chats.prepareChat = async resource => firstLocked || resource.toString() === peer.toString()
-			? { error: { errorType: 'CodexThreadInUse', message: 'Locked' } } : {};
+			? { error: { errorType: 'ThreadInUse', message: 'Locked' } } : {};
 		await Promise.all([service.subscribe(chat, 'client'), service.subscribe(peer, 'client')]);
 		firstLocked = false;
 		await service.subscribe(chat, 'client');
@@ -1312,7 +1311,7 @@ suite('AgentService (node dispatcher)', () => {
 			unrelated: state?._meta?.unrelated,
 			interactivity: state?.chats.map(chat => chat.interactivity),
 		}, {
-			first: undefined, peer: { kind: 'blocked', error: { errorType: 'CodexThreadInUse', message: 'Locked' } },
+			first: undefined, peer: { kind: 'blocked', error: { errorType: 'ThreadInUse', message: 'Locked' } },
 			unrelated: 'preserved', interactivity: [ChatInteractivity.Full, ChatInteractivity.ReadOnly],
 		});
 	});
@@ -1330,7 +1329,7 @@ suite('AgentService (node dispatcher)', () => {
 			if (++checks === 1) {
 				started.complete();
 				await completed.p;
-				return { error: { errorType: 'CodexThreadInUse', message: 'Locked' } };
+				return { error: { errorType: 'ThreadInUse', message: 'Locked' } };
 			}
 			return {};
 		};
@@ -1358,7 +1357,7 @@ suite('AgentService (node dispatcher)', () => {
 		const session = await service.createSession({ provider: 'copilot' });
 		const chat = buildDefaultChatUri(session.toString());
 		const stateManager = getStateManager(service);
-		const error = { errorType: 'CodexThreadInUse', message: 'Locked' };
+		const error = { errorType: 'ThreadInUse', message: 'Locked' };
 		stateManager.dispatchServerAction(chat, { type: ActionType.ChatTurnStarted, turnId: 'failed', startedAt: '2026-09-25T00:00:00.000Z', message: { text: 'Hello', origin: { kind: MessageKind.User } } });
 		stateManager.dispatchServerAction(chat, { type: ActionType.ChatError, turnId: 'failed', duration: 0, part: createErrorResponsePart(error) });
 		const state = stateManager.getChatState(chat);
@@ -1772,15 +1771,15 @@ suite('AgentService (node dispatcher)', () => {
 		const notifications: { type: string; progressToken?: string; progress?: number; total?: number; message?: string }[] = [];
 		disposables.add(service.onDidNotification(notification => notifications.push(notification)));
 
-		service.emitDownloadProgress('codex', 'Codex', 50, 100, false, true);
+		service.emitDownloadProgress('claude', 'Claude', 50, 100, false, true);
 
 		assert.deepStrictEqual(notifications, [{
 			type: NotificationType.Progress,
 			channel: ROOT_STATE_URI,
-			progressToken: 'codex',
+			progressToken: 'claude',
 			progress: 50,
 			total: 100,
-			message: 'Downloading Codex Agent',
+			message: 'Downloading Claude Agent',
 		}]);
 	});
 
@@ -2347,7 +2346,7 @@ suite('AgentService (node dispatcher)', () => {
 			nullSessionDataService,
 			new NullLogService(),
 		)));
-		const agent = new MockAgent('codex');
+		const agent = new MockAgent('mycli');
 		const providerResolveConfigs: Array<Record<string, unknown> | undefined> = [];
 		const providerCompletionConfigs: Array<Record<string, unknown> | undefined> = [];
 		agent.resolveChatConfig = async params => {
@@ -2376,7 +2375,7 @@ suite('AgentService (node dispatcher)', () => {
 		registerTestAgentProvider(localService, agent);
 
 		const initial = await localService.resolveSessionConfig({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			config: {
 				[SessionConfigKey.Isolation]: 'worktree',
@@ -2386,7 +2385,7 @@ suite('AgentService (node dispatcher)', () => {
 			},
 		});
 		const selected = await localService.resolveSessionConfig({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			config: {
 				[SessionConfigKey.Isolation]: 'worktree',
@@ -2400,12 +2399,12 @@ suite('AgentService (node dispatcher)', () => {
 			},
 		});
 		const folder = await localService.resolveSessionConfig({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			config: { [SessionConfigKey.Isolation]: 'folder', [SessionConfigKey.Branch]: 'feature/config', providerSetting: 'folder' },
 		});
 		await localService.sessionConfigCompletions({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			config: {
 				[SessionConfigKey.Isolation]: 'worktree',
@@ -2420,13 +2419,13 @@ suite('AgentService (node dispatcher)', () => {
 			property: 'providerSetting',
 		});
 		const branchesWithQuery = await localService.sessionConfigCompletions({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			property: SessionConfigKey.Branch,
 			query: 'missing-branch',
 		});
 		const branchesWithoutQuery = await localService.sessionConfigCompletions({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectory,
 			property: SessionConfigKey.Branch,
 		});
@@ -2488,7 +2487,7 @@ suite('AgentService (node dispatcher)', () => {
 	});
 
 	test('marks worktree isolation pending before a provisional provider can prewarm', async () => {
-		const session = AgentSession.uri('codex', 'pending-before-create');
+		const session = AgentSession.uri('mycli', 'pending-before-create');
 		const workingDirectory = URI.file('/workspace/repo');
 		const gitService = createNoopGitService();
 		gitService.getRepositoryRoot = async () => workingDirectory;
@@ -2519,21 +2518,21 @@ suite('AgentService (node dispatcher)', () => {
 				},
 			}));
 		}
-		const agent = new PrewarmingAgent('codex');
+		const agent = new PrewarmingAgent('mycli');
 		disposables.add(toDisposable(() => agent.dispose()));
 		registerTestAgentProvider(localService, agent);
 
 		await localService.createSession({
-			provider: 'codex',
+			provider: 'mycli',
 			session,
 			workingDirectories: workingDirectory ? [workingDirectory] : undefined,
 			config: { [SessionConfigKey.Isolation]: 'worktree', [SessionConfigKey.Branch]: 'main' },
 		});
 
-		const failedSession = AgentSession.uri('codex', 'failed-before-create');
+		const failedSession = AgentSession.uri('mycli', 'failed-before-create');
 		failCreate = true;
 		await assert.rejects(localService.createSession({
-			provider: 'codex',
+			provider: 'mycli',
 			session: failedSession,
 			workingDirectories: workingDirectory ? [workingDirectory] : undefined,
 			config: { [SessionConfigKey.Isolation]: 'worktree', [SessionConfigKey.Branch]: 'main' },
@@ -2949,7 +2948,7 @@ suite('AgentService (node dispatcher)', () => {
 			}));
 		}
 
-		const provisionalAgent = new ProvisionalAgent('codex');
+		const provisionalAgent = new ProvisionalAgent('mycli');
 		const readyAgent = new MockAgent('copilot');
 		disposables.add(toDisposable(() => provisionalAgent.dispose()));
 		disposables.add(toDisposable(() => readyAgent.dispose()));
@@ -2957,7 +2956,7 @@ suite('AgentService (node dispatcher)', () => {
 		registerTestAgentProvider(localService, readyAgent);
 
 		const creatingSession = await localService.createSession({
-			provider: 'codex',
+			provider: 'mycli',
 			workingDirectories: [URI.file('/workspace/repo')],
 			config: { [SessionConfigKey.Isolation]: 'folder' },
 		});
@@ -4984,7 +4983,7 @@ suite('AgentService (node dispatcher)', () => {
 				};
 			}
 
-			const agent = new ProvisionalCustomizationAgent('codex');
+			const agent = new ProvisionalCustomizationAgent('mycli');
 			disposables.add(toDisposable(() => agent.dispose()));
 			registerTestAgentProvider(service, agent);
 
@@ -5020,7 +5019,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			}
 
-			const agent = new MaterializingCustomizationAgent('codex');
+			const agent = new MaterializingCustomizationAgent('mycli');
 			disposables.add(toDisposable(() => agent.dispose()));
 			registerTestAgentProvider(service, agent);
 
@@ -6702,7 +6701,7 @@ suite('AgentService (node dispatcher)', () => {
 			await getStartupTestInternals(service)._providerDiscoveryRegistrations.get(provider.id);
 		}
 
-		for (const provider of ['copilotcli', 'claude', 'codex']) {
+		for (const provider of ['copilotcli', 'claude']) {
 			test(`startup telemetry measures queued ${provider} registration separately from scanning and publication`, async () => {
 				const entered = new DeferredPromise<void>();
 				const release = new DeferredPromise<void>();
@@ -6791,7 +6790,7 @@ suite('AgentService (node dispatcher)', () => {
 					return base.tryOpenDatabase(session);
 				},
 			});
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			const healthy = { ...discoveredChat(AgentSession.uri(agent.id, 'healthy')), summary: 'Healthy' };
@@ -6823,7 +6822,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			};
 			const { service, telemetry } = createDiscoveryTelemetryContext(undefined, database);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			agent.fireDiscoveredChats([{ ...discoveredChat(AgentSession.uri(agent.id, 'pending')), summary: 'Pending' }]);
@@ -6845,7 +6844,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			};
 			const { service, telemetry, clock } = createDiscoveryTelemetryContext(undefined, database);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			database.fail = true;
@@ -6883,7 +6882,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			};
 			const { service, telemetry } = createDiscoveryTelemetryContext(undefined, database);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			agent.fireDiscoveredChats([]);
@@ -6913,7 +6912,7 @@ suite('AgentService (node dispatcher)', () => {
 					await release.p;
 					return [];
 				}
-			}('codex', undefined, undefined, false));
+			}('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			clock.now = 20;
@@ -6951,7 +6950,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			};
 			const { service, telemetry, clock, startup } = createDiscoveryTelemetryContext(undefined, database);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			database.cancel = true;
@@ -6992,7 +6991,7 @@ suite('AgentService (node dispatcher)', () => {
 				}
 			};
 			const { service, telemetry, clock } = createDiscoveryTelemetryContext(undefined, database);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			database.block = true;
@@ -7010,7 +7009,7 @@ suite('AgentService (node dispatcher)', () => {
 
 		test('startup telemetry does not aggregate disabled discovery or replay it after opt-in', async () => {
 			const { service, telemetry } = createDiscoveryTelemetryContext(undefined, undefined, TelemetryLevel.NONE);
-			const agent = disposables.add(new MockAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new MockAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(service, agent);
 			await waitForInitialProviderMigration(service, agent);
 			let aggregations = 0;
@@ -7028,7 +7027,7 @@ suite('AgentService (node dispatcher)', () => {
 
 		test('startup telemetry counts registrations before visibility filtering and does not add database work', async () => {
 			const orchestratorDatabase = new TestAgentHostOrchestratorDatabase();
-			for (const [provider, count] of [['copilotcli', 101], ['codex', 99], ['claude', 100], ['custom', 1]] as const) {
+			for (const [provider, count] of [['copilotcli', 101], ['claude', 100], ['custom', 1]] as const) {
 				for (let i = 0; i < count; i++) {
 					await seedVerifiedSessionV2(orchestratorDatabase, new TestSessionDatabase(), AgentSession.uri(provider, `startup-${i}`), provider === 'copilotcli' && i === 100);
 				}
@@ -7059,13 +7058,12 @@ suite('AgentService (node dispatcher)', () => {
 				listSizes: [first.length, overlapping.length, subsequent.length],
 				databaseOpens,
 				timingCount: timings.length,
-				firstLists: firstList.map(({ data }) => [data?.registeredSessionCount, data?.copilotSessionCount, data?.codexSessionCount, data?.claudeSessionCount, data?.otherSessionCount, data?.visibleSessionCount, data?.hiddenSessionCount, data?.databaseOpenCount]),
+				firstLists: firstList.map(({ data }) => [data?.registeredSessionCount, data?.copilotSessionCount, data?.claudeSessionCount, data?.otherSessionCount, data?.visibleSessionCount, data?.hiddenSessionCount, data?.databaseOpenCount]),
 				correlated: data?.agentHostSessionId === telemetry.commonProperties.get('common.agentHostSessionId'),
 				metrics: data && {
 					outcome: data.outcome,
 					registered: data.registeredSessionCount,
 					copilot: data.copilotSessionCount,
-					codex: data.codexSessionCount,
 					claude: data.claudeSessionCount,
 					other: data.otherSessionCount,
 					visible: data.visibleSessionCount,
@@ -7079,12 +7077,12 @@ suite('AgentService (node dispatcher)', () => {
 					databaseStats: data.databaseStatCount,
 				},
 			}, {
-				listSizes: [300, 300, 300],
+				listSizes: [201, 201, 201],
 				databaseOpens: 0,
 				timingCount: 1,
-				firstLists: [[301, 101, 99, 100, 1, 300, 1, 0]],
+				firstLists: [[202, 101, 100, 1, 201, 1, 0]],
 				correlated: true,
-				metrics: { outcome: 'success', registered: 301, copilot: 101, codex: 99, claude: 100, other: 1, visible: 300, hidden: 1, catalog: 300, fallback: 0, stateFallback: 0, catalogEnabled: true, externalSessionsMode: AgentHostExternalSessionsMode.None, databaseOpens: 0, databaseStats: 0 },
+				metrics: { outcome: 'success', registered: 202, copilot: 101, claude: 100, other: 1, visible: 201, hidden: 1, catalog: 201, fallback: 0, stateFallback: 0, catalogEnabled: true, externalSessionsMode: AgentHostExternalSessionsMode.None, databaseOpens: 0, databaseStats: 0 },
 			});
 		});
 
@@ -7096,18 +7094,18 @@ suite('AgentService (node dispatcher)', () => {
 			svc.markStartupComplete();
 			const after = [internals._sessionCatalogEnabledSnapshot, internals._migrateLegacyEnabledSnapshot];
 			getConfigurationService(svc).updateRootConfig({ [AgentHostSessionCatalogEnabledConfigKey]: false });
-			const agent = disposables.add(new MockAgent('codex'));
+			const agent = disposables.add(new MockAgent('claude'));
 			registerTestAgentProvider(svc, agent);
 			await svc.listSessions();
 			assert.deepStrictEqual({
 				configurationUnchanged: before.every((value, index) => value === after[index]),
 				contexts: telemetry.events.filter(event => ['hostReady', 'firstSessionList', 'startupSettled'].includes(String(event.data?.name))).map(({ data }) => [
-					data?.name, data?.copilotRegistered, data?.claudeRegistered, data?.codexRegistered,
+					data?.name, data?.copilotRegistered, data?.claudeRegistered,
 				]),
 				listCatalogEnabled: telemetry.events.find(event => event.data?.name === 'firstSessionList')?.data?.catalogEnabled,
 			}, {
 				configurationUnchanged: true,
-				contexts: [['hostReady', false, false, false], ['firstSessionList', false, false, true], ['startupSettled', false, false, true]],
+				contexts: [['hostReady', false, false], ['firstSessionList', false, true], ['startupSettled', false, true]],
 				listCatalogEnabled: false,
 			});
 		});
@@ -7129,7 +7127,7 @@ suite('AgentService (node dispatcher)', () => {
 				};
 				const telemetry = new TestAgentHostStartupTelemetryService();
 				const svc = createCentralCatalogService(sessionData, new TestAgentHostOrchestratorDatabase(), telemetry);
-				const agent = disposables.add(new EmptyStartupAgent('codex'));
+				const agent = disposables.add(new EmptyStartupAgent('mycli'));
 				registerTestAgentProvider(svc, agent);
 				await waitForInitialProviderMigration(svc, agent);
 
@@ -7249,7 +7247,7 @@ suite('AgentService (node dispatcher)', () => {
 						}
 					};
 					if (backfilled) {
-						await database.markSessionsV2Backfilled('codex', AGENT_HOST_CATALOG_PAYLOAD_VERSION);
+						await database.markSessionsV2Backfilled('mycli', AGENT_HOST_CATALOG_PAYLOAD_VERSION);
 					}
 					const telemetry = new TestAgentHostStartupTelemetryService();
 					const svc = createCentralCatalogService(createSessionDataService(), database, telemetry);
@@ -7259,7 +7257,7 @@ suite('AgentService (node dispatcher)', () => {
 							scans++;
 							return [];
 						}
-					}('codex'));
+					}('mycli'));
 					await getStartupTestInternals(svc)._ensureSessionsV2Imported(agent, force);
 					assert.deepStrictEqual({
 						backfillReads: database.backfillReads,
@@ -7284,7 +7282,7 @@ suite('AgentService (node dispatcher)', () => {
 			};
 			const telemetry = new TestAgentHostStartupTelemetryService();
 			const svc = createCentralCatalogService(createSessionDataService(), database, telemetry);
-			const agent = disposables.add(new MockAgent('codex'));
+			const agent = disposables.add(new MockAgent('mycli'));
 			await assert.rejects(getStartupTestInternals(svc)._ensureSessionsV2Imported(agent), /backfill unavailable/);
 			assert.deepStrictEqual(telemetry.events.filter(event => event.data?.name === 'sessionMigration').map(({ data }) => [
 				data?.migrationState, data?.migrationForced, data?.outcome,
@@ -7299,7 +7297,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 			const telemetry = new TestAgentHostStartupTelemetryService();
 			const svc = createCentralCatalogService(createSessionDataService(), new TestAgentHostOrchestratorDatabase(), telemetry);
-			const agent = disposables.add(new DeferredStartupAgent('codex', undefined, undefined, false));
+			const agent = disposables.add(new DeferredStartupAgent('mycli', undefined, undefined, false));
 			registerTestAgentProvider(svc, agent);
 			await waitForInitialProviderMigration(svc, agent);
 			assert.deepStrictEqual(telemetry.events.filter(event => event.eventName === 'agentHost.startupMark' && event.data?.outcome).map(({ data }) => ({
@@ -7308,13 +7306,13 @@ suite('AgentService (node dispatcher)', () => {
 				outcome: data?.outcome,
 				migrationState: data?.migrationState,
 				hasScanCount: Object.hasOwn(data!, 'scannedSessionCount'),
-			})), [{ name: 'sessionMigration', provider: 'codex', outcome: 'deferred', migrationState: 'required', hasScanCount: false }]);
+			})), [{ name: 'sessionMigration', provider: 'mycli', outcome: 'deferred', migrationState: 'required', hasScanCount: false }]);
 		});
 
 		testWithExternalSessionClock('discovery publishes creation, recency and metadata changes through root notifications', async () => {
 			const svc = createExternalSessionService();
 			setExternalSessionsMode(svc, AgentHostExternalSessionsMode.Last30Days, 1);
-			const agent = disposables.add(new TimedExternalAgent('codex'));
+			const agent = disposables.add(new TimedExternalAgent('mycli'));
 			registerTestAgentProvider(svc, agent);
 			await svc.listSessions();
 			svc.markStartupComplete();
@@ -7361,7 +7359,7 @@ suite('AgentService (node dispatcher)', () => {
 				const sessionData = createPerSessionDataService();
 				const svc = createExternalSessionService(sessionData.service);
 				setExternalSessionsMode(svc, AgentHostExternalSessionsMode.Last30Days, 1);
-				const agent = disposables.add(new TimedExternalAgent('codex'));
+				const agent = disposables.add(new TimedExternalAgent('mycli'));
 				registerTestAgentProvider(svc, agent);
 				await svc.listSessions();
 				svc.markStartupComplete();
@@ -7396,7 +7394,7 @@ suite('AgentService (node dispatcher)', () => {
 			const svc = createExternalSessionService();
 			setExternalSessionsMode(svc, AgentHostExternalSessionsMode.Last30Days, 1);
 			const historyChanges = disposables.add(new Emitter<{ chat: URI; turns: readonly Turn[] }>());
-			const agent = disposables.add(new class extends TimedExternalAgent { readonly onDidChangeChatHistory = historyChanges.event; }('codex'));
+			const agent = disposables.add(new class extends TimedExternalAgent { readonly onDidChangeChatHistory = historyChanges.event; }('mycli'));
 			let turns: Turn[] = [{ id: 'first', state: TurnState.Complete, message: { text: 'First message', origin: { kind: MessageKind.User } }, responseParts: [], usage: undefined }];
 			agent.chats.getMessages = async () => turns;
 			registerTestAgentProvider(svc, agent);
@@ -7633,7 +7631,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 
 			const svc = createExternalSessionService();
-			const agent = disposables.add(new DeferredDiscoveryAgent('codex'));
+			const agent = disposables.add(new DeferredDiscoveryAgent('mycli'));
 			registerTestAgentProvider(svc, agent);
 			svc.markStartupComplete();
 			await svc.listSessions();
@@ -7641,7 +7639,7 @@ suite('AgentService (node dispatcher)', () => {
 
 			assert.deepStrictEqual({
 				discoveryStarts: agent.discoveryStarts,
-				providerBackfilled: await svc.isProviderRegistryBackfilled('codex'),
+				providerBackfilled: await svc.isProviderRegistryBackfilled('mycli'),
 			}, {
 				discoveryStarts: 0,
 				providerBackfilled: false,
@@ -11213,14 +11211,14 @@ suite('AgentService (node dispatcher)', () => {
 					});
 				});
 
-				test('Claude and Codex persist cached peers when enumeration is unavailable or lacks the URI', async () => {
-					class EnumeratingCodexAgent extends DirectImportAgent {
+				test('Claude and third-party providers persist cached peers when enumeration is unavailable or lacks the URI', async () => {
+					class EnumeratingBackingAgent extends DirectImportAgent {
 						async listLegacyChatBackings(): Promise<readonly IAgentLegacyChat[]> {
 							return [];
 						}
 					}
 					const results = [];
-					for (const provider of ['claude', 'codex'] as const) {
+					for (const provider of ['claude', 'mycli'] as const) {
 						const database = new TransientRegistryWriteDatabase();
 						const perSession = createPerSessionDataService();
 						const session = AgentSession.uri(provider, 'optional-peer-data');
@@ -11237,7 +11235,7 @@ suite('AgentService (node dispatcher)', () => {
 							],
 						}, `${provider}-generation`, 0), undefined), 'applied');
 						const svc = createService(database, perSession.service);
-						const agent = disposables.add(provider === 'codex' ? new EnumeratingCodexAgent(provider) : new DirectImportAgent(provider));
+						const agent = disposables.add(provider === 'mycli' ? new EnumeratingBackingAgent(provider) : new DirectImportAgent(provider));
 
 						const peers = await (svc as unknown as {
 							_readOrImportPeerChatCatalogWithoutLocalDatabase(agent: IAgent, session: URI): Promise<readonly IPersistedPeerChat[]>;
@@ -11256,9 +11254,9 @@ suite('AgentService (node dispatcher)', () => {
 							persisted: [{ chat: buildChatUri(AgentSession.uri('claude', 'optional-peer-data'), 'cached'), order: 0 }],
 						},
 						{
-							provider: 'codex',
-							peers: [{ uri: buildChatUri(AgentSession.uri('codex', 'optional-peer-data'), 'cached') }],
-							persisted: [{ chat: buildChatUri(AgentSession.uri('codex', 'optional-peer-data'), 'cached'), order: 0 }],
+							provider: 'mycli',
+							peers: [{ uri: buildChatUri(AgentSession.uri('mycli', 'optional-peer-data'), 'cached') }],
+							persisted: [{ chat: buildChatUri(AgentSession.uri('mycli', 'optional-peer-data'), 'cached'), order: 0 }],
 						},
 					]);
 				});
@@ -13179,7 +13177,7 @@ suite('AgentService (node dispatcher)', () => {
 		test('legacy migration markers are never written by current provider imports', async () => {
 			// The bug this guards: mirroring the legacy global marker once
 			// "every known provider" was backfilled was unsafe because a
-			// provider (e.g. Codex) can register later than that point — a
+			// provider (e.g. Claude) can register later than that point — a
 			// downgrade to pre-per-provider code reading a prematurely-set
 			// global marker would then silently skip that late provider's
 			// legacy sessions forever.
@@ -13190,7 +13188,7 @@ suite('AgentService (node dispatcher)', () => {
 			assert.strictEqual(await svc.isProviderRegistryBackfilled('copilot'), false);
 			assert.strictEqual(await svc.isLegacyRegistryBackfilled(), false, 'the legacy global marker must never be written automatically');
 
-			// A late-registering provider (simulating Codex enabling after
+			// A late-registering provider (simulating Claude enabling after
 			// startup) also completes its own sweep.
 			const late = disposables.add(new MockAgent('claude'));
 			registerTestAgentProvider(svc, late);
@@ -13941,9 +13939,9 @@ suite('AgentService (node dispatcher)', () => {
 
 		test('restoreSession recognizes an external linked worktree without persisted metadata', async () => {
 			const db = disposables.add(new TestSessionDatabase());
-			const primaryRoot = URI.file('/workspace/codex');
-			const sessionWorktree = URI.file('/home/user/.codex/worktrees/4b6d/codex');
-			const agent = new MockAgent('codex');
+			const primaryRoot = URI.file('/workspace/mycli');
+			const sessionWorktree = URI.file('/home/user/.mycli/worktrees/4b6d/mycli');
+			const agent = new MockAgent('mycli');
 			disposables.add(toDisposable(() => agent.dispose()));
 			agent.sessionMetadataOverrides = { workingDirectories: [sessionWorktree], project: undefined };
 			const gitService = createNoopGitService();
@@ -13976,7 +13974,7 @@ suite('AgentService (node dispatcher)', () => {
 				persistedPath: await db.getMetadata('copilot.worktree.path'),
 			}, {
 				isolation: 'folder',
-				project: { uri: primaryRoot.toString(), displayName: 'codex' },
+				project: { uri: primaryRoot.toString(), displayName: 'mycli' },
 				workingDirectory: sessionWorktree.toString(),
 				persistedRepositoryRoot: primaryRoot.toString(),
 				persistedBranch: undefined,
@@ -15347,7 +15345,7 @@ suite('AgentService (node dispatcher)', () => {
 			copilotAgent.authenticate = async () => { throw new Error('clear failed'); };
 
 			const result = await service.authenticate({ resource: GITHUB_COPILOT_PROTECTED_RESOURCE.resource, token: '' });
-			const lateAgent = new MockAgent('codex');
+			const lateAgent = new MockAgent('mycli');
 			lateAgent.getProtectedResources = () => [GITHUB_COPILOT_PROTECTED_RESOURCE];
 			disposables.add(toDisposable(() => lateAgent.dispose()));
 			registerTestAgentProvider(service, lateAgent);
@@ -15452,7 +15450,7 @@ suite('AgentService (node dispatcher)', () => {
 		test('replays stored authentication to a provider registered later', async () => {
 			registerTestAgentProvider(service, copilotAgent);
 			await service.authenticate({ resource: 'https://api.github.com', token: 'tok' });
-			const lateAgent = new MockAgent('codex');
+			const lateAgent = new MockAgent('mycli');
 			lateAgent.getProtectedResources = () => [{ resource: 'https://api.github.com', authorization_servers: ['https://github.com/login/oauth'], required: true }];
 			disposables.add(toDisposable(() => lateAgent.dispose()));
 
@@ -16128,7 +16126,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
-			const agent = disposables.add(new LazyMetadataAgent('codex'));
+			const agent = disposables.add(new LazyMetadataAgent('mycli'));
 			registerTestAgentProvider(svc, agent);
 			const session = await svc.createSession({ provider: agent.id });
 			await svc.listSessions();
@@ -21738,7 +21736,7 @@ suite('AgentService (node dispatcher)', () => {
 					Object.assign(this, {
 						getInheritedChatConfig: (config: Readonly<Record<string, unknown>> = {}): Record<string, unknown> | undefined => {
 							const inherited: Record<string, unknown> = {};
-							for (const key of [SessionConfigKey.AutoApprove, SessionConfigKey.Permissions, ClaudeSessionConfigKey.PermissionMode, CodexSessionConfigKey.PermissionsPreset]) {
+							for (const key of [SessionConfigKey.AutoApprove, SessionConfigKey.Permissions, ClaudeSessionConfigKey.PermissionMode]) {
 								if (config[key] !== undefined) {
 									inherited[key] = config[key];
 								}
@@ -21793,7 +21791,6 @@ suite('AgentService (node dispatcher)', () => {
 					[SessionConfigKey.AutoApprove]: 'autoApprove',
 					[SessionConfigKey.Permissions]: { allow: ['shell'], deny: ['write'] },
 					[ClaudeSessionConfigKey.PermissionMode]: 'bypassPermissions',
-					[CodexSessionConfigKey.PermissionsPreset]: 'full-access',
 					[SessionConfigKey.Mode]: 'plan',
 					[SessionConfigKey.Isolation]: 'folder',
 				},
@@ -21874,7 +21871,6 @@ suite('AgentService (node dispatcher)', () => {
 						[SessionConfigKey.AutoApprove]: 'autoApprove',
 						[SessionConfigKey.Permissions]: { allow: ['shell'], deny: ['write'] },
 						[ClaudeSessionConfigKey.PermissionMode]: 'bypassPermissions',
-						[CodexSessionConfigKey.PermissionsPreset]: 'full-access',
 					},
 				},
 				chatOptions: { title: 'New Chat', model: { id: 'source-model' } },
@@ -21891,7 +21887,7 @@ suite('AgentService (node dispatcher)', () => {
 					Object.assign(this, {
 						getInheritedChatConfig: (config: Readonly<Record<string, unknown>> = {}): Record<string, unknown> | undefined => {
 							const inherited: Record<string, unknown> = {};
-							for (const key of [SessionConfigKey.AutoApprove, SessionConfigKey.Mode, ClaudeSessionConfigKey.PermissionMode, CodexSessionConfigKey.PermissionsPreset]) {
+							for (const key of [SessionConfigKey.AutoApprove, SessionConfigKey.Mode, ClaudeSessionConfigKey.PermissionMode]) {
 								if (config[key] !== undefined) {
 									inherited[key] = config[key];
 								}
@@ -21931,20 +21927,17 @@ suite('AgentService (node dispatcher)', () => {
 								[SessionConfigKey.AutoApprove]: 'default',
 								[SessionConfigKey.Mode]: 'interactive',
 								[ClaudeSessionConfigKey.PermissionMode]: 'acceptEdits',
-								[CodexSessionConfigKey.PermissionsPreset]: 'read-only',
 							},
 							applied: {
 								[SessionConfigKey.AutoApprove]: 'assisted',
 								[SessionConfigKey.Mode]: 'autopilot',
 								[ClaudeSessionConfigKey.PermissionMode]: 'auto',
-								[CodexSessionConfigKey.PermissionsPreset]: 'danger-full-access',
 							},
 						},
 					},
 					[SessionConfigKey.AutoApprove]: 'assisted',
 					[SessionConfigKey.Mode]: 'autopilot',
 					[ClaudeSessionConfigKey.PermissionMode]: 'auto',
-					[CodexSessionConfigKey.PermissionsPreset]: 'danger-full-access',
 				},
 			});
 			localService.dispatchAction(sourceChat, {
@@ -21965,7 +21958,6 @@ suite('AgentService (node dispatcher)', () => {
 				[SessionConfigKey.AutoApprove]: 'default',
 				[SessionConfigKey.Mode]: 'interactive',
 				[ClaudeSessionConfigKey.PermissionMode]: 'acceptEdits',
-				[CodexSessionConfigKey.PermissionsPreset]: 'read-only',
 				[SessionConfigKey.Isolation]: 'worktree',
 			});
 		});
@@ -24600,7 +24592,7 @@ suite('AgentService (node dispatcher)', () => {
 			gitService.revParse = async () => 'head';
 			gitService.getCurrentBranch = async () => 'main';
 			gitService.getDefaultBranch = async () => ({ name: 'main', startPoint: 'main' });
-			const localAgent = new MockAgent('codex');
+			const localAgent = new MockAgent('mycli');
 			localAgent.sessionMetadataOverrides = { workingDirectories: [workingDirectory], project: undefined };
 			disposables.add(toDisposable(() => localAgent.dispose()));
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, sessionDataService, { _serviceBrand: undefined } as IProductService, gitService));
@@ -24634,8 +24626,8 @@ suite('AgentService (node dispatcher)', () => {
 		test('restoreSession seeds the provider model into the default chat draft', async () => {
 			const sessionDb = disposables.add(await SessionDatabase.open(':memory:'));
 			const sessionDataService = createSessionDataService(sessionDb);
-			const localAgent = new MockAgent('codex');
-			const model = { id: 'codex-model:openai:gpt-5.6-sol' };
+			const localAgent = new MockAgent('mycli');
+			const model = { id: 'mycli-model:openai:gpt-5.6-sol' };
 			localAgent.sessionMetadataOverrides = { model } as typeof localAgent.sessionMetadataOverrides;
 			disposables.add(toDisposable(() => localAgent.dispose()));
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, sessionDataService, { _serviceBrand: undefined } as IProductService, createNoopGitService()));
@@ -24644,7 +24636,7 @@ suite('AgentService (node dispatcher)', () => {
 			await sessionDb.setChatDraft(URI.parse(buildDefaultChatUri(session)), {
 				text: 'unsent text',
 				origin: { kind: MessageKind.User },
-				model: { id: 'codex-model:vscode-proxy:gpt-5-mini', config: { thinkingLevel: 'medium' } },
+				model: { id: 'mycli-model:vscode-proxy:gpt-5-mini', config: { thinkingLevel: 'medium' } },
 			});
 			localAgent.sessionMessages = [
 				{ type: 'message', session, role: 'user', messageId: 'msg-1', content: 'Hello', toolRequests: [] },

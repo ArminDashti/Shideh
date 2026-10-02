@@ -16,7 +16,7 @@ import { MessageAttachmentKind, type MessageAttachment } from '../state/protocol
  * the copy. Providers use {@link isHostSnapshotAttachment} / {@link readHostSnapshotAttachmentMeta}
  * to signal read-only: Copilot still sends the file path (so the model can read it on demand) but
  * conveys the read-only intent out-of-band on the prompt (an `additionalContext` / `<reminder>`
- * note), while Codex/Claude annotate the path reference inline as read-only. The `contentType` is
+ * note), while Claude annotates the path reference inline as read-only. The `contentType` is
  * preserved because the on-disk `Resource` no longer carries the original MIME type.
  */
 export const HostSnapshotAttachmentMetadataKey = 'vscode.agentHost.snapshotAttachment';

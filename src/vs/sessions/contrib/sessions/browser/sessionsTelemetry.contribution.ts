@@ -964,7 +964,7 @@ type SessionRequestSentClassification = {
 	visibleSessionsCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'How many sessions are currently visible in the sessions grid.' };
 	nonArchivedSessionListCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of non-archived, non-automation sessions currently in the Sessions list.' };
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1005,7 +1005,7 @@ type SessionArchivedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user archives a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1024,7 +1024,7 @@ type SessionUnarchivedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user unarchives a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1043,7 +1043,7 @@ type SessionDeletedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user deletes a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1062,7 +1062,7 @@ type ChatDeletedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user deletes a chat from a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1081,7 +1081,7 @@ type ChatRenamedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user renames a chat in a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1100,7 +1100,7 @@ type SessionRenamedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user renames a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1119,7 +1119,7 @@ type CreatePullRequestClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Create Pull Request command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1138,7 +1138,7 @@ type CreateDraftPullRequestClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Create Draft Pull Request command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1157,7 +1157,7 @@ type UpdatePullRequestClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Update (Sync) Pull Request command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1176,7 +1176,7 @@ type MergePullRequestClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Merge Pull Request command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1195,7 +1195,7 @@ type CheckoutPullRequestClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Checkout Pull Request command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1214,7 +1214,7 @@ type InitializeRepositoryClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Initialize Repository command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1233,7 +1233,7 @@ type CommitClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Commit command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1252,7 +1252,7 @@ type CommitAndSyncClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Commit and Sync command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1271,7 +1271,7 @@ type SessionRestoredClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user restores a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1290,7 +1290,7 @@ type FixCIChecksClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user runs the Fix CI Checks command for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1330,7 +1330,7 @@ type FeedbackAddedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user adds a new agent feedback comment to a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1371,7 +1371,7 @@ type FeedbackConvertedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when an external review comment (code review or PR review) is converted into agent feedback for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1412,7 +1412,7 @@ type FeedbackReplyAddedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user adds a reply to an existing agent feedback thread in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1455,7 +1455,7 @@ type FeedbackSubmittedClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user submits the accumulated agent feedback for a session in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1499,7 +1499,7 @@ type SessionStickinessToggledClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user toggles a session\'s stickiness in the sessions grid in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1537,7 +1537,7 @@ type SessionMaximizeToggledClassification = {
 	owner: 'benibenj';
 	comment: 'Reports when the user toggles the maximized state of a session view in the sessions grid in the Agents window.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	chatCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of chats currently in the session.' };
 	isExternal: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the session was discovered in an application other than the current host (an external session).' };
@@ -1563,7 +1563,7 @@ type SessionSummaryClassification = {
 	owner: 'benibenj';
 	comment: 'Single per-session summary emitted when a tracked session is finished (archived, deleted, or observed as archived/deleted in another client). Aggregates everything that happened during the session\'s lifetime.';
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'SHA-1 hash of the globally unique session identifier, used to correlate events for the same session without exposing provider or resource details.' };
-	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: default-copilot, local-agent-host, remote-agent-host, or other.' };
+	providerId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded sessions provider category: local-agent-host, remote-agent-host, or other.' };
 	providerType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The session type identifier provided by the sessions provider.' };
 	isolationKind: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Isolation mode used by the session (worktree or folder), captured the first time the session was observed in this client.' };
 	workspaceHash: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Non-reversible hash of the workspace URI the session is tied to, used to correlate events across the same workspace without disclosing the path.' };

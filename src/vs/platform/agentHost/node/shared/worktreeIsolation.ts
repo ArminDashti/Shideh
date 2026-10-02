@@ -93,7 +93,7 @@ export interface IAgentHostWorktreeIsolation extends IAgentHostWorktreePendingSt
  * historical `copilot.worktree.*` prefix so sessions materialized by earlier
  * Copilot builds keep resolving their worktree on archive / unarchive /
  * restore after this logic was unified across agents. All agents (Copilot,
- * Codex, Claude) now write and read these same keys; the per-session database
+ * Claude) now write and read these same keys; the per-session database
  * is already scoped by session, so there is no cross-agent collision.
  */
 const WORKTREE_META_BRANCH = 'copilot.worktree.branchName';
@@ -406,7 +406,7 @@ export interface IResolveWorkingDirectoryRequest {
 
 /**
  * Shared, per-agent controller for git-worktree session isolation. Owns the
- * full machinery Copilot pioneered so Codex and Claude get identical behavior:
+ * full machinery Copilot pioneered so Claude gets identical behavior:
  *
  * - advertising the `isolation` (`folder` / `worktree`) and `branch` session
  *   config properties from `resolveSessionConfig` ({@link resolveIsolationConfig});

@@ -385,9 +385,8 @@ export class SessionPermissionManager extends Disposable {
 	 * {@link _handleToolReady} hard-denies such writes when a provider raises an interactive
 	 * `pending_confirmation` (the auto-approve checks in {@link getAutoApproval} would otherwise
 	 * approve first). Note this only fires for the interactive / managed-approval flow — providers
-	 * that auto-approve upstream (Copilot SDK `'on'`, Claude bypass/acceptEdits, or Codex, which never
-	 * routes through the host permission layer) don't reach it, so the read-only presentation is the
-	 * primary defense there.
+	 * that auto-approve upstream (Copilot SDK `'on'`, Claude bypass/acceptEdits) don't reach it, so
+	 * the read-only presentation is the primary defense there.
 	 */
 	isForbiddenSnapshotWrite(e: IToolApprovalEvent, sessionKey: ProtocolURI): boolean {
 		if (e.permissionKind !== 'write' || !e.permissionPath) {

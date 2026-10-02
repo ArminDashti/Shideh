@@ -9,7 +9,7 @@ import { ICopilotApiService, type ICopilotUtilityChatMessage } from './copilotAp
 
 /**
  * Branch-name prefix for worktree-isolated agent sessions, e.g.
- * `agents/add-feature`. Shared by every agent-host provider (Copilot, Codex,
+ * `agents/add-feature`. Shared by every agent-host provider (Copilot,
  * Claude) via {@link WorktreeIsolation}.
  */
 export const AGENT_BRANCH_PREFIX = 'agents/';

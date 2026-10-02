@@ -11,7 +11,7 @@ import { localize } from '../../../../nls.js';
 import { BaseActionViewItem, IBaseActionViewItemOptions } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { MenuRegistry, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Menus } from '../../../browser/menus.js';
@@ -28,7 +28,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IsAuxiliaryWindowContext } from '../../../../workbench/common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../../../workbench/services/layout/browser/layoutService.js';
-import { SessionsBlockedSessionsVisibleContext, SessionsWelcomeVisibleContext } from '../../../common/contextkeys.js';
+import { SessionsBlockedSessionsVisibleContext } from '../../../common/contextkeys.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { SHOW_SESSIONS_PICKER_COMMAND_ID } from './sessionsActions.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
@@ -791,7 +791,7 @@ export function registerSessionsTitleBarMenus(): IDisposable {
 			submenu: Menus.TitleBarSessionTitle,
 			title: localize('agentSessionsControl', "Agent Sessions"),
 			order: 101,
-			when: ContextKeyExpr.and(IsAuxiliaryWindowContext.negate(), SessionsWelcomeVisibleContext.negate())
+			when: IsAuxiliaryWindowContext.negate()
 		}),
 		MenuRegistry.appendMenuItem(Menus.TitleBarSessionTitle, {
 			command: {

@@ -30,17 +30,15 @@ import { reportAgentSdkDownload } from './agentSdkDownloadTelemetry.js';
 
 /**
  * One agent-SDK package the downloader can fetch. Holds the per-package
- * knowledge that varies between Claude, Codex, and any future provider —
+ * knowledge that varies between Claude and any future provider —
  * the package id, the env var that acts as a dev override, and one
  * boolean covering the only mapping detail that differs between SDKs
- * today (Claude has separate `linux-*-musl` SKUs; Codex's Linux binary
- * is statically musl-linked and ships as a single `linux-*` SKU).
+ * today (Claude has separate `linux-*-musl` SKUs).
  *
  * The downloader itself is package-agnostic: it consumes this interface and
  * never branches on `id`. Concrete `IAgentSdkPackage` instances live in
  * their owning agent module (e.g. `ClaudeSdkPackage` in
- * `claude/claudeAgentSdkService.ts`, `CodexSdkPackage` in
- * `codex/codexAgent.ts`) so Claude-specific / Codex-specific knowledge
+ * `claude/claudeAgentSdkService.ts`) so provider-specific knowledge
  * stays in those modules — the downloader doesn't name the providers it
  * serves.
  *
@@ -51,10 +49,10 @@ import { reportAgentSdkDownload } from './agentSdkDownloadTelemetry.js';
  * same `product.json` is shared by arm64 and x64 launches.
  */
 export interface IAgentSdkPackage {
-	/** Key under `product.agentSdks` — e.g. `'claude'`, `'codex'`. */
+	/** Key under `product.agentSdks` — e.g. `'claude'`. */
 	readonly id: string;
 	/**
-	 * Brand display name for user-facing progress, e.g. `'Claude'`, `'Codex'`.
+	 * Brand display name for user-facing progress, e.g. `'Claude'`.
 	 * The downloader puts this on {@link IAgentSdkDownloadProgress.displayName}
 	 * so clients can build a localized "Downloading {displayName} Agent" label.
 	 */
@@ -63,8 +61,7 @@ export interface IAgentSdkPackage {
 	readonly devOverrideEnvVar: string;
 	/**
 	 * True iff this SDK publishes separate `linux-{x64,arm64}-musl`
-	 * packages alongside the glibc default. Claude does; Codex doesn't
-	 * (its Linux binary is statically musl-linked and runs on both).
+	 * packages alongside the glibc default. Claude does.
 	 */
 	readonly hasSeparateMuslLinuxPackage: boolean;
 }
@@ -92,7 +89,6 @@ const SUPPORTED_ARCHES = new Set<string>(['x64', 'arm64']);
  *
  *   - claude on glibc Linux: `linux-x64` / `linux-arm64`
  *   - claude on musl Linux:  `linux-x64-musl` / `linux-arm64-musl`
- *   - codex Linux (any libc): `linux-x64` / `linux-arm64`
  *   - everywhere else:       `<platform>-<arch>`
  *
  * Returns `undefined` when no SDK applies (`armhf`, web, etc.); the
@@ -137,7 +133,7 @@ export type AgentSdkDownloadPhase = 'started' | 'progress' | 'completed' | 'fail
 export interface IAgentSdkDownloadProgress {
 	/** Stable id for one download; coalesces frames and distinguishes concurrent fetches. */
 	readonly downloadId: string;
-	/** Package id, e.g. `'claude'` / `'codex'`. */
+	/** Package id, e.g. `'claude'`. */
 	readonly packageId: string;
 	/** Brand display name, e.g. `'Claude'`. */
 	readonly displayName: string;

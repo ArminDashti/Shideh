@@ -95,13 +95,13 @@ export class ChatRequestOriginPart extends Disposable {
 						? localize('chat.requestOrigin.delegation.chat', "Sent from another chat")
 						: isFromAnotherSession
 							? localize('chat.requestOrigin.delegation.session', "Sent by another session")
-							: localize('chat.requestOrigin.delegation', "Sent by Codex from another chat"),
+							: localize('chat.requestOrigin.delegation', "Sent by another agent"),
 					undefined,
 					isFromAnotherChat
 						? localize('chat.requestOrigin.delegationAriaLabel.chat', "Sent from another chat. Select to open the source.")
 						: isFromAnotherSession
 							? localize('chat.requestOrigin.delegationAriaLabel.session', "Sent by another session. Select to open the source.")
-							: localize('chat.requestOrigin.delegationAriaLabel', "Sent by Codex from another chat. Select to open the source chat."),
+							: localize('chat.requestOrigin.delegationAriaLabel', "Sent by another agent. Select to open the source chat."),
 				);
 				break;
 			}

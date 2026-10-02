@@ -88,8 +88,7 @@ async function main() {
 	server.listen(PORT, HOST, () => {
 		console.log(`\n  Sessions Web running at: http://${HOST}:${PORT}/\n`);
 		if (!args['no-open'] && args.open !== false) {
-			const query = args['skip-welcome'] ? '?skip-sessions-welcome' : '';
-			open.default(`http://${HOST}:${PORT}/${query}`);
+			open.default(`http://${HOST}:${PORT}/`);
 		}
 	});
 

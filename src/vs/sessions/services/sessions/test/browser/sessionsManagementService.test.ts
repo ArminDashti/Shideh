@@ -6206,7 +6206,7 @@ suite('SessionsManagementService', () => {
 		function legacyCliSession(): ISession {
 			return stubSession({
 				sessionId: `legacy-${RAW_ID}`,
-				providerId: 'default-copilot',
+				providerId: 'cloud-provider',
 				sessionType: COPILOT_CLI_EH_SCHEME,
 				resource: URI.from({ scheme: COPILOT_CLI_EH_SCHEME, path: `/${RAW_ID}` }),
 			});
@@ -6341,10 +6341,10 @@ suite('SessionsManagementService', () => {
  */
 function createOrderedTypesService(disposables: ReturnType<typeof ensureNoDisposablesAreLeakedInTestSuite>, copilotOrder: number, agentHostOrder: number): ISessionsManagementService {
 	const copilotProvider = new class extends TestSessionsProvider {
-		override readonly id = 'default-copilot';
+		override readonly id = 'cloud-provider';
 		override readonly order = copilotOrder;
 		override readonly sessionTypes: readonly ISessionType[] = [{ authRequirement: SessionTypeAuthRequirement.GitHub, id: 'copilot', label: 'Copilot', icon: Codicon.vm }];
-	}(stubSession({ sessionId: 'c1', providerId: 'default-copilot' }));
+	}(stubSession({ sessionId: 'c1', providerId: 'cloud-provider' }));
 	const agentHostProvider = new class extends TestSessionsProvider {
 		override readonly id = LOCAL_AGENT_HOST_PROVIDER_ID;
 		override readonly order = agentHostOrder;

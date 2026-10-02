@@ -15,7 +15,6 @@ import { IWorkbenchContribution } from '../../../../../common/contributions.js';
 import { ChatEntitlement, ChatEntitlementContextKeys, IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { IExtensionService } from '../../../../../services/extensions/common/extensions.js';
 import { hasVisibleByokModelsTargetingSessionType } from '../sessionTypeAvailability.js';
-import { ChatSetupDialogVisibleContext } from '../../chatSetup/chatSetup.js';
 import { ChatInputNotificationActionKind, ChatInputNotificationSeverity, IChatInputNotification, IChatInputNotificationService } from '../../widget/input/chatInputNotificationService.js';
 import { SessionType } from '../../../common/chatSessionsService.js';
 import { MANAGE_CHAT_COMMAND_ID } from '../../../common/constants.js';
@@ -27,7 +26,6 @@ const SIGN_IN_COMMAND_ID = 'workbench.action.chat.triggerSetup';
 const COPILOT_AGENT_HOST_PROVIDER_ID = 'copilotcli';
 const NOTIFICATION_CONTEXT_KEYS = new Set([
 	ChatEntitlementContextKeys.clientByokEnabled.key,
-	ChatSetupDialogVisibleContext.key,
 ]);
 /**
  * Upper bound on waiting for local model readiness. Extension registration and
@@ -51,9 +49,8 @@ export function getSignedOutModelsNotificationState(options: {
 	readonly hasModels: boolean;
 	readonly localModelsLoaded: boolean;
 	readonly gracePeriodElapsed: boolean;
-	readonly setupDialogVisible: boolean;
 }): SignedOutModelsNotificationState {
-	if (options.setupDialogVisible || !options.allowSignedOutWhenUsable || !options.accountResolved || !options.entitlementResolved || options.signedIn || !options.hasCopilotHarness || options.hasModels) {
+	if (!options.allowSignedOutWhenUsable || !options.accountResolved || !options.entitlementResolved || options.signedIn || !options.hasCopilotHarness || options.hasModels) {
 		return SignedOutModelsNotificationState.Hidden;
 	}
 	// Readiness is the fast path; the grace period bounds it because a vendor named
@@ -175,7 +172,6 @@ export class AgentHostSignedOutModelsNotificationContribution extends Disposable
 			hasModels,
 			localModelsLoaded,
 			gracePeriodElapsed: this._gracePeriodElapsed,
-			setupDialogVisible: this._contextKeyService.getContextKeyValue<boolean>(ChatSetupDialogVisibleContext.key) === true,
 		});
 		this._updateGracePeriod(state);
 		this._setNotification(state === SignedOutModelsNotificationState.Visible);

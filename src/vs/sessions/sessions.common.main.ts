@@ -177,7 +177,6 @@ import { McpGalleryService } from '../platform/mcp/common/mcpGalleryService.js';
 import { AllowedMcpServersService } from '../platform/mcp/common/allowedMcpServersService.js';
 import { IWebWorkerService } from '../platform/webWorker/browser/webWorkerService.js';
 import { WebWorkerService } from '../platform/webWorker/browser/webWorkerServiceImpl.js';
-import { ISessionsSetUpService, SessionsSetUpService } from './browser/sessionsSetUpService.js';
 
 registerSingleton(IUserDataSyncLogService, UserDataSyncLogService, InstantiationType.Delayed);
 registerSingleton(IAllowedExtensionsService, AllowedExtensionsService, InstantiationType.Delayed);
@@ -195,7 +194,6 @@ registerSingleton(IOpenerService, OpenerService, InstantiationType.Delayed);
 registerSingleton(IWebWorkerService, WebWorkerService, InstantiationType.Delayed);
 registerSingleton(IMcpGalleryService, McpGalleryService, InstantiationType.Delayed);
 registerSingleton(IAllowedMcpServersService, AllowedMcpServersService, InstantiationType.Delayed);
-registerSingleton(ISessionsSetUpService, SessionsSetUpService, InstantiationType.Delayed);
 
 //#endregion
 
@@ -477,7 +475,6 @@ import './contrib/providers/agentHost/browser/exportDebugLogsAction.js';
 import './contrib/providers/agentHost/browser/agentHostSessionConfigPicker.js';
 import './contrib/providers/agentHost/browser/agentHostForkActions.js';
 import './contrib/chat/browser/customizationsDebugLog.contribution.js';
-import './contrib/providers/copilotChatSessions/browser/copilotChatSessions.contribution.js';
 import './contrib/sessions/browser/sessions.contribution.js';
 import './services/sessions/browser/sessionsListModelService.js';
 import './services/sessions/browser/sessionGroupsService.js';

@@ -37,7 +37,7 @@ import { IPaneCompositePartService } from '../../../../workbench/services/paneco
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
 import { IAgentWorkbenchLayoutService } from '../../../browser/workbench.js';
 import { Menus } from '../../../browser/menus.js';
-import { SessionsWelcomeVisibleContext, CustomViewVisibleContext, IsQuickChatSessionContext, DesktopLayoutContext } from '../../../common/contextkeys.js';
+import { CustomViewVisibleContext, IsQuickChatSessionContext, DesktopLayoutContext } from '../../../common/contextkeys.js';
 import { logSidePanelToggle } from '../../../common/sessionsTelemetry.js';
 import { ISessionChangesService } from '../../changes/browser/sessionChangesService.js';
 import { IChangesViewService } from '../../changes/common/changesViewService.js';
@@ -465,7 +465,7 @@ export abstract class BaseLayoutController extends Disposable {
 							id: Menus.TitleBarSessionMenu,
 							group: 'navigation',
 							order: 11, // After Open in VS Code (7), Run Script (8), and Toggle Panel (10)
-							when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated())
+							when: IsAuxiliaryWindowContext.toNegated()
 						}
 					]
 				});

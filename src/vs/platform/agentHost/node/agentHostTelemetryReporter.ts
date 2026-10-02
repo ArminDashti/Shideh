@@ -22,9 +22,8 @@ import type { ToolInvokedResult } from './agentHostToolCallTracker.js';
 import type { AutomaticTitleGenerationStrategy } from './agentHostSessionTitleController.js';
 import { multiplexProperties, type IAgentHostRestrictedTelemetry, type IAgentHostRestrictedTelemetryContext } from './agentHostRestrictedTelemetry.js';
 import { AgentHostClientType } from '../common/agentHostClientInfo.js';
-import { AgentHostClientConnectionKind, AgentHostLaunchKind, AgentHostTransportKind, type AgentHostProviderSendStage, type AgentHostTurnFailureStage, type AgentHostTurnSendStage, type IAgentHostClientTelemetryContext, type IAgentProviderTurnTelemetryContext, type ICodexAccountTelemetryContext } from '../common/agentHostTelemetry.js';
+import { AgentHostClientConnectionKind, AgentHostLaunchKind, AgentHostTransportKind, type AgentHostProviderSendStage, type AgentHostTurnFailureStage, type AgentHostTurnSendStage, type IAgentHostClientTelemetryContext } from '../common/agentHostTelemetry.js';
 import { isAgentHostTelemetryService } from './agentHostTelemetryService.js';
-import { getCodexAccountTelemetryData, type CodexAccountTelemetryClassification } from './codex/codexAccountTelemetry.js';
 
 export type AgentHostUserMessageSentSource = 'direct' | 'queued';
 
@@ -218,7 +217,7 @@ interface IAgentHostTurnAttributedReport {
 	clientContext?: IAgentHostClientTelemetryContext;
 }
 
-export interface IAgentHostTurnCompletedEvent extends IAgentHostEventTelemetry, Partial<ICodexAccountTelemetryContext> {
+export interface IAgentHostTurnCompletedEvent extends IAgentHostEventTelemetry {
 	hostRootTurnOrdinal?: number;
 	hostProcessAgeMs?: number;
 	titleGenerationStrategy?: AutomaticTitleGenerationStrategy;
@@ -272,7 +271,7 @@ export interface IAgentHostTurnCompletedEvent extends IAgentHostEventTelemetry, 
 	modelCallCount: number;
 }
 
-export type IAgentHostTurnCompletedClassification = IAgentHostEventClassification & CodexAccountTelemetryClassification & {
+export type IAgentHostTurnCompletedClassification = IAgentHostEventClassification & {
 	hostRootTurnOrdinal?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'One-based root-turn ordinal over the agent host process lifetime, captured at turn start and excluding subagent turns.' };
 	hostProcessAgeMs?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Agent host process age in milliseconds captured at root turn start, not completion.' };
 	titleGenerationStrategy?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The effective persisted automatic title generation strategy captured before sending the root turn: activeAgent, utility, or deferred.' };
@@ -373,7 +372,6 @@ export interface IAgentHostTurnFailure {
 }
 
 export interface IAgentHostTurnCompletedReport extends IAgentHostTurnAttributedReport {
-	providerTelemetryContext?: IAgentProviderTurnTelemetryContext;
 	hostRootTurnOrdinal?: number;
 	hostProcessAgeMs?: number;
 	titleGenerationStrategy?: AutomaticTitleGenerationStrategy;
@@ -528,7 +526,7 @@ function normalizeTurnActivityKind(activityKind: string): AgentHostTurnActivityT
 	return turnActivityKindsByActionType[activityKind as keyof typeof turnActivityKindsByActionType] ?? 'other';
 }
 
-export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry, Partial<ICodexAccountTelemetryContext> {
+export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry {
 	provider: string;
 	agentSessionId: string;
 	chatSessionId: string;
@@ -556,7 +554,7 @@ export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry, Parti
 	permissionLevel: string | undefined;
 }
 
-export type IAgentHostTurnHungClassification = IAgentHostEventClassification & CodexAccountTelemetryClassification & {
+export type IAgentHostTurnHungClassification = IAgentHostEventClassification & {
 	provider: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The provider handling the hung agent host turn.' };
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The agent host session identifier.' };
 	chatSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The chat identifier within the agent host session.' };
@@ -587,7 +585,6 @@ export type IAgentHostTurnHungClassification = IAgentHostEventClassification & C
 };
 
 export interface IAgentHostTurnHungReport extends IAgentHostTurnAttributedReport {
-	providerTelemetryContext?: IAgentProviderTurnTelemetryContext;
 	provider: string;
 	session: string;
 	turnId: string;
@@ -1485,7 +1482,6 @@ export class AgentHostTelemetryReporter {
 		this._telemetryService.publicLog2<IAgentHostTurnCompletedEvent, IAgentHostTurnCompletedClassification>('agentHost.turnCompleted', {
 			...toInitiatorTelemetry(report.clientContext),
 			...report.telemetryContext,
-			...(report.provider === 'codex' ? getCodexAccountTelemetryData(report.providerTelemetryContext?.codex) : undefined),
 			...(report.hostRootTurnOrdinal !== undefined ? { hostRootTurnOrdinal: report.hostRootTurnOrdinal } : {}),
 			...(report.hostProcessAgeMs !== undefined ? { hostProcessAgeMs: report.hostProcessAgeMs } : {}),
 			...(report.titleGenerationStrategy !== undefined ? { titleGenerationStrategy: report.titleGenerationStrategy } : {}),
@@ -1562,7 +1558,6 @@ export class AgentHostTelemetryReporter {
 		this._telemetryService.publicLog2<IAgentHostTurnHungEvent, IAgentHostTurnHungClassification>('agentHost.turnHung', {
 			...toInitiatorTelemetry(report.clientContext),
 			...report.telemetryContext,
-			...(report.provider === 'codex' ? getCodexAccountTelemetryData(report.providerTelemetryContext?.codex) : undefined),
 			provider: report.provider,
 			agentSessionId: AgentSession.id(session),
 			chatSessionId: getTelemetryChatSessionId(report.session),

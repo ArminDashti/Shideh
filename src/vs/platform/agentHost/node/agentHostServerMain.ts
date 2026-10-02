@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Standalone agent host server with WebSocket protocol transport.
-// Start with: node out/vs/platform/agentHost/node/agentHostServerMain.js [--port <port>] [--host <host>] [--connection-token <token>] [--connection-token-file <path>] [--without-connection-token] [--enable-mock-agent] [--claude-sdk-root <path>] [--codex-sdk-root <path>] [--quiet] [--log <level>]
+// Start with: node out/vs/platform/agentHost/node/agentHostServerMain.js [--port <port>] [--host <host>] [--connection-token <token>] [--connection-token-file <path>] [--without-connection-token] [--enable-mock-agent] [--claude-sdk-root <path>] [--quiet] [--log <level>]
 
 import { fileURLToPath } from 'url';
 
@@ -32,7 +32,6 @@ import { IProductService } from '../../product/common/productService.js';
 import { shutdownAgentHostBeforeDispose } from './agentHostShutdown.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { createAgentHostRuntime } from './agentHostBootstrap.js';
-import { IAgentConfigurationService } from './agentConfigurationService.js';
 import { IAgentHostCompletions } from './agentHostCompletions.js';
 import { IAgentHostCustomizationEnablementService } from './agentHostCustomizationEnablementService.js';
 import { IAgentHostStateManager } from './agentHostStateManager.js';
@@ -40,13 +39,10 @@ import { BANG_COMMAND_PREFIX } from './agentHostBangCommand.js';
 import { CopilotAgent } from './copilot/copilotAgent.js';
 import { ClaudeAgent } from './claude/claudeAgent.js';
 import { ClaudeSdkPackage } from './claude/claudeAgentSdkService.js';
-import { CodexAgent, CodexSdkPackage } from './codex/codexAgent.js';
-import { createCodexProviderConfiguration } from './codex/codexProviderConfiguration.js';
 import { IAgentSdkDownloader, type IAgentSdkDownloadProgress } from './agentSdkDownloader.js';
 import { IAgentHostProviderService } from './agentHostProviderService.js';
-import { AgentHostCodexEnabledConfigKey, platformRootSchema } from '../common/agentHostSchema.js';
 import { AgentModelRefreshScheduler, MODEL_REFRESH_INTERVAL_MS } from './agentModelRefreshScheduler.js';
-import { AgentHostClaudeAgentEnabledEnvVar, AgentHostClaudeSdkRootEnvVar, AgentHostCodexAgentCodexHomeEnvVar, AgentHostCodexAgentEnabledEnvVar, AgentHostCodexAgentSdkRootEnvVar, isAgentEnabled } from '../common/agentService.js';
+import { AgentHostClaudeAgentEnabledEnvVar, AgentHostClaudeSdkRootEnvVar, isAgentEnabled } from '../common/agentService.js';
 import { WebSocketProtocolServer } from './webSocketTransport.js';
 import { ProtocolServerHandler } from './protocolServerHandler.js';
 import { AgentHostClientFileSystemProvider } from '../common/agentHostClientFileSystemProvider.js';
@@ -75,12 +71,6 @@ interface IServerOptions {
 	 * for the Claude agent; empty falls through to `product.agentSdks.claude`.
 	 */
 	readonly claudeSdkRoot: string;
-	/**
-	 * Absolute path to the **SDK root directory** that contains
-	 * `node_modules/@openai/codex`. Acts as the dev override for the Codex
-	 * agent; empty falls through to `product.agentSdks.codex`.
-	 */
-	readonly codexSdkRoot: string;
 	readonly quiet: boolean;
 	/** Connection token string, or `undefined` when `--without-connection-token`. */
 	readonly connectionToken: string | undefined;
@@ -94,17 +84,14 @@ function parseServerOptions(): IServerOptions {
 	const hostIdx = argv.indexOf('--host');
 	const host = hostIdx >= 0 ? argv[hostIdx + 1] : undefined;
 	const enableMockAgent = argv.includes('--enable-mock-agent');
-	// `--claude-sdk-root` and `--codex-sdk-root` are dev overrides — they
-	// short-circuit the on-demand download from `product.agentSdks`. They must
-	// point at an SDK ROOT DIRECTORY (the parent of `node_modules/`), not the
-	// package directory or the binary file itself. Required in air-gapped
-	// deployments where the CDN is unreachable AND no product config is
-	// present; in those environments, set one of these flags or the matching
-	// env var, otherwise the corresponding provider will not register.
+	// `--claude-sdk-root` is a dev override — it short-circuits the on-demand
+	// download from `product.agentSdks`. It must point at an SDK ROOT DIRECTORY
+	// (the parent of `node_modules/`), not the package directory or the binary
+	// file itself. Required in air-gapped deployments where the CDN is
+	// unreachable AND no product config is present; in those environments, set
+	// the flag or the matching env var, otherwise the provider will not register.
 	const claudeSdkRootIdx = argv.indexOf('--claude-sdk-root');
 	const claudeSdkRoot = (claudeSdkRootIdx >= 0 ? argv[claudeSdkRootIdx + 1] : process.env[AgentHostClaudeSdkRootEnvVar]) ?? '';
-	const codexSdkRootIdx = argv.indexOf('--codex-sdk-root');
-	const codexSdkRoot = (codexSdkRootIdx >= 0 ? argv[codexSdkRootIdx + 1] : process.env[AgentHostCodexAgentSdkRootEnvVar]) ?? '';
 	const quiet = argv.includes('--quiet');
 
 	// Connection token
@@ -147,7 +134,7 @@ function parseServerOptions(): IServerOptions {
 		connectionToken = generateUuid();
 	}
 
-	return { port, host, enableMockAgent, claudeSdkRoot, codexSdkRoot, quiet, connectionToken };
+	return { port, host, enableMockAgent, claudeSdkRoot, quiet, connectionToken };
 }
 
 // ---- Main -------------------------------------------------------------------
@@ -186,9 +173,6 @@ async function main(): Promise<void> {
 		if (options.claudeSdkRoot) {
 			process.env[AgentHostClaudeSdkRootEnvVar] = options.claudeSdkRoot;
 		}
-		if (options.codexSdkRoot) {
-			process.env[AgentHostCodexAgentSdkRootEnvVar] = options.codexSdkRoot;
-		}
 	}
 
 	const runtime = await createAgentHostRuntime({
@@ -199,13 +183,12 @@ async function main(): Promise<void> {
 		disableTelemetry: options.quiet,
 		transientProxyConfiguration: false,
 		hostLaunchKind: AgentHostLaunchKind.VSCodeCLI,
-		providerConfigurations: [createCodexProviderConfiguration(environmentService.userHome, process.env[AgentHostCodexAgentCodexHomeEnvVar])],
+		providerConfigurations: [],
 		byok: { kind: 'unavailable' },
 	});
 	disposables.add(runtime);
 	const { agentService, instantiationService } = runtime;
 	const runtimeServices = instantiationService.invokeFunction(accessor => ({
-		configurationService: accessor.get(IAgentConfigurationService),
 		fileService: accessor.get(IFileService),
 		sessionDataService: accessor.get(ISessionDataService),
 		telemetryService: accessor.get(ITelemetryService),
@@ -216,7 +199,6 @@ async function main(): Promise<void> {
 		customizationEnablementService: accessor.get(IAgentHostCustomizationEnablementService),
 	}));
 	const {
-		configurationService: agentConfigurationService,
 		fileService,
 		sessionDataService,
 		agentSdkDownloader,
@@ -233,39 +215,18 @@ async function main(): Promise<void> {
 		sdkDownloadProgress = runtime.sdkDownloadProgress;
 		providerService.registerProvider(instantiationService.createInstance(CopilotAgent));
 		log('CopilotAgent registered');
-		// Claude and Codex providers are gated on two things:
-		//  1. The user-facing enable toggle (`chat.agentHost.<x>Agent.enabled`,
+		// The Claude provider is gated on two things:
+		//  1. The user-facing enable toggle (`chat.agentHost.claudeAgent.enabled`,
 		//     forwarded as an env var by the renderer-side starters; the remote
-		//     server reads the env directly). Claude defaults to on, Codex
-		//     defaults to off.
+		//     server reads the env directly). Claude defaults to on.
 		//  2. The SDK being reachable. Claude is a devDependency of this repo
 		//     so the bare-import path in `ClaudeAgentSdkService._loadSdk`
 		//     always succeeds in dev; in built/shipped server installs the
 		//     SDK comes from the CLI flag / env var dev override or a
-		//     `product.agentSdks.claude` entry. Codex is likewise a
-		//     devDependency, so `CodexAgent._resolveSdkRoot` resolves it from
-		//     `node_modules` in dev; built/shipped installs use the env-var
-		//     override or `product.agentSdks.codex`.
+		//     `product.agentSdks.claude` entry.
 		if (isAgentEnabled(process.env[AgentHostClaudeAgentEnabledEnvVar], true) && (!environmentService.isBuilt || agentSdkDownloader.isAvailable(ClaudeSdkPackage))) {
 			providerService.registerProvider(instantiationService.createInstance(ClaudeAgent));
 			log('ClaudeAgent registered');
-		}
-		if (!environmentService.isBuilt || agentSdkDownloader.isAvailable(CodexSdkPackage)) {
-			let codexRegistered = false;
-			const registerCodexIfEnabled = () => {
-				if (codexRegistered) {
-					return;
-				}
-				const enabledByEnv = isAgentEnabled(process.env[AgentHostCodexAgentEnabledEnvVar], false);
-				const enabledByRootConfig = agentConfigurationService.getRootValue(platformRootSchema, AgentHostCodexEnabledConfigKey) === true;
-				if (enabledByEnv || enabledByRootConfig) {
-					codexRegistered = true;
-					providerService.registerProvider(instantiationService.createInstance(CodexAgent));
-					log('CodexAgent registered');
-				}
-			};
-			registerCodexIfEnabled();
-			disposables.add(agentConfigurationService.onDidRootConfigChange(() => registerCodexIfEnabled()));
 		}
 	}
 

@@ -22,13 +22,13 @@ import { IActiveSession, ISessionsManagementService } from '../../../sessions/co
 import { ISessionsProvidersService } from '../../../sessions/browser/sessionsProvidersService.js';
 import { ISessionsService } from '../../../sessions/browser/sessionsService.js';
 import { ISessionsProvider } from '../../../sessions/common/sessionsProvider.js';
-import { assertCodexSkillItems, createCodexSkillCustomizations } from '../../../../../workbench/contrib/chat/test/browser/agentSessions/agentHostSkillDiscoveryTestUtils.js';
+import { assertSkillItems, createSkillCustomizations } from '../../../../../workbench/contrib/chat/test/browser/agentSessions/agentHostSkillDiscoveryTestUtils.js';
 
 suite('AgentHostCustomizationService', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('agents window exposes Codex workspace skills and validation failures from session discovery', async () => {
-		const sessionResource = URI.parse('agent-host-codex:///session-1');
+	test('agents window exposes workspace skills and validation failures from session discovery', async () => {
+		const sessionResource = URI.parse('agent-host-mycli:///session-1');
 		const session = new class extends mock<IActiveSession>() {
 			override readonly resource = sessionResource;
 			override readonly providerId = 'agenthost-test';
@@ -38,7 +38,7 @@ suite('AgentHostCustomizationService', () => {
 			override readonly id = 'agenthost-test';
 			override readonly onDidChangeCustomAgents = Event.None;
 			override readonly onDidChangeCustomizations = Event.None;
-			override getCustomizations(): Customization[] { return createCodexSkillCustomizations(); }
+			override getCustomizations(): Customization[] { return createSkillCustomizations(); }
 			override getWorkingDirectory(): string { return 'file:///workspace'; }
 			override getWorkingDirectories(): readonly string[] { return ['file:///workspace']; }
 			override getRootConfig() { return undefined; }
@@ -67,7 +67,7 @@ suite('AgentHostCustomizationService', () => {
 			new class extends mock<IAgentHostActiveClientService>() { }(),
 		));
 
-		await assertCodexSkillItems(service, sessionResource, store);
+		await assertSkillItems(service, sessionResource, store);
 	});
 
 	function createSut(provider: IAgentHostSessionsProvider, activeClientService?: IAgentHostActiveClientService): { service: AgentHostCustomizationService; sessionResource: URI } {

@@ -138,7 +138,7 @@ import { ChatEditingShowChangesAction, ViewPreviousEditsAction } from '../../cha
 import { resizeImage } from '../../chatImageUtils.js';
 import { ChatSessionPickerActionItem, IChatSessionPickerDelegate } from '../../chatSessions/chatSessionPickerActionItem.js';
 import { AgentHostChatInputPicker, AgentHostChatInputPickerActionViewItem } from '../../agentSessions/agentHost/agentHostChatInputPicker.js';
-import { getAgentHostPickerProperty, OpenAgentHostAutoApprovePickerAction, OpenAgentHostCodexApprovalsPickerAction, OpenAgentHostModePickerAction, OpenAgentHostPermissionModePickerAction, OpenAgentHostFolderPickerAction } from '../../agentSessions/agentHost/agentHostChatInputPicker.contribution.js';
+import { getAgentHostPickerProperty, OpenAgentHostAutoApprovePickerAction, OpenAgentHostModePickerAction, OpenAgentHostPermissionModePickerAction, OpenAgentHostFolderPickerAction } from '../../agentSessions/agentHost/agentHostChatInputPicker.contribution.js';
 import { AgentHostGenericConfigChips } from '../../agentSessions/agentHost/agentHostGenericConfigChips.js';
 import { AgentHostFolderPickerActionItem } from '../../agentSessions/agentHost/agentHostFolderPickerActionItem.js';
 import { IChatPhoneInputPresenter, MobileChatInputCombinedPickerActionItem } from './chatPhoneInputPresenter.js';
@@ -1512,9 +1512,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	private _usesHarnessProviderIcon(): boolean {
 		const sessionType = this.getCurrentSessionType();
-		return sessionType === SessionType.Codex
-			|| sessionType === SessionType.AgentHostClaude
-			|| sessionType === SessionType.AgentHostCodex;
+		return sessionType === SessionType.AgentHostClaude;
 	}
 
 	/**
@@ -3903,10 +3901,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			['sessions.agentHost.runningSessionModePicker', CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			['sessions.agentHost.runningSessionConfigPicker', CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			['sessions.agentHost.runningSessionPermissionModePicker', CHAT_INPUT_COMPACT_PICKER_WIDTH],
-			['sessions.agentHost.runningSessionCodexApprovalsPicker', CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			[OpenAgentHostAutoApprovePickerAction.ID, CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			[OpenAgentHostPermissionModePickerAction.ID, CHAT_INPUT_COMPACT_PICKER_WIDTH],
-			[OpenAgentHostCodexApprovalsPickerAction.ID, CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			[OpenAgentHostFolderPickerAction.ID, CHAT_INPUT_COMPACT_PICKER_WIDTH],
 			['sessions.tunnelHost.toggleSharing', 16],
 		]);

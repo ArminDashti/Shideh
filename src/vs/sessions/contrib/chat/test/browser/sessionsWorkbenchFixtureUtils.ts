@@ -22,7 +22,6 @@ import { IQuickInputService } from '../../../../../platform/quickinput/common/qu
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IsSessionsWindowContext } from '../../../../../workbench/common/contextkeys.js';
 import { ChatContextKeys } from '../../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
-import { ICodexAccountService } from '../../../../../workbench/services/agentHost/browser/codexAccountService.js';
 import { IWorkbenchAssignmentService } from '../../../../../workbench/services/assignment/common/assignmentService.js';
 import { IAuthenticationService } from '../../../../../workbench/services/authentication/common/authentication.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../../workbench/services/chat/common/chatEntitlementService.js';
@@ -155,10 +154,6 @@ export function createSessionsWorkbenchFixture(context: ComponentFixtureContext,
 		override readonly onDidChangeSentiment = Event.None;
 		override readonly onDidChangeQuotaExceeded = Event.None;
 		override readonly onDidChangeQuotaRemaining = Event.None;
-	}());
-	instantiationService.stub(ICodexAccountService, new class extends mock<ICodexAccountService>() {
-		override readonly account = { status: 'unknown' as const };
-		override readonly onDidChangeAccount = Event.None;
 	}());
 	instantiationService.stub(IQuickInputService, new class extends mock<IQuickInputService>() { }());
 	instantiationService.stub(IUriIdentityService, new class extends mock<IUriIdentityService>() {

@@ -33,7 +33,6 @@ import { ChatContextKeys } from '../../../../workbench/contrib/chat/common/actio
 import { ICustomizationHarnessService } from '../../../../workbench/contrib/chat/common/customizationHarnessService.js';
 import { ISession } from '../../../services/sessions/common/session.js';
 import { ISessionsService } from '../../../services/sessions/browser/sessionsService.js';
-import { SessionType } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { IAICustomizationMcpServerCountService } from './customizationMcpServerCount.js';
 import { OPEN_AI_CUSTOMIZATIONS_COMMAND_ID } from './customizationsConstants.js';
 
@@ -161,12 +160,6 @@ export const CUSTOMIZATION_ITEMS: ICustomizationItemConfig[] = [
 		icon: toolsIcon,
 		section: AICustomizationManagementSection.Tools,
 		isTools: true,
-	},
-	{
-		id: 'sessions.customization.harnessSettings',
-		label: localize('harnessSettings', "Codex"),
-		icon: Codicon.openai,
-		section: AICustomizationManagementSection.HarnessSettings,
 	},
 ];
 
@@ -330,7 +323,6 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 			visibilityKeys.set(config.section, key);
 		}
 		this._register(autorun(reader => {
-			const activeHarness = harnessService.activeHarness.read(reader);
 			harnessService.availableHarnesses.read(reader);
 			const descriptor = harnessService.getActiveDescriptor();
 			const hidden = new Set(descriptor.hiddenSections ?? []);
@@ -338,8 +330,7 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 				if (!config.section) {
 					continue;
 				}
-				const supported = config.section !== AICustomizationManagementSection.HarnessSettings || activeHarness === SessionType.AgentHostCodex;
-				visibilityKeys.get(config.section)!.set(!hidden.has(config.section) && supported);
+				visibilityKeys.get(config.section)!.set(!hidden.has(config.section));
 			}
 		}));
 

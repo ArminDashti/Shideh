@@ -18,7 +18,7 @@ import { IsLinuxContext } from '../../../platform/contextkey/common/contextkeys.
 import { KeybindingWeight } from '../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
 import { EditorAreaFocusContext, IsAuxiliaryWindowContext } from '../../../workbench/common/contextkeys.js';
-import { IsPhoneLayoutContext, SessionsWelcomeVisibleContext } from '../../common/contextkeys.js';
+import { IsPhoneLayoutContext } from '../../common/contextkeys.js';
 import { logSessionsInteraction } from '../../common/sessionsTelemetry.js';
 import { Menus } from '../../browser/menus.js';
 import { ISessionsService } from '../../services/sessions/browser/sessionsService.js';
@@ -30,8 +30,7 @@ import { IInstantiationService } from '../../../platform/instantiation/common/in
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { resolveRemoteFolderUri } from '../../browser/openInVSCodeUtils.js';
 import { INativeHostService } from '../../../platform/native/common/native.js';
-import { IOpenedMainWindow } from '../../../platform/window/common/window.js';
-import { OPEN_VSCODE_WINDOW_COMMAND_ID, RETURN_TO_VSCODE_EDITOR_COMMAND_ID, SHOULD_SHOW_RETURN_TO_VSCODE_EDITOR_COMMAND_ID } from '../../common/sessionCommands.js';
+import { OPEN_VSCODE_WINDOW_COMMAND_ID, RETURN_TO_VSCODE_EDITOR_COMMAND_ID } from '../../common/sessionCommands.js';
 import { IActiveSession } from '../../services/sessions/common/sessionsManagement.js';
 
 export class OpenSessionInVSCodeAction extends Action2 {
@@ -42,12 +41,12 @@ export class OpenSessionInVSCodeAction extends Action2 {
 			id: OpenSessionInVSCodeAction.ID,
 			title: localize2('openInVSCode', 'Open in Editor'),
 			icon: Codicon.vscodeInsiders,
-			precondition: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated()),
+			precondition: IsAuxiliaryWindowContext.toNegated(),
 			menu: [{
 				id: Menus.TitleBarCenterRight,
 				group: 'navigation',
 				order: 7,
-				when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated(), IsPhoneLayoutContext.negate()),
+				when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate()),
 			}]
 		});
 	}
@@ -134,26 +133,6 @@ export class ReturnToVSCodeEditorAction extends Action2 {
 		const nativeHostService = accessor.get(INativeHostService);
 		await returnToVSCodeEditor(nativeHostService, getWindowId(mainWindow));
 	}
-}
-
-export class ShouldShowReturnToVSCodeEditorAction extends Action2 {
-
-	constructor() {
-		super({
-			id: SHOULD_SHOW_RETURN_TO_VSCODE_EDITOR_COMMAND_ID,
-			title: localize2('shouldShowReturnToVSCodeEditor', 'Check Whether to Show Return to VS Code Editor'),
-		});
-	}
-
-	override async run(accessor: ServicesAccessor): Promise<boolean> {
-		const nativeHostService = accessor.get(INativeHostService);
-		const windows = await nativeHostService.getWindows({ includeAuxiliaryWindows: false });
-		return shouldShowReturnToVSCodeEditor(windows, getWindowId(mainWindow));
-	}
-}
-
-export function shouldShowReturnToVSCodeEditor(windows: readonly IOpenedMainWindow[], currentWindowId: number): boolean {
-	return !windows.some(window => window.id !== currentWindowId);
 }
 
 export async function returnToVSCodeEditor(nativeHostService: INativeHostService, currentWindowId: number): Promise<void> {

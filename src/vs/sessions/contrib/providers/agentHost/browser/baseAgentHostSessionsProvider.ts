@@ -19,7 +19,7 @@ import { themeColorFromId, ThemeIcon } from '../../../../../base/common/themable
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize } from '../../../../../nls.js';
-import { AgentCanvasAvailability, AgentSession, AuthenticateParams, AuthenticateResult, CODEX_AGENT_PROVIDER_ID, type IAgentCanvas, type IAgentCanvasSnapshot, type IAgentSessionChatMetadata, IAgentSessionMetadata, protectedResourcesRequireGitHubCopilotSignIn } from '../../../../../platform/agentHost/common/agent.js';
+import { AgentCanvasAvailability, AgentSession, AuthenticateParams, AuthenticateResult, type IAgentCanvas, type IAgentCanvasSnapshot, type IAgentSessionChatMetadata, IAgentSessionMetadata, protectedResourcesRequireGitHubCopilotSignIn } from '../../../../../platform/agentHost/common/agent.js';
 import { AgentMergeSessionOverrides, AgentMergeSessionState, readAgentMergeFolderState, readAgentMergeFolderStates } from '../../../../../platform/agentHost/common/agentMerge.js';
 import { readAgentSdkSetupInfos } from '../../../../../platform/agentHost/common/agentSdkSetup.js';
 import { IAgentConnection } from '../../../../../platform/agentHost/common/agentService.js';
@@ -29,7 +29,6 @@ import { AgentHostTransportFailureReason } from '../../../../../platform/agentHo
 import { supportsAgentHostArtifactRemoval } from '../../../../../platform/agentHost/common/agentHostExtensionProtocol.js';
 import { supportsAgentHostSessionImport } from '../../../../../platform/agentHost/common/meta/agentHostSessionImportMeta.js';
 import { getCustomizationDisabledReason, isCustomizationEnabled, withCustomizationEnablement } from '../../../../../platform/agentHost/common/customizationEnablement.js';
-import { readCodexAccountInfo } from '../../../../../platform/agentHost/common/codexAccount.js';
 import { buildAnnotationsUri } from '../../../../../platform/agentHost/common/annotationsUri.js';
 import { ChangesetKind } from '../../../../../platform/agentHost/common/changesetUri.js';
 import { buildOpenSessionLinkForChatResource } from '../../../../../platform/agentHost/common/openSessionLink.js';
@@ -686,10 +685,10 @@ export const CopilotCLISessionType: ISessionType = {
  *
  * An agent that still requires the GitHub Copilot protected resource needs
  * sign-in; one that has dropped the requirement is running on its own
- * credentials. Note both Claude and Codex encode "not required" by *keeping* the
+ * credentials. Note Claude encodes "not required" by *keeping* the
  * Copilot resource and marking it `required: false` rather than omitting it —
  * that lets the host silently forward a token to an already-signed-in user
- * without forcing sign-in on anyone else. This treats the two identically.
+ * without forcing sign-in on anyone else.
  *
  * The model count is the second, load-bearing half. `required: false` alone
  * would read as "usable without GitHub" even for an agent that cannot serve
@@ -3918,7 +3917,6 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	protected _syncSessionTypesFromRootState(rootState: RootState): void {
 		this._syncAgentCapabilities(rootState.agents);
 		const setupAgents = new Set(readAgentSdkSetupInfos(rootState).map(setup => setup.agent));
-		const hasSignedInCodexAccount = readCodexAccountInfo(rootState).status === 'signedIn';
 		const next = rootState.agents
 			.filter(agent => this._shouldAdvertiseAgent(agent.provider))
 			.map((agent): ISessionType => ({
@@ -3927,7 +3925,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				supportsWorktreeConfiguration: true,
 				authRequirement: resolveAgentAuthRequirement(agent),
 				initializationOnSelection: setupAgents.has(agent.provider) ? {
-					canInitializeWithoutGitHub: agent.provider === CODEX_AGENT_PROVIDER_ID && hasSignedInCodexAccount,
+					canInitializeWithoutGitHub: false,
 				} : undefined,
 				// The chat session contribution and language models for an agent-host
 				// agent are registered under its resource scheme (`agent-host-<provider>`),
@@ -3959,10 +3957,6 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 		if (provider.includes('claude')) {
 			return Codicon.claude;
-		}
-
-		if (provider === 'openai' || provider.includes('codex')) {
-			return Codicon.openai;
 		}
 
 		return undefined;
@@ -4426,7 +4420,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 		// Kick off the initial config resolve and the eager backend session
 		// in parallel after authentication settles. While auth is pending,
-		// providers such as Codex reject both paths with AuthRequired; the
+		// providers may reject both paths with AuthRequired; the
 		// subclass calls _resumeNewSessionAfterAuthenticationSettles when the
 		// first auth pass completes.
 		if (connection) {

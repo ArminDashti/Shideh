@@ -35,7 +35,7 @@ import { IAgentHostUntitledProvisionalSessionService } from '../../../browser/ag
 import { IChatService } from '../../../common/chatService/chatService.js';
 import { ContributionEnablementState } from '../../../common/enablement.js';
 import { IAgentHostActiveClientService } from '../../../browser/agentSessions/agentHost/agentHostActiveClientService.js';
-import { assertCodexSkillItems, createCodexSkillCustomizations } from './agentHostSkillDiscoveryTestUtils.js';
+import { assertSkillItems, createSkillCustomizations } from './agentHostSkillDiscoveryTestUtils.js';
 
 class FakeTarget implements IAgentHostCustomizationTarget {
 	readonly enablementChanges: { readonly rawId: string; readonly enablement: readonly CustomizationEnablement[] }[] = [];
@@ -799,15 +799,15 @@ suite('WorkbenchAgentHostCustomizationService', () => {
 		return { service, subscription, sessionResource, stateWithDirectory };
 	}
 
-	test('editor window exposes Codex workspace skills and validation failures from session discovery', async () => {
-		const { service, subscription, sessionResource, stateWithDirectory } = createReadinessSut('codex');
+	test('editor window exposes workspace skills and validation failures from session discovery', async () => {
+		const { service, subscription, sessionResource, stateWithDirectory } = createReadinessSut('mycli');
 		subscription.setSnapshot({
 			...stateWithDirectory,
 			workingDirectories: ['file:///workspace'],
-			customizations: createCodexSkillCustomizations(),
+			customizations: createSkillCustomizations(),
 		});
 
-		await assertCodexSkillItems(service, sessionResource, store);
+		await assertSkillItems(service, sessionResource, store);
 	});
 
 	test('whenCustomizationsReady defers until the first snapshot rather than reporting no customizations', async () => {

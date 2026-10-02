@@ -16,7 +16,7 @@ import { createArtifactServerToolGroup, type IArtifactServerToolAccessor } from 
  * {@link getServerToolDisplay} — consulted by each provider's display layer.
  *
  * Adding a group here makes its tools available to all providers (Copilot,
- * Claude, Codex, …) and — if the group implements
+ * Claude, …) and — if the group implements
  * {@link IServerToolGroup.getDisplay} — gives them nice display everywhere for
  * free.
  *

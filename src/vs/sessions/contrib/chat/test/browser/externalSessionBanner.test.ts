@@ -34,7 +34,7 @@ suite('Sessions - External Session Banner', () => {
 	test('explains continuation and subscriptions without visibility controls when sectioning is enabled', () => {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 		const banner = disposables.add(instantiationService.createInstance(ExternalSessionBanner, $('div'), {}));
-		const descriptions = ['codex', 'copilot', 'claude'].map(sessionType => {
+		const descriptions = ['copilot', 'claude'].map(sessionType => {
 			banner.setSession(externalSession(sessionType));
 			return {
 				visible: banner.visible,
@@ -43,11 +43,6 @@ suite('Sessions - External Session Banner', () => {
 			};
 		});
 		assert.deepStrictEqual(descriptions, [
-			{
-				visible: true,
-				description: 'You can continue this session here with your ChatGPT or Copilot subscription. Choose your subscription in the model picker.',
-				controlsDisplay: 'none',
-			},
 			{
 				visible: true,
 				description: 'You can continue this session here.',
@@ -66,7 +61,7 @@ suite('Sessions - External Session Banner', () => {
 		const configurationService = new TestConfigurationService({ [SESSIONS_LIST_GROUP_EXTERNAL_SESSIONS_SETTING]: false });
 		instantiationService.stub(IConfigurationService, configurationService);
 		const banner = disposables.add(instantiationService.createInstance(ExternalSessionBanner, $('div'), {}));
-		banner.setSession(externalSession('codex'));
+		banner.setSession(externalSession('mycli'));
 		const snapshot = () => ({
 			controlsDisplay: banner.domNode.querySelector<HTMLElement>('.external-session-banner-controls')?.style.display,
 			label: banner.domNode.getAttribute('aria-label'),
@@ -93,7 +88,7 @@ suite('Sessions - External Session Banner', () => {
 		const banner = disposables.add(instantiationService.createInstance(ExternalSessionBanner, container, {
 			onDidDismissWithFocus: () => { focusRestored = true; },
 		}));
-		banner.setSession(externalSession('codex'));
+		banner.setSession(externalSession('mycli'));
 		const otherBanner = disposables.add(instantiationService.createInstance(ExternalSessionBanner, container, {}));
 		otherBanner.setSession(externalSession('claude'));
 		const close = banner.domNode.querySelector<HTMLElement>('.action-label')!;
@@ -101,7 +96,7 @@ suite('Sessions - External Session Banner', () => {
 		close.click();
 		banner.setSession(externalSession('copilot'));
 		const restoredBanner = disposables.add(instantiationService.createInstance(ExternalSessionBanner, container, {}));
-		restoredBanner.setSession(externalSession('codex'));
+		restoredBanner.setSession(externalSession('mycli'));
 		assert.deepStrictEqual({
 			visible: banner.visible,
 			otherVisible: otherBanner.visible,

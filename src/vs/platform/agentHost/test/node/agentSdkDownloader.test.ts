@@ -170,7 +170,7 @@ suite('resolveSdkTarget', () => {
 		assert.strictEqual(
 			resolveSdkTarget(fakePkg(false), { platform: 'linux', arch: 'x64', libc: 'musl' }),
 			'linux-x64',
-			'codex-style: musl host → no suffix (statically musl-linked, single SKU)',
+			'single-SKU style: musl host → no suffix (statically musl-linked, single SKU)',
 		);
 		assert.strictEqual(
 			resolveSdkTarget(fakePkg(true), { platform: 'linux', arch: 'x64', libc: 'glibc' }),
@@ -418,7 +418,7 @@ suite('AgentSdkDownloader', () => {
 
 		const restartedStorage = disposables.add(new AgentHostStorageService(storageResource, new NullLogService()));
 		const restarted = makeDownloader(undefined, NullTelemetryService, restartedStorage);
-		const otherPackage: IAgentSdkPackage = { ...ClaudeSdkPackage, id: 'codex' };
+		const otherPackage: IAgentSdkPackage = { ...ClaudeSdkPackage, id: 'mycli' };
 
 		assert.deepStrictEqual({
 			first: first.hasDownloadConsent(ClaudeSdkPackage),

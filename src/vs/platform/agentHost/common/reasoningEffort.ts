@@ -23,7 +23,6 @@ export const ReasoningEffortConfigKey = 'thinkingLevel';
 /**
  * Union of every reasoning-effort / thinking-level value surfaced by any
  * agent-host provider. Individual providers expose a subset:
- * - Codex: model-dependent, currently up to `'ultra'`
  * - Copilot / Claude: model-dependent, currently up to `'max'`
  *
  * The label/description helpers below are the single source of truth for

@@ -48,7 +48,6 @@ import { ActionType, type ActionEnvelope } from '../../common/state/sessionActio
 import type { SessionAddedParams } from '../../common/state/protocol/notifications.js';
 import { MessageKind, buildDefaultChatUri, mergeSessionWithDefaultChat, parseDefaultChatUri, type ChatState, type ISessionWithDefaultChat, type SessionState } from '../../common/state/sessionState.js';
 import { PROTOCOL_VERSION } from '../../common/state/protocol/version/registry.js';
-import { AgentHostCodexAgentBinaryArgsEnvVar, AgentHostCodexAgentCodexHomeEnvVar, AgentHostCodexAgentEnabledEnvVar } from '../../common/agentService.js';
 import {
 	AhpErrorCodes,
 	isJsonRpcNotification,
@@ -1068,7 +1067,7 @@ export async function startServer(options?: { readonly quiet?: boolean; readonly
  * Start the agent host server with the Copilot SDK agent with either a real or mocked LLM.
  * The server is started with logging enabled so the CopilotAgent is registered.
  */
-export async function startRealServer(options: { readonly homeDir: string; readonly claudeSdkRoot?: string; readonly codexSdkRoot?: string; readonly codexHomeDir?: string; readonly codexAgentEnabled?: boolean; readonly mockLlm?: boolean; readonly userDataDir?: string; readonly logLevel?: string; readonly env?: NodeJS.ProcessEnv; readonly capiReplay?: { readonly fixturePath: string; readonly mode?: CapiReplayMode; readonly workDir?: string; readonly real?: boolean; readonly allowPosixCommands?: boolean; readonly allowStaleRecordedRequest?: boolean; readonly matchModelRequestsByProjection?: boolean; readonly recordingModelResponse?: ICapiReplayResponse }; readonly existingCapiReplay?: CapiReplayProxy; readonly mockScenarios?: readonly IMockScenario[] }): Promise<IServerHandle> {
+export async function startRealServer(options: { readonly homeDir: string; readonly claudeSdkRoot?: string; readonly mockLlm?: boolean; readonly userDataDir?: string; readonly logLevel?: string; readonly env?: NodeJS.ProcessEnv; readonly capiReplay?: { readonly fixturePath: string; readonly mode?: CapiReplayMode; readonly workDir?: string; readonly real?: boolean; readonly allowPosixCommands?: boolean; readonly allowStaleRecordedRequest?: boolean; readonly matchModelRequestsByProjection?: boolean; readonly recordingModelResponse?: ICapiReplayResponse }; readonly existingCapiReplay?: CapiReplayProxy; readonly mockScenarios?: readonly IMockScenario[] }): Promise<IServerHandle> {
 	// `capiReplay` records/replays in front of the mock LLM server, so it implies
 	// a mock upstream even when `mockLlm` was not explicitly requested — unless
 	// `real` is set, in which case the proxy forwards to real CAPI/GitHub.
@@ -1113,9 +1112,6 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 		if (options.claudeSdkRoot) {
 			args.push('--claude-sdk-root', options.claudeSdkRoot);
 		}
-		if (options.codexSdkRoot) {
-			args.push('--codex-sdk-root', options.codexSdkRoot);
-		}
 		if (options.userDataDir) {
 			args.push('--user-data-dir', options.userDataDir);
 		}
@@ -1124,12 +1120,6 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 		}
 		const childEnv = withAgentHostCoverage({
 			...createIsolatedProviderEnvironment(options.homeDir, { ...process.env, ...(options.env ?? {}) }),
-			...(options.codexHomeDir ? { [AgentHostCodexAgentCodexHomeEnvVar]: options.codexHomeDir } : {}),
-			// Codex defaults to disabled; opt it in for the agent host E2E suite when a
-			// codex SDK root is supplied so the provider actually registers.
-			...(options.codexSdkRoot ? { [AgentHostCodexAgentEnabledEnvVar]: String(options.codexAgentEnabled ?? true) } : {}),
-			// Fixtures use Codex's unified exec tool, so keep record and replay on the same shell protocol.
-			...(options.codexSdkRoot && options.capiReplay ? { [AgentHostCodexAgentBinaryArgsEnvVar]: JSON.stringify(['-c', 'features.unified_exec=true']) } : {}),
 			...(realCapture ? {
 				// Real-CAPI capture/replay: route all CAPI + GitHub-API traffic through
 				// the proxy. The real GitHub token flows via the `authenticate`
@@ -1150,7 +1140,7 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 				COPILOT_DEBUG_GITHUB_API_URL: capiUrl,
 				COPILOT_API_URL: capiUrl,
 				GITHUB_COPILOT_API_TOKEN: 'smoketest-fake-agent-host-token',
-				// Route the agent host's shared CAPI client (used by the Codex /
+				// Route the agent host's shared CAPI client (used by the
 				// agent-host harnesses for model discovery + requests) at the
 				// mock/proxy instead of api.github.com, which would 401 with the
 				// fake token.

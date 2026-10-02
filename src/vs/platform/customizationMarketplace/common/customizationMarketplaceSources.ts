@@ -16,7 +16,6 @@ import { ICustomizationMarketplacePage, ICustomizationMarketplaceQuery, ICustomi
 export const enum CustomizationMarketplaceConfiguration {
 	MarketplaceEnabled = 'chat.customizations.marketplace.enabled',
 	AgentFinderPublicFeedEnabled = 'chat.customizations.marketplace.sources.publicFeed.enabled',
-	CopilotConnectorsEnabled = 'chat.customizations.copilotConnectors.enabled',
 }
 
 export const CustomizationMarketplaceSources = {
@@ -36,11 +35,6 @@ export const CustomizationMarketplaceSources = {
 		displayName: localize('customizationMarketplace.githubFeed', "GitHub Feed"),
 		enablementSetting: CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled,
 		requiresMarketplaceVisibility: true,
-	},
-	CopilotConnectors: {
-		id: 'copilotConnectors',
-		displayName: localize('customizationMarketplace.copilotConnectors', "Copilot Connectors"),
-		enablementSetting: CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled,
 	},
 } as const satisfies Record<string, ICustomizationMarketplaceSourceInfo>;
 

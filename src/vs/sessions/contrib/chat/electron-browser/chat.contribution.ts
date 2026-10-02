@@ -23,7 +23,6 @@ import { ILifecycleService, LifecyclePhase } from '../../../../workbench/service
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
-import { ISessionsSetUpService } from '../../../browser/sessionsSetUpService.js';
 import { ISessionsPartService } from '../../../services/sessions/browser/sessionsPartService.js';
 import { SessionsCopilotConfigSlashSubmitHandlerContribution } from '../browser/copilotConfigSlashSubmitHandler.js';
 import { AgentsWindowOpenSource, IAgentsWindowDraft, isAgentsWindowDraft, isAgentsWindowOpenSource } from '../../../../platform/window/common/window.js';
@@ -56,7 +55,6 @@ export class SelectAgentsFolderContribution extends Disposable implements IWorkb
 		@ISessionsService private readonly sessionsService: ISessionsService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		@ISessionsSetUpService private readonly sessionsSetUpService: ISessionsSetUpService,
 		@ILogService private readonly logService: ILogService,
 		@ISessionsPartService private readonly sessionsPartService: ISessionsPartService,
 		@IStorageService private readonly storageService: IStorageService,
@@ -121,7 +119,6 @@ export class SelectAgentsFolderContribution extends Disposable implements IWorkb
 		this._windowOpenTelemetry.value = new SessionsWindowOpenTelemetry(
 			source,
 			context,
-			() => this.sessionsSetUpService.initialSignInDialogShown,
 			() => this._getWindowOpenViewState(),
 			() => getNonArchivedSessionListCount(this.sessionsManagementService.getSessions()),
 			this.telemetryService,

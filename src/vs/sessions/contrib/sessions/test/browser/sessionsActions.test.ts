@@ -655,7 +655,7 @@ suite('Sessions - Actions', () => {
 				},
 				contextMenu: {
 					chat: 'sessionFocusedChatIsRenameTarget && sessionHeaderShowsChat',
-					session: 'sessionProviderId =~ /^(?:copilotcli|claude-agent|codex|copilotcloud|cloudagent|background|copilotcli-remote|agent-host):/ && !sessionHeaderShowsChat',
+					session: 'sessionProviderId =~ /^(?:copilotcli|claude-agent|copilotcloud|cloudagent|background|copilotcli-remote|agent-host):/ && !sessionHeaderShowsChat',
 				},
 			});
 		});

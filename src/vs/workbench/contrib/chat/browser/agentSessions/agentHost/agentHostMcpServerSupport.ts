@@ -22,7 +22,7 @@ import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE, isCopilotCliSessionType } from './
 
 const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
 const LOCAL_AGENT_HOST_SESSION_TYPE_PREFIX = 'agent-host-';
-const AGENT_HOST_PROVIDERS_WITH_GITHUB_MCP = new Set(['copilotcli', 'claude', 'codex']);
+const AGENT_HOST_PROVIDERS_WITH_GITHUB_MCP = new Set(['copilotcli', 'claude']);
 
 export const COPILOT_CHAT_GITHUB_MCP_COLLECTION_ID = extensionPrefixedIdentifier(new ExtensionIdentifier(COPILOT_CHAT_EXTENSION_ID), 'github');
 

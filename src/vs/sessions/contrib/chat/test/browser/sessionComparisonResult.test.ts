@@ -53,7 +53,7 @@ suite('Sessions - Comparison Result', () => {
 				id: 'attempt-2',
 				role: SessionComparisonParticipantRole.Attempt,
 				sessionResource: attempt2Resource,
-				harness: { providerId: 'test', sessionTypeId: 'test', label: 'Codex' },
+				harness: { providerId: 'test', sessionTypeId: 'test', label: 'MyCli' },
 				completion: { elapsedMs: 120_000, tokenCount: 25, tokenCountIsComplete: false },
 			}, {
 				id: 'judge',
@@ -207,7 +207,7 @@ suite('Sessions - Comparison Result', () => {
 		const focusAttemptDropdown = [...buttons].find(button => button.getAttribute('aria-label') === 'Focus another attempt');
 		const synthesisDropdown = [...buttons].find(button => button.getAttribute('aria-label') === 'More synthesis options');
 		const useClaude = [...buttons].find(button => button.textContent === 'Use Attempt 1');
-		const useCodex = [...buttons].find(button => button.textContent === 'Use Attempt 2');
+		const attempt2Button = [...buttons].find(button => button.textContent === 'Use Attempt 2');
 		const synthesizerDecides = [...buttons].find(button => button.textContent === 'Synthesizer Decides');
 		const startCustomSynthesis = [...buttons].find(button => button.textContent === 'Start Custom Synthesis');
 		const title = result.domNode.querySelector<HTMLElement>('.session-comparison-result-title');
@@ -333,7 +333,7 @@ suite('Sessions - Comparison Result', () => {
 		customSynthesis?.click();
 		useClaude?.click();
 		synthesizerDecides?.click();
-		useCodex?.click();
+		attempt2Button?.click();
 		startCustomSynthesis?.click();
 		await timeout(0);
 		const choiceState = {
@@ -342,9 +342,9 @@ suite('Sessions - Comparison Result', () => {
 			instructionsPanelHidden: instructionsPanel?.hidden,
 			instructionsValue: instructionsInput?.value,
 			claudePressed: useClaude?.getAttribute('aria-pressed'),
-			codexPressed: useCodex?.getAttribute('aria-pressed'),
+			attempt2Pressed: attempt2Button?.getAttribute('aria-pressed'),
 			synthesizerPressed: synthesizerDecides?.getAttribute('aria-pressed'),
-			codexLabel: useCodex?.getAttribute('aria-label'),
+			attempt2Label: attempt2Button?.getAttribute('aria-label'),
 		};
 		currentSession.set(upcastPartial<ISession>({ resource: attempt1Resource }), undefined);
 		const hiddenOutsideJudge = result.domNode.hidden;
@@ -371,7 +371,7 @@ suite('Sessions - Comparison Result', () => {
 
 		assert.deepStrictEqual({
 			content: {
-				winner: initialText.includes('Attempt 2 (Codex) won'),
+				winner: initialText.includes('Attempt 2 (MyCli) won'),
 				customize: initialText.includes('Custom Synthesis'),
 				section: initialText.includes('Error handling'),
 				approach: initialText.includes('Return typed diagnostics.'),
@@ -496,7 +496,7 @@ suite('Sessions - Comparison Result', () => {
 			},
 			accessibleContent: [
 				'Comparison result',
-				'Attempt 2 (Codex) won',
+				'Attempt 2 (MyCli) won',
 				'',
 				'Why it won',
 				'Comparison: Resolved the failure that the other attempt left open.',
@@ -509,7 +509,7 @@ suite('Sessions - Comparison Result', () => {
 				'',
 				'Attempt time and token usage',
 				'Attempt 1 (Claude): Total time 1m 35s (winner); Tokens used 38',
-				'Attempt 2 (Codex): Total time 2m; Tokens used At least 25',
+				'Attempt 2 (MyCli): Total time 2m; Tokens used At least 25',
 				'',
 				'Custom Synthesis',
 				'',
@@ -517,13 +517,13 @@ suite('Sessions - Comparison Result', () => {
 				'Choose how parse failures are represented.',
 				'Affected files: src/parser.ts',
 				'Attempt 1 (Claude): Worse choice. Throw structured errors.',
-				'Attempt 2 (Codex): Better choice. Return typed diagnostics. Selected.',
+				'Attempt 2 (MyCli): Better choice. Return typed diagnostics. Selected.',
 				'',
 				'Validation',
 				'Choose the validation scope.',
 				'Affected files: test/parser.test.ts',
 				'Attempt 1 (Claude): Neutral choice. Run parser tests.',
-				'Attempt 2 (Codex): Better choice. Run parser and integration tests. Selected.',
+				'Attempt 2 (MyCli): Better choice. Run parser and integration tests. Selected.',
 			].join('\n'),
 			layoutNotified: true,
 			panelHiddenBefore: true,
@@ -534,9 +534,9 @@ suite('Sessions - Comparison Result', () => {
 				instructionsPanelHidden: false,
 				instructionsValue: 'Preserve the public API and add focused tests.',
 				claudePressed: 'false',
-				codexPressed: 'true',
+				attempt2Pressed: 'true',
 				synthesizerPressed: 'false',
-				codexLabel: 'Attempt 2 (Codex) for Error handling. Better choice. Return typed diagnostics. Selected',
+				attempt2Label: 'Attempt 2 (MyCli) for Error handling. Better choice. Return typed diagnostics. Selected',
 			},
 			actionLayout: {
 				count: 3,
@@ -551,8 +551,8 @@ suite('Sessions - Comparison Result', () => {
 			},
 			accessibility: {
 				regionRole: 'region',
-				regionLabelWithHint: 'Attempt 2 (Codex) won. Use Option+F2 to open the comparison result in the Accessible View.',
-				regionLabelWithoutHint: 'Attempt 2 (Codex) won',
+				regionLabelWithHint: 'Attempt 2 (MyCli) won. Use Option+F2 to open the comparison result in the Accessible View.',
+				regionLabelWithoutHint: 'Attempt 2 (MyCli) won',
 				regionTabIndex: 0,
 				focusContext: true,
 				titleId: title?.id,
@@ -570,7 +570,7 @@ suite('Sessions - Comparison Result', () => {
 				instructionsDescriptionId: instructionsPanel?.querySelector('p')?.id,
 				instructionsInputLabel: 'Additional synthesis instructions',
 				startWithInstructionsLabel: 'Start recommended synthesis with the additional instructions',
-				columnHeaders: ['Decision', 'Attempt 1 (Claude)', 'Attempt 2 (Codex)', 'Synthesizer'],
+				columnHeaders: ['Decision', 'Attempt 1 (Claude)', 'Attempt 2 (MyCli)', 'Synthesizer'],
 				rowHeaderScope: 'row',
 				rationaleSections: ['primary', 'supporting'],
 				rationaleCategories: ['Comparison', 'Validation', 'Code quality', 'Solution'],
@@ -586,12 +586,12 @@ suite('Sessions - Comparison Result', () => {
 				metricsHeaders: ['Attempt', 'Total time', 'Tokens used'],
 				metricsRows: [
 					['Attempt 1 (Claude)', '1m 35s Winner', '38'],
-					['Attempt 2 (Codex)', '2m', 'At least 25'],
+					['Attempt 2 (MyCli)', '2m', 'At least 25'],
 				],
 				metricWinnerBadges: [
 					{ text: 'Winner', ariaLabel: 'Time winner' },
 				],
-				winnerLink: { text: 'Attempt 2 (Codex)', href: '#' },
+				winnerLink: { text: 'Attempt 2 (MyCli)', href: '#' },
 				otherAttemptLink: { text: 'Attempt 1 (Claude)', href: '#' },
 			},
 			metricsExpanded: true,

@@ -152,7 +152,7 @@ suite('AgentSdkSetupChannel', () => {
 		const { configuration, downloads, downloadConsents } = createChannel();
 		await timeout(0);
 
-		downloads.fire(progress('started', 'codex'));
+		downloads.fire(progress('started', 'mycli'));
 
 		assert.deepStrictEqual({
 			statuses: configuration.statuses,

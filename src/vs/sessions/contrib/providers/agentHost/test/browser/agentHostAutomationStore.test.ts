@@ -1151,7 +1151,7 @@ suite('AgentHostAutomationStore', () => {
 				title: 'Host-authored',
 				message: { text: 'Say hi.', origin: { kind: MessageKind.Automation } },
 				session: {
-					provider: 'codex',
+					provider: 'mycli',
 					model: { id: 'auto' },
 					config: {
 						mode: 'plan',
@@ -1193,7 +1193,7 @@ suite('AgentHostAutomationStore', () => {
 			updatedConfig: update?.type === ActionType.AutomationUpdateRequested ? update.changes.session?.config : undefined,
 		}, {
 			sessionTemplate: {
-				modelId: 'agent-host-codex:auto',
+				modelId: 'agent-host-mycli:auto',
 				config: { mode: 'plan' },
 			},
 			sessionResource: 'agent-host-copilotcli:/host-authored-session',

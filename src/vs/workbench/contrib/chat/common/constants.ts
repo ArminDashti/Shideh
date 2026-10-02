@@ -326,7 +326,6 @@ const chatAlwaysUnsupportedFileSchemes = new Set([
 	Schemas.vscodeUserData,
 	Schemas.extension,
 	'ccreq',
-	'openai-codex', // Codex session custom editor scheme
 ]);
 
 /** Schemes whose models are chat input editors. */

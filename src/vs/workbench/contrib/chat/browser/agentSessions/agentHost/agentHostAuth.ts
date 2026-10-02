@@ -13,24 +13,26 @@ import { readAgentModelByokIdentifier } from '../../../../../../platform/agentHo
 import { authenticationAccountId, authenticationAccountMeta } from '../../../../../../platform/agentHost/common/meta/agentAuthenticationAccount.js';
 import { deriveGitHubEndpoints } from '../../../../../../platform/github/common/githubEndpoints.js';
 import { type McpOAuthClient, type ModelSelection, type ProtectedResourceMetadata } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
-import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { copilotConnectorsScope } from '../../../../../../platform/copilotConnectors/common/copilotConnectorsRequestService.js';
-import { CustomizationMarketplaceConfiguration } from '../../../../../../platform/customizationMarketplace/common/customizationMarketplaceSources.js';
 import { type AgentInfo } from '../../../../../../platform/agentHost/common/state/sessionState.js';
+import { IDefaultAccountService } from '../../../../../../platform/defaultAccount/common/defaultAccount.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { ILabelService } from '../../../../../../platform/label/common/label.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
-import { localize } from '../../../../../../nls.js';
 import { IAuthenticationMcpAccessService } from '../../../../../services/authentication/browser/authenticationMcpAccessService.js';
 import { IAuthenticationMcpService } from '../../../../../services/authentication/browser/authenticationMcpService.js';
 import { IAuthenticationMcpUsageService } from '../../../../../services/authentication/browser/authenticationMcpUsageService.js';
 import { AuthenticationSession, getDynamicAuthenticationProviderId, IAuthenticationService } from '../../../../../services/authentication/common/authentication.js';
 import { IDynamicAuthenticationProviderStorageService } from '../../../../../services/authentication/common/dynamicAuthenticationProviderStorage.js';
-import { CHAT_SETUP_ACTION_ID } from '../../actions/chatActions.js';
-import { IChatSetupResult } from '../../chatSetup/chatSetup.js';
 import { reportAgentHostAuthRecovery, reportAgentHostAuthSignInResult, type AgentHostAuthSignInData, type AgentHostAuthTrigger } from './agentHostAuthTelemetry.js';
+
+/**
+ * Connector-scoped GitHub OAuth scope. The agent-host harness prefers GitHub
+ * sessions that carry it when resolving authentication for the GitHub API so
+ * connector-scoped sessions are used first; kept local to this file now that
+ * the Copilot Connectors product code has been removed.
+ */
+const copilotConnectorsScope = 'write:plugin_gateway_connections';
 
 /**
  * Stable identity for an agent-host MCP server, used as the key for
@@ -242,7 +244,7 @@ export class AgentHostAuthenticationRecovery {
 			return pendingRecovery;
 		}
 
-		const recovery = this._recover(accessor, key, resource, resolveAuthenticationOptions(accessor, options))
+		const recovery = this._recover(accessor, key, resource, resolveAuthenticationOptions(options))
 			.finally(() => {
 				if (this._pendingRecoveries.get(key) === recovery) {
 					this._pendingRecoveries.delete(key);
@@ -255,7 +257,7 @@ export class AgentHostAuthenticationRecovery {
 	private async _recover(accessor: ServicesAccessor, key: string, resource: ProtectedResourceMetadata, options: IResolvedAgentHostAuthenticationOptions): Promise<void> {
 		throwIfAuthenticationStale(options);
 		const authenticationService = accessor.get(IAuthenticationService);
-		const commandService = accessor.get(ICommandService);
+		const defaultAccountService = accessor.get(IDefaultAccountService);
 		const logService = accessor.get(ILogService);
 		const scopes = resource.scopes_supported ?? [];
 		const quarantinePresent = options.authTokenCache?.getRejectedSession(resource.resource, scopes) !== undefined;
@@ -328,7 +330,7 @@ export class AgentHostAuthenticationRecovery {
 			quarantinePresent,
 		});
 		const challengedToken = candidateResolution.kind === 'resolved' ? candidateResolution.session.accessToken : currentSession.accessToken;
-		const interactiveSession = await forceAuthenticationInteractively(authenticationService, commandService, logService, this._telemetryService, resource, options, 'hostChallenge', challengedToken);
+		const interactiveSession = await forceAuthenticationInteractively(authenticationService, defaultAccountService, logService, this._telemetryService, resource, options, 'hostChallenge', challengedToken);
 		throwIfAuthenticationStale(options);
 		if (!interactiveSession) {
 			return;
@@ -479,10 +481,13 @@ interface IResolvedAgentHostAuthenticationOptions extends IAgentHostAuthenticati
 	readonly preferConnectorScopedSession: boolean;
 }
 
-function resolveAuthenticationOptions(accessor: ServicesAccessor, options: IAgentHostAuthenticationOptions): IResolvedAgentHostAuthenticationOptions {
+function resolveAuthenticationOptions(options: IAgentHostAuthenticationOptions): IResolvedAgentHostAuthenticationOptions {
 	return {
 		...options,
-		preferConnectorScopedSession: accessor.get(IConfigurationService).getValue<boolean>(CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled) === true,
+		// The Copilot Connectors product (and its enablement setting) has been
+		// removed, so the connector-scoped session preference below stays
+		// dormant until a harness-owned gate replaces it.
+		preferConnectorScopedSession: false,
 	};
 }
 
@@ -558,7 +563,7 @@ export async function authenticateProtectedResources(
 ): Promise<void> {
 	const authenticationService = accessor.get(IAuthenticationService);
 	const logService = accessor.get(ILogService);
-	const resolvedOptions = resolveAuthenticationOptions(accessor, options);
+	const resolvedOptions = resolveAuthenticationOptions(options);
 	for (const agent of agents) {
 		for (const resource of agent.protectedResources ?? []) {
 			await authenticateProtectedResourceWithServices(authenticationService, logService, resource, resolvedOptions);
@@ -613,7 +618,7 @@ export async function revokeAuthenticationForRemovedSessions(
 ): Promise<void> {
 	const authenticationService = accessor.get(IAuthenticationService);
 	const logService = accessor.get(ILogService);
-	const resolvedOptions = resolveAuthenticationOptions(accessor, options);
+	const resolvedOptions = resolveAuthenticationOptions(options);
 	const reconciledResources = new Set<string>();
 	for (const agent of agents) {
 		for (const resource of agent.protectedResources ?? []) {
@@ -697,7 +702,7 @@ export async function authenticateProtectedResource(
 	resource: ProtectedResourceMetadata,
 	options: IAgentHostAuthenticationOptions,
 ): Promise<boolean> {
-	return authenticateProtectedResourceWithServices(accessor.get(IAuthenticationService), accessor.get(ILogService), resource, resolveAuthenticationOptions(accessor, options));
+	return authenticateProtectedResourceWithServices(accessor.get(IAuthenticationService), accessor.get(ILogService), resource, resolveAuthenticationOptions(options));
 }
 
 async function authenticateProtectedResourceWithServices(
@@ -790,10 +795,10 @@ export async function resolveAuthenticationInteractively(
 	options: IAgentHostAuthenticationOptions,
 ): Promise<boolean> {
 	const authenticationService = accessor.get(IAuthenticationService);
-	const commandService = accessor.get(ICommandService);
+	const defaultAccountService = accessor.get(IDefaultAccountService);
 	const logService = accessor.get(ILogService);
 	const telemetryService = accessor.get(ITelemetryService);
-	const resolvedOptions = resolveAuthenticationOptions(accessor, options);
+	const resolvedOptions = resolveAuthenticationOptions(options);
 	for (const resource of protectedResources) {
 		throwIfAuthenticationStale(options);
 		const scopes = resource.scopes_supported ?? [];
@@ -820,7 +825,7 @@ export async function resolveAuthenticationInteractively(
 			initialSessionMatch: existingSessionResolution.kind === 'signedOut' ? 'none' : 'unavailable',
 			quarantinePresent: rejectedSession !== undefined,
 		});
-		return (await forceAuthenticationInteractively(authenticationService, commandService, logService, telemetryService, resource, resolvedOptions, 'sessionCreation', rejectedSession?.accessToken)) !== undefined;
+		return (await forceAuthenticationInteractively(authenticationService, defaultAccountService, logService, telemetryService, resource, resolvedOptions, 'sessionCreation', rejectedSession?.accessToken)) !== undefined;
 	}
 
 	return false;
@@ -828,7 +833,7 @@ export async function resolveAuthenticationInteractively(
 
 async function forceAuthenticationInteractively(
 	authenticationService: IAuthenticationService,
-	commandService: ICommandService,
+	defaultAccountService: IDefaultAccountService,
 	logService: ILogService,
 	telemetryService: ITelemetryService,
 	resource: ProtectedResourceMetadata,
@@ -841,21 +846,20 @@ async function forceAuthenticationInteractively(
 	const data: AgentHostAuthSignInData = { trigger, result: 'failed', credentialChanged: undefined, sessionMatch: undefined };
 	try {
 		const scopes = resource.scopes_supported ?? [];
-		const setupResult = await commandService.executeCommand<IChatSetupResult>(CHAT_SETUP_ACTION_ID, undefined, {
-			telemetrySource: 'agentHost',
-			forceSignInDialog: true,
-			additionalScopes: scopes,
-			dialogTitle: localize('agentHost.signInDialogTitle', "Sign in to use GitHub Copilot"),
-			disableChatViewReveal: true,
-			returnResult: true,
-		});
+		let account;
+		try {
+			account = await defaultAccountService.signIn({ additionalScopes: scopes });
+		} catch (error) {
+			if (isCancellationError(error)) {
+				data.result = 'cancelled';
+				return undefined;
+			}
+			throw error;
+		}
 		throwIfAuthenticationStale(options);
-		if (setupResult?.success === undefined) {
+		if (!account) {
 			data.result = 'cancelled';
 			return undefined;
-		}
-		if (!setupResult.success) {
-			throw setupResult.error ?? new Error(localize('agentHost.signInFailed', "Failed to sign in to use GitHub Copilot."));
 		}
 		let sessionResolution = await resolveSessionForProtectedResource(authenticationService, logService, resource, options);
 		if (sessionResolution.kind === 'signedOut' && options.authTokenCache?.getRejectedSession(resource.resource, scopes)) {

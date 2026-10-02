@@ -83,9 +83,6 @@ export function defineCustomizationDiscoveryTests(context: IAgentHostE2ETestCont
 		const agent = join(workspace, '.github', 'agents', 'hello.agent.md');
 		mkdirSync(join(workspace, '.github', 'agents'), { recursive: true });
 		writeFileSync(agent, '---\nname: Hello Agent\ndescription: Handles hello requests\n---\nYou are a test agent.');
-		if (config.provider === 'codex') {
-			return [{ type: CustomizationType.Agent, path: agent }];
-		}
 		const skill = join(workspace, '.github', 'skills', 'hello-skill', 'SKILL.md');
 		const instruction = join(workspace, '.github', 'instructions', 'policy.instructions.md');
 		const hook = join(workspace, '.github', 'hooks', 'pre-tool.json');
@@ -132,13 +129,11 @@ export function defineCustomizationDiscoveryTests(context: IAgentHostE2ETestCont
 		: 'customization discovery: discover groups provider-supported fixed instruction files at the workspace root';
 	customizationDiscoveryTest(fixedInstructionTitle, async function () {
 		const workspace = createWorkspace('agent-instructions');
-		const files = config.provider === 'codex'
-			? [join(workspace, 'AGENTS.md')]
-			: [
-				join(workspace, 'AGENTS.md'),
-				join(workspace, 'CLAUDE.md'),
-				join(workspace, '.github', 'copilot-instructions.md'),
-			];
+		const files = [
+			join(workspace, 'AGENTS.md'),
+			join(workspace, 'CLAUDE.md'),
+			join(workspace, '.github', 'copilot-instructions.md'),
+		];
 		mkdirSync(join(workspace, '.github'), { recursive: true });
 		for (const file of files) {
 			writeFileSync(file, `Instructions from ${file}`);

@@ -7,7 +7,6 @@ import assert from 'assert';
 import { URI } from '../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { buildClaudeTelemetryEnv, buildOptions, buildSubprocessEnv, toClaudeMcpServers } from '../../node/claude/claudeSdkOptions.js';
-import type { ClaudeTransport, IClaudeProxyHandle } from '../../node/claude/claudeProxyService.js';
 import { McpServerType } from '../../../mcp/common/mcpPlatformTypes.js';
 import { CustomizationType, McpServerStatus, type McpServerCustomization } from '../../common/state/protocol/state.js';
 import type { IMcpServerDefinition } from '../../../agentPlugins/common/pluginParsers.js';
@@ -41,13 +40,14 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 		}
 	});
 
-	test('strips unsafe variables and forwards home paths in proxy mode', () => {
+	test('strips unsafe variables and forwards credentials + home paths', () => {
 		clearAndSet({
 			VSCODE_PID: '1234',
 			VSCODE_NLS_CONFIG: '{}',
 			ELECTRON_NO_ATTACH_CONSOLE: '1',
 			NODE_OPTIONS: '--inspect',
-			ANTHROPIC_API_KEY: 'sk-leak',
+			ANTHROPIC_API_KEY: 'sk-user-key',
+			CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-user',
 			PATH: '/usr/bin',
 			HOME: '/Users/test',
 			USERPROFILE: 'C:\\Users\\test',
@@ -59,6 +59,7 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 			runAsNode: env.ELECTRON_RUN_AS_NODE,
 			nodeOptions: env.NODE_OPTIONS,
 			anthropicKey: env.ANTHROPIC_API_KEY,
+			oauthToken: env.CLAUDE_CODE_OAUTH_TOKEN,
 			vscodePid: env.VSCODE_PID,
 			vscodeNls: env.VSCODE_NLS_CONFIG,
 			electronOther: env.ELECTRON_NO_ATTACH_CONSOLE,
@@ -69,13 +70,17 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 		}, {
 			runAsNode: '1',
 			nodeOptions: undefined,
-			anthropicKey: undefined,
+			// Inherited so the user's own credentials reach the `claude` subprocess.
+			anthropicKey: 'sk-user-key',
+			oauthToken: 'sk-ant-oat-user',
+			// Stripped — these break the Electron-node subprocess.
 			vscodePid: undefined,
 			vscodeNls: undefined,
 			electronOther: undefined,
-			path: undefined, // not explicitly forwarded; PATH is composed in settingsEnv, not subprocessEnv
+			path: '/usr/bin',
 			home: '/Users/test',
 			userProfile: 'C:\\Users\\test',
+			// Announces the originating VS Code surface to `gh`.
 			aiAgent: 'github_copilot_vscode_agent',
 		});
 	});
@@ -140,45 +145,6 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 
 		assert.strictEqual(env.ELECTRON_RUN_AS_NODE, '1');
 	});
-
-	test('native mode (proxied=false) inherits auth vars + PATH (SDK replace semantics) while still stripping VSCODE_*/ELECTRON_*/NODE_OPTIONS', () => {
-		clearAndSet({
-			VSCODE_PID: '1234',
-			ELECTRON_NO_ATTACH_CONSOLE: '1',
-			NODE_OPTIONS: '--inspect',
-			ANTHROPIC_API_KEY: 'sk-user-key',
-			CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-user',
-			PATH: '/usr/bin',
-			HOME: '/Users/test',
-		});
-
-		const env = buildSubprocessEnv(false);
-
-		assert.deepStrictEqual({
-			// Inherited so the user's own credentials reach the `claude` subprocess.
-			anthropicKey: env.ANTHROPIC_API_KEY,
-			oauthToken: env.CLAUDE_CODE_OAUTH_TOKEN,
-			path: env.PATH,
-			home: env.HOME,
-			// Still stripped — these break the Electron-node subprocess.
-			vscodePid: env.VSCODE_PID,
-			electronOther: env.ELECTRON_NO_ATTACH_CONSOLE,
-			nodeOptions: env.NODE_OPTIONS,
-			runAsNode: env.ELECTRON_RUN_AS_NODE,
-			// Announces the originating VS Code surface to `gh`.
-			aiAgent: env.AI_AGENT,
-		}, {
-			anthropicKey: 'sk-user-key',
-			oauthToken: 'sk-ant-oat-user',
-			path: '/usr/bin',
-			home: '/Users/test',
-			vscodePid: undefined,
-			electronOther: undefined,
-			nodeOptions: undefined,
-			runAsNode: '1',
-			aiAgent: 'github_copilot_vscode_agent',
-		});
-	});
 });
 
 suite('claudeSdkOptions / MCP server projection', () => {
@@ -236,13 +202,6 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	const proxyHandle: IClaudeProxyHandle = {
-		baseUrl: 'http://127.0.0.1:0',
-		nonce: 'n',
-		dispose: () => { },
-	};
-	const proxyTransport: ClaudeTransport = { kind: 'proxy', handle: proxyHandle };
-
 	function input(pluginUris: readonly URI[] | undefined) {
 		return {
 			sessionId: 's1',
@@ -261,7 +220,6 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 	test('non-empty plugins project without duplicate SDK MCP discovery', async () => {
 		const opts = await buildOptions(
 			input([URI.file('/p/a'), URI.file('/p/b')]),
-			proxyTransport,
 			() => { },
 		);
 		assert.deepStrictEqual(opts.plugins, [
@@ -271,12 +229,12 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 	});
 
 	test('empty plugins array omits Options.plugins', async () => {
-		const opts = await buildOptions(input([]), proxyTransport, () => { });
+		const opts = await buildOptions(input([]), () => { });
 		assert.strictEqual(opts.plugins, undefined);
 	});
 
 	test('undefined plugins omits Options.plugins', async () => {
-		const opts = await buildOptions(input(undefined), proxyTransport, () => { });
+		const opts = await buildOptions(input(undefined), () => { });
 		assert.strictEqual(opts.plugins, undefined);
 	});
 
@@ -287,7 +245,7 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 				{ serverCommand: ['node', 'server.js'] },
 				{ serverUrl: 'https://disabled.example.com/mcp' },
 			],
-		}, proxyTransport, () => { });
+		}, () => { });
 		assert.deepStrictEqual(typeof opts.settings === 'string' ? undefined : opts.settings?.deniedMcpServers, [
 			{ serverCommand: ['node', 'server.js'] },
 			{ serverUrl: 'https://disabled.example.com/mcp' },
@@ -298,7 +256,7 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 		const opts = await buildOptions({
 			...input(undefined),
 			getUserPromptAdditionalContext: () => 'Rename with exact casing',
-		}, proxyTransport, () => { });
+		}, () => { });
 		const hook = opts.hooks?.UserPromptSubmit?.[0].hooks[0];
 		const result = await hook?.({
 			hook_event_name: 'UserPromptSubmit',
@@ -323,7 +281,7 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 				continue: false,
 				stopReason: `${toolName}:${JSON.stringify(toolInput)}`,
 			}),
-		}, proxyTransport, () => { });
+		}, () => { });
 		const hook = opts.hooks?.PreToolUse?.[0].hooks[0];
 		const result = await hook?.({
 			hook_event_name: 'PreToolUse',
@@ -341,26 +299,8 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {
 		});
 	});
 
-	test('proxy transport sets ANTHROPIC_BASE_URL + per-session ANTHROPIC_AUTH_TOKEN', async () => {
-		const opts = await buildOptions(input(undefined), proxyTransport, () => { });
-		const env = (opts.settings as { env?: Record<string, string> }).env ?? {};
-		assert.deepStrictEqual({
-			baseUrl: env.ANTHROPIC_BASE_URL,
-			authToken: env.ANTHROPIC_AUTH_TOKEN,
-			nonessential: env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC,
-			// Projected into `settings.env`; the CLI still re-stamps `AI_AGENT`
-			// for its own Bash tool.
-			aiAgent: env.AI_AGENT,
-		}, {
-			baseUrl: 'http://127.0.0.1:0',
-			authToken: 'n.s1',
-			nonessential: '1',
-			aiAgent: 'github_copilot_vscode_agent',
-		});
-	});
-
-	test('native transport omits ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN (subprocess env carries the user credentials)', async () => {
-		const opts = await buildOptions(input(undefined), { kind: 'native' }, () => { });
+	test('buildOptions omits ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN (subprocess env carries the user credentials)', async () => {
+		const opts = await buildOptions(input(undefined), () => { });
 		const env = (opts.settings as { env?: Record<string, string> }).env ?? {};
 		assert.deepStrictEqual({
 			baseUrl: env.ANTHROPIC_BASE_URL,
@@ -378,13 +318,6 @@ suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	const proxyHandle: IClaudeProxyHandle = {
-		baseUrl: 'http://127.0.0.1:0',
-		nonce: 'n',
-		dispose: () => { },
-	};
-	const proxyTransport: ClaudeTransport = { kind: 'proxy', handle: proxyHandle };
-
 	function input(isResume: boolean, resumeSessionAt: string | undefined) {
 		return {
 			sessionId: 's1',
@@ -401,7 +334,7 @@ suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {
 	}
 
 	test('resume + resumeSessionAt projects onto Options.resume and Options.resumeSessionAt', async () => {
-		const opts = await buildOptions(input(true, 'anchor-uuid'), proxyTransport, () => { });
+		const opts = await buildOptions(input(true, 'anchor-uuid'), () => { });
 		assert.deepStrictEqual(
 			{ resume: opts.resume, sessionId: opts.sessionId, resumeSessionAt: opts.resumeSessionAt },
 			{ resume: 's1', sessionId: undefined, resumeSessionAt: 'anchor-uuid' },
@@ -409,7 +342,7 @@ suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {
 	});
 
 	test('resume without resumeSessionAt omits Options.resumeSessionAt', async () => {
-		const opts = await buildOptions(input(true, undefined), proxyTransport, () => { });
+		const opts = await buildOptions(input(true, undefined), () => { });
 		assert.deepStrictEqual(
 			{ resume: opts.resume, resumeSessionAt: opts.resumeSessionAt },
 			{ resume: 's1', resumeSessionAt: undefined },
@@ -417,7 +350,7 @@ suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {
 	});
 
 	test('non-resume startup never carries resumeSessionAt even when provided', async () => {
-		const opts = await buildOptions(input(false, 'anchor-uuid'), proxyTransport, () => { });
+		const opts = await buildOptions(input(false, 'anchor-uuid'), () => { });
 		assert.deepStrictEqual(
 			{ sessionId: opts.sessionId, resume: opts.resume, resumeSessionAt: opts.resumeSessionAt },
 			{ sessionId: 's1', resume: undefined, resumeSessionAt: undefined },
@@ -428,13 +361,6 @@ suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {
 suite('claudeSdkOptions / buildOptions additionalDirectories projection', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
-
-	const proxyHandle: IClaudeProxyHandle = {
-		baseUrl: 'http://127.0.0.1:0',
-		nonce: 'n',
-		dispose: () => { },
-	};
-	const proxyTransport: ClaudeTransport = { kind: 'proxy', handle: proxyHandle };
 
 	function input(additionalDirectories: readonly URI[] | undefined) {
 		return {
@@ -452,7 +378,7 @@ suite('claudeSdkOptions / buildOptions additionalDirectories projection', () => 
 	}
 
 	test('projects cwd from the primary and additionalDirectories from the tail', async () => {
-		const opts = await buildOptions(input([URI.file('/tmp/b'), URI.file('/tmp/c')]), proxyTransport, () => { });
+		const opts = await buildOptions(input([URI.file('/tmp/b'), URI.file('/tmp/c')]), () => { });
 		assert.deepStrictEqual(
 			{ cwd: opts.cwd, additionalDirectories: opts.additionalDirectories },
 			{ cwd: URI.file('/tmp/primary').fsPath, additionalDirectories: [URI.file('/tmp/b').fsPath, URI.file('/tmp/c').fsPath] },
@@ -460,7 +386,7 @@ suite('claudeSdkOptions / buildOptions additionalDirectories projection', () => 
 	});
 
 	test('empty additionalDirectories omits Options.additionalDirectories', async () => {
-		const opts = await buildOptions(input([]), proxyTransport, () => { });
+		const opts = await buildOptions(input([]), () => { });
 		assert.deepStrictEqual(
 			{ cwd: opts.cwd, additionalDirectories: opts.additionalDirectories },
 			{ cwd: URI.file('/tmp/primary').fsPath, additionalDirectories: undefined },
@@ -468,7 +394,7 @@ suite('claudeSdkOptions / buildOptions additionalDirectories projection', () => 
 	});
 
 	test('undefined additionalDirectories omits Options.additionalDirectories', async () => {
-		const opts = await buildOptions(input(undefined), proxyTransport, () => { });
+		const opts = await buildOptions(input(undefined), () => { });
 		assert.strictEqual(opts.additionalDirectories, undefined);
 	});
 });

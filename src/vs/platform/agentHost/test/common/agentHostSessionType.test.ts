@@ -56,13 +56,13 @@ suite('agentHostSessionType', () => {
 		assert.deepStrictEqual([
 			parseRemoteAgentHostHarness('remote-foo-copilotcli'),
 			parseRemoteAgentHostHarness('remote-foo-bar-claude'),
-			parseRemoteAgentHostHarness('remote-10.0.0.1__8080-codex'),
+			parseRemoteAgentHostHarness('remote-10.0.0.1__8080-mycli'),
 			parseRemoteAgentHostHarness('vscodeLocalChatSession'),
 			parseRemoteAgentHostHarness('remote-'),
 		], [
 			'copilotcli',
 			'claude',
-			'codex',
+			'mycli',
 			undefined,
 			undefined,
 		]);
@@ -72,13 +72,13 @@ suite('agentHostSessionType', () => {
 		assert.deepStrictEqual([
 			parseAgentHostHarness('agent-host-copilotcli'),
 			parseAgentHostHarness('agent-host-claude'),
-			parseAgentHostHarness('remote-foo-bar-codex'),
+			parseAgentHostHarness('remote-foo-bar-mycli'),
 			parseAgentHostHarness('copilotcli'),
 			parseAgentHostHarness('agent-host-'),
 		], [
 			'copilotcli',
 			'claude',
-			'codex',
+			'mycli',
 			undefined,
 			undefined,
 		]);

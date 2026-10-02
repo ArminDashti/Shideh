@@ -354,13 +354,11 @@ export interface IAgentHostE2EProviderConfig {
 	 * the Claude provider.
 	 */
 	readonly claudeSdkRoot?: string;
-	/** Optional path to a locally installed `codex` binary. Forwarded to the target's `launch`. */
-	readonly codexSdkRoot?: string;
 	readonly sessionConfig?: Readonly<Record<string, unknown>>;
 	/**
 	 * Provider implements `config.isolation: 'worktree'` and resolves the
 	 * working directory to a `.worktrees/...` path on materialization. Now
-	 * shared across all agents (Copilot, Codex, Claude) via the host-owned
+	 * shared across all agents (Copilot, Claude) via the host-owned
 	 * worktree isolation controller.
 	 */
 	readonly supportsWorktreeIsolation: boolean;
@@ -368,8 +366,8 @@ export interface IAgentHostE2EProviderConfig {
 	 * Provider routes shell commands through the host-managed custom terminal
 	 * tool (gated by {@link CopilotCliConfigKey.EnableCustomTerminalTool}),
 	 * which exposes a terminal resource whose `cwd` / `pwd` output can be
-	 * asserted. Currently true only for Copilot — Codex and Claude run shell
-	 * commands inside their own SDK subprocess and never surface a host
+	 * asserted. Currently true only for Copilot — Claude runs shell
+	 * commands inside its own SDK subprocess and never surfaces a host
 	 * terminal resource, so the worktree suite verifies isolation via the
 	 * resolved working directory alone for them.
 	 */
@@ -394,8 +392,6 @@ export interface IAgentHostE2EProviderConfig {
 	readonly shellToolResultTextUnreliable?: boolean;
 	/** Provider's file-delete shell turn can terminate its bundled runtime during Windows replay. */
 	readonly fileDeleteReplayUnstableOnWindows?: boolean;
-	/** Provider's file-create shell turn can report success during Windows replay without writing the file. */
-	readonly fileCreateReplayUnstableOnWindows?: boolean;
 	/** Provider-specific observable used to exercise entering and leaving plan mode. */
 	readonly planModeStyle?: 'session-state' | 'input-request';
 	/** Whether the provider supports additional peer chats and chat forks. */
@@ -893,17 +889,16 @@ export class AgentHostE2EServerLease {
 	private _testsOnCurrentServer = 0;
 	private _cleanupClientSeq = 1_000_000;
 	private _currentCapiReplay: ReturnType<typeof capiReplayFor> | undefined;
-	private _startOptions: { readonly claudeSdkRoot?: string; readonly codexSdkRoot?: string; readonly codexHomeDir: string; readonly homeDir: string; readonly userDataDir: string; readonly env: Readonly<Record<string, string>> };
+	private _startOptions: { readonly claudeSdkRoot?: string; readonly homeDir: string; readonly userDataDir: string; readonly env: Readonly<Record<string, string>> };
 	private readonly _target: IAgentHostTarget;
 
 	constructor(
 		private readonly _config: IAgentHostE2EProviderConfig,
-		startOptions: { readonly claudeSdkRoot?: string; readonly codexSdkRoot?: string; readonly target?: IAgentHostTarget } = {},
+		startOptions: { readonly claudeSdkRoot?: string; readonly target?: IAgentHostTarget } = {},
 	) {
 		this._target = startOptions.target ?? defaultAgentHostTarget;
 		this._startOptions = {
 			claudeSdkRoot: startOptions.claudeSdkRoot,
-			codexSdkRoot: startOptions.codexSdkRoot,
 			...this._createDataDirectories(),
 			env: {
 				[AgentHostSessionResidencyLimitEnvVar]: '0',
@@ -922,9 +917,7 @@ export class AgentHostE2EServerLease {
 	private _createDataDirectories() {
 		const homeDir = mkdtempSync(join(tmpdir(), 'vscode-agent-host-e2e-'));
 		this._dataDirs.push(homeDir);
-		const codexHomeDir = join(homeDir, '.codex');
-		mkdirSync(codexHomeDir);
-		return { homeDir, userDataDir: join(homeDir, 'user-data'), codexHomeDir };
+		return { homeDir, userDataDir: join(homeDir, 'user-data') };
 	}
 
 	/** Acquire a server + connected client for a test, returning both. */
@@ -953,7 +946,7 @@ export class AgentHostE2EServerLease {
 			});
 		} else {
 			// Only the Copilot CLI provider writes the `@github/copilot` runtime logs we
-			// capture, so only it is run verbosely; Claude/Codex use their own runtimes.
+			// capture, so only it is run verbosely; Claude uses its own runtime.
 			this._server = await this._target.launch({ ...this._startOptions, capiReplay, logLevel: this._isCopilotProvider ? 'trace' : undefined });
 			this._modelBackedTestsOnCurrentServer = 0;
 			this._testsOnCurrentServer = 0;

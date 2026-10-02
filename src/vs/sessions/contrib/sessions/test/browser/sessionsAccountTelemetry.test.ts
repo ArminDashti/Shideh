@@ -9,26 +9,21 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { mock, upcastPartial } from '../../../../../base/test/common/mock.js';
 import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ICodexAccountInfo } from '../../../../../platform/agentHost/common/codexAccount.js';
 import { IDefaultAccountService } from '../../../../../platform/defaultAccount/common/defaultAccount.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import product from '../../../../../platform/product/common/product.js';
 import { ITelemetryData, ITelemetryService, TelemetryLevel } from '../../../../../platform/telemetry/common/telemetry.js';
 import { TelemetryService } from '../../../../../platform/telemetry/common/telemetryService.js';
 import { NullTelemetryServiceShape } from '../../../../../platform/telemetry/common/telemetryUtils.js';
-import { ICodexAccountService } from '../../../../../workbench/services/agentHost/browser/codexAccountService.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../../workbench/services/chat/common/chatEntitlementService.js';
 import { SessionsAccountTelemetryContribution } from '../../browser/sessionsAccountTelemetry.js';
 
 suite('SessionsAccountTelemetryContribution', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	const weeklyWindowMins = 7 * 24 * 60;
 	const signedOutSnapshot = {
 		copilotSku: 'signedOut',
 		copilotAccountState: 'signedOut',
 		copilotQuotaPercentRemaining: undefined,
-		chatgptAccountState: 'signedOut',
-		chatgptQuotaPercentRemaining: undefined,
 	};
 
 	function createHarness(initial: {
@@ -36,7 +31,6 @@ suite('SessionsAccountTelemetryContribution', () => {
 		sku?: string;
 		anonymous?: boolean;
 		quotas?: IChatEntitlementService['quotas'];
-		account?: ICodexAccountInfo;
 		defaultAccount?: IDefaultAccountService['currentDefaultAccount'];
 		defaultAccountReady?: Promise<void>;
 		telemetryService?: ITelemetryService;
@@ -44,7 +38,6 @@ suite('SessionsAccountTelemetryContribution', () => {
 		const entitlementChanged = disposables.add(new Emitter<void>());
 		const anonymousChanged = disposables.add(new Emitter<void>());
 		const quotaChanged = disposables.add(new Emitter<void>());
-		const accountChanged = disposables.add(new Emitter<ICodexAccountInfo>());
 		const defaultAccountChanged = disposables.add(new Emitter<IDefaultAccountService['currentDefaultAccount']>());
 		const chatEntitlementService = new class extends mock<IChatEntitlementService>() {
 			override entitlement = initial.entitlement ?? ChatEntitlement.Unknown;
@@ -54,10 +47,6 @@ suite('SessionsAccountTelemetryContribution', () => {
 			override onDidChangeEntitlement = entitlementChanged.event;
 			override onDidChangeAnonymous = anonymousChanged.event;
 			override onDidChangeQuotaRemaining = quotaChanged.event;
-		};
-		const codexAccountService = new class extends mock<ICodexAccountService>() {
-			override account: ICodexAccountInfo = initial.account ?? { status: 'signedOut' };
-			override onDidChangeAccount = accountChanged.event;
 		};
 		const defaultAccountService = new class extends mock<IDefaultAccountService>() {
 			override currentDefaultAccount = initial.defaultAccount ?? null;
@@ -75,11 +64,11 @@ suite('SessionsAccountTelemetryContribution', () => {
 				}
 			}
 		};
-		const tracker = disposables.add(new SessionsAccountTelemetryContribution(telemetryService, chatEntitlementService, codexAccountService, new NullLogService(), defaultAccountService));
-		return { tracker, chatEntitlementService, codexAccountService, defaultAccountService, entitlementChanged, anonymousChanged, quotaChanged, accountChanged, defaultAccountChanged, events };
+		const tracker = disposables.add(new SessionsAccountTelemetryContribution(telemetryService, chatEntitlementService, new NullLogService(), defaultAccountService));
+		return { tracker, chatEntitlementService, defaultAccountService, entitlementChanged, anonymousChanged, quotaChanged, defaultAccountChanged, events };
 	}
 
-	test('emits one standalone startup event with one remaining-percentage metric per provider', async () => {
+	test('emits one standalone startup event with the remaining-percentage metric', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const harness = createHarness({
 				entitlement: ChatEntitlement.Pro,
@@ -90,22 +79,10 @@ suite('SessionsAccountTelemetryContribution', () => {
 					sessionRateLimit: { percentRemaining: 10, unlimited: false },
 					weeklyRateLimit: { percentRemaining: 20, unlimited: false },
 				},
-				account: {
-					status: 'signedIn',
-					email: 'private@example.com',
-					authUrl: 'https://auth.openai.com/private-token',
-					planType: 'private-plan',
-					rateLimit: { usedPercent: 90, windowDurationMins: 300 },
-					rateLimits: [
-						{ usedPercent: 90, windowDurationMins: 300 },
-						{ usedPercent: 40, windowDurationMins: weeklyWindowMins },
-					],
-				},
 			});
 			await timeout(1);
 			harness.entitlementChanged.fire();
 			harness.quotaChanged.fire();
-			harness.accountChanged.fire(harness.codexAccountService.account);
 			await timeout(30_000);
 
 			assert.deepStrictEqual(harness.events, [{
@@ -114,16 +91,14 @@ suite('SessionsAccountTelemetryContribution', () => {
 					copilotSku: 'copilot_for_individual_user',
 					copilotAccountState: 'signedIn',
 					copilotQuotaPercentRemaining: 75,
-					chatgptAccountState: 'signedIn',
-					chatgptQuotaPercentRemaining: 60,
 				},
 			}]);
 		});
 	});
 
-	test('waits for entitlement and both providers quota data instead of emitting initial-resolution changes', async () => {
+	test('waits for entitlement and quota data instead of emitting initial-resolution changes', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
-			const harness = createHarness({ entitlement: ChatEntitlement.Unresolved, account: { status: 'unknown' } });
+			const harness = createHarness({ entitlement: ChatEntitlement.Unresolved });
 			await timeout(0);
 			const eventCounts = [harness.events.length];
 			harness.chatEntitlementService.entitlement = ChatEntitlement.Pro;
@@ -135,19 +110,12 @@ suite('SessionsAccountTelemetryContribution', () => {
 			harness.quotaChanged.fire();
 			await timeout(0);
 			eventCounts.push(harness.events.length);
-			harness.codexAccountService.account = { status: 'signedIn' };
-			harness.accountChanged.fire(harness.codexAccountService.account);
-			await timeout(0);
-			eventCounts.push(harness.events.length);
-			harness.codexAccountService.account = { status: 'signedIn', rateLimit: { usedPercent: 40, windowDurationMins: weeklyWindowMins } };
-			harness.accountChanged.fire(harness.codexAccountService.account);
-			await timeout(0);
 
 			assert.deepStrictEqual({ eventCounts, events: harness.events }, {
-				eventCounts: [0, 0, 0, 0],
+				eventCounts: [0, 0, 1],
 				events: [{
 					name: 'agents/accountState',
-					data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75, chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: 60 },
+					data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75 },
 				}],
 			});
 		});
@@ -181,49 +149,45 @@ suite('SessionsAccountTelemetryContribution', () => {
 		});
 	});
 
-	test('uses the monthly chat quota when no premium quota exists and supports the legacy weekly summary', async () => {
+	test('uses the monthly chat quota when no premium quota exists', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const { events } = createHarness({
 				entitlement: ChatEntitlement.Free,
 				sku: 'free_limited_copilot',
 				quotas: { chat: { percentRemaining: 45, unlimited: false } },
-				account: { status: 'signedIn', rateLimit: { usedPercent: 80, windowDurationMins: weeklyWindowMins } },
 			});
 			await timeout(1);
 
 			assert.deepStrictEqual(events, [{
 				name: 'agents/accountState',
-				data: { copilotSku: 'free_limited_copilot', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 45, chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: 20 },
+				data: { copilotSku: 'free_limited_copilot', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 45 },
 			}]);
 		});
 	});
 
-	test('preserves zero, full, and fractional percentages with the same direction for both providers', async () => {
+	test('preserves zero, full, and fractional percentages with the same direction', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const harnesses = [0, 100, 12.5].map(remaining => createHarness({
 				entitlement: ChatEntitlement.Pro,
 				sku: 'copilot_for_individual_user',
 				quotas: { premiumChat: { percentRemaining: remaining, unlimited: false } },
-				account: { status: 'signedIn', rateLimit: { usedPercent: 100 - remaining, windowDurationMins: weeklyWindowMins } },
 			}));
 			await timeout(1);
 
-			assert.deepStrictEqual(harnesses.map(({ events }) => [events[0].data?.copilotQuotaPercentRemaining, events[0].data?.chatgptQuotaPercentRemaining]), [
-				[0, 0], [100, 100], [12.5, 12.5],
+			assert.deepStrictEqual(harnesses.map(({ events }) => [events[0].data?.copilotQuotaPercentRemaining]), [
+				[0], [100], [12.5],
 			]);
 		});
 	});
 
 	test('emits available fields at exactly the 30-second deadline and later reports quota resolution', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
-			const harness = createHarness({ entitlement: ChatEntitlement.Pro, sku: 'copilot_for_individual_user', account: { status: 'signedIn' } });
+			const harness = createHarness({ entitlement: ChatEntitlement.Pro, sku: 'copilot_for_individual_user' });
 			await timeout(29_999);
 			const beforeDeadline = [...harness.events];
 			await timeout(1);
 			harness.chatEntitlementService.quotas = { premiumChat: { percentRemaining: 0, unlimited: false } };
 			harness.quotaChanged.fire();
-			harness.codexAccountService.account = { status: 'signedIn', rateLimit: { usedPercent: 100, windowDurationMins: weeklyWindowMins } };
-			harness.accountChanged.fire(harness.codexAccountService.account);
 			await timeout(0);
 			await timeout(30_000);
 
@@ -232,14 +196,13 @@ suite('SessionsAccountTelemetryContribution', () => {
 				events: [
 					{
 						name: 'agents/accountState',
-						data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: undefined, chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: undefined },
+						data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: undefined },
 					},
 					{
 						name: 'agents/accountStateChanged',
 						data: {
 							copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 0,
-							chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: 0,
-							changeReason: 'quotaResolved', previousCopilotSku: 'copilot_for_individual_user', previousCopilotAccountState: 'signedIn', previousChatgptAccountState: 'signedIn',
+							changeReason: 'quotaResolved', previousCopilotSku: 'copilot_for_individual_user', previousCopilotAccountState: 'signedIn',
 						},
 					},
 				],
@@ -247,13 +210,12 @@ suite('SessionsAccountTelemetryContribution', () => {
 		});
 	});
 
-	test('keeps unresolved and signed-out states distinct and drops cached account quotas', async () => {
+	test('keeps unresolved and signed-out states distinct', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const harnesses = [ChatEntitlement.Unknown, ChatEntitlement.Unresolved].map(entitlement => createHarness({
 				entitlement,
 				sku: 'cached_sku',
 				quotas: { premiumChat: { percentRemaining: 50, unlimited: false } },
-				account: { status: 'signedOut', rateLimit: { usedPercent: 50, windowDurationMins: weeklyWindowMins } },
 			}));
 			await timeout(30_000);
 
@@ -267,7 +229,7 @@ suite('SessionsAccountTelemetryContribution', () => {
 	test('reports unknown rather than cached sign-out if account initialization times out', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const accountReady = new DeferredPromise<void>();
-			const harness = createHarness({ defaultAccountReady: accountReady.p, account: { status: 'unknown' } });
+			const harness = createHarness({ defaultAccountReady: accountReady.p });
 			await timeout(30_000);
 			await accountReady.complete();
 			await timeout(1);
@@ -275,13 +237,13 @@ suite('SessionsAccountTelemetryContribution', () => {
 			assert.deepStrictEqual(harness.events, [
 				{
 					name: 'agents/accountState',
-					data: { ...signedOutSnapshot, copilotSku: 'unknown', copilotAccountState: 'unknown', chatgptAccountState: 'unknown' },
+					data: { ...signedOutSnapshot, copilotSku: 'unknown', copilotAccountState: 'unknown' },
 				},
 				{
 					name: 'agents/accountStateChanged',
 					data: {
-						...signedOutSnapshot, chatgptAccountState: 'unknown',
-						changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown', previousChatgptAccountState: 'unknown',
+						...signedOutSnapshot,
+						changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown',
 					},
 				},
 			]);
@@ -315,7 +277,7 @@ suite('SessionsAccountTelemetryContribution', () => {
 						name: 'agents/accountStateChanged',
 						data: {
 							...signedOutSnapshot, copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75,
-							changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown', previousChatgptAccountState: 'signedOut',
+							changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown',
 						},
 					},
 				],
@@ -340,14 +302,14 @@ suite('SessionsAccountTelemetryContribution', () => {
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot, copilotSku: 'unknown', copilotAccountState: 'unknown',
-						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut',
 					},
 				},
 				{
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot,
-						changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'unknown', previousCopilotAccountState: 'unknown',
 					},
 				},
 			]);
@@ -371,14 +333,14 @@ suite('SessionsAccountTelemetryContribution', () => {
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot,
-						changeReason: 'accountChanged', previousCopilotSku: 'no_auth_limited_copilot', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'no_auth_limited_copilot', previousCopilotAccountState: 'signedOut',
 					},
 				},
 				{
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot, copilotSku: 'no_auth_limited_copilot',
-						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut',
 					},
 				},
 			]);
@@ -403,7 +365,7 @@ suite('SessionsAccountTelemetryContribution', () => {
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot, copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75,
-						changeReason: 'accountChanged', previousCopilotSku: 'no_auth_limited_copilot', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'no_auth_limited_copilot', previousCopilotAccountState: 'signedOut',
 					},
 				},
 			]);
@@ -416,37 +378,34 @@ suite('SessionsAccountTelemetryContribution', () => {
 				entitlement: ChatEntitlement.Business,
 				sku: 'copilot_for_business',
 				quotas: { premiumChat: { percentRemaining: 100, unlimited: true, creditsUsed: 42 } },
-				account: { status: 'signedIn', rateLimits: [] },
 			});
 			await timeout(1);
 
 			assert.deepStrictEqual(events, [{
 				name: 'agents/accountState',
-				data: { ...signedOutSnapshot, copilotSku: 'copilot_for_business', copilotAccountState: 'signedIn', chatgptAccountState: 'signedIn' },
+				data: { ...signedOutSnapshot, copilotSku: 'copilot_for_business', copilotAccountState: 'signedIn' },
 			}]);
 		});
 	});
 
-	test('omits missing, non-weekly, invalid, and expired quota percentages instead of reporting zero', async () => {
+	test('omits missing, invalid, and expired quota percentages instead of reporting zero', async () => {
 		await runWithFakedTimers({ useFakeTimers: true, startTime: 100_000 }, async () => {
 			const harnesses = [
-				createHarness({ entitlement: ChatEntitlement.Pro, account: { status: 'signedIn' } }),
-				createHarness({ account: { status: 'signedIn', rateLimit: { usedPercent: 50, windowDurationMins: 300 } } }),
-				createHarness({ account: { status: 'signedIn', rateLimit: { usedPercent: 50 } } }),
+				createHarness({ entitlement: ChatEntitlement.Pro }),
+				createHarness({}),
+				createHarness({}),
 				createHarness({
 					entitlement: ChatEntitlement.Pro,
 					quotas: { premiumChat: { percentRemaining: 50, unlimited: false, resetAt: 99 } },
-					account: { status: 'signedIn', rateLimit: { usedPercent: 50, windowDurationMins: weeklyWindowMins, resetsAt: 99 } },
 				}),
 				...[-1, 101, NaN, Infinity].map(value => createHarness({
 					entitlement: ChatEntitlement.Pro,
 					quotas: { premiumChat: { percentRemaining: value, unlimited: false } },
-					account: { status: 'signedIn', rateLimit: { usedPercent: value, windowDurationMins: weeklyWindowMins } },
 				})),
 			];
 			await timeout(30_000);
 
-			assert.deepStrictEqual(harnesses.map(({ events }) => [events[0].data?.copilotQuotaPercentRemaining, events[0].data?.chatgptQuotaPercentRemaining]), Array.from({ length: 8 }, () => [undefined, undefined]));
+			assert.deepStrictEqual(harnesses.map(({ events }) => [events[0].data?.copilotQuotaPercentRemaining]), Array.from({ length: 8 }, () => [undefined]));
 		});
 	});
 
@@ -476,52 +435,21 @@ suite('SessionsAccountTelemetryContribution', () => {
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot, copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75,
-						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut',
 					},
 				},
 				{
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot, copilotSku: 'copilot_for_individual_user_pro', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 90,
-						changeReason: 'accountChanged', previousCopilotSku: 'copilot_for_individual_user', previousCopilotAccountState: 'signedIn', previousChatgptAccountState: 'signedOut',
+						changeReason: 'accountChanged', previousCopilotSku: 'copilot_for_individual_user', previousCopilotAccountState: 'signedIn',
 					},
 				},
 				{
 					name: 'agents/accountStateChanged',
 					data: {
 						...signedOutSnapshot,
-						changeReason: 'accountChanged', previousCopilotSku: 'copilot_for_individual_user_pro', previousCopilotAccountState: 'signedIn', previousChatgptAccountState: 'signedOut',
-					},
-				},
-			]);
-		});
-	});
-
-	test('reports later ChatGPT sign-in and sign-out without retaining a signed-out quota', async () => {
-		await runWithFakedTimers({ useFakeTimers: true }, async () => {
-			const harness = createHarness();
-			await timeout(1);
-			harness.codexAccountService.account = { status: 'signedIn', rateLimit: { usedPercent: 40, windowDurationMins: weeklyWindowMins } };
-			harness.accountChanged.fire(harness.codexAccountService.account);
-			await timeout(0);
-			harness.codexAccountService.account = { ...harness.codexAccountService.account, status: 'signedOut' };
-			harness.accountChanged.fire(harness.codexAccountService.account);
-			await timeout(0);
-
-			assert.deepStrictEqual(harness.events, [
-				{ name: 'agents/accountState', data: signedOutSnapshot },
-				{
-					name: 'agents/accountStateChanged',
-					data: {
-						...signedOutSnapshot, chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: 60,
-						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedOut',
-					},
-				},
-				{
-					name: 'agents/accountStateChanged',
-					data: {
-						...signedOutSnapshot,
-						changeReason: 'accountChanged', previousCopilotSku: 'signedOut', previousCopilotAccountState: 'signedOut', previousChatgptAccountState: 'signedIn',
+						changeReason: 'accountChanged', previousCopilotSku: 'copilot_for_individual_user_pro', previousCopilotAccountState: 'signedIn',
 					},
 				},
 			]);
@@ -534,19 +462,16 @@ suite('SessionsAccountTelemetryContribution', () => {
 				entitlement: ChatEntitlement.Pro,
 				sku: 'copilot_for_individual_user',
 				quotas: { premiumChat: { percentRemaining: 75, unlimited: false } },
-				account: { status: 'signedIn', rateLimit: { usedPercent: 40, windowDurationMins: weeklyWindowMins } },
 			});
 			await timeout(1);
 			harness.chatEntitlementService.quotas = { premiumChat: { percentRemaining: 50, unlimited: false } };
 			harness.quotaChanged.fire();
-			harness.codexAccountService.account = { status: 'signedIn', email: 'private@example.com', rateLimit: { usedPercent: 60, windowDurationMins: weeklyWindowMins } };
-			harness.accountChanged.fire(harness.codexAccountService.account);
 			harness.entitlementChanged.fire();
 			await timeout(30_000);
 
 			assert.deepStrictEqual(harness.events, [{
 				name: 'agents/accountState',
-				data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75, chatgptAccountState: 'signedIn', chatgptQuotaPercentRemaining: 60 },
+				data: { copilotSku: 'copilot_for_individual_user', copilotAccountState: 'signedIn', copilotQuotaPercentRemaining: 75 },
 			}]);
 		});
 	});
@@ -563,8 +488,9 @@ suite('SessionsAccountTelemetryContribution', () => {
 			});
 			await timeout(1);
 			for (const { harness } of results) {
-				harness.codexAccountService.account = { status: 'signedIn' };
-				harness.accountChanged.fire(harness.codexAccountService.account);
+				harness.chatEntitlementService.entitlement = ChatEntitlement.Pro;
+				harness.chatEntitlementService.sku = 'copilot_for_individual_user';
+				harness.entitlementChanged.fire();
 			}
 			await timeout(0);
 
@@ -580,7 +506,7 @@ suite('SessionsAccountTelemetryContribution', () => {
 			harness.tracker.dispose();
 			await accountReady.complete();
 			harness.quotaChanged.fire();
-			harness.accountChanged.fire({ status: 'signedIn' });
+			harness.defaultAccountChanged.fire(null);
 			await timeout(30_000);
 
 			assert.deepStrictEqual(harness.events, []);

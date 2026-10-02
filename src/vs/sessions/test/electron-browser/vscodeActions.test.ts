@@ -7,10 +7,10 @@ import assert from 'assert';
 import { mock } from '../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
 import { INativeHostService } from '../../../platform/native/common/native.js';
-import { IOpenedMainWindow, IOpenEmptyWindowOptions, IOpenWindowOptions, IWindowOpenable, isFolderToOpen } from '../../../platform/window/common/window.js';
+import { IOpenEmptyWindowOptions, IOpenWindowOptions, IWindowOpenable, isFolderToOpen } from '../../../platform/window/common/window.js';
 import { constObservable } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
-import { getChatSessionToOpenInEditor, openSessionInVSCode, returnToVSCodeEditor, shouldShowReturnToVSCodeEditor } from '../../electron-browser/actions/vscodeActions.js';
+import { getChatSessionToOpenInEditor, openSessionInVSCode, returnToVSCodeEditor } from '../../electron-browser/actions/vscodeActions.js';
 import { IActiveSession } from '../../services/sessions/common/sessionsManagement.js';
 import { IChat } from '../../services/sessions/common/session.js';
 import { ISessionsProvidersService } from '../../services/sessions/browser/sessionsProvidersService.js';
@@ -19,23 +19,6 @@ import { Codicon } from '../../../base/common/codicons.js';
 
 suite('VS Code Actions', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
-
-	test('shows return action only when there is no other main window', () => {
-		const currentWindow = createWindow(1);
-		const otherWindow = createWindow(2);
-
-		assert.deepStrictEqual({
-			onlyAgentsWindow: shouldShowReturnToVSCodeEditor([currentWindow], currentWindow.id),
-			agentsWindowNotListed: shouldShowReturnToVSCodeEditor([], currentWindow.id),
-			otherWindowOpen: shouldShowReturnToVSCodeEditor([currentWindow, otherWindow], currentWindow.id),
-			onlyOtherWindowListed: shouldShowReturnToVSCodeEditor([otherWindow], currentWindow.id),
-		}, {
-			onlyAgentsWindow: true,
-			agentsWindowNotListed: true,
-			otherWindowOpen: false,
-			onlyOtherWindowListed: false,
-		});
-	});
 
 	test('opens an editor window before closing the Agents window', async () => {
 		const calls: string[] = [];
@@ -113,14 +96,6 @@ suite('VS Code Actions', () => {
 		assert.deepStrictEqual(calls, [{ empty: true }]);
 	});
 });
-
-function createWindow(id: number): IOpenedMainWindow {
-	return {
-		id,
-		title: `Window ${id}`,
-		dirty: false,
-	};
-}
 
 function createSession(id: string, isCreated: boolean, folders?: URI[]): IActiveSession {
 	const workspace = constObservable(folders ? {

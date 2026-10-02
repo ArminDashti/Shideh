@@ -88,8 +88,8 @@ export class AgentModelRefreshScheduler extends Disposable {
 
 		// Start ticking once there is at least one provider, and stop again if
 		// they all go away. Provider changes update the snapshot read by each
-		// tick without re-arming the timer: dynamically registering Codex must
-		// not postpone the next refresh for providers that were already present.
+		// tick without re-arming the timer: a provider registering late
+		// must not postpone the next refresh for providers that were already present.
 		this._register(autorun(reader => {
 			this._agents = agents.read(reader);
 			if (this._agents.length === 0) {

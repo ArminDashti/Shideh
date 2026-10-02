@@ -48,9 +48,6 @@ import { AgentHostTelemetryReporter } from '../../node/agentHostTelemetryReporte
 import { AgentHostStartupPerformance, IAgentHostStartupPerformance, NullAgentHostStartupPerformance } from '../../node/agentHostStartupPerformance.js';
 import { TestAgentHostStartupTelemetryService } from './testAgentHostStartupTelemetryService.js';
 import { IAgentSdkDownloader } from '../../node/agentSdkDownloader.js';
-import { CodexAgent } from '../../node/codex/codexAgent.js';
-import { CodexProxyService, ICodexProxyService } from '../../node/codex/codexProxyService.js';
-import { RecordingAgentSdkDownloader } from './testAgentSdkDownloader.js';
 import { IAgentHostSessionOpenTelemetry } from '../../node/agentHostSessionOpenTelemetry.js';
 import { CopilotCliConfigKey, CopilotCliVSCodeAssignmentContextKey, COPILOT_HYDRA_FUSION_MODEL_ID } from '../../common/copilotCliConfig.js';
 import { AgentHostConfigKey } from '../../common/agentHostCustomizationConfig.js';
@@ -85,7 +82,7 @@ import { CopilotExtensionsReloadToolName } from '../../node/copilot/copilotExten
 import { GITHUB_MCP_SERVER_NAME } from '../../node/shared/githubMcpServer.js';
 import { AGENT_HOST_FILE_LINK_INSTRUCTIONS } from '../../node/shared/fileLinkInstructions.js';
 import { COPILOT_AGENT_HOST_LARGE_OUTPUT_TOOL_INSTRUCTION, COPILOT_AGENT_HOST_SUBAGENT_TOOL_INSTRUCTIONS } from '../../node/copilot/prompts/toolInstructions.js';
-import { IAgentHostCheckpointService, NULL_CHECKPOINT_SERVICE } from '../../common/agentHostCheckpointService.js';
+import { NULL_CHECKPOINT_SERVICE } from '../../common/agentHostCheckpointService.js';
 import { IAgentHostReviewService, NULL_REVIEW_SERVICE } from '../../common/agentHostReviewService.js';
 import { getCopilotHomePath } from '../../../environment/common/copilotHome.js';
 import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
@@ -3348,83 +3345,6 @@ suite('CopilotAgent', () => {
 			}, {
 				githubToken: undefined,
 				models: [],
-			});
-		} finally {
-			await disposeAgent(agent);
-		}
-	});
-
-	test('keeps Codex SKU telemetry independent of concurrent Copilot authentication and clearing', async () => {
-		const copilotDiscoveryStarted = new DeferredPromise<void>();
-		const copilotDiscovery = new DeferredPromise<Response>();
-		const endpoints = createTestGitHubEndpointService();
-		const copilotApiService = disposables.add(new CopilotApiService(async (_url, options) => {
-			if (new Headers(options?.headers).get('Authorization') === 'Bearer test-token-a') {
-				copilotDiscoveryStarted.complete();
-				return copilotDiscovery.p;
-			}
-			return Response.json({ endpoints: { api: 'https://api.githubcopilot.com' }, access_type_sku: 'codex-sku' });
-		}, new NullLogService(), TEST_PRODUCT_SERVICE, endpoints));
-		const events: ITelemetryData[] = [];
-		const sdkEvents: ITelemetryData[] = [];
-		const telemetryService = disposables.add(new AgentHostTelemetryService(TelemetryService.createWithLevel({
-			telemetryLevel: TelemetryLevel.USAGE,
-			appenders: [{
-				log: (name, data) => {
-					if (name === 'agentHost.executionModeChanged') {
-						events.push({ provider: data.provider, copilotSku: data.copilotSku });
-					} else if (name === 'copilotSdk/response.success') {
-						sdkEvents.push(data);
-					}
-				},
-				flush: async () => { },
-			}],
-		}, TEST_PRODUCT_SERVICE)));
-		const { agent, instantiationService } = createTestAgentContext(disposables, {
-			copilotClient: new TestCopilotClient([]), copilotApiService, telemetryService, gitHubEndpointService: endpoints,
-		});
-		const childServices = new ServiceCollection();
-		const sdkDownloader = new RecordingAgentSdkDownloader();
-		sdkDownloader.resolvableWithoutDownload = false;
-		childServices.set(IAgentSdkDownloader, sdkDownloader);
-		childServices.set(IAgentHostCheckpointService, NULL_CHECKPOINT_SERVICE);
-		childServices.set(ICodexProxyService, disposables.add(new CodexProxyService(undefined, new NullLogService(), copilotApiService)));
-		const child = disposables.add(instantiationService.createChild(childServices));
-		const codex = disposables.add(child.createInstance(CodexAgent));
-		const reporter = new AgentHostTelemetryReporter(telemetryService);
-		const report = (provider: CodexAgent | CopilotAgent) => reporter.executionModeChanged(provider.id, AgentSession.uri(provider.id, 'sku-test').toString(), 'interactive', 'plan', 0);
-		try {
-			const authenticating = agent.authenticate('https://api.github.com', 'test-token-a');
-			await copilotDiscoveryStarted.p;
-			await codex.authenticate('https://api.github.com', 'test-token-b');
-			report(codex);
-			copilotDiscovery.complete(Response.json({ endpoints: { api: 'https://api.githubcopilot.com' }, access_type_sku: 'copilot-sku' }));
-			await authenticating;
-			report(codex);
-			report(agent);
-			await agent.authenticate('https://api.github.com', '');
-			report(codex);
-			await codex.authenticate('https://api.github.com', '');
-			await agent.authenticate('https://api.github.com', 'test-token-a');
-			report(codex);
-			await agent.refreshModels();
-			const forward = getCreatedClientOptions(agent).at(-1)?.onGitHubTelemetry;
-			assert.ok(forward);
-			await forward({
-				sessionId: 'sku-test',
-				restricted: false,
-				event: { kind: 'response.success', properties: {}, metrics: {}, exp_assignment_context: '' },
-			});
-
-			assert.deepStrictEqual({ events, sdkSkus: sdkEvents.map(event => event.copilotSku) }, {
-				events: [
-					{ provider: 'codex', copilotSku: 'codex-sku' },
-					{ provider: 'codex', copilotSku: 'codex-sku' },
-					{ provider: 'copilotcli', copilotSku: 'copilot-sku' },
-					{ provider: 'codex', copilotSku: 'codex-sku' },
-					{ provider: 'codex', copilotSku: undefined },
-				],
-				sdkSkus: ['copilot-sku'],
 			});
 		} finally {
 			await disposeAgent(agent);

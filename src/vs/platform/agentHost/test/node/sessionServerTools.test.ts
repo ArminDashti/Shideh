@@ -1023,13 +1023,13 @@ suite('SessionServerTools', () => {
 		const accessor = createAccessor({
 			listSessions: async () => {
 				catalogRequests++;
-				throw new Error('Provider codex cannot enumerate its native session catalog yet');
+				throw new Error('Provider mycli cannot enumerate its native session catalog yet');
 			},
 			onCreate: config => { created = config; },
 		});
 		const group = createSessionServerToolGroup(accessor);
 
-		const text = await group.execute(stateManager, executionContext('codex:/caller'), SessionServerToolName.CreateSession, {
+		const text = await group.execute(stateManager, executionContext('mycli:/caller'), SessionServerToolName.CreateSession, {
 			relationship: 'independent',
 			workspace: workspace.toString(),
 			prompt: 'do it',
@@ -2440,17 +2440,17 @@ suite('SessionServerTools', () => {
 	test('get_current_session does not depend on listing sessions', async () => {
 		const store = new DisposableStore();
 		const stateManager = store.add(new AgentHostStateManager(new NullLogService()));
-		const metadata = { ...sessionMeta('s1', SessionStatus.Idle, workspace), session: URI.parse('codex:/s1') };
+		const metadata = { ...sessionMeta('s1', SessionStatus.Idle, workspace), session: URI.parse('mycli:/s1') };
 		const group = createSessionServerToolGroup(createAccessor({
-			listSessions: async () => { throw new Error('Provider codex cannot enumerate its native session catalog yet'); },
+			listSessions: async () => { throw new Error('Provider mycli cannot enumerate its native session catalog yet'); },
 			getSession: async session => session.toString() === metadata.session.toString() ? metadata : undefined,
 		}));
 
-		const text = await group.execute(stateManager, executionContext('codex:/s1'), SessionServerToolName.GetCurrentSession, {});
+		const text = await group.execute(stateManager, executionContext('mycli:/s1'), SessionServerToolName.GetCurrentSession, {});
 
 		assert.deepStrictEqual(JSON.parse(text), {
-			session: 'codex:/s1',
-			openLink: 'agent-host-session://codex/s1',
+			session: 'mycli:/s1',
+			openLink: 'agent-host-session://mycli/s1',
 			title: 'title-s1',
 			status: 'idle',
 			workingDirectory: 'file:///workspace/app',

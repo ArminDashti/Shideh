@@ -41,7 +41,7 @@ import type { ISessionSandboxPolicy } from '../../../../../../../platform/agentH
 import type { RootConfigState } from '../../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { ChatConfiguration, ChatPermissionLevel } from '../../../../../../../workbench/contrib/chat/common/constants.js';
 import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownModeSchema, isWellKnownModeValue } from '../../../browser/agentHostPermissionPickerDelegate.js';
-import { getPermissionLevelMeta } from '../../../../copilotChatSessions/browser/permissionPicker.js';
+import { getPermissionLevelMeta } from '../../../../shared/browser/permissionPicker.js';
 import { IAgentHostSessionsProvider } from '../../../../../../common/agentHostSessionsProvider.js';
 import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from '../../../../../../services/sessions/browser/sessionsProvidersService.js';
 import { ISessionsProvider } from '../../../../../../services/sessions/common/sessionsProvider.js';

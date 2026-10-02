@@ -30,7 +30,6 @@ import { AgentHostAllowSignedOutWhenUsableSettingId } from '../../../../../../pl
 import { IsSessionsWindowContext } from '../../../../../common/contextkeys.js';
 import { IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { IAgentSdkSetupService } from '../../../../../services/agentHost/browser/agentSdkSetupService.js';
-import { hasSignedInCodexChatGPTAccount, ICodexAccountService } from '../../../../../services/agentHost/browser/codexAccountService.js';
 import { IChatSessionsService, SessionType } from '../../../common/chatSessionsService.js';
 import { getChatSessionTelemetryContext } from '../../../common/chatService/chatServiceTelemetry.js';
 import { ILanguageModelsService } from '../../../common/languageModels.js';
@@ -54,7 +53,7 @@ export interface ISessionTypeItem {
 const firstPartyCategory = { label: localize('chat.sessionTarget.category.agent', "Agent Types"), order: 1 };
 const otherCategory = { label: localize('chat.sessionTarget.category.other', "Other"), order: 2 };
 
-type CopilotHarnessTargetCategory = 'copilot' | 'local' | 'claude' | 'codex' | 'cloud' | 'other';
+type CopilotHarnessTargetCategory = 'copilot' | 'local' | 'claude' | 'cloud' | 'other';
 
 type CopilotHarnessTargetChangedEvent = {
 	mode: CopilotHarnessIntroductionMode;
@@ -88,9 +87,6 @@ function getCopilotHarnessTargetCategory(target: AgentSessionTarget, chatSession
 	}
 	if (target === AgentSessionProviders.AgentHostClaude || provider === 'claude') {
 		return 'claude';
-	}
-	if (target === AgentSessionProviders.Codex || target === AgentSessionProviders.AgentHostCodex || provider === 'codex') {
-		return 'codex';
 	}
 	if (target === AgentSessionProviders.Cloud) {
 		return 'cloud';
@@ -142,16 +138,14 @@ export function getConfiguredSessionTypePickerAvailability(
 	chatEntitlementService: IChatEntitlementService,
 	languageModelsService: ILanguageModelsService,
 	agentSdkSetupService: IAgentSdkSetupService,
-	codexAccountService: ICodexAccountService,
 ): SessionTypeAvailability {
 	const allowSignedOutWhenUsable = configurationService.getValue<boolean>(AgentHostAllowSignedOutWhenUsableSettingId) === true;
 	const hasAgentSdkSetup = hasAgentSdkSetupForSessionType(agentSdkSetupService.setups, type);
-	const hasProviderAccount = type === AgentSessionProviders.AgentHostCodex && hasSignedInCodexChatGPTAccount(codexAccountService.account);
 	return getSessionTypePickerAvailability(
 		type,
 		getSessionTypeAvailability(chatSessionsService, chatEntitlementService, languageModelsService, type, allowSignedOutWhenUsable),
 		allowSignedOutWhenUsable,
-		canInitializeSessionTypeOnSelection(chatEntitlementService.entitlement, allowSignedOutWhenUsable, hasAgentSdkSetup, hasProviderAccount),
+		canInitializeSessionTypeOnSelection(chatEntitlementService.entitlement, allowSignedOutWhenUsable, hasAgentSdkSetup),
 	);
 }
 
@@ -183,7 +177,6 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAgentHostEnablementService private readonly agentHostEnablementService: IAgentHostEnablementService,
 		@IAgentSdkSetupService protected readonly agentSdkSetupService: IAgentSdkSetupService,
-		@ICodexAccountService protected readonly codexAccountService: ICodexAccountService,
 		@IChatHarnessSwitchFeedbackSurveyService private readonly harnessSwitchFeedbackSurveyService: IChatHarnessSwitchFeedbackSurveyService,
 	) {
 
@@ -200,7 +193,6 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 						this.chatEntitlementService,
 						this.languageModelsService,
 						this.agentSdkSetupService,
-						this.codexAccountService,
 					);
 					actions.push(createSessionTypePickerAction(
 						action,

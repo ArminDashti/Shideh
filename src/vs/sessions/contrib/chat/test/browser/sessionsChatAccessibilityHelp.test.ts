@@ -627,7 +627,7 @@ suite('SessionsChatAccessibilityHelp', () => {
 			participants: [{
 				id: 'attempt',
 				role: SessionComparisonParticipantRole.Attempt,
-				harness: { providerId: 'test', sessionTypeId: 'test', label: 'Codex' },
+				harness: { providerId: 'test', sessionTypeId: 'test', label: 'MyCli' },
 				completion: { elapsedMs: 3_000, tokenCount: 42 },
 			}, {
 				id: 'judge',
@@ -672,13 +672,13 @@ suite('SessionsChatAccessibilityHelp', () => {
 			type: AccessibleViewType.View,
 			content: [
 				'Comparison result',
-				'Attempt 1 (Codex) won',
+				'Attempt 1 (MyCli) won',
 				'',
 				'Why it won',
 				'Best result.',
 				'',
 				'Attempt time and token usage',
-				'Attempt 1 (Codex): Total time 3s; Tokens used 42',
+				'Attempt 1 (MyCli): Total time 3s; Tokens used 42',
 			].join('\n'),
 			focusRestored: true,
 		});

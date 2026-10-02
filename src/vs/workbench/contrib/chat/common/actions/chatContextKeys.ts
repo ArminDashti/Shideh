@@ -92,7 +92,7 @@ export namespace ChatContextKeys {
 	 */
 	export const chatIsAgentHostSession = new RawContextKey<boolean>('chatIsAgentHostSession', false, { type: 'boolean', description: localize('chatIsAgentHostSession', "True when the chat widget is locked to an Agent Host session.") });
 	/**
-	 * Widget-scoped: logical Agent Host provider ID for this chat widget, e.g. `copilotcli`, `claude`, or `codex`.
+	 * Widget-scoped: logical Agent Host provider ID for this chat widget, e.g. `copilotcli` or `claude`.
 	 */
 	export const chatAgentHostProviderId = new RawContextKey<string>('chatAgentHostProviderId', '', { type: 'string', description: localize('chatAgentHostProviderId', "The Agent Host provider ID when the chat widget is locked to an Agent Host session.") });
 	/** Widget-scoped: whether the locked Agent Host provider pins an immutable primary working directory. */

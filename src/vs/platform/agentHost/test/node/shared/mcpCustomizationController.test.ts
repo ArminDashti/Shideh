@@ -713,7 +713,7 @@ suite('McpCustomizationController', () => {
 		assert.strictEqual(parseMcpChannelUri('mcp:///session/server'), undefined);
 		assert.strictEqual(parseMcpChannelUri('mcp://copilot/session-only'), undefined);
 		assert.strictEqual(parseMcpChannelUri('mcp://copilot/session/'), undefined);
-		assert.strictEqual(parseMcpChannelUri(MCP_FS_CHANNEL.replace('mcp://copilot/', 'mcp://codex/')), undefined);
+		assert.strictEqual(parseMcpChannelUri(MCP_FS_CHANNEL.replace('mcp://copilot/', 'mcp://mycli/')), undefined);
 		// Bad percent escapes must not throw — caller turns undefined
 		// into a clean Method not found, not an internal error.
 		assert.strictEqual(parseMcpChannelUri('mcp://copilot/bad%/server'), undefined);

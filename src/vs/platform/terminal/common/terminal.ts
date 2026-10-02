@@ -156,7 +156,6 @@ export const enum WindowsShellType {
 
 export const enum GeneralShellType {
 	Claude = 'claude',
-	Codex = 'codex',
 	CommandCode = 'commandcode',
 	Copilot = 'copilot',
 	Gemini = 'gemini',

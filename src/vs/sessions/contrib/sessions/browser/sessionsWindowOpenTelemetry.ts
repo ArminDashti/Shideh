@@ -28,7 +28,7 @@ export interface ISessionsWindowOpenContext {
 }
 
 export type WorkspaceHandoffState = 'notRequested' | 'notApplicable' | 'unsupportedWorkspace'
-	| 'waitingForSetup' | 'waitingForSessionView' | 'waitingForProvider' | 'providerUnavailable'
+	| 'waitingForSessionView' | 'waitingForProvider' | 'providerUnavailable'
 	| 'viewUnavailable' | 'sessionAlreadyCreated' | 'selectionRequested' | 'selectionNotApplied' | 'applied' | 'error'
 	| 'userChanged' | 'superseded' | 'cancelled' | 'preservedSession';
 
@@ -73,7 +73,6 @@ type FirstTimeWindowOpenEvent = {
 	editorMessagesWithOtherSessionInProgressAcrossWindows: number;
 	editorLastMessageSecondsAgo: number | undefined;
 	source: string;
-	signInDialogShown: boolean;
 	workspacePreselected: boolean | undefined;
 	workspacePreselectionSource: string | undefined;
 	workspaceArgumentKind: WorkspaceArgumentKind;
@@ -106,7 +105,6 @@ type FirstTimeWindowOpenClassification = {
 	editorMessagesWithOtherSessionInProgressAcrossWindows: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Editor submissions with a different session in progress in the submitting window or reported by another live editor window within a 200ms probe, counted once per message.' };
 	editorLastMessageSecondsAgo: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Seconds since the last editor message at event emission; absent if no editor message has been recorded. Never an absolute timestamp.' };
 	source: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The editor entry point used to open the Agents window.' };
-	signInDialogShown: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the initial Agents setup flow showed a sign-in dialog.' };
 	workspacePreselected: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the initial new-session view had a workspace selected. Undefined when a created session was visible.' };
 	workspacePreselectionSource: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'How the initial new-session workspace was selected: checked workspace, recent workspace, existing sessions, provided workspace, user selection, none, or unknown. Undefined when a created session was visible.' };
 	workspaceArgumentKind: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Kind of workspace argument received by the initial window open: none, local, devContainer, remote, or other. Contains no URI or authority.' };
@@ -120,7 +118,7 @@ type FirstTimeWindowOpenClassification = {
 	workspaceHistoryState: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'VS Code recent-folder history lookup state at capture: loading, loaded, or error. Loaded means a lookup completed, not that every provider is ready.' };
 	workspaceSessionFallbackState: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Existing-session workspace lookup state at capture: idle, pending, completed, error, or disabled. Completed may have found no candidate.' };
 	workspaceProviderCount: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Number of registered session providers at capture, capped at 100. Registration does not imply readiness.' };
-	workspaceHandoffState: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Initial workspace handoff state at capture: notRequested, notApplicable, unsupportedWorkspace, waitingForSetup, waitingForSessionView, waitingForProvider, providerUnavailable, viewUnavailable, sessionAlreadyCreated, selectionRequested, selectionNotApplied, applied, error, userChanged, superseded, cancelled, or preservedSession. Applied requires the target view to acknowledge its provider-resolved selection.' };
+	workspaceHandoffState: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Initial workspace handoff state at capture: notRequested, notApplicable, unsupportedWorkspace, waitingForSessionView, waitingForProvider, providerUnavailable, viewUnavailable, sessionAlreadyCreated, selectionRequested, selectionNotApplied, applied, error, userChanged, superseded, cancelled, or preservedSession. Applied requires the target view to acknowledge its provider-resolved selection.' };
 	workspaceHandoffStateAtEmission: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Latest state of the initial workspace handoff when the event is emitted, using the same states as workspaceHandoffState.' };
 	workspaceHandoffDurationMs: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Time from initial open IPC to observing the handed-off folder in the composer after selection, capped at three minutes. Undefined if not observed.' };
 	viewKindAtEmission: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'View kind at delayed emission: newSession, createdSession, or noComposer. Not a selection-settled signal.' };
@@ -145,7 +143,6 @@ export class SessionsWindowOpenTelemetry extends Disposable {
 	constructor(
 		private readonly _source: AgentsWindowOpenSource,
 		private readonly _context: ISessionsWindowOpenContext,
-		private readonly _getSignInDialogShown: () => boolean,
 		private readonly _getViewState: () => ISessionsWindowOpenViewState,
 		private readonly _getNonArchivedSessionListCount: () => number,
 		private readonly _telemetryService: ITelemetryService,
@@ -229,7 +226,6 @@ export class SessionsWindowOpenTelemetry extends Disposable {
 		this._telemetryService.publicLog2<FirstTimeWindowOpenEvent, FirstTimeWindowOpenClassification>('agents/firstTimeWindowOpen', {
 			...new EditorChatUsage(this._storageService).getTelemetry(),
 			source: this._source,
-			signInDialogShown: this._getSignInDialogShown(),
 			workspacePreselected: initialState.workspacePreselected,
 			workspacePreselectionSource: initialState.workspacePreselectionSource,
 			workspaceArgumentKind: this._context.workspaceArgumentKind,

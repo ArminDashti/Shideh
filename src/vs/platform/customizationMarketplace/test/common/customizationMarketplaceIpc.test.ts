@@ -96,7 +96,7 @@ suite('CustomizationMarketplaceIpc', () => {
 		assert.strictEqual(CUSTOMIZATION_MARKETPLACE_CHANNEL_NAME, 'customizationMarketplace');
 	});
 
-	test('the native public-feed client never forwards authenticated connector source IDs', async () => {
+	test('the native public-feed client only forwards enabled source IDs', async () => {
 		const requests: ICustomizationMarketplaceRequest[] = [];
 		const server = new CustomizationMarketplaceChannel(() => ({
 			async query(options) {
@@ -106,7 +106,6 @@ suite('CustomizationMarketplaceIpc', () => {
 		}));
 		const configuration = new TestConfigurationService({
 			[CustomizationMarketplaceConfiguration.MarketplaceEnabled]: true,
-			[CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: true,
 		});
 		disposables.add(configuration.onDidChangeConfigurationEmitter);
 		const client = new CustomizationMarketplaceChannelClient({

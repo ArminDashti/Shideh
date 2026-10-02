@@ -678,7 +678,7 @@ suite('SessionsLifecycleTracker', () => {
 		const workspaceB = createWorkspace(URI.parse('file:///ws/b'), [createFolder(URI.parse('file:///ws/b'))]);
 		const a1 = createSession('a1', { providerId: 'agenthost-first.example:1234', workspace: workspaceA });
 		const a2 = createSession('a2', { providerId: 'agenthost-second.example:5678', workspace: workspaceA });
-		const b = createSession('b', { providerId: 'default-copilot', workspace: workspaceB });
+		const b = createSession('b', { providerId: 'local-agent-host', workspace: workspaceB });
 		const noWorkspace = createSession('n', { providerId: 'agenthost-third.example:9012' });
 
 		assert.deepStrictEqual(tracker.incrementAndGetUserRequestCounters(a1), { userSessionsTotal: 1, userSessionsInWorkspace: 1, userSessionsForProvider: 1 });
@@ -691,20 +691,20 @@ suite('SessionsLifecycleTracker', () => {
 		storage.store('agentSessions.telemetry.providerSessions', JSON.stringify({
 			'agenthost-first.example:1234': 2,
 			'agenthost-second.example:5678': 3,
-			'default-copilot': 4,
+			'local-agent-host': 4,
 		}), StorageScope.APPLICATION, StorageTarget.MACHINE);
 
 		const remoteSession = createSession('remote', { providerId: 'agenthost-third.example:9012' });
-		const copilotSession = createSession('copilot', { providerId: 'default-copilot' });
+		const localSession = createSession('local', { providerId: 'local-agent-host' });
 
 		assert.deepStrictEqual([
 			tracker.incrementAndGetUserRequestCounters(remoteSession),
-			tracker.getUserRequestCounters(copilotSession),
+			tracker.getUserRequestCounters(localSession),
 			JSON.parse(storage.get('agentSessions.telemetry.providerSessions', StorageScope.APPLICATION) ?? ''),
 		], [
 			{ userSessionsTotal: 1, userSessionsInWorkspace: 0, userSessionsForProvider: 6 },
 			{ userSessionsTotal: 1, userSessionsInWorkspace: 0, userSessionsForProvider: 4 },
-			{ 'remote-agent-host': 6, 'default-copilot': 4 },
+			{ 'remote-agent-host': 6, 'local-agent-host': 4 },
 		]);
 	});
 
@@ -713,7 +713,7 @@ suite('SessionsLifecycleTracker', () => {
 		const workspaceB = createWorkspace(URI.parse('file:///ws/b'), [createFolder(URI.parse('file:///ws/b'))]);
 		const sessionToFinalize = createSession('a1', { providerId: 'agenthost-first.example:1234', workspace: workspaceA });
 		const otherSameWorkspace = createSession('a2', { providerId: 'agenthost-second.example:5678', workspace: workspaceA });
-		const otherDifferentEverything = createSession('b', { providerId: 'default-copilot', workspace: workspaceB });
+		const otherDifferentEverything = createSession('b', { providerId: 'local-agent-host', workspace: workspaceB });
 
 		tracker.recordNewChatRequestSent(sessionToFinalize);
 		tracker.incrementAndGetUserRequestCounters(sessionToFinalize);

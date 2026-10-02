@@ -39,7 +39,7 @@ export interface ISessionType {
 	/**
 	 * Whether this session type can run right now, and if it needs GitHub to do
 	 * so. Providers resolve this from what their agent advertises; it is not a
-	 * fixed trait (Claude and Codex both move between values as their own
+	 * fixed trait (Claude moves between values as its own
 	 * credentials come and go).
 	 */
 	readonly authRequirement: SessionTypeAuthRequirement;

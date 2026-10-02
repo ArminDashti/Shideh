@@ -14,7 +14,7 @@ import { isEqual } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
 import type { IAgentServerToolHost } from './agentServerTools.js';
 import type { AgentHostClientType } from './agentHostClientInfo.js';
-import type { IAgentHostClientTelemetryContext, IAgentProviderSendStageRecorder, IAgentProviderTurnTelemetryContext } from './agentHostTelemetry.js';
+import type { IAgentHostClientTelemetryContext, IAgentProviderSendStageRecorder } from './agentHostTelemetry.js';
 import type { ResolveSessionConfigResult, SessionConfigCompletionsResult } from './state/protocol/commands.js';
 import { ProtectedResourceMetadata, type Changeset, type ChatInteractivity, type ChatOrigin, type ConfigSchema, type MessageAttachment, type ModelSelection, type AgentSelection, type SessionActiveClient, type ToolCallPendingConfirmationState, type ToolDefinition, ChangesSummary } from './state/protocol/state.js';
 import type { ActionOrigin, AuthRequiredParams, SessionAction, ChatAction } from './state/sessionActions.js';
@@ -292,15 +292,12 @@ export type IAgentTurnDiagnosticSnapshot = {
 /** Well-known agent provider id for the Claude agent-host backend. */
 export const CLAUDE_AGENT_PROVIDER_ID = 'claude' as const;
 
-/** Well-known agent provider id for the Codex agent-host backend. */
-export const CODEX_AGENT_PROVIDER_ID = 'codex' as const;
-
 /** Well-known agent provider id for the Copilot CLI agent-host backend. */
 export const COPILOT_CLI_AGENT_PROVIDER_ID = 'copilotcli' as const;
 
 /**
  * Static capability facts an agent backend advertises about itself. Each flag
- * is opt-in (absent means unsupported) so single-chat agents (e.g. Codex) can omit
+ * is opt-in (absent means unsupported) so single-chat agents can omit
  * the bag entirely. Discovered over IPC alongside the rest of
  * {@link IAgentDescriptor} and surfaced to the sessions UI so features are
  * capability-gated instead of switched on the provider id.
@@ -411,7 +408,7 @@ export const GITHUB_REPO_PROTECTED_RESOURCE: ProtectedResourceMetadata = {
  * protected resource ({@link GITHUB_COPILOT_PROTECTED_RESOURCE}) with
  * `required !== false`. Provider-agnostic by design: an agent that drops the
  * resource entirely (e.g. Claude in native mode) or advertises it with
- * `required: false` (e.g. Codex on OpenAI) does not require a GitHub sign-in.
+ * `required: false` does not require a GitHub sign-in.
  *
  * An absent `required` field is treated the same as `true` (see
  * {@link ProtectedResourceMetadata.required}).
@@ -493,8 +490,6 @@ export interface IAgentChatContext {
 	readonly resource: URI;
 	readonly configurationResource: URI;
 	readonly clientTelemetryContext?: IAgentHostClientTelemetryContext;
-	/** The owning turn's immutable admission snapshot, supplied only for its send. */
-	readonly turnTelemetryContext?: IAgentProviderTurnTelemetryContext;
 	/**
 	 * The addressed chat's origin, taken verbatim from the host-owned chat
 	 * catalog, and exhaustive across every way a chat comes into existence:
@@ -1320,9 +1315,6 @@ export interface IAgent {
 
 	/** Return bounded diagnostics for an in-flight turn when supported. */
 	getTurnDiagnosticSnapshot?(chat: URI, turnId: string): IAgentTurnDiagnosticSnapshot | undefined;
-
-	/** Capture bounded provider context from cached state without I/O. */
-	captureTurnTelemetryContext?(): IAgentProviderTurnTelemetryContext;
 
 	/** Read observed usage at terminal dispatch for this exact owning turn, excluding descendants and later delivery. */
 	getTurnTokenUsage?(chat: URI, turnId: string, parentToolCallId?: string): IAgentTurnTokenUsage | undefined;

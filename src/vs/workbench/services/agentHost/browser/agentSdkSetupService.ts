@@ -16,7 +16,6 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { ICodexAccountService } from './codexAccountService.js';
 
 /** The Copilot sign-in flow, shared with `AgentHostSignedOutModelsNotification`. */
 const CHAT_SETUP_COMMAND_ID = 'workbench.action.chat.triggerSetup';
@@ -48,10 +47,10 @@ interface IAgentSdkSetupFunnelEvent {
 }
 
 type AgentSdkSetupFunnelClassification = {
-	agent: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The agent whose setup this step belongs to, e.g. claude or codex.' };
+	agent: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The agent whose setup this step belongs to, e.g. claude.' };
 	step: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Which step of the agent SDK setup funnel was reached (downloadOffered, downloadClicked, noAccount, docsClicked, gitHubSignInClicked, signInClicked, reloadClicked, resolved).' };
 	owner: 'TylerLeonhardt';
-	comment: 'Tracks how far a signed-out user gets through setting up their own Claude or Codex account.';
+	comment: 'Tracks how far a signed-out user gets through setting up their own Claude account.';
 };
 
 export interface IAgentSdkSetupService {
@@ -118,7 +117,6 @@ class AgentSdkSetupService extends Disposable implements IAgentSdkSetupService {
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@ICommandService private readonly _commandService: ICommandService,
-		@ICodexAccountService private readonly _codexAccountService: ICodexAccountService,
 	) {
 		super();
 		// `rootState` is a getter over a protocol client the host replaces on every
@@ -169,14 +167,7 @@ class AgentSdkSetupService extends Disposable implements IAgentSdkSetupService {
 	}
 
 	signIn(agent: string): void {
-		// Codex is the only agent with an in-app sign-in today, and comparing against
-		// the service's own `agent` rather than a literal keeps `'codex'` out of the
-		// workbench. A second such agent turns this comparison into a lookup.
-		if (agent !== this._codexAccountService.agent) {
-			return;
-		}
 		this._reportStep(agent, 'signInClicked');
-		this._codexAccountService.signIn();
 	}
 
 	reportSetupState(agent: string, state: AgentSdkSetupState): void {

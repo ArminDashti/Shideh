@@ -20,7 +20,7 @@ import { IsNewChatSessionContext, NewSessionOnboardingHandoffContext, SessionHar
  * three pickers that shape a session:
  *
  *  1. The workspace picker — work in one workspace or many at the same time.
- *  2. The harness picker — choose Copilot, Claude or Codex, each running the
+ *  2. The harness picker — choose Copilot or Claude, each running the
  *     agent with its own agent loop.
  *  3. The isolation picker — pick a worktree to run several tasks at once in the
  *     same workspace, fully isolated from each other.

@@ -452,13 +452,6 @@ export const AgentHostSessionSyncEnabledConfigKey = 'sessionSyncEnabled';
 /** Whether extension-provided BYOK models are enabled. */
 export const AgentHostByokModelsEnabledConfigKey = 'byokModelsEnabled';
 
-/**
- * Root config key forwarded from the renderer carrying the experiment-aware
- * value of `chat.agentHost.codexAgent.enabled`. The host registers the Codex
- * provider when this is `true`; disabling requires an agent host restart.
- */
-export const AgentHostCodexEnabledConfigKey = 'codexAgentEnabled';
-
 /** Root config key carrying the effective edit auto-approve patterns. */
 export const AgentHostEditAutoApprovePatternsConfigKey = 'editAutoApprovePatterns';
 
@@ -599,9 +592,6 @@ export const AgentHostCopilotMultiRootEnabledConfigKey = 'copilotMultiRootEnable
  * `chat.agentHost.claudeAgent.multiRootEnabled` VS Code setting.
  */
 export const AgentHostClaudeMultiRootEnabledConfigKey = 'claudeMultiRootEnabled';
-
-/** Root config key forwarded from the renderer that gates Codex multiple-working-directory support. */
-export const AgentHostCodexMultiRootEnabledConfigKey = 'codexMultiRootEnabled';
 
 /**
  * Root config key forwarded from the renderer when VS Code's
@@ -820,12 +810,6 @@ export const platformRootSchema = createSchema({
 		description: localize('agentHost.config.byokModelsEnabled.description', "Whether extension-provided BYOK models are enabled."),
 		default: false,
 	}),
-	[AgentHostCodexEnabledConfigKey]: schemaProperty<boolean>({
-		type: 'boolean',
-		title: localize('agentHost.config.codexAgentEnabled.title', "Codex Agent"),
-		description: localize('agentHost.config.codexAgentEnabled.description', "Whether the Codex provider is enabled."),
-		default: false,
-	}),
 	[AgentHostTerminalAutoApproveEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',
 		title: localize('agentHost.config.terminalAutoApproveEnabled.title', "Terminal Auto Approve"),
@@ -959,12 +943,6 @@ export const platformRootSchema = createSchema({
 		type: 'boolean',
 		title: localize('agentHost.config.claudeMultiRootEnabled.title', "Claude Multiple Working Directories"),
 		description: localize('agentHost.config.claudeMultiRootEnabled.description', "Whether the Claude provider advertises support for multiple working directories, letting a session span every folder of a multi-root workspace."),
-		default: false,
-	}),
-	[AgentHostCodexMultiRootEnabledConfigKey]: schemaProperty<boolean>({
-		type: 'boolean',
-		title: localize('agentHost.config.codexMultiRootEnabled.title', "Codex Multiple Working Directories"),
-		description: localize('agentHost.config.codexMultiRootEnabled.description', "Whether the Codex provider advertises support for multiple working directories, letting a session span every folder of a multi-root workspace."),
 		default: false,
 	}),
 	[AgentHostEditAutoApprovePatternsConfigKey]: schemaProperty<ChatEditAutoApprovePatterns>({

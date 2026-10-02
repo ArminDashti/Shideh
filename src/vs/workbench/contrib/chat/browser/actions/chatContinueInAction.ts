@@ -224,7 +224,7 @@ export class ChatContinueInSessionActionItem extends ActionWidgetDropdownActionV
 				}
 
 				// Continue in any agent host session (local `agent-host-*` or remote
-				// `remote-*`), e.g. Copilot CLI / Codex / Claude agent-host sessions.
+				// `remote-*`), e.g. Copilot CLI / Claude agent-host sessions.
 				for (const contrib of contributions) {
 					if (contrib.canDelegate && isAgentHostTarget(contrib.type)) {
 						actions.push(this.toAction(contrib.type, contrib, instantiationService, location));
@@ -520,12 +520,12 @@ export class CreateRemoteAgentJobAction {
 			// (history-import) instead of sending to the current (incompatible)
 			// session resource. This happens for any cross-type delegation in the
 			// sessions window, and whenever either the source or the target is an
-			// agent host session (e.g. Copilot CLI / Codex / Claude agent host),
+			// agent host session (e.g. Copilot CLI / Claude agent host),
 			// so delegation works from anything to any agent host session and from
 			// any agent host session to any target.
 			const isSessionsWindow = IsSessionsWindowContext.getValue(contextKeyService);
 			// Resolve a source session type that also covers dynamically-registered
-			// agent host providers (e.g. `agent-host-codex`), which are not part of
+			// agent host providers (e.g. `remote-{authority}-copilot`), which are not part of
 			// the AgentSessionProviders enum.
 			const sourceSessionType = getAgentSessionProvider(sessionResource) ?? getChatSessionType(sessionResource);
 			const handoffToNewSession = isSessionsWindow || isAgentHostTarget(continuationTargetType) || (!!sourceSessionType && isAgentHostTarget(sourceSessionType));

@@ -29,7 +29,7 @@ import { isLocation, type Location } from '../../../../../../editor/common/langu
 import type { ITextModel } from '../../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../../editor/common/services/model.js';
 import { localize } from '../../../../../../nls.js';
-import { AgentHostAllowSignedOutWhenUsableSettingId, AgentProvider, AgentSession, CODEX_AGENT_PROVIDER_ID, type IAgentConnection } from '../../../../../../platform/agentHost/common/agentService.js';
+import { AgentHostAllowSignedOutWhenUsableSettingId, AgentProvider, AgentSession, type IAgentConnection } from '../../../../../../platform/agentHost/common/agentService.js';
 import { agentHostAuthority, LOCAL_AGENT_HOST_AUTHORITY } from '../../../../../../platform/agentHost/common/agentHostUri.js';
 import { isCustomizationEnabled } from '../../../../../../platform/agentHost/common/customizationEnablement.js';
 import { findDeepestContainingWorkingDirectory } from '../../../../../../platform/agentHost/common/agentHostWorkingDirectories.js';
@@ -111,7 +111,7 @@ import { IAgentHostNewSessionFolderService, computeWorkingDirectories } from './
 import { AgentHostSnapshotController } from './agentHostSnapshotController.js';
 import { AgentHostResponseFileChangesProvider } from './agentHostResponseFileChanges.js';
 import type { AgentHostPromptCacheNotification } from './agentHostPromptCacheNotification.js';
-import { AgentHostChatInputState, codexWriterLockMessage } from './agentHostChatInputState.js';
+import { AgentHostChatInputState } from './agentHostChatInputState.js';
 import { readChatInputState } from '../../../../../../platform/agentHost/common/meta/agentHostChatInputState.js';
 import { AgentHostSandboxNotification } from './agentHostSandboxNotification.js';
 import { IChatResponseFileChangesService } from '../../chatResponseFileChangesService.js';
@@ -2095,12 +2095,6 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const error = getTurnError(turn);
 		if (!error) {
 			return undefined;
-		}
-		if (error.errorType === 'CodexThreadInUse') {
-			return {
-				message: localize('agentHost.codexThreadInUse', "{0} Then send your message again in VS Code. Your message has not been sent.", codexWriterLockMessage()),
-				isExpectedError: true,
-			};
 		}
 		const isExecutionInterrupted = error.errorType === 'executionInterrupted';
 		const forwardedDetails = getChatErrorDetailsFromMeta(error, this._chatErrorContext());
@@ -6561,11 +6555,11 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	/**
 	 * Whether this backend reads referenced files from disk (rather than seeing the editor's
 	 * in-memory buffer) and therefore needs the live text of an unsaved / dirty editor inlined as
-	 * an embedded resource. Copilot CLI and Codex both run as separate processes with only disk
+	 * an embedded resource. Copilot CLI runs as a separate process with only disk
 	 * access, so a `@path` mention (or an `untitled:` URI) would give them stale or missing content.
 	 */
 	private _backendInlinesUnsavedEditors(): boolean {
-		return this._config.provider === SessionType.CopilotCLI || this._config.provider === CODEX_AGENT_PROVIDER_ID;
+		return this._config.provider === SessionType.CopilotCLI;
 	}
 
 	/** A resource is unsaved when it's untitled or a saved file with in-memory (dirty) changes. */
@@ -6655,7 +6649,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 	private _convertVariableToAttachment(v: IChatRequestVariableEntry, sessionResource: URI, messageText: string | undefined, materializePastes = true): MessageAttachment | MessageAttachment[] | undefined {
 		const referenceRange = this._toAttachmentReferenceRange(messageText, v.range);
-		// Copilot CLI and Codex can't read unsaved content from disk, so inline the live buffer; drop unreadable schemes.
+		// Copilot CLI can't read unsaved content from disk, so inline the live buffer; drop unreadable schemes.
 		if ((v.kind === 'file' || v.kind === 'implicit') && this._backendInlinesUnsavedEditors()) {
 			const uri = isLocation(v.value) ? v.value.uri : (v.value instanceof URI ? v.value : undefined);
 			if (uri && this._isUnsavedResource(uri)) {

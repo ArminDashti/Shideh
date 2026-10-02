@@ -16,7 +16,6 @@ import { localize } from '../../../../../nls.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier, IExtensionManifest } from '../../../../../platform/extensions/common/extensions.js';
 import { SyncDescriptor } from '../../../../../platform/instantiation/common/descriptors.js';
-import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { Extensions, IExtensionFeaturesRegistry, IExtensionFeatureTableRenderer, IRenderedData, IRowData, ITableData } from '../../../../services/extensionManagement/common/extensionFeatures.js';
@@ -212,7 +211,6 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 	private _registrationDisposables = new DisposableMap<string>();
 
 	constructor(
-		@IProductService productService: IProductService,
 		@ILanguageModelToolsService languageModelToolsService: ILanguageModelToolsService,
 	) {
 
@@ -268,9 +266,7 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 					}
 
 					// If OSS and the product.json is not set up, fall back to checking api proposal
-					const isBuiltinTool = productService.defaultChatAgent?.chatExtensionId ?
-						ExtensionIdentifier.equals(extension.description.identifier, productService.defaultChatAgent.chatExtensionId) :
-						isProposedApiEnabled(extension.description, 'chatParticipantPrivate');
+					const isBuiltinTool = isProposedApiEnabled(extension.description, 'chatParticipantPrivate');
 
 					const source: ToolDataSource = isBuiltinTool
 						? ToolDataSource.Internal
@@ -337,9 +333,7 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 					continue;
 				}
 
-				const isBuiltinTool = productService.defaultChatAgent?.chatExtensionId ?
-					ExtensionIdentifier.equals(extension.description.identifier, productService.defaultChatAgent.chatExtensionId) :
-					isProposedApiEnabled(extension.description, 'chatParticipantPrivate');
+				const isBuiltinTool = isProposedApiEnabled(extension.description, 'chatParticipantPrivate');
 
 				const source: ToolDataSource = isBuiltinTool
 					? ToolDataSource.Internal

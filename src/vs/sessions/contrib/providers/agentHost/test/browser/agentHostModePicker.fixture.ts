@@ -42,8 +42,8 @@ import { IAgentHostSessionsProvider } from '../../../../../common/agentHostSessi
 import { AgentHostModePicker } from '../../browser/agentHostModePicker.js';
 import { AgentHostPermissionPickerActionItem } from '../../browser/agentHostPermissionPickerActionItem.js';
 import { AgentHostPermissionPickerDelegate } from '../../browser/agentHostPermissionPickerDelegate.js';
-import { PermissionPicker } from '../../../copilotChatSessions/browser/permissionPicker.js';
-import { MobilePermissionPicker } from '../../../copilotChatSessions/browser/mobilePermissionPicker.js';
+import { PermissionPicker } from '../../../shared/browser/permissionPicker.js';
+import { MobilePermissionPicker } from '../../../shared/browser/mobilePermissionPicker.js';
 import { ISessionsProvidersService } from '../../../../../services/sessions/browser/sessionsProvidersService.js';
 import { IActiveSession } from '../../../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsProvider } from '../../../../../services/sessions/common/sessionsProvider.js';

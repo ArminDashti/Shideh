@@ -609,7 +609,7 @@ function createFormState(overrides?: Partial<IFormState>): IFormState {
 		day: 1,
 		isQuickChat: false,
 		folderUri: FOLDER,
-		providerId: 'default-copilot',
+		providerId: 'cloud-provider',
 		sessionTypeId: 'copilotcli',
 		isolationMode: 'worktree',
 		branch: undefined,
@@ -1283,7 +1283,7 @@ suite('Automation branch picker', () => {
 		instantiationService.stub(ISessionsManagementService, upcastPartial<ISessionsManagementService>({
 			onDidChangeSessionTypes: sessionTypesChanged.event,
 			getSessionTypesForFolder: () => providerAvailable ? [{
-				providerId: state.providerId ?? 'default-copilot',
+				providerId: state.providerId ?? 'cloud-provider',
 				sessionType: {
 					id: state.sessionTypeId ?? 'copilotcli',
 					label: 'Copilot',

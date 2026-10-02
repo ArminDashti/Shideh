@@ -11,20 +11,17 @@ import { TestConfigurationService } from '../../../../../../platform/configurati
 suite('AICustomizationWelcomePage', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('Marketplace visibility is independent of public feed and connector enablement', () => {
+	test('Marketplace visibility is independent of public feed enablement', () => {
 		const cases = [
-			{ marketplace: false, publicFeed: false, connectors: false, discover: false },
-			{ marketplace: false, publicFeed: true, connectors: false, discover: false },
-			{ marketplace: false, publicFeed: false, connectors: true, discover: false },
-			{ marketplace: true, publicFeed: false, connectors: false, discover: true },
-			{ marketplace: true, publicFeed: true, connectors: false, discover: true },
-			{ marketplace: true, publicFeed: false, connectors: true, discover: true },
+			{ marketplace: false, publicFeed: false, discover: false },
+			{ marketplace: false, publicFeed: true, discover: false },
+			{ marketplace: true, publicFeed: false, discover: true },
+			{ marketplace: true, publicFeed: true, discover: true },
 		];
-		assert.deepStrictEqual(cases.map(({ marketplace, publicFeed, connectors }) =>
+		assert.deepStrictEqual(cases.map(({ marketplace, publicFeed }) =>
 			getVisibleCustomizationMarketplaceSources(new TestConfigurationService({
 				[CustomizationMarketplaceConfiguration.MarketplaceEnabled]: marketplace,
 				[CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled]: publicFeed,
-				[CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: connectors,
 			}), Object.values(CustomizationMarketplaceSources)).length > 0), cases.map(({ discover }) => discover));
 	});
 });

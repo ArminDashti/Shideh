@@ -100,7 +100,7 @@ const SECRET_FIELD_RE = /("(?:token|session_token)"\s*:\s*)"[^"]*"/g;
 
 /**
  * Scrub the echoed system prompt out of recorded response bodies. The OpenAI
- * Responses API (`/responses`, used by Codex) echoes the full request
+ * Responses API (`/responses`) echoes the full request
  * `instructions` (the system prompt) back inside `response.created` /
  * `in_progress` / `completed` events; replace it with a placeholder so the
  * large prompt (and any tenant-specific content in it) never lands in fixtures.

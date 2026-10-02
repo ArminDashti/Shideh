@@ -1957,7 +1957,6 @@ export class AgentSideEffects extends Disposable {
 		const { agent, sessionChannel, turnChannel, chat, message, turnId, senderClientId, clientContext, turnStopWatch } = options;
 
 		const chatUri = URI.parse(chat);
-		const turnTelemetryContext = this._turnTracker.getProviderTelemetryContext(turnChannel, turnId);
 
 		let failureStage: AgentHostTurnFailureStage = 'workingDirectory';
 		// Declared outside the `try` so a turn that fails before the provider is
@@ -2016,7 +2015,6 @@ export class AgentSideEffects extends Disposable {
 			const contribution = await this._chatContributions.outgoingTurn({ session: sessionChannel, chat, message, turnId });
 			const sendContext = {
 				...clientOperationContext,
-				...(turnTelemetryContext ? { turnTelemetryContext } : {}),
 				...(contribution.instructions?.length ? { hostInstructions: contribution.instructions } : {}),
 				sendStageRecorder: this._turnTracker.createProviderStageRecorder(turnChannel, turnId),
 			};
@@ -2209,10 +2207,9 @@ export class AgentSideEffects extends Disposable {
  *
  * Providers open a response part and then stream into it, so the opener carries
  * no content: Claude emits empty `text`/`thinking` parts on `content_block_start`
- * and Codex emits an empty reasoning part before its deltas. Counting those
- * would date the metric to the moment the agent *began* thinking rather than
- * the moment it produced something, and would populate it even for a turn that
- * ends without ever emitting content.
+ * before any deltas. Counting those would date the metric to the moment the
+ * agent *began* thinking rather than the moment it produced something, and
+ * would populate it even for a turn that ends without ever emitting content.
  *
  * Callers still report plain first progress for everything rejected here, so
  * `timeToFirstProgress` keeps its original meaning.

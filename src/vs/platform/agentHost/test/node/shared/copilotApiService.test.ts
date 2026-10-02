@@ -5,9 +5,8 @@
 
 import assert from 'assert';
 import type Anthropic from '@anthropic-ai/sdk';
-import { Iterable } from '../../../../../base/common/iterator.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { COPILOT_API_ERROR_STATUS_STREAMING, CopilotApiError, CopilotApiService, type FetchFunction } from '../../../node/shared/copilotApiService.js';
+import { CopilotApiError, CopilotApiService, type FetchFunction } from '../../../node/shared/copilotApiService.js';
 import { createTestGitHubEndpointService } from '../testGitHubEndpointService.js';
 import { NullLogService } from '../../../../log/common/log.js';
 import { IProductService } from '../../../../product/common/productService.js';
@@ -17,37 +16,11 @@ import product from '../../../../product/common/product.js';
 
 const testProductService: IProductService = { _serviceBrand: undefined, ...product };
 
-function sseLines(...lines: string[]): Uint8Array {
-	return new TextEncoder().encode(lines.join('\n') + '\n');
-}
-
-function makeSseBody(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
-	let index = 0;
-	return new ReadableStream({
-		pull(controller) {
-			if (index < chunks.length) {
-				controller.enqueue(chunks[index++]);
-			} else {
-				controller.close();
-			}
-		}
-	});
-}
-
-const collect = Iterable.asyncToArray;
-
 function getUrl(input: string | URL | Request): string {
 	if (typeof input === 'string') {
 		return input;
 	}
 	return input instanceof URL ? input.href : input.url;
-}
-
-function getText(msg: Anthropic.Message): string {
-	return msg.content
-		.filter((b): b is Anthropic.TextBlock => b.type === 'text')
-		.map(b => b.text)
-		.join('');
 }
 
 function hasMapKey(target: object, key: unknown): boolean {
@@ -64,25 +37,6 @@ function userResponse(overrides?: Record<string, unknown>): Response {
 	}), { status: 200 });
 }
 
-function anthropicResponse(content: Array<{ type: string; text?: string }>, stopReason = 'end_turn'): Response {
-	return new Response(JSON.stringify({
-		id: 'msg_test',
-		type: 'message',
-		role: 'assistant',
-		content,
-		model: 'claude-sonnet-4-5-20250514',
-		stop_reason: stopReason,
-		usage: { input_tokens: 10, output_tokens: 50 },
-	}), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}
-
-function sseResponse(chunks: Uint8Array[]): Response {
-	return new Response(makeSseBody(chunks), {
-		status: 200,
-		headers: { 'Content-Type': 'text/event-stream' },
-	});
-}
-
 function modelsResponse(models: object[]): Response {
 	return new Response(JSON.stringify({ data: models }), {
 		status: 200,
@@ -93,7 +47,7 @@ function modelsResponse(models: object[]): Response {
 type CapturedRequest = { url: string; init: RequestInit | undefined };
 
 function routingFetch(
-	messageResponse: (captured: CapturedRequest) => Response,
+	apiResponse: (captured: CapturedRequest) => Response,
 	userOverrides?: Record<string, unknown>,
 ): { fetch: FetchFunction; captured: () => CapturedRequest } {
 	let lastCapture: CapturedRequest = { url: '', init: undefined };
@@ -103,18 +57,10 @@ function routingFetch(
 			return userResponse(userOverrides);
 		}
 		lastCapture = { url, init };
-		return messageResponse(lastCapture);
+		return apiResponse(lastCapture);
 	};
 	return { fetch: impl, captured: () => lastCapture };
 }
-
-const userMsg: Anthropic.MessageParam[] = [{ role: 'user', content: 'hello' }];
-const baseRequest = {
-	model: 'claude-sonnet-4-5',
-	messages: userMsg,
-	max_tokens: 8192,
-	stream: false as const,
-};
 
 // #endregion
 
@@ -124,11 +70,6 @@ suite('CopilotApiService', () => {
 
 	function createService(fetchImpl: FetchFunction, enterpriseUri?: string): CopilotApiService {
 		return disposables.add(new CopilotApiService(fetchImpl, new NullLogService(), testProductService, createTestGitHubEndpointService(enterpriseUri)));
-	}
-
-	function streamService(chunks: Uint8Array[], tokenOverrides?: Record<string, unknown>): CopilotApiService {
-		const { fetch: fetchFn } = routingFetch(() => sseResponse(chunks), tokenOverrides);
-		return createService(fetchFn);
 	}
 
 	test('derives restricted telemetry context from user discovery without minting a Copilot token', async () => {
@@ -244,10 +185,10 @@ suite('CopilotApiService', () => {
 					discoveryCount++;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'hi' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('gh-tok', baseRequest);
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 1);
 		});
 
@@ -259,12 +200,12 @@ suite('CopilotApiService', () => {
 					discoveryCount++;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'hi' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('gh-tok', baseRequest);
-			await service.messages('gh-tok', baseRequest);
-			await service.messages('gh-tok', baseRequest);
+			await service.models('gh-tok');
+			await service.models('gh-tok');
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 1);
 		});
 
@@ -276,32 +217,32 @@ suite('CopilotApiService', () => {
 					discoveryCount++;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'hi' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('gh-tok-A', baseRequest);
-			await service.messages('gh-tok-B', baseRequest);
+			await service.models('gh-tok-A');
+			await service.models('gh-tok-B');
 			assert.strictEqual(discoveryCount, 2);
 		});
 
-		test('invalidates cached endpoint discovery on 401 from messages so the next call re-discovers', async () => {
+		test('invalidates cached endpoint discovery on 401 from models so the next call re-discovers', async () => {
 			let discoveryCount = 0;
-			let messageCallCount = 0;
+			let modelsCallCount = 0;
 			const service = createService(async (input) => {
 				const url = getUrl(input);
 				if (url.includes('/copilot_internal')) {
 					discoveryCount++;
 					return userResponse();
 				}
-				messageCallCount++;
-				if (messageCallCount === 1) {
+				modelsCallCount++;
+				if (modelsCallCount === 1) {
 					return new Response('unauthorized', { status: 401, statusText: 'Unauthorized' });
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
-			await assert.rejects(() => service.messages('gh-tok', baseRequest));
-			await service.messages('gh-tok', baseRequest);
+			await assert.rejects(() => service.models('gh-tok'));
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 2);
 		});
 
@@ -313,7 +254,7 @@ suite('CopilotApiService', () => {
 			await service.resolveCopilotSku(token);
 			const capturedSku = service.captureCopilotSku(token);
 
-			await assert.rejects(() => service.messages(token, baseRequest));
+			await assert.rejects(() => service.models(token));
 
 			assert.deepStrictEqual({
 				capturedSku: capturedSku(),
@@ -353,23 +294,23 @@ suite('CopilotApiService', () => {
 					discoveryCount++;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'hi' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('gh-tok', baseRequest);
-			await service.messages('gh-tok', baseRequest);
+			await service.models('gh-tok');
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 1);
 		});
 
 		test('uses endpoints.api from the /copilot_internal/user response as the CAPI base', async () => {
 			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
+				() => modelsResponse([]),
 				{ endpoints: { api: 'https://custom.copilot.example.com' } },
 			);
 			const service = createService(fetchFn);
 
-			await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(captured().url, 'https://custom.copilot.example.com/v1/messages');
+			await service.models('gh-tok');
+			assert.strictEqual(captured().url, 'https://custom.copilot.example.com/models');
 		});
 
 		test('reuses endpoint discovery when resolving GitHub login and Copilot SKU', async () => {
@@ -401,12 +342,12 @@ suite('CopilotApiService', () => {
 
 		test('falls back to default API base when endpoints.api is missing', async () => {
 			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
+				() => modelsResponse([]),
 			);
 			const service = createService(fetchFn);
 
-			await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(captured().url, 'https://api.githubcopilot.com/v1/messages');
+			await service.models('gh-tok');
+			assert.strictEqual(captured().url, 'https://api.githubcopilot.com/models');
 		});
 
 		test('sends the github token as a Bearer Authorization header to the discovery endpoint', async () => {
@@ -418,10 +359,10 @@ suite('CopilotApiService', () => {
 					capturedAuthHeader = headers?.['Authorization'];
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('my-secret-gh-token', baseRequest);
+			await service.models('my-secret-gh-token');
 			assert.strictEqual(capturedAuthHeader, 'Bearer my-secret-gh-token');
 		});
 
@@ -433,17 +374,17 @@ suite('CopilotApiService', () => {
 					discoveryUrl = url;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			}, 'https://acme.ghe.com');
 
-			await service.messages('gh-tok', baseRequest);
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryUrl, 'https://api.acme.ghe.com/copilot_internal/user');
 		});
 
 		test('preserves authentication errors from endpoint discovery', async () => {
 			const service = createService(async () => new Response('{"message":"Bad credentials"}', { status: 401, statusText: 'Unauthorized' }));
 			await assert.rejects(
-				() => service.messages('bad-tok', baseRequest),
+				() => service.models('bad-tok'),
 				(err: Error) => {
 					assert.deepStrictEqual({
 						isCopilotApiError: err instanceof CopilotApiError,
@@ -471,7 +412,7 @@ suite('CopilotApiService', () => {
 		test('throws on 500 from endpoint discovery', async () => {
 			const service = createService(async () => new Response('internal error', { status: 500, statusText: 'Internal Server Error' }));
 			await assert.rejects(
-				() => service.messages('gh-tok', baseRequest),
+				() => service.models('gh-tok'),
 				(err: Error) => err.message.includes('Copilot endpoint discovery failed: 500'),
 			);
 		});
@@ -485,17 +426,17 @@ suite('CopilotApiService', () => {
 					await new Promise(r => setTimeout(r, 10)); // ensure overlap
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
 			await Promise.all([
-				service.messages('gh-tok', baseRequest),
-				service.messages('gh-tok', baseRequest),
+				service.models('gh-tok'),
+				service.models('gh-tok'),
 			]);
 			assert.strictEqual(discoveryCount, 1);
 		});
 
-		test('in-flight discovery dedup spans concurrent messages + models calls', async () => {
+		test('in-flight discovery dedup spans concurrent models + utility calls', async () => {
 			let discoveryCount = 0;
 			const service = createService(async (input) => {
 				const url = getUrl(input);
@@ -505,14 +446,14 @@ suite('CopilotApiService', () => {
 					return userResponse();
 				}
 				if (url.includes('/models')) {
-					return modelsResponse([]);
+					return modelsResponse([{ id: 'gpt-4o-mini-model', capabilities: { family: 'gpt-4o-mini' } }]);
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return new Response(JSON.stringify({ choices: [{ message: { content: 'Generated title' } }] }), { status: 200 });
 			});
 
 			await Promise.all([
-				service.messages('gh-tok', baseRequest),
 				service.models('gh-tok'),
+				service.utilityChatCompletion('gh-tok', { messages: [{ role: 'user', content: 'Generate a title' }] }),
 			]);
 			assert.strictEqual(discoveryCount, 1);
 		});
@@ -520,7 +461,7 @@ suite('CopilotApiService', () => {
 		test('error from endpoint discovery does not include the github token', async () => {
 			const service = createService(async () => new Response('forbidden', { status: 403, statusText: 'Forbidden' }));
 			await assert.rejects(
-				() => service.messages('super-secret-gh-token-xyz', baseRequest),
+				() => service.models('super-secret-gh-token-xyz'),
 				(err: Error) => !err.message.includes('super-secret-gh-token-xyz'),
 			);
 		});
@@ -534,7 +475,7 @@ suite('CopilotApiService', () => {
 				return new Response('rate limited', { status: 429, statusText: 'Too Many Requests' });
 			});
 			await assert.rejects(
-				() => service.messages('super-secret-gh-token-xyz', baseRequest),
+				() => service.models('super-secret-gh-token-xyz'),
 				(err: Error) => !err.message.includes('super-secret-gh-token-xyz'),
 			);
 		});
@@ -549,12 +490,12 @@ suite('CopilotApiService', () => {
 					await new Promise(r => setTimeout(r, 10)); // ensure overlap
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
 			await Promise.all([
-				service.messages('gh-tok-A', baseRequest),
-				service.messages('gh-tok-B', baseRequest),
+				service.models('gh-tok-A'),
+				service.models('gh-tok-B'),
 			]);
 			assert.strictEqual(authorizationHeaders.length, 2);
 			assert.ok(authorizationHeaders.some(header => header.includes('gh-tok-A')));
@@ -594,10 +535,10 @@ suite('CopilotApiService', () => {
 						discoveryHit = true;
 						return userResponse();
 					}
-					return anthropicResponse([{ type: 'text', text: 'ok' }]);
+					return modelsResponse([]);
 				});
 
-				await service.messages('gh-secret', baseRequest);
+				await service.models('gh-secret');
 
 				assert.strictEqual(discoveryHit, false, 'discovery must be skipped for a loopback override');
 			});
@@ -612,10 +553,10 @@ suite('CopilotApiService', () => {
 						discoveryHit = true;
 						return userResponse();
 					}
-					return anthropicResponse([{ type: 'text', text: 'ok' }]);
+					return modelsResponse([]);
 				});
 
-				await service.messages('gh-secret', baseRequest);
+				await service.models('gh-secret');
 
 				assert.strictEqual(discoveryHit, false, 'the smoke-test override must skip endpoint discovery');
 			});
@@ -630,10 +571,10 @@ suite('CopilotApiService', () => {
 						discoveryHit = true;
 						return userResponse();
 					}
-					return anthropicResponse([{ type: 'text', text: 'ok' }]);
+					return modelsResponse([]);
 				});
 
-				await service.messages('gh-secret', baseRequest);
+				await service.models('gh-secret');
 
 				assert.strictEqual(discoveryHit, true, 'a non-loopback override must be ignored so the token is never sent to it');
 			});
@@ -645,42 +586,6 @@ suite('CopilotApiService', () => {
 	// #region Request Format
 
 	suite('Request Format', () => {
-
-		test('sends system as a top-level text-block array', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', { ...baseRequest, system: 'You are helpful.' });
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.deepStrictEqual(body.system, [{ type: 'text', text: 'You are helpful.' }]);
-		});
-
-		test('omits system field entirely when not provided', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', baseRequest);
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.system, undefined);
-		});
-
-		test('sends max_tokens in the body', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', { ...baseRequest, max_tokens: 8192 });
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.max_tokens, 8192);
-		});
 
 		test('sends utility maxTokens as max_tokens in the body', async () => {
 			let capturedBody: string | undefined;
@@ -760,96 +665,27 @@ suite('CopilotApiService', () => {
 			});
 		});
 
-		test('non-streaming sends stream=false in the body', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', baseRequest);
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.stream, false);
-		});
-
-		test('defaults to non-streaming when stream is omitted', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', baseRequest);
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.stream, false);
-		});
-
-		test('streaming sends stream=true in the body', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => sseResponse([sseLines('data: {"type":"message_stop"}')]),
-			);
-			const service = createService(fetchFn);
-
-			await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.stream, true);
-		});
-
 		test('sends correct CAPI headers', async () => {
 			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
+				() => modelsResponse([]),
 			);
 			const service = createService(fetchFn);
 
-			await service.messages('gh-tok', baseRequest);
+			await service.models('gh-tok');
 			const headers = captured().init?.headers as Record<string, string>;
 
-			assert.strictEqual(headers['Content-Type'], 'application/json');
 			assert.strictEqual(headers['Authorization'], 'Bearer gh-tok');
-			assert.strictEqual(headers['OpenAI-Intent'], 'messages-proxy');
-			assert.strictEqual(headers['X-Interaction-Type'], 'messages-proxy');
-			assert.ok(headers['X-Request-Id'], 'should have a request id');
 			assert.ok(headers['X-GitHub-Api-Version'], 'CAPIClient should inject API version');
 			assert.ok(headers['VScode-SessionId'], 'CAPIClient should inject session id');
 		});
 
-		test('passes messages through as-is', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			const messages: Anthropic.MessageParam[] = [
-				{ role: 'user', content: 'What is 2+2?' },
-				{ role: 'assistant', content: '4' },
-				{ role: 'user', content: 'Thanks!' },
-			];
-			await service.messages('gh-tok', { ...baseRequest, messages });
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.deepStrictEqual(body.messages, messages);
-		});
-
-		test('sends model in the body', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			await service.messages('gh-tok', { ...baseRequest, model: 'claude-opus-4-1-20250805' });
-			const body = JSON.parse(captured().init?.body as string);
-
-			assert.strictEqual(body.model, 'claude-opus-4-1-20250805');
-		});
-
 		test('merges caller-provided headers into the request', async () => {
 			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
+				() => modelsResponse([]),
 			);
 			const service = createService(fetchFn);
 
-			await service.messages('gh-tok', baseRequest, {
+			await service.models('gh-tok', {
 				headers: { 'X-Custom-Trace': 'abc-123', 'X-Session-Id': 'sess-456' },
 			});
 			const headers = captured().init?.headers as Record<string, string>;
@@ -863,11 +699,15 @@ suite('CopilotApiService', () => {
 			// Documented invariant: Authorization, Content-Type, X-Request-Id, OpenAI-Intent
 			// must always reflect the values the service computes — never the caller's.
 			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
+				({ url }) => url.endsWith('/models')
+					? modelsResponse([{ id: 'gpt-4o-mini-model', capabilities: { family: 'gpt-4o-mini' } }])
+					: new Response(JSON.stringify({ choices: [{ message: { content: 'Generated title' } }] }), { status: 200 }),
 			);
 			const service = createService(fetchFn);
 
-			await service.messages('gh-tok', baseRequest, {
+			await service.utilityChatCompletion('gh-tok', {
+				messages: [{ role: 'user', content: 'Say hi' }],
+			}, {
 				headers: {
 					'Authorization': 'Bearer attacker-token',
 					'Content-Type': 'text/plain',
@@ -880,103 +720,16 @@ suite('CopilotApiService', () => {
 			assert.strictEqual(headers['Authorization'], 'Bearer gh-tok');
 			assert.strictEqual(headers['Content-Type'], 'application/json');
 			assert.notStrictEqual(headers['X-Request-Id'], 'attacker-id');
-			assert.strictEqual(headers['OpenAI-Intent'], 'messages-proxy');
+			assert.strictEqual(headers['OpenAI-Intent'], 'conversation-background');
 		});
 
-		test('suppressIntegrationId opt-in controls the Copilot-Integration-Id header', async () => {
-			const { fetch: fetchFn, captured } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }]),
-			);
-			const service = createService(fetchFn);
-
-			// Default (no opt-in): @vscode/copilot-api derives and sends the header.
-			await service.messages('gh-tok', baseRequest);
-			const withHeader = captured().init?.headers as Record<string, string>;
-
-			// Opt-in: the header is omitted entirely so CAPI authorizes against
-			// the token's real entitlement instead of the derived integration id.
-			await service.messages('gh-tok', baseRequest, { suppressIntegrationId: true });
-			const suppressed = captured().init?.headers as Record<string, string>;
-
-			assert.ok(withHeader['Copilot-Integration-Id'], 'integration id should be present by default');
-			assert.strictEqual(suppressed['Copilot-Integration-Id'], undefined, 'integration id should be suppressed when opted in');
-		});
 	});
 
 	// #endregion
 
-	// #region Non-Streaming Responses
+	// #region Non-2xx Responses
 
-	suite('Non-Streaming Responses', () => {
-
-		test('returns text content from a single text block', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'The answer is 42.' }]),
-			);
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(getText(result), 'The answer is 42.');
-		});
-
-		test('concatenates multiple text blocks', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => anthropicResponse([
-					{ type: 'text', text: 'First part. ' },
-					{ type: 'text', text: 'Second part.' },
-				]),
-			);
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(getText(result), 'First part. Second part.');
-		});
-
-		test('skips non-text content blocks (tool_use, thinking)', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => anthropicResponse([
-					{ type: 'thinking', text: 'let me think...' },
-					{ type: 'text', text: 'the answer' },
-					{ type: 'tool_use' },
-				]),
-			);
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(getText(result), 'the answer');
-		});
-
-		test('returns empty string when no text blocks are present', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => anthropicResponse([{ type: 'tool_use' }]),
-			);
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(getText(result), '');
-		});
-
-		test('returns the stop reason', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => anthropicResponse([{ type: 'text', text: 'ok' }], 'max_tokens'),
-			);
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(result.stop_reason, 'max_tokens');
-		});
-
-		test('stop_reason is null when missing from server response', async () => {
-			const { fetch: fetchFn } = routingFetch(() => {
-				return new Response(JSON.stringify({
-					content: [{ type: 'text', text: 'ok' }],
-				}), { status: 200 });
-			});
-			const service = createService(fetchFn);
-
-			const result = await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(result.stop_reason ?? null, null);
-		});
+	suite('Non-2xx Responses', () => {
 
 		test('throws on 429 rate limit', async () => {
 			const { fetch: fetchFn } = routingFetch(
@@ -985,10 +738,10 @@ suite('CopilotApiService', () => {
 			const service = createService(fetchFn);
 
 			await assert.rejects(
-				() => service.messages('gh-tok', baseRequest),
+				() => service.models('gh-tok'),
 				(err: unknown) => err instanceof CopilotApiError
 					&& err.status === 429
-					&& err.message.includes('CAPI request failed: 429'),
+					&& err.message.includes('CAPI models request failed: 429'),
 			);
 		});
 
@@ -999,300 +752,11 @@ suite('CopilotApiService', () => {
 			const service = createService(fetchFn);
 
 			await assert.rejects(
-				() => service.messages('gh-tok', baseRequest),
+				() => service.models('gh-tok'),
 				(err: unknown) => err instanceof CopilotApiError
 					&& err.status === 500
-					&& err.message.includes('CAPI request failed: 500'),
+					&& err.message.includes('CAPI models request failed: 500'),
 			);
-		});
-	});
-
-	// #endregion
-
-	// #region Streaming Responses
-
-	suite('Streaming Responses', () => {
-
-		function collectTextDeltas(events: Anthropic.MessageStreamEvent[]): string[] {
-			return events
-				.filter((e): e is Anthropic.RawContentBlockDeltaEvent =>
-					e.type === 'content_block_delta' && e.delta.type === 'text_delta')
-				.map(e => (e.delta as Anthropic.TextDelta).text);
-		}
-
-		test('yields text deltas from content_block_delta events', async () => {
-			const service = streamService([
-				sseLines(
-					'event: content_block_delta',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}',
-					'',
-					'event: content_block_delta',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}',
-				),
-				sseLines(
-					'event: message_stop',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(collectTextDeltas(events), ['Hello', ' world']);
-		});
-
-		test('handles data split across multiple network chunks', async () => {
-			const encoder = new TextEncoder();
-			const service = streamService([
-				encoder.encode('event: content_block_delta\ndata: {"type":"content_bl'),
-				encoder.encode('ock_delta","index":0,"delta":{"type":"text_delta","text":"split"}}\n'),
-				sseLines(
-					'event: message_stop',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(collectTextDeltas(events), ['split']);
-		});
-
-		test('handles a data line split right at the newline boundary', async () => {
-			const encoder = new TextEncoder();
-			const service = streamService([
-				encoder.encode('data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"chunk1"}}'),
-				encoder.encode('\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"chunk2"}}\n'),
-				sseLines('data: {"type":"message_stop"}'),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(collectTextDeltas(events), ['chunk1', 'chunk2']);
-		});
-
-		test('skips event: lines, comment lines, and blank lines', async () => {
-			const service = streamService([
-				sseLines(
-					': keep-alive comment',
-					'event: content_block_delta',
-					'',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}',
-					'',
-					'event: message_stop',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(collectTextDeltas(events), ['ok']);
-		});
-
-		test('handles many small deltas', async () => {
-			const deltas = Array.from({ length: 100 }, (_, i) =>
-				`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"w${i}"}}`
-			);
-			const service = streamService([
-				sseLines(...deltas),
-				sseLines('data: {"type":"message_stop"}'),
-			]);
-
-			const texts = collectTextDeltas(await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })));
-			assert.strictEqual(texts.length, 100);
-			assert.strictEqual(texts[0], 'w0');
-			assert.strictEqual(texts[99], 'w99');
-		});
-
-		test('throws on error event with message', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{"message":"overloaded"}}',
-				),
-			]);
-
-			await assert.rejects(
-				() => collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-				(err: unknown) => err instanceof CopilotApiError
-					&& err.status === COPILOT_API_ERROR_STATUS_STREAMING
-					&& err.message === 'overloaded',
-			);
-		});
-
-		test('throws on error event without message', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{}}',
-				),
-			]);
-
-			await assert.rejects(
-				() => collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-				(err: unknown) => err instanceof CopilotApiError
-					&& err.status === COPILOT_API_ERROR_STATUS_STREAMING
-					&& err.message === 'Unknown streaming error',
-			);
-		});
-
-		test('throws on non-200 CAPI response', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => new Response('overloaded', { status: 529, statusText: 'Overloaded' }),
-			);
-			const service = createService(fetchFn);
-
-			await assert.rejects(
-				() => collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-				(err: unknown) => err instanceof CopilotApiError
-					&& err.status === 529
-					&& err.message.includes('CAPI request failed: 529'),
-			);
-		});
-
-		test('throws when response has no body', async () => {
-			const { fetch: fetchFn } = routingFetch(
-				() => new Response(null, { status: 200 }),
-			);
-			const service = createService(fetchFn);
-
-			await assert.rejects(
-				() => collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-				(err: Error) => err.message.includes('no body'),
-			);
-		});
-
-		test('survives malformed JSON in the stream (skips the line)', async () => {
-			const service = streamService([
-				sseLines(
-					'data: not-valid-json',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(collectTextDeltas(events), ['ok']);
-		});
-	});
-
-	// #endregion
-
-	// #region Raw Event Stream (messages())
-
-	suite('Raw Event Stream (messages())', () => {
-
-		test('yields all six protocol event types in order', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5","stop_reason":null,"usage":{"input_tokens":1,"output_tokens":1}}}',
-					'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}',
-					'data: {"type":"content_block_stop","index":0}',
-					'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.deepStrictEqual(events.map(e => e.type), [
-				'message_start',
-				'content_block_start',
-				'content_block_delta',
-				'content_block_stop',
-				'message_delta',
-				'message_stop',
-			]);
-		});
-
-		test('message_stop is the last yielded event', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"a"}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			assert.strictEqual(events.length, 2);
-			assert.strictEqual(events[events.length - 1].type, 'message_stop');
-		});
-
-		test('stops after message_stop even if extra SSE data follows', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"a"}}',
-					'data: {"type":"message_stop"}',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"SHOULD_NOT_APPEAR"}}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const texts = events
-				.filter((e): e is Anthropic.RawContentBlockDeltaEvent => e.type === 'content_block_delta')
-				.map(e => e.delta.type === 'text_delta' ? e.delta.text : '');
-			assert.deepStrictEqual(texts, ['a']);
-		});
-
-		test('yields thinking_delta events (not filtered by messages())', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const delta = events.find((e): e is Anthropic.RawContentBlockDeltaEvent => e.type === 'content_block_delta');
-			assert.ok(delta);
-			assert.strictEqual(delta.delta.type, 'thinking_delta');
-		});
-
-		test('yields input_json_delta events', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"k\\":1}"}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const delta = events.find((e): e is Anthropic.RawContentBlockDeltaEvent => e.type === 'content_block_delta');
-			assert.ok(delta);
-			assert.strictEqual(delta.delta.type, 'input_json_delta');
-		});
-
-		test('yields message_delta with stop_reason payload', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"message_delta","delta":{"stop_reason":"max_tokens","stop_sequence":null},"usage":{"output_tokens":7}}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const msgDelta = events.find((e): e is Anthropic.RawMessageDeltaEvent => e.type === 'message_delta');
-			assert.ok(msgDelta);
-			assert.strictEqual(msgDelta.delta.stop_reason, 'max_tokens');
-		});
-
-		test('tool_use block events round-trip through messages()', async () => {
-			const service = streamService([
-				sseLines(
-					'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tu_1","name":"read_file","input":{}}}',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"path\\":"}}',
-					'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\\"/tmp/x\\"}"}}',
-					'data: {"type":"content_block_stop","index":0}',
-					'data: {"type":"message_stop"}',
-				),
-			]);
-
-			const events = await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-			const blockStart = events.find((e): e is Anthropic.RawContentBlockStartEvent => e.type === 'content_block_start');
-			assert.ok(blockStart, 'expected content_block_start event');
-			assert.strictEqual(blockStart.content_block.type, 'tool_use');
-			assert.strictEqual((blockStart.content_block as Anthropic.ToolUseBlock).name, 'read_file');
-
-			const jsonDeltas = events.filter(
-				(e): e is Anthropic.RawContentBlockDeltaEvent =>
-					e.type === 'content_block_delta' && e.delta.type === 'input_json_delta',
-			);
-			assert.strictEqual(jsonDeltas.length, 2);
-			assert.strictEqual(events[events.length - 1].type, 'message_stop');
 		});
 	});
 
@@ -1330,51 +794,6 @@ suite('CopilotApiService', () => {
 
 	// #endregion
 
-	// #region Streaming + Non-Streaming Shared Behavior
-
-	suite('Shared Behavior', () => {
-
-		test('streaming and non-streaming hit the same /v1/messages endpoint', async () => {
-			const urls: string[] = [];
-			const service = createService(async (input) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					return userResponse();
-				}
-				urls.push(url);
-				if (urls.length === 1) {
-					return anthropicResponse([{ type: 'text', text: 'ok' }]);
-				}
-				return sseResponse([sseLines('data: {"type":"message_stop"}')]);
-			});
-
-			await service.messages('gh-tok', baseRequest);
-			await collect(service.messages('gh-tok', { ...baseRequest, stream: true as const }));
-
-			assert.strictEqual(urls.length, 2);
-			assert.ok(urls[0].endsWith('/v1/messages'));
-			assert.ok(urls[1].endsWith('/v1/messages'));
-		});
-
-		test('both modes share the same cached endpoint discovery', async () => {
-			let discoveryCount = 0;
-			const service = createService(async (input) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					discoveryCount++;
-					return userResponse();
-				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
-			});
-
-			await service.messages('gh-tok', baseRequest);
-			await service.messages('gh-tok', baseRequest);
-			assert.strictEqual(discoveryCount, 1);
-		});
-	});
-
-	// #endregion
-
 	// #region CopilotApiError contract
 
 	suite('CopilotApiError contract', () => {
@@ -1400,7 +819,7 @@ suite('CopilotApiService', () => {
 			);
 			const service = createService(fetchFn);
 
-			const err = await captureCopilotApiError(service.messages('gh-tok', baseRequest));
+			const err = await captureCopilotApiError(service.models('gh-tok'));
 			assert.deepStrictEqual(
 				{ status: err.status, envelope: err.envelope },
 				{ status: 429, envelope: upstreamEnvelope },
@@ -1413,7 +832,7 @@ suite('CopilotApiService', () => {
 			);
 			const service = createService(fetchFn);
 
-			const err = await captureCopilotApiError(service.messages('gh-tok', baseRequest));
+			const err = await captureCopilotApiError(service.models('gh-tok'));
 			assert.deepStrictEqual(
 				{ status: err.status, envelope: err.envelope },
 				{
@@ -1433,7 +852,7 @@ suite('CopilotApiService', () => {
 			);
 			const service = createService(fetchFn);
 
-			const err = await captureCopilotApiError(service.messages('gh-tok', baseRequest));
+			const err = await captureCopilotApiError(service.models('gh-tok'));
 			assert.deepStrictEqual(
 				{ status: err.status, envelope: err.envelope },
 				{
@@ -1453,7 +872,7 @@ suite('CopilotApiService', () => {
 			);
 			const service = createService(fetchFn);
 
-			const err = await captureCopilotApiError(service.messages('gh-tok', baseRequest));
+			const err = await captureCopilotApiError(service.models('gh-tok'));
 			assert.deepStrictEqual(
 				{ status: err.status, envelope: err.envelope },
 				{
@@ -1465,104 +884,6 @@ suite('CopilotApiService', () => {
 					},
 				},
 			);
-		});
-
-		test('SSE error frame with full envelope: passthrough type and message', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"},"request_id":"req_42"}',
-				),
-			]);
-
-			const err = await captureCopilotApiError(
-				collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-			);
-			assert.deepStrictEqual(
-				{ status: err.status, envelope: err.envelope },
-				{
-					status: COPILOT_API_ERROR_STATUS_STREAMING,
-					envelope: {
-						type: 'error',
-						error: { type: 'overloaded_error', message: 'Overloaded' },
-						request_id: 'req_42',
-					},
-				},
-			);
-		});
-
-		test('SSE error frame missing type: defaults to api_error', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{"message":"oh no"}}',
-				),
-			]);
-
-			const err = await captureCopilotApiError(
-				collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-			);
-			assert.deepStrictEqual(err.envelope, {
-				type: 'error',
-				error: { type: 'api_error', message: 'oh no' },
-				request_id: null,
-			});
-		});
-
-		test('SSE error frame missing message: defaults to "Unknown streaming error"', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{"type":"api_error"}}',
-				),
-			]);
-
-			const err = await captureCopilotApiError(
-				collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-			);
-			assert.deepStrictEqual(err.envelope, {
-				type: 'error',
-				error: { type: 'api_error', message: 'Unknown streaming error' },
-				request_id: null,
-			});
-		});
-
-		test('SSE error frame with conforming envelope is preserved verbatim (extra fields propagate)', async () => {
-			// The Phase 2 proxy must be able to re-emit the original error frame
-			// with full fidelity — any extra fields the upstream emits should
-			// survive the round-trip through CopilotApiError.envelope.
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded","request_id":"req_xyz"}}',
-				),
-			]);
-
-			const err = await captureCopilotApiError(
-				collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-			);
-			assert.deepStrictEqual(err.envelope, {
-				type: 'error',
-				error: { type: 'overloaded_error', message: 'Overloaded', request_id: 'req_xyz' },
-			});
-		});
-
-		test('SSE error frame with unstructured-string error: uses the string as message', async () => {
-			const service = streamService([
-				sseLines(
-					'event: error',
-					'data: {"type":"error","error":"rate_limited"}',
-				),
-			]);
-
-			const err = await captureCopilotApiError(
-				collect(service.messages('gh-tok', { ...baseRequest, stream: true as const })),
-			);
-			assert.deepStrictEqual(err.envelope, {
-				type: 'error',
-				error: { type: 'api_error', message: 'rate_limited' },
-				request_id: null,
-			});
 		});
 
 		test('models() non-2xx throws typed error with synthesized envelope', async () => {
@@ -1613,7 +934,7 @@ suite('CopilotApiService', () => {
 				return new Response('rate limited', { status: 429, statusText: 'Too Many Requests' });
 			});
 
-			const err = await captureCopilotApiError(service.messages('super-secret-gh-token-xyz', baseRequest));
+			const err = await captureCopilotApiError(service.models('super-secret-gh-token-xyz'));
 			const serialized = JSON.stringify({ message: err.message, envelope: err.envelope });
 			assert.strictEqual(serialized.includes('super-secret-gh-token-xyz'), false);
 		});
@@ -1631,11 +952,11 @@ suite('CopilotApiService', () => {
 					next401 = false;
 					return new Response('unauthorized', { status: 401, statusText: 'Unauthorized' });
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
-			await captureCopilotApiError(service.messages('gh-tok', baseRequest));
-			await service.messages('gh-tok', baseRequest);
+			await captureCopilotApiError(service.models('gh-tok'));
+			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 2);
 		});
 	});
@@ -1645,22 +966,6 @@ suite('CopilotApiService', () => {
 	// #region Cancellation
 
 	suite('Cancellation', () => {
-
-		test('forwards AbortSignal to fetch for messages', async () => {
-			const controller = new AbortController();
-			let capturedSignal: AbortSignal | undefined;
-			const service = createService(async (input, init) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					return userResponse();
-				}
-				capturedSignal = init?.signal as AbortSignal;
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
-			});
-
-			await service.messages('gh-tok', baseRequest, { signal: controller.signal });
-			assert.strictEqual(capturedSignal, controller.signal);
-		});
 
 		test('forwards AbortSignal to fetch for models', async () => {
 			const controller = new AbortController();
@@ -1687,90 +992,13 @@ suite('CopilotApiService', () => {
 					discoverySignal = init?.signal as AbortSignal;
 					return userResponse();
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return modelsResponse([]);
 			});
 
-			await service.messages('gh-tok', baseRequest, { signal: controller.signal });
+			await service.models('gh-tok', { signal: controller.signal });
 			assert.strictEqual(discoverySignal, undefined);
 		});
 
-		test('cancels the underlying SSE stream when the consumer breaks early', async () => {
-			let cancelled = false;
-			const body = new ReadableStream<Uint8Array>({
-				pull(controller) {
-					controller.enqueue(sseLines(
-						'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}',
-					));
-				},
-				cancel() {
-					cancelled = true;
-				},
-			});
-			const service = createService(async (input) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					return userResponse();
-				}
-				return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
-			});
-
-			const iter = service.messages('gh-tok', { ...baseRequest, stream: true });
-			for await (const _ of iter) {
-				break; // abandon after first chunk
-			}
-			assert.strictEqual(cancelled, true);
-		});
-
-		test('cancels the underlying SSE stream after message_stop terminates the generator', async () => {
-			let cancelled = false;
-			const body = new ReadableStream<Uint8Array>({
-				start(controller) {
-					controller.enqueue(sseLines(
-						'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}',
-						'data: {"type":"message_stop"}',
-					));
-					// Server is still alive — connection must be released by the client
-					// even though the producer hasn't closed yet.
-				},
-				cancel() {
-					cancelled = true;
-				},
-			});
-			const service = createService(async (input) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					return userResponse();
-				}
-				return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
-			});
-
-			await collect(service.messages('gh-tok', { ...baseRequest, stream: true }));
-			assert.strictEqual(cancelled, true);
-		});
-
-		test('cancels the underlying SSE stream when the generator throws', async () => {
-			let cancelled = false;
-			const body = new ReadableStream<Uint8Array>({
-				start(controller) {
-					controller.enqueue(sseLines(
-						'data: {"type":"error","error":{"message":"boom"}}',
-					));
-				},
-				cancel() {
-					cancelled = true;
-				},
-			});
-			const service = createService(async (input) => {
-				const url = getUrl(input);
-				if (url.includes('/copilot_internal')) {
-					return userResponse();
-				}
-				return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
-			});
-
-			await assert.rejects(() => collect(service.messages('gh-tok', { ...baseRequest, stream: true })));
-			assert.strictEqual(cancelled, true);
-		});
 	});
 
 	// #endregion
@@ -1841,7 +1069,7 @@ suite('CopilotApiService', () => {
 			);
 		});
 
-		test('reuses cached endpoint discovery across messages and models calls', async () => {
+		test('reuses cached endpoint discovery across utility and models calls', async () => {
 			let discoveryCount = 0;
 			const service = createService(async (input) => {
 				const url = getUrl(input);
@@ -1850,12 +1078,12 @@ suite('CopilotApiService', () => {
 					return userResponse();
 				}
 				if (url.includes('/models')) {
-					return modelsResponse([]);
+					return modelsResponse([{ id: 'gpt-4o-mini-model', capabilities: { family: 'gpt-4o-mini' } }]);
 				}
-				return anthropicResponse([{ type: 'text', text: 'ok' }]);
+				return new Response(JSON.stringify({ choices: [{ message: { content: 'Generated title' } }] }), { status: 200 });
 			});
 
-			await service.messages('gh-tok', baseRequest);
+			await service.utilityChatCompletion('gh-tok', { messages: [{ role: 'user', content: 'Generate a title' }] });
 			await service.models('gh-tok');
 			assert.strictEqual(discoveryCount, 1);
 		});

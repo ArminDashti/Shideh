@@ -145,47 +145,6 @@ export function defineSessionPersistenceTests(context: IAgentHostE2ETestContext)
 		});
 	});
 
-	if (config.provider === 'codex') {
-		test('Codex image attachments remain readable after a host restart', async function () {
-			this.timeout(240_000);
-			const workspace = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'ahp-codex-image-restore-')));
-			tempDirs.push(workspace);
-			const imageData = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAF0lEQVR4nGP4z8BAEiJN9aiGUQ1DSgMAkPn/Afnh+ngAAAAASUVORK5CYII=';
-			const sessionUri = await createRealSession(context.client, config, 'codex-image-restore', createdSessions, URI.file(workspace));
-			const prompt = 'An image is attached. Reply exactly "IMAGE_READY".';
-			await driveTurnWithAttachmentsToCompletion(context.client, sessionUri, 'turn-image-restore', prompt, [{
-				type: MessageAttachmentKind.EmbeddedResource,
-				data: imageData,
-				contentType: 'image/png',
-				label: 'test-image.png',
-			}], 1);
-
-			await restartAndInitialize('codex-image-restored', workspace);
-			const restored = await fetchSessionWithChat(context.client, sessionUri);
-			const attachments = restored.turns[0]?.message.attachments ?? [];
-			assert.strictEqual(attachments.length, 1, 'The restored turn must retain its image attachment');
-			const attachment = attachments[0];
-			assert.ok(attachment.type === MessageAttachmentKind.Resource, 'The restored image must be a readable resource');
-			const image = await context.client.call<ResourceReadResult>('resourceRead', {
-				channel: ROOT_STATE_URI,
-				uri: attachment.uri,
-				encoding: ContentEncoding.Base64,
-			});
-			const followup = await driveTurnToCompletion(context.client, sessionUri, 'turn-image-followup', 'Reply exactly "FOLLOWUP_DONE".', 2);
-			assert.deepStrictEqual({
-				text: restored.turns[0].message.text,
-				displayKind: attachment.displayKind,
-				data: image.data,
-				followup: followup.responseText.trim(),
-			}, {
-				text: prompt,
-				displayKind: 'image',
-				data: imageData,
-				followup: 'FOLLOWUP_DONE',
-			});
-		});
-	}
-
 	if (config.provider === 'copilotcli') {
 		(RUN_KNOWN_ISSUES ? test : test.skip)('file edit metadata survives a host restart', async function () {
 			this.timeout(240_000);

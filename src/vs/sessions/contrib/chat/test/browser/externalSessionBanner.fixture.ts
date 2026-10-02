@@ -20,10 +20,6 @@ import { SESSIONS_LIST_GROUP_EXTERNAL_SESSIONS_SETTING } from '../../../../commo
 import { ExternalSessionBanner, getExternalSessionVisibilityConfirmation } from '../../browser/externalSessionBanner.js';
 
 export default defineThemedFixtureGroup({ path: 'sessions/externalSessionBanner/' }, {
-	Codex: defineComponentFixture({
-		labels: { kind: 'screenshot' },
-		render: context => renderBannerInChat(context, undefined, 'codex'),
-	}),
 	Copilot: defineComponentFixture({
 		labels: { kind: 'screenshot' },
 		render: context => renderBannerInChat(context, undefined, 'copilot'),

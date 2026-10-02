@@ -14,7 +14,7 @@ Existing tests keep running and are still worth fixing when they break — they 
 
 ## Running
 
-Use `../e2e/` when the behavior depends on a real Claude, Copilot, or Codex process. Use a `*.test.ts` unit test when no server process is required.
+Use `../e2e/` when the behavior depends on a real Claude or Copilot process. Use a `*.test.ts` unit test when no server process is required.
 
 Run one suite with:
 

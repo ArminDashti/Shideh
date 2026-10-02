@@ -106,7 +106,6 @@ suite('Agents Window workspace handoff telemetry', () => {
 			storageService: disposables.add(new InMemoryStorageService()),
 			telemetryService: upcastPartial<ITelemetryService>({ publicLog2: (name, data) => { events.push({ name, data }); } }),
 			sessionsManagementService: { getSessions: () => [] },
-			sessionsSetUpService: { initialSignInDialogShown: false },
 			_getWindowOpenViewState: () => ({ workspacePreselected: false, workspacePreselectionSource: 'none', viewKind: 'noComposer' }),
 			lifecycleService,
 		};

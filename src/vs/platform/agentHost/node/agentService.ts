@@ -1108,7 +1108,6 @@ export class AgentService extends Disposable implements IAgentService {
 			migrateLegacyEnabled: this._migrateLegacyEnabledSnapshot,
 			copilotRegistered: this._providerService.getProvider('copilotcli') !== undefined,
 			claudeRegistered: this._providerService.getProvider('claude') !== undefined,
-			codexRegistered: this._providerService.getProvider('codex') !== undefined,
 		};
 	}
 
@@ -3851,12 +3850,11 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	private _getSessionListStartupMetrics(registered: readonly IRegisteredSession[], metrics: IAgentHostStartupMetrics): IAgentHostStartupMetrics {
-		const counts = { copilotSessionCount: 0, claudeSessionCount: 0, codexSessionCount: 0, otherSessionCount: 0 };
+		const counts = { copilotSessionCount: 0, claudeSessionCount: 0, otherSessionCount: 0 };
 		for (const entry of registered) {
 			switch (entry.provider) {
 				case 'copilotcli': counts.copilotSessionCount++; break;
 				case 'claude': counts.claudeSessionCount++; break;
-				case 'codex': counts.codexSessionCount++; break;
 				default: counts.otherSessionCount++; break;
 			}
 		}
@@ -4467,8 +4465,8 @@ export class AgentService extends Disposable implements IAgentService {
 			config = { ...config, importConversation: { ...config.importConversation, turns: importedTurns } };
 		}
 
-		// Resolve host-owned isolation before provider creation. Providers such as
-		// Codex may schedule eager prewarming from createSession; marking a
+		// Resolve host-owned isolation before provider creation. Providers may
+		// schedule eager prewarming from createSession; marking a
 		// client-chosen worktree session pending first prevents that prewarm from
 		// materializing in the picked folder before the host creates the worktree.
 		const initializeSideEffects = this._sideEffects.initialize();

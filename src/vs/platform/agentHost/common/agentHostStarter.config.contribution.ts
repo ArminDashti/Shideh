@@ -17,11 +17,6 @@ import {
 	AgentHostGitHubMcpServerEnabledSettingId,
 	AgentHostClaudeAgentEnabledSettingId,
 	AgentHostClaudeMultiRootEnabledSettingId,
-	AgentHostCodexAgentBinaryArgsSettingId,
-	AgentHostCodexAgentEnabledSettingId,
-	AgentHostCodexMultiRootEnabledSettingId,
-	AgentHostCodexAgentSdkRootSettingId,
-	AgentHostCodexAgentCodexHomeSettingId,
 	AgentHostCopilotMultiRootEnabledSettingId,
 	AgentHostMarkdownPlanRichLinksEnabledSettingId,
 	AgentHostOTelCaptureContentSettingId,
@@ -40,8 +35,6 @@ import {
 	AgentHostAutoAttachPullRequestsConfigKey,
 	AgentHostByokModelsEnabledConfigKey,
 	AgentHostClaudeMultiRootEnabledConfigKey,
-	AgentHostCodexEnabledConfigKey,
-	AgentHostCodexMultiRootEnabledConfigKey,
 	AgentHostCopilotMultiRootEnabledConfigKey,
 	AgentHostGitHubMcpServerEnabledConfigKey,
 	AgentHostMarkdownPlanRichLinksEnabledConfigKey,
@@ -250,13 +243,6 @@ configurationRegistry.registerConfiguration({
 			included: false,
 			agentHost: { key: AgentHostClaudeMultiRootEnabledConfigKey },
 		},
-		[AgentHostCodexMultiRootEnabledSettingId]: {
-			type: 'boolean',
-			description: nls.localize('chat.agentHost.codexAgent.multiRootEnabled', "When enabled, Codex agent-host sessions advertise support for multiple working directories, so a session created in a multi-root workspace can span every workspace folder. Experimental; newly created sessions pick up a change without restarting the agent host."),
-			default: false,
-			included: false,
-			agentHost: { key: AgentHostCodexMultiRootEnabledConfigKey },
-		},
 		[AgentHostClaudeAgentEnabledSettingId]: {
 			type: 'boolean',
 			description: nls.localize('chat.agentHost.claudeAgent.enabled', "When enabled, the agent host registers the Claude provider, subject to the Claude SDK being reachable. The agent host process must be restarted for changes to take effect."),
@@ -283,54 +269,6 @@ configurationRegistry.registerConfiguration({
 			tags: ['experimental', 'advanced'],
 			experiment: { mode: 'startup' },
 			agentHost: { key: AgentHostByokModelsEnabledConfigKey, scope: AgentHostConfigurationSyncScope.Local },
-		},
-		[AgentHostCodexAgentEnabledSettingId]: {
-			type: 'boolean',
-			description: nls.localize('chat.agentHost.codexAgent.enabled', "When enabled, the agent host registers the Codex provider (subject to the Codex SDK being reachable). Enabling takes effect without restarting the agent host."),
-			default: product.quality !== 'stable',
-			tags: ['experimental'],
-			// Allow the default to be overridden by an experiment. Uses `startup`
-			// to match the sibling agent-host provider settings.
-			experiment: { mode: 'startup' },
-			// Always mirrored, including when `false`: the host only acts on enable, so a
-			// forwarded `false` takes effect on the next agent host restart (otherwise
-			// in-progress Codex sessions would have to be stopped).
-			agentHost: { key: AgentHostCodexEnabledConfigKey },
-			// Owns the `Codex3PIntegration` policy; gating here disables Codex across all agent-host surfaces.
-			policy: {
-				name: 'Codex3PIntegration',
-				category: PolicyCategory.InteractiveSession,
-				minimumVersion: '1.126',
-				value: thirdPartyAgentEnabledValue,
-				localization: {
-					description: {
-						key: 'chat.agentHost.codexAgent.enabled.policy',
-						value: nls.localize('chat.agentHost.codexAgent.enabled.policy', "Enable Codex Agent sessions in VS Code. Start and resume agentic coding sessions powered by OpenAI Codex. Usage can be routed through GitHub Copilot or authenticated directly with an OpenAI account."),
-					}
-				}
-			},
-		},
-		[AgentHostCodexAgentSdkRootSettingId]: {
-			type: 'string',
-			description: nls.localize('chat.agentHost.codexAgent.sdkRoot', "Experimental, for local SDK development only. Absolute path to a directory containing `node_modules/@openai/codex`. When set, the agent host spawns the Codex binary from this tree instead of downloading the SDK. Empty (the default) falls through to the SDK distribution shipped with this build. The agent host process must be restarted for changes to take effect."),
-			default: '',
-			tags: ['experimental', 'advanced'],
-			included: product.quality !== 'stable',
-		},
-		[AgentHostCodexAgentCodexHomeSettingId]: {
-			type: 'string',
-			description: nls.localize('chat.agentHost.codexAgent.codexHome', "Optional override for `$CODEX_HOME`. Controls where the codex binary reads config and writes rollouts. When empty, codex uses its default (`~/.codex`)."),
-			default: '',
-			tags: ['experimental', 'advanced'],
-			included: product.quality !== 'stable',
-		},
-		[AgentHostCodexAgentBinaryArgsSettingId]: {
-			type: 'array',
-			items: { type: 'string' },
-			description: nls.localize('chat.agentHost.codexAgent.binaryArgs', "Additional command-line arguments passed to `codex app-server`. Primarily useful for debugging (for example, `--log-level=debug`)."),
-			default: [],
-			tags: ['experimental', 'advanced'],
-			included: product.quality !== 'stable',
 		},
 		[AgentHostOTelEnabledSettingId]: {
 			type: 'boolean',

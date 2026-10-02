@@ -197,20 +197,6 @@ export function defineMcpSideChannelTests(context: IAgentHostE2ETestContext): vo
 		}
 	});
 
-	if (context.config.provider === 'codex') {
-		scenario('lists resources and templates from the provider inventory', async ({ channel }) => {
-			const resources = await context.client.call<{ resources: readonly { uri: string; name: string }[] }>('resources/list', { channel });
-			const templates = await context.client.call<{ resourceTemplates: readonly { uriTemplate: string; name: string }[] }>('resources/templates/list', { channel });
-			assert.deepStrictEqual({
-				resources: resources.resources.map(({ uri, name }) => ({ uri, name })),
-				templates: templates.resourceTemplates.map(({ uriTemplate, name }) => ({ uriTemplate, name })),
-			}, {
-				resources: [{ uri: 'ui://side-channel/view', name: 'View' }],
-				templates: [{ uriTemplate: 'data://side-channel/{name}', name: 'Data' }],
-			});
-		});
-	}
-
 	if (context.config.provider === 'copilotcli') {
 		scenario('stopped servers can restart and serve the same application channel', async ({ session, server, channel }) => {
 			context.client.dispatch({

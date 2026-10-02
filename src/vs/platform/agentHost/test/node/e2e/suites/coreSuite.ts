@@ -245,8 +245,7 @@ export function defineCoreTests(context: IAgentHostE2ETestContext): void {
 		}
 	});
 
-	// Quarantined on Codex Linux/macOS: https://github.com/microsoft/vscode/issues/338152
-	(config.provider !== 'codex' || context.isWindows ? test : test.skip)('retains context across consecutive turns', async function () {
+		test('retains context across consecutive turns', async function () {
 		this.timeout(180_000);
 		const workspace = mkdtempSync(join(tmpdir(), 'ahp-coverage-memory-'));
 		tempDirs.push(workspace);
@@ -262,8 +261,7 @@ export function defineCoreTests(context: IAgentHostE2ETestContext): void {
 		await assertRecordedAhpSnapshot(this.test!, context.client, behaviorSnapshot);
 	});
 
-	// Quarantined on Codex Linux: https://github.com/microsoft/vscode/issues/338152
-	(modelSwitchTarget && (config.provider !== 'codex' || !context.isLinux) ? test : test.skip)('client-selected model is used for the turn', async function () {
+		(modelSwitchTarget ? test : test.skip)('client-selected model is used for the turn', async function () {
 		this.timeout(180_000);
 		assert.ok(modelSwitchTarget);
 		const workspace = mkdtempSync(join(tmpdir(), 'ahp-model-switch-'));

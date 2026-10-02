@@ -15,11 +15,11 @@ suite('Agent SDK setup channel', () => {
 			agents: [],
 			_meta: {
 				[agentSdkSetupStatusKey('claude')]: { download: 'ready', setupDocsUrl: 'https://example.test/claude' },
-				[agentSdkSetupStatusKey('codex')]: { download: 'downloadOnUse', signInProviderName: 'ChatGPT' },
+				[agentSdkSetupStatusKey('mycli')]: { download: 'downloadOnUse', signInProviderName: 'MyProvider' },
 			},
 		}), [
 			{ agent: 'claude', download: 'ready', setupDocsUrl: 'https://example.test/claude', signInProviderName: undefined },
-			{ agent: 'codex', download: 'downloadOnUse', setupDocsUrl: undefined, signInProviderName: 'ChatGPT' },
+			{ agent: 'mycli', download: 'downloadOnUse', setupDocsUrl: undefined, signInProviderName: 'MyProvider' },
 		]);
 	});
 
@@ -43,9 +43,9 @@ suite('Agent SDK setup channel', () => {
 			agents: [],
 			_meta: {
 				[agentSdkSetupStatusKey('claude')]: { download: 'somethingElse' },
-				[agentSdkSetupStatusKey('codex')]: 'not an object',
+				[agentSdkSetupStatusKey('mycli')]: 'not an object',
 				[agentSdkSetupStatusKey('')]: { download: 'ready' },
-				'vscode.codexAccount': { status: 'signedIn' },
+				'vscode.someAccount': { status: 'signedIn' },
 			},
 		}), []);
 	});
@@ -65,7 +65,7 @@ suite('Agent SDK setup channel', () => {
 
 	test('a request is only for the agent it names, and only when it carries a nonce', () => {
 		assert.strictEqual(isAgentSdkSetupRequestFor({ agent: 'claude', request: 'abc' }, 'claude'), true);
-		assert.strictEqual(isAgentSdkSetupRequestFor({ agent: 'claude', request: 'abc' }, 'codex'), false);
+		assert.strictEqual(isAgentSdkSetupRequestFor({ agent: 'claude', request: 'abc' }, 'mycli'), false);
 		assert.strictEqual(isAgentSdkSetupRequestFor({ agent: 'claude', request: '' }, 'claude'), false);
 		assert.strictEqual(isAgentSdkSetupRequestFor({ agent: 'claude' }, 'claude'), false);
 		assert.strictEqual(isAgentSdkSetupRequestFor(undefined, 'claude'), false);

@@ -34,7 +34,7 @@ const {
 } = require('./common.cjs');
 
 const PORT = 9100 + Math.floor(Math.random() * 900);
-const BASE_URL = `http://localhost:${PORT}/?skip-sessions-welcome`;
+const BASE_URL = `http://localhost:${PORT}/`;
 
 const SYSTEM_PROMPT = [
 	'You are a test automation assistant. Given a snapshot of a web page\'s',

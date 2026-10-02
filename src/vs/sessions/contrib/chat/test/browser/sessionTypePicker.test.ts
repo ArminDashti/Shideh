@@ -457,26 +457,26 @@ suite('SessionTypePicker', () => {
 	test('uses provider initialization metadata before models are discovered', () => {
 		const chatSessionsService = new class extends mock<IChatSessionsService>() {
 			override getChatSessionContribution(type: string): ResolvedChatSessionsExtensionPoint | undefined {
-				return type === SessionType.AgentHostCodex
-					? { type, name: type, displayName: 'Codex', description: '', icon: Codicon.openai }
+				return type === SessionType.AgentHostClaude
+					? { type, name: type, displayName: 'MyCli', description: '', icon: Codicon.openai }
 					: undefined;
 			}
 			override requiresCopilotSignInForSessionType(): boolean { return false; }
 			override supportsAutoModelForSessionType(): boolean { return false; }
 			override requiresCustomModelsForSessionType(): boolean { return true; }
 		}();
-		const isCodexDisabled = (entitlement: ChatEntitlement, canInitializeWithoutGitHub: boolean): boolean | undefined => {
+		const isTypeDisabled = (entitlement: ChatEntitlement, canInitializeWithoutGitHub: boolean): boolean | undefined => {
 			management.setSessionTypesForFolder(folder, [
 				sessionType('local', 'local', 'Local'),
-				sessionType('agent-host', 'codex', 'Codex', SessionType.AgentHostCodex, canInitializeWithoutGitHub),
+				sessionType('agent-host', 'mycli', 'MyCli', SessionType.AgentHostClaude, canInitializeWithoutGitHub),
 			]);
 			session.set(createFakeSession('local', 'local', folder), undefined);
-			let codexDisabled: boolean | undefined;
+			let typeDisabled: boolean | undefined;
 			const actionWidgetService = new class extends mock<IActionWidgetService>() {
 				override show<T>(_user: string, _supportsPreview: boolean, items: readonly IActionListItem<T>[]): void {
-					const codex = items.find(item => item.label === 'Codex');
-					assert.ok(codex);
-					codexDisabled = codex.disabled;
+					const mycli = items.find(item => item.label === 'MyCli');
+					assert.ok(mycli);
+					typeDisabled = mycli.disabled;
 				}
 			}();
 			const chatEntitlementService = new class extends mock<IChatEntitlementService>() {
@@ -490,14 +490,14 @@ suite('SessionTypePicker', () => {
 			});
 			picker.render(document.createElement('div'));
 			picker.showPicker();
-			return codexDisabled;
+			return typeDisabled;
 		};
 
 		assert.deepStrictEqual({
-			copilotFree: isCodexDisabled(ChatEntitlement.Free, false),
-			providerAuthenticated: isCodexDisabled(ChatEntitlement.Unknown, true),
-			signedOut: isCodexDisabled(ChatEntitlement.Unknown, false),
-			unresolved: isCodexDisabled(ChatEntitlement.Unresolved, false),
+			copilotFree: isTypeDisabled(ChatEntitlement.Free, false),
+			providerAuthenticated: isTypeDisabled(ChatEntitlement.Unknown, true),
+			signedOut: isTypeDisabled(ChatEntitlement.Unknown, false),
+			unresolved: isTypeDisabled(ChatEntitlement.Unresolved, false),
 		}, {
 			copilotFree: false,
 			providerAuthenticated: false,

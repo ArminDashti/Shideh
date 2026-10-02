@@ -253,12 +253,12 @@ suite('AgentHostStateManager', () => {
 	test('root config replacement preserves provider-backed values', () => {
 		const rootState = manager.rootState;
 		assert.ok(rootState.config);
-		rootState.config.values['codex.personality'] = 'friendly';
+		rootState.config.values['mycli.personality'] = 'friendly';
 		rootState._meta = withAgentCustomizationSettings(rootState, [{
-			provider: 'codex',
-			title: 'Codex',
-			description: 'Codex settings',
-			settings: [{ key: 'codex.personality', group: 'Personalization' }],
+			provider: 'mycli',
+			title: 'MyCli',
+			description: 'MyCli settings',
+			settings: [{ key: 'mycli.personality', group: 'Personalization' }],
 		}]);
 
 		const envelopes: ActionEnvelope[] = [];
@@ -271,13 +271,13 @@ suite('AgentHostStateManager', () => {
 
 		assert.deepStrictEqual(manager.rootState.config?.values, {
 			someProviderSetting: 'openai',
-			'codex.personality': 'friendly',
+			'mycli.personality': 'friendly',
 		});
 		assert.deepStrictEqual(envelopes[0].action, {
 			type: ActionType.RootConfigChanged,
 			config: {
 				someProviderSetting: 'openai',
-				'codex.personality': 'friendly',
+				'mycli.personality': 'friendly',
 			},
 			replace: true,
 		});

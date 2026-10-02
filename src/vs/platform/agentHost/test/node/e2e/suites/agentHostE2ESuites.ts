@@ -97,7 +97,6 @@ function defineSuite(config: IAgentHostE2EProviderConfig, options: IDefineOption
 			this.timeout(60_000);
 			lease = new AgentHostE2EServerLease(config, {
 				claudeSdkRoot: config.claudeSdkRoot,
-				codexSdkRoot: config.codexSdkRoot,
 				target: options.target,
 			});
 		});

@@ -10,7 +10,6 @@ import { IProductOnboardingTheme } from '../../../../base/common/product.js';
  * Step identifiers for the onboarding walkthrough.
  */
 export const enum OnboardingStepId {
-	SignIn = 'onboarding.signIn',
 	Personalize = 'onboarding.personalize',
 	AiPreference = 'onboarding.aiPreference',
 }
@@ -20,8 +19,6 @@ export const enum OnboardingStepId {
  */
 export function getOnboardingStepTitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
-		case OnboardingStepId.SignIn:
-			return localize('onboarding.step.signIn', "Sign In");
 		case OnboardingStepId.Personalize:
 			return localize('onboarding.step.personalize', "Make It Yours");
 		case OnboardingStepId.AiPreference:
@@ -34,8 +31,6 @@ export function getOnboardingStepTitle(stepId: OnboardingStepId): string {
  */
 export function getOnboardingStepSubtitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
-		case OnboardingStepId.SignIn:
-			return localize('onboarding.step.signIn.subtitle', "Sync settings, unlock AI features, and connect to GitHub");
 		case OnboardingStepId.Personalize:
 			return localize('onboarding.step.personalize.subtitle', "Choose your theme and keyboard mapping");
 		case OnboardingStepId.AiPreference:
@@ -47,7 +42,6 @@ export function getOnboardingStepSubtitle(stepId: OnboardingStepId): string {
  * Ordered step IDs for the onboarding flow.
  */
 export const ONBOARDING_STEPS: readonly OnboardingStepId[] = [
-	OnboardingStepId.SignIn,
 	OnboardingStepId.Personalize,
 ];
 

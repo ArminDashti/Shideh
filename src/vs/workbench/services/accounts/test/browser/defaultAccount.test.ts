@@ -1844,30 +1844,25 @@ suite('DefaultAccountProvider sign in scopes', () => {
 		});
 	});
 
-	test('connector experiments never change default sign-in scopes', async () => {
+	test('sign-in configuration never changes default sign-in scopes', async () => {
 		assert.deepStrictEqual({
 			unset: await signIn(),
-			disabled: await signIn(undefined, { [CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: false }),
 			publicFeedOnly: await signIn(undefined, { [CustomizationMarketplaceConfiguration.AgentFinderPublicFeedEnabled]: true }),
-			enabled: await signIn(undefined, { [CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: true }),
 			enterprise: await signIn(undefined, {
-				[CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: true,
 				'github.copilot.advanced.authProvider': 'github-enterprise',
 			}),
 		}, {
 			unset: [{ scopes: ['read:user', 'user:email', 'repo'], options: {} }],
-			disabled: [{ scopes: ['read:user', 'user:email', 'repo'], options: {} }],
 			publicFeedOnly: [{ scopes: ['read:user', 'user:email', 'repo'], options: {} }],
-			enabled: [{ scopes: ['read:user', 'user:email', 'repo'], options: {} }],
 			enterprise: [{ scopes: ['read:user', 'user:email', 'repo'], options: {} }],
 		});
 	});
 
-	test('preserves only explicitly requested additional scopes when connectors are enabled', async () => {
+	test('preserves only explicitly requested additional scopes', async () => {
 		assert.deepStrictEqual(await signIn({
 			additionalScopes: ['workflow', 'workflow'],
 			provider: 'google',
-		}, { [CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: true }), [{
+		}), [{
 			scopes: ['read:user', 'user:email', 'repo', 'workflow'],
 			options: { provider: 'google' },
 		}]);

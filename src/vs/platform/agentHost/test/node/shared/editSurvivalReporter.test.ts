@@ -124,7 +124,7 @@ suite('agentHost editSurvivalReporter', () => {
 
 	test('emits a delete event when the file is missing', async () => {
 		const reporter = factory.launch({
-			sessionUri: 'codex:/session-2',
+			sessionUri: 'mycli:/session-2',
 			turnId: 'turn-1',
 			toolCallId: 'tc-x',
 			filePath: '/workspace/missing.ts',
@@ -140,7 +140,7 @@ suite('agentHost editSurvivalReporter', () => {
 		const data = telemetry.events[0].data as Record<string, unknown>;
 		assert.strictEqual(data.didFileGetDeleted, 1);
 		assert.strictEqual(data.isCreate, 1);
-		assert.strictEqual(data.provider, 'codex');
+		assert.strictEqual(data.provider, 'mycli');
 	});
 
 	test('skips the sample on transient read errors (no event, reporter keeps running)', async () => {

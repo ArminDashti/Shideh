@@ -590,7 +590,7 @@ export class TestSessionsBrowserMain extends SessionsBrowserMain {
 
 	private preseedFolder(storageService: IStorageService): void {
 		const mockFolderUri = URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo' });
-		const providerId = 'default-copilot';
+		const providerId = 'cloud-provider';
 
 		// Seed recent workspaces so resolveWorkspace() can hydrate the selection
 		const recentWorkspaces = JSON.stringify([{ uri: mockFolderUri.toJSON(), providerId, checked: true }]);

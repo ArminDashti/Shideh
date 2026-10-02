@@ -35,8 +35,8 @@ import {
  * **Subprocess ownership invariant.** Callers that hand `baseUrl`/`nonce` to
  * the Copilot SDK runtime subprocess MUST kill that subprocess before calling
  * `dispose()` — after disposal the proxy may rebind on a different port and the
- * subprocess would silently lose its endpoint (same contract as the Claude and
- * Codex proxies).
+ * subprocess would silently lose its endpoint (same contract as the Claude
+ * proxy).
  */
 export interface IByokLmProxyHandle extends ILoopbackProxyHandle {
 	/** e.g. `http://127.0.0.1:54321` — no trailing slash. */

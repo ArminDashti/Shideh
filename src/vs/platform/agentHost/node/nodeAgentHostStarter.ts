@@ -17,7 +17,7 @@ import { getResolvedShellEnv } from '../../shell/node/shellEnv.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IAgentHostConnection, IAgentHostStarter } from '../common/agent.js';
 import { AgentHostLaunchKind, AgentHostLaunchKindEnvVar, telemetryLevelToAgentHostValue } from '../common/agentHostTelemetry.js';
-import { AgentHostClaudeAgentEnabledSettingId, AgentHostCodexAgentBinaryArgsSettingId, AgentHostCodexAgentEnabledSettingId, AgentHostCodexAgentSdkRootSettingId, AgentHostCodexAgentCodexHomeSettingId, AgentHostIpcChannels, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOtlpProtocolSettingId, AgentHostOTelOutfileSettingId, AgentHostOTelResourceAttributesSettingId, AgentHostOTelServiceNameSettingId, buildAgentHostOTelEnv, buildAgentSdkEnv, IAgentHostManagementService } from '../common/agentService.js';
+import { AgentHostClaudeAgentEnabledSettingId, AgentHostIpcChannels, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOtlpProtocolSettingId, AgentHostOTelOutfileSettingId, AgentHostOTelResourceAttributesSettingId, AgentHostOTelServiceNameSettingId, buildAgentHostOTelEnv, buildAgentSdkEnv, IAgentHostManagementService } from '../common/agentService.js';
 import '../common/agentHostStarter.config.contribution.js';
 
 /**
@@ -77,15 +77,11 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 			[AgentHostLaunchKindEnvVar]: AgentHostLaunchKind.VSCodeCLI,
 		};
 
-		// Forward the Claude/Codex SDK overrides + codex home/args from
-		// workbench settings to the agent host process. Parent env wins on
-		// collision — see `buildAgentSdkEnv` for the precedence rule.
+		// Forward the Claude enable toggle from workbench settings to the agent
+		// host process. Parent env wins on collision — see `buildAgentSdkEnv`
+		// for the precedence rule.
 		const sdkEnv = buildAgentSdkEnv({
-			codexSdkRoot: this._configurationService.getValue<string>(AgentHostCodexAgentSdkRootSettingId),
-			codexHome: this._configurationService.getValue<string>(AgentHostCodexAgentCodexHomeSettingId),
-			codexBinaryArgs: this._configurationService.getValue<readonly string[]>(AgentHostCodexAgentBinaryArgsSettingId),
 			claudeAgentEnabled: this._configurationService.getValue<boolean>(AgentHostClaudeAgentEnabledSettingId),
-			codexAgentEnabled: this._configurationService.getValue<boolean>(AgentHostCodexAgentEnabledSettingId),
 		}, process.env);
 		Object.assign(env, sdkEnv);
 

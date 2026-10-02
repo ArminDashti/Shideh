@@ -30,13 +30,6 @@ export interface IClaudeSessionOverlay {
 	 * overlay DB), so callers treat absence as single-root.
 	 */
 	readonly workingDirectories?: readonly URI[];
-	/**
-	 * Transport the session most recently materialized under (Phase 19).
-	 * Forward-compat only — written at materialize time but NOT read for
-	 * transport resolution in v1 (transport is resolved host-level). Lets a
-	 * future per-session-transport feature land without a data migration.
-	 */
-	readonly transport?: 'proxy' | 'native';
 }
 
 /**
@@ -50,7 +43,6 @@ export interface IClaudeSessionOverlayUpdate {
 	readonly permissionMode?: ClaudePermissionMode;
 	readonly agent?: AgentSelection | null;
 	readonly workingDirectories?: readonly URI[];
-	readonly transport?: 'proxy' | 'native';
 }
 
 /**
@@ -75,7 +67,6 @@ export class ClaudeSessionMetadataStore {
 	private static readonly KEY_MODEL = 'claude.model';
 	private static readonly KEY_PERMISSION_MODE = 'claude.permissionMode';
 	private static readonly KEY_AGENT = 'claude.agent';
-	private static readonly KEY_TRANSPORT = 'claude.transport';
 	private static readonly KEY_WORKING_DIRECTORIES = 'claude.workingDirectories';
 
 	constructor(
@@ -94,9 +85,8 @@ export class ClaudeSessionMetadataStore {
 				[ClaudeSessionMetadataStore.KEY_CUSTOMIZATION_DIRECTORY]: true,
 				[ClaudeSessionMetadataStore.KEY_MODEL]: true,
 				[ClaudeSessionMetadataStore.KEY_PERMISSION_MODE]: true,
-				[ClaudeSessionMetadataStore.KEY_AGENT]: true,
-				[ClaudeSessionMetadataStore.KEY_TRANSPORT]: true,
-				[ClaudeSessionMetadataStore.KEY_WORKING_DIRECTORIES]: true,
+					[ClaudeSessionMetadataStore.KEY_AGENT]: true,
+					[ClaudeSessionMetadataStore.KEY_WORKING_DIRECTORIES]: true,
 			});
 			return Object.values(metadata).some(value => value !== undefined);
 		} finally {
@@ -130,9 +120,6 @@ export class ClaudeSessionMetadataStore {
 					fields.agent === null ? '' : JSON.stringify({ uri: fields.agent.uri }),
 				));
 			}
-			if (fields.transport) {
-				work.push(db.setMetadata(ClaudeSessionMetadataStore.KEY_TRANSPORT, fields.transport));
-			}
 			if (fields.workingDirectories) {
 				work.push(db.setMetadata(
 					ClaudeSessionMetadataStore.KEY_WORKING_DIRECTORIES,
@@ -158,12 +145,11 @@ export class ClaudeSessionMetadataStore {
 			return {};
 		}
 		try {
-			const [customizationDirectoryRaw, modelRaw, permissionModeRaw, agentRaw, transportRaw, workingDirectoriesRaw] = await Promise.all([
+			const [customizationDirectoryRaw, modelRaw, permissionModeRaw, agentRaw, workingDirectoriesRaw] = await Promise.all([
 				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_CUSTOMIZATION_DIRECTORY),
 				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_MODEL),
 				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_PERMISSION_MODE),
 				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_AGENT),
-				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_TRANSPORT),
 				ref.object.getMetadata(ClaudeSessionMetadataStore.KEY_WORKING_DIRECTORIES),
 			]);
 			return {
@@ -171,7 +157,6 @@ export class ClaudeSessionMetadataStore {
 				model: parseModelSelection(modelRaw),
 				permissionMode: narrowClaudePermissionMode(permissionModeRaw),
 				agent: parseAgentSelection(agentRaw),
-				transport: transportRaw === 'proxy' || transportRaw === 'native' ? transportRaw : undefined,
 				workingDirectories: parseWorkingDirectories(workingDirectoriesRaw),
 			};
 		} finally {

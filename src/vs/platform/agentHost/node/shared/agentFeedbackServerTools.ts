@@ -599,7 +599,7 @@ export function applyFeedbackTool(state: AnnotationsState, sessionResource: stri
 
 /**
  * Display strings for the feedback ("comments") tools, authored here so every
- * provider (Copilot, Claude, Codex, …) renders them identically instead of
+ * provider (Copilot, Claude, …) renders them identically instead of
  * each provider's display layer re-deriving the strings from the tool name.
  * Returns `undefined` for tools this group does not own, so the caller falls
  * back to its generic display.

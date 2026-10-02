@@ -17,7 +17,6 @@ export function createIsolatedProviderEnvironment(homeDir: string, environment: 
 		COPILOT_HOME: join(homeDir, '.copilot'),
 		COPILOT_SKILLS_DIRS: undefined,
 		CLAUDE_CONFIG_DIR: undefined,
-		CODEX_HOME: undefined,
 		...(isWindows && homeDir.match(/^[A-Za-z]:[\\/]/) ? {
 			HOMEDRIVE: homeDir.slice(0, 2),
 			HOMEPATH: homeDir.slice(2).replace(/\//g, '\\'),

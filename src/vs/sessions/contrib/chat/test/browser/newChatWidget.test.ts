@@ -1824,8 +1824,8 @@ suite('NewChatWidget', () => {
 			{ name: 'pick matches the draft', pick: { providerId: 'agent-host', sessionTypeId: 'claude' }, servable: true },
 			{ name: 'pick names no provider, type matches', pick: { sessionTypeId: 'claude' }, servable: true },
 			{ name: 'pick names another provider', pick: { providerId: 'other', sessionTypeId: 'claude' }, servable: true },
-			{ name: 'pick names another type', pick: { providerId: 'agent-host', sessionTypeId: 'codex' }, servable: true },
-			{ name: 'pick cannot be served yet', pick: { providerId: 'other', sessionTypeId: 'codex' }, servable: false },
+			{ name: 'pick names another type', pick: { providerId: 'agent-host', sessionTypeId: 'mycli' }, servable: true },
+			{ name: 'pick cannot be served yet', pick: { providerId: 'other', sessionTypeId: 'mycli' }, servable: false },
 		];
 
 		const outcomes = cases.map(({ name, pick, servable }) => {

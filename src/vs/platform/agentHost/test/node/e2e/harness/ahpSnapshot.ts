@@ -518,9 +518,9 @@ function actionChannel(entry: object): string | undefined {
  * Linux can never match the same behavior on Windows even when the recorded
  * command itself is portable.
  *
- * Only the names that actually vary by platform are mapped. Claude's `Bash` and
- * Codex's `shell` are fixed strings their SDKs use everywhere, so they are left
- * alone — rewriting them would hide a genuine provider change.
+ * Only the names that actually vary by platform are mapped. Fixed strings
+ * like Claude's `Bash` are left alone — rewriting them would hide a genuine
+ * provider change.
  */
 function normalizeShellToolName(toolName: string): string {
 	const shellToolPlaceholders: Record<string, string> = {

@@ -65,11 +65,9 @@ export function defineFileOperationsTests(context: IAgentHostE2ETestContext): vo
 	const shellOutputOracleAvailable = shellResultTextAvailable && !(isWindows && config.provider === 'copilotcli');
 	const BEHAVIOR_SNAPSHOT = {
 		profile: 'behavior',
-		// Codex occasionally omits command completion; direct filesystem and response assertions are the success oracle.
-		omitToolCallSuccessForToolNames: config.provider === 'codex' ? ['shell'] : [],
 	} as const;
 
-	if (config.streamingFileCreateToolName && config.provider !== 'codex') {
+	if (config.streamingFileCreateToolName) {
 		test('declining a file creation tool prevents the mutation and completes the turn', async function () {
 			this.timeout(180_000);
 			const workspace = mkdtempSync(join(tmpdir(), 'ahp-decline-create-'));
@@ -531,10 +529,7 @@ Use your file creation tool; do not run a shell command. Then reply exactly "don
 		await assertRecordedAhpSnapshot(this.test!, context.client, BEHAVIOR_SNAPSHOT);
 	}, shellResultTextAvailable);
 
-	// Codex replays the recorded `exec_command` turn on Windows but the workspace
-	// file is intermittently absent once the turn completes, while the adjacent
-	// edit, nested-create, rename, and delete scenarios pass on the same worker.
-	const createFileReplayEnabled = RECORDING || !isWindows || !config.fileCreateReplayUnstableOnWindows;
+	const createFileReplayEnabled = RECORDING || !isWindows;
 	fileOperationTest(context, 'creates a new text file', async function () {
 		this.timeout(180_000);
 		const workspace = mkdtempSync(join(tmpdir(), 'ahp-coverage-create-'));

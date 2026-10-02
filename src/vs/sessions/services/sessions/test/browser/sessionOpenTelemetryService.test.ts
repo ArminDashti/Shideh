@@ -68,7 +68,7 @@ suite('SessionOpenTelemetryService', () => {
 		const service = disposables.add(new SessionOpenTelemetryService(telemetryService));
 		service.modelBound(sessionResource, chatResource);
 		await service.withOpenRequest('navigation', CancellationToken.None, async attempt => {
-			service.sessionResolved(attempt, sessionResource, 'default-copilot', true, false);
+			service.sessionResolved(attempt, sessionResource, 'local-agent-host', true, false);
 			service.sessionActivated(attempt, chatResource);
 			service.sessionLoaded(attempt);
 		});
@@ -85,7 +85,7 @@ suite('SessionOpenTelemetryService', () => {
 			name: 'agents/sessionOpen',
 			outcome: 'success',
 			source: 'navigation',
-			provider: 'default-copilot',
+			provider: 'local-agent-host',
 			alreadyActive: true,
 			sessionWasLoading: false,
 			modelAlreadyBound: true,

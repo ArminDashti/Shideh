@@ -30,7 +30,7 @@ import { ChatPetAchievementIds, didExplicitlyEnableChatPetAutopilot } from '../.
 import { IChatPetService } from '../../../../../workbench/contrib/chat/browser/chatPetService.js';
 import { getAgentHostModeIcon } from './agentHostModeIcon.js';
 import { AgentHostPermissionPickerDelegate, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
-import { PermissionPicker } from '../../copilotChatSessions/browser/permissionPicker.js';
+import { PermissionPicker } from '../../shared/browser/permissionPicker.js';
 import { AGENT_HOST_PERMISSIONS_SETTINGS_QUERY, createModePickerModeItems, createModePickerPermissionsItems, getModePermissionsPickerAccessibilityProvider, getModePermissionsPickerOptions, getModePickerAriaLabel, IModePickerTrigger, MODE_PERMISSIONS_PICKER_OPEN_ATTRIBUTE, renderModePickerTrigger } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { ChatConfiguration } from '../../../../../workbench/contrib/chat/common/constants.js';
 import { IPreferencesService } from '../../../../../workbench/services/preferences/common/preferences.js';
@@ -164,7 +164,7 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
 
 	/**
 	 * Optional list-widget options for the picker popup. Subclasses whose
-	 * option descriptions are long (e.g. the Codex approvals presets) return a
+	 * option descriptions are long return a
 	 * bounded `maxWidth` plus a `className`/`detailItemHeight` so the detail text
 	 * wraps within a compact box instead of stretching the popup horizontally.
 	 */

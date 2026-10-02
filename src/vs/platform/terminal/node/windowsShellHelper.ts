@@ -47,7 +47,6 @@ const SHELL_EXECUTABLE_REGEXES = [
  */
 const NODE_AGENT_CLI_PATTERNS: ReadonlyArray<{ regex: RegExp; executable: string }> = [
 	{ regex: /[\\/]claude-code[\\/]/i, executable: 'claude.exe' },
-	{ regex: /[\\/]codex[\\/]/i, executable: 'codex.exe' },
 	{ regex: /[\\/]command-code[\\/]/i, executable: 'commandcode.exe' },
 	{ regex: /[\\/]copilot[\\/]/i, executable: 'copilot.exe' },
 	{ regex: /[\\/]gemini-cli[\\/]/i, executable: 'gemini.exe' },
@@ -188,8 +187,6 @@ export class WindowsShellHelper extends Disposable implements IWindowsShellHelpe
 				return GeneralShellType.Xonsh;
 			case 'claude.exe':
 				return GeneralShellType.Claude;
-			case 'codex.exe':
-				return GeneralShellType.Codex;
 			case 'commandcode.exe':
 				return GeneralShellType.CommandCode;
 			case 'copilot.exe':

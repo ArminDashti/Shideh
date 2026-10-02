@@ -8,7 +8,7 @@ import { parseRemoteAgentHostHarness } from '../../../../platform/agentHost/comm
 import { SessionType } from './chatSessionsService.js';
 
 const storagePrefix = 'chat.editorUsage.';
-const providers = ['local', 'copilotcli', 'cloud', 'copilot', 'claude', 'codex', 'codexExtension', 'growth', 'remoteCopilot', 'remoteClaude', 'remoteCodex', 'other'] as const;
+const providers = ['local', 'copilotcli', 'cloud', 'copilot', 'claude', 'growth', 'remoteCopilot', 'remoteClaude', 'other'] as const;
 
 export interface IEditorChatUsageTelemetry {
 	editorSessionsByProvider: string;
@@ -25,14 +25,11 @@ function getProvider(sessionType: string): typeof providers[number] {
 		case SessionType.CopilotCloud: return 'cloud';
 		case SessionType.AgentHostCopilot: return 'copilot';
 		case SessionType.AgentHostClaude: return 'claude';
-		case SessionType.AgentHostCodex: return 'codex';
-		case SessionType.Codex: return 'codexExtension';
 		case SessionType.Growth: return 'growth';
 	}
 	switch (parseRemoteAgentHostHarness(sessionType)) {
 		case 'copilotcli': return 'remoteCopilot';
 		case 'claude': return 'remoteClaude';
-		case 'codex': return 'remoteCodex';
 		default: return 'other';
 	}
 }

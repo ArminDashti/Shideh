@@ -2345,7 +2345,7 @@ suite('AgentSideEffects', () => {
 			});
 		});
 
-		test('does not duplicate a Codex provider-owned failure when sendMessage resolves', async () => {
+		test('does not duplicate a provider-owned failure when sendMessage resolves', async () => {
 			setupSession();
 			disposables.add(sideEffects.registerProgressListener(agent));
 			const originalSendMessage = agent.sendMessage.bind(agent);
@@ -2353,7 +2353,7 @@ suite('AgentSideEffects', () => {
 				await originalSendMessage(...args);
 				agent.fireProgress({
 					kind: 'action', resource: URI.parse(defaultChatUri),
-					action: { type: ActionType.ChatError, turnId: 'turn-1', duration: 1, part: createErrorResponsePart({ errorType: 'CodexMaterializeFailed', message: 'workspace root rejected' }) },
+					action: { type: ActionType.ChatError, turnId: 'turn-1', duration: 1, part: createErrorResponsePart({ errorType: 'MaterializeFailed', message: 'workspace root rejected' }) },
 				});
 				agent.fireProgress({
 					kind: 'action', resource: URI.parse(defaultChatUri),

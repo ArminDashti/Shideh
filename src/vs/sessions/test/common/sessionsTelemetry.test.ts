@@ -34,13 +34,11 @@ suite('sessionsTelemetry helpers', () => {
 
 	test('provider IDs are bounded for telemetry', () => {
 		assert.deepStrictEqual([
-			getSessionsTelemetryProviderId('default-copilot'),
 			getSessionsTelemetryProviderId('local-agent-host'),
 			getSessionsTelemetryProviderId('agenthost-example.internal:1234'),
 			getSessionsTelemetryProviderId('agenthost-b3BhcXVlLXR1bm5lbC1pZA'),
 			getSessionsTelemetryProviderId('extension-provider'),
 		], [
-			'default-copilot',
 			'local-agent-host',
 			'remote-agent-host',
 			'remote-agent-host',

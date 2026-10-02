@@ -19,11 +19,9 @@ export enum AgentSessionProviders {
 	Local = SessionType.Local,
 	Background = SessionType.CopilotCLI,
 	Cloud = SessionType.CopilotCloud,
-	Codex = SessionType.Codex,
 	Growth = SessionType.Growth,
 	AgentHostCopilot = SessionType.AgentHostCopilot,
 	AgentHostClaude = SessionType.AgentHostClaude,
-	AgentHostCodex = SessionType.AgentHostCodex,
 }
 
 /**
@@ -46,10 +44,8 @@ export function getAgentSessionProvider(sessionResource: URI | string): AgentSes
 		case AgentSessionProviders.Local:
 		case AgentSessionProviders.Background:
 		case AgentSessionProviders.Cloud:
-		case AgentSessionProviders.Codex:
 		case AgentSessionProviders.AgentHostCopilot:
 		case AgentSessionProviders.AgentHostClaude:
-		case AgentSessionProviders.AgentHostCodex:
 			return type;
 		default:
 			return undefined;
@@ -66,9 +62,6 @@ export function getAgentSessionProviderName(provider: AgentSessionTarget): strin
 			return localize('chat.session.providerLabel.cloud', "Cloud");
 		case AgentSessionProviders.AgentHostClaude:
 			return 'Claude';
-		case AgentSessionProviders.Codex:
-		case AgentSessionProviders.AgentHostCodex:
-			return 'Codex';
 		case AgentSessionProviders.Growth:
 			return 'Growth';
 		case AgentSessionProviders.AgentHostCopilot:
@@ -86,9 +79,6 @@ export function getAgentSessionProviderIcon(provider: AgentSessionTarget): Theme
 			return Codicon.copilot;
 		case AgentSessionProviders.Cloud:
 			return Codicon.cloud;
-		case AgentSessionProviders.Codex:
-		case AgentSessionProviders.AgentHostCodex:
-			return Codicon.openai;
 		case AgentSessionProviders.AgentHostClaude:
 			return Codicon.claude;
 		case AgentSessionProviders.Growth:
@@ -108,8 +98,6 @@ export function isFirstPartyAgentSessionProvider(provider: AgentSessionTarget): 
 		case AgentSessionProviders.AgentHostCopilot:
 			return true;
 		case AgentSessionProviders.AgentHostClaude:
-		case AgentSessionProviders.Codex:
-		case AgentSessionProviders.AgentHostCodex:
 		case AgentSessionProviders.Growth:
 			return false;
 		default:
@@ -163,7 +151,6 @@ export function getAgentCanContinueIn(provider: AgentSessionTarget): boolean {
 		case AgentSessionProviders.Cloud:
 		case AgentSessionProviders.AgentHostCopilot:
 			return true;
-		case AgentSessionProviders.Codex:
 		case AgentSessionProviders.Growth:
 			return false;
 		default:
@@ -181,10 +168,6 @@ export function getAgentSessionProviderDescription(provider: AgentSessionTarget)
 			return localize('chat.session.providerDescription.cloud', "Delegate tasks to the GitHub Copilot coding agent. The agent iterates via chat and works asynchronously in the cloud to implement changes and pull requests as needed.");
 		case AgentSessionProviders.AgentHostClaude:
 			return localize('chat.session.providerDescription.claude', "Delegate tasks to the Claude Agent SDK using the Claude models included in your GitHub Copilot subscription. The agent iterates via chat and works interactively to implement changes on your main workspace.");
-		case AgentSessionProviders.Codex:
-			return localize('chat.session.providerDescription.codex', "Open a new Codex session using the Codex extension from OpenAI. Codex sessions can be managed from the chat sessions view.");
-		case AgentSessionProviders.AgentHostCodex:
-			return localize('chat.session.providerDescription.agentHostCodex', "Work with OpenAI's Codex agent using your ChatGPT or GitHub Copilot subscription.");
 		case AgentSessionProviders.Growth:
 			return localize('chat.session.providerDescription.growth', "Learn about Copilot features.");
 		case AgentSessionProviders.AgentHostCopilot:

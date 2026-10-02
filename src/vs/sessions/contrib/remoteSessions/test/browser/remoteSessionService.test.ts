@@ -438,7 +438,7 @@ suite('RemoteSessionService', () => {
 		}, { advertised: [], model: { provider: 'copilotcli', id: null }, workspace: null, requestedModels: [undefined] });
 	});
 
-	for (const provider of ['claude', 'codex']) {
+	for (const provider of ['claude', 'mycli']) {
 		test(`default placement skips model-less ${provider} hosts without ignoring an explicit host pin`, async () => {
 			const unavailable = new RemoteProvider('unavailable', 0, 'linux', provider);
 			unavailable.root.agents[0].models = [];
@@ -457,7 +457,7 @@ suite('RemoteSessionService', () => {
 	for (const availability of ['empty', 'hidden', 'policy-disabled']) {
 		test(`default placement skips an agent with ${availability} models on the same host`, async () => {
 			const host = new RemoteProvider('host', 0, 'linux', 'claude');
-			const runnable = new RemoteProvider('host', 0, 'linux', 'codex');
+			const runnable = new RemoteProvider('host', 0, 'linux', 'mycli');
 			if (availability === 'empty') {
 				host.root.agents[0].models = [];
 			} else if (availability === 'policy-disabled') {
@@ -478,10 +478,10 @@ suite('RemoteSessionService', () => {
 				model: result.model,
 			}, {
 				host: host.id,
-				sessionType: 'codex',
+				sessionType: 'mycli',
 				resourceScheme: runnable.sessionTypes[0].chatSessionType,
 				modelOverride: undefined,
-				model: { provider: 'codex', id: null },
+				model: { provider: 'mycli', id: null },
 			});
 		});
 	}
@@ -718,7 +718,7 @@ suite('RemoteSessionService', () => {
 		assert.deepStrictEqual(calls, []);
 	});
 
-	for (const agentProvider of ['claude', 'codex']) {
+	for (const agentProvider of ['claude', 'mycli']) {
 		test(`folder placement skips ${agentProvider} when isolation cannot be configured`, async () => {
 			const unsupported = new RemoteProvider('unsupported', 0, 'linux', agentProvider);
 			unsupported.sessionTypes = unsupported.sessionTypes.map(type => ({ ...type, supportsWorktreeConfiguration: false }));

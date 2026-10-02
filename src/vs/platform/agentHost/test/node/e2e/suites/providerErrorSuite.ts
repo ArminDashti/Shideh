@@ -26,10 +26,9 @@ export function defineProviderErrorTests(context: IAgentHostE2ETestContext): voi
 		{ name: 'missing model endpoint', status: 404, code: 'not_found_error', fetchType: 'notFound' },
 		{ name: 'rate limiting', status: 429, code: 'rate_limit_error', fetchType: 'rateLimited' },
 	]) {
-		const retries = context.config.provider === 'claude' ? status !== 402 : context.config.provider === 'codex' && (status === 402 || status === 404);
-		const genericRateLimit = context.config.provider === 'codex' && status === 429;
+		const retries = context.config.provider === 'claude' && status !== 402;
 		const title = retries ? `${name} retries without losing the request`
-			: `${name} ${genericRateLimit ? 'is surfaced' : 'remains classified'} and allows a subsequent turn`;
+			: `${name} remains classified and allows a subsequent turn`;
 		// Claude can complete an endpoint-not-found turn without a response or an error.
 		(context.config.provider !== 'claude' || status !== 404 || context.runKnownIssueTests ? test : test.skip)(`provider errors: ${title}`, async function () {
 			this.timeout(180_000);
@@ -43,7 +42,7 @@ export function defineProviderErrorTests(context: IAgentHostE2ETestContext): voi
 					status,
 					headers: { 'content-type': 'application/json', 'x-should-retry': 'false', 'retry-after': '0', 'x-request-id': 'e2e-classified-error' },
 					body: JSON.stringify({ type: 'error', error: { type: code, code, message }, request_id: 'e2e-classified-error' }),
-				}, context.config.provider === 'codex' ? '/responses' : '/v1/messages');
+				}, '/v1/messages');
 			}
 			const chat = buildDefaultChatUri(session);
 			context.client.clearReceived();
@@ -71,11 +70,8 @@ export function defineProviderErrorTests(context: IAgentHostE2ETestContext): voi
 				assert.deepStrictEqual({
 					state: failed.turns.find(turn => turn.id === 'failed-turn')?.state,
 					active: failed.activeTurn,
-					classification: genericRateLimit ? action.part.error.errorType : metadata?.fetchError?.type,
-				}, { state: TurnState.Error, active: undefined, classification: genericRateLimit ? 'CodexError' : fetchType });
-				if (genericRateLimit) {
-					assert.match(action.part.error.message, /usage|limit|429/i);
-				}
+					classification: metadata?.fetchError?.type,
+				}, { state: TurnState.Error, active: undefined, classification: fetchType });
 			}
 			const recovered = await driveTurnToCompletion(context.client, session, 'after-error', 'Reply exactly "RECOVERED".', 200);
 			assert.strictEqual(recovered.responseText.trim(), 'RECOVERED');

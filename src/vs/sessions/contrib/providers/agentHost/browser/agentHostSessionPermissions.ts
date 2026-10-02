@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../../nls.js';
-import { CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID } from '../../../../../platform/agentHost/common/agent.js';
+import { CLAUDE_AGENT_PROVIDER_ID } from '../../../../../platform/agentHost/common/agent.js';
 import { ClaudeSessionConfigKey, narrowClaudePermissionMode } from '../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
-import { CodexSessionConfigKey, narrowCodexPermissionsPreset } from '../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { type ISessionPermissionOption } from '../../../../services/sessions/common/sessionsProvider.js';
 
@@ -67,26 +66,6 @@ export function getAgentHostSessionPermissionOptions(agentProvider: string, poli
 				locked: policyRestricted,
 				lockedReason: policyRestricted ? policyLockedReason() : undefined,
 			}];
-		case CODEX_AGENT_PROVIDER_ID:
-			return [{
-				id: 'default',
-				label: localize('sessionComparison.permissions.codex.default', "Default Permissions"),
-				description: localize('sessionComparison.permissions.codex.defaultDescription', "Codex works inside the workspace sandbox and asks before broader access."),
-				isDefault: true,
-			}, {
-				id: 'auto-review',
-				label: localize('sessionComparison.permissions.codex.autoReview', "Auto-Review"),
-				description: localize('sessionComparison.permissions.codex.autoReviewDescription', "Approval requests are routed through the auto-reviewer instead of prompting you."),
-				locked: policyRestricted,
-				lockedReason: policyRestricted ? policyLockedReason() : undefined,
-			}, {
-				id: 'full-access',
-				label: localize('sessionComparison.permissions.codex.fullAccess', "Full Access"),
-				description: localize('sessionComparison.permissions.codex.fullAccessDescription', "Codex can use the internet and edit files outside the workspace without asking."),
-				isAllowAll: true,
-				locked: policyRestricted,
-				lockedReason: policyRestricted ? policyLockedReason() : undefined,
-			}];
 		default:
 			return [];
 	}
@@ -109,13 +88,6 @@ export function getAgentHostSessionPermissionConfig(agentProvider: string, permi
 		case CLAUDE_AGENT_PROVIDER_ID: {
 			const permissionMode = narrowClaudePermissionMode(permissionId);
 			return permissionMode ? { [ClaudeSessionConfigKey.PermissionMode]: permissionMode } : undefined;
-		}
-		case CODEX_AGENT_PROVIDER_ID: {
-			const permissionsPreset = narrowCodexPermissionsPreset(permissionId);
-			return permissionsPreset ? {
-				[SessionConfigKey.Mode]: 'interactive',
-				[CodexSessionConfigKey.PermissionsPreset]: permissionsPreset,
-			} : undefined;
 		}
 		default:
 			return undefined;

@@ -22,7 +22,6 @@ import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
 import { IActionListOptions, ActionListItemKind, IActionListDelegate, IActionListItem, IActionListItemInlineToggle } from '../../../../../../platform/actionWidget/browser/actionList.js';
 import { IActionWidgetService } from '../../../../../../platform/actionWidget/browser/actionWidget.js';
-import { getCodexApprovalsPickerListOptions } from '../../../../../../platform/agentHost/browser/codexApprovalsPicker.js';
 import { createAgentHostSandboxToggle, equalsAgentHostSandboxTogglePresentation, getAgentHostSandboxToggleState } from '../../../../../../platform/agentHost/browser/agentHostSandboxToggle.js';
 import { IAgentHostEnablementService } from '../../../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { AgentHostCopilotSandboxSettingId, getAgentHostCopilotSandboxSettingId, IAgentConnection, IAgentHostService } from '../../../../../../platform/agentHost/common/agentService.js';
@@ -33,7 +32,6 @@ import { SessionConfigKey } from '../../../../../../platform/agentHost/common/se
 import { readSessionSandboxPolicy } from '../../../../../../platform/agentHost/common/meta/agentSandboxPolicyMeta.js';
 import { readSessionSandboxState } from '../../../../../../platform/agentHost/common/meta/agentSandboxStateMeta.js';
 import { ClaudeSessionConfigKey } from '../../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
-import { CodexSessionConfigKey } from '../../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { ActionType } from '../../../../../../platform/agentHost/common/state/protocol/actions.js';
 import type { ResolveSessionConfigResult, SessionConfigCompletionsResult, SessionConfigPropertySchema, SessionConfigValueItem } from '../../../../../../platform/agentHost/common/state/protocol/commands.js';
 import type { SessionState } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
@@ -72,7 +70,6 @@ const FILTER_THRESHOLD = 10;
 
 const LEARN_MORE_VALUE = '__agentHostChatInputPicker.learnMore__';
 const PERMISSIONS_LEARN_MORE_URL = 'https://aka.ms/vscode/docs/permissions';
-const CODEX_APPROVALS_LEARN_MORE_URL = 'https://developers.openai.com/codex/concepts/sandboxing#how-you-control-it';
 
 export { isWellKnownAutoApproveSchema };
 
@@ -124,13 +121,6 @@ function getConfigIcon(property: string, value: unknown | undefined): ThemeIcon 
 			case 'plan': return Codicon.lightbulb;
 			case 'auto': return Codicon.sparkle;
 			case 'bypassPermissions': return Codicon.warning;
-		}
-	}
-	if (property === CodexSessionConfigKey.PermissionsPreset && typeof value === 'string') {
-		switch (value) {
-			case 'default': return Codicon.shield;
-			case 'auto-review': return Codicon.sparkle;
-			case 'full-access': return Codicon.warning;
 		}
 	}
 	return undefined;
@@ -225,9 +215,6 @@ function getEnumValueDescription(schema: SessionConfigPropertySchema, value: unk
 }
 
 export function getConfigPickerTriggerHover(property: string, schema: SessionConfigPropertySchema, value: unknown | undefined, isReadOnly: boolean, sandboxed = false): string {
-	if (property === CodexSessionConfigKey.PermissionsPreset) {
-		return getEnumValueDescription(schema, value) ?? schema.description ?? schema.title;
-	}
 	if (property !== SessionConfigKey.AutoApprove) {
 		return schema.description ?? schema.title;
 	}
@@ -253,9 +240,6 @@ export function getConfigPickerItemHover(property: string, item: IConfigPickerIt
 }
 
 function getPermissionsLearnMoreUrl(property: string): string | undefined {
-	if (property === CodexSessionConfigKey.PermissionsPreset) {
-		return CODEX_APPROVALS_LEARN_MORE_URL;
-	}
 	if (property === ClaudeSessionConfigKey.PermissionMode || property === SessionConfigKey.AutoApprove) {
 		return PERMISSIONS_LEARN_MORE_URL;
 	}
@@ -268,8 +252,6 @@ export function getConfigPickerListOptions(property: string): IActionListOptions
 			return { minWidth: 260 };
 		case SessionConfigKey.AutoApprove:
 			return { minWidth: 300 };
-		case CodexSessionConfigKey.PermissionsPreset:
-			return getCodexApprovalsPickerListOptions();
 		default:
 			return undefined;
 	}
@@ -330,7 +312,6 @@ export const WELL_KNOWN_PICKER_PROPERTIES: ReadonlySet<string> = new Set<string>
 	SessionConfigKey.ShellInitScripts,
 	SessionConfigKey.SandboxEnabled,
 	ClaudeSessionConfigKey.PermissionMode,
-	CodexSessionConfigKey.PermissionsPreset,
 ]);
 
 /**

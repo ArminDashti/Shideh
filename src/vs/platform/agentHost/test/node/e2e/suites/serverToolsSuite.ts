@@ -108,13 +108,6 @@ export function defineServerToolsTests(context: IAgentHostE2ETestContext): void 
 	async function createSession(prefix: string, stableResource = false, beforeCreateSession?: () => Promise<void>): Promise<IServerToolTestSession> {
 		const workspace = mkdtempSync(join(tmpdir(), `ahp-server-tools-${prefix}-`));
 		tempDirs.push(workspace);
-		if (config.provider === 'codex' && context.isLinux) {
-			// Concurrent Codex 0.153.0 starts can race cleanup of synthetic sandbox mount targets.
-			// Own the protected directories before either chat starts so cleanup preserves them.
-			for (const directory of ['.git', '.agents', '.codex']) {
-				mkdirSync(join(workspace, directory));
-			}
-		}
 		if (!stableResource) {
 			const sessionUri = await createRealSession(
 				context.client,
@@ -561,7 +554,7 @@ export function defineServerToolsTests(context: IAgentHostE2ETestContext): void 
 			'viewUnreviewedComments',
 			{ result: [/"id":\s*"reveal-me"/] },
 		);
-		assert.strictEqual(turn.sawPendingConfirmation, config.provider !== 'codex');
+		assert.strictEqual(turn.sawPendingConfirmation, true);
 		const annotation = (await annotationsState(session.sessionUri)).annotations.find(annotation => annotation.id === 'reveal-me');
 		assert.deepStrictEqual({
 			pendingAgentReveal: (annotation?._meta?.[FEEDBACK_ANNOTATION_META_KEY] as IFeedbackAnnotationMeta | undefined)?.pendingAgentReveal,
@@ -827,7 +820,7 @@ export function defineServerToolsTests(context: IAgentHostE2ETestContext): void 
 			sawPendingConfirmation: turn.sawPendingConfirmation,
 			messages: peerState.turns.map(turn => turn.message.text),
 		}, {
-			sawPendingConfirmation: config.provider !== 'codex',
+			sawPendingConfirmation: true,
 			messages: ['/rename Created Peer'],
 		});
 	}, config.supportsMultipleChats && supportsCurrentSessionCreation);
@@ -1045,7 +1038,7 @@ export function defineServerToolsTests(context: IAgentHostE2ETestContext): void 
 			childRequestModel: childRequest.model,
 			creationReference,
 		}, {
-			sawPendingConfirmation: config.provider !== 'codex',
+			sawPendingConfirmation: true,
 			provider: model.provider,
 			isolation: 'folder',
 			messages: [childPrompt],

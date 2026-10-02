@@ -56,9 +56,6 @@ import { ILanguageModelToolsService } from '../../common/tools/languageModelTool
 import { IChatModel } from '../../common/model/chatModel.js';
 import { ICustomizationHarnessService } from '../../common/customizationHarnessService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { AGENT_HOST_ENABLED_CONTEXT_KEY } from '../../../../../platform/agentHost/common/agentHostEnablementService.js';
-import { AgentHostCodexAgentEnabledSettingId, CodexPreferAgentHostEditorSettingId } from '../../../../../platform/agentHost/common/agentService.js';
-import { IsSessionsWindowContext } from '../../../../common/contextkeys.js';
 
 const extensionPoint = ExtensionsRegistry.registerExtensionPoint<IChatSessionsExtensionPoint[]>({
 	extensionPoint: 'chatSessions',
@@ -255,27 +252,6 @@ const extensionPoint = ExtensionsRegistry.registerExtensionPoint<IChatSessionsEx
 		}
 	}
 });
-
-const codexExtensionHostAvailableWhen = ContextKeyExpr.and(
-	IsSessionsWindowContext.negate(),
-	ContextKeyExpr.or(
-		AGENT_HOST_ENABLED_CONTEXT_KEY.negate(),
-		ContextKeyExpr.not(`config.${AgentHostCodexAgentEnabledSettingId}`),
-		ContextKeyExpr.not(`config.${CodexPreferAgentHostEditorSettingId}`),
-	),
-)!;
-
-export function applyCodexAgentHostPreference(contribution: IChatSessionsExtensionPoint): IChatSessionsExtensionPoint {
-	if (contribution.type !== SessionType.Codex) {
-		return contribution;
-	}
-
-	const contributedWhen = contribution.when ? ContextKeyExpr.deserialize(contribution.when) : undefined;
-	return {
-		...contribution,
-		when: ContextKeyExpr.and(contributedWhen, codexExtensionHostAvailableWhen)?.serialize(),
-	};
-}
 
 class ContributedChatSessionData extends Disposable {
 
@@ -505,7 +481,6 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	}
 
 	private registerContribution(contribution: IChatSessionsExtensionPoint, ext: IRelaxedExtensionDescription): IDisposable {
-		contribution = applyCodexAgentHostPreference(contribution);
 		this._logService.trace(`[ChatSessionsService] registerContribution called for type='${contribution.type}', canDelegate=${contribution.canDelegate}, when='${contribution.when}', extension='${ext.identifier.value}'`);
 		if (this._contributions.has(contribution.type)) {
 			this._logService.trace(`[ChatSessionsService] registerContribution: type='${contribution.type}' already registered, skipping`);
@@ -612,7 +587,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	private _registerMenuItems(contribution: IChatSessionsExtensionPoint, extensionDescription: IRelaxedExtensionDescription): IDisposable {
 		const disposables = new DisposableStore();
 
-		// A non-delegating contribution (e.g. the Codex editor session) creates
+		// A non-delegating contribution (e.g. a contributed editor session) creates
 		// a new session via `openNewChatSessionExternal.<type>`. Register it
 		// eagerly and resolve the create command lazily, so it survives the race
 		// where the extension's create-submenu entry isn't registered yet at
@@ -1610,8 +1585,8 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		// The requirement may be a static boolean or, for programmatically-registered
 		// types (e.g. agent host), a function the contribution owns that derives it
 		// dynamically — for instance from the agent's currently-advertised protected
-		// resources, so a session type usable without GitHub (Claude native, Codex on
-		// OpenAI) reports `false` while it is. Re-evaluated whenever the contribution's
+		// resources, so a session type usable without GitHub (Claude native) reports
+		// `false` while it is. Re-evaluated whenever the contribution's
 		// availability notifier fires.
 		const requires = contribution.requiresCopilotSignIn;
 		return typeof requires === 'function' ? requires() : !!requires;

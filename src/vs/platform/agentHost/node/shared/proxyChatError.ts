@@ -7,7 +7,7 @@ import { CopilotApiError, COPILOT_API_ERROR_STATUS_STREAMING } from './copilotAp
 
 /**
  * Marker prefix used to smuggle a structured, serialized chat fetch error
- * through the Claude and Codex child-process boundaries. Their model proxies
+ * through proxy-backed child-process boundaries. Their model proxies
  * hold the rich {@link CopilotApiError}, while the child processes only see
  * HTTP/SSE error text.
  */
@@ -220,7 +220,7 @@ export function tryBuildChatErrorMeta(errorText: string | undefined): Record<str
  * an `ErrorInfo` without changing behavior for plain errors:
  *
  * ```ts
- * error: { errorType: 'CodexError', ...extractForwardedErrorInfo(message) }
+ * error: { errorType: 'error_during_execution', ...extractForwardedErrorInfo(message) }
  * ```
  */
 export function extractForwardedErrorInfo(message: string): { message: string; _meta?: Record<string, unknown> } {

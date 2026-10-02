@@ -17,10 +17,9 @@ import { getAgentHostOperatingSystem } from '../../../../../platform/agentHost/c
 import { AgentHostCustomTerminalToolEnabledSettingId } from '../../../../../platform/agentHost/common/copilotCliConfig.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { narrowClaudePermissionMode } from '../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
-import { narrowCodexPermissionsPreset } from '../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { SessionConfigPropertySchema } from '../../../../../platform/agentHost/common/state/protocol/commands.js';
 import { ChatConfiguration, ChatPermissionLevel, isChatPermissionLevel } from '../../../../../workbench/contrib/chat/common/constants.js';
-import { IPermissionLevelMeta, IPermissionPickerDelegate } from '../../copilotChatSessions/browser/permissionPicker.js';
+import { IPermissionLevelMeta, IPermissionPickerDelegate } from '../../shared/browser/permissionPicker.js';
 import { IAgentHostSessionsProvider, isAgentHostProvider, LOCAL_AGENT_HOST_PROVIDER_ID } from '../../../../common/agentHostSessionsProvider.js';
 import { ISessionsProvider } from '../../../../services/sessions/common/sessionsProvider.js';
 import { ISessionsProvidersService } from '../../../../services/sessions/browser/sessionsProvidersService.js';
@@ -34,7 +33,6 @@ import { IWorkbenchEnvironmentService } from '../../../../../workbench/services/
 import { isWellKnownAutoApproveSchema, isWellKnownModeSchema, shouldCombineModeAndPermissions } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 
 const REQUIRED_PERMISSION_MODE_VALUE = 'default';
-const REQUIRED_CODEX_APPROVALS_VALUE = 'default';
 
 export { isWellKnownAutoApproveSchema, isWellKnownModeSchema };
 
@@ -391,21 +389,3 @@ export function isWellKnownClaudePermissionModeSchema(schema: SessionConfigPrope
 	return schema.enum.every(value => narrowClaudePermissionMode(value) !== undefined);
 }
 
-/**
- * Returns `true` when a `codex.permissionsPreset` session-config property uses
- * the Codex permissions-preset value set and includes `default`.
- *
- * Codex collapses its three security axes (sandbox × approval policy ×
- * approvals reviewer) into a single user-facing preset; this guard lets the
- * dedicated {@link AgentHostCodexApprovalsPicker} claim the property while the
- * generic per-property picker stands down.
- */
-export function isWellKnownCodexApprovalsSchema(schema: SessionConfigPropertySchema): boolean {
-	if (schema.type !== 'string' || !Array.isArray(schema.enum) || schema.enum.length === 0) {
-		return false;
-	}
-	if (!schema.enum.includes(REQUIRED_CODEX_APPROVALS_VALUE)) {
-		return false;
-	}
-	return schema.enum.every(value => narrowCodexPermissionsPreset(value) !== undefined);
-}

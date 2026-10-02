@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { mkdir } from 'fs/promises';
-import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { dirname, join } from '../../../../base/common/path.js';
 import type { TelemetryConfig } from '@github/copilot-sdk';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -173,19 +172,6 @@ interface IOtlpTracePayload {
 	resourceSpans?: IOtlpResourceSpans[];
 }
 
-export interface INormalizedAgentHostOtlpBody {
-	readonly body: Buffer;
-	readonly filteredSpanCount: number;
-}
-
-const CodexAuthPollingServiceName = 'codex-app-server';
-const CodexAuthPollingSpanName = 'auth';
-const CodexAuthPollingModuleName = 'codex_login::auth::manager';
-
-function attributeValue(attributes: readonly IOtlpAttribute[] | undefined, key: string): string | undefined {
-	return attributes?.find(attribute => attribute.key === key)?.value?.stringValue;
-}
-
 function upsertResourceAttribute(attributes: IOtlpAttribute[], key: string, value: string): void {
 	const existing = attributes.find(attribute => attribute.key === key);
 	if (existing) {
@@ -195,29 +181,15 @@ function upsertResourceAttribute(attributes: IOtlpAttribute[], key: string, valu
 	}
 }
 
-/** Normalize Agent Host resource identity and suppress the Codex 0.142 auth polling span. */
-export function normalizeAgentHostOtlpBody(body: Buffer): INormalizedAgentHostOtlpBody {
+/** Normalize Agent Host resource identity. */
+export function normalizeAgentHostOtlpBody(body: Buffer): Buffer {
 	const payload = JSON.parse(body.toString('utf8')) as IOtlpTracePayload;
-	let filteredSpanCount = 0;
 	for (const resourceSpan of payload.resourceSpans ?? []) {
 		const resource = resourceSpan.resource ??= {};
 		const resourceAttributes = resource.attributes ??= [];
-		const isCodex = attributeValue(resourceAttributes, 'service.name') === CodexAuthPollingServiceName;
 		upsertResourceAttribute(resourceAttributes, 'service.namespace', AgentHostOTelServiceNamespace);
-		for (const scopeSpans of resourceSpan.scopeSpans ?? []) {
-			const spans = scopeSpans.spans ?? [];
-			scopeSpans.spans = spans.filter(span => {
-				const shouldFilter = isCodex
-					&& span.name === CodexAuthPollingSpanName
-					&& attributeValue(span.attributes, 'code.module.name') === CodexAuthPollingModuleName;
-				if (shouldFilter) {
-					filteredSpanCount++;
-				}
-				return !shouldFilter;
-			});
-		}
 	}
-	return { body: Buffer.from(JSON.stringify(payload)), filteredSpanCount };
+	return Buffer.from(JSON.stringify(payload));
 }
 
 export class AgentHostOTelService extends Disposable implements IAgentHostOTelService {
@@ -235,9 +207,6 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 	private readonly _sessionContexts = new Map<string, IAgentHostTraceContext>();
 	private readonly _sessionComparisons = new Map<string, IAgentSessionComparisonMetadata>();
 	private _currentTraceContext: IAgentHostTraceContext | undefined;
-	private _pendingFilteredCodexAuthSpans = 0;
-	private _totalFilteredCodexAuthSpans = 0;
-	private readonly _filteredSpanLogScheduler: RunOnceScheduler;
 
 	constructor(
 		private readonly _fetchFn: typeof globalThis.fetch | undefined,
@@ -245,7 +214,6 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 		@INativeEnvironmentService environmentService: INativeEnvironmentService,
 	) {
 		super();
-		this._filteredSpanLogScheduler = this._register(new RunOnceScheduler(() => this._logFilteredCodexAuthSpans(), 60_000));
 		this._config = readAgentHostOTelEnv(process.env);
 		this._spansDbPath = join(environmentService.userDataPath, SPANS_DB_SUBPATH);
 	}
@@ -519,11 +487,7 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 		// 3. Loopback OTLP/HTTP receiver.
 		const receiver = await startLocalOtlpHttpReceiver(
 			{
-				transformBody: body => {
-					const normalized = normalizeAgentHostOtlpBody(body);
-					this._recordFilteredCodexAuthSpans(normalized.filteredSpanCount);
-					return normalized.body;
-				},
+				transformBody: body => normalizeAgentHostOtlpBody(body),
 				onSpans: result => {
 					for (const span of result.spans) {
 						try {
@@ -581,25 +545,6 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 		if (this._canForwardSyntheticSpan()) {
 			this._forwarder?.forwardRaw?.(this._encodeOtlpSpan(span), 'application/json');
 		}
-	}
-
-	private _recordFilteredCodexAuthSpans(count: number): void {
-		if (count <= 0) {
-			return;
-		}
-		this._pendingFilteredCodexAuthSpans = Math.min(Number.MAX_SAFE_INTEGER, this._pendingFilteredCodexAuthSpans + count);
-		this._totalFilteredCodexAuthSpans = Math.min(Number.MAX_SAFE_INTEGER, this._totalFilteredCodexAuthSpans + count);
-		if (!this._filteredSpanLogScheduler.isScheduled()) {
-			this._filteredSpanLogScheduler.schedule();
-		}
-	}
-
-	private _logFilteredCodexAuthSpans(): void {
-		if (this._pendingFilteredCodexAuthSpans === 0) {
-			return;
-		}
-		this._logService.info(`[agentHost.otel] filtered ${this._pendingFilteredCodexAuthSpans} Codex 0.142 auth polling span(s); total=${this._totalFilteredCodexAuthSpans}`);
-		this._pendingFilteredCodexAuthSpans = 0;
 	}
 
 	private _canForwardSyntheticSpan(): boolean {

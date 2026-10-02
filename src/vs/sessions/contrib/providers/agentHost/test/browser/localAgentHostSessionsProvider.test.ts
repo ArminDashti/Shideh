@@ -18,12 +18,10 @@ import { extUriIgnorePathCase, isEqual } from '../../../../../../base/common/res
 import { mock, upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { AgentCanvasAvailability, AgentSession, CODEX_AGENT_PROVIDER_ID, type IAgentCanvasSnapshot, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentSessionConfigCompletionsParams, type IAgentSessionMetadata } from '../../../../../../platform/agentHost/common/agent.js';
-import { agentSdkSetupStatusKey } from '../../../../../../platform/agentHost/common/agentSdkSetup.js';
-import { AgentHostCodexAgentEnabledSettingId, IAgentHostService, type IAgentHostCanvases } from '../../../../../../platform/agentHost/common/agentService.js';
+import { AgentCanvasAvailability, AgentSession, type IAgentCanvasSnapshot, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentSessionConfigCompletionsParams, type IAgentSessionMetadata } from '../../../../../../platform/agentHost/common/agent.js';
+import { IAgentHostService, type IAgentHostCanvases } from '../../../../../../platform/agentHost/common/agentService.js';
 import { getAgentHostExtensionInitializeResultMeta, supportsAgentHostCanvases } from '../../../../../../platform/agentHost/common/agentHostExtensionProtocol.js';
 import { AgentHostAutonomousAutomationsCapabilityMetaKey } from '../../../../../../platform/agentHost/common/meta/agentHostAutomationsMeta.js';
-import { CODEX_ACCOUNT_META_KEY } from '../../../../../../platform/agentHost/common/codexAccount.js';
 import type { IAgentSubscription } from '../../../../../../platform/agentHost/common/state/agentSubscription.js';
 import type { InitializeResult } from '../../../../../../platform/agentHost/common/state/protocol/common/commands.js';
 import type { ResolveSessionConfigResult, SessionConfigCompletionsResult } from '../../../../../../platform/agentHost/common/state/protocol/commands.js';
@@ -854,40 +852,6 @@ suite('LocalAgentHostSessionsProvider', () => {
 		]);
 	});
 
-	test('session types publish provider-neutral selection-time initialization', () => {
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, true);
-		const codexAgent = { provider: CODEX_AGENT_PROVIDER_ID, displayName: 'Codex', description: '', models: [] } as AgentInfo;
-		const setup = { download: 'ready' as const, signInProviderName: 'ChatGPT' };
-		const rootState = (accountStatus: 'signedIn' | 'signedOut', hasSetup = true): RootState => ({
-			agents: [codexAgent],
-			_meta: {
-				...(hasSetup ? { [agentSdkSetupStatusKey(CODEX_AGENT_PROVIDER_ID)]: setup } : {}),
-				[CODEX_ACCOUNT_META_KEY]: { status: accountStatus },
-			},
-		});
-		agentHost.setRootState(rootState('signedIn'));
-		const provider = createProvider(disposables, agentHost, undefined, { configurationService });
-		let changes = 0;
-		disposables.add(provider.onDidChangeSessionTypes(() => changes++));
-
-		const initialization = () => provider.sessionTypes[0]?.initializationOnSelection;
-		const states = [initialization()];
-		agentHost.setRootState(rootState('signedOut'));
-		states.push(initialization());
-		agentHost.setRootState(rootState('signedOut', false));
-		states.push(initialization());
-
-		assert.deepStrictEqual({ states, changes }, {
-			states: [
-				{ canInitializeWithoutGitHub: true },
-				{ canInitializeWithoutGitHub: false },
-				undefined,
-			],
-			changes: 2,
-		});
-	});
-
 	test('shares the root-state listener across session adapters', () => {
 		agentHost.setAgents([{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [], capabilities: {} } as AgentInfo]);
 		const provider = createProvider(disposables, agentHost);
@@ -961,12 +925,10 @@ suite('LocalAgentHostSessionsProvider', () => {
 		});
 	}));
 
-	for (const providerId of ['codex', 'copilotcli'] as const) {
+	for (const providerId of ['mycli', 'copilotcli'] as const) {
 		test(`${providerId} external discovery notifications update the same session facade without refreshing the window`, () => runWithFakedTimers({}, async () => {
 			agentHost.setAgents([{ provider: providerId, displayName: providerId, description: '', models: [] } as AgentInfo]);
-			const configurationService = new TestConfigurationService();
-			configurationService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, true);
-			const provider = createProvider(disposables, agentHost, undefined, { configurationService });
+			const provider = createProvider(disposables, agentHost);
 			await timeout(0);
 			const session = AgentSession.uri(providerId, 'external-live');
 			agentHost.fireNotification({
@@ -1167,31 +1129,6 @@ suite('LocalAgentHostSessionsProvider', () => {
 		const provider = createProvider(disposables, agentHost);
 
 		assert.deepStrictEqual(provider.sessionTypes.map(t => t.id), ['copilotcli', 'claude']);
-	});
-
-	test('gates agent-host Codex in the Agents window on the provider enablement setting', () => {
-		agentHost.setAgents([
-			{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [] } as AgentInfo,
-			{ provider: 'codex', displayName: 'Codex', description: '', models: [] } as AgentInfo,
-		]);
-		const configService = new TestConfigurationService();
-		configService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, false);
-		const provider = createProvider(disposables, agentHost, undefined, { configurationService: configService, isSessionsWindow: true });
-
-		assert.deepStrictEqual(provider.sessionTypes.map(t => t.id), ['copilotcli']);
-
-		let sessionTypesChanged = false;
-		disposables.add(provider.onDidChangeSessionTypes(() => { sessionTypesChanged = true; }));
-		configService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, true);
-		fireConfigChange(configService, AgentHostCodexAgentEnabledSettingId);
-
-		assert.deepStrictEqual({
-			sessionTypesChanged,
-			sessionTypes: provider.sessionTypes.map(t => t.id),
-		}, {
-			sessionTypesChanged: true,
-			sessionTypes: ['copilotcli', 'codex'],
-		});
 	});
 
 	test('getSessions includes agent-host Claude sessions', () => {
@@ -1662,25 +1599,23 @@ suite('LocalAgentHostSessionsProvider', () => {
 	test('a session whose agent reports nothing survives the refresh', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
 		// The host aggregates one listing across all of its agents, and an
 		// agent that cannot enumerate yet (SDK not downloaded) contributes an
-		// empty list instead of failing. Codex going quiet must not evict its
+		// empty list instead of failing. MyCli going quiet must not evict its
 		// sessions: `removed` is treated as a definitive deletion downstream
 		// and would discard the user's pins and groups.
 		agentHost.setAgents([
 			{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [] } as AgentInfo,
-			{ provider: 'codex', displayName: 'Codex', description: '', models: [] } as AgentInfo,
+			{ provider: 'mycli', displayName: 'MyCli', description: '', models: [] } as AgentInfo,
 		]);
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, true);
-		agentHost.addSession(createSession('codex-1', { provider: 'codex', summary: 'Codex One' }));
+		agentHost.addSession(createSession('mycli-1', { provider: 'mycli', summary: 'MyCli One' }));
 		agentHost.addSession(createSession('cli-1', { provider: 'copilotcli', summary: 'CLI One' }));
 
-		const provider = createProvider(disposables, agentHost, undefined, { configurationService });
+		const provider = createProvider(disposables, agentHost);
 		await timeout(0);
 
 		const changes: ISessionChangeEvent[] = [];
 		disposables.add(provider.onDidChangeSessions(e => changes.push(e)));
 
-		agentHost.stopListingSessions('codex-1');
+		agentHost.stopListingSessions('mycli-1');
 		agentHost.fireAction({
 			channel: buildDefaultChatUri(AgentSession.uri('copilotcli', 'cli-1').toString()),
 			action: { type: ActionType.ChatTurnComplete },
@@ -1694,7 +1629,7 @@ suite('LocalAgentHostSessionsProvider', () => {
 			cachedTitles: provider.getSessions().map(s => s.title.get()).sort(),
 		}, {
 			removed: [],
-			cachedTitles: ['CLI One', 'Codex One'],
+			cachedTitles: ['CLI One', 'MyCli One'],
 		});
 	}));
 
@@ -9258,7 +9193,7 @@ suite('LocalAgentHostSessionsProvider', () => {
 		await timeout(0);
 
 		// While auth is pending, config/backend work is intentionally deferred.
-		// Providers such as Codex reject those calls with AuthRequired before the
+		// Some providers reject those calls with AuthRequired before the
 		// first auth pass settles.
 		assert.deepStrictEqual({
 			loading: session.loading.get(),
@@ -9342,39 +9277,36 @@ suite('LocalAgentHostSessionsProvider', () => {
 
 	test('sendRequest only commits a session of the same type, ignoring a foreign-type session that appears mid-send', async () => {
 		// Regression test: the local agent host runs a single provider whose
-		// session cache holds every agent-host session type (codex, claude,
-		// copilot). When a slow session (e.g. codex cold start) is sent while a
+		// session cache holds every agent-host session type (mycli, claude,
+		// copilot). When a slow session (e.g. mycli cold start) is sent while a
 		// session of a DIFFERENT type appears in the cache, `_waitForNewSession`
-		// must not latch onto that foreign session and return it as the codex
+		// must not latch onto that foreign session and return it as the mycli
 		// commit — otherwise the active session is swapped to the wrong type.
-		const codexAndClaude = [
-			{ type: 'agent-host-codex', name: 'codex', displayName: 'Codex', description: 'test', icon: undefined },
+		const mycliAndClaude = [
+			{ type: 'agent-host-mycli', name: 'mycli', displayName: 'MyCli', description: 'test', icon: undefined },
 			{ type: 'agent-host-claude', name: 'claude', displayName: 'Claude', description: 'test', icon: undefined },
 		];
 		agentHost.setAgents([
-			{ provider: 'codex', displayName: 'Codex', description: '', models: [] } as AgentInfo,
+			{ provider: 'mycli', displayName: 'MyCli', description: '', models: [] } as AgentInfo,
 			{ provider: 'claude', displayName: 'Claude', description: '', models: [] } as AgentInfo,
 		]);
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(AgentHostCodexAgentEnabledSettingId, true);
-		const provider = createProvider(disposables, agentHost, codexAndClaude, {
+		const provider = createProvider(disposables, agentHost, mycliAndClaude, {
 			openSession: true,
-			configurationService,
 			sendRequest: async resource => {
-				// While the codex send is in flight, a foreign-type (claude)
+				// While the mycli send is in flight, a foreign-type (claude)
 				// session shows up in the host's list (e.g. restored from an
-				// earlier run), and the real codex session also commits.
+				// earlier run), and the real mycli session also commits.
 				agentHost.addSession(createSession('foreign-claude', { provider: 'claude', summary: 'Foreign Claude' }));
-				agentHost.addSession(createSession(AgentSession.id(resource), { provider: 'codex', summary: 'Real Codex' }));
+				agentHost.addSession(createSession(AgentSession.id(resource), { provider: 'mycli', summary: 'Real MyCli' }));
 				return { kind: 'sent' as const, data: {} as ChatSendResult extends { kind: 'sent'; data: infer D } ? D : never };
 			},
 		});
 
-		const session = provider.createNewSession(URI.parse('file:///home/user/project'), 'codex');
+		const session = provider.createNewSession(URI.parse('file:///home/user/project'), 'mycli');
 		const chat = await provider.createNewChat(session.sessionId);
 		const committed = await provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' });
 
-		assert.strictEqual(committed.resource.scheme, 'agent-host-codex', `expected the committed session to be the codex session, got ${committed.resource.toString()}`);
+		assert.strictEqual(committed.resource.scheme, 'agent-host-mycli', `expected the committed session to be the mycli session, got ${committed.resource.toString()}`);
 	});
 
 	test('sendRequest ignores newly discovered same-type archived and unarchived sessions until its own session appears', async () => {
@@ -9806,15 +9738,15 @@ suite('LocalAgentHostSessionsProvider', () => {
 				schema: {
 					type: 'object',
 					properties: {
-						'codex.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
-						'codex.networkAccessEnabled': { type: 'boolean', title: 'Network', default: false, sessionMutable: true },
+						'mycli.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
+						'mycli.networkAccessEnabled': { type: 'boolean', title: 'Network', default: false, sessionMutable: true },
 					},
 				},
-				values: { 'codex.sandboxMode': 'workspace-write', 'codex.networkAccessEnabled': false },
+				values: { 'mycli.sandboxMode': 'workspace-write', 'mycli.networkAccessEnabled': false },
 			},
 		};
 		agentHost.setSessionState('seed-schema', 'copilotcli', fullState);
-		await waitForSessionConfig(provider, session!.sessionId, c => c?.schema.properties['codex.networkAccessEnabled'] !== undefined);
+		await waitForSessionConfig(provider, session!.sessionId, c => c?.schema.properties['mycli.networkAccessEnabled'] !== undefined);
 
 		agentHost.setSessionState('seed-schema', 'copilotcli', {
 			...fullState,
@@ -9822,10 +9754,10 @@ suite('LocalAgentHostSessionsProvider', () => {
 				schema: {
 					type: 'object',
 					properties: {
-						'codex.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
+						'mycli.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
 					},
 				},
-				values: { 'codex.sandboxMode': 'workspace-write' },
+				values: { 'mycli.sandboxMode': 'workspace-write' },
 			},
 		});
 
@@ -9833,8 +9765,8 @@ suite('LocalAgentHostSessionsProvider', () => {
 			properties: Object.keys(provider.getSessionConfig(session!.sessionId)?.schema.properties ?? {}).sort(),
 			values: provider.getSessionConfig(session!.sessionId)?.values,
 		}, {
-			properties: ['codex.networkAccessEnabled', 'codex.sandboxMode'],
-			values: { 'codex.sandboxMode': 'workspace-write', 'codex.networkAccessEnabled': false },
+			properties: ['mycli.networkAccessEnabled', 'mycli.sandboxMode'],
+			values: { 'mycli.sandboxMode': 'workspace-write', 'mycli.networkAccessEnabled': false },
 		});
 	}));
 
@@ -10619,11 +10551,11 @@ suite('LocalAgentHostSessionsProvider', () => {
 			schema: {
 				type: 'object',
 				properties: {
-					'codex.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
-					'codex.networkAccessEnabled': { type: 'boolean', title: 'Network', default: false, sessionMutable: true },
+					'mycli.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
+					'mycli.networkAccessEnabled': { type: 'boolean', title: 'Network', default: false, sessionMutable: true },
 				},
 			},
-			values: { 'codex.sandboxMode': 'workspace-write', 'codex.networkAccessEnabled': false },
+			values: { 'mycli.sandboxMode': 'workspace-write', 'mycli.networkAccessEnabled': false },
 		};
 		const fakeState: SessionState = {
 			provider: 'copilotcli', title: 'Schema Write Session', status: ProtocolSessionStatus.Idle,
@@ -10633,36 +10565,36 @@ suite('LocalAgentHostSessionsProvider', () => {
 			config,
 		};
 		agentHost.setSessionState('schema-write', 'copilotcli', fakeState);
-		await waitForSessionConfig(provider, session!.sessionId, c => c?.values['codex.sandboxMode'] === 'workspace-write');
+		await waitForSessionConfig(provider, session!.sessionId, c => c?.values['mycli.sandboxMode'] === 'workspace-write');
 
 		agentHost.resolveSessionConfigResult = {
 			schema: {
 				type: 'object',
 				properties: {
-					'codex.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
+					'mycli.sandboxMode': { type: 'string', title: 'Sandbox', enum: ['read-only', 'workspace-write'], sessionMutable: true },
 				},
 			},
-			values: { 'codex.sandboxMode': 'read-only' },
+			values: { 'mycli.sandboxMode': 'read-only' },
 		};
 
-		await provider.setSessionConfigValue(session!.sessionId, 'codex.sandboxMode', 'read-only');
-		await waitForSessionConfig(provider, session!.sessionId, c => c?.schema.properties['codex.networkAccessEnabled'] === undefined);
+		await provider.setSessionConfigValue(session!.sessionId, 'mycli.sandboxMode', 'read-only');
+		await waitForSessionConfig(provider, session!.sessionId, c => c?.schema.properties['mycli.networkAccessEnabled'] === undefined);
 
 		assert.deepStrictEqual({
 			resolveConfig: agentHost.resolveSessionConfigRequests.at(-1)?.config,
 			properties: Object.keys(provider.getSessionConfig(session!.sessionId)?.schema.properties ?? {}).sort(),
 			values: provider.getSessionConfig(session!.sessionId)?.values,
 		}, {
-			resolveConfig: { 'codex.sandboxMode': 'read-only', 'codex.networkAccessEnabled': false },
-			properties: ['codex.sandboxMode'],
-			values: { 'codex.sandboxMode': 'read-only' },
+			resolveConfig: { 'mycli.sandboxMode': 'read-only', 'mycli.networkAccessEnabled': false },
+			properties: ['mycli.sandboxMode'],
+			values: { 'mycli.sandboxMode': 'read-only' },
 		});
 
 		agentHost.setSessionState('schema-write', 'copilotcli', {
 			...fakeState,
 			config: {
 				...config,
-				values: { 'codex.sandboxMode': 'read-only', 'codex.networkAccessEnabled': true },
+				values: { 'mycli.sandboxMode': 'read-only', 'mycli.networkAccessEnabled': true },
 			},
 		});
 
@@ -10670,8 +10602,8 @@ suite('LocalAgentHostSessionsProvider', () => {
 			properties: Object.keys(provider.getSessionConfig(session!.sessionId)?.schema.properties ?? {}).sort(),
 			values: provider.getSessionConfig(session!.sessionId)?.values,
 		}, {
-			properties: ['codex.sandboxMode'],
-			values: { 'codex.sandboxMode': 'read-only' },
+			properties: ['mycli.sandboxMode'],
+			values: { 'mycli.sandboxMode': 'read-only' },
 		});
 	}));
 

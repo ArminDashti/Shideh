@@ -18,7 +18,6 @@ import { IClaudeAgentSdkService } from './claudeAgentSdkService.js';
 import { buildClientToolMcpServer } from './clientTools/claudeClientToolMcpServer.js';
 import { toClaudeSdkModelId } from './claudeModelSelection.js';
 import type { IAgentHostNativeOTelConfig, IAgentHostTraceContext } from '../../common/otel/agentHostOTelService.js';
-import type { ClaudeTransport } from './claudeProxyService.js';
 import { SessionClientToolsDiff } from './clientTools/claudeSessionClientToolsModel.js';
 import { McpServerType } from '../../../mcp/common/mcpPlatformTypes.js';
 import type { IMcpServerDefinition } from '../../../agentPlugins/common/pluginParsers.js';
@@ -36,8 +35,7 @@ export type ClaudeDeniedMcpServerSpec =
 /**
  * Inputs to {@link buildOptions} that vary per startup. Pure-data: no
  * services, no live event subscribers. The function is a deterministic
- * projection from this bag plus a {@link IClaudeProxyHandle} onto the
- * SDK's {@link Options} discriminated union.
+ * projection from this bag onto the SDK's {@link Options} discriminated union.
  */
 export interface IBuildOptionsInput {
 	readonly sessionId: string;
@@ -118,27 +116,17 @@ export interface IBuildOptionsInput {
  */
 export async function buildOptions(
 	input: IBuildOptionsInput,
-	transport: ClaudeTransport,
 	logStderr: (data: string) => void,
 ): Promise<Options> {
-	const isProxy = transport.kind === 'proxy';
-	const subprocessEnv = buildSubprocessEnv(isProxy);
+	const subprocessEnv = buildSubprocessEnv();
 	const telemetryEnv = buildClaudeTelemetryEnv(input.telemetry, input.traceContext);
 	Object.assign(subprocessEnv, telemetryEnv);
 	const resolvedRgDiskPath = await rgDiskPath();
 	const settingsEnv: Record<string, string> = {
 		...telemetryEnv,
-		// Proxied (Copilot-routed) mode points the SDK at the local proxy on a
-		// per-session bearer. Native (BYO-Anthropic) mode omits both so the SDK
-		// uses its own credential resolution from the subprocess env
+		// The SDK resolves its own credential from the subprocess env
 		// (`ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from `claude
 		// setup-token` — both forwarded by `buildSubprocessEnv`).
-		...(transport.kind === 'proxy'
-			? {
-				ANTHROPIC_BASE_URL: transport.handle.baseUrl,
-				ANTHROPIC_AUTH_TOKEN: `${transport.handle.nonce}.${input.sessionId}`,
-			}
-			: {}),
 		CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
 		USE_BUILTIN_RIPGREP: '0',
 		// Attribute the CLI's tool subprocesses (`gh`, …) to VS Code.
@@ -271,8 +259,8 @@ export function toClaudeMcpServers(
 
 /**
  * Build a minimal {@link Options} bag for an ephemeral model-enumeration
- * query (Phase 19, native transport). No workspace (`cwd = os.tmpdir()`), no
- * proxy env, and the user's `ANTHROPIC_API_KEY` preserved so the SDK can
+ * query (Phase 19). No workspace (`cwd = os.tmpdir()`), and the user's
+ * `ANTHROPIC_API_KEY` preserved so the SDK can
  * authenticate. Reads the user's real `~/.claude` config so subscription
  * models (e.g. Opus) surface; verified not to write any session transcript
  * because the enumeration never iterates a turn. The caller (`_fetchNativeModels`)
@@ -282,7 +270,7 @@ export function buildModelEnumerationOptions(): Options {
 	return {
 		cwd: tmpdir(),
 		executable: process.execPath as 'node',
-		env: buildSubprocessEnv(false),
+		env: buildSubprocessEnv(),
 		abortController: new AbortController(),
 		systemPrompt: { type: 'preset', preset: 'claude_code' },
 		settings: {
@@ -293,36 +281,6 @@ export function buildModelEnumerationOptions(): Options {
 	};
 }
 
-/**
- * Build the {@link Options.env} payload for the Claude subprocess.
- *
- * SDK >= 0.3 **replaces** the subprocess environment with `Options.env` — it is
- * NOT merged with `process.env` (sdk.d.ts:1402-1405: "this value REPLACES the
- * subprocess environment entirely … Spread `process.env` yourself"). Keys whose
- * value is `undefined` are dropped from the spawned env.
- *
- * Two modes, gated by `proxied`:
- *
- * - **Proxied (Copilot-routed), `true` (default):** a *sparse* env. Credentials
- *   reach the CLI via `settings.env` (the per-session proxy bearer), so the
- *   subprocess env stays minimal and the user's personal `ANTHROPIC_API_KEY`
- *   must not leak to the Copilot proxy (stripped). `PATH` for ripgrep is
- *   supplied through `settings.env`, not here.
- *
- * - **Native (BYO-Anthropic), `false`:** inherit the real `process.env` so the
- *   user's own credentials (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`,
- *   or `ANTHROPIC_API_KEY`) and `PATH` actually reach the `claude` subprocess.
- *   Without this spread, replace semantics wipe the inherited token and the CLI
- *   reports "Not logged in".
- *
- * In both modes the agent host's own `NODE_OPTIONS`, `ELECTRON_*`, and
- * `VSCODE_*` variables are stripped (they break the Electron-node subprocess),
- * `ELECTRON_RUN_AS_NODE=1` is set, and `AI_AGENT` is pinned so the sparse
- * proxied env still announces the originating VS Code surface. Mirror of the
- * strip pattern in `CopilotAgent._ensureClient()`.
- *
- * Exported for unit testing as a pure function over `process.env`.
- */
 export function buildClaudeTelemetryEnv(config: IAgentHostNativeOTelConfig | undefined, traceContext?: IAgentHostTraceContext): Record<string, string> {
 	if (!config) {
 		return {};
@@ -383,24 +341,32 @@ function resolveSignalEndpoint(endpoint: string, signal: 'logs' | 'metrics', pro
 	}
 }
 
-export function buildSubprocessEnv(proxied: boolean = true): Record<string, string | undefined> {
-	// Proxy mode: a sparse env (creds arrive via settings.env), and the user's
-	// personal ANTHROPIC_API_KEY must not leak to the Copilot proxy.
-	// Native mode: inherit the real env so the user's own credentials + PATH
-	// reach the subprocess (replace semantics wipe anything not present here).
-	const env: Record<string, string | undefined> = proxied
-		? {
-			ELECTRON_RUN_AS_NODE: '1',
-			NODE_OPTIONS: undefined,
-			ANTHROPIC_API_KEY: undefined,
-			HOME: process.env['HOME'],
-			USERPROFILE: process.env['USERPROFILE'],
-			// Load rules from additional directories https://code.claude.com/docs/en/memory#load-from-additional-directories
-			CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1'
-		}
-		: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: undefined };
-	// Replace semantics mean the sparse (proxied) env would otherwise drop the
-	// agent host's own marker, so set it in both modes. See `AiAgentEnvVar`.
+/**
+ * Build the {@link Options.env} payload for the Claude subprocess.
+ *
+ * SDK >= 0.3 **replaces** the subprocess environment with `Options.env` — it is
+ * NOT merged with `process.env` (sdk.d.ts:1402-1405: "this value REPLACES the
+ * subprocess environment entirely … Spread `process.env` yourself"). Keys whose
+ * value is `undefined` are dropped from the spawned env.
+ *
+ * The real `process.env` is inherited so the user's own credentials
+ * (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, or `ANTHROPIC_API_KEY`)
+ * and `PATH` actually reach the `claude` subprocess. Without this spread,
+ * replace semantics wipe the inherited token and the CLI reports "Not logged
+ * in".
+ *
+ * The agent host's own `NODE_OPTIONS`, `ELECTRON_*`, and `VSCODE_*` variables
+ * are stripped (they break the Electron-node subprocess),
+ * `ELECTRON_RUN_AS_NODE=1` is set, and `AI_AGENT` is pinned so the subprocess
+ * announces the originating VS Code surface. Mirror of the strip pattern in
+ * `CopilotAgent._ensureClient()`.
+ *
+ * Exported for unit testing as a pure function over `process.env`.
+ */
+export function buildSubprocessEnv(): Record<string, string | undefined> {
+	// Replace semantics make the spread load-bearing: anything not present here
+	// never reaches the subprocess (see the doc comment above).
+	const env: Record<string, string | undefined> = { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: undefined };
 	env[AiAgentEnvVar] = AiAgentEnvValue;
 	for (const key of Object.keys(process.env)) {
 		if (key === 'ELECTRON_RUN_AS_NODE') { continue; }

@@ -138,12 +138,13 @@ interface ICapiBase {
 // #region Constants
 
 /**
- * Sentinel {@link CopilotApiError.status} used when the error came from a
- * mid-stream SSE `event: error` frame rather than an HTTP non-2xx response.
- * The upstream HTTP status was 200 (the stream had already started); the
- * real HTTP status is no longer meaningful, so consumers that need an HTTP
- * status code (e.g. when re-emitting before headers are sent) should not
- * trust this value. Use `envelope.error.type` instead.
+ * Sentinel {@link CopilotApiError.status} for an error that originated from a
+ * mid-stream SSE `event: error` frame rather than an HTTP non-2xx response
+ * (the upstream HTTP status was 200 and is no longer meaningful). This
+ * service no longer speaks SSE — the value survives because
+ * `proxyChatError.buildForwardedChatError` still maps it to a 502 when
+ * forwarding such an error. Consumers that need an HTTP status code should
+ * not trust this value; use `envelope.error.type` instead.
  */
 export const COPILOT_API_ERROR_STATUS_STREAMING = 520;
 
@@ -163,7 +164,7 @@ const USER_API_VERSION = '2025-04-01';
  * Test/debug override for the CAPI base URL. When set to a **loopback** URL,
  * {@link CopilotApiService} skips the `api.github.com/copilot_internal/user`
  * endpoint-discovery round-trip (which requires a real GitHub token) and routes
- * every CAPI request — `models`, `responses`, `messages` — straight at this URL
+ * every CAPI request — `models` and utility chat completions — straight at this URL
  * instead. Only ever set by the smoke-test harness (see `setupAgentHostSuite`)
  * so the agent host's shared CAPI client can talk to the mock LLM server; never
  * set in production, so normal per-token discovery is unchanged.
@@ -235,10 +236,9 @@ const UTILITY_INTENT = 'conversation-background';
 // #region Errors
 
 /**
- * Thrown by {@link ICopilotApiService} when CAPI returns an Anthropic-format
- * API error — either as a non-2xx HTTP response or as a mid-stream
- * `event: error` SSE frame. Carries enough information for the Phase 2
- * Claude proxy to re-emit the error passthrough without re-mapping.
+ * Thrown by {@link ICopilotApiService} when CAPI returns a non-2xx
+ * Anthropic-format API error. Carries enough information for consumers to
+ * re-emit the error without re-mapping.
  *
  * Network/transport failures (connection reset, DNS failure, etc.) are
  * **not** wrapped as `CopilotApiError` — they propagate as raw `fetch`
@@ -247,11 +247,10 @@ const UTILITY_INTENT = 'conversation-background';
 export class CopilotApiError extends Error {
 
 	/**
-	 * @param status HTTP status from the originating CAPI response, or
-	 *   {@link COPILOT_API_ERROR_STATUS_STREAMING} for mid-stream SSE errors.
+	 * @param status HTTP status from the originating CAPI response.
 	 * @param envelope Anthropic-format error envelope. For HTTP errors with a
 	 *   non-conforming body (plain text, malformed JSON, missing fields) this
-	 *   is synthesized; for conforming bodies and SSE frames it is the
+	 *   is synthesized; for conforming bodies it is the
 	 *   server's envelope verbatim.
 	 * @param message Optional override for `Error.message`. Defaults to
 	 *   `envelope.error.message`. **Never includes auth tokens.**
@@ -274,8 +273,8 @@ export class CopilotApiError extends Error {
  * when the body is empty). The returned error's `message` deliberately
  * mirrors the original `"<prefix>: <status> <statusText>"` format so
  * existing log-line consumers continue to read identifiably. `prefix`
- * defaults to `"CAPI request failed"` (the historical wording for
- * `messages`); pass `"CAPI models request failed"` for the `models()` path.
+ * defaults to `"CAPI request failed"`; pass `"CAPI models request failed"`
+ * for the `models()` path.
  */
 function buildCopilotApiHttpError(status: number, statusText: string, bodyText: string, prefix = 'CAPI request failed'): CopilotApiError {
 	let envelope: Anthropic.ErrorResponse | undefined;
@@ -344,7 +343,7 @@ export const ICopilotApiService = createDecorator<ICopilotApiService>('copilotAp
  *
  * The GitHub user token IS the credential. There is no Copilot session-token
  * mint; we send `Authorization: Bearer <github-token>` directly to CAPI's
- * `/v1/messages` and `/models` endpoints. This mirrors what the
+ * `/models` and `/chat/completions` endpoints. This mirrors what the
  * `@github/copilot` CLI does (see `fetchCopilotUser` and
  * `CopilotAnthropicClient.createWithOAuthToken` in `github/copilot-agent-runtime`).
  *
@@ -367,29 +366,24 @@ export const ICopilotApiService = createDecorator<ICopilotApiService>('copilotAp
  * - Multiple in-flight requests for the **same** GitHub token share a single
  *   endpoint-discovery call via the per-token cache map (no thundering herd
  *   on cold start).
- * - `AbortSignal` is forwarded to the outgoing API request (messages, models)
- *   but **not** to the shared discovery call, so cancellation propagates to
- *   the caller's own request without affecting concurrent callers sharing the
- *   discovery.
+ * - `AbortSignal` is forwarded to the outgoing API request (models, utility
+ *   chat completions) but **not** to the shared discovery call, so
+ *   cancellation propagates to the caller's own request without affecting
+ *   concurrent callers sharing the discovery.
  *
  * ## Error semantics
  *
  * - Network/transport errors propagate as raw `fetch` rejections (e.g.
  *   connection reset, DNS failure). Consumers can distinguish them from
  *   API errors by `instanceof CopilotApiError`.
- * - Non-2xx responses from CAPI's `messages` and `models` endpoints throw
- *   {@link CopilotApiError} carrying the HTTP `status` and the parsed
+ * - Non-2xx responses from CAPI's `models` and `chat completions` endpoints
+ *   throw {@link CopilotApiError} carrying the HTTP `status` and the parsed
  *   Anthropic error `envelope` (synthesized if the response body isn't a
  *   conforming envelope). **Tokens are never embedded in error messages.**
- * - Streaming `event: error` SSE frames throw {@link CopilotApiError} with
- *   `status` set to {@link COPILOT_API_ERROR_STATUS_STREAMING} (the upstream
- *   HTTP status was 200 and is no longer meaningful) and the server-supplied
- *   error envelope preserved verbatim.
  * - Failures of the `/copilot_internal/user` discovery call throw plain
  *   `Error` (not `CopilotApiError`) with a `"Copilot endpoint discovery
  *   failed: ..."` prefix — it is an implementation detail of this service
  *   and is not part of the Anthropic-shaped CAPI surface.
- * - Malformed JSON in an SSE `data:` line is logged and skipped, not thrown.
  */
 /**
  * Restricted/enhanced telemetry context derived from the GitHub `/copilot_internal/user` response.
@@ -416,36 +410,9 @@ export interface ICopilotApiService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Stream a chat completion as raw Anthropic stream events.
-	 *
-	 * Yields every `Anthropic.MessageStreamEvent` in the order the server
-	 * emits them, **including `message_stop` as the last event** before the
-	 * generator returns. Phase 2 proxy relies on receiving a complete,
-	 * replayable event stream.
-	 *
-	 * @throws on non-2xx status or SSE `error` event.
-	 */
-	messages(
-		githubToken: string,
-		request: Anthropic.MessageCreateParamsStreaming,
-		options?: ICopilotApiServiceRequestOptions,
-	): AsyncGenerator<Anthropic.MessageStreamEvent>;
-
-	/**
-	 * Send a chat completion and return the full aggregated response.
-	 * @throws on non-2xx status.
-	 */
-	messages(
-		githubToken: string,
-		request: Anthropic.MessageCreateParamsNonStreaming,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Anthropic.Message>;
-
-	/**
 	 * Count tokens for a hypothetical request.
 	 *
-	 * @throws always — `countTokens` is not supported by CAPI in Phase 1.5.
-	 * Phase 2 proxy maps this to HTTP 501.
+	 * @throws always — `countTokens` is not supported by CAPI.
 	 */
 	countTokens(
 		githubToken: string,
@@ -465,21 +432,6 @@ export interface ICopilotApiService {
 	 * - `supported_endpoints`: `'/v1/messages'` for Anthropic chat models
 	 */
 	models(githubToken: string, options?: ICopilotApiServiceRequestOptions): Promise<CCAModel[]>;
-
-	/**
-	 * Pass-through to CAPI's OpenAI-shaped Responses endpoint
-	 * (`{capiBaseUrl}/responses`). Used by `CodexProxyService` to forward
-	 * `/v1/responses` requests from the Codex CLI without deserializing
-	 * the body. The caller owns the returned `Response` (its body and any
-	 * streaming) and is responsible for consuming or aborting it.
-	 *
-	 * @throws on non-2xx upstream response.
-	 */
-	responses(
-		githubToken: string,
-		body: string,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Response>;
 
 	/**
 	 * Send arbitrary user chat messages through CAPI's `/chat/completions`
@@ -554,27 +506,6 @@ export class CopilotApiService extends Disposable implements ICopilotApiService 
 
 	// #region Public API
 
-	messages(
-		githubToken: string,
-		request: Anthropic.MessageCreateParamsStreaming,
-		options?: ICopilotApiServiceRequestOptions,
-	): AsyncGenerator<Anthropic.MessageStreamEvent>;
-	messages(
-		githubToken: string,
-		request: Anthropic.MessageCreateParamsNonStreaming,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Anthropic.Message>;
-	messages(
-		githubToken: string,
-		request: Anthropic.MessageCreateParams,
-		options?: ICopilotApiServiceRequestOptions,
-	): AsyncGenerator<Anthropic.MessageStreamEvent> | Promise<Anthropic.Message> {
-		if (request.stream) {
-			return this._messagesStreaming(githubToken, request, options);
-		}
-		return this._messagesNonStreaming(githubToken, request, options);
-	}
-
 	async countTokens(
 		_githubToken: string,
 		_req: Anthropic.MessageCountTokensParams,
@@ -613,54 +544,6 @@ export class CopilotApiService extends Disposable implements ICopilotApiService 
 
 		const json = await response.json();
 		return json.data ?? [];
-	}
-
-	async responses(
-		githubToken: string,
-		body: string,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Response> {
-		const capiClient = await this._getClientForToken(githubToken);
-		const requestId = generateUuid();
-
-		// Parse the request body to log the model being sent (debug aid; failures
-		// are non-fatal — the body is forwarded byte-for-byte regardless).
-		let requestModel = '<unknown>';
-		try {
-			const parsed = JSON.parse(body);
-			requestModel = parsed.model ?? '<none>';
-		} catch { /* ignore parse errors */ }
-		this._logService.info(`[CopilotApiService] POST responses: requestId=${requestId}, model=${requestModel}`);
-
-		const response = await capiClient.makeRequest<Response>(
-			{
-				method: 'POST',
-				headers: {
-					...options?.headers,
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${githubToken}`,
-					'X-Request-Id': requestId,
-					'OpenAI-Intent': 'conversation',
-				},
-				// Opt-in per request — see
-				// `ICopilotApiServiceRequestOptions.suppressIntegrationId`.
-				suppressIntegrationId: options?.suppressIntegrationId,
-				body,
-				signal: options?.signal,
-			},
-			{ type: RequestType.ChatResponses },
-		);
-
-		this._logService.info(`[CopilotApiService] responses status=${response.status}, requestId=${requestId}`);
-
-		if (!response.ok) {
-			if (response.status === 401 || response.status === 403) {
-				this._invalidateClientForToken(githubToken, capiClient);
-			}
-			const text = await response.text().catch(() => '');
-			throw buildCopilotApiHttpError(response.status, response.statusText, text, 'CAPI responses request failed');
-		}
-		return response;
 	}
 
 	async utilityChatCompletion(
@@ -746,99 +629,6 @@ export class CopilotApiService extends Disposable implements ICopilotApiService 
 		};
 
 		return { extensionInfo };
-	}
-
-	// #endregion
-
-	// #region Streaming
-
-	private async *_messagesStreaming(
-		githubToken: string,
-		request: Anthropic.MessageCreateParams,
-		options?: ICopilotApiServiceRequestOptions,
-	): AsyncGenerator<Anthropic.MessageStreamEvent> {
-		const response = await this._sendRequest(githubToken, request, true, options);
-
-		if (!response.body) {
-			throw new Error('CAPI response has no body');
-		}
-
-		yield* this._readSSE(response.body);
-	}
-
-	// #endregion
-
-	// #region Non-Streaming
-
-	private async _messagesNonStreaming(
-		githubToken: string,
-		request: Anthropic.MessageCreateParams,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Anthropic.Message> {
-		const response = await this._sendRequest(githubToken, request, false, options);
-		return response.json() as Promise<Anthropic.Message>;
-	}
-
-	// #endregion
-
-	// #region Shared Request
-
-	private async _sendRequest(
-		githubToken: string,
-		request: Anthropic.MessageCreateParams,
-		stream: boolean,
-		options?: ICopilotApiServiceRequestOptions,
-	): Promise<Response> {
-		const capiClient = await this._getClientForToken(githubToken);
-		const requestId = generateUuid();
-
-		this._logService.debug('[CopilotApiService] POST messages', `model=${request.model} stream=${stream} requestId=${requestId}`);
-
-		const { system, ...rest } = request;
-		const body = JSON.stringify({
-			...rest,
-			stream,
-			// CAPI requires system as a text-block array, not a raw string
-			...(system !== undefined
-				? { system: typeof system === 'string' ? [{ type: 'text', text: system }] : system }
-				: {}),
-		});
-
-		const response = await capiClient.makeRequest<Response>(
-			{
-				method: 'POST',
-				headers: {
-					...options?.headers,
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${githubToken}`,
-					'X-Request-Id': requestId,
-					'X-GitHub-Api-Version': '2026-01-09',
-					// Should these be parameterized?
-					'OpenAI-Intent': 'messages-proxy',
-					'X-Interaction-Type': 'messages-proxy',
-					// `X-Initiator` (user|agent) is intentionally omitted: the
-					// user-vs-agent turn origin known to `ClaudeAgentSession` is not
-					// plumbed across the SDK subprocess to this proxy, so a hardcoded
-					// value would mislabel most agent-loop traffic. CAPI accepts the
-					// request without it (the `responses()` and `utilityChatCompletion()`
-					// paths already omit it). Thread a real per-turn initiator here if
-					// that signal ever becomes available at the proxy boundary.
-				},
-				suppressIntegrationId: options?.suppressIntegrationId,
-				body,
-				signal: options?.signal,
-			},
-			{ type: RequestType.ChatMessages },
-		);
-		if (!response.ok) {
-			if (response.status === 401 || response.status === 403) {
-				this._invalidateClientForToken(githubToken, capiClient);
-			}
-			const text = await response.text().catch(() => '');
-			throw buildCopilotApiHttpError(response.status, response.statusText, text);
-		}
-
-		return response;
 	}
 
 	// #endregion
@@ -1086,130 +876,4 @@ export class CopilotApiService extends Disposable implements ICopilotApiService 
 	}
 
 	// #endregion
-
-	// #region SSE Parsing
-
-	private async *_readSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<Anthropic.MessageStreamEvent> {
-		const reader = body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = '';
-
-		try {
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) {
-					break;
-				}
-
-				buffer += decoder.decode(value, { stream: true });
-				const lines = buffer.split('\n');
-				buffer = lines.pop() ?? '';
-
-				for (const line of lines) {
-					const event = this._parseDataLine(line);
-					if (event !== undefined) {
-						yield event;
-						if (event.type === 'message_stop') {
-							return;
-						}
-					}
-				}
-			}
-
-			if (buffer.trim()) {
-				const event = this._parseDataLine(buffer);
-				if (event !== undefined) {
-					yield event;
-					if (event.type === 'message_stop') {
-						return;
-					}
-				}
-			}
-		} finally {
-			// Cancel the underlying stream so the HTTP connection is released
-			// even when the consumer abandons the generator early (break, throw,
-			// abort) or the stream ended on `message_stop` with bytes still in
-			// flight. `releaseLock` alone leaves the body half-read.
-			try {
-				await reader.cancel();
-			} catch {
-				// ignore — cancellation is best-effort cleanup
-			}
-			reader.releaseLock();
-		}
-	}
-
-	/**
-	 * @returns the parsed stream event, or `undefined` to skip the line.
-	 * @throws on `error` events from the server.
-	 */
-	private _parseDataLine(line: string): Anthropic.MessageStreamEvent | undefined {
-		if (!line.startsWith('data: ')) {
-			return undefined;
-		}
-
-		const data = line.slice('data: '.length).trim();
-
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(data);
-		} catch {
-			this._logService.warn('[CopilotApiService] Failed to parse SSE data:', data);
-			return undefined;
-		}
-
-		if (typeof parsed !== 'object' || parsed === null) {
-			return undefined;
-		}
-
-		const record = parsed as Record<string, unknown>;
-		const type = record.type;
-		if (typeof type !== 'string') {
-			return undefined;
-		}
-
-		if (type === 'error') {
-			// Preserve the upstream envelope verbatim when it conforms to the
-			// Anthropic shape (so any extra fields propagate to Phase 2's
-			// passthrough proxy). Fall back to a clean api_error synthesis
-			// when fields are missing or `error` is unstructured.
-			const rawError = (parsed as { error?: unknown }).error;
-			let envelope: Anthropic.ErrorResponse;
-			if (
-				rawError && typeof rawError === 'object'
-				&& typeof (rawError as { type?: unknown }).type === 'string'
-				&& typeof (rawError as { message?: unknown }).message === 'string'
-			) {
-				envelope = parsed as Anthropic.ErrorResponse;
-			} else {
-				let errorMessage: string;
-				if (typeof rawError === 'string') {
-					errorMessage = rawError;
-				} else if (typeof (rawError as { message?: unknown } | undefined)?.message === 'string') {
-					errorMessage = (rawError as { message: string }).message;
-				} else {
-					errorMessage = 'Unknown streaming error';
-				}
-				envelope = {
-					type: 'error',
-					error: { type: 'api_error', message: errorMessage },
-					request_id: null,
-				};
-			}
-			throw new CopilotApiError(COPILOT_API_ERROR_STATUS_STREAMING, envelope);
-		}
-
-		if (!KNOWN_SSE_EVENT_TYPES.has(type)) {
-			return undefined;
-		}
-
-		return parsed as Anthropic.MessageStreamEvent;
-	}
-
-	// #endregion
 }
-
-const KNOWN_SSE_EVENT_TYPES = new Set([
-	'message_start', 'message_delta', 'message_stop',
-	'content_block_start', 'content_block_delta', 'content_block_stop',
-]);

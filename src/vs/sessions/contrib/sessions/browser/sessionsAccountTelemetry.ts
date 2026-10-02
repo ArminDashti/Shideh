@@ -5,12 +5,10 @@
 
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ICodexAccountInfo } from '../../../../platform/agentHost/common/codexAccount.js';
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IWorkbenchContribution } from '../../../../workbench/common/contributions.js';
-import { ICodexAccountService } from '../../../../workbench/services/agentHost/browser/codexAccountService.js';
 import { ChatEntitlement, getQuotaUsage, IChatEntitlementService, IQuotaSnapshot, QuotaUsageKind } from '../../../../workbench/services/chat/common/chatEntitlementService.js';
 
 const STARTUP_ACCOUNT_TIMEOUT_MS = 30_000;
@@ -19,8 +17,6 @@ interface ISessionsAccountTelemetryData {
 	readonly copilotSku: string;
 	readonly copilotAccountState: 'signedIn' | 'signedOut' | 'unknown';
 	readonly copilotQuotaPercentRemaining: number | undefined;
-	readonly chatgptAccountState: ICodexAccountInfo['status'];
-	readonly chatgptQuotaPercentRemaining: number | undefined;
 }
 
 type SessionsAccountStateClassification = {
@@ -29,15 +25,12 @@ type SessionsAccountStateClassification = {
 	copilotSku: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Copilot entitlement SKU at startup, including anonymous access, or signedOut or unknown when no SKU is available.' };
 	copilotAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Copilot account state at startup: signedIn, signedOut, or unknown while resolving entitlement.' };
 	copilotQuotaPercentRemaining: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Remaining percentage (0-100) of the monthly premium chat quota, falling back to the monthly chat quota if absent. Omitted for unresolved, unlimited, invalid, or expired quotas.' };
-	chatgptAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'ChatGPT account state at startup: unknown, downloading, signedIn, signedOut, unavailable, or error. Does not contain an account identifier.' };
-	chatgptQuotaPercentRemaining: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Remaining percentage (0-100) of the ChatGPT seven-day quota. Omitted unless signed in with an available, valid, unexpired weekly limit.' };
 };
 
 type SessionsAccountStateChangedEvent = ISessionsAccountTelemetryData & {
 	changeReason: 'accountChanged' | 'quotaResolved';
 	previousCopilotSku: string;
 	previousCopilotAccountState: ISessionsAccountTelemetryData['copilotAccountState'];
-	previousChatgptAccountState: ISessionsAccountTelemetryData['chatgptAccountState'];
 };
 
 type SessionsAccountStateChangedClassification = {
@@ -46,12 +39,9 @@ type SessionsAccountStateChangedClassification = {
 	copilotSku: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Current Copilot entitlement SKU, including anonymous access, or signedOut or unknown when no SKU is available.' };
 	copilotAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Copilot account state: signedIn, signedOut, or unknown while resolving entitlement.' };
 	copilotQuotaPercentRemaining: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Remaining percentage (0-100) of the monthly premium chat quota, falling back to the monthly chat quota if absent. Omitted for unresolved, unlimited, invalid, or expired quotas.' };
-	chatgptAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'ChatGPT account state: unknown, downloading, signedIn, signedOut, unavailable, or error. Does not contain an account identifier.' };
-	chatgptQuotaPercentRemaining: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Remaining percentage (0-100) of the ChatGPT seven-day quota. Omitted unless signed in with an available, valid, unexpired weekly limit.' };
 	changeReason: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether an account state or Copilot SKU changed, or a previously unavailable quota resolved.' };
 	previousCopilotSku: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Copilot entitlement SKU before the change, or signedOut or unknown.' };
 	previousCopilotAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Copilot account state before the change.' };
-	previousChatgptAccountState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'ChatGPT account state before the change.' };
 };
 
 /** Reports startup account context and later changes without fetching account or quota data. */
@@ -65,7 +55,6 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 	constructor(
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
-		@ICodexAccountService private readonly codexAccountService: ICodexAccountService,
 		@ILogService private readonly logService: ILogService,
 		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
 	) {
@@ -76,7 +65,6 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 		this._register(chatEntitlementService.onDidChangeEntitlement(() => update.schedule()));
 		this._register(chatEntitlementService.onDidChangeAnonymous(() => update.schedule()));
 		this._register(chatEntitlementService.onDidChangeQuotaRemaining(() => update.schedule()));
-		this._register(codexAccountService.onDidChangeAccount(() => update.schedule()));
 		this._register(defaultAccountService.onDidChangeDefaultAccount(() => update.schedule()));
 		this.startupDeadline.schedule();
 		void this.waitForInitialAccount(update).catch(error => this.logService.error('[SessionsAccountTelemetry] Failed to resolve the initial account.', error));
@@ -109,9 +97,7 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 			&& (sku === undefined || (quotas.premiumChat === undefined && quotas.chat === undefined))) {
 			return false;
 		}
-		const account = this.codexAccountService.account;
-		return account.status !== 'unknown' && account.status !== 'downloading'
-			&& (account.status !== 'signedIn' || account.rateLimits !== undefined || account.rateLimit !== undefined);
+		return true;
 	}
 
 	private get snapshot(): ISessionsAccountTelemetryData {
@@ -125,8 +111,6 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 			copilotQuotaPercentRemaining: copilotAccountState === 'signedIn'
 				? getCopilotQuotaPercentRemaining(this.chatEntitlementService.quotas.premiumChat ?? this.chatEntitlementService.quotas.chat, now, this.logService)
 				: undefined,
-			chatgptAccountState: this.codexAccountService.account.status,
-			chatgptQuotaPercentRemaining: getChatGPTQuotaPercentRemaining(this.codexAccountService.account, now, this.logService),
 		};
 	}
 
@@ -144,10 +128,8 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 		}
 
 		const accountChanged = previous.copilotSku !== current.copilotSku
-			|| previous.copilotAccountState !== current.copilotAccountState
-			|| previous.chatgptAccountState !== current.chatgptAccountState;
-		const quotaResolved = (previous.copilotQuotaPercentRemaining === undefined && current.copilotQuotaPercentRemaining !== undefined)
-			|| (previous.chatgptQuotaPercentRemaining === undefined && current.chatgptQuotaPercentRemaining !== undefined);
+			|| previous.copilotAccountState !== current.copilotAccountState;
+		const quotaResolved = previous.copilotQuotaPercentRemaining === undefined && current.copilotQuotaPercentRemaining !== undefined;
 		if (!accountChanged && !quotaResolved) {
 			return;
 		}
@@ -157,7 +139,6 @@ export class SessionsAccountTelemetryContribution extends Disposable implements 
 			changeReason: accountChanged ? 'accountChanged' : 'quotaResolved',
 			previousCopilotSku: previous.copilotSku,
 			previousCopilotAccountState: previous.copilotAccountState,
-			previousChatgptAccountState: previous.chatgptAccountState,
 		});
 	}
 }
@@ -177,20 +158,6 @@ function getCopilotQuotaPercentRemaining(quota: IQuotaSnapshot | undefined, now:
 		return undefined;
 	}
 	return validPercentage(quota.percentRemaining, logService);
-}
-
-function getChatGPTQuotaPercentRemaining(account: ICodexAccountInfo, now: number, logService: ILogService): number | undefined {
-	if (account.status !== 'signedIn') {
-		return undefined;
-	}
-	const weeklyWindowMins = 7 * 24 * 60;
-	const weeklyLimit = account.rateLimits?.find(limit => limit.windowDurationMins === weeklyWindowMins)
-		?? (account.rateLimit?.windowDurationMins === weeklyWindowMins ? account.rateLimit : undefined);
-	if (!weeklyLimit || !hasNotReset(weeklyLimit.resetsAt, now, logService)) {
-		return undefined;
-	}
-	const usedPercent = validPercentage(weeklyLimit.usedPercent, logService);
-	return usedPercent !== undefined ? 100 - usedPercent : undefined;
 }
 
 function validPercentage(value: number, logService: ILogService): number | undefined {

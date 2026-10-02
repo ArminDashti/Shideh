@@ -78,7 +78,6 @@ suite('Agent Host - session type auth requirement', () => {
 			hasModels: false,
 			localModelsLoaded: true,
 			gracePeriodElapsed: false,
-			setupDialogVisible: false,
 		};
 		assert.deepStrictEqual({
 			featureDisabled: getSignedOutModelsNotificationState({ ...ready, allowSignedOutWhenUsable: false }),

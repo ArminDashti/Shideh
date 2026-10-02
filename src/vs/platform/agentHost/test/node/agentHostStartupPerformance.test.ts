@@ -95,9 +95,9 @@ suite('AgentHostStartupPerformance', () => {
 		const performance = disposables.add(new AgentHostStartupPerformance(AgentHostLaunchKind.Unknown, undefined, telemetry, new NullLogService(), () => now));
 		const copilot = performance.start('sessionMigrationScan', 'copilotcli');
 		now = 20;
-		const codex = performance.start('sessionDiscoveryScan', 'codex');
+		const scan = performance.start('sessionDiscoveryScan', 'mycli');
 		now = 35;
-		codex?.complete('success', { scannedSessionCount: 101 });
+		scan?.complete('success', { scannedSessionCount: 101 });
 		now = 50;
 		copilot?.complete('success', { scannedSessionCount: 99 });
 		assert.deepStrictEqual(telemetry.events.map(({ data }) => [
@@ -105,8 +105,8 @@ suite('AgentHostStartupPerformance', () => {
 		]), [
 			['processStart', 'host', 1, 0, undefined, undefined, undefined, undefined],
 			['sessionMigrationScanStart', 'copilotcli', 1, 10, undefined, undefined, undefined, undefined],
-			['sessionDiscoveryScanStart', 'codex', 1, 20, undefined, undefined, undefined, undefined],
-			['sessionDiscoveryScan', 'codex', 1, 35, 'sessionDiscoveryScanStart', 15, 'success', 101],
+			['sessionDiscoveryScanStart', 'mycli', 1, 20, undefined, undefined, undefined, undefined],
+			['sessionDiscoveryScan', 'mycli', 1, 35, 'sessionDiscoveryScanStart', 15, 'success', 101],
 			['sessionMigrationScan', 'copilotcli', 1, 50, 'sessionMigrationScanStart', 40, 'success', 99],
 		]);
 	});
@@ -166,21 +166,21 @@ suite('AgentHostStartupPerformance', () => {
 		let now = 10;
 		const performance = disposables.add(new AgentHostStartupPerformance(AgentHostLaunchKind.Unknown, undefined, telemetry, new NullLogService(), () => now));
 		for (const outcome of ['partial', 'error', 'cancelled'] as const) {
-			performance.start('sessionDiscoveryRegistration', 'codex')?.complete(outcome, { candidateSessionCount: 2 });
+			performance.start('sessionDiscoveryRegistration', 'mycli')?.complete(outcome, { candidateSessionCount: 2 });
 		}
-		const pendingAfterCap = performance.isPending('firstSessionDiscoveryRegistration', 'codex');
+		const pendingAfterCap = performance.isPending('firstSessionDiscoveryRegistration', 'mycli');
 		now = 20;
-		performance.start('sessionDiscoveryScan', 'codex')?.complete('success', { scannedSessionCount: 99 });
+		performance.start('sessionDiscoveryScan', 'mycli')?.complete('success', { scannedSessionCount: 99 });
 		now = 30;
-		performance.mark('firstSessionDiscoveryResult', { provider: 'codex', since: 'processStart', candidateSessionCount: 0 });
+		performance.mark('firstSessionDiscoveryResult', { provider: 'mycli', since: 'processStart', candidateSessionCount: 0 });
 		now = 40;
-		performance.mark('firstSessionDiscoveryRegistration', { provider: 'codex', since: 'processStart', candidateSessionCount: 0, registeredSessionCount: 0 });
-		performance.mark('firstSessionDiscoveryRegistration', { provider: 'codex', since: 'processStart', candidateSessionCount: 99 });
+		performance.mark('firstSessionDiscoveryRegistration', { provider: 'mycli', since: 'processStart', candidateSessionCount: 0, registeredSessionCount: 0 });
+		performance.mark('firstSessionDiscoveryRegistration', { provider: 'mycli', since: 'processStart', candidateSessionCount: 99 });
 
 		assert.deepStrictEqual({
 			pendingAfterCap,
-			pendingAfterCompletion: performance.isPending('firstSessionDiscoveryRegistration', 'codex'),
-			retry: performance.start('sessionDiscoveryRegistration', 'codex'),
+			pendingAfterCompletion: performance.isPending('firstSessionDiscoveryRegistration', 'mycli'),
+			retry: performance.start('sessionDiscoveryRegistration', 'mycli'),
 			milestones: telemetry.events.filter(event => String(event.data?.name).startsWith('firstSessionDiscovery')).map(({ data }) => [
 				data?.name, data?.since, data?.durationMs, data?.candidateSessionCount, data?.registeredSessionCount, data?.outcome,
 			]),
@@ -209,7 +209,7 @@ suite('AgentHostStartupPerformance', () => {
 		assert.deepStrictEqual({
 			pendingBefore,
 			pendingAfter,
-			pendingAfterDisposal: performance.isPending('firstSessionDiscoveryRegistration', 'codex'),
+			pendingAfterDisposal: performance.isPending('firstSessionDiscoveryRegistration', 'mycli'),
 			events: telemetry.events,
 		}, { pendingBefore: true, pendingAfter: false, pendingAfterDisposal: false, events: [] });
 	});
@@ -218,11 +218,11 @@ suite('AgentHostStartupPerformance', () => {
 		const telemetry = new TestAgentHostStartupTelemetryService();
 		let clockReads = 0;
 		const performance = disposables.add(new AgentHostStartupPerformance(AgentHostLaunchKind.Unknown, undefined, telemetry, new NullLogService(), () => ++clockReads));
-		performance.mark('providerContext', { provider: 'codex', activationState: 'inactive', sdkAvailability: 'unknown' });
+		performance.mark('providerContext', { provider: 'mycli', activationState: 'inactive', sdkAvailability: 'unknown' });
 		performance.mark('providerContext', { provider: 'claude', activationState: 'notRequired', sdkAvailability: 'unavailable' });
 		performance.mark('providerContext', { provider: 'copilotcli', activationState: 'notRequired', sdkAvailability: 'available' });
 		for (let i = 0; i < 10000; i++) {
-			performance.mark('providerContext', { provider: 'codex', activationState: 'active', sdkAvailability: 'available' });
+			performance.mark('providerContext', { provider: 'mycli', activationState: 'active', sdkAvailability: 'available' });
 			performance.mark('providerContext', { provider: `custom-${i}`, activationState: 'unknown', sdkAvailability: 'unknown' });
 		}
 
@@ -234,7 +234,7 @@ suite('AgentHostStartupPerformance', () => {
 		}, {
 			clockReads: 4,
 			contexts: [
-				['codex', 'inactive', 'unknown', 1],
+				['mycli', 'inactive', 'unknown', 1],
 				['claude', 'notRequired', 'unavailable', 2],
 				['copilotcli', 'notRequired', 'available', 3],
 				['other', 'unknown', 'unknown', 4],
@@ -247,9 +247,9 @@ suite('AgentHostStartupPerformance', () => {
 		telemetry.telemetryLevel = TelemetryLevel.NONE;
 		const performance = disposables.add(new AgentHostStartupPerformance(AgentHostLaunchKind.Unknown, undefined, telemetry, new NullLogService(), () => 10));
 		const enabledBefore = performance.isEnabled;
-		performance.mark('providerContext', { provider: 'codex', activationState: 'inactive', sdkAvailability: 'unknown' });
+		performance.mark('providerContext', { provider: 'mycli', activationState: 'inactive', sdkAvailability: 'unknown' });
 		telemetry.telemetryLevel = TelemetryLevel.USAGE;
-		performance.mark('providerContext', { provider: 'codex', activationState: 'active', sdkAvailability: 'available' });
+		performance.mark('providerContext', { provider: 'mycli', activationState: 'active', sdkAvailability: 'available' });
 		assert.deepStrictEqual({ enabledBefore, enabledAfter: performance.isEnabled, events: telemetry.events }, {
 			enabledBefore: false, enabledAfter: true, events: [],
 		});
@@ -261,7 +261,7 @@ suite('AgentHostStartupPerformance', () => {
 		const performance = disposables.add(new AgentHostStartupPerformance(AgentHostLaunchKind.Unknown, undefined, telemetry, new NullLogService(), () => ++clockReads));
 		for (let i = 0; i < 10000; i++) {
 			performance.start('sessionMigrationScan', 'copilotcli')?.complete('error');
-			performance.start('sessionDiscoveryScan', 'codex')?.complete('success');
+			performance.start('sessionDiscoveryScan', 'mycli')?.complete('success');
 		}
 		assert.deepStrictEqual({
 			clockReads,
@@ -270,7 +270,7 @@ suite('AgentHostStartupPerformance', () => {
 		}, {
 			clockReads: 8,
 			markerCount: 9,
-			attempts: [['copilotcli', 1, 'error'], ['codex', 1, 'success'], ['copilotcli', 2, 'error'], ['copilotcli', 3, 'error']],
+			attempts: [['copilotcli', 1, 'error'], ['mycli', 1, 'success'], ['copilotcli', 2, 'error'], ['copilotcli', 3, 'error']],
 		});
 	});
 

@@ -78,7 +78,7 @@ interface IAgentSdkDownloadEvent extends IAgentHostCopilotSkuTelemetry {
 }
 
 type AgentSdkDownloadClassification = IAgentHostCopilotSkuClassification & {
-	packageId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Which agent SDK was being fetched, e.g. claude or codex.' };
+	packageId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Which agent SDK was being fetched, e.g. claude.' };
 	phase: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the download started, completed, or failed.' };
 	failureReason: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Coarse bucket for a failed download (cancelled, network, filesystem, extract, notConfigured, unsupportedTarget, unknown). Empty unless the phase is failed.' };
 	explicitlyRequested: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the user explicitly requested this download through the setup UI, rather than it starting from an agent turn or standing consent.' };

@@ -212,7 +212,6 @@ const enum AllowedShellType {
 
 	// AI CLIs
 	Claude = 'claude',
-	Codex = 'codex',
 	Copilot = 'copilot',
 	Gemini = 'gemini',
 

@@ -4240,7 +4240,7 @@ suite('Sessions - SessionsList', () => {
 
 		test('keeps the sticky session hierarchy opaque and actions trailing aligned while nested chats scroll beneath it', async () => {
 			const main = createChat('Main chat', ChatOriginKind.User, ChatInteractivity.Full, SessionStatus.InProgress);
-			const peers = Array.from({ length: 12 }, (_, index) => createChat(`Codex ${index}`, ChatOriginKind.User));
+			const peers = Array.from({ length: 12 }, (_, index) => createChat(`Peer ${index}`, ChatOriginKind.User));
 			const base = createTestSession('Show ChatGPT rate limits', { status: SessionStatus.InProgress }).session;
 			const session: ISession = {
 				...base,

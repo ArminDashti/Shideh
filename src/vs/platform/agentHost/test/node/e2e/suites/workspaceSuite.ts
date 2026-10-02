@@ -138,9 +138,9 @@ export function defineWorkspaceTests(context: IAgentHostE2ETestContext): void {
 		// Copilot routes shell commands through it. When the provider
 		// supports it, this test additionally asserts on the host-managed
 		// terminal's cwd / `pwd` output, so enable it before the session
-		// materializes on the first turn dispatch. Codex / Claude run shell
-		// commands inside their own SDK subprocess and never surface a host
-		// terminal resource, so they verify isolation via the resolved
+		// materializes on the first turn dispatch. Claude runs shell
+		// commands inside its own SDK subprocess and never surfaces a host
+		// terminal resource, so it verifies isolation via the resolved
 		// working directory alone.
 		if (config.supportsHostTerminalTool) {
 			context.client.dispatch({
@@ -247,8 +247,8 @@ export function defineWorkspaceTests(context: IAgentHostE2ETestContext): void {
 		// worktree by asking it to run `pwd`. Copilot routes shell commands
 		// through the host-managed terminal tool, which exposes a
 		// subscribable terminal resource we can assert `cwd` / output on.
-		// Codex / Claude run shell commands inside their own SDK subprocess
-		// and surface the output as plain text in the tool result instead,
+		// Claude runs shell commands inside its own SDK subprocess
+		// and surfaces the output as plain text in the tool result instead,
 		// so we assert the worktree path appears in that text.
 		if (!config.supportsHostTerminalTool) {
 			// The shell command may either require a host confirmation

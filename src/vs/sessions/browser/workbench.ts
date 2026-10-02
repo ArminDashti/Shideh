@@ -79,7 +79,6 @@ import { ISessionsPartService } from '../services/sessions/browser/sessionsPartS
 import { ICustomViewService } from '../services/customView/browser/customViewService.js';
 import { ICustomViewGridPartService } from '../services/customView/browser/customViewGridPartService.js';
 import { ICustomViewDescriptor } from '../services/customView/browser/customView.js';
-import { ISessionsSetUpService } from './sessionsSetUpService.js';
 import { AGENTS_FLOATING_PANEL_GAP } from '../common/layoutConstants.js';
 import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
 
@@ -624,9 +623,6 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 				if (this.layoutPolicy.viewportClass.get() === 'phone') {
 					this.createMobileTitlebar();
 				}
-
-				// Workbench Management
-				this.createWorkbenchManagement(instantiationService);
 
 				// Layout
 				this.layout();
@@ -1628,12 +1624,6 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 					break;
 			}
 		}));
-	}
-
-	createWorkbenchManagement(instantiationService: IInstantiationService): void {
-		// Welcome — must be created early in layout so the widget can gate
-		// other UI until sign-in / chat setup is complete.
-		instantiationService.invokeFunction(accessor => accessor.get(ISessionsSetUpService));
 	}
 
 	/**

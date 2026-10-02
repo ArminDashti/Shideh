@@ -17,7 +17,6 @@ import { CLOUD_SANDBOX_AGENT_SLUG, CLOUD_SANDBOX_ON_DEMAND_ENVIRONMENT_ID, type 
 import { SessionStatus } from '../../../../../../platform/agentHost/common/state/sessionState.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../../platform/log/common/log.js';
-import { IProductService } from '../../../../../../platform/product/common/productService.js';
 import { IRequestService } from '../../../../../../platform/request/common/request.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../../services/authentication/common/authentication.js';
 import { CloudSandboxApiService } from '../../../browser/remoteAgentHost/cloudSandboxApiService.js';
@@ -174,7 +173,6 @@ function createService(store: Pick<{ add<T extends { dispose(): void }>(t: T): T
 		override readonly onDidRegisterAuthenticationProvider = Event.None;
 		override readonly onDidUnregisterAuthenticationProvider = Event.None;
 	}());
-	instantiationService.stub(IProductService, { defaultChatAgent: undefined } as unknown as IProductService);
 	instantiationService.stub(ILogService, options.logService ?? new NullLogService());
 	instantiationService.stub(ICloudSandboxTelemetryService, new class extends mock<ICloudSandboxTelemetryService>() {
 		override reportRequest(): void { }
@@ -1308,7 +1306,6 @@ function createServiceForCreate(store: Pick<{ add<T extends { dispose(): void }>
 		override readonly onDidRegisterAuthenticationProvider = Event.None;
 		override readonly onDidUnregisterAuthenticationProvider = Event.None;
 	}());
-	instantiationService.stub(IProductService, { defaultChatAgent: undefined } as unknown as IProductService);
 	instantiationService.stub(ILogService, new class extends NullLogService {
 		override error(message: string | Error): void {
 			errors.push(String(message));

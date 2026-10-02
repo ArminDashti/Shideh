@@ -52,7 +52,7 @@ export type RegisteredSessionMigration = (entry: IStoredRegisteredSession) => Pr
  * in-process signal for "every provider that will ever register has now
  * registered" (provider registration is asynchronous and conditionally gated
  * outside this layer), so writing it early risks a downgrade to pre-per-provider
- * code silently skipping a provider (e.g. Codex) that only registers later.
+ * code silently skipping a provider that only registers later.
  * `markBackfilled` remains callable for tests and any explicit migration
  * tooling, but nothing in the per-provider sweep invokes it automatically.
  *

@@ -12,7 +12,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/c
 import { TestInstantiationService } from '../../../instantiation/test/common/instantiationServiceMock.js';
 import { ITelemetryService } from '../../../telemetry/common/telemetry.js';
 import { NullTelemetryServiceShape } from '../../../telemetry/common/telemetryUtils.js';
-import { AgentSession, CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, type IAgent } from '../../common/agent.js';
+import { AgentSession, CLAUDE_AGENT_PROVIDER_ID, type IAgent } from '../../common/agent.js';
 import { buildDefaultChatUri } from '../../common/state/sessionState.js';
 import { IAgentHostProviderService } from '../../node/agentHostProviderService.js';
 import { AgentHostSessionOpenTelemetry, AgentHostSessionSubscribeTimeoutMs } from '../../node/agentHostSessionOpenTelemetry.js';
@@ -198,9 +198,9 @@ suite('AgentHostSessionOpenTelemetry', () => {
 
 	test('emits subscription telemetry for current and future providers', async () => {
 		const telemetryService = new TestTelemetryService();
-		const providers = [CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, 'future'];
+		const providers = [CLAUDE_AGENT_PROVIDER_ID, 'future'];
 		const service = createService(telemetryService, providers);
-		for (const provider of [CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, 'future']) {
+		for (const provider of [CLAUDE_AGENT_PROVIDER_ID, 'future']) {
 			await service.withSubscription(AgentSession.uri(provider, 'session'), async telemetry => {
 				telemetry.setServedFromMemory(false);
 				telemetry.restoreStarted(false);
@@ -226,7 +226,6 @@ suite('AgentHostSessionOpenTelemetry', () => {
 			unknownResult: 'unknown',
 			events: [
 				{ name: 'agentHost.sessionSubscribe', provider: 'claude', channel: 'session', outcome: 'success', sdkResumeOutcome: undefined, sdkResumeAttemptCount: undefined },
-				{ name: 'agentHost.sessionSubscribe', provider: 'codex', channel: 'session', outcome: 'success', sdkResumeOutcome: undefined, sdkResumeAttemptCount: undefined },
 				{ name: 'agentHost.sessionSubscribe', provider: 'future', channel: 'session', outcome: 'success', sdkResumeOutcome: undefined, sdkResumeAttemptCount: undefined },
 			],
 		});

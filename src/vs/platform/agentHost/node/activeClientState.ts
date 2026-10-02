@@ -55,7 +55,7 @@ export function structuralToolsEqual(
 /**
  * A per-session registry of the tools contributed by each active client,
  * keyed by `clientId` and kept in insertion order. Backs the multi-active-client
- * tool model shared by the agent-host providers (Copilot, Claude, Codex):
+ * tool model shared by the agent-host providers (Copilot, Claude):
  * each provider stores one of these per session and exposes the
  * {@link merged} view to its SDK while routing tool calls back to the
  * {@link ownerOf | owning client}.

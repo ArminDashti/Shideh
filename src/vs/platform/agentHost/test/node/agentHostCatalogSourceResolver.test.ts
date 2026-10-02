@@ -148,7 +148,7 @@ suite('AgentHostCatalogSourceResolver', () => {
 	test('does not persist temporary input restrictions as read-only chats', async () => {
 		const state = sourceState();
 		const peer = `${chat}/peer`;
-		const meta = withChatInputState({ _meta: state.meta }, chat, { kind: 'blocked', error: { errorType: 'CodexThreadInUse', message: 'Locked' } });
+		const meta = withChatInputState({ _meta: state.meta }, chat, { kind: 'blocked', error: { errorType: 'ThreadInUse', message: 'Locked' } });
 		const result = await createResolver({}).buildCatalogSyncRequest(session, {
 			...state,
 			meta,

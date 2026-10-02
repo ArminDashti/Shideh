@@ -388,11 +388,9 @@ export namespace SessionType {
 	export const CopilotCLI = 'copilotcli';
 	export const CopilotCloud = 'copilot-cloud-agent';
 	export const Local = 'local';
-	export const Codex = 'openai-codex';
 	export const Growth = 'copilot-growth';
 	export const AgentHostCopilot = 'agent-host-copilotcli';
 	export const AgentHostClaude = 'agent-host-claude';
-	export const AgentHostCodex = 'agent-host-codex';
 }
 
 /**

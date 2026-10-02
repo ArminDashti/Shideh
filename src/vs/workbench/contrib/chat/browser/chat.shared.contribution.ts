@@ -17,10 +17,10 @@ import { registerAction2 } from '../../../../platform/actions/common/actions.js'
 import '../../../../platform/agentHost/browser/agentHostEnablementService.js';
 import '../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { AgentHostMapLegacySettingsToManagedSettingsSettingId } from '../../../../platform/agentHost/common/agentHostManagedSettings.js';
-import { AgentHostAutoReplyEnabledConfigKey, AgentHostEditAutoApprovePatternsConfigKey, AgentHostExternalSessionsMode, AgentHostGlobalAutoApproveEnabledConfigKey, AgentHostMcpConnectorsEnabledConfigKey, AgentHostMigrateLegacyCopilotCliEnabledConfigKey, AgentHostSessionCatalogEnabledConfigKey, AgentHostSessionSyncEnabledConfigKey, AgentHostShowExternalSessionsConfigKey } from '../../../../platform/agentHost/common/agentHostSchema.js';
+import { AgentHostAutoReplyEnabledConfigKey, AgentHostEditAutoApprovePatternsConfigKey, AgentHostExternalSessionsMode, AgentHostGlobalAutoApproveEnabledConfigKey, AgentHostMigrateLegacyCopilotCliEnabledConfigKey, AgentHostSessionCatalogEnabledConfigKey, AgentHostSessionSyncEnabledConfigKey, AgentHostShowExternalSessionsConfigKey } from '../../../../platform/agentHost/common/agentHostSchema.js';
 import '../../../../platform/agentHost/common/agentHostStarter.config.contribution.js';
 import { AgentMergeSettingId } from '../../../../platform/agentHost/common/agentMerge.js';
-import { AgentHostAhpJsonlLoggingSettingId, AgentHostAllowSignedOutWhenUsableSettingId, AgentHostSdkSandboxEnabledSettingId, AgentHostSdkSandboxWindowsEnabledSettingId, CodexPreferAgentHostEditorSettingId } from '../../../../platform/agentHost/common/agentService.js';
+import { AgentHostAhpJsonlLoggingSettingId, AgentHostAllowSignedOutWhenUsableSettingId, AgentHostSdkSandboxEnabledSettingId, AgentHostSdkSandboxWindowsEnabledSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { AgentHostCopilotModelCapabilityOverridesSettingId, AgentHostCopilotRuntimePathSettingId, AgentHostCopilotSdkLogLevelSettingId, AgentHostCustomTerminalToolEnabledSettingId, AgentHostHydraFusionEnabledSettingId, AgentHostOpus48PromptEnabledSettingId, AgentHostShellToolInitScriptEnabledSettingId, AgentHostToolSearchDeferThresholdSettingId, AgentHostToolSearchEnabledSettingId, CopilotAutoModeTierOverrideSettingId, CopilotClaudeAdvisorEnabledSettingId, CopilotCliConfigKey, CopilotSkillCharBudgetSettingId, CopilotTgrepEnabledSettingId, copilotSdkLogLevelSettingValues, DEFAULT_COPILOT_SKILL_CHAR_BUDGET, normalizeSkillCharBudget } from '../../../../platform/agentHost/common/copilotCliConfig.js';
 import { CopilotSemanticSearchEnabledSettingId } from '../../../../platform/agentHost/common/semanticSearchConstants.js';
 import { ChatMicrosoftAuthenticationEnabledSettingId, ChatMicrosoftAuthenticationMode, DEFAULT_EDIT_AUTO_APPROVE_PATTERNS, mergeChatEditAutoApprovePatterns } from '../../../../platform/chat/common/chatSettings.js';
@@ -30,7 +30,6 @@ import { CommandsRegistry, ICommandService } from '../../../../platform/commands
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { AgentHostConfigurationSyncScope, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { CustomizationMarketplaceConfiguration } from '../../../../platform/customizationMarketplace/common/customizationMarketplaceSources.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -118,7 +117,6 @@ import { registerChatElicitationActions } from './actions/chatElicitationActions
 import { registerChatExecuteActions } from './actions/chatExecuteActions.js';
 import { registerChatFileTreeActions } from './actions/chatFileTreeActions.js';
 import { registerChatFindActions } from './actions/chatFindActions.js';
-import { ChatGettingStartedContribution } from './actions/chatGettingStarted.js';
 import { registerChatExportActions } from './actions/chatImportExport.js';
 import { registerLanguageModelActions } from './actions/chatLanguageModelActions.js';
 import { registerMoveActions } from './actions/chatMoveActions.js';
@@ -218,15 +216,9 @@ import { ChatCompatibilityNotifier, ChatExtensionPointHandler } from './chatPart
 import { ChatPetAchievementsAccessibilityHelp, ChatPetContextContribution, ChatPetCustomizationAchievementContribution, ChatPetEditingAchievementContribution } from './chatPetAchievements.contribution.js';
 import { ChatPetService, IChatPetService } from './chatPetService.js';
 import { ChatPetWidgetService, IChatPetWidgetService } from './widget/chatPetWidgetService.js';
-import { ChatPromoNotificationContribution } from './chatPromoNotification.js';
 import { ChatExpNotificationContribution } from './expNotification/chatExpNotificationContribution.js';
-import { ChatQuotaNotificationContribution } from './chatQuotaNotification.js';
 import { ChatRepoInfoContribution } from './chatRepoInfo.js';
-import { ChatSetupContribution, ChatTeardownContribution } from './chatSetup/chatSetupContributions.js';
-import { ChatMicrosoftSignInProbeContribution, ChatMicrosoftSignInProbeService, IChatMicrosoftSignInProbeService } from './chatSetup/chatSetupMicrosoftProbe.js';
 import { ChatSessionOptionSlashCommandsContribution, ChatSlashCommandsContribution } from './chatSlashCommands.js';
-import { ChatStatusBarEntry } from './chatStatus/chatStatusEntry.js';
-import { CodexStatusBarEntry } from './chatStatus/codexStatusEntry.js';
 import { ChatTipService, IChatTipService } from './chatTipService.js';
 import { ChatWindowNotifier } from './chatWindowNotifier.js';
 import { AgentPluginRecommendations } from './claudePluginRecommendations.js';
@@ -1050,13 +1042,6 @@ configurationRegistry.registerConfiguration({
 			experiment: { mode: 'startup' },
 			markdownDescription: nls.localize('chat.btwTip.enabled', "Controls whether the Agents Window shows a tip about using `/btw` to ask side questions."),
 		},
-		[CodexPreferAgentHostEditorSettingId]: {
-			type: 'boolean',
-			markdownDescription: nls.localize('chat.editor.codex.preferAgentHost', "When enabled, Codex sessions opened from the regular workbench (sidebar chat) run inside the agent host process using the Codex App Server instead of the OpenAI extension. Only one Codex implementation surfaces per window. Requires `#chat.agentHost.codexAgent.enabled#`."),
-			default: product.quality !== 'stable',
-			tags: ['experimental'],
-			experiment: { mode: 'startup' },
-		},
 		[ChatConfiguration.ChatContextUsageEnabled]: {
 			type: 'boolean',
 			default: true,
@@ -1825,7 +1810,7 @@ configurationRegistry.registerConfiguration({
 		},
 		[AgentHostAllowSignedOutWhenUsableSettingId]: {
 			type: 'boolean',
-			markdownDescription: nls.localize('chat.agentHost.allowSignedOutWhenUsable', "When enabled, Agent Host sessions remain available while signed out. The Agents window opens without forcing GitHub sign-in, and editor chat lets you select the Copilot harness. Agents usable without GitHub (for example Codex with ChatGPT authentication or Claude in native mode with your own Anthropic credentials) work while signed out; agents that require GitHub prompt you to add a model or sign in. When disabled (the default), GitHub sign-in is required before the Agents window opens."),
+			markdownDescription: nls.localize('chat.agentHost.allowSignedOutWhenUsable', "When enabled, Agent Host sessions remain available while signed out. The Agents window opens without forcing GitHub sign-in, and editor chat lets you select the Copilot harness. Agents usable without GitHub (for example Claude in native mode with your own Anthropic credentials) work while signed out; agents that require GitHub prompt you to add a model or sign in. When disabled (the default), GitHub sign-in is required before the Agents window opens."),
 			default: false,
 			scope: ConfigurationScope.APPLICATION,
 			tags: ['experimental', 'advanced'],
@@ -2575,15 +2560,6 @@ configurationRegistry.registerConfiguration({
 			default: false,
 		},
 		...customizationMarketplaceConfigurationProperties,
-		[CustomizationMarketplaceConfiguration.CopilotConnectorsEnabled]: {
-			type: 'boolean',
-			tags: ['experimental'],
-			description: nls.localize('chat.customizations.copilotConnectors.enabled', "Enables Copilot connectors in the unified marketplace and exposes connected connector MCP servers in Chat Customizations and Copilot agent sessions."),
-			default: false,
-			scope: ConfigurationScope.APPLICATION,
-			experiment: { mode: 'auto' },
-			agentHost: { key: AgentHostMcpConnectorsEnabledConfigKey },
-		},
 		[ChatConfiguration.ChatCustomizationsMigrationEnabled]: {
 			type: 'boolean',
 			tags: ['experimental'],
@@ -3309,16 +3285,8 @@ registerWorkbenchContribution2(ChatModelFeedbackSurveyActionRendering.ID, ChatMo
 registerWorkbenchContribution2(ChatModelFeedbackSurveyPromptContribution.ID, ChatModelFeedbackSurveyPromptContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(ChatImplicitContextContribution.ID, ChatImplicitContextContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(ChatViewsWelcomeHandler.ID, ChatViewsWelcomeHandler, WorkbenchPhase.BlockStartup);
-registerWorkbenchContribution2(ChatGettingStartedContribution.ID, ChatGettingStartedContribution, WorkbenchPhase.Eventually);
-registerWorkbenchContribution2(ChatSetupContribution.ID, ChatSetupContribution, WorkbenchPhase.BlockRestore);
-registerWorkbenchContribution2(ChatMicrosoftSignInProbeContribution.ID, ChatMicrosoftSignInProbeContribution, WorkbenchPhase.Eventually);
-registerWorkbenchContribution2(ChatQuotaNotificationContribution.ID, ChatQuotaNotificationContribution, WorkbenchPhase.AfterRestored);
-registerWorkbenchContribution2(ChatPromoNotificationContribution.ID, ChatPromoNotificationContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatExpNotificationContribution.ID, ChatExpNotificationContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(HasByokModelsContribution.ID, HasByokModelsContribution, WorkbenchPhase.BlockRestore);
-registerWorkbenchContribution2(ChatTeardownContribution.ID, ChatTeardownContribution, WorkbenchPhase.AfterRestored);
-registerWorkbenchContribution2(ChatStatusBarEntry.ID, ChatStatusBarEntry, WorkbenchPhase.BlockRestore);
-registerWorkbenchContribution2(CodexStatusBarEntry.ID, CodexStatusBarEntry, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(BuiltinToolsContribution.ID, BuiltinToolsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(ClientToolSetsContribution.ID, ClientToolSetsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(UsagesToolContribution.ID, UsagesToolContribution, WorkbenchPhase.BlockRestore);
@@ -3451,6 +3419,5 @@ registerSingleton(IChatDebugService, ChatDebugServiceImpl, InstantiationType.Del
 registerSingleton(IChatImageCarouselService, ChatImageCarouselService, InstantiationType.Delayed);
 registerSingleton(IAgentHostImportConversationStore, AgentHostImportConversationStore, InstantiationType.Delayed);
 registerSingleton(ISessionSummaryHoverService, SessionSummaryHoverService, InstantiationType.Delayed);
-registerSingleton(IChatMicrosoftSignInProbeService, ChatMicrosoftSignInProbeService, InstantiationType.Delayed);
 
 ChatWidget.CONTRIBS.push(ChatDynamicVariableModel);

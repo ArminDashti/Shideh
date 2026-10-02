@@ -47,7 +47,6 @@ export const terminalStickyScrollConfiguration: IStringDictionary<IConfiguration
 			'agy',
 			'copilot',
 			'claude',
-			'codex',
 			'gemini'
 		]
 	},

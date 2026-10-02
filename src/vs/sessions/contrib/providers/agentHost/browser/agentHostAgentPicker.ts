@@ -30,7 +30,7 @@ import { ISessionsProvidersService } from '../../../../services/sessions/browser
 import { ISession, ISessionAgentRef, SessionStatus } from '../../../../services/sessions/common/session.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
 import { ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
-import { ModePicker, ScopedModePickerModelCache } from '../../copilotChatSessions/browser/modePicker.js';
+import { ModePicker, ScopedModePickerModelCache } from '../../shared/browser/modePicker.js';
 import { ISessionContext } from '../../../../services/sessions/browser/sessionContext.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IAction } from '../../../../../base/common/actions.js';

@@ -24,11 +24,11 @@ import { AUTO_RAW_MODEL_ID, COPILOT_VENDOR_ID, ILanguageModelChatMetadata, ILang
  *
  * Today only the Copilot CLI harness exposes an Auto selection and can run
  * without an explicit model, so it shows "Auto" rather than a "No models
- * available" state when no models are listed. Other harnesses (Claude,
- * Codex, …) require an explicit model.
+ * available" state when no models are listed. Other harnesses (Claude, …)
+ * require an explicit model.
  *
  * `provider` is the underlying agent provider id (e.g. `'copilotcli'`,
- * `'claude'`, `'codex'`), not the `agent-host-<provider>` session type.
+ * `'claude'`), not the `agent-host-<provider>` session type.
  *
  * TODO: hoist this capability onto the agent host protocol (e.g. a
  * `supportsAutoModel?: boolean` on `IAgentDescriptor` / `AgentInfo`) so each

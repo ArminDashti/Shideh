@@ -51,8 +51,8 @@ suite('capiReplayProxy shell tool names', () => {
 	});
 
 	test('names that do not vary by platform are left alone', () => {
-		// Claude's `Bash` and Codex's `shell` are fixed strings their SDKs use
-		// everywhere; rewriting them would hide a genuine provider change.
+		// Fixed strings their SDKs use everywhere, like Claude's `Bash`,
+		// would hide a genuine provider change if rewritten.
 		const untouched = ['Bash', 'shell', 'Read', 'view', 'create', 'str_replace_editor'];
 		assert.deepStrictEqual({
 			normalized: untouched.map(normalizeShellToolNameForCapture),

@@ -218,8 +218,6 @@ export class ExternalSessionBanner extends Disposable {
 
 	private _getContinuationDescription(sessionType: string | undefined): string {
 		switch (sessionType) {
-			case 'codex':
-				return localize('externalSessionBanner.continue.codex', "You can continue this session here with your ChatGPT or Copilot subscription. Choose your subscription in the model picker.");
 			case 'claude':
 				return localize('externalSessionBanner.continue.claude', "You can continue this session here with your Copilot subscription.");
 			default:

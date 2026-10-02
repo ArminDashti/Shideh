@@ -79,7 +79,7 @@ export class AgentHostSessionListContribution extends Disposable implements IWor
 		}
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (!affectsAgentHostProviderPreference(e, this._isSessionsWindow)) {
+			if (!affectsAgentHostProviderPreference(e)) {
 				return;
 			}
 			const current = this._agentHostService.rootState.value;
@@ -90,7 +90,7 @@ export class AgentHostSessionListContribution extends Disposable implements IWor
 	}
 
 	private _shouldRegisterAgent(provider: AgentProvider): boolean {
-		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService, this._isSessionsWindow);
+		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService);
 	}
 
 	private _handleRootStateChange(rootState: RootState, sessionListStore: AgentHostSessionListStore): void {

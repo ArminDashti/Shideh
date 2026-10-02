@@ -57,3 +57,4 @@ dist
 *.exe
 
 # auto-managed large files (> 5 MB)
+# commit-push-to-github: ignore files > 5MB

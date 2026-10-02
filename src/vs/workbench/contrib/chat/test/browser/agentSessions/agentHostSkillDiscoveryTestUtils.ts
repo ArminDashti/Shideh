@@ -19,25 +19,25 @@ import { AICustomizationSources } from '../../../common/aiCustomizationWorkspace
 import { PromptsType } from '../../../common/promptSyntax/promptTypes.js';
 import { IPromptsService } from '../../../common/promptSyntax/service/promptsService.js';
 
-export function createCodexSkillCustomizations(): DirectoryCustomization[] {
+export function createSkillCustomizations(): DirectoryCustomization[] {
 	return [
 		{
 			name: 'repo', valid: true, skills: [
 				{ directory: '.agents', name: 'agents-dreaming' },
-				{ directory: '.codex', name: 'codex-described' },
+				{ directory: '.claude', name: 'claude-described' },
 			],
 		},
 		{
 			name: 'errors', valid: false, skills: [
 				{ directory: '.agents', name: 'agents-invalid' },
-				{ directory: '.codex', name: 'dreaming' },
+				{ directory: '.claude', name: 'dreaming' },
 			],
 		},
 	].map(({ name, valid, skills }) => {
 		return {
 			type: CustomizationType.Directory,
-			id: `codex-skills:${name}`,
-			uri: `codex-skills:/${name}`,
+			id: `workspace-skills:${name}`,
+			uri: `workspace-skills:/${name}`,
 			name,
 			enabled: valid,
 			contents: CustomizationType.Skill,
@@ -51,7 +51,7 @@ export function createCodexSkillCustomizations(): DirectoryCustomization[] {
 	});
 }
 
-export async function assertCodexSkillItems(service: IAgentHostCustomizationService, sessionResource: URI, store: Pick<DisposableStore, 'add'>): Promise<void> {
+export async function assertSkillItems(service: IAgentHostCustomizationService, sessionResource: URI, store: Pick<DisposableStore, 'add'>): Promise<void> {
 	const provider = store.add(new AgentCustomizationItemProvider(
 		'local',
 		undefined,
@@ -77,8 +77,8 @@ export async function assertCodexSkillItems(service: IAgentHostCustomizationServ
 		statusMessage: item.statusMessage,
 	})), [
 		{ name: 'agents-dreaming', uri: 'file:///workspace/.agents/skills/agents-dreaming/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: true, status: 'loaded', statusMessage: undefined },
-		{ name: 'codex-described', uri: 'file:///workspace/.codex/skills/codex-described/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: true, status: 'loaded', statusMessage: undefined },
+		{ name: 'claude-described', uri: 'file:///workspace/.claude/skills/claude-described/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: true, status: 'loaded', statusMessage: undefined },
 		{ name: 'agents-invalid', uri: 'file:///workspace/.agents/skills/agents-invalid/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: false, status: 'error', statusMessage: 'missing field `description`' },
-		{ name: 'dreaming', uri: 'file:///workspace/.codex/skills/dreaming/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: false, status: 'error', statusMessage: 'missing field `description`' },
+		{ name: 'dreaming', uri: 'file:///workspace/.claude/skills/dreaming/SKILL.md', type: PromptsType.skill, source: AICustomizationSources.local, enabled: false, status: 'error', statusMessage: 'missing field `description`' },
 	]);
 }

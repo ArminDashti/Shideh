@@ -17,7 +17,6 @@ import { LOCAL_AGENT_HOST_AUTHORITY } from '../../../../../../platform/agentHost
 import { type ProtectedResourceMetadata } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { NotificationType } from '../../../../../../platform/agentHost/common/state/sessionActions.js';
 import { type AgentInfo, type RootState } from '../../../../../../platform/agentHost/common/state/sessionState.js';
-import { CHATGPT_SUBSCRIPTION_MODEL_SOURCE_ID } from '../../../../../../platform/agentHost/common/agentModelSource.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IDefaultAccountService } from '../../../../../../platform/defaultAccount/common/defaultAccount.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -31,7 +30,6 @@ import { ChatSessionsExtensions, IAsyncChatSessionActivationRegistry, IChatSessi
 import { ChatAgentLocation } from '../../../common/constants.js';
 import { ICustomizationHarnessService } from '../../../common/customizationHarnessService.js';
 import { ILanguageModelsService } from '../../../common/languageModels.js';
-import { languageModelSourcePresentationRegistry } from '../../../common/languageModelSourcePresentation.js';
 import { Target } from '../../../common/promptSyntax/promptTypes.js';
 import { AgentCustomizationItemProvider } from './agentCustomizationItemProvider.js';
 import { agentHostProviderHasBuiltInGitHubMcpServer, COPILOT_CHAT_GITHUB_MCP_COLLECTION_ID } from './agentHostMcpServerSupport.js';
@@ -49,14 +47,6 @@ import { AICustomizationManagementSection } from '../../../common/aiCustomizatio
 
 const LOCAL_AGENT_HOST_SESSION_TYPE_PREFIX = 'agent-host-';
 
-languageModelSourcePresentationRegistry.register({
-	ownerVendor: 'agent-host-codex',
-	sourceId: CHATGPT_SUBSCRIPTION_MODEL_SOURCE_ID,
-	label: localize('agentHostModelSource.chatGPT.label', "ChatGPT"),
-	icon: Codicon.openai,
-	description: localize('agentHostModelSource.chatGPT.description', "Models provided by your ChatGPT subscription"),
-});
-
 Registry.as<IAsyncChatSessionActivationRegistry>(ChatSessionsExtensions.AsyncActivation).register({
 	matchSessionType: sessionType => isLocalAgentHostTarget(sessionType),
 	waitForActivation: waitForLocalAgentHostActivation,
@@ -66,7 +56,6 @@ async function waitForLocalAgentHostActivation(accessor: ServicesAccessor, sessi
 	const agentHostEnablementService = accessor.get(IAgentHostEnablementService);
 	const agentHostService = accessor.get(IAgentHostService);
 	const configurationService = accessor.get(IConfigurationService);
-	const environmentService = accessor.get(IWorkbenchEnvironmentService);
 	if (!agentHostEnablementService.enabled.get()) {
 		return false;
 	}
@@ -82,7 +71,7 @@ async function waitForLocalAgentHostActivation(accessor: ServicesAccessor, sessi
 			return false;
 		}
 		if (rootState) {
-			return rootState.agents.some(agent => agent.provider === provider && shouldSurfaceLocalAgentHostProvider(agent.provider, configurationService, environmentService.isSessionsWindow));
+			return rootState.agents.some(agent => agent.provider === provider && shouldSurfaceLocalAgentHostProvider(agent.provider, configurationService));
 		}
 
 		const changed = await Promise.race([
@@ -195,7 +184,7 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 		}
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (!affectsAgentHostProviderPreference(e, this._isSessionsWindow)) {
+			if (!affectsAgentHostProviderPreference(e)) {
 				return;
 			}
 			const current = this._agentHostService.rootState.value;
@@ -244,7 +233,7 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 	}
 
 	private _shouldRegisterAgent(provider: AgentProvider): boolean {
-		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService, this._isSessionsWindow);
+		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService);
 	}
 
 	private _handleRootStateChange(rootState: RootState): void {
@@ -302,8 +291,8 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			supportsAutoModel: agentHostProviderSupportsAutoModel(agent.provider),
 			// Derived live from the agent's currently-advertised protected resources
 			// (via the protected-resources service): an agent that marks the GitHub
-			// Copilot resource `required: false` (Claude in native mode, Codex on
-			// OpenAI) is usable without signing in. Falls back to "required" until the
+			// Copilot resource `required: false` (Claude in native mode) is usable
+			// without signing in. Falls back to "required" until the
 			// agent host resolves. The paired `onDidChangeRequiresCopilotSignIn` lets
 			// the sessions service re-evaluate this when the set changes.
 			requiresCopilotSignIn: () => {

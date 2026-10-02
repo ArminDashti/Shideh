@@ -29,7 +29,7 @@ import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomati
 import type { ActionEnvelope, ClientAutomationAction, ClientAutomationRunAction, INotification, IRootConfigChangedAction, SessionAction, ChatAction, TerminalAction, ClientAnnotationsAction, ClientChangesetAction } from './state/sessionActions.js';
 import type { ContentEncoding, ResourceCopyParams, ResourceCopyResult, ResourceDeleteParams, ResourceDeleteResult, ResourceListResult, ResourceMkdirParams, ResourceMkdirResult, ResourceMoveParams, ResourceMoveResult, ResourceReadResult, ResourceResolveParams, ResourceResolveResult, ResourceWatchState, ResourceWriteParams, ResourceWriteResult, CreateResourceWatchParams, CreateResourceWatchResult, IStateSnapshot } from './state/sessionProtocol.js';
 import { ComponentToState, StateComponents, type RootState } from './state/sessionState.js';
-import { type AgentProvider, CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, type AuthenticateParams, type AuthenticateResult, type IAgentCanvasSnapshot, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentPluginUninstallRequest, type IAgentSessionMetadata, type IAgentResolveSessionConfigParams, type IAgentSessionConfigCompletionsParams, type IMcpNotification, type IAgentHostNetworkEndpoint, type IAgentHostManagedSettingsSnapshot } from './agent.js';
+import { type AgentProvider, CLAUDE_AGENT_PROVIDER_ID, type AuthenticateParams, type AuthenticateResult, type IAgentCanvasSnapshot, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentPluginUninstallRequest, type IAgentSessionMetadata, type IAgentResolveSessionConfigParams, type IAgentSessionConfigCompletionsParams, type IMcpNotification, type IAgentHostNetworkEndpoint, type IAgentHostManagedSettingsSnapshot } from './agent.js';
 
 // ---- Provider-model re-exports (compatibility) ------------------------------
 // New provider code imports these from agent.ts.
@@ -47,7 +47,7 @@ export type {
 	IAgentHostNetworkEndpoint, IAgentHostManagedSettingsSnapshot, IAgentPluginUninstallRequest,
 } from './agent.js';
 export {
-	AgentSession, CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, COPILOT_CLI_AGENT_PROVIDER_ID, GITHUB_COPILOT_PROTECTED_RESOURCE,
+	AgentSession, CLAUDE_AGENT_PROVIDER_ID, COPILOT_CLI_AGENT_PROVIDER_ID, GITHUB_COPILOT_PROTECTED_RESOURCE,
 	GITHUB_REPO_PROTECTED_RESOURCE, protectedResourcesRequireGitHubCopilotSignIn, resolveAgentChatContext,
 	resolveAgentChatOrigin, resolveSubagentChatParent, resolveAgentHostCustomizations, subagentChatTitle,
 	SubagentChatSignal,
@@ -152,13 +152,6 @@ export const AgentHostCopilotMultiRootEnabledSettingId = 'chat.agentHost.copilot
 export const AgentHostClaudeMultiRootEnabledSettingId = 'chat.agentHost.claudeAgent.multiRootEnabled';
 
 /**
- * Configuration key gating multiple-working-directory support for the Codex
- * agent-host provider. Hidden from the Settings UI and off by default while the
- * feature is dogfooded.
- */
-export const AgentHostCodexMultiRootEnabledSettingId = 'chat.agentHost.codexAgent.multiRootEnabled';
-
-/**
  * Experimentation setting id gating the conditional agent-window auth feature.
  * When `true`, the agent window opens for a signed-out user instead of forcing
  * GitHub sign-in; each session type then gates on its own GitHub requirement, so
@@ -188,16 +181,6 @@ export const AgentHostAllowSignedOutWhenUsableSettingId = 'chat.agentHost.allowS
 export const AgentHostClaudeAgentEnabledSettingId = 'chat.agentHost.claudeAgent.enabled';
 
 /**
- * Configuration key controlling whether the Codex provider is registered in
- * the agent host process. When `false`, the agent host skips registering the
- * Codex provider regardless of SDK availability. The setting defaults to
- * enabled outside Stable and disabled in Stable, subject to its startup
- * experiment override. The agent host process must be restarted to unregister
- * a provider that is already running.
- */
-export const AgentHostCodexAgentEnabledSettingId = 'chat.agentHost.codexAgent.enabled';
-
-/**
  * Configuration key controlling whether extension-provided BYOK ("bring your
  * own key") models are published and included in new agent-host sessions.
  * Changes are synchronized to the running agent host.
@@ -223,15 +206,6 @@ export const AgentHostClaudeSdkRootEnvVar = 'VSCODE_AGENT_HOST_CLAUDE_SDK_ROOT';
  */
 export const AgentHostClaudeAgentEnabledEnvVar = 'VSCODE_AGENT_HOST_CLAUDE_AGENT_ENABLED';
 
-/**
- * Environment variable form of {@link AgentHostCodexAgentEnabledSettingId}.
- * Set by the agent host starters from the setting. Accepts `'true'` /
- * `'false'`; absent uses the host-level fallback (`false`), independently of
- * the product-quality-specific setting default. The starters normally forward
- * the resolved setting explicitly.
- */
-export const AgentHostCodexAgentEnabledEnvVar = 'VSCODE_AGENT_HOST_CODEX_AGENT_ENABLED';
-
 /** Overrides the soft cap on resident session roots. Primarily used by integration tests. */
 export const AgentHostSessionResidencyLimitEnvVar = 'VSCODE_AGENT_HOST_SESSION_RESIDENCY_LIMIT';
 
@@ -239,7 +213,7 @@ export const AgentHostSessionResidencyLimitEnvVar = 'VSCODE_AGENT_HOST_SESSION_R
 export const AgentHostSessionReleaseRetryMsEnvVar = 'VSCODE_AGENT_HOST_SESSION_RELEASE_RETRY_MS';
 
 /**
- * Resolves the effective enable state for a Claude/Codex provider from the
+ * Resolves the effective enable state for a Claude provider from the
  * env-var value forwarded by the starter. Recognized values (case- and
  * whitespace-insensitive):
  *
@@ -276,72 +250,18 @@ export function getAgentHostCopilotSandboxSettingId(windows = isWindows): AgentH
 	return windows ? AgentSandboxSettingId.AgentSandboxWindowsEnabled : AgentSandboxSettingId.AgentSandboxEnabled;
 }
 
-/**
- * Selects whether the regular workbench surfaces Codex from the agent host
- * instead of the OpenAI extension.
- */
-export const CodexPreferAgentHostEditorSettingId = 'chat.editor.codex.preferAgentHost';
-
-export function affectsAgentHostProviderPreference(event: IConfigurationChangeEvent, isSessionsWindow: boolean): boolean {
-	return event.affectsConfiguration(AgentHostClaudeAgentEnabledSettingId)
-		|| event.affectsConfiguration(isSessionsWindow ? AgentHostCodexAgentEnabledSettingId : CodexPreferAgentHostEditorSettingId);
+export function affectsAgentHostProviderPreference(event: IConfigurationChangeEvent): boolean {
+	return event.affectsConfiguration(AgentHostClaudeAgentEnabledSettingId);
 }
 
-export function shouldSurfaceLocalAgentHostProvider(provider: AgentProvider, configurationService: IConfigurationService, isSessionsWindow: boolean): boolean {
+export function shouldSurfaceLocalAgentHostProvider(provider: AgentProvider, configurationService: IConfigurationService): boolean {
 	switch (provider) {
 		case CLAUDE_AGENT_PROVIDER_ID:
 			return configurationService.getValue<boolean>(AgentHostClaudeAgentEnabledSettingId) !== false;
-		case CODEX_AGENT_PROVIDER_ID:
-			return configurationService.getValue<boolean>(isSessionsWindow ? AgentHostCodexAgentEnabledSettingId : CodexPreferAgentHostEditorSettingId) === true;
 		default:
 			return true;
 	}
 }
-
-// -- Codex agent settings --------------------------------------------------------
-//
-// Codex is opt-in via `chat.agentHost.codexAgent.sdkRoot`. The setting points
-// at an absolute path to a directory containing a `node_modules/@openai/codex`
-// subtree (the same shape `npm install @openai/codex` produces, and the same
-// shape the agent host downloads on demand from `product.agentSdks.codex`).
-// The agent host spawns the native codex binary from inside that tree as a
-// long-lived child process and speaks JSON-RPC over stdio. The binary is not
-// bundled with VS Code; users either install codex themselves (typically via
-// `npm install -g @openai/codex` or a platform package manager) or rely on
-// the on-demand download.
-
-/**
- * Absolute path to the **SDK root directory** containing a
- * `node_modules/@openai/codex` subtree. When non-empty, the agent host treats
- * it as a dev override and skips the on-demand download from
- * `product.agentSdks.codex`. Empty (the default) falls through to product
- * config; if neither is present, the provider is not registered.
- */
-export const AgentHostCodexAgentSdkRootSettingId = 'chat.agentHost.codexAgent.sdkRoot';
-
-/**
- * Optional override for `$CODEX_HOME`. When set, the codex app-server child
- * process inherits this value, controlling where rollouts and config live.
- */
-export const AgentHostCodexAgentCodexHomeSettingId = 'chat.agentHost.codexAgent.codexHome';
-
-/**
- * Additional command-line arguments passed to `codex app-server`. Mainly for
- * debugging (e.g. `--log-level=debug`).
- */
-export const AgentHostCodexAgentBinaryArgsSettingId = 'chat.agentHost.codexAgent.binaryArgs';
-
-/**
- * Environment variable form of {@link AgentHostCodexAgentSdkRootSettingId}.
- * Forwarded by the starters from the setting.
- */
-export const AgentHostCodexAgentSdkRootEnvVar = 'VSCODE_AGENT_HOST_CODEX_SDK_ROOT';
-
-/** Forwarded `$CODEX_HOME`. */
-export const AgentHostCodexAgentCodexHomeEnvVar = 'CODEX_HOME';
-
-/** Forwarded extra args for `codex app-server` (JSON-encoded string[]). */
-export const AgentHostCodexAgentBinaryArgsEnvVar = 'VSCODE_AGENT_HOST_CODEX_APP_SERVER_ARGS';
 
 // -- OpenTelemetry settings ------------------------------------------------------
 //
@@ -642,7 +562,7 @@ export function buildAgentHostOTelEnv(
 }
 
 /**
- * Settings -> env-var fan-out for the Claude/Codex SDK overrides that the
+ * Settings -> env-var fan-out for the Claude SDK overrides that the
  * agent host process consumes. Shared by both starters
  * (`nodeAgentHostStarter.ts`, `electronAgentHostStarter.ts`) so they don't
  * drift the next time someone adds a setting.
@@ -653,11 +573,7 @@ export function buildAgentHostOTelEnv(
  * the caller spreads into the spawned child's environment.
  */
 export interface IAgentSdkStarterSettings {
-	readonly codexSdkRoot?: string;
-	readonly codexHome?: string;
-	readonly codexBinaryArgs?: readonly string[];
 	readonly claudeAgentEnabled?: boolean;
-	readonly codexAgentEnabled?: boolean;
 }
 
 export function buildAgentSdkEnv(
@@ -671,16 +587,8 @@ export function buildAgentSdkEnv(
 		}
 		out[key] = value;
 	};
-	setIfMissing(AgentHostCodexAgentSdkRootEnvVar, settings.codexSdkRoot);
-	setIfMissing(AgentHostCodexAgentCodexHomeEnvVar, settings.codexHome);
-	if (Array.isArray(settings.codexBinaryArgs) && settings.codexBinaryArgs.length > 0) {
-		setIfMissing(AgentHostCodexAgentBinaryArgsEnvVar, JSON.stringify(settings.codexBinaryArgs));
-	}
 	if (settings.claudeAgentEnabled !== undefined) {
 		setIfMissing(AgentHostClaudeAgentEnabledEnvVar, settings.claudeAgentEnabled ? 'true' : 'false');
-	}
-	if (settings.codexAgentEnabled !== undefined) {
-		setIfMissing(AgentHostCodexAgentEnabledEnvVar, settings.codexAgentEnabled ? 'true' : 'false');
 	}
 	return out;
 }

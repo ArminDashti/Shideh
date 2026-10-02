@@ -307,7 +307,7 @@ const ENVIRONMENT_CONTEXT_RE = /<environment_context>.*?<\/environment_context>/
 
 /** Strip volatile / boilerplate wrappers the runtime injects around the real
  * user text (the `<current_datetime>` wall clock, `<system-reminder>` blocks,
- * and Codex's `<environment_context>` cwd/date preamble) so captures show just
+ * and the `<environment_context>` cwd/date preamble) so captures show just
  * the meaningful message and stay deterministic across re-records. Mirrors the
  * Copilot CLI harness, which normalizes the same injected blocks. */
 function normalizeVolatileText(text: string): string {
@@ -324,7 +324,7 @@ function normalizeVolatileText(text: string): string {
 // #region OpenAI Responses dialect
 
 /**
- * The OpenAI Responses API (`POST /responses`) used by the Codex provider. We
+ * The OpenAI Responses API (`POST /responses`). We
  * reuse the Anthropic readable shapes ({@link IReadableAnthropicRequest} /
  * {@link IAnthropicMessage}) since both dialects map cleanly to text / tool_use
  * / tool_result blocks — only the wire (SSE) parse and regeneration differ.
@@ -423,8 +423,8 @@ function responsesInputToMessages(input: unknown): Array<{ role: string; content
 		const item = raw as { type?: string; role?: string; content?: unknown; name?: string; arguments?: string; input?: string; call_id?: string; output?: unknown };
 		switch (item.type) {
 			case 'message': {
-				// Skip harness-injected instruction messages (Codex uses the
-				// `developer` / `system` roles for its permissions + environment
+				// Skip harness-injected instruction messages (the `developer` /
+				// `system` roles carry the permissions + environment
 				// preamble); the real system prompt is already a placeholder.
 				if (item.role === 'system' || item.role === 'developer') {
 					break;
@@ -478,7 +478,7 @@ function summarizeResponsesOutput(output: unknown): unknown {
 
 /**
  * Regenerate a `/responses` SSE stream from a captured message. Emits the event
- * sequence the Codex app-server expects (`response.created` -> per-item
+ * sequence the Responses API expects (`response.created` -> per-item
  * added/delta/done -> `response.completed`) with synthetic, stable item ids.
  * The `response` envelope carries the full set of required OpenAI Responses
  * fields so the client accepts the turn as complete (a partial envelope makes

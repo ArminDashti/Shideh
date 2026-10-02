@@ -83,7 +83,7 @@ const STORAGE_KEY_RECENT_WORKSPACES = 'sessions.recentlyPickedWorkspaces';
 const MOCK_PROVIDER_PATH_PREFIXES: Record<string, string> = {
 	'agenthost-remote-1': '/remote',
 	'local-1': '/local',
-	'default-copilot': '/copilot',
+	'cloud-provider': '/copilot',
 	'local-agent-host': '/agent-host',
 };
 
@@ -983,7 +983,7 @@ suite('WorkspacePicker - Connection Status', () => {
 			isDevContainerWorkspaceAvailable: async workspaceUri => extUri.isEqual(workspaceUri, folderUri),
 		});
 		const recentProvider = {
-			...createMockProvider('default-copilot'),
+			...createMockProvider('cloud-provider'),
 			resolveWorkspace: (uri: URI) => agentHostProvider.resolveWorkspace(uri),
 		};
 		providersService.setProviders([recentProvider, agentHostProvider]);
@@ -2155,18 +2155,18 @@ suite('WorkspacePicker - Connection Status', () => {
 		// Regression: previously the picker filtered restore through `activeProviderId`,
 		// which auto-locked to whichever provider registered first. If the stored
 		// workspace belonged to a provider that registered later than another available
-		// provider (for example, local-agent-host registering after default-copilot),
+		// provider (for example, local-agent-host registering after cloud-provider),
 		// the stored entry was filtered out and never restored.
 		//
 		// Realistic shape: storage holds BOTH a (non-checked) recent for the
 		// early-registering provider and a (checked) recent for the late-registering
 		// provider. The picker may briefly show the early recent as a fallback, but
 		// once the checked entry's provider registers, the picker must upgrade to it.
-		const copilotProvider = createMockProvider('default-copilot');
+		const copilotProvider = createMockProvider('cloud-provider');
 
 		const storage = disposables.add(new TestStorageService());
 		seedStorage(storage, [
-			{ uri: URI.file('/copilot/old-project'), providerId: 'default-copilot', checked: false },
+			{ uri: URI.file('/copilot/old-project'), providerId: 'cloud-provider', checked: false },
 			{ uri: URI.file('/agent-host/project'), providerId: 'local-agent-host', checked: true },
 		]);
 
@@ -2188,7 +2188,7 @@ suite('WorkspacePicker - Connection Status', () => {
 		// registering later in the session must not switch the selection to its
 		// stored "checked" entry. We only do that auto-upgrade during initial
 		// startup before the user has acted.
-		const copilotProvider = createMockProvider('default-copilot');
+		const copilotProvider = createMockProvider('cloud-provider');
 
 		const storage = disposables.add(new TestStorageService());
 		seedStorage(storage, [
@@ -2203,13 +2203,13 @@ suite('WorkspacePicker - Connection Status', () => {
 
 		// User explicitly picks a Copilot workspace.
 		picker.setSelectedWorkspace(URI.file('/copilot/picked'), { fireEvent: false });
-		assertSelectedProvider(picker, 'default-copilot', 'User pick is honored');
+		assertSelectedProvider(picker, 'cloud-provider', 'User pick is honored');
 
 		// Now the late provider for the (still-stored) checked entry arrives.
 		const agentHostProvider = createMockProvider('local-agent-host');
 		providersService.setProviders([copilotProvider, agentHostProvider]);
 
-		assertSelectedProvider(picker, 'default-copilot', 'User selection is preserved across late provider registration');
+		assertSelectedProvider(picker, 'cloud-provider', 'User selection is preserved across late provider registration');
 	});
 });
 
@@ -3450,9 +3450,9 @@ suite('WorkspacePicker - Category Triggers', () => {
 		let browseCalls = 0;
 		const actionWidgetService = new CapturingActionWidgetService();
 		const providersService = disposables.add(new MockSessionsProvidersService());
-		providersService.setProviders([createMockProvider('default-copilot', {
+		providersService.setProviders([createMockProvider('cloud-provider', {
 			browseActions: [{
-				...makeBrowseAction('default-copilot', SESSION_WORKSPACE_GROUP_GITHUB, 'Repository...'),
+				...makeBrowseAction('cloud-provider', SESSION_WORKSPACE_GROUP_GITHUB, 'Repository...'),
 				attachesContext: false,
 				run: async () => {
 					browseCalls++;
@@ -3594,13 +3594,13 @@ suite('WorkspacePicker - Category Triggers', () => {
 			requiresWorkspaceTrust: false,
 			isVirtualWorkspace: true,
 		});
-		const githubProvider = createMockProvider('default-copilot', {
+		const githubProvider = createMockProvider('cloud-provider', {
 			browseActions: [
 				{
 					label: 'Repository...',
 					group: SESSION_WORKSPACE_GROUP_GITHUB,
 					icon: Codicon.repo,
-					providerId: 'default-copilot',
+					providerId: 'cloud-provider',
 					attachesContext: false,
 					run: async () => undefined,
 				},
@@ -3608,7 +3608,7 @@ suite('WorkspacePicker - Category Triggers', () => {
 					label: 'Issue...',
 					group: SESSION_WORKSPACE_GROUP_GITHUB,
 					icon: Codicon.issues,
-					providerId: 'default-copilot',
+					providerId: 'cloud-provider',
 					attachesContext: true,
 					run: async workspace => {
 						currentWorkspace = workspace;
@@ -3619,7 +3619,7 @@ suite('WorkspacePicker - Category Triggers', () => {
 					label: 'Pull Request...',
 					group: SESSION_WORKSPACE_GROUP_GITHUB,
 					icon: Codicon.gitPullRequest,
-					providerId: 'default-copilot',
+					providerId: 'cloud-provider',
 					attachesContext: true,
 					run: async workspace => {
 						currentWorkspace = workspace;
@@ -3752,12 +3752,12 @@ suite('WorkspacePicker - Category Triggers', () => {
 			requiresWorkspaceTrust: false,
 			isVirtualWorkspace: true,
 		};
-		const baseProvider = createMockProvider('default-copilot', {
+		const baseProvider = createMockProvider('cloud-provider', {
 			browseActions: [{
 				label: 'Repository...',
 				group: SESSION_WORKSPACE_GROUP_GITHUB,
 				icon: Codicon.repo,
-				providerId: 'default-copilot',
+				providerId: 'cloud-provider',
 				attachesContext: false,
 				run: async () => repositoryWorkspace,
 			}],
@@ -3853,12 +3853,12 @@ suite('WorkspacePicker - Category Triggers', () => {
 				isVirtualWorkspace: true,
 			};
 		};
-		const githubBaseProvider = createMockProvider('default-copilot', {
+		const githubBaseProvider = createMockProvider('cloud-provider', {
 			browseActions: [{
 				label: 'Repository...',
 				group: SESSION_WORKSPACE_GROUP_GITHUB,
 				icon: Codicon.repo,
-				providerId: 'default-copilot',
+				providerId: 'cloud-provider',
 				attachesContext: false,
 				supportsContextAttachment: true,
 				run: async () => {
@@ -4761,7 +4761,7 @@ suite('WebWorkspacePicker - Host scope updates', () => {
 		let selectionEvents = 0;
 		disposables.add(picker.onDidSelectWorkspace(() => selectionEvents++));
 		const environment = createMockProvider('environment', { browseActions: [makeBrowseAction('environment', SESSION_WORKSPACE_GROUP_REMOTE, 'Select Folder...')] });
-		const cloud = createMockProvider('default-copilot', { browseActions: [makeBrowseAction('default-copilot', SESSION_WORKSPACE_GROUP_GITHUB, 'Extension Repository...')] });
+		const cloud = createMockProvider('cloud-provider', { browseActions: [makeBrowseAction('cloud-provider', SESSION_WORKSPACE_GROUP_GITHUB, 'Extension Repository...')] });
 		providersService.setProviders([creationProvider, environment, cloud]);
 		selectedHost = { ...selectedHost, providerIds: ['creation', 'environment'], status: AgentHostFilterConnectionStatus.Connected };
 		changed.fire();
@@ -5611,7 +5611,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 
 	test('web GitHub picker includes entries owned outside the selected execution host', () => {
 		const remoteProvider = createMockProvider('agenthost-remote-1');
-		const githubProvider = createMockProvider('default-copilot');
+		const githubProvider = createMockProvider('cloud-provider');
 		providersService.setProviders([remoteProvider, githubProvider]);
 		const repositoryUri = URI.parse('vscode-vfs://github/microsoft/vscode/HEAD');
 		const baseWorkspace = githubProvider.resolveWorkspace(URI.file('/copilot/repository'))!;
@@ -5622,7 +5622,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 			group: SESSION_WORKSPACE_GROUP_GITHUB,
 			folders: baseWorkspace.folders.map(folder => ({ ...folder, root: repositoryUri, workingDirectory: repositoryUri })),
 		};
-		const repositoryAction = makeBrowseAction('default-copilot', SESSION_WORKSPACE_GROUP_GITHUB, 'Repository...');
+		const repositoryAction = makeBrowseAction('cloud-provider', SESSION_WORKSPACE_GROUP_GITHUB, 'Repository...');
 
 		const items = buildWebWorkspacePickerItems.call({
 			_agentHostFilterService: { selectedHost: hostEntry(remoteProvider.id) },
@@ -5643,7 +5643,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 			providerId: item.item?.providerId,
 			browseActionIndex: item.item?.browseActionIndex,
 		})), [
-			{ label: 'microsoft/vscode/HEAD', providerId: 'default-copilot', browseActionIndex: undefined },
+			{ label: 'microsoft/vscode/HEAD', providerId: 'cloud-provider', browseActionIndex: undefined },
 			{ label: '', providerId: undefined, browseActionIndex: undefined },
 			{ label: 'Repository...', providerId: undefined, browseActionIndex: 0 },
 		]);
@@ -5651,7 +5651,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 
 	test('web consolidated workspace picker includes GitHub entries outside the selected host', () => {
 		const remoteProvider = createMockProvider('agenthost-remote-1');
-		const gitHubProvider = createMockProvider('default-copilot');
+		const gitHubProvider = createMockProvider('cloud-provider');
 		providersService.setProviders([remoteProvider, gitHubProvider]);
 		const remoteWorkspace = { ...remoteProvider.resolveWorkspace(URI.file('/remote/project'))!, group: SESSION_WORKSPACE_GROUP_REMOTE };
 		const gitHubWorkspaceUri = URI.parse('vscode-vfs://github/microsoft/vscode/HEAD');

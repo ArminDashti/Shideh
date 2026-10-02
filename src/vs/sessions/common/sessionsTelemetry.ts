@@ -14,11 +14,11 @@ import { LOCAL_AGENT_HOST_PROVIDER_ID, REMOTE_AGENT_HOST_PROVIDER_PREFIX } from 
 import { ISession, SessionArtifactKind } from '../services/sessions/common/session.js';
 
 /** Bounded provider categories emitted by Agents window telemetry. */
-export type SessionsTelemetryProviderId = 'default-copilot' | 'local-agent-host' | 'remote-agent-host' | 'other';
+export type SessionsTelemetryProviderId = 'local-agent-host' | 'remote-agent-host' | 'other';
 
 /** Removes connection-specific details from a sessions provider identifier. */
 export function getSessionsTelemetryProviderId(providerId: string): SessionsTelemetryProviderId {
-	if (providerId === 'default-copilot' || providerId === LOCAL_AGENT_HOST_PROVIDER_ID) {
+	if (providerId === LOCAL_AGENT_HOST_PROVIDER_ID) {
 		return providerId;
 	}
 	if (providerId === 'remote-agent-host' || providerId.startsWith(REMOTE_AGENT_HOST_PROVIDER_PREFIX)) {

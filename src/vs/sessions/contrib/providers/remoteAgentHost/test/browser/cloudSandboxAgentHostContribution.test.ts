@@ -9,7 +9,6 @@ import { CancellationToken } from '../../../../../../base/common/cancellation.js
 import { CancellationError } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
-import { isWeb } from '../../../../../../base/common/platform.js';
 import { mock, upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/virtualScheduling/index.js';
@@ -52,7 +51,7 @@ import { IAgentHostFilterService } from '../../../../../services/agentHostFilter
 import { ISession } from '../../../../../services/sessions/common/session.js';
 import { ISessionsProvider } from '../../../../../services/sessions/common/sessionsProvider.js';
 import { ISessionsProvidersService } from '../../../../../services/sessions/browser/sessionsProvidersService.js';
-import { CLOUD_SANDBOX_CREATION_PROVIDER_ID, CloudSandboxAgentHostContribution } from '../../browser/cloudSandboxAgentHostContribution.js';
+import { CloudSandboxAgentHostContribution } from '../../browser/cloudSandboxAgentHostContribution.js';
 import { IRemoteAgentHostConnectionCustomizationService } from '../../../../../../workbench/contrib/chat/browser/remoteAgentHost/remoteAgentHostConnectionCustomization.js';
 import { IRemoteAgentHostSessionsProviderConfig } from '../../browser/remoteAgentHostSessionsProvider.js';
 import { CloudSandboxSessionsProvider } from '../../browser/cloudSandboxSessionsProvider.js';
@@ -183,7 +182,6 @@ const GITHUB_SANDBOX_GROUP: IAgentHostGroup = {
 	label: 'GitHub Sandboxes',
 	order: 1,
 	connectable: false,
-	sessionCreationProviderId: isWeb ? CLOUD_SANDBOX_CREATION_PROVIDER_ID : undefined,
 };
 
 interface ITestHarness {

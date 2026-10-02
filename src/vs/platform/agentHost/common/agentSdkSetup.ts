@@ -8,7 +8,7 @@ import type { RootState } from './state/protocol/state.js';
 /**
  * Private side-channel describing whether each agent's SDK is on disk yet, and
  * what the user can do about it. Rides `publishRootTransientValues` rather than
- * AHP proper, alongside `vscode.codexAccount`: the protocol files here are
+ * AHP proper: the protocol files here are
  * generated and version-pinned, so promoting this is a cross-repo change.
  *
  * One key per agent rather than one key holding a map — transient values are a

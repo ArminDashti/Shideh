@@ -18,7 +18,7 @@ import { CONTEXT_ACCESSIBILITY_MODE_ENABLED } from '../../platform/accessibility
 import { TogglePanelAction } from '../../workbench/browser/parts/panel/panelActions.js';
 import { IsAuxiliaryWindowContext, IsWindowAlwaysOnTopContext, PanelVisibleContext, SideBarVisibleContext } from '../../workbench/common/contextkeys.js';
 import { IWorkbenchLayoutService, Parts } from '../../workbench/services/layout/browser/layoutService.js';
-import { SessionsWelcomeVisibleContext, CustomViewVisibleContext, IsPhoneLayoutContext } from '../common/contextkeys.js';
+import { CustomViewVisibleContext, IsPhoneLayoutContext } from '../common/contextkeys.js';
 
 // Register Icons
 const panelCloseIcon = registerIcon('agent-panel-close', Codicon.close, localize('agentPanelCloseIcon', "Icon to close the panel."));
@@ -52,7 +52,7 @@ class ToggleSidebarVisibilityAction extends Action2 {
 					id: Menus.TitleBarLeftLayout,
 					group: 'navigation',
 					order: 0,
-					when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated())
+					when: IsAuxiliaryWindowContext.toNegated()
 				}
 			]
 		});
@@ -85,7 +85,19 @@ MenuRegistry.appendMenuItem(Menus.TitleBarAccessibility, {
 	when: ContextKeyExpr.and(CONTEXT_ACCESSIBILITY_MODE_ENABLED, IsPhoneLayoutContext.negate())
 });
 
-const titleBarPanelWhen = ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated(), IsPhoneLayoutContext.negate());
+// Settings button, first action in the header's left toolbar
+MenuRegistry.appendMenuItem(Menus.TitleBarLeftLayout, {
+	command: {
+		id: 'workbench.action.openSettings',
+		title: localize('openSettings', "Settings"),
+		icon: Codicon.settingsGear,
+	},
+	group: 'navigation',
+	order: -1,
+	when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate()),
+});
+
+const titleBarPanelWhen = ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate());
 
 MenuRegistry.appendMenuItem(Menus.TitleBarSessionMenu, {
 	command: {

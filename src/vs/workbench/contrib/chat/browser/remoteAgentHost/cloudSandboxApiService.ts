@@ -29,7 +29,6 @@ import { SessionStatus } from '../../../../../platform/agentHost/common/state/se
 import { COPILOT_INTEGRATION_ID } from '../../../../../platform/endpoint/common/licenseAgreement.js';
 import { GITHUB_DOT_COM_COPILOT_API_BASE_URI, deriveGitHubEndpoints } from '../../../../../platform/github/common/githubEndpoints.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IRequestContext } from '../../../../../base/parts/request/common/request.js';
 import { asText, IRequestService } from '../../../../../platform/request/common/request.js';
 import { AuthenticationSession, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
@@ -173,7 +172,7 @@ const RATE_LIMIT_MAX_BACKOFF_MS = 8_000;
  */
 const RATE_LIMIT_WAIT_BUDGET_MS = 15_000;
 
-/** Fallback scopes when the product does not configure `defaultChatAgent.providerScopes`. */
+/** OAuth scopes required for the GitHub API calls this service makes. */
 const FALLBACK_SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 /**
@@ -198,7 +197,6 @@ export class CloudSandboxApiService extends Disposable implements ICloudSandboxA
 	constructor(
 		@IRequestService private readonly _requestService: IRequestService,
 		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
-		@IProductService private readonly _productService: IProductService,
 		@ILogService private readonly _logService: ILogService,
 		@ICloudSandboxTelemetryService private readonly _telemetry: ICloudSandboxTelemetryService,
 	) {
@@ -221,7 +219,7 @@ export class CloudSandboxApiService extends Disposable implements ICloudSandboxA
 	}
 
 	private get _authenticationProviderId(): string {
-		return this._productService.defaultChatAgent?.provider?.default?.id ?? 'github';
+		return 'github';
 	}
 
 	async getAccountKey(): Promise<string | undefined> {
@@ -808,7 +806,7 @@ export class CloudSandboxApiService extends Disposable implements ICloudSandboxA
 	/** A GitHub session carrying at least the configured chat provider scopes. */
 	private async _resolveGitHubSession(): Promise<AuthenticationSession | undefined> {
 		const providerId = this._authenticationProviderId;
-		const scopes = this._productService.defaultChatAgent?.providerScopes?.[0] ?? FALLBACK_SCOPES;
+		const scopes = FALLBACK_SCOPES;
 
 		let exact: readonly AuthenticationSession[];
 		try {

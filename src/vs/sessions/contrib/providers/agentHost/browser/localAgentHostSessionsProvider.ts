@@ -35,7 +35,6 @@ import { adoptLegacyCopilotCliResource, isLegacyMigrationEnabledAtStartup, LEGAC
 import { IChatService } from '../../../../../workbench/contrib/chat/common/chatService/chatService.js';
 import { IChatSessionsService } from '../../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { ILanguageModelsService } from '../../../../../workbench/contrib/chat/common/languageModels.js';
-import { IWorkbenchEnvironmentService } from '../../../../../workbench/services/environment/common/environmentService.js';
 import { LOCAL_AGENT_HOST_PROVIDER_ID } from '../../../../common/agentHostSessionsProvider.js';
 import { IPathService } from '../../../../../workbench/services/path/common/pathService.js';
 import { buildAgentHostSessionWorkspace, readBranchProtectionPatterns } from '../../../../common/agentHostSessionWorkspace.js';
@@ -78,8 +77,6 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 	readonly supportsLocalWorkspaces = true;
 	readonly supportsQuickChats = true;
 
-	/** `true` when running in the dedicated Agents window vs. a regular editor window. */
-	private readonly _isSessionsWindow: boolean;
 	private _automationSessionResources = new ResourceSet();
 	override get order(): number {
 		return -1;
@@ -140,7 +137,6 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 		@IAgentHostActiveClientService activeClientService: IAgentHostActiveClientService,
 		@IStorageService storageService: IStorageService,
 		@IDialogService dialogService: IDialogService,
-		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		@IWorkspaceTrustManagementService workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IWorkspaceTrustRequestService workspaceTrustRequestService: IWorkspaceTrustRequestService,
 		@IDevContainerAgentHostService devContainerAgentHostService: IDevContainerAgentHostService,
@@ -158,8 +154,6 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 			providerForResourceScheme: scheme => scheme.startsWith(LOCAL_RESOURCE_SCHEME_PREFIX) ? scheme.slice(LOCAL_RESOURCE_SCHEME_PREFIX.length) : undefined,
 		}));
 		this.automations = automations;
-
-		this._isSessionsWindow = environmentService.isSessionsWindow;
 
 		this.label = localize('localAgentHostLabel', "Local Agent Host");
 
@@ -255,7 +249,7 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 			if (e.affectsConfiguration('git.branchProtection')) {
 				this._refreshSessionWorkspaces();
 			}
-			if (affectsAgentHostProviderPreference(e, this._isSessionsWindow)) {
+			if (affectsAgentHostProviderPreference(e)) {
 				this._syncRootState(this._agentHostService.rootState.value);
 				// `getSessions()` filters by the same gate, so the set of visible
 				// sessions just changed too. Fire an empty-payload change so the
@@ -300,7 +294,7 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 	protected get authenticationPending(): IObservable<boolean> { return this._agentHostService.authenticationPending; }
 
 	protected override _shouldAdvertiseAgent(provider: string): boolean {
-		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService, this._isSessionsWindow);
+		return shouldSurfaceLocalAgentHostProvider(provider, this._configurationService);
 	}
 
 	/**

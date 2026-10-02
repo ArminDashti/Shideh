@@ -70,7 +70,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.TitleBar,
 				{ workspaceArgumentKind: 'none', hasSessionArgument: false },
-				() => true,
 				() => ({ workspacePreselected, workspacePreselectionSource, viewKind: 'newSession', workspaceSelection: selection }),
 				() => nonArchivedSessionListCount,
 				telemetryService,
@@ -91,7 +90,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 				data: {
 					...emptyEditorUsage,
 					source: 'titleBar',
-					signInDialogShown: true,
 					workspacePreselected: true,
 					workspacePreselectionSource: 'existingSessions',
 					workspaceArgumentKind: 'none',
@@ -129,7 +127,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.CommandPalette,
 				{ workspaceArgumentKind: 'local', hasSessionArgument: true },
-				() => false,
 				() => ({ workspacePreselected: undefined, workspacePreselectionSource: undefined, viewKind: 'createdSession' }),
 				() => 3,
 				telemetryService,
@@ -145,7 +142,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 				data: {
 					...emptyEditorUsage,
 					source: 'commandPalette',
-					signInDialogShown: false,
 					workspacePreselected: undefined,
 					workspacePreselectionSource: undefined,
 					workspaceArgumentKind: 'local',
@@ -189,7 +185,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.CommandPalette,
 				{ workspaceArgumentKind: 'none', hasSessionArgument: false },
-				() => false,
 				() => ({ workspacePreselected: undefined, workspacePreselectionSource: undefined, viewKind: 'createdSession' }),
 				() => 0,
 				telemetryService,
@@ -205,7 +200,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			assert.deepStrictEqual({
 				name: event.name,
 				source: Reflect.get(event.data, 'source'),
-				signInDialogShown: Reflect.get(event.data, 'signInDialogShown'),
 				workspacePreselected: Reflect.get(event.data, 'workspacePreselected'),
 				workspacePreselectionSource: Reflect.get(event.data, 'workspacePreselectionSource'),
 				emissionReason: Reflect.get(event.data, 'emissionReason'),
@@ -213,7 +207,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			}, {
 				name: 'agents/firstTimeWindowOpen',
 				source: 'commandPalette',
-				signInDialogShown: false,
 				workspacePreselected: undefined,
 				workspacePreselectionSource: undefined,
 				emissionReason,
@@ -228,21 +221,20 @@ suite('SessionsWindowOpenTelemetry', () => {
 		}
 	});
 
-	test('distinguishes an early close while setup is pending from no eligible workspace', async () => {
+	test('distinguishes an early close while the session view is pending from no eligible workspace', async () => {
 		await runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const lifecycleService = disposables.add(new TestLifecycleService());
 			const telemetryService = new TestTelemetryService();
 			const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.WelcomeTryOut,
 				{ workspaceArgumentKind: 'local', hasSessionArgument: false },
-				() => true,
 				() => ({ workspacePreselected: false, workspacePreselectionSource: 'none', viewKind: 'noComposer' }),
 				() => 0,
 				telemetryService,
 				lifecycleService,
 				disposables.add(new InMemoryStorageService()),
 			));
-			tracker.recordWorkspaceHandoffState('waitingForSetup');
+			tracker.recordWorkspaceHandoffState('waitingForSessionView');
 			await timeout(1_000);
 			lifecycleService.fireShutdown(ShutdownReason.CLOSE);
 
@@ -258,7 +250,7 @@ suite('SessionsWindowOpenTelemetry', () => {
 				captureReason: 'close',
 				captureDurationMs: 1_000,
 				viewKind: 'noComposer',
-				handoff: 'waitingForSetup',
+				handoff: 'waitingForSessionView',
 				selected: false,
 				selectionState: undefined,
 			});
@@ -287,7 +279,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.TitleBar,
 				{ workspaceArgumentKind: 'local', hasSessionArgument: false },
-				() => false,
 				getViewState,
 				() => 0,
 				telemetryService,
@@ -334,7 +325,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 		const tracker = disposables.add(new SessionsWindowOpenTelemetry(
 			AgentsWindowOpenSource.CommandPalette,
 			{ workspaceArgumentKind: 'remote', hasSessionArgument: false },
-			() => false,
 			() => ({
 				workspacePreselected: true,
 				workspacePreselectionSource: 'recentWorkspace',
@@ -383,7 +373,6 @@ suite('SessionsWindowOpenTelemetry', () => {
 			disposables.add(new SessionsWindowOpenTelemetry(
 				AgentsWindowOpenSource.TitleBar,
 				{ workspaceArgumentKind: 'none', hasSessionArgument: false },
-				() => false,
 				() => ({ workspacePreselected: false, workspacePreselectionSource: 'none', viewKind: 'newSession' }),
 				() => 0, telemetry, lifecycle, storage,
 			));

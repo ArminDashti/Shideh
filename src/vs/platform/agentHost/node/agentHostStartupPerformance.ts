@@ -17,7 +17,7 @@ type StartupMilestone = 'processStart' | 'bootstrapStart' | 'configuration' | 't
 type StartupOperation = 'sessionList' | 'sessionMigration' | 'sessionMigrationScan' | 'sessionDiscoveryScan' | 'sessionMetadataScan' | 'sessionDiscoveryRegistration';
 type StartupMarkName = StartupMilestone | StartupOperation | `${StartupOperation}Start`;
 export type AgentHostStartupOutcome = 'success' | 'error' | 'unavailable' | 'deferred' | 'partial' | 'cancelled';
-type StartupProvider = 'host' | 'copilotcli' | 'claude' | 'codex' | 'other';
+type StartupProvider = 'host' | 'copilotcli' | 'claude' | 'other';
 
 export interface IAgentHostStartupMetrics {
 	scannedSessionCount?: number;
@@ -29,7 +29,6 @@ export interface IAgentHostStartupMetrics {
 	registeredSessionCount?: number;
 	copilotSessionCount?: number;
 	claudeSessionCount?: number;
-	codexSessionCount?: number;
 	otherSessionCount?: number;
 	visibleSessionCount?: number;
 	hiddenSessionCount?: number;
@@ -51,7 +50,6 @@ export interface IAgentHostStartupMetrics {
 	sdkAvailability?: 'available' | 'unavailable' | 'unknown';
 	copilotRegistered?: boolean;
 	claudeRegistered?: boolean;
-	codexRegistered?: boolean;
 	migrateLegacyEnabled?: boolean;
 }
 
@@ -160,8 +158,7 @@ type StartupMarkClassification = {
 	registeredSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Host registrations before visibility filtering in the final session-list computation, or accepted registry writes in one discovery batch.' };
 	copilotSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Copilot host registrations before visibility filtering, not the provider-wide scan count.' };
 	claudeSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Claude host registrations before visibility filtering, not the provider-wide scan count.' };
-	codexSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Codex host registrations before visibility filtering, not the provider-wide scan count.' };
-	otherSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Host registrations for providers other than Copilot, Claude, and Codex.' };
+	otherSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Host registrations for providers other than Copilot and Claude.' };
 	visibleSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Session rows returned after visibility filtering and live-state overlays.' };
 	hiddenSessionCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Session rows hidden by the external-session visibility mode.' };
 	catalogServedCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Rows served from the central catalog in the final session-list computation.' };
@@ -182,7 +179,6 @@ type StartupMarkClassification = {
 	sdkAvailability?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Whether the provider SDK is locally available without a download at the first catalog access check, or unknown when no check ran.' };
 	copilotRegistered?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether the Copilot provider is registered at this host milestone; not SDK, authentication, or connection readiness.' };
 	claudeRegistered?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether the Claude provider is registered at this host milestone; not SDK, authentication, or connection readiness.' };
-	codexRegistered?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether the Codex provider is registered at this host milestone; not SDK, authentication, or connection readiness.' };
 	migrateLegacyEnabled?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether legacy chat migration is enabled for this host lifetime.' };
 };
 
@@ -341,7 +337,7 @@ export class AgentHostStartupPerformance extends Disposable implements IAgentHos
 
 function getStartupProvider(providerId: string | undefined): StartupProvider {
 	return providerId === undefined ? 'host'
-		: providerId === 'copilotcli' || providerId === 'claude' || providerId === 'codex' ? providerId : 'other';
+		: providerId === 'copilotcli' || providerId === 'claude' ? providerId : 'other';
 }
 
 export const NullAgentHostStartupPerformance: IAgentHostStartupPerformance = {

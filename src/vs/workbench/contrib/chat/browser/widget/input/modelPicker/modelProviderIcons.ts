@@ -42,7 +42,7 @@ export function getProviderIconForIdentity(identity: string, copilotIdentity: st
 	if (normalized.includes('microsoft') || /\bmai\b/.test(normalized)) {
 		return microsoftModelProviderIcon;
 	}
-	if (normalized.includes('openai') || normalized.includes('chatgpt') || normalized.includes('gpt') || normalized.includes('codex') || /\bo[134]\b/.test(normalized)) {
+	if (normalized.includes('openai') || normalized.includes('chatgpt') || normalized.includes('gpt') || /\bo[134]\b/.test(normalized)) {
 		return openAIModelProviderIcon;
 	}
 	// Checked last, so a more specific match always wins.
