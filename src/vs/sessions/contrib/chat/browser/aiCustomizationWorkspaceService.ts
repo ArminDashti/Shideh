@@ -111,7 +111,6 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 		AICustomizationManagementSection.Plugins,
 		AICustomizationManagementSection.McpServers,
 		AICustomizationManagementSection.Skills,
-		AICustomizationManagementSection.Instructions,
 		AICustomizationManagementSection.Agents,
 		AICustomizationManagementSection.Hooks,
 		AICustomizationManagementSection.Tools,

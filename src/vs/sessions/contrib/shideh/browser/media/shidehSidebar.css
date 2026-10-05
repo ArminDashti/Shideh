@@ -1,0 +1,107 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer {
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px 10px;
+	margin: 0;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .monaco-toolbar,
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .monaco-action-bar,
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .actions-container {
+	flex-direction: row;
+	align-items: center;
+	width: auto;
+	flex: 1;
+	min-width: 0;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .action-item {
+	width: auto;
+	flex: 0 0 auto;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .action-item.shideh-sidebar-account-widget-item {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer-metrics {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-widget {
+	flex: 1;
+	min-width: 0;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-widget .account-widget-account-button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 6px;
+	min-width: 0;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-avatar {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	object-fit: cover;
+	flex-shrink: 0;
+	display: none;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .account-widget-account-button.has-avatar .shideh-sidebar-account-avatar {
+	display: block;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .account-widget-account-button.has-avatar .shideh-sidebar-account-fallback-icon {
+	display: none;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--vscode-fontSize-label1, 12px);
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header {
+	font-size: var(--vscode-fontSize-small, 11px);
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	text-transform: none;
+	letter-spacing: normal;
+	color: var(--vscode-descriptionForeground);
+	padding-top: 10px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-icon,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count-label {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session .session-section-keybinding {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut {
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected .monaco-list-row.focused,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected {
+	border-radius: var(--vscode-cornerRadius-small);
+}

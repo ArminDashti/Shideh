@@ -41,13 +41,11 @@ suite('aiCustomizationListWidget', () => {
 		assert.deepStrictEqual({
 			agents: usesCustomizationTreePresentation(AICustomizationManagementSection.Agents),
 			skills: usesCustomizationTreePresentation(AICustomizationManagementSection.Skills),
-			instructions: usesCustomizationTreePresentation(AICustomizationManagementSection.Instructions),
 			hooks: usesCustomizationTreePresentation(AICustomizationManagementSection.Hooks),
 			prompts: usesCustomizationTreePresentation(AICustomizationManagementSection.Prompts),
 		}, {
 			agents: true,
 			skills: true,
-			instructions: true,
 			hooks: true,
 			prompts: true,
 		});
@@ -57,14 +55,12 @@ suite('aiCustomizationListWidget', () => {
 		assert.deepStrictEqual({
 			agents: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Agents, false),
 			skills: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Skills, false),
-			instructions: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Instructions, false),
 			hooks: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Hooks, false),
 			filtered: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Agents, true),
 			prompts: getAlwaysVisibleCustomizationGroupKeys(AICustomizationManagementSection.Prompts, false),
 		}, {
 			agents: [PromptsStorage.local, PromptsStorage.user],
 			skills: [PromptsStorage.local, PromptsStorage.user],
-			instructions: [PromptsStorage.local, PromptsStorage.user],
 			hooks: [PromptsStorage.local, PromptsStorage.user],
 			filtered: [],
 			prompts: [PromptsStorage.local, PromptsStorage.user],
@@ -700,17 +696,17 @@ suite('aiCustomizationListWidget', () => {
 			assert.strictEqual(widget.element.querySelector<HTMLElement>('.list-container')!.style.height, '814px');
 		});
 
-		test('instruction rows use an overflow menu without loaded status or targeting badges', async () => {
+		test('customization rows use an overflow menu without loaded status or targeting badges', async () => {
 			const items = observableValue<readonly IAICustomizationListItem[]>('test', [{
-				id: 'instruction',
-				uri: URI.file('Q:\\workspace\\.github\\instructions\\typescript.instructions.md'),
+				id: 'skill',
+				uri: URI.file('Q:\\workspace\\.github\\skills\\typescript\\SKILL.md'),
 				name: 'TypeScript',
-				filename: 'typescript.instructions.md',
-				description: 'TypeScript instructions',
+				filename: 'SKILL.md',
+				description: 'TypeScript skill',
 				source: PromptsStorage.local,
-				promptType: PromptsType.instructions,
+				promptType: PromptsType.skill,
 				disabled: false,
-				badge: '*.ts',
+				badge: 'TypeScript',
 				status: 'loaded',
 			}]);
 			instaService.stub(IAICustomizationItemsModel, {
@@ -725,7 +721,7 @@ suite('aiCustomizationListWidget', () => {
 			disposables.add(toDisposable(() => widget.element.remove()));
 			setLayoutHeights(widget, 500);
 
-			await widget.setSection(AICustomizationManagementSection.Instructions);
+			await widget.setSection(AICustomizationManagementSection.Skills);
 			widget.layout(800, 500);
 
 			const row = widget.element.querySelector('.ai-customization-list-item');

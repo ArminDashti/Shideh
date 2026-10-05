@@ -42,7 +42,6 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 export const ITEMS_MODEL_SECTIONS = [
 	AICustomizationManagementSection.Agents,
 	AICustomizationManagementSection.Skills,
-	AICustomizationManagementSection.Instructions,
 	AICustomizationManagementSection.Prompts,
 	AICustomizationManagementSection.Hooks,
 ] as const;
@@ -369,7 +368,6 @@ function sectionToPromptType(section: ItemsModelSection): PromptsType {
 	switch (section) {
 		case AICustomizationManagementSection.Agents: return PromptsType.agent;
 		case AICustomizationManagementSection.Skills: return PromptsType.skill;
-		case AICustomizationManagementSection.Instructions: return PromptsType.instructions;
 		case AICustomizationManagementSection.Hooks: return PromptsType.hook;
 		case AICustomizationManagementSection.Prompts:
 		default: return PromptsType.prompt;

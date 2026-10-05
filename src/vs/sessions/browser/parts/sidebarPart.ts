@@ -39,6 +39,9 @@ import { mainWindow } from '../../../base/browser/window.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { hasNativeTitlebar, getTitleBarStyle } from '../../../platform/window/common/window.js';
 import { isMacintosh, isNative, isWeb } from '../../../base/common/platform.js';
+import { SidebarMetrics } from './sidebarMetrics.js';
+import { IProductService } from '../../../platform/product/common/productService.js';
+import { isShidehNavigationIntegratedSidebar } from '../../contrib/shideh/common/shidehProduct.js';
 
 /** Sessions list minimum width; shared with the docked details panel so both snap closed alike. */
 export const SESSIONS_LIST_MINIMUM_WIDTH = isWeb ? 270 : 170;
@@ -63,8 +66,10 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	private static readonly FOOTER_VERTICAL_PADDING = 6;
 	private static readonly FOOTER_BOTTOM_MARGIN = 2;
 	private static readonly FOOTER_BORDER_TOP = 1;
+	private static readonly FOOTER_METRICS_HEIGHT = 64;
 
 	private footerContainer: HTMLElement | undefined;
+	private metricsContainer: HTMLElement | undefined;
 	private sideBarTitleArea: HTMLElement | undefined;
 	private footerToolbar: MenuWorkbenchToolBar | undefined;
 	private previousLayoutDimensions: { width: number; height: number; top: number; left: number } | undefined;
@@ -110,6 +115,7 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		@IExtensionService extensionService: IExtensionService,
 		@IMenuService menuService: IMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super(
 			Parts.SIDEBAR_PART,
@@ -190,6 +196,10 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			toolbarOptions: { primaryGroup: () => true },
 			telemetrySource: 'sidebarFooter',
 		}));
+		if (!isShidehNavigationIntegratedSidebar(this.productService)) {
+			this.metricsContainer = append(parent, $('.sidebar-footer-metrics'));
+			this._register(this.instantiationService.createInstance(SidebarMetrics, this.metricsContainer));
+		}
 
 		this._register(this.footerToolbar.onDidChangeMenuItems(() => {
 			if (this.previousLayoutDimensions) {
@@ -201,15 +211,15 @@ export class SidebarPart extends AbstractPaneCompositePart {
 
 	private getFooterHeight(): number {
 		const actionCount = this.footerToolbar?.getItemsLength() ?? 0;
-		if (actionCount === 0) {
-			return 0;
-		}
-
-		return SidebarPart.FOOTER_VERTICAL_PADDING * 2
-			+ (actionCount * SidebarPart.FOOTER_ITEM_HEIGHT)
-			+ ((actionCount - 1) * SidebarPart.FOOTER_ITEM_GAP)
-			+ SidebarPart.FOOTER_BOTTOM_MARGIN
-			+ SidebarPart.FOOTER_BORDER_TOP;
+		const actionHeight = actionCount > 0
+			? SidebarPart.FOOTER_VERTICAL_PADDING * 2
+				+ (actionCount * SidebarPart.FOOTER_ITEM_HEIGHT)
+				+ ((actionCount - 1) * SidebarPart.FOOTER_ITEM_GAP)
+				+ SidebarPart.FOOTER_BOTTOM_MARGIN
+				+ SidebarPart.FOOTER_BORDER_TOP
+			: 0;
+		const metricsHeight = this.metricsContainer ? SidebarPart.FOOTER_METRICS_HEIGHT : 0;
+		return actionHeight + metricsHeight;
 	}
 
 	private updateFooterVisibility(): void {
@@ -218,7 +228,10 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			return;
 		}
 
-		footer.style.display = this.getFooterHeight() > 0 ? '' : 'none';
+		footer.style.display = (this.footerToolbar?.getItemsLength() ?? 0) > 0 ? '' : 'none';
+		if (this.metricsContainer) {
+			this.metricsContainer.style.display = '';
+		}
 	}
 
 	override updateStyles(): void {

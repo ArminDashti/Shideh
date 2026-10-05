@@ -68,6 +68,33 @@
 	cursor: default;
 }
 
+/* Persistent, in-flow system metrics in the sidebar footer. */
+.agent-sessions-workbench .sidebar-footer-metrics {
+	flex: 0 0 64px;
+	min-height: 64px;
+	box-sizing: border-box;
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
+	padding: 4px 10px 2px;
+}
+
+.agent-sessions-workbench .agent-sidebar-metrics {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 2px;
+	align-content: center;
+	min-height: 56px;
+	color: var(--vscode-descriptionForeground, var(--vscode-sideBar-foreground));
+	font-size: var(--vscode-fontSize-small, 11px);
+	line-height: 12px;
+}
+
+.agent-sessions-workbench .agent-sidebar-metrics-item {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 /* ---- Phone Layout: Sidebar Drawer Overlay ---- */
 
 /* On phone, the sidebar is a full-width drawer that slides over the chat.
@@ -115,7 +142,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.agent-sessions-workbench.phone-layout .split-view-view:has(> .part.sidebar) {
+	.agent-sessions-workbench.phone-layout .split-view-view:has(> .part.sidebar),
+	.agent-sessions-workbench .part.panel,
+	.agent-sessions-workbench .part.auxiliarybar,
+	.agent-sessions-workbench .part.editor {
 		transition: none;
 	}
 }

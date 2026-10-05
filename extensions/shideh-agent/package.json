@@ -1,7 +1,7 @@
 {
   "name": "shideh-agent",
   "displayName": "Shideh",
-  "description": "Opens the Shideh agent and talks to the OpenCode Go API.",
+  "description": "Shideh BYOK model providers for the Agents window.",
   "version": "1.0.0",
   "publisher": "shideh",
   "license": "MIT",
@@ -19,21 +19,68 @@
   "contributes": {
     "configurationDefaults": {
       "workbench.startupEditor": "none",
-      "chat.agent.enabled": true
+      "chat.agent.enabled": true,
+      "shideh.openAgentPanelOnStartup": false
     },
     "configuration": [
       {
         "title": "Shideh",
         "properties": {
-          "shideh.openAgentOnStartup": {
+          "shideh.openAgentPanelOnStartup": {
             "type": "boolean",
-            "default": true,
-            "description": "Open the agent chat when Shideh starts."
+            "default": false,
+            "description": "Open classic panel chat on startup (Agents window is the default shell)."
           },
           "shideh.opencodeGo.baseUrl": {
             "type": "string",
             "default": "https://opencode.ai/zen/go/v1",
             "description": "OpenCode Go API base URL."
+          },
+          "shideh.opencodeZen.baseUrl": {
+            "type": "string",
+            "default": "https://opencode.ai/zen/v1",
+            "description": "OpenCode Zen API base URL."
+          },
+          "shideh.openrouter.baseUrl": {
+            "type": "string",
+            "default": "https://openrouter.ai/api/v1",
+            "description": "OpenRouter API base URL."
+          },
+          "shideh.openai.baseUrl": {
+            "type": "string",
+            "default": "https://api.openai.com/v1",
+            "description": "OpenAI API base URL."
+          },
+          "shideh.anthropic.baseUrl": {
+            "type": "string",
+            "default": "https://api.anthropic.com/v1",
+            "description": "Anthropic API base URL."
+          },
+          "shideh.ollama.baseUrl": {
+            "type": "string",
+            "default": "http://127.0.0.1:11434/v1",
+            "description": "Ollama OpenAI-compatible base URL."
+          },
+          "shideh.openaiCompatible.baseUrl": {
+            "type": "string",
+            "default": "http://127.0.0.1:8080/v1",
+            "description": "Custom OpenAI-compatible API base URL."
+          },
+          "shideh.deepseek.baseUrl": {
+            "type": "string",
+            "default": "https://api.deepseek.com/v1",
+            "description": "DeepSeek API base URL (Deepseek Harness)."
+          },
+          "shideh.memory.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Inject Shideh memory into agent prompts."
+          },
+          "shideh.memory.framework": {
+            "type": "string",
+            "enum": ["mem0", "zep", "langmem", "cognee", "graphiti"],
+            "default": "mem0",
+            "description": "Memory framework adapter."
           }
         }
       }
@@ -45,7 +92,7 @@
         "fullName": "Shideh",
         "description": "Shideh coding agent",
         "isSticky": true,
-        "isDefault": true,
+        "isDefault": false,
         "locations": [
           "panel"
         ],
@@ -55,10 +102,14 @@
       }
     ],
     "languageModelChatProviders": [
-      {
-        "vendor": "opencode-go",
-        "displayName": "OpenCode Go"
-      }
+      { "vendor": "opencode-go", "displayName": "OpenCode Go" },
+      { "vendor": "opencode-zen", "displayName": "OpenCode Zen" },
+      { "vendor": "openrouter", "displayName": "OpenRouter" },
+      { "vendor": "openai", "displayName": "OpenAI" },
+      { "vendor": "anthropic", "displayName": "Anthropic" },
+      { "vendor": "ollama", "displayName": "Ollama" },
+      { "vendor": "openai-compatible", "displayName": "OpenAI Compatible" },
+      { "vendor": "deepseek", "displayName": "DeepSeek" }
     ],
     "languageModelTools": [
       {
@@ -70,14 +121,9 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "path": {
-              "type": "string",
-              "description": "Workspace-relative path."
-            }
+            "path": { "type": "string", "description": "Workspace-relative path." }
           },
-          "required": [
-            "path"
-          ]
+          "required": ["path"]
         }
       },
       {
@@ -89,19 +135,10 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "path": {
-              "type": "string",
-              "description": "Workspace-relative path."
-            },
-            "content": {
-              "type": "string",
-              "description": "Full new file contents."
-            }
+            "path": { "type": "string", "description": "Workspace-relative path." },
+            "content": { "type": "string", "description": "Full new file contents." }
           },
-          "required": [
-            "path",
-            "content"
-          ]
+          "required": ["path", "content"]
         }
       },
       {
@@ -113,10 +150,7 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "path": {
-              "type": "string",
-              "description": "Workspace-relative directory. Empty means the workspace root."
-            }
+            "path": { "type": "string", "description": "Workspace-relative directory. Empty means the workspace root." }
           }
         }
       },
@@ -129,14 +163,9 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "command": {
-              "type": "string",
-              "description": "PowerShell command to run."
-            }
+            "command": { "type": "string", "description": "PowerShell command to run." }
           },
-          "required": [
-            "command"
-          ]
+          "required": ["command"]
         }
       }
     ]

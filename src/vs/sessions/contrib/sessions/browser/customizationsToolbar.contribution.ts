@@ -20,7 +20,7 @@ import { IAICustomizationItemsModel, ItemsModelSection } from '../../../../workb
 import { ILanguageModelToolsService } from '../../../../workbench/contrib/chat/common/tools/languageModelToolsService.js';
 import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE, countEnabledCustomizationTools, IAgentHostToolSetEnablementService } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostToolSetEnablementService.js';
 import { Menus } from '../../../browser/menus.js';
-import { agentIcon, instructionsIcon, mcpServerIcon, pluginIcon, skillIcon, hookIcon, toolsIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
+import { agentIcon, mcpServerIcon, pluginIcon, skillIcon, hookIcon, toolsIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
 import { BaseActionViewItem, IBaseActionViewItemOptions } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { $, append } from '../../../../base/browser/dom.js';
@@ -132,13 +132,6 @@ export const CUSTOMIZATION_ITEMS: ICustomizationItemConfig[] = [
 		icon: skillIcon,
 		section: AICustomizationManagementSection.Skills,
 		modelSection: AICustomizationManagementSection.Skills,
-	},
-	{
-		id: 'sessions.customization.instructions',
-		label: localize('instructions', "Instructions"),
-		icon: instructionsIcon,
-		section: AICustomizationManagementSection.Instructions,
-		modelSection: AICustomizationManagementSection.Instructions,
 	},
 	{
 		id: 'sessions.customization.agents',

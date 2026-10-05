@@ -71,11 +71,11 @@ export function getModePermissionsPickerOptions(openPermissions = false, initial
 	};
 }
 
-export function createModePickerModeItems<T extends { readonly checked?: boolean }>(items: readonly IActionListItem<T>[], combined: boolean): IActionListItem<T | IAction>[] {
+export function createModePickerModeItems<T extends { readonly checked?: boolean }>(items: readonly IActionListItem<T>[], combined: boolean, modeSectionLabel?: string): IActionListItem<T | IAction>[] {
 	if (!combined) {
 		return [...items];
 	}
-	const label = localize('agentHostModePicker.agentMode', "Agent mode");
+	const label = modeSectionLabel ?? localize('agentHostModePicker.agentMode', "Agent mode");
 	const currentMode = items.find(item => item.item?.checked)?.label;
 	return [{
 		kind: ActionListItemKind.Action,
@@ -219,7 +219,15 @@ function getPermissionLevelStyle(level: ChatPermissionLevel): string | undefined
 	}
 }
 
-function getShortPermissionLabel(permissions: IModePickerPermissions): string {
+function getShortPermissionLabel(permissions: IModePickerPermissions, simplifiedLabels = false): string {
+	if (simplifiedLabels) {
+		switch (permissions.level) {
+			case ChatPermissionLevel.Default: return localize('shidehPermission.manual', "Manual");
+			case ChatPermissionLevel.Assisted: return localize('shidehPermission.assisted', "Assisted");
+			case ChatPermissionLevel.AutoApprove: return localize('shidehPermission.full', "Full");
+			default: return permissions.label;
+		}
+	}
 	switch (permissions.level) {
 		case ChatPermissionLevel.Default: return localize('agentHostModePicker.manual', "Manual");
 		case ChatPermissionLevel.Assisted: return localize('agentHostModePicker.assisted', "Assisted");
@@ -228,7 +236,7 @@ function getShortPermissionLabel(permissions: IModePickerPermissions): string {
 	}
 }
 
-export function createModePickerPermissionsItems<T>(permissions: IModePickerPermissions, items: readonly IActionListItem<IAction>[], configurePermissions: () => Promise<void>): IActionListItem<T | IAction>[] {
+export function createModePickerPermissionsItems<T>(permissions: IModePickerPermissions, items: readonly IActionListItem<IAction>[], configurePermissions: () => Promise<void>, simplifiedLabels = false): IActionListItem<T | IAction>[] {
 	const label = localize('agentHostModePicker.permissions', "Permissions");
 	return [{
 		kind: ActionListItemKind.Action,
@@ -236,7 +244,7 @@ export function createModePickerPermissionsItems<T>(permissions: IModePickerPerm
 		item: toAction({ id: PERMISSIONS_SECTION_ID, label, run: () => { } }),
 		section: PERMISSIONS_SECTION_ID,
 		isSectionToggle: true,
-		description: getShortPermissionLabel(permissions),
+		description: getShortPermissionLabel(permissions, simplifiedLabels),
 		ariaDescription: permissions.sandboxed
 			? localize('agentHostModePicker.permissionsSandboxed', "{0}, terminal sandboxed", permissions.label)
 			: permissions.label,

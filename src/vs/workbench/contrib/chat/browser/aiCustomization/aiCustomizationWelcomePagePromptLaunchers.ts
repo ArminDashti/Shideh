@@ -13,7 +13,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import type { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { AICustomizationManagementSection } from './aiCustomizationManagement.js';
-import { agentIcon, instructionsIcon, pluginIcon, skillIcon, hookIcon, toolsIcon } from './aiCustomizationIcons.js';
+import { agentIcon, pluginIcon, skillIcon, hookIcon, toolsIcon } from './aiCustomizationIcons.js';
 import { IAICustomizationWorkspaceService, IWelcomePageFeatures } from '../../common/aiCustomizationWorkspaceService.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import type { IAICustomizationWelcomePageImplementation, ICustomizationMigrationCategorySummary, IWelcomePageCallbacks } from './aiCustomizationWelcomePage.js';
@@ -75,13 +75,6 @@ export class PromptLaunchersAICustomizationWelcomePage extends Disposable implem
 			icon: skillIcon,
 			description: localize('skillsDesc', "Add reusable knowledge and workflows for specialized tasks. Agents load relevant skills when needed."),
 			promptType: PromptsType.skill,
-		},
-		{
-			id: AICustomizationManagementSection.Instructions,
-			label: localize('instructions', "Instructions"),
-			icon: instructionsIcon,
-			description: localize('instructionsDesc', "Define guidance that shapes how agents work. Apply it across a workspace or keep it in your user profile."),
-			promptType: PromptsType.instructions,
 		},
 		{
 			id: AICustomizationManagementSection.Hooks,
@@ -168,7 +161,7 @@ export class PromptLaunchersAICustomizationWelcomePage extends Disposable implem
 			title.textContent = localize('gettingStartedTitle', "Customize Your Agent");
 
 			const description = DOM.append(gettingStarted, $('p.welcome-prompts-input-helper'));
-			description.textContent = localize('gettingStartedDesc', "Describe your preferences and conventions to draft agents, skills, and instructions.");
+			description.textContent = localize('gettingStartedDesc', "Describe your preferences and conventions to draft agents and skills.");
 
 			const inputRow = DOM.append(gettingStarted, $('.welcome-prompts-input-row'));
 			this.inputRow = inputRow;

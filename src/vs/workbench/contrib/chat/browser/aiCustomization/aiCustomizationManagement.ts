@@ -62,8 +62,6 @@ export function sectionToPromptType(section: AICustomizationManagementSection): 
 			return PromptsType.agent;
 		case AICustomizationManagementSection.Skills:
 			return PromptsType.skill;
-		case AICustomizationManagementSection.Instructions:
-			return PromptsType.instructions;
 		case AICustomizationManagementSection.Hooks:
 			return PromptsType.hook;
 		case AICustomizationManagementSection.Prompts:

@@ -28,6 +28,8 @@ import { maybeConfirmElevatedPermissionLevel } from '../../../../../workbench/co
 import { ChatConfiguration, ChatPermissionLevel, isChatPermissionLevel } from '../../../../../workbench/contrib/chat/common/constants.js';
 import { getPermissionLevelBadge, IModePickerPermissions } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { reportNewChatPickerClosed } from '../../../chat/browser/newChatPickerTelemetry.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
+import { isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
 
 /**
  * Strategy for the per-provider parts of {@link PermissionPicker}: how to read
@@ -165,6 +167,7 @@ export class PermissionPicker extends Disposable {
 		@ITelemetryService protected readonly telemetryService: ITelemetryService,
 		@IHoverService protected readonly hoverService: IHoverService,
 		@IAgentHostEnablementService private readonly agentHostEnablementService: IAgentHostEnablementService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super();
 	}
@@ -326,7 +329,8 @@ export class PermissionPicker extends Disposable {
 			} satisfies IActionListItem<IPermissionItem>;
 		});
 
-		const sandboxToggle = this._getSandboxStandaloneToggle();
+		const simplifiedChrome = isShidehSimplifiedChatChrome(this.productService);
+		const sandboxToggle = simplifiedChrome ? undefined : this._getSandboxStandaloneToggle();
 		if (sandboxToggle) {
 			const disabled = sandboxToggle.disabled === true;
 			items.push({
@@ -350,6 +354,9 @@ export class PermissionPicker extends Disposable {
 			});
 		}
 
+		if (simplifiedChrome) {
+			return items;
+		}
 		items.push({
 			kind: ActionListItemKind.Separator,
 			label: '',

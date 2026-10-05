@@ -40,7 +40,6 @@ import { isAllowSignedOutWhenUsableEnabled, shouldShowGitHubWorkspaceGroupSignIn
 import { AGENTIC_SIGN_IN_COMMAND_ID, FOCUS_NEW_SESSION_HARNESS_PICKER_COMMAND_ID, FOCUS_NEW_SESSION_WORKSPACE_PICKER_COMMAND_ID } from '../../../common/sessionCommands.js';
 import { isAgentHostProvider, LOCAL_AGENT_HOST_PROVIDER_ID } from '../../../common/agentHostSessionsProvider.js';
 import { IsPhoneLayoutContext, NewSessionCreationProviderIdContext } from '../../../common/contextkeys.js';
-import { IAquariumService, IMountedToggleHandle } from '../../aquarium/browser/aquariumOverlay.js';
 import { IWorkspacePickerContextAction, IWorkspacePickerNoWorkspaceOption, IWorkspacePickerTrigger, WorkspacePicker } from './sessionWorkspacePicker.js';
 import { WebWorkspacePicker } from './webWorkspacePicker.js';
 import { IPickedSessionType, IPreferredSessionType } from './sessionTypePicker.js';
@@ -85,6 +84,8 @@ import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../platform/a
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { AccessibilityVerbositySettingId } from '../../../../workbench/contrib/accessibility/browser/accessibilityConfiguration.js';
 import { ISessionsRecentWorkspacesService } from '../../../services/sessions/browser/sessionsRecentWorkspacesService.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
+import { getShidehTimeOfDayGreeting, isShidehSimplifiedChatChrome } from '../../shideh/common/shidehChatPresentation.js';
 
 // #region --- New Chat Widget ---
 
@@ -135,7 +136,6 @@ export class NewChatWidget extends Disposable {
 	private readonly _newChatInput: NewChatInputWidget;
 	private readonly _chatTipPresenter = this._register(new MutableDisposable<ChatInputTipPresenter>());
 	private _isChatTipSessionInitialized = false;
-	private _aquariumToggle: IMountedToggleHandle | undefined;
 
 	/** Recreates the draft once a better/late-registering provider can serve the folder (see {@link _createNewSession}). */
 	private readonly _pendingPreferredUpgrade = new MutableDisposable<IDisposable>();
@@ -214,7 +214,6 @@ export class NewChatWidget extends Disposable {
 		@ISessionsService private readonly sessionsService: ISessionsService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
 		@ISessionsRecentWorkspacesService private readonly recentWorkspacesService: ISessionsRecentWorkspacesService,
-		@IAquariumService private readonly aquariumService: IAquariumService,
 		@IAgentHostFilterService private readonly agentHostFilterService: IAgentHostFilterService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
 		@IAgentFeedbackService private readonly agentFeedbackService: IAgentFeedbackService,
@@ -230,6 +229,7 @@ export class NewChatWidget extends Disposable {
 		@ISessionComparisonService private readonly sessionComparisonService: ISessionComparisonService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super();
 		this._newSessionAttachContextMenu = this._register(menuService.createMenu(Menus.NewSessionAttachContext, this.contextKeyService));
@@ -665,25 +665,19 @@ export class NewChatWidget extends Disposable {
 			configuredWelcomeNameChanged.read(reader);
 			const profileName = this._githubProfileName.read(reader);
 			const inputVisible = this.options.inputVisible?.read(reader) ?? true;
+			const shidehChrome = isShidehSimplifiedChatChrome(this.productService);
 			const phrase = this._updateWelcomeMessage(
 				welcomeMessage,
 				welcomeMessageTitle,
-				this._showWelcomePhrases.read(reader),
+				shidehChrome || this._showWelcomePhrases.read(reader),
 				this._welcomePhraseIndex,
 				this._getWelcomeName(profileName),
+				shidehChrome,
 			);
 			this._announceWelcomeMessage(phrase, inputVisible);
 		}));
 		this._register(this.defaultAccountService.onDidChangeDefaultAccount(() => void this._refreshGitHubProfileName()));
 
-		this._aquariumToggle = this._register(this.aquariumService.mountToggle(element));
-		const aquariumAction = this._register(new Action(
-			'sessions.aquarium.showAction',
-			localize('aquariumAction', "Aquarium"),
-			undefined,
-			true,
-			() => this.aquariumService.toggleActionVisibility()
-		));
 		const petAction = this._register(new Action(
 			'sessions.chatPet.toggle',
 			localize('petAction', "Pet (/vscode-pet)"),
@@ -699,14 +693,13 @@ export class NewChatWidget extends Disposable {
 
 			e.preventDefault();
 			e.stopPropagation();
-			aquariumAction.checked = this.aquariumService.actionVisible.get();
 			petAction.checked = this.chatPetService.enabled.get();
 			const anchor = new StandardMouseEvent(dom.getWindow(element), e);
 			this.contextMenuService.showContextMenu({
 				menuId: Menus.SessionChatBackgroundContext,
 				contextKeyService: this.contextKeyService,
 				getAnchor: () => anchor,
-				getActions: () => [aquariumAction, petAction],
+				getActions: () => [petAction],
 				getCheckedActionsRepresentation: () => 'checkbox',
 			});
 		}));
@@ -963,11 +956,18 @@ export class NewChatWidget extends Disposable {
 		}
 	}
 
-	private _updateWelcomeMessage(container: HTMLElement, title: HTMLElement, visible: boolean, phraseIndex: number, accountName: string | undefined): string | undefined {
+	private _updateWelcomeMessage(container: HTMLElement, title: HTMLElement, visible: boolean, phraseIndex: number, accountName: string | undefined, shidehGreeting = false): string | undefined {
 		container.hidden = !visible;
+		title.classList.toggle('shideh-greeting', shidehGreeting);
 		if (!visible) {
 			title.textContent = '';
 			return undefined;
+		}
+
+		if (shidehGreeting) {
+			const phrase = getShidehTimeOfDayGreeting(accountName);
+			title.textContent = phrase;
+			return phrase;
 		}
 
 		const phrase = accountName
@@ -2130,8 +2130,8 @@ export class NewChatWidget extends Disposable {
 		this._newChatInput.prefillInput(text);
 	}
 
-	setHostVisible(visible: boolean): void {
-		this._aquariumToggle?.setHostVisible(visible);
+	setHostVisible(_visible: boolean): void {
+		// The composer has no overlay that needs host visibility updates.
 	}
 
 	sendQuery(text: string): void {

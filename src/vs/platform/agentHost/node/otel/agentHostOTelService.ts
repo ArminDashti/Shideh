@@ -427,7 +427,6 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 	}
 
 	async flush(): Promise<void> {
-		this._filteredSpanLogScheduler.flush();
 		await this._metadataExportQueue;
 		await this._startPromise;
 		if (this._forwarder) {

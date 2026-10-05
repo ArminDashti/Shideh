@@ -39,6 +39,7 @@ export const AICustomizationManagementSection = {
 	Marketplace: 'marketplace',
 	Agents: 'agents',
 	Skills: 'skills',
+	/** Internal compatibility target for provider and prompt-runtime integrations; omitted from user-facing navigation. */
 	Instructions: 'instructions',
 	Prompts: 'prompts',
 	Hooks: 'hooks',

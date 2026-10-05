@@ -27,7 +27,7 @@ import { IEnvironmentMainService } from '../../environment/electron-main/environ
 import { createDecorator, IInstantiationService } from '../../instantiation/common/instantiation.js';
 import { ILifecycleMainService, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
-import { FocusMode, IApplicationBadge, ICommonNativeHostService, INativeHostOptions, INativeSystemWideKeybinding, INativeSystemWideKeybindingResult, INativeZipFile, INativeZipOptions, IOpenAgentsWindowOptions, IOSProperties, IOSProxy, IOSProxyConfig, IOSStatistics, IStartTracingOptions, IToastOptions, IToastResult, PowerSaveBlockerType, SystemIdleState, ThermalState } from '../common/native.js';
+import { FocusMode, IApplicationBadge, ICommonNativeHostService, INativeHostOptions, INativeSystemWideKeybinding, INativeSystemWideKeybindingResult, INativeZipFile, INativeZipOptions, IOpenAgentsWindowOptions, IOSProperties, IOSProxy, IOSProxyConfig, IOSStatistics, ISystemResourceMetrics, IStartTracingOptions, IToastOptions, IToastResult, PowerSaveBlockerType, SystemIdleState, ThermalState } from '../common/native.js';
 import { IGlobalKeybindingsMainService } from '../../globalKeybindings/electron-main/globalKeybindingsMainService.js';
 import { IGPUProcessMainService } from '../../gpu/electron-main/gpuProcessMainService.js';
 import { IProductService } from '../../product/common/productService.js';
@@ -872,6 +872,25 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 			totalmem: totalmem(),
 			freemem: freemem(),
 			loadavg: loadavg()
+		};
+	}
+
+	private previousCpuTimes: { idle: number; total: number } | undefined;
+
+	async getSystemResourceMetrics(): Promise<ISystemResourceMetrics> {
+		const cpuSnapshot = cpus().reduce((snapshot, cpu) => {
+			const times = cpu.times;
+			const total = times.user + times.nice + times.sys + times.idle + times.irq;
+			return { idle: snapshot.idle + times.idle, total: snapshot.total + total };
+		}, { idle: 0, total: 0 });
+		const previousCpu = this.previousCpuTimes;
+		this.previousCpuTimes = cpuSnapshot;
+		const cpuPercent = previousCpu && cpuSnapshot.total > previousCpu.total
+			? Math.round(Math.max(0, Math.min(100, 100 * (1 - (cpuSnapshot.idle - previousCpu.idle) / (cpuSnapshot.total - previousCpu.total)))))
+			: undefined;
+		return {
+			cpuPercent,
+			memoryPercent: Math.round(100 * (totalmem() - freemem()) / totalmem()),
 		};
 	}
 

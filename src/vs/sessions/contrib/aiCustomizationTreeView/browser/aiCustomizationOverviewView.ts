@@ -19,12 +19,11 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { ResourceSet } from '../../../../base/common/map.js';
 import { IPromptsService } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { PromptsType } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
 import { AICustomizationManagementSection, AI_CUSTOMIZATION_MANAGEMENT_EDITOR_ID } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { AICustomizationManagementEditorInput } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
-import { agentIcon, instructionsIcon, mcpServerIcon, pluginIcon, skillIcon, toolsIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
+import { agentIcon, mcpServerIcon, pluginIcon, skillIcon, toolsIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IAICustomizationWorkspaceService } from '../../../../workbench/contrib/chat/common/aiCustomizationWorkspaceService.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
@@ -87,7 +86,6 @@ export class AICustomizationOverviewView extends ViewPane {
 		this.sections.push(
 			{ id: AICustomizationManagementSection.Agents, label: localize('agents', "Agents"), icon: agentIcon, count: 0 },
 			{ id: AICustomizationManagementSection.Skills, label: localize('skills', "Skills"), icon: skillIcon, count: 0 },
-			{ id: AICustomizationManagementSection.Instructions, label: localize('instructions', "Instructions"), icon: instructionsIcon, count: 0 },
 		);
 		this.sections.push(
 			{ id: AICustomizationManagementSection.McpServers, label: localize('mcpServers', "MCP Servers"), icon: mcpServerIcon, count: 0 },
@@ -170,7 +168,6 @@ export class AICustomizationOverviewView extends ViewPane {
 		const sectionPromptTypes: Array<{ section: AICustomizationManagementSection; type: PromptsType }> = [
 			{ section: AICustomizationManagementSection.Agents, type: PromptsType.agent },
 			{ section: AICustomizationManagementSection.Skills, type: PromptsType.skill },
-			{ section: AICustomizationManagementSection.Instructions, type: PromptsType.instructions },
 		];
 
 		await Promise.all(sectionPromptTypes.map(async ({ section, type }) => {
@@ -183,17 +180,6 @@ export class AICustomizationOverviewView extends ViewPane {
 			} else {
 				const allItems = await this.promptsService.listPromptFiles(type, CancellationToken.None);
 				count = allItems.length;
-
-				// For instructions, also count agent instructions (AGENTS.md, copilot-instructions.md, CLAUDE.md, etc.)
-				if (type === PromptsType.instructions) {
-					const existingUris = new ResourceSet(allItems.map(item => item.uri));
-					const agentInstructions = await this.promptsService.listAgentInstructions(CancellationToken.None);
-					for (const file of agentInstructions) {
-						if (!existingUris.has(file.uri)) {
-							count++;
-						}
-					}
-				}
 			}
 
 			const sectionData = this.sections.find(s => s.id === section);

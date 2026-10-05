@@ -18,7 +18,6 @@ import { IMcpService } from '../../../../workbench/contrib/mcp/common/mcpTypes.j
 const PROMPT_SECTIONS: { section: AICustomizationManagementSection; type: PromptsType }[] = [
 	{ section: AICustomizationManagementSection.Agents, type: PromptsType.agent },
 	{ section: AICustomizationManagementSection.Skills, type: PromptsType.skill },
-	{ section: AICustomizationManagementSection.Instructions, type: PromptsType.instructions },
 	{ section: AICustomizationManagementSection.Hooks, type: PromptsType.hook },
 ];
 

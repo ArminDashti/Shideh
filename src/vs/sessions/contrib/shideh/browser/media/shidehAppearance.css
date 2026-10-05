@@ -1,0 +1,30 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.agent-sessions-workbench {
+	font-family: var(--shideh-font-family, inherit);
+	font-size: var(--shideh-font-size, inherit);
+	color: var(--shideh-foreground, inherit);
+}
+
+.agent-sessions-workbench .part.sidebar > .content {
+	background-color: var(--shideh-sidebar-background, transparent);
+}
+
+.agent-sessions-workbench .monaco-list-row.focused.selected .monaco-list-row,
+.agent-sessions-workbench .monaco-list-row.selected {
+	background-color: var(--shideh-active-session-background, inherit);
+}
+
+.agent-sessions-workbench .interactive-session .chat-input-container {
+	background-color: var(--shideh-chat-input-background, inherit);
+}
+
+.agent-sessions-workbench .new-session-welcome-message-title.shideh-greeting {
+	font-size: clamp(2rem, 4vw, 3rem);
+	font-weight: var(--vscode-fontWeight-bold, 700);
+	line-height: 1.15;
+	margin-bottom: var(--vscode-spacing-size200);
+}

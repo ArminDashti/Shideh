@@ -90,7 +90,6 @@ suite('aiCustomizationWelcomePagePromptLaunchers', () => {
 					AICustomizationManagementSection.Plugins,
 					AICustomizationManagementSection.McpServers,
 					AICustomizationManagementSection.Skills,
-					AICustomizationManagementSection.Instructions,
 					AICustomizationManagementSection.Agents,
 					AICustomizationManagementSection.Hooks,
 					AICustomizationManagementSection.Tools,
@@ -104,7 +103,6 @@ suite('aiCustomizationWelcomePagePromptLaunchers', () => {
 			page.rebuildCards(new Set([
 				AICustomizationManagementSection.Agents,
 				AICustomizationManagementSection.Skills,
-				AICustomizationManagementSection.Instructions,
 				AICustomizationManagementSection.Hooks,
 				AICustomizationManagementSection.McpServers,
 				AICustomizationManagementSection.Plugins,

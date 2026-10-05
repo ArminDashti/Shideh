@@ -170,6 +170,11 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
 	 */
 	protected _getListOptions(): IActionListOptions | undefined { return undefined; }
 
+	/** Maps a picker item value to the value written to session config. */
+	protected _resolveSelectionValue(value: string): string {
+		return value;
+	}
+
 	/**
 	 * `true` while the active session's provider is resolving its config.
 	 * Subclasses gate picker-open paths on this; the desktop chip is
@@ -301,15 +306,16 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
 					return;
 				}
 				const previousItem = ctx.items.find(i => i.value === ctx.currentValue);
+				const resolvedValue = this._resolveSelectionValue(item.value);
 				reportNewChatPickerClosed(this._telemetryService, {
 					id: this._telemetryId,
 					optionIdBefore: ctx.currentValue,
-					optionIdAfter: item.value,
+					optionIdAfter: resolvedValue,
 					optionLabelBefore: previousItem?.label ?? ctx.currentValue,
 					optionLabelAfter: item.label,
 					isPII: false,
 				});
-				ctx.provider.setSessionConfigValue(ctx.sessionId, this._property, item.value)
+				ctx.provider.setSessionConfigValue(ctx.sessionId, this._property, resolvedValue)
 					.then(() => this._onDidSelectValue(ctx.currentValue, item.value))
 					.catch(() => { /* best-effort */ });
 			},
@@ -349,8 +355,8 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
 export class AgentHostModePicker extends AgentHostSessionEnumPicker {
 
 	private readonly _splitTrigger = this._register(new MutableDisposable<IModePickerTrigger>());
-	private readonly _permissionDelegate: AgentHostPermissionPickerDelegate;
-	private readonly _permissionPicker: PermissionPicker;
+	protected readonly _permissionDelegate: AgentHostPermissionPickerDelegate;
+	protected readonly _permissionPicker: PermissionPicker;
 	protected readonly _property = SessionConfigKey.Mode;
 	protected readonly _pickerId = 'agentHostModePicker';
 	protected readonly _telemetryId = 'NewChatAgentHostModePicker';

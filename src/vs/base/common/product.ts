@@ -258,6 +258,13 @@ export interface IProductConfiguration {
 	readonly builtInExtensionsEnabledWithAutoUpdates: readonly string[];
 	readonly sessionsWindowAllowedExtensions?: readonly string[];
 
+	/** When true, cold start with no explicit paths opens the Agents window. */
+	readonly defaultAgentsWindowOnStartup?: boolean;
+	/** Forces the navigation-integrated Agents sidebar (Cursor-style shortcuts in the session tree). */
+	readonly sessionsSidebarLayout?: 'default' | 'navigation-integrated';
+	/** Optional curated marketplace feed URLs for the Shideh Hub. */
+	readonly shidehHubSources?: readonly string[];
+
 	readonly msftInternalDomains?: string[];
 	readonly linkProtectionTrustedDomains?: readonly string[];
 

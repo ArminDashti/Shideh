@@ -18,6 +18,103 @@
 		overflow: hidden;
 	}
 
+	.agent-session-history-section {
+		min-height: 0;
+		overflow: hidden;
+		border-top: 1px solid var(--vscode-agentsPanel-border, var(--vscode-panel-border));
+	}
+
+	.agent-session-history {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+	}
+
+	.agent-session-history-header {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		min-height: 32px;
+		padding: 0 12px;
+		border: 0;
+		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+		background: transparent;
+		font: inherit;
+		font-size: var(--vscode-fontSize-label1, 12px);
+		font-weight: var(--vscode-fontWeight-semiBold, 600);
+		text-align: left;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.agent-session-history-header:hover {
+		background: var(--vscode-list-hoverBackground);
+	}
+
+	.agent-session-history-table-container {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+	}
+
+	.agent-session-history-table {
+		width: max-content;
+		min-width: 100%;
+		border-collapse: collapse;
+		font-size: var(--vscode-fontSize-small, 11px);
+	}
+
+	.agent-session-history-table th,
+	.agent-session-history-table td {
+		max-width: 180px;
+		padding: 4px 8px;
+		border-bottom: 1px solid var(--vscode-tree-tableColumnsBorder, var(--vscode-panel-border));
+		text-align: left;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.agent-session-history-table th {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		color: var(--vscode-descriptionForeground);
+		background: var(--vscode-sideBar-background);
+		font-weight: var(--vscode-fontWeight-semiBold, 600);
+	}
+
+	.agent-session-history-row {
+		cursor: pointer;
+	}
+
+	.agent-session-history-row:hover,
+	.agent-session-history-row:focus-visible {
+		background: var(--vscode-list-hoverBackground);
+		outline: none;
+	}
+
+	.agent-session-history-delete {
+		border: 0;
+		padding: 2px 6px;
+		color: var(--vscode-errorForeground, var(--vscode-foreground));
+		background: transparent;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.agent-session-history-delete:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.agent-session-history-table-container {
+			transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1);
+		}
+	}
+
 	.agent-sessions-sidebar-splitview-container .monaco-split-view2.separator-border.vertical > .monaco-scrollable-element > .split-view-container > .split-view-view:not(:first-child)::before {
 		left: var(--vscode-spacing-size40, 4px);
 		width: calc(100% - (2 * var(--vscode-spacing-size40, 4px)));

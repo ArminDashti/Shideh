@@ -116,6 +116,9 @@ import { ICustomViewService } from '../../../../services/customView/browser/cust
 import { AUTOMATIONS_CUSTOM_VIEW_ID } from '../automationsConstants.js';
 import { AutomationsNewBadgeState, type AutomationsNewBadgeStyle } from '../automationsNewBadge.js';
 import { OPEN_AI_CUSTOMIZATIONS_COMMAND_ID } from '../customizationsConstants.js';
+import { SHIDEH_HUB_SECTION_ID, SHIDEH_NEW_PROJECT_SECTION_ID, SHIDEH_PROJECTS_HEADER_SECTION_ID, SHIDEH_SEARCH_SECTION_ID, SHIDEH_STATS_SECTION_ID, ShidehNavigationIntegratedContext } from '../../../shideh/common/shidehContextKeys.js';
+import { SHIDEH_OPEN_STATS_COMMAND_ID } from '../../../shideh/common/shidehCommandIds.js';
+import { AICustomizationManagementCommands } from '../../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { NEW_SESSION_ACTION_ID } from '../../../chat/common/constants.js';
 import { Menus } from '../../../../browser/menus.js';
 import { getSessionConversationStatusAriaLabel } from '../../../../browser/sessionConversationGroups.js';
@@ -194,11 +197,21 @@ export interface ISessionSection {
 	readonly sessions: ISession[];
 }
 
-const SESSIONS_HEADER_SECTION: ISessionSection = {
-	id: SESSIONS_HEADER_SECTION_ID,
-	label: localize('sessionsHeader', "Sessions"),
-	sessions: [],
-};
+function getSessionsHeaderSection(shidehSidebar: boolean): ISessionSection {
+	return {
+		id: SESSIONS_HEADER_SECTION_ID,
+		label: shidehSidebar ? localize('repositoriesHeader', "Repositories") : localize('sessionsHeader', "Sessions"),
+		sessions: [],
+	};
+}
+
+function isSessionsListHeaderSectionId(sectionId: string): boolean {
+	return sectionId === SESSIONS_HEADER_SECTION_ID;
+}
+
+function isShidehProjectsHeaderSectionId(sectionId: string): boolean {
+	return sectionId === SHIDEH_PROJECTS_HEADER_SECTION_ID;
+}
 
 /**
  * A user-created group rendered as a section-like header. Carries the backing
@@ -377,6 +390,14 @@ function getSessionSectionIcon(sectionId: string): ThemeIcon | undefined {
 			return Codicon.calendar;
 		case CUSTOMIZATIONS_SECTION_ID:
 			return Codicon.extensions;
+		case SHIDEH_HUB_SECTION_ID:
+			return Codicon.globe;
+		case SHIDEH_STATS_SECTION_ID:
+			return Codicon.graph;
+		case SHIDEH_NEW_PROJECT_SECTION_ID:
+			return Codicon.add;
+		case SHIDEH_SEARCH_SECTION_ID:
+			return Codicon.search;
 		case 'archived':
 			return Codicon.archive;
 		case 'recent':
@@ -391,7 +412,7 @@ function getSessionSectionIcon(sectionId: string): ThemeIcon | undefined {
 }
 
 function isShortcutSection(sectionId: string): boolean {
-	return sectionId === NEW_SESSION_SECTION_ID || sectionId === AUTOMATIONS_SECTION_ID || sectionId === CUSTOMIZATIONS_SECTION_ID;
+	return sectionId === NEW_SESSION_SECTION_ID || sectionId === AUTOMATIONS_SECTION_ID || sectionId === CUSTOMIZATIONS_SECTION_ID || sectionId === SHIDEH_HUB_SECTION_ID || sectionId === SHIDEH_STATS_SECTION_ID || sectionId === SHIDEH_NEW_PROJECT_SECTION_ID || sectionId === SHIDEH_SEARCH_SECTION_ID;
 }
 
 function isSessionShowMore(item: SessionListItem): item is ISessionShowMore {
@@ -488,7 +509,7 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 			return SessionsTreeDelegate.COMPARISON_SECTION_HEIGHT;
 		}
 
-		if (isSessionSection(element) && element.id === SESSIONS_HEADER_SECTION_ID) {
+		if (isSessionSection(element) && isSessionsListHeaderSectionId(element.id)) {
 			return this._sessionsHeaderHeight?.() || SessionsTreeDelegate.SESSIONS_HEADER_HEIGHT;
 		}
 		if (isSessionSection(element)) {
@@ -572,7 +593,7 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 			return SessionGroupRenderer.TEMPLATE_ID;
 		}
 		if (isSessionSection(element)) {
-			return element.id === SESSIONS_HEADER_SECTION_ID
+			return isSessionsListHeaderSectionId(element.id)
 				? SessionsHeaderRenderer.TEMPLATE_ID
 				: isShortcutSection(element.id)
 					? SESSION_SHORTCUT_SECTION_TEMPLATE_ID
@@ -2213,6 +2234,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 		private readonly customizationsActive: IObservable<boolean> = constObservable(false),
 		private readonly customizationsCount: IObservable<number> = constObservable(0),
 		private readonly customizationMigrationsAvailable: IObservable<boolean> = constObservable(false),
+		private readonly findOpen: IObservable<boolean> = constObservable(false),
 		readonly templateId = SessionSectionRenderer.TEMPLATE_ID,
 		readonly rowClassName?: string,
 	) { }
@@ -2337,9 +2359,18 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 		} else {
 			renderSessionHeaderToolbar(template, element, this.select);
 		}
+		const shidehSidebar = this.contextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
+		if (isShidehProjectsHeaderSectionId(element.id)) {
+			template.container.classList.add('session-section-shideh-group-header');
+			template.icon.style.display = 'none';
+			template.countLabel.textContent = '';
+			template.count.style.display = 'none';
+		}
 		if (element.id === NEW_SESSION_SECTION_ID) {
 			template.container.classList.add('session-section-new-session');
-			template.keybindingHint.classList.add('visible');
+			if (!shidehSidebar) {
+				template.keybindingHint.classList.add('visible');
+			}
 			const updateKeybinding = () => template.keybindingLabel.set(this.keybindingService.lookupKeybinding(NEW_SESSION_ACTION_ID));
 			updateKeybinding();
 			template.elementDisposables.add(this.keybindingService.onDidUpdateKeybindings(updateKeybinding));
@@ -2377,6 +2408,19 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 
 		this.updateChevron(template, node.collapsible, node.collapsed);
 
+		if (element.id === SHIDEH_SEARCH_SECTION_ID) {
+			template.container.classList.add('session-section-search');
+			template.elementDisposables.add(autorun(reader => {
+				const active = this.findOpen.read(reader);
+				template.container.classList.toggle('active', active);
+				const row = template.container.closest('.monaco-list-row');
+				if (active) {
+					row?.setAttribute('aria-current', 'page');
+				} else {
+					row?.removeAttribute('aria-current');
+				}
+			}));
+		}
 		if (element.id === AUTOMATIONS_SECTION_ID) {
 			DOM.clearNode(template.icon);
 			template.icon.style.display = '';
@@ -2389,32 +2433,43 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 				template.newBadge.classList.toggle('session-section-new-badge-soft', badgeStyle === 'soft');
 				template.newBadge.classList.toggle('session-section-new-badge-outline', badgeStyle === 'outline');
 			}));
-			const statusIcon = template.elementDisposables.add(this.instantiationService.createInstance(SessionStatusIcon, template.icon));
-			template.elementDisposables.add(autorun(reader => {
-				const automationStatus = this.automationStatus.read(reader);
-				const badgeStyle = this.automationNewBadgePresentation.read(reader);
-				if (automationStatus === SessionStatus.NeedsInput) {
-					template.icon.className = 'session-section-icon';
-					statusIcon.setStatus(SessionStatus.NeedsInput, true, false);
-				} else if (automationStatus === SessionStatus.InProgress) {
-					template.icon.className = 'session-section-icon';
-					statusIcon.setStatus(SessionStatus.InProgress, true, false);
-				} else if (automationStatus === SessionStatus.Completed) {
-					template.icon.className = 'session-section-icon';
-					statusIcon.setStatus(SessionStatus.Completed, false, false);
-				} else if (badgeStyle === 'unread') {
-					template.icon.className = 'session-section-icon';
-					statusIcon.setStatus(SessionStatus.Completed, false, false);
-				} else {
-					statusIcon.reset();
-					template.icon.className = `session-section-icon ${ThemeIcon.asClassName(Codicon.calendar)}`;
-				}
-			}));
+			if (shidehSidebar) {
+				template.icon.className = `session-section-icon ${ThemeIcon.asClassName(Codicon.hubot)}`;
+			} else {
+				const statusIcon = template.elementDisposables.add(this.instantiationService.createInstance(SessionStatusIcon, template.icon));
+				template.elementDisposables.add(autorun(reader => {
+					const automationStatus = this.automationStatus.read(reader);
+					const badgeStyle = this.automationNewBadgePresentation.read(reader);
+					if (automationStatus === SessionStatus.NeedsInput) {
+						template.icon.className = 'session-section-icon';
+						statusIcon.setStatus(SessionStatus.NeedsInput, true, false);
+					} else if (automationStatus === SessionStatus.InProgress) {
+						template.icon.className = 'session-section-icon';
+						statusIcon.setStatus(SessionStatus.InProgress, true, false);
+					} else if (automationStatus === SessionStatus.Completed) {
+						template.icon.className = 'session-section-icon';
+						statusIcon.setStatus(SessionStatus.Completed, false, false);
+					} else if (badgeStyle === 'unread') {
+						template.icon.className = 'session-section-icon';
+						statusIcon.setStatus(SessionStatus.Completed, false, false);
+					} else {
+						statusIcon.reset();
+						template.icon.className = `session-section-icon ${ThemeIcon.asClassName(Codicon.calendar)}`;
+					}
+				}));
+			}
 		} else {
-			renderSessionHeaderIcon(template, element.sessions, getSessionSectionIcon(element.id), this.showUnreadInCollapsedSections, this.sessionsWithFailingCI, this.headerStatusTrigger, this.instantiationService);
+			const sectionIcon = element.id === NEW_SESSION_SECTION_ID && shidehSidebar
+				? Codicon.filter
+				: element.id === CUSTOMIZATIONS_SECTION_ID && shidehSidebar
+					? Codicon.extensions
+					: getSessionSectionIcon(element.id);
+			renderSessionHeaderIcon(template, element.sessions, sectionIcon, this.showUnreadInCollapsedSections, this.sessionsWithFailingCI, this.headerStatusTrigger, this.instantiationService);
 		}
 
-		template.label.textContent = element.label;
+		template.label.textContent = element.id === SHIDEH_NEW_PROJECT_SECTION_ID && shidehSidebar
+			? localize('newProjectWithPlus', "+ New Project")
+			: element.label;
 		if (element.id !== CUSTOMIZATIONS_SECTION_ID) {
 			template.countBadgeContainer.style.display = 'none';
 			template.countLabel.style.display = '';
@@ -2875,7 +2930,7 @@ class SessionsAccessibilityProvider {
 				: this.getSectionAriaLabel(element.group.name, element.sessions);
 		}
 		if (isSessionSection(element)) {
-			if (element.id === SESSIONS_HEADER_SECTION_ID) {
+			if (isSessionsListHeaderSectionId(element.id)) {
 				return element.label;
 			}
 			if (element.id === NEW_SESSION_SECTION_ID) {
@@ -3607,6 +3662,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 	private _excludeRead: boolean;
 	private _showEmptyGroups: boolean;
 	private workspaceGroupCapped: boolean;
+	private _sessionsHeaderSection: ISessionSection | undefined;
 
 	/** Tree delegate, retained so height reconciliation can recompute row heights. */
 	private _delegate!: SessionsTreeDelegate;
@@ -3875,6 +3931,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 			customizationsActive,
 			customizationsCount,
 			customizationMigrationsAvailable,
+			this.findOpen,
 			templateId,
 			rowClassName,
 		);
@@ -4026,7 +4083,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 							return element.comparison?.title ?? element.group.name;
 						}
 						if (isSessionSection(element)) {
-							if (element.id === SESSIONS_HEADER_SECTION_ID || isShortcutSection(element.id)) {
+							if (isSessionsListHeaderSectionId(element.id) || isShortcutSection(element.id)) {
 								return undefined;
 							}
 							return element.label;
@@ -4053,7 +4110,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 		this.tree.setFocusNavigationFilter(node => !this.findOpen.get()
 			|| !node.element
 			|| !isSessionSection(node.element)
-			|| node.element.id !== SESSIONS_HEADER_SECTION_ID);
+			|| !isSessionsListHeaderSectionId(node.element.id));
 		const focusedChatItemContext = SessionsListFocusedChatItemContext.bindTo(this.tree.contextKeyService);
 		this.tree.updateOptions({ indent: 0, defaultIndent: 0, expandOnDoubleClick: false });
 		if (this.options.onDidScroll) {
@@ -4157,9 +4214,29 @@ export class SessionsList extends Disposable implements ISessionsList {
 				await this.commandService.executeCommand(NEW_SESSION_ACTION_ID, e.sideBySide ? { toSide: true } : undefined);
 				return;
 			}
+			if (isSessionSection(element) && element.id === SHIDEH_SEARCH_SECTION_ID) {
+				this.tree.setSelection([]);
+				this.openFind();
+				return;
+			}
 			if (isSessionSection(element) && element.id === CUSTOMIZATIONS_SECTION_ID) {
 				this.tree.setSelection([]);
 				this.commandService.executeCommand(OPEN_AI_CUSTOMIZATIONS_COMMAND_ID);
+				return;
+			}
+			if (isSessionSection(element) && element.id === SHIDEH_HUB_SECTION_ID) {
+				this.tree.setSelection([]);
+				this.commandService.executeCommand(AICustomizationManagementCommands.OpenMarketplace);
+				return;
+			}
+			if (isSessionSection(element) && element.id === SHIDEH_STATS_SECTION_ID) {
+				this.tree.setSelection([]);
+				this.commandService.executeCommand(SHIDEH_OPEN_STATS_COMMAND_ID);
+				return;
+			}
+			if (isSessionSection(element) && element.id === SHIDEH_NEW_PROJECT_SECTION_ID) {
+				this.tree.setSelection([]);
+				this.createGroup([]);
 				return;
 			}
 			if (!isSessionSection(element) && !isSessionGroupItem(element)) {
@@ -4683,12 +4760,17 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 		const navigationChildren: IObjectTreeElement<SessionListItem>[] = [];
 		const showNavigationShortcuts = this.options.showNavigationShortcuts?.() === true;
+		const shidehSidebar = this.contextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
 		if (this.contextKeyService.getContextKeyValue<boolean>(ChatAutomationsEnabledContext.key)) {
 			void this.automationsNewBadgeState.initialize().catch(onUnexpectedError);
 			navigationChildren.push(renderSection({ id: AUTOMATIONS_SECTION_ID, label: localize('automations', "Automations"), sessions: [] }));
 		}
 		if (showNavigationShortcuts) {
-			navigationChildren.push(renderSection({ id: CUSTOMIZATIONS_SECTION_ID, label: localize('customizations', "Customizations"), sessions: [] }));
+			navigationChildren.push(renderSection({
+				id: CUSTOMIZATIONS_SECTION_ID,
+				label: shidehSidebar ? localize('customize', "Customize") : localize('customizations', "Customizations"),
+				sessions: [],
+			}));
 		}
 
 		const pinnedSection = sections.find(s => s.id === 'pinned');
@@ -4779,22 +4861,54 @@ export class SessionsList extends Disposable implements ISessionsList {
 		}
 
 		if (showNavigationShortcuts && this.options.createSessionsHeader) {
-			this.setTreeChildren([
-				{
-					element: { id: NEW_SESSION_SECTION_ID, label: localize('new', "New"), sessions: [] },
+			this._sessionsHeaderSection = getSessionsHeaderSection(shidehSidebar);
+			const repositoryChildren = shidehSidebar
+				? children.filter(child => !isSessionGroupItem(child.element))
+				: children;
+			const sectionBlocks: IObjectTreeElement<SessionListItem>[] = shidehSidebar
+				? [
+					{
+						element: { id: SHIDEH_PROJECTS_HEADER_SECTION_ID, label: localize('projectsHeader', "Projects"), sessions: [] },
+						collapsible: false,
+						collapsed: false,
+						children: [
+							renderSection({ id: SHIDEH_NEW_PROJECT_SECTION_ID, label: localize('newProject', "New Project"), sessions: [] }),
+							...children.filter(child => isSessionGroupItem(child.element)),
+						],
+					},
+					{
+						element: this._sessionsHeaderSection,
+						collapsible: false,
+						collapsed: false,
+						children: repositoryChildren,
+					},
+				]
+				: [{
+					element: this._sessionsHeaderSection,
 					collapsible: false,
 					collapsed: false,
-					children: [
-						...navigationChildren,
-						{
-							element: SESSIONS_HEADER_SECTION,
-							collapsible: false,
-							collapsed: false,
-							children,
-						},
-					],
-				},
-			]);
+					children,
+				}];
+			if (shidehSidebar) {
+				this.setTreeChildren([
+					renderSection({ id: NEW_SESSION_SECTION_ID, label: localize('newChat', "New Chat"), sessions: [] }),
+					renderSection({ id: SHIDEH_SEARCH_SECTION_ID, label: localize('search', "Search"), sessions: [] }),
+					...navigationChildren,
+					...sectionBlocks,
+				]);
+			} else {
+				this.setTreeChildren([
+					{
+						element: { id: NEW_SESSION_SECTION_ID, label: localize('new', "New"), sessions: [] },
+						collapsible: false,
+						collapsed: false,
+						children: [
+							...navigationChildren,
+							...sectionBlocks,
+						],
+					},
+				]);
+			}
 		} else {
 			this.setTreeChildren([...navigationChildren, ...children]);
 		}
@@ -5043,8 +5157,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 	}
 
 	layout(height: number, width: number): void {
-		if (this.tree.hasElement(SESSIONS_HEADER_SECTION)) {
-			this.tree.updateElementHeight(SESSIONS_HEADER_SECTION, this._delegate.getHeight(SESSIONS_HEADER_SECTION));
+		const sessionsHeaderSection = this._sessionsHeaderSection;
+		if (sessionsHeaderSection && this.tree.hasElement(sessionsHeaderSection)) {
+			this.tree.updateElementHeight(sessionsHeaderSection, this._delegate.getHeight(sessionsHeaderSection));
 		}
 		this.tree.layout(height, width);
 	}
@@ -5542,7 +5657,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 		}
 
 		if (isSessionSection(element)) {
-			if (element.id === SESSIONS_HEADER_SECTION_ID || isShortcutSection(element.id)) {
+			if (isSessionsListHeaderSectionId(element.id) || isShortcutSection(element.id)) {
 				return;
 			}
 			this.showSectionContextMenu(element, e.anchor);
@@ -6123,7 +6238,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 	private saveBulkCollapseState(collapsed: boolean): void {
 		const state: Record<string, boolean> = {};
 		const collectSections = (node: ITreeNode<SessionListItem | null, FuzzyScore | undefined>): void => {
-			if (node.element && isSessionSection(node.element) && node.element.id !== SESSIONS_HEADER_SECTION_ID && !isShortcutSection(node.element.id)) {
+			if (node.element && isSessionSection(node.element) && !isSessionsListHeaderSectionId(node.element.id) && !isShortcutSection(node.element.id)) {
 				state[node.element.collapseStateId ?? node.element.id] = collapsed;
 			}
 			for (const child of node.children) {

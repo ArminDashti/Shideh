@@ -13,7 +13,8 @@ import { CommandsRegistry } from '../../../platform/commands/common/commands.js'
 import { ServicesAccessor } from '../../../platform/instantiation/common/instantiation.js';
 import { CONTEXT_ACCESSIBILITY_MODE_ENABLED } from '../../../platform/accessibility/common/accessibility.js';
 import { ToggleAuxiliaryBarAction } from '../../../workbench/browser/parts/auxiliarybar/auxiliaryBarActions.js';
-import { PanelVisibleContext, SecondarySideBarVisibleContext } from '../../../workbench/common/contextkeys.js';
+import { IsSessionsWindowContext, PanelVisibleContext, SecondarySideBarVisibleContext } from '../../../workbench/common/contextkeys.js';
+import { SHIDEH_OPEN_SETTINGS_COMMAND_ID } from '../../contrib/shideh/common/shidehCommandIds.js';
 import { Parts } from '../../../workbench/services/layout/browser/layoutService.js';
 import { Menus } from '../../browser/menus.js';
 
@@ -33,6 +34,28 @@ suite('Sessions - Layout Actions', () => {
 			import('../../contrib/editor/browser/editor.contribution.js'),
 			import('../../contrib/terminal/browser/sessionsTerminalContribution.js')
 		]);
+	});
+
+	test('Agents window exposes only its single Settings action', async () => {
+		await import('../../contrib/shideh/browser/shideh.contribution.js');
+		await import('../../contrib/accountMenu/browser/account.contribution.js');
+
+		const titleBarSettingsActions = MenuRegistry.getMenuItems(Menus.TitleBarLeftLayout)
+			.filter(isIMenuItem)
+			.filter(item => item.command.title === 'Settings');
+		const accountSettingsActions = MenuRegistry.getMenuItems(Menus.AccountMenu)
+			.filter(isIMenuItem)
+			.filter(item => item.command.title === 'Settings');
+
+		assert.deepStrictEqual({
+			titleBarSettings: titleBarSettingsActions.map(item => ({ id: item.command.id, when: item.when?.serialize() })),
+			accountSettings: accountSettingsActions.map(item => ({ id: item.command.id, when: item.when?.serialize() })),
+			customSettingsCommandRegistered: Boolean(CommandsRegistry.getCommand(SHIDEH_OPEN_SETTINGS_COMMAND_ID)),
+		}, {
+			titleBarSettings: [{ id: 'workbench.action.openSettings', when: `!isAuxiliaryWindow && !sessionsIsPhoneLayout && !${IsSessionsWindowContext.key}` }],
+			accountSettings: [{ id: 'workbench.action.openSettings', when: `!sessionsIsPhoneLayout && !${IsSessionsWindowContext.key}` }],
+			customSettingsCommandRegistered: true,
+		});
 	});
 
 	test('always-on-top toggle action is contributed to TitleBarRight', () => {

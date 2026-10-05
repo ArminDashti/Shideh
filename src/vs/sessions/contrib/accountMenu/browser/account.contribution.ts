@@ -35,7 +35,8 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { getAccountProfileImageUrl, getAccountTitleBarBadgeKey, getAccountTitleBarState, IAccountTitleBarState, resolveAccountInfo } from '../../../browser/accountTitleBarState.js';
 import { observeAllowSignedOutWhenUsable } from '../../../browser/sessionsAuthGate.js';
 import { IsPhoneLayoutContext } from '../../../common/contextkeys.js';
-import { IsAuxiliaryWindowContext } from '../../../../workbench/common/contextkeys.js';
+import { IsAuxiliaryWindowContext, IsSessionsWindowContext } from '../../../../workbench/common/contextkeys.js';
+import { SHIDEH_OPEN_SETTINGS_COMMAND_ID } from '../../shideh/common/shidehCommandIds.js';
 import { IAuthenticationAccessService } from '../../../../workbench/services/authentication/browser/authenticationAccessService.js';
 import { IAuthenticationUsageService } from '../../../../workbench/services/authentication/browser/authenticationUsageService.js';
 import { ACCOUNTS_AVATAR_SETTING, IAuthenticationService } from '../../../../workbench/services/authentication/common/authentication.js';
@@ -57,6 +58,7 @@ const SESSIONS_ACCOUNT_TITLEBAR_PANEL_WIDTH = 400;
 
 const PERSONALIZE_ACTION_IDS: readonly string[] = [
 	'workbench.action.openSettings',
+	SHIDEH_OPEN_SETTINGS_COMMAND_ID,
 ];
 const SIGN_OUT_ACTION_ID = 'workbench.action.agenticSignOut';
 
@@ -145,7 +147,7 @@ MenuRegistry.appendMenuItem(AccountMenu, {
 		title: localize('settings', "Settings"),
 		icon: Codicon.settingsGear,
 	},
-	when: IsPhoneLayoutContext.negate(),
+	when: ContextKeyExpr.and(IsPhoneLayoutContext.negate(), IsSessionsWindowContext.negate()),
 	group: '2_settings',
 	order: 1,
 });

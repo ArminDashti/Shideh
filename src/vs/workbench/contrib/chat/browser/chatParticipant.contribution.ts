@@ -6,14 +6,16 @@
 import { coalesce, isNonEmptyArray } from '../../../../base/common/arrays.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
-import { MarkdownString } from '../../../../base/common/htmlContent.js';
+import { Event } from '../../../../base/common/event.js';
+import { createCommandUri, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import * as strings from '../../../../base/common/strings.js';
 import { localize, localize2 } from '../../../../nls.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier, IExtensionManifest } from '../../../../platform/extensions/common/extensions.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
@@ -22,6 +24,8 @@ import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainer
 import { Extensions, IExtensionFeaturesRegistry, IExtensionFeatureTableRenderer, IRenderedData, IRowData, ITableData } from '../../../services/extensionManagement/common/extensionFeatures.js';
 import { isProposedApiEnabled } from '../../../services/extensions/common/extensions.js';
 import * as extensionsRegistry from '../../../services/extensions/common/extensionsRegistry.js';
+import { showExtensionsWithIdsCommandId } from '../../extensions/browser/extensionsActions.js';
+import { IExtension, IExtensionsWorkbenchService } from '../../extensions/common/extensions.js';
 import { IChatAgentData, IChatAgentService } from '../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../common/actions/chatContextKeys.js';
 import { IRawChatParticipantContribution } from '../common/participants/chatParticipantContribTypes.js';
@@ -337,6 +341,54 @@ export class ChatExtensionPointHandler implements IWorkbenchContribution {
 
 function getParticipantKey(extensionId: ExtensionIdentifier, participantName: string): string {
 	return `${extensionId.value}_${participantName}`;
+}
+
+export class ChatCompatibilityNotifier extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.chatCompatNotifier';
+
+	private registeredWelcomeView = false;
+
+	constructor(
+		@IExtensionsWorkbenchService extensionsWorkbenchService: IExtensionsWorkbenchService,
+		@IContextKeyService contextKeyService: IContextKeyService,
+		@IProductService private readonly productService: IProductService,
+	) {
+		super();
+
+		// It may be better to have some generic UI for this, for any extension that is incompatible,
+		// but this is only enabled for Chat now and it needs to be obvious.
+		const isInvalid = ChatContextKeys.extensionInvalid.bindTo(contextKeyService);
+		this._register(Event.runAndSubscribe(
+			extensionsWorkbenchService.onDidChangeExtensionsNotification,
+			() => {
+				const notification = extensionsWorkbenchService.getExtensionsNotification();
+				const chatExtension = notification?.extensions.find(ext => ExtensionIdentifier.equals(ext.identifier.id, this.productService.defaultChatAgent?.chatExtensionId));
+				if (chatExtension) {
+					isInvalid.set(true);
+					this.registerWelcomeView(chatExtension);
+				} else {
+					isInvalid.set(false);
+				}
+			}
+		));
+	}
+
+	private registerWelcomeView(chatExtension: IExtension) {
+		if (this.registeredWelcomeView) {
+			return;
+		}
+
+		this.registeredWelcomeView = true;
+		const showExtensionLabel = localize('showExtension', "Show Extension");
+		const mainMessage = localize('chatFailErrorMessage', "Chat failed to load because the installed version of the Copilot Chat extension is not compatible with this version of {0}. Please ensure that the Copilot Chat extension is up to date.", this.productService.nameLong);
+		const commandButton = `[${showExtensionLabel}](${createCommandUri(showExtensionsWithIdsCommandId, [this.productService.defaultChatAgent?.chatExtensionId])})`;
+		const versionMessage = `Copilot Chat version: ${chatExtension.version}`;
+		const viewsRegistry = Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry);
+		this._register(viewsRegistry.registerViewWelcomeContent(ChatViewId, {
+			content: [mainMessage, commandButton, versionMessage].join('\n\n'),
+			when: ChatContextKeys.extensionInvalid,
+		}));
+	}
 }
 
 class ChatParticipantDataRenderer extends Disposable implements IExtensionFeatureTableRenderer {

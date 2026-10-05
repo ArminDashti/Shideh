@@ -38,12 +38,6 @@ suite('aiCustomizationManagement', () => {
 				migrationCategory: CustomizationMigrationCategoryId.PromptFiles,
 				migrationHint,
 			}, 'agent-host-claude', fallbackSessionResource, getSessionResourceForHarness),
-			resolveAICustomizationManagementOpenEditorTarget(
-				AICustomizationManagementSection.Instructions,
-				'agent-host-claude',
-				fallbackSessionResource,
-				getSessionResourceForHarness,
-			),
 			resolveAICustomizationManagementOpenEditorTarget(undefined, undefined, fallbackSessionResource, getSessionResourceForHarness),
 			resolveAICustomizationManagementOpenEditorTarget({
 				sessionResource: titleSessionResource,
@@ -61,7 +55,6 @@ suite('aiCustomizationManagement', () => {
 		assert.deepStrictEqual(results, [
 			{ section: undefined, revealUri: undefined, sessionResource: 'agent-host-copilot:/title-session', migration: undefined, migrationCategory: undefined, migrationFlowId: undefined },
 			{ section: AICustomizationManagementSection.Skills, revealUri: revealUri.toString(), sessionResource: 'agent-host-copilot:/new-session', migration: true, migrationCategory: CustomizationMigrationCategoryId.PromptFiles, migrationFlowId: 'migration-flow-id' },
-			{ section: AICustomizationManagementSection.Instructions, revealUri: undefined, sessionResource: 'agent-host-claude:/new-session', migration: undefined, migrationCategory: undefined, migrationFlowId: undefined },
 			{ section: undefined, revealUri: undefined, sessionResource: 'local:/fallback-session', migration: undefined, migrationCategory: undefined, migrationFlowId: undefined },
 			{ section: undefined, revealUri: undefined, sessionResource: 'agent-host-copilot:/title-session', migration: true, migrationCategory: undefined, migrationFlowId: undefined },
 		]);

@@ -13,7 +13,6 @@ import { localize } from '../../../../nls.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { AICustomizationManagementSection, AICustomizationSource, BUILTIN_STORAGE } from './aiCustomizationWorkspaceService.js';
 import { PromptsType } from './promptSyntax/promptTypes.js';
-import { AGENT_MD_FILENAME } from './promptSyntax/config/promptFileLocations.js';
 import { IAgentSource, IChatPromptSlashCommand, ICustomAgent, IPromptsService, IResolvedChatPromptSlashCommand, matchesSessionType, PromptsStorage } from './promptSyntax/service/promptsService.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { SessionType } from './chatSessionsService.js';
@@ -467,11 +466,6 @@ export function createVSCodeHarnessDescriptor(): IHarnessDescriptor {
 		icon: ThemeIcon.fromId(Codicon.vm.id),
 		supportsTroubleshoot: true,
 		hiddenSections: [AICustomizationManagementSection.Tools],
-		sectionOverrides: new Map([
-			[AICustomizationManagementSection.Instructions, {
-				rootFileShortcuts: [AGENT_MD_FILENAME],
-			}],
-		]),
 	};
 }
 

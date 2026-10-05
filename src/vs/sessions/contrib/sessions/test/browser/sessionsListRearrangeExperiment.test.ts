@@ -9,8 +9,15 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IWorkbenchAssignmentService } from '../../../../../workbench/services/assignment/common/assignmentService.js';
 import { SessionsListRearrangeExperimentState } from '../../browser/sessionsListRearrangeExperiment.js';
+
+function createProductService(): IProductService {
+	return new class extends mock<IProductService>() {
+		override readonly sessionsSidebarLayout = undefined;
+	}();
+}
 
 suite('SessionsListRearrangeExperimentState', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -26,7 +33,7 @@ suite('SessionsListRearrangeExperimentState', () => {
 				return values.shift() as T | undefined;
 			}
 		};
-		const state = disposables.add(new SessionsListRearrangeExperimentState(assignmentService, new NullLogService()));
+		const state = disposables.add(new SessionsListRearrangeExperimentState(assignmentService, new NullLogService(), createProductService()));
 
 		await Promise.resolve();
 		const treatment = state.rearrangeList.get();
@@ -62,7 +69,7 @@ suite('SessionsListRearrangeExperimentState', () => {
 				return request.p as Promise<T | undefined>;
 			}
 		};
-		const state = disposables.add(new SessionsListRearrangeExperimentState(assignmentService, new NullLogService()));
+		const state = disposables.add(new SessionsListRearrangeExperimentState(assignmentService, new NullLogService(), createProductService()));
 
 		refetchAssignments.fire();
 		void second.complete(true);

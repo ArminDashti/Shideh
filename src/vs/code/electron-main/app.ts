@@ -1653,6 +1653,14 @@ export class CodeApplication extends Disposable {
 					// remoteAuthority: will be determined based on macOpenFiles
 				});
 			}
+
+			if (this.productService.defaultAgentsWindowOnStartup) {
+				return windowsMainService.openAgentsWindow({
+					context,
+					cli: args,
+					initialStartup: true
+				});
+			}
 		}
 
 		// default: read paths from cli

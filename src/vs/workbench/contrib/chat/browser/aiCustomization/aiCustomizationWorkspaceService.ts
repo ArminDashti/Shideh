@@ -55,7 +55,6 @@ class AICustomizationWorkspaceService implements IAICustomizationWorkspaceServic
 		AICustomizationManagementSection.Plugins,
 		AICustomizationManagementSection.McpServers,
 		AICustomizationManagementSection.Skills,
-		AICustomizationManagementSection.Instructions,
 		AICustomizationManagementSection.Agents,
 		AICustomizationManagementSection.Hooks,
 		AICustomizationManagementSection.Tools,

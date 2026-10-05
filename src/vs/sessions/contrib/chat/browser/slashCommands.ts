@@ -184,14 +184,6 @@ export class SlashCommandHandler extends Disposable implements IChatSubmitReques
 			execute: openSection(AICustomizationManagementSection.Skills),
 		});
 		this._slashCommands.push({
-			command: 'instructions',
-			detail: localize('slashCommand.instructions', "View and manage instructions"),
-			sortText: 'z3_instructions',
-			executeImmediately: true,
-			supportsAgentHost: false,
-			execute: openSection(AICustomizationManagementSection.Instructions),
-		});
-		this._slashCommands.push({
 			command: 'hooks',
 			detail: localize('slashCommand.hooks', "View and manage hooks"),
 			sortText: 'z3_hooks',

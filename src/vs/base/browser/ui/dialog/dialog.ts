@@ -116,6 +116,8 @@ export class Dialog extends Disposable {
 	private readonly messageContainer: HTMLElement;
 	private readonly footerContainer: HTMLElement | undefined;
 	private footerActionToFocus: HTMLAnchorElement | undefined;
+	private closeAnimationTimer: number | undefined;
+	private isDisposed = false;
 	private readonly iconElement: HTMLElement;
 	private readonly checkbox: Checkbox | undefined;
 	private readonly toolbarContainer: HTMLElement;
@@ -647,11 +649,37 @@ export class Dialog extends Disposable {
 	}
 
 	override dispose(): void {
+		if (this.isDisposed) {
+			return;
+		}
+		this.isDisposed = true;
 		super.dispose();
 
-		if (this.modalElement) {
-			this.modalElement.remove();
+		const modalElement = this.modalElement;
+		if (modalElement) {
 			this.modalElement = undefined;
+			modalElement.classList.add('dialog-closing');
+			modalElement.setAttribute('aria-hidden', 'true');
+			modalElement.inert = true;
+
+			const window = getWindow(modalElement);
+			const removeModal = () => {
+				if (this.closeAnimationTimer !== undefined) {
+					window.clearTimeout(this.closeAnimationTimer);
+					this.closeAnimationTimer = undefined;
+				}
+				modalElement.remove();
+			};
+
+			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			if (reducedMotion) {
+				removeModal();
+			} else {
+				this.closeAnimationTimer = window.setTimeout(() => {
+					this.closeAnimationTimer = undefined;
+					removeModal();
+				}, 180);
+			}
 		}
 
 		if (this.focusToReturn && isAncestor(this.focusToReturn, this.container.ownerDocument.body)) {

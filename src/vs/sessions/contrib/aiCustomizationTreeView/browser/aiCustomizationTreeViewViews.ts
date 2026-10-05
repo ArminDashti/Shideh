@@ -29,7 +29,7 @@ import { IViewDescriptorService } from '../../../../workbench/common/views.js';
 import { IPromptsService, PromptsStorage, IAgentSkill, IPromptPath } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { ResourceSet } from '../../../../base/common/map.js';
 import { PromptsType } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
-import { agentIcon, extensionIcon, instructionsIcon, mcpServerIcon, pluginIcon, promptIcon, skillIcon, userIcon, workspaceIcon, builtinIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
+import { agentIcon, extensionIcon, mcpServerIcon, pluginIcon, promptIcon, skillIcon, userIcon, workspaceIcon, builtinIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
 import { AICustomizationItemMenuId } from './aiCustomizationTreeView.js';
 import { AICustomizationManagementSection } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { AICustomizationManagementEditorInput } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
@@ -237,9 +237,6 @@ class AICustomizationFileRenderer implements ITreeRenderer<IAICustomizationFileI
 			case PromptsType.skill:
 				icon = skillIcon;
 				break;
-			case PromptsType.instructions:
-				icon = instructionsIcon;
-				break;
 			case PromptsType.prompt:
 			default:
 				icon = promptIcon;
@@ -376,13 +373,6 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 				label: localize('skills', "Skills"),
 				promptType: PromptsType.skill,
 				icon: skillIcon,
-			},
-			{
-				type: 'category',
-				id: 'category-instructions',
-				label: localize('instructions', "Instructions"),
-				promptType: PromptsType.instructions,
-				icon: instructionsIcon,
 			},
 		];
 		items.push(

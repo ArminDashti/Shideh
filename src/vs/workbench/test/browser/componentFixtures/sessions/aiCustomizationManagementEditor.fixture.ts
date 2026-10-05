@@ -952,7 +952,6 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 		AICustomizationManagementSection.Plugins,
 		AICustomizationManagementSection.McpServers,
 		AICustomizationManagementSection.Skills,
-		AICustomizationManagementSection.Instructions,
 		AICustomizationManagementSection.Agents,
 		AICustomizationManagementSection.Hooks,
 		AICustomizationManagementSection.Tools,
@@ -982,10 +981,9 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 	const toolSets = options.toolSets ?? fixtureToolSets;
 	const selectedPromptType = options.selectedSection === AICustomizationManagementSection.Agents ? PromptsType.agent
 		: options.selectedSection === AICustomizationManagementSection.Skills ? PromptsType.skill
-			: options.selectedSection === AICustomizationManagementSection.Instructions ? PromptsType.instructions
-				: options.selectedSection === AICustomizationManagementSection.Hooks ? PromptsType.hook
-					: options.selectedSection === AICustomizationManagementSection.Prompts ? PromptsType.prompt
-						: undefined;
+			: options.selectedSection === AICustomizationManagementSection.Hooks ? PromptsType.hook
+				: options.selectedSection === AICustomizationManagementSection.Prompts ? PromptsType.prompt
+					: undefined;
 	const fixtureFiles = (options.files ?? allFiles)
 		.filter(file => !(file.type === selectedPromptType && options.emptyWorkspaceSection && file.storage === PromptsStorage.local))
 		.filter(file => !(file.type === selectedPromptType && options.emptyUserSection && file.storage === PromptsStorage.user))
@@ -1680,9 +1678,9 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 		const description = ctx.container.querySelector<HTMLElement>('.customization-discovery-description');
 		const descriptionLinks = [...description?.querySelectorAll('a') ?? []].map(link => link.textContent);
 		assert(
-			description?.textContent === 'Find new ways to extend your agent with Plugins, MCP Servers, Skills, Instructions, Agents, and Hooks.'
-			&& descriptionLinks.join('\n') === ['Plugins', 'MCP Servers', 'Skills', 'Instructions', 'Agents', 'Hooks'].join('\n'),
-			'Discover must link each customization type from its description.',
+			description?.textContent === 'Find new ways to extend your agent with Plugins, MCP Servers, Skills, Agents, and Hooks.'
+			&& descriptionLinks.join('\n') === ['Plugins', 'MCP Servers', 'Skills', 'Agents', 'Hooks'].join('\n'),
+			'Discover must link each remaining customization type from its description.',
 		);
 		const featured = ctx.container.querySelector<HTMLElement>('.customization-discovery-section.featured');
 		const featuredCard = featured?.querySelector<HTMLElement>('.customization-discovery-card');
@@ -2775,7 +2773,6 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 				AICustomizationManagementSection.Plugins,
 				AICustomizationManagementSection.McpServers,
 				AICustomizationManagementSection.Skills,
-				AICustomizationManagementSection.Instructions,
 				AICustomizationManagementSection.Agents,
 				AICustomizationManagementSection.Hooks,
 				AICustomizationManagementSection.Tools,
@@ -2798,7 +2795,6 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 				AICustomizationManagementSection.Plugins,
 				AICustomizationManagementSection.McpServers,
 				AICustomizationManagementSection.Skills,
-				AICustomizationManagementSection.Instructions,
 				AICustomizationManagementSection.Agents,
 				AICustomizationManagementSection.Hooks,
 				AICustomizationManagementSection.Tools,
@@ -3000,15 +2996,6 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 			agentHostFiles: allFiles.filter(file => file.type !== PromptsType.skill || file.name === 'Accessibility' || file.name === 'Code Review' || file.storage === PromptsStorage.builtIn),
 			remoteClientSkillName: 'Code Review',
 			height: 800,
-		}),
-	}),
-
-	// Instructions tab — many instructions with applyTo patterns, scrollable
-	InstructionsTab: defineComponentFixture({
-		labels: { kind: 'screenshot', blocksCi: false },
-		render: ctx => renderEditor(ctx, {
-			sessionResource: localSessionResource,
-			selectedSection: AICustomizationManagementSection.Instructions,
 		}),
 	}),
 

@@ -1,0 +1,315 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-modal-editor-part .shideh-settings-editor {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	max-width: 920px;
+	margin: 0 auto;
+	padding: 0 16px 16px;
+}
+
+.shideh-settings-editor {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	box-sizing: border-box;
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium, 8px);
+	overflow: hidden;
+}
+
+.shideh-settings-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-shrink: 0;
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	gap: 12px;
+}
+
+.shideh-settings-title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	line-height: 24px;
+}
+
+.shideh-settings-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.shideh-settings-link-button {
+	border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: var(--vscode-button-secondaryBackground, transparent);
+	color: var(--vscode-foreground);
+	font: inherit;
+	font-size: 12px;
+	padding: 4px 10px;
+	cursor: pointer;
+}
+
+.shideh-settings-link-button:hover {
+	background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+.shideh-settings-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.shideh-settings-close:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.shideh-settings-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+
+.shideh-settings-nav {
+	flex: 0 0 200px;
+	padding: 12px 8px;
+	border-right: 1px solid var(--vscode-panel-border);
+	box-sizing: border-box;
+	min-height: 0;
+	overflow: auto;
+}
+
+.shideh-settings-nav-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.shideh-settings-nav-item {
+	display: block;
+	padding: 8px 12px;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 18px;
+	user-select: none;
+}
+
+.shideh-settings-nav-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.shideh-settings-nav-item.selected {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.shideh-settings-nav-item:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.shideh-settings-panel {
+	flex: 1;
+	padding: 20px 24px;
+	overflow: auto;
+	box-sizing: border-box;
+	min-height: 0;
+	min-width: 0;
+}
+
+.shideh-settings-panel h2 {
+	margin: 0 0 6px;
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 26px;
+}
+
+.shideh-settings-panel p.shideh-settings-description {
+	margin: 0 0 16px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+	font-size: 13px;
+}
+
+.shideh-settings-list {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	overflow: hidden;
+}
+
+.shideh-settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-height: 52px;
+	padding: 10px 14px;
+	box-sizing: border-box;
+}
+
+.shideh-settings-row + .shideh-settings-row,
+.shideh-settings-row + .agents-theme-picker,
+.agents-theme-picker + .shideh-settings-row {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.shideh-settings-row-labels {
+	flex: 1;
+	min-width: 0;
+}
+
+.shideh-settings-row-label {
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 18px;
+}
+
+.shideh-settings-row-description {
+	margin-top: 2px;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-settings-row-control {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	min-width: 120px;
+}
+
+.shideh-settings-row-control-with-suffix .monaco-inputbox {
+	flex: 1;
+	min-width: 64px;
+	max-width: 80px;
+}
+
+.shideh-settings-input-suffix {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-settings-row-interactive {
+	cursor: pointer;
+}
+
+.shideh-settings-row-interactive:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.shideh-settings-row-interactive:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.shideh-settings-row-action {
+	font-size: 12px;
+	color: var(--vscode-textLink-foreground);
+}
+
+.agents-theme-picker {
+	width: 100%;
+	padding: 14px;
+	box-sizing: border-box;
+}
+
+.agents-theme-picker h2 {
+	margin: 0 0 4px;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.agents-theme-picker p {
+	margin: 0 0 10px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.agents-theme-picker-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.agents-theme-picker-option {
+	min-height: 32px;
+	padding: 6px 10px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease;
+}
+
+.agents-theme-picker-option:hover {
+	transform: translateY(-1px);
+	background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+.agents-theme-picker-option[aria-pressed="true"] {
+	border-color: var(--vscode-focusBorder);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.agents-theme-picker-option {
+		transition: none;
+	}
+}
+
+.session-history-editor {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 16px 24px;
+	box-sizing: border-box;
+	min-height: 0;
+}
+
+.session-history-editor-title {
+	margin: 0 0 12px;
+	font-size: 22px;
+	font-weight: 600;
+}
+
+.session-history-editor-host {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+
+.agent-session-history--page .agent-session-history-header {
+	display: none;
+}
+
+.agent-session-history--page .agent-session-history-table-container {
+	max-height: none;
+}

@@ -62,7 +62,7 @@ import { MobilePermissionPicker } from '../../shared/browser/mobilePermissionPic
 import { isPhoneLayout } from '../../../../browser/parts/mobile/mobileLayout.js';
 import { showMobilePickerSheet, IMobilePickerSheetItem, IMobilePickerSheetSearchSource, MOBILE_PICKER_SHEET_CONFIRM } from '../../../../browser/parts/mobile/mobilePickerSheet.js';
 import { AgentHostModePicker } from './agentHostModePicker.js';
-import { MobileAgentHostModePicker } from './mobile/mobileAgentHostModePicker.js';
+import { createAgentHostModePicker } from '../../../shideh/browser/shidehAgentHostModePickerRegistration.js';
 import { AgentHostPermissionPickerActionItem } from './agentHostPermissionPickerActionItem.js';
 import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
@@ -92,10 +92,7 @@ const repositoryConfigSequencer = new SequencerByKey<string>();
 function showActiveSessionModePicker(accessor: ServicesAccessor): void {
 	const activeElement = dom.getActiveElement();
 	const anchor = dom.isHTMLElement(activeElement) ? activeElement : dom.getActiveDocument().body;
-	const picker = accessor.get(IInstantiationService).createInstance(
-		isPhoneLayout(accessor.get(IWorkbenchLayoutService)) ? MobileAgentHostModePicker : AgentHostModePicker,
-		accessor.get(ISessionsService).activeSession,
-	);
+	const picker = createAgentHostModePicker(accessor.get(IInstantiationService), accessor.get(ISessionsService).activeSession);
 	if (!picker.showPicker(anchor, () => picker.dispose())) {
 		picker.dispose();
 	}
@@ -1674,10 +1671,7 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 			NEW_SESSION_MODE_PICKER_ID,
 			(_action, _options, scopedInstantiationService) => {
 				const { session } = scopedInstantiationService.invokeFunction(accessor => accessor.get(ISessionContext));
-				return new PickerActionViewItem(scopedInstantiationService.createInstance(
-					isPhoneLayout(this._layoutService) ? MobileAgentHostModePicker : AgentHostModePicker,
-					session,
-				));
+				return new PickerActionViewItem(createAgentHostModePicker(scopedInstantiationService, session));
 			},
 		));
 		const registerRunningSessionPicker = (actionId: string, factory: IActionViewItemFactory) => {
@@ -1688,10 +1682,7 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 			RUNNING_SESSION_MODE_PICKER_ID,
 			(_action, _options, scopedInstantiationService) => {
 				const { session } = scopedInstantiationService.invokeFunction(accessor => accessor.get(ISessionContext));
-				return new PickerActionViewItem(scopedInstantiationService.createInstance(
-					isPhoneLayout(this._layoutService) ? MobileAgentHostModePicker : AgentHostModePicker,
-					session,
-				));
+				return new PickerActionViewItem(createAgentHostModePicker(scopedInstantiationService, session));
 			},
 		);
 		this._register(actionViewItemService.register(

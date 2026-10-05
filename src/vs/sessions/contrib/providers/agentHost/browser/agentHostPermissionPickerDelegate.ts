@@ -31,6 +31,8 @@ import { CopilotCLISessionType } from './baseAgentHostSessionsProvider.js';
 import { IChatPhoneInputPresenter } from '../../../../../workbench/contrib/chat/browser/widget/input/chatPhoneInputPresenter.js';
 import { IWorkbenchEnvironmentService } from '../../../../../workbench/services/environment/common/environmentService.js';
 import { isWellKnownAutoApproveSchema, isWellKnownModeSchema, shouldCombineModeAndPermissions } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
+import { getShidehPermissionLevelLabel, isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
 
 const REQUIRED_PERMISSION_MODE_VALUE = 'default';
 
@@ -106,6 +108,24 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 	readonly defaultSettingKey = ChatConfiguration.DefaultConfiguration;
 
 	getPermissionLevelMeta(level: ChatPermissionLevel, meta: IPermissionLevelMeta): IPermissionLevelMeta {
+		if (isShidehSimplifiedChatChrome(this._productService)) {
+			const label = getShidehPermissionLevelLabel(level);
+			switch (level) {
+				case ChatPermissionLevel.Default:
+					return {
+						...meta,
+						label,
+						detail: localize('agentHostPermissionPicker.askWhenNeeded.detail', "Asks when approval settings don't apply"),
+						icon: Codicon.key,
+					};
+				case ChatPermissionLevel.Assisted:
+					return { ...meta, label, detail: localize('agentHostPermissionPicker.approveWhenSafe.detail', "Evaluates risk before running tools") };
+				case ChatPermissionLevel.AutoApprove:
+					return { ...meta, label, detail: localize('agentHostPermissionPicker.allowAll.detail', "Runs tool calls without asking") };
+				case ChatPermissionLevel.Autopilot:
+					return { ...meta, label };
+			}
+		}
 		switch (level) {
 			case ChatPermissionLevel.Default:
 				return {
@@ -132,6 +152,7 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 		@ILogService private readonly _logService: ILogService,
 		@IAgentHostEnablementService agentHostEnablementService: IAgentHostEnablementService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
+		@IProductService private readonly _productService: IProductService,
 	) {
 		super();
 		const isDevContainer = derived(this, reader => {

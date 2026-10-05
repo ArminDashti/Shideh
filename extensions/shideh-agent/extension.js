@@ -9,6 +9,7 @@ const VERSION = '1.0.0';
 const USER_AGENT = `shideh/${VERSION}`;
 const DEFAULT_BASE_URL = 'https://opencode.ai/zen/go/v1';
 const SECRET_KEY = 'shideh.opencodeGo.apiKey';
+const { registerOpenAiCompatibleProvider } = require('./providers.js');
 const MAX_TOOL_ROUNDS = 8;
 const MAX_TOOL_CHARS = 12000;
 
@@ -17,10 +18,28 @@ function baseUrlOf(configValue) {
 	return raw || DEFAULT_BASE_URL;
 }
 
-function toOpenAiMessages(messages) {
+function loadMemorySnippet(config) {
+	if (config.get('memory.enabled', true) === false) {
+		return '';
+	}
+	const framework = config.get('memory.framework', 'mem0');
+	const file = path.join(os.homedir(), '.sauronharness', 'memory', framework, 'active.json');
+	try {
+		const doc = JSON.parse(fs.readFileSync(file, 'utf8'));
+		const lines = (doc.entries || []).slice(-8).map(entry => entry.text).filter(Boolean);
+		if (!lines.length) {
+			return '';
+		}
+		return `\n\nRelevant memory (${framework}):\n${lines.join('\n')}`;
+	} catch {
+		return '';
+	}
+}
+
+function toOpenAiMessages(messages, memorySuffix) {
 	const out = [{
 		role: 'system',
-		content: 'You are Shideh, a coding agent in the user editor. Use the tools to read files, edit files, list directories, and run terminal commands. Prefer small edits. Stay inside the workspace.'
+		content: `You are Shideh, a coding agent in the user editor. Use the tools to read files, edit files, list directories, and run terminal commands. Prefer small edits. Stay inside the workspace.${memorySuffix || ''}`
 	}];
 	for (const message of messages) {
 		const role = message.role === 2 || message.role === 'assistant' ? 'assistant' : 'user';
@@ -143,13 +162,35 @@ function selfCheck() {
 	console.log('shideh-agent self-check ok');
 }
 
-async function readApiKey(secrets, silent) {
-	if (process.env.OPENCODE_API_KEY) {
-		return process.env.OPENCODE_API_KEY;
+async function readSecret(secrets, storageKey, envName, promptTitle, silent) {
+	if (envName && process.env[envName]) {
+		return process.env[envName];
 	}
-	const stored = await secrets.get(SECRET_KEY);
+	const stored = await secrets.get(storageKey);
 	if (stored) {
 		return stored;
+	}
+	if (silent) {
+		return '';
+	}
+	const vscode = require('vscode');
+	const typed = await vscode.window.showInputBox({
+		title: promptTitle,
+		prompt: promptTitle,
+		password: true,
+		ignoreFocusOut: true
+	});
+	if (!typed) {
+		return '';
+	}
+	await secrets.store(storageKey, typed);
+	return typed;
+}
+
+async function readOpenCodeGoApiKey(secrets, silent) {
+	const fromEnv = await readSecret(secrets, SECRET_KEY, 'OPENCODE_API_KEY', 'OpenCode Go API key', true);
+	if (fromEnv) {
+		return fromEnv;
 	}
 	const authPath = path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
 	try {
@@ -162,21 +203,41 @@ async function readApiKey(secrets, silent) {
 	} catch {
 		// Missing local OpenCode auth is fine; prompt next.
 	}
-	if (silent) {
-		return '';
+	return readSecret(secrets, SECRET_KEY, 'OPENCODE_API_KEY', 'OpenCode Go API key', silent);
+}
+
+function registerShidehProviders(vscode, context, onDidChangeModels) {
+	const bearer = apiKey => ({ Authorization: `Bearer ${apiKey}` });
+	const specs = [
+		{ vendor: 'opencode-go', displayName: 'OpenCode Go', secretKey: SECRET_KEY, env: 'OPENCODE_API_KEY', baseUrlSetting: 'opencodeGo.baseUrl', defaultBaseUrl: 'https://opencode.ai/zen/go/v1', read: readOpenCodeGoApiKey },
+		{ vendor: 'opencode-zen', displayName: 'OpenCode Zen', secretKey: 'shideh.opencodeZen.apiKey', env: 'OPENCODE_ZEN_API_KEY', baseUrlSetting: 'opencodeZen.baseUrl', defaultBaseUrl: 'https://opencode.ai/zen/v1' },
+		{ vendor: 'openrouter', displayName: 'OpenRouter', secretKey: 'shideh.openrouter.apiKey', env: 'OPENROUTER_API_KEY', baseUrlSetting: 'openrouter.baseUrl', defaultBaseUrl: 'https://openrouter.ai/api/v1' },
+		{ vendor: 'openai', displayName: 'OpenAI', secretKey: 'shideh.openai.apiKey', env: 'OPENAI_API_KEY', baseUrlSetting: 'openai.baseUrl', defaultBaseUrl: 'https://api.openai.com/v1' },
+		{ vendor: 'anthropic', displayName: 'Anthropic', secretKey: 'shideh.anthropic.apiKey', env: 'ANTHROPIC_API_KEY', baseUrlSetting: 'anthropic.baseUrl', defaultBaseUrl: 'https://api.anthropic.com/v1', chatPath: '/messages', modelsPath: '/models' },
+		{ vendor: 'ollama', displayName: 'Ollama', secretKey: 'shideh.ollama.apiKey', env: 'OLLAMA_API_KEY', baseUrlSetting: 'ollama.baseUrl', defaultBaseUrl: 'http://127.0.0.1:11434/v1', fallbackModels: [{ id: 'llama3.2', name: 'llama3.2' }] },
+		{ vendor: 'openai-compatible', displayName: 'OpenAI Compatible', secretKey: 'shideh.openaiCompatible.apiKey', env: 'OPENAI_COMPATIBLE_API_KEY', baseUrlSetting: 'openaiCompatible.baseUrl', defaultBaseUrl: 'http://127.0.0.1:8080/v1' },
+		{ vendor: 'deepseek', displayName: 'DeepSeek', secretKey: 'shideh.deepseek.apiKey', env: 'DEEPSEEK_API_KEY', baseUrlSetting: 'deepseek.baseUrl', defaultBaseUrl: 'https://api.deepseek.com/v1', fallbackModels: [{ id: 'deepseek-chat', name: 'deepseek-chat' }] },
+	];
+	for (const spec of specs) {
+		registerOpenAiCompatibleProvider(vscode, context, onDidChangeModels, {
+			vendor: spec.vendor,
+			displayName: spec.displayName,
+			secretKey: spec.secretKey,
+			baseUrlSetting: spec.baseUrlSetting,
+			defaultBaseUrl: spec.defaultBaseUrl,
+			chatPath: spec.chatPath,
+			modelsPath: spec.modelsPath,
+			fallbackModels: spec.fallbackModels,
+			authHeaders: apiKey => bearer(apiKey || 'ollama'),
+			readApiKey: async (secrets, silent) => {
+				const key = await readSecret(secrets, spec.secretKey, spec.env, `${spec.displayName} API key`, silent);
+				if (spec.vendor === 'ollama' && !key) {
+					return 'ollama';
+				}
+				return key;
+			},
+		});
 	}
-	const vscode = require('vscode');
-	const typed = await vscode.window.showInputBox({
-		title: 'OpenCode Go API key',
-		prompt: 'Paste the OpenCode Go API key. It stays in secret storage.',
-		password: true,
-		ignoreFocusOut: true
-	});
-	if (!typed) {
-		return '';
-	}
-	await secrets.store(SECRET_KEY, typed);
-	return typed;
 }
 
 function resolveInWorkspace(inputPath, vscode) {
@@ -207,88 +268,7 @@ function activate(context) {
 	const onDidChangeModels = new vscode.EventEmitter();
 	context.subscriptions.push(onDidChangeModels);
 
-	context.subscriptions.push(vscode.lm.registerLanguageModelChatProvider('opencode-go', {
-		onDidChangeLanguageModelChatInformation: onDidChangeModels.event,
-		async provideLanguageModelChatInformation(options) {
-			const config = vscode.workspace.getConfiguration('shideh');
-			const base = baseUrlOf(config.get('opencodeGo.baseUrl'));
-			const apiKey = await readApiKey(context.secrets, options.silent !== false);
-			if (!apiKey) {
-				return [];
-			}
-			const response = await fetch(`${base}/models`, {
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					'User-Agent': USER_AGENT
-				}
-			});
-			if (!response.ok) {
-				return [];
-			}
-			const body = await response.json();
-			const rows = Array.isArray(body) ? body : (body.data || []);
-			return rows.filter(row => row && row.id).map(row => ({
-				id: row.id,
-				name: row.id,
-				family: row.id,
-				version: '1',
-				maxInputTokens: 200000,
-				maxOutputTokens: 16000,
-				capabilities: { toolCalling: true }
-			}));
-		},
-		async provideLanguageModelChatResponse(model, messages, options, progress) {
-			const config = vscode.workspace.getConfiguration('shideh');
-			const base = baseUrlOf(config.get('opencodeGo.baseUrl'));
-			const apiKey = await readApiKey(context.secrets, false);
-			if (!apiKey) {
-				throw new Error('OpenCode Go API key is missing.');
-			}
-			const sessionId = (options.modelOptions && options.modelOptions.sessionId) || 'shideh';
-			const response = await fetch(`${base}/chat/completions`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-					'User-Agent': USER_AGENT,
-					'x-opencode-session': sessionId
-				},
-				body: JSON.stringify({
-					model: model.id,
-					stream: true,
-					messages: toOpenAiMessages(messages),
-					tools: (options.tools || []).map(tool => ({
-						type: 'function',
-						function: {
-							name: tool.name,
-							description: tool.description,
-							parameters: tool.inputSchema || { type: 'object', properties: {} }
-						}
-					}))
-				})
-			});
-			if (!response.ok) {
-				throw new Error(`OpenCode Go returned ${response.status}.`);
-			}
-			const parsed = parseSse(await response.text());
-			if (parsed.text) {
-				progress.report(new vscode.LanguageModelTextPart(parsed.text));
-			}
-			for (const call of parsed.toolCalls) {
-				let input = {};
-				try {
-					input = call.arguments ? JSON.parse(call.arguments) : {};
-				} catch {
-					input = {};
-				}
-				progress.report(new vscode.LanguageModelToolCallPart(call.id || call.name, call.name, input));
-			}
-		},
-		provideTokenCount(_model, text) {
-			const value = typeof text === 'string' ? text : JSON.stringify(text);
-			return Math.ceil(value.length / 4);
-		}
-	}));
+	registerShidehProviders(vscode, context, onDidChangeModels);
 
 	for (const tool of createTools(vscode)) {
 		context.subscriptions.push(vscode.lm.registerTool(tool.name, tool.impl));
@@ -306,7 +286,9 @@ function activate(context) {
 			stream.markdown('OpenCode Go is not connected. Set OPENCODE_API_KEY, or enter the key when Shideh asks.');
 			return { metadata: { sessionId } };
 		}
-		const messages = historyMessages(vscode, chatContext, request);
+		const shidehConfig = vscode.workspace.getConfiguration('shideh');
+		const memorySuffix = loadMemorySnippet(shidehConfig);
+		const messages = historyMessages(vscode, chatContext, request, memorySuffix);
 		for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
 			if (token.isCancellationRequested) {
 				return { metadata: { sessionId } };
@@ -351,7 +333,7 @@ function activate(context) {
 	});
 	context.subscriptions.push(participant);
 
-	if (vscode.workspace.getConfiguration('shideh').get('openAgentOnStartup') !== false) {
+	if (vscode.workspace.getConfiguration('shideh').get('openAgentPanelOnStartup') === true) {
 		openAgent(vscode);
 	}
 }
@@ -367,8 +349,11 @@ function sessionIdFrom(chatContext) {
 	return `shideh-${Date.now()}`;
 }
 
-function historyMessages(vscode, chatContext, request) {
+function historyMessages(vscode, chatContext, request, memorySuffix) {
 	const messages = [];
+	if (memorySuffix) {
+		messages.push(vscode.LanguageModelChatMessage.User(`Use this persisted memory when answering:${memorySuffix}`));
+	}
 	for (const turn of (chatContext && chatContext.history) || []) {
 		if (typeof turn.prompt === 'string') {
 			messages.push(vscode.LanguageModelChatMessage.User(turn.prompt));

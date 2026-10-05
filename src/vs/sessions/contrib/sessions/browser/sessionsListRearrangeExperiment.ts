@@ -6,7 +6,9 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { autorun, observableSignalFromEvent, observableValue } from '../../../../base/common/observable.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IWorkbenchAssignmentService } from '../../../../workbench/services/assignment/common/assignmentService.js';
+import { isShidehNavigationIntegratedSidebar } from '../../shideh/common/shidehProduct.js';
 
 export const SESSIONS_LIST_REARRANGE_TREATMENT = 'sessions.list.rearrage';
 
@@ -18,8 +20,13 @@ export class SessionsListRearrangeExperimentState extends Disposable {
 	constructor(
 		@IWorkbenchAssignmentService private readonly assignmentService: IWorkbenchAssignmentService,
 		@ILogService private readonly logService: ILogService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super();
+
+		if (isShidehNavigationIntegratedSidebar(this.productService)) {
+			this.rearrangeList.set(true, undefined);
+		}
 
 		const assignmentsChanged = observableSignalFromEvent(this, this.assignmentService.onDidRefetchAssignments);
 		this._register(autorun(reader => {
@@ -29,6 +36,10 @@ export class SessionsListRearrangeExperimentState extends Disposable {
 	}
 
 	refresh(): void {
+		if (isShidehNavigationIntegratedSidebar(this.productService)) {
+			this.rearrangeList.set(true, undefined);
+			return;
+		}
 		const request = ++this.request;
 		this.assignmentService.getTreatment<boolean>(SESSIONS_LIST_REARRANGE_TREATMENT).then(value => {
 			if (!this._store.isDisposed && request === this.request) {

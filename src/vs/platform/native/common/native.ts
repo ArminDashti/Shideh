@@ -110,6 +110,13 @@ export interface IOSStatistics {
 	loadavg: number[];
 }
 
+export interface ISystemResourceMetrics {
+	readonly cpuPercent?: number;
+	readonly memoryPercent?: number;
+	readonly downloadMbps?: number;
+	readonly uploadMbps?: number;
+}
+
 export interface IOSProxy {
 	readonly kind: 'direct' | 'http' | 'socks';
 	readonly host?: string;
@@ -349,6 +356,7 @@ export interface ICommonNativeHostService {
 
 	getOSProperties(): Promise<IOSProperties>;
 	getOSStatistics(): Promise<IOSStatistics>;
+	getSystemResourceMetrics(): Promise<ISystemResourceMetrics>;
 	getOSVirtualMachineHint(): Promise<number>;
 
 	isGPUCompositingEnabled(): Promise<boolean>;

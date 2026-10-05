@@ -80,7 +80,6 @@ import { ChatModelSource, IChat, ISession, ISessionWorkspace, ISessionType, SESS
 import { ISessionComparisonService } from '../../../../services/sessions/common/sessionComparison.js';
 import { ISessionsProvider } from '../../../../services/sessions/common/sessionsProvider.js';
 import { AGENT_FEEDBACK_NEW_SESSION_RESOURCE, AgentFeedbackKind, AgentFeedbackState, IAgentFeedback, IAgentFeedbackService } from '../../../agentFeedback/browser/agentFeedbackService.js';
-import { IAquariumService } from '../../../aquarium/browser/aquariumOverlay.js';
 import { computeIssueIcon, computePullRequestIcon, GitHubIssueState, GitHubPullRequestState } from '../../../github/common/types.js';
 import { NewChatView } from '../../browser/chatView.js';
 import { COLLAPSED_SESSION_OPTIONS_SHOW_ICONS_SETTING, COMPARE_AGENTS_ENABLED_SETTING, EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING, NEW_SESSION_WELCOME_NAME_SETTING, NEW_SESSION_WELCOME_PHRASES_SETTING, UNIFIED_WORKSPACE_PICKER_SETTING } from '../../common/constants.js';
@@ -377,11 +376,6 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 				override readonly hosts = [];
 				override readonly isDiscovering = false;
 				override async rediscover(): Promise<boolean> { return true; }
-			}());
-			reg.defineInstance(IAquariumService, new class extends mock<IAquariumService>() {
-				override mountToggle() {
-					return { dispose() { }, setHostVisible() { } };
-				}
 			}());
 			reg.defineInstance(IAgentFeedbackService, new class extends mock<IAgentFeedbackService>() {
 				override readonly onDidChangeFeedback = Event.None;

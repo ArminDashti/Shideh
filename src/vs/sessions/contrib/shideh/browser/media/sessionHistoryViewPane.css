@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.shideh-session-history-view {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
+.shideh-session-history-title {
+	margin: 0;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	font-size: var(--vscode-fontSize-label1, 12px);
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+	text-transform: uppercase;
+}
+
+.shideh-session-history-view .session-history-editor-host {
+	flex: 1;
+	min-height: 0;
+	padding: 8px;
+	overflow: auto;
+}
+
+.shideh-session-history-view .agent-session-history-table-container {
+	max-height: none;
+}
+
+.shideh-session-history-view .agent-session-history-header {
+	display: none;
+}

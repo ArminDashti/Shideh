@@ -530,7 +530,6 @@ function toItemsModelSection(section: AICustomizationManagementSection): ItemsMo
 	switch (section) {
 		case AICustomizationManagementSection.Agents:
 		case AICustomizationManagementSection.Skills:
-		case AICustomizationManagementSection.Instructions:
 		case AICustomizationManagementSection.Prompts:
 		case AICustomizationManagementSection.Hooks:
 			return section;
@@ -542,7 +541,6 @@ function toItemsModelSection(section: AICustomizationManagementSection): ItemsMo
 export function usesCustomizationTreePresentation(section: AICustomizationManagementSection): boolean {
 	return section === AICustomizationManagementSection.Agents
 		|| section === AICustomizationManagementSection.Skills
-		|| section === AICustomizationManagementSection.Instructions
 		|| section === AICustomizationManagementSection.Hooks
 		|| section === AICustomizationManagementSection.Prompts;
 }
@@ -581,15 +579,6 @@ export function getCountAnnouncement(section: AICustomizationManagementSection, 
 			if (count === 0) { return localize('countSkillsNone', "No skills"); }
 			if (count === 1) { return localize('countSkillsOne', "1 skill"); }
 			return localize('countSkills', "{0} skills", count);
-		case AICustomizationManagementSection.Instructions:
-			if (isFiltering) {
-				if (count === 0) { return localize('countInstructionsNoResults', "No instructions found"); }
-				if (count === 1) { return localize('countInstructionsOneResult', "1 instruction file found"); }
-				return localize('countInstructionsResults', "{0} instruction files found", count);
-			}
-			if (count === 0) { return localize('countInstructionsNone', "No instructions"); }
-			if (count === 1) { return localize('countInstructionsOne', "1 instruction file"); }
-			return localize('countInstructions', "{0} instruction files", count);
 		case AICustomizationManagementSection.Hooks:
 			if (isFiltering) {
 				if (count === 0) { return localize('countHooksNoResults', "No hooks found"); }
@@ -1073,12 +1062,6 @@ export class AICustomizationListWidget extends Disposable {
 				docsUrl = 'https://code.visualstudio.com/docs/agent-customization/agent-skills?referrer=in-product';
 				learnMoreLabel = localize('learnMoreSkills', "Learn more about agent skills");
 				break;
-			case AICustomizationManagementSection.Instructions:
-				title = localize('instructions', "Instructions");
-				description = localize('instructionsDescription', "Define common guidelines and rules that automatically influence how AI generates code and handles development tasks.");
-				docsUrl = 'https://code.visualstudio.com/docs/agent-customization/custom-instructions?referrer=in-product';
-				learnMoreLabel = localize('learnMoreInstructions', "Learn more about custom instructions");
-				break;
 			case AICustomizationManagementSection.Hooks:
 				title = localize('hooks', "Hooks");
 				description = localize('hooksDescription', "Prompts executed at specific points during an agentic lifecycle.");
@@ -1341,8 +1324,6 @@ export class AICustomizationListWidget extends Disposable {
 				return localize('agent', "Agent");
 			case AICustomizationManagementSection.Skills:
 				return localize('skill', "Skill");
-			case AICustomizationManagementSection.Instructions:
-				return localize('instruction', "Instruction");
 			case AICustomizationManagementSection.Hooks:
 				return localize('hook', "Hook");
 			case AICustomizationManagementSection.Prompts:
@@ -1585,9 +1566,7 @@ export class AICustomizationListWidget extends Disposable {
 	}
 
 	private getItemGroupKey(item: IAICustomizationListItem): string {
-		return this.currentSection === AICustomizationManagementSection.Instructions
-			? item.source
-			: item.groupKey ?? item.source ?? AICustomizationSources.local;
+		return item.groupKey ?? item.source ?? AICustomizationSources.local;
 	}
 
 	private usesCustomizationTreePresentation(): boolean {
@@ -1723,11 +1702,6 @@ export class AICustomizationListWidget extends Disposable {
 				return {
 					title: localize('noSkills', "No skills yet"),
 					description: localize('createFirstSkill', "Create your first skill to extend agent capabilities"),
-				};
-			case AICustomizationManagementSection.Instructions:
-				return {
-					title: localize('noInstructions', "No instructions yet"),
-					description: localize('createFirstInstructions', "Add instructions to teach Copilot about your codebase"),
 				};
 			case AICustomizationManagementSection.Hooks:
 				return {

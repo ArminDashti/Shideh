@@ -16,7 +16,7 @@ import { KeybindingWeight } from '../../platform/keybinding/common/keybindingsRe
 import { registerIcon } from '../../platform/theme/common/iconRegistry.js';
 import { CONTEXT_ACCESSIBILITY_MODE_ENABLED } from '../../platform/accessibility/common/accessibility.js';
 import { TogglePanelAction } from '../../workbench/browser/parts/panel/panelActions.js';
-import { IsAuxiliaryWindowContext, IsWindowAlwaysOnTopContext, PanelVisibleContext, SideBarVisibleContext } from '../../workbench/common/contextkeys.js';
+import { IsAuxiliaryWindowContext, IsSessionsWindowContext, IsWindowAlwaysOnTopContext, PanelVisibleContext, SideBarVisibleContext } from '../../workbench/common/contextkeys.js';
 import { IWorkbenchLayoutService, Parts } from '../../workbench/services/layout/browser/layoutService.js';
 import { CustomViewVisibleContext, IsPhoneLayoutContext } from '../common/contextkeys.js';
 
@@ -94,7 +94,7 @@ MenuRegistry.appendMenuItem(Menus.TitleBarLeftLayout, {
 	},
 	group: 'navigation',
 	order: -1,
-	when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate()),
+	when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate(), IsSessionsWindowContext.negate()),
 });
 
 const titleBarPanelWhen = ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), IsPhoneLayoutContext.negate());

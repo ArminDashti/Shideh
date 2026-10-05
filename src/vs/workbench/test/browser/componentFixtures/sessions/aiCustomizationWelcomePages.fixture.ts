@@ -25,7 +25,6 @@ import '../../../../contrib/chat/browser/aiCustomization/media/aiCustomizationMa
 const visibleSections = new Set<AICustomizationManagementSection>([
 	AICustomizationManagementSection.Agents,
 	AICustomizationManagementSection.Skills,
-	AICustomizationManagementSection.Instructions,
 	AICustomizationManagementSection.Prompts,
 	AICustomizationManagementSection.Hooks,
 	AICustomizationManagementSection.McpServers,

@@ -155,7 +155,6 @@ function getSectionType(section: ItemsModelSection): DiscoveryItemType {
 	switch (section) {
 		case AICustomizationManagementSection.Agents: return 'agent';
 		case AICustomizationManagementSection.Skills: return 'skill';
-		case AICustomizationManagementSection.Instructions: return 'instructions';
 		case AICustomizationManagementSection.Hooks: return 'hook';
 		default: return 'prompt';
 	}
@@ -885,9 +884,6 @@ export class AICustomizationDiscoveryPage extends Disposable implements IAICusto
 			if (this.visibleSectionIds.has(AICustomizationManagementSection.Skills)) {
 				actions.push(disposables.add(new Action('customizationDiscovery.newSkill', localize('customizationDiscovery.newSkill', "New Skill"), undefined, true, () => this.createCustomization(PromptsType.skill))));
 			}
-			if (this.visibleSectionIds.has(AICustomizationManagementSection.Instructions)) {
-				actions.push(disposables.add(new Action('customizationDiscovery.newInstructions', localize('customizationDiscovery.newInstructions', "New Instructions"), undefined, true, () => this.createCustomization(PromptsType.instructions))));
-			}
 			if (this.visibleSectionIds.has(AICustomizationManagementSection.Prompts)) {
 				actions.push(disposables.add(new Action('customizationDiscovery.newPrompt', localize('customizationDiscovery.newPrompt', "New Prompt"), undefined, true, () => this.createCustomization(PromptsType.prompt))));
 			}
@@ -920,16 +916,15 @@ export class AICustomizationDiscoveryPage extends Disposable implements IAICusto
 			AICustomizationManagementSection.Plugins,
 			AICustomizationManagementSection.McpServers,
 			AICustomizationManagementSection.Skills,
-			AICustomizationManagementSection.Instructions,
 			AICustomizationManagementSection.Agents,
 			AICustomizationManagementSection.Hooks,
 		] as const;
 		const description = localize({
 			key: 'customizationDiscovery.description',
 			comment: [
-				'Preserve the double square brackets: they mark the customization types that become links. Keep all six links in this order: Plugins, MCP Servers, Skills, Instructions, Agents, and Hooks.',
+				'Preserve the double square brackets: they mark the customization types that become links. Keep all five links in this order: Plugins, MCP Servers, Skills, Agents, and Hooks.',
 			],
-		}, "Find new ways to extend your agent with [[Plugins]], [[MCP Servers]], [[Skills]], [[Instructions]], [[Agents]], and [[Hooks]].");
+		}, "Find new ways to extend your agent with [[Plugins]], [[MCP Servers]], [[Skills]], [[Agents]], and [[Hooks]].");
 		renderFormattedText(description, {
 			actionHandler: {
 				callback: (index, event) => {

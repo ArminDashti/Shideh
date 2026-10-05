@@ -144,12 +144,6 @@ export const SessionsBlockedSessionsVisibleContext = new RawContextKey<boolean>(
 
 //#endregion
 
-//#region < --- Aquarium --- >
-
-export const SessionsAquariumActiveContext = new RawContextKey<boolean>('sessionsAquariumActive', false, localize('sessionsAquariumActive', "Whether the sessions aquarium overlay is active"));
-
-//#endregion
-
 //#region < --- Session Navigation --- >
 
 export const CanGoBackContext = new RawContextKey<boolean>('sessionsCanGoBack', false, localize('sessionsCanGoBack', "Whether there is a previous session in the navigation history"));
