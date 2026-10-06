@@ -7,6 +7,37 @@ function baseUrlOf(configValue, fallback) {
 	return raw || fallback;
 }
 
+function parseExtraHeaders(raw) {
+	const headers = {};
+	if (!raw || typeof raw !== 'string') {
+		return headers;
+	}
+	for (const line of raw.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#')) {
+			continue;
+		}
+		const index = trimmed.indexOf(':');
+		if (index <= 0) {
+			continue;
+		}
+		const name = trimmed.slice(0, index).trim();
+		const value = trimmed.slice(index + 1).trim();
+		if (name) {
+			headers[name] = value;
+		}
+	}
+	return headers;
+}
+
+function requestHeaders(config, spec, apiKey) {
+	return {
+		'User-Agent': USER_AGENT,
+		...spec.authHeaders(apiKey),
+		...(spec.extraHeadersSetting ? parseExtraHeaders(config.get(spec.extraHeadersSetting)) : {}),
+	};
+}
+
 function toOpenAiMessages(messages) {
 	const out = [];
 	for (const message of messages) {
@@ -113,7 +144,7 @@ function registerOpenAiCompatibleProvider(vscode, context, onDidChangeModels, sp
 				return [];
 			}
 			const modelsUrl = spec.modelsPath ? `${base}${spec.modelsPath}` : `${base}/models`;
-			const headers = { 'User-Agent': USER_AGENT, ...spec.authHeaders(apiKey) };
+			const headers = requestHeaders(config, spec, apiKey);
 			const response = await fetch(modelsUrl, { headers });
 			if (!response.ok) {
 				return spec.fallbackModels || [];
@@ -143,8 +174,7 @@ function registerOpenAiCompatibleProvider(vscode, context, onDidChangeModels, sp
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'User-Agent': USER_AGENT,
-					...spec.authHeaders(apiKey)
+					...requestHeaders(config, spec, apiKey),
 				},
 				body: JSON.stringify({
 					model: model.id,

@@ -32,7 +32,7 @@ import { IChatPhoneInputPresenter } from '../../../../../workbench/contrib/chat/
 import { IWorkbenchEnvironmentService } from '../../../../../workbench/services/environment/common/environmentService.js';
 import { isWellKnownAutoApproveSchema, isWellKnownModeSchema, shouldCombineModeAndPermissions } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
-import { getShidehPermissionLevelLabel, isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
+import { getShidehPermissionLevelDescription, getShidehPermissionLevelIcon, getShidehPermissionLevelLabel, isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
 
 const REQUIRED_PERMISSION_MODE_VALUE = 'default';
 
@@ -109,22 +109,12 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 
 	getPermissionLevelMeta(level: ChatPermissionLevel, meta: IPermissionLevelMeta): IPermissionLevelMeta {
 		if (isShidehSimplifiedChatChrome(this._productService)) {
-			const label = getShidehPermissionLevelLabel(level);
-			switch (level) {
-				case ChatPermissionLevel.Default:
-					return {
-						...meta,
-						label,
-						detail: localize('agentHostPermissionPicker.askWhenNeeded.detail', "Asks when approval settings don't apply"),
-						icon: Codicon.key,
-					};
-				case ChatPermissionLevel.Assisted:
-					return { ...meta, label, detail: localize('agentHostPermissionPicker.approveWhenSafe.detail', "Evaluates risk before running tools") };
-				case ChatPermissionLevel.AutoApprove:
-					return { ...meta, label, detail: localize('agentHostPermissionPicker.allowAll.detail', "Runs tool calls without asking") };
-				case ChatPermissionLevel.Autopilot:
-					return { ...meta, label };
-			}
+			return {
+				...meta,
+				label: getShidehPermissionLevelLabel(level),
+				detail: getShidehPermissionLevelDescription(level),
+				icon: getShidehPermissionLevelIcon(level),
+			};
 		}
 		switch (level) {
 			case ChatPermissionLevel.Default:
@@ -223,11 +213,19 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 			this._configChangedSignal.read(reader);
 			const session = this._session.read(reader);
 			const config = session ? this._getProvider(session.providerId)?.getSessionConfig(session.sessionId) : undefined;
+			const modeSchema = config?.schema.properties[SessionConfigKey.Mode];
+			const permissionSchema = config?.schema.properties[SessionConfigKey.AutoApprove];
+			if (isShidehSimplifiedChatChrome(this._productService)) {
+				return !phoneInputPresenter.enabled.read(reader)
+					&& session?.sessionType === CopilotCLISessionType.id
+					&& !!modeSchema && !modeSchema.readOnly && !modeSchema.enumDynamic && isWellKnownModeSchema(modeSchema)
+					&& !!permissionSchema && !permissionSchema.readOnly && !permissionSchema.enumDynamic && isWellKnownAutoApproveSchema(permissionSchema);
+			}
 			return !phoneInputPresenter.enabled.read(reader) && shouldCombineModeAndPermissions(
 				this._configurationService.getValue<boolean>(ChatConfiguration.ExperimentalModePermissionsPicker) === true,
 				session?.sessionType === CopilotCLISessionType.id,
-				config?.schema.properties[SessionConfigKey.Mode],
-				config?.schema.properties[SessionConfigKey.AutoApprove],
+				modeSchema,
+				permissionSchema,
 			);
 		});
 		this.isApplicable = derived(this, reader => this._readIsWellKnown(reader) && !this.isModePickerCombined.read(reader));

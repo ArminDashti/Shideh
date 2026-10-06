@@ -29,7 +29,7 @@ import { ChatConfiguration, ChatPermissionLevel, isChatPermissionLevel } from '.
 import { getPermissionLevelBadge, IModePickerPermissions } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { reportNewChatPickerClosed } from '../../../chat/browser/newChatPickerTelemetry.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
-import { isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
+import { getShidehPermissionLevelLabel, isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
 
 /**
  * Strategy for the per-provider parts of {@link PermissionPicker}: how to read
@@ -508,13 +508,16 @@ export class PermissionPicker extends Disposable {
 		dom.clearNode(trigger);
 		const meta = this._getPermissionLevelMeta(this._currentLevel);
 		const sandboxed = this._isSandboxToggleAvailable() && this._isSandboxingEnabled();
-		const accessibleLabel = sandboxed
-			? localize('permissionPicker.sandboxedLabel', "{0} (sandboxed)", meta.label)
+		const displayLabel = isShidehSimplifiedChatChrome(this.productService)
+			? getShidehPermissionLevelLabel(this._currentLevel)
 			: meta.label;
+		const accessibleLabel = sandboxed
+			? localize('permissionPicker.sandboxedLabel', "{0} (sandboxed)", displayLabel)
+			: displayLabel;
 
 		dom.append(trigger, renderIcon(meta.icon));
 		const labelSpan = dom.append(trigger, dom.$('span.sessions-chat-dropdown-label'));
-		labelSpan.textContent = meta.label;
+		labelSpan.textContent = displayLabel;
 		if (sandboxed) {
 			const sandboxIcon = dom.append(trigger, renderIcon(Codicon.shield));
 			sandboxIcon.classList.add('sessions-chat-sandbox-icon');

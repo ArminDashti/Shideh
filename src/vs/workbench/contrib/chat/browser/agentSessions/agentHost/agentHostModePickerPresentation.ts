@@ -236,7 +236,17 @@ function getShortPermissionLabel(permissions: IModePickerPermissions, simplified
 	}
 }
 
-export function createModePickerPermissionsItems<T>(permissions: IModePickerPermissions, items: readonly IActionListItem<IAction>[], configurePermissions: () => Promise<void>, simplifiedLabels = false): IActionListItem<T | IAction>[] {
+export function createModePickerPermissionsItems<T>(permissions: IModePickerPermissions, items: readonly IActionListItem<IAction>[], configurePermissions: () => Promise<void>, simplifiedLabels = false, omitSectionHeader = false): IActionListItem<T | IAction>[] {
+	const mapped = items.map(item => ({
+		...item,
+		section: PERMISSIONS_SECTION_ID,
+	}));
+	if (omitSectionHeader) {
+		return [
+			{ kind: ActionListItemKind.Separator, label: '', disabled: false },
+			...mapped,
+		];
+	}
 	const label = localize('agentHostModePicker.permissions', "Permissions");
 	return [{
 		kind: ActionListItemKind.Action,
@@ -255,8 +265,5 @@ export function createModePickerPermissionsItems<T>(permissions: IModePickerPerm
 			class: ThemeIcon.asClassName(Codicon.gear),
 			run: configurePermissions,
 		})],
-	}, ...items.map(item => ({
-		...item,
-		section: PERMISSIONS_SECTION_ID,
-	}))];
+	}, ...mapped];
 }

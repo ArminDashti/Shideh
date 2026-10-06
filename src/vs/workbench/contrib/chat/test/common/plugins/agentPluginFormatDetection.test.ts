@@ -243,6 +243,21 @@ suite('AgentPlugin format detection', () => {
 		assert.strictEqual(plugins[0].commands.get()[0].name, 'greet');
 	}));
 
+	test('detects Cursor format when .cursor-plugin/plugin.json exists', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		const uri = pluginUri('/plugins/my-cursor-plugin');
+		await writeFile('/plugins/my-cursor-plugin/.cursor-plugin/plugin.json', JSON.stringify({ name: 'my-cursor-plugin', skills: './skills/' }));
+		await writeFile('/plugins/my-cursor-plugin/skills/demo/SKILL.md', '# Demo skill');
+
+		const discovery = createDiscovery();
+		discovery.start(mockEnablementModel);
+		await discovery.setSourcesAndRefresh([uri]);
+
+		const plugins = getDiscoveredPlugins(discovery);
+		assert.strictEqual(plugins.length, 1);
+		await waitForState(plugins[0].skills, skills => skills.length > 0);
+		assert.strictEqual(plugins[0].skills.get()[0].name, 'demo');
+	}));
+
 	test('falls back to Copilot format when no vendor manifest exists', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 		const uri = pluginUri('/plugins/my-copilot-plugin');
 		await writeFile('/plugins/my-copilot-plugin/plugin.json', JSON.stringify({ name: 'my-copilot-plugin' }));

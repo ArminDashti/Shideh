@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/shidehAppearance.css';
+import './media/shidehChatComposer.css';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';

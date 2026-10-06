@@ -685,6 +685,20 @@ export class CodeApplication extends Disposable {
 
 		validatedIpcMain.on('vscode:reloadWindow', event => event.sender.reload());
 
+		validatedIpcMain.handle('vscode:shidehSetLoginItem', async (_event, enabled: boolean) => {
+			if (typeof enabled !== 'boolean') {
+				return { supported: false };
+			}
+			if (isWindows) {
+				app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath, args: [] });
+			} else if (isMacintosh) {
+				app.setLoginItemSettings({ openAtLogin: enabled });
+			} else {
+				app.setLoginItemSettings({ openAtLogin: enabled });
+			}
+			return { supported: true, openAtLogin: app.getLoginItemSettings().openAtLogin };
+		});
+
 		validatedIpcMain.handle('vscode:notifyZoomLevel', async (event, zoomLevel: number | undefined) => {
 			const window = this.windowsMainService?.getWindowByWebContents(event.sender);
 			if (window) {

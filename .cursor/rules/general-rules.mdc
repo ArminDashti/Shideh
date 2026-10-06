@@ -1,0 +1,26 @@
+---
+description: After every task in Shideh, close all running instances, rebuild, and relaunch so changes are visible
+alwaysApply: true
+---
+
+# Rebuild and relaunch after every task
+
+When you finish any task that changes code or resources in this repo, do these steps before you report back. Do them in order.
+
+1. **Close every running instance.** Stop every process whose executable path or command line contains `\GitHub\Shideh\`. That includes `SauronHarness.exe`, `copilot-runtime.exe`, and their child processes.
+   ```powershell
+   Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*\GitHub\Shideh\*' -or $_.CommandLine -like '*\GitHub\Shideh\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+   ```
+2. **Clean rebuild.** Delete `out`, then run `npm run build-fast` from the repo root. Use `build-fast` instead of `npm run compile`, because `compile`'s type check currently fails on unrelated stale tests.
+   ```powershell
+   Remove-Item -Recurse -Force .\out -ErrorAction SilentlyContinue
+   npm run build-fast
+   ```
+   If the build fails, fix the error, or report it if it isn't caused by your change. Do not launch a stale build.
+3. **Relaunch.** Start `scripts\code.bat` in the background so it doesn't block the session.
+   ```powershell
+   Start-Process cmd.exe -ArgumentList '/c','scripts\code.bat' -WorkingDirectory (Get-Location) -WindowStyle Hidden
+   ```
+4. **Verify.** Wait about 20 seconds, then confirm `SauronHarness` processes are running from `\GitHub\Shideh\`. Mention the result in your final reply.
+
+Skip these steps only for tasks that don't touch the app, such as answering questions or editing docs.

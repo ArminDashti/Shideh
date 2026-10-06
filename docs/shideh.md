@@ -20,15 +20,20 @@ Use **Ask**, **Build**, or **Plan** from the session toolbar, or set `shideh.def
 
 ## Hub & Stats
 
-Open **Hub** in the sidebar to browse skills and MCP servers. Open **Stats** for session counts, MCP status, memory framework, harnesses, and bookmarked models.
+Open **Hub** in the sidebar for two sections — **Skills** and **MCP** — each listing the top five trusted download sources (publisher site + in-app Marketplace). The same catalog appears under **Settings → Hub**. Open **Stats** for session counts, MCP status, memory framework, harnesses, and bookmarked models.
 
 ## Favorite models
 
 Run **Shideh: Bookmark Favorite Models** or use **Shideh Settings → Favorite Models**. Bookmarks sync with pinned models in the model picker (`shideh.favoriteModels`).
 
-## Harnesses
+## Harnesses & plugins
 
-`shideh.harnesses` enables **Cursor Plugin** and **Deepseek Harness** remote agent bridges by default (`localhost:3100` and `localhost:3300`). Use **Shideh: Connect Remote Agent** to add hosts.
+`shideh.harnesses` enables **Cursor Plugin** and **Deepseek Harness** integrations by default:
+
+- **Cursor** (`cursorPlugin`): registers the remote bridge (`localhost:3100`), exposes Cursor-format plugins in **Discover**, installs `.cursor-plugin` packages, and syncs plugins from `%USERPROFILE%\.cursor\plugins` into `chat.pluginLocations`. See [Cursor plugins](https://cursor.com/docs/plugins).
+- **Deepseek** (`deepseek`): registers the harness bridge (`localhost:3300`). Add local DSH-compatible package folders via `shideh.plugins.deepseekPluginPaths` (skills/MCP layouts discoverable by the agent plugin system). See [DeepSeek Harness docs](https://deepseek-harness.github.io/deepseek-harness/).
+
+Use **Shideh: Connect Remote Agent** to add more bridge hosts. Open **Hub → Plugins** for curated catalogs.
 
 ## Remote agents
 

@@ -117,7 +117,7 @@ import { AUTOMATIONS_CUSTOM_VIEW_ID } from '../automationsConstants.js';
 import { AutomationsNewBadgeState, type AutomationsNewBadgeStyle } from '../automationsNewBadge.js';
 import { OPEN_AI_CUSTOMIZATIONS_COMMAND_ID } from '../customizationsConstants.js';
 import { SHIDEH_HUB_SECTION_ID, SHIDEH_NEW_PROJECT_SECTION_ID, SHIDEH_PROJECTS_HEADER_SECTION_ID, SHIDEH_SEARCH_SECTION_ID, SHIDEH_STATS_SECTION_ID, ShidehNavigationIntegratedContext } from '../../../shideh/common/shidehContextKeys.js';
-import { SHIDEH_OPEN_STATS_COMMAND_ID } from '../../../shideh/common/shidehCommandIds.js';
+import { SHIDEH_OPEN_HUB_COMMAND_ID, SHIDEH_OPEN_STATS_COMMAND_ID } from '../../../shideh/common/shidehCommandIds.js';
 import { AICustomizationManagementCommands } from '../../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { NEW_SESSION_ACTION_ID } from '../../../chat/common/constants.js';
 import { Menus } from '../../../../browser/menus.js';
@@ -1270,6 +1270,7 @@ interface ISessionItemTemplate {
 	readonly title: HighlightedLabel;
 	readonly titleRow: HTMLElement;
 	readonly titleContainer: HTMLElement;
+	readonly titleTime: HTMLElement;
 	readonly titleInputContainer: HTMLElement;
 	readonly compactHoverDescription: HTMLElement;
 	readonly titleToolbar: MenuWorkbenchToolBar | undefined;
@@ -1402,6 +1403,8 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, 
 		const titleRow = DOM.append(mainCol, $('.session-title-row'));
 		const titleContainer = DOM.append(titleRow, $('.session-title'));
 		const title = disposables.add(new HighlightedLabel(titleContainer));
+		const titleTime = DOM.append(titleRow, $('span.session-title-time'));
+		titleTime.style.display = 'none';
 		const titleInputContainer = DOM.append(titleRow, $('.session-title-input.session-inline-rename-input'));
 		for (const eventType of ['pointerdown', 'pointerup', 'click', 'dblclick'] as const) {
 			disposables.add(DOM.addDisposableListener(titleInputContainer, eventType, e => e.stopPropagation()));
@@ -1500,7 +1503,7 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, 
 			}));
 		}
 
-		return { container, statusIcon, title, titleRow, titleContainer, titleInputContainer, compactHoverDescription, titleToolbar, renderedSession, pendingVoiceIndicator, comparisonAttemptStatus, comparisonAttemptStatusIcon, comparisonAttemptStatusLabel, detailsRow, approvalRow, approvalLabel, approvalButtonContainer, inputNeededRow, inputNeededLabel, ciRow, ciLabel, ciButtonContainer, contextKeyService, statusContext, isReadContext, isArchivedContext, isQuickChatContext, supportsMultipleChatsContext, supportsDeleteContext, disposables, elementDisposables };
+		return { container, statusIcon, title, titleRow, titleContainer, titleTime, titleInputContainer, compactHoverDescription, titleToolbar, renderedSession, pendingVoiceIndicator, comparisonAttemptStatus, comparisonAttemptStatusIcon, comparisonAttemptStatusLabel, detailsRow, approvalRow, approvalLabel, approvalButtonContainer, inputNeededRow, inputNeededLabel, ciRow, ciLabel, ciButtonContainer, contextKeyService, statusContext, isReadContext, isArchivedContext, isQuickChatContext, supportsMultipleChatsContext, supportsDeleteContext, disposables, elementDisposables };
 	}
 
 	renderElement(node: ITreeNode<SessionListItem, FuzzyScore>, _index: number, template: ISessionItemTemplate): void {
@@ -1743,8 +1746,38 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, 
 				if (workspaceBadgeLabel) {
 					DOM.append(template.compactHoverDescription, $('span.session-badge', undefined, workspaceBadgeLabel));
 				}
+
+				const shidehSidebar = this.contextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
+				if (shidehSidebar) {
+					const mainChat = element.mainChat.read(reader);
+					const compactTimeDate = mainChat.status.read(reader) === SessionStatus.InProgress ? undefined : mainChat.updatedAt.read(reader);
+					if (compactTimeDate) {
+						const definiteTimeDate = compactTimeDate;
+						const formatTime = () => formatSessionListTime(definiteTimeDate);
+						template.titleTime.textContent = formatTime();
+						template.titleTime.style.display = '';
+						const targetWindow = DOM.getWindow(template.titleTime);
+						const interval = targetWindow.setInterval(() => {
+							template.titleTime.textContent = formatTime();
+						}, 60_000);
+						timeDisposable.value = toDisposable(() => {
+							targetWindow.clearInterval(interval);
+							template.titleTime.style.display = 'none';
+							template.titleTime.textContent = '';
+						});
+					} else {
+						template.titleTime.style.display = 'none';
+						template.titleTime.textContent = '';
+					}
+				} else {
+					template.titleTime.style.display = 'none';
+					template.titleTime.textContent = '';
+				}
 				return;
 			}
+
+			template.titleTime.style.display = 'none';
+			template.titleTime.textContent = '';
 
 			const diffStats = this.options.deriveStatusFromMainChat && (workspace?.folders.length ?? 0) > 1
 				? getSessionListChatDiffStats(element, element.mainChat.read(reader), this.options.activeSession, reader)
@@ -2365,6 +2398,17 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			template.icon.style.display = 'none';
 			template.countLabel.textContent = '';
 			template.count.style.display = 'none';
+			template.toolbarContainer.style.display = 'none';
+		}
+		if (shidehSidebar && isSessionsListHeaderSectionId(element.id)) {
+			template.container.classList.add('session-section-shideh-group-header', 'session-section-shideh-repositories-header');
+			template.icon.style.display = 'none';
+			template.countLabel.textContent = '';
+			template.count.style.display = 'none';
+		}
+		if (element.id === SHIDEH_NEW_PROJECT_SECTION_ID && shidehSidebar) {
+			template.container.classList.add('session-section-shideh-muted-action');
+			template.icon.style.display = 'none';
 		}
 		if (element.id === NEW_SESSION_SECTION_ID) {
 			template.container.classList.add('session-section-new-session');
@@ -2460,9 +2504,9 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			}
 		} else {
 			const sectionIcon = element.id === NEW_SESSION_SECTION_ID && shidehSidebar
-				? Codicon.filter
+				? Codicon.editSparkle
 				: element.id === CUSTOMIZATIONS_SECTION_ID && shidehSidebar
-					? Codicon.extensions
+					? Codicon.layoutPanel
 					: getSessionSectionIcon(element.id);
 			renderSessionHeaderIcon(template, element.sessions, sectionIcon, this.showUnreadInCollapsedSections, this.sessionsWithFailingCI, this.headerStatusTrigger, this.instantiationService);
 		}
@@ -4226,7 +4270,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 			}
 			if (isSessionSection(element) && element.id === SHIDEH_HUB_SECTION_ID) {
 				this.tree.setSelection([]);
-				this.commandService.executeCommand(AICustomizationManagementCommands.OpenMarketplace);
+				this.commandService.executeCommand(SHIDEH_OPEN_HUB_COMMAND_ID);
 				return;
 			}
 			if (isSessionSection(element) && element.id === SHIDEH_STATS_SECTION_ID) {
@@ -4769,6 +4813,12 @@ export class SessionsList extends Disposable implements ISessionsList {
 			navigationChildren.push(renderSection({
 				id: CUSTOMIZATIONS_SECTION_ID,
 				label: shidehSidebar ? localize('customize', "Customize") : localize('customizations', "Customizations"),
+				sessions: [],
+			}));
+		} else if (shidehSidebar) {
+			navigationChildren.push(renderSection({
+				id: CUSTOMIZATIONS_SECTION_ID,
+				label: localize('customize', "Customize"),
 				sessions: [],
 			}));
 		}

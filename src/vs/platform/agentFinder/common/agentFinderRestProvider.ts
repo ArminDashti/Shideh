@@ -17,8 +17,10 @@ import { CustomizationMarketplaceSources } from '../../customizationMarketplace/
 import { ILogService } from '../../log/common/log.js';
 import { IMcpGalleryService } from '../../mcp/common/mcpManagement.js';
 import { IRequestService, readBoundedResponse } from '../../request/common/request.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
 
 const endpoint = 'https://agentfinder.github.com/api/v1';
+const shidehHarnessesConfigurationKey = 'shideh.harnesses';
 const requestTimeout = 30_000;
 const maxResponseBytes = 5 * 1024 * 1024;
 const defaultPageSize = 30;
@@ -46,7 +48,12 @@ export class AgentFinderRestProvider implements ICustomizationMarketplaceProvide
 		@IRequestService private readonly requestService: IRequestService,
 		@IMcpGalleryService private readonly mcpGalleryService: IMcpGalleryService,
 		@ILogService private readonly logService: ILogService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) { }
+
+	private supportsCursorPluginsInCatalog(): boolean {
+		return this.configurationService.getValue<{ cursorPlugin?: boolean }>(shidehHarnessesConfigurationKey)?.cursorPlugin === true;
+	}
 
 	async query(options: ICustomizationMarketplaceSourceQuery, token: CancellationToken): Promise<ICustomizationMarketplaceSourcePage> {
 		if (token.isCancellationRequested) {
@@ -56,7 +63,7 @@ export class AgentFinderRestProvider implements ICustomizationMarketplaceProvide
 		const query = options.query?.trim() ?? '';
 		const requestedPageSize = options.pageSize ?? defaultPageSize;
 		if (query.length > maxQueryLength || !isNonNegativeInteger(requestedPageSize) || requestedPageSize === 0 ||
-			options.mediaType === CustomizationMarketplaceMediaType.CursorPlugin ||
+			(options.mediaType === CustomizationMarketplaceMediaType.CursorPlugin && !this.supportsCursorPluginsInCatalog()) ||
 			(options.mediaType !== undefined && !Object.values(CustomizationMarketplaceMediaType).includes(options.mediaType))) {
 			throw new AgentFinderError(localize('agentFinder.invalidQuery', "The customization catalog query is invalid."));
 		}
@@ -90,7 +97,9 @@ export class AgentFinderRestProvider implements ICustomizationMarketplaceProvide
 				};
 				const response = await raceCancellationError(this.requestPage(request, cancellation.token), cancellation.token);
 				const page = parsePage(response, pageSize, query ? { kind: 'search', pageToken } : { kind: 'browse', offset });
-				const items = page.items.filter(item => item.mediaType !== CustomizationMarketplaceMediaType.CursorPlugin);
+				const items = this.supportsCursorPluginsInCatalog()
+					? page.items
+					: page.items.filter(item => item.mediaType !== CustomizationMarketplaceMediaType.CursorPlugin);
 				if (items.length || !page.nextCursor) {
 					requestTimeoutDisposable.dispose();
 					return await this.resolveMcpIcons({
@@ -350,7 +359,8 @@ function parseInstallation(mediaType: string, metadata: Record<string, unknown> 
 	const manifest = mediaType === CustomizationMarketplaceMediaType.Skill ? 'SKILL.md'
 		: mediaType === CustomizationMarketplaceMediaType.CopilotPlugin ? 'plugin.json'
 			: mediaType === CustomizationMarketplaceMediaType.ClaudePlugin ? '.claude-plugin/plugin.json'
-				: undefined;
+				: mediaType === CustomizationMarketplaceMediaType.CursorPlugin ? '.cursor-plugin/plugin.json'
+					: undefined;
 	const marketplaceManifest = mediaType === CustomizationMarketplaceMediaType.CopilotPlugin ? '.github/plugin/marketplace.json'
 		: mediaType === CustomizationMarketplaceMediaType.ClaudePlugin ? '.claude-plugin/marketplace.json'
 			: undefined;
@@ -378,6 +388,9 @@ function parseInstallation(mediaType: string, metadata: Record<string, unknown> 
 	}
 	const path = repoPath === manifest ? '' : repoPath.slice(0, -manifest.length - 1);
 	if (mediaType === CustomizationMarketplaceMediaType.CopilotPlugin && ['.claude-plugin', '.cursor-plugin', '.plugin'].includes(path.split('/').at(-1) ?? '')) {
+		return undefined;
+	}
+	if (mediaType === CustomizationMarketplaceMediaType.CursorPlugin && path.split('/').at(-1) !== '.cursor-plugin') {
 		return undefined;
 	}
 	const refAndPath = parts.join('/');

@@ -513,9 +513,11 @@ export class CustomizationMarketplaceInstallService extends Disposable implement
 			return { kind: 'available' };
 		}
 		if (!source) {
+			const cursorHarnessDisabled = resource.mediaType === CustomizationMarketplaceMediaType.CursorPlugin
+				&& this.configurationService.getValue<{ cursorPlugin?: boolean }>('shideh.harnesses')?.cursorPlugin !== true;
 			return {
 				kind: 'unavailable',
-				message: resource.mediaType === CustomizationMarketplaceMediaType.CursorPlugin
+				message: cursorHarnessDisabled
 					? localize('customizationMarketplace.cursorUnsupported', "Cursor plugins cannot be installed in VS Code. Open the resource to view its installation instructions.")
 					: localize('customizationMarketplace.sourceUnavailable', "This resource does not provide a supported installation source."),
 			};

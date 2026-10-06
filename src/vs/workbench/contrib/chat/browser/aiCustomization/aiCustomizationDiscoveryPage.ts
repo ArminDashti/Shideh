@@ -1274,8 +1274,9 @@ export class AICustomizationDiscoveryPage extends Disposable implements IAICusto
 					sourceErrors: page.sourceErrors,
 				};
 				const seen = new Set<string>();
+				const showCursorPlugins = this.configurationService.getValue<{ cursorPlugin?: boolean }>('shideh.harnesses')?.cursorPlugin === true;
 				this.catalogItems = this.catalogPage.items.filter(item => {
-					if (item.mediaType === CustomizationMarketplaceMediaType.CursorPlugin) {
+					if (item.mediaType === CustomizationMarketplaceMediaType.CursorPlugin && !showCursorPlugins) {
 						return false;
 					}
 					const key = getCustomizationMarketplaceResourceKey(item);

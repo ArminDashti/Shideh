@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -49,12 +51,52 @@ export function getShidehInteractionModeDescription(mode: ShidehInteractionMode)
 	}
 }
 
+export function getShidehInteractionModeIcon(mode: ShidehInteractionMode): ThemeIcon {
+	switch (mode) {
+		case 'ask': return Codicon.commentDiscussion;
+		case 'build': return Codicon.tools;
+		case 'plan': return Codicon.map;
+	}
+}
+
+export function getShidehInteractionModeIconForValue(value: string | undefined, configurationService: IConfigurationService): ThemeIcon | undefined {
+	if (value === 'ask' || value === 'build' || value === 'plan') {
+		return getShidehInteractionModeIcon(value);
+	}
+	if (!value) {
+		return undefined;
+	}
+	return getShidehInteractionModeIcon(shidehInteractionModeFromAgentHostMode(value, configurationService));
+}
+
 export function getShidehPermissionLevelLabel(level: ChatPermissionLevel): string {
 	switch (level) {
 		case ChatPermissionLevel.Default: return localize('shidehPermission.manual', "Manual");
 		case ChatPermissionLevel.Assisted: return localize('shidehPermission.assisted', "Assisted");
 		case ChatPermissionLevel.AutoApprove: return localize('shidehPermission.full', "Full");
 		default: return level;
+	}
+}
+
+export function getShidehPermissionLevelDescription(level: ChatPermissionLevel): string {
+	switch (level) {
+		case ChatPermissionLevel.Default:
+			return localize('shidehPermission.manual.description', "Asks when approval settings don't apply");
+		case ChatPermissionLevel.Assisted:
+			return localize('shidehPermission.assisted.description', "Evaluates risk before running tools");
+		case ChatPermissionLevel.AutoApprove:
+			return localize('shidehPermission.full.description', "Runs tool calls without asking");
+		default:
+			return '';
+	}
+}
+
+export function getShidehPermissionLevelIcon(level: ChatPermissionLevel): ThemeIcon {
+	switch (level) {
+		case ChatPermissionLevel.Default: return Codicon.key;
+		case ChatPermissionLevel.Assisted: return Codicon.sparkle;
+		case ChatPermissionLevel.AutoApprove: return Codicon.passFilled;
+		default: return Codicon.shield;
 	}
 }
 

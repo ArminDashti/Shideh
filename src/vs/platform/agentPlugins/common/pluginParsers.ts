@@ -148,6 +148,7 @@ export const enum PluginFormat {
 	Claude,
 	OpenPlugin,
 	AgentPlugin,
+	Cursor,
 }
 
 /** A plugin-root token and its matching subprocess environment variable. */
@@ -215,6 +216,18 @@ const OPEN_PLUGIN_FORMAT: IPluginFormatConfig = {
 	},
 };
 
+const CURSOR_FORMAT: IPluginFormatConfig = {
+	format: PluginFormat.Cursor,
+	manifestPath: '.cursor-plugin/plugin.json',
+	hookConfigPath: 'hooks/hooks.json',
+	pluginRootTokens: LEGACY_PLUGIN_ROOT_TOKENS,
+	pluginRootEnvVars: LEGACY_PLUGIN_ROOT_ENV_VARS,
+	hookPluginRoot: PLUGIN_ROOT,
+	parseHooks(hookUri, json, pluginUri, workspaceRoot, userHome) {
+		return interpolateHookPluginRoot(hookUri, json, pluginUri, workspaceRoot, userHome, PLUGIN_ROOT);
+	},
+};
+
 const AGENT_PLUGIN_COPILOT_EXTENSION_NAMESPACE = 'com.github.copilot';
 
 const AGENT_PLUGIN_FORMAT: IPluginFormatConfig = {
@@ -245,6 +258,7 @@ const PLUGIN_FORMAT_CONFIGS: Readonly<Record<PluginFormat, IPluginFormatConfig>>
 	[PluginFormat.Claude]: CLAUDE_FORMAT,
 	[PluginFormat.OpenPlugin]: OPEN_PLUGIN_FORMAT,
 	[PluginFormat.AgentPlugin]: AGENT_PLUGIN_FORMAT,
+	[PluginFormat.Cursor]: CURSOR_FORMAT,
 };
 
 export async function detectPluginFormat(pluginUri: URI, fileService: IFileService): Promise<IPluginFormatConfig> {
@@ -258,6 +272,10 @@ export async function detectPluginFormat(pluginUri: URI, fileService: IFileServi
 	const isInClaudeDirectory = pluginUri.path.split('/').includes('.claude');
 	if (isInClaudeDirectory || await pathExists(joinPath(pluginUri, '.claude-plugin', 'plugin.json'), fileService)) {
 		return CLAUDE_FORMAT;
+	}
+
+	if (await pathExists(joinPath(pluginUri, '.cursor-plugin', 'plugin.json'), fileService)) {
+		return CURSOR_FORMAT;
 	}
 
 	return COPILOT_FORMAT;

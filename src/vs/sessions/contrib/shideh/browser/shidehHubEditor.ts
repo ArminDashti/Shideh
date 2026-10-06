@@ -3,68 +3,57 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
 import { EditorPane } from '../../../../workbench/browser/parts/editor/editorPane.js';
-import { EditorInputCapabilities, IEditorOpenContext, IEditorOptions } from '../../../../workbench/common/editor.js';
 import { EditorInput } from '../../../../workbench/common/editor/editorInput.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IEditorGroup } from '../../../../workbench/services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { ShidehSettingsContent } from './shidehSettingsContent.js';
-import './media/shidehSettings.css';
+import { ShidehHubPanel } from './shidehHubPanel.js';
+import './media/shidehHub.css';
 
-export class ShidehSettingsEditorInput extends EditorInput {
+export class ShidehHubEditorInput extends EditorInput {
 
-	static readonly ID = 'workbench.input.shidehSettings';
+	static readonly ID = 'workbench.input.shidehHub';
 
-	static readonly RESOURCE = URI.from({ scheme: Schemas.internal, path: '/shideh/settings' });
-
-	override get capabilities(): EditorInputCapabilities {
-		return super.capabilities | EditorInputCapabilities.Singleton | EditorInputCapabilities.ForceReveal;
-	}
+	static readonly RESOURCE = URI.from({ scheme: Schemas.internal, path: '/shideh/hub' });
 
 	override get typeId(): string {
-		return ShidehSettingsEditorInput.ID;
+		return ShidehHubEditorInput.ID;
 	}
 
 	override getName(): string {
-		return localize('shidehSettingsEditorName', "Settings");
+		return localize('shidehHubEditorName', "Hub");
 	}
 
 	override get resource(): URI {
-		return ShidehSettingsEditorInput.RESOURCE;
+		return ShidehHubEditorInput.RESOURCE;
 	}
 }
 
-export class ShidehSettingsEditor extends EditorPane {
+export class ShidehHubEditor extends EditorPane {
 
-	static readonly ID = 'workbench.editor.shidehSettings';
+	static readonly ID = 'workbench.editor.shidehHub';
 
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IStorageService storageService: IStorageService,
-		@IEditorService private readonly editorService: IEditorService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 	) {
-		super(ShidehSettingsEditor.ID, group, telemetryService, themeService, storageService);
+		super(ShidehHubEditorInput.ID, group, telemetryService, themeService, storageService);
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
-		const content = this._register(this.instantiationService.createInstance(ShidehSettingsContent, {
-			onClose: () => { void this.editorService.closeEditor(this.input); },
-		}));
-		content.render(parent);
-	}
-
-	override async setInput(input: EditorInput, options: IEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
-		await super.setInput(input, options, context, token);
+		const root = DOM.append(parent, DOM.$('.shideh-hub-editor'));
+		const title = DOM.append(root, DOM.$('h1.shideh-hub-editor-title'));
+		title.textContent = localize('shidehHubEditorTitle', "Hub");
+		this._register(this.instantiationService.createInstance(ShidehHubPanel, root));
 	}
 }

@@ -354,7 +354,7 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
  */
 export class AgentHostModePicker extends AgentHostSessionEnumPicker {
 
-	private readonly _splitTrigger = this._register(new MutableDisposable<IModePickerTrigger>());
+	protected readonly _splitTrigger = this._register(new MutableDisposable<IModePickerTrigger>());
 	protected readonly _permissionDelegate: AgentHostPermissionPickerDelegate;
 	protected readonly _permissionPicker: PermissionPicker;
 	protected readonly _property = SessionConfigKey.Mode;

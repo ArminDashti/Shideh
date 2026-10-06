@@ -26,6 +26,9 @@ import { IViewPaneOptions, IViewPaneLocationColors, ViewPane } from '../../../..
 import { IViewDescriptorService } from '../../../../../workbench/common/views.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
+import { isShidehNavigationIntegratedSidebar } from '../../../shideh/common/shidehProduct.js';
+import { ShidehNavigationIntegratedContext } from '../../../shideh/common/shidehContextKeys.js';
 import { ChatSessionArchiveActionWordingSettingId, getChatSessionArchivedSectionLabel, getChatSessionArchiveActionWording } from '../../../../../platform/chat/common/sessionArchiveActions.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { localize } from '../../../../../nls.js';
@@ -197,6 +200,7 @@ export class SessionsView extends ViewPane {
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
+		@IProductService productService: IProductService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 		this.sessionsListRearrangeExperimentState = this._register(instantiationService.createInstance(SessionsListRearrangeExperimentState));
@@ -214,7 +218,8 @@ export class SessionsView extends ViewPane {
 		if (storedSorting && Object.values(SessionsSorting).includes(storedSorting as SessionsSorting)) {
 			this.currentSorting = storedSorting as SessionsSorting;
 		}
-		this.currentCompact = this.storageService.getBoolean(COMPACT_STORAGE_KEY, StorageScope.PROFILE, false);
+		const compactDefault = isShidehNavigationIntegratedSidebar(productService);
+		this.currentCompact = this.storageService.getBoolean(COMPACT_STORAGE_KEY, StorageScope.PROFILE, compactDefault);
 		logSessionsListCompactViewState(telemetryService, this.currentCompact);
 
 		// Ensure context keys reflect restored state immediately
@@ -298,7 +303,8 @@ export class SessionsView extends ViewPane {
 			grouping: () => this.currentGrouping,
 			sorting: () => this.currentSorting,
 			compact: () => this.currentCompact,
-			showNavigationShortcuts: () => this.customizationsPresentation === 'treatment',
+			showNavigationShortcuts: () => this.customizationsPresentation === 'treatment'
+				|| this.scopedContextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true,
 			customizationsCount: this.customizationsNavigationState.totalCount,
 			customizationMigrationsAvailable: this.customizationsNavigationState.migrationAvailable,
 			findWidgetContainer,

@@ -32,6 +32,28 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sideba
 	overflow: hidden;
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .action-item.shideh-sidebar-settings-widget-item {
+	flex: 0 0 auto;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-widget > .action-label {
+	display: none;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-widget .shideh-sidebar-settings-button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	white-space: nowrap;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-label {
+	font-size: var(--vscode-fontSize-label1, 12px);
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+}
+
 body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer-metrics {
 	display: none !important;
 }
@@ -77,6 +99,22 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account
 	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-widget .shideh-sidebar-settings-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 6px;
+	min-width: 28px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-label {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control {
+	padding: 0 6px;
+}
+
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header {
 	font-size: var(--vscode-fontSize-small, 11px);
 	font-weight: var(--vscode-fontWeight-regular, 400);
@@ -84,11 +122,39 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 	letter-spacing: normal;
 	color: var(--vscode-descriptionForeground);
 	padding-top: 10px;
+	padding-bottom: 2px;
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-chevron,
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-icon,
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count,
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count-label {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-muted-action {
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	color: var(--vscode-descriptionForeground);
+	padding-left: 10px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-muted-action .session-section-icon {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut {
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	padding: 2px 10px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut .session-section-icon {
+	color: var(--vscode-icon-foreground);
+	opacity: 0.9;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut .session-section-chevron,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut .session-section-toolbar {
 	display: none !important;
 }
 
@@ -96,12 +162,77 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 	display: none !important;
 }
 
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut {
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-repositories-header .session-section-label {
+	font-size: var(--vscode-fontSize-small, 11px);
 	font-weight: var(--vscode-fontWeight-regular, 400);
-	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	color: var(--vscode-descriptionForeground);
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row {
+	border-radius: var(--vscode-cornerRadius-small);
+	margin: 0 2px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.focused {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	border-radius: var(--vscode-cornerRadius-small);
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected .monaco-list-row.focused,
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected {
 	border-radius: var(--vscode-cornerRadius-small);
 }
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item:not(.quick-chat) .session-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item:not(.quick-chat) .session-title {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-weight: var(--vscode-fontWeight-regular, 400);
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item:not(.quick-chat) .session-title-time {
+	flex: 0 0 auto;
+	font-size: var(--vscode-fontSize-small, 11px);
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item:not(.quick-chat) .session-title-toolbar {
+	opacity: 0;
+	pointer-events: none;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .monaco-list-row:is(:hover, .hovered) .session-item:not(.quick-chat) .session-title-toolbar,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .monaco-list-row.focused .session-item:not(.quick-chat) .session-title-toolbar {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item:not(.quick-chat) .session-icon > .codicon:not(.codicon-loading):not(.codicon-sync):not(.codicon-error):not(.codicon-warning) {
+	font-size: 6px !important;
+	width: 6px !important;
+	height: 6px !important;
+	border-radius: 50%;
+	background-color: currentColor;
+	color: var(--vscode-descriptionForeground) !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .monaco-list-row.selected .session-item:not(.quick-chat) .session-icon > .codicon:not(.codicon-loading):not(.codicon-sync):not(.codicon-error):not(.codicon-warning) {
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground)) !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session .session-section-icon,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-search .session-section-icon {
+	color: var(--vscode-icon-foreground);
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section .session-section-new-badge {
+	display: none !important;
+}
+

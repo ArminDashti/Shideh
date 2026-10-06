@@ -58,7 +58,6 @@ import { ADDITIONAL_FOLDER_CONTEXT_ID_PREFIX, ADDITIONAL_REPOSITORY_CONTEXT_ID_P
 import { EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING, UNIFIED_WORKSPACE_PICKER_SETTING } from '../common/constants.js';
 import { registerPickerKeybindingPresentation } from './newChatPickerKeybinding.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
-import { formatWorkspaceLabelWithGitBranch, isShidehSimplifiedChatChrome } from '../../shideh/common/shidehChatPresentation.js';
 
 export type { IResolvedFolderWorkspace } from './sessionWorkspaceFallback.js';
 
@@ -2089,13 +2088,7 @@ export class WorkspacePicker extends Disposable {
 		const baseLabel = this._selectedDevContainerFolderUri && this.uriIdentityService.extUri.isEqual(this._selectedDevContainerFolderUri, workspace.folders[0]?.root)
 			? localize('workspacePicker.devContainer.label', "{0} - Dev Container", workspace.label)
 			: workspace.label;
-		if (!isShidehSimplifiedChatChrome(this.productService)) {
-			return baseLabel;
-		}
-		const folder = this._selectedFolderUri
-			? workspace.folders.find(f => this.uriIdentityService.extUri.isEqual(f.root, this._selectedFolderUri))
-			: workspace.folders[0];
-		return formatWorkspaceLabelWithGitBranch(baseLabel, folder?.gitRepository?.branchName);
+		return baseLabel;
 	}
 
 	private _isDevContainerWorkspaceAvailable(folderUri: URI, providerId: string): boolean {

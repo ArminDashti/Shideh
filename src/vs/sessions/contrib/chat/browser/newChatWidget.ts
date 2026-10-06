@@ -723,13 +723,13 @@ export class NewChatWidget extends Disposable {
 		this._newChatInput.render(chatWidgetContent, parent);
 		this._register(autorun(reader => {
 			const useExperimentalLayout = this._useExperimentalComposerLayout.read(reader);
+			const shidehChrome = isShidehSimplifiedChatChrome(this.productService);
 			const isQuickChat = this._isQuickChatComposer.read(reader);
 			const isWorkspacePickerQuickChat = this._isWorkspacePickerQuickChat.read(reader);
 			chatWidgetContent.classList.toggle('experimental-new-session-composer', useExperimentalLayout);
+			const reparentRepositoryControlsToHeader = (useExperimentalLayout || shidehChrome) && (!isQuickChat || isWorkspacePickerQuickChat);
 			this._newChatInput.placeRepositoryControls(
-				useExperimentalLayout && (!isQuickChat || isWorkspacePickerQuickChat)
-					? this._workspaceRepositoryControlsHost
-					: undefined
+				reparentRepositoryControlsToHeader ? this._workspaceRepositoryControlsHost : undefined
 			);
 		}));
 		this._register(this.instantiationService.createInstance(NewChatMigrationNotice, chatWidgetContent, this._session, () => this.focusInput()));

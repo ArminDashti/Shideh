@@ -19,6 +19,7 @@ import { CustomizationMarketplaceMediaType, ICustomizationMarketplaceEntry, ICus
 import { ILogService, NullLogService } from '../../../log/common/log.js';
 import { IGalleryMcpServer, IMcpGalleryService } from '../../../mcp/common/mcpManagement.js';
 import { IRequestService } from '../../../request/common/request.js';
+import { IConfigurationService } from '../../../configuration/common/configuration.js';
 import { AgentFinderRestProvider } from '../../common/agentFinderRestProvider.js';
 
 // Representative public AgentFinder responses; fixtures never make network requests.
@@ -107,14 +108,27 @@ suite('AgentFinderRestProvider', () => {
 		getMcpServer: async () => undefined,
 	});
 
-	function createProvider(requests: IRequestService, mcpGalleryService: IMcpGalleryService = emptyMcpGalleryService, logService: ILogService = new NullLogService()) {
-		return new AgentFinderRestProvider(requests, mcpGalleryService, logService);
+	function createProvider(
+		requests: IRequestService,
+		mcpGalleryService: IMcpGalleryService = emptyMcpGalleryService,
+		logService: ILogService = new NullLogService(),
+		configurationService: IConfigurationService = { getValue: () => undefined } as IConfigurationService,
+	) {
+		return new AgentFinderRestProvider(requests, mcpGalleryService, logService, configurationService);
 	}
 
-	function createService(body: unknown, statusCode = 200, mcpGalleryService?: IMcpGalleryService, logService?: ILogService) {
+	function createService(
+		body: unknown,
+		statusCode = 200,
+		mcpGalleryService?: IMcpGalleryService,
+		logService?: ILogService,
+		configurationService?: IConfigurationService,
+	) {
 		const requests = new TestRequestService(async () => response(body, statusCode));
-		return { service: createProvider(requests, mcpGalleryService, logService), requests };
+		return { service: createProvider(requests, mcpGalleryService, logService, configurationService), requests };
 	}
+
+	const shidehCursorHarnessConfig = { getValue: (key: string) => key === 'shideh.harnesses' ? { cursorPlugin: true } : undefined } as IConfigurationService;
 
 	test('parses an observed skill browse response and derives the repository owner avatar', async () => {
 		const { service, requests } = createService({ results: [skill], total: 1678, offset: 0, pageSize: 1 });
@@ -278,6 +292,14 @@ suite('AgentFinderRestProvider', () => {
 		const { service, requests } = createService({ results: [] });
 		await assert.rejects(service.query({ mediaType: CustomizationMarketplaceMediaType.CursorPlugin }, CancellationToken.None), /query is invalid/);
 		assert.strictEqual(requests.requests.length, 0);
+	});
+
+	test('allows Cursor plugin catalog queries when the Shideh Cursor harness is enabled', async () => {
+		const { service, requests } = createService({ results: [cursorPlugin], total: 1, offset: 0, pageSize: 30 }, 200, undefined, undefined, shidehCursorHarnessConfig);
+		const page = await service.query({ mediaType: CustomizationMarketplaceMediaType.CursorPlugin, pageSize: 30 }, CancellationToken.None);
+		assert.strictEqual(requests.requests.length, 1);
+		assert.strictEqual(page.items.length, 1);
+		assert.strictEqual(page.items[0].mediaType, CustomizationMarketplaceMediaType.CursorPlugin);
 	});
 
 	suite('installation provenance', () => {

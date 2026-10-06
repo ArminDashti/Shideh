@@ -6,25 +6,30 @@
 import './shidehProductDefaults.contribution.js';
 import './shidehHubSources.contribution.js';
 import './shidehNavigationContribution.js';
+import './shidehSettingsCustomView.js';
 import './shidehSidebarFooter.contribution.js';
 import './shidehAppearance.contribution.js';
 import './shidehDefaultMcp.contribution.js';
 import './shidehMemory.contribution.js';
 import './shidehFavoriteModels.contribution.js';
 import './shidehHarness.contribution.js';
+import './shidehSettingsActions.contribution.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
-import { IPreferencesService } from '../../../../workbench/services/preferences/common/preferences.js';
 import { ShidehStatsEditorInput, ShidehStatsEditor } from './shidehStatsEditor.js';
+import { ShidehHubEditorInput, ShidehHubEditor } from './shidehHubEditor.js';
+import { ShidehSettingsEditorInput, ShidehSettingsEditor } from './shidehSettingsEditor.js';
+import { openShidehSettingsInMainEditor } from './shidehOpenSettings.js';
 import { EditorExtensions } from '../../../../workbench/common/editor.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import {
 	SHIDEH_CONNECT_REMOTE_AGENT_COMMAND_ID,
 	SHIDEH_OPEN_SETTINGS_COMMAND_ID,
 	SHIDEH_OPEN_SESSION_HISTORY_COMMAND_ID,
+	SHIDEH_OPEN_HUB_COMMAND_ID,
 	SHIDEH_OPEN_STATS_COMMAND_ID,
 	SHIDEH_SET_ASK_MODE_COMMAND_ID,
 	SHIDEH_SET_BUILD_MODE_COMMAND_ID,
@@ -42,6 +47,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ChatConfiguration, IChatDefaultConfiguration } from '../../../../workbench/contrib/chat/common/constants.js';
 import { RemoteAgentHostsSettingId } from '../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { getShidehInteractionModeIcon } from '../common/shidehChatPresentation.js';
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
@@ -50,6 +56,24 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 		localize('shidehStatsEditorPane', "Shideh Stats")
 	),
 	[new SyncDescriptor(ShidehStatsEditorInput)]
+);
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		ShidehHubEditor,
+		ShidehHubEditor.ID,
+		localize('shidehHubEditorPane', "Hub")
+	),
+	[new SyncDescriptor(ShidehHubEditorInput)]
+);
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		ShidehSettingsEditor,
+		ShidehSettingsEditor.ID,
+		localize('shidehSettingsEditorPane', "Shideh Settings")
+	),
+	[new SyncDescriptor(ShidehSettingsEditorInput)]
 );
 
 registerAction2(class OpenShidehSettingsAction extends Action2 {
@@ -61,8 +85,8 @@ registerAction2(class OpenShidehSettingsAction extends Action2 {
 			f1: true,
 		});
 	}
-	async run(accessor: ServicesAccessor): Promise<void> {
-		await accessor.get(IPreferencesService).openSettings();
+	run(accessor: ServicesAccessor): void {
+		openShidehSettingsInMainEditor(accessor);
 	}
 });
 
@@ -117,12 +141,27 @@ registerAction2(class OpenShidehStatsAction extends Action2 {
 	}
 });
 
+registerAction2(class OpenShidehHubAction extends Action2 {
+	constructor() {
+		super({
+			id: SHIDEH_OPEN_HUB_COMMAND_ID,
+			title: localize2('shidehOpenHub', "Hub"),
+			category: localize2('shidehCategory', "Shideh"),
+			f1: true,
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IEditorService).openEditor(new ShidehHubEditorInput(), { pinned: true });
+	}
+});
+
 function registerModeCommand(id: string, title: string, mode: 'ask' | 'build' | 'plan', order: number) {
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
 				id,
 				title: localize2(`shidehMode.${mode}`, title),
+				icon: getShidehInteractionModeIcon(mode),
 				category: localize2('shidehCategory', "Shideh"),
 				f1: true,
 				menu: [{

@@ -12,6 +12,16 @@
 	max-width: 920px;
 	margin: 0 auto;
 	padding: 0 16px 16px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-medium, 8px);
+}
+
+.agent-sessions-workbench .part.editor:not(.modal-editor-part) .shideh-settings-editor {
+	max-width: none;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: 0;
 }
 
 .shideh-settings-editor {
@@ -21,9 +31,11 @@
 	min-height: 0;
 	box-sizing: border-box;
 	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
-	border-radius: var(--vscode-cornerRadius-medium, 8px);
 	overflow: hidden;
+}
+
+.monaco-modal-editor-part .shideh-settings-editor {
+	background: var(--vscode-editor-background);
 }
 
 .shideh-settings-header {
@@ -90,12 +102,33 @@
 }
 
 .shideh-settings-nav {
-	flex: 0 0 200px;
-	padding: 12px 8px;
+	flex: 0 0 240px;
+	padding: 12px 10px;
 	border-right: 1px solid var(--vscode-panel-border);
 	box-sizing: border-box;
 	min-height: 0;
 	overflow: auto;
+}
+
+.custom-view-node[data-view-id='sessions.customView.shidehSettings'] .custom-view-header {
+	display: none;
+}
+
+.custom-view-node[data-view-id='sessions.customView.shidehSettings'] .custom-view-content {
+	padding: 0;
+}
+
+.shideh-settings-custom-view-host {
+	height: 100%;
+	min-height: 0;
+	box-sizing: border-box;
+}
+
+.shideh-settings-custom-view-host .shideh-settings-editor {
+	height: 100%;
+	border: none;
+	border-radius: 0;
+	max-width: none;
 }
 
 .shideh-settings-nav-list {
@@ -159,6 +192,10 @@
 	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
 	border-radius: var(--vscode-cornerRadius-small, 4px);
 	overflow: hidden;
+}
+
+.shideh-settings-list.shideh-settings-list--overlay-friendly {
+	overflow: visible;
 }
 
 .shideh-settings-row {
@@ -283,6 +320,274 @@
 	.agents-theme-picker-option {
 		transition: none;
 	}
+}
+
+.shideh-settings-embedded-panel {
+	padding: 14px;
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.shideh-settings-embedded-panel:last-child {
+	border-bottom: none;
+}
+
+.shideh-provider-settings-intro,
+.shideh-models-settings-intro {
+	margin: 0 0 12px;
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-provider-picker-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.shideh-provider-picker-label {
+	font-size: 13px;
+	font-weight: 500;
+	min-width: 72px;
+}
+
+.shideh-provider-picker-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 220px;
+	padding: 6px 10px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: var(--vscode-input-background);
+	color: var(--vscode-foreground);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.shideh-provider-picker-trigger:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.shideh-provider-picker-chevron {
+	display: flex;
+	margin-left: auto;
+	opacity: 0.8;
+}
+
+.shideh-provider-logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	background: var(--shideh-provider-color, #64748b);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+	flex-shrink: 0;
+}
+
+.shideh-provider-logo--image {
+	background-color: transparent;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+}
+
+.shideh-provider-menu {
+	padding: 4px;
+	min-width: 280px;
+	color: var(--vscode-menu-foreground);
+	background-color: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
+
+.shideh-provider-menu-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.shideh-provider-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+.shideh-provider-menu-item.selected {
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.shideh-provider-menu-select {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	padding: 8px 10px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.shideh-provider-menu-select:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.shideh-provider-menu-star {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.shideh-provider-menu-star.starred,
+.shideh-provider-menu-star:hover {
+	color: var(--vscode-editorWarning-foreground, #e3b341);
+}
+
+.shideh-provider-star-indicator {
+	display: flex;
+	color: var(--vscode-editorWarning-foreground, #e3b341);
+}
+
+.shideh-provider-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.shideh-provider-fields-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.shideh-provider-field-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.shideh-provider-field-label {
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.shideh-provider-field-input {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 480px;
+	padding: 6px 8px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	font-size: 13px;
+}
+
+.shideh-provider-field-hint {
+	margin: 0;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-provider-field-textarea {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 480px;
+	min-height: 72px;
+	padding: 6px 8px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	font-size: 12px;
+	resize: vertical;
+}
+
+.shideh-provider-env-note {
+	margin: 4px 0 0;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-models-unified-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.shideh-models-unified-catalog {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.shideh-models-settings-heading {
+	margin: 0 0 8px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.shideh-models-settings-status {
+	margin: 0 0 8px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.shideh-models-settings-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.shideh-models-provider-group {
+	padding: 10px 12px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+}
+
+.shideh-models-provider-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.shideh-models-provider-models {
+	margin: 0;
+	padding-left: 18px;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.shideh-models-settings-empty,
+.shideh-models-provider-empty,
+.shideh-models-settings-note {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.45;
 }
 
 .session-history-editor {

@@ -46,7 +46,7 @@ export abstract class AbstractCustomView extends Disposable {
 
 	/**
 	 * Width the content is capped to. Defaults to the same measure the session
-	 * views use.
+	 * views use. Use {@link AGENTS_UNCAPPED_CONTENT_MAX_WIDTH} for full width.
 	 */
 	readonly maxWidth: number | undefined = undefined;
 

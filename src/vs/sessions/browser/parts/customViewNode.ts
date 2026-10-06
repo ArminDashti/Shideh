@@ -13,7 +13,7 @@ import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../platform/acti
 import { MenuItemAction } from '../../../platform/actions/common/actions.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { asCssVariable } from '../../../platform/theme/common/colorUtils.js';
-import { AGENTS_CENTERED_CONTENT_MAX_WIDTH } from '../../common/layoutConstants.js';
+import { AGENTS_CENTERED_CONTENT_MAX_WIDTH, AGENTS_UNCAPPED_CONTENT_MAX_WIDTH } from '../../common/layoutConstants.js';
 import { activeSessionViewBackground, activeSessionViewForeground } from '../../common/theme.js';
 import { AbstractCustomView, ICustomViewDescriptor } from '../../services/customView/browser/customView.js';
 import { ChatPillActionViewItem } from '../../../workbench/browser/chatPills.js';
@@ -152,7 +152,9 @@ export class CustomViewNode extends Disposable {
 		}
 
 		const { width, height } = this._lastLayout;
-		const bandWidth = Math.min(width, this._maxWidth);
+		const bandWidth = this._maxWidth === AGENTS_UNCAPPED_CONTENT_MAX_WIDTH
+			? width
+			: Math.min(width, this._maxWidth);
 		this._headerBandEl.style.width = `${bandWidth}px`;
 		this._contentEl.style.width = `${bandWidth}px`;
 

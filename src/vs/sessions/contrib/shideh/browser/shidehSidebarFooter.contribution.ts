@@ -14,7 +14,7 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { IActionViewItemService } from '../../../../platform/actions/browser/actionViewItemService.js';
 import { BaseActionViewItem, IBaseActionViewItemOptions } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../workbench/common/contributions.js';
 import { IsSessionsWindowContext } from '../../../../workbench/common/contextkeys.js';
 import { Menus } from '../../../browser/menus.js';
@@ -28,8 +28,12 @@ import { IMenuService } from '../../../../platform/actions/common/actions.js';
 import { getFlatContextMenuActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { AnchorAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { SHIDEH_OPEN_SETTINGS_COMMAND_ID } from '../common/shidehCommandIds.js';
 
 const SHIDEH_SIDEBAR_ACCOUNT_ACTION_ID = 'shideh.sidebarAccount';
+const SHIDEH_SIDEBAR_SETTINGS_ACTION_ID = 'shideh.sidebarSettings';
 
 class ShidehSidebarAccountWidget extends BaseActionViewItem {
 
@@ -67,6 +71,7 @@ class ShidehSidebarAccountWidget extends BaseActionViewItem {
 	override render(container: HTMLElement): void {
 		super.render(container);
 		container.classList.add('account-widget', 'shideh-sidebar-account-widget');
+		container.parentElement?.classList.add('shideh-sidebar-account-widget-item');
 		const account = append(container, $('.account-widget-account'));
 		this.accountButton = append(account, $('button.sidebar-action-button.account-widget-account-button', { type: 'button' }));
 		this.avatarElement = append(this.accountButton, $('img.shideh-sidebar-account-avatar', { alt: '', draggable: 'false' })) as HTMLImageElement;
@@ -87,7 +92,7 @@ class ShidehSidebarAccountWidget extends BaseActionViewItem {
 		this.accountProviderId = info?.accountProviderId;
 		this.accountIcon = info?.accountIcon;
 		if (this.labelElement) {
-			this.labelElement.textContent = this.accountName ?? localize('shidehSidebarAccountFallback', "Account");
+			this.labelElement.textContent = this.accountName ?? localize('shidehSidebarSignInFallback', "Sign in");
 		}
 		this.refreshAvatar();
 	}
@@ -142,11 +147,36 @@ class ShidehSidebarAccountWidget extends BaseActionViewItem {
 	}
 }
 
+class ShidehSidebarSettingsWidget extends BaseActionViewItem {
+
+	private settingsButton: HTMLButtonElement | undefined;
+
+	constructor(
+		action: IAction,
+		options: IBaseActionViewItemOptions | undefined,
+		@ICommandService private readonly commandService: ICommandService,
+	) {
+		super(undefined, action, options);
+	}
+
+	override render(container: HTMLElement): void {
+		super.render(container);
+		container.classList.add('shideh-sidebar-settings-widget');
+		container.parentElement?.classList.add('shideh-sidebar-settings-widget-item');
+		this.settingsButton = append(container, $('button.sidebar-action-button.shideh-sidebar-settings-button', { type: 'button' })) as HTMLButtonElement;
+		this.settingsButton.setAttribute('aria-label', localize('shidehSidebarSettings', "Settings"));
+		append(this.settingsButton, $('span.codicon.codicon-settings-gear', { 'aria-hidden': 'true' }));
+		this.settingsButton.addEventListener('click', () => {
+			void this.commandService.executeCommand(SHIDEH_OPEN_SETTINGS_COMMAND_ID);
+		});
+	}
+}
+
 registerAction2(class ShidehSidebarAccountAction extends Action2 {
 	constructor() {
 		super({
 			id: SHIDEH_SIDEBAR_ACCOUNT_ACTION_ID,
-			title: localize2('shidehSidebarAccount', "Account"),
+			title: localize2('shidehSidebarSignIn', "Sign in"),
 			menu: [{
 				id: Menus.SidebarFooter,
 				when: ContextKeyExpr.and(IsSessionsWindowContext, ShidehNavigationIntegratedContext),
@@ -156,6 +186,25 @@ registerAction2(class ShidehSidebarAccountAction extends Action2 {
 		});
 	}
 	run(): void { }
+});
+
+registerAction2(class ShidehSidebarSettingsAction extends Action2 {
+	constructor() {
+		super({
+			id: SHIDEH_SIDEBAR_SETTINGS_ACTION_ID,
+			title: localize2('shidehSidebarSettings', "Settings"),
+			icon: Codicon.settingsGear,
+			menu: [{
+				id: Menus.SidebarFooter,
+				when: ContextKeyExpr.and(IsSessionsWindowContext, ShidehNavigationIntegratedContext),
+				group: 'navigation',
+				order: 2,
+			}],
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(ICommandService).executeCommand(SHIDEH_OPEN_SETTINGS_COMMAND_ID);
+	}
 });
 
 class ShidehSidebarFooterContribution extends Disposable implements IWorkbenchContribution {
@@ -169,6 +218,9 @@ class ShidehSidebarFooterContribution extends Disposable implements IWorkbenchCo
 		super();
 		this._register(actionViewItemService.register(Menus.SidebarFooter, SHIDEH_SIDEBAR_ACCOUNT_ACTION_ID, (action, options) => {
 			return instantiationService.createInstance(ShidehSidebarAccountWidget, action, options);
+		}, undefined));
+		this._register(actionViewItemService.register(Menus.SidebarFooter, SHIDEH_SIDEBAR_SETTINGS_ACTION_ID, (action, options) => {
+			return instantiationService.createInstance(ShidehSidebarSettingsWidget, action, options);
 		}, undefined));
 	}
 }

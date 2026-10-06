@@ -215,7 +215,7 @@ function registerShidehProviders(vscode, context, onDidChangeModels) {
 		{ vendor: 'openai', displayName: 'OpenAI', secretKey: 'shideh.openai.apiKey', env: 'OPENAI_API_KEY', baseUrlSetting: 'openai.baseUrl', defaultBaseUrl: 'https://api.openai.com/v1' },
 		{ vendor: 'anthropic', displayName: 'Anthropic', secretKey: 'shideh.anthropic.apiKey', env: 'ANTHROPIC_API_KEY', baseUrlSetting: 'anthropic.baseUrl', defaultBaseUrl: 'https://api.anthropic.com/v1', chatPath: '/messages', modelsPath: '/models' },
 		{ vendor: 'ollama', displayName: 'Ollama', secretKey: 'shideh.ollama.apiKey', env: 'OLLAMA_API_KEY', baseUrlSetting: 'ollama.baseUrl', defaultBaseUrl: 'http://127.0.0.1:11434/v1', fallbackModels: [{ id: 'llama3.2', name: 'llama3.2' }] },
-		{ vendor: 'openai-compatible', displayName: 'OpenAI Compatible', secretKey: 'shideh.openaiCompatible.apiKey', env: 'OPENAI_COMPATIBLE_API_KEY', baseUrlSetting: 'openaiCompatible.baseUrl', defaultBaseUrl: 'http://127.0.0.1:8080/v1' },
+		{ vendor: 'openai-compatible', displayName: 'OpenAI Compatible', secretKey: 'shideh.openaiCompatible.apiKey', env: 'OPENAI_COMPATIBLE_API_KEY', baseUrlSetting: 'openaiCompatible.baseUrl', extraHeadersSetting: 'openaiCompatible.extraHeaders', defaultBaseUrl: 'http://127.0.0.1:8080/v1' },
 		{ vendor: 'deepseek', displayName: 'DeepSeek', secretKey: 'shideh.deepseek.apiKey', env: 'DEEPSEEK_API_KEY', baseUrlSetting: 'deepseek.baseUrl', defaultBaseUrl: 'https://api.deepseek.com/v1', fallbackModels: [{ id: 'deepseek-chat', name: 'deepseek-chat' }] },
 	];
 	for (const spec of specs) {
@@ -269,6 +269,17 @@ function activate(context) {
 	context.subscriptions.push(onDidChangeModels);
 
 	registerShidehProviders(vscode, context, onDidChangeModels);
+
+	context.subscriptions.push(context.secrets.onDidChange(e => {
+		if (typeof e.key === 'string' && e.key.startsWith('shideh.')) {
+			onDidChangeModels.fire();
+		}
+	}));
+	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+		if (e.affectsConfiguration('shideh')) {
+			onDidChangeModels.fire();
+		}
+	}));
 
 	for (const tool of createTools(vscode)) {
 		context.subscriptions.push(vscode.lm.registerTool(tool.name, tool.impl));
