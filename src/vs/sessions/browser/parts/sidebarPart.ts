@@ -29,6 +29,7 @@ import { HoverPosition } from '../../../base/browser/ui/hover/hoverWidget.js';
 import { IPaneCompositeBarOptions } from '../../../workbench/browser/parts/paneCompositeBar.js';
 import { IMenuService } from '../../../platform/actions/common/actions.js';
 import { Separator } from '../../../base/common/actions.js';
+import { IDisposable } from '../../../base/common/lifecycle.js';
 import { IHoverService } from '../../../platform/hover/browser/hover.js';
 import { Extensions } from '../../../workbench/browser/panecomposite.js';
 import { Menus } from '../menus.js';
@@ -71,6 +72,7 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	private footerContainer: HTMLElement | undefined;
 	private metricsContainer: HTMLElement | undefined;
 	private sideBarTitleArea: HTMLElement | undefined;
+	private sidebarTitleLeadingToolbar: IDisposable | undefined;
 	private footerToolbar: MenuWorkbenchToolBar | undefined;
 	private previousLayoutDimensions: { width: number; height: number; top: number; left: number } | undefined;
 
@@ -164,6 +166,14 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		// macOS native: the sidebar spans full height and the traffic lights
 		// overlay the top-left corner. Add a fixed-width spacer inside the
 		// title area to push content horizontally past the traffic lights.
+		if (titleArea && isShidehNavigationIntegratedSidebar(this.productService)) {
+			const leadingActions = prepend(titleArea, $('.global-actions-left'));
+			this.sidebarTitleLeadingToolbar = this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, leadingActions, Menus.SidebarTitleLeading, {
+				hiddenItemStrategy: HiddenItemStrategy.NoHide,
+				telemetrySource: 'sidebarTitleLeading',
+			}));
+		}
+
 		if (titleArea && isMacintosh && isNative && !hasNativeTitlebar(this.configurationService, getTitleBarStyle(this.configurationService))) {
 			const spacer = $('div.window-controls-container');
 			spacer.style.width = '70px';

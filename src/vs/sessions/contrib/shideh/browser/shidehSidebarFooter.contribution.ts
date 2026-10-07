@@ -40,6 +40,7 @@ class ShidehSidebarAccountWidget extends BaseActionViewItem {
 	private accountButton: HTMLElement | undefined;
 	private avatarElement: HTMLImageElement | undefined;
 	private labelElement: HTMLElement | undefined;
+	private subtitleElement: HTMLElement | undefined;
 	private accountName: string | undefined;
 	private accountProviderId: string | undefined;
 	private accountIcon: import('../../../../base/common/uri.js').URI | undefined;
@@ -78,7 +79,10 @@ class ShidehSidebarAccountWidget extends BaseActionViewItem {
 		this.avatarElement.decoding = 'async';
 		this.avatarElement.referrerPolicy = 'no-referrer';
 		append(this.accountButton, $('span.codicon.codicon-account.shideh-sidebar-account-fallback-icon', { 'aria-hidden': 'true' }));
-		this.labelElement = append(this.accountButton, $('span.shideh-sidebar-account-label'));
+		const textColumn = append(this.accountButton, $('.shideh-sidebar-account-text'));
+		this.labelElement = append(textColumn, $('span.shideh-sidebar-account-label'));
+		this.subtitleElement = append(textColumn, $('span.shideh-sidebar-account-subtitle'));
+		this.subtitleElement.textContent = localize('shidehSidebarViewProfile', "View profile");
 		this.accountButton.addEventListener('click', () => this.showAccountMenu());
 	}
 

@@ -863,7 +863,8 @@ export class SessionsView extends ViewPane {
 		} else {
 			this.sessionsHeaderContainer?.style.removeProperty('top');
 		}
-		const showStableHeader = !treatment || this.isFindWidgetOpen;
+		const shidehNavigationSidebar = this.scopedContextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
+		const showStableHeader = (!treatment || this.isFindWidgetOpen) && !shidehNavigationSidebar;
 		for (const header of this.sessionsHeaders) {
 			if (!header.treeHeader) {
 				header.row.style.display = showStableHeader ? '' : 'none';

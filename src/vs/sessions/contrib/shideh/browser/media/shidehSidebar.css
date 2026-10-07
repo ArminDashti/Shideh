@@ -3,12 +3,37 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .composite.title {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	min-height: 36px;
+	padding: 4px 8px 2px;
+	box-sizing: border-box;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .composite.title > .global-actions-left {
+	flex: 0 0 auto;
+	order: -1;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .composite.title > .global-actions {
+	flex: 1 1 auto;
+	display: flex;
+	justify-content: flex-end;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .composite.title > .global-actions .monaco-action-bar .actions-container {
+	justify-content: flex-end;
+}
+
 body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer {
 	flex-direction: row;
 	align-items: center;
 	gap: 8px;
 	padding: 8px 10px 10px;
 	margin: 0;
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border, color-mix(in srgb, var(--vscode-foreground) 8%, transparent));
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer .monaco-toolbar,
@@ -43,15 +68,9 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-setting
 body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-widget .shideh-sidebar-settings-button {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	justify-content: center;
 	padding: 4px 6px;
-	white-space: nowrap;
-}
-
-body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-label {
-	font-size: var(--vscode-fontSize-label1, 12px);
-	font-weight: var(--vscode-fontWeight-semiBold, 600);
-	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	min-width: 28px;
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .part.sidebar > .sidebar-footer-metrics {
@@ -69,11 +88,13 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account
 	gap: 8px;
 	padding: 4px 6px;
 	min-width: 0;
+	width: 100%;
+	text-align: left;
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-avatar {
-	width: 22px;
-	height: 22px;
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	object-fit: cover;
 	flex-shrink: 0;
@@ -88,9 +109,15 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .account-widget-account
 	display: none;
 }
 
-body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-label {
-	flex: 1;
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-text {
+	display: flex;
+	flex-direction: column;
 	min-width: 0;
+	flex: 1;
+	gap: 1px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-label {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -99,36 +126,20 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account
 	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 }
 
-body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-widget .shideh-sidebar-settings-button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 4px 6px;
-	min-width: 28px;
-}
-
-body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-settings-label {
-	display: none !important;
+body.shideh-navigation-sidebar .agent-sessions-workbench .shideh-sidebar-account-subtitle {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--vscode-fontSize-small, 11px);
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	color: var(--vscode-descriptionForeground);
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control {
-	padding: 0 6px;
+	padding: 0 8px 8px;
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header {
-	font-size: var(--vscode-fontSize-small, 11px);
-	font-weight: var(--vscode-fontWeight-regular, 400);
-	text-transform: none;
-	letter-spacing: normal;
-	color: var(--vscode-descriptionForeground);
-	padding-top: 10px;
-	padding-bottom: 2px;
-}
-
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-chevron,
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-icon,
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count,
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-group-header .session-section-count-label {
 	display: none !important;
 }
 
@@ -145,7 +156,7 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut {
 	font-weight: var(--vscode-fontWeight-regular, 400);
 	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-	padding: 2px 10px;
+	padding: 4px 10px;
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shortcut .session-section-icon {
@@ -158,14 +169,64 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 	display: none !important;
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session {
+	margin: 4px 4px 8px;
+	padding: 8px 10px;
+	border-radius: var(--vscode-cornerRadius-medium, 8px);
+	background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session .session-section-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin-right: 8px;
+	border-radius: 50%;
+	background-color: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+	font-size: 14px;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session .session-section-label {
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+}
+
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-new-session .session-section-keybinding {
 	display: none !important;
 }
 
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-repositories-header .session-section-label {
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-workspace-folder,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-group.session-section-shideh-workspace-folder {
+	padding: 10px 8px 4px;
 	font-size: var(--vscode-fontSize-small, 11px);
-	font-weight: var(--vscode-fontWeight-regular, 400);
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+	letter-spacing: 0.04em;
 	color: var(--vscode-descriptionForeground);
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-workspace-folder .session-section-label,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-group.session-section-shideh-workspace-folder .session-section-label {
+	text-transform: uppercase;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-workspace-folder .session-section-count,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-group.session-section-shideh-workspace-folder .session-section-count,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-workspace-folder .session-section-count-label,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-group.session-section-shideh-workspace-folder .session-section-count-label {
+	display: none !important;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row .session-section.session-section-shideh-workspace-folder .session-section-chevron.collapsible,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row .session-group.session-section-shideh-workspace-folder .session-section-chevron.collapsible {
+	display: flex;
+	align-items: center;
+	margin-left: auto;
+}
+
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-section.session-section-shideh-workspace-folder .session-section-chevron.collapsible + .session-section-icon,
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .session-group.session-section-shideh-workspace-folder .session-section-chevron.collapsible + .session-section-icon {
+	display: flex !important;
 }
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row {
@@ -175,12 +236,7 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected,
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.focused {
-	background-color: var(--vscode-list-activeSelectionBackground);
-	border-radius: var(--vscode-cornerRadius-small);
-}
-
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected .monaco-list-row.focused,
-body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control .monaco-list-row.selected {
+	background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
 	border-radius: var(--vscode-cornerRadius-small);
 }
 
@@ -223,6 +279,10 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.
 	color: var(--vscode-descriptionForeground) !important;
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .session-item.shideh-sidebar-current-workspace:not(.quick-chat) .session-icon > .codicon:not(.codicon-loading):not(.codicon-sync):not(.codicon-error):not(.codicon-warning) {
+	color: var(--vscode-charts-blue, #3794ff) !important;
+}
+
 body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control.compact .monaco-list-row.selected .session-item:not(.quick-chat) .session-icon > .codicon:not(.codicon-loading):not(.codicon-sync):not(.codicon-error):not(.codicon-warning) {
 	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground)) !important;
 }
@@ -236,3 +296,6 @@ body.shideh-navigation-sidebar .agent-sessions-workbench .sessions-list-control 
 	display: none !important;
 }
 
+body.shideh-navigation-sidebar .agent-sessions-workbench .agent-sessions-viewpane .agent-sessions-header-container > .agent-sessions-header-row:not(:has(.agent-sessions-find-widget-container *)) {
+	display: none;
+}

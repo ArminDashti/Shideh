@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Event } from '../../../../base/common/event.js';
+import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 
 const POPULAR_THEMES = [
 	{ id: 'dark-modern', label: 'Dark Modern', scheme: 'dark', background: '#1f1f1f', panel: '#181818', foreground: '#cccccc', border: '#333333', accent: '#0078d4' },
@@ -38,8 +40,14 @@ export class AgentsThemePicker extends Disposable {
 		const buttons = POPULAR_THEMES.map(theme => {
 			const button = DOM.append(grid, $('button.agents-theme-picker-option') as HTMLButtonElement);
 			button.type = 'button';
-			button.textContent = theme.label;
-			button.style.setProperty('--agents-theme-preview', theme.background);
+			button.setAttribute('aria-label', theme.label);
+			const swatch = DOM.append(button, $('.agents-theme-picker-swatch'));
+			const dot = DOM.append(swatch, $('.agents-theme-picker-swatch-dot'));
+			dot.style.backgroundColor = theme.accent;
+			dot.style.boxShadow = `0 0 0 1px ${theme.border}`;
+			const check = DOM.append(swatch, $('.agents-theme-picker-check'));
+			check.appendChild(renderIcon(Codicon.check));
+			DOM.append(button, $('.agents-theme-picker-label')).textContent = theme.label;
 			this._register(DOM.addDisposableListener(button, 'click', () => {
 				void this.configurationService.updateValue('shideh.appearance.popularTheme', theme.id, ConfigurationTarget.USER);
 			}));
@@ -48,7 +56,9 @@ export class AgentsThemePicker extends Disposable {
 		const updateSelection = () => {
 			const selectedTheme = this.configurationService.getValue<string>('shideh.appearance.popularTheme') ?? 'dark-modern';
 			for (const { theme, button } of buttons) {
-				button.setAttribute('aria-pressed', String(selectedTheme === theme.id));
+				const selected = selectedTheme === theme.id;
+				button.classList.toggle('selected', selected);
+				button.setAttribute('aria-pressed', String(selected));
 			}
 		};
 		updateSelection();

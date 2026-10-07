@@ -1625,6 +1625,20 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, 
 			template.container.classList.toggle('sticky', isSticky);
 		}));
 
+		template.elementDisposables.add(autorun(reader => {
+			const shidehSidebar = this.contextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
+			if (!shidehSidebar) {
+				template.container.classList.remove('shideh-sidebar-current-workspace');
+				return;
+			}
+			const active = this.options.activeSession?.read(reader);
+			const activeWorkspaceLabel = active ? sessionWorkspaceLabel(active) : undefined;
+			template.container.classList.toggle(
+				'shideh-sidebar-current-workspace',
+				activeWorkspaceLabel !== undefined && sessionWorkspaceLabel(element) === activeWorkspaceLabel,
+			);
+		}));
+
 		// Icon — reactive based on status, read state, PR, and motion preference.
 		// The current icon CSS selector is stored on the template (not a local
 		// variable) so it survives across renderSession calls — the tree re-renders
@@ -2400,6 +2414,13 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			template.count.style.display = 'none';
 			template.toolbarContainer.style.display = 'none';
 		}
+		if (shidehSidebar && element.id.startsWith('workspace:')) {
+			template.container.classList.add('session-section-shideh-workspace-folder');
+			template.icon.style.display = '';
+			template.countLabel.textContent = '';
+			template.count.style.display = 'none';
+			template.toolbarContainer.style.display = 'none';
+		}
 		if (shidehSidebar && isSessionsListHeaderSectionId(element.id)) {
 			template.container.classList.add('session-section-shideh-group-header', 'session-section-shideh-repositories-header');
 			template.icon.style.display = 'none';
@@ -2478,7 +2499,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 				template.newBadge.classList.toggle('session-section-new-badge-outline', badgeStyle === 'outline');
 			}));
 			if (shidehSidebar) {
-				template.icon.className = `session-section-icon ${ThemeIcon.asClassName(Codicon.hubot)}`;
+				template.icon.className = `session-section-icon ${ThemeIcon.asClassName(Codicon.zap)}`;
 			} else {
 				const statusIcon = template.elementDisposables.add(this.instantiationService.createInstance(SessionStatusIcon, template.icon));
 				template.elementDisposables.add(autorun(reader => {
@@ -2504,7 +2525,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			}
 		} else {
 			const sectionIcon = element.id === NEW_SESSION_SECTION_ID && shidehSidebar
-				? Codicon.editSparkle
+				? Codicon.add
 				: element.id === CUSTOMIZATIONS_SECTION_ID && shidehSidebar
 					? Codicon.layoutPanel
 					: getSessionSectionIcon(element.id);
@@ -2513,7 +2534,9 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 
 		template.label.textContent = element.id === SHIDEH_NEW_PROJECT_SECTION_ID && shidehSidebar
 			? localize('newProjectWithPlus', "+ New Project")
-			: element.label;
+			: shidehSidebar && element.id.startsWith('workspace:')
+				? element.label.toLocaleUpperCase()
+				: element.label;
 		if (element.id !== CUSTOMIZATIONS_SECTION_ID) {
 			template.countBadgeContainer.style.display = 'none';
 			template.countLabel.style.display = '';
@@ -2688,10 +2711,18 @@ class SessionGroupRenderer implements ITreeRenderer<SessionListItem, FuzzyScore,
 		template.container.classList.remove(SESSION_HEADER_DROP_TARGET_CLASS);
 
 		const isComparison = element.comparison !== undefined;
+		const shidehSidebar = this.contextKeyService.getContextKeyValue<boolean>(ShidehNavigationIntegratedContext.key) === true;
 		template.container.classList.toggle('session-comparison-group', isComparison);
+		template.container.classList.toggle('session-section-shideh-workspace-folder', shidehSidebar && !isComparison);
 		template.icon.className = 'session-section-icon';
-		template.icon.classList.add(...ThemeIcon.asClassNameArray(isComparison ? Codicon.layers : Codicon.folderLibrary));
-		template.label.textContent = element.comparison?.title ?? element.group.name;
+		if (shidehSidebar && !isComparison) {
+			template.icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.folder));
+			template.label.textContent = element.group.name.toLocaleUpperCase();
+			template.toolbarContainer.style.display = 'none';
+		} else {
+			template.icon.classList.add(...ThemeIcon.asClassNameArray(isComparison ? Codicon.layers : Codicon.folderLibrary));
+			template.label.textContent = element.comparison?.title ?? element.group.name;
+		}
 		const comparison = element.comparison;
 		if (comparison) {
 			const getCurrentComparisonSessions = () => {
@@ -4940,11 +4971,15 @@ export class SessionsList extends Disposable implements ISessionsList {
 					children,
 				}];
 			if (shidehSidebar) {
+				const workspaceAndDateSections = children.filter(child => !isSessionGroupItem(child.element));
+				const projectGroups = children.filter(child => isSessionGroupItem(child.element));
 				this.setTreeChildren([
 					renderSection({ id: NEW_SESSION_SECTION_ID, label: localize('newChat', "New Chat"), sessions: [] }),
 					renderSection({ id: SHIDEH_SEARCH_SECTION_ID, label: localize('search', "Search"), sessions: [] }),
 					...navigationChildren,
-					...sectionBlocks,
+					renderSection({ id: SHIDEH_NEW_PROJECT_SECTION_ID, label: localize('newProject', "New Project"), sessions: [] }),
+					...projectGroups,
+					...workspaceAndDateSections,
 				]);
 			} else {
 				this.setTreeChildren([

@@ -8,6 +8,7 @@ import { SelectBox } from '../../../../base/browser/ui/selectBox/selectBox.js';
 import { Toggle } from '../../../../base/browser/ui/toggle/toggle.js';
 import { InputBox } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -16,6 +17,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IPreferencesService } from '../../../../workbench/services/preferences/common/preferences.js';
 import { MANAGE_CHAT_COMMAND_ID } from '../../../../workbench/contrib/chat/common/constants.js';
 import { AICustomizationManagementCommands, AICustomizationManagementSection } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
+import { agentIcon, hookIcon, pluginIcon, skillIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
 import { RemoteAgentHostCommandIds } from '../../providers/remoteAgentHost/browser/remoteAgentHostActions.js';
 import { isMacintosh, isWindows } from '../../../../base/common/platform.js';
 import { SHIDEH_CONNECT_REMOTE_AGENT_COMMAND_ID, SHIDEH_MANAGE_FAVORITE_MODELS_COMMAND_ID, SHIDEH_OPEN_STATS_COMMAND_ID, SHIDEH_TEST_NETWORK_COMMAND_ID } from '../common/shidehCommandIds.js';
@@ -30,17 +32,33 @@ import { ShidehModelsSettingsPanel } from './shidehModelsSettingsPanel.js';
 import { ShidehHubPanel } from './shidehHubPanel.js';
 import './media/shidehHub.css';
 
-type ShidehSettingsSectionId = 'general' | 'appearance' | 'models' | 'hub' | 'customization' | 'connectors' | 'terminal' | 'network' | 'system';
+type ShidehSettingsSectionId = 'general' | 'appearance' | 'models' | 'hub' | 'skills' | 'memory' | 'plugins' | 'agents' | 'hooks' | 'connectors' | 'terminal' | 'network' | 'system';
 
 type ShidehSettingItem =
-	| { kind: 'action'; label: string; description?: string; detail?: string; run: () => void | Promise<void> }
-	| { kind: 'boolean'; key: string; label: string; description?: string }
-	| { kind: 'enum'; key: string; label: string; description?: string; options: readonly { value: string; label: string }[] }
-	| { kind: 'number'; key: string; label: string; description?: string; suffix?: string; min?: number; max?: number }
-	| { kind: 'string'; key: string; label: string; description?: string; placeholder?: string }
+	| { kind: 'action'; label: string; description?: string; detail?: string; icon?: ThemeIcon; primaryAction?: boolean; run: () => void | Promise<void> }
+	| { kind: 'boolean'; key: string; label: string; description?: string; icon?: ThemeIcon }
+	| { kind: 'enum'; key: string; label: string; description?: string; icon?: ThemeIcon; options: readonly { value: string; label: string }[] }
+	| { kind: 'number'; key: string; label: string; description?: string; suffix?: string; min?: number; max?: number; icon?: ThemeIcon }
+	| { kind: 'string'; key: string; label: string; description?: string; placeholder?: string; icon?: ThemeIcon; colorSwatch?: boolean }
 	| { kind: 'appearance-themes' }
 	| { kind: 'lm-models-section' }
 	| { kind: 'hub-catalog' };
+
+const SHIDEH_SETTINGS_SECTION_ICONS: Record<ShidehSettingsSectionId, ThemeIcon> = {
+	general: Codicon.settingsGear,
+	appearance: Codicon.colorMode,
+	models: Codicon.sparkle,
+	hub: Codicon.library,
+	skills: skillIcon,
+	memory: Codicon.database,
+	plugins: pluginIcon,
+	agents: agentIcon,
+	hooks: hookIcon,
+	connectors: Codicon.plug,
+	terminal: Codicon.terminal,
+	network: Codicon.globe,
+	system: Codicon.serverEnvironment,
+};
 
 interface IShidehSettingsSection {
 	readonly id: ShidehSettingsSectionId;
@@ -87,7 +105,9 @@ export class ShidehSettingsContent extends Disposable {
 		const headerActions = DOM.append(header, DOM.$('.shideh-settings-header-actions'));
 		const openConfig = DOM.append(headerActions, DOM.$('button.shideh-settings-link-button')) as HTMLButtonElement;
 		openConfig.type = 'button';
-		openConfig.textContent = localize('shidehSettingsOpenConfigFile', "Open configuration file");
+		const openConfigIcon = DOM.append(openConfig, DOM.$('.shideh-settings-link-button-icon'));
+		openConfigIcon.appendChild(renderIcon(Codicon.file));
+		openConfig.appendChild(document.createTextNode(localize('shidehSettingsOpenConfigFile', "Open configuration file")));
 		this._register(DOM.addDisposableListener(openConfig, 'click', () => {
 			void this.preferencesService.openSettings({ query: '@tag:shideh', jsonEditor: true });
 		}));
@@ -108,7 +128,9 @@ export class ShidehSettingsContent extends Disposable {
 			item.setAttribute('role', 'tab');
 			item.tabIndex = section.id === this.activeSection ? 0 : -1;
 			item.setAttribute('aria-selected', section.id === this.activeSection ? 'true' : 'false');
-			item.textContent = section.label;
+			const navIcon = DOM.append(item, DOM.$('.shideh-settings-nav-icon'));
+			navIcon.appendChild(renderIcon(SHIDEH_SETTINGS_SECTION_ICONS[section.id]));
+			DOM.append(item, DOM.$('.shideh-settings-nav-label')).textContent = section.label;
 			if (section.id === this.activeSection) {
 				item.classList.add('selected');
 			}
@@ -154,6 +176,13 @@ export class ShidehSettingsContent extends Disposable {
 			{ value: 'build', label: localize('shidehSettingsModeBuild', "Build") },
 			{ value: 'plan', label: localize('shidehSettingsModePlan', "Plan") },
 		];
+		const fontFamilyOptions = [
+			{ value: '', label: localize('shidehSettingsFontThemeDefault', "Theme default") },
+			{ value: 'Segoe UI, system-ui, sans-serif', label: 'Segoe UI, system-ui, sans-serif' },
+			{ value: 'Inter, system-ui, sans-serif', label: 'Inter, system-ui, sans-serif' },
+			{ value: '-apple-system, BlinkMacSystemFont, sans-serif', label: '-apple-system, BlinkMacSystemFont, sans-serif' },
+			{ value: 'Consolas, monospace', label: 'Consolas, monospace' },
+		];
 		const memoryFrameworks = SHIDEH_MEMORY_FRAMEWORKS.map(framework => ({
 			value: framework.id,
 			label: framework.displayName,
@@ -163,12 +192,11 @@ export class ShidehSettingsContent extends Disposable {
 			{
 				id: 'general',
 				label: localize('shidehSettingsSection.general', "General"),
-				description: localize('shidehSettingsSection.generalDesc', "Startup behavior, default interaction mode, memory, and session overview."),
+				description: localize('shidehSettingsSection.generalDesc', "Startup behavior, default interaction mode, and session overview."),
 				items: [
 					{ kind: 'enum', key: 'shideh.defaultInteractionMode', label: localize('shidehSettingsDefaultMode', "Default interaction mode"), description: localize('shidehSettingsDefaultModeDesc', "Mode used when starting new agent chats."), options: interactionModes },
 					{ kind: 'boolean', key: 'shideh.openAgentPanelOnStartup', label: localize('shidehSettingsOpenPanelOnStartup', "Open classic panel on startup"), description: localize('shidehSettingsOpenPanelOnStartupDesc', "Show panel chat when Shideh starts in the classic workbench layout.") },
 					{ kind: 'boolean', key: 'shideh.runAtLogin', label: localize('shidehSettingsRunAtLogin', "Run at startup"), description: localize('shidehSettingsRunAtLoginDesc', "Start Shideh automatically when you sign in to Windows or macOS.") },
-					{ kind: 'boolean', key: 'shideh.memory.enabled', label: localize('shidehSettingsMemoryEnabled', "Agent memory"), description: localize('shidehSettingsMemoryEnabledDesc', "Enable Shideh memory adapters for long-running sessions.") },
 					{ kind: 'action', label: localize('shidehSettingsRestartApp', "Restart app"), description: localize('shidehSettingsRestartAppDesc', "Reload the Shideh window to apply pending updates or configuration."), detail: localize('shidehSettingsRestart', "Restart"), run: () => this.commandService.executeCommand('workbench.action.reloadWindow') },
 					{ kind: 'action', label: localize('shidehSettingsStats', "Usage stats"), description: localize('shidehSettingsStatsDesc', "View session and token usage summaries."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.commandService.executeCommand(SHIDEH_OPEN_STATS_COMMAND_ID) },
 				],
@@ -178,14 +206,14 @@ export class ShidehSettingsContent extends Disposable {
 				label: localize('shidehSettingsSection.appearance', "Appearance"),
 				description: localize('shidehSettingsSection.appearanceDesc', "Fonts, colors, and Agents window chrome."),
 				items: [
-					{ kind: 'string', key: 'shideh.appearance.fontFamily', label: localize('shidehSettingsFontFamily', "Font"), description: localize('shidehSettingsFontFamilyDesc', "CSS font family for the Agents window. Leave empty to use the theme default."), placeholder: 'Segoe UI, system-ui, sans-serif' },
-					{ kind: 'number', key: 'shideh.appearance.fontSize', label: localize('shidehSettingsFontSize', "Font size"), description: localize('shidehSettingsFontSizeDesc', "Base font size for the Agents window. Zero uses the theme default."), suffix: 'px', min: 0, max: 32 },
-					{ kind: 'string', key: 'shideh.appearance.foreground', label: localize('shidehSettingsFontColor', "Font color"), description: localize('shidehSettingsFontColorDesc', "Text color for the Agents window (CSS color)."), placeholder: '#cccccc' },
-					{ kind: 'string', key: 'shideh.appearance.sidebarBackground', label: localize('shidehSettingsSidebarColor', "Sidebar background"), description: localize('shidehSettingsSidebarColorDesc', "Background color for the session sidebar."), placeholder: '#1f1f1f' },
-					{ kind: 'string', key: 'shideh.appearance.activeSessionBackground', label: localize('shidehSettingsActiveSessionColor', "Active session background"), description: localize('shidehSettingsActiveSessionColorDesc', "Background color for the selected session row."), placeholder: '#2a2a2a' },
-					{ kind: 'string', key: 'shideh.appearance.chatInputBackground', label: localize('shidehSettingsChatInputColor', "Chat input background"), description: localize('shidehSettingsChatInputColorDesc', "Background color for the chat composer."), placeholder: '#252526' },
+					{ kind: 'enum', key: 'shideh.appearance.fontFamily', label: localize('shidehSettingsFontFamily', "Font"), description: localize('shidehSettingsFontFamilyDesc', "CSS font family for the Agents window. Leave empty to use the theme default."), icon: Codicon.wholeWord, options: fontFamilyOptions },
+					{ kind: 'number', key: 'shideh.appearance.fontSize', label: localize('shidehSettingsFontSize', "Font size"), description: localize('shidehSettingsFontSizeDesc', "Base font size for the Agents window. Zero uses the theme default."), icon: Codicon.textSize, suffix: 'px', min: 0, max: 32 },
+					{ kind: 'string', key: 'shideh.appearance.foreground', label: localize('shidehSettingsFontColor', "Font color"), description: localize('shidehSettingsFontColorDesc', "Text color for the Agents window (CSS color)."), icon: Codicon.symbolColor, placeholder: '#cccccc', colorSwatch: true },
+					{ kind: 'string', key: 'shideh.appearance.sidebarBackground', label: localize('shidehSettingsSidebarColor', "Sidebar background"), description: localize('shidehSettingsSidebarColorDesc', "Background color for the session sidebar."), icon: Codicon.layoutSidebarLeft, placeholder: '#1f1f1f', colorSwatch: true },
+					{ kind: 'string', key: 'shideh.appearance.activeSessionBackground', label: localize('shidehSettingsActiveSessionColor', "Active session background"), description: localize('shidehSettingsActiveSessionColorDesc', "Background color for the selected session row."), icon: Codicon.listSelection, placeholder: '#2a2a2a', colorSwatch: true },
+					{ kind: 'string', key: 'shideh.appearance.chatInputBackground', label: localize('shidehSettingsChatInputColor', "Chat input background"), description: localize('shidehSettingsChatInputColorDesc', "Background color for the chat composer."), icon: Codicon.comment, placeholder: '#252526', colorSwatch: true },
 					{ kind: 'appearance-themes' },
-					{ kind: 'action', label: localize('shidehSettingsAppearance', "Advanced appearance"), description: localize('shidehSettingsAppearanceDesc', "Fine-tune colors and typography overrides."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.preferencesService.openSettings({ query: 'shideh.appearance' }) },
+					{ kind: 'action', label: localize('shidehSettingsAppearance', "Advanced appearance"), description: localize('shidehSettingsAppearanceDesc', "Fine-tune colors and typography overrides."), detail: localize('shidehSettingsOpenChevron', "Open >"), primaryAction: true, run: () => this.preferencesService.openSettings({ query: 'shideh.appearance' }) },
 				],
 			},
 			{
@@ -208,12 +236,46 @@ export class ShidehSettingsContent extends Disposable {
 				],
 			},
 			{
-				id: 'customization',
-				label: localize('shidehSettingsSection.customization', "Customization"),
-				description: localize('shidehSettingsSection.customizationDesc', "Skills, instructions, prompts, plugins, and agent presets."),
+				id: 'skills',
+				label: localize('shidehSettingsSection.skills', "Skills"),
+				description: localize('shidehSettingsSection.skillsDesc', "Reusable skill files with domain knowledge and workflows."),
 				items: [
-					{ kind: 'action', label: localize('shidehSettingsCustomizationEditor', "Customizations"), description: localize('shidehSettingsCustomizationEditorDesc', "Skills, instructions, and workspace plugins."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor) },
-					{ kind: 'action', label: localize('shidehSettingsAgentsSection', "Agent presets"), description: localize('shidehSettingsAgentsSectionDesc', "Saved agent configurations and personas."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Agents) },
+					{ kind: 'action', label: localize('shidehSettingsSkillsManage', "Manage skills"), description: localize('shidehSettingsSkillsManageDesc', "Create, enable, and organize skill files for agents."), icon: skillIcon, detail: localize('shidehSettingsManage', "Manage"), primaryAction: true, run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Skills) },
+					{ kind: 'action', label: localize('shidehSettingsSkillsMarketplace', "Browse skill marketplace"), description: localize('shidehSettingsSkillsMarketplaceDesc', "Discover and install skills from trusted catalogs."), icon: Codicon.library, detail: localize('shidehSettingsOpen', "Open"), run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenMarketplace, AICustomizationManagementSection.Skills) },
+				],
+			},
+			{
+				id: 'memory',
+				label: localize('shidehSettingsSection.memory', "Memory"),
+				description: localize('shidehSettingsSection.memoryDesc', "Long-running session memory adapters and framework selection."),
+				items: [
+					{ kind: 'boolean', key: 'shideh.memory.enabled', label: localize('shidehSettingsMemoryEnabled', "Agent memory"), description: localize('shidehSettingsMemoryEnabledDesc', "Enable Shideh memory adapters for long-running sessions."), icon: Codicon.database },
+					{ kind: 'enum', key: 'shideh.memory.framework', label: localize('shidehSettingsMemoryFramework', "Memory framework"), description: localize('shidehSettingsMemoryFrameworkDesc', "Adapter used when agent memory is enabled."), icon: Codicon.layers, options: memoryFrameworks },
+				],
+			},
+			{
+				id: 'plugins',
+				label: localize('shidehSettingsSection.plugins', "Plugin"),
+				description: localize('shidehSettingsSection.pluginsDesc', "Agent plugins that add tools, skills, and integrations."),
+				items: [
+					{ kind: 'action', label: localize('shidehSettingsPluginsManage', "Manage plugins"), description: localize('shidehSettingsPluginsManageDesc', "Install, update, and configure agent plugins."), icon: pluginIcon, detail: localize('shidehSettingsManage', "Manage"), primaryAction: true, run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Plugins) },
+					{ kind: 'action', label: localize('shidehSettingsPluginsMarketplace', "Browse plugin marketplace"), description: localize('shidehSettingsPluginsMarketplaceDesc', "Discover plugins from the customization marketplace."), icon: Codicon.library, detail: localize('shidehSettingsOpen', "Open"), run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenMarketplace, AICustomizationManagementSection.Plugins) },
+				],
+			},
+			{
+				id: 'agents',
+				label: localize('shidehSettingsSection.agents', "Agent"),
+				description: localize('shidehSettingsSection.agentsDesc', "Custom agents with personas, tools, and instructions."),
+				items: [
+					{ kind: 'action', label: localize('shidehSettingsAgentsManage', "Manage agents"), description: localize('shidehSettingsAgentsManageDesc', "Create and edit saved agent configurations and personas."), icon: agentIcon, detail: localize('shidehSettingsManage', "Manage"), primaryAction: true, run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Agents) },
+				],
+			},
+			{
+				id: 'hooks',
+				label: localize('shidehSettingsSection.hooks', "Hook"),
+				description: localize('shidehSettingsSection.hooksDesc', "Automated actions triggered by editor and task events."),
+				items: [
+					{ kind: 'action', label: localize('shidehSettingsHooksManage', "Manage hooks"), description: localize('shidehSettingsHooksManageDesc', "Configure hook files for save, task, and lifecycle events."), icon: hookIcon, detail: localize('shidehSettingsManage', "Manage"), primaryAction: true, run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Hooks) },
 				],
 			},
 			{
@@ -249,9 +311,8 @@ export class ShidehSettingsContent extends Disposable {
 			{
 				id: 'system',
 				label: localize('shidehSettingsSection.system', "System"),
-				description: localize('shidehSettingsSection.systemDesc', "Agent host runtime, harness bridges, memory adapters, and tools."),
+				description: localize('shidehSettingsSection.systemDesc', "Agent host runtime, harness bridges, and tools."),
 				items: [
-					{ kind: 'enum', key: 'shideh.memory.framework', label: localize('shidehSettingsMemoryFramework', "Memory framework"), description: localize('shidehSettingsMemoryFrameworkDesc', "Adapter used when agent memory is enabled."), options: memoryFrameworks },
 					{ kind: 'action', label: localize('shidehSettingsHarnesses', "Harnesses"), description: localize('shidehSettingsHarnessesDesc', "Cursor plugin and Deepseek harness integrations."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.preferencesService.openSettings({ query: 'shideh.harnesses' }) },
 					{ kind: 'action', label: localize('shidehSettingsAgentHost', "Agent host"), description: localize('shidehSettingsAgentHostDesc', "Client tools and agent host runtime options."), detail: localize('shidehSettingsOpen', "Open"), run: () => this.preferencesService.openSettings({ query: 'chat.agentHost' }) },
 					{ kind: 'action', label: localize('shidehSettingsToolsEditor', "Manage tools"), description: localize('shidehSettingsToolsEditorDesc', "Enable or disable tools exposed to the agent."), detail: localize('shidehSettingsManage', "Manage"), run: () => this.commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, AICustomizationManagementSection.Tools) },
@@ -310,6 +371,11 @@ export class ShidehSettingsContent extends Disposable {
 		}
 
 		const row = DOM.append(parent, DOM.$('.shideh-settings-row'));
+		const rowIcon = 'icon' in item ? item.icon : undefined;
+		if (rowIcon) {
+			const iconHost = DOM.append(row, DOM.$('.shideh-settings-row-icon'));
+			iconHost.appendChild(renderIcon(rowIcon));
+		}
 		const labels = DOM.append(row, DOM.$('.shideh-settings-row-labels'));
 		DOM.append(labels, DOM.$('.shideh-settings-row-label')).textContent = item.label;
 		if (item.description) {
@@ -317,19 +383,27 @@ export class ShidehSettingsContent extends Disposable {
 		}
 
 		if (item.kind === 'action') {
-			const control = DOM.append(row, DOM.$('.shideh-settings-row-control.shideh-settings-row-action'));
-			control.textContent = item.detail ?? localize('shidehSettingsOpen', "Open");
-			row.classList.add('shideh-settings-row-interactive');
-			row.tabIndex = 0;
-			row.setAttribute('role', 'button');
+			const control = DOM.append(row, DOM.$('.shideh-settings-row-control'));
 			const run = () => { void item.run(); };
-			this.panelDisposables.add(DOM.addDisposableListener(row, 'click', run));
-			this.panelDisposables.add(DOM.addDisposableListener(row, 'keydown', (e: KeyboardEvent) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					run();
-				}
-			}));
+			if (item.primaryAction) {
+				const button = DOM.append(control, DOM.$('button.shideh-settings-primary-button')) as HTMLButtonElement;
+				button.type = 'button';
+				button.textContent = item.detail ?? localize('shidehSettingsOpenChevron', "Open >");
+				this.panelDisposables.add(DOM.addDisposableListener(button, 'click', run));
+			} else {
+				const actionLabel = DOM.append(control, DOM.$('.shideh-settings-row-action'));
+				actionLabel.textContent = item.detail ?? localize('shidehSettingsOpen', "Open");
+				row.classList.add('shideh-settings-row-interactive');
+				row.tabIndex = 0;
+				row.setAttribute('role', 'button');
+				this.panelDisposables.add(DOM.addDisposableListener(row, 'click', run));
+				this.panelDisposables.add(DOM.addDisposableListener(row, 'keydown', (e: KeyboardEvent) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						run();
+					}
+				}));
+			}
 			return;
 		}
 
@@ -402,6 +476,7 @@ export class ShidehSettingsContent extends Disposable {
 
 		if (item.kind === 'string') {
 			const value = String(this.configurationService.getValue<string>(item.key) ?? '');
+			controlHost.classList.add('shideh-settings-row-control-string');
 			const input = this.panelDisposables.add(new InputBox(controlHost, this.contextViewService, {
 				ariaLabel: item.label,
 				placeholder: item.placeholder,
@@ -413,6 +488,57 @@ export class ShidehSettingsContent extends Disposable {
 			};
 			this.panelDisposables.add(input.onDidChange(() => commit()));
 			this.panelDisposables.add(DOM.addDisposableListener(input.inputElement, 'blur', commit));
+
+			if (item.colorSwatch) {
+				const swatchButton = DOM.append(controlHost, DOM.$('button.shideh-settings-color-swatch')) as HTMLButtonElement;
+				swatchButton.type = 'button';
+				swatchButton.setAttribute('aria-label', localize('shidehSettingsPickColor', "Pick color"));
+				const nativePicker = DOM.append(controlHost, DOM.$('input.shideh-settings-color-native')) as HTMLInputElement;
+				nativePicker.type = 'color';
+				nativePicker.tabIndex = -1;
+				const applySwatch = (color: string) => {
+					const normalized = color.trim();
+					swatchButton.style.backgroundColor = this.isCssColor(normalized) ? normalized : 'transparent';
+					swatchButton.classList.toggle('invalid', !this.isCssColor(normalized));
+				};
+				applySwatch(value);
+				this.panelDisposables.add(DOM.addDisposableListener(swatchButton, 'click', () => {
+					if (this.isCssColor(input.value)) {
+						nativePicker.value = this.toHexColor(input.value);
+					}
+					nativePicker.click();
+				}));
+				this.panelDisposables.add(DOM.addDisposableListener(nativePicker, 'input', () => {
+					input.value = nativePicker.value;
+					applySwatch(nativePicker.value);
+					void this.configurationService.updateValue(item.key, nativePicker.value);
+				}));
+				this.panelDisposables.add(input.onDidChange(() => applySwatch(input.value)));
+			}
 		}
+	}
+
+	private isCssColor(value: string): boolean {
+		if (!value.trim()) {
+			return false;
+		}
+		if (typeof CSS !== 'undefined' && typeof CSS.supports === 'function') {
+			return CSS.supports('color', value);
+		}
+		return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
+	}
+
+	private toHexColor(value: string): string {
+		const trimmed = value.trim();
+		if (/^#([0-9a-f]{6})$/i.test(trimmed)) {
+			return trimmed;
+		}
+		if (/^#([0-9a-f]{3})$/i.test(trimmed)) {
+			const [, hex] = /^#([0-9a-f]{3})$/i.exec(trimmed) ?? [];
+			if (hex) {
+				return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+			}
+		}
+		return '#cccccc';
 	}
 }

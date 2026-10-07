@@ -59,6 +59,7 @@ export class ShidehSettingsEditor extends EditorPane {
 
 	protected override createEditor(parent: HTMLElement): void {
 		const content = this._register(this.instantiationService.createInstance(ShidehSettingsContent, {
+			showTitle: false,
 			onClose: () => { void this.editorService.closeEditor(this.input); },
 		}));
 		content.render(parent);

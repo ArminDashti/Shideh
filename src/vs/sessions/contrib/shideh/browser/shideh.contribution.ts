@@ -8,6 +8,7 @@ import './shidehHubSources.contribution.js';
 import './shidehNavigationContribution.js';
 import './shidehSettingsCustomView.js';
 import './shidehSidebarFooter.contribution.js';
+import './shidehSidebarTitle.contribution.js';
 import './shidehAppearance.contribution.js';
 import './shidehDefaultMcp.contribution.js';
 import './shidehMemory.contribution.js';
