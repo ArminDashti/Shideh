@@ -278,30 +278,11 @@ suite('Changes Actions', () => {
 		});
 		assert.deepStrictEqual(disabledStates, ['false', 'false']);
 
-		// An existing session only contributes the Commit operation of the
-		// changeset selected in the Changes view.
+		// An existing session keeps Commit in the window title bar, not this header.
 		operations.set(operations.get().map(operation => ({ ...operation, status: SessionChangesetOperationStatus.Idle })), undefined);
 		status.set(SessionStatus.Completed, undefined);
 		const existingSessionActions = getActions();
-		invokedOperations.length = 0;
-		await instantiationService.invokeFunction(CommandsRegistry.getCommand(`${actionPrefix}${AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID}`)!.handler);
-		assert.deepStrictEqual({
-			actions: existingSessionActions.map(item => ({
-				id: item.command.id,
-				group: item.group,
-				precondition: item.command.precondition?.serialize(),
-				visibleForChangesTab: item.when?.serialize(),
-			})),
-			invokedOperations,
-		}, {
-			actions: [{
-				id: `${actionPrefix}${AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID}`,
-				group: 'navigation',
-				precondition: undefined,
-				visibleForChangesTab: ContextKeyExpr.equals(ActiveEditorContext.key, SessionChangesEditor.ID).serialize(),
-			}],
-			invokedOperations: [AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID],
-		});
+		assert.deepStrictEqual(existingSessionActions.map(item => item.command.id), []);
 
 		activeSession.set(undefined, undefined);
 		assert.deepStrictEqual({

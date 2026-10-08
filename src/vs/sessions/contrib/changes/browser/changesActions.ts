@@ -438,10 +438,9 @@ class CommitActionViewItem extends MenuEntryActionViewItem {
  * Contributes changeset operations to the Changes editor header toolbar.
  *
  * For a new (untitled) session this is every changeset-scoped operation of the
- * uncommitted changes changeset (except Sync and Checkout). For an existing
- * session only the Commit operation of the changeset selected in the Changes
- * view is contributed here; the title bar button bar omits it so that Commit
- * always lives in the Changes toolbar.
+ * uncommitted changes changeset (except Sync and Checkout), including Commit,
+ * because the window title bar is hidden until the session exists. For an
+ * existing session Commit and the change counts live in the window title bar.
  */
 export class ChangesHeaderChangesetOperationsActionContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.sessions.changesHeaderChangesetOperationsAction';
@@ -477,12 +476,9 @@ export class ChangesHeaderChangesetOperationsActionContribution extends Disposab
 					.filter(operation => operation.scopes.includes(SessionChangesetOperationScope.Changeset)) ?? [];
 				hasUncommittedChanges = (activeSession.workspace.read(reader)?.folders[0]?.gitRepository?.uncommittedChanges ?? 0) > 0;
 			} else {
-				changeset = changesViewService.activeSessionChangesetObs.read(reader);
-				operations = changeset
-					? changesViewService.activeSessionChangesetOperationsObs.read(reader)
-						.filter(operation => operation.id === AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID)
-						.filter(operation => operation.scopes.includes(SessionChangesetOperationScope.Changeset))
-					: [];
+				// Commit is the leading action of the window title bar for an existing session.
+				changeset = undefined;
+				operations = [];
 			}
 
 			for (let index = 0; index < operations.length; index++) {

@@ -283,9 +283,53 @@
 	box-sizing: border-box;
 }
 
+/* Change counts and Commit share one pill in the window title bar. */
+.monaco-action-bar .action-item.changes-titlebar-pill-item {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.changes-titlebar-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	min-width: 0;
+	max-width: 100%;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size40) var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	border-radius: var(--vscode-cornerRadius-medium);
+	background-color: var(--vscode-commandCenter-background);
+	color: var(--vscode-commandCenter-foreground);
+}
+
+.changes-titlebar-stats {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+	flex: 0 1 auto;
+	min-width: 0;
+	font-size: var(--vscode-fontSize-label1);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.changes-titlebar-stats-icon.codicon {
+	font-size: var(--vscode-codiconFontSize-compact);
+	width: auto;
+	height: auto;
+}
+
+.changes-titlebar-actions {
+	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
 /* Scope title-bar normalization to the toolbar action item so the classic internal
  * changes-editor header and the auxiliary-bar Changes view are left untouched. */
-.monaco-action-bar .action-item.changes-actions-bar {
+.monaco-action-bar .action-item.changes-actions-bar,
+.monaco-action-bar .action-item.changes-titlebar-pill-item {
 	display: flex;
 	align-items: center;
 	gap: var(--vscode-spacing-size40);
@@ -296,19 +340,23 @@
 
 /* Normalize the button bar height for the title bar without affecting the classic header. */
 .monaco-action-bar .action-item.changes-actions-bar .monaco-button,
-.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown {
+.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown,
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button,
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button-dropdown {
 	height: 22px;
 	min-height: 22px;
 	padding-block: 0;
 }
 
-.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown {
+.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown,
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button-dropdown {
 	display: flex;
 	min-width: 0;
 	max-width: 100%;
 }
 
-.monaco-action-bar .action-item.changes-actions-bar .monaco-button:not(.monaco-dropdown-button) {
+.monaco-action-bar .action-item.changes-actions-bar .monaco-button:not(.monaco-dropdown-button),
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button:not(.monaco-dropdown-button) {
 	flex: 1 1 auto;
 	flex-wrap: wrap;
 	min-width: 0;
@@ -316,11 +364,14 @@
 }
 
 .monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown > .monaco-button-dropdown-separator,
-.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown > .monaco-button.monaco-dropdown-button {
+.monaco-action-bar .action-item.changes-actions-bar .monaco-button-dropdown > .monaco-button.monaco-dropdown-button,
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button-dropdown > .monaco-button-dropdown-separator,
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button-dropdown > .monaco-button.monaco-dropdown-button {
 	flex: 0 0 auto;
 }
 
-.monaco-action-bar .action-item.changes-actions-bar .monaco-button > span:not(.codicon) {
+.monaco-action-bar .action-item.changes-actions-bar .monaco-button > span:not(.codicon),
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .monaco-button > span:not(.codicon) {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -334,11 +385,18 @@
  * specificity than the base rule) so the buttons size to their own content.
  * A button's leading icon is exempt: it shares its box with the spinner that
  * replaces it while the action runs, so the button bar owns its sizing. */
-.monaco-action-bar .action-item.changes-actions-bar .codicon:not(.monaco-button-leading-icon) {
+.monaco-action-bar .action-item.changes-actions-bar .codicon:not(.monaco-button-leading-icon),
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-actions-bar .codicon:not(.monaco-button-leading-icon) {
 	width: auto;
 	height: 20px;
 	flex-shrink: 0;
 	color: var(--vscode-button-foreground) !important;
+}
+
+.monaco-action-bar .action-item.changes-titlebar-pill-item .changes-titlebar-stats-icon.codicon {
+	width: auto;
+	height: auto;
+	color: var(--vscode-commandCenter-foreground);
 }
 
 .session-changes-editor-body {

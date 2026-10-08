@@ -323,7 +323,7 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 
 	constructor(
 		container: HTMLElement,
-		excludedOperationIds: ReadonlySet<string>,
+		private readonly _options: IChangesActionsBarOptions,
 		@IMenuService menuService: IMenuService,
 		@IChangesViewService changesViewService: IChangesViewService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -427,7 +427,7 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 			const changesetOperations = operations
 				.filter(op => op.scopes.includes(SessionChangesetOperationScope.Changeset))
 				.filter(op => !AGENT_HOST_AUTO_MERGE_OPERATION_IDS.has(op.id))
-				.filter(op => !excludedOperationIds.has(op.id));
+				.filter(op => !this._options.excludedOperationIds?.has(op.id));
 
 			const toOperationAction = (op: ISessionChangesetOperation) => toAction({
 				id: op.id,
@@ -491,7 +491,7 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 					...(runningActions.length > 0
 						? [runningActions]
 						: []),
-					...groups.values(),
+					...promotePreferredOperation([...groups.values()], runningActions.length > 0 ? undefined : this._options.preferredPrimaryOperationId),
 				],
 				hasRunning: runningActions.length > 0,
 			};
@@ -598,21 +598,44 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 	}
 }
 
-/**
- * Changeset operations that the desktop title bar never renders because
- * they are contributed to the Changes editor header toolbar instead.
- */
-const TITLE_BAR_EXCLUDED_OPERATION_IDS: ReadonlySet<string> = new Set([AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID]);
+/** Which changeset operation leads the button, and which operations stay out of it. */
+export interface IChangesActionsBarOptions {
+	readonly excludedOperationIds?: ReadonlySet<string>;
+	/** When set, this operation is the button label; the rest stay in its dropdown. */
+	readonly preferredPrimaryOperationId?: string;
+	onDidChangeActionsVisibility?(visible: boolean): void;
+}
+
+function promotePreferredOperation(groups: readonly IAction[][], preferredOperationId: string | undefined): IAction[][] {
+	if (!preferredOperationId) {
+		return [...groups];
+	}
+	let preferred: IAction | undefined;
+	const remaining: IAction[][] = [];
+	for (const group of groups) {
+		const rest = group.filter(action => {
+			if (!preferred && action.id === preferredOperationId) {
+				preferred = action;
+				return false;
+			}
+			return true;
+		});
+		if (rest.length > 0) {
+			remaining.push(rest);
+		}
+	}
+	return preferred ? [[preferred], ...remaining] : remaining;
+}
 
 /**
- * Renders the session changes action button-bar (e.g. "Create Pull Request") into
+ * Renders the session changes action button-bar (e.g. "Commit" or "Create Pull Request") into
  * a container, choosing the agent-host or git variant based on the active session.
- * Used to host the actions in the desktop Changes editor header.
+ * The desktop title bar hosts this with Commit as the leading action.
  */
 export class ChangesActionsBar extends Disposable {
 	constructor(
 		container: HTMLElement,
-		excludedOperationIds: ReadonlySet<string>,
+		private readonly _options: IChangesActionsBarOptions,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IChangesViewService changesViewService: IChangesViewService,
 		@ISessionsService sessionsService: ISessionsService,
@@ -640,13 +663,14 @@ export class ChangesActionsBar extends Disposable {
 		const updateVisibility = () => {
 			const visible = currentWidget?.hasActions ?? false;
 			dom.setVisibility(visible, container);
+			this._options.onDidChangeActionsVisibility?.(visible);
 		};
 
 		this._register(autorun(reader => {
 			dom.clearNode(container);
 
 			const widget = isAgentHostSessionObs.read(reader)
-				? instantiationService.createInstance(ChangesWorkbenchButtonBarWidget, container, excludedOperationIds)
+				? instantiationService.createInstance(ChangesWorkbenchButtonBarWidget, container, this._options)
 				: instantiationService.createInstance(ChangesMenuWorkbenchButtonBarWidget, container, hasGitOperationInProgressObs);
 			reader.store.add(widget);
 			currentWidget = widget;
@@ -667,19 +691,44 @@ export class ChangesActionsBar extends Disposable {
 
 export const CHANGES_HEADER_ACTIONS_ID = 'workbench.changesView.headerActions';
 
-/** Renders the {@link ChangesActionsBar} widget as the Create Pull Request title-bar action item. */
+/** Renders change stats and the Commit button in the window title bar. */
 export class ChangesActionsBarActionViewItem extends BaseActionViewItem {
 	constructor(
 		action: IAction,
 		options: IActionViewItemOptions,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IChangesViewService private readonly changesViewService: IChangesViewService,
 	) {
 		super(undefined, action, options);
 	}
 
 	override render(container: HTMLElement): void {
 		super.render(container);
-		this._register(this.instantiationService.createInstance(ChangesActionsBar, container, TITLE_BAR_EXCLUDED_OPERATION_IDS));
+		container.classList.add('changes-titlebar-pill-item');
+
+		const pill = dom.append(container, dom.$('.changes-titlebar-pill'));
+		const stats = dom.append(pill, dom.$('span.changes-titlebar-stats'));
+		const icon = dom.append(stats, dom.$(`span.changes-titlebar-stats-icon${ThemeIcon.asCSSSelector(Codicon.diffMultiple)}`));
+		icon.setAttribute('aria-hidden', 'true');
+		const statsObs = derived(reader => {
+			const summary = this.changesViewService.activeSessionChangesSummaryObs.read(reader);
+			if (!summary || (summary.files === 0 && summary.additions === 0 && summary.deletions === 0)) {
+				return undefined;
+			}
+			return { files: summary.files, insertions: summary.additions, deletions: summary.deletions };
+		});
+		this._register(this.instantiationService.createInstance(ChangesStatsWidget, stats, statsObs, true));
+		const actions = dom.append(pill, dom.$('span.changes-titlebar-actions'));
+		const actionsVisible = observableValue(this, false);
+		this._register(this.instantiationService.createInstance(ChangesActionsBar, actions, {
+			preferredPrimaryOperationId: AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID,
+			onDidChangeActionsVisibility: visible => actionsVisible.set(visible, undefined),
+		}));
+		this._register(autorun(reader => {
+			const hasStats = statsObs.read(reader) !== undefined;
+			dom.setVisibility(hasStats, stats);
+			dom.setVisibility(hasStats || actionsVisible.read(reader), container);
+		}));
 	}
 }
 
@@ -716,13 +765,13 @@ class ChangesActionViewItemsContribution extends Disposable implements IWorkbenc
 
 		const onDidRegister = this._register(new Emitter<void>());
 		const headerLabelObs = createChangesPickerLabelObservable(this, changesViewService);
-		const headerSummary = this._register(instantiationService.createInstance(ChangesPickerSummary));
 
 		this._register(actionViewItemService.register(Menus.SessionsEditorHeaderPrimary, VERSIONS_PICKER_ACTION_ID, (action, _options, instantiationService) => {
 			if (!(action instanceof MenuItemAction)) {
 				return undefined;
 			}
-			return instantiationService.createInstance(ChangesPickerActionItem, action, headerSummary, headerLabelObs);
+			// File counts and Commit live in the window title bar, above this header.
+			return instantiationService.createInstance(ChangesPickerActionItem, action, undefined, headerLabelObs);
 		}, onDidRegister.event));
 
 		this._register(actionViewItemService.register(Menus.TitleBarSessionMenu, CHANGES_HEADER_ACTIONS_ID, (action, options, instantiationService) => {
@@ -1737,7 +1786,7 @@ export class ChangesViewPane extends ViewPane {
 			const isAgentHostSession = isAgentHostSessionObs.read(reader);
 
 			const widget = isAgentHostSession
-				? this.scopedInstantiationService.createInstance(ChangesWorkbenchButtonBarWidget, this.actionsContainer!, new Set<string>())
+				? this.scopedInstantiationService.createInstance(ChangesWorkbenchButtonBarWidget, this.actionsContainer!, {})
 				: this.scopedInstantiationService.createInstance(ChangesMenuWorkbenchButtonBarWidget, this.actionsContainer!, this.hasGitOperationInProgressObs);
 			reader.store.add(widget);
 		}));
