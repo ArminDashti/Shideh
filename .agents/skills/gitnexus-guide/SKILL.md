@@ -1,8 +1,14 @@
 ---
 name: gitnexus-guide
-description: "Use when the user asks about GitNexus itself — available tools, how to query the knowledge graph, MCP resources, graph schema, or workflow reference. Examples: \"What GitNexus tools are available?\", \"How do I use GitNexus?\""
+description: >-
+  Use when the user asks about GitNexus itself — available tools, how to query the knowledge graph, MCP resources, graph schema, or workflow reference. Examples: \"What GitNexus tools are available?\", \"How do I use GitNexus?\"
+metadata:
+  version: 1.0.0
+  author: "Armin Dashti"
+  tags: []
+  last_updated: "2026-10-10 12:12:40"
+  uuid: c81c534f-0112-421b-86e8-2f0386f3a0e1
 ---
-
 # GitNexus Guide
 
 Quick reference for all GitNexus MCP tools, resources, and the knowledge graph schema.
