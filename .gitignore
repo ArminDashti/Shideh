@@ -62,3 +62,9 @@ dist
 # local tooling caches
 graphify-out/
 .gitnexus/
+
+# generated
+.venv/
+__pycache__/
+.env
+!.env.example
