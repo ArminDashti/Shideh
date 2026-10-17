@@ -668,6 +668,22 @@ export const enum ChatModelSource {
 }
 
 /**
+ * Per-chat capabilities. Consumers gate chat-management UI (rename, delete) on
+ * these flags rather than on the chat's origin/provider, so the affordances are
+ * offered exactly where the backing chat supports them. A worker (subagent)
+ * chat, for example, is neither renameable nor deletable.
+ */
+export interface IChatCapabilities {
+	/** Whether this chat's title can be renamed. */
+	readonly canRename: boolean;
+	/** Whether this chat can be permanently deleted. */
+	readonly canDelete: boolean;
+}
+
+/** Capabilities assumed for a chat that does not advertise its own. */
+export const DEFAULT_CHAT_CAPABILITIES: IChatCapabilities = { canRename: true, canDelete: true };
+
+/**
  * A single chat within a session, produced by the sessions management layer.
  */
 export interface IChat {

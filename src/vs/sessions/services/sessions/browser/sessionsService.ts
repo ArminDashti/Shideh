@@ -901,6 +901,12 @@ export class SessionsService extends Disposable implements ISessionsService {
 		if (this.uriIdentityService.extUri.isEqual(chat.resource, session.mainChat.get().resource)) {
 			return;
 		}
+		// Subagent (tool-origin) chats are hidden by default and toggled via an
+		// in-memory shown set, not the persisted closed set, so they never
+		// participate in closed-chat persistence.
+		if (chat.origin?.kind === ChatOriginKind.Tool) {
+			return;
+		}
 		const existing = this._sessionStates.get(session.resource);
 		const chatResource = chat.resource.toString();
 		const closedChatResources = new Set(existing?.closedChatResources);
