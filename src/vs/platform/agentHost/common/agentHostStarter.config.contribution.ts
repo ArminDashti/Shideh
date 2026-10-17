@@ -31,6 +31,7 @@ import {
 	AgentHostOTelResourceAttributesSettingId,
 	AgentHostOTelServiceNameSettingId,
 	AgentHostSystemProxyEnabledSettingId,
+	AgentHostWorkspaceSnapshotEnabledSettingId,
 } from './agentService.js';
 import {
 	AgentHostAgentOrchestrationLimitsConfigKey,
@@ -41,6 +42,7 @@ import {
 	AgentHostGitHubMcpServerEnabledConfigKey,
 	AgentHostMarkdownPlanRichLinksEnabledConfigKey,
 	AgentHostSystemProxyEnabledConfigKey,
+	AgentHostWorkspaceSnapshotEnabledConfigKey,
 } from './agentHostSchema.js';
 import { AgentMergeConfigKey, AgentMergeSettingId, AGENT_MERGE_SETTING_TAG } from './agentMerge.js';
 import { artifactToolsConfigurationProperties } from './artifactToolsConfiguration.js';
@@ -195,6 +197,15 @@ configurationRegistry.registerConfiguration({
 			tags: ['experimental', 'advanced'],
 			experiment: { mode: 'auto' },
 			agentHost: { key: AgentHostMarkdownPlanRichLinksEnabledConfigKey },
+		},
+		[AgentHostWorkspaceSnapshotEnabledSettingId]: {
+			type: 'boolean',
+			description: nls.localize('chat.experimental.workspaceSnapshot', "When enabled, the first turn of a new Copilot agent host chat includes a bounded file-name snapshot of its working directories, so the agent can orient itself without listing the workspace first. File contents are never included."),
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			tags: ['experimental', 'advanced'],
+			experiment: { mode: 'auto' },
+			agentHost: { key: AgentHostWorkspaceSnapshotEnabledConfigKey },
 		},
 		[AgentHostAgentOrchestrationLimitsSettingId]: {
 			type: 'string',

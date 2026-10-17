@@ -2092,7 +2092,7 @@ export class AgentSideEffects extends Disposable {
 			this._turnTracker.markSendStage(turnChannel, turnId, 'attachments');
 			const resolvedAttachments = await this._resolveChatAttachments(message.attachments);
 			this._turnTracker.markSendStage(turnChannel, turnId, 'contributions');
-			const contribution = await this._chatContributions.outgoingTurn({ session: sessionChannel, chat, message, turnId });
+			const contribution = await this._chatContributions.outgoingTurn({ session: sessionChannel, chat, message, turnId, workingDirectories: resolvedWorkingDirectories });
 			const sendContext = {
 				...clientOperationContext,
 				...(contribution.instructions?.length ? { hostInstructions: contribution.instructions } : {}),
