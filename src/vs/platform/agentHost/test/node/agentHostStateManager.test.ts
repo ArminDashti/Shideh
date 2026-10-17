@@ -342,6 +342,46 @@ suite('AgentHostStateManager', () => {
 		assert.deepStrictEqual(notifications.map(notification => notification.type), [NotificationType.SessionAdded]);
 	});
 
+	test('announceLiveSession re-announces the current live summary', () => {
+		const notifications: INotification[] = [];
+		disposables.add(manager.onDidEmitNotification(notification => notifications.push(notification)));
+		const summary = makeSessionSummary();
+		manager.restoreSession(summary, []);
+
+		manager.announceLiveSession(sessionUri);
+
+		assert.deepStrictEqual(notifications, [{
+			type: NotificationType.SessionAdded,
+			channel: ROOT_STATE_URI,
+			summary,
+		}]);
+	});
+
+	test('retractSurfacedSession emits a protocol URI only for non-live sessions', () => {
+		const notifications: INotification[] = [];
+		disposables.add(manager.onDidEmitNotification(notification => notifications.push(notification)));
+		manager.announceSurfacedSession(makeSessionSummary());
+		notifications.length = 0;
+
+		manager.retractSurfacedSession(sessionUri);
+		const removed = notifications[0];
+		manager.createSession(makeSessionSummary());
+		notifications.length = 0;
+		manager.retractSurfacedSession(sessionUri);
+
+		assert.deepStrictEqual({
+			removed: removed?.type === NotificationType.SessionRemoved ? removed.session : undefined,
+			surfaced: manager.getSurfacedSessionSummary(sessionUri),
+			live: manager.getSessionState(sessionUri) !== undefined,
+			liveNotifications: notifications,
+		}, {
+			removed: sessionUri,
+			surfaced: undefined,
+			live: true,
+			liveNotifications: [],
+		});
+	});
+
 	test('default chat inherits the session working directory resolved at materialization', () => {
 		// A deferred (provisional) session is created with a pre-materialization
 		// working directory; materialization later resolves it to a different

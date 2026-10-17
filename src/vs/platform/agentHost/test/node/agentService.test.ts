@@ -396,6 +396,13 @@ class TransientRegistryWriteDatabase implements IAgentHostDatabase {
 
 	async registerSession(session: string, sessionOptions: IAgentHostDatabaseSessionOptions, registerOptions: IAgentHostDatabaseRegisterOptions): Promise<boolean> {
 		this._beforeWrite();
+		const gate = this._registryWriteGate;
+		if (gate) {
+			await gate.p;
+			if (this._registryWriteGate === gate) {
+				this._registryWriteGate = undefined;
+			}
+		}
 		if (registerOptions.checkTombstone && this._tombstones.has(session)) {
 			return false;
 		}

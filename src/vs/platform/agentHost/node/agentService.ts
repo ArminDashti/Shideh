@@ -670,6 +670,12 @@ export class AgentService extends Disposable implements IAgentService {
 	 * marker cannot be persisted, so discovery never exposes them.
 	 */
 	private readonly _unpersistedChatBackings = new Set<string>();
+	private readonly _sessionsUsedByAgentHost = new Set<string>();
+	private readonly _sessionUsePersistence = new Map<string, Promise<void>>();
+	private readonly _broadcastExternalSessions = new Map<string, IAgentSessionMetadata>();
+	private _broadcastExternalSessionsSeeded = false;
+	private _externalSessionReconciliation = Promise.resolve();
+	private _externalSessionsMode = AgentHostExternalSessionsMode.Last7Days;
 
 	/**
 	 * Sessions that have opted in to bring-up progress, keyed by provider id.
@@ -3052,6 +3058,10 @@ export class AgentService extends Disposable implements IAgentService {
 			if (!imported.external || readSessionEhcliAdoptable(metadata._meta)) {
 				await this._announceSurfacedSession(metadata, provider.id);
 			}
+			changed = registered || changed;
+		}
+		if (surfaced.length > 0) {
+			await this._surfaceRegisteredSessions(provider, surfaced);
 		}
 		this._deferredProviderMigrations.delete(provider.id);
 		const readableTransition = !this._readableProviderCatalogs.has(provider.id);
@@ -4321,6 +4331,9 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	private async _announceSurfacedSession(meta: IAgentSessionMetadata, provider: string): Promise<void> {
+		if (this._store.isDisposed) {
+			return;
+		}
 		const key = meta.session.toString();
 		if (!this._shouldIncludeSession(meta) || this._stateManager.getSessionState(key)) {
 			return;
@@ -7431,6 +7444,47 @@ export class AgentService extends Disposable implements IAgentService {
 			this._stateManager.setSessionMeta(sessionChannel, nextMeta);
 		}
 	}
+
+	private _markSessionUsedByAgentHost(session: string): void {
+		this._sessionsUsedByAgentHost.add(session);
+		if (this._sessionUsePersistence.has(session)) {
+			return;
+		}
+		const summary = this._stateManager.getSessionSummary(session);
+		if (!summary || !readSessionExternal(summary._meta)) {
+			return;
+		}
+
+		const sessionUri = URI.parse(session);
+		const persistence = this._retryRegistryMutation(
+			() => this._sessionRegistry.register(sessionUri, {
+				provider: summary.provider,
+				startTime: Date.parse(summary.createdAt),
+				source: 'explicit',
+			}, { checkTombstone: true }),
+			`used-state registration for ${session}`,
+		).then(registered => {
+			if (!registered) {
+				throw new Error(`Session was tombstoned while marking it used: ${session}`);
+			}
+			const state = this._stateManager.getSessionState(session);
+			if (state && readSessionExternal(state._meta)) {
+				this._stateManager.setSessionMeta(session, withSessionExternal(state._meta, false));
+			}
+			this._queueExternalSessionReconciliation();
+		});
+		this._sessionUsePersistence.set(session, persistence);
+		const clear = () => {
+			if (this._sessionUsePersistence.get(session) === persistence) {
+				this._sessionUsePersistence.delete(session);
+			}
+		};
+		void persistence.then(clear, error => {
+			clear();
+			this._logService.warn(`[AgentService] Failed to persist used state for ${session}`, error);
+		});
+	}
+
 	private _getUnresolvedPeerChats(sessionChannel: string): readonly string[] | undefined {
 		return this._stateManager.getSessionState(sessionChannel)?.chats.filter(chat => !isDefaultChatUri(chat.resource) && !this._stateManager.getChatState(chat.resource)).map(chat => chat.resource);
 	}
@@ -8296,6 +8350,9 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		if (isArchived) {
 			status |= SessionStatus.IsArchived;
+		}
+		if (external && !this._sessionsUsedByAgentHost.has(sessionStr)) {
+			status |= SessionStatus.IsRead;
 		}
 
 		const providerMeta = withSessionMultiRootMetadata(meta._meta, undefined);
