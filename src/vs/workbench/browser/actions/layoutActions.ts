@@ -179,16 +179,6 @@ export class ToggleSidebarPositionAction extends Action2 {
 }
 
 const configureLayoutIcon = registerIcon('configure-layout-icon', Codicon.layout, localize('cofigureLayoutIcon', 'Icon represents workbench layout configuration.'));
-MenuRegistry.appendMenuItem(MenuId.LayoutControlMenu, {
-	submenu: MenuId.LayoutControlMenuSubmenu,
-	title: localize('configureLayout', "Configure Layout"),
-	icon: configureLayoutIcon,
-	group: '1_workbench_layout',
-	when: ContextKeyExpr.and(
-		IsAuxiliaryWindowContext.negate(),
-		ContextKeyExpr.equals('config.workbench.layoutControl.type', 'menu')
-	)
-});
 
 
 MenuRegistry.appendMenuItems([{
