@@ -3101,6 +3101,9 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.migrationShortcutButton = document.createElement('button');
 		editor.migrationShortcutCount = document.createElement('span');
 		editor.layoutSidebar = () => { };
+		const states: (string | null)[][] = [];
+		editor.updateSidebarMigrationShortcut();
+		states.push([editor.migrationShortcutContainer.style.display, editor.migrationShortcutCount.textContent]);
 		editor.customizationsByMigrationCategory.set(CustomizationMigrationCategoryId.McpServers, [{
 			type: CustomizationMigrationType.McpServers, id: 'server', name: 'server',
 			storage: PromptsStorage.local,

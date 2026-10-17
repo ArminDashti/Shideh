@@ -2041,7 +2041,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		const count = candidates.length;
 		const enabled = isAgentHostTarget(this.harnessService.activeHarness.get())
 			&& homepageMigrationCategories.some(id => this.isMigrationCategoryEnabled(getCustomizationMigrationCategory(id)));
-		this.migrationShortcutContainer.style.display = enabled ? '' : 'none';
+		this.migrationShortcutContainer.style.display = visible ? '' : 'none';
 		this.migrationShortcutCount.textContent = count > 0 ? String(count) : '';
 		this.migrationShortcutButton.setAttribute(
 			'aria-label',
