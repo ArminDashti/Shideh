@@ -89,6 +89,26 @@ export async function getShellIntegrationInjection(
 		'VSCODE_INJECTION': '1'
 	};
 
+	async function checkIfShIsActuallyBash(): Promise<boolean> {
+		const versionString = await execShVersion();
+		const bashRegex = /\bbash\b/i;
+
+		if (!versionString) {
+			return false;
+		}
+		if (bashRegex.test(versionString)) {
+			envMixin['VSCODE_SH_IS_BASH'] = '1';
+			return true;
+		}
+
+		return false;
+	}
+
+	if (envMixin['VSCODE_SH_IS_BASH'] === '1' || (shell === 'sh' && await checkIfShIsActuallyBash())) {
+		shell = 'bash';
+		shellLaunchConfig.executable = '/bin/bash';
+	}
+
 	if (options.shellIntegration.nonce) {
 		envMixin['VSCODE_NONCE'] = options.shellIntegration.nonce;
 	}
@@ -428,4 +448,23 @@ export function sanitizeEnvForLogging(env: IProcessEnvironment | undefined): IPr
 		sanitized[key] = isSecret ? '<REDACTED>' : value;
 	}
 	return sanitized;
+}
+
+async function execShVersion(): Promise<string | undefined> {
+	try {
+		const execAsync = promisify(exec);
+		const { stdout, stderr } = await execAsync('sh --version');
+
+		if (stdout) {
+			return stdout.trim();
+		} else if (stderr) {
+			return stderr.trim();
+		} else {
+			return undefined;
+		}
+
+	} catch (error) {
+		console.error('Failed to execute "sh --version":', error);
+		return undefined;
+	}
 }
