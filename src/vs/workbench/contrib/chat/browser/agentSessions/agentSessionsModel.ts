@@ -338,7 +338,7 @@ class AgentSessionsLogger extends Disposable {
 	constructor(
 		private readonly getSessionsData: () => {
 			sessions: Iterable<IInternalAgentSession>;
-			sessionStates: ResourceMap<IAgentSessionState>;
+			sessionState: (session: URI) => { profile: IAgentSessionState | undefined; workspace: IAgentSessionState | undefined };
 		},
 		@ILogService private readonly logService: ILogService,
 		@IOutputService private readonly outputService: IOutputService,
@@ -392,11 +392,10 @@ class AgentSessionsLogger extends Disposable {
 		}
 
 		this.logAllSessions(reason);
-		this.logSessionStates();
 	}
 
 	private logAllSessions(reason: string): void {
-		const { sessions, sessionStates } = this.getSessionsData();
+		const { sessions, sessionState } = this.getSessionsData();
 
 		const lines: string[] = [];
 		lines.push(`=== Agent Sessions (${reason}) ===`);
@@ -404,7 +403,7 @@ class AgentSessionsLogger extends Disposable {
 		let count = 0;
 		for (const session of sessions) {
 			count++;
-			const state = sessionStates.get(session.resource);
+			const state = sessionState(session.resource);
 
 			lines.push(`--- Session: ${session.label} ---`);
 			lines.push(`  Resource: ${session.resource.toString()}`);
@@ -445,7 +444,8 @@ class AgentSessionsLogger extends Disposable {
 			lines.push(`    Pinned: ${session.isPinned()}`);
 			lines.push(`    Pinned (stored): ${state?.pinned ?? 'N/A'}`);
 			lines.push(`    Read: ${session.isRead()}`);
-			lines.push(`    Read date (stored): ${state?.read ? new Date(state.read).toISOString() : 'N/A'}`);
+			lines.push(`    Read date (stored workspace): ${state?.workspace?.read ? new Date(state.workspace.read).toISOString() : 'N/A'}`);
+			lines.push(`    Read date (stored profile): ${state?.profile?.read ? new Date(state.profile.read).toISOString() : 'N/A'}`);
 
 			lines.push('');
 		}
@@ -536,18 +536,17 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 
 		this._sessions = new ResourceMap<IInternalAgentSession>();
 
-		this.cache = this.instantiationService.createInstance(AgentSessionsCache);
+		this.cache = this._register(this.instantiationService.createInstance(AgentSessionsCache));
 		for (const data of this.cache.loadCachedSessions()) {
 			const session = this.toAgentSession(data);
 			this._sessions.set(session.resource, session);
 		}
-		this.sessionStates = this.cache.loadSessionStates();
 
 		this.logger = this._register(this.instantiationService.createInstance(
 			AgentSessionsLogger,
 			() => ({
 				sessions: this._sessions.values(),
-				sessionStates: this.sessionStates,
+				sessionState: (session: URI) => ({ profile: this.cache.getProfileSessionState(session), workspace: this.cache.getWorkspaceSessionState(session) }),
 			})
 		));
 		this.logger.logAllStatsIfTrace('Loaded cached sessions');
@@ -595,10 +594,14 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(() => this.resolve(undefined)));
 		this._register(this.workspaceTrustManagementService.onDidChangeTrust(() => this.resolve(undefined)));
 
-		// State
+		// Sessions cache
 		this._register(this.storageService.onWillSaveState(() => {
 			this.cache.saveCachedSessions(Array.from(this._sessions.values()));
-			this.cache.saveSessionStates(this.sessionStates);
+		}));
+
+		// Sessions state
+		this._register(this.cache.onDidChangeProfileState(() => {
+			this._onDidChangeSessions.fire();
 		}));
 	}
 
@@ -1022,8 +1025,11 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 			return true;
 		}
 
-		// Never consider a session as unread if its connected to a widget
-		return !!this.chatWidgetService.getWidgetBySessionResource(session.resource);
+		if (this.chatWidgetService.getWidgetBySessionResource(session.resource)) {
+			return true; // a session is always read when shown in a chat widget
+		}
+
+		return false;
 	}
 
 	/** Grace window absorbing a click away from a session just before it finishes. */
@@ -1066,21 +1072,19 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		if (read) {
 			newRead = Math.max(Date.now(), this.sessionTimeForReadStateTracking(session));
 
-			if (typeof state.read === 'number' && state.read >= newRead) {
+			if (typeof oldRead === 'number' && oldRead >= newRead) {
 				return; // already read with a sufficient timestamp
 			}
 		} else {
 			newRead = AgentSessionsModel.UNREAD_MARKER;
-			if (state.read === AgentSessionsModel.UNREAD_MARKER) {
+			if (oldRead === AgentSessionsModel.UNREAD_MARKER) {
 				return; // already unread
 			}
 		}
 
-		this.sessionStates.set(session.resource, { ...state, read: newRead });
+		this.cache.notifyReadState(session.resource, newRead);
 
-		if (!skipEvent) {
-			this._onDidChangeSessions.fire();
-		}
+		this._onDidChangeSessions.fire();
 	}
 
 	private static readonly READ_MIGRATION_DONE_KEY = 'agentSessions.providerReadMigration';
@@ -1232,9 +1236,29 @@ export class AgentSessionsCache {
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService
-	) { }
+	) {
+		super();
+
+		this.profileSessionStates = this.loadProfileSessionStates();
+		this.workspaceSessionStates = this.loadWorkspaceSessionStates();
+
+		this.registerListeners();
+	}
+
+	private registerListeners(): void {
+
+		// Changes to profile state
+		this._register(this.storageService.onDidChangeValue(StorageScope.PROFILE, AgentSessionsCache.STATE_STORAGE_KEY, this._store)(e => this.applyProfileSessionStatesChangeEvent(e)));
+
+		// Persisting workspace state (profile needs to be persisted on change to reduce conflicts)
+		this._register(this.storageService.onWillSaveState(() => {
+			this.saveWorkspaceSessionStates();
+		}));
+	}
 
 	//#region Sessions
+
+	private static readonly SESSIONS_STORAGE_KEY = 'agentSessions.model.cache';
 
 	saveCachedSessions(sessions: IInternalAgentSessionData[]): void {
 		const serialize = (session: IInternalAgentSessionData): ISerializedAgentSession => ({
@@ -1319,7 +1343,33 @@ export class AgentSessionsCache {
 
 	//#region States
 
-	saveSessionStates(states: ResourceMap<IAgentSessionState>): void {
+	private readonly _onDidChangeProfileState = this._register(new Emitter<void>());
+	readonly onDidChangeProfileState = this._onDidChangeProfileState.event;
+
+	private static readonly STATE_STORAGE_KEY = 'agentSessions.state.cache';
+
+	private profileSessionStates: ResourceMap<IAgentSessionState>;
+	private workspaceSessionStates: ResourceMap<IAgentSessionState>;
+
+	private applyProfileSessionStatesChangeEvent(e: IProfileStorageValueChangeEvent): void {
+		if (!e.external) {
+			return; // only care about changes from other windows
+		}
+
+		this.profileSessionStates = this.loadProfileSessionStates();
+
+		this._onDidChangeProfileState.fire();
+	}
+
+	private saveWorkspaceSessionStates(): void {
+		this.saveSessionStates(this.workspaceSessionStates, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+	}
+
+	private saveProfileSessionStates(): void {
+		this.saveSessionStates(this.profileSessionStates, StorageScope.PROFILE, StorageTarget.USER);
+	}
+
+	private saveSessionStates(states: ResourceMap<IAgentSessionState>, scope: StorageScope, target: StorageTarget): void {
 		const serialized: ISerializedAgentSessionState[] = Array.from(states.entries()).map(([resource, state]) => ({
 			resource: resource.toString(),
 			archived: state.archived,
@@ -1327,13 +1377,21 @@ export class AgentSessionsCache {
 			read: state.read
 		}));
 
-		this.storageService.store(AgentSessionsCache.STATE_STORAGE_KEY, JSON.stringify(serialized), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		this.storageService.store(AgentSessionsCache.STATE_STORAGE_KEY, JSON.stringify(serialized), scope, target);
 	}
 
-	loadSessionStates(): ResourceMap<IAgentSessionState> {
+	private loadWorkspaceSessionStates(): ResourceMap<IAgentSessionState> {
+		return this.loadSessionStates(StorageScope.WORKSPACE);
+	}
+
+	private loadProfileSessionStates(): ResourceMap<IAgentSessionState> {
+		return this.loadSessionStates(StorageScope.PROFILE);
+	}
+
+	private loadSessionStates(scope: StorageScope): ResourceMap<IAgentSessionState> {
 		const states = new ResourceMap<IAgentSessionState>();
 
-		const statesCache = this.storageService.get(AgentSessionsCache.STATE_STORAGE_KEY, StorageScope.WORKSPACE);
+		const statesCache = this.storageService.get(AgentSessionsCache.STATE_STORAGE_KEY, scope);
 		if (!statesCache) {
 			return states;
 		}
@@ -1353,6 +1411,43 @@ export class AgentSessionsCache {
 		}
 
 		return states;
+	}
+
+	getProfileSessionState(session: URI): IAgentSessionState | undefined {
+		return this.profileSessionStates.get(session);
+	}
+
+	getWorkspaceSessionState(session: URI): IAgentSessionState | undefined {
+		return this.workspaceSessionStates.get(session);
+	}
+
+	notifyArchivedState(session: URI, archived: boolean): void {
+		this.doNotifySessionState(session, { ...this.getWorkspaceSessionState(session), archived }, StorageScope.WORKSPACE);
+		this.doNotifySessionState(session, { ...this.getProfileSessionState(session), archived }, StorageScope.PROFILE);
+	}
+
+	notifyReadState(session: URI, read: number): void {
+		this.doNotifySessionState(session, { ...this.getWorkspaceSessionState(session), read }, StorageScope.WORKSPACE);
+		this.doNotifySessionState(session, { ...this.getProfileSessionState(session), read }, StorageScope.PROFILE);
+	}
+
+	private doNotifySessionState(session: URI, state: IAgentSessionState, scope: StorageScope): void {
+		const sessionStates = scope === StorageScope.WORKSPACE ? this.workspaceSessionStates : this.profileSessionStates;
+
+		const existingState = sessionStates.get(session);
+		if (equals(existingState, state)) {
+			return;
+		}
+
+		sessionStates.delete(session); // ensure the entry orders properly to indicate recency
+		sessionStates.set(session, state);
+
+		if (sessionStates === this.profileSessionStates) {
+			// We need to immediately save because this state is shared
+			// across windows and we need to minimise the chance of
+			// data corruption and not hold onto this state any longer
+			this.saveProfileSessionStates();
+		}
 	}
 
 	//#endregion
