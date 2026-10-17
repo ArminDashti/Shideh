@@ -6,8 +6,8 @@ metadata:
   version: 1.0.0
   author: "Armin Dashti"
   tags: []
-  last_updated: "2026-10-10 12:12:40"
-  uuid: 6ec10918-bac6-496f-b17d-649717b009c4
+  last_updated: "2026-10-17 08:49:04"
+  uuid: 6c86f070-edb9-49c6-b78b-616c830e84e6
 ---
 # GitNexus CLI Commands
 
