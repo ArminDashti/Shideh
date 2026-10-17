@@ -1988,6 +1988,8 @@
 		--session-icon-size: var(--vscode-spacing-size200);
 	}
 
+=======
+>>>>>>> aca2ff4f104 (sessions: align list row hover feedback (#336953))
 	.session-item {
 		padding: 10px 10px;
 		/* Vertically center the icon + main column inside the fixed phone row height. */
