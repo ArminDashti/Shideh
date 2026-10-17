@@ -65,8 +65,9 @@ import {
 import { AhpSnapshotRecorder, type IAhpSnapshotNormalization, type IAhpSnapshotOptions } from './e2e/harness/ahpSnapshot.js';
 import { recordAhpSurface } from './ahpSurfaceCoverage.js';
 import { isCI, isWindows } from '../../../../base/common/platform.js';
-import { killTree } from '../../../../base/node/processes.js';
+import { shutdownProcessTree } from '../../../../base/node/processes.js';
 import { createIsolatedProviderEnvironment } from './providerTestEnvironment.js';
+import { AGENT_HOST_SHUTDOWN_TIMEOUT_MS } from '../../node/agentHostShutdown.js';
 
 const AGENT_HOST_E2E_COVERAGE = process.env['AGENT_HOST_E2E_COVERAGE'] === '1';
 
@@ -651,6 +652,7 @@ export class TestProtocolClient {
 export interface IServerHandle {
 	process: ChildProcess;
 	port: number;
+	readonly output?: string;
 	/** Present when the server was started with a mock LLM; exposes request count for assertions. */
 	mockLlm?: IMockLlmServerHandleWithLog;
 	/**
@@ -839,7 +841,7 @@ async function shutdownServer(
 	forceful: boolean,
 ): Promise<void> {
 	const serverProcess = server?.process;
-	if (!serverProcess || serverProcess.exitCode !== null || serverProcess.signalCode !== null) {
+	if (!serverProcess) {
 		return;
 	}
 
@@ -922,7 +924,7 @@ async function shutdownServer(
 
 async function killServerProcess(server: IServerHandle | undefined, killProcessTree: IServerProcessOperations['killTree']): Promise<void> {
 	const serverProcess = server?.process;
-	if (!serverProcess || serverProcess.exitCode !== null || serverProcess.signalCode !== null) {
+	if (!serverProcess) {
 		return;
 	}
 	const pid = serverProcess.pid;
@@ -1032,23 +1034,25 @@ export async function startServer(options?: { readonly quiet?: boolean; readonly
 			stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
 			env: withAgentHostCoverage({ ...process.env, ...options?.env }),
 		});
+		let output = '';
 
 		const timer = setTimeout(() => {
 			child.kill();
-			reject(new Error('Server startup timed out'));
+			reject(new Error(`Server startup timed out.\n${output}`));
 		}, options?.startupTimeoutMs ?? getAgentHostE2ETestTimeout(10_000, 45_000));
 
 		child.stdout!.on('data', (data: Buffer) => {
 			const text = data.toString();
+			output = (output + text).slice(-32_768);
 			const match = text.match(/READY:(\d+)/);
 			if (match) {
 				clearTimeout(timer);
-				resolve({ process: child, port: parseInt(match[1], 10) });
+				resolve({ process: child, port: parseInt(match[1], 10), get output() { return output; } });
 			}
 		});
 
-		child.stderr!.on('data', () => {
-			// Intentionally swallowed - the test runner fails if console.error is used.
+		child.stderr!.on('data', (data: Buffer) => {
+			output = (output + data.toString()).slice(-32_768);
 		});
 
 		child.on('error', err => {
@@ -1058,7 +1062,7 @@ export async function startServer(options?: { readonly quiet?: boolean; readonly
 
 		child.on('exit', code => {
 			clearTimeout(timer);
-			reject(new Error(`Server exited prematurely with code ${code}`));
+			reject(new Error(`Server exited prematurely with code ${code}.\n${output}`));
 		});
 	});
 }
@@ -1148,6 +1152,7 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 			} : {}),
 		});
 		let child: ChildProcess;
+		let output = '';
 		try {
 			child = fork(serverPath, args, {
 				stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
@@ -1181,23 +1186,21 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 		const timer = setTimeout(() => {
 			child.kill();
 			void closeMockServer();
-			reject(new Error('Real server startup timed out'));
+			reject(new Error(`Real server startup timed out.\n${output}`));
 		}, 30_000);
 
 		child.stdout!.on('data', (data: Buffer) => {
 			const text = data.toString();
+			output = (output + text).slice(-32_768);
 			const match = text.match(/READY:(\d+)/);
 			if (match) {
 				clearTimeout(timer);
-				resolve({ process: child, port: parseInt(match[1], 10), mockLlm: mockLlmServer, capiReplay: capiReplayProxy });
+				resolve({ process: child, port: parseInt(match[1], 10), get output() { return output; }, mockLlm: mockLlmServer, capiReplay: capiReplayProxy });
 			}
 		});
 
-		child.stderr!.on('data', () => {
-			// Intentionally swallowed - the test runner fails if console.error is used.
-			// Server logs go to the agent host's logger (under
-			// `<userDataPath>/logs/<timestamp>/agenthost-server.log`); check
-			// there when investigating agent host e2e test failures.
+		child.stderr!.on('data', (data: Buffer) => {
+			output = (output + data.toString()).slice(-32_768);
 		});
 
 		child.on('error', err => {
@@ -1209,7 +1212,7 @@ export async function startRealServer(options: { readonly homeDir: string; reado
 		child.on('exit', code => {
 			clearTimeout(timer);
 			void closeMockServer();
-			reject(new Error(`Real server exited prematurely with code ${code}`));
+			reject(new Error(`Real server exited prematurely with code ${code}.\n${output}`));
 		});
 	});
 }
