@@ -2031,6 +2031,11 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		return this._dispatchRequest<IVscodeUpgradeResult>(method, {}, { allowIncompatibleUpgrade: true });
 	}
 
+	/** Low-level transport for typed host-extension adapters, not part of the shared agent connection. */
+	requestHostExtension(method: string, params: Record<string, unknown>): Promise<unknown> {
+		return this._dispatchRequest<unknown>(method, params);
+	}
+
 	private _handleMessage(msg: ProtocolMessage): void {
 		if (this._state.kind === AgentHostClientState.Closed) {
 			// After close, the transport may still emit late messages (e.g.

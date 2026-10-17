@@ -12800,6 +12800,7 @@ suite('AgentHostChatContribution', () => {
 
 		test('handler resolves authentication before sending to an eager-created session', async () => {
 			const authenticationRequests: ProtectedResourceMetadata[][] = [];
+			let preparations = 0;
 			const { instantiationService, agentHostService, chatAgentService } = createTestServices(disposables);
 			const sessionHandler = disposables.add(instantiationService.createInstance(AgentHostSessionHandler, {
 				provider: 'copilot',
@@ -12812,6 +12813,10 @@ suite('AgentHostChatContribution', () => {
 				resolveAuthentication: async protectedResources => {
 					authenticationRequests.push(protectedResources);
 					return true;
+				},
+				prepareWorkingDirectory: async (_sessionResource, workingDirectory) => {
+					preparations++;
+					return workingDirectory;
 				},
 			}));
 			const protectedResource: ProtectedResourceMetadata = {
@@ -12856,9 +12861,11 @@ suite('AgentHostChatContribution', () => {
 			assert.deepStrictEqual({
 				authenticationRequests,
 				turnActionCount: agentHostService.turnActions.length,
+				preparations,
 			}, {
 				authenticationRequests: [[protectedResource]],
 				turnActionCount: 1,
+				preparations: 0,
 			});
 		});
 

@@ -6259,8 +6259,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	/** `undefined` is preserved for createSession to let the host choose its working directories. */
-	private _resolveRequestedWorkingDirectories(sessionResource: URI): readonly URI[] | undefined {
-		const primary = this._resolveRequestedWorkingDirectory(sessionResource);
+	private _resolveRequestedWorkingDirectories(sessionResource: URI, primary = this._resolveRequestedWorkingDirectory(sessionResource)): readonly URI[] | undefined {
 		return this._hostAddressableWorkingDirectories(
 			computeWorkingDirectories(primary, this._workspaceContextService.getWorkspace().folders.map(folder => folder.uri), this._getRootState(), this._config.provider)
 		);
