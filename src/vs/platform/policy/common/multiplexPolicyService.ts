@@ -40,6 +40,7 @@ export class MultiplexPolicyService extends AbstractPolicyService implements IPo
 			const definitions = service.policyDefinitions;
 			for (const name in definitions) {
 				const value = service.getPolicyValue(name);
+				const metadata = service.getPolicyMetadata(name);
 				this.policyDefinitions[name] = definitions[name];
 				if (value !== undefined) {
 					updated.push(name);
