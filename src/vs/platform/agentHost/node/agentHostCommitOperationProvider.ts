@@ -45,6 +45,10 @@ export class AgentHostCommitOperationContribution extends Disposable implements 
 			return [];
 		}
 
+		if (!gitHubState?.pullRequestUrl && changesetKind !== 'uncommitted') {
+			return undefined;
+		}
+
 		return [{
 			id: AgentHostCommitOperationHandler.OPERATION_COMMIT,
 			label: localize('agentHost.changeset.commit', "Commit"),

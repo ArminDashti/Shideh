@@ -70,7 +70,7 @@ suite('AgentHostCommitOperationContribution', () => {
 
 		const operations = provider.getOperations({ sessionKey, changesetUri: uncommittedChangesetUri, changesetKind: ChangesetKind.Uncommitted, gitState: { ...gitStateWithUncommittedChanges, uncommittedChanges: 0 } });
 
-		assert.deepStrictEqual(operations?.map(op => op.id), ['commit']);
+		assert.deepStrictEqual(operations?.map(op => op.id), undefined);
 	});
 
 	test('advertises commit on every folder session changeset when there are uncommitted changes', () => {

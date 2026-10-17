@@ -5,6 +5,7 @@
 
 import type { IStringDictionary } from '../../../../../base/common/collections.js';
 import type { IJSONSchema } from '../../../../../base/common/jsonSchema.js';
+import { PolicyCategory } from '../../../../../base/common/policy.js';
 import { localize } from '../../../../../nls.js';
 import { type IConfigurationPropertySchema } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { AgentSandboxEnabledValue, AgentSandboxSettingId } from '../../../../../platform/sandbox/common/settings.js';
@@ -15,7 +16,6 @@ import { powershellAutoApproveRules } from '../../../../../platform/terminal/com
 import { sortAutoApproveRules } from '../../../../../platform/terminal/common/autoApprove/sortAutoApproveRules.js';
 import { TerminalSettingId } from '../../../../../platform/terminal/common/terminal.js';
 import { terminalProfileBaseProperties } from '../../../../../platform/terminal/common/terminalPlatformConfiguration.js';
-import { PolicyCategory } from '../../../../../base/common/policy.js';
 
 /**
  * Default idle silence timeout in milliseconds. Used as both the configuration
@@ -85,6 +85,9 @@ const terminalChatAgentProfileSchema: IJSONSchema = {
 		...terminalProfileBaseProperties,
 	}
 };
+
+const defaultPosixSandboxFileSystemPolicyValue = JSON.stringify({ denyRead: [], allowRead: [], allowWrite: [], denyWrite: [] });
+const defaultSandboxAdvancedRuntimePolicyValue = JSON.stringify({ enableWeakerNestedSandbox: false });
 
 export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 	[TerminalChatAgentToolsSettingId.EnableAutoApprove]: {
@@ -530,6 +533,8 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 			name: 'ChatAgentSandboxEnabled',
 			category: PolicyCategory.IntegratedTerminal,
 			minimumVersion: '1.116',
+			value: policyData => policyData.chat_preview_features_enabled === false ? AgentSandboxEnabledValue.Off : undefined,
+			restrictedValue: AgentSandboxEnabledValue.Off,
 			localization: {
 				description: {
 					key: 'agentSandbox.enabledSetting',
@@ -561,6 +566,7 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 			name: 'ChatAgentSandboxAllowNetwork',
 			category: PolicyCategory.IntegratedTerminal,
 			minimumVersion: '1.127',
+			value: policyData => policyData.chat_preview_features_enabled === false ? false : undefined,
 			localization: {
 				description: {
 					key: 'agentSandbox.allowNetwork',
@@ -595,6 +601,7 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 			name: 'ChatAgentSandboxAllowUnsandboxedCommands',
 			category: PolicyCategory.IntegratedTerminal,
 			minimumVersion: '1.116',
+			value: policyData => policyData.chat_preview_features_enabled === false ? false : undefined,
 			localization: {
 				description: {
 					key: 'agentSandbox.allowUnsandboxedCommands',
@@ -610,7 +617,19 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		type: 'boolean',
 		default: true,
 		tags: ['preview'],
-		restricted: true
+		restricted: true,
+		policy: {
+			name: 'ChatAgentSandboxRetryWithAllowNetworkRequests',
+			category: PolicyCategory.IntegratedTerminal,
+			minimumVersion: '1.128',
+			value: policyData => policyData.chat_preview_features_enabled === false ? false : undefined,
+			localization: {
+				description: {
+					key: 'agentSandbox.retryWithAllowNetworkRequests',
+					value: localize('agentSandbox.retryWithAllowNetworkRequests', "Controls whether agent mode terminal commands can retry in the sandbox with unrestricted network access after user confirmation. This applies only when {0} is enabled and preserves file system sandboxing while relaxing network restrictions for an approved command.", `\`#${AgentSandboxSettingId.AgentSandboxEnabled}#\``),
+				}
+			}
+		}
 	},
 	[AgentSandboxSettingId.AgentSandboxMcpServers]: {
 		managedSettingsPresentation: read => SandboxSettingsResolutionHelper.resolveSandboxServers(undefined, read(COPILOT_SANDBOX_MCP_SERVERS_KEY) === true),
@@ -654,6 +673,7 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 			name: 'ChatAgentSandboxAllowAutoApprove',
 			category: PolicyCategory.IntegratedTerminal,
 			minimumVersion: '1.116',
+			value: policyData => policyData.chat_preview_features_enabled === false ? false : undefined,
 			localization: {
 				description: {
 					key: 'agentSandbox.allowAutoApprove',
@@ -701,6 +721,19 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		},
 		tags: ['preview'],
 		restricted: true,
+		policy: {
+			name: 'ChatAgentSandboxLinuxFileSystem',
+			category: PolicyCategory.IntegratedTerminal,
+			minimumVersion: '1.128',
+			value: policyData => policyData.chat_preview_features_enabled === false ? defaultPosixSandboxFileSystemPolicyValue : undefined,
+			restrictedValue: defaultPosixSandboxFileSystemPolicyValue,
+			localization: {
+				description: {
+					key: 'agentSandbox.linuxFileSystemSetting',
+					value: localize('agentSandbox.linuxFileSystemSetting', "Note: this setting is applicable only when {0} is enabled. Controls file system access in sandbox on Linux. Paths do not support glob patterns, only literal paths (ex: ./src/, ~/.ssh, .env). **bubblewrap** and **socat** should be installed for this setting to work.", `\`#${AgentSandboxSettingId.AgentSandboxEnabled}#\``),
+				}
+			}
+		},
 	},
 	[TerminalChatAgentToolsSettingId.AgentSandboxMacFileSystem]: {
 		order: 80,
@@ -741,6 +774,19 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		},
 		tags: ['preview'],
 		restricted: true,
+		policy: {
+			name: 'ChatAgentSandboxMacFileSystem',
+			category: PolicyCategory.IntegratedTerminal,
+			minimumVersion: '1.128',
+			value: policyData => policyData.chat_preview_features_enabled === false ? defaultPosixSandboxFileSystemPolicyValue : undefined,
+			restrictedValue: defaultPosixSandboxFileSystemPolicyValue,
+			localization: {
+				description: {
+					key: 'agentSandbox.macFileSystemSetting',
+					value: localize('agentSandbox.macFileSystemSetting', "Note: this setting is applicable only when {0} is enabled. Controls file system access in sandbox on macOS. Paths also support git-style glob patterns(ex: *.ts, ./src, ./src/**/*.ts, file?.txt).", `\`#${AgentSandboxSettingId.AgentSandboxEnabled}#\``),
+				}
+			}
+		},
 	},
 	[TerminalChatAgentToolsSettingId.AgentSandboxWindowsFileSystem]: {
 		order: 90,
@@ -790,6 +836,19 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		additionalProperties: true,
 		tags: ['preview'],
 		restricted: true,
+		policy: {
+			name: 'ChatAgentSandboxAdvancedRuntime',
+			category: PolicyCategory.IntegratedTerminal,
+			minimumVersion: '1.128',
+			value: policyData => policyData.chat_preview_features_enabled === false ? defaultSandboxAdvancedRuntimePolicyValue : undefined,
+			restrictedValue: defaultSandboxAdvancedRuntimePolicyValue,
+			localization: {
+				description: {
+					key: 'agentSandbox.runtimeSetting',
+					value: localize('agentSandbox.runtimeSetting', "Note: this setting is applicable only when {0} is enabled. Key/value pairs are passed through to the root of the sandbox runtime configuration.", `\`#${AgentSandboxSettingId.AgentSandboxEnabled}#\``),
+				}
+			}
+		},
 	},
 	[TerminalChatAgentToolsSettingId.PreventShellHistory]: {
 		type: 'boolean',
