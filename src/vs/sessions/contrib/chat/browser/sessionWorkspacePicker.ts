@@ -36,7 +36,7 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { IGitHubInfo, isActiveSessionStatus, ISessionWorkspace, ISessionWorkspaceBrowseAction, SESSION_WORKSPACE_GROUP_GITHUB, SESSION_WORKSPACE_GROUP_LOCAL, SESSION_WORKSPACE_GROUP_REMOTE } from '../../../services/sessions/common/session.js';
+import { GITHUB_REMOTE_FILE_SCHEME, IGitHubInfo, isActiveSessionStatus, ISessionWorkspace, ISessionWorkspaceBrowseAction, SESSION_WORKSPACE_GROUP_GITHUB, SESSION_WORKSPACE_GROUP_LOCAL, SESSION_WORKSPACE_GROUP_REMOTE } from '../../../services/sessions/common/session.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { ISessionsRecentWorkspacesService, isWorktreeWorkspaceUri } from '../../../services/sessions/browser/sessionsRecentWorkspacesService.js';
 import { IAgentHostSessionsProvider, isAgentHostProvider } from '../../../common/agentHostSessionsProvider.js';
@@ -513,6 +513,9 @@ export class WorkspacePicker extends Disposable {
 				}
 			}
 			this._restoreAutomaticSelection();
+			if (this._inputGitHubWorkspaceApplied) {
+				this.syncInputGitHubRepository(this._inputGitHubRepositoryId);
+			}
 			this._syncAttachedContext();
 			const activeTrigger = this._activeTriggerElement;
 			if (activeTrigger && (this.actionWidgetService.isVisible || this._tabbedWidget.isVisible)) {
@@ -528,7 +531,11 @@ export class WorkspacePicker extends Disposable {
 
 		// VS Code's recent-workspace history is loaded asynchronously.
 		this._register(this.recentWorkspacesService.onDidChangeRecentWorkspaces(() => {
-			this._restoreAutomaticSelection();
+			if (this._inputGitHubWorkspaceApplied) {
+				this.syncInputGitHubRepository(this._inputGitHubRepositoryId);
+			} else {
+				this._restoreAutomaticSelection();
+			}
 		}));
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(DevContainerAgentHostEnabledSettingId) || e.affectsConfiguration(RemoteAgentHostsEnabledSettingId)) {
@@ -1219,6 +1226,7 @@ export class WorkspacePicker extends Disposable {
 		this._selectionGeneration++;
 		this._hidePicker();
 		this._userHasPicked = true;
+		this._clearInputGitHubWorkspaceState();
 		this._connectionStatusWatch.clear();
 		this._selectedFolderUri = undefined;
 		this._selectedResolved = undefined;
@@ -1273,6 +1281,7 @@ export class WorkspacePicker extends Disposable {
 		}
 		this._selectionGeneration++;
 		this._userHasPicked = true;
+		this._clearInputGitHubWorkspaceState();
 		this._connectionStatusWatch.clear();
 		// Prefer the caller-supplied providerId hint, then the historical
 		// providerId stored in the recents for this URI, so re-picking a
@@ -1338,6 +1347,9 @@ export class WorkspacePicker extends Disposable {
 					store.add(autorun(reader => {
 						gitHubInfo.read(reader);
 						this._updateTriggerLabel();
+						if (this._inputGitHubRepositoryId && !this._userHasPicked) {
+							this.syncInputGitHubRepository(this._inputGitHubRepositoryId);
+						}
 					}));
 				}
 			}
@@ -2248,9 +2260,11 @@ export class WorkspacePicker extends Disposable {
 	}
 
 	protected _resetAutomaticSelection(): void {
+		const inputGitHubRepositoryId = this._inputGitHubRepositoryId;
 		this._selectionGeneration++;
 		this._sessionRestoreGeneration++;
 		this._userHasPicked = false;
+		this._clearInputGitHubWorkspaceState();
 		this._connectionStatusWatch.clear();
 		this._applySelection(undefined);
 		this._updateTriggerLabel();
@@ -2258,6 +2272,7 @@ export class WorkspacePicker extends Disposable {
 		this._onDidSelectWorkspace.fire(undefined);
 		this._sessionWorkspaceFallback?.refreshProviders();
 		this._restoreAutomaticSelection();
+		this.syncInputGitHubRepository(inputGitHubRepositoryId);
 	}
 
 	/** Re-runs automatic selection and reports whether it changed synchronously. */
@@ -2278,7 +2293,7 @@ export class WorkspacePicker extends Disposable {
 	}
 
 	private _restoreAutomaticSelection(): boolean {
-		if (this._userHasPicked || !this._canRestoreWorkspace()) {
+		if (this._userHasPicked || this._inputGitHubWorkspaceApplied || !this._canRestoreWorkspace()) {
 			return false;
 		}
 		const restored = this._restoreSelectedWorkspace();

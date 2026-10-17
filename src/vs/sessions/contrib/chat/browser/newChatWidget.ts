@@ -531,9 +531,19 @@ export class NewChatWidget extends Disposable {
 		}));
 		this._register(this._workspacePicker.onDidRemoveAttachedContext(id => this._newChatInput.removeAttachment(id)));
 		const syncAttachedContext = () => this._workspacePicker.syncAttachedContext(this._newChatInput.attachments);
+		const syncInputGitHubRepository = () => this._workspacePicker.syncInputGitHubRepository(
+			this.configurationService.getValue<boolean>(INFER_WORKSPACE_FROM_GITHUB_CONTEXT_SETTING)
+				? this._newChatInput.inputGitHubRepository
+				: undefined
+		);
 		syncAttachedContext();
 		this._register(this._newChatInput.onDidChangeAttachments(() => {
 			syncAttachedContext();
+		}));
+		this._register(this._newChatInput.onDidChangeInputGitHubRepository(() => syncInputGitHubRepository()));
+		this._register(autorun(reader => {
+			this._isQuickChatComposer.read(reader);
+			syncInputGitHubRepository();
 		}));
 		this._register(this._newChatInput.sessionTypePicker.onDidSelectSessionType(async pick => {
 			this.newSessionComposerService.notifyUserWorkspaceSelection();
@@ -550,6 +560,9 @@ export class NewChatWidget extends Disposable {
 		this._register(this.sessionsManagementService.onDidChangeSessionTypes(() => this._restoreNoWorkspaceDraft()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(INFER_WORKSPACE_FROM_GITHUB_CONTEXT_SETTING)) {
+				syncInputGitHubRepository();
+			}
 			if (!e.affectsConfiguration('chat.tips.enabled')) {
 				return;
 			}

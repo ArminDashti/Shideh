@@ -1748,7 +1748,8 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 	}
 
 	private _syncInputGitHubContext(): void {
-		const inputAttachments = getInputGitHubContextAttachments(this._editor?.getValue() ?? '');
+		const inputContext = getInputGitHubContext(this._editor?.getValue() ?? '');
+		const inputAttachments = inputContext.attachments;
 		const inputAttachmentIds = new Set(inputAttachments.map(attachment => attachment.id));
 		const attachments = this._contextAttachments.attachments.filter(attachment =>
 			!isInputGitHubContext(attachment) || inputAttachmentIds.has(attachment.id)
@@ -1763,6 +1764,10 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		if (attachments.length !== this._contextAttachments.attachments.length
 			|| attachments.some((attachment, index) => attachment !== this._contextAttachments.attachments[index])) {
 			this._contextAttachments.setAttachments(attachments);
+		}
+		if (inputContext.repositoryId !== this._inputGitHubRepository) {
+			this._inputGitHubRepository = inputContext.repositoryId;
+			this._onDidChangeInputGitHubRepository.fire(inputContext.repositoryId);
 		}
 	}
 
@@ -2231,6 +2236,10 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 
 	get attachments(): readonly IChatRequestVariableEntry[] {
 		return this._contextAttachments.attachments;
+	}
+
+	get inputGitHubRepository(): string | undefined {
+		return this._inputGitHubRepository;
 	}
 
 	getVoiceModels() {

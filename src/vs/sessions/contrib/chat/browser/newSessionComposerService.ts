@@ -37,6 +37,7 @@ export const enum NewSessionWorkspacePreselectionSource {
 	RecentWorkspace = 'recentWorkspace',
 	ExistingSessions = 'existingSessions',
 	ProvidedWorkspace = 'providedWorkspace',
+	InputGitHubContext = 'inputGitHubContext',
 	User = 'user',
 	Unknown = 'unknown',
 }

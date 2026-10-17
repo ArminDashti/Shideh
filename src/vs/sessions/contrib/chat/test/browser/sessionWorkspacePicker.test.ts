@@ -15,6 +15,7 @@ import { CancellationError, errorHandler } from '../../../../../base/common/erro
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { constObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { Schemas } from '../../../../../base/common/network.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { mock, upcastPartial } from '../../../../../base/test/common/mock.js';
 import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';
@@ -456,6 +457,389 @@ function assertSelectedProvider(picker: WorkspacePicker, expectedProviderId: str
 }
 
 // ---- Tests ------------------------------------------------------------------
+
+suite('WorkspacePicker - Input GitHub Repository', () => {
+
+	const disposables = new DisposableStore();
+	let providersService: MockSessionsProvidersService;
+
+	setup(() => {
+		providersService = new MockSessionsProvidersService();
+		disposables.add(providersService);
+	});
+
+	teardown(() => disposables.clear());
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	function createRepositoryProvider(): ISessionsProvider {
+		const provider = createMockProvider('default-copilot');
+		return {
+			...provider,
+			resolveWorkspace: uri => {
+				if (uri.scheme === GITHUB_REMOTE_FILE_SCHEME) {
+					return {
+						uri,
+						label: uri.path.split('/').filter(Boolean).slice(0, 2).join('/'),
+						icon: Codicon.github,
+						group: SESSION_WORKSPACE_GROUP_GITHUB,
+						folders: [{
+							root: uri,
+							workingDirectory: uri,
+							name: uri.path,
+							description: undefined,
+							gitRepository: undefined,
+						}],
+						requiresWorkspaceTrust: false,
+						isVirtualWorkspace: true,
+					};
+				}
+				if (uri.scheme !== Schemas.file) {
+					return undefined;
+				}
+				const repository = uri.path.endsWith('/vscode') ? 'vscode' : 'other';
+				return {
+					uri,
+					label: repository,
+					icon: Codicon.repo,
+					group: SESSION_WORKSPACE_GROUP_LOCAL,
+					folders: [{
+						root: uri,
+						workingDirectory: uri,
+						name: repository,
+						description: undefined,
+						gitRepository: {
+							uri,
+							workTreeUri: uri,
+							baseBranchName: undefined,
+							gitHubInfo: constObservable({ owner: 'microsoft', repo: repository }),
+						},
+					}],
+					requiresWorkspaceTrust: false,
+					isVirtualWorkspace: false,
+				};
+			},
+		};
+	}
+
+	test('prefers a known local workspace and restores the prior automatic selection', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const storage = disposables.add(new TestStorageService());
+		const previous = URI.file('/local/other');
+		const localRepository = URI.file('/local/vscode');
+		seedStorage(storage, [
+			{ uri: previous, providerId: provider.id, checked: true },
+			{ uri: localRepository, providerId: provider.id, checked: false },
+		]);
+		const picker = createTestPicker(disposables, providersService, storage);
+		const selected: Array<string | undefined> = [];
+		disposables.add(picker.onDidSelectWorkspace(uri => selected.push(uri?.toString())));
+
+		const inferred = picker.syncInputGitHubRepository('Microsoft/VSCode');
+		const inferredState = {
+			uri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		};
+		const restored = picker.syncInputGitHubRepository(undefined);
+
+		assert.deepStrictEqual({
+			inferred,
+			inferredState,
+			restored,
+			restoredUri: picker.selectedFolderUri?.toString(),
+			selected,
+		}, {
+			inferred: true,
+			inferredState: {
+				uri: localRepository.toString(),
+				source: NewSessionWorkspacePreselectionSource.InputGitHubContext,
+			},
+			restored: true,
+			restoredUri: previous.toString(),
+			selected: [localRepository.toString(), previous.toString()],
+		});
+	});
+
+	test('prefers an open local git repository before recent and GitHub workspaces', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const localRepository = URI.file('/local/vscode');
+		const gitRepository = upcastPartial<IGitRepository>({
+			rootUri: localRepository,
+			state: constObservable({
+				remotes: [{ name: 'origin', fetchUrl: 'git@github.com:microsoft/vscode.git', isReadOnly: false }],
+				mergeChanges: [],
+				indexChanges: [],
+				workingTreeChanges: [],
+				untrackedChanges: [],
+			}),
+		});
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			WorkspacePicker,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			upcastPartial<IGitService>({ repositories: [gitRepository] }),
+		);
+
+		picker.syncInputGitHubRepository('microsoft/vscode');
+
+		assert.deepStrictEqual({
+			uri: picker.selectedFolderUri?.toString(),
+			group: picker.selectedResolved?.workspace.group,
+		}, {
+			uri: localRepository.toString(),
+			group: SESSION_WORKSPACE_GROUP_LOCAL,
+		});
+	});
+
+	test('waits for the selected local git repository metadata before using a GitHub workspace', async () => {
+		const baseProvider = createRepositoryProvider();
+		const localRepository = URI.file('/local/vscode');
+		const gitHubInfo = observableValue<{ owner: string; repo: string } | undefined>('test', undefined);
+		const repositoryOpen = new DeferredPromise<IGitRepository | undefined>();
+		let didResolveGitHubInfo = false;
+		const provider: ISessionsProvider = {
+			...baseProvider,
+			resolveWorkspace: uri => {
+				const workspace = baseProvider.resolveWorkspace(uri);
+				if (uri.toString() !== localRepository.toString() || !workspace) {
+					return workspace;
+				}
+				return {
+					...workspace,
+					folders: workspace.folders.map(folder => ({
+						...folder,
+						gitRepository: {
+							...folder.gitRepository!,
+							gitHubInfo,
+							resolveGitHubInfo: () => didResolveGitHubInfo = true,
+						},
+					})),
+				};
+			},
+		};
+		providersService.setProviders([provider]);
+		const storage = disposables.add(new TestStorageService());
+		seedStorage(storage, [{ uri: localRepository, providerId: provider.id, checked: true }]);
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			storage,
+			undefined,
+			WorkspacePicker,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			upcastPartial<IGitService>({ repositories: [], openRepository: () => repositoryOpen.p }),
+		);
+
+		const changedWhileResolving = picker.syncInputGitHubRepository('microsoft/vscode');
+		const uriWhileResolving = picker.selectedFolderUri?.toString();
+		repositoryOpen.complete(upcastPartial<IGitRepository>({
+			rootUri: localRepository,
+			state: constObservable({
+				remotes: [{ name: 'origin', fetchUrl: 'git@github.com:microsoft/vscode.git', isReadOnly: false }],
+				mergeChanges: [],
+				indexChanges: [],
+				workingTreeChanges: [],
+				untrackedChanges: [],
+			}),
+		}));
+		await repositoryOpen.p;
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			didResolveGitHubInfo,
+			changedWhileResolving,
+			uriWhileResolving,
+			resolvedUri: picker.selectedFolderUri?.toString(),
+			group: picker.selectedResolved?.workspace.group,
+		}, {
+			didResolveGitHubInfo: true,
+			changedWhileResolving: false,
+			uriWhileResolving: localRepository.toString(),
+			resolvedUri: localRepository.toString(),
+			group: SESSION_WORKSPACE_GROUP_LOCAL,
+		});
+	});
+
+	test('uses a GitHub workspace fallback and respects a later explicit selection', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const picker = createTestPicker(disposables, providersService);
+
+		picker.syncInputGitHubRepository('microsoft/typescript');
+		const inferred = {
+			uri: picker.selectedFolderUri?.toString(),
+			group: picker.selectedResolved?.workspace.group,
+		};
+		const explicit = URI.file('/local/other');
+		picker.setSelectedWorkspace(explicit, { fireEvent: false, persist: false });
+		const changedAfterExplicitPick = picker.syncInputGitHubRepository('microsoft/vscode');
+
+		assert.deepStrictEqual({
+			inferred,
+			changedAfterExplicitPick,
+			finalUri: picker.selectedFolderUri?.toString(),
+		}, {
+			inferred: {
+				uri: URI.from({
+					scheme: GITHUB_REMOTE_FILE_SCHEME,
+					authority: 'github',
+					path: '/microsoft/typescript/HEAD',
+				}).toString(),
+				group: SESSION_WORKSPACE_GROUP_GITHUB,
+			},
+			changedAfterExplicitPick: false,
+			finalUri: explicit.toString(),
+		});
+	});
+
+	test('suspends inference while workspaces are unavailable and reapplies it afterwards', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		let canRestoreWorkspace = true;
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			WorkspacePicker,
+			undefined,
+			undefined,
+			undefined,
+			{ canRestoreWorkspace: () => canRestoreWorkspace },
+		);
+
+		picker.syncInputGitHubRepository('microsoft/typescript');
+		canRestoreWorkspace = false;
+		const changedWhileUnavailable = picker.syncInputGitHubRepository('microsoft/typescript');
+		const suspendedUri = picker.selectedFolderUri;
+		canRestoreWorkspace = true;
+		const changedAfterRestore = picker.syncInputGitHubRepository('microsoft/typescript');
+
+		assert.deepStrictEqual({
+			changedWhileUnavailable,
+			suspendedUri,
+			changedAfterRestore,
+			restoredUri: picker.selectedFolderUri?.toString(),
+		}, {
+			changedWhileUnavailable: false,
+			suspendedUri: undefined,
+			changedAfterRestore: true,
+			restoredUri: URI.from({
+				scheme: GITHUB_REMOTE_FILE_SCHEME,
+				authority: 'github',
+				path: '/microsoft/typescript/HEAD',
+			}).toString(),
+		});
+	});
+
+	test('honors the scoped provider filter', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			WorkspacePicker,
+			undefined,
+			undefined,
+			undefined,
+			{ sessionWorkspaceProviderFilter: () => false },
+		);
+
+		assert.deepStrictEqual({
+			changed: picker.syncInputGitHubRepository('microsoft/typescript'),
+			selectedFolderUri: picker.selectedFolderUri,
+		}, {
+			changed: false,
+			selectedFolderUri: undefined,
+		});
+	});
+
+	test('upgrades a GitHub fallback when a matching local recent arrives', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const onDidChangeRecentWorkspaces = disposables.add(new Emitter<void>());
+		let recents: ReturnType<ISessionsRecentWorkspacesService['getRecentWorkspaces']> = [];
+		const recentWorkspacesService = upcastPartial<ISessionsRecentWorkspacesService>({
+			onDidChangeRecentWorkspaces: onDidChangeRecentWorkspaces.event,
+			getRecentWorkspaces: () => recents,
+			addRecentWorkspace: () => { },
+			removeRecentWorkspace: () => { },
+			clearCheckedWorkspace: () => { },
+		});
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			WorkspacePicker,
+			undefined,
+			undefined,
+			recentWorkspacesService,
+		);
+		picker.syncInputGitHubRepository('microsoft/vscode');
+		const fallbackUri = picker.selectedFolderUri?.toString();
+
+		const localUri = URI.file('/local/vscode');
+		recents = [{
+			workspace: provider.resolveWorkspace(localUri)!,
+			providerId: provider.id,
+			checked: false,
+		}];
+		onDidChangeRecentWorkspaces.fire();
+
+		assert.deepStrictEqual({
+			fallbackUri,
+			upgradedUri: picker.selectedFolderUri?.toString(),
+		}, {
+			fallbackUri: URI.from({
+				scheme: GITHUB_REMOTE_FILE_SCHEME,
+				authority: 'github',
+				path: '/microsoft/vscode/HEAD',
+			}).toString(),
+			upgradedUri: localUri.toString(),
+		});
+	});
+
+	test('does not restore a workspace owned by a removed provider', () => {
+		const provider = createRepositoryProvider();
+		providersService.setProviders([provider]);
+		const storage = disposables.add(new TestStorageService());
+		const previous = URI.file('/local/other');
+		seedStorage(storage, [{ uri: previous, providerId: provider.id, checked: true }]);
+		const picker = createTestPicker(disposables, providersService, storage);
+
+		picker.syncInputGitHubRepository('microsoft/typescript');
+		providersService.setProviders([]);
+		const restored = picker.syncInputGitHubRepository(undefined);
+
+		assert.deepStrictEqual({
+			restored,
+			selectedFolderUri: picker.selectedFolderUri,
+			selectedProviderId: picker.selectedResolved?.providerId,
+		}, {
+			restored: true,
+			selectedFolderUri: undefined,
+			selectedProviderId: undefined,
+		});
+	});
+});
 
 suite('WorkspacePicker - Connection Status', () => {
 
