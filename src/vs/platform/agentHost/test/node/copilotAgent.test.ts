@@ -7381,7 +7381,7 @@ suite('CopilotAgent', () => {
 			}
 		});
 
-		test('enables Rubber Duck and disables Claude Advisor by default', async () => {
+		test('enables Rubber Duck and disables Claude Advisor and HydraFusion by default', async () => {
 			const client = new TestCopilotClient([]);
 			const { agent } = createTestAgentContext(disposables, { copilotClient: client });
 			try {

@@ -51,5 +51,7 @@ export function createCopilotCliEnvironment(environment: NodeJS.ProcessEnv = pro
 	env['AUTO_APPROVAL'] = 'true';
 	env['SKILL_CHAR_BUDGET'] = String(skillCharBudget);
 	env['ANTHROPIC_ADVISOR'] = String(claudeAdvisorEnabled);
+	env['HYDRAFUSION'] = String(hydraFusionEnabled);
+	env['HYDRAFUSION_ROLLOUT'] = String(hydraFusionEnabled);
 	return env;
 }
