@@ -190,7 +190,54 @@ registerWorkbenchContribution2(AgentHostSandboxForwarder.ID, AgentHostSandboxFor
 
 // #endregion Contributions
 
+
 // #region Actions
+
+// Retry action for sandboxed terminal commands (invoked via command link in toolResultMessage)
+registerAction2(class RetryWithoutSandboxingAction extends Action2 {
+	constructor() {
+		super({
+			id: TerminalChatAgentToolsCommandId.RetryWithoutSandboxing,
+			title: localize2('terminal.retryWithoutSandboxing', "Retry without Sandboxing"),
+			f1: false
+		});
+	}
+
+	async run(accessor: ServicesAccessor, failedCommandDetails: { lastFailedCommandId: string }): Promise<void> {
+		const chatService = accessor.get(IChatService);
+		const chatWidgetService = accessor.get(IChatWidgetService);
+
+		const widget = chatWidgetService.lastFocusedWidget;
+		if (!widget) {
+			return;
+		}
+		const model = widget.viewModel?.model;
+		if (!model) {
+			return;
+		}
+		const requests = model.getRequests();
+		const lastRequest = requests?.[requests.length - 1];
+		if (!lastRequest) {
+			return;
+		}
+
+		try {
+			// Disable sandboxing
+			RunInTerminalTool.updateSandboxingForCommandExecution(false, failedCommandDetails.lastFailedCommandId);
+			const languageModelId = widget?.input.currentLanguageModel;
+
+			// Retry the request
+			await chatService.resendRequest(lastRequest, {
+				userSelectedModelId: languageModelId,
+				attempt: (lastRequest?.attempt ?? -1) + 1,
+				...widget?.getModeRequestOptions(),
+			});
+		} finally {
+			// Re-enable sandboxing
+			RunInTerminalTool.updateSandboxingForCommandExecution(undefined, failedCommandDetails.lastFailedCommandId);
+		}
+	}
+});
 
 registerActiveInstanceAction({
 	id: TerminalChatAgentToolsCommandId.ChatAddTerminalSelection,

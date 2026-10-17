@@ -864,6 +864,8 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@ITerminalSandboxService private readonly _terminalSandboxService: ITerminalSandboxService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IFileService private readonly _fileService: IFileService,
+		@IUserDataProfileService private readonly _userDataProfileService: IUserDataProfileService,
 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
 		@IAgentSessionsService private readonly _agentSessionsService: IAgentSessionsService,
 		@IChatSessionsService private readonly _chatSessionsService: IChatSessionsService,
@@ -922,7 +924,23 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 					this._storageService.remove(TerminalToolConfirmationStorageKeys.TerminalAutoApproveWarningAccepted, StorageScope.APPLICATION);
 				}
 			}
+			// check for sandbox setting changes
+			if (e?.affectsConfiguration(TerminalChatAgentToolsSettingId.TerminalSandbox)) {
+				const eventDetails: IConfigurationChangeEvent = e;
+				const sandboxSetting = this._configurationService.getValue<ISandboxTerminalSettings>(TerminalChatAgentToolsSettingId.TerminalSandbox);
+				//update the config file if needed based on where the setting is update.
+				if (this._isSandboxedTerminal()) {
+					const inspected = this._configurationService.inspect<ISandboxTerminalSettings>(TerminalChatAgentToolsSettingId.TerminalSandbox);
+					if (eventDetails.source === ConfigurationTarget.WORKSPACE && inspected?.workspaceValue) {
+						// create a config file inside .vscode folder.
+						this._createConfigFileForSandboxingAtWorkspaceLevel(sandboxSetting);
+					} else {
+						this._createConfigForSandboxingAtApplicationLevel(sandboxSetting);
+					}
+				}
+			}
 		}));
+
 
 		// Restore terminal associations from storage
 		this._restoreTerminalAssociations();
@@ -1748,7 +1766,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				}]
 			};
 		}
-
 		const args = invocation.parameters as IRunInTerminalInputParams;
 		const allowUnsandboxedCommands = this._getAllowToRunUnsandboxedCommands(args);
 		const sandboxPrecheckInputs = this._getSandboxPrecheckInputs(invocation.context.sessionResource, invocation.chatRequestId);
@@ -2718,6 +2735,85 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			this._terminalService.setActiveInstance(toolTerminal.instance);
 			this._terminalService.revealTerminal(toolTerminal.instance, true);
 		}
+	}
+
+
+	/**
+	 * Creates a sandbox settings configuration file at the application level.
+	 * The file is stored in the user profile directory (e.g., ~/.config/Code/User/sandbox-settings.json)
+	 * This allows sandbox settings to be persisted across all workspaces for the user.
+	 * @param settings The sandbox settings to write to the file
+	 */
+	private async _createConfigForSandboxingAtApplicationLevel(settings: ISandboxTerminalSettings): Promise<void> {
+		if (!settings?.enabled) {
+			return;
+		}
+		// Get the user profile's sandboxSettings resource URI
+		const sandboxSettingsUri = this._userDataProfileService.currentProfile.sandboxSettingsResource;
+		await this._createSandboxConfig(sandboxSettingsUri, settings);
+	}
+
+	private _isSandboxedTerminal(): boolean {
+		if (isWindows) {
+			return false;
+		}
+		const settings = this._configurationService.getValue<ISandboxTerminalSettings>(TerminalChatAgentToolsSettingId.TerminalSandbox);
+		const isEnabled = settings?.enabled === true;
+
+		if (!isEnabled) {
+			this._sandboxConfigPath = undefined;
+			return false;
+		}
+
+		// if its disabled at command execution time, return false
+		if (RunInTerminalTool._isSandboxedForCommandExecution === false && this._lastFailedCommandId && RunInTerminalTool._lastFailedCommandIdList.has(this._lastFailedCommandId)) {
+			this._sandboxConfigPath = undefined;
+			return false;
+		}
+
+		// Determine config path based on configuration level
+		const inspected = this._configurationService.inspect<ISandboxTerminalSettings>(TerminalChatAgentToolsSettingId.TerminalSandbox);
+		if (inspected?.workspaceValue) {
+			// Workspace-level setting: use workspace .vscode folder
+			const workSpaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
+			if (workSpaceFolder) {
+				this._sandboxConfigPath = URI.file(workSpaceFolder).with({
+					path: `${workSpaceFolder}/.vscode/sandbox-settings.json`
+				}).fsPath;
+			}
+		} else {
+			// User-level setting: use user profile
+			this._sandboxConfigPath = this._userDataProfileService.currentProfile.sandboxSettingsResource.fsPath;
+		}
+		return isEnabled;
+	}
+
+	private _createConfigFileForSandboxingAtWorkspaceLevel(settings: ISandboxTerminalSettings): void {
+		const workSpaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
+		if (!workSpaceFolder) {
+			return;
+		}
+		const sandboxSettingsUri = URI.file(workSpaceFolder).with({
+			path: `${workSpaceFolder}/.vscode/sandbox-settings.json`
+		});
+
+		this._createSandboxConfig(sandboxSettingsUri, settings);
+	}
+
+	private async _createSandboxConfig(sandboxSettingsUri: URI, settings: ISandboxTerminalSettings): Promise<void> {
+		const sandboxSettings = {
+			network: {
+				allowedDomains: settings.network?.allowedDomains || [],
+				deniedDomains: settings.network?.deniedDomains || []
+			},
+			filesystem: {
+				denyRead: settings.filesystem?.denyRead || [],
+				allowWrite: settings.filesystem?.allowWrite || ['.'],
+				denyWrite: settings.filesystem?.denyWrite || []
+			}
+		};
+		this._sandboxConfigPath = sandboxSettingsUri.fsPath;
+		this._fileService.createFile(sandboxSettingsUri, VSBuffer.fromString(JSON.stringify(sandboxSettings, null, '\t')), { overwrite: true });
 	}
 
 	// #region Terminal init

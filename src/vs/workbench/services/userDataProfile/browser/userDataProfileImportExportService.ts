@@ -758,7 +758,8 @@ class UserDataProfileExportState extends UserDataProfileImportExportState {
 			cacheHome: profile.cacheHome,
 			agentPluginsHome: profile.agentPluginsHome,
 			useDefaultFlags: profile.useDefaultFlags,
-			isTransient: profile.isTransient
+			isTransient: profile.isTransient,
+			sandboxSettingsResource: profile.sandboxSettingsResource.with({ scheme: USER_DATA_PROFILE_EXPORT_SCHEME })
 		};
 	}
 

@@ -76,6 +76,7 @@ export interface IUserDataProfile {
 	readonly isTransient?: boolean;
 	readonly isAgentsWindowProfile?: boolean;
 	readonly workspaces?: readonly URI[];
+	readonly sandboxSettingsResource: URI;
 }
 
 export function isUserDataProfile(thing: unknown): thing is IUserDataProfile {
@@ -182,6 +183,7 @@ export function reviveProfile(profile: UriDto<IUserDataProfile>, scheme: string)
 		isInternal: profile.isInternal,
 		isAgentsWindowProfile: profile.isAgentsWindowProfile,
 		workspaces: profile.workspaces?.map(w => URI.revive(w)),
+		sandboxSettingsResource: URI.revive(profile.sandboxSettingsResource).with({ scheme })
 	};
 }
 
@@ -209,6 +211,7 @@ export function toUserDataProfile(id: string, name: string, location: URI, profi
 		isInternal: isAgentsWindowProfile || options?.transient,
 		isAgentsWindowProfile,
 		workspaces: options?.workspaces,
+		sandboxSettingsResource: joinPath(location, 'sandbox-settings.json')
 	};
 }
 
