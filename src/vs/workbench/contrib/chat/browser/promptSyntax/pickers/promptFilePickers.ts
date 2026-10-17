@@ -277,6 +277,19 @@ const GENERATE_AGENT_OPTION: IPromptPickerQuickPickItem = {
 };
 
 /**
+ * A quick pick item that starts the 'New Instructions File' command.
+ */
+const CONFIGURE_VISIBILITY_OPTION: IPromptPickerQuickPickItem = {
+	type: 'item',
+	label: `$(eye) ${localize(
+		'commands.configure-visibility.select-dialog.label',
+		'Configure visibility in agent picker...',
+	)}`,
+	pickable: false,
+	alwaysShow: true,
+};
+
+/**
  * Button that opens a prompt file in the editor.
  */
 const EDIT_BUTTON: IQuickInputButton = {
@@ -759,7 +772,8 @@ export class PromptFilePickers {
 				const active = quickPick.activeItems;
 				const newItems = await this._createPromptPickItems(options, CancellationToken.None);
 				quickPick.items = newItems;
-				quickPick.activeItems = active;
+				quickPick.selectedItems = newItems.filter(i => isPromptFileItem(i)).filter(i => !disabled.has(i.promptFileUri));
+				quickPick.activeItems = [];
 			};
 
 			disposables.add(quickPick.onDidAccept(async () => {
