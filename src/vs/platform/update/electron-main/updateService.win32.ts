@@ -97,6 +97,17 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.setupMutexName = `${productService.win32MutexName}setup`;
 
 		lifecycleMainService.setRelaunchHandler(this);
+
+		// Step 3.1: When VS Code shuts down while an update is still being
+		// installed (Updating state), stop the polling loop so the process
+		// can exit cleanly. We do NOT cancel or kill the Inno Setup process
+		// because it was spawned detached and should complete the update
+		// after VS Code exits — that's the designed background update flow.
+		// See https://github.com/microsoft/vscode/issues/62476
+		lifecycleMainService.onWillShutdown(() => {
+			this.updateCancellationTokenSource?.dispose(true);
+			this.updateCancellationTokenSource = undefined;
+		});
 	}
 
 	handleRelaunch(options?: IRelaunchOptions): boolean {
@@ -453,6 +464,22 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		if (installerAlreadyRunning) {
 			this.logService.info('update#doApplyUpdate: installer already running, skipping setup spawn');
 			this.logApplyBreadcrumb('installer_already_running');
+		}
+
+		// Step 1.1: Check if another setup is already running before spawning a new one.
+		// This prevents the "Setup has detected that Setup is currently running" dialog
+		// from Inno Setup when a second installer is spawned while the first holds the mutex.
+		// See https://github.com/microsoft/vscode/issues/62476
+		const setupMutexName = `${this.productService.win32MutexName}setup`;
+		try {
+			const mutex = await import('@vscode/windows-mutex');
+			if (mutex.isActive(setupMutexName)) {
+				this.logService.info('update#doApplyUpdate: another setup is already running, polling for its completion instead of spawning a new one');
+				this.pollForReadyMutex(update, explicit);
+				return;
+			}
+		} catch (error) {
+			this.logService.warn('update#doApplyUpdate: failed to check setup mutex, proceeding with spawn', error);
 		}
 
 		const cachePath = await this.cachePath;
