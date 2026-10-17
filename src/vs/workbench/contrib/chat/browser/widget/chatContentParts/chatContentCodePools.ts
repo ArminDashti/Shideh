@@ -80,9 +80,11 @@ export class DiffEditorPool extends Disposable {
 			object: codeBlock,
 			isStale: () => stale,
 			dispose: () => {
-				codeBlock.reset();
-				stale = true;
-				this._pool.release(codeBlock);
+				if (!stale) {
+					codeBlock.reset();
+					stale = true;
+					this._pool.release(codeBlock);
+				}
 			}
 		};
 	}
