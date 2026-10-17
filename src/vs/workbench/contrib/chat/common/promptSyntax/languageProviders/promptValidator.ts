@@ -250,12 +250,14 @@ export class PromptValidator {
 
 		this.validateName(attributes, report);
 		this.validateDescription(attributes, report);
-		this.validateArgumentHint(attributes, report);
+
 		switch (promptType) {
 			case PromptsType.prompt: {
 				const agent = await this.validateAgent(attributes, report);
 				this.validateTools(attributes, agent?.kind ?? ChatModeKind.Agent, target, report);
 				this.validateModel(attributes, agent?.kind ?? ChatModeKind.Agent, report);
+				this.validateArgumentHint(attributes, report);
+				this.checkForInvalidArguments(attributes, promptType, undefined, report);
 				break;
 			}
 			case PromptsType.instructions:
@@ -265,6 +267,7 @@ export class PromptValidator {
 					this.validateApplyTo(attributes, report);
 				}
 				this.validateExcludeAgent(attributes, report);
+				this.checkForInvalidArguments(attributes, promptType, undefined, report);
 				break;
 
 			case PromptsType.agent: {
