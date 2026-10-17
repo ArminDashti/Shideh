@@ -237,6 +237,7 @@ export function createCodeEditorServices(disposables: Pick<DisposableStore, 'add
 	define(ITextResourcePropertiesService, TestTextResourcePropertiesService);
 	define(IThemeService, TestThemeService);
 	define(ILogService, NullLogService);
+	define(ILoggerService, TestLoggerService);
 	define(IModelService, ModelService);
 	define(ICodeEditorService, TestCodeEditorService);
 	define(IContextKeyService, MockContextKeyService);

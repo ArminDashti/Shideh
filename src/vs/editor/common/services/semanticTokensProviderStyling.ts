@@ -10,6 +10,8 @@ import { ILogService, LogLevel } from '../../../platform/log/common/log.js';
 import { SparseMultilineTokens } from '../tokens/sparseMultilineTokens.js';
 import { ILanguageService } from '../languages/language.js';
 
+import * as nls from 'vs/nls';
+
 const enum SemanticTokensProviderStylingConstants {
 	NO_STYLING = 0b01111111111111111111111111111111
 }
@@ -28,9 +30,10 @@ export class SemanticTokensProviderStyling {
 		private readonly _legend: SemanticTokensLegend,
 		@IThemeService private readonly _themeService: IThemeService,
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@ILogService private readonly _logService: ILogService
+		@ILoggerService loggerService: ILoggerService
 	) {
 		this._hashTable = new HashTable();
+		this._logger = loggerService.createLogger('semanticTokensProviderStyling', { name: nls.localize('semanticTokensLogName', 'Semantic Tokens'), when: CONTEXT_LOG_LEVEL.isEqualTo(LogLevelToString(LogLevel.Trace)).serialize() });
 	}
 
 	public getMetadata(tokenTypeIndex: number, tokenModifierSet: number, languageId: string): number {

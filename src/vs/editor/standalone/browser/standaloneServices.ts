@@ -1000,6 +1000,14 @@ class StandaloneLogService extends LogService {
 	}
 }
 
+class StandaloneLoggerService extends AbstractLoggerService {
+	constructor() {
+		super(LogLevel.Info, URI.from({ scheme: 'monaco', authority: 'logs', path: '/' }));
+	}
+	protected doCreateLogger(): ILogger { return new ConsoleLogger(); }
+}
+
+
 class StandaloneContextMenuService extends ContextMenuService {
 	constructor(
 		@ITelemetryService telemetryService: ITelemetryService,

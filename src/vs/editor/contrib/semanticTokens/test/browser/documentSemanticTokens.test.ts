@@ -63,7 +63,8 @@ suite('ModelSemanticColoring', () => {
 		themeChangeEmitter = disposables.add(new TestThemeChangeEmitter());
 		themeService._onThemeChange = themeChangeEmitter;
 		themeService.setTheme(new TestColorTheme({}, ColorScheme.DARK, true));
-		const logService = new NullLogService();
+		const loggerService = new TestLoggerService();
+
 		languageFeaturesService = new LanguageFeaturesService();
 		languageService = disposables.add(new LanguageService(false));
 		const semanticTokensStylingService = disposables.add(new SemanticTokensStylingService(themeService, logService, languageService));

@@ -45,13 +45,6 @@ import { IStoredFileWorkingCopySaveEvent } from '../../services/workingCopy/comm
 import { IWorkingCopy, IWorkingCopyBackup, WorkingCopyCapabilities } from '../../services/workingCopy/common/workingCopy.js';
 import { ICopyOperation, ICreateFileOperation, ICreateOperation, IDeleteOperation, IFileOperationUndoRedoInfo, IMoveOperation, IStoredFileWorkingCopySaveParticipant, IStoredFileWorkingCopySaveParticipantContext, IWorkingCopyFileOperationParticipant, IWorkingCopyFileService, WorkingCopyFileEvent } from '../../services/workingCopy/common/workingCopyFileService.js';
 
-export class TestLoggerService extends AbstractLoggerService {
-	constructor(logsHome?: URI) {
-		super(LogLevel.Info, logsHome ?? URI.file('tests').with({ scheme: 'vscode-tests' }));
-	}
-	protected doCreateLogger(): ILogger { return new NullLogger(); }
-}
-
 export class TestTextResourcePropertiesService implements ITextResourcePropertiesService {
 
 	declare readonly _serviceBrand: undefined;

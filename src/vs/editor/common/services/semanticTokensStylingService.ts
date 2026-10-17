@@ -20,7 +20,7 @@ export class SemanticTokensStylingService extends Disposable implements ISemanti
 
 	constructor(
 		@IThemeService private readonly _themeService: IThemeService,
-		@ILogService private readonly _logService: ILogService,
+		@ILoggerService private readonly _loggerService: ILoggerService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 	) {
 		super();
@@ -32,7 +32,7 @@ export class SemanticTokensStylingService extends Disposable implements ISemanti
 
 	public getStyling(provider: DocumentTokensProvider): SemanticTokensProviderStyling {
 		if (!this._caches.has(provider)) {
-			this._caches.set(provider, new SemanticTokensProviderStyling(provider.getLegend(), this._themeService, this._languageService, this._logService));
+			this._caches.set(provider, new SemanticTokensProviderStyling(provider.getLegend(), this._themeService, this._languageService, this._loggerService));
 		}
 		return this._caches.get(provider)!;
 	}
