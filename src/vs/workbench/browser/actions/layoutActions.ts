@@ -322,7 +322,8 @@ export class ToggleSidebarVisibilityAction extends Action2 {
 				{
 					id: MenuId.MenubarAppearanceMenu,
 					group: '2_workbench_layout',
-					order: 1
+					order: 1,
+					when: InEditorZenModeContext.negate()
 				}
 			]
 		});

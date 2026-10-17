@@ -55,7 +55,8 @@ export class ToggleAuxiliaryBarAction extends Action2 {
 				{
 					id: MenuId.MenubarAppearanceMenu,
 					group: '2_workbench_layout',
-					order: 2
+					order: 2,
+					when: InEditorZenModeContext.negate()
 				}
 			]
 		});

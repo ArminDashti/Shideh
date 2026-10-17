@@ -52,7 +52,8 @@ export class TogglePanelAction extends Action2 {
 				{
 					id: MenuId.MenubarAppearanceMenu,
 					group: '2_workbench_layout',
-					order: 5
+					order: 5,
+					when: InEditorZenModeContext.negate()
 				}, {
 					id: MenuId.LayoutControlMenuSubmenu,
 					group: '0_workbench_layout',
