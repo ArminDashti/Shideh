@@ -172,6 +172,7 @@ function onDidChangeNotebookCells(e: NotebookDocumentChangeEventEx) {
 			// This condition will be satisfied for first cell without outputs.
 			metadata.execution_count = null;
 			metadataUpdated = true;
+			pendingCellUpdates.delete(e.cell);
 		}
 
 		if (e.document?.languageId && e.document?.languageId !== preferredCellLanguage && e.document?.languageId !== languageIdInMetadata) {
