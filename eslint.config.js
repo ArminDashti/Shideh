@@ -98,6 +98,7 @@ export default defineConfig(
 			'local/code-parameter-properties-must-have-explicit-accessibility': 'warn',
 			'local/code-no-nls-in-standalone-editor': 'warn',
 			'local/code-no-potentially-unsafe-disposables': 'warn',
+			'local/code-no-disposable-leaks': 'warn',
 			'local/code-no-dangerous-type-assertions': 'warn',
 			'local/code-no-any-casts': 'warn',
 			'local/code-no-standalone-editor': 'warn',
