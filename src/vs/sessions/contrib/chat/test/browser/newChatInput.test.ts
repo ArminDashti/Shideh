@@ -354,6 +354,32 @@ suite('NewChatInputWidget', () => {
 		});
 	});
 
+	test('gets and sets the composer input without moving focus', () => {
+		let value = 'Initial prompt';
+		let position: { lineNumber: number; column: number } | undefined;
+		const harness: IInputValueHarness = {
+			_editor: {
+				getModel: () => ({
+					getValue: () => value,
+					setValue: newValue => value = newValue,
+					getLineCount: () => 2,
+					getLineMaxColumn: () => 8,
+				}),
+				setPosition: newPosition => position = newPosition,
+			},
+		};
+
+		setInputValue.call(harness, 'Updated\nprompt');
+
+		assert.deepStrictEqual({
+			value: getInputValue.call(harness),
+			position,
+		}, {
+			value: 'Updated\nprompt',
+			position: { lineNumber: 2, column: 8 },
+		});
+	});
+
 	for (const existing of ['empty', 'text', 'attachments', 'feedback', 'sending'] as const) {
 		test(`applies an incoming draft only to an empty idle input (${existing})`, () => {
 			let inputText = existing === 'text' ? 'Keep me' : '';
