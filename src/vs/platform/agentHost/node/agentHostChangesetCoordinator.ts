@@ -590,9 +590,9 @@ export class AgentHostChangesetCoordinator extends Disposable {
 			}
 		}
 
-		// Git state has been refreshed so we need to recompute every
-		// changeset currently subscribed for the session (the service
-		// reads the exposed subscription list).
+		// Git state has been refreshed so we need to recompute every mutable
+		// changeset currently subscribed for the session (the service reads
+		// the exposed subscription list).
 		this._changesets.recomputeSubscribedChangesets(sessionStr);
 	}
 
