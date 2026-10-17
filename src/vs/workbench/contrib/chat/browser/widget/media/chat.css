@@ -1466,6 +1466,11 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	background: var(--vscode-button-hoverBackground);
 }
 
+.interactive-input-part:has(.chat-getting-started-tip-container > .chat-tip-widget) .chat-input-container {
+	/* Remove top border to avoid double border with the tip widget's bottom border */
+	border-top: none;
+}
+
 .interactive-session .chat-editing-session {
 	width: 100%;
 	position: relative;
