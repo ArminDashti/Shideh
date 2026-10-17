@@ -724,7 +724,41 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 				override: args?.viewType,
 				pinned: true
 			},
-			languageId: args?.languageId,
+			languageId: args?.languageId
+		});
+	}
+});
+
+CommandsRegistry.registerCommand({
+	id: NEW_SCRATCHPAD_FILE_COMMAND_ID,
+	description: {
+		description: NEW_UNTITLED_FILE_LABEL,
+		args: [
+			{
+				isOptional: true,
+				name: 'New Scratchpad Text File arguments',
+				description: 'The editor language ID if known',
+				schema: {
+					'type': 'object',
+					'properties': {
+						'languageId': {
+							'type': 'string'
+						}
+					}
+				}
+			}
+		]
+	},
+	handler: async (accessor, args?: { languageId?: string }) => {
+		const editorService = accessor.get(IEditorService);
+
+		await editorService.openEditor({
+			resource: undefined,
+			isScratchpad: true,
+			options: {
+				pinned: true
+			},
+			languageId: args?.languageId
 		});
 	}
 });

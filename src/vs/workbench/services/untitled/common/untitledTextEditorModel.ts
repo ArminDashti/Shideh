@@ -113,7 +113,7 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 
 	readonly typeId = NO_TYPE_ID; // IMPORTANT: never change this to not break existing assumptions (e.g. backups)
 
-	readonly capabilities = WorkingCopyCapabilities.Untitled;
+	readonly capabilities = this.isScratchpad ? WorkingCopyCapabilities.Untitled | WorkingCopyCapabilities.Scratchpad : WorkingCopyCapabilities.Untitled;
 
 	private readonly initialMode: string;
 
@@ -140,6 +140,7 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 	constructor(
 		readonly resource: URI,
 		readonly hasAssociatedFilePath: boolean,
+		private readonly isScratchpad: boolean,
 		private readonly initialValue: string | undefined,
 		private preferredLanguageId: string | undefined,
 		private preferredEncoding: string | undefined,
@@ -251,25 +252,27 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 
 	//#endregion
 
-	//#region Dirty
+	//#region Modified/Dirty
 
 	private dirty: boolean;
 
 	isDirty(): boolean {
-		return this.dirty;
+		return this.modified && !this.isScratchpad; // Scratchpad untitled models are never dirty
 	}
 
 	isModified(): boolean {
-		return this.isDirty();
+		return this.modified;
 	}
 
-	private setDirty(dirty: boolean): void {
-		if (this.dirty === dirty) {
+	private setModified(modified: boolean): void {
+		if (this.modified === modified) {
 			return;
 		}
 
-		this.dirty = dirty;
-		this._onDidChangeDirty.fire();
+		this.modified = modified;
+		if (!this.isScratchpad) {
+			this._onDidChangeDirty.fire();
+		}
 	}
 
 	//#endregion
@@ -375,8 +378,8 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 				this.updateNameFromFirstLine(textEditorModel);
 			}
 
-			// Untitled associated to file path are dirty right away as well as untitled with content
-			this.setDirty(this.hasAssociatedFilePath || !!hasBackup || !!this.initialValue);
+			// Untitled associated to file path are modified right away as well as untitled with content
+			this.setModified(this.hasAssociatedFilePath || !!hasBackup || !!this.initialValue);
 
 			// If we have initial contents, make sure to emit this
 			// as the appropiate events to the outside.

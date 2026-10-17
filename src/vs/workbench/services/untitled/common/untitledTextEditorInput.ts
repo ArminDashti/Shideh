@@ -37,6 +37,16 @@ export class UntitledTextEditorInput extends AbstractTextResourceEditorInput imp
 		return DEFAULT_EDITOR_ASSOCIATION.id;
 	}
 
+	override get capabilities(): EditorInputCapabilities {
+		const capabilities = super.capabilities;
+
+		if (this.model.capabilities & WorkingCopyCapabilities.Scratchpad) {
+			return capabilities | EditorInputCapabilities.Scratchpad;
+		}
+
+		return capabilities;
+	}
+
 	private modelResolve: Promise<void> | undefined = undefined;
 	private readonly modelDisposables = this._register(new DisposableStore());
 	private cachedUntitledTextEditorModelReference: IReference<IUntitledTextEditorModel> | undefined = undefined;
@@ -171,6 +181,7 @@ export class UntitledTextEditorInput extends AbstractTextResourceEditorInput imp
 		const untypedInput: IUntitledTextResourceEditorInput & { resource: URI | undefined; options: ITextEditorOptions } = {
 			resource: this.model.hasAssociatedFilePath ? toLocalResource(this.model.resource, this.environmentService.remoteAuthority, this.pathService.defaultUriScheme) : this.resource,
 			forceUntitled: true,
+			isScratchpad: this.hasCapability(EditorInputCapabilities.Scratchpad),
 			options: {
 				override: this.editorId
 			}

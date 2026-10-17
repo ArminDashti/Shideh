@@ -491,6 +491,12 @@ export interface IUntitledTextResourceEditorInput extends IBaseTextResourceEdito
 	 * - they will not ask for a file path when saving but use the associated path
 	 */
 	readonly resource: URI | undefined;
+
+	/**
+	 * A flag that will prevent the untitled editor from appearing dirty in the UI
+	 * and not show a confirmation dialog when closed with unsaved content.
+	 */
+	readonly isScratchpad?: boolean;
 }
 
 /**

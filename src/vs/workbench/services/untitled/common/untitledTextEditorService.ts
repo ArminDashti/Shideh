@@ -32,6 +32,12 @@ export interface INewUntitledTextEditorOptions {
 	 * Preferred encoding to use when saving the untitled editor.
 	 */
 	encoding?: string;
+
+	/**
+	 * A flag that will prevent the untitled editor from appearing dirty in the UI
+	 * and not show a confirmation dialog when closed with unsaved content.
+	 */
+	isScratchpad?: boolean;
 }
 
 export interface IExistingUntitledTextEditorOptions extends INewUntitledTextEditorOptions {
@@ -241,6 +247,7 @@ export class UntitledTextEditorService extends Disposable implements IUntitledTe
 			if (options.untitledResource?.scheme === Schemas.untitled) {
 				massagedOptions.untitledResource = options.untitledResource;
 			}
+			massagedOptions.isScratchpad = options.isScratchpad;
 		}
 
 		// Language id
@@ -267,7 +274,7 @@ export class UntitledTextEditorService extends Disposable implements IUntitledTe
 		if (!untitledResource) {
 			let counter = 1;
 			do {
-				untitledResource = URI.from({ scheme: Schemas.untitled, path: `Untitled-${counter}` });
+				untitledResource = URI.from({ scheme: Schemas.untitled, path: options.isScratchpad ? `Scratchpad-${counter}` : `Untitled-${counter}` });
 				counter++;
 			} while (this.mapResourceToModel.has(untitledResource));
 		}

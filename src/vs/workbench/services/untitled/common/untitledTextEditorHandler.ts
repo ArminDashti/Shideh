@@ -66,7 +66,8 @@ export class UntitledTextEditorInputSerializer implements IEditorSerializer {
 		const serialized: ISerializedUntitledTextEditorInput = {
 			resourceJSON: resource.toJSON(),
 			modeId: languageId,
-			encoding: untitledTextEditorInput.getEncoding()
+			encoding: untitledTextEditorInput.getEncoding(),
+			scratchpad: untitledTextEditorInput.hasCapability(EditorInputCapabilities.Scratchpad)
 		};
 
 		return JSON.stringify(serialized);
@@ -78,8 +79,9 @@ export class UntitledTextEditorInputSerializer implements IEditorSerializer {
 			const resource = URI.revive(deserialized.resourceJSON);
 			const languageId = deserialized.modeId;
 			const encoding = deserialized.encoding;
+			const isScratchpad = deserialized.scratchpad;
 
-			return accessor.get(ITextEditorService).createTextEditor({ resource, languageId, encoding, forceUntitled: true }) as UntitledTextEditorInput;
+			return accessor.get(ITextEditorService).createTextEditor({ resource, languageId, encoding, forceUntitled: true, isScratchpad }) as UntitledTextEditorInput;
 		});
 	}
 }
