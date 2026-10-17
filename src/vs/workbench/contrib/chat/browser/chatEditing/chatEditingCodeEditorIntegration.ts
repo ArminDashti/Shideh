@@ -52,6 +52,10 @@ export interface IDocumentDiff2 extends IDocumentDiff {
 	originalModel: ITextModel;
 	modifiedModel: ITextModel;
 
+	// edit sessions v2 uses a virtual modified model to track diff changes,
+	// this allow us to signal which real resource the diff corresponds to.
+	appliesToResource?: URI;
+
 	keep(changes: DetailedLineRangeMapping): Promise<boolean>;
 	undo(changes: DetailedLineRangeMapping): Promise<boolean>;
 }
@@ -97,7 +101,7 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 	constructor(
 		private readonly _entry: IModifiedFileEntry,
 		private readonly _editor: ICodeEditor,
-		documentDiffInfo: IObservable<IDocumentDiff2>,
+		documentDiffInfo: IObservable<IDocumentDiff2 | undefined>,
 		renderDiffImmediately: boolean,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IAccessibilitySignalService private readonly _accessibilitySignalsService: IAccessibilitySignalService,
@@ -124,7 +128,8 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 		));
 
 		const enabledObs = derived(r => {
-			if (!isEqual(codeEditorObs.model.read(r)?.uri, documentDiffInfo.read(r).modifiedModel.uri)) {
+			const diffInfo = documentDiffInfo.read(r);
+			if (!diffInfo || !isEqual(codeEditorObs.model.read(r)?.uri, diffInfo.appliesToResource || diffInfo.modifiedModel.uri)) {
 				return false;
 			}
 			if (this._editor.getOption(EditorOption.inDiffEditor) && !instantiationService.invokeFunction(isTextDiffEditorForEntry, _entry, this._editor)) {
@@ -144,7 +149,7 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 
 			const data: IModelDeltaDecoration[] = [];
 			const diff = documentDiffInfo.read(r);
-			for (const diffEntry of diff.changes) {
+			for (const diffEntry of diff?.changes || []) {
 				data.push({
 					range: diffEntry.modified.toInclusiveRange() ?? new Range(diffEntry.modified.startLineNumber, 1, diffEntry.modified.startLineNumber, Number.MAX_SAFE_INTEGER),
 					options: ChatEditingCodeEditorIntegration._diffLineDecorationData
@@ -158,9 +163,9 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 		this._store.add(autorun(r => {
 
 			if (enabledObs.read(r)
-				&& !_entry.isCurrentlyBeingModifiedBy.read(r)
+				&& !_entry.isCurrentlyBeingModifiedByRequestId.read(r).size
 				&& lastModifyingRequestId !== _entry.lastModifyingRequestId
-				&& !documentDiffInfo.read(r).identical
+				&& !documentDiffInfo.read(r)?.identical
 			) {
 				lastModifyingRequestId = _entry.lastModifyingRequestId;
 				const position = _editor.getPosition() ?? new Position(1, 1);
@@ -189,7 +194,7 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 			}
 
 			// done: render diff
-			if (!_entry.isCurrentlyBeingModifiedBy.read(r) || renderDiffImmediately) {
+			if (!_entry.isCurrentlyBeingModifiedByRequestId.read(r).size || renderDiffImmediately) {
 				const isDiffEditor = this._editor.getOption(EditorOption.inDiffEditor);
 
 				codeEditorObs.getOption(EditorOption.fontInfo).read(r);
@@ -197,7 +202,9 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 
 				const reviewMode = _entry.reviewMode.read(r);
 				const diff = documentDiffInfo.read(r);
-				this._updateDiffRendering(diff, reviewMode, isDiffEditor);
+				if (diff) {
+					this._updateDiffRendering(diff, reviewMode, isDiffEditor);
+				}
 			}
 		}));
 
@@ -231,11 +238,16 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 		}));
 
 		// accessibility: diff view
-		this._store.add(autorun(r => {
+		const createdDiffView = this._store.add(autorun(r => {
 
 			const visible = this._accessibleDiffViewVisible.read(r);
 
 			if (!visible || !enabledObs.read(r)) {
+				return;
+			}
+
+			const diffInfo = documentDiffInfo.read(r);
+			if (!diffInfo) {
 				return;
 			}
 
@@ -251,9 +263,11 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 				constObservable(true),
 				codeEditorObs.layoutInfo.map((v, r) => v.width),
 				codeEditorObs.layoutInfo.map((v, r) => v.height),
-				documentDiffInfo.map(diff => diff.changes.slice()),
-				instantiationService.createInstance(AccessibleDiffViewerModel, documentDiffInfo, _editor),
+				documentDiffInfo.map(diff => diff?.changes.slice()),
+				instantiationService.createInstance(AccessibleDiffViewerModel, diffInfo.originalModel, documentDiffInfo, _editor),
 			));
+
+			createdDiffView.dispose();
 		}));
 
 
@@ -271,7 +285,7 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 		this._store.add(toDisposable(restoreActualOptions));
 
 		const renderAsBeingModified = derived(this, r => {
-			return enabledObs.read(r) && Boolean(_entry.isCurrentlyBeingModifiedBy.read(r));
+			return enabledObs.read(r) && Boolean(_entry.isCurrentlyBeingModifiedByRequestId.read(r).size);
 		});
 
 		this._store.add(autorun(r => {
@@ -940,12 +954,13 @@ class AccessibleDiffViewContainer implements IOverlayWidget {
 
 class AccessibleDiffViewerModel implements IAccessibleDiffViewerModel {
 	constructor(
-		private readonly _documentDiffInfo: IObservable<IDocumentDiff2>,
+		private readonly _originalModel: ITextModel,
+		private readonly _documentDiffInfo: IObservable<IDocumentDiff2 | undefined>,
 		private readonly _editor: ICodeEditor,
 	) { }
 
 	getOriginalModel() {
-		return this._documentDiffInfo.get().originalModel;
+		return this._originalModel;
 	}
 
 	getOriginalOptions() {
@@ -953,7 +968,11 @@ class AccessibleDiffViewerModel implements IAccessibleDiffViewerModel {
 	}
 
 	originalReveal(range: Range) {
-		const changes = this._documentDiffInfo.get().changes;
+		const changes = this._documentDiffInfo.get()?.changes;
+		if (!changes) {
+			return;
+		}
+
 		const idx = changes.findIndex(value => value.original.intersect(LineRange.fromRange(range)));
 		if (idx >= 0) {
 			range = changes[idx].modified.toInclusiveRange() ?? range;

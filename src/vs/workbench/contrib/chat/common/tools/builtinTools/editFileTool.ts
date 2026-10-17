@@ -121,7 +121,7 @@ export class EditTool implements IToolImpl {
 				const entries = editSession.entries.read(r);
 				const currentFile = entries?.find((e) => isEqual(e.modifiedURI, uri));
 				if (currentFile) {
-					if (currentFile.isCurrentlyBeingModifiedBy.read(r)) {
+					if (currentFile.isCurrentlyBeingModifiedByRequestId.read(r).size) {
 						wasFileBeingModified = true;
 					} else if (wasFileBeingModified) {
 						resolve(true);

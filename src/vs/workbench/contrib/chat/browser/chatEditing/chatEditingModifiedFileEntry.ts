@@ -381,7 +381,7 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 	protected abstract _areOriginalAndModifiedIdentical(): Promise<boolean>;
 
 	protected _resetEditsState(tx: ITransaction | undefined): void {
-		this._isCurrentlyBeingModifiedByObs.set(undefined, tx);
+		this._isCurrentlyBeingModifiedByObs.set(new Set(), tx);
 		this._rewriteRatioObs.set(0, tx);
 		this._waitsForLastEdits.set(false, tx);
 	}

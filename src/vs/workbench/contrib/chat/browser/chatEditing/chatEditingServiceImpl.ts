@@ -44,6 +44,7 @@ import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ChatEditorInput } from '../widgetHosts/editor/chatEditorInput.js';
 import { AbstractChatEditingModifiedFileEntry } from './chatEditingModifiedFileEntry.js';
 import { ChatEditingSession } from './chatEditingSession.js';
+import { ChatEditingSessionV2 } from './chatEditingSessionV2Timeline.js';
 import { ChatEditingSnapshotTextModelContentProvider, ChatEditingTextModelContentProvider } from './chatEditingTextModelContentProviders.js';
 
 export class ChatEditingService extends Disposable implements IChatEditingService {
@@ -243,7 +244,7 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		return observerDisposables;
 	}
 
-	private observerEditsInResponse(requestId: string, responseModel: IChatResponseModel, session: ChatEditingSession, observerDisposables: DisposableStore) {
+	private observerEditsInResponse(requestId: string, responseModel: IChatResponseModel, session: IChatEditingSession, observerDisposables: DisposableStore) {
 		// Sparse array: the indicies are indexes of `responseModel.response.value`
 		// that are edit groups, and then this tracks the edit application for
 		// each of them. Note that text edit groups can be updated
@@ -416,12 +417,12 @@ class ChatDecorationsProvider extends Disposable implements IDecorationsProvider
 
 	private readonly _currentlyEditingUris = derived<URI[]>(this, (r) => {
 		const uri = this._currentEntries.read(r);
-		return uri.filter(entry => entry.isCurrentlyBeingModifiedBy.read(r)).map(entry => entry.modifiedURI);
+		return uri.filter(entry => entry.isCurrentlyBeingModifiedByRequestId.read(r).size).map(entry => entry.modifiedURI);
 	});
 
 	private readonly _modifiedUris = derived<URI[]>(this, (r) => {
 		const uri = this._currentEntries.read(r);
-		return uri.filter(entry => !entry.isCurrentlyBeingModifiedBy.read(r) && entry.state.read(r) === ModifiedFileEntryState.Modified).map(entry => entry.modifiedURI);
+		return uri.filter(entry => !entry.isCurrentlyBeingModifiedByRequestId.read(r).size && entry.state.read(r) === ModifiedFileEntryState.Modified).map(entry => entry.modifiedURI);
 	});
 
 	readonly onDidChange: Event<URI[]>;
@@ -491,7 +492,7 @@ class ChatEditingMultiDiffSource implements IResolvedMultiDiffSource {
 		const entries = currentSession.entries.read(reader);
 		return entries.map((entry) => {
 			if (this._showPreviousChanges) {
-				const entryDiffObs = currentSession.getEntryDiffBetweenStops(entry.modifiedURI, undefined, undefined);
+				const entryDiffObs = currentSession.getEntryDiffForSession(entry.modifiedURI);
 				const entryDiff = entryDiffObs?.read(reader);
 				if (entryDiff) {
 					return new MultiDiffEditorItem(
