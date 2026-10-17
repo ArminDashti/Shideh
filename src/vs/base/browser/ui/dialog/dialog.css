@@ -154,6 +154,7 @@
 .monaco-dialog-box .dialog-message-row .dialog-message-container,
 .monaco-dialog-box .dialog-footer-row {
 	display: flex;
+	flex: 1; /* let the dialog message contents grow */
 	flex-direction: column;
 	overflow-y: auto;
 	overflow-x: hidden;
