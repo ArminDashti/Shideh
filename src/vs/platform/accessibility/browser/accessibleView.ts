@@ -57,6 +57,7 @@ export const enum AccessibleViewProviderId {
 	SessionCanvas = 'sessionCanvas',
 	Survey = 'survey',
 	Automations = 'automations',
+	InboxNotifications = 'inboxNotifications',
 	ConnectionDiagnostics = 'connectionDiagnostics',
 	Kanban = 'kanban',
 	BrowserElementCommenting = 'browserElementCommenting',
