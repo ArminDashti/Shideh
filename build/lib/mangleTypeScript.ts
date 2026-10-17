@@ -15,21 +15,23 @@ class ShortIdent {
 		'import', 'in', 'instanceof', 'let', 'new', 'null', 'return', 'static', 'super', 'switch', 'this', 'throw',
 		'true', 'try', 'typeof', 'var', 'void', 'while', 'with', 'yield']);
 
-	private static _alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+	private static _alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890$_'.split('');
 
 	private _value = 0;
 	private readonly _isNameTaken: (name: string) => boolean;
+	private readonly prefix: string;
 
-	constructor(isNameTaken: (name: string) => boolean) {
-		this._isNameTaken = name => ShortIdent._keywords.has(name) || isNameTaken(name);
+	constructor(prefix: string, isNameTaken: (name: string) => boolean) {
+		this.prefix = prefix;
+		this._isNameTaken = name => ShortIdent._keywords.has(name) || /^[_0-9]/.test(name) || isNameTaken(name);
 	}
 
-	next(): string {
-		const candidate = ShortIdent.convert(this._value);
+	next(localIsNameTaken?: (name: string) => boolean): string {
+		const candidate = this.prefix + ShortIdent.convert(this._value);
 		this._value++;
-		if (this._isNameTaken(candidate)) {
+		if (this._isNameTaken(candidate) || localIsNameTaken?.(candidate)) {
 			// try again
-			return this.next();
+			return this.next(localIsNameTaken);
 		}
 		return candidate;
 	}
@@ -179,7 +181,7 @@ class ClassData {
 
 		data.replacements = new Map();
 
-		const identPool = new ShortIdent(name => {
+		const identPool = new ShortIdent('', name => {
 
 			// locally taken
 			if (data._isNameTaken(name)) {
@@ -235,12 +237,11 @@ class ClassData {
 				}
 			}
 		}
-		if ((<any>this.node.getSourceFile()).identifiers instanceof Map) {
-			// taken by any other usage
-			if ((<any>this.node.getSourceFile()).identifiers.has(name)) {
-				return true;
-			}
+
+		if (isNameTakenInFile(this.node, name)) {
+			return true;
 		}
+
 		return false;
 	}
 
@@ -262,6 +263,124 @@ class ClassData {
 		this.children ??= [];
 		this.children.push(child);
 		child.parent = this;
+	}
+}
+
+function isNameTakenInFile(node: ts.Node, name: string): boolean {
+	const identifiers = (<any>node.getSourceFile()).identifiers;
+	if (identifiers instanceof Map) {
+		if (identifiers.has(name)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+const fileIdents = new class {
+	private readonly idents = new ShortIdent('$', () => false);
+
+	next(file: ts.SourceFile) {
+		return this.idents.next(name => isNameTakenInFile(file, name));
+	}
+};
+
+const skippedFiles = [
+	// Build
+	'css.build.ts',
+	'nls.build.ts',
+
+	// Monaco
+	'editorCommon.ts',
+	'editorOptions.ts',
+	'editorZoom.ts',
+	'standaloneEditor.ts',
+	'standaloneLanguages.ts',
+
+	// Generated
+	'extensionsApiProposals.ts',
+
+	// Module passed around as type
+	'pfs.ts',
+];
+
+class DeclarationData {
+
+	readonly replacementName: string;
+
+	constructor(
+		readonly fileName: string,
+		readonly node: ts.FunctionDeclaration | ts.ClassDeclaration
+	) {
+		this.replacementName = fileIdents.next(node.getSourceFile());
+	}
+
+	get locations(): Iterable<{ fileName: string; offset: number }> {
+		return [{
+			fileName: this.fileName,
+			offset: this.node.name!.getStart()
+		}];
+	}
+
+	shouldMangle(newName: string): boolean {
+		// New name is longer the existing one :'(
+		if (newName.length >= this.node.name!.getText().length) {
+			return false;
+		}
+
+		// Don't mangle functions we've explicitly opted out
+		if (this.node.getFullText().includes('@skipMangle')) {
+			return false;
+		}
+
+		// Don't mangle functions in the monaco editor API.
+		if (skippedFiles.some(file => this.node.getSourceFile().fileName.endsWith(file))) {
+			return false;
+		}
+
+		return true;
+	}
+}
+
+class ConstData {
+
+	readonly replacementName: string;
+
+	constructor(
+		readonly fileName: string,
+		readonly statement: ts.VariableStatement,
+		readonly decl: ts.VariableDeclaration,
+		private readonly service: ts.LanguageService,
+	) {
+		this.replacementName = fileIdents.next(statement.getSourceFile());
+	}
+
+	get locations(): Iterable<{ fileName: string; offset: number }> {
+		// If the const aliases any types, we need to rename those too
+		const definitionResult = this.service.getDefinitionAndBoundSpan(this.decl.getSourceFile().fileName, this.decl.name.getStart());
+		if (definitionResult?.definitions && definitionResult.definitions.length > 1) {
+			return definitionResult.definitions.map(x => ({ fileName: x.fileName, offset: x.textSpan.start }));
+		}
+
+		return [{ fileName: this.fileName, offset: this.decl.name.getStart() }];
+	}
+
+	shouldMangle(newName: string): boolean {
+		// New name is longer the existing one :'(
+		if (newName.length >= this.decl.name.getText().length) {
+			return false;
+		}
+
+		// Don't mangle functions we've explicitly opted out
+		if (this.statement.getFullText().includes('@skipMangle')) {
+			return false;
+		}
+
+		// Don't mangle functions in some files
+		if (skippedFiles.some(file => this.decl.getSourceFile().fileName.endsWith(file))) {
+			return false;
+		}
+
+		return true;
 	}
 }
 
@@ -332,6 +451,7 @@ class StaticLanguageServiceHost implements ts.LanguageServiceHost {
 export class Mangler {
 
 	private readonly allClassDataByKey = new Map<string, ClassData>();
+	private readonly allExportedDeclarationsByKey = new Map<string, DeclarationData | ConstData>();
 
 	private readonly service: ts.LanguageService;
 
@@ -341,7 +461,7 @@ export class Mangler {
 
 	computeNewFileContents(): Map<string, string> {
 
-		// STEP: find all classes and their field info
+		// STEP find all classes and their field info. Find all exported consts and functions.
 
 		const visit = (node: ts.Node): void => {
 			if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
@@ -352,6 +472,45 @@ export class Mangler {
 				}
 				this.allClassDataByKey.set(key, new ClassData(node.getSourceFile().fileName, node));
 			}
+
+			if (ts.isClassDeclaration(node) && hasModifier(node, ts.SyntaxKind.ExportKeyword)) {
+				if (node.name) {
+					const anchor = node.name;
+					const key = `${node.getSourceFile().fileName}|${anchor.getStart()}`;
+					if (this.allExportedDeclarationsByKey.has(key)) {
+						throw new Error('DUPE?');
+					}
+					this.allExportedDeclarationsByKey.set(key, new DeclarationData(node.getSourceFile().fileName, node));
+				}
+			}
+
+			if (ts.isFunctionDeclaration(node)
+				&& ts.isSourceFile(node.parent)
+				&& hasModifier(node, ts.SyntaxKind.ExportKeyword)
+			) {
+				if (node.name && node.body) { // On named function and not on the overload
+					const anchor = node.name;
+					const key = `${node.getSourceFile().fileName}|${anchor.getStart()}`;
+					if (this.allExportedDeclarationsByKey.has(key)) {
+						throw new Error('DUPE?');
+					}
+					this.allExportedDeclarationsByKey.set(key, new DeclarationData(node.getSourceFile().fileName, node));
+				}
+			}
+
+			if (ts.isVariableStatement(node)
+				&& ts.isSourceFile(node.parent)
+				&& hasModifier(node, ts.SyntaxKind.ExportKeyword)
+			) {
+				for (const decl of node.declarationList.declarations) {
+					const key = `${decl.getSourceFile().fileName}|${decl.name.getStart()}`;
+					if (this.allExportedDeclarationsByKey.has(key)) {
+						throw new Error('DUPE?');
+					}
+					this.allExportedDeclarationsByKey.set(key, new ConstData(node.getSourceFile().fileName, node, decl, this.service));
+				}
+			}
+
 			ts.forEachChild(node, visit);
 		};
 
@@ -430,6 +589,13 @@ export class Mangler {
 				edits.push(edit);
 			}
 		};
+		const appendRename = (newText: string, loc: ts.RenameLocation) => {
+			appendEdit(loc.fileName, {
+				newText: (loc.prefixText || '') + newText + (loc.suffixText || ''),
+				offset: loc.textSpan.start,
+				length: loc.textSpan.length
+			});
+		};
 
 		for (const data of this.allClassDataByKey.values()) {
 
@@ -455,11 +621,21 @@ export class Mangler {
 				const newText = data.lookupShortName(name);
 				const locations = this.service.findRenameLocations(data.fileName, info.pos, false, false, true) ?? [];
 				for (const loc of locations) {
-					appendEdit(loc.fileName, {
-						newText: (loc.prefixText || '') + newText + (loc.suffixText || ''),
-						offset: loc.textSpan.start,
-						length: loc.textSpan.length
-					});
+					appendRename(newText, loc);
+				}
+			}
+		}
+
+		for (const data of this.allExportedDeclarationsByKey.values()) {
+			if (!data.shouldMangle(data.replacementName)) {
+				continue;
+			}
+
+			const newText = data.replacementName;
+			for (const { fileName, offset } of data.locations) {
+				const locations = this.service.findRenameLocations(fileName, offset, false, false, true) ?? [];
+				for (const loc of locations) {
+					appendRename(newText, loc);
 				}
 			}
 		}
