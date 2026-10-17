@@ -14,6 +14,10 @@ import { Status } from '../api/git.constants';
 import { eventToPromise } from '../util';
 import { Git, findGit } from '../git';
 
+// Delay to wait for diagnostic updates. Diagnostics are debounced with a 50ms
+// delay, so we wait slightly longer to ensure fresh diagnostics.
+const DIAGNOSTIC_UPDATE_DELAY = 100;
+
 suite('git smoke test', function () {
 	const cwd = workspace.workspaceFolders![0].uri.fsPath;
 
