@@ -169,4 +169,3 @@ class AgentSessionsWelcomeRunnerContribution extends Disposable implements IWork
 
 // Register contributions
 registerWorkbenchContribution2(AgentSessionsWelcomeEditorResolverContribution.ID, AgentSessionsWelcomeEditorResolverContribution, WorkbenchPhase.BlockStartup);
-registerWorkbenchContribution2(AgentSessionsWelcomeRunnerContribution.ID, AgentSessionsWelcomeRunnerContribution, WorkbenchPhase.AfterRestored);

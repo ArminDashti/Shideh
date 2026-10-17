@@ -19,6 +19,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { defaultKeybindingLabelStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { StartupEditorLoadingContext } from '../../../common/contextkeys.js';
 
 interface WatermarkEntry {
 	readonly id: string;
@@ -76,6 +77,7 @@ export class EditorGroupWatermark extends Disposable {
 
 	private readonly cachedWhen: { [when: string]: boolean };
 
+	private readonly watermarkElement: HTMLElement;
 	private readonly shortcuts: HTMLElement;
 	private readonly toolbarContainer: HTMLElement;
 	private readonly transientDisposables = this._register(new DisposableStore());
@@ -109,6 +111,7 @@ export class EditorGroupWatermark extends Disposable {
 		]);
 
 		append(container, elements.root);
+		this.watermarkElement = elements.root;
 		this.shortcuts = elements.shortcuts;
 		this.toolbarContainer = elements.toolbarContainer;
 
@@ -118,9 +121,35 @@ export class EditorGroupWatermark extends Disposable {
 			menuOptions: { shouldForwardArgs: true }
 		}));
 
+		this.watermarkElement.classList.add('loading');
+		this.renderSkeletonRows();
+
 		this.registerListeners();
 
 		this.render();
+	}
+
+	private renderSkeletonRows(): void {
+		const count = this.getExpectedEntryCount();
+		for (let i = 0; i < count; i++) {
+			const row = append(this.shortcuts, $('.skeleton-row'));
+			append(row, $('.skeleton-text'));
+			append(row, $('.skeleton-key'));
+		}
+	}
+
+	private getExpectedEntryCount(): number {
+		if (!this.configurationService.getValue<boolean>(EditorGroupWatermark.SETTINGS_KEY)) {
+			return 0;
+		}
+
+		const entries = this.filterEntries(this.workbenchState !== WorkbenchState.EMPTY ? workspaceEntries : emptyWindowEntries);
+		if (entries.length >= EditorGroupWatermark.MINIMUM_ENTRIES) {
+			return entries.length;
+		}
+
+		const additionalEntries = this.filterEntries(otherEntries);
+		return Math.min(entries.length + additionalEntries.length, EditorGroupWatermark.MINIMUM_ENTRIES);
 	}
 
 	private registerListeners(): void {
@@ -153,6 +182,18 @@ export class EditorGroupWatermark extends Disposable {
 				this.storageService.store(EditorGroupWatermark.CACHED_WHEN, JSON.stringify(this.cachedWhen), StorageScope.PROFILE, StorageTarget.MACHINE);
 			}
 		}));
+
+		// Listen for startup editor loading state changes
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(new Set([StartupEditorLoadingContext.key]))) {
+				this.updateLoadingState();
+			}
+		}));
+	}
+
+	private updateLoadingState(): void {
+		const isLoading = StartupEditorLoadingContext.getValue(this.contextKeyService);
+		this.watermarkElement.classList.toggle('loading', !!isLoading);
 	}
 
 	private render(): void {
@@ -160,6 +201,9 @@ export class EditorGroupWatermark extends Disposable {
 
 		clearNode(this.shortcuts);
 		this.transientDisposables.clear();
+
+		// Re-add skeleton rows (they get cleared above)
+		this.renderSkeletonRows();
 
 		if (!this.enabled) {
 			return;

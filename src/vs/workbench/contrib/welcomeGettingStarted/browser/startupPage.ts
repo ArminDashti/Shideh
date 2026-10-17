@@ -11,7 +11,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService, isConfigured } from '../../../../platform/configuration/common/configuration.js';
 import { ILifecycleService, LifecyclePhase, StartupKind } from '../../../services/lifecycle/common/lifecycle.js';
 import { Disposable, } from '../../../../base/common/lifecycle.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -21,14 +21,14 @@ import { GettingStartedEditorOptions, GettingStartedInput, gettingStartedInputTy
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
-import { TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
+import { ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { TerminalCommandId } from '../../terminal/common/terminal.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { AuxiliaryBarMaximizedContext } from '../../../common/contextkeys.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { AuxiliaryBarMaximizedContext, StartupEditorLoadingContext } from '../../../common/contextkeys.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { getActiveElement } from '../../../../base/browser/dom.js';
 import { isWeb } from '../../../../base/common/platform.js';
@@ -40,7 +40,6 @@ export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restor
 export type RestoreWalkthroughsConfigurationValue = { folder: string; category?: string; step?: string };
 
 const configurationKey = 'workbench.startupEditor';
-const oldConfigurationKey = 'workbench.welcome.enabled';
 const telemetryOptOutStorageKey = 'workbench.telemetryOptOutShown';
 
 export class StartupPageEditorResolverContribution extends Disposable implements IWorkbenchContribution {
@@ -135,22 +134,64 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			return;
 		}
 
-		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService);
-		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
+		const startupEditorValue = await this.getStartupEditorValue();
+		const enabled = isStartupPageEnabled(startupEditorValue, this.contextService, this.environmentService);
+		const hasPrefillData = !!this.storageService.get('chat.welcomeViewPrefill', StorageScope.APPLICATION);
 
-			// Open the welcome even if we opened a set of default editors
-			if (!this.editorService.activeEditor || this.layoutService.openedDefaultEditors) {
-				const startupEditorSetting = this.configurationService.inspect<string>(configurationKey);
-
-				if (startupEditorSetting.value === 'readme') {
+		if (enabled) {
+			if (startupEditorValue === 'agentSessionsWelcomePage') {
+				if (!this.editorService.activeEditor || this.layoutService.openedDefaultEditors || hasPrefillData) {
+					await this.openAgentSessionsWelcome();
+				}
+			} else if (this.lifecycleService.startupKind !== StartupKind.ReloadedWindow && (!this.editorService.activeEditor || this.layoutService.openedDefaultEditors)) {
+				if (startupEditorValue === 'readme') {
 					await this.openReadme();
-				} else if (startupEditorSetting.value === 'welcomePage' || startupEditorSetting.value === 'welcomePageInEmptyWorkbench') {
+				} else if (startupEditorValue === 'welcomePage' || startupEditorValue === 'welcomePageInEmptyWorkbench') {
 					await this.openGettingStarted(true);
-				} else if (startupEditorSetting.value === 'terminal') {
+				} else if (startupEditorValue === 'terminal') {
 					this.commandService.executeCommand(TerminalCommandId.CreateTerminalEditor);
 				}
 			}
 		}
+	}
+
+	private async getStartupEditorValue(): Promise<string | undefined> {
+		const startupEditorConfig = this.configurationService.inspect<string>(configurationKey);
+
+		// If user has explicitly set a value, use it
+		if (isConfigured(startupEditorConfig)) {
+			this.startupEditorLoadingContextKey.set(false);
+			return startupEditorConfig.value;
+		}
+
+		try {
+			// Race the experiment service against a timeout to avoid blocking startup
+			const timedOut = { value: false };
+			const experimentValue = await Promise.race([
+				this.experimentService.getTreatment<string>('config.workbench.startupEditor'),
+				timeout(500).then(() => { timedOut.value = true; return undefined; })
+			]);
+
+			type StartupEditorExperimentClassification = {
+				owner: 'osortega';
+				comment: 'Tracks whether the startup editor experiment service call succeeded or timed out';
+				timedOut: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Whether the experiment service call timed out' };
+				value: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The experiment value returned, if any' };
+			};
+			type StartupEditorExperimentEvent = { timedOut: boolean; value: string | undefined };
+			this.telemetryService.publicLog2<StartupEditorExperimentEvent, StartupEditorExperimentClassification>(
+				'startupEditor.experimentServiceCall',
+				{ timedOut: timedOut.value, value: experimentValue }
+			);
+
+			if (experimentValue) {
+				return experimentValue;
+			}
+		} finally {
+			this.startupEditorLoadingContextKey.set(false);
+		}
+
+		return startupEditorConfig.value;
 	}
 
 	private tryOpenWalkthroughForFolder(): boolean {
@@ -224,6 +265,10 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}
 	}
 
+	private async openAgentSessionsWelcome() {
+		return this.commandService.executeCommand(AgentSessionsWelcomePage.COMMAND_ID);
+	}
+
 	private shouldPreserveFocus(): boolean {
 		const activeElement = getActiveElement();
 		if (!activeElement || activeElement === mainWindow.document.body || this.layoutService.hasFocus(Parts.EDITOR_PART)) {
@@ -268,21 +313,14 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 }
 
-function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
+function isStartupPageEnabled(startupEditorValue: string | undefined, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
 	if (environmentService.skipWelcome) {
 		return false;
 	}
 
-	const startupEditor = configurationService.inspect<string>(configurationKey);
-	if (!startupEditor.userValue && !startupEditor.workspaceValue) {
-		const welcomeEnabled = configurationService.inspect(oldConfigurationKey);
-		if (welcomeEnabled.value !== undefined && welcomeEnabled.value !== null) {
-			return welcomeEnabled.value;
-		}
-	}
-
-	return startupEditor.value === 'welcomePage'
-		|| startupEditor.value === 'readme'
-		|| (contextService.getWorkbenchState() === WorkbenchState.EMPTY && startupEditor.value === 'welcomePageInEmptyWorkbench')
-		|| startupEditor.value === 'terminal';
+	return startupEditorValue === 'welcomePage'
+		|| startupEditorValue === 'readme'
+		|| (contextService.getWorkbenchState() === WorkbenchState.EMPTY && startupEditorValue === 'welcomePageInEmptyWorkbench')
+		|| startupEditorValue === 'terminal'
+		|| startupEditorValue === 'agentSessionsWelcomePage';
 }
