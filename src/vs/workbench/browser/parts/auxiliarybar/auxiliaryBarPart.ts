@@ -147,6 +147,24 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 				this.onDidChangeActivityBarLocation();
 			}
 		}));
+
+		// Listen to view container changes to update composite bar visibility
+		this._register(viewDescriptorService.onDidChangeViewContainers(() => {
+			this.updateCompositeBar();
+		}));
+
+		this._register(viewDescriptorService.onDidChangeContainerLocation(() => {
+			this.updateCompositeBar();
+		}));
+
+		// Listen to pane composite open/close to update composite bar visibility
+		this._register(this.onDidPaneCompositeOpen(() => {
+			this.updateCompositeBar();
+		}));
+
+		this._register(this.onDidPaneCompositeClose(() => {
+			this.updateCompositeBar();
+		}));
 	}
 
 	private onDidChangeAutoHideViewContainers(e: { before: number; after: number }): void {
