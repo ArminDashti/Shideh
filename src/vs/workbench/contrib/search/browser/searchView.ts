@@ -194,6 +194,7 @@ export class SearchView extends ViewPane {
 	private treeViewKey: IContextKey<boolean>;
 
 	private _visibleMatches: number = 0;
+	private _refreshTreeQueued: IDisposable | undefined;
 
 	private _refreshResultsScheduler: RunOnceScheduler;
 
