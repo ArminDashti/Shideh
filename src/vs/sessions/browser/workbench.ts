@@ -9,7 +9,7 @@ import './media/workbench.css';
 import './media/phoneLayout.css';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../base/common/lifecycle.js';
 import { Emitter, Event, setGlobalLeakWarningThreshold } from '../../base/common/event.js';
-import { addDisposableGenericMouseDownListener, addDisposableListener, EventType, getActiveDocument, getActiveElement, getClientArea, getWindow, getWindowId, getWindows, IDimension, isAncestorUsingFlowTo, size, Dimension, runWhenWindowIdle } from '../../base/browser/dom.js';
+import { addDisposableGenericMouseDownListener, addDisposableListener, EventType, getActiveDocument, getActiveElement, getActiveWindow, getClientArea, getWindow, getWindowId, getWindows, IDimension, isAncestorUsingFlowTo, size, Dimension, runWhenWindowIdle } from '../../base/browser/dom.js';
 import { DeferredPromise, RunOnceScheduler } from '../../base/common/async.js';
 import { isFullscreen, onDidChangeFullscreen, isChrome, isFirefox, isSafari } from '../../base/browser/browser.js';
 import { mark } from '../../base/common/performance.js';
@@ -27,6 +27,7 @@ import { IViewDescriptorService, ViewContainerLocation } from '../../workbench/c
 import { createUnexpectedErrorHandler, ILogService } from '../../platform/log/common/log.js';
 import { IInstantiationService, refineServiceDecorator, ServicesAccessor } from '../../platform/instantiation/common/instantiation.js';
 import { ITitleService } from '../../workbench/services/title/browser/titleService.js';
+import { IAuxiliaryWindowService } from '../../workbench/services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { mainWindow, CodeWindow } from '../../base/browser/window.js';
 import { coalesce } from '../../base/common/arrays.js';
 import { ServiceCollection } from '../../platform/instantiation/common/serviceCollection.js';
@@ -391,6 +392,11 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 	}
 
 	get activeContainerOffset(): ILayoutOffsetInfo {
+		const targetWindow = getActiveWindow();
+		if (targetWindow !== mainWindow) {
+			const top = this.getContainer(targetWindow, Parts.TITLEBAR_PART)?.offsetHeight ?? 0;
+			return { top, quickPickTop: top };
+		}
 		return this.computeContainerOffset();
 	}
 
@@ -491,6 +497,8 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 	private viewDescriptorService!: IViewDescriptorService;
 	private sessionsService!: ISessionsService;
 	private sessionsPartService!: ISessionsPartService;
+	private titleService!: ITitleService;
+	private readonly containerStylesLoaded = new Map<number, Promise<void>>();
 	private customViewService!: ICustomViewService;
 	private customViewGridPartService!: ICustomViewGridPartService;
 	private instantiationService!: IInstantiationService;
@@ -632,7 +640,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 				// implementation caused a redundant second layout.
 
 				// Register Listeners
-				this.registerListeners(lifecycleService, storageService, configurationService, hostService, dialogService);
+				this.registerListeners(lifecycleService, storageService, configurationService, hostService, dialogService, accessor.get(IAuxiliaryWindowService));
 
 				// Render Workbench
 				this.renderWorkbench(instantiationService, notificationService, storageService, configurationService);
@@ -690,7 +698,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		return instantiationService;
 	}
 
-	private registerListeners(lifecycleService: ILifecycleService, storageService: IStorageService, configurationService: IConfigurationService, hostService: IHostService, dialogService: IDialogService): void {
+	private registerListeners(lifecycleService: ILifecycleService, storageService: IStorageService, configurationService: IConfigurationService, hostService: IHostService, dialogService: IDialogService, auxiliaryWindowService: IAuxiliaryWindowService): void {
 		// Command: close the mobile sidebar drawer (no-op outside phone layout).
 		// Routes through the proper close path so the mobile nav/history stack
 		// stays in sync (avoids extra Android back-button presses).
@@ -734,6 +742,15 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		// Dialogs showing/hiding
 		this._register(dialogService.onWillShowDialog(() => this.mainContainer.classList.add('modal-dialog-visible')));
 		this._register(dialogService.onDidShowDialog(() => this.mainContainer.classList.remove('modal-dialog-visible')));
+		this._register(hostService.onDidChangeActiveWindow(() => this._onDidChangeActiveContainer.fire()));
+		this._register(auxiliaryWindowService.onDidOpenAuxiliaryWindow(({ window, disposables }) => {
+			const windowId = window.window.vscodeWindowId;
+			this.containerStylesLoaded.set(windowId, window.whenStylesHaveLoaded);
+			void window.whenStylesHaveLoaded.then(() => this.containerStylesLoaded.delete(windowId));
+			disposables.add(toDisposable(() => this.containerStylesLoaded.delete(windowId)));
+			this._onDidAddContainer.fire({ container: window.container, disposables: disposables.add(new DisposableStore()) });
+			disposables.add(window.onDidLayout(dimension => this.handleContainerDidLayout(window.container, dimension)));
+		}));
 	}
 
 	//#region Font Aliasing and Caching
@@ -2098,7 +2115,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 	}
 
 	focusPart(part: MULTI_WINDOW_PARTS, targetWindow: Window): void;
-	focusPart(part: SINGLE_WINDOW_PARTS): void;
+	focusPart(part: SINGLE_WINDOW_PARTS | Parts.SESSIONS_PART): void;
 	focusPart(part: Parts, targetWindow: Window = mainWindow): void {
 		if (part === Parts.TITLEBAR_PART && this.focusMobileTopBar && targetWindow === mainWindow) {
 			this.focusMobileTopBar();
@@ -2118,8 +2135,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 				this.paneCompositeService.getActivePaneComposite(ViewContainerLocation.AuxiliaryBar)?.focus();
 				break;
 			case Parts.SESSIONS_PART:
-				// TODO: focus chat bar content once it is wired up
-				this.getPart(Parts.SESSIONS_PART).getContainer()?.focus();
+				this.sessionsPartService.getPartForWindow(targetWindow)?.focusSelectedSession();
 				break;
 			case Parts.CUSTOM_VIEW_GRID_PART:
 				this.customViewGridPartService.focusActiveView();
@@ -2150,11 +2166,18 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 			return this.parts.get(part)?.getContainer();
 		}
 
-		// For auxiliary windows, only editor part is supported
+		if (part === Parts.SESSIONS_PART) {
+			return this.sessionsPartService.getPartForWindow(targetWindow)?.getContainer();
+		}
+		if (part === Parts.TITLEBAR_PART) {
+			const candidate = this.titleService.getPart(this.getContainerFromDocument(targetWindow.document));
+			const titlebar = candidate instanceof Part ? candidate.getContainer() : undefined;
+			return titlebar?.ownerDocument === targetWindow.document ? titlebar : undefined;
+		}
 		if (part === Parts.EDITOR_PART) {
 			const container = this.getContainerFromDocument(targetWindow.document);
 			const partCandidate = this.editorGroupService.getPart(container);
-			if (partCandidate instanceof Part) {
+			if (partCandidate instanceof Part && partCandidate.getContainer()?.ownerDocument === targetWindow.document) {
 				return partCandidate.getContainer();
 			}
 		}
@@ -2162,8 +2185,8 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		return undefined;
 	}
 
-	whenContainerStylesLoaded(_window: CodeWindow): Promise<void> | undefined {
-		return undefined;
+	whenContainerStylesLoaded(window: CodeWindow): Promise<void> | undefined {
+		return this.containerStylesLoaded.get(window.vscodeWindowId);
 	}
 
 	//#endregion
@@ -2219,9 +2242,12 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		return this._editorNodeVisible(this._effectiveVisible(Parts.EDITOR_PART), this._effectiveVisible(Parts.AUXILIARYBAR_PART));
 	}
 
-	isVisible(part: SINGLE_WINDOW_PARTS): boolean;
+	isVisible(part: SINGLE_WINDOW_PARTS | Parts.SESSIONS_PART): boolean;
 	isVisible(part: MULTI_WINDOW_PARTS, targetWindow: Window): boolean;
 	isVisible(part: Parts, targetWindow?: Window): boolean {
+		if (targetWindow && targetWindow !== mainWindow) {
+			return !!this.getContainer(targetWindow, part);
+		}
 		switch (part) {
 			case Parts.TITLEBAR_PART:
 				// On phone layout the grid titlebar is hidden (replaced by MobileTitlebarPart)

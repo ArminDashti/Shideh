@@ -6,7 +6,7 @@
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { LRUCache } from '../../../../base/common/map.js';
-import { autorun, IObservable, observableValue } from '../../../../base/common/observable.js';
+import { autorun, derived, IObservable, observableValue } from '../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -19,7 +19,7 @@ import { ILanguageModelChatMetadataAndIdentifier, type IModelConfigurationAccess
 import { IntendedModelSlot } from '../../../../workbench/contrib/chat/common/model/chatModel.js';
 import { IPendingModelSelection, isInConversationModelChoice, ModelSelectionReason, RestoredModelReason } from '../../../../workbench/contrib/chat/common/modelSelection.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
-import { ChatModelSource, SessionStatus } from '../../../services/sessions/common/session.js';
+import { ChatModelSource, IChat, SessionStatus } from '../../../services/sessions/common/session.js';
 import { ISessionsProvider } from '../../../services/sessions/common/sessionsProvider.js';
 import { IActiveSession } from '../../../services/sessions/common/sessionsManagement.js';
 import { createModelSelectionState, EMPTY_MODEL_SELECTION_STATE, INormalizedSessionModelPickerOptions, ISessionModelSelectionState, normalizeModelPickerOptions } from './sessionModelPickerState.js';
@@ -111,16 +111,18 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 	private _chatIsEmpty = false;
 	/** The conversation's own model is unknown but presumed to exist: show a selection, never write it. */
 	private _displayOnly = false;
+	private readonly _chat: IObservable<IChat | undefined>;
 
 	constructor(
 		private readonly _session: IObservable<IActiveSession | undefined>,
-		options: { readonly modelConfiguration?: boolean },
+		options: { readonly modelConfiguration?: boolean; readonly chat?: IObservable<IChat | undefined> },
 		@ISessionsProvidersService private readonly _sessionsProvidersService: ISessionsProvidersService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService logService: ILogService,
 	) {
 		super();
+		this._chat = options.chat ?? derived(this, reader => this._session.read(reader)?.activeChat.read(reader));
 		this.modelConfiguration = options.modelConfiguration ? {
 			getModelConfiguration: modelId => this._modelConfigurationAccess?.getModelConfiguration(modelId),
 			getModelConfigurationSchema: modelId => this._modelConfigurationAccess?.getModelConfigurationSchema?.(modelId),
@@ -137,7 +139,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 				location: ChatAgentLocation.Chat,
 				modelTarget: this._modelTarget,
 				sessionKey: session?.sessionId,
-				conversationKey: session?.activeChat.get().resource.toString(),
+				conversationKey: this._chat.get()?.resource.toString(),
 				metadata: {
 					providerId: session?.providerId,
 					sessionType: session?.sessionType,
@@ -148,9 +150,9 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 		this._controller = this._register(new ChatInputModelSelectionController(this._createRuntime(), this._diagnostics));
 		this._register(autorun(reader => {
 			const session = this._session.read(reader);
-			session?.modelId.read(reader);
 			session?.status.read(reader);
-			const chat = session?.activeChat.read(reader);
+			const chat = this._chat.read(reader);
+			chat?.modelId.read(reader);
 			chat?.status.read(reader);
 			// Where the model came from is what decides whether it outranks `chat.defaultModel`.
 			chat?.modelSource.read(reader);
@@ -169,8 +171,9 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 
 	selectModel(modelIdentifier: string, isUserAction = true): boolean {
 		const session = this._session.get();
+		const chat = this._chat.get();
 		const provider = session ? this._sessionsProvidersService.getProvider(session.providerId) : undefined;
-		if (!session || !provider) {
+		if (!session || !chat || !provider) {
 			this._diagnostics.report('selection-rejected', {
 				requestedModel: modelIdentifier,
 				reason: !session ? 'noSession' : 'noProvider',
@@ -193,7 +196,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 		}
 
 		const options = normalizeModelPickerOptions(provider.getModelPickerOptions(session.sessionId));
-		const providerModelBefore = session.modelId.get();
+		const providerModelBefore = chat.modelId.get();
 		const storageKey = getSelectedModelStorageKey(ChatAgentLocation.Chat, snapshot.modelTarget);
 		const conversation = this._conversation();
 		try {
@@ -210,7 +213,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 			this._diagnostics.report('provider-selection-failed', {
 				requestedModel: modelIdentifier,
 				providerModelBefore,
-				providerModelAfter: session.modelId.get(),
+				providerModelAfter: chat.modelId.get(),
 				storedModelAfter: this._storageService.get(storageKey, StorageScope.PROFILE),
 				error: String(error),
 			}, 'error');
@@ -221,7 +224,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 		this._diagnostics.report('provider-selection-applied', {
 			requestedModel: modelIdentifier,
 			providerModelBefore,
-			providerModelAfter: session.modelId.get(),
+			providerModelAfter: chat.modelId.get(),
 			storedModelAfter: this._storageService.get(storageKey, StorageScope.PROFILE),
 		}, 'info');
 		return true;
@@ -260,6 +263,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 	}
 
 	private _refresh(trigger: ModelSelectionRefreshTrigger, session = this._session.get()): void {
+		const chat = this._chat.get();
 		const provider = session ? this._sessionsProvidersService.getProvider(session.providerId) : undefined;
 		this._setProvider(provider);
 		this._activeSession = session;
@@ -275,7 +279,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 			}
 		}
 
-		if (!session || !provider) {
+		if (!session || !chat || !provider) {
 			this._boundSessionKey = undefined;
 			this._boundConversationKey = undefined;
 			this._chatIsEmpty = false;
@@ -287,10 +291,8 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 			return;
 		}
 
-		const conversationKey = session.activeChat.get().resource.toString();
-		// Scoped to the active chat: peer chats in one session each keep their own model.
-		const chat = session.activeChat.get();
-		const chatModelId = session.modelId.get();
+		const conversationKey = chat.resource.toString();
+		const chatModelId = chat.modelId.get();
 		// A model the provider cannot account for is read as the chat's own.
 		const chatModelSource = chatModelId ? (chat.modelSource.get() ?? ChatModelSource.Chosen) : undefined;
 		// Undefined only when the chat has no model, which is the one case with no authority at all.
@@ -355,7 +357,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 		} catch (error) {
 			// The provider refused the write. Retry on the next refresh, and show what it actually has.
 			this._conversation().seeded = false;
-			this._publish(options, undefined, this._models.find(model => model.identifier === session.modelId.get()));
+			this._publish(options, undefined, this._models.find(model => model.identifier === chat.modelId.get()));
 			return;
 		}
 		this._publish(options, undefined);
@@ -437,7 +439,8 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 	private _pushModelToProvider(model: ILanguageModelChatMetadataAndIdentifier): void {
 		const session = this._activeSession;
 		const provider = this._activeProvider;
-		if (!session || !provider) {
+		const chat = this._chat.get();
+		if (!session || !chat || !provider) {
 			return;
 		}
 		if (this._displayOnly) {
@@ -447,7 +450,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 			}, 'info');
 			return;
 		}
-		const providerModelBefore = session.modelId.get();
+		const providerModelBefore = chat.modelId.get();
 		if (providerModelBefore === model.identifier) {
 			// Already what it runs on. Re-pushing round-trips a no-op, and claiming it would mask a
 			// choice made elsewhere.
@@ -456,13 +459,13 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 		// The controller records the reason before handing over, so this is the reason for this write.
 		const source = sourceForReason(this._controller.selectionReason);
 		try {
-			provider.setModel(session.sessionId, session.activeChat.get().resource, model.identifier, source);
+			provider.setModel(session.sessionId, chat.resource, model.identifier, source);
 		} catch (error) {
 			this._diagnostics.report('provider-automatic-selection-failed', {
 				model: model.identifier,
 				reason: this._controller.selectionReason,
 				providerModelBefore,
-				providerModelAfter: session.modelId.get(),
+				providerModelAfter: chat.modelId.get(),
 				error: String(error),
 			}, 'error');
 			throw error;
@@ -471,7 +474,7 @@ export class SessionModelSelection extends Disposable implements ISessionModelSe
 			model: model.identifier,
 			reason: this._controller.selectionReason,
 			providerModelBefore,
-			providerModelAfter: session.modelId.get(),
+			providerModelAfter: chat.modelId.get(),
 		}, 'info');
 	}
 

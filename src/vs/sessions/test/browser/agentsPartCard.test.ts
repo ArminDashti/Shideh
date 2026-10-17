@@ -154,6 +154,7 @@ suite('Sessions - Agents Part Card', () => {
 				gridLayouts.push({ width, height });
 			};
 			const part = {
+				isMain: true,
 				layoutService: {
 					mainContainer: container,
 					isVisible: (partId: Parts) => partId !== Parts.SIDEBAR_PART,

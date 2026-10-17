@@ -76,6 +76,7 @@ import { SessionsChatBackgroundRenderer } from '../../../../services/chatBackgro
 import { ISessionsProvidersService } from '../../../../services/sessions/browser/sessionsProvidersService.js';
 import { IRecentWorkspace, ISessionsRecentWorkspacesService } from '../../../../services/sessions/browser/sessionsRecentWorkspacesService.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
+import { ISessionContext, SessionContext } from '../../../../services/sessions/browser/sessionContext.js';
 import { IActiveSession, ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 import { ChatModelSource, IChat, ISession, ISessionWorkspace, ISessionType, SESSION_WORKSPACE_GROUP_GITHUB, SESSION_WORKSPACE_GROUP_LOCAL, SESSION_WORKSPACE_GROUP_REMOTE, SessionStatus, SessionTypeAuthRequirement } from '../../../../services/sessions/common/session.js';
 import { ISessionComparisonService } from '../../../../services/sessions/common/sessionComparison.js';
@@ -363,6 +364,7 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 				override readonly comparisons = constObservable([]);
 			}());
 			reg.defineInstance(ISessionsService, sessionsService);
+			reg.defineInstance(ISessionContext, new SessionContext(activeSessionObservable));
 			reg.defineInstance(ISessionsProvidersService, new class extends mock<ISessionsProvidersService>() {
 				override readonly onDidChangeProviders = Event.None;
 				override getProviders() { return activeSession ? [provider] : []; }
@@ -590,7 +592,7 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 	if (migrationCount > 0) {
 		await configurationService.setUserConfiguration(ChatConfiguration.ChatCustomizationsMigrationEnabled, true);
 	}
-	const view = disposableStore.add(instantiationService.createInstance(NewChatView, false, {
+	const view = disposableStore.add(instantiationService.createInstance(NewChatView, sessionViewContent, false, {
 		initialAttachments: withAttachedContext ? createFixtureAttachments() : undefined,
 	}));
 	sessionViewContent.appendChild(view.element);

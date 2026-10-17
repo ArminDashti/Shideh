@@ -12,12 +12,12 @@ import { hasCustomTitlebar, hasNativeTitlebar, DEFAULT_CUSTOM_TITLEBAR_HEIGHT, T
 import { IContextMenuService } from '../../../platform/contextview/browser/contextView.js';
 import { StandardMouseEvent } from '../../../base/browser/mouseEvent.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
-import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { IThemeService } from '../../../platform/theme/common/themeService.js';
 import { agentsBackground, agentsPanelForeground } from '../../common/theme.js';
 import { isLinux, isMacintosh, isWeb, isNative, platformLocale } from '../../../base/common/platform.js';
 import { EventType, EventHelper, append, $, addDisposableListener, prepend, getWindow, getWindowId, AnimationFrameScheduler } from '../../../base/browser/dom.js';
-import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, refineServiceDecorator } from '../../../platform/instantiation/common/instantiation.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IStorageService } from '../../../platform/storage/common/storage.js';
 import { Parts, IWorkbenchLayoutService } from '../../../workbench/services/layout/browser/layoutService.js';
@@ -37,6 +37,29 @@ import { IsNewChatSessionContext } from '../../common/contextkeys.js';
 import { localize } from '../../../nls.js';
 
 const commandCenterContextKeys = new Set([IsNewChatSessionContext.key, ActiveCustomViewIdContext.key]);
+
+export const ISessionsTitleService = refineServiceDecorator<ITitleService, ISessionsTitleService>(ITitleService);
+
+export interface ISessionsTitleService extends ITitleService {
+	createAuxiliarySessionsTitlebarPart(container: HTMLElement, instantiationService: IInstantiationService): IAuxiliaryTitlebarPart;
+}
+
+class AuxiliarySessionTitle extends Disposable {
+	constructor(
+		parent: HTMLElement,
+		@ISessionContext sessionContext: ISessionContext,
+		@IHoverService hoverService: IHoverService,
+	) {
+		super();
+		const label = append(parent, $('.auxiliary-sessions-window-title'));
+		this._register(toDisposable(() => label.remove()));
+		this._register(autorun(reader => {
+			const title = sessionContext.session.read(reader)?.title.read(reader) ?? localize('sessionsWindowTitle', "Sessions");
+			label.textContent = title;
+			reader.store.add(hoverService.setupDelayedHover(label, { content: title }));
+		}));
+	}
+}
 
 /**
  * Simplified agent sessions titlebar part.
@@ -91,6 +114,7 @@ export class TitlebarPart extends Part implements ITitlebarPart {
 	private titleBarToolBarOverflowScheduler!: AnimationFrameScheduler;
 
 	get leftContainer(): HTMLElement { return this.leftContent; }
+	get centerContainer(): HTMLElement { return this.centerContent; }
 	get rightContainer(): HTMLElement { return this.rightContent; }
 	get rightWindowControlsContainer(): HTMLElement | undefined { return this.windowControlsContainer; }
 
@@ -176,6 +200,7 @@ export class TitlebarPart extends Part implements ITitlebarPart {
 
 		// Window Controls Container (must be before left toolbar for correct ordering)
 		if (!hasNativeTitlebar(this.configurationService, this.titleBarStyle)) {
+			const targetWindow = getWindow(parent);
 			let primaryWindowControlsLocation = isMacintosh ? 'left' : 'right';
 			if (isMacintosh && isNative) {
 				const localeInfo = safeIntl.Locale(platformLocale).value;
@@ -473,7 +498,7 @@ export class AuxiliaryTitlebarPart extends TitlebarPart implements IAuxiliaryTit
 /**
  * Agent Sessions title service - manages the titlebar parts.
  */
-export class TitleService extends MultiWindowParts<TitlebarPart> implements ITitleService {
+export class TitleService extends MultiWindowParts<TitlebarPart> implements ISessionsTitleService {
 
 	declare _serviceBrand: undefined;
 

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { SessionContext } from '../../../../services/sessions/browser/sessionContext.js';
 import * as sinon from 'sinon';
 import * as dom from '../../../../../base/browser/dom.js';
 import { timeout } from '../../../../../base/common/async.js';

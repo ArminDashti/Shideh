@@ -190,7 +190,8 @@ suite('Sessions - Sessions Part', () => {
 	}
 
 	test('projects only the active view while retaining explicit, independent scoped picker values', () => {
-		const { part, chatViews, contextKeyService } = createSessionsPartTestHarness(store);
+		const { part, chatViews } = createSessionsPartTestHarness(store);
+		const contextKeyService = part.scopedContextKeyService;
 		const first = createTestActiveSession('first', false);
 		const second = createTestActiveSession('second', false);
 		part.updateVisibleSessions([first, second], first);
@@ -204,7 +205,7 @@ suite('Sessions - Sessions Part', () => {
 		const afterInactiveRender = getSessionPickerVisibility(contextKeyService);
 		firstChat.inputPickerVisibility.setVisible('workspace', true);
 		const afterActiveRender = {
-			global: getSessionPickerVisibility(contextKeyService),
+			part: getSessionPickerVisibility(contextKeyService),
 			first: getSessionPickerVisibility(contextKeyService, firstView.element),
 			second: getSessionPickerVisibility(contextKeyService, secondView.element),
 		};
@@ -228,7 +229,7 @@ suite('Sessions - Sessions Part', () => {
 			initial: [noSessionPickerVisibility, noSessionPickerVisibility],
 			afterInactiveRender: noSessionPickerVisibility,
 			afterActiveRender: {
-				global: { workspace: true, harness: false, isolation: false },
+				part: { workspace: true, harness: false, isolation: false },
 				first: { workspace: true, harness: false, isolation: false },
 				second: { workspace: false, harness: true, isolation: true },
 			},
@@ -241,8 +242,9 @@ suite('Sessions - Sessions Part', () => {
 		});
 	});
 
-	test('inactive picker updates and disposal never reset the active view globally', () => {
-		const { part, chatViews, contextKeyService } = createSessionsPartTestHarness(store);
+	test('inactive picker updates and disposal never reset the selected view in the part', () => {
+		const { part, chatViews } = createSessionsPartTestHarness(store);
+		const contextKeyService = part.scopedContextKeyService;
 		const first = createTestActiveSession('first', false);
 		const second = createTestActiveSession('second', false);
 		part.updateVisibleSessions([first, second], first);
@@ -262,18 +264,19 @@ suite('Sessions - Sessions Part', () => {
 
 		assert.deepStrictEqual({
 			disposed: secondChat.disposed,
-			global: getSessionPickerVisibility(contextKeyService),
+			part: getSessionPickerVisibility(contextKeyService),
 			pickerSnapshots: changes,
 		}, {
 			disposed: true,
-			global: { workspace: true, harness: true, isolation: false },
+			part: { workspace: true, harness: true, isolation: false },
 			pickerSnapshots: [],
 		});
 	});
 
 	for (const emptyFirst of [true, false]) {
 		test(`the active empty composer owns visibility beside an existing session (empty ${emptyFirst ? 'first' : 'last'})`, () => {
-			const { part, chatViews, contextKeyService } = createSessionsPartTestHarness(store);
+			const { part, chatViews } = createSessionsPartTestHarness(store);
+			const contextKeyService = part.scopedContextKeyService;
 			const existing = createTestActiveSession('existing');
 			const visible = emptyFirst ? [undefined, existing] : [existing, undefined];
 			part.updateVisibleSessions(visible, existing);
@@ -285,7 +288,7 @@ suite('Sessions - Sessions Part', () => {
 
 			part.updateVisibleSessions(visible, undefined);
 			const active = {
-				global: getSessionPickerVisibility(contextKeyService),
+				part: getSessionPickerVisibility(contextKeyService),
 				empty: emptyView.element.classList.contains('is-active'),
 				existing: existingView.element.classList.contains('is-active'),
 				existingScope: getSessionPickerVisibility(contextKeyService, existingView.element),
@@ -307,7 +310,7 @@ suite('Sessions - Sessions Part', () => {
 			}, {
 				beforeActivation: noSessionPickerVisibility,
 				active: {
-					global: { workspace: true, harness: false, isolation: false },
+					part: { workspace: true, harness: false, isolation: false },
 					empty: true,
 					existing: false,
 					existingScope: noSessionPickerVisibility,
@@ -321,7 +324,8 @@ suite('Sessions - Sessions Part', () => {
 	}
 
 	test('resets picker scopes when a draft is sent or its active slot is rebound', () => {
-		const { part, chatViews, contextKeyService } = createSessionsPartTestHarness(store);
+		const { part, chatViews } = createSessionsPartTestHarness(store);
+		const contextKeyService = part.scopedContextKeyService;
 		const draft = createTestActiveSession('draft', false);
 		part.updateVisibleSessions([draft], draft);
 		const sessionView = part.getSessionView(draft.sessionId)!;
@@ -344,7 +348,7 @@ suite('Sessions - Sessions Part', () => {
 			sent: [noSessionPickerVisibility, noSessionPickerVisibility],
 			rebound: noSessionPickerVisibility,
 			rendered: { workspace: true, harness: false, isolation: false },
-			disposed: noSessionPickerVisibility,
+			disposed: { workspace: undefined, harness: undefined, isolation: undefined },
 		});
 	});
 
