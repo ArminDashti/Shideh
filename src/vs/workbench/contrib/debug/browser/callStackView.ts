@@ -98,6 +98,18 @@ export function getContext(element: CallStackItem | null): ICallStackItemContext
 	}
 }
 
+function updateMenuContext(context: MenuContextKeys, element: CallStackItem | null) {
+	const contextObj = getContext(element) ?? {};
+	for (const key of Object.keys(context) as (keyof MenuContextKeys)[]) {
+		const value = contextObj[key];
+		if (value !== undefined) {
+			context[key].set(value);
+		} else {
+			context[key].reset();
+		}
+	}
+}
+
 // Extensions depend on this context, should not be changed even though it is not fully deterministic
 export function getContextForContributedActions(element: CallStackItem | null): string | number {
 	if (element instanceof StackFrame) {
@@ -142,6 +154,14 @@ async function expandTo(session: IDebugSession, tree: WorkbenchCompressibleAsync
 		await expandTo(session.parentSession, tree);
 	}
 	await tree.expand(session);
+}
+
+interface MenuContextKeys {
+	itemType: IContextKey<string>;
+	sessionId: IContextKey<string>;
+	sessionType: IContextKey<string>;
+	threadId: IContextKey<string>;
+	frameId: IContextKey<string>;
 }
 
 export class CallStackView extends ViewPane {
