@@ -1272,6 +1272,20 @@ suite('RunInTerminalTool', () => {
 			strictEqual(result.toolResultMessage, message);
 		});
 
+		test('should detect bubblewrap host restrictions across wrapped output lines', () => {
+			strictEqual(outputLooksBubblewrapHostRestricted('bwrap: No permissions to create new\nnamespace'), true);
+			strictEqual(outputLooksBubblewrapHostRestricted('bwrap: failed to bind mount'), false);
+		});
+
+		test('should direct the user to disable sandboxing when bubblewrap is restricted by the host', () => {
+			const result = runInTerminalTool.getBubblewrapHostRestrictedResult();
+			const message = (result.content[0] as { value?: string }).value;
+
+			ok(message?.includes(AgentSandboxSettingId.AgentSandboxEnabled));
+			ok(message?.includes('Sandboxing can be disabled by setting'));
+			strictEqual(result.toolResultMessage, message);
+		});
+
 		test('should not retry when unsandboxed commands are disabled', () => {
 			strictEqual(shouldAutomaticallyRetryUnsandboxed({
 				...baseRetryOptions,
