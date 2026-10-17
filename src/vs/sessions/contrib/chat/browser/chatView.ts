@@ -144,6 +144,10 @@ export function isFocusChatPillsKeyDown(event: Pick<IKeyboardEvent, 'keyCode' | 
 	return event.keyCode === KeyCode.Tab && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
 }
 
+export function shouldShowSessionChatTip(sessionStatus: SessionStatus | undefined): boolean {
+	return sessionStatus === undefined || !isActiveSessionStatus(sessionStatus);
+}
+
 /**
  * A session view that hosts a {@link NewChatWidget} — the "new session" UI
  * shown before a session has been created. This is the default view that
