@@ -22,11 +22,15 @@ class GitHubFileSystemProviderContribution extends Disposable {
 
 	constructor(
 		@IFileService fileService: IFileService,
+		@ISearchService searchService: ISearchService,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
 		const provider = this._register(instantiationService.createInstance(GitHubFileSystemProvider));
 		this._register(fileService.registerProvider(GITHUB_REMOTE_FILE_SCHEME, provider));
+
+		const searchProvider = instantiationService.createInstance(GitHubRemoteFileSearchProvider);
+		this._register(searchService.registerSearchResultProvider(GITHUB_REMOTE_FILE_SCHEME, SearchProviderType.file, searchProvider));
 	}
 }
 
