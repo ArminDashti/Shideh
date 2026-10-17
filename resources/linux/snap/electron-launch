@@ -171,8 +171,6 @@ export FONTCONFIG_PATH="/etc/fonts"
 export FONTCONFIG_FILE="/etc/fonts/fonts.conf"
 
 # Build mime.cache needed for gtk and qt icon
-# TODO(deepak1556): Re-enable this once we move to core22
-# Refs https://github.com/microsoft/vscode/issues/230454#issuecomment-2418352959
 if [ "$needs_update" = true ]; then
   rm -rf "$SNAP_USER_DATA/.local/share/mime"
 #  if [ ! -f "$SNAP/usr/share/mime/mime.cache" ]; then
@@ -194,7 +192,7 @@ function compile_giomodules {
   fi
 }
 if [ "$needs_update" = true ]; then
-  async_exec compile_giomodules "/snap/core20/current/usr/lib/$ARCH"
+  async_exec compile_giomodules "/snap/core22/current/usr/lib/$ARCH"
 fi
 
 # Setup compiled gsettings schema
@@ -223,7 +221,7 @@ function compile_schemas {
   fi
 }
 if [ "$needs_update" = true ]; then
-  async_exec compile_schemas "/snap/core20/current/usr/lib/$ARCH/glib-2.0/glib-compile-schemas"
+  async_exec compile_schemas "/snap/core24/current/usr/lib/$ARCH/glib-2.0/glib-compile-schemas"
 fi
 
 # Gdk-pixbuf loaders
