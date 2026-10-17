@@ -87,6 +87,10 @@
 	cursor: grab;
 }
 
+.monaco-workbench .notebookOverlay .monaco-list .monaco-list-row .cell-focus-indicator-left:not([draggable="true"]) {
+	cursor: default;
+}
+
 .monaco-workbench .notebookOverlay .monaco-list .monaco-list-row .cell-focus-indicator .codicon:hover {
 	cursor: pointer;
 }
