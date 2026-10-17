@@ -452,6 +452,7 @@ suite('AgentHostSandboxForwarder', () => {
 				[AgentSandboxSettingId.AgentSandboxAllowNetwork]: false,
 				[AgentSandboxSettingId.AgentSandboxLinuxFileSystem]: { denyRead: ['./deniedRead/', '~/.ssh/'], allowRead: [], allowWrite: [], denyWrite: ['./deniedWrite/'] },
 				[AgentHostCustomTerminalToolEnabledSettingId]: false,
+				[AgentHostSdkSandboxEnabledSettingId]: AgentSandboxEnabledValue.Off,
 			});
 
 			local.setRootState(rootStateWithSandboxSchema({ [AgentHostSandboxKey.Enabled]: AgentSandboxEnabledValue.Off }));
@@ -557,6 +558,7 @@ suite('AgentHostSandboxForwarder', () => {
 		test('re-dispatches when general sandboxing is disabled', () => {
 			const { local, configurationService } = setup(disposables, {
 				[AgentSandboxSettingId.AgentSandboxEnabled]: AgentSandboxEnabledValue.On,
+				[AgentSandboxSettingId.AgentSandboxWindowsEnabled]: AgentSandboxEnabledValue.Off,
 				[AgentHostCustomTerminalToolEnabledSettingId]: false,
 			});
 			local.setRootState(rootStateWithSandboxSchema({
@@ -585,6 +587,7 @@ suite('AgentHostSandboxForwarder', () => {
 		test('forwards the separate allowNetwork policy when SDK sandboxing is on', () => {
 			const { local, configurationService } = setup(disposables, {
 				[AgentSandboxSettingId.AgentSandboxEnabled]: AgentSandboxEnabledValue.On,
+				[AgentSandboxSettingId.AgentSandboxWindowsEnabled]: AgentSandboxEnabledValue.Off,
 				[AgentHostCustomTerminalToolEnabledSettingId]: false,
 			});
 			local.setRootState(rootStateWithSandboxSchema({
