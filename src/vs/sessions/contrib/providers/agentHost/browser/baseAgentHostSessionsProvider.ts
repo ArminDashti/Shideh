@@ -22,6 +22,7 @@ import { localize } from '../../../../../nls.js';
 import { AgentCanvasAvailability, AgentSession, AuthenticateParams, AuthenticateResult, type IAgentCanvas, type IAgentCanvasSnapshot, type IAgentSessionChatMetadata, IAgentSessionMetadata, protectedResourcesRequireGitHubCopilotSignIn } from '../../../../../platform/agentHost/common/agent.js';
 import { AgentMergeSessionOverrides, AgentMergeSessionState, readAgentMergeFolderState, readAgentMergeFolderStates } from '../../../../../platform/agentHost/common/agentMerge.js';
 import { readAgentSdkSetupInfos } from '../../../../../platform/agentHost/common/agentSdkSetup.js';
+import { readSessionArtifacts } from '../../../../../platform/agentHost/common/sessionArtifacts.js';
 import { IAgentConnection } from '../../../../../platform/agentHost/common/agentService.js';
 import { fromAgentHostUri, type AgentHostUriMapper } from '../../../../../platform/agentHost/common/agentHostUri.js';
 import type { RemoteAgentHostConnectionStatus } from '../../../../../platform/agentHost/common/remoteAgentHostService.js';
@@ -6060,10 +6061,41 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 		const integrations = this._getArtifactIntegrations();
 		integrations.setConnection(this.connection);
-		const reference = await integrations.acquireArtifact(session.backendUri.toString(), artifactId);
+		const workspace = derived(reader => {
+			const artifact = session.artifacts.read(reader).find(artifact => artifact.id === artifactId);
+			if (!artifact?.isArtifact) {
+				return undefined;
+			}
+			const state = this._lastSessionStates.get(session.sessionId);
+			const recorded = readSessionArtifacts(state?._meta).find(artifact => artifact.id === artifactId);
+			const origin = recorded?.origin?.chat ?? buildDefaultChatUri(session.backendUri.toString());
+			const chat = state && session.chats.read(reader).find(chat => getSessionChatResource(state, chat.resource.fragment || DEFAULT_CHAT_ID) === origin);
+			const folder = chat?.workspace.read(reader)?.folders[0];
+			return folder ? { chat: origin, workingDirectory: fromAgentHostUri(folder.workingDirectory).toString(), resource: folder.root } : undefined;
+		});
+		const reference = await integrations.acquireArtifact(session.backendUri.toString(), artifactId, workspace);
 		return {
 			object: {
-				snapshot: reference.object.snapshot,
+				snapshot: derived(reader => {
+					const snapshot = reference.object.snapshot.read(reader);
+					const state = this._lastSessionStates.get(session.sessionId);
+					const chats = session.chats.read(reader);
+					const mapAction = (action: ArtifactActionView): ArtifactActionView => !action.chatAvailability ? action : {
+						...action,
+						chatAvailability: Object.fromEntries(chats.flatMap(chat => {
+							const backendChat = state && getSessionChatResource(state, chat.resource.fragment || DEFAULT_CHAT_ID);
+							const availability = backendChat && action.chatAvailability?.[backendChat];
+							return availability ? [[chat.resource.toString(), availability]] : [];
+						})),
+					};
+					return {
+						...snapshot,
+						contributions: snapshot.contributions.map(contribution => ({
+							...contribution,
+							view: { ...contribution.view, stateActions: contribution.view.stateActions.map(mapAction), generalActions: contribution.view.generalActions.map(mapAction) },
+						})),
+					};
+				}),
 				configure: (integrationId, revision, values) => reference.object.configure(integrationId, revision, values),
 				invoke: (integrationId, actionId, chat, requestId) => {
 					const resource = URI.parse(chat, true);
