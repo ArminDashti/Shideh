@@ -149,6 +149,18 @@ suite('Sessions - External Session Banner', () => {
 		});
 	});
 
+	test('selects the configured external session visibility mode', () => {
+		assert.deepStrictEqual({
+			configuredRecent: getExternalSessionBannerSelectedMode(undefined, ChatExternalSessionsMode.Recent),
+			configuredLast7Days: getExternalSessionBannerSelectedMode(undefined, ChatExternalSessionsMode.Last7Days),
+			initialMode: getExternalSessionBannerSelectedMode(ChatExternalSessionsMode.Last24Hours, ChatExternalSessionsMode.Recent),
+		}, {
+			configuredRecent: ChatExternalSessionsMode.Recent,
+			configuredLast7Days: ChatExternalSessionsMode.Last7Days,
+			initialMode: ChatExternalSessionsMode.Last24Hours,
+		});
+	});
+
 	test('matches external session visibility time boundaries', () => {
 		const day = 24 * 60 * 60 * 1000;
 		const now = Date.UTC(2026, 7, 16, 12);
