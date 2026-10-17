@@ -32,6 +32,7 @@ import { SessionConfigKey } from '../../../../../../platform/agentHost/common/se
 import { readSessionSandboxPolicy } from '../../../../../../platform/agentHost/common/meta/agentSandboxPolicyMeta.js';
 import { readSessionSandboxState } from '../../../../../../platform/agentHost/common/meta/agentSandboxStateMeta.js';
 import { ClaudeSessionConfigKey } from '../../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
+import { CodexSessionConfigKey, narrowApprovalPolicy, narrowSandboxMode } from '../../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { ActionType } from '../../../../../../platform/agentHost/common/state/protocol/actions.js';
 import type { ResolveSessionConfigResult, SessionConfigCompletionsResult, SessionConfigPropertySchema, SessionConfigValueItem } from '../../../../../../platform/agentHost/common/state/protocol/commands.js';
 import type { SessionState } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
@@ -122,6 +123,17 @@ function getConfigIcon(property: string, value: unknown | undefined): ThemeIcon 
 			case 'auto': return Codicon.sparkle;
 			case 'bypassPermissions': return Codicon.warning;
 		}
+	}
+	if (property === CodexSessionConfigKey.SandboxMode) {
+		switch (value) {
+			case 'read-only': return Codicon.shield;
+			case 'workspace-write': return Codicon.edit;
+			case 'danger-full-access': return Codicon.warning;
+		}
+		return Codicon.shield;
+	}
+	if (property === CodexSessionConfigKey.ApprovalPolicy) {
+		return Codicon.shield;
 	}
 	return undefined;
 }
@@ -312,6 +324,8 @@ export const WELL_KNOWN_PICKER_PROPERTIES: ReadonlySet<string> = new Set<string>
 	SessionConfigKey.ShellInitScripts,
 	SessionConfigKey.SandboxEnabled,
 	ClaudeSessionConfigKey.PermissionMode,
+	CodexSessionConfigKey.SandboxMode,
+	CodexSessionConfigKey.ApprovalPolicy,
 ]);
 
 /**
@@ -319,14 +333,20 @@ export const WELL_KNOWN_PICKER_PROPERTIES: ReadonlySet<string> = new Set<string>
  * generic-fallback chip lane. This includes properties rendered by dedicated
  * chip widgets and properties intentionally hidden from workbench chat.
  *
- * For most well-known keys this is purely a property-name check. AutoApprove is
- * special: only well-known schema shapes are claimed by the dedicated picker;
- * non-conforming schemas (e.g. Claude's approval mode) fall through to the
- * generic lane.
+ * For most well-known keys this is purely a property-name check. AutoApprove
+ * and the Codex sandbox/approval-policy keys are special: only well-known
+ * schema shapes are claimed by the dedicated picker; non-conforming schemas
+ * (e.g. Claude's approval mode) fall through to the generic lane.
  */
 export function isClaimedByDedicatedPicker(property: string, schema: SessionConfigPropertySchema): boolean {
 	if (property === SessionConfigKey.AutoApprove) {
 		return isWellKnownAutoApproveSchema(schema);
+	}
+	if (property === CodexSessionConfigKey.SandboxMode) {
+		return isWellKnownCodexSandboxSchema(schema);
+	}
+	if (property === CodexSessionConfigKey.ApprovalPolicy) {
+		return isWellKnownCodexApprovalPolicySchema(schema);
 	}
 	return WELL_KNOWN_PICKER_PROPERTIES.has(property);
 }

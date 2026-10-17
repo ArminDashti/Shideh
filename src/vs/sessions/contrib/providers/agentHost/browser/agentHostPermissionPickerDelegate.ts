@@ -14,6 +14,7 @@ import { IAgentHostEnablementService } from '../../../../../platform/agentHost/c
 import { AgentHostCustomTerminalToolEnabledSettingId } from '../../../../../platform/agentHost/common/copilotCliConfig.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { narrowClaudePermissionMode } from '../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
+import { narrowApprovalPolicy, narrowSandboxMode } from '../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { SessionConfigPropertySchema } from '../../../../../platform/agentHost/common/state/protocol/commands.js';
 import { ChatConfiguration, ChatPermissionLevel, isChatPermissionLevel } from '../../../../../workbench/contrib/chat/common/constants.js';
 import { IPermissionLevelMeta, IPermissionPickerDelegate } from '../../shared/browser/permissionPicker.js';
@@ -31,6 +32,8 @@ import { IProductService } from '../../../../../platform/product/common/productS
 import { getShidehPermissionLevelDescription, getShidehPermissionLevelIcon, getShidehPermissionLevelLabel, isShidehSimplifiedChatChrome } from '../../../shideh/common/shidehChatPresentation.js';
 
 const REQUIRED_PERMISSION_MODE_VALUE = 'default';
+const REQUIRED_CODEX_SANDBOX_VALUE = 'workspace-write';
+const REQUIRED_CODEX_APPROVAL_POLICY_VALUE = 'on-request';
 
 export { isWellKnownAutoApproveSchema, isWellKnownModeSchema };
 

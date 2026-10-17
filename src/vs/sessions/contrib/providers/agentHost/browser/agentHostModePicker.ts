@@ -305,6 +305,9 @@ export abstract class AgentHostSessionEnumPicker extends Disposable {
 				if (!ctx.items.some(candidate => candidate.value === item.value)) {
 					return;
 				}
+				if (!(await this._shouldApplyValue(item, ctx.currentValue))) {
+					return;
+				}
 				const previousItem = ctx.items.find(i => i.value === ctx.currentValue);
 				const resolvedValue = this._resolveSelectionValue(item.value);
 				reportNewChatPickerClosed(this._telemetryService, {
