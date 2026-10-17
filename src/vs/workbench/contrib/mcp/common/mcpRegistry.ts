@@ -49,7 +49,10 @@ export class McpRegistry extends Disposable implements IMcpRegistry {
 	private readonly _mcpAccessValue: IObservable<string>;
 	private readonly _strictPluginOnlyCustomization: IObservable<StrictPluginOnlyCustomization>;
 	public readonly collections: IObservable<readonly McpCollectionDefinition[]> = derived(reader => {
-		if (this._mcpAccessValue.read(reader) === McpAccessValue.None) {
+		const accessValue = this._mcpAccessValue.read(reader);
+		// Show collections when MCP is disabled by policy (to show them in read-only mode)
+		// but hide them when the user explicitly sets it to None
+		if (accessValue === McpAccessValue.None && !this._mcpDisabledByPolicy.read(reader)) {
 			return [];
 		}
 		const strictPluginOnly = this._strictPluginOnlyCustomization.read(reader);
@@ -62,7 +65,9 @@ export class McpRegistry extends Disposable implements IMcpRegistry {
 	private readonly _ongoingLazyActivations = observableValue(this, 0);
 
 	public readonly lazyCollectionState = derived(reader => {
-		if (this._mcpAccessValue.read(reader) === McpAccessValue.None) {
+		const accessValue = this._mcpAccessValue.read(reader);
+		// Show lazy collection state when MCP is disabled by policy
+		if (accessValue === McpAccessValue.None && !this._mcpDisabledByPolicy.read(reader)) {
 			return { state: LazyCollectionState.AllKnown, collections: [] };
 		}
 
