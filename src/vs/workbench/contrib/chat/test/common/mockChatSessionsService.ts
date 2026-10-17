@@ -99,6 +99,10 @@ export class MockChatSessionsService implements IChatSessionsService {
 		};
 	}
 
+	hasChatSessionRegistration(chatSessionType: string): boolean {
+		return this.contributions.some(contrib => contrib.type === chatSessionType || contrib.alternativeIds?.includes(chatSessionType));
+	}
+
 	setContributions(contributions: IChatSessionsExtensionPoint[]): void {
 		this.contributions = contributions;
 	}
