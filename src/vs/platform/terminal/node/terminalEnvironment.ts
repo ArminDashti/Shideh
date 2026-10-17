@@ -20,6 +20,45 @@ import { promisify } from 'util';
 import { isString, SingleOrMany } from '../../../base/common/types.js';
 import { getWindowsBuildNumberAsync } from '../../../base/node/windowsVersion.js';
 
+/**
+ * Detects if the given shell executable is actually bash by running a quick command.
+ * This is useful for cases where sh is a wrapper around bash.
+ */
+async function isShActuallyBash(shellExecutable: string): Promise<boolean> {
+	try {
+		return new Promise<boolean>((resolve) => {
+			// Use a simple command that bash supports but minimal sh might not handle the same way
+			const child = spawn(shellExecutable, ['-c', 'echo $BASH_VERSION 2>/dev/null || echo ""'], {
+				stdio: ['pipe', 'pipe', 'pipe'],
+				timeout: 1000
+			});
+
+			let output = '';
+			child.stdout.on('data', (data) => {
+				output += data.toString();
+			});
+
+			child.on('close', (code) => {
+				// If we get a BASH_VERSION output, it's bash
+				const trimmedOutput = output.trim();
+				resolve(trimmedOutput.length > 0 && !trimmedOutput.includes('not found') && !trimmedOutput.includes('command not found'));
+			});
+
+			child.on('error', () => {
+				resolve(false);
+			});
+
+			// Fallback timeout
+			setTimeout(() => {
+				child.kill();
+				resolve(false);
+			}, 1000);
+		});
+	} catch {
+		return false;
+	}
+}
+
 export interface IShellIntegrationConfigInjection {
 	readonly type: 'injection';
 	/**
