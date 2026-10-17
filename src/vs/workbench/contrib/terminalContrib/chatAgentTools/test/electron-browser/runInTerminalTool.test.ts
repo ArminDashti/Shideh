@@ -1162,7 +1162,7 @@ suite('RunInTerminalTool', () => {
 				isSandboxWrapped: true,
 			});
 
-			const preparedInvocation = await executeToolTest({ command: 'echo hello', mode: 'async' });
+			const preparedInvocation = await executeToolTest({ command: 'echo hello', mode: 'async', detach: true });
 
 			ok(preparedInvocation, 'Expected prepared invocation to be defined');
 			strictEqual((preparedInvocation.invocationMessage as IMarkdownString).value, 'Running `echo hello` in sandbox');

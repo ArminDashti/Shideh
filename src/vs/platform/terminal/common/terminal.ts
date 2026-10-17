@@ -833,6 +833,8 @@ export interface ITerminalChildProcess {
 	readonly onProcessReplayComplete?: Event<void>;
 	readonly onDidChangeProperty: Event<IProcessProperty>;
 	readonly onProcessExit: Event<number | undefined>;
+	/** Whether onProcessExit acknowledges exit from a process-owning backend. */
+	readonly processExitIsAuthoritative?: boolean;
 	readonly onRestoreCommands?: Event<ISerializedCommandDetectionCapability>;
 
 	/**
@@ -886,6 +888,11 @@ export interface ITerminalChildProcess {
 	refreshProperty<T extends ProcessPropertyType>(property: T): Promise<IProcessPropertyMap[T]>;
 	updateProperty<T extends ProcessPropertyType>(property: T, value: IProcessPropertyMap[T]): Promise<void>;
 }
+
+export type TerminalTerminationResult =
+	| { status: 'terminalProcessExited' }
+	| { status: 'timeout' }
+	| { status: 'unavailable' };
 
 export interface IReconnectConstants {
 	graceTime: number;

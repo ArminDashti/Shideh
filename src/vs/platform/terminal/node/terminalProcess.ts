@@ -84,6 +84,7 @@ const generalShellTypeMap = new Map<string, GeneralShellType>([
 export class TerminalProcess extends Disposable implements ITerminalChildProcess {
 	readonly id = 0;
 	readonly shouldPersist = false;
+	readonly processExitIsAuthoritative = true;
 
 	private _properties: IProcessPropertyMap = {
 		cwd: '',
@@ -104,6 +105,7 @@ export class TerminalProcess extends Disposable implements ITerminalChildProcess
 	private _exitMessage: string | undefined;
 	private _closeTimeout: Timeout | undefined;
 	private _ptyProcess: IPty | undefined;
+	private _ptyProcessExited = false;
 	private _currentTitle: string = '';
 	private _processStartupComplete: Promise<void> | undefined;
 	private _windowsShellHelper: WindowsShellHelper | undefined;
@@ -344,6 +346,7 @@ export class TerminalProcess extends Disposable implements ITerminalChildProcess
 		}));
 		this._register(ptyProcess.onExit(e => {
 			this._exitCode = e.exitCode;
+			this._ptyProcessExited = true;
 			this._queueProcessExit();
 		}));
 		// node-pty >= 1.2.0-beta.11 defers conptyNative.connect() on Windows, so
@@ -409,7 +412,10 @@ export class TerminalProcess extends Disposable implements ITerminalChildProcess
 		} catch (ex) {
 			// Swallow, the pty has already been killed
 		}
-		this._onProcessExit.fire(this._exitCode || 0);
+		if (!this._ptyProcessExited) {
+			return;
+		}
+		this._onProcessExit.fire(this._exitCode ?? 0);
 		this.dispose();
 	}
 
