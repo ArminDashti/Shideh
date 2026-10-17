@@ -24,7 +24,7 @@ steps:
   # in the background (overwrites repo-root ThirdPartyNotices.txt before packaging).
   # Publish builds only (CIBUILD=false) — CI test jobs never ship a notice.
   - ${{ if ne(parameters.VSCODE_CIBUILD, true) }}:
-    - pwsh: npx deemon --detach --wait -- node build/azure-pipelines/common/downloadNotice.ts
+    - pwsh: npx deemon@1.13.7 --detach --wait -- node build/azure-pipelines/common/downloadNotice.ts
       env:
         SYSTEM_ACCESSTOKEN: $(System.AccessToken)
         VSCODE_OVERWRITE_TPN: $(VSCODE_OVERWRITE_TPN)
@@ -78,7 +78,7 @@ steps:
   # Block on the CG NOTICE download and overwrite ThirdPartyNotices.txt
   # right before gulp packages it. Non-fatal: falls back to legacy on any problem.
   - ${{ if ne(parameters.VSCODE_CIBUILD, true) }}:
-    - pwsh: npx deemon --attach -- node build/azure-pipelines/common/downloadNotice.ts
+    - pwsh: npx deemon@1.13.7 --attach -- node build/azure-pipelines/common/downloadNotice.ts
       env:
         SYSTEM_ACCESSTOKEN: $(System.AccessToken)
         VSCODE_OVERWRITE_TPN: $(VSCODE_OVERWRITE_TPN)
