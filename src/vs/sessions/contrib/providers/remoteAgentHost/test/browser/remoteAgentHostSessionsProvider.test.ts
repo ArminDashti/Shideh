@@ -376,6 +376,16 @@ function createProvider(disposables: DisposableStore, connection: MockAgentConne
 	return provider;
 }
 
+class RecordingWorkspaceTrustRequestService extends TestWorkspaceTrustRequestService {
+
+	readonly resourceTrustRequests: URI[] = [];
+
+	override async requestResourcesTrust(options: ResourceTrustRequestOptions): Promise<boolean | undefined> {
+		this.resourceTrustRequests.push(options.uri);
+		return super.requestResourcesTrust(options);
+	}
+}
+
 async function waitForSessionConfig(provider: RemoteAgentHostSessionsProvider, sessionId: string, predicate: (config: ResolveSessionConfigResult | undefined) => boolean): Promise<void> {
 	if (predicate(provider.getSessionConfig(sessionId))) {
 		return;
@@ -1071,10 +1081,12 @@ suite('RemoteAgentHostSessionsProvider', () => {
 			label: workspace?.label,
 			repository: workspace?.folders[0]?.root.toString(),
 			workingDirectory: workspace?.folders[0]?.workingDirectory?.toString(),
+			requiresWorkspaceTrust: workspace?.requiresWorkspaceTrust,
 		}, {
 			label: 'vscode',
 			repository: projectUri.toString(),
 			workingDirectory: workingDirectory.toString(),
+			requiresWorkspaceTrust: true,
 		});
 	}));
 
@@ -2918,6 +2930,34 @@ suite('RemoteAgentHostSessionsProvider', () => {
 			() => provider.sendRequest('nonexistent', URI.parse('untitled:chat'), { query: 'test' }),
 			/not found/,
 		);
+	});
+
+	test('sendRequest requires workspace trust for the underlying remote folder', async () => {
+		const workspaceTrustManagementService = disposables.add(new TestWorkspaceTrustManagementService(false));
+		const workspaceTrustRequestService = disposables.add(new RecordingWorkspaceTrustRequestService(false));
+		const provider = createProvider(disposables, connection, {
+			openSession: true,
+			workspaceTrustManagementService,
+			workspaceTrustRequestService,
+		});
+		const session = provider.createNewSession(URI.parse('vscode-agent-host://localhost__4321/home/user/project'), provider.sessionTypes[0].id);
+		provider.setAuthenticationPending(false);
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			loading: session.loading.get(),
+			createdSessions: connection.createdSessionUris.length,
+		}, {
+			loading: false,
+			createdSessions: 0,
+		});
+
+		const chat = await provider.createNewChat(session.sessionId);
+		await assert.rejects(
+			() => provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' }),
+			/Workspace trust is required/,
+		);
+		assert.deepStrictEqual(workspaceTrustRequestService.resourceTrustRequests.map(uri => uri.toString()), ['file:///home/user/project']);
 	});
 
 	test('sendRequest forwards resolved session config to chat service', async () => {

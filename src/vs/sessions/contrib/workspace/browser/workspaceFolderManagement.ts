@@ -9,9 +9,7 @@ import { ISessionsService } from '../../../services/sessions/browser/sessionsSer
 import { ensureSessionWorktreesTrusted } from '../../../services/sessions/browser/worktreeTrust.js';
 import { IWorkspaceContextService, WorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceEditingService } from '../../../../workbench/services/workspaces/common/workspaceEditing.js';
-import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
-import { URI } from '../../../../base/common/uri.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { IWorkspaceFolderCreationData } from '../../../../platform/workspaces/common/workspaces.js';
 import { Queue } from '../../../../base/common/async.js';
@@ -22,6 +20,7 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 
 	static readonly ID = 'workbench.contrib.workspaceFolderManagement';
 	private queue = this._register(new Queue<void>());
+	private readonly workspaceTrust: AgentHostWorkspaceTrust;
 
 	constructor(
 		@ISessionsService private readonly sessionsService: ISessionsService,
@@ -32,6 +31,7 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 		@IWorkspaceFolderLabelService private readonly workspaceFolderLabelService: IWorkspaceFolderLabelService,
 	) {
 		super();
+		this.workspaceTrust = instantiationService.createInstance(AgentHostWorkspaceTrust);
 		this._register(autorun(reader => {
 			const activeSession = this.sessionsService.activeSession.read(reader);
 			const activeChat = activeSession?.activeChat.read(reader);

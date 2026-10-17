@@ -1184,6 +1184,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	 * a resource that carries a chatId fragment.
 	 */
 	private readonly _additionalChatSubscriptions = new Map<string, IReference<IAgentSubscription<ChatState>>>();
+	private readonly _workspaceTrust: AgentHostWorkspaceTrust;
 
 	/**
 	 * Chat channel URI that owns each observed terminal, keyed by terminal URI.
@@ -1247,6 +1248,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	) {
 		super();
 		this._config = config;
+		this._workspaceTrust = this._instantiationService.createInstance(AgentHostWorkspaceTrust);
 
 		const readHideAutoExplainability = () => assignmentService.getTreatment<boolean>(HIDE_AUTO_EXPLAINABILITY_TREATMENT)
 			.then(hidden => this._hideAutoExplainability.set(hidden === true, undefined))

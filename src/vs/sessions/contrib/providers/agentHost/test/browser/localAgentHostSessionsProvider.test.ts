@@ -1059,6 +1059,29 @@ suite('LocalAgentHostSessionsProvider', () => {
 		assert.deepStrictEqual(provider.sessionTypes, []);
 	});
 
+	test('advertises session types while workspace is untrusted', () => {
+		const provider = createProvider(disposables, agentHost, undefined, { workspaceTrusted: false });
+
+		assert.deepStrictEqual(provider.sessionTypes.map(t => ({ id: t.id, label: t.label })), [
+			{ id: 'copilotcli', label: 'Copilot' },
+		]);
+	});
+
+	test('lists sessions while workspace is untrusted', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		agentHost.addSession(createSession('untrusted-visible', { summary: 'Untrusted visible' }));
+		const provider = createProvider(disposables, agentHost, undefined, { workspaceTrusted: false });
+		provider.getSessions();
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			listCalls: agentHost.listSessionsCallCount,
+			titles: provider.getSessions().map(session => session.title.get()),
+		}, {
+			listCalls: 1,
+			titles: ['Untrusted visible'],
+		});
+	}));
+
 	test('session type icons use per-agent codicons', () => {
 		agentHost.setAgents([
 			{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [] } as AgentInfo,
@@ -4675,6 +4698,7 @@ suite('LocalAgentHostSessionsProvider', () => {
 		const provider = createProvider(disposables, agentHost, undefined, { configurationService: config });
 		const session = provider.createNewSession(URI.parse('file:///home/user/project'), provider.sessionTypes[0].id);
 		await waitForSessionConfig(provider, session.sessionId, c => c?.values.autoApprove === 'autoApprove');
+		await waitForResolveSessionConfigRequests(agentHost, 1);
 
 		assert.deepStrictEqual({
 			seededImmediately: provider.getSessionConfig(session.sessionId)?.values.autoApprove,
@@ -4691,9 +4715,11 @@ suite('LocalAgentHostSessionsProvider', () => {
 		const provider = createProvider(disposables, agentHost, undefined, { configurationService: config });
 		const session = provider.createNewSession(URI.parse('file:///home/user/project'), provider.sessionTypes[0].id);
 		await waitForSessionConfig(provider, session.sessionId, c => c?.values.mode === 'autopilot');
+		const seededImmediately = provider.getSessionConfig(session.sessionId)?.values.mode;
+		await waitForResolveSessionConfigRequests(agentHost, 1);
 
 		assert.deepStrictEqual({
-			seededImmediately: provider.getSessionConfig(session.sessionId)?.values.mode,
+			seededImmediately,
 			forwardedToAgentHost: agentHost.resolveSessionConfigRequests.at(-1)?.config?.mode,
 		}, {
 			seededImmediately: 'autopilot',
@@ -5701,7 +5727,7 @@ suite('LocalAgentHostSessionsProvider', () => {
 		const session = provider.createNewSession(URI.parse('file:///home/user/project'), provider.sessionTypes[0].id);
 
 		assert.deepStrictEqual({
-			seededImmediately: provider.getSessionConfig(session.sessionId)?.values,
+			seededImmediately,
 			forwardedToAgentHost: agentHost.resolveSessionConfigRequests.at(-1)?.config,
 		}, {
 			seededImmediately: { isolation: 'worktree', worktreeIncludeFiles: ['product.overrides.json', '**/node_modules/**'], worktreeSymlinkFolders: ['node_modules/**', '.cache/**'] },
@@ -5838,12 +5864,14 @@ suite('LocalAgentHostSessionsProvider', () => {
 		await policyRestrictedConfig.setUserConfiguration('chat.defaultConfiguration', { approvals: 'allowAll' });
 		const policyRestrictedProvider = createProvider(disposables, agentHost, undefined, { configurationService: policyRestrictedConfig, storageService });
 		policyRestrictedProvider.createNewSession(URI.parse('file:///home/user/project'), policyRestrictedProvider.sessionTypes[0].id);
+		await waitForResolveSessionConfigRequests(agentHost, 1);
 
 		// Case 2: an ordinary configured setting is a plain default — the remembered pick wins over it
 		const configuredDefaultConfig = new TestConfigurationService();
 		await configuredDefaultConfig.setUserConfiguration('chat.defaultConfiguration', { approvals: 'manual' });
 		const configuredDefaultProvider = createProvider(disposables, agentHost, undefined, { configurationService: configuredDefaultConfig, storageService });
 		configuredDefaultProvider.createNewSession(URI.parse('file:///home/user/project'), configuredDefaultProvider.sessionTypes[0].id);
+		await waitForResolveSessionConfigRequests(agentHost, 2);
 
 		assert.deepStrictEqual({
 			policyRestricted: agentHost.resolveSessionConfigRequests.at(-2)?.config?.autoApprove,
@@ -9821,6 +9849,24 @@ suite('LocalAgentHostSessionsProvider', () => {
 		await assert.rejects(
 			() => provider.sendRequest('nonexistent', URI.parse('untitled:chat'), { query: 'test' }),
 			/not found/,
+		);
+	});
+
+	test('sendRequest requires workspace trust before sending a new session', async () => {
+		const workspaceTrustManagementService = disposables.add(new TestWorkspaceTrustManagementService(true));
+		const provider = createProvider(disposables, agentHost, undefined, {
+			openSession: true,
+			resourceTrustResponse: false,
+			workspaceTrustManagementService,
+		});
+		const session = provider.createNewSession(URI.parse('file:///home/user/project'), provider.sessionTypes[0].id);
+		const chat = await provider.createNewChat(session.sessionId);
+
+		await workspaceTrustManagementService.setWorkspaceTrust(false);
+
+		await assert.rejects(
+			() => provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' }),
+			/Workspace trust is required/,
 		);
 	});
 

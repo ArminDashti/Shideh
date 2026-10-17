@@ -88,7 +88,7 @@ import { AgentHostSessionListContribution } from '../../../browser/agentSessions
 import { AgentHostSessionListController } from '../../../browser/agentSessions/agentHost/agentHostSessionListController.js';
 import { AgentHostSessionListStore, type IAgentHostSessionListConnection } from '../../../browser/agentSessions/agentHost/agentHostSessionListStore.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
-import { TestFileService } from '../../../../../test/common/workbenchTestServices.js';
+import { TestFileService, TestWorkspaceTrustManagementService, TestWorkspaceTrustRequestService } from '../../../../../test/common/workbenchTestServices.js';
 import { ILabelService } from '../../../../../../platform/label/common/label.js';
 import { MockLabelService } from '../../../../../services/label/test/common/mockLabelService.js';
 import { IAgentHostFileSystemService } from '../../../../../services/agentHost/common/agentHostFileSystemService.js';
@@ -5020,6 +5020,40 @@ suite('AgentHostChatContribution', () => {
 			agentHostService.fireAction({ channel: dispatch.channel.toString(), action: dispatch.action, serverSeq: 1, origin: { clientId: agentHostService.clientId, clientSeq: dispatch.clientSeq } });
 			agentHostService.fireAction({ channel: dispatch.channel.toString(), action: { type: 'chat/turnComplete', endedAt: '2025-01-01T00:00:00.000Z', turnId: action.turnId } as ChatAction, serverSeq: 2, origin: undefined });
 			await turnPromise;
+		}));
+
+		test('requires workspace trust before sending to an existing session', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const workspaceTrustManagementService = disposables.add(new TestWorkspaceTrustManagementService(false));
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables, {
+				workspaceTrustManagementService,
+				resourceTrustResponse: false,
+			});
+			const sessionResource = URI.from({ scheme: 'agent-host-copilot', path: '/existing-untrusted' });
+			const backendSession = AgentSession.uri('copilot', 'existing-untrusted');
+			const workingDirectory = URI.file('/home/user/untrusted');
+			agentHostService.sessionStates.set(backendSession.toString(), {
+				...createSessionState({
+					resource: backendSession.toString(),
+					provider: 'copilot',
+					title: 'Existing untrusted',
+					status: SessionStatus.Idle,
+					createdAt: Date.now(),
+					modifiedAt: Date.now(),
+					workingDirectory: workingDirectory.toString(),
+				}),
+				lifecycle: SessionLifecycle.Ready,
+			});
+			const chatSession = await sessionHandler.provideChatSessionContent(sessionResource, CancellationToken.None);
+			disposables.add(toDisposable(() => chatSession.dispose()));
+			agentHostService.dispatchedActions.length = 0;
+			const registered = chatAgentService.registeredAgents.get('agent-host-copilot')!;
+
+			await assert.rejects(
+				() => registered.impl.invoke(makeRequest({ message: 'Blocked', sessionResource }), () => { }, [], CancellationToken.None),
+				/Workspace trust is required/,
+			);
+
+			assert.deepStrictEqual(agentHostService.turnActions, []);
 		}));
 
 		test('recovers from stale failed subscription before first send', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
