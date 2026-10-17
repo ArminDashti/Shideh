@@ -259,7 +259,7 @@ class ToggleMaximizedAuxiliaryBar extends Action2 {
 			menu: {
 				id: MenuId.AuxiliaryBarTitle,
 				group: 'navigation',
-				order: 1,
+				order: 2,
 			}
 		});
 	}
