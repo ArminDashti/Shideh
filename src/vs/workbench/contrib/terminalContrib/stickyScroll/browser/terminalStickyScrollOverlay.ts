@@ -6,18 +6,20 @@
 import type { SerializeAddon as SerializeAddonType } from '@xterm/addon-serialize';
 import type { WebglAddon as WebglAddonType } from '@xterm/addon-webgl';
 import type { LigaturesAddon as LigaturesAddonType } from '@xterm/addon-ligatures';
-import type { IBufferLine, IMarker, ITerminalOptions, ITheme, Terminal as RawXtermTerminal, Terminal as XTermTerminal } from '@xterm/xterm';
+import type { IBufferLine, IDecoration, IMarker, ITerminalOptions, ITheme, Terminal as RawXtermTerminal, Terminal as XTermTerminal } from '@xterm/xterm';
 import { $, addDisposableListener, addStandardDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { debounce, throttle } from '../../../../../base/common/decorators.js';
 import { Event } from '../../../../../base/common/event.js';
 import { Disposable, MutableDisposable, combinedDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 import './media/stickyScroll.css';
 import { localize } from '../../../../../nls.js';
 import { IMenu, IMenuService, MenuId } from '../../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ICommandDetectionCapability, ITerminalCommand } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
@@ -104,6 +106,10 @@ export class TerminalStickyScrollOverlay extends Disposable {
 			}
 			if (!e || e.affectsConfiguration(TerminalStickyScrollSettingId.IgnoredCommands)) {
 				this._ignoredCommands = configurationService.getValue(TerminalStickyScrollSettingId.IgnoredCommands);
+			}
+			if (!e || e.affectsConfiguration(TerminalSettingId.ShellIntegrationDecorationsEnabled)) {
+				// Refresh to update decoration visibility when settings change
+				this._refresh();
 			}
 		}));
 
