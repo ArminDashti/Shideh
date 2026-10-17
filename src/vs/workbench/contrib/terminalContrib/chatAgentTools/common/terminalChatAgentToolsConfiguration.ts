@@ -550,6 +550,9 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 						value: localize('agentSandbox.enabledSetting.onDescription', 'Enable sandboxing for agent mode tools.'),
 					},
 				]
+=======
+				}
+>>>>>>> 136206c5 (Add policy for agent sandbox setting (#309981))
 			}
 		}
 	},
