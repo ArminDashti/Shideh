@@ -248,7 +248,14 @@ export const enum StorageScope {
 	/**
 	 * The stored data will be scoped to the current workspace.
 	 */
-	WORKSPACE = 1
+	WORKSPACE = 1,
+
+	/**
+	 * The stored data will be scoped to workspaces which share the same edit session identity.
+	 * Note, this is actually represented by {@link StorageScope.WORKSPACE} and {@link StorageTarget.USER},
+	 * but there are already adoptions of that pairing which need to be migrated.
+	 */
+	ROAMABLE_WORKSPACE = 2,
 }
 
 export const enum StorageTarget {
@@ -421,6 +428,9 @@ export abstract class AbstractStorageService extends Disposable implements IStor
 				case StorageScope.PROFILE:
 					this._profileKeyTargets = undefined;
 					break;
+				case StorageScope.ROAMABLE_WORKSPACE:
+					this._roamableWorkspaceKeyTargets = undefined;
+					break;
 				case StorageScope.WORKSPACE:
 					this._workspaceKeyTargets = undefined;
 					break;
@@ -563,6 +573,15 @@ export abstract class AbstractStorageService extends Disposable implements IStor
 		return this._workspaceKeyTargets;
 	}
 
+	private _roamableWorkspaceKeyTargets: IKeyTargets | undefined = undefined;
+	private get roamableWorkspaceKeyTargets(): IKeyTargets {
+		if (!this._roamableWorkspaceKeyTargets) {
+			this._roamableWorkspaceKeyTargets = this.loadKeyTargets(StorageScope.ROAMABLE_WORKSPACE);
+		}
+
+		return this._roamableWorkspaceKeyTargets;
+	}
+
 	private _profileKeyTargets: IKeyTargets | undefined = undefined;
 	private get profileKeyTargets(): IKeyTargets {
 		if (!this._profileKeyTargets) {
@@ -598,6 +617,8 @@ export abstract class AbstractStorageService extends Disposable implements IStor
 				return this.applicationKeyTargets;
 			case StorageScope.PROFILE:
 				return this.profileKeyTargets;
+			case StorageScope.ROAMABLE_WORKSPACE:
+				return this.roamableWorkspaceKeyTargets;
 			default:
 				return this.workspaceKeyTargets;
 		}
@@ -744,6 +765,7 @@ export class InMemoryStorageService extends AbstractStorageService {
 	private readonly applicationSharedStorage = this._register(new Storage(new InMemoryStorageDatabase(), { hint: StorageHint.STORAGE_IN_MEMORY }));
 	private readonly profileStorage = this._register(new Storage(new InMemoryStorageDatabase(), { hint: StorageHint.STORAGE_IN_MEMORY }));
 	private readonly workspaceStorage = this._register(new Storage(new InMemoryStorageDatabase(), { hint: StorageHint.STORAGE_IN_MEMORY }));
+	private readonly roamableWorkspaceStorage = this._register(new Storage(new InMemoryStorageDatabase(), { hint: StorageHint.STORAGE_IN_MEMORY }));
 
 	constructor() {
 		super();
@@ -762,6 +784,8 @@ export class InMemoryStorageService extends AbstractStorageService {
 				return this.applicationStorage;
 			case StorageScope.PROFILE:
 				return this.profileStorage;
+			case StorageScope.ROAMABLE_WORKSPACE:
+				return this.roamableWorkspaceStorage;
 			default:
 				return this.workspaceStorage;
 		}
@@ -775,6 +799,8 @@ export class InMemoryStorageService extends AbstractStorageService {
 				return 'inMemory (application)';
 			case StorageScope.PROFILE:
 				return 'inMemory (profile)';
+			case StorageScope.ROAMABLE_WORKSPACE:
+				return 'inMemory (roamable workspace)';
 			default:
 				return 'inMemory (workspace)';
 		}
