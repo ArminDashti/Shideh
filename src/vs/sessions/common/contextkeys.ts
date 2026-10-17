@@ -198,3 +198,9 @@ export const KeyboardVisibleContext = new RawContextKey<boolean>('sessionsKeyboa
 export const SessionsHasMultipleCollectionsContext = new RawContextKey<boolean>('sessionsHasMultipleCollections', false, localize('sessionsHasMultipleCollections', "Whether the sessions list has more than one collection"));
 
 //#endregion
+
+//#region < --- Tour --- >
+
+export const SessionsTourVisibleContext = new RawContextKey<boolean>('sessionsTourVisible', false, localize('sessionsTourVisible', "Whether the sessions product tour overlay is visible"));
+
+//#endregion
