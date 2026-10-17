@@ -12,7 +12,6 @@ import { IMarkdownString } from '../../../../../../../base/common/htmlContent.js
 import { KeyCode } from '../../../../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../../../base/common/observable.js';
-import { generateUuid } from '../../../../../../../base/common/uuid.js';
 import { localize } from '../../../../../../../nls.js';
 import { defaultButtonStyles } from '../../../../../../../platform/theme/browser/defaultStyles.js';
 import { CHAT_CARD_HEADER_ACTIONS_CLASS, CHAT_CARD_LARGE_CLASS, chatCardButtonStyles } from '../../chatCard.js';
@@ -21,10 +20,7 @@ import { ChatToolInvocationPart } from './chatToolInvocationPart.js';
 import '../media/chatToolConfirmationCarousel.css';
 
 const COLLAPSED_CAROUSEL_MAX_HEIGHT = 300;
-const COLLAPSED_MESSAGE_MAX_HEIGHT = 200;
-const COLLAPSED_CODE_BLOCK_MAX_HEIGHT = 150;
 const MIN_CAROUSEL_MAX_HEIGHT = 80;
-const EXPANDABLE_CONTENT_SELECTOR = '.interactive-result-editor, .chat-markdown-part.rendered-markdown';
 
 export type ToolInvocationPartFactory = (tool: IChatToolInvocation) => ChatToolInvocationPart;
 
@@ -102,7 +98,6 @@ export class ChatToolConfirmationCarouselPart extends Disposable {
 		this.collapsedTitle = elements.collapsedTitle;
 		this.agentLabel = elements.agentLabel;
 		this.contentContainer = elements.content;
-		this.contentContainer.id = generateUuid();
 		this.stepIndicator = elements.stepIndicator;
 		this.activeContentDisposables = this._register(new DisposableStore());
 		this.updateContentExpansionStateScheduler = this._register(new dom.AnimationFrameScheduler(this.domNode, () => this.updateContentExpansionState()));
@@ -185,7 +180,7 @@ export class ChatToolConfirmationCarouselPart extends Disposable {
 
 	setMaxHeight(maxHeight: number | undefined): void {
 		this.maxHeight = maxHeight;
-		this.updateContentExpansionState();
+		this.updateMaxHeightStyle();
 	}
 
 	hasToolInvocation(toolCallId: string): boolean {
@@ -424,18 +419,14 @@ export class ChatToolConfirmationCarouselPart extends Disposable {
 		this.allowAllButton.label = multi
 			? localize('allowAll', "Allow All")
 			: localize('allow', "Allow");
-		this.updateExpandContentButton();
 	}
 
 	private renderActiveContent(): void {
 		dom.clearNode(this.contentContainer);
 		this.activeContentDisposables.clear();
-		this._isContentExpanded = false;
-		this.canExpandContent = false;
 
 		const item = this.items[this.activeIndex];
 		if (!item) {
-			this.updateContentExpansionState();
 			return;
 		}
 
@@ -479,78 +470,8 @@ export class ChatToolConfirmationCarouselPart extends Disposable {
 			return;
 		}
 
-		const expanded = this.canExpandContent && this._isContentExpanded;
-		const maxHeight = expanded ? Math.max(MIN_CAROUSEL_MAX_HEIGHT, this.maxHeight) : this.getCollapsedMaxHeight();
+		const maxHeight = this.getCollapsedMaxHeight();
 		this.domNode.style.maxHeight = `${Math.floor(maxHeight)}px`;
-	}
-
-	private updateExpandContentButton(): void {
-		const expanded = this.canExpandContent && this._isContentExpanded;
-		const label = expanded
-			? localize('restoreConfirmationSize', "Restore Confirmation Size")
-			: localize('expandConfirmationUp', "Expand Confirmation Up");
-		this.expandContentButton.label = expanded
-			? `$(${Codicon.screenNormal.id})`
-			: `$(${Codicon.screenFull.id})`;
-		this.expandContentButton.element.setAttribute('aria-label', label);
-		this.expandContentButton.element.setAttribute('aria-expanded', String(expanded));
-		this.expandContentButton.setTitle(label);
-	}
-
-	private isActiveContentLargerThanCollapsedLimit(): boolean {
-		const activeContent = this.contentContainer.firstElementChild;
-		if (!dom.isHTMLElement(activeContent)) {
-			return false;
-		}
-
-		return this.hasInnerContentLargerThanCollapsedLimit(activeContent);
-	}
-
-	private hasInnerContentLargerThanCollapsedLimit(element: HTMLElement): boolean {
-		if (this.isExpandableContentElement(element) && this.getElementHeight(element) > this.getExpandableContentHeightLimit(element) + 1) {
-			return true;
-		}
-
-		for (const child of element.children) {
-			if (!dom.isHTMLElement(child)) {
-				continue;
-			}
-
-			if (this.hasInnerContentLargerThanCollapsedLimit(child)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private isExpandableContentElement(element: HTMLElement): boolean {
-		return element.matches(EXPANDABLE_CONTENT_SELECTOR);
-	}
-
-	private observeExpandableContentElements(element: HTMLElement): void {
-		if (this.isExpandableContentElement(element)) {
-			this.activeContentDisposables.add(this.contentResizeObserver.observe(element));
-		}
-
-		for (const child of element.children) {
-			if (dom.isHTMLElement(child)) {
-				this.observeExpandableContentElements(child);
-			}
-		}
-	}
-
-	private getElementHeight(element: HTMLElement): number {
-		return Math.max(element.offsetHeight, element.scrollHeight);
-	}
-
-	private getExpandableContentHeightLimit(element: HTMLElement): number {
-		const window = dom.getWindow(this.domNode);
-		if (element.classList.contains('interactive-result-editor')) {
-			return Math.min(COLLAPSED_CODE_BLOCK_MAX_HEIGHT, window.innerHeight * 0.25);
-		}
-
-		return Math.min(COLLAPSED_MESSAGE_MAX_HEIGHT, window.innerHeight * 0.3);
 	}
 
 	private getCollapsedMaxHeight(): number {
