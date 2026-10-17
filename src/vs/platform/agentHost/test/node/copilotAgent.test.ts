@@ -989,6 +989,9 @@ class MockAgentHostOTelService implements IAgentHostOTelService {
 	async flush() {
 		//
 	}
+	registerSpanConsumer() {
+		return { dispose: () => undefined };
+	}
 }
 
 /**
