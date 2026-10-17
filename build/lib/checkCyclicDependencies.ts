@@ -99,9 +99,11 @@ export function collectJsFiles(dir: string): string[] {
 	return results;
 }
 
-export function processFile(filename: string, graph: Graph): void {
+function processFileWithCache(filename: string, graph: Graph, fileExistsCache: Map<string, boolean>): void {
 	const content = fs.readFileSync(filename, 'utf-8');
 	const info = ts.preProcessFile(content, true);
+	const dir = path.dirname(filename);
+	const normalizedFilename = normalize(filename);
 
 	for (const ref of info.importedFiles) {
 		if (!ref.fileName.startsWith('.')) {
@@ -111,18 +113,35 @@ export function processFile(filename: string, graph: Graph): void {
 			continue;
 		}
 
-		const dir = path.dirname(filename);
 		let resolvedPath = path.resolve(dir, ref.fileName);
 		if (resolvedPath.endsWith('.js')) {
 			resolvedPath = resolvedPath.slice(0, -3);
 		}
 		const normalizedResolved = normalize(resolvedPath);
 
-		if (fs.existsSync(normalizedResolved + '.js')) {
-			graph.inertEdge(normalize(filename), normalizedResolved + '.js');
-		} else if (fs.existsSync(normalizedResolved + '.ts')) {
-			graph.inertEdge(normalize(filename), normalizedResolved + '.ts');
+		for (const extension of ['.js', '.ts']) {
+			const candidate = normalizedResolved + extension;
+			let exists = fileExistsCache.get(candidate);
+			if (exists === undefined) {
+				exists = fs.existsSync(candidate);
+				fileExistsCache.set(candidate, exists);
+			}
+			if (exists) {
+				graph.inertEdge(normalizedFilename, candidate);
+				break;
+			}
 		}
+	}
+}
+
+export function processFile(filename: string, graph: Graph): void {
+	processFiles([filename], graph);
+}
+
+export function processFiles(files: string[], graph: Graph): void {
+	const fileExistsCache = new Map<string, boolean>(files.map(filename => [normalize(path.resolve(filename)), true]));
+	for (const file of files) {
+		processFileWithCache(file, graph, fileExistsCache);
 	}
 }
 
@@ -142,9 +161,7 @@ function main(): void {
 	const files = collectJsFiles(rootDir);
 	const graph = new Graph();
 
-	for (const file of files) {
-		processFile(file, graph);
-	}
+	processFiles(files, graph);
 
 	const allNormalized = files.map(normalize).sort((a, b) => a.localeCompare(b));
 	const cycles = graph.findCycles(allNormalized);
