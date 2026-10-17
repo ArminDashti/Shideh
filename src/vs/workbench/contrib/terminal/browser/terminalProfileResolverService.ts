@@ -94,7 +94,7 @@ export abstract class BaseTerminalProfileResolverService extends Disposable impl
 		if (shellLaunchConfig.executable) {
 			return;
 		}
-		const defaultProfile = this._getUnresolvedRealDefaultProfile(os);
+		const defaultProfile = this._getUnresolvedRealDefaultProfile(os, this._remoteAgentService.getConnection()?.remoteAuthority);
 		if (defaultProfile) {
 			shellLaunchConfig.icon = defaultProfile.icon;
 		}
@@ -212,7 +212,7 @@ export abstract class BaseTerminalProfileResolverService extends Disposable impl
 		// Return the real default profile if it exists and is valid, wait for profiles to be ready
 		// if the window just opened
 		await this._terminalProfileService.profilesReady;
-		const defaultProfile = this._getUnresolvedRealDefaultProfile(options.os);
+		const defaultProfile = this._getUnresolvedRealDefaultProfile(options.os, options.remoteAuthority);
 		if (defaultProfile) {
 			return this._setIconForAutomation(options, defaultProfile);
 		}
@@ -231,18 +231,20 @@ export abstract class BaseTerminalProfileResolverService extends Disposable impl
 		return profile;
 	}
 
-	private _getUnresolvedRealDefaultProfile(os: OperatingSystem): ITerminalProfile | undefined {
-		return this._terminalProfileService.getDefaultProfile(os);
+	private _getUnresolvedRealDefaultProfile(os: OperatingSystem, remoteAuthority: string | undefined): ITerminalProfile | undefined {
+		return this._terminalProfileService.getDefaultProfile(os, remoteAuthority);
 	}
 
 	private async _getUnresolvedFallbackDefaultProfile(options: IShellLaunchConfigResolveOptions): Promise<ITerminalProfile> {
 		const executable = await this._context.getDefaultSystemShell(options.remoteAuthority, options.os);
 
-		// Try select an existing profile to fallback to, based on the default system shell, only do
-		// this when it is NOT a local terminal in a remote window where the front and back end OS
-		// differs (eg. Windows -> WSL, Mac -> Linux)
+		// Try select an existing profile to fallback to, based on the default system shell.
+		// We now handle local terminal in remote as well by passing in remoteAuthority when getting available profiles.
 		if (options.os === OS) {
-			let existingProfile = this._terminalProfileService.availableProfiles.find(e => path.parse(e.path).name === path.parse(executable).name);
+			const availableProfiles = this._terminalProfileService.getAvailableProfiles(options.remoteAuthority);
+			this._logService.trace('[TerminalProfileResolver] availableProfiles:', availableProfiles);
+			let existingProfile = availableProfiles.find(e => path.parse(e.path).name === path.parse(executable).name);
+			this._logService.trace('[TerminalProfileResolver] existingProfiles:', existingProfile);
 			if (existingProfile) {
 				if (options.allowAutomationShell) {
 					existingProfile = deepClone(existingProfile);

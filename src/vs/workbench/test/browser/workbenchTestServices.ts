@@ -1918,13 +1918,14 @@ export class TestTerminalGroupService implements ITerminalGroupService {
 export class TestTerminalProfileService implements ITerminalProfileService {
 	_serviceBrand: undefined;
 	availableProfiles: ITerminalProfile[] = [];
+	getAvailableProfiles(_remoteAuthority?: string | undefined): ITerminalProfile[] { return this.availableProfiles; }
 	contributedProfiles: IExtensionTerminalProfile[] = [];
 	profilesReady: Promise<void> = Promise.resolve();
 	onDidChangeAvailableProfiles = Event.None;
 	getPlatformKey(): Promise<string> { throw new Error('Method not implemented.'); }
 	refreshAvailableProfiles(): void { throw new Error('Method not implemented.'); }
 	getDefaultProfileName(): string | undefined { throw new Error('Method not implemented.'); }
-	getDefaultProfile(): ITerminalProfile | undefined { throw new Error('Method not implemented.'); }
+	getDefaultProfile(_os?: OperatingSystem | undefined, _remoteAuthority?: string | undefined): ITerminalProfile | undefined { throw new Error('Method not implemented.'); }
 	getContributedDefaultProfile(shellLaunchConfig: IShellLaunchConfig): Promise<IExtensionTerminalProfile | undefined> { throw new Error('Method not implemented.'); }
 	registerContributedProfile(args: IRegisterContributedProfileArgs): Promise<void> { throw new Error('Method not implemented.'); }
 	registerInternalContributedProfile(_profile: IExtensionTerminalProfile): IDisposable { return Disposable.None; }
