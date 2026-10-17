@@ -35,6 +35,7 @@ import { ISessionCIFixModel, ISessionCIFixState } from '../../../../../sessions/
 import { IVoicePlaybackService } from '../../../../contrib/chat/common/voicePlaybackService.js';
 import { IChatService } from '../../../../contrib/chat/common/chatService/chatService.js';
 import { IChatModel } from '../../../../contrib/chat/common/model/chatModel.js';
+import { ITerminalChatService } from '../../../../contrib/terminal/browser/terminal.js';
 import { IAgentSessionsService } from '../../../../contrib/chat/browser/agentSessions/agentSessionsService.js';
 import { IAgentSession, IAgentSessionsModel } from '../../../../contrib/chat/browser/agentSessions/agentSessionsModel.js';
 import { AgentSessionApprovalKind, AgentSessionApprovalModel, IAgentSessionApprovalInfo } from '../../../../contrib/chat/browser/agentSessions/agentSessionApprovalModel.js';
@@ -95,6 +96,10 @@ interface IBlockedSessionOptions {
 	changesSummary?: ISessionChangesSummary;
 	/** A terminal command awaiting approval; renders an approval row with an Allow button. */
 	approvalCommand?: string;
+	/** A pending ask-questions carousel; renders the question widget inline in the row. */
+	questionCarousel?: IChatQuestionCarousel;
+	/** Failing-CI state; renders the inline "Fix CI" row. */
+	ciFailures?: ISessionCIFailures;
 }
 
 function createBlockedSession(options: IBlockedSessionOptions, approvals?: Map<string, IAgentSessionApprovalInfo>): ISession {
@@ -104,7 +109,7 @@ function createBlockedSession(options: IBlockedSessionOptions, approvals?: Map<s
 	// A session awaiting a tool approval carries a chat whose resource the (mock)
 	// approval model keys the pending approval on.
 	let chats: readonly IChat[] = [];
-	if (options.approvalCommand !== undefined && approvals) {
+	if ((options.approvalCommand !== undefined || options.questionCarousel !== undefined) && approvals) {
 		const chatResource = URI.parse(`vscode-chat://chat/${Math.random().toString(36).slice(2)}`);
 		approvals.set(chatResource.toString(), {
 			approvalId: chatResource.toString(),
@@ -230,6 +235,49 @@ const unresolvedCommentsPr: IGitHubInfo['pullRequest'] = {
 	number: 4750,
 	uri: URI.parse('https://github.com/microsoft/vscode/pull/4750'),
 	icon: { ...Codicon.gitPullRequest, color: themeColorFromId('charts.yellow') },
+};
+
+// ============================================================================
+// Question carousels (ask-questions tool)
+// ============================================================================
+
+function createCarousel(questions: IChatQuestion[], allowSkip: boolean = true, message?: string): IChatQuestionCarousel {
+	return { questions, allowSkip, message, kind: 'questionCarousel' };
+}
+
+const textQuestion: IChatQuestion = {
+	id: 'migration-name',
+	type: 'text',
+	title: 'Migration name',
+	message: 'What should the new database migration be called?',
+	defaultValue: 'add-user-roles',
+};
+
+const singleSelectQuestion: IChatQuestion = {
+	id: 'welcome-tone',
+	type: 'singleSelect',
+	title: 'Welcome tone',
+	message: 'Which tone should the onboarding welcome step use?',
+	options: [
+		{ id: 'formal', label: 'Formal - Professional and precise', value: 'formal' },
+		{ id: 'friendly', label: 'Friendly - Warm and conversational', value: 'friendly' },
+		{ id: 'playful', label: 'Playful - Light and informal', value: 'playful' },
+	],
+	defaultValue: 'friendly',
+};
+
+const multiSelectQuestion: IChatQuestion = {
+	id: 'release-targets',
+	type: 'multiSelect',
+	title: 'Release targets',
+	message: 'Which platforms should this release build for?',
+	options: [
+		{ id: 'win', label: 'Windows', value: 'windows' },
+		{ id: 'mac', label: 'macOS', value: 'macos' },
+		{ id: 'linux', label: 'Linux', value: 'linux' },
+		{ id: 'web', label: 'Web', value: 'web' },
+	],
+	defaultValue: ['win', 'mac'],
 };
 
 // ============================================================================

@@ -21,6 +21,11 @@ export const enum AgentSessionApprovalKind {
 	Terminal = 'terminal',
 	/** The agent is asking the user a question / needs a free-form response. */
 	Question = 'question',
+	/**
+	 * The ask-questions tool is presenting a structured question carousel that
+	 * carries its own interactive widget (see {@link IAgentSessionApprovalInfo.carousel}).
+	 */
+	QuestionCarousel = 'questionCarousel',
 	/** Some other tool invocation is waiting for confirmation. */
 	Other = 'other',
 }
@@ -31,6 +36,10 @@ export interface IAgentSessionApprovalInfo {
 	readonly label: string;
 	readonly languageId: string | undefined;
 	confirm(): void;
+	/**
+	 * Submit answers for {@link carousel}. No-op for approvals without a carousel.
+	 */
+	submitCarousel?(answers: IChatQuestionAnswers | undefined): void;
 }
 
 /**
@@ -162,5 +171,26 @@ export class AgentSessionApprovalModel extends Disposable {
 
 			setIfChanged(undefined);
 		});
+	}
+
+	/**
+	 * Resolve a pending question carousel with the given answers, completing the
+	 * ask-questions tool invocation that produced it. Safe to call once — later
+	 * calls are no-ops once the carousel is used.
+	 */
+	private _submitCarousel(requestId: string | undefined, carousel: IChatQuestionCarousel, answers: IChatQuestionAnswers | undefined): void {
+		if (carousel.isUsed) {
+			return;
+		}
+		carousel.data = answers ?? {};
+		carousel.isUsed = true;
+		if (carousel instanceof ChatQuestionCarouselData) {
+			carousel.draftAnswers = undefined;
+			carousel.draftCurrentIndex = undefined;
+			carousel.completion.complete({ answers });
+		}
+		if (requestId && carousel.resolveId) {
+			this._chatService.notifyQuestionCarouselAnswer(requestId, carousel.resolveId, answers);
+		}
 	}
 }

@@ -139,6 +139,8 @@ export class BlockedSessionsList extends Disposable {
 
 		this._rowsContainer = append(element, $('.agent-sessions-blocked-list-rows'));
 
+		const ciFailuresProvider = options.ciFailuresProvider ?? this._register(instantiationService.createInstance(SessionCIFailuresModel));
+
 		this._list = this._register(instantiationService.createInstance(SessionsFlatList, this._rowsContainer, {
 			showSessionHover: true,
 			onSessionOpen: options.onSessionOpen,

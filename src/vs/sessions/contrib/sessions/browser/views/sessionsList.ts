@@ -507,6 +507,35 @@ const INSET_ROW_GAP = 2;
  */
 const DEFAULT_APPROVAL_ROW_MAX_LINES = 3;
 
+/**
+ * Approval kinds shown inline in a session row by default. The ask-questions
+ * tool's structured carousel ({@link AgentSessionApprovalKind.QuestionCarousel})
+ * is intentionally excluded so it only renders in surfaces that explicitly opt
+ * in (the blocked-sessions list), which can host its dedicated widget. Generic
+ * (non-carousel) question and other confirmations still render inline as
+ * before.
+ */
+export const DEFAULT_VISIBLE_APPROVAL_KINDS: readonly AgentSessionApprovalKind[] = [AgentSessionApprovalKind.Terminal, AgentSessionApprovalKind.Question, AgentSessionApprovalKind.Other];
+
+/** Every approval kind — used by surfaces that render all of them (e.g. the blocked-sessions list). */
+export const ALL_VISIBLE_APPROVAL_KINDS: readonly AgentSessionApprovalKind[] = [AgentSessionApprovalKind.Terminal, AgentSessionApprovalKind.Question, AgentSessionApprovalKind.QuestionCarousel, AgentSessionApprovalKind.Other];
+
+/**
+ * Fallback height (px) reserved for a question-carousel approval row before its
+ * widget has been measured. The delegate replaces this with the measured height
+ * once the carousel renders.
+ */
+const APPROVAL_CAROUSEL_ESTIMATE_HEIGHT = 240;
+
+/** Top-margin of the approval row (matches `.session-approval-row` in the CSS), added to the measured carousel height. */
+const APPROVAL_ROW_CAROUSEL_MARGIN = 4;
+
+/**
+ * Height (px) added to a session row for the inline "Fix CI" row. A single line
+ * of text plus the button, matching `.session-ci-row` in `sessionsList.css`.
+ */
+const CI_ROW_HEIGHT = 36;
+
 //#endregion
 
 //#region Tree Delegate
@@ -1508,6 +1537,18 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 	private readonly editingSession = observableValue<ISession | undefined>(this, undefined);
 	private activeRenameInput: { readonly session: ISession; readonly input: InputBox } | undefined;
 	private renameState: (IInlineRenameValueState & { readonly session: ISession }) | undefined;
+
+	/**
+	 * Measured heights (px) of rendered question-carousel approval widgets, keyed
+	 * by session resource. Shared with the tree delegate so it can size rows that
+	 * host the carousel, whose height isn't known ahead of render.
+	 */
+	private readonly _measuredApprovalHeights = new Map<string, number>();
+
+	/** Measured height of a session's carousel approval widget, if one is rendered. */
+	getMeasuredApprovalHeight(session: ISession): number | undefined {
+		return this._measuredApprovalHeights.get(session.resource.toString());
+	}
 
 	constructor(
 		private readonly options: {
@@ -7181,7 +7222,13 @@ export function getFirstApprovalAcrossChats(approvalModel: AgentSessionApprovalM
 	let oldest: IAgentSessionApprovalInfo | undefined;
 	for (const chat of session.chats.read(reader)) {
 		const approval = approvalModel.getApproval(chat.resource).read(reader);
-		if (approval && (!oldest || approval.since.getTime() < oldest.since.getTime())) {
+		if (!approval) {
+			continue;
+		}
+		if (kinds && !kinds.includes(approval.kind)) {
+			continue;
+		}
+		if (!oldest || approval.since.getTime() < oldest.since.getTime()) {
 			oldest = approval;
 		}
 	}
