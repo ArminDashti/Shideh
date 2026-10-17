@@ -1671,17 +1671,6 @@ suite('mcpListWidget', () => {
 				}],
 				open: async (extensionId: string) => { openedExtensions.push(extensionId); },
 			} as unknown as IExtensionsWorkbenchService;
-			const labelService = new class extends mock<ILabelService>() {
-				override getUriLabel(resource: URI, options?: Parameters<ILabelService['getUriLabel']>[1]): string {
-					if (options?.relative && resource.path.startsWith('/workspace/')) {
-						return resource.path.slice('/workspace/'.length);
-					}
-					if (!options?.noPrefix && resource.path.startsWith('/Users/test/')) {
-						return `~/${resource.path.slice('/Users/test/'.length)}`;
-					}
-					return resource.fsPath;
-				}
-			}();
 			const renderManagementActions = (getEntry: () => Entry | undefined, actions: HTMLElement, disposables: DisposableStore, updateTabbability: () => void) => {
 				if (useRealManagementActions) {
 					widget.renderMcpListActions(getEntry, actions, disposables, updateTabbability);
@@ -1708,7 +1697,6 @@ suite('mcpListWidget', () => {
 				hoverService,
 				agentHostCustomizationService,
 				customizationHarnessService,
-				labelService,
 				extensionsWorkbenchService,
 				themeService,
 			));
@@ -1735,7 +1723,6 @@ suite('mcpListWidget', () => {
 				customizationHarnessService,
 				mcpService: { servers: runtimeServers },
 				workspaceService: { isSessionsWindow },
-				labelService,
 				agentHostCustomizationsChanged: observableSignalFromEvent('customizationsChanged', onDidChangeCustomizations.event),
 				mcpServerCompatibility: observableValue<ReadonlyMap<string, CustomizationMcpServerCompatibilityKind>>(widget, new Map(compatibilityKind ? [['native', compatibilityKind]] : [])),
 				showMcpServerActions: (entry: Entry) => { menuActions = widget.getMcpServerActions(entry, store); },
@@ -1909,8 +1896,10 @@ suite('mcpListWidget', () => {
 				ctx.render({ type: 'server-item', server });
 				return {
 					path: ctx.templateData.sourcePath.textContent,
+					display: ctx.templateData.sourcePath.style.display,
 					hover: ctx.readSource().hover,
 					ariaLabel: ctx.read().ariaLabel,
+					detailSource: ctx.detailInput({ type: 'server-item', server }).source?.uri,
 				};
 			};
 

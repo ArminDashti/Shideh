@@ -71,7 +71,6 @@ import { createCustomizationCardPrimaryAction, CustomizationCardListController, 
 import { DomScrollableElement } from '../../../../../base/browser/ui/scrollbar/scrollableElement.js';
 import { ScrollbarVisibility } from '../../../../../base/common/scrollable.js';
 import { WorkbenchList, WorkbenchObjectTree } from '../../../../../platform/list/browser/listService.js';
-import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { ExtensionEditorTab, IExtensionsWorkbenchService } from '../../../extensions/common/extensions.js';
 import { ActiveSessionMcpServerMatcher, type AgentHostMcpServer, getRuntimeServerMatchKeys, getUniqueMcpMatchKeys, isMcpServerInUse } from './mcpServerCount.js';
 import { CustomizationGroupHeaderRenderer, CUSTOMIZATION_GROUP_HEADER_HEIGHT, CUSTOMIZATION_GROUP_HEADER_HEIGHT_WITH_SEPARATOR, ICustomizationGroupHeaderEntry } from './customizationGroupHeaderRenderer.js';
@@ -408,7 +407,6 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		@ILabelService private readonly labelService: ILabelService,
 		@IAgentHostCustomizationService private readonly agentHostCustomizationService: IAgentHostCustomizationService,
 		@ICustomizationHarnessService private readonly customizationHarnessService: ICustomizationHarnessService,
-		@ILabelService private readonly labelService: ILabelService,
 		@IExtensionsWorkbenchService private readonly extensionsWorkbenchService: IExtensionsWorkbenchService,
 		@IThemeService private readonly themeService: IThemeService,
 	) {
@@ -1218,8 +1216,7 @@ function getMcpEntrySourceUri(element: IMcpInstalledEntry): URI | undefined {
 	}
 }
 
-function getMcpEntrySource(element: IMcpInstalledEntry, labelService: ILabelService, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService, openPlugin?: (plugin: IAgentPlugin) => void): { label: string; hover: string; ariaLabel?: string; open?(): void } | undefined {
-	const sourceUri = getMcpEntrySourceUri(element);
+function getMcpEntrySource(element: IMcpInstalledEntry, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService, openPlugin?: (plugin: IAgentPlugin) => void): { label: string; hover: string; ariaLabel?: string; open?(): void } | undefined {
 	if (element.type === 'builtin-item') {
 		const pluginUri = getPluginUriFromCollectionId(element.collectionId);
 		const plugin = pluginUri ? agentPluginService.plugins.get().find(plugin => plugin.uri.toString() === pluginUri) : undefined;
@@ -1243,16 +1240,10 @@ function getMcpEntrySource(element: IMcpInstalledEntry, labelService: ILabelServ
 			};
 		}
 	}
-	if (!sourceUri) {
-		return undefined;
-	}
-	return {
-		label: labelService.getUriLabel(sourceUri, { relative: true }),
-		hover: labelService.getUriLabel(sourceUri, { noPrefix: true }),
-	};
+	return undefined;
 }
 
-function getMcpEntryLabelWithSource(element: IMcpInstalledEntry, labelService: ILabelService, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService): string {
+function getMcpEntryLabelWithSource(element: IMcpInstalledEntry, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService): string {
 	const label = getMcpEntryLabel(element);
 	const source = getMcpEntrySource(element, labelService, agentPluginService, extensionsWorkbenchService);
 	return source?.ariaLabel
@@ -1284,8 +1275,8 @@ function getMcpStatusKind(entry: IMcpServerItemEntry | IMcpSessionServerItemEntr
 	return undefined;
 }
 
-function getMcpEntryAriaLabel(element: IMcpInstalledEntry, isSessionsWindow: boolean, compatibilityKind: CustomizationMcpServerCompatibilityKind | undefined, labelService: ILabelService, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService): string {
-	const label = getMcpEntryLabelWithSource(element, labelService, agentPluginService, extensionsWorkbenchService);
+function getMcpEntryAriaLabel(element: IMcpInstalledEntry, isSessionsWindow: boolean, compatibilityKind: CustomizationMcpServerCompatibilityKind | undefined, agentPluginService: IAgentPluginService, extensionsWorkbenchService?: IExtensionsWorkbenchService): string {
+	const label = getMcpEntryLabelWithSource(element, agentPluginService, extensionsWorkbenchService);
 	const statusKind = getMcpStatusKind(element, isSessionsWindow);
 	const disabledReason = statusKind === 'disabled' ? getMcpDisabledReason(element) : undefined;
 	const status = getMcpStatusPresentation(statusKind, disabledReason);
@@ -2382,7 +2373,7 @@ export class McpListWidget extends Disposable {
 	private getMcpEntryAriaLabel(entry: IMcpInstalledEntry): IObservable<string> {
 		return derived(this, reader => {
 			this.agentHostCustomizationsChanged.read(reader);
-			const label = getMcpEntryLabelWithSource(entry, this.labelService, this.agentPluginService, this.extensionsWorkbenchService);
+			const label = getMcpEntryLabelWithSource(entry, this.agentPluginService, this.extensionsWorkbenchService);
 			const compatibility = getMcpCompatibilityPresentation(this.getMcpServerCompatibilityKind(entry, reader));
 			const activeSessionResource = this.customizationHarnessService.activeSessionResource.read(reader);
 			let statusKind: McpStatusKind | undefined;
@@ -2699,7 +2690,7 @@ export class McpListWidget extends Disposable {
 				description,
 				getMcpStatusKind(entry, this.workspaceService.isSessionsWindow),
 				getMcpDisabledReason(entry),
-				getMcpEntryAriaLabel(entry, this.workspaceService.isSessionsWindow, compatibilityKind, this.labelService, this.agentPluginService, this.extensionsWorkbenchService),
+				getMcpEntryAriaLabel(entry, this.workspaceService.isSessionsWindow, compatibilityKind, this.agentPluginService, this.extensionsWorkbenchService),
 				this.getInstalledEntryDescription(entry),
 			);
 			updateMcpCompatibilityIcon(statusIcon, compatibilityKind, getMcpStatusPresentation(getMcpStatusKind(entry, this.workspaceService.isSessionsWindow))?.icon);
@@ -2720,7 +2711,7 @@ export class McpListWidget extends Disposable {
 				description,
 				getMcpStatusKind(entry, this.workspaceService.isSessionsWindow),
 				getMcpDisabledReason(entry),
-				getMcpEntryAriaLabel(entry, this.workspaceService.isSessionsWindow, compatibilityKind, this.labelService, this.agentPluginService, this.extensionsWorkbenchService),
+				getMcpEntryAriaLabel(entry, this.workspaceService.isSessionsWindow, compatibilityKind, this.agentPluginService, this.extensionsWorkbenchService),
 				this.getInstalledEntryDescription(entry),
 			);
 			updateMcpCompatibilityIcon(statusIcon, compatibilityKind, getMcpStatusPresentation(getMcpStatusKind(entry, this.workspaceService.isSessionsWindow))?.icon);
