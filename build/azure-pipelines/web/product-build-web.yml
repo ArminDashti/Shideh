@@ -30,6 +30,13 @@ jobs:
           versionSource: fromFile
           versionFilePath: .nvmrc
 
+      - script: |
+          set -e
+          echo "Major.Minor version: $(VSCODE_MAJOR_MINOR_VERSION)"
+          echo "Counter value: $(VSCODE_PATCH_VERSION_COUNTER)"
+          echo "##vso[task.setvariable variable=VSCODE_PATCH_VERSION]$(VSCODE_PATCH_VERSION_COUNTER)"
+        displayName: Set patch version from counter
+
       - template: ../distro/download-distro.yml@self
 
       - task: AzureKeyVault@2
@@ -124,6 +131,18 @@ jobs:
 
       - script: node build/azure-pipelines/distro/mixin-quality.ts
         displayName: Mixin distro quality
+
+      - script: |
+          set -e
+          if [ "$VSCODE_QUALITY" = "insider" ] || [ "$VSCODE_QUALITY" = "exploration" ]; then
+            node build/azure-pipelines/common/apply-patch-version.js $VSCODE_PATCH_VERSION
+          else
+            echo "Skipping patch version update for quality: $VSCODE_QUALITY"
+          fi
+        displayName: Apply auto-incremented patch version
+        env:
+          VSCODE_QUALITY: $(VSCODE_QUALITY)
+          VSCODE_PATCH_VERSION: $(VSCODE_PATCH_VERSION)
 
       - template: ../common/install-builtin-extensions.yml@self
 

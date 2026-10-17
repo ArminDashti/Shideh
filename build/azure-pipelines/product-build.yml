@@ -113,7 +113,7 @@ parameters:
     default: false
   - name: VSCODE_STEP_ON_IT
     displayName: "Skip tests"
-    type: boolean
+    type: string
     default: false
   - name: VSCODE_USE_LEGACY_OSS_NOTICE
     displayName: "Use legacy OSS Notice"
@@ -256,6 +256,8 @@ variables:
     value: true
   - name: ARTIFACT_PREFIX
     value: ''
+  - name: VSCODE_PATCH_VERSION_COUNTER
+    value: ${{ counter(parameters.VSCODE_MAJOR_MINOR_VERSION, 0) }}
 
 name: "$(VSCODE_BUILD_TITLE_PREFIX)$(Date:yyyyMMdd).$(Rev:r) (${{ parameters.VSCODE_QUALITY }})"
 
