@@ -710,6 +710,7 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			type: 'unchanged',
 			modifiedCellIndex,
 			originalCellIndex,
+			modifiedHandle: modifiedCell.handle,
 			keep: async (changes: DetailedLineRangeMapping) => {
 				const [modifiedCellModel, originalCellModel] = await Promise.all([modifiedCellModelPromise, originalCellModelPromise]);
 				const entry = this.getOrCreateModifiedTextFileEntryForCell(modifiedCell, modifiedCellModel, originalCellModel);
@@ -764,6 +765,7 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			type: 'insert' as const,
 			originalCellIndex: undefined,
 			modifiedCellIndex: modifiedCellIndex,
+			modifiedHandle: cell.handle,
 			keep,
 			undo,
 			modifiedModel: new ObservablePromise(this.resolveCellModel(cell.uri)),
