@@ -228,8 +228,8 @@ interface IMcpSessionServerItemEntry {
 /**
  * Represents a built-in MCP server provided by an extension or plugin.
  */
-interface IMcpBuiltinItemEntry {
-	readonly type: 'builtin-item';
+interface IMcpExtensionItemEntry {
+	readonly type: 'extension-item';
 	readonly id: string;
 	readonly label: string;
 	readonly description: string;
@@ -531,8 +531,8 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		templateData.sourcePath.tabIndex = source?.open && rowKey === this._focusedRowKey ? 0 : -1;
 		this.renderDescription(templateData, element);
 
-		if (element.type === 'builtin-item') {
-			templateData.container.classList.add('builtin');
+		if (element.type === 'extension-item') {
+			templateData.container.classList.add('extension-provided');
 			templateData.name.textContent = formatDisplayName(element.label);
 			this.updateKnownServerStatus(templateData, element);
 			return;
@@ -546,7 +546,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 			return;
 		}
 
-		templateData.container.classList.remove('builtin');
+		templateData.container.classList.remove('extension-provided');
 		templateData.name.textContent = formatDisplayName(element.server.label);
 		const description = element.server.description?.trim();
 		// Marketplace (gallery) entries are always clickable so users can install/inspect them,
