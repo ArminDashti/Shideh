@@ -125,6 +125,8 @@ export interface IChatWidgetFixtureOptions {
 	readonly inputVisible?: boolean;
 	/** Whether to populate the response footer with an action. */
 	readonly responseFooterAction?: boolean;
+	/** Whether to render display math through KaTeX. */
+	readonly enableMath?: boolean;
 	/** Whether to show request and response timing details. */
 	readonly verbose?: boolean;
 	readonly checkpointsEnabled?: boolean;
