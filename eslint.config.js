@@ -898,9 +898,7 @@ export default defineConfig(
 				'warn',
 				{
 					// Files should (only) be removed from the list they adopt the leak detector
-					'exclude': [
-						'src/vs/workbench/services/userActivity/test/browser/domActivityTracker.test.ts',
-					]
+					'exclude': []
 				}
 			]
 		}
