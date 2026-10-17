@@ -70,7 +70,6 @@ export class InlineEditsViewAndDiffProducer extends Disposable { // TODO: This c
 				if (model.tabShouldJumpToInlineEdit.read(reader)) { return InlineEditTabAction.Jump; }
 				if (model.tabShouldAcceptInlineEdit.read(reader)) { return InlineEditTabAction.Accept; }
 			}
-			return InlineEditTabAction.Inactive;
 		});
 
 		return new ModelPerInlineEdit(model, edit, tabAction);
