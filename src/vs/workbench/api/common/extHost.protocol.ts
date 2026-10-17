@@ -2066,6 +2066,10 @@ export interface MainThreadExtensionServiceShape extends IDisposable {
 	$asBrowserUri(uri: UriComponents): Promise<UriComponents>;
 }
 
+export interface MainThreadConfigurationResolverShape extends IDisposable {
+	$getOriginalUri(uri: UriComponents): Promise<UriComponents>;
+}
+
 export interface SCMProviderFeatures {
 	hasArtifactProvider?: boolean;
 	hasHistoryProvider?: boolean;

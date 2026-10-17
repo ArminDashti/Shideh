@@ -30,7 +30,7 @@ export class ExtHostTask extends ExtHostTaskBase {
 	constructor(
 		@IExtHostRpcService extHostRpc: IExtHostRpcService,
 		@IExtHostInitDataService initData: IExtHostInitDataService,
-		@IExtHostWorkspace private readonly workspaceService: IExtHostWorkspace,
+		@IExtHostWorkspace private readonly _workspaceService: IExtHostWorkspace,
 		@IExtHostDocumentsAndEditors editorService: IExtHostDocumentsAndEditors,
 		@IExtHostConfiguration configurationService: IExtHostConfiguration,
 		@IExtHostTerminalService extHostTerminalService: IExtHostTerminalService,
@@ -38,7 +38,7 @@ export class ExtHostTask extends ExtHostTaskBase {
 		@IExtHostApiDeprecationService deprecationService: IExtHostApiDeprecationService,
 		@IExtHostVariableResolverProvider private readonly variableResolver: IExtHostVariableResolverProvider,
 	) {
-		super(extHostRpc, initData, workspaceService, editorService, configurationService, extHostTerminalService, logService, deprecationService);
+		super(extHostRpc, initData, _workspaceService, editorService, configurationService, extHostTerminalService, logService, deprecationService);
 		if (initData.remote.isRemote && initData.remote.authority) {
 			this.registerTaskSystem(Schemas.vscodeRemote, {
 				scheme: Schemas.vscodeRemote,
@@ -65,7 +65,7 @@ export class ExtHostTask extends ExtHostTaskBase {
 		// We have a preserved ID. So the task didn't change.
 		if (tTask._id !== undefined) {
 			// Always get the task execution first to prevent timing issues when retrieving it later
-			const handleDto = TaskHandleDTO.from(tTask, this.workspaceService);
+			const handleDto = TaskHandleDTO.from(tTask, this._workspaceService);
 			const executionDTO = await this._proxy.$getTaskExecution(handleDto);
 			if (executionDTO.task === undefined) {
 				throw new Error('Task from execution DTO is undefined');
@@ -168,7 +168,7 @@ export class ExtHostTask extends ExtHostTaskBase {
 			if (toResolve.process.path !== undefined) {
 				paths = toResolve.process.path.split(path.delimiter);
 				for (let i = 0; i < paths.length; i++) {
-					paths[i] = await resolver.resolveAsync(ws, paths[i]);
+					paths[i] = await this._extHostConfigurationResolverService.resolveAsync(ws, paths[i]);
 				}
 			}
 			const processName = await resolver.resolveAsync(ws, toResolve.process.name);
