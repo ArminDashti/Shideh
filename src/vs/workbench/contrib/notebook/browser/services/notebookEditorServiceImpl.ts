@@ -125,6 +125,14 @@ export class NotebookEditorWidgetService implements INotebookEditorService {
 				}
 			}
 		}));
+
+		const notebookWithinActiveEditor = NOTEBOOK_WITHIN_ACTIVE_EDITOR.bindTo(contextKeyService);
+		this._disposables.add(editorService.onDidActiveEditorChange(() => {
+			notebookWithinActiveEditor.set(
+				isNotebookEditorInput(editorService.activeEditor || isCompositeNotebookEditorInput(editorService.activeEditor))
+			);
+		}));
+
 	}
 
 	dispose() {
