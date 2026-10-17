@@ -1709,7 +1709,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	/**
-	 * Create picker widgets for all option groups available for the current session type.
+	 * Create a single picker widget for a specific option group.
 	 */
 	private createChatSessionPickerWidgets(action: MenuItemAction, pickerOptions?: IChatInputPickerOptions): ChatSessionPickerActionItem[] {
 		this._lastSessionPickerAction = action;
@@ -1758,14 +1758,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				getSessionResource: () => {
 					return this._widget?.viewModel?.model.sessionResource;
 				}
-			};
 
 			const widget = this.instantiationService.createInstance(ChatSessionPickerActionItem, action, initialState, itemDelegate, pickerOptions);
 			this.chatSessionPickerWidgets.set(optionGroup.id, widget);
 			widgets.push(widget);
 		}
 
-		return widgets;
+		const widget = this.instantiationService.createInstance(
+			optionGroup.searchable ? SearchableOptionPickerActionItem : ChatSessionPickerActionItem,
+			action, initialState, itemDelegate, pickerOptions
+		);
+		this.chatSessionPickerWidgets.set(optionGroup.id, widget);
+		return widget;
 	}
 
 	/**
@@ -2802,6 +2806,59 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	/**
+	 * Get or create a boolean context key for an option group's visibility.
+	 * Used by dynamic menu items to control individual picker visibility.
+	 */
+	private getOrCreateGroupVisibilityKey(groupId: string): IContextKey<boolean> | undefined {
+		if (!this._scopedContextKeyService) {
+			return undefined;
+		}
+		let key = this._groupVisibilityContextKeys.get(groupId);
+		if (!key) {
+			const rawKey = new RawContextKey<boolean>(`chatSessionPickerGroup.${groupId}`, false);
+			key = rawKey.bindTo(this._scopedContextKeyService);
+			this._groupVisibilityContextKeys.set(groupId, key);
+		}
+		return key;
+	}
+
+	/**
+	 * Update per-group visibility context keys.
+	 * Also cleans up stale widget references for groups that no longer exist.
+	 */
+	private updateGroupVisibilityKeys(optionGroups: IChatSessionProviderOptionGroup[], visibleGroupIds: Set<string>): void {
+		// Set visible groups to true
+		for (const group of optionGroups) {
+			this.getOrCreateGroupVisibilityKey(group.id)?.set(visibleGroupIds.has(group.id));
+		}
+		// Clear any previously visible groups that are no longer in the option groups list,
+		// and dispose their stale widget references
+		for (const [groupId, key] of this._groupVisibilityContextKeys) {
+			if (!optionGroups.some(g => g.id === groupId)) {
+				key.set(false);
+				const widget = this.chatSessionPickerWidgets.get(groupId);
+				if (widget) {
+					widget.dispose();
+					this.chatSessionPickerWidgets.delete(groupId);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Clear all group visibility context keys and dispose stale widgets.
+	 */
+	private clearAllGroupVisibilityKeys(): void {
+		for (const key of this._groupVisibilityContextKeys.values()) {
+			key.set(false);
+		}
+		for (const widget of this.chatSessionPickerWidgets.values()) {
+			widget.dispose();
+		}
+		this.chatSessionPickerWidgets.clear();
+	}
+
+	/**
 	 * Computes which option groups should be visible for the current session.
 	 *
 	 * A picker should show if and only if:
@@ -2974,6 +3031,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	/**
 	 * Refresh all registered option groups for the current chat session.
 	 * Fires events for each option group with their current selection.
+	 * Context keys are updated by computeVisibleOptionGroups(), which triggers
+	 * the toolbar to re-evaluate menu items and show/hide individual pickers.
 	 */
 	private refreshChatSessionPickers(): void {
 		// Also refresh spread target buttons to keep active state in sync
@@ -3019,25 +3078,17 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					if (optionGroup) {
 						const currentOptionId = typeof currentOption === 'string' ? currentOption : currentOption.id;
 						const item = optionGroup.items.find((m: IChatSessionProviderOptionItem) => m.id === currentOptionId);
-						// If currentOption is an object (not a string ID), it represents a complete option item and should be used directly.
-						// Otherwise, if it's a string ID, look up the corresponding item and use that.
 						if (item && typeof currentOption === 'string') {
 							this.getOrCreateOptionEmitter(optionGroupId).fire(item);
 						} else if (typeof currentOption !== 'string') {
 							this.getOrCreateOptionEmitter(optionGroupId).fire(currentOption);
 						}
-
 					}
 				}
 			}
 		}
 	}
 
-	private hideAllSessionPickerWidgets(): void {
-		if (this.chatSessionPickerContainer) {
-			this.chatSessionPickerContainer.style.display = 'none';
-		}
-	}
 
 	private disposeSessionPickerWidgets(): void {
 		for (const widget of this.chatSessionPickerWidgets.values()) {
