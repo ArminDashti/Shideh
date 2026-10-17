@@ -3950,6 +3950,14 @@ export interface IChatSessionDto {
 	options?: Record<string, string | IChatSessionProviderOptionItem>;
 }
 
+export interface IChatSessionCustomHeaderDataDto {
+	readonly label: string;
+	readonly description?: string;
+	readonly iconId?: string;
+	readonly status?: 'active' | 'idle' | 'error';
+	readonly details?: ReadonlyArray<{ readonly key: string; readonly value: string }>;
+}
+
 export interface IChatSessionProviderOptions {
 	optionGroups?: readonly IChatSessionProviderOptionGroup[];
 	newSessionOptions?: Record<string, string | IChatSessionProviderOptionItem>;
