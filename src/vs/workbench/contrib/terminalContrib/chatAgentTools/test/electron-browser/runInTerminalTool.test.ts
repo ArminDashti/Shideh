@@ -1953,6 +1953,15 @@ suite('RunInTerminalTool', () => {
 
 	suite('prepareToolInvocation - auto approval behavior', () => {
 
+		test('should mark commands that contain a comment', async () => {
+			const results = [];
+			for (const command of ['echo hello', 'echo hello # it is safe']) {
+				const result = await executeToolTest({ command });
+				results.push(result?.toolSpecificData?.kind === 'terminal' ? result.toolSpecificData.commandLine.hasComment : undefined);
+			}
+			deepStrictEqual(results, [false, true]);
+		});
+
 		test('should auto-approve commands in allow list', async () => {
 			setAutoApprove({
 				echo: true

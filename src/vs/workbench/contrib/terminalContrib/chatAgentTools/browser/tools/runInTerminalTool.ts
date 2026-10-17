@@ -1089,6 +1089,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		requestAllowNetworkReason = rewriteResult.requestAllowNetworkReason;
 		const blockedDomains = rewriteResult.blockedDomains;
 
+		const treeSitterLanguage = isPowerShell(shell, os) ? TreeSitterCommandParserLanguage.PowerShell : TreeSitterCommandParserLanguage.Bash;
 		const toolSpecificData: IChatTerminalToolInvocationData = {
 			kind: 'terminal',
 			terminalToolSessionId,
@@ -1096,6 +1097,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			commandLine: {
 				original: args.command,
 				toolEdited: rewrittenCommand === args.command ? undefined : rewrittenCommand,
+				hasComment: await this._treeSitterCommandParser.hasComment(treeSitterLanguage, args.command).catch(() => true),
 				forDisplay: forDisplayCommand ?? normalizeTerminalCommandForDisplay(rewrittenCommand ?? args.command),
 				isSandboxWrapped,
 			},
@@ -1155,7 +1157,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			cwd,
 			os,
 			shell,
-			treeSitterLanguage: isPowerShell(shell, os) ? TreeSitterCommandParserLanguage.PowerShell : TreeSitterCommandParserLanguage.Bash,
+			treeSitterLanguage,
 			terminalToolSessionId,
 			chatSessionResource,
 			requiresUnsandboxConfirmation,
