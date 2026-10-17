@@ -178,6 +178,7 @@ registerSingleton(IInlineCompletionsService, InlineCompletionsService, Instantia
 const snoozeInlineSuggestId = 'editor.action.inlineSuggest.snooze';
 const cancelSnoozeInlineSuggestId = 'editor.action.inlineSuggest.cancelSnooze';
 const LAST_SNOOZE_DURATION_KEY = 'inlineCompletions.lastSnoozeDuration';
+const MINUTES_TO_MS = 60_000;
 
 export class SnoozeInlineCompletion extends Action2 {
 	public static ID = snoozeInlineSuggestId;
