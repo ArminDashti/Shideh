@@ -1241,9 +1241,7 @@ abstract class BaseArchiveSessionAction extends Action2 {
 			: getFocusedSessionListTargets(accessor) ?? [];
 		const sessions = targets.filter(session => !session.isArchived.get());
 		const sessionsManagementService = accessor.get(ISessionsManagementService);
-		for (const session of sessions) {
-			await sessionsManagementService.archiveSession(session);
-		}
+		await sessionsManagementService.archiveSessions(sessions);
 	}
 }
 

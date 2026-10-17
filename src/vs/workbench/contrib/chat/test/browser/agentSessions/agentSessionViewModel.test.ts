@@ -2199,8 +2199,8 @@ suite('AgentSessions', () => {
 				// Archive the session (which also marks as read)
 				session.setArchived(true);
 
-				// Fires twice: once for setting read state, once for setting archived state
-				assert.strictEqual(changeEventCount, 2);
+				// Fires once: the read state change is coalesced with the archived state change
+				assert.strictEqual(changeEventCount, 1);
 			});
 		});
 

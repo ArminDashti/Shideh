@@ -78,6 +78,13 @@ export interface IAgentSessionsModel {
 	observeSession(resource: URI): IObservable<IAgentSession | undefined>;
 
 	resolve(provider: string | string[] | undefined): Promise<void>;
+
+	/**
+	 * Run a batch of session state changes. The `onDidChangeSessions`
+	 * event is suppressed during the callback and fires once after
+	 * it returns, only if at least one change was made.
+	 */
+	runBatch(fn: () => void): void;
 }
 
 interface IAgentSessionData extends Omit<IChatSessionItem, 'archived' | 'children' | 'iconPath' | 'isRead'> {
@@ -604,6 +611,9 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 	private readonly _onDidChangeSessionArchivedState = this._register(new Emitter<IAgentSession>());
 	readonly onDidChangeSessionArchivedState = this._onDidChangeSessionArchivedState.event;
 
+	private _batchDepth = 0;
+	private _pendingChangedEvent = false;
+
 	private _resolved = false;
 	get resolved(): boolean { return this._resolved; }
 
@@ -650,6 +660,27 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		this.loadMigratedReadResources();
 
 		this.registerListeners();
+	}
+
+	runBatch(fn: () => void): void {
+		this._batchDepth++;
+		try {
+			fn();
+		} finally {
+			this._batchDepth--;
+			if (this._batchDepth === 0 && this._pendingChangedEvent) {
+				this._pendingChangedEvent = false;
+				this._onDidChangeSessions.fire();
+			}
+		}
+	}
+
+	private fireSessionsChanged(): void {
+		if (this._batchDepth > 0) {
+			this._pendingChangedEvent = true;
+			return;
+		}
+		this._onDidChangeSessions.fire();
 	}
 
 	private registerListeners(): void {
@@ -1058,7 +1089,7 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 
 	private setArchived(session: IInternalAgentSessionData, archived: boolean): void {
 		if (archived) {
-			this.setRead(session, true); // mark as read when archiving
+			this.setRead(session, true, true /* skipEvent: setArchived fires its own event below */);
 		}
 
 		if (archived === this.isArchived(session)) {
@@ -1078,7 +1109,7 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 			this._onDidChangeSessionArchivedState.fire(agentSession);
 		}
 
-		this._onDidChangeSessions.fire();
+		this.fireSessionsChanged();
 	}
 
 	private controllerOwnsArchivedState(session: IInternalAgentSessionData): boolean {
@@ -1099,7 +1130,7 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		const state = this.resolveStateEntry(session) ?? {};
 		this.sessionStates.set(session.resource, { ...state, pinned });
 
-		this._onDidChangeSessions.fire();
+		this.fireSessionsChanged();
 	}
 
 	private isMarkedUnread(session: IInternalAgentSessionData): boolean {
