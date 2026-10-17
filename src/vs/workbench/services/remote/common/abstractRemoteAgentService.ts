@@ -7,7 +7,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IChannel, IServerChannel, getDelayedChannel, IPCLogger } from '../../../../base/parts/ipc/common/ipc.js';
 import { Client } from '../../../../base/parts/ipc/common/ipc.net.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
-import { connectRemoteAgentManagement, IConnectionOptions, ManagementPersistentConnection, PersistentConnectionEvent } from '../../../../platform/remote/common/remoteAgentConnection.js';
+import { connectRemoteAgentManagement, IConnectionOptions, ManagementPersistentConnection, PersistentConnection, PersistentConnectionEvent } from '../../../../platform/remote/common/remoteAgentConnection.js';
 import { IExtensionHostExitInfo, IRemoteAgentConnection, IRemoteAgentService } from './remoteAgentService.js';
 import { IRemoteAuthorityResolverService } from '../../../../platform/remote/common/remoteAuthorityResolver.js';
 import { RemoteAgentConnectionContext, IRemoteAgentEnvironment } from '../../../../platform/remote/common/remoteAgentEnvironment.js';
