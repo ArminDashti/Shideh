@@ -129,6 +129,16 @@ export class MainThreadCommentThread<T> implements languages.CommentThread<T> {
 		this._onDidChangeInitialCollapsibleState.fire(initialCollapsibleState);
 	}
 
+	private _initialCollapsibleState: languages.CommentThreadCollapsibleState | undefined;
+	get initialCollapsibleState() {
+		return this._initialCollapsibleState;
+	}
+
+	private set initialCollapsibleState(initialCollapsibleState: languages.CommentThreadCollapsibleState | undefined) {
+		this._initialCollapsibleState = initialCollapsibleState;
+		this._onDidChangeInitialCollapsibleState.fire(initialCollapsibleState);
+	}
+
 	private readonly _onDidChangeCollapsibleState = new Emitter<languages.CommentThreadCollapsibleState | undefined>();
 	public onDidChangeCollapsibleState = this._onDidChangeCollapsibleState.event;
 	private readonly _onDidChangeInitialCollapsibleState = new Emitter<languages.CommentThreadCollapsibleState | undefined>();
