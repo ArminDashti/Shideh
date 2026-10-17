@@ -169,6 +169,7 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 
 		this._register(dom.addDisposableGenericMouseUpListener(this.dragArea, (event: MouseEvent) => {
 			const mouseClickEvent = new StandardMouseEvent(dom.getWindow(this.dragArea), event);
+			const activeWindow = dom.getWindow(this.layoutService.activeContainer);
 			if (mouseClickEvent.detail === 2) {
 				// double click on debug bar centers it again #8250
 				this.setCoordinates(0.5, this.yDefault);
