@@ -814,6 +814,15 @@ const defaultServerProcessOperations: IServerProcessOperations = {
 	isSameProcessRunning: isSameWindowsProcessRunning,
 };
 
+async function getServerDescendants(pid: number): Promise<number[]> {
+	if (!isWindows) {
+		return [];
+	}
+	// Once the parent exits, taskkill /T can no longer discover its descendants.
+	const { getProcessList } = await import('@vscode/windows-process-tree');
+	return (await promisify(getProcessList)(pid)).filter(process => process.pid !== pid).map(process => process.pid);
+}
+
 /** Gracefully stop an Agent Host test server, killing it if shutdown stalls. */
 export async function stopServer(
 	server: IServerHandle | undefined,

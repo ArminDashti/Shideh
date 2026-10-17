@@ -1378,7 +1378,7 @@
 	display: block;
 }
 
-/* Shortcut sections only show toolbar on hover, not on focus */
+/* Shortcut sections (Automations) only show toolbar on hover, not on focus */
 .monaco-list-row.focused .session-section.session-section-shortcut .session-section-toolbar {
 	visibility: hidden;
 }
@@ -1457,10 +1457,8 @@
 	}
 
 	&.session-section-focus-from-pointer {
-		.monaco-list-row.session-list-section-row.focused,
-		.monaco-list-row.session-list-section-row.selected,
-		.monaco-list-row.session-list-shortcut-row.focused,
-		.monaco-list-row.session-list-shortcut-row.selected {
+		.monaco-list-row.focused:has(.session-section),
+		.monaco-list-row.selected:has(.session-section) {
 			outline: none !important;
 		}
 	}

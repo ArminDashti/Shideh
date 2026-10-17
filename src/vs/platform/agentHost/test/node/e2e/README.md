@@ -252,6 +252,8 @@ Directory removal follows awaited provider shutdown, not just the host's exit no
 
 The test-server grace period covers all three standalone shutdown phases (protocol drain, provider shutdown, and persistence flush) plus a two-second cleanup margin: 15.5 seconds locally, with a 30-second minimum on CI, Windows, and coverage runs. Its budget is derived from the same per-phase timeout used by the server.
 
+On Windows, test-server cleanup records descendants before requesting graceful shutdown and terminates any survivors after the server exits, before temporary directories are removed. Recording descendants and waiting for graceful exit share the existing shutdown deadline.
+
 - **Per-test** (always while recording) — fork a fresh server + proxy for every test and kill it in teardown. Full isolation: nothing carries over between tests. The cost is that every test re-pays the server fork **and** the provider SDK/CLI cold start (`_ensureClient` spawns and caches the CLI subprocess per server).
 
 - **Shared** (the default in replay, for every provider) — reuse a server + proxy across tests, swapping the per-test fixture and reconnecting a fresh client. The lease recycles after 25 model-backed tests or 40 total tests, whichever comes first. The model cap bounds provider-process load; the total cap bounds host-owned terminals, watchers, subscriptions, and other resource accumulation in host-only suites.
