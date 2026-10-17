@@ -30,6 +30,7 @@ suite('BrowserViewModel', () => {
 		const networkFilterService = disposables.add(new AgentNetworkFilterService(configService));
 		const browserViewService = upcastPartial<IBrowserViewService>({
 			destroyBrowserView: async () => { },
+			getNavigationState: async () => initialState,
 		});
 		const browserViewWorkbenchService = upcastPartial<IBrowserViewWorkbenchService>({
 			isSharingAvailable: true,
@@ -46,6 +47,7 @@ suite('BrowserViewModel', () => {
 			getEffectiveZoomIndex: () => browserZoomDefaultIndex,
 		});
 		const initialState: IBrowserViewState = {
+			navigationStateVersion: 0,
 			url: '',
 			title: '',
 			canGoBack: false,

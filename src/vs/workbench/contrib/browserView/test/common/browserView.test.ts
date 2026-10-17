@@ -113,6 +113,7 @@ suite('BrowserViewModel', () => {
 
 function createInitialState(storageScope: BrowserViewStorageScope, audiences: IBrowserViewAudience[]): IBrowserViewState {
 	return {
+		navigationStateVersion: 0,
 		url: 'https://blocked.example.com/',
 		title: '',
 		canGoBack: false,

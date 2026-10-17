@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { screen, WebContentsView, webContents } from 'electron';
+import electron, { type WebContentsView } from 'electron';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
@@ -43,6 +43,7 @@ export class BrowserView extends Disposable {
 
 	private _lastScreenshot: VSBuffer | undefined = undefined;
 	private _lastError: IBrowserViewLoadError | undefined = undefined;
+	private _navigationStateVersion = 0;
 	private _lastUserGestureTimestamp: number = -Infinity;
 	private _browserZoomIndex: number = browserZoomDefaultIndex;
 
@@ -132,6 +133,7 @@ export class BrowserView extends Disposable {
 		private readonly _createChildView: (owner: IBrowserViewOwner, url: string, electronOptions: Electron.WebContentsViewConstructorOptions | undefined, editorOptions: IBrowserViewEditorOpenOptions) => BrowserView,
 		openContextMenu: (view: BrowserView, params: Electron.ContextMenuParams) => void,
 		options: Electron.WebContentsViewConstructorOptions | undefined,
+		createWebContentsView: (options: Electron.WebContentsViewConstructorOptions) => WebContentsView = options => new electron.WebContentsView(options),
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
 		@ILogService private readonly logService: ILogService,
@@ -158,7 +160,7 @@ export class BrowserView extends Disposable {
 			focusOnNavigation: false
 		};
 
-		this._view = new WebContentsView({
+		this._view = createWebContentsView({
 			webPreferences,
 			// Passing an `undefined` webContents triggers an error in Electron.
 			...(options?.webContents ? { webContents: options.webContents } : {})
@@ -291,9 +293,14 @@ export class BrowserView extends Disposable {
 		});
 
 		// Favicon events
-		webContents.on('page-favicon-updated', async (_event, favicons) => {
-			// try each url in order until one works
-			for (const url of favicons) {
+		let lastEmittedFavicon: string | undefined;
+		let pendingNavigationFavicon: { favicon: string | undefined } | undefined;
+		const fireFaviconEvent = () => {
+			lastEmittedFavicon = this._lastFavicon;
+			this._onDidChangeFavicon.fire({ navigationStateVersion: ++this._navigationStateVersion, favicon: this._lastFavicon });
+		};
+		const faviconLoader = this._register(new BrowserFaviconLoader(
+			url => {
 				if (!this._faviconRequestCache.has(url)) {
 					this._faviconRequestCache.set(url, (async () => {
 						const response = await webContents.session.fetch(url, {
@@ -309,22 +316,37 @@ export class BrowserView extends Disposable {
 					})());
 				}
 
-				try {
-					this._lastFavicon = await this._faviconRequestCache.get(url)!;
-					this._onDidChangeFavicon.fire({ favicon: this._lastFavicon });
-					this._currentHistoryHandle?.update({ favicon: this._lastFavicon });
-					// On success, stop searching
+				return this._faviconRequestCache.get(url)!;
+			},
+			favicon => {
+				if (favicon === undefined && !this._lastFavicon) {
 					return;
-				} catch (e) {
-					// On failure, just try the next one
 				}
-			}
-
-			// If we searched all favicons and none worked, clear the favicon
-			if (this._lastFavicon) {
+				this._lastFavicon = favicon;
+				fireFaviconEvent();
+				if (!pendingNavigationFavicon) {
+					this._currentHistoryHandle?.update({ favicon: favicon ?? null });
+				}
+			},
+			this.logService,
+		));
+		webContents.on('page-favicon-updated', (_event, favicons) => {
+			void faviconLoader.load(favicons).catch(error => this.logService.warn('[BrowserView] Failed to update favicon.', error));
+		});
+		const resetFaviconForNavigation = (currentUrl: string, targetUrl: string) => {
+			// URL.parse (vs `new URL`) tolerates about:/blob:/empty strings without throwing.
+			if (URL.parse(targetUrl)?.host !== URL.parse(currentUrl)?.host) {
+				faviconLoader.invalidate();
 				this._lastFavicon = undefined;
-				this._onDidChangeFavicon.fire({ favicon: this._lastFavicon });
-				this._currentHistoryHandle?.update({ favicon: null });
+			}
+		};
+		let pendingNavigationUrl: string | undefined;
+		webContents.on('did-start-navigation', (_event, url, isInPlace, isMainFrame) => {
+			if (isMainFrame && !isInPlace && !this._shouldRedirectPinnedNavigation(url)) {
+				pendingNavigationFavicon ??= { favicon: this._lastFavicon };
+				resetFaviconForNavigation(webContents.getURL(), url);
+				faviconLoader.invalidate();
+				pendingNavigationUrl = url;
 			}
 		});
 		const refreshFavicon = () => {
@@ -346,13 +368,14 @@ export class BrowserView extends Disposable {
 
 		// Title events
 		webContents.on('page-title-updated', (_event, title) => {
-			this._onDidChangeTitle.fire({ title });
+			this._onDidChangeTitle.fire({ navigationStateVersion: ++this._navigationStateVersion, title });
 			this._currentHistoryHandle?.update({ title });
 		});
 
 		const fireNavigationEvent = (url: string, sameDocument = false) => {
 			this._favicon.commitNavigation(url, sameDocument);
 			this._onDidNavigate.fire({
+				navigationStateVersion: ++this._navigationStateVersion,
 				url,
 				title: webContents.getTitle(),
 				canGoBack: webContents.navigationHistory.canGoBack(),
@@ -367,7 +390,7 @@ export class BrowserView extends Disposable {
 		};
 
 		const fireLoadingEvent = (loading: boolean) => {
-			this._onDidChangeLoadingState.fire({ loading, error: this._lastError });
+			this._onDidChangeLoadingState.fire({ navigationStateVersion: ++this._navigationStateVersion, loading, error: this._lastError });
 		};
 
 		// Loading state events
@@ -401,6 +424,7 @@ export class BrowserView extends Disposable {
 
 				fireLoadingEvent(false);
 				this._onDidNavigate.fire({
+					navigationStateVersion: ++this._navigationStateVersion,
 					url: validatedURL,
 					title: '',
 					canGoBack: webContents.navigationHistory.canGoBack(),
@@ -437,7 +461,11 @@ export class BrowserView extends Disposable {
 		});
 
 		// Navigation events (when URL actually changes)
-		webContents.on('did-navigate', (_, url) => fireNavigationEvent(url));
+		webContents.on('did-navigate', (_, url) => {
+			pendingNavigationFavicon = undefined;
+			pendingNavigationUrl = undefined;
+			fireNavigationEvent(url);
+		});
 		webContents.on('did-navigate-in-page', (_, url, isMainFrame) => {
 			// Ignore subframe (iframe) navigations: they must not rewrite the
 			// main frame's URL bar or its history entry.
@@ -613,7 +641,7 @@ export class BrowserView extends Disposable {
 	/**
 	 * Record a committed navigation in the session's history.
 	 */
-	private _recordNavigation(url: string): void {
+	private _recordNavigation(url: string, favicon: string | undefined): void {
 		const webContents = this._view.webContents;
 		const activeIndex = webContents.navigationHistory.getActiveIndex();
 
@@ -664,6 +692,7 @@ export class BrowserView extends Disposable {
 		const url = webContents.getURL();
 
 		return {
+			navigationStateVersion: this._navigationStateVersion,
 			url,
 			title: webContents.getTitle(),
 			canGoBack: webContents.navigationHistory.canGoBack(),
@@ -814,8 +843,12 @@ export class BrowserView extends Disposable {
 		await this._view.webContents.loadURL(url);
 	}
 
+	private _shouldRedirectPinnedNavigation(url: string): boolean {
+		return !!this.associatedResource && !isBrowserViewAssociatedResourceNavigation(this.associatedResource, url);
+	}
+
 	private _redirectPinnedNavigation(url: string): boolean {
-		if (!this.associatedResource || isBrowserViewAssociatedResourceNavigation(this.associatedResource, url)) {
+		if (!this._shouldRedirectPinnedNavigation(url)) {
 			return false;
 		}
 
@@ -960,7 +993,7 @@ export class BrowserView extends Disposable {
 		// while the page is paused at a breakpoint. Fall back to the primary display if no host
 		// window can be resolved (e.g. during teardown).
 		const hostWindow = this._hostWindow;
-		const display = hostWindow ? screen.getDisplayMatching(hostWindow.getBounds()) : screen.getPrimaryDisplay();
+		const display = hostWindow ? electron.screen.getDisplayMatching(hostWindow.getBounds()) : electron.screen.getPrimaryDisplay();
 		const devicePixelRatio = display.scaleFactor;
 		const maxClipDimension = BrowserView.MAX_FULL_PAGE_SCREENSHOT_DIMENSION / Math.max(devicePixelRatio, 1);
 		const scale = Math.min(1, maxClipDimension / Math.max(clipWidth, clipHeight));
@@ -1235,7 +1268,7 @@ export class BrowserView extends Disposable {
 			return undefined;
 		}
 
-		const contents = webContents.fromId(windowId);
+		const contents = electron.webContents.fromId(windowId);
 		if (!contents) {
 			return undefined;
 		}

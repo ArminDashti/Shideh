@@ -526,6 +526,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	private _elementSelectionState: IBrowserElementSelectionState = { active: false, options: {} };
 	private _isAreaSelectionActive: boolean = false;
 	private _device: IBrowserDeviceProfile | undefined;
+	private readonly _navigationStateVersions: { navigation: number; title: number; loading: number; favicon: number };
 
 	readonly history = this._register(new BrowserHistoryStore());
 	readonly permissions = this._register(new BrowserPermissionStore());
@@ -594,6 +595,12 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	) {
 		super();
 		this._owner = owner;
+		this._navigationStateVersions = {
+			navigation: initialState.navigationStateVersion,
+			title: initialState.navigationStateVersion,
+			loading: initialState.navigationStateVersion,
+			favicon: initialState.navigationStateVersion,
+		};
 
 		// Initialize state
 		this._url = initialState.url;
