@@ -96,6 +96,7 @@ export class OneSnippet {
 		}
 
 		this._initDecorations();
+		const model = this._editor.getModel();
 
 		const model = this._editor.getModel();
 
