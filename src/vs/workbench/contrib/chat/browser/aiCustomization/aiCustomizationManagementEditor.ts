@@ -5147,7 +5147,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 	}
 
 	private isStructuredPreviewSupported(promptType: PromptsType | undefined): boolean {
-		if (this.configurationService.getValue<boolean>(ChatConfiguration.ChatCustomizationsStructuredPreviewEnabled) !== true) {
+		if (this.configurationService.getValue<boolean>(ChatConfiguration.ChatCustomizationsMarkdownPreviewEnabled) === false) {
 			return false;
 		}
 		return promptType === PromptsType.agent
@@ -5156,7 +5156,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 			|| promptType === PromptsType.prompt;
 	}
 
-	private onStructuredPreviewSettingChanged(): void {
+	private onMarkdownPreviewSettingChanged(): void {
 		if (this.viewMode !== 'editor') {
 			return;
 		}
@@ -5257,7 +5257,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		}
 
 		if (this.editorDisplayMode === 'raw') {
-			return localize('editorPreviewButtonTooltip', "Show structured preview");
+			return localize('editorPreviewButtonTooltip', "Show rendered preview");
 		}
 
 		return this.canEditCurrentRaw()
@@ -5432,52 +5432,16 @@ export class AICustomizationManagementEditor extends EditorPane {
 			return !this.currentCustomizationDetail;
 		}
 
-		const markdown = new MarkdownString(bodyContent, { supportThemeIcons: true });
-		markdown.baseUri = parsedPromptFile.uri;
+		const markdown = new MarkdownString(previewSource, { supportThemeIcons: true });
+		markdown.baseUri = uri;
 		const renderedMarkdown = this.editorPreviewDisposables.add(this.markdownRendererService.render(markdown));
 		this.editorPreviewBodyContainer.appendChild(renderedMarkdown.element);
 		return true;
 	}
 
-	private stringifyPreviewValue(value: IValue): string {
-		switch (value.type) {
-			case 'scalar':
-				return value.value;
-			case 'sequence':
-				if (value.items.every(item => item.type === 'scalar')) {
-					return value.items.map(item => item.value).join('\n');
-				}
-				return JSON.stringify(this.toPreviewObject(value), null, 2);
-			case 'map':
-				return JSON.stringify(this.toPreviewObject(value), null, 2);
-		}
-	}
-
-	private toPreviewObject(value: IValue): unknown {
-		switch (value.type) {
-			case 'scalar':
-				return value.value;
-			case 'sequence':
-				return value.items.map(item => this.toPreviewObject(item));
-			case 'map': {
-				const entries: Record<string, unknown> = {};
-				for (const property of value.properties) {
-					entries[property.key.value] = this.toPreviewObject(property.value);
-				}
-				return entries;
-			}
-		}
-	}
-
 	private clearEditorPreview(): void {
 		this.editorPreviewRenderScheduler.cancel();
 		this.editorPreviewDisposables.clear();
-		if (this.editorPreviewIssuesContainer) {
-			DOM.clearNode(this.editorPreviewIssuesContainer);
-		}
-		if (this.editorPreviewFrontMatterContainer) {
-			DOM.clearNode(this.editorPreviewFrontMatterContainer);
-		}
 		if (this.editorPreviewBodyContainer) {
 			DOM.clearNode(this.editorPreviewBodyContainer);
 		}
@@ -6035,4 +5999,45 @@ export class AICustomizationManagementEditor extends EditorPane {
 	}
 
 	//#endregion
+}
+
+/**
+ * Builds the markdown source used to preview a customization file. Front matter
+ * (when present and well-formed) is preserved by wrapping it in a fenced
+ * `yaml` code block. The fence length is chosen dynamically so that backticks
+ * inside YAML values do not terminate the block early.
+ *
+ * Exported for unit testing.
+ */
+export function buildCustomizationPreviewMarkdown(rawContent: string): string {
+	const parsed = parseFrontMatter(rawContent);
+	// `parsed.body === rawContent` means parseFrontMatter found no usable front
+	// matter (no opening `---`, or no closing `---`), so render the file as-is.
+	if (!parsed || parsed.body === rawContent) {
+		return rawContent;
+	}
+
+	// parseFrontMatter returns the body string starting at the first byte after
+	// the closing `---` marker. The remainder of the input (front-matter
+	// delimiters included) is the original front-matter section.
+	const headerSection = rawContent.slice(0, rawContent.length - parsed.body.length);
+	const yamlOnly = headerSection
+		.replace(/^---\r?\n/, '')
+		.replace(/\r?\n---\r?\n?$/, '')
+		.replace(/^---$/, '');
+	const body = parsed.body.replace(/^\r?\n+/, '');
+	const fenceLength = Math.max(3, longestBacktickRun(yamlOnly) + 1);
+	const fence = '`'.repeat(fenceLength);
+	return `${fence}yaml\n${yamlOnly}\n${fence}\n\n${body}`;
+}
+
+function longestBacktickRun(text: string): number {
+	let longest = 0;
+	const matches = text.matchAll(/`+/g);
+	for (const match of matches) {
+		if (match[0].length > longest) {
+			longest = match[0].length;
+		}
+	}
+	return longest;
 }

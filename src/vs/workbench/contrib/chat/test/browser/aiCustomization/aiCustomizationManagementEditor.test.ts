@@ -1074,7 +1074,7 @@ suite('aiCustomizationManagementEditor', () => {
 
 	test('hides preview button when structured preview setting is disabled', () => {
 		const editor = createTestEditor(undefined, createConfigurationServiceStub({
-			[ChatConfiguration.ChatCustomizationsStructuredPreviewEnabled]: false,
+			[ChatConfiguration.ChatCustomizationsMarkdownPreviewEnabled]: false,
 		}));
 		editor.currentEditingPromptType = PromptsType.agent;
 		editor.currentEditingSource = AICustomizationSources.builtin;
