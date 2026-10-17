@@ -1478,6 +1478,9 @@ export interface IAgent {
 	/** Lets discovery drop registered candidates before per-session I/O. */
 	setKnownSessionsFilter?(filter: IAgentKnownSessionsFilter): void;
 
+	/** Starts the provider's memoized native chat discovery pass. */
+	startChatDiscovery?(): Promise<void>;
+
 	/** Lets discovery drop registered candidates before per-session I/O. */
 	setKnownSessionsFilter?(filter: IAgentKnownSessionsFilter): void;
 

@@ -91,9 +91,13 @@ export class AgentHostAutomationStore extends Disposable implements ISessionsPro
 	) {
 		super();
 		this._archiveKey = `agentHostAutomation.legacyRunArchive.${_providerId}`;
-		this._archivedRuns = observableValue<readonly IAutomationRun[]>(this, this._loadArchivedRuns());
+		const archive = this._loadArchivedRuns();
+		this._archivedRuns = observableValue<readonly IAutomationRun[]>(this, archive.runs);
+		this._persistRepairedArchivedRuns(archive);
 		this._register(this._storageService.onDidChangeValue(StorageScope.APPLICATION, this._archiveKey, this._store)(() => {
-			this._archivedRuns.set(this._loadArchivedRuns(), undefined);
+			const archive = this._loadArchivedRuns();
+			this._archivedRuns.set(archive.runs, undefined);
+			this._persistRepairedArchivedRuns(archive);
 		}));
 		this._catalogReference = this._register(_connection.getSubscription(
 			StateComponents.AutomationCatalog,
@@ -678,16 +682,16 @@ export class AgentHostAutomationStore extends Disposable implements ISessionsPro
 	private _loadArchivedRuns(): readonly IAutomationRun[] {
 		const raw = this._storageService.get(this._archiveKey, StorageScope.APPLICATION);
 		if (!raw) {
-			return [];
+			return { runs: [], repairedRuns: 0 };
 		}
 		const parsed = parseArchivedRuns(raw);
 		if (parsed.kind === 'unsupported') {
 			this._logService.error(`[AgentHostAutomationStore] Ignoring legacy run archive with unsupported version: key=${this._archiveKey}, version=${parsed.version}.`);
-			return [];
+			return { runs: [], repairedRuns: 0 };
 		}
 		if (parsed.kind === 'invalid') {
 			this._logService.error(`[AgentHostAutomationStore] Ignoring invalid legacy run archive: key=${this._archiveKey}, error=${parsed.error}.`);
-			return [];
+			return { runs: [], repairedRuns: 0 };
 		}
 		if (parsed.droppedRuns > 0) {
 			this._logService.warn(`[AgentHostAutomationStore] Dropped ${parsed.droppedRuns} malformed run(s) from legacy run archive: key=${this._archiveKey}.`);
