@@ -28,6 +28,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ContentWidgetPositionPreference, ICodeEditor, IContentWidget, IContentWidgetPosition, IContentWidgetRenderedCoordinate, IEditorMouseEvent, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
+import { IDimension } from '../../../../editor/common/core/dimension.js';
 import { overviewRulerError, overviewRulerInfo } from '../../../../editor/common/core/editorColorRegistry.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { IRange } from '../../../../editor/common/core/range.js';
@@ -209,7 +210,7 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 				return;
 			}
 
-			const currentDecorations = this.syncDecorations(testingDecorations.currentUri);
+			const currentDecorations = this.syncDecorations(context.editor, testingDecorations.currentUri);
 			if (!currentDecorations.size) {
 				return;
 			}
@@ -234,7 +235,7 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 	}
 
 	/** @inheritdoc */
-	public syncDecorations(resource: URI): CachedDecorations {
+	public syncDecorations(editor: ICodeEditor | undefined, resource: URI): CachedDecorations {
 		const model = this.modelService.getModel(resource);
 		if (!model) {
 			return new CachedDecorations();
@@ -245,7 +246,7 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 			return cached.value;
 		}
 
-		return this.applyDecorations(model);
+		return this.applyDecorations(editor, model);
 	}
 
 	/** @inheritdoc */
@@ -255,7 +256,7 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 			return undefined;
 		}
 
-		const decoration = Iterable.find(this.syncDecorations(resource), v => v instanceof RunTestDecoration && v.isForTest(testId));
+		const decoration = Iterable.find(this.syncDecorations(undefined, resource), v => v instanceof RunTestDecoration && v.isForTest(testId));
 		if (!decoration) {
 			return undefined;
 		}
@@ -295,7 +296,7 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 	/**
 	 * Applies the current set of test decorations to the given text model.
 	 */
-	private applyDecorations(model: ITextModel) {
+	private applyDecorations(editor: ICodeEditor | undefined, model: ITextModel) {
 		const gutterEnabled = getTestingConfiguration(this.configurationService, TestingConfigKeys.GutterEnabled);
 		const cached = this.decorationCache.get(model.uri);
 		const testRangesUpdated = cached?.rangeUpdateVersionId === model.getVersionId();
@@ -365,6 +366,16 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 			return newDecorations;
 		});
 
+		if (newDecorations) {
+			if (editor) {
+				this.applyContentWidgets(editor, uriStr, lastDecorations, newDecorations);
+			} else {
+				for (const decoration of lastDecorations.getErrors()) { // preserve older widgets
+					newDecorations.addError(decoration);
+				}
+			}
+		}
+
 		return newDecorations || lastDecorations;
 	}
 }
@@ -412,7 +423,7 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 		this.attachModel(editor.getModel()?.uri);
 		this._register(decorations.onDidChange(() => {
 			if (this._currentUri) {
-				decorations.syncDecorations(this._currentUri);
+				decorations.syncDecorations(editor, this._currentUri);
 			}
 		}));
 
@@ -467,7 +478,7 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 					return;
 				}
 
-				const cache = decorations.syncDecorations(this.currentUri);
+				const cache = decorations.syncDecorations(editor, this.currentUri);
 				for (const { id } of modelDecorations) {
 					if ((cache.getById(id) as ITestDecoration | undefined)?.click(e)) {
 						e.event.stopPropagation();
@@ -539,7 +550,7 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 			return;
 		}
 
-		this.decorations.syncDecorations(uri);
+		this.decorations.syncDecorations(this.editor, uri);
 
 		(async () => {
 			for await (const _tests of testsInFile(this.testService, this.uriIdentityService, uri, false)) {
