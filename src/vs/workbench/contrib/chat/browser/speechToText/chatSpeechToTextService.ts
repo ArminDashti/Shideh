@@ -304,6 +304,15 @@ export interface IChatSpeechToTextService {
 	readonly currentSurface: ChatDictationSurface;
 
 	/**
+	 * The surface the current (or most-recent) dictation session runs in. The
+	 * service is a singleton shared across the chat input, editor, and terminal,
+	 * so its state alone cannot tell those surfaces apart. Chat-side affordances
+	 * (e.g. the mic glow) read this to stay dark while dictation is running in
+	 * the editor or terminal rather than in the chat input.
+	 */
+	readonly sessionSurface: ChatDictationSurface;
+
+	/**
 	 * Fires with the cumulative transcript while recording, so callers can
 	 * render dictation live as the user speaks. The value grows monotonically
 	 * (finalized utterances plus any in-progress delta), and carries the
@@ -880,7 +889,9 @@ export class ChatSpeechToTextService extends Disposable implements IChatSpeechTo
 			return;
 		}
 
-		this._mediaStream = stream;
+			if (this._configurationService.getValue<boolean>(ENABLED_SETTING) === false) {
+				return;
+			}
 
 		try {
 			await this._startBackendSession(captureWindow, generation);

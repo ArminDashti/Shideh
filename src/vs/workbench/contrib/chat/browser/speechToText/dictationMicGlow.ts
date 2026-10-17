@@ -20,9 +20,14 @@ import { ChatSpeechToTextState, IChatSpeechToTextService, isDictationActiveOnSur
 
 export type DictationMicGlowPhase = 'off' | 'live' | 'settling';
 
-/** `off` while preparing too, so the glow doesn't compete with the download ring. */
-export function getDictationMicGlowPhase(state: ChatSpeechToTextState, isPreparingModel: boolean): DictationMicGlowPhase {
-	if (isPreparingModel || state === ChatSpeechToTextState.Idle) {
+/**
+ * The mic glow belongs to the chat input, but the speech-to-text service is a
+ * singleton shared with editor and terminal dictation. `off` for any non-chat
+ * surface keeps the chat mic dark while dictation runs elsewhere, and `off`
+ * while preparing too, so the glow doesn't compete with the download ring.
+ */
+export function getDictationMicGlowPhase(state: ChatSpeechToTextState, isPreparingModel: boolean, surface: ChatDictationSurface = 'chat'): DictationMicGlowPhase {
+	if (surface !== 'chat' || isPreparingModel || state === ChatSpeechToTextState.Idle) {
 		return 'off';
 	}
 	return state === ChatSpeechToTextState.Recording ? 'live' : 'settling';
