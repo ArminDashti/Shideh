@@ -9,6 +9,7 @@ import { localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IListService } from '../../../../platform/list/browser/listService.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Menus } from '../../../browser/menus.js';
 import { SessionHasPullRequestContext } from '../../../common/contextkeys.js';
