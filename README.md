@@ -19,7 +19,7 @@ asdfadsifjadslkfjhaksd;fhjkladshfkjlsahfljkdsahfjadklshflsjadk
 
 Visual Studio Code is updated monthly with new features and bug fixes. You can download it for Windows, macOS, and Linux on the [Visual Studio Code website](https://code.visualstudio.com/Download). To get the latest releases every day, install the [Insiders build](https://code.visualstudio.com/insiders).
 
-## Contributing
+## 🤝 Contributing
 
 There are many ways in which you can participate in this project. For example:
 
@@ -29,14 +29,14 @@ There are many ways in which you can participate in this project. For example:
 
 If you are interested in fixing issues and contributing directly to the codebase, please see the document [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute), which covers the following:
 
-* [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-* [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
-* [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
-* [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
-* [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
-* [Contributing to translations](https://aka.ms/vscodeloc)
+* 🔨 [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
+* 🐞 [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
+* 📝 [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
+* 🔄 [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
+* 🔍 [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
+* 🌐 [Contributing to translations](https://aka.ms/vscodeloc)
 
-## Feedback
+## 💬 Feedback
 
 * Ask a question on [Stack Overflow](https://stackoverflow.com/questions/tagged/vscode)
 * [Request a new feature](CONTRIBUTING.md)
@@ -47,15 +47,15 @@ If you are interested in fixing issues and contributing directly to the codebase
 
 See our [wiki](https://github.com/microsoft/vscode/wiki/Feedback-Channels) for a description of each of these channels and information on some other available community-driven channels.
 
-## Related Projects
+## 🔗 Related Projects
 
 Many of the core components and extensions to VS Code live in their own repositories on GitHub. For example, the [Node debug adapter](https://github.com/microsoft/vscode-node-debug) and the [mono debug adapter](https://github.com/microsoft/vscode-mono-debug) repositories are separate from each other. For a complete list, please visit the [Related Projects](https://github.com/microsoft/vscode/wiki/Related-Projects) page on our [wiki](https://github.com/microsoft/vscode/wiki).
 
-## Bundled Extensions
+## 📦 Bundled Extensions
 
 VS Code includes a set of built-in extensions located in the [extensions](extensions) folder, including grammars and snippets for many languages. Extensions that provide rich language support (inline suggestions, Go to Definition) for a language have the suffix `language-features`. For example, the `json` extension provides coloring for `JSON` and the `json-language-features` extension provides rich language support for `JSON`.
 
-## Development Container
+## 🐳 Development Container
 
 This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces development container.
 
@@ -66,7 +66,7 @@ This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces
 
 Docker / the Codespace should have at least **4 cores and 6 GB of RAM (8 GB recommended)** to run a full build. See the [development container README](.devcontainer/README.md) for more information.
 
-## Code of Conduct
+## 📋 Code of Conduct
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
@@ -80,7 +80,7 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
  > ^ <
 ```
 
-## License
+## 📄 License
 
 Copyright (c) Microsoft Corporation. All rights reserved.
 
