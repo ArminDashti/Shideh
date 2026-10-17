@@ -653,7 +653,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 					transcriptOverlayNode.style.display = '';
 					transcriptOverlayNode.classList.remove('has-transcript');
 					transcriptOverlay.replaceChildren();
-					const hint = $('span.partial');
+					const hint = $('span.hint');
 					switch (simVersion) {
 						case 'handsFree':
 							hint.textContent = localize('voiceMode.simHint.handsFree', "Hands-free \u2014 just start talking");
@@ -769,7 +769,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 					transcriptOverlayNode.style.display = '';
 					transcriptOverlayNode.classList.remove('has-transcript');
 					transcriptOverlay.replaceChildren();
-					const hint = $('span.partial');
+					const hint = $('span.hint');
 					const kb = this.keybindingService.lookupKeybinding('workbench.action.chat.voiceInputMode.holdToTalk')
 						?? this.keybindingService.lookupKeybinding('agentsVoice.pushToTalk');
 					const kbLabel = kb?.getLabel();
@@ -782,7 +782,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 					transcriptOverlayNode.style.display = '';
 					transcriptOverlayNode.classList.remove('has-transcript');
 					transcriptOverlay.replaceChildren();
-					const hint = $('span.partial');
+					const hint = $('span.hint');
 					const kb = this.keybindingService.lookupKeybinding('agentsVoice.pushToTalk');
 					const kbLabel = kb?.getLabel();
 					hint.textContent = kbLabel
