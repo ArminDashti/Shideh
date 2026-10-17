@@ -114,4 +114,9 @@ export class CustomEndpointTelemetryService extends Disposable implements ICusto
 		const customTelemetryService = this.getCustomTelemetryService(telemetryEndpoint);
 		customTelemetryService.publicLogError(errorEventName, data);
 	}
+
+	override dispose(): void {
+		super.dispose();
+		this.customTelemetryServices.clear();
+	}
 }

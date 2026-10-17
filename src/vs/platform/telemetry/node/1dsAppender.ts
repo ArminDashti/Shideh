@@ -43,8 +43,12 @@ async function makeTelemetryRequest(options: IRequestOptions, requestService: IR
  * @param options The options which will be used to make the request
  * @returns An object containing the headers, statusCode, and responseData
  */
-async function makeLegacyTelemetryRequest(options: IRequestOptions): Promise<IResponseData> {
+async function makeLegacyTelemetryRequest(options: IRequestOptions, isTransmissionPaused: () => boolean): Promise<IResponseData> {
 	const https = await import('https'); // Lazy due to https://github.com/nodejs/node/issues/59686
+	if (isTransmissionPaused()) {
+		throw new CancellationError();
+	}
+
 	const httpsOptions = {
 		method: options.type,
 		headers: options.headers
@@ -73,7 +77,12 @@ async function makeLegacyTelemetryRequest(options: IRequestOptions): Promise<IRe
 	return responsePromise;
 }
 
-async function sendPostAsync(requestService: IRequestService | undefined, payload: IPayloadData, oncomplete: OnCompleteFunc) {
+async function sendPostAsync(requestService: IRequestService | undefined, payload: IPayloadData, oncomplete: OnCompleteFunc, isTransmissionPaused: () => boolean) {
+	if (isTransmissionPaused()) {
+		oncomplete(0, {});
+		return;
+	}
+
 	const telemetryRequestData = typeof payload.data === 'string' ? payload.data : new TextDecoder().decode(payload.data);
 	const requestOptions: IRequestOptions = {
 		type: 'POST',
@@ -88,7 +97,7 @@ async function sendPostAsync(requestService: IRequestService | undefined, payloa
 	};
 
 	try {
-		const responseData = requestService ? await makeTelemetryRequest(requestOptions, requestService) : await makeLegacyTelemetryRequest(requestOptions);
+		const responseData = requestService ? await makeTelemetryRequest(requestOptions, requestService) : await makeLegacyTelemetryRequest(requestOptions, isTransmissionPaused);
 		oncomplete(responseData.statusCode, responseData.headers, responseData.responseData);
 	} catch {
 		// If it errors out, send status of 0 and a blank response to oncomplete so we can retry events
@@ -114,7 +123,7 @@ export class OneDataSystemAppender extends AbstractOneDataSystemAppender {
 		const customHttpXHROverride: IXHROverride = {
 			sendPOST: (payload: IPayloadData, oncomplete: OnCompleteFunc) => {
 				// Fire off the async request without awaiting it
-				sendPostAsync(requestService, payload, oncomplete);
+				void sendPostAsync(requestService, payload, oncomplete, () => this.isTransmissionPaused);
 			}
 		};
 

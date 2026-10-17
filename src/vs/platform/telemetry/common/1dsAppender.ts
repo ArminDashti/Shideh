@@ -44,7 +44,7 @@ export function applyEnvelopeDefaults(envelope: ITelemetryItem, isInternalMachin
 	}
 }
 
-async function getClient(instrumentationKey: string, addInternalFlag?: boolean, xhrOverride?: IXHROverride): Promise<IAppInsightsCore> {
+async function getClient(instrumentationKey: string, addInternalFlag?: boolean, xhrOverride?: IXHROverride): Promise<IAppInsightsClient> {
 	// eslint-disable-next-line local/code-amd-node-module
 	const oneDs = isWeb ? await importAMDNodeModule<typeof import('@microsoft/1ds-core-js')>('@microsoft/1ds-core-js', 'bundle/ms.core.min.js') : await import('@microsoft/1ds-core-js');
 	// eslint-disable-next-line local/code-amd-node-module
@@ -165,7 +165,7 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 	}
 
 	log(eventName: string, data?: unknown): void {
-		if (!this._aiCoreOrKey) {
+		if (!this._aiCoreOrKey || this.isTransmissionPaused) {
 			return;
 		}
 		data = mixin(data, this._defaultData);
@@ -174,6 +174,10 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 
 		try {
 			this._withAIClient((aiClient) => {
+				if (this.isTransmissionPaused) {
+					return;
+				}
+
 				aiClient.pluginVersionString = validatedData?.properties.version ?? 'Unknown';
 				aiClient.track({
 					name,
@@ -192,6 +196,11 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 
 			return new Promise(resolve => {
 				this._withAIClient((aiClient) => {
+					if (this.isTransmissionPaused) {
+						resolve();
+						return;
+					}
+
 					aiClient.unload(true, () => {
 						this._aiCoreOrKey = undefined;
 						this._transmissionController = undefined;
