@@ -620,6 +620,21 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	 */
 	refreshActiveGroup(): void;
 
+	/**
+	 * Gets the current terminal and task state for debugging and monitoring purposes
+	 */
+	getTerminalAndTaskState(): ITerminalAndTaskState;
+
+	/**
+	 * Gets terminals created by a specific source
+	 */
+	getTerminalsBySource(source: string): ITerminalAndTaskStateEntry[];
+
+	/**
+	 * Gets a summary of terminals by their sources for debugging purposes
+	 */
+	getTerminalSourceSummary(): Record<string, number>;
+
 	registerProcessSupport(isSupported: boolean): void;
 
 	showProfileQuickPick(type: 'setDefault' | 'createInstance', cwd?: string | URI): Promise<ITerminalInstance | undefined>;
@@ -770,6 +785,11 @@ export interface ICreateTerminalOptions {
 	 * when the workbench is not yet loaded.
 	 */
 	skipContributedProfileCheck?: boolean;
+
+	/**
+	 * The source that created this terminal (e.g., 'user', 'github.copilot.terminalPanel', 'task', 'extension')
+	 */
+	source?: string;
 }
 
 export interface TerminalEditorLocation {

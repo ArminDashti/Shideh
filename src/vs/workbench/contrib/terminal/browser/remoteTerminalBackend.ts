@@ -325,6 +325,22 @@ class RemoteTerminalBackend extends BaseTerminalBackend implements ITerminalBack
 		return this._remoteTerminalChannel.setTerminalLayoutInfo(layout);
 	}
 
+	async setTerminalAndTaskState(state?: ITerminalAndTaskState): Promise<void> {
+		if (!this._remoteTerminalChannel) {
+			throw new Error(`Cannot call setTerminalAndTaskState when there is no remote`);
+		}
+
+		return this._remoteTerminalChannel.setTerminalAndTaskState(state);
+	}
+
+	async getTerminalAndTaskState(): Promise<ITerminalAndTaskState | undefined> {
+		if (!this._remoteTerminalChannel) {
+			throw new Error(`Cannot call getTerminalAndTaskState when there is no remote`);
+		}
+
+		return this._remoteTerminalChannel.getTerminalAndTaskState();
+	}
+
 	async reduceConnectionGraceTime(): Promise<void> {
 		if (!this._remoteTerminalChannel) {
 			throw new Error('Cannot reduce grace time when there is no remote');

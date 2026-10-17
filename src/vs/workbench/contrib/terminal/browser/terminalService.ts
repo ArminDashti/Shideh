@@ -291,6 +291,9 @@ export class TerminalService extends Disposable implements ITerminalService {
 		const isPersistentRemote = !!this._environmentService.remoteAuthority && enableTerminalReconnection;
 
 		if (this._primaryBackend) {
+			// Load the existing terminal and task state
+			this._loadTerminalAndTaskState();
+			
 			this._register(this._primaryBackend.onDidRequestDetach(async (e) => {
 				const instanceToDetach = this.getInstanceFromResource(getTerminalUri(e.workspaceId, e.instanceId));
 				if (instanceToDetach) {
@@ -736,6 +739,79 @@ export class TerminalService extends Disposable implements ITerminalService {
 		const tabs = this._terminalGroupService.groups.map(g => g.getLayoutInfo(g === this._terminalGroupService.activeGroup));
 		const state: ITerminalsLayoutInfoById = { tabs, background: this._backgroundedTerminalInstances.map(bg => bg.instance).filter(i => i.shellLaunchConfig.forcePersist).map(i => i.persistentProcessId).filter((e): e is number => e !== undefined) };
 		this._primaryBackend?.setTerminalLayoutInfo(state);
+
+		// Also save the terminal and task state
+		this._saveTerminalAndTaskState();
+	}
+
+	/**
+	 * Saves the current terminal and task state, tracking all terminals regardless of their source.
+	 * This includes user-created terminals, Copilot agent terminals, task terminals, 
+	 * extension terminals, and feature terminals.
+	 */
+	@debounce(500)
+	private _saveTerminalAndTaskState(): void {
+		if (this._isShuttingDown) {
+			return;
+		}
+		if (!this._terminalConfigurationService.config.enablePersistentSessions) {
+			return;
+		}
+
+		// Track all terminals, regardless of source
+		const terminals: ITerminalAndTaskStateEntry[] = this.instances.map(instance => ({
+			id: instance.instanceId,
+			source: instance.shellLaunchConfig.source || 'user',
+			type: instance.shellLaunchConfig.type,
+			isFeatureTerminal: instance.shellLaunchConfig.isFeatureTerminal,
+			isExtensionOwnedTerminal: instance.shellLaunchConfig.isExtensionOwnedTerminal,
+			name: instance.title,
+			createdAt: Date.now()
+		}));
+
+		this._terminalAndTaskState = { terminals };
+		this._primaryBackend?.setTerminalAndTaskState(this._terminalAndTaskState);
+	}
+
+	private async _loadTerminalAndTaskState(): Promise<void> {
+		if (!this._primaryBackend) {
+			return;
+		}
+		try {
+			const state = await this._primaryBackend.getTerminalAndTaskState();
+			if (state) {
+				this._terminalAndTaskState = state;
+				this._logService.debug('Loaded terminal and task state', state);
+			}
+		} catch (error) {
+			this._logService.warn('Failed to load terminal and task state', error);
+		}
+	}
+
+	/**
+	 * Gets the current terminal and task state for debugging and monitoring purposes
+	 */
+	public getTerminalAndTaskState(): ITerminalAndTaskState {
+		return this._terminalAndTaskState;
+	}
+
+	/**
+	 * Gets terminals created by a specific source
+	 */
+	public getTerminalsBySource(source: string): ITerminalAndTaskStateEntry[] {
+		return this._terminalAndTaskState.terminals.filter(t => t.source === source);
+	}
+
+	/**
+	 * Gets a summary of terminals by their sources for debugging purposes
+	 */
+	public getTerminalSourceSummary(): Record<string, number> {
+		const summary: Record<string, number> = {};
+		for (const terminal of this._terminalAndTaskState.terminals) {
+			const source = terminal.source || 'unknown';
+			summary[source] = (summary[source] || 0) + 1;
+		}
+		return summary;
 	}
 
 	@debounce(500)

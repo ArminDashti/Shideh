@@ -100,4 +100,6 @@ export const enum RemoteTerminalChannelRequest {
 	AcceptDetachInstanceReply = '$acceptDetachInstanceReply',
 	AcceptDetachedInstance = '$acceptDetachedInstance',
 	FreePortKillProcess = '$freePortKillProcess',
+	SetTerminalAndTaskState = '$setTerminalAndTaskState',
+	GetTerminalAndTaskState = '$getTerminalAndTaskState',
 }

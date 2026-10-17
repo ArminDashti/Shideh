@@ -288,6 +288,14 @@ export class RemoteTerminalChannelClient implements IPtyHostController {
 		return this._channel.call<void>(RemoteTerminalChannelRequest.SetTerminalLayoutInfo, args);
 	}
 
+	setTerminalAndTaskState(state?: ITerminalAndTaskState): Promise<void> {
+		return this._channel.call<void>(RemoteTerminalChannelRequest.SetTerminalAndTaskState, state);
+	}
+
+	getTerminalAndTaskState(): Promise<ITerminalAndTaskState | undefined> {
+		return this._channel.call<ITerminalAndTaskState | undefined>(RemoteTerminalChannelRequest.GetTerminalAndTaskState);
+	}
+
 	updateTitle(id: number, title: string, titleSource: TitleEventSource): Promise<string> {
 		return this._channel.call(RemoteTerminalChannelRequest.UpdateTitle, [id, title, titleSource]);
 	}
