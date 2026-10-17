@@ -220,6 +220,7 @@ export interface IPtyHostAttachTarget {
 	waitOnExit?: WaitOnExitValue;
 	hideFromUser?: boolean;
 	isFeatureTerminal?: boolean;
+	isExtensionOwnedTerminal?: boolean;
 	type?: TerminalType;
 	hasChildProcesses: boolean;
 	shellIntegrationNonce: string;
@@ -277,6 +278,7 @@ export const enum ProcessPropertyType {
 	Title = 'title',
 	ShellType = 'shellType',
 	HasChildProcesses = 'hasChildProcesses',
+	IsExtensionOwnedTerminal = 'isExtensionOwnedTerminal',
 	ResolvedShellLaunchConfig = 'resolvedShellLaunchConfig',
 	OverrideDimensions = 'overrideDimensions',
 	FailedShellIntegrationActivation = 'failedShellIntegrationActivation',
@@ -296,6 +298,7 @@ export interface IProcessPropertyMap {
 	[ProcessPropertyType.Title]: string;
 	[ProcessPropertyType.ShellType]: TerminalShellType | undefined;
 	[ProcessPropertyType.HasChildProcesses]: boolean;
+	[ProcessPropertyType.IsExtensionOwnedTerminal]: boolean | undefined;
 	[ProcessPropertyType.ResolvedShellLaunchConfig]: IShellLaunchConfig;
 	[ProcessPropertyType.OverrideDimensions]: ITerminalDimensionsOverride | undefined;
 	[ProcessPropertyType.FailedShellIntegrationActivation]: boolean | undefined;
@@ -597,6 +600,7 @@ export interface IShellLaunchConfig {
 		waitOnExit?: WaitOnExitValue;
 		hideFromUser?: boolean;
 		isFeatureTerminal?: boolean;
+		isExtensionOwnedTerminal?: boolean;
 		shellIntegrationNonce: string;
 		tabActions?: ITerminalTabAction[];
 	};
@@ -762,6 +766,7 @@ export interface IShellLaunchConfigDto {
 	reconnectionProperties?: IReconnectionProperties;
 	type?: 'Task' | 'Local';
 	isFeatureTerminal?: boolean;
+	isExtensionOwnedTerminal?: boolean;
 	forceShellIntegration?: boolean;
 	tabActions?: ITerminalTabAction[];
 	shellIntegrationEnvironmentReporting?: boolean;

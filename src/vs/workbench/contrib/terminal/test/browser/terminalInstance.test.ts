@@ -22,7 +22,7 @@ import { TestInstantiationService } from '../../../../../platform/instantiation/
 import { TerminalCapability, type ICwdDetectionCapability } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState } from '../../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { TerminalCapabilityStore } from '../../../../../platform/terminal/common/capabilities/terminalCapabilityStore.js';
-import { GeneralShellType, ITerminalChildProcess, ITerminalProfile, PosixShellType, remoteResolverTerminal, TitleEventSource, type IShellLaunchConfig, type ITerminalBackend, type ITerminalProcessOptions } from '../../../../../platform/terminal/common/terminal.js';
+import { GeneralShellType, IProcessProperty, ITerminalChildProcess, ITerminalProfile, PosixShellType, ProcessPropertyType, remoteResolverTerminal, TitleEventSource, type IShellLaunchConfig, type ITerminalBackend, type ITerminalProcessOptions } from '../../../../../platform/terminal/common/terminal.js';
 import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustRequestService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { Workspace } from '../../../../../platform/workspace/test/common/testWorkspace.js';
@@ -73,8 +73,12 @@ const terminalShellTypeContextKey = {
 class TestTerminalChildProcess extends Disposable implements ITerminalChildProcess {
 	id: number = 0;
 	get capabilities() { return []; }
+	private readonly _onDidChangeProperty = this._register(new Emitter<IProcessProperty>());
+	readonly onDidChangeProperty = this._onDidChangeProperty.event;
+
 	constructor(
-		readonly shouldPersist: boolean
+		readonly shouldPersist: boolean,
+		private readonly _isExtensionOwnedTerminal?: boolean
 	) {
 		super();
 	}
@@ -86,13 +90,17 @@ class TestTerminalChildProcess extends Disposable implements ITerminalChildProce
 	readonly onProcessResolvedShellLaunchConfig?: Event<any> | undefined;
 	readonly onDidChangeHasChildProcesses?: Event<any> | undefined;
 
-	onDidChangeProperty = Event.None;
 	onProcessData = Event.None;
 	onProcessExit = Event.None;
 	onProcessReady = Event.None;
 	onProcessTitleChanged = Event.None;
 	onProcessShellTypeChanged = Event.None;
-	async start(): Promise<undefined> { return undefined; }
+	async start(): Promise<undefined> {
+		if (this._isExtensionOwnedTerminal !== undefined) {
+			this._onDidChangeProperty.fire({ type: ProcessPropertyType.IsExtensionOwnedTerminal, value: this._isExtensionOwnedTerminal });
+		}
+		return undefined;
+	}
 	shutdown(immediate: boolean): void { }
 	input(data: string): void { }
 	sendSignal(signal: string): void { }
@@ -108,6 +116,7 @@ class TestTerminalChildProcess extends Disposable implements ITerminalChildProce
 
 class TestTerminalInstanceService extends Disposable implements Partial<ITerminalInstanceService> {
 	createProcessCount = 0;
+	attachIsExtensionOwnedTerminal: boolean | undefined;
 	private readonly _processCreatedPromise: Promise<void>;
 	private _resolveProcessCreated!: () => void;
 
@@ -143,7 +152,15 @@ class TestTerminalInstanceService extends Disposable implements Partial<ITermina
 				this._resolveProcessCreated();
 				return this._register(new TestTerminalChildProcess(shouldPersist));
 			},
-			getLatency: () => Promise.resolve([])
+			getLatency: () => Promise.resolve([]),
+			attachToProcess: async () => {
+				this._resolveProcessCreated();
+				return this._register(new TestTerminalChildProcess(true, this.attachIsExtensionOwnedTerminal));
+			},
+			attachToRevivedProcess: async () => {
+				this._resolveProcessCreated();
+				return this._register(new TestTerminalChildProcess(true, this.attachIsExtensionOwnedTerminal));
+			}
 		} as unknown as ITerminalBackend;
 	}
 }

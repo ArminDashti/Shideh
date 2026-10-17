@@ -359,6 +359,10 @@ export class ShellIntegrationAddon extends Disposable implements IShellIntegrati
 		}));
 	}
 
+	setAllowUntrustedCwd(value: boolean): void {
+		this._allowUntrustedCwd = value;
+	}
+
 	private _disposeCommonProtocol(): void {
 		dispose(this._commonProtocolDisposables);
 		this._commonProtocolDisposables.length = 0;
@@ -583,10 +587,17 @@ export class ShellIntegrationAddon extends Disposable implements IShellIntegrati
 					case 'Cwd': {
 						// OSC 633 ; P ; Cwd=<value> ; <nonce> ST — the nonce is optional and only
 						// present when emitted by a trusted shell integration script. CWD updates
-						// without a matching nonce are treated as untrusted to mitigate spoofing
-						// via OSC sequences injected through arbitrary terminal output.
+						// without a matching non-empty nonce are ignored to mitigate spoofing via
+						// arbitrary terminal output, unless an extension-owned terminal explicitly
+						// opts into retaining them as untrusted. Manually integrated nested shells
+						// cannot inherit the nonce after it is removed from the environment, so their
+						// reports remain ignored rather than exposing the nonce to child processes.
 						const nonce = args[1];
-						this._updateCwd(value, nonce !== undefined && nonce === this._nonce);
+						if (this._nonce && nonce === this._nonce) {
+							this._updateCwd(value);
+						} else if (this._allowUntrustedCwd && !nonce) {
+							this._updateCwd(value, false);
+						}
 						return true;
 					}
 					case 'IsWindows': {

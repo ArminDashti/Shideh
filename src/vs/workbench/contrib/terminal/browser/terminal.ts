@@ -730,6 +730,7 @@ interface ITerminalEditorInputObject {
 	readonly hasChildProcesses?: boolean;
 	readonly type?: TerminalType;
 	readonly isFeatureTerminal?: boolean;
+	readonly isExtensionOwnedTerminal?: boolean;
 	readonly hideFromUser?: boolean;
 	readonly reconnectionProperties?: IReconnectionProperties;
 	readonly shellIntegrationNonce: string;
@@ -1413,6 +1414,11 @@ export interface IXtermTerminal extends IDisposable {
 	 * Reports the status of shell integration and fires events relating to it.
 	 */
 	readonly shellIntegration: IShellIntegration;
+
+	/**
+	 * Controls whether nonce-less CWD reports are retained as untrusted.
+	 */
+	setAllowUntrustedCwd(value: boolean): void;
 
 	readonly decorationAddon: IDecorationAddon;
 

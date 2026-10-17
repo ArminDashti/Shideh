@@ -657,6 +657,7 @@ export class PtyService extends Disposable implements IPtyService {
 			waitOnExit: persistentProcess.shellLaunchConfig.waitOnExit,
 			hideFromUser: persistentProcess.shellLaunchConfig.hideFromUser,
 			isFeatureTerminal: persistentProcess.shellLaunchConfig.isFeatureTerminal,
+			isExtensionOwnedTerminal: persistentProcess.shellLaunchConfig.isExtensionOwnedTerminal,
 			type: persistentProcess.shellLaunchConfig.type,
 			hasChildProcesses: persistentProcess.hasChildProcesses,
 			shellIntegrationNonce: persistentProcess.processLaunchOptions.options.shellIntegration.nonce,
@@ -684,7 +685,7 @@ const enum InteractionState {
 	Session = 'Session'
 }
 
-class PersistentTerminalProcess extends Disposable {
+export class PersistentTerminalProcess extends Disposable {
 
 	private readonly _bufferer: TerminalDataBufferer;
 
@@ -781,13 +782,14 @@ class PersistentTerminalProcess extends Disposable {
 		super();
 		this._interactionState = new MutationLogger(`Persistent process "${this._persistentProcessId}" interaction state`, InteractionState.None, this._logService);
 		this._wasRevived = reviveBuffer !== undefined;
-		this._serializer = new XtermSerializer(
+		this._serializer = this._register(new XtermSerializer(
 			cols,
 			rows,
 			reconnectConstants.scrollback,
 			unicodeVersion,
 			reviveBuffer,
 			processLaunchOptions.options.shellIntegration.nonce,
+			!!this.shellLaunchConfig.isExtensionOwnedTerminal,
 			shouldPersistTerminal ? rawReviveBuffer : undefined,
 			this._logService,
 		);
@@ -870,6 +872,7 @@ class PersistentTerminalProcess extends Disposable {
 			// causes conhost to hang when no response is received from the terminal (which wouldn't
 			// be attached yet). https://github.com/microsoft/terminal/issues/11213
 			if (this._wasRevived) {
+				this._onDidChangeProperty.fire({ type: ProcessPropertyType.IsExtensionOwnedTerminal, value: this.shellLaunchConfig.isExtensionOwnedTerminal });
 				this.triggerReplay();
 			} else {
 				this._onPersistentProcessReady.fire();
@@ -878,6 +881,7 @@ class PersistentTerminalProcess extends Disposable {
 		}
 
 		this._onProcessReady.fire({ pid: this._pid, cwd: this._cwd, windowsPty: this._terminalProcess.getWindowsPty() });
+		this._onDidChangeProperty.fire({ type: ProcessPropertyType.IsExtensionOwnedTerminal, value: this.shellLaunchConfig.isExtensionOwnedTerminal });
 		this._onDidChangeProperty.fire({ type: ProcessPropertyType.Title, value: this._terminalProcess.currentTitle });
 		this._onDidChangeProperty.fire({ type: ProcessPropertyType.ShellType, value: this._terminalProcess.shellType });
 		this.triggerReplay();
@@ -1041,6 +1045,7 @@ export class XtermSerializer implements ITerminalSerializer {
 		unicodeVersion: '6' | '11',
 		reviveBufferWithRestoreMessage: string | undefined,
 		shellIntegrationNonce: string,
+		allowUntrustedCwd: boolean,
 		private _rawReviveBuffer: string | undefined,
 		logService: ILogService,
 	) {
@@ -1054,7 +1059,7 @@ export class XtermSerializer implements ITerminalSerializer {
 			this._xterm.writeln(reviveBufferWithRestoreMessage);
 		}
 		this.setUnicodeVersion(unicodeVersion);
-		this._shellIntegrationAddon = new ShellIntegrationAddon(shellIntegrationNonce, true, undefined, undefined, logService);
+		this._shellIntegrationAddon = new ShellIntegrationAddon(shellIntegrationNonce, true, undefined, undefined, logService, allowUntrustedCwd);
 		this._xterm.loadAddon(this._shellIntegrationAddon);
 	}
 
@@ -1065,6 +1070,11 @@ export class XtermSerializer implements ITerminalSerializer {
 
 	handleData(data: string): void {
 		this._xterm.write(data);
+	}
+
+	dispose(): void {
+		this._shellIntegrationAddon.dispose();
+		this._xterm.dispose();
 	}
 
 	handleResize(cols: number, rows: number): void {

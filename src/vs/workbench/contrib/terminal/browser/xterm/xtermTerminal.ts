@@ -95,6 +95,8 @@ export interface IXtermTerminalOptions {
 	capabilities: ITerminalCapabilityStore;
 	/** The shell integration nonce to verify data coming from SI is trustworthy. */
 	shellIntegrationNonce?: string;
+	/** Whether to retain nonce-less CWD reports as untrusted. */
+	allowUntrustedCwd?: boolean;
 	/** Whether to disable shell integration telemetry reporting. */
 	disableShellIntegrationReporting?: boolean;
 	/** The object that imports xterm addons, set this to inject an importer in tests. */
@@ -190,6 +192,10 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	get markTracker(): IMarkTracker { return this._markNavigationAddon; }
 	get shellIntegration(): IShellIntegration { return this._shellIntegrationAddon; }
 	get decorationAddon(): IDecorationAddon { return this._decorationAddon; }
+
+	setAllowUntrustedCwd(value: boolean): void {
+		this._shellIntegrationAddon.setAllowUntrustedCwd(value);
+	}
 
 	get textureAtlas(): Promise<ImageBitmap> | undefined {
 		const canvas = this._webglAddon?.textureAtlas;
@@ -332,7 +338,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		if (!options.detached) {
 			this._register(lifecycleService.onWillShutdown(() => this._decorationAddon.clearDecorations()));
 		}
-		this._shellIntegrationAddon = new ShellIntegrationAddon(options.shellIntegrationNonce ?? '', options.disableShellIntegrationReporting, this._onDidExecuteText, this._telemetryService, this._logService);
+		this._shellIntegrationAddon = new ShellIntegrationAddon(options.shellIntegrationNonce ?? '', options.disableShellIntegrationReporting, this._onDidExecuteText, this._telemetryService, this._logService, options.allowUntrustedCwd);
 		this.raw.loadAddon(this._shellIntegrationAddon);
 		this._xtermAddonLoader.importAddon('clipboard').then(ClipboardAddon => {
 			if (this._store.isDisposed) {

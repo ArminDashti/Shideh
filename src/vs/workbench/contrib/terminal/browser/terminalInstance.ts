@@ -444,6 +444,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this._shellLaunchConfig.isFeatureTerminal = this._shellLaunchConfig.attachPersistentProcess.isFeatureTerminal;
 		}
 
+		if (this._shellLaunchConfig.attachPersistentProcess?.isExtensionOwnedTerminal) {
+			this._shellLaunchConfig.isExtensionOwnedTerminal = this._shellLaunchConfig.attachPersistentProcess.isExtensionOwnedTerminal;
+		}
+
 		if (this._shellLaunchConfig.attachPersistentProcess?.type) {
 			this._shellLaunchConfig.type = this._shellLaunchConfig.attachPersistentProcess.type;
 		}
@@ -823,6 +827,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			xtermColorProvider: this._scopedInstantiationService.createInstance(TerminalInstanceColorProvider, this._targetRef),
 			capabilities: this.capabilities,
 			shellIntegrationNonce: this._processManager.shellIntegrationNonce,
+			allowUntrustedCwd: this._shouldAllowUntrustedCwd(this.shellLaunchConfig),
 			disableShellIntegrationReporting,
 		}, this.onDidExecuteText);
 		this.xterm = xterm;
@@ -956,6 +961,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		}
 
 		return xterm;
+	}
+
+	private _shouldAllowUntrustedCwd(shellLaunchConfig: IShellLaunchConfig): boolean {
+		return !!(shellLaunchConfig.customPtyImplementation || shellLaunchConfig.isExtensionOwnedTerminal);
 	}
 
 	// Debounce this to avoid impacting input latency while typing into the prompt
@@ -1581,6 +1590,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				case ProcessPropertyType.OverrideDimensions:
 					this.setOverrideDimensions(value as IProcessPropertyMap[ProcessPropertyType.OverrideDimensions], true);
 					break;
+				case ProcessPropertyType.IsExtensionOwnedTerminal:
+					this._setIsExtensionOwnedTerminal(value as IProcessPropertyMap[ProcessPropertyType.IsExtensionOwnedTerminal]);
+					break;
 				case ProcessPropertyType.ResolvedShellLaunchConfig:
 					this._setResolvedShellLaunchConfig(value as IProcessPropertyMap[ProcessPropertyType.ResolvedShellLaunchConfig]);
 					break;
@@ -1900,6 +1912,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 
 		const xterm = this.xterm;
 		if (xterm) {
+			xterm.setAllowUntrustedCwd(this._shouldAllowUntrustedCwd(shell));
 			if (!reset) {
 				// Ensure new processes' output starts at start of new line
 				await new Promise<void>(r => xterm.raw.write('\n\x1b[G', r));
@@ -2341,6 +2354,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this._shellLaunchConfig.cwd = shellLaunchConfig.cwd;
 		this._shellLaunchConfig.executable = shellLaunchConfig.executable;
 		this._shellLaunchConfig.env = shellLaunchConfig.env;
+	}
+
+	private _setIsExtensionOwnedTerminal(isExtensionOwnedTerminal: boolean | undefined): void {
+		this._shellLaunchConfig.isExtensionOwnedTerminal = isExtensionOwnedTerminal;
+		this.xterm?.setAllowUntrustedCwd(this._shouldAllowUntrustedCwd(this._shellLaunchConfig));
 	}
 
 	private _onEnvironmentVariableInfoChanged(info: IEnvironmentVariableInfo): void {

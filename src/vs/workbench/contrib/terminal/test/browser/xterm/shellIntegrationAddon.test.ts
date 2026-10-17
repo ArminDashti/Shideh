@@ -29,48 +29,86 @@ class TestShellIntegrationAddon extends ShellIntegrationAddon {
 
 suite('ShellIntegrationAddon', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
+	const shellIntegrationNonce = 'test-nonce';
 
 	let xterm: Terminal;
 	let shellIntegrationAddon: TestShellIntegrationAddon;
 	let capabilities: ITerminalCapabilityStore;
 
-	setup(async () => {
+	async function createShellIntegrationAddon(nonce: string, allowUntrustedCwd: boolean = false): Promise<{ xterm: Terminal; addon: TestShellIntegrationAddon }> {
 		const TerminalCtor = (await importAMDNodeModule<typeof import('@xterm/xterm')>('@xterm/xterm', 'lib/xterm.js')).Terminal;
-		xterm = store.add(new TerminalCtor({ allowProposedApi: true, cols: 80, rows: 30, logger: TestXtermLogger }));
-		shellIntegrationAddon = store.add(new TestShellIntegrationAddon('', true, undefined, undefined, new NullLogService()));
-		xterm.loadAddon(shellIntegrationAddon);
+		const xterm = store.add(new TerminalCtor({ allowProposedApi: true, cols: 80, rows: 30, logger: TestXtermLogger }));
+		const addon = store.add(new TestShellIntegrationAddon(nonce, true, undefined, undefined, new NullLogService(), allowUntrustedCwd));
+		xterm.loadAddon(addon);
+		return { xterm, addon };
+	}
+
+	setup(async () => {
+		({ xterm, addon: shellIntegrationAddon } = await createShellIntegrationAddon(shellIntegrationNonce));
 		capabilities = shellIntegrationAddon.capabilities;
 	});
 
 	suite('cwd detection', () => {
-		test('should activate capability on the cwd sequence (OSC 633 ; P ; Cwd=<cwd> ST)', async () => {
-			strictEqual(capabilities.has(TerminalCapability.CwdDetection), false);
-			await writeP(xterm, 'foo');
-			strictEqual(capabilities.has(TerminalCapability.CwdDetection), false);
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo\x07');
-			strictEqual(capabilities.has(TerminalCapability.CwdDetection), true);
-		});
-
-		test('should pass cwd sequence to the capability as trusted when nonce matches', async () => {
+		test('should accept a cwd sequence when the non-empty nonce matches exactly', async () => {
 			const mock = shellIntegrationAddon.getCwdDectionMock();
-			// The addon is constructed with nonce '' so a trailing ';' produces args[1]==='' which matches
 			mock.expects('updateCwd').once().withExactArgs('/foo', true);
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo;\x07');
+			await writeP(xterm, `\x1b]633;P;Cwd=/foo;${shellIntegrationNonce}\x07`);
 			mock.verify();
 		});
 
-		test('should treat cwd sequence as untrusted when nonce is missing', async () => {
-			const mock = shellIntegrationAddon.getCwdDectionMock();
-			mock.expects('updateCwd').once().withExactArgs('/foo', false);
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo\x07');
-			mock.verify();
+		test('should reject cwd sequences without an exact non-empty nonce', async () => {
+			const cases = [
+				['missing report nonce', shellIntegrationNonce, ''],
+				['mismatched report nonce', shellIntegrationNonce, ';invalid-nonce'],
+				['empty report nonce', shellIntegrationNonce, ';'],
+				['empty configured nonce', '', ';'],
+			] as const;
+			for (const [title, configuredNonce, reportNonce] of cases) {
+				const { xterm, addon } = await createShellIntegrationAddon(configuredNonce);
+				await writeP(xterm, `\x1b]633;P;Cwd=/foo${reportNonce}\x07`);
+				strictEqual(addon.capabilities.has(TerminalCapability.CwdDetection), false, title);
+			}
 		});
 
-		test('should treat cwd sequence as untrusted when nonce does not match', async () => {
-			const mock = shellIntegrationAddon.getCwdDectionMock();
-			mock.expects('updateCwd').once().withExactArgs('/foo', false);
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo;invalid-nonce\x07');
-			mock.verify();
+		test('should preserve the previous trusted cwd after rejected reports', async () => {
+			await writeP(xterm, `\x1b]633;P;Cwd=/trusted;${shellIntegrationNonce}\x07`);
+			await writeP(xterm, '\x1b]633;P;Cwd=/missing\x07');
+			await writeP(xterm, '\x1b]633;P;Cwd=/mismatched;invalid-nonce\x07');
+			await writeP(xterm, '\x1b]633;P;Cwd=/empty;\x07');
+
+			const cwdDetection = capabilities.get(TerminalCapability.CwdDetection);
+			deepStrictEqual(
+				{ cwd: cwdDetection?.getCwd(), isTrusted: cwdDetection?.isTrusted },
+				{ cwd: '/trusted', isTrusted: true }
+			);
+		});
+
+		test('should retain nonce-less cwd reports as untrusted when explicitly allowed', async () => {
+			const { xterm, addon } = await createShellIntegrationAddon(shellIntegrationNonce);
+			await writeP(xterm, '\x1b]633;P;Cwd=/rejected\x07');
+			strictEqual(addon.capabilities.has(TerminalCapability.CwdDetection), false);
+
+			addon.setAllowUntrustedCwd(true);
+			await writeP(xterm, '\x1b]633;P;Cwd=/custom-pty\x07');
+
+			const cwdDetection = addon.capabilities.get(TerminalCapability.CwdDetection);
+			deepStrictEqual(
+				{ cwd: cwdDetection?.getCwd(), isTrusted: cwdDetection?.isTrusted },
+				{ cwd: '/custom-pty', isTrusted: false }
+			);
+
+			await writeP(xterm, '\x1b]633;P;Cwd=/mismatched;invalid-nonce\x07');
+			strictEqual(cwdDetection?.getCwd(), '/custom-pty');
+
+			addon.setAllowUntrustedCwd(false);
+			await writeP(xterm, '\x1b]633;P;Cwd=/rejected-again\x07');
+			strictEqual(cwdDetection?.getCwd(), '/custom-pty');
+		});
+
+		test('should deserialize semicolons and backslashes before updating cwd', async () => {
+			const cwd = '/workspace/semi;colon\\folder';
+			await writeP(xterm, `\x1b]633;P;Cwd=${serializeVSCodeOscMessage(cwd)};${shellIntegrationNonce}\x07`);
+			strictEqual(capabilities.get(TerminalCapability.CwdDetection)?.getCwd(), cwd);
 		});
 
 		test('detect ITerm sequence: `OSC 1337 ; CurrentDir=<Cwd> ST`', async () => {
@@ -220,13 +258,13 @@ suite('ShellIntegrationAddon', () => {
 			strictEqual(capabilities.has(TerminalCapability.CommandDetection), false);
 			await writeP(xterm, 'foo');
 			strictEqual(capabilities.has(TerminalCapability.CommandDetection), false);
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo\x07');
+			await writeP(xterm, `\x1b]633;P;Cwd=/foo;${shellIntegrationNonce}\x07`);
 			strictEqual(capabilities.has(TerminalCapability.CommandDetection), false);
 		});
 		test('should pass cwd sequence to the capability if it\'s initialized', async () => {
 			const mock = shellIntegrationAddon.getCommandDetectionMock(xterm);
 			mock.expects('setCwd').once().withExactArgs('/foo');
-			await writeP(xterm, '\x1b]633;P;Cwd=/foo\x07');
+			await writeP(xterm, `\x1b]633;P;Cwd=/foo;${shellIntegrationNonce}\x07`);
 			mock.verify();
 		});
 	});
