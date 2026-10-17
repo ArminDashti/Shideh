@@ -52,7 +52,7 @@ class ToggleSidebarVisibilityAction extends Action2 {
 					id: Menus.TitleBarSessionMenu,
 					group: 'navigation',
 					order: 0,
-					when: IsAuxiliaryWindowContext.toNegated()
+					when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated())
 				}
 			]
 		});
