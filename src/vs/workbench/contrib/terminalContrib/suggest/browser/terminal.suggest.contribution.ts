@@ -183,6 +183,56 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 		this.add(this._terminalCompletionService.registerTerminalCompletionProvider('lsp', lspCompletionProviderAddon.id, lspCompletionProviderAddon));
 	}
 
+	/**
+	 * Determines if the current shell supports interactive language server completion.
+	 */
+	private _isInteractiveShell(): boolean {
+		return this._ctx.instance.shellType === GeneralShellType.Python;
+	}
+
+	/**
+	 * Gets the appropriate file extension for the current shell type.
+	 */
+	private _getLanguageExtensionForShell(): string | undefined {
+		switch (this._ctx.instance.shellType) {
+			case GeneralShellType.Python:
+				return 'py';
+			// Future support for other interactive shells:
+			// case GeneralShellType.NodeJS:
+			//     return 'js';
+			// case GeneralShellType.Ruby:
+			//     return 'rb';
+			default:
+				return undefined;
+		}
+	}
+
+	/**
+	 * Finds a suitable LSP provider from the available providers.
+	 * Prioritizes known language-specific providers.
+	 */
+	private _findSuitableLspProvider(providers: readonly CompletionItemProvider[]): CompletionItemProvider | undefined {
+		// Look for language-specific providers first
+		const knownProviders = [
+			'ms-python.python', 'ms-python.vscode-pylance', // Python
+			'ms-vscode.vscode-typescript-next', 'vscode.typescript-language-features', // TypeScript/JavaScript  
+			'ms-toolsai.jupyter', // Jupyter
+		];
+
+		for (const knownProvider of knownProviders) {
+			const provider = providers.find(p => 
+				p._debugDisplayName?.includes(knownProvider) || 
+				p._debugDisplayName === `${knownProvider}(.["')`
+			);
+			if (provider) {
+				return provider;
+			}
+		}
+
+		// Fall back to any non-word-based completion provider
+		return providers.find(p => p._debugDisplayName !== 'wordbasedCompletions');
+	}
+
 	private _loadAddons(xterm: RawXtermTerminal): void {
 		// Don't re-create the addon
 		if (this._addon.value) {
