@@ -702,7 +702,7 @@ suite('AgentHostClientTools', () => {
 				updateToolStream: async () => { },
 				cancelToolCallsForRequest: () => { },
 				flushToolUpdates: () => { },
-				toolSets: observableValue('sets', []),
+				toolSets: observableValue('sets', options?.toolSets ?? []),
 				getToolSetsForModel: () => [],
 				getToolSet: () => undefined,
 				getToolSetByName: () => undefined,
@@ -729,6 +729,22 @@ suite('AgentHostClientTools', () => {
 				invocationTokens,
 				recordedStateKinds,
 			} satisfies ILanguageModelToolsService & { fireOnDidChangeTools: () => void; begunToolCalls: ChatToolInvocation[]; invokedToolCalls: IToolInvocation[]; executedToolCalls: IToolInvocation[]; invocationTokens: CancellationToken[]; recordedStateKinds: Map<string, IChatToolInvocation.StateKind[]> };
+		}
+
+		function createTestToolSet(id: string, tools: readonly IToolData[]): IToolSet {
+			return {
+				id,
+				referenceName: id,
+				icon: ThemeIcon.fromId('tools'),
+				source: ToolDataSource.Internal,
+				getTools: () => tools,
+			};
+		}
+
+		function createCustomizationWorkspaceService(isSessionsWindow: boolean): IAICustomizationWorkspaceService {
+			return new class extends mock<IAICustomizationWorkspaceService>() {
+				override readonly isSessionsWindow = isSessionsWindow;
+			};
 		}
 
 		class MockAgentHostConnection extends mock<IAgentHostService>() {
@@ -981,6 +997,7 @@ suite('AgentHostClientTools', () => {
 				refreshResolvedConfig: async () => { },
 			} as Partial<IAgentHostUntitledProvisionalSessionService> as IAgentHostUntitledProvisionalSessionService);
 			instantiationService.stub(ILanguageModelToolsService, toolsService);
+			instantiationService.stub(IAICustomizationWorkspaceService, createCustomizationWorkspaceService(toolServiceOptions?.isSessionsWindow ?? false));
 			instantiationService.stub(IAgentHostToolSetEnablementService, {
 				observe: () => constObservable<IToolEnablementState>({ toolSets: new Map(), tools: new Map() }),
 				getState: () => ({ toolSets: new Map(), tools: new Map() }),

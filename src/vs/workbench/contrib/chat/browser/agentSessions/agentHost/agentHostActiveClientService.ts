@@ -509,4 +509,6 @@ function createScopeAuthority(sessionType: string, scopeKey: string): string {
 /** Debounce window (ms) used to coalesce bursts of customization change events into a single re-resolution. */
 const CUSTOMIZATION_UPDATE_DEBOUNCE_DELAY = 50;
 
+const SESSION_WINDOW_AGENT_HOST_EXCLUDED_TOOL_NAMES = new Set(['problems']);
+
 registerSingleton(IAgentHostActiveClientService, AgentHostActiveClientService, InstantiationType.Delayed);
