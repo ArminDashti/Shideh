@@ -21,7 +21,7 @@ import { BracketGuideOptions, IActiveIndentGuideInfo, IndentGuide } from './text
 import { IViewLineTokens } from './tokens/lineTokens.js';
 import { ViewEventHandler } from './viewEventHandler.js';
 import { VerticalRevealType } from './viewEvents.js';
-import { InlineDecoration } from './viewModel/inlineDecorations.js';
+import { FixedWidthInlineDecoration, InlineDecoration } from './viewModel/inlineDecorations.js';
 import { EditorOption, FindComputedEditorOptionValueById } from './config/editorOptions.js';
 
 export interface IViewModel extends ICursorSimpleModel, ISimpleModel {
@@ -280,6 +280,10 @@ export class ViewLineData {
 	 * Additional inline decorations for this line.
 	*/
 	public readonly inlineDecorations: readonly InlineDecoration[] | null;
+	/**
+	 * Fixed-width injected text projected onto this view line.
+	 */
+	public readonly fixedWidthInlineDecorations: readonly FixedWidthInlineDecoration[] | null;
 
 	constructor(
 		content: string,
@@ -288,7 +292,8 @@ export class ViewLineData {
 		maxColumn: number,
 		startVisibleColumn: number,
 		tokens: IViewLineTokens,
-		inlineDecorations: readonly InlineDecoration[] | null
+		inlineDecorations: readonly InlineDecoration[] | null,
+		fixedWidthInlineDecorations: readonly FixedWidthInlineDecoration[] | null
 	) {
 		this.content = content;
 		this.continuesWithWrappedLine = continuesWithWrappedLine;
@@ -297,6 +302,7 @@ export class ViewLineData {
 		this.startVisibleColumn = startVisibleColumn;
 		this.tokens = tokens;
 		this.inlineDecorations = inlineDecorations;
+		this.fixedWidthInlineDecorations = fixedWidthInlineDecorations;
 	}
 }
 
@@ -334,6 +340,10 @@ export class ViewLineRenderingData {
 	 */
 	public readonly inlineDecorations: InlineDecoration[];
 	/**
+	 * Fixed-width inline decorations at this view line.
+	 */
+	public readonly fixedWidthInlineDecorations: FixedWidthInlineDecoration[];
+	/**
 	 * The tab size for this view model.
 	 */
 	public readonly tabSize: number;
@@ -359,6 +369,7 @@ export class ViewLineRenderingData {
 		mightContainNonBasicASCII: boolean,
 		tokens: IViewLineTokens,
 		inlineDecorations: InlineDecoration[],
+		fixedWidthInlineDecorations: FixedWidthInlineDecoration[],
 		tabSize: number,
 		startVisibleColumn: number,
 		textDirection: TextDirection,
@@ -374,6 +385,7 @@ export class ViewLineRenderingData {
 
 		this.tokens = tokens;
 		this.inlineDecorations = inlineDecorations;
+		this.fixedWidthInlineDecorations = fixedWidthInlineDecorations;
 		this.tabSize = tabSize;
 		this.startVisibleColumn = startVisibleColumn;
 		this.textDirection = textDirection;

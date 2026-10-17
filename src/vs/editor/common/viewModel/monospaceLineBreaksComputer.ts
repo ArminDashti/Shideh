@@ -10,7 +10,7 @@ import { CharacterClassifier } from '../core/characterClassifier.js';
 import { FontInfo } from '../config/fontInfo.js';
 import { FixedWidthInjectedTextRange, LineInjectedText } from '../textModelEvents.js';
 import { InjectedTextOptions } from '../model.js';
-import { ILineBreaksComputerFactory, ILineBreaksComputer, ModelLineProjectionData, ILineBreaksComputerContext } from '../modelLineProjectionData.js';
+import { FixedWidthInjectedTextRange, getFixedWidthInjectedTextRanges, ILineBreaksComputerFactory, ILineBreaksComputer, ModelLineProjectionData, ILineBreaksComputerContext } from '../modelLineProjectionData.js';
 
 export class MonospaceLineBreaksComputerFactory implements ILineBreaksComputerFactory {
 	public static create(options: IComputedEditorOptions): MonospaceLineBreaksComputerFactory {
@@ -435,6 +435,7 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 		}
 		prevCharCodeClass = classifier.get(prevCharCode);
 	}
+	let prevCharCodeClass = classifier.get(prevCharCode);
 
 	for (let i = startOffset; i < len; i++) {
 		const fixedWidthRange = fixedWidthRanges.length > 0 && fixedWidthRangeIndex < fixedWidthRanges.length ? fixedWidthRanges[fixedWidthRangeIndex] : null;
@@ -456,6 +457,7 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 			// A surrogate pair must always be considered as a single unit, so it is never to be broken
 			i++;
 			charCodeClass = CharacterClass.NONE;
+			trailingCharCodeClass = charCodeClass;
 			charWidth = 2;
 			charPixelWidth = 2 * typicalHalfwidthCharacterWidth;
 		} else {
@@ -503,8 +505,8 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 			}
 		}
 
-		prevCharCode = charCode;
-		prevCharCodeClass = charCodeClass;
+		prevCharCode = trailingCharCode;
+		prevCharCodeClass = trailingCharCodeClass;
 	}
 
 	if (breakingOffsetsCount === 0 && (!injectedTexts || injectedTexts.length === 0)) {

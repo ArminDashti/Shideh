@@ -299,6 +299,7 @@ function renderOriginalLine(
 		0,
 		lineTokens,
 		decorations,
+		[],
 		options.tabSize,
 		0,
 		options.fontInfo.spaceWidth,

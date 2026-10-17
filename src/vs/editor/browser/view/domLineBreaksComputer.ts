@@ -359,6 +359,11 @@ function renderLine(lineContent: string, initialVisibleColumn: number, tabSize: 
 		}
 
 		charOffset += producedCharacters;
+		if (startsFixedWidth) {
+			charWidth = fixedWidthRange.widthInEm * columnsPerEm;
+		} else if (fixedWidthRange && charIndex > fixedWidthRange.startOffset && charIndex < fixedWidthRange.endOffset) {
+			charWidth = 0;
+		}
 		visibleColumn += charWidth;
 
 		// A range that covers no character has already been closed above, and must not be consumed here:

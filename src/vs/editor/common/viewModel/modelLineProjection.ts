@@ -10,7 +10,7 @@ import { EndOfLinePreference, ITextModel, PositionAffinity } from '../model.js';
 import { LineInjectedText } from '../textModelEvents.js';
 import { InjectedText, ModelLineProjectionData } from '../modelLineProjectionData.js';
 import { ViewLineData } from '../viewModel.js';
-import { IInjectedTextInlineDecorationsComputerContext, InjectedTextInlineDecorationsComputer, InlineDecoration } from './inlineDecorations.js';
+import { FixedWidthInlineDecoration, IInjectedTextInlineDecorationsComputerContext, InjectedTextInlineDecorationsComputer, InlineDecoration } from './inlineDecorations.js';
 import { getLineTokensWithInjections } from '../model/textModel.js';
 
 export interface IModelLineProjection {
@@ -178,7 +178,9 @@ class ModelLineProjection implements IModelLineProjection {
 			getBaseViewLineNumber: () => baseViewLineNumber
 		};
 		const computer = new InjectedTextInlineDecorationsComputer(context);
-		const lineInlineDecorations = computer.getInlineDecorations(modelLineNumber);
+		const injectedTextRenderingData = computer.getRenderingData(modelLineNumber);
+		const lineInlineDecorations = injectedTextRenderingData.inlineDecorations;
+		const lineFixedWidthInlineDecorations = injectedTextRenderingData.fixedWidthInlineDecorations;
 		const lineTokens = model.tokenization.getLineTokens(modelLineNumber);
 		const lineWithInjections = getLineTokensWithInjections(lineTokens, injectionOptions, injectionOffsets);
 
@@ -188,11 +190,11 @@ class ModelLineProjection implements IModelLineProjection {
 				result[globalIndex] = null;
 				continue;
 			}
-			result[globalIndex] = this._getViewLineData(lineWithInjections, lineInlineDecorations ? lineInlineDecorations[outputLineIndex] : null, outputLineIndex);
+			result[globalIndex] = this._getViewLineData(lineWithInjections, lineInlineDecorations[outputLineIndex] ?? null, lineFixedWidthInlineDecorations[outputLineIndex] ?? null, outputLineIndex);
 		}
 	}
 
-	private _getViewLineData(lineWithInjections: LineTokens, inlineDecorations: null | InlineDecoration[], outputLineIndex: number): ViewLineData {
+	private _getViewLineData(lineWithInjections: LineTokens, inlineDecorations: null | InlineDecoration[], fixedWidthInlineDecorations: null | FixedWidthInlineDecoration[], outputLineIndex: number): ViewLineData {
 		this._assertVisible();
 		const lineBreakData = this._projectionData;
 		const deltaStartIndex = (outputLineIndex > 0 ? lineBreakData.wrappedTextIndentLength : 0);
@@ -218,7 +220,8 @@ class ModelLineProjection implements IModelLineProjection {
 			maxColumn,
 			startVisibleColumn,
 			tokens,
-			inlineDecorations
+			inlineDecorations,
+			fixedWidthInlineDecorations
 		);
 	}
 
@@ -314,6 +317,7 @@ class IdentityModelLineProjection implements IModelLineProjection {
 			lineContent.length + 1,
 			0,
 			lineTokens.inflate(),
+			null,
 			null
 		);
 	}

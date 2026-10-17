@@ -13,18 +13,27 @@
 
 .colorpicker-color-decoration,
 .hc-light .colorpicker-color-decoration {
-	border: solid 0.1em #000;
 	box-sizing: border-box;
 	margin: 0.1em var(--vscode-colorPicker-colorDecoratorMargin) 0;
 	width: var(--vscode-colorPicker-colorDecoratorWidth);
 	height: 0.8em;
 	line-height: 0.8em;
 	display: inline-block;
+	position: relative;
 	cursor: pointer;
 }
 
-.hc-black .colorpicker-color-decoration,
-.vs-dark .colorpicker-color-decoration {
+.colorpicker-color-decoration::after {
+	content: '';
+	position: absolute;
+	inset: 0 var(--vscode-colorPicker-colorDecoratorMargin);
+	box-sizing: border-box;
+	border: solid 0.1em #000;
+	pointer-events: none;
+}
+
+.hc-black .colorpicker-color-decoration::after,
+.vs-dark .colorpicker-color-decoration::after {
 	border: solid 0.1em #eee;
 }
 

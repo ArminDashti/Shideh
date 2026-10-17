@@ -898,6 +898,7 @@ export class ViewModel extends Disposable implements IViewModel {
 		const mightContainNonBasicASCII = this.model.mightContainNonBasicASCII();
 		const tabSize = this.getTabSize();
 		const lineData = this._lines.getViewLineData(lineNumber);
+		const fixedWidthInlineDecorations = lineData.fixedWidthInlineDecorations ?? [];
 
 		if (lineData.inlineDecorations) {
 			inlineDecorations = [
@@ -915,6 +916,7 @@ export class ViewModel extends Disposable implements IViewModel {
 			mightContainNonBasicASCII,
 			lineData.tokens,
 			inlineDecorations,
+			fixedWidthInlineDecorations,
 			tabSize,
 			lineData.startVisibleColumn,
 			this._getTextDirection(lineNumber, decorations),

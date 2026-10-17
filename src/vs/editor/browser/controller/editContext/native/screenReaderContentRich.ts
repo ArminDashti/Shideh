@@ -195,6 +195,7 @@ export class RichScreenReaderContent extends Disposable implements IScreenReader
 			positionLineData.minColumn - 1,
 			positionLineData.tokens,
 			lineDecorations,
+			positionLineData.fixedWidthInlineDecorations,
 			positionLineData.tabSize,
 			positionLineData.startVisibleColumn,
 			fontInfo.spaceWidth,

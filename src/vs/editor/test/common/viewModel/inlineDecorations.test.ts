@@ -7,7 +7,7 @@ import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { Range } from '../../../common/core/range.js';
 import { IModelDecoration, IModelDecorationOptions, InjectedTextOptions } from '../../../common/model.js';
-import { InlineDecoration, InlineDecorationType, InlineModelDecorationsComputer, IInlineModelDecorationsComputerContext, InjectedTextInlineDecorationsComputer, IInjectedTextInlineDecorationsComputerContext } from '../../../common/viewModel/inlineDecorations.js';
+import { InlineDecoration, InlineDecorationType, InlineModelDecorationsComputer, IInlineModelDecorationsComputerContext, InjectedTextInlineDecorationsComputer, IInjectedTextInlineDecorationsComputerContext, FixedWidthInlineDecoration } from '../../../common/viewModel/inlineDecorations.js';
 import { createTextModel } from '../testTextModel.js';
 import { IdentityCoordinatesConverter } from '../../../common/coordinatesConverter.js';
 
