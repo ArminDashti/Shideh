@@ -83,6 +83,7 @@ export class HoverOperation<TArgs, TResult> extends Disposable {
 	}
 
 	public override dispose(): void {
+		console.log('dispose');
 		if (this._asyncIterable) {
 			this._asyncIterable.cancel();
 			this._asyncIterable = null;
@@ -124,6 +125,7 @@ export class HoverOperation<TArgs, TResult> extends Disposable {
 			(async () => {
 				try {
 					for await (const item of this._asyncIterable!) {
+						console.log('item : ', item);
 						if (item) {
 							this._result.push(item);
 							this._fireResult(options);
@@ -164,6 +166,7 @@ export class HoverOperation<TArgs, TResult> extends Disposable {
 			return;
 		}
 		const isComplete = (this._state === HoverOperationState.Idle);
+		console.log('HoverOperation#_fireResult -> isComplete : ', isComplete);
 		const hasLoadingMessage = (this._state === HoverOperationState.WaitingForAsyncShowingLoading);
 		this._onResult.fire(new HoverResult(this._result.slice(0), isComplete, hasLoadingMessage, options));
 	}
