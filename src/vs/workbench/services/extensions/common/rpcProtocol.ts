@@ -94,6 +94,10 @@ function createURIReplacer(transformer: IURITransformer | null): JSONStringifyRe
 	};
 }
 
+function blockedError() {
+	return new Error('Blocked');
+}
+
 export const enum RequestInitiator {
 	LocalSide = 0,
 	OtherSide = 1
@@ -124,6 +128,7 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 	private readonly _protocol: IMessagePassingProtocol;
 	private readonly _logger: IRPCProtocolLogger | null;
 	private readonly _uriTransformer: IURITransformer | null;
+	private readonly _enableFirewall: boolean;
 	private readonly _uriReplacer: JSONStringifyReplacer | null;
 	private _isDisposed: boolean;
 	private readonly _locals: any[];
@@ -136,11 +141,12 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 	private _unresponsiveTime: number;
 	private _asyncCheckUresponsive: RunOnceScheduler;
 
-	constructor(protocol: IMessagePassingProtocol, logger: IRPCProtocolLogger | null = null, transformer: IURITransformer | null = null) {
+	constructor(protocol: IMessagePassingProtocol, logger: IRPCProtocolLogger | null = null, transformer: IURITransformer | null = null, enableFirewall: boolean = false) {
 		super();
 		this._protocol = protocol;
 		this._logger = logger;
 		this._uriTransformer = transformer;
+		this._enableFirewall = enableFirewall;
 		this._uriReplacer = createURIReplacer(this._uriTransformer);
 		this._isDisposed = false;
 		this._locals = [];
@@ -241,7 +247,7 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 	public getProxy<T>(identifier: ProxyIdentifier<T>): Proxied<T> {
 		const { nid: rpcId, sid } = identifier;
 		if (!this._proxies[rpcId]) {
-			this._proxies[rpcId] = this._createProxy(rpcId, sid);
+			this._proxies[rpcId] = this._createProxy(identifier, sid);
 		}
 		return this._proxies[rpcId];
 	}
@@ -251,7 +257,7 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 			get: (target: any, name: PropertyKey) => {
 				if (typeof name === 'string' && !target[name] && name.charCodeAt(0) === CharCode.DollarSign) {
 					target[name] = (...myArgs: any[]) => {
-						return this._remoteCall(rpcId, name, myArgs);
+						return this._remoteCall(identifier, name, myArgs);
 					};
 				}
 				if (name === _RPCProxySymbol) {
@@ -364,7 +370,7 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 		if (usesCancellationToken) {
 			const cancellationTokenSource = new CancellationTokenSource();
 			args.push(cancellationTokenSource.token);
-			promise = this._invokeHandler(rpcId, method, args);
+			promise = this._invokeHandler(identifier, method, args);
 			cancel = () => cancellationTokenSource.cancel();
 		} else {
 			promise = this._invokeHandler(rpcId, method, args);
@@ -438,29 +444,34 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 		pendingReply.resolveErr(err);
 	}
 
-	private _invokeHandler(rpcId: number, methodName: string, args: any[]): Promise<any> {
+	private _invokeHandler(identifier: ProxyIdentifier<any>, methodName: string, args: any[]): Promise<any> {
 		try {
-			return Promise.resolve(this._doInvokeHandler(rpcId, methodName, args));
+			return Promise.resolve(this._doInvokeHandler(identifier, methodName, args));
 		} catch (err) {
 			return Promise.reject(err);
 		}
 	}
 
-	private _doInvokeHandler(rpcId: number, methodName: string, args: any[]): any {
-		const actor = this._locals[rpcId];
+	private _doInvokeHandler(identifier: ProxyIdentifier<any>, methodName: string, args: any[]): any {
+		const actor = this._locals[identifier.nid];
 		if (!actor) {
-			throw new Error('Unknown actor ' + getStringIdentifierForProxy(rpcId));
+			throw new Error('Unknown actor ' + identifier.sid);
 		}
 		const method = actor[methodName];
 		if (typeof method !== 'function') {
-			throw new Error('Unknown method ' + methodName + ' on actor ' + getStringIdentifierForProxy(rpcId));
+			throw new Error('Unknown method ' + methodName + ' on actor ' + identifier.sid);
 		}
 		return method.apply(actor, args);
 	}
 
-	private _remoteCall(rpcId: number, methodName: string, args: any[]): Promise<any> {
+	private _remoteCall(identifier: ProxyIdentifier<any>, methodName: string, args: any[]): Promise<any> {
 		if (this._isDisposed) {
 			return new CanceledLazyPromise();
+		}
+		if (this._enableFirewall && !identifier.isAllowed(methodName)) {
+			// This method is not allowed
+			console.warn(`Blocked ${identifier.sid}.${methodName}`, args);
+			return Promise.reject<any>(blockedError());
 		}
 		let cancellationToken: CancellationToken | null = null;
 		if (args.length > 0 && CancellationToken.isCancellationToken(args[args.length - 1])) {

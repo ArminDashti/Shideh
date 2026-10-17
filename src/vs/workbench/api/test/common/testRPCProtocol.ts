@@ -14,7 +14,8 @@ import { parseJsonAndRestoreBufferRefs, stringifyJsonWithBufferRefs } from '../.
 export function SingleProxyRPCProtocol(thing: any): IExtHostContext & IExtHostRpcService {
 	return {
 		_serviceBrand: undefined,
-		remoteAuthority: null!,
+		isTrusted: true,
+		remoteAuthority: null,
 		getProxy<T>(): T {
 			return thing;
 		},
@@ -44,7 +45,8 @@ export function AnyCallRPCProtocol<T>(useCalls?: { [K in keyof T]: T[K] }) {
 export class TestRPCProtocol implements IExtHostContext, IExtHostRpcService {
 
 	public _serviceBrand: undefined;
-	public remoteAuthority = null!;
+	public remoteAuthority = null;
+	public isTrusted = true;
 	public extensionHostKind = ExtensionHostKind.LocalProcess;
 
 	private _callCountValue: number = 0;

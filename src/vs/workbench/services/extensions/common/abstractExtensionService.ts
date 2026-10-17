@@ -56,6 +56,7 @@ import { IExtensionHostExitInfo, IRemoteAgentService } from '../../remote/common
 
 const hasOwnProperty = Object.hasOwnProperty;
 const NO_OP_VOID_PROMISE = Promise.resolve<void>(undefined);
+export const ENABLE_FIREWALL = false;
 
 export abstract class AbstractExtensionService extends Disposable implements IExtensionService {
 

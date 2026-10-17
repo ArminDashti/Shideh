@@ -374,10 +374,12 @@ export interface MainThreadDownloadServiceShape extends IDisposable {
 	$download(uri: UriComponents, to: UriComponents): Promise<void>;
 }
 
+allow(MainContext.MainThreadErrors, '$onUnexpectedError');
 export interface MainThreadErrorsShape extends IDisposable {
 	$onUnexpectedError(err: any | SerializedError): void;
 }
 
+allow(MainContext.MainThreadConsole, '$logExtensionHostMessage');
 export interface MainThreadConsoleShape extends IDisposable {
 	$logExtensionHostMessage(msg: IRemoteConsoleLog): void;
 }
@@ -832,6 +834,7 @@ export interface MainThreadStorageShape extends IDisposable {
 	$registerExtensionStorageKeysToSync(extension: IExtensionIdWithVersion, keys: string[]): void;
 }
 
+allow(MainContext.MainThreadTelemetry, '$publicLog2');
 export interface MainThreadTelemetryShape extends IDisposable {
 	$publicLog(eventName: string, data?: any): void;
 	$publicLog2<E extends ClassifiedEvent<OmitMetadata<T>> = never, T extends IGDPRProperty = never>(eventName: string, data?: StrictPropertyCheck<T, E>): void;
@@ -979,6 +982,7 @@ export interface IEditorTabDto {
 	isDirty: boolean;
 }
 
+allow(ExtHostContext.ExtHostEditorTabs, '$acceptEditorTabs');
 export interface IExtHostEditorTabsShape {
 	// Accepts a whole new model
 	$acceptEditorTabModel(tabGroups: IEditorTabGroupDto[]): void;
@@ -2045,6 +2049,10 @@ export interface MainThreadTaskShape extends IDisposable {
 	$registerSupportedExecutions(custom?: boolean, shell?: boolean, process?: boolean): Promise<void>;
 }
 
+allow(MainContext.MainThreadExtensionService,
+	'$activateExtension', '$onWillActivateExtension', '$onDidActivateExtension', '$onExtensionActivationError',
+	'$onExtensionRuntimeError', '$onExtensionHostExit', '$setPerformanceMarks'
+);
 export interface MainThreadExtensionServiceShape extends IDisposable {
 	$getExtension(extensionId: string): Promise<Dto<IExtensionDescription> | undefined>;
 	$activateExtension(extensionId: ExtensionIdentifier, reason: ExtensionActivationReason): Promise<void>;
@@ -2372,6 +2380,7 @@ export interface ExtHostCommandsShape {
 	$getContributedCommandMetadata(): Promise<{ [id: string]: string | ICommandMetadataDto }>;
 }
 
+allow(ExtHostContext.ExtHostConfiguration, '$initializeConfiguration');
 export interface ExtHostConfigurationShape {
 	$initializeConfiguration(data: IConfigurationInitData): void;
 	$acceptConfigurationChanged(data: IConfigurationInitData, change: IConfigurationChange): void;
@@ -2504,6 +2513,7 @@ export interface ExtHostTreeViewsShape {
 	$resolve(treeViewId: string, treeItemHandle: string, token: CancellationToken): Promise<ITreeItem | undefined>;
 }
 
+allow(ExtHostContext.ExtHostWorkspace, '$initializeWorkspace');
 export interface ExtHostWorkspaceShape {
 	$initializeWorkspace(workspace: IWorkspaceData | null, trusted: boolean): void;
 	$acceptWorkspaceData(workspace: IWorkspaceData | null): void;
@@ -2516,6 +2526,7 @@ export interface ExtHostWorkspaceShape {
 	$provideCanonicalUri(uri: UriComponents, targetScheme: string, token: CancellationToken): Promise<UriComponents | undefined>;
 }
 
+allow(ExtHostContext.ExtHostFileSystemInfo, '$acceptProviderInfos');
 export interface ExtHostFileSystemInfoShape {
 	$acceptProviderInfos(uri: UriComponents, capabilities: number | null): void;
 }
@@ -3400,6 +3411,7 @@ export interface MainThreadLoggerShape {
 	$setVisibility(resource: UriComponents, visible: boolean): Promise<void>;
 }
 
+allow(ExtHostContext.ExtHostOutputService, '$setVisibleChannel');
 export interface ExtHostOutputServiceShape {
 	$setVisibleChannel(channelId: string | null): void;
 }
@@ -3596,6 +3608,7 @@ export interface ExtHostStorageShape {
 	$acceptValue(shared: boolean, extensionId: string, value: string): void;
 }
 
+allow(ExtHostContext.ExtHostTheming, '$onColorThemeChange');
 export interface ExtHostThemingShape {
 	$onColorThemeChange(themeType: string): void;
 }

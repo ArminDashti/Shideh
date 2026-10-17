@@ -208,6 +208,7 @@ export class RemoteExtensionHost extends Disposable implements IExtensionHost {
 		this.extensions = remoteInitData.extensions;
 		const workspace = this._contextService.getWorkspace();
 		return {
+			isTrusted: this.isTrusted,
 			commit: this._productService.commit,
 			version: this._productService.version,
 			quality: this._productService.quality,

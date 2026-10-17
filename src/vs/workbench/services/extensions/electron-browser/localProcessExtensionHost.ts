@@ -521,6 +521,7 @@ export class NativeLocalProcessExtensionHost extends Disposable implements IExte
 		this.extensions = initData.extensions;
 		const workspace = this._contextService.getWorkspace();
 		return {
+			isTrusted: this.isTrusted,
 			commit: this._productService.commit,
 			version: this._productService.version,
 			quality: this._productService.quality,

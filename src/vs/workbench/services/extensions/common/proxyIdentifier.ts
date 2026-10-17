@@ -36,10 +36,31 @@ export class ProxyIdentifier<T> {
 
 	public readonly sid: string;
 	public readonly nid: number;
+	private _allowMethods: Set<string>;
+	private _allowAllMethods: boolean;
 
 	constructor(sid: string) {
 		this.sid = sid;
 		this.nid = (++ProxyIdentifier.count);
+		this._allowMethods = new Set<string>();
+		this._allowAllMethods = false;
+	}
+
+	public allow(methods: string[]): void {
+		for (const method of methods) {
+			this._allowMethods.add(method);
+		}
+	}
+
+	public allowAll(): void {
+		this._allowAllMethods = true;
+	}
+
+	public isAllowed(method: string): boolean {
+		if (this._allowAllMethods) {
+			return true;
+		}
+		return this._allowMethods.has(method);
 	}
 }
 
@@ -71,8 +92,8 @@ export type Proxied<T> = { [K in keyof T]: T[K] extends (...args: infer A) => in
 	: never
 };
 
-export function getStringIdentifierForProxy(nid: number): string {
-	return identifiers[nid].sid;
+export function getIdentifierForProxy(nid: number): ProxyIdentifier<any> {
+	return identifiers[nid];
 }
 
 /**

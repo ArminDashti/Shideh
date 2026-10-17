@@ -255,12 +255,13 @@ export class ExtensionHostManager extends Disposable implements IExtensionHostMa
 			logger = new TelemetryRPCLogger(this._telemetryService);
 		}
 
-		this._rpcProtocol = new RPCProtocol(protocol, logger);
+		this._rpcProtocol = new RPCProtocol(protocol, logger, null, !this._extensionHost.isTrusted);
 		this._register(this._rpcProtocol.onDidChangeResponsiveState((responsiveState: ResponsiveState) => this._onDidChangeResponsiveState.fire(responsiveState)));
 		let extensionHostProxy: IExtensionHostProxy | null = null as IExtensionHostProxy | null;
 		let mainProxyIdentifiers: ProxyIdentifier<any>[] = [];
 		const extHostContext: IInternalExtHostContext = {
 			remoteAuthority: this._extensionHost.remoteAuthority,
+			isTrusted: this._extensionHost.isTrusted,
 			extensionHostKind: this.kind,
 			getProxy: <T>(identifier: ProxyIdentifier<T>): Proxied<T> => this._rpcProtocol!.getProxy(identifier),
 			set: <T, R extends T>(identifier: ProxyIdentifier<T>, instance: R): R => this._rpcProtocol!.set(identifier, instance),
