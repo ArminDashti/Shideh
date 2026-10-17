@@ -8,6 +8,7 @@ import { InstantiationType, registerSingleton } from '../../../../../platform/in
 import {
 	CustomizationHarnessServiceBase,
 	ICustomizationHarnessService,
+	IExternalCustomizationItemProvider,
 	createVSCodeHarnessDescriptor,
 
 } from '../../common/customizationHarnessService.js';
@@ -20,6 +21,14 @@ import { URI } from '../../../../../base/common/uri.js';
  *
  * Only the Local harness is registered statically. All other harnesses
  * (e.g. Copilot CLI) are contributed by extensions via the provider API.
+ *
+ * A {@link PromptsServiceCustomizationProvider} wraps IPromptsService
+ * so the management editor uses the same provider-based code path for
+ * Local items as it does for extension-contributed harnesses.
+ *
+ * The provider is created lazily via IInstantiationService to avoid
+ * cyclic dependencies between ICustomizationHarnessService and
+ * IPromptsService (which depends on the extension host).
  */
 class CustomizationHarnessService extends CustomizationHarnessServiceBase {
 	constructor(
