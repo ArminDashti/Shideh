@@ -341,7 +341,6 @@ export class WorkspacesHistoryMainService extends Disposable implements IWorkspa
 
 	//#endregion
 
-
 	//#region macOS Dock / Windows JumpList
 
 	private static readonly MAX_MACOS_DOCK_RECENT_WORKSPACES = 7; 		// prefer higher number of workspaces...
