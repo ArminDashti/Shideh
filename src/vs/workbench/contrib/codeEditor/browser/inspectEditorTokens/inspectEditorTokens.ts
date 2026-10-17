@@ -253,7 +253,7 @@ class InspectEditorTokensWidget extends Disposable implements IContentWidget {
 		dom.clearNode(this._domNode);
 		this._domNode.appendChild(document.createTextNode(nls.localize('inspectTMScopesWidget.loading', "Loading...")));
 
-		Promise.all([grammar, semanticTokens]).then(([grammar, semanticTokens]) => {
+		Promise.all([grammar, semanticTokens, tree]).then(async ([grammar, semanticTokens, tree]) => {
 			if (this._isDisposed) {
 				return;
 			}
