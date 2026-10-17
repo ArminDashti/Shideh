@@ -140,8 +140,18 @@ class AgentSessionsWelcomeRunnerContribution extends Disposable implements IWork
 		// Get startup editor configuration
 		const startupEditor = this.configurationService.getValue<string>('workbench.startupEditor');
 
-		// Only proceed if configured to show agent sessions welcome page
-		if (startupEditor !== 'agentSessionsWelcomePage') {
+		// Check ExP service cache to see if agent sessions welcome should be enabled
+		// Use cached value to avoid delaying welcome page load
+		const treatmentValue = this.workbenchAssignmentService.getCachedTreatment<boolean>(AGENT_SESSIONS_WELCOME_TREATMENT);
+
+		// Only proceed if:
+		// 1. The startup editor is explicitly set to 'agentSessionsWelcomePage', OR
+		// 2. The ExP treatment is enabled and startup editor is 'welcomePage' or 'welcomePageInEmptyWorkbench'
+		const shouldShowAgentSessionsWelcome =
+			startupEditor === 'agentSessionsWelcomePage' ||
+			(treatmentValue === true && (startupEditor === 'welcomePage' || startupEditor === 'welcomePageInEmptyWorkbench'));
+
+		if (!shouldShowAgentSessionsWelcome) {
 			return;
 		}
 

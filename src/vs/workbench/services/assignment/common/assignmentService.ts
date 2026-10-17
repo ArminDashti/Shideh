@@ -33,6 +33,9 @@ import { experimentsEnabled } from '../../telemetry/common/workbenchTelemetryUti
 import { CancellationError } from '../../../../base/common/errors.js';
 import { mapsStrictEqualIgnoreOrder } from '../../../../base/common/map.js';
 
+// Treatment names
+export const AGENT_SESSIONS_WELCOME_TREATMENT = 'agentSessionsWelcome';
+
 export interface IAssignmentFilter {
 	/**
 	 * Stable identifier for this filter. Used to persist and reconcile the set of
@@ -540,6 +543,7 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 		});
 
 		await tasClient.initializePromise;
+		this.resolvedTasClient = tasClient;
 		tasClient.initialFetch.then(() => {
 			if (generation !== this.setupGeneration) {
 				return; // superseded by a newer setup
@@ -602,6 +606,32 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 		await this.tasClient;
 
 		return this.telemetry.assignmentContext;
+	}
+
+	getCachedTreatment<T extends string | number | boolean>(name: string): T | undefined {
+		// Check for override first
+		const override = this.configurationService.getValue<T>(`experiments.override.${name}`);
+		if (override !== undefined) {
+			return override;
+		}
+
+		if (!this.tasClient) {
+			return undefined;
+		}
+
+		if (!this.experimentsEnabled) {
+			return undefined;
+		}
+
+		// Only return cached values if the TAS client is initialized
+		// This avoids blocking on network calls during startup
+		if (!this.resolvedTasClient) {
+			return undefined;
+		}
+
+		// Get the synchronous cached value from the TAS client
+		const result = this.resolvedTasClient.getTreatmentVariable<T>('vscode', name);
+		return result;
 	}
 
 	addTelemetryAssignmentFilter(filter: IAssignmentFilter): void {
