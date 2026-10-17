@@ -167,6 +167,9 @@ export class MarkupCell extends Disposable {
 			if (e.showFoldingControls) {
 				this.updateFoldingIconShowClass();
 			}
+			if (e.markupFontFamily) {
+				this.updateForMarkupFontFamilyChange();
+			}
 		}));
 
 		this._register(this.viewCell.onDidChangeLayout((e) => {
@@ -239,6 +242,11 @@ export class MarkupCell extends Disposable {
 		const showFoldingIcon = this.notebookEditor.notebookOptions.getDisplayOptions().showFoldingControls;
 		this.templateData.foldingIndicator.classList.remove('mouseover', 'always');
 		this.templateData.foldingIndicator.classList.add(showFoldingIcon);
+	}
+
+	private updateForMarkupFontFamilyChange(): void {
+		// Re-render the cell to reflect the new font family
+		this.viewUpdate();
 	}
 
 	private viewUpdate(): void {
