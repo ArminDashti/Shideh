@@ -4656,6 +4656,11 @@ export interface IInlineSuggestOptions {
 		emptyResponseInformation?: boolean;
 
 		showOnSuggestConflict?: 'always' | 'never' | 'whenSuggestListIsIncomplete';
+
+		/**
+		* @internal
+		*/
+		triggerOnDelete?: boolean;
 	};
 }
 
@@ -4773,6 +4778,15 @@ class InlineEditorSuggest extends BaseEditorOption<EditorOption.inlineSuggest, I
 					tags: ['experimental'],
 					enum: ['always', 'never', 'whenSuggestListIsIncomplete'],
 					description: nls.localize('inlineSuggest.showOnSuggestConflict', "Controls whether to show inline suggestions when there is a suggest conflict."),
+					experiment: {
+						mode: 'auto'
+					}
+				},
+				'editor.inlineSuggest.experimental.triggerOnDelete': {
+					type: 'boolean',
+					default: defaults.experimental.triggerOnDelete,
+					tags: ['experimental'],
+					description: nls.localize('inlineSuggest.triggerOnDelete', "Controls whether inline suggestions are triggered when deleting code."),
 					experiment: {
 						mode: 'auto'
 					}
