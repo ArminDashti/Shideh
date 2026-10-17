@@ -4089,6 +4089,18 @@ export class AICustomizationManagementEditor extends EditorPane {
 		}
 	}
 
+	private focusActiveSectionSearch(section: AICustomizationManagementSection): void {
+		if (section === AICustomizationManagementSection.McpServers) {
+			this.mcpListWidget?.focusSearch();
+		} else if (section === AICustomizationManagementSection.Plugins) {
+			this.pluginListWidget?.focusSearch();
+		} else if (section === AICustomizationManagementSection.Models) {
+			this.modelsWidget?.focusSearch();
+		} else {
+			this.listWidget?.focusSearch();
+		}
+	}
+
 	private updateContentVisibility(): void {
 		this.contentNavigationGeneration++;
 		const isEditorMode = this.viewMode === 'editor';
