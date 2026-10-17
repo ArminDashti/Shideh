@@ -11,6 +11,7 @@ import { Button } from '../../../../base/browser/ui/button/button.js';
 import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkbenchLayoutService, Parts } from '../../../../workbench/services/layout/browser/layoutService.js';
@@ -167,6 +168,8 @@ export class SessionsPolicyBlockedOverlay extends Disposable {
 				break;
 			}
 		}
+
+		try { logPolicyBlockedShown(this.telemetryService, { policyId: String(options.reason), surface: 'sessionsOverlay' }); } catch { /* telemetry must never break */ }
 	}
 
 	hasFocus(): boolean {

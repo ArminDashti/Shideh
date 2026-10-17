@@ -253,6 +253,7 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 			return;
 		}
 
+		try { logAccountMenuOpened(this.telemetryService, { source: 'titleBar' }); } catch { /* telemetry must never break */ }
 		this.showCombinedPanel();
 	}
 
