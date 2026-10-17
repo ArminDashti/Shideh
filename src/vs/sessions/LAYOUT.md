@@ -97,6 +97,10 @@ Covered parts retain desired visibility and sizes separately from effective grid
 
 Explicit session and chat open actions dismiss the active custom view. Reactive fallback opens driven by session or chat lifecycle changes preserve the custom view while reconciling the hidden Sessions grid. On phone layouts, custom views participate in mobile navigation so platform back navigation dismisses them.
 
+Custom views normally use the shared title, description and actions header. A descriptor may hide that chrome when the surface provides its own section structure and supply `commandCenterTitle`; the standard workspace/session command-center control remains in place and substitutes only that title while the view is active.
+
+Manage Sessions (`contrib/worktrees/browser/agentsDashboardEditor.ts`) is a full-width, headerless custom view with Sessions and Dashboard tabs and a right-aligned Refresh action in the shared tab bar. While it is active, the standard command-center control remains in place without a leading workspace icon and substitutes **Manage Sessions** as its title. Sessions is the initial tab and directly contains a compact table with title, every working-directory path and its folder or worktree icon, on-disk worktree size, billed credits, session status, and per-row archive, unarchive, and delete actions. Clicking a session row expands it to show start-to-completion activity across ordinary peer chats, including requests, delegated messages between chats, and pull-request creation; double-clicking or pressing Enter opens the session. Dashboard remains aggregate-only and combines the operational summary with graphs for session throughput, pull-request outcomes, completion time, total worktree disk usage, and median versus largest per-session worktree storage. Window-wide management surfaces belong in the user menu; the sessions-list header is reserved for actions that directly operate on that list.
+
 ## Part lifecycle
 
 The workbench:

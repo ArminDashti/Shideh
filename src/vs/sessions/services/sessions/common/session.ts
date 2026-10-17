@@ -783,6 +783,14 @@ export function getChatCapabilities(chat: IChat, session: ISession | undefined, 
 	return own;
 }
 
+/** Provider-neutral aggregate resource usage for a session. */
+export interface ISessionUsage {
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
+	readonly cacheReadTokens?: number;
+	readonly credits?: number;
+}
+
 /**
  * A session groups one or more chats together.
  * All {@link ISessionData} fields are propagated from the primary (first) chat.

@@ -1370,6 +1370,31 @@ suite('LocalAgentHostSessionsProvider', () => {
 		});
 	}));
 
+	test('session usage is projected from summary metadata', async () => {
+		agentHost.addSession(createSession('usage', { summary: 'Usage Session' }));
+		const provider = createProvider(disposables, agentHost);
+		provider.getSessions();
+		await timeout(0);
+		const session = provider.getSessions()[0]!;
+		const chat = buildDefaultChatUri('copilot:/usage');
+		fireSessionSummaryChanged(agentHost, 'usage', {
+			_meta: withAccumulatedSessionUsage(undefined, chat, 'turn-one', {
+				inputTokens: 120,
+				cacheReadTokens: 20,
+				outputTokens: 30,
+				_meta: { copilotUsage: { sessionTotalNanoAiu: 1_500_000_000 } },
+			}),
+		});
+		await timeout(0);
+
+		assert.deepStrictEqual(session.usage?.get(), {
+			inputTokens: 120,
+			outputTokens: 30,
+			cacheReadTokens: 20,
+			credits: 1.5,
+		});
+	});
+
 	test('session metadata changes notify when observable git fields change', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
 		agentHost.addSession(createSession('git-meta', {
 			summary: 'Git Session',

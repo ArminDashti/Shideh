@@ -2827,6 +2827,23 @@ suite('AgentSideEffects', () => {
 			assert.deepStrictEqual([...(await db.getTurnUsages()).entries()], [['turn-1', JSON.stringify(usage)]]);
 		});
 
+		test('publishes aggregate usage on the session summary', () => {
+			setupSession('file:///work');
+			const db = new TestSessionDatabase();
+			createUsageSideEffects(db);
+			startTurn('turn-1');
+
+			stateManager.dispatchServerAction(defaultChatUri, { type: ActionType.ChatUsage, turnId: 'turn-1', usage: { inputTokens: 50, outputTokens: 10, _meta: { copilotUsage: { totalNanoAiu: 2_000_000_000 } } } });
+			stateManager.dispatchServerAction(defaultChatUri, { type: ActionType.ChatUsage, turnId: 'turn-1', usage });
+			stateManager.dispatchServerAction(defaultChatUri, { type: ActionType.ChatTurnComplete, turnId: 'turn-1', duration: 10 });
+
+			assert.deepStrictEqual(readSessionUsage(stateManager.getSessionSummary(sessionUri.toString())?._meta), {
+				inputTokens: 100,
+				outputTokens: 20,
+				totalNanoAiu: 5_000_000_000,
+			});
+		});
+
 		test('does not persist usage reported on a subagent chat', async () => {
 			setupSession('file:///work');
 			const db = new TestSessionDatabase();

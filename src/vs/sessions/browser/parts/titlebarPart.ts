@@ -36,7 +36,7 @@ import { Menus } from '../menus.js';
 import { IsNewChatSessionContext } from '../../common/contextkeys.js';
 import { localize } from '../../../nls.js';
 
-const commandCenterContextKeys = new Set([IsNewChatSessionContext.key]);
+const commandCenterContextKeys = new Set([IsNewChatSessionContext.key, ActiveCustomViewIdContext.key]);
 
 /**
  * Simplified agent sessions titlebar part.

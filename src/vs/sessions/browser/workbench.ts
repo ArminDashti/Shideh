@@ -449,6 +449,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 
 	private _editorMaximized = false;
 	private _customViewVisibleKey!: IContextKey<boolean>;
+	private _activeCustomViewIdKey!: IContextKey<string | undefined>;
 	/** Guards the grid updates that show/hide the custom view from feeding back into the desired part visibility. */
 	private _applyingCustomViewGridVisibility = false;
 	protected _customViewCoveredPartWidths: { editor?: number; auxiliaryBar?: number } | undefined;

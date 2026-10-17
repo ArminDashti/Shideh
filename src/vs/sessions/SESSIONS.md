@@ -82,7 +82,7 @@ An `ISession` has a provider-owned resource URI, provider identifier, session ty
 
 ### Observable state
 
-`ISession` and `IChat` are stable facades. Mutable state is exposed through `IObservable`, including status, title, workspace, chats, model, changes, archive state, and capabilities.
+`ISession` and `IChat` are stable facades. Mutable state is exposed through `IObservable`, including status, title, workspace, chats, model, changes, archive state, capabilities, and optional provider-retained usage totals. Usage remains provider-neutral and optional; providers map available token and billed-credit data without shared consumers inferring backend semantics.
 
 Consumers derive state from those observables. Provider events announce catalog membership changes; they are not a parallel state store.
 

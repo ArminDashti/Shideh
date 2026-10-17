@@ -170,6 +170,7 @@ export class SessionsTitleBarWidget extends BaseActionViewItem {
 	private _activeSessionTitle: string | undefined;
 	private _activeChatTitle: string | undefined;
 	private readonly _sessionTitle: string | undefined;
+	private _customViewTitle: string | undefined;
 
 	/** The currently open blocked-sessions dropdown, if any. */
 	private _openContextView: IOpenContextView | undefined;
@@ -296,8 +297,8 @@ export class SessionsTitleBarWidget extends BaseActionViewItem {
 
 			// The transient "Approved N sessions" confirmation takes precedence over the
 			// requires-input state while it is showing.
-			const showApproved = approvedCount > 0;
-			const showRequiresInput = requiresInput && !showApproved;
+			const showApproved = !this._customViewTitle && approvedCount > 0;
+			const showRequiresInput = !this._customViewTitle && requiresInput && !showApproved;
 
 			// The attention blink fires only when the indicator model reports a
 			// *genuinely new* blocked session while the requires-input state is shown —

@@ -521,6 +521,46 @@ suite('Agent host _meta readers', () => {
 		});
 	});
 
+	suite('session usage', () => {
+		test('replaces live turn snapshots and sums chat credit totals', () => {
+			const chatOne = 'ahp-chat://chat/session-one';
+			const chatTwo = 'ahp-chat://chat/session-two';
+			let meta = withAccumulatedSessionUsage(undefined, chatOne, 'turn-one', {
+				_meta: {
+					turnTokenTotals: [{ model: 'gpt-5', inputTokens: 100, cachedTokens: 20, outputTokens: 30 }],
+					copilotUsage: { totalNanoAiu: 1_000_000_000, sessionTotalNanoAiu: 1_500_000_000 },
+				},
+			});
+			meta = withAccumulatedSessionUsage(meta, chatOne, 'turn-one', {
+				_meta: {
+					turnTokenTotals: [{ model: 'gpt-5', inputTokens: 150, cachedTokens: 25, outputTokens: 40 }],
+					copilotUsage: { totalNanoAiu: 1_250_000_000, sessionTotalNanoAiu: 2_000_000_000 },
+				},
+			});
+			meta = withAccumulatedSessionUsage(meta, chatTwo, 'turn-two', {
+				inputTokens: 10,
+				cacheReadTokens: 2,
+				outputTokens: 4,
+				_meta: { copilotUsage: { totalNanoAiu: 500_000_000, sessionTotalNanoAiu: 500_000_000 } },
+			});
+
+			assert.deepStrictEqual(readSessionUsage(meta), {
+				inputTokens: 160,
+				outputTokens: 44,
+				cacheReadTokens: 27,
+				totalNanoAiu: 2_500_000_000,
+			});
+			assert.deepStrictEqual(
+				readSessionUsage(withCompletedSessionUsageTurn(meta, chatOne, 'turn-one')),
+				readSessionUsage(meta),
+			);
+		});
+
+		test('ignores malformed persisted values', () => {
+			assert.strictEqual(readSessionUsage({ 'vscode.usage': { inputTokens: -1, totalNanoAiu: 'bad' } }), undefined);
+		});
+	});
+
 	suite('client plugin MCP default cwd meta', () => {
 		function plugin(meta: Record<string, unknown> | undefined): ClientPluginCustomization {
 			return { type: CustomizationType.Plugin, id: 'p', uri: 'file:///p', name: 'p', _meta: meta };
