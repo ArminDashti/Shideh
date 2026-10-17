@@ -55,12 +55,13 @@ import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorMemento, IEditorOpenContext, IEditorPane } from '../../../common/editor.js';
 import { IChatEntitlementService } from '../../../../platform/chatEntitlement/common/chatEntitlement.js';
 import { APPLICATION_SCOPES, IWorkbenchConfigurationService } from '../../../services/configuration/common/configuration.js';
-import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { IEditorGroup, IEditorGroupsService, IModalEditorPart } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ALWAYS_SHOW_ADVANCED_SETTINGS_SETTING, IOpenSettingsOptions, IPreferencesService, ISearchResult, ISetting, ISettingsEditorModel, ISettingsEditorOptions, ISettingsGroup, SettingMatchType, SettingValueType, validateSettingsEditorOptions } from '../../../services/preferences/common/preferences.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { nullRange, Settings2EditorModel } from '../../../services/preferences/common/preferencesModels.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
+import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/common/userDataSync.js';
 import { SuggestEnabledInputWithHistory } from '../../codeEditor/browser/suggestEnabledInput/suggestEnabledInput.js';
 import { ADVANCED_SETTING_TAG, AGENTS_WINDOW_SETTING_TAG, CONTEXT_AI_SETTING_RESULTS_AVAILABLE, CONTEXT_SETTINGS_EDITOR, CONTEXT_SETTINGS_FIRST_ROW_FOCUS, CONTEXT_SETTINGS_ROW_FOCUS, CONTEXT_SETTINGS_SEARCH_FOCUS, CONTEXT_TOC_ROW_FOCUS, EMBEDDINGS_SEARCH_PROVIDER_NAME, ENABLE_LANGUAGE_FILTER, EXP_ASSIGNMENT_SETTING_TAG, EXTENSION_FETCH_TIMEOUT_MS, EXTENSION_SETTING_TAG, FEATURE_SETTING_TAG, FILTER_MODEL_SEARCH_PROVIDER_NAME, getExperimentalExtensionToggleData, ID_SETTING_TAG, IPreferencesSearchService, ISearchProvider, LANGUAGE_SETTING_TAG, LLM_RANKED_SEARCH_PROVIDER_NAME, MODIFIED_SETTING_TAG, POLICY_SETTING_TAG, REQUIRE_TRUSTED_WORKSPACE_SETTING_TAG, SETTINGS_EDITOR_COMMAND_CLEAR_SEARCH_RESULTS, SETTINGS_EDITOR_COMMAND_SHOW_AI_RESULTS, SETTINGS_EDITOR_COMMAND_SUGGEST_FILTERS, SETTINGS_EDITOR_COMMAND_TOGGLE_AI_SEARCH, STRING_MATCH_SEARCH_PROVIDER_NAME, TF_IDF_SEARCH_PROVIDER_NAME, WorkbenchSettingsEditorSettings, WORKSPACE_TRUST_SETTING_TAG } from '../common/preferences.js';
@@ -125,8 +126,7 @@ export class SettingsEditor2 extends EditorPane {
 	private static SETTING_UPDATE_FAST_DEBOUNCE: number = 200;
 	private static SETTING_UPDATE_SLOW_DEBOUNCE: number = 1000;
 	private static CONFIG_SCHEMA_UPDATE_DELAYER = 500;
-	private static TOC_MIN_WIDTH: number = 100;
-	private static TOC_RESET_WIDTH: number = 200;
+	private static TOC_RESET_WIDTH: number = 300;
 	private static EDITOR_MIN_WIDTH: number = 500;
 	// Below NARROW_TOTAL_WIDTH, we only render the editor rather than the ToC.
 	private static NARROW_TOTAL_WIDTH: number = this.TOC_RESET_WIDTH + this.EDITOR_MIN_WIDTH;
@@ -658,11 +658,7 @@ export class SettingsEditor2 extends EditorPane {
 		}
 
 		this.layoutSplitView(dimension);
-
-		const innerWidth = Math.min(this.headerContainer.clientWidth, dimension.width) - 24 * 2; // 24px padding on left and right;
-		// minus padding inside inputbox, controls width, and extra padding before countElement
-		const monacoWidth = innerWidth - 10 - this.controlsElement.clientWidth - 12;
-		this.searchWidget.layout(new DOM.Dimension(monacoWidth, 20));
+		this.layoutSearchBar();
 
 		this.rootElement.classList.toggle('narrow-width', dimension.width < SettingsEditor2.NARROW_TOTAL_WIDTH);
 	}
@@ -833,7 +829,8 @@ export class SettingsEditor2 extends EditorPane {
 	 */
 	private createHeader(parent: HTMLElement): void {
 		this.headerContainer = DOM.append(parent, $('.settings-header'));
-		this.searchContainer = DOM.append(this.headerContainer, $('.search-container'));
+		const searchRowContainer = DOM.append(this.headerContainer, $('.search-row'));
+		this.searchContainer = DOM.append(searchRowContainer, $('.search-container'));
 
 		const clearInputAction = this._register(new Action(SETTINGS_EDITOR_COMMAND_CLEAR_SEARCH_RESULTS,
 			localize('clearInput', "Clear Settings Search Input"), ThemeIcon.asClassName(preferencesClearInputIcon), false,
@@ -899,10 +896,9 @@ export class SettingsEditor2 extends EditorPane {
 			this.searchInputDelayer.trigger(() => this.onSearchInputChanged(true));
 		}));
 
-		const headerControlsContainer = DOM.append(this.headerContainer, $('.settings-header-controls'));
-		headerControlsContainer.style.borderColor = asCssVariable(settingsHeaderBorder);
+		this.headerControlsContainer = $('.settings-header-controls');
 
-		const targetWidgetContainer = DOM.append(headerControlsContainer, $('.settings-target-container'));
+		const targetWidgetContainer = DOM.append(this.headerControlsContainer, $('.settings-target-container'));
 		this.settingsTargetsWidget = this._register(this.instantiationService.createInstance(SettingsTargetsWidget, targetWidgetContainer, { enableRemoteSettings: true }));
 		this.settingsTargetsWidget.settingsTarget = ConfigurationTarget.USER_LOCAL;
 		this._register(this.settingsTargetsWidget.onDidTargetChange(target => this.onDidSettingsTargetChange(target)));
@@ -913,12 +909,12 @@ export class SettingsEditor2 extends EditorPane {
 			}
 		}));
 
-		const headerRightControlsContainer = DOM.append(headerControlsContainer, $('.settings-right-controls'));
+		const headerRightControlsContainer = DOM.append(this.headerControlsContainer, $('.settings-right-controls'));
 
-		const openSettingsJsonContainer = DOM.append(headerRightControlsContainer, $('.open-settings-json'));
-		const openSettingsJsonButton = this._register(new Button(openSettingsJsonContainer, { secondary: true, title: true, ...defaultButtonStyles }));
-		openSettingsJsonButton.label = localize('openSettingsJson', "Edit as JSON");
-		this._register(openSettingsJsonButton.onDidClick(() => this.openSettingsFile()));
+		// Add "Edit as JSON" button to the right controls container
+		const openSettingsJsonButton = this._register(new Button(headerRightControlsContainer, { secondary: true, title: true, ...defaultButtonStyles }));
+		openSettingsJsonButton.label = localize('editAsJson', "Edit as JSON");
+		this._register(openSettingsJsonButton.onDidClick(() => this.openSettingsJsonFile()));
 
 		if (this.userDataSyncWorkbenchService.enabled && this.userDataSyncEnablementService.canToggleEnablement()) {
 			const syncControls = this._register(this.instantiationService.createInstance(SyncControls, this.window, headerRightControlsContainer));
@@ -928,7 +924,9 @@ export class SettingsEditor2 extends EditorPane {
 			}));
 		}
 
-		this.controlsElement = DOM.append(this.searchContainer, DOM.$('.search-container-widgets'));
+		// Place header controls (User/Workspace tabs) below the search row,
+		// left-aligned under the search input.
+		DOM.append(this.headerContainer, this.headerControlsContainer);
 
 		this.countElement = DOM.append(this.controlsElement, DOM.$('.settings-count-widget.monaco-count-badge.long'));
 
@@ -1060,27 +1058,74 @@ export class SettingsEditor2 extends EditorPane {
 		return this.openSettingsFile({ query });
 	}
 
+	/**
+	 * Opens the raw settings.json file directly in the same editor group,
+	 * replacing the settings UI editor.
+	 */
+	private async openSettingsJsonFile(): Promise<void> {
+		const currentSettingsTarget = this.settingsTargetsWidget.settingsTarget;
+
+		let resource: URI | null = null;
+		if (currentSettingsTarget === ConfigurationTarget.USER_LOCAL) {
+			resource = this.preferencesService.userSettingsResource;
+		} else if (currentSettingsTarget === ConfigurationTarget.USER_REMOTE) {
+			const environment = await this.remoteAgentService.getEnvironment();
+			resource = environment?.settingsPath ?? null;
+		} else if (currentSettingsTarget === ConfigurationTarget.WORKSPACE) {
+			resource = this.preferencesService.workspaceSettingsResource;
+		} else if (URI.isUri(currentSettingsTarget)) {
+			resource = this.preferencesService.getFolderSettingsResource(currentSettingsTarget);
+		}
+
+		if (resource) {
+			const modalPart = this.getModalEditorPart();
+			if (modalPart) {
+				// When in a modal editor, open settings.json in the main editor
+				// area first, then close the modal
+				const targetGroup = this.editorGroupService.mainPart.activeGroup;
+				await this.editorService.openEditor({ resource, options: { pinned: true, override: DEFAULT_EDITOR_ASSOCIATION.id } }, targetGroup);
+				modalPart.close();
+			} else {
+				await this.editorService.openEditor({ resource, options: { pinned: true, override: DEFAULT_EDITOR_ASSOCIATION.id } }, this.group);
+			}
+		}
+	}
+
 	private async openSettingsFile(options?: ISettingsEditorOptions): Promise<IEditorPane | undefined> {
 		const currentSettingsTarget = this.settingsTargetsWidget.settingsTarget;
 
-		const openOptions: IOpenSettingsOptions = { jsonEditor: true, groupId: this.group.id, ...options };
+		const modalPart = this.getModalEditorPart();
+		const groupId = modalPart ? this.editorGroupService.mainPart.activeGroup.id : this.group.id;
+		const openOptions: IOpenSettingsOptions = { jsonEditor: true, groupId, ...options };
+		let result: IEditorPane | undefined;
 		if (currentSettingsTarget === ConfigurationTarget.USER_LOCAL) {
 			if (options?.revealSetting) {
 				const configurationProperties = Registry.as<IConfigurationRegistry>(Extensions.Configuration).getConfigurationProperties();
 				const configurationScope = configurationProperties[options?.revealSetting.key]?.scope;
 				if (configurationScope && APPLICATION_SCOPES.includes(configurationScope)) {
-					return this.preferencesService.openApplicationSettings(openOptions);
+					result = await this.preferencesService.openApplicationSettings(openOptions);
+					modalPart?.close();
+					return result;
 				}
 			}
-			return this.preferencesService.openUserSettings(openOptions);
+			result = await this.preferencesService.openUserSettings(openOptions);
 		} else if (currentSettingsTarget === ConfigurationTarget.USER_REMOTE) {
-			return this.preferencesService.openRemoteSettings(openOptions);
+			result = await this.preferencesService.openRemoteSettings(openOptions);
 		} else if (currentSettingsTarget === ConfigurationTarget.WORKSPACE) {
-			return this.preferencesService.openWorkspaceSettings(openOptions);
+			result = await this.preferencesService.openWorkspaceSettings(openOptions);
 		} else if (URI.isUri(currentSettingsTarget)) {
-			return this.preferencesService.openFolderSettings({ folderUri: currentSettingsTarget, ...openOptions });
+			result = await this.preferencesService.openFolderSettings({ folderUri: currentSettingsTarget, ...openOptions });
 		}
 
+		modalPart?.close();
+		return result;
+	}
+
+	private getModalEditorPart(): IModalEditorPart | undefined {
+		const part = this.editorGroupService.getPart(this.group) as IModalEditorPart | undefined;
+		if (part && typeof part.close === 'function' && typeof part.onWillClose === 'function') {
+			return part;
+		}
 		return undefined;
 	}
 
@@ -1118,11 +1163,14 @@ export class SettingsEditor2 extends EditorPane {
 		splitView.addView({
 			onDidChange: Event.None,
 			element: this.tocTreeContainer,
-			minimumSize: SettingsEditor2.TOC_MIN_WIDTH,
-			maximumSize: Number.POSITIVE_INFINITY,
+			minimumSize: SettingsEditor2.TOC_RESET_WIDTH,
+			maximumSize: SettingsEditor2.TOC_RESET_WIDTH,
 			layout: (width, _, height) => {
 				this.tocTreeContainer.style.width = `${width}px`;
-				this.tocTree.layout(height, width);
+				if (height !== undefined) {
+					const tocWrapperPaddingTop = parseFloat(DOM.getWindow(this.tocTreeWrapper).getComputedStyle(this.tocTreeWrapper).paddingTop) || 0;
+					this.tocTree.layout(height - tocWrapperPaddingTop, width);
+				}
 			}
 		}, startingWidth, undefined, true);
 		splitView.addView({
@@ -1171,11 +1219,12 @@ export class SettingsEditor2 extends EditorPane {
 	private createTOC(container: HTMLElement): void {
 		this.tocTreeModel = this.instantiationService.createInstance(TOCTreeModel, this.viewState);
 
+		this.tocTreeWrapper = DOM.append(container, $('.settings-toc-wrapper', {
+			'role': 'navigation',
+			'aria-label': localize('settings', "Settings"),
+		}));
 		this.tocTree = this._register(this.instantiationService.createInstance(TOCTree,
-			DOM.append(container, $('.settings-toc-wrapper', {
-				'role': 'navigation',
-				'aria-label': localize('settings', "Settings"),
-			})),
+			this.tocTreeWrapper,
 			this.viewState));
 		this.tocTreeDisposed = false;
 
@@ -2244,13 +2293,8 @@ export class SettingsEditor2 extends EditorPane {
 			: 'none';
 
 		if (!this.searchResultModel) {
-			if (this.countElement.style.display !== 'none') {
-				this.searchResultLabel = null;
-				this.updateInputAriaLabel();
-				this.countElement.style.display = 'none';
-				this.countElement.innerText = '';
-				this.layout(this.dimension);
-			}
+			this.searchResultLabel = null;
+			this.updateInputAriaLabel();
 
 			this.rootElement.classList.remove('no-results');
 			if (this.splitView) {
@@ -2277,13 +2321,8 @@ export class SettingsEditor2 extends EditorPane {
 
 			this.searchResultLabel = resultString;
 			this.updateInputAriaLabel();
-			this.countElement.innerText = resultString;
 			aria.status(resultString);
 
-			if (this.countElement.style.display !== 'block') {
-				this.countElement.style.display = 'block';
-			}
-			this.layout(this.dimension);
 			this.rootElement.classList.toggle('no-results', count === 0);
 			if (this.splitView) {
 				this.splitView.el.style.visibility = count === 0 ? 'hidden' : 'visible';
@@ -2307,7 +2346,7 @@ export class SettingsEditor2 extends EditorPane {
 		if (!this.isVisible() || !this.splitView) {
 			return;
 		}
-		const listHeight = dimension.height - (72 + 11 + 14 /* header height + editor padding */);
+		const listHeight = dimension.height - this.headerContainer.offsetHeight - 11 /* editor padding */;
 
 		this.splitView.el.style.height = `${listHeight}px`;
 
@@ -2320,19 +2359,28 @@ export class SettingsEditor2 extends EditorPane {
 		const tocBehavior = this.configurationService.getValue<'filter' | 'hide'>(SEARCH_TOC_BEHAVIOR_KEY);
 		const hideTocForSearch = tocBehavior === 'hide' && this.searchResultModel;
 		if (!hideTocForSearch) {
-			const firstViewWasVisible = this.splitView.isViewVisible(0);
 			const firstViewVisible = this.bodyContainer.clientWidth >= SettingsEditor2.NARROW_TOTAL_WIDTH;
-
 			this.splitView.setViewVisible(0, firstViewVisible);
-			// If the first view is again visible, and we have enough space, immediately set the
-			// editor to use the reset width rather than the cached min width
-			if (!firstViewWasVisible && firstViewVisible && this.bodyContainer.clientWidth >= SettingsEditor2.EDITOR_MIN_WIDTH + SettingsEditor2.TOC_RESET_WIDTH) {
-				this.splitView.resizeView(0, SettingsEditor2.TOC_RESET_WIDTH);
-			}
-			this.splitView.style({
-				separatorBorder: firstViewVisible ? this.theme.getColor(settingsSashBorder)! : Color.transparent
-			});
 		}
+	}
+
+	private layoutSearchBar(): void {
+		// Constrain the search bar width to the fixed TOC column width
+		const tocVisible = this.splitView.isViewVisible(0);
+		let searchBarWidth: number;
+		if (tocVisible) {
+			// Subtract header left padding since the search container starts at that offset
+			searchBarWidth = SettingsEditor2.TOC_RESET_WIDTH - 24;
+			this.searchContainer!.style.width = `${searchBarWidth}px`;
+			this.searchContainer!.style.maxWidth = `${searchBarWidth}px`;
+		} else {
+			this.searchContainer!.style.width = '';
+			this.searchContainer!.style.maxWidth = '';
+			searchBarWidth = Math.min(this.headerContainer.clientWidth, this.dimension!.width) - 24 * 2; // 24px padding on left and right
+		}
+
+		const monacoWidth = searchBarWidth - 10 - this.controlsElement.clientWidth - 12;
+		this.searchWidget.layout(new DOM.Dimension(monacoWidth, 20));
 	}
 
 	protected override saveState(): void {
