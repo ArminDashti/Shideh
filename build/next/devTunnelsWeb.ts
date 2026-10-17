@@ -37,6 +37,7 @@ const vscodeJsonrpcCancellationPath = resolveDevTunnelsJsonRpcModule('cancellati
  */
 export async function bundleDevTunnelsWeb(options: { minify?: boolean; outDir: string; sourceMapBaseUrl?: string }): Promise<void> {
 	const outDir = path.resolve(REPO_ROOT, options.outDir);
+	const outFile = path.join(outDir, 'devTunnelsModule.js');
 	const t1 = Date.now();
 	await fs.promises.mkdir(outDir, { recursive: true });
 
@@ -58,7 +59,7 @@ export async function bundleDevTunnelsWeb(options: { minify?: boolean; outDir: s
 		],
 		minify: options.minify,
 		sourcemap: 'linked',
-		outfile: path.join(outDir, 'devTunnelsModule.js'),
+		outfile: outFile,
 		plugins: [devTunnelsBrowserShimPlugin()],
 		write: false,
 		logLevel: 'warning',
