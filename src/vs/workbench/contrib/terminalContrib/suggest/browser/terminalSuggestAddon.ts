@@ -783,7 +783,7 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 		suggestWidget.setCompletionModel(model);
 
 		if (!this._promptInputModel || !explicitlyInvoked && model.items.length === 0) {
-			return;
+			return; // getting returned here... explicitly invoked is undefined and model.items.length is 0.... model._items is full though!
 		}
 		this._model = model;
 		const cursorPosition = this._getCursorPosition(this._terminal);

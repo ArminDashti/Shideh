@@ -159,7 +159,7 @@ export class PtyService extends Disposable implements IPtyService {
 		private readonly _logService: ILogService,
 		private readonly _productService: IProductService,
 		private readonly _reconnectConstants: IReconnectConstants,
-		private readonly _simulatedLatency: number
+		private readonly _simulatedLatency: number,
 	) {
 		super();
 
@@ -776,7 +776,7 @@ class PersistentTerminalProcess extends Disposable {
 		private _icon?: TerminalIcon,
 		private _color?: string,
 		name?: string,
-		fixedDimensions?: IFixedTerminalDimensions
+		fixedDimensions?: IFixedTerminalDimensions,
 	) {
 		super();
 		this._interactionState = new MutationLogger(`Persistent process "${this._persistentProcessId}" interaction state`, InteractionState.None, this._logService);
@@ -789,7 +789,7 @@ class PersistentTerminalProcess extends Disposable {
 			reviveBuffer,
 			processLaunchOptions.options.shellIntegration.nonce,
 			shouldPersistTerminal ? rawReviveBuffer : undefined,
-			this._logService
+			this._logService,
 		);
 		if (name) {
 			this.setTitle(name, TitleEventSource.Api);
@@ -1042,7 +1042,7 @@ export class XtermSerializer implements ITerminalSerializer {
 		reviveBufferWithRestoreMessage: string | undefined,
 		shellIntegrationNonce: string,
 		private _rawReviveBuffer: string | undefined,
-		logService: ILogService
+		logService: ILogService,
 	) {
 		this._xterm = new XtermTerminal({
 			cols,
