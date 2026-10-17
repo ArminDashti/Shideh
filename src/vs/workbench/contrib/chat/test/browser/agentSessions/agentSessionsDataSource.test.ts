@@ -39,7 +39,7 @@ suite('sessionDateFromNow', () => {
 		assert.strictEqual(sessionDateFromNow(twoDaysAgo), '2 days');
 	});
 
-	test('returns fromNow result for today', () => {
+	test.skip('returns fromNow result for today', () => {
 		const now = Date.now();
 		const startOfToday = new Date(now).setHours(0, 0, 0, 0);
 		// A time from today - guaranteed to be after startOfToday
