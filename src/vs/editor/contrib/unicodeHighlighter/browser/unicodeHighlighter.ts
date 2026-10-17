@@ -516,6 +516,10 @@ export class UnicodeHighlighterHoverParticipant implements IEditorHoverParticipa
 	public getAccessibleContent(hoverPart: MarkdownHover): string {
 		return hoverPart.contents.map(c => c.value).join('\n');
 	}
+
+	public getAccessibleContent(hoverPart: MarkdownHover): string {
+		return hoverPart.contents.map(content => content.value).join('');
+	}
 }
 
 function codePointToHex(codePoint: number): string {

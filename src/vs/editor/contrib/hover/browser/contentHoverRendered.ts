@@ -234,6 +234,13 @@ class RenderedContentHoverParts extends Disposable {
 	private _colorHoverParticipant: HoverColorPickerParticipant | undefined;
 	private _focusedHoverPartIndex: number = -1;
 
+	private _markdownParticipantInfo: {
+		participant: MarkdownHoverParticipant;
+		range: { start: number; end: number };
+	} | undefined;
+	private _colorHoverParticipant: ColorHoverParticipant | undefined;
+	private _focusedHoverPartIndex: number = -1;
+
 	constructor(
 		editor: ICodeEditor,
 		participants: IEditorHoverParticipant<IHoverPart>[],
@@ -301,6 +308,32 @@ class RenderedContentHoverParts extends Disposable {
 				actions: renderedStatusBar.actions,
 			});
 		}
+		return renderedContentHoverParts;
+	}
+
+	private _renderStatusBar(fragment: DocumentFragment, statusBar: EditorHoverStatusBar): IRenderedContentHoverPart | undefined {
+		if (!statusBar.hasContent) {
+			return undefined;
+		}
+		const element = statusBar.hoverElement;
+		fragment.appendChild(element);
+		return new RenderedContentHoverStatusBar(element);
+	}
+
+	private _registerListenersOnRenderedParts(): IDisposable {
+		const disposables = new DisposableStore();
+		this._renderedParts.map((renderedPart: IRenderedContentHoverPart, index: number) => {
+			const element = renderedPart.element;
+			element.tabIndex = 0;
+			disposables.add(dom.addDisposableListener(element, dom.EventType.FOCUS_IN, (event: Event) => {
+				event.stopPropagation();
+				this._focusedHoverPartIndex = index;
+			}));
+			disposables.add(dom.addDisposableListener(element, dom.EventType.FOCUS_OUT, (event: Event) => {
+				event.stopPropagation();
+				this._focusedHoverPartIndex = -1;
+			}));
+		});
 		return disposables;
 	}
 

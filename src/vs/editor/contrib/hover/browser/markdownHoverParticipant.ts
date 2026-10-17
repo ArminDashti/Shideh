@@ -416,6 +416,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		if (!newHover) {
 			return undefined;
 		}
+		const initialHoverPart = hoverRenderedPart.hoverPart;
 		const newHoverSource = new HoverSource(newHover, hoverSource.hoverProvider, hoverSource.hoverPosition);
 		const initialHoverPart = hoverRenderedPart.hoverPart;
 		const newHoverPart = new MarkdownHover(
@@ -582,26 +583,34 @@ export function labelForHoverVerbosityAction(keybindingService: IKeybindingServi
 function renderMarkdownInContainer(
 	editor: ICodeEditor,
 	container: DocumentFragment | HTMLElement,
-	markdownStrings: IMarkdownString[],
+	initialHoverPart: MarkdownHover,
+	contents: IMarkdownString[],
 	languageService: ILanguageService,
 	openerService: IOpenerService,
 	onFinishedRendering: () => void,
-): IDisposable {
-	const store = new DisposableStore();
-	for (const contents of markdownStrings) {
-		if (isEmptyMarkdownString(contents)) {
+): IRenderedHoverPart<MarkdownHover> {
+	const disposables = new DisposableStore();
+	const contentsWrapper = $('div.hover-contents-wrapper');
+	container.appendChild(contentsWrapper);
+	for (const markdownString of contents) {
+		if (isEmptyMarkdownString(markdownString)) {
 			continue;
 		}
 		const markdownHoverElement = $('div.markdown-hover');
 		const hoverContentsElement = dom.append(markdownHoverElement, $('div.hover-contents'));
-		const renderer = store.add(new MarkdownRenderer({ editor }, languageService, openerService));
-		store.add(renderer.onDidRenderAsync(() => {
+		const renderer = disposables.add(new MarkdownRenderer({ editor }, languageService, openerService));
+		disposables.add(renderer.onDidRenderAsync(() => {
 			hoverContentsElement.className = 'hover-contents code-hover-contents';
 			onFinishedRendering();
 		}));
-		const renderedContents = store.add(renderer.render(contents));
+		const renderedContents = disposables.add(renderer.render(markdownString));
 		hoverContentsElement.appendChild(renderedContents.element);
-		container.appendChild(markdownHoverElement);
+		contentsWrapper.appendChild(markdownHoverElement);
 	}
-	return store;
+	const renderedHoverPart: IRenderedHoverPart<MarkdownHover> = {
+		hoverPart: initialHoverPart,
+		hoverElement: contentsWrapper,
+		dispose() { disposables.dispose(); }
+	};
+	return renderedHoverPart;
 }
