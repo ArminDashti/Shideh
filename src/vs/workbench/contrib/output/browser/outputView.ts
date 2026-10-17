@@ -67,6 +67,8 @@ export class OutputViewPane extends FilterViewPane {
 	private editorPromise: CancelablePromise<void> | null = null;
 
 	private readonly scrollLockContextKey: IContextKey<boolean>;
+	private _splitView!: SplitView;
+	private _dim!: dom.Dimension;
 	get scrollLock(): boolean { return !!this.scrollLockContextKey.get(); }
 	set scrollLock(scrollLock: boolean) { this.scrollLockContextKey.set(scrollLock); }
 
@@ -145,7 +147,9 @@ export class OutputViewPane extends FilterViewPane {
 
 	protected override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
-		this.editor.create(container);
+		this._splitView = new SplitView(container, { orientation: Orientation.VERTICAL });
+		const editorContainer = dom.append(container, dom.$('.ouput-editor-container'));
+		this.editor.create(editorContainer);
 		container.classList.add('output-view');
 		const codeEditor = <ICodeEditor>this.editor.getControl();
 		codeEditor.setAriaOptions({ role: 'document', activeDescendant: undefined });
@@ -170,6 +174,30 @@ export class OutputViewPane extends FilterViewPane {
 				this.scrollLock = lastLine !== newPositionLine;
 			}
 		}));
+
+		const treeContainer = dom.append(container, dom.$('.ouput-outline-tree'));
+		const tree = this._register(createOutlineTree(this.instantiationService, treeContainer, this.getBackgroundColor()));
+
+		// split stuff
+		this._splitView.addView({
+			onDidChange: Event.None,
+			element: editorContainer,
+			minimumSize: 200,
+			maximumSize: Number.MAX_VALUE,
+			layout: (width) => {
+				this.editor.layout(new dom.Dimension(width, this._dim?.height ?? 0));
+			}
+		}, Sizing.Distribute);
+
+		this._splitView.addView({
+			onDidChange: Event.None,
+			element: treeContainer,
+			minimumSize: 100,
+			maximumSize: Number.MAX_VALUE,
+			layout: (width) => {
+				tree.layout(width, this._dim?.height ?? 0);
+			}
+		}, Sizing.Distribute);
 	}
 
 	protected layoutBodyContent(height: number, width: number): void {
