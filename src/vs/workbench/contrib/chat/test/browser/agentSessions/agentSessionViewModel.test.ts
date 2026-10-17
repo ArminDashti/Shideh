@@ -299,7 +299,7 @@ suite('AgentSessions', () => {
 				await viewModel.resolve(undefined);
 				assert.strictEqual(viewModel.sessions.length, 2);
 
-				// Now resolve only type-1
+				// Now resolve only type-1 - sessions from type-2 are preserved
 				await viewModel.resolve('type-1');
 				// Per-provider resolution preserves sessions from other providers
 				assert.strictEqual(viewModel.sessions.length, 2);
@@ -591,7 +591,7 @@ suite('AgentSessions', () => {
 				assert.strictEqual(controller1CallCount, 2); // One from registration and one from resolve
 				assert.strictEqual(controller2CallCount, 2); // One from registration and one from resolve
 
-				// Now resolve only type-2
+				// Now resolve only type-2 - sessions from type-1 are preserved
 				await viewModel.resolve('type-2');
 
 				// Per-provider resolution: type-1 sessions are preserved

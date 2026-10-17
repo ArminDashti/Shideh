@@ -845,6 +845,10 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 			.map(entry => this.resolveChatSessionContribution(entry.extension, entry.contribution));
 	}
 
+	getRegisteredSessionTypes(): readonly string[] {
+		return Array.from(this._itemControllers.keys());
+	}
+
 	private _updateHasCanDelegateProvidersContextKey(): void {
 		const hasCanDelegate = this.getAllChatSessionContributions().filter(c => c.canDelegate);
 		const canDelegateEnabled = hasCanDelegate.length > 0;

@@ -940,6 +940,10 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 			}
 		}
 
+		for (const [resource, session] of resolvedSessions) {
+			sessions.set(resource, session);
+		}
+
 		this._sessions = sessions;
 		this._resolved = true;
 
