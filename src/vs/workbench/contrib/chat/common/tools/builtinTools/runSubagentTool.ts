@@ -137,6 +137,9 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 	/** Hack to port data between prepare/invoke */
 	private readonly _resolvedModels = new Map<string, { modeModelId: string | undefined; resolvedModelName: string | undefined }>();
 
+	/** Tracks the current subagent nesting depth per session to detect and limit recursion. */
+	private readonly _sessionDepth = new Map<string, number>();
+
 	constructor(
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
 		@IChatService private readonly chatService: IChatService,
