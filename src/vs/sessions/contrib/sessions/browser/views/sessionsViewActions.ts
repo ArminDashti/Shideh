@@ -1620,6 +1620,7 @@ registerAction2(class OpenSessionToTheSideAction extends Action2 {
 			const reference = sessionsService.visibleSessions.get().at(-1);
 			await sessionsService.openSessionsAt(sessions, reference?.sessionId, 'right', { source: 'sessionsList', activate: 'last', forceMainChat: true });
 		}
+		sessionsManagementService.openNewSessionView();
 	}
 });
 
