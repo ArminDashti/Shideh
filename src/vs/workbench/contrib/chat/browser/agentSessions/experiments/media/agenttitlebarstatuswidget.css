@@ -60,6 +60,15 @@
 	border: 1px solid var(--vscode-commandCenter-border, transparent);
 }
 
+.vs .agent-status-pill {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+.hc-black .agent-status-pill,
+.hc-light .agent-status-pill {
+	background-color: transparent;
+}
+
 .agent-status-pill:hover {
 	background-color: var(--vscode-commandCenter-activeBackground);
 	border-color: var(--vscode-commandCenter-activeBorder, transparent);
@@ -290,6 +299,15 @@
 	-webkit-app-region: no-drag;
 	margin-left: auto;
 	color: var(--vscode-commandCenter-foreground);
+}
+
+.vs .agent-status-badge {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+.hc-black .agent-status-badge,
+.hc-light .agent-status-badge {
+	background-color: transparent;
 }
 
 /* Badge sections */
