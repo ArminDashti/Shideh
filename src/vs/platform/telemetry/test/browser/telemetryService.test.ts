@@ -7,9 +7,10 @@ import * as sinon from 'sinon';
 import sinonTest from 'sinon-test';
 import { mainWindow } from '../../../../base/browser/window.js';
 import * as Errors from '../../../../base/common/errors.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { TestConfigurationService } from '../../../configuration/test/common/testConfigurationService.js';
+import { IMeteredConnectionService } from '../../../meteredConnection/common/meteredConnection.js';
 import product from '../../../product/common/product.js';
 import { IProductService } from '../../../product/common/productService.js';
 import ErrorTelemetry from '../../browser/errorTelemetry.js';
@@ -41,6 +42,12 @@ class TestTelemetryAppender implements ITelemetryAppender {
 		this.isDisposed = true;
 		return Promise.resolve(null);
 	}
+}
+
+class TestMeteredConnectionService implements IMeteredConnectionService {
+	declare readonly _serviceBrand: undefined;
+	readonly onDidChangeIsConnectionMetered = Event.None;
+	isConnectionMetered = false;
 }
 
 class ErrorTestingSettings {

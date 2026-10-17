@@ -19,6 +19,11 @@ export interface IAppInsightsCore {
 	unload(isAsync: boolean, unloadComplete: (unloadState: ITelemetryUnloadState) => void): void;
 }
 
+interface IAppInsightsClient {
+	readonly core: IAppInsightsCore;
+	readonly transmissionController: Pick<PostChannel, 'pause' | 'resume'>;
+}
+
 const endpointUrl = 'https://mobile.events.data.microsoft.com/OneCollector/1.0';
 const endpointHealthUrl = 'https://mobile.events.data.microsoft.com/ping';
 
@@ -76,7 +81,10 @@ async function getClient(instrumentationKey: string, addInternalFlag?: boolean, 
 
 	appInsightsCore.addTelemetryInitializer(envelope => applyEnvelopeDefaults(envelope, addInternalFlag));
 
-	return appInsightsCore;
+	return {
+		core: appInsightsCore,
+		transmissionController: collectorChannelPlugin,
+	};
 }
 
 // TODO @lramos15 maybe make more in line with src/vs/platform/telemetry/browser/appInsightsAppender.ts with caching support
@@ -84,6 +92,8 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 
 	protected _aiCoreOrKey: IAppInsightsCore | string | undefined;
 	private _asyncAiCore: Promise<IAppInsightsCore> | null;
+	private _transmissionController: Pick<PostChannel, 'pause' | 'resume'> | undefined;
+	private _isTransmissionPaused = false;
 	protected readonly endPointUrl = endpointUrl;
 	protected readonly endPointHealthUrl = endpointHealthUrl;
 
@@ -106,6 +116,26 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 		this._asyncAiCore = null;
 	}
 
+	protected setTransmissionController(transmissionController: Pick<PostChannel, 'pause' | 'resume'>): void {
+		this._transmissionController = transmissionController;
+		if (this._isTransmissionPaused) {
+			this._transmissionController.pause();
+		}
+	}
+
+	protected setTransmissionPaused(isPaused: boolean): void {
+		if (this._isTransmissionPaused === isPaused) {
+			return;
+		}
+
+		this._isTransmissionPaused = isPaused;
+		if (isPaused) {
+			this._transmissionController?.pause();
+		} else {
+			this._transmissionController?.resume();
+		}
+	}
+
 	private _withAIClient(callback: (aiCore: IAppInsightsCore) => void): void {
 		if (!this._aiCoreOrKey) {
 			return;
@@ -117,7 +147,10 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 		}
 
 		if (!this._asyncAiCore) {
-			this._asyncAiCore = getClient(this._aiCoreOrKey, this._isInternalTelemetry, this._xhrOverride);
+			this._asyncAiCore = getClient(this._aiCoreOrKey, this._isInternalTelemetry, this._xhrOverride).then(client => {
+				this.setTransmissionController(client.transmissionController);
+				return client.core;
+			});
 		}
 
 		this._asyncAiCore.then(
@@ -161,6 +194,7 @@ export abstract class AbstractOneDataSystemAppender implements ITelemetryAppende
 				this._withAIClient((aiClient) => {
 					aiClient.unload(true, () => {
 						this._aiCoreOrKey = undefined;
+						this._transmissionController = undefined;
 						resolve(undefined);
 					});
 				});

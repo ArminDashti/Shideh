@@ -19,6 +19,7 @@ import { ClassifiedEvent, StrictPropertyCheck, OmitMetadata, IGDPRProperty } fro
 import { process } from '../../../../base/parts/sandbox/electron-browser/globals.js';
 import { experimentsEnabled } from '../common/workbenchTelemetryUtils.js';
 import { IRequestService, NO_FETCH_TELEMETRY } from '../../../../platform/request/common/request.js';
+import { IMeteredConnectionService } from '../../../../platform/meteredConnection/common/meteredConnection.js';
 
 export class TelemetryService extends Disposable implements ITelemetryService {
 
@@ -40,6 +41,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 		@ISharedProcessService sharedProcessService: ISharedProcessService,
 		@IStorageService storageService: IStorageService,
 		@IConfigurationService configurationService: IConfigurationService,
+		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 		@IRequestService requestService: IRequestService
 	) {
 		super();
