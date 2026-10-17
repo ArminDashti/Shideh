@@ -1007,8 +1007,8 @@ suite('AgentHostClientTools', () => {
 			const configValues: Record<string, unknown> = {};
 			const onDidChangeConfig = disposables.add(new Emitter<IConfigurationChangeEvent>());
 			const configService: Partial<IConfigurationService> = {
-				getValue: (key: string) => configValues[key],
-				onDidChangeConfiguration: onDidChangeConfig.event,
+				getValue: () => undefined,
+				onDidChangeConfiguration: Event.None,
 			} as Partial<IConfigurationService>;
 
 			instantiationService.stub(ILogService, new NullLogService());
@@ -1181,6 +1181,7 @@ suite('AgentHostClientTools', () => {
 			displayName: 'Run Tests',
 			modelDescription: 'Runs unit tests',
 			source: ToolDataSource.Internal,
+			canBeReferencedInPrompt: true,
 			inputSchema: { type: 'object', properties: { files: { type: 'array' } } },
 		};
 
@@ -1190,6 +1191,7 @@ suite('AgentHostClientTools', () => {
 			displayName: 'Run Task',
 			modelDescription: 'Runs a VS Code task',
 			source: ToolDataSource.Internal,
+			canBeReferencedInPrompt: true,
 			inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
 		};
 
@@ -1208,6 +1210,7 @@ suite('AgentHostClientTools', () => {
 			displayName: 'Read File',
 			modelDescription: 'Reads a file',
 			source: ToolDataSource.Internal,
+			canBeReferencedInPrompt: true,
 		};
 
 		const testToolSearchTool: IToolData = {

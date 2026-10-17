@@ -17,7 +17,7 @@ import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contex
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
-import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+import { ChatContextKeyExprs, ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ConfirmedReason, IChatToolInvocation, ToolConfirmKind } from '../../common/chatService/chatService.js';
 import { isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatModeKind } from '../../common/constants.js';
@@ -139,7 +139,10 @@ export class ConfigureToolsAction extends Action2 {
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('view', ChatViewId),
 					ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
-					ChatContextKeys.lockedToCodingAgent.negate(),
+					ContextKeyExpr.or(
+						ChatContextKeys.lockedToCodingAgent.negate(),
+						ChatContextKeyExprs.isAgentHostSession,
+					),
 				),
 				id: CHAT_CONFIG_MENU_ID,
 				group: '2_level',
@@ -191,6 +194,10 @@ export class ConfigureToolsAction extends Action2 {
 				placeholder = localize('chat.tools.placeholder.global', "Select tools that are available to chat.");
 				description = localize('chat.tools.description.global', "The selected tools will be applied globally for all chat sessions that use the default agent.");
 				break;
+			case ToolsScope.AgentHost:
+				placeholder = localize('chat.tools.placeholder.agentHost', "Select tools that are available to agent sessions.");
+				description = localize('chat.tools.description.agentHost', "The selected tools will be applied to all agent sessions.");
+				break;
 
 		}
 
@@ -204,7 +211,11 @@ export class ConfigureToolsAction extends Action2 {
 		});
 
 		try {
-			const result = await instaService.invokeFunction(showToolsPicker, placeholder, source, description, () => entriesMap.get(), widget.input.selectedLanguageModel.get()?.metadata, cts.token);
+			// Agent-host sessions hide tools the backend already provides natively (also as tool-set members) and, in the
+			// Agents window, tools that depend on UI it doesn't have (notebooks, Problems).
+			const isSessionsWindow = accessor.get(IWorkbenchEnvironmentService).isSessionsWindow;
+			const excludeTool = entriesScope === ToolsScope.AgentHost ? ((tool: IToolData) => isAgentHostHiddenTool(tool, { isSessionsWindow })) : undefined;
+			const result = await instaService.invokeFunction(showToolsPicker, placeholder, source, description, () => entriesMap.get(), widget.input.selectedLanguageModel.get()?.metadata, cts.token, excludeTool);
 			if (result) {
 				widget.input.selectedToolsModel.set(result, false);
 			}
