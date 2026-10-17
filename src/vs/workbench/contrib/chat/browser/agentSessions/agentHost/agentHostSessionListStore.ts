@@ -8,6 +8,7 @@ import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { extUriBiasedIgnorePathCase } from '../../../../../../base/common/resources.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { getWorkingDirectoryUris } from '../../../../../../platform/agentHost/common/agentHostWorkingDirectories.js';
 import { AgentSession, type IAgentSessionMetadata } from '../../../../../../platform/agentHost/common/agentService.js';
 import { IAgentHostSessionSchemeAlias } from '../../../../../../platform/agentHost/common/agentHostConnectionsService.js';
 import { ActionType, type IIsArchivedChangedAction, type IIsReadChangedAction, type INotification, type SessionAction } from '../../../../../../platform/agentHost/common/state/sessionActions.js';
@@ -510,7 +511,7 @@ export class AgentHostSessionListStore extends Disposable {
 	 * session and must not drop out of the list the moment it migrates.
 	 */
 	private _containmentCandidates(summary: SessionSummary): readonly URI[] {
-		const candidates = summary.workingDirectories?.map(directory => URI.parse(directory)) ?? [];
+		const candidates = getWorkingDirectoryUris(summary.workingDirectories)?.map(directory => URI.parse(directory)) ?? [];
 		if (summary.project?.uri && readSessionMatchesByProjectRoot(summary._meta)) {
 			const project = URI.parse(summary.project.uri);
 			// A project can be a remote (e.g. `https://github.com/owner/repo`), whose

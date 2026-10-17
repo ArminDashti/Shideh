@@ -36,6 +36,7 @@ import { IAgentHostProviderService } from './agentHostProviderService.js';
 import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
 import { IAgentMergeTurnContext, isFailedConclusion } from './agentMergeTools.js';
 import { getAgentMergeConfiguration } from './agentMergeConfiguration.js';
+import { getWorkingDirectoryUri } from '../common/agentHostWorkingDirectories.js';
 
 const snapshotDebounce = 30_000;
 const backstopInterval = 10 * 60_000;

@@ -23,7 +23,7 @@ export interface ICatalogSourceState {
 	readonly status: SessionStatus;
 	readonly origin?: SessionOrigin;
 	readonly project?: { readonly uri: string; readonly displayName: string };
-	readonly workingDirectories: readonly string[];
+	readonly workingDirectories: readonly (string | WorkingDirectory)[];
 	readonly changes?: ChangesSummary;
 	readonly meta?: SessionSummary['_meta'];
 	readonly chats: readonly {

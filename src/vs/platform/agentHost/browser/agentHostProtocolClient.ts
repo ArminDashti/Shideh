@@ -34,6 +34,8 @@ import type { ClientNotificationMap, CommandMap, JsonRpcErrorResponse, JsonRpcRe
 import { ActionType, type ActionEnvelope, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type INotification, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../common/state/sessionActions.js';
 import { MessageAttachmentKind, SessionSummary, ROOT_STATE_URI, StateComponents, isAhpRootChannel, isDefaultChatUri, parseChatUri, type ClientPluginCustomization, type Message, type RootState } from '../common/state/sessionState.js';
 import { normalizeLegacyActionEnvelope } from '../common/state/legacyProtocolCompatibility.js';
+import { serializeRepositorySources } from '../common/agentHostRepositorySource.js';
+import { getWorkingDirectoryInfo, getWorkingDirectoryUri, getWorkingDirectoryUris, mapWorkingDirectory } from '../common/agentHostWorkingDirectories.js';
 import { SUPPORTED_PROTOCOL_VERSIONS } from '../common/state/protocol/version/registry.js';
 import { isJsonRpcNotification, isJsonRpcRequest, isJsonRpcResponse, ProtocolError, ReconnectResultType, type ProtocolMessage, type IStateSnapshot } from '../common/state/sessionProtocol.js';
 import { type IVscodeUpgradeResult } from '../common/state/protocolUpgrade.js';
@@ -688,6 +690,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 				protocolVersions: [...CLIENT_SUPPORTED_PROTOCOL_VERSIONS],
 				clientId: this._clientId,
 				clientInfo: this._clientInfo,
+				capabilities: { workingDirectoryInfo: {} },
 				_meta: this._clientMeta(),
 				initialSubscriptions: [ROOT_STATE_URI],
 			}, { bypassInitializeQueue: true }));
@@ -1060,6 +1063,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			protocolVersions: [...CLIENT_SUPPORTED_PROTOCOL_VERSIONS],
 			clientId: this._clientId,
 			clientInfo: this._clientInfo,
+			capabilities: { workingDirectoryInfo: {} },
 			_meta: this._clientMeta(),
 			initialSubscriptions: subscriptions,
 		}, { bypassReconnectGate: true });
@@ -1498,6 +1502,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			_meta: config?._meta,
 			provider,
 			workingDirectories: config?.workingDirectories?.map(d => fromAgentHostUri(d).toString()),
+			...(config?.repositories !== undefined ? { repositories: serializeRepositorySources(config.repositories) } : {}),
 			config: config?.config,
 			activeClient: config?.activeClient,
 			progressToken: config?.progressToken,
@@ -1565,6 +1570,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			channel: ROOT_STATE_URI,
 			provider: params.provider,
 			workingDirectory: params.workingDirectory ? fromAgentHostUri(params.workingDirectory).toString() : undefined,
+			...(params.repositories !== undefined ? { repositories: serializeRepositorySources(params.repositories) } : {}),
 			config: params.config,
 		});
 	}
@@ -1574,6 +1580,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			channel: ROOT_STATE_URI,
 			provider: params.provider,
 			workingDirectory: params.workingDirectory ? fromAgentHostUri(params.workingDirectory).toString() : undefined,
+			...(params.repositories !== undefined ? { repositories: serializeRepositorySources(params.repositories) } : {}),
 			config: params.config,
 			property: params.property,
 			query: params.query,
@@ -1872,8 +1879,9 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			origin: s.origin,
 			status: s.status,
 			activity: s.activity,
-			workingDirectory: typeof s.workingDirectories?.[0] === 'string' ? this._toClientUri(URI.parse(s.workingDirectories[0])) : undefined,
-			workingDirectories: s.workingDirectories?.map(d => this._toClientUri(URI.parse(d))),
+			workingDirectory: s.workingDirectories?.[0] !== undefined ? this._toClientUri(URI.parse(getWorkingDirectoryUri(s.workingDirectories[0]))) : undefined,
+			workingDirectories: getWorkingDirectoryUris(s.workingDirectories)?.map(d => this._toClientUri(URI.parse(d))),
+			workingDirectoryInfo: getWorkingDirectoryInfo(s.workingDirectories?.map(directory => mapWorkingDirectory(directory, uri => this._toClientUri(uri)))),
 			changes: s.changes,
 			chats: s.chats?.map(chat => ({
 				chat: URI.parse(chat.resource),

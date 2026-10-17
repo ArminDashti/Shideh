@@ -56,7 +56,7 @@ import { IAgentHostChangesetOperationService } from '../common/agentHostChangese
 import { IAgentHostGitStateService } from '../common/agentHostGitStateService.js';
 import { IAgentHostReviewService } from '../common/agentHostReviewService.js';
 import { extUriBiasedIgnorePathCase, relativePath } from '../../../base/common/resources.js';
-import { isMultiRootSession } from '../common/agentHostWorkingDirectories.js';
+import { getWorkingDirectoryUri, isMultiRootSession } from '../common/agentHostWorkingDirectories.js';
 import { resolveSessionRepositories } from './agentHostSessionRepositories.js';
 import { dedupeSessionFileDiffs } from './agentHostMultiRootDiff.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
@@ -872,7 +872,7 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 
 		let workingDirectoryUri: URI;
 		try {
-			workingDirectoryUri = URI.parse(workingDirectory);
+			workingDirectoryUri = URI.parse(getWorkingDirectoryUri(workingDirectory));
 		} catch {
 			return undefined;
 		}
@@ -1929,7 +1929,7 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 
 		let workingDirectoryUri: URI;
 		try {
-			workingDirectoryUri = URI.parse(workingDirectory);
+			workingDirectoryUri = URI.parse(getWorkingDirectoryUri(workingDirectory));
 		} catch {
 			return undefined;
 		}
@@ -1994,7 +1994,7 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 
 		let workingDirectoryUri: URI;
 		try {
-			workingDirectoryUri = URI.parse(workingDirectory);
+			workingDirectoryUri = URI.parse(getWorkingDirectoryUri(workingDirectory));
 		} catch {
 			return undefined;
 		}

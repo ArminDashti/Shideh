@@ -49,7 +49,7 @@ export class AgentHostMergeOperationHandler implements IChangesetOperationHandle
 		if (!workingDirectoryValue) {
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, `Changeset owner has no working directory: ${parsed.ownerUri}`);
 		}
-		const workingDirectory = URI.parse(workingDirectoryValue);
+		const workingDirectory = URI.parse(getWorkingDirectoryUri(workingDirectoryValue));
 		const worktreeRoot = await this._gitService.getRepositoryRoot(workingDirectory);
 		const repositoryRoot = worktreeRoot ? await tryResolvePrimaryWorktreeRoot(this._gitService, worktreeRoot) : undefined;
 		if (!worktreeRoot || !repositoryRoot || isEqual(worktreeRoot, repositoryRoot)) {

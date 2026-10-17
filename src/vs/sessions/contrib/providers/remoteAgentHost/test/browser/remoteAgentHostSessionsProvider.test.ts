@@ -80,12 +80,17 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 	private readonly _onDidRootStateChange = new Emitter<RootState>();
 	private _rootStateValue: RootState = { agents: [{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [] } as AgentInfo] };
 	override readonly rootState: IAgentSubscription<RootState>;
-	override readonly initializeResult = constObservable({
+	private readonly _initializeResult = observableValue<InitializeResult>(this, {
 		protocolVersion: '1',
 		serverSeq: 0,
 		snapshots: [],
 		automations: { create: {}, schedules: {}, runCancellation: {} },
 	});
+	override readonly initializeResult: IObservable<InitializeResult> = this._initializeResult;
+
+	setRepositoryPreparation(capability: RepositoryPreparationCapabilities | undefined): void {
+		this._initializeResult.set({ ...this._initializeResult.get(), repositoryPreparation: capability }, undefined);
+	}
 
 	override readonly clientId = 'test-client-1';
 	private readonly _sessions = new Map<string, IAgentSessionMetadata>();
@@ -95,6 +100,8 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 	public echoDispatchedActions = false;
 	public dispatchedActionRejectionReason: string | undefined;
 	public resolveSessionConfigResult: ResolveSessionConfigResult = { schema: { type: 'object', properties: {} }, values: { isolation: 'worktree' } };
+	readonly createdSessionConfigs: IAgentCreateSessionConfig[] = [];
+	readonly resolveSessionConfigCalls: IAgentResolveSessionConfigParams[] = [];
 
 	private _nextSeq = 0;
 
@@ -133,7 +140,8 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 		return uri;
 	}
 
-	override async resolveSessionConfig(): Promise<ResolveSessionConfigResult> {
+	override async resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult> {
+		this.resolveSessionConfigCalls.push(params);
 		await Promise.resolve();
 		if (this.failResolveSessionConfig) {
 			throw new Error('resolveSessionConfig unavailable');
@@ -763,6 +771,32 @@ suite('RemoteAgentHostSessionsProvider', () => {
 		]);
 	});
 
+	test('session types track the host repository preparation capability across initialization changes', () => {
+		const provider = createProvider(disposables, connection);
+		let changes = 0;
+		disposables.add(provider.onDidChangeSessionTypes!(() => changes++));
+		const read = () => ({
+			source: provider.sessionTypes[0].supportsRepositoryPreparation,
+			revision: provider.sessionTypes[0].supportsRepositoryRevision,
+			multiple: provider.sessionTypes[0].supportsMultipleRepositories,
+		});
+		const snapshots = [read()];
+		for (const capability of [{}, { revision: true }, { revision: true, multipleRepositories: true }, undefined]) {
+			connection.setRepositoryPreparation(capability);
+			snapshots.push(read());
+		}
+		assert.deepStrictEqual({ snapshots, changes }, {
+			snapshots: [
+				{ source: undefined, revision: undefined, multiple: undefined },
+				{ source: true, revision: false, multiple: false },
+				{ source: true, revision: true, multiple: false },
+				{ source: true, revision: true, multiple: true },
+				{ source: undefined, revision: undefined, multiple: undefined },
+			],
+			changes: 4,
+		});
+	});
+
 	test('session-type labels omit host suffix on web', () => {
 		const provider = createProvider(disposables, connection, { address: '10.0.0.1:8080', connectionName: 'My Host', isWebPlatform: true });
 
@@ -986,6 +1020,71 @@ suite('RemoteAgentHostSessionsProvider', () => {
 			[],
 			'no eager createSession should be invoked for an untrusted folder',
 		);
+	});
+
+	test('createNewSession resolves typed repository inputs without eagerly preparing a checkout', async () => {
+		connection.setRepositoryPreparation({ revision: true });
+		const provider = createProvider(disposables, connection);
+		const repositorySource = URI.parse('https://git.example.org:8443/team/app.git');
+		const draft = provider.createNewSession(
+			repositorySource,
+			provider.sessionTypes[0].id,
+			{ repositories: [{ source: repositorySource, revision: 'main', subdirectory: 'packages/api' }] },
+		);
+		provider.setAuthenticationPending(false);
+		await waitForSessionConfig(provider, draft.sessionId, config => config?.values.isolation === 'worktree');
+		await timeout(0);
+		const resolution = connection.resolveSessionConfigCalls.map(call => ({
+			repositories: call.repositories, directory: call.workingDirectory,
+		}));
+		assert.ok(resolution.length > 0);
+		assert.deepStrictEqual({
+			resolution,
+			creation: connection.createdSessionConfigs.map(call => ({
+				repositories: call.repositories, directories: call.workingDirectories, config: call.config,
+			})),
+		}, {
+			resolution: resolution.map(() => ({ repositories: [{ source: repositorySource, revision: 'main', subdirectory: 'packages/api' }], directory: undefined })),
+			creation: [],
+		});
+	});
+
+	test('repository workspace selection is gated on host preparation support', () => {
+		const provider = createProvider(disposables, connection);
+		const source = URI.parse('https://example.com/team/app');
+		const unsupported = provider.resolveWorkspace(source);
+		connection.setRepositoryPreparation({});
+		const supported = provider.resolveWorkspace(source);
+		connection.setRepositoryPreparation(undefined);
+		assert.deepStrictEqual({
+			unsupported,
+			source: supported?.uri.toString(),
+			virtual: supported?.isVirtualWorkspace,
+			requiresLocalTrust: supported?.requiresWorkspaceTrust,
+			withdrawn: provider.resolveWorkspace(source),
+		}, {
+			unsupported: undefined,
+			source: source.toString(),
+			virtual: true,
+			requiresLocalTrust: false,
+			withdrawn: undefined,
+		});
+	});
+
+	test('repository drafts reject multiple sources before querying a single-repository host', () => {
+		connection.setRepositoryPreparation({ revision: true });
+		const provider = createProvider(disposables, connection);
+		assert.throws(() => provider.createNewSession(
+			URI.parse('vscode-agent-host://localhost__4321/workspace'),
+			provider.sessionTypes[0].id,
+			{
+				repositories: [
+					{ source: URI.parse('https://example.com/team/api') },
+					{ source: URI.parse('https://example.com/team/web') },
+				]
+			},
+		), /multiple repositories/);
+		assert.deepStrictEqual({ queries: connection.resolveSessionConfigCalls, creates: connection.createdSessionConfigs }, { queries: [], creates: [] });
 	});
 
 	// ---- Browse actions -------
@@ -2924,6 +3023,50 @@ suite('RemoteAgentHostSessionsProvider', () => {
 		);
 	}));
 
+	test('rich directory summary deltas preserve every repository association across cache restore', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const storageService = disposables.add(new InMemoryStorageService());
+		const provider = createProvider(disposables, connection, { storageService });
+		const session = AgentSession.uri('copilotcli', 'rich-directory-cache');
+		fireSessionAdded(connection, 'rich-directory-cache', { workingDirectory: 'file:///worktrees/app/packages/api' });
+		const directories: WorkingDirectory[] = [
+			{
+				uri: 'file:///worktrees/app/packages/api',
+				repo: 'https://example.com/team/app',
+				origin: { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: 'file:///checkouts/app' },
+			},
+			{
+				uri: 'file:///checkouts/app/packages/web',
+				repo: 'https://example.com/team/app',
+				origin: { kind: WorkingDirectoryOriginKind.Repo },
+			},
+		];
+		connection.fireNotification({
+			channel: 'ahp-root://',
+			type: NotificationType.SessionSummaryChanged,
+			session: session.toString(),
+			changes: { workingDirectories: directories },
+		});
+		const snapshot = (workspace: ISessionWorkspace | undefined) => workspace?.folders.map(folder => ({
+			root: folder.root.toString(),
+			directory: folder.workingDirectory.toString(),
+			repository: folder.repository?.toString(),
+			kind: folder.origin?.kind,
+			mainWorktree: folder.origin?.kind === 'worktree' ? folder.origin.mainWorktree.toString() : undefined,
+		}));
+		const current = snapshot(provider.getSessions()[0].workspace.get());
+		await storageService.flush();
+		const restoredProvider = createProvider(disposables, new MockAgentConnection(), { storageService, noConnection: true });
+		const restored = snapshot(restoredProvider.getSessions()[0].workspace.get());
+		const expected = directories.map(directory => ({
+			root: toAgentHostUri(URI.parse(directory.uri), 'localhost__4321').toString(),
+			directory: toAgentHostUri(URI.parse(directory.uri), 'localhost__4321').toString(),
+			repository: directory.repo,
+			kind: directory.origin?.kind,
+			mainWorktree: directory.origin?.kind === WorkingDirectoryOriginKind.Worktree ? toAgentHostUri(URI.parse(directory.origin.mainWorktree), 'localhost__4321').toString() : undefined,
+		}));
+		assert.deepStrictEqual({ current, restored }, { current: expected, restored: expected });
+	}));
+
 	test('sendRequest throws for unknown session', async () => {
 		const provider = createProvider(disposables, connection);
 		await assert.rejects(
@@ -2980,6 +3123,35 @@ suite('RemoteAgentHostSessionsProvider', () => {
 		await provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' });
 
 		assert.deepStrictEqual(sendOptions.map(options => options.agentHostSessionConfig), [{ isolation: 'worktree' }]);
+	});
+
+	test('sendRequest carries typed repository source inputs separately from provider config', async () => {
+		connection.setRepositoryPreparation({ revision: true });
+		const sendOptions: IChatSendRequestOptions[] = [];
+		const provider = createProvider(disposables, connection, {
+			openSession: true,
+			sendRequest: async (_resource, _message, options): Promise<ChatSendResult> => {
+				if (options) {
+					sendOptions.push(options);
+				}
+				connection.addSession(createSession('source-created-from-send', { summary: 'Repository From Send' }));
+				return { kind: 'sent' as const, data: {} as ChatSendResult extends { kind: 'sent'; data: infer D } ? D : never };
+			},
+		});
+		const repositorySource = URI.parse('https://git.example.org/team/project');
+		const session = provider.createNewSession(
+			URI.parse('vscode-agent-host://localhost__4321/workspace'),
+			provider.sessionTypes[0].id,
+			{ repositories: [{ source: repositorySource, revision: 'main' }] },
+		);
+		provider.setAuthenticationPending(false);
+		await waitForSessionConfig(provider, session.sessionId, config => config?.values.isolation === 'worktree');
+		const chat = await provider.createNewChat(session.sessionId);
+		await provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' });
+		assert.deepStrictEqual(sendOptions.map(options => ({
+			repositories: options.agentHostRepositories,
+			config: options.agentHostSessionConfig,
+		})), [{ repositories: [{ source: repositorySource, revision: 'main' }], config: { isolation: 'worktree' } }]);
 	});
 
 	// ---- Session data adapter -------

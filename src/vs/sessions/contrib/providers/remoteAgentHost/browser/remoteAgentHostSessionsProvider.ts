@@ -1111,6 +1111,14 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 	}
 
 	resolveWorkspace(repositoryUri: URI): ISessionWorkspace | undefined {
+		if (this.connection && getRepositoriesFromSelection(this.connection, repositoryUri)) {
+			return {
+				...this._buildWorkspaceFromUri(repositoryUri),
+				icon: Codicon.repo,
+				isVirtualWorkspace: true,
+				requiresWorkspaceTrust: false,
+			};
+		}
 		if (repositoryUri.scheme !== AGENT_HOST_SCHEME) {
 			return undefined;
 		}

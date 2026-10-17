@@ -345,4 +345,43 @@ suite('AgentHostCatalogProjection', () => {
 			chats: data.chats.map(chat => chat.uri),
 		});
 	});
+
+	test('persists rich directory facts while keeping provider directory arguments as URIs', () => {
+		const directory = {
+			uri: 'file:///workspace.worktrees/feature/src',
+			repo: 'https://example.com/team/repository',
+			origin: { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: 'file:///workspace' } as const,
+		};
+		const data = { ...createData(), workingDirectories: [directory] };
+		const decoded = decodeAgentHostCatalogPayload(encode(data).payload);
+		assert.ok(decoded.ok);
+		const revived = reviveAgentHostCatalogData(decoded.value.data);
+		assert.deepStrictEqual({
+			persisted: decoded.value.data.workingDirectories,
+			uris: revived.workingDirectories.map(uri => uri.toString()),
+			info: revived.workingDirectoryInfo,
+		}, {
+			persisted: [directory],
+			uris: [directory.uri],
+			info: [directory],
+		});
+	});
+
+	test('rejects duplicate directory URIs across legacy and rich representations', () => {
+		const result = encodeAgentHostCatalogPayload({
+			...createData(),
+			workingDirectories: [
+				'file:///workspace',
+				{ uri: 'file:///workspace', origin: { kind: WorkingDirectoryOriginKind.Local } },
+			],
+		});
+		assert.strictEqual(result.ok, false);
+	});
+
+	test('retains rich facts in a catalog containing legacy directory entries', () => {
+		const directory = { uri: 'file:///workspace/other', repo: 'https://example.com/team/other' };
+		const data = { ...createData(), workingDirectories: ['file:///workspace', directory] };
+		const revived = reviveAgentHostCatalogData(data);
+		assert.deepStrictEqual(revived.workingDirectoryInfo, [{ uri: 'file:///workspace' }, directory]);
+	});
 });

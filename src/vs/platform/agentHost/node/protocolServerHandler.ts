@@ -54,7 +54,6 @@ import {
 	type JsonRpcResponse,
 	type ReconnectParams,
 	type IStateSnapshot,
-	type SubscribeResult,
 	type ListSessionsResult,
 } from '../common/state/sessionProtocol.js';
 import { isAhpAutomationCatalogChannel, isAhpResourceWatchChannel, ResponsePartKind, SessionStatus, ToolCallConfirmationReason, ToolCallContributorKind, ToolCallStatus, ToolResultContentType, buildDefaultChatUri, isAhpChatChannel, parseChatUri, parseRequiredSessionUriFromChatUri, type ISessionWithDefaultChat, type SessionState } from '../common/state/sessionState.js';
@@ -79,6 +78,7 @@ import { AgentHostTelemetryReporter } from './agentHostTelemetryReporter.js';
 import { isAgentHostTelemetryService } from './agentHostTelemetryService.js';
 import { IDevContainerAgentHostMainService } from '../common/devContainerAgentHost.js';
 import { DevContainerAgentHostProtocol } from './devContainerAgentHostProtocol.js';
+import { parseClientWorkingDirectories, projectWorkingDirectoryAction, projectWorkingDirectoryFields, projectWorkingDirectoryNotification, projectWorkingDirectorySnapshot, validateClientWorkingDirectoryAction } from './workingDirectoryProtocol.js';
 
 /** Default capacity of the server-side action replay buffer. */
 const REPLAY_BUFFER_CAPACITY = 1000;
@@ -217,6 +217,7 @@ interface IConnectedClient {
 	readonly clientInfo: Implementation | undefined;
 	readonly telemetryContext: IAgentHostClientTelemetryContext;
 	readonly protocolVersion: string;
+	readonly supportsWorkingDirectoryInfo: boolean;
 	readonly transport: IProtocolTransport;
 	readonly connectionStopWatch: StopWatch;
 	readonly isReconnect: boolean;
@@ -271,6 +272,7 @@ interface IGraceClientRecord {
 	readonly clientInfo: Implementation | undefined;
 	readonly telemetryContext: IAgentHostClientTelemetryContext | undefined;
 	readonly protocolVersion: string | undefined;
+	readonly supportsWorkingDirectoryInfo: boolean;
 	/**
 	 * Epoch ms when the client last had a live transport, or when this record
 	 * was created for a never-connected orphan tool-call stamp. Pins the grace
@@ -605,6 +607,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 							clientInfo: record.clientInfo,
 							telemetryContext: client.telemetryContext,
 							protocolVersion: client.protocolVersion,
+							supportsWorkingDirectoryInfo: client.supportsWorkingDirectoryInfo,
 							lastSeenAt: Date.now(),
 							disconnectTimeouts: new DisposableMap(),
 						});
@@ -659,6 +662,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			clientInfo: params.clientInfo,
 			telemetryContext,
 			protocolVersion: negotiated,
+			supportsWorkingDirectoryInfo: isParamsObject(params.capabilities?.workingDirectoryInfo),
 			transport,
 			connectionStopWatch: StopWatch.create(true),
 			isReconnect: this._clientConnections.hasSeenClient(params.clientId),
@@ -729,7 +733,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				response: pendingSnapshots.length === 0 ? response : Promise.all(pendingSnapshots).then(() => ({
 					...response,
 					serverSeq: this._stateManager.serverSeq,
-					snapshots: snapshots.map(snapshot => this._stateManager.getSnapshot(snapshot.resource) ?? snapshot),
+					snapshots: snapshots.map(snapshot => projectWorkingDirectorySnapshot(this._stateManager.getSnapshot(snapshot.resource) ?? snapshot, client.supportsWorkingDirectoryInfo)),
 				})).catch(error => {
 					this._rollbackFailedInitialization(client, previousRecord);
 					throw error;
@@ -890,6 +894,9 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		const priorProtocolVersion = existingRecord.state === 'active'
 			? existingRecord.connections.at(-1)?.protocolVersion
 			: existingRecord.protocolVersion;
+		const supportsWorkingDirectoryInfo = existingRecord.state === 'active'
+			? existingRecord.connections.at(-1)?.supportsWorkingDirectoryInfo
+			: existingRecord.supportsWorkingDirectoryInfo;
 		const isReconnect = this._clientConnections.hasSeenClient(params.clientId);
 		const initializationDisposables = disposables.add(new DisposableStore());
 		const client: IConnectedClient = {
@@ -897,6 +904,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			clientInfo: existingRecord.clientInfo,
 			telemetryContext: this._createClientTelemetryContext(existingRecord.clientInfo, params._meta, transport, priorTelemetryContext?.connectionKind),
 			protocolVersion: priorProtocolVersion ?? PROTOCOL_VERSION,
+			supportsWorkingDirectoryInfo: supportsWorkingDirectoryInfo ?? false,
 			transport,
 			connectionStopWatch: StopWatch.create(true),
 			isReconnect,
@@ -1069,7 +1077,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			for (const envelope of this._replayBuffer) {
 				if (envelope.serverSeq > params.lastSeenServerSeq) {
 					if (this._isRelevantToClient(client, envelope)) {
-						actions.push(envelope);
+						actions.push(projectWorkingDirectoryAction(envelope, client.supportsWorkingDirectoryInfo));
 					}
 				}
 			}
@@ -1091,7 +1099,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			}
 			return refreshed;
 		});
-		return { type: 'snapshot', snapshots: refreshedSnapshots.filter((s): s is IStateSnapshot => s !== undefined) };
+		return { type: 'snapshot', snapshots: refreshedSnapshots.filter((s): s is IStateSnapshot => s !== undefined).map(snapshot => projectWorkingDirectorySnapshot(snapshot, client.supportsWorkingDirectoryInfo)) };
 	}
 
 	/**
@@ -1332,6 +1340,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			clientInfo: undefined,
 			telemetryContext: undefined,
 			protocolVersion: undefined,
+			supportsWorkingDirectoryInfo: false,
 			lastSeenAt: Date.now(),
 			disconnectTimeouts: new DisposableMap(),
 		};
@@ -1588,10 +1597,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				client.subscriptions.set(classified.uri, classified);
 				this._clearClientToolCallDisconnectTimeout(client.clientId, classified.uri);
 				this._clearBaselineDebt(client.clientId, classified.uri);
-				// `IStateSnapshot` is widened with `ChatState` (see sessionProtocol.ts);
-				// the generated wire `Snapshot` union does not list it yet. The value
-				// is JSON over the wire, so narrowing at this boundary is safe.
-				return { snapshot: snapshot as SubscribeResult['snapshot'] };
+				return { snapshot: projectWorkingDirectorySnapshot(snapshot, client.supportsWorkingDirectoryInfo) };
 			} catch (err) {
 				if (!pendingSubscription.active && client.subscriptions.get(classified.uri) === pendingSubscription) {
 					client.subscriptions.delete(classified.uri);
@@ -1603,6 +1609,8 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			}
 		},
 		createSession: async (_client, params) => {
+			validateRepositories(params, undefined);
+			const workingDirectories = parseClientWorkingDirectories(params.workingDirectories);
 			let createdSession: URI;
 			// If the client eagerly claimed the active client role, validate
 			// the clientId matches the connection before forwarding.
@@ -1613,7 +1621,8 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				createdSession = await this._agentService.createSession({
 					provider: params.provider,
 					_meta: params._meta,
-					workingDirectories: params.workingDirectories?.map(d => URI.parse(d)),
+					workingDirectories,
+					...(params.repositories !== undefined ? { repositories: parseRepositorySources(params.repositories) } : {}),
 					session: URI.parse(params.channel),
 					config: params.config,
 					activeClient: params.activeClient,
@@ -1691,7 +1700,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		resourceWrite: async (_client, params) => {
 			return this._agentService.resourceWrite(params);
 		},
-		listSessions: async () => {
+		listSessions: async client => {
 			const sessions = await this._agentService.listSessions();
 			const items = sessions.map(s => {
 				const provider = AgentSession.provider(s.session);
@@ -1708,7 +1717,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 					createdAt: new Date(s.startTime).toISOString(),
 					modifiedAt: new Date(s.modifiedTime).toISOString(),
 					...(s.project ? { project: { uri: s.project.uri.toString(), displayName: s.project.displayName } } : {}),
-					workingDirectories: s.workingDirectories?.map(d => d.toString()),
+					workingDirectories: s.workingDirectoryInfo ? [...s.workingDirectoryInfo] : s.workingDirectories?.map(d => d.toString()),
 					changes: s.changes,
 					chats: s.chats?.map(chat => ({
 						resource: chat.chat.toString(),
@@ -1723,7 +1732,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 					...(s._meta !== undefined ? { _meta: s._meta } : {}),
 				} satisfies ListSessionsResult['items'][number];
 			});
-			return { items: this._stateManager.prepareSessionSummariesForListing(items) };
+			return { items: this._stateManager.prepareSessionSummariesForListing(items).map(item => projectWorkingDirectoryFields(item, client.supportsWorkingDirectoryInfo)) };
 		},
 		listAutomationTriggerDefinitions: async (_client, params) => {
 			return this._agentService.listAutomationTriggerDefinitions(params);
@@ -1735,16 +1744,20 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			return this._agentService.fetchAutomationRuns(params);
 		},
 		resolveSessionConfig: async (_client, params) => {
+			validateRepositories(params, undefined);
 			return this._agentService.resolveSessionConfig({
 				provider: params.provider,
 				workingDirectory: params.workingDirectory ? URI.parse(params.workingDirectory) : undefined,
+				...(params.repositories !== undefined ? { repositories: parseRepositorySources(params.repositories) } : {}),
 				config: params.config,
 			});
 		},
 		sessionConfigCompletions: async (_client, params) => {
+			validateRepositories(params, undefined);
 			return this._agentService.sessionConfigCompletions({
 				provider: params.provider,
 				workingDirectory: params.workingDirectory ? URI.parse(params.workingDirectory) : undefined,
+				...(params.repositories !== undefined ? { repositories: parseRepositorySources(params.repositories) } : {}),
 				config: params.config,
 				property: params.property,
 				query: params.query,
@@ -2316,11 +2329,10 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 
 	private _broadcastAction(envelope: ActionEnvelope): void {
 		this._logService.trace(`[ProtocolServer] Broadcasting action: ${envelope.action.type}`);
-		const msg: AhpServerNotification<'action'> = { jsonrpc: '2.0', method: 'action', params: envelope };
 		for (const record of this._clients.values()) {
 			const client = this._getActiveClientFromRecord(record);
 			if (client && this._isRelevantToClient(client, envelope)) {
-				client.transport.send(msg);
+				client.transport.send({ jsonrpc: '2.0', method: 'action', params: projectWorkingDirectoryAction(envelope, client.supportsWorkingDirectoryInfo) });
 			}
 		}
 	}
@@ -2395,11 +2407,13 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		// Each protocol notification now ships as its own top-level method. The
 		// `type` discriminant on our local {@link ProtocolNotification} union is
 		// the wire-level method name, so we can route it directly.
-		const { type, ...params } = notification;
-		// eslint-disable-next-line local/code-no-dangerous-type-assertions
-		const msg = { jsonrpc: '2.0', method: type, params } as AhpServerNotification;
 		for (const record of this._clients.values()) {
-			this._getActiveClientFromRecord(record)?.transport.send(msg);
+			const client = this._getActiveClientFromRecord(record);
+			if (client) {
+				const { type, ...params } = projectWorkingDirectoryNotification(notification, client.supportsWorkingDirectoryInfo);
+				// eslint-disable-next-line local/code-no-dangerous-type-assertions
+				client.transport.send({ jsonrpc: '2.0', method: type, params } as AhpServerNotification);
+			}
 		}
 	}
 

@@ -85,6 +85,9 @@ export function agentHostSessionWorkspaceKey(workspace: ISessionWorkspace | unde
 		return [
 			extUri.getComparisonKey(f.root),
 			f.workingDirectory ? extUri.getComparisonKey(f.workingDirectory) : '',
+			f.repository ? extUri.getComparisonKey(f.repository) : '',
+			f.origin?.kind ?? '',
+			f.origin?.kind === 'worktree' ? extUri.getComparisonKey(f.origin.mainWorktree) : '',
 			repo?.branchName ?? '',
 			repo?.baseBranchName ?? '',
 			String(repo?.baseBranchProtected ?? ''),

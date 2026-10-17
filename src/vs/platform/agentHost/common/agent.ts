@@ -443,6 +443,8 @@ export interface IAgentCreateSessionConfig {
 	 * the compatibility phase callers supply exactly one directory (`[dir]`).
 	 */
 	readonly workingDirectories?: readonly URI[];
+	/** Requested sources, separate from the resolved working directories. */
+	readonly repositories?: readonly IRepositorySource[];
 	readonly config?: Record<string, unknown>;
 	/**
 	 * Eagerly claim the active client role for the new session. When provided,
@@ -890,8 +892,11 @@ export interface IAgentChatConfigCompletionsParams extends IAgentResolveChatConf
 	readonly query?: string;
 }
 
-export type IAgentResolveSessionConfigParams = IAgentResolveChatConfigParams;
-export type IAgentSessionConfigCompletionsParams = IAgentChatConfigCompletionsParams;
+export interface IAgentResolveSessionConfigParams extends IAgentResolveChatConfigParams {
+	readonly repositories?: readonly IRepositorySource[];
+}
+
+export interface IAgentSessionConfigCompletionsParams extends IAgentResolveSessionConfigParams, IAgentChatConfigCompletionsParams { }
 
 /** Serializable model information from the agent host. */
 export interface IAgentModelInfo {

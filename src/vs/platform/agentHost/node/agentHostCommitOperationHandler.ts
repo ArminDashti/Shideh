@@ -68,7 +68,7 @@ export class AgentHostCommitOperationHandler implements IChangesetOperationHandl
 		if (!workingDirectoryStr) {
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, `Changeset owner has no working directory: ${parsed.ownerUri}`);
 		}
-		const workingDirectory = URI.parse(workingDirectoryStr);
+		const workingDirectory = URI.parse(getWorkingDirectoryUri(workingDirectoryStr));
 
 		if (!await this._gitService.getRepositoryRoot(workingDirectory)) {
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.commit.notGitRepository', "Changeset owner's working directory is not a Git repository: {0}", sessionUri));

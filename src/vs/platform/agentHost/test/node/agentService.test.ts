@@ -2852,6 +2852,7 @@ suite('AgentService (node dispatcher)', () => {
 
 		const added = notifications.find(notification => notification.type === NotificationType.SessionAdded);
 		const replacement = envelopes.find(envelope => envelope.action.type === ActionType.SessionWorkingDirectoryReplaced);
+		const worktreeDirectory = { uri: worktree.toString(), origin: { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: repository.toString() } };
 		assert.deepStrictEqual({
 			stateBranch: readSessionGitState(getStateManager(service).getSessionState(session.toString())?._meta)?.branchName,
 			summaryBranch: added?.type === NotificationType.SessionAdded ? readSessionGitState(added.summary._meta)?.branchName : undefined,
@@ -2860,11 +2861,11 @@ suite('AgentService (node dispatcher)', () => {
 		}, {
 			stateBranch: branchName,
 			summaryBranch: branchName,
-			workingDirectory: worktree.toString(),
+			workingDirectory: worktreeDirectory,
 			replacement: {
 				type: ActionType.SessionWorkingDirectoryReplaced,
 				directory: repository.toString(),
-				replacement: worktree.toString(),
+				replacement: worktreeDirectory,
 			},
 		});
 	});
@@ -4045,16 +4046,16 @@ suite('AgentService (node dispatcher)', () => {
 			}, 'test-client', 1, AgentHostClientType.EditorWindow);
 			const envelope = await envelopePromise;
 			await waitForCondition(
-				() => getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories?.includes(added.toString()) === true,
+				() => getWorkingDirectoryUris(getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories)?.includes(added.toString()) === true,
 				'working-directory addition should be confirmed',
 			);
 
 			assert.deepStrictEqual({
 				envelope: envelope.action,
-				confirmed: getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories,
+				confirmed: getWorkingDirectoryUris(getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories),
 				defaultChat: getStateManager(svc).getChatState(buildDefaultChatUri(session))?.workingDirectories,
 			}, {
-				envelope: { type: ActionType.SessionWorkingDirectorySet, directory: added.toString() },
+				envelope: { type: ActionType.SessionWorkingDirectorySet, directory: { uri: added.toString(), origin: { kind: WorkingDirectoryOriginKind.Local } } },
 				confirmed: [primary.toString(), secondary.toString(), added.toString()],
 				defaultChat: [primary.toString(), secondary.toString()],
 			});
@@ -4121,7 +4122,7 @@ suite('AgentService (node dispatcher)', () => {
 
 			assert.deepStrictEqual({
 				persisted: await database.getMetadata(CHAT_WORKING_DIRECTORIES_METADATA_KEY),
-				session: getStateManager(reopened).getSessionSummary(session.toString())?.workingDirectories,
+				session: getWorkingDirectoryUris(getStateManager(reopened).getSessionSummary(session.toString())?.workingDirectories),
 				defaultChat: getStateManager(reopened).getChatState(defaultChat)?.workingDirectories,
 			}, {
 				persisted: JSON.stringify([primary.toString()]),
@@ -4317,7 +4318,7 @@ suite('AgentService (node dispatcher)', () => {
 				confirmed: getStateManager(svc).getSessionState(session.toString())?.workingDirectories,
 			}, {
 				actions: [
-					{ type: ActionType.SessionWorkingDirectorySet, directory: secondary.toString() },
+					{ type: ActionType.SessionWorkingDirectorySet, directory: { uri: secondary.toString() } },
 					{ type: ActionType.SessionWorkingDirectoryRemoved, directory: 'file:///workspace/absent' },
 				],
 				confirmed: [primary.toString(), secondary.toString()],
@@ -4341,6 +4342,85 @@ suite('AgentService (node dispatcher)', () => {
 			}, {
 				rejected: true,
 				confirmed: [primary.toString(), secondary.toString()],
+			});
+		});
+
+		for (const origin of [{ kind: WorkingDirectoryOriginKind.Repo } as const, { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: 'file:///workspace/repository' } as const]) {
+			for (const richInput of [false, true]) {
+				test(`${origin.kind} metadata survives a duplicate ${richInput ? 'local-object' : 'legacy URI-only'} directory set`, async () => {
+					const { svc, session, primary, secondary } = await createDynamicWorkingDirectorySession();
+					const directory = {
+						uri: secondary.toString(),
+						repo: 'https://example.com/team/repository',
+						origin,
+					};
+					getStateManager(svc).dispatchServerAction(session.toString(), { type: ActionType.SessionWorkingDirectorySet, directory });
+					const accepted = Event.toPromise(Event.filter(svc.onDidAction, envelope => envelope.origin?.clientSeq === 1));
+					svc.dispatchAction(session.toString(), {
+						type: ActionType.SessionWorkingDirectorySet,
+						directory: richInput ? { uri: secondary.toString(), origin: { kind: WorkingDirectoryOriginKind.Local } } : secondary.toString(),
+					}, 'test-client', 1, AgentHostClientType.EditorWindow);
+					const envelope = await accepted;
+					const listed = (await svc.listSessions()).find(metadata => metadata.session.toString() === session.toString());
+
+					assert.deepStrictEqual({
+						action: envelope.action,
+						rejection: envelope.rejectionReason,
+						info: getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories?.[1],
+						listed: listed?.workingDirectoryInfo?.[1],
+						effective: getConfigurationService(svc).getEffectiveWorkingDirectories(session.toString()),
+					}, {
+						action: { type: ActionType.SessionWorkingDirectorySet, directory },
+						rejection: undefined,
+						info: directory,
+						listed: directory,
+						effective: [primary.toString(), secondary.toString()],
+					});
+				});
+			}
+		}
+
+		test('a supplied directory inside a recorded worktree remains local', async () => {
+			const { svc, session, primary } = await createDynamicWorkingDirectorySession();
+			let metadataReads = 0;
+			setTestAgentHostWorktreeIsolation(svc, createTestAgentHostWorktreeIsolation({
+				supported: true,
+				readWorktreeMetadata: async () => {
+					metadataReads++;
+					return { branchName: 'feature', worktreePath: primary, repositoryRoot: URI.file('/workspace/repository') };
+				},
+			}));
+			const directory = joinPath(primary, 'additional-folder').toString();
+			const accepted = Event.toPromise(Event.filter(svc.onDidAction, envelope => envelope.origin?.clientSeq === 1));
+			svc.dispatchAction(session.toString(), { type: ActionType.SessionWorkingDirectorySet, directory }, 'test-client', 1, AgentHostClientType.EditorWindow);
+			const envelope = await accepted;
+
+			assert.deepStrictEqual({
+				rejected: envelope.rejectionReason,
+				directory: getStateManager(svc).getSessionSummary(session.toString())?.workingDirectories?.at(-1),
+				metadataReads,
+			}, {
+				rejected: undefined,
+				directory: { uri: directory, origin: { kind: WorkingDirectoryOriginKind.Local } },
+				metadataReads: 0,
+			});
+		});
+
+		test('rejects forged directory provenance synchronously before restoring an unknown session', () => {
+			const session = 'copilot:/not-restored';
+			const envelopes: ActionEnvelope[] = [];
+			disposables.add(service.onDidAction(envelope => envelopes.push(envelope)));
+			service.dispatchAction(session, {
+				type: ActionType.SessionWorkingDirectorySet,
+				directory: { uri: 'file:///workspace/forged', origin: { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: 'file:///workspace/repository' } },
+			}, 'test-client', 1, AgentHostClientType.EditorWindow);
+
+			assert.deepStrictEqual({
+				rejected: envelopes.map(envelope => ({ clientSeq: envelope.origin?.clientSeq, reason: envelope.rejectionReason })),
+				state: getStateManager(service).getSessionState(session),
+			}, {
+				rejected: [{ clientSeq: 1, reason: 'Clients may only supply local working-directory origins.' }],
+				state: undefined,
 			});
 		});
 
@@ -5034,6 +5114,23 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual(await agent.listSessions(), []);
 		});
 
+
+		test('native host rejects repository source inputs without provisioning', async () => {
+			registerTestAgentProvider(service, copilotAgent);
+			const repositories = [{ source: URI.parse('https://example.com/team/project') }];
+			await assert.rejects(service.createSession({ provider: 'copilot', repositories }), /does not support repository-backed/);
+			await assert.rejects(service.resolveSessionConfig({ provider: 'copilot', repositories }), /does not support repository-backed/);
+			await assert.rejects(service.sessionConfigCompletions({ provider: 'copilot', repositories, property: 'branch' }), /does not support repository-backed/);
+			assert.deepStrictEqual(await service.listSessions(), []);
+		});
+
+		test('native host rejects repository source config aliases instead of silently choosing a directory', async () => {
+			registerTestAgentProvider(service, copilotAgent);
+			for (const property of ['repositories', 'repositorySource', 'repositoryRevision', 'repositoryUrl']) {
+				await assert.rejects(service.createSession({ provider: 'copilot', config: { [property]: null } }), /request field, not configuration/);
+			}
+			assert.deepStrictEqual(await service.listSessions(), []);
+		});
 
 		test('creates session via specified provider', async () => {
 			registerTestAgentProvider(service, copilotAgent);
@@ -11560,7 +11657,7 @@ suite('AgentService (node dispatcher)', () => {
 					isRead: true,
 					isArchived: true,
 					project: { uri: URI.file('/provider/project').toString(), displayName: 'Provider project' },
-					workingDirectories: [URI.file('/provider/workspace').toString()],
+					workingDirectories: [{ uri: URI.file('/provider/workspace').toString() }],
 					changes: { files: 3, additions: 4, deletions: 1 },
 					meta: {
 						...centralMetaWithoutMultiRoot,
@@ -14454,6 +14551,7 @@ suite('AgentService (node dispatcher)', () => {
 			agent.sessionMessages = [];
 
 			const before = await svc.listSessions();
+			const rootBeforeOpening = await db.getMetadata(WORKTREE_META_REPOSITORY_ROOT);
 			// Restore heals the metadata by resolving the worktree project, canonicalizing the root, and writing it back.
 			await svc.restoreSession(sessionResource);
 			const after = await svc.listSessions();
@@ -14461,10 +14559,14 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual({
 				before: before[0].project?.uri.toString(),
 				after: after[0].project?.uri.toString(),
+				provenance: after[0].workingDirectoryInfo,
+				rootBeforeOpening,
 				persistedRepositoryRoot: await db.getMetadata(WORKTREE_META_REPOSITORY_ROOT),
 			}, {
 				before: linkedCheckout.toString(),
 				after: primaryRoot.toString(),
+				provenance: [{ uri: sessionWorktree.toString(), origin: { kind: WorkingDirectoryOriginKind.Worktree, mainWorktree: primaryRoot.toString() } }],
+				rootBeforeOpening: linkedCheckout.toString(),
 				persistedRepositoryRoot: primaryRoot.toString(),
 			});
 		});
@@ -14501,6 +14603,7 @@ suite('AgentService (node dispatcher)', () => {
 				isolation: getStateManager(svc).getSessionState(session.toString())?.config?.values[SessionConfigKey.Isolation],
 				project: listed[0].project && { uri: listed[0].project.uri.toString(), displayName: listed[0].project.displayName },
 				workingDirectory: listed[0].workingDirectories?.[0].toString(),
+				workingDirectoryInfo: listed[0].workingDirectoryInfo,
 				persistedRepositoryRoot: await db.getMetadata(WORKTREE_META_REPOSITORY_ROOT),
 				persistedBranch: await db.getMetadata('copilot.worktree.branchName'),
 				persistedPath: await db.getMetadata('copilot.worktree.path'),
@@ -14508,6 +14611,7 @@ suite('AgentService (node dispatcher)', () => {
 				isolation: 'folder',
 				project: { uri: primaryRoot.toString(), displayName: 'mycli' },
 				workingDirectory: sessionWorktree.toString(),
+				workingDirectoryInfo: [{ uri: sessionWorktree.toString() }],
 				persistedRepositoryRoot: primaryRoot.toString(),
 				persistedBranch: undefined,
 				persistedPath: undefined,
@@ -25504,7 +25608,13 @@ suite('AgentService (node dispatcher)', () => {
 			const session = await service.createSession({ provider: 'copilot', workingDirectories: [sourceDir] });
 
 			const state = getStateManager(service).getSessionState(session.toString());
-			assert.strictEqual(state?.workingDirectories?.[0], sourceDir.toString());
+			assert.deepStrictEqual({
+				effective: state?.workingDirectories,
+				canonical: getStateManager(service).getSessionSummary(session.toString())?.workingDirectories,
+			}, {
+				effective: [sourceDir.toString()],
+				canonical: [{ uri: sourceDir.toString() }],
+			});
 		});
 
 		test('restoreSession uses agent working directory in state', async () => {

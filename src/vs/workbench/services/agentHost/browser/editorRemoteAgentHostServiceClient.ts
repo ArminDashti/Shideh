@@ -13,6 +13,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, IReference } from '../../../../base/common/lifecycle.js';
 import { autorun, IObservable, ISettableObservable, observableValue, constObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
+import { getWorkingDirectoryInfo, mapWorkingDirectory } from '../../../../platform/agentHost/common/agentHostWorkingDirectories.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -266,6 +267,7 @@ export class EditorRemoteAgentHostServiceClient extends Disposable implements IA
 			...session,
 			workingDirectory: session.workingDirectory ? fromAgentHostUri(session.workingDirectory) : undefined,
 			workingDirectories: session.workingDirectories?.map(fromAgentHostUri),
+			workingDirectoryInfo: getWorkingDirectoryInfo(session.workingDirectoryInfo?.map(directory => mapWorkingDirectory(directory, fromAgentHostUri))),
 		}));
 	}
 

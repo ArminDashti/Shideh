@@ -9,6 +9,7 @@ import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
+import type { IRepositorySource } from '../../../../platform/agentHost/common/agentHostRepositorySource.js';
 import { IChatRequestVariableEntry } from '../../../../workbench/contrib/chat/common/attachments/chatVariableEntries.js';
 import { IChatSendRequestOptions } from '../../../../workbench/contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelChatMetadataAndIdentifier, type IModelConfigurationAccess } from '../../../../workbench/contrib/chat/common/languageModels.js';
@@ -68,6 +69,7 @@ export interface ISendRequestOptions {
 
 /** Provider options applied when creating a new session draft. */
 export interface ISessionsProviderCreateSessionOptions {
+	readonly repositories?: readonly IRepositorySource[];
 	/** Initial provider metadata to associate with the session. */
 	readonly metadata?: Record<string, unknown>;
 	/** Session that created this session, when it should be presented as a child. */

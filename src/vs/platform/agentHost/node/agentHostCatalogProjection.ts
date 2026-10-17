@@ -7,7 +7,7 @@ import { createHash } from 'crypto';
 import { IJSONSchema } from '../../../base/common/jsonSchema.js';
 import { stableStringify } from '../../../base/common/objects.js';
 import { URI } from '../../../base/common/uri.js';
-import { IValidator, ValidationError, ValidatorBase, ValidatorType, vArray, vBoolean, vEnum, vObj, vOptionalProp } from '../../../base/common/validation.js';
+import { IValidator, ValidationError, ValidatorBase, ValidatorType, vArray, vBoolean, vEnum, vObj, vOptionalProp, vUnion } from '../../../base/common/validation.js';
 import { AH_META_DEV_CONTAINER_WORKTREE_DB_KEY, isAgentDevContainerWorktreeHandle } from '../common/meta/agentDevContainerWorktreeMeta.js';
 import { readRemoteSessionOrigin, REMOTE_SESSION_ORIGIN_METADATA_KEY } from '../common/meta/agentRemoteSessionMeta.js';
 import { SESSION_META_ARTIFACTS_KEY } from '../common/sessionArtifacts.js';
@@ -365,9 +365,24 @@ const metadataValidator = plainObject(vObj({
 	[AH_META_DEV_CONTAINER_WORKTREE_DB_KEY]: vOptionalProp(devContainerWorktreeValidator),
 }));
 
-const workingDirectoriesValidator = new RefinedValidator(
+const chatWorkingDirectoriesValidator = new RefinedValidator(
 	boundedArray(uriString(), AGENT_HOST_CATALOG_CHILD_LIMIT),
 	value => hasUniqueValues(value, directory => directory) ? value : { message: 'Working directories must be unique.' },
+);
+
+const workingDirectoryValidator = plainObject(vObj({
+	uri: uriString(),
+	repo: vOptionalProp(uriString()),
+	origin: vOptionalProp(vUnion(
+		plainObject(vObj({ kind: vEnum(WorkingDirectoryOriginKind.Local) })),
+		plainObject(vObj({ kind: vEnum(WorkingDirectoryOriginKind.Repo) })),
+		plainObject(vObj({ kind: vEnum(WorkingDirectoryOriginKind.Worktree), mainWorktree: uriString() })),
+	)),
+}));
+
+const workingDirectoriesValidator = new RefinedValidator(
+	boundedArray(vUnion(uriString(), workingDirectoryValidator), AGENT_HOST_CATALOG_CHILD_LIMIT),
+	value => hasUniqueValues(value, getWorkingDirectoryUri) ? value : { message: 'Working directories must be unique.' },
 );
 
 const chatValidator = plainObject(vObj({
@@ -380,7 +395,7 @@ const chatValidator = plainObject(vObj({
 	interactivity: vOptionalProp(vEnum(ChatInteractivity.Full, ChatInteractivity.ReadOnly, ChatInteractivity.Hidden)),
 	archived: vOptionalProp(vBoolean()),
 	inheritedTurnId: vOptionalProp(boundedString(AGENT_HOST_CATALOG_JSON_STRING_LENGTH_LIMIT)),
-	workingDirectories: vOptionalProp(workingDirectoriesValidator),
+	workingDirectories: vOptionalProp(chatWorkingDirectoriesValidator),
 }));
 
 const chatsValidator = new RefinedValidator(
@@ -430,6 +445,7 @@ export type AgentHostCatalogMetadata = NonNullable<AgentHostCatalogData['_meta']
 export type AgentHostCatalogRevivedData = Omit<AgentHostCatalogData, 'project' | 'workingDirectories' | 'chats'> & {
 	readonly project?: Omit<NonNullable<AgentHostCatalogData['project']>, 'uri'> & { readonly uri: URI };
 	readonly workingDirectories: readonly URI[];
+	readonly workingDirectoryInfo?: readonly WorkingDirectory[];
 	readonly chats: ReadonlyArray<Omit<AgentHostCatalogChat, 'uri'> & { readonly uri: URI }>;
 };
 
@@ -511,7 +527,10 @@ export function reviveAgentHostCatalogData(data: AgentHostCatalogData): AgentHos
 	return {
 		...data,
 		project: data.project ? { ...data.project, uri: URI.parse(data.project.uri, true) } : undefined,
-		workingDirectories: data.workingDirectories.map(directory => URI.parse(directory, true)),
+		workingDirectories: data.workingDirectories.map(directory => URI.parse(getWorkingDirectoryUri(directory), true)),
+		...(data.workingDirectories.some(directory => typeof directory !== 'string')
+			? { workingDirectoryInfo: getWorkingDirectoryInfo(data.workingDirectories) }
+			: {}),
 		chats: data.chats.map(chat => ({ ...chat, uri: URI.parse(chat.uri, true) })),
 	};
 }

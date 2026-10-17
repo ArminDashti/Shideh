@@ -32,6 +32,9 @@ import { buildAnnotationsUri, parseAnnotationsUri } from '../common/annotationsU
 import { parseChangesetUri, parseFolderChangesetOwnerUri } from '../common/changesetUri.js';
 import { ActionType, ActionEnvelope, AuthRequiredReason, INotification, isAnnotationsAction, isPassiveSessionMetadataAction, isSessionAction, type ChatAction, type ClientAutomationAction, type ClientAutomationRunAction, type IIsArchivedChangedAction, type IIsReadChangedAction, type IRootConfigChangedAction, type SessionAction, type SessionWorkingDirectoryAction, type TerminalAction, type ClientAnnotationsAction, type ClientChangesetAction } from '../common/state/sessionActions.js';
 import { resolveSessionWorkingDirectoryAction } from '../common/state/sessionWorkingDirectories.js';
+import { WorkingDirectoryOriginKind, type WorkingDirectory } from '../common/state/protocol/channels-session/state.js';
+import { materializedWorkingDirectoryInfo, resolveWorkingDirectoryInfo } from './agentHostWorkingDirectoryInfo.js';
+import { validateClientWorkingDirectoryAction } from './workingDirectoryProtocol.js';
 import type { CompletionsParams, CompletionsResult, CreateTerminalParams, ResolveSessionConfigResult, SessionConfigCompletionsResult, SessionConfigPropertySchema } from '../common/state/protocol/commands.js';
 import type { AutomationCapabilities } from '../common/state/protocol/common/commands.js';
 import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomationTriggerDefinitionsParams, ListAutomationTriggerDefinitionsResult, RunAutomationParams, RunAutomationResult } from '../common/state/protocol/channels-automation/commands.js';
@@ -1965,6 +1968,7 @@ export class AgentService extends Disposable implements IAgentService {
 		const sessionMetadata = this._toSessionMetadata(metadata);
 		return {
 			...sessionMetadata,
+			...(metadata.workingDirectories !== undefined ? { workingDirectoryInfo: await this._resolveWorkingDirectoryInfo(session, metadata.workingDirectories) } : {}),
 			_meta: withSessionExternal(sessionMetadata._meta, external),
 		};
 	}
@@ -2279,8 +2283,11 @@ export class AgentService extends Disposable implements IAgentService {
 				? { uri: URI.parse(liveSummary.project.uri), displayName: liveSummary.project.displayName }
 				: metadata.project,
 			workingDirectories: liveSummary.workingDirectories !== undefined
-				? liveSummary.workingDirectories.map(directory => URI.parse(directory))
+				? liveSummary.workingDirectories.map(directory => URI.parse(getWorkingDirectoryUri(directory)))
 				: metadata.workingDirectories,
+			workingDirectoryInfo: liveSummary.workingDirectories !== undefined
+				? getWorkingDirectoryInfo(liveSummary.workingDirectories)
+				: metadata.workingDirectoryInfo,
 			changes: liveSummary.changes ?? metadata.changes,
 			changesets: this._stateManager.getSessionState(metadata.session.toString())?.changesets ?? metadata.changesets,
 			chats: this._sessionChatsFromSummary(liveSummary) ?? metadata.chats,
@@ -2467,7 +2474,7 @@ export class AgentService extends Disposable implements IAgentService {
 				origin,
 				status,
 				project: metadata.project ? { uri: metadata.project.uri.toString(), displayName: metadata.project.displayName } : undefined,
-				workingDirectories: metadata.workingDirectories?.map(directory => directory.toString()) ?? [],
+				workingDirectories: metadata.workingDirectoryInfo ? [...metadata.workingDirectoryInfo] : metadata.workingDirectories?.map(directory => directory.toString()) ?? [],
 				changes: await this._migrateLegacyChangesetAggregate(registered.session, metadata, database),
 				meta: registered.external ? withSessionMultiRootMetadata(meta, undefined) : meta,
 				chats: [
@@ -3301,7 +3308,7 @@ export class AgentService extends Disposable implements IAgentService {
 			origin: metadata.origin ?? existingCatalogData?.origin ?? this._automationService.getLegacySessionOrigin(metadata.session.toString()),
 			status,
 			project: metadata.project ? { uri: metadata.project.uri.toString(), displayName: metadata.project.displayName } : undefined,
-			workingDirectories: metadata.workingDirectories?.map(directory => directory.toString()) ?? [],
+			workingDirectories: metadata.workingDirectoryInfo ? [...metadata.workingDirectoryInfo] : metadata.workingDirectories?.map(directory => directory.toString()) ?? [],
 			changes: await this._migrateLegacyChangesetAggregate(metadata.session, metadata, database),
 			meta: withSessionExternal(withSessionMultiRootMetadata(meta, undefined), external),
 			chats: [
@@ -3924,7 +3931,8 @@ export class AgentService extends Disposable implements IAgentService {
 				origin: summary.origin,
 				status: summary.status,
 				activity: summary.activity,
-				workingDirectories: summaryWorkingDirs?.map(d => URI.parse(d)),
+				workingDirectories: summaryWorkingDirs?.map(d => URI.parse(getWorkingDirectoryUri(d))),
+				workingDirectoryInfo: getWorkingDirectoryInfo(summaryWorkingDirs),
 				...(summary.project ? { project: { uri: URI.parse(summary.project.uri), displayName: summary.project.displayName } } : {}),
 				changes: summary.changes,
 				// This overlay path never opens the session database (unlike the
@@ -4482,7 +4490,13 @@ export class AgentService extends Disposable implements IAgentService {
 				return;
 			}
 			const title = await this._resolveSurfacedSessionTitle(meta);
-			const effectiveMetadata = title ? { ...meta, summary: title } : meta;
+			const effectiveMetadata: IAgentSessionMetadata = {
+				...meta,
+				...(title ? { summary: title } : {}),
+				...(meta.workingDirectoryInfo === undefined && meta.workingDirectories !== undefined
+					? { workingDirectoryInfo: await this._resolveWorkingDirectoryInfo(meta.session, meta.workingDirectories) }
+					: {}),
+			};
 			// The external-sessions mode may have changed during the await above; re-check so a row that is no longer visible is not surfaced.
 			if (!this._shouldIncludeSession(effectiveMetadata)) {
 				this._announcedSurfacedKeys.delete(key);
@@ -4569,7 +4583,7 @@ export class AgentService extends Disposable implements IAgentService {
 			createdAt: new Date(meta.startTime).toISOString(),
 			modifiedAt: new Date(meta.modifiedTime).toISOString(),
 			...(meta.project ? { project: { uri: meta.project.uri.toString(), displayName: meta.project.displayName } } : {}),
-			workingDirectories: meta.workingDirectories?.map(d => d.toString()),
+			workingDirectories: meta.workingDirectoryInfo ? [...meta.workingDirectoryInfo] : meta.workingDirectories?.map(d => d.toString()),
 			_meta: meta._meta,
 		};
 	}
@@ -4727,6 +4741,10 @@ export class AgentService extends Disposable implements IAgentService {
 		// updates while resolving that snapshot; without a state entry those
 		// actions are rejected as targeting an unknown session and custom agents
 		// can disappear from the picker permanently.
+		const initialDirectories = reconcileWorkingDirectories(config?.workingDirectories, created.resolvedWorkingDirectory ? [created.resolvedWorkingDirectory] : undefined);
+		const workingDirectoryInfo = initialDirectories !== undefined
+			? await this._resolveWorkingDirectoryInfo(session, initialDirectories.map(directory => URI.parse(directory)))
+			: undefined;
 		const provisionalState = isIdleProvisional
 			? (() => {
 				const summary = this._buildInitialSummary(provider, session, config, created, '', origin);
@@ -5642,11 +5660,11 @@ export class AgentService extends Disposable implements IAgentService {
 		const sessionDirectories = this._stateManager.getSessionSummary(session.toString())?.workingDirectories ?? [];
 		const resolved: URI[] = [];
 		for (const directory of requested) {
-			const match = sessionDirectories.find(candidate => isEqual(URI.parse(candidate), directory));
+			const match = sessionDirectories.find(candidate => isEqual(URI.parse(getWorkingDirectoryUri(candidate)), directory));
 			if (!match) {
 				throw new Error(`[AgentService] createChat: working directory ${directory.toString()} does not belong to session ${session.toString()}`);
 			}
-			const canonicalDirectory = URI.parse(match);
+			const canonicalDirectory = URI.parse(getWorkingDirectoryUri(match));
 			if (resolved.some(candidate => isEqual(candidate, canonicalDirectory))) {
 				throw new Error('[AgentService] createChat: working directories must be unique');
 			}
@@ -5672,7 +5690,7 @@ export class AgentService extends Disposable implements IAgentService {
 	/** Resolves the owning session context for creating an additional chat. */
 	private _buildChatPlacement(session: URI): Pick<IAgentCreateChatOptions, 'workingDirectories' | 'project' | 'config'> | undefined {
 		const state = this._stateManager.getSessionState(session.toString());
-		const workingDirectories = state?.workingDirectories?.map(directory => typeof directory === 'string' ? URI.parse(directory) : directory) ?? [];
+		const workingDirectories = state?.workingDirectories?.map(directory => URI.parse(getWorkingDirectoryUri(directory))) ?? [];
 		const resolvedPrimary = this._worktree.getResolvedWorktree(AgentSession.id(session));
 		if (resolvedPrimary) {
 			workingDirectories[0] = resolvedPrimary;
@@ -6059,6 +6077,7 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	async resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult> {
+		validateRepositories(params, undefined);
 		const provider = this._providerService.resolveProvider(params.provider);
 		if (!provider) {
 			throw new Error(`No agent provider registered for: ${params.provider ?? '(none)'}`);
@@ -6141,6 +6160,7 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	async sessionConfigCompletions(params: IAgentSessionConfigCompletionsParams): Promise<SessionConfigCompletionsResult> {
+		validateRepositories(params, undefined);
 		// The host owns branch completions for every agent (they share the same
 		// git-backed branch list); all other properties stay provider-specific.
 		if (params.property === SessionConfigKey.Branch && this._worktree.supported) {
@@ -6597,7 +6617,7 @@ export class AgentService extends Disposable implements IAgentService {
 			}
 			if (!parsedChangeset && !isAhpChatChannel(resourceStr) && sessionState && needsSessionGitStateRefresh(readSessionGitState(sessionState._meta))) {
 				const workingDirectory = sessionState.workingDirectories?.[0]
-					? URI.parse(sessionState.workingDirectories[0])
+					? URI.parse(getWorkingDirectoryUri(sessionState.workingDirectories[0]))
 					: undefined;
 				void this._gitStateService.refreshSessionGitState(resourceStr, workingDirectory);
 			}
@@ -7045,6 +7065,14 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	dispatchAction(channel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | IRootConfigChangedAction | ClientAutomationAction | ClientAutomationRunAction, clientId: string, clientSeq: number, clientContextOrType: IAgentHostClientTelemetryContext | AgentHostClientType = AgentHostClientType.Unknown): void {
+		if (action.type === ActionType.SessionWorkingDirectorySet || action.type === ActionType.SessionWorkingDirectoryRemoved || action.type === ActionType.SessionWorkingDirectoryReplaced) {
+			try {
+				validateClientWorkingDirectoryAction(action);
+			} catch (error) {
+				this._stateManager.rejectClientAction(channel, action, { clientId, clientSeq }, toErrorMessage(error));
+				return;
+			}
+		}
 		const clientContext = typeof clientContextOrType === 'string'
 			? createUnknownAgentHostClientTelemetryContext(clientContextOrType)
 			: clientContextOrType;
@@ -7147,8 +7175,16 @@ export class AgentService extends Disposable implements IAgentService {
 				&& channel === sessionChannel) {
 				rewritten = this._prepareWorkingDirectoryAction(sessionChannel, rewritten);
 				const workingDirectories = this._stateManager.getSessionSummary(sessionChannel)?.workingDirectories ?? [];
-				if (!workingDirectories.includes(rewritten.directory)) {
-					await this._pinInheritedChatWorkingDirectories(URI.parse(sessionChannel), workingDirectories);
+				const directoryUri = getWorkingDirectoryUri(rewritten.directory);
+				if (rewritten.type === ActionType.SessionWorkingDirectorySet
+					&& !workingDirectories.some(directory => getWorkingDirectoryUri(directory) === directoryUri)) {
+					const directory: WorkingDirectory = { uri: directoryUri, origin: { kind: WorkingDirectoryOriginKind.Local } };
+					rewritten = this._prepareWorkingDirectoryAction(sessionChannel, { ...rewritten, directory });
+					const resolvedDirectoryUri = getWorkingDirectoryUri(rewritten.directory);
+					const currentDirectories = this._stateManager.getSessionSummary(sessionChannel)?.workingDirectories ?? [];
+					if (!currentDirectories.some(candidate => getWorkingDirectoryUri(candidate) === resolvedDirectoryUri)) {
+						await this._pinInheritedChatWorkingDirectories(URI.parse(sessionChannel), currentDirectories.map(getWorkingDirectoryUri));
+					}
 				}
 			}
 			if (rewritten.type === ActionType.ChangesetFilesReviewChanged) {
@@ -8328,6 +8364,9 @@ export class AgentService extends Disposable implements IAgentService {
 				}
 			}
 		}
+		if (adoptedWorktree && meta.workingDirectories !== undefined) {
+			meta = { ...meta, workingDirectoryInfo: await this._resolveWorkingDirectoryInfo(session, meta.workingDirectories) };
+		}
 
 		const defaultChatUri = URI.parse(buildDefaultChatUri(sessionStr));
 		const cachedChatCatalog = await cachedChatCatalogPromise;
@@ -9307,7 +9346,19 @@ export class AgentService extends Disposable implements IAgentService {
 			return meta;
 		}
 		const project = await this._worktree.resolveWorktreeProject(session);
-		return project ? { ...meta, project } : meta;
+		return {
+			...meta,
+			...(project ? { project } : {}),
+			...(meta.workingDirectories !== undefined ? { workingDirectoryInfo: await this._resolveWorkingDirectoryInfo(session, meta.workingDirectories) } : {}),
+		};
+	}
+
+	private async _resolveWorkingDirectoryInfo(session: URI, directories: readonly URI[]): Promise<WorkingDirectory[]> {
+		if (directories.length === 0) {
+			return [];
+		}
+		const worktree = this._worktree.supported ? await this._worktree.readWorktreeMetadata(session, { repair: false }).catch(() => undefined) : undefined;
+		return resolveWorkingDirectoryInfo(directories, this._gitService, worktree);
 	}
 
 	private async _getSessionMetadataFromCatalog(agent: IAgent, session: URI, external: boolean): Promise<IAgentSessionMetadata | undefined> {

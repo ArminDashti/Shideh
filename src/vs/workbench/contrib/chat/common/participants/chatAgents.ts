@@ -21,6 +21,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import type { IRepositorySource } from '../../../../../platform/agentHost/common/agentHostRepositorySource.js';
 import { ChatContextKeys } from '../actions/chatContextKeys.js';
 import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRequestModeInstructions, IChatRequestVariableData, ISerializableChatAgentData } from '../model/chatModel.js';
 import { ChatRequestHooks } from '../promptSyntax/hookSchema.js';

@@ -52,7 +52,7 @@ export class AgentHostCheckoutOperationHandler implements IChangesetOperationHan
 			throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, localize('agentHost.changeset.checkout.branchMissing', "Select a branch to check out."));
 		}
 
-		const workingDirectory = URI.parse(workingDirectoryValue);
+		const workingDirectory = URI.parse(getWorkingDirectoryUri(workingDirectoryValue));
 		if (treeish.startsWith('-') || !await this._gitService.branchExists(workingDirectory, treeish)) {
 			throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, localize('agentHost.changeset.checkout.branchInvalid', "Branch '{0}' is not an existing local branch.", treeish));
 		}

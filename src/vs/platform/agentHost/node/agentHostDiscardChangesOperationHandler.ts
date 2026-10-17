@@ -69,7 +69,7 @@ export class AgentHostDiscardChangesOperationHandler implements IChangesetOperat
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, `Changeset owner has no working directory: ${parsed.ownerUri}`);
 		}
 
-		const workingDirectory = URI.parse(workingDirectoryStr);
+		const workingDirectory = URI.parse(getWorkingDirectoryUri(workingDirectoryStr));
 		const resource = URI.parse(params.target.resource);
 
 		try {

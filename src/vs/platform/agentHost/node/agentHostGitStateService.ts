@@ -365,7 +365,7 @@ export class AgentHostGitStateService extends Disposable implements IAgentHostGi
 		if (!workingDirectory) {
 			const workingDirectoryStr = sessionState?.workingDirectories?.[0];
 			if (workingDirectoryStr) {
-				workingDirectory = URI.parse(workingDirectoryStr);
+				workingDirectory = URI.parse(getWorkingDirectoryUri(workingDirectoryStr));
 			}
 		}
 
@@ -841,7 +841,7 @@ export class AgentHostGitStateService extends Disposable implements IAgentHostGi
 		const gitStateBaseBranch = this.getSessionGitState(sessionKey)?.baseBranchName;
 		const workingDirectory = state?.workingDirectories?.[0];
 		const project = state?.project?.uri;
-		if (!workingDirectory || !project || isEqual(URI.parse(workingDirectory), URI.parse(project))) {
+		if (!workingDirectory || !project || isEqual(URI.parse(getWorkingDirectoryUri(workingDirectory)), URI.parse(project))) {
 			return gitStateBaseBranch;
 		}
 		let databaseRef;
