@@ -2697,6 +2697,9 @@ suite('stateToProgressAdapter', () => {
 				],
 			});
 			const invocation = toolCallStateToInvocation(tc);
+			if (invocation.toolSpecificData?.kind === 'terminal') {
+				invocation.toolSpecificData.terminalCommandId = 'cmd-echo-hi';
+			}
 
 			finalizeToolInvocation(invocation, {
 				status: ToolCallStatus.Completed,
@@ -4435,6 +4438,21 @@ suite('stateToProgressAdapter', () => {
 
 		test('reports no totals when the provider did not supply any', () => {
 			assert.strictEqual(usageInfoToChatUsage({ inputTokens: 30, outputTokens: 40 })?.modelTotals, undefined);
+		});
+	});
+
+	suite('terminalCommandLineMatchesToolInput', () => {
+
+		test('matches shell-history-suppressed commands', () => {
+			assert.strictEqual(terminalCommandLineMatchesToolInput(' npm run compile', 'npm run compile'), true);
+		});
+
+		test('matches JSON tool input command fields', () => {
+			assert.strictEqual(terminalCommandLineMatchesToolInput(' npm run compile', '{"command":"npm run compile"}'), true);
+		});
+
+		test('does not match the previous-command repro case', () => {
+			assert.strictEqual(terminalCommandLineMatchesToolInput(' cat .vscode/tasks.json', 'npm run compile'), false);
 		});
 	});
 });
