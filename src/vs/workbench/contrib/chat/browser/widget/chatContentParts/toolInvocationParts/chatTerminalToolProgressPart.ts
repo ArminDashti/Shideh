@@ -2152,6 +2152,8 @@ export class ChatTerminalThinkingCollapsibleWrapper extends ChatCollapsibleConte
 
 		if (isComplete) {
 			this.icon = Codicon.check;
+		} else {
+			this.domNode.classList.add('shimmer-running');
 		}
 
 		this._setCodeFormattedTitle();
@@ -2269,6 +2271,7 @@ export class ChatTerminalThinkingCollapsibleWrapper extends ChatCollapsibleConte
 		this._isComplete = true;
 		this._isRunningInBackground = false;
 		this.icon = Codicon.check;
+		this.domNode.classList.remove('shimmer-running');
 		this._setCodeFormattedTitle();
 		this._updateShowLink();
 	}

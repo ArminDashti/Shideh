@@ -437,7 +437,7 @@
 		margin-left: 5px;
 
 		.chat-tool-invocation-part {
-			padding: 4px 12px 4px 18px;
+			padding: 4px 12px 4px 13px;
 			position: relative;
 		}
 
@@ -501,7 +501,7 @@
 		}
 
 		.chat-thinking-item.markdown-content {
-			padding: 6px 12px 6px 24px;
+			padding: 4px 12px 4px 19px;
 			position: relative;
 			font-size: var(--vscode-chat-font-size-body-s);
 
@@ -574,7 +574,7 @@
 			&::before {
 				content: '';
 				position: absolute;
-				left: 10.5px;
+				left: 5.5px;
 				top: 0px;
 				bottom: 0px;
 				width: 1px;
@@ -598,7 +598,7 @@
 
 			> .chat-thinking-icon {
 				position: absolute;
-				left: 5px;
+				left: 0px;
 				top: 9px;
 				width: 12px;
 				height: 12px;
@@ -615,7 +615,7 @@
 		}
 
 		.chat-thinking-spinner-item {
-			padding: 6px 12px 6px 24px;
+			padding: 4px 12px 4px 19px;
 			font-size: var(--vscode-chat-font-size-body-s);
 
 			.chat-thinking-spinner-label {
@@ -625,7 +625,7 @@
 	}
 
 	.chat-thinking-item {
-		padding: 6px 12px;
+		padding: 4px 12px;
 		position: relative;
 
 		.progress-container {
@@ -676,6 +676,22 @@
 
 	.chat-terminal-thinking-content .rendered-markdown [data-code] {
 		margin-bottom: 0px;
+	}
+
+	&.shimmer-running .chat-terminal-running-shimmer {
+		background: linear-gradient(
+			90deg,
+			var(--vscode-descriptionForeground) 0%,
+			var(--vscode-descriptionForeground) 30%,
+			var(--vscode-chat-thinkingShimmer) 50%,
+			var(--vscode-descriptionForeground) 70%,
+			var(--vscode-descriptionForeground) 100%
+		);
+		background-size: 400% 100%;
+		background-clip: text;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		animation: chat-thinking-shimmer 2s linear infinite;
 	}
 }
 
@@ -776,6 +792,18 @@
 				left: 0px;
 			}
 		}
+	}
+
+	&.chat-used-context-collapsed .chat-used-context-list.chat-thinking-collapsible.chat-thinking-streaming.chat-thinking-overflow-top.chat-thinking-overflow-bottom {
+		mask-image: linear-gradient(to bottom, transparent, black 24px, black calc(100% - 24px), transparent);
+	}
+
+	&.chat-used-context-collapsed .chat-used-context-list.chat-thinking-collapsible.chat-thinking-streaming.chat-thinking-overflow-top:not(.chat-thinking-overflow-bottom) {
+		mask-image: linear-gradient(to bottom, transparent, black 24px);
+	}
+
+	&.chat-used-context-collapsed .chat-used-context-list.chat-thinking-collapsible.chat-thinking-streaming.chat-thinking-overflow-bottom:not(.chat-thinking-overflow-top) {
+		mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent);
 	}
 
 	&:not(.chat-used-context-collapsed) .chat-used-context-list.chat-thinking-collapsible.chat-thinking-streaming {
