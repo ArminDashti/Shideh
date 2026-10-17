@@ -58,6 +58,25 @@ steps:
           powershell: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
           displayName: 🧪 Run unit tests (Browser, Chromium)
           timeoutInMinutes: 30
+=======
+    - powershell: .\scripts\test.bat --build --tfs "Unit Tests"
+      env:
+        VSCODE_SKIP_PRELAUNCH: '1'
+      displayName: 🧪 Run unit tests (Electron)
+      timeoutInMinutes: 30
+    - powershell: |
+        New-Item -ItemType Directory -Force -Path .build\crashes | Out-Null
+        npm run test-node -- --build
+      env:
+        NODE_OPTIONS: "--report-on-fatalerror --report-uncaught-exception --report-directory=.build/crashes"
+      displayName: 🧪 Run unit tests (node.js)
+      timeoutInMinutes: 30
+
+  - ${{ if eq(parameters.VSCODE_RUN_BROWSER_TESTS, true) }}:
+    - powershell: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
+      displayName: 🧪 Run unit tests (Browser, Chromium)
+      timeoutInMinutes: 30
+>>>>>>> 07f806f9992 ([cherry-pick] build: Increase test task timeouts to 30 minutes (#338854))
 
   - powershell: |
       . build/azure-pipelines/win32/exec.ps1
@@ -153,6 +172,50 @@ steps:
             VSCODE_SKIP_PRELAUNCH: '1'
           displayName: 🧪 Run integration tests (Remote)
           timeoutInMinutes: 30
+=======
+    - powershell: |
+        # Figure out the full absolute path of the product we just built
+        # including the remote server and configure the integration tests
+        # to run with these builds instead of running out of sources.
+        . build/azure-pipelines/win32/exec.ps1
+        $ErrorActionPreference = "Stop"
+        $AppRoot = "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+        $ProductJsonPath = (Get-ChildItem -Path "$AppRoot" -Name "product.json" -Recurse | Select-Object -First 1)
+        $AppProductJson = Get-Content -Raw -Path "$AppRoot\$ProductJsonPath" | ConvertFrom-Json
+        $AppNameShort = $AppProductJson.nameShort
+        $env:INTEGRATION_TEST_ELECTRON_PATH = "$AppRoot\$AppNameShort.exe"
+        $env:VSCODE_REMOTE_SERVER_PATH = "$(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)"
+        exec { .\scripts\test-integration.bat --build --tfs "Integration Tests" }
+      env:
+        VSCODE_SKIP_PRELAUNCH: '1'
+      displayName: 🧪 Run integration tests (Electron)
+      timeoutInMinutes: 30
+
+  - ${{ if eq(parameters.VSCODE_RUN_BROWSER_TESTS, true) }}:
+    - powershell: |
+        . build/azure-pipelines/win32/exec.ps1
+        $ErrorActionPreference = "Stop"
+        $env:VSCODE_REMOTE_SERVER_PATH = "$(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)-web"
+        exec { .\scripts\test-web-integration.bat --browser firefox }
+      displayName: 🧪 Run integration tests (Browser, Firefox)
+      timeoutInMinutes: 30
+
+  - ${{ if eq(parameters.VSCODE_RUN_REMOTE_TESTS, true) }}:
+    - powershell: |
+        . build/azure-pipelines/win32/exec.ps1
+        $ErrorActionPreference = "Stop"
+        $AppRoot = "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+        $ProductJsonPath = (Get-ChildItem -Path "$AppRoot" -Name "product.json" -Recurse | Select-Object -First 1)
+        $AppProductJson = Get-Content -Raw -Path "$AppRoot\$ProductJsonPath" | ConvertFrom-Json
+        $AppNameShort = $AppProductJson.nameShort
+        $env:INTEGRATION_TEST_ELECTRON_PATH = "$AppRoot\$AppNameShort.exe"
+        $env:VSCODE_REMOTE_SERVER_PATH = "$(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)"
+        exec { .\scripts\test-remote-integration.bat }
+      env:
+        VSCODE_SKIP_PRELAUNCH: '1'
+      displayName: 🧪 Run integration tests (Remote)
+      timeoutInMinutes: 30
+>>>>>>> 07f806f9992 ([cherry-pick] build: Increase test task timeouts to 30 minutes (#338854))
 
   - ${{ if or(eq(parameters.VSCODE_TEST_TYPE, 'All'), eq(parameters.VSCODE_TEST_TYPE, 'Integration')) }}:
     - powershell: .\build\azure-pipelines\win32\listprocesses.bat
@@ -194,6 +257,7 @@ steps:
           WSL_KERNEL_CACHE_RESULT: $(WSL_KERNEL_CACHE_RESULT)
         condition: and(succeeded(), ne(variables['TEST_CHECKPOINT_SMOKE_ELECTRON_HIT'], 'true'))
 
+<<<<<<< HEAD
     - template: ../../common/run-test-with-checkpoint.yml@self
       parameters:
         testId: smoke-electron
@@ -208,6 +272,18 @@ steps:
               VSCODE_SMOKE_TEST_WSL_SERVER_PATH: $(WSL_SMOKE_SERVER_PATH)
           displayName: 🧪 Run smoke tests (Electron)
           timeoutInMinutes: 30
+=======
+    - powershell: |
+        npm run smoketest-no-compile -- --tracing --build "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+      env:
+        VSCODE_SMOKE_TEST_POLICY: '1'
+        ${{ if eq(parameters.VSCODE_ARCH, 'x64') }}:
+          VSCODE_SMOKE_TEST_WSL_REQUIRED: '1'
+          VSCODE_SMOKE_TEST_WSL_DISTRO: $(WSL_SMOKE_DISTRO)
+          VSCODE_SMOKE_TEST_WSL_SERVER_PATH: $(WSL_SMOKE_SERVER_PATH)
+      displayName: 🧪 Run smoke tests (Electron)
+      timeoutInMinutes: 30
+>>>>>>> 07f806f9992 ([cherry-pick] build: Increase test task timeouts to 30 minutes (#338854))
 
     - ${{ if eq(parameters.VSCODE_ARCH, 'x64') }}:
       - pwsh: .\test\smoke\wslDevContainer.ps1 -CI AzureDevOps -Operation Cleanup -Distribution $env:WSL_SMOKE_DISTRO -Root $env:WSL_SMOKE_ROOT
@@ -239,6 +315,20 @@ steps:
             VSCODE_REMOTE_SERVER_PATH: $(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)
           displayName: 🧪 Run smoke tests (Remote)
           timeoutInMinutes: 30
+=======
+    - powershell: npm run smoketest-no-compile -- --web --tracing --headless
+      env:
+        VSCODE_REMOTE_SERVER_PATH: $(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)-web
+      displayName: 🧪 Run smoke tests (Browser, Chromium)
+      timeoutInMinutes: 30
+
+  - ${{ if eq(parameters.VSCODE_RUN_REMOTE_TESTS, true) }}:
+    - powershell: npm run smoketest-no-compile -- --tracing --remote --build "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+      env:
+        VSCODE_REMOTE_SERVER_PATH: $(agent.builddirectory)\test\vscode-server-win32-$(VSCODE_ARCH)
+      displayName: 🧪 Run smoke tests (Remote)
+      timeoutInMinutes: 30
+>>>>>>> 07f806f9992 ([cherry-pick] build: Increase test task timeouts to 30 minutes (#338854))
 
   - ${{ if or(eq(parameters.VSCODE_TEST_TYPE, 'All'), eq(parameters.VSCODE_TEST_TYPE, 'Smoke')) }}:
     - powershell: .\build\azure-pipelines\win32\listprocesses.bat
