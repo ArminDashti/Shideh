@@ -58,7 +58,7 @@ const TARGET_NOTICE = path.resolve('ThirdPartyNotices.txt');
 // NB: this is the OUTER artifact-availability poll. It is unrelated to the
 // inner retry() wrapper in retry.ts, which independently retries each AZDO API
 // call up to 10 times for transient network errors and emits no attempt log.
-const POLL_ATTEMPTS = 30;
+const POLL_ATTEMPTS = 40;
 const POLL_INTERVAL_MS = 30_000;
 
 function log(message: string): void {

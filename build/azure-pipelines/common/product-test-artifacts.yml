@@ -1,0 +1,33 @@
+parameters:
+  - name: artifactPrefix
+    type: string
+  - name: archiveWorkspaceSteps
+    type: stepList
+  - name: archiveAppSteps
+    type: stepList
+  - name: archiveServerSteps
+    type: stepList
+  - name: archiveWebSteps
+    type: stepList
+  - name: prepareTestSteps
+    type: stepList
+
+steps:
+  - ${{ each step in parameters.prepareTestSteps }}:
+    - ${{ step }}
+
+  - ${{ each step in parameters.archiveWorkspaceSteps }}:
+    - ${{ step }}
+  - ${{ each step in parameters.archiveAppSteps }}:
+    - ${{ step }}
+  - ${{ each step in parameters.archiveServerSteps }}:
+    - ${{ step }}
+  - ${{ each step in parameters.archiveWebSteps }}:
+    - ${{ step }}
+
+  - template: ./publish-artifact.yml@self
+    parameters:
+      targetPath: $(Build.ArtifactStagingDirectory)/product-tests
+      artifactName: ${{ parameters.artifactPrefix }}-payload
+      displayName: Publish product test payload
+      sbomEnabled: false
