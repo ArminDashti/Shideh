@@ -303,6 +303,8 @@ export class NotebookFileWorkingCopyModel extends Disposable implements IStoredF
 		return this._notebookService.createNotebookTextDocumentSnapshot(this._notebookModel.uri, context, token);
 	}
 
+	private static cachedStream: streams.ReadableStream<VSBuffer> | undefined;
+
 	async update(stream: VSBufferReadableStream, token: CancellationToken): Promise<void> {
 		const serializer = await this.getNotebookSerializer();
 
