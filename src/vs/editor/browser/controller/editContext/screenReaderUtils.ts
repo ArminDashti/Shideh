@@ -10,6 +10,7 @@ import { Selection, SelectionDirection } from '../../../common/core/selection.js
 import { EditorOption, IComputedEditorOptions } from '../../../common/config/editorOptions.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { AccessibilitySupport } from '../../../../platform/accessibility/common/accessibility.js';
+import { Selection } from '../../../common/core/selection.js';
 import * as nls from '../../../../nls.js';
 import { ISimpleModel } from '../../../common/viewModel/screenReaderSimpleModel.js';
 
@@ -146,4 +147,16 @@ export function newlinecount(text: string): number {
 		result++;
 	} while (true);
 	return result;
+}
+
+export interface ISimpleScreenReaderContext {
+	getLineCount(): number;
+	getLineMaxColumn(lineNumber: number): number;
+	getValueInRange(range: Range, eol: EndOfLinePreference): string;
+	getValueLengthInRange(range: Range, eol: EndOfLinePreference): number;
+	modifyPosition(position: Position, offset: number): Position;
+}
+
+export interface IPagedScreenReaderStrategy<T> {
+	fromEditorSelection(model: ISimpleScreenReaderContext, selection: Selection, linesPerPage: number, trimLongText: boolean): T;
 }

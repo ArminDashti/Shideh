@@ -1138,6 +1138,11 @@ export interface ITextModel {
 	getFontDecorationsInRange(range: IRange, ownerId?: number): IModelDecoration[];
 
 	/**
+	 * @internal
+	 */
+	getFontDecorations(lineNumber: number): IModelDecoration[];
+
+	/**
 	 * Gets all the decorations for the lines between `startLineNumber` and `endLineNumber` as an array.
 	 * @param startLineNumber The start line number
 	 * @param endLineNumber The end line number

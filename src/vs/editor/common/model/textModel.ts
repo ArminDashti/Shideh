@@ -242,6 +242,9 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 	private readonly _onDidChangeFont: Emitter<ModelFontChangedEvent> = this._register(new Emitter<ModelFontChangedEvent>());
 	public get onDidChangeFont(): Event<ModelFontChangedEvent> { return this._onDidChangeFont.event; }
 
+	private readonly _onDidChangeFont: Emitter<ModelFontChangedEvent> = this._register(new Emitter<ModelFontChangedEvent>());
+	public readonly onDidChangeFont: Event<ModelFontChangedEvent> = this._onDidChangeFont.event;
+
 	private readonly _eventEmitter: DidChangeContentEmitter = this._register(new DidChangeContentEmitter());
 	public onDidChangeContent(listener: (e: IModelContentChangedEvent) => void): IDisposable {
 		return this._eventEmitter.event((e: InternalModelContentChangeEvent) => listener(e.contentChangedEvent));
@@ -1640,6 +1643,11 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 			const lineHeightChangeEvent = affectedLines.map(specialLineHeightChange => new ModelLineHeightChanged(specialLineHeightChange.ownerId, specialLineHeightChange.decorationId, specialLineHeightChange.lineNumber, specialLineHeightChange.lineHeight));
 			this._onDidChangeLineHeight.fire(new ModelLineHeightChangedEvent(lineHeightChangeEvent));
 		}
+		if (affectedFontLines && affectedFontLines.size > 0) {
+			const affectedLinesByFontChange = Array.from(affectedFontLines);
+			const fontChangeEvent = affectedLinesByFontChange.map(customFontChange => new ModelFontChanged(customFontChange.ownerId, customFontChange.versionId, customFontChange.decorationId, customFontChange.lineNumber, customFontChange.fontDecoration));
+			this._onDidChangeFont.fire(new ModelFontChangedEvent(fontChangeEvent));
+		}
 	}
 
 	private _fireOnDidChangeFont(affectedFontLines: Set<LineFontChangingDecoration> | null): void {
@@ -1894,6 +1902,7 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 			return;
 		}
 
+		const versionId = this.getVersionId();
 		if (node.options.after) {
 			const oldRange = this.getDecorationRange(decorationId);
 			this._onDidChangeDecorations.recordLineAffectedByInjectedText(oldRange!.endLineNumber);
@@ -1940,6 +1949,7 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 			return;
 		}
 
+		const versionId = this.getVersionId();
 		const nodeWasInOverviewRuler = (node.options.overviewRuler && node.options.overviewRuler.color ? true : false);
 		const nodeIsInOverviewRuler = (options.overviewRuler && options.overviewRuler.color ? true : false);
 
@@ -2588,6 +2598,21 @@ function _normalizeOptions(options: model.IModelDecorationOptions): ModelDecorat
 	return ModelDecorationOptions.createDynamic(options);
 }
 
+
+class LineFontChangingDecoration {
+
+	public static toKey(obj: LineFontChangingDecoration): string {
+		return `${obj.ownerId};${obj.decorationId}`;
+	}
+
+	constructor(
+		public readonly ownerId: number,
+		public readonly versionId: number,
+		public readonly decorationId: string,
+		public readonly lineNumber: number,
+		public readonly fontDecoration: FontDecoration | null
+	) { }
+}
 
 class DidChangeDecorationsEmitter extends Disposable {
 

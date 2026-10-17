@@ -283,7 +283,7 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IThemeService themeService: IThemeService,
 		@INotificationService notificationService: INotificationService,
-		@IAccessibilityService accessibilityService: IAccessibilityService,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ILanguageConfigurationService private readonly languageConfigurationService: ILanguageConfigurationService,
 		@ILanguageFeaturesService languageFeaturesService: ILanguageFeaturesService,
 		@IUserInteractionService userInteractionService: IUserInteractionService,
@@ -1454,6 +1454,13 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		return this._modelData.viewModel.getFontSizeAtPosition(position);
 	}
 
+	public getFontSizeAtPosition(position: Position): number {
+		if (!this._modelData) {
+			return this.getOption(EditorOption.fontSize);
+		}
+		return this._modelData.viewModel.getFontSizeAtPosition(position);
+	}
+
 	/**
 	 * @deprecated
 	 */
@@ -1872,7 +1879,8 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 						this._endUpdate();
 					}
 				},
-			}
+			},
+			this.accessibilityService
 		);
 
 		// Someone might destroy the model from under the editor, so prevent any exceptions by setting a null model

@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { assertNever } from '../../base/common/assert.js';
-import { WrappingIndent } from './config/editorOptions.js';
-import { FontInfo } from './config/fontInfo.js';
+import { IEditorConfiguration } from './config/editorConfiguration.js';
 import { Position } from './core/position.js';
 import { InjectedTextCursorStops, InjectedTextOptions, PositionAffinity } from './model.js';
 import { LineInjectedText } from './textModelEvents.js';
+import { IViewLineTokens } from './tokens/lineTokens.js';
+import { InlineDecoration } from './viewModel.js';
 
 /**
  * *input*:

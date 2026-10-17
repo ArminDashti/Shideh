@@ -148,6 +148,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 	public readonly textArea: FastDomNode<HTMLTextAreaElement>;
 	public readonly textAreaCover: FastDomNode<HTMLElement>;
 	private readonly _textAreaInput: TextAreaInput;
+	private readonly _textAreaPagedScreenReaderStrategy: TextAreaPagedScreenReaderStrategy = new TextAreaPagedScreenReaderStrategy();
 
 	constructor(
 		ownerID: string,
@@ -873,6 +874,12 @@ export class TextAreaEditContext extends AbstractEditContext {
 		const tac = this.textAreaCover;
 
 		applyFontInfo(ta, this._fontInfo);
+		if (this._lastRenderPosition) {
+			const fontSize = this._context.viewModel.getFontSizeAtPosition(this._lastRenderPosition);
+			if (fontSize) {
+				ta.setFontSize(fontSize);
+			}
+		}
 		ta.setTop(renderData.top);
 		ta.setLeft(renderData.left);
 		ta.setWidth(renderData.width);

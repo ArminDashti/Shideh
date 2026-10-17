@@ -19,12 +19,13 @@ const ttPolicy = createTrustedTypesPolicy('domLineBreaksComputer', { createHTML:
 
 export class DOMLineBreaksComputerFactory implements ILineBreaksComputerFactory {
 
+	private container: HTMLElement | undefined;
+
 	public static create(targetWindow: Window): DOMLineBreaksComputerFactory {
 		return new DOMLineBreaksComputerFactory(new WeakRef(targetWindow));
 	}
 
-	constructor(private targetWindow: WeakRef<Window>) {
-	}
+	constructor(private targetWindow: WeakRef<Window>) { }
 
 	public createLineBreaksComputer(context: ILineBreaksComputerContext, fontInfo: FontInfo, tabSize: number, wrappingColumn: number, wrappingIndent: WrappingIndent, wordBreak: 'normal' | 'keepAll', wrapOnEscapedLineFeeds: boolean, useTwoCellFullwidthCharacters: boolean): ILineBreaksComputer {
 		const lineNumbers: number[] = [];
@@ -56,13 +57,18 @@ function createLineBreaks(targetWindow: Window, context: ILineBreaksComputerCont
 			return null;
 		}
 	}
+	const options = config.options;
+	const fontInfo = options.get(EditorOption.fontInfo);
+	const wrappingIndent = options.get(EditorOption.wrappingIndent);
+	const firstLineBreakColumn = options.get(EditorOption.wrappingInfo).wrappingColumn;
+	const wordBreak = options.get(EditorOption.wordBreak);
 
 	if (firstLineBreakColumn === -1) {
 		const result: (ModelLineProjectionData | null)[] = [];
 		for (let i = 0, len = lineNumbers.length; i < len; i++) {
 			result[i] = createEmptyLineBreakWithPossiblyInjectedText(lineNumbers[i]);
 		}
-		return result;
+		return { data: result, containerDomNode: undefined };
 	}
 
 	const overallWidth = Math.round(firstLineBreakColumn * fontInfo.typicalHalfwidthCharacterWidth);
@@ -74,6 +80,7 @@ function createLineBreaks(targetWindow: Window, context: ILineBreaksComputerCont
 	const fullwidthCharacterWidth = useTwoCellFullwidthCharacters ? 2 * fontInfo.spaceWidth : undefined;
 
 	const containerDomNode = document.createElement('div');
+	containerDomNode.classList.add('dom-line-breaks-computer');
 	applyFontInfo(containerDomNode, fontInfo);
 
 	const sb = new StringBuilder(10000);
@@ -177,11 +184,10 @@ function createLineBreaks(targetWindow: Window, context: ILineBreaksComputerCont
 
 		const firstNonWhitespaceIndex = firstNonWhitespaceIndices[i];
 		const wrappedTextIndentLength = wrappedTextIndentLengths[i] + additionalIndentSize;
-		const visibleColumns = allVisibleColumns[i];
 
 		const breakOffsetsVisibleColumn: number[] = [];
 		for (let j = 0, len = breakOffsets.length; j < len; j++) {
-			breakOffsetsVisibleColumn[j] = visibleColumns[breakOffsets[j]];
+			breakOffsetsVisibleColumn[j] = characterMapping.getHorizontalOffset(breakOffsets[j] + 1);
 		}
 
 		if (firstNonWhitespaceIndex !== 0) {
@@ -205,8 +211,7 @@ function createLineBreaks(targetWindow: Window, context: ILineBreaksComputerCont
 		result[i] = new ModelLineProjectionData(injectionOffsets, injectionOptions, breakOffsets, breakOffsetsVisibleColumn, wrappedTextIndentLength);
 	}
 
-	containerDomNode.remove();
-	return result;
+	return { data: result, containerDomNode };
 }
 
 const enum Constants {
@@ -392,7 +397,8 @@ function readLineBreaks(range: Range, lineDomNode: HTMLDivElement, lineContent: 
 	if (lineContent.length <= 1) {
 		return null;
 	}
-	const spans = <HTMLSpanElement[]>Array.prototype.slice.call(lineDomNode.children, 0);
+	const outerSpans = <HTMLSpanElement>Array.prototype.slice.call(lineDomNode.children, 0)[0];
+	const spans = <HTMLSpanElement[]>Array.prototype.slice.call(outerSpans.children, 0);
 
 	const breakOffsets: number[] = [];
 	try {
@@ -418,7 +424,7 @@ function discoverBreaks(range: Range, spans: HTMLSpanElement[], charOffsets: num
 	lowRects = lowRects || readClientRect(range, spans, charOffsets[low], charOffsets[low + 1], spanStartOffsets);
 	highRects = highRects || readClientRect(range, spans, charOffsets[high], charOffsets[high + 1], spanStartOffsets);
 
-	if (Math.abs(lowRects[0].top - highRects[0].top) <= 0.1) {
+	if (Math.abs(lowRects[0].top - highRects[0].top) <= lineHeight / 2) {
 		// same line
 		return;
 	}

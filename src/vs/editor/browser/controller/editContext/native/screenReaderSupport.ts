@@ -8,10 +8,12 @@ import { Disposable, MutableDisposable } from '../../../../../base/common/lifecy
 import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { EditorOption } from '../../../../common/config/editorOptions.js';
+import { EditorFontLigatures, EditorOption, FindComputedEditorOptionValueById } from '../../../../common/config/editorOptions.js';
 import { FontInfo } from '../../../../common/config/fontInfo.js';
 import { Selection } from '../../../../common/core/selection.js';
 import { ViewConfigurationChangedEvent, ViewCursorStateChangedEvent } from '../../../../common/viewEvents.js';
+import { LineDecoration } from '../../../../common/viewLayout/lineDecorations.js';
+import { CharacterMapping, RenderLineInput, renderViewLine } from '../../../../common/viewLayout/viewLineRenderer.js';
 import { ViewContext } from '../../../../common/viewModel/viewContext.js';
 import { applyFontInfo } from '../../../config/domFontInfo.js';
 import { IEditorAriaOptions } from '../../../editorBrowser.js';
@@ -33,6 +35,7 @@ export class ScreenReaderSupport extends Disposable {
 	private _renderRichContent: boolean | undefined;
 
 	private _primarySelection: Selection = new Selection(1, 1, 1, 1);
+	private _renderedSelection: Selection = new Selection(1, 1, 1, 1);
 	private _primaryCursorVisibleRange: HorizontalPosition | null = null;
 	private readonly _state: MutableDisposable<IScreenReaderContent>;
 
@@ -48,6 +51,10 @@ export class ScreenReaderSupport extends Disposable {
 		this._instantiateScreenReaderContent();
 		this._updateConfigurationSettings();
 		this._updateDomAttributes();
+		this._context.viewModel.model.onDidChangeTokens((e) => {
+			this.writeScreenReaderContent();
+		});
+		this.writeScreenReaderContent();
 	}
 
 	public onWillPaste(): void {
@@ -102,6 +109,7 @@ export class ScreenReaderSupport extends Disposable {
 
 	private _updateDomAttributes(): void {
 		const options = this._context.configuration.options;
+		this._domNode.domNode.contentEditable = 'true';
 		this._domNode.domNode.setAttribute('role', 'textbox');
 		this._domNode.domNode.setAttribute('aria-required', options.get(EditorOption.ariaRequired) ? 'true' : 'false');
 		this._domNode.domNode.setAttribute('aria-multiline', 'true');
@@ -166,10 +174,11 @@ export class ScreenReaderSupport extends Disposable {
 		// For correct alignment of the screen reader content, we need to apply the correct font
 		applyFontInfo(this._domNode, this._fontInfo);
 
-		this._domNode.setTop(top);
+		console.log('width : ', width);
+		this._domNode.setTop(300);
 		this._domNode.setLeft(left);
 		this._domNode.setWidth(width);
-		this._domNode.setHeight(height);
+		this._domNode.setHeight(500);
 		this._domNode.setLineHeight(height);
 	}
 
@@ -191,4 +200,11 @@ export class ScreenReaderSupport extends Disposable {
 	public writeScreenReaderContent(): void {
 		this._state.value?.updateScreenReaderContent(this._primarySelection);
 	}
+}
+
+class RenderedScreenReaderLine {
+	constructor(
+		public readonly domNode: HTMLDivElement,
+		public readonly characterMapping: CharacterMapping
+	) { }
 }
