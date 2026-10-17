@@ -61,6 +61,7 @@ Most important symbols:
 
 * Check src\vs\base\common\observableInternal\index.ts for a list of all observable utitilies
 
+## Learnings
 
 * Important learnings:
 	* [1] Avoid glitches
