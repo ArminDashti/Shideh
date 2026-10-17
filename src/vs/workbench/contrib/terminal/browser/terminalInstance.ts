@@ -2577,6 +2577,50 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			}
 		}
 	}
+
+	registerMarker(cursorYOffset: number): IMarker | undefined {
+		return this._xterm!.registerMarker(cursorYOffset);
+	}
+
+	translateLinesToText(start: number, length: number): string[] {
+		if (length <= 0) {
+			throw new Error(`Invalid argument value length=${length}`);
+		}
+		const buffer = this._xterm!.buffer.active;
+		const lines: string[] = [];
+		let line: IBufferLine | undefined;
+		let workIndex = 0;
+
+
+		// If the first line is wrapped, scan backwards and include the rest of it.
+		line = buffer.getLine(start)!;
+		// TODO: This may mess up if the following lines are wrapped?
+		lines[0] = line.translateToString(true);
+		workIndex = 0;
+		while (start - workIndex > 0 && line.isWrapped) {
+			line = buffer.getLine(start - (++workIndex));
+			if (!line) {
+				break;
+			}
+			lines[0] = line.translateToString(false) + lines[0];
+		}
+
+		// Get the remaining lines
+		let lineIndex = 1;
+		for (let i = 1; i < length; i++) {
+			line = buffer.getLine(start + i)!;
+
+			// If the line is wrapped, add it to the previous line
+			if (line.isWrapped) {
+				lines[lineIndex - 1] = lines[lineIndex - 1] + line.translateToString(true);
+				continue;
+			}
+
+			// Set the line and increment
+			lines[lineIndex++] = line.translateToString(true);
+		}
+		return lines;
+	}
 }
 
 class TerminalInstanceDragAndDropController extends Disposable implements dom.IDragAndDropObserverCallbacks {
