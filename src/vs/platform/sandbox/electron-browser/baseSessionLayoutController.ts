@@ -503,7 +503,7 @@ export abstract class BaseLayoutController extends Disposable {
 		// default, which would reveal the docked editor) and it survives a reload.
 		if (this._isEditorPartVisibilityPerSession) {
 			const editorPartHidden = this._editorPartHiddenBySession.get(from.resource)
-				?? (replacedSessionIsActive ? !this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow) : undefined);
+				?? (replacedSessionIsActive && !this._isCustomViewVisible() ? !this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow) : undefined);
 			if (editorPartHidden !== undefined) {
 				this._editorPartHiddenBySession.set(to.resource, editorPartHidden);
 			}

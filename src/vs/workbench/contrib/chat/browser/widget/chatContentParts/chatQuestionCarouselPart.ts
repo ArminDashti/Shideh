@@ -7,7 +7,7 @@ import * as dom from '../../../../../../base/browser/dom.js';
 import { renderAsPlaintext } from '../../../../../../base/browser/markdownRenderer.js';
 import { StandardKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { IMarkdownString, MarkdownString, isMarkdownString } from '../../../../../../base/common/htmlContent.js';
+import { IMarkdownString, MarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { KeyCode } from '../../../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
@@ -42,10 +42,10 @@ import { ITelemetryService } from '../../../../../../platform/telemetry/common/t
 import { ITerminalChatService } from '../../../../terminal/browser/terminal.js';
 import { AgentHostAutoReplyAnswer } from '../../../../../../platform/agentHost/common/agentHostSchema.js';
 import { ChatCollapsibleContentPart } from './chatCollapsibleContentPart.js';
-import { ChatContentMarkdownRenderer } from '../chatContentMarkdownRenderer.js';
 import { getCompactCodicon } from '../../chatIcons.js';
-import { CHAT_CARD_HEADER_CLASS, CHAT_CARD_LARGE_CLASS, CHAT_CARD_TITLE_CLASS, createChatCardIconButton } from '../chatCard.js';
+import { CHAT_CARD_LARGE_CLASS, createChatCardIconButton } from '../chatCard.js';
 import { ChatCardListbox } from '../chatCardListbox.js';
+import { appendChatQuestionOptionLabel, ChatQuestionContent } from './chatQuestionContent.js';
 import './media/chatQuestionCarousel.css';
 
 const PREVIOUS_QUESTION_ACTION_ID = 'workbench.action.chat.previousQuestion';
@@ -163,7 +163,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private readonly _interactiveUIStore: MutableDisposable<DisposableStore> = this._register(new MutableDisposable());
 	private readonly _inChatQuestionCarouselContextKey: IContextKey<boolean>;
 	private readonly _chatQuestionCarouselHasTerminalContextKey: IContextKey<boolean>;
-	private readonly _markdownRenderer: ChatContentMarkdownRenderer;
 	private _validationMessageElement: HTMLElement | undefined;
 	private _currentValidationError: string | undefined;
 	private _focusTerminalButtonContainer: HTMLElement | undefined;
@@ -172,7 +171,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		public readonly carousel: IChatQuestionCarousel,
 		private readonly _context: IChatContentPartRenderContext | undefined,
 		private readonly _options: IChatQuestionCarouselOptions,
-		@IInstantiationService instantiationService: IInstantiationService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -184,7 +183,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	) {
 		super();
 
-		this._markdownRenderer = instantiationService.createInstance(ChatContentMarkdownRenderer);
 		this.domNode = dom.$(`.chat-question-carousel-container.${CHAT_CARD_LARGE_CLASS}`);
 		this.domNode.classList.toggle('chat-question-carousel-conversation', carousel.answerPresentation === 'conversation');
 		this.domNode.id = generateUuid();
@@ -428,6 +426,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	 * Either advances to the next question or submits when on the last question.
 	 */
 	private handleNextOrSubmit(): void {
+		if (this._isSkipped || this.carousel.isUsed) {
+			return;
+		}
 		this.saveCurrentAnswer();
 
 		if (!this.validateCurrentQuestion()) {
@@ -444,8 +445,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			if (!this.validateRequiredFields()) {
 				return;
 			}
-			this._options.onSubmit(this._answers);
-			this.hideAndShowSummary();
+			if (this._options.onSubmit(this._answers) !== false) {
+				this.hideAndShowSummary();
+			}
 		}
 	}
 
@@ -453,6 +455,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	 * Handles explicit submit action from the dedicated submit button.
 	 */
 	private submit(): void {
+		if (this._isSkipped || this.carousel.isUsed) {
+			return;
+		}
 		this.saveCurrentAnswer();
 		if (!this.validateCurrentQuestion()) {
 			return;
@@ -460,8 +465,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		if (!this.validateRequiredFields()) {
 			return;
 		}
-		this._options.onSubmit(this._answers);
-		this.hideAndShowSummary();
+		if (this._options.onSubmit(this._answers) !== false) {
+			this.hideAndShowSummary();
+		}
 	}
 
 	/**
@@ -639,7 +645,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		}
 
 		const defaults = this.getDefaultAnswers();
-		this._options.onSubmit(defaults);
+		if (this._options.onSubmit(defaults) === false) {
+			return false;
+		}
 
 		// Reset answers to match submitted defaults for summary display
 		this._answers.clear();
@@ -663,8 +671,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this.saveCurrentAnswer();
 		this._options.onDidDismiss?.(new Map(this._answers));
 		this._isSkipped = true;
-
-		this._options.onSubmit(undefined);
 
 		// Dispose interactive UI and clear DOM
 		this.clearInteractiveResources();
@@ -836,36 +842,6 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			return;
 		}
 
-		const headerRow = dom.$('.chat-question-header-row');
-		const titleRow = dom.$(`.chat-question-title-row.${CHAT_CARD_HEADER_CLASS}`);
-
-		// Render carousel-level message if present (e.g. from MCP elicitation)
-		if (this.carousel.message && this._currentIndex === 0) {
-			const messageMd = isMarkdownString(this.carousel.message) ? MarkdownString.lift(this.carousel.message) : new MarkdownString(this.carousel.message);
-			const carouselMessage = dom.$('.chat-question-carousel-message');
-			const renderedMessage = questionRenderStore.add(this._markdownRenderer.render(messageMd));
-			carouselMessage.appendChild(renderedMessage.element);
-			headerRow.appendChild(carouselMessage);
-		}
-
-		const questionText = getDisplayedQuestionText(question);
-		if (questionText) {
-			const title = dom.$(`.chat-question-title.${CHAT_CARD_TITLE_CLASS}`);
-			const messageContent = this.getQuestionText(questionText);
-			title.setAttribute('aria-label', messageContent);
-
-			const rawValue = isMarkdownString(questionText) ? questionText.value : questionText;
-			const suffixed = question.required ? `${rawValue} *` : rawValue;
-			const md = isMarkdownString(questionText)
-				? MarkdownString.lift({ ...questionText, value: suffixed })
-				: new MarkdownString(suffixed);
-			const rendered = questionRenderStore.add(this._markdownRenderer.render(md));
-			title.appendChild(rendered.element);
-			titleRow.appendChild(title);
-		}
-
-		headerRow.appendChild(titleRow);
-
 		if (this._headerActionsContainer) {
 			dom.clearNode(this._headerActionsContainer);
 			if (this._focusTerminalButtonContainer) {
@@ -877,31 +853,13 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			if (this._collapseButton) {
 				this._headerActionsContainer.appendChild(this._collapseButton.element);
 			}
-			titleRow.appendChild(this._headerActionsContainer);
 		}
 
-		this._questionContainer.appendChild(headerRow);
-
-		// Render description if present
-		if (question.description) {
-			const descriptionEl = dom.$('.chat-question-description');
-			descriptionEl.textContent = question.description;
-			this._questionContainer.appendChild(descriptionEl);
-		}
-
-		// Render input based on question type
-		const inputContainer = dom.$('.chat-question-input-container');
-
-		// Render detailed markdown message inside the scrollable input area
-		if (question.detailedMessage) {
-			const detailedMd = isMarkdownString(question.detailedMessage)
-				? MarkdownString.lift(question.detailedMessage)
-				: new MarkdownString(question.detailedMessage);
-			const detailedMessageEl = dom.$('.chat-question-detailed-message');
-			const renderedDetailedMessage = questionRenderStore.add(this._markdownRenderer.render(detailedMd));
-			detailedMessageEl.appendChild(renderedDetailedMessage.element);
-			inputContainer.appendChild(detailedMessageEl);
-		}
+		const content = questionRenderStore.add(this._instantiationService.createInstance(ChatQuestionContent, this._questionContainer, question, {
+			message: this._currentIndex === 0 ? this.carousel.message : undefined,
+			headerActions: this._headerActionsContainer,
+		}));
+		const inputContainer = content.inputContainer;
 
 		this.renderInput(inputContainer, question);
 
@@ -1244,22 +1202,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			const indicator = dom.$('.chat-question-list-indicator');
 			indicators.push(indicator);
 
-			// Label with optional description (format: "Title - Description")
-			const label = dom.$('.chat-question-list-label');
-			const separatorIndex = option.label.indexOf(' - ');
-			if (separatorIndex !== -1) {
-				listItem.classList.add('has-description');
-				const titleSpan = dom.$('span.chat-question-list-label-title');
-				titleSpan.textContent = option.label.substring(0, separatorIndex);
-				label.appendChild(titleSpan);
-
-				const descSpan = dom.$('span.chat-question-list-label-desc');
-				descSpan.textContent = option.label.substring(separatorIndex + 3);
-				label.appendChild(descSpan);
-			} else {
-				label.textContent = option.label;
-			}
-			listItem.appendChild(label);
+			appendChatQuestionOptionLabel(listItem, option.label);
 			listItem.appendChild(indicator);
 
 			// if we select an option, clear text and go to next question
@@ -1442,22 +1385,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			checkbox.domNode.tabIndex = -1;
 			listItem.appendChild(checkbox.domNode);
 
-			// Label with optional description (format: "Title - Description")
-			const label = dom.$('.chat-question-list-label');
-			const separatorIndex = option.label.indexOf(' - ');
-			if (separatorIndex !== -1) {
-				listItem.classList.add('has-description');
-				const titleSpan = dom.$('span.chat-question-list-label-title');
-				titleSpan.textContent = option.label.substring(0, separatorIndex);
-				label.appendChild(titleSpan);
-
-				const descSpan = dom.$('span.chat-question-list-label-desc');
-				descSpan.textContent = option.label.substring(separatorIndex + 3);
-				label.appendChild(descSpan);
-			} else {
-				label.textContent = option.label;
-			}
-			listItem.appendChild(label);
+			appendChatQuestionOptionLabel(listItem, option.label);
 
 			if (isChecked) {
 				listItem.classList.add('checked');
@@ -1681,16 +1609,16 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private renderSummary(): void {
 		// If no answers, show the terminal-state (Skipped/Answered) message
 		if (this._answers.size === 0) {
-			if (this.carousel.answerPresentation === 'conversation') {
+			if (this.carousel.answerPresentation === 'conversation' && this._context) {
 				if (this.carousel.autoReply) {
-					this.renderConversationSummary({
+					this.renderConversationSummary(this._context, {
 						answerFallback: localize('chat.questionCarousel.answeredAutomatically', "Answered automatically"),
 						answerIcon: Codicon.copilotCompact,
 					});
 				} else if (this.carousel.answeredExternally) {
 					this.renderTerminalStateMessage();
 				} else if (this.carousel.isUsed) {
-					this.renderConversationSummary({
+					this.renderConversationSummary(this._context, {
 						answerFallback: localize('chat.questionCarousel.skippedConversation', "Skipped question"),
 						answerIcon: Codicon.closeCompact,
 						hideAnswerPrefix: true,
@@ -1704,8 +1632,8 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			return;
 		}
 
-		if (this.carousel.answerPresentation === 'conversation') {
-			this.renderConversationSummary();
+		if (this.carousel.answerPresentation === 'conversation' && this._context) {
+			this.renderConversationSummary(this._context);
 			return;
 		}
 
@@ -1773,9 +1701,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 				? localize('chat.questionCarousel.conversationAnswer', "{0} {1}", answerPrefix, answerValue)
 				: answerValue;
 			const collapsibleContext = {
-				...this._context,
-				content: this._context.content ?? [],
-				contentIndex: this._context.contentIndex ?? 0,
+				...context,
+				content: context.content ?? [],
+				contentIndex: context.contentIndex ?? 0,
 			};
 			const answerPart = summaryStore.add(new ChatQuestionAnswerCollapsiblePart(
 				answerTitle,

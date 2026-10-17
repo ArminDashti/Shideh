@@ -89,6 +89,8 @@ export interface IOpenAgentsWindowOptions {
 	readonly onboardingSessionResource?: UriComponents;
 	readonly source?: AgentsWindowOpenSource;
 	readonly draft?: IAgentsWindowDraft;
+	/** Open the profile's Project Board without changing the Agents window's selected chat or workspace. */
+	readonly openProjectBoard?: boolean;
 }
 
 export interface ICPUProperties {

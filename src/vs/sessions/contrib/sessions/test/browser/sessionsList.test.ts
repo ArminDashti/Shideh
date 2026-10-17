@@ -5,10 +5,13 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { timeout } from '../../../../../base/common/async.js';
+import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
+import { addDisposableListener } from '../../../../../base/browser/dom.js';
 import { IDelayedHoverOptions } from '../../../../../base/browser/ui/hover/hover.js';
 import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
 import { mainWindow } from '../../../../../base/browser/window.js';
+import { timeout } from '../../../../../base/common/async.js';
+import { hasKey } from '../../../../../base/common/types.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { findOnboardingTarget } from '../../../../../workbench/contrib/onboarding/browser/spotlight/onboardingTarget.js';
@@ -32,6 +35,8 @@ import { SubmenuAction } from '../../../../../base/common/actions.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { NullHoverService } from '../../../../../platform/hover/test/browser/nullHoverService.js';
@@ -41,7 +46,7 @@ import { IKeybindingService } from '../../../../../platform/keybinding/common/ke
 import { createUSLayoutResolvedKeybinding } from '../../../../../platform/keybinding/test/common/keybindingsTestUtils.js';
 import { MockKeybindingService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
-import { WorkbenchObjectTree } from '../../../../../platform/list/browser/listService.js';
+import { getSelectionKeyboardEvent, WorkbenchObjectTree } from '../../../../../platform/list/browser/listService.js';
 import { IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../../platform/opener/common/opener.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
@@ -296,7 +301,7 @@ suite('Sessions - SessionsList', () => {
 					override readonly extUri = new ExtUri(() => true);
 				},
 				new class extends mock<ICustomViewService>() {
-					override readonly activeCustomView = constObservable(undefined);
+					override readonly activeCustomView = constObservable(upcastPartial<ICustomViewDescriptor>({ id: AUTOMATIONS_CUSTOM_VIEW_ID }));
 				},
 				new class extends mock<IMenuService>() { },
 				noKeybindingService,
@@ -321,6 +326,7 @@ suite('Sessions - SessionsList', () => {
 				hasCalendar: template.icon.classList.contains('codicon-calendar'),
 			});
 			const outline = getPresentationSnapshot();
+			assert.ok(template.container.classList.contains('active'));
 
 			badgePresentation.set('unread', undefined);
 			const unread = getPresentationSnapshot();
@@ -348,6 +354,7 @@ suite('Sessions - SessionsList', () => {
 				dismissed,
 				recycledDisplay: template.newBadge.style.display,
 				recycledShortcutClass: template.container.classList.contains('session-section-shortcut'),
+				recycledActiveClass: template.container.classList.contains('active'),
 			}, {
 				outline: {
 					badgeText: 'New',
@@ -396,6 +403,7 @@ suite('Sessions - SessionsList', () => {
 				},
 				recycledDisplay: 'none',
 				recycledShortcutClass: false,
+				recycledActiveClass: false,
 			});
 		});
 
@@ -1123,6 +1131,211 @@ suite('Sessions - SessionsList', () => {
 					marginRight: '0px',
 				})
 			);
+		});
+	});
+
+	test('shows the Agents Hub shortcut when AI features are enabled and opens its stable custom view command', async () => {
+		const harness = createListHarness(disposables, [], instantiationService => {
+			ChatContextKeys.enabled.bindTo(instantiationService.get(IContextKeyService)).set(true);
+			instantiationService.stub(ICustomViewService, new class extends mock<ICustomViewService>() {
+				override readonly activeCustomView = constObservable(undefined);
+			});
+		});
+		const container = harness.createContainer();
+		const list = harness.store.add(harness.instantiationService.createInstance(SessionsList, container, {
+			grouping: () => SessionsGrouping.Date,
+			sorting: () => SessionsSorting.Created,
+			onSessionOpen: () => { },
+		}));
+		list.layout(300, 400);
+		const row = [...container.querySelectorAll<HTMLElement>('.monaco-list-row')]
+			.find(candidate => candidate.getAttribute('aria-label') === 'Agents Hub');
+		assert.ok(row);
+
+		row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+		row.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+		await Promise.resolve();
+
+		assert.deepStrictEqual(harness.commandService.calls, [{ commandId: MANAGE_KANBAN_COMMAND_ID, args: [] }]);
+	});
+
+	suite('Agents Hub boards', () => {
+		function createBoardList(enabled = true, canEdit = true) {
+			const session = createTestSession('Ordinary session').session;
+			const boards = observableValue<readonly IProjectBoardRecord[]>('boards', [
+				{ id: 'one', name: 'First board', configuration: defaultConfiguration() },
+				{ id: 'two', name: 'Second board', configuration: defaultConfiguration() },
+			]);
+			const selectedBoardId = observableValue<string | undefined>('selectedBoard', 'one');
+			const activeCustomView = observableValue<ICustomViewDescriptor | undefined>('activeView', undefined);
+			let contextMenu: IContextMenuDelegate | undefined;
+			const harness = createListHarness(disposables, [session], instantiationService => {
+				instantiationService.stub(IContextKeyService, disposables.add(new ContextKeyService(new TestConfigurationService())));
+				ChatContextKeys.enabled.bindTo(instantiationService.get(IContextKeyService)).set(enabled);
+				instantiationService.stub(IProjectBoardCatalogService, new class extends mock<IProjectBoardCatalogService>() {
+					override readonly boards = boards;
+					override readonly selectedBoardId = selectedBoardId;
+					override readonly canEdit = canEdit;
+					override selectBoard(boardId: string): void { selectedBoardId.set(boardId, undefined); }
+				});
+				instantiationService.stub(ICustomViewService, new class extends mock<ICustomViewService>() {
+					override readonly activeCustomView = activeCustomView;
+					override showCustomView(id: string): void {
+						activeCustomView.set(upcastPartial<ICustomViewDescriptor>({ id }), undefined);
+					}
+				});
+				instantiationService.stub(IContextMenuService, new class extends mock<IContextMenuService>() {
+					override readonly onDidShowContextMenu = Event.None;
+					override readonly onDidHideContextMenu = Event.None;
+					override showContextMenu(delegate: IContextMenuDelegate): void { contextMenu = delegate; }
+				});
+			});
+			const container = harness.createContainer(400, 600);
+			const opened: URI[] = [];
+			const list = harness.store.add(harness.instantiationService.createInstance(SessionsList, container, {
+				grouping: () => SessionsGrouping.Date,
+				sorting: () => SessionsSorting.Created,
+				onSessionOpen: session => { opened.push(session); },
+			}));
+			list.layout(600, 400);
+			const row = (label: string) => {
+				const row = [...container.querySelectorAll<HTMLElement>('.monaco-list-row')].find(candidate => candidate.getAttribute('aria-label') === label);
+				assert.ok(row, `Missing row: ${label}`);
+				return row;
+			};
+			const click = (target: HTMLElement) => {
+				target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+				target.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+			};
+			return { harness, container, list, boards, selectedBoardId, activeCustomView, session, opened, row, click, getContextMenu: () => contextMenu };
+		}
+
+		test('renders nested boards, persists collapse, and keeps label activation separate', async () => {
+			const { list, harness, container, row, click } = createBoardList();
+			assert.strictEqual(row('Agents Hub').getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(row('First board, board').getAttribute('aria-level'), '2');
+			assert.strictEqual(row('Second board, board').getAttribute('aria-level'), '2');
+			click(row('Agents Hub').querySelector<HTMLElement>('.session-section-chevron')!);
+			assert.strictEqual(row('Agents Hub').getAttribute('aria-expanded'), 'false');
+			assert.strictEqual(container.querySelector('.project-board-item'), null);
+			assert.deepStrictEqual(harness.commandService.calls, []);
+			list.update();
+			assert.strictEqual(row('Agents Hub').getAttribute('aria-expanded'), 'false');
+			click(row('Agents Hub').querySelector<HTMLElement>('.session-section-label')!);
+			await Promise.resolve();
+			assert.deepStrictEqual(harness.commandService.calls, [{ commandId: MANAGE_KANBAN_COMMAND_ID, args: [] }]);
+			click(row('Agents Hub').querySelector<HTMLElement>('.session-section-chevron')!);
+			assert.ok(row('First board, board'));
+		});
+
+		test('routes click and keyboard activation by board ID and New Board without arguments', async () => {
+			const { harness, list, row, click, opened } = createBoardList();
+			click(row('Second board, board'));
+			// eslint-disable-next-line local/code-no-bracket-notation-for-identifiers
+			const tree = list['tree'];
+			const first = tree.getNode().children.find(node => node.element && hasKey(node.element, { id: true }) && node.element.id === 'kanban')!.children[0].element!;
+			tree.setFocus([first]);
+			tree.setSelection([first], getSelectionKeyboardEvent('keydown', true));
+			click(row('New Board'));
+			await Promise.resolve();
+			assert.deepStrictEqual(harness.commandService.calls, [
+				{ commandId: MANAGE_KANBAN_COMMAND_ID, args: ['two'] },
+				{ commandId: MANAGE_KANBAN_COMMAND_ID, args: ['one'] },
+				{ commandId: KANBAN_NEW_BOARD_COMMAND_ID, args: [] },
+			]);
+			assert.deepStrictEqual(opened, []);
+			assert.deepStrictEqual(list.getFocusedSessions(), []);
+			assert.deepStrictEqual(harness.managementService.readSessions, []);
+		});
+
+		test('board context menus route the clicked board rather than the selected board', async () => {
+			const { harness, row, getContextMenu } = createBoardList();
+			row('Second board, board').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+			const actions = getContextMenu()!.getActions();
+			assert.deepStrictEqual(actions.map(action => action.id), [KANBAN_OPEN_BOARD_WINDOW_COMMAND_ID, KANBAN_RENAME_BOARD_COMMAND_ID, KANBAN_DELETE_BOARD_COMMAND_ID]);
+			for (const action of actions) {
+				await action.run();
+			}
+			assert.deepStrictEqual(harness.commandService.calls, actions.map(action => ({ commandId: action.id, args: ['two'] })));
+			row('Agents Hub').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+			await getContextMenu()!.getActions()[0].run();
+			assert.deepStrictEqual(harness.commandService.calls.at(-1), { commandId: KANBAN_NEW_BOARD_COMMAND_ID, args: [] });
+		});
+
+		test('reacts to selection and external board changes without changing sessions', () => {
+			const { harness, container, boards, selectedBoardId, activeCustomView, row } = createBoardList();
+			activeCustomView.set(upcastPartial<ICustomViewDescriptor>({ id: KANBAN_CUSTOM_VIEW_ID }), undefined);
+			assert.ok(row('First board, board').querySelector('.project-board-item.active'));
+			selectedBoardId.set('two', undefined);
+			assert.ok(row('Second board, board').querySelector('.project-board-item.active'));
+			assert.strictEqual(row('First board, board').querySelector('.project-board-item.active'), null);
+			const sessionLabels = [...container.querySelectorAll('.session-item .session-title')].map(element => element.textContent);
+			assert.deepStrictEqual(sessionLabels, ['Ordinary session']);
+			boards.set([{ ...boards.get()[1], name: 'Renamed externally' }, { id: 'three', name: 'Added externally', configuration: defaultConfiguration() }], undefined);
+			assert.ok(row('Renamed externally, board').querySelector('.project-board-item.active'));
+			assert.ok(row('Added externally, board'));
+			assert.deepStrictEqual([...container.querySelectorAll('.project-board-item-label')].map(element => element.textContent), ['Renamed externally', 'Added externally', 'New Board']);
+			assert.deepStrictEqual([...container.querySelectorAll('.session-item .session-title')].map(element => element.textContent), sessionLabels);
+			assert.deepStrictEqual(harness.managementService.readSessions, []);
+			assert.deepStrictEqual(harness.sortChanges, []);
+			activeCustomView.set(undefined, undefined);
+			assert.strictEqual(container.querySelector('.project-board-item.active'), null);
+		});
+
+		test('only the current board has an active background, not its Agents Hub group', () => {
+			const { container, list, selectedBoardId, activeCustomView, row, click } = createBoardList();
+			const selectionColor = 'rgb(12, 34, 56)';
+			container.style.setProperty('--vscode-list-inactiveSelectionBackground', selectionColor);
+			activeCustomView.set(upcastPartial<ICustomViewDescriptor>({ id: KANBAN_CUSTOM_VIEW_ID }), undefined);
+			for (const [id, label] of [['one', 'First board'], ['two', 'Second board'], ['one', 'First board']]) {
+				click(row(`${label}, board`));
+				selectedBoardId.set(id, undefined);
+				list.update();
+				const highlighted = [...container.querySelectorAll<HTMLElement>('.project-board-section, .project-board-item')]
+					.filter(element => mainWindow.getComputedStyle(element).backgroundColor === selectionColor);
+				assert.strictEqual(highlighted.length, 1, 'The group header must not look like a second selected item');
+				assert.strictEqual(highlighted[0].querySelector('.project-board-item-label')?.textContent, label);
+				assert.strictEqual(highlighted[0].getAttribute('aria-current'), 'page');
+				assert.strictEqual(row('Agents Hub').querySelector('.session-section.active'), null);
+			}
+			click(row('Agents Hub').querySelector<HTMLElement>('.session-section-chevron')!);
+			assert.strictEqual(row('Agents Hub').querySelector('.session-section.active'), null);
+			click(row('Agents Hub').querySelector<HTMLElement>('.session-section-chevron')!);
+			activeCustomView.set(upcastPartial<ICustomViewDescriptor>({ id: AUTOMATIONS_CUSTOM_VIEW_ID }), undefined);
+			assert.strictEqual(container.querySelector('.project-board-item.active'), null);
+			assert.strictEqual(container.querySelector('.project-board-section.active'), null);
+		});
+
+		test('AI gating updates dynamically and embedded flat lists never render Hub navigation', () => {
+			const { harness, container, session } = createBoardList(false);
+			assert.strictEqual(container.querySelector('.project-board-section'), null);
+			const enabled = ChatContextKeys.enabled.bindTo(harness.instantiationService.get(IContextKeyService));
+			enabled.set(true);
+			assert.ok(container.querySelector('.project-board-section'));
+			enabled.set(false);
+			assert.strictEqual(container.querySelector('.project-board-item'), null);
+			const flatContainer = harness.createContainer();
+			const flat = harness.store.add(harness.instantiationService.createInstance(SessionsFlatList, flatContainer, { onSessionOpen: () => { } }));
+			flat.setSessions([session]);
+			flat.layout(300, 400);
+			assert.strictEqual(flatContainer.querySelector('.project-board-section, .project-board-item'), null);
+		});
+
+		test('read-only catalog omits creation and disables board mutations', () => {
+			const { container, row, getContextMenu } = createBoardList(true, false);
+			assert.deepStrictEqual([...container.querySelectorAll('.project-board-item-label')].map(element => element.textContent), ['First board', 'Second board']);
+			row('First board, board').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+			assert.deepStrictEqual(getContextMenu()!.getActions().map(action => action.enabled), [true, false, false]);
+		});
+
+		test('Manage Agents Hub selects explicit boards before opening and preserves current selection without an ID', async () => {
+			const { harness, selectedBoardId, activeCustomView } = createBoardList();
+			const command = CommandsRegistry.getCommand(MANAGE_KANBAN_COMMAND_ID)!;
+			await harness.instantiationService.invokeFunction(accessor => command.handler(accessor, 'two'));
+			assert.strictEqual(selectedBoardId.get(), 'two');
+			assert.strictEqual(activeCustomView.get()?.id, KANBAN_CUSTOM_VIEW_ID);
+			await harness.instantiationService.invokeFunction(accessor => command.handler(accessor));
+			assert.strictEqual(selectedBoardId.get(), 'two');
 		});
 	});
 
@@ -7087,6 +7300,420 @@ suite('Sessions - SessionsList', () => {
 				desktop: { compactClass: true, height: '30px', hasDetails: false, diff: undefined },
 				phone: { compactClass: false, height: '78px', hasDetails: true, diff: '+12-3' },
 				desktopAgain: { compactClass: true, height: '30px', hasDetails: false, diff: undefined },
+			});
+		});
+	});
+
+	suite('SessionsFlatList nested chats', () => {
+		function createChat(title: string, origin?: ChatOriginKind, interactivity = ChatInteractivity.Full) {
+			const chat = {
+				resource: URI.parse(`test-chat://${title.replaceAll(' ', '-')}`),
+				title: observableValue('title', title),
+				updatedAt: constObservable(new Date()),
+				status: observableValue('status', SessionStatus.Completed),
+				changes: constObservable([]),
+				changesets: constObservable([]),
+				workspace: observableValue<ISessionWorkspace | undefined>('workspace', undefined),
+				interactivity: observableValue('interactivity', interactivity),
+				origin: origin ? { kind: origin } : undefined,
+			};
+			return upcastPartial<IChat & typeof chat>(chat);
+		}
+
+		function createChatSession(title: string, children: readonly IChat[] = []) {
+			const main = createChat(`${title} main`);
+			const chats = observableValue<readonly IChat[]>('chats', [main, ...children]);
+			const mainChat = observableValue<IChat>('mainChat', main);
+			const session: ISession = {
+				...createTestSession(title).session,
+				chats,
+				mainChat,
+				capabilities: constObservable({ supportsMultipleChats: true }),
+			};
+			return { session, main, chats, mainChat };
+		}
+
+		function renderFlatList(sessions: ISession[], options: Partial<ISessionsFlatListOptions> = {}) {
+			const harness = createListHarness(disposables, sessions);
+			const container = harness.createContainer();
+			const list = harness.store.add(harness.instantiationService.createInstance(SessionsFlatList, container, {
+				showSessionHover: false,
+				showChatChildren: true,
+				onSessionOpen: () => { },
+				...options,
+			}));
+			list.setSessions(sessions);
+			list.layout(500, 400);
+			return { ...harness, container, list };
+		}
+
+		function rowTitles(container: HTMLElement): string[] {
+			return [...container.querySelectorAll('.session-title, .session-chat-title')].map(element => element.textContent ?? '');
+		}
+
+		function row(container: HTMLElement, title: string): HTMLElement {
+			const element = [...container.querySelectorAll('.session-title, .session-chat-title')]
+				.find(element => element.textContent === title)?.closest<HTMLElement>('.monaco-list-row');
+			assert.ok(element, `Missing row: ${title}`);
+			return element;
+		}
+
+		function toggleSession(container: HTMLElement, title: string): void {
+			const twistie = row(container, title).querySelector<HTMLElement>('.monaco-tl-twistie');
+			assert.ok(twistie);
+			twistie.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+		}
+
+		function getTree(list: SessionsFlatList) {
+			// eslint-disable-next-line local/code-no-bracket-notation-for-identifiers
+			return list['tree'];
+		}
+
+		test('keeps flat mode sectionless and chatless unless opted in', () => {
+			const peer = createChat('Peer');
+			const { session } = createChatSession('Workspace session', [peer]);
+			const quick = createTestSession('Quick chat', { isQuickChat: true }).session;
+			const archived = createTestSession('Archived', { isArchived: true }).session;
+			const { container, list } = renderFlatList([session, quick, archived], { showChatChildren: false });
+
+			assert.deepStrictEqual({
+				titles: rowTitles(container),
+				sections: container.querySelectorAll('.session-section').length,
+				chatRows: container.querySelectorAll('.session-chat-item').length,
+				collapsible: container.querySelectorAll('.session-chat-twistie').length,
+				draggable: container.querySelectorAll('[draggable="true"]').length,
+				height: list.getContentHeight(),
+			}, {
+				titles: ['Workspace session', 'Quick chat', 'Archived'],
+				sections: 0,
+				chatRows: 0,
+				collapsible: 0,
+				draggable: 0,
+				height: 54 + 28 + 54,
+			});
+		});
+
+		test('uses sidebar child visibility, status, expanded rows, and accessibility without grouping', () => {
+			const peer = createChat('Peer', ChatOriginKind.User);
+			const fork = createChat('Fork', ChatOriginKind.Fork);
+			const tool = createChat('Tool', ChatOriginKind.Tool);
+			const side = createChat('Side', ChatOriginKind.SideChat);
+			const hidden = createChat('Hidden', undefined, ChatInteractivity.Hidden);
+			const { session } = createChatSession('Session', [peer, fork, tool, side, hidden]);
+			const { container, list } = renderFlatList([session], { ariaLabel: 'Ready sessions' });
+			peer.status.set(SessionStatus.NeedsInput, undefined);
+
+			assert.deepStrictEqual({
+				titles: rowTitles(container),
+				sections: container.querySelectorAll('.session-section').length,
+				expanded: row(container, 'Session').getAttribute('aria-expanded'),
+				label: container.querySelector('[role="tree"]')?.getAttribute('aria-label'),
+				chatLabel: row(container, 'Peer').getAttribute('aria-label'),
+				chatNeedsInput: row(container, 'Peer').querySelector('.session-chat-item')?.classList.contains('needs-input'),
+				mainNeedsInput: row(container, 'Session').querySelector('.session-item')?.classList.contains('needs-input'),
+				heights: [...container.querySelectorAll<HTMLElement>('.monaco-list-row')].map(element => element.style.height),
+				contentHeight: list.getContentHeight(),
+			}, {
+				titles: ['Session', 'Peer', 'Fork'],
+				sections: 0,
+				expanded: 'true',
+				label: 'Ready sessions',
+				chatLabel: 'Peer, chat, updated now, State: Input Needed',
+				chatNeedsInput: true,
+				mainNeedsInput: false,
+				heights: ['56px', '30px', '30px'],
+				contentHeight: 116,
+			});
+		});
+
+		test('opt-in collapsed children preserve user expansion and reveal the exact chat', () => {
+			const peer = createChat('Peer');
+			const added = createChat('Added');
+			const { session, main, chats } = createChatSession('Session');
+			const { container, list } = renderFlatList([session], { collapseChatChildrenByDefault: true });
+			chats.set([main, peer], undefined);
+			assert.deepStrictEqual({ titles: rowTitles(container), expanded: row(container, 'Session').getAttribute('aria-expanded') },
+				{ titles: ['Session'], expanded: 'false' });
+			toggleSession(container, 'Session');
+			chats.set([main, peer, added], undefined);
+			list.setSessions([session]);
+			assert.deepStrictEqual(rowTitles(container), ['Session', 'Peer', 'Added']);
+			toggleSession(container, 'Session');
+			list.focusChat(added.resource);
+			assert.deepStrictEqual({
+				titles: rowTitles(container), focused: list.getFocusedChat()?.resource.toString(),
+				expanded: row(container, 'Session').getAttribute('aria-expanded'),
+			}, { titles: ['Session', 'Peer', 'Added'], focused: added.resource.toString(), expanded: 'true' });
+		});
+
+		test('updates live chats and preserves tree, chat identity, focus, and collapsed state across refreshes', () => {
+			const peer = createChat('Peer');
+			const added = createChat('Added');
+			const { session, main, chats, mainChat } = createChatSession('Session', [peer]);
+			const { container, list, store } = renderFlatList([session]);
+			const tree = getTree(list);
+			const child = tree.getNode(session).children[0].element;
+			const heights: number[] = [];
+			store.add(list.onDidChangeContentHeight(() => heights.push(list.getContentHeight())));
+			list.focusChat(peer.resource);
+			chats.set([main, peer, added], undefined);
+			list.setSessions([session]);
+			const afterRefresh = {
+				sameTree: getTree(list) === tree,
+				sameChild: tree.getNode(session).children[0].element === child,
+				focusedSession: list.getFocusedSession() === session,
+				focusedChat: list.getFocusedChat() === peer,
+				titles: rowTitles(container),
+				height: list.getContentHeight(),
+			};
+
+			toggleSession(container, 'Session');
+			chats.set([main, peer], undefined);
+			list.setSessions([session]);
+			const collapsed = { titles: rowTitles(container), height: list.getContentHeight(), expanded: row(container, 'Session').getAttribute('aria-expanded') };
+			list.focusChat(peer.resource);
+			peer.title.set('Renamed', undefined);
+			peer.interactivity.set(ChatInteractivity.Hidden, undefined);
+			const hidden = rowTitles(container);
+			peer.interactivity.set(ChatInteractivity.Full, undefined);
+			mainChat.set(peer, undefined);
+
+			assert.deepStrictEqual({
+				afterRefresh,
+				collapsed,
+				hidden,
+				mainChanged: rowTitles(container),
+				notifiedExpandedHeight: heights.includes(116),
+				notifiedCollapsedHeight: heights.includes(56),
+			}, {
+				afterRefresh: { sameTree: true, sameChild: true, focusedSession: true, focusedChat: true, titles: ['Session', 'Peer', 'Added'], height: 116 },
+				collapsed: { titles: ['Session'], height: 56, expanded: 'false' },
+				hidden: ['Session'],
+				mainChanged: ['Session', 'Session main'],
+				notifiedExpandedHeight: true,
+				notifiedCollapsedHeight: true,
+			});
+		});
+
+		test('routes exact parent and child opens with mouse, keyboard, and side-by-side options', () => {
+			const peer = createChat('Peer');
+			const { session } = createChatSession('Session', [peer]);
+			const opened: { session: URI | ISession; chat?: IChat; preserveFocus: boolean; sideBySide: boolean }[] = [];
+			const { container, list, managementService } = renderFlatList([session], {
+				onSessionOpen: (resource, preserveFocus, sideBySide) => opened.push({ session: resource, preserveFocus, sideBySide }),
+				onChatOpen: (session, chat, preserveFocus, sideBySide) => opened.push({ session, chat, preserveFocus, sideBySide }),
+			});
+			row(container, 'Session').dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+			row(container, 'Peer').dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, altKey: true }));
+			list.focusChat(peer.resource);
+			const tree = getTree(list);
+			tree.setSelection([]);
+			tree.setSelection(tree.getFocus(), getSelectionKeyboardEvent('keydown', true));
+
+			assert.deepStrictEqual({
+				opened,
+				readSessions: managementService.readSessions,
+				expanded: row(container, 'Session').getAttribute('aria-expanded'),
+			}, {
+				opened: [
+					{ session: session.resource, preserveFocus: false, sideBySide: false },
+					{ session, chat: peer, preserveFocus: false, sideBySide: true },
+					{ session, chat: peer, preserveFocus: true, sideBySide: false },
+				],
+				readSessions: [session, session, session],
+				expanded: 'true',
+			});
+		});
+
+		test('reveals focused sessions and chats without opening or marking them read', () => {
+			const peer = createChat('Peer');
+			const { session, main } = createChatSession('Last', [peer]);
+			const first = createChatSession('First').session;
+			const opened: URI[] = [];
+			const { container, list, managementService } = renderFlatList([first, session], { onSessionOpen: resource => opened.push(resource) });
+			toggleSession(container, 'Last');
+			list.layout(56, 400);
+			list.focusSession(session);
+			const parentFocus = { session: list.getFocusedSession(), chat: list.getFocusedChat(), visible: !!container.querySelector('.monaco-list-row.focused .session-title') };
+			list.focusChat(peer.resource);
+			const childFocus = { session: list.getFocusedSession(), chat: list.getFocusedChat(), visible: !!container.querySelector('.monaco-list-row.focused .session-chat-title') };
+			list.setSessions([session, first]);
+			const reorderedChat = list.getFocusedChat();
+			list.focusChat(main.resource);
+
+			assert.deepStrictEqual({
+				parentFocus,
+				childFocus,
+				reorderedChat,
+				mainFocus: { session: list.getFocusedSession(), chat: list.getFocusedChat() },
+				readSessions: managementService.readSessions,
+				opened,
+			}, {
+				parentFocus: { session, chat: undefined, visible: true },
+				childFocus: { session, chat: peer, visible: true },
+				reorderedChat: peer,
+				mainFocus: { session, chat: undefined },
+				readSessions: [],
+				opened: [],
+			});
+		});
+
+		test('reconciles nested chat folder heights when workspace metadata changes', () => {
+			const peer = createChat('Peer');
+			const base = createChatSession('Session', [peer]).session;
+			const workspace = base.workspace.get();
+			assert.ok(workspace);
+			const root = URI.file('/different-project');
+			const folder: ISessionFolder = { root, workingDirectory: root, name: 'different-project', description: undefined };
+			const firstRoot = URI.file('/first-project');
+			const session: ISession = {
+				...base,
+				workspace: constObservable({
+					...workspace,
+					folders: [{ root: firstRoot, workingDirectory: firstRoot, name: 'first-project', description: undefined }, folder],
+				}),
+			};
+			const { container, list, store } = renderFlatList([session]);
+			const heights: number[] = [];
+			store.add(list.onDidChangeContentHeight(() => heights.push(list.getContentHeight())));
+			const baseline = list.getContentHeight();
+			peer.workspace.set({
+				...workspace,
+				uri: root,
+				label: 'different-project',
+				folders: [folder],
+			}, undefined);
+			const withFolder = list.getContentHeight();
+			const folderLabel = row(container, 'Peer').querySelector('.session-chat-folder-label')?.textContent;
+			const renderedHeight = parseInt(row(container, 'Peer').style.height);
+			peer.workspace.set(undefined, undefined);
+
+			assert.deepStrictEqual({
+				addedHeight: withFolder - baseline,
+				folderLabel,
+				renderedHeightMatches: renderedHeight + 56 === withFolder,
+				restoredHeight: list.getContentHeight(),
+				notifiedFolder: heights.includes(withFolder),
+				notifiedRemoval: heights.includes(baseline),
+			}, {
+				addedHeight: 16,
+				folderLabel: 'different-project',
+				renderedHeightMatches: true,
+				restoredHeight: baseline,
+				notifiedFolder: true,
+				notifiedRemoval: true,
+			});
+		});
+
+		test('keeps child approvals on their own rows and reconciles offscreen and collapsed heights', () => {
+			const peer = createChat('Peer');
+			const { session } = createChatSession('Session', [peer]);
+			const approval = observableValue<IAgentSessionApprovalInfo | undefined>('approval', undefined);
+			const approvalModel = new class extends mock<AgentSessionApprovalModel>() {
+				override getApproval(resource: URI): IObservable<IAgentSessionApprovalInfo | undefined> {
+					return resource.toString() === peer.resource.toString() ? approval : constObservable(undefined);
+				}
+			}();
+			const { container, list, store } = renderFlatList([session], { approvalModel });
+			const heights: number[] = [];
+			store.add(list.onDidChangeContentHeight(() => heights.push(list.getContentHeight())));
+			const baseline = list.getContentHeight();
+			list.layout(56, 400);
+			approval.set({ approvalId: 'allow-peer', kind: AgentSessionApprovalKind.Terminal, label: 'npm test', languageId: 'shellscript', since: new Date(), confirm: () => { } }, undefined);
+			const withApproval = list.getContentHeight();
+			list.layout(withApproval, 400);
+			const renderedHeight = parseInt(row(container, 'Peer').style.height);
+			const approvalVisibility = {
+				parent: !!row(container, 'Session').querySelector('.session-approval-row.visible'),
+				child: !!row(container, 'Peer').querySelector('.session-approval-row.visible .session-approval-button .monaco-button'),
+			};
+			const approved: { session: ISession; approvalId: string }[] = [];
+			store.add(list.onDidApproveSession(event => approved.push(event)));
+			row(container, 'Peer').querySelector<HTMLElement>('.session-approval-button .monaco-button')?.click();
+			toggleSession(container, 'Session');
+			const collapsedHeight = list.getContentHeight();
+			approval.set(undefined, undefined);
+			list.focusChat(peer.resource);
+
+			assert.deepStrictEqual({
+				reservesApproval: withApproval > baseline,
+				renderedHeightMatches: renderedHeight + 56 === withApproval,
+				approvalVisibility,
+				approved,
+				collapsedHeight,
+				restoredHeight: list.getContentHeight(),
+				notifiedApproval: heights.includes(withApproval),
+				notifiedRemoval: heights.includes(baseline),
+			}, {
+				reservesApproval: true,
+				renderedHeightMatches: true,
+				approvalVisibility: { parent: false, child: true },
+				approved: [{ session, approvalId: 'allow-peer' }],
+				collapsedHeight: 56,
+				restoredHeight: baseline,
+				notifiedApproval: true,
+				notifiedRemoval: true,
+			});
+		});
+
+		test('opts into row drag/drop callbacks and drags child rows as their parent session', () => {
+			const peer = createChat('Peer');
+			const { session } = createChatSession('Session', [peer]);
+			const events: { kind: string; session?: ISession; event?: DragEvent }[] = [];
+			const { container, store } = renderFlatList([session], {
+				onSessionDragStart: (session, event) => events.push({ kind: 'start', session, event }),
+				onSessionDragEnd: () => events.push({ kind: 'end' }),
+				onSessionDragOver: event => { events.push({ kind: 'over', event }); return true; },
+				onSessionDrop: event => events.push({ kind: 'drop', event }),
+			});
+			store.add(addDisposableListener(container, 'dragover', () => events.push({ kind: 'outer over' })));
+			store.add(addDisposableListener(container, 'drop', () => events.push({ kind: 'outer drop' })));
+			const drag = (source: HTMLElement, target: HTMLElement) => {
+				const dataTransfer = new DataTransfer();
+				const start = new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer });
+				const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer });
+				const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer });
+				source.dispatchEvent(start);
+				target.dispatchEvent(over);
+				target.dispatchEvent(drop);
+				source.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
+				return [
+					{ kind: 'start', session, event: start },
+					{ kind: 'over', event: over },
+					{ kind: 'drop', event: drop },
+					{ kind: 'end' },
+				];
+			};
+			const parent = row(container, 'Session');
+			const child = row(container, 'Peer');
+			const expected = [...drag(child, parent), ...drag(parent, child)];
+
+			assert.deepStrictEqual({ events, draggable: [parent.draggable, child.draggable] }, {
+				events: expected,
+				draggable: [true, true],
+			});
+		});
+
+		test('does not enable drag/drop or mark-read side effects without their opt-ins', () => {
+			const peer = createChat('Peer');
+			const { session } = createChatSession('Session', [peer]);
+			const events: string[] = [];
+			const { container, managementService } = renderFlatList([session], {
+				markSessionReadOnOpen: false,
+				onSessionDragOver: () => { events.push('over'); return true; },
+				onSessionDrop: () => events.push('drop'),
+				onChatOpen: () => events.push('open'),
+			});
+			const child = row(container, 'Peer');
+			const dataTransfer = new DataTransfer();
+			child.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }));
+			child.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+			child.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+
+			assert.deepStrictEqual({ events, readSessions: managementService.readSessions, draggable: child.draggable }, {
+				events: ['open'],
+				readSessions: [],
+				draggable: false,
 			});
 		});
 	});

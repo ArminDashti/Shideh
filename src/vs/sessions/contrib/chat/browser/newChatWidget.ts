@@ -202,6 +202,7 @@ export class NewChatWidget extends Disposable {
 			readonly inputVisible?: IObservable<boolean>;
 			readonly petHostPreferred?: IObservable<boolean>;
 			readonly initialAttachments?: readonly IChatRequestVariableEntry[];
+			readonly host?: INewChatWidgetHost;
 		},
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -240,7 +241,7 @@ export class NewChatWidget extends Disposable {
 		this._restoreSessionOptionsExpanded();
 
 		// TODO: @sandy081 The session/chat should be passed down. There should not be sessionsService.activeSession read in the widget.
-		this._session = derivedObservableWithCache<IActiveSession | undefined>(this, (reader, prev) => {
+		this._session = options.host?.session ?? derivedObservableWithCache<IActiveSession | undefined>(this, (reader, prev) => {
 			const activeSession = this.sessionsService.activeSession.read(reader);
 			if (activeSession && activeSession.isCreated.read(reader)) {
 				return prev;
@@ -347,6 +348,9 @@ export class NewChatWidget extends Disposable {
 
 		const feedbackChanged = observableSignalFromEvent(this, this.agentFeedbackService.onDidChangeFeedback);
 		this._feedbackItems = derived(this, reader => {
+			if (options.host) {
+				return [];
+			}
 			feedbackChanged.read(reader);
 			return this.agentFeedbackService.getFeedback(AGENT_FEEDBACK_NEW_SESSION_RESOURCE)
 				.filter(item => item.state === AgentFeedbackState.Accepted);
@@ -407,6 +411,7 @@ export class NewChatWidget extends Disposable {
 			supportsBackground: true,
 			deferredNotificationsEnabled,
 			petHostPreferred: this.options.petHostPreferred,
+			renderChatPet: !options.host,
 			getChatPetPlatformElements: () => this._workspacePicker.getChatPetPlatformElements(),
 			onDidChangeChatPetPlatform: this._workspacePicker.onDidChangeChatPetPlatform,
 			sessionTypePickerOptions: {
@@ -686,6 +691,9 @@ export class NewChatWidget extends Disposable {
 			() => this.chatPetService.toggle()
 		));
 		this._register(dom.addDisposableListener(element, dom.EventType.CONTEXT_MENU, (e: MouseEvent) => {
+			if (this.options.host) {
+				return;
+			}
 			const target = e.target as Node | null;
 			if (target && chatWidgetContent.contains(target)) {
 				return;
@@ -732,7 +740,9 @@ export class NewChatWidget extends Disposable {
 				reparentRepositoryControlsToHeader ? this._workspaceRepositoryControlsHost : undefined
 			);
 		}));
-		this._register(this.instantiationService.createInstance(NewChatMigrationNotice, chatWidgetContent, this._session, () => this.focusInput()));
+		if (!this.options.host) {
+			this._register(this.instantiationService.createInstance(NewChatMigrationNotice, chatWidgetContent, this._session, () => this.focusInput()));
+		}
 
 		// In the experimental composer the getting-started tip is demoted to a standalone
 		// notice below the input (like the migration notice) so it never sits between the
@@ -1228,6 +1238,11 @@ export class NewChatWidget extends Disposable {
 			: this._newChatInput.sessionTypePicker.getPreferredSessionType(folderUri);
 		const fallbackProviderId = providerId ?? this._workspacePicker.selectedResolved?.providerId;
 		try {
+			if (this.options?.host) {
+				return await this.options.host.createSession(folderUri, preferredPick
+					? { providerId: preferredPick.providerId, sessionTypeId: preferredPick.sessionTypeId }
+					: { providerId: fallbackProviderId }, token);
+			}
 			return await this.sessionsService.openNewSession({
 				folderUri,
 				preserveNavigation: true,
@@ -1802,6 +1817,9 @@ export class NewChatWidget extends Disposable {
 		if (!session) {
 			this._workspacePicker.showPicker();
 			return false;
+		}
+		if (this.options?.host) {
+			return this.options.host.sendRequest(session, { query, attachedContext, background: true });
 		}
 		const feedbackItems = [...this._feedbackItems.get()];
 		const workspaceRoots = this._getWorkspaceRoots(session);

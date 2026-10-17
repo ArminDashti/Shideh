@@ -165,7 +165,7 @@ class AgentHostModePickerActionViewItem extends BaseActionViewItem {
 	}
 }
 
-class AgentHostAgentPickerContribution extends Disposable implements IWorkbenchContribution {
+export class AgentHostAgentPickerContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'sessions.contrib.agentHostAgentPicker';
 
@@ -409,7 +409,7 @@ class AgentHostAgentPickerContribution extends Disposable implements IWorkbenchC
 		}
 	}
 
-	private _selectMode(mode: IChatMode, session: ISession | undefined, sessionsProvidersService: ISessionsProvidersService): void {
+	private _selectMode(mode: IChatMode, session: IActiveSession | undefined, sessionsProvidersService: ISessionsProvidersService): void {
 		if (!session) {
 			return;
 		}
@@ -418,21 +418,21 @@ class AgentHostAgentPickerContribution extends Disposable implements IWorkbenchC
 			return;
 		}
 		if (mode.id === ChatMode.Agent.id) {
-			this._setAgent(session, provider, undefined);
+			this._setAgent(session, provider, undefined, session.activeChat.get().resource);
 		} else {
 			const rawAgentUri = mode.id;
-			this._setAgent(session, provider, { uri: rawAgentUri, name: mode.name.get() });
+			this._setAgent(session, provider, { uri: rawAgentUri, name: mode.name.get() }, session.activeChat.get().resource);
 		}
 	}
 
-	private _setAgent(session: ISession, provider: IAgentHostSessionsProvider, agent: ISessionAgentRef | undefined): void {
+	private _setAgent(session: ISession, provider: IAgentHostSessionsProvider, agent: ISessionAgentRef | undefined, chatResource?: URI): void {
 		const key = agentHostAgentPickerStorageKey(session.resource.scheme);
 		if (agent) {
 			this.storageService.store(key, agent.uri, StorageScope.PROFILE, StorageTarget.MACHINE);
 		} else {
 			this.storageService.remove(key, StorageScope.PROFILE);
 		}
-		provider.setAgent?.(session.sessionId, agent ? { uri: agent.uri, name: agent.name } : undefined);
+		provider.setAgent?.(session.sessionId, agent ? { uri: agent.uri, name: agent.name } : undefined, chatResource);
 	}
 }
 

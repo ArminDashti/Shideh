@@ -476,6 +476,7 @@ import './contrib/providers/agentHost/browser/agentHostSessionConfigPicker.js';
 import './contrib/providers/agentHost/browser/agentHostForkActions.js';
 import './contrib/chat/browser/customizationsDebugLog.contribution.js';
 import './contrib/sessions/browser/sessions.contribution.js';
+import './contrib/projectBoard/browser/projectBoard.contribution.js';
 import './services/sessions/browser/sessionsListModelService.js';
 import './services/sessions/browser/sessionGroupsService.js';
 import './services/sessions/browser/sessionComparisonService.js';

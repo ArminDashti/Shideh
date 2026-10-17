@@ -92,7 +92,7 @@ export function getModelConfigChoices(
  */
 export function getModelConfigProperty(
 	model: ILanguageModelChatMetadataAndIdentifier | undefined,
-	configurationAccess: IModelConfigurationAccess,
+	configurationAccess: Pick<IModelConfigurationAccess, 'getModelConfiguration' | 'getModelConfigurationSchema'>,
 	group: string,
 ): IModelConfigProperty | undefined {
 	const properties = model && (configurationAccess.getModelConfigurationSchema?.(model.identifier) ?? model.metadata.configurationSchema)?.properties;

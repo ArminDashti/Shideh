@@ -81,6 +81,7 @@ export const enum AccessibilityVerbositySettingId {
 	Survey = 'accessibility.verbosity.survey',
 	Automations = 'accessibility.verbosity.automations',
 	ConnectionDiagnostics = 'accessibility.verbosity.connectionDiagnostics',
+	Kanban = 'accessibility.verbosity.kanban',
 	BrowserElementCommenting = 'accessibility.verbosity.browserElementCommenting',
 	ChatPetAchievements = 'accessibility.verbosity.chatPetAchievements'
 }
@@ -270,6 +271,10 @@ const configuration: IConfigurationNode = {
 		},
 		[AccessibilityVerbositySettingId.ConnectionDiagnostics]: {
 			description: localize('verbosity.connectionDiagnostics', "Provide information about how to access connection diagnostics accessibility help when the report is focused."),
+			...baseVerbosityProperty
+		},
+		[AccessibilityVerbositySettingId.Kanban]: {
+			description: localize('verbosity.kanban', 'Provide information about how to navigate and manage chats in Agents Hub.'),
 			...baseVerbosityProperty
 		},
 		[AccessibilityVerbositySettingId.BrowserElementCommenting]: {

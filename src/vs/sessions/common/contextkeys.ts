@@ -24,6 +24,21 @@ export const SessionItemIsMultiSelectionContext = new RawContextKey<boolean>('se
 
 //#endregion
 
+//#region < --- Kanban Custom View --- >
+
+export const KanbanShowSessionListContext = new RawContextKey<boolean>('kanbanShowSessionList', false, localize('kanbanShowSessionList', "Whether Agents Hub renders session lists instead of cards"));
+export const KanbanBoardEditableContext = new RawContextKey<boolean>('kanbanBoardEditable', true, localize('kanbanBoardEditable', "Whether the Agents Hub board configuration can be edited"));
+export const KanbanAutoIncludeSessionsContext = new RawContextKey<boolean>('kanbanAutoIncludeSessions', true, localize('kanbanAutoIncludeSessions', "Whether sessions are automatically included in Agents Hub"));
+export const KanbanOpenChatInSidePanelContext = new RawContextKey<boolean>('kanbanOpenChatInSidePanel', false, localize('kanbanOpenChatInSidePanel', "Whether Agents Hub chats open in the secondary sidebar"));
+export const KanbanShowArchivedContext = new RawContextKey<boolean>('kanbanShowArchived', false, localize('kanbanShowArchived', "Whether archived chats are shown in Agents Hub"));
+export const KanbanShowStateDurationContext = new RawContextKey<boolean>('kanbanShowStateDuration', false, localize('kanbanShowStateDuration', "Whether time in state is shown on Agents Hub cards"));
+export const KanbanShowCreditsContext = new RawContextKey<boolean>('kanbanShowCredits', false, localize('kanbanShowCredits', "Whether AI credits are shown on Agents Hub cards"));
+export const KanbanShowLastPromptContext = new RawContextKey<boolean>('kanbanShowLastPrompt', true, localize('kanbanShowLastPrompt', "Whether the last prompt is shown on Agents Hub cards"));
+export const KanbanShowModelDetailsContext = new RawContextKey<boolean>('kanbanShowModelDetails', false, localize('kanbanShowModelDetails', "Whether model details are shown on Agents Hub cards"));
+export const KanbanShowPermissionDetailsContext = new RawContextKey<boolean>('kanbanShowPermissionDetails', false, localize('kanbanShowPermissionDetails', "Whether agent and permission details are shown on Agents Hub cards"));
+
+//#endregion
+
 //#region < --- Session View --- >
 
 export const SessionIsCreatedContext = new RawContextKey<boolean>('sessionIsCreated', false, localize('sessionIsCreated', "Whether the session view's session has been created (chat view shown, not new-session view)"));
@@ -78,9 +93,11 @@ export const SessionsEditorScopeContext = ContextKeyExpr.or(EditorAreaFocusConte
 
 //#region < --- Custom View Grid --- >
 
-export const CustomViewVisibleContext = new RawContextKey<boolean>('customViewVisible', false, localize('customViewVisible', "Whether a custom view is shown in place of the sessions grid. The side panel and the panel are hidden while it is."));
+export const CustomViewVisibleContext = new RawContextKey<boolean>('customViewVisible', false, localize('customViewVisible', "Whether a custom view is shown in place of the sessions grid. The panel is hidden; the secondary sidebar is available only if the custom view supports it."));
+export const CustomViewSupportsAuxiliaryBarContext = new RawContextKey<boolean>('customViewSupportsAuxiliaryBar', false, localize('customViewSupportsAuxiliaryBar', "Whether the active custom view supports showing the secondary sidebar."));
 export const AutomationsCustomViewFocusContext = new RawContextKey<boolean>('automationsCustomViewFocus', false, localize('automationsCustomViewFocus', "Whether the Automations custom view has keyboard focus"));
 export const AutomationsHasItemsContext = new RawContextKey<boolean>('automationsHasItems', false, localize('automationsHasItems', "Whether there is at least one automation"));
+export const KanbanCustomViewFocusContext = new RawContextKey<boolean>('kanbanCustomViewFocus', false, localize('kanbanCustomViewFocus', "Whether the Agents Hub custom view has keyboard focus"));
 
 //#endregion
 

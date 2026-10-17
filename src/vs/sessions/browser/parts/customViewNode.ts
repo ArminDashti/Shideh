@@ -94,17 +94,17 @@ export class CustomViewNode extends Disposable {
 		scrollContent.appendChild(this._contentEl);
 
 		this._scrollable = this._register(new DomScrollableElement(scrollContent, {
-			horizontal: ScrollbarVisibility.Hidden,
+			horizontal: descriptor.horizontalScrolling ? ScrollbarVisibility.Auto : ScrollbarVisibility.Hidden,
 			vertical: ScrollbarVisibility.Auto,
 			useShadows: false,
 		}));
 		this._register(addDisposableListener(scrollContent, EventType.SCROLL, () => {
-			this._scrollable.setScrollPosition({ scrollTop: scrollContent.scrollTop });
+			this._scrollable.setScrollPosition({ scrollTop: scrollContent.scrollTop, scrollLeft: scrollContent.scrollLeft });
 		}));
 		const focusScrollSync = this._register(new MutableDisposable());
 		this._register(addDisposableListener(scrollContent, EventType.FOCUS_IN, () => {
 			focusScrollSync.value = scheduleAtNextAnimationFrame(getWindow(scrollContent), () => {
-				this._scrollable.setScrollPosition({ scrollTop: scrollContent.scrollTop });
+				this._scrollable.setScrollPosition({ scrollTop: scrollContent.scrollTop, scrollLeft: scrollContent.scrollLeft });
 			});
 		}));
 		this._scrollable.getDomNode().classList.add('custom-view-body');
@@ -116,6 +116,12 @@ export class CustomViewNode extends Disposable {
 		const resizeObserver = new ResizeObserver(() => this._scrollable.scanDomNode());
 		resizeObserver.observe(this._contentEl);
 		this._register(toDisposable(() => resizeObserver.disconnect()));
+
+		// The resize observer can lag behind interactions that grow content well
+		// after it last fired (for example, expanding a "+more" group), leaving
+		// content unreachable until the next observed resize. Views can request
+		// an immediate rescan instead of waiting for it.
+		this._register(this._view.onDidChangeContentSize(() => this._scrollable.scanDomNode()));
 
 		this._register(autorun(reader => {
 			const title = this._view.title.read(reader);

@@ -37,7 +37,7 @@ import product from '../../product/common/product.js';
 import { IProtocolMainService } from '../../protocol/electron-main/protocol.js';
 import { getRemoteAuthority } from '../../remote/common/remoteHosts.js';
 import { IStateService } from '../../state/node/state.js';
-import { AgentsWindowOpenSource, IAgentsWindowDraft, IAddRemoveFoldersRequest, INativeOpenFileRequest, INativeWindowConfiguration, IOpenEmptyWindowOptions, IPath, IPathsToWaitFor, isFileToOpen, isFolderToOpen, isWorkspaceToOpen, IWindowOpenable, IWindowSettings } from '../../window/common/window.js';
+import { AgentsWindowOpenSource, IAgentsWindowDraft, IAddRemoveFoldersRequest, INativeOpenFileRequest, INativeRunActionInWindowRequest, INativeWindowConfiguration, IOpenEmptyWindowOptions, IPath, IPathsToWaitFor, isFileToOpen, isFolderToOpen, isWorkspaceToOpen, IWindowOpenable, IWindowSettings, OPEN_AGENT_PROJECT_BOARD_COMMAND_ID } from '../../window/common/window.js';
 import { CodeWindow } from './windowImpl.js';
 import { IOpenConfiguration, IOpenEmptyConfiguration, IWindowsCountChangedEvent, IWindowsMainService, OpenContext, getLastFocused } from './windows.js';
 import { findWindowOnExtensionDevelopmentPath, findWindowOnFile, findWindowOnWorkspaceOrFolder } from './windowsFinder.js';
@@ -299,7 +299,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		const windows = await this.open(await this.ensureAgentsWindow(openConfig));
 
 		// Existing-session intent takes precedence over explicit or inferred workspace selection.
-		if (windows.length > 0) {
+		if (windows.length > 0 && openProjectBoard) {
+			windows[0].sendWhenReady('vscode:runAction', CancellationToken.None, { id: OPEN_AGENT_PROJECT_BOARD_COMMAND_ID, from: 'menu' } satisfies INativeRunActionInWindowRequest);
+		} else if (windows.length > 0) {
 			const openSource = source ?? (openConfig.cli.agents ? AgentsWindowOpenSource.CommandLine : AgentsWindowOpenSource.Unknown);
 			windows[0].sendWhenReady('vscode:selectAgentsFolder', CancellationToken.None, folderUri?.toJSON(), sessionResource?.toJSON(), openSource, folderUriIsDefault, draft, onboardingSessionResource?.toJSON());
 		}

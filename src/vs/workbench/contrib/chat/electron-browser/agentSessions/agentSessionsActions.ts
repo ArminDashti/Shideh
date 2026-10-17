@@ -50,7 +50,7 @@ import { CommandsRegistry, ICommandService } from '../../../../../platform/comma
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { logExperimentTrigger, logSettingExperimentTrigger } from '../../../../../platform/telemetry/common/experimentTrigger.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { AgentsWindowOpenSource, isAgentsWindowOpenSource } from '../../../../../platform/window/common/window.js';
+import { AgentsWindowOpenSource, isAgentsWindowOpenSource, OPEN_AGENT_PROJECT_BOARD_COMMAND_ID } from '../../../../../platform/window/common/window.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { EditorResourceAccessor, SideBySideEditor } from '../../../../common/editor.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';

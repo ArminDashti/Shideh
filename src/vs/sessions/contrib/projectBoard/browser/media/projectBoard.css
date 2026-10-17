@@ -1,0 +1,783 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.project-board-scrollable {
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+}
+
+.project-board-view-container {
+	width: 100%;
+	min-height: 0;
+}
+
+.project-board-view-container[hidden],
+.project-board-empty-hub[hidden],
+.project-board-empty-hub > .monaco-button[hidden] {
+	display: none;
+}
+
+.project-board-empty-hub {
+	padding: 20px;
+}
+
+.project-board-empty-hub > .monaco-button {
+	width: fit-content;
+	margin-top: 8px;
+}
+
+.project-board {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	background: var(--vscode-editor-background);
+	color: var(--vscode-editor-foreground);
+	padding: 20px;
+	font-family: inherit;
+}
+
+.kanban-custom-view {
+	height: 100%;
+	padding: 0;
+}
+
+.kanban-custom-view .project-board {
+	height: auto;
+	overflow: visible;
+}
+
+.monaco-workbench :is(.kanban-custom-view, .project-board, .project-board-grid, .project-board-card-group):focus:not(:focus-visible) {
+	outline: none;
+}
+
+.project-board-header h1 {
+	margin: 0;
+	font-size: 22px;
+}
+
+.project-board-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.project-board-header > .monaco-button {
+	width: auto;
+	flex-shrink: 0;
+}
+
+.project-board-header > .project-board-settings {
+	box-sizing: border-box;
+	width: 28px;
+	height: 28px;
+	padding: 4px;
+}
+
+.project-board-card-metrics {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size40, 4px);
+	margin-left: auto;
+	max-width: 100%;
+}
+
+.project-board-card-status-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size40, 4px) var(--vscode-spacing-size80, 8px);
+	margin-top: var(--vscode-spacing-size80, 8px);
+	padding-top: var(--vscode-spacing-size40, 4px);
+	border-top: 1px solid var(--vscode-panel-border);
+}
+
+.project-board-card-status-bar .project-board-card-recency {
+	flex: 1 1 120px;
+	min-width: 0;
+	margin-top: 0;
+}
+
+.project-board-header p {
+	margin: 6px 0 18px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.project-board-selection-tools {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	margin-bottom: var(--vscode-spacing-size160);
+}
+
+.project-board-selection-tools > .monaco-button {
+	width: auto;
+}
+
+.project-board-selection-description {
+	flex-basis: 100%;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.project-board-card-heading {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size80);
+}
+
+.project-board-card-heading > h4 {
+	min-width: 0;
+	flex: 1;
+}
+
+.project-board-card-heading > .project-board-card-select {
+	flex-shrink: 0;
+	margin: 0;
+}
+
+.project-board-card.project-board-card-selected {
+	background: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.project-board-card.project-board-card-selected:focus-visible {
+	outline-offset: 1px;
+}
+
+.project-board-unassigned {
+	margin-bottom: 18px;
+}
+
+.project-board-grid {
+	display: grid;
+	grid-template-columns: minmax(90px, auto) repeat(4, minmax(180px, 1fr));
+	align-items: stretch;
+	gap: 8px;
+}
+
+.project-board-axis-corner,
+.project-board-column-heading,
+.project-board-row-heading {
+	margin: 0;
+	padding: 8px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.project-board-column-heading {
+	text-align: center;
+}
+
+.project-board-card-group {
+	min-height: 110px;
+	padding: 8px;
+	border: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-sideBar-background);
+}
+
+.project-board-card-group:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.project-board-card-group > h3 {
+	margin: 0 0 8px;
+	font-size: 13px;
+}
+
+.project-board-card-list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.project-board-card-list[hidden] {
+	display: none;
+}
+
+.project-board-session-list {
+	width: 100%;
+	min-width: 0;
+}
+
+.project-board-session-list-mode .project-board-card-list {
+	align-items: stretch;
+}
+
+.project-board-session-list .monaco-list-row.session-list-inset-row {
+	margin: 0;
+	width: 100%;
+}
+
+.project-board-axis-controls,
+.project-board-tray-heading {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size40, 4px);
+}
+
+.project-board-axis-controls > .monaco-button {
+	min-width: 0;
+	flex: 1;
+	border: 0;
+}
+
+.project-board-collapse {
+	border: 0;
+	margin-left: auto;
+}
+
+.project-board-axis-controls > .monaco-button:focus,
+.project-board-child-heading > .project-board-collapse:focus,
+.project-board-tray-heading > .project-board-collapse:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.project-board-axis-controls > .project-board-collapse,
+.project-board-child-heading > .project-board-collapse,
+.project-board-tray-heading > .project-board-collapse {
+	flex: 0 0 22px;
+	box-sizing: border-box;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+}
+
+.project-board-card-group-collapsed {
+	min-height: 0;
+	padding: var(--vscode-spacing-size40, 4px);
+}
+
+.project-board-grid .project-board-card-group-collapsed > h3 {
+	display: none;
+}
+
+.project-board-collapsed-summary {
+	display: block;
+	margin-top: var(--vscode-spacing-size40, 4px);
+	font-size: var(--vscode-fontSize-label1, 12px);
+	font-weight: var(--vscode-fontWeight-regular, 400);
+	color: var(--vscode-descriptionForeground);
+	overflow-wrap: anywhere;
+}
+
+.project-board-grid .project-board-card-list {
+	flex-direction: column;
+}
+
+.project-board-state-count {
+	display: inline-block;
+}
+
+.project-board-empty {
+	padding: 8px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.project-board-card {
+	position: relative;
+	box-sizing: border-box;
+	width: min(260px, 100%);
+	padding: 9px;
+	border: 1px solid var(--vscode-panel-border);
+	border-left-width: 3px;
+	background: var(--vscode-editorWidget-background);
+}
+
+.project-board-card-actions {
+	position: absolute;
+	top: var(--vscode-spacing-size40, 4px);
+	right: var(--vscode-spacing-size40, 4px);
+	opacity: 0;
+	pointer-events: none;
+}
+
+.project-board-card:hover > .project-board-card-actions,
+.project-board-card:focus-within > .project-board-card-actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.project-board-card-actions .monaco-button {
+	width: 22px;
+	height: 22px;
+	padding: 0;
+}
+
+.project-board-card-refresh.monaco-button {
+	width: fit-content;
+	max-width: 100%;
+	margin-top: 6px;
+}
+
+.project-board-context-pills {
+	margin-top: var(--vscode-spacing-size80);
+	min-width: 0;
+}
+
+.project-board-context-pills .chat-pills .actions-container {
+	flex-wrap: wrap;
+	row-gap: var(--vscode-spacing-size60);
+}
+
+.project-board-context-pills .chat-pill-item {
+	max-width: 100%;
+}
+
+.project-board-grid .project-board-card {
+	width: 100%;
+}
+
+.project-board-card-family {
+	width: min(260px, 100%);
+	min-width: 0;
+}
+
+.project-board-grid .project-board-card-family,
+.project-board-card-family .project-board-card {
+	width: 100%;
+}
+
+.project-board-child-heading {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40, 4px);
+	padding: var(--vscode-spacing-size40, 4px);
+}
+
+.project-board-child-summary {
+	min-width: 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1, 12px);
+	overflow-wrap: anywhere;
+}
+
+.project-board-child-cards {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80, 8px);
+	margin-left: var(--vscode-spacing-size80, 8px);
+	padding-left: var(--vscode-spacing-size80, 8px);
+	border-left: 1px solid var(--vscode-tree-indentGuidesStroke);
+}
+
+.project-board-child-cards[hidden] {
+	display: none;
+}
+
+.project-board-card:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.project-board-card.project-board-card-active-chat {
+	border-top-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+	border-right-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+	border-bottom-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+}
+
+.project-board-monitored-child-label {
+	margin-top: var(--vscode-spacing-size40);
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size40);
+	border: var(--vscode-strokeThickness) solid var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+	color: var(--vscode-foreground);
+	background: var(--vscode-editorWidget-background);
+	font-size: var(--vscode-fontSize-label2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.project-board-monitored-child-label:not([hidden]) {
+	display: block;
+}
+
+.project-board-card-busy {
+	border-left-color: var(--vscode-progressBar-background);
+}
+
+.project-board-card-needs-input {
+	border-left-color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+.project-board-card-error {
+	border-left-color: var(--vscode-notificationsErrorIcon-foreground);
+}
+
+.project-board-card-idle {
+	border-left-color: var(--vscode-descriptionForeground);
+}
+
+.project-board-card-unvisited {
+	border-left-color: var(--vscode-list-highlightForeground);
+}
+
+.project-board-card-draft {
+	border-left-color: var(--vscode-descriptionForeground);
+	border-style: dashed;
+}
+
+.project-board-card .project-board-card-status {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40, 4px);
+	color: var(--vscode-descriptionForeground);
+	font-weight: var(--vscode-fontWeight-semiBold, 600);
+}
+
+.project-board-card-busy .project-board-card-status {
+	color: var(--vscode-progressBar-background);
+}
+
+.project-board-card-needs-input .project-board-card-status {
+	color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+.project-board-card-error .project-board-card-status {
+	color: var(--vscode-notificationsErrorIcon-foreground);
+}
+
+.project-board-card-unvisited .project-board-card-status {
+	color: var(--vscode-list-highlightForeground);
+}
+
+.project-board-card-status-icon {
+	flex-shrink: 0;
+	font-size: var(--vscode-fontSize-body1, 13px);
+}
+
+.project-board-card-duration,
+.project-board-card-credits {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40, 4px);
+	box-sizing: border-box;
+	max-width: 100%;
+	padding: 2px 0;
+	background: transparent;
+	overflow-wrap: anywhere;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1, 12px);
+	font-variant-numeric: tabular-nums;
+}
+
+.project-board-card-metrics .codicon,
+.project-board-credit-icon {
+	flex-shrink: 0;
+}
+
+.project-board-card-duration-warning {
+	color: var(--vscode-agentsHub-busyTimerWarningForeground);
+}
+
+.project-board-card-duration-error {
+	color: var(--vscode-editorError-foreground);
+}
+
+.project-board-card-status-running {
+	font-size: 0;
+}
+
+.project-board-card-status-running::before {
+	content: '';
+	display: block;
+	width: var(--vscode-spacing-size200, 20px);
+	height: var(--vscode-spacing-size200, 20px);
+	background: url('./running-person.gif') center / contain no-repeat;
+}
+
+.monaco-reduce-motion .project-board-card-status-running {
+	font-size: var(--vscode-fontSize-body1, 13px);
+}
+
+.monaco-reduce-motion .project-board-card-status-running::before {
+	display: none;
+	background-image: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.project-board-card-status-running {
+		font-size: var(--vscode-fontSize-body1, 13px);
+	}
+
+	.project-board-card-status-running::before {
+		display: none;
+		background-image: none;
+	}
+}
+
+.project-board-card h4 {
+	margin: 0 0 6px;
+	padding-right: var(--vscode-spacing-size280, 28px);
+	font-size: 13px;
+}
+
+.project-board-card-unavailable {
+	overflow-wrap: anywhere;
+}
+
+.project-board-card-unavailable p {
+	margin: var(--vscode-spacing-size80, 8px) 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1, 12px);
+}
+
+.project-board-card-status,
+.project-board-card-description {
+	margin-top: 4px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.project-board-card-configuration {
+	display: flex;
+	gap: var(--vscode-spacing-size40, 4px);
+	margin-top: var(--vscode-spacing-size80, 8px);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1, 12px);
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.project-board-card-configuration > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.project-board-card-configuration > span + span {
+	border-left: 1px solid var(--vscode-panel-border);
+	padding-left: var(--vscode-spacing-size40, 4px);
+}
+
+.project-board-live-actions {
+	min-width: 0;
+	max-width: 100%;
+	margin-top: var(--vscode-spacing-size80, 8px);
+}
+
+.project-board-live-actions .chat-error-confirmation .chat-buttons-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size40, 4px);
+}
+
+.project-board-live-actions .chat-error-confirmation .monaco-button {
+	width: auto;
+}
+
+.project-board-card-description {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.project-board-card-input {
+	border-top: 1px solid var(--vscode-panel-border);
+	margin-top: 8px;
+	padding-top: 4px;
+	font-size: var(--vscode-fontSize-label1, 12px);
+	overflow-wrap: anywhere;
+}
+
+.project-board-card-input p,
+.project-board-card-input h5 {
+	margin: 6px 0;
+	font-size: inherit;
+}
+
+.project-board-card-input ul {
+	margin: 6px 0;
+	padding-left: var(--vscode-spacing-size200, 20px);
+}
+
+.project-board-attention {
+	display: block;
+	margin-bottom: var(--vscode-spacing-size80);
+	color: var(--vscode-notificationsWarningIcon-foreground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.project-board-more,
+.project-board-less {
+	margin-top: var(--vscode-spacing-size80);
+	width: auto;
+}
+
+.project-board-card-lifecycle {
+	font-size: var(--vscode-fontSize-label1);
+	color: var(--vscode-descriptionForeground);
+}
+
+.project-board-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+	margin-left: auto;
+}
+
+.project-board-tools .monaco-button,
+.project-board-column-heading .monaco-button,
+.project-board-row-heading .monaco-button {
+	width: auto;
+}
+
+.project-board-card-workspace,
+.project-board-card-warning,
+.project-board-card-metadata-note,
+.project-board-card-prompt,
+.project-board-card-recency {
+	margin-top: var(--vscode-spacing-size80);
+	font-size: var(--vscode-fontSize-label1);
+	overflow-wrap: anywhere;
+}
+
+.project-board-card-warning {
+	color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+.project-board-recency-warning {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.project-board-card-prompt {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+	white-space: pre-wrap;
+}
+
+.project-board-card-workspace,
+.project-board-card-metadata-note,
+.project-board-card-recency {
+	color: var(--vscode-descriptionForeground);
+}
+
+.project-board-column-heading .monaco-button,
+.project-board-row-heading .monaco-button {
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+.monaco-dialog-box.project-board-new-session-dialog {
+	width: 760px;
+	min-width: 0;
+	max-width: min(90vw, 840px);
+	max-height: 90vh;
+}
+
+.project-board-new-session-dialog .dialog-message-container {
+	min-width: 0;
+	flex: 1;
+}
+
+.monaco-dialog-box.project-board-new-session-dialog > .dialog-buttons-row {
+	display: none;
+}
+
+.project-board-new-session-body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: var(--vscode-spacing-size120);
+	padding-top: var(--vscode-spacing-size80);
+}
+
+.project-board-new-session-destination {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.project-board-new-session-destination .monaco-select-box {
+	flex: 1;
+	min-width: 0;
+}
+
+.project-board-new-session-composer {
+	min-width: 0;
+	min-height: 220px;
+}
+
+.project-board-new-session-composer .new-chat-widget-container {
+	padding: var(--vscode-spacing-size40) 0;
+	justify-content: flex-start;
+	overflow: visible;
+}
+
+.project-board-new-session-composer .new-chat-widget-content {
+	max-width: none;
+}
+
+.project-board-new-session-composer .new-chat-widget-container.revealed .new-chat-input-container,
+.project-board-new-session-composer .new-chat-widget-container.revealed .new-session-workspace-picker-container {
+	animation: none;
+}
+
+.project-board-new-session-composer .sessions-chat-dropdown-label {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Dialog applies inline link styles to anchors, including the composer's toolbar buttons. */
+.project-board-new-session-composer a.action-label[role="button"],
+.project-board-new-session-composer .sessions-chat-picker-slot a.action-label {
+	color: var(--vscode-icon-foreground) !important;
+	text-decoration: none !important;
+}
+
+.project-board-new-session-composer .sessions-workspace-category-picker-slot a.action-label {
+	color: var(--vscode-descriptionForeground) !important;
+}
+
+.project-board-new-session-composer a.action-label.warning[role="button"],
+.project-board-new-session-composer .sessions-chat-picker-slot a.action-label.warning {
+	color: var(--vscode-problemsWarningIcon-foreground) !important;
+}
+
+.project-board-new-session-composer a.action-label.info[role="button"],
+.project-board-new-session-composer .sessions-chat-picker-slot a.action-label.info {
+	color: var(--vscode-problemsInfoIcon-foreground) !important;
+}
+
+.project-board-new-session-composer a.action-label[role="button"]:where(:not(.disabled, .agent-host-mode-permissions-trigger)):hover,
+.project-board-new-session-composer .sessions-chat-picker-slot a.action-label:where(:not(.disabled, .agent-host-mode-permissions-trigger)):hover,
+.project-board-new-session-composer .sessions-workspace-category-picker-slot a.action-label[aria-expanded="true"] {
+	color: var(--vscode-foreground) !important;
+}
+
+.project-board-new-session-error {
+	color: var(--vscode-errorForeground);
+	overflow-wrap: anywhere;
+}
+
+.project-board-new-session-status {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Override popup inline stacking so the modal does not intercept picker clicks. */
+.project-board-new-session-open .context-view.monaco-component,
+.project-board-new-session-open .quick-input-widget,
+.project-board-new-session-open .monaco-menu-container,
+.project-board-new-session-open .monaco-hover,
+.project-board-new-session-open .sessions-chat-editor-overflow,
+.project-board-new-session-open .suggest-widget {
+	z-index: 2600 !important;
+}

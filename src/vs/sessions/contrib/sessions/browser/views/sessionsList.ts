@@ -425,7 +425,7 @@ function isSessionPlaceholder(item: SessionListItem): item is ISessionPlaceholde
 }
 
 function isSessionItem(item: SessionListItem): item is ISession {
-	return !isSessionChatItem(item) && !isSessionGroupItem(item) && !isSessionSection(item) && !isSessionShowMore(item) && !isSessionPlaceholder(item);
+	return !isProjectBoardListItem(item) && !isSessionChatItem(item) && !isSessionGroupItem(item) && !isSessionSection(item) && !isSessionShowMore(item) && !isSessionPlaceholder(item);
 }
 
 function getSessionKeyboardNavigationLabels(session: ISession): string[] {
@@ -526,13 +526,16 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 		return height + (this._useInsetRowSpacing ? INSET_ROW_GAP : 0);
 	}
 
-	getHeight(element: SessionListItem): number {
+	getHeight(element: SessionListItem, reader?: IReader): number {
+		if (isProjectBoardListItem(element)) {
+			return this._isPhone() ? SessionsTreeDelegate.CHAT_ITEM_HEIGHT_PHONE : SessionsTreeDelegate.CHAT_ITEM_HEIGHT;
+		}
 		if (isSessionChatItem(element)) {
 			let chatHeight = this._isPhone() ? SessionsTreeDelegate.CHAT_ITEM_HEIGHT_PHONE : SessionsTreeDelegate.CHAT_ITEM_HEIGHT;
 			if (!this._isCompact()) {
 				chatHeight += SessionsTreeDelegate.CHAT_FOLDER_ROW_HEIGHT;
 			}
-			return this.withInsetRowSpacing(this.withChatApprovalHeight(element, chatHeight));
+			return this.withInsetRowSpacing(this.withChatApprovalHeight(element, chatHeight, reader));
 		}
 		if (isSessionGroupItem(element) && element.comparison) {
 			return SessionsTreeDelegate.COMPARISON_SECTION_HEIGHT;
@@ -574,7 +577,7 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 			// In the main tree only the main chat's approval renders on the session
 			// row (nested/side chats surface theirs on their own rows); flat lists
 			// with no chat rows aggregate an approval from any of the session's chats.
-			approval = getSessionRowApproval(this._approvalModel, session, undefined, this._aggregateChatApprovals);
+			approval = getSessionRowApproval(this._approvalModel, session, reader, this._aggregateChatApprovals);
 			if (approval) {
 				height += SessionItemRenderer.getApprovalRowHeight(approval.label, this._approvalRowMaxLines);
 			}
@@ -582,7 +585,7 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 		if (!approval && this._isCompact() && this._getSessionStatus(session) === SessionStatus.NeedsInput) {
 			height += SessionsTreeDelegate.INPUT_NEEDED_ROW_HEIGHT;
 		}
-		if (this._ciFixModel && this._ciFixModel.getCIFix(element as ISession).get()) {
+		if (this._ciFixModel && this._ciFixModel.getCIFix(element).read(reader)) {
 			height += SessionItemRenderer.CI_ROW_HEIGHT;
 		}
 		return this.withInsetRowSpacing(height);
@@ -596,11 +599,11 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 		));
 	}
 
-	private withChatApprovalHeight(element: ISessionChatItem, height: number): number {
+	private withChatApprovalHeight(element: ISessionChatItem, height: number, reader?: IReader): number {
 		if (!this._approvalModel) {
 			return height;
 		}
-		const approval = this._approvalModel.getApproval(element.chat.resource).get();
+		const approval = this._approvalModel.getApproval(element.chat.resource).read(reader);
 		if (!approval) {
 			return height;
 		}
@@ -615,6 +618,9 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 	}
 
 	getTemplateId(element: SessionListItem): string {
+		if (isProjectBoardListItem(element)) {
+			return ProjectBoardItemRenderer.TEMPLATE_ID;
+		}
 		if (isSessionChatItem(element)) {
 			return SessionChatItemRenderer.TEMPLATE_ID;
 		}
@@ -680,6 +686,66 @@ class SessionsHeaderRenderer implements ITreeRenderer<SessionListItem, FuzzyScor
 	renderElement(_node: ITreeNode<SessionListItem, FuzzyScore>, _index: number, _template: ISessionsHeaderTemplate): void { }
 
 	disposeTemplate(template: ISessionsHeaderTemplate): void {
+		template.disposables.dispose();
+	}
+}
+
+//#endregion
+
+//#region Project Board Item Renderer
+
+interface IProjectBoardItemTemplate {
+	readonly container: HTMLElement;
+	readonly icon: HTMLElement;
+	readonly label: HTMLElement;
+	readonly disposables: DisposableStore;
+}
+
+class ProjectBoardItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, IProjectBoardItemTemplate> {
+	static readonly TEMPLATE_ID = 'project-board-item';
+	readonly templateId = ProjectBoardItemRenderer.TEMPLATE_ID;
+
+	constructor(
+		private readonly catalog: IProjectBoardCatalogService,
+		private readonly customViewService: ICustomViewService,
+	) { }
+
+	renderTemplate(container: HTMLElement): IProjectBoardItemTemplate {
+		container.classList.add('project-board-item');
+		return {
+			container,
+			icon: DOM.append(container, $('span.project-board-item-icon')),
+			label: DOM.append(container, $('span.project-board-item-label')),
+			disposables: new DisposableStore(),
+		};
+	}
+
+	renderElement(node: ITreeNode<SessionListItem, FuzzyScore>, _index: number, template: IProjectBoardItemTemplate): void {
+		template.disposables.clear();
+		const element = node.element;
+		if (!isProjectBoardListItem(element)) {
+			return;
+		}
+		template.label.textContent = element.label;
+		template.icon.className = `project-board-item-icon ${ThemeIcon.asClassName(element.boardId === undefined ? Codicon.add : Codicon.layout)}`;
+		template.disposables.add(autorun(reader => {
+			const active = element.boardId !== undefined
+				&& this.catalog.selectedBoardId.read(reader) === element.boardId
+				&& this.customViewService.activeCustomView.read(reader)?.id === KANBAN_CUSTOM_VIEW_ID;
+			template.container.classList.toggle('active', active);
+			if (active) {
+				template.container.setAttribute('aria-current', 'page');
+			} else {
+				template.container.removeAttribute('aria-current');
+			}
+		}));
+	}
+
+	disposeElement(_element: ITreeNode<SessionListItem, FuzzyScore>, _index: number, template: IProjectBoardItemTemplate): void {
+		template.disposables.clear();
+	}
+
+	disposeTemplate(template: IProjectBoardItemTemplate): void {
 		template.disposables.dispose();
 	}
 }
@@ -769,7 +835,7 @@ class SessionChatItemRenderer implements ITreeRenderer<SessionListItem, FuzzySco
 		private readonly markdownRendererService: IMarkdownRendererService | undefined,
 		private readonly approvalModel: AgentSessionApprovalModel | undefined,
 		private readonly approvalRowMaxLines: number,
-		private readonly onDidDoubleClickRename: (item: ISessionChatItem) => void,
+		private readonly onDidDoubleClickRename: ((item: ISessionChatItem) => void) | undefined,
 		private readonly onDidFinishRename: () => void,
 		private readonly getSummaryHoverOptions: (item: ISessionChatItem) => IDelayedHoverOptions,
 		private readonly compact: () => boolean,
@@ -904,6 +970,7 @@ class SessionChatItemRenderer implements ITreeRenderer<SessionListItem, FuzzySco
 		template.elementDisposables.add(this.hoverService.setupDelayedHover(template.container, () => this.getSummaryHoverOptions(element), { groupId: 'sessions-list' }));
 		template.elementDisposables.add(DOM.addDisposableListener(template.titleContainer, DOM.EventType.DBLCLICK, (event: MouseEvent) => {
 			if (
+				!this.onDidDoubleClickRename ||
 				event.button !== 0 ||
 				event.altKey ||
 				event.ctrlKey ||
@@ -2313,6 +2380,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 		private readonly findOpen: IObservable<boolean> = constObservable(false),
 		readonly templateId = SessionSectionRenderer.TEMPLATE_ID,
 		readonly rowClassName?: string,
+		private readonly toggleBoardSection?: (section: ISessionSection) => void,
 	) { }
 
 	renderTemplate(container: HTMLElement): ISessionSectionTemplate {
@@ -2497,6 +2565,14 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 				template.countBadgeContainer.style.display = '';
 				template.count.style.display = 'none';
 				template.migrationIndicator.classList.toggle('visible', this.customizationMigrationsAvailable.read(reader));
+			}));
+		}
+		template.container.classList.toggle('project-board-section', element.id === KANBAN_SECTION_ID);
+		if (element.id === KANBAN_SECTION_ID && this.toggleBoardSection) {
+			template.elementDisposables.add(DOM.addDisposableListener(template.chevron, DOM.EventType.CLICK, event => {
+				event.preventDefault();
+				event.stopPropagation();
+				this.toggleBoardSection?.(element);
 			}));
 		}
 
@@ -3010,6 +3086,9 @@ class SessionsAccessibilityProvider {
 	}
 
 	getAriaLabel(element: SessionListItem): string | IObservable<string> | null {
+		if (isProjectBoardListItem(element)) {
+			return element.boardId === undefined ? element.label : localize('projectBoardAria', "{0}, board", element.label);
+		}
 		if (isSessionChatItem(element)) {
 			return derived(this, reader => {
 				const title = getChatTitle(element.chat, reader);
@@ -3229,6 +3308,9 @@ class SessionsListDragAndDrop extends Disposable implements ITreeDragAndDrop<Ses
 	}
 
 	getDragURI(element: SessionListItem): string | null {
+		if (isProjectBoardListItem(element)) {
+			return null;
+		}
 		if (isSessionGroupItem(element)) {
 			return `sessionGroup:${element.group.id}`;
 		}
@@ -4038,6 +4120,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 			this.findOpen,
 			templateId,
 			rowClassName,
+			section => this.tree.toggleCollapsed(section),
 		);
 		const sectionRenderer = createSectionRenderer(undefined, 'session-list-section-row');
 		const shortcutSectionRenderer = createSectionRenderer(SESSION_SHORTCUT_SECTION_TEMPLATE_ID, 'session-list-shortcut-row');
@@ -4090,6 +4173,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 				groupRenderer,
 				showMoreRenderer,
 				placeholderRenderer,
+				new ProjectBoardItemRenderer(this.projectBoardCatalogService, this.customViewService),
 			],
 			{
 				accessibilityProvider: new SessionsAccessibilityProvider(shortcutSectionRenderer.automationStatus, {
@@ -4126,6 +4210,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 				})),
 				identityProvider: {
 					getId: (element: SessionListItem) => {
+						if (isProjectBoardListItem(element)) {
+							return element.boardId === undefined ? 'project-board:new' : `project-board:id:${element.boardId}`;
+						}
 						if (isSessionGroupItem(element)) {
 							return `group:${element.group.id}`;
 						}
@@ -4144,11 +4231,14 @@ export class SessionsList extends Disposable implements ISessionsList {
 						return element.resource.toString();
 					},
 					getGroupId: (element: SessionListItem) => {
+						if (isProjectBoardListItem(element)) {
+							return 4;
+						}
 						if (isSessionGroupItem(element)) {
 							return NotSelectableGroupId;
 						}
 						if (isSessionSection(element)) {
-							return NotSelectableGroupId;
+							return element.id === KANBAN_SECTION_ID ? 4 : NotSelectableGroupId;
 						}
 						if (isSessionShowMore(element)) {
 							return NotSelectableGroupId;
@@ -4183,6 +4273,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 				},
 				keyboardNavigationLabelProvider: {
 					getKeyboardNavigationLabel: (element: SessionListItem) => {
+						if (isProjectBoardListItem(element)) {
+							return element.label;
+						}
 						if (isSessionGroupItem(element)) {
 							return element.comparison?.title ?? element.group.name;
 						}
@@ -4277,6 +4370,15 @@ export class SessionsList extends Disposable implements ISessionsList {
 		this._register(this.tree.onDidOpen(async e => {
 			const element = e.element;
 			if (!element) {
+				return;
+			}
+			if (isProjectBoardListItem(element)) {
+				this.tree.setSelection([]);
+				if (element.boardId === undefined) {
+					await this.commandService.executeCommand(KANBAN_NEW_BOARD_COMMAND_ID);
+				} else {
+					await this.commandService.executeCommand(MANAGE_KANBAN_COMMAND_ID, element.boardId);
+				}
 				return;
 			}
 			if (isSessionShowMore(element)) {
@@ -4388,7 +4490,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 		// the `IsPhoneLayoutContext` reactive signal already maintained by
 		// the agents workbench.
 		const phoneKeys = new Set<string>([IsPhoneLayoutContext.key]);
-		const automationKeys = new Set<string>([ChatAutomationsEnabledContext.key]);
+		const automationKeys = new Set<string>([ChatAutomationsEnabledContext.key, ChatContextKeys.enabled.key]);
 		this._register(this.contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(automationKeys)) {
 				this.update();
@@ -4519,6 +4621,10 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 		this.refresh();
 		this.syncActiveChatSelection(this._sessionsService.activeSession.get());
+		this._register(autorun(reader => {
+			this.projectBoardCatalogService.boards.read(reader);
+			this.update();
+		}));
 	}
 
 	/**
@@ -4783,6 +4889,20 @@ export class SessionsList extends Disposable implements ISessionsList {
 		};
 
 		const renderSection = (section: ISessionSection): IObjectTreeElement<SessionListItem> => {
+			if (section.id === KANBAN_SECTION_ID) {
+				const boards: IObjectTreeElement<SessionListItem>[] = this.projectBoardCatalogService.boards.get().map(board => ({
+					element: { projectBoard: true as const, boardId: board.id, label: board.name },
+				}));
+				if (this.projectBoardCatalogService.canEdit) {
+					boards.push({ element: { projectBoard: true, label: localize('newBoard', "New Board") } });
+				}
+				return {
+					element: section,
+					children: boards,
+					collapsible: true,
+					collapsed: this.getSavedCollapseState(section.id) ?? ObjectTreeElementCollapseState.PreserveOrExpanded,
+				};
+			}
 			if (isShortcutSection(section.id)) {
 				return {
 					element: section as SessionListItem,
@@ -4881,6 +5001,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 				label: localize('customize', "Customize"),
 				sessions: [],
 			}));
+		}
+		if (this.contextKeyService.getContextKeyValue<boolean>(ChatContextKeys.enabled.key)) {
+			children.push(renderSection({ id: KANBAN_SECTION_ID, label: localize('kanban', "Agents Hub"), sessions: [] }));
 		}
 
 		const pinnedSection = sections.find(s => s.id === 'pinned');
@@ -5761,6 +5884,21 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 	private onContextMenu(e: ITreeContextMenuEvent<SessionListItem | null>): void {
 		const element = e.element;
+		if (element && (isProjectBoardListItem(element) || isSessionSection(element) && element.id === KANBAN_SECTION_ID)) {
+			const boardId = isProjectBoardListItem(element) ? element.boardId : undefined;
+			const actions: IAction[] = boardId === undefined ? [] : [
+				toAction({ id: KANBAN_OPEN_BOARD_WINDOW_COMMAND_ID, label: localize('openBoardWindow', "Open in New Window"), run: () => this.commandService.executeCommand(KANBAN_OPEN_BOARD_WINDOW_COMMAND_ID, boardId) }),
+				toAction({ id: KANBAN_RENAME_BOARD_COMMAND_ID, label: localize('renameBoard', "Rename Board"), enabled: this.projectBoardCatalogService.canEdit, run: () => this.commandService.executeCommand(KANBAN_RENAME_BOARD_COMMAND_ID, boardId) }),
+				toAction({ id: KANBAN_DELETE_BOARD_COMMAND_ID, label: localize('deleteBoard', "Delete Board"), enabled: this.projectBoardCatalogService.canEdit, run: () => this.commandService.executeCommand(KANBAN_DELETE_BOARD_COMMAND_ID, boardId) }),
+			];
+			if (boardId === undefined && this.projectBoardCatalogService.canEdit) {
+				actions.push(toAction({ id: KANBAN_NEW_BOARD_COMMAND_ID, label: localize('newBoard', "New Board"), run: () => this.commandService.executeCommand(KANBAN_NEW_BOARD_COMMAND_ID) }));
+			}
+			if (actions.length) {
+				this.contextMenuService.showContextMenu({ getAnchor: () => e.anchor, getActions: () => actions });
+			}
+			return;
+		}
 		if (element && isSessionChatItem(element)) {
 			this.showChatContextMenu(element, e.anchor);
 			return;
@@ -6844,8 +6982,19 @@ export function groupByDate(sessions: ISession[], sorting: SessionsSorting, getS
 export interface ISessionsFlatListOptions {
 	readonly overrideStyles?: IStyleOverride<IListStyles>;
 	readonly showSessionHover?: boolean;
+	/** Renders the sidebar's nested chats, expanded by default, without adding sections. */
+	readonly showChatChildren?: boolean;
+	/** Starts child groups collapsed while preserving subsequent user toggles. */
+	readonly collapseChatChildrenByDefault?: boolean;
+	readonly ariaLabel?: string;
 	/** Called when a session row is opened (clicked / activated). */
 	onSessionOpen(resource: URI, preserveFocus: boolean, sideBySide: boolean): void;
+	readonly onChatOpen?: (session: ISession, chat: IChat, preserveFocus: boolean, sideBySide: boolean) => void;
+	/** Enables dragging session and chat rows as their owning session. */
+	readonly onSessionDragStart?: (session: ISession, event: DragEvent) => void;
+	readonly onSessionDragEnd?: () => void;
+	readonly onSessionDragOver?: (event: DragEvent) => boolean;
+	readonly onSessionDrop?: (event: DragEvent) => void;
 	/**
 	 * Approval model tracking pending tool confirmations for the shown sessions.
 	 * When omitted the list creates and owns its own; injectable so tests and
@@ -6912,7 +7061,8 @@ export class SessionsFlatList extends Disposable {
 	readonly onDidApproveSession: Event<IApprovedSession> = this._onDidApproveSession.event;
 	private readonly tree: WorkbenchObjectTree<SessionListItem, FuzzyScore>;
 	private readonly _delegate: SessionsTreeDelegate;
-	private _sessions: readonly ISession[] = [];
+	private readonly _sessions = observableValue<readonly ISession[]>(this, []);
+	private readonly chatItems = new WeakMap<ISession, WeakMap<IChat, SessionChatItem>>();
 
 	constructor(
 		container: HTMLElement,
@@ -6935,6 +7085,7 @@ export class SessionsFlatList extends Disposable {
 		@IOpenerService openerService: IOpenerService,
 		@ILabelService labelService: ILabelService,
 		@IPreferencesService preferencesService: IPreferencesService,
+		@IContextViewService contextViewService: IContextViewService,
 	) {
 		super();
 
@@ -6949,6 +7100,9 @@ export class SessionsFlatList extends Disposable {
 		// the only reference. See the note on the `IAgentSessionsService` import.
 		const agentSessionsService = instantiationService.invokeFunction(accessor => accessor.get(IAgentSessionsService));
 		const useCompactQuickChatRows = this.options.useCompactQuickChatRows ?? true;
+		const showChatChildren = this.options.showChatChildren ?? false;
+		const approvalRowMaxLines = this.options.approvalRowMaxLines ?? DEFAULT_APPROVAL_ROW_MAX_LINES;
+		const activeGuideSessionIds = observableValue<ReadonlySet<string>>(this, EMPTY_GUIDE_SESSION_IDS);
 
 		const sessionRenderer = new SessionItemRenderer(
 			{
@@ -6966,6 +7120,11 @@ export class SessionsFlatList extends Disposable {
 				toolbarMenuId: this.options.toolbarMenuId ?? Menus.SessionItemToolbar,
 				toolbarTelemetrySource: this.options.toolbarTelemetrySource ?? 'sessionsFlatList.row',
 				inlineRename: false,
+				approvalRowMaxLines,
+				aggregateChatApprovals: !showChatChildren,
+				deriveStatusFromMainChat: showChatChildren,
+				activeGuideSessionIds,
+				toolbarMenuId: this.options.toolbarMenuId ?? Menus.SessionItemToolbar,
 				handleToolbarAction: this.options.onToolbarAction,
 			},
 			approvalModel,
@@ -6986,44 +7145,157 @@ export class SessionsFlatList extends Disposable {
 			voicePlaybackService,
 		);
 
-		this._delegate = new SessionsTreeDelegate(approvalModel, () => false, () => false, session => session.status.get(), this.options.approvalRowMaxLines ?? DEFAULT_APPROVAL_ROW_MAX_LINES, this.options.ciFixModel, useCompactQuickChatRows, true /* aggregateChatApprovals */);
+		const chatRenderer = showChatChildren ? new SessionChatItemRenderer(
+			hoverService,
+			instantiationService,
+			this._sessionsManagementService,
+			contextViewService,
+			markdownRendererService,
+			approvalModel,
+			approvalRowMaxLines,
+			undefined,
+			() => this.tree.domFocus(),
+			item => withSessionsListHoverPresentation(createSessionSummaryHover(
+				item.session,
+				getChatSummaryHoverData(item.session, item.chat, sessionsProvidersService, openerService, labelService, preferencesService, getCreatorHoverData(item.session, this._sessionsManagementService, agentHostConnectionsService, openerService), false),
+				preferencesService,
+			)),
+			() => false,
+			activeGuideSessionIds,
+		) : undefined;
+		this._delegate = new SessionsTreeDelegate(approvalModel, () => false, () => false, session => getSessionRowStatus(session, undefined, showChatChildren), approvalRowMaxLines, this.options.ciFixModel, useCompactQuickChatRows, !showChatChildren, showChatChildren);
+		const accessibilityProvider = new SessionsAccessibilityProvider(undefined, {
+			grouping: () => SessionsGrouping.Date,
+			isPinned: session => this._sessionsListModelService.isSessionPinned(session),
+			includeQuickChatInAriaLabel: !useCompactQuickChatRows,
+			deriveStatusFromMainChat: showChatChildren,
+		});
+		const getSession = (element: SessionListItem | undefined | null): ISession | undefined =>
+			element && isSessionChatItem(element) ? element.session : element && isSessionItem(element) ? element : undefined;
 
 		this.tree = this._register(instantiationService.createInstance(
 			WorkbenchObjectTree<SessionListItem, FuzzyScore>,
 			'SessionsFlatList',
 			listRoot,
 			this._delegate,
-			[sessionRenderer],
+			chatRenderer ? [sessionRenderer, chatRenderer] : [sessionRenderer],
 			{
-				accessibilityProvider: new SessionsAccessibilityProvider(undefined, {
-					grouping: () => SessionsGrouping.Date,
-					isPinned: session => this._sessionsListModelService.isSessionPinned(session),
-					includeQuickChatInAriaLabel: !useCompactQuickChatRows,
-				}),
-				identityProvider: {
-					getId: (element: SessionListItem) => (element as ISession).resource.toString(),
+				accessibilityProvider: {
+					getWidgetAriaLabel: () => this.options.ariaLabel ?? accessibilityProvider.getWidgetAriaLabel(),
+					getAriaLabel: element => accessibilityProvider.getAriaLabel(element),
 				},
+				identityProvider: {
+					getId: (element: SessionListItem) => isSessionChatItem(element)
+						? `chat:${element.session.sessionId}:${element.chat.resource.toString()}`
+						: (element as ISession).resource.toString(),
+				},
+				dnd: this.options.onSessionDragStart ? {
+					getDragURI: element => getSession(element)?.resource.toString() ?? null,
+					getDragLabel: elements => getSession(elements[0])?.title.get(),
+					onDragStart: (data, event) => {
+						const session = data instanceof ElementsDragAndDropData ? getSession((data as ElementsDragAndDropData<SessionListItem>).elements[0]) : undefined;
+						if (session) {
+							this.options.onSessionDragStart?.(session, event);
+						}
+					},
+					onDragEnd: () => this.options.onSessionDragEnd?.(),
+					onDragOver: (_data, _target, _index, _sector, event) => {
+						const accepted = this.options.onSessionDragOver?.(event) ?? false;
+						if (accepted) {
+							event.stopPropagation();
+						}
+						return accepted;
+					},
+					drop: (_data, _target, _index, _sector, event) => {
+						event.stopPropagation();
+						this.options.onSessionDrop?.(event);
+					},
+					dispose: () => { },
+				} : undefined,
 				horizontalScrolling: false,
 				alwaysConsumeMouseWheel: this.options.alwaysConsumeMouseWheel ?? true,
 				multipleSelectionSupport: false,
 				indent: 0,
 				overrideStyles: this.options.overrideStyles,
 				renderIndentGuides: RenderIndentGuides.None,
-				twistieAdditionalCssClass: () => 'force-no-twistie',
+				twistieAdditionalCssClass: element => showChatChildren && isSessionItem(element) && getSessionListChats(element).length > 0
+					? 'session-chat-twistie'
+					: 'force-no-twistie',
 			}
 		));
 
+		if (showChatChildren) {
+			this.tree.updateOptions({ indent: 0, defaultIndent: 0, expandOnDoubleClick: false, expandOnlyOnTwistieClick: element => !!element && isSessionItem(element) });
+			let hoveredSession: ISession | undefined;
+			const updateGuides = () => {
+				const sessions = [hoveredSession, ...this.tree.getSelection().map(getSession), ...this.tree.getFocus().map(getSession)];
+				activeGuideSessionIds.set(new Set(sessions.flatMap(session => session ? [session.sessionId] : [])), undefined);
+			};
+			this._register(this.tree.onMouseOver(e => {
+				hoveredSession = getSession(e.element);
+				updateGuides();
+			}));
+			this._register(this.tree.onMouseOut(e => {
+				if (getSession(e.element) === hoveredSession) {
+					hoveredSession = undefined;
+					updateGuides();
+				}
+			}));
+			this._register(this.tree.onDidChangeFocus(updateGuides));
+			this._register(this.tree.onDidChangeSelection(updateGuides));
+			this._register(this.tree.onDidFocus(updateGuides));
+			this._register(this.tree.onDidBlur(() => activeGuideSessionIds.set(EMPTY_GUIDE_SESSION_IDS, undefined)));
+			this._register(autorun(reader => {
+				const elements = this._sessions.read(reader).map(session => getSessionTreeElement(session, chat => {
+					let chats = this.chatItems.get(session);
+					if (!chats) {
+						chats = new WeakMap();
+						this.chatItems.set(session, chats);
+					}
+					let item = chats.get(chat);
+					if (!item) {
+						item = new SessionChatItem(session, chat);
+						chats.set(chat, item);
+					}
+					return item;
+				}, reader, this.options.collapseChatChildrenByDefault));
+				this.tree.setChildren(null, elements);
+				reader.store.add(autorun(heightReader => {
+					for (const node of this.tree.getNode().children) {
+						if (node.element) {
+							this.tree.updateElementHeight(node.element, this._delegate.getHeight(node.element, heightReader));
+						}
+						for (const child of node.children) {
+							if (child.element) {
+								this.tree.updateElementHeight(child.element, this._delegate.getHeight(child.element, heightReader));
+							}
+						}
+					}
+					this._onDidChangeContentHeight.fire();
+				}));
+			}));
+		}
+
 		this._register(this.tree.onDidOpen(e => {
 			const element = e.element;
-			if (!element || !isSessionItem(element)) {
+			const session = getSession(element);
+			if (!element || !session) {
 				return;
 			}
-			if (this.options.markSessionReadOnOpen !== false && this._sessionsService.activeSession.get()?.sessionId !== element.sessionId) {
-				this._sessionsManagementService.markRead(element);
+			if (this.options.markSessionReadOnOpen !== false && this._sessionsService.activeSession.get()?.sessionId !== session.sessionId) {
+				this._sessionsManagementService.markRead(session);
 			}
 			const isLeftClick = DOM.isMouseEvent(e.browserEvent) && e.browserEvent.button === 0;
 			const preserveFocus = isLeftClick ? false : (e.editorOptions.preserveFocus ?? false);
-			this.options.onSessionOpen(element.resource, preserveFocus, e.sideBySide);
+			if (isSessionChatItem(element)) {
+				if (this.options.onChatOpen) {
+					this.options.onChatOpen(session, element.chat, preserveFocus, e.sideBySide);
+				} else {
+					this._sessionsService.openChat(session, element.chat.resource, { preserveFocus }).catch(onUnexpectedError);
+				}
+			} else {
+				this.options.onSessionOpen(session.resource, preserveFocus, e.sideBySide);
+			}
 		}));
 		if (this.options.contextMenuId) {
 			this._register(this.tree.onContextMenu(e => this.onContextMenu(e)));
@@ -7037,6 +7309,15 @@ export class SessionsFlatList extends Disposable {
 		}));
 
 		this._register(sessionRenderer.onDidApproveSession(approved => this._onDidApproveSession.fire(approved)));
+		if (chatRenderer) {
+			this._register(this.tree.onDidChangeContentHeight(() => this._onDidChangeContentHeight.fire()));
+			this._register(chatRenderer.onDidApproveSession(approved => this._onDidApproveSession.fire(approved)));
+			this._register(chatRenderer.onDidChangeItemHeight(item => {
+				if (this.tree.hasElement(item)) {
+					this.tree.updateElementHeight(item, this._delegate.getHeight(item));
+				}
+			}));
+		}
 	}
 
 	private onContextMenu(e: ITreeContextMenuEvent<SessionListItem | null>): void {
@@ -7076,13 +7357,31 @@ export class SessionsFlatList extends Disposable {
 	}
 
 	setSessions(sessions: readonly ISession[]): void {
-		this._sessions = sessions;
-		this.tree.setChildren(null, sessions.map(session => ({ element: session })));
+		this._sessions.set(sessions, undefined);
+		if (!this.options.showChatChildren) {
+			this.tree.setChildren(null, sessions.map(session => ({ element: session })));
+		}
 	}
 
 	/** The total pixel height required to render all current rows without scrolling. */
 	getContentHeight(): number {
-		return this._sessions.reduce((total, session) => total + this._delegate.getHeight(session), 0);
+		if (!this.options.showChatChildren) {
+			return this._sessions.get().reduce((total, session) => total + this._delegate.getHeight(session), 0);
+		}
+		let height = 0;
+		for (const node of this.tree.getNode().children) {
+			if (node.element) {
+				height += this._delegate.getHeight(node.element);
+			}
+			if (!node.collapsed) {
+				for (const child of node.children) {
+					if (child.element) {
+						height += this._delegate.getHeight(child.element);
+					}
+				}
+			}
+		}
+		return height;
 	}
 
 	getRowHeight(): number {
@@ -7102,7 +7401,35 @@ export class SessionsFlatList extends Disposable {
 			return;
 		}
 		this.tree.setFocus([session]);
+		this.tree.reveal(session);
 		this.tree.domFocus();
+	}
+
+	getFocusedSession(): ISession | undefined {
+		const focused = this.tree.getFocus()[0];
+		return focused && isSessionChatItem(focused) ? focused.session : focused && isSessionItem(focused) ? focused : undefined;
+	}
+
+	getFocusedChat(): IChat | undefined {
+		const focused = this.tree.getFocus()[0];
+		return focused && isSessionChatItem(focused) ? focused.chat : undefined;
+	}
+
+	focusChat(resource: URI): void {
+		for (const session of this._sessions.get()) {
+			if (isEqual(session.mainChat.get().resource, resource)) {
+				this.focusSession(session);
+				return;
+			}
+			const child = this.tree.getNode(session).children.find(node => node.element && isSessionChatItem(node.element) && isEqual(node.element.chat.resource, resource));
+			if (child?.element) {
+				this.tree.expand(session);
+				this.tree.setFocus([child.element]);
+				this.tree.reveal(child.element);
+				this.tree.domFocus();
+				return;
+			}
+		}
 	}
 }
 

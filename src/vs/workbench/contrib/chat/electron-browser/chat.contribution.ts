@@ -222,6 +222,7 @@ registerAction2(OpenWorkspaceInAgentsWindowChatTitleAction);
 registerAction2(OpenWorkspaceInAgentsWindowTitleBarAction);
 registerAction2(ToggleOpenInAgentsWindowTitleBarAction);
 registerAction2(OpenAgentsWindowAction);
+registerAction2(OpenAgentProjectBoardAction);
 registerAction2(OpenChatSessionInAgentsWindowAction);
 if (!product.quality) {
 	registerAction2(ResetCopilotHarnessIntroductionAction);

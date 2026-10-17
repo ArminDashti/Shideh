@@ -52,7 +52,7 @@ import { EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING, UNIFIED_WORKSPACE_PIC
 import { ISessionChangesService } from '../../../changes/browser/sessionChangesService.js';
 import { CHANGES_VIEW_ID } from '../../../changes/common/changes.js';
 import { ISessionsProvidersService } from '../../../../services/sessions/browser/sessionsProvidersService.js';
-import { IActiveSession } from '../../../../services/sessions/common/sessionsManagement.js';
+import { IActiveSession, ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 import { ISessionContext } from '../../../../services/sessions/browser/sessionContext.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
 import type { ISessionsProvider } from '../../../../services/sessions/common/sessionsProvider.js';
@@ -1645,6 +1645,7 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 		// modules have finished evaluating.
 		this._register(autorun(reader => {
 			this._sessionsService.visibleSessions.read(reader);
+			this._sessionsManagementService.sessionDrafts.read(reader);
 			this._refreshRepositoryMenuItems(actionViewItemService);
 		}));
 		this._watchProviders(this._sessionsProvidersService.getProviders(), actionViewItemService);
@@ -1722,7 +1723,10 @@ export class AgentHostSessionConfigPickerContribution extends Disposable impleme
 
 	private _refreshRepositoryMenuItems(actionViewItemService: IActionViewItemService): void {
 		this._repositoryMenuItems.clear();
-		for (const session of this._sessionsService.visibleSessions.get()) {
+		const visibleSessions = this._sessionsService.visibleSessions.get();
+		const drafts = [...this._sessionsManagementService.sessionDrafts.get()].filter(draft =>
+			!visibleSessions.some(visible => visible?.providerId === draft.providerId && visible.sessionId === draft.sessionId));
+		for (const session of [...visibleSessions, ...drafts]) {
 			if (!session) {
 				continue;
 			}
@@ -1905,6 +1909,9 @@ registerAction2(class extends Action2 {
 
 // ---- Running session config picker ----
 
+// Chat editors use widget-backed pickers rather than the active Sessions context.
+const IsRunningSessionChat = ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ChatContextKeys.inChatEditor.negate());
+
 const RUNNING_SESSION_CONFIG_PICKER_ID = 'sessions.agentHost.runningSessionConfigPicker';
 
 registerAction2(class extends Action2 {
@@ -1917,12 +1924,12 @@ registerAction2(class extends Action2 {
 				id: MenuId.ChatInput,
 				group: 'navigation',
 				order: 0.2,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout),
+				when: ContextKeyExpr.and(IsRunningSessionChat, ExperimentalSessionComposerLayout),
 			}, {
 				id: MenuId.ChatInputSecondary,
 				group: 'navigation',
 				order: 10,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout.negate()),
+				when: ContextKeyExpr.and(IsRunningSessionChat, ExperimentalSessionComposerLayout.negate()),
 			}],
 		});
 	}
@@ -1942,12 +1949,12 @@ registerAction2(class extends Action2 {
 				id: MenuId.ChatInput,
 				group: 'navigation',
 				order: 0.3,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout),
+				when: ContextKeyExpr.and(IsRunningSessionChat, ExperimentalSessionComposerLayout),
 			}, {
 				id: MenuId.ChatInputSecondary,
 				group: 'navigation',
 				order: 11,
-				when: ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ExperimentalSessionComposerLayout.negate()),
+				when: ContextKeyExpr.and(IsRunningSessionChat, ExperimentalSessionComposerLayout.negate()),
 			}],
 		});
 	}
@@ -1970,7 +1977,7 @@ registerAction2(class extends Action2 {
 				group: 'navigation',
 				order: 0.1,
 				when: ContextKeyExpr.and(
-					ChatContextKeyExprs.isAgentHostSession,
+					IsRunningSessionChat,
 					ChatContextKeys.hasPendingDelegationTarget.negate(),
 					ExperimentalSessionComposerLayout,
 				),
@@ -1980,7 +1987,7 @@ registerAction2(class extends Action2 {
 				order: 9,
 				// Hide the agent mode picker while a delegation (continue in) target is pending.
 				when: ContextKeyExpr.and(
-					ChatContextKeyExprs.isAgentHostSession,
+					IsRunningSessionChat,
 					ChatContextKeys.hasPendingDelegationTarget.negate(),
 					ExperimentalSessionComposerLayout.negate(),
 				),

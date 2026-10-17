@@ -37,6 +37,8 @@ import { SESSIONS_FILES_CONTAINER_ID } from '../../../files/browser/files.contri
 import { NewChangesTabAction, NewFileTabAction } from '../../../editor/browser/addTabActions.js';
 import { createTestHarness, ICreateOptions, ITestLayoutHarness, makeChange, makeSession, TestStubEditorInput } from './layoutControllerTestUtils.js';
 import '../../../editor/browser/editor.contribution.js';
+import { Context } from '../../../../../platform/contextkey/browser/contextKeyService.js';
+import { Menus } from '../../../../browser/menus.js';
 
 suite('DesktopLayoutController', () => {
 
