@@ -2315,6 +2315,11 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		return this.options.voiceRoutesWhileSessionActive === true;
 	}
 
+	/** See {@link INewChatVoiceComposer.hasInputContent}. */
+	get hasInputContent(): IObservable<boolean> | undefined {
+		return this._hasInputContent;
+	}
+
 	prefillInput(text: string): void {
 		this.setInputValue(text);
 		this._editor?.focus();

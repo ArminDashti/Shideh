@@ -60,6 +60,12 @@ export interface INewChatVoiceComposer {
 	 * Otherwise, it targets only before any session exists.
 	 */
 	readonly routesWhileSessionActive?: boolean;
+	/**
+	 * True when the composer has user content (typed text or attachments). Voice
+	 * mode keeps the input open (transcript overlay suppressed) while this is true
+	 * so the user can still see and edit their prompt.
+	 */
+	readonly hasInputContent?: IObservable<boolean>;
 	/** Append `text` to the current draft and submit, creating the session. */
 	sendQuery(text: string): void;
 	/** Set `text` without submitting. */
