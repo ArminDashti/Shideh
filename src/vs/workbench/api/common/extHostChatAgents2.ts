@@ -1175,7 +1175,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		return result;
 	}
 
-	private async prepareHistoryTurns(extension: Readonly<IRelaxedExtensionDescription>, agentId: string, context: { history: IChatAgentHistoryEntryDto[] }): Promise<(vscode.ChatRequestTurn | vscode.ChatResponseTurn)[]> {
+	private async prepareHistoryTurns(extension: Readonly<IRelaxedExtensionDescription>, agentId: string, context: { history: IChatAgentHistoryEntryDto[]; canAccessAllHistory?: boolean }): Promise<(vscode.ChatRequestTurn | vscode.ChatResponseTurn)[]> {
 		const res: (vscode.ChatRequestTurn | vscode.ChatResponseTurn)[] = [];
 
 		for (const h of context.history) {
@@ -1336,7 +1336,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		return items.map((i) => typeConvert.ChatAgentCompletionItem.from(i, this._commands.converter, disposables));
 	}
 
-	async $provideChatTitle(handle: number, context: IChatAgentHistoryEntryDto[], token: CancellationToken): Promise<string | undefined> {
+	async $provideChatTitle(handle: number, context: IChatAgentHistoryEntryDto[], canAccessAllHistory: boolean, token: CancellationToken): Promise<string | undefined> {
 		const agent = this._agents.get(handle);
 		if (!agent) {
 			return;
@@ -1347,7 +1347,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		return await agent.provideTitle({ history, sessionResource, yieldRequested: false }, token);
 	}
 
-	async $provideChatSummary(handle: number, context: IChatAgentHistoryEntryDto[], token: CancellationToken): Promise<string | undefined> {
+	async $provideChatSummary(handle: number, context: IChatAgentHistoryEntryDto[], canAccessAllHistory: boolean, token: CancellationToken): Promise<string | undefined> {
 		const agent = this._agents.get(handle);
 		if (!agent) {
 			return;
