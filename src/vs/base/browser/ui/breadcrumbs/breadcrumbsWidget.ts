@@ -244,7 +244,7 @@ export class BreadcrumbsWidget {
 	reveal(item: BreadcrumbsItem): void {
 		const idx = this._items.indexOf(item);
 		if (idx >= 0) {
-			this._reveal(idx, false);
+			this._reveal(idx, true);
 		}
 	}
 
@@ -303,6 +303,7 @@ export class BreadcrumbsWidget {
 				node.classList.add('selected');
 			}
 		}
+		this._reveal(this._selectedItemIdx, true);
 		this._onDidSelectItem.fire({ type: 'select', item: this._items[this._selectedItemIdx], node: this._nodes[this._selectedItemIdx], payload });
 	}
 
