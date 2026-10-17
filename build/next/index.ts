@@ -489,7 +489,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 	const bundleCssEntryPoints = getCssBundleEntryPointsForTarget(target);
 
 	// Collect all build results (with write: false)
-	const buildResults: { outPath: string; result: esbuild.BuildResult }[] = [];
+	const buildResults: { outPath: string; result: esbuild.BuildResult; nlsGroup: 'browser' | 'server' | undefined }[] = [];
 
 	// Create the file content mapper plugin (injects product config, builtin extensions)
 	const contentMapperPlugin = fileContentMapperPlugin(outDir, target);
@@ -498,6 +498,11 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 	await Promise.all(allEntryPoints.map(async (entryPoint) => {
 		const entryPath = path.join(REPO_ROOT, SRC_DIR, `${entryPoint}.ts`);
 		const outPath = path.join(REPO_ROOT, outDir, `${entryPoint}.js`);
+
+		// For server-web, route server entry points to the server NLS collector
+		// and browser entry points to the browser-only NLS collector.
+		const isServerEntry = serverWebServerEntryPoints.has(entryPoint);
+		const activeCollector = (browserNlsCollector && !isServerEntry) ? browserNlsCollector : nlsCollector;
 
 		// Use CSS external plugin for entry points that don't need bundled CSS
 		const plugins: esbuild.Plugin[] = bundleCssEntryPoints.has(entryPoint) ? [] : [cssExternalPlugin()];
@@ -534,7 +539,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 
 		const result = await esbuild.build(buildOptions);
 
-		buildResults.push({ outPath, result });
+		buildResults.push({ outPath, result, nlsGroup: browserNlsCollector ? (isServerEntry ? 'server' : 'browser') : undefined });
 	}));
 
 	// Bundle bootstrap files (with minimist inlined) directly from TypeScript source
@@ -560,7 +565,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 			plugins: bootstrapPlugins,
 		});
 
-		buildResults.push({ outPath, result });
+		buildResults.push({ outPath, result, nlsGroup: browserNlsCollector ? 'server' : undefined });
 	}
 
 	if (nlsCatalog) {
@@ -579,10 +584,13 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 	// code-split chunks), and we need the NLS/mangle edits from the .js pass
 	// to be available when adjusting the .map.
 	const deferredMaps: { path: string; text: string; contents: Uint8Array }[] = [];
-	for (const { result } of buildResults) {
+	for (const { result, nlsGroup } of buildResults) {
 		if (!result.outputFiles) {
 			continue;
 		}
+
+		// For server-web, browser bundles use browserIndexMap, server bundles use indexMap.
+		const activeIndexMap = nlsGroup === 'browser' ? browserIndexMap : indexMap;
 
 		for (const file of result.outputFiles) {
 			await fs.promises.mkdir(path.dirname(file.path), { recursive: true });
@@ -608,7 +616,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 				// Apply NLS post-processing if enabled (JS only)
 				if (file.path.endsWith('.js') && doNls) {
 					const preNLSCode = content;
-					const nlsResult = postProcessNLS(content, indexMap, preserveEnglish);
+					const nlsResult = postProcessNLS(content, activeIndexMap, preserveEnglish);
 					content = nlsResult.code;
 					if (nlsResult.edits.length > 0) {
 						nlsEdits.set(file.path, { preNLSCode, edits: nlsResult.edits });
