@@ -2340,4 +2340,51 @@ suite('OAuth', () => {
 			assert.strictEqual(body.get('scope'), 'todos.read mcp.access');
 		});
 	});
+
+	suite('Client ID Fallback Scenarios', () => {
+		let sandbox: sinon.SinonSandbox;
+		let fetchStub: sinon.SinonStub;
+
+		setup(() => {
+			sandbox = sinon.createSandbox();
+			fetchStub = sandbox.stub(globalThis, 'fetch');
+		});
+
+		teardown(() => {
+			sandbox.restore();
+		});
+
+		test('fetchDynamicRegistration should throw specific error for missing registration endpoint', async () => {
+			const serverMetadata: IAuthorizationServerMetadata = {
+				issuer: 'https://auth.example.com',
+				response_types_supported: ['code']
+				// registration_endpoint is missing
+			};
+
+			await assert.rejects(
+				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
+				{
+					message: 'Server does not support dynamic registration'
+				}
+			);
+		});
+
+		test('fetchDynamicRegistration should throw specific error for DCR failure', async () => {
+			fetchStub.resolves({
+				ok: false,
+				text: async () => 'DCR not supported'
+			} as Response);
+
+			const serverMetadata: IAuthorizationServerMetadata = {
+				issuer: 'https://auth.example.com',
+				registration_endpoint: 'https://auth.example.com/register',
+				response_types_supported: ['code']
+			};
+
+			await assert.rejects(
+				async () => await fetchDynamicRegistration(serverMetadata, 'Test Client'),
+				/Registration to https:\/\/auth\.example\.com\/register failed: DCR not supported/
+			);
+		});
+	});
 });
