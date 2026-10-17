@@ -1843,14 +1843,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			const providerMessage = contribution?.welcomeMessage;
 
 			// Fallback to default messages if provider doesn't specify
-			const message = providerMessage
-				? new MarkdownString(providerMessage)
+			const message = normalizedProviderMessage
+				? new MarkdownString(normalizedProviderMessage)
 				: (this._lockedAgent?.prefix === '@copilot '
 					? new MarkdownString(localize('copilotCodingAgentMessage', "This chat session will be forwarded to the {0} [coding agent]({1}) where work is completed in the background. ", this._lockedAgent.prefix, 'https://aka.ms/coding-agent-docs') + DISCLAIMER, { isTrusted: true })
 					: new MarkdownString(localize('genericCodingAgentMessage', "This chat session will be forwarded to the {0} coding agent where work is completed in the background. ", this._lockedAgent?.prefix) + DISCLAIMER));
 
 			return {
-				title: providerTitle ?? localize('codingAgentTitle', "Delegate to {0}", this._lockedAgent?.prefix),
+				title: normalizedProviderTitle ?? localize('codingAgentTitle', "Delegate to {0}", this._lockedAgent?.prefix),
 				message,
 				icon: providerIcon ?? Codicon.sendToRemoteAgent,
 				additionalMessage,
