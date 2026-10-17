@@ -68,9 +68,9 @@ const SESSIONS_TITLEBAR_HEIGHT = 42;
  * Simplified agent sessions titlebar part.
  *
  * Three sections driven entirely by menus:
- * - **Left**: `Menus.TitleBarLeft` toolbar
+ * - **Left**: `Menus.TitleBarLeftLayout` toolbar
  * - **Center**: `Menus.CommandCenter` toolbar (renders session picker via IActionViewItemService)
- * - **Right**: `Menus.TitleBarRight` toolbar (includes account submenu)
+ * - **Right**: `Menus.TitleBarRightLayout` toolbar
  *
  * No menubar, no editor actions, no layout controls, no WindowTitle dependency.
  */
