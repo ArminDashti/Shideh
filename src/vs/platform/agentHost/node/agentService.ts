@@ -4267,6 +4267,8 @@ export class AgentService extends Disposable implements IAgentService {
 
 	/** Session keys already announced this AH lifetime, so provider signals do not re-announce them. */
 	private readonly _announcedSurfacedKeys = new Set<string>();
+	/** External provenance for discovered sessions whose registration succeeded but announcement failed. */
+	private readonly _pendingDiscoveredSessionAnnouncements = new Map<string, boolean>();
 	private readonly _broadcastExternalSessions = new Set<string>();
 	private _sessionListReconciliation = Promise.resolve();
 	/** Coalescing state for storm-driven (mode-agnostic) reconciliations. */
@@ -4506,6 +4508,18 @@ export class AgentService extends Disposable implements IAgentService {
 		return visible;
 	}
 
+	private async _announceDiscoveredSession(meta: IAgentSessionMetadata, provider: string): Promise<void> {
+		const key = meta.session.toString();
+		// Claim the retry before awaiting so overlapping discovery cannot discard a failed attempt.
+		this._pendingDiscoveredSessionAnnouncements.delete(key);
+		try {
+			await this._announceSurfacedSession(meta, provider);
+		} catch (err) {
+			this._pendingDiscoveredSessionAnnouncements.set(key, readSessionExternal(meta._meta));
+			throw err;
+		}
+	}
+
 	private async _announceSurfacedSession(meta: IAgentSessionMetadata, provider: string): Promise<void> {
 		if (this._store.isDisposed) {
 			return;
@@ -4521,7 +4535,12 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		this._announcedSurfacedKeys.add(key);
 		try {
-			if (await this._sessionRegistry.isTombstoned(meta.session)) {
+			// Default legacy chats to read only when no host-owned read flag overrides it.
+			const metadata = await this._withPersistedSessionMetadata({
+				...meta,
+				status: withSessionStatusFlag(meta.status ?? SessionStatus.Idle, SessionStatus.IsRead, true),
+			});
+			if (!metadata || await this._sessionRegistry.isTombstoned(meta.session)) {
 				this._announcedSurfacedKeys.delete(key);
 				return;
 			}
