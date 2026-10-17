@@ -509,7 +509,7 @@ export function showMobilePickerSheet(
  *
  * Reuses the same shell as {@link showMobilePickerSheet} — translucent
  * backdrop, slide-up animation, drag handle, title row with Done button,
- * optional caption, optional icon header actions, iOS visual-viewport
+ * optional caption, optional icon header actions, virtual-keyboard
  * keyboard avoidance, and `Escape` / backdrop dismissal — but leaves the
  * scrollable body to the caller. Use this for overlays that don't fit
  * the picker's row-list shape: tool-confirmation carousels, plan
@@ -641,7 +641,7 @@ interface IMobileSheetShell {
  * Build the shared shell for {@link showMobilePickerSheet} and
  * {@link showMobileContentSheet}: overlay, backdrop, sheet (drag handle,
  * title row with Done button and optional header actions, optional
- * caption), backdrop / Escape dismissal, and iOS visual-viewport
+ * caption), backdrop / Escape dismissal, and shared virtual-keyboard
  * keyboard avoidance. Callers append their own content children to
  * `sheet`.
  */
