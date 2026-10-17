@@ -37,7 +37,8 @@ const addTabActionWhen = ContextKeyExpr.and(
 
 const addTabLayoutWhen = ContextKeyExpr.and(
 	addTabActionWhen,
-	IsTopRightEditorGroupContext);
+	IsTopRightEditorGroupContext,
+	MainEditorAreaVisibleContext);
 
 const singleEditorTitleWhen = EditorTabsVisibleContext.negate();
 

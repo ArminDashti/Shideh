@@ -17,6 +17,7 @@ import { IsSessionsWindowContext, PanelVisibleContext, SecondarySideBarVisibleCo
 import { SHIDEH_OPEN_SETTINGS_COMMAND_ID } from '../../contrib/shideh/common/shidehCommandIds.js';
 import { Parts } from '../../../workbench/services/layout/browser/layoutService.js';
 import { Menus } from '../../browser/menus.js';
+import { SinglePaneDetailChangesOrFilesActiveContext } from '../../common/contextkeys.js';
 
 // Import layout actions to trigger menu registration
 import '../../browser/layoutActions.js';

@@ -542,6 +542,15 @@ export abstract class BaseLayoutController extends Disposable {
 	protected _onSidePaneToggled(_collapsed: boolean, _previousAuxiliaryBarVisible: boolean, _auxiliaryBarVisible: boolean): void { }
 
 	/**
+	 * The parts to reveal when re-opening the side pane with no remembered state
+	 * (e.g. after a reload). The base default shows both the editor and the
+	 * auxiliary bar; subclasses can specialize per layout / session type.
+	 */
+	protected _defaultReopenSidePaneParts(): { readonly editor: boolean; readonly auxiliaryBar: boolean } {
+		return { editor: true, auxiliaryBar: true };
+	}
+
+	/**
 	 * [B4] Hook that lets a subclass snapshot the active session's view state when
 	 * state is about to be persisted. The base implementation does nothing.
 	 */

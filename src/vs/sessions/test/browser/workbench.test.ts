@@ -2709,6 +2709,83 @@ suite('Sessions - Workbench', () => {
 		};
 	}
 
+	test('docked last editor close hides the whole side pane under suppression', () => {
+		const editorHiddenCalls: { hidden: boolean; suppression: number }[] = [];
+		const auxHiddenCalls: { hidden: boolean; suppression: number }[] = [];
+		const workbench = createWorkbenchHarness() as IWorkbenchTestHarness & {
+			editorGroupService: { mainPart: { groups: readonly { isEmpty: boolean }[] } };
+		};
+		Object.defineProperty(workbench, '_dockDetailPanel', { get: () => true });
+		workbench.editorGroupService = { mainPart: { groups: [{ isEmpty: true }] } };
+		workbench.setEditorHidden = hidden => {
+			editorHiddenCalls.push({ hidden, suppression: workbench._editorPartAutoVisibilitySuppressionCount });
+			workbench.partVisibility.editor = !hidden;
+		};
+		workbench.setAuxiliaryBarHidden = hidden => {
+			auxHiddenCalls.push({ hidden, suppression: workbench._editorPartAutoVisibilitySuppressionCount });
+			if (hidden && !workbench.partVisibility.editor && workbench._editorPartAutoVisibilitySuppressionCount === 0) {
+				workbench.setEditorHidden(false);
+			}
+			workbench.partVisibility.auxiliaryBar = !hidden;
+		};
+
+		handleDidCloseEditor.call(workbench);
+
+		assert.deepStrictEqual({
+			editorHiddenCalls,
+			auxHiddenCalls,
+			visibility: workbench.partVisibility,
+			suppression: workbench._editorPartAutoVisibilitySuppressionCount,
+		}, {
+			editorHiddenCalls: [{ hidden: true, suppression: 1 }],
+			auxHiddenCalls: [{ hidden: true, suppression: 1 }],
+			visibility: {
+				sidebar: true,
+				auxiliaryBar: false,
+				editor: false,
+				panel: false,
+				sessions: true,
+			},
+			suppression: 0,
+		});
+	});
+
+	test('docked last editor close hides lingering detail when editor is already hidden', () => {
+		const editorHiddenCalls: boolean[] = [];
+		const auxHiddenCalls: { hidden: boolean; suppression: number }[] = [];
+		const workbench = createWorkbenchHarness() as IWorkbenchTestHarness & {
+			editorGroupService: { mainPart: { groups: readonly { isEmpty: boolean }[] } };
+		};
+		Object.defineProperty(workbench, '_dockDetailPanel', { get: () => true });
+		workbench.partVisibility.editor = false;
+		workbench.editorGroupService = { mainPart: { groups: [{ isEmpty: true }] } };
+		workbench.setEditorHidden = hidden => {
+			editorHiddenCalls.push(hidden);
+			workbench.partVisibility.editor = !hidden;
+		};
+		workbench.setAuxiliaryBarHidden = hidden => {
+			auxHiddenCalls.push({ hidden, suppression: workbench._editorPartAutoVisibilitySuppressionCount });
+			if (hidden && !workbench.partVisibility.editor && workbench._editorPartAutoVisibilitySuppressionCount === 0) {
+				workbench.setEditorHidden(false);
+			}
+			workbench.partVisibility.auxiliaryBar = !hidden;
+		};
+
+		handleDidCloseEditor.call(workbench);
+
+		assert.deepStrictEqual({
+			editorHiddenCalls,
+			auxHiddenCalls,
+			editorVisible: workbench.partVisibility.editor,
+			auxiliaryBarVisible: workbench.partVisibility.auxiliaryBar,
+		}, {
+			editorHiddenCalls: [],
+			auxHiddenCalls: [{ hidden: true, suppression: 1 }],
+			editorVisible: false,
+			auxiliaryBarVisible: false,
+		});
+	});
+
 	test('restores attached editor maximized state when the auxiliary bar stays visible', () => {
 		const maximizedStates: boolean[] = [];
 		const workbench = createWorkbenchHarness();

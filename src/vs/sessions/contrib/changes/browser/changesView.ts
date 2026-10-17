@@ -1188,6 +1188,11 @@ export class ChangesViewPane extends ViewPane {
 					return;
 				}
 
+				if (this.shouldRevealFileInMultiDiffEditor()) {
+					void this._openMultiFileDiffEditor(e.element.uri);
+					return;
+				}
+
 				// Holding Alt inverts the configured single/multi file diff behavior.
 				const altKey = !!(e.browserEvent as MouseEvent | KeyboardEvent | undefined)?.altKey;
 				const openSingleFileDiff = this.shouldOpenSingleFileDiffByDefault() !== altKey;
@@ -1821,6 +1826,10 @@ export class ChangesViewPane extends ViewPane {
 		return this.configurationService.getValue<string>('workbench.editor.useModal') === 'all';
 	}
 
+	protected shouldRevealFileInMultiDiffEditor(): boolean {
+		return false;
+	}
+
 	/**
 	 * Whether clicking a file opens a single-file diff by default (vs the
 	 * multi-file diff editor). Alt inverts this.
@@ -1996,6 +2005,10 @@ export class DesktopChangesViewPane extends ChangesViewPane {
 	protected override shouldOpenModalDiff(): boolean {
 		// Desktop never uses the modal editor.
 		return false;
+	}
+
+	protected override shouldRevealFileInMultiDiffEditor(): boolean {
+		return true;
 	}
 }
 
