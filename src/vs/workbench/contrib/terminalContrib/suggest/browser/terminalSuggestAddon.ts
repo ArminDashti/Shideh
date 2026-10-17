@@ -859,51 +859,7 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 			}
 			));
 
-			this._register(this._suggestWidget.onDidFocus(async e => {
-				if (this._ignoreFocusEvents) {
-					return;
-				}
-
-				const focusedItem = e.item;
-				const focusedIndex = e.index;
-
-				if (focusedItem === this._focusedItem) {
-					return;
-				}
-
-				// Cancel any previous resolution
-				this._currentSuggestionDetails?.cancel();
-				this._currentSuggestionDetails = undefined;
-				this._focusedItem = focusedItem;
-
-				// Check if the item needs resolution and hasn't been resolved yet
-				if (focusedItem && (!focusedItem.completion.documentation || !focusedItem.completion.detail)) {
-
-					this._currentSuggestionDetails = createCancelablePromise(async token => {
-						try {
-							await focusedItem.resolve(token);
-						} catch (error) {
-							// Silently fail - the item is still usable without details
-							this._logService.warn(`Failed to resolve suggestion details for item ${focusedItem} at index ${focusedIndex}`, error);
-						}
-					});
-
-					this._currentSuggestionDetails.then(() => {
-						// Check if this is still the focused item and it's still in the list
-						if (focusedItem !== this._focusedItem || !this._suggestWidget?.list || focusedIndex >= this._suggestWidget.list.length) {
-							return;
-						}
-
-						// Re-render the specific item to show resolved details (like editor does)
-						this._ignoreFocusEvents = true;
-						// Use splice to replace the item and trigger re-render
-						this._suggestWidget.list.splice(focusedIndex, 1, [focusedItem]);
-						this._suggestWidget.list.setFocus([focusedIndex]);
-						this._ignoreFocusEvents = false;
-					});
-				}
-
-			}));
+			// Removed onDidFocus handler - SimpleSuggestWidget now handles item resolution directly
 
 			// eslint-disable-next-line no-restricted-syntax
 			const element = this._terminal?.element?.querySelector('.xterm-helper-textarea');
@@ -1074,13 +1030,9 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 		if (cancelAnyRequest) {
 			this._cancellationTokenSource?.dispose(true);
 			this._cancellationTokenSource = undefined;
-			// Also cancel any pending resolution requests
-			this._currentSuggestionDetails?.cancel();
-			this._currentSuggestionDetails = undefined;
 		}
 		this._currentPromptInputState = undefined;
 		this._leadingLineContent = undefined;
-		this._focusedItem = undefined;
 		this._suggestWidget?.hide();
 	}
 
