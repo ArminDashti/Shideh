@@ -50,19 +50,25 @@ interface ICompileTaskOptions {
 	readonly emitError: boolean;
 	readonly transpileOnly: boolean | { esbuild: boolean };
 	readonly preserveEnglish: boolean;
+	readonly noEmit?: boolean;
+	readonly logTopic?: string;
 }
 
 export function createCompile(src: string, { build, emitError, transpileOnly, preserveEnglish }: ICompileTaskOptions) {
 	const projectPath = path.join(import.meta.dirname, '../../', src, 'tsconfig.json');
 	const overrideOptions = { ...getTypeScriptCompilerOptions(src), inlineSources: Boolean(build) };
+	if (noEmit) {
+		overrideOptions.noEmit = true;
+	}
 	if (!build) {
 		overrideOptions.inlineSourceMap = true;
 	}
 	const compilation = tsb.create(projectPath, overrideOptions, {
 		verbose: false,
 		transpileOnly: Boolean(transpileOnly),
-		transpileWithEsbuild: typeof transpileOnly !== 'boolean' && transpileOnly.esbuild
-	}, err => reporter(err));
+		transpileWithEsbuild: typeof transpileOnly !== 'boolean' && transpileOnly.esbuild,
+		logTopic
+	}, err => currentReporter(err));
 
 	function pipeline(token?: util.ICancellationToken) {
 
@@ -87,7 +93,7 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 				sourceRoot: overrideOptions.sourceRoot
 			})))
 			.pipe(tsFilter.restore)
-			.pipe(reporter.end(!!emitError));
+			.pipe(currentReporter.end(!!emitError));
 
 		return es.duplex(input, output);
 	}
@@ -95,11 +101,13 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 	return pipeline;
 }
 
-export function transpileTask(src: string, out: string, esbuild?: boolean): task.StreamTask {
+export function transpileTask(src: string, out: string, options: { esbuild?: boolean; logTopic?: string } | boolean = {}): task.StreamTask {
+	const esbuild = typeof options === 'boolean' ? options : options.esbuild;
+	const logTopic = typeof options === 'object' ? options.logTopic : undefined;
 
 	const task = () => {
 
-		const transpile = createCompile(src, { build: false, emitError: true, transpileOnly: { esbuild: !!esbuild }, preserveEnglish: false });
+		const transpile = createCompile(src, { build: false, emitError: true, transpileOnly: { esbuild: !!esbuild }, preserveEnglish: false, logTopic });
 		const srcPipe = gulp.src(`${src}/**`, { base: `${src}` });
 
 		return srcPipe
