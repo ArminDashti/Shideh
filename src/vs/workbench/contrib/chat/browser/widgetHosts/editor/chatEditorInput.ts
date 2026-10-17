@@ -9,7 +9,6 @@ import { Disposable, MutableDisposable } from '../../../../../../base/common/lif
 import { revive } from '../../../../../../base/common/marshalling.js';
 import { Schemas } from '../../../../../../base/common/network.js';
 import { isEqual } from '../../../../../../base/common/resources.js';
-import { truncate } from '../../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import * as nls from '../../../../../../nls.js';
@@ -180,8 +179,7 @@ export class ChatEditorInput extends EditorInput implements IEditorCloseHandler 
 	override getName(): string {
 		// If we have a resolved model, use its title
 		if (this.model?.title) {
-			// Only truncate if the default title is being used (don't truncate custom titles)
-			return this.model.hasCustomTitle ? this.model.title : truncate(this.model.title, ChatEditorTitleMaxLength);
+			return this.model.title;
 		}
 
 		// If we have a sessionId but no resolved model, try to get the title from persisted sessions
