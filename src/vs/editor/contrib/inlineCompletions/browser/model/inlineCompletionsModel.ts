@@ -771,6 +771,18 @@ export class InlineCompletionsModel extends Disposable {
 		return v?.primaryGhostText;
 	});
 
+	private readonly _visibleRanges = observableFromEvent(this._editor.onDidChangeHiddenAreas, () => this._editor.getVisibleRanges());
+
+	public readonly isInHiddenArea = derived(this, reader => {
+		const state = this.state.read(reader);
+		if (!state || state.kind !== 'inlineEdit') {
+			return false;
+		}
+
+		const completionRange = state.inlineCompletion.targetRange;
+		return !this._visibleRanges.read(reader).some(visibleRange => visibleRange.containsRange(completionRange));
+	});
+
 	public readonly showCollapsed = derived<boolean>(this, reader => {
 		const state = this.state.read(reader);
 		if (!state || state.kind !== 'inlineEdit') {
