@@ -9,6 +9,7 @@ import '../../../../../base/browser/ui/segmentedIconToggle/segmentedIconToggle.c
 import './media/voiceInputMode.css';
 import { getActiveWindow, getWindow } from '../../../../../base/browser/dom.js';
 import { getDefaultHoverDelegate } from '../../../../../base/browser/ui/hover/hoverDelegateFactory.js';
+import { IHoverDelegate } from '../../../../../base/browser/ui/hover/hoverDelegate.js';
 import { BaseActionViewItem } from '../../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -402,6 +403,11 @@ export class VoiceInputModeActionViewItem extends BaseActionViewItem {
 		super.render(container);
 		container.classList.add('monaco-segmented-icon-toggle-container', 'chat-voice-input-mode-item');
 
+		// The omni chat input hands us the native hover delegate so segment
+		// tooltips render outside its small frameless window; everywhere else we
+		// fall back to the instant element hover.
+		const hoverDelegate = this._options?.hoverDelegate ?? getDefaultHoverDelegate('element');
+
 		// Drive the pill + waveform colors from the same theme-derived accent as the
 		// input-box glow, so all three always match and adapt to the active theme.
 		this._updateVoiceStateColors(container);
@@ -416,12 +422,23 @@ export class VoiceInputModeActionViewItem extends BaseActionViewItem {
 		this._register(Gesture.ignoreTarget(pill));
 		this._reel = dom.append(pill, dom.$('.monaco-segmented-icon-toggle-reel.chat-voice-input-mode-reel'));
 
+		// In the frameless omni window native tooltips are the only ones that show,
+		// but they only appear when the pointer is directly over an element that has
+		// a `title`. The titled segment buttons don't cover the pill's 1px border and
+		// rounded corners, so resting there produced no tooltip at all. Give the whole
+		// pill a generic fallback tooltip (the specific per-segment titles still win via
+		// the native title's nearest-ancestor lookup) so there are no dead zones.
+		if (hoverDelegate.showNativeHover) {
+			this._register(this.hoverService.setupManagedHover(hoverDelegate, container,
+				this._getLabelWithKeybinding(localize('voiceInputMode.pill', "Voice Input Mode"), ChatVoiceInputModeAction.ID)));
+		}
+
 		// --- Dictation cell ---
 		this._dictationCell = dom.append(this._reel, dom.$('button.monaco-segmented-icon-toggle-cell.chat-voice-input-mode-cell.dictation'));
 		this._dictationCell.setAttribute('type', 'button');
 		this._dictationCell.setAttribute('role', 'button');
 		this._dictationIcon = dom.append(this._dictationCell, dom.$('span.chat-voice-input-mode-icon'));
-		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), this._dictationCell,
+		this._register(this.hoverService.setupManagedHover(hoverDelegate, this._dictationCell,
 			() => (this._options?.isDictationActive?.get() ?? this._options?.isActive?.get() ?? true) && this.chatSpeechToTextService.isPreparingModel
 				? getDictationDownloadHoverContent(this.chatSpeechToTextService)
 				: getDictationHoverContent(this._getLabelWithKeybinding(localize('voiceInputMode.dictation', "Dictation"), DICTATION_TOGGLE_COMMAND_ID), this.configurationService)));
@@ -449,7 +466,7 @@ export class VoiceInputModeActionViewItem extends BaseActionViewItem {
 		for (let i = 0; i < WAVEFORM_BAR_COUNT; i++) {
 			this._voiceBarEls.push(dom.append(this._voiceBars, dom.$('span.chat-voice-input-mode-bar')));
 		}
-		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), this._voiceCell,
+		this._register(this.hoverService.setupManagedHover(hoverDelegate, this._voiceCell,
 			() => {
 				const ownsVoice = this._options?.isVoiceActive?.get() ?? this._options?.isActive?.get() ?? true;
 				const connectedish = (ownsVoice && (this.voiceSessionController.isConnected.get() || this.voiceSessionController.isConnecting.get())) || this.voiceInputModeService.simulatedVoiceState.get() === 'idle' || this.voiceInputModeService.simulatedVoiceState.get() === 'listening' || this.voiceInputModeService.simulatedVoiceState.get() === 'speaking';
@@ -492,7 +509,7 @@ export class VoiceInputModeActionViewItem extends BaseActionViewItem {
 			() => getVoiceModeContextMenuActions(this.commandService, this.configurationService, this.keybindingService, ChatVoiceInputModeToggleListenAction.ID),
 			this.contextMenuService,
 		));
-		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), this._listenCell,
+		this._register(this.hoverService.setupManagedHover(hoverDelegate, this._listenCell,
 			() => this.voiceSessionController.voiceState.get() === 'listening'
 				? this._getLabelWithKeybinding(localize('voiceInputMode.stopListening', "Stop Listening"), ChatVoiceInputModeToggleListenAction.ID)
 				: this._getLabelWithKeybinding(localize('voiceInputMode.startOrHoldListening', "Tap to start, or hold to talk"), ChatVoiceInputModeToggleListenAction.ID)));
