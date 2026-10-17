@@ -241,6 +241,7 @@ export interface IChatAccessibilityService {
 	disposeRequest(requestId: URI): void;
 	acceptResponse(response: IChatResponseViewModel | string | undefined, requestId: URI | undefined, isVoiceInput?: boolean): void;
 	acceptElicitation(message: IChatElicitationRequest): void;
+	acceptThinking(content: string): void;
 }
 
 export interface IChatCodeBlockInfo {
