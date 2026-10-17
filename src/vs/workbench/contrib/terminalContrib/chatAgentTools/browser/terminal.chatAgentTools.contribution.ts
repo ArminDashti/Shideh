@@ -126,6 +126,10 @@ export class ChatAgentToolsContribution extends Disposable implements IWorkbench
 		this._register(_toolsService.readToolSet.addTool(GetTerminalSelectionToolData));
 		this._register(_toolsService.readToolSet.addTool(GetTerminalLastCommandToolData));
 
+		const displayImageInTerminalTool = instantiationService.createInstance(DisplayImageInTerminalTool);
+		this._register(toolsService.registerTool(DisplayImageInTerminalToolData, displayImageInTerminalTool));
+		this._register(toolsService.executeToolSet.addTool(DisplayImageInTerminalToolData));
+
 		// #endregion
 
 		// #region Tasks
