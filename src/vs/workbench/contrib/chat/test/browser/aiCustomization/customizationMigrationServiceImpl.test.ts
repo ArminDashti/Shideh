@@ -51,13 +51,25 @@ import { MockPromptsService } from '../../common/promptSyntax/service/mockPrompt
 class TestPromptsService extends MockPromptsService {
 	readonly requestedTypes: PromptsType[] = [];
 
-	constructor(private readonly files: readonly IPromptPath[]) {
+	constructor(private readonly files: readonly IPromptPath[], private readonly contents = new Map<string, string>()) {
 		super();
 	}
 
 	override async listPromptFiles(type: PromptsType): Promise<readonly IPromptPath[]> {
 		this.requestedTypes.push(type);
 		return this.files.filter(file => file.type === type);
+	}
+
+	override async parseNew(uri: URI) {
+		return new PromptFileParser().parse(uri, this.contents.get(uri.path) ?? '');
+	}
+}
+
+class TestLogService extends NullLogService {
+	readonly errors: (string | Error)[] = [];
+
+	override error(message: string | Error): void {
+		this.errors.push(message);
 	}
 }
 
@@ -345,7 +357,18 @@ suite('CustomizationMigrationService', () => {
 			{ uri: URI.file('/workspace/custom-skills/release/SKILL.md'), storage: PromptsStorage.local, type: PromptsType.skill, source: PromptFileSource.ConfigWorkspace },
 			{ uri: URI.file('/workspace/.github/skills/already-supported/SKILL.md'), storage: PromptsStorage.local, type: PromptsType.skill, source: PromptFileSource.ConfigWorkspace },
 			{ uri: URI.file('/home/test/custom-instructions/style.instructions.md'), storage: PromptsStorage.user, type: PromptsType.instructions, source: PromptFileSource.ConfigPersonal },
-		]));
+		], new Map([
+			['/home/test/.copilot/agents/planner.agent.md', [
+				'---',
+				'name: planner',
+				'handoffs:',
+				'  - agent: implementer',
+				'    label: Implement',
+				'    prompt: Implement the plan',
+				'---',
+				'Plan the work.',
+			].join('\n')],
+		])));
 		const harnessService = new TestCustomizationHarnessService();
 		const snapshot: IAgentHostMcpServerSupportSnapshot = {
 			servers: [
@@ -486,6 +509,11 @@ suite('CustomizationMigrationService', () => {
 					],
 				},
 				{
+					type: 'agentFiles',
+					files: ['/home/test/.copilot/agents/planner.agent.md'],
+					candidates: ['/home/test/.copilot/agents/planner.agent.md'],
+				},
+				{
 					type: 'configuredLocations',
 					files: [
 						'/home/test/custom-agents/architect.agent.md',
@@ -513,6 +541,7 @@ suite('CustomizationMigrationService', () => {
 			localMigrations: [
 				{ type: 'userData', files: [], candidates: [] },
 				{ type: 'promptFiles', files: [], candidates: [] },
+				{ type: 'agentFiles', files: [], candidates: [] },
 				{ type: 'configuredLocations', files: [], candidates: [] },
 				{
 					type: 'mcpServers',
@@ -532,13 +561,14 @@ suite('CustomizationMigrationService', () => {
 				counts: [
 					{ type: CustomizationMigrationType.UserData, count: 1 },
 					{ type: CustomizationMigrationType.PromptFiles, count: 2 },
+					{ type: CustomizationMigrationType.AgentFiles, count: 1 },
 					{ type: CustomizationMigrationType.ConfiguredLocations, count: 2 },
 				],
 			},
 			localHint: undefined,
 			requestedTypes: [
-				PromptsType.agent, PromptsType.instructions, PromptsType.prompt, PromptsType.agent, PromptsType.instructions, PromptsType.skill,
-				PromptsType.agent, PromptsType.instructions, PromptsType.prompt, PromptsType.agent, PromptsType.instructions, PromptsType.skill,
+				PromptsType.agent, PromptsType.instructions, PromptsType.prompt, PromptsType.agent, PromptsType.agent, PromptsType.instructions, PromptsType.skill,
+				PromptsType.agent, PromptsType.instructions, PromptsType.prompt, PromptsType.agent, PromptsType.agent, PromptsType.instructions, PromptsType.skill,
 			],
 			requestedSourceFolderTypes: [
 				PromptsType.agent, PromptsType.agent, PromptsType.agent, PromptsType.agent,
@@ -1070,6 +1100,7 @@ suite('CustomizationMigrationService', () => {
 			disabledMigrations: [
 				{ type: 'userData', candidates: 0, files: 0 },
 				{ type: 'promptFiles', candidates: 0, files: 0 },
+				{ type: 'agentFiles', candidates: 0, files: 0 },
 				{ type: 'configuredLocations', candidates: 0, files: 0 },
 				{ type: 'mcpServers', candidates: 0, servers: 0 },
 			],

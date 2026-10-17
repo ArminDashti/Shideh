@@ -14,6 +14,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { isAgentHostSessionResource } from '../../common/chatSessionsService.js';
 import { ICustomizationHarnessService, ICustomizationSourceFolder } from '../../common/customizationHarnessService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
+import { PromptHeaderAttributes } from '../../common/promptSyntax/promptFileParser.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import { CustomizationMigration, CustomizationMigrationType, FileCustomizationMigration, FileCustomizationMigrationType, getCustomizationMigrationTargetType, ICustomizationMigrationHint, ICustomizationMigrationService, IMcpServerCustomizationMigrationCandidate, IMcpServerCustomizationMigrationResult, isConfiguredLocationMigrationCandidate, isPromptFileMigrationCandidate, isUserDataMigrationCandidate, McpServerCustomizationMigration, McpServerCustomizationMigrationFailureReason, MigratableConfiguration } from '../../common/promptSyntax/service/customizationMigrationService.js';
 import { ChatConfiguration } from '../../common/constants.js';
@@ -67,6 +68,30 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 				const customizations = await this.promptsService.listPromptFiles(PromptsType.prompt, token);
 				return this.createFileMigration(sessionResource, type, customizations.filter(isPromptFileMigrationCandidate), token);
 			}
+			case CustomizationMigrationType.AgentFiles: {
+				const agentFiles = await this.promptsService.listPromptFiles(PromptsType.agent, token);
+				const parsedAgentFiles = await Promise.all(agentFiles
+					.filter(file => file.storage === PromptsStorage.local || file.storage === PromptsStorage.user)
+					.map(async file => {
+						try {
+							return {
+								file,
+								parsed: await this.promptsService.parseNew(file.uri, token),
+							};
+						} catch (error) {
+							if (isCancellationError(error)) {
+								throw error;
+							}
+							this.logService.error(`[Customization Migration] Failed to parse agent file: ${file.uri.toString()}`, error);
+							return undefined;
+						}
+					}));
+				const candidates = parsedAgentFiles
+					.filter(candidate => candidate !== undefined)
+					.filter(({ parsed }) => parsed.header?.getAttribute(PromptHeaderAttributes.handOffs) !== undefined)
+					.map(({ file }) => ({ ...file, hasLocalHandoffs: true }));
+				return { type, files: candidates.map(candidate => candidate.uri), candidates };
+			}
 			case CustomizationMigrationType.ConfiguredLocations: {
 				const customizations = (await Promise.all([
 					this.promptsService.listPromptFiles(PromptsType.agent, token),
@@ -86,6 +111,7 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 		return Promise.all([
 			this.computeMigration(sessionResource, CustomizationMigrationType.UserData, token),
 			this.computeMigration(sessionResource, CustomizationMigrationType.PromptFiles, token),
+			this.computeMigration(sessionResource, CustomizationMigrationType.AgentFiles, token),
 			this.computeMigration(sessionResource, CustomizationMigrationType.ConfiguredLocations, token),
 			this.computeMigration(sessionResource, CustomizationMigrationType.McpServers, token),
 		]);
@@ -119,6 +145,7 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 		const [userDataMigration, promptFilesMigration, configuredLocationsMigration, mcpServerMigration] = await Promise.all([
 			this.computeMigration(sessionResource, CustomizationMigrationType.UserData, token),
 			this.computeMigration(sessionResource, CustomizationMigrationType.PromptFiles, token),
+			this.computeMigration(sessionResource, CustomizationMigrationType.AgentFiles, token),
 			this.computeMigration(sessionResource, CustomizationMigrationType.ConfiguredLocations, token),
 			mcpMigrationEnabled ? this.computeMigration(sessionResource, CustomizationMigrationType.McpServers, token) : Promise.resolve(this.emptyMcpServerMigration()),
 		]);
@@ -136,6 +163,7 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 			counts: [
 				{ type: CustomizationMigrationType.UserData, count: userDataMigration.files.length },
 				{ type: CustomizationMigrationType.PromptFiles, count: promptFilesMigration.files.length },
+				{ type: CustomizationMigrationType.AgentFiles, count: agentFilesMigration.files.length },
 				{ type: CustomizationMigrationType.ConfiguredLocations, count: configuredLocationsMigration.files.length },
 				{ type: CustomizationMigrationType.McpServers, count: migratableMcpServerCount },
 			].filter(({ count }) => count > 0),

@@ -163,6 +163,7 @@ interface IFixtureFile {
 	readonly name?: string;
 	readonly description?: string;
 	readonly applyTo?: string;
+	readonly hasHandoffs?: boolean;
 	readonly extensionId?: string;
 	readonly extensionDisplayName?: string;
 }
@@ -311,6 +312,12 @@ function createFixtureFileContent(file: IFixtureFile): string {
 		headerLines.push('tools:');
 		headerLines.push('  - read_file');
 		headerLines.push('  - grep_search');
+		if (file.hasHandoffs) {
+			headerLines.push('handoffs:');
+			headerLines.push('  - agent: implementer');
+			headerLines.push('    label: Implement the review findings');
+			headerLines.push('    prompt: Implement the fixes identified by this agent');
+		}
 	}
 
 	if (file.type === PromptsType.skill) {
@@ -573,7 +580,7 @@ const allFiles: IFixtureFile[] = [
 	{ uri: URI.file('/workspace/.claude/rules/testing.md'), storage: PromptsStorage.local, type: PromptsType.instructions, name: 'Testing', description: 'Claude testing conventions' },
 	{ uri: URI.file('/home/dev/.claude/rules/personal.md'), storage: PromptsStorage.user, type: PromptsType.instructions, name: 'Personal', description: 'Personal rules' },
 	// Agents — workspace
-	{ uri: URI.file('/workspace/.github/agents/reviewer.agent.md'), storage: PromptsStorage.local, type: PromptsType.agent, name: 'Reviewer', description: 'Code review agent' },
+	{ uri: URI.file('/workspace/.github/agents/reviewer.agent.md'), storage: PromptsStorage.local, type: PromptsType.agent, name: 'Reviewer', description: 'Code review agent', hasHandoffs: true },
 	{ uri: URI.file('/workspace/.github/agents/documenter.agent.md'), storage: PromptsStorage.local, type: PromptsType.agent, name: 'Documenter', description: 'Documentation agent' },
 	{ uri: URI.file('/workspace/.github/agents/tester.agent.md'), storage: PromptsStorage.local, type: PromptsType.agent, name: 'Tester', description: 'Test generation and validation' },
 	{ uri: URI.file('/workspace/.github/agents/refactorer.agent.md'), storage: PromptsStorage.local, type: PromptsType.agent, name: 'Refactorer', description: 'Code refactoring specialist' },
@@ -3151,6 +3158,15 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		render: ctx => renderEditor(ctx, {
 			sessionResource: agentHostCopilotSessionResource,
 			migrationCategory: CustomizationMigrationCategoryId.UserData,
+		}),
+	}),
+
+	AgentFilesMigration: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: true },
+		expectedVisualDescriptions: ['The Update Agent Files page shows the Reviewer workspace agent because its handoffs header is unsupported by the active harness.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: agentHostCopilotSessionResource,
+			migrationCategory: CustomizationMigrationCategoryId.AgentFiles,
 		}),
 	}),
 

@@ -1140,6 +1140,13 @@ suite('aiCustomizationManagementEditor', () => {
 				type: PromptsType.agent,
 				source: PromptFileSource.UserData,
 			} as MigratableConfiguration]],
+			[CustomizationMigrationCategoryId.AgentFiles, [{
+				uri: URI.file('/workspace/.github/agents/reviewer.agent.md'),
+				storage: PromptsStorage.local,
+				type: PromptsType.agent,
+				source: PromptFileSource.GitHubWorkspace,
+				hasLocalHandoffs: true,
+			} as MigratableConfiguration]],
 			[CustomizationMigrationCategoryId.ConfiguredLocations, [{
 				uri: URI.file('/workspace/custom-skills/release/SKILL.md'),
 				storage: PromptsStorage.local,

@@ -1974,8 +1974,10 @@ export class AICustomizationManagementEditor extends EditorPane {
 			}
 			const files = customizations.filter(candidate => !isMcpServerCustomizationMigrationCandidate(candidate));
 			const settingsToClear = this.getConfiguredLocationSettingsToClear(category, files);
-			const targetFolders = await this.resolveCustomizationMigrationTargetFolders(files, this.customizationMigrationTargetFoldersByType, sessionResource);
-			if (!targetFolders || !this.isCustomizationMigrationSessionActive(sessionResource)) {
+			const targetFolders = category.migrateInPlace
+				? undefined
+				: await this.resolveCustomizationMigrationTargetFolders(files, this.customizationMigrationTargetFoldersByType, sessionResource);
+			if ((!category.migrateInPlace && !targetFolders) || !this.isCustomizationMigrationSessionActive(sessionResource)) {
 				return;
 			}
 			const confirmation = category.getConfirmation(files, this.getActiveHarnessLabel(), this.getCustomizationMigrationDestinationLabel(
@@ -2036,7 +2038,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 					this.notificationService.error(localize('customizationMigrationClearSettingsFailed', "Customizations were migrated, but the custom location settings could not be cleared: {0}", getErrorMessage(error)));
 				}
 			}
-			if (deleteOriginalFiles) {
+			if (deleteOriginalFiles || category.migrateInPlace) {
 				await this.refreshCustomizationMigrationInfo();
 			}
 			const unsupportedKeys = result.unsupportedHeaderKeys.join(', ');
