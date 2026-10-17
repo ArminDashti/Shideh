@@ -183,12 +183,19 @@ export class NotebookProviderInfoStore extends Disposable {
 				detail: notebookProviderInfo.providerDisplayName,
 				priority: notebookProviderInfo.priority,
 			};
+			// Schemes that are used for viewing historical versions of files
+			const virtualHistorySchemes = ['git', 'vscode-local-history'];
+
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
 				canSupportResource: (resource: URI) => {
 					if (resource.scheme === Schemas.vscodeNotebookCellOutput) {
 						const params = new URLSearchParams(resource.query);
 						return params.get('openIn') === 'notebook';
+					}
+					// Support virtual schemes used for timeline and diff views
+					if (virtualHistorySchemes.includes(resource.scheme)) {
+						return true;
 					}
 					return resource.scheme === Schemas.untitled || resource.scheme === Schemas.vscodeNotebookCell || this._fileService.hasProvider(resource);
 				}
