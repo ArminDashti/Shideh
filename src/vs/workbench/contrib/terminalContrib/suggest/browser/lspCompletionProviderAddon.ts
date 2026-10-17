@@ -28,6 +28,7 @@ export class LspCompletionProviderAddon extends Disposable implements ITerminalA
 		provider: CompletionItemProvider,
 		textVirtualModel: IReference<IResolvedTextEditorModel>,
 		lspTerminalModelContentProvider: LspTerminalModelContentProvider,
+		terminal: ITerminalInstance
 	) {
 		super();
 		this._provider = provider;
@@ -42,8 +43,12 @@ export class LspCompletionProviderAddon extends Disposable implements ITerminalA
 
 	async provideCompletions(value: string, cursorPosition: number, token: CancellationToken): Promise<ITerminalCompletion[] | TerminalCompletionList<ITerminalCompletion> | undefined> {
 
+		if (!this._terminal.shellType || !LSP_SUPPORTED_SHELLS.includes(this._terminal.shellType)) {
+			return undefined;
+		}
+
 		// Apply edit for non-executed current commandline --> Pretend we are typing in the real-document.
-		this._lspTerminalModelContentProvider.trackPromptInputToVirtualFile(value);
+		this._lspTerminalModelContentProvider.setCommandLineVirtualFile(value);
 
 		const textBeforeCursor = value.substring(0, cursorPosition);
 		const lines = textBeforeCursor.split('\n');
@@ -54,6 +59,7 @@ export class LspCompletionProviderAddon extends Disposable implements ITerminalA
 		const positionVirtualDocument = new Position(lineNum, column);
 
 		const completions: ITerminalCompletion[] = [];
+		// TODO: Why are we ignoring these? Do we just need to give them a penalty in the completion item?
 		if (this._provider && this._provider._debugDisplayName !== 'wordbasedCompletions') {
 			console.log(`we are with provider: ${this._provider}`);
 

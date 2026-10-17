@@ -164,6 +164,15 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 				...(lspCompletionProviderAddon.triggerCharacters ?? [])
 			));
 		}
+		const lspCompletionProviderAddon = this._lspAddon.value = this._instantiationService.createInstance(LspCompletionProviderAddon, provider, textVirtualModel, this._lspModelProvider.value, this._ctx.instance);
+		xterm.loadAddon(lspCompletionProviderAddon);
+		this.add(lspCompletionProviderAddon);
+		this.add(this._terminalCompletionService.registerTerminalCompletionProvider(
+			'lsp',
+			lspCompletionProviderAddon.id,
+			lspCompletionProviderAddon,
+			...(lspCompletionProviderAddon.triggerCharacters ?? [])
+		));
 	}
 
 	private _loadLspCompletionAddon(xterm: RawXtermTerminal): void {
