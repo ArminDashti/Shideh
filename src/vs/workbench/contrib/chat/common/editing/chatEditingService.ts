@@ -247,6 +247,7 @@ export function editEntriesToMultiDiffData(entriesObs: IObservable<readonly IEdi
 			goToFileUri: entry.modifiedURI,
 			added: entry.added,
 			removed: entry.removed,
+			originalIsEmpty: entry.originalIsEmpty,
 		}))
 	}));
 
@@ -305,6 +306,7 @@ export interface IEditSessionEntryDiff extends IEditSessionDiffStats {
 	/** LHS and RHS of a diff editor, if opened: */
 	originalURI: URI;
 	modifiedURI: URI;
+	originalIsEmpty: boolean;
 
 	/**
 	 * Optional frozen "after" content for the RHS. When set, this is the exact
@@ -341,6 +343,7 @@ export function emptySessionEntryDiff(originalURI: URI, modifiedURI: URI): IEdit
 	return {
 		originalURI,
 		modifiedURI,
+		originalIsEmpty: false,
 		added: 0,
 		removed: 0,
 		quitEarly: false,
@@ -348,6 +351,10 @@ export function emptySessionEntryDiff(originalURI: URI, modifiedURI: URI): IEdit
 		isFinal: false,
 		isBusy: false,
 	};
+}
+
+export function shouldOpenEditSessionEntryInRegularEditor(diff: IEditSessionEntryDiff): boolean {
+	return diff.originalIsEmpty && diff.added > 0 && diff.removed === 0;
 }
 
 export const enum ModifiedFileEntryState {

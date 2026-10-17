@@ -146,6 +146,11 @@ suite('ChatEditingService', function () {
 				return store.add(modelService.createModel(resource.path.repeat(10), null, resource, false));
 			},
 		}));
+		store.add(textModelService.registerTextModelContentProvider('empty', {
+			async provideTextContent(resource) {
+				return store.add(modelService.createModel('', null, resource, false));
+			},
+		}));
 	});
 
 	teardown(async () => {
