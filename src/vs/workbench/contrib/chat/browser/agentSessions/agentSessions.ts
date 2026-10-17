@@ -32,7 +32,7 @@ export enum AgentSessionProviders {
  */
 export type AgentSessionTarget = AgentSessionProviders | (string & {});
 
-export function isBuiltInAgentSessionProvider(provider: string): boolean {
+export function isBuiltInAgentSessionProvider(provider: AgentSessionTarget): boolean {
 	return provider === AgentSessionProviders.Local ||
 		provider === AgentSessionProviders.Background ||
 		provider === AgentSessionProviders.Cloud;
@@ -132,7 +132,7 @@ function getSessionProviderContributionFromService(provider: AgentSessionProvide
 	}
 }
 
-export function getAgentSessionProviderIcon(provider: AgentSessionProviders): ThemeIcon {
+export function getAgentSessionProviderIcon(provider: AgentSessionTarget): ThemeIcon {
 	switch (provider) {
 		case AgentSessionProviders.Local:
 			return Codicon.vm;
@@ -160,6 +160,8 @@ export function isFirstPartyAgentSessionProvider(provider: AgentSessionTarget): 
 			return true;
 		case AgentSessionProviders.AgentHostClaude:
 		case AgentSessionProviders.Growth:
+			return false;
+		default:
 			return false;
 	}
 }
@@ -202,7 +204,7 @@ export interface IAgentHostDelegationRequest {
 	readonly attachedContext?: IChatRequestVariableEntry[];
 }
 
-export function getAgentCanContinueIn(provider: AgentSessionProviders): boolean {
+export function getAgentCanContinueIn(provider: AgentSessionTarget): boolean {
 	switch (provider) {
 		case AgentSessionProviders.Local:
 			return false;
@@ -217,7 +219,7 @@ export function getAgentCanContinueIn(provider: AgentSessionProviders): boolean 
 	}
 }
 
-export function getAgentSessionProviderDescription(provider: AgentSessionProviders): string {
+export function getAgentSessionProviderDescription(provider: AgentSessionTarget): string {
 	switch (provider) {
 		case AgentSessionProviders.Local:
 			return localize('chat.session.providerDescription.local', "Run tasks within VS Code chat. The agent iterates via chat and works interactively to implement changes on your main workspace.");

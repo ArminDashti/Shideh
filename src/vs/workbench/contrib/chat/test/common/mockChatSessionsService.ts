@@ -395,4 +395,19 @@ export class MockChatSessionsService implements IChatSessionsService {
 			}
 		};
 	}
+
+	private readonly _onDidChangeCustomizations = new Emitter<{ readonly chatSessionType: string }>();
+	readonly onDidChangeCustomizations = this._onDidChangeCustomizations.event;
+
+	registerCustomizationsProvider(_chatSessionType: string, _provider: IChatSessionCustomizationsProvider): IDisposable {
+		return { dispose: () => { } };
+	}
+
+	async getCustomizations(_chatSessionType: string, _token: CancellationToken): Promise<IChatSessionCustomizationItemGroup[] | undefined> {
+		return undefined;
+	}
+
+	async resolveCustomizationDeletion(_chatSessionType: string, _item: IChatSessionCustomizationItem, _token: CancellationToken): Promise<void> {
+		// noop
+	}
 }

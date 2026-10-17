@@ -10,6 +10,7 @@ import { IAction } from '../../../../../../base/common/actions.js';
 import { autorun } from '../../../../../../base/common/observable.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
+import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
 import { MenuItemAction } from '../../../../../../platform/actions/common/actions.js';
@@ -424,7 +425,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 		return isVisibleEditorChatSessionType(type, this.configurationService, this.chatSessionsService, this.workspaceContextService.getWorkspace(), this.agentHostEnablementService.managedSandboxEnforced.get(), this.agentHostEnablementService.enabled.get());
 	}
 
-	protected _isSessionTypeEnabled(type: AgentSessionProviders): boolean {
+	protected _isSessionTypeEnabled(type: AgentSessionTarget): boolean {
 		if (type === AgentSessionProviders.Local) {
 			return true; // Local is always available
 		}

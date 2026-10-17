@@ -398,6 +398,9 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 	 */
 	private readonly _proxyCommands = new Map</* proxyId */ string, { readonly originalCommandId: string; readonly controllerHandle: number }>();
 
+	private _customizationsHandlePool = 0;
+	private readonly _customizationsProviders = new Map<number, { provider: vscode.ChatSessionCustomizationsProvider; chatSessionType: string; disposable: DisposableStore }>();
+
 	constructor(
 		private readonly commands: ExtHostCommands,
 		private readonly _languageModels: ExtHostLanguageModels,

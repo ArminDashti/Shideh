@@ -335,6 +335,10 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	private readonly _realResources = new ResourceMap<URI>(); // untitled resource -> real resource (cleared when the session is disposed)
 	private readonly _pendingSessionResolutions = new Map<string, IPendingSessionResolution>();
 
+	private readonly _customizationsProviders = new Map<string, IChatSessionCustomizationsProvider>();
+	private readonly _onDidChangeCustomizations = this._register(new Emitter<{ readonly chatSessionType: string }>());
+	readonly onDidChangeCustomizations = this._onDidChangeCustomizations.event;
+
 	private readonly _hasCanDelegateProvidersKey: IContextKey<boolean>;
 
 	constructor(
@@ -373,7 +377,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		const builtinSessionProviders = [localSessionProvider.type];
 		const contributedSessionProviders = observableFromEvent(
 			this.onDidChangeAvailability,
-			() => Array.from(this._contributions.keys()).filter(key => this._contributionDisposables.has(key) && isAgentSessionProviderType(key)) as AgentSessionProviders[],
+			() => Array.from(this._contributions.keys()).filter(key => this._contributionDisposables.has(key)),
 		).recomputeInitiallyAndOnChange(this._store);
 
 		this._register(autorun(reader => {
@@ -1182,6 +1186,35 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 				}
 			}
 		};
+	}
+
+	registerCustomizationsProvider(chatSessionType: string, provider: IChatSessionCustomizationsProvider): IDisposable {
+		this._customizationsProviders.set(chatSessionType, provider);
+		const onChangeDisposable = provider.onDidChangeCustomizations(() => {
+			this._onDidChangeCustomizations.fire({ chatSessionType });
+		});
+		return toDisposable(() => {
+			onChangeDisposable.dispose();
+			if (this._customizationsProviders.get(chatSessionType) === provider) {
+				this._customizationsProviders.delete(chatSessionType);
+			}
+		});
+	}
+
+	async getCustomizations(chatSessionType: string, token: CancellationToken): Promise<IChatSessionCustomizationItemGroup[] | undefined> {
+		const provider = this._customizationsProviders.get(chatSessionType);
+		if (!provider) {
+			return undefined;
+		}
+		return provider.provideCustomizations(token);
+	}
+
+	async resolveCustomizationDeletion(chatSessionType: string, item: IChatSessionCustomizationItem, token: CancellationToken): Promise<void> {
+		const provider = this._customizationsProviders.get(chatSessionType);
+		if (!provider?.resolveCustomizationDeletion) {
+			return;
+		}
+		return provider.resolveCustomizationDeletion(item, token);
 	}
 
 	public getInProgressSessionDescription(chatModel: IChatModel): string | undefined {

@@ -416,7 +416,7 @@ export interface ICustomizationHarnessService {
 	/**
 	 * The currently active harness.
 	 */
-	readonly activeHarness: IObservable<CustomizationHarness>;
+	readonly activeHarness: IObservable<string>;
 
 	/**
 	 * All harnesses available in this window.
@@ -657,6 +657,7 @@ export class CustomizationHarnessServiceBase extends Disposable implements ICust
 	readonly availableHarnesses: IObservable<readonly IHarnessDescriptor[]>;
 
 	private readonly _allHarnesses: readonly IHarnessDescriptor[];
+	private readonly _contributedHarnesses = observableValue<readonly IHarnessDescriptor[]>(this, []);
 
 	constructor(
 		staticHarnesses: readonly IHarnessDescriptor[],

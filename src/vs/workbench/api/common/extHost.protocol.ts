@@ -4019,6 +4019,22 @@ export interface IChatSessionItemsChange {
 	readonly removed: readonly UriComponents[];
 }
 
+export interface IChatSessionCustomizationItemDto {
+	readonly id: string;
+	readonly label: string;
+	readonly description?: string;
+	readonly uri: UriComponents;
+	readonly storageLocation: number;
+	readonly icon?: ThemeIcon;
+}
+
+export interface IChatSessionCustomizationItemGroupDto {
+	readonly id: string;
+	readonly items: IChatSessionCustomizationItemDto[];
+	readonly commands?: ICommandDto[];
+	readonly itemCommands?: ICommandDto[];
+}
+
 export interface MainThreadChatSessionsShape extends IDisposable {
 	$registerChatSessionItemController(controllerHandle: number, chatSessionType: string, supportsResolve: boolean): void;
 	$updateChatSessionItemControllerCapabilities(controllerHandle: number, supportsResolve: boolean): void;

@@ -692,6 +692,7 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 		readonly controller: MainThreadChatSessionItemController;
 	}>());
 	private readonly _contentProvidersRegistrations = this._register(new DisposableMap<number>());
+	private readonly _customizationsProviderRegistrations = new Map<number, { chatSessionType: string; emitter: Emitter<void>; dispose: () => void }>();
 	private readonly _sessionTypeToHandle = new Map<string, number>();
 
 	private readonly _activeSessions = new ResourceMap<ObservableChatSession>();
@@ -1135,6 +1136,66 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 		});
 	}
 
+	$registerChatSessionCustomizationsProvider(handle: number, chatSessionType: string): void {
+		const disposables = new DisposableStore();
+		const emitter = disposables.add(new Emitter<void>());
+
+		const provider: IChatSessionCustomizationsProvider = {
+			onDidChangeCustomizations: emitter.event,
+			provideCustomizations: (token) => {
+				return this._proxy.$provideChatSessionCustomizations(handle, token).then(groups => {
+					if (!groups) { return undefined; }
+					return groups.map(g => ({
+						...g,
+						items: g.items.map(item => ({
+							...item,
+							uri: URI.revive(item.uri),
+						})),
+					}));
+				});
+			},
+			resolveCustomizationDeletion: (item, token) => {
+				return this._proxy.$resolveCustomizationDeletion(handle, item.id, item.uri, token);
+			},
+		};
+
+		disposables.add(this._chatSessionsService.registerCustomizationsProvider(chatSessionType, provider));
+
+		// Register as a harness so it appears in the harness picker
+		const contribution = this._chatSessionsService.getChatSessionContribution(chatSessionType);
+		if (contribution) {
+			const icon = ThemeIcon.isThemeIcon(contribution.icon)
+				? contribution.icon
+				: ThemeIcon.fromId(Codicon.copilot.id);
+			const filter = { sources: [PromptsStorage.local, PromptsStorage.user, PromptsStorage.extension, PromptsStorage.plugin] };
+			const harnessDescriptor: IHarnessDescriptor = {
+				id: chatSessionType,
+				label: contribution.displayName ?? chatSessionType,
+				icon,
+				hideGenerateButton: true,
+				getStorageSourceFilter: () => filter,
+			};
+			disposables.add(this._harnessService.registerContributedHarness(harnessDescriptor));
+		}
+
+		this._customizationsProviderRegistrations.set(handle, { chatSessionType, emitter, dispose: () => disposables.dispose() });
+	}
+
+	$unregisterChatSessionCustomizationsProvider(handle: number): void {
+		const reg = this._customizationsProviderRegistrations.get(handle);
+		if (reg) {
+			reg.dispose();
+			this._customizationsProviderRegistrations.delete(handle);
+		}
+	}
+
+	$onDidChangeChatSessionCustomizations(handle: number): void {
+		const reg = this._customizationsProviderRegistrations.get(handle);
+		if (reg) {
+			reg.emitter.fire();
+		}
+	}
+
 	override dispose(): void {
 		for (const session of this._activeSessions.values()) {
 			session.dispose();
@@ -1145,6 +1206,11 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 			disposable.dispose();
 		}
 		this._sessionDisposables.clear();
+
+		for (const reg of this._customizationsProviderRegistrations.values()) {
+			reg.dispose();
+		}
+		this._customizationsProviderRegistrations.clear();
 
 		super.dispose();
 	}

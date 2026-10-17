@@ -596,6 +596,90 @@ export function getCountAnnouncement(section: AICustomizationManagementSection, 
 }
 
 /**
+ * Maps a management section to the well-known customization group IDs
+ * used by {@link IChatSessionCustomizationsProvider}.
+ */
+function sectionToCustomizationGroupIds(section: AICustomizationManagementSection): string[] {
+	switch (section) {
+		case AICustomizationManagementSection.Agents:
+			return ['agents'];
+		case AICustomizationManagementSection.Skills:
+			return ['skills'];
+		case AICustomizationManagementSection.Instructions:
+			return ['agentInstructions', 'contextInstructions', 'onDemandInstructions'];
+		case AICustomizationManagementSection.Prompts:
+			return ['prompts'];
+		default:
+			return [];
+	}
+}
+
+/**
+ * Maps the numeric {@link IChatSessionCustomizationItem.storageLocation}
+ * to its corresponding {@link PromptsStorage}.
+ */
+function storageLocationToPromptsStorage(storageLocation: number): PromptsStorage {
+	switch (storageLocation) {
+		case 1: // Workspace
+			return PromptsStorage.local;
+		case 2: // User
+			return PromptsStorage.user;
+		case 3: // Extension
+			return PromptsStorage.extension;
+		case 4: // Plugin
+			return PromptsStorage.plugin;
+		case 5: // BuiltIn
+			return PromptsStorage.extension;
+		default:
+			return PromptsStorage.local;
+	}
+}
+
+/**
+ * Maps the numeric {@link IChatSessionCustomizationItem.storageLocation}
+ * to an optional groupKey override for the list display.
+ */
+function storageLocationToGroupKey(storageLocation: number): string | undefined {
+	// BuiltIn items are grouped under the special "builtin" key
+	if (storageLocation === 5) {
+		return BUILTIN_STORAGE;
+	}
+	return undefined;
+}
+
+/**
+ * Converts an {@link IChatSessionCustomizationItem} from the provider
+ * into an {@link IAICustomizationListItem} for the list widget.
+ */
+function mapProviderItemToListItem(
+	item: IChatSessionCustomizationItem,
+	groupId: string,
+	promptType: PromptsType,
+): IAICustomizationListItem {
+	const storage = storageLocationToPromptsStorage(item.storageLocation);
+	const filename = basename(item.uri);
+	// For instructions, use the group id as the groupKey so items
+	// are placed in the correct sub-group (agent-instructions, etc.)
+	const instructionGroupIds = new Set(['agentInstructions', 'contextInstructions', 'onDemandInstructions']);
+	const groupKey = instructionGroupIds.has(groupId)
+		? groupId.replace('Instructions', '-instructions')
+		: storageLocationToGroupKey(item.storageLocation);
+
+	return {
+		id: item.id,
+		uri: item.uri,
+		name: item.label,
+		filename,
+		description: item.description,
+		storage,
+		promptType,
+		disabled: false,
+		groupKey,
+		typeIcon: item.icon,
+	};
+}
+
+/**
  * An ordered create action for the add button.
  */
 interface ICreateAction {

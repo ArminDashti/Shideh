@@ -853,6 +853,26 @@ export namespace ChatSessionOptionsMap {
  */
 export type ReadonlyChatSessionOptionsMap = ReadonlyMap<string, string | IChatSessionProviderOptionItem>;
 
+export interface IChatSessionCustomizationItem {
+	readonly id: string;
+	readonly label: string;
+	readonly description?: string;
+	readonly uri: URI;
+	readonly storageLocation: number;
+	readonly icon?: ThemeIcon;
+}
+
+export interface IChatSessionCustomizationItemGroup {
+	readonly id: string;
+	readonly items: IChatSessionCustomizationItem[];
+}
+
+export interface IChatSessionCustomizationsProvider {
+	readonly onDidChangeCustomizations: Event<void>;
+	provideCustomizations(token: CancellationToken): Promise<IChatSessionCustomizationItemGroup[] | undefined>;
+	resolveCustomizationDeletion?(item: IChatSessionCustomizationItem, token: CancellationToken): Promise<void>;
+}
+
 
 export interface IChatSessionCommitEvent {
 	/** The original (untitled) session resource. */
