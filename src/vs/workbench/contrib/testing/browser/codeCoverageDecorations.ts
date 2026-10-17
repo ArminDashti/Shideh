@@ -42,6 +42,7 @@ import { IQuickInputButton, IQuickInputService, QuickPickInput } from '../../../
 import { themeColorFromId } from '../../../../platform/theme/common/themeService.js';
 import { ActiveEditorContext } from '../../../common/contextkeys.js';
 import { TEXT_FILE_EDITOR_ID } from '../../files/common/files.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getTestingConfiguration, TestingConfigKeys } from '../common/configuration.js';
 import { TestCommandId, Testing } from '../common/constants.js';
 import { FileCoverage } from '../common/testCoverage.js';
@@ -981,15 +982,52 @@ registerAction2(class FilterCoverageToTestInEditor extends Action2 {
 					);
 					testCoverageService.filterToTest.set(entry.testId, undefined);
 				}
-			},
-		}).then(selected => {
-			if (!selected) {
-				activeEditor?.setScrollTop(scrollTop);
+			}
+		});
+
+		quickPick.onDidChangeActive((items) => {
+			const entry = items[0];
+			if (!entry) {
+				return;
 			}
 
+			if (!entry.testId) {
+				revealScrollCts.clear();
+				activeEditor?.setScrollTop(scrollTop);
+				testCoverageService.filterToTest.set(undefined, undefined);
+			} else {
+				const cts = revealScrollCts.value = new CancellationTokenSource();
+				coverage.detailsForTest(entry.testId, cts.token).then(
+					details => {
+						const first = details.find(d => d.type === DetailType.Statement);
+						if (!cts.token.isCancellationRequested && first) {
+							activeEditor?.revealLineNearTop(first.location instanceof Position ? first.location.lineNumber : first.location.startLineNumber);
+						}
+					},
+					() => { /* ignored */ }
+				);
+				testCoverageService.filterToTest.set(entry.testId, undefined);
+			}
+		});
+
+		quickPick.onDidAccept(() => {
+			const selected = quickPick.selectedItems[0];
 			revealScrollCts.dispose();
 			testCoverageService.filterToTest.set(selected ? selected.testId : previousSelection, undefined);
+			quickPick.hide();
 		});
+
+		quickPick.onDidHide(() => {
+			revealScrollCts.dispose();
+			const selected = quickPick.selectedItems[0];
+			if (!selected) {
+				activeEditor?.setScrollTop(scrollTop);
+				testCoverageService.filterToTest.set(previousSelection, undefined);
+			}
+			quickPick.dispose();
+		});
+
+		quickPick.show();
 	}
 });
 
