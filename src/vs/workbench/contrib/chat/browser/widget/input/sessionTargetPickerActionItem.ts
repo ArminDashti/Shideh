@@ -382,6 +382,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 				});
 			}
 
+			const description = getAgentSessionProviderDescription(agentSessionType);
 			agentSessionItems.push({
 				type: agentSessionType,
 				label: getAgentSessionProviderName(agentSessionType),

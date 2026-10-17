@@ -393,6 +393,7 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 		container.append(detail);
 
 		const keybinding = new KeybindingLabel(container, OS);
+		const elementDisposables = new DisposableStore();
 
 		const toolbar = document.createElement('div');
 		toolbar.className = 'action-list-item-toolbar';
@@ -566,12 +567,22 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 			data.container.title = '';
 		} else if (actionTitle && previewTitle) {
 			if (this._supportsPreview && element.canPreview) {
-				data.container.title = localize({ key: 'label-preview', comment: ['placeholders are keybindings, e.g "F2 to Apply, Shift+F2 to Preview"'] }, "{0} to Apply, {1} to Preview", actionTitle, previewTitle);
+				tooltipText = localize({ key: 'label-preview', comment: ['placeholders are keybindings, e.g "F2 to Apply, Shift+F2 to Preview"'] }, "{0} to Apply, {1} to Preview", actionTitle, previewTitle);
 			} else {
-				data.container.title = localize({ key: 'label', comment: ['placeholder is a keybinding, e.g "F2 to Apply"'] }, "{0} to Apply", actionTitle);
+				tooltipText = localize({ key: 'label', comment: ['placeholder is a keybinding, e.g "F2 to Apply"'] }, "{0} to Apply", actionTitle);
 			}
-		} else {
+		}
+
+		// Use hover service if enabled
+		if (this._customHover && tooltipText) {
+			data.elementDisposables.add(this._hoverService.setupDelayedHover(
+				data.container,
+				{ content: tooltipText, position: this._customHover.position, appearance: { showPointer: true } },
+				{ groupId: 'actionList' }
+			));
 			data.container.title = '';
+		} else {
+			data.container.title = tooltipText;
 		}
 
 		// Clear and render toolbar actions
