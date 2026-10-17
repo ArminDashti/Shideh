@@ -228,6 +228,23 @@
 	box-sizing: border-box;
 }
 
+.test-output-peek-view {
+	display: flex;
+	align-items: stretch;
+
+	.test-output-stack-toggle {
+		&.visible {
+			display: none;
+		}
+
+		a {
+			padding: 2px;
+			height: 100%;
+			cursor: pointer;
+		}
+	}
+}
+
 .monaco-editor .zone-widget.test-output-peek .monaco-editor .monaco-editor-background,
 .monaco-editor .zone-widget.test-output-peek .monaco-editor .inputarea.ime-input,
 .monaco-editor .zone-widget.test-output-peek .test-output-peek-message-container {
