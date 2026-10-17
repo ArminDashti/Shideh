@@ -189,8 +189,13 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 
 	private readonly _authenticationPending: ISettableObservable<boolean> = observableValue('authenticationPending', false);
 	override readonly authenticationPending: IObservable<boolean> = this._authenticationPending;
+	private readonly _onDidCompleteAuthentication = new Emitter<void>();
+	override readonly onDidCompleteAuthentication = this._onDidCompleteAuthentication.event;
 	override setAuthenticationPending(pending: boolean): void {
 		this._authenticationPending.set(pending, undefined);
+		if (!pending) {
+			this._onDidCompleteAuthentication.fire();
+		}
 	}
 
 	private readonly _initializeResult = observableValue<InitializeResult | undefined>('initializeResult', undefined);

@@ -363,6 +363,9 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 		return this._protocolClient;
 	}
 
+	private readonly _onDidCompleteAuthentication = this._register(new Emitter<void>());
+	readonly onDidCompleteAuthentication = this._onDidCompleteAuthentication.event;
+
 	setAuthenticationPending(pending: boolean): void {
 		if (this._authenticationSettled) {
 			return;

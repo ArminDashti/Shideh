@@ -159,6 +159,9 @@ export class EditorRemoteAgentHostServiceClient extends Disposable implements IA
 	// ---- IAgentHostService local-only surface (stubs) -----------------------
 
 	setAuthenticationPending(pending: boolean): void {
+		if (!pending) {
+			this._onDidCompleteAuthentication.fire();
+		}
 		if (this._authenticationSettled) {
 			return;
 		}
