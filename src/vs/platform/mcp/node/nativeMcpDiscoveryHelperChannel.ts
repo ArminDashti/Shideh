@@ -27,6 +27,10 @@ export class NativeMcpDiscoveryHelperChannel implements IServerChannel<RemoteAge
 				const result = await this.nativeMcpDiscoveryHelperService.load();
 				return (uriTransformer ? transformOutgoingURIs(result, uriTransformer) : result) as T;
 			}
+			case 'getWmcp': {
+				const result = await this.nativeMcpDiscoveryHelperService.getWmcp(args);
+				return uriTransformer ? transformOutgoingURIs(result, uriTransformer) : result;
+			}
 		}
 		throw new Error('Invalid call');
 	}

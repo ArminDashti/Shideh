@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { spawn } from 'child_process';
 import { homedir } from 'os';
 import { IProcessEnvironment, platform } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
