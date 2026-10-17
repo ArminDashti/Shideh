@@ -315,6 +315,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);

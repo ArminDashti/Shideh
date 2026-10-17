@@ -188,6 +188,17 @@ export class ComputeAutomaticInstructions {
 		}
 	}
 
+	public async collectCopilotInstructionsOnly(variables: ChatRequestVariableSet, token: CancellationToken): Promise<void> {
+		const copilotInstructions = await this._getCopilotInstructions();
+		for (const entry of copilotInstructions) {
+			variables.add(entry);
+		}
+		this._logService.trace(`[InstructionsContextComputer]  ${copilotInstructions.length} Copilot instructions files added.`);
+		// add all instructions for all instruction files that are in the context
+		await this._addReferencedInstructions(variables, token);
+		return;
+	}
+
 	/** public for testing */
 	public async addApplyingInstructions(instructionFiles: readonly IInstructionFile[], context: { files: ResourceSet; instructions: ResourceSet }, variables: ChatRequestVariableSet, telemetryEvent: InstructionsCollectionEvent, debugInfo: InstructionsCollectionDebugInfo, token: CancellationToken): Promise<void> {
 		const includeApplyingInstructions = this._configurationService.getValue(PromptsConfig.INCLUDE_APPLYING_INSTRUCTIONS);

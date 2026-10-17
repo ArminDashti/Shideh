@@ -33,6 +33,7 @@ export class EditTrackingFeature extends Disposable {
 
 	private readonly _editSourceTrackingShowDecorations;
 	private readonly _editSourceTrackingShowStatusBar;
+	private readonly _editSourceDetailsEnabled;
 	private readonly _showStateInMarkdownDoc = 'editTelemetry.showDebugDetails';
 	private readonly _toggleDecorations = 'editTelemetry.toggleDebugDecorations';
 

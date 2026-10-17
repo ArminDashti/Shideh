@@ -43,7 +43,7 @@ suite('ChatAgents', function () {
 	let contextKeyService: TestingContextKeyService;
 	setup(() => {
 		contextKeyService = new TestingContextKeyService();
-		chatAgentService = store.add(new ChatAgentService(contextKeyService));
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, new TestConfigurationService()));
 	});
 
 	test('registerAgent', async () => {

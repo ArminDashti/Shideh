@@ -53,6 +53,12 @@ configurationRegistry.registerConfiguration({
 				mode: 'auto'
 			}
 		},
+		[EDIT_TELEMETRY_DETAILS_SETTING_ID]: {
+			markdownDescription: localize('telemetry.editStats.detailed.enabled', "Controls whether to enable telemetry for detailed edit statistics (only sends statistics if general telemetry is enabled)."),
+			type: 'boolean',
+			default: false,
+			tags: ['experimental'],
+		},
 		[EDIT_TELEMETRY_SHOW_STATUS_BAR]: {
 			markdownDescription: localize('telemetry.editStats.showStatusBar', "Controls whether to show the status bar for edit telemetry."),
 			type: 'boolean',
