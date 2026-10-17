@@ -142,9 +142,7 @@ export class PanelPart extends AbstractPaneCompositePart {
 			icon: this.configurationService.getValue('workbench.panel.showLabels') === false,
 			orientation: ActionsOrientation.HORIZONTAL,
 			recomputeSizes: true,
-			activityHoverOptions: {
-				position: () => this.layoutService.getPanelPosition() === Position.BOTTOM && !this.layoutService.isPanelMaximized() ? HoverPosition.ABOVE : HoverPosition.BELOW,
-			},
+			hoverDelegate: this._register(createPaneCompositeHoverDelegate(() => this.layoutService.getPanelPosition() === Position.BOTTOM && !this.layoutService.isPanelMaximized() ? HoverPosition.ABOVE : HoverPosition.BELOW, this.instantiationService)),
 			fillExtraContextMenuActions: actions => this.fillExtraContextMenuActions(actions),
 			compositeSize: 0,
 			iconSize: 16,

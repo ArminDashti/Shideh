@@ -147,7 +147,7 @@ export interface ICompositeBarOptions {
 	readonly compositeSize: number;
 	readonly overflowActionSize: number;
 	readonly dndHandler: ICompositeDragAndDrop;
-	readonly activityHoverOptions: IActivityHoverOptions;
+	readonly hoverDelegate: IHoverDelegate;
 	readonly preventLoopNavigation?: boolean;
 
 	readonly getActivityAction: (compositeId: string) => CompositeBarAction;
@@ -294,7 +294,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 				const item = this.model.findItem(action.id);
 				return item && this.instantiationService.createInstance(
 					CompositeActionViewItem,
-					{ ...options, draggable: true, colors: this.options.colors, icon: this.options.icon, hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },
+					{ ...options, draggable: true, colors: this.options.colors, icon: this.options.icon, compact: this.options.compact },
 					action as CompositeBarAction,
 					item.pinnedAction,
 					item.toggleBadgeAction,
@@ -304,6 +304,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 					this
 				);
 			},
+			hoverDelegate: this.options.hoverDelegate,
 			orientation: this.options.orientation,
 			ariaLabel: localize('activityBarAriaLabel', "Active View Switcher"),
 			ariaRole: 'tablist',

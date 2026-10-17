@@ -69,7 +69,7 @@ export class GlobalCompositeBar extends Disposable {
 	constructor(
 		private readonly contextMenuActionsProvider: () => IAction[],
 		private readonly colors: (theme: IColorTheme) => ICompositeBarColors,
-		private readonly activityHoverOptions: IActivityHoverOptions,
+		hoverDelegate: IHoverDelegate,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IStorageService private readonly storageService: IStorageService,
@@ -85,7 +85,7 @@ export class GlobalCompositeBar extends Disposable {
 		this.globalActivityActionBar = this._register(new ActionBar(this.element, {
 			actionViewItemProvider: (action, options) => {
 				if (action.id === GLOBAL_ACTIVITY_ID) {
-					return this.instantiationService.createInstance(GlobalActivityActionViewItem, this.contextMenuActionsProvider, { ...options, colors: this.colors, hoverOptions: this.activityHoverOptions }, contextMenuAlignmentOptions);
+					return this.instantiationService.createInstance(GlobalActivityActionViewItem, this.contextMenuActionsProvider, { ...options, colors: this.colors }, contextMenuAlignmentOptions);
 				}
 
 				if (action.id === ACCOUNTS_ACTIVITY_ID) {
@@ -94,7 +94,6 @@ export class GlobalCompositeBar extends Disposable {
 						{
 							...options,
 							colors: this.colors,
-							hoverOptions: this.activityHoverOptions
 						},
 						contextMenuAlignmentOptions,
 						(actions: IAction[]) => {
@@ -107,6 +106,7 @@ export class GlobalCompositeBar extends Disposable {
 
 				throw new Error(`No view item for action '${action.id}'`);
 			},
+			hoverDelegate,
 			orientation: ActionsOrientation.VERTICAL,
 			ariaLabel: localize('manage', "Manage"),
 			preventLoopNavigation: true
@@ -177,7 +177,6 @@ abstract class AbstractGlobalActivityActionViewItem extends CompositeBarActionVi
 		private readonly contextMenuActionsProvider: () => IAction[],
 		private readonly contextMenuAlignmentOptions: () => Readonly<{ anchorAlignment: AnchorAlignment; anchorAxisAlignment: AnchorAxisAlignment }> | undefined,
 		@IThemeService themeService: IThemeService,
-		@IHoverService hoverService: IHoverService,
 		@IMenuService private readonly menuService: IMenuService,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -185,7 +184,7 @@ abstract class AbstractGlobalActivityActionViewItem extends CompositeBarActionVi
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IActivityService private readonly activityService: IActivityService,
 	) {
-		super(action, { draggable: false, icon: true, hasPopup: true, ...options }, () => true, themeService, hoverService, configurationService, keybindingService);
+		super(action, { draggable: false, icon: true, hasPopup: true, ...options }, () => true, themeService, configurationService, keybindingService);
 
 		this.updateItemActivity();
 		this._register(this.activityService.onDidChangeActivity(viewContainerOrAction => {
@@ -314,7 +313,7 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 			name: localize('accounts', "Accounts"),
 			classNames: ThemeIcon.asClassNameArray(GlobalCompositeBar.ACCOUNTS_ICON)
 		});
-		super(MenuId.AccountsContext, action, options, contextMenuActionsProvider, contextMenuAlignmentOptions, themeService, hoverService, menuService, contextMenuService, contextKeyService, configurationService, keybindingService, activityService);
+		super(MenuId.AccountsContext, action, options, contextMenuActionsProvider, contextMenuAlignmentOptions, themeService, menuService, contextMenuService, contextKeyService, configurationService, keybindingService, activityService);
 		this._register(action);
 		this.registerListeners();
 		this.initialize();
@@ -809,7 +808,7 @@ export class GlobalActivityActionViewItem extends AbstractGlobalActivityActionVi
 			name: localize('manage', "Manage"),
 			classNames: ThemeIcon.asClassNameArray(userDataProfileService.currentProfile.icon ? ThemeIcon.fromId(userDataProfileService.currentProfile.icon) : DEFAULT_ICON)
 		});
-		super(MenuId.GlobalActivity, action, options, contextMenuActionsProvider, contextMenuAlignmentOptions, themeService, hoverService, menuService, contextMenuService, contextKeyService, configurationService, keybindingService, activityService);
+		super(MenuId.GlobalActivity, action, options, contextMenuActionsProvider, contextMenuAlignmentOptions, themeService, menuService, contextMenuService, contextKeyService, configurationService, keybindingService, activityService);
 		this._register(action);
 		this._register(this.userDataProfileService.onDidChangeCurrentProfile(e => {
 			action.compositeBarActionItem = {
@@ -857,15 +856,14 @@ export class GlobalActivityActionViewItem extends AbstractGlobalActivityActionVi
 		this.updateProfileBadge();
 	}
 
-	protected override computeTitle(): string {
-		return this.userDataProfileService.currentProfile.isDefault ? super.computeTitle() : localize('manage profile', "Manage {0} (Profile)", this.userDataProfileService.currentProfile.name);
+	protected override getTooltip(): string {
+		return this.userDataProfileService.currentProfile.isDefault ? super.getTooltip() : localize('manage profile', "Manage {0} (Profile)", this.userDataProfileService.currentProfile.name);
 	}
 }
 
 export class SimpleAccountActivityActionViewItem extends AccountsActivityActionViewItem {
 
 	constructor(
-		hoverOptions: IActivityHoverOptions,
 		options: IBaseActionViewItemOptions,
 		@IThemeService themeService: IThemeService,
 		@ILifecycleService lifecycleService: ILifecycleService,
@@ -904,7 +902,6 @@ export class SimpleAccountActivityActionViewItem extends AccountsActivityActionV
 export class SimpleGlobalActivityActionViewItem extends GlobalActivityActionViewItem {
 
 	constructor(
-		hoverOptions: IActivityHoverOptions,
 		options: IBaseActionViewItemOptions,
 		@IUserDataProfileService userDataProfileService: IUserDataProfileService,
 		@IThemeService themeService: IThemeService,

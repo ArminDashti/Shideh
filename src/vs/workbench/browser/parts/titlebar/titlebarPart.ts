@@ -652,10 +652,10 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		// --- Activity Actions
 		if (!this.isAuxiliary) {
 			if (action.id === GLOBAL_ACTIVITY_ID) {
-				return this.instantiationService.createInstance(SimpleGlobalActivityActionViewItem, { position: () => HoverPosition.BELOW }, options);
+				return this.instantiationService.createInstance(SimpleGlobalActivityActionViewItem, options);
 			}
 			if (action.id === ACCOUNTS_ACTIVITY_ID) {
-				return this.instantiationService.createInstance(SimpleAccountActivityActionViewItem, { position: () => HoverPosition.BELOW }, options);
+				return this.instantiationService.createInstance(SimpleAccountActivityActionViewItem, options);
 			}
 		}
 

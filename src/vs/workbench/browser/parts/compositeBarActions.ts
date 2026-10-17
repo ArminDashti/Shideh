@@ -139,15 +139,10 @@ export interface ICompositeBarColors {
 	readonly dragAndDropBorder?: Color;
 }
 
-export interface IActivityHoverOptions {
-	readonly position: () => HoverPosition;
-}
-
 export interface ICompositeBarActionViewItemOptions extends IActionViewItemOptions {
 	readonly icon?: boolean;
 	readonly colors: (theme: IColorTheme) => ICompositeBarColors;
 
-	readonly hoverOptions: IActivityHoverOptions;
 	readonly hasPopup?: boolean;
 	readonly compact?: boolean;
 }
@@ -169,7 +164,6 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {
 		options: ICompositeBarActionViewItemOptions,
 		private readonly badgesEnabled: (compositeId: string) => boolean,
 		@IThemeService protected readonly themeService: IThemeService,
-		@IHoverService private readonly hoverService: IHoverService,
 		@IConfigurationService protected readonly configurationService: IConfigurationService,
 		@IKeybindingService protected readonly keybindingService: IKeybindingService,
 	) {
@@ -403,7 +397,7 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {
 	}
 
 	private updateTitle(): void {
-		const title = this.computeTitle();
+		const title = this.getTooltip();
 		[this.label, this.badge, this.container].forEach(element => {
 			if (element) {
 				element.setAttribute('aria-label', title);
@@ -413,7 +407,7 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {
 		});
 	}
 
-	protected computeTitle(): string {
+	protected override getTooltip(): string {
 		this.keybindingLabel = this.computeKeybindingLabel();
 		let title = this.keybindingLabel ? localize('titleKeybinding', "{0} ({1})", this.compositeBarActionItem.name, this.keybindingLabel) : this.compositeBarActionItem.name;
 
@@ -467,15 +461,13 @@ export class CompositeOverflowActivityActionViewItem extends CompositeBarActionV
 
 	constructor(
 		action: CompositeBarAction,
+		options: ICompositeBarActionViewItemOptions,
 		private getOverflowingComposites: () => { id: string; name?: string }[],
 		private getActiveCompositeId: () => string | undefined,
 		private getBadge: (compositeId: string) => IBadge,
 		private getCompositeOpenAction: (compositeId: string) => IAction,
-		colors: (theme: IColorTheme) => ICompositeBarColors,
-		hoverOptions: IActivityHoverOptions,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IThemeService themeService: IThemeService,
-		@IHoverService hoverService: IHoverService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 	) {
@@ -527,7 +519,6 @@ export class CompositeActionViewItem extends CompositeBarActionViewItem {
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IThemeService themeService: IThemeService,
-		@IHoverService hoverService: IHoverService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@ICommandService private readonly commandService: ICommandService
 	) {
@@ -536,7 +527,6 @@ export class CompositeActionViewItem extends CompositeBarActionViewItem {
 			options,
 			compositeBar.areBadgesEnabled.bind(compositeBar),
 			themeService,
-			hoverService,
 			configurationService,
 			keybindingService
 		);
