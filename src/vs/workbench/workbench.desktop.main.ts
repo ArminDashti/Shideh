@@ -220,6 +220,9 @@ import './contrib/keybindings/electron-browser/systemWideKeybindings.contributio
 // Sandbox
 import 'vs/workbench/contrib/sandbox/electron-sandbox/sandbox.contribution';
 
+// Remote Tunnel
+import 'vs/workbench/contrib/remoteTunnel/electron-sandbox/remoteTunnel.contribution';
+
 //#endregion
 
 

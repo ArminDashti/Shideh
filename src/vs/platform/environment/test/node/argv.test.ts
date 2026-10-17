@@ -19,7 +19,16 @@ function c(description: string, options: OptionDescriptions<any>): Subcommand<an
 	};
 }
 
-suite('formatOptions', () => {
+function o(description: string, type: 'boolean' | 'string' | 'string[]' = 'string'): Option<any> {
+	return {
+		description, type
+	};
+}
+function c(description: string, options: OptionDescriptions<any>): Subcommand<any> {
+	return {
+		description, type: 'subcommand', options
+	};
+}
 
 	test('Text should display small columns correctly', () => {
 		assert.deepStrictEqual(
