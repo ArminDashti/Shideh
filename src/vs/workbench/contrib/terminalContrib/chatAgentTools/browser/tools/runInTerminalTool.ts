@@ -1929,6 +1929,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			// should not trigger the "tool simplified the command" note.
 			normalizeTerminalCommandForDisplay(toolSpecificData.commandLine.toolEdited).trim() !== normalizeTerminalCommandForDisplay(toolSpecificData.commandLine.original).trim()
 		);
+		const didSandboxEditCommand = didToolEditCommand && toolSpecificData.commandLine.isSandboxWrapped === true;
 
 		const didSandboxWrapCommand = toolSpecificData.commandLine.isSandboxWrapped === true;
 		const commandLineForMetadata = isSandboxEnabled
