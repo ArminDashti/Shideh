@@ -78,6 +78,16 @@ function hasSameFolderLayout(folder: URI, other: URI): boolean {
 	return basename(folder) === basename(other) && basename(dirname(folder)) === basename(dirname(other));
 }
 
+export function isPromptFileMigrationCandidate(customization: IPromptPath): boolean {
+	return customization.type === PromptsType.prompt
+		&& (customization.storage === PromptsStorage.local || customization.storage === PromptsStorage.user);
+}
+
+export function isUserDataMigrationCandidate(customization: IPromptPath): boolean {
+	return customization.source === PromptFileSource.UserData
+		&& (customization.type === PromptsType.agent || customization.type === PromptsType.instructions);
+}
+
 const retainedPromptHeaderKeys = new Set([
 	PromptHeaderAttributes.name,
 	PromptHeaderAttributes.description,

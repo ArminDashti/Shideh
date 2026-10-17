@@ -8,6 +8,7 @@ import { renderIcon } from '../../../../../../base/browser/ui/iconLabel/iconLabe
 import { raceCancellationError } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
+import { MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { isEqual } from '../../../../../../base/common/resources.js';
@@ -28,9 +29,11 @@ import { EDITOR_DRAG_AND_DROP_BACKGROUND } from '../../../../../common/theme.js'
 import { IEditorGroup, IEditorGroupsService } from '../../../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
+import { IAICustomizationWorkspaceService } from '../../../common/aiCustomizationWorkspaceService.js';
 import { IChatModel, IChatModelInputState, IExportableChatData, ISerializableChatData } from '../../../common/model/chatModel.js';
+import { getChatSessionType } from '../../../common/model/chatUri.js';
 import { IChatService } from '../../../common/chatService/chatService.js';
-import { IChatSessionsService, localChatSessionType } from '../../../common/chatSessionsService.js';
+import { IChatSessionsService, localChatSessionType, SessionType } from '../../../common/chatSessionsService.js';
 import { ChatAgentLocation, ChatModeKind, IResolvedNewChatSessionType, SessionTypeSelectionReason } from '../../../common/constants.js';
 import { clearChatEditor } from '../../actions/chatClear.js';
 import { AgentHostSessionInputPills } from '../../agentSessions/agentHost/agentHostSessionInputPills.js';
@@ -78,6 +81,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 	private dimension = new dom.Dimension(0, 0);
 	private _loadingContainer: HTMLElement | undefined;
 	private _editorContainer: HTMLElement | undefined;
+	private readonly _customizationMigrationAttention = this._register(new MutableDisposable<CustomizationMigrationAttentionPresenter>());
 
 	constructor(
 		group: IEditorGroup,
@@ -91,6 +95,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
 		@IEditorService editorService: IEditorService,
 		@IEditorGroupsService editorGroupService: IEditorGroupsService,
+		@IAICustomizationWorkspaceService private readonly aiCustomizationWorkspaceService: IAICustomizationWorkspaceService,
 	) {
 		super(ChatEditorInput.EditorID, group, ChatEditor.VIEW_STATE_KEY, telemetryService, instantiationService, storageService, textResourceConfigurationService, themeService, editorService, editorGroupService);
 	}
@@ -154,6 +159,11 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 		this.widget.render(parent);
 		this._register(scopedInstantiationService.createInstance(AgentHostSessionInputPills, this.widget, 'auto'));
 		this.widget.setVisible(true);
+		this._customizationMigrationAttention.value = scopedInstantiationService.createInstance(
+			CustomizationMigrationAttentionPresenter,
+			this.widget.inputPart.gettingStartedTipContainerElement,
+			this.widget.inputPart.noticeHost,
+		);
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -285,6 +295,19 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 			}
 
 			setModelPreservingInputTypedWhileLoading(this.widget, inputBeforeLoad, () => this.updateModel(editorModel.model));
+			const workspaceRoot = this.aiCustomizationWorkspaceService.getActiveProjectRoot();
+			if (!editorModel.model.hasRequests
+				&& workspaceRoot
+				&& input.sessionResource
+				&& getChatSessionType(input.sessionResource) === SessionType.AgentHostCopilot) {
+				void this._customizationMigrationAttention.value?.assess({
+					workspaceRoot,
+					sessionResource: input.sessionResource,
+					trigger: 'editorNewChat',
+				});
+			} else {
+				this._customizationMigrationAttention.value?.clearAssessment();
+			}
 
 			const viewState = this.loadEditorViewState(input, context);
 			if (viewState) {
