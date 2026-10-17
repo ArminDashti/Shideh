@@ -35,6 +35,24 @@ function mapSessionStatus(status: SessionStatus | undefined): ChatSessionStatus 
 	return ChatSessionStatus.Completed;
 }
 
+function keepPendingNewSessionStatusInProgress(status: SessionStatus | undefined): SessionStatus {
+	const resolvedStatus = status ?? SessionStatus.Idle;
+	if ((resolvedStatus & SessionStatus.InProgress) !== 0 || (resolvedStatus & SessionStatus.Error) !== 0) {
+		return resolvedStatus;
+	}
+
+	return (resolvedStatus & ~SessionStatus.Idle) | SessionStatus.InProgress;
+}
+
+function keepPendingNewSessionInProgress(summary: SessionSummary): SessionSummary {
+	const status = keepPendingNewSessionStatusInProgress(summary.status);
+	if (status === summary.status) {
+		return summary;
+	}
+
+	return { ...summary, status };
+}
+
 /**
  * Provides provider-specific session list items for the chat sessions sidebar
  * by projecting the shared {@link AgentHostSessionListStore} state. The
@@ -106,6 +124,7 @@ export class AgentHostSessionListController extends Disposable implements IChatS
 		const rawId = generateUuid();
 		this._sessionListStore.addPendingNewSession(this._provider, rawId);
 		const now = Date.now();
+		this._pendingNewSessions.add(rawId);
 		const item = this._makeItem(rawId, {
 			title: request.prompt.trim(),
 			status: SessionStatus.InProgress,

@@ -565,13 +565,27 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		this._register(this.chatSessionsService.onDidChangeAvailability(() => this.resolve(undefined)));
 		this._register(this.chatSessionsService.onDidChangeSessionItems((delta) => {
 			const changedChatSessionTypes = new Set<string>();
+			const mapSessionContributionToType = this.getSessionContributionMap();
+			let didChangeSessions = false;
 
-			for (const resource of delta.addedOrUpdated ?? []) {
-				changedChatSessionTypes.add(getChatSessionType(resource.resource));
+			for (const item of delta.addedOrUpdated ?? []) {
+				const chatSessionType = getChatSessionType(item.resource);
+				changedChatSessionTypes.add(chatSessionType);
+				this._sessions.set(item.resource, this.toAgentSessionFromItem(chatSessionType, item, mapSessionContributionToType));
+				didChangeSessions = true;
 			}
 
 			for (const resource of delta.removed ?? []) {
 				changedChatSessionTypes.add(getChatSessionType(resource));
+				if (this._sessions.has(resource)) {
+					this._sessions.delete(resource);
+					didChangeSessions = true;
+				}
+			}
+
+			if (didChangeSessions) {
+				this._resolved = true;
+				this._onDidChangeSessions.fire();
 			}
 
 			for (const chatSessionType of changedChatSessionTypes) {
@@ -830,6 +844,48 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 			this._onDidChangeSessionArchivedState.fire(session);
 		}
 		this._onDidChangeSessions.fire();
+	}
+
+	private getSessionContributionMap(): Map<string, ResolvedChatSessionsExtensionPoint> {
+		const mapSessionContributionToType = new Map<string, ResolvedChatSessionsExtensionPoint>();
+		for (const contribution of this.chatSessionsService.getAllChatSessionContributions()) {
+			mapSessionContributionToType.set(contribution.type, contribution);
+		}
+		return mapSessionContributionToType;
+	}
+
+	private toAgentSessionFromItem(chatSessionType: string, session: IChatSessionItem, mapSessionContributionToType: Map<string, ResolvedChatSessionsExtensionPoint>): IInternalAgentSession {
+		let icon: ThemeIcon;
+		let providerLabel: string;
+		const agentSessionProvider = getAgentSessionProvider(chatSessionType);
+		if (agentSessionProvider !== undefined) {
+			providerLabel = getAgentSessionProviderName(agentSessionProvider);
+			icon = getAgentSessionProviderIcon(agentSessionProvider);
+		} else {
+			providerLabel = mapSessionContributionToType.get(chatSessionType)?.name ?? chatSessionType;
+			icon = session.iconPath ?? Codicon.terminal;
+		}
+
+		const changes = session.changes;
+		const normalizedChanges = changes && !(changes instanceof Array)
+			? { files: changes.files, insertions: changes.insertions, deletions: changes.deletions }
+			: changes;
+
+		return this.toAgentSession({
+			providerType: chatSessionType,
+			providerLabel,
+			resource: session.resource,
+			label: session.label.split('\n')[0], // protect against weird multi-line labels that break our layout
+			description: session.description,
+			icon,
+			badge: session.badge,
+			tooltip: session.tooltip,
+			status: session.status ?? AgentSessionStatus.Completed,
+			archived: session.archived,
+			timing: session.timing,
+			changes: normalizedChanges,
+			metadata: session.metadata,
+		});
 	}
 
 	private toAgentSession(data: IInternalAgentSessionData): IInternalAgentSession {

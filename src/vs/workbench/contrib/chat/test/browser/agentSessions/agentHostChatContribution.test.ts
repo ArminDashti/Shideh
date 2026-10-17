@@ -4678,7 +4678,10 @@ suite('AgentHostChatContribution', () => {
 			assert.strictEqual(item.resource.scheme, 'agent-host-copilot');
 			assert.ok(!item.resource.path.substring(1).startsWith('untitled-'));
 			assert.strictEqual(listController.isNewSession(item.resource), true);
-			assert.strictEqual(listController.items.some(existing => existing.resource.toString() === item.resource.toString()), false);
+			assert.deepStrictEqual(listController.items.map(item => ({ resource: item.resource.toString(), status: item.status })), [{
+				resource: item.resource.toString(),
+				status: ChatSessionStatus.InProgress,
+			}]);
 
 			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
 				message: 'Hello from controller',
