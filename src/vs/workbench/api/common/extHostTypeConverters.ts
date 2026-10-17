@@ -3458,6 +3458,8 @@ export namespace ChatResponsePart {
 			return ChatResponseQuestionCarouselPart.from(part);
 		} else if (part instanceof types.ChatResponseCodeCitationPart) {
 			return ChatResponseCodeCitationPart.from(part);
+		} else if (part instanceof types.LanguageModelDataPart) {
+			return ChatResponseDataPart.from(part);
 		} else if (part instanceof types.ChatResponseMovePart) {
 			return ChatResponseMovePart.from(part);
 		} else if (part instanceof types.ChatResponseExtensionsPart) {
