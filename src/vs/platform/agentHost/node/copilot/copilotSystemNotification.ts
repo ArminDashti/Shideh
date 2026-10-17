@@ -122,6 +122,17 @@ export function buildCopilotSystemNotification(event: SessionEventPayload<'syste
 							: localize('agentHost.copilot.systemNotification.workflowCompleted', "Workflow {0} completed", kind.workflowName),
 				startsTurn: true,
 			};
+		case 'factory_completed':
+			return {
+				messageText: kind.status === 'error'
+					? localize('agentHost.copilot.systemNotification.factoryFailed', "Factory {0} failed", kind.factoryName)
+					: kind.status === 'halted'
+						? localize('agentHost.copilot.systemNotification.factoryHalted', "Factory {0} was halted", kind.factoryName)
+						: kind.status === 'cancelled'
+							? localize('agentHost.copilot.systemNotification.factoryCancelled', "Factory {0} was cancelled", kind.factoryName)
+							: localize('agentHost.copilot.systemNotification.factoryCompleted', "Factory {0} completed", kind.factoryName),
+				startsTurn: true,
+			};
 		case 'new_inbox_message':
 			return {
 				messageText: localize('agentHost.copilot.systemNotification.newInboxMessage', "New inbox message from {0}", kind.senderName),
