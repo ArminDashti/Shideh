@@ -124,6 +124,7 @@ export class GlyphMarginWidgets extends ViewPart {
 
 	private _lineHeight: number;
 	private _glyphMargin: boolean;
+	private _glyphMarginDecorationsLimit: number;
 	private _glyphMarginLeft: number;
 	private _glyphMarginWidth: number;
 	private _glyphMarginDecorationLaneCount: number;
@@ -179,6 +180,7 @@ export class GlyphMarginWidgets extends ViewPart {
 
 		this._lineHeight = options.get(EditorOption.lineHeight);
 		this._glyphMargin = options.get(EditorOption.glyphMargin);
+		this._glyphMarginDecorationsLimit = options.get(EditorOption.glyphMarginDecorationsLimit);
 		this._glyphMarginLeft = layoutInfo.glyphMarginLeft;
 		this._glyphMarginWidth = layoutInfo.glyphMarginWidth;
 		this._glyphMarginDecorationLaneCount = layoutInfo.glyphMarginDecorationLaneCount;

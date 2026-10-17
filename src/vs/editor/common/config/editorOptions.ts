@@ -166,6 +166,11 @@ export interface IEditorOptions {
 	 */
 	glyphMargin?: boolean;
 	/**
+	 * The maximum number of decorations to render in the glyph margin.
+	 * Defaults to 1 in vscode.
+	 */
+	glyphMarginDecorationsLimit?: number;
+	/**
 	 * The width reserved for line decorations (in px).
 	 * Line decorations are placed between line numbers and the editor content.
 	 * You can pass in a string in the format floating point followed by "ch". e.g. 1.3ch.
@@ -1134,6 +1139,7 @@ export interface IEnvironmentalOptions {
 	readonly isDominatedByLongLines: boolean;
 	readonly viewLineCount: number;
 	readonly lineNumbersDigitCount: number;
+	readonly glyphMarginDecorationsCount: number;
 	readonly emptySelectionClipboard: boolean;
 	readonly pixelRatio: number;
 	readonly tabFocusMode: boolean;
@@ -2833,6 +2839,7 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
 			lineHeight: env.fontInfo.lineHeight,
 			viewLineCount: env.viewLineCount,
 			lineNumbersDigitCount: env.lineNumbersDigitCount,
+			glyphMarginDecorationsCount: env.glyphMarginDecorationsCount,
 			typicalHalfwidthCharacterWidth: env.fontInfo.typicalHalfwidthCharacterWidth,
 			maxDigitWidth: env.fontInfo.maxDigitWidth,
 			pixelRatio: env.pixelRatio,
@@ -6049,6 +6056,7 @@ export const enum EditorOption {
 	formatOnPaste,
 	formatOnType,
 	glyphMargin,
+	glyphMarginDecorationsLimit,
 	gotoLocation,
 	hideCursorInOverviewRuler,
 	hover,
@@ -7156,6 +7164,9 @@ export const EditorOptions = {
 	effectiveAllowVariableFonts: register(new EffectiveAllowVariableFonts()),
 	effectiveFullwidthCharacterWidth: register(new EffectiveFullwidthCharacterWidth())
 };
+
+// add experimental setting for multiple decoration rendering strategy
+// default: 1, all: -1, other numbers--render up to that point then show the overflow menu
 
 type EditorOptionsType = typeof EditorOptions;
 type FindEditorOptionsKeyById<T extends EditorOption> = { [K in keyof EditorOptionsType]: EditorOptionsType[K]['id'] extends T ? K : never }[keyof EditorOptionsType];

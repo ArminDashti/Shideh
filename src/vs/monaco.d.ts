@@ -2315,6 +2315,11 @@ declare namespace monaco.editor {
 		 */
 		getAllMarginDecorations(ownerId?: number): IModelDecoration[];
 		/**
+		 * Gets all decorations that render in the glyph margin as an array.
+		 * @param ownerId If set, it will ignore decorations belonging to other owners.
+		 */
+		getAllMarginDecorations(ownerId?: number): IModelDecoration[];
+		/**
 		 * Gets all the decorations that should be rendered in the overview ruler as an array.
 		 * @param ownerId If set, it will ignore decorations belonging to other owners.
 		 * @param filterOutValidation If set, it will ignore decorations specific to validation (i.e. warnings, errors).
@@ -3444,6 +3449,11 @@ declare namespace monaco.editor {
 		 * Defaults to true in vscode and to false in monaco-editor.
 		 */
 		glyphMargin?: boolean;
+		/**
+		 * The maximum number of decorations to render in the glyph margin.
+		 * Defaults to 1 in vscode.
+		 */
+		glyphMarginDecorationsLimit?: number;
 		/**
 		 * The width reserved for line decorations (in px).
 		 * Line decorations are placed between line numbers and the editor content.

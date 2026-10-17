@@ -117,8 +117,8 @@ suite('Decoration Render Options', () => {
 		function assertBackground(url1: string, url2: string) {
 			const actual = readStyleSheet(styleSheet);
 			assert(
-				actual.indexOf(`{background:url('${url1}') center center no-repeat;}`) > 0
-				|| actual.indexOf(`{background:url('${url2}') center center no-repeat;}`) > 0
+				actual.indexOf(`{background:url('${url1}') no-repeat;}`) > 0
+				|| actual.indexOf(`{background:url('${url2}') no-repeat;}`) > 0
 			);
 		}
 
