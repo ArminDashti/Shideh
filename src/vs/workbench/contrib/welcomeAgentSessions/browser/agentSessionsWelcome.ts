@@ -147,7 +147,7 @@ export class AgentSessionsWelcomePage extends EditorPane {
 	private _recentTrustedWorkspaces: Array<IRecentWorkspace | IRecentFolder> = [];
 	private _isEmptyWorkspace: boolean = false;
 	private _workspaceKind: AgentSessionsWelcomeWorkspaceKind = 'empty';
-
+	private _storedInput: AgentSessionsWelcomeInput | undefined;
 	// Telemetry tracking
 	private _openedAt: number = 0;
 	private _closedBy?: string;

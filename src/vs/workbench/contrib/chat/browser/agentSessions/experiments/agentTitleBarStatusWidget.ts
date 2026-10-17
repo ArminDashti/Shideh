@@ -148,6 +148,10 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 	// TODO: This is imperfect. Targetted fix for vscode#290863. We should revisit storing filter state per-window to avoid this
 	private _badgeFilterAppliedByThisWindow: 'unread' | 'inProgress' | 'needsInput' | null = null;
 
+	/** Tracks if this window applied a badge filter (unread/inProgress), so we only auto-clear our own filters */
+	// TODO: This is imperfect. Targetted fix for vscode#290863. We should revisit storing filter state per-window to avoid this
+	private _badgeFilterAppliedByThisWindow: 'unread' | 'inProgress' | null = null;
+
 	/** Reusable menu for CommandCenterCenter items (e.g., debug toolbar) */
 	private readonly _commandCenterMenu;
 
@@ -1233,6 +1237,8 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 					archived: true,
 					read: false
 				});
+				// Track that this window applied the badge filter
+				this._badgeFilterAppliedByThisWindow = 'inProgress';
 			}
 			this._badgeFilterAppliedByThisWindow = filterType;
 		}
