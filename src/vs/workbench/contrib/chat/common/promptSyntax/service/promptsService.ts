@@ -287,6 +287,13 @@ export enum Target {
 	Undefined = 'undefined',
 }
 
+export enum Target {
+	VSCode = 'vscode',
+	GitHubCopilot = 'github-copilot',
+	Claude = 'claude',
+	Undefined = 'undefined',
+}
+
 export interface ICustomAgent {
 
 	readonly id: string;

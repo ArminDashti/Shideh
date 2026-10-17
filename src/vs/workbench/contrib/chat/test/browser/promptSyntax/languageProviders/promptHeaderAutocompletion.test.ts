@@ -965,6 +965,155 @@ suite('PromptHeaderAutocompletion', () => {
 		});
 	});
 
+	suite('claude agent header completions', () => {
+		// Claude agents are identified by their URI being under .claude/agents/
+		const claudeAgentUri = URI.parse('test:///.claude/agents/security-reviewer.agent.md');
+
+		test('complete attribute names', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'|',
+				'---',
+				'You are a senior security engineer.',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			assert.deepStrictEqual(actual.sort(sortByLabel), [
+				{ label: 'disallowedTools', result: 'disallowedTools: $0' },
+				{ label: 'hooks', result: 'hooks: $0' },
+				{ label: 'mcpServers', result: 'mcpServers: $0' },
+				{ label: 'memory', result: 'memory: ${0:user}' },
+				{ label: 'model', result: 'model: ${0:sonnet}' },
+				{ label: 'permissionMode', result: 'permissionMode: ${0:default}' },
+				{ label: 'skills', result: 'skills: $0' },
+				{ label: 'tools', result: 'tools: $0' },
+			].sort(sortByLabel));
+		});
+
+		test('complete attribute names excludes already present ones', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'tools: Edit',
+				'|',
+				'---',
+				'You are a senior security engineer.',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			// 'tools' should not appear since it is already in the header
+			const labels = actual.map(a => a.label).sort();
+			assert.ok(!labels.includes('tools'), 'tools should not be suggested when already present');
+			assert.ok(!labels.includes('name'), 'name should not be suggested when already present');
+			assert.ok(!labels.includes('description'), 'description should not be suggested when already present');
+		});
+
+		test('complete model attribute value with claude enum values', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'model: |',
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			assert.deepStrictEqual(actual.sort(sortByLabel), [
+				{ label: 'haiku', result: 'model: haiku' },
+				{ label: 'inherit', result: 'model: inherit' },
+				{ label: 'opus', result: 'model: opus' },
+				{ label: 'sonnet', result: 'model: sonnet' },
+			].sort(sortByLabel));
+		});
+
+		test('complete tools with comma-separated values', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'tools: Edit, |',
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			const labels = actual.map(a => a.label).sort();
+			assert.deepStrictEqual(labels, [
+				'AskUserQuestion', 'Bash', 'Glob', 'Grep',
+				'LSP', 'MCPSearch', 'NotebookEdit', 'Read', 'Skill',
+				'Task', 'WebFetch', 'WebSearch', 'Write'
+			].sort());
+		});
+
+		test('complete tools inside array syntax', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'tools: [|]',
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			const labels = actual.map(a => a.label).sort();
+			assert.deepStrictEqual(labels, [
+				'AskUserQuestion', 'Bash', 'Edit', 'Glob', 'Grep',
+				'LSP', 'MCPSearch', 'NotebookEdit', 'Read', 'Skill',
+				'Task', 'WebFetch', 'WebSearch', 'Write'
+			].sort());
+			// Array items without quotes should use the name directly
+			assert.deepStrictEqual(actual.find(a => a.label === 'Edit')?.result, `tools: [Edit]`);
+		});
+
+		test('complete tools inside array with existing entries', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				`tools: [Edit, |]`,
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			assert.deepStrictEqual(actual.find(a => a.label === 'Read')?.result, `tools: [Edit, Read]`);
+			assert.deepStrictEqual(actual.find(a => a.label === 'Bash')?.result, `tools: [Edit, Bash]`);
+		});
+
+		test('complete disallowedTools with comma-separated values', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'disallowedTools: |',
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			const labels = actual.map(a => a.label).sort();
+			assert.deepStrictEqual(labels, [
+				'AskUserQuestion', 'Bash', 'Edit', 'Glob', 'Grep',
+				'LSP', 'MCPSearch', 'NotebookEdit', 'Read', 'Skill',
+				'Task', 'WebFetch', 'WebSearch', 'Write'
+			].sort());
+		});
+
+		test('complete disallowedTools inside array syntax', async () => {
+			const content = [
+				'---',
+				'name: security-reviewer',
+				'description: Reviews code for security vulnerabilities',
+				'disallowedTools: [Bash, |]',
+				'---',
+			].join('\n');
+
+			const actual = await getCompletions(content, PromptsType.agent, claudeAgentUri);
+			assert.deepStrictEqual(actual.find(a => a.label === 'Write')?.result, `disallowedTools: [Bash, Write]`);
+			assert.deepStrictEqual(actual.find(a => a.label === 'Edit')?.result, `disallowedTools: [Bash, Edit]`);
+		});
+	});
+
 	suite('prompt header completions', () => {
 		test('complete model attribute name', async () => {
 			const content = [

@@ -134,6 +134,9 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 	/** Hack to port data between prepare/invoke */
 	private readonly _resolvedModels = new Map<string, { modeModelId: string | undefined; resolvedModelName: string | undefined }>();
 
+	/** Hack to port data between prepare/invoke */
+	private readonly _resolvedModels = new Map<string, { modeModelId: string | undefined; resolvedModelName: string | undefined }>();
+
 	constructor(
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
 		@IChatService private readonly chatService: IChatService,
@@ -308,6 +311,16 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 					modeModelId = resolved.modeModelId;
 					resolvedModelName = resolved.resolvedModelName;
 					modelSelectionSource = resolved.selectionSource;
+				}
+			} else {
+				// No subagent name - clean up any cached entry and resolve model name from main model
+				const cached = this._resolvedModels.get(invocation.callId);
+				if (cached) {
+					this._resolvedModels.delete(invocation.callId);
+					resolvedModelName = cached.resolvedModelName;
+				} else {
+					const resolvedModelMetadata = modeModelId ? this.languageModelsService.lookupLanguageModel(modeModelId) : undefined;
+					resolvedModelName = resolvedModelMetadata?.name;
 				}
 			}
 
@@ -719,6 +732,44 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 			this.logService.warn('RunSubagentTool: Failed to resolve the Auto model, keeping the main model', error);
 			return undefined;
 		}
+	}
+
+	/**
+	 * Resolves the model to be used by a subagent, applying multiplier-based
+	 * fallback to avoid using a more expensive model than the main agent.
+	 */
+	private resolveSubagentModel(subagent: ICustomAgent | undefined, mainModelId: string | undefined): { modeModelId: string | undefined; resolvedModelName: string | undefined } {
+		let modeModelId = mainModelId;
+
+		if (subagent) {
+			const modeModelQualifiedNames = subagent.model;
+			if (modeModelQualifiedNames) {
+				// Find the actual model identifier from the qualified name(s)
+				outer: for (const qualifiedName of modeModelQualifiedNames) {
+					const lmByQualifiedName = this.languageModelsService.lookupLanguageModelByQualifiedName(qualifiedName);
+					if (lmByQualifiedName?.identifier) {
+						modeModelId = lmByQualifiedName.identifier;
+						break outer;
+					}
+				}
+			}
+
+			// If the subagent's model has a larger multiplier than the main agent's model,
+			// fall back to the main agent's model to avoid using a more expensive model.
+			if (modeModelId && modeModelId !== mainModelId) {
+				const mainModelMetadata = mainModelId ? this.languageModelsService.lookupLanguageModel(mainModelId) : undefined;
+				const subagentModelMetadata = this.languageModelsService.lookupLanguageModel(modeModelId);
+				const mainMultiplier = mainModelMetadata?.multiplierNumeric;
+				const subagentMultiplier = subagentModelMetadata?.multiplierNumeric;
+				if (mainMultiplier !== undefined && subagentMultiplier !== undefined && subagentMultiplier > mainMultiplier) {
+					this.logService.warn(`[RunSubagentTool] Subagent '${subagent.name}' requested model '${subagentModelMetadata?.name}' (multiplier: ${subagentMultiplier}) which has a larger multiplier than the main agent model '${mainModelMetadata?.name}' (multiplier: ${mainMultiplier}). Falling back to the main agent model.`);
+					modeModelId = mainModelId;
+				}
+			}
+		}
+
+		const resolvedModelMetadata = modeModelId ? this.languageModelsService.lookupLanguageModel(modeModelId) : undefined;
+		return { modeModelId, resolvedModelName: resolvedModelMetadata?.name };
 	}
 
 	async prepareToolInvocation(context: IToolInvocationPreparationContext, _token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {

@@ -925,6 +925,15 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			this._focusContainerAndAnnounce();
 		}
 
+		// Update aria-label to reflect the current question
+		this._updateAriaLabel();
+
+		// In screen reader mode, focus the container and announce the question
+		// This must happen after all render calls to avoid focus being stolen
+		if (focusContainerForScreenReader && this._accessibilityService.isScreenReaderOptimized()) {
+			this._focusContainerAndAnnounce();
+		}
+
 		this._onDidChangeHeight.fire();
 	}
 
@@ -1546,7 +1555,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		}
 
 		// Focus on the appropriate row when rendered or textarea if it has content
-		if (this._options.shouldAutoFocus !== false) {
+		if (this._shouldAutoFocus()) {
 			if (previousFreeform) {
 				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => {
 					freeformTextarea.focus();

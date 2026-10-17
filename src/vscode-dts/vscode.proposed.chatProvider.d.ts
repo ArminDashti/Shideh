@@ -135,6 +135,11 @@ declare module 'vscode' {
 		readonly isBYOK?: boolean;
 
 		/**
+		 * A numeric form of the `multiplier` label
+		 */
+		readonly multiplierNumeric?: number;
+
+		/**
 		 * Whether or not this will be selected by default in the model picker
 		 * NOT BEING FINALIZED
 		 */

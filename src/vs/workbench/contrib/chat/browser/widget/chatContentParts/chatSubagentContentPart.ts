@@ -44,6 +44,7 @@ import { getToolInvocationIcon } from './toolInvocationParts/chatToolPartUtiliti
 import { FusionPhasePillActionViewItem, type ISubagentPhaseContext } from './fusionPhasePillActionViewItem.js';
 import { IInlineSubagentDetailsContext, OpenSubagentChatActionViewItem } from './chatSubagentOpenChat.js';
 import './media/chatSubagentContent.css';
+import { ChatToolInvocationPart } from './toolInvocationParts/chatToolInvocationPart.js';
 
 const MAX_TITLE_LENGTH = 100;
 const GENERIC_SUBAGENT_TYPES: ReadonlySet<string> = new Set(['default', 'general-purpose', 'task']);
@@ -157,6 +158,10 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 	private readonly _subagentToolInvocation: IChatToolInvocation | IChatToolInvocationSerialized;
 	private _openChatToolbar: WorkbenchToolBar | undefined;
 	private readonly _openChatActionViewRegistration = this._register(new MutableDisposable());
+
+	// Model name used by this subagent for hover tooltip
+	private modelName: string | undefined;
+	private readonly _hoverDisposable = this._register(new MutableDisposable());
 
 	// Model name used by this subagent for hover tooltip
 	private modelName: string | undefined;
@@ -826,6 +831,16 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 			.filter((candidate): candidate is string => !!candidate)
 			.map(candidate => candidate.toLocaleLowerCase());
 		return genericLabels.includes(normalizedLabel) ? undefined : label;
+	}
+
+	private updateHover(): void {
+		if (!this.modelName || !this._collapseButton) {
+			return;
+		}
+
+		this._hoverDisposable.value = this.hoverService.setupDelayedHover(this._collapseButton.element, {
+			content: localize('chat.subagent.modelTooltip', 'Model: {0}', this.modelName),
+		});
 	}
 
 	private updateHover(): void {

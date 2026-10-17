@@ -482,6 +482,76 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		return undefined;
 	}
 
+	/**
+	 * Validate updatedInput from a preToolUse hook against the tool's input schema
+	 * using the json.validate command from the JSON extension.
+	 * @returns An error message string if validation fails, or undefined if valid.
+	 */
+	private async _validateUpdatedInput(toolId: string, toolData: IToolData | undefined, updatedInput: object): Promise<string | undefined> {
+		if (!toolData?.inputSchema) {
+			return undefined;
+		}
+
+		type JsonDiagnostic = {
+			message: string;
+			range: { line: number; character: number }[];
+			severity: string;
+			code?: string | number;
+		};
+
+		try {
+			const schemaUri = createToolSchemaUri(toolId);
+			const inputJson = JSON.stringify(updatedInput);
+			const diagnostics = await this._commandService.executeCommand<JsonDiagnostic[]>('json.validate', schemaUri, inputJson) || [];
+			if (diagnostics.length > 0) {
+				return diagnostics.map(d => d.message).join('; ');
+			}
+		} catch (e) {
+			// json extension may not be available; skip validation
+			this._logService.debug(`[LanguageModelToolsService#_validateUpdatedInput] json.validate command failed, skipping validation: ${toErrorMessage(e)}`);
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Execute the postToolUse hook after tool completion.
+	 * If the hook returns a "block" decision, additional context is appended to the tool result
+	 * as feedback for the agent indicating the block and reason. The tool has already run,
+	 * so blocking only provides feedback.
+	 */
+	private async _executePostToolUseHook(
+		dto: IToolInvocation,
+		toolResult: IToolResult,
+		token: CancellationToken
+	): Promise<void> {
+		if (!dto.context?.sessionResource) {
+			return;
+		}
+
+		const hookInput: IPostToolUseCallerInput = {
+			toolName: dto.toolId,
+			toolInput: dto.parameters,
+			getToolResponseText: () => toolContentToA11yString(toolResult.content),
+			toolCallId: dto.callId,
+		};
+		const hookResult = await this._hooksExecutionService.executePostToolUseHook(dto.context.sessionResource, hookInput, token);
+
+		if (hookResult?.decision === 'block') {
+			const hookReason = hookResult.reason ?? localize('postToolUseHookBlockedNoReason', "Hook blocked tool result");
+			this._logService.debug(`[LanguageModelToolsService#invokeTool] PostToolUse hook blocked for tool ${dto.toolId}: ${hookReason}`);
+			const blockMessage = localize('postToolUseHookBlockedContext', "The PostToolUse hook blocked this tool result. Reason: {0}", hookReason);
+			toolResult.content.push({ kind: 'text', value: '\n<PostToolUse-context>\n' + blockMessage + '\n</PostToolUse-context>' });
+		}
+
+		if (hookResult?.additionalContext) {
+			// Append additional context from all hooks to the tool result content
+			for (const context of hookResult.additionalContext) {
+				toolResult.content.push({ kind: 'text', value: '\n<PostToolUse-context>\n' + context + '\n</PostToolUse-context>' });
+			}
+		}
+	}
+
 	async invokeTool(dto: IToolInvocation, countTokens: CountTokensCallback, token: CancellationToken): Promise<IToolResult> {
 		this._logService.trace(`[LanguageModelToolsService#invokeTool] Invoking tool ${dto.toolId} with parameters ${JSON.stringify(dto.parameters)}`);
 
@@ -546,6 +616,17 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				this._pendingToolCalls.delete(pendingToolCallKey);
 			}
 			return denialResult;
+		}
+
+		// Apply updatedInput from preToolUse hook if provided, after validating against the tool's input schema
+		if (preToolUseHookResult?.updatedInput) {
+			const validationError = await this._validateUpdatedInput(dto.toolId, toolData, preToolUseHookResult.updatedInput);
+			if (validationError) {
+				this._logService.warn(`[LanguageModelToolsService#invokeTool] Tool ${dto.toolId} updatedInput from preToolUse hook failed schema validation: ${validationError}`);
+			} else {
+				this._logService.debug(`[LanguageModelToolsService#invokeTool] Tool ${dto.toolId} input modified by preToolUse hook`);
+				dto.parameters = preToolUseHookResult.updatedInput;
+			}
 		}
 
 		// Apply updatedInput from preToolUse hook if provided, after validating against the tool's input schema
@@ -701,6 +782,10 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 						dto.selectedCustomButton = userConfirmed.selectedButton;
 					}
 
+					if (userConfirmed.type === ToolConfirmKind.UserAction && userConfirmed.selectedButton) {
+						dto.selectedCustomButton = userConfirmed.selectedButton;
+					}
+
 					if (dto.toolSpecificData?.kind === 'input') {
 						dto.parameters = dto.toolSpecificData.rawInput;
 						dto.toolSpecificData = undefined;
@@ -775,6 +860,9 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 					};
 				}
 			}
+
+			// Execute postToolUse hook after successful tool execution
+			await this._executePostToolUseHook(dto, toolResult, token);
 
 			this._telemetryService.publicLog2<LanguageModelToolInvokedEvent, LanguageModelToolInvokedClassification>(
 				'languageModelToolInvoked',

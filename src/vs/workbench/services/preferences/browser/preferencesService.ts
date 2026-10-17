@@ -275,7 +275,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 			...options,
 			focusSearch: true
 		};
-		const group = this.getEditorGroupFromOptions(options);
+		const group = this.getEditorGroupFromOptions(false, options);
 		return this.editorService.openEditor(input, validateSettingsEditorOptions(options), group);
 	}
 
@@ -407,7 +407,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 	}
 
 	private async openSettingsJson(resource: URI, options: IOpenSettingsOptions): Promise<IEditorPane | undefined> {
-		const group = this.getEditorGroupFromOptions(options);
+		const group = this.getEditorGroupFromOptions(true, options);
 		const editor = await this.doOpenSettingsJson(resource, options, group);
 		if (editor && options?.revealSetting) {
 			await this.revealSetting(options.revealSetting.key, !!options.revealSetting.edit, editor, resource);

@@ -8,6 +8,7 @@ import { Barrier } from '../../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
 import { CancellationError, isCancellationError } from '../../../../../../base/common/errors.js';
+import { Event } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { IAccessibilityService } from '../../../../../../platform/accessibility/common/accessibility.js';
@@ -121,6 +122,10 @@ class TestChatToolRiskAssessmentService implements IChatToolRiskAssessmentServic
 			throw this.assessError;
 		}
 		return this.assessment;
+	}
+	async executePostToolUseHook(_sessionResource: URI, input: IPostToolUseCallerInput, _token?: CancellationToken): Promise<IPostToolUseHookResult | undefined> {
+		this.lastPostToolUseInput = input;
+		return this.postToolUseHookResult;
 	}
 }
 

@@ -492,6 +492,31 @@ declare module 'vscode' {
 		constructor(value: string | string[], id?: string, metadata?: { readonly [key: string]: any }, task?: (progress: Progress<LanguageModelThinkingPart>) => Thenable<string | void>);
 	}
 
+	/**
+	 * A progress part representing the execution result of a hook.
+	 * Hooks are user-configured scripts that run at specific points during chat processing.
+	 * If {@link stopReason} is set, the hook blocked/denied the operation.
+	 */
+	export class ChatResponseHookPart {
+		/** The type of hook that was executed */
+		hookType: ChatHookType;
+		/** If set, the hook blocked processing. This message is shown to the user. */
+		stopReason?: string;
+		/** Warning/system message from the hook, shown to the user */
+		systemMessage?: string;
+		/** Optional metadata associated with the hook execution */
+		metadata?: { readonly [key: string]: unknown };
+
+		/**
+		 * Creates a new hook progress part.
+		 * @param hookType The type of hook that was executed
+		 * @param stopReason Message shown when processing was stopped
+		 * @param systemMessage Warning/system message from the hook
+		 * @param metadata Optional metadata
+		 */
+		constructor(hookType: ChatHookType, stopReason?: string, systemMessage?: string, metadata?: { readonly [key: string]: unknown });
+	}
+
 	export class ChatResponseReferencePart2 {
 		/**
 		 * The reference target.
@@ -603,6 +628,14 @@ declare module 'vscode' {
 		progress(value: string, task?: (progress: Progress<ChatResponseWarningPart | ChatResponseReferencePart>) => Thenable<string | void>): void;
 
 		thinkingProgress(thinkingDelta: ThinkingDelta): void;
+
+		/**
+		 * Push a hook execution result to this stream.
+		 * @param hookType The type of hook that was executed
+		 * @param stopReason If set, the hook blocked processing. This message is shown to the user.
+		 * @param systemMessage Warning/system message from the hook
+		 */
+		hookProgress(hookType: ChatHookType, stopReason?: string, systemMessage?: string): void;
 
 		textEdit(target: Uri, edits: TextEdit | TextEdit[]): void;
 

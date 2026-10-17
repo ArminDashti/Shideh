@@ -960,7 +960,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 			this._webglContextLossListener.value = this._webglAddon.onContextLoss(() => {
 				this._logService.info(`Webgl lost context, disposing of webgl renderer`);
 				this._disposeOfWebglRenderer();
-			});
+			}));
 			this._refreshImageAddon();
 			// WebGL renderer cell dimensions differ from the DOM renderer, make sure the terminal
 			// gets resized after the webgl addon is loaded

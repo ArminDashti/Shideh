@@ -11,6 +11,8 @@ import { compareIgnoreCase } from '../../../../../../base/common/strings.js';
 
 const { basename, dirname } = posix;
 
+const { basename, dirname } = posix;
+
 /**
  * File extension for the reusable prompt files.
  */

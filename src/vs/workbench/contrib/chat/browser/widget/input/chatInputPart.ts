@@ -5155,6 +5155,20 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._onDidChangeActiveConfirmationSubagent.fire(carousel?.activeSubAgentInvocationId);
 	}
 
+	focusQuestionCarousel(): boolean {
+		const carousel = this._chatQuestionCarouselWidget.value;
+		if (carousel) {
+			carousel.focus();
+			return true;
+		}
+		return false;
+	}
+
+	isQuestionCarouselFocused(): boolean {
+		const carousel = this._chatQuestionCarouselWidget.value;
+		return carousel?.hasFocus() ?? false;
+	}
+
 	setWorkingSetCollapsed(collapsed: boolean): void {
 		this._workingSetCollapsed.set(collapsed, undefined);
 	}

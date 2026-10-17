@@ -120,6 +120,15 @@ const MODAL_EDITOR_CUSTOM_SIZE_KEY = 'modalEditorPart.customSize';
 const MIN_MODAL_WIDTH = 400;
 const MIN_MODAL_HEIGHT = 300;
 
+const defaultModalEditorAllowableCommands = new Set([
+	'workbench.action.quit',
+	'workbench.action.reloadWindow',
+	'workbench.action.closeActiveEditor',
+	'workbench.action.closeAllEditors',
+	'workbench.action.files.save',
+	'workbench.action.files.saveAll',
+]);
+
 export interface ICreateModalEditorPartResult {
 	readonly part: ModalEditorPartImpl;
 	readonly instantiationService: IInstantiationService;

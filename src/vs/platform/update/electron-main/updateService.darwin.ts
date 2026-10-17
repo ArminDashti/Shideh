@@ -210,6 +210,13 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		electron.autoUpdater.checkForUpdates();
 	}
 
+	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
+		// Rebuild feed URL and trigger download via Electron's auto-updater
+		this.buildUpdateFeedUrl(this.quality!, state.update.version);
+		this.setState(State.CheckingForUpdates(true));
+		electron.autoUpdater.checkForUpdates();
+	}
+
 	protected override doQuitAndInstall(): void {
 		this.logService.info('update#quitAndInstall(): running raw#quitAndInstall()');
 		electron.autoUpdater.quitAndInstall();

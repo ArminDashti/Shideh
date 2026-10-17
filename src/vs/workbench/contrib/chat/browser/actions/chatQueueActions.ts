@@ -46,6 +46,12 @@ const effectiveDefaultIsSteer = ContextKeyExpr.or(
 	editingSteer
 );
 
+const queuingActionsPresent = ContextKeyExpr.and(
+	queueingEnabledCondition,
+	ContextKeyExpr.or(requestInProgressOrPendingToolCall, ChatContextKeys.editingRequestType.isEqualTo(ChatContextKeys.EditingRequestType.QueueOrSteer)),
+	ChatContextKeys.editingRequestType.notEqualsTo(ChatContextKeys.EditingRequestType.Sent),
+);
+
 export interface IChatRemovePendingRequestContext {
 	sessionResource: URI;
 	pendingRequestId: string;
@@ -86,7 +92,7 @@ export class ChatQueueMessageAction extends Action2 {
 					queuingActionsPresent,
 					effectiveDefaultIsQueue,
 				),
-				primary: KeyCode.Enter,
+				primary: KeyMod.Alt | KeyCode.Enter,
 				weight: KeybindingWeight.EditorContrib + 1
 			}],
 		});
@@ -139,7 +145,7 @@ export class ChatSteerWithMessageAction extends Action2 {
 					ChatContextKeys.inChatInput,
 					effectiveDefaultIsQueue,
 				),
-				primary: KeyMod.Alt | KeyCode.Enter,
+				primary: KeyCode.Enter,
 				weight: KeybindingWeight.EditorContrib + 1
 			}],
 		});

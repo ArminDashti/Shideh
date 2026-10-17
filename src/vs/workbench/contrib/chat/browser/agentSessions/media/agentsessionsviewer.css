@@ -39,6 +39,14 @@
 		}
 	}
 
+	.monaco-scrollable-element {
+		padding: 0 6px;
+	}
+
+	.monaco-list-row {
+		border-radius: 6px;
+	}
+
 	.monaco-list-row .force-no-twistie {
 		display: none !important;
 	}
@@ -74,7 +82,9 @@
 				color: unset;
 			}
 		}
+	}
 
+	.monaco-list:focus .monaco-list-row.selected .agent-session-details-row {
 		.agent-session-diff-container {
 			background-color: unset;
 			outline: 1px solid var(--vscode-foreground);
@@ -82,7 +92,7 @@
 			.agent-session-diff-files,
 			.agent-session-diff-added,
 			.agent-session-diff-removed {
-				color: unset;
+					color: unset;
 			}
 		}
 	}

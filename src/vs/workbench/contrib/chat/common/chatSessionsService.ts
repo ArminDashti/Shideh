@@ -1026,9 +1026,9 @@ export interface IChatSessionsService {
 
 	/**
 	 * Get the customAgentTarget for a specific session type.
-	 * When set, the mode picker should show filtered custom agents matching this target.
+	 * When the Target is not `Target.Undefined`, the mode picker should show filtered custom agents matching this target.
 	 */
-	getCustomAgentTargetForSessionType(chatSessionType: string): string | undefined;
+	getCustomAgentTargetForSessionType(chatSessionType: string): Target;
 
 	onDidChangeOptionGroups: Event<string>;
 
