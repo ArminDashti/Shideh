@@ -11,7 +11,12 @@ import { IMenu, IMenuService, MenuId, MenuItemAction } from '../../../../../plat
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { derived, IObservable, observableValue } from '../../../../../base/common/observable.js';
+import { localize2 } from '../../../../../nls.js';
+import { IMenu, IMenuService, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { DEFAULT_EDITOR_PART_OPTIONS } from '../../../../browser/parts/editor/editor.js';
+import { IEditorPartOptions } from '../../../../common/editor.js';
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 // eslint-disable-next-line local/code-import-patterns
 import { ChatInteractivity, ChatOriginKind, IChat, ISessionCapabilities, SessionStatus } from '../../../../../sessions/services/sessions/common/session.js';
@@ -40,6 +45,33 @@ import '../../../../../sessions/browser/media/workbench.css';
 import '../../../../../sessions/browser/parts/media/sessionsPart.css';
 // eslint-disable-next-line local/code-import-patterns
 import '../../../../../sessions/browser/parts/media/chatGroupsView.css';
+
+const closeChatAction = {
+	id: CLOSE_CHAT_COMMAND_ID,
+	title: localize2('sessions.fixture.closeChat', "Close Chat"),
+	icon: Codicon.close,
+};
+
+class ChatTabFixtureMenuService extends mock<IMenuService>() {
+
+	constructor(
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@ICommandService private readonly commandService: ICommandService,
+	) {
+		super();
+	}
+
+	override createMenu(id: typeof Menus.SessionChatTab): IMenu {
+		const actions = id === Menus.SessionChatTab
+			? [new MenuItemAction(closeChatAction, undefined, undefined, undefined, undefined, this.contextKeyService, this.commandService)]
+			: [];
+		return {
+			onDidChange: Event.None,
+			dispose: () => { },
+			getActions: () => actions.length ? [['navigation', actions]] : [],
+		};
+	}
+}
 
 // ============================================================================
 // Mock helpers
@@ -208,6 +240,12 @@ async function renderStickyMessageFrame(ctx: ComponentFixtureContext, width: num
 	throw new Error('Expected the request to stick above the scrolled response');
 }
 
+function renderTabActionSettings(ctx: ComponentFixtureContext, tabActionLocation: IEditorPartOptions['tabActionLocation'], tabActionReserveSpace: boolean): void {
+	const main = createMockChat({ title: 'Main chat' });
+	const second = createMockChat({ title: 'Investigate notebook integration test' });
+	renderBar(ctx, [main, second], second, false, 'Session', { tabActionLocation, tabActionReserveSpace }, true, !tabActionReserveSpace);
+}
+
 // ============================================================================
 // Fixtures
 // ============================================================================
@@ -242,6 +280,26 @@ export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 			const second = createMockChat({ title: 'Fix login bug' });
 			renderBar(ctx, [main, second], second);
 		},
+	}),
+
+	TabActionsRightReserved: defineComponentFixture({
+		render: ctx => renderTabActionSettings(ctx, 'right', true),
+		expectedVisualDescriptions: ['The close action appears on the right in a persistent reserved column.'],
+	}),
+
+	TabActionsRightOverlay: defineComponentFixture({
+		render: ctx => renderTabActionSettings(ctx, 'right', false),
+		expectedVisualDescriptions: ['The focused close action overlays the right edge without reserving label space.'],
+	}),
+
+	TabActionsLeftReserved: defineComponentFixture({
+		render: ctx => renderTabActionSettings(ctx, 'left', true),
+		expectedVisualDescriptions: ['The close action appears on the left in a persistent reserved column.'],
+	}),
+
+	TabActionsLeftOverlay: defineComponentFixture({
+		render: ctx => renderTabActionSettings(ctx, 'left', false),
+		expectedVisualDescriptions: ['The focused close action overlays the left edge without reserving label space.'],
 	}),
 
 	MixedStatuses: defineComponentFixture({

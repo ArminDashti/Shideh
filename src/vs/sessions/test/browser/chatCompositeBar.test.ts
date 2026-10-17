@@ -117,6 +117,10 @@ class TestEditorGroupsService extends mock<IEditorGroupsService>() {
 		this._onDidChangeEditorPartOptions.fire({ oldPartOptions, newPartOptions: this._partOptions });
 	}
 
+	setTabHeight(tabHeight: IEditorPartOptions['tabHeight']): void {
+		this.setPartOptions({ tabHeight });
+	}
+
 	dispose(): void {
 		this._onDidChangeEditorPartOptions.dispose();
 	}
@@ -170,6 +174,7 @@ interface IChatCompositeBarHarness {
 	readonly activeChatResource: ISettableObservable<string>;
 	readonly visible: ISettableObservable<boolean>;
 	readonly showSessionActions: ISettableObservable<boolean>;
+	setTabActionVisible(visible: boolean): void;
 }
 
 function createHarness(disposables: Pick<DisposableStore, 'add'>, options?: { readonly isAgentHost?: boolean; readonly isQuickChat?: boolean; readonly resizeObserverCtor?: typeof ResizeObserver; readonly secondaryArchived?: boolean; readonly secondaryCanArchive?: boolean }): IChatCompositeBarHarness {
@@ -237,6 +242,10 @@ function createHarness(disposables: Pick<DisposableStore, 'add'>, options?: { re
 	const container = mainWindow.document.createElement('div');
 	container.appendChild(bar.element);
 	const tabs = Array.from(bar.element.querySelectorAll<HTMLElement>('.chat-composite-bar-tab'));
+	const setTabActionVisible = (visible: boolean) => {
+		tabActionVisible = visible;
+		menuChanged.fire({ menu, isStructuralChange: true, isToggleChange: false, isEnablementChange: false });
+	};
 
 	return { store, instantiationService, commandService, contextMenuService, sessionsService, editorGroupsService, bar, container, session, tabs, chats, activeChatResource, visible, showSessionActions };
 }

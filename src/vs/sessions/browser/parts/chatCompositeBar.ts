@@ -236,6 +236,11 @@ export class ChatCompositeBar extends Disposable {
 			this._revealActiveTab();
 		}));
 		this._register(resizeObserver.observe(this._tabsContainer));
+		this._register(this._editorGroupsService.onDidChangeEditorPartOptions(() => {
+			updateEditorTabOptions();
+			this._updateScrollDimensions();
+			this._revealActiveTab();
+		}));
 
 		// Report actual height changes without forcing measurement on every layout.
 		const heightObserver = this._register(new DisposableResizeObserver('ChatCompositeBar.height', entries => {
