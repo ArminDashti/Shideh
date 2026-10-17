@@ -301,6 +301,10 @@ export class SessionsParts extends Disposable implements ISessionsPartService {
 	showAutomationsPage(): void {
 		this._mainPart.showAutomationsPage();
 	}
+
+	showAutomationsPage(): void {
+		this._mainPart.showAutomationsPage();
+	}
 }
 
 registerSingleton(ISessionsPartService, SessionsParts, InstantiationType.Eager);
