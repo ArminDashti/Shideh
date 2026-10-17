@@ -1,3 +1,4 @@
+sdfsdfsdf
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -14,7 +15,6 @@ import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../
 import { Schemas } from '../../../../base/common/network.js';
 import { isMacintosh, isWeb } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IKeyMods } from '../../../../platform/quickinput/common/quickInput.js';
 import * as nls from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -244,7 +244,7 @@ export class TerminalService extends Disposable implements ITerminalService {
 		if (isString(result)) {
 			return;
 		}
-		const keyMods: IKeyMods | undefined = result.keyMods;
+		const keyMods = result.keyMods;
 		if (type === 'createInstance') {
 			const activeInstance = this.getDefaultInstanceHost().activeInstance;
 			const defaultLocation = this._terminalConfigurationService.defaultLocation;
