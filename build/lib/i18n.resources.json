@@ -725,6 +725,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/configuration",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/codeReview",
 			"project": "vscode-sessions"
 		},

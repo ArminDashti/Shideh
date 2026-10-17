@@ -700,6 +700,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 
 		// Configuration changes
 		this._register(configurationService.onDidChangeConfiguration(e => this.updateFontAliasing(e, configurationService)));
+		this._register(configurationService.onDidChangeConfiguration(e => this.updateShellGradientBackground(e, configurationService)));
 
 		// Font Info
 		if (isNative) {
@@ -945,6 +946,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 
 		// Apply font aliasing
 		this.updateFontAliasing(undefined, configurationService);
+		this.updateShellGradientBackground(undefined, configurationService);
 
 		// Warm up font cache information before building up too many dom elements
 		this.restoreFontInfo(storageService, configurationService);

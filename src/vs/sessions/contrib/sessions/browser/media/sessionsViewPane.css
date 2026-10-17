@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.agent-sessions-viewpane {
+.agent-sessions-workbench.experimental-shell-gradient-background .agent-sessions-viewpane {
+	background: transparent !important;
 
 	.agent-sessions-container {
 		display: flex;
@@ -366,6 +367,13 @@
 .agent-sessions-workbench.shell-gradient-background .part.sidebar > .content .monaco-scrollable-element,
 .agent-sessions-workbench.shell-gradient-background .part.sidebar > .content .monaco-list,
 .agent-sessions-workbench.shell-gradient-background .part.sidebar > .content .monaco-list-rows {
+	background: transparent !important;
+}
+
+.agent-sessions-workbench.experimental-shell-gradient-background .part.sidebar > .content .pane-body,
+.agent-sessions-workbench.experimental-shell-gradient-background .part.sidebar > .content .monaco-scrollable-element,
+.agent-sessions-workbench.experimental-shell-gradient-background .part.sidebar > .content .monaco-list,
+.agent-sessions-workbench.experimental-shell-gradient-background .part.sidebar > .content .monaco-list-rows {
 	background: transparent !important;
 }
 
