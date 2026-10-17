@@ -474,6 +474,11 @@ export function isModelOptionGroup(group: IChatSessionProviderOptionGroup): bool
 	return nameLower === 'model' || nameLower === 'models';
 }
 
+/**
+ * The option ID used for selecting the agent in chat sessions.
+ */
+export const AgentOptionId = 'agent';
+
 export interface IChatSession extends IDisposable {
 	readonly onWillDispose: Event<void>;
 
@@ -1018,6 +1023,13 @@ export interface IChatSessionsService {
 	 * Get the capabilities for a specific session type
 	 */
 	getCapabilitiesForSessionType(chatSessionType: string): IChatAgentAttachmentCapabilities | undefined;
+
+	/**
+	 * Get the customAgentTarget for a specific session type.
+	 * When set, the mode picker should show filtered custom agents matching this target.
+	 */
+	getCustomAgentTargetForSessionType(chatSessionType: string): string | undefined;
+
 	onDidChangeOptionGroups: Event<string>;
 
 	/**

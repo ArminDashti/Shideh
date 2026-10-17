@@ -1385,6 +1385,20 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.switchModelByQualifiedName(models);
 			}
 		}));
+		this._register(autorun(r => {
+			const mode = this._currentModeObservable.read(r);
+			const modeName = mode.name.read(r);
+			const sessionResource = this._widget?.viewModel?.model.sessionResource;
+			if (sessionResource) {
+				const ctx = this.chatService.getChatSessionFromInternalUri(sessionResource);
+				if (ctx) {
+					this.chatSessionsService.notifySessionOptionsChange(
+						ctx.chatSessionResource,
+						[{ optionId: AgentOptionId, value: mode.isBuiltin ? '' : modeName }]
+					).catch(err => this.logService.error('Failed to notify extension of agent change:', err));
+				}
+			}
+		}));
 
 		this.registerChatModeValidation();
 	}
