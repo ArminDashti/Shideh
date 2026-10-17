@@ -11,6 +11,8 @@ import { AnchorAlignment } from '../../../../base/common/layout.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { IActionViewItemService } from '../../../../platform/actions/browser/actionViewItemService.js';
 import { Action2, IMenuItem, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -39,6 +41,23 @@ const UPDATE_TITLE_BAR_SETTING = 'update.titleBar';
 
 const ACTIONABLE_STATES: readonly StateType[] = [StateType.AvailableForDownload, StateType.Downloaded, StateType.Ready];
 const DETAILED_STATES: readonly StateType[] = [...ACTIONABLE_STATES, StateType.CheckingForUpdates, StateType.Downloading, StateType.Updating, StateType.Overwriting, StateType.Cancelling];
+
+type UpdateIndicatorExperimentAction = 'exposure' | 'click';
+type UpdateIndicatorExperimentTelemetryEvent = {
+	action: UpdateIndicatorExperimentAction;
+	variant: UpdateIndicatorVariant;
+	state: StateType;
+	commandId?: string;
+};
+
+type UpdateIndicatorExperimentTelemetryClassification = {
+	owner: 'sbatten';
+	comment: 'Tracks exposure and engagement for the update indicator icon button experiment';
+	action: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the event is an exposure or click' };
+	variant: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Update indicator rendering variant' };
+	state: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Update service state when telemetry fired' };
+	commandId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Update command executed from the title bar' };
+};
 
 /**
  * Optional secondary placement for the update indicator (e.g. used by the Agents
@@ -247,6 +266,7 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		@IHoverService private readonly hoverService: IHoverService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@IUpdateService private readonly updateService: IUpdateService,
+		@IWorkbenchAssignmentService private readonly assignmentService: IWorkbenchAssignmentService,
 	) {
 		super(undefined, action, options);
 
@@ -333,6 +353,7 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		}
 
 		this.telemetryService.publicLog2<WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification>('workbenchActionExecuted', { id: commandId, from: 'titlebar' });
+		this.logExperimentTelemetry('click', this.updateService.state.type, commandId);
 		await this.commandService.executeCommand(commandId);
 	}
 
@@ -348,7 +369,13 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		this.content.classList.remove('prominent', 'progress-indefinite', 'progress-percent', 'update-disabled', 'hint-visible');
 		this.content.style.removeProperty('--update-progress');
 
+		if (!this.loggedExposureVariants.has(this.updateIndicatorVariant) && ACTIONABLE_STATES.includes(state.type)) {
+			this.logExperimentTelemetry('exposure', state.type);
+			this.loggedExposureVariants.add(this.updateIndicatorVariant);
+		}
+
 		const label = dom.append(this.content, dom.$('.indicator-label'));
+		let isIconOnly = false;
 		switch (state.type) {
 			case StateType.Disabled:
 				label.textContent = localize('updateIndicator.update', "Update");
@@ -368,7 +395,13 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 			case StateType.AvailableForDownload:
 			case StateType.Downloaded:
 			case StateType.Ready:
-				label.textContent = localize('updateIndicator.update', "Update");
+				if (shouldRenderIconUpdateIndicator(this.updateIndicatorVariant, state.type)) {
+					label.classList.add(...ThemeIcon.asClassNameArray(Codicon.cloudDownload));
+					this.content.classList.add('icon-only');
+					isIconOnly = true;
+				} else {
+					label.textContent = localize('updateIndicator.update', "Update");
+				}
 				this.content.classList.add('prominent');
 				break;
 
@@ -450,5 +483,27 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		} else {
 			content.classList.add('progress-indefinite');
 		}
+	}
+
+	private async resolveExperimentVariant(): Promise<void> {
+		try {
+			const treatment = await this.assignmentService.getTreatment<string | boolean>(UPDATE_ICON_BUTTON_EXPERIMENT);
+			const variant = getUpdateIndicatorVariant(treatment);
+			if (this.updateIndicatorVariant !== variant) {
+				this.updateIndicatorVariant = variant;
+				this.onStateChange(this.updateService.state);
+			}
+		} catch {
+			// Ignore treatment errors and keep control variant.
+		}
+	}
+
+	private logExperimentTelemetry(action: UpdateIndicatorExperimentAction, state: StateType, commandId?: string): void {
+		this.telemetryService.publicLog2<UpdateIndicatorExperimentTelemetryEvent, UpdateIndicatorExperimentTelemetryClassification>('updateIndicatorExperiment', {
+			action,
+			variant: this.updateIndicatorVariant,
+			state,
+			commandId
+		});
 	}
 }
