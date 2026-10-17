@@ -116,6 +116,21 @@ export class WorkspaceTrustRequestHandler extends Disposable implements IWorkben
 		this.registerListeners();
 	}
 
+	private getSessionsWindowTrustNote(): string | undefined {
+		if (!this.environmentService.isSessionsWindow) {
+			return undefined;
+		}
+		const parentAppName = this.productService.embedded?.nameShort;
+		if (this.useWorkspaceLanguage) {
+			return parentAppName ?
+				localize('sessionsWindowWorkspaceTrustNoteRequest', "Trusting this workspace will also mark it as trusted in {0}.", parentAppName) :
+				localize('sessionsWindowWorkspaceTrustNoteRequestFallback', "Trusting this workspace will also mark it as trusted in the parent application.");
+		}
+		return parentAppName ?
+			localize('sessionsWindowFolderTrustNoteRequest', "Trusting this folder will also mark it as trusted in {0}.", parentAppName) :
+			localize('sessionsWindowFolderTrustNoteRequestFallback', "Trusting this folder will also mark it as trusted in the parent application.");
+	}
+
 	private get useWorkspaceLanguage(): boolean {
 		return !isSingleFolderWorkspaceIdentifier(toWorkspaceIdentifier(this.workspaceContextService.getWorkspace()));
 	}
