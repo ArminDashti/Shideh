@@ -19,7 +19,6 @@ export class KeybindingsEditor {
 			await this.code.dispatchKeybinding('ctrl+k ctrl+s', accept);
 		}
 
-		await this.code.waitForActiveElement(SEARCH_INPUT);
 		await this.code.waitForSetValue(SEARCH_INPUT, `@command:${command}`);
 
 		const commandTitle = commandName ? `${commandName} (${command})` : command;
