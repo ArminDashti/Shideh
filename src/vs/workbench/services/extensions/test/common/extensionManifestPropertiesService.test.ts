@@ -145,6 +145,45 @@ suite('ExtensionManifestPropertiesService - SessionsWindowSupport', () => {
 		], [true, false, false]);
 	});
 
+	test('restricts executable extensions to supported declarative contributions', () => {
+		testObject = createTestObject();
+		const extension = getExtensionManifest({
+			main: './out/extension.js',
+			browser: './out/extension.web.js',
+			activationEvents: ['onStartupFinished'],
+			extensionDependencies: ['pub.dependency'],
+			extensionAffinity: ['pub.dependency'],
+			contributes: {
+				iconThemes: [{ label: 'Custom Icons' }],
+				commands: [{ command: 'pub.configureIcons', title: 'Configure Icons' }],
+			}
+		});
+
+		const restrictedExtension = toSessionsWindowSafeExtension(extension);
+
+		assert.deepStrictEqual({
+			main: restrictedExtension?.main,
+			browser: restrictedExtension?.browser,
+			activationEvents: restrictedExtension?.activationEvents,
+			extensionDependencies: restrictedExtension?.extensionDependencies,
+			extensionAffinity: restrictedExtension?.extensionAffinity,
+			contributes: restrictedExtension?.contributes,
+			canExecuteOriginal: testObject.canExecuteOnSessionsWindow(extension),
+			canExecuteRestricted: restrictedExtension ? testObject.canExecuteOnSessionsWindow(restrictedExtension) : false,
+		}, {
+			main: undefined,
+			browser: undefined,
+			activationEvents: undefined,
+			extensionDependencies: undefined,
+			extensionAffinity: undefined,
+			contributes: {
+				iconThemes: [{ label: 'Custom Icons' }],
+			},
+			canExecuteOriginal: false,
+			canExecuteRestricted: true,
+		});
+	});
+
 	test('uses configured sessions window support override', async () => {
 		await testConfigurationService.setUserConfiguration(EXTENSIONS_SUPPORT_AGENTS_WINDOW, { 'pub.a': true, 'pub.b': false });
 		testObject = createTestObject();
