@@ -66,6 +66,7 @@ const COPILOT_CLI_AGENT_HOST_PROVIDER_ID = 'copilotcli';
 
 export const ACTION_ID_NEW_CHAT = `workbench.action.chat.newChat`;
 export const ACTION_ID_NEW_EDIT_SESSION = `workbench.action.chat.newEditSession`;
+export const ACTION_ID_GO_BACK = `workbench.action.chat.goBack`;
 export const ACTION_ID_OPEN_CHAT = 'workbench.action.openChat';
 export const CHAT_OPEN_ACTION_ID = 'workbench.action.chat.open';
 export const CHAT_OPEN_EDITOR_ACTION_ID = 'workbench.action.openChat';
