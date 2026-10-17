@@ -94,7 +94,7 @@ export class OpenVSCodeWindowAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenVSCodeWindowAction.ID,
-			title: localize2('openVSCodeWindow', 'Open VS Code Window'),
+			title: localize2('openVSCodeWindow', 'Open {0} Window', product.nameLong),
 			f1: true,
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyA,
