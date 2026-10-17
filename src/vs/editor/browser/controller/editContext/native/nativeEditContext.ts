@@ -308,6 +308,12 @@ export class NativeEditContext extends AbstractEditContext {
 		return true;
 	}
 
+	public override onScrollChanged(e: ViewScrollChangedEvent): boolean {
+		const visibleRangeForPosition = (position: Position) => this._visibleRangeProvider.visibleRangeForPosition(position);
+		this._updateSelectionAndControlBounds({ visibleRangeForPosition });
+		return true;
+	}
+
 	public override onConfigurationChanged(e: ViewConfigurationChangedEvent): boolean {
 		this._screenReaderSupport.onConfigurationChanged(e);
 		this._updateDomAttributes();
@@ -574,8 +580,21 @@ export class NativeEditContext extends AbstractEditContext {
 		}
 
 		const selectionBounds = new DOMRect(left, top, width, height);
-		this._editContext.updateSelectionBounds(selectionBounds);
-		this._editContext.updateControlBounds(selectionBounds);
+		let adjustedTop: number = selectionBounds.top;
+		if (selectionBounds.top < parentBounds.top) {
+			adjustedTop = parentBounds.top;
+		} else if (selectionBounds.top > parentBounds.top + parentBounds.height) {
+			adjustedTop = parentBounds.top + parentBounds.height - selectionBounds.height;
+		}
+		let adjustedLeft: number = selectionBounds.left;
+		if (selectionBounds.left < parentBounds.left) {
+			adjustedLeft = parentBounds.left;
+		} else if (selectionBounds.left > parentBounds.left + parentBounds.width) {
+			adjustedLeft = parentBounds.left + parentBounds.width - selectionBounds.width;
+		}
+		const adjustedSelectionBounds = new DOMRect(adjustedLeft, adjustedTop, selectionBounds.width, selectionBounds.height);
+		this._editContext.updateSelectionBounds(adjustedSelectionBounds);
+		this._editContext.updateControlBounds(adjustedSelectionBounds);
 	}
 
 	private _updateCharacterBounds(e: CharacterBoundsUpdateEvent): void {
