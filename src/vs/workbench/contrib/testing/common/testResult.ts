@@ -249,6 +249,16 @@ const getMarkCode = (marker: number, start: boolean) => `\x1b]633;SetMark;Id=${g
 interface TestResultItemWithChildren extends TestResultItem {
 	/** Children in the run */
 	children: TestResultItemWithChildren[];
+
+	/**
+	 * Time the result was first reported fir eacg tasj. The default duration of
+	 * an item is the time when the state of it or any child was first reported,
+	 * to the last time any of their states changed.
+	 *
+	 * A value of -1 indicates the test duration for the item in this task was
+	 * set explicitly.
+	 */
+	tasks: (ITestTaskState & { startedAt: number })[];
 }
 
 const itemToNode = (controllerId: string, item: ITestItem, parent: string | null): TestResultItemWithChildren => ({
@@ -423,7 +433,7 @@ export class LiveTestResult extends Disposable implements ITestResult {
 	/**
 	 * Updates the state of the test by its internal ID.
 	 */
-	public updateState(testId: string, taskId: string, state: TestResultState, duration?: number) {
+	public updateState(testId: string, taskId: string, state: TestResultState, duration?: ITestTaskTimeRange) {
 		const entry = this.testById.get(testId);
 		if (!entry) {
 			return;
@@ -543,26 +553,34 @@ export class LiveTestResult extends Disposable implements ITestResult {
 		}
 	}
 
-	private fireUpdateAndRefresh(entry: TestResultItem, taskIndex: number, newState: TestResultState, newOwnDuration?: number) {
+	private fireUpdateAndRefresh(entry: TestResultItemWithChildren, taskIndex: number, newState: TestResultState, newOwnTime?: ITestTaskTimeRange) {
 		const previousOwnComputed = entry.ownComputedState;
-		const previousOwnDuration = entry.ownDuration;
+		const previousOwnTime = entry.ownTime;
 		const changeEvent: TestResultItemChange = {
 			item: entry,
 			result: this,
 			reason: TestResultItemChangeReason.OwnStateChange,
 			previousState: previousOwnComputed,
-			previousOwnDuration: previousOwnDuration,
+			previousOwnTime,
 		};
 
 		entry.tasks[taskIndex].state = newState;
-		if (newOwnDuration !== undefined) {
-			entry.tasks[taskIndex].duration = newOwnDuration;
-			entry.ownDuration = Math.max(entry.ownDuration || 0, newOwnDuration);
+		if (newOwnTime !== undefined) {
+			const task = entry.tasks[taskIndex];
+			task.time = newOwnTime;
+			if (entry.ownTime) {
+				entry.ownTime = {
+					from: Math.min(entry.ownTime.from, newOwnTime.from),
+					to: Math.max(entry.ownTime.to, newOwnTime.to),
+				};
+			} else {
+				entry.ownTime = newOwnTime;
+			}
 		}
 
 		const newOwnComputed = maxPriority(...entry.tasks.map(t => t.state));
 		if (newOwnComputed === previousOwnComputed) {
-			if (newOwnDuration !== previousOwnDuration) {
+			if (newOwnTime !== previousOwnTime) {
 				this.changeEmitter.fire(changeEvent); // fire manually since state change won't do it
 			}
 			return;

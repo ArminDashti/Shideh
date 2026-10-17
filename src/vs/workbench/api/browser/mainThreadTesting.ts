@@ -193,7 +193,7 @@ export class MainThreadTesting extends Disposable implements MainThreadTestingSh
 	/**
 	 * @inheritdoc
 	 */
-	public $updateTestStateInRun(runId: string, taskId: string, testId: string, state: TestResultState, duration?: number): void {
+	public $updateTestStateInRun(runId: string, taskId: string, testId: string, state: TestResultState, duration?: ITestTaskTimeRange): void {
 		this.withLiveRun(runId, r => r.updateState(testId, taskId, state, duration));
 	}
 

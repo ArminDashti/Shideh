@@ -3841,7 +3841,7 @@ export interface MainThreadTestingShape {
 	 */
 	$addTestsToRun(controllerId: string, runId: string, tests: ITestItem.Serialized[]): void;
 	/** Updates the state of a test run in the given run. */
-	$updateTestStateInRun(runId: string, taskId: string, testId: string, state: TestResultState, duration?: number): void;
+	$updateTestStateInRun(runId: string, taskId: string, testId: string, state: TestResultState, duration?: ITestTaskTimeRange): void;
 	/** Appends a message to a test in the run. */
 	$appendTestMessagesInRun(runId: string, taskId: string, testId: string, messages: ITestMessage.Serialized[]): void;
 	/** Appends raw output to the test run.. */

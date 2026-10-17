@@ -138,7 +138,7 @@ suite('Workbench - Testing Explorer Hierarchal by Location Projection', () => {
 			result: undefined!,
 			previousState: TestResultState.Unset,
 			item: resultInState(TestResultState.Queued),
-			previousOwnDuration: undefined,
+			previousOwnTime: undefined,
 		});
 		harness.projection.applyTo(harness.tree);
 
@@ -154,7 +154,7 @@ suite('Workbench - Testing Explorer Hierarchal by Location Projection', () => {
 			result: undefined!,
 			previousState: TestResultState.Queued,
 			item: resultInState(TestResultState.Unset),
-			previousOwnDuration: undefined,
+			previousOwnTime: undefined,
 		});
 		harness.projection.applyTo(harness.tree);
 

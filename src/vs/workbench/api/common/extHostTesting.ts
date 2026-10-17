@@ -783,14 +783,14 @@ class TestRunTracker extends Disposable {
 			}),
 			errored: guardTestMutation((test, messages, duration) => {
 				appendMessages(test, messages);
-				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, ctrlId).toString(), TestResultState.Errored, duration);
+				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, ctrlId).toString(), TestResultState.Errored, captureDuration(duration));
 			}),
 			failed: guardTestMutation((test, messages, duration) => {
 				appendMessages(test, messages);
-				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, ctrlId).toString(), TestResultState.Failed, duration);
+				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, ctrlId).toString(), TestResultState.Failed, captureDuration(duration));
 			}),
 			passed: guardTestMutation((test, duration) => {
-				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, this.dto.controllerId).toString(), TestResultState.Passed, duration);
+				this.proxy.$updateTestStateInRun(runId, taskId, TestId.fromExtHostTestItem(test, this.dto.controllerId).toString(), TestResultState.Passed, captureDuration(duration));
 			}),
 			//#endregion
 			appendOutput: (output, location?: vscode.Location, test?: vscode.TestItem) => {
@@ -882,6 +882,15 @@ class TestRunTracker extends Disposable {
 		this.markEnded();
 		super.dispose();
 	}
+}
+
+function captureDuration(duration?: number) {
+	if (duration === undefined) {
+		return undefined;
+	}
+
+	const now = performance.now();
+	return { from: Math.round(now - Math.max(0, duration)), to: Math.round(now) };
 }
 
 /**

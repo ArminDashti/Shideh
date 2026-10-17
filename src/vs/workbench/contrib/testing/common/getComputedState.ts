@@ -19,12 +19,12 @@ export interface IComputedStateAccessor<T> {
 }
 
 export interface IComputedStateAndDurationAccessor<T> extends IComputedStateAccessor<T> {
-	getOwnDuration(item: T): number | undefined;
+	getOwnTime(item: T): ITestTaskTimeRange | undefined;
 	getCurrentComputedDuration(item: T): number | undefined;
-	setComputedDuration(item: T, duration: number | undefined): void;
+	setComputedDuration(item: T, time: number): void;
 }
 
-const isDurationAccessor = <T>(accessor: IComputedStateAccessor<T>): accessor is IComputedStateAndDurationAccessor<T> => 'getOwnDuration' in accessor;
+const isDurationAccessor = <T>(accessor: IComputedStateAccessor<T>): accessor is IComputedStateAndDurationAccessor<T> => 'getOwnTime' in accessor;
 
 /**
  * Gets the computed state for the node.
@@ -60,26 +60,61 @@ const getComputedState = <T extends object>(accessor: IComputedStateAccessor<T>,
 	return computed;
 };
 
-const getComputedDuration = <T>(accessor: IComputedStateAndDurationAccessor<T>, node: T, force = false): number | undefined => {
-	let computed = accessor.getCurrentComputedDuration(node);
-	if (computed === undefined || force) {
-		const own = accessor.getOwnDuration(node);
-		if (own !== undefined) {
-			computed = own;
-		} else {
-			computed = undefined;
-			for (const child of accessor.getChildren(node)) {
-				const d = getComputedDuration(accessor, child);
-				if (d !== undefined) {
-					computed = (computed || 0) + d;
+
+const cachedComputedTime = new WeakMap<object, { ranges: readonly ITestTaskTimeRange[]; duration: number }>();
+
+const getComputedTime = <T>(accessor: IComputedStateAndDurationAccessor<T>, node: T, force = false): { ranges: readonly ITestTaskTimeRange[]; duration: number } => {
+	if (!force) {
+		const cached = cachedComputedTime.get(node as object);
+		if (cached) {
+			return cached;
+		}
+	}
+
+	const own = accessor.getOwnTime(node);
+	if (own !== undefined) {
+		const duration = own.to - own.from;
+		accessor.setComputedDuration(node, duration);
+		return { ranges: [own], duration };
+	} else {
+		const children: ITestTaskTimeRange[] = [];
+		for (const child of accessor.getChildren(node)) {
+			for (const range of getComputedTime(accessor, child).ranges) {
+				// merge interval:
+				const fromI = findFirstInSorted(children, c => c.to >= range.from);
+				if (fromI === children.length) {
+					children.push(range);
+					continue;
 				}
+
+				const fi = children[fromI];
+				if (fi.from > range.to) {
+					children.splice(fromI, 0, range);
+					continue;
+				}
+
+				let toI = fromI + 1;
+				while (toI < children.length && children[toI].from < range.to) {
+					toI++;
+				}
+
+				children.splice(fromI, toI - fromI, {
+					from: Math.min(fi.from, range.from),
+					to: Math.max(children[toI - 1].to, range.to)
+				});
 			}
 		}
 
-		accessor.setComputedDuration(node, computed);
-	}
+		let duration = 0;
+		for (const range of children) {
+			duration += range.to - range.from;
+		}
 
-	return computed;
+		accessor.setComputedDuration(node, duration);
+		const ret = { ranges: children, duration };
+		cachedComputedTime.set(node as object, ret);
+		return ret;
+	}
 };
 
 const LARGE_NODE_THRESHOLD = 64;
@@ -156,7 +191,7 @@ export const refreshComputedState = <T extends object>(
 	if (isDurationAccessor(accessor) && refreshDuration) {
 		for (const parent of Iterable.concat(Iterable.single(node), accessor.getParents(node))) {
 			const oldDuration = accessor.getCurrentComputedDuration(parent);
-			const newDuration = getComputedDuration(accessor, parent, true);
+			const newDuration = getComputedTime(accessor, parent, true).duration;
 			if (oldDuration === newDuration) {
 				break;
 			}
