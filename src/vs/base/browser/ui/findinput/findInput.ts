@@ -70,6 +70,7 @@ export class FindInput extends Widget {
 	protected additionalToggles: Toggle[] = [];
 	public readonly domNode: HTMLElement;
 	public readonly inputBox: HistoryInputBox;
+	private allTogglesDomNodes: HTMLElement[] = [];
 
 	private readonly _onDidOptionChange = this._register(new Emitter<boolean>());
 	public get onDidOptionChange(): Event<boolean /* via keyboard */> { return this._onDidOptionChange.event; }
@@ -182,6 +183,40 @@ export class FindInput extends Widget {
 			});
 		}
 
+		// Arrow-Key support to navigate between all toggle options (common + additional)
+		// This will be set up after additional toggles are added
+		this.onkeydown(this.domNode, (event: IKeyboardEvent) => {
+			if (event.equals(KeyCode.LeftArrow) || event.equals(KeyCode.RightArrow) || event.equals(KeyCode.Escape)) {
+				// Only handle navigation if we have toggles
+				if (this.allTogglesDomNodes.length === 0) {
+					return;
+				}
+
+				const index = this.allTogglesDomNodes.indexOf(<HTMLElement>this.domNode.ownerDocument.activeElement);
+				if (index >= 0) {
+					let newIndex: number = -1;
+					if (event.equals(KeyCode.RightArrow)) {
+						newIndex = (index + 1) % this.allTogglesDomNodes.length;
+					} else if (event.equals(KeyCode.LeftArrow)) {
+						if (index === 0) {
+							newIndex = this.allTogglesDomNodes.length - 1;
+						} else {
+							newIndex = index - 1;
+						}
+					}
+
+					if (event.equals(KeyCode.Escape)) {
+						this.allTogglesDomNodes[index].blur();
+						this.inputBox.focus();
+					} else if (newIndex >= 0) {
+						this.allTogglesDomNodes[newIndex].focus();
+					}
+
+					dom.EventHelper.stop(event, true);
+				}
+			}
+		});
+
 		this.controls = document.createElement('div');
 		this.controls.className = 'controls';
 		this.controls.style.display = this.showCommonFindToggles ? '' : 'none';
@@ -292,6 +327,34 @@ export class FindInput extends Widget {
 		}
 
 		this.updateInputBoxPadding();
+		this.updateToggleTabIndexes();
+	}
+
+	/**
+	 * Updates the tabIndex of all toggles to implement a focus group.
+	 * Only the first toggle is tabbable (tabIndex=0), others are not (tabIndex=-1).
+	 * Arrow keys can be used to navigate between toggles within the group.
+	 */
+	private updateToggleTabIndexes(): void {
+		// Collect all toggle DOM nodes in order
+		this.allTogglesDomNodes = [];
+		if (this.caseSensitive) {
+			this.allTogglesDomNodes.push(this.caseSensitive.domNode);
+		}
+		if (this.wholeWords) {
+			this.allTogglesDomNodes.push(this.wholeWords.domNode);
+		}
+		if (this.regex) {
+			this.allTogglesDomNodes.push(this.regex.domNode);
+		}
+		for (const toggle of this.additionalToggles) {
+			this.allTogglesDomNodes.push(toggle.domNode);
+		}
+
+		// Set tabIndex: only first toggle is tabbable
+		for (let i = 0; i < this.allTogglesDomNodes.length; i++) {
+			this.allTogglesDomNodes[i].tabIndex = i === 0 ? 0 : -1;
+		}
 	}
 
 	protected getToggleDomNodes(): HTMLElement[] {
