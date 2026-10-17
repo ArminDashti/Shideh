@@ -19,8 +19,7 @@ import { contrastBorder, activeContrastBorder } from '../../../../platform/theme
 import { EventHelper, addDisposableListener, EventType, clearNode, getWindow, isHTMLElement, $ } from '../../../../base/browser/dom.js';
 import { createStyleSheet } from '../../../../base/browser/domStylesheets.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { Parts, IWorkbenchLayoutService, LayoutSettings } from '../../../services/layout/browser/layoutService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { Parts, IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { equals } from '../../../../base/common/arrays.js';
 import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';
@@ -142,8 +141,8 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 
 	readonly minimumWidth: number = 0;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
-	get minimumHeight(): number { return StatusbarPart.HEIGHT + this.floatingBottomPadding; }
-	get maximumHeight(): number { return StatusbarPart.HEIGHT + this.floatingBottomPadding; }
+	readonly minimumHeight = StatusbarPart.HEIGHT;
+	readonly maximumHeight = StatusbarPart.HEIGHT;
 
 	//#endregion
 
