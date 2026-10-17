@@ -9,7 +9,7 @@ import { TerminateResponse } from '../../../../base/common/processes.js';
 import { Event } from '../../../../base/common/event.js';
 import { Platform } from '../../../../base/common/platform.js';
 import { IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
-import { Task, ITaskEvent, KeyedTaskIdentifier } from './tasks.js';
+import { Task, ITaskEvent, ITaskIdentifier, KeyedTaskIdentifier } from './tasks.js';
 import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 
 import { IShellLaunchConfig } from '../../../../platform/terminal/common/terminal.js';
