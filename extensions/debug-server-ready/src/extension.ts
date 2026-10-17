@@ -130,7 +130,17 @@ class ServerReadyDetector extends vscode.Disposable {
 			this.trigger = new Trigger();
 		}
 
-		this.regexp = new RegExp(session.configuration.serverReadyAction.pattern || PATTERN, 'i');
+		const pattern = session.configuration.serverReadyAction.pattern || PATTERN;
+		try {
+			this.regexp = new RegExp(pattern, 'i');
+		} catch (e) {
+			// Invalid regex pattern - show error and fall back to PATTERN constant
+			const message = e instanceof Error ? e.message : String(e);
+			vscode.window.showErrorMessage(
+				vscode.l10n.t("Invalid regular expression in 'serverReadyAction.pattern': {0}", message)
+			);
+			this.regexp = new RegExp(PATTERN, 'i');
+		}
 	}
 
 	private internalDispose() {
