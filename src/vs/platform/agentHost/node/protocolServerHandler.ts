@@ -359,6 +359,14 @@ export interface IProtocolServerConfig {
 	readonly otlpLogEmitter?: OtlpLogEmitter;
 }
 
+function isAhpRequest(msg: AhpIncomingMessage): msg is IAhpRequest {
+	return 'method' in msg && 'id' in msg;
+}
+
+function isAhpNotification(msg: AhpIncomingMessage): msg is IAhpClientNotification {
+	return 'method' in msg && !('id' in msg);
+}
+
 /**
  * Server-side handler that manages protocol connections, routes JSON-RPC
  * messages to the agent service, and broadcasts actions/notifications
@@ -463,8 +471,9 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		this._connectionDisposables.set(transport, disposables);
 		let client: IConnectedClient | undefined;
 
-		disposables.add(transport.onMessage(msg => {
-			if (isJsonRpcRequest(msg)) {
+		disposables.add(transport.onMessage(raw => {
+			const msg = protocolReviver(raw);
+			if (isAhpRequest(msg)) {
 				this._logService.trace(`[ProtocolServer] request: method=${msg.method} id=${msg.id}`);
 
 				// Ping is stateless and MUST be answerable regardless of whether
@@ -530,8 +539,8 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 					transport.send(jsonRpcError(msg.id, JsonRpcErrorCodes.MethodNotFound, `Method not found: ${msg.method}`));
 					return;
 				}
-				this._handleRequest(client, msg.method, msg.params, msg.id);
-			} else if (isJsonRpcNotification(msg)) {
+				this._handleRequest(client, msg, msg.id);
+			} else if (isAhpNotification(msg)) {
 				this._logService.trace(`[ProtocolServer] notification: method=${msg.method}`);
 				if ((msg as { method: string }).method === 'setClientManagedSettingsPermissions') {
 					if (client) {

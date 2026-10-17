@@ -164,7 +164,7 @@ export class SessionStateManager extends Disposable {
 	 * The action is applied to state and emitted with the client's origin
 	 * so the originating client can reconcile.
 	 */
-	dispatchClientAction(action: ISessionAction, origin: IActionOrigin): unknown {
+	dispatchClientAction(action: IStateAction, origin: IActionOrigin): unknown {
 		return this._applyAndEmit(action, origin);
 	}
 

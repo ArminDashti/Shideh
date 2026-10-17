@@ -100,7 +100,9 @@ suite('AgentEventMapper', () => {
 		assert.strictEqual(complete.toolCallId, 'tc-1');
 		assert.strictEqual(complete.result.success, true);
 		assert.strictEqual(complete.result.pastTenseMessage, 'Read file successfully');
-		assert.strictEqual(complete.result.toolOutput, 'file contents here');
+		const textContent = complete.result.content?.[0];
+		assert.ok(textContent);
+		assert.strictEqual((textContent as { type: string }).type, 'text');
 	});
 
 	test('idle event maps to session/turnComplete action', () => {

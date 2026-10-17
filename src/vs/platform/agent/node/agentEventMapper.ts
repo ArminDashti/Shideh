@@ -28,6 +28,7 @@ import type {
 } from '../common/state/sessionActions.js';
 import { ToolCallStatus } from '../common/state/sessionState.js';
 import { URI } from '../../../base/common/uri.js';
+import { createTerminalToolMeta, ToolResultContentType } from '../common/state/sessionState.js';
 
 /**
  * Maps a flat {@link IAgentProgressEvent} from the agent host into
@@ -74,7 +75,7 @@ export function mapProgressEventToAction(event: IAgentProgressEvent, session: UR
 				result: {
 					success: e.success,
 					pastTenseMessage: e.pastTenseMessage,
-					toolOutput: e.toolOutput,
+					content: e.toolOutput !== undefined ? [{ type: ToolResultContentType.Text, text: e.toolOutput }] : undefined,
 					error: e.error,
 				},
 			} satisfies IToolCompleteAction;
