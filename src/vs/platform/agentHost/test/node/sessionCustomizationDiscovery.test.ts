@@ -23,22 +23,32 @@ import { SessionCustomizationDiscovery } from '../../node/copilot/sessionCustomi
 
 type AgentsDiscoverRequest = Parameters<CopilotClient['rpc']['agents']['discover']>[0];
 
+class TestLogService extends NullLogService {
+	readonly traces: string[] = [];
+
+	override trace(message: string): void {
+		this.traces.push(message);
+	}
+}
+
 suite('SessionCustomizationDiscovery', () => {
 
 	const disposables = new DisposableStore();
 	let fileService: FileService;
 	let instantiationService: TestInstantiationService;
+	let logService: TestLogService;
 	let workspace: URI;
 	let userHome: URI;
 
 	setup(() => {
-		fileService = disposables.add(new FileService(new NullLogService()));
+		logService = new TestLogService();
+		fileService = disposables.add(new FileService(logService));
 		const memFs = disposables.add(new InMemoryFileSystemProvider());
 		disposables.add(fileService.registerProvider(Schemas.inMemory, memFs));
 
 		instantiationService = disposables.add(new TestInstantiationService());
 		instantiationService.stub(IFileService, fileService);
-		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(ILogService, logService);
 
 		workspace = URI.from({ scheme: Schemas.inMemory, path: '/workspace' });
 		userHome = URI.from({ scheme: Schemas.inMemory, path: '/home' });
