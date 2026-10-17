@@ -26,6 +26,12 @@ export const enum BYOKUtilityModelDefault {
 	Copilot = 'copilot',
 }
 
+export const enum BYOKUtilityModelDefault {
+	None = 'none',
+	MainAgent = 'mainAgent',
+	Copilot = 'copilot',
+}
+
 export enum ChatConfiguration {
 	PluginsEnabled = 'chat.plugins.enabled',
 	PluginLocations = 'chat.pluginLocations',

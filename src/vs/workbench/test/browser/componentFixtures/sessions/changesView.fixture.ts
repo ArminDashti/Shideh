@@ -17,6 +17,7 @@ import { IMenuService } from '../../../../../platform/actions/common/actions.js'
 import { IFileContent, IFileService } from '../../../../../platform/files/common/files.js';
 import { SyncDescriptor } from '../../../../../platform/instantiation/common/descriptors.js';
 import { IListService, ListService } from '../../../../../platform/list/browser/listService.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IViewPaneOptions } from '../../../../browser/parts/views/viewPane.js';
 import { IViewContainerModel, IViewDescriptor, IViewDescriptorService, IViewPaneContainer, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
