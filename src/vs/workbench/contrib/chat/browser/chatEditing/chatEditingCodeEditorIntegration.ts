@@ -228,6 +228,12 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 				return;
 			}
 
+			// Don't play signals if the entry has been accepted or rejected
+			const entryState = _entry.state.read(r);
+			if (entryState === ModifiedFileEntryState.Accepted || entryState === ModifiedFileEntryState.Rejected) {
+				return;
+			}
+
 			const diff = documentDiffInfo.read(r);
 			const changeAtCursor = diff.changes.find(m => m.modified.contains(position.lineNumber) || m.modified.isEmpty && m.modified.startLineNumber === position.lineNumber);
 
