@@ -47,9 +47,16 @@ export class TaskTerminalStatus extends Disposable {
 				case TaskEventKind.Active: this.eventActive(event); break;
 				case TaskEventKind.Inactive: this.eventInactive(event); break;
 				case TaskEventKind.ProcessEnded: this.eventEnd(event); break;
+				case TaskEventKind.End: this._playEndSound(event.exitCode); break;
 			}
 		}));
 	}
+
+	private _playEndSound(exitCode?: number): void {
+		//TODO: determine sound based on exit code
+		this._audioCueService.playAudioCue(AudioCue.taskEnded);
+	}
+
 
 	addTerminal(task: Task, terminal: ITerminalInstance, problemMatcher: AbstractProblemCollector) {
 		const status: ITerminalStatus = { id: TASK_TERMINAL_STATUS_ID, severity: Severity.Info };

@@ -186,6 +186,12 @@ export const enum ExtensionEditorTab {
 	ExtensionPack = 'extensionPack',
 }
 
+export interface ReloadRequiredState {
+	enabled: boolean;
+	label: string;
+	tooltip: string;
+}
+
 export const ConfigurationKey = 'extensions';
 export const AutoUpdateConfigurationKey = 'extensions.autoUpdate';
 export const AutoUpdateDelayConfigurationKey = 'extensions.autoUpdateDelay';

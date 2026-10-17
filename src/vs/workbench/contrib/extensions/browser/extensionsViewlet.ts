@@ -1038,7 +1038,7 @@ export class StatusUpdater extends Disposable implements IWorkbenchContribution 
 		this._register(Event.any(Event.debounce(extensionsWorkbenchService.onChange, () => undefined, 100, undefined, undefined, undefined, this._store), extensionsWorkbenchService.onDidChangeExtensionsNotification)(this.onServiceChange, this));
 	}
 
-	private onServiceChange(): void {
+	private async onServiceChange(): Promise<void> {
 		this.badgeHandle.clear();
 		let badge: IBadge | undefined;
 
