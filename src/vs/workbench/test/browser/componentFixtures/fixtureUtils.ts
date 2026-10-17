@@ -976,15 +976,16 @@ export function createTextModel(
 // ============================================================================
 
 export interface ThemedFixtureGroupLabels {
+	/** Light variants are screenshot-tested by default; animated fixtures are excluded. */
 	readonly kind?: 'screenshot' | 'animated';
 	readonly blocksCi?: boolean;
 	readonly flaky?: true;
 }
 
-function resolveLabels(labels: ThemedFixtureGroupLabels | undefined): string[] {
+function resolveLabels(labels: ThemedFixtureGroupLabels | undefined, themeVariant?: ComponentFixtureThemeVariant): string[] {
 	const result: string[] = [];
-	if (labels?.kind === 'screenshot') {
-		result.push('.screenshot');
+	if (themeVariant === lightThemeVariant && labels?.kind !== 'animated' && !labels?.flaky) {
+		result.push('screenshot');
 	} else if (labels?.kind === 'animated') {
 		result.push('animated');
 	}
@@ -1071,6 +1072,7 @@ let sourceMapsInitialized = false;
 /** Creates themed fixtures, awaiting the render promise and virtual-time layout before reporting readiness. */
 export function defineComponentFixture(options: ComponentFixtureOptions): ThemedFixtures {
 	const createFixture = (themeVariant: ComponentFixtureThemeVariant) => defineFixture({
+		labels: resolveLabels(options.labels, themeVariant),
 		isolation: 'none',
 		displayMode: { type: 'component' },
 		background: themeVariant.background,
@@ -1314,7 +1316,6 @@ export function defineComponentFixture(options: ComponentFixtureOptions): Themed
 		},
 	});
 
-	const labels = resolveLabels(options.labels);
 	const baseFixtures = Object.fromEntries((options.themes ?? ['dark', 'light']).map(theme => {
 		const themeVariant = theme === 'dark' ? darkThemeVariant : lightThemeVariant;
 		return [themeVariant.label, createFixture(themeVariant)];
@@ -1323,7 +1324,7 @@ export function defineComponentFixture(options: ComponentFixtureOptions): Themed
 		const themeVariant = additionalThemeVariants[additionalTheme];
 		return [themeVariant.label, createFixture(themeVariant)];
 	}));
-	return defineFixtureVariants(labels.length > 0 ? { labels } : {}, {
+	return defineFixtureVariants({}, {
 		...baseFixtures,
 		...additionalFixtures,
 	});
