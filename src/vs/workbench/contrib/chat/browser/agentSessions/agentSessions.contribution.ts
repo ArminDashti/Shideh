@@ -106,7 +106,7 @@ MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
 	group: 'navigation',
 	order: 3,
 	icon: Codicon.filter,
-	when: ChatContextKeys.agentSessionsViewerLimited.negate()
+	when: ChatContextKeys.agentSessionsViewerOrientation.isEqualTo(AgentSessionsViewerOrientation.SideBySide)
 } satisfies ISubmenuItem);
 
 MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {

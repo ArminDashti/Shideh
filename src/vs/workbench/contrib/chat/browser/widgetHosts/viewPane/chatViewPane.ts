@@ -915,6 +915,14 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 	private sessionsViewerSash: Sash | undefined;
 	private readonly sessionsViewerSashDisposables = this._register(new MutableDisposable<DisposableStore>());
 
+	/**
+	 * Returns true if the sessions viewer is in limited mode (showing only a few sessions).
+	 * Stacked orientation is always limited, side-by-side orientation shows all sessions.
+	 */
+	private get isSessionsViewerLimited(): boolean {
+		return this.sessionsViewerOrientation === AgentSessionsViewerOrientation.Stacked;
+	}
+
 	private createSessionsControl(parent: HTMLElement): AgentSessionsControl {
 		const sessionsContainer = this.sessionsContainer = parent.appendChild($('.agent-sessions-container'));
 
