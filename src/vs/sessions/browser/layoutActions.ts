@@ -49,7 +49,7 @@ class ToggleSidebarVisibilityAction extends Action2 {
 			},
 			menu: [
 				{
-					id: Menus.TitleBarLeftLayout,
+					id: Menus.TitleBarSessionMenu,
 					group: 'navigation',
 					order: 0,
 					when: IsAuxiliaryWindowContext.toNegated()
