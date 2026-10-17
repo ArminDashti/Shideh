@@ -120,6 +120,8 @@ enum LayoutClasses {
 	MODERN_UI_TABS = 'modern-ui-tabs'
 }
 
+const AUXILIARY_BAR_SMALL_WINDOW_THRESHOLD = 1000; // Minimum width to show auxiliary bar by default
+
 interface IPathToOpen extends IPath {
 	readonly viewColumn?: number;
 }
