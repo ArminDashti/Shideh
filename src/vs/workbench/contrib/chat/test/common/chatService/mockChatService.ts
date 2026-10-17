@@ -42,7 +42,7 @@ export class MockChatService implements IChatService {
 
 	}
 
-	processPendingRequests(sessionResource: URI): void {
+	processPendingRequests(sessionResource: URI, force?: boolean): void {
 
 	}
 
