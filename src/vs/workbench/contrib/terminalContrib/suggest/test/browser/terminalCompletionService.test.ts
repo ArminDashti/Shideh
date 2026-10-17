@@ -1040,3 +1040,5 @@ suite('TerminalCompletionService', () => {
 		});
 	});
 });
+
+
