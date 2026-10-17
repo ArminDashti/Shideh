@@ -741,6 +741,14 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		return execution.getOutput();
 	}
 
+	public static async getBackgroundImages(id: string): Promise<Awaited<ReturnType<typeof getImages>>> {
+		const execution = RunInTerminalTool._activeExecutions.get(id);
+		if (!execution) {
+			return [];
+		}
+		return getImages(execution.instance, execution.startMarker);
+	}
+
 	/**
 	 * Gets an active terminal execution by ID. Returns undefined if not found.
 	 * Can be used to await the completion of a background terminal command.
@@ -2013,6 +2021,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		let timeoutRacePromise: Promise<{ type: 'timeout' }> | undefined;
 		let outputMonitor: OutputMonitor | undefined;
 		let pollingResult: IPollingResult & { pollDurationMs: number } | undefined;
+		let commandStartMarker: IXtermMarker | undefined;
 		const executeCancellation = store.add(new CancellationTokenSource(token));
 
 		// Set up timeout for both sync (completion) and async (idle) wait strategies.
@@ -2070,6 +2079,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				})
 				: undefined;
 			store.add(execution.strategy.onDidCreateStartMarker(startMarker => {
+				commandStartMarker = startMarker;
 				if (!outputMonitor) {
 					outputMonitor = this._instantiationService.createInstance(
 						OutputMonitor,

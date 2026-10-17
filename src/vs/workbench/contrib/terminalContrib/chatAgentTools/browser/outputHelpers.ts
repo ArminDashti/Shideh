@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import type { IMarker as IXtermMarker } from '@xterm/xterm';
 
