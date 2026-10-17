@@ -144,6 +144,7 @@ const SESSION_HEADER_DROP_TARGET_CLASS = 'session-header-drop-target';
 const EMPTY_GUIDE_SESSION_IDS: ReadonlySet<string> = new Set();
 
 export const SessionItemContextMenuId = MenuId.SessionItemContextMenu;
+export const OpenSessionInNewWindowCommandId = 'sessionsViewPane.openInNewWindow';
 export const SessionSectionToolbarMenuId = new MenuId('SessionSectionToolbar');
 export const SessionGroupToolbarMenuId = new MenuId('SessionGroupToolbar');
 export const NEW_SESSION_FOR_WORKSPACE_ACTION_ID = 'sessionsView.sectionNewSession';
@@ -3329,6 +3330,14 @@ interface IDraggedHeader {
 class SessionsListDragAndDrop extends Disposable implements ITreeDragAndDrop<SessionListItem> {
 
 	private readonly _transfer = LocalSelectionTransfer.getInstance<DraggedSessionIdentifier>();
+	private _draggedSessions: ISession[] = [];
+
+	constructor(
+		private readonly _commandService: ICommandService,
+		private readonly _hostService: IHostService,
+	) {
+		super();
+	}
 
 	constructor(private readonly delegate: ISessionsListDndDelegate) {
 		super();
@@ -3392,6 +3401,7 @@ class SessionsListDragAndDrop extends Disposable implements ITreeDragAndDrop<Ses
 		if (sessions.length === 0) {
 			return;
 		}
+		this._draggedSessions = sessions;
 
 		const identifiers = sessions.map(s => new DraggedSessionIdentifier(s.sessionId, s.resource));
 		this._transfer.setData(identifiers, DraggedSessionIdentifier.prototype);
@@ -3404,7 +3414,9 @@ class SessionsListDragAndDrop extends Disposable implements ITreeDragAndDrop<Ses
 		}
 	}
 
-	onDragEnd(): void {
+	onDragEnd(originalEvent: DragEvent): void {
+		const sessions = this._draggedSessions;
+		this._draggedSessions = [];
 		this._transfer.clearData(DraggedSessionIdentifier.prototype);
 		this.delegate.setDropTargetHeader(undefined);
 	}

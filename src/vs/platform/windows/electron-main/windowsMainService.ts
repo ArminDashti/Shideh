@@ -295,8 +295,20 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	async openAgentsWindow(openConfig: IOpenConfiguration, folderUri?: URI, sessionResource?: URI, source?: AgentsWindowOpenSource, folderUriIsDefault = false, draft?: IAgentsWindowDraft, onboardingSessionResource?: URI): Promise<ICodeWindow[]> {
 		this.logService.trace('windowsManager#openAgentsWindow');
 
-		// Open in a new browser window with the agent sessions workspace
-		const windows = await this.open(await this.ensureAgentsWindow(openConfig));
+		const agentsOpenConfig = await this.ensureAgentsWindow(openConfig);
+		const agentsWorkspace = this.environmentMainService.agentSessionsWorkspace!;
+		const windows = forceNewWindow
+			? [await this.openInBrowserWindow({
+				workspace: getWorkspaceIdentifier(agentsWorkspace),
+				userEnv: agentsOpenConfig.userEnv,
+				cli: agentsOpenConfig.cli,
+				initialStartup: agentsOpenConfig.initialStartup,
+				forceNewWindow: true,
+				forceNewTabbedWindow: agentsOpenConfig.forceNewTabbedWindow,
+				forceProfile: agentsOpenConfig.forceProfile,
+				forceTempProfile: agentsOpenConfig.forceTempProfile,
+			})]
+			: await this.open(agentsOpenConfig);
 
 		// Existing-session intent takes precedence over explicit or inferred workspace selection.
 		if (windows.length > 0 && openProjectBoard) {
