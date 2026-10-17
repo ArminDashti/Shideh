@@ -169,7 +169,7 @@ export class ChatTipContentPart extends Disposable {
 			return true;
 		}
 
-		return this._chatEntitlementService.entitlement === ChatEntitlement.Unknown;
+		return this._chatEntitlementService.entitlement === ChatEntitlement.Unknown && !this._chatEntitlementService.hasByokModels;
 	}
 }
 

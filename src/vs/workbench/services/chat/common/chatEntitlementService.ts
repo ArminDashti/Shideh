@@ -406,6 +406,8 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 		this.chatQuotaExceededContextKey = ChatEntitlementContextKeys.chatQuotaExceeded.bindTo(this.contextKeyService);
 		this.completionsQuotaExceededContextKey = ChatEntitlementContextKeys.completionsQuotaExceeded.bindTo(this.contextKeyService);
 
+		ChatEntitlementContextKeys.clientByokEnabled.bindTo(this.contextKeyService);
+
 		this.anonymousContextKey = ChatEntitlementContextKeys.chatAnonymous.bindTo(this.contextKeyService);
 		this.anonymousContextKey.set(this.anonymous);
 
@@ -513,6 +515,10 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 	get clientByokEnabled(): boolean {
 		return this.contextKeyService.getContextKeyValue<boolean>('github.copilot.clientByokEnabled') === true
 			|| this.entitlement === ChatEntitlement.Unknown;
+	}
+
+	get hasByokModels(): boolean {
+		return this.contextKeyService.getContextKeyValue<boolean>('github.copilot.hasByokModels') === true;
 	}
 
 	get hasByokModels(): boolean {
