@@ -5897,6 +5897,14 @@ export class AgentService extends Disposable implements IAgentService {
 		// Attach git state for the resolved process root (index 0), if present.
 		void this._gitStateService.refreshSessionGitState(sessionKey, e.workingDirectories?.[0]);
 
+		// The default chat's primary was seeded from the pre-materialization
+		// working directory (see `_buildInitialSummary`); worktree-isolated
+		// sessions replace that directory here, so refresh the primary to
+		// match rather than let it go stale.
+		if (e.workingDirectory) {
+			this._stateManager.refreshDefaultChatPrimaryWorkingDirectory(sessionKey, e.workingDirectory.toString());
+		}
+
 		// If a client subscribed to this session's uncommitted changeset
 		// before the working directory was known, recompute the current
 		// subscriptions now that the working directory is set.
