@@ -3407,6 +3407,11 @@ declare namespace monaco.editor {
 		 */
 		mouseStyle?: 'text' | 'default' | 'copy';
 		/**
+		 * Controls whether the mouse pointer is hidden after keyboard text input.
+		 * Defaults to false.
+		 */
+		hideMouseCursorOnTyping?: boolean;
+		/**
 		 * Enable smooth caret animation.
 		 * Defaults to 'off'.
 		 */
@@ -5372,6 +5377,7 @@ declare namespace monaco.editor {
 		matchBrackets: IEditorOption<EditorOption.matchBrackets, 'always' | 'never' | 'near'>;
 		minimap: IEditorOption<EditorOption.minimap, Readonly<Required<IEditorMinimapOptions>>>;
 		mouseStyle: IEditorOption<EditorOption.mouseStyle, 'default' | 'text' | 'copy'>;
+		hideMouseCursorOnTyping: IEditorOption<EditorOption.hideMouseCursorOnTyping, boolean>;
 		mouseWheelScrollSensitivity: IEditorOption<EditorOption.mouseWheelScrollSensitivity, number>;
 		mouseWheelZoom: IEditorOption<EditorOption.mouseWheelZoom, boolean>;
 		multiCursorMergeOverlapping: IEditorOption<EditorOption.multiCursorMergeOverlapping, boolean>;
