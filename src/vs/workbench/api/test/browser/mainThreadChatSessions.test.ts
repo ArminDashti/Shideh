@@ -32,6 +32,7 @@ import { LocalChatSessionUri } from '../../../contrib/chat/common/model/chatUri.
 import { IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { MockChatService } from '../../../contrib/chat/test/common/chatService/mockChatService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ExtensionHostKind } from '../../../services/extensions/common/extensionHostKind.js';
 import { IExtensionService, nullExtensionDescription } from '../../../services/extensions/common/extensions.js';
