@@ -34,6 +34,25 @@ export async function getSession(): Promise<AuthenticationSession> {
 	return await authentication.getSession('github', scopes, { createIfNone: true });
 }
 
+export async function getOctokitFromToken(token: string): Promise<Octokit> {
+	const agent = getAgent();
+	const { Octokit } = await import('@octokit/rest');
+
+	return new Octokit({
+		request: { agent },
+		userAgent: 'GitHub VSCode',
+		auth: `token ${token}`
+	});
+}
+
+export async function getOctokitSilentFirst(): Promise<Octokit> {
+	const silentSession = await authentication.getSession('github', scopes, { silent: true });
+	const session = silentSession
+		?? await authentication.getSession('github', scopes, { createIfNone: true });
+
+	return getOctokitFromToken(session.accessToken);
+}
+
 let _octokit: Promise<Octokit> | undefined;
 
 export function getOctokit(): Promise<Octokit> {

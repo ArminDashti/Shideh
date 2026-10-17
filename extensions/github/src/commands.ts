@@ -9,7 +9,7 @@ import type { API as GitAPI, Repository } from './typings/git.d.ts';
 import { publishRepository } from './publish.js';
 import { DisposableStore, getRepositoryFromUrl } from './util.js';
 import { LinkContext, getCommitLink, getLink, getVscodeDevHost } from './links.js';
-import { getOctokit } from './auth.js';
+import { getOctokitFromToken, getOctokitSilentFirst } from './auth.js';
 
 async function copyVscodeDevLink(gitAPI: GitAPI, useSelection: boolean, context: LinkContext, includeRange = true) {
 	try {
@@ -43,19 +43,41 @@ interface ResolvedSessionRepo {
 	head: { name: string; upstream?: { name: string; remote: string; commit: string } };
 }
 
-function resolveSessionRepo(gitAPI: GitAPI, sessionMetadata: { worktreePath?: string } | undefined, showErrors: boolean): ResolvedSessionRepo | undefined {
+async function resolveSessionRepo(gitAPI: GitAPI, sessionMetadata: { worktreePath?: string } | undefined, showErrors: boolean): Promise<ResolvedSessionRepo | undefined> {
 	if (!sessionMetadata?.worktreePath) {
 		return undefined;
 	}
 
 	const worktreeUri = vscode.Uri.file(sessionMetadata.worktreePath);
-	const repository = gitAPI.getRepository(worktreeUri);
+	let repository = gitAPI.getRepository(worktreeUri);
+
+	// The git extension may not have discovered the worktree yet, try opening it explicitly
+	if (!repository) {
+		try {
+			repository = await gitAPI.openRepository(worktreeUri);
+		} catch {
+			// openRepository can fail if the folder can't be opened
+		}
+	}
 
 	if (!repository) {
 		if (showErrors) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Could not find a git repository for the session worktree.'));
 		}
 		return undefined;
+	}
+
+	// After openRepository, the state may not be populated yet — wait for it
+	if (!repository.state.HEAD) {
+		await new Promise<void>(resolve => {
+			const done = () => { clearTimeout(timeoutHandle); listener.dispose(); resolve(); };
+			const listener = repository!.state.onDidChange(() => {
+				if (repository!.state.HEAD) {
+					done();
+				}
+			});
+			const timeoutHandle = setTimeout(done, 10000);
+		});
 	}
 
 	const remotes = repository.state.remotes
@@ -96,7 +118,7 @@ async function createPullRequest(gitAPI: GitAPI, sessionResource: vscode.Uri | u
 		return;
 	}
 
-	const resolved = resolveSessionRepo(gitAPI, sessionMetadata, true);
+	const resolved = await resolveSessionRepo(gitAPI, sessionMetadata, true);
 	if (!resolved) {
 		return;
 	}
@@ -125,14 +147,16 @@ async function createPullRequest(gitAPI: GitAPI, sessionResource: vscode.Uri | u
 	vscode.env.openExternal(vscode.Uri.parse(prUrl));
 }
 
-async function openPullRequest(gitAPI: GitAPI, _sessionResource: vscode.Uri | undefined, sessionMetadata: { worktreePath?: string } | undefined): Promise<void> {
-	const resolved = resolveSessionRepo(gitAPI, sessionMetadata, true);
+async function openPullRequest(gitAPI: GitAPI, _sessionResource: vscode.Uri | undefined, sessionMetadata: { worktreePath?: string } | undefined, accessToken: string | undefined): Promise<void> {
+	const resolved = await resolveSessionRepo(gitAPI, sessionMetadata, true);
 	if (!resolved) {
 		return;
 	}
 
 	try {
-		const octokit = await getOctokit();
+		const octokit = accessToken
+			? await getOctokitFromToken(accessToken)
+			: await getOctokitSilentFirst();
 		const { data: pullRequests } = await octokit.pulls.list({
 			owner: resolved.remoteInfo.owner,
 			repo: resolved.remoteInfo.repo,
@@ -238,8 +262,8 @@ export function registerCommands(gitAPI: GitAPI): vscode.Disposable {
 		return createPullRequest(gitAPI, sessionResource, sessionMetadata);
 	}));
 
-	disposables.add(vscode.commands.registerCommand('github.openPullRequest', async (sessionResource: vscode.Uri | undefined, sessionMetadata: { worktreePath?: string } | undefined) => {
-		return openPullRequest(gitAPI, sessionResource, sessionMetadata);
+	disposables.add(vscode.commands.registerCommand('github.openPullRequest', async (sessionResource: vscode.Uri | undefined, sessionMetadata: { worktreePath?: string } | undefined, accessToken: string | undefined) => {
+		return openPullRequest(gitAPI, sessionResource, sessionMetadata, accessToken);
 	}));
 
 	return disposables;
