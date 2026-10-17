@@ -477,6 +477,10 @@ export class RenameSymbolProcessor extends Disposable {
 		}
 
 		const { oldName, newName, position, edits: renameEdits } = edits.renames;
+		const key = this.makeKey(textModel, position, oldName, newName);
+		if (this._previousRenames.get(key) === true) {
+			return suggestItem;
+		}
 
 		const trackedWord = this._renameSymbolTrackerService.trackedWord.get();
 		let lastSymbolRename: IRange | undefined = undefined;
@@ -583,5 +587,9 @@ export class RenameSymbolProcessor extends Disposable {
 			this._renameRunnable = undefined;
 			return true;
 		}
+	}
+
+	private makeKey(textModel: ITextModel, position: Position, oldName: string, newName: string): string {
+		return `${textModel.uri.toString()}@[${position.lineNumber},${position.column}]#${oldName}->${newName}`;
 	}
 }
