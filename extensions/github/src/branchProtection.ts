@@ -187,7 +187,12 @@ export class GitHubBranchProtectionProvider implements BranchProtectionProvider 
 		const graphql = await this.octokitService.getOctokitGraphql();
 
 		while (true) {
-			const { repository } = await graphql<{ repository: GitHubRepository }>(REPOSITORY_RULESETS_QUERY, { owner, repo, cursor });
+			const { repository } = await graphql<{ repository: GitHubRepository }>({
+				query: REPOSITORY_RULESETS_QUERY,
+				owner,
+				repo,
+				cursor
+			});
 
 			rulesets.push(...(repository.rulesets?.nodes ?? [])
 				// Active branch ruleset that contains the pull request required rule

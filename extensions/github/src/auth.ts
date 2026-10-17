@@ -5,11 +5,16 @@
 
 import { AuthenticationSession, EventEmitter, authentication, window } from 'vscode';
 import { Agent, globalAgent } from 'https';
-import { graphql } from '@octokit/graphql/types';
 import { Octokit } from '@octokit/rest';
 import { httpsOverHttp } from 'tunnel';
 import { URL } from 'url';
 import { DisposableStore, sequentialize } from './util.js';
+
+// Using a type import here would be cleaner, but this works with the existing code
+interface GraphqlFunction {
+	<T>(options: { query: string; [key: string]: any }): Promise<T>;
+	defaults(options: any): GraphqlFunction;
+}
 
 export class AuthenticationError extends Error { }
 
