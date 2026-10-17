@@ -8695,7 +8695,9 @@ declare namespace monaco.languages {
 
 	export interface CommentAuthorInformation {
 		name: string;
-		iconPath?: UriComponents;
+		icon?: UriComponents;
+		iconDark?: UriComponents;
+		themeIcon?: editor.ThemeIcon;
 	}
 
 	export interface PendingCommentThread {

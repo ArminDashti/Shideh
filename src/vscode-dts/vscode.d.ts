@@ -17643,7 +17643,7 @@ declare module 'vscode' {
 		/**
 		 * The optional icon path for the author
 		 */
-		iconPath?: Uri;
+		iconPath?: IconPath;
 	}
 
 	/**
@@ -17658,7 +17658,7 @@ declare module 'vscode' {
 		/**
 		 * Icon for the reaction shown in UI.
 		 */
-		readonly iconPath: string | Uri;
+		readonly iconPath: string | IconPath;
 
 		/**
 		 * The number of users who have reacted to this reaction

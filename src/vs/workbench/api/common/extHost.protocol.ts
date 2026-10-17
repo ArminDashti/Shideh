@@ -150,6 +150,8 @@ export interface CommentChanges {
 	readonly body: string | IMarkdownString;
 	readonly userName: string;
 	readonly userIconPath?: UriComponents;
+	readonly userIconPathDark?: UriComponents;
+	readonly userThemeIcon?: ThemeIcon;
 	readonly contextValue?: string;
 	readonly commentReactions?: languages.CommentReaction[];
 	readonly label?: string;
