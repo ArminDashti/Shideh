@@ -39,6 +39,8 @@ import { IChatEditorOptions } from '../widgetHosts/editor/chatEditor.js';
 import { IChatService, ResponseModelState } from '../../common/chatService/chatService.js';
 import { autorun, observableFromEvent } from '../../../../../base/common/observable.js';
 import { IChatRequestVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
+import { renderAsPlaintext } from '../../../../../base/browser/markdownRenderer.js';
+import { IMarkdownString } from '../../../../../base/common/htmlContent.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { ChatViewId } from '../chat.js';
 import { ChatViewPane } from '../widgetHosts/viewPane/chatViewPane.js';
@@ -333,10 +335,6 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	private readonly _realResources = new ResourceMap<URI>(); // untitled resource -> real resource (cleared when the session is disposed)
 	private readonly _pendingSessionResolutions = new Map<string, IPendingSessionResolution>();
 
-	private readonly _customizationsProviders = new Map<string, IChatSessionCustomizationsProvider>();
-	private readonly _onDidChangeCustomizations = this._register(new Emitter<{ readonly chatSessionType: string }>());
-	readonly onDidChangeCustomizations = this._onDidChangeCustomizations.event;
-
 	private readonly _hasCanDelegateProvidersKey: IContextKey<boolean>;
 
 	constructor(
@@ -375,7 +373,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		const builtinSessionProviders = [AgentSessionProviders.Local];
 		const contributedSessionProviders = observableFromEvent(
 			this.onDidChangeAvailability,
-			() => Array.from(this._contributions.keys()).filter(key => this._contributionDisposables.has(key)),
+			() => Array.from(this._contributions.keys()).filter(key => this._contributionDisposables.has(key) && isAgentSessionProviderType(key)) as AgentSessionProviders[],
 		).recomputeInitiallyAndOnChange(this._store);
 
 		this._register(autorun(reader => {
@@ -1187,29 +1185,58 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 		};
 	}
 
-	registerCustomizationsProvider(chatSessionType: string, provider: IChatSessionCustomizationsProvider): IDisposable {
-		this._customizationsProviders.set(chatSessionType, provider);
-		const onChangeDisposable = provider.onDidChangeCustomizations(() => {
-			this._onDidChangeCustomizations.fire({ chatSessionType });
-		});
-		return toDisposable(() => {
-			onChangeDisposable.dispose();
-			if (this._customizationsProviders.get(chatSessionType) === provider) {
-				this._customizationsProviders.delete(chatSessionType);
-			}
-		});
-	}
-
-	hasCustomizationsProvider(chatSessionType: string): boolean {
-		return this._customizationsProviders.has(chatSessionType);
-	}
-
-	async getCustomizations(chatSessionType: string, token: CancellationToken): Promise<IChatSessionCustomizationItemGroup[] | undefined> {
-		const provider = this._customizationsProviders.get(chatSessionType);
-		if (!provider) {
+	public getInProgressSessionDescription(chatModel: IChatModel): string | undefined {
+		const requests = chatModel.getRequests();
+		if (requests.length === 0) {
 			return undefined;
 		}
-		return provider.provideCustomizations(token);
+
+		// Get the last request to check its response status
+		const lastRequest = requests.at(-1);
+		const response = lastRequest?.response;
+		if (!response) {
+			return undefined;
+		}
+
+		// If the response is complete, show Finished
+		if (response.isComplete) {
+			return undefined;
+		}
+
+		// Get the response parts to find tool invocations and progress messages
+		const responseParts = response.response.value;
+		let description: string | IMarkdownString | undefined = '';
+
+		for (let i = responseParts.length - 1; i >= 0; i--) {
+			const part = responseParts[i];
+			if (description) {
+				break;
+			}
+
+			if (part.kind === 'confirmation' && typeof part.message === 'string') {
+				description = part.message;
+			} else if (part.kind === 'toolInvocation') {
+				const toolInvocation = part as IChatToolInvocation;
+				const state = toolInvocation.state.get();
+				description = toolInvocation.generatedTitle || toolInvocation.pastTenseMessage || toolInvocation.invocationMessage;
+				if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+					const confirmationTitle = state.confirmationMessages?.title;
+					const titleMessage = confirmationTitle && (typeof confirmationTitle === 'string'
+						? confirmationTitle
+						: confirmationTitle.value);
+					const descriptionValue = typeof description === 'string' ? description : description.value;
+					description = titleMessage ?? localize('chat.sessions.description.waitingForConfirmation', "Waiting for confirmation: {0}", descriptionValue);
+				}
+			} else if (part.kind === 'toolInvocationSerialized') {
+				description = part.invocationMessage;
+			} else if (part.kind === 'progressMessage') {
+				description = part.content;
+			} else if (part.kind === 'thinking') {
+				description = localize('chat.sessions.description.thinking', 'Thinking...');
+			}
+		}
+
+		return description ? renderAsPlaintext(description, { useLinkFormatter: true }) : '';
 	}
 
 	async createNewChatSessionItem(chatSessionType: string, request: IChatNewSessionRequest, token: CancellationToken): Promise<IChatSessionItem | undefined> {
@@ -1613,9 +1640,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	}
 
 	public async forkChatSession(sessionResource: URI, request: IChatSessionRequestHistoryItem | undefined, token: CancellationToken): Promise<IChatSessionItem> {
-		const session = this._sessions.get(sessionResource)
-			// Try to resolve in case an alias was used
-			?? this._sessions.get(this._resolveResource(sessionResource));
+		const session = this._sessions.get(this._resolveResource(sessionResource));
 		if (!session?.session.forkSession) {
 			throw new Error(`Session ${sessionResource.toString()} does not support forking`);
 		}

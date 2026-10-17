@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.flex-grow {
+	flex-grow: 1;
+}
+
 .changes-view-body {
 	display: flex;
 	flex-direction: column;
@@ -41,9 +45,13 @@
 	padding: 32px;
 }
 
-/* Main container */
+/* Main container - matches chat editing session styling */
 .changes-view-body .chat-editing-session-container {
+	padding: 4px 3px;
 	box-sizing: border-box;
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 4px;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -172,10 +180,9 @@
 }
 
 .changes-view-body .chat-editing-session-actions.outside-card .monaco-button.secondary.monaco-text-button.codicon {
-	padding: 4px 6px;
+	padding: 4px 8px;
 	font-size: 16px !important;
 }
-
 .changes-view-body .chat-editing-session-actions .monaco-button {
 	width: fit-content;
 	overflow: hidden;
@@ -283,7 +290,6 @@
 .changes-file-list .changes-decoration-badge.deleted {
 	color: var(--vscode-gitDecoration-deletedResourceForeground);
 }
-
 /* Line counts in list items */
 .changes-file-list .working-set-line-counts {
 	margin: 0 6px;

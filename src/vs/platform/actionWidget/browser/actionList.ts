@@ -430,14 +430,6 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 
 		dom.setVisibility(!element.hideIcon, data.icon);
 
-		// Set aria-expanded for section toggle items
-		if (element.isSectionToggle) {
-			const expanded = element.group?.icon === Codicon.chevronDown;
-			data.container.setAttribute('aria-expanded', String(expanded));
-		} else {
-			data.container.removeAttribute('aria-expanded');
-		}
-
 		// Apply optional className - clean up previous to avoid stale classes
 		// from virtualized row reuse
 		if (data.previousClassNames?.length) {
@@ -624,9 +616,8 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 			// Reserve space for alignment when other items have submenus
 			data.submenuIndicator.className = 'action-list-submenu-indicator';
 			data.submenuIndicator.style.display = '';
-			data.submenuIndicator.style.visibility = 'hidden';
 		} else {
-			data.submenuIndicator.className = 'action-list-submenu-indicator';
+			// No items have submenu actions — hide completely
 			data.submenuIndicator.style.display = 'none';
 		}
 
@@ -1018,7 +1009,14 @@ export class ActionListWidget<T> extends Disposable {
 
 		const virtualDelegate: IListVirtualDelegate<IActionListItem<T>> = {
 			getHeight: element => {
-				return this._getItemHeight(element);
+				switch (element.kind) {
+					case ActionListItemKind.Header:
+						return this._headerLineHeight;
+					case ActionListItemKind.Separator:
+						return this._separatorLineHeight;
+					default:
+						return this._actionLineHeight;
+				}
 			},
 			getTemplateId: element => element.kind
 		};
@@ -2060,7 +2058,17 @@ export class ActionListWidget<T> extends Disposable {
 		let listHeight = 0;
 		for (let i = 0; i < visibleCount; i++) {
 			const element = this._list.element(i);
-			listHeight += this._getItemHeight(element);
+			switch (element.kind) {
+				case ActionListItemKind.Header:
+					listHeight += this._headerLineHeight;
+					break;
+				case ActionListItemKind.Separator:
+					listHeight += this._separatorLineHeight;
+					break;
+				default:
+					listHeight += this._actionLineHeight;
+					break;
+			}
 		}
 		return listHeight;
 	}
@@ -2069,7 +2077,6 @@ export class ActionListWidget<T> extends Disposable {
 	 * Lays out the list widget with the given explicit dimensions.
 	 */
 	layout(height: number, width?: number): void {
-		this._hasLaidOut = true;
 		this._list.layout(height, width);
 		this.domNode.style.height = `${height}px`;
 
@@ -2310,10 +2317,6 @@ export class ActionListWidget<T> extends Disposable {
 		}
 		if (element.isSectionToggle && element.section) {
 			this._list.setSelection([]);
-			const section = element.section;
-			queueMicrotask(() => {
-				this._toggleSection(section);
-			});
 			return;
 		}
 		const isPointerActivation = dom.isMouseEvent(e.browserEvent) || e.browserEvent?.type === TouchEventType.Tap;
@@ -2559,16 +2562,6 @@ export class ActionListWidget<T> extends Disposable {
 
 		if (!this._options?.persistentHover) {
 			this._hideSubmenu();
-		}
-	}
-
-	private _showSubmenuForItem(item: IActionListItem<T>): void {
-		const index = this._list.indexOf(item);
-		if (index >= 0) {
-			const rowElement = this._getRowElement(index);
-			if (rowElement) {
-				this._showSubmenuForElement(item, rowElement);
-			}
 		}
 	}
 
@@ -3137,8 +3130,7 @@ export class ActionListWidget<T> extends Disposable {
 				this._list.domFocus();
 			}
 			// Check if the hover target is inside a toolbar - if so, skip the splice
-			// to avoid re-rendering which would destroy the element mid-hover.
-			// But still maintain submenu state for items with submenu actions.
+			// to avoid re-rendering which would destroy the element mid-hover
 			const isHoveringToolbar = dom.isHTMLElement(e.browserEvent.target) && e.browserEvent.target.closest('.action-list-item-toolbar') !== null;
 			if (isHoveringToolbar) {
 				if (!element.submenuActions?.length) {
@@ -3212,6 +3204,11 @@ export class ActionListWidget<T> extends Disposable {
 	}
 
 	private onListClick(e: IListMouseEvent<IActionListItem<T>>): void {
+		if (e.element && e.element.isSectionToggle && e.element.section) {
+			const section = e.element.section;
+			queueMicrotask(() => this._toggleSection(section));
+			return;
+		}
 		if (e.element && this.focusCondition(e.element)) {
 			this._list.setFocus([]);
 		}

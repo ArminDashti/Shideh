@@ -37,8 +37,9 @@ export class AgenticPromptsService extends PromptsService {
 	}
 
 	private async discoverBuiltinSkills(): Promise<readonly IAgentSkill[]> {
+		const fileService = this.instantiationService.invokeFunction(accessor => accessor.get(IFileService));
 		try {
-			const stat = await this.fileService.resolve(BUILTIN_SKILLS_URI);
+			const stat = await fileService.resolve(BUILTIN_SKILLS_URI);
 			if (!stat.children) {
 				return [];
 			}

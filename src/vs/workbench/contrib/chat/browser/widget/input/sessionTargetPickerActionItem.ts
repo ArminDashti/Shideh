@@ -10,7 +10,6 @@ import { IAction } from '../../../../../../base/common/actions.js';
 import { autorun } from '../../../../../../base/common/observable.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
 import { MenuItemAction } from '../../../../../../platform/actions/common/actions.js';
@@ -44,7 +43,7 @@ import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/drop
 
 
 export interface ISessionTypeItem {
-	type: AgentSessionTarget;
+	type: AgentSessionProviders;
 	label: string;
 	hoverDescription: string;
 	commandId: string;
@@ -384,6 +383,15 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 					commandId: `workbench.action.chat.openNewChatSessionInPlace.${contribution.type}`,
 				});
 			}
+
+			agentSessionItems.push({
+				type: agentSessionType,
+				label: getAgentSessionProviderName(agentSessionType),
+				hoverDescription: getAgentSessionProviderDescription(agentSessionType),
+				commandId: contribution.canDelegate ?
+					`workbench.action.chat.openNewChatSessionInPlace.${contribution.type}` :
+					`workbench.action.chat.openNewChatSessionExternal.${contribution.type}`,
+			});
 		}
 
 		// Filter out hidden items based on settings
@@ -417,7 +425,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 		return isVisibleEditorChatSessionType(type, this.configurationService, this.chatSessionsService, this.workspaceContextService.getWorkspace(), this.agentHostEnablementService.managedSandboxEnforced.get(), this.agentHostEnablementService.enabled.get());
 	}
 
-	protected _isSessionTypeEnabled(type: AgentSessionTarget): boolean {
+	protected _isSessionTypeEnabled(type: AgentSessionProviders): boolean {
 		if (type === AgentSessionProviders.Local) {
 			return true; // Local is always available
 		}
@@ -426,9 +434,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 	}
 
 	protected _getSessionCategory(sessionTypeItem: ISessionTypeItem) {
-		// TODO: Remove hardcoded providers from core
-		const knownType = getAgentSessionProvider(sessionTypeItem.type);
-		return knownType && isFirstPartyAgentSessionProvider(knownType) ? firstPartyCategory : otherCategory;
+		return isFirstPartyAgentSessionProvider(sessionTypeItem.type) ? firstPartyCategory : otherCategory;
 	}
 
 	protected _getSessionDescription(_sessionTypeItem: ISessionTypeItem): string | undefined {

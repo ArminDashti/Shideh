@@ -52,6 +52,10 @@ suite('TerminalSandboxService - network domains', () => {
 	const windowId = 7;
 
 	class MockFileService {
+		async exists(uri: URI): Promise<boolean> {
+			return createdFiles.has(uri.path) || createdFolders.includes(uri.path);
+		}
+
 		async createFile(uri: URI, content: VSBuffer): Promise<any> {
 			createFileCount++;
 			const contentString = content.toString();

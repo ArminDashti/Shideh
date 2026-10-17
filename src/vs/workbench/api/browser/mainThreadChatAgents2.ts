@@ -14,7 +14,6 @@ import { Schemas } from '../../../base/common/network.js';
 import { escapeRegExpCharacters } from '../../../base/common/strings.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
-import { Codicon } from '../../../base/common/codicons.js';
 import { Position } from '../../../editor/common/core/position.js';
 import { Range } from '../../../editor/common/core/range.js';
 import { getWordAtText } from '../../../editor/common/core/wordHelper.js';
@@ -145,7 +144,7 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostChatAgents2);
 
 		this._register(this._chatService.onDidDisposeSession(e => {
-			for (const resource of e.sessionResources) {
+			for (const resource of e.sessionResource) {
 				this._proxy.$releaseSession(resource);
 			}
 		}));

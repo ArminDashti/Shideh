@@ -1184,7 +1184,7 @@ export class ScriptedMockAgent implements IAgent {
 	respondToPermissionRequest(toolCallId: string, approved: boolean): void {
 		const callback = this._pendingPermissions.get(toolCallId);
 		if (callback) {
-			this._pendingPermissions.delete(toolCallId);
+			this._pendingPermissions.delete(requestId);
 			callback(approved);
 		}
 	}

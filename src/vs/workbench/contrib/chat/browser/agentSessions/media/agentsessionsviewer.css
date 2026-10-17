@@ -79,7 +79,7 @@
 		.agent-session-diff-container {
 			.agent-session-diff-added,
 			.agent-session-diff-removed {
-				color: unset;
+					color: unset;
 			}
 		}
 	}
@@ -220,18 +220,6 @@
 			line-height: 15px;
 			max-height: 15px;
 			color: var(--vscode-descriptionForeground);
-
-			.agent-session-details-icon {
-				display: none;
-				font-size: 11px;
-				line-height: 1;
-				flex-shrink: 0;
-
-				&.visible {
-					display: flex;
-					align-items: center;
-				}
-			}
 
 			.rendered-markdown {
 				p {
@@ -522,10 +510,6 @@
 
 		.agent-session-section-label {
 			flex: 1;
-			min-width: 0;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
 		}
 
 		.agent-session-section-count {
@@ -547,7 +531,8 @@
 		}
 	}
 
-	.monaco-list-row:hover .agent-session-section .agent-session-section-count {
+	.monaco-list-row:hover .agent-session-section .agent-session-section-count,
+	.monaco-list-row.focused:not(.selected) .agent-session-section .agent-session-section-count {
 		display: none;
 	}
 

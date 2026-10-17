@@ -1,10 +1,7 @@
 ---
-name: update-pr
-description: Update the pull request for the current session. Use when the user wants to push new changes to an existing PR.
+description: Update the pull request for the current session
 ---
-<!-- Customize this skill and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
-
-# Update Pull Request
+<!-- Customize this prompt and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
 
 Update the existing pull request for the current session.
 The context block appended to the prompt contains the pull request information.

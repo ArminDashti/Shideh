@@ -7,7 +7,7 @@ import './media/aiCustomizationManagement.css';
 import * as DOM from '../../../../../base/browser/dom.js';
 import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { ActionBar } from '../../../../../base/browser/ui/actionbar/actionbar.js';
-import { Disposable, DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { autorun } from '../../../../../base/common/observable.js';
@@ -35,7 +35,7 @@ import { HighlightedLabel } from '../../../../../base/browser/ui/highlightedlabe
 import { matchesContiguousSubString, IMatch } from '../../../../../base/common/filters.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { Button, ButtonWithDropdown } from '../../../../../base/browser/ui/button/button.js';
-import { IMenuService, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import { IMenuService } from '../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createActionViewItem, getContextMenuActions } from '../../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
@@ -235,7 +235,10 @@ function promptTypeToIcon(type: PromptsType): ThemeIcon {
  * with how they appear in agent dropdowns and error messages.
  */
 export function formatDisplayName(name: string): string {
-	return name.replace(/\.md$/i, '');
+	return name
+		.replace(/\.md$/i, '')
+		.replace(/[-_]/g, ' ')
+		.replace(/\b\w/g, c => c.toUpperCase());
 }
 
 /**
@@ -344,7 +347,7 @@ class AICustomizationItemRenderer implements IListRenderer<IFileItemEntry, IAICu
 		renderIcon();
 		templateData.elementDisposables.add(this.themeService.onDidColorThemeChange(renderIcon));
 
-		// Hover tooltip: name + source + badge context + plugin source
+		// Hover tooltip: name + full path + badge context + plugin source
 		templateData.elementDisposables.add(this.hoverService.setupDelayedHover(templateData.container, () => {
 			let content: string;
 			if (element.isBuiltin) {
@@ -460,7 +463,7 @@ class AICustomizationItemRenderer implements IListRenderer<IFileItemEntry, IAICu
 		}
 
 		// Inline action bar from menu
-		const context: Record<string, unknown> = {
+		const context = {
 			uri: element.uri.toString(),
 			name: element.name,
 			promptType: element.promptType,
@@ -472,6 +475,7 @@ class AICustomizationItemRenderer implements IListRenderer<IFileItemEntry, IAICu
 		// Create scoped context key service with item-specific keys for when-clause filtering
 		const overlayPairs: [string, string | boolean][] = [
 			[AI_CUSTOMIZATION_ITEM_TYPE_KEY, element.promptType],
+			[AI_CUSTOMIZATION_ITEM_STORAGE_KEY, element.storage],
 			[AI_CUSTOMIZATION_ITEM_URI_KEY, element.uri.toString()],
 			[AI_CUSTOMIZATION_ITEM_DISABLED_KEY, element.disabled],
 		];
@@ -936,7 +940,7 @@ export class AICustomizationListWidget extends Disposable {
 
 	private showItemContextMenu(item: IAICustomizationListItem, anchor: IListContextMenuEvent<IListEntry>['anchor']): void {
 		// Create context for the menu actions
-		const context: Record<string, unknown> = {
+		const context = {
 			uri: item.uri.toString(),
 			name: item.name,
 			promptType: item.promptType,
@@ -948,6 +952,7 @@ export class AICustomizationListWidget extends Disposable {
 		// Create scoped context key service with item-specific keys for when-clause filtering
 		const overlayPairs: [string, string | boolean][] = [
 			[AI_CUSTOMIZATION_ITEM_TYPE_KEY, item.promptType],
+			[AI_CUSTOMIZATION_ITEM_STORAGE_KEY, item.storage],
 			[AI_CUSTOMIZATION_ITEM_URI_KEY, item.uri.toString()],
 			[AI_CUSTOMIZATION_ITEM_DISABLED_KEY, item.disabled],
 		];
@@ -1790,6 +1795,8 @@ export class AICustomizationListWidget extends Disposable {
 		// Use the CSS-computed height within the padded parent.
 		this.element.style.height = '';
 		this.searchInput.layout();
+		this.listContainer.style.height = `${Math.max(0, listHeight)}px`;
+		this.list.layout(Math.max(0, listHeight), width);
 
 		// Measure sibling elements to calculate the remaining space for the list.
 		// When offsetHeight returns 0 the container may have just become visible

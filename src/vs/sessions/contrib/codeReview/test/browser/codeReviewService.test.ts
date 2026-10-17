@@ -55,7 +55,11 @@ suite('CodeReviewService', () => {
 		override readonly onDidChangeSessions: Event<ISessionsChangeEvent>;
 		readonly activeSession: IObservable<IActiveSession | undefined>;
 
-		private readonly _sessions = new Map<string, ISession>();
+		private readonly _onDidChangeSessionArchivedState: Emitter<IAgentSession>;
+		readonly onDidChangeSessionArchivedState: Event<IAgentSession>;
+		private readonly _onDidChangeSessions: Emitter<void>;
+		readonly model: IAgentSessionsModel;
+		private readonly _sessions = new Map<string, IAgentSession>();
 
 		constructor(disposables: DisposableStore) {
 			super();
@@ -65,7 +69,7 @@ suite('CodeReviewService', () => {
 			this.activeSession = this._activeSession;
 		}
 
-		override getSession(resource: URI): ISession | undefined {
+		getSession(resource: URI): IAgentSession | undefined {
 			return this._sessions.get(resource.toString());
 		}
 
@@ -124,7 +128,7 @@ suite('CodeReviewService', () => {
 		}
 
 		updateSessionChanges(resource: URI, changes: readonly IChatSessionFileChange2[] | undefined): void {
-			const session = this._sessions.get(resource.toString());
+			const session = this._sessions.get(resource.toString()) as Record<string, unknown> | undefined;
 			if (session) {
 				const mappedChanges = (changes ?? []).map(c => ({ modifiedUri: c.modifiedUri ?? c.uri, originalUri: c.originalUri, insertions: c.insertions, deletions: c.deletions }));
 				(session.mainChat.get().changes as ReturnType<typeof observableValue<readonly IChatSessionFileChange[]>>).set(mappedChanges, undefined);
@@ -135,8 +139,8 @@ suite('CodeReviewService', () => {
 			this._sessions.delete(resource.toString());
 		}
 
-		override getSessions(): ISession[] {
-			return [...this._sessions.values()];
+		fireSessionArchivedState(session: IAgentSession): void {
+			this._onDidChangeSessionArchivedState.fire(session);
 		}
 
 		fireSessionsChanged(event?: Partial<ISessionsChangeEvent>): void {
@@ -304,6 +308,9 @@ suite('CodeReviewService', () => {
 
 		gitHubService = new MockGitHubService(sessionsManagement);
 		instantiationService.stub(IGitHubService, gitHubService);
+
+		agentSessionsService = new MockAgentSessionsService(store);
+		instantiationService.stub(IAgentSessionsService, agentSessionsService);
 
 		service = store.add(instantiationService.createInstance(CodeReviewService));
 		session = URI.parse('test://session/1');

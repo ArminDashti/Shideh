@@ -296,7 +296,6 @@ export class ChatService extends Disposable implements IChatService {
 			}
 		}));
 		this._register(this._sessionModels.onDidDisposeModel(model => {
-			clearChatMarks(model.sessionResource);
 			this.chatDebugService.endSession(model.sessionResource);
 			this._sessionFollowupCancelTokens.get(model.sessionResource)?.cancel();
 			this._sessionFollowupCancelTokens.deleteAndDispose(model.sessionResource);
@@ -510,7 +509,18 @@ export class ChatService extends Disposable implements IChatService {
 	async getLiveSessionItems(): Promise<IChatDetail[]> {
 		return await Promise.all(Array.from(this._sessionModels.values())
 			.filter(session => this.shouldBeInHistory(session))
-			.map(chatModelToChatDetail));
+			.map(async (session): Promise<IChatDetail> => {
+				const title = session.title || localize('newChat', "New Chat");
+				return {
+					sessionResource: session.sessionResource,
+					title,
+					lastMessageDate: session.lastMessageDate,
+					timing: session.timing,
+					isActive: true,
+					stats: await awaitStatsForSession(session),
+					lastResponseState: session.lastRequest?.response?.state ?? ResponseModelState.Pending,
+				};
+			}));
 	}
 
 	/**
@@ -783,8 +793,7 @@ export class ChatService extends Disposable implements IChatService {
 						inputText: '',
 						mode,
 						selectedModel: selectedModel,
-						selections: [],
-						permissionLevel: storedPermissionLevel,
+						selections: []
 					},
 					pendingRequests: undefined,
 					repoData: undefined
@@ -1034,6 +1043,7 @@ export class ChatService extends Disposable implements IChatService {
 			let wasComplete: boolean | undefined;
 
 			const cancellationListener = disposables.add(new MutableDisposable());
+
 			const createCancellationListener = (token: CancellationToken) => {
 				return token.onCancellationRequested(() => {
 					providedSession.interruptActiveResponseCallback?.().then(userConfirmedInterruption => {
@@ -1169,7 +1179,7 @@ export class ChatService extends Disposable implements IChatService {
 				}
 
 				// Process only new progress items
-				if (lastRequest && progressArray.length > lastProgressLength) {
+				if (progressArray.length > lastProgressLength) {
 					const newProgress = progressArray.slice(lastProgressLength);
 					for (const progress of newProgress) {
 						model?.acceptResponseProgress(lastRequest, progress);
@@ -1605,9 +1615,6 @@ export class ChatService extends Disposable implements IChatService {
 					return;
 				}
 
-				if (!gotProgress) {
-					markChat(sessionResource, ChatPerfMark.FirstToken);
-				}
 				gotProgress = true;
 
 				for (let i = 0; i < progress.length; i++) {
@@ -2078,8 +2085,6 @@ export class ChatService extends Disposable implements IChatService {
 		this._pendingRequests.set(model.sessionResource, cancellableRequest);
 		this.telemetryService.publicLog2<ChatPendingRequestChangeEvent, ChatPendingRequestChangeClassification>(ChatPendingRequestChangeEventName, { action: 'add', source: 'sendRequest', chatSessionId: chatSessionResourceToId(model.sessionResource) });
 		rawResponsePromise.finally(() => {
-			markChat(sessionResource, ChatPerfMark.RequestComplete);
-			clearChatMarks(sessionResource);
 			if (this._pendingRequests.get(model.sessionResource) === cancellableRequest) {
 				this._pendingRequests.deleteAndDispose(model.sessionResource);
 				this.telemetryService.publicLog2<ChatPendingRequestChangeEvent, ChatPendingRequestChangeClassification>(ChatPendingRequestChangeEventName, { action: 'remove', source: 'sendRequestComplete', requestId: cancellableRequest.requestId, chatSessionId: chatSessionResourceToId(model.sessionResource) });

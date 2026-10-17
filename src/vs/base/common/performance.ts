@@ -58,7 +58,6 @@ interface IPerformanceTiming {
 
 interface IPerformance {
 	mark(name: string, markOptions?: { startTime?: number }): void;
-	clearMarks(name?: string): void;
 	getEntriesByType(type: string): IPerformanceEntry[];
 	readonly timeOrigin: number;
 	readonly timing: IPerformanceTiming;

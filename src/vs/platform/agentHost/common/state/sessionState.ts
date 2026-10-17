@@ -66,6 +66,7 @@ export {
 	CustomizationType, MessageAttachmentKind, MessageKind,
 	PendingMessageKind,
 	PolicyState,
+	PermissionKind,
 	ResponsePartKind,
 	ChatInteractivity,
 	ChatOriginKind,
@@ -1118,6 +1119,9 @@ export function createActiveTurn(id: string, message: Message, startedAt: string
 		startedAt,
 		message,
 		responseParts: [],
+		toolCalls: {},
+		pendingPermissions: {},
+		reasoning: '',
 		usage: undefined,
 	};
 }

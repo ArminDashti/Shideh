@@ -1,10 +1,7 @@
 ---
-name: create-pr
-description: Create a pull request for the current session. Use when the user wants to open a PR with the session's changes.
+description: Create a pull request for the current session
 ---
-<!-- Customize this skill and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
-
-# Create Pull Request
+<!-- Customize this prompt and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
 
 Use the GitHub MCP server to create a pull request if available, otherwise use `gh` CLI.
 

@@ -99,12 +99,12 @@ export class WorkbenchButtonBar extends ButtonBar {
 
 	update(actions: IAction[], secondary: IAction[]): void {
 
-		const configProvider: IButtonConfigProvider = this._options?.buttonConfigProvider ?? (() => ({ showLabel: true }));
+		const conifgProvider: IButtonConfigProvider = this._options?.buttonConfigProvider ?? (() => ({ showLabel: true }));
 
 		this._updateStore.clear();
 		this.clear();
 
-		// Support instant hover between buttons
+		// Support instamt hover between buttons
 		const hoverDelegate = this._updateStore.add(createInstantHoverDelegate());
 
 		const actionCount = this._options?.renderSecondaryActions === false
@@ -116,15 +116,13 @@ export class WorkbenchButtonBar extends ButtonBar {
 			const actionOrSubmenu = actions[i];
 			let action: IAction;
 			let btn: IButton;
-			let tooltip: string;
-
-			if (actionOrSubmenu instanceof SubmenuAction && actionOrSubmenu.actions.length > 1) {
+			let tooltip = actionOrSubmenu.tooltip || actionOrSubmenu.label;
+			if (!(actionOrSubmenu instanceof SubmenuAction)) {
+				tooltip = this._keybindingService.appendKeybinding(tooltip, actionOrSubmenu.id);
+			}
+			if (actionOrSubmenu instanceof SubmenuAction && actionOrSubmenu.actions.length > 0) {
 				const [first, ...rest] = actionOrSubmenu.actions;
 				action = <MenuItemAction>first;
-
-				tooltip = action.tooltip || action.label;
-				tooltip = this._keybindingService.appendKeybinding(tooltip, action.id);
-
 				btn = this.addButtonWithDropdown({
 					addPrimaryActionToDropdown: false,
 					secondary: configProvider(action, i)?.isSecondary ?? secondary,
@@ -136,15 +134,9 @@ export class WorkbenchButtonBar extends ButtonBar {
 					small: this._options?.small,
 				});
 			} else {
-				action = actionOrSubmenu instanceof SubmenuAction && actionOrSubmenu.actions.length === 1
-					? actionOrSubmenu.actions[0]
-					: actionOrSubmenu;
-
-				tooltip = action.tooltip || action.label;
-				tooltip = this._keybindingService.appendKeybinding(tooltip, action.id);
-
+				action = actionOrSubmenu;
 				btn = this.addButton({
-					secondary: configProvider(action, i)?.isSecondary ?? secondary,
+					secondary: conifgProvider(action, i)?.isSecondary ?? secondary,
 					ariaLabel: tooltip,
 					supportIcons: true,
 					small: this._options?.small,

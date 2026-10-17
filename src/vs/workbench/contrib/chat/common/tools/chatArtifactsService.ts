@@ -6,19 +6,10 @@
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
 import { derived, IObservable, observableFromEvent, observableSignalFromEvent, observableValueOpts } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { Memento } from '../../../../common/memento.js';
-import { extractArtifactsFromResponse } from '../chatArtifactExtraction.js';
-import { IChatToolInvocation, IChatService } from '../chatService/chatService.js';
-import { ChatConfiguration } from '../constants.js';
 import { chatSessionResourceToId } from '../model/chatUri.js';
-
-export interface IArtifactGroupConfig {
-	readonly groupName: string;
-	readonly onlyShowGroup?: boolean;
-}
 
 export interface IChatArtifact {
 	readonly label: string;
@@ -26,8 +17,6 @@ export interface IChatArtifact {
 	readonly toolCallId?: string;
 	readonly dataPartIndex?: number;
 	readonly type: 'devServer' | 'screenshot' | 'plan' | undefined;
-	readonly groupName?: string;
-	readonly onlyShowGroup?: boolean;
 }
 
 export type ArtifactSource =
@@ -79,14 +68,14 @@ class ChatArtifactsStorage {
 		this._memento = new Memento('chat-artifacts', storageService);
 	}
 
-	get(key: string): IChatArtifact[] {
+	getArtifacts(sessionResource: URI): IChatArtifact[] {
 		const storage = this._memento.getMemento(StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		return storage[key] || [];
+		return storage[this._toKey(sessionResource)] || [];
 	}
 
-	set(key: string, artifacts: IChatArtifact[]): void {
+	setArtifacts(sessionResource: URI, artifacts: IChatArtifact[]): void {
 		const storage = this._memento.getMemento(StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		storage[key] = artifacts;
+		storage[this._toKey(sessionResource)] = artifacts;
 		this._memento.saveMemento();
 	}
 
@@ -342,22 +331,26 @@ export class ChatArtifactsService extends Disposable implements IChatArtifactsSe
 	private readonly _storage: ChatArtifactsStorage;
 	private readonly _instances = this._register(new DisposableMap<string, UnifiedChatArtifacts>());
 
-	constructor(
-		@IStorageService storageService: IStorageService,
-		@IChatService private readonly _chatService: IChatService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-	) {
+	private readonly _storage: ChatArtifactsStorage;
+	private readonly _observables = new Map<string, ReturnType<typeof observableValueOpts<readonly IChatArtifact[]>>>();
+
+	constructor(@IStorageService storageService: IStorageService) {
 		super();
 		this._storage = new ChatArtifactsStorage(storageService);
 	}
 
-	getArtifacts(sessionResource: URI): IChatArtifacts {
+	getArtifacts(sessionResource: URI): readonly IChatArtifact[] {
+		return this._storage.getArtifacts(sessionResource);
+	}
+
+	setArtifacts(sessionResource: URI, artifacts: IChatArtifact[]): void {
+		this._storage.setArtifacts(sessionResource, artifacts);
 		const key = chatSessionResourceToId(sessionResource);
 		let instance = this._instances.get(key);
 		if (!instance) {
 			instance = new UnifiedChatArtifacts(sessionResource, key, this._storage, this._chatService, this._configurationService);
 			this._instances.set(key, instance);
 		}
-		return instance;
+		return obs;
 	}
 }

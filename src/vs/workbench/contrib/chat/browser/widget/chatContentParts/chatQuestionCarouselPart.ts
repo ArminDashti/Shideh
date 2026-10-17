@@ -149,8 +149,8 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private _isSkipped = false;
 
 	private readonly _textInputBoxes: Map<string, InputBox> = new Map();
-	private readonly _singleSelectItems: Map<string, { items: HTMLElement[]; selectedIndex: number; optionIndices: number[] }> = new Map();
-	private readonly _multiSelectCheckboxes: Map<string, { checkboxes: Checkbox[]; optionIndices: number[] }> = new Map();
+	private readonly _singleSelectItems: Map<string, { items: HTMLElement[]; selectedIndex: number }> = new Map();
+	private readonly _multiSelectCheckboxes: Map<string, Checkbox[]> = new Map();
 	private readonly _freeformTextareas: Map<string, HTMLTextAreaElement> = new Map();
 	private readonly _inputBoxes: DisposableStore = this._register(new DisposableStore());
 	private readonly _questionRenderStore = this._register(new MutableDisposable<DisposableStore>());
@@ -1201,7 +1201,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 
 		// Determine initially selected index
 		let selectedIndex = -1;
-		orderedOptions.forEach(({ option }, index) => {
+		options.forEach((option, index) => {
 			if (previousSelectedValue !== undefined && option.value === previousSelectedValue) {
 				selectedIndex = index;
 			} else if (selectedIndex === -1 && !previousFreeform && defaultOptionId !== undefined && option.id === defaultOptionId) {
@@ -1284,7 +1284,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			listItems.push(listItem);
 		});
 
-		this._singleSelectItems.set(question.id, { items: listItems, selectedIndex, optionIndices: orderedOptions.map(o => o.originalIndex) });
+		this._singleSelectItems.set(question.id, { items: listItems, selectedIndex });
 
 		// Paints the initial row and points `aria-activedescendant` at it. Deliberately not
 		// `updateSelection`, which would commit an answer the user has not given yet.
@@ -1296,7 +1296,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			const freeformContainer = dom.$('.chat-question-freeform');
 
 			const freeformNumber = dom.$('.chat-question-freeform-number');
-			freeformNumber.textContent = `${orderedOptions.length + 1}`;
+			freeformNumber.textContent = `${options.length + 1}`;
 			freeformContainer.appendChild(freeformNumber);
 
 			freeformTextarea = dom.$<HTMLTextAreaElement>('textarea.chat-question-freeform-textarea');
@@ -1415,7 +1415,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		let focusedIndex = 0;
 		let firstCheckedIndex = -1;
 
-		orderedOptions.forEach(({ option }, index) => {
+		options.forEach((option, index) => {
 			// Determine initial checked state
 			let isChecked = false;
 			if (previousSelectedValues && previousSelectedValues.length > 0) {
@@ -1495,7 +1495,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			listItems.push(listItem);
 		});
 
-		this._multiSelectCheckboxes.set(question.id, { checkboxes, optionIndices: orderedOptions.map(o => o.originalIndex) });
+		this._multiSelectCheckboxes.set(question.id, checkboxes);
 
 		// Show freeform input only when explicitly allowed
 		let freeformTextarea: HTMLTextAreaElement | undefined;
@@ -1504,7 +1504,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 
 			// Number indicator for freeform (comes after all options)
 			const freeformNumber = dom.$('.chat-question-freeform-number');
-			freeformNumber.textContent = `${orderedOptions.length + 1}`;
+			freeformNumber.textContent = `${options.length + 1}`;
 			freeformContainer.appendChild(freeformNumber);
 
 			freeformTextarea = dom.$<HTMLTextAreaElement>('textarea.chat-question-freeform-textarea');
@@ -1602,8 +1602,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 				const data = this._singleSelectItems.get(question.id);
 				let selectedValue: string | undefined = undefined;
 				if (data && data.selectedIndex >= 0) {
-					const originalIndex = data.optionIndices[data.selectedIndex];
-					selectedValue = originalIndex !== undefined ? question.options?.[originalIndex]?.value : undefined;
+					selectedValue = question.options?.[data.selectedIndex]?.value;
 				}
 				// Find default option if nothing selected (defaultValue is the option id)
 				if (selectedValue === undefined && typeof question.defaultValue === 'string') {
@@ -1625,13 +1624,12 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			}
 
 			case 'multiSelect': {
-				const data = this._multiSelectCheckboxes.get(question.id);
+				const checkboxes = this._multiSelectCheckboxes.get(question.id);
 				const selectedValues: string[] = [];
-				if (data) {
-					data.checkboxes.forEach((checkbox, index) => {
+				if (checkboxes) {
+					checkboxes.forEach((checkbox, index) => {
 						if (checkbox.checked) {
-							const originalIndex = data.optionIndices[index];
-							const value = originalIndex !== undefined ? question.options?.[originalIndex]?.value : undefined;
+							const value = question.options?.[index]?.value;
 							if (value !== undefined) {
 								selectedValues.push(value);
 							}

@@ -13,7 +13,7 @@ import { Lazy } from '../../../../../base/common/lazy.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { LRUCache } from '../../../../../base/common/map.js';
 import { revive } from '../../../../../base/common/marshalling.js';
-import { autorun, derived, IObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { isEqual, isEqualOrParent, joinPath, normalizePath, relativePath } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
@@ -31,7 +31,6 @@ import type { Dto } from '../../../../services/extensions/common/proxyIdentifier
 import { AutoUpdateConfigurationKey, IExtensionsWorkbenchService } from '../../../extensions/common/extensions.js';
 import { ChatConfiguration } from '../constants.js';
 import { IAgentPluginRepositoryService } from './agentPluginRepositoryService.js';
-import { FileBackedInstalledPluginsStore, IStoredInstalledPlugin } from './fileBackedInstalledPluginsStore.js';
 import { IWorkspacePluginSettingsService } from './workspacePluginSettingsService.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { readAgentPluginManifest } from '../../../../../platform/agentPlugins/common/agentPluginParser.js';
@@ -146,6 +145,7 @@ interface IMarketplaceJson {
 export interface IMarketplaceInstalledPlugin {
 	readonly pluginUri: URI;
 	readonly plugin: IMarketplacePlugin;
+	readonly enabled: boolean;
 }
 
 /**
@@ -288,6 +288,12 @@ interface IGitHubMarketplaceCacheEntry {
 
 type IStoredGitHubMarketplaceCache = Dto<Record<string, IGitHubMarketplaceCacheEntry>>;
 
+interface IStoredInstalledPlugin {
+	readonly pluginUri: UriComponents;
+	readonly plugin: IMarketplacePlugin;
+	readonly enabled: boolean;
+}
+
 /**
  * Ensures that an {@link IMarketplacePlugin} loaded from storage has a
  * {@link IMarketplacePlugin.sourceDescriptor sourceDescriptor}. Plugins
@@ -304,6 +310,16 @@ function ensureSourceDescriptor(plugin: IMarketplacePlugin): IMarketplacePlugin 
 		sourceDescriptor: { kind: PluginSourceKind.RelativePath, path: plugin.source },
 	};
 }
+
+const installedPluginsMemento = observableMemento<readonly IStoredInstalledPlugin[]>({
+	defaultValue: [],
+	key: 'chat.plugins.installed.v1',
+	toStorage: value => JSON.stringify(value),
+	fromStorage: value => {
+		const parsed = JSON.parse(value);
+		return Array.isArray(parsed) ? parsed : [];
+	},
+});
 
 const trustedMarketplacesMemento = observableMemento<readonly string[]>({
 	defaultValue: [],
@@ -351,8 +367,7 @@ interface IPluginMarketplaceContinuation {
 export class PluginMarketplaceService extends Disposable implements IPluginMarketplaceService {
 	declare readonly _serviceBrand: undefined;
 	private readonly _gitHubMarketplaceCache = new Lazy<Map<string, IGitHubMarketplaceCacheEntry>>(() => this._loadPersistedGitHubMarketplaceCache());
-	private readonly _installedPluginsStore: FileBackedInstalledPluginsStore;
-	private readonly _pluginMetadata = new Map<string, IMarketplacePlugin>();
+	private readonly _installedPluginsStore: ObservableMemento<readonly IStoredInstalledPlugin[]>;
 	private readonly _trustedMarketplacesStore: ObservableMemento<readonly string[]>;
 	private readonly _lastFetchedPluginsStore: ObservableMemento<IStoredLastFetchedPlugins>;
 	private readonly _marketplacesWithUpdates = observableValue<ReadonlySet<string>>('marketplacesWithUpdates', new Set());
@@ -372,7 +387,6 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IRequestService private readonly _requestService: IRequestService,
-		@IEnvironmentService environmentService: IEnvironmentService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentPluginRepositoryService private readonly _pluginRepositoryService: IAgentPluginRepositoryService,
 		@ILogService private readonly _logService: ILogService,
@@ -384,17 +398,8 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 	) {
 		super();
 
-		// File-backed store for installed plugins. The old cache location
-		// is passed so the store can rebase URIs during migration.
-		const oldCacheRoot = joinPath(environmentService.cacheHome, 'agentPlugins');
 		this._installedPluginsStore = this._register(
-			new FileBackedInstalledPluginsStore(
-				_pluginRepositoryService.agentPluginsHome,
-				oldCacheRoot,
-				_fileService,
-				_logService,
-				_storageService,
-			)
+			installedPluginsMemento(StorageScope.APPLICATION, StorageTarget.MACHINE, _storageService)
 		);
 
 		this._trustedMarketplacesStore = this._register(
@@ -410,16 +415,12 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			return revived.plugins.map(ensureSourceDescriptor);
 		});
 
-		this.installedPlugins = this._installedPluginsStore.value.map(entries => {
-			const result: IMarketplaceInstalledPlugin[] = [];
-			for (const e of entries) {
-				const plugin = this._pluginMetadata.get(e.pluginUri.toString());
-				if (plugin) {
-					result.push({ pluginUri: e.pluginUri, plugin });
-				}
-			}
-			return result;
-		});
+		this.installedPlugins = this._installedPluginsStore.map(s =>
+			(revive(s) as readonly IMarketplaceInstalledPlugin[]).map(e => ({
+				...e,
+				plugin: ensureSourceDescriptor(e.plugin),
+			}))
+		);
 
 		// Aggregate recommended plugin keys from all providers.
 		// Currently sourced from Claude workspace settings; more providers can be
@@ -642,9 +643,9 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 		let repoMayBePrivate = true;
 		let readError: Error | undefined;
 
-		const plugins = await this._readPluginsFromDefinitions(reference, async (defPath) => {
+		for (const def of MARKETPLACE_DEFINITIONS) {
 			if (token.isCancellationRequested) {
-				return undefined;
+				return [];
 			}
 			const ref = encodeURIComponent(reference.ref ?? 'main');
 			const url = `https://raw.githubusercontent.com/${repo}/${ref}/${defPath}`;
@@ -657,24 +658,55 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 						readError = new Error(localize('pluginMarketplace.httpReadFailed', "Unable to read marketplace '{0}' (HTTP {1}).", reference.displayLabel, statusCode ?? 'unknown'));
 					}
 					this._logService.debug(`[PluginMarketplaceService] ${url} returned status ${statusCode}, skipping`);
-					return undefined;
+					continue;
 				}
-				return await asJson<IMarketplaceJson>(context) ?? undefined;
+				const json = await asJson<IMarketplaceJson>(context);
+				if (!json?.plugins || !Array.isArray(json.plugins)) {
+					this._logService.debug(`[PluginMarketplaceService] ${url} did not contain a valid plugins array, skipping`);
+					continue;
+				}
+				const plugins = json.plugins
+					.filter((p): p is { name: string; description?: string; version?: string; source?: string | IJsonPluginSource } =>
+						typeof p.name === 'string' && !!p.name
+					)
+					.flatMap(p => {
+						const sourceDescriptor = parsePluginSource(p.source, json.metadata?.pluginRoot, {
+							pluginName: p.name,
+							logService: this._logService,
+							logPrefix: `[PluginMarketplaceService]`,
+						});
+						if (!sourceDescriptor) {
+							return [];
+						}
+
+						const source = sourceDescriptor.kind === PluginSourceKind.RelativePath ? sourceDescriptor.path : '';
+
+						return [{
+							name: p.name,
+							description: p.description ?? '',
+							version: p.version ?? '',
+							source,
+							sourceDescriptor,
+							marketplace: reference.displayLabel,
+							marketplaceReference: reference,
+							marketplaceType: def.type,
+							readmeUri: getMarketplaceReadmeUri(repo, source),
+						}];
+					});
+
+				cache.set(reference.canonicalId, {
+					plugins,
+					expiresAt: Date.now() + GITHUB_MARKETPLACE_CACHE_TTL_MS,
+					referenceRawValue: reference.rawValue,
+				});
+				this._savePersistedGitHubMarketplaceCache(cache);
+
+				return plugins;
 			} catch (err) {
 				readError = new Error(localize('pluginMarketplace.readFailed', "Unable to read marketplace '{0}'.", reference.displayLabel));
 				this._logService.debug(`[PluginMarketplaceService] Failed to fetch marketplace.json from ${url}:`, err);
-				return undefined;
+				continue;
 			}
-		});
-
-		if (plugins.length > 0) {
-			cache.set(reference.canonicalId, {
-				plugins,
-				expiresAt: Date.now() + GITHUB_MARKETPLACE_CACHE_TTL_MS,
-				referenceRawValue: reference.rawValue,
-			});
-			this._savePersistedGitHubMarketplaceCache(cache);
-			return plugins;
 		}
 
 		if (repoMayBePrivate) {
@@ -787,8 +819,8 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 	}
 
 	getMarketplacePluginMetadata(pluginUri: URI): IMarketplacePlugin | undefined {
-		return this._pluginMetadata.get(pluginUri.toString())
-			?? [...this._pluginMetadata.entries()].find(([key]) => isEqualOrParent(pluginUri, URI.parse(key)))?.[1];
+		const installed = this.installedPlugins.get();
+		return installed.find(e => isEqualOrParent(pluginUri, e.pluginUri))?.plugin;
 	}
 
 	addInstalledPlugin(pluginUri: URI, plugin: IMarketplacePlugin): void {
@@ -816,6 +848,14 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 		}
 		this._installedPluginsStore.set(current.filter(e => !isEqual(e.pluginUri, pluginUri)), undefined);
 		return true;
+	}
+
+	setInstalledPluginEnabled(pluginUri: URI, enabled: boolean): void {
+		const current = this.installedPlugins.get();
+		this._installedPluginsStore.set(
+			current.map(e => isEqual(e.pluginUri, pluginUri) ? { ...e, enabled } : e),
+			undefined,
+		);
 	}
 
 	isMarketplaceTrusted(ref: IMarketplaceReference): boolean {
@@ -1014,7 +1054,7 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 		}
 
 		try {
-			const installed = this.installedPlugins.get();
+			const installed = this.installedPlugins.get().filter(e => e.enabled);
 			if (installed.length === 0) {
 				return;
 			}
@@ -1149,9 +1189,11 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 		let readError: unknown;
 		const plugins = await this._readPluginsFromDefinitions(reference, async (defPath) => {
 			if (token?.isCancellationRequested) {
-				return undefined;
+				return [];
 			}
-			const definitionUri = joinPath(repoDir, defPath);
+
+			const definitionUri = joinPath(repoDir, def.path);
+			let json: IMarketplaceJson | undefined;
 			try {
 				const contents = await this._fileService.readFile(definitionUri);
 				return parseJSONC(contents.value.toString()) as IMarketplaceJson | undefined;
@@ -1183,7 +1225,40 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			if (!json?.plugins || !Array.isArray(json.plugins)) {
 				continue;
 			}
-			return this._parseMarketplacePlugins(json, reference, def.type, repoDir);
+
+			if (!json?.plugins || !Array.isArray(json.plugins)) {
+				this._logService.debug(`[PluginMarketplaceService] ${definitionUri.toString()} did not contain a valid plugins array, skipping`);
+				continue;
+			}
+
+			return json.plugins
+				.filter((p): p is { name: string; description?: string; version?: string; source?: string | IJsonPluginSource } =>
+					typeof p.name === 'string' && !!p.name
+				)
+				.flatMap(p => {
+					const sourceDescriptor = parsePluginSource(p.source, json.metadata?.pluginRoot, {
+						pluginName: p.name,
+						logService: this._logService,
+						logPrefix: `[PluginMarketplaceService]`,
+					});
+					if (!sourceDescriptor) {
+						return [];
+					}
+
+					const source = sourceDescriptor.kind === PluginSourceKind.RelativePath ? sourceDescriptor.path : '';
+
+					return [{
+						name: p.name,
+						description: p.description ?? '',
+						version: p.version ?? '',
+						source,
+						sourceDescriptor,
+						marketplace: reference.displayLabel,
+						marketplaceReference: reference,
+						marketplaceType: def.type,
+						readmeUri: getMarketplaceReadmeFileUri(repoDir, source),
+					}];
+				});
 		}
 
 		this._logService.debug(`[PluginMarketplaceService] No marketplace.json found in ${reference.rawValue}`);
@@ -1208,6 +1283,10 @@ function resolvePluginSource(pluginRoot: string | undefined, source: string): st
 	const normalizedSource = normalizeMarketplacePath(source);
 	const repoRoot = URI.file('/');
 	const pluginRootUri = normalizedRoot ? normalizePath(joinPath(repoRoot, normalizedRoot)) : repoRoot;
+
+	if (!normalizedSource) {
+		return normalizedRoot || undefined;
+	}
 
 	if (normalizedRoot && (normalizedSource === normalizedRoot || normalizedSource.startsWith(`${normalizedRoot}/`))) {
 		return normalizedSource;

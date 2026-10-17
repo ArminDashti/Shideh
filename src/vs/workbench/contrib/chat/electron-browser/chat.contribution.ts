@@ -138,6 +138,8 @@ class ChatSuspendThrottlingHandler extends Disposable {
 	constructor(
 		@INativeHostService nativeHostService: INativeHostService,
 		@IChatService chatService: IChatService,
+		@IProductService productService: IProductService,
+		@ILogService logService: ILogService,
 	) {
 		super();
 
@@ -148,6 +150,10 @@ class ChatSuspendThrottlingHandler extends Disposable {
 			// throttling is not applied so that the chat session can continue
 			// even when the window is not in focus.
 			nativeHostService.setBackgroundThrottling(!running);
+
+			if (productService.quality === 'insider') { // TODO@bpasero remove me in the future
+				logService.info(`[ChatSuspendThrottlingHandler] background throttling ${running ? 'suspended' : 'resumed'}`);
+			}
 		}));
 	}
 }

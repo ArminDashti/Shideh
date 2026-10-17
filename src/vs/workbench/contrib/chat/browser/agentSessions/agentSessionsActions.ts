@@ -336,10 +336,14 @@ abstract class BaseUnarchiveAgentSessionSectionAction extends Action2 {
 				if (!confirmed.confirmed) {
 					return;
 				}
+			});
 
-				if (confirmed.checkboxChecked) {
-					storageService.store(ConfirmArchiveStorageKey, true, StorageScope.PROFILE, StorageTarget.USER);
-				}
+			if (!confirmed.confirmed) {
+				return;
+			}
+
+			if (confirmed.checkboxChecked) {
+				storageService.store(ConfirmArchiveStorageKey, true, StorageScope.PROFILE, StorageTarget.USER);
 			}
 		}
 
@@ -530,6 +534,7 @@ abstract class BaseArchiveAgentSessionAction extends BaseAgentSessionAction {
 	async runWithSessions(sessions: IAgentSession[], accessor: ServicesAccessor): Promise<void> {
 		const chatService = accessor.get(IChatService);
 		const dialogService = accessor.get(IDialogService);
+		const environmentService = accessor.get(IWorkbenchEnvironmentService);
 
 		// Archive all sessions
 		for (const session of sessions) {

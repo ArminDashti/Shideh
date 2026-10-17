@@ -76,7 +76,7 @@ export class DelegationSessionPickerActionItem extends SessionTypePickerActionIt
 		}
 	}
 
-	protected override _getSelectedSessionType(): AgentSessionTarget | undefined {
+	protected override _getSelectedSessionType(): AgentSessionProviders | undefined {
 		const delegationTarget = this.delegate.getPendingDelegationTarget ? this.delegate.getPendingDelegationTarget() : undefined;
 		if (delegationTarget) {
 			return delegationTarget;

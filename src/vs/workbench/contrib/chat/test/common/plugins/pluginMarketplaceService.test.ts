@@ -651,9 +651,8 @@ suite('PluginMarketplaceService - getMarketplacePluginMetadata', () => {
 			[ChatConfiguration.ExtraMarketplaces]: extraMarketplaces,
 			[ChatConfiguration.PluginsEnabled]: true,
 		}));
-		instantiationService.stub(IEnvironmentService, { cacheHome: URI.file('/cache') } as Partial<IEnvironmentService> as IEnvironmentService);
 		instantiationService.stub(IFileService, {} as unknown as IFileService);
-		instantiationService.stub(IAgentPluginRepositoryService, { agentPluginsHome: URI.file('/agent-plugins') } as unknown as IAgentPluginRepositoryService);
+		instantiationService.stub(IAgentPluginRepositoryService, {} as unknown as IAgentPluginRepositoryService);
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IRequestService, {} as unknown as IRequestService);
 		instantiationService.stub(IStorageService, store.add(new InMemoryStorageService()));
@@ -1611,12 +1610,8 @@ suite('parsePluginSource', () => {
 		assert.deepStrictEqual(result, { kind: PluginSourceKind.RelativePath, path: 'base' });
 	});
 
-	test('returns base dir for empty source without pluginRoot', () => {
-		assert.deepStrictEqual(parsePluginSource('', undefined, logContext), { kind: PluginSourceKind.RelativePath, path: '' });
-	});
-
-	test('returns base dir for undefined source without pluginRoot', () => {
-		assert.deepStrictEqual(parsePluginSource(undefined, undefined, logContext), { kind: PluginSourceKind.RelativePath, path: '' });
+	test('returns undefined for empty source without pluginRoot', () => {
+		assert.strictEqual(parsePluginSource('', undefined, logContext), undefined);
 	});
 
 	test('parses github object source', () => {

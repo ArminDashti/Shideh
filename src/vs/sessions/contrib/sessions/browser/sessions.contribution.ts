@@ -49,13 +49,13 @@ const agentSessionsViewContainer: ViewContainer = Registry.as<IViewContainersReg
 	windowEnablement: WindowEnablement.Sessions
 }, ViewContainerLocation.Sidebar, { isDefault: true });
 
-const sessionsViewPaneDescriptor: IViewDescriptor = {
+const agentSessionsViewDescriptor: IViewDescriptor = {
 	id: SessionsViewId,
 	containerIcon: agentSessionsViewIcon,
 	containerTitle: AGENT_SESSIONS_VIEW_TITLE.value,
 	singleViewPaneContainerTitle: AGENT_SESSIONS_VIEW_TITLE.value,
 	name: AGENT_SESSIONS_VIEW_TITLE,
-	canToggleVisibility: true,
+	canToggleVisibility: false,
 	canMoveView: false,
 	ctorDescriptor: new SyncDescriptor(SessionsView),
 	windowEnablement: WindowEnablement.Sessions

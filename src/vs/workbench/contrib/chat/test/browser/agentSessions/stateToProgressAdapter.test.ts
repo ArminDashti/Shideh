@@ -58,6 +58,7 @@ function createTurn(overrides?: Partial<Turn>): Turn {
 		id: 'turn-1',
 		message: { text: 'Hello', origin: { kind: MessageKind.User } },
 		responseParts: [],
+		toolCalls: [],
 		usage: undefined,
 		state: TurnState.Complete,
 		...overrides,
@@ -1436,7 +1437,7 @@ suite('stateToProgressAdapter', () => {
 
 		test('turn with responseText produces markdown content in history', () => {
 			const turn = createTurn({
-				responseParts: [{ kind: ResponsePartKind.Markdown, id: 'md-1', content: 'Hello world' }],
+				responseText: 'Hello world',
 			});
 
 			const history = turnsToHistory(URI.file('/'), [turn], 'p');
@@ -2570,6 +2571,47 @@ suite('stateToProgressAdapter', () => {
 				childEdit: { ...parentEdit, subAgentInvocationId: 'root-subagent' },
 				parentHasSubagentId: false,
 			});
+		});
+	});
+
+	suite('permissionToConfirmation', () => {
+
+		test('shell permission has terminal data', () => {
+			const perm = createPermission({
+				permissionKind: PermissionKind.Shell,
+				fullCommandText: 'rm -rf /',
+				intention: 'Delete everything',
+			});
+
+			const invocation = permissionToConfirmation(perm);
+			assert.ok(invocation.toolSpecificData);
+			assert.strictEqual(invocation.toolSpecificData.kind, 'terminal');
+			const termData = invocation.toolSpecificData as { kind: 'terminal'; commandLine: { original: string } };
+			assert.strictEqual(termData.commandLine.original, 'rm -rf /');
+		});
+
+		test('mcp permission uses server + tool name as title', () => {
+			const perm = createPermission({
+				permissionKind: PermissionKind.Mcp,
+				serverName: 'My Server',
+				toolName: 'my_tool',
+			});
+
+			const invocation = permissionToConfirmation(perm);
+			const message = typeof invocation.invocationMessage === 'string' ? invocation.invocationMessage : invocation.invocationMessage.value;
+			assert.ok(message.includes('My Server: my_tool'));
+		});
+
+		test('write permission has input data', () => {
+			const perm = createPermission({
+				permissionKind: PermissionKind.Write,
+				path: '/test.ts',
+				rawRequest: '{"path":"/test.ts","content":"hello"}',
+			});
+
+			const invocation = permissionToConfirmation(perm);
+			assert.ok(invocation.toolSpecificData);
+			assert.strictEqual(invocation.toolSpecificData.kind, 'input');
 		});
 	});
 

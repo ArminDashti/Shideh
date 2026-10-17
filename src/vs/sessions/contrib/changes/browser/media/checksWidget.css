@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* CI Status Widget - beneath the files list */
+/* CI Status Widget - beneath the changes tree */
 .ci-status-widget {
 	display: flex;
 	flex-direction: column;
@@ -12,9 +12,8 @@
 	font-size: var(--vscode-fontSize-label1, 12px);
 }
 
-/* Header */
+/* Header - always visible, clickable */
 .ci-status-widget-header {
-	position: relative;
 	display: flex;
 	align-items: center;
 	padding: 4px;
@@ -88,12 +87,22 @@
 	flex: 1;
 	display: flex;
 	align-items: center;
-	gap: 6px;
 	overflow: hidden;
 	color: var(--vscode-foreground);
 }
 
-.ci-status-widget-title-label {
+.ci-status-widget-title .monaco-icon-label {
+	width: 100%;
+	height: 18px;
+}
+
+.ci-status-widget-title .monaco-icon-label-container,
+.ci-status-widget-title .monaco-icon-name-container {
+	display: block;
+	overflow: hidden;
+}
+
+.ci-status-widget-title .label-name {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -149,9 +158,7 @@
 
 /* Body - check list */
 .ci-status-widget-body {
-	flex: 1;
-	min-height: 0;
-	overflow: hidden;
+	border-top: 1px solid var(--vscode-input-border, transparent);
 }
 
 .ci-status-widget-list {
@@ -180,12 +187,19 @@
 	min-width: 0;
 }
 
+.ci-status-widget-list .monaco-list-row:hover .ci-status-widget-check,
+.ci-status-widget-list .monaco-list-row.focused .ci-status-widget-check,
+.ci-status-widget-list .monaco-list-row.selected .ci-status-widget-check {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
 .ci-status-widget-check-label {
 	display: flex;
 	flex: 1;
 	min-width: 0;
 	overflow: hidden;
 }
+
 
 .ci-status-widget-check-label .monaco-icon-label {
 	display: flex;
@@ -215,15 +229,19 @@
 	color: var(--vscode-foreground);
 }
 
+.ci-status-widget-title.ci-status-success .monaco-icon-label::before,
 .ci-status-widget-check.ci-status-success .monaco-icon-label::before {
 	color: var(--vscode-testing-iconPassed, #73c991);
 }
 
+.ci-status-widget-title.ci-status-failure .monaco-icon-label::before,
 .ci-status-widget-check.ci-status-failure .monaco-icon-label::before {
 	color: var(--vscode-testing-iconFailed, #f14c4c);
 }
 
-.ci-status-widget-check.ci-status-running .monaco-icon-label::before {
+.ci-status-widget-title.ci-status-running .monaco-icon-label::before,
+.ci-status-widget-check.ci-status-running .monaco-icon-label::before,
+.ci-status-widget-title.ci-status-pending .monaco-icon-label::before {
 	color: var(--vscode-testing-iconQueued, var(--vscode-editorWarning-foreground));
 }
 
@@ -231,6 +249,7 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.ci-status-widget-title.ci-status-neutral .monaco-icon-label::before,
 .ci-status-widget-check.ci-status-neutral .monaco-icon-label::before {
 	color: var(--vscode-descriptionForeground);
 }

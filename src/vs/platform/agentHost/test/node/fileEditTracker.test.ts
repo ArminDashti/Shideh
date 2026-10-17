@@ -7,6 +7,7 @@ import assert from 'assert';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { FileService } from '../../../files/common/fileService.js';
@@ -30,7 +31,7 @@ suite('FileEditTracker', () => {
 
 	const disposables = new DisposableStore();
 	let fileService: FileService;
-	let db: SessionDatabase;
+	let sessionDataService: ISessionDataService;
 	let tracker: FileEditTracker;
 	let diffComputeService: TestDiffComputeService;
 
@@ -61,6 +62,8 @@ suite('FileEditTracker', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('tracks edit start and complete for existing file', async () => {
+		const sourceFs = disposables.add(new InMemoryFileSystemProvider());
+		disposables.add(fileService.registerProvider(Schemas.file, sourceFs));
 		await fileService.writeFile(URI.file('/workspace/test.txt'), VSBuffer.fromString('original content\nline 2'));
 
 		await tracker.trackEditStart('/workspace/test.txt');
@@ -94,20 +97,17 @@ suite('FileEditTracker', () => {
 	});
 
 	test('tracks edit for newly created file (no before content)', async () => {
+		const sourceFs = disposables.add(new InMemoryFileSystemProvider());
+		disposables.add(fileService.registerProvider(Schemas.file, sourceFs));
+
 		await tracker.trackEditStart('/workspace/new-file.txt');
 		await fileService.writeFile(URI.file('/workspace/new-file.txt'), VSBuffer.fromString('new file\ncontent'));
 		await tracker.completeEdit('/workspace/new-file.txt');
 
 		const fileEdit = await tracker.takeCompletedEdit('turn-1', 'tc-2', '/workspace/new-file.txt', '', undefined, undefined);
 		assert.ok(fileEdit);
-
-		// Wait for the fire-and-forget DB write to complete
-		await new Promise(r => setTimeout(r, 50));
-
-		const content = await db.readFileEditContent('tc-2', '/workspace/new-file.txt');
-		assert.ok(content);
-		assert.strictEqual(new TextDecoder().decode(content.beforeContent), '');
-		assert.strictEqual(new TextDecoder().decode(content.afterContent), 'new file\ncontent');
+		const sessionDir = sessionDataService.getSessionDataDirById('test-session');
+		assert.ok(fileEdit.afterURI.startsWith(sessionDir.toString()));
 	});
 
 	test('takeCompletedEdit returns undefined for unknown file path', async () => {

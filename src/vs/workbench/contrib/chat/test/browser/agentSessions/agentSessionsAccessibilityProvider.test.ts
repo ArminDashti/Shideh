@@ -53,11 +53,11 @@ suite('AgentSessionsAccessibilityProvider', () => {
 		};
 	}
 
-	function createMockSection(section: AgentSessionSection = AgentSessionSection.Today, sessions: IAgentSession[] = []): IAgentSessionSection {
+	function createMockSection(section: AgentSessionSection = AgentSessionSection.Today): IAgentSessionSection {
 		return {
 			section,
 			label: 'Today',
-			sessions
+			sessions: []
 		};
 	}
 
@@ -125,16 +125,5 @@ suite('AgentSessionsAccessibilityProvider', () => {
 
 		assert.ok(ariaLabel);
 		assert.ok(ariaLabel.includes('sessions section'), 'Aria label should indicate it is a section');
-		assert.ok(ariaLabel.includes('1 session'), 'Aria label should include session count');
-		assert.ok(!ariaLabel.includes('1 sessions'), 'Aria label should use singular form');
-	});
-
-	test('getAriaLabel returns plural label for section with multiple sessions', () => {
-		const section = createMockSection(AgentSessionSection.Today, [createMockSession({ id: 'a' }), createMockSession({ id: 'b' })]);
-		const ariaLabel = accessibilityProvider.getAriaLabel(section);
-
-		assert.ok(ariaLabel);
-		assert.ok(ariaLabel.includes('sessions section'), 'Aria label should indicate it is a section');
-		assert.ok(ariaLabel.includes('2 sessions'), 'Aria label should include session count with plural form');
 	});
 });

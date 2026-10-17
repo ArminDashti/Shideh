@@ -224,14 +224,6 @@ export class TestContext {
 	}
 
 	/**
-	 * Returns a promise that resolves after the specified delay in milliseconds.
-	 * @param delay The delay in milliseconds to wait before resolving the promise.
-	 */
-	private timeout(delay: number) {
-		return new Promise(resolve => setTimeout(resolve, delay));
-	}
-
-	/**
 	 * Creates a new temporary directory and returns its path.
 	 */
 	public createTempDir(): string {
@@ -365,7 +357,7 @@ export class TestContext {
 			if (attempt > 0) {
 				const delay = Math.pow(2, attempt - 1) * 1000;
 				this.warn(`Retrying fetch (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
-				await this.timeout(delay);
+				await new Promise(resolve => setTimeout(resolve, delay));
 			}
 
 			try {
@@ -823,58 +815,6 @@ export class TestContext {
 	}
 
 	/**
-	 * Runs a command with sudo if not running as root, and ensures it succeeds.
-	 * @param command The command to run.
-	 * @param args Optional arguments for the command.
-	 * @returns The result of the spawnSync call.
-	 */
-	private runSudoNoErrors(command: string, ...args: string[]): SpawnSyncReturns<string> {
-		if (this.isRootUser) {
-			return this.runNoErrors(command, ...args);
-		} else {
-			return this.runNoErrors('sudo', command, ...args);
-		}
-	}
-
-	/**
-	 * Runs a dpkg command with retries if the frontend lock is busy, and ensures it succeeds.
-	 */
-	private async runDpkgNoErrors(...args: string[]) {
-		const command = this.isRootUser ? 'dpkg' : 'sudo';
-		const commandArgs = this.isRootUser ? args : ['dpkg', ...args];
-		const maxRetries = 5;
-		let lastError: string | undefined;
-
-		for (let attempt = 0; attempt < maxRetries; attempt++) {
-			if (attempt > 0) {
-				const delay = Math.pow(2, attempt - 1) * 1000;
-				this.log(`Retrying dpkg command (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
-				await this.timeout(delay);
-			}
-
-			const result = this.run(command, ...commandArgs);
-			if (result.error !== undefined) {
-				lastError = `Failed to run command: ${result.error.message}`;
-				break;
-			}
-
-			if (result.status === 0) {
-				return;
-			}
-
-			lastError = `Command exited with code ${result.status}: ${result.stderr}`;
-			const output = `${result.stdout}${result.stderr}`;
-			if (!TestContext.dpkgLockError.test(output)) {
-				break;
-			}
-
-			this.log(`dpkg lock is busy, waiting for the other package manager process to finish`);
-		}
-
-		this.error(lastError ?? `Command failed after ${maxRetries} attempts because the dpkg frontend lock remained busy`);
-	}
-
-	/**
 	 * Kills a process and all its child processes.
 	 * @param pid The process ID to kill.
 	 */
@@ -958,7 +898,7 @@ export class TestContext {
 		this.runNoErrors(uninstallerPath, '/silent');
 		this.log(`Uninstalled VS Code from ${appDir} successfully`);
 
-		await this.timeout(2000);
+		await new Promise(resolve => setTimeout(resolve, 2000));
 		if (fs.existsSync(appDir)) {
 			const remainingFiles: string[] = [];
 			this.collectFiles(appDir, remainingFiles);
@@ -980,7 +920,11 @@ export class TestContext {
 		}
 
 		this.log(`Installing ${packagePath} using DEB package manager`);
-		await this.runDpkgNoErrors('-i', packagePath);
+		if (this.isRootUser) {
+			this.runNoErrors('dpkg', '-i', packagePath);
+		} else {
+			this.runNoErrors('sudo', 'dpkg', '-i', packagePath);
+		}
 		this.log(`Installed ${packagePath} successfully`);
 
 		this.log(`Installed VS Code executable at: ${entryPoint}`);
@@ -1001,10 +945,14 @@ export class TestContext {
 		}
 
 		this.log(`Uninstalling DEB package ${packagePath}`);
-		await this.runDpkgNoErrors('-r', name);
+		if (this.isRootUser) {
+			this.runNoErrors('dpkg', '-r', name);
+		} else {
+			this.runNoErrors('sudo', 'dpkg', '-r', name);
+		}
 		this.log(`Uninstalled DEB package ${packagePath} successfully`);
 
-		await this.timeout(1000);
+		await new Promise(resolve => setTimeout(resolve, 1000));
 		if (fs.existsSync(packagePath)) {
 			this.error(`Package still exists after uninstall: ${packagePath}`);
 		}
@@ -1023,7 +971,11 @@ export class TestContext {
 		}
 
 		this.log(`Installing ${packagePath} using RPM package manager`);
-		this.runSudoNoErrors('rpm', '-i', packagePath);
+		if (this.isRootUser) {
+			this.runNoErrors('rpm', '-i', packagePath);
+		} else {
+			this.runNoErrors('sudo', 'rpm', '-i', packagePath);
+		}
 		this.log(`Installed ${packagePath} successfully`);
 
 		const entryPoint = path.join('/usr/share', name, name);
@@ -1045,10 +997,14 @@ export class TestContext {
 		}
 
 		this.log(`Uninstalling RPM package ${packagePath}`);
-		this.runSudoNoErrors('rpm', '-e', name);
+		if (this.isRootUser) {
+			this.runNoErrors('rpm', '-e', name);
+		} else {
+			this.runNoErrors('sudo', 'rpm', '-e', name);
+		}
 		this.log(`Uninstalled RPM package ${packagePath} successfully`);
 
-		await this.timeout(1000);
+		await new Promise(resolve => setTimeout(resolve, 1000));
 		if (fs.existsSync(packagePath)) {
 			this.error(`Package still exists after uninstall: ${packagePath}`);
 		}
@@ -1067,7 +1023,11 @@ export class TestContext {
 		}
 
 		this.log(`Installing ${packagePath} using Snap package manager`);
-		this.runSudoNoErrors('snap', 'install', packagePath, '--classic', '--dangerous');
+		if (this.isRootUser) {
+			this.runNoErrors('snap', 'install', packagePath, '--classic', '--dangerous');
+		} else {
+			this.runNoErrors('sudo', 'snap', 'install', packagePath, '--classic', '--dangerous');
+		}
 		this.log(`Installed ${packagePath} successfully`);
 
 		// Snap wrapper scripts are in /snap/bin, but actual Electron binary is in /snap/<package>/current/usr/share/
@@ -1090,10 +1050,14 @@ export class TestContext {
 		}
 
 		this.log(`Uninstalling Snap package ${packagePath}`);
-		this.runSudoNoErrors('snap', 'remove', name);
+		if (this.isRootUser) {
+			this.runNoErrors('snap', 'remove', name);
+		} else {
+			this.runNoErrors('sudo', 'snap', 'remove', name);
+		}
 		this.log(`Uninstalled Snap package ${packagePath} successfully`);
 
-		await this.timeout(1000);
+		await new Promise(resolve => setTimeout(resolve, 1000));
 		if (fs.existsSync(packagePath)) {
 			this.error(`Package still exists after uninstall: ${packagePath}`);
 		}

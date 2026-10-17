@@ -2111,7 +2111,7 @@ export default defineConfig(
 						'vs/workbench/api/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
-						'vs/workbench/contrib/terminal/terminal.all.js',
+						'vs/workbench/contrib/terminal/terminal.all.js'
 					]
 				},
 				{
@@ -2217,6 +2217,7 @@ export default defineConfig(
 						'vs/editor/contrib/*/~',
 						'vs/workbench/~',
 						'vs/workbench/browser/**',
+						'vs/workbench/contrib/**',
 						'vs/workbench/services/*/~',
 						'vs/sessions/~',
 						'vs/sessions/services/*/~'

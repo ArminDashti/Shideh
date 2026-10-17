@@ -15,7 +15,6 @@ import { isOfScheme, Schemes } from '../src/util/schemes';
 import { DiffScrollSyncManager } from './diffScrollSync';
 
 let scrollDisabledCount = 0;
-let scrollDisabledTimer: number | undefined;
 
 const marker = new ActiveLineMarker();
 const settings = new SettingsManager();
@@ -156,13 +155,7 @@ onceDocumentLoaded(() => {
 
 const onUpdateView = (() => {
 	const doScroll = throttle((line: number) => {
-		scrollDisabledCount = 1;
-		if (scrollDisabledTimer) {
-			clearTimeout(scrollDisabledTimer);
-		}
-		scrollDisabledTimer = window.setTimeout(() => {
-			scrollDisabledCount = 0;
-		}, 50);
+		scrollDisabledCount += 1;
 		doAfterImagesLoaded(() => scrollToRevealSourceLine(line, documentVersion, settings));
 	}, 50);
 

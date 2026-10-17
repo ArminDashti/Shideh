@@ -976,7 +976,7 @@ suite('ChatService', () => {
 
 		let reason: string | undefined;
 		testDisposables.add(testService.onDidDisposeSession(e => {
-			for (const resource of e.sessionResources) {
+			for (const resource of e.sessionResource) {
 				if (resource.toString() === model.sessionResource.toString()) {
 					reason = e.reason;
 				}
@@ -4665,7 +4665,7 @@ function toSnapshotExportData(model: IChatModel) {
 			// Destructure properties after `vote` so we can insert `voteDownReason` in the correct position for snapshot compat
 			const { slashCommand, usedContext, contentReferences, codeCitations, timeSpentWaiting, isSystemInitiated: _isSystemInitiated, systemInitiatedLabel: _systemInitiatedLabel, responseTimestamp: _responseTimestamp, elapsedMs: _elapsedMs, completionTokens: _completionTokens, promptTokens: _promptTokens, outputBuffer: _outputBuffer, promptTokenDetails: _promptTokenDetails, copilotCredits: _copilotCredits, ...rest } = r;
 			return {
-				...rest,
+				...r,
 				modelState: {
 					...r.modelState,
 					completedAt: undefined
@@ -4673,12 +4673,6 @@ function toSnapshotExportData(model: IChatModel) {
 				timestamp: undefined,
 				requestId: undefined, // id contains a random part
 				responseId: undefined, // id contains a random part
-				voteDownReason: undefined, // removed from model, kept for snapshot compat
-				slashCommand,
-				usedContext,
-				contentReferences,
-				codeCitations,
-				timeSpentWaiting,
 			};
 		})
 	};

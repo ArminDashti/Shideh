@@ -152,6 +152,7 @@ export class BrowserView extends Disposable {
 
 			webviewTag: false,
 			session: this.session.electronSession,
+			preload: FileAccess.asFileUri('vs/platform/browserView/electron-browser/preload-browserView.js').fsPath,
 
 			focusOnNavigation: false
 		};
@@ -292,9 +293,6 @@ export class BrowserView extends Disposable {
 			for (const url of favicons) {
 				if (!this._faviconRequestCache.has(url)) {
 					this._faviconRequestCache.set(url, (async () => {
-						if (url.startsWith('data:image/')) {
-							return url;
-						}
 						const response = await webContents.session.fetch(url, {
 							cache: 'force-cache'
 						});
@@ -302,9 +300,6 @@ export class BrowserView extends Disposable {
 							throw new Error(`Failed to fetch favicon: ${response.status} ${response.statusText}`);
 						}
 						const type = await response.headers.get('content-type');
-						if (!type?.startsWith('image/')) {
-							throw new Error(`Favicon is not an image: ${type}`);
-						}
 						const buffer = await response.arrayBuffer();
 
 						return `data:${type};base64,${Buffer.from(buffer).toString('base64')}`;
@@ -540,14 +535,6 @@ export class BrowserView extends Disposable {
 				selectionArea: result.selectionArea,
 				finalUpdate: result.finalUpdate
 			});
-		});
-
-		// Capture console messages for sharing with chat
-		this._view.webContents.on('console-message', (event) => {
-			this._consoleLogs.push(`[${event.level}] ${event.message}`);
-			if (this._consoleLogs.length > BrowserView.MAX_CONSOLE_LOG_ENTRIES) {
-				this._consoleLogs.splice(0, this._consoleLogs.length - BrowserView.MAX_CONSOLE_LOG_ENTRIES);
-			}
 		});
 	}
 
@@ -881,7 +868,7 @@ export class BrowserView extends Disposable {
 		const buffer = format === 'png' ? image.toPNG() : image.toJPEG(quality);
 		const screenshot = VSBuffer.wrap(buffer);
 		// Only update _lastScreenshot if capturing the full view
-		if (!options?.screenRect) {
+		if (!options?.rect) {
 			this._lastScreenshot = screenshot;
 		}
 		return screenshot;
@@ -951,6 +938,35 @@ export class BrowserView extends Disposable {
 		} catch {
 			// `Runtime.evaluate` can throw if the page navigates while we're waiting;
 			// just proceed in that case.
+		}
+	}
+
+	/**
+	 * Dispatch a keyboard event to this view
+	 */
+	async dispatchKeyEvent(keyEvent: IBrowserViewKeyDownEvent): Promise<void> {
+		const event: Electron.KeyboardInputEvent = {
+			type: 'keyDown',
+			keyCode: keyEvent.key,
+			modifiers: []
+		};
+		if (keyEvent.ctrlKey) {
+			event.modifiers!.push('control');
+		}
+		if (keyEvent.shiftKey) {
+			event.modifiers!.push('shift');
+		}
+		if (keyEvent.altKey) {
+			event.modifiers!.push('alt');
+		}
+		if (keyEvent.metaKey) {
+			event.modifiers!.push('meta');
+		}
+		this._isSendingKeyEvent = true;
+		try {
+			await this._view.webContents.sendInputEvent(event);
+		} finally {
+			this._isSendingKeyEvent = false;
 		}
 	}
 
@@ -1084,6 +1100,55 @@ export class BrowserView extends Disposable {
 		}
 
 		super.dispose();
+	}
+
+	/**
+	 * Potentially handle an input event as a VS Code command.
+	 * Returns `true` if the event was forwarded to VS Code and should not be handled natively.
+	 */
+	private tryHandleCommand(input: Electron.Input): boolean {
+		const eventKeyCode = SCAN_CODE_STR_TO_EVENT_KEY_CODE[input.code] || 0;
+		const keyCode = EVENT_KEY_CODE_MAP[eventKeyCode] || KeyCode.Unknown;
+
+		const isArrowKey = keyCode >= KeyCode.LeftArrow && keyCode <= KeyCode.DownArrow;
+		const isNonEditingKey =
+			keyCode === KeyCode.Escape ||
+			keyCode >= KeyCode.F1 && keyCode <= KeyCode.F24 ||
+			keyCode >= KeyCode.AudioVolumeMute;
+
+		// Ignore most Alt-only inputs (often used for accented characters or menu accelerators)
+		const isAltOnlyInput = input.alt && !input.control && !input.meta;
+		if (isAltOnlyInput && !isNonEditingKey && !isArrowKey) {
+			return false;
+		}
+
+		// Only reroute if there's a command modifier or it's a non-editing key
+		const hasCommandModifier = input.control || input.alt || input.meta;
+		if (!hasCommandModifier && !isNonEditingKey) {
+			return false;
+		}
+
+		// Ignore Ctrl/Cmd + [A,C,V,X,Z] shortcuts to allow native handling (e.g. copy/paste)
+		const isControlInput = isMacintosh ? input.meta : input.control;
+		const modifiedKeyCode = keyCode |
+			(isControlInput ? KeyMod.CtrlCmd : 0) |
+			(input.shift ? KeyMod.Shift : 0) |
+			(input.alt ? KeyMod.Alt : 0);
+		if (nativeShortcuts.has(modifiedKeyCode)) {
+			return false;
+		}
+
+		this._onDidKeyCommand.fire({
+			key: input.key,
+			keyCode: eventKeyCode,
+			code: input.code,
+			ctrlKey: input.control || false,
+			shiftKey: input.shift || false,
+			altKey: input.alt || false,
+			metaKey: input.meta || false,
+			repeat: input.isAutoRepeat || false
+		});
+		return true;
 	}
 
 	private _windowById(windowId: number | undefined): ICodeWindow | IAuxiliaryWindow | undefined {

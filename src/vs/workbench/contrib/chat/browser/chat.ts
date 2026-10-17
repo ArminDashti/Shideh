@@ -89,17 +89,17 @@ export interface ISessionTypePickerDelegate {
 	 * When provided, the picker will call this instead of executing the openNewChatSessionInPlace command.
 	 * This allows the welcome view to maintain independent state from the main chat panel.
 	 */
-	setActiveSessionProvider?(provider: AgentSessionTarget): void;
+	setActiveSessionProvider?(provider: AgentSessionProviders): void;
 	/**
 	 * Optional getter for the pending delegation target - the target that will be used when submit is pressed.
 	 */
-	getPendingDelegationTarget?(): AgentSessionTarget | undefined;
+	getPendingDelegationTarget?(): AgentSessionProviders | undefined;
 	/**
 	 * Optional setter for the pending delegation target.
 	 * When a user selects a different session provider in a non-empty chat,
 	 * this stores the target for delegation on the next submit instead of immediately creating a new session.
 	 */
-	setPendingDelegationTarget?(provider: AgentSessionTarget): void;
+	setPendingDelegationTarget?(provider: AgentSessionProviders): void;
 	/**
 	 * Optional event that fires when the active session provider changes.
 	 * When provided, listeners (like chatInputPart) can react to session type changes

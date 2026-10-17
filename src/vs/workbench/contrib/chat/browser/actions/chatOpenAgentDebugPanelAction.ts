@@ -111,7 +111,7 @@ export function registerChatOpenAgentDebugPanelAction() {
 			super({
 				id: 'workbench.action.chat.exportAgentDebugLog',
 				title: localize2('chat.exportAgentDebugLog.label', "Export Agent Debug Log..."),
-				icon: Codicon.chatExport,
+				icon: Codicon.desktopDownload,
 				f1: true,
 				category: Categories.Developer,
 				precondition: ContextKeyExpr.and(
@@ -184,7 +184,7 @@ export function registerChatOpenAgentDebugPanelAction() {
 			super({
 				id: 'workbench.action.chat.importAgentDebugLog',
 				title: localize2('chat.importAgentDebugLog.label', "Import Agent Debug Log..."),
-				icon: Codicon.chatImport,
+				icon: Codicon.cloudUpload,
 				f1: true,
 				category: Categories.Developer,
 				precondition: ChatContextKeys.enabled,

@@ -185,11 +185,6 @@ export interface IExtensionPromptPath extends IPromptPathBase {
 	readonly description?: string;
 	readonly when?: string;
 }
-
-export function isExtensionPromptPath(obj: IPromptPath): obj is IExtensionPromptPath {
-	return obj.storage === PromptsStorage.extension;
-}
-
 export interface ILocalPromptPath extends IPromptPathBase {
 	readonly storage: PromptsStorage.local;
 }

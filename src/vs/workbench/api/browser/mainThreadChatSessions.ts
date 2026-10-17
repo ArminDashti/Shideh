@@ -419,7 +419,6 @@ class MainThreadChatSessionItemController extends Disposable implements IChatSes
 		@IChatService private readonly _chatService: IChatService,
 	) {
 		super();
-
 		this._proxy = proxy;
 		this._handle = handle;
 		this._supportsResolve = supportsResolve;
@@ -837,7 +836,7 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 			this._chatTodoListService.migrateTodos(originalResource, modifiedResource);
 
 			// Migrate artifacts from old session to new session
-			this._chatArtifactsService.getArtifacts(originalResource).migrate(this._chatArtifactsService.getArtifacts(modifiedResource));
+			this._chatArtifactsService.migrateArtifacts(originalResource, modifiedResource);
 
 			// Eagerly invoke debug providers for Copilot CLI sessions so the real
 			// session appears in the debug panel immediately after the untitled →

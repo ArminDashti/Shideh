@@ -45,7 +45,7 @@ import { Range } from '../../../../../editor/common/core/range.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 import { localChatSessionType } from '../../common/chatSessionsService.js';
-import { GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID, GENERATE_PROMPT_COMMAND_ID } from '../../browser/actions/chatActions.js';
+import { GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID } from '../../browser/actions/chatActions.js';
 
 class MockContextKeyServiceWithRulesMatching extends MockContextKeyService {
 	override contextMatchesRules(rules: ContextKeyExpression): boolean {
@@ -1665,10 +1665,10 @@ suite('ChatTipService', () => {
 			commandExecutedEmitter.fire({ commandId: 'workbench.action.openSettings', args: [] });
 
 			assert.strictEqual(dismissed, true, `${tipId} should dismiss when its settings command is clicked`);
-			assert.notStrictEqual(service.getWelcomeTip(contextKeyService)?.id, tipId, `${tipId} should not be shown again after actioning its command link`);
+			assert.strictEqual(service.getWelcomeTip(contextKeyService), undefined, 'Tips should hide for the rest of the session after actioning a tip');
 
-			const nextService = createService();
-			assertTipNeverShown(nextService, tipId);
+			service.resetSession();
+			assertTipNeverShown(service, tipId);
 		});
 	}
 

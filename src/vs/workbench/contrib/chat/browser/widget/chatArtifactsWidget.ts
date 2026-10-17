@@ -6,8 +6,7 @@
 import * as dom from '../../../../../base/browser/dom.js';
 import { ActionBar } from '../../../../../base/browser/ui/actionbar/actionbar.js';
 import { Button } from '../../../../../base/browser/ui/button/button.js';
-import { IListVirtualDelegate } from '../../../../../base/browser/ui/list/list.js';
-import { IObjectTreeElement, ITreeNode, ITreeRenderer } from '../../../../../base/browser/ui/tree/tree.js';
+import { IListRenderer, IListVirtualDelegate } from '../../../../../base/browser/ui/list/list.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun, derived, observableValue } from '../../../../../base/common/observable.js';
@@ -20,8 +19,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IListAccessibilityProvider } from '../../../../../base/browser/ui/list/listWidget.js';
-import { WorkbenchObjectTree } from '../../../../../platform/list/browser/listService.js';
+import { WorkbenchList } from '../../../../../platform/list/browser/listService.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { ChatConfiguration } from '../../common/constants.js';
 import { ChatMemoryFileResource } from '../../common/chatArtifactExtraction.js';
@@ -105,6 +103,8 @@ export class ChatArtifactsWidget extends Disposable {
 	public static readonly ELEMENT_HEIGHT = 22;
 	private static readonly MAX_ITEMS_SHOWN = 6;
 
+	private _sessionResource: URI | undefined;
+
 	constructor(
 		@IChatArtifactsService private readonly _chatArtifactsService: IChatArtifactsService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -112,8 +112,6 @@ export class ChatArtifactsWidget extends Disposable {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IFileService private readonly _fileService: IFileService,
-		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
-		@IChatImageCarouselService private readonly _chatImageCarouselService: IChatImageCarouselService,
 	) {
 		super();
 		this.domNode = dom.$('.chat-artifacts-widget');
@@ -252,10 +250,9 @@ export class ChatArtifactsWidget extends Disposable {
 	}
 
 	private async _openScreenshotInCarousel(clicked: IChatArtifact): Promise<void> {
-		if (clicked.uri) {
-			await this._chatImageCarouselService.openCarouselAtResource(URI.parse(clicked.uri));
-		}
-	}
+		const allArtifacts = this._currentObs?.get() ?? [];
+		const screenshots = allArtifacts.filter(a => a.type === 'screenshot');
+		const startIndex = screenshots.indexOf(clicked);
 
 	private async _openMemoryFileArtifact(uri: URI): Promise<void> {
 		const { memoryPath, sessionResource } = ChatMemoryFileResource.parse(uri);
@@ -289,21 +286,14 @@ export class ChatArtifactsWidget extends Disposable {
 		}
 	}
 
-	private async _saveArtifact(artifact: IChatArtifact): Promise<void> {
-		const sourceUri = URI.parse(artifact.uri);
-		const defaultFileName = sourceUri.path.split('/').pop() ?? artifact.label;
-		const defaultPath = await this._fileDialogService.defaultFilePath();
-		const defaultUri = URI.joinPath(defaultPath, defaultFileName);
-
-		const targetUri = await this._fileDialogService.showSaveDialog({
-			defaultUri,
-			title: localize('chat.artifacts.saveDialog.title', "Save Artifact"),
+		await this._commandService.executeCommand('workbench.action.chat.openImageInCarousel', {
+			collection: {
+				id: this._sessionResource!.toString() + '_artifacts_carousel',
+				title: localize('chat.artifacts.carousel', "Artifacts"),
+				sections: [{ title: '', images }],
+			},
+			startIndex: Math.max(0, startIndex),
 		});
-
-		if (targetUri) {
-			const content = await this._fileService.readFile(sourceUri);
-			await this._fileService.writeFile(targetUri, content.value);
-		}
 	}
 }
 
@@ -413,10 +403,8 @@ class ChatArtifactsTreeDelegate implements IListVirtualDelegate<ArtifactTreeElem
 	getHeight(): number {
 		return ChatArtifactsWidget.ELEMENT_HEIGHT;
 	}
-	getTemplateId(element: ArtifactTreeElement): string {
-		return isGroupNode(element)
-			? ChatArtifactGroupRenderer.TEMPLATE_ID
-			: ChatArtifactLeafRenderer.TEMPLATE_ID;
+	getTemplateId(): string {
+		return ChatArtifactsListRenderer.TEMPLATE_ID;
 	}
 }
 
@@ -442,11 +430,11 @@ interface IArtifactGroupTemplate {
 	readonly elementDisposables: DisposableStore;
 }
 
-class ChatArtifactGroupRenderer implements ITreeRenderer<ArtifactTreeElement, void, IArtifactGroupTemplate> {
-	static readonly TEMPLATE_ID = 'chatArtifactGroupRenderer';
-	readonly templateId = ChatArtifactGroupRenderer.TEMPLATE_ID;
+class ChatArtifactsListRenderer implements IListRenderer<IChatArtifact, IChatArtifactsListTemplate> {
+	static readonly TEMPLATE_ID = 'chatArtifactsListRenderer';
+	readonly templateId = ChatArtifactsListRenderer.TEMPLATE_ID;
 
-	renderTemplate(container: HTMLElement): IArtifactGroupTemplate {
+	renderTemplate(container: HTMLElement): IChatArtifactsListTemplate {
 		const row = dom.append(container, dom.$('.chat-artifacts-list-row'));
 		const iconElement = dom.append(row, dom.$('.chat-artifacts-list-icon'));
 		const labelElement = dom.append(row, dom.$('.chat-artifacts-list-label'));

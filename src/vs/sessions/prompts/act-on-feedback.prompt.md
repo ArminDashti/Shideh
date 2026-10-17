@@ -1,10 +1,7 @@
 ---
-name: act-on-feedback
-description: Act on user feedback attached to the current session. Use when the user submits feedback on the session's changes via the Submit Feedback button.
+description: Act on user feedback attached to the current session
 ---
-<!-- Customize this skill and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
-
-# Act on Feedback
+<!-- Customize this prompt and select save to override its behavior. Delete that copy to restore the built-in behavior. -->
 
 The user has provided feedback on the current session's changes.
 

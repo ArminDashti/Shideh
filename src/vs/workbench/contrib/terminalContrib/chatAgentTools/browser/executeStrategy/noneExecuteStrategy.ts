@@ -116,7 +116,7 @@ export class NoneExecuteStrategy extends Disposable implements ITerminalExecuteS
 				});
 
 				const cursorMoveTimeout = new Promise<'timeout'>(resolve => {
-					const handle = setTimeout(() => resolve('timeout'), 1000);
+					const handle = setTimeout(() => resolve('timeout'), 5000);
 					store.add({ dispose: () => clearTimeout(handle) });
 				});
 

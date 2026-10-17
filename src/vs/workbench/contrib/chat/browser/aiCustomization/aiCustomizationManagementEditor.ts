@@ -65,7 +65,6 @@ import {
 	AICustomizationSource,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION,
-	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS,
 	SIDEBAR_DEFAULT_WIDTH,
 	SIDEBAR_MIN_WIDTH,
 	SIDEBAR_MAX_WIDTH,
@@ -716,7 +715,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 
 	private readonly inEditorContextKey: IContextKey<boolean>;
 	private readonly sectionContextKey: IContextKey<string>;
-	private readonly harnessContextKey: IContextKey<string>;
 
 	constructor(
 		group: IEditorGroup,
@@ -3918,8 +3916,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.inEditorContextKey.set(true);
 		this.sectionContextKey.set(this.selectedSection ?? '');
 
-		input.setSaveHandler(() => this.handleBuiltinSave());
-
 		this.telemetryService.publicLog2<CustomizationEditorOpenedEvent, CustomizationEditorOpenedClassification>('chatCustomizationEditor.opened', {
 			section: this.selectedSection ?? 'welcome',
 		});
@@ -3940,12 +3936,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 	}
 
 	override clearInput(): void {
-		const input = this.input;
-		if (input instanceof AICustomizationManagementEditorInput) {
-			input.setSaveHandler(undefined);
-			input.setDirty(false);
-		}
-
 		this.inEditorContextKey.set(false);
 		if (this.viewMode === 'marketplaceDetail') {
 			this.goBackFromMarketplaceDetail();
@@ -4090,11 +4080,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 			if (this.isPromptsSection(sectionId)) {
 				void this.listWidget.setSection(sectionId);
 			}
-			// Re-layout after visibility change so the newly-visible widget
-			// can measure its flex-computed container height correctly.
-			if (this.dimension) {
-				this.layout(this.dimension);
-			}
 			this.ensureSectionsListReflectsActiveSection(sectionId);
 
 			// Activate marketplace browse mode if requested
@@ -4216,19 +4201,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 				this.listWidget.clearSearch();
 			}
 			await timeout(100);
-		}
-	}
-
-	/**
-	 * Scrolls the active list widget so the last item is visible.
-	 */
-	public revealLastItem(): void {
-		if (this.selectedSection === AICustomizationManagementSection.McpServers) {
-			this.mcpListWidget?.revealLastItem();
-		} else if (this.selectedSection === AICustomizationManagementSection.Plugins) {
-			this.pluginListWidget?.revealLastItem();
-		} else {
-			this.listWidget.revealLastItem();
 		}
 	}
 
@@ -4756,8 +4728,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 	}
 
 	private updateEditorActionButton(): void {
-		this.updateInputDirtyState();
-
 		if (!this.editorActionButton || !this.editorActionButtonIcon) {
 			return;
 		}

@@ -40,7 +40,7 @@ interface ICICheckCounts {
 }
 
 class CICheckListDelegate implements IListVirtualDelegate<ICICheckListItem> {
-	static readonly ITEM_HEIGHT = 28;
+	static readonly ITEM_HEIGHT = 24;
 
 	getHeight(_element: ICICheckListItem): number {
 		return CICheckListDelegate.ITEM_HEIGHT;
@@ -143,8 +143,8 @@ class CICheckListRenderer implements IListRenderer<ICICheckListItem, ICICheckTem
 }
 
 /**
- * A widget that shows the CI status of a PR.
- * Rendered beneath the changes tree in the changes view as a SplitView pane.
+ * A collapsible widget that shows the CI status of a PR.
+ * Rendered beneath the changes tree in the changes view.
  */
 export class CIStatusWidget extends Disposable {
 
@@ -232,6 +232,8 @@ export class CIStatusWidget extends Disposable {
 				this._toggleCollapsed();
 			}
 		}));
+		this._twistieNode = dom.append(this._headerNode, $('.ci-status-widget-twistie'));
+		this._updateTwistie();
 
 		// Body (list of checks)
 		const bodyId = 'ci-status-widget-body';
@@ -297,11 +299,17 @@ export class CIStatusWidget extends Disposable {
 		});
 	}
 
-	private _renderHeader(checks: readonly IGitHubCICheck[]): void {
-		const counts = getCheckCounts(checks);
+	private _toggle(): void {
+		this._collapsed = !this._collapsed;
+		this._bodyNode.style.display = this._collapsed ? 'none' : '';
+		this._updateTwistie();
+		this._onDidChangeHeight.fire();
+	}
 
-		// Update count badges
-		dom.clearNode(this._countsNode);
+	private _updateTwistie(): void {
+		dom.clearNode(this._twistieNode);
+		this._twistieNode.appendChild(renderIcon(this._collapsed ? Codicon.chevronRight : Codicon.chevronDown));
+	}
 
 		if (counts.running > 0) {
 			const badge = dom.append(this._countsNode, $('.ci-status-widget-count-badge.ci-status-running'));
@@ -395,6 +403,10 @@ export class CIStatusWidget extends Disposable {
 	}
 
 	private _renderBody(checks: readonly ICICheckListItem[]): void {
+		const contentHeight = checks.length * CICheckListDelegate.ITEM_HEIGHT;
+		const bodyHeight = Math.min(contentHeight, CIStatusWidget.MAX_BODY_HEIGHT);
+		this._list.getHTMLElement().style.height = `${bodyHeight}px`;
+		this._list.layout(bodyHeight);
 		this._list.splice(0, this._list.length, checks);
 	}
 }
@@ -438,6 +450,55 @@ function getCheckCounts(checks: readonly IGitHubCICheck[]): ICICheckCounts {
 	}
 
 	return { running, pending, failed, successful };
+}
+
+function getChecksSummary(checks: readonly IGitHubCICheck[]): string {
+	const counts = getCheckCounts(checks);
+	const parts: string[] = [];
+
+	if (counts.running > 0) {
+		parts.push(counts.running === 1
+			? localize('ci.oneRunning', "1 running")
+			: localize('ci.manyRunning', "{0} running", counts.running));
+	}
+
+	if (counts.pending > 0) {
+		parts.push(counts.pending === 1
+			? localize('ci.onePending', "1 pending")
+			: localize('ci.manyPending', "{0} pending", counts.pending));
+	}
+
+	if (counts.failed > 0) {
+		parts.push(counts.failed === 1
+			? localize('ci.oneFailed', "1 failed")
+			: localize('ci.manyFailed', "{0} failed", counts.failed));
+	}
+
+	if (counts.successful > 0) {
+		parts.push(counts.successful === 1
+			? localize('ci.oneSuccessful', "1 successful")
+			: localize('ci.manySuccessful', "{0} successful", counts.successful));
+	}
+
+	return parts.join(', ');
+}
+
+function getHeaderIconAndClass(checks: readonly IGitHubCICheck[], overallStatus: GitHubCIOverallStatus): { icon: ThemeIcon; className: string } {
+	const counts = getCheckCounts(checks);
+	if (counts.running > 0) {
+		return { icon: Codicon.clock, className: 'ci-status-running' };
+	}
+
+	switch (overallStatus) {
+		case GitHubCIOverallStatus.Success:
+			return { icon: Codicon.passFilled, className: 'ci-status-success' };
+		case GitHubCIOverallStatus.Failure:
+			return { icon: Codicon.error, className: 'ci-status-failure' };
+		case GitHubCIOverallStatus.Pending:
+			return { icon: Codicon.circleFilled, className: 'ci-status-pending' };
+		default:
+			return { icon: Codicon.circleFilled, className: 'ci-status-neutral' };
+	}
 }
 
 function getCheckIcon(check: IGitHubCICheck): ThemeIcon {

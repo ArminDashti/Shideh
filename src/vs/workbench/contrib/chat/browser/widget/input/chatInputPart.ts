@@ -2203,7 +2203,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			modelConfiguration: selectedModel ? this._modelConfigStore.getModelConfiguration(selectedModel.identifier) : undefined,
 			selectedModelReason: selectedModel ? this._modelSelectionController.selectionReason : undefined,
 			selections: this._inputEditor?.getSelections() || [],
-			permissionLevel: this._currentPermissionLevel.get(),
 			contrib: {},
 		};
 
@@ -2370,15 +2369,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this.navigateHistory(false);
 	}
 
-	/**
-	 * Restores attachments to the input, re-fetching image binary data as needed.
-	 */
-	async restoreAttachments(attachments: readonly IChatRequestVariableEntry[]): Promise<void> {
-		let restored = [...attachments];
+	private async navigateHistory(previous: boolean): Promise<void> {
+		const historyEntry = previous ?
+			this.history.previous() : this.history.next();
 
-		if (restored.length > 0) {
-			restored = (await Promise.all(restored.map(async (attachment) => {
-				if (isImageVariableEntry(attachment) && !attachment.value && attachment.references?.length && URI.isUri(attachment.references[0].reference)) {
+		let historyAttachments = historyEntry?.attachments ?? [];
+
+		// Check for images in history to restore the value.
+		if (historyAttachments.length > 0) {
+			historyAttachments = (await Promise.all(historyAttachments.map(async (attachment) => {
+				if (isImageVariableEntry(attachment) && attachment.references?.length && URI.isUri(attachment.references[0].reference)) {
 					const currReference = attachment.references[0].reference;
 					try {
 						const imageBinary = currReference.toString(true).startsWith('http') ? await this.sharedWebExtracterService.readImage(currReference, CancellationToken.None) : (await this.fileService.readFile(currReference)).value;
@@ -2386,7 +2386,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 							return undefined;
 						}
 						const newAttachment = { ...attachment };
-						newAttachment.value = (isImageVariableEntry(attachment) && attachment.isPasted) ? imageBinary.buffer : await resizeImage(imageBinary.buffer);
+						newAttachment.value = (isImageVariableEntry(attachment) && attachment.isPasted) ? imageBinary.buffer : await resizeImage(imageBinary.buffer); // if pasted image, we do not need to resize.
 						return newAttachment;
 					} catch (err) {
 						this.logService.error('Failed to fetch and reference.', err);
@@ -2394,17 +2394,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					}
 				}
 				return attachment;
-			}))).filter(isDefined);
+			}))).filter(attachment => attachment !== undefined);
 		}
 
-		this._attachmentModel.clearAndSetContext(...restored);
-	}
-
-	private async navigateHistory(previous: boolean): Promise<void> {
-		const historyEntry = previous ?
-			this.history.previous() : this.history.next();
-
-		await this.restoreAttachments(historyEntry?.attachments ?? []);
+		this._attachmentModel.clearAndSetContext(...historyAttachments);
 
 		const inputText = historyEntry?.inputText ?? '';
 		const contribData = historyEntry?.contrib ?? {};
@@ -2579,7 +2572,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private getOrCreateOptionEmitter(optionGroupId: string): Emitter<IChatSessionProviderOptionItem> {
 		let emitter = this._chatSessionOptionEmitters.get(optionGroupId);
 		if (!emitter) {
-			emitter = new Emitter<IChatSessionProviderOptionItem>();
+			emitter = this._register(new Emitter<IChatSessionProviderOptionItem>());
 			this._chatSessionOptionEmitters.set(optionGroupId, emitter);
 		}
 		return emitter;
@@ -2868,6 +2861,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (this.chatSessionPickerContainer) {
 			this.chatSessionPickerContainer.style.display = 'none';
 		}
+	}
+
+	private disposeSessionPickerWidgets(): void {
+		for (const widget of this.chatSessionPickerWidgets.values()) {
+			widget.dispose();
+		}
+		this.chatSessionPickerWidgets.clear();
 	}
 
 	/**
@@ -3985,7 +3985,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					const delegate: IPermissionPickerDelegate = {
 						currentPermissionLevel: this._currentPermissionLevel,
 						setPermissionLevel: (level: ChatPermissionLevel) => {
-							this.setPermissionLevel(level);
+							this._currentPermissionLevel.set(level, undefined);
+							this.permissionLevelKey.set(level);
 						},
 						getExtensionPermissions: () => {
 							const sessionResource = this.getCurrentSessionResource();

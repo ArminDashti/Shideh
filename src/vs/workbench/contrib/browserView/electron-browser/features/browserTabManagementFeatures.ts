@@ -261,13 +261,6 @@ class QuickOpenBrowserAction extends Action2 {
 interface IOpenBrowserOptions {
 	url?: string;
 	openToSide?: boolean;
-
-	/**
-	 * If set, the first existing tab with a URL matching this glob pattern will be reused / focused instead of opening a new tab.
-	 *
-	 * This is used by Live Preview extension to reuse tabs, especially after reload / restart.
-	 */
-	reuseUrlFilter?: string;
 }
 
 class OpenIntegratedBrowserAction extends Action2 {

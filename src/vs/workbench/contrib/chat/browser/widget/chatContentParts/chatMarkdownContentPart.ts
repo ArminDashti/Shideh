@@ -859,12 +859,6 @@ class ChatOutputCodeBlockPart extends Disposable {
 export class CollapsedCodeBlock extends ChatEditPillElement {
 
 	private currentDiff: IEditSessionEntryDiff | undefined;
-	get diff(): IEditSessionEntryDiff | undefined {
-		return this.currentDiff;
-	}
-
-	private readonly _onDidChangeDiff = this._register(new Emitter<IEditSessionEntryDiff>());
-	readonly onDidChangeDiff: Event<IEditSessionEntryDiff> = this._onDidChangeDiff.event;
 
 	private readonly progressStore = this._store.add(new DisposableStore());
 

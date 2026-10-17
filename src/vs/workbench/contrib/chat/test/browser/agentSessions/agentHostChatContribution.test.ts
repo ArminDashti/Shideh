@@ -8328,12 +8328,12 @@ suite('AgentHostChatContribution', () => {
 			assert.strictEqual(permInvocation.kind, 'toolInvocation');
 			assert.strictEqual(permInvocation.state.get().type, IChatToolInvocation.StateKind.WaitingForConfirmation);
 
-			// Confirm the tool
+			// Confirm the permission
 			IChatToolInvocation.confirmWith(permInvocation, { type: ToolConfirmKind.UserAction });
 
 			await timeout(10);
 
-			// The handler should have dispatched session/toolCallConfirmed
+			// The handler should have dispatched session/permissionResolved
 			assert.ok(agentHostService.dispatchedActions.some(
 				a => {
 					if (a.action.type !== 'chat/toolCallConfirmed') {
@@ -8361,8 +8361,7 @@ suite('AgentHostChatContribution', () => {
 
 			await timeout(10);
 
-			const toolInvocations = collected.flat().filter(p => p.kind === 'toolInvocation');
-			const permInvocation = toolInvocations[toolInvocations.length - 1] as IChatToolInvocation;
+			const permInvocation = collected[0][0] as IChatToolInvocation;
 			// Deny the permission
 			IChatToolInvocation.confirmWith(permInvocation, { type: ToolConfirmKind.Denied });
 
@@ -8481,6 +8480,7 @@ suite('AgentHostChatContribution', () => {
 
 			await timeout(10);
 			const permInvocation = collected[0][0] as IChatToolInvocation;
+			assert.strictEqual(permInvocation.toolSpecificData?.kind, 'input');
 
 			IChatToolInvocation.confirmWith(permInvocation, { type: ToolConfirmKind.UserAction });
 			await timeout(10);
@@ -9952,6 +9952,12 @@ suite('AgentHostChatContribution', () => {
 						}
 					}],
 					usage: undefined,
+					toolCalls: [{
+						status: 'completed' as const, toolCallId: 'tc-1', toolName: 'bash', displayName: 'Bash',
+						invocationMessage: 'Running `ls`', toolInput: 'ls', _meta: { toolKind: 'terminal', language: 'shellscript' },
+						confirmed: 'not-needed' as const, success: true, pastTenseMessage: 'Ran `ls`', content: [{ type: 'text' as const, text: 'file1\nfile2' }],
+					}],
+					responseText: '',
 				}],
 			} as SessionState);
 
@@ -10563,10 +10569,10 @@ suite('AgentHostChatContribution', () => {
 					id: 'turn-1',
 					message: { text: 'do something', origin: { kind: MessageKind.User } },
 					state: TurnState.Complete,
-					responseParts: [{
-						kind: 'toolCall' as const, toolCall: { status: 'completed' as const, toolCallId: 'tc-orphan', toolName: 'read_file', displayName: 'Read File', invocationMessage: 'Reading file', confirmed: 'not-needed' as const, success: false, pastTenseMessage: 'Reading file' },
-					}],
+					responseParts: [],
+					responseText: '',
 					usage: undefined,
+					toolCalls: [{ status: 'completed' as const, toolCallId: 'tc-orphan', toolName: 'read_file', displayName: 'Read File', invocationMessage: 'Reading file', confirmed: 'not-needed' as const, success: false, pastTenseMessage: 'Reading file' }],
 				}],
 			} as SessionState);
 
@@ -10594,10 +10600,10 @@ suite('AgentHostChatContribution', () => {
 					id: 'turn-1',
 					message: { text: 'search', origin: { kind: MessageKind.User } },
 					state: TurnState.Complete,
-					responseParts: [{
-						kind: 'toolCall' as const, toolCall: { status: 'completed' as const, toolCallId: 'tc-g', toolName: 'grep', displayName: 'Grep', invocationMessage: 'Searching...', confirmed: 'not-needed' as const, success: true, pastTenseMessage: 'Searched for pattern' },
-					}],
+					responseParts: [],
 					usage: undefined,
+					responseText: '',
+					toolCalls: [{ status: 'completed' as const, toolCallId: 'tc-g', toolName: 'grep', displayName: 'Grep', invocationMessage: 'Searching...', confirmed: 'not-needed' as const, success: true, pastTenseMessage: 'Searched for pattern' }],
 				}],
 			} as SessionState);
 

@@ -6558,6 +6558,89 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return undefined;
 	}
 
+	private _mapSessionEvents(session: URI, events: readonly SessionEvent[]): (IAgentMessageEvent | IAgentToolStartEvent | IAgentToolCompleteEvent)[] {
+		const result: (IAgentMessageEvent | IAgentToolStartEvent | IAgentToolCompleteEvent)[] = [];
+		const toolInfoByCallId = new Map<string, { toolName: string; parameters: Record<string, unknown> | undefined }>();
+
+		for (const e of events) {
+			if (e.type === 'assistant.message' || e.type === 'user.message') {
+				const d = (e as SessionEventPayload<'assistant.message'>).data;
+				result.push({
+					session,
+					type: 'message',
+					role: e.type === 'user.message' ? 'user' : 'assistant',
+					messageId: d?.messageId ?? '',
+					content: d?.content ?? '',
+					toolRequests: d?.toolRequests?.map((tr: { toolCallId: string; name: string; arguments?: unknown; type?: 'function' | 'custom' }) => ({
+						toolCallId: tr.toolCallId,
+						name: tr.name,
+						arguments: tr.arguments !== undefined ? tryStringify(tr.arguments) : undefined,
+						type: tr.type,
+					})),
+					reasoningOpaque: d?.reasoningOpaque,
+					reasoningText: d?.reasoningText,
+					encryptedContent: d?.encryptedContent,
+					parentToolCallId: d?.parentToolCallId,
+				});
+			} else if (e.type === 'tool.execution_start') {
+				const d = (e as SessionEventPayload<'tool.execution_start'>).data;
+				if (isHiddenTool(d.toolName)) {
+					continue;
+				}
+				const toolArgs = d.arguments !== undefined ? tryStringify(d.arguments) : undefined;
+				let parameters: Record<string, unknown> | undefined;
+				if (toolArgs) {
+					try { parameters = JSON.parse(toolArgs) as Record<string, unknown>; } catch { /* ignore */ }
+				}
+				toolInfoByCallId.set(d.toolCallId, { toolName: d.toolName, parameters });
+				const displayName = getToolDisplayName(d.toolName);
+				const toolKind = getToolKind(d.toolName);
+				result.push({
+					session,
+					type: 'tool_start',
+					toolCallId: d.toolCallId,
+					toolName: d.toolName,
+					displayName,
+					invocationMessage: getInvocationMessage(d.toolName, displayName, parameters),
+					toolInput: getToolInputString(d.toolName, parameters, toolArgs),
+					toolKind,
+					language: toolKind === 'terminal' ? getShellLanguage(d.toolName) : undefined,
+					toolArguments: toolArgs,
+					mcpServerName: d.mcpServerName,
+					mcpToolName: d.mcpToolName,
+					parentToolCallId: d.parentToolCallId,
+				});
+			} else if (e.type === 'tool.execution_complete') {
+				const d = (e as SessionEventPayload<'tool.execution_complete'>).data;
+				const info = toolInfoByCallId.get(d.toolCallId);
+				if (!info) {
+					continue;
+				}
+				toolInfoByCallId.delete(d.toolCallId);
+				const displayName = getToolDisplayName(info.toolName);
+				const toolOutput = d.error?.message ?? d.result?.content;
+				const content: IToolResultContent[] = [];
+				if (toolOutput !== undefined) {
+					content.push({ type: ToolResultContentType.Text, text: toolOutput });
+				}
+				result.push({
+					session,
+					type: 'tool_complete',
+					toolCallId: d.toolCallId,
+					result: {
+						success: d.success,
+						pastTenseMessage: getPastTenseMessage(info.toolName, displayName, info.parameters, d.success),
+						content: content.length > 0 ? content : undefined,
+						error: d.error,
+					},
+					isUserRequested: d.isUserRequested,
+					toolTelemetry: d.toolTelemetry !== undefined ? tryStringify(d.toolTelemetry) : undefined,
+				});
+			}
+		}
+		return result;
+	}
+
 	override dispose(): void {
 		for (const ac of this._activeClients.values()) {
 			ac.dispose();

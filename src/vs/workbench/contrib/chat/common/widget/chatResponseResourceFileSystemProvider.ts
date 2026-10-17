@@ -98,7 +98,7 @@ export class ChatResponseResourceFileSystemProvider extends Disposable implement
 	) {
 		super();
 		this._register(this.chatService.onDidDisposeSession(e => {
-			for (const sessionResource of e.sessionResources) {
+			for (const sessionResource of e.sessionResource) {
 				const uris = this._sessionAssociations.get(sessionResource);
 				if (!uris) {
 					continue;

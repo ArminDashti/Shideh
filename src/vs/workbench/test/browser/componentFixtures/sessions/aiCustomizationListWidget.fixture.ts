@@ -179,11 +179,6 @@ async function renderInstructionsTab(ctx: ComponentFixtureContext, instructionFi
 				override readonly installations = observableValue('marketplaceInstallations', emptyCustomizationMarketplaceInstallationSnapshot);
 			}());
 			reg.defineInstance(IWorkspaceContextService, createMockWorkspaceContextService());
-			reg.defineInstance(IChatSessionsService, new class extends mock<IChatSessionsService>() {
-				override readonly onDidChangeCustomizations = Event.None;
-				override async getCustomizations() { return undefined; }
-				override getRegisteredChatSessionItemProviders() { return []; }
-			}());
 			reg.defineInstance(IAgentPluginService, new class extends mock<IAgentPluginService>() {
 				override readonly plugins = observableValue('plugins', []);
 			}());

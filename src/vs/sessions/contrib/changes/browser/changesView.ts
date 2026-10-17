@@ -57,11 +57,14 @@ import { ResourceLabels } from '../../../../workbench/browser/labels.js';
 import { ViewPane, IViewPaneOptions, ViewAction } from '../../../../workbench/browser/parts/views/viewPane.js';
 import { ViewPaneContainer } from '../../../../workbench/browser/parts/views/viewPaneContainer.js';
 import { IViewDescriptorService } from '../../../../workbench/common/views.js';
+import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
+import { IsSessionsWindowContext } from '../../../../workbench/common/contextkeys.js';
 import { CHAT_CATEGORY } from '../../../../workbench/contrib/chat/browser/actions/chatActions.js';
 import { ChatPetAchievementIds } from '../../../../workbench/contrib/chat/browser/chatPetAchievements.js';
 import { IChatPetService } from '../../../../workbench/contrib/chat/browser/chatPetService.js';
 import { ChatContextKeys } from '../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
 import { createFileIconThemableTreeContainerScope } from '../../../../workbench/contrib/files/browser/views/explorerView.js';
+import { IActivityService, NumberBadge } from '../../../../workbench/services/activity/common/activity.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../../workbench/services/editor/common/editorService.js';
 import { IExtensionService } from '../../../../workbench/services/extensions/common/extensions.js';
 import { IWorkbenchLayoutService } from '../../../../workbench/services/layout/browser/layoutService.js';
@@ -800,7 +803,6 @@ export class ChangesViewPane extends ViewPane {
 	// Actions container is positioned outside the card for this layout experiment
 	private actionsContainer: HTMLElement | undefined;
 
-	private changesProgressBar!: ProgressBar;
 	private tree: WorkbenchCompressibleObjectTree<ChangesTreeElement> | undefined;
 	private renderedTreeState: { readonly sessionResource: URI; readonly viewMode: ChangesViewMode } | undefined;
 	/** Folder the rendered rows' relative paths were computed against. */
@@ -856,7 +858,10 @@ export class ChangesViewPane extends ViewPane {
 		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService,
 		@IWorkspaceFolderLabelService private readonly workspaceFolderLabelService: IWorkspaceFolderLabelService,
 	) {
-		super({ ...options, titleMenuId: MenuId.ChatEditingSessionTitleToolbar }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+		super({
+			...options,
+			titleMenuId: MenuId.ChatEditingSessionTitleToolbar,
+		}, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		// Context keys
 		this.isMergeBaseBranchProtectedContextKey = ActiveSessionContextKeys.IsMergeBaseBranchProtected.bindTo(this.scopedContextKeyService);
@@ -927,14 +932,18 @@ export class ChangesViewPane extends ViewPane {
 
 		this.bodyContainer = dom.append(container, $('.changes-view-body'));
 
+		// Welcome message for empty state
+		this.welcomeContainer = dom.append(this.bodyContainer, $('.changes-welcome'));
+		const welcomeIcon = dom.append(this.welcomeContainer, $('.changes-welcome-icon'));
+		welcomeIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.diffMultiple));
+		const welcomeMessage = dom.append(this.welcomeContainer, $('.changes-welcome-message'));
+		welcomeMessage.textContent = localize('changesView.noChanges', "No files have been changed.");
+
 		// Actions container - positioned outside and above the card
 		this.actionsContainer = dom.append(this.bodyContainer, $('.chat-editing-session-actions.outside-card'));
 
-		// SplitView container for resizable file tree / CI checks split
-		this.splitViewContainer = dom.append(this.bodyContainer, $('.changes-splitview-container'));
-
-		// Main container with file icons support (the "card") — top pane
-		this.contentContainer = dom.append(this.splitViewContainer, $('.chat-editing-session-container.show-file-icons'));
+		// Main container with file icons support (the "card")
+		this.contentContainer = dom.append(this.bodyContainer, $('.chat-editing-session-container.show-file-icons'));
 		this._register(createFileIconThemableTreeContainerScope(this.contentContainer, this.themeService));
 
 		// Toggle class based on whether the file icon theme has file icons
@@ -948,11 +957,6 @@ export class ChangesViewPane extends ViewPane {
 		// redesign these live in the custom Changes editor instead, so the panel
 		// omits its header; otherwise (original layout) the header is shown here.
 		this.createFilesHeader(this.contentContainer);
-
-		// Changes card progress bar
-		const progressContainer = dom.append(this.contentContainer, $('.changes-progress'));
-		this.changesProgressBar = this._register(new ProgressBar(progressContainer, defaultProgressBarStyles));
-		this.changesProgressBar.stop().hide();
 
 		// List container
 		this.listContainer = dom.append(this.contentContainer, $('.changes-file-list'));
@@ -1148,7 +1152,8 @@ export class ChangesViewPane extends ViewPane {
 				dom.setVisibility(hasEntries, this.fileHeaderToolbarContainer);
 			}
 
-			dom.setVisibility(hasEntries, this.listContainer!);
+			dom.setVisibility(hasEntries, this.contentContainer!);
+			dom.setVisibility(hasEntries, this.actionsContainer!);
 			dom.setVisibility(!hasEntries, this.welcomeContainer!);
 
 			this.fireTreePaneSizeChange();
@@ -1498,10 +1503,16 @@ export class ChangesViewPane extends ViewPane {
 		}
 	}
 
-	private getTreeSelection(): IChangesFileItem[] {
-		const selection = this.tree?.getSelection() ?? [];
-		return selection.filter(item => !!item && isChangesFileItem(item));
-	}
+		const fixedUsed = bodyPadding + actionsHeight + actionsMargin + overviewHeight + containerPadding + containerBorder;
+
+		// Determine CI widget space needs
+		const ciWidget = this.ciStatusWidget;
+		const ciVisible = ciWidget?.visible ?? false;
+		const ciHeaderHeight = ciVisible ? CIStatusWidget.HEADER_HEIGHT : 0;
+		const ciMargin = ciVisible ? 8 : 0; // margin-top on CI widget
+		const ciDesiredHeight = ciWidget?.desiredHeight ?? 0;
+
+		const spaceForTreeAndCI = Math.max(0, bodyHeight - fixedUsed - ciMargin);
 
 	private getActiveChangesetWorkspace(reader: IReader | undefined): ISessionWorkspace | undefined {
 		const activeSession = this.sessionsService.activeSession.read(reader);
@@ -1556,7 +1567,7 @@ export class ChangesViewPane extends ViewPane {
 		super.layoutBody(height, width);
 		this.currentBodyHeight = height;
 		this.currentBodyWidth = width;
-		this.layoutSplitView();
+		this.layoutTree();
 	}
 
 	override focus(): void {
@@ -2048,10 +2059,8 @@ class ChangesViewActionRunner extends ActionRunner {
 // --- Tree Delegate and Sorter
 
 class ChangesTreeDelegate implements IListVirtualDelegate<ChangesTreeElement> {
-	static readonly ROW_HEIGHT = 22;
-
 	getHeight(_element: ChangesTreeElement): number {
-		return ChangesTreeDelegate.ROW_HEIGHT;
+		return 22;
 	}
 
 	getTemplateId(_element: ChangesTreeElement): string {
@@ -2141,18 +2150,24 @@ class SetChangesTreeViewModeAction extends ViewAction<ChangesViewPane> {
 registerAction2(SetChangesListViewModeAction);
 registerAction2(SetChangesTreeViewModeAction);
 
-// --- Versions Picker Action
+// --- Versions Submenu
 
-class VersionsPickerAction extends Action2 {
-	static readonly ID = 'chatEditing.versionsPicker';
+MenuRegistry.appendMenuItem(MenuId.ChatEditingSessionTitleToolbar, {
+	submenu: MenuId.ChatEditingSessionChangesVersionsSubmenu,
+	title: localize2('versionsActions', 'Versions'),
+	icon: Codicon.versions,
+	group: 'navigation',
+	order: 9,
+	when: ContextKeyExpr.and(ContextKeyExpr.equals('view', CHANGES_VIEW_ID), IsSessionsWindowContext),
+});
 
+class AllChangesAction extends Action2 {
 	constructor() {
 		super({
-			id: VersionsPickerAction.ID,
-			title: localize2('chatEditing.versionsPicker', 'Versions'),
+			id: 'chatEditing.versionsAllChanges',
+			title: localize2('chatEditing.versionsAllChanges', 'All Changes'),
 			category: CHAT_CATEGORY,
-			icon: Codicon.listFilter,
-			f1: false,
+			toggled: changesVersionModeContextKey.isEqualTo(ChangesVersionMode.AllChanges),
 			menu: [{
 				id: MenuId.ChatEditingSessionChangesFileHeaderToolbar,
 				group: 'navigation',
@@ -2526,3 +2541,27 @@ class ChangesDiffStatsActionItem extends ActionViewItem {
 		return getChangesSummaryLabel(changesSummary);
 	}
 }
+registerAction2(AllChangesAction);
+
+class LastTurnChangesAction extends Action2 {
+	constructor() {
+		super({
+			id: 'chatEditing.versionsLastTurnChanges',
+			title: localize2('chatEditing.versionsLastTurnChanges', "Last Turn's Changes"),
+			category: CHAT_CATEGORY,
+			toggled: changesVersionModeContextKey.isEqualTo(ChangesVersionMode.LastTurn),
+			menu: [{
+				id: MenuId.ChatEditingSessionChangesVersionsSubmenu,
+				group: '1_changes',
+				order: 2,
+			}],
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const viewsService = accessor.get(IViewsService);
+		const view = viewsService.getActiveViewWithId<ChangesViewPane>(CHANGES_VIEW_ID);
+		view?.viewModel.setVersionMode(ChangesVersionMode.LastTurn);
+	}
+}
+registerAction2(LastTurnChangesAction);

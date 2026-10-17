@@ -203,7 +203,6 @@
 
 .new-chat-session-options .monaco-button.new-chat-session-options-toggle:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
-	color: var(--vscode-foreground);
 }
 
 .new-chat-session-options .monaco-button.new-chat-session-options-toggle:focus-visible,

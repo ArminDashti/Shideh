@@ -5667,12 +5667,6 @@
 					"include": "#preprocessor-app-directive-property"
 				},
 				{
-					"include": "#preprocessor-app-directive-exclude"
-				},
-				{
-					"include": "#preprocessor-app-directive-include"
-				},
-				{
 					"include": "#preprocessor-app-directive-project"
 				},
 				{
@@ -5720,28 +5714,6 @@
 					"name": "punctuation.separator.equals.cs"
 				},
 				"4": {
-					"name": "string.unquoted.preprocessor.message.cs"
-				}
-			}
-		},
-		"preprocessor-app-directive-exclude": {
-			"match": "\\b(exclude)\\b\\s*(.*)?\\s*",
-			"captures": {
-				"1": {
-					"name": "keyword.preprocessor.exclude.cs"
-				},
-				"2": {
-					"name": "string.unquoted.preprocessor.message.cs"
-				}
-			}
-		},
-		"preprocessor-app-directive-include": {
-			"match": "\\b(include)\\b\\s*(.*)?\\s*",
-			"captures": {
-				"1": {
-					"name": "keyword.preprocessor.include.cs"
-				},
-				"2": {
 					"name": "string.unquoted.preprocessor.message.cs"
 				}
 			}

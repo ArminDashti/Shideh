@@ -161,9 +161,16 @@ suite('getGitHubContext', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	function makeSession(overrides: { repository?: URI }): { repository: URI | undefined } {
+	function makeSession(overrides: Partial<IActiveSessionItem>): IActiveSessionItem {
 		return {
+			resource: URI.parse('test://session/1'),
+			isUntitled: false,
+			label: 'Test Session',
 			repository: undefined,
+			worktree: undefined,
+			worktreeBranchName: undefined,
+			worktreeBaseBranchProtected: undefined,
+			providerType: 'copilot-cloud-agent',
 			...overrides,
 		};
 	}

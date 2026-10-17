@@ -49,7 +49,6 @@ export class ChatQuotaExceededPart extends Disposable implements IChatContentPar
 
 		let primaryButtonLabel: string | undefined;
 		switch (chatEntitlementService.entitlement) {
-			case ChatEntitlement.EDU:
 			case ChatEntitlement.Pro:
 			case ChatEntitlement.ProPlus:
 			case ChatEntitlement.Max:

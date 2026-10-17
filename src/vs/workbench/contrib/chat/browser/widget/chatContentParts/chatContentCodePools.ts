@@ -39,7 +39,7 @@ export class EditorPool extends Disposable {
 		return {
 			object: codeBlock,
 			isStale: () => stale,
-			dispose: createSingleCallFunction(() => {
+			dispose: () => {
 				codeBlock.reset();
 				stale = true;
 				this._pool.release(codeBlock, key);
@@ -79,11 +79,11 @@ export class DiffEditorPool extends Disposable {
 		return {
 			object: codeBlock,
 			isStale: () => stale,
-			dispose: createSingleCallFunction(() => {
+			dispose: () => {
 				codeBlock.reset();
 				stale = true;
 				this._pool.release(codeBlock);
-			})
+			}
 		};
 	}
 

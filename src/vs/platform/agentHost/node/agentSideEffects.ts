@@ -1669,7 +1669,7 @@ export class AgentSideEffects extends Disposable {
 						origin: clientId !== undefined && clientSeq !== undefined ? { clientId, clientSeq } : undefined,
 					});
 				} else {
-					this._logService.warn(`[AgentSideEffects] No agent for tool call confirmation: ${action.toolCallId}`);
+					this._logService.warn(`[AgentSideEffects] No pending permission request for: ${action.requestId}`);
 				}
 
 				// When the user chose "Allow in this Session", add the tool

@@ -792,26 +792,6 @@ export namespace ChatSessionOptionsMap {
  */
 export type ReadonlyChatSessionOptionsMap = ReadonlyMap<string, string | IChatSessionProviderOptionItem>;
 
-export interface IChatSessionCustomizationItem {
-	readonly label: string;
-	readonly description?: string;
-	readonly uri: URI;
-	readonly storageLocation: number;
-	readonly icon?: ThemeIcon;
-}
-
-export interface IChatSessionCustomizationItemGroup {
-	readonly id: string;
-	readonly items: IChatSessionCustomizationItem[];
-	readonly commands?: readonly { readonly id: string; readonly title: string; readonly arguments?: readonly unknown[] }[];
-	readonly itemCommands?: readonly { readonly id: string; readonly title: string; readonly arguments?: readonly unknown[] }[];
-}
-
-export interface IChatSessionCustomizationsProvider {
-	readonly onDidChangeCustomizations: Event<void>;
-	provideCustomizations(token: CancellationToken): Promise<IChatSessionCustomizationItemGroup[] | undefined>;
-}
-
 
 export interface IChatSessionCommitEvent {
 	/** The original (untitled) session resource. */
@@ -932,6 +912,7 @@ export interface IChatSessionsService {
 	 */
 	getChatInputCompletionTriggerCharacters(sessionType: string): Promise<readonly string[] | undefined>;
 
+	hasAnySessionOptions(sessionResource: URI): boolean;
 	getSessionOptions(sessionResource: URI): ReadonlyChatSessionOptionsMap | undefined;
 	getSessionOption(sessionResource: URI, optionId: string): string | IChatSessionProviderOptionItem | undefined;
 	setSessionOption(sessionResource: URI, optionId: string, value: string | IChatSessionProviderOptionItem): boolean;
@@ -1018,6 +999,8 @@ export interface IChatSessionsService {
 	 * `selected` or `default` items.
 	 */
 	getNewChatSessionInputState(chatSessionType: string, sessionResource: URI): Promise<readonly IChatSessionProviderOptionGroup[] | undefined>;
+
+	getInProgressSessionDescription(chatModel: IChatModel): string | undefined;
 
 	/**
 	 * Creates a new chat session item using the controller's newChatSessionItemHandler.

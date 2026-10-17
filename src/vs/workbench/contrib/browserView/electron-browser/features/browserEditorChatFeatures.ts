@@ -52,6 +52,7 @@ import { IChatPetService } from '../../../chat/browser/chatPetService.js';
 
 // Register tools
 import '../tools/browserTools.contribution.js';
+import { BrowserActionCategory } from '../browserViewActions.js';
 
 /**
  * Setting that controls whether a screenshot of the selected element is attached
@@ -153,7 +154,7 @@ type IntegratedBrowserAddScreenshotToChatAddedClassification = {
 
 /**
  * Contribution that manages element selection, element attachment to chat,
- * console log attachment to chat, and agent sharing.
+ * console session lifecycle, console log attachment to chat, and agent sharing.
  */
 export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 	private readonly _elementSelectionModeContext: IContextKey<BrowserElementSelectionMode | undefined>;
@@ -175,6 +176,7 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ILogService private readonly logService: ILogService,
+		@IBrowserElementsService private readonly browserElementsService: IBrowserElementsService,
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 		@IChatService private readonly chatService: IChatService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -471,8 +473,8 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 
 		const elementEntry: IChatRequestVariableEntry = {
 			id: 'element-' + Date.now(),
-			name: displayNameShort,
-			fullName: displayNameFull,
+			name: displayName,
+			fullName: displayName,
 			value: value,
 			modelDescription: 'Structured browser element context with HTML path, outer HTML, dimensions, and computed styles.',
 			kind: 'element',
@@ -704,13 +706,15 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 	 * Grab the current console logs from the active console session and attach them to chat.
 	 */
 	async addConsoleLogsToChat(): Promise<void> {
-		const model = this.editor.model;
-		if (!model) {
+		const browserViewId = this.editor.model?.id;
+		if (!browserViewId) {
 			return;
 		}
 
+		const locator: IBrowserTargetLocator = { browserViewId };
+
 		try {
-			const logs = await model.getConsoleLogs();
+			const logs = await this.browserElementsService.getConsoleLogs(locator);
 			if (!logs) {
 				return;
 			}

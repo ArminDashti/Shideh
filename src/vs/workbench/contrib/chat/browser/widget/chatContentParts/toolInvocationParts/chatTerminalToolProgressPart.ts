@@ -439,11 +439,7 @@ export class ChatTerminalToolProgressPart extends BaseChatToolInvocationSubPart 
 			() => this.fullOutputAction,
 			!!this._terminalData.terminalToolSessionId,
 		));
-		// Only append the output section if there's a terminal session or stored output;
-		// display-only invocations with no output don't need the output area at all
-		if (this._terminalData.terminalToolSessionId || this._terminalData.terminalCommandOutput) {
-			elements.container.append(this._outputView.domNode);
-		}
+		elements.container.append(this._outputView.domNode);
 		this._register(this._outputView.onDidFocus(() => this._handleOutputFocus()));
 		this._register(this._outputView.onDidBlur(e => this._handleOutputBlur(e)));
 		this._register(toDisposable(() => this._handleDispose()));

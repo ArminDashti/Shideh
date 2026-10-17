@@ -1524,6 +1524,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 		// Stable sort; we should keep order consistent to the order in the user's configuration object
 		allSkills.sort((a, b) => this.getSkillPriority(a) - this.getSkillPriority(b));
 
+		// Build map of URI to extension ID
+		const extensionIdByUri = new Map<string, string>();
+		for (const extSkill of extensionSkills) {
+			extensionIdByUri.set(extSkill.uri.toString(), extSkill.extension.identifier.value);
+		}
+
 		for (const skill of allSkills) {
 			const uri = skill.uri;
 			const promptPath = skill;

@@ -686,6 +686,13 @@ export interface IBrowserViewService {
 	captureScreenshot(id: string, options?: IBrowserViewCaptureScreenshotOptions): Promise<VSBuffer>;
 
 	/**
+	 * Dispatch a key event to the browser view
+	 * @param id The browser view identifier
+	 * @param keyEvent The key event data
+	 */
+	dispatchKeyEvent(id: string, keyEvent: IBrowserViewKeyDownEvent): Promise<void>;
+
+	/**
 	 * Focus the browser view
 	 * @param id The browser view identifier
 	 * @param force Whether to force focus even if the view's window is not focused.

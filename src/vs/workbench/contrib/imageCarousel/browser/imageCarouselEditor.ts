@@ -10,7 +10,6 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { clamp } from '../../../../base/common/numbers.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -20,9 +19,8 @@ import { IEditorOpenContext } from '../../../common/editor.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { IWebviewElement, IWebviewService } from '../../webview/browser/webview.js';
 import { ImageCarouselEditorInput } from './imageCarouselEditorInput.js';
-import { ICarouselImage, ICarouselSection, isVideoMimeType } from './imageCarouselTypes.js';
+import { ICarouselImage, ICarouselSection } from './imageCarouselTypes.js';
 
 /**
  * A flat entry referencing a specific image within a section, used
@@ -55,13 +53,11 @@ export class ImageCarouselEditor extends EditorPane {
 	private readonly _blobUrlCache = new Map<string, string>();
 	private _blobUrlCacheGeneration = 0;
 
-	private _videoWebview: IWebviewElement | undefined;
 	private _elements: {
 		root: HTMLElement;
 		imageArea: HTMLElement;
 		mainImageContainer: HTMLElement;
 		mainImage: HTMLImageElement;
-		videoContainer: HTMLElement;
 		captionText: HTMLElement;
 		captionSeparator: HTMLElement;
 		counter: HTMLElement;
@@ -77,8 +73,7 @@ export class ImageCarouselEditor extends EditorPane {
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IStorageService storageService: IStorageService,
-		@IFileService private readonly _fileService: IFileService,
-		@IWebviewService private readonly _webviewService: IWebviewService
+		@IFileService private readonly _fileService: IFileService
 	) {
 		super(ImageCarouselEditor.ID, group, telemetryService, themeService, storageService);
 	}
@@ -103,8 +98,6 @@ export class ImageCarouselEditor extends EditorPane {
 	}
 
 	override clearInput(): void {
-		this._videoWebview?.dispose();
-		this._videoWebview = undefined;
 		this._contentDisposables.clear();
 		this._imageDisposables.clear();
 		this._revokeCachedBlobUrls();
@@ -115,11 +108,6 @@ export class ImageCarouselEditor extends EditorPane {
 		this._elements = undefined;
 		this._thumbnailElements = [];
 		super.clearInput();
-	}
-
-	private _isCurrentVideo(): boolean {
-		const entry = this._flatImages[this._currentIndex];
-		return !!entry && isVideoMimeType(entry.image.mimeType);
 	}
 
 	/**
@@ -146,7 +134,6 @@ export class ImageCarouselEditor extends EditorPane {
 			h('div.image-area@imageArea', [
 				h('div.main-image-container@mainImageContainer', [
 					h('img.main-image@mainImage'),
-					h('div.video-container@videoContainer'),
 				]),
 				h('button.nav-arrow.prev-arrow@prevBtn', { ariaLabel: localize('imageCarousel.previousImage', "Previous image") }, [
 					h('span.codicon.codicon-chevron-left', { ariaHidden: 'true' }),
@@ -180,7 +167,6 @@ export class ImageCarouselEditor extends EditorPane {
 			imageArea: elements.imageArea,
 			mainImageContainer: elements.mainImageContainer,
 			mainImage: elements.mainImage as HTMLImageElement,
-			videoContainer: elements.videoContainer,
 			captionText: elements.captionText,
 			captionSeparator: elements.captionSeparator,
 			counter: elements.counter,
@@ -193,9 +179,6 @@ export class ImageCarouselEditor extends EditorPane {
 		// Initialize image in fit mode
 		this._elements.mainImage.classList.add('scale-to-fit');
 		this._elements.mainImage.alt = '';
-
-		// Hide video container initially
-		this._elements.videoContainer.style.display = 'none';
 
 		// Navigation listeners
 		this._contentDisposables.add(addDisposableListener(this._elements.prevBtn, 'click', () => {
@@ -228,9 +211,6 @@ export class ImageCarouselEditor extends EditorPane {
 
 		// Zoom: scroll wheel + modifier key (Ctrl on Win/Linux, Alt on Mac) or pinch
 		this._contentDisposables.add(addDisposableListener(this._elements.imageArea, EventType.MOUSE_WHEEL, (e: WheelEvent) => {
-			if (this._isCurrentVideo()) {
-				return;
-			}
 			const isZoomModifier = isMacintosh ? e.altKey : e.ctrlKey;
 			if (!isZoomModifier && !e.ctrlKey) {
 				return;
@@ -261,7 +241,7 @@ export class ImageCarouselEditor extends EditorPane {
 			clickAltPressed = e.altKey;
 		}));
 		this._contentDisposables.add(addDisposableListener(this._elements.mainImageContainer, EventType.CLICK, (e: MouseEvent) => {
-			if (e.button !== 0 || this._isCurrentVideo()) {
+			if (e.button !== 0) {
 				return;
 			}
 			const isZoomOut = isMacintosh ? clickAltPressed : clickCtrlPressed;
@@ -296,13 +276,12 @@ export class ImageCarouselEditor extends EditorPane {
 			for (let i = 0; i < section.images.length; i++) {
 				const image = section.images[i];
 				const currentFlatIndex = flatIndex;
-				const isItemVideo = isVideoMimeType(image.mimeType);
+				const thumbnail = h('button.thumbnail@root', [
+					h('img.thumbnail-image@img'),
+				]);
 
-				const btn = document.createElement('button');
-				btn.className = isItemVideo ? 'thumbnail video-thumbnail' : 'thumbnail';
-				btn.ariaLabel = isItemVideo
-					? localize('imageCarousel.thumbnailLabelVideo', "Video {0} of {1}", currentFlatIndex + 1, this._flatImages.length)
-					: localize('imageCarousel.thumbnailLabelImage', "Image {0} of {1}", currentFlatIndex + 1, this._flatImages.length);
+				const btn = thumbnail.root as HTMLButtonElement;
+				btn.ariaLabel = localize('imageCarousel.thumbnailLabel', "Image {0} of {1}", currentFlatIndex + 1, this._flatImages.length);
 
 				if (isItemVideo) {
 					const icon = h('span.codicon.codicon-play.thumbnail-play-icon');
@@ -397,7 +376,7 @@ export class ImageCarouselEditor extends EditorPane {
 		// decodes on a worker thread, avoiding main-thread stalls during commit.
 		const entry = this._flatImages[navigationIndex];
 		const currentImage = entry.image;
-		const isVideo = isVideoMimeType(currentImage.mimeType);
+		const url = await this._loadBlobUrl(currentImage);
 
 		if (isVideo) {
 			// Show video container, hide image
@@ -475,6 +454,22 @@ window.addEventListener("message",function(e){var m=e.data;if(m.type==="loadVide
 				}
 			});
 		}
+
+		const tmp = new Image();
+		tmp.src = url;
+		tmp.decode().then(() => {
+			// Only apply if user hasn't navigated away during decode
+			if (this._currentIndex === navigationIndex && this._elements) {
+				this._elements.mainImage.src = url;
+				this._elements.mainImage.alt = currentImage.name;
+			}
+		}, () => {
+			// Decode failed (invalid image) — still show src for browser fallback
+			if (this._currentIndex === navigationIndex && this._elements) {
+				this._elements.mainImage.src = url;
+				this._elements.mainImage.alt = currentImage.name;
+			}
+		});
 
 		// Reset zoom when switching images
 		this._applyZoom('fit');
@@ -571,32 +566,16 @@ window.addEventListener("message",function(e){var m=e.data;if(m.type==="loadVide
 		this._blobUrlCache.clear();
 	}
 
-	private async _loadRawData(image: ICarouselImage): Promise<Uint8Array> {
-		if (image.data) {
-			return image.data instanceof Uint8Array ? image.data : image.data.buffer;
-		} else if (image.uri) {
-			const content = await this._fileService.readFile(image.uri);
-			return content.value.buffer;
-		}
-		return new Uint8Array(0);
-	}
-
 	private _preloadAdjacentImages(): void {
 		for (const idx of [this._currentIndex - 1, this._currentIndex + 1]) {
 			if (idx >= 0 && idx < this._flatImages.length) {
-				const adjacentImage = this._flatImages[idx].image;
-				if (isVideoMimeType(adjacentImage.mimeType)) {
-					// For video, preload raw data into the file service cache
-					this._loadRawData(adjacentImage).catch(() => { /* ignore */ });
-				} else {
-					this._loadBlobUrl(adjacentImage).then(url => {
-						// Pre-decode via decode() so the compositor doesn't block
-						// the main thread decoding this image during commit.
-						const img = new Image();
-						img.src = url;
-						img.decode().catch(() => { /* invalid image */ });
-					});
-				}
+				this._loadBlobUrl(this._flatImages[idx].image).then(url => {
+					// Pre-decode via decode() so the compositor doesn't block
+					// the main thread decoding this image during commit.
+					const img = new Image();
+					img.src = url;
+					img.decode().catch(() => { /* invalid image */ });
+				});
 			}
 		}
 	}

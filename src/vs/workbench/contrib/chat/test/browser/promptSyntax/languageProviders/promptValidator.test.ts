@@ -1338,7 +1338,7 @@ suite('PromptValidator', () => {
 			}
 		});
 
-		test('removed user-invokable attribute is reported as unknown', async () => {
+		test('deprecated user-invokable attribute shows warning', async () => {
 			const content = [
 				'---',
 				'name: "TestAgent"',

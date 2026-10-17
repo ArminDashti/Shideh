@@ -91,7 +91,6 @@ import { IChatSessionsService } from '../../../../chat/common/chatSessionsServic
 
 // #region Tool data
 
-const TERMINAL_SANDBOX_DOCUMENTATION_URL = 'https://aka.ms/vscode-sandboxing';
 const TOOL_REFERENCE_NAME = 'runInTerminal';
 const LEGACY_TOOL_REFERENCE_FULL_NAMES = ['runCommands/runInTerminal'];
 const INPUT_NEEDED_NOTIFICATION_THROTTLE_MS = 5000;
@@ -939,7 +938,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 
 		// Listen for chat session disposal to clean up associated terminals and temp files
 		this._register(this._chatService.onDidDisposeSession(e => {
-			for (const resource of e.sessionResources) {
+			for (const resource of e.sessionResource) {
 				this._cleanupSessionTerminals(resource);
 			}
 			this._largeOutputFileWriter.cleanup();
@@ -1014,6 +1013,10 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			: missingDependencies && !canInstallMissingDependencies
 				? localize('runInTerminal.missingDeps.unsupportedInstaller', "The following dependencies required for sandboxed execution are not installed: {0}. Install them using your system package manager, then run the command again.", missingDependencies.join(', '))
 				: undefined;
+
+		const missingDependencies = sandboxPrereqs.failedCheck === TerminalSandboxPrerequisiteCheck.Dependencies && sandboxPrereqs.missingDependencies?.length
+			? sandboxPrereqs.missingDependencies
+			: undefined;
 
 		const terminalToolSessionId = generateUuid();
 		// Generate a custom command ID to link the command between renderer and pty host
@@ -2708,7 +2711,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 						mimeType,
 						data: fileContent.value,
 					},
-					audience: [LanguageModelPartAudience.User],
 				});
 			} catch {
 				// Ignore files that can't be read

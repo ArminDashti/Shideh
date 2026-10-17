@@ -185,10 +185,10 @@ type AgentHostInvocationFailedClassification = {
 
 
 // =============================================================================
-// AgentHostSessionHandler - renderer-side handler for a single agent host
+// AgentHostSessionHandler — renderer-side handler for a single agent host
 // chat session type. Bridges the protocol state layer with the chat UI:
 // subscribes to session state, derives IChatProgress[] from immutable state
-// changes, and dispatches client actions (turnStarted, toolCallConfirmed,
+// changes, and dispatches client actions (turnStarted, permissionResolved,
 // turnCancelled) back to the server.
 // =============================================================================
 

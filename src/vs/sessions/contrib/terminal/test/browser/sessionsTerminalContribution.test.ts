@@ -19,7 +19,8 @@ import { TestInstantiationService } from '../../../../../platform/instantiation/
 import { NullLogService, ILogService } from '../../../../../platform/log/common/log.js';
 import { ITerminalInstance, ITerminalService } from '../../../../../workbench/contrib/terminal/browser/terminal.js';
 import { ITerminalCapabilityStore, ICommandDetectionCapability, TerminalCapability } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
-import { toAgentHostUri } from '../../../../../platform/agentHost/common/agentHostUri.js';
+import { IAgentSessionsService } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentSessionsService.js';
+import { IAgentSession, IAgentSessionsModel } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentSessionsModel.js';
 import { AgentSessionProviders } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentSessions.js';
 import { ChatInteractivity, IChat, ISession, ISessionWorkspace, SessionRemoteConnectionFailureReason, SessionRemoteConnectionStatus } from '../../../../services/sessions/common/session.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -391,6 +392,12 @@ suite('SessionsTerminalContribution', () => {
 				backgroundedInstances.delete(instance.instanceId);
 				showBackgroundCalls.push(instance.instanceId);
 			}
+		});
+
+		instantiationService.stub(IAgentSessionsService, new class extends mock<IAgentSessionsService>() {
+			override model = {
+				onDidChangeSessionArchivedState: onDidChangeSessionArchivedState.event,
+			} as unknown as IAgentSessionsModel;
 		});
 
 		instantiationService.stub(IPathService, new TestPathService(HOME_DIR));
@@ -1098,7 +1105,7 @@ suite('SessionsTerminalContribution', () => {
 			worktree: worktreeUri,
 			providerType: AgentSessionProviders.Background,
 		});
-		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		onDidChangeSessionArchivedState.fire(session);
 		await tick();
 
 		assert.deepStrictEqual({
@@ -1488,9 +1495,9 @@ suite('SessionsTerminalContribution', () => {
 		const session = makeAgentSession({
 			sessionId: 'test:active-session',
 			isArchived: false,
-			worktree: worktreeUri,
+			worktreePath: worktreeUri.fsPath,
 		});
-		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		onDidChangeSessionArchivedState.fire(session);
 		await tick();
 
 		assert.strictEqual(disposedInstances.length, 0);

@@ -348,7 +348,7 @@ export class BrowserEditorInput extends EditorInput {
 		return {
 			resource: this.preferredResource,
 			options: {
-				override: BrowserEditorInput.EDITOR_ID,
+				override: BrowserEditorInput.ID,
 				viewState
 			}
 		};

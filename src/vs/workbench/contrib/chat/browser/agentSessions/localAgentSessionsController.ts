@@ -15,6 +15,7 @@ import { equals } from '../../../../../base/common/objects.js';
 import { autorun, observableSignalFromEvent } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { convertLegacyChatSessionTiming, IChatDetail, IChatService, IChatSessionTiming } from '../../common/chatService/chatService.js';
 import { chatModelToChatDetail } from '../../common/chatService/chatServiceImpl.js';
@@ -31,6 +32,9 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 
 	readonly chatSessionType = localChatSessionType;
 
+	private readonly _onDidChange = this._register(new Emitter<void>());
+	readonly onDidChange = this._onDidChange.event;
+
 	readonly _onDidChangeChatSessionItems = this._register(new Emitter<IChatSessionItemsDelta>());
 	readonly onDidChangeChatSessionItems = this._onDidChangeChatSessionItems.event;
 
@@ -41,6 +45,7 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 	constructor(
 		@IChatService private readonly chatService: IChatService,
 		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		super();
 
@@ -51,7 +56,7 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 
 	private _items = new ResourceMap<LocalChatSessionItem>();
 	get items(): readonly IChatSessionItem[] {
-		return Array.from(this._items.values());
+		return this._items;
 	}
 
 	/** Caller cancellation stops waiting without cancelling the shared refresh. */
@@ -104,8 +109,8 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 	}
 
 	private registerListeners(): void {
-		const addModelListeners = async (model: IChatModel) => {
-			if (getChatSessionType(model.sessionResource) !== this.chatSessionType) {
+		this._register(this.chatService.registerChatModelChangeListeners(Schemas.vscodeLocalChatSession, async sessionResource => {
+			if (getChatSessionType(sessionResource) !== this.chatSessionType) {
 				return;
 			}
 
@@ -178,8 +183,8 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 		this._onDidChangeChatSessionItems.fire({ addedOrUpdated: [updated] });
 	}
 
-	private async provideChatSessionItems(token: CancellationToken): Promise<LocalChatSessionItem[]> {
-		const sessions: LocalChatSessionItem[] = [];
+	private async provideChatSessionItems(token: CancellationToken): Promise<IChatSessionItem[]> {
+		const sessions: IChatSessionItem[] = [];
 		const sessionsByResource = new ResourceSet();
 
 		for (const sessionDetail of await this.chatService.getLiveSessionItems()) {
@@ -200,7 +205,7 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 		return sessions;
 	}
 
-	private async getHistoryItems(): Promise<LocalChatSessionItem[]> {
+	private async getHistoryItems(): Promise<IChatSessionItem[]> {
 		try {
 			const historyItems = await this.chatService.getHistorySessionItems();
 
@@ -210,16 +215,16 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 		}
 	}
 
-	private toChatSessionItem(chat: IChatDetail): LocalChatSessionItem | undefined {
+	private toChatSessionItem(chat: IChatDetail): IChatSessionItem | undefined {
 		const model = this.chatService.getSession(chat.sessionResource);
 
+		let description: string | undefined;
 		if (model) {
 			if (!model.hasRequests) {
 				return undefined; // ignore sessions without requests
 			}
-		} else if (chat.isActive) {
-			// Sessions that are active but don't have a chat model are ultimately untitled with no requests
-			return undefined;
+
+			description = this.chatSessionsService.getInProgressSessionDescription(model);
 		}
 
 		return new LocalChatSessionItem(chat, model);

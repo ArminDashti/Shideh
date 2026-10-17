@@ -30,7 +30,6 @@ export interface IAgentSessionApprovalInfo {
 	readonly kind: AgentSessionApprovalKind;
 	readonly label: string;
 	readonly languageId: string | undefined;
-	readonly since: Date;
 	confirm(): void;
 }
 

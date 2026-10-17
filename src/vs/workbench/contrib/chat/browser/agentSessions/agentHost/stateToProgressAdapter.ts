@@ -1079,7 +1079,7 @@ export function turnsToHistory(backendSession: URI, turns: readonly Turn[], part
 			...(origin ? { origin } : {}),
 		});
 
-		// Response parts — iterate the unified responseParts array
+		// Response parts
 		const parts: IChatProgress[] = [];
 		// History is settled, so an unresolved row would never flip to a routed one.
 		const autoModeResolution = lookup?.toAutoModeResolution?.(turn.usage);
@@ -2824,6 +2824,78 @@ export function updateRunningToolSpecificData(existing: ChatToolInvocation, tc: 
 			existing.notifyToolSpecificDataChanged();
 		}
 	}
+}
+
+/**
+ * Creates a {@link ChatToolInvocation} with confirmation messages from a
+ * protocol permission request. The resulting invocation starts in the
+ * waiting-for-confirmation state.
+ */
+export function permissionToConfirmation(perm: IPermissionRequest): ChatToolInvocation {
+	let title: string;
+	let toolSpecificData: IChatTerminalToolInvocationData | IChatToolInputInvocationData | undefined;
+
+	switch (perm.permissionKind) {
+		case PermissionKind.Shell: {
+			title = perm.intention ?? 'Run command';
+			toolSpecificData = perm.fullCommandText ? {
+				kind: 'terminal',
+				commandLine: { original: perm.fullCommandText },
+				language: 'shellscript',
+			} : undefined;
+			break;
+		}
+		case PermissionKind.Write: {
+			title = perm.path ? `Edit ${perm.path}` : 'Edit file';
+			let rawInput: unknown;
+			try { rawInput = perm.rawRequest ? JSON.parse(perm.rawRequest) : { path: perm.path }; } catch { rawInput = { path: perm.path }; }
+			toolSpecificData = { kind: 'input', rawInput };
+			break;
+		}
+		case PermissionKind.Mcp: {
+			const toolTitle = perm.toolName ?? 'MCP Tool';
+			title = perm.serverName ? `${perm.serverName}: ${toolTitle}` : toolTitle;
+			let rawInput: unknown;
+			try { rawInput = perm.rawRequest ? JSON.parse(perm.rawRequest) : { serverName: perm.serverName, toolName: perm.toolName }; } catch { rawInput = { serverName: perm.serverName, toolName: perm.toolName }; }
+			toolSpecificData = { kind: 'input', rawInput };
+			break;
+		}
+		case PermissionKind.Read: {
+			title = perm.intention ?? 'Read file';
+			let rawInput: unknown;
+			try { rawInput = perm.rawRequest ? JSON.parse(perm.rawRequest) : { path: perm.path, intention: perm.intention }; } catch { rawInput = { path: perm.path, intention: perm.intention }; }
+			toolSpecificData = { kind: 'input', rawInput };
+			break;
+		}
+		default: {
+			title = 'Permission request';
+			let rawInput: unknown;
+			try { rawInput = perm.rawRequest ? JSON.parse(perm.rawRequest) : {}; } catch { rawInput = {}; }
+			toolSpecificData = { kind: 'input', rawInput };
+			break;
+		}
+	}
+
+	const confirmationMessages: IToolConfirmationMessages = {
+		title: new MarkdownString(title),
+		message: new MarkdownString(''),
+	};
+
+	const toolData: IToolData = {
+		id: `permission_${perm.permissionKind}`,
+		source: ToolDataSource.Internal,
+		displayName: title,
+		modelDescription: '',
+	};
+
+	const preparedInvocation: IPreparedToolInvocation = {
+		invocationMessage: new MarkdownString(title),
+		confirmationMessages,
+		presentation: ToolInvocationPresentation.HiddenAfterComplete,
+		toolSpecificData,
+	};
+
+	return new ChatToolInvocation(preparedInvocation, toolData, perm.requestId, undefined, undefined);
 }
 
 /**
