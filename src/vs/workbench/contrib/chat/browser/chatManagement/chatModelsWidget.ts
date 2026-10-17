@@ -430,6 +430,8 @@ class GutterColumnRenderer extends ModelsTableColumnRenderer<IToggleCollapseColu
 
 	constructor(
 		private readonly viewModel: ChatModelsViewModel,
+		private readonly isInternal: boolean,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
 	) {
 		super();
 	}
@@ -1360,6 +1362,7 @@ export class ChatModelsWidget extends Disposable {
 			this.search(newQuery);
 		}));
 
+		const gutterWidth = isInternal ? 64 : 40;
 		const columns = [
 			{
 				label: '',
