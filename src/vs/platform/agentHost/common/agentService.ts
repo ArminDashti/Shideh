@@ -705,6 +705,15 @@ export interface IConnectionTrackerService {
 	 * enabled (e.g. running in an environment without `node:inspector`).
 	 */
 	getInspectInfo(tryEnable: boolean): Promise<IAgentHostInspectInfo | undefined>;
+
+	/**
+	 * Perform a single HTTP request through the agent runtime's own networking
+	 * stack (shared proxy, CA, and address handling) and return the buffered
+	 * response with timing and proxy details. A diagnostics aid that lets the
+	 * workbench probe connectivity using the exact networking the Copilot agent
+	 * uses for its own traffic, rather than the renderer's HTTP client.
+	 */
+	runtimeDiagnosticsHttpFetch(request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult>;
 }
 
 /**
@@ -1271,4 +1280,11 @@ export interface IAgentHostService extends IAgentConnection {
 	 * enabled.
 	 */
 	getInspectInfo(tryEnable: boolean): Promise<IAgentHostInspectInfo | undefined>;
+
+	/**
+	 * Perform a single HTTP request through the agent runtime's own networking
+	 * stack and return the buffered response with timing and proxy details. See
+	 * {@link IConnectionTrackerService.runtimeDiagnosticsHttpFetch}.
+	 */
+	runtimeDiagnosticsHttpFetch(request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult>;
 }

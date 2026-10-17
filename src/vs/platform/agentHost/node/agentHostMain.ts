@@ -423,6 +423,9 @@ async function startAgentHost(): Promise<void> {
 				return undefined;
 			}
 		},
+		runtimeDiagnosticsHttpFetch(request) {
+			return copilotAgent.runtimeDiagnosticsHttpFetch(request);
+		},
 	};
 	server.registerChannel(AgentHostIpcChannels.Management, ProxyChannel.fromService(instantiationService.createInstance(
 		AgentHostManagementService,

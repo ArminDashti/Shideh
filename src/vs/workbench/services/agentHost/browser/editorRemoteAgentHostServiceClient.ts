@@ -187,6 +187,10 @@ export class EditorRemoteAgentHostServiceClient extends Disposable implements IA
 		return undefined;
 	}
 
+	async runtimeDiagnosticsHttpFetch(_request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult> {
+		throw REMOTE_NOT_SUPPORTED('runtimeDiagnosticsHttpFetch');
+	}
+
 	// ---- IAgentConnection delegation ---------------------------------------
 	// All getters delegate directly to the eagerly-created protocol client so
 	// `AgentHostContribution` can subscribe synchronously in its constructor.

@@ -662,6 +662,10 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 			getDelayedChannel(this._managementConnection.client().then(client => client.getChannel(AgentHostIpcChannels.Management)))
 		);
 	}
+
+	runtimeDiagnosticsHttpFetch(request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult> {
+		return this._connectionTracker.runtimeDiagnosticsHttpFetch(request);
+	}
 }
 
 function hasSessionExtensions(config: IAgentCreateSessionConfig): boolean {

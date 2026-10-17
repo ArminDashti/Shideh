@@ -3444,6 +3444,29 @@ export class CopilotAgent extends Disposable implements IAgent {
 		};
 	}
 
+	async runtimeDiagnosticsHttpFetch(request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult> {
+		this._logService.info(`[Copilot] Network diagnostics fetch: ${request.method ?? 'GET'} ${request.url}`);
+		const client = await this._ensureClient();
+		const result = await client.rpc.runtime.diagnostics.httpFetch({
+			url: request.url,
+			method: request.method,
+			headers: request.headers?.map(h => ({ name: h.name, value: h.value })),
+			body: request.body,
+			timeoutMs: request.timeoutMs,
+			redirect: request.redirect,
+		});
+		return {
+			url: result.url,
+			status: result.status,
+			statusText: result.statusText,
+			headers: result.headers.map(h => ({ name: h.name, value: h.value })),
+			body: result.body,
+			durationMs: result.durationMs,
+			proxyType: result.proxyType,
+			proxyAuthType: result.proxyAuthType,
+		};
+	}
+
 	private async _listModels(gitHubToken: string): Promise<IAgentModelInfo[]> {
 		this._logService.info('[Copilot] Listing models...');
 		const client = await this._ensureClient();
