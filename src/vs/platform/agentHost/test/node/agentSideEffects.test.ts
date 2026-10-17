@@ -8306,6 +8306,7 @@ suite('AgentSideEffects', () => {
 			assert.deepStrictEqual(agent.respondToPermissionCalls, [
 				{ requestId: 'tc-perm-3', approved: true },
 			]);
+			assert.deepStrictEqual(agent.autoApprovedPermissionCalls, ['tc-perm-3']);
 		});
 
 		test('managed approval bypasses global, session, and per-tool auto-approval', async () => {

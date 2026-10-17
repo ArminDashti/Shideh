@@ -792,6 +792,8 @@ class TestCopilotApiService implements ICopilotApiService {
 	apiEndpoint: string | undefined;
 	restrictedTelemetryContext: IRestrictedTelemetryContext = { restrictedTelemetryEnabled: false, trackingId: undefined, telemetryEndpoint: undefined };
 	restrictedTelemetryContextError: Error | undefined;
+	utilityChatCompletionResult: string | Error = new Error('not used');
+	readonly utilityChatCompletionRequests: Array<{ githubToken: string; request: ICopilotUtilityChatCompletionRequest }> = [];
 
 	messages(_githubToken: string, _request: Anthropic.MessageCreateParamsStreaming, _options?: ICopilotApiServiceRequestOptions): AsyncGenerator<Anthropic.MessageStreamEvent>;
 	messages(_githubToken: string, _request: Anthropic.MessageCreateParamsNonStreaming, _options?: ICopilotApiServiceRequestOptions): Promise<Anthropic.Message>;
@@ -799,7 +801,13 @@ class TestCopilotApiService implements ICopilotApiService {
 	async countTokens(): Promise<Anthropic.MessageTokensCount> { throw new Error('not used'); }
 	async models(): Promise<CCAModel[]> { return []; }
 	async responses(): Promise<Response> { throw new Error('not used'); }
-	async utilityChatCompletion(_githubToken: string, _request: ICopilotUtilityChatCompletionRequest): Promise<string> { throw new Error('not used'); }
+	async utilityChatCompletion(githubToken: string, request: ICopilotUtilityChatCompletionRequest): Promise<string> {
+		this.utilityChatCompletionRequests.push({ githubToken, request });
+		if (this.utilityChatCompletionResult instanceof Error) {
+			throw this.utilityChatCompletionResult;
+		}
+		return this.utilityChatCompletionResult;
+	}
 	async resolveRestrictedTelemetryContext() {
 		if (this.restrictedTelemetryContextError) {
 			throw this.restrictedTelemetryContextError;
@@ -1263,6 +1271,9 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 		copilotApiService.restrictedTelemetryContext = options.restrictedTelemetryContext;
 	}
 	copilotApiService.restrictedTelemetryContextError = options?.restrictedTelemetryContextError;
+	if (options?.utilityChatCompletionResult !== undefined) {
+		copilotApiService.utilityChatCompletionResult = options.utilityChatCompletionResult;
+	}
 	services.set(ICopilotApiService, copilotApiService);
 	const storedFileContents = new Map(Object.entries(options?.fileContents ?? {}));
 	const fileWriteOptions = new Map<string, IWriteFileOptions | undefined>();
@@ -20221,8 +20232,13 @@ Use the attached image as context.
 
 			requiresConfirmation(_sessionUri: string, toolName: string): boolean { return this.sessionConfirmationToolNames.has(toolName); }
 
-			executeTool(sessionUri: string, toolName: string, rawArgs: unknown): string {
+			getAutoApprovalContext(): IAgentServerToolAutoApprovalContext | undefined {
+				return this.autoApprovalContext;
+			}
+
+			executeTool(sessionUri: string, toolName: string, rawArgs: unknown, context?: IAgentServerToolExecutionContext): string {
 				this.executions.push({ sessionUri, toolName, rawArgs });
+				this.executionContexts.push(context);
 				if (this.error) {
 					throw this.error;
 				}

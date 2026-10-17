@@ -169,6 +169,37 @@ suite('SessionPermissionManager', () => {
 		assert.strictEqual(result, undefined);
 	});
 
+	test('preserves assisted risk assessment on auto-approved tool ready actions', () => {
+		const signal: IAgentToolPendingConfirmationSignal = {
+			kind: 'pending_confirmation',
+			chat: URI.parse(sessionUri),
+			state: {
+				status: ToolCallStatus.PendingConfirmation,
+				toolCallId: 'tc-assisted',
+				toolName: 'viewUnreviewedComments',
+				displayName: 'View Comments',
+				invocationMessage: 'Viewing comments',
+				toolInput: undefined,
+				riskAssessment: {
+					kind: ToolCallRiskAssessmentKind.Judge,
+					status: ToolCallRiskAssessmentStatus.Complete,
+					reason: 'The review comments are safe.',
+					safety: 1,
+				},
+			},
+			permissionKind: 'custom-tool',
+		};
+
+		const action = permissions.createToolReadyAction(signal, sessionUri, 'turn-1');
+		assert.deepStrictEqual({
+			confirmed: action.confirmed,
+			riskAssessment: action.riskAssessment,
+		}, {
+			confirmed: ToolCallConfirmationReason.NotNeeded,
+			riskAssessment: signal.state.riskAssessment,
+		});
+	});
+
 	test('requires confirmation for protected files inside the working directory', async () => {
 		const files = [
 			'.env',

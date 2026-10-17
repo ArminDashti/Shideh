@@ -5,6 +5,26 @@
 
 import type { ToolDefinition, URI } from './state/sessionState.js';
 
+/** Execution details supplied by the provider when invoking a server tool. */
+export interface IAgentServerToolExecutionContext {
+	/** Use `policy` for non-interactive policy approval, `assisted` only with the state token returned by {@link IAgentServerToolAutoApprovalContext}; omit the context after interactive approval. */
+	readonly approval: IAgentServerToolApproval;
+}
+
+/** How a confirmation-required server tool was approved without user interaction. */
+export type IAgentServerToolApproval =
+	| { readonly kind: 'policy' }
+	| { readonly kind: 'assisted'; readonly stateToken: string };
+
+/** Untrusted tool input and assessment criteria for assisted auto-approval. */
+export interface IAgentServerToolAutoApprovalContext {
+	readonly instructions: string;
+	readonly untrustedContent: string;
+	readonly stateToken: string;
+	/** Whether the untrusted content requires a model review before assisted approval. */
+	readonly requiresModelReview: boolean;
+}
+
 /**
  * A server tool definition plus agent-host-local metadata that is not part of
  * the wire protocol.

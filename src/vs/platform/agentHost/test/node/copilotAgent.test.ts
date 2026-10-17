@@ -14276,9 +14276,9 @@ suite('CopilotAgent', () => {
 			const events: string[] = [];
 			let disposed = false;
 			const stub = {
-				respondToPermissionRequest(requestId: string, approved: boolean): boolean {
+				respondToPermissionRequest(requestId: string, approved: boolean, permissionOptions?: IAgentPermissionResponseOptions): boolean {
 					if (options?.permissionOwner === requestId) {
-						events.push(`perm:${requestId}:${approved}`);
+						events.push(`perm:${requestId}:${approved}:${permissionOptions?.autoApproved === true}`);
 						return true;
 					}
 					return false;
@@ -14304,9 +14304,9 @@ suite('CopilotAgent', () => {
 				const chatUri = URI.parse(buildChatUri(sessionUri, 'peer-perm'));
 				const chat = installStubChat(agent, chatUri, { permissionOwner: 'req-1' });
 
-				agent.respondToPermissionRequest('req-1', true);
+				agent.respondToPermissionRequest('req-1', true, { autoApproved: true });
 
-				assert.deepStrictEqual(chat.events, ['perm:req-1:true']);
+				assert.deepStrictEqual(chat.events, ['perm:req-1:true:true']);
 			} finally {
 				await disposeAgent(agent);
 			}

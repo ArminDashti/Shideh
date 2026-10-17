@@ -83,6 +83,7 @@ export class MockAgent implements IAgent {
 	readonly releaseSessionCalls: URI[] = [];
 	readonly abortSessionCalls: URI[] = [];
 	readonly respondToPermissionCalls: { requestId: string; approved: boolean }[] = [];
+	readonly autoApprovedPermissionCalls: string[] = [];
 	readonly changeModelCalls: { session: URI; model: ModelSelection; chat?: URI }[] = [];
 	readonly changeAgentCalls: { session: URI; agent: AgentSelection | undefined; chat?: URI }[] = [];
 	readonly authenticateCalls: { resource: string; token: string; expiresIn?: number }[] = [];
@@ -289,8 +290,11 @@ export class MockAgent implements IAgent {
 		this.truncateChatCalls.push({ chat, turnId, context });
 	}
 
-	respondToPermissionRequest(requestId: string, approved: boolean): void {
+	respondToPermissionRequest(requestId: string, approved: boolean, options?: IAgentPermissionResponseOptions): void {
 		this.respondToPermissionCalls.push({ requestId, approved });
+		if (options?.autoApproved) {
+			this.autoApprovedPermissionCalls.push(requestId);
+		}
 	}
 
 	respondToUserInputRequest(): void {

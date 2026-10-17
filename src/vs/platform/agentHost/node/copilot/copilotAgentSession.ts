@@ -2992,7 +2992,8 @@ export class CopilotAgentSession extends Disposable {
 			defer: def.deferLoading && this._isToolSearchActive() ? 'auto' as const : 'never' as const,
 			handler: async (args: Record<string, unknown>): Promise<ToolResultObject> => {
 				try {
-					const text = host.executeTool(this._chatChannelUri.toString(), def.name, args);
+					const context = this._takeServerToolExecutionContext(toolCallId, def.name);
+					const text = host.executeTool(this._chatChannelUri.toString(), def.name, args, context);
 					return { textResultForLlm: await text, resultType: 'success' };
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
@@ -3001,6 +3002,20 @@ export class CopilotAgentSession extends Disposable {
 				}
 			},
 		}));
+	}
+
+	private _takeServerToolExecutionContext(toolCallId: string, toolName: string): IAgentServerToolExecutionContext | undefined {
+		const interactivelyApproved = this._interactivelyApprovedToolCalls.delete(toolCallId);
+		const assistedApproval = this._assistedServerToolApprovalStates.get(toolCallId);
+		this._assistedServerToolApprovalStates.delete(toolCallId);
+		if (!this._serverToolHost?.requiresConfirmation(toolName) || interactivelyApproved || assistedApproval?.kind === 'requiresUserApproval') {
+			return undefined;
+		}
+		return {
+			approval: assistedApproval?.kind === 'approved'
+				? { kind: 'assisted', stateToken: assistedApproval.stateToken }
+				: { kind: 'policy' },
+		};
 	}
 
 	/**
@@ -5057,18 +5072,21 @@ export class CopilotAgentSession extends Disposable {
 				return attributePermissionResult({ kind: 'reject' }, 'unattended_fallback');
 			}
 
-			const managedApprovalRequired = request.managedApprovalRequired === true;
+			const requestManagedApprovalRequired = request.managedApprovalRequired === true;
 			const requestSandboxBypass = request.kind === 'shell' || request.kind === 'write' || request.kind === 'read' || request.kind === 'url'
 				? request.requestSandboxBypass
 				: undefined;
 			const autoApproval = !managedApprovalRequired && this._lastAppliedPermissionMode === 'assisted'
 				? await this._takeAutoApproval(toolCallId)
 				: undefined;
+			const managedApprovalRequired = requestManagedApprovalRequired
+				|| this._assistedServerToolApprovalStates.get(toolCallId)?.kind === 'requiresUserApproval';
 			const recommendation = autoApproval?.recommendation;
 			if (recommendation === 'approve' && !requestSandboxBypass) {
 				if (request.kind === 'custom-tool'
 					&& typeof request.toolName === 'string'
-					&& this._clientToolNames.has(this._clientToolName(request.toolName))
+					&& (this._clientToolNames.has(this._clientToolName(request.toolName))
+						|| this._serverToolHost?.requiresConfirmation(request.toolName) === true)
 				) {
 					const trackedToolCall = this._activeToolCalls.get(toolCallId);
 					const displayName = trackedToolCall?.displayName ?? getToolDisplayName(request.toolName);
@@ -9003,6 +9021,8 @@ export class CopilotAgentSession extends Disposable {
 		this._pendingPermissions.denyAll({ kind: 'decision', result: { kind: 'reject' }, source: 'unattended_fallback' });
 		this._sandboxBypassRequests.clear();
 		this._approvedDuplicablePermissionSignatures.clear();
+		this._interactivelyApprovedToolCalls.clear();
+		this._assistedServerToolApprovalStates.clear();
 	}
 
 	/**
