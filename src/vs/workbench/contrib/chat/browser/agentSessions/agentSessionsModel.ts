@@ -131,6 +131,25 @@ export function getAgentChangesSummary(changes: IAgentSession['changes']) {
 	return { files: changes.length, insertions, deletions };
 }
 
+export function getAgentChangesSummary(changes: IAgentSession['changes']) {
+	if (!changes) {
+		return;
+	}
+
+	if (!(changes instanceof Array)) {
+		return changes;
+	}
+
+	let insertions = 0;
+	let deletions = 0;
+	for (const change of changes) {
+		insertions += change.insertions;
+		deletions += change.deletions;
+	}
+
+	return { files: changes.length, insertions, deletions };
+}
+
 export interface IAgentSession extends IAgentSessionData {
 	isArchived(): boolean;
 	setArchived(archived: boolean): void;
@@ -1220,6 +1239,7 @@ interface ISerializedAgentSession {
 		readonly files: number;
 		readonly insertions: number;
 		readonly deletions: number;
+		readonly details: readonly IChatSessionFileChange[];
 	};
 
 	readonly children?: readonly ISerializedAgentSession[];

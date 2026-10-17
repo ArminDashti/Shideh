@@ -2961,6 +2961,10 @@ export class Repository implements Disposable {
 		}
 	}
 
+	async getWorktreeChanges(worktreePath: string): Promise<Change[]> {
+		return this.run(Operation.Diff, () => this.repository.diffWorkingTrees(worktreePath));
+	}
+
 	private async retryRun<T>(operation: Operation, runOperation: () => Promise<T>): Promise<T> {
 		let attempt = 0;
 

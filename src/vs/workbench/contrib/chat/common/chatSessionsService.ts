@@ -314,6 +314,13 @@ export interface IChatSessionFileChange2 {
 	readonly reviewed?: boolean;
 }
 
+export interface IChatSessionFileChange {
+	modifiedUri: URI;
+	originalUri?: URI;
+	insertions: number;
+	deletions: number;
+}
+
 export type IChatSessionHistoryItem = {
 	id?: string;
 	type: 'request';

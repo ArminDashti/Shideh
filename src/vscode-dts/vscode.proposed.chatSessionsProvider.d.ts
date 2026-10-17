@@ -432,6 +432,30 @@ declare module 'vscode' {
 		constructor(uri: Uri, originalUri: Uri | undefined, modifiedUri: Uri | undefined, insertions: number, deletions: number);
 	}
 
+	export class ChatSessionChangedFile {
+		/**
+		 * URI of the file.
+		 */
+		modifiedUri: Uri;
+
+		/**
+		 * File opened when the user takes the 'compare' action.
+		 */
+		originalUri?: Uri;
+
+		/**
+		 * Number of insertions made during the session.
+		 */
+		insertions: number;
+
+		/**
+		 * Number of deletions made during the session.
+		 */
+		deletions: number;
+
+		constructor(modifiedUri: Uri, insertions: number, deletions: number, originalUri?: Uri);
+	}
+
 	export interface ChatSession {
 		/**
 		 * An optional title for the chat session.
