@@ -939,6 +939,25 @@ suite('ChatWidget', () => {
 		]);
 	});
 
+	test('clears input widgets left behind by requests hidden from the transcript', () => {
+		const requests = [
+			upcastPartial<IChatRequestModel>({ id: 'kept', shouldBeRemovedOnSend: undefined }),
+			upcastPartial<IChatRequestModel>({ id: 'partiallyUndone', shouldBeRemovedOnSend: { requestId: 'partiallyUndone', afterUndoStop: 'undoStop' } }),
+			upcastPartial<IChatRequestModel>({ id: 'undone', shouldBeRemovedOnSend: { requestId: 'undone' } }),
+		];
+		const cleared: unknown[] = [];
+
+		clearInputWidgetsForHiddenRequests({
+			clearQuestionCarousel: responseId => cleared.push(['clearQuestionCarousel', responseId]),
+			clearPlanReview: responseId => cleared.push(['clearPlanReview', responseId]),
+		}, requests);
+
+		assert.deepStrictEqual(cleared, [
+			['clearQuestionCarousel', 'undone'],
+			['clearPlanReview', 'undone'],
+		]);
+	});
+
 	test('input height changes update the budget without re-laying out the input', () => {
 		const calls: unknown[] = [];
 		const target = {
