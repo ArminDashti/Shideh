@@ -46,6 +46,7 @@ export async function main(argv: string[]): Promise<void> {
 
 	try {
 		args = parseCLIProcessArgv(argv);
+		console.log('args ' + JSON.stringify(args));
 	} catch (err) {
 		console.error(err.message);
 		return;
