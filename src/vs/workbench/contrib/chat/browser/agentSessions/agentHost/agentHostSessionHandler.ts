@@ -1211,6 +1211,9 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	/** Settles once {@link _hideAutoExplainability} is known. */
 	private readonly _hideAutoExplainabilityReady: Promise<void>;
 
+	private _knownBackendSessionsProbe?: { promise: Promise<ResourceSet>; expiresAt: number };
+
+
 	constructor(
 		config: IAgentHostSessionHandlerConfig,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,

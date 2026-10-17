@@ -279,7 +279,22 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 	public nextResolvedWorkingDirectory?: URI;
 
 	override async listSessions(): Promise<IAgentSessionMetadata[]> {
-		return [...this._sessions.values()];
+		// Merge sessions registered via `addSession`/`createSession` with
+		// sessions whose state was directly seeded via `sessionStates.set`,
+		// since on a real backend any session reachable through `subscribe`
+		// is also visible via `listSessions`.
+		const merged = new Map<string, IAgentSessionMetadata>();
+		for (const [id, meta] of this._sessions) {
+			merged.set(id, meta);
+		}
+		for (const resourceStr of this.sessionStates.keys()) {
+			const session = URI.parse(resourceStr);
+			const id = AgentSession.id(session);
+			if (!merged.has(id)) {
+				merged.set(id, { session, startTime: Date.now(), modifiedTime: Date.now() });
+			}
+		}
+		return [...merged.values()];
 	}
 
 	override async resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult> {
@@ -5046,6 +5061,15 @@ suite('AgentHostChatContribution', () => {
 
 		test('uses sessionId from agent-host scheme resource', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+
+			// Seed the backend with the session so the listSessions probe
+			// finds it and the handler re-binds instead of creating a new
+			// SDK session.
+			agentHostService.addSession({
+				session: AgentSession.uri('copilot', 'existing-session-42'),
+				startTime: 1000,
+				modifiedTime: 2000,
+			});
 
 			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
 				message: 'Hi',
