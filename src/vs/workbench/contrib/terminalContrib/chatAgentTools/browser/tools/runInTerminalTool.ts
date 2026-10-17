@@ -306,6 +306,11 @@ Use ${TerminalToolId.SendToTerminal} to send commands or input to a terminal ses
 
 	parts.push(`
 
+Timeout Handling:
+- NEVER use the timeout command in your command line (e.g., timeout 30 command)
+- Instead, use the timeout parameter of this tool to enforce time limits
+- Example: set timeout=30000 for a 30 second timeout (value is in milliseconds)
+
 Output Management:
 - Output exceeding 20KB is saved to a temp file; the result includes the file path so you can read the full output with readFile or search it with grep
 - Use head, tail, grep, awk to filter and limit output size
