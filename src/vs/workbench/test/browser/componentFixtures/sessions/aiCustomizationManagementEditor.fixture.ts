@@ -31,6 +31,7 @@ import { ILayoutService } from '../../../../../platform/layout/browser/layoutSer
 import { PluginFormat } from '../../../../../platform/agentPlugins/common/pluginParsers.js';
 import { IListService, ListService, WorkbenchList } from '../../../../../platform/list/browser/listService.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
+import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 import { IRequestService } from '../../../../../platform/request/common/request.js';
 import { InMemoryStorageService, IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IRequestContext } from '../../../../../base/parts/request/common/request.js';
@@ -1358,12 +1359,7 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 			// in the editor. Register the real implementation — it will resolve
 			// items via the mock prompts service / harness service above.
 			reg.define(IAICustomizationItemsModel, AICustomizationItemsModel);
-			reg.defineInstance(IChatSessionsService, new class extends mock<IChatSessionsService>() {
-				override readonly onDidChangeCustomizations = Event.None;
-				override async getCustomizations() { return undefined; }
-				override getRegisteredChatSessionItemProviders() { return []; }
-				override hasCustomizationsProvider() { return false; }
-			}());
+			reg.defineInstance(IChatSessionsService, chatSessionsService);
 			reg.defineInstance(IAutomationService, new class extends mock<IAutomationService>() {
 				override readonly automations = constObservable([]);
 				override readonly runs = constObservable([]);

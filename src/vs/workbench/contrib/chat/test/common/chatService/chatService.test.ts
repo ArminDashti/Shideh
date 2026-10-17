@@ -2872,7 +2872,6 @@ suite('ChatService', () => {
 		assert.deepStrictEqual({
 			computeCalls: migrationService.computeMigrationHint.callCount,
 			computedFor: migrationService.computeMigrationHint.firstCall.args[0].toString(),
-			migrationTelemetry,
 			neverHint: getHintContent(0),
 			firstHint: getHintContent(1),
 			secondHint: getHintContent(2),

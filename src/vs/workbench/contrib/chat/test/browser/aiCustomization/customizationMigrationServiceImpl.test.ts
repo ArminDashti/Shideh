@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { DeferredPromise } from '../../../../../../base/common/async.js';
+import { DeferredPromise, timeout } from '../../../../../../base/common/async.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -48,6 +48,10 @@ import { IMcpService } from '../../../../mcp/common/mcpTypes.js';
 import { IMcpCopilotGlobalConfigurationService } from '../../../../mcp/common/mcpCopilotGlobalConfigurationService.js';
 import { TestMcpService } from '../../../../mcp/test/common/testMcpService.js';
 import { MockPromptsService } from '../../common/promptSyntax/service/mockPromptsService.js';
+
+const emptyChatSessionsService = new class extends mock<IChatSessionsService>() {
+	override getChatSessionContribution() { return undefined; }
+}();
 
 class TestPromptsService extends MockPromptsService {
 	readonly requestedTypes: PromptsType[] = [];
@@ -258,19 +262,22 @@ function setMigrationEnabled(configurationService: TestConfigurationService, ena
 }
 
 function createWorkspaceMcpSupportSnapshot(root: URI, options: {
+	readonly id?: string;
+	readonly sourceKind?: AgentHostMcpServerSourceKind;
 	readonly enablement?: { readonly enabled: boolean; readonly state: AgentHostMcpServerEnablementState };
+	readonly delivery?: AgentHostMcpServerDelivery;
 	readonly compatibility?: IAgentHostMcpServerSupportSnapshot['servers'][number]['compatibility'];
 	readonly command?: string;
 } = {}): IAgentHostMcpServerSupportSnapshot {
 	const sourceUri = URI.joinPath(root, '.vscode', 'mcp.json');
 	return {
 		servers: [{
-			id: 'mcp.config.ws0.server',
-			name: 'server',
+			id: options.id ?? 'mcp.config.ws0.server',
+			name: options.id ?? 'server',
 			collectionId: 'mcp.config.ws0',
 			source: {
 				group: undefined,
-				kind: AgentHostMcpServerSourceKind.VscodeWorkspaceFolder,
+				kind: options.sourceKind ?? AgentHostMcpServerSourceKind.VscodeWorkspaceFolder,
 				label: 'Workspace',
 				collectionUri: sourceUri,
 				definitionLocation: undefined,
@@ -280,7 +287,7 @@ function createWorkspaceMcpSupportSnapshot(root: URI, options: {
 			},
 			enablement: options.enablement ?? { enabled: true, state: AgentHostMcpServerEnablementState.EnabledWorkspace },
 			applicability: AgentHostMcpServerApplicability.Applicable,
-			delivery: AgentHostMcpServerDelivery.ClientForwarded,
+			delivery: options.delivery ?? AgentHostMcpServerDelivery.ClientForwarded,
 			compatibility: options.compatibility ?? { kind: 'supported' },
 			projectedConfiguration: { type: McpServerType.LOCAL, command: options.command ?? 'node' },
 		}],

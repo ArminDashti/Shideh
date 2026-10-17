@@ -21,6 +21,45 @@ import { ChatConfiguration } from '../../common/constants.js';
 import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
 import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 
+type CustomizationMigrationAssessmentCountProperty = 'nativeCount' | 'mappedCount' | 'unsupportedCount';
+type CustomizationMigrationAssessmentType = PromptsType | CustomizationMigrationType.McpServers;
+type CustomizationMigrationAssessmentSource = NonNullable<MigratableConfiguration['source']> | PromptsStorage | IAgentHostMcpServerSupport['source']['kind'];
+type CustomizationMigrationAssessmentCount = {
+	readonly customizationType: CustomizationMigrationAssessmentType;
+	readonly source: CustomizationMigrationAssessmentSource;
+	readonly nativeCount: number;
+	readonly mappedCount: number;
+	readonly unsupportedCount: number;
+};
+type McpServerCustomizationMigrationResult = {
+	readonly migration: McpServerCustomizationMigration;
+	readonly assessmentCounts: readonly CustomizationMigrationAssessmentCount[];
+};
+
+type CustomizationMigrationAssessmentEvent = CustomizationMigrationAssessmentCount & { readonly target: string };
+
+type CustomizationMigrationAssessmentClassification = {
+	target: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The target Agent Host harness for the assessment.' };
+	customizationType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The type of customization in the assessment.' };
+	source: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The bounded source category of customizations in the assessment.' };
+	nativeCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'The number of customizations consumed from a native location.' };
+	mappedCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'The number of customizations consumed through compatibility mapping.' };
+	unsupportedCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'The number of customizations not fully supported by the target.' };
+	owner: 'digitarald';
+	comment: 'Tracks aggregate customization migration assessments without collecting customization names, paths, IDs, or content.';
+};
+
+function incrementAssessmentCount(
+	counts: Map<string, CustomizationMigrationAssessmentCount>,
+	customizationType: CustomizationMigrationAssessmentType,
+	source: CustomizationMigrationAssessmentSource,
+	property: CustomizationMigrationAssessmentCountProperty,
+): void {
+	const key = `${customizationType}\0${source}`;
+	const current = counts.get(key) ?? { customizationType, source, nativeCount: 0, mappedCount: 0, unsupportedCount: 0 };
+	counts.set(key, { ...current, [property]: current[property] + 1 });
+}
+
 export class CustomizationMigrationService extends Disposable implements ICustomizationMigrationService {
 	declare readonly _serviceBrand: undefined;
 	readonly onDidChangeCustomizations: Event<void>;
@@ -47,7 +86,7 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 	async computeMigration(sessionResource: URI, type: CustomizationMigrationType, token = CancellationToken.None): Promise<CustomizationMigration> {
 		if (!isAgentHostSessionResource(sessionResource)) {
 			return type === CustomizationMigrationType.McpServers
-				? this.emptyMcpServerMigration()
+				? this.emptyMcpServerMigration().migration
 				: { type, files: [], candidates: [] };
 		}
 		if (!this.isMigrationEnabled()) {
@@ -185,13 +224,17 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 	}
 
 	private async createFileMigration(sessionResource: URI, type: FileCustomizationMigrationType, candidates: readonly MigratableConfiguration[], token: CancellationToken, excludeSupportedLocations = false): Promise<FileCustomizationMigration> {
-		const provider = this.customizationHarnessService.findHarnessById(getChatSessionType(sessionResource))?.itemProvider;
-		if (!provider?.provideSourceFolders) {
-			return { type, files: [], candidates: [] };
-		}
+		const sourceFolders = await this.getSourceFolders(sessionResource, candidates, token);
+		return this.createFileMigrationFromSourceFolders(type, candidates, sourceFolders, excludeSupportedLocations);
+	}
 
-		const targetTypes = new Set(candidates.map(getCustomizationMigrationTargetType));
+	private async getSourceFolders(sessionResource: URI, customizations: readonly MigratableConfiguration[], token: CancellationToken): Promise<Map<PromptsType, readonly ICustomizationSourceFolder[]>> {
+		const provider = this.customizationHarnessService.findHarnessById(getChatSessionType(sessionResource))?.itemProvider;
+		const targetTypes = new Set(customizations.map(getCustomizationMigrationTargetType));
 		const sourceFolders = new Map<PromptsType, readonly ICustomizationSourceFolder[]>();
+		if (!provider?.provideSourceFolders) {
+			return sourceFolders;
+		}
 		for (const targetType of targetTypes) {
 			const folders = await provider.provideSourceFolders(sessionResource, targetType, token);
 			sourceFolders.set(targetType, folders ?? []);
@@ -224,6 +267,25 @@ export class CustomizationMigrationService extends Disposable implements ICustom
 				restrictedByCustomizationPolicy: false,
 			},
 		};
+		return { migration, assessmentCounts: [] };
+	}
+
+	private computeMcpServerAssessmentCounts(servers: readonly IAgentHostMcpServerSupport[]): readonly CustomizationMigrationAssessmentCount[] {
+		const counts = new Map<string, CustomizationMigrationAssessmentCount>();
+		for (const server of servers) {
+			if (!server.enablement.enabled || server.applicability === AgentHostMcpServerApplicability.OutsideCurrentScope) {
+				continue;
+			}
+			const property = server.compatibility.kind !== 'supported'
+				|| server.delivery === AgentHostMcpServerDelivery.NotDelivered
+				|| server.delivery === AgentHostMcpServerDelivery.Unknown
+				? 'unsupportedCount'
+				: server.delivery === AgentHostMcpServerDelivery.ClientForwarded
+					? 'mappedCount'
+					: 'nativeCount';
+			incrementAssessmentCount(counts, CustomizationMigrationType.McpServers, server.source.kind, property);
+		}
+		return [...counts.values()];
 	}
 
 	private isMigrationEnabled(): boolean {
