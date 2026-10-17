@@ -191,7 +191,18 @@ export class DelegationSessionPickerActionItem extends SessionTypePickerActionIt
 			category: { label: localize('chat.newChatSession.category', "New Chat Session"), order: 0, showHeader: false },
 			description: this.keybindingService.lookupKeybinding(ACTION_ID_NEW_CHAT)?.getLabel() || undefined,
 			run: async () => {
-				this.commandService.executeCommand(ACTION_ID_NEW_CHAT, this.chatSessionPosition);
+				const sessionResource = this.delegate.getSessionResource?.();
+				if (sessionResource) {
+					// Pass proper context so getEditingSessionContext can find the widget
+					const context: IChatViewTitleActionContext = {
+						$mid: MarshalledId.ChatViewContext,
+						sessionResource
+					};
+					this.commandService.executeCommand(ACTION_ID_NEW_CHAT, context);
+				} else {
+					// Fallback to original behavior if no session resource available
+					this.commandService.executeCommand(ACTION_ID_NEW_CHAT, this.chatSessionPosition);
+				}
 			},
 		}];
 	}
