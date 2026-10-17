@@ -324,7 +324,11 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			if (e.affectsSome(this._agentsContextKeys)) {
 				this._updateContextKeys();
 			}
+			if (e.affectsSome(new Set(['defaultAccountStatus']))) {
+				this._updateChatEnabledState();
+			}
 		}));
+		this._updateChatEnabledState();
 	}
 
 	registerAgent(id: string, data: IChatAgentData): IDisposable {
@@ -396,7 +400,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		}
 
 		if (entry.data.isDefault) {
-			this._hasDefaultAgent.set(true);
+			this._hasDefaultAgentImpl = true;
+			this._updateChatEnabledState();
 		}
 
 		entry.impl = agentImpl;
@@ -410,6 +415,16 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				this._hasDefaultAgent.set(Iterable.some(this._agents.values(), agent => agent.data.isDefault && !!agent.impl));
 			}
 		});
+	}
+
+	private _updateChatEnabledState(): void {
+		// Chat is only enabled when both conditions are met:
+		// 1. A default agent implementation is registered
+		// 2. The default account is available and correctly configured
+		const defaultAccountStatus = this.contextKeyService.getContextKeyValue<string>('defaultAccountStatus');
+		const isDefaultAccountAvailable = defaultAccountStatus === 'available';
+		const shouldEnableChat = this._hasDefaultAgentImpl && isDefaultAccountAvailable;
+		this._hasDefaultAgent.set(shouldEnableChat);
 	}
 
 	registerDynamicAgent(data: IChatAgentData, agentImpl: IChatAgentImplementation): IDisposable {
