@@ -903,7 +903,7 @@ export class AgentHostSessionConfigPicker extends Disposable {
 	}
 
 	private _renderIsolationCheckbox(provider: IAgentHostSessionsProvider, sessionId: string, schema: SessionConfigPropertySchema, value: unknown | undefined, isReadOnly: boolean, isLoading: boolean): void {
-		const label = localize('agentHostSessionConfig.isolation.worktree', "New Worktree");
+		const label = NEW_WORKTREE_LABEL;
 		const worktreeIndex = schema.enum?.indexOf('worktree') ?? -1;
 		const checked = value === 'worktree';
 		const combinationDisabled = !this._isDevContainerWorktreeEnabled()
