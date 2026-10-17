@@ -3375,6 +3375,11 @@ declare namespace monaco.editor {
 		 */
 		rulers?: (number | IRulerOption)[];
 		/**
+		 * Display additional information on the editor rulers.
+		 * Defaults to false
+		 */
+		rulersInfo?: boolean;
+		/**
 		 * Locales used for segmenting lines into words when doing word related navigations or operations.
 		 *
 		 * Specify the BCP 47 language tag of the word you wish to recognize (e.g., ja, zh-CN, zh-Hant-TW, etc.).
@@ -5541,6 +5546,7 @@ declare namespace monaco.editor {
 		revealHorizontalRightPadding: IEditorOption<EditorOption.revealHorizontalRightPadding, number>;
 		roundedSelection: IEditorOption<EditorOption.roundedSelection, boolean>;
 		rulers: IEditorOption<EditorOption.rulers, IRulerOption[]>;
+		rulersInfo: IEditorOption<EditorOption.rulersInfo, boolean>;
 		scrollbar: IEditorOption<EditorOption.scrollbar, InternalEditorScrollbarOptions>;
 		scrollBeyondLastColumn: IEditorOption<EditorOption.scrollBeyondLastColumn, number>;
 		scrollBeyondLastLine: IEditorOption<EditorOption.scrollBeyondLastLine, boolean>;

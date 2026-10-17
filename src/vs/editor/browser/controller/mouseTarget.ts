@@ -241,6 +241,7 @@ export class HitTestContext {
 	public readonly viewLineHitTestProvider: IViewLineHitTestProvider | undefined;
 	public readonly lineHeight: number;
 	public readonly stickyTabStops: boolean;
+	public readonly rulersInfo: boolean;
 	public readonly typicalHalfwidthCharacterWidth: number;
 	public readonly lastRenderData: PointerHandlerLastRenderData;
 
@@ -256,6 +257,7 @@ export class HitTestContext {
 		this.lineHeight = options.get(EditorOption.lineHeight);
 		this.stickyTabStops = options.get(EditorOption.stickyTabStops);
 		this.typicalHalfwidthCharacterWidth = options.get(EditorOption.fontInfo).typicalHalfwidthCharacterWidth;
+		this.rulersInfo = options.get(EditorOption.rulersInfo);
 		this.lastRenderData = lastRenderData;
 		this._context = context;
 		this._viewHelper = viewHelper;
@@ -405,7 +407,7 @@ abstract class BareHitTestRequest {
 		this.pos = pos;
 		this.relativePos = relativePos;
 
-		this.mouseVerticalOffset = Math.max(0, ctx.getCurrentScrollTop() + this.relativePos.y);
+		this.mouseVerticalOffset = Math.max(0, ctx.getCurrentScrollTop() + this.relativePos.y - (ctx.rulersInfo ? ctx.lineHeight : 0));
 		this.mouseContentHorizontalOffset = ctx.getCurrentScrollLeft() + this.relativePos.x - ctx.layoutInfo.contentLeft;
 		this.isInMarginArea = (this.relativePos.x < ctx.layoutInfo.contentLeft && this.relativePos.x >= ctx.layoutInfo.glyphMarginLeft);
 		this.isInContentArea = !this.isInMarginArea;
