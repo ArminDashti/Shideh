@@ -2563,8 +2563,8 @@ per-word capitalization does not survive translation. */
 	display: inline-flex;
 	align-items: center;
 	gap: var(--vscode-spacing-size40);
+	width: 100%;
 	min-width: 0;
-	max-width: 100%;
 	line-height: 20px;
 	padding: var(--vscode-spacing-size20);
 	margin: calc(-1 * var(--vscode-spacing-size20));
@@ -2650,64 +2650,70 @@ per-word capitalization does not survive translation. */
 	color: var(--vscode-foreground);
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-title-count {
-	color: var(--vscode-descriptionForeground);
-}
-
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-list {
-	display: flex;
-	flex-direction: column;
-	gap: var(--vscode-spacing-size60);
-}
-
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-row {
-	display: flex;
-	flex-direction: column;
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table {
+	width: 100%;
 	min-width: 0;
-	gap: var(--vscode-spacing-size20);
+	overflow: hidden;
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-link {
-	padding: 0;
-	border: none;
-	background: transparent;
-	color: var(--vscode-textLink-foreground);
-	text-align: left;
-	cursor: pointer;
-	font-family: inherit;
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-tr {
+	cursor: default;
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-link:hover {
-	color: var(--vscode-textLink-activeForeground);
-	text-decoration: underline;
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-th,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-td {
+	padding-inline-start: var(--vscode-spacing-size100);
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-link:focus-visible {
-	outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
-	outline-offset: -1px;
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-th[data-col-index="0"],
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-td[data-col-index="0"] {
+	padding-inline-start: var(--vscode-spacing-size200);
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-name {
-	font-size: var(--vscode-agents-fontSize-body1);
-	line-height: 18px;
-	color: var(--vscode-descriptionForeground);
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-th {
+	background-color: var(--vscode-tree-tableOddRowsBackground);
+}
+
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table .monaco-table-td {
+	display: flex;
+	align-items: center;
+}
+
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-label,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-type,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-name,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-description,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-value {
+	width: 100%;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-link.plugin-detail-contribution-name {
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-label,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-type,
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-description {
+	color: var(--vscode-descriptionForeground);
+}
+
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-link {
 	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-link.plugin-detail-contribution-name:hover {
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-name.plugin-detail-table-link {
+	cursor: pointer;
+}
+
+.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-table-link:hover {
 	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
 }
 
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-description,
-.ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-more,
 .ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-contribution-empty {
-	font-size: var(--vscode-agents-fontSize-body2);
+	padding: var(--vscode-spacing-size100) var(--vscode-spacing-size120);
+	font-size: var(--vscode-fontSize-body2);
 	line-height: 16px;
 	color: var(--vscode-descriptionForeground);
 }
