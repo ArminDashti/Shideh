@@ -970,6 +970,13 @@ suite('RunInTerminalTool', () => {
 			}), false);
 		});
 
+		test('should not retry when unsandboxed commands are disabled', () => {
+			strictEqual(shouldAutomaticallyRetryUnsandboxed({
+				...baseRetryOptions,
+				allowUnsandboxedCommands: false,
+			}), false);
+		});
+
 		test('should not retry when the command is already unsandboxed', () => {
 			strictEqual(shouldAutomaticallyRetryUnsandboxed({
 				...baseRetryOptions,
