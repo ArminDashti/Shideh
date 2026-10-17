@@ -901,6 +901,11 @@ export interface IDebugAdapterFactory extends ITerminalLauncher {
 	substituteVariables(folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;
 }
 
+export interface IRunInTerminalResult {
+	shellProcessId?: number;
+	terminal?: ITerminalInstance;
+}
+
 export interface IDebugAdapterExecutableOptions {
 	cwd?: string;
 	env?: { [key: string]: string };
