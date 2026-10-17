@@ -722,6 +722,9 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 			return [];
 		}
 
+		// Check organization membership configuration
+		const allowedOrganizations = vscode.workspace.getConfiguration('github-authentication').get<string[]>('allowedOrganizations', []);
+
 		// Unfortunately, we were using a number secretly for the account id for some time... this is due to a bad `any`.
 		// AuthenticationSession's account id is a string, so we need to detect when there is a number accountId and re-store
 		// the sessions to migrate away from the bad number usage.
@@ -741,6 +744,15 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 					if (e.message === 'Unauthorized') {
 						return undefined;
 					}
+				}
+			}
+
+			// Check organization membership if configured
+			if (allowedOrganizations.length > 0) {
+				const isMemberOfAllowedOrg = await this._githubServer.checkOrganizationMembership(session.accessToken, allowedOrganizations);
+				if (!isMemberOfAllowedOrg) {
+					this._logger.warn(`Session for user does not meet organization membership requirements. Removing session.`);
+					return undefined;
 				}
 			}
 
