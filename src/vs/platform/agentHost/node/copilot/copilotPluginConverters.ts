@@ -49,7 +49,11 @@ interface IHookCommandRegistration {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts parsed MCP server definitions into the SDK's `mcpServers` config.
+ * Resolves the proxy endpoint URI for an MCP server. When `undefined`,
+ * the server is omitted from the SDK config entirely — the SDK then sees
+ * a smaller initial set, and the caller is expected to retry once the
+ * endpoint is bound (typically on the next session refresh triggered by
+ * {@link IMcpHostService.onDidMcpServersChange}).
  */
 export function toSdkMcpServers(defs: readonly IMcpServerDefinition[]): Record<string, MCPServerConfig> {
 	const result: Record<string, MCPServerConfig> = {};

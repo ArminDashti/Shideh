@@ -4001,6 +4001,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				// view via its initial snapshot once it materializes.
 				await ac.pluginController.sync(seeded.clientId, seeded.customizations, { quiet: true });
 			}
+			await ac.snapshot(config.workingDirectory);
 		}
 
 		// Compute project metadata cheaply from the original working dir.
@@ -8226,5 +8227,47 @@ class ActiveClient extends Disposable {
 			return 'rootMcpServersChanged';
 		}
 		return !structuralToolsEqual(current.tools, snap.tools) ? 'clientToolsChanged' : undefined;
+	}
+
+	override dispose(): void {
+		if (this._publishedMcpServers !== undefined) {
+			try {
+				this._mcpHostService.setSessionServers(this._sessionUri, []);
+			} catch (err) {
+				this._logger.warn(`[Copilot:ActiveClient] dispose: failed to clear MCP servers for ${this._sessionUri.toString()}: ${err instanceof Error ? err.message : String(err)}`);
+			}
+			this._publishedMcpServers = undefined;
+		}
+		super.dispose();
+	}
+
+	private _republishMcpServers(plugins: readonly IParsedPlugin[]): void {
+		const servers = plugins.flatMap(p => p.mcpServers);
+		if (this._publishedMcpServers !== undefined && equals(this._publishedMcpServers, servers)) {
+			return;
+		}
+		this._publishedMcpServers = servers;
+		this._mcpHostService.setSessionServers(this._sessionUri, servers);
+	}
+
+	/**
+	 * Snapshot the current `Ready` flag for every MCP server in `plugins`,
+	 * keyed by the same `mcp:/...` resource URI the SDK config uses. Missing
+	 * handles or any non-`Ready` status (including `AuthRequired`) map to
+	 * `false`; only `Ready` counts as "advertised to the SDK".
+	 *
+	 * The snapshot is compared inside {@link isOutdated} to detect Ready
+	 * transitions that change what `_resolveMcpServersForSdk` would
+	 * advertise, so the agent can rebuild the cached SDK session and
+	 * re-advertise the freshly-authenticated tool set.
+	 */
+	private _captureMcpReadiness(plugins: readonly IParsedPlugin[]): Record<string, boolean> {
+		const readiness: Record<string, boolean> = {};
+		for (const def of plugins.flatMap(p => p.mcpServers)) {
+			const resource = buildMcpServerUri(this._sessionUri, def.name).toString();
+			const handle = this._mcpHostService.getServer(URI.parse(resource));
+			readiness[resource] = handle?.summary.get().status.kind === McpServerStatusKind.Ready;
+		}
+		return readiness;
 	}
 }

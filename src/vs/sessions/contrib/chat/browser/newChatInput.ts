@@ -63,6 +63,7 @@ import { ISessionTypePickerOptions, SessionTypePicker } from './sessionTypePicke
 import { IActiveSession } from '../../../services/sessions/common/sessionsManagement.js';
 import { IChat, SessionStatus } from '../../../services/sessions/common/session.js';
 import { MobileSessionTypePicker } from './mobile/mobileSessionTypePicker.js';
+import { NewChatMcpAuthIndicator } from './agentHost/newChatMcpAuthIndicator.js';
 import { installMobileChipLaneScroll } from '../../../browser/parts/mobile/mobileChipLaneScroll.js';
 import { IWorkbenchLayoutService } from '../../../../workbench/services/layout/browser/layoutService.js';
 import { Menus } from '../../../browser/menus.js';

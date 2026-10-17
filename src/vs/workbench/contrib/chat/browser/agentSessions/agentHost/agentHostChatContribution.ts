@@ -10,6 +10,7 @@ import { Disposable, DisposableMap, DisposableStore, MutableDisposable, toDispos
 import { autorun } from '../../../../../../base/common/observable.js';
 import { mark } from '../../../../../../base/common/performance.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
+import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
 import { affectsAgentHostProviderPreference, IAgentHostService, protectedResourcesRequireGitHubCopilotSignIn, shouldSurfaceLocalAgentHostProvider, type AgentProvider } from '../../../../../../platform/agentHost/common/agentService.js';
 import { IAgentHostEnablementService } from '../../../../../../platform/agentHost/common/agentHostEnablementService.js';
@@ -571,5 +572,53 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			return Promise.reject(new CancellationError());
 		}
 		return this._agentHostService.authenticate(request);
+	}
+
+	/**
+	 * Interactively authenticates a single MCP server's protected resource
+	 * and forwards the token scoped to that server. Used by the chat-input
+	 * MCP-auth indicator so per-server tokens are pushed independently.
+	 */
+	private async _resolveMcpAuthenticationInteractively(mcpServer: URI, resource: ProtectedResourceMetadata, scopes: readonly string[] | undefined): Promise<boolean> {
+		try {
+			return await resolveMcpServerAuthenticationInteractively(mcpServer, resource, scopes, {
+				authTokenCache: this._authTokenCache,
+				mcpAuthMemory: this._mcpAuthRegistry,
+				mcpAuthHostKey: 'local',
+				authenticationService: this._authenticationService,
+				logPrefix: '[AgentHost]',
+				logService: this._logService,
+				authenticate: request => this._loggedConnection!.authenticate(request),
+			});
+		} catch (err) {
+			this._logService.error('[AgentHost] Interactive MCP authentication failed', err);
+			this._loggedConnection!.logError('resolveMcpAuthenticationInteractively', err);
+		}
+		return false;
+	}
+
+	/**
+	 * Silently re-authenticates a single MCP server using an existing
+	 * OAuth session (no prompt). Triggered when an MCP server
+	 * transitions to `AuthRequired` so previously-authenticated hosts
+	 * recover without surfacing UI. Returns `false` when no matching
+	 * session is available; the indicator click path then drives the
+	 * interactive flow.
+	 */
+	private async _resolveMcpAuthenticationSilently(mcpServer: URI, resource: ProtectedResourceMetadata, scopes: readonly string[] | undefined): Promise<boolean> {
+		try {
+			return await resolveMcpServerAuthenticationSilently(mcpServer, resource, scopes, {
+				authTokenCache: this._authTokenCache,
+				mcpAuthMemory: this._mcpAuthRegistry,
+				mcpAuthHostKey: 'local',
+				authenticationService: this._authenticationService,
+				logPrefix: '[AgentHost]',
+				logService: this._logService,
+				authenticate: request => this._loggedConnection!.authenticate(request),
+			});
+		} catch (err) {
+			this._logService.warn('[AgentHost] Silent MCP authentication failed', err);
+		}
+		return false;
 	}
 }

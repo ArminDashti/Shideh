@@ -67,6 +67,9 @@ export type SessionAction =
 	| SessionChangesetsChangedAction
 	| SessionConfigChangedAction
 	| SessionMetaChangedAction
+	| McpServerAddedAction
+	| McpServerRemovedAction
+	| McpServerStatusChangedAction
 	;
 
 /** Union of session actions that clients may dispatch. */
@@ -105,6 +108,9 @@ export type ServerSessionAction =
 	| SessionActivityChangedAction
 	| SessionChangesetsChangedAction
 	| SessionMetaChangedAction
+	| McpServerAddedAction
+	| McpServerRemovedAction
+	| McpServerStatusChangedAction
 	;
 
 /** Union of all chat-scoped actions. */

@@ -1910,6 +1910,26 @@ export class AgentHostStateManager extends Disposable {
 		return this._annotations.get(resource);
 	}
 
+	// ---- MCP servers --------------------------------------------------------
+
+	/** Registers a new MCP server with a session. */
+	createMcpServer(session: URI, summary: McpServerSummary): void {
+		this._logService.trace(`[AgentHostStateManager] createMcpServer: ${summary.resource} on ${session}`);
+		this.dispatchServerAction({ type: ActionType.McpServerAdded, session, server: summary });
+	}
+
+	/** Removes an MCP server from a session. */
+	removeMcpServer(session: URI, mcpServer: URI): void {
+		this._logService.trace(`[AgentHostStateManager] removeMcpServer: ${mcpServer} from ${session}`);
+		this.dispatchServerAction({ type: ActionType.McpServerRemoved, session, mcpServer });
+	}
+
+	/** Updates the status of an MCP server. */
+	setMcpServerStatus(session: URI, mcpServer: URI, status: McpServerStatus): void {
+		this._logService.trace(`[AgentHostStateManager] setMcpServerStatus: ${mcpServer} -> ${status.kind}`);
+		this.dispatchServerAction({ type: ActionType.McpServerStatusChanged, session, mcpServer, status });
+	}
+
 	// ---- Turn tracking ------------------------------------------------------
 
 	/**

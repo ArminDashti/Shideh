@@ -20032,3 +20032,46 @@ suite('CopilotAgent', () => {
 
 	});
 });
+
+class SpyMcpHostService implements IMcpHostService {
+	declare readonly _serviceBrand: undefined;
+	readonly setSessionServersCalls: { session: URI; servers: readonly IMcpServerDefinition[] }[] = [];
+	readonly sessionSummaries = new Map<string, readonly McpServerSummary[]>();
+
+	private readonly _stubs = new Map<string, IMcpServerHandle>();
+
+	setSessionServers(session: URI, servers: readonly IMcpServerDefinition[]): readonly IMcpServerHandle[] {
+		this.setSessionServersCalls.push({ session, servers });
+		return [];
+	}
+	getServer(resource: URI): IMcpServerHandle | undefined {
+		return this._stubs.get(resource.toString());
+	}
+	getServerSummaries(session: URI): readonly McpServerSummary[] {
+		return this.sessionSummaries.get(session.toString()) ?? [];
+	}
+	async callMethod(): Promise<{ result: unknown }> { throw new Error('not used in test'); }
+	notify(): void { /* no-op */ }
+	setUpstreamDelegate(): IDisposable { return { dispose: () => { /* no-op */ } }; }
+
+	registerStubServer(resource: URI, endpoint: IObservable<URI | undefined>, summary?: IObservable<McpServerSummary>): IMcpServerHandle {
+		const summaryObs = summary ?? observableValue<McpServerSummary>('summary', {
+			resource: resource.toString(),
+			label: 'stub',
+			status: { kind: McpServerStatusKind.Ready },
+		});
+		const handle: IMcpServerHandle = {
+			resource,
+			summary: summaryObs,
+			endpoint,
+			authenticate: async () => true,
+			callMethod: async () => { throw new Error('not used in test'); },
+			notify: () => { /* no-op */ },
+			getToolUiMeta: () => undefined,
+			getUiHostCapabilities: () => ({}),
+			dispose: () => { /* no-op */ },
+		};
+		this._stubs.set(resource.toString(), handle);
+		return handle;
+	}
+}

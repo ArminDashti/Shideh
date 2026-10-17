@@ -73,20 +73,17 @@ suite('copilotPluginConverters', () => {
 				customization: stubMcpCustomization('test-server'),
 			}];
 
-			const result = toSdkMcpServers(defs);
+			const result = toSdkMcpServers(defs, resolveAll);
 			assert.deepStrictEqual(result, {
 				'test-server': {
-					type: 'local',
-					command: 'node',
-					args: ['server.js', '--port', '3000'],
+					type: 'http',
+					url: 'http://127.0.0.1:1/mcp/test-server',
 					tools: ['*'],
-					env: { NODE_ENV: 'production', PORT: '3000' },
-					cwd: '/workspace',
 				},
 			});
 		});
 
-		test('converts remote/http server definitions', () => {
+		test('emits the same http shape regardless of upstream transport', () => {
 			const defs: IMcpServerDefinition[] = [{
 				name: 'remote-server',
 				uri: URI.file('/plugin'),
@@ -98,13 +95,12 @@ suite('copilotPluginConverters', () => {
 				customization: stubMcpCustomization('remote-server'),
 			}];
 
-			const result = toSdkMcpServers(defs);
+			const result = toSdkMcpServers(defs, resolveAll);
 			assert.deepStrictEqual(result, {
 				'remote-server': {
 					type: 'http',
-					url: 'https://example.com/mcp',
+					url: 'http://127.0.0.1:1/mcp/remote-server',
 					tools: ['*'],
-					headers: { 'Authorization': 'Bearer token' },
 				},
 			});
 
@@ -154,13 +150,13 @@ suite('copilotPluginConverters', () => {
 		});
 
 		test('handles empty definitions', () => {
-			const result = toSdkMcpServers([]);
+			const result = toSdkMcpServers([], resolveAll);
 			assert.deepStrictEqual(result, {});
 		});
 
-		test('omits optional fields when undefined', () => {
+		test('skips servers whose proxy endpoint is unresolved', () => {
 			const defs: IMcpServerDefinition[] = [{
-				name: 'minimal',
+				name: 'pending',
 				uri: URI.file('/plugin'),
 				configuration: {
 					type: McpServerType.LOCAL,
@@ -169,11 +165,8 @@ suite('copilotPluginConverters', () => {
 				customization: stubMcpCustomization('minimal'),
 			}];
 
-			const result = toSdkMcpServers(defs);
-			assert.strictEqual(result['minimal'].type, 'local');
-			assert.deepStrictEqual((result['minimal'] as { args?: string[] }).args, []);
-			assert.strictEqual(Object.hasOwn(result['minimal'], 'env'), false);
-			assert.strictEqual(Object.hasOwn(result['minimal'], 'cwd'), false);
+			const result = toSdkMcpServers(defs, () => undefined);
+			assert.deepStrictEqual(result, {});
 		});
 
 		test('uses a URI default cwd without overriding explicit cwd', () => {
@@ -215,9 +208,11 @@ suite('copilotPluginConverters', () => {
 				customization: stubMcpCustomization('with-null-env'),
 			}];
 
-			const result = toSdkMcpServers(defs);
-			const env = (result['with-null-env'] as { env?: Record<string, string> }).env;
-			assert.deepStrictEqual(env, { KEEP: 'value' });
+			const result = toSdkMcpServers(defs, def => def.name === 'pending' ? undefined : proxyEndpoint(def.name));
+			assert.deepStrictEqual(result, {
+				'ready': { type: 'http', url: 'http://127.0.0.1:1/mcp/ready', tools: ['*'] },
+				'also-ready': { type: 'http', url: 'http://127.0.0.1:1/mcp/also-ready', tools: ['*'] },
+			});
 		});
 	});
 

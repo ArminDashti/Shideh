@@ -17,6 +17,7 @@ import { hasKey } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { runWithFakedTimers } from '../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { IMcpServerDefinition } from '../../../agentPlugins/common/pluginParsers.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { FileType } from '../../../files/common/files.js';
 import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
@@ -384,6 +385,48 @@ class MockAgentService implements IAgentService {
 
 // ---- Helpers ----------------------------------------------------------------
 
+/**
+ * Test double for {@link IMcpHostService} that records every `callMethod`,
+ * `notify`, and upstream delegate registration. Tests can swap in a custom
+ * `callMethodImpl` (e.g. throw) by reassigning the field.
+ */
+class RecordingMcpHostService implements IMcpHostService {
+	declare readonly _serviceBrand: undefined;
+
+	readonly callMethodCalls: { params: McpMethodCallParams }[] = [];
+	readonly notifyCalls: { params: McpNotificationParams }[] = [];
+	delegate: IMcpHostUpstreamDelegate | undefined;
+
+	callMethodImpl: (params: McpMethodCallParams) => Promise<McpMethodCallResult> =
+		async () => ({ result: 'ok' });
+
+	setSessionServers(_session: URI, _servers: readonly IMcpServerDefinition[]): readonly IMcpServerHandle[] {
+		return [];
+	}
+
+	getServerSummaries(_session: URI): readonly McpServerSummary[] {
+		return [];
+	}
+
+	getServer(_resource: URI): IMcpServerHandle | undefined {
+		return undefined;
+	}
+
+	async callMethod(params: McpMethodCallParams): Promise<McpMethodCallResult> {
+		this.callMethodCalls.push({ params });
+		return this.callMethodImpl(params);
+	}
+
+	notify(params: McpNotificationParams): void {
+		this.notifyCalls.push({ params });
+	}
+
+	setUpstreamDelegate(delegate: IMcpHostUpstreamDelegate) {
+		this.delegate = delegate;
+		return { dispose: () => { this.delegate = undefined; } };
+	}
+}
+
 function notification(method: string, params?: unknown): ProtocolMessage {
 	return { jsonrpc: '2.0', method, params } as ProtocolMessage;
 }
@@ -484,6 +527,7 @@ suite('ProtocolServerHandler', () => {
 		agentHostTelemetryService = disposables.add(new AgentHostTelemetryService(telemetryService));
 		clientConnections = disposables.add(new AgentHostClientConnectionService());
 		disposables.add(agentService);
+		recordingMcpHostService = new RecordingMcpHostService();
 		disposables.add(handler = new ProtocolServerHandler(
 			agentService,
 			stateManager,
@@ -807,6 +851,33 @@ suite('ProtocolServerHandler', () => {
 		});
 		transport.simulateClose();
 		transport.dispose();
+	});
+
+	test('initialize response includes empty server capabilities', () => {
+		const transport = connectClient('client-caps-1');
+
+		const resp = findResponse(transport.sent, 1);
+		assert.ok(resp, 'should have sent initialize response');
+		const result = (resp as { result: InitializeResult }).result;
+		assert.deepStrictEqual(result.capabilities, {});
+	});
+
+	test('initialize captures client capabilities for later use', () => {
+		const transport = new MockProtocolTransport();
+		server.simulateConnection(transport);
+		// ClientCapabilities is now an empty extension point; passing an empty
+		// object exercises the capture path without depending on any specific
+		// field shape.
+		const clientCaps: ClientCapabilities = {};
+		transport.simulateMessage(request(1, 'initialize', {
+			protocolVersions: [PROTOCOL_VERSION],
+			clientId: 'client-caps-2',
+			capabilities: clientCaps,
+		}));
+
+		const resp = findResponse(transport.sent, 1);
+		assert.ok(resp, 'should have sent initialize response');
+		assert.deepStrictEqual(handler.getClientCapabilitiesForTest('client-caps-2'), clientCaps);
 	});
 
 	test('handshake rejects unsupported protocol versions', () => {
@@ -5363,6 +5434,41 @@ suite('ProtocolServerHandler', () => {
 		agentService.authenticate = origHandler;
 	});
 
+	test('authenticate forwards params.server as a parsed URI to the agent service', async () => {
+		const origHandler = agentService.authenticate;
+		const seen: AuthenticateParams[] = [];
+		agentService.authenticate = async (params: AuthenticateParams): Promise<AuthenticateResult> => {
+			seen.push(params);
+			return { authenticated: true };
+		};
+
+		const transport = connectClient('client-auth-mcp');
+		transport.sent.length = 0;
+
+		const responsePromise = waitForResponse(transport, 2);
+		transport.simulateMessage(request(2, 'authenticate', {
+			resource: 'https://api.github.com',
+			token: 'tok',
+			server: 'mcp:/sess1/srv1',
+		}));
+		const resp = await responsePromise as { result?: Record<string, unknown>; error?: { code: number; message: string } };
+
+		assert.ok(!resp.error, `unexpected error: ${resp.error?.message}`);
+		assert.strictEqual(seen.length, 1);
+		assert.ok(URI.isUri(seen[0].server), 'server must be a URI instance');
+		assert.deepStrictEqual({
+			resource: seen[0].resource,
+			token: seen[0].token,
+			server: seen[0].server!.toString(),
+		}, {
+			resource: 'https://api.github.com',
+			token: 'tok',
+			server: 'mcp:/sess1/srv1',
+		});
+
+		agentService.authenticate = origHandler;
+	});
+
 	// ---- Connection count event -----------------------------------------
 
 	test('onDidChangeConnectionCount fires on connect and disconnect', () => {
@@ -5443,6 +5549,136 @@ suite('ProtocolServerHandler', () => {
 		// New transport closes - should decrement
 		transport2.simulateClose();
 		assert.deepStrictEqual(counts, [1, 1, 0]);
+	});
+
+	// ---- MCP routing -----------------------------------------------------
+
+	suite('MCP', () => {
+
+		const mcpServer1 = 'mcp:/sess1/srv1';
+		const mcpServer2 = 'mcp:/sess1/srv2';
+
+		function createMcpSessionWithServers(): void {
+			const summary = makeSessionSummary();
+			stateManager.createSession(summary);
+			stateManager.dispatchServerAction({ type: ActionType.SessionReady, session: sessionUri });
+			stateManager.createMcpServer(sessionUri, {
+				resource: mcpServer1,
+				label: 'srv1',
+				status: { kind: McpServerStatusKind.Ready },
+			});
+			stateManager.createMcpServer(sessionUri, {
+				resource: mcpServer2,
+				label: 'srv2',
+				status: { kind: McpServerStatusKind.Ready },
+			});
+		}
+
+		test('mcpMethodCall forwards params to IMcpHostService and returns result', async () => {
+			const transport = new MockProtocolTransport();
+			server.simulateConnection(transport);
+			transport.simulateMessage(request(1, 'initialize', {
+				protocolVersions: [PROTOCOL_VERSION],
+				clientId: 'client-mcp-msg',
+			}));
+			transport.sent.length = 0;
+
+			const params: McpMethodCallParams = {
+				server: mcpServer1,
+				method: 'tools/call',
+				params: { foo: 1 },
+			};
+
+			const responsePromise = waitForResponse(transport, 2);
+			transport.simulateMessage(request(2, 'mcpMethodCall', params));
+			const resp = await responsePromise as { result?: { result: unknown }; error?: { code: number } };
+
+			assert.deepStrictEqual({
+				calls: recordingMcpHostService.callMethodCalls,
+				response: resp,
+			}, {
+				calls: [{ params }],
+				response: { jsonrpc: '2.0', id: 2, result: { result: 'ok' } },
+			});
+
+			transport.simulateClose();
+			transport.dispose();
+		});
+
+		test('mcpMethodCall propagates ProtocolError as JSON-RPC error response', async () => {
+			recordingMcpHostService.callMethodImpl = async () => {
+				throw new ProtocolError(JsonRpcErrorCodes.MethodNotFound, 'no such method');
+			};
+			const transport = connectClient('client-mcp-err');
+			transport.sent.length = 0;
+			const responsePromise = waitForResponse(transport, 2);
+
+			transport.simulateMessage(request(2, 'mcpMethodCall', {
+				server: mcpServer1,
+				method: 'tools/call',
+			}));
+			const resp = await responsePromise as { error?: { code: number; message: string } };
+
+			assert.deepStrictEqual(
+				{ code: resp.error?.code, message: resp.error?.message },
+				{ code: JsonRpcErrorCodes.MethodNotFound, message: 'no such method' },
+			);
+		});
+
+		test('mcpNotification notification is forwarded to IMcpHostService.notify', () => {
+			const transport = connectClient('client-mcp-notify');
+			transport.sent.length = 0;
+
+			const params: McpNotificationParams = {
+				server: mcpServer1,
+				method: 'notifications/message',
+				params: { level: 'info', data: 'hello' },
+			};
+			transport.simulateMessage(notification('mcpNotification', params));
+
+			assert.deepStrictEqual(recordingMcpHostService.notifyCalls, [{ params }]);
+		});
+
+		test('upstream MCP request is round-tripped via reverse mcpMethodCall to a connected client', async () => {
+			createMcpSessionWithServers();
+			const transport = connectClient('client-mcp', [sessionUri]);
+			transport.sent.length = 0;
+
+			const upstreamPromise = recordingMcpHostService.delegate!.handleUpstreamRequest({
+				server: URI.parse(mcpServer1),
+				method: 'sampling/createMessage',
+				params: { foo: 1 },
+			});
+
+			// `_sendReverseRequest` synchronously dispatches the outbound JSON-RPC request,
+			// so the mcpMethodCall message is already in `transport.sent`.
+			const sent = transport.sent.find(m => isJsonRpcRequest(m) && m.method === 'mcpMethodCall');
+			assert.ok(sent && isJsonRpcRequest(sent));
+			transport.simulateMessage({ jsonrpc: '2.0', id: sent.id, result: { ok: true } } as ProtocolMessage);
+
+			const outcome = await upstreamPromise;
+			assert.deepStrictEqual(outcome, { result: { ok: true } });
+		});
+
+		test('upstream MCP notification is forwarded as an outbound mcpNotification', () => {
+			createMcpSessionWithServers();
+			const transport = connectClient('client-mcp', [sessionUri]);
+			transport.sent.length = 0;
+
+			recordingMcpHostService.delegate!.handleUpstreamNotification({
+				server: URI.parse(mcpServer1),
+				method: 'notifications/tools/list_changed',
+				params: undefined,
+			});
+
+			const sent = transport.sent.find(m => isJsonRpcNotification(m) && m.method === 'mcpNotification');
+			assert.ok(sent && isJsonRpcNotification(sent));
+			assert.deepStrictEqual(sent.params, {
+				server: mcpServer1,
+				method: 'notifications/tools/list_changed',
+				params: undefined,
+			});
+		});
 	});
 
 	// ---- createSession activeClient -------------------------------------

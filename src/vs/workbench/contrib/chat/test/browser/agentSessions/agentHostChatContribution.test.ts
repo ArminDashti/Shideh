@@ -899,6 +899,17 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		_serviceBrand: undefined,
 		...languageModelToolsServiceOverride,
 	});
+	instantiationService.stub(IAgentHostActiveClientRegistry, {
+		register: () => toDisposable(() => { }),
+		get: () => undefined,
+	});
+	instantiationService.stub(IAgentHostMcpAuthRegistry, {
+		registerSession: () => toDisposable(() => { }),
+		getEntry: () => undefined,
+		remember: () => { },
+		recall: () => undefined,
+		forget: () => { },
+	});
 	instantiationService.stub(IOutputService, { getChannel: () => undefined });
 	instantiationService.stub(IAgentHostEnablementService, { _serviceBrand: undefined, enabled: constObservable(true), managedSandboxEnforced: constObservable(false) });
 	instantiationService.stub(IProgressService, { withProgress: <R,>(_options: IProgressNotificationOptions, task: (progress: IProgress<IProgressStep>) => Promise<R>) => task({ report: () => { } }) });

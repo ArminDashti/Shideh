@@ -211,6 +211,14 @@ async function main(): Promise<void> {
 	} = runtimeServices;
 	errorTelemetry.value = new ErrorTelemetry(runtimeServices.telemetryService);
 
+	// Single shared MCP host service backed by the per-server proxy factory.
+	// Constructed after `agentService` because it consumes the agent service's
+	// `AgentHostStateManager`.
+	const proxyFactory = disposables.add(new McpProxyFactory(logService));
+	const mcpHostService: IMcpHostService = disposables.add(new McpHostServiceImpl(agentService.stateManager, proxyFactory, logService));
+	agentService.setMcpHostService(mcpHostService);
+	diServices.set(IMcpHostService, mcpHostService);
+
 	// Register agents
 	let sdkDownloadProgress: Event<IAgentSdkDownloadProgress> | undefined;
 	if (!options.quiet) {

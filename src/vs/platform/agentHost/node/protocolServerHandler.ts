@@ -413,6 +413,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		private readonly _server: IProtocolServer,
 		private readonly _config: IProtocolServerConfig,
 		private readonly _clientFileSystemProvider: AHPFileSystemProvider,
+		private readonly _mcpHostService: IMcpHostService,
 		@ILogService private readonly _logService: ILogService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 		@IAgentHostManagedSettingsService private readonly _managedSettingsService: IAgentHostManagedSettingsService,
@@ -584,6 +585,15 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 								);
 							} else if (isSessionAction(action) || isChatAction(action) || isTerminalAction(action) || isChangesetAction(action) || isAnnotationsAction(action) || isAutomationAction(action) || isAutomationRunAction(action) || action.type === ActionType.RootConfigChanged) {
 								this._agentService.dispatchAction(channel, action, client.clientId, msg.params.clientSeq, client.telemetryContext);
+							}
+						}
+						break;
+					case 'mcpNotification':
+						if (client) {
+							try {
+								this._mcpHostService.notify(msg.params);
+							} catch (err) {
+								this._logService.warn(`[ProtocolServer] mcpNotification handler threw: ${err instanceof Error ? err.message : String(err)}`);
 							}
 						}
 						break;
@@ -1921,7 +1931,11 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			return {};
 		},
 		authenticate: async (_client, params) => {
-			const result = await this._agentService.authenticate(params);
+			const result = await this._agentService.authenticate({
+				resource: params.resource,
+				token: params.token,
+				server: params.server ? URI.parse(params.server) : undefined,
+			});
 			if (!result.authenticated) {
 				throw new ProtocolError(AHP_AUTH_REQUIRED, `Authentication failed for resource: ${params.resource}`);
 			}
@@ -2778,6 +2792,11 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 
 	private _managedSettingsContributionId(clientId: string): string {
 		return `${this._managedSettingsOwnerId}:${clientId}`;
+	}
+
+	/** @internal Test accessor — do not call from production. */
+	getClientCapabilitiesForTest(clientId: string): ClientCapabilities | undefined {
+		return this._clients.get(clientId)?.capabilities;
 	}
 
 	override dispose(): void {

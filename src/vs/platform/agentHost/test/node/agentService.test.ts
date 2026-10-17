@@ -58,6 +58,12 @@ import { readRemoteSessionDepth, readRemoteSessionOrigin, REMOTE_SESSION_ORIGIN_
 import { AH_META_DEV_CONTAINER_WORKTREE_DB_KEY } from '../../common/meta/agentDevContainerWorktreeMeta.js';
 import { AgentSystemNotificationWorkspaceKind, serializeAgentWorkspaceTransition } from '../../common/meta/agentSystemNotificationMeta.js';
 import { IProductService } from '../../../product/common/productService.js';
+import { AgentSession } from '../../common/agentService.js';
+import { IMcpHostService, IMcpServerHandle } from '../../common/mcpHost/mcpHostService.js';
+import { ISessionDatabase, ISessionDataService } from '../../common/sessionDataService.js';
+import { McpServerStatusKind, MessageResourceAttachment, type McpServerSummary } from '../../common/state/protocol/state.js';
+import { ActionEnvelope, ActionType } from '../../common/state/sessionActions.js';
+import { buildSubagentSessionUri, MessageAttachmentKind, ResponsePartKind, SessionActiveClient, SessionLifecycle, ToolCallConfirmationReason, ToolCallStatus, ToolResultContentType, TurnState, type MarkdownResponsePart, type ToolCallCompletedState, type ToolCallResponsePart } from '../../common/state/sessionState.js';
 import { AgentService } from '../../node/agentService.js';
 import { buildNonPtyShellTerminalUri } from '../../common/nonPtyShellTerminalUri.js';
 import { AgentHostDatabase, AgentHostDatabaseSessionChatCatalogReplaceResult, AgentHostDatabaseSessionV2UpsertResult, IAgentHostDatabase, IAgentHostDatabaseRegisterOptions, IAgentHostDatabaseSession, IAgentHostDatabaseSessionChat, IAgentHostDatabaseSessionChatCatalog, IAgentHostDatabaseSessionsV2Exclusion, IAgentHostDatabaseSessionsV2ExclusionExpectation, IAgentHostDatabaseSessionOptions, IAgentHostDatabaseSessionV2, IAgentHostDatabaseSessionV2Envelope, IAgentHostDatabaseSessionV2Receipt } from '../../node/agentHostDatabase.js';
@@ -4842,6 +4848,26 @@ suite('AgentService (node dispatcher)', () => {
 			});
 		});
 
+	});
+
+	suite('subscribe to mcp:/ resources', () => {
+
+		test('rejects unknown mcp:/ server without retaining subscription', async () => {
+			const mcpResource = URI.parse('mcp:/unknown/server');
+
+			await assert.rejects(
+				() => service.subscribe(mcpResource, 'client-1'),
+				(err: Error) => err.message.includes('mcp:/unknown/server'),
+			);
+
+			// The catch block must roll the addSubscriber registration back —
+			// a second subscribe attempt should reject the same way (not
+			// e.g. fail because the subscription already exists).
+			await assert.rejects(
+				() => service.subscribe(mcpResource, 'client-1'),
+				(err: Error) => err.message.includes('mcp:/unknown/server'),
+			);
+		});
 	});
 
 	// ---- attachment rewriting ------------------------------------------
@@ -16192,6 +16218,39 @@ suite('AgentService (node dispatcher)', () => {
 			});
 		});
 
+		test('seeds initial MCP servers from the MCP host summaries', async () => {
+			const session = AgentSession.uri('copilot', 'mcp-seeded');
+			const mcpServer: McpServerSummary = {
+				resource: `mcp:/${AgentSession.id(session)}/github`,
+				label: 'github',
+				status: { kind: McpServerStatusKind.Starting },
+			};
+			class McpAgent extends MockAgent {
+				override async createSession() {
+					return {
+						session,
+						project: { uri: URI.file('/test'), displayName: 'Test' },
+					};
+				}
+			}
+			const mcpHostService = new SpyMcpHostService();
+			mcpHostService.sessionSummaries.set(session.toString(), [mcpServer]);
+			const localService = disposables.add(new AgentService(new NullLogService(), fileService, nullSessionDataService, { _serviceBrand: undefined } as IProductService, createNoopGitService(), undefined, mcpHostService));
+			const agent = new McpAgent('copilot');
+			disposables.add(toDisposable(() => agent.dispose()));
+			localService.registerProvider(agent);
+
+			await localService.createSession({ provider: 'copilot' });
+
+			assert.deepStrictEqual({
+				mcpServers: localService.stateManager.getSessionState(session.toString())?.mcpServers,
+				mcpHostCalls: mcpHostService.setSessionServersCalls,
+			}, {
+				mcpServers: [mcpServer],
+				mcpHostCalls: [],
+			});
+		});
+
 		test('omits activeClient from the initial session state when not provided', async () => {
 			registerTestAgentProvider(service, copilotAgent);
 
@@ -16421,6 +16480,111 @@ suite('AgentService (node dispatcher)', () => {
 			registerTestAgentProvider(service, flakyB);
 
 			const result = await service.authenticate({ resource: 'https://api.github.com', token: 'tok' });
+
+			assert.deepStrictEqual(result, { authenticated: false });
+		});
+
+		// ---- per-server (MCP) ---------------------------------------------
+
+		function newServiceWithSpy(spy: SpyMcpHostService): AgentService {
+			return disposables.add(new AgentService(
+				new NullLogService(), fileService, nullSessionDataService,
+				{ _serviceBrand: undefined } as IProductService,
+				createNoopGitService(), undefined, spy,
+			));
+		}
+
+		test('routes per-server token to the registered MCP handle', async () => {
+			const spy = new SpyMcpHostService();
+			const serverUri = URI.parse('mcp:/sess1/srv1');
+			spy.registerStubServer(serverUri, true);
+			const svc = newServiceWithSpy(spy);
+
+			const result = await svc.authenticate({
+				resource: 'https://api.github.com',
+				token: 'tok',
+				server: serverUri,
+			});
+
+			assert.deepStrictEqual({
+				result,
+				calls: spy.authenticateCalls,
+			}, {
+				result: { authenticated: true },
+				calls: [{ resource: 'https://api.github.com', token: 'tok', server: serverUri }],
+			});
+		});
+
+		test('per-server authenticate returns false when the server is unregistered (no throw)', async () => {
+			const spy = new SpyMcpHostService();
+			const svc = newServiceWithSpy(spy);
+
+			const result = await svc.authenticate({
+				resource: 'https://api.github.com',
+				token: 'tok',
+				server: URI.parse('mcp:/sess1/missing'),
+			});
+
+			assert.deepStrictEqual({
+				result,
+				calls: spy.authenticateCalls,
+			}, {
+				result: { authenticated: false },
+				calls: [],
+			});
+		});
+
+		test('per-server authenticate does NOT fan out to providers', async () => {
+			const spy = new SpyMcpHostService();
+			const serverUri = URI.parse('mcp:/sess1/srv1');
+			spy.registerStubServer(serverUri, true);
+			const svc = newServiceWithSpy(spy);
+			svc.registerProvider(copilotAgent); // owns https://api.github.com
+
+			await svc.authenticate({
+				resource: 'https://api.github.com',
+				token: 'tok',
+				server: serverUri,
+			});
+
+			assert.deepStrictEqual({
+				providerCalls: copilotAgent.authenticateCalls,
+				handleCalls: spy.authenticateCalls,
+			}, {
+				providerCalls: [],
+				handleCalls: [{ resource: 'https://api.github.com', token: 'tok', server: serverUri }],
+			});
+		});
+
+		test('agent-level authenticate (no server) still fans out to providers', async () => {
+			const spy = new SpyMcpHostService();
+			const svc = newServiceWithSpy(spy);
+			svc.registerProvider(copilotAgent);
+
+			const result = await svc.authenticate({ resource: 'https://api.github.com', token: 'tok' });
+
+			assert.deepStrictEqual({
+				result,
+				providerCalls: copilotAgent.authenticateCalls,
+				handleCalls: spy.authenticateCalls,
+			}, {
+				result: { authenticated: true },
+				providerCalls: [{ resource: 'https://api.github.com', token: 'tok' }],
+				handleCalls: [],
+			});
+		});
+
+		test('per-server authenticate returns false when the handle throws (no throw)', async () => {
+			const spy = new SpyMcpHostService();
+			const serverUri = URI.parse('mcp:/sess1/srv1');
+			spy.registerStubServer(serverUri, new Error('boom'));
+			const svc = newServiceWithSpy(spy);
+
+			const result = await svc.authenticate({
+				resource: 'https://api.github.com',
+				token: 'tok',
+				server: serverUri,
+			});
 
 			assert.deepStrictEqual(result, { authenticated: false });
 		});
@@ -27103,4 +27267,65 @@ suite('AgentService (node dispatcher)', () => {
 			});
 		});
 	});
+
+	class SpyMcpHostService implements IMcpHostService {
+		declare readonly _serviceBrand: undefined;
+		readonly setSessionServersCalls: { session: URI; servers: readonly IMcpServerDefinition[] }[] = [];
+		readonly authenticateCalls: { resource: string; token: string; server: URI }[] = [];
+		readonly sessionSummaries = new Map<string, readonly McpServerSummary[]>();
+
+		private readonly _stubs = new Map<string, IMcpServerHandle>();
+
+		setSessionServers(session: URI, servers: readonly IMcpServerDefinition[]): readonly IMcpServerHandle[] {
+			this.setSessionServersCalls.push({ session, servers });
+			return [];
+		}
+		getServerSummaries(session: URI): readonly McpServerSummary[] {
+			return this.sessionSummaries.get(session.toString()) ?? [];
+		}
+		getServer(resource: URI): IMcpServerHandle | undefined {
+			return this._stubs.get(resource.toString());
+		}
+		async callMethod(): Promise<{ result: unknown }> { throw new Error('not used in test'); }
+		notify(): void { /* no-op */ }
+		setUpstreamDelegate(): IDisposable { return { dispose: () => { /* no-op */ } }; }
+
+		/**
+		 * Register a stub {@link IMcpServerHandle} returned from
+		 * {@link getServer} for `resource`. The handle's
+		 * {@link IMcpServerHandle.authenticate} records calls into
+		 * {@link authenticateCalls} and resolves with `accept`. If
+		 * `accept` is an `Error`, the handle rejects with that error
+		 * — used to exercise the catch branch in
+		 * {@link AgentService.authenticate}.
+		 */
+		registerStubServer(resource: URI, accept: boolean | Error): IMcpServerHandle {
+			const summary: McpServerSummary = {
+				resource: resource.toString(),
+				label: 'stub',
+				status: { kind: McpServerStatusKind.Ready },
+			};
+			const summaryObs: IObservable<McpServerSummary> = observableValue<McpServerSummary>('summary', summary);
+			const endpointObs: IObservable<URI | undefined> = observableValue<URI | undefined>('endpoint', undefined);
+			const handle: IMcpServerHandle = {
+				resource,
+				summary: summaryObs,
+				endpoint: endpointObs,
+				authenticate: async (res, tok) => {
+					this.authenticateCalls.push({ resource: res, token: tok, server: resource });
+					if (accept instanceof Error) {
+						throw accept;
+					}
+					return accept;
+				},
+				callMethod: async () => { throw new Error('not used in test'); },
+				notify: () => { /* no-op */ },
+				getToolUiMeta: () => undefined,
+				getUiHostCapabilities: () => ({}),
+				dispose: () => { /* no-op */ },
+			};
+			this._stubs.set(resource.toString(), handle);
+			return handle;
+		}
+	}
 });

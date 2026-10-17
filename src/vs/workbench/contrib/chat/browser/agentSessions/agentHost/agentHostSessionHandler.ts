@@ -733,6 +733,13 @@ class AgentHostChatSession extends Disposable implements IAgentHostChatSession {
 	private readonly _sandboxNotification = this._register(new MutableDisposable<AgentHostSandboxNotification>());
 	private readonly _subagentTurnStores = this._register(new DisposableMap<string, DisposableStore>());
 
+	/**
+	 * Live MCP-server summaries for this session, mirroring
+	 * `SessionState.mcpServers`. Updated by the owning session handler as
+	 * the protocol state changes.
+	 */
+	readonly mcpServersObs = observableValue<readonly McpServerSummary[]>('agentHostMcpServers', []);
+
 	private readonly _onWillDispose = this._register(new Emitter<void>());
 	readonly onWillDispose = this._onWillDispose.event;
 
@@ -1353,6 +1360,19 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				this._logService,
 			)),
 		));
+
+		// Publish our active-client snapshot under this handler's session
+		// type so the sessions provider can read it from
+		// `NewSession.eagerCreate` and pass it as the `activeClient`
+		// parameter on `connection.createSession`. That establishes the
+		// active client at the moment the backend session is created,
+		// avoiding a separate post-hoc dispatch for provisional
+		// (new-chat-input) sessions.
+		this._register(this._activeClientRegistry.register(config.sessionType, () => ({
+			clientId: this._config.connection.clientId,
+			tools: this._clientToolsObs.get().map(toolDataToDefinition),
+			customizations: this._config.customizations?.get() ?? [],
+		})));
 
 		this._registerAgent();
 	}
@@ -7179,6 +7199,18 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	/**
 	 * Get or create a session subscription. The first call for a given URI
 	 * triggers a server subscribe; subsequent calls increment the refcount.
+	 *
+	 * On first-create, if a chat session for this backend URI is already
+	 * registered in {@link _activeSessions}, the per-session bindings are
+	 * auto-wired into it via {@link _wireActiveSession}. The complementary
+	 * half of this pact lives in {@link _registerActiveSession}: when an
+	 * active chat session is registered after the handler has already
+	 * subscribed, that helper performs the wiring instead. Between the two,
+	 * each session's bindings are wired exactly once, regardless of which
+	 * event (subscribe vs. activate) happens first.
+	 *
+	 * Subagent child sessions and lazy seed-only subscriptions never appear
+	 * in {@link _activeSessions}, so the auto-wire is a safe no-op for them.
 	 */
 	private _ensureSessionSubscription(sessionUri: string): IAgentSubscription<SessionState> {
 		let ref = this._sessionSubscriptions.get(sessionUri);
@@ -7416,6 +7448,113 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 	resolveChatResponseUri(_sessionResource: URI, href: string, _kind: 'link' | 'image'): string {
 		return rewriteAgentHostLinkTarget(href, this._config.connectionAuthority, this._config.connection.resourceUris);
+	}
+
+	/**
+	 * Wires the per-session MCP server state into `session.mcpServersObs`
+	 * and registers the session with the workbench-scoped MCP auth
+	 * registry so the chat input UI can look it up. Both bindings are
+	 * torn down with the chat session.
+	 *
+	 * Only reachable through {@link _wireActiveSession}, which guarantees
+	 * both the backend subscription and the active chat session are live
+	 * before invocation — subscribing prior to `createSession` races the
+	 * wire and fails with `AHP_SESSION_NOT_FOUND`, which silently buffers
+	 * per-session envelopes without firing `onDidChange`.
+	 */
+	private _wireMcpServerState(sessionResource: URI, backendSession: URI, session: AgentHostChatSession): void {
+		const sub = this._ensureSessionSubscription(backendSession.toString());
+
+		// Per-server fingerprint of the most recent silent-auth attempt,
+		// keyed by `McpServerSummary.resource` (the server URI). We retry
+		// silent auth only when the fingerprint changes — i.e., a
+		// genuinely new `AuthRequired` episode (different resource or
+		// scopes) — so that a token rejection doesn't loop. Cleared when
+		// the server leaves `AuthRequired` so future challenges re-arm.
+		const lastSilentAttempt = new Map<string, string>();
+
+		const update = () => {
+			const state = sub.value;
+			const servers = (state && !(state instanceof Error)) ? (state.mcpServers ?? []) : [];
+			session.mcpServersObs.set(servers, undefined);
+
+			// React to AuthRequired transitions: try a silent auth pass
+			// for any server whose challenge fingerprint we haven't yet
+			// attempted in this episode. If it succeeds the host
+			// transitions the server back to Ready (no UI), otherwise
+			// the indicator surfaces normally.
+			const liveServerKeys = new Set<string>();
+			for (const summary of servers) {
+				liveServerKeys.add(summary.resource);
+				if (summary.status.kind !== McpServerStatusKind.AuthRequired) {
+					lastSilentAttempt.delete(summary.resource);
+					continue;
+				}
+				const fingerprint = mcpAuthChallengeFingerprint(summary);
+				if (lastSilentAttempt.get(summary.resource) === fingerprint) {
+					continue;
+				}
+				lastSilentAttempt.set(summary.resource, fingerprint);
+				this._tryMcpServerSilentAuth(summary);
+			}
+			// Drop memo entries for servers that disappeared.
+			for (const key of lastSilentAttempt.keys()) {
+				if (!liveServerKeys.has(key)) {
+					lastSilentAttempt.delete(key);
+				}
+			}
+		};
+		update();
+		session.registerDisposable(sub.onDidChange(update));
+
+		const entry: IAgentHostMcpAuthSessionEntry = {
+			mcpServers: session.mcpServersObs,
+			authenticate: server => this._authenticateMcpServers(session, server),
+		};
+		session.registerDisposable(this._mcpAuthRegistry.registerSession(sessionResource, entry));
+	}
+
+	/**
+	 * Drives interactive authentication for one or all MCP servers in an
+	 * `AuthRequired` state on the given session.
+	 */
+	private async _authenticateMcpServers(session: AgentHostChatSession, target?: McpServerSummary): Promise<boolean> {
+		const resolveMcp = this._config.resolveMcpAuthentication;
+		if (!resolveMcp) {
+			return false;
+		}
+		const summaries = session.mcpServersObs.get();
+		const candidates = (target ? [target] : summaries.filter(s => s.status.kind === McpServerStatusKind.AuthRequired));
+		let anySucceeded = false;
+		for (const summary of candidates) {
+			if (summary.status.kind !== McpServerStatusKind.AuthRequired) {
+				continue;
+			}
+			try {
+				const ok = await resolveMcp(URI.parse(summary.resource), summary.status.resource, summary.status.requiredScopes);
+				anySucceeded ||= ok;
+			} catch (err) {
+				this._logService.error(`[AgentHost] MCP authentication failed for ${summary.resource}`, err);
+			}
+		}
+		return anySucceeded;
+	}
+
+	/**
+	 * Fire-and-forget silent re-authentication for a single MCP server
+	 * that just transitioned to (or refreshed) `AuthRequired`. Errors
+	 * are swallowed; the indicator path remains the user-visible
+	 * fallback.
+	 */
+	private _tryMcpServerSilentAuth(summary: McpServerSummary): void {
+		const resolveMcpSilently = this._config.resolveMcpAuthenticationSilently;
+		if (!resolveMcpSilently || summary.status.kind !== McpServerStatusKind.AuthRequired) {
+			return;
+		}
+		const status = summary.status;
+		Promise.resolve()
+			.then(() => resolveMcpSilently(URI.parse(summary.resource), status.resource, status.requiredScopes))
+			.catch(err => this._logService.warn(`[AgentHost] Silent MCP authentication failed for ${summary.resource}`, err));
 	}
 
 	/**
