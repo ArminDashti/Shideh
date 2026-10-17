@@ -9,6 +9,7 @@ import { IInstantiationService, refineServiceDecorator } from '../../../../platf
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IMcpResourceScannerService, McpResourceTarget } from '../../../../platform/mcp/common/mcpResourceScannerService.js';
+import { getWorkspaceMcpConfigurationResource } from '../../../../platform/mcp/common/mcpConfigPaths.js';
 import { isWorkspaceFolder, IWorkspaceContextService, IWorkspaceFolder, IWorkspaceFoldersChangeEvent } from '../../../../platform/workspace/common/workspace.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { MCP_CONFIGURATION_KEY, WORKSPACE_STANDALONE_CONFIGURATIONS } from '../../configuration/common/configuration.js';
@@ -337,6 +338,9 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 			const workspaceFolders = workspace.folders;
 			for (let index = 0; index < workspaceFolders.length; index++) {
 				const workspaceFolder = workspaceFolders[index];
+				if (this.uriIdentityService.extUri.isEqual(getWorkspaceMcpConfigurationResource(workspaceFolder.uri), server.mcpResource)) {
+					return `${WORKSPACE_FOLDER_CONFIG_ID_PREFIX}${index}`;
+				}
 				if (this.uriIdentityService.extUri.isEqual(this.uriIdentityService.extUri.joinPath(workspaceFolder.uri, WORKSPACE_STANDALONE_CONFIGURATIONS[MCP_CONFIGURATION_KEY]), server.mcpResource)) {
 					return `${WORKSPACE_FOLDER_CONFIG_ID_PREFIX}${index}`;
 				}
@@ -365,7 +369,7 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 			if (!this.remoteMcpManagementService) {
 				throw new Error(`Illegal target: ${options.target}`);
 			}
-			options.mcpResource = await this.getRemoteMcpResource(options.mcpResource);
+			options.mcpResource ??= await this.getRemoteMcpResource();
 			const result = await this.remoteMcpManagementService.install(server, options);
 			return this.toWorkspaceMcpServer(result, LocalMcpServerScope.RemoteUser);
 		}
@@ -374,7 +378,7 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 			throw new Error(`Illegal target: ${options.target}`);
 		}
 
-		options.mcpResource = this.userDataProfileService.currentProfile.mcpResource;
+		options.mcpResource ??= this.userDataProfileService.currentProfile.mcpResource;
 		const result = await this.mcpManagementService.install(server, options);
 		return this.toWorkspaceMcpServer(result, LocalMcpServerScope.User);
 	}
@@ -387,7 +391,7 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 		}
 
 		if (options.target === ConfigurationTarget.WORKSPACE || isWorkspaceFolder(options.target)) {
-			const mcpResource = options.target === ConfigurationTarget.WORKSPACE ? this.workspaceContextService.getWorkspace().configuration : options.target.toResource(WORKSPACE_STANDALONE_CONFIGURATIONS[MCP_CONFIGURATION_KEY]);
+			const mcpResource = options.mcpResource ?? (options.target === ConfigurationTarget.WORKSPACE ? this.workspaceContextService.getWorkspace().configuration : options.target.toResource(WORKSPACE_STANDALONE_CONFIGURATIONS[MCP_CONFIGURATION_KEY]));
 			if (!mcpResource) {
 				throw new Error(`Illegal target: ${options.target}`);
 			}
@@ -400,7 +404,7 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 			if (!this.remoteMcpManagementService) {
 				throw new Error(`Illegal target: ${options.target}`);
 			}
-			options.mcpResource = await this.getRemoteMcpResource(options.mcpResource);
+			options.mcpResource ??= await this.getRemoteMcpResource();
 			const result = await this.remoteMcpManagementService.installFromGallery(server, options);
 			return this.toWorkspaceMcpServer(result, LocalMcpServerScope.RemoteUser);
 		}

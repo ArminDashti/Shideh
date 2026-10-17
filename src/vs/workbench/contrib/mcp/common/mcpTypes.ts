@@ -958,6 +958,7 @@ export interface IMcpConfigPath {
 	remoteAuthority?: string;
 	uri: URI | undefined;
 	section?: string[];
+	serversKey?: 'servers' | 'mcpServers';
 	workspaceFolder?: IWorkspaceFolder;
 }
 

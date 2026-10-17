@@ -19,6 +19,7 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../platform
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
+import { getGlobalMcpConfigurationResource, getWorkspaceMcpConfigurationResource } from '../../../../platform/mcp/common/mcpConfigPaths.js';
 import { IMcpRemoteServerConfiguration, IMcpServerConfiguration, IMcpServerVariable, IMcpStdioServerConfiguration, McpServerType } from '../../../../platform/mcp/common/mcpPlatformTypes.js';
 import { IAllowedMcpServersService, IGalleryMcpServerConfiguration, RegistryType } from '../../../../platform/mcp/common/mcpManagement.js';
 import { IMcpResourceScannerService } from '../../../../platform/mcp/common/mcpResourceScannerService.js';
@@ -28,7 +29,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../platform/quickinput/common/quickInput.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { isWorkspaceFolder, IWorkspaceContextService, IWorkspaceFolder, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { isWorkspaceFolder, IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -60,7 +61,8 @@ export const enum AddConfigurationType {
 
 type AssistedConfigurationType = AddConfigurationType.NpmPackage | AddConfigurationType.PipPackage | AddConfigurationType.NuGetPackage | AddConfigurationType.DockerImage;
 
-type McpInstallTarget = { kind: 'local'; target: ConfigurationTarget | IWorkspaceFolder } | { kind: 'agentHost'; session: URI };
+type McpConfigurationTarget = ConfigurationTarget.USER_LOCAL | ConfigurationTarget.USER_REMOTE | IWorkspaceFolder;
+type McpInstallTarget = { kind: 'local'; target: McpConfigurationTarget } | { kind: 'agentHost'; session: URI };
 
 export const AssistedTypes = {
 	[AddConfigurationType.NpmPackage]: {
@@ -650,7 +652,7 @@ export class McpAddConfigurationCommand {
 			this._telemetryService.publicLog2<AddServerCompletedData, AddServerCompletedClassification>('mcp.addserver.completed', {
 				packageType,
 				serverType: config.type,
-				target: target === ConfigurationTarget.WORKSPACE ? 'workspace' : 'user'
+				target: isWorkspaceFolder(target) ? 'workspace' : 'user'
 			});
 		}
 
@@ -732,6 +734,7 @@ export class McpInstallFromManifestCommand {
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IWorkbenchMcpManagementService private readonly _mcpManagementService: IWorkbenchMcpManagementService,
 		@ILogService private readonly _logService: ILogService,
+		@IPathService private readonly _pathService: IPathService,
 	) { }
 
 	async run(): Promise<void> {
@@ -811,7 +814,8 @@ export class McpInstallFromManifestCommand {
 
 		// Step 5: Install to user settings
 		try {
-			await this._mcpManagementService.install({ name, config, inputs });
+			const mcpResource = getGlobalMcpConfigurationResource(this._pathService.userHome({ preferLocal: true }));
+			await this._mcpManagementService.install({ name, config, inputs }, { target: ConfigurationTarget.USER_LOCAL, mcpResource });
 			this._notificationService.info(localize('mcp.installFromManifest.success', "MCP server '{0}' installed successfully", name));
 		} catch (e) {
 			this._notificationService.error(localize('mcp.installFromManifest.installError', "Failed to install MCP server: {0}", e.message));

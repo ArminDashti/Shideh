@@ -18,6 +18,7 @@ import { Event } from '../../../../base/common/event.js';
 import { createMarkdownCommandLink, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { autorun, derived, derivedObservableWithCache, observableValue } from '../../../../base/common/observable.js';
+import { dirname } from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { hasKey, isDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -36,12 +37,14 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { mcpAutoStartConfig, McpAutoStartValue } from '../../../../platform/mcp/common/mcpManagement.js';
+import { getGlobalMcpConfigurationResource, getWorkspaceMcpConfigurationResource } from '../../../../platform/mcp/common/mcpConfigPaths.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { observableConfigValue } from '../../../../platform/observable/common/platformObservableUtils.js';
 import { IQuickInputButton, IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { StorageScope } from '../../../../platform/storage/common/storage.js';
 import { defaultCheckboxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
+import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
 import { PICK_WORKSPACE_FOLDER_COMMAND_ID } from '../../../browser/actions/workspaceCommands.js';
 import { ActiveEditorContext, RemoteNameContext, ResourceContextKey, WorkbenchStateContext, WorkspaceFolderCountContext } from '../../../common/contextkeys.js';
@@ -49,6 +52,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IAccountQuery, IAuthenticationQueryService } from '../../../services/authentication/common/authenticationQuery.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { IRemoteUserDataProfilesService } from '../../../services/userDataProfile/common/remoteUserDataProfiles.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -1139,7 +1143,7 @@ export class AddConfigurationAction extends Action2 {
 			id: McpCommandIds.AddConfiguration,
 			title: localize2('mcp.addConfiguration', "Add Server..."),
 			metadata: {
-				description: localize2('mcp.addConfiguration.description', "Installs a new Model Context protocol to the mcp.json settings"),
+				description: localize2('mcp.addConfiguration.description', "Adds a new Model Context Protocol server configuration"),
 			},
 			category,
 			f1: true,
@@ -1509,19 +1513,27 @@ export class ShowInstalledMcpServersCommand extends Action2 {
 
 abstract class OpenMcpResourceCommand extends Action2 {
 	protected abstract getURI(accessor: ServicesAccessor): Promise<URI>;
+	protected readonly serversProperty: 'servers' | 'mcpServers' = 'servers';
 
 	async run(accessor: ServicesAccessor) {
 		const fileService = accessor.get(IFileService);
 		const editorService = accessor.get(IEditorService);
 		const resource = await this.getURI(accessor);
-		if (!(await fileService.exists(resource))) {
-			await fileService.createFile(resource, VSBuffer.fromString(JSON.stringify({ servers: {} }, null, '\t')));
-		}
-		await editorService.openEditor({ resource });
+		await openMcpConfigurationResource(fileService, editorService, resource, this.serversProperty);
 	}
 }
 
+async function openMcpConfigurationResource(fileService: IFileService, editorService: IEditorService, resource: URI, serversProperty: 'servers' | 'mcpServers'): Promise<void> {
+	if (!(await fileService.exists(resource))) {
+		await fileService.createFolder(dirname(resource));
+		await fileService.createFile(resource, VSBuffer.fromString(JSON.stringify({ [serversProperty]: {} }, null, '\t')));
+	}
+	await editorService.openEditor({ resource });
+}
+
 export class OpenUserMcpResourceCommand extends OpenMcpResourceCommand {
+	protected override readonly serversProperty: 'mcpServers' = 'mcpServers';
+
 	constructor() {
 		super({
 			id: McpCommandIds.OpenUserMcp,
@@ -1532,9 +1544,9 @@ export class OpenUserMcpResourceCommand extends OpenMcpResourceCommand {
 		});
 	}
 
-	protected override getURI(accessor: ServicesAccessor): Promise<URI> {
-		const userDataProfileService = accessor.get(IUserDataProfileService);
-		return Promise.resolve(userDataProfileService.currentProfile.mcpResource);
+	protected override async getURI(accessor: ServicesAccessor): Promise<URI> {
+		const pathService = accessor.get(IPathService);
+		return getGlobalMcpConfigurationResource(pathService.userHome({ preferLocal: true }));
 	}
 }
 
@@ -1577,6 +1589,7 @@ export class OpenWorkspaceFolderMcpResourceCommand extends Action2 {
 	async run(accessor: ServicesAccessor) {
 		const workspaceContextService = accessor.get(IWorkspaceContextService);
 		const commandService = accessor.get(ICommandService);
+		const fileService = accessor.get(IFileService);
 		const editorService = accessor.get(IEditorService);
 		const instantiationService = accessor.get(IInstantiationService);
 		const workspaceFolders = workspaceContextService.getWorkspace().folders;
