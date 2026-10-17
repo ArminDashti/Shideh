@@ -1560,11 +1560,13 @@ export default defineConfig(
 					// - electron-main
 					'when': 'hasNode',
 					'allow': [
+						'@anthropic-ai/**',
 						'@github/copilot-sdk',
 						'zod',
 						'@microsoft/dev-tunnels-contracts',
 						'@microsoft/dev-tunnels-management',
 						'@parcel/watcher',
+						'@vscode/copilot-api',
 						'@vscode/sqlite3',
 						'@vscode/vscode-languagedetection',
 						'@vscode/ripgrep-universal',
