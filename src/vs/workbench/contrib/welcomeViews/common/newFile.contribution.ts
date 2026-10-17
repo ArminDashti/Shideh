@@ -210,6 +210,11 @@ class NewFileTemplatesManager extends Disposable {
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(NewFileTemplatesManager, LifecyclePhase.Restored);
 
+// Add "New File..." to Empty Editor Group and Editor Tabs Bar Context Menus for auxiliary windows
+for (const menuId of [MenuId.EmptyEditorGroupContext, MenuId.EditorTabsBarContext]) {
+	MenuRegistry.appendMenuItem(menuId, { command: { id: 'welcome.showNewFileEntries', title: localize('newFileDialog', "New File...") }, group: '1_file', order: 5 });
+}
+
 MenuRegistry.appendMenuItem(MenuId.NewFile, {
 	group: 'file',
 	command: {
