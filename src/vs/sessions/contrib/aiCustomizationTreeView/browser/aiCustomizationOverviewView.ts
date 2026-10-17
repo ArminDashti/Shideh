@@ -20,7 +20,8 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IPromptsService } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { PromptsType } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
-import { AICustomizationManagementSection, AI_CUSTOMIZATION_MANAGEMENT_EDITOR_ID } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
+import { AICustomizationManagementSection } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
+import { AICustomizationManagementEditor } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditor.js';
 import { AICustomizationManagementEditorInput } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
 import { agentIcon, mcpServerIcon, pluginIcon, skillIcon, toolsIcon } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationIcons.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -34,10 +35,6 @@ import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE, countEnabledCustomizationTools, IA
 const $ = DOM.$;
 
 export const AI_CUSTOMIZATION_OVERVIEW_VIEW_ID = 'workbench.view.aiCustomizationOverview';
-
-function isWelcomePageEditor(editor: unknown): editor is { showWelcomePage(): void } {
-	return typeof (editor as { showWelcomePage?: unknown })?.showWelcomePage === 'function';
-}
 
 interface ISectionSummary {
 	readonly id: AICustomizationManagementSection;
@@ -128,6 +125,7 @@ export class AICustomizationOverviewView extends ViewPane {
 			sectionElement.setAttribute('role', 'button');
 			sectionElement.setAttribute('aria-label', this.getSectionAriaLabel(section));
 			this.sectionElements.set(section.id, sectionElement);
+			this._register(Gesture.addTarget(sectionElement));
 
 			const iconElement = DOM.append(sectionElement, $('.section-icon'));
 			iconElement.classList.add(...ThemeIcon.asClassNameArray(section.icon));
@@ -146,16 +144,19 @@ export class AICustomizationOverviewView extends ViewPane {
 				sectionElement.setAttribute('aria-label', `${section.label}: ${count} items`);
 			}));
 
-			// Click handler to open the management editor overview
-			this._register(DOM.addDisposableListener(sectionElement, 'click', () => {
-				this.openOverview();
-			}));
+			const openSection = (e: Event) => {
+				DOM.EventHelper.stop(e, true);
+				void this.openSection(section.id);
+			};
+			for (const eventType of [DOM.EventType.CLICK, TouchEventType.Tap]) {
+				this._register(DOM.addDisposableListener(sectionElement, eventType, openSection));
+			}
 
 			// Keyboard support
 			this._register(DOM.addDisposableListener(sectionElement, 'keydown', (e: KeyboardEvent) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					this.openOverview();
+					void this.openSection(section.id);
 				}
 			}));
 
@@ -246,10 +247,8 @@ export class AICustomizationOverviewView extends ViewPane {
 		const input = AICustomizationManagementEditorInput.getOrCreate(this.instantiationService);
 		const editor = await this.editorService.openEditor(input, { pinned: true });
 
-		// Always reset to the welcome page when opening from the sidebar,
-		// so we don't restore the previously selected section.
-		if (editor?.getId() === AI_CUSTOMIZATION_MANAGEMENT_EDITOR_ID && isWelcomePageEditor(editor)) {
-			editor.showWelcomePage();
+		if (editor instanceof AICustomizationManagementEditor) {
+			editor.selectSectionById(section);
 		}
 	}
 
