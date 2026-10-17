@@ -16491,7 +16491,7 @@ declare module 'vscode' {
 
 		/**
 		 * Whether the {@link SourceControlResourceState source control resource state} should
-		 * be striked-through in the UI.
+		 * be struck-through in the UI.
 		 */
 		readonly strikeThrough?: boolean;
 
