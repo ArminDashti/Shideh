@@ -37,6 +37,7 @@ import { EditorGroupLayout, GroupDirection, GroupLocation, GroupsOrder, IEditorG
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IEditorResolverService } from '../../../services/editor/common/editorResolverService.js';
 import { IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IUntitledTextEditorService } from '../../../services/untitled/common/untitledTextEditorService.js';
@@ -872,6 +873,20 @@ function registerCloseEditorCommands() {
 			if (commandsContext.groupedEditors.length) {
 				editorGroupsService.removeGroup(commandsContext.groupedEditors[0].group);
 			}
+		}
+	});
+
+	// When the auxiliary bar (secondary side bar) is maximized, pressing the close editor
+	// shortcut should restore the auxiliary bar instead of closing the window
+	KeybindingsRegistry.registerCommandAndKeybindingRule({
+		id: 'workbench.action.restoreMaximizedAuxiliaryBar',
+		weight: KeybindingWeight.WorkbenchContrib,
+		when: AuxiliaryBarMaximizedContext,
+		primary: KeyMod.CtrlCmd | KeyCode.KeyW,
+		win: { primary: KeyMod.CtrlCmd | KeyCode.F4, secondary: [KeyMod.CtrlCmd | KeyCode.KeyW] },
+		handler: (accessor) => {
+			const layoutService = accessor.get(IWorkbenchLayoutService);
+			layoutService.setAuxiliaryBarMaximized(false);
 		}
 	});
 
