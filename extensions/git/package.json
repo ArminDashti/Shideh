@@ -2514,6 +2514,11 @@
           "group": "inline@1"
         },
         {
+          "command": "git.compareWithWorkspace",
+          "when": "scmProvider == git && scmResourceGroup == index",
+          "group": "worktree_diff"
+        },
+        {
           "command": "git.openChange",
           "when": "scmProvider == git && scmResourceGroup == index",
           "group": "navigation"
@@ -2577,6 +2582,11 @@
           "command": "git.openChange",
           "when": "scmProvider == git && scmResourceGroup == index && config.git.showInlineOpenFileAction && !config.git.openDiffOnClick",
           "group": "inline@1"
+        },
+        {
+          "command": "git.compareWithWorkspace",
+          "when": "scmProvider == git && scmResourceGroup == workingTree",
+          "group": "worktree_diff"
         },
         {
           "command": "git.openChange",
