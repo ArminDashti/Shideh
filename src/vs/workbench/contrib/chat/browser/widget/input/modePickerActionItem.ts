@@ -265,6 +265,7 @@ export class ModePickerActionItem extends ChatInputPickerActionViewItem {
 					return true;
 				});
 				// Filter out 'implement' mode from the dropdown - it's available for handoffs but not user-selectable
+				// Also filter based on infer value - only show agents with 'all' or 'user'
 				const customModes = groupBy(
 					filteredCustomModes,
 					mode => isModeConsideredBuiltIn(mode, this._productService) ? 'builtin' : 'custom');

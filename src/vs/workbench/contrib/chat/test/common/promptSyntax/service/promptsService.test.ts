@@ -6210,6 +6210,43 @@ suite('PromptsService', () => {
 			disposable.dispose();
 		});
 	});
+
+	suite('normalizeAgentInferValue', () => {
+		test('normalizes boolean true to "all"', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue(true), 'all');
+		});
+
+		test('normalizes boolean false to "user"', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue(false), 'user');
+		});
+
+		test('normalizes undefined to "all" (default)', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue(undefined), 'all');
+		});
+
+		test('returns "all" unchanged', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue('all'), 'all');
+		});
+
+		test('returns "user" unchanged', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue('user'), 'user');
+		});
+
+		test('returns "agent" unchanged', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue('agent'), 'agent');
+		});
+
+		test('returns "hidden" unchanged', () => {
+			const { normalizeAgentInferValue } = require('../../../../common/promptSyntax/service/promptsService.js');
+			assert.strictEqual(normalizeAgentInferValue('hidden'), 'hidden');
+		});
+	});
 });
 
 function fireConfigChange(configService: TestConfigurationService, ...key: string[]): void {

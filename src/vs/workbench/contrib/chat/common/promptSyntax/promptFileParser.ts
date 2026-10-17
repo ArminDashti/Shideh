@@ -203,8 +203,15 @@ export class PromptHeader {
 		return this.getStringAttribute(PromptHeaderAttributes.target);
 	}
 
-	public get infer(): boolean | undefined {
-		return this.getBooleanAttribute(PromptHeaderAttributes.infer);
+	public get infer(): AgentInferValue | boolean | undefined {
+		const attribute = this._parsedHeader.attributes.find(attr => attr.key === PromptHeaderAttributes.infer);
+		if (attribute?.value.type === 'boolean') {
+			return attribute.value.value;
+		}
+		if (attribute?.value.type === 'string') {
+			return attribute.value.value as AgentInferValue;
+		}
+		return undefined;
 	}
 
 	public get tools(): string[] | undefined {
