@@ -99,6 +99,7 @@ suite('ChatQuestionCarouselPart', () => {
 			assert.ok(widget.domNode.classList.contains('chat-question-carousel-container'));
 			assert.ok(widget.domNode.querySelector('.chat-question-header-row'));
 			assert.ok(widget.domNode.querySelector('.chat-question-carousel-content'));
+			assert.ok(widget.domNode.querySelector('.chat-question-carousel-nav'));
 		});
 
 		test('renders question title', () => {
