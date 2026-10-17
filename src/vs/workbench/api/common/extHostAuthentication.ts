@@ -196,17 +196,23 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			}
 
 			throw new Error(`Unable to find authentication provider with handle: ${providerId}`);
+		}
+
+		return this._providerOperations.queue(providerId, async () => {
+			options.authorizationServer = URI.revive(options.authorizationServer);
+			return await providerData.provider.createSession(scopes, options);
 		});
 	}
 
 	$removeSession(providerId: string, sessionId: string): Promise<void> {
-		return this._providerOperations.queue(providerId, async () => {
-			const providerData = this._authenticationProviders.get(providerId);
-			if (providerData) {
-				return await providerData.provider.removeSession(sessionId);
-			}
-
+		// Capture provider reference before queuing to allow ongoing operations to complete even if provider is disposed
+		const providerData = this._authenticationProviders.get(providerId);
+		if (!providerData) {
 			throw new Error(`Unable to find authentication provider with handle: ${providerId}`);
+		}
+
+		return this._providerOperations.queue(providerId, async () => {
+			return await providerData.provider.removeSession(sessionId);
 		});
 	}
 
@@ -222,6 +228,11 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			}
 
 			throw new Error(`Unable to find authentication provider with handle: ${providerId}`);
+		}
+
+		return this._providerOperations.queue(providerId, async () => {
+			options.authorizationServer = URI.revive(options.authorizationServer);
+			return await providerData.provider.getSessions(scopes, options);
 		});
 	}
 
