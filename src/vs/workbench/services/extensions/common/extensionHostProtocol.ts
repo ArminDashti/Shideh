@@ -105,6 +105,10 @@ export const enum ExtensionHostExitCode {
 	UnexpectedError = 81,
 }
 
+export const enum ExtensionHostExitReason {
+	OutOfMemory = 'OutOfMemory'
+}
+
 export interface IExtHostReadyMessage {
 	type: 'VSCODE_EXTHOST_IPC_READY';
 }
