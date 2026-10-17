@@ -39,6 +39,7 @@ export interface IChatResultEditorOptions {
 	readonly fontWeight: string;
 	readonly backgroundColor: Color | undefined;
 	readonly bracketPairColorization: IBracketPairColorizationOptions;
+	readonly stickyScroll: IEditorStickyScrollOptions;
 	readonly fontLigatures: boolean | string | undefined;
 	readonly wordWrap: 'off' | 'on';
 
@@ -119,6 +120,12 @@ export class ChatEditorOptions extends Disposable {
 				bracketPairColorization: {
 					enabled: this.configurationService.getValue<boolean>('editor.bracketPairColorization.enabled'),
 					independentColorPoolPerBracketType: this.configurationService.getValue<boolean>('editor.bracketPairColorization.independentColorPoolPerBracketType'),
+				},
+				stickyScroll: {
+					enabled: this.configurationService.getValue<boolean>('editor.stickyScroll.enabled'),
+					maxLineCount: this.configurationService.getValue<number>('editor.stickyScroll.maxLineCount'),
+					defaultModel: this.configurationService.getValue<'outlineModel' | 'foldingProviderModel' | 'indentationModel'>('editor.stickyScroll.defaultModel'),
+					scrollWithEditor: this.configurationService.getValue<boolean>('editor.stickyScroll.scrollWithEditor'),
 				},
 				wordWrap: chatEditorConfig.wordWrap,
 				fontLigatures: editorConfig.fontLigatures,
