@@ -64,6 +64,8 @@ export interface INewChatVoiceComposer {
 	sendQuery(text: string): void;
 	/** Set `text` without submitting. */
 	prefillInput(text: string): void;
+	/** The composer's current draft text (empty when unmounted). */
+	getInput(): string;
 	/** Focus the composer input. */
 	focus(): void;
 	/** Models currently offered by the composer. */
@@ -227,6 +229,20 @@ MenuRegistry.appendMenuItem(SessionsNewChatVoiceMenu, {
 	when: ContextKeyExpr.and(WHEN_VOICE_ENABLED, WHEN_VOICE_BUTTON_SHOWN, WHEN_CONNECTED, WHEN_INITIATED_HERE, WHEN_NO_SEGMENTED_PILL),
 	group: 'navigation',
 	order: -9,
+});
+
+MenuRegistry.appendMenuItem(SessionsNewChatVoiceMenu, {
+	command: { id: 'agentsVoice.speechToTextInChatInput', title: localize('agentsVoice.speechToTextInChatInput', "Speech to Text"), icon: Codicon.mic },
+	when: ContextKeyExpr.and(WHEN_VOICE_ENABLED, WHEN_STT_ONLY, WHEN_VOICE_SURFACE, WHEN_CONNECTING.negate(), WHEN_LISTENING.negate()),
+	group: 'navigation',
+	order: -10,
+});
+
+MenuRegistry.appendMenuItem(SessionsNewChatVoiceMenu, {
+	command: { id: 'agentsVoice.speechToTextStopInChatInput', title: localize('agentsVoice.speechToTextStopInChatInput', "Stop Dictation"), icon: Codicon.stopCircle },
+	when: ContextKeyExpr.and(WHEN_VOICE_ENABLED, WHEN_STT_ONLY, WHEN_VOICE_SURFACE, WHEN_LISTENING),
+	group: 'navigation',
+	order: -10,
 });
 
 export interface INewChatVoiceControllerOptions {
