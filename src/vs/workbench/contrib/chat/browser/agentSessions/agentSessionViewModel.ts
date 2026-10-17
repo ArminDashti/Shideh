@@ -76,9 +76,11 @@ export function isAgentSessionsViewModel(obj: IAgentSessionsViewModel | IAgentSe
 const INCLUDE_HISTORY = false; // TODO@bpasero figure out how to best support history
 export class AgentSessionsViewModel extends Disposable implements IAgentSessionsViewModel {
 
-	readonly sessions: IAgentSessionViewModel[] = [];
+export class AgentSessionsViewModel extends Disposable implements IAgentSessionsViewModel {
 
 	private readonly resolver = this._register(new ThrottledDelayer<void>(100));
+
+	private readonly filter: AgentSessionsViewFilter;
 
 	constructor(
 		sessionTracker: ChatSessionTracker,

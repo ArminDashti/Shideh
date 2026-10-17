@@ -356,6 +356,18 @@ export class AgentSessionsViewPane extends ViewPane {
 		this.commandService.executeCommand('workbench.action.addRootFolder');
 	}
 
+	//#region Actions internal API
+
+	openFind(): void {
+		this.list?.openFind();
+	}
+
+	refresh(): void {
+		this.sessionsViewModel?.resolve(undefined);
+	}
+
+	//#endregion
+
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
 		this.tree?.layout(height, width);

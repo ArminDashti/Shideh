@@ -1425,3 +1425,53 @@ export class FocusAgentSessionsAction extends Action2 {
 }
 
 //#endregion
+
+//#region View Actions
+
+registerAction2(class extends ViewAction<AgentSessionsView> {
+	constructor() {
+		super({
+			id: 'agentSessionsView.refresh',
+			title: localize2('refresh', "Refresh Agent Sessions"),
+			icon: Codicon.refresh,
+			menu: {
+				id: MenuId.AgentSessionsTitle,
+				group: 'navigation',
+				order: 1
+			},
+			viewId: AGENT_SESSIONS_VIEW_ID
+		});
+	}
+	runInView(accessor: ServicesAccessor, view: AgentSessionsView): void {
+		view.refresh();
+	}
+});
+
+registerAction2(class extends ViewAction<AgentSessionsView> {
+	constructor() {
+		super({
+			id: 'agentSessionsView.find',
+			title: localize2('find', "Find Agent Session"),
+			icon: Codicon.search,
+			menu: {
+				id: MenuId.AgentSessionsTitle,
+				group: 'navigation',
+				order: 2
+			},
+			viewId: AGENT_SESSIONS_VIEW_ID
+		});
+	}
+	runInView(accessor: ServicesAccessor, view: AgentSessionsView): void {
+		view.openFind();
+	}
+});
+
+MenuRegistry.appendMenuItem(MenuId.AgentSessionsTitle, {
+	submenu: MenuId.AgentSessionsFilterSubMenu,
+	title: localize('filterAgentSessions', "Filter Agent Sessions"),
+	group: 'navigation',
+	order: 100,
+	icon: Codicon.filter
+} satisfies ISubmenuItem);
+
+//#endregion
