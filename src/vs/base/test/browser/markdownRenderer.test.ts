@@ -620,6 +620,21 @@ suite('MarkdownRenderer', () => {
 		assert.strictEqual(anchor.title, 'Go to definition');
 	});
 
+	test('Should activate links on tap', () => {
+		const md = new MarkdownString('[tap me](https://example.com)');
+		let activatedLink: string | undefined;
+
+		const result = store.add(renderMarkdown(md, {
+			actionHandler: link => activatedLink = link
+		})).element;
+		const anchor = result.querySelector('a');
+		assert.ok(anchor);
+
+		anchor.dispatchEvent(new CustomEvent(TouchEventType.Tap, { bubbles: true }));
+
+		assert.strictEqual(activatedLink, 'https://example.com');
+	});
+
 	suite('PlaintextMarkdownRender', () => {
 
 		test('preserves text around URLs next to escaped angle brackets #316998', () => {
