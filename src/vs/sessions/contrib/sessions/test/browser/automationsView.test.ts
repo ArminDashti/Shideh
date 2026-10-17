@@ -992,14 +992,22 @@ suite('AutomationsCardsWidget', () => {
 			description: widget.element.querySelector('.automations-cards-empty-description')?.textContent,
 			buttons: widget.element.querySelectorAll('.automations-cards-create-button').length,
 			templateSections: widget.element.querySelectorAll('.automations-templates').length,
+<<<<<<< HEAD
 			templateNames: Array.from(widget.element.querySelectorAll('.automations-template-card-name-text'), element => element.textContent),
+=======
+			templateCards: widget.element.querySelectorAll('.automations-template-card').length,
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 		}, {
 			titles: 1,
 			descriptions: 1,
 			description: 'Describe what you want to automate, then choose when it runs.',
 			buttons: 1,
 			templateSections: 1,
+<<<<<<< HEAD
 			templateNames: ['Catch up on main', 'Issue triage', 'Find bugs'],
+=======
+			templateCards: 4,
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 		});
 	});
 
@@ -1464,10 +1472,17 @@ suite('AutomationsCardsWidget', () => {
 		};
 
 		assert.deepStrictEqual({ loadingState, errorState, unavailableState, readyState }, {
+<<<<<<< HEAD
 			loadingState: { loading: '', error: 'none', createButton: 'Create Automation', templates: AUTOMATION_TEMPLATES.length },
 			errorState: { loading: 'none', error: '', createButton: 'Create Automation', description: 'The complete automation catalogue could not be read.', templates: AUTOMATION_TEMPLATES.length },
 			unavailableState: { loading: 'none', unavailable: '', error: 'none', createButton: 'Create Automation', templates: AUTOMATION_TEMPLATES.length },
 			readyState: { loading: 'none', error: 'none', templates: AUTOMATION_TEMPLATES.length },
+=======
+			loadingState: { loading: '', error: 'none', createButton: 'Create Automation', templates: 4 },
+			errorState: { loading: 'none', error: '', createButton: 'Create Automation', description: 'The complete automation catalogue could not be read.', templates: 4 },
+			unavailableState: { loading: 'none', unavailable: '', error: 'none', createButton: 'Create Automation', templates: 4 },
+			readyState: { loading: 'none', error: 'none', templates: 4 },
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 		});
 	});
 
@@ -1574,6 +1589,7 @@ suite('AutomationsCardsWidget', () => {
 		});
 	});
 
+<<<<<<< HEAD
 	for (const [index, template] of AUTOMATION_TEMPLATES.entries()) {
 		test(`template '${template.name}' opens create dialog with target-less initial values`, async () => {
 			const { automationDialogService, automationService, widget } = setup();
@@ -1601,6 +1617,31 @@ suite('AutomationsCardsWidget', () => {
 			});
 		});
 	}
+=======
+	test('template opens create dialog with target-less initial values', async () => {
+		const { automationDialogService, automationService, widget } = setup();
+		automationService.setCatalogueState('ready');
+
+		const templateCard = widget.element.querySelector<HTMLButtonElement>('.automations-template-card');
+		const describedBy = templateCard?.getAttribute('aria-describedby');
+		templateCard?.click();
+		await Promise.resolve();
+
+		assert.deepStrictEqual({
+			dialogOptions: automationDialogService.lastOptions,
+			accessibleDescription: describedBy ? widget.element.querySelector(`#${describedBy}`)?.textContent : undefined,
+		}, {
+			dialogOptions: {
+				initialValues: {
+					name: 'Issue triage',
+					prompt: 'Review new issues, group duplicates, and suggest labels.',
+					schedule: { interval: 'daily', scheduleHour: 9, scheduleMinute: 0, scheduleDay: 0 },
+				},
+			},
+			accessibleDescription: 'Review new issues, group duplicates, and suggest labels.',
+		});
+	});
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 
 	test('card keyboard focus exposes the full current prompt without changing pointer hover targets', () => {
 		const shown: string[] = [];
@@ -1677,7 +1718,11 @@ suite('AutomationsCardsWidget', () => {
 			contents,
 			allDisposed: hovers.every(hover => hover.disposed),
 		}, {
+<<<<<<< HEAD
 			beforeReady: AUTOMATION_TEMPLATES.length * 2,
+=======
+			beforeReady: 8,
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 			contents: AUTOMATION_TEMPLATES.flatMap(template => [
 				{ target: 'automations-template-card-name-text', content: template.name },
 				{ target: 'automations-template-card-prompt', content: template.prompt },
@@ -3034,6 +3079,13 @@ suite('AutomationsCardsWidget', () => {
 			includesTemplateSummary: true,
 			includesFullPrompts: false,
 		});
+=======
+	test('accessible view includes templates when there are no automations', () => {
+		assert.strictEqual(
+			buildAutomationsAccessibleContent([], [], 'ready').includes('Issue triage, Daily at 9:00 AM. Review new issues, group duplicates, and suggest labels.'),
+			true,
+		);
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 	});
 
 	test('accessible view shows built-in and plugin templates with saved automations', () => {
@@ -3125,7 +3177,11 @@ suite('AutomationsCardsWidget', () => {
 			return {
 				state,
 				claimsEmpty: content.includes('No automations.'),
+<<<<<<< HEAD
 				templatesIncluded: AUTOMATION_TEMPLATES.every(template => content.includes(template.name) && content.includes(template.description)),
+=======
+				templatesIncluded: AUTOMATION_TEMPLATES.every(template => content.includes(template.name)),
+>>>>>>> b90e78d57e8 (automations: feat: backport templates and target selection to 1.137 (#334865))
 			};
 		});
 
