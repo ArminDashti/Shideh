@@ -6,7 +6,7 @@
 import * as dom from '../../../../base/browser/dom.js';
 import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
-import { BreadcrumbsItem, BreadcrumbsWidget, IBreadcrumbsItemEvent, IBreadcrumbsWidgetStyles } from '../../../../base/browser/ui/breadcrumbs/breadcrumbsWidget.js';
+import { BreadcrumbsItem, BreadcrumbsWidget, IBreadcrumbsContextMenuEvent, IBreadcrumbsItemEvent, IBreadcrumbsWidgetStyles } from '../../../../base/browser/ui/breadcrumbs/breadcrumbsWidget.js';
 import { applyDragImage } from '../../../../base/browser/ui/dnd/dnd.js';
 import { IHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegate.js';
 import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
@@ -55,6 +55,7 @@ import { createEditorTypeActions, editorTypeDisplayLabel, getAvailableEditorType
 import './media/breadcrumbscontrol.css';
 import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
 class OutlineItem extends BreadcrumbsItem {
 
@@ -266,6 +267,7 @@ export class BreadcrumbsControl {
 	private readonly _cfShowEditorType: BreadcrumbsConfig<boolean>;
 	private readonly _cfTitleScrollbarSizing: BreadcrumbsConfig<IEditorPartOptions['titleScrollbarSizing']>;
 	private readonly _cfTitleScrollbarVisibility: BreadcrumbsConfig<IEditorPartOptions['titleScrollbarVisibility']>;
+	private readonly _cfTitleShowTabs: BreadcrumbsConfig<IEditorPartOptions['showTabs']>;
 
 	readonly domNode: HTMLDivElement;
 	private readonly _widget: BreadcrumbsWidget;
@@ -292,6 +294,7 @@ export class BreadcrumbsControl {
 		private readonly _options: IBreadcrumbsControlOptions,
 		private readonly _editorGroup: IEditorGroupView,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -332,6 +335,7 @@ export class BreadcrumbsControl {
 		this._widget.onDidSelectItem(this._onSelectEvent, this, this._disposables);
 		this._widget.onDidFocusItem(this._onFocusEvent, this, this._disposables);
 		this._widget.onDidChangeFocus(this._updateCkBreadcrumbsActive, this, this._disposables);
+		this._widget.onDidContextMenu(this._onContextMenuEvent, this, this._disposables);
 
 		if (this._options.showEditorTypePicker) {
 			this._disposables.add(this._cfShowEditorType.onDidChange(() => this._updateEditorTypeControl()));
@@ -727,6 +731,35 @@ export class BreadcrumbsControl {
 		this._ckBreadcrumbsActive.set(value);
 	}
 
+	private _onContextMenuEvent(event: IBreadcrumbsContextMenuEvent): void {
+		// Update context keys based on item type
+		this._ckBreadcrumbItemIsFile.set(event.item instanceof FileItem);
+		this._ckBreadcrumbItemIsOutline.set(event.item instanceof OutlineItem);
+		// HACK, TODO: Find better solution to reset context keys
+		timeout(0).then(() => {
+			this._ckBreadcrumbItemIsFile.set(false);
+			this._ckBreadcrumbItemIsOutline.set(false);
+		});
+
+		if (this._cfTitleShowTabs.getValue() === 'single') {
+			// TODO: how does the action in the tabs context menu know wich part of the breadcrumb was selected?
+			return; // let editor tabs handle it
+		}
+
+		event.event.preventDefault();
+		event.event.stopPropagation();
+
+		const anchor = new StandardMouseEvent(dom.getWindow(event.node), event.event.browserEvent);
+		this._contextMenuService.showContextMenu({
+			getAnchor: () => anchor,
+			menuId: MenuId.BreadcrumbsContext,
+			contextKeyService: this._contextKeyService,
+			menuActionOptions: { shouldForwardArgs: true, arg: event.item },
+			getActionsContext: () => event.item,
+			onHide: () => this._editorGroup.activeEditorPane?.focus()
+		});
+	}
+
 	private async _revealInEditor(event: IBreadcrumbsItemEvent, element: FileElement | OutlineElement2, group: SIDE_GROUP_TYPE | ACTIVE_GROUP_TYPE | undefined, pinned: boolean = false): Promise<void> {
 
 		if (element instanceof FileElement) {
@@ -1117,23 +1150,27 @@ registerAction2(class CopyBreadcrumbPath extends Action2 {
 			}]
 		});
 	}
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const groups = accessor.get(IEditorGroupsService);
+	async run(accessor: ServicesAccessor, selectedItem: FileItem | OutlineItem | URI): Promise<void> {
 		const clipboardService = accessor.get(IClipboardService);
 		const configurationService = accessor.get(IConfigurationService);
 		const outlineService = accessor.get(IOutlineService);
 
-		if (!groups.activeGroup.activeEditorPane) {
+		if (!(selectedItem instanceof OutlineItem)) {
 			return;
 		}
 
-		const outline = await outlineService.createOutline(groups.activeGroup.activeEditorPane, OutlineTarget.Breadcrumbs, CancellationToken.None);
+		if (!selectedItem.model.editor) {
+			return;
+		}
+
+		const outline = await outlineService.createOutline(selectedItem.model.editor, OutlineTarget.Breadcrumbs, CancellationToken.None);
 		if (!outline) {
 			return;
 		}
 
 		const elements = outline.config.breadcrumbsDataSource.getBreadcrumbElements();
-		const labels = elements.map(item => item.label).filter(Boolean);
+		const selectedElementIndex = elements.findIndex(el => el.element === selectedItem.element.element);
+		const labels = elements.slice(0, selectedElementIndex + 1).map(item => item.label).filter(Boolean);
 
 		outline.dispose();
 
@@ -1142,12 +1179,57 @@ registerAction2(class CopyBreadcrumbPath extends Action2 {
 		}
 
 		// Get separator with language override support
-		const resource = groups.activeGroup.activeEditorPane.input.resource;
+		const resource = selectedItem.element.outline.uri;
 		const config = BreadcrumbsConfig.SymbolPathSeparator.bindTo(configurationService);
 		const separator = config.getValue(resource && { resource }) ?? '.';
 		config.dispose();
 
 		const path = labels.join(separator);
 		await clipboardService.writeText(path);
+	}
+});
+
+	constructor() {
+		super({
+			id: 'breadcrumbs.copyResourcePath',
+			title: localize2('cmd.copyResourcePath', "Copy Resource Path"),
+			category: Categories.View,
+			precondition: BreadcrumbsControl.CK_BreadcrumbItemIsFile,
+			f1: true,
+			menu: [{
+				id: MenuId.EditorTitleContext,
+				group: '1_cutcopypaste',
+				order: 100,
+				when: ContextKeyExpr.and(BreadcrumbsControl.CK_BreadcrumbItemIsFile, BreadcrumbsControl.CK_BreadcrumbsPossible, ContextKeyExpr.equals('config.workbench.editor.showTabs', 'single'))
+			}, {
+				id: MenuId.BreadcrumbsContext,
+				group: '1_cutcopypaste',
+				order: 1,
+				when: BreadcrumbsControl.CK_BreadcrumbItemIsFile
+			}]
+		});
+	}
+	async run(accessor: ServicesAccessor, selectedItem: FileItem | OutlineItem | URI): Promise<void> {
+		const clipboardService = accessor.get(IClipboardService);
+		const workspaceService = accessor.get(IWorkspaceContextService);
+
+		if (!(selectedItem instanceof FileItem)) {
+			return;
+		}
+
+		const resource = selectedItem.element.uri;
+		const workspaceFolder = workspaceService.getWorkspaceFolder(resource);
+		if (!workspaceFolder) {
+			await clipboardService.writeText(resource.fsPath);
+			return;
+		}
+
+		const relative = relativePath(workspaceFolder.uri, resource);
+		if (!relative) {
+			await clipboardService.writeText(resource.fsPath);
+			return;
+		}
+
+		await clipboardService.writeText(relative);
 	}
 });
