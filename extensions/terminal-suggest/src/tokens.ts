@@ -46,5 +46,46 @@ export function getTokenType(ctx: { commandLine: string; cursorIndex: number }, 
 	if (commandResetChars.some(e => previousTokens.endsWith(e))) {
 		return TokenType.Command;
 	}
-	return TokenType.Argument;
+
+	// Find the last command separator (that starts a new command context)
+	// Examples: in "ls && git status", find the "&&" separator
+	const commandSeparators = shellType === undefined ? defaultShellTypeCommandSeparators : shellTypeCommandSeparators.get(shellType) ?? defaultShellTypeCommandSeparators;
+	let lastSeparatorIndex = -1;
+	for (const separator of commandSeparators) {
+		const index = beforeCursor.lastIndexOf(separator);
+		if (index > lastSeparatorIndex) {
+			lastSeparatorIndex = index + separator.length - 1;
+		}
+	}
+
+	// Get the text after the last separator (or from the beginning if no separator found)
+	// Examples: "ls && git status" → "git status", "git status" → "git status"
+	const afterSeparator = lastSeparatorIndex >= 0 ? beforeCursor.slice(lastSeparatorIndex + 1) : beforeCursor;
+
+	// If there's no content after separator (empty or only whitespace),
+	// this indicates we're at the start of a new command context
+	// Examples: "ls && |" → Command, "|" → Command, "ls &&|" → Argument (no space)
+	if (afterSeparator.trim() === '') {
+		// For empty input or separator with trailing space, show commands
+		// For cursor immediately after separator with no space, don't show suggestions
+		return afterSeparator.length > 0 || lastSeparatorIndex === -1 ? TokenType.Command : TokenType.Argument;
+	}
+
+	const trimmedAfterSeparator = afterSeparator.trim();
+	
+	// If the trimmed text contains a space, we're clearly in argument mode
+	// Examples: "git status --all|" → Argument, "ls && git status|" → Argument
+	if (trimmedAfterSeparator.includes(' ')) {
+		return TokenType.Argument;
+	}
+
+	// If there's a trailing space after the command name, we're in argument mode
+	// Examples: "git |" → Argument, "ls && git |" → Argument
+	if (afterSeparator.endsWith(' ')) {
+		return TokenType.Argument;
+	}
+
+	// No spaces and no trailing space means we're still typing the command name
+	// Examples: "git|" → Command, "ls && git|" → Command
+	return TokenType.Command;
 }

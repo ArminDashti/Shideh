@@ -288,7 +288,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					terminal.shellIntegration?.cwd,
 					getEnvAsRecord(currentTerminalEnv),
 					terminal.name,
-					token
+					token,
+					undefined,
+					terminalShellType
 				),
 				createTimeoutPromise(5000, undefined)
 			]);
