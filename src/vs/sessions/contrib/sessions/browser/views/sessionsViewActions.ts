@@ -1126,7 +1126,7 @@ abstract class BaseArchiveSessionAction extends Action2 {
 	constructor(wording: ChatSessionArchiveActionWording) {
 		const action = getChatSessionArchiveActionPresentation(wording).archive;
 		super({
-			id: ARCHIVE_SESSION_COMMAND_ID,
+			id: 'sessionsViewPane.archiveSession',
 			title: action.title,
 			icon: action.icon,
 			menu: [{

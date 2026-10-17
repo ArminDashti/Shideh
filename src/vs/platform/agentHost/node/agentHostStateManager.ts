@@ -454,6 +454,35 @@ export class AgentHostStateManager extends Disposable {
 	}
 
 	/**
+	 * Whether a session is still an unused draft minted by this process, or
+	 * `undefined` when the session is not currently in state. Accepts either a
+	 * session URI or one of its chat channel URIs.
+	 *
+	 * Callers about to destroy durable data must use this rather than checking
+	 * whether the session currently looks empty.
+	 */
+	isUnusedDraft(sessionOrChat: URI): boolean | undefined {
+		const session = this._resolveOwningSession(sessionOrChat);
+		if (session === undefined) {
+			return undefined;
+		}
+		const entry = this._sessionStates.get(session);
+		return entry && entry.use === SessionUse.UnusedDraft;
+	}
+
+	/** Permanently marks a session as used, so it is never auto-collected. */
+	private _markSessionUsed(session: URI): void {
+		const entry = this._sessionStates.get(session);
+		if (entry) {
+			entry.use = SessionUse.Used;
+		}
+	}
+
+	private _resolveOwningSession(sessionOrChat: URI): URI | undefined {
+		return isAhpChatChannel(sessionOrChat) ? parseDefaultChatUri(sessionOrChat) : sessionOrChat;
+	}
+
+	/**
 	 * Returns the root-channel {@link SessionSummary} catalog entry for a
 	 * session, or `undefined` when the session is unknown. The summary is
 	 * derived on demand from the session's {@link ISessionEntry}: its metadata

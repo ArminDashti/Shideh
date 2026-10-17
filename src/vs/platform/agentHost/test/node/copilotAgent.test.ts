@@ -729,14 +729,11 @@ class TestCopilotClient implements ITestCopilotClient {
 		models: {
 			list: async params => {
 				this.modelListRequests.push(params);
-				const gate = this.modelListGates.shift() ?? this.modelListGate;
-				const models = this.modelListResponses.shift() ?? this._models;
 				const error = this.modelListErrors.shift();
-				await gate;
 				if (error) {
 					throw error;
 				}
-				return { models: models.map(toSdkModelInfo) };
+				return { models: this._models.map(toSdkModelInfo) };
 			}
 		},
 		plugins: {
@@ -758,11 +755,6 @@ class TestCopilotClient implements ITestCopilotClient {
 	readonly modelListRequests: Parameters<CopilotModelsList>[0][] = [];
 	readonly pluginUninstallRequests: Parameters<CopilotPluginsUninstall>[0][] = [];
 	readonly modelListErrors: Error[] = [];
-	/** When set, `models.list` records its request then blocks on this until resolved. */
-	modelListGate: Promise<void> | undefined;
-	/** Per-request gates and results, captured when each request starts. */
-	readonly modelListGates: Promise<void>[] = [];
-	readonly modelListResponses: ITestCopilotModelInfo[][] = [];
 	readonly getSessionMetadataCalls: string[] = [];
 	readonly deletedSessionIds: string[] = [];
 	readonly remoteSessionConnectCalls: string[] = [];
@@ -4673,37 +4665,6 @@ suite('CopilotAgent', () => {
 		}
 	});
 
-	test('coalesces concurrent refreshModels calls onto one models.list request', async () => {
-		const client = new TestCopilotClient([], [{
-			id: 'gpt-4o',
-			name: 'GPT-4o',
-		}]);
-		const agent = createTestAgent(disposables, { copilotClient: client });
-		try {
-			// Block the first request in flight so the second caller has
-			// something to coalesce onto: an auth-triggered refresh landing on
-			// top of a periodic scheduler tick must not double-hit the service.
-			const gate = new DeferredPromise<void>();
-			client.modelListGate = gate.p;
-			await agent.authenticate('https://api.github.com', 'token');
-
-			const first = agent.refreshModels();
-			const second = agent.refreshModels();
-			gate.complete();
-			await Promise.all([first, second]);
-
-			assert.deepStrictEqual({
-				requests: client.modelListRequests,
-				modelNames: agent.models.get().map(m => m.name),
-			}, {
-				requests: [{ gitHubToken: 'token' }],
-				modelNames: ['GPT-4o'],
-			});
-		} finally {
-			await disposeAgent(agent);
-		}
-	});
-
 	test('does not refresh models or restart the client after shutdown', async () => {
 		const client = new TestCopilotClient([], [{
 			id: 'gpt-4o',
@@ -6348,14 +6309,8 @@ suite('CopilotAgent', () => {
 
 		class StopCountingClient extends TestCopilotClient {
 			stopCount = 0;
-			stopGate: Promise<void> | undefined;
-			stopError: Error | undefined;
 			override async stop(): ReturnType<ITestCopilotClient['stop']> {
 				this.stopCount++;
-				await this.stopGate;
-				if (this.stopError) {
-					throw this.stopError;
-				}
 				return super.stop();
 			}
 		}

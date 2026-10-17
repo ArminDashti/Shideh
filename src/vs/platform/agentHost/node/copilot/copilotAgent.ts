@@ -827,38 +827,15 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * Bounded exponential-backoff retry for {@link _refreshModels}. The SDK's
 	 * `models.list` RPC can fail transiently (e.g. a `429 "too many requests"`
 	 * right after startup). Without a retry the model picker would stay empty
-	 * until the next external refresh trigger (a GitHub token change, a CLI
-	 * client restart, or the host's periodic scheduler), so we retry a few
-	 * times before giving up. Overridable in tests to avoid real delays.
+	 * until the GitHub token next changes — the only other trigger for a
+	 * refresh — so we retry a few times before giving up. Overridable in tests
+	 * to avoid real delays.
 	 */
 	protected readonly _modelRefreshMaxAttempts: number = MODEL_REFRESH_MAX_ATTEMPTS;
 	protected readonly _modelRefreshBaseDelayMs: number = MODEL_REFRESH_BASE_DELAY_MS;
 	protected readonly _modelRefreshMaxDelayMs: number = MODEL_REFRESH_MAX_DELAY_MS;
 	/** Pending model-refresh retry timer; cleared on a fresh refresh, shutdown, or dispose. */
 	private readonly _modelRefreshRetry = this._register(new MutableDisposable());
-	/**
-	 * Invalidates model requests bound to a superseded token/client/catalog
-	 * source. Token identity alone is insufficient: restarting the client for
-	 * a `COPILOT_GH_HOST` change keeps the same token while changing the CAPI
-	 * endpoint whose catalog is authoritative.
-	 */
-	private _modelCatalogGeneration = 0;
-	/**
-	 * Forced refreshes are deferred to the next task so related lifecycle
-	 * changes (for example an auth update arriving with a startup-config
-	 * change) collapse into one enumeration of the final token/client source.
-	 */
-	private _scheduledModelRefresh: { readonly deferred: DeferredPromise<void>; generation: number } | undefined;
-	private readonly _modelRefreshSchedule = this._register(new MutableDisposable());
-	/**
-	 * In-flight {@link refreshModels} call, so overlapping triggers (an auth
-	 * token change landing on top of a periodic tick) collapse into a single
-	 * `models.list` request. Only covers the request itself: {@link _refreshModels}
-	 * returns as soon as it *schedules* a backoff retry, so a pending retry
-	 * never suppresses a later tick — which is what lets the scheduler act as
-	 * the long-term retry path once the bounded attempts are exhausted.
-	 */
-	private _modelRefreshInFlight: Promise<void> | undefined;
 
 	/**
 	 * Settles when the current *invalidating* model refresh has republished the
@@ -1336,15 +1313,6 @@ export class CopilotAgent extends Disposable implements IAgent {
 		this._logService.info(`[Copilot] Restarting CopilotClient (${reason})`);
 		this._chatEntriesBySdkId.clearAndDisposeAll();
 		await this._stopClient();
-		// The model list came from the subprocess we just tore down, and the
-		// replacement may be pointed at a different CAPI endpoint entirely
-		// (`COPILOT_GH_HOST` routes through this same helper). Re-enumerate
-		// rather than serving the old client's catalog until the next token
-		// change. Not hooked in `_ensureClient`, since `_listModels` calls
-		// it and would recurse.
-		this._capiModels = [];
-		this._publishModels();
-		void this._scheduleModelRefresh();
 	}
 
 	/**
@@ -2408,7 +2376,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				const delay = this._modelRefreshBackoff(attempt);
 				this._logService.warn(`[Copilot] Failed to refresh models (attempt ${attempt + 1}), retrying in ${delay}ms`, err);
 				this._modelRefreshRetry.value = disposableTimeout(() => {
-					void this._refreshModels(attempt + 1, generation);
+					void this._refreshModels(attempt + 1);
 				}, delay);
 				return;
 			}
@@ -2539,9 +2507,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	private _stopClient(): Promise<void> {
 		this._prewarmedSessionMetadata = undefined;
 		// Any parked restart is satisfied by this stop: the next `_ensureClient`
-		// starts from the current config, so nothing is left to re-apply. Cleared
-		// synchronously so a concurrent `_applyPendingClientRestart` bails rather
-		// than stopping a client this call is already tearing down.
+		// starts from the current config, so nothing is left to re-apply.
 		this._pendingClientRestartReasons.clear();
 		const pendingRestartWaiter = this._pendingClientRestartWaiter;
 		this._pendingClientRestartWaiter = undefined;
