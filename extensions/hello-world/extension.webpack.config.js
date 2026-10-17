@@ -7,6 +7,7 @@
 
 'use strict';
 
+const CopyPlugin = require('copy-webpack-plugin');
 const withDefaults = require('../shared.webpack.config');
 
 module.exports = withDefaults({
