@@ -9,6 +9,7 @@ import { asCssValueWithDefault } from '../../../base/browser/cssValue.js';
 import { ensureCodeWindow, isAuxiliaryWindow, mainWindow } from '../../browser/window.js';
 import { DeferredPromise, timeout } from '../../common/async.js';
 import { errorHandler, setUnexpectedErrorHandler } from '../../common/errors.js';
+import { DisposableStore } from '../../common/lifecycle.js';
 import { runWithFakedTimers } from '../common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../common/utils.js';
 

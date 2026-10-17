@@ -1975,6 +1975,8 @@ export class ModifierKeyEmitter extends event.Emitter<IModifierKeyStatus> {
 				return;
 			}
 
+			const modifiersChanged = this.hasModifierChanges(e);
+
 			this._keyStatus.altKey = e.altKey;
 			this._keyStatus.ctrlKey = e.ctrlKey;
 			this._keyStatus.metaKey = e.metaKey;
@@ -2006,6 +2008,8 @@ export class ModifierKeyEmitter extends event.Emitter<IModifierKeyStatus> {
 				this._keyStatus.lastKeyPressed = undefined;
 			}
 
+			const modifiersChanged = this.hasModifierChanges(e);
+
 			this._keyStatus.altKey = e.altKey;
 			this._keyStatus.ctrlKey = e.ctrlKey;
 			this._keyStatus.metaKey = e.metaKey;
@@ -2016,23 +2020,59 @@ export class ModifierKeyEmitter extends event.Emitter<IModifierKeyStatus> {
 			}
 		}, true));
 
-		disposables.add(addDisposableListener(window.document.body, 'mousedown', () => {
+		disposables.add(addDisposableListener(window.document.body, 'mousedown', e => {
 			this._keyStatus.lastKeyPressed = undefined;
+
+			this.syncKeyStatus(e);
 		}, true));
 
-		disposables.add(addDisposableListener(window.document.body, 'mouseup', () => {
+		disposables.add(addDisposableListener(window.document.body, 'mouseup', e => {
 			this._keyStatus.lastKeyPressed = undefined;
+
+			this.syncKeyStatus(e);
 		}, true));
 
 		disposables.add(addDisposableListener(window.document.body, 'mousemove', e => {
 			if (e.buttons) {
 				this._keyStatus.lastKeyPressed = undefined;
 			}
+
+			this.syncKeyStatus(e);
 		}, true));
 
 		disposables.add(addDisposableListener(window, 'blur', () => {
 			this.resetKeyStatus();
 		}));
+	}
+
+	/**
+	 * Modifier state goes stale when a modifier is released while our windows are not
+	 * focused (e.g. during Alt+Tab or macOS Mission Control) because the matching
+	 * `keyup` never arrives. Mouse events carry the actual modifier state, so they
+	 * allow to recover from that (#331979).
+	 */
+	private syncKeyStatus(e: MouseEvent): void {
+		if (!this.hasModifierChanges(e)) {
+			return;
+		}
+
+		// The keyboard transition we missed makes the last pressed and
+		// released keys unreliable, so continue with a clean status.
+		this._keyStatus = {
+			altKey: e.altKey,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+			shiftKey: e.shiftKey
+		};
+
+		this.fire(this._keyStatus);
+	}
+
+	private hasModifierChanges(e: KeyboardEvent | MouseEvent): boolean {
+		return this._keyStatus.altKey !== e.altKey ||
+			this._keyStatus.ctrlKey !== e.ctrlKey ||
+			this._keyStatus.metaKey !== e.metaKey ||
+			this._keyStatus.shiftKey !== e.shiftKey;
 	}
 
 	get keyStatus(): IModifierKeyStatus {
