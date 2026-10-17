@@ -23,6 +23,8 @@ import { SCAN_CODE_STR_TO_EVENT_KEY_CODE } from '../../../base/common/keyCodes.j
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { logBrowserOpen } from '../common/browserViewTelemetry.js';
 import { URI } from '../../../base/common/uri.js';
+import { BrowserFavicon } from '../common/browserFavicon.js';
+import { Schemas } from '../../../base/common/network.js';
 
 enum NewPageLocation {
 	Foreground = 'foreground',
@@ -40,7 +42,6 @@ export class BrowserView extends Disposable {
 	presentation = BrowserViewPresentation.Listed;
 
 	private _lastScreenshot: VSBuffer | undefined = undefined;
-	private _lastFavicon: string | undefined = undefined;
 	private _lastError: IBrowserViewLoadError | undefined = undefined;
 	private _lastUserGestureTimestamp: number = -Infinity;
 	private _browserZoomIndex: number = browserZoomDefaultIndex;
@@ -162,6 +163,7 @@ export class BrowserView extends Disposable {
 			// Passing an `undefined` webContents triggers an error in Electron.
 			...(options?.webContents ? { webContents: options.webContents } : {})
 		});
+		this._favicon = this._register(new BrowserFavicon(this._view.webContents.getURL(), () => this._readFaviconUrls(), url => this._fetchFavicon(url), this.logService));
 
 		// Use a default size of 1024x768.
 		// Important: The bounds here must be on-screen, otherwise some OSes (like macOS) may not actually start rendering.
@@ -237,6 +239,7 @@ export class BrowserView extends Disposable {
 		});
 
 		this._view.webContents.on('destroyed', () => {
+			this._favicon.dispose();
 			this.dispose();
 		});
 
@@ -324,21 +327,20 @@ export class BrowserView extends Disposable {
 				this._currentHistoryHandle?.update({ favicon: null });
 			}
 		});
+		const refreshFavicon = () => {
+			void this._favicon.refresh().catch(error => this.logService.warn('[BrowserView] Failed to refresh favicon.', error));
+		};
+		this._register(Event.fromNodeEventEmitter(webContents, 'dom-ready')(refreshFavicon));
 		webContents.on('will-navigate', (event) => {
 			if (this._redirectPinnedNavigation(event.url)) {
 				event.preventDefault();
 				return;
 			}
-			// URL.parse (vs `new URL`) tolerates about:/blob:/empty strings without throwing.
-			const host = URL.parse(event.url)?.host;
-			const currHost = URL.parse(this.webContents.getURL())?.host;
-			if (host !== currHost) {
-				this._lastFavicon = undefined;
-			}
 		});
 		webContents.on('will-redirect', event => {
 			if (this._redirectPinnedNavigation(event.url)) {
 				event.preventDefault();
+				return;
 			}
 		});
 
@@ -348,7 +350,8 @@ export class BrowserView extends Disposable {
 			this._currentHistoryHandle?.update({ title });
 		});
 
-		const fireNavigationEvent = (url: string) => {
+		const fireNavigationEvent = (url: string, sameDocument = false) => {
+			this._favicon.commitNavigation(url, sameDocument);
 			this._onDidNavigate.fire({
 				url,
 				title: webContents.getTitle(),
@@ -357,6 +360,10 @@ export class BrowserView extends Disposable {
 				certificateError: this.session.trust.getCertificateError(url)
 			});
 			this._recordNavigation(url);
+			if (!sameDocument) {
+				this._onDidChangeFavicon.fire({ favicon: this._favicon.favicon });
+				refreshFavicon();
+			}
 		};
 
 		const fireLoadingEvent = (loading: boolean) => {
@@ -372,7 +379,9 @@ export class BrowserView extends Disposable {
 				fireLoadingEvent(true);
 			}
 		});
-		webContents.on('did-stop-loading', () => fireLoadingEvent(false));
+		webContents.on('did-stop-loading', () => {
+			fireLoadingEvent(false);
+		});
 		webContents.on('did-fail-load', (e, errorCode, errorDescription, validatedURL, isMainFrame) => {
 			if (isMainFrame) {
 				// Ignore ERR_ABORTED (-3) which is the expected error when user stops a page load.
@@ -381,6 +390,7 @@ export class BrowserView extends Disposable {
 					return;
 				}
 
+				this._favicon.failNavigation();
 				this._lastError = {
 					url: validatedURL,
 					errorCode,
@@ -397,6 +407,7 @@ export class BrowserView extends Disposable {
 					canGoForward: webContents.navigationHistory.canGoForward(),
 					certificateError: this.session.trust.getCertificateError(validatedURL)
 				});
+				this._onDidChangeFavicon.fire({ favicon: this._favicon.favicon });
 			}
 		});
 		webContents.on('did-finish-load', () => fireLoadingEvent(false));
@@ -431,7 +442,7 @@ export class BrowserView extends Disposable {
 			// Ignore subframe (iframe) navigations: they must not rewrite the
 			// main frame's URL bar or its history entry.
 			if (isMainFrame) {
-				fireNavigationEvent(url);
+				fireNavigationEvent(url, true);
 			}
 		});
 
@@ -538,6 +549,51 @@ export class BrowserView extends Disposable {
 		});
 	}
 
+	private async _readFaviconUrls(): Promise<readonly string[] | undefined> {
+		const webContents = this._view.webContents;
+		const frame = webContents.mainFrame;
+		// Unlike webContents.executeJavaScript, this also runs while the outgoing page has a pending navigation.
+		const urls = await frame.executeJavaScript('globalThis.__vscode_helpers?.getFaviconUrls()');
+		if (webContents.isDestroyed() || frame.isDestroyed() || frame.detached || frame !== webContents.mainFrame || urls === undefined || urls === null) {
+			return undefined;
+		}
+		if (!Array.isArray(urls) || !urls.every(url => typeof url === 'string')) {
+			throw new Error('Invalid document favicon URLs');
+		}
+		if (!urls.length) {
+			const documentUrl = URI.parse(frame.url);
+			if (documentUrl.scheme === Schemas.http || documentUrl.scheme === Schemas.https) {
+				const defaultUrl = new URL('/favicon.ico', frame.url).href;
+				// Reuse only a default candidate already requested through Chromium's CSP-aware notification.
+				return this._nativeFaviconUrls.filter(url => url === defaultUrl && this._faviconRequestCache.has(url));
+			}
+		}
+		return urls;
+	}
+
+	private _fetchFavicon(url: string): Promise<string> {
+		let request = this._faviconRequestCache.get(url);
+		if (!request) {
+			request = (async () => {
+				if (url.startsWith('data:image/')) {
+					return url;
+				}
+				const response = await this._view.webContents.session.fetch(url, { cache: 'force-cache' });
+				if (!response.ok) {
+					throw new Error(`Failed to fetch favicon: ${response.status} ${response.statusText}`);
+				}
+				const type = response.headers.get('content-type');
+				if (!type?.startsWith('image/')) {
+					throw new Error(`Favicon is not an image: ${type}`);
+				}
+				const buffer = await response.arrayBuffer();
+				return `data:${type};base64,${Buffer.from(buffer).toString('base64')}`;
+			})();
+			this._faviconRequestCache.set(url, request);
+		}
+		return request;
+	}
+
 	private consumePopupPermission(location: NewPageLocation): boolean {
 		switch (location) {
 			case NewPageLocation.Foreground:
@@ -572,7 +628,7 @@ export class BrowserView extends Disposable {
 		// a duplicate.
 		const handle = this._currentHistoryHandle;
 		if (handle && activeIndex === this._lastCommittedEntryIndex) {
-			handle.update({ url, title: webContents.getTitle() });
+			handle.update({ url, title: webContents.getTitle(), favicon: this._favicon.favicon ?? null });
 			return;
 		}
 		this._lastCommittedEntryIndex = activeIndex;
@@ -582,7 +638,7 @@ export class BrowserView extends Disposable {
 		this._currentHistoryHandle = this.session.history.add(
 			url,
 			webContents.getTitle(),
-			this._lastFavicon,
+			this._favicon.favicon,
 			userInitiated,
 		);
 	}
@@ -601,9 +657,9 @@ export class BrowserView extends Disposable {
 	}
 
 	/**
-	 * Get the current state of this browser view
+	 * Get the current navigation state of this browser view
 	 */
-	getState(): IBrowserViewState {
+	getNavigationState(): IBrowserViewNavigationState {
 		const webContents = this._view.webContents;
 		const url = webContents.getURL();
 
@@ -613,13 +669,24 @@ export class BrowserView extends Disposable {
 			canGoBack: webContents.navigationHistory.canGoBack(),
 			canGoForward: webContents.navigationHistory.canGoForward(),
 			loading: webContents.isLoading(),
+			lastFavicon: this._favicon.favicon,
+			lastError: this._lastError,
+			certificateError: this.session.trust.getCertificateError(url)
+		};
+	}
+
+	/**
+	 * Get the current state of this browser view
+	 */
+	getState(): IBrowserViewState {
+		const webContents = this._view.webContents;
+
+		return {
+			...this.getNavigationState(),
 			focused: webContents.isFocused(),
 			visible: this._view.getVisible(),
 			isDevToolsOpen: webContents.isDevToolsOpened(),
 			lastScreenshot: this._lastScreenshot,
-			lastFavicon: this._lastFavicon,
-			lastError: this._lastError,
-			certificateError: this.session.trust.getCertificateError(url),
 			storageScope: this.session.storageScope,
 			storageKeys: { ...this.session.history.storageKeys, ...this.session.permissions.storageKeys },
 			permissions: this.session.permissions.serialize(),

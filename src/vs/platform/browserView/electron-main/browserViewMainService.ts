@@ -191,6 +191,10 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		return this._getBrowserView(id).getState();
 	}
 
+	async getNavigationState(id: string): Promise<IBrowserViewNavigationState> {
+		return this._getBrowserView(id).getNavigationState();
+	}
+
 	async setAudience(id: string, audience: IBrowserViewAudience, enabled: boolean): Promise<void> {
 		const view = this._getBrowserView(id);
 		if (enabled && audience.type === 'agent') {

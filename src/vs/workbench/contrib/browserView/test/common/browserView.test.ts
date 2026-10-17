@@ -8,7 +8,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { upcastPartial } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { browserZoomDefaultIndex, BrowserViewStorageScope, IBrowserViewAudience, IBrowserViewService, IBrowserViewState } from '../../../../../platform/browserView/common/browserView.js';
+import { browserZoomDefaultIndex, BrowserViewStorageScope, IBrowserViewAudience, IBrowserViewNavigationState, IBrowserViewService, IBrowserViewState, IBrowserViewTitleChangeEvent } from '../../../../../platform/browserView/common/browserView.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IAgentNetworkFilterService } from '../../../../../platform/networkFilter/common/networkFilterService.js';
