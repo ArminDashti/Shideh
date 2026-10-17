@@ -40,6 +40,7 @@ export class ObjectTree<T, TFilterData = void> extends AbstractTree<T | null, TF
 	protected declare model: IObjectTreeModel<T, TFilterData>;
 
 	override get onDidChangeCollapseState(): Event<ICollapseStateChangeEvent<T | null, TFilterData>> { return this.model.onDidChangeCollapseState; }
+	get onDidSplice(): Event<ITreeModelSpliceEvent<T | null, TFilterData>> { return this.model.onDidSplice; }
 
 	constructor(
 		protected readonly user: string,
