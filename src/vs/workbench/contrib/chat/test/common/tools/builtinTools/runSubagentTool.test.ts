@@ -10,6 +10,7 @@ import { Event } from '../../../../../../../base/common/event.js';
 import { URI } from '../../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../../../platform/log/common/log.js';
+import { IContextKeyService } from '../../../../../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { RUN_SUBAGENT_MAX_NESTING_DEPTH, RunSubagentTool } from '../../../../common/tools/builtinTools/runSubagentTool.js';
 import { MockLanguageModelToolsService } from '../mockLanguageModelToolsService.js';
@@ -260,6 +261,7 @@ suite('RunSubagentTool', () => {
 				new TestConfigurationService(),
 				promptsService,
 				{} as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 				NullTelemetryService,
 			));
@@ -305,6 +307,7 @@ suite('RunSubagentTool', () => {
 				new TestConfigurationService({ [ChatConfiguration.GeneralPurposeAgentEnabled]: true }),
 				promptsService,
 				{} as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 				NullTelemetryService,
 			));
@@ -419,6 +422,7 @@ suite('RunSubagentTool', () => {
 				new TestConfigurationService(),
 				promptsService,
 				{} as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 				NullTelemetryService,
 			));
@@ -446,6 +450,7 @@ suite('RunSubagentTool', () => {
 				new TestConfigurationService({ [ChatConfiguration.GeneralPurposeAgentEnabled]: true }),
 				promptsService,
 				{} as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 			));
 
@@ -1218,6 +1223,7 @@ suite('RunSubagentTool', () => {
 				}),
 				promptsService,
 				{} as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 				NullTelemetryService,
 			));
@@ -1444,10 +1450,14 @@ suite('RunSubagentTool', () => {
 				},
 			};
 
-			const mockInstantiationService: Pick<IInstantiationService, 'createInstance'> = {
+			const mockInstantiationService: Pick<IInstantiationService, 'createInstance' | 'createChild' | 'dispose'> = {
 				createInstance(..._args: never[]): { collect: () => Promise<void> } {
 					return { collect: async () => { } };
 				},
+				createChild() {
+					return mockInstantiationService as IInstantiationService;
+				},
+				dispose() { },
 			};
 
 			return testDisposables.add(new RunSubagentTool(
@@ -1459,6 +1469,7 @@ suite('RunSubagentTool', () => {
 				new TestConfigurationService({ [ChatConfiguration.SubagentsAllowInvocationsFromSubagents]: true }),
 				promptsService,
 				mockInstantiationService as IInstantiationService,
+				{ createOverlay: () => ({}) } as unknown as IContextKeyService,
 				{} as IProductService,
 				NullTelemetryService,
 			));
