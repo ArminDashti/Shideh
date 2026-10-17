@@ -123,7 +123,7 @@ export class ChatPlanReviewPart extends Disposable implements IChatContentPart {
 		// contribution can show inline feedback input for this plan file.
 		// Subscribe to feedback changes so the comments list and Submit
 		// button label stay in sync.
-		if (review.planUri && review.canProvideFeedback && !this._isSubmitted) {
+		if (review.planUri && !this._isSubmitted) {
 			const planUri = URI.revive(review.planUri);
 			const planUriString = planUri.toString();
 			const registrationStore = new DisposableStore();

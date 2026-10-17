@@ -18,6 +18,8 @@ export interface IPlanReviewFeedbackItem {
 	readonly range: IRange;
 	readonly line: number;
 	readonly column: number;
+	readonly endLine: number;
+	readonly endColumn: number;
 	readonly text: string;
 }
 
@@ -45,8 +47,10 @@ export interface IPlanReviewFeedbackService {
 	getPlanReview(uri: URI): IPlanReviewFeedbackRegistration | undefined;
 	notifyFeedbackChanged(planUri: URI): void;
 	addFeedback(planUri: URI, line: number, column: number, text: string): string;
+	addFeedbackForRange(planUri: URI, range: IRange, text: string): string;
 	removeFeedback(planUri: URI, feedbackId: string): void;
 	updateFeedback(planUri: URI, feedbackId: string, newText: string): void;
+	updateFeedbackRanges(planUri: URI, updates: readonly { id: string; range: IRange }[]): void;
 	getFeedback(planUri: URI): readonly IPlanReviewFeedbackItem[];
 	clearFeedback(planUri: URI): void;
 	getNextFeedback(planUri: URI, next: boolean): IPlanReviewFeedbackItem | undefined;
@@ -62,6 +66,7 @@ interface IPlanReviewRegistration {
 	readonly items: IPlanReviewFeedbackItem[];
 	readonly existingCommentIds: Set<string>;
 	navigationAnchor: string | undefined;
+	navigationRequestId: number;
 }
 
 export class PlanReviewFeedbackService extends Disposable implements IPlanReviewFeedbackService, IAgentEditorCommentsProvider {
@@ -144,6 +149,14 @@ export class PlanReviewFeedbackService extends Disposable implements IPlanReview
 		if (this.isActivePlanReview(planUri)) {
 			this._onDidChangeFeedback.fire(planUri);
 		}
+	}
+
+	canProvideFeedback(uri: URI): boolean {
+		return this._registrations.get(uri.toString())?.review.canProvideFeedback ?? false;
+	}
+
+	getPlanReview(uri: URI): IPlanReviewFeedbackRegistration | undefined {
+		return this._registrations.get(uri.toString())?.review;
 	}
 
 	addFeedback(planUri: URI, line: number, column: number, text: string): string {
@@ -287,6 +300,7 @@ export class PlanReviewFeedbackService extends Disposable implements IPlanReview
 		const registration = this._getRegistration(planUri);
 		if (registration) {
 			registration.navigationAnchor = itemId;
+			registration.navigationRequestId++;
 			this._onDidChangeNavigation.fire(planUri);
 		}
 	}

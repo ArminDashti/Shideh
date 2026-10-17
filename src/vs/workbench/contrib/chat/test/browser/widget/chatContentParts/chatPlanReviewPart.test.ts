@@ -47,6 +47,16 @@ function createMockReviewWithPlan(overrides?: Partial<IChatPlanReview>): IChatPl
 	});
 }
 
+function createReviewDataWithPlan(content = '# Plan summary'): ChatPlanReviewData {
+	return new ChatPlanReviewData(
+		'Review Plan',
+		content,
+		[{ id: 'approve', label: 'Approve', default: true }],
+		true,
+		URI.parse('file:///plan.md').toJSON(),
+	);
+}
+
 function createMockContext(): IChatContentPartRenderContext {
 	return {
 		element: { sessionResource: URI.parse('test://session/1') },
@@ -933,6 +943,20 @@ suite('ChatPlanReviewPart', () => {
 			const footerButtons = getFooterButtons(widget);
 			assert.ok(footerButtons.some(b => b.textContent?.includes('Submit Feedback')), 'submit feedback button should remain after expand');
 			assert.ok(footerButtons.some(b => b.textContent?.includes('Autopilot')), 'approve should remain available in feedback mode');
+		});
+
+		test('a comment added while collapsed is reflected in the inline action', async () => {
+			const review = createMockReviewWithPlan();
+			createWidget(review);
+
+			const collapseButton = widget.domNode.querySelector('.chat-plan-review-title-icon-button:last-child') as HTMLElement;
+			collapseButton.click();
+
+			lastFeedbackService!.addFeedback(URI.revive(review.planUri!), 3, 1, 'Clarify this step');
+			await tick();
+
+			const submitButton = getInlineButtons(widget).find(button => button.textContent?.includes('Submit Feedback'));
+			assert.ok(submitButton?.textContent?.includes('(1)'), 'collapsed widget should show the pending comment count');
 		});
 
 		test('a comment added while collapsed is reflected in the inline action', async () => {

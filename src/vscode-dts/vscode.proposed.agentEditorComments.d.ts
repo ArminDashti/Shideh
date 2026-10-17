@@ -21,6 +21,11 @@ declare module 'vscode' {
 		readonly author?: string;
 	}
 
+	export interface AgentEditorReview {
+		readonly activeFeedbackId?: string;
+		readonly activeFeedbackRequestId: number;
+	}
+
 	/**
 	 * A live, disposable view of the agent/session comments for a resource that is
 	 * not necessarily shown in a {@link TextEditor} (for example a document rendered
@@ -45,6 +50,7 @@ declare module 'vscode' {
 		 * Changes to this value are reported through {@link onDidChange}.
 		 */
 		readonly acceptsComments: boolean;
+		readonly review: AgentEditorReview | undefined;
 
 		/**
 		 * An event that fires whenever {@link comments} or {@link acceptsComments}
@@ -67,6 +73,8 @@ declare module 'vscode' {
 		 */
 		// eslint-disable-next-line local/vscode-dts-provider-naming
 		addComment(range: Range, body: string): void;
+		// eslint-disable-next-line local/vscode-dts-provider-naming
+		updateCommentRange(id: string, range: Range): void;
 
 		/**
 		 * Delete the comment with the given id. No-op when no comment with that id

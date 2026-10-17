@@ -23,13 +23,15 @@ interface IFixtureOptions {
 	readonly acceptedFeedbackCount?: number;
 }
 
+const planFeedbackMenuId = MenuId.for('planFeedback.fixture');
+
 class FixtureMenuService implements IMenuService {
 	constructor(private readonly _hasAgentFeedbackActions: boolean) {
 	}
 
 	declare readonly _serviceBrand: undefined;
 
-	createMenu(_id: MenuId): IMenu {
+	createMenu(id: MenuId): IMenu {
 		const navigateActions = [
 			toAction({ id: navigationBearingFakeActionId, label: 'Navigation Status', run: () => { } }),
 			toAction({ id: navigatePreviousFeedbackActionId, label: 'Previous', class: 'codicon codicon-arrow-up', run: () => { } }),
@@ -42,6 +44,16 @@ class FixtureMenuService implements IMenuService {
 				toAction({ id: clearAllFeedbackActionId, label: 'Clear', class: 'codicon codicon-clear-all', run: () => { } }),
 			] as unknown as (MenuItemAction | SubmenuItemAction)[]
 			: [];
+		if (id === planFeedbackMenuId) {
+			return {
+				onDidChange: Event.None,
+				dispose: () => { },
+				getActions: () => [
+					['navigate', navigateActions],
+					['a_submit', [submitActions[1]]],
+				],
+			};
+		}
 
 		return {
 			onDidChange: Event.None,
@@ -89,11 +101,79 @@ function renderWidget(context: ComponentFixtureContext, options: IFixtureOptions
 	widget.show(
 		options.navigationBearings,
 		options.acceptedFeedbackCount ?? (options.hasAgentFeedbackActions === false ? 0 : options.navigationBearings.totalCount),
+		{
+			menuId: MenuId.for('agentFeedback.fixture'),
+			navigationBearingActionId: navigationBearingFakeActionId,
+			navigatePreviousActionId: navigatePreviousFeedbackActionId,
+			navigateNextActionId: navigateNextFeedbackActionId,
+			submitActionId: submitFeedbackActionId,
+			clearActionId: clearAllFeedbackActionId,
+			submitLabel: count => `Submit ${count}`,
+		},
 	);
 	context.container.appendChild(widget.getDomNode());
 }
 
+function renderPlanWidget(context: ComponentFixtureContext, feedbackCount: number, width = 720): void {
+	const scopedDisposables = context.disposableStore.add(new DisposableStore());
+	context.container.classList.add('monaco-workbench');
+	context.container.style.width = `${width}px`;
+	context.container.style.height = '64px';
+	context.container.style.padding = '12px';
+	context.container.style.background = 'var(--vscode-editor-background)';
+
+	const instantiationService = createEditorServices(scopedDisposables, {
+		colorTheme: context.theme,
+		additionalServices: reg => {
+			registerWorkbenchServices(reg);
+			reg.defineInstance(IMenuService, new FixtureMenuService(true));
+		},
+	});
+	const widget = scopedDisposables.add(instantiationService.createInstance(AgentFeedbackOverlayWidget));
+	widget.layout(width);
+	widget.showPlan({
+		key: 'fixture-plan',
+		actions: [
+			{ id: 'autopilot', label: 'Implement with Autopilot Fleet', default: true },
+			{ id: 'approve', label: 'Approve Plan' },
+		],
+		feedbackCount,
+		input: {
+			placeholder: 'Overall Feedback',
+			ariaLabel: 'Overall plan feedback',
+		},
+		submitFeedbackLabel: 'Submit Feedback',
+		submitFeedbackWithCountLabel: count => `Submit Feedback (${count})`,
+		rejectLabel: 'Reject',
+		onSubmitFeedback: async () => { },
+		onSubmitAction: async () => { },
+		onReject: async () => { },
+		navigation: feedbackCount > 0 ? {
+			menuId: planFeedbackMenuId,
+			bearingActionId: navigationBearingFakeActionId,
+			clearActionId: clearAllFeedbackActionId,
+			bearings: { activeIdx: feedbackCount - 1, totalCount: feedbackCount },
+		} : undefined,
+	});
+	context.container.appendChild(widget.getDomNode());
+}
+
 export default defineThemedFixtureGroup({ path: 'sessions/agentFeedback/' }, {
+	PlanActions: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: context => renderPlanWidget(context, 0),
+	}),
+
+	PlanFeedback: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: context => renderPlanWidget(context, 1),
+	}),
+
+	PlanNarrow: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: context => renderPlanWidget(context, 1, 440),
+	}),
+
 	ZeroOfZero: defineComponentFixture({
 		labels: { kind: 'screenshot' },
 		render: context => renderWidget(context, {

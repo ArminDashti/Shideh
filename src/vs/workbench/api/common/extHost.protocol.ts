@@ -2201,15 +2201,21 @@ export interface IAgentEditorCommentDto {
 	author?: string;
 }
 
+export interface IAgentEditorReviewDto {
+	activeFeedbackId?: string;
+	activeFeedbackRequestId: number;
+}
+
 export interface MainThreadAgentEditorCommentsShape extends IDisposable {
 	$createAgentEditorComments(handle: number, uri: UriComponents): Promise<void>;
 	$addComment(handle: number, range: IRange, body: string): Promise<void>;
+	$updateCommentRange(handle: number, id: string, range: IRange): Promise<void>;
 	$deleteComment(handle: number, id: string): Promise<void>;
 	$disposeAgentEditorComments(handle: number): Promise<void>;
 }
 
 export interface ExtHostAgentEditorCommentsShape {
-	$acceptAgentEditorComments(handle: number, comments: IAgentEditorCommentDto[], acceptsComments: boolean): void;
+	$acceptAgentEditorComments(handle: number, comments: IAgentEditorCommentDto[], acceptsComments: boolean, review: IAgentEditorReviewDto | undefined): void;
 	$revealAgentEditorComment(handle: number, id: string): void;
 }
 

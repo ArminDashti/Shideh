@@ -21,14 +21,18 @@ export interface IAgentEditorComment {
 	readonly body: string;
 }
 
+export interface IAgentEditorReview {
+	readonly activeFeedbackId?: string;
+	readonly activeFeedbackRequestId: number;
+}
+
 export interface IAgentEditorCommentRevealEvent {
 	readonly resource: URI;
 	readonly id: string;
 }
 
 /**
- * Supplies the session comments for a resource. Implemented by the sessions
- * layer (backed by the agent feedback store) and registered into the bridge.
+ * Supplies agent comments for a resource, such as session feedback or plan review comments.
  */
 export interface IAgentEditorCommentsProvider {
 	readonly priority?: number;
@@ -39,15 +43,14 @@ export interface IAgentEditorCommentsProvider {
 	getComments(resource: URI, includeRelated?: boolean): readonly IAgentEditorComment[];
 	getCommentIds?(resource: URI, includeRelated?: boolean): readonly string[];
 	addComment(resource: URI, range: IRange, body: string): void;
+	updateCommentRange?(resource: URI, id: string, range: IRange): void;
 	deleteComment(resource: URI, id: string): void;
+	getReview?(resource: URI): IAgentEditorReview | undefined;
 }
 
 /**
- * Workbench-layer seam that lets the (globally registered) main-thread
- * extension host customer read and contribute session editor comments without
- * depending on the sessions layer directly. When no provider is registered
- * (e.g. the regular workbench window) the bridge is a no-op, so the customer
- * degrades gracefully.
+ * Workbench-layer seam that lets the extension host read and contribute agent comments
+ * without depending on their feature-specific stores.
  */
 export interface IAgentEditorCommentsBridge {
 	readonly _serviceBrand: undefined;
@@ -56,11 +59,12 @@ export interface IAgentEditorCommentsBridge {
 	readonly onDidChangeComments: Event<void>;
 	readonly onDidRevealComment: Event<IAgentEditorCommentRevealEvent>;
 
-	/** Whether new comments can be added for the resource. `false` when no provider is registered. */
+	/** Whether new comments can be added for the resource. */
 	acceptsComments(resource: URI): boolean;
 	getComments(resource: URI, includeRelated?: boolean): readonly IAgentEditorComment[];
 	getCommentIds(resource: URI, includeRelated?: boolean): readonly string[];
 	addComment(resource: URI, range: IRange, body: string): void;
+	updateCommentRange(resource: URI, id: string, range: IRange): void;
 	deleteComment(resource: URI, id: string): void;
 	revealComment(resource: URI, id: string): void;
 

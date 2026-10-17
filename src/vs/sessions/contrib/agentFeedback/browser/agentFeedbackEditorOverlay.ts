@@ -20,6 +20,8 @@ import { Menus } from '../../../browser/menus.js';
 import { ICodeReviewService } from '../../codeReview/browser/codeReviewService.js';
 import { EmptyFileEditorInput } from '../../editor/browser/emptyFileEditorInput.js';
 import { getAcceptedAgentFeedbackCommentCount, getSessionEditorComments } from './sessionEditorComments.js';
+import { EditorFeedbackOverlayWidget } from '../../../../workbench/contrib/chat/browser/feedback/editorFeedbackOverlayWidget.js';
+import { IPlanReviewFeedbackService } from '../../../../workbench/contrib/chat/browser/planReviewFeedback/planReviewFeedbackService.js';
 
 export interface IAgentFeedbackOverlayEditorGroup extends IEditorGroup {
 	readonly editorPaneContainer: HTMLElement;
@@ -40,6 +42,7 @@ export class AgentFeedbackOverlayController {
 		@IInstantiationService instaService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@ICodeReviewService codeReviewService: ICodeReviewService,
+		@IPlanReviewFeedbackService planReviewFeedbackService: IPlanReviewFeedbackService,
 	) {
 		const container = group.editorPaneContainer;
 		container.classList.add('agent-feedback-editor-overlay-host');
@@ -60,6 +63,11 @@ export class AgentFeedbackOverlayController {
 			telemetrySource: 'agentFeedback.overlayToolbar',
 		}));
 		this._domNode.appendChild(widget.getDomNode());
+		widget.layout(container.clientWidth);
+		const resizeObserver = this._store.add(new DisposableResizeObserver('AgentFeedbackOverlay.layout', entries => {
+			widget.layout(entries[0]?.contentRect.width ?? container.clientWidth);
+		}, getWindow(container)));
+		this._store.add(resizeObserver.observe(container));
 		this._store.add(toDisposable(() => this._domNode.remove()));
 		const hasCommentsContext = hasSessionEditorComments.bindTo(contextKeyService);
 		const hasAgentFeedbackContext = hasUnsubmittedAgentFeedback.bindTo(contextKeyService);
@@ -83,6 +91,7 @@ export class AgentFeedbackOverlayController {
 			agentFeedbackService.onDidChangeFeedback,
 			agentFeedbackService.onDidChangeFeedbackVisibility,
 			agentFeedbackService.onDidChangeNavigation,
+			planReviewFeedbackService.onDidChangeRegistrations,
 			agentFeedbackService.onDidChangeFeedbackScope,
 		));
 
@@ -115,9 +124,20 @@ export class AgentFeedbackOverlayController {
 				return;
 			}
 
-			hasCommentsContext.set(true);
+			hasCommentsContext.set(navigationBearings.totalCount > 0);
 			hasAgentFeedbackContext.set(acceptedFeedbackCount > 0);
-			widget.show(navigationBearings, acceptedFeedbackCount, group);
+			widget.showMenu(navigationBearings, acceptedFeedbackCount, {
+				menuId: Menus.AgentFeedbackEditorContent,
+				navigationBearingActionId: navigationBearingFakeActionId,
+				navigatePreviousActionId: navigatePreviousFeedbackActionId,
+				navigateNextActionId: navigateNextFeedbackActionId,
+				submitActionId: submitFeedbackActionId,
+				clearActionId: clearAllFeedbackActionId,
+				submitLabel: count => count > 0
+					? localize('agentFeedback.submitCountShort', 'Submit {0}', count)
+					: localize('agentFeedback.submitFeedback', 'Submit Feedback'),
+				editorGroup: group,
+			});
 			show();
 		}));
 	}

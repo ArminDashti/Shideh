@@ -903,7 +903,7 @@ export class MarkdownEditorProvider extends Disposable implements vscode.CustomT
 		const onChange = diffProvider.onDidChange(postMarkers);
 		// Re-send once the webview has (re)initialized its model, and whenever the
 		// document settles on the version the changes were computed for.
-		const onMessage = webview.onDidReceiveMessage((message) => {
+		const onMessage = webview.onDidReceiveMessage(async (message) => {
 			if (message.type === 'ready') {
 				postMarkers();
 			}
@@ -955,6 +955,7 @@ export class MarkdownEditorProvider extends Disposable implements vscode.CustomT
 	#wireComments(document: vscode.TextDocument, editorWebview: AuthenticatedWebview): vscode.Disposable {
 		const webview = editorWebview.webview;
 		const commentsProvider = vscode.window.createAgentEditorComments(document.uri);
+		let operationQueue = Promise.resolve();
 		let webviewReady = false;
 		let revealedCommentId: string | undefined;
 
@@ -984,15 +985,36 @@ export class MarkdownEditorProvider extends Disposable implements vscode.CustomT
 				webviewReady = true;
 				postComments();
 				postReveal();
-			} else if (message.type === 'addComment') {
-				const range = new vscode.Range(
-					document.positionAt(message.start),
-					document.positionAt(message.endExclusive),
-				);
-				commentsProvider.addComment(range, message.text);
-			} else if (message.type === 'deleteComment') {
-				commentsProvider.deleteComment(message.id);
+				return;
 			}
+			if (message.type !== 'addComment'
+				&& message.type !== 'updateCommentRange'
+				&& message.type !== 'deleteComment') {
+				return;
+			}
+			const pendingEdit = getPendingEdit();
+			const operation = operationQueue.then(async () => {
+				await pendingEdit;
+				if (message.type === 'addComment') {
+					const range = new vscode.Range(
+						document.positionAt(message.start),
+						document.positionAt(message.endExclusive),
+					);
+					commentsProvider.addComment(range, message.text);
+				} else if (message.type === 'updateCommentRange') {
+					commentsProvider.updateCommentRange(
+						message.id,
+						new vscode.Range(
+							document.positionAt(message.start),
+							document.positionAt(message.endExclusive),
+						),
+					);
+				} else if (message.type === 'deleteComment') {
+					commentsProvider.deleteComment(message.id);
+				}
+			});
+			operationQueue = operation.then(() => undefined, () => undefined);
+			return operation;
 		});
 
 		return vscode.Disposable.from(commentsProvider, onChange, onDidRevealComment, onMessage);

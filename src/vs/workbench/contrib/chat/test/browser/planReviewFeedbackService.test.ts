@@ -264,6 +264,19 @@ suite('PlanReviewFeedbackService - Registration', () => {
 		assert.strictEqual(service.isActivePlanReview(planUri), true);
 	});
 
+	test('read-only plan stays active without accepting comments', () => {
+		const planUri = URI.parse('file:///plan.md');
+		store.add(service.registerPlanReview(planUri, createRegistration({ canProvideFeedback: false })));
+
+		assert.deepStrictEqual({
+			isActive: service.isActivePlanReview(planUri),
+			canProvideFeedback: service.canProvideFeedback(planUri),
+		}, {
+			isActive: true,
+			canProvideFeedback: false,
+		});
+	});
+
 	test('isActivePlanReview returns false after dispose', () => {
 		const planUri = URI.parse('file:///plan.md');
 		const registration = service.registerPlanReview(planUri, createRegistration());

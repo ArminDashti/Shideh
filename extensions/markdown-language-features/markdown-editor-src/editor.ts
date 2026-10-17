@@ -215,14 +215,22 @@ class Editor extends Disposable {
 				}
 				case 'comments': {
 					this.#isUpdatingComments = true;
-					this.#comments.set(message.comments.map((comment: { id: string; start: number; endExclusive: number; body: string; author?: string }) => ({
+					const comments = (message.comments as readonly { id: string; start: number; endExclusive: number; body: string; author?: string }[]).map(comment => ({
 						id: comment.id,
 						range: OffsetRange.fromTo(comment.start, comment.endExclusive),
 						body: comment.body,
 						author: comment.author,
-					})));
+					}));
+					this.#commentRanges = new Map(comments.map(comment => [comment.id, comment.range]));
+					this.#comments.set(comments);
 					this.#isUpdatingComments = false;
 					this.#acceptsComments.set(!!message.acceptsComments, undefined);
+					this.#activeFeedbackId = message.review?.activeFeedbackId;
+					const activeFeedbackRequestId = message.review?.activeFeedbackRequestId ?? 0;
+					if (activeFeedbackRequestId !== this.#activeFeedbackRequestId) {
+						this.#activeFeedbackRequestId = activeFeedbackRequestId;
+						this.#revealActiveFeedback(this.#activeFeedbackId);
+					}
 					break;
 				}
 				case 'revealComment': {
@@ -393,14 +401,12 @@ class Editor extends Disposable {
 		// useful when the workbench feedback store will actually accept the comment;
 		// otherwise submitting is a no-op. Mount the controller only while the
 		// resource is in scope for a session, and tear it down when it leaves scope.
-		let commentController: CommentModeController | undefined;
+		let commentController: EditableCommentModeController | undefined;
 		this._register(autorun((reader) => {
 			const accepts = reader.readObservable(this.#acceptsComments);
 			if (accepts && !commentController) {
-				commentController = new CommentModeController(model, view, {
-					onSubmit: ({ text, range }) => {
-						this.#vscode.postMessage({ type: 'addComment', start: range.start, endExclusive: range.endExclusive, text });
-					},
+				commentController = new EditableCommentModeController(model, view, (text, range) => {
+					this.#vscode.postMessage({ type: 'addComment', start: range.start, endExclusive: range.endExclusive, text });
 				});
 			} else if (!accepts && commentController) {
 				commentController.dispose();

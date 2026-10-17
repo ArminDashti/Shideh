@@ -1,0 +1,199 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.agent-feedback-editor-overlay-widget {
+	padding: var(--vscode-spacing-size40);
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editorWidget-background);
+	border-radius: var(--vscode-cornerRadius-medium);
+	border: var(--vscode-strokeThickness) solid var(--vscode-editorHoverWidget-border);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--vscode-spacing-size60);
+	z-index: 10;
+	box-shadow: var(--vscode-shadow-lg);
+	overflow: visible;
+	box-sizing: border-box;
+}
+
+.agent-feedback-editor-overlay-input {
+	flex: 0 1 240px;
+	width: 240px;
+	min-width: 120px;
+}
+
+.agent-feedback-editor-overlay-widget .inputbox-container {
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.agent-feedback-editor-overlay-widget .monaco-inputbox,
+.agent-feedback-editor-overlay-widget .monaco-inputbox > .ibwrapper,
+.agent-feedback-editor-overlay-widget .monaco-inputbox > .ibwrapper > .input {
+	height: 24px;
+	min-height: 24px;
+	box-sizing: border-box;
+}
+
+.agent-feedback-editor-overlay-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
+.agent-feedback-editor-plan-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button {
+	width: auto;
+	min-width: auto;
+	height: 24px;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown {
+	display: flex;
+	flex: 0 1 auto;
+	width: auto;
+	min-width: 0;
+	max-width: 300px;
+	height: 24px;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button {
+	padding: 0 var(--vscode-spacing-size100);
+	white-space: nowrap;
+	max-width: 260px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown > .monaco-button {
+	width: auto;
+	height: 24px;
+	box-sizing: border-box;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown > .monaco-button.monaco-text-button {
+	flex: 1 1 auto;
+	padding: 0 var(--vscode-spacing-size100);
+	overflow: hidden;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown > .monaco-button.monaco-text-button > .monaco-button-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown > .monaco-button.monaco-dropdown-button {
+	padding: 0 var(--vscode-spacing-size40);
+}
+
+.agent-feedback-editor-plan-actions > .monaco-button-dropdown > .monaco-button-dropdown-separator {
+	height: 24px;
+	padding: var(--vscode-spacing-size20) 0;
+	box-sizing: border-box;
+}
+
+.agent-feedback-editor-overlay-widget .action-item > .action-label {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size60);
+	font-size: var(--vscode-fontSize-body2);
+	line-height: 14px;
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.agent-feedback-editor-overlay-widget .monaco-action-bar .actions-container {
+	gap: var(--vscode-spacing-size40);
+	align-items: center;
+}
+
+.agent-feedback-editor-overlay-widget.compact .agent-feedback-editor-overlay-input {
+	flex-basis: 160px;
+}
+
+.agent-feedback-editor-overlay-widget.compact .agent-feedback-editor-plan-actions > .monaco-button,
+.agent-feedback-editor-overlay-widget.compact .agent-feedback-editor-plan-actions > .monaco-button-dropdown {
+	max-width: 220px;
+}
+
+.agent-feedback-editor-overlay-widget.narrow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--vscode-spacing-size40);
+	border-radius: var(--vscode-cornerRadius-large);
+}
+
+.agent-feedback-editor-overlay-widget.narrow .agent-feedback-editor-overlay-input {
+	width: 100%;
+	min-width: 0;
+}
+
+.agent-feedback-editor-overlay-widget.narrow .agent-feedback-editor-overlay-toolbar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	width: 100%;
+	gap: var(--vscode-spacing-size40);
+}
+
+.agent-feedback-editor-overlay-widget.narrow .agent-feedback-editor-plan-actions {
+	width: 100%;
+	min-width: 0;
+}
+
+.agent-feedback-editor-overlay-widget.narrow .agent-feedback-editor-plan-actions > .monaco-button,
+.agent-feedback-editor-overlay-widget.narrow .agent-feedback-editor-plan-actions > .monaco-button-dropdown {
+	max-width: 100%;
+}
+
+.agent-feedback-editor-overlay-widget .action-item.primary > .action-label {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.monaco-workbench .agent-feedback-editor-overlay-widget .monaco-action-bar .action-item.primary > .action-label:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.agent-feedback-editor-overlay-widget .action-item > .action-label.codicon:not(.separator) {
+	color: var(--vscode-foreground);
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	font-size: var(--vscode-codiconFontSize);
+	line-height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.agent-feedback-editor-overlay-widget .monaco-action-bar .action-item.disabled {
+
+	> .action-label.codicon::before,
+	> .action-label.codicon,
+	> .action-label,
+	> .action-label:hover {
+		color: var(--vscode-button-separator);
+		opacity: 1;
+	}
+}
+
+.agent-feedback-editor-overlay-widget .action-item.label-item {
+	font-variant-numeric: tabular-nums;
+}
+
+.agent-feedback-editor-overlay-widget .monaco-action-bar .action-item.label-item > .action-label,
+.agent-feedback-editor-overlay-widget .monaco-action-bar .action-item.label-item > .action-label:hover {
+	color: var(--vscode-foreground);
+	opacity: 1;
+}
