@@ -25,6 +25,7 @@ import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ISearchService, QueryType, resultIsMatch } from '../../../../services/search/common/search.js';
+import { ChatConfiguration } from '../../common/constants.js';
 import { CountTokensCallback, ILanguageModelToolsService, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolInvocationPreparationContext, IToolResult, ToolDataSource, ToolProgress, } from '../../common/tools/languageModelToolsService.js';
 import { createToolSimpleTextResult } from '../../common/tools/builtinTools/toolHelpers.js';
 import { errorResult, findLineNumber, findSymbolColumn, isSymbolToolResourceInScope, ISymbolToolInput, resolveSymbolToolFileUri } from './toolHelpers.js';

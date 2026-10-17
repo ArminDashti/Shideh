@@ -800,6 +800,12 @@ suite('AgentHostClientTools', () => {
 				entry.emitter.fire(state);
 			}
 
+			applySessionAction(action: SessionAction): void {
+				const entry = this._ensureLiveSubscription(action.session);
+				entry.state = sessionReducer(entry.state, action as Parameters<typeof sessionReducer>[1], () => { });
+				entry.emitter.fire(entry.state);
+			}
+
 			override readonly rootState: IAgentSubscription<RootState> = {
 				value: undefined,
 				verifiedValue: undefined,

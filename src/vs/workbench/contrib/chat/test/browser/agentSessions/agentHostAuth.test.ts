@@ -2125,3 +2125,119 @@ suite('resolveAuthenticationInteractively', () => {
 		}), /Bad credentials/);
 	});
 });
+
+suite('authenticateProtectedResources', () => {
+
+	const log = new NullLogService();
+	const protectedResource: ProtectedResourceMetadata = {
+		resource: 'https://api.example.com',
+		authorization_servers: ['https://auth.example.com'],
+		scopes_supported: ['read'],
+	};
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('skips authenticate when the cached token is unchanged', async () => {
+		const authService = createMockAuthService({
+			getOrActivateProviderIdForServer: () => Promise.resolve('provider-1'),
+			getSessions: (_providerId, scopes) => {
+				if (scopes) {
+					return Promise.resolve([{ scopes: ['read'], accessToken: 'cached-token' }]);
+				}
+
+				return Promise.resolve([]);
+			},
+		});
+		const cache = new AgentHostAuthTokenCache();
+		const requests: { resource: string; token: string }[] = [];
+		const agents = [{ protectedResources: [protectedResource] }] as unknown as readonly AgentInfo[];
+
+		await authenticateProtectedResources(agents, {
+			authTokenCache: cache,
+			authenticationService: authService,
+			logPrefix: '[AgentHost]',
+			logService: log,
+			authenticate: async request => {
+				requests.push(request);
+			},
+		});
+		await authenticateProtectedResources(agents, {
+			authTokenCache: cache,
+			authenticationService: authService,
+			logPrefix: '[AgentHost]',
+			logService: log,
+			authenticate: async request => {
+				requests.push(request);
+			},
+		});
+
+		assert.deepStrictEqual(requests, [{ resource: protectedResource.resource, token: 'cached-token' }]);
+	});
+});
+
+suite('resolveAuthenticationInteractively', () => {
+
+	const log = new NullLogService();
+	const protectedResource: ProtectedResourceMetadata = {
+		resource: 'https://api.example.com',
+		authorization_servers: ['https://auth.example.com'],
+		scopes_supported: ['read'],
+	};
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('uses an existing token before prompting for a new session', async () => {
+		let createSessionCalls = 0;
+		const authService = createMockAuthService({
+			getOrActivateProviderIdForServer: () => Promise.resolve('provider-1'),
+			getSessions: (_providerId, scopes) => {
+				if (scopes) {
+					return Promise.resolve([{ scopes: ['read'], accessToken: 'existing-token' }]);
+				}
+
+				return Promise.resolve([]);
+			},
+			createSession: async () => {
+				createSessionCalls++;
+				return { accessToken: 'new-token' };
+			},
+		});
+		const requests: { resource: string; token: string }[] = [];
+
+		const success = await resolveAuthenticationInteractively([protectedResource], {
+			authTokenCache: new AgentHostAuthTokenCache(),
+			authenticationService: authService,
+			logPrefix: '[AgentHost]',
+			logService: log,
+			authenticate: async request => {
+				requests.push(request);
+			},
+		});
+
+		assert.strictEqual(success, true);
+		assert.deepStrictEqual(requests, [{ resource: protectedResource.resource, token: 'existing-token' }]);
+		assert.strictEqual(createSessionCalls, 0);
+	});
+
+	test('creates a session when no existing token is available', async () => {
+		const authService = createMockAuthService({
+			getOrActivateProviderIdForServer: () => Promise.resolve('provider-1'),
+			getSessions: () => Promise.resolve([]),
+			createSession: async () => ({ accessToken: 'new-token' }),
+		});
+		const requests: { resource: string; token: string }[] = [];
+
+		const success = await resolveAuthenticationInteractively([protectedResource], {
+			authTokenCache: new AgentHostAuthTokenCache(),
+			authenticationService: authService,
+			logPrefix: '[AgentHost]',
+			logService: log,
+			authenticate: async request => {
+				requests.push(request);
+			},
+		});
+
+		assert.strictEqual(success, true);
+		assert.deepStrictEqual(requests, [{ resource: protectedResource.resource, token: 'new-token' }]);
+	});
+});

@@ -22,6 +22,7 @@ import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IChatService } from '../../common/chatService/chatService.js';
+import { ChatConfiguration } from '../../common/constants.js';
 import { ChatModel } from '../../common/model/chatModel.js';
 import { CountTokensCallback, ILanguageModelToolsService, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolInvocationPreparationContext, IToolResult, ToolDataSource, ToolProgress } from '../../common/tools/languageModelToolsService.js';
 import { createToolSimpleTextResult } from '../../common/tools/builtinTools/toolHelpers.js';
@@ -64,6 +65,7 @@ export class RenameTool extends Disposable implements IToolImpl {
 		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService,
 		@IChatService private readonly _chatService: IChatService,
 		@IBulkEditService private readonly _bulkEditService: IBulkEditService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 	}

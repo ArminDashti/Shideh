@@ -1141,6 +1141,30 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 				deferred.complete(signal);
 			}
 		}
+	};
+
+	disposables.add(progressEmitter.event(signal => {
+		signals.push(signal);
+		const view = signalToLegacyView(signal);
+		if (!view) {
+			return;
+		}
+		// Auto-ready Ready actions emitted in the same fire-batch as a tool_start
+		// describe the same logical event in the legacy vocabulary. Merge the
+		// invocation/toolInput/edits fields back into the prior tool_start view
+		// so existing tests that assert on `tool_start.invocationMessage` etc.
+		// see a single combined entry. Permission-driven ready signals (kind:
+		// 'tool_ready') and externally triggered ready actions are pushed
+		// separately.
+		if (view.type === 'tool_ready' && signal.kind === 'action') {
+			const last = progressEvents[progressEvents.length - 1];
+			if (last?.type === 'tool_start' && last.toolCallId === view.toolCallId) {
+				last.invocationMessage = view.invocationMessage;
+				last.toolInput = view.toolInput;
+				return;
+			}
+		}
+		notify(view);
 	}));
 	disposables.add(canvasEmitter.event(snapshot => canvasSnapshots.push(snapshot)));
 
@@ -17622,6 +17646,53 @@ Use the attached image as context.
 
 			await assert.rejects(eventIdPromise, /its next turn \(turn-disposed\) never produced an SDK event id: Turn turn-disposed was disposed before its SDK event id was recorded/);
 		});
+
+		test('reasoning delta after tool_start starts a new reasoning response part', async () => {
+			const { mockSession, signals } = await createAgentSession(disposables);
+
+			// First reasoning delta — allocates a fresh reasoning response part.
+			mockSession.fire('assistant.reasoning_delta', {
+				deltaContent: 'thinking step 1',
+			} as SessionEventPayload<'assistant.reasoning_delta'>['data']);
+
+			// A tool call interleaves between reasoning rounds.
+			mockSession.fire('tool.execution_start', {
+				toolCallId: 'tc-r-1',
+				toolName: 'bash',
+				arguments: { command: 'echo hi' },
+			} as SessionEventPayload<'tool.execution_start'>['data']);
+			mockSession.fire('tool.execution_complete', {
+				toolCallId: 'tc-r-1',
+				success: true,
+				result: { content: 'hi' },
+			} as SessionEventPayload<'tool.execution_complete'>['data']);
+
+			// Second round of reasoning, after the tool call. This must
+			// land in a NEW reasoning response part — otherwise the
+			// renderer / state-tree would merge it into the pre-tool-call
+			// block and the visual ordering would be wrong on restore.
+			mockSession.fire('assistant.reasoning_delta', {
+				deltaContent: 'thinking step 2',
+			} as SessionEventPayload<'assistant.reasoning_delta'>['data']);
+
+			// Pull the protocol-level reasoning response parts. Both
+			// `SessionResponsePart{Reasoning}` (allocates a new part) and
+			// `SessionReasoning` (appends to an existing part) translate to
+			// the legacy `'reasoning'` view, so we have to inspect raw
+			// signals to tell them apart.
+			const reasoningResponseParts = signals.flatMap(s => {
+				if (s.kind !== 'action' || s.action.type !== ActionType.SessionResponsePart) {
+					return [];
+				}
+				return s.action.part.kind === ResponsePartKind.Reasoning ? [s.action.part] : [];
+			});
+			assert.strictEqual(reasoningResponseParts.length, 2,
+				'reasoning after a tool call should allocate a new response part, not append to the part from before the tool call');
+			assert.notStrictEqual(reasoningResponseParts[0].id, reasoningResponseParts[1].id,
+				'second reasoning round should have a distinct part id');
+			assert.strictEqual(reasoningResponseParts[0].content, 'thinking step 1');
+			assert.strictEqual(reasoningResponseParts[1].content, 'thinking step 2');
+		});
 	});
 
 	// ---- user input handling ----
@@ -19173,6 +19244,13 @@ Use the attached image as context.
 			// The handler should NOT emit its own pending_confirmation — only the
 			// permission flow fires pending_confirmation for client tools.
 			assert.strictEqual(signals.filter(s => s.kind === 'pending_confirmation').length, 1, 'handler should not emit a second pending_confirmation');
+
+			const tools = session.createClientSdkTools();
+			const handlerPromise = invokeClientToolHandler(tools[0], 'tc-client-perm');
+
+			// The handler should NOT emit its own tool_ready — only the
+			// permission flow fires tool_ready for client tools.
+			assert.strictEqual(progressEvents.filter(e => e.type === 'tool_ready').length, 1, 'handler should not emit a second tool_ready');
 
 			// Approve and clean up
 			session.respondToPermissionRequest('tc-client-perm', true);

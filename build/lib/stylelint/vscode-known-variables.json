@@ -820,6 +820,7 @@
 		"--vscode-symbolIcon-typeParameterForeground",
 		"--vscode-symbolIcon-unitForeground",
 		"--vscode-symbolIcon-variableForeground",
+		"--vscode-strongForeground",
 		"--vscode-tab-activeBackground",
 		"--vscode-tab-activeBorder",
 		"--vscode-tab-activeBorderTop",

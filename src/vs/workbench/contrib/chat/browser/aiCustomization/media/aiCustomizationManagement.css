@@ -2272,7 +2272,8 @@ per-word capitalization does not survive translation. */
 
 .ai-customization-management-editor .embedded-mcp-detail .mcp-detail-definition-editor {
 	flex: 1;
-	overflow: hidden;
+	overflow: auto;
+	min-height: 0;
 }
 
 .ai-customization-management-editor .embedded-mcp-detail .mcp-detail-definition-empty {

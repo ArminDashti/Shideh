@@ -595,6 +595,42 @@ export class AgentSideEffects extends Disposable {
 		}
 	}
 
+	private async _publishSessionCustomizations(agent: IAgent, session: ProtocolURI): Promise<void> {
+		if (!agent.getSessionCustomizations) {
+			return;
+		}
+
+		const customizations = await agent.getSessionCustomizations(URI.parse(session));
+		this._stateManager.dispatchServerAction({
+			type: ActionType.SessionCustomizationsChanged,
+			session,
+			customizations: [...customizations],
+		});
+	}
+
+	private _publishSessionCustomizationsSoon(agent: IAgent, session: ProtocolURI): void {
+		void this._publishSessionCustomizations(agent, session).catch(err => {
+			this._logService.error('[AgentSideEffects] getSessionCustomizations failed', err);
+		});
+	}
+
+	private _publishSessionCustomizationsForAgent(agent: IAgent): void {
+		for (const session of this._stateManager.getSessionUris()) {
+			if (this._options.getAgent(session) === agent) {
+				this._publishSessionCustomizationsSoon(agent, session);
+			}
+		}
+	}
+
+	private _publishAllSessionCustomizations(): void {
+		for (const session of this._stateManager.getSessionUris()) {
+			const agent = this._options.getAgent(session);
+			if (agent) {
+				this._publishSessionCustomizationsSoon(agent, session);
+			}
+		}
+	}
+
 	// ---- Initialization ----------------------------------------------------
 
 	/**

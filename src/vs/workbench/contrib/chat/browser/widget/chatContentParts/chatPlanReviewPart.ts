@@ -629,6 +629,17 @@ export class ChatPlanReviewPart extends Disposable implements IChatContentPart {
 			this._buttonStore.add(rejectButton);
 			this._buttonStore.add(rejectButton.onDidClick(() => this.submitRejection()));
 		}
+
+		// Provide Feedback button (grey secondary) — shown only when feedback
+		// is enabled and we are not in collapsed mode. Right-aligned via CSS
+		// so the primary Approve / Reject pair stays grouped on the left.
+		if (this.review.canProvideFeedback && includeReject) {
+			const feedbackButton = new Button(container, { ...defaultButtonStyles, secondary: true });
+			feedbackButton.element.classList.add('chat-plan-review-feedback-button');
+			feedbackButton.label = localize('chat.planReview.provideFeedback', 'Provide Feedback');
+			this._buttonStore.add(feedbackButton);
+			this._buttonStore.add(feedbackButton.onDidClick(() => this.enterFeedbackMode()));
+		}
 	}
 
 	private canSubmitFeedback(): boolean {

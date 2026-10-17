@@ -6017,6 +6017,37 @@ export class AgentService extends Disposable implements IAgentService {
 		return overrides;
 	}
 
+	/**
+	 * Fire-and-forget probe that resolves the session's git state for its
+	 * working directory (if any) and merges it into `state._meta.git` via
+	 * the state manager. Failures are logged; sessions simply remain without
+	 * git state.
+	 */
+	private _attachGitState(session: URI, workingDirectory: URI | undefined): void {
+		if (!workingDirectory) {
+			return;
+		}
+		this._gitService.getSessionGitState(workingDirectory).then(
+			gitState => {
+				if (!gitState) {
+					return;
+				}
+				const sessionKey = session.toString();
+				const current = this._stateManager.getSessionState(sessionKey)?._meta;
+				// Skip the action if the computed git state hasn't changed; this is
+				// called after every turn, so deduping avoids needless action churn.
+				if (objectEquals(readSessionGitState(current), gitState)) {
+					return;
+				}
+				const next = withSessionGitState(current, gitState);
+				this._stateManager.setSessionMeta(sessionKey, next);
+			},
+			e => {
+				this._logService.warn(`[AgentService] Failed to compute git state for ${session}`, e);
+			},
+		);
+	}
+
 	private _persistConfigValues(session: URI, values: Record<string, unknown>): void {
 		let ref;
 		try {

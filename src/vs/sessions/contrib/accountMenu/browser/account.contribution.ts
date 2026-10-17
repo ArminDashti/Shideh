@@ -149,7 +149,18 @@ MenuRegistry.appendMenuItem(AccountMenu, {
 	},
 	when: ContextKeyExpr.and(IsPhoneLayoutContext.negate(), IsSessionsWindowContext.negate()),
 	group: '2_settings',
-	order: 1,
+	order: 2,
+});
+
+// Keyboard Shortcuts (hidden on phone — no keybindings UI on mobile)
+MenuRegistry.appendMenuItem(AccountMenu, {
+	command: {
+		id: 'workbench.action.openGlobalKeybindings',
+		title: localize('sessionsAccountMenu.keyboardShortcuts', "Keyboard Shortcuts"),
+	},
+	when: IsPhoneLayoutContext.negate(),
+	group: '2_settings',
+	order: 3,
 });
 
 // Update actions

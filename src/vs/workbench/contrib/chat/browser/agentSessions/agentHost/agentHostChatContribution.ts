@@ -107,6 +107,8 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 	private readonly _agentRegistrations = this._register(new DisposableMap<AgentProvider, DisposableStore>());
 	/** Model providers keyed by agent provider, for pushing model updates. */
 	private readonly _modelProviders = new Map<AgentProvider, AgentHostLanguageModelProvider>();
+	/** List controllers keyed by agent provider, for cache resets on reconnect. */
+	private readonly _listControllers = new Map<AgentProvider, AgentHostSessionListController>();
 
 	/** Dedupes redundant `authenticate` RPCs when the resolved token hasn't changed. */
 	private readonly _authTokenCache = new AgentHostAuthTokenCache();
@@ -281,11 +283,19 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 		const vendor = sessionType;
 		const ahService = this._agentHostService;
 
+		// In the Agents app, the agent-host displayName is unambiguous because
+		// only agent-host sessions exist there. In VS Code, the same picker
+		// also lists the extension-host harness with the same displayName
+		// (e.g. "Copilot CLI"), so suffix with "- Agent Host" to disambiguate.
+		const displayName = this._isSessionsWindow
+			? agent.displayName
+			: localize('agentHost.displayName', "{0} - Agent Host", agent.displayName);
+
 		// Chat session contribution.
 		store.add(this._chatSessionsService.registerChatSessionContribution({
 			type: sessionType,
 			name: agentId,
-			displayName: agent.displayName,
+			displayName,
 			description: agent.description,
 			locations: agent.provider === 'copilotcli' ? [ChatAgentLocation.Chat, ChatAgentLocation.Terminal, ChatAgentLocation.EditorInline] : undefined,
 			icon: agent.provider.startsWith('acp-') ? Codicon.agent.id : undefined,

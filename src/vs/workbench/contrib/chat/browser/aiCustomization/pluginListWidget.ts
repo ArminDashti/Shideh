@@ -23,7 +23,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { InputBox } from '../../../../../base/browser/ui/inputbox/inputBox.js';
 import { IContextMenuService, IContextViewService } from '../../../../../platform/contextview/browser/contextView.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Delayer } from '../../../../../base/common/async.js';
 import { Action, IAction, Separator } from '../../../../../base/common/actions.js';
 import { basename, dirname, isEqual } from '../../../../../base/common/resources.js';
@@ -211,6 +211,9 @@ class PluginItemDelegate implements IListVirtualDelegate<IPluginListEntry> {
 		}
 		if (element.type === 'marketplace-item') {
 			return PLUGIN_MARKETPLACE_ITEM_TEMPLATE_ID;
+		}
+		if (element.type === 'remote-item') {
+			return 'pluginRemoteItem';
 		}
 		if (element.type === 'remote-item') {
 			return 'pluginRemoteItem';
@@ -2194,11 +2197,22 @@ export class PluginListWidget extends Disposable {
 				if (isDisposable(menuAction)) {
 					disposables.add(menuAction);
 				}
+				actions.push(new Separator());
 			}
-			actions.push(new Separator());
-		}
-		if (actions.length > 0 && actions[actions.length - 1] instanceof Separator) {
-			actions.pop();
+			if (actions.length > 0 && actions[actions.length - 1] instanceof Separator) {
+				actions.pop();
+			}
+		} else {
+			const itemActions = entry.item.actions ?? [];
+			for (const itemAction of itemActions) {
+				actions.push(new Action(
+					itemAction.id,
+					itemAction.label,
+					itemAction.icon ? ThemeIcon.asClassName(itemAction.icon) : undefined,
+					itemAction.enabled !== false,
+					() => itemAction.run(),
+				));
+			}
 		}
 		return actions;
 	}

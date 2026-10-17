@@ -117,6 +117,15 @@ export function getAgentBrowserViewsNewestFirst(
 	return views.reverse();
 }
 
+export const enum BrowserViewSharingState {
+	/** Tools are available and the page is shared with the agent. */
+	Shared = 'shared',
+	/** Tools are available but the page is not shared. */
+	NotShared = 'notShared',
+	/** Browser tools are disabled — sharing is not possible. */
+	Unavailable = 'unavailable',
+}
+
 /** Extracts the host from a URL string for zoom tracking purposes. */
 function parseZoomHost(url: string): string | undefined {
 	const parsed = URL.parse(url);
@@ -1107,6 +1116,8 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 			this._lastSharingState = sharingState;
 			this._onDidChangeSharingState.fire(sharingState);
 		}
+
+		return true;
 	}
 
 	private _reloadHistoryEntries(key: string): void {

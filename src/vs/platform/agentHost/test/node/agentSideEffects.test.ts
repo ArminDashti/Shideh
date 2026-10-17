@@ -2025,6 +2025,7 @@ suite('AgentSideEffects', () => {
 				getAgent: () => undefined,
 				agents: emptyAgents,
 				sessionDataService: {} as ISessionDataService,
+				onTurnComplete: () => { },
 			});
 
 			const envelopes: ActionEnvelope[] = [];
@@ -6415,6 +6416,7 @@ suite('AgentSideEffects', () => {
 				getAgent: () => localAgent,
 				agents: observableValue<readonly IAgent[]>('agents', [localAgent]),
 				sessionDataService,
+				onTurnComplete: () => { },
 			});
 
 			localStateManager.createSession({
@@ -6667,6 +6669,7 @@ suite('AgentSideEffects', () => {
 				getAgent: () => localAgent,
 				agents: observableValue<readonly IAgent[]>('agents', [localAgent]),
 				sessionDataService,
+				onTurnComplete: () => { },
 			});
 
 			const session = localStateManager.createSession({

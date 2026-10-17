@@ -275,6 +275,10 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 		if (this._button) {
 			this._button.enabled = this._action.enabled;
 		}
+		if (this._config.isPlugins) {
+			return this._agentPluginService.plugins.read(reader).length;
+		}
+		return 0;
 	}
 
 	private _renderTotalCount(container: HTMLElement, count: number): void {

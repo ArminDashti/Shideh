@@ -7816,6 +7816,45 @@ suite('AgentHostChatContribution', () => {
 			const afterCancelCount = agentHostService.dispatchedActions.filter(a => a.action.type === 'chat/turnCancelled').length;
 			assert.strictEqual(afterCancelCount, beforeCancelCount, 'turnCancelled should not be dispatched after natural completion');
 		}));
+
+		test('cancellation marks chat session complete', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+
+			const cts = new CancellationTokenSource();
+			disposables.add(cts);
+
+			const { turnPromise, chatSession } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				cancellationToken: cts.token,
+			});
+
+			cts.cancel();
+			await turnPromise;
+
+			assert.strictEqual(chatSession.isCompleteObs?.get(), true, 'chat session should be marked complete after cancellation');
+		}));
+
+		test('cancellation after natural completion does not dispatch turnCancelled', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+
+			const cts = new CancellationTokenSource();
+			disposables.add(cts);
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				cancellationToken: cts.token,
+			});
+
+			// Turn completes naturally on its own.
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
+			await turnPromise;
+
+			// Now the request's cancellation token fires (e.g. ChatService
+			// cancelling a long-disposed token, or a stale 'stop' click). We
+			// must NOT dispatch turnCancelled for an already-finished turn.
+			const beforeCancelCount = agentHostService.dispatchedActions.filter(a => a.action.type === 'session/turnCancelled').length;
+			cts.cancel();
+			const afterCancelCount = agentHostService.dispatchedActions.filter(a => a.action.type === 'session/turnCancelled').length;
+			assert.strictEqual(afterCancelCount, beforeCancelCount, 'turnCancelled should not be dispatched after natural completion');
+		}));
 	});
 
 	// ---- Error events -------------------------------------------------------
@@ -8779,6 +8818,158 @@ suite('AgentHostChatContribution', () => {
 				result: { success: true, pastTenseMessage: 'Done', content: [{ type: 'text', text: 'hi\n' }] },
 			} as ChatAction);
 			fire({ type: 'chat/turnComplete', endedAt: '2025-01-01T00:00:00.000Z', session, turnId } as ChatAction);
+			await turnPromise;
+		}));
+
+		test('local confirmation does not race with pending tc.status: no spurious re-confirm before server echo', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			// Regression for a bug where the per-tool-call autorun read both
+			// `part$` AND `invocation.state` and used a state-comparison check
+			// to detect Running → PendingConfirmation re-confirmation. After
+			// the user locally confirmed, `invocation.state` flipped to
+			// `Executing` while `tc.status` was still `PendingConfirmation`
+			// (server hadn't echoed yet), and the autorun spuriously emitted
+			// a third confirmation invocation and dispatched a duplicate
+			// `session/toolCallConfirmed`. The fix detects re-confirmation
+			// from a `tc.status` *transition*, not from invocation-state
+			// comparison.
+			//
+			// Baseline (bug-free) flow for a tool needing initial confirmation:
+			//   toolCallStart      → emit placeholder invocation (count=1)
+			//   toolCallReady      → status: Streaming → PendingConfirmation,
+			//                        settle placeholder, emit confirm invocation (count=2)
+			//   user confirms      → invocation.state: WaitingForConfirmation → Executing
+			//                        (count must NOT change — this is the regression)
+			//   server echoes      → tc.status: PendingConfirmation → Running (count=2)
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+
+			const { turnPromise, collected, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables);
+
+			fire({ type: 'session/toolCallStart', session, turnId, toolCallId: 'tc-race', toolName: 'shell', displayName: 'Shell' } as SessionAction);
+			fire({
+				type: 'session/toolCallReady', session, turnId, toolCallId: 'tc-race',
+				invocationMessage: 'echo hi', toolInput: 'echo hi',
+			} as SessionAction);
+			await timeout(10);
+
+			const beforeConfirm = collected.flat().filter(p => p.kind === 'toolInvocation') as IChatToolInvocation[];
+			const permInvocation = beforeConfirm[beforeConfirm.length - 1];
+			assert.strictEqual(permInvocation.state.get().type, IChatToolInvocation.StateKind.WaitingForConfirmation);
+
+			// User confirms locally. This synchronously flips the invocation
+			// state from WaitingForConfirmation → Executing. The buggy
+			// autorun would re-fire here (because invocation.state was a
+			// dependency) and, finding tc.status still PendingConfirmation,
+			// spuriously emit yet another confirmation invocation.
+			IChatToolInvocation.confirmWith(permInvocation, { type: ToolConfirmKind.UserAction });
+			await timeout(10);
+
+			const afterLocalConfirm = collected.flat().filter(p => p.kind === 'toolInvocation') as IChatToolInvocation[];
+			assert.strictEqual(afterLocalConfirm.length, beforeConfirm.length, 'no spurious invocation should be emitted by local confirm before server echoes');
+
+			// Exactly one toolCallConfirmed dispatch (with approved: true).
+			const confirmedDispatches = agentHostService.dispatchedActions.filter(a => {
+				if (a.action.type !== 'session/toolCallConfirmed') {
+					return false;
+				}
+				const action = a.action as IToolCallConfirmedAction;
+				return action.toolCallId === 'tc-race';
+			});
+			assert.strictEqual(confirmedDispatches.length, 1, 'exactly one session/toolCallConfirmed should be dispatched');
+			assert.strictEqual((confirmedDispatches[0].action as IToolCallConfirmedAction).approved, true);
+
+			// Echo the confirmation so the reducer transitions tc → Running,
+			// then complete the turn cleanly.
+			agentHostService.fireAction({
+				action: confirmedDispatches[0].action,
+				serverSeq: 100,
+				origin: { clientId: agentHostService.clientId, clientSeq: confirmedDispatches[0].clientSeq },
+			});
+			fire({
+				type: 'session/toolCallComplete', session, turnId, toolCallId: 'tc-race',
+				result: { success: true, pastTenseMessage: 'Ran echo hi', content: [{ type: 'text', text: 'hi\n' }] },
+			} as SessionAction);
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
+			await turnPromise;
+
+			// Final invariant: still the same number of invocations as right
+			// after toolCallReady — no extra invocations from the server echo
+			// or completion either.
+			const finalInvocations = collected.flat().filter(p => p.kind === 'toolInvocation');
+			assert.strictEqual(finalInvocations.length, beforeConfirm.length, 'no extra invocations across the full turn');
+		}));
+
+		test('genuine re-confirmation (Running → PendingConfirmation) emits a fresh confirmation invocation', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			// Companion to the regression test above: the *legitimate* case
+			// where the server bounces a tool call back to PendingConfirmation
+			// (e.g. result confirmation after an edit). Here we DO want a
+			// fresh invocation and a second `session/toolCallConfirmed`
+			// dispatch.
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+
+			const { turnPromise, collected, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables);
+
+			fire({ type: 'session/toolCallStart', session, turnId, toolCallId: 'tc-recon', toolName: 'shell', displayName: 'Shell' } as SessionAction);
+			fire({
+				type: 'session/toolCallReady', session, turnId, toolCallId: 'tc-recon',
+				invocationMessage: 'echo hi', toolInput: 'echo hi',
+			} as SessionAction);
+			await timeout(10);
+
+			const firstInvocation = (collected.flat().filter(p => p.kind === 'toolInvocation') as IChatToolInvocation[]).pop()!;
+			assert.strictEqual(firstInvocation.state.get().type, IChatToolInvocation.StateKind.WaitingForConfirmation);
+
+			IChatToolInvocation.confirmWith(firstInvocation, { type: ToolConfirmKind.UserAction });
+			await timeout(10);
+
+			// Echo the confirmation so tc transitions PendingConfirmation → Running.
+			const firstConfirm = agentHostService.dispatchedActions.find(a => {
+				if (a.action.type !== 'session/toolCallConfirmed') {
+					return false;
+				}
+				return (a.action as IToolCallConfirmedAction).toolCallId === 'tc-recon';
+			})!;
+			agentHostService.fireAction({
+				action: firstConfirm.action,
+				serverSeq: 100,
+				origin: { clientId: agentHostService.clientId, clientSeq: firstConfirm.clientSeq },
+			});
+			await timeout(10);
+
+			const invocationCountAfterRunning = collected.flat().filter(p => p.kind === 'toolInvocation').length;
+
+			// Server bounces the call back to PendingConfirmation via a
+			// second `toolCallReady` without `confirmed`. The reducer
+			// transitions Running → PendingConfirmation.
+			fire({
+				type: 'session/toolCallReady', session, turnId, toolCallId: 'tc-recon',
+				invocationMessage: 'Confirm execution', toolInput: 'echo hi',
+			} as SessionAction);
+			await timeout(10);
+
+			// We now expect a *fresh* invocation in WaitingForConfirmation.
+			const invocationsAfterReconfirm = collected.flat().filter(p => p.kind === 'toolInvocation') as IChatToolInvocation[];
+			assert.strictEqual(invocationsAfterReconfirm.length, invocationCountAfterRunning + 1, 'a fresh invocation should be emitted on Running → PendingConfirmation transition');
+			const reconfirmInvocation = invocationsAfterReconfirm[invocationsAfterReconfirm.length - 1];
+			assert.strictEqual(reconfirmInvocation.state.get().type, IChatToolInvocation.StateKind.WaitingForConfirmation);
+			assert.notStrictEqual(reconfirmInvocation, firstInvocation);
+
+			// User confirms the re-confirmation; expect a second toolCallConfirmed dispatch.
+			IChatToolInvocation.confirmWith(reconfirmInvocation, { type: ToolConfirmKind.UserAction });
+			await timeout(10);
+
+			const allConfirms = agentHostService.dispatchedActions.filter(a => {
+				if (a.action.type !== 'session/toolCallConfirmed') {
+					return false;
+				}
+				return (a.action as IToolCallConfirmedAction).toolCallId === 'tc-recon';
+			});
+			assert.strictEqual(allConfirms.length, 2, 'two toolCallConfirmed dispatches expected (initial + reconfirmation)');
+
+			fire({
+				type: 'session/toolCallComplete', session, turnId, toolCallId: 'tc-recon',
+				result: { success: true, pastTenseMessage: 'Done', content: [{ type: 'text', text: 'hi\n' }] },
+			} as SessionAction);
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
 			await turnPromise;
 		}));
 	});
@@ -11358,6 +11549,7 @@ suite('AgentHostChatContribution', () => {
 
 		test('file variable with location value becomes selection attachment', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
+			const uri = URI.from({ scheme: 'untitled', path: '/foo' });
 
 			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
 				message: 'explain this selected range',
@@ -12170,6 +12362,94 @@ suite('AgentHostChatContribution', () => {
 			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
 			assert.deepStrictEqual(turnAction.message.attachments, [
 				{ type: MessageAttachmentKind.Resource, uri: URI.file('/elsewhere/elsewhere.ts').toString(), label: 'elsewhere.ts', displayKind: 'document' },
+			]);
+		}));
+
+		// ---- Working-directory rebasing -----------------------------------
+		// On the first turn of a worktree-isolated session, the workbench
+		// resolves attachments under the original workspace folder, but the
+		// agent server has resolved its working directory to a freshly
+		// created worktree path. The handler rebases attachment URIs so the
+		// agent receives URIs under its own working directory.
+
+		test('rebases file/directory/selection attachments under requested working dir onto resolved working dir', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const requestedDir = URI.file('/source');
+			const resolvedDir = URI.file('/worktree');
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables, {
+				workingDirectoryResolver: { resolve: () => requestedDir },
+			});
+			agentHostService.nextResolvedWorkingDirectory = resolvedDir;
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'rebase me',
+				variables: {
+					variables: [
+						upcastPartial({ kind: 'file', id: 'v-file', name: 'a.ts', value: URI.file('/source/a.ts') }),
+						upcastPartial({ kind: 'directory', id: 'v-dir', name: 'lib', value: URI.file('/source/lib') }),
+						upcastPartial({ kind: 'implicit', id: 'v-implicit', name: 'selection', isFile: true as const, isSelection: true, uri: URI.file('/source/sub/foo.ts'), enabled: true, value: undefined }),
+					],
+				},
+			});
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.userMessage.attachments, [
+				{ type: 'file', uri: URI.file('/worktree/a.ts').toString(), displayName: 'a.ts' },
+				{ type: 'directory', uri: URI.file('/worktree/lib').toString(), displayName: 'lib' },
+				{ type: 'selection', uri: URI.file('/worktree/sub/foo.ts').toString(), displayName: 'selection' },
+			]);
+		}));
+
+		test('does not rebase when requested and resolved working dirs match', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const dir = URI.file('/source');
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables, {
+				workingDirectoryResolver: { resolve: () => dir },
+			});
+			agentHostService.nextResolvedWorkingDirectory = dir;
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'no rebase',
+				variables: {
+					variables: [
+						upcastPartial({ kind: 'file', id: 'v-file', name: 'a.ts', value: URI.file('/source/a.ts') }),
+					],
+				},
+			});
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.userMessage.attachments, [
+				{ type: 'file', uri: URI.file('/source/a.ts').toString(), displayName: 'a.ts' },
+			]);
+		}));
+
+		test('attachments outside the requested working dir pass through unchanged', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const requestedDir = URI.file('/source');
+			const resolvedDir = URI.file('/worktree');
+			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables, {
+				workingDirectoryResolver: { resolve: () => requestedDir },
+			});
+			agentHostService.nextResolvedWorkingDirectory = resolvedDir;
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'outside',
+				variables: {
+					variables: [
+						upcastPartial({ kind: 'file', id: 'v-file', name: 'elsewhere.ts', value: URI.file('/elsewhere/elsewhere.ts') }),
+					],
+				},
+			});
+			fire({ type: 'session/turnComplete', session, turnId } as SessionAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.userMessage.attachments, [
+				{ type: 'file', uri: URI.file('/elsewhere/elsewhere.ts').toString(), displayName: 'elsewhere.ts' },
 			]);
 		}));
 	});

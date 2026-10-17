@@ -1062,6 +1062,22 @@ fn mint_connection_token(path: &Path, prefer_token: Option<String>) -> std::io::
 	Ok(prefer_token)
 }
 
+fn write_agent_host_lockfile(path: &Path, lock_data: &AgentHostLockData) -> std::io::Result<()> {
+	#[cfg(not(windows))]
+	use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+	let mut file_options = fs::OpenOptions::new();
+	file_options.create(true);
+	file_options.write(true);
+	file_options.truncate(true);
+	#[cfg(not(windows))]
+	file_options.mode(0o600);
+	let mut file = file_options.open(path)?;
+	#[cfg(not(windows))]
+	file.set_permissions(fs::Permissions::from_mode(0o600))?;
+	file.write_all(serde_json::to_string(lock_data).unwrap().as_bytes())
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

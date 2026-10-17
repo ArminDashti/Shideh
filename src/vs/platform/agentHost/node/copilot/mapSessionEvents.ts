@@ -287,6 +287,15 @@ function finalizeTurn(builder: ITurnBuilder, state: TurnState): Turn {
 	};
 }
 
+/** Minimal event shape for session history mapping. */
+export type ISessionEvent =
+	| ISessionEventToolStart
+	| ISessionEventToolComplete
+	| ISessionEventMessage
+	| ISessionEventSubagentStarted
+	| ISessionEventSkillInvoked
+	| { type: string; data?: unknown };
+
 /**
  * Maps raw SDK session events directly into agent-protocol {@link Turn}s
  * for the parent session and any subagent child sessions, restoring stored

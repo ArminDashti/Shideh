@@ -220,7 +220,7 @@ pub fn tailf(file: File, n: usize) -> mpsc::UnboundedReceiver<TailEvent> {
 
 #[cfg(test)]
 mod tests {
-	use rand::Rng;
+	use rand::RngExt;
 	use std::{fs::OpenOptions, io::Write};
 
 	use super::*;

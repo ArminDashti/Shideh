@@ -31,6 +31,17 @@ export interface IGitHubApiResponse<T> {
 	readonly etag?: string;
 }
 
+export interface IGitHubApiRequestOptions {
+	readonly data?: unknown;
+	readonly etag?: string;
+}
+
+export interface IGitHubApiResponse<T> {
+	readonly data: T | undefined;
+	readonly statusCode: number;
+	readonly etag?: string;
+}
+
 interface IGitHubGraphQLError {
 	readonly message: string;
 }

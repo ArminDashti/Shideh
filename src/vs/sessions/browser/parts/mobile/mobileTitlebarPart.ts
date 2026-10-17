@@ -12,6 +12,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { IAction, Separator } from '../../../../base/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { autorun } from '../../../../base/common/observable.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';

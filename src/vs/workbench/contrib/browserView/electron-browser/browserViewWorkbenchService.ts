@@ -523,6 +523,8 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 			this._onDidChangeBrowserViews.fire();
 		}
 
+		this._onDidChangeBrowserViews.fire();
+
 		return model;
 	}
 

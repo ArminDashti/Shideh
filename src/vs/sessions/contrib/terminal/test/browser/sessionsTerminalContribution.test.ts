@@ -1760,6 +1760,50 @@ suite('SessionsTerminalContribution', () => {
 		assert.strictEqual(disposedInstances.length, 1, 'no live session owns this cwd, terminal should be closed');
 	});
 
+	test('does not close terminal when another live session still owns the cwd (replace case)', async () => {
+		const worktreeUri = URI.file('/worktree');
+		await contribution.ensureTerminal(worktreeUri, false);
+
+		// Simulate the onDidReplaceSession flow: `from` (untitled) is reported as
+		// removed while `to` (committed) is still live at the same cwd.
+		const fromSession = makeAgentSession({ sessionId: 'test:untitled', worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+		const toSession = makeAgentSession({ sessionId: 'test:committed', worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+		allSessions = [toSession];
+
+		onDidChangeSessions.fire({ added: [], removed: [fromSession], changed: [toSession] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 0, 'terminal should be kept alive for the surviving session');
+	});
+
+	test('does not close terminal when archiving one of two sessions sharing a cwd', async () => {
+		const worktreeUri = URI.file('/worktree');
+		await contribution.ensureTerminal(worktreeUri, false);
+
+		const liveSession = makeAgentSession({ sessionId: 'test:live', worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+		const archivedSession = makeAgentSession({ sessionId: 'test:archived', worktree: worktreeUri, providerType: AgentSessionProviders.Background, isArchived: true });
+		allSessions = [liveSession, archivedSession];
+
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [archivedSession] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 0, 'terminal should be kept for the still-live session');
+	});
+
+	test('closes terminal when the only session at a cwd is removed even if other live sessions exist elsewhere', async () => {
+		const worktreeUri = URI.file('/worktree');
+		await contribution.ensureTerminal(worktreeUri, false);
+
+		const otherLive = makeAgentSession({ sessionId: 'test:other', worktree: URI.file('/other'), providerType: AgentSessionProviders.Background });
+		const removedSession = makeAgentSession({ sessionId: 'test:gone', worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+		allSessions = [otherLive];
+
+		onDidChangeSessions.fire({ added: [], removed: [removedSession], changed: [] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 1, 'no live session owns this cwd, terminal should be closed');
+	});
+
 	// --- switching back to previously used path reuses terminal ---
 
 	test('switching back to a previously used background path reuses the existing terminal', async () => {

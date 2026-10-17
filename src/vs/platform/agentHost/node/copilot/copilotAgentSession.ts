@@ -459,6 +459,13 @@ function elicitationAnswerToFieldValue(field: ElicitationSchemaField, answer: Ch
 	return undefined;
 }
 
+type UserInputHandler = NonNullable<SessionConfig['onUserInputRequest']>;
+type UserInputRequest = Parameters<UserInputHandler>[0];
+type UserInputResponse = Awaited<ReturnType<UserInputHandler>>;
+type SessionHooks = NonNullable<SessionConfig['hooks']>;
+type PreToolUseHookInput = Parameters<NonNullable<SessionHooks['onPreToolUse']>>[0];
+type PostToolUseHookInput = Parameters<NonNullable<SessionHooks['onPostToolUse']>>[0];
+
 function getCopilotCLISessionStateDir(userHome: string): string {
 	return join(getCopilotHomePath(userHome, process.env), SESSION_STATE_DIRECTORY);
 }
@@ -2512,6 +2519,95 @@ export class CopilotAgentSession extends Disposable {
 			partId,
 			content,
 		}, parentToolCallId);
+	}
+
+	// ---- AgentSignal helpers ------------------------------------------------
+
+	private _protocolSession(): ProtocolURI {
+		return this.sessionUri.toString();
+	}
+
+	/** Wraps a {@link SessionAction} in an {@link AgentSignal} envelope and emits it. */
+	private _emitAction(action: SessionAction, parentToolCallId?: string): void {
+		this._onDidSessionProgress.fire({
+			kind: 'action',
+			session: this.sessionUri,
+			action,
+			parentToolCallId,
+		});
+	}
+
+	/**
+	 * Resets per-turn streaming state so the next text/reasoning chunk
+	 * allocates a fresh response part. Called by the agent when a new turn
+	 * starts (typically right before {@link send}).
+	 */
+	resetTurnState(turnId: string): void {
+		this._turnId = turnId;
+		this._currentMarkdownPartId = undefined;
+		this._currentReasoningPartId = undefined;
+	}
+
+	/**
+	 * Emits a synthetic markdown content block for the active turn and
+	 * makes it the current markdown response part so that subsequent SDK
+	 * deltas append to it. Used by the agent to surface one-shot host
+	 * messages (e.g. the worktree-created announcement) at the top of the
+	 * first response.
+	 */
+	emitInitialMarkdown(content: string): void {
+		this._emitMarkdownDelta(content);
+	}
+
+	/**
+	 * Emits a streaming text delta. The first delta of a turn allocates a
+	 * markdown response part; subsequent deltas append to it.
+	 */
+	private _emitMarkdownDelta(content: string, parentToolCallId?: string): void {
+		const session = this._protocolSession();
+		let partId = this._currentMarkdownPartId;
+		if (!partId) {
+			partId = generateUuid();
+			this._currentMarkdownPartId = partId;
+			this._emitAction({
+				type: ActionType.SessionResponsePart,
+				session,
+				turnId: this._turnId,
+				part: { kind: ResponsePartKind.Markdown, id: partId, content },
+			}, parentToolCallId);
+			return;
+		}
+		this._emitAction({
+			type: ActionType.SessionDelta,
+			session,
+			turnId: this._turnId,
+			partId,
+			content,
+		}, parentToolCallId);
+	}
+
+	/** Emits a reasoning delta, similar to {@link _emitMarkdownDelta} but for reasoning parts. */
+	private _emitReasoningDelta(content: string): void {
+		const session = this._protocolSession();
+		let partId = this._currentReasoningPartId;
+		if (!partId) {
+			partId = generateUuid();
+			this._currentReasoningPartId = partId;
+			this._emitAction({
+				type: ActionType.SessionResponsePart,
+				session,
+				turnId: this._turnId,
+				part: { kind: ResponsePartKind.Reasoning, id: partId, content },
+			});
+			return;
+		}
+		this._emitAction({
+			type: ActionType.SessionReasoning,
+			session,
+			turnId: this._turnId,
+			partId,
+			content,
+		});
 	}
 
 	/**

@@ -575,17 +575,13 @@ impl DevTunnels {
 		create_with_new_name: Option<&str>,
 		options: &TunnelRequestOptions,
 	) -> Result<(Tunnel, PersistedTunnel, /* is_new */ bool), AnyError> {
-		let tunnel_lookup = spanf!(
-			self.log,
-			self.log.span("dev-tunnel.tag.get"),
-			self.client.get_tunnel(&persisted.locator(), options)
-		);
+		let tunnel_lookup = self.client.get_tunnel(&persisted.locator(), options).await;
 
 		match tunnel_lookup {
 			Ok(ft) => Ok((ft, persisted, false)),
 			Err(HttpError::ResponseError(e))
-				if e.status_code == StatusCode::NOT_FOUND
-					|| e.status_code == StatusCode::FORBIDDEN =>
+				if e.status_code.as_u16() == StatusCode::NOT_FOUND.as_u16()
+					|| e.status_code.as_u16() == StatusCode::FORBIDDEN.as_u16() =>
 			{
 				let (persisted, tunnel) = self
 					.create_tunnel(create_with_new_name.unwrap_or(&persisted.name), options)

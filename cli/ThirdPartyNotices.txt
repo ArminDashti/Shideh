@@ -8949,6 +8949,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [//]: # (crates)
 
 [`ascon‑hash256`]: ./ascon-hash256
+[`ascon‑xof128`]: ./ascon-xof128
 [`bash‑hash`]: ./bash-hash
 [`belt‑hash`]: ./belt-hash
 [`blake2`]: ./blake2
@@ -9034,6 +9035,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [//]: # (crates)
 
 [`ascon‑hash256`]: ./ascon-hash256
+[`ascon‑xof128`]: ./ascon-xof128
 [`bash‑hash`]: ./bash-hash
 [`belt‑hash`]: ./belt-hash
 [`blake2`]: ./blake2

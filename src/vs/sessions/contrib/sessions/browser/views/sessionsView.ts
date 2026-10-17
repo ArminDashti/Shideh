@@ -1052,6 +1052,57 @@ export class SessionsView extends ViewPane {
 		});
 	}
 
+	/**
+	 * Phone-only: present a bottom sheet with the four sort/group toggles.
+	 * Filtering on phone is performed via the status filter chips, so the
+	 * sheet intentionally omits "Filter", "Show Recent/All Sessions", and
+	 * "Collapse All Groups" actions found in the desktop submenu.
+	 */
+	private openSortGroupSheet(): void {
+		const sortTitle = localize('sortGroupSheet.sort', "Sort");
+		const groupTitle = localize('sortGroupSheet.group', "Group");
+
+		const items: IMobileSortGroupSheetItem[] = [
+			{
+				id: SessionsSorting.Created,
+				label: localize('sortByCreated', "Sort by Created"),
+				checked: this.currentSorting === SessionsSorting.Created,
+				group: 'sort',
+				groupTitle: sortTitle,
+			},
+			{
+				id: SessionsSorting.Updated,
+				label: localize('sortByUpdated', "Sort by Updated"),
+				checked: this.currentSorting === SessionsSorting.Updated,
+				group: 'sort',
+			},
+			{
+				id: SessionsGrouping.Workspace,
+				label: localize('groupByWorkspace', "Group by Workspace"),
+				checked: this.currentGrouping === SessionsGrouping.Workspace,
+				group: 'group',
+				groupTitle: groupTitle,
+			},
+			{
+				id: SessionsGrouping.Date,
+				label: localize('groupByTime', "Group by Time"),
+				checked: this.currentGrouping === SessionsGrouping.Date,
+				group: 'group',
+			},
+		];
+
+		showMobileSortGroupSheet(this.layoutService.mainContainer, localize('sortGroupSheet.title', "Sort"), items).then(selectedId => {
+			if (!selectedId) {
+				return;
+			}
+			if (selectedId === SessionsSorting.Created || selectedId === SessionsSorting.Updated) {
+				this.setSorting(selectedId);
+			} else if (selectedId === SessionsGrouping.Workspace || selectedId === SessionsGrouping.Date) {
+				this.setGrouping(selectedId);
+			}
+		});
+	}
+
 	setGrouping(grouping: SessionsGrouping): void {
 		if (this.currentGrouping === grouping) {
 			return;

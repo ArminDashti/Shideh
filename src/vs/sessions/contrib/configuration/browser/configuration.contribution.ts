@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { localize } from '../../../../nls.js';
+import { Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 
 // ⚠️  WARNING — DO NOT ADD SETTINGS HERE ⚠️
@@ -36,19 +35,6 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 //
 // Only add entries to this file if the setting is declared by a third party and
 // cannot be annotated with `agentsWindow`, AND you have exhausted all other options.
-
-Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfiguration({
-	id: 'sessions',
-	properties: {
-		[SessionsExperimentalShellGradientBackgroundSettingId]: {
-			type: 'boolean',
-			default: false,
-			scope: ConfigurationScope.APPLICATION,
-			tags: ['experimental'],
-			description: localize('sessions.experimental.shellGradientBackground', "Whether to enable the experimental accent-tinted shell background in the Sessions window."),
-		},
-	},
-});
 
 Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerDefaultConfigurations([{
 	overrides: {

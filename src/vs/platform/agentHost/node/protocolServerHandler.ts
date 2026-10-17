@@ -1543,6 +1543,101 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		}
 	}
 
+	private _handleClientDisconnected(clientId: string): void {
+		for (const session of this._stateManager.getSessionUris()) {
+			const state = this._stateManager.getSessionState(session);
+			const ownsPendingToolCall = state ? this._hasPendingClientToolCall(state, clientId) : false;
+			if (state?.activeClient?.clientId === clientId) {
+				this._stateManager.dispatchServerAction({
+					type: ActionType.SessionActiveClientChanged,
+					session,
+					activeClient: null,
+				});
+			}
+			if (state?.activeClient?.clientId === clientId || ownsPendingToolCall) {
+				this._startClientToolCallDisconnectTimeout(clientId, session);
+			}
+		}
+	}
+
+	private _hasPendingClientToolCall(state: ReturnType<AgentHostStateManager['getSessionState']>, clientId: string): boolean {
+		const activeTurn = state?.activeTurn;
+		if (!activeTurn) {
+			return false;
+		}
+		return activeTurn.responseParts.some(part => part.kind === ResponsePartKind.ToolCall
+			&& part.toolCall.toolClientId === clientId
+			&& (part.toolCall.status === ToolCallStatus.Streaming || part.toolCall.status === ToolCallStatus.Running || part.toolCall.status === ToolCallStatus.PendingConfirmation));
+	}
+
+	private _hasReplacementActiveClientTool(state: SessionState, clientId: string, toolName: string): boolean {
+		const activeClient = state.activeClient;
+		return activeClient !== undefined
+			&& activeClient.clientId !== clientId
+			&& activeClient.tools.some(tool => tool.name === toolName);
+	}
+
+	private _startClientToolCallDisconnectTimeout(clientId: string, session: string): void {
+		this._clearClientToolCallDisconnectTimeout(clientId, session);
+		const key = this._clientToolCallDisconnectTimeoutKey(clientId, session);
+		this._clientToolCallDisconnectTimeouts.set(key, setTimeout(() => {
+			this._clientToolCallDisconnectTimeouts.delete(key);
+			this._completeDisconnectedClientToolCalls(clientId, session);
+		}, CLIENT_TOOL_CALL_DISCONNECT_TIMEOUT));
+	}
+
+	private _clearClientToolCallDisconnectTimeout(clientId: string, session: string): void {
+		const key = this._clientToolCallDisconnectTimeoutKey(clientId, session);
+		const timeout = this._clientToolCallDisconnectTimeouts.get(key);
+		if (timeout) {
+			clearTimeout(timeout);
+			this._clientToolCallDisconnectTimeouts.delete(key);
+		}
+	}
+
+	private _clientToolCallDisconnectTimeoutKey(clientId: string, session: string): string {
+		return `${clientId}\n${session}`;
+	}
+
+	private _completeDisconnectedClientToolCalls(clientId: string, session: string): void {
+		const state = this._stateManager.getSessionState(session);
+		const activeTurn = state?.activeTurn;
+		if (!activeTurn) {
+			return;
+		}
+		for (const part of activeTurn.responseParts) {
+			if (part.kind !== ResponsePartKind.ToolCall) {
+				continue;
+			}
+			const toolCall = part.toolCall;
+			if (toolCall.toolClientId === clientId && (toolCall.status === ToolCallStatus.Streaming || toolCall.status === ToolCallStatus.Running || toolCall.status === ToolCallStatus.PendingConfirmation)) {
+				const mayRetryWithReplacementClient = this._hasReplacementActiveClientTool(state, clientId, toolCall.toolName);
+				if (toolCall.status === ToolCallStatus.Streaming) {
+					this._stateManager.dispatchServerAction({
+						type: ActionType.SessionToolCallReady,
+						session,
+						turnId: activeTurn.id,
+						toolCallId: toolCall.toolCallId,
+						invocationMessage: toolCall.invocationMessage ?? toolCall.displayName,
+						confirmed: ToolCallConfirmationReason.NotNeeded,
+					});
+				}
+				this._stateManager.dispatchServerAction({
+					type: ActionType.SessionToolCallComplete,
+					session,
+					turnId: activeTurn.id,
+					toolCallId: toolCall.toolCallId,
+					result: {
+						success: false,
+						pastTenseMessage: `${toolCall.displayName} failed`,
+						...(mayRetryWithReplacementClient ? { content: [{ type: ToolResultContentType.Text, text: `The client that was running ${toolCall.displayName} disconnected, but another active client now provides ${toolCall.displayName}. You may try calling the tool again.` }] } : {}),
+						error: { message: `Client ${clientId} disconnected before completing ${toolCall.displayName}` },
+					},
+				});
+			}
+		}
+	}
+
 	// ---- Requests (expect a response) ---------------------------------------
 
 	/**
@@ -2556,6 +2651,10 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			pending.reject(new Error('ProtocolServerHandler disposed'));
 		}
 		this._pendingReverseRequests.clear();
+		for (const timeout of this._clientToolCallDisconnectTimeouts.values()) {
+			clearTimeout(timeout);
+		}
+		this._clientToolCallDisconnectTimeouts.clear();
 		this._replayBuffer.length = 0;
 		this._canvasSnapshots.clear();
 		this._canvasSnapshotChatsByClient.clear();

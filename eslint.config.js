@@ -6,11 +6,14 @@
 import { fixupPluginRules } from '@eslint/compat';
 import { defineConfig } from 'eslint/config';
 import fs from 'fs';
+import { builtinModules } from 'module';
 import path from 'path';
 import tseslint from 'typescript-eslint';
 
 import stylistic from '@stylistic/eslint-plugin';
 import * as pluginLocal from './.eslint-plugin-local/index.ts';
+import * as pluginCopilotLocal from './extensions/copilot/.eslintplugin/index.ts';
+import pluginImport from 'eslint-plugin-import';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
 
 import pluginHeader from 'eslint-plugin-header';
@@ -233,6 +236,7 @@ export default defineConfig(
 			'src/bootstrap-node.ts',
 			'build/lib/extensions.ts',
 			'build/lib/test/render.test.ts',
+			'extensions/copilot/**/*',
 			'extensions/debug-auto-launch/src/extension.ts',
 			'extensions/emmet/src/updateImageSize.ts',
 			'extensions/emmet/src/util.ts',
@@ -2484,6 +2488,7 @@ export default defineConfig(
 		],
 		ignores: [
 			'extensions/**/*.test.ts',
+			'extensions/copilot/**/*',
 		],
 		rules: {
 			'no-restricted-syntax': [

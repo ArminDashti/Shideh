@@ -1362,3 +1362,397 @@ function _pendingConfirmation(session: URI, toolCallId: string, invocationMessag
 		permissionPath: opts?.permissionPath,
 	};
 }
+
+// =============================================================================
+// Test-event helpers
+// =============================================================================
+
+/**
+ * Compact event vocabulary used by the scripted mock agent. Mirrors the
+ * fields of the historical `IAgentProgressEvent` union so existing test
+ * fixtures keep their shape while emission goes through {@link AgentSignal}.
+ */
+export type LegacyMockEvent =
+	| { type: 'delta'; session: URI; messageId: string; content: string; parentToolCallId?: string }
+	| {
+		type: 'message';
+		session: URI;
+		role: 'user' | 'assistant';
+		messageId: string;
+		content: string;
+		parentToolCallId?: string;
+		toolRequests?: readonly { toolCallId: string; name: string; arguments?: string; type?: 'function' | 'custom' }[];
+		reasoningOpaque?: string;
+		reasoningText?: string;
+		encryptedContent?: string;
+	}
+	| { type: 'idle'; session: URI }
+	| {
+		type: 'tool_start';
+		session: URI;
+		toolCallId: string;
+		toolName: string;
+		displayName: string;
+		invocationMessage: StringOrMarkdown;
+		toolInput?: string;
+		toolKind?: 'terminal' | 'subagent';
+		language?: string;
+		toolClientId?: string;
+		subagentAgentName?: string;
+		subagentDescription?: string;
+		mcpServerName?: string;
+		mcpToolName?: string;
+		toolArguments?: string;
+		parentToolCallId?: string;
+	}
+	| {
+		type: 'tool_ready';
+		session: URI;
+		toolCallId: string;
+		invocationMessage: StringOrMarkdown;
+		toolInput?: string;
+		confirmationTitle?: StringOrMarkdown;
+		permissionKind?: 'shell' | 'write' | 'mcp' | 'read' | 'url' | 'custom-tool';
+		permissionPath?: string;
+		edits?: { items: FileEdit[] };
+	}
+	| { type: 'tool_complete'; session: URI; toolCallId: string; result: ToolCallResult; parentToolCallId?: string }
+	| { type: 'tool_content_changed'; session: URI; toolCallId: string; content: ToolResultContent[] }
+	| { type: 'title_changed'; session: URI; title: string }
+	| { type: 'error'; session: URI; errorType: string; message: string; stack?: string }
+	| { type: 'usage'; session: URI; inputTokens?: number; outputTokens?: number; model?: string; cacheReadTokens?: number }
+	| { type: 'reasoning'; session: URI; content: string }
+	| { type: 'user_input_request'; session: URI; request: SessionInputRequest }
+	| { type: 'subagent_started'; session: URI; toolCallId: string; agentName: string; agentDisplayName: string; agentDescription?: string }
+	| { type: 'steering_consumed'; session: URI; id: string };
+
+let _mockPartIdCounter = 0;
+
+/**
+ * Per-translator state used by {@link legacyToSignals} to coalesce
+ * consecutive `delta` and `reasoning` events into append actions, mirroring
+ * the live emission rules of {@link CopilotAgentSession}. Any event other
+ * than `delta` / `reasoning` (e.g. `tool_start`, `tool_complete`, `idle`,
+ * `error`) invalidates the active part ids so the next text/reasoning
+ * chunk allocates a fresh response part — same semantics as the live
+ * agent.
+ */
+export interface ILegacySignalState {
+	/** Active markdown part id and the message id it's keyed to. */
+	currentMarkdown?: { messageId: string; partId: string };
+	/** Active reasoning part id. */
+	currentReasoningPartId?: string;
+}
+
+/**
+ * Converts a {@link LegacyMockEvent} into one or more {@link AgentSignal}s.
+ *
+ * If a {@link state} is provided, consecutive `delta` events with the same
+ * `messageId` and consecutive `reasoning` events coalesce into append
+ * actions ({@link ActionType.SessionDelta} / {@link ActionType.SessionReasoning})
+ * the same way live agents emit them. Without {@link state}, each call is
+ * stateless and every text/reasoning event allocates a fresh response part.
+ *
+ * Tests that expect specific partId behaviour should use
+ * {@link IAgentActionSignal} envelopes directly via {@link MockAgent.fireProgress}.
+ */
+export function legacyToSignals(e: LegacyMockEvent, session: URI, turnId: string, state?: ILegacySignalState): AgentSignal[] {
+	const sessionStr = session.toString();
+	switch (e.type) {
+		case 'delta':
+		case 'message': {
+			if (e.type === 'message' && e.role !== 'assistant') {
+				return [];
+			}
+			const content = e.type === 'delta' ? e.content : e.content;
+			if (!content) {
+				return [];
+			}
+			const messageId = e.type === 'delta' ? e.messageId : e.messageId;
+			// Reasoning is invalidated by any non-reasoning event so the
+			// next reasoning chunk starts a fresh part.
+			if (state) {
+				state.currentReasoningPartId = undefined;
+			}
+			// Coalesce: same messageId as the current markdown part ⇒ append.
+			if (state?.currentMarkdown && state.currentMarkdown.messageId === messageId) {
+				return [{
+					kind: 'action', session, parentToolCallId: e.parentToolCallId, action: {
+						type: ActionType.SessionDelta,
+						session: sessionStr,
+						turnId,
+						partId: state.currentMarkdown.partId,
+						content,
+					},
+				}];
+			}
+			const partId = `mock-md-${++_mockPartIdCounter}`;
+			if (state) {
+				state.currentMarkdown = { messageId, partId };
+			}
+			const action: SessionAction = {
+				type: ActionType.SessionResponsePart,
+				session: sessionStr,
+				turnId,
+				part: { kind: ResponsePartKind.Markdown, id: partId, content },
+			};
+			return [{ kind: 'action', session, action, parentToolCallId: e.parentToolCallId }];
+		}
+		case 'reasoning': {
+			// Markdown is invalidated by any non-markdown event so the next
+			// text chunk starts a fresh part.
+			if (state) {
+				state.currentMarkdown = undefined;
+			}
+			if (state?.currentReasoningPartId) {
+				return [{
+					kind: 'action', session, action: {
+						type: ActionType.SessionReasoning,
+						session: sessionStr,
+						turnId,
+						partId: state.currentReasoningPartId,
+						content: e.content,
+					},
+				}];
+			}
+			const partId = `mock-rs-${++_mockPartIdCounter}`;
+			if (state) {
+				state.currentReasoningPartId = partId;
+			}
+			return [{
+				kind: 'action', session, action: {
+					type: ActionType.SessionResponsePart,
+					session: sessionStr,
+					turnId,
+					part: { kind: ResponsePartKind.Reasoning, id: partId, content: e.content },
+				}
+			}];
+		}
+		case 'idle':
+			return [{ kind: 'action', session, action: { type: ActionType.SessionTurnComplete, session: sessionStr, turnId } }];
+		case 'title_changed':
+			return [{ kind: 'action', session, action: { type: ActionType.SessionTitleChanged, session: sessionStr, title: e.title } }];
+		case 'error':
+			return [{
+				kind: 'action', session, action: {
+					type: ActionType.SessionError,
+					session: sessionStr,
+					turnId,
+					error: { errorType: e.errorType, message: e.message, stack: e.stack },
+				}
+			}];
+		case 'usage':
+			return [{
+				kind: 'action', session, action: {
+					type: ActionType.SessionUsage,
+					session: sessionStr,
+					turnId,
+					usage: { inputTokens: e.inputTokens, outputTokens: e.outputTokens, model: e.model, cacheReadTokens: e.cacheReadTokens },
+				}
+			}];
+		case 'user_input_request':
+			return [{
+				kind: 'action', session, action: {
+					type: ActionType.SessionInputRequested,
+					session: sessionStr,
+					request: e.request,
+				}
+			}];
+		case 'tool_content_changed':
+			return [{
+				kind: 'action', session, action: {
+					type: ActionType.SessionToolCallContentChanged,
+					session: sessionStr,
+					turnId,
+					toolCallId: e.toolCallId,
+					content: e.content,
+				}
+			}];
+		case 'tool_start': {
+			const meta: Record<string, unknown> = { toolKind: e.toolKind, language: e.language };
+			if (e.subagentAgentName) {
+				meta.subagentAgentName = e.subagentAgentName;
+			}
+			if (e.subagentDescription) {
+				meta.subagentDescription = e.subagentDescription;
+			}
+			const signals: AgentSignal[] = [{
+				kind: 'action', session, parentToolCallId: e.parentToolCallId, action: {
+					type: ActionType.SessionToolCallStart,
+					session: sessionStr,
+					turnId,
+					toolCallId: e.toolCallId,
+					toolName: e.toolName,
+					displayName: e.displayName,
+					toolClientId: e.toolClientId,
+					_meta: meta,
+				}
+			}];
+			// For client tools, do NOT auto-ready — the tool waits for an
+			// explicit `tool_ready` event from the test fixture, mirroring the
+			// live SDK behaviour.
+			if (!e.toolClientId) {
+				signals.push({
+					kind: 'action', session, parentToolCallId: e.parentToolCallId, action: {
+						type: ActionType.SessionToolCallReady,
+						session: sessionStr,
+						turnId,
+						toolCallId: e.toolCallId,
+						invocationMessage: e.invocationMessage,
+						toolInput: e.toolInput,
+						confirmed: ToolCallConfirmationReason.NotNeeded,
+					}
+				});
+			}
+			return signals;
+		}
+		case 'tool_ready':
+			return [{
+				kind: 'pending_confirmation',
+				session,
+				// `toolName`/`displayName` are not used downstream of the
+				// signal — `SessionToolCallReadyAction` does not carry them
+				// and the reducer reads them from the existing tool-call
+				// state set by an earlier `tool_start`. Use empty placeholders
+				// so the legacy event type doesn't need to grow new fields.
+				state: {
+					status: ToolCallStatus.PendingConfirmation,
+					toolCallId: e.toolCallId,
+					toolName: '',
+					displayName: '',
+					invocationMessage: e.invocationMessage,
+					toolInput: e.toolInput,
+					confirmationTitle: e.confirmationTitle,
+					edits: e.edits,
+				},
+				permissionKind: e.permissionKind,
+				permissionPath: e.permissionPath,
+			}];
+		case 'tool_complete':
+			return [{
+				kind: 'action', session, parentToolCallId: e.parentToolCallId, action: {
+					type: ActionType.SessionToolCallComplete,
+					session: sessionStr,
+					turnId,
+					toolCallId: e.toolCallId,
+					result: e.result,
+				}
+			}];
+		case 'subagent_started':
+			return [{
+				kind: 'subagent_started',
+				session,
+				toolCallId: e.toolCallId,
+				agentName: e.agentName,
+				agentDisplayName: e.agentDisplayName,
+				agentDescription: e.agentDescription,
+			}];
+		case 'steering_consumed':
+			return [{ kind: 'steering_consumed', session, id: e.id }];
+	}
+}
+
+/**
+ * Compact legacy view of an {@link AgentSignal} used by tests that grew up
+ * with the old `IAgentProgressEvent` vocabulary. Returns `undefined` for
+ * action signals that have no direct legacy analogue.
+ *
+ * Mirrors the inverse of {@link legacyToSignals} for the most common
+ * action types so tests can keep doing `progressEvents[i].type === 'X'`.
+ */
+export function signalToLegacyView(signal: AgentSignal): LegacyMockEvent | undefined {
+	if (signal.kind === 'pending_confirmation') {
+		return {
+			type: 'tool_ready',
+			session: signal.session,
+			toolCallId: signal.state.toolCallId,
+			invocationMessage: signal.state.invocationMessage,
+			toolInput: signal.state.toolInput,
+			confirmationTitle: signal.state.confirmationTitle,
+			permissionKind: signal.permissionKind,
+			permissionPath: signal.permissionPath,
+			edits: signal.state.edits,
+		};
+	}
+	if (signal.kind === 'subagent_started') {
+		return {
+			type: 'subagent_started',
+			session: signal.session,
+			toolCallId: signal.toolCallId,
+			agentName: signal.agentName,
+			agentDisplayName: signal.agentDisplayName,
+			agentDescription: signal.agentDescription,
+		};
+	}
+	if (signal.kind === 'steering_consumed') {
+		return { type: 'steering_consumed', session: signal.session, id: signal.id };
+	}
+	const action = signal.action;
+	switch (action.type) {
+		case ActionType.SessionResponsePart: {
+			if (action.part.kind === ResponsePartKind.Markdown) {
+				return { type: 'delta', session: signal.session, messageId: action.part.id, content: action.part.content };
+			}
+			if (action.part.kind === ResponsePartKind.Reasoning) {
+				return { type: 'reasoning', session: signal.session, content: action.part.content };
+			}
+			return undefined;
+		}
+		case ActionType.SessionDelta:
+			return { type: 'delta', session: signal.session, messageId: action.partId, content: action.content };
+		case ActionType.SessionReasoning:
+			return { type: 'reasoning', session: signal.session, content: action.content };
+		case ActionType.SessionTurnComplete:
+			return { type: 'idle', session: signal.session };
+		case ActionType.SessionTitleChanged:
+			return { type: 'title_changed', session: signal.session, title: action.title };
+		case ActionType.SessionError:
+			return { type: 'error', session: signal.session, errorType: action.error.errorType, message: action.error.message, stack: action.error.stack };
+		case ActionType.SessionUsage:
+			return { type: 'usage', session: signal.session, ...action.usage };
+		case ActionType.SessionInputRequested:
+			return { type: 'user_input_request', session: signal.session, request: action.request };
+		case ActionType.SessionToolCallContentChanged:
+			return { type: 'tool_content_changed', session: signal.session, toolCallId: action.toolCallId, content: action.content };
+		case ActionType.SessionToolCallStart: {
+			const meta = (action._meta ?? {}) as Record<string, unknown>;
+			return {
+				type: 'tool_start',
+				session: signal.session,
+				toolCallId: action.toolCallId,
+				toolName: action.toolName,
+				displayName: action.displayName,
+				invocationMessage: '',
+				toolClientId: action.toolClientId,
+				toolKind: meta.toolKind as 'terminal' | 'subagent' | undefined,
+				language: meta.language as string | undefined,
+				subagentAgentName: meta.subagentAgentName as string | undefined,
+				subagentDescription: meta.subagentDescription as string | undefined,
+				toolArguments: meta.toolArguments as string | undefined,
+				mcpServerName: meta.mcpServerName as string | undefined,
+				mcpToolName: meta.mcpToolName as string | undefined,
+				parentToolCallId: signal.parentToolCallId,
+			};
+		}
+		case ActionType.SessionToolCallReady:
+			return {
+				type: 'tool_ready',
+				session: signal.session,
+				toolCallId: action.toolCallId,
+				invocationMessage: action.invocationMessage,
+				toolInput: action.toolInput,
+				confirmationTitle: action.confirmationTitle,
+				edits: action.edits,
+			};
+		case ActionType.SessionToolCallComplete:
+			return {
+				type: 'tool_complete',
+				session: signal.session,
+				toolCallId: action.toolCallId,
+				result: action.result,
+				parentToolCallId: signal.parentToolCallId,
+			};
+	}
+	return undefined;
+}
+

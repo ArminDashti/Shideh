@@ -4617,6 +4617,103 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				this._finalizeToolInvocation(invocation, tc, opts);
 			}
 		}));
+
+		const handleSettled = (result: IToolResult | undefined, err: unknown) => {
+			if (cts.token.isCancellationRequested) {
+				return;
+			}
+			if (!approvedDispatched) {
+				if (err !== undefined && !isCancellationError(err)) {
+					this._logService.warn(`[AgentHost] Client tool rejected pre-execution: ${toolName}`, err);
+				}
+				return;
+			}
+			if (err !== undefined) {
+				if (!isCancellationError(err)) {
+					this._logService.warn(`[AgentHost] Client tool invocation failed: ${toolName}`, err);
+				}
+				const message = err instanceof Error ? err.message : String(err);
+				result = { content: [], toolResultError: message };
+			}
+			this._dispatchAction({
+				type: ActionType.SessionToolCallComplete,
+				session: opts.backendSession.toString(),
+				turnId: opts.turnId,
+				toolCallId,
+				result: toolResultToProtocol(result ?? { content: [] }, toolName),
+			});
+		};
+
+		// React to part$ updates: route external cancellation, and try to
+		// invoke once parameters are present. Idempotent via `invoked` and
+		// `cts.token.isCancellationRequested`.
+		store.add(autorun(reader => {
+			const tc = part$.read(reader).toolCall;
+			if (tc.status === ToolCallStatus.Cancelled) {
+				if (cts.token.isCancellationRequested) {
+					return;
+				}
+				cts.cancel();
+				if (!invoked) {
+					// No `invokeTool` is listening to the CTS — transition
+					// the invocation to `Cancelled` ourselves.
+					invocation.cancelFromStreaming(ToolConfirmKind.Skipped);
+				}
+				return;
+			}
+			if (invoked || cts.token.isCancellationRequested) {
+				return;
+			}
+			// eslint-disable-next-line local/code-no-in-operator
+			let toolInput = 'toolInput' in tc ? tc.toolInput : undefined;
+			if (toolInput === undefined) {
+				// Still streaming — parameters may still be arriving. Once
+				// we move past Streaming, treat a missing toolInput as `{}`
+				// so zero-argument tools are not stuck.
+				if (tc.status === ToolCallStatus.Streaming) {
+					return;
+				}
+				toolInput = '{}';
+			}
+			invoked = true;
+
+			let parameters: Record<string, unknown> = {};
+			try {
+				const parsed: unknown = JSON.parse(toolInput);
+				if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+					throw new Error('expected JSON object');
+				}
+				parameters = parsed as Record<string, unknown>;
+			} catch {
+				this._logService.warn(`[AgentHost] Failed to parse tool input for ${toolName}`);
+				this._dispatchAction({
+					type: ActionType.SessionToolCallComplete,
+					session: opts.backendSession.toString(),
+					turnId: opts.turnId,
+					toolCallId,
+					result: {
+						success: false,
+						pastTenseMessage: `Failed to execute ${toolName}`,
+						error: { message: `Invalid tool input for "${toolName}": expected JSON object parameters` },
+					},
+				});
+				return;
+			}
+
+			const inv: IToolInvocation = {
+				callId: toolCallId,
+				toolId: invocation.toolId,
+				parameters,
+				context: { sessionResource: opts.sessionResource },
+				chatStreamToolCallId: toolCallId,
+			};
+			const noOpCountTokens = async () => 0;
+			this._logService.info(`[AgentHost] Invoking client tool: ${toolName} (callId=${toolCallId})`);
+			this._toolsService.invokeTool(inv, noOpCountTokens, cts.token).then(
+				result => handleSettled(result, undefined),
+				err => handleSettled(undefined, err),
+			);
+		}));
 	}
 
 	private _setupInputRequestPart(

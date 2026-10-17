@@ -152,6 +152,26 @@ export class AICustomizationShortcutsWidget extends Disposable {
 			}
 		}));
 
+		const headerActions = DOM.append(header, $('.ai-customization-header-actions'));
+		const openOverviewLabel = localize('openCustomizationsOverview', "Open Customizations Overview");
+		const openOverviewButton = this._register(new Button(headerActions, {
+			...defaultButtonStyles,
+			secondary: true,
+			title: openOverviewLabel,
+			ariaLabel: openOverviewLabel,
+			supportIcons: true,
+			buttonSecondaryBackground: 'transparent',
+			buttonSecondaryHoverBackground: undefined,
+			buttonSecondaryForeground: undefined,
+			buttonSecondaryBorder: undefined,
+		}));
+		openOverviewButton.element.classList.add('ai-customization-overview-button');
+		openOverviewButton.label = `$(${Codicon.home.id})`;
+		this._register(openOverviewButton.onDidClick(e => {
+			e?.preventDefault();
+			this._openWelcomePage();
+		}));
+
 		// Toolbar container
 		const scrollContent = $('.ai-customization-toolbar-content-scrollable');
 		const toolbarContainer = DOM.append(scrollContent, $('.ai-customization-toolbar-content.sidebar-action-list'));
@@ -240,6 +260,14 @@ export class AICustomizationShortcutsWidget extends Disposable {
 			return;
 		}
 		this._scrollableElement?.scanDomNode();
+	}
+
+	private async _openWelcomePage(): Promise<void> {
+		const input = AICustomizationManagementEditorInput.getOrCreate();
+		const editor = await this.editorService.openEditor(input, { pinned: true });
+		if (editor instanceof AICustomizationManagementEditor) {
+			editor.showWelcomePage();
+		}
 	}
 
 	focus(): void {
