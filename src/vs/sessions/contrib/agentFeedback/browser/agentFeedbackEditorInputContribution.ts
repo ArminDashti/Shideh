@@ -174,9 +174,17 @@ export class AgentFeedbackInputWidget extends Disposable implements IOverlayWidg
 	}
 }
 
+export const AgentFeedbackInputVisibleContext = new RawContextKey<boolean>('agentFeedbackEditorInputVisible', false, localize('agentFeedbackEditorInputVisible', "Whether the agent feedback input is currently visible"));
+
+export const focusAgentFeedbackInputActionId = 'agentFeedbackEditor.action.focusInput';
+
 export class AgentFeedbackEditorInputContribution extends Disposable implements IEditorContribution {
 
 	static readonly ID = 'agentFeedback.editorInputContribution';
+
+	static get(editor: ICodeEditor): AgentFeedbackEditorInputContribution | null {
+		return editor.getContribution<AgentFeedbackEditorInputContribution>(AgentFeedbackEditorInputContribution.ID);
+	}
 
 	private _widget: AgentFeedbackInputWidget | undefined;
 	private _visible = false;
@@ -459,6 +467,7 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 
 		if (!this._visible) {
 			this._visible = true;
+			this._visibleContext.set(true);
 			this._registerWidgetListeners(widget);
 		}
 
@@ -488,6 +497,12 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 		return hasChanges
 			? localize('agentFeedback.addFeedback', "Add Feedback")
 			: localize('agentFeedback.addComment', "Add Comment");
+
+		const keybindingLabel = this._keybindingService.lookupKeybinding(focusAgentFeedbackInputActionId)?.getLabel();
+		if (!keybindingLabel) {
+			return base;
+		}
+		return localize('agentFeedback.placeholderWithKeybinding', "{0} ({1})", base, keybindingLabel);
 	}
 
 	private _hide(): void {
@@ -716,14 +731,6 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 				if (e.keyCode === KeyCode.Escape) {
 					this._hide();
 					this._editor.focus();
-					return;
-				}
-
-				// Ctrl+I / Cmd+I explicitly focuses the feedback input
-				if ((e.ctrlKey || e.metaKey) && e.keyCode === KeyCode.KeyI) {
-					e.preventDefault();
-					e.stopPropagation();
-					widget.inputElement.focus();
 					return;
 				}
 
@@ -1007,3 +1014,16 @@ class AddFeedbackAtCurrentLineAction extends Action2 {
 
 registerAction2(AddFeedbackAtCurrentLineAction);
 registerEditorContribution(AgentFeedbackEditorInputContribution.ID, AgentFeedbackEditorInputContribution, EditorContributionInstantiation.Eventually);
+
+const AgentFeedbackInputCommand = EditorCommand.bindToContribution<AgentFeedbackEditorInputContribution>(AgentFeedbackEditorInputContribution.get);
+
+registerEditorCommand(new AgentFeedbackInputCommand({
+	id: focusAgentFeedbackInputActionId,
+	precondition: AgentFeedbackInputVisibleContext,
+	handler: c => c.focusInput(),
+	kbOpts: {
+		kbExpr: EditorContextKeys.editorTextFocus,
+		primary: KeyMod.CtrlCmd | KeyCode.KeyI,
+		weight: KeybindingWeight.WorkbenchContrib,
+	}
+}));
