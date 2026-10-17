@@ -6552,7 +6552,12 @@ export class CopilotAgentSession extends Disposable {
 			let toolArgs = e.data.arguments !== undefined ? tryStringify(e.data.arguments) : undefined;
 			let parameters: Record<string, unknown> | undefined;
 			if (toolArgs) {
-				try { parameters = JSON.parse(toolArgs) as Record<string, unknown>; } catch { /* ignore */ }
+				try {
+					const parsed = JSON.parse(toolArgs);
+					if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+						parameters = parsed as Record<string, unknown>;
+					}
+				} catch { /* ignore */ }
 			}
 			// Strip redundant `cd <workingDirectory> && …` prefixes from shell tool
 			// commands so clients see the simplified form. Mirrors the logic in

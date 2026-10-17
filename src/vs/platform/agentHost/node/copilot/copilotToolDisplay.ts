@@ -352,7 +352,12 @@ export function getEditFilePaths(parameters: unknown): string[] {
 		// patch string (custom tool format), so when JSON parsing fails
 		// fall back to treating it as the patch body.
 		try {
-			parameters = JSON.parse(parameters);
+			const parsed = JSON.parse(parameters);
+			if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+				parameters = parsed;
+			} else if (typeof parsed === 'string') {
+				return getPatchFilePaths(parsed, workingDirectory);
+			}
 		} catch {
 			return getApplyPatchFiles(parameters as string);
 		}
@@ -718,6 +723,9 @@ export function getInvocationMessage(toolName: string, displayName: string, para
 					return getInvocationMessage(CopilotToolName.Edit, displayName, parameters, resolvePath);
 			}
 		}
+		case CopilotToolName.ApplyPatch:
+		case CopilotToolName.GitApplyPatch:
+			return localize('toolInvoke.patch', "Applying patch to files");
 		case CopilotToolName.Grep: {
 			const args = parameters as ICopilotGrepToolArgs | undefined;
 			if (args?.pattern) {
