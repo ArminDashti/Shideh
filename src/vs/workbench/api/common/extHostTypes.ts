@@ -291,6 +291,7 @@ export class DocumentSymbol {
 
 	name: string;
 	detail: string;
+	tooltip?: string;
 	kind: SymbolKind;
 	tags?: SymbolTag[];
 	range: Range;
