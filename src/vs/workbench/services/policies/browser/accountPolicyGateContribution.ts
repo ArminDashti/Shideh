@@ -239,7 +239,10 @@ export class AccountPolicyGateContribution extends Disposable implements IWorkbe
 	}
 
 	private updatePolicyGateState(): void {
-		const blocked = this.isGateRestricted(this.lastInfo) || this.defaultAccountService.managedSettingsCompatibilityError !== null;
+		const blocked = this.isGateRestricted(this.lastInfo)
+			|| this.defaultAccountService.managedSettingsCompatibilityError !== null
+			|| this.defaultAccountService.managedSettingsRefreshState === 'pending'
+			|| this.defaultAccountService.managedSettingsRefreshState === 'blocked';
 		this.contextKey.set(blocked);
 		this.chatEntitlementService.setForceHidden(blocked);
 	}

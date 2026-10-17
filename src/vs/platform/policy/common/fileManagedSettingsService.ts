@@ -42,6 +42,8 @@ export class FileManagedSettingsService extends Disposable implements IFileManag
 	private readonly throttledDelayer = this._register(new ThrottledDelayer(500));
 	private readonly initialized = new Barrier();
 
+	private readonly initialRefresh: Promise<unknown>;
+
 	constructor(
 		private readonly file: URI,
 		@IFileService private readonly fileService: IFileService,

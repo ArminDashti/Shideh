@@ -28,6 +28,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IFileManagedSettingsService, INativeManagedSettingsService, ManagedSettingsChannel, ManagedSettingsData, resolveForceRemoteSettingsRefresh } from '../../../../platform/policy/common/copilotManagedSettings.js';
 import { IManagedSettingsFreshness, IManagedSettingsFreshnessScope, isManagedSettingsFreshnessBlocking, isManagedSettingsFreshnessSatisfiedFor, MANAGED_SETTINGS_FRESHNESS_NOT_REQUIRED, ManagedSettingsFreshnessFailure, ManagedSettingsFreshnessState } from '../../../../platform/policy/common/managedSettingsFreshness.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
+import { COPILOT_FORCE_REMOTE_SETTINGS_REFRESH_KEY, IFileManagedSettingsService, INativeManagedSettingsService, shouldForceRemoteSettingsRefresh } from '../../../../platform/policy/common/copilotManagedSettings.js';
 import { asJson, asText, IRequestService, isClientError, isSuccess, readHeader, retryAfterFromHeaders } from '../../../../platform/request/common/request.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -154,6 +155,8 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 
 	private readonly _onDidChangeManagedSettingsCompatibilityError = this._register(new Emitter<IManagedSettingsCompatibilityError | null>());
 	readonly onDidChangeManagedSettingsCompatibilityError = this._onDidChangeManagedSettingsCompatibilityError.event;
+	private readonly _onDidChangeManagedSettingsRefreshState = this._register(new Emitter<ManagedSettingsRefreshState>());
+	readonly onDidChangeManagedSettingsRefreshState = this._onDidChangeManagedSettingsRefreshState.event;
 
 	private readonly _onDidChangeManagedSettingsFreshness = this._register(new Emitter<IManagedSettingsFreshness>());
 	readonly onDidChangeManagedSettingsFreshness = this._onDidChangeManagedSettingsFreshness.event;
@@ -339,6 +342,8 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 
 	private _managedSettingsCompatibilityError: IManagedSettingsCompatibilityError | null = null;
 	get managedSettingsCompatibilityError(): IManagedSettingsCompatibilityError | null { return this._managedSettingsCompatibilityError; }
+	private _managedSettingsRefreshState: ManagedSettingsRefreshState = 'inactive';
+	get managedSettingsRefreshState(): ManagedSettingsRefreshState { return this._managedSettingsRefreshState; }
 
 	private _managedSettingsFreshness: IManagedSettingsFreshness = MANAGED_SETTINGS_FRESHNESS_NOT_REQUIRED;
 	get managedSettingsFreshness(): IManagedSettingsFreshness { return this._managedSettingsFreshness; }
@@ -354,6 +359,8 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 
 	private readonly _onDidChangeManagedSettingsCompatibilityError = this._register(new Emitter<IManagedSettingsCompatibilityError | null>());
 	readonly onDidChangeManagedSettingsCompatibilityError = this._onDidChangeManagedSettingsCompatibilityError.event;
+	private readonly _onDidChangeManagedSettingsRefreshState = this._register(new Emitter<ManagedSettingsRefreshState>());
+	readonly onDidChangeManagedSettingsRefreshState = this._onDidChangeManagedSettingsRefreshState.event;
 
 	private readonly _onDidChangeManagedSettingsFreshness = this._register(new Emitter<IManagedSettingsFreshness>());
 	readonly onDidChangeManagedSettingsFreshness = this._onDidChangeManagedSettingsFreshness.event;
@@ -442,6 +449,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 		// account state drives the title bar and the welcome walkthrough.
 		if (isWeb && !this.environmentService.remoteAuthority && !this.environmentService.isSessionsWindow) {
 			this.logService.debug('[DefaultAccount] Running in web without remote, skipping initialization');
+			this.resolvePendingRefreshStateIfIdle();
 			return;
 		}
 
@@ -602,6 +610,8 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 				return;
 			}
 			this.setDefaultAccount(defaultAccount);
+			// Nothing will resolve the startup gate when this pass ran no managed-settings fetch.
+			this.resolvePendingRefreshStateIfIdle();
 			this.scheduleAccountDataPoll();
 		} catch (error) {
 			this.logService.error('[DefaultAccount] Error while updating default account', getErrorMessage(error));

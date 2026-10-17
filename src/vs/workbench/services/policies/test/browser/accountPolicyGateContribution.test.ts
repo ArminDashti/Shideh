@@ -57,6 +57,10 @@ class TestDefaultAccountService extends mock<IDefaultAccountService>() {
 
 	private readonly _onDidChangeManagedSettingsCompatibilityError = new Emitter<IManagedSettingsCompatibilityError | null>();
 	override readonly onDidChangeManagedSettingsCompatibilityError = this._onDidChangeManagedSettingsCompatibilityError.event;
+	private _managedSettingsRefreshState: ManagedSettingsRefreshState = 'inactive';
+	override get managedSettingsRefreshState(): ManagedSettingsRefreshState { return this._managedSettingsRefreshState; }
+	private readonly _onDidChangeManagedSettingsRefreshState = new Emitter<ManagedSettingsRefreshState>();
+	override readonly onDidChangeManagedSettingsRefreshState = this._onDidChangeManagedSettingsRefreshState.event;
 
 	setManagedSettingsCompatibilityError(error: IManagedSettingsCompatibilityError | null): void {
 		this._managedSettingsCompatibilityError = error;
@@ -70,6 +74,7 @@ class TestDefaultAccountService extends mock<IDefaultAccountService>() {
 
 	dispose(): void {
 		this._onDidChangeManagedSettingsCompatibilityError.dispose();
+		this._onDidChangeManagedSettingsRefreshState.dispose();
 	}
 }
 
@@ -145,6 +150,14 @@ suite('AccountPolicyGateContribution', () => {
 		captureState();
 		defaultAccountService.setManagedSettingsCompatibilityError(null);
 		captureState();
+		defaultAccountService.setManagedSettingsRefreshState('pending');
+		captureState();
+		defaultAccountService.setManagedSettingsRefreshState('blocked');
+		await Promise.resolve();
+		await Promise.resolve();
+		captureState();
+		defaultAccountService.setManagedSettingsRefreshState('inactive');
+		captureState();
 
 		assert.deepStrictEqual({
 			states,
@@ -156,6 +169,9 @@ suite('AccountPolicyGateContribution', () => {
 				{ context: true, hidden: true },
 				{ context: false, hidden: false },
 				{ context: true, hidden: true },
+				{ context: true, hidden: true },
+				{ context: true, hidden: true },
+				{ context: false, hidden: false },
 				{ context: true, hidden: true },
 				{ context: true, hidden: true },
 				{ context: false, hidden: false },
