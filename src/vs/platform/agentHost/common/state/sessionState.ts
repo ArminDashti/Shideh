@@ -1323,6 +1323,8 @@ export function isAhpChatChannel(uri: string): boolean {
  * full set).
  */
 export interface ISessionWithDefaultChat extends SessionState {
+	/** The chat's read-only primary working directory (fixed at chat creation). */
+	primaryWorkingDirectory?: ProtocolURI;
 	/** Completed turns of this chat. */
 	turns: Turn[];
 	/** Currently in-progress turn of this chat. */

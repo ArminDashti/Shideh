@@ -5841,6 +5841,12 @@ export class AgentService extends Disposable implements IAgentService {
 		if (configValues && Object.keys(configValues).length > 0) {
 			this._persistConfigValues(session, configValues);
 		}
+		// Refresh the default chat's primary working directory before
+		// persisting/announcing the summary below: for worktree-isolated
+		// sessions, `workingDirectories[0]` above just replaced the
+		// pre-materialization directory the chat's primary was seeded from
+		// at create time, so the primary would otherwise go stale.
+		this._stateManager.refreshDefaultChatPrimaryWorkingDirectory(sessionKey, e.workingDirectory?.toString());
 		// Persist the AH-owned workspace-less marker now that the session has a
 		// real on-disk database (deferred from create for provisional sessions).
 		this._queueCatalogSync(session, this._creationMetadataOverrides(state._meta));

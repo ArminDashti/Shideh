@@ -871,7 +871,7 @@ export class AgentHostStateManager extends Disposable {
 	 * and writes its on-disk metadata). Call {@link markSessionPersisted}
 	 * afterwards to fire the deferred notification.
 	 */
-	createSession(summary: SessionSummary, options?: { readonly emitNotification?: boolean }): SessionState {
+	createSession(summary: SessionSummary, options?: { readonly emitNotification?: boolean; readonly primaryWorkingDirectory?: URI }): SessionState {
 		const key = summary.resource;
 		const existing = this._sessionStates.get(key);
 		if (existing) {
@@ -1221,6 +1221,10 @@ export class AgentHostStateManager extends Disposable {
 	 * deterministically from the session URI. The chat is seeded with any
 	 * pre-populated `turns` (used by {@link restoreSession}).
 	 *
+	 * `primaryWorkingDirectory`, when supplied, seeds the default chat's
+	 * read-only primary (from {@link CreateSessionParams.primaryWorkingDirectory}
+	 * or the resolved working directory) — fixed at creation per the protocol.
+	 *
 	 * The session's `chats` catalog and `defaultChat` pointer are updated
 	 * in place rather than via dispatched actions: there are no subscribers
 	 * at creation/restore time, so the snapshot a client later receives on
@@ -1437,6 +1441,34 @@ export class AgentHostStateManager extends Disposable {
 			entry.state = { ...chatState, title };
 		}
 		this.dispatchServerAction(session, { type: ActionType.SessionChatUpdated, chat: chatUri, changes: { title } });
+	}
+
+	/**
+	 * Refreshes the default chat's primary working directory in place, e.g.
+	 * after worktree materialization replaces the session's pre-materialization
+	 * working directory with the resolved one. Per the protocol,
+	 * `primaryWorkingDirectory` is read-only and does NOT participate in
+	 * `session/chatUpdated`, so this updates the chat's authoritative state and
+	 * catalog entry directly without dispatching a notification — the
+	 * refreshed value rides along on whatever summary/state snapshot a
+	 * subscriber next receives (e.g. the deferred `sessionAdded` for
+	 * provisional sessions).
+	 */
+	refreshDefaultChatPrimaryWorkingDirectory(session: URI, primaryWorkingDirectory: URI | undefined): void {
+		if (!primaryWorkingDirectory) {
+			return;
+		}
+		const chatUri = buildDefaultChatUri(session);
+		const chatState = this._chatStates.get(chatUri);
+		if (!chatState) {
+			return;
+		}
+		const value = primaryWorkingDirectory.toString();
+		this._chatStates.set(chatUri, { ...chatState, primaryWorkingDirectory: value });
+		const entry = this._sessionStates.get(session);
+		if (entry) {
+			entry.state.chats = entry.state.chats.map(c => c.resource === chatUri ? { ...c, primaryWorkingDirectory: value } : c);
+		}
 	}
 
 	/**
@@ -1835,6 +1867,26 @@ export class AgentHostStateManager extends Disposable {
 		};
 		this._logService.trace(`[AgentHostStateManager] Created rejection envelope: seq=${envelope.serverSeq}, channel=${envelope.channel}, type=${action.type}, origin=${origin.clientId}:${origin.clientSeq}, reason=${reason}`);
 		this._onDidRejectClientAction.fire(envelope);
+	}
+
+	/**
+	 * Reject a client-originated action without applying it to state. Emits an
+	 * {@link ActionEnvelope} that carries the original {@link ActionOrigin} and a
+	 * {@link ActionEnvelope.rejectionReason | rejectionReason} so the originating
+	 * client can reconcile (roll back) its optimistic write-ahead action through
+	 * the normal path instead of leaving it pending until reconnect. The reducer
+	 * is deliberately NOT run, so no synchronized state changes.
+	 */
+	rejectClientAction(channel: URI, action: StateAction, origin: ActionOrigin, reason: string): void {
+		const envelope: ActionEnvelope = {
+			channel,
+			action,
+			serverSeq: ++this._serverSeq,
+			origin,
+			rejectionReason: reason,
+		};
+		this._logService.trace(`[AgentHostStateManager] Emitting rejection envelope: seq=${envelope.serverSeq}, channel=${envelope.channel}, type=${action.type}, origin=${origin.clientId}:${origin.clientSeq}, reason=${reason}`);
+		this._onDidEmitEnvelope.fire(envelope);
 	}
 
 	// ---- Internal -----------------------------------------------------------
