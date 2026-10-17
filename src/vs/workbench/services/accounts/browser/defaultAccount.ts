@@ -1506,7 +1506,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 			}
 
 			try {
-				const response = await this.requestService.request({
+				const response = restoreOriginalStatus(await this.requestService.request({
 					type,
 					url,
 					data: type === 'POST' ? JSON.stringify(body) : undefined,
@@ -1516,7 +1516,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 						'Authorization': `Bearer ${session.accessToken}`
 					},
 					callSite
-				}, token);
+				}, token));
 
 				const status = response.res.statusCode;
 				if (this.isRateLimited(response)) {
