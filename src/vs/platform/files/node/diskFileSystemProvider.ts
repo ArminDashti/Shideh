@@ -329,7 +329,7 @@ export class DiskFileSystemProvider extends AbstractDiskFileSystemProvider imple
 			}
 
 			// Open
-			handle = await this.open(resource, { create: true, append: opts.append, unlock: opts.unlock }, disableWriteLock);
+			handle = await this.open(resource, { create: true, overwrite: opts.overwrite, append: opts.append, unlock: opts.unlock }, disableWriteLock);
 
 			// Write content at once
 			await this.write(handle, 0, content, 0, content.byteLength);
@@ -392,7 +392,7 @@ export class DiskFileSystemProvider extends AbstractDiskFileSystemProvider imple
 		try {
 
 			// Determine whether to unlock the file (write only)
-			if (isFileOpenForWriteOptions(opts) && opts.unlock) {
+			if (isFileOpenForWriteOptions(opts) && opts.unlock && opts.overwrite !== false) {
 				try {
 					const { stat } = await SymlinkSupport.stat(filePath);
 					if (!(stat.mode & 0o200 /* File mode indicating writable by owner */)) {
@@ -406,7 +406,7 @@ export class DiskFileSystemProvider extends AbstractDiskFileSystemProvider imple
 			}
 
 			// Windows gets special treatment (write only, but not for append)
-			if (isWindows && isFileOpenForWriteOptions(opts) && !opts.append) {
+			if (isWindows && isFileOpenForWriteOptions(opts) && opts.overwrite !== false && !opts.append) {
 				try {
 
 					// We try to use 'r+' for opening (which will fail if the file does not exist)

@@ -29,6 +29,7 @@ import { IProductService } from '../../../../../../platform/product/common/produ
 import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
 import { NullHoverService } from '../../../../../../platform/hover/test/browser/nullHoverService.js';
 import { IUserInteractionService, MockUserInteractionService } from '../../../../../../platform/userInteraction/browser/userInteractionService.js';
+import { GenerateImageToolId } from '../../../../../../platform/agentHost/common/imageGenerationConstants.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { mock, upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
@@ -462,12 +463,14 @@ suite('ChatListRenderer', () => {
 
 			test('renders generated images as outcomes only after the response completes', () => {
 				assert.deepStrictEqual([
-					shouldRenderGeneratedImageResult('generatedImage', false),
-					shouldRenderGeneratedImageResult('generatedImage', true),
-					shouldRenderGeneratedImageResult('terminal', true),
+					shouldRenderGeneratedImageResult('generatedImage', false, true),
+					shouldRenderGeneratedImageResult('generatedImage', true, true),
+					shouldRenderGeneratedImageResult('terminal', true, true),
+					shouldRenderGeneratedImageResult('generatedImage', true, false),
 				], [
 					false,
 					true,
+					false,
 					false,
 				]);
 			});
@@ -520,7 +523,7 @@ suite('ChatListRenderer', () => {
 						output: [{ type: 'embed', value, mimeType: 'image/png' }],
 					},
 				});
-				const parts = getGeneratedImageResultPartsFromContent([
+				const { parts } = getGeneratedImageResults([
 					createImageTool('image-call-1', 'aW1hZ2Ux'),
 					createImageTool('image-call-2', 'aW1hZ2Uy'),
 				], sessionResource);
@@ -7444,9 +7447,10 @@ suite('ChatListRenderer', () => {
 		const createImageTool = (toolCallId: string) => new ChatToolInvocation({
 			invocationMessage: 'Generating image',
 			pastTenseMessage: 'Generated image',
+			toolSpecificData: { kind: 'generatedImage', configuration: { endpoint: 'https://images.example.test', deployment: 'images' } },
 		}, {
-			id: 'image_gen.imagegen',
-			displayName: 'Generate image',
+			id: GenerateImageToolId,
+			displayName: 'Generate Image',
 			modelDescription: 'Generate image',
 			source: ToolDataSource.Internal,
 		}, toolCallId, undefined, {}, {}, request.id);
@@ -7475,8 +7479,11 @@ suite('ChatListRenderer', () => {
 			await imageTool.didExecuteTool({
 				content: [],
 				toolSpecificData: { kind: 'generatedImage' },
+				toolResultError: index === 0 ? 'The image could not be saved to the project.' : undefined,
+				toolResultMessage: index === 0 ? 'The image could not be saved to the project.' : 'Generated image',
 				toolResultDetails: {
 					input: '{"prompt":"Draw a fox"}',
+					isError: index === 0,
 					output: [{ type: 'embed', value: `aW1hZ2U${index}`, mimeType: 'image/png' }],
 				},
 			});

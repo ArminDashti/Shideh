@@ -55,6 +55,8 @@ import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
 import { isShellInitScriptList, type IShellInitScript } from '../../common/shellInitScript.js';
 import { getVSCodeSandboxReadRoots } from '../../common/vscodeSandboxPaths.js';
 import { SEMANTIC_SEARCH_TOOL_NAME } from '../../common/semanticSearchConstants.js';
+import { isClientImageGenerationTool } from '../../common/imageGenerationConstants.js';
+import { persistCopilotImageToolResult, restoreCopilotImageToolResults } from './copilotImageToolResults.js';
 import { resolveCopilotConfigSlashCommandOnSend } from '../../common/copilotConfigSlashCommands.js';
 import { STREAMING_TOOL_DISPLAY_INTERVAL_MS, streamingToolDisplayText } from '../../common/streamingToolCallDisplay.js';
 import { isAgentFeedbackAnnotationsAttachment, renderAgentFeedbackAnnotationsAttachment } from '../../common/meta/agentFeedbackAttachments.js';
@@ -280,6 +282,16 @@ function getEmptyToolResultText(binaryResults: readonly { readonly type: 'image'
 		return 'Tool produced the attached image';
 	}
 	return 'Tool produced the attached file';
+}
+
+function projectClientToolResultForSdk(toolName: string, result: ToolResultObject): ToolResultObject {
+	if (!isClientImageGenerationTool(toolName) || result.binaryResultsForLlm === undefined) {
+		return result;
+	}
+	return {
+		...result,
+		binaryResultsForLlm: undefined,
+	};
 }
 
 /**
@@ -4217,7 +4229,17 @@ export class CopilotAgentSession extends Disposable {
 		});
 		await this._restoreStoredShellOutputs(result);
 		this._logService.trace(`[Copilot:${this.sessionId}] Reconstructed ${result.turns.length} turn(s) from ${events.length} event(s)`);
-		return result;
+		if (!db) {
+			return result;
+		}
+		const subagentTurnsByToolCallId = new Map<string, Turn[]>();
+		for (const [toolCallId, turns] of result.subagentTurnsByToolCallId) {
+			subagentTurnsByToolCallId.set(toolCallId, await restoreCopilotImageToolResults(db, turns, this._logService));
+		}
+		return {
+			turns: await restoreCopilotImageToolResults(db, result.turns, this._logService),
+			subagentTurnsByToolCallId,
+		};
 	}
 
 	private async _restoreStoredShellOutputs(mapped: IMappedSessionEvents): Promise<void> {
