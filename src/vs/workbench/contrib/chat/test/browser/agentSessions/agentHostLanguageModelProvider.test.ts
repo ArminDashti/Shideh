@@ -11,7 +11,7 @@ import { upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { SessionModelInfo } from '../../../../../../platform/agentHost/common/state/sessionState.js';
 import { ILanguageModelChatMetadata } from '../../../common/languageModels.js';
-import { AgentHostLanguageModelProvider } from '../../../browser/agentSessions/agentHost/agentHostLanguageModelProvider.js';
+import { AgentHostLanguageModelProvider, filterAgentHostModelsAvailableWithoutCopilotAccount } from '../../../browser/agentSessions/agentHost/agentHostLanguageModelProvider.js';
 
 suite('AgentHostLanguageModelProvider', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -549,6 +549,20 @@ suite('AgentHostLanguageModelProvider', () => {
 			grouped: { byokModelIdentifier: 'openrouter/OpenRouter 2/aion-labs/aion-3.0', manageModelsId: 'openrouter/OpenRouter 2/aion-labs/aion-3.0' },
 			groupless: { byokModelIdentifier: 'anthropic/claude-sonnet-4', manageModelsId: 'anthropic/claude-sonnet-4' },
 			native: { byokModelIdentifier: undefined, manageModelsId: undefined },
+		});
+	});
+
+	test('keeps only valid BYOK models for a signed-out Copilot-authenticated harness', () => {
+		const native = makeModel('claude-opus-5');
+		const byok = makeModel('azure/gpt-5', { byokModelIdentifier: 'azure/Azure/gpt-5' });
+		const invalidByok = makeModel('openai/gpt-5', { byokModelIdentifier: 'openai/OpenAI/gpt-5' });
+
+		assert.deepStrictEqual({
+			signedIn: filterAgentHostModelsAvailableWithoutCopilotAccount([native, byok, invalidByok], false, () => false).map(model => model.id),
+			signedOut: filterAgentHostModelsAvailableWithoutCopilotAccount([native, byok, invalidByok], true, identifier => identifier === 'azure/Azure/gpt-5').map(model => model.id),
+		}, {
+			signedIn: ['claude-opus-5', 'azure/gpt-5', 'openai/gpt-5'],
+			signedOut: ['azure/gpt-5'],
 		});
 	});
 });

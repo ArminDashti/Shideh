@@ -119,12 +119,15 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 	private _authenticationGeneration = 0;
 	private _didStartInitialAuthentication = false;
 	private _promptCacheNotification: AgentHostPromptCacheNotification | undefined;
+	private _defaultAccountResolved = false;
+	private _hasDefaultAccount = false;
 
 	constructor(
 		@IAgentHostService private readonly _agentHostService: IAgentHostService,
 		@IChatSessionsService private readonly _chatSessionsService: IChatSessionsService,
 		@IDefaultAccountService private readonly _defaultAccountService: IDefaultAccountService,
 		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
+		@IChatEntitlementService private readonly _chatEntitlementService: IChatEntitlementService,
 		@ILogService private readonly _logService: ILogService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -265,7 +268,7 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			} else {
 				// Push updated models to existing model provider
 				const modelProvider = this._modelProviders.get(agent.provider);
-				modelProvider?.updateModels(agent.models);
+				modelProvider?.updateModels(this._getModelsAvailableForAccount(agent));
 			}
 		}
 	}
@@ -372,7 +375,7 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 		this._modelProviders.set(agent.provider, modelProvider);
 		store.add(toDisposable(() => this._modelProviders.delete(agent.provider)));
 		store.add(this._languageModelsService.registerLanguageModelProvider(vendor, modelProvider));
-		modelProvider.updateModels(agent.models);
+		modelProvider.updateModels(this._getModelsAvailableForAccount(agent));
 
 	}
 
@@ -394,6 +397,36 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			}
 		}
 		await this._authenticateWithServer(agents);
+	}
+
+	private _updateDefaultAccount(hasDefaultAccount: boolean): void {
+		const signedOut = this._defaultAccountResolved && this._hasDefaultAccount && !hasDefaultAccount && !this._chatEntitlementService.anonymous;
+		this._defaultAccountResolved = true;
+		this._hasDefaultAccount = hasDefaultAccount;
+		this._authTokenCache.clear();
+		this._refreshModelProviders();
+		if (signedOut) {
+			void this._agentHostService.restartAgentHost().catch(error => this._logService.error('[AgentHost] Failed to restart after sign-out', error));
+		} else {
+			this._authenticateWithServer(this._getRootAgents()).catch(() => { /* best-effort */ });
+		}
+	}
+
+	private _refreshModelProviders(): void {
+		for (const agent of this._getRootAgents()) {
+			this._modelProviders.get(agent.provider)?.updateModels(this._getModelsAvailableForAccount(agent));
+		}
+	}
+
+	private _getModelsAvailableForAccount(agent: AgentInfo): readonly SessionModelInfo[] {
+		if (!this._defaultAccountResolved || this._hasDefaultAccount || this._chatEntitlementService.anonymous) {
+			return agent.models;
+		}
+		return filterAgentHostModelsAvailableWithoutCopilotAccount(
+			agent.models,
+			protectedResourcesRequireGitHubCopilotSignIn(agent.protectedResources ?? []),
+			identifier => this._languageModelsService.lookupLanguageModel(identifier)?.isBYOK === true,
+		);
 	}
 
 	private _getRootAgents(): readonly AgentInfo[] {

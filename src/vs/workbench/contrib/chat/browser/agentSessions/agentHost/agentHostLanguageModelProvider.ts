@@ -38,6 +38,21 @@ export function agentHostProviderSupportsAutoModel(provider: string): boolean {
 	return provider === 'copilotcli';
 }
 
+/** Filters a harness catalog after sign-out, retaining only copies of validated BYOK models. */
+export function filterAgentHostModelsAvailableWithoutCopilotAccount(
+	models: readonly SessionModelInfo[],
+	requiresCopilotSignIn: boolean,
+	isByokModel: (identifier: string) => boolean,
+): readonly SessionModelInfo[] {
+	if (!requiresCopilotSignIn) {
+		return models;
+	}
+	return models.filter(model => {
+		const identifier = readAgentModelByokIdentifier(model);
+		return identifier !== undefined && isByokModel(identifier);
+	});
+}
+
 /**
  * Read-only view of the workbench model catalogue an agent host's models are enriched from.
  *
