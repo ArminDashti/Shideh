@@ -868,7 +868,7 @@ async fn handle_serve(
 		quality: params.quality,
 		code_server_args: csa,
 		headless: true,
-		platform: c.platform,
+		platform: capability.platform().await?,
 	};
 
 	let resolved = if params.use_local_download {
@@ -1015,14 +1015,6 @@ fn handle_server_message(
 	} else {
 		Err(AnyError::from(NoAttachedServerError()))
 	}
-}
-
-fn handle_prune(paths: &LauncherPaths) -> Result<Vec<String>, AnyError> {
-	prune_stopped_servers(paths).map(|v| {
-		v.iter()
-			.map(|p| p.server_dir.display().to_string())
-			.collect()
-	})
 }
 
 async fn handle_update(

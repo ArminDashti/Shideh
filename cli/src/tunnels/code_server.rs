@@ -34,7 +34,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
-use tokio::fs::remove_file;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::oneshot::Receiver;
@@ -200,19 +199,10 @@ pub struct ServerParamsRaw {
 }
 
 /// Server params that can be used to start a VS Code server.
+#[derive(Eq, PartialEq)]
 pub struct ResolvedServerParams {
 	pub release: Release,
 	pub code_server_args: CodeServerArgs,
-}
-
-impl ResolvedServerParams {
-	fn as_installed_server(&self) -> InstalledServer {
-		InstalledServer {
-			commit: self.release.commit.clone(),
-			quality: self.release.quality,
-			headless: self.release.target == TargetKind::Server,
-		}
-	}
 }
 
 impl ServerParamsRaw {
@@ -281,6 +271,7 @@ pub struct PortCodeServer {
 }
 
 /// A server listening on any address/location.
+#[derive(Clone)]
 pub enum AnyCodeServer {
 	Socket(SocketCodeServer),
 	Port(PortCodeServer),
@@ -381,7 +372,7 @@ fn ensure_executable(_path: &std::path::Path) -> Result<(), std::io::Error> {
 	Ok(())
 }
 
-impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Http> {
+impl<'a> ServerBuilder<'a> {
 	pub fn new(
 		logger: &'a log::Logger,
 		server_params: &'a ResolvedServerParams,
@@ -604,7 +595,13 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 
 	pub async fn listen_on_default_socket(&self) -> Result<SocketCodeServer, AnyError> {
 		let requested_file = get_socket_name();
-		self.listen_on_socket(&requested_file).await
+		let (origin, socket) = self.listen_on_socket(&requested_file).await?;
+
+		Ok(SocketCodeServer {
+			commit_id: self.server_params.release.commit.to_owned(),
+			socket: PathBuf::from(socket),
+			origin: Arc::new(origin),
+		})
 	}
 
 	pub async fn listen_on_socket(&self, socket: &Path) -> Result<SocketCodeServer, AnyError> {
@@ -627,7 +624,7 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 		let plog = self.logger.prefixed(&log::new_code_server_prefix());
 
 		let (mut origin, listen_rx) =
-			monitor_server::<SocketMatcher, PathBuf>(child, Some(log_file), plog, false);
+			monitor_server::<SocketMatcher, String>(child, Some(log_file), plog, false);
 
 		let socket = match timeout(Duration::from_secs(30), listen_rx).await {
 			Err(_) => {
@@ -702,16 +699,18 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 		Ok(child)
 	}
 
-	fn get_logfile(&self) -> Result<File, WrappedError> {
-		File::create(&self.server_paths.logfile).map_err(|e| {
-			wrap(
-				e,
-				format!(
-					"error creating log file {}",
-					self.server_paths.logfile.display()
-				),
-			)
-		})
+	fn get_logfile(&self) -> Result<BoxedFileWriter, WrappedError> {
+		get_scheme_interactor(self.server_paths.logfile.scheme())
+			.fs_open_write(&self.server_paths.logfile)
+			.map_err(|e| {
+				wrap(
+					e,
+					format!(
+						"error creating log file {}",
+						self.server_paths.logfile.path()
+					),
+				)
+			})
 	}
 
 	fn get_base_command(&self) -> Command {
@@ -726,7 +725,7 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 
 fn monitor_server<M, R>(
 	mut child: Child,
-	log_file: Option<File>,
+	mut log_file: Option<BoxedFileWriter>,
 	plog: log::Logger,
 	write_directly: bool,
 ) -> (CodeServerOrigin, Receiver<R>)
@@ -751,8 +750,8 @@ where
 	tokio::spawn(async move {
 		let mut stdout_reader = BufReader::new(stdout).lines();
 		let mut stderr_reader = BufReader::new(stderr).lines();
-		let write_line = |line: &str| -> std::io::Result<()> {
-			if let Some(mut f) = log_file.as_ref() {
+		let mut write_line = |line: &str| -> std::io::Result<()> {
+			if let Some(f) = &mut log_file {
 				f.write_all(line.as_bytes())?;
 				f.write_all(b"\n")?;
 			}
@@ -827,8 +826,8 @@ where
 /// Parses a line like "Extension host agent listening on /tmp/foo.sock"
 struct SocketMatcher();
 
-impl ServerOutputMatcher<PathBuf> for SocketMatcher {
-	fn match_line(line: &str) -> Option<PathBuf> {
+impl ServerOutputMatcher<String> for SocketMatcher {
+	fn match_line(line: &str) -> Option<String> {
 		parse_socket_from(line)
 	}
 }
@@ -863,10 +862,10 @@ impl ServerOutputMatcher<()> for NoOpMatcher {
 	}
 }
 
-fn parse_socket_from(text: &str) -> Option<PathBuf> {
+pub fn parse_socket_from(text: &str) -> Option<String> {
 	LISTENING_PORT_RE
 		.captures(text)
-		.and_then(|cap| cap.get(1).map(|path| PathBuf::from(path.as_str())))
+		.and_then(|cap| cap.get(1).map(|path| path.as_str().to_string()))
 }
 
 fn parse_agent_host_from(text: &str) -> Option<PathBuf> {

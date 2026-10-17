@@ -3,10 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-use std::{
-	fs::{read_dir, read_to_string, remove_dir_all, write},
-	path::PathBuf,
-};
+use std::{fs::read_dir, path::PathBuf};
+use url::Url;
 
 use serde::{Deserialize, Serialize};
 
@@ -35,27 +33,29 @@ pub fn dev_server_path() -> Option<PathBuf> {
 
 pub struct ServerPaths {
 	// Directory into which the server is downloaded
-	pub server_dir: PathBuf,
+	pub server_dir: Url,
 	// Executable path, within the server_id
-	pub executable: PathBuf,
+	pub executable: Url,
 	// File where logs for the server should be written.
-	pub logfile: PathBuf,
+	pub logfile: Url,
 	// File where the process ID for the server should be written.
-	pub pidfile: PathBuf,
+	pub pidfile: Url,
 }
 
 impl ServerPaths {
 	// Queries the system to determine the process ID of the running server.
 	// Returns the process ID, if the server is running.
 	pub fn get_running_pid(&self) -> Option<u32> {
+		let interactor = get_scheme_interactor(self.server_dir.scheme());
+
 		if let Some(pid) = self.read_pid() {
-			return match machine::process_at_path_exists(pid, &self.executable) {
+			return match interactor.process_at_path_exists(pid, &self.executable) {
 				true => Some(pid),
 				false => None,
 			};
 		}
 
-		if let Some(pid) = machine::find_running_process(&self.executable) {
+		if let Some(pid) = interactor.process_find_running_at_path(&self.executable) {
 			// attempt to backfill process ID:
 			self.write_pid(pid).ok();
 			return Some(pid);
@@ -65,13 +65,8 @@ impl ServerPaths {
 	}
 
 	/// Delete the server directory
-	pub fn delete(&self) -> Result<(), WrappedError> {
-		remove_dir_all(&self.server_dir).map_err(|e| {
-			wrap(
-				e,
-				format!("error deleting server dir {}", self.server_dir.display()),
-			)
-		})
+	pub fn delete(&self) -> Result<(), AnyError> {
+		get_scheme_interactor(self.server_dir.scheme()).fs_remove_dir_all(&self.server_dir)
 	}
 
 	// VS Code Server pid
@@ -85,7 +80,8 @@ impl ServerPaths {
 	}
 
 	fn read_pid(&self) -> Option<u32> {
-		read_to_string(&self.pidfile)
+		get_scheme_interactor(self.pidfile.scheme())
+			.fs_read_all(&self.pidfile)
 			.ok()
 			.and_then(|s| s.parse::<u32>().ok())
 	}
@@ -95,7 +91,7 @@ impl ServerPaths {
 pub struct InstalledServer {
 	pub quality: options::Quality,
 	pub commit: String,
-	pub headless: bool,
+	pub base_path: PathBuf,
 }
 
 impl InstalledServer {

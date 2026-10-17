@@ -452,7 +452,7 @@ pub async fn status(ctx: CommandContext) -> Result<i32, AnyError> {
 pub async fn prune(ctx: CommandContext) -> Result<i32, AnyError> {
 	get_all_servers(&ctx.paths)
 		.into_iter()
-		.map(|s| s.server_paths(&ctx.paths))
+		.map(|s| s.server_paths())
 		.filter(|s| s.get_running_pid().is_none())
 		.try_for_each(|s| {
 			ctx.log
