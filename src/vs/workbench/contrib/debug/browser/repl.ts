@@ -144,6 +144,8 @@ export class Repl extends FilterViewPane implements IHistoryNavigationWidget {
 		@IMenuService menuService: IMenuService,
 		@ILanguageFeaturesService private readonly languageFeaturesService: ILanguageFeaturesService,
 		@ILogService private readonly logService: ILogService,
+		@IProgressService progressService: IProgressService,
+		@IExtensionService extensionService: IExtensionService
 	) {
 		const filterText = storageService.get(FILTER_VALUE_STORAGE_KEY, StorageScope.WORKSPACE, '');
 		super({

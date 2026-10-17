@@ -118,7 +118,8 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 			focusCommand: {
 				id: 'workbench.files.action.focusOpenEditorsView',
 				keybindings: { primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyE) }
-			}
+			},
+			makeActivationEvent: true
 		};
 	}
 

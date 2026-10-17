@@ -220,7 +220,7 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
-		@IProgressService private readonly progressService: IProgressService,
+		@IProgressService progressService: IProgressService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,

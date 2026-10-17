@@ -739,7 +739,8 @@ export class MainThreadComments extends Disposable implements MainThreadComments
 				containerIcon: commentsViewIcon,
 				focusCommand: {
 					id: 'workbench.action.focusCommentsPanel'
-				}
+				},
+				makeActivationEvent: true
 			}], VIEW_CONTAINER);
 		}
 		this.registerViewListeners(commentsViewAlreadyRegistered);

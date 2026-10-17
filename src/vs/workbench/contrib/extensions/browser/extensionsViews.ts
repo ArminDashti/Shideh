@@ -139,7 +139,7 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IThemeService themeService: IThemeService,
-		@IExtensionService private readonly extensionService: IExtensionService,
+		@IExtensionService extensionService: IExtensionService,
 		@IExtensionsWorkbenchService protected extensionsWorkbenchService: IExtensionsWorkbenchService,
 		@IExtensionRecommendationsService protected extensionRecommendationsService: IExtensionRecommendationsService,
 		@ITelemetryService protected readonly telemetryService: ITelemetryService,

@@ -908,6 +908,8 @@ export class TestResultsView extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@ITestResultService private readonly resultService: ITestResultService,
+		@IProgressService progressService: IProgressService,
+		@IExtensionService extensionService: IExtensionService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}

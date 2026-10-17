@@ -154,6 +154,8 @@ export class BreakpointsView extends ViewPane {
 		@IMenuService menuService: IMenuService,
 		@IHoverService hoverService: IHoverService,
 		@ILanguageService private readonly languageService: ILanguageService,
+		@IProgressService progressService: IProgressService,
+		@IExtensionService extensionService: IExtensionService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 

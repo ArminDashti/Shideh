@@ -269,14 +269,14 @@ export class TimelinePane extends ViewPane {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IEditorService protected editorService: IEditorService,
 		@ICommandService protected commandService: ICommandService,
-		@IProgressService private readonly progressService: IProgressService,
+		@IProgressService progressService: IProgressService,
 		@ITimelineService protected timelineService: ITimelineService,
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@ILabelService private readonly labelService: ILabelService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
-		@IExtensionService private readonly extensionService: IExtensionService,
+		@IExtensionService extensionService: IExtensionService,
 	) {
 		super({ ...options, titleMenuId: MenuId.TimelineTitle }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 

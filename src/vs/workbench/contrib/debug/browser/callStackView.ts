@@ -171,6 +171,8 @@ export class CallStackView extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IMenuService private readonly menuService: IMenuService,
+		@IProgressService progressService: IProgressService,
+		@IExtensionService extensionService: IExtensionService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 

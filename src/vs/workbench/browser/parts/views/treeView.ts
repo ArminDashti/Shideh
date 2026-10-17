@@ -1935,7 +1935,6 @@ export class CustomTreeView extends AbstractTreeView {
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IHoverService hoverService: IHoverService,
-		@IExtensionService private readonly extensionService: IExtensionService,
 		@IActivityService activityService: IActivityService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ILogService logService: ILogService,
@@ -1962,11 +1961,6 @@ export class CustomTreeView extends AbstractTreeView {
 				id: this.id,
 			});
 			this.createTree();
-			this.progressService.withProgress({ location: this.id }, () => this.extensionService.activateByEvent(`onView:${this.id}`))
-				.then(() => timeout(2000))
-				.then(() => {
-					this.updateMessage();
-				});
 			this.activated = true;
 		}
 	}

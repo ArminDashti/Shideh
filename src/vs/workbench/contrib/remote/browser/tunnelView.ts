@@ -1107,6 +1107,7 @@ export class TunnelPanelDescriptor implements IViewDescriptor {
 	readonly remoteAuthority?: string | string[];
 	readonly canMoveView = true;
 	readonly containerIcon = portsViewIcon;
+	readonly makeActivationEvent = true;
 
 	constructor(viewModel: ITunnelViewModel, environmentService: IWorkbenchEnvironmentService) {
 		this.ctorDescriptor = new SyncDescriptor(TunnelPanel, [viewModel]);
