@@ -125,6 +125,11 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		description: localize('terminal.integrated.defaultLocation', "Controls where newly created terminals will appear."),
 		agentsWindow: { default: 'view', readOnly: true },
 	},
+	[TerminalSettingId.EditorUseEditorBackground]: {
+		type: 'boolean',
+		default: true,
+		markdownDescription: localize('terminal.integrated.editorUseEditorBackground', "Controls whether terminals in the editor area use the editor background color instead of the terminal background color. When enabled, this takes precedence over {0} for terminals in the editor area.", '`#terminal.integrated.background#`')
+	},
 	[TerminalSettingId.TabsFocusMode]: {
 		type: 'string',
 		enum: ['singleClick', 'doubleClick'],
