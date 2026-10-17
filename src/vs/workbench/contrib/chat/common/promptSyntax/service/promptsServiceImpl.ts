@@ -1631,6 +1631,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		}
 		const files: IPromptFileDiscoveryResult[] = [];
 		const seenNames = new Set<string>();
+		const seenUris = new ResourceSet();
 		const nameToUri = new Map<string, URI>();
 
 		// Collect all skills with their metadata for sorting
@@ -1659,6 +1660,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 		for (const skill of allSkills) {
 			const uri = skill.uri;
 			const promptPath = skill;
+
+			if (seenUris.has(uri)) {
+				continue;
+			}
+			seenUris.add(uri);
 
 			try {
 				const parsedFile = await this.parseNew(uri, token);
