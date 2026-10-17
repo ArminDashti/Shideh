@@ -2605,6 +2605,28 @@ export namespace LanguageModelChatMessage2 {
 	}
 }
 
+export namespace LanguageModelRequestInitiator {
+	export function to(init: chatProvider.LanguageModelRequestInitiator): vscode.LanguageModelRequestInitiator {
+		if (init.kind === chatProvider.LanguageModelInitiatorKind.Extension) {
+			return { kind: types.LanguageModelRequestInitiatorKind.Extension, extensionId: ExtensionIdentifier.toKey(init.extensionId) };
+		} else if (init.kind === chatProvider.LanguageModelInitiatorKind.Editor) {
+			return { kind: types.LanguageModelRequestInitiatorKind.Editor, reason: init.reason };
+		} else {
+			return { kind: types.LanguageModelRequestInitiatorKind.McpServer, id: init.id, label: init.label };
+		}
+	}
+
+	export function from(init: vscode.LanguageModelRequestInitiator): chatProvider.LanguageModelRequestInitiator {
+		if (init.kind === types.LanguageModelRequestInitiatorKind.Extension) {
+			return { kind: chatProvider.LanguageModelInitiatorKind.Extension, extensionId: new ExtensionIdentifier(init.extensionId) };
+		} else if (init.kind === types.LanguageModelRequestInitiatorKind.Editor) {
+			return { kind: chatProvider.LanguageModelInitiatorKind.Editor, reason: init.reason };
+		} else {
+			return { kind: chatProvider.LanguageModelInitiatorKind.McpServer, id: init.id, label: init.label };
+		}
+	}
+}
+
 function isImageDataPart(part: types.LanguageModelDataPart): boolean {
 	const mime = typeof part.mimeType === 'string' ? part.mimeType.toLowerCase() : '';
 	switch (mime) {

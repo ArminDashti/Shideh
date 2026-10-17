@@ -180,6 +180,30 @@ export interface IChatMessageToolResultPart {
 
 export type IChatMessagePart = IChatMessageTextPart | IChatMessageToolResultPart | IChatResponseToolUsePart | IChatMessageImagePart | IChatMessageDataPart | IChatMessageThinkingPart;
 
+export const enum LanguageModelInitiatorKind {
+	Extension = 1,
+	McpServer = 2,
+	Editor = 3,
+}
+
+export interface IExtensionLanguageModelRequestInitiator {
+	kind: LanguageModelInitiatorKind.Extension;
+	extensionId: ExtensionIdentifier;
+}
+
+export interface IMcpServerLanguageModelRequestInitiator {
+	kind: LanguageModelInitiatorKind.McpServer;
+	label: string;
+	id: string | undefined;
+}
+
+export interface IEditorLanguageModelRequestInitiator {
+	kind: LanguageModelInitiatorKind.Editor;
+	reason: string;
+}
+
+export type LanguageModelRequestInitiator = IExtensionLanguageModelRequestInitiator | IMcpServerLanguageModelRequestInitiator | IEditorLanguageModelRequestInitiator;
+
 export interface IChatMessage {
 	readonly name?: string | undefined;
 	readonly role: ChatMessageRole;

@@ -244,9 +244,9 @@ export class MainThreadLanguageModels implements MainThreadLanguageModelsShape {
 					this._logService.trace('[CHAT] request PART', extension.value, requestId, part);
 					await this._proxy.$acceptResponsePart(requestId, new SerializableObjectWithBuffers(part));
 				}
-				this._logService.trace('[CHAT] request DONE', extension.value, requestId);
+				this._logService.trace('[CHAT] request DONE', extensionId.value, requestId);
 			} catch (err) {
-				this._logService.error('[CHAT] extension request ERRORED in STREAM', toErrorMessage(err, true), extension.value, requestId);
+				this._logService.error('[CHAT] extension request ERRORED in STREAM', toErrorMessage(err, true), extensionId.value, requestId);
 				this._proxy.$acceptResponseDone(requestId, transformErrorForSerialization(err));
 			}
 		})();

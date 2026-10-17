@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// version: 2
+
 declare module 'vscode' {
 
 	/**
@@ -30,6 +32,74 @@ declare module 'vscode' {
 		 */
 		readonly includeEncryptedThinking?: boolean;
 	}
+
+	export enum LanguageModelRequestInitiatorKind {
+		/**
+		 * Used when an extension is making a request to the language model.
+		 */
+		Extension = 1,
+		/**
+		 * Used when an MCP server is making a request to the language model.
+		 */
+		McpServer = 2,
+
+		/**
+		 * Used when an editor feature is causing the request to be made.
+		 */
+		Editor = 3,
+	}
+
+	/**
+	 * Passed to {@link LanguageModelChatProvider.provideLanguageModelResponse}
+	 * when it is being called from an extension.
+	 */
+	export interface ExtensionLanguageModelRequestInitiator {
+		/**
+		 * The kind of initiator making the request.
+		 */
+		kind: LanguageModelRequestInitiatorKind.Extension;
+		/**
+		 * ID of the extension making the request.
+		 */
+		extensionId: string;
+	}
+
+	/**
+	 * Passed to {@link LanguageModelChatProvider.provideLanguageModelResponse}
+	 * when it is being called from a Model Context Protocol server.
+	 */
+	export interface McpServerLanguageModelRequestInitiator {
+		/**
+		 * The kind of initiator making the request.
+		 */
+		kind: LanguageModelRequestInitiatorKind.McpServer;
+		/**
+		 * User-defined label of the MCP server.
+		 */
+		label: string;
+		/**
+		 * Unique ID for the MCP server when retrieved from a registry.
+		 */
+		id?: string;
+	}
+
+	/**
+	 * Passed to {@link LanguageModelChatProvider.provideLanguageModelResponse}
+	 * when it is being called from an internal editor feature.
+	 */
+	export interface InternalLanguageModelRequestInitiator {
+		/**
+		 * The kind of initiator making the request.
+		 */
+		kind: LanguageModelRequestInitiatorKind.Editor;
+		/**
+		 * A unique, opaque reason for the request. This string is not localized
+		 * and `reason`s may change between versions of the editor.
+		 */
+		reason: string;
+	}
+
+	export type LanguageModelRequestInitiator = ExtensionLanguageModelRequestInitiator | McpServerLanguageModelRequestInitiator | InternalLanguageModelRequestInitiator;
 
 	/**
 	 * All the information representing a single language model contributed by a {@linkcode LanguageModelChatProvider}.
