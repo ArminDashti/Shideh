@@ -2983,6 +2983,7 @@ export class ChatModel extends Disposable implements IChatModel {
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
 		@IChatService private readonly chatService: IChatService,
+		@IChatTodoListService private readonly chatTodoListService: IChatTodoListService,
 	) {
 		super();
 
@@ -3016,6 +3017,9 @@ export class ChatModel extends Disposable implements IChatModel {
 		this._timestamp = (isValidFullData && initialData.creationDate) || Date.now();
 		this._requests = initialData ? this._deserialize(initialData) : [];
 		this._customTitle = isValidFullData ? initialData.customTitle : undefined;
+
+		// Hydrate todo list from serialized tool invocations
+		this._hydrateTodoList();
 
 		// Initialize input model from serialized data (undefined for new chats)
 		const serializedInputState = initialModelProps.inputState || (isValidFullData && initialData.inputState ? initialData.inputState : undefined);

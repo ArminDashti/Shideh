@@ -56,6 +56,13 @@ suite('ChatModel', () => {
 		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 		instantiationService.stub(IChatService, new MockChatService());
+		instantiationService.stub(IChatTodoListService, <IChatTodoListService>{
+			_serviceBrand: undefined,
+			onDidUpdateTodos: Event.None,
+			getTodos: () => [],
+			setTodos: () => { },
+			migrateTodos: () => { }
+		});
 	});
 
 	test('initialization with exported data only (imported)', async () => {
