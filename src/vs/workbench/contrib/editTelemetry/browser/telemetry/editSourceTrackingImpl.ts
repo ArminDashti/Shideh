@@ -94,6 +94,7 @@ class TrackedDocumentInfo extends Disposable {
 		super();
 
 		this._repo = derived(this, reader => this._scm.getRepo(_doc.document.uri, reader));
+		this._unifiedTracking?.retainLocalLongTermResource(this._doc.document.uri);
 
 		const docWithJustReason = createDocWithJustReason(_doc.documentWithAnnotations, this._store);
 		const externalEditCorrelation = this._agentHostEditMarkerService?.createCorrelation(_doc.document.uri);
@@ -109,6 +110,8 @@ class TrackedDocumentInfo extends Disposable {
 			const startFocusTime = this._userAttentionService.totalFocusTimeMs;
 			const startTime = Date.now();
 			reader.store.add(toDisposable(() => {
+				const statsUuid = this._randomService.generateUuid();
+				this._flushLongTermDetails(longtermReason, statsUuid);
 				// send long term document telemetry
 				t.stopTracking();
 				this._sendTelemetryAndLog('longterm', longtermReason, t, this._userAttentionService.totalFocusTimeMs - startFocusTime, Date.now() - startTime);
@@ -353,6 +356,11 @@ class TrackedDocumentInfo extends Disposable {
 				agentHostUntrackedInsertedCount: coverageGap?.insertedCount ?? 0,
 			} : {}),
 		});
+	}
+
+	override dispose(): void {
+		super.dispose();
+		this._unifiedTracking?.releaseLocalLongTermResource(this._doc.document.uri);
 	}
 
 	getTelemetryData(ranges: readonly TrackedEdit[]) {
