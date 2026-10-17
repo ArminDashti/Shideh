@@ -443,6 +443,7 @@ class TestConfigurationService {
 		return this._entries;
 	}
 	setRemoteAgentHostsEnabled(enabled: boolean): void { this._remoteAgentHostsEnabled = enabled; }
+	setForwardSSHAgent(enabled: boolean): void { this._forwardSSHAgent = enabled; }
 }
 
 /** Captures every message passed to `info()` so tests can assert on the SSH failover notification. */
@@ -807,6 +808,50 @@ suite('SSHRemoteAgentHostService (renderer)', () => {
 		await connectPromise;
 
 		assert.strictEqual(mainService.connectCalls[0].preferredAgentLocation, 'dedicated', 'must use the preference for this config\'s own key, not an unrelated host\'s');
+	});
+
+	test('connect forwards the SSH agent from the shell environment when both opt-ins are enabled', async () => {
+		configurationService.setForwardSSHAgent(true);
+		const connectPromise = service.connect({ ...sampleConfig, agentForward: true });
+		await awaitClientThenResolve(0);
+		await connectPromise;
+
+		assert.deepStrictEqual({
+			agentForward: mainService.connectCalls[0].agentForward,
+			agentSocket: mainService.connectCalls[0].agentSocket,
+		}, {
+			agentForward: true,
+			agentSocket: '/tmp/shell-agent.sock',
+		});
+	});
+
+	test('connect strips agent forwarding when the global opt-in is disabled', async () => {
+		const connectPromise = service.connect({ ...sampleConfig, agentForward: true, agentSocket: '/tmp/caller-agent.sock' });
+		await awaitClientThenResolve(0);
+		await connectPromise;
+
+		assert.deepStrictEqual({
+			agentForward: mainService.connectCalls[0].agentForward,
+			agentSocket: mainService.connectCalls[0].agentSocket,
+		}, {
+			agentForward: undefined,
+			agentSocket: undefined,
+		});
+	});
+
+	test('reconnect forwards the SSH agent from the shell environment', async () => {
+		configurationService.setForwardSSHAgent(true);
+		const reconnectPromise = service.reconnect('remote.example', 'My Remote');
+		await awaitClientThenResolve(0);
+		await reconnectPromise;
+
+		assert.deepStrictEqual(mainService.reconnectCalls, [{
+			sshConfigHost: 'remote.example',
+			name: 'My Remote',
+			remoteAgentHostCommand: undefined,
+			agentForward: true,
+			agentSocket: '/tmp/shell-agent.sock',
+		}]);
 	});
 
 	test('incompatible handshake keeps SSH tunnel registered for server upgrade', async () => {

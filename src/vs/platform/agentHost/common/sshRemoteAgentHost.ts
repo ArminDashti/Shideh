@@ -64,6 +64,8 @@ export interface ISSHAgentHostConfig {
 	readonly privateKeyPath?: string;
 	/** Raw IdentityAgent value from resolved SSH config; may be a socket path, `none`, `SSH_AUTH_SOCK`, or an environment reference. */
 	readonly identityAgent?: string;
+	/** Local SSH agent socket resolved from the renderer's shell environment. */
+	readonly agentSocket?: string;
 	/** Password string (when {@link authMethod} is Password). */
 	readonly password?: string;
 	/** Display name for this connection. */
@@ -131,7 +133,7 @@ export function computeSSHConnectionKey(config: { sshConfigHost?: string; userna
  * (password, private key path). Exposed on active connections so
  * consumers can inspect connection metadata without accessing credentials.
  */
-export type ISSHAgentHostConfigSanitized = Omit<ISSHAgentHostConfig, 'password' | 'privateKeyPath'>;
+export type ISSHAgentHostConfigSanitized = Omit<ISSHAgentHostConfig, 'password' | 'privateKeyPath' | 'agentSocket'>;
 
 export interface ISSHAgentHostConnection extends IDisposable {
 	/** The SSH config used to establish this connection (secrets stripped). */
