@@ -236,6 +236,12 @@ export const walkthroughs: GettingStartedWalkthroughContent = [
 					media: { type: 'markdown', path: 'theme_picker', }
 				},
 				{
+					id: 'importKeyboardMappings',
+					title: localize('gettingStarted.importKeyboardMappings.title', "Import keyboard mappings"),
+					description: localize('gettingStarted.importKeyboardMappings.description.interpolated', "Already familiar with shortcuts from another editor? Install a keymap extension to bring your keybindings from Cursor, Windsurf, Vim, Emacs, or Sublime Text.\n{0}", Button(localize('browseKeymaps', "Browse Keymap Extensions"), 'command:workbench.extensions.action.showRecommendedKeymapExtensions')),
+					media: { type: 'svg', altText: 'Keyboard shortcuts overview.', path: 'shortcuts.svg' },
+				},
+				{
 					id: 'videoTutorial',
 					title: localize('gettingStarted.videoTutorial.title', "Watch video tutorials"),
 					description: localize('gettingStarted.videoTutorial.description.interpolated', "Watch the first in a series of short & practical video tutorials for VS Code's key features.\n{0}", Button(localize('watch', "Watch Tutorial"), 'https://aka.ms/vscode-getting-started-video')),
