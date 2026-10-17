@@ -5,7 +5,8 @@
 use super::paths::{InstalledServer, ServerPaths};
 use crate::async_pipe::get_socket_name;
 use crate::constants::{
-	APPLICATION_NAME, EDITOR_WEB_URL, QUALITYLESS_PRODUCT_NAME, QUALITYLESS_SERVER_NAME,
+	AGENTS_WEB_URL, APPLICATION_NAME, COLORS_ENABLED, EDITOR_WEB_URL, QUALITYLESS_PRODUCT_NAME,
+	QUALITYLESS_SERVER_NAME,
 };
 use crate::download_cache::DownloadCache;
 use crate::log;
