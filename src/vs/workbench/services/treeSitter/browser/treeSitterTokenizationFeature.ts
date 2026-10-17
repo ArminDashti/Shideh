@@ -94,6 +94,7 @@ class TreeSitterTokenizationSupport extends Disposable implements ITreeSitterTok
 		private readonly _languageId: string,
 		@ITreeSitterParserService private readonly _treeSitterService: ITreeSitterParserService,
 		@IThemeService private readonly _themeService: IThemeService,
+		@ITreeSitterTokenizationStoreService private readonly _tokenizationStoreService: ITreeSitterTokenizationStoreService
 	) {
 		super();
 		this._register(Event.runAndSubscribe(this._themeService.onDidColorThemeChange, () => this.reset()));
@@ -155,7 +156,6 @@ class TreeSitterTokenizationSupport extends Disposable implements ITreeSitterTok
 
 		let tokens: Uint32Array = new Uint32Array(captures.length * 2);
 		let tokenIndex = 0;
-		const lineStartOffset = textModel.getOffsetAt({ lineNumber: lineNumber, column: 1 });
 
 		for (let captureIndex = 0; captureIndex < captures.length; captureIndex++) {
 			const capture = captures[captureIndex];

@@ -16,8 +16,7 @@ export class TreeSitterTokens extends AbstractTokens<ITreeSitterTokenizationSupp
 	private _tokenizationSupport: ITreeSitterTokenizationSupport | null = null;
 	private _lastLanguageId: string | undefined;
 
-	constructor(private readonly _treeSitterService: ITreeSitterParserService,
-		languageIdCodec: ILanguageIdCodec,
+	constructor(languageIdCodec: ILanguageIdCodec,
 		textModel: TextModel,
 		languageId: () => string) {
 		super(languageIdCodec, textModel, languageId, TreeSitterTokenizationRegistry);
@@ -34,9 +33,9 @@ export class TreeSitterTokens extends AbstractTokens<ITreeSitterTokenizationSupp
 	}
 
 	public getLineTokens(lineNumber: number): LineTokens {
+		const rawTokens = this._tokenStore.getTokens(this._textModel, new Range(lineNumber, 1, lineNumber, this._textModel.getLineMaxColumn(lineNumber)));
 		const content = this._textModel.getLineContent(lineNumber);
 		if (this._tokenizationSupport) {
-			const rawTokens = this._tokenizationSupport.tokenizeEncoded(lineNumber, this._textModel);
 			if (rawTokens) {
 				return new LineTokens(rawTokens, content, this._languageIdCodec);
 			}
@@ -71,12 +70,16 @@ export class TreeSitterTokens extends AbstractTokens<ITreeSitterTokenizationSupp
 	}
 
 	public override forceTokenization(lineNumber: number): void {
-		// TODO @alexr00 implement
+		if (this._tokenizationSupport) {
+			if (this.hasAccurateTokensForLine(lineNumber)) {
+				return;
+			}
+			this._tokenizationSupport.tokenizeEncoded(lineNumber, this._textModel);
+		}
 	}
 
 	public override hasAccurateTokensForLine(lineNumber: number): boolean {
-		// TODO @alexr00 update for background tokenization
-		return true;
+		return this._tokenStore.hasTokens(this._textModel, new Range(lineNumber, 1, lineNumber, this._textModel.getLineLength(lineNumber)));
 	}
 
 	public override isCheapToTokenize(lineNumber: number): boolean {

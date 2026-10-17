@@ -10,6 +10,12 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 
 export const ITreeSitterParserService = createDecorator<ITreeSitterParserService>('treeSitterParserService');
 
+export interface TreeUpdateEvent {
+	textModel: ITextModel;
+	ranges: Range[];
+	versionId: number;
+}
+
 export interface ITreeSitterParserService {
 	readonly _serviceBrand: undefined;
 	initTreeSitter(): Promise<void>;
