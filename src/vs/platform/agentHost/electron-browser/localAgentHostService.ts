@@ -62,6 +62,8 @@ import {
 	AuthenticateParams,
 	AuthenticateResult,
 	IMcpNotification,
+	type IAgentPluginInstallResult,
+	type IAgentPluginMarketplaceSnapshot,
 	readAgentHostOTelPolicySettings,
 	type IAgentHostDebugLogsChunk,
 } from '../common/agentService.js';

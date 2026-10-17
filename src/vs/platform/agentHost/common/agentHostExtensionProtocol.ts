@@ -5,6 +5,7 @@
 
 import { vArray, vBoolean, vEnum, vNumber, vObj, vOptionalProp, vString, type ValidatorType } from '../../../base/common/validation.js';
 import type { IDevContainerAgentHostConnectResult } from './devContainerAgentHost.js';
+import type { IAgentPluginInstallResult, IAgentPluginMarketplaceSnapshot } from './agent.js';
 import type { AgentHostDebugLogsArtifactKind, IAgentHostManagedSettingsDiagnostics, IAgentHostNetworkDiagnosticsInfo, IAgentHostNetworkFetchResult } from './agentService.js';
 import type { InitializeResult } from './state/protocol/common/commands.js';
 import { AgentHostArtifactRemovalCapabilityMetaKey } from './meta/agentHostArtifactRemovalMeta.js';
@@ -19,6 +20,7 @@ import { AgentHostCanvasesCapabilityMetaKey } from './meta/agentHostCanvasesMeta
 export { supportsAgentHostArtifactRemoval } from './meta/agentHostArtifactRemovalMeta.js';
 export { supportsAgentHostCanvases } from './meta/agentHostCanvasesMeta.js';
 export { supportsAgentHostDevContainers } from './meta/agentHostDevContainersMeta.js';
+export { supportsAgentHostSessionPluginMarketplaces } from './meta/agentHostSessionPluginMarketplacesMeta.js';
 
 export const DevContainerIsDockerAvailableExtensionMethod = 'vscode/devContainers/isDockerAvailable';
 export const DevContainerConnectExtensionMethod = 'vscode/devContainers/connect';
@@ -71,6 +73,7 @@ export interface IAgentHostExtensionInitializeResultMeta extends Record<string, 
 	readonly [AgentHostArtifactRemovalCapabilityMetaKey]?: true;
 	readonly [AgentHostSessionImportCapabilityMetaKey]?: true;
 	readonly [AgentHostDevContainersCapabilityMetaKey]?: true;
+	readonly [AgentHostSessionPluginMarketplacesCapabilityMetaKey]?: true;
 	readonly [AgentHostTimingCapabilityMetaKey]?: true;
 	readonly [ChatUserInteractionCapability]?: true;
 	readonly [AgentHostCanvasesCapabilityMetaKey]?: true;
@@ -191,6 +194,18 @@ export interface IAgentHostExtensionCommandMap {
 	[RemoveSessionArtifactExtensionMethod]: {
 		params: ValidatorType<typeof removeSessionArtifactParamsValidator>;
 		result: void;
+	};
+	[GetSessionPluginMarketplaceSnapshotExtensionMethod]: {
+		params: ValidatorType<typeof getSessionPluginMarketplaceSnapshotParamsValidator>;
+		result: IAgentPluginMarketplaceSnapshot;
+	};
+	[RefreshSessionPluginMarketplacesExtensionMethod]: {
+		params: ValidatorType<typeof refreshSessionPluginMarketplacesParamsValidator>;
+		result: IAgentPluginMarketplaceSnapshot;
+	};
+	[InstallSessionPluginExtensionMethod]: {
+		params: ValidatorType<typeof installSessionPluginParamsValidator>;
+		result: IAgentPluginInstallResult;
 	};
 	'shutdown': { params: undefined; result: void };
 	'getNetworkDiagnosticsInfo': { params: undefined; result: IAgentHostNetworkDiagnosticsInfo };

@@ -1637,6 +1637,34 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 	}
 
+	async getSessionPluginMarketplaceSnapshot(session: URI): Promise<IAgentPluginMarketplaceSnapshot> {
+		const { pluginMarketplaces, chat, context } = await this._resolveSessionPluginMarketplaces(session);
+		return pluginMarketplaces.getSnapshot(chat, context);
+	}
+
+	async refreshSessionPluginMarketplaces(session: URI, marketplace?: string): Promise<IAgentPluginMarketplaceSnapshot> {
+		const { pluginMarketplaces, chat, context } = await this._resolveSessionPluginMarketplaces(session);
+		return pluginMarketplaces.refresh(chat, context, marketplace);
+	}
+
+	async installSessionPlugin(session: URI, source: string): Promise<IAgentPluginInstallResult> {
+		const { pluginMarketplaces, chat, context } = await this._resolveSessionPluginMarketplaces(session);
+		return pluginMarketplaces.install(chat, context, source);
+	}
+
+	private async _resolveSessionPluginMarketplaces(session: URI): Promise<{ pluginMarketplaces: IAgentPluginMarketplaces; chat: URI; context: IAgentChatContext }> {
+		await this.restoreSession(session);
+		const provider = this._providerService.getProviderForSession(session);
+		if (!provider) {
+			throw new ProtocolError(AHP_PROVIDER_NOT_FOUND, `Provider not found for session: ${session.toString()}`);
+		}
+		if (!provider.pluginMarketplaces) {
+			throw new ProtocolError(JsonRpcErrorCodes.MethodNotFound, `Provider '${provider.id}' does not support live-session plugin marketplaces`);
+		}
+		const chat = URI.parse(buildDefaultChatUri(session));
+		return { pluginMarketplaces: provider.pluginMarketplaces, chat, context: this._chatContext(session, chat) };
+	}
+
 	private _isArtifactToolsEnabled(): boolean {
 		return this._configurationService.getRootValue(platformRootSchema, AgentHostArtifactToolsConfigKey) === true;
 	}

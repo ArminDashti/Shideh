@@ -2134,6 +2134,73 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		return { url: await this._agentService.resolveCanvasSource(chat, instanceId, revision) };
 	}
 
+	private _parseSessionPluginMarketplacesSession(sessionParam: string): { session: URI; error?: undefined } | { session?: undefined; error: ProtocolError } {
+		let session: URI;
+		try {
+			session = URI.parse(sessionParam, true);
+		} catch {
+			return { error: new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'session must be a valid URI string') };
+		}
+		if (!AgentSession.provider(session) || !session.path.startsWith('/') || session.path.length < 2
+			|| session.authority || session.query || session.fragment || parseChatUri(session)) {
+			return { error: new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'session must be an Agent Session URI') };
+		}
+		return { session };
+	}
+
+	private _handleGetSessionPluginMarketplaceSnapshotRequest(params: unknown): Promise<unknown> | undefined {
+		if (!this._agentService.getSessionPluginMarketplaceSnapshot) {
+			return undefined;
+		}
+		const validated = getSessionPluginMarketplaceSnapshotParamsValidator.validate(params);
+		if (validated.error) {
+			return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, validated.error.message));
+		}
+		const parsed = this._parseSessionPluginMarketplacesSession(validated.content.session);
+		if (parsed.error) {
+			return Promise.reject(parsed.error);
+		}
+		return this._agentService.getSessionPluginMarketplaceSnapshot(parsed.session);
+	}
+
+	private _handleRefreshSessionPluginMarketplacesRequest(params: unknown): Promise<unknown> | undefined {
+		if (!this._agentService.refreshSessionPluginMarketplaces) {
+			return undefined;
+		}
+		const validated = refreshSessionPluginMarketplacesParamsValidator.validate(params);
+		if (validated.error) {
+			return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, validated.error.message));
+		}
+		const { session: sessionParam, marketplace } = validated.content;
+		if (marketplace !== undefined && !marketplace.trim()) {
+			return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'marketplace must be a non-empty string'));
+		}
+		const parsed = this._parseSessionPluginMarketplacesSession(sessionParam);
+		if (parsed.error) {
+			return Promise.reject(parsed.error);
+		}
+		return this._agentService.refreshSessionPluginMarketplaces(parsed.session, marketplace);
+	}
+
+	private _handleInstallSessionPluginRequest(params: unknown): Promise<unknown> | undefined {
+		if (!this._agentService.installSessionPlugin) {
+			return undefined;
+		}
+		const validated = installSessionPluginParamsValidator.validate(params);
+		if (validated.error) {
+			return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, validated.error.message));
+		}
+		const { session: sessionParam, source } = validated.content;
+		if (!source.trim()) {
+			return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'source must be a non-empty string'));
+		}
+		const parsed = this._parseSessionPluginMarketplacesSession(sessionParam);
+		if (parsed.error) {
+			return Promise.reject(parsed.error);
+		}
+		return this._agentService.installSessionPlugin(parsed.session, source);
+	}
+
 	/**
 	 * Handle VS Code extension methods that are not yet part of the typed
 	 * protocol. Returns a Promise if the method was recognized, undefined
@@ -2176,8 +2243,15 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		// Session-data methods operate on state the client already drives through
 		// the data plane, so they are available to every connected client. Only
 		// host-control methods below are gated by `allowExtensionMethods`.
-		if (method === RemoveSessionArtifactExtensionMethod) {
-			return this._handleRemoveSessionArtifactRequest(params);
+		switch (method) {
+			case RemoveSessionArtifactExtensionMethod:
+				return this._handleRemoveSessionArtifactRequest(params);
+			case GetSessionPluginMarketplaceSnapshotExtensionMethod:
+				return this._handleGetSessionPluginMarketplaceSnapshotRequest(params);
+			case RefreshSessionPluginMarketplacesExtensionMethod:
+				return this._handleRefreshSessionPluginMarketplacesRequest(params);
+			case InstallSessionPluginExtensionMethod:
+				return this._handleInstallSessionPluginRequest(params);
 		}
 		if (method === ResolveAgentHostCanvasSourceExtensionMethod) {
 			return this._handleResolveCanvasSourceRequest(client, params);

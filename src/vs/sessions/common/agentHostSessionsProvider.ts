@@ -9,7 +9,7 @@ import { IObservable } from '../../base/common/observable.js';
 import { equals } from '../../base/common/objects.js';
 import { ThemeIcon } from '../../base/common/themables.js';
 import { URI } from '../../base/common/uri.js';
-import { AuthenticateParams, AuthenticateResult, IAgentConnection } from '../../platform/agentHost/common/agentService.js';
+import { AuthenticateParams, AuthenticateResult, IAgentConnection, type IAgentPluginInstallResult, type IAgentPluginMarketplaceSnapshot } from '../../platform/agentHost/common/agentService.js';
 import { RemoteAgentHostConnectionStatus } from '../../platform/agentHost/common/remoteAgentHostService.js';
 import { ResolveSessionConfigResult, SessionConfigValueItem } from '../../platform/agentHost/common/state/protocol/commands.js';
 import { AgentCustomization, Customization, McpServerStatus, RootConfigState, type CustomizationEnablement, type McpServerState, type RootState, type TextRange } from '../../platform/agentHost/common/state/protocol/state.js';
@@ -318,6 +318,12 @@ export interface IAgentHostSessionsProvider extends ISessionsProvider {
 	 * Returns the full set of customizations.
 	 */
 	getCustomizations(sessionId: string): readonly Customization[];
+
+	getPluginMarketplaceSnapshot(sessionId: string): Promise<IAgentPluginMarketplaceSnapshot | undefined>;
+
+	refreshPluginMarketplaces(sessionId: string): Promise<IAgentPluginMarketplaceSnapshot | undefined>;
+
+	installPlugin(sessionId: string, source: string): Promise<IAgentPluginInstallResult>;
 
 	/**
 	 * Returns the connection used to inspect focused-session diagnostics.

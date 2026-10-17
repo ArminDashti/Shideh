@@ -770,6 +770,9 @@ export interface IAgentService {
 	importSession?(session: URI): Promise<void>;
 	/** Removes a recorded artifact or reference, awaiting host metadata persistence. */
 	removeSessionArtifact?(session: URI, artifactId: string): Promise<void>;
+	getSessionPluginMarketplaceSnapshot?(session: URI): Promise<IAgentPluginMarketplaceSnapshot>;
+	refreshSessionPluginMarketplaces?(session: URI, marketplace?: string): Promise<IAgentPluginMarketplaceSnapshot>;
+	installSessionPlugin?(session: URI, source: string): Promise<IAgentPluginInstallResult>;
 	createDetachedWorktree?(session: URI, prompt: string): Promise<{ handle: string; worktree: URI }>;
 	claimDetachedWorktree?(handle: string): Promise<void>;
 	setDetachedWorktreeArchived?(handle: string, archived: boolean): Promise<void>;

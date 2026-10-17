@@ -42,6 +42,9 @@ import { assertSkillItems, createSkillCustomizations } from './agentHostSkillDis
 
 class FakeTarget implements IAgentHostCustomizationTarget {
 	readonly enablementChanges: { readonly rawId: string; readonly enablement: readonly CustomizationEnablement[] }[] = [];
+	getPluginMarketplaceSnapshot?: IAgentHostCustomizationTarget['getPluginMarketplaceSnapshot'];
+	refreshPluginMarketplaces?: IAgentHostCustomizationTarget['refreshPluginMarketplaces'];
+	installPlugin?: IAgentHostCustomizationTarget['installPlugin'];
 	readonly startCalls: string[] = [];
 	readonly authenticateCalls: { resource: string; scopes?: readonly string[]; token: string }[] = [];
 	readonly operationLog: string[] = [];
@@ -222,6 +225,73 @@ suite('AbstractAgentHostCustomizationService', () => {
 		sut.setTarget(session, new FakeTarget([]));
 
 		assert.deepStrictEqual({ missingSessionRoots, emptyRoots: sut.getClientWorkingDirectoryUris(session) }, { missingSessionRoots: [], emptyRoots: [] });
+	});
+
+	test('uses local marketplace fallback when no live target operation is available', async () => {
+		const sut = createSut();
+		const session = URI.parse('vscode-agent-session:///session-1');
+		sut.setTarget(session, new FakeTarget([]));
+
+		assert.deepStrictEqual({
+			snapshot: await sut.getPluginMarketplaceSnapshot(session, CancellationToken.None),
+			refresh: await sut.refreshPluginMarketplaces(session, CancellationToken.None),
+		}, {
+			snapshot: undefined,
+			refresh: undefined,
+		});
+	});
+
+	test('uses local marketplace fallback when the host does not support the extension request', async () => {
+		const sut = createSut();
+		const session = URI.parse('vscode-agent-session:///session-1');
+		const target = new FakeTarget([]);
+		target.getPluginMarketplaceSnapshot = () => Promise.reject(new Error('Method not found: vscode/sessionPluginMarketplaces/snapshot'));
+		target.refreshPluginMarketplaces = () => Promise.reject(new ProtocolError(JsonRpcErrorCodes.MethodNotFound, 'Provider test does not support live-session plugin marketplaces'));
+		sut.setTarget(session, target);
+
+		assert.deepStrictEqual({
+			snapshot: await sut.getPluginMarketplaceSnapshot(session, CancellationToken.None),
+			refresh: await sut.refreshPluginMarketplaces(session, CancellationToken.None),
+		}, {
+			snapshot: undefined,
+			refresh: undefined,
+		});
+	});
+
+	test('forwards live session marketplace operations', async () => {
+		const sut = createSut();
+		const session = URI.parse('vscode-agent-session:///session-1');
+		const target = new FakeTarget([]);
+		const calls: string[] = [];
+		const snapshot = {
+			plugins: [{ name: 'plugin', marketplace: 'managed', source: 'plugin@managed', installed: false }],
+			failures: [],
+		};
+		target.getPluginMarketplaceSnapshot = async () => {
+			calls.push('snapshot');
+			return snapshot;
+		};
+		target.refreshPluginMarketplaces = async () => {
+			calls.push('refresh');
+			return snapshot;
+		};
+		target.installPlugin = async source => {
+			calls.push(`install:${source}`);
+			return {};
+		};
+		sut.setTarget(session, target);
+
+		assert.deepStrictEqual({
+			snapshot: await sut.getPluginMarketplaceSnapshot(session, CancellationToken.None),
+			refresh: await sut.refreshPluginMarketplaces(session, CancellationToken.None),
+			install: await sut.installPlugin(session, 'plugin@managed'),
+			calls,
+		}, {
+			snapshot,
+			refresh: snapshot,
+			install: {},
+			calls: ['snapshot', 'refresh', 'install:plugin@managed'],
+		});
 	});
 
 	test('dispatches complete enablement decisions', () => {

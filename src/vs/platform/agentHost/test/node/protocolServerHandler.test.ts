@@ -1481,6 +1481,80 @@ suite('ProtocolServerHandler', () => {
 		});
 	});
 
+	test('advertises and routes live-session plugin marketplace extension requests', async () => {
+		const transport = connectClient('client-session-plugin-marketplaces');
+		const initializeResponse = findResponse(transport.sent, 1);
+		assert.ok(initializeResponse && hasKey(initializeResponse, { result: true }));
+		const initializeResult = initializeResponse.result as InitializeResult;
+		const session = 'copilotcli:/session-1';
+
+		const snapshotResponse = waitForResponse(transport, 21);
+		transport.simulateMessage(request(21, GetSessionPluginMarketplaceSnapshotExtensionMethod, { session }));
+		const refreshResponse = waitForResponse(transport, 22);
+		transport.simulateMessage(request(22, RefreshSessionPluginMarketplacesExtensionMethod, { session, marketplace: 'company' }));
+		const installResponse = waitForResponse(transport, 23);
+		transport.simulateMessage(request(23, InstallSessionPluginExtensionMethod, { session, source: 'review@company' }));
+
+		assert.deepStrictEqual({
+			supported: supportsAgentHostSessionPluginMarketplaces(initializeResult),
+			legacy: supportsAgentHostSessionPluginMarketplaces({ ...initializeResult, _meta: undefined }),
+			malformed: supportsAgentHostSessionPluginMarketplaces({ ...initializeResult, _meta: { 'vscode.sessionPluginMarketplaces': 'true' } }),
+			responses: await Promise.all([snapshotResponse, refreshResponse, installResponse]),
+			snapshotCalls: agentService.getSessionPluginMarketplaceSnapshotCalls,
+			refreshCalls: agentService.refreshSessionPluginMarketplacesCalls,
+			installCalls: agentService.installSessionPluginCalls,
+		}, {
+			supported: true,
+			legacy: false,
+			malformed: false,
+			responses: [
+				{
+					jsonrpc: '2.0',
+					id: 21,
+					result: {
+						marketplaces: [{ name: 'company', source: 'GitHub: company/plugins', managed: true }],
+						plugins: [{ name: 'review', marketplace: 'company', installed: false, source: 'review@company' }],
+						failures: [],
+					},
+				},
+				{
+					jsonrpc: '2.0',
+					id: 22,
+					result: {
+						marketplaces: [{ name: 'company', source: 'GitHub: company/plugins', managed: true }],
+						plugins: [{ name: 'review', marketplace: 'company', installed: false, source: 'review@company' }],
+						failures: [],
+					},
+				},
+				{ jsonrpc: '2.0', id: 23, result: { postInstallMessage: 'Configure the review plugin.' } },
+			],
+			snapshotCalls: [session, session],
+			refreshCalls: [{ session, marketplace: 'company' }],
+			installCalls: [{ session, source: 'review@company' }],
+		});
+	});
+
+	test('rejects invalid live-session plugin marketplace extension params before routing', async () => {
+		const transport = connectClient('client-session-plugin-marketplaces-invalid');
+		const requests = [
+			{ method: GetSessionPluginMarketplaceSnapshotExtensionMethod, params: { session: buildChatUri('copilotcli:/session-1', 'peer-1') } },
+			{ method: RefreshSessionPluginMarketplacesExtensionMethod, params: { session: 'copilotcli:/session-1', marketplace: ' ' } },
+			{ method: InstallSessionPluginExtensionMethod, params: { session: 'copilotcli:/session-1', source: '' } },
+		];
+		for (const [index, entry] of requests.entries()) {
+			const id = index + 30;
+			const responsePromise = waitForResponse(transport, id);
+			transport.simulateMessage(request(id, entry.method, entry.params));
+			const response = await responsePromise;
+			assert.ok(isJsonRpcResponse(response) && hasKey(response, { error: true }) && response.error?.code === JsonRpcErrorCodes.InvalidParams);
+		}
+		assert.deepStrictEqual({
+			snapshot: agentService.getSessionPluginMarketplaceSnapshotCalls,
+			refresh: agentService.refreshSessionPluginMarketplacesCalls,
+			install: agentService.installSessionPluginCalls,
+		}, { snapshot: [], refresh: [], install: [] });
+	});
+
 	test('creates a detached worktree through the extension request', async () => {
 		const transport = connectClient('client-prepare-worktree');
 		transport.sent.length = 0;

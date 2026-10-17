@@ -161,6 +161,8 @@ export interface IFetchMarketplacePluginsOptions {
 	 * a complete one.
 	 */
 	readonly onMarketplaceError?: (reference: IMarketplaceReference, error: unknown) => void;
+	/** Called after reading a valid marketplace definition, including one with no plugins. */
+	readonly onMarketplaceRead?: (reference: IMarketplaceReference) => void;
 }
 
 export interface IPluginMarketplaceQuery {
@@ -210,6 +212,7 @@ export interface IPluginMarketplaceService {
 	/** Queries a stable, opaque page over selected existing Plugin marketplaces. */
 	queryMarketplacePlugins(options: IPluginMarketplaceQuery, token: CancellationToken): Promise<IPluginMarketplacePage>;
 	fetchMarketplacePlugins(token: CancellationToken, marketplaceIds?: ReadonlySet<string>, options?: IFetchMarketplacePluginsOptions): Promise<IMarketplacePlugin[]>;
+	fetchMarketplacePluginsForNames(token: CancellationToken, names: ReadonlySet<string>, options?: IFetchMarketplacePluginsOptions): Promise<{ plugins: IMarketplacePlugin[]; unresolved: ReadonlySet<string> }>;
 	getMarketplacePluginMetadata(pluginUri: URI): IMarketplacePlugin | undefined;
 	addInstalledPlugin(pluginUri: URI, plugin: IMarketplacePlugin): void;
 	/** Removes the exact durable installed entry, including when its metadata is not hydrated. */
@@ -652,6 +655,7 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 
 		const cached = options?.refresh ? undefined : this._getCachedGitHubMarketplacePlugins(cache, reference.canonicalId);
 		if (cached) {
+			options?.onMarketplaceRead?.(reference);
 			return cached.map(c => {
 				const plugin = ensureSourceDescriptor(c);
 				return {
@@ -760,6 +764,9 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			options?.onMarketplaceError?.(reference, readError);
 		}
 		this._logService.debug(`[PluginMarketplaceService] No marketplace.json found in ${repo}`);
+		if (!token.isCancellationRequested) {
+			options?.onMarketplaceError?.(reference, new Error(localize('marketplaceDefinitionNotFound', "No readable marketplace definition was found.")));
+		}
 		return [];
 	}
 
@@ -1248,6 +1255,7 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 		reference: IMarketplaceReference,
 		readJson: (defPath: string) => Promise<IMarketplaceJson | undefined>,
 		repoDir?: URI,
+		onRead?: () => void,
 	): Promise<IMarketplacePlugin[]> {
 		for (const def of MARKETPLACE_DEFINITIONS) {
 			const json = await readJson(def.path);

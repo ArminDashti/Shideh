@@ -1176,6 +1176,18 @@ export class CopilotAgentSession extends Disposable {
 		return result.entries.length > 0;
 	}
 
+	async getPluginMarketplaceSnapshot(): Promise<IAgentPluginMarketplaceSnapshot> {
+		return getCopilotPluginMarketplaceSnapshot(this._wrapper.session.rpc.plugins);
+	}
+
+	async refreshPluginMarketplaces(marketplace?: string): Promise<IAgentPluginMarketplaceSnapshot> {
+		return refreshCopilotPluginMarketplaces(this._wrapper.session.rpc.plugins, marketplace);
+	}
+
+	async installPlugin(source: string): Promise<IAgentPluginInstallResult> {
+		return installCopilotPlugin(this._wrapper.session.rpc.plugins, source);
+	}
+
 	/**
 	 * Last model id seen on the SDK's per-LLM-call `Usage` event (or a
 	 * direct {@link setModel} call). We rely on the

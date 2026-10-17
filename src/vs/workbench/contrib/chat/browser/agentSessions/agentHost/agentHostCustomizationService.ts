@@ -7,6 +7,7 @@ import { URI } from '../../../../../../base/common/uri.js';
 import { getWorkingDirectoryUris } from '../../../../../../platform/agentHost/common/agentHostWorkingDirectories.js';
 import { raceCancellation, raceTimeout } from '../../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
+import { getErrorMessage } from '../../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { StringSHA1 } from '../../../../../../base/common/hash.js';
 import { Disposable, DisposableResourceMap, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
@@ -14,6 +15,9 @@ import { ResourceSet } from '../../../../../../base/common/map.js';
 import { Schemas } from '../../../../../../base/common/network.js';
 import { AgentHostMcpServers, AgentHostMcpServersConfigKey } from '../../../../../../platform/agentHost/common/agentHostSchema.js';
 import { IAgentConnection } from '../../../../../../platform/agentHost/common/agentService.js';
+import { supportsAgentHostSessionPluginMarketplaces } from '../../../../../../platform/agentHost/common/agentHostExtensionProtocol.js';
+import { JsonRpcErrorCodes } from '../../../../../../platform/agentHost/common/state/protocol/errors.js';
+import { ProtocolError } from '../../../../../../platform/agentHost/common/state/sessionProtocol.js';
 import { IAgentHostResourceUriMapper } from '../../../../../../platform/agentHost/common/agentHostUri.js';
 import { AMBIENT_AGENT_HOST_AUTHORITY, IAgentHostConnectionsService, IAgentHostSessionResolution } from '../../../../../../platform/agentHost/common/agentHostConnectionsService.js';
 import { getEffectiveAgents } from '../../../../../../platform/agentHost/common/customAgents.js';
@@ -50,6 +54,12 @@ export interface IAgentHostCustomizationService {
 	getCustomAgents(sessionResource: URI): readonly AgentCustomization[];
 
 	getCustomizations(sessionResource: URI): readonly Customization[];
+
+	getPluginMarketplaceSnapshot(sessionResource: URI, token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined>;
+
+	refreshPluginMarketplaces(sessionResource: URI, token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined>;
+
+	installPlugin(sessionResource: URI, source: string): Promise<ICustomizationPluginInstallResult>;
 
 	/**
 	 * Waits up to two seconds for {@link getCustomizations} to reflect the session's first state snapshot; it may resolve earlier on cancellation, failure, or when no agent-host session exists.
@@ -133,6 +143,15 @@ export class NullAgentHostCustomizationService implements IAgentHostCustomizatio
 	getCustomizations(_sessionResource: URI): readonly Customization[] {
 		return [];
 	}
+	getPluginMarketplaceSnapshot(_sessionResource: URI, _token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined> {
+		return Promise.resolve(undefined);
+	}
+	refreshPluginMarketplaces(_sessionResource: URI, _token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined> {
+		return Promise.resolve(undefined);
+	}
+	installPlugin(_sessionResource: URI, _source: string): Promise<ICustomizationPluginInstallResult> {
+		return Promise.reject(new Error('Plugin marketplace is unavailable for this session.'));
+	}
 	whenCustomizationsReady(_sessionResource: URI, _token?: CancellationToken): Promise<void> {
 		return Promise.resolve();
 	}
@@ -185,6 +204,9 @@ export interface IAgentHostCustomizationTarget {
 	stopMcpServer(rawId: string): Promise<void>;
 	backgroundMcpServer(rawId: string): Promise<void>;
 	setRootConfigValue(property: string, value: unknown): void;
+	getPluginMarketplaceSnapshot?(): Promise<ICustomizationPluginMarketplaceSnapshot | undefined>;
+	refreshPluginMarketplaces?(): Promise<ICustomizationPluginMarketplaceSnapshot | undefined>;
+	installPlugin?(source: string): Promise<ICustomizationPluginInstallResult>;
 }
 
 export abstract class AbstractAgentHostCustomizationService extends Disposable implements IAgentHostCustomizationService {
@@ -222,6 +244,46 @@ export abstract class AbstractAgentHostCustomizationService extends Disposable i
 
 	getCustomizations(sessionResource: URI): readonly Customization[] {
 		return this._resolveTarget(sessionResource)?.customizations ?? [];
+	}
+
+	async getPluginMarketplaceSnapshot(sessionResource: URI, token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined> {
+		const operation = this._resolveTarget(sessionResource)?.getPluginMarketplaceSnapshot;
+		if (!operation || token.isCancellationRequested) {
+			return undefined;
+		}
+		try {
+			const result = await operation();
+			return token.isCancellationRequested ? undefined : result;
+		} catch (error) {
+			if (isUnsupportedPluginMarketplaceOperation(error)) {
+				return undefined;
+			}
+			throw error;
+		}
+	}
+
+	async refreshPluginMarketplaces(sessionResource: URI, token: CancellationToken): Promise<ICustomizationPluginMarketplaceSnapshot | undefined> {
+		const operation = this._resolveTarget(sessionResource)?.refreshPluginMarketplaces;
+		if (!operation || token.isCancellationRequested) {
+			return undefined;
+		}
+		try {
+			const result = await operation();
+			return token.isCancellationRequested ? undefined : result;
+		} catch (error) {
+			if (isUnsupportedPluginMarketplaceOperation(error)) {
+				return undefined;
+			}
+			throw error;
+		}
+	}
+
+	installPlugin(sessionResource: URI, source: string): Promise<ICustomizationPluginInstallResult> {
+		const operation = this._resolveTarget(sessionResource)?.installPlugin;
+		if (!operation) {
+			return Promise.reject(new Error('Plugin marketplace is unavailable for this session.'));
+		}
+		return operation(source);
 	}
 
 	/**
@@ -619,6 +681,10 @@ export class WorkbenchAgentHostCustomizationService extends AbstractAgentHostCus
 		});
 		const rootState = target.connection.rootState.value;
 		const channel = target.backendSession.toString();
+		const supportsPluginMarketplaces = target.connection.getSessionPluginMarketplaceSnapshot !== undefined
+			&& target.connection.refreshSessionPluginMarketplaces !== undefined
+			&& target.connection.installSessionPlugin !== undefined
+			&& supportsAgentHostSessionPluginMarketplaces(target.connection.initializeResult.get());
 		return {
 			customizations: sessionState?.customizations ?? [],
 			resourceUris: target.connection.resourceUris,
@@ -662,7 +728,16 @@ export class WorkbenchAgentHostCustomizationService extends AbstractAgentHostCus
 					type: ActionType.RootConfigChanged,
 					config: { [property]: value },
 				});
-			}
+			},
+			getPluginMarketplaceSnapshot: supportsPluginMarketplaces
+				? () => target.connection.getSessionPluginMarketplaceSnapshot!(target.backendSession)
+				: undefined,
+			refreshPluginMarketplaces: supportsPluginMarketplaces
+				? () => target.connection.refreshSessionPluginMarketplaces!(target.backendSession)
+				: undefined,
+			installPlugin: supportsPluginMarketplaces
+				? source => target.connection.installSessionPlugin!(target.backendSession, source)
+				: undefined,
 		};
 	}
 
@@ -773,6 +848,12 @@ export class WorkbenchAgentHostCustomizationService extends AbstractAgentHostCus
 
 		return this._connectionsService.resolveSessionResource(sessionResource);
 	}
+}
+
+function isUnsupportedPluginMarketplaceOperation(error: unknown): boolean {
+	return error instanceof ProtocolError
+		? error.code === JsonRpcErrorCodes.MethodNotFound
+		: /^Method not found\b/i.test(getErrorMessage(error));
 }
 
 registerSingleton(IAgentHostCustomizationService, WorkbenchAgentHostCustomizationService, InstantiationType.Delayed);

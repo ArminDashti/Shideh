@@ -2068,6 +2068,25 @@ suite('AgentHostProtocolClient', () => {
 		await assertRemoteProtocolError(request, error);
 	});
 
+	test('timing and session plugin marketplace capabilities are independent', () => {
+		const capabilities = [];
+		for (const timing of [false, true]) {
+			for (const marketplaces of [false, true]) {
+				const result = { protocolVersion: PROTOCOL_VERSION, serverSeq: 0, snapshots: [], _meta: getAgentHostExtensionInitializeResultMeta(true, false, timing, marketplaces) };
+				capabilities.push({
+					timing: supportsAgentHostTiming(result),
+					marketplaces: supportsAgentHostSessionPluginMarketplaces(result),
+				});
+			}
+		}
+		assert.deepStrictEqual(capabilities, [
+			{ timing: false, marketplaces: false },
+			{ timing: false, marketplaces: true },
+			{ timing: true, marketplaces: false },
+			{ timing: true, marketplaces: true },
+		]);
+	});
+
 	test('first-response diagnostics require an enabled host capability, not product telemetry', async () => {
 		const diagnostic: IAgentHostFirstResponseDiagnostic = {
 			provider: 'copilot', requestId: 'request-1', outcome: 'notDispatched',

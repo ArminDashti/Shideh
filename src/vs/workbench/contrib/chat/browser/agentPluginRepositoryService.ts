@@ -177,7 +177,7 @@ export class AgentPluginRepositoryService implements IAgentPluginRepositoryServi
 	 */
 	private async _refreshRepository(repoDir: URI, marketplace: IMarketplaceReference, token: CancellationToken | undefined): Promise<number | undefined> {
 		try {
-			await this._pluginGit.pull(repoDir, token);
+			await this._pluginGit.pull(repoDir, marketplace.cloneUrl, token);
 		} catch (err) {
 			if (isCancellationError(err)) {
 				return undefined;
@@ -200,8 +200,8 @@ export class AgentPluginRepositoryService implements IAgentPluginRepositoryServi
 
 		try {
 			const changed = options?.silent
-				? await this._pluginGit.pull(repoDir)
-				: await this._pullWithProgress(repoDir, updateLabel);
+				? await this._pluginGit.pull(repoDir, marketplace.cloneUrl)
+				: await this._pullWithProgress(repoDir, marketplace.cloneUrl, updateLabel);
 
 			// An explicit pull leaves the clone exactly as fresh as a stale
 			// refresh would, so record it — otherwise flows that pull and then
@@ -232,7 +232,7 @@ export class AgentPluginRepositoryService implements IAgentPluginRepositoryServi
 	}
 
 	/** Pulls a clone behind a cancellable progress notification. */
-	private async _pullWithProgress(repoDir: URI, updateLabel: string): Promise<boolean> {
+	private async _pullWithProgress(repoDir: URI, remoteUrl: string, updateLabel: string): Promise<boolean> {
 		const cts = new CancellationTokenSource();
 		try {
 			return await this._progressService.withProgress(
@@ -241,7 +241,7 @@ export class AgentPluginRepositoryService implements IAgentPluginRepositoryServi
 					title: localize('updatingPlugin', "Updating plugin '{0}'...", updateLabel),
 					cancellable: true,
 				},
-				() => this._pluginGit.pull(repoDir, cts.token),
+				() => this._pluginGit.pull(repoDir, remoteUrl, cts.token),
 				() => cts.dispose(true),
 			);
 		} finally {
@@ -415,7 +415,7 @@ export class AgentPluginRepositoryService implements IAgentPluginRepositoryServi
 		}
 
 		try {
-			await this._pluginGit.fetchRepository(repoDir);
+			await this._pluginGit.fetchRepository(repoDir, marketplace.cloneUrl);
 			const behindCount = await this._pluginGit.revListCount(repoDir, 'HEAD', '@{u}');
 			return behindCount > 0;
 		} catch (err) {
