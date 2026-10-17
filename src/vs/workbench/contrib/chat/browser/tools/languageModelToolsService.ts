@@ -611,6 +611,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				preparedInvocation = await this.prepareToolInvocationWithHookResult(tool, dto, preToolUseHookResult, token);
 				prepareTimeWatch.stop();
 
+				const totalDecisionTimeWatch = StopWatch.create(true);
 				const { autoConfirmed: resolvedAutoConfirmed, preparedInvocation: updatedPreparedInvocation } = await this.resolveAutoConfirmFromHook(preToolUseHookResult, tool, dto, preparedInvocation, dto.context?.sessionResource);
 				preparedInvocation = updatedPreparedInvocation;
 
@@ -653,7 +654,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				// suppresses its own confirmation under Autopilot and never reaches it. The tool
 				// is not run, and an info note explains why.
 				if (riskSkipExplanation) {
-					this._logToolApprovalTelemetry(tool, dto, { type: ToolConfirmKind.Skipped });
+					this._logToolApprovalTelemetry(tool, dto, { type: ToolConfirmKind.Skipped }, undefined, undefined);
 					// Terminal and edit tools hide their invocation part once complete, so show the
 					// reason as a separate info note.
 					this._chatService.appendProgress(request, {
@@ -672,8 +673,18 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 					if (!IChatToolInvocation.executionConfirmedOrDenied(toolInvocation) && !autoConfirmed) {
 						this.playAccessibilitySignal([toolInvocation], dto.context?.sessionResource);
 					}
+					const userThinkTimeWatch = StopWatch.create(true);
 					const userConfirmed = await IChatToolInvocation.awaitConfirmation(toolInvocation, token);
-					this._logToolApprovalTelemetry(tool, dto, userConfirmed);
+					userThinkTimeWatch.stop();
+					totalDecisionTimeWatch.stop();
+					const shouldLogDecisionTiming = userConfirmed.type === ToolConfirmKind.UserAction || userConfirmed.type === ToolConfirmKind.Denied;
+					this._logToolApprovalTelemetry(
+						tool,
+						dto,
+						userConfirmed,
+						shouldLogDecisionTiming ? userThinkTimeWatch.elapsed() : undefined,
+						shouldLogDecisionTiming ? totalDecisionTimeWatch.elapsed() : undefined,
+					);
 					if (userConfirmed.type === ToolConfirmKind.Denied) {
 						throw new CancellationError();
 					}
@@ -695,7 +706,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 						dto.toolSpecificData = undefined;
 					}
 				} else {
-					this._logToolApprovalTelemetry(tool, dto, autoConfirmed ?? { type: ToolConfirmKind.ConfirmationNotNeeded });
+					this._logToolApprovalTelemetry(tool, dto, autoConfirmed ?? { type: ToolConfirmKind.ConfirmationNotNeeded }, undefined, undefined);
 				}
 			} else {
 				prepareTimeWatch = StopWatch.create(true);
@@ -820,7 +831,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		return this.prepareToolInvocation(tool, dto, forceConfirmationReason, token);
 	}
 
-	private _logToolApprovalTelemetry(tool: IToolEntry, dto: IToolInvocation, reason: ConfirmedReason): void {
+	private _logToolApprovalTelemetry(tool: IToolEntry, dto: IToolInvocation, reason: ConfirmedReason, userThinkDurationMs: number | undefined, totalDecisionDurationMs: number | undefined): void {
 		const confirmKindNames: Record<ToolConfirmKind, string> = {
 			[ToolConfirmKind.Denied]: 'denied',
 			[ToolConfirmKind.ConfirmationNotNeeded]: 'confirmationNotNeeded',
@@ -847,6 +858,8 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				confirmationNotNeededReason,
 				sandboxWrapped: terminalData?.commandLine.isSandboxWrapped,
 				requestUnsandboxedExecution: terminalData?.requestUnsandboxedExecution,
+				userThinkDurationMs,
+				totalDecisionDurationMs,
 				chatSessionId: dto.context?.sessionResource ? chatSessionResourceToId(dto.context.sessionResource) : undefined,
 				toolId: tool.data.id,
 				toolExtensionId: tool.data.source.type === 'extension' ? tool.data.source.extensionId.value : undefined,
@@ -1939,4 +1952,6 @@ type ToolApprovalEvent = LanguageModelToolTelemetryData & {
 	confirmationNotNeededReason: string | undefined;
 	sandboxWrapped: boolean | undefined;
 	requestUnsandboxedExecution: boolean | undefined;
+	userThinkDurationMs: number | undefined;
+	totalDecisionDurationMs: number | undefined;
 };
