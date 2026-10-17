@@ -27,6 +27,12 @@ class ResourceModelCollection extends ReferenceCollection<Promise<IResolvedTextE
 	private readonly providers = new Map<string, ITextModelContentProvider[]>();
 	private readonly modelsToDispose = new Map<string, Promise<ITextEditorModel>>();
 
+	// Models that are pending async disposal. When a model is re-acquired
+	// during the async disposal window, we reuse the pending model instead
+	// of creating a new wrapper that would orphan the old one and leak its
+	// onWillDispose listener on the shared ITextModel.
+	private readonly pendingDisposals = new Map<string, Promise<ITextEditorModel>>();
+
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@ITextFileService private readonly textFileService: ITextFileService,
@@ -149,6 +155,10 @@ class ResourceModelCollection extends ReferenceCollection<Promise<IResolvedTextE
 					// return if model has been acquired again meanwhile
 					return;
 				}
+
+				// Clean up pending disposal entry before disposing the
+				// model to prevent stale entries from being reused
+				this.pendingDisposals.delete(key);
 
 				// Finally we can dispose the model
 				model.dispose();
