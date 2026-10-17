@@ -11,6 +11,7 @@ import { Disposable, DisposableResourceMap, DisposableStore, toDisposable } from
 import { autorunDelta, autorunIterableDelta, IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { FocusMode } from '../../../../platform/native/common/native.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -136,6 +137,9 @@ export class ChatWindowNotifier extends Disposable implements IWorkbenchContribu
 		if (mode !== ChatNotificationMode.Always && isFocused) {
 			return;
 		}
+
+		// Play the accessibility signal to notify users that action is required
+		this._accessibilitySignalService.playSignal(AccessibilitySignal.chatUserActionRequired, { allowManyInParallel: true });
 
 		// Clear any existing notification for this session
 		this._clearNotification(sessionResource);
