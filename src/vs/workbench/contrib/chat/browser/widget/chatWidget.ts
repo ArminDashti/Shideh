@@ -563,7 +563,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 					mode: this.input.currentModeKind,
 					attachmentCapabilities: this.attachmentCapabilities,
 					forcedAgent: this._lockedAgent?.id ? this.chatAgentService.getAgent(this._lockedAgent.id) : undefined,
-					sessionType: getChatSessionType(this.viewModel.model.sessionResource)
+					sessionType: getChatSessionType(this.viewModel.sessionResource)
 				});
 			this._onDidChangeParsedInput.fire();
 		}
@@ -1816,6 +1816,15 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	private renderChatSuggestNextWidget(): void {
+		// Cancel any in-flight render so its async resolution becomes a no-op,
+		// then issue a fresh token for this render attempt.
+		this._chatSuggestNextRenderCts.value = new CancellationTokenSource();
+		void this._renderChatSuggestNextWidget(this._chatSuggestNextRenderCts.value.token);
+	}
+
+	private readonly _chatSuggestNextRenderCts = this._register(new MutableDisposable<CancellationTokenSource>());
+
+	private async _renderChatSuggestNextWidget(token: CancellationToken): Promise<void> {
 		if (this.lifecycleService.willShutdown) {
 			return;
 		}
@@ -1831,7 +1840,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return;
 		}
 
-		const items = this.viewModel?.getItems() ?? [];
+		const viewModel = this.viewModel;
+		if (!viewModel) {
+			return;
+		}
+
+		const items = viewModel.getItems();
 		if (!items.length) {
 			return;
 		}
@@ -1855,6 +1869,15 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			responseMode = modes.findModeById(modeInfo.kind);
 		} else {
 			responseMode = this.input.currentModeObs.get();
+		}
+
+		// Ensure the mode's heavy details (handoffs) are loaded before reading them.
+		if (responseMode) {
+			await responseMode.resolveDetails(token);
+		}
+		// Bail if a newer render started (or the widget was disposed) while we were resolving.
+		if (token.isCancellationRequested || this._store.isDisposed) {
+			return;
 		}
 
 		const handoffs = responseMode?.handOffs?.get();

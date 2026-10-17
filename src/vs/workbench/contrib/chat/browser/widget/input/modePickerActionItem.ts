@@ -36,6 +36,7 @@ import { IToggleChatModeArgs, ToggleAgentModeActionId } from '../../actions/chat
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
 import { IOpenerService } from '../../../../../../platform/opener/common/opener.js';
 import { IWorkbenchAssignmentService } from '../../../../../services/assignment/common/assignmentService.js';
+import { SessionType } from '../../../common/chatSessionsService.js';
 
 export interface IModePickerDelegate {
 	readonly currentMode: IObservable<IChatMode>;

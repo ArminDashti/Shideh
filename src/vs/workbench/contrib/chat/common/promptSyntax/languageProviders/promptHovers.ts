@@ -13,6 +13,7 @@ import { localize } from '../../../../../../nls.js';
 import { ILanguageModelsService } from '../../languageModels.js';
 import { ILanguageModelToolsService, isToolSet, IToolSet } from '../../tools/languageModelToolsService.js';
 import { IChatModeService, isBuiltinChatMode } from '../../chatModes.js';
+import { SessionType } from '../../chatSessionsService.js';
 import { getPromptsTypeForLanguageId, PromptsType, Target } from '../promptTypes.js';
 import { IPromptsService } from '../service/promptsService.js';
 import { IHeaderAttribute, ISequenceValue, parseCommaSeparatedList, PromptBody, PromptHeader, PromptHeaderAttributes } from '../promptFileParser.js';

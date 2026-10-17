@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { basename } from '../../../../../base/common/resources.js';
@@ -637,7 +638,7 @@ export class OpenWorkspacePickerAction extends Action2 {
 					order: 0.6,
 					when: ContextKeyExpr.and(
 						ChatContextKeys.inAgentSessionsWelcome,
-						ChatContextKeys.chatSessionType.isEqualTo(localChatSessionType)
+						ChatContextKeys.chatSessionType.isEqualTo(SessionType.Local)
 					),
 					group: 'navigation',
 				},
@@ -1087,7 +1088,7 @@ class GetHandoffsAction extends Action2 {
 			allModes = allModes.filter(m => m.name.get().toLowerCase() === filterName.toLowerCase());
 		}
 
-		return buildCustomAgentHandoffsInfo(allModes);
+		return buildCustomAgentHandoffsInfo(allModes, CancellationToken.None);
 	}
 }
 
@@ -1155,7 +1156,7 @@ class ExecuteHandoffAction extends Action2 {
 		} else {
 			widget = chatWidgetService.lastFocusedWidget;
 		}
-		if (!widget) {
+		if (!widget || !widget.viewModel) {
 			return { success: false, error: 'No chat widget found. Provide sessionResource or focus a chat widget.' };
 		}
 

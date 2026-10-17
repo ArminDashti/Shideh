@@ -51,6 +51,7 @@ function createMockMode(overrides: Partial<IChatMode> & { id: string; kind: Chat
 		description: constObservable(undefined),
 		isBuiltin: overrides.isBuiltin ?? false,
 		target: constObservable(Target.Undefined),
+		resolveDetails: () => Promise.resolve(),
 		...overrides,
 	} as IChatMode;
 }

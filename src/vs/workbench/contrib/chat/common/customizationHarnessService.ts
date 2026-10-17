@@ -402,6 +402,8 @@ export interface ICustomizationHarnessService {
 	 */
 	getCustomAgents(sessionResource: URI, token: CancellationToken): Promise<readonly ICustomAgent[]>;
 
+	getAgentCustomizationItems(sessionType: string, token: CancellationToken): Promise<readonly IAgentCustomizationItem[]>;
+
 	/**
 	 * Resolves a slash command to its full metadata, including the parsed prompt file for prompt commands.
 	 * Provider-backed harnesses resolve their own items directly; the default VS Code harness falls back to the core prompts service.
@@ -633,7 +635,23 @@ export class CustomizationHarnessServiceBase implements ICustomizationHarnessSer
 		const harness = this.findHarnessById(sessionType);
 		if (!harness || !harness.itemProvider) {
 			const allAgents = await this.promptsService.getCustomAgents(token);
-			return allAgents.filter(agent => matchesSessionType(agent.sessionTypes, sessionType));
+			return allAgents
+				.filter(agent => matchesSessionType(agent.sessionTypes, sessionType))
+				.map(agent => ({
+					uri: agent.uri,
+					type: PromptsType.agent,
+					name: agent.name,
+					description: agent.description,
+					storage: agent.source.storage,
+					extensionId: agent.source.storage === PromptsStorage.extension ? agent.source.extensionId.value : undefined,
+					pluginUri: agent.source.storage === PromptsStorage.plugin ? agent.source.pluginUri : undefined,
+					source: agent.source,
+					target: agent.target,
+					visibility: agent.visibility,
+					sessionTypes: agent.sessionTypes,
+					enabled: agent.enabled,
+					getCustomAgent: async () => agent,
+				}));
 		}
 
 		if (harness.itemProvider.provideCustomAgents) {
@@ -664,16 +682,38 @@ export class CustomizationHarnessServiceBase implements ICustomizationHarnessSer
 				const extra = {
 					name: item.name,
 					description: item.description,
+					storage: item.storage,
+					extensionId: item.extensionId,
+					pluginUri: item.pluginUri,
+					target: Target.Undefined,
+					visibility: { userInvocable: item.userInvocable ?? true, agentInvocable: true },
 					sessionTypes: [sessionType],
-					hooks: undefined,
-					source: getSource(item),
-					type: PromptsType.agent,
 					enabled: item.enabled !== false,
+					getCustomAgent: async agentToken => {
+						try {
+							const promptFile = await this.promptsService.parseNew(item.uri, agentToken);
+							const extra = {
+								name: item.name,
+								description: item.description,
+								sessionTypes: [sessionType],
+								hooks: undefined,
+								source: agentSourceFromAgent(item),
+								type: PromptsType.agent,
+								enabled: item.enabled !== false
+							};
+							return CustomAgent.fromParsedPromptFile(promptFile, extra);
+						} catch {
+							return undefined;
+						}
+					},
 				};
-				result.push(CustomAgent.fromParsedPromptFile(promptFile, extra));
-			}
-		}
-		return result;
+			});
+	}
+
+	async getCustomAgents(sessionType: string, token: CancellationToken): Promise<readonly ICustomAgent[]> {
+		const customizationItems = await this.getAgentCustomizationItems(sessionType, token);
+		const result = await Promise.all(customizationItems.map(item => item.getCustomAgent(token)));
+		return result.filter((item): item is ICustomAgent => item !== undefined);
 	}
 
 	public async resolvePromptSlashCommand(name: string, sessionResource: URI, token: CancellationToken): Promise<IResolvedChatPromptSlashCommand | undefined> {
@@ -700,6 +740,18 @@ export class CustomizationHarnessServiceBase implements ICustomizationHarnessSer
 
 		return URI.from({ scheme: sessionType, path: '/untitled-2' });
 	}
+}
+
+export function agentSourceFromAgent(item: { storage?: PromptsStorage; extensionId?: string; pluginUri?: URI }): IAgentSource {
+
+	if (item.storage === PromptsStorage.extension && item.extensionId) {
+		return { storage: PromptsStorage.extension, extensionId: new ExtensionIdentifier(item.extensionId) };
+	} else if (item.storage === PromptsStorage.plugin && item.pluginUri) {
+		return { storage: PromptsStorage.plugin, pluginUri: item.pluginUri };
+	} else if (item.storage === PromptsStorage.user) {
+		return { storage: PromptsStorage.user };
+	}
+	return { storage: PromptsStorage.local };
 }
 
 // #endregion

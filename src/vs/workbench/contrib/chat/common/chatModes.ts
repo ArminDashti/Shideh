@@ -89,6 +89,9 @@ class ChatModes extends Disposable implements IChatModes {
 	private _refreshCancellationSource: CancellationTokenSource | undefined;
 	private readonly _refreshThrottler = this._register(new Delayer<void>(100));
 
+	// One ChatModes instance per session type, created lazily on first `getModes(sessionType)` call.
+	private readonly _chatModesMap = new Map<string, ChatModes>();
+
 	constructor(
 		private readonly sessionResource: URI,
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
@@ -115,7 +118,6 @@ class ChatModes extends Disposable implements IChatModes {
 				this._pendingRefresh = this.triggerRefresh();
 			}
 		}));
-		this._register(this.storageService.onWillSaveState(() => this.saveCachedModes()));
 
 		// Builtin mode availability depends on configuration policy and tools-agent availability.
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
@@ -159,13 +161,13 @@ class ChatModes extends Disposable implements IChatModes {
 				this.deserializeCachedModes(cachedCustomModes);
 			}
 		} catch (error) {
-			this.logService.error(error, 'Failed to load cached custom agents');
+			this._logService.error(error, 'Failed to load cached custom agents');
 		}
 	}
 
 	private deserializeCachedModes(cachedCustomModes: unknown): void {
 		if (!Array.isArray(cachedCustomModes)) {
-			this.logService.error('Invalid cached custom modes data: expected array');
+			this._logService.error('Invalid cached custom modes data: expected array');
 			return;
 		}
 
@@ -194,23 +196,26 @@ class ChatModes extends Disposable implements IChatModes {
 						source: reviveChatModeSource(cachedMode.source) ?? { storage: PromptsStorage.local },
 						enabled: true
 					};
-					const instance = new CustomChatMode(customChatMode);
+					// Wrap the cached agent in a synthetic IAgentCustomizationItem so the mode
+					// instance shares the same code path as live items, then immediately seed
+					// its heavy fields from the cache to skip the parse on startup.
+					const instance = CustomChatMode.fromAgent(agent);
 					this._customModeInstances.set(uri.toString(), instance);
 				} catch (error) {
-					this.logService.error(error, 'Failed to revive cached custom agent');
+					this._logService.error(error, 'Failed to revive cached custom agent');
 				}
 			}
 		}
 
-		this.hasCustomModes.set(this._customModeInstances.size > 0);
+		this._hasCustomModes.set(this._customModeInstances.size > 0);
 	}
 
-	private saveCachedModes(): void {
+	saveCachedModes(): void {
 		try {
 			const modesToCache = Array.from(this._customModeInstances.values());
 			this.storageService.store(this._storageKey, modesToCache, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		} catch (error) {
-			this.logService.warn('Failed to save cached custom agents', error);
+			this._logService.warn('Failed to save cached custom agents', error);
 		}
 	}
 
@@ -255,7 +260,7 @@ class ChatModes extends Disposable implements IChatModes {
 					continue;
 				}
 
-				const uriString = customMode.uri.toString();
+				const uriString = item.uri.toString();
 				seenUris.add(uriString);
 
 				let modeInstance = this._customModeInstances.get(uriString);
@@ -266,7 +271,7 @@ class ChatModes extends Disposable implements IChatModes {
 					}
 				} else {
 					// Create new instance
-					modeInstance = new CustomChatMode(customMode);
+					modeInstance = new CustomChatMode(item);
 					this._customModeInstances.set(uriString, modeInstance);
 					hasChanges = true;
 				}
@@ -280,7 +285,7 @@ class ChatModes extends Disposable implements IChatModes {
 				}
 			}
 
-			this.hasCustomModes.set(this._customModeInstances.size > 0);
+			this._hasCustomModes.set(this._customModeInstances.size > 0);
 		} catch (error) {
 			if (isCancellationError(error)) {
 				return;
@@ -304,7 +309,7 @@ class ChatModes extends Disposable implements IChatModes {
 		// - It's enabled (hasToolsAgent is true), OR
 		// - It's disabled by policy (so we can show it with a lock icon)
 		// But hide it if the user manually disabled it via settings
-		if (this.chatAgentService.hasToolsAgent || this.isAgentModeDisabledByPolicy()) {
+		if (this._isAgentModeEnabled()) {
 			builtinModes.unshift(ChatMode.Agent);
 		}
 		builtinModes.push(ChatMode.Edit);
@@ -406,13 +411,28 @@ export interface IChatMode {
 	readonly handOffs?: IObservable<readonly IHandOff[] | undefined>;
 	readonly model?: IObservable<readonly string[] | undefined>;
 	readonly argumentHint?: IObservable<string | undefined>;
-	readonly modeInstructions?: IObservable<IChatModeInstructions>;
+	/**
+	 * The mode body / agent instructions. May be `undefined` until the mode's
+	 * underlying agent file has been parsed; call {@link resolveDetails} to
+	 * trigger that parse.
+	 */
+	readonly modeInstructions?: IObservable<IChatModeInstructions | undefined>;
 	readonly uri?: IObservable<URI>;
 	readonly source?: IAgentSource;
 	readonly target: IObservable<Target>;
 	readonly visibility?: IObservable<ICustomAgentVisibility | undefined>;
 	readonly agents?: IObservable<readonly string[] | undefined>;
 	readonly sessionTypes?: readonly string[];
+
+	/**
+	 * Loads the mode's heavy fields (`customTools`, `model`, `argumentHint`,
+	 * `modeInstructions`, `handOffs`, `agents`) by parsing the underlying
+	 * agent file. Cached after the first successful resolve. Awaiting this
+	 * before reading those observables guarantees they reflect the file.
+	 *
+	 * Built-in modes resolve to a no-op.
+	 */
+	resolveDetails(token: CancellationToken): Promise<void>;
 }
 
 export interface IVariableReference {
@@ -464,11 +484,33 @@ function isCachedChatModeData(data: unknown): data is IChatModeData {
 		(mode.sessionTypes === undefined || Array.isArray(mode.sessionTypes));
 }
 
+/**
+ * Wraps an already-parsed {@link ICustomAgent} as an {@link IAgentCustomizationItem}.
+ * Used for cache restoration: the cached form contains the full agent data, so the
+ * synthetic item's `getCustomAgent()` simply returns it without any file parsing.
+ */
+function agentToCustomizationItem(agent: ICustomAgent): IAgentCustomizationItem {
+	return {
+		uri: agent.uri,
+		type: 'agent',
+		name: agent.name,
+		description: agent.description,
+		storage: agent.source.storage,
+		extensionId: agent.source.storage === PromptsStorage.extension ? agent.source.extensionId.value : undefined,
+		pluginUri: agent.source.storage === PromptsStorage.plugin ? agent.source.pluginUri : undefined,
+		target: agent.target,
+		visibility: agent.visibility,
+		sessionTypes: agent.sessionTypes,
+		enabled: agent.enabled,
+		getCustomAgent: async () => agent,
+	};
+}
+
 export class CustomChatMode implements IChatMode {
 	private readonly _nameObservable: ISettableObservable<string>;
 	private readonly _descriptionObservable: ISettableObservable<string | undefined>;
 	private readonly _customToolsObservable: ISettableObservable<readonly string[] | undefined>;
-	private readonly _modeInstructions: ISettableObservable<IChatModeInstructions>;
+	private readonly _modeInstructions: ISettableObservable<IChatModeInstructions | undefined>;
 	private readonly _uriObservable: ISettableObservable<URI>;
 	private readonly _modelObservable: ISettableObservable<readonly string[] | undefined>;
 	private readonly _argumentHintObservable: ISettableObservable<string | undefined>;
@@ -478,6 +520,11 @@ export class CustomChatMode implements IChatMode {
 	private readonly _agentsObservable: ISettableObservable<readonly string[] | undefined>;
 	private _source: IAgentSource;
 	private _sessionTypes: readonly string[] | undefined;
+
+	/** Backing item used to lazily fetch heavy details. */
+	private _item: IAgentCustomizationItem;
+	/** Cached promise from the most recent {@link resolveDetails} call. */
+	private _detailsPromise: Promise<void> | undefined;
 
 	public readonly id: string;
 	public readonly contentHash: number;
@@ -510,7 +557,7 @@ export class CustomChatMode implements IChatMode {
 		return this._argumentHintObservable;
 	}
 
-	get modeInstructions(): IObservable<IChatModeInstructions> {
+	get modeInstructions(): IObservable<IChatModeInstructions | undefined> {
 		return this._modeInstructions;
 	}
 
@@ -569,7 +616,9 @@ export class CustomChatMode implements IChatMode {
 	}
 
 	/**
-	 * Updates the underlying data and triggers observable changes
+	 * Convenience factory that builds a {@link CustomChatMode} from an
+	 * already-parsed {@link ICustomAgent}, eagerly populating its heavy
+	 * fields. Primarily used by tests and cache restoration.
 	 */
 	updateData(newData: ICustomAgent): boolean {
 		let hasChanges = false;
@@ -699,6 +748,11 @@ export class BuiltinChatMode implements IChatMode {
 		return this.kind;
 	}
 
+	resolveDetails(_token: CancellationToken): Promise<void> {
+		// Built-in modes have no file-backed details to resolve.
+		return Promise.resolve();
+	}
+
 	/**
 	 * Getters are not json-stringified
 	 */
@@ -784,13 +838,16 @@ export interface ICustomAgentInfo {
 
 /**
  * Builds an array of {@link ICustomAgentInfo} with handoff metadata for the given agents/modes.
+ * Resolves each mode's heavy details first so handoffs are fully populated.
  *
  * @param modes - The set of agents/modes to include. Pass all modes to get a
  *   complete picture, or a filtered subset to scope the result.
+ * @param token - Cancellation for the underlying detail resolutions.
  * @returns One entry per agent/mode, each containing the agent's metadata and
  *   its declared handoffs.
  */
-export function buildCustomAgentHandoffsInfo(modes: readonly IChatMode[]): ICustomAgentInfo[] {
+export async function buildCustomAgentHandoffsInfo(modes: readonly IChatMode[], token: CancellationToken): Promise<ICustomAgentInfo[]> {
+	await Promise.all(modes.map(mode => mode.resolveDetails(token)));
 	return modes.map(mode => {
 		const handoffs = mode.handOffs?.get() ?? [];
 		const visibility = mode.visibility?.get();

@@ -12,6 +12,7 @@ import { ITextModel } from '../../../../../../editor/common/model.js';
 import { ILanguageModelChatMetadata, ILanguageModelsService } from '../../languageModels.js';
 import { ILanguageModelToolsService } from '../../tools/languageModelToolsService.js';
 import { IChatModeService } from '../../chatModes.js';
+import { SessionType } from '../../chatSessionsService.js';
 import { getPromptsTypeForLanguageId, PromptsType, Target } from '../promptTypes.js';
 import { IPromptsService } from '../service/promptsService.js';
 import { Iterable } from '../../../../../../base/common/iterator.js';

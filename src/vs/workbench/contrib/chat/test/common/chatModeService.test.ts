@@ -150,6 +150,8 @@ suite('ChatModeService', () => {
 		assert.strictEqual(testMode.label.get(), customMode.name);
 		assert.strictEqual(testMode.description.get(), customMode.description);
 		assert.strictEqual(testMode.kind, ChatModeKind.Agent);
+		// Heavy fields are populated lazily; trigger resolution before asserting.
+		await testMode.resolveDetails(CancellationToken.None);
 		assert.deepStrictEqual(testMode.customTools?.get(), customMode.tools);
 		assert.deepStrictEqual(testMode.modeInstructions?.get(), customMode.agentInstructions);
 		assert.deepStrictEqual(testMode.handOffs?.get(), customMode.handOffs);
@@ -230,6 +232,8 @@ suite('ChatModeService', () => {
 		const initialModes = await chatModeService.getLocalModes();
 		const initialCustomMode = initialModes.custom[0];
 		assert.strictEqual(initialCustomMode.description.get(), 'Initial description');
+		// Trigger heavy-detail resolution so the re-resolve path runs on update below.
+		await initialCustomMode.resolveDetails(CancellationToken.None);
 
 		// Update the mode data
 		const updatedMode: ICustomAgent = {
@@ -251,6 +255,8 @@ suite('ChatModeService', () => {
 
 		// But the observable properties should be updated
 		assert.strictEqual(updatedCustomMode.description.get(), 'Updated description');
+		// Heavy fields re-resolve in the background; await the new resolution.
+		await updatedCustomMode.resolveDetails(CancellationToken.None);
 		assert.deepStrictEqual(updatedCustomMode.customTools?.get(), ['tool1', 'tool2']);
 		assert.deepStrictEqual(updatedCustomMode.modeInstructions?.get(), { content: 'Updated body', toolReferences: [] });
 		assert.deepStrictEqual(updatedCustomMode.model?.get(), ['Updated model']);

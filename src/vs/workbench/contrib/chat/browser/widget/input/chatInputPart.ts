@@ -2947,7 +2947,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Local sessions unlock from coding agent mode, while remote/cloud sessions lock to coding agent mode.
 	 */
 	private updateWidgetLockStateFromSessionType(sessionType: string): void {
-		if (sessionType === localChatSessionType) {
+		if (sessionType === SessionType.Local) {
 			this._widget?.unlockFromCodingAgent();
 			return;
 		}
