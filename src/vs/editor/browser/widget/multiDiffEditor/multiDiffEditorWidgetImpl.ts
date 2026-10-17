@@ -207,6 +207,8 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 		this._elements = h(`div.monaco-component.multiDiffEditor${variantClassNames}`, {}, [
 			this._scrollView.domNode,
 			h('div.placeholder@placeholder', {}, [h('div')]),
+			h('div.monaco-editor@overflowWidgetsDomNode', {
+			}),
 		]);
 		this.activeControl = derived(this, reader => {
 			const activeDiffItem = this._viewModel.read(reader)?.activeDiffItem.read(reader);

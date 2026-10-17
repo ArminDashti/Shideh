@@ -27,6 +27,11 @@
 				visibility: visible;
 			}
 		}
+
+		&.monaco-editor {
+			pointer-events: none;
+			z-index: 1001;
+		}
 	}
 
 	> .multi-diff-root-floating-menu {
