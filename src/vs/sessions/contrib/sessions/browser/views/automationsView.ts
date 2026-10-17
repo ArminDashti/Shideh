@@ -2280,8 +2280,8 @@ registerAction2(class DeleteAutomationAction extends Action2 {
 	}
 });
 
-registerAction2(class DisableAutomationAction extends Action2 {
-	constructor() {
+abstract class SetAutomationEnabledAction extends Action2 {
+	constructor(private readonly enabled: boolean) {
 		super({
 			id: 'sessions.automations.disable',
 			title: localize2('disableAutomationContextMenu', "Disable"),
@@ -2292,6 +2292,18 @@ registerAction2(class DisableAutomationAction extends Action2 {
 
 	override async run(accessor: ServicesAccessor, automation: IAutomationDescriptor): Promise<void> {
 		await setAutomationEnabled(accessor, automation, false);
+	}
+}
+
+registerAction2(class EnableAutomationAction extends SetAutomationEnabledAction {
+	constructor() {
+		super(true);
+	}
+});
+
+registerAction2(class DisableAutomationAction extends SetAutomationEnabledAction {
+	constructor() {
+		super(false);
 	}
 });
 
