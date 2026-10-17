@@ -13,6 +13,7 @@ import { Registry } from '../../registry/common/platform.js';
 import {
 	AgentHostAgentOrchestrationLimitsSettingId,
 	AgentHostAutoAttachPullRequestsSettingId,
+	AgentHostAcpAgentsSettingId,
 	AgentHostByokModelsEnabledSettingId,
 	AgentHostGitHubMcpServerEnabledSettingId,
 	AgentHostClaudeAgentEnabledSettingId,

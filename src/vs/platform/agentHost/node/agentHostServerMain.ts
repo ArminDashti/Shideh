@@ -51,6 +51,8 @@ import { resolveServerUrls } from './serverUrls.js';
 import ErrorTelemetry from '../../telemetry/node/errorTelemetry.js';
 import { AgentHostLaunchKind } from '../common/agentHostTelemetry.js';
 import { ISessionDataService } from '../common/sessionDataService.js';
+import { AcpAgent } from './acp/acpAgent.js';
+import { parseAcpAgentConfigurations } from './acp/acpAgentConfiguration.js';
 
 /** Log to stderr so messages appear in the terminal alongside the process. */
 function log(msg: string): void {
