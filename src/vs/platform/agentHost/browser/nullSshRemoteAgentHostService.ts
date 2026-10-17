@@ -23,6 +23,8 @@ export class NullSSHRemoteAgentHostService implements ISSHRemoteAgentHostService
 
 	async disconnect(_host: string): Promise<void> { }
 
+	async killRemoteAgentHost(_host: string): Promise<void> { }
+
 	async listSSHConfigHosts(): Promise<string[]> {
 		return [];
 	}
