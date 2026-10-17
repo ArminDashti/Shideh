@@ -301,7 +301,7 @@ export class PackageJSONContribution implements IJSONContribution {
 	 * Sets up cwd from resource, applies corepack env vars, and handles win32 shell quoting.
 	 * Pass ignoreError=true to return stdout even when the command exits with a non-zero code.
 	 */
-	private async runNpmCommand(npmCommandPath: string, args: string[], resource: Uri | undefined): Promise<string | undefined> {
+	private async runNpmCommand(npmCommandPath: string, args: string[], resource: Uri | undefined, ignoreError?: boolean): Promise<string | undefined> {
 		const cp = await import('child_process');
 		return new Promise((resolve, _reject) => {
 			const cwd = resource && resource.scheme === 'file' ? dirname(resource.fsPath) : undefined;
@@ -353,7 +353,9 @@ export class PackageJSONContribution implements IJSONContribution {
 
 	private async npmListInstalledVersion(npmCommandPath: string, pack: string, resource: Uri | undefined): Promise<string | undefined> {
 		const args = ['ls', '--json', '--depth=0', '--', pack];
-		const stdout = await this.runNpmCommand(npmCommandPath, args, resource);
+		// npm ls can exit with a non-zero code (e.g. due to peer dependency issues) even when
+		// the package is installed and the output JSON is valid, so use ignoreError=true.
+		const stdout = await this.runNpmCommand(npmCommandPath, args, resource, true);
 		if (stdout) {
 			try {
 				const content = JSON.parse(stdout);
