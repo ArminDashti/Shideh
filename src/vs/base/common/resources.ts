@@ -397,6 +397,17 @@ export function distinctParents<T>(items: T[], resourceAccessor: (item: T) => UR
 }
 
 /**
+ * Given a URI path (not a fs path!), tests if the path looks like a Window path with drive letter and returns the lowercase variant of that drive letter.
+ * @param path returns the drive letter (lower case) or undefined if the path does not look like a windows path
+ */
+function getWindowsDriveLetter(path: string): string | undefined {
+	if (/^\/[a-zA-Z]:(\/|$)/.test(path)) {
+		return path.charAt(1).toLowerCase();
+	}
+	return undefined;
+}
+
+/**
  * Data URI related helpers.
  */
 export namespace DataUri {
