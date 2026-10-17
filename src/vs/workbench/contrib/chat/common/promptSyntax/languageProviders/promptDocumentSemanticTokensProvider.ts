@@ -45,13 +45,16 @@ export class PromptDocumentSemanticTokensProvider implements DocumentSemanticTok
 
 		// Prepare semantic tokens data following the delta-encoded, 5-number tuple format:
 		// [deltaLine, deltaStart, length, tokenType, tokenModifiers]
-		// We expose a single token type 'variable' (index 0) and no modifiers (bitset 0).
+		// We expose two token types: 'variable' (index 0) and 'function' (index 1) and no modifiers (bitset 0).
 		const data: number[] = [];
 		let lastLine = 0;
 		let lastChar = 0;
 
-		// Ensure stable order (parser already produces them in order, but sort defensively)
-		const ordered = [...variableReferences].sort((a, b) => a.range.startLineNumber === b.range.startLineNumber
+		// Combine and sort all references by position
+		const allRefs: Array<{ range: Range; tokenType: number }> = [
+			...variableReferences.map(ref => ({ range: ref.range, tokenType: 0 })), // variable token type
+			...slashCommandReferences.map(ref => ({ range: ref.range, tokenType: 1 })) // function token type
+		].sort((a, b) => a.range.startLineNumber === b.range.startLineNumber
 			? a.range.startColumn - b.range.startColumn
 			: a.range.startLineNumber - b.range.startLineNumber);
 
@@ -63,7 +66,7 @@ export class PromptDocumentSemanticTokensProvider implements DocumentSemanticTok
 			const length = ref.range.endColumn - ref.range.startColumn + extraCharCount;
 			const deltaLine = line - lastLine;
 			const deltaChar = deltaLine === 0 ? char - lastChar : char;
-			data.push(deltaLine, deltaChar, length, 0 /* variable token type index */, 0 /* no modifiers */);
+			data.push(deltaLine, deltaChar, length, ref.tokenType, 0 /* no modifiers */);
 			lastLine = line;
 			lastChar = char;
 			if (token.isCancellationRequested) {
@@ -75,7 +78,7 @@ export class PromptDocumentSemanticTokensProvider implements DocumentSemanticTok
 	}
 
 	getLegend(): SemanticTokensLegend {
-		return { tokenTypes: ['variable'], tokenModifiers: [] };
+		return { tokenTypes: ['variable', 'function'], tokenModifiers: [] };
 	}
 
 	releaseDocumentSemanticTokens(resultId: string | undefined): void {

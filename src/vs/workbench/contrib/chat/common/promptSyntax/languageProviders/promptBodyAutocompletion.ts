@@ -35,6 +35,7 @@ export class PromptBodyAutocompletion implements CompletionItemProvider {
 	constructor(
 		@IFileService private readonly fileService: IFileService,
 		@ILanguageModelToolsService private readonly languageModelToolsService: ILanguageModelToolsService,
+		@IPromptsService private readonly promptsService: IPromptsService,
 	) {
 	}
 
@@ -84,6 +85,19 @@ export class PromptBodyAutocompletion implements CompletionItemProvider {
 				filterText: toolName,
 				insertText: toolName,
 				range: toolRange,
+			});
+		}
+	}
+
+	private async collectSlashCommandCompletions(model: ITextModel, position: Position, commandRange: Range, suggestions: CompletionItem[]): Promise<void> {
+		const slashCommands = await this.promptsService.findPromptSlashCommands();
+		for (const cmd of slashCommands) {
+			suggestions.push({
+				label: `/${cmd.command}`,
+				kind: CompletionItemKind.Function,
+				detail: cmd.detail,
+				insertText: `/${cmd.command}`,
+				range: commandRange,
 			});
 		}
 	}
@@ -147,6 +161,20 @@ export class PromptBodyAutocompletion implements CompletionItemProvider {
 			if (i >= position.lineNumber) {
 				// inside front matter
 				return undefined;
+			}
+		}
+
+		const lineContent = model.getLineContent(position.lineNumber);
+		
+		// Check for slash commands first
+		const slashReg = /\/([\p{L}\d_\-\.]*)/giu;
+		const slashMatches = [...lineContent.matchAll(slashReg)];
+		for (const match of slashMatches) {
+			const startCol = match.index! + 1;
+			const endCol = startCol + match[0].length;
+			if (position.column >= startCol && position.column <= endCol) {
+				const contentCol = startCol + 1; // after the /
+				return { type: 'slash', contentRange: new Range(position.lineNumber, startCol, position.lineNumber, endCol) };
 			}
 		}
 
