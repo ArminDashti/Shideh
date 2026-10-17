@@ -878,6 +878,20 @@ suite('VoiceClientService', () => {
 		});
 	});
 
+	test('resolves automatic language from display language before browser locale', () => {
+		assert.deepStrictEqual({
+			displayLanguage: resolveAutomaticVoiceLanguage('en-US', 'de'),
+			browserLocale: resolveAutomaticVoiceLanguage('pt-BR', undefined),
+			unsupportedDisplayLanguage: resolveAutomaticVoiceLanguage('pt-BR', 'he-IL'),
+			missing: resolveAutomaticVoiceLanguage(undefined, undefined),
+		}, {
+			displayLanguage: 'de',
+			browserLocale: 'pt-BR',
+			unsupportedDisplayLanguage: 'pt-BR',
+			missing: 'en-US',
+		});
+	});
+
 	test('falls back for an unsupported configured BCP-47 locale', async () => {
 		const { service } = createService({ 'agents.voice.language': 'uk-UA' });
 
