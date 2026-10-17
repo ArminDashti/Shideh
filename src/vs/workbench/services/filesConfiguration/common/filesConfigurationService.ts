@@ -10,7 +10,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { RawContextKey, IContextKeyService, IContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IFilesConfiguration, AutoSaveConfiguration, HotExitConfiguration, FILES_READONLY_INCLUDE_CONFIG, FILES_READONLY_EXCLUDE_CONFIG, IFileStatWithMetadata, IFileService, IBaseFileStat, hasReadonlyCapability, IFilesConfigurationNode } from '../../../../platform/files/common/files.js';
+import { IFilesConfiguration, AutoSaveConfiguration, HotExitConfiguration, FILES_READONLY_INCLUDE_CONFIG, FILES_READONLY_EXCLUDE_CONFIG, IFileStatWithMetadata, IFileService, IBaseFileStat, hasReadonlyCapability, IFilesConfigurationNode, FileSystemProviderCapabilities } from '../../../../platform/files/common/files.js';
 import { equals } from '../../../../base/common/objects.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isWeb } from '../../../../base/common/platform.js';
@@ -248,12 +248,17 @@ export class FilesConfigurationService extends Disposable implements IFilesConfi
 
 	async updateReadonly(resource: URI | URI[], readonly: true | IMarkdownString | false | 'toggle' | 'reset'): Promise<void> {
 		if (Array.isArray(resource)) {
+			let didUpdateReadonly = false;
 			for (const r of resource) {
 				this.applyReadonly(r, readonly as true | IMarkdownString | false | 'reset');
 			}
-			if (resource.length > 0) {
+			if (didUpdateReadonly) {
 				this._onDidChangeReadonly.fire();
 			}
+			return;
+		}
+
+		if (readonly !== 'reset' && !this.canSetReadonlyStateInSession(resource)) {
 			return;
 		}
 
