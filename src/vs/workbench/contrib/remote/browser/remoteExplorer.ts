@@ -37,6 +37,8 @@ import { IRemoteAgentEnvironment } from '../../../../platform/remote/common/remo
 import { toAction } from '../../../../base/common/actions.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 
 export const VIEWLET_ID = 'workbench.view.remote';
 export const TOGGLE_VIEW_ACTION_ID = 'remoteExplorer.toggleForwardedPortsView';
@@ -55,6 +57,17 @@ export function isCandidateRemappedTunnelLocalEndpoint(candidate: CandidatePort,
 	}
 	return false;
 }
+
+export const TOGGLE_PORTS_VIEW_ACTION_ID = `${TUNNEL_VIEW_ID}.toggle`;
+
+CommandsRegistry.registerCommand(TOGGLE_PORTS_VIEW_ACTION_ID, async (accessor) => {
+	const viewsService = accessor.get(IViewsService);
+	if (viewsService.isViewVisible(TUNNEL_VIEW_ID)) {
+		viewsService.closeView(TUNNEL_VIEW_ID);
+	} else {
+		viewsService.openView(TUNNEL_VIEW_ID, true);
+	}
+});
 
 export class ForwardedPortsView extends Disposable implements IWorkbenchContribution {
 	private readonly contextKeyListener = this._register(new MutableDisposable<IDisposable>());
