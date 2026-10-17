@@ -993,6 +993,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		this._largeOutputFileWriter = this._register(this._instantiationService.createInstance(LargeOutputFileWriter));
 
 		this._commandLineRewriters = [
+			this._register(this._instantiationService.createInstance(CommandLineTimeoutRewriter)),
 			this._register(this._instantiationService.createInstance(CommandLineCdPrefixRewriter)),
 			this._register(this._instantiationService.createInstance(CommandLinePwshChainOperatorRewriter, this._treeSitterCommandParser)),
 		];
