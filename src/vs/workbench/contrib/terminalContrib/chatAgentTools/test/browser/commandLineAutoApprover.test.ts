@@ -58,7 +58,7 @@ suite('CommandLineAutoApprover', () => {
 	}
 
 	function isCommandLineAutoApproved(commandLine: string): boolean {
-		return commandLineAutoApprover.isCommandLineAutoApproved(commandLine).result === 'approved';
+		return commandLineAutoApprover.isCommandLineAutoApproved(commandLine, undefined).result === 'approved';
 	}
 
 	suite('default PowerShell rules', () => {
@@ -1136,7 +1136,7 @@ suite('CommandLineAutoApprover', () => {
 		}
 
 		function getCommandLineReason(commandLine: string): string {
-			return commandLineAutoApprover.isCommandLineAutoApproved(commandLine).reason;
+			return commandLineAutoApprover.isCommandLineAutoApproved(commandLine, undefined).reason;
 		}
 
 		suite('command', () => {
@@ -1177,7 +1177,7 @@ suite('CommandLineAutoApprover', () => {
 		}
 
 		function getCommandLineIsDefaultRule(commandLine: string): boolean | undefined {
-			const rule = commandLineAutoApprover.isCommandLineAutoApproved(commandLine).rule;
+			const rule = commandLineAutoApprover.isCommandLineAutoApproved(commandLine, undefined).rule;
 			return isAutoApproveRule(rule) ? rule.isDefaultRule : undefined;
 		}
 

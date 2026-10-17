@@ -414,6 +414,7 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 
 			// #endregion
 		} satisfies Record<string, boolean | { approve: boolean; matchCommandLine?: boolean }>,
+		scope: ConfigurationScope.RESOURCE,
 	},
 	[TerminalChatAgentToolsSettingId.IgnoreDefaultAutoApproveRules]: {
 		restricted: true,
