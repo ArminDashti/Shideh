@@ -2239,6 +2239,15 @@ export interface ISerializableChatData3 extends Omit<ISerializableChatData2, 've
 	workingDirectory?: string;
 }
 
+export interface ISerializableChatData4 extends Omit<ISerializableChatData3, 'version'> {
+	version: 4;
+	/**
+	 * Non-localized flag indicating whether this session was forked from another session.
+	 * This avoids brittle locale-dependent title prefix checks.
+	 */
+	isForked?: boolean;
+}
+
 /**
  * Input model for managing chat input state independently from the chat model.
  * This keeps display logic separated from the core chat model.
@@ -2412,7 +2421,7 @@ export function reviveSerializableInputState(state: ISerializableChatModelInputS
 /**
 * Chat data that has been parsed and normalized to the current format.
 */
-export type ISerializableChatData = ISerializableChatData3;
+export type ISerializableChatData = ISerializableChatData4;
 
 export type IChatDataSerializerLog = ObjectMutationLog<IChatModel, ISerializableChatData>;
 
@@ -2424,7 +2433,7 @@ export interface ISerializedChatDataReference {
 /**
  * Chat data that has been loaded but not normalized, and could be any format
  */
-export type ISerializableChatDataIn = ISerializableChatData1 | ISerializableChatData2 | ISerializableChatData3;
+export type ISerializableChatDataIn = ISerializableChatData1 | ISerializableChatData2 | ISerializableChatData3 | ISerializableChatData4;
 
 /**
  * Normalize chat data from storage to the current format.
@@ -2435,17 +2444,27 @@ export function normalizeSerializableChatData(raw: ISerializableChatDataIn): ISe
 
 	if (!('version' in raw)) {
 		return {
-			version: 3,
+			version: 4,
 			...raw,
 			customTitle: undefined,
+			isForked: undefined,
 		};
 	}
 
 	if (raw.version === 2) {
 		return {
 			...raw,
-			version: 3,
-			customTitle: raw.computedTitle
+			version: 4,
+			customTitle: raw.computedTitle,
+			isForked: undefined,
+		};
+	}
+
+	if (raw.version === 3) {
+		return {
+			...raw,
+			version: 4,
+			isForked: undefined,
 		};
 	}
 

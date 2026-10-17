@@ -1672,7 +1672,8 @@ suite('normalizeSerializableChatData', () => {
 
 		const newData = normalizeSerializableChatData(v1Data);
 		assert.strictEqual(newData.creationDate, v1Data.creationDate);
-		assert.strictEqual(newData.version, 3);
+		assert.strictEqual(newData.version, 4);
+		assert.strictEqual(newData.isForked, undefined);
 	});
 
 	test('v2', () => {
@@ -1687,9 +1688,10 @@ suite('normalizeSerializableChatData', () => {
 		};
 
 		const newData = normalizeSerializableChatData(v2Data);
-		assert.strictEqual(newData.version, 3);
+		assert.strictEqual(newData.version, 4);
 		assert.strictEqual(newData.creationDate, v2Data.creationDate);
 		assert.strictEqual(newData.customTitle, v2Data.computedTitle);
+		assert.strictEqual(newData.isForked, undefined);
 	});
 
 	test('old bad data', () => {
@@ -1704,7 +1706,7 @@ suite('normalizeSerializableChatData', () => {
 		};
 
 		const newData = normalizeSerializableChatData(v1Data);
-		assert.strictEqual(newData.version, 3);
+		assert.strictEqual(newData.version, 4);
 		assert.ok(newData.creationDate > 0);
 		assert.ok(newData.sessionId);
 	});
@@ -1723,9 +1725,45 @@ suite('normalizeSerializableChatData', () => {
 		};
 
 		const newData = normalizeSerializableChatData(v3Data);
-		assert.strictEqual(newData.version, 3);
+		assert.strictEqual(newData.version, 4);
 		assert.ok(newData.creationDate > 0);
 		assert.ok(newData.sessionId);
+		assert.strictEqual(newData.isForked, undefined);
+	});
+
+	test('v3 to v4 migration', () => {
+		const v3Data: ISerializableChatData3 = {
+			version: 3,
+			creationDate: Date.now(),
+			initialLocation: undefined,
+			requests: [],
+			responderUsername: 'bot',
+			sessionId: 'session1',
+			customTitle: 'my custom title'
+		};
+
+		const newData = normalizeSerializableChatData(v3Data);
+		assert.strictEqual(newData.version, 4);
+		assert.strictEqual(newData.customTitle, v3Data.customTitle);
+		assert.strictEqual(newData.isForked, undefined);
+	});
+
+	test('v4 data unchanged', () => {
+		const v4Data: ISerializableChatData4 = {
+			version: 4,
+			creationDate: Date.now(),
+			initialLocation: undefined,
+			requests: [],
+			responderUsername: 'bot',
+			sessionId: 'session1',
+			customTitle: 'forked title',
+			isForked: true
+		};
+
+		const newData = normalizeSerializableChatData(v4Data);
+		assert.strictEqual(newData.version, 4);
+		assert.strictEqual(newData.isForked, true);
+		assert.strictEqual(newData.customTitle, v4Data.customTitle);
 	});
 });
 
