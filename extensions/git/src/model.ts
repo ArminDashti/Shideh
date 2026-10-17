@@ -912,6 +912,16 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 		this._onDidOpenRepository.fire(repository);
 	}
 
+	private _updateKnownFolders(repository: Repository): void {
+		for (const remote of repository.remotes) {
+			const url = remote.pushUrl || remote.fetchUrl;
+			if (!url) {
+				continue;
+			}
+			this.knownFolders.set(url, repository.root);
+		}
+	}
+
 	close(repository: Repository): void {
 		const openRepository = this.getOpenRepository(repository);
 

@@ -91,7 +91,7 @@ async function createModel(context: ExtensionContext, logger: LogOutputChannel, 
 		version: info.version,
 		env: environment,
 	});
-	const model = new Model(git, askpass, context.globalState, context.workspaceState, logger, telemetryReporter);
+	const model = new Model(git, askpass, context.globalState, context.workspaceState, logger, telemetryReporter, knownFolders);
 	disposables.push(model);
 	const cloneManager = new CloneManager(model, telemetryReporter, model.repositoryCache);
 
@@ -208,6 +208,7 @@ export async function _activate(context: ExtensionContext): Promise<GitExtension
 
 	const config = workspace.getConfiguration('git', null);
 	const enabled = config.get<boolean>('enabled');
+	const knownFolders = new KnownFolders(context.globalState);
 
 	if (!enabled) {
 		const onConfigChange = filterEvent(workspace.onDidChangeConfiguration, e => e.affectsConfiguration('git'));
