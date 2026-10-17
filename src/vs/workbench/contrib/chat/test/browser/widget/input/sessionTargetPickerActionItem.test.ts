@@ -93,7 +93,19 @@ function getAvailability({ type, allowSignedOutWhenUsable, requiresCopilotSignIn
 		}
 	}();
 	const agentSdkSetupService = new class extends mock<IAgentSdkSetupService>() {
-		override readonly setups = setupAgents.map(agent => ({ agent, download: 'ready' as const }));
+		override readonly setups = setupAgents.map(agent => ({
+			id: agent,
+			agent,
+			displayName: agent,
+			download: 'ready' as const,
+			host: {
+				authority: AMBIENT_AGENT_HOST_AUTHORITY,
+				address: undefined,
+				name: 'Local',
+				isAmbient: true,
+				connection: new class extends mock<IAgentConnection>() { }(),
+			},
+		}));
 	}();
 	const codexAccountService = new class extends mock<ICodexAccountService>() {
 		override readonly account = { status: codexAccountStatus };
