@@ -38,6 +38,7 @@ const enum Constants {
 	PointerSize = 3,
 	HoverBorderWidth = 2,
 	HoverWindowEdgeMargin = 2,
+	ScrollbarReservedSpace = 18,
 }
 
 export class HoverWidget extends Widget implements IHoverWidget {
