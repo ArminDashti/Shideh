@@ -122,7 +122,7 @@ export function getChatMarkdownRenderOptions(options?: MarkdownRenderOptions): M
 export class ChatContentMarkdownRenderer implements IMarkdownRenderer {
 	constructor(
 		@ILanguageService languageService: ILanguageService,
-		@IOpenerService openerService: IOpenerService,
+		@IOpenerService private readonly openerService: IOpenerService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IHoverService private readonly hoverService: IHoverService,
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
@@ -135,7 +135,10 @@ export class ChatContentMarkdownRenderer implements IMarkdownRenderer {
 			return plainTextResult;
 		}
 
-		options = getChatMarkdownRenderOptions(options);
+		options = getChatMarkdownRenderOptions({
+			...options,
+			actionHandler: options?.actionHandler ?? ((link, markdown) => openLinkFromMarkdown(this.openerService, link, markdown.isTrusted)),
+		});
 
 		const mdWithBody: IMarkdownString = (markdown && markdown.supportHtml) ?
 			{

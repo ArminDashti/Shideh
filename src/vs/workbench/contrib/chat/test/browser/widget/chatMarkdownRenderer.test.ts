@@ -193,6 +193,39 @@ suite('ChatMarkdownRenderer', () => {
 		await assertSnapshot(result.element.textContent);
 	});
 
+	test('opens links with the scoped opener service', async () => {
+		const scopedOpens: (URI | string)[] = [];
+		const globalOpens: (URI | string)[] = [];
+		const scopedOpener = {
+			open: async (resource: URI | string) => {
+				scopedOpens.push(resource);
+				return true;
+			},
+		} as IOpenerService;
+		const globalOpener = {
+			open: async (resource: URI | string) => {
+				globalOpens.push(resource);
+				return true;
+			},
+		} as IOpenerService;
+		const instantiationService = store.add(workbenchInstantiationService(undefined, store));
+		instantiationService.stub(IOpenerService, scopedOpener);
+		instantiationService.stub(IMarkdownRendererService, new MarkdownRendererService(globalOpener));
+		const renderer = instantiationService.createInstance(ChatContentMarkdownRenderer);
+		const result = store.add(renderer.render(new MarkdownString('[report](file:///tmp/report.html)')));
+
+		result.element.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			scoped: scopedOpens.map(String),
+			global: globalOpens.map(String),
+		}, {
+			scoped: ['file:///tmp/report.html'],
+			global: [],
+		});
+	});
+
 	test('plain text fast path preserves rendered markdown shape and single tildes', () => {
 		const md = new MarkdownString('Hello, ~world~. This is plain.', { isTrusted: true, supportHtml: true, supportThemeIcons: true });
 		const result = store.add(testRenderer.render(md));
