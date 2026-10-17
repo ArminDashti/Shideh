@@ -533,7 +533,10 @@ import { getPartsSplashColors, getPartsSplashLayoutMetrics } from './partsSplash
 		globalThis._VSCODE_PRODUCT_JSON = { ...configuration.product };
 
 		// Dev only: CSS import map tricks
-		setupCSSImportMaps<T>(configuration, baseUrl);
+		const useCSSImportMap = !isHotReloadMode;
+		if (useCSSImportMap) {
+			setupCSSImportMaps<T>(configuration, baseUrl);
+		}
 
 		// ESM Import
 		try {

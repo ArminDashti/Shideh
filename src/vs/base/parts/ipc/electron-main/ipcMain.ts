@@ -119,6 +119,17 @@ class ValidatedIpcMain implements Event.NodeEventEmitter {
 		if (!url || url === 'about:blank') {
 			return true;
 		}
+		if (url === process.env.DEV_WINDOW_SRC) {
+			// Only allow dev window from localhost
+			try {
+				const devUrl = new URL(process.env.DEV_WINDOW_SRC!);
+				if (devUrl.hostname === 'localhost' || devUrl.hostname === '127.0.0.1') {
+					return true;
+				}
+			} catch {
+				// Invalid URL, fall through to normal validation
+			}
+		}
 
 		let host = 'unknown';
 		try {
