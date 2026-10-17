@@ -442,7 +442,12 @@ export abstract class QuickInput extends Disposable implements IQuickInput {
 				.map((button, index) => quickInputButtonToAction(
 					button,
 					`id-${index}`,
-					async () => this.onDidTriggerButtonEmitter.fire(button)
+					async () => {
+						if (button.toggle) {
+							button.toggle.checked = !button.toggle.checked;
+						}
+						this.onDidTriggerButtonEmitter.fire(button);
+					}
 				));
 		}
 		this.ui.ignoreFocusOut = this.ignoreFocusOut;

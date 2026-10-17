@@ -379,6 +379,10 @@ export class FindInput extends Widget {
 		this.updateInputBoxPadding();
 	}
 
+	public setActions(actions: ReadonlyArray<IAction> | undefined, actionViewItemProvider?: IActionViewItemProvider): void {
+		this.inputBox.setActions(actions, actionViewItemProvider);
+	}
+
 	private updateInputBoxPadding(controlsHidden = false) {
 		const togglesWidth = controlsHidden
 			? 0
