@@ -34,7 +34,7 @@ import { IAgentPluginRepositoryService } from './agentPluginRepositoryService.js
 import { IWorkspacePluginSettingsService } from './workspacePluginSettingsService.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { readAgentPluginManifest } from '../../../../../platform/agentPlugins/common/agentPluginParser.js';
-import { type IMarketplaceReference, deduplicateMarketplaceReferences, MarketplaceReferenceKind, parseMarketplaceObjectEntry, parseMarketplaceReference, parseMarketplaceReferences, readConfiguredMarketplaces } from './marketplaceReference.js';
+import { type IMarketplaceReference, deduplicateMarketplaceReferences, extraMarketplaceConfigDictToValues, MarketplaceReferenceKind, parseMarketplaceObjectEntry, parseMarketplaceReference, parseMarketplaceReferences, readConfiguredMarketplaces } from './marketplaceReference.js';
 import { getStrictKnownMarketplaces, isMarketplaceReferenceAllowed } from './strictKnownMarketplaces.js';
 
 // Re-export marketplace reference types for downstream consumers.
@@ -199,6 +199,10 @@ export interface IPluginMarketplaceService {
 	 * may be added over time; consumers should not assume a specific source.
 	 */
 	readonly recommendedPlugins: IObservable<ReadonlySet<string>>;
+	/** Resolves after the file-backed installed-plugin manifest has initialized. */
+	whenInstalledPluginsReady(): Promise<void>;
+	/** Returns whether the plugin is recorded in the installed-plugin manifest. */
+	isPluginInstalled(plugin: IMarketplacePlugin): boolean;
 	/** Clears all reported marketplaces, or only the provided canonical IDs. */
 	clearUpdatesAvailable(marketplaceIds?: ReadonlySet<string>): void;
 	/** Returns the effective, policy-filtered marketplace references in query order. */
@@ -212,6 +216,8 @@ export interface IPluginMarketplaceService {
 	removeInstalledPlugin(pluginUri: URI): boolean;
 	/** Returns whether the given marketplace is trusted — either explicitly trusted by the user, or allowed by the enterprise allowlist when strict mode is active. */
 	isMarketplaceTrusted(ref: IMarketplaceReference): boolean;
+	/** Returns the policy-sourced marketplace reference matching the canonical source. */
+	getManagedMarketplace(ref: IMarketplaceReference): IMarketplaceReference | undefined;
 	/**
 	 * Returns whether the strict-marketplace enterprise policy
 	 * (`chat.plugins.strictMarketplaces`) is active — i.e. an allowlist is
@@ -489,6 +495,23 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 				this._hydratePluginMetadata(unhydrated);
 			}
 		}));
+	}
+
+	whenInstalledPluginsReady(): Promise<void> {
+		return this._installedPluginsStore.whenInitialized();
+	}
+
+	isPluginInstalled(plugin: IMarketplacePlugin): boolean {
+		let pluginUri: URI;
+		try {
+			pluginUri = this._pluginRepositoryService.getPluginInstallUri(plugin);
+		} catch {
+			return false;
+		}
+		return this._installedPluginsStore.get().some(entry =>
+			isEqual(entry.pluginUri, pluginUri)
+			&& (entry.name === undefined || entry.name === plugin.name)
+		);
 	}
 
 	clearUpdatesAvailable(marketplaceIds?: ReadonlySet<string>): void {
@@ -869,6 +892,12 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			return isMarketplaceReferenceAllowed(allowlist, ref);
 		}
 		return this._trustedMarketplacesStore.get().includes(ref.canonicalId);
+	}
+
+	getManagedMarketplace(ref: IMarketplaceReference): IMarketplaceReference | undefined {
+		const policyValue = this._configurationService.inspect<ExtraKnownMarketplacesConfigDict>(ChatConfiguration.ExtraMarketplaces).policyValue ?? {};
+		return parseMarketplaceReferences(extraMarketplaceConfigDictToValues(policyValue))
+			.find(candidate => candidate.canonicalId === ref.canonicalId);
 	}
 
 	isStrictMarketplacePolicyActive(): boolean {

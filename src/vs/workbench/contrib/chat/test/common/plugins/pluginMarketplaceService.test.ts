@@ -16,7 +16,7 @@ import { joinPath } from '../../../../../../base/common/resources.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { AGENT_PLUGIN_SCHEMA } from '../../../../../../platform/agentPlugins/common/agentPluginParser.js';
-import { ConfigurationTarget, IConfigurationChangeEvent, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationChangeEvent, IConfigurationService, IConfigurationValue } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IFileService, IFileSystemWatcher } from '../../../../../../platform/files/common/files.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -643,10 +643,21 @@ suite('PluginMarketplaceService - getMarketplacePluginMetadata', () => {
 
 	const marketplaceRef = parseMarketplaceReference('microsoft/plugins')!;
 
-	function createService(autoUpdate: AutoUpdateConfigurationValue = 'on', extraMarketplaces: Record<string, unknown> = {}): PluginMarketplaceService {
+	function createService(
+		autoUpdate: AutoUpdateConfigurationValue = 'on',
+		extraMarketplaces: Record<string, unknown> = {},
+		policyExtraMarketplaces: Record<string, unknown> = {},
+	): PluginMarketplaceService {
 		const instantiationService = store.add(new TestInstantiationService());
 
-		instantiationService.stub(IConfigurationService, new TestConfigurationService({
+		const configurationService = new class extends TestConfigurationService {
+			override inspect<T>(key: string): IConfigurationValue<T> {
+				const inspected = super.inspect<T>(key);
+				return key === ChatConfiguration.ExtraMarketplaces
+					? { ...inspected, policyValue: policyExtraMarketplaces as T }
+					: inspected;
+			}
+		}({
 			[ChatConfiguration.PluginMarketplaces]: ['microsoft/plugins'],
 			[ChatConfiguration.ExtraMarketplaces]: extraMarketplaces,
 			[ChatConfiguration.PluginsEnabled]: true,
@@ -721,6 +732,22 @@ suite('PluginMarketplaceService - getMarketplacePluginMetadata', () => {
 			never: false,
 			inherited: false,
 			unmanaged: false,
+		});
+	});
+
+	test('managed marketplace provenance reads only the policy layer', () => {
+		const service = createService('on', {
+			userOnly: 'microsoft/user-only',
+		}, {
+			managed: 'microsoft/managed',
+		});
+
+		assert.deepStrictEqual({
+			managedName: service.getManagedMarketplace(parseMarketplaceReference('https://github.com/microsoft/managed.git')!)?.displayLabel,
+			userOnly: service.getManagedMarketplace(parseMarketplaceReference('microsoft/user-only')!)?.displayLabel,
+		}, {
+			managedName: 'managed',
+			userOnly: undefined,
 		});
 	});
 });
@@ -877,6 +904,27 @@ suite('PluginMarketplaceService - installed plugins lifecycle', () => {
 		const installed = service.installedPlugins.get();
 		assert.strictEqual(installed.length, 1);
 		assert.strictEqual(installed[0].plugin.name, 'my-plugin');
+	});
+
+	test('isPluginInstalled distinguishes plugins that share an install URI', () => {
+		const sharedUri = URI.file('/agent-plugins/github.com/microsoft/shared');
+		const service = createService({
+			pluginRepositoryService: {
+				getPluginInstallUri: () => sharedUri,
+			},
+		});
+		const first = makePlugin('first-plugin', '');
+		const second = makePlugin('second-plugin', '');
+
+		service.addInstalledPlugin(sharedUri, first);
+
+		assert.deepStrictEqual({
+			first: service.isPluginInstalled(first),
+			second: service.isPluginInstalled(second),
+		}, {
+			first: true,
+			second: false,
+		});
 	});
 
 	test('periodic update checking pauses while metered and resumes when unmetered', async () => {
