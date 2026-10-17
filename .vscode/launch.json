@@ -731,6 +731,18 @@
 				"group": "monaco",
 				"order": 4
 			}
+		},
+		{
+			"name": "Attach to TypeScript Server",
+			"type": "node",
+			"request": "attach",
+			"port": 9223,
+			"outFiles": [
+				"${workspaceFolder}/extensions/copilot/node_modules/@vscode/copilot-typescript-server-plugin/dist/**/*.js",
+			],
+			"presentation": {
+				"group": "3_vscode"
+			}
 		}
 	],
 	"compounds": [
@@ -845,6 +857,6 @@
 				"Attach to Agent Host Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies"
-		},
+		}
 	]
 }

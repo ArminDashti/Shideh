@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI, type UriComponents } from '../../../../../base/common/uri.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
@@ -42,6 +43,40 @@ Input:
 
 IMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.
 
+Output:
+Returns code usages of the queried symbol, grouped into definitions, references, and implementations. Empty categories are omitted.
+
+Each element inside a category has:
+- "usageId" — the unique string identifier of the usage, used to read the usage via the \`vscode_readCodeUsage\` tool.
+- "uri" — a full URI of the file where the usage is located.
+- "scopes" — an optional array of the syntactic scopes that contain the usage, ordered from innermost to outermost. For example, a usage inside a method would have at least two scopes: the method itself and the enclosing class. A usage in the file scope would have no scopes.
+
+If results are capped, the response includes "truncated": true and "total": <n>; narrow the query (e.g. by file or symbol kind) to see the rest.
+
+Example Output:
+{
+	"symbol": "parseConfig",
+	"definitions": [
+		{
+			"usageId": "1",
+			"uri": "file:///home/project/src/config.ts",
+			"scopes": [
+				{ depth: 0, "kind": "function", "name": "parseConfig" }
+			]
+		}
+	],
+	"references": [
+		{
+			"usageId": "2",
+			"uri": "file:///home/project/src/server.ts",
+			"scopes": [
+				{ depth: 0, "kind": "method", "name": "start" },
+				{ depth: 1, "kind": "class",  "name": "Server" }
+			]
+		}
+	]
+}
+
 If the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.`;
 
 /**
@@ -53,9 +88,76 @@ const StaticModelDescription = BaseModelDescription + `
 
 If the file's language has no reference provider registered, the tool returns an error.`;
 
+
+namespace CodeUsageResult {
+	export interface LineRange {
+		startLine: number;
+		endLine: number;
+	}
+
+	export interface Container {
+		kind: string;
+		name: string;
+		range: LineRange;
+	}
+
+	export interface CodeUsage {
+		line: number;
+		containers?: Container[];
+	}
+
+	export interface FileCodeUsage {
+		uri: UriComponents;
+		usages: CodeUsage[];
+	}
+
+	export interface CodeUsages {
+		symbol: string;
+		definitions?: FileCodeUsage[];
+		references?: FileCodeUsage[];
+		implementations?: FileCodeUsage[];
+	}
+
+	export namespace CodeUsages {
+		export function is(value: unknown): value is CodeUsages {
+			if (typeof value !== 'object' || value === null) {
+				return false;
+			}
+			return true;
+		}
+	}
+}
+
+namespace ToolResult {
+
+	export interface Scope {
+		depth: number;
+		kind: string;
+		name?: string;
+	}
+
+	export interface CodeUsage {
+		usageId: string;
+		scopes?: Scope[];
+	}
+
+	export interface FileCodeUsage {
+		uri: string;
+		usages: CodeUsage[];
+	}
+
+	export interface CodeUsages {
+		symbol: string;
+		definitions?: FileCodeUsage[];
+		references?: FileCodeUsage[];
+		implementations?: FileCodeUsage[];
+	}
+}
+
 export class UsagesTool extends Disposable implements IToolImpl {
 
 	constructor(
+		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IModelService private readonly _modelService: IModelService,
 		@ISearchService private readonly _searchService: ISearchService,
@@ -104,7 +206,7 @@ export class UsagesTool extends Disposable implements IToolImpl {
 					}
 				},
 				required: ['symbol', 'lineContent']
-			}
+			},
 		};
 	}
 
@@ -157,9 +259,45 @@ export class UsagesTool extends Disposable implements IToolImpl {
 			const workingDirectory = invocation.context?.workingDirectory;
 			const references = allReferences.filter(ref => isSymbolToolResourceInScope(ref.uri, this._workspaceContextService, this._uriIdentityService, workingDirectory));
 
-			if (references.length === 0) {
-				const result = createToolSimpleTextResult(`No usages found for \`${input.symbol}\`.`);
-				result.toolResultMessage = new MarkdownString(localize('tool.usages.noResults', 'Analyzed usages of `{0}`, no results', input.symbol));
+				// --- query references, definitions, implementations in parallel ---
+				const [definitions, references, implementations] = await Promise.all([
+					getDefinitionsAtPosition(this._languageFeaturesService.definitionProvider, model, position, false, token),
+					getReferencesAtPosition(this._languageFeaturesService.referenceProvider, model, position, false, false, token),
+					getImplementationsAtPosition(this._languageFeaturesService.implementationProvider, model, position, false, token),
+				]);
+
+				if (references.length === 0) {
+					const result = createToolSimpleTextResult(`No usages found for \`${input.symbol}\`.`);
+					result.toolResultMessage = new MarkdownString(localize('tool.usages.noResults', 'Analyzed usages of `{0}`, no results', input.symbol));
+					return result;
+				}
+
+				// --- classify and format results with previews ---
+				const previews = await this._getLinePreviews(input.symbol, references, token);
+
+				lines.push(`${references.length} usages of \`${input.symbol}\`:\n`);
+
+				for (let i = 0; i < references.length; i++) {
+					const ref = references[i];
+					const kind = this._classifyReference(ref, definitions, implementations);
+					const startLine = Range.lift(ref.range).startLineNumber;
+					const preview = previews[i];
+					if (preview) {
+						lines.push(`<usage type="${kind}" uri="${ref.uri.toString()}" line="${startLine}">`);
+						lines.push(`\t${preview}`);
+						lines.push(`</usage>`);
+					} else {
+						lines.push(`<usage type="${kind}" uri="${ref.uri.toString()}" line="${startLine}" />`);
+					}
+				}
+				const text = lines.join('\n');
+				const result = createToolSimpleTextResult(text);
+
+				result.toolResultMessage = references.length === 1
+					? new MarkdownString(localize('tool.usages.oneResult', 'Analyzed usages of `{0}`, 1 result', input.symbol))
+					: new MarkdownString(localize('tool.usages.results', 'Analyzed usages of `{0}`, {1} results', input.symbol, references.length));
+
+				result.toolResultDetails = references.map((r): Location => ({ uri: r.uri, range: r.range }));
 				return result;
 			}
 
@@ -301,6 +439,54 @@ export class UsagesTool extends Disposable implements IToolImpl {
 		return Range.areIntersectingOrTouching(a.range, b.range);
 	}
 
+	private convertCodeUsages(usages: CodeUsageResult.CodeUsages): string {
+		const result: ToolResult.CodeUsages = {
+			symbol: usages.symbol,
+			definitions: this.convertFileCodeUsageCategory(usages.definitions),
+			references: this.convertFileCodeUsageCategory(usages.references),
+			implementations: this.convertFileCodeUsageCategory(usages.implementations),
+		};
+
+		return JSON.stringify(result, null, '\t');
+	}
+
+	private convertFileCodeUsageCategory(usages: CodeUsageResult.FileCodeUsage[] | undefined): ToolResult.FileCodeUsage[] | undefined {
+		if (!usages || usages.length === 0) {
+			return undefined;
+		}
+		return usages.map(u => this.convertFileCodeUsage(u));
+	}
+
+	private convertFileCodeUsage(fileUsage: CodeUsageResult.FileCodeUsage): ToolResult.FileCodeUsage {
+		const uri = URI.revive(fileUsage.uri);
+		return {
+			uri: uri.toString(),
+			usages: fileUsage.usages ? fileUsage.usages.map(u => this.convertCodeUsage(uri, u)) : undefined
+		};
+	}
+
+	private convertCodeUsage(uri: URI, usage: CodeUsageResult.CodeUsage): ToolResult.CodeUsage {
+		const id = this._codeUsageService.nextUsageId();
+		this._codeUsageService.storeUsage(id, { uri, line: usage.line, containers: usage.containers });
+		if (usage.containers === undefined || usage.containers.length === 0) {
+			return {
+				usageId: id,
+			};
+		}
+		const result: ToolResult.CodeUsage = {
+			usageId: id,
+			scopes: usage.containers.map((c, i) => this.convertContainer(c, i))
+		};
+		return result;
+	}
+
+	private convertContainer(container: CodeUsageResult.Container, depth: number): ToolResult.Scope {
+		return {
+			depth,
+			kind: container.kind,
+			name: container.name
+		};
+	}
 }
 
 export class UsagesToolContribution extends Disposable implements IWorkbenchContribution {
