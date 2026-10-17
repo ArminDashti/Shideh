@@ -55,6 +55,10 @@ export class PromptLaunchersAICustomizationWelcomePage extends Disposable implem
 	private inputRow: HTMLElement | undefined;
 	private migrationCategories: readonly ICustomizationMigrationCategorySummary[] = [];
 
+	private sentLabel: HTMLElement | undefined;
+	private submitBtn: HTMLElement | undefined;
+	private inputRow: HTMLElement | undefined;
+
 	private readonly categoryDescriptions: IPromptLaunchersCategoryDescription[] = [
 		{
 			id: AICustomizationManagementSection.Marketplace,
