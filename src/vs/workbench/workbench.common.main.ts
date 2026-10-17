@@ -353,6 +353,7 @@ import './contrib/modernUI/browser/modernUI.contribution.js';
 
 // Tasks
 import './contrib/tasks/browser/task.contribution.js';
+import './contrib/tasks/browser/todo.contribution.js';
 
 // Remote
 import './contrib/remote/common/remote.contribution.js';
