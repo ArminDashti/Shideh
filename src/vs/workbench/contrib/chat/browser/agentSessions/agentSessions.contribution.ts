@@ -162,6 +162,35 @@ MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
 	)
 });
 
+// --- Agent Sessions Manage All Submenu
+
+const agentSessionsManageAllSubmenu = new MenuId('AgentSessionsManageAllSubmenu');
+MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
+	submenu: agentSessionsManageAllSubmenu,
+	title: localize2('manageAllAgentSessions', "Manage All Agent Sessions"),
+	group: 'navigation',
+	order: 4,
+	icon: Codicon.ellipsis,
+} satisfies ISubmenuItem);
+
+MenuRegistry.appendMenuItem(agentSessionsManageAllSubmenu, {
+	command: {
+		id: 'workbench.action.chat.markAllAgentSessionsRead',
+		title: localize2('markAllAsRead', "Mark All as Read"),
+	},
+	group: '1_manage',
+	order: 1,
+});
+
+MenuRegistry.appendMenuItem(agentSessionsManageAllSubmenu, {
+	command: {
+		id: 'workbench.action.chat.archiveAllAgentSessions',
+		title: localize2('archiveAll', "Archive All"),
+	},
+	group: '1_manage',
+	order: 2,
+});
+
 // --- Sessions Title Toolbar
 
 MenuRegistry.appendMenuItem(MenuId.ChatViewSessionTitleToolbar, {
