@@ -20,6 +20,13 @@ import { AvailableForDownload, IUpdate, State, StateType, UpdateType } from '../
 import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
 import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, IUpdateURLOptions, UpdateErrorClassification } from './abstractUpdateService.js';
 
+interface IDownloadProgressEvent {
+	bytesPerSecond: number;
+	percent: number;
+	transferred: number;
+	total: number;
+}
+
 export class DarwinUpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	@memoize private get onRawError(): Event<string> { return Event.fromNodeEventEmitter(electron.autoUpdater, 'error', (_, message) => message); }
