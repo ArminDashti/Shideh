@@ -749,7 +749,8 @@ async function evaluateDiagnosticsCommitHook(repository: Repository, options: Co
 	const diagnostics: Map<Uri, number> = new Map();
 
 	for (const resource of resources) {
-		const unresolvedDiagnostics = languages.getDiagnostics(resource)
+		const allDiagnostics = languages.getDiagnostics(resource);
+		const unresolvedDiagnostics = allDiagnostics
 			.filter(d => {
 				logger.trace(`[CommandCenter][evaluateDiagnosticsCommitHook] Evaluating diagnostic for ${resource.fsPath}: source='${d.source}', severity='${d.severity}'`);
 
