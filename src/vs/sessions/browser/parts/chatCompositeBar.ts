@@ -578,6 +578,12 @@ export class ChatCompositeBar extends Disposable {
 			}
 		}));
 
+		const splitRightAction = this._tabDisposables.add(new Action('sessionCompositeBar.splitChatRight', localize('splitChatRight', "Split Right"), undefined, true, async () => {
+			if (session) {
+				this._sessionsService.splitChat(session, chat, 'right');
+			}
+		}));
+
 		// Delete permanently removes the chat (destructive). Only non-main chats
 		// can be deleted; the main chat lives and dies with its session.
 		const deleteAction = this._tabDisposables.add(new Action('sessionCompositeBar.deleteChat', localize('deleteChat', "Delete Chat"), undefined, true, async () => {

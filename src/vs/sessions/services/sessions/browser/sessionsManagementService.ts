@@ -888,43 +888,46 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	async createNewChatInSession(session: ISession, options?: ICreateNewChatInSessionOptions): Promise<IChat | undefined> {
-		const provider = this._getProvider(session);
+		const live = this._resolveLiveSession(session);
+		const provider = this._getProvider(live);
 		if (!provider) {
-			this.logService.warn(`[SessionsManagement] createNewChatInSession: provider '${session.providerId}' not found`);
+			this.logService.warn(`[SessionsManagement] createNewChatInSession: provider '${live.providerId}' not found`);
 			return undefined;
 		}
 		// `forceNew` skips reuse so callers can reset the composer right after
 		// sending a chat (which may still transiently report `Untitled`).
 		if (!options?.forceNew) {
-			const existingUntitled = session.chats.get().find(c => c.status.get() === SessionStatus.Untitled);
+			const existingUntitled = live.chats.get().find(c => c.status.get() === SessionStatus.Untitled);
 			if (existingUntitled) {
 				return existingUntitled;
 			}
 		}
-		const created = await provider.createNewChat(session.sessionId);
+		const created = await provider.createNewChat(live.sessionId);
 		return created;
 	}
 
 	async forkChatInSession(session: ISession, sourceChat: URI, turnId: string): Promise<IChat> {
-		const provider = this._getProvider(session);
+		const live = this._resolveLiveSession(session);
+		const provider = this._getProvider(live);
 		if (!provider) {
-			throw new Error(`Provider '${session.providerId}' not found for session '${session.sessionId}'`);
+			throw new Error(`Provider '${live.providerId}' not found for session '${live.sessionId}'`);
 		}
-		if (!session.capabilities.get().supportsMultipleChats) {
-			throw new Error(`Session '${session.sessionId}' does not support forking into a chat`);
+		if (!live.capabilities.get().supportsMultipleChats) {
+			throw new Error(`Session '${live.sessionId}' does not support forking into a chat`);
 		}
-		return provider.forkChat(session.sessionId, sourceChat, turnId);
+		return provider.forkChat(live.sessionId, sourceChat, turnId);
 	}
 
 	async createSideChatInSession(session: ISession, sourceChat: URI, turnId: string, selection?: ISideChatSelection): Promise<IChat> {
-		const provider = this._getProvider(session);
+		const live = this._resolveLiveSession(session);
+		const provider = this._getProvider(live);
 		if (!provider) {
-			throw new Error(`Provider '${session.providerId}' not found for session '${session.sessionId}'`);
+			throw new Error(`Provider '${live.providerId}' not found for session '${live.sessionId}'`);
 		}
-		if (!session.capabilities.get().supportsSideChat) {
-			throw new Error(`Session '${session.sessionId}' does not support side chats`);
+		if (!live.capabilities.get().supportsSideChat) {
+			throw new Error(`Session '${live.sessionId}' does not support side chats`);
 		}
-		return provider.createSideChat(session.sessionId, sourceChat, turnId, selection);
+		return provider.createSideChat(live.sessionId, sourceChat, turnId, selection);
 	}
 
 	/**
@@ -1411,7 +1414,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	async sendRequest(session: ISession, chat: IChat, options: ISendRequestOptions): Promise<void> {
 		const provider = this._getProvider(session);
 		if (!provider) {
-			throw new Error(`Sessions provider '${session.providerId}' not found`);
+			throw new Error(`Sessions provider '${live.providerId}' not found`);
 		}
 		this._assertWorkflowSupport(provider, options);
 
@@ -1423,7 +1426,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			// Fire-and-forget so the composer can reset immediately. Unlike the
 			// foreground path this skips `_onWillSendRequest` so the view's
 			// send-follow does not navigate the visible slot into the sent chat.
-			this._sendRequestInBackground(provider, session, chat, options).catch(e => {
+			this._sendRequestInBackground(provider, live, chat, options).catch(e => {
 				this.logService.error('[SessionsManagement] Failed to send background request:', e);
 			});
 			return;
@@ -1525,8 +1528,9 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	async unarchiveSession(session: ISession): Promise<void> {
-		await this._getProvider(session)?.unarchiveSession(session.sessionId);
-		this._onDidUnarchiveSession.fire(session);
+		const live = this._resolveLiveSession(session);
+		await this._getProvider(live)?.unarchiveSession(live.sessionId);
+		this._onDidUnarchiveSession.fire(live);
 	}
 
 	async archiveChat(session: ISession, chat: IChat): Promise<void> {
@@ -1581,15 +1585,16 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	async deleteSessions(sessions: readonly ISession[]): Promise<void> {
 		const byProvider = new Map<ISessionsProvider, ISession[]>();
 		for (const session of sessions) {
-			const provider = this._getProvider(session);
+			const live = this._resolveLiveSession(session);
+			const provider = this._getProvider(live);
 			if (!provider) {
 				continue;
 			}
 			const group = byProvider.get(provider);
 			if (group) {
-				group.push(session);
+				group.push(live);
 			} else {
-				byProvider.set(provider, [session]);
+				byProvider.set(provider, [live]);
 			}
 		}
 
@@ -1623,13 +1628,15 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	async renameChat(session: ISession, chatUri: URI, title: string): Promise<void> {
-		await this._getProvider(session)?.renameChat(session.sessionId, chatUri, title);
-		this._onDidRenameChat.fire(session);
+		const live = this._resolveLiveSession(session);
+		await this._getProvider(live)?.renameChat(live.sessionId, chatUri, title);
+		this._onDidRenameChat.fire(live);
 	}
 
 	async renameSession(session: ISession, title: string): Promise<void> {
-		await this._getProvider(session)?.renameSession(session.sessionId, title);
-		this._onDidRenameSession.fire(session);
+		const live = this._resolveLiveSession(session);
+		await this._getProvider(live)?.renameSession(live.sessionId, title);
+		this._onDidRenameSession.fire(live);
 	}
 
 	async removeSessionArtifact(session: ISession, artifactId: string): Promise<void> {

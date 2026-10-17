@@ -19,6 +19,7 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 import { IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { localize } from '../../../../nls.js';
 import { ChatInteractivity, ChatOriginKind, IChat, ISession, SessionStatus } from '../common/session.js';
+import { DetachedChatSession } from '../common/detachedChatSession.js';
 import { IActiveSession, ICreateNewChatInSessionOptions, ICreateNewSessionOptions, inheritableSessionTarget, IRecentlyOpenedSessions, ISessionsChangeEvent, ISessionsManagementService, IToggleSessionStickinessEvent } from '../common/sessionsManagement.js';
 import { ISessionsProvidersService } from './sessionsProvidersService.js';
 import { ensureSessionWorktreesTrusted } from './worktreeTrust.js';
@@ -334,6 +335,11 @@ export interface ISessionsService {
 	focusSessionInDirection(session: IActiveSession | undefined, direction: Direction): void;
 	moveSessionInDirection(session: IActiveSession | undefined, direction: Direction): void;
 	resizeSession(session: IActiveSession | undefined, direction: Direction): void;
+
+	/**
+	 * Open one chat in an adjacent transient leaf while leaving its session visible.
+	 */
+	splitChat(session: ISession, chat: IChat, side: 'left' | 'right'): void;
 
 	/**
 	 * Toggle a session's stickiness in the grid. The session keeps its grid
@@ -969,7 +975,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 			return;
 		}
 
-		if (e.removed.length && e.removed.some(r => r.sessionId === currentActive.sessionId)) {
+		if (e.removed.length && activeSessionWasRemoved) {
 			const fallback = this._visibility.activeSession.get();
 			if (fallback && this.sessionsManagementService.getSession(fallback.resource)) {
 				void this._openSession(fallback.resource, { source: 'fallback' }, 'automatic').catch(onUnexpectedError);
@@ -1917,6 +1923,14 @@ export class SessionsService extends Disposable implements ISessionsService {
 		this.closeEmptyAuxiliaryParts();
 	}
 
+	splitChat(session: ISession, chat: IChat, side: 'left' | 'right'): void {
+		if (session.status.get() === SessionStatus.Untitled
+			|| !session.chats.get().some(candidate => this.uriIdentityService.extUri.isEqual(candidate.resource, chat.resource))) {
+			return;
+		}
+		this._visibility.insertAt(new DetachedChatSession(session, chat), session.sessionId, side, true);
+	}
+
 	closeSession(session: ISession | undefined): void {
 		if (session) {
 			this._sessionMoves.delete(session.sessionId);
@@ -2174,6 +2188,11 @@ export class SessionsService extends Disposable implements ISessionsService {
 		const entries: ISessionState[] = [];
 		visible.forEach((session, index) => {
 			if (!session) {
+				return;
+			}
+
+			// Detached leaves share their source resource and must remain transient.
+			if (session.detachedChat) {
 				return;
 			}
 

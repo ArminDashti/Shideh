@@ -205,6 +205,31 @@ suite('VisibleSessions', () => {
 		});
 	});
 
+	test('detached chat adapter has an independent id and exposes only its chat', () => {
+		const detachedChat = { ...stubChat, resource: URI.parse('test:///detached') };
+		const chats = observableValue<readonly IChat[]>('chats', [stubChat, detachedChat]);
+		const session = { ...stubSession('A'), chats };
+		const detached = new DetachedChatSession(session, detachedChat);
+
+		const beforeRemoval = {
+			sessionId: detached.sessionId,
+			resource: detached.resource.toString(),
+			chats: detached.chats.get().map(chat => chat.resource.toString()),
+			mainChat: detached.mainChat.get().resource.toString(),
+		};
+		chats.set([stubChat], undefined);
+
+		assert.deepStrictEqual({ beforeRemoval, afterRemoval: detached.chats.get().map(chat => chat.resource.toString()) }, {
+			beforeRemoval: {
+				sessionId: getDetachedChatSessionId(session, detachedChat),
+				resource: session.resource.toString(),
+				chats: [detachedChat.resource.toString()],
+				mainChat: detachedChat.resource.toString(),
+			},
+			afterRemoval: [],
+		});
+	});
+
 	suite('setActive', () => {
 
 		test('opening B after non-sticky A replaces A in place', () => {
@@ -478,6 +503,43 @@ suite('VisibleSessions', () => {
 	});
 
 	suite('insertAt', () => {
+
+		test('shows a detached chat beside its source with an independent active chat and does not duplicate it', () => {
+			const model = createModel();
+			const splitChat = { ...stubChat, resource: URI.parse('test:///split') };
+			const otherChat = { ...stubChat, resource: URI.parse('test:///other') };
+			const session = { ...stubSession('A'), chats: constObservable([stubChat, splitChat, otherChat]) };
+			const detached = new DetachedChatSession(session, splitChat);
+
+			model.setActive(session);
+			model.insertAt(detached, session.sessionId, 'right');
+			model.insertAt(new DetachedChatSession(session, splitChat), session.sessionId, 'right');
+
+			const visible = model.visibleSessions.get().filter((session): session is NonNullable<typeof session> => !!session);
+			assert.deepStrictEqual({
+				visible: visible.map(session => ({
+					sessionId: session.sessionId,
+					activeChat: session.activeChat.get().resource.toString(),
+					hasTabs: session.shouldShowChatTabs.get(),
+				})),
+				active: model.activeSession.get()?.sessionId,
+			}, {
+				visible: [
+					{ sessionId: session.sessionId, activeChat: stubChat.resource.toString(), hasTabs: true },
+					{ sessionId: detached.sessionId, activeChat: splitChat.resource.toString(), hasTabs: false },
+				],
+				active: detached.sessionId,
+			});
+
+			model.setActiveChat(session, otherChat);
+			assert.deepStrictEqual(visible.map(session => ({
+				sessionId: session.sessionId,
+				activeChat: session.activeChat.get().resource.toString(),
+			})), [
+				{ sessionId: session.sessionId, activeChat: otherChat.resource.toString() },
+				{ sessionId: detached.sessionId, activeChat: splitChat.resource.toString() },
+			]);
+		});
 
 		test('inserts a not-yet-visible session to the left of a target as non-sticky and activates it', () => {
 			const model = createModel();

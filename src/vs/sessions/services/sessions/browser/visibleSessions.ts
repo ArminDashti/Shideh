@@ -237,6 +237,10 @@ export class VisibleSession extends Disposable implements IActiveSession {
 		return undefined;
 	}
 
+	get detachedChat(): IChat | undefined {
+		return isDetachedChatSession(this._session) ? this._session.chat : undefined;
+	}
+
 	setSticky(value: boolean): void {
 		this._sticky.set(value, undefined);
 	}
