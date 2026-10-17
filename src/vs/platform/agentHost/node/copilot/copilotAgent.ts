@@ -661,6 +661,8 @@ const MAX_STARTUP_CONFIG_RETRIES = 1;
 
 /** `origin` value written by the VS Code extension-host Copilot CLI feature. */
 const EXTENSION_HOST_CLI_MARKER_ORIGIN = 'vscode';
+const COPILOT_EXTERNAL_SESSION_CLIENT_NAMES = new Set(['github/cli', 'github/autopilot']);
+const COPILOT_EXTERNAL_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** File name of the marker written beside a Copilot CLI session's SDK event log. */
 const EXTENSION_HOST_CLI_MARKER_FILE = 'vscode.metadata.json';

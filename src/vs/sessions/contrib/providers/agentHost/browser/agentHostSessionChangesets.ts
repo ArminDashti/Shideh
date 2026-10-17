@@ -44,6 +44,14 @@ export interface IAgentHostCurrentTurnChanges {
 	readonly changes: readonly ISessionTurnFileChange[];
 }
 
+export interface IAgentHostChangeset extends Changeset {
+	/**
+	 * Optional authoritative changes. `undefined` falls back to the changeset
+	 * channel; an array, including an empty one, is used as-is.
+	 */
+	readonly changes?: IObservable<readonly ISessionFileChange[] | undefined>;
+}
+
 /**
  * Returns the workspace file URI that identifies a change, matching the
  * convention used by {@link sessionFileChangesEqual}: the `uri` of a
