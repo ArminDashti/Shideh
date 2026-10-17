@@ -2664,6 +2664,11 @@
           "group": "2_view@2"
         },
         {
+          "command": "git.compareWithWorkspace",
+          "when": "scmProvider == git && scmResourceGroup == untracked",
+          "group": "worktree_diff"
+        },
+        {
           "command": "git.openChange",
           "when": "scmProvider == git && scmResourceGroup == untracked",
           "group": "navigation"

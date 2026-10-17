@@ -3731,7 +3731,7 @@ export class CommandCenter {
 			return [createBranch, { label: '', kind: QuickPickItemKind.Separator }, ...branchItems];
 		};
 
-		const placeHolder = l10n.t('Select a branch or tag to create the new worktree from');
+		const placeHolder = l10n.t('Select a branch or tag to create the new worktrees from');
 		const choice = await this.pickRef(getBranchPicks(), placeHolder);
 
 		if (!choice) {
