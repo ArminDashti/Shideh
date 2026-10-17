@@ -16,6 +16,7 @@ import { IProcessService } from '../../../../platform/process/common/process.js'
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IQuickAccessRegistry, Extensions as QuickAccessExtensions } from '../../../../platform/quickinput/common/quickAccess.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { Extensions, IWorkbenchContributionsRegistry } from '../../../common/contributions.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { EditorExtensions } from '../../../common/editor.js';
@@ -121,6 +122,16 @@ class NativeIssueContribution extends BaseIssueContribution {
 	}
 }
 Registry.as<IWorkbenchContributionsRegistry>(Extensions.Workbench).registerWorkbenchContribution(NativeIssueContribution, LifecyclePhase.Restored);
+
+//#region --- register native issue reporter editor
+
+// Register the native editor pane
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(NativeIssueReporterEditor, NativeIssueReporterEditor.ID, localize('issueReporter', "Issue Reporter")),
+	[new SyncDescriptor(IssueReporterEditorInput)]
+);
+
+//#endregion
 
 class ReportPerformanceIssueUsingReporterAction extends Action2 {
 

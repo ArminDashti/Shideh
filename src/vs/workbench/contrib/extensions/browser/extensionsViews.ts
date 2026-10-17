@@ -409,6 +409,10 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 			extensions = this.filterExtensionsByFeature(local, query);
 		}
 
+		else if (/@local/i.test(value)) {
+			extensions = this.filterLocalServerExtensions(local, query, options);
+		}
+
 		else if (includeBuiltin) {
 			extensions = this.filterBuiltinExtensions(local, query, options);
 		}
@@ -1178,6 +1182,8 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 			|| this.isRestartRequiredQuery(query)
 			|| this.isSearchExtensionUpdatesQuery(query)
 			|| this.isSortInstalledExtensionsQuery(query, sortBy)
+			|| this.isLocalServerExtensionsQuery(query)
+			|| this.isSearchLocalServerExtensionsQuery(query)
 			|| this.isFeatureExtensionsQuery(query);
 	}
 
@@ -1275,6 +1281,14 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 
 	static isSortUpdateDateQuery(query: string): boolean {
 		return /@sort:updateDate/i.test(query);
+	}
+
+	static isLocalServerExtensionsQuery(query: string): boolean {
+		return /^@local$/i.test(query.trim());
+	}
+
+	static isSearchLocalServerExtensionsQuery(query: string): boolean {
+		return /@local\s.+/i.test(query);
 	}
 
 	static isFeatureExtensionsQuery(query: string): boolean {

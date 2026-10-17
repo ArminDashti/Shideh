@@ -89,7 +89,6 @@ export class IssueFormService extends Disposable implements IIssueFormService {
 
 	protected currentData: IssueReporterData | undefined;
 
-	protected issueReporterWindow: Window | null = null;
 	protected extensionIdentifierSet: ExtensionIdentifierSet = new ExtensionIdentifierSet();
 
 	protected arch: string = '';
@@ -144,7 +143,9 @@ export class IssueFormService extends Disposable implements IIssueFormService {
 	}
 
 	async openReporter(data: IssueReporterData): Promise<void> {
+		console.log('IssueFormService.openReporter called', { data });
 		if (this.hasToReload(data)) {
+			console.log('IssueFormService.openReporter reloading existing');
 			return;
 		}
 
@@ -592,16 +593,15 @@ export class IssueFormService extends Disposable implements IIssueFormService {
 	//#region used by issue reporter
 
 	async closeReporter(): Promise<void> {
-		this.issueReporterWindow?.close();
+		// Close the editor - this is now handled by the editor service
+		// The issue reporter will be automatically disposed when the editor is closed
 	}
 
 	async reloadWithExtensionsDisabled(): Promise<void> {
-		if (this.issueReporterWindow) {
-			try {
-				await this.hostService.reload({ disableExtensions: true });
-			} catch (error) {
-				this.logService.error(error);
-			}
+		try {
+			await this.hostService.reload({ disableExtensions: true });
+		} catch (error) {
+			this.logService.error(error);
 		}
 	}
 
@@ -614,7 +614,6 @@ export class IssueFormService extends Disposable implements IIssueFormService {
 					label: localize({ key: 'yes', comment: ['&& denotes a mnemonic'] }, "&&Yes"),
 					run: () => {
 						this.closeReporter();
-						this.issueReporterWindow = null;
 					}
 				},
 				{
@@ -649,15 +648,29 @@ export class IssueFormService extends Disposable implements IIssueFormService {
 	hasToReload(data: IssueReporterData): boolean {
 		if (data.extensionId && this.extensionIdentifierSet.has(data.extensionId)) {
 			this.currentData = data;
-			this.issueReporterWindow?.focus();
+			// Try to focus the existing issue reporter editor
+			const input = IssueReporterEditorInput.instance;
+			input.setIssueReporterData(data);
+			this.editorService.openEditor(input, { revealIfOpened: true });
 			return true;
 		}
 
-		if (this.issueReporterWindow) {
-			this.issueReporterWindow.focus();
+		// Check if issue reporter is already open
+		const activeEditors = this.editorService.visibleEditors;
+		const issueReporterOpen = activeEditors.some(editor =>
+			editor.typeId === IssueReporterEditorInput.ID
+		);
+
+		if (issueReporterOpen) {
+			// Focus the existing editor
+			const input = IssueReporterEditorInput.instance;
+			input.setIssueReporterData(data);
+			this.editorService.openEditor(input, { revealIfOpened: true });
 			return true;
 		}
 
 		return false;
 	}
+
+	//#endregion
 }
