@@ -421,6 +421,7 @@ export class Menu extends ActionBar {
 				enableMnemonics: options.enableMnemonics,
 				useEventAsContext: options.useEventAsContext,
 				keybinding: keybindingLabel,
+				icon: !!action.class,
 			};
 
 			const menuActionViewItem = new BaseMenuActionViewItem(options.context, action, menuItemOptions, this.menuStyles);
@@ -456,6 +457,7 @@ class BaseMenuActionViewItem extends BaseActionViewItem {
 	private runOnceToEnableMouseUp: RunOnceScheduler;
 	private label: HTMLElement | undefined;
 	private check: HTMLElement | undefined;
+	private iconElement: HTMLElement | undefined;
 	private mnemonic: string | undefined;
 	private cssClass: string;
 
@@ -555,6 +557,10 @@ class BaseMenuActionViewItem extends BaseActionViewItem {
 		this.check = append(this.item, $('span.menu-item-check' + ThemeIcon.asCSSSelector(Codicon.menuSelection)));
 		this.check.setAttribute('role', 'none');
 
+		if (this.options.icon && this.action.class) {
+			this.iconElement = append(this.item, $('span.menu-item-icon'));
+		}
+
 		this.label = append(this.item, $('span.action-label'));
 
 		if (this.options.label && this.options.keybinding) {
@@ -649,18 +655,15 @@ class BaseMenuActionViewItem extends BaseActionViewItem {
 	}
 
 	protected override updateClass(): void {
-		if (this.cssClass && this.item) {
-			this.item.classList.remove(...this.cssClass.split(' '));
+		if (this.cssClass && this.iconElement) {
+			this.iconElement.classList.remove(...this.cssClass.split(' '));
 		}
-		if (this.options.icon && this.label) {
+		if (this.options.icon && this.iconElement) {
 			this.cssClass = this.action.class || '';
-			this.label.classList.add('icon');
 			if (this.cssClass) {
-				this.label.classList.add(...this.cssClass.split(' '));
+				this.iconElement.classList.add(...this.cssClass.split(' '));
 			}
 			this.updateEnabled();
-		} else if (this.label) {
-			this.label.classList.remove('icon');
 		}
 	}
 
@@ -1266,11 +1269,24 @@ ${formatRule(Codicon.menuSubmenu)}
 	height: 100%;
 }
 
+.monaco-menu .monaco-action-bar.vertical .menu-item-icon {
+	position: absolute;
+	width: 1em;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .monaco-menu .monaco-action-bar.vertical .action-menu-item.checked .menu-item-check {
 	visibility: visible;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.monaco-menu .monaco-action-bar.vertical .action-menu-item.checked .menu-item-check:has(+ .menu-item-icon) {
+	visibility: hidden;
 }
 
 /* Context Menu */
