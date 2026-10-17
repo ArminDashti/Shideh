@@ -110,6 +110,38 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		});
 	}
 
+	/**
+	 * Returns whether background updates can be applied for a system/admin install.
+	 * This is true when UAC is disabled and the process is already running elevated,
+	 * meaning the spawned Inno Setup installer inherits admin privileges and can
+	 * write to Program Files without a UAC prompt.
+	 */
+	private canBackgroundUpdateAdminInstall(): Promise<boolean> {
+		if (!this._canBackgroundUpdateAdminInstall) {
+			this._canBackgroundUpdateAdminInstall = (async () => {
+				if (this.productService.target === 'user') {
+					return false;
+				}
+				try {
+					const [isAdmin, elevationPromptDisabled] = await Promise.all([
+						this.nativeHostMainService.isAdmin(undefined),
+						isElevationPromptDisabled()
+					]);
+					return isAdmin && elevationPromptDisabled;
+				} catch (error) {
+					this.logService.warn('update#canBackgroundUpdateAdminInstall(): failed to determine admin/UAC state, falling back to false', error);
+					return false;
+				}
+			})();
+		}
+		return this._canBackgroundUpdateAdminInstall;
+	}
+
+	private isBackgroundUpdateEnabled(): Promise<boolean> {
+		return this.configurationService.getValue<boolean>('update.enableWindowsBackgroundUpdates') && this.productService.target === 'user';
+	}
+
+
 	handleRelaunch(options?: IRelaunchOptions): boolean {
 		if (options?.addArgs || options?.removeArgs) {
 			return false; // we cannot apply an update and restart with different args
@@ -136,18 +168,26 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		type WindowsUpdateInitEvent = {
 			osRelease: string;
 			osNodeRelease: string;
+			enableLUA: boolean;
+			consentPromptBehaviorAdmin: number;
 		};
 		type WindowsUpdateInitClassification = {
 			osRelease: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The Windows OS release version from registry.' };
 			osNodeRelease: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The Windows OS release version from os.release().' };
+			enableLUA: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The EnableLUA registry value which controls whether UAC is enabled.' };
+			consentPromptBehaviorAdmin: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The ConsentPromptBehaviorAdmin registry value which controls UAC prompt behavior for admins.' };
 			owner: 'dmitriv';
 			comment: 'Tracks Windows OS release information during update initialization.';
 		};
-		const osRelease = await getWindowsRelease();
-		const osNodeRelease = release();
-		this.telemetryService.publicLog2<WindowsUpdateInitEvent, WindowsUpdateInitClassification>('windowsUpdateInit', { osRelease, osNodeRelease });
+		const uacInfo = await getUACInfo();
+		this.telemetryService.publicLog2<WindowsUpdateInitEvent, WindowsUpdateInitClassification>('windowsUpdateInit', {
+			osRelease: await getWindowsRelease(),
+			osNodeRelease: release(),
+			enableLUA: uacInfo.enableLUA,
+			consentPromptBehaviorAdmin: uacInfo.consentPromptBehaviorAdmin
+		});
 
-		if (this.productService.target === 'user' && await this.nativeHostMainService.isAdmin(undefined)) {
+		if (this.productService.target === 'user' && await this.nativeHostMainService.isAdmin(undefined) && !await isUACDisabled()) {
 			this.setState(State.Disabled(DisablementReason.RunningAsAdmin));
 			this.logService.info('update#ctor - updates are disabled due to running as Admin in user setup');
 			return;
@@ -334,8 +374,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						this.saveUpdateMetadata(update);
 						this.setState(State.Downloaded(update, explicit, this._overwrite));
 
-						const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
-						if (fastUpdatesEnabled && this.productService.target === 'user') {
+						if (await this.isBackgroundUpdateEnabled()) {
 							this.doApplyUpdate();
 						} else {
 							this.setState(State.Ready(update, explicit, this._overwrite));
