@@ -33,6 +33,7 @@ import { IIssueFormService, ISimilarIssue, IssueReporterData, IssueReporterExten
 import { normalizeGitHubUrl } from '../common/issueReporterUtil.js';
 import { IssueReporterModel, IssueReporterData as IssueReporterModelData } from './issueReporterModel.js';
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
+import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 
 const MAX_URL_LENGTH = 7500;
 
@@ -189,7 +190,7 @@ export class BaseIssueReporterService extends Disposable {
 		const codiconStyleSheet = createStyleSheet();
 		codiconStyleSheet.id = 'codiconStyles';
 
-		const iconsStyleSheet = this._register(getIconsStyleSheet(this.themeService));
+		const iconsStyleSheet = this._register(getIconsStyleSheet(this.themeService, this.environmentService));
 		function updateAll() {
 			codiconStyleSheet.textContent = iconsStyleSheet.getCSS();
 		}
