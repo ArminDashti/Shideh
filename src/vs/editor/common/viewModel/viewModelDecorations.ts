@@ -77,6 +77,14 @@ export class ViewModelDecorations implements IDisposable {
 	}
 
 	public getDecorationsOnLine(lineNumber: number, onlyMinimapDecorations: boolean = false, onlyMarginDecorations: boolean = false): IViewDecorationsCollection {
+		if (!this._linesCollection) {
+			// Return empty collection if lines collection is not available (e.g., during disposal)
+			return {
+				decorations: [],
+				inlineDecorations: [],
+				hasVariableFonts: false
+			};
+		}
 		const range = new Range(lineNumber, this._linesCollection.getViewLineMinColumn(lineNumber), lineNumber, this._linesCollection.getViewLineMaxColumn(lineNumber));
 		return this._inlineDecorationsComputer.getDecorations(range, onlyMinimapDecorations, onlyMarginDecorations);
 	}
