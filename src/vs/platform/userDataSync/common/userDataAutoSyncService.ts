@@ -21,6 +21,7 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IUserDataSyncTask, IUserDataAutoSyncService, IUserDataManifest, IUserDataSyncLogService, IUserDataSyncEnablementService, IUserDataSyncService, IUserDataSyncStoreManagementService, IUserDataSyncStoreService, UserDataAutoSyncError, UserDataSyncError, UserDataSyncErrorCode, SyncOptions } from './userDataSync.js';
 import { IUserDataSyncAccountService } from './userDataSyncAccount.js';
 import { IUserDataSyncMachinesService } from './userDataSyncMachines.js';
+import { isMeteredConnection } from '../../../base/common/networkConnection.js';
 
 const disableMachineEventuallyKey = 'sync.disableMachineEventually';
 const sessionIdKey = 'sync.sessionId';

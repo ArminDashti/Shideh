@@ -37,7 +37,8 @@ suite('AIAdapter', () => {
 
 	setup(() => {
 		appInsightsMock = new AppInsightsCoreMock();
-		adapter = new OneDataSystemWebAppender(false, prefix, undefined!, () => appInsightsMock);
+		const configService = new TestConfigurationService();
+		adapter = new OneDataSystemWebAppender(false, prefix, undefined!, () => appInsightsMock, configService);
 	});
 
 
@@ -49,7 +50,8 @@ suite('AIAdapter', () => {
 	});
 
 	test('addional data', () => {
-		adapter = new OneDataSystemWebAppender(false, prefix, { first: '1st', second: 2, third: true }, () => appInsightsMock);
+		const configService = new TestConfigurationService();
+		adapter = new OneDataSystemWebAppender(false, prefix, { first: '1st', second: 2, third: true }, () => appInsightsMock, configService);
 		adapter.log('testEvent');
 
 		assert.strictEqual(appInsightsMock.events.length, 1);

@@ -575,6 +575,11 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 			return; // Setup has not started, assignments will use latest filters
 		}
 
+		const respectMetered = this.configurationService.getValue<boolean>('update.respectMeteredConnections');
+		if (respectMetered && await isMeteredConnection()) {
+			return;
+		}
+
 		// Await the client to be setup and the initial fetch to complete
 		const tasClient = await this.tasClient;
 		await tasClient.initialFetch;

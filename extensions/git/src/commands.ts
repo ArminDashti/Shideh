@@ -4267,6 +4267,11 @@ export class CommandCenter {
 	}
 
 	private async _push(repository: Repository, pushOptions: PushOptions) {
+		const respectMetered = workspace.getConfiguration('update').get<boolean>('respectMeteredConnections');
+		if (respectMetered && await env.isMeteredConnection()) {
+			return;
+		}
+
 		const remotes = repository.remotes;
 
 		if (remotes.length === 0) {
@@ -4515,6 +4520,11 @@ export class CommandCenter {
 	}
 
 	private async _sync(repository: Repository, rebase: boolean): Promise<void> {
+		const respectMetered = workspace.getConfiguration('update').get<boolean>('respectMeteredConnections');
+		if (respectMetered && await env.isMeteredConnection()) {
+			return;
+		}
+
 		const HEAD = repository.HEAD;
 
 		if (!HEAD) {

@@ -85,4 +85,9 @@ export class LinuxUpdateService extends AbstractUpdateService {
 
 		this.setState(State.Idle(UpdateType.Archive));
 	}
+
+	protected override async isConnectionMetered(): Promise<boolean> {
+		const respectMetered = this.configurationService.getValue<boolean>('update.respectMeteredConnections');
+		return respectMetered && await isMeteredConnection();
+	}
 }
