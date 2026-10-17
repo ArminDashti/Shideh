@@ -109,6 +109,7 @@ suite('VoiceInputModeService', () => {
 			'config.dictation.showButton': true,
 			'config.agents.voice.handsFree': true,
 			[AGENTS_VOICE_CONNECTED.key]: false,
+			[AGENTS_VOICE_RECONNECTING.key]: false,
 		};
 		const matches = (expression: ContextKeyExpression) => expression.evaluate({
 			getValue: <T extends ContextKeyValue = ContextKeyValue>(key: string) => values[key] as T,
@@ -122,6 +123,11 @@ suite('VoiceInputModeService', () => {
 		assert.strictEqual(matches(SegmentedVoiceInputModePillInactive), true);
 
 		values[AGENTS_VOICE_CONNECTED.key] = true;
+		assert.strictEqual(matches(SegmentedVoiceInputModePillActive), true);
+		assert.strictEqual(matches(SegmentedVoiceInputModePillInactive), false);
+
+		values[AGENTS_VOICE_CONNECTED.key] = false;
+		values[AGENTS_VOICE_RECONNECTING.key] = true;
 		assert.strictEqual(matches(SegmentedVoiceInputModePillActive), true);
 		assert.strictEqual(matches(SegmentedVoiceInputModePillInactive), false);
 	});
