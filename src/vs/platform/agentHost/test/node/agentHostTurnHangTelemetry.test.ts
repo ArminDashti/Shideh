@@ -50,6 +50,7 @@ import { IAgentHostGitStateService } from '../../common/agentHostGitStateService
 import type { IAgentHostCustomizationEnablementService } from '../../node/agentHostCustomizationEnablementService.js';
 import { AgentSideEffects } from '../../node/agentSideEffects.js';
 import { AgentHostStateManager, IAgentHostStateManager } from '../../node/agentHostStateManager.js';
+import { AgentHostArtifactEventService, IAgentHostArtifactEventService } from '../../node/artifactIntegrations/agentHostArtifactRuntime.js';
 import { AgentHostToolCallTracker, IAgentHostToolCallTracker } from '../../node/agentHostToolCallTracker.js';
 import { AgentHostTurnTracker, IAgentHostTurnTracker, TURN_ACTIVITY_NONE, TURN_HANG_THRESHOLD_MS } from '../../node/agentHostTurnTracker.js';
 import { AgentHostTurnService, IAgentHostTurnService } from '../../node/agentHostTurnService.js';

@@ -12,6 +12,7 @@ import { equals } from '../../../base/common/objects.js';
 import { StopWatch } from '../../../base/common/stopwatch.js';
 import { hasKey } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
+import { ArtifactIntegrationServer, isArtifactIntegrationRequest } from '../../artifactIntegrations/common/artifactIntegrationProtocol.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogService } from '../../log/common/log.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
@@ -212,6 +213,7 @@ type ChannelSubscription =
  * Represents a connected protocol client with its subscription state.
  */
 interface IConnectedClient {
+	artifactIntegrations?: ArtifactIntegrationServer;
 	devContainers?: DevContainerAgentHostProtocol;
 	readonly clientId: string;
 	readonly clientInfo: Implementation | undefined;
@@ -673,7 +675,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		};
 		this._attachConnection(params.clientId, client);
 		try {
-			this._initializeDevContainers(client);
+			this._initializeClientExtensions(client);
 			this._registerClientFileSystemAuthority(params.clientId, initializationDisposables);
 
 			const snapshots: IStateSnapshot[] = [];
@@ -915,7 +917,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		};
 		this._attachConnection(params.clientId, client);
 		try {
-			this._initializeDevContainers(client);
+			this._initializeClientExtensions(client);
 			// Re-establish the reverse-RPC filesystem authority for this client.
 			// The prior transport's `onClose` disposed the previous registration,
 			// so without this step any subsequent `resourceRead` / `resourceWrite`
@@ -2468,7 +2470,13 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		}
 	}
 
-	private _initializeDevContainers(client: IConnectedClient): void {
+	private _initializeClientExtensions(client: IConnectedClient): void {
+		if (this._agentService.artifactIntegrations) {
+			client.artifactIntegrations = client.initializationDisposables.add(new ArtifactIntegrationServer(this._agentService.artifactIntegrations));
+			client.initializationDisposables.add(client.artifactIntegrations.onDidUpdate(params => {
+				client.transport.send({ jsonrpc: '2.0', method: ArtifactIntegrationUpdateNotification, params });
+			}));
+		}
 		if (this._config.allowExtensionMethods !== false && this._devContainerService) {
 			client.devContainers = client.initializationDisposables.add(new DevContainerAgentHostProtocol(
 				async workspace => {

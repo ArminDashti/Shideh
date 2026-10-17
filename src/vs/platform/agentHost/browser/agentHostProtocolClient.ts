@@ -8,6 +8,8 @@
 import { DeferredPromise, TimeoutTimer } from '../../../base/common/async.js';
 import { CancellationError } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
+import { ArtifactIntegrationRequest, ArtifactIntegrationResponse, ArtifactIntegrationUpdate, isArtifactIntegrationResponse, isArtifactIntegrationUpdate } from '../../artifactIntegrations/common/artifactIntegrationProtocol.js';
+import { ArtifactChatAction } from '../common/artifactIntegrationChat.js';
 import { Disposable, DisposableStore, MutableDisposable, IReference } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { Schemas } from '../../../base/common/network.js';
@@ -37,7 +39,7 @@ import { normalizeLegacyActionEnvelope } from '../common/state/legacyProtocolCom
 import { serializeRepositorySources } from '../common/agentHostRepositorySource.js';
 import { getWorkingDirectoryInfo, getWorkingDirectoryUri, getWorkingDirectoryUris, mapWorkingDirectory } from '../common/agentHostWorkingDirectories.js';
 import { SUPPORTED_PROTOCOL_VERSIONS } from '../common/state/protocol/version/registry.js';
-import { isJsonRpcNotification, isJsonRpcRequest, isJsonRpcResponse, ProtocolError, ReconnectResultType, type ProtocolMessage, type IStateSnapshot } from '../common/state/sessionProtocol.js';
+import { isJsonRpcNotification, isJsonRpcRequest, isJsonRpcResponse, ProtocolError, ReconnectResultType, type JsonRpcNotification, type ProtocolMessage, type IStateSnapshot } from '../common/state/sessionProtocol.js';
 import { type IVscodeUpgradeResult } from '../common/state/protocolUpgrade.js';
 import { isClientTransport, NonReconnectableTransportError, type AgentHostTransportFailureReason, type IProtocolTransport } from '../common/state/sessionTransport.js';
 import { AhpErrorCodes, JsonRpcErrorCodes } from '../common/state/protocol/errors.js';
@@ -56,7 +58,7 @@ import { AgentHostClientConnectionKind, toAgentHostClientMeta } from '../common/
 import type { OtlpExportLogsParams } from '../common/state/protocol/channels-otlp/notifications.js';
 import type { TelemetryCapabilities } from '../common/state/protocol/channels-otlp/state.js';
 import type { Implementation, InitializeResult } from '../common/state/protocol/common/commands.js';
-import { observableValue, type IObservable } from '../../../base/common/observable.js';
+import { observableFromEvent, observableValue, type IObservable } from '../../../base/common/observable.js';
 import { isFileResourceRead } from '../common/resourceReadLogging.js';
 import { ResourceSet } from '../../../base/common/map.js';
 import { computeReconnectDelay, DEFAULT_RECONNECT_POLICY, hasExhaustedReconnectAttempts, type IRemoteAgentHostReconnectPolicy } from '../common/reconnectPolicy.js';
@@ -285,6 +287,10 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 
 	private readonly _onDidAction = this._register(new Emitter<ActionEnvelope>());
 	readonly onDidAction = this._onDidAction.event;
+	private readonly _artifactIntegrationUpdates = this._register(new Emitter<ArtifactIntegrationUpdate>());
+	readonly onDidArtifactIntegrationUpdate = this._artifactIntegrationUpdates.event;
+	private readonly _artifactIntegrationReset = this._register(new Emitter<void>());
+	readonly onDidArtifactIntegrationReset = this._artifactIntegrationReset.event;
 
 	private readonly _onDidNotification = this._register(new Emitter<INotification>());
 	readonly onDidNotification = this._onDidNotification.event;
@@ -314,6 +320,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 
 	private readonly _onDidChangeConnectionState = this._register(new Emitter<AgentHostClientState>());
 	readonly onDidChangeConnectionState = this._onDidChangeConnectionState.event;
+	readonly connectionAvailable = observableFromEvent(this, this.onDidChangeConnectionState, () => this._state.kind === AgentHostClientState.Connected);
 	private readonly _onDidReconnect = this._register(new Emitter<void>());
 	readonly onDidReconnect = this._onDidReconnect.event;
 	private readonly _onDidScheduleReconnect = this._register(new Emitter<void>());
@@ -1002,6 +1009,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			this._resetLivenessTimers();
 			this._transitionTo({ kind: AgentHostClientState.Connected });
 			gate.complete();
+			this._artifactIntegrationReset.fire();
 			this._onDidReconnect.fire();
 			this._logService.info(`[RemoteAgentHostProtocol] Reconnected to ${this._address}.`);
 			this._diagnostic('reconnect.succeeded', `attempt=${reconnect.attempt}`);
@@ -1434,6 +1442,47 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	dispatch(channel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | ClientAutomationAction | ClientAutomationRunAction | IRootConfigChangedAction): void {
 		const seq = this._subscriptionManager.dispatchOptimistic(channel, action);
 		this.dispatchAction(channel, action, this._clientId, seq);
+	}
+
+	async dispatchBackgroundChatAction(chat: string, action: ArtifactChatAction): Promise<void> {
+		if (this._state.kind !== AgentHostClientState.Connected) {
+			throw new Error('Cannot dispatch an artifact action while disconnected');
+		}
+		const sequence = this.nextClientSeq();
+		const store = new DisposableStore();
+		try {
+			await new Promise<void>((resolve, reject) => {
+				store.add(this.onDidAction(envelope => {
+					if (envelope.origin?.clientId === this._clientId && envelope.origin.clientSeq === sequence) {
+						if (envelope.rejectionReason) {
+							reject(new Error(envelope.rejectionReason));
+						} else {
+							resolve();
+						}
+					}
+				}));
+				store.add(this.onDidChangeConnectionState(state => {
+					if (state !== AgentHostClientState.Connected) {
+						reject(new Error('Artifact action acknowledgement was lost; delivery is uncertain'));
+					}
+				}));
+				store.add(new TimeoutTimer(() => reject(new Error('Artifact action acknowledgement timed out; delivery is uncertain')), 30_000));
+				this._transport.send({ jsonrpc: '2.0', method: 'dispatchAction', params: { channel: chat, clientSeq: sequence, action } });
+			});
+		} finally {
+			store.dispose();
+		}
+	}
+
+	async artifactIntegrationRequest(request: ArtifactIntegrationRequest): Promise<ArtifactIntegrationResponse> {
+		if (this._state.kind !== AgentHostClientState.Connected) {
+			throw new Error('The artifact coordinator is disconnected; the request was not submitted');
+		}
+		const response = await this._sendExtensionRequest(ArtifactIntegrationExtensionMethod, request);
+		if (!isArtifactIntegrationResponse(response)) {
+			throw new Error('Invalid artifact integration response');
+		}
+		return response;
 	}
 
 	/**

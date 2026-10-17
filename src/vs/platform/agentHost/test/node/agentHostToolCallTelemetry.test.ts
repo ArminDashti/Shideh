@@ -57,6 +57,7 @@ import { IAgentHostGitStateService } from '../../common/agentHostGitStateService
 import { AgentSideEffects } from '../../node/agentSideEffects.js';
 import type { IAgentHostCustomizationEnablementService } from '../../node/agentHostCustomizationEnablementService.js';
 import { AgentHostStateManager, IAgentHostStateManager } from '../../node/agentHostStateManager.js';
+import { AgentHostArtifactEventService, IAgentHostArtifactEventService } from '../../node/artifactIntegrations/agentHostArtifactRuntime.js';
 import { IAgentHostWorktreeIsolation } from '../../node/shared/worktreeIsolation.js';
 import { createNoopGitStateService, createNullSessionDataService } from '../common/sessionTestHelpers.js';
 import { createNoopWorktreeIsolation } from './worktreeTestHelpers.js';

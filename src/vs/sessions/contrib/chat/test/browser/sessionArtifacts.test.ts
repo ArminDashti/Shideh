@@ -16,6 +16,8 @@ import { IClipboardService } from '../../../../../platform/clipboard/common/clip
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -83,6 +85,7 @@ suite('Session Artifacts', () => {
 			session,
 			constObservable(new Set<string>()),
 			derived(reader => getSessionGitHubReferences(session.read(reader), reader, fromChat ? upcastPartial<IChat>({ workspace }) : undefined)),
+			constObservable(undefined),
 			new class extends mock<IClipboardService>() { }(),
 			new class extends mock<ICommandService>() { }(),
 			configurationService,
@@ -97,6 +100,8 @@ suite('Session Artifacts', () => {
 				override async open(): Promise<boolean> { return true; }
 			}(),
 			new class extends mock<ISessionsManagementService>() {
+				override readonly onDidChangeSessions = Event.None;
+				override async acquireArtifactIntegration() { return undefined; }
 				override async removeSessionArtifact(_session: IActiveSession, artifactId: string): Promise<void> {
 					removed.push(artifactId);
 					if (removalError) {
@@ -109,6 +114,7 @@ suite('Session Artifacts', () => {
 				override readonly onDidChangeWorkspaceFolders = Event.None;
 			}(),
 			upcastPartial<ISessionsGitHubService>({ getCommit: getCommit ?? (() => commit ? Promise.resolve(commit) : new Promise(() => { })) }),
+			new class extends mock<IInstantiationService>() { }(),
 			new NullLogService(),
 			new class extends mock<ITelemetryService>() {
 				override publicLog2(eventName?: string, data?: unknown): void {

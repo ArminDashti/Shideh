@@ -68,6 +68,7 @@ const AgentHostDetachedWorktreeCapabilityMetaKey = 'vscode.detachedWorktrees';
 
 /** Namespaced VS Code implementation capabilities carried alongside standardized AHP initialize capabilities. */
 export interface IAgentHostExtensionInitializeResultMeta extends Record<string, unknown> {
+	readonly [AgentHostArtifactIntegrationsCapabilityMetaKey]?: 1;
 	readonly [AgentHostChatStateFileCapabilityMetaKey]?: true;
 	readonly [AgentHostDetachedWorktreeCapabilityMetaKey]?: true;
 	readonly [AgentHostArtifactRemovalCapabilityMetaKey]?: true;
@@ -185,6 +186,7 @@ export interface IAgentHostExtensionCommandMap {
 	[ImportSessionExtensionMethod]: { params: ValidatorType<typeof importSessionParamsValidator>; result: void };
 	[ReportAgentHostFirstResponseExtensionMethod]: { params: IAgentHostFirstResponseDiagnostic; result: void };
 	[ReportChatUserInteractionExtensionMethod]: { params: IChatUserInteractionTiming; result: void };
+	[ArtifactIntegrationExtensionMethod]: { params: ArtifactIntegrationRequest; result: ArtifactIntegrationResponse };
 	[DevContainerIsDockerAvailableExtensionMethod]: { params: undefined; result: boolean };
 	[DevContainerConnectExtensionMethod]: { params: ValidatorType<typeof devContainerConnectParamsValidator>; result: IDevContainerAgentHostConnectResult };
 	[DevContainerDisconnectExtensionMethod]: { params: ValidatorType<typeof devContainerConnectionParamsValidator>; result: void };
@@ -251,6 +253,7 @@ export interface IAgentHostExtensionCommandMap {
 }
 
 export interface IAgentHostExtensionNotificationMap {
+	[ArtifactIntegrationUpdateNotification]: ArtifactIntegrationUpdate;
 	[DevContainerRelayMessageNotification]: ValidatorType<typeof devContainerRelayMessageValidator>;
 	[DevContainerRelayCloseNotification]: ValidatorType<typeof devContainerConnectionParamsValidator>;
 	[DevContainerCloseConnectionNotification]: ValidatorType<typeof devContainerConnectionParamsValidator>;

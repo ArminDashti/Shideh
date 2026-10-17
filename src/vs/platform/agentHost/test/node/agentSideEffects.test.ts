@@ -72,6 +72,7 @@ import { AgentHostLocalCommands, IAgentHostLocalCommands } from '../../node/loca
 import { IAgentHostTerminalManager } from '../../node/agentHostTerminalManager.js';
 import { SessionDatabase } from '../../node/sessionDatabase.js';
 import { AgentHostStateManager, IAgentHostStateManager } from '../../node/agentHostStateManager.js';
+import { AgentHostArtifactEventService, IAgentHostArtifactEventService } from '../../node/artifactIntegrations/agentHostArtifactRuntime.js';
 import { withChatSurfaceMeta } from '../../common/meta/agentChatSurfaceMeta.js';
 import { ChatInputRequestPurpose, withChatInputRequestPurpose } from '../../common/meta/agentChatInputRequestMeta.js';
 import { AgentHostCustomizationEnablementService, IAgentHostCustomizationEnablementService } from '../../node/agentHostCustomizationEnablementService.js';
