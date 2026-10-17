@@ -707,5 +707,6 @@ class StickyFoldingIcon {
 	public setVisible(visible: boolean) {
 		this.domNode.style.cursor = visible ? 'pointer' : 'default';
 		this.domNode.style.opacity = visible ? '1' : '0';
+		this.domNode.style.pointerEvents = visible ? 'auto' : 'none';
 	}
 }
