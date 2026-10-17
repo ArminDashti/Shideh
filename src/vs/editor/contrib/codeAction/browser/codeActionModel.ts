@@ -98,7 +98,11 @@ class CodeActionOracle extends Disposable {
 				}
 			} else if (column === model.getLineMaxColumn(lineNumber)) {
 				// look only left
-				if (/\s/.test(line[line.length - 1])) {
+				if (/^\s*$/g.test(line)) {
+					if (!showOnEmptyLines()) {
+						return undefined;
+					}
+				} else if (/\s/.test(line[line.length - 1])) {
 					return undefined;
 				}
 			} else {
