@@ -2394,6 +2394,30 @@ const MULTI_TURN: IFixtureMessage[] = [
 	},
 ];
 
+const SCROLL_DOWN_BUTTON: IFixtureMessage[] = [
+	...MULTI_TURN,
+	{
+		user: 'How can I verify the changes?',
+		assistant: [
+			{ kind: 'markdown', text: 'Run the targeted tests, inspect the rendered control, and review the final diff.' },
+		],
+	},
+];
+
+async function renderScrollDownButton(context: ComponentFixtureContext, hover = false): Promise<void> {
+	await renderChatWidget(context, {
+		messages: SCROLL_DOWN_BUTTON,
+		onRendered: ({ listWidget }) => {
+			listWidget.setScrollLock(false);
+			listWidget.scrollTop = 0;
+		},
+	});
+
+	if (hover) {
+		context.container.querySelector<HTMLElement>('.chat-scroll-down')?.dispatchEvent(new MouseEvent('mouseover'));
+	}
+}
+
 // Code blocks that follow or are nested in list items should have symmetric spacing
 // above and below. This also covers tight lists, where prose before a code block is a
 // text node and the code block is therefore still the first element child.
@@ -2846,6 +2870,14 @@ export default defineThemedFixtureGroup({ path: 'chat/widget/' }, {
 		'issue-309796-missing-backslash': defineComponentFixture({ render: ctx => renderChatWidget(ctx, { messages: ISSUE_309796_MISSING_BACKSLASH }) }),
 	}),
 	MultiTurn: defineComponentFixture({ render: ctx => renderChatWidget(ctx, { messages: MULTI_TURN }) }),
+	ScrollDownButton: defineComponentFixture({
+		render: renderScrollDownButton,
+		additionalThemes: ['darkHighContrast'],
+	}),
+	ScrollDownButtonHover: defineComponentFixture({
+		render: context => renderScrollDownButton(context, true),
+		additionalThemes: ['darkHighContrast'],
+	}),
 	LastResponseContentHover: defineComponentFixture({ render: renderLastResponseHover }),
 	ResponseActionKeyboardFocus: defineComponentFixture({ render: ctx => renderKeyboardFocus(ctx, 'response-action') }),
 	RequestTimestampKeyboardFocus: defineComponentFixture({ render: ctx => renderKeyboardFocus(ctx, 'request-timestamp') }),
