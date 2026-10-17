@@ -226,6 +226,7 @@ export class CodeApplication extends Disposable {
 	private windowsMainService: IWindowsMainService | undefined;
 	private auxiliaryWindowsMainService: IAuxiliaryWindowsMainService | undefined;
 	private nativeHostMainService: INativeHostMainService | undefined;
+	private meteredConnectionMainService: MeteredConnectionMainService | undefined;
 
 	constructor(
 		private readonly mainProcessNodeIpcServer: NodeIPCServer | undefined,
@@ -741,6 +742,10 @@ export class CodeApplication extends Disposable {
 			}
 		});
 
+		validatedIpcMain.on(METERED_CONNECTION_CHANGED_CHANNEL, (_event, isMetered: boolean) => {
+			this.meteredConnectionMainService?.setIsConnectionMetered(isMetered);
+		});
+
 		//#endregion
 	}
 
@@ -992,6 +997,7 @@ export class CodeApplication extends Disposable {
 		const windowsMainService = this.windowsMainService = accessor.get(IWindowsMainService);
 		const urlService = accessor.get(IURLService);
 		const nativeHostMainService = this.nativeHostMainService = accessor.get(INativeHostMainService);
+		this.meteredConnectionMainService = accessor.get(IMeteredConnectionService) as MeteredConnectionMainService;
 		const dialogMainService = accessor.get(IDialogMainService);
 		const protocolMainService = accessor.get(IProtocolMainService);
 

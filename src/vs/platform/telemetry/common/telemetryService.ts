@@ -75,6 +75,9 @@ export class TelemetryService implements ITelemetryService {
 	private _isExperimentPropertySet = false;
 	private _flushTimeout: ReturnType<typeof setTimeout> | undefined;
 
+	private readonly _meteredConnectionService: IMeteredConnectionService | undefined;
+	private _meteredBufferedEvents: IPendingEvent[] = [];
+
 	private readonly _disposables = new DisposableStore();
 	private _cleanupPatterns: RegExp[] = [];
 
@@ -139,6 +142,16 @@ export class TelemetryService implements ITelemetryService {
 			this._flushTimeout = setTimeout(() => this._flushPendingEvents(), TelemetryService.BUFFER_FLUSH_TIMEOUT);
 		} else {
 			this._isExperimentPropertySet = true;
+		}
+
+		// Set up metered connection handling - buffer events when metered, flush when recovered
+		this._meteredConnectionService = config.meteredConnectionService;
+		if (this._meteredConnectionService) {
+			this._disposables.add(this._meteredConnectionService.onDidChangeIsConnectionMetered(() => {
+				if (!this._meteredConnectionService!.isConnectionMetered) {
+					this._flushMeteredBufferedEvents();
+				}
+			}));
 		}
 	}
 
@@ -206,6 +219,7 @@ export class TelemetryService implements ITelemetryService {
 
 	dispose(): void {
 		// Flush any remaining pending events before disposing
+		this._flushMeteredBufferedEvents();
 		this._flushPendingEvents();
 		this._disposables.dispose();
 	}
@@ -229,7 +243,35 @@ export class TelemetryService implements ITelemetryService {
 			return;
 		}
 
+		// Buffer events when connection is metered
+		if (this._meteredConnectionService?.isConnectionMetered) {
+			if (this._meteredBufferedEvents.length < TelemetryService.MAX_BUFFER_SIZE) {
+				this._meteredBufferedEvents.push({ eventName, eventLevel, data });
+			}
+			return;
+		}
+
 		this._doLog(eventName, eventLevel, data);
+	}
+
+	private _flushMeteredBufferedEvents(): void {
+		if (this._meteredBufferedEvents.length === 0) {
+			return;
+		}
+
+		if (!this._isExperimentPropertySet) {
+			for (const event of this._meteredBufferedEvents) {
+				if (this._pendingEvents.length < TelemetryService.MAX_BUFFER_SIZE) {
+					this._pendingEvents.push(event);
+				}
+			}
+		} else {
+			for (const event of this._meteredBufferedEvents) {
+				this._doLog(event.eventName, event.eventLevel, event.data);
+			}
+		}
+
+		this._meteredBufferedEvents = [];
 	}
 
 	private _doLog(eventName: string, eventLevel: TelemetryLevel, data?: ITelemetryData) {

@@ -2080,6 +2080,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		if (!this.galleryService.isEnabled()) {
 			return;
 		}
+		if (reason && this.meteredConnectionService.isConnectionMetered) {
+			this.logService.trace(`[Extensions]: Skipping checking for updates because connection is metered`);
+			return;
+		}
 		const extensions: Extensions[] = [];
 		if (this.localExtensions) {
 			extensions.push(this.localExtensions);
@@ -2268,7 +2272,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		this.updatesCheckDelayer.cancel();
 		this.updatesCheckDelayer.trigger(async () => {
 			if (this.isAutoCheckUpdatesEnabled()) {
-				await this.checkForUpdates();
+				await this.checkForUpdates('Periodic check');
 			}
 			this.eventuallyCheckForUpdates();
 		}, immediate ? 0 : this.getUpdatesCheckInterval()).then(undefined, err => null);

@@ -64,6 +64,7 @@ export class TelemetryService extends Disposable implements ITelemetryService {
 				piiPaths: getPiiPathsFromEnvironment(environmentService),
 				sendErrorTelemetry: true,
 				waitForExperimentProperties: experimentsEnabled(configurationService, productService, environmentService),
+				meteredConnectionService,
 			};
 
 			this.impl = this._register(new BaseTelemetryService(config, configurationService, productService));

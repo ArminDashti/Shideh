@@ -74,6 +74,11 @@ abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
+		if (!explicit && this.meteredConnectionService.isConnectionMetered) {
+			this.logService.info('update#checkForUpdates - skipping update check because connection is metered');
+			return;
+		}
+
 		this.doCheckForUpdates(explicit);
 	}
 
