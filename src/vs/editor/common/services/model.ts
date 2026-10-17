@@ -22,6 +22,8 @@ export interface IModelService {
 
 	updateModel(model: ITextModel, value: string | ITextBufferFactory, reason?: TextModelEditSource): void;
 
+	getRecentModelContentChangeEvents(model: ITextModel): readonly IModelContentChangedEvent[];
+
 	destroyModel(resource: URI): void;
 
 	getModels(): ITextModel[];
