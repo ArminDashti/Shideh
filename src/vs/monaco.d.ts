@@ -3661,6 +3661,13 @@ declare namespace monaco.editor {
 		 */
 		wordWrapColumn?: number;
 		/**
+		 * Control automatic word wrapping for minified files.
+		 * When 'off' (default), files dominated by long lines (more than half of the characters in lines longer than 10,000 characters) will automatically enable word wrapping.
+		 * When 'on', automatic word wrapping for such files is disabled.
+		 * Defaults to 'off'.
+		 */
+		wordWrapMinified?: 'on' | 'off';
+		/**
 		 * Control indentation of wrapped lines. Can be: 'none', 'same', 'indent' or 'deepIndent'.
 		 * Defaults to 'same' in vscode and to 'none' in monaco-editor.
 		 */
