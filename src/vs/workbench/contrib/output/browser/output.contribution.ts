@@ -698,7 +698,7 @@ class OutputContribution extends Disposable implements IWorkbenchContribution {
 					id: `workbench.actions.${OUTPUT_VIEW_ID}.clearFilterText`,
 					title: localize('clearFiltersText', "Clear filters text"),
 					keybinding: {
-						when: OUTPUT_FILTER_FOCUS_CONTEXT,
+						when: CONTEXT_IN_OUTPUT,
 						weight: KeybindingWeight.WorkbenchContrib,
 						primary: KeyCode.Escape
 					},
