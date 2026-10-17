@@ -1884,6 +1884,11 @@ export interface MainThreadLanguageModelToolsShape extends IDisposable {
 	$unregisterTool(name: string): void;
 }
 
+export interface MainThreadChatCustomInstructionsShape extends IDisposable {
+	$registerProvider(handle: number): void;
+	$unregisterProvider(handle: number): void;
+}
+
 export type IChatRequestVariableValueDto = Dto<IChatRequestVariableValue>;
 
 export interface ExtHostLanguageModelToolsShape {
