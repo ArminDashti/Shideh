@@ -1938,6 +1938,9 @@ registerAction2(class extends Action2 {
 // Chat editors use widget-backed pickers rather than the active Sessions context.
 const IsRunningSessionChat = ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ChatContextKeys.inChatEditor.negate());
 
+// Chat editors use widget-backed pickers rather than the active Sessions context.
+const IsRunningSessionChat = ContextKeyExpr.and(ChatContextKeyExprs.isAgentHostSession, ChatContextKeys.inChatEditor.negate());
+
 const RUNNING_SESSION_CONFIG_PICKER_ID = 'sessions.agentHost.runningSessionConfigPicker';
 
 registerAction2(class extends Action2 {
