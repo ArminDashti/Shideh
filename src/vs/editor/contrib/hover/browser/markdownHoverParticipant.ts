@@ -278,6 +278,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 	public renderedHoverParts: RenderedMarkdownHoverPart[];
 
 	private _ongoingHoverOperations: Map<HoverProvider, { verbosityDelta: number; tokenSource: CancellationTokenSource }> = new Map();
+	private _lastScrollEvent: ScrollEvent | undefined;
 
 	private readonly _disposables = new DisposableStore();
 
@@ -380,6 +381,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 	}
 
 	public handleScroll(e: ScrollEvent): void {
+		this._lastScrollEvent = e;
 		this.renderedHoverParts.forEach(renderedHoverPart => {
 			const actionsContainerInner = renderedHoverPart.actionsContainer;
 			if (!actionsContainerInner) {
@@ -500,6 +502,14 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		);
 		currentRenderedHoverPart.dispose();
 		this.renderedHoverParts[index] = newRenderedHoverPart;
+		// Reapply scroll positioning after updating the hover part.
+		// The new actionsContainerInner element needs its position recalculated based on the current
+		// scroll state to prevent the buttons from jumping to their default CSS position.
+		// The position calculation in handleScroll uses current DOM metrics (offsetTop, clientHeight),
+		// so it will correctly adapt to the new content dimensions.
+		if (this._lastScrollEvent) {
+			this.handleScroll(this._lastScrollEvent);
+		}
 		return newRenderedHoverPart;
 	}
 
