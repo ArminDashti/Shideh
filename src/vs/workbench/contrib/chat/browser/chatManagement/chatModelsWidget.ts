@@ -1191,7 +1191,10 @@ export class ChatModelsWidget extends Disposable {
 			}
 		});
 
-		const loadingPromise = this.extensionService.whenInstalledExtensionsRegistered().then(() => this.viewModel.refresh());
+		const loadingPromise = this.extensionService.whenInstalledExtensionsRegistered().then(() => {
+			this.updateAddModelsButton();
+			return this.viewModel.refresh();
+		});
 		this.editorProgressService.showWhile(loadingPromise, 300);
 	}
 

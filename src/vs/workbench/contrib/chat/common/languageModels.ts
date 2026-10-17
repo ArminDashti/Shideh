@@ -781,6 +781,11 @@ export interface ILanguageModelsService {
 	 * Fetched from the chat control manifest.
 	 */
 	readonly restrictedChatParticipants: IObservable<{ [name: string]: string[] }>;
+
+	/**
+	 * Returns true if there are any user-selectable models from vendors other than Copilot.
+	 */
+	readonly hasNonCopilotUserSelectableModels: boolean;
 }
 
 export function getLanguageModelProviderDisplayName(languageModelsService: ILanguageModelsService, vendor: string): string {
@@ -1130,6 +1135,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	/** Secret keys touched during a vendor's last resolve. Used to invalidate on `onDidChangeSecret`. */
 	private readonly _vendorSecretKeys = new Map<string, Set<string>>();
 
+	private readonly _hasNonCopilotUserSelectableModels: IContextKey<boolean>;
+	get hasNonCopilotUserSelectableModels(): boolean { return !!this._hasNonCopilotUserSelectableModels.get(); }
+
 	private readonly _onLanguageModelChange = this._store.add(new Emitter<string>());
 	readonly onDidChangeLanguageModels: Event<string> = this._onLanguageModelChange.event;
 
@@ -1358,6 +1366,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 		if (!provider) {
 			this._logService.warn(`[LM] No provider registered for vendor ${vendorId}`);
+			const wasResolved = this._modelsGroups.has(vendorId);
+			const oldGroups = this._modelsGroups.get(vendorId) ?? [];
+			this._modelsGroups.set(vendorId, []);
+			const oldModels = this._clearModelCache(vendorId);
+			this._clearModelConfigurations(vendorId);
+			if (!wasResolved || oldGroups.length > 0 || oldModels.size > 0) {
+				this._onLanguageModelChange.fire(vendorId);
+			}
 			return;
 		}
 

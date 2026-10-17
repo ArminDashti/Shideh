@@ -199,7 +199,7 @@ class ChatManagementActionsContribution extends Disposable implements IWorkbench
 			CONTEXT_MODELS_EDITOR.toNegated(),
 			ResourceContextKey.Resource.isEqualTo(modelsConfigurationFile.toString()),
 			ContextKeyExpr.not('isInDiffEditor'),
-			LANGUAGE_MODELS_ENTITLEMENT_PRECONDITION
+			LANGUAGE_MODELS_SETUP_PRECONDITION
 		);
 
 		MenuRegistry.appendMenuItem(MenuId.EditorTitle, {
