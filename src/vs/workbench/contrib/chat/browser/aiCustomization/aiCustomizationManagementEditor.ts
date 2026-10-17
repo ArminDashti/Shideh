@@ -36,6 +36,7 @@ import { EditorPane } from '../../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../../common/editor.js';
 import { IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { WorkbenchList } from '../../../../../platform/list/browser/listService.js';
 import { IListRenderer, IListVirtualDelegate } from '../../../../../base/browser/ui/list/list.js';
@@ -56,9 +57,13 @@ import { PluginListWidget } from './pluginListWidget.js';
 import { ToolsListWidget } from './toolsListWidget.js';
 import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE } from '../agentSessions/agentHost/agentHostToolSetEnablementService.js';
 import {
+	AI_CUSTOMIZATION_ITEM_STORAGE_KEY,
+	AI_CUSTOMIZATION_ITEM_TYPE_KEY,
+	AI_CUSTOMIZATION_ITEM_URI_KEY,
 	AI_CUSTOMIZATION_MANAGEMENT_EDITOR_ID,
 	AI_CUSTOMIZATION_MANAGEMENT_SIDEBAR_WIDTH_KEY,
 	AI_CUSTOMIZATION_MANAGEMENT_SELECTED_SECTION_KEY,
+	AICustomizationManagementEmbeddedEditorTitleMenuId,
 	AICustomizationManagementSection,
 	AICustomizationSource,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR,
@@ -593,6 +598,8 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private editorItemDescriptionElement!: HTMLElement;
 	private editorItemPathElement!: HTMLAnchorElement;
 	private editorSaveIndicator!: HTMLElement;
+	private editorHeaderToolbar: MenuWorkbenchToolBar | undefined;
+	private editorHeaderToolbarKeys: { uri: IContextKey<string>; storage: IContextKey<string>; type: IContextKey<string> } | undefined;
 	private readonly editorModelChangeDisposables = this._register(new DisposableStore());
 	private readonly editorPreviewDisposables = this._register(new DisposableStore());
 	private readonly editorItemIconDisposables = this._register(new DisposableStore());
@@ -709,7 +716,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		@IThemeService themeService: IThemeService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IOpenerService private readonly openerService: IOpenerService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IAICustomizationWorkspaceService private readonly workspaceService: IAICustomizationWorkspaceService,
@@ -4913,6 +4920,18 @@ export class AICustomizationManagementEditor extends EditorPane {
 		return this._editorContentChanged
 			&& this.currentEditingSource === AICustomizationSources.builtin
 			&& (this.currentEditingPromptType === PromptsType.prompt || this.currentEditingPromptType === PromptsType.skill);
+	}
+
+	private updateEditorHeaderToolbarContext(uri: URI | undefined, storage: AICustomizationPromptsStorage | undefined, promptType: PromptsType | undefined, name: string | undefined): void {
+		if (!this.editorHeaderToolbar || !this.editorHeaderToolbarKeys) {
+			return;
+		}
+		this.editorHeaderToolbarKeys.uri.set(uri ? uri.toString() : '');
+		this.editorHeaderToolbarKeys.storage.set(storage ? String(storage) : '');
+		this.editorHeaderToolbarKeys.type.set(promptType ?? '');
+		this.editorHeaderToolbar.context = uri
+			? { uri, storage, promptType, name }
+			: undefined;
 	}
 
 	private updateInputDirtyState(): void {
