@@ -44,6 +44,9 @@ export class UpdateTooltip extends Disposable {
 	// Separator
 	private readonly separator: HTMLElement;
 
+	// Separator
+	private readonly separator: HTMLElement;
+
 	// Progress section
 	private readonly progressContainer: HTMLElement;
 	private readonly progressFill: HTMLElement;
@@ -58,7 +61,7 @@ export class UpdateTooltip extends Disposable {
 	private readonly downloadedSizeNode: HTMLElement;
 	private readonly downloadSpeedNode: HTMLElement;
 
-	// State-specific message
+	// Message
 	private readonly messageNode: HTMLElement;
 
 	// Button bar
@@ -206,6 +209,55 @@ export class UpdateTooltip extends Disposable {
 		this.stepperContainer.style.display = '';
 		dom.clearNode(this.stepperContainer);
 
+		for (let i = 0; i < allSteps.length; i++) {
+			if (i > 0) {
+				const line = dom.append(this.stepperContainer, dom.$('.step-line'));
+				if (i <= activeStep) {
+					line.classList.add('completed');
+				}
+			}
+			const step = dom.append(this.stepperContainer, dom.$('.step'));
+			const circle = dom.append(step, dom.$('.step-circle'));
+			const label = dom.append(step, dom.$('.step-label'));
+			label.textContent = allSteps[i];
+			if (i < activeStep) {
+				step.classList.add('completed');
+				circle.classList.add(...ThemeIcon.asClassNameArray(Codicon.check));
+				label.textContent = completedLabels[i];
+			} else if (i === activeStep) {
+				step.classList.add('active');
+				if (inProgress) {
+					step.classList.add('in-progress');
+				}
+			}
+		}
+	}
+
+	/**
+	 * Sets stepper to show steps with completed/active/pending states.
+	 * @param activeStep 0=Download, 1=Install, 2=Apply. -1 hides stepper.
+	 * @param inProgress Whether the active step is in-progress (shows animation).
+	 */
+	/**
+	 * Shows a contextual stepper based on the active step.
+	 * Shows all steps with completed/active/pending states.
+	 */
+	private setStepper(activeStep: number, inProgress = false) {
+		const allSteps = [
+			localize('updateTooltip.stepDownload', "Download"),
+			localize('updateTooltip.stepInstall', "Install"),
+			localize('updateTooltip.stepRestart', "Restart"),
+		];
+		const completedLabels = [
+			localize('updateTooltip.stepDownloaded', "Downloaded"),
+			localize('updateTooltip.stepInstalled', "Installed"),
+			localize('updateTooltip.stepRestarted', "Restarted"),
+		];
+
+		this.stepperContainer.style.display = '';
+		dom.clearNode(this.stepperContainer);
+
+		// Show all steps: completed (check), active (filled dot), pending (empty dot)
 		for (let i = 0; i < allSteps.length; i++) {
 			if (i > 0) {
 				const line = dom.append(this.stepperContainer, dom.$('.step-line'));
@@ -469,14 +521,8 @@ export class UpdateTooltip extends Disposable {
 			this.latestVersionCopyButton.tabIndex = -1;
 		}
 
-		// Release date
-		const releaseDate = update?.timestamp ?? tryParseDate(this.productService.date);
-		if (typeof releaseDate === 'number' && releaseDate > 0) {
-			this.releaseDateNode.textContent = localize('updateTooltip.releasedLabel', "Released {0}", formatDate(releaseDate));
-			this.releaseDateNode.style.display = '';
-		} else {
-			this.releaseDateNode.style.display = 'none';
-		}
+		// Always hide version details
+		this.versionDetails.style.display = 'none';
 
 		// Release notes button
 		this.releaseNotesVersion = version ?? this.productService.version;

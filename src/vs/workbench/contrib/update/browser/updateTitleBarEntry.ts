@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { BaseActionViewItem, IBaseActionViewItemOptions } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IManagedHoverContent, IManagedHoverOptions, IHoverWidget } from '../../../../base/browser/ui/hover/hover.js';
 import { IAction, WorkbenchActionExecutedClassification, WorkbenchActionExecutedEvent } from '../../../../base/common/actions.js';
@@ -97,6 +98,8 @@ registerAction2(class UpdateIndicatorTitleBarAction extends Action2 {
  * Displays update status and actions in the title bar.
  */
 export class UpdateTitleBarContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.updateTitleBar';
+
 	private readonly context!: IContextKey<boolean>;
 	private readonly tooltip!: UpdateTooltip;
 	private state!: State;
@@ -474,6 +477,36 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 				this.hintTimer = undefined;
 			}, 3000);
 		}, 500);
+	}
+
+	private startPeriodicHint() {
+		if (!this.content) {
+			return;
+		}
+
+		// Show after a short delay to allow DOM attachment and CSS transition
+		this.hintTimer = setTimeout(() => {
+			this.flashHint();
+			this.hintTimer = undefined;
+		}, 500);
+
+		// Then repeat every 60 seconds
+		this.hintInterval = mainWindow.setInterval(() => this.flashHint(), 60_000);
+	}
+
+	private flashHint() {
+		if (!this.content) {
+			return;
+		}
+
+		dom.getWindow(this.content).requestAnimationFrame(() => {
+			this.content?.classList.add('hint-visible');
+		});
+
+		this.hintTimer = setTimeout(() => {
+			this.content?.classList.remove('hint-visible');
+			this.hintTimer = undefined;
+		}, 3000);
 	}
 
 	private renderProgressState(content: HTMLElement, percentage?: number) {
