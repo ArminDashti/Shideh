@@ -29,6 +29,14 @@ const net = require('net');
 const systemCertificatesV2Default = false;
 const useElectronFetchDefault = false;
 
+// ESM-uncomment-begin
+// import { createRequire } from 'node:module';
+// const require = createRequire(import.meta.url);
+// const http = require('http');
+// const https = require('https');
+// const tls = require('tls');
+// ESM-uncomment-end
+
 export function connectProxyResolver(
 	extHostWorkspace: IExtHostWorkspaceProvider,
 	configProvider: ExtHostConfigProvider,

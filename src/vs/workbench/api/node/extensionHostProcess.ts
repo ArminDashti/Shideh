@@ -30,6 +30,11 @@ import './extHost.node.services.js';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
+// ESM-uncomment-begin
+// import { createRequire } from 'node:module';
+// const require = createRequire(import.meta.url);
+// ESM-uncomment-end
+
 interface ParsedExtHostArgs {
 	transformURIs?: boolean;
 	skipWorkspaceStorageLock?: boolean;
