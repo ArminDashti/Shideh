@@ -93,6 +93,17 @@ export interface ChatState {
 	 * obtain it by subscribing to the chat channel.
 	 */
 	changesets?: Changeset[];
+	/**
+	 * Work running in the background for this chat, such as shells and
+	 * subagents. Only active work is listed: hosts remove an entry once the work
+	 * ends. An entry may have been started by an earlier turn rather than the
+	 * {@link ChatState.activeTurn | activeTurn}.
+	 *
+	 * Like {@link ChatState.changesets | changesets}, this is intentionally
+	 * absent from {@link ChatSummary}; clients obtain it by subscribing to the
+	 * chat channel.
+	 */
+	backgroundWork?: BackgroundWork[];
 
 	// ── Conversation contents ──────────────────────────────────────────
 	/** Completed turns */

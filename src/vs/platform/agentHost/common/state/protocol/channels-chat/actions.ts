@@ -530,6 +530,31 @@ export interface ChatActivityChangedAction {
 }
 
 /**
+ * Adds or replaces a {@link BackgroundWork} entry by `id`, independently of turn
+ * state.
+ *
+ * @category Chat Actions
+ * @version 1
+ */
+export interface ChatBackgroundWorkSetAction {
+	type: ActionType.ChatBackgroundWorkSet;
+	/** The complete entry. */
+	work: BackgroundWork;
+}
+
+/**
+ * Removes finished or no-longer-tracked background work; unknown IDs are a no-op.
+ *
+ * @category Chat Actions
+ * @version 1
+ */
+export interface ChatBackgroundWorkRemovedAction {
+	type: ActionType.ChatBackgroundWorkRemoved;
+	/** The {@link BackgroundWorkBase.id | id} of the entry to remove. */
+	id: string;
+}
+
+/**
  * Whether this chat is structurally eligible to be the source of `moveChat`
  * changed.
  *
@@ -888,6 +913,8 @@ export type ChatAction =
 	| ChatErrorAction
 	| ChatTurnResumeAction
 	| ChatActivityChangedAction
+	| ChatBackgroundWorkSetAction
+	| ChatBackgroundWorkRemovedAction
 	| ChatMovableChangedAction
 	| ChatChangesetsChangedAction
 	| ChatWorkingDirectorySetAction

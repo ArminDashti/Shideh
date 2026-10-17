@@ -26,6 +26,7 @@ import { AGENT_SESSION_RENAME_ACTION_ID } from '../agentSessions/agentSessions.j
 import { IChatWidgetService, isIChatResourceViewContext } from '../chat.js';
 import { ChatEditingShowChangesAction, ViewPreviousEditsAction } from '../chatEditing/chatEditingActions.js';
 import { getModePickerAccessibilityHelp } from '../agentSessions/agentHost/agentHostModePickerPresentation.js';
+import { getBackgroundShellsPillAccessibilityHelp } from '../sessionBackgroundShellsControl.js';
 
 export class PanelChatAccessibilityHelp implements IAccessibleViewImplementation {
 	readonly priority = 107;

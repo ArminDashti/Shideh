@@ -37,6 +37,19 @@ export const SESSION_CHAT_PILL_KINDS: readonly SessionChatPillKind[] = [
 	SessionChatPillKind.BackgroundShells,
 ];
 
+/** Provider-neutral metadata for an active background shell owned by a chat. */
+export interface IChatBackgroundShell {
+	/** Identity of the entry, unique within the chat. */
+	readonly id: string;
+	/** The agent's own ID for the shell, when it reports one. Only shown to the user. */
+	readonly shellId?: string;
+	readonly description: string;
+	readonly command: string;
+	readonly startedAt: string;
+	/** Whether the shell is tied to its agent's lifetime, when the agent reports it. */
+	readonly attachmentMode?: 'attached' | 'detached';
+}
+
 export function getSessionChatPillLabel(kind: SessionChatPillKind): string {
 	switch (kind) {
 		case SessionChatPillKind.Changes: return localize('sessionChatPills.changes', "Changes");
