@@ -499,11 +499,11 @@ export class ChatToolConfirmationCarouselPart extends Disposable {
 		if (!messages?.title) {
 			return undefined;
 		}
-		return this.truncateTitle(this.toPlainText(messages.title));
+		const full = this.toPlainText(messages.title).replace(/\s+/g, ' ').trim();
+		return { display: this.truncateTitle(full), full };
 	}
 
 	private truncateTitle(text: string): string {
-		text = text.replace(/\s+/g, ' ').trim();
 		const maxLength = 100;
 		return text.length > maxLength ? `${text.substring(0, maxLength)}\u2026` : text;
 	}
