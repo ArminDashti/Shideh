@@ -5014,10 +5014,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			reader.store.add(scopedInstantiationService.createInstance(MenuWorkbenchButtonBar, actionsContainer, isSessionMenu ? MenuId.ChatEditingSessionChangesToolbar : MenuId.ChatEditingWidgetToolbar, {
 				telemetrySource: this.options.menus.telemetrySource,
 				small: true,
-				menuOptions: sessionResource ? (isSessionMenu ? {
-					args: [sessionResource, this.agentSessionsService.getSession(sessionResource)?.metadata],
-				} : {
-					arg: {
+				menuOptions: {
+					arg: sessionResource && (isSessionMenu ? [sessionResource, this.agentSessionsService.getSession(sessionResource)?.metadata] : {
 						$mid: MarshalledId.ChatViewContext,
 						sessionResource,
 						inputUri: this.inputUri,
