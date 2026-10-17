@@ -115,6 +115,8 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	private focusedAgentSessionChildContextKey: IContextKey<boolean>;
 	private hasMultipleAgentSessionsSelectedContextKey: IContextKey<boolean>;
 
+	private readonly viewStateStorageKey: string;
+
 	constructor(
 		private readonly container: HTMLElement,
 		private readonly options: IAgentSessionsControlOptions,
@@ -132,6 +134,8 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	) {
 		super();
 
+		this.viewStateStorageKey = `agentSessions.viewState.${options.source}`;
+
 		this.focusedAgentSessionArchivedContextKey = ChatContextKeys.isArchivedAgentSession.bindTo(this.contextKeyService);
 		this.focusedAgentSessionPinnedContextKey = ChatContextKeys.isPinnedAgentSession.bindTo(this.contextKeyService);
 		this.focusedAgentSessionReadContextKey = ChatContextKeys.isReadAgentSession.bindTo(this.contextKeyService);
@@ -147,6 +151,25 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 
 	private registerListeners(): void {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.revealAndFocusActiveEditorSession()));
+	}
+
+	private loadViewState(): IAsyncDataTreeViewState | undefined {
+		const raw = this.storageService.get(this.viewStateStorageKey, StorageScope.PROFILE);
+		if (!raw) {
+			return undefined;
+		}
+
+		try {
+			return JSON.parse(raw) as IAsyncDataTreeViewState;
+		} catch {
+			return undefined;
+		}
+	}
+
+	private saveViewState(): void {
+		if (this.sessionsList) {
+			this.storageService.store(this.viewStateStorageKey, JSON.stringify(this.sessionsList.getViewState()), StorageScope.PROFILE, StorageTarget.MACHINE);
+		}
 	}
 
 	private revealAndFocusActiveEditorSession(): void {
@@ -346,6 +369,8 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	}
 
 	private createList(container: HTMLElement): void {
+		const storedViewState = this.loadViewState();
+
 		const collapseByDefault = (element: unknown) => {
 			if (isAgentSessionSection(element)) {
 				// Check for persisted user preference first
@@ -359,6 +384,9 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 				}
 				if (element.section === AgentSessionSection.Archived && this.options.filter.getExcludes().archived) {
 					return true; // Archived section is collapsed when archived are excluded
+				}
+				if (storedViewState) {
+					return true; // When restoring, collapse all sections by default - storedViewState.expanded controls which ones open
 				}
 				if (this.options.collapseOlderSections?.()) {
 					const olderSections = [AgentSessionSection.Week, AgentSessionSection.Older, AgentSessionSection.Archived];
