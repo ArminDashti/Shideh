@@ -434,7 +434,7 @@ export class TestingPeekOpener extends Disposable implements ITestingPeekOpener 
 /**
  * Adds output/message peek functionality to code editors.
  */
-export class TestingOutputPeekController extends Disposable implements IEditorContribution {
+export class TestingOutputPeekController extends Disposable implements IEditorContribution, IMarkerParticipant {
 	/**
 	 * Gets the controller associated with the given code editor.
 	 */
@@ -470,6 +470,44 @@ export class TestingOutputPeekController extends Disposable implements IEditorCo
 		this._register(editor.onDidChangeModel(() => this.peek.set(undefined, undefined)));
 		this._register(testResults.onResultsChanged(this.closePeekOnCertainResultEvents, this));
 		this._register(testResults.onTestChanged(this.closePeekOnTestChange, this));
+		this._register(MarkerController.registerParticipant(this));
+	}
+
+	public peekMarker(marker: IMarker, index: number, total: number): boolean {
+		if (marker.owner !== Testing.MarkerOwner || typeof marker.code !== 'string') {
+			return false;
+		}
+
+		// todo: this could go away if we could attach the URI to the marker directly
+		for (const result of this.testResults.results) {
+			for (const test of result.tests) {
+				for (let k = 0; k < test.tasks.length; k++) {
+					const task = test.tasks[k];
+					for (let i = 0; i < task.messages.length; i++) {
+						const message = task.messages[i];
+						if (message.location?.uri.toString() !== marker.resource.toString()) {
+							continue;
+						}
+
+						if (!Range.equalsRange(message.location.range, marker)) {
+							continue;
+						}
+
+						this.show(buildTestUri({
+							messageIndex: i,
+							resultId: result.id,
+							taskIndex: k,
+							testExtId: test.item.extId,
+							type: TestUriType.ResultMessage
+						}));
+
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**

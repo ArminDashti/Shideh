@@ -25,6 +25,14 @@ import { IMarker } from '../../../../platform/markers/common/markers.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { MarkerNavigationWidget } from './gotoErrorWidget.js';
 
+export interface IMarkerParticipant {
+	/**
+	 * Tries to peek the given marker. If it returns false, native handling
+	 * will be used instead.
+	 */
+	peekMarker(marker: IMarker, index: number, total: number): boolean;
+}
+
 export class MarkerController implements IEditorContribution {
 
 	static readonly ID = 'editor.contrib.markerController';
@@ -33,6 +41,12 @@ export class MarkerController implements IEditorContribution {
 		return editor.getContribution<MarkerController>(MarkerController.ID);
 	}
 
+	static registerParticipant(participant: IMarkerParticipant): IDisposable {
+		this.participants.add(participant);
+		return toDisposable(() => this.participants.delete(participant));
+	}
+
+	private static readonly participants = new Set<IMarkerParticipant>();
 	private readonly _editor: ICodeEditor;
 
 	private readonly _widgetVisible: IContextKey<boolean>;
@@ -169,6 +183,16 @@ export class MarkerController implements IEditorContribution {
 			// show in this editor
 			this._widget!.showAtMarker(model.selected.marker, model.selected.index, model.selected.total);
 		}
+	}
+
+	private showAtCoordinate(coordinate: MarkerCoordinate) {
+		for (const participant of MarkerController.participants) {
+			if (participant.peekMarker(coordinate.marker, coordinate.index, coordinate.total)) {
+				return;
+			}
+		}
+
+		this._widget!.showAtMarker(coordinate.marker, coordinate.index, coordinate.total);
 	}
 }
 
