@@ -54,6 +54,10 @@ import { NotebookCellEditorPool } from '../notebookCellEditorPool.js';
 
 const $ = DOM.$;
 
+// Allow a small tolerance when comparing cached list heights with the model to absorb
+// subpixel rounding differences from browsers and list measurements during fast scroll.
+const HEIGHT_SYNC_TOLERANCE = 1;
+
 export class NotebookCellListDelegate extends Disposable implements IListVirtualDelegate<CellViewModel> {
 	private readonly lineHeight: number;
 
@@ -101,6 +105,17 @@ abstract class AbstractCellRenderer extends Disposable {
 	) {
 		super();
 		this.editorOptions = this._register(new CellEditorOptions(this.notebookEditor.getBaseCellEditorOptions(language), this.notebookEditor.notebookOptions, configurationService));
+	}
+
+	protected syncListItemHeight(element: CellViewModel, details: IListElementRenderDetails | undefined): void {
+		if (!details || details.height === undefined) {
+			return;
+		}
+
+		const targetHeight = element.layoutInfo.totalHeight;
+		if (Math.abs(details.height - targetHeight) > HEIGHT_SYNC_TOLERANCE) {
+			this.notebookEditor.layoutNotebookCell(element, targetHeight);
+		}
 	}
 
 	override dispose() {
@@ -221,6 +236,8 @@ export class MarkupCellRenderer extends AbstractCellRenderer implements IListRen
 		if (!this.notebookEditor.hasModel()) {
 			throw new Error('The notebook editor is not attached with view model yet.');
 		}
+
+		this.syncListItemHeight(element, details);
 
 		templateData.currentRenderedCell = element;
 		templateData.currentEditor = undefined;
@@ -392,6 +409,8 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 		if (!this.notebookEditor.hasModel()) {
 			throw new Error('The notebook editor is not attached with view model yet.');
 		}
+
+		this.syncListItemHeight(element, details);
 
 		templateData.currentRenderedCell = element;
 
