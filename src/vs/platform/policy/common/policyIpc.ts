@@ -35,7 +35,7 @@ export class PolicyChannel implements IServerChannel {
 		);
 	}
 
-	listen(_: unknown, event: string): Event<any> {
+	listen(ctx: unknown, event: string): Event<any> {
 		switch (event) {
 			case 'onDidChange': return this.onDidChangeEvent;
 		}
@@ -43,7 +43,7 @@ export class PolicyChannel implements IServerChannel {
 		throw new Error(`Event not found: ${event}`);
 	}
 
-	call(_: unknown, command: string, arg?: any): Promise<any> {
+	call(ctx: unknown, command: string, arg?: any): Promise<any> {
 		switch (command) {
 			case 'updatePolicyDefinitions': return this.service.updatePolicyDefinitions(arg as IStringDictionary<PolicyDefinition>);
 		}
@@ -51,8 +51,23 @@ export class PolicyChannel implements IServerChannel {
 		throw new Error(`Call not found: ${command}`);
 	}
 
+	/**
+	 * Dispose resources for a specific client context
+	 */
+	disposeClient(ctx: unknown): void {
+		const clientDisposables = this.disposablesByClient.get(ctx);
+		if (clientDisposables) {
+			clientDisposables.dispose();
+			this.disposablesByClient.delete(ctx);
+		}
+	}
+
 	dispose() {
-		this.disposables.dispose();
+		// Dispose all client disposables
+		for (const disposables of this.disposablesByClient.values()) {
+			disposables.dispose();
+		}
+		this.disposablesByClient.clear();
 	}
 }
 
