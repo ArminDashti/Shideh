@@ -22,6 +22,7 @@ import { IWorkbenchEnvironmentService } from '../../environment/common/environme
 export class CachedExtensionScanner {
 
 	public readonly scannedExtensions: Promise<IExtensionDescription[]>;
+	// here
 	private _scannedExtensionsResolve!: (result: IExtensionDescription[]) => void;
 	private _scannedExtensionsReject!: (err: unknown) => void;
 

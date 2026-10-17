@@ -79,13 +79,16 @@ export class ViewModelLinesFromProjectedModel implements IViewModelLines {
 	private wrapOnEscapedLineFeeds: boolean;
 	private useTwoCellFullwidthCharacters: boolean;
 
+	// here
 	private modelLineProjections!: IModelLineProjection[];
 
 	/**
 	 * Reflects the sum of the line counts of all projected model lines.
 	*/
+	// here
 	private projectedModelLineLineCounts!: ConstantTimePrefixSumComputer;
 
+	// here
 	private hiddenAreasDecorationIds!: string[];
 	private config: IEditorConfiguration;
 	private coordinatesConverter: ICoordinatesConverter;

@@ -61,6 +61,7 @@ export class McpServerRequestHandler extends Disposable {
 		}
 	}
 
+	// here
 	private _serverInit!: MCP.InitializeResult;
 	public get capabilities(): MCP.ServerCapabilities {
 		return this._serverInit.capabilities;

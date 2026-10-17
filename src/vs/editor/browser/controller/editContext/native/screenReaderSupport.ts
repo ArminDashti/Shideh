@@ -31,6 +31,7 @@ export class ScreenReaderSupport extends Disposable {
 	private _contentWidth: number = 1;
 	private _contentHeight: number = 1;
 	private _divWidth: number = 1;
+	// here
 	private _fontInfo!: FontInfo;
 	private _renderRichContent: boolean | undefined;
 

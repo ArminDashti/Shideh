@@ -133,7 +133,9 @@ export class GettingStartedPage extends EditorPane {
 
 	// Ensure that the these are initialized before use.
 	// Currently initialized before use in buildCategoriesSlide and scrollToCategory
+	// here
 	private recentlyOpened!: Promise<IRecentlyOpened>;
+	// here
 	private gettingStartedCategories!: IResolvedWalkthrough[];
 
 	private currentWalkthrough: IResolvedWalkthrough | undefined;
@@ -154,10 +156,15 @@ export class GettingStartedPage extends EditorPane {
 	private readonly startList = this._register(new MutableDisposable<GettingStartedIndexList<IWelcomePageStartEntry>>());
 	private readonly gettingStartedList = this._register(new MutableDisposable<GettingStartedIndexList<IResolvedWalkthrough>>());
 
+	// here
 	private stepsSlide!: HTMLElement;
+	// here
 	private categoriesSlide!: HTMLElement;
+	// here
 	private stepsContent!: HTMLElement;
+	// here
 	private stepMediaComponent!: HTMLElement;
+	// here
 	private webview!: IWebviewElement;
 
 	private layoutMarkdown: (() => void) | undefined;

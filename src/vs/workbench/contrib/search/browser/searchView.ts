@@ -159,12 +159,16 @@ export class SearchView extends ViewPane {
 	private hasFilePatternKey: IContextKey<boolean>;
 	private hasSomeCollapsibleResultKey: IContextKey<boolean>;
 
+	// here
 	private tree!: WorkbenchCompressibleAsyncDataTree<ISearchResult, RenderableMatch>;
+	// here
 	private treeLabels!: ResourceLabels;
 	private viewletState: ISearchViewState;
+	// here
 	private messagesElement!: HTMLElement;
 	private progressElement!: HTMLElement;
 	private readonly messageDisposables: DisposableStore = new DisposableStore();
+	// here
 	private searchWidgetsContainerElement!: HTMLElement;
 	private searchWidget: SearchWidget | undefined;
 	private size: dom.Dimension | undefined;

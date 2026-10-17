@@ -48,7 +48,9 @@ export class ProgressBar extends Disposable {
 	private static readonly PROGRESS_SIGNAL_DEFAULT_DELAY = 3000;
 
 	private workedVal: number;
+	// here
 	private element!: HTMLElement;
+	// here
 	private bit!: HTMLElement;
 	private totalWork: number | undefined;
 	private showDelayedScheduler: RunOnceScheduler;

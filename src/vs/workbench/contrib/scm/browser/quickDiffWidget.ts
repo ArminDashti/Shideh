@@ -146,6 +146,7 @@ class QuickDiffWidgetEditorAction extends Action {
 
 class QuickDiffWidget extends PeekViewWidget {
 
+	// here
 	private diffEditor!: EmbeddedDiffEditorWidget;
 	private title: string;
 	private menu: IMenu | undefined;
@@ -488,6 +489,7 @@ export class QuickDiffEditorController extends Disposable implements IEditorCont
 
 	private model: QuickDiffModel | null = null;
 	private widget: QuickDiffWidget | null = null;
+	// here
 	private readonly isQuickDiffVisible!: IContextKey<boolean>;
 	private session: IDisposable = Disposable.None;
 	private mouseDownInfo: { lineNumber: number } | null = null;

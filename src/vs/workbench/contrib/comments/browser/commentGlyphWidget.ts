@@ -26,6 +26,7 @@ registerColor('editorGutter.commentDraftGlyphForeground', editorGutterCommentGly
 
 export class CommentGlyphWidget extends Disposable {
 	public static description = 'comment-glyph-widget';
+	// here
 	private _lineNumber!: number;
 	private _editor: ICodeEditor;
 	private _threadState: CommentThreadState | undefined;

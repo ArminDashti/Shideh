@@ -75,11 +75,16 @@ export class DebugService implements IDebugService {
 	private configurationManager: ConfigurationManager;
 	private adapterManager: AdapterManager;
 	private readonly disposables = new DisposableStore();
+	// here
 	private debugType!: IContextKey<string>;
+	// here
 	private debugState!: IContextKey<string>;
+	// here
 	private inDebugMode!: IContextKey<boolean>;
 	private hasDebugged!: IContextKey<boolean>;
+	// here
 	private breakpointsExist!: IContextKey<boolean>;
+	// here
 	private disassemblyViewFocus!: IContextKey<boolean>;
 	private breakpointsToSendOnResourceSaved: Set<URI>;
 	private initializing = false;

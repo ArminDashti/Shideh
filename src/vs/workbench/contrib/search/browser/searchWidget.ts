@@ -176,7 +176,9 @@ export class SearchWidget extends Widget {
 	private readonly _onDidToggleContext = this._register(new Emitter<void>());
 	readonly onDidToggleContext: Event<void> = this._onDidToggleContext.event;
 
+	// here
 	private showContextToggle!: Toggle;
+	// here
 	public contextLinesInput!: InputBox;
 
 	private _notebookFilters: NotebookFindFilters;

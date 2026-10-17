@@ -116,17 +116,26 @@ export class SelectBoxList extends Disposable implements ISelectBoxDelegate, ILi
 	private selected: number;
 	private readonly _onDidSelect: Emitter<ISelectData>;
 	private readonly styles: ISelectBoxStyles;
+	// here
 	private listRenderer!: SelectListRenderer;
+	// here
 	private contextViewProvider!: IContextViewProvider;
+	// here
 	private selectDropDownContainer!: HTMLElement;
+	// here
 	private styleElement!: HTMLStyleElement;
+	// here
 	private selectList!: List<ISelectOptionItem>;
+	// here
 	private selectDropDownListContainer!: HTMLElement;
+	// here
 	private widthControlElement!: HTMLElement;
 	private listOptionIndexes: number[] = [];
 	private _currentSelection = 0;
+	// here
 	private _dropDownPosition!: AnchorPosition;
 	private _hasDetails: boolean = false;
+	// here
 	private selectionDetailsPane!: HTMLElement;
 	private readonly _selectionDetailsDisposables = this._register(new DisposableStore());
 	private readonly _optionDescriptionHover = this._register(new MutableDisposable<IHoverWidget>());

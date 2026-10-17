@@ -58,14 +58,21 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 	private _maxLineWidth: number = 0;
 
 	private _device!: GPUDevice;
+	// here
 	private _renderPassDescriptor!: GPURenderPassDescriptor;
+	// here
 	private _renderPassColorAttachment!: GPURenderPassColorAttachment;
+	// here
 	private _bindGroup!: GPUBindGroup;
+	// here
 	private _pipeline!: GPURenderPipeline;
 
+	// here
 	private _vertexBuffer!: GPUBuffer;
 
+	// here
 	private _glyphStorageBuffer!: GPUBuffer;
+	// here
 	private _atlasGpuTexture!: GPUTexture;
 	private readonly _atlasGpuTextureVersions: number[] = [];
 

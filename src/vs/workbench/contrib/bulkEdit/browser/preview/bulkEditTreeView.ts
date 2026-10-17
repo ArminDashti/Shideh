@@ -53,7 +53,9 @@ export class BulkEditTreeView extends Disposable {
 
 	private static readonly _memGroupByFile = `${this.ID}.groupByFile`;
 
+	// here
 	private _tree!: WorkbenchAsyncDataTree<BulkFileOperations, BulkEditElement, FuzzyScore>;
+	// here
 	private _treeDataSource!: BulkEditDataSource;
 	private _treeViewStates = new Map<boolean, IAsyncDataTreeViewState>();
 

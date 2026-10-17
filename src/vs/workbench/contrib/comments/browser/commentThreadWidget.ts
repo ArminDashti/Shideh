@@ -36,6 +36,7 @@ import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 export const COMMENTEDITOR_DECORATION_KEY = 'commenteditordecoration';
 
 export class CommentThreadWidget<T extends IRange | ICellRange = IRange> extends Disposable implements ICommentThreadWidget {
+	// here
 	private _header!: CommentThreadHeader<T>;
 	private _body: CommentThreadBody<T>;
 	private _commentReply?: CommentReply<T>;

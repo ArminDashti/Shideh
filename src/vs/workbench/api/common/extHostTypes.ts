@@ -1903,6 +1903,7 @@ export class RelativePattern implements IRelativePattern {
 
 	pattern: string;
 
+	// here
 	private _base!: string;
 	get base(): string {
 		return this._base;
@@ -1912,6 +1913,7 @@ export class RelativePattern implements IRelativePattern {
 		this._baseUri = URI.file(base);
 	}
 
+	// here
 	private _baseUri!: URI;
 	get baseUri(): URI {
 		return this._baseUri;

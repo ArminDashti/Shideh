@@ -60,6 +60,7 @@ export class TestDiskFileSystemProvider extends DiskFileSystemProvider {
 	private readonly: boolean = false;
 	private onWillOpenForWrite: ((resource: URI, opts: IFileOpenOptions) => Promise<void> | void) | undefined;
 
+	// here
 	private _testCapabilities!: FileSystemProviderCapabilities;
 	override get capabilities(): FileSystemProviderCapabilities {
 		if (!this._testCapabilities) {

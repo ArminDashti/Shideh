@@ -1136,6 +1136,7 @@ export class ChatModelsWidget extends Disposable {
 	readonly onDidChangeItemCount = this._onDidChangeItemCount.event;
 
 	private searchWidget!: SuggestEnabledInput;
+	// here
 	private searchActionsContainer!: HTMLElement;
 	private table!: WorkbenchTable<IViewModelEntry>;
 	private tableContainer!: HTMLElement;
@@ -1144,6 +1145,7 @@ export class ChatModelsWidget extends Disposable {
 	private tableScrollable: DomScrollableElement | undefined;
 	private tableMinWidth: number = 0;
 	private addButtonContainer!: HTMLElement;
+	// here
 	private addButton!: Button;
 	private dropdownActions: IAction[] = [];
 	private defaultAccountResolved = false;

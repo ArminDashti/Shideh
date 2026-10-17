@@ -120,10 +120,13 @@ export class TextAreaEditContext extends AbstractEditContext {
 	private _scrollLeft: number;
 	private _scrollTop: number;
 
+	// here
 	private _accessibilitySupport!: AccessibilitySupport;
 	// the number of lines in the hidden text area
 	private _accessibilityPageSize!: number;
+	// here
 	private _textAreaWrapping!: boolean;
+	// here
 	private _textAreaWidth!: number;
 	private _contentLeft: number;
 	private _contentWidth: number;

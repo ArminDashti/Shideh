@@ -60,6 +60,7 @@ export abstract class Pane extends Disposable implements IView {
 
 	readonly element: HTMLElement;
 	private header: HTMLElement | undefined;
+	// here
 	private body!: HTMLElement;
 
 	protected _expanded: boolean;

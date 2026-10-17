@@ -465,13 +465,16 @@ export class CommentController extends Disposable implements IEditorContribution
 	private model: ITextModel | null | undefined;
 	private _commentWidgets: ReviewZoneWidget[];
 	private _commentInfos: ICommentInfo[];
+	// here
 	private _commentingRangeDecorator!: CommentingRangeDecorator;
+	// here
 	private _commentThreadRangeDecorator!: CommentThreadRangeDecorator;
 	private mouseDownInfo: { lineNumber: number } | null = null;
 	private _commentingRangeSpaceReserved = false;
 	private _commentingRangeAmountReserved = 0;
 	private _computePromise: CancelablePromise<Array<ICommentInfo | null>> | null;
 	private _computeAndSetPromise: Promise<void> | undefined;
+	// here
 	private _addInProgress!: boolean;
 	private _emptyThreadsToAddQueue: [Range | undefined, IEditorMouseEvent | undefined][] = [];
 	private _computeCommentingRangeScheduler!: Delayer<Array<ICommentInfo | null>> | null;

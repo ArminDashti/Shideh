@@ -37,6 +37,7 @@ import { renderLabelWithIcons } from '../../../../base/browser/ui/iconLabel/icon
 export class StartDebugActionViewItem extends BaseActionViewItem {
 
 	private container!: HTMLElement;
+	// here
 	private start!: HTMLElement;
 	private configurationContainer!: HTMLElement;
 	private dropdownLabel: HTMLElement | undefined;

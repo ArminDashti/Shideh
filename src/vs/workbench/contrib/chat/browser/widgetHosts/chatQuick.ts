@@ -152,7 +152,9 @@ class QuickChat extends Disposable {
 	static DEFAULT_MIN_HEIGHT = 200;
 	private static readonly DEFAULT_HEIGHT_OFFSET = 100;
 
+	// here
 	private widget!: ChatWidget;
+	// here
 	private sash!: Sash;
 	private modelRef: IChatModelReference | undefined;
 	private readonly maintainScrollTimer: MutableDisposable<IDisposable> = this._register(new MutableDisposable<IDisposable>());

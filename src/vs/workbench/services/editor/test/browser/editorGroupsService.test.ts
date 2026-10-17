@@ -470,7 +470,9 @@ suite('EditorGroupsService', () => {
 	test('options', async () => {
 		const [part] = await createPart();
 
+		// here
 		let oldOptions!: IEditorPartOptions;
+		// here
 		let newOptions!: IEditorPartOptions;
 		disposables.add(part.onDidChangeEditorPartOptions(event => {
 			oldOptions = event.oldPartOptions;

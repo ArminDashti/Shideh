@@ -24,6 +24,7 @@ export class TerminalConfigurationService extends Disposable implements ITermina
 	protected _fontMetrics: TerminalFontMetrics;
 	private _skipTerminalCommands: ReadonlySet<string> = new Set(DEFAULT_COMMANDS_TO_SKIP_SHELL);
 
+	// here
 	protected _config!: Readonly<ITerminalConfiguration>;
 	get config() { return this._config; }
 
