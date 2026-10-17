@@ -203,12 +203,6 @@ type AgentHostInvocationFailedClassification = {
  * - {@link sink} routes emitted progress to either the agent invoke
  *   callback (live) or `chatSession.appendProgress` (reconnect /
  *   server-initiated).
- * - {@link snapshotToolCalls} carries whatever the snapshot already emitted
- *   for each tool call: a live `ChatToolInvocation` that per-tool setup adopts
- *   rather than recreating a UI handle, or a serialized part for a tool call
- *   that had already settled, which per-tool setup must not emit again.
- * - {@link seedEmittedLengths} prevents the always-on graph from re-emitting
- *   markdown / reasoning prefixes already covered by the snapshot.
  * - {@link onTurnEnded} fires once when the turn reaches a terminal state.
  */
 interface IObserveTurnOptions {
@@ -697,16 +691,6 @@ function getChatTitle(state: Pick<SessionState, 'chats' | 'title'>, chatURI: str
 	return chat.title || (isDefaultChatUri(chatURI) ? state.title : undefined);
 }
 
-/**
- * The live invocation the reconnect snapshot emitted for this tool call, if
- * any. A tool call the snapshot rendered as a serialized part has no live
- * handle to adopt.
- */
-function snapshotInvocationToAdopt(opts: IObserveTurnOptions, toolCallId: string): ChatToolInvocation | undefined {
-	const emitted = opts.snapshotToolCalls?.get(toolCallId);
-	return emitted instanceof ChatToolInvocation ? emitted : undefined;
-}
-
 // =============================================================================
 // Chat session
 // =============================================================================
@@ -755,7 +739,7 @@ class AgentHostChatSession extends Disposable implements IChatSession {
 		private readonly _forkSession: ((request: IChatSessionRequestHistoryItem | undefined, token: CancellationToken) => Promise<IChatSessionItem>),
 		private readonly _renameSession: ((title: string, token: CancellationToken) => Promise<void>),
 		inputState: ISerializableChatModelInputState | undefined,
-		initialProgress: IChatProgress[] | undefined,
+		hasActiveTurn: boolean,
 		historySubagentObservations: IDisposable,
 		onDispose: () => void,
 		interruptActiveResponse: () => boolean,
@@ -780,11 +764,9 @@ class AgentHostChatSession extends Disposable implements IChatSession {
 		});
 		this.setStateSubscriptions(sessionSubscription, chatSubscription);
 
-		const hasActiveTurn = initialProgress !== undefined;
 		this.transferredState = inputState ? { editingSession: undefined, inputState } : undefined;
 		if (hasActiveTurn) {
 			this.isCompleteObs.set(false, undefined);
-			this.progressObs.set(initialProgress, undefined);
 		}
 
 		this._register(historySubagentObservations);
@@ -1122,6 +1104,10 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	private readonly _activeClientEntries = new ResourceMap<ActiveClientEntry>();
 	/** Historical turns with file edits, pending hydration into the editing session. */
 	private readonly _pendingHistoryTurns = new ResourceMap<readonly Turn[]>();
+	/** Tool call edits that arrived before the session's ChatModel existed. */
+	private readonly _pendingToolCallEdits = new ResourceMap<{ requestId: string; toolCall: ToolCallState }[]>();
+	/** Waits for the ChatModel that will receive {@link _pendingToolCallEdits}. */
+	private readonly _pendingToolCallEditFlushes = this._register(new DisposableResourceMap());
 	/**
 	 * Requests a turn observer is currently rendering, keyed by
 	 * {@link _toolCallKey} for tool calls and {@link _inputRequestKey} for chat
@@ -1502,8 +1488,6 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const isNewSession = this._isNewSessionResource(sessionResource);
 		this._logService.trace(`[AgentHost] provideChatSessionContent start: ${resolvedSession.toString()} (isNewSession=${isNewSession})`);
 		const history: IChatSessionHistoryItem[] = [];
-		let initialProgress: IChatProgress[] | undefined;
-		let initialResponsePartCount = 0;
 		let activeTurnId: string | undefined;
 		let chatTitle: string | undefined;
 		let draftInputState: ISerializableChatModelInputState | undefined;
@@ -1595,8 +1579,8 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 						// If there's an active turn, include its request in history
 						// with an empty response so the chat service creates a
-						// pending request, then provide accumulated progress via
-						// progressObs for live streaming.
+						// pending request. The turn observer synchronously replays
+						// its accumulated progress after session construction.
 						if (sessionState.activeTurn) {
 							activeTurnId = sessionState.activeTurn.id;
 							const activeRawModelId = sessionState.activeTurn.usage?.model ?? fallbackRawModelId;
@@ -3481,9 +3465,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	 *   - server-initiated turns detected by {@link _watchForServerInitiatedTurns}.
 	 *
 	 * Differences are captured in {@link IObserveTurnOptions.sink} (where
-	 * progress is delivered) and {@link IObserveTurnOptions.snapshotToolCalls} /
-	 * {@link IObserveTurnOptions.seedEmittedLengths} (snapshot continuity for
-	 * the reconnect case).
+	 * progress is delivered).
 	 *
 	 * The returned disposable owns turn progress; subagent observations are
 	 * retained by the chat session or their root subagent.
@@ -3625,8 +3607,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 						}
 						break;
 					case ResponsePartKind.SystemNotification:
-						// System notifications don't have an id, so we have to identify it by index
-						if (responseParts$.get().indexOf(initial) >= (opts.initialResponsePartCount ?? 0) && opts.subAgentInvocationId === undefined) {
+						if (opts.subAgentInvocationId === undefined) {
 							const progress = systemNotificationToChatPart(initial.content, this._config.connectionAuthority, initial._meta);
 							if (progress) {
 								if (progress.kind === 'systemNotification' && progress.presentation === 'workspaceTransition' && progress.accessibilityLabel) {
@@ -3961,10 +3942,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		store: DisposableStore,
 		opts: IObserveTurnOptions,
 	): void {
-		// Seed from the snapshot length so the always-on graph does not
-		// re-emit content already covered by `activeTurnToProgress` on
-		// reconnect.
-		let lastEmitted = opts.seedEmittedLengths?.get(part$.get().id) ?? 0;
+		let lastEmitted = 0;
 		store.add(autorun(reader => {
 			const content = part$.read(reader).content;
 			if (content.length <= lastEmitted) {
@@ -3983,7 +3961,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		opts: IObserveTurnOptions,
 	): void {
 		const partId = part$.get().id;
-		let lastEmitted = opts.seedEmittedLengths?.get(partId) ?? 0;
+		let lastEmitted = 0;
 		store.add(autorun(reader => {
 			const content = part$.read(reader).content;
 			if (content.length <= lastEmitted) {
@@ -4018,13 +3996,13 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			// Set up before claiming: the claim is what tells the session-level
 			// watcher it may execute this call, and it must find the shared
 			// invocation already created when it does.
-			this._setupClientToolCall(initial, part$, store, opts, subagentContext, renderedBySnapshot);
+			this._setupClientToolCall(initial, part$, store, opts, subagentContext);
 			store.add(this._markToolCallRendered(opts.chatURI, opts.turnId, initial.toolCallId, opts.sessionResource));
 		} else if (contributor?.kind === ToolCallContributorKind.Client) {
 			this._setupOtherClientToolCall(initial, part$, store, opts, subagentContext);
 		} else {
 			store.add(this._markToolCallRendered(opts.chatURI, opts.turnId, initial.toolCallId, opts.sessionResource));
-			this._setupServerToolCall(initial, part$, store, opts, subagentContext, renderedBySnapshot);
+			this._setupServerToolCall(initial, part$, store, opts, subagentContext);
 		}
 	}
 
@@ -4101,9 +4079,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		opts: IObserveTurnOptions,
 		subagentContext: ISubagentContext,
 	): void {
-		const toolCallId = initial.toolCallId;
-		const adopted = snapshotInvocationToAdopt(opts, toolCallId);
-		const invocation = adopted ?? toolCallStateToInvocation(
+		const invocation = toolCallStateToInvocation(
 			initial,
 			opts.subAgentInvocationId,
 			opts.backendSession,
@@ -4112,9 +4088,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			this._otherClientToolInvocationOptions(opts.backendSession, opts.chatURI, opts.turnId),
 			this._config.connection.resourceUris,
 		);
-		if (!adopted) {
-			opts.sink([invocation]);
-		}
+		opts.sink([invocation]);
 
 		store.add(autorun(reader => {
 			const toolCall = part$.read(reader).toolCall;
@@ -4161,15 +4135,8 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	/**
-	 * Per-call setup for a server-driven tool. Adopts a snapshot
-	 * {@link ChatToolInvocation} when present (reconnect parity); otherwise
-	 * emits a fresh one. Reacts to status transitions for re-confirmation,
-	 * terminal revival, finalization, and subagent observation.
-	 *
-	 * `renderedBySnapshot` marks a settled tool call the reconnect snapshot
-	 * already rendered as a serialized part. The invocation is still built so
-	 * subagent observation has something to drive, but it is not emitted —
-	 * the snapshot's part is the one on screen.
+	 * Per-call setup for a server-driven tool. Emits one invocation and reacts
+	 * to status transitions for re-confirmation, finalization, and subagent observation.
 	 */
 	private _setupServerToolCall(
 		initial: ToolCallState,
@@ -4177,11 +4144,9 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		store: DisposableStore,
 		opts: IObserveTurnOptions,
 		subagentContext: ISubagentContext,
-		renderedBySnapshot = false,
 	): void {
 		const toolCallId = initial.toolCallId;
 		const subAgentInvocationId = opts.subAgentInvocationId;
-		const adopted = snapshotInvocationToAdopt(opts, toolCallId);
 		let confirmationOptions = initial.status === ToolCallStatus.PendingConfirmation ? initial.options : undefined;
 		// Tools that stream their arguments (reliably: terminal/bash commands)
 		// are first observed in `Streaming`. Represent them with a native
@@ -4189,20 +4154,10 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		// `transitionFromStreaming` (see the autorun below), so a single card
 		// spans the whole lifecycle instead of a settled placeholder plus a
 		// separate confirmation card (#314858).
-		let invocation: ChatToolInvocation;
-		if (adopted) {
-			invocation = adopted;
-		} else if (initial.status === ToolCallStatus.Streaming) {
-			invocation = toolCallStateToStreamingInvocation(initial, subAgentInvocationId, opts.backendSession, this._config.connectionAuthority, opts.sessionResource.authority);
-			if (!renderedBySnapshot) {
-				opts.sink([invocation]);
-			}
-		} else {
-			invocation = toolCallStateToInvocation(initial, subAgentInvocationId, opts.backendSession, this._config.connectionAuthority, opts.sessionResource.authority, undefined, this._config.connection.resourceUris);
-			if (!renderedBySnapshot) {
-				opts.sink([invocation]);
-			}
-		}
+		const invocation = initial.status === ToolCallStatus.Streaming
+			? toolCallStateToStreamingInvocation(initial, subAgentInvocationId, opts.backendSession, this._config.connectionAuthority, opts.sessionResource.authority)
+			: toolCallStateToInvocation(initial, subAgentInvocationId, opts.backendSession, this._config.connectionAuthority, opts.sessionResource.authority, undefined, this._config.connection.resourceUris);
+		opts.sink([invocation]);
 
 		// Hook up a tool first observed after it already entered confirmation.
 		if (initial.status === ToolCallStatus.PendingConfirmation && !IChatToolInvocation.isComplete(invocation)) {
@@ -4472,7 +4427,6 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		store: DisposableStore,
 		opts: IObserveTurnOptions,
 		subagentContext: ISubagentContext,
-		renderedBySnapshot = false,
 	): void {
 		const toolCallId = initial.toolCallId;
 		const toolName = initial.toolName;
@@ -5529,42 +5483,17 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	// ---- Reconnection to active turn ----------------------------------------
 
 	/**
-	 * Wires up an ongoing state listener that streams incremental progress
-	 * from an already-running turn into the chat session's progressObs.
-	 * This is the reconnection counterpart of {@link _handleTurn}, which
-	 * handles newly-initiated turns.
+	 * Wires up the state observer that streams an already-running turn into
+	 * the chat session's progressObs. The observer's synchronous first pass
+	 * replays everything accumulated so far, so no separate snapshot competes
+	 * with the live observer.
 	 */
 	private _reconnectToActiveTurn(
 		backendSession: URI,
 		turnId: string,
 		chatSession: AgentHostChatSession,
-		initialProgress: IChatProgress[],
-		initialResponsePartCount: number,
 	): void {
-		const sessionKey = backendSession.toString();
 		const chatURI = this._getChatURI(chatSession.sessionResource);
-
-		// Live invocations are adopted by per-tool setup; serialized parts mark
-		// a settled tool call it must not emit again.
-		const snapshotToolCalls = new Map<string, ChatToolInvocation | IChatToolInvocationSerialized>();
-		for (const item of initialProgress) {
-			if (item instanceof ChatToolInvocation || item.kind === 'toolInvocationSerialized') {
-				snapshotToolCalls.set(item.toolCallId, item);
-			}
-		}
-
-		// Seed last-emitted markdown/reasoning lengths from the snapshot so
-		// per-part setup only emits content beyond what `activeTurnToProgress`
-		// already produced.
-		const seedEmittedLengths = new Map<string, number>();
-		const currentState = this._getSessionState(sessionKey, chatURI);
-		if (currentState?.activeTurn) {
-			for (const rp of currentState.activeTurn.responseParts) {
-				if (rp.kind === ResponsePartKind.Markdown || rp.kind === ResponsePartKind.Reasoning) {
-					seedEmittedLengths.set(rp.id, rp.content.length);
-				}
-			}
-		}
 
 		const cts = new CancellationTokenSource();
 		const reconnectStore = chatSession.registerDisposable(new DisposableStore());
@@ -5583,12 +5512,15 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				}
 			},
 			cancellationToken: cts.token,
-			snapshotToolCalls,
-			seedEmittedLengths,
-			initialResponsePartCount,
 			onTurnEnded: () => {
 				this._completeSessionTurn(backendSession, chatSession.sessionResource, turnId, chatSession);
 				reconnectStore.dispose();
+			},
+			onFileEdits: toolCall => {
+				const editParts = this._hydrateFileEdits(chatSession.sessionResource, turnId, toolCall);
+				if (editParts.length > 0) {
+					chatSession.appendProgress(editParts);
+				}
 			},
 		}));
 		// Already-hydrated children belong in the initial snapshot, not between its streaming markdown fragments.
@@ -5641,6 +5573,14 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			}
 		}
 
+		const pendingEdits = this._pendingToolCallEdits.get(sessionResource);
+		if (pendingEdits) {
+			this._pendingToolCallEdits.delete(sessionResource);
+			for (const { requestId, toolCall } of pendingEdits) {
+				editingSession.addToolCallEdits(requestId, toolCall);
+			}
+		}
+
 		return editingSession;
 	}
 
@@ -5664,7 +5604,21 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		tc: ToolCallState,
 	): IChatProgress[] {
 		const controller = this._ensureSnapshotController(sessionResource);
-		controller?.addToolCallEdits(requestId, tc);
+		if (controller) {
+			controller.addToolCallEdits(requestId, tc);
+		} else {
+			const pending = this._pendingToolCallEdits.get(sessionResource) ?? [];
+			pending.push({ requestId, toolCall: tc });
+			this._pendingToolCallEdits.set(sessionResource, pending);
+			if (!this._pendingToolCallEditFlushes.has(sessionResource)) {
+				this._pendingToolCallEditFlushes.set(sessionResource, this._chatService.onDidCreateModel(model => {
+					if (isEqual(model.sessionResource, sessionResource)) {
+						this._pendingToolCallEditFlushes.deleteAndDispose(sessionResource);
+						this._ensureSnapshotController(sessionResource);
+					}
+				}));
+			}
+		}
 		if (tc.status !== ToolCallStatus.Completed) {
 			return [];
 		}
