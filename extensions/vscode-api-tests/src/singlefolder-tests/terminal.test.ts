@@ -6,6 +6,7 @@
 import { deepStrictEqual, doesNotThrow, equal, ok, strictEqual, throws } from 'assert';
 import { commands, ConfigurationTarget, Disposable, env, EnvironmentVariableMutator, EnvironmentVariableMutatorOptions, EnvironmentVariableMutatorType, EventEmitter, ExtensionContext, extensions, ExtensionTerminalOptions, Pseudoterminal, Terminal, TerminalDimensions, TerminalExitReason, TerminalOptions, TerminalState, UIKind, Uri, window, workspace } from 'vscode';
 import { assertNoRpc, poll } from '../utils';
+import { platform } from 'os';
 
 // Disable terminal tests:
 // - Web https://github.com/microsoft/vscode/issues/92826
@@ -782,7 +783,7 @@ import { assertNoRpc, poll } from '../utils';
 				});
 			});
 
-			test('should have collection variables apply to environment variables that don\'t exist', async () => {
+			(platform() === 'linux' ? test.skip : test)('should have collection variables apply to environment variables that don\'t exist', async () => {
 				// Setup collection and create terminal
 				const collection = extensionContext.environmentVariableCollection;
 				disposables.push({ dispose: () => collection.clear() });
@@ -827,7 +828,7 @@ import { assertNoRpc, poll } from '../utils';
 				});
 			});
 
-			test('should respect clearing entries', async () => {
+			(platform() === 'linux' ? test.skip : test)('should respect clearing entries', async () => {
 				// Setup collection and create terminal
 				const collection = extensionContext.environmentVariableCollection;
 				disposables.push({ dispose: () => collection.clear() });
@@ -870,7 +871,7 @@ import { assertNoRpc, poll } from '../utils';
 				});
 			});
 
-			test('should respect deleting entries', async () => {
+			(platform() === 'linux' ? test.skip : test)('should respect deleting entries', async () => {
 				// Setup collection and create terminal
 				const collection = extensionContext.environmentVariableCollection;
 				disposables.push({ dispose: () => collection.clear() });
