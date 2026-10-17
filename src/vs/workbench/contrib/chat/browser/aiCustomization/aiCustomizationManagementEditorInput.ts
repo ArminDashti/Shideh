@@ -9,7 +9,9 @@ import { localize } from '../../../../../nls.js';
 import { IUntypedEditorInput, EditorInputCapabilities } from '../../../../common/editor.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IModalEditorOptions, IModalEditorOptionsProvider } from '../../../../../platform/editor/common/editor.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { AI_CUSTOMIZATION_MANAGEMENT_EDITOR_INPUT_ID } from './aiCustomizationManagement.js';
+import { AICustomizationItemsModel, IAICustomizationItemsModelInstance } from './aiCustomizationItemsModel.js';
 
 /**
  * Editor input for the AI Customizations Management Editor.
@@ -35,15 +37,16 @@ export class AICustomizationManagementEditorInput extends EditorInput implements
 	/**
 	 * Gets or creates the singleton instance of this input.
 	 */
-	static getOrCreate(): AICustomizationManagementEditorInput {
+	static getOrCreate(instantiationService: IInstantiationService): AICustomizationManagementEditorInput {
 		if (!AICustomizationManagementEditorInput._instance || AICustomizationManagementEditorInput._instance.isDisposed()) {
 			AICustomizationManagementEditorInput._instance = new AICustomizationManagementEditorInput();
 		}
 		return AICustomizationManagementEditorInput._instance;
 	}
 
-	constructor() {
+	constructor(itemsModel: AICustomizationItemsModel) {
 		super();
+		this.itemsModel = itemsModel;
 	}
 
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {

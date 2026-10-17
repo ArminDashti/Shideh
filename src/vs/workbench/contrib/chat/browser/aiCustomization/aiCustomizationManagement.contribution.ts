@@ -115,7 +115,7 @@ class AICustomizationManagementEditorInputSerializer implements IEditorSerialize
 	}
 
 	deserialize(instantiationService: IInstantiationService): AICustomizationManagementEditorInput {
-		return AICustomizationManagementEditorInput.getOrCreate();
+		return AICustomizationManagementEditorInput.getOrCreate(instantiationService);
 	}
 }
 
@@ -631,7 +631,7 @@ registerAction2(class extends Action2 {
 		};
 
 		// Try to show within the active AI Customization editor (with back navigation)
-		const input = AICustomizationManagementEditorInput.getOrCreate();
+		const input = AICustomizationManagementEditorInput.getOrCreate(accessor.get(IInstantiationService));
 		const pane = await editorService.openEditor(input, { pinned: true });
 		if (pane instanceof AICustomizationManagementEditor) {
 			await pane.showPluginDetail(item);
@@ -868,7 +868,7 @@ class AICustomizationManagementActionsContribution extends Disposable implements
 
 			async run(accessor: ServicesAccessor, section?: AICustomizationManagementSection): Promise<void> {
 				const editorService = accessor.get(IEditorService);
-				const input = AICustomizationManagementEditorInput.getOrCreate();
+				const input = AICustomizationManagementEditorInput.getOrCreate(accessor.get(IInstantiationService));
 				const pane = await editorService.openEditor(input, { pinned: true });
 				if (pane instanceof AICustomizationManagementEditor) {
 					const targetSection = section ?? AICustomizationManagementSection.McpServers;
@@ -892,7 +892,7 @@ class AICustomizationManagementActionsContribution extends Disposable implements
 			async run(accessor: ServicesAccessor): Promise<void> {
 				const editorService = accessor.get(IEditorService);
 				// Open the customizations editor if not already open
-				const input = AICustomizationManagementEditorInput.getOrCreate();
+				const input = AICustomizationManagementEditorInput.getOrCreate(accessor.get(IInstantiationService));
 				const pane = await editorService.openEditor(input, { pinned: true });
 				if (!(pane instanceof AICustomizationManagementEditor)) {
 					return;

@@ -709,6 +709,7 @@ export class AICustomizationListWidget extends Disposable {
 	readonly onDidRequestCreateManual: Event<{ type: PromptsType; target: 'local' | 'user' | 'workspace-root'; rootFileName?: string }> = this._onDidRequestCreateManual.event;
 
 	constructor(
+		private readonly itemsModel: IAICustomizationItemsModelInstance,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IPromptsService private readonly promptsService: IPromptsService,
 		@IContextViewService private readonly contextViewService: IContextViewService,
@@ -724,7 +725,6 @@ export class AICustomizationListWidget extends Disposable {
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ICustomizationHarnessService private readonly harnessService: ICustomizationHarnessService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IAICustomizationItemsModel private readonly itemsModel: IAICustomizationItemsModel,
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {

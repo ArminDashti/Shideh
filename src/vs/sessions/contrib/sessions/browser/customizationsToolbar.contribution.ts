@@ -294,6 +294,7 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 export class CustomizationsToolbarContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.sessionsCustomizationsToolbar';
+	private readonly itemsModel: AICustomizationItemsModel;
 
 	constructor(
 		@IActionViewItemService actionViewItemService: IActionViewItemService,
@@ -302,6 +303,8 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
+
+		this.itemsModel = this._register(instantiationService.createInstance(AICustomizationItemsModel));
 
 		// Per-section visibility context keys, kept in sync with the active
 		// harness's `hiddenSections`. Each customization action's menu entry
@@ -328,7 +331,7 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 		}));
 
 		this._register(actionViewItemService.register(Menus.SidebarCustomizations, CUSTOMIZATION_OVERVIEW_ITEM.id, (action, options) => {
-			return instantiationService.createInstance(CustomizationLinkViewItem, action, options, CUSTOMIZATION_OVERVIEW_ITEM);
+			return instantiationService.createInstance(CustomizationLinkViewItem, action, options, CUSTOMIZATION_OVERVIEW_ITEM, this.itemsModel);
 		}, undefined));
 
 		this._register(registerAction2(class extends Action2 {
@@ -348,6 +351,7 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 			async run(accessor: ServicesAccessor): Promise<void> {
 				await openCustomizationOverviewPage(
 					accessor.get(IEditorService),
+					accessor.get(IInstantiationService),
 					accessor.get(ICustomizationHarnessService),
 					accessor.get(ISessionsService),
 				);
@@ -361,7 +365,7 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 			const section = config.section;
 			// Register the custom ActionViewItem for this action
 			this._register(actionViewItemService.register(Menus.SidebarCustomizations, config.id, (action, options) => {
-				return instantiationService.createInstance(CustomizationLinkViewItem, action, options, config);
+				return instantiationService.createInstance(CustomizationLinkViewItem, action, options, config, this.itemsModel);
 			}, undefined));
 
 			const sectionVisibleWhen = ContextKeyExpr.has(customizationSectionVisibleKey(section));
@@ -385,12 +389,17 @@ export class CustomizationsToolbarContribution extends Disposable implements IWo
 				}
 				async run(accessor: ServicesAccessor): Promise<void> {
 					const editorService = accessor.get(IEditorService);
+					const instantiationService = accessor.get(IInstantiationService);
 					const harnessService = accessor.get(ICustomizationHarnessService);
 					const sessionsService = accessor.get(ISessionsService);
-					await openCustomizationSectionPage(editorService, harnessService, sessionsService, section);
+					await openCustomizationSectionPage(editorService, instantiationService, harnessService, sessionsService, section);
 				}
 			}));
 		}
+	}
+
+	getItemsModel(): IAICustomizationItemsModelInstance {
+		return this.itemsModel;
 	}
 }
 

@@ -66,6 +66,7 @@ export class AICustomizationShortcutsWidget extends Disposable {
 	constructor(
 		container: HTMLElement,
 		options: IAICustomizationShortcutsWidgetOptions | undefined,
+		private readonly itemsModel: IAICustomizationItemsModelInstance,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IAICustomizationMcpServerCountService private readonly mcpServerCountService: IAICustomizationMcpServerCountService,
 		@IAICustomizationItemsModel private readonly itemsModel: IAICustomizationItemsModel,

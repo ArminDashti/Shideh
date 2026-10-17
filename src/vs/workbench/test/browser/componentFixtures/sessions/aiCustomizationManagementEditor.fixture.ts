@@ -1650,7 +1650,7 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 	editor.create(ctx.container);
 	editor.layout(new Dimension(width, height));
 
-	const editorInput = ctx.disposableStore.add(AICustomizationManagementEditorInput.getOrCreate());
+	const editorInput = ctx.disposableStore.add(AICustomizationManagementEditorInput.getOrCreate(instantiationService));
 	await editor.setInput(editorInput, undefined, {}, CancellationToken.None);
 
 	if (options.selectedSection) {
