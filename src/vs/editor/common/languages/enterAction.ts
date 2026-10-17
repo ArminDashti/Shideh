@@ -20,6 +20,7 @@ export function getEnterAction(
 	const languageId = model.getLanguageIdAtPosition(range.startLineNumber, range.startColumn);
 	const richEditSupport = languageConfigurationService.getLanguageConfiguration(languageId);
 	if (!richEditSupport) {
+		console.log('return 1');
 		return null;
 	}
 	const indentationContextProcessor = new IndentationContextProcessor(model, languageConfigurationService);
@@ -29,7 +30,10 @@ export function getEnterAction(
 	const afterEnterText = processedContextTokens.afterRangeProcessedTokens.getLineContent();
 
 	const enterResult = richEditSupport.onEnter(autoIndent, previousLineText, beforeEnterText, afterEnterText);
+	console.log('enterResult : ', JSON.stringify(enterResult));
+
 	if (!enterResult) {
+		console.log('return 2');
 		return null;
 	}
 
@@ -56,6 +60,7 @@ export function getEnterAction(
 		indentation = indentation.substring(0, indentation.length - removeText);
 	}
 
+	console.log('return 3');
 	return {
 		indentAction: indentAction,
 		appendText: appendText,

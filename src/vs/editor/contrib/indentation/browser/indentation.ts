@@ -59,6 +59,7 @@ export class IndentationToSpacesAction extends EditorAction {
 		editor.executeCommands(this.id, [command]);
 		editor.pushUndoStop();
 
+		// Now we want to use spaces instead
 		model.updateOptions({
 			insertSpaces: InsertSpaces.Spaces
 		});
@@ -95,6 +96,7 @@ export class IndentationToTabsAction extends EditorAction {
 		editor.executeCommands(this.id, [command]);
 		editor.pushUndoStop();
 
+		// Use tabs to do indentation
 		model.updateOptions({
 			insertSpaces: InsertSpaces.Tabs
 		});
@@ -366,6 +368,7 @@ export class ReindentSelectedLinesAction extends EditorAction {
 
 		const edits: ISingleEditOperation[] = [];
 
+		// Iterate over all of the selections
 		for (const selection of selections) {
 			let startLineNumber = selection.startLineNumber;
 			let endLineNumber = selection.endLineNumber;
@@ -379,6 +382,7 @@ export class ReindentSelectedLinesAction extends EditorAction {
 					continue;
 				}
 			} else {
+				// removing one from start line number
 				startLineNumber--;
 			}
 
@@ -427,6 +431,7 @@ export class AutoIndentOnPasteCommand implements ICommand {
 			} else if (this._edits[0].range.endColumn === this._initialSelection.startColumn &&
 				this._edits[0].range.endLineNumber === this._initialSelection.startLineNumber) {
 				selectionIsSet = true;
+				// utility to track the selection on edits
 				this._selectionId = builder.trackSelection(this._initialSelection, false);
 			}
 		}
@@ -477,7 +482,12 @@ export class AutoIndentOnPaste implements IEditorContribution {
 		}));
 	}
 
+	// function trigerred on paste
+	// trigger only indents so that the original indentation is kept and only full indentation is generally changed
 	public trigger(range: Range): void {
+		console.log('trigger of AutoIndentOnPaste');
+		console.log('range : ', JSON.stringify(range));
+
 		const selections = this.editor.getSelections();
 		if (selections === null || selections.length > 1) {
 			return;
@@ -513,16 +523,35 @@ export class AutoIndentOnPaste implements IEditorContribution {
 		let startLineNumber = range.startLineNumber;
 
 		let firstLineText = model.getLineContent(startLineNumber);
+		console.log('firstLineText : ', firstLineText);
+
+		// we test if there are no non whitespace characters in the first line text
 		if (!/\S/.test(firstLineText.substring(0, range.startColumn - 1))) {
 			const indentOfFirstLine = getGoodIndentForLine(autoIndent, model, model.getLanguageId(), startLineNumber, indentConverter, this._languageConfigurationService);
+			console.log('indentOfFirstLine : ', indentOfFirstLine);
+			console.log('indentOfFirstLine.length : ', indentOfFirstLine?.length);
 
 			if (indentOfFirstLine !== null) {
+				// current indentation at first line text
 				const oldIndentation = strings.getLeadingWhitespace(firstLineText);
+				console.log('oldIndentation : ', oldIndentation);
+				console.log('oldIndentation.length : ', oldIndentation.length);
+
+				// number of spaces needed for the ideal indent of first line
 				const newSpaceCnt = indentUtils.getSpaceCnt(indentOfFirstLine, tabSize);
+				// number of spaces needed for the ideal indent of initial line
 				const oldSpaceCnt = indentUtils.getSpaceCnt(oldIndentation, tabSize);
+
+				console.log('newSpaceCnt : ', newSpaceCnt);
+				console.log('oldSpaceCnt : ', oldSpaceCnt);
 
 				if (newSpaceCnt !== oldSpaceCnt) {
 					const newIndent = indentUtils.generateIndent(newSpaceCnt, tabSize, insertSpaces);
+					console.log('push 1');
+					console.log('edit : ', {
+						range: new Range(startLineNumber, 1, startLineNumber, oldIndentation.length + 1),
+						text: newIndent
+					});
 					textEdits.push({
 						range: new Range(startLineNumber, 1, startLineNumber, oldIndentation.length + 1),
 						text: newIndent
@@ -532,10 +561,11 @@ export class AutoIndentOnPaste implements IEditorContribution {
 					const indentMetadata = getIndentMetadata(model, startLineNumber, this._languageConfigurationService);
 
 					if (indentMetadata === 0 || indentMetadata === IndentConsts.UNINDENT_MASK) {
-						// we paste content into a line where only contains whitespaces
+						// we paste content into a line which only contains whitespaces
 						// after pasting, the indentation of the first line is already correct
 						// the first line doesn't match any indentation rule
 						// then no-op.
+						console.log('early return');
 						return;
 					}
 				}
@@ -544,7 +574,8 @@ export class AutoIndentOnPaste implements IEditorContribution {
 
 		const firstLineNumber = startLineNumber;
 
-		// ignore empty or ignored lines
+		// \S is any non whitespace character
+		// If the line does not have no non whitespace characters, we increase the start line number
 		while (startLineNumber < range.endLineNumber) {
 			if (!/\S/.test(model.getLineContent(startLineNumber + 1))) {
 				startLineNumber++;
@@ -552,6 +583,7 @@ export class AutoIndentOnPaste implements IEditorContribution {
 			}
 			break;
 		}
+		console.log('startLineNumber : ', startLineNumber);
 
 		if (startLineNumber !== range.endLineNumber) {
 			const virtualModel = {
@@ -574,21 +606,46 @@ export class AutoIndentOnPaste implements IEditorContribution {
 					}
 				}
 			};
+			// Taking the line after so line startLineNumber + 1
+			// Why do we start from the second line, and not the first line?
 			const indentOfSecondLine = getGoodIndentForLine(autoIndent, virtualModel, model.getLanguageId(), startLineNumber + 1, indentConverter, this._languageConfigurationService);
+			console.log('indentOfSecondLine : ', indentOfSecondLine);
+
 			if (indentOfSecondLine !== null) {
 				const newSpaceCntOfSecondLine = indentUtils.getSpaceCnt(indentOfSecondLine, tabSize);
+				// Getting the line content and the leading whitespaces string
 				const oldSpaceCntOfSecondLine = indentUtils.getSpaceCnt(strings.getLeadingWhitespace(model.getLineContent(startLineNumber + 1)), tabSize);
 
+				console.log('newSpaceCntOfSecondLine : ', newSpaceCntOfSecondLine);
+				console.log('oldSpaceCntOfSecondLine : ', oldSpaceCntOfSecondLine);
+
 				if (newSpaceCntOfSecondLine !== oldSpaceCntOfSecondLine) {
+					// Differences between new spaces count and old spaces count
 					const spaceCntOffset = newSpaceCntOfSecondLine - oldSpaceCntOfSecondLine;
+					console.log('spaceCntOffset : ', spaceCntOffset);
+
 					for (let i = startLineNumber + 1; i <= range.endLineNumber; i++) {
 						const lineContent = model.getLineContent(i);
+						console.log('lineContent : ', lineContent);
 						const originalIndent = strings.getLeadingWhitespace(lineContent);
 						const originalSpacesCnt = indentUtils.getSpaceCnt(originalIndent, tabSize);
+						console.log('originalSpacesCnt : ', originalSpacesCnt);
 						const newSpacesCnt = originalSpacesCnt + spaceCntOffset;
+						console.log('newSpacesCnt : ', newSpacesCnt);
 						const newIndent = indentUtils.generateIndent(newSpacesCnt, tabSize, insertSpaces);
 
+						console.log('newIndent : ', newIndent);
+						console.log('newIndent.length : ', newIndent.length);
+						console.log('originalIndent : ', originalIndent);
+						console.log('originalIndent.length : ', originalIndent.length);
+
+						// Change the indentation with edit
 						if (newIndent !== originalIndent) {
+							console.log('push 2');
+							console.log('edit ', {
+								range: new Range(i, 1, i, originalIndent.length + 1),
+								text: newIndent
+							});
 							textEdits.push({
 								range: new Range(i, 1, i, originalIndent.length + 1),
 								text: newIndent
@@ -598,6 +655,8 @@ export class AutoIndentOnPaste implements IEditorContribution {
 				}
 			}
 		}
+
+		console.log('textEdits : ', JSON.stringify(textEdits));
 
 		if (textEdits.length > 0) {
 			this.editor.pushUndoStop();
@@ -669,6 +728,7 @@ function getIndentationEditOperations(model: ITextModel, builder: IEditOperation
 			continue;
 		}
 
+		// The range of the indentation on that line number
 		const originalIndentationRange = new Range(lineNumber, 1, lineNumber, lastIndentationColumn);
 		const originalIndentation = model.getValueInRange(originalIndentationRange);
 		const newIndentation = insertSpaces === InsertSpaces.Mixed

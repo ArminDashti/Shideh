@@ -19,6 +19,7 @@ function _normalizeIndentationFromWhitespace(str: string, indentSize: number, ta
 		if (str.charAt(i) === '\t') {
 			spacesCnt = CursorColumns.nextRenderTabStop(spacesCnt, renderTabSize);
 		} else {
+			// Increase the count when we encounter a space character
 			spacesCnt++;
 		}
 	}
@@ -32,6 +33,7 @@ function _normalizeIndentationFromWhitespace(str: string, indentSize: number, ta
 		}
 	}
 
+	// Fill in with spaces
 	for (let i = 0; i < spacesCnt; i++) {
 		result += ' ';
 	}
@@ -41,6 +43,7 @@ function _normalizeIndentationFromWhitespace(str: string, indentSize: number, ta
 
 export function normalizeIndentation(str: string, indentSize: number, insertSpaces: InsertSpaces, tabSize: number = indentSize): string {
 	let firstNonWhitespaceIndex = strings.firstNonWhitespaceIndex(str);
+	// If it is -1, we set the index to the string length
 	if (firstNonWhitespaceIndex === -1) {
 		firstNonWhitespaceIndex = str.length;
 	}

@@ -36,6 +36,7 @@ export function getReindentEditOperations(model: ITextModel, languageConfigurati
 		startLineNumber++;
 	}
 
+	// No edit operations when start line number equal to end line number or more
 	if (startLineNumber > endLineNumber - 1) {
 		return [];
 	}
@@ -43,6 +44,7 @@ export function getReindentEditOperations(model: ITextModel, languageConfigurati
 	const { tabSize, indentSize, insertSpaces } = model.getOptions();
 	const shiftIndent = (indentation: string, count?: number) => {
 		count = count || 1;
+		// Here count is the column number
 		return ShiftCommand.shiftIndent(indentation, indentation.length + count, tabSize, indentSize, insertSpaces);
 	};
 	const unshiftIndent = (indentation: string, count?: number) => {
@@ -84,6 +86,7 @@ export function getReindentEditOperations(model: ITextModel, languageConfigurati
 			globalIndent = unshiftIndent(globalIndent);
 		}
 
+		// Suppose that the initial indentation is not equal to the ideal indentation for the next line, then add an edit
 		if (oldIndentation !== idealIndentForNextLine) {
 			indentEdits.push(EditOperation.replaceMove(new Selection(lineNumber, 1, lineNumber, oldIndentation.length + 1), normalizeIndentation(idealIndentForNextLine, indentSize, insertSpaces, tabSize)));
 		}
@@ -95,6 +98,7 @@ export function getReindentEditOperations(model: ITextModel, languageConfigurati
 			continue;
 		} else if (processedIndentRulesSupport.shouldIncrease(lineNumber, currentIdealIndent)) {
 			globalIndent = shiftIndent(globalIndent);
+			// setting ideal indent for next line to global indent, becaue the shift of the indent applies to all next lines
 			idealIndentForNextLine = globalIndent;
 		} else if (processedIndentRulesSupport.shouldIndentNextLine(lineNumber, currentIdealIndent)) {
 			idealIndentForNextLine = shiftIndent(idealIndentForNextLine);

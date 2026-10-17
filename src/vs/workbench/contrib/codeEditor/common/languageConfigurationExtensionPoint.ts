@@ -406,6 +406,7 @@ export class LanguageConfigurationFileHandler extends Disposable {
 		const autoCloseBefore = (typeof configuration.autoCloseBefore === 'string' ? configuration.autoCloseBefore : undefined);
 		const wordPattern = (configuration.wordPattern ? this._parseRegex(languageId, `wordPattern`, configuration.wordPattern) : undefined);
 		const indentationRules = (configuration.indentationRules ? this._mapIndentationRules(languageId, configuration.indentationRules) : undefined);
+		console.log('indentationRules : ', indentationRules);
 		let folding: FoldingRules | undefined = undefined;
 		if (configuration.folding) {
 			const rawMarkers = configuration.folding.markers;
@@ -418,6 +419,7 @@ export class LanguageConfigurationFileHandler extends Disposable {
 			};
 		}
 		const onEnterRules = this._extractValidOnEnterRules(languageId, configuration);
+		console.log('onEnterRules : ', onEnterRules);
 
 		const richEditConfig: ExplicitLanguageConfiguration = {
 			comments,
