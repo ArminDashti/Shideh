@@ -33,6 +33,7 @@ export const enum AccessibleViewProviderId {
 	ReplEditor = 'replEditor',
 	Editor = 'editor',
 	Hover = 'hover',
+	Marker = 'marker',
 	Notification = 'notification',
 	EmptyEditorHint = 'emptyEditorHint',
 	Comments = 'comments',
