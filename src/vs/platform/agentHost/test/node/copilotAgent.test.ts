@@ -554,6 +554,7 @@ interface ITestCopilotClient extends Pick<CopilotClient, 'start' | 'stop' | 'lis
 		readonly skills: CopilotSkillDiscovery;
 		readonly sessions: {
 			readonly fork: CopilotClient['rpc']['sessions']['fork'];
+			readonly connect: CopilotClient['rpc']['sessions']['connect'];
 			readonly list: CopilotClient['rpc']['sessions']['list'];
 		};
 		readonly models: { readonly list: CopilotModelsList };
@@ -565,6 +566,7 @@ type TestCopilotSessionMetadata = Awaited<ReturnType<ITestCopilotClient['listSes
 
 interface ITestCopilotSessionOptions {
 	readonly clientName?: string;
+	readonly isRemote?: boolean;
 	readonly repository?: string;
 	readonly modifiedTime?: Date;
 }
@@ -638,22 +640,62 @@ class TestCopilotClient implements ITestCopilotClient {
 					throw this.sessionListError;
 				}
 				return {
-					sessions: this._sessions.map(session => ({
-						sessionId: session.sessionId,
+					sessionId: `connected-${sessionId}`,
+					metadata: {
+						sessionId: `connected-${sessionId}`,
 						startTime: session.startTime.toISOString(),
 						modifiedTime: session.modifiedTime.toISOString(),
 						summary: session.summary,
-						clientName: session.clientName,
-						isRemote: false,
-						...(session.context ? {
-							context: {
-								cwd: session.context.workingDirectory,
-								gitRoot: session.context.gitRoot,
-								repository: session.context.repository,
-								branch: session.context.branch,
-							}
-						} : {}),
-					}))
+						repository: { owner, name, branch: session.context.branch ?? '' },
+						kind: 'remote-session',
+					},
+				};
+			},
+			list: async params => {
+				this.sessionListStarted?.complete();
+				await this.sessionListGate;
+				this.sessionListRequests.push(params);
+				const sessions = params.source === 'remote'
+					? this._sessions.filter(session => session.isRemote)
+					: params.source === 'all'
+						? this._sessions
+						: this._sessions.filter(session => !session.isRemote);
+				return {
+					sessions: sessions.map(session => {
+						const context = session.context ? {
+							cwd: session.context.workingDirectory,
+							gitRoot: session.context.gitRoot,
+							branch: session.context.branch,
+						} : undefined;
+						if (session.isRemote) {
+							const [owner = '', name = ''] = session.context?.repository?.split('/') ?? [];
+							return {
+								sessionId: session.sessionId,
+								startTime: session.startTime.toISOString(),
+								modifiedTime: session.modifiedTime.toISOString(),
+								summary: session.summary,
+								isRemote: true,
+								...(context ? { context } : {}),
+								repository: { owner, name, branch: session.context?.branch ?? '' },
+								remoteSessionIds: [`remote-${session.sessionId}`],
+								taskType: 'cli' as const,
+							};
+						}
+						return {
+							sessionId: session.sessionId,
+							startTime: session.startTime.toISOString(),
+							modifiedTime: session.modifiedTime.toISOString(),
+							summary: session.summary,
+							clientName: session.clientName,
+							isRemote: false,
+							...(context ? {
+								context: {
+									...context,
+									repository: session.context?.repository,
+								}
+							} : {}),
+						};
+					})
 				};
 			},
 		},
@@ -696,6 +738,8 @@ class TestCopilotClient implements ITestCopilotClient {
 	readonly modelListResponses: ITestCopilotModelInfo[][] = [];
 	readonly getSessionMetadataCalls: string[] = [];
 	readonly deletedSessionIds: string[] = [];
+	readonly remoteSessionConnectCalls: string[] = [];
+	readonly sessionListRequests: Parameters<ITestCopilotClient['rpc']['sessions']['list']>[0][] = [];
 
 	constructor(
 		private readonly _sessions: TestCopilotSessionMetadata[],
@@ -1358,7 +1402,7 @@ function sdkSession(sessionId: string, cwd?: string, options?: ITestCopilotSessi
 		startTime: new Date(1000),
 		modifiedTime: options?.modifiedTime ?? new Date(2000),
 		summary: `SDK ${sessionId}`,
-		isRemote: false,
+		isRemote: options?.isRemote ?? false,
 		...(cwd ? {
 			context: {
 				workingDirectory: cwd,

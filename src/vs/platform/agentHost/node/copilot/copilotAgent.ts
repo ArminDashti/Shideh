@@ -640,6 +640,8 @@ const COPILOT_EXTERNAL_SESSION_CLIENT_NAMES = new Set(['github/cli', 'github/aut
 const COPILOT_EXTERNAL_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** How many SDK sessions are classified before the batch is published to clients. */
 const COPILOT_DISCOVERY_BATCH_SIZE = 250;
+type CopilotSessionListEntry = Awaited<ReturnType<CopilotClient['rpc']['sessions']['list']>>['sessions'][number];
+type CopilotRemoteSessionListEntry = Extract<CopilotSessionListEntry, { isRemote: true }>;
 
 interface ICopilotDiscoveryResultMetrics {
 	candidateSessionCount: number;
@@ -3124,7 +3126,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		const earliestExternalModifiedTime = this._now() - COPILOT_EXTERNAL_SESSION_MAX_AGE_MS;
 		let known = 0;
 		let withoutWorkingDirectory = 0;
-		let unsupportedClientName = 0;
+		let unsupportedLocalClientName = 0;
 		let outsideImportWindow = 0;
 		let suppressedAdoptable = 0;
 		let suppressedArchived = 0;
@@ -3191,7 +3193,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 					// Always key the project off the resolved working directory: a worktree
 					// session's context repository/gitRoot would resolve to the repo root.
 					project: await this._localProject(
-						await this._resolveSessionProject({ ...s.context, cwd: workingDirectory.fsPath }, projectLimiter, projectByContext),
+						await this._resolveSessionProject({
+							...(s.isRemote ? this._remoteSessionContext(s) : s.context),
+							cwd: workingDirectory.fsPath,
+						}, projectLimiter, projectByContext),
 						adoptable ? s.sessionId : undefined,
 					),
 					summary: s.summary,
@@ -3369,6 +3374,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			return undefined;
 		}
 		const storedMetadata = await this._readStoredSessionMetadata(session);
+		const remoteSessionMetadata = providerData === undefined ? await this._getRemoteSessionMetadata(sessionId) : undefined;
 
 		// Serve from the bulk-warmed cache when available; otherwise fall back to a
 		// per-session RPC (also covers a session the bulk list transiently omitted).
@@ -3393,7 +3399,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		let project = storedMetadata?.project;
 		if (!storedMetadata?.resolved) {
 			const projectLimiter = new Limiter<IAgentSessionProjectInfo | undefined>(1);
-			project = await this._resolveSessionProject(sessionMetadata?.context, projectLimiter, new Map<string, Promise<IAgentSessionProjectInfo | undefined>>());
+			project = await this._resolveSessionProject(remoteSessionMetadata ? this._remoteSessionContext(remoteSessionMetadata) : sessionMetadata?.context, projectLimiter, new Map<string, Promise<IAgentSessionProjectInfo | undefined>>());
 			if (storedMetadata) {
 				void this._storeSessionProjectResolution(session, project);
 			}
@@ -3405,10 +3411,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 		const workspaceless = storedMetadata?.workspaceless === undefined && this._isWorkspacelessChatDirectory(workingDirectories?.[0]);
 		return {
 			chat,
-			startTime: sessionMetadata?.startTime.getTime() ?? Date.now(),
-			modifiedTime: sessionMetadata?.modifiedTime.getTime() ?? Date.now(),
+			startTime: remoteSessionMetadata ? new Date(remoteSessionMetadata.startTime).getTime() : sessionMetadata?.startTime.getTime() ?? Date.now(),
+			modifiedTime: remoteSessionMetadata ? new Date(remoteSessionMetadata.modifiedTime).getTime() : sessionMetadata?.modifiedTime.getTime() ?? Date.now(),
 			project,
-			summary: sessionMetadata?.summary,
+			summary: remoteSessionMetadata?.summary ?? sessionMetadata?.summary,
 			workingDirectories,
 			_meta: withSessionWorkspaceless(adoptable ? withSessionEhcliAdoptable(undefined) : undefined, workspaceless),
 		};
@@ -5362,6 +5368,20 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (providerData === undefined) {
 			if (!isDefaultChatUri(chat)) {
 				return;
+			}
+			const remoteSession = await this._getRemoteSessionMetadata(AgentSession.id(resolved.configurationResource));
+			if (remoteSession) {
+				const remoteWorkingDirectory = remoteSession.context?.cwd;
+				if (typeof remoteWorkingDirectory !== 'string') {
+					throw new Error(`workingDirectory is required to connect Copilot remote session '${remoteSession.sessionId}'`);
+				}
+				const client = await this._ensureClient();
+				const connected = await client.rpc.sessions.connect({ sessionId: remoteSession.sessionId });
+				const workingDirectory = URI.file(remoteWorkingDirectory);
+				await this._storeSessionMetadata(resolved.configurationResource, undefined, workingDirectory, [workingDirectory], undefined, undefined);
+				const backing = { sdkSessionId: connected.sessionId };
+				this._chatBackings.set(chatKey, backing);
+				return this._chatBackingResult(AgentSession.id(resolved.configurationResource), backing);
 			}
 			const backing = { sdkSessionId: AgentSession.id(resolved.configurationResource) };
 			this._chatBackings.set(chatKey, backing);
