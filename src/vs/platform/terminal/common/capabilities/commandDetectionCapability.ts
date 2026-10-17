@@ -147,6 +147,7 @@ export class CommandDetectionCapability extends Disposable implements ICommandDe
 			get commandMarkers() { return that._commandMarkers; }
 			set commandMarkers(value) { that._commandMarkers = value; }
 			get clearCommandsInViewport() { return that._clearCommandsInViewport.bind(that); }
+			get clearAllCommands() { return that._clearAllCommands.bind(that); }
 		};
 		this._ptyHeuristics = this._register(new MandatoryMutableDisposable(new UnixPtyHeuristics(this._terminal, this, this._ptyHeuristicsHooks, this._logService)));
 
@@ -204,6 +205,14 @@ export class CommandDetectionCapability extends Disposable implements ICommandDe
 		}
 	}
 
+	private _clearAllCommands(): void {
+		// Clear all commands both scrollback, viewport.
+		if (this._commands.length > 0) {
+			const clearedCommands = this._commands.splice(0, this._commands.length);
+			this._onCommandInvalidated.fire(clearedCommands);
+		}
+	}
+
 	setContinuationPrompt(value: string): void {
 		this._promptInputModel.setContinuationPrompt(value);
 	}
@@ -234,6 +243,7 @@ export class CommandDetectionCapability extends Disposable implements ICommandDe
 					get commandMarkers() { return that._commandMarkers; }
 					set commandMarkers(value) { that._commandMarkers = value; }
 					get clearCommandsInViewport() { return that._clearCommandsInViewport.bind(that); }
+					get clearAllCommands() { return that._clearAllCommands.bind(that); }
 				},
 				this._logService
 			);
@@ -523,6 +533,7 @@ interface ICommandDetectionHeuristicsHooks {
 	commandMarkers: IMarker[];
 
 	clearCommandsInViewport(): void;
+	clearAllCommands(): void;
 }
 
 type IPtyHeuristics = (
@@ -611,8 +622,7 @@ class WindowsPtyHeuristics extends Disposable {
 
 		this._register(this._capability.onBeforeCommandFinished(command => {
 			// For older Windows backends we cannot listen to CSI J, instead we assume running clear
-			// or cls will clear all commands in the viewport. This is not perfect but it's right
-			// most of the time.
+			// or cls will clear all commands. This is not perfect but it's right most of the time.
 			if (command.command.trim().toLowerCase() === 'clear' || command.command.trim().toLowerCase() === 'cls') {
 				this._tryAdjustCommandStartMarkerScheduler?.cancel();
 				this._tryAdjustCommandStartMarkerScheduler = undefined;
