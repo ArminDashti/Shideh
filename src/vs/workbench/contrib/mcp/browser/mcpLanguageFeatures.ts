@@ -413,6 +413,28 @@ export class McpLanguageFeatures extends Disposable implements IWorkbenchContrib
 						}
 					});
 				}
+
+
+				const promptCount = read(server.prompts).length;
+				if (promptCount) {
+					lenses.lenses.push({
+						range,
+						command: {
+							id: McpCommandIds.StartPromptForServer,
+							title: localize('server.promptcount', '{0} prompts', promptCount),
+							arguments: [server],
+						}
+					});
+				}
+
+				lenses.lenses.push({
+					range,
+					command: {
+						id: McpCommandIds.ServerOptions,
+						title: localize('mcp.server.more', 'More...'),
+						arguments: [server.definition.id],
+					}
+				});
 			}
 		}
 

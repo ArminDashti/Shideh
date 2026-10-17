@@ -1108,7 +1108,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 						this._fireTaskEvent(TaskEvent.problemMatcherEnded(task, this._taskHasErrors(task), terminal?.instanceId));
 					}
 				}
-			});
+			}));
 			let processStartedSignaled = false;
 			terminal.processReady.then(() => {
 				console.log(`(tasks) Terminal Process ID ${terminal!.processId}`);

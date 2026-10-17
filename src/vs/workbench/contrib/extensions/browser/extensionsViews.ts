@@ -417,6 +417,10 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 			extensions = this.filterBuiltinExtensions(local, query, options);
 		}
 
+		else if (includeBuiltin) {
+			extensions = this.filterBuiltinExtensions(local, query, options);
+		}
+
 		return { extensions, canIncludeInstalledExtensions, description };
 	}
 

@@ -27,6 +27,7 @@ import { IAllowedMcpServersService } from '../../../../platform/mcp/common/mcpMa
 import { ILogger, ILoggerService } from '../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, Severity } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IRemoteAuthorityResolverService } from '../../../../platform/remote/common/remoteAuthorityResolver.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -338,6 +339,33 @@ class CachedPrimitive<T, C> {
 	public readonly value: IObservable<T> = derived(reader => {
 		const serverTools = this.fromServer.read(reader);
 		const definitions = serverTools?.data ?? this._fromStaticDefinition?.read(reader) ?? this.fromCache?.data ?? this.defaultValue;
+		return this._toT(definitions, reader);
+	});
+}
+
+class CachedPrimitive<T, C> {
+	constructor(
+		private readonly _definitionId: string,
+		private readonly _cache: McpServerMetadataCache,
+		private readonly _fromCache: (entry: IToolCacheEntry) => readonly C[],
+		private readonly _toT: (values: readonly C[], reader: IDerivedReader<void>) => T[],
+	) { }
+
+	public get fromCache(): { nonce: string | undefined; data: readonly C[] } | undefined {
+		const c = this._cache.get(this._definitionId);
+		return c ? { data: this._fromCache(c), nonce: c.nonce } : undefined;
+	}
+
+	public readonly fromServerPromise = observableValue<ObservablePromise<{
+		readonly data: C[];
+		readonly nonce: string | undefined;
+	}> | undefined>(this, undefined);
+
+	private readonly fromServer = derived(reader => this.fromServerPromise.read(reader)?.promiseResult.read(reader)?.data);
+
+	public readonly value: IObservable<readonly T[]> = derived(reader => {
+		const serverTools = this.fromServer.read(reader);
+		const definitions = serverTools?.data ?? this.fromCache?.data ?? [];
 		return this._toT(definitions, reader);
 	});
 }

@@ -233,6 +233,50 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 		return providers.find(p => p._debugDisplayName !== 'wordbasedCompletions');
 	}
 
+	// TODO: Eventually support multiple LSP providers for [non-Python REPLs](https://github.com/microsoft/vscode/issues/249479)
+	private async _loadLspCompletionAddon(xterm: RawXtermTerminal): Promise<void> {
+		const isWsl =
+			isLinux &&
+			(
+				!!env['WSL_DISTRO_NAME'] ||
+				!!env['WSL_INTEROP']
+			);
+
+		// Windows, WSL currently does not support shell integration for Python REPL.
+		if (isWindows || isWsl) {
+			return;
+		}
+
+		if (this._ctx.instance.shellType !== GeneralShellType.Python) {
+			this._lspAddon.clear();
+			return;
+		}
+
+		const virtualTerminalDocumentUri = createTerminalLanguageVirtualUri(this._ctx.instance.instanceId, 'py');
+
+		// Load and register the LSP completion providers (one per language server)
+		this._lspModelProvider.value = this._instantiationService.createInstance(LspTerminalModelContentProvider, this._ctx.instance.capabilities, this._ctx.instance.instanceId, virtualTerminalDocumentUri, this._ctx.instance.shellType);
+		this.add(this._lspModelProvider.value);
+
+		const textVirtualModel = await this._textModelService.createModelReference(virtualTerminalDocumentUri);
+		this.add(textVirtualModel);
+
+		const virtualProviders = this._languageFeaturesService.completionProvider.all(textVirtualModel.object.textEditorModel);
+		const provider = virtualProviders.find(p => p._debugDisplayName === PYLANCE_DEBUG_DISPLAY_NAME);
+
+		if (provider) {
+			const lspCompletionProviderAddon = this._lspAddon.value = this._instantiationService.createInstance(LspCompletionProviderAddon, provider, textVirtualModel, this._lspModelProvider.value);
+			xterm.loadAddon(lspCompletionProviderAddon);
+			this.add(lspCompletionProviderAddon);
+			this.add(this._terminalCompletionService.registerTerminalCompletionProvider(
+				'lsp',
+				lspCompletionProviderAddon.id,
+				lspCompletionProviderAddon,
+				...(lspCompletionProviderAddon.triggerCharacters ?? [])
+			));
+		}
+	}
+
 	private _loadAddons(xterm: RawXtermTerminal): void {
 		// Don't re-create the addon
 		if (this._addon.value) {
@@ -503,6 +547,26 @@ registerTerminalAction({
 		order: 3
 	},
 	run: (c, accessor) => accessor.get(IPreferencesService).openSettings({ query: terminalSuggestConfigSection })
+});
+
+registerTerminalAction({
+	id: TerminalSuggestCommandId.LearnMore,
+	title: localize2('workbench.action.terminal.learnMore', 'Learn More'),
+	f1: false,
+	precondition: ContextKeyExpr.and(ContextKeyExpr.or(TerminalContextKeys.processSupported, TerminalContextKeys.terminalHasBeenCreated), TerminalContextKeys.focus, TerminalContextKeys.isOpen, TerminalContextKeys.suggestWidgetVisible),
+	menu: {
+		id: MenuId.MenubarTerminalSuggestStatusMenu,
+		group: 'center',
+		order: 1
+	},
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyL,
+		weight: KeybindingWeight.WorkbenchContrib + 1,
+		when: TerminalContextKeys.suggestWidgetVisible
+	},
+	run: (c, accessor) => {
+		(accessor.get(IOpenerService)).open('https://aka.ms/vscode-terminal-intellisense');
+	}
 });
 
 registerActiveInstanceAction({

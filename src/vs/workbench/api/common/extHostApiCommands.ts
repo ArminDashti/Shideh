@@ -66,7 +66,8 @@ const newCommands: ApiCommand[] = [
 				children!: vscode.DocumentSymbol[];
 				override containerName: string = '';
 			}
-			return value.map(MergedInfo.to);
+
+			return value.map(wrap);
 
 		})
 	),

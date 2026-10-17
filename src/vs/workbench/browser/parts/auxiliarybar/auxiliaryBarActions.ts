@@ -69,6 +69,17 @@ export class ToggleAuxiliaryBarAction extends Action2 {
 
 registerAction2(ToggleAuxiliaryBarAction);
 
+MenuRegistry.appendMenuItem(MenuId.AuxiliaryBarTitle, {
+	command: {
+		id: ToggleAuxiliaryBarAction.ID,
+		title: localize('closeSecondarySideBar', 'Hide Secondary Side Bar'),
+		icon: closeIcon
+	},
+	group: 'navigation',
+	order: 2,
+	when: ContextKeyExpr.equals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.DEFAULT)
+});
+
 registerAction2(class extends Action2 {
 	constructor() {
 		super({

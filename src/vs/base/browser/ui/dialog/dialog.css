@@ -101,6 +101,10 @@
 	min-width: 350px; /* more narrow when aligned vertically */
 }
 
+.monaco-dialog-box.align-vertical {
+	min-width: 350px; /* more narrow when aligned vertically */
+}
+
 /** Dialog: Title Actions Row */
 .monaco-dialog-box .dialog-toolbar-row {
 	height: 20px;
@@ -128,6 +132,10 @@
 
 .monaco-dialog-box.align-vertical .dialog-message-row .dialog-message-container {
 	min-height: 0; /* allow flex item to shrink below content size in column layout */
+}
+
+.monaco-dialog-box.align-vertical .dialog-message-row {
+	flex-direction: column;
 }
 
 .monaco-dialog-box .dialog-message-row > .dialog-icon.codicon {
@@ -290,6 +298,14 @@
 	width: fit-content;
 }
 
+.monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons > .monaco-button {
+	margin: 4px 0; /* allows button focus outline to be visible */
+}
+
+.monaco-dialog-box:not(.align-vertical) > .dialog-buttons-row > .dialog-buttons > .monaco-button {
+	width: fit-content;
+}
+
 /** Dialog: Dropdown */
 .monaco-dialog-box:not(.align-vertical) > .dialog-buttons-row > .dialog-buttons > .monaco-button-dropdown {
 	margin: 4px 5px;
@@ -312,6 +328,10 @@
 	border-radius: 4px;
 }
 
+
+.monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons > .monaco-button-dropdown > .monaco-text-button {
+	width: 100%;
+}
 
 .monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons > .monaco-button-dropdown > .monaco-text-button {
 	width: 100%;

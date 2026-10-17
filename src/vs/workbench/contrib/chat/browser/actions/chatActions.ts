@@ -72,6 +72,7 @@ export const CHAT_OPEN_ACTION_ID = 'workbench.action.chat.open';
 export const CHAT_OPEN_EDITOR_ACTION_ID = 'workbench.action.openChat';
 export const CHAT_SETUP_ACTION_ID = 'workbench.action.chat.triggerSetup';
 const TOGGLE_CHAT_ACTION_ID = 'workbench.action.chat.toggle';
+const CHAT_CLEAR_HISTORY_ACTION_ID = 'workbench.action.chat.clearHistory';
 
 export const GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID = 'workbench.action.chat.generateAgentInstructions';
 export const GENERATE_ON_DEMAND_INSTRUCTIONS_COMMAND_ID = 'workbench.action.chat.generateOnDemandInstructions';
@@ -595,7 +596,7 @@ export abstract class ModeOpenChatGlobalAction extends OpenChatGlobalAction {
 			id: getOpenChatActionIdForMode(mode),
 			title: localize2('openChatMode', "Open Chat ({0})", mode.label.get()),
 			keybinding
-		}, mode);
+		}, mode.kind);
 	}
 }
 
@@ -1433,6 +1434,81 @@ export function registerChatActions() {
 			ChatContextKeys.enabled,
 			ContextKeyExpr.equals('view', ChatViewId),
 		),
+		order: 6
+	});
+
+	registerAction2(class ResetTrustedToolsAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.chat.resetTrustedTools',
+				title: localize2('resetTrustedTools', "Reset Tool Confirmations"),
+				category: CHAT_CATEGORY,
+				f1: true,
+				precondition: ChatContextKeys.enabled
+			});
+		}
+		override run(accessor: ServicesAccessor): void {
+			accessor.get(ILanguageModelToolsService).resetToolAutoConfirmation();
+			accessor.get(INotificationService).info(localize('resetTrustedToolsSuccess', "Tool confirmation preferences have been reset."));
+		}
+	});
+
+	registerAction2(class UpdateInstructionsAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.chat.generateInstructions',
+				title: localize2('generateInstructions', "Generate Workspace Instructions File"),
+				shortTitle: localize2('generateInstructions.short', "Generate Instructions"),
+				category: CHAT_CATEGORY,
+				icon: Codicon.sparkle,
+				f1: true,
+				precondition: ChatContextKeys.enabled,
+				menu: {
+					id: CHAT_CONFIG_MENU_ID,
+					when: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.equals('view', ChatViewId)),
+					order: 13,
+					group: '1_level'
+				}
+			});
+		}
+
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const commandService = accessor.get(ICommandService);
+
+			// Use chat command to open and send the query
+			const query = `Analyze this codebase to generate or update \`.github/copilot-instructions.md\` for guiding AI coding agents.
+
+Focus on discovering the essential knowledge that would help an AI agents be immediately productive in this codebase. Consider aspects like:
+- The "big picture" architecture that requires reading multiple files to understand - major components, service boundaries, data flows, and the "why" behind structural decisions
+- Critical developer workflows (builds, tests, debugging) especially commands that aren't obvious from file inspection alone
+- Project-specific conventions and patterns that differ from common practices
+- Integration points, external dependencies, and cross-component communication patterns
+
+Source existing AI conventions from \`**/{.github/copilot-instructions.md,AGENT.md,AGENTS.md,CLAUDE.md,.cursorrules,.windsurfrules,.clinerules,.cursor/rules/**,.windsurf/rules/**,.clinerules/**,README.md}\` (do one glob search).
+
+Guidelines (read more at https://aka.ms/vscode-instructions-docs):
+- If \`.github/copilot-instructions.md\` exists, merge intelligently - preserve valuable content while updating outdated sections
+- Write concise, actionable instructions (~20-50 lines) using markdown structure
+- Include specific examples from the codebase when describing patterns
+- Avoid generic advice ("write tests", "handle errors") - focus on THIS project's specific approaches
+- Document only discoverable patterns, not aspirational practices
+- Reference key files/directories that exemplify important patterns
+
+Update \`.github/copilot-instructions.md\` for the user, then ask for feedback on any unclear or incomplete sections to iterate.`;
+
+			await commandService.executeCommand('workbench.action.chat.open', {
+				mode: 'agent',
+				query: query,
+			});
+		}
+	});
+
+	MenuRegistry.appendMenuItem(MenuId.ViewTitle, {
+		submenu: CHAT_CONFIG_MENU_ID,
+		title: localize2('config.label', "Configure Chat..."),
+		group: 'navigation',
+		when: ContextKeyExpr.equals('view', ChatViewId),
+		icon: Codicon.settingsGear,
 		order: 6
 	});
 }

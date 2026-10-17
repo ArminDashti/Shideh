@@ -58,6 +58,30 @@ export function mapLspKindToTerminalKind(lspKind: CompletionItemKind): TerminalC
 	}
 }
 
+// Maps CompletionItemKind from language server based completion to TerminalCompletionItemKind
+export function mapLspKindToTerminalKind(lspKind: CompletionItemKind): TerminalCompletionItemKind {
+	// TODO: Add more types for different [LSP providers](https://github.com/microsoft/vscode/issues/249480)
+
+	switch (lspKind) {
+		case CompletionItemKind.File:
+			return TerminalCompletionItemKind.File;
+		case CompletionItemKind.Folder:
+			return TerminalCompletionItemKind.Folder;
+		case CompletionItemKind.Method:
+			return TerminalCompletionItemKind.Method;
+		case CompletionItemKind.Text:
+			return TerminalCompletionItemKind.Argument; // consider adding new type?
+		case CompletionItemKind.Variable:
+			return TerminalCompletionItemKind.Argument; // ""
+		case CompletionItemKind.EnumMember:
+			return TerminalCompletionItemKind.OptionValue; // ""
+		case CompletionItemKind.Keyword:
+			return TerminalCompletionItemKind.Alias;
+		default:
+			return TerminalCompletionItemKind.Method;
+	}
+}
+
 export interface ITerminalCompletion extends ISimpleCompletion {
 	/**
 	 * A custom string that should be input into the terminal when selecting this completion. This

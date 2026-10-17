@@ -106,7 +106,7 @@ export class ListMcpServerCommand extends Action2 {
 					ChatContextKeys.lockedToCodingAgent.negate(),
 					ContextKeyExpr.and(ChatContextKeys.Setup.hidden.negate(), ChatContextKeys.Setup.disabledInWorkspace.negate()),
 				),
-				id: MenuId.ChatInput,
+				id: MenuId.ChatExecute,
 				group: 'navigation',
 				order: 101,
 			}],

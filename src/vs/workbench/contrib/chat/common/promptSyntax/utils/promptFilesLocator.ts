@@ -948,6 +948,100 @@ export class PromptFilesLocator {
 
 		return allResults;
 	}
+
+	private getLocalParentFolders(type: PromptsType): readonly { parent: URI; filePattern?: string }[] {
+		const configuredLocations = PromptsConfig.promptSourceFolders(this.configService, type);
+		const absoluteLocations = this.toAbsoluteLocations(configuredLocations);
+		return absoluteLocations.map(firstNonGlobParentAndPattern);
+	}
+
+	/**
+	 * Converts locations defined in `settings` to absolute filesystem path URIs.
+	 * This conversion is needed because locations in settings can be relative,
+	 * hence we need to resolve them based on the current workspace folders.
+	 */
+	private toAbsoluteLocations(configuredLocations: readonly string[]): readonly URI[] {
+		const result = new ResourceSet();
+		const { folders } = this.workspaceService.getWorkspace();
+
+		for (const configuredLocation of configuredLocations) {
+			try {
+				if (isAbsolute(configuredLocation)) {
+					let uri = URI.file(configuredLocation);
+					const remoteAuthority = this.environmentService.remoteAuthority;
+					if (remoteAuthority) {
+						// if the location is absolute and we are in a remote environment,
+						// we need to convert it to a file URI with the remote authority
+						uri = uri.with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });
+					}
+					result.add(uri);
+				} else {
+					for (const workspaceFolder of folders) {
+						const absolutePath = joinPath(workspaceFolder.uri, configuredLocation);
+						result.add(absolutePath);
+					}
+				}
+			} catch (error) {
+				this.logService.error(`Failed to resolve prompt file location: ${configuredLocation}`, error);
+			}
+		}
+
+		return [...result];
+	}
+
+	/**
+	 * Uses the file service to resolve the provided location and return either the file at the location of files in the directory.
+	 */
+	private async resolveFilesAtLocation(location: URI, token: CancellationToken): Promise<URI[]> {
+		try {
+			const info = await this.fileService.resolve(location);
+			if (info.isFile) {
+				return [info.resource];
+			} else if (info.isDirectory && info.children) {
+				const result: URI[] = [];
+				for (const child of info.children) {
+					if (child.isFile) {
+						result.push(child.resource);
+					}
+				}
+				return result;
+			}
+		} catch (error) {
+		}
+		return [];
+	}
+
+	/**
+	 * Uses the search service to find all files at the provided location
+	 */
+	private async searchFilesInLocation(folder: URI, filePattern: string | undefined, token: CancellationToken | undefined): Promise<URI[]> {
+		const disregardIgnoreFiles = this.configService.getValue<boolean>('explorer.excludeGitIgnore');
+
+		const workspaceRoot = this.workspaceService.getWorkspaceFolder(folder);
+
+		const getExcludePattern = (folder: URI) => getExcludes(this.configService.getValue<ISearchConfiguration>({ resource: folder })) || {};
+		const searchOptions: IFileQuery = {
+			folderQueries: [{ folder, disregardIgnoreFiles }],
+			type: QueryType.File,
+			shouldGlobMatchFilePattern: true,
+			excludePattern: workspaceRoot ? getExcludePattern(workspaceRoot.uri) : undefined,
+			sortByScore: true,
+			filePattern
+		};
+
+		try {
+			const searchResult = await this.searchService.fileSearch(searchOptions, token);
+			if (token?.isCancellationRequested) {
+				return [];
+			}
+			return searchResult.results.map(r => r.resource);
+		} catch (e) {
+			if (!isCancellationError(e)) {
+				throw e;
+			}
+		}
+		return [];
+	}
 }
 
 

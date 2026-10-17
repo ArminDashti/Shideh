@@ -75,27 +75,12 @@ export class InlineCompletionsController extends Disposable {
 
 	private readonly _debounceValue;
 
-	private readonly _focusIsInMenu = observableValue<boolean>(this, false);
-	private readonly _focusIsInEditorOrMenu = derived(this, reader => {
-		const editorHasFocus = this._editorObs.isFocused.read(reader);
-		const menuHasFocus = this._focusIsInMenu.read(reader);
-		return editorHasFocus || menuHasFocus;
-	});
+	private readonly _focusIsInMenu;
+	private readonly _focusIsInEditorOrMenu;
 
-	private readonly _cursorIsInIndentation = derived(this, reader => {
-		const cursorPos = this._editorObs.cursorPosition.read(reader);
-		if (cursorPos === null) { return false; }
-		const model = this._editorObs.model.read(reader);
-		if (!model) { return false; }
-		this._editorObs.versionId.read(reader);
-		const indentMaxColumn = model.getLineIndentColumn(cursorPos.lineNumber);
-		return cursorPos.column <= indentMaxColumn;
-	});
+	private readonly _cursorIsInIndentation;
 
-	public readonly model = derivedDisposable<InlineCompletionsModel | undefined>(this, reader => {
-		if (this._editorObs.isReadonly.read(reader)) { return undefined; }
-		const textModel = this._editorObs.model.read(reader);
-		if (!textModel) { return undefined; }
+	public readonly model;
 
 		const model: InlineCompletionsModel = this._instantiationService.createInstance(
 			InlineCompletionsModel,
@@ -111,7 +96,7 @@ export class InlineCompletionsController extends Disposable {
 		return model;
 	});
 
-	private readonly _playAccessibilitySignal = observableSignal(this);
+	private readonly _hideInlineEditOnSelectionChange;
 
 	private readonly _hideInlineEditOnSelectionChange;
 

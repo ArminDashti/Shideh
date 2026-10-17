@@ -14,6 +14,11 @@ declare const document: any;
 declare const self: any;
 declare const globalThis: any;
 
+declare const window: any;
+declare const document: any;
+declare const self: any;
+declare const globalThis: any;
+
 class DefineCall {
 	constructor(
 		public readonly id: string | null | undefined,

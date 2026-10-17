@@ -23,11 +23,7 @@ import { cancelOnDispose } from '../../../../base/common/cancellation.js';
 export class MultiDiffEditorViewModel extends Disposable {
 	private readonly _documents: IObservable<readonly RefCounted<IDocumentDiffItem>[] | 'loading'>;
 
-	private readonly _documentsArr = derived(this, reader => {
-		const result = this._documents.read(reader);
-		if (result === 'loading') { return []; }
-		return result;
-	});
+	private readonly _documentsArr;
 
 	public readonly isLoading;
 	private readonly _waitForNewDiffs: IObservable<ObservablePromise<readonly RefCounted<DocumentDiffItemViewModel>[]>>;

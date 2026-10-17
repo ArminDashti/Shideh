@@ -53,6 +53,7 @@ import { IPreferencesRenderer, UserSettingsRenderer, WorkspaceSettingsRenderer }
 import { SettingsEditor2, SettingsFocusContext } from './settingsEditor2.js';
 
 const SETTINGS_EDITOR_COMMAND_SEARCH = 'settings.action.search';
+const SETTINGS_EDITOR_COMMAND_TOGGLE_AI_SEARCH = 'settings.action.toggleAiSearch';
 
 const SETTINGS_EDITOR_COMMAND_FOCUS_FILE = 'settings.action.focusSettingsFile';
 const SETTINGS_EDITOR_COMMAND_FOCUS_SETTINGS_FROM_SEARCH = 'settings.action.focusSettingsFromSearch';

@@ -438,6 +438,10 @@ class FastRenderedViewLine implements IRenderedViewLine {
 		this._context = context;
 	}
 
+	public getRenderWhitespace(): RenderWhitespace {
+		return this.input.renderWhitespace;
+	}
+
 	public getWidth(context: DomReadingContext | null): number {
 		if (!this.domNode || this.input.lineContent.length < Constants.MaxMonospaceDistance) {
 			const horizontalOffset = this._characterMapping.getHorizontalOffset(this._context.viewModel.cursorConfig, this._characterMapping.length);
@@ -577,6 +581,13 @@ class RenderedViewLine implements IRenderedViewLine {
 
 	protected _getReadingTarget(myDomNode: FastDomNode<HTMLElement>): HTMLElement {
 		return <HTMLSpanElement>myDomNode.domNode.firstChild;
+	}
+
+	/**
+	 * The render whitespace setting for this line
+	 */
+	public getRenderWhitespace(): RenderWhitespace {
+		return this.input.renderWhitespace;
 	}
 
 	/**

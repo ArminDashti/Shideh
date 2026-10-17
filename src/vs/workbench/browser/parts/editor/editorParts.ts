@@ -100,6 +100,15 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 			this.modalEditorSidebarHidden = modalState.sidebarHidden;
 		}
 
+		this.editorWorkingSets = (() => {
+			const workingSetsRaw = this.storageService.get(EditorParts.EDITOR_WORKING_SETS_STORAGE_KEY, StorageScope.WORKSPACE);
+			if (workingSetsRaw) {
+				return JSON.parse(workingSetsRaw);
+			}
+
+			return [];
+		})();
+
 		this.mainPart = this._register(this.createMainEditorPart());
 		this._register(this.registerPart(this.mainPart));
 

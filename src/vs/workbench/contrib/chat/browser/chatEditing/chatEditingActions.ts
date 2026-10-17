@@ -367,6 +367,53 @@ registerAction2(class RemoveAction extends Action2 {
 			widget?.focusInput();
 			widget?.input.setValue(item.messageText, false);
 		}
+
+		if (isRequestVM(item) && configurationService.getValue('chat.undoRequests.restoreInput')) {
+			widget?.focusInput();
+			widget?.input.setValue(item.messageText, false);
+		}
+	}
+});
+
+registerAction2(class EditAction extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chat.editRequests',
+			title: localize2('chat.editRequests.label', "Edit Request"),
+			f1: false,
+			category: CHAT_CATEGORY,
+			icon: Codicon.edit,
+			keybinding: {
+				primary: KeyCode.Enter,
+				when: ContextKeyExpr.and(ChatContextKeys.inChatSession, EditorContextKeys.textInputFocus.negate()),
+				weight: KeybindingWeight.WorkbenchContrib,
+			},
+			menu: [
+				{
+					id: MenuId.ChatMessageTitle,
+					group: 'navigation',
+					order: 2,
+					when: ContextKeyExpr.and(ContextKeyExpr.or(ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'hover'), ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'input')))
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor, ...args: any[]) {
+		let item: ChatTreeItem | undefined = args[0];
+		const chatWidgetService = accessor.get(IChatWidgetService);
+		const widget = chatWidgetService.lastFocusedWidget;
+		if (!isResponseVM(item) && !isRequestVM(item)) {
+			item = widget?.getFocus();
+		}
+
+		if (!item) {
+			return;
+		}
+
+		if (isRequestVM(item)) {
+			widget?.startEditing(item.id);
+		}
 	}
 });
 

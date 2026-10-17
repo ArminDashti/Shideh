@@ -106,6 +106,9 @@ export namespace Schemas {
 	/** Scheme used for subscription-backed Agent Host terminal output editors. */
 	export const vscodeChatTerminalOutput = 'vscode-chat-terminal-output';
 
+	/** Scheme used for the chat input part */
+	export const vscodeChatInput = 'chatSessionInput';
+
 	/**
 	 * Scheme used internally for webviews that aren't linked to a resource (i.e. not custom editors)
 	 */

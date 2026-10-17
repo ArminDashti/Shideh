@@ -209,7 +209,7 @@ export class McpService extends Disposable implements IMcpService {
 
 		// Transfer over any servers that are still valid.
 		for (const server of currentServers) {
-			const match = definitions.find(d => defsEqual(server.object, d));
+			const match = definitions.find(d => defsEqual(server.object, d) && server.toolPrefix === d.toolPrefix);
 			if (match) {
 				pushMatch(match, server);
 			} else {
@@ -306,5 +306,20 @@ export class McpCollisionEnablementModel extends CollisionEnablementModel {
 			return groups;
 		});
 		super(base, collisionGroups);
+	}
+}
+
+// Helper class for generating unique MCP tool prefixes
+class McpPrefixGenerator {
+	private readonly seenPrefixes = new Set<string>();
+
+	generate(label: string): string {
+		const baseToolPrefix = McpToolName.Prefix + label.toLowerCase().replace(/[^a-z0-9_.-]+/g, '_').slice(0, McpToolName.MaxPrefixLen - McpToolName.Prefix.length - 1);
+		let toolPrefix = baseToolPrefix + '_';
+		for (let i = 2; this.seenPrefixes.has(toolPrefix); i++) {
+			toolPrefix = baseToolPrefix + i + '_';
+		}
+		this.seenPrefixes.add(toolPrefix);
+		return toolPrefix;
 	}
 }

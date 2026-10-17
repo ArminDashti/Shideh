@@ -634,6 +634,18 @@ export class TerminalCompletionService extends Disposable implements ITerminalCo
 				}
 			}
 
+			// Try to resolve symlink target for symbolic links
+			if (child.isSymbolicLink) {
+				try {
+					const realpath = await this._fileService.realpath(child.resource);
+					if (realpath && !isEqual(child.resource, realpath)) {
+						detail = `${getFriendlyPath(child.resource, resourceRequestConfig.pathSeparator, kind, shellType)} -> ${getFriendlyPath(realpath, resourceRequestConfig.pathSeparator, kind, shellType)}`;
+					}
+				} catch (error) {
+					// Ignore errors resolving symlink targets - they may be dangling links
+				}
+			}
+
 			resourceCompletions.push({
 				label,
 				provider,

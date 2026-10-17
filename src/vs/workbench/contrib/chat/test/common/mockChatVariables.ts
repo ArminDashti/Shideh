@@ -29,4 +29,8 @@ export class MockChatVariablesService implements IChatVariablesService {
 	setSelectedToolAndToolSets(sessionResource: URI, tools: ToolAndToolSetEnablementMap): void {
 		this._selectedToolAndToolSets.set(sessionResource, tools);
 	}
+
+	getSelectedToolSets(sessionId: string): readonly ToolSet[] {
+		return [];
+	}
 }

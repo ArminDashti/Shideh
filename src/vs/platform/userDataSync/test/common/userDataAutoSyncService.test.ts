@@ -155,6 +155,8 @@ suite('UserDataAutoSyncService', () => {
 				{ type: 'POST', url: `${target.url}/v1/resource/snippets`, headers: { 'If-Match': '0' } },
 				// Tasks
 				{ type: 'POST', url: `${target.url}/v1/resource/tasks`, headers: { 'If-Match': '0' } },
+				// Mcp
+				{ type: 'GET', url: `${target.url}/v1/resource/mcp/latest`, headers: {} },
 				// Global state
 				{ type: 'POST', url: `${target.url}/v1/resource/globalState`, headers: { 'If-Match': '0' } },
 				// Prompts

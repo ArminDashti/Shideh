@@ -734,6 +734,10 @@
 	display: none !important;
 }
 
+.scm-history-view .monaco-list-row > .monaco-tl-row > .monaco-tl-twistie.force-no-twistie {
+	display: none !important;
+}
+
 .scm-history-view .scm-provider .label-name {
 	font-weight: bold;
 }

@@ -2252,6 +2252,26 @@ class EffectiveFullwidthCharacterWidth extends ComputedEditorOption<EditorOption
 
 //#endregion
 
+//#region effectiveAllowVariableFonts
+
+class EffectiveAllowVariableFonts extends ComputedEditorOption<EditorOption.effectiveAllowVariableFonts, boolean> {
+
+	constructor() {
+		super(EditorOption.effectiveAllowVariableFonts);
+	}
+
+	public compute(env: IEnvironmentalOptions, options: IComputedEditorOptions): boolean {
+		const accessibilitySupport = env.accessibilitySupport;
+		if (accessibilitySupport === AccessibilitySupport.Enabled) {
+			return options.get(EditorOption.allowVariableFontsInAccessibilityMode);
+		} else {
+			return options.get(EditorOption.allowVariableFonts);
+		}
+	}
+}
+
+//#engregion
+
 //#region fontSize
 
 class EditorFontSize extends SimpleEditorOption<EditorOption.fontSize, number> {

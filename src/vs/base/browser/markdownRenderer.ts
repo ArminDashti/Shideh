@@ -802,6 +802,10 @@ function getDomSanitizerConfig(mdStrConfig: MdStrConfig, options: MarkdownSaniti
 		allowedLinkSchemes.push(...options.allowedLinkSchemes.augment);
 	}
 
+	if (options.allowedProductProtocols) {
+		allowedSchemes.push(...options.allowedProductProtocols);
+	}
+
 	return {
 		// allowedTags should included everything that markdown renders to.
 		// Since we have our own sanitize function for marked, it's possible we missed some tag so let dompurify make sure.

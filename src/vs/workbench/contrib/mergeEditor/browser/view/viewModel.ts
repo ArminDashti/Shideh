@@ -26,7 +26,7 @@ export class MergeEditorViewModel extends Disposable {
 
 	private readonly attachedHistory;
 
-	private readonly attachedHistory = this._register(new AttachedHistory(this.model.resultTextModel));
+	private readonly attachedHistory;
 
 	constructor(
 		public readonly model: MergeEditorModel,

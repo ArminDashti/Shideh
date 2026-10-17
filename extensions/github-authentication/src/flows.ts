@@ -688,3 +688,20 @@ export type GitHubOAuthSignInProvider = GitHubSignInProvider.Google | GitHubSign
 export function isSignInProvider(provider: unknown): provider is GitHubSignInProvider {
 	return provider === GitHubSignInProvider.Google || provider === GitHubSignInProvider.Apple || provider === GitHubSignInProvider.Microsoft;
 }
+
+/**
+ * Social authentication providers for GitHub
+ */
+export const enum GitHubSocialSignInProvider {
+	Google = 'google',
+	// Apple = 'apple',
+}
+
+const GitHubSocialSignInProviderLabels = {
+	[GitHubSocialSignInProvider.Google]: l10n.t('Google'),
+	// [GitHubSocialSignInProvider.Apple]: l10n.t('Apple'),
+};
+
+export function isSocialSignInProvider(provider: unknown): provider is GitHubSocialSignInProvider {
+	return provider === GitHubSocialSignInProvider.Google; // || provider === GitHubSocialSignInProvider.Apple;
+}

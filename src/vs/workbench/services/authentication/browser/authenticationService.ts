@@ -345,6 +345,9 @@ export class AuthenticationService extends Disposable implements IAuthentication
 				return provider.id;
 			}
 		}
+		if (this._disposedSource.token.isCancellationRequested) {
+			throw new Error('Authentication service is disposed.');
+		}
 
 		const authServerStr = authorizationServer.toString(true);
 		const providers = this._declaredProviders

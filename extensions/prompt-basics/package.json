@@ -65,6 +65,17 @@
           "SKILL.md"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "chatmode",
+        "aliases": [
+          "Chat Mode",
+          "chat mode"
+        ],
+        "extensions": [
+          ".chatmode.md"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [

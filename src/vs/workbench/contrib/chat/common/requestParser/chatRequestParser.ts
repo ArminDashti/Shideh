@@ -61,6 +61,9 @@ export class ChatRequestParser {
 			}
 		}
 
+		const toolSetsByName = new Map<string, ToolSet>(this.variableService.getSelectedToolSets(sessionId)
+			.map(t => [t.referenceName, t]));
+
 		let lineNumber = 1;
 		let column = 1;
 		for (let i = 0; i < message.length; i++) {

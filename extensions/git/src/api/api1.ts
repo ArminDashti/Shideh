@@ -479,6 +479,27 @@ export class ApiImpl implements API {
 		return workspaces ? workspaces.map(r => Uri.file(r.workspacePath)) : null;
 	}
 
+	async getRepositoryRoot(uri: Uri): Promise<Uri | null> {
+		const repository = this.getRepository(uri);
+		if (repository) {
+			return repository.rootUri;
+		}
+
+		try {
+			const root = await this.#model.git.getRepositoryRoot(uri.fsPath);
+			return Uri.file(root);
+		} catch (err) {
+			if (
+				err.gitErrorCode === GitErrorCodes.NotAGitRepository ||
+				err.gitErrorCode === GitErrorCodes.NotASafeGitRepository
+			) {
+				return null;
+			}
+
+			throw err;
+		}
+	}
+
 	async init(root: Uri, options?: InitOptions): Promise<Repository | null> {
 		const path = root.fsPath;
 		await this.#model.git.init(path, options);

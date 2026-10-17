@@ -636,6 +636,12 @@ export enum InlineCompletionEditorType {
 	Notebook = 'notebook',
 }
 
+export enum InlineCompletionEditorType {
+	TextEditor = 'textEditor',
+	DiffEditor = 'diffEditor',
+	Notebook = 'notebook',
+}
+
 /**
  * A ref counted pointer to the computed `InlineCompletions` and the `InlineCompletionsProvider` that
  * computed them.

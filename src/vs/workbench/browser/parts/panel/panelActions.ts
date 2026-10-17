@@ -71,6 +71,16 @@ export class TogglePanelAction extends Action2 {
 
 registerAction2(TogglePanelAction);
 
+MenuRegistry.appendMenuItem(MenuId.PanelTitle, {
+	command: {
+		id: TogglePanelAction.ID,
+		title: localize('closePanel', 'Hide Panel'),
+		icon: closeIcon
+	},
+	group: 'navigation',
+	order: 2
+});
+
 registerAction2(class extends Action2 {
 	constructor() {
 		super({

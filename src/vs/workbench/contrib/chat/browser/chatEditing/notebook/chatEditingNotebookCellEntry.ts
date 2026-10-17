@@ -73,6 +73,7 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 				this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 			}
 		}));
+
 	}
 
 	public clearCurrentEditLineDecoration() {

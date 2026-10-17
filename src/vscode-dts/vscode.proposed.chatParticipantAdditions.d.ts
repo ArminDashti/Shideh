@@ -1221,4 +1221,8 @@ declare module 'vscode' {
 		 */
 		workspaceEdit(edit: WorkspaceEdit): Thenable<void>;
 	}
+
+	export interface ChatRequest {
+		modeInstructions?: string;
+	}
 }

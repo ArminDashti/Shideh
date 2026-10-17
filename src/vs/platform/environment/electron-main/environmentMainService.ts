@@ -37,6 +37,9 @@ export interface IEnvironmentMainService extends INativeEnvironmentService {
 	// TODO@deepak1556 temporary until a real fix lands upstream
 	readonly enableRDPDisplayTracking: boolean;
 
+	// TODO@deepak1556 TODO@bpasero temporary until a real fix lands upstream
+	readonly enableRDPDisplayTracking: boolean;
+
 	unsetSnapExportedVariables(): void;
 	restoreSnapExportedVariables(): void;
 }

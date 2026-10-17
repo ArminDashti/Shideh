@@ -35,6 +35,8 @@
 		const onElectron = searchParams.get('platform') === 'electron';
 		const disableServiceWorker = searchParams.has('disableServiceWorker');
 		const expectedWorkerVersion = parseInt(searchParams.get('swVersion'));
+		/** @type {MessageChannel | undefined} */
+		let outerIframeMessageChannel;
 
 		/**
 		 * @param {string} name

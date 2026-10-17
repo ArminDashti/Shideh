@@ -269,6 +269,52 @@ export function hasNativeMenu(configurationService: IConfigurationService, title
 	return hasNativeContextMenu(configurationService, titleBarStyle);
 }
 
+export const enum MenuSettings {
+	MenuStyle = 'window.menuStyle',
+	MenuBarVisibility = 'window.menuBarVisibility'
+}
+
+export const enum MenuStyleConfiguration {
+	CUSTOM = 'custom',
+	NATIVE = 'native',
+	INHERIT = 'inherit',
+}
+
+export function hasNativeContextMenu(configurationService: IConfigurationService, titleBarStyle?: TitlebarStyle): boolean {
+	if (isWeb) {
+		return false;
+	}
+
+	const nativeTitle = hasNativeTitlebar(configurationService, titleBarStyle);
+	const windowConfigurations = configurationService.getValue<IWindowSettings | undefined>('window');
+
+	if (windowConfigurations?.menuStyle === MenuStyleConfiguration.NATIVE) {
+		// Do not support native menu with custom title bar
+		if (!isMacintosh && !nativeTitle) {
+			return false;
+		}
+		return true;
+	}
+
+	if (windowConfigurations?.menuStyle === MenuStyleConfiguration.CUSTOM) {
+		return false;
+	}
+
+	return nativeTitle; // Default to inherit from title bar style
+}
+
+export function hasNativeMenu(configurationService: IConfigurationService, titleBarStyle?: TitlebarStyle): boolean {
+	if (isWeb) {
+		return false;
+	}
+
+	if (isMacintosh) {
+		return true;
+	}
+
+	return hasNativeContextMenu(configurationService, titleBarStyle);
+}
+
 export type MenuBarVisibility = 'classic' | 'visible' | 'toggle' | 'hidden' | 'compact';
 
 export function getMenuBarVisibility(configurationService: IConfigurationService): MenuBarVisibility {

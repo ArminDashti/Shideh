@@ -70,8 +70,8 @@ export class GhostTextView extends Disposable {
 		return { lineNumber: gt.lineNumber, position: new Position(gt.lineNumber, gt.parts[0].column), icon: warning.icon };
 	});
 
-	private readonly _onDidClick = this._register(new Emitter<IMouseEvent>());
-	public readonly onDidClick = this._onDidClick.event;
+	private readonly _onDidClick;
+	public readonly onDidClick;
 
 	private readonly _extraClasses: readonly string[];
 	private readonly _isClickable: boolean;
@@ -94,6 +94,162 @@ export class GhostTextView extends Disposable {
 		@ILanguageService private readonly _languageService: ILanguageService
 	) {
 		super();
+		this._isDisposed = observableValue(this, false);
+		this._editorObs = observableCodeEditor(this._editor);
+		this._warningState = derived(reader => {
+			const gt = this._model.ghostText.read(reader);
+			if (!gt) { return undefined; }
+			const warning = this._model.warning.read(reader);
+			if (!warning) { return undefined; }
+			return { lineNumber: gt.lineNumber, position: new Position(gt.lineNumber, gt.parts[0].column), icon: warning.icon };
+		});
+		this._onDidClick = this._register(new Emitter<IMouseEvent>());
+		this.onDidClick = this._onDidClick.event;
+		this._useSyntaxHighlighting = this._options.map(o => o.syntaxHighlightingEnabled);
+		this._extraClassNames = derived(this, reader => {
+			const extraClasses = [...this._options.read(reader).extraClasses ?? []];
+			if (this._useSyntaxHighlighting.read(reader)) {
+				extraClasses.push('syntax-highlighted');
+			}
+			if (USE_SQUIGGLES_FOR_WARNING && this._warningState.read(reader)) {
+				extraClasses.push('warning');
+			}
+			const extraClassNames = extraClasses.map(c => ` ${c}`).join('');
+			return extraClassNames;
+		});
+		this.uiState = derived(this, reader => {
+			if (this._isDisposed.read(reader)) { return undefined; }
+			const textModel = this._editorObs.model.read(reader);
+			if (textModel !== this._model.targetTextModel.read(reader)) { return undefined; }
+			const ghostText = this._model.ghostText.read(reader);
+			if (!ghostText) { return undefined; }
+
+			const replacedRange = ghostText instanceof GhostTextReplacement ? ghostText.columnRange : undefined;
+
+			const syntaxHighlightingEnabled = this._useSyntaxHighlighting.read(reader);
+			const extraClassNames = this._extraClassNames.read(reader);
+			const { inlineTexts, additionalLines, hiddenRange, additionalLinesOriginalSuffix } = computeGhostTextViewData(ghostText, textModel, GHOST_TEXT_CLASS_NAME + extraClassNames);
+
+			const currentLine = textModel.getLineContent(ghostText.lineNumber);
+			const edit = new StringEdit(inlineTexts.map(t => StringReplacement.insert(t.column - 1, t.text)));
+			const tokens = syntaxHighlightingEnabled ? textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, [edit.apply(currentLine), ...additionalLines.map(l => l.content)]) : undefined;
+			const newRanges = edit.getNewRanges();
+			const inlineTextsWithTokens = inlineTexts.map((t, idx) => ({ ...t, tokens: tokens?.[0]?.getTokensInRange(newRanges[idx]) }));
+
+			const tokenizedAdditionalLines: LineData[] = additionalLines.map((l, idx) => {
+				let content = tokens?.[idx + 1] ?? LineTokens.createEmpty(l.content, this._languageService.languageIdCodec);
+				if (idx === additionalLines.length - 1 && additionalLinesOriginalSuffix) {
+					const t = TokenWithTextArray.fromLineTokens(textModel.tokenization.getLineTokens(additionalLinesOriginalSuffix.lineNumber));
+					const existingContent = t.slice(additionalLinesOriginalSuffix.columnRange.toZeroBasedOffsetRange());
+					content = TokenWithTextArray.fromLineTokens(content).append(existingContent).toLineTokens(content.languageIdCodec);
+				}
+				return {
+					content,
+					decorations: l.decorations,
+				};
+			});
+
+			const cursorColumn = this._editor.getSelection()?.getStartPosition().column!;
+			const disjointInlineTexts = inlineTextsWithTokens.filter(inline => inline.text !== '');
+			const hasInsertionOnCurrentLine = disjointInlineTexts.length !== 0;
+			const renderData: InlineCompletionViewData = {
+				cursorColumnDistance: (hasInsertionOnCurrentLine ? disjointInlineTexts[0].column : 1) - cursorColumn,
+				cursorLineDistance: hasInsertionOnCurrentLine ? 0 : (additionalLines.findIndex(line => line.content !== '') + 1),
+				lineCountOriginal: hasInsertionOnCurrentLine ? 1 : 0,
+				lineCountModified: additionalLines.length + (hasInsertionOnCurrentLine ? 1 : 0),
+				characterCountOriginal: 0,
+				characterCountModified: sum(disjointInlineTexts.map(inline => inline.text.length)) + sum(tokenizedAdditionalLines.map(line => line.content.getTextLength())),
+				disjointReplacements: disjointInlineTexts.length + (additionalLines.length > 0 ? 1 : 0),
+				sameShapeReplacements: disjointInlineTexts.length > 1 && tokenizedAdditionalLines.length === 0 ? disjointInlineTexts.every(inline => inline.text === disjointInlineTexts[0].text) : undefined,
+			};
+			this._model.handleInlineCompletionShown.read(reader)?.(renderData);
+
+			return {
+				replacedRange,
+				inlineTexts: inlineTextsWithTokens,
+				additionalLines: tokenizedAdditionalLines,
+				hiddenRange,
+				lineNumber: ghostText.lineNumber,
+				additionalReservedLineCount: this._model.minReservedLineCount.read(reader),
+				targetTextModel: textModel,
+				syntaxHighlightingEnabled,
+			};
+		});
+		this.decorations = derived(this, reader => {
+			const uiState = this.uiState.read(reader);
+			if (!uiState) { return []; }
+
+			const decorations: IModelDeltaDecoration[] = [];
+
+			const extraClassNames = this._extraClassNames.read(reader);
+
+			if (uiState.replacedRange) {
+				decorations.push({
+					range: uiState.replacedRange.toRange(uiState.lineNumber),
+					options: { inlineClassName: 'inline-completion-text-to-replace' + extraClassNames, description: 'GhostTextReplacement' }
+				});
+			}
+
+			if (uiState.hiddenRange) {
+				decorations.push({
+					range: uiState.hiddenRange.toRange(uiState.lineNumber),
+					options: { inlineClassName: 'ghost-text-hidden', description: 'ghost-text-hidden', }
+				});
+			}
+
+			for (const p of uiState.inlineTexts) {
+				decorations.push({
+					range: Range.fromPositions(new Position(uiState.lineNumber, p.column)),
+					options: {
+						description: 'ghost-text-decoration',
+						after: {
+							content: p.text,
+							tokens: p.tokens,
+							inlineClassName: (p.preview ? 'ghost-text-decoration-preview' : 'ghost-text-decoration')
+								+ (this._isClickable ? ' clickable' : '')
+								+ extraClassNames
+								+ p.lineDecorations.map(d => ' ' + d.className).join(' '), // TODO: take the ranges into account for line decorations
+							cursorStops: InjectedTextCursorStops.Left,
+							attachedData: new GhostTextAttachedData(this),
+						},
+						showIfCollapsed: true,
+					}
+				});
+			}
+
+			return decorations;
+		});
+		this._additionalLinesWidget = this._register(
+			new AdditionalLinesWidget(
+				this._editor,
+				derived(reader => {
+					/** @description lines */
+					const uiState = this.uiState.read(reader);
+					return uiState ? {
+						lineNumber: uiState.lineNumber,
+						additionalLines: uiState.additionalLines,
+						minReservedLineCount: uiState.additionalReservedLineCount,
+						targetTextModel: uiState.targetTextModel,
+					} : undefined;
+				}),
+				this._shouldKeepCursorStable,
+				this._isClickable
+			)
+		);
+		this._isInlineTextHovered = this._editorObs.isTargetHovered(
+			p => p.target.type === MouseTargetType.CONTENT_TEXT &&
+				p.target.detail.injectedText?.options.attachedData instanceof GhostTextAttachedData &&
+				p.target.detail.injectedText.options.attachedData.owner === this,
+			this._store
+		);
+		this.isHovered = derived(this, reader => {
+			if (this._isDisposed.read(reader)) { return false; }
+			return this._isInlineTextHovered.read(reader) || this._additionalLinesWidget.isHovered.read(reader);
+		});
+		this.height = derived(this, reader => {
+			const lineHeight = this._editorObs.getOption(EditorOption.lineHeight).read(reader);
+			return lineHeight + (this._additionalLinesWidget.viewZoneHeight.read(reader) ?? 0);
+		});
 
 		this._extraClasses = options.extraClasses ?? [];
 		this._isClickable = options.isClickable ?? false;
@@ -241,9 +397,7 @@ export class GhostTextView extends Disposable {
 		const ghostText = props.ghostText;
 		const replacedRange = ghostText instanceof GhostTextReplacement ? ghostText.columnRange : undefined;
 
-		const syntaxHighlightingEnabled = this._useSyntaxHighlighting.read(reader);
-		const extraClassNames = this._extraClassNames.read(reader);
-		const { inlineTexts, additionalLines, hiddenRange, additionalLinesOriginalSuffix } = computeGhostTextViewData(ghostText, textModel, GHOST_TEXT_CLASS_NAME + extraClassNames);
+	private readonly _additionalLinesWidget;
 
 		const currentLine = textModel.getLineContent(ghostText.lineNumber);
 		const edit = new StringEdit(inlineTexts.map(t => StringReplacement.insert(t.column - 1, t.text)));

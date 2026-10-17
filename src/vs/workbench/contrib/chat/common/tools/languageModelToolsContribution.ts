@@ -211,6 +211,7 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 	private _registrationDisposables = new DisposableMap<string>();
 
 	constructor(
+		@IProductService productService: IProductService,
 		@ILanguageModelToolsService languageModelToolsService: ILanguageModelToolsService,
 	) {
 

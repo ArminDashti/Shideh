@@ -38,7 +38,7 @@ export class AiSettingsSearchService extends Disposable implements IAiSettingsSe
 		};
 	}
 
-	startSearch(query: string, token: CancellationToken): void {
+	startSearch(query: string, embeddingsOnly: boolean, token: CancellationToken): void {
 		if (!this.isEnabled()) {
 			throw new Error('No settings search providers registered');
 		}

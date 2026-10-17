@@ -1080,6 +1080,155 @@ suite('TerminalCompletionService', () => {
 			assert.ok(!result.includes(provider2), 'Should not include disabled provider');
 		});
 	});
+
+	if (isWindows) {
+		suite('gitbash', () => {
+			test('should convert Git Bash absolute path to Windows absolute path', () => {
+				assert.strictEqual(gitBashToWindowsPath('/'), 'C:\\');
+				assert.strictEqual(gitBashToWindowsPath('/c/'), 'C:\\');
+				assert.strictEqual(gitBashToWindowsPath('/c/Users/foo'), 'C:\\Users\\foo');
+				assert.strictEqual(gitBashToWindowsPath('/d/bar'), 'D:\\bar');
+			});
+
+			test('should convert Windows absolute path to Git Bash absolute path', () => {
+				assert.strictEqual(windowsToGitBashPath('C:\\'), '/c/');
+				assert.strictEqual(windowsToGitBashPath('C:\\Users\\foo'), '/c/Users/foo');
+				assert.strictEqual(windowsToGitBashPath('D:\\bar'), '/d/bar');
+				assert.strictEqual(windowsToGitBashPath('E:\\some\\path'), '/e/some/path');
+			});
+
+			test('resolveResources with c:/ style absolute path for Git Bash', async () => {
+				const resourceRequestConfig: TerminalResourceRequestConfig = {
+					cwd: URI.file('C:\\Users\\foo'),
+					foldersRequested: true,
+					filesRequested: true,
+					pathSeparator: '/'
+				};
+				validResources = [
+					URI.file('C:\\Users\\foo'),
+					URI.file('C:\\Users\\foo\\bar'),
+					URI.file('C:\\Users\\foo\\baz.txt')
+				];
+				childResources = [
+					{ resource: URI.file('C:\\Users\\foo\\bar'), isDirectory: true, isFile: false },
+					{ resource: URI.file('C:\\Users\\foo\\baz.txt'), isFile: true }
+				];
+				const result = await terminalCompletionService.resolveResources(resourceRequestConfig, 'C:/Users/foo/', 13, provider, capabilities, WindowsShellType.GitBash);
+				assertCompletions(result, [
+					{ label: 'C:/Users/foo/', detail: 'C:\\Users\\foo\\' },
+					{ label: 'C:/Users/foo/bar/', detail: 'C:\\Users\\foo\\bar\\' },
+					{ label: 'C:/Users/foo/baz.txt', detail: 'C:\\Users\\foo\\baz.txt', kind: TerminalCompletionItemKind.File },
+				], { replacementIndex: 0, replacementLength: 13 }, '/');
+			});
+			test('resolveResources with cwd as Windows path (relative)', async () => {
+				const resourceRequestConfig: TerminalResourceRequestConfig = {
+					cwd: URI.file('C:\\Users\\foo'),
+					foldersRequested: true,
+					filesRequested: true,
+					pathSeparator: '/'
+				};
+				validResources = [
+					URI.file('C:\\Users\\foo'),
+					URI.file('C:\\Users\\foo\\bar'),
+					URI.file('C:\\Users\\foo\\baz.txt')
+				];
+				childResources = [
+					{ resource: URI.file('C:\\Users\\foo\\bar'), isDirectory: true },
+					{ resource: URI.file('C:\\Users\\foo\\baz.txt'), isFile: true }
+				];
+				const result = await terminalCompletionService.resolveResources(resourceRequestConfig, './', 2, provider, capabilities, WindowsShellType.GitBash);
+				assertCompletions(result, [
+					{ label: './', detail: 'C:\\Users\\foo\\' },
+					{ label: './bar/', detail: 'C:\\Users\\foo\\bar\\' },
+					{ label: './baz.txt', detail: 'C:\\Users\\foo\\baz.txt', kind: TerminalCompletionItemKind.File },
+					{ label: './../', detail: 'C:\\Users\\' }
+				], { replacementIndex: 0, replacementLength: 2 }, '/');
+			});
+
+			test('resolveResources with cwd as Windows path (absolute)', async () => {
+				const resourceRequestConfig: TerminalResourceRequestConfig = {
+					cwd: URI.file('C:\\Users\\foo'),
+					foldersRequested: true,
+					filesRequested: true,
+					pathSeparator: '/'
+				};
+				validResources = [
+					URI.file('C:\\Users\\foo'),
+					URI.file('C:\\Users\\foo\\bar'),
+					URI.file('C:\\Users\\foo\\baz.txt')
+				];
+				childResources = [
+					{ resource: URI.file('C:\\Users\\foo\\bar'), isDirectory: true },
+					{ resource: URI.file('C:\\Users\\foo\\baz.txt'), isFile: true }
+				];
+				const result = await terminalCompletionService.resolveResources(resourceRequestConfig, '/c/Users/foo/', 13, provider, capabilities, WindowsShellType.GitBash);
+				assertCompletions(result, [
+					{ label: '/c/Users/foo/', detail: 'C:\\Users\\foo\\' },
+					{ label: '/c/Users/foo/bar/', detail: 'C:\\Users\\foo\\bar\\' },
+					{ label: '/c/Users/foo/baz.txt', detail: 'C:\\Users\\foo\\baz.txt', kind: TerminalCompletionItemKind.File },
+				], { replacementIndex: 0, replacementLength: 13 }, '/');
+			});
+		});
+	}
+	if (!isWindows) {
+		suite('symlink support', () => {
+			test('should include symlink target information in completions', async () => {
+				const resourceRequestConfig: TerminalResourceRequestConfig = {
+					cwd: URI.parse('file:///test'),
+					pathSeparator,
+					filesRequested: true,
+					foldersRequested: true
+				};
+
+				validResources = [URI.parse('file:///test')];
+
+				// Create mock children including a symbolic link
+				childResources = [
+					{ resource: URI.parse('file:///test/regular-file.txt'), isFile: true },
+					{ resource: URI.parse('file:///test/symlink-file'), isFile: true, isSymbolicLink: true },
+					{ resource: URI.parse('file:///test/symlink-folder'), isDirectory: true, isSymbolicLink: true },
+					{ resource: URI.parse('file:///test/regular-folder'), isDirectory: true },
+				];
+
+				const result = await terminalCompletionService.resolveResources(resourceRequestConfig, 'ls ', 3, provider, capabilities);
+
+				// Find the symlink completion
+				const symlinkFileCompletion = result?.find(c => c.label === './symlink-file');
+				const symlinkFolderCompletion = result?.find(c => c.label === './symlink-folder/');
+				assert.strictEqual(symlinkFileCompletion?.detail, '/test/symlink-file -> /target/actual-file.txt', 'Symlink file detail should match target');
+				assert.strictEqual(symlinkFolderCompletion?.detail, '/test/symlink-folder -> /target/actual-folder', 'Symlink folder detail should match target');
+			});
+		});
+	}
+	suite('completion label escaping', () => {
+		test('| should escape special characters in file/folder names for POSIX shells', async () => {
+			const resourceRequestConfig: TerminalResourceRequestConfig = {
+				cwd: URI.parse('file:///test'),
+				foldersRequested: true,
+				filesRequested: true,
+				pathSeparator
+			};
+			validResources = [URI.parse('file:///test')];
+			childResources = [
+				{ resource: URI.parse('file:///test/[folder1]/'), isDirectory: true },
+				{ resource: URI.parse('file:///test/folder 2/'), isDirectory: true },
+				{ resource: URI.parse('file:///test/!special$chars&/'), isDirectory: true },
+				{ resource: URI.parse('file:///test/!special$chars2&'), isFile: true }
+			];
+			const result = await terminalCompletionService.resolveResources(resourceRequestConfig, '', 0, provider, capabilities);
+
+			assertCompletions(result, [
+				{ label: '.', detail: '/test/' },
+				{ label: './[folder1]/', detail: '/test/\[folder1]\/' },
+				{ label: './folder\ 2/', detail: '/test/folder\ 2/' },
+				{ label: './\!special\$chars\&/', detail: '/test/\!special\$chars\&/' },
+				{ label: './\!special\$chars2\&', detail: '/test/\!special\$chars2\&', kind: TerminalCompletionItemKind.File },
+				{ label: '../', detail: '/' },
+				standardTidleItem,
+			], { replacementIndex: 0, replacementLength: 0 });
+		});
+
+	});
 });
 
 

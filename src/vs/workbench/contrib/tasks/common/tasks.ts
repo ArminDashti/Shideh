@@ -598,6 +598,14 @@ export const enum InstancePolicy {
 	silent = 'silent'
 }
 
+export const enum InstancePolicy {
+	terminateNewest = 'terminateNewest',
+	terminateOldest = 'terminateOldest',
+	prompt = 'prompt',
+	warn = 'warn',
+	silent = 'silent'
+}
+
 export interface IRunOptions {
 	reevaluateOnRerun?: boolean;
 	runOn?: RunOnOptions;

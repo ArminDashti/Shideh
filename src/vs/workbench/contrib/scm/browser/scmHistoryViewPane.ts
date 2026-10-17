@@ -749,6 +749,109 @@ class HistoryItemChangeRenderer implements ICompressibleTreeRenderer<SCMHistoryI
 	}
 }
 
+interface HistoryItemChangeTemplate {
+	readonly rowElement: HTMLElement;
+	readonly element: HTMLElement;
+	readonly graphPlaceholder: HTMLElement;
+	readonly resourceLabel: IResourceLabel;
+	readonly actionBar: WorkbenchToolBar;
+	readonly disposables: IDisposable;
+}
+
+class HistoryItemChangeRenderer implements ICompressibleTreeRenderer<SCMHistoryItemChangeViewModelTreeElement | IResourceNode<SCMHistoryItemChangeViewModelTreeElement, SCMHistoryItemViewModelTreeElement>, void, HistoryItemChangeTemplate> {
+	static readonly TEMPLATE_ID = 'history-item-change';
+	get templateId(): string { return HistoryItemChangeRenderer.TEMPLATE_ID; }
+
+	constructor(
+		private readonly viewMode: () => ViewMode,
+		private readonly resourceLabels: ResourceLabels,
+		@ICommandService private readonly _commandService: ICommandService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILabelService private readonly _labelService: ILabelService,
+		@IMenuService private readonly _menuService: IMenuService,
+		@ITelemetryService private readonly _telemetryService: ITelemetryService,
+	) { }
+
+	renderTemplate(container: HTMLElement): HistoryItemChangeTemplate {
+		const rowElement = container.parentElement! as HTMLElement;
+		const element = append(container, $('.history-item-change'));
+		const graphPlaceholder = append(element, $('.graph-placeholder'));
+
+		const labelContainer = append(element, $('.label-container'));
+		const resourceLabel = this.resourceLabels.create(labelContainer, {
+			supportDescriptionHighlights: true, supportHighlights: true
+		});
+
+		const disposables = new DisposableStore();
+		const actionsContainer = append(resourceLabel.element, $('.actions'));
+		const actionBar = new WorkbenchToolBar(actionsContainer, undefined, this._menuService, this._contextKeyService, this._contextMenuService, this._keybindingService, this._commandService, this._telemetryService);
+		disposables.add(actionBar);
+
+		return { rowElement, element, graphPlaceholder, resourceLabel, actionBar, disposables };
+	}
+
+	renderElement(elementOrNode: ITreeNode<SCMHistoryItemChangeViewModelTreeElement | IResourceNode<SCMHistoryItemChangeViewModelTreeElement, SCMHistoryItemViewModelTreeElement>, void>, index: number, templateData: HistoryItemChangeTemplate, details?: ITreeElementRenderDetails | undefined): void {
+		const historyItemViewModel = isSCMHistoryItemChangeViewModelTreeElement(elementOrNode.element) ? elementOrNode.element.historyItemViewModel : elementOrNode.element.context.historyItemViewModel;
+		const historyItemChange = isSCMHistoryItemChangeViewModelTreeElement(elementOrNode.element) ? elementOrNode.element.historyItemChange : elementOrNode.element;
+		const graphColumns = isSCMHistoryItemChangeViewModelTreeElement(elementOrNode.element) ? elementOrNode.element.graphColumns : elementOrNode.element.context.historyItemViewModel.outputSwimlanes;
+
+		this._renderGraphPlaceholder(templateData, historyItemViewModel, graphColumns);
+
+		const hidePath = this.viewMode() === ViewMode.Tree;
+		const fileKind = isSCMHistoryItemChangeViewModelTreeElement(elementOrNode.element) ? FileKind.FILE : FileKind.FOLDER;
+		templateData.resourceLabel.setFile(historyItemChange.uri, { fileDecorations: { colors: false, badges: true }, fileKind, hidePath });
+
+		if (fileKind === FileKind.FILE) {
+			const actions = this._menuService.getMenuActions(
+				MenuId.SCMHistoryItemChangeContext,
+				this._contextKeyService,
+				{ arg: historyItemViewModel.historyItem, shouldForwardArgs: true });
+
+			templateData.actionBar.context = historyItemChange;
+			templateData.actionBar.setActions(getActionBarActions(actions, 'inline').primary);
+		} else {
+			templateData.actionBar.context = undefined;
+			templateData.actionBar.setActions([]);
+		}
+	}
+
+	renderCompressedElements(node: ITreeNode<ICompressedTreeNode<SCMHistoryItemChangeViewModelTreeElement | IResourceNode<SCMHistoryItemChangeViewModelTreeElement, SCMHistoryItemViewModelTreeElement>>, void>, index: number, templateData: HistoryItemChangeTemplate, details?: ITreeElementRenderDetails | undefined): void {
+		const compressed = node.element as ICompressedTreeNode<IResourceNode<SCMHistoryItemChangeViewModelTreeElement, SCMHistoryItemViewModelTreeElement>>;
+		const historyItemViewModel = compressed.elements[0].context.historyItemViewModel;
+		const graphColumns = compressed.elements[0].context.historyItemViewModel.outputSwimlanes;
+
+		this._renderGraphPlaceholder(templateData, historyItemViewModel, graphColumns);
+
+		const label = compressed.elements.map(e => e.name);
+		const folder = compressed.elements[compressed.elements.length - 1];
+		templateData.resourceLabel.setResource({ resource: folder.uri, name: label }, {
+			fileDecorations: { colors: false, badges: true },
+			fileKind: FileKind.FOLDER,
+			separator: this._labelService.getSeparator(folder.uri.scheme)
+		});
+
+		templateData.actionBar.context = undefined;
+		templateData.actionBar.setActions([]);
+	}
+
+	private _renderGraphPlaceholder(templateData: HistoryItemChangeTemplate, historyItemViewModel: ISCMHistoryItemViewModel, graphColumns: ISCMHistoryItemGraphNode[]): void {
+		const graphPlaceholderSvgWidth = SWIMLANE_WIDTH * (graphColumns.length + 1);
+		const marginLeft = graphPlaceholderSvgWidth - 16 /* .monaco-tl-indent left */;
+		templateData.rowElement.style.marginLeft = `${marginLeft}px`;
+
+		templateData.graphPlaceholder.textContent = '';
+		templateData.graphPlaceholder.style.left = `${-1 * marginLeft}px`;
+		templateData.graphPlaceholder.style.width = `${graphPlaceholderSvgWidth}px`;
+		templateData.graphPlaceholder.appendChild(renderSCMHistoryGraphPlaceholder(graphColumns, getHistoryItemIndex(historyItemViewModel)));
+	}
+
+	disposeTemplate(templateData: HistoryItemChangeTemplate): void {
+		templateData.disposables.dispose();
+	}
+}
+
 interface LoadMoreTemplate {
 	readonly element: HTMLElement;
 	readonly graphPlaceholder: HTMLElement;

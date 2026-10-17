@@ -189,6 +189,7 @@ suite('PromptFilesLocator', () => {
 					[],
 					'No prompts must be found.',
 				);
+				locator.dispose();
 			});
 
 			testT('object config value', async () => {
@@ -205,6 +206,7 @@ suite('PromptFilesLocator', () => {
 					[],
 					'No prompts must be found.',
 				);
+				locator.dispose();
 			});
 
 			testT('array config value', async () => {
@@ -221,6 +223,7 @@ suite('PromptFilesLocator', () => {
 					[],
 					'No prompts must be found.',
 				);
+				locator.dispose();
 			});
 
 			testT('null config value', async () => {
@@ -234,6 +237,7 @@ suite('PromptFilesLocator', () => {
 					[],
 					'No prompts must be found.',
 				);
+				locator.dispose();
 			});
 
 			testT('string config value', async () => {
@@ -247,6 +251,7 @@ suite('PromptFilesLocator', () => {
 					[],
 					'No prompts must be found.',
 				);
+				locator.dispose();
 			});
 		});
 
@@ -288,6 +293,7 @@ suite('PromptFilesLocator', () => {
 					],
 					'Must find correct prompts.',
 				);
+				locator.dispose();
 			});
 
 			suite('absolute', () => {
@@ -955,6 +961,7 @@ suite('PromptFilesLocator', () => {
 			],
 			'Must find correct prompts.',
 		);
+		locator.dispose();
 	});
 
 	testT('with disabled `.github/prompts` location', async () => {
@@ -1010,6 +1017,7 @@ suite('PromptFilesLocator', () => {
 			],
 			'Must find correct prompts.',
 		);
+		locator.dispose();
 	});
 
 	suite('multi-root workspace', () => {
@@ -1080,6 +1088,7 @@ suite('PromptFilesLocator', () => {
 					],
 					'Must find correct prompts.',
 				);
+				locator.dispose();
 			});
 
 			testT('with top-level `.github` folder', async () => {
@@ -1151,6 +1160,7 @@ suite('PromptFilesLocator', () => {
 					],
 					'Must find correct prompts.',
 				);
+				locator.dispose();
 			});
 
 			testT('with disabled `.github/prompts` location', async () => {
@@ -1219,6 +1229,7 @@ suite('PromptFilesLocator', () => {
 					],
 					'Must find correct prompts.',
 				);
+				locator.dispose();
 			});
 
 			testT('mixed', async () => {
@@ -1297,6 +1308,7 @@ suite('PromptFilesLocator', () => {
 					],
 					'Must find correct prompts.',
 				);
+				locator.dispose();
 			});
 		});
 
@@ -2632,6 +2644,7 @@ suite('PromptFilesLocator', () => {
 				],
 				'Must find correct prompts.',
 			);
+			locator.dispose();
 		});
 	});
 

@@ -394,6 +394,16 @@ declare module 'vscode' {
 		forceConfirmationReason?: string;
 	}
 
+	export interface LanguageModelToolInvocationPrepareOptions<T> {
+		/**
+		 * The input that the tool is being invoked with.
+		 */
+		input: T;
+		chatRequestId?: string;
+		chatSessionId?: string;
+		chatInteractionId?: string;
+	}
+
 	export interface PreparedToolInvocation {
 		pastTenseMessage?: string | MarkdownString;
 		presentation?: 'hidden' | 'hiddenAfterComplete' | undefined;

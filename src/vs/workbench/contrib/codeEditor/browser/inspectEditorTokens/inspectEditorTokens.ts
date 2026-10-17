@@ -48,7 +48,6 @@ export class InspectEditorTokensController extends Disposable implements IEditor
 
 	private _editor: ICodeEditor;
 	private _textMateService: ITextMateTokenizationService;
-	private _treeSitterService: ITreeSitterParserService;
 	private _themeService: IWorkbenchThemeService;
 	private _languageService: ILanguageService;
 	private _notificationService: INotificationService;
@@ -59,7 +58,6 @@ export class InspectEditorTokensController extends Disposable implements IEditor
 	constructor(
 		editor: ICodeEditor,
 		@ITextMateTokenizationService textMateService: ITextMateTokenizationService,
-		@ITreeSitterParserService treeSitterService: ITreeSitterParserService,
 		@ILanguageService languageService: ILanguageService,
 		@IWorkbenchThemeService themeService: IWorkbenchThemeService,
 		@INotificationService notificationService: INotificationService,
@@ -69,7 +67,6 @@ export class InspectEditorTokensController extends Disposable implements IEditor
 		super();
 		this._editor = editor;
 		this._textMateService = textMateService;
-		this._treeSitterService = treeSitterService;
 		this._themeService = themeService;
 		this._languageService = languageService;
 		this._notificationService = notificationService;
@@ -98,7 +95,7 @@ export class InspectEditorTokensController extends Disposable implements IEditor
 			// disable in notebooks
 			return;
 		}
-		this._widget = new InspectEditorTokensWidget(this._editor, this._textMateService, this._treeSitterService, this._languageService, this._themeService, this._notificationService, this._configurationService, this._languageFeaturesService);
+		this._widget = new InspectEditorTokensWidget(this._editor, this._textMateService, this._languageService, this._themeService, this._notificationService, this._configurationService, this._languageFeaturesService);
 	}
 
 	public stop(): void {
@@ -194,7 +191,6 @@ class InspectEditorTokensWidget extends Disposable implements IContentWidget {
 	private readonly _languageService: ILanguageService;
 	private readonly _themeService: IWorkbenchThemeService;
 	private readonly _textMateService: ITextMateTokenizationService;
-	private readonly _treeSitterService: ITreeSitterParserService;
 	private readonly _notificationService: INotificationService;
 	private readonly _configurationService: IConfigurationService;
 	private readonly _languageFeaturesService: ILanguageFeaturesService;
@@ -205,7 +201,6 @@ class InspectEditorTokensWidget extends Disposable implements IContentWidget {
 	constructor(
 		editor: IActiveCodeEditor,
 		textMateService: ITextMateTokenizationService,
-		treeSitterService: ITreeSitterParserService,
 		languageService: ILanguageService,
 		themeService: IWorkbenchThemeService,
 		notificationService: INotificationService,
@@ -218,7 +213,6 @@ class InspectEditorTokensWidget extends Disposable implements IContentWidget {
 		this._languageService = languageService;
 		this._themeService = themeService;
 		this._textMateService = textMateService;
-		this._treeSitterService = treeSitterService;
 		this._notificationService = notificationService;
 		this._configurationService = configurationService;
 		this._languageFeaturesService = languageFeaturesService;

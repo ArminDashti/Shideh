@@ -939,6 +939,13 @@ export interface ICodeEditor extends editorCommon.IEditor {
 	readonly onDidChangeFont: Event<ModelFontChangedEvent>;
 
 	/**
+	 * An event emitted when the font of the editor has changed.
+	 * @internal
+	 * @event
+	 */
+	onDidChangeFont: Event<ModelFontChangedEvent>;
+
+	/**
 	 * Get value of the current model attached to this editor.
 	 * @see {@link ITextModel.getValue}
 	 */

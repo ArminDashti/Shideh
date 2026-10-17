@@ -135,6 +135,17 @@ export function notCancellablePromise<T>(promise: CancelablePromise<T>): Promise
 }
 
 /**
+ * Wraps a cancellable promise such that it is no cancellable. Can be used to
+ * avoid issues with shared promises that would normally be returned as
+ * cancellable to consumers.
+ */
+export function notCancellablePromise<T>(promise: CancelablePromise<T>): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		promise.then(resolve, reject);
+	});
+}
+
+/**
  * Returns as soon as one of the promises resolves or rejects and cancels remaining promises
  */
 export function raceCancellablePromises<T>(cancellablePromises: (CancelablePromise<T> | Promise<T>)[]): CancelablePromise<T> {
@@ -2640,6 +2651,25 @@ export class CancelableAsyncIterableProducer<T> extends AsyncIterableProducer<T>
 	cancel(): void {
 		this._source.cancel();
 	}
+}
+
+export function cancellableIterable<T>(iterableOrIterator: AsyncIterator<T> | AsyncIterable<T>, token: CancellationToken): AsyncIterableIterator<T> {
+	const iterator = Symbol.asyncIterator in iterableOrIterator ? iterableOrIterator[Symbol.asyncIterator]() : iterableOrIterator;
+
+	return {
+		async next(): Promise<IteratorResult<T>> {
+			if (token.isCancellationRequested) {
+				return { done: true, value: undefined };
+			}
+			const result = await raceCancellation(iterator.next(), token);
+			return result || { done: true, value: undefined };
+		},
+		throw: iterator.throw?.bind(iterator),
+		return: iterator.return?.bind(iterator),
+		[Symbol.asyncIterator]() {
+			return this;
+		}
+	};
 }
 
 //#endregion

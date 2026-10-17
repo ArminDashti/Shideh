@@ -71,6 +71,10 @@ export function escapeModelIdForTelemetry(modelId: string | undefined): string |
 	return modelId?.replace(/[\/\\]/g, '|');
 }
 
+export function telemetryLevelEnabled(service: ITelemetryService, level: TelemetryLevel): boolean {
+	return service.telemetryLevel >= level;
+}
+
 export interface ITelemetryEndpoint {
 	id: string;
 	aiKey: string;

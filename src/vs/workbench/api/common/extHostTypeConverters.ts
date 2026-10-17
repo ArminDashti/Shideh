@@ -2519,7 +2519,7 @@ export namespace LanguageModelChatMessage2 {
 	}
 
 	export function from(message: vscode.LanguageModelChatMessage2): chatProvider.IChatMessage {
-
+		// debugger;
 		const role = LanguageModelChatMessageRole.from(message.role);
 		const name = message.name;
 
@@ -2561,8 +2561,8 @@ export namespace LanguageModelChatMessage2 {
 				};
 			} else if (c instanceof types.LanguageModelDataPart) {
 				if (isImageDataPart(c)) {
-					const value: chatProvider.IChatImageURLPart = {
-						mimeType: c.mimeType as chatProvider.ChatImageMimeType,
+					const value: chatProvider.IChatDataValue = {
+						mimeType: c.mimeType,
 						data: VSBuffer.wrap(c.data),
 					};
 
@@ -2571,6 +2571,7 @@ export namespace LanguageModelChatMessage2 {
 						value: value
 					};
 				} else {
+					// debugger;
 					return {
 						type: 'data',
 						mimeType: c.mimeType,
@@ -3491,7 +3492,7 @@ export namespace ChatResponsePart {
 		};
 	}
 
-	export function to(part: extHostProtocol.IChatProgressDto, commandsConverter: CommandsConverter): vscode.ChatResponsePart | undefined {
+	export function to(part: extHostProtocol.IChatProgressDto, commandsConverter: CommandsConverter): vscode.ChatResponsePart | vscode.ChatResponseDataPart | undefined {
 		switch (part.kind) {
 			case 'reference': return ChatResponseReferencePart.to(part);
 			case 'markdownContent':
@@ -3499,18 +3500,20 @@ export namespace ChatResponsePart {
 			case 'progressMessage':
 			case 'treeData':
 			case 'command':
+			case 'data':
 				return toContent(part, commandsConverter);
 		}
 		return undefined;
 	}
 
-	export function toContent(part: extHostProtocol.IChatContentProgressDto, commandsConverter: CommandsConverter): vscode.ChatResponseMarkdownPart | vscode.ChatResponseFileTreePart | vscode.ChatResponseAnchorPart | vscode.ChatResponseCommandButtonPart | undefined {
+	export function toContent(part: extHostProtocol.IChatContentProgressDto, commandsConverter: CommandsConverter): vscode.ChatResponseMarkdownPart | vscode.ChatResponseFileTreePart | vscode.ChatResponseAnchorPart | vscode.ChatResponseCommandButtonPart | vscode.ChatResponseDataPart | undefined {
 		switch (part.kind) {
 			case 'markdownContent': return ChatResponseMarkdownPart.to(part);
 			case 'inlineReference': return ChatResponseAnchorPart.to(part);
 			case 'progressMessage': return undefined;
 			case 'treeData': return ChatResponseFilesPart.to(part);
 			case 'command': return ChatResponseCommandButtonPart.to(part, commandsConverter);
+			case 'data': return ChatResponseDataPart.to(part);
 		}
 
 		return undefined;
@@ -4156,6 +4159,8 @@ export namespace LanguageModelToolResult {
 			toolMetadata: result.toolMetadata,
 			toolResultError: result.hasError,
 		};
+
+		hasBuffers = true;
 
 		return hasBuffers ? new SerializableObjectWithBuffers(dto) : dto;
 	}

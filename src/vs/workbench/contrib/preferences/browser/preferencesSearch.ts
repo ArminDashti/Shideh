@@ -41,6 +41,10 @@ export class PreferencesSearchService extends Disposable implements IPreferences
 		return this.instantiationService.createInstance(LocalSearchProvider, filter);
 	}
 
+	getLocalSearchProvider(filter: string): LocalSearchProvider {
+		return this.instantiationService.createInstance(LocalSearchProvider, filter);
+	}
+
 	private get remoteSearchAllowed(): boolean {
 		const workbenchSettings = this.configurationService.getValue<IWorkbenchSettingsConfiguration>().workbench.settings;
 		return workbenchSettings.enableNaturalLanguageSearch;

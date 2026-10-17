@@ -147,6 +147,8 @@ export class GitHubBranchProtectionProvider implements BranchProtectionProvider 
 
 	private readonly disposables = new DisposableStore();
 
+	private readonly disposables = new DisposableStore();
+
 	constructor(
 		private readonly repository: Repository,
 		private readonly globalState: Memento,

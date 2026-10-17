@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
@@ -17,7 +18,7 @@ import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -865,6 +866,181 @@ class SubmitWithoutDispatchingAction extends Action2 {
 		const widgetService = accessor.get(IChatWidgetService);
 		const widget = context?.widget ?? widgetService.lastFocusedWidget;
 		widget?.acceptInput(context?.inputValue, { noCommandDetection: true });
+	}
+}
+
+export class CreateRemoteAgentJobAction extends Action2 {
+	static readonly ID = 'workbench.action.chat.createRemoteAgentJob';
+
+	static readonly markdownStringTrustedOptions = {
+		isTrusted: {
+			enabledCommands: [] as string[],
+		},
+	};
+
+	constructor() {
+		const precondition = ContextKeyExpr.and(
+			ContextKeyExpr.or(ChatContextKeys.inputHasText, ChatContextKeys.hasPromptFile),
+			whenNotInProgressOrPaused,
+			ChatContextKeys.remoteJobCreating.negate(),
+		);
+
+		super({
+			id: CreateRemoteAgentJobAction.ID,
+			// TODO(joshspicer): Generalize title, pull from contribution
+			title: localize2('actions.chat.createRemoteJob', "Delegate to coding agent"),
+			icon: Codicon.cloudUpload,
+			precondition,
+			toggled: {
+				condition: ChatContextKeys.remoteJobCreating,
+				icon: Codicon.sync,
+				tooltip: localize('remoteJobCreating', "Delegating to coding agent"),
+			},
+			menu: {
+				id: MenuId.ChatExecute,
+				group: 'navigation',
+				order: 3.4,
+				when: ChatContextKeys.hasRemoteCodingAgent
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor, ...args: any[]) {
+		const contextKeyService = accessor.get(IContextKeyService);
+		const remoteJobCreatingKey = ChatContextKeys.remoteJobCreating.bindTo(contextKeyService);
+
+		try {
+			remoteJobCreatingKey.set(true);
+
+			const remoteCodingAgent = accessor.get(IRemoteCodingAgentsService);
+			const commandService = accessor.get(ICommandService);
+			const widgetService = accessor.get(IChatWidgetService);
+			const chatAgentService = accessor.get(IChatAgentService);
+
+			const widget = widgetService.lastFocusedWidget;
+			if (!widget) {
+				return;
+			}
+			const session = widget.viewModel?.sessionId;
+			if (!session) {
+				return;
+			}
+
+
+			const chatModel = widget.viewModel?.model;
+			if (!chatModel) {
+				return;
+			}
+
+			const userPrompt = widget.getInput();
+			if (!userPrompt) {
+				return;
+			}
+
+			widget.input.acceptInput(true);
+
+			const chatRequests = chatModel.getRequests();
+			const defaultAgent = chatAgentService.getDefaultAgent(ChatAgentLocation.Panel);
+
+			// Complete implementation of adding request back into chat stream
+			const instantiationService = accessor.get(IInstantiationService);
+
+			// Parse the request text to create a structured request
+			const requestParser = instantiationService.createInstance(ChatRequestParser);
+			const parsedRequest = requestParser.parseChatRequest(session, userPrompt, ChatAgentLocation.Panel);
+
+			// Add the request to the model first
+			const addedRequest = chatModel.addRequest(
+				parsedRequest,
+				{ variables: [] },
+				0,
+				defaultAgent,
+			);
+
+			const agents = remoteCodingAgent.getAvailableAgents();
+			const agent = agents[0]; // TODO: We just pick the first one for now
+			if (!agent) {
+				return;
+			}
+
+			let summary: string | undefined;
+			let followup: string | undefined;
+			if (defaultAgent && chatRequests.length > 0) {
+				chatModel.acceptResponseProgress(addedRequest, {
+					kind: 'progressMessage',
+					content: new MarkdownString(
+						localize('analyzingChatHistory', "Analyzing chat history"),
+						CreateRemoteAgentJobAction.markdownStringTrustedOptions
+					)
+				});
+
+				// Forward useful metadata about conversation to the implementing extension
+				if (agent.followUpRegex) {
+					const regex = new RegExp(agent.followUpRegex);
+					followup = chatRequests
+						.map(req => req.response?.response.toString() ?? '')
+						.reverse()
+						.find(text => regex.test(text));
+				}
+
+				const historyEntries: IChatAgentHistoryEntry[] = chatRequests
+					.map(req => ({
+						request: {
+							sessionId: session,
+							requestId: req.id,
+							agentId: req.response?.agent?.id ?? '',
+							message: req.message.text,
+							command: req.response?.slashCommand?.name,
+							variables: req.variableData,
+							location: ChatAgentLocation.Panel,
+							editedFileEvents: req.editedFileEvents,
+						},
+						response: toChatHistoryContent(req.response!.response.value),
+						result: req.response?.result ?? {}
+					}));
+
+				summary = await chatAgentService.getChatSummary(defaultAgent.id, historyEntries, CancellationToken.None);
+			}
+
+			// Show progress for job creation
+			chatModel.acceptResponseProgress(addedRequest, {
+				kind: 'progressMessage',
+				content: new MarkdownString(
+					localize('creatingRemoteJob', "Delegating to coding agent"),
+					CreateRemoteAgentJobAction.markdownStringTrustedOptions
+				)
+			});
+
+			// Execute the remote command
+			const resultMarkdown: string | undefined = await commandService.executeCommand(agent.command, {
+				userPrompt,
+				summary: summary || userPrompt,
+				followup,
+			});
+
+			let content = new MarkdownString(
+				resultMarkdown,
+				CreateRemoteAgentJobAction.markdownStringTrustedOptions
+			);
+			if (!resultMarkdown) {
+				content = new MarkdownString(
+					localize('remoteAgentError', "Coding agent session cancelled."),
+					CreateRemoteAgentJobAction.markdownStringTrustedOptions
+				);
+			}
+
+			chatModel.acceptResponseProgress(addedRequest, { content, kind: 'markdownContent' });
+			chatModel.setResponse(addedRequest, {});
+			chatModel.completeResponse(addedRequest);
+
+			// Clear chat (start a new chat)
+			if (resultMarkdown) {
+				widget.clear();
+			}
+
+		} finally {
+			remoteJobCreatingKey.set(false);
+		}
 	}
 }
 

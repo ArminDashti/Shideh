@@ -46,6 +46,7 @@ import { InlineCompletionEditorType } from '../../model/provideInlineCompletions
 import { TextModelValueReference } from '../../model/textModelValueReference.js';
 import { URI } from '../../../../../../base/common/uri.js';
 
+
 export class InlineEditsView extends Disposable {
 	private readonly _editorObs: ObservableCodeEditor;
 
@@ -817,4 +818,38 @@ function _growEdits(replacements: TextReplacement[], originalText: AbstractText,
 	}
 
 	return result;
+}
+
+function getGhostTextTopOffset(ghostTextIndicator: GhostTextIndicator, editor: ICodeEditor): number {
+	const replacements = ghostTextIndicator.model.inlineEdit.edit.replacements;
+	if (replacements.length !== 1) {
+		return 0;
+	}
+
+	const textModel = editor.getModel();
+	if (!textModel) {
+		return 0;
+	}
+
+	const EOL = textModel.getEOL();
+	const replacement = replacements[0];
+	if (replacement.range.isEmpty() && replacement.text.startsWith(EOL)) {
+		const lineHeight = editor.getLineHeightForPosition(replacement.range.getStartPosition());
+		return countPrefixRepeats(replacement.text, EOL) * lineHeight;
+	}
+
+	return 0;
+}
+
+function countPrefixRepeats(str: string, prefix: string): number {
+	if (!prefix.length) {
+		return 0;
+	}
+	let count = 0;
+	let i = 0;
+	while (str.startsWith(prefix, i)) {
+		count++;
+		i += prefix.length;
+	}
+	return count;
 }
