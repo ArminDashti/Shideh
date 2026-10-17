@@ -67,6 +67,7 @@ import { NotificationType } from '../../../../../../platform/agentHost/common/st
 import type { ResolveSessionConfigResult } from '../../../../../../platform/agentHost/common/state/protocol/commands.js';
 import { areSessionWorkingDirectoriesEqual } from '../../../../../../platform/agentHost/common/state/sessionWorkingDirectories.js';
 import { withSessionMultiRootMetadata } from '../../../../../../platform/agentHost/common/state/sessionState.js';
+import { withEphemeralSessionMeta } from '../../../../../../platform/agentHost/common/meta/agentEphemeralSessionMeta.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -108,6 +109,13 @@ export interface IAgentHostUntitledProvisionalSessionService {
 	 */
 	get(sessionResource: URI): URI | undefined;
 
+	/**
+	 * Backend of an eagerly materialized draft that {@link tryRebind} can promote
+	 * in place. The real chat resource for first Send should reuse its ID only
+	 * then; any other mapping is replaced by a fresh backend session.
+	 */
+	getPromotableBackendSession(sessionResource: URI): URI | undefined;
+
 	/** Working directories used to create the current provisional generation. */
 	getProvisionalWorkingDirectories(sessionResource: URI): readonly URI[] | undefined;
 
@@ -136,6 +144,7 @@ export interface IAgentHostUntitledProvisionalSessionService {
 		sessionResource: URI,
 		provider: string,
 		workingDirectory: URI | undefined,
+		eagerlyMaterialize?: boolean,
 	): Promise<URI | undefined>;
 
 	/**
@@ -256,6 +265,7 @@ interface IEntry {
 	workingDirectory: URI | undefined;
 	/** Whether this draft was created against the complete folder set of a multi-root workspace. */
 	usesWorkspaceRootSet: boolean;
+	eagerlyMaterialize: boolean;
 	/**
 	 * Latest re-resolved config (schema + values) for this provisional, set
 	 * by {@link applyConfigChange} after each value change. Cleared when the
@@ -415,6 +425,24 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 		return this._generationMatchingDesiredState(entry)?.backendSession;
 	}
 
+	getPromotableBackendSession(sessionResource: URI): URI | undefined {
+		const entry = this._entries.get(sessionResource);
+		if (!entry || entry.disposed || !this._canPromote(entry)) {
+			return undefined;
+		}
+		const generation = this._generationMatchingDesiredState(entry);
+		return generation?.eagerlyMaterialized ? generation.backendSession : undefined;
+	}
+
+	/**
+	 * Whether the draft's eager session may become the user's session. A worktree
+	 * draft never qualifies: its runtime previews the picked folder, and only a
+	 * fresh session creates the worktree on first send.
+	 */
+	private _canPromote(entry: IEntry): boolean {
+		return !!this._agentHostService.promoteSession && entry.config[SessionConfigKey.Isolation] !== 'worktree';
+	}
+
 	getProvisionalWorkingDirectories(sessionResource: URI): readonly URI[] | undefined {
 		const entry = this._entries.get(sessionResource);
 		if (!entry || entry.disposed) {
@@ -534,11 +562,8 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 		sessionResource: URI,
 		provider: string,
 		workingDirectory: URI | undefined,
+		eagerlyMaterialize = false,
 	): Promise<URI | undefined> {
-		const existing = this.get(sessionResource);
-		if (existing) {
-			return Promise.resolve(existing);
-		}
 		if (this._rebound.has(sessionResource)) {
 			return Promise.resolve(undefined);
 		}
@@ -547,7 +572,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 			return inflight.then(() => this.get(sessionResource));
 		}
 
-		const entry = this._ensureEntry(sessionResource, provider, workingDirectory);
+		const entry = this._ensureEntry(sessionResource, provider, workingDirectory, eagerlyMaterialize);
 		if (!entry) {
 			return Promise.resolve(undefined);
 		}
@@ -560,20 +585,24 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 		});
 	}
 
-	private _ensureEntry(sessionResource: URI, provider: string, workingDirectory: URI | undefined): IEntry | undefined {
+	private _ensureEntry(sessionResource: URI, provider: string, workingDirectory: URI | undefined, eagerlyMaterialize = false): IEntry | undefined {
 		const existing = this._entries.get(sessionResource);
 		if (existing) {
+			if (eagerlyMaterialize && !existing.eagerlyMaterialize) {
+				existing.eagerlyMaterialize = true;
+				existing.configVersion++;
+			}
 			return existing;
 		}
 		if (this._rebound.has(sessionResource)) {
 			return undefined;
 		}
-		const entry = this._createEntry(provider, { ...(this._getInitialConfig() ?? {}) }, 0, workingDirectory);
+		const entry = this._createEntry(provider, { ...(this._getInitialConfig() ?? {}) }, 0, workingDirectory, undefined, eagerlyMaterialize);
 		this._entries.set(sessionResource, entry);
 		return entry;
 	}
 
-	private _createEntry(provider: string, config: Record<string, unknown>, configVersion: number, workingDirectory: URI | undefined, resolvedConfig?: ResolveSessionConfigResult): IEntry {
+	private _createEntry(provider: string, config: Record<string, unknown>, configVersion: number, workingDirectory: URI | undefined, resolvedConfig?: ResolveSessionConfigResult, eagerlyMaterialize = false): IEntry {
 		const entry: IEntry = {
 			provider,
 			activeClientBinding: new MutableDisposable(),
@@ -582,6 +611,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 			configVersion,
 			workingDirectory,
 			usesWorkspaceRootSet: (this._computeWorkingDirectories(workingDirectory, provider)?.length ?? 0) > 1,
+			eagerlyMaterialize,
 			resolvedConfig,
 			disposed: false,
 		};
@@ -676,6 +706,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 			const workingDirectories = this._computeEntryWorkingDirectories(entry);
 			const configVersion = entry.configVersion;
 			const config = { ...entry.config };
+			const eagerlyMaterialize = entry.eagerlyMaterialize;
 
 			// Prewarming is silent; first Send owns interactive trust, so never create in an untrusted target.
 			if (!await this._isTargetFolderTrusted(workingDirectory)) {
@@ -691,9 +722,10 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 				created = await this._agentHostService.createSession({
 					provider: entry.provider,
 					session: candidate,
-					_meta: this.getInitialSessionMetadata(),
+					_meta: withEphemeralSessionMeta(this.getInitialSessionMetadata(), eagerlyMaterialize || undefined),
 					workingDirectories,
 					config,
+					eagerlyMaterialize,
 					progressToken: generateUuid(),
 				});
 			} catch (err) {
@@ -708,6 +740,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 			if (this._entries.get(sessionResource) !== entry
 				|| entry.disposed
 				|| entry.configVersion !== configVersion
+				|| entry.eagerlyMaterialize !== eagerlyMaterialize
 				|| !this._sameUri(entry.workingDirectory, workingDirectory)
 				|| !this._sameWorkingDirectories(entry.provider, this._computeEntryWorkingDirectories(entry), workingDirectories)) {
 				await this._disposeProvisionalGeneration({ ...pendingGeneration, backendSession: created }, 'obsolete provisional candidate');
@@ -795,6 +828,28 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 			// Imports materialize eagerly, so carry their history and model into the rebound session.
 			const imported = this._importConversationStore.take(newSessionResource);
 
+			const existingGeneration = oldEntry.generation;
+			if (existingGeneration?.eagerlyMaterialized && this._sameUri(existingGeneration.backendSession, newBackendSession)) {
+				if (!this._canPromote(oldEntry)) {
+					// The real resource already reuses the draft's ID, so no fresh session can take it.
+					// Fail the send rather than run a worktree session in the draft's folder.
+					this._restoreImportedConversation(newSessionResource, imported);
+					throw new Error(`Cannot start ${newBackendSession.toString()} from its draft: the draft can no longer be promoted, for example because worktree isolation was selected after the send began`);
+				}
+				await this._agentHostService.promoteSession!(existingGeneration.backendSession);
+				// The promoted session is durable, so later reconciliation must not recreate it as a hidden draft.
+				oldEntry.eagerlyMaterialize = false;
+				oldEntry.generation = { ...existingGeneration, eagerlyMaterialized: false };
+				this._entries.set(newSessionResource, oldEntry);
+				this._entries.delete(oldSessionResource);
+				this._resolvedConfigs.delete(oldSessionResource);
+				this._resolvedConfigRequestSeq.delete(oldSessionResource);
+				this._rebound.add(oldSessionResource);
+				this._onDidChange.fire(newSessionResource);
+				this._restoreImportedConversation(newSessionResource, imported);
+				return existingGeneration.backendSession;
+			}
+
 			while (this._entries.get(oldSessionResource) === oldEntry && !oldEntry.disposed) {
 				// The workbench cache is authoritative; backend state can lag synchronous chip edits.
 				const config = { ...oldEntry.config };
@@ -813,6 +868,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 				this._pendingGenerations.add(pendingGeneration);
 				let created: URI;
 				try {
+					// The committed session is the user's durable session, so it never inherits the draft's hidden eager state.
 					created = await this._agentHostService.createSession({
 						provider,
 						session: newBackendSession,
@@ -870,7 +926,7 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 				// Notify only the real resource; notifying the old URI can recreate an orphan while the widget still uses it.
 				this._onDidChange.fire(newSessionResource);
 
-				if (oldGeneration) {
+				if (oldGeneration && !this._sameUri(oldGeneration.backendSession, created)) {
 					// The temporary generation is in-memory only, so disposal is best-effort.
 					await this._disposeProvisionalGeneration(oldGeneration, 'temporary provisional generation');
 				}
