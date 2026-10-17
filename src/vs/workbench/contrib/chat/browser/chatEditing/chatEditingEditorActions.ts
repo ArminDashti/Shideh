@@ -340,6 +340,40 @@ class ToggleDiffAction extends ChatEditingEditorAction {
 	}
 }
 
+class AddHunkToChatAction extends ChatEditingEditorAction {
+	constructor() {
+		super({
+			id: 'chatEditor.action.addHunkToChat',
+			title: localize2('addHunkToChat', 'Add to Chat'),
+			icon: Codicon.attach,
+			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ctxHasEditorModification, ctxIsCurrentlyBeingModified.negate()),
+			menu: {
+				id: MenuId.ChatEditingEditorHunk,
+				order: 20
+			}
+		});
+	}
+
+	override async runChatEditingCommand(accessor: ServicesAccessor, _session: IChatEditingSession, entry: IModifiedFileEntry, _integration: IModifiedFileEntryEditorIntegration, ...args: unknown[]): Promise<void> {
+		const chatWidgetService = accessor.get(IChatWidgetService);
+
+		const hunk = args[0] as IModifiedFileEntryChangeHunk | undefined;
+		const lineRange = hunk?.getModifiedLineRange();
+		if (!lineRange) {
+			return;
+		}
+
+		const widget = chatWidgetService.lastFocusedWidget ?? await chatWidgetService.revealWidget();
+		if (!widget) {
+			return;
+		}
+
+		const range = new Range(lineRange.startLineNumber, 1, lineRange.endLineNumberExclusive, 1);
+		widget.attachmentModel.addFile(entry.modifiedURI, range);
+		widget.focusInput();
+	}
+}
+
 class ToggleAccessibleDiffViewAction extends ChatEditingEditorAction {
 	constructor() {
 		super({
@@ -629,6 +663,7 @@ export function registerChatEditorActions() {
 	registerAction2(AcceptHunkAction);
 	registerAction2(RejectHunkAction);
 	registerAction2(ToggleDiffAction);
+	registerAction2(AddHunkToChatAction);
 	registerAction2(ToggleAccessibleDiffViewAction);
 
 	registerAction2(class extends MultiDiffAcceptDiscardAction { constructor() { super(true); } });
