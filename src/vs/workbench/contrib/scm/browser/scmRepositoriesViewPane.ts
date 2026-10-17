@@ -749,6 +749,23 @@ export class SCMRepositoriesViewPane extends ViewPane {
 				getActions: () => actions,
 				getActionsContext: () => selection.map(element => element.artifact)
 			});
+		} else if (isSCMArtifactNode(e.element)) {
+			// Artifact Folder (Branch Collection)
+			const provider = e.element.context.repository.provider;
+			const artifactGroup = e.element.context.artifactGroup;
+
+			// Collect all child artifacts from this node
+			const childArtifacts = this.collectChildArtifacts(e.element);
+
+			const menus = this.scmViewService.menus.getRepositoryMenus(provider);
+			const menu = menus.getArtifactFolderMenu(artifactGroup);
+			const actions = collectContextMenuActions(menu, provider);
+
+			this.contextMenuService.showContextMenu({
+				getAnchor: () => e.anchor,
+				getActions: () => actions,
+				getActionsContext: () => childArtifacts
+			});
 		}
 	}
 
