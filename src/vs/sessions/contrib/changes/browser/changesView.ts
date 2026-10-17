@@ -1609,10 +1609,10 @@ export class ChangesViewPane extends ViewPane {
 		const ciWidget = this.ciStatusWidget;
 		const ciVisible = ciWidget?.visible ?? false;
 		const ciHeaderHeight = ciVisible ? CIStatusWidget.HEADER_HEIGHT : 0;
-		const ciMargin = ciVisible ? 8 : 0; // margin-top on CI widget
+		const ciBorder = ciVisible ? 2 : 0; // 1px top + 1px bottom border
 		const ciDesiredHeight = ciWidget?.desiredHeight ?? 0;
 
-		const spaceForTreeAndCI = Math.max(0, bodyHeight - fixedUsed - ciMargin);
+		const spaceForTreeAndCI = Math.max(0, bodyHeight - fixedUsed - ciBorder);
 
 	private getActiveChangesetWorkspace(reader: IReader | undefined): ISessionWorkspace | undefined {
 		const activeSession = this.sessionsService.activeSession.read(reader);

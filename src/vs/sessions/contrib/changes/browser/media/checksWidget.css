@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* CI Status Widget - beneath the changes tree */
+/* CI Status Widget - pinned to the bottom of the panel, expands upward */
 .ci-status-widget {
 	display: flex;
 	flex-direction: column;
@@ -158,7 +158,7 @@
 
 /* Body - check list */
 .ci-status-widget-body {
-	border-top: 1px solid var(--vscode-input-border, transparent);
+	border-bottom: 1px solid var(--vscode-input-border, transparent);
 }
 
 .ci-status-widget-list {
