@@ -1696,6 +1696,17 @@ export class AgentSessionsSorter implements ITreeSorter<IAgentSession> {
 			}
 		}
 
+		// Pinned
+		const aPinned = sessionA.isPinned();
+		const bPinned = sessionB.isPinned();
+
+		if (aPinned && !bPinned) {
+			return -1; // a (pinned) comes before b (non-pinned)
+		}
+		if (!aPinned && bPinned) {
+			return 1; // a (non-pinned) comes after b (pinned)
+		}
+
 		// Archived
 		const aArchived = sessionA.isArchived();
 		const bArchived = sessionB.isArchived();
