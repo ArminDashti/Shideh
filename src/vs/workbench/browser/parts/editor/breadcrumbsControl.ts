@@ -410,13 +410,11 @@ export class BreadcrumbsControl {
 		}
 	}
 
-	private show(): void {
+	private _setVisibility(visible: boolean): void {
 		const wasHidden = this.isHidden();
-
-		this._ckBreadcrumbsVisible.set(true);
-		this.domNode.classList.toggle('hidden', false);
-
-		if (wasHidden) {
+		this._ckBreadcrumbsVisible.set(visible);
+		this.domNode.classList.toggle('hidden', !visible);
+		if (wasHidden !== !visible) {
 			this._onDidVisibilityChange.fire();
 		}
 	}
@@ -434,7 +432,7 @@ export class BreadcrumbsControl {
 		const uri = originalUri ?? canonicalUri;
 		const wasHidden = this.isHidden();
 
-		if (!uri || !this._fileService.hasProvider(uri)) {
+		if (!uri || (!this._fileService.hasProvider(uri) && uri.scheme !== Schemas.untitled)) {
 			// cleanup and return when there is no input or when
 			// we cannot handle this input
 			this._ckBreadcrumbsPossible.set(false);
@@ -473,19 +471,26 @@ export class BreadcrumbsControl {
 				? this._instantiationService.createInstance(FileItem, model, element, options, this._labels, this._hoverDelegate)
 				: this._instantiationService.createInstance(OutlineItem, model, element, options));
 			if (items.length === 0) {
-				this._widget.setEnabled(false);
-				this._widget.setItems([new class extends BreadcrumbsItem {
-					render(container: HTMLElement): void {
-						container.textContent = localize('empty', "no elements");
-					}
-					equals(other: BreadcrumbsItem): boolean {
-						return other === this;
-					}
-					dispose(): void {
+				if (model.resource.scheme === Schemas.untitled && !model.hasOutline()) {
+					// untitled files have no file path — hide until symbols are available
+					this._setVisibility(false);
+				} else {
+					this._setVisibility(true);
+					this._widget.setEnabled(false);
+					this._widget.setItems([new class extends BreadcrumbsItem {
+						render(container: HTMLElement): void {
+							container.textContent = localize('empty', "no elements");
+						}
+						equals(other: BreadcrumbsItem): boolean {
+							return other === this;
+						}
+						dispose(): void {
 
-					}
-				}]);
+						}
+					}]);
+				}
 			} else {
+				this._setVisibility(true);
 				this._widget.setEnabled(true);
 				this._widget.setItems(items);
 				this._widget.reveal(items[items.length - 1]);
