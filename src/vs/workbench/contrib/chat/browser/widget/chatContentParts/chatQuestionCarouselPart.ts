@@ -6,6 +6,7 @@
 import * as dom from '../../../../../../base/browser/dom.js';
 import { renderAsPlaintext } from '../../../../../../base/browser/markdownRenderer.js';
 import { StandardKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
+import { IRenderedMarkdown } from '../../../../../../base/browser/markdownRenderer.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { IMarkdownString, MarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { KeyCode } from '../../../../../../base/common/keyCodes.js';
@@ -558,6 +559,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this._singleSelectItems.clear();
 		this._multiSelectCheckboxes.clear();
 		this._freeformTextareas.clear();
+		this._renderedTitle.clear();
 
 		// Clear references to disposed elements
 		this._prevButton = undefined;
