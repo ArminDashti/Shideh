@@ -21,7 +21,7 @@ import { ILifecycleService, LifecyclePhase } from '../../lifecycle/common/lifecy
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IPathService } from '../../path/common/pathService.js';
 import { isProposedApiEnabled } from '../../extensions/common/extensions.js';
-import { OperatingSystem, OS } from '../../../../base/common/platform.js';
+import { isLinux, OperatingSystem, OS } from '../../../../base/common/platform.js';
 import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -251,7 +251,7 @@ export class LabelService extends Disposable implements ILabelService {
 			}
 
 			const result: IResolvedHomeFormatter = {
-				home: resource.with({ path: formatter.home, query: null, fragment: null }),
+				home: resource.with({ path: resource.path.slice(0, formatter.home.length), query: null, fragment: null }),
 				formatting: formatter.formatting,
 				literalLabel: false,
 				homeLength: formatter.home.length,
