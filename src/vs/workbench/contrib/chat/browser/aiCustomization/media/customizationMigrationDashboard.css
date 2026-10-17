@@ -404,6 +404,8 @@
 	margin: 0;
 	font-family: var(--monaco-monospace-font);
 	overflow-wrap: anywhere;
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .customization-migration-dashboard :focus-visible {

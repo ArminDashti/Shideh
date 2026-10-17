@@ -96,7 +96,7 @@ export interface ICustomizationMigrationDashboardOverview {
 	readonly hasIgnoredGroups?: boolean;
 	/** Most recent activity first. */
 	readonly activity: readonly ICustomizationMigrationDashboardActivity[];
-	readonly result?: { readonly migratedCount: number };
+	readonly result?: { readonly migratedCount: number; readonly activityIds: readonly string[] };
 }
 
 export interface ICustomizationMigrationDashboardCallbacks {
@@ -273,7 +273,7 @@ export class CustomizationMigrationDashboard extends Disposable {
 
 	showLoading(title: string, description: string, retry?: () => void): void {
 		this.allMigrationsComplete = false;
-		this.pendingFocus ??= this.getFocusedKey();
+		this.pendingFocus = this.getFocusToRestore();
 		this.prepareRender();
 		const page = this.renderHeader(title, description);
 		page.setAttribute('aria-busy', String(!retry));
@@ -284,14 +284,19 @@ export class CustomizationMigrationDashboard extends Disposable {
 			});
 		}
 		this.callbacks.onDidChangeContent?.();
+		if (this.pendingFocus) {
+			this.focusTargets.get(retry ? 'retry' : 'title')?.focus();
+		}
 	}
 
 	showOverview(overview: ICustomizationMigrationDashboardOverview): void {
-		const focusedKey = this.pendingFocus ?? this.getFocusedKey();
+		const focusedKey = this.getFocusToRestore();
 		this.pendingFocus = undefined;
 		const migrationGroups = this.getMigrationGroups(overview);
 		this.allMigrationsComplete = migrationGroups.length === 0 && !overview.hasIgnoredGroups;
 		this.prepareRender();
+		const skippedCount = overview.scopes.filter(scope => scope.skipped).length;
+		const completedCount = overview.scopes.filter(scope => scope.count === 0 && !scope.skipped).length;
 		const page = this.renderHeader(
 			localize('migrationsTitle', "Migrations"),
 			this.allMigrationsComplete
@@ -686,18 +691,20 @@ export class CustomizationMigrationDashboard extends Disposable {
 			? localize('oneMigrationComplete', "1 customization migrated")
 			: localize('migrationsComplete', "{0} customizations migrated", result.migratedCount)));
 		const actions = DOM.append(strip, $('.migration-result-actions'));
-		if (overview.activity.length) {
-			const latest = overview.activity[0];
+		const activityIds = result.activityIds.filter(id => overview.activity.some(activity => activity.id === id));
+		if (activityIds.length) {
 			this.button(actions, 'viewChanges', localize('viewChanges', "View Changes"), localize('viewMigrationChanges', "View migration changes"), () => {
 				this.callbacks.actionClicked('viewChangesClicked');
-				const details = this.activityDetails.get(latest.id);
-				if (details) {
-					details.open = true;
-					this.expandedActivity.add(latest.id);
-					this.callbacks.onDidChangeContent?.();
-					this.focusTargets.get(`activity:${latest.id}`)?.focus();
-					details.scrollIntoView({ block: 'nearest' });
+				for (const id of activityIds) {
+					const details = this.activityDetails.get(id);
+					if (details) {
+						details.open = true;
+						this.expandedActivity.add(id);
+					}
 				}
+				this.callbacks.onDidChangeContent?.();
+				this.focusTargets.get(`activity:${activityIds[0]}`)?.focus();
+				this.activityDetails.get(activityIds[0])?.scrollIntoView({ block: 'nearest' });
 			}, 'link');
 		}
 		this.button(actions, 'dismissResult', '', localize('dismissMigrationResult', "Dismiss migration result"), () => {

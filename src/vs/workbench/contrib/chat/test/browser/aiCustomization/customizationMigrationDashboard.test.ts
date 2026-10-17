@@ -288,10 +288,59 @@ suite('CustomizationMigrationDashboard', () => {
 		});
 	});
 
-	test('View Changes expands newest activity and dismissals restore meaningful focus', () => {
+	test('persisted started scopes show neutral migrations remaining text rather than active progress', () => {
+		const { parent, dashboard } = createDashboard();
+		parent.style.setProperty('--vscode-descriptionForeground', 'rgb(17, 34, 51)');
+		parent.style.setProperty('--vscode-textLink-foreground', 'rgb(170, 187, 204)');
+		const model = overview();
+		dashboard.showOverview({ ...model, scopes: model.scopes.map(scope => ({ ...scope, started: true })) });
+		assert.deepStrictEqual({
+			states: [...parent.querySelectorAll<HTMLElement>('.migration-scope-state')].map(element => ({
+				label: element.textContent,
+				color: DOM.getWindow(element).getComputedStyle(element).color,
+			})),
+			busy: parent.querySelector('.migration-page')?.getAttribute('aria-busy'),
+			reviewAvailable: !!parent.querySelector('[aria-label="Review User Data from Your profile"]'),
+		}, {
+			states: [
+				{ label: 'Migrations remaining', color: 'rgb(17, 34, 51)' },
+				{ label: 'Migrations remaining', color: 'rgb(17, 34, 51)' },
+			],
+			busy: null,
+			reviewAvailable: true,
+		});
+	});
+
+	test('activity path values remain selectable inside non-selectable workbench content', () => {
+		const { parent, dashboard } = createDashboard();
+		parent.style.userSelect = 'none';
+		parent.style.setProperty('-webkit-user-select', 'none');
+		dashboard.showOverview({
+			scopes: [],
+			result: { migratedCount: 1, activityIds: ['profile-prompts'] },
+			activity: [{
+				id: 'profile-prompts', categoryLabel: 'Prompts to skills', scopeLabel: 'Your profile', storage: PromptsStorage.user,
+				items: [{ label: 'release', sourceLabel: 'profile/release.prompt.md', targetLabel: '~/.agents/skills/release/SKILL.md', operation: 'converted' }],
+			}],
+		});
+		button(parent, 'View migration changes').click();
+		assert.deepStrictEqual([...parent.querySelectorAll<HTMLElement>('.migration-paths dd')].map(element => {
+			const style = DOM.getWindow(element).getComputedStyle(element);
+			return {
+				path: element.textContent,
+				userSelect: style.userSelect,
+				webkitUserSelect: style.getPropertyValue('-webkit-user-select'),
+			};
+		}), [
+			{ path: 'profile/release.prompt.md', userSelect: 'text', webkitUserSelect: 'text' },
+			{ path: '~/.agents/skills/release/SKILL.md', userSelect: 'text', webkitUserSelect: 'text' },
+		]);
+	});
+
+	test('View Changes expands result activity and dismissals restore meaningful focus', () => {
 		let model: ICustomizationMigrationDashboardOverview = {
 			...overview(),
-			result: { migratedCount: 1 },
+			result: { migratedCount: 1, activityIds: ['latest'] },
 			activity: ['latest', 'previous'].map(id => ({
 				id, categoryLabel: 'Prompt to Skills', scopeLabel: id, storage: PromptsStorage.user,
 				items: [{ label: 'release', sourceLabel: 'profile/release.prompt.md', targetLabel: '~/.agents/skills/release/SKILL.md', operation: 'converted' }],
@@ -329,7 +378,7 @@ suite('CustomizationMigrationDashboard', () => {
 		const lastDismissFocus = document.activeElement?.textContent;
 		button(parent, 'Dismiss migration result').click();
 		assert.deepStrictEqual({
-			expanded, remainedOpen,
+			expanded, remainedOpen, viewChangesAfterDismissal,
 			nextFocused: nextFocus?.includes('previous'),
 			lastDismissFocus,
 			result: !!parent.querySelector('.migration-result'),
@@ -350,6 +399,76 @@ suite('CustomizationMigrationDashboard', () => {
 			result: false, activity: false, focus: 'Migrate', notified: true,
 			telemetryActions: ['viewChangesClicked', 'activityDismissed', 'activityDismissed', 'resultDismissed'],
 		});
+	});
+
+	test('View Changes expands only available result activities, never unrelated newer activity', () => {
+		const { parent, dashboard } = createDashboard();
+		const model: ICustomizationMigrationDashboardOverview = {
+			...overview(),
+			result: { migratedCount: 2, activityIds: ['missing', 'result-first', 'result-second'] },
+			activity: ['unrelated-newest', 'result-second', 'result-first'].map(id => ({
+				id, categoryLabel: 'User Data', scopeLabel: id, storage: PromptsStorage.user,
+				items: [{ label: 'agent', sourceLabel: 'profile/agent.agent.md', targetLabel: '~/.agents/agents/agent.agent.md', operation: 'moved' }],
+			})),
+		};
+		dashboard.showOverview(model);
+		button(parent, 'View migration changes').click();
+		const expanded = {
+			open: [...parent.querySelectorAll('details')].map(element => element.open),
+			focus: document.activeElement?.textContent?.includes('result-first'),
+		};
+		const available = [[], ['missing']].map(activityIds => {
+			dashboard.showOverview({ ...model, result: { migratedCount: 2, activityIds } });
+			return !!parent.querySelector('[aria-label="View migration changes"]');
+		});
+		assert.deepStrictEqual({ expanded, available }, {
+			expanded: { open: [false, true, true], focus: true },
+			available: [false, false],
+		});
+	});
+
+	test('loading errors focus Retry and successful retry restores the original control', () => {
+		const { parent, dashboard } = createDashboard();
+		const model = overview();
+		dashboard.showOverview(model);
+		button(parent, 'Review User Data from Your profile').focus();
+		dashboard.showLoading('Migrations', 'Loading migrations');
+		dashboard.showLoading('Migrations unavailable', 'Try again.', () => {
+			dashboard.showLoading('Migrations', 'Loading migrations');
+			dashboard.showOverview(model);
+		});
+		const errorFocus = document.activeElement?.getAttribute('aria-label');
+		button(parent, 'Retry loading migrations').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+		assert.deepStrictEqual({
+			errorFocus,
+			retriedFocus: document.activeElement?.getAttribute('aria-label'),
+		}, {
+			errorFocus: 'Retry loading migrations',
+			retriedFocus: 'Review User Data from Your profile',
+		});
+	});
+
+	test('loading error and success do not steal focus after leaving the dashboard', () => {
+		const { parent, dashboard } = createDashboard();
+		const external = DOM.append(parent, DOM.$('button', {}, 'External control'));
+		const snapshots = [false, true].map(fail => {
+			dashboard.showOverview(overview());
+			button(parent, 'Review User Data from Your profile').focus();
+			dashboard.showLoading('Migrations', 'Loading migrations');
+			external.focus();
+			if (fail) {
+				dashboard.showLoading('Migrations unavailable', 'Try again.', () => { });
+			} else {
+				dashboard.showOverview(overview());
+			}
+			const focusAfterUpdate = document.activeElement === external;
+			dashboard.showOverview(overview());
+			return { focusAfterUpdate, focusAfterOverview: document.activeElement === external };
+		});
+		assert.deepStrictEqual(snapshots, [
+			{ focusAfterUpdate: true, focusAfterOverview: true },
+			{ focusAfterUpdate: true, focusAfterOverview: true },
+		]);
 	});
 
 	test('retry loading uses standard keyboard-activated Button and focus remains usable', () => {

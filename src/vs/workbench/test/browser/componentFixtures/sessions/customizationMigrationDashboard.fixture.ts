@@ -149,7 +149,7 @@ function renderDashboard(ctx: ComponentFixtureContext, width: number, state: 'ov
 				{ ...model.scopes[0], count: 0, categories: [], started: true },
 				{ ...model.scopes[1], started: true },
 			],
-			result: { migratedCount: 3 },
+			result: { migratedCount: 3, activityIds: ['profile-prompts'] },
 			activity: [{
 				id: 'profile-prompts', categoryLabel: 'Prompt to Skills', scopeLabel: 'Your profile', storage: PromptsStorage.user,
 				items: [

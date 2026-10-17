@@ -259,7 +259,7 @@ suite('aiCustomizationManagementEditor', () => {
 		resolveCustomizationMigrationTargetFolders(
 			customizations: readonly MigratableConfiguration[],
 			availableSourceFolders: ReadonlyMap<PromptsType, readonly ICustomizationSourceFolder[]>,
-			sessionResource: URI,
+			contextKey: string,
 		): Promise<ReadonlyMap<PromptsType, ReadonlyMap<PromptsStorage, ICustomizationSourceFolder>> | undefined>;
 		getEffectiveCustomizationMigrationTargetFolder(
 			customization: MigratableConfiguration,
@@ -1215,7 +1215,7 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.editorPreviewDisposables.dispose();
 	});
 
-	test('defaults workspace file migrations to GitHub folders and preserves a custom selection', () => {
+	test('defaults workspace migrations to GitHub and discards unsupported selections', () => {
 		const editor = createTestEditor(undefined, createConfigurationServiceStub({
 			[ChatConfiguration.ChatCustomizationsMigrationEnabled]: true,
 		}));
@@ -1278,7 +1278,7 @@ suite('aiCustomizationManagementEditor', () => {
 				'/workspace/.github/skills',
 			],
 			upgradedAutomaticSelection: '/workspace/.github/skills',
-			preservedSelection: '/workspace/custom/skills',
+			preservedSelection: '/workspace/.github/skills',
 		});
 		editor.editorPreviewDisposables.dispose();
 	});
@@ -1456,14 +1456,20 @@ suite('aiCustomizationManagementEditor', () => {
 			{ uri: URI.file('/workspace/.agents/skills'), label: 'skills', source: PromptsStorage.local },
 			{ uri: URI.file('/workspace/.claude/skills'), label: 'skills', source: PromptsStorage.local },
 			{ uri: URI.file('/workspace/.github/skills'), label: 'skills', source: PromptsStorage.local },
+			{ uri: URI.file('/home/test/.copilot/skills'), label: 'user skills', source: PromptsStorage.user },
 		]);
 		let pickerLabels: readonly string[] = [];
 		let pickerDescriptions: readonly (string | undefined)[] = [];
+		let activePath: string | undefined;
+		editor.selectedCustomizationMigrationTargets.set(`${PromptsType.skill}:${PromptsStorage.local}`, {
+			uri: URI.file('/workspace/.agents/skills'), label: 'skills', source: PromptsStorage.local,
+		});
 		editor.quickInputService = {
-			pick: async items => {
+			pick: async (items, options) => {
 				pickerLabels = items.map(item => item.label);
 				pickerDescriptions = items.map(item => item.description);
-				return { chooseAnother: true };
+				activePath = options?.activeItem?.folder?.uri.path;
+				return options?.activeItem;
 			},
 		};
 		editor.fileDialogService = { showOpenDialog: async () => [URI.file('/workspace/custom/skills')] };
@@ -1481,15 +1487,17 @@ suite('aiCustomizationManagementEditor', () => {
 			selectedPath: editor.selectedCustomizationMigrationTargets.get(`${PromptsType.skill}:${PromptsStorage.local}`)?.uri.path,
 			pickerLabels,
 			pickerDescriptions,
+			activePath,
 		}, {
-			selectedPath: '/workspace/custom/skills',
-			pickerLabels: ['skills', 'skills', 'Choose another folder...'],
-			pickerDescriptions: ['/workspace/.github/skills (Recommended)', '/workspace/.agents/skills', 'Use a custom migration destination'],
+			selectedPath: '/workspace/.agents/skills',
+			pickerLabels: ['skills', 'skills'],
+			pickerDescriptions: ['/workspace/.github/skills (Recommended)', '/workspace/.agents/skills'],
+			activePath: '/workspace/.agents/skills',
 		});
 		editor.editorPreviewDisposables.dispose();
 	});
 
-	test('offers a custom folder when no default migration destination exists', async () => {
+	test('reports missing harness destinations instead of offering arbitrary folders', async () => {
 		const editor = createTestEditor(undefined, createConfigurationServiceStub({
 			[ChatConfiguration.ChatCustomizationsMigrationEnabled]: true,
 		}));
@@ -1501,10 +1509,12 @@ suite('aiCustomizationManagementEditor', () => {
 		};
 		const [destination] = editor.getCustomizationMigrationDashboardDestinations([prompt]);
 		let pickerLabels: readonly string[] = [];
+		const errors: string[] = [];
+		editor.notificationService.error = message => errors.push(message);
 		editor.quickInputService = {
 			pick: async items => {
 				pickerLabels = items.map(item => item.label);
-				return { chooseAnother: true };
+				return items[0];
 			},
 		};
 		editor.fileDialogService = { showOpenDialog: async () => [URI.file('/workspace/custom/skills')] };
@@ -1515,6 +1525,7 @@ suite('aiCustomizationManagementEditor', () => {
 		assert.deepStrictEqual({
 			destination,
 			pickerLabels,
+			errors,
 			selectedPath: editor.selectedCustomizationMigrationTargets.get(`${PromptsType.skill}:${PromptsStorage.local}`)?.uri.path,
 		}, {
 			destination: {
@@ -1524,8 +1535,9 @@ suite('aiCustomizationManagementEditor', () => {
 				label: 'Not configured',
 				ariaLabel: 'Configure destination for Workspace skills',
 			},
-			pickerLabels: ['Choose another folder...'],
-			selectedPath: '/workspace/custom/skills',
+			pickerLabels: [],
+			errors: ['No workspace skills folder is configured for the active harness.'],
+			selectedPath: undefined,
 		});
 		editor.editorPreviewDisposables.dispose();
 	});
@@ -1552,8 +1564,6 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.migrationTitleElement = document.createElement('h2');
 		editor.migrationDestinationsContainer = document.createElement('div');
 		editor.migrationMigrateButton = { enabled: false, label: '' };
-		editor.quickInputService = { pick: async () => ({ chooseAnother: true }) };
-		editor.fileDialogService = { showOpenDialog: async () => [URI.file('/workspace/custom/skills')] };
 		const host = document.createElement('div');
 		host.append(editor.migrationTitleElement, editor.migrationDestinationsContainer, editor.migrationListContainer);
 		document.body.appendChild(host);
@@ -2170,6 +2180,82 @@ suite('aiCustomizationManagementEditor', () => {
 		}
 	}));
 
+	for (const contextPart of ['project', 'session', 'harness'] as const) {
+		const changeContext = (editor: TestableEditor) => {
+			if (contextPart === 'project') {
+				editor.workspaceService.activeProjectRoot.set(URI.file('/other-workspace'), undefined);
+			} else if (contextPart === 'session') {
+				editor.harnessService.activeSessionResource.set(URI.parse('agent-host-test:/session-b'), undefined);
+			} else {
+				editor.harnessService.activeHarness.set('agent-host-claude', undefined);
+			}
+		};
+
+		test(`returns scoped reviews to the dashboard after a ${contextPart} change`, () => {
+			const editor = createTestEditor();
+			store.add(editor.editorPreviewDisposables);
+			editor.refreshCustomizationMigrationInfo = async () => { };
+			let dashboardShown = 0;
+			editor.showCustomizationMigrationDashboard = () => dashboardShown++;
+			editor.registerCustomizationMigrationSessionRefresh();
+			editor.viewMode = 'migration';
+			editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.UserData;
+			editor.activeMigrationStorage = PromptsStorage.user;
+
+			changeContext(editor);
+
+			assert.deepStrictEqual({
+				category: editor.activeMigrationCategoryId,
+				storage: editor.activeMigrationStorage,
+				dashboardShown,
+			}, { category: undefined, storage: undefined, dashboardShown: 1 });
+		});
+
+		test(`rejects a destination picker result after a ${contextPart} change`, async () => {
+			const editor = createTestEditor();
+			store.add(editor.editorPreviewDisposables);
+			editor.customizationMigrationTargetFoldersByType.set(PromptsType.skill, [
+				{ uri: URI.file('/workspace/.github/skills'), label: '.github', source: PromptsStorage.local },
+			]);
+			editor.quickInputService.pick = async items => {
+				changeContext(editor);
+				return items[0];
+			};
+			await editor.chooseCustomizationMigrationDestination({
+				targetType: PromptsType.skill, storage: PromptsStorage.local,
+				contextLabel: 'Workspace skills', label: '.github', ariaLabel: 'Choose workspace skills',
+			});
+			assert.deepStrictEqual({
+				targets: [...editor.selectedCustomizationMigrationTargets],
+				explicit: [...editor.explicitlySelectedCustomizationMigrationTargets],
+			}, { targets: [], explicit: [] });
+		});
+
+		test(`does not migrate after a ${contextPart} change during confirmation`, async () => {
+			const editor = createTestEditor(undefined, createConfigurationServiceStub({
+				[ChatConfiguration.ChatCustomizationsPromptMigrationEnabled]: true,
+			}));
+			store.add(editor.editorPreviewDisposables);
+			editor.customizationMigrationTargetFoldersByType.set(PromptsType.skill, [
+				{ uri: URI.file('/workspace/.github/skills'), label: '.github', source: PromptsStorage.local },
+			]);
+			editor.dialogService.confirm = async () => {
+				changeContext(editor);
+				return { confirmed: true };
+			};
+			let writes = 0;
+			editor.runCustomizationMigration = async () => {
+				writes++;
+				throw new Error('Unexpected migration');
+			};
+			await editor.migrateSelectedCustomizations(getCustomizationMigrationCategory(CustomizationMigrationCategoryId.PromptFiles), [{
+				uri: URI.file('/workspace/.github/prompts/review.prompt.md'),
+				type: PromptsType.prompt, storage: PromptsStorage.local, source: PromptFileSource.GitHubWorkspace,
+			}]);
+			assert.deepStrictEqual({ writes, inProgress: editor.customizationMigrationInProgress }, { writes: 0, inProgress: false });
+		});
+	}
+
 	test('disables migration while another migration is in progress', () => {
 		const editor = createTestEditor(undefined, createConfigurationServiceStub({
 			[ChatConfiguration.ChatCustomizationsMigrationEnabled]: true,
@@ -2317,7 +2403,7 @@ suite('aiCustomizationManagementEditor', () => {
 				},
 				prompts: {
 					message: 'Prompts are no longer supported by Copilot. Convert them to skills to keep them available in both VS Code and this harness.',
-					consequence: '',
+					consequence: getCustomizationMigrationCategory(CustomizationMigrationCategoryId.PromptFiles).getBanner?.(promptFiles, 'Copilot', undefined, [])?.consequence,
 					bannerHidden: false,
 					descriptionHidden: true,
 					linkInBanner: true,
@@ -2328,6 +2414,82 @@ suite('aiCustomizationManagementEditor', () => {
 			editor.migrationPageDisposables.dispose();
 			editor.editorPreviewDisposables.dispose();
 		}
+	});
+
+	test('review banner uses selected destinations instead of every provider destination', () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		const selectedFolder: ICustomizationSourceFolder = {
+			uri: URI.file('/home/test/.agents/agents'), label: '~/.agents', source: PromptsStorage.user,
+		};
+		editor.customizationMigrationTargetFoldersByType.set(PromptsType.agent, [
+			{ uri: URI.file('/home/test/.copilot/agents'), label: '~/.copilot', source: PromptsStorage.user },
+			selectedFolder,
+		]);
+		editor.selectedCustomizationMigrationTargets.set(`${PromptsType.agent}:${PromptsStorage.user}`, selectedFolder);
+		editor.migrationBannerContainer = document.createElement('div');
+		editor.updateCustomizationMigrationPageHeader(getCustomizationMigrationCategory(CustomizationMigrationCategoryId.UserData), [{
+			uri: URI.file('/profile/agents/review.agent.md'),
+			type: PromptsType.agent, storage: PromptsStorage.user, source: PromptFileSource.UserData,
+		}]);
+		const text = editor.migrationBannerContainer.textContent!;
+		assert.deepStrictEqual({ selected: text.includes('\'~/.agents\''), other: text.includes('\'~/.copilot\'') }, { selected: true, other: false });
+	});
+
+	test('empty review descriptions keep a separator before Learn more after banner navigation', () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		editor.migrationDescriptionElement = document.createElement('p');
+		editor.migrationDescriptionTextElement = document.createElement('span');
+		editor.migrationDescriptionElement.appendChild(editor.migrationDescriptionTextElement);
+		editor.migrationLinkElement = document.createElement('a');
+		editor.migrationBannerContainer = document.createElement('div');
+		const category = getCustomizationMigrationCategory(CustomizationMigrationCategoryId.UserData);
+		editor.updateCustomizationMigrationPageHeader(category, [{
+			uri: URI.file('/profile/agents/review.agent.md'),
+			type: PromptsType.agent, storage: PromptsStorage.user, source: PromptFileSource.UserData,
+		}]);
+		editor.updateCustomizationMigrationPageHeader(category, []);
+		assert.strictEqual(editor.migrationDescriptionElement.textContent, `${category.getPageDescription([], 'Copilot')} ${category.pageLinkLabel}`);
+	});
+
+	test('Accessible View includes the concrete prompt conversion warning', () => {
+		const editor = createTestEditor(undefined, createConfigurationServiceStub({
+			[ChatConfiguration.ChatCustomizationsPromptMigrationEnabled]: true,
+		}));
+		store.add(editor.editorPreviewDisposables);
+		const element = document.createElement('div');
+		store.add(toDisposable(() => element.remove()));
+		const focusTarget = document.createElement('button');
+		element.appendChild(focusTarget);
+		document.body.appendChild(element);
+		editor.migrationDashboard = { element };
+		editor.viewMode = 'migration';
+		editor.customizationsByMigrationCategory.set(CustomizationMigrationCategoryId.PromptFiles, [{
+			uri: URI.file('/profile/review.prompt.md'),
+			type: PromptsType.prompt, storage: PromptsStorage.user, source: PromptFileSource.UserData,
+		}]);
+		focusTarget.focus();
+		assert.ok(editor.getMigrationAccessibilityContent()?.includes('Conversion can remove prompt-only metadata and change how prompts are invoked.'));
+	});
+
+	test('opens configured-location-only migrations from the generic chat entry point', async () => {
+		const editor = createTestEditor(undefined, createConfigurationServiceStub({
+			[ChatConfiguration.ChatCustomizationsLocationsMigrationEnabled]: true,
+			'chat.agentFilesLocations': { '/custom/agents': true },
+		}));
+		store.add(editor.editorPreviewDisposables);
+		editor.customizationsByMigrationCategory.set(CustomizationMigrationCategoryId.ConfiguredLocations, [{
+			uri: URI.file('/custom/agents/review.agent.md'),
+			type: PromptsType.agent, storage: PromptsStorage.user, source: PromptFileSource.ConfigPersonal,
+		}]);
+		editor.refreshCustomizationMigrationInfo = async () => { };
+		let categories: readonly CustomizationMigrationCategoryId[] = [];
+		editor.showCustomizationMigrationDashboard = () => {
+			categories = editor.getCustomizationMigrationDashboardOverview().scopes.flatMap(scope => scope.categories.map(category => category.id));
+		};
+		await editor.showCustomizationMigrationPage();
+		assert.deepStrictEqual(categories, [CustomizationMigrationCategoryId.ConfiguredLocations]);
 	});
 
 	test('opens a migration candidate through the shared Button widget', () => {
@@ -2739,6 +2901,7 @@ suite('aiCustomizationManagementEditor', () => {
 			label: '.github',
 			source: PromptsStorage.local,
 		});
+		editor.customizationMigrationTargetFoldersByType.set(PromptsType.skill, [...editor.selectedCustomizationMigrationTargets.values()]);
 		editor.dialogService = { confirm: async () => ({ confirmed: true }) };
 		editor.runCustomizationMigration = async () => {
 			editor.migrationFlowId = 'new-migration-flow-id';
@@ -3104,6 +3267,60 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.editorPreviewDisposables.dispose();
 	});
 
+	test('bounds stored history to the newest 100 items across migration runs', () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		const category = getCustomizationMigrationCategory(CustomizationMigrationCategoryId.PromptFiles);
+		const context = editor.getMigrationActivityContext(PromptsStorage.user);
+		const items = (count: number, prefix: string): ICustomizationMigrationDashboardActivity['items'] => Array.from({ length: count }, (_, index) => ({
+			label: `${prefix}${index}`, sourceLabel: `profile/${prefix}${index}.prompt.md`,
+			targetLabel: `skills/${prefix}${index}/SKILL.md`, operation: 'converted',
+		}));
+		editor.recordMigrationActivity(category, context, items(90, 'old'));
+		editor.recordMigrationActivity(category, context, items(20, 'new'));
+		const state = editor.getMigrationActivityState(PromptsStorage.user);
+		const result = editor.getCustomizationMigrationDashboardOverview().result;
+		const first = state.activity.map(entry => ({
+			count: entry.items.length, first: entry.items[0].label, last: entry.items.at(-1)!.label,
+		}));
+		editor.recordMigrationActivity(category, context, items(150, 'large'));
+		const persisted = editor.storageService.getObject<{ activity: ICustomizationMigrationDashboardActivity[] }>(context.key, StorageScope.PROFILE)!;
+		assert.deepStrictEqual({
+			first,
+			resultCount: result?.migratedCount,
+			resultIds: result?.activityIds,
+			large: persisted.activity.map(entry => [entry.items.length, entry.items[0].label, entry.items.at(-1)!.label]),
+		}, {
+			first: [
+				{ count: 20, first: 'new0', last: 'new19' },
+				{ count: 80, first: 'old10', last: 'old89' },
+			],
+			resultCount: 110,
+			resultIds: state.activity.map(entry => entry.id),
+			large: [[100, 'large50', 'large149']],
+		});
+	});
+
+	test('prunes legacy history on load while preserving workspace and skipped state', () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		const context = editor.getMigrationActivityContext(PromptsStorage.local);
+		const activity: ICustomizationMigrationDashboardActivity[] = [{
+			id: 'legacy', categoryLabel: 'Prompts', scopeLabel: 'workspace', storage: PromptsStorage.local,
+			items: Array.from({ length: 101 }, (_, index) => ({
+				label: `${index}`, sourceLabel: `prompts/${index}`, targetLabel: `skills/${index}`, operation: 'converted',
+			})),
+		}];
+		editor.storageService.store(context.key, { activity, skipped: true, started: true }, StorageScope.PROFILE, StorageTarget.MACHINE);
+		const state = editor.getMigrationActivityState(PromptsStorage.local);
+		const persisted = editor.storageService.getObject<{ activity: ICustomizationMigrationDashboardActivity[] }>(context.key, StorageScope.PROFILE)!;
+		assert.deepStrictEqual({
+			count: state.activity[0].items.length, first: state.activity[0].items[0].label,
+			persistedCount: persisted.activity[0].items.length, skipped: state.skipped, started: state.started,
+			profile: editor.getMigrationActivityState(PromptsStorage.user).activity,
+		}, { count: 100, first: '1', persistedCount: 100, skipped: true, started: true, profile: [] });
+	});
+
 	test('group migration selection retains keyboard focus', () => {
 		const editor = createTestEditor(undefined, createConfigurationServiceStub({
 			[ChatConfiguration.ChatCustomizationsPromptMigrationEnabled]: true,
@@ -3324,9 +3541,81 @@ suite('aiCustomizationManagementEditor', () => {
 		}
 	});
 
+	test('explicit advertised targets without a destination group survive mixed-type resolution', async () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		const agentFolder: ICustomizationSourceFolder = {
+			uri: URI.file('/home/test/.copilot/agents'), label: '~/.copilot', source: PromptsStorage.user, destinationGroupId: 'copilot',
+		};
+		const instructionsFolder: ICustomizationSourceFolder = {
+			uri: URI.file('/home/test/shared/instructions'), label: 'Shared', source: PromptsStorage.user,
+		};
+		const customizations: MigratableConfiguration[] = [PromptsType.agent, PromptsType.instructions].map(type => ({
+			uri: URI.file(`/profile/review.${type}.md`), type, storage: PromptsStorage.user, source: PromptFileSource.UserData,
+		}));
+		const folders = new Map([
+			[PromptsType.agent, [agentFolder]],
+			[PromptsType.instructions, [
+				{ ...agentFolder, uri: URI.file('/home/test/.copilot/instructions') }, instructionsFolder,
+			]],
+		]);
+		editor.selectedCustomizationMigrationTargets.set(`${PromptsType.agent}:${PromptsStorage.user}`, agentFolder);
+		editor.selectedCustomizationMigrationTargets.set(`${PromptsType.instructions}:${PromptsStorage.user}`, instructionsFolder);
+		const resolved = await editor.resolveCustomizationMigrationTargetFolders(customizations, folders, editor.getCustomizationMigrationContextKey());
+		assert.deepStrictEqual([...resolved!.values()].flatMap(byStorage => [...byStorage.values()].map(folder => folder.uri.path)), [
+			'/home/test/.copilot/agents', '/home/test/shared/instructions',
+		]);
+	});
+
+	test('rejects a selected destination that the harness no longer advertises', async () => {
+		const editor = createTestEditor();
+		store.add(editor.editorPreviewDisposables);
+		const errors: string[] = [];
+		editor.notificationService.error = message => errors.push(message);
+		editor.selectedCustomizationMigrationTargets.set(`${PromptsType.skill}:${PromptsStorage.local}`, {
+			uri: URI.file('/unrelated/skills'), label: 'Unrelated', source: PromptsStorage.local,
+		});
+		const resolved = await editor.resolveCustomizationMigrationTargetFolders([{
+			uri: URI.file('/workspace/.github/prompts/review.prompt.md'),
+			type: PromptsType.prompt, storage: PromptsStorage.local, source: PromptFileSource.GitHubWorkspace,
+		}], new Map([[PromptsType.skill, [{
+			uri: URI.file('/workspace/.github/skills'), label: '.github', source: PromptsStorage.local,
+		}]]]), editor.getCustomizationMigrationContextKey());
+		assert.deepStrictEqual({ resolved, errors }, { resolved: undefined, errors: ['The selected destination for Workspace skills is no longer available. Choose a destination supported by the active harness.'] });
+	});
+
+	test('revalidates advertised destinations after migration confirmation', async () => {
+		const editor = createTestEditor(undefined, createConfigurationServiceStub({
+			[ChatConfiguration.ChatCustomizationsPromptMigrationEnabled]: true,
+		}));
+		store.add(editor.editorPreviewDisposables);
+		editor.customizationMigrationTargetFoldersByType.set(PromptsType.skill, [{
+			uri: URI.file('/workspace/.github/skills'), label: '.github', source: PromptsStorage.local,
+		}]);
+		editor.dialogService.confirm = async () => {
+			editor.customizationMigrationTargetFoldersByType.clear();
+			return { confirmed: true };
+		};
+		const errors: string[] = [];
+		editor.notificationService.error = message => errors.push(message);
+		let writes = 0;
+		editor.runCustomizationMigration = async () => {
+			writes++;
+			throw new Error('Unexpected migration');
+		};
+		await editor.migrateSelectedCustomizations(getCustomizationMigrationCategory(CustomizationMigrationCategoryId.PromptFiles), [{
+			uri: URI.file('/workspace/.github/prompts/review.prompt.md'),
+			type: PromptsType.prompt, storage: PromptsStorage.local, source: PromptFileSource.GitHubWorkspace,
+		}]);
+		assert.deepStrictEqual({ writes, errors }, {
+			writes: 0,
+			errors: ['The selected destination for Workspace skills is no longer available. Choose a destination supported by the active harness.'],
+		});
+	});
+
 	test('mixed user data migration chooses one destination root', async () => {
 		const editor = createTestEditor();
-		const sessionResource = editor.harnessService.activeSessionResource.get();
+		const contextKey = editor.getCustomizationMigrationContextKey();
 		let pickerInvocationCount = 0;
 		const pickedFolders: ICustomizationSourceFolder[] = [];
 		editor.quickInputService = {
@@ -3362,7 +3651,7 @@ suite('aiCustomizationManagementEditor', () => {
 		]);
 
 		try {
-			const targetFolders = await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, sessionResource);
+			const targetFolders = await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, contextKey);
 
 			assert.deepStrictEqual({
 				pickerInvocationCount,
@@ -3382,7 +3671,7 @@ suite('aiCustomizationManagementEditor', () => {
 
 	test('automatic migration target does not constrain a later folder choice', async () => {
 		const editor = createTestEditor();
-		const sessionResource = editor.harnessService.activeSessionResource.get();
+		const contextKey = editor.getCustomizationMigrationContextKey();
 		let pickerInvocationCount = 0;
 		editor.quickInputService = {
 			pick: async items => {
@@ -3415,7 +3704,7 @@ suite('aiCustomizationManagementEditor', () => {
 		]);
 
 		try {
-			const targetFolders = await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, sessionResource);
+			const targetFolders = await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, contextKey);
 
 			assert.deepStrictEqual({
 				pickerInvocationCount,
@@ -3470,7 +3759,7 @@ suite('aiCustomizationManagementEditor', () => {
 
 	test('does not infer migration destination groups from folder parents', async () => {
 		const editor = createTestEditor();
-		const sessionResource = editor.harnessService.activeSessionResource.get();
+		const contextKey = editor.getCustomizationMigrationContextKey();
 		let pickerInvocationCount = 0;
 		editor.quickInputService = {
 			pick: async items => {
@@ -3504,7 +3793,7 @@ suite('aiCustomizationManagementEditor', () => {
 		]);
 
 		try {
-			await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, sessionResource);
+			await editor.resolveCustomizationMigrationTargetFolders(customizations, availableSourceFolders, contextKey);
 
 			assert.strictEqual(pickerInvocationCount, 2);
 		} finally {
