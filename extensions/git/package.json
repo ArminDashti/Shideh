@@ -172,6 +172,11 @@
         "icon": "$(go-to-file)"
       },
       {
+        "command": "git.openWorktreeChange",
+        "title": "%command.openWorktreeChange%",
+        "category": "Git"
+      },
+      {
         "command": "git.openHEADFile",
         "title": "%command.openHEADFile%",
         "category": "Git"
@@ -2519,6 +2524,11 @@
           "group": "navigation"
         },
         {
+          "command": "git.openWorktreeChange",
+          "when": "scmProvider == git && scmResourceGroup == index",
+          "group": "navigation"
+        },
+        {
           "command": "git.openHEADFile",
           "when": "scmProvider == git && scmResourceGroup == index",
           "group": "navigation"
@@ -2570,6 +2580,11 @@
         },
         {
           "command": "git.openChange",
+          "when": "scmProvider == git && scmResourceGroup == workingTree",
+          "group": "navigation"
+        },
+        {
+          "command": "git.openWorktreeChange",
           "when": "scmProvider == git && scmResourceGroup == workingTree",
           "group": "navigation"
         },
@@ -2650,6 +2665,11 @@
         },
         {
           "command": "git.openChange",
+          "when": "scmProvider == git && scmResourceGroup == untracked",
+          "group": "navigation"
+        },
+        {
+          "command": "git.openWorktreeChange",
           "when": "scmProvider == git && scmResourceGroup == untracked",
           "group": "navigation"
         },

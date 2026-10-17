@@ -3754,7 +3754,7 @@ export class CommandCenter {
 
 			if (choice.refName === repository.HEAD?.name) {
 				const message = l10n.t('Branch "{0}" is already checked out in the current repository.', choice.refName);
-				const createBranch = l10n.t('Create New Branch');
+				const createBranch = l10n.t('Create New Branch!');
 				const pick = await window.showWarningMessage(message, { modal: true }, createBranch);
 
 				if (pick === createBranch) {
