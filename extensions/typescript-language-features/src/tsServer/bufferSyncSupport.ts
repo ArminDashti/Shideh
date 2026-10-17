@@ -531,7 +531,34 @@ export default class BufferSyncSupport extends Disposable {
 		this.listening = true;
 		vscode.workspace.onDidOpenTextDocument(this.openTextDocument, this, this._disposables);
 		vscode.workspace.onDidCloseTextDocument(this.onDidCloseTextDocument, this, this._disposables);
-		vscode.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, this._disposables);
+		vscode.workspace.onDidChangeTextDocument(async e => {
+			const syncedBuffer = this.syncedBuffers.get(e.document.uri);
+			if (!syncedBuffer) {
+				return;
+			}
+
+			if (this.client.configuration.enableProjectDiagnostics) {
+				this.onDidChangeBuffer(syncedBuffer, e);
+
+				// TODO: Debounce this!
+				const response = await this.client.execute('compileOnSaveAffectedFileList', { file: syncedBuffer.filepath }, nulToken);
+				if (response.type === 'response') {
+					const newFilesToCheck = flatten(response.body.map(x => x.fileNames)).map(file => this.toResource(file))
+						.filter(resource => !this.pendingDiagnostics.has(resource));
+
+					if (newFilesToCheck.length) {
+						for (const resource of newFilesToCheck) {
+							const doc = await vscode.workspace.openTextDocument(resource);
+							// this.pendingDiagnostics.set(resource, Date.now());
+							this.openTextDocument(doc); // Note TS seems to require opening the file to generate errors about it
+						}
+					}
+				}
+			} else {
+				this.onDidChangeBuffer(syncedBuffer, e);
+			}
+		}, this, this._disposables);
+
 		vscode.window.onDidChangeVisibleTextEditors(e => {
 			for (const { document } of e) {
 				const syncedBuffer = this.syncedBuffers.get(document.uri);
@@ -654,12 +681,7 @@ export default class BufferSyncSupport extends Disposable {
 		this.closeResource(document.uri);
 	}
 
-	private onDidChangeTextDocument(e: vscode.TextDocumentChangeEvent): void {
-		const syncedBuffer = this.syncedBuffers.get(e.document.uri);
-		if (!syncedBuffer) {
-			return;
-		}
-
+	private onDidChangeBuffer(syncedBuffer: SyncedBuffer, e: vscode.TextDocumentChangeEvent): void {
 		this._onWillChange.fire(syncedBuffer.resource);
 
 		syncedBuffer.onContentChanged(e.contentChanges);
