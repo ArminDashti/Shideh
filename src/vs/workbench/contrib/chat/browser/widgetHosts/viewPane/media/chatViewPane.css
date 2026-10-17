@@ -155,6 +155,11 @@
 		/* hide new session button when stacked */
 		display: none;
 	}
+
+	.agent-sessions-new-button-container {
+		/* hide new session button when stacked */
+		display: none;
+	}
 }
 
 /* Sessions control: side by side */
