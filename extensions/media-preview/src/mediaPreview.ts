@@ -43,6 +43,7 @@ export abstract class MediaPreview extends Disposable {
 
 	protected previewState = PreviewState.Visible;
 	private _binarySize: number | undefined;
+	protected readonly isDataUri: boolean;
 
 	constructor(
 		extensionRoot: vscode.Uri,
@@ -72,19 +73,21 @@ export abstract class MediaPreview extends Disposable {
 			this.dispose();
 		}));
 
-		const watcher = this._register(vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(_resource, '*')));
-		this._register(watcher.onDidChange(e => {
-			if (e.toString() === this._resource.toString()) {
-				this.updateBinarySize();
-				this.render();
-			}
-		}));
+		if (!isDataUri) {
+			const watcher = this._register(vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(_resource, '*')));
+			this._register(watcher.onDidChange(e => {
+				if (e.toString() === this._resource.toString()) {
+					this.updateBinarySize();
+					this.render();
+				}
+			}));
 
-		this._register(watcher.onDidDelete(e => {
-			if (e.toString() === this._resource.toString()) {
-				this._webviewEditor.dispose();
-			}
-		}));
+			this._register(watcher.onDidDelete(e => {
+				if (e.toString() === this._resource.toString()) {
+					this._webviewEditor.dispose();
+				}
+			}));
+		}
 	}
 
 	public override dispose() {
@@ -97,6 +100,10 @@ export abstract class MediaPreview extends Disposable {
 	}
 
 	protected updateBinarySize() {
+		if (this.isDataUri) {
+			return;
+		}
+
 		vscode.workspace.fs.stat(this._resource).then(({ size }) => {
 			this._binarySize = size;
 			this.updateState();
