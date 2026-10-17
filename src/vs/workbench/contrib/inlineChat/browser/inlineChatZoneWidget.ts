@@ -123,6 +123,7 @@ export class InlineChatZoneWidget extends ZoneWidget {
 		@IActionViewItemService actionViewItemService: IActionViewItemService,
 		@ILogService logService: ILogService,
 		@IContextKeyService contextKeyService: IContextKeyService,
+		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super(editors.editor, InlineChatZoneWidget.#options);
 		this.notebookEditor = editors.notebookEditor;
@@ -229,7 +230,8 @@ export class InlineChatZoneWidget extends ZoneWidget {
 					renderDetectedCommandsWithRequest: true,
 					...options?.rendererOptions
 				},
-				defaultMode: ChatMode.Ask
+				defaultMode: ChatMode.Ask,
+				modelFilter,
 			}
 		});
 		this._disposables.add(this.widget);
