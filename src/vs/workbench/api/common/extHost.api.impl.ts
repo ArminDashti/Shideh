@@ -91,6 +91,7 @@ import { IExtHostProgress } from './extHostProgress.js';
 import { ExtHostQuickDiff } from './extHostQuickDiff.js';
 import { ExtHostAgentEditorComments } from './extHostAgentEditorComments.js';
 import { createExtHostQuickOpen } from './extHostQuickOpen.js';
+import { ExtHostRemoteCodingAgents } from './extHostRemoteCodingAgents.js';
 import { IExtHostRpcService } from './extHostRpcService.js';
 import { ExtHostSCM } from './extHostSCM.js';
 import { IExtHostSearch } from './extHostSearch.js';
@@ -1695,6 +1696,14 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			},
 		};
 
+		// namespace: remoteCodingAgents
+		const remoteCodingAgents: typeof vscode.remoteCodingAgents = {
+			registerAgentInformationProvider(provider: vscode.RemoteCodingAgentInformationProvider): vscode.Disposable {
+				checkProposedApiEnabled(extension, 'remoteCodingAgents');
+				return extHostRemoteCodingAgents.registerAgentInformationProvider(extension, provider);
+			}
+		};
+
 		// namespace: l10n
 		const l10n: typeof vscode.l10n = {
 			t(...params: [message: string, ...args: Array<string | number | boolean>] | [message: string, args: Record<string, any>] | [{ message: string; args?: Array<string | number | boolean> | Record<string, any>; comment: string | string[] }]): string {
@@ -2023,6 +2032,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			languages,
 			lm,
 			notebooks,
+			remoteCodingAgents,
 			scm,
 			speech,
 			tasks,
