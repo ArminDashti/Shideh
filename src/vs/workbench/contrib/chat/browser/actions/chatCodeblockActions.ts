@@ -53,6 +53,16 @@ const shellLangIds = [
 	'zsh'
 ];
 
+const shellLangIds = [
+	'fish',
+	'ps1',
+	'pwsh',
+	'powershell',
+	'sh',
+	'shellscript',
+	'zsh'
+];
+
 export interface IChatCodeBlockActionContext extends ICodeBlockActionContext {
 	element: IChatResponseViewModel;
 }
