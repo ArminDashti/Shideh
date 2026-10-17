@@ -188,16 +188,25 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			spacer.style.order = '-1'; // match global-actions-left order so DOM order is respected
 			prepend(titleArea, spacer);
 
-			// Hide spacer in fullscreen (traffic lights are not shown)
-			const updateSpacerVisibility = () => {
-				spacer.style.display = isFullscreen(mainWindow) ? 'none' : '';
-			};
-			updateSpacerVisibility();
-			this._register(onDidChangeFullscreen(windowId => {
-				if (windowId === getWindowId(mainWindow)) {
-					updateSpacerVisibility();
-				}
-			}));
+			if (primaryWindowControlsLocation === 'left') {
+				const spacer = $('div.window-controls-container');
+				spacer.style.width = '70px';
+				spacer.style.height = '100%';
+				spacer.style.flexShrink = '0';
+				spacer.style.order = '-1'; // match global-actions-left order so DOM order is respected
+				prepend(titleArea, spacer);
+
+				// Hide spacer in fullscreen (traffic lights are not shown)
+				const updateSpacerVisibility = () => {
+					spacer.style.display = isFullscreen(mainWindow) ? 'none' : '';
+				};
+				updateSpacerVisibility();
+				this._register(onDidChangeFullscreen(windowId => {
+					if (windowId === getWindowId(mainWindow)) {
+						updateSpacerVisibility();
+					}
+				}));
+			}
 		}
 
 		return titleArea;
