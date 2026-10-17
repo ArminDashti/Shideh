@@ -292,6 +292,7 @@ export const IDialogService = createDecorator<IDialogService>('dialogService');
 export interface ICustomDialogOptions {
 	readonly buttonDetails?: string[];
 	readonly markdownDetails?: ICustomDialogMarkdown[];
+	readonly htmlDetails?: ICustomDialogHTMLElement[];
 	readonly classes?: string[];
 	readonly icon?: ThemeIcon;
 	readonly disableCloseAction?: boolean;
@@ -310,6 +311,10 @@ export interface ICustomDialogMarkdown {
 	readonly classes?: string[];
 	/** Custom link handler for markdown content, see {@link IContentActionHandler}. Defaults to {@link openLinkFromMarkdown}. */
 	actionHandler?(link: string): Promise<boolean>;
+}
+
+export interface ICustomDialogHTMLElement extends IDisposable {
+	readonly element: unknown /* HTMLElement */;
 }
 
 /**

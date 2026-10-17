@@ -1473,6 +1473,11 @@ export function computeToolEnablementMap(options: IToolFilteringOptions): IToolF
 				for (const tool of toolSet.getTools()) {
 					enablementMap.set(tool, true);
 				}
+				primaryActionIcon = Codicon.copilotWarning;
+			} else {
+				primaryActionId = TOGGLE_CHAT_ACTION_ID;
+				primaryActionTitle = localize('toggleChat', "Toggle Chat");
+				primaryActionIcon = Codicon.copilot;
 			}
 		}
 
