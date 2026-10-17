@@ -138,3 +138,12 @@ suite('ExtHostTerminalService', () => {
 		assert.strictEqual(processExitCalls, 1);
 	});
 });
+
+function getSendTextError(terminal: vscode.Terminal): string | undefined {
+	try {
+		terminal.sendText('test');
+	} catch (error) {
+		return error instanceof Error ? error.message : String(error);
+	}
+	return undefined;
+}
