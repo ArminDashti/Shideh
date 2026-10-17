@@ -270,6 +270,14 @@ export class ExtHostTreeViews extends Disposable implements ExtHostTreeViewsShap
 		treeView.setSelectionAndFocus(selectedHandles, focusedHandle);
 	}
 
+	$setFocus(treeViewId: string, treeItemHandles: string) {
+		const treeView = this.treeViews.get(treeViewId);
+		if (!treeView) {
+			throw new Error(localize('treeView.notRegistered', 'No tree view with id \'{0}\' registered.', treeViewId));
+		}
+		treeView.setFocus(treeItemHandles);
+	}
+
 	$setVisible(treeViewId: string, isVisible: boolean): void {
 		const treeView = this._treeViews.get(treeViewId);
 		if (!treeView) {
@@ -606,6 +614,10 @@ class ExtHostTreeView<T> extends Disposable {
 		if (changedFocus) {
 			this._onDidChangeActiveItem.fire(Object.freeze({ activeItem: this.focusedElement }));
 		}
+	}
+
+	setFocus(treeItemHandle: TreeItemHandle) {
+		this._focusedHandle = treeItemHandle;
 	}
 
 	setVisible(visible: boolean): void {

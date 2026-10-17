@@ -680,6 +680,8 @@ export interface ITreeView extends IDisposable {
 
 	readonly onDidChangeSelectionAndFocus: Event<{ selection: readonly ITreeItem[]; focus: ITreeItem }>;
 
+	readonly onDidChangeFocus: Event<ITreeItem>;
+
 	readonly onDidChangeVisibility: Event<boolean>;
 
 	readonly onDidChangeActions: Event<void>;
