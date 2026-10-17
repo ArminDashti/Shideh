@@ -225,6 +225,18 @@ class SessionSummaryNotifier extends Disposable {
 			this._emit(session, changes, lastNotified);
 		}
 	}
+
+	/** Emits only a pending status delta, preserving the debounce for other summary fields. */
+	flushStatus(session: string): void {
+		const current = this._getSummary(session);
+		const lastNotified = this._lastNotified.get(session);
+		if (!current || !lastNotified || current.status === lastNotified.status) {
+			return;
+		}
+
+		this._lastNotified.set(session, { ...lastNotified, status: current.status });
+		this._emit(session, { status: current.status });
+	}
 }
 
 /**
@@ -2046,6 +2058,7 @@ export class AgentHostStateManager extends Disposable {
 			this._finalizeCancelledFusionPhases(channel, action.turnId);
 		}
 		let resultingState: unknown = undefined;
+		let sessionStatusToFlush: string | undefined;
 		if (action.type === ActionType.RootConfigChanged && action.replace) {
 			action = {
 				...action,
@@ -2122,7 +2135,9 @@ export class AgentHostStateManager extends Disposable {
 			if (chat && chatEntry && sessionKey !== undefined) {
 				const newChat = chatReducer(chat, chatAction, this._log);
 				chatEntry.state = newChat;
-				this._onChatStateChanged(sessionKey, channel, chat, newChat);
+				if (this._onChatStateChanged(sessionKey, channel, chat, newChat)) {
+					sessionStatusToFlush = sessionKey;
+				}
 				resultingState = newChat;
 			} else {
 				this._logService.warn(`[AgentHostStateManager] Action for unknown chat: ${channel}, type=${action.type}`);
@@ -2197,6 +2212,9 @@ export class AgentHostStateManager extends Disposable {
 
 		this._logService.trace(`[AgentHostStateManager] Emitting envelope: seq=${envelope.serverSeq}, channel=${envelope.channel}, type=${action.type}${origin ? `, origin=${origin.clientId}:${origin.clientSeq}` : ''}`);
 		this._onDidEmitEnvelope.fire(envelope);
+		if (sessionStatusToFlush) {
+			this._summaryNotifier.flushStatus(sessionStatusToFlush);
+		}
 
 		return resultingState;
 	}
@@ -2315,7 +2333,7 @@ export class AgentHostStateManager extends Disposable {
 
 		const entry = this._sessionStates.get(sessionKey);
 		if (!entry) {
-			return;
+			return false;
 		}
 		const sessionState = entry.state;
 
@@ -2365,9 +2383,11 @@ export class AgentHostStateManager extends Disposable {
 			entry.modifiedAt = new Date(aggregateModifiedAt).toISOString();
 		}
 
+		const becameInProgress = statusChanged && (newStatus & SessionStatus.InputNeeded) === SessionStatus.InProgress;
 		if (statusChanged || activityChanged || modifiedAtChanged) {
 			this._summaryNotifier.markDirty(sessionKey);
 		}
+		return becameInProgress;
 	}
 
 	/**
