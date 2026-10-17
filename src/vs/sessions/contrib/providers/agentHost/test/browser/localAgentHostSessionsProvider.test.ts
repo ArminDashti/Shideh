@@ -9527,6 +9527,84 @@ suite('LocalAgentHostSessionsProvider', () => {
 		);
 	}));
 
+	test('registers provider-neutral resource label homes for quick chats and provider state', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const claudeHome = URI.file('/home/test/.agent/chats/claude-session');
+		agentHost.addSession(createSession('claude-session', { provider: 'claude', summary: 'Claude Quick Chat', quickChat: true, workingDirectory: claudeHome }));
+		agentHost.addSession(createSession('copilot-session', { summary: 'Copilot Session' }));
+		const pathService = new TestPathService(URI.file('/home/test'));
+		const labelService = new MockLabelService();
+
+		const provider = createProvider(disposables, agentHost, undefined, { pathService, labelService });
+		provider.getSessions();
+		await timeout(0);
+		const getHomeLabel = (resource: URI): string | undefined => {
+			const home = labelService.getUriHome(resource);
+			return home ? labelService.getUriLabel(home) : undefined;
+		};
+
+		assert.deepStrictEqual({
+			quickChat: getHomeLabel(URI.joinPath(claudeHome, 'artifact.md')),
+			copilotState: getHomeLabel(URI.file('/home/test/.copilot/session-state/copilot-session/artifact.md')),
+		}, {
+			quickChat: 'claude/Session',
+			copilotState: 'Copilot/Session',
+		});
+
+		provider.dispose();
+		assert.deepStrictEqual({
+			quickChat: labelService.getUriHome(URI.joinPath(claudeHome, 'artifact.md')),
+			copilotState: labelService.getUriHome(URI.file('/home/test/.copilot/session-state/copilot-session/artifact.md')),
+		}, {
+			quickChat: undefined,
+			copilotState: undefined,
+		});
+	}));
+
+	test('registers the session state home before a quick chat is materialized', () => {
+		const pathService = new TestPathService(URI.file('/home/test'));
+		const labelService = new MockLabelService();
+		const provider = createProvider(disposables, agentHost, undefined, { pathService, labelService });
+
+		const session = provider.createQuickChat(provider.sessionTypes[0].id);
+		const rawId = AgentSession.id(session.resource);
+		const resource = URI.file(`/home/test/.copilot/chats/${rawId}/files/plan.md`);
+
+		const home = labelService.getUriHome(resource);
+		assert.deepStrictEqual({
+			home: home?.toString(),
+			label: home ? labelService.getUriLabel(home) : undefined,
+		}, {
+			home: URI.file(`/home/test/.copilot/chats/${rawId}`).toString(),
+			label: 'Copilot/Session',
+		});
+	});
+
+	test('registers the SDK session state home from recorded artifacts', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const metadata = createSession('ahp-session', { summary: 'Artifact Session' });
+		agentHost.addSession({
+			...metadata,
+			_meta: withSessionArtifacts(metadata._meta, [{
+				id: 'artifact',
+				type: SessionArtifactType.File,
+				label: 'Plan',
+				isArtifact: true,
+				uri: 'file:///home/test/.copilot/session-state/sdk-session/files/plan.md',
+			}])
+		});
+		const labelService = new MockLabelService();
+		const provider = createProvider(disposables, agentHost, undefined, {
+			pathService: new TestPathService(URI.file('/home/test')),
+			labelService,
+		});
+		provider.getSessions();
+		await timeout(0);
+
+		assert.strictEqual(
+			labelService.getUriHome(URI.file('/home/test/.copilot/session-state/sdk-session/files/plan.md'))?.toString(),
+			URI.file('/home/test/.copilot/session-state/sdk-session').toString()
+		);
+	}));
+
 	test('session adapter uses raw ID as fallback title', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
 		agentHost.addSession(createSession('abcdef1234567890'));
 
