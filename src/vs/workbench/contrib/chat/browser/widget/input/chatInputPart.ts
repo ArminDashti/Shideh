@@ -470,6 +470,29 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	public getAttachedContext() {
 		const contextArr = new ChatRequestVariableSet();
 		contextArr.add(...this.attachmentModel.attachments, ...this.chatContextService.getWorkspaceContextItems());
+
+		// Include completed background tasks as attachments
+		const sessionResource = this._widget?.viewModel?.model.sessionResource;
+		if (sessionResource) {
+			const tasks = this._chatBackgroundTaskService.getTasksForSession(sessionResource).get();
+			for (const task of tasks) {
+				if (task.status.get() === BackgroundTaskStatus.Completed) {
+					contextArr.add({
+						kind: 'backgroundTask',
+						id: `backgroundTask:${task.taskId}`,
+						name: task.toolName,
+						fullName: localize('bgTask.fullName', "Background Task: {0}", task.toolName),
+						icon: Codicon.check,
+						value: '',
+						modelDescription: localize('bgTask.modelDesc', "Background task result from MCP tool '{0}' on server '{1}'", task.toolName, task.server.label),
+						taskId: task.taskId,
+						toolCallId: task.toolCallId,
+						server: task.server,
+					} satisfies IChatBackgroundTaskVariableEntry);
+				}
+			}
+		}
+
 		return contextArr;
 	}
 
@@ -4472,6 +4495,39 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 			store.add(attachmentWidget.onDidOpen(e => {
 				this.handleAttachmentOpen(index, attachment);
+			}));
+		}
+
+		// Render background task widgets from the background task service
+		const bgTaskContainer = dom.append(container, dom.$('.chat-background-tasks'));
+		const sessionResource = this._widget?.viewModel?.model.sessionResource;
+		if (sessionResource) {
+			const bgTaskStore = new DisposableStore();
+			store.add(bgTaskStore);
+			store.add(autorun(reader => {
+				const tasks = this._chatBackgroundTaskService.getTasksForSession(sessionResource).read(reader);
+				bgTaskStore.clear();
+				dom.clearNode(bgTaskContainer);
+				for (const task of tasks) {
+					const attachment: IChatBackgroundTaskVariableEntry = {
+						kind: 'backgroundTask',
+						id: `backgroundTask:${task.taskId}`,
+						name: task.toolName,
+						icon: Codicon.loading,
+						value: '',
+						modelDescription: '',
+						taskId: task.taskId,
+						toolCallId: task.toolCallId,
+						server: task.server,
+					};
+					const widget = this.instantiationService.createInstance(BackgroundTaskAttachmentWidget, attachment, this._currentLanguageModel.get(), { shouldFocusClearButton: false, supportsDeletion: true }, bgTaskContainer, this._contextResourceLabels);
+					bgTaskStore.add(widget);
+					bgTaskStore.add(widget.onDidDelete(() => {
+						this._chatBackgroundTaskService.evictTask(task.taskId);
+					}));
+				}
+				dom.setVisibility(Boolean(this.options.renderInputToolbarBelowInput || hasAttachments || hasImplicitContext || tasks.length > 0), this.attachmentsContainer);
+				dom.setVisibility(hasAttachments || hasImplicitContext || tasks.length > 0, this.attachedContextContainer);
 			}));
 		}
 

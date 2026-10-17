@@ -58,6 +58,21 @@ export class ChatToolInvocation implements IChatToolInvocation {
 	private readonly _partialInput = observableValue<unknown>(this, undefined);
 	private readonly _streamingMessage = observableValue<string | IMarkdownString | undefined>(this, undefined);
 
+	// Background task support: allows MCP task-backed tool invocations to
+	// continue in the background while the current turn completes.
+	private readonly _canContinueInBackground: ISettableObservable<boolean>;
+	private readonly _backgroundRequested = observableValue<boolean>(this, false);
+
+	public get canContinueInBackground(): IObservable<boolean> { return this._canContinueInBackground; }
+	public get backgroundRequested(): IObservable<boolean> { return this._backgroundRequested; }
+
+	/**
+	 * Trigger background continuation.
+	 */
+	public doContinueInBackground(): void {
+		this._backgroundRequested.set(true, undefined);
+	}
+
 	public get state(): IObservable<IChatToolInvocation.State> {
 		return this._state;
 	}
@@ -84,7 +99,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 		public readonly toolCallId: string,
 		subAgentInvocationId: string | undefined,
 		parameters: unknown,
-		startOptions: { startInStreaming?: boolean; startInCancelled?: boolean; cancelReason?: ToolConfirmKind.Denied | ToolConfirmKind.Skipped; cancelReasonMessage?: string | IMarkdownString } = {},
+		startOptions: { startInStreaming?: boolean; startInCancelled?: boolean; cancelReason?: ToolConfirmKind.Denied | ToolConfirmKind.Skipped; cancelReasonMessage?: string | IMarkdownString; canContinueInBackground?: boolean } = {},
 		chatRequestId?: string
 	) {
 		// For streaming invocations, use a default message until handleToolStream provides one
@@ -106,6 +121,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 		this.subAgentInvocationId = subAgentInvocationId;
 		this.parameters = parameters;
 		this.chatRequestId = chatRequestId;
+		this._canContinueInBackground = observableValue('canContinueInBackground', startOptions.canContinueInBackground ?? !!preparedInvocation?.canContinueInBackground);
 
 		if (startOptions.startInCancelled) {
 			// Start directly in cancelled state (e.g., when a hook denies execution)

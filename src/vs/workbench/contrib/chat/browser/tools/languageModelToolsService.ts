@@ -721,6 +721,9 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				throw new CancellationError();
 			}
 
+			// Enable "Continue in Background" for task-backed tools
+			const canContinueInBackground = !!preparedInvocation?.canContinueInBackground;
+
 			invocationTimeWatch = StopWatch.create(true);
 			const currentTool = this._tools.get(dto.toolId);
 			if (!currentTool) {
@@ -774,7 +777,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 					prepareTimeMs: prepareTimeWatch?.elapsed(),
 					invocationTimeMs: invocationTimeWatch?.elapsed(),
 				});
-			return toolResult;
+			return toolResult!;
 		} catch (err) {
 			const result = isCancellationError(err) ? 'userCancelled' : 'error';
 			this._telemetryService.publicLog2<LanguageModelToolInvokedEvent, LanguageModelToolInvokedClassification>(

@@ -22,6 +22,7 @@ import { IToolData, IToolSet } from '../tools/languageModelToolsService.js';
 import type { ILanguageModelChatMetadata } from '../languageModels.js';
 import { decodeBase64, encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { Mutable } from '../../../../../base/common/types.js';
+import { McpDefinitionReference } from '../../../mcp/common/mcpTypes.js';
 
 
 /**
@@ -915,6 +916,10 @@ export function isDiagnosticsVariableEntry(obj: IChatRequestVariableEntry): obj 
 
 export function isChatRequestFileEntry(obj: IChatRequestVariableEntry): obj is IChatRequestFileEntry {
 	return obj.kind === 'file';
+}
+
+export function isBackgroundTaskVariableEntry(obj: IChatRequestVariableEntry): obj is IChatBackgroundTaskVariableEntry {
+	return obj.kind === 'backgroundTask';
 }
 
 export function isPromptFileVariableEntry(obj: IChatRequestVariableEntry): obj is IPromptFileVariableEntry {

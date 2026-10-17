@@ -262,6 +262,32 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 				this.subPart instanceof ChatToolPostExecuteConfirmationPart;
 			this.domNode.classList.toggle('has-confirmation', isConfirmation);
 
+			// Add "Continue in Background" button for task-backed tools
+			if (toolInvocation.kind === 'toolInvocation') {
+				partStore.add(autorun(reader => {
+					const canBackground = toolInvocation.canContinueInBackground.read(reader);
+					const state = toolInvocation.state.read(reader);
+					if (canBackground && state.type === IChatToolInvocation.StateKind.Executing) {
+						const actionBar = new ActionBar(this.subPart.domNode, {});
+						partStore.add(actionBar);
+						const action = new Action(
+							'chat.tool.continueInBackground',
+							localize('continueInBackground', "Continue in Background"),
+							ThemeIcon.asClassName(Codicon.debugContinue),
+							true,
+							() => {
+								toolInvocation.doContinueInBackground();
+								actionBar.dispose();
+							}
+						);
+						actionBar.push(action, { icon: true, label: false });
+						this._continueInBackgroundAction.value = actionBar;
+					} else {
+						this._continueInBackgroundAction.clear();
+					}
+				}));
+			}
+
 			partStore.add(this.subPart.onNeedsRerender(render));
 			if (this.subPart instanceof ChatGeneratedImageResultSubPart) {
 				partStore.add(this.subPart.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
