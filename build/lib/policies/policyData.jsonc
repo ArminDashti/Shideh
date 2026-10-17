@@ -9,6 +9,13 @@
             }
         },
         {
+            "key": "General",
+            "name": {
+                "key": "generalConfigurationTitle",
+                "value": "General"
+            }
+        },
+        {
             "key": "IntegratedTerminal",
             "name": {
                 "key": "terminalIntegratedConfigurationTitle",
