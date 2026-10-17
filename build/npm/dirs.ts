@@ -42,6 +42,7 @@ export const dirs = [
 	'extensions/notebook-renderers',
 	'extensions/npm',
 	'extensions/php-language-features',
+	'extensions/raku',
 	'extensions/references-view',
 	'extensions/search-result',
 	'extensions/simple-browser',
