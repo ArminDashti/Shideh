@@ -36,7 +36,7 @@ configurationRegistry.registerConfiguration({
 			agentHost: { key: AgentHostEditTelemetryEnabledConfigKey },
 		},
 		[AI_STATS_SETTING_ID]: {
-			markdownDescription: localize('editor.aiStats.enabled', "Controls whether to enable AI statistics in the editor. The gauge shows the average AI rate across 5-minute sessions, where each session's rate is calculated as AI-inserted characters divided by total inserted characters."),
+			markdownDescription: localize('editor.aiStats.enabled', "Controls whether to track and show your local chat usage statistics (sessions, messages, tokens, models). All data stays on this device."),
 			type: 'boolean',
 			default: false,
 			tags: ['experimental'],

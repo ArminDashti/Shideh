@@ -56,7 +56,7 @@ export class EditTelemetryContribution extends Disposable {
 				return;
 			}
 
-			r.store.add(instantiationService.createInstance(AiStatsFeature, annotatedDocuments.read(r)));
+			r.store.add(instantiationService.createInstance(AiStatsFeature));
 		}));
 
 		const addAICoAuthor = observableConfigValue('git.addAICoAuthor', 'off', configurationService);
