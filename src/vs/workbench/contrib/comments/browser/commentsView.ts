@@ -50,6 +50,7 @@ interface CommentsViewState {
 	filterHistory?: string[];
 	showResolved?: boolean;
 	showUnresolved?: boolean;
+	showOutdated?: boolean;
 	sortBy?: CommentsSortOrder;
 }
 
@@ -186,12 +187,13 @@ export class CommentsPanel extends FilterViewPane implements ICommentsView {
 		this.filters = this._register(new CommentsFilters({
 			showResolved: this.viewState.showResolved !== false,
 			showUnresolved: this.viewState.showUnresolved !== false,
+			showOutdated: this.viewState.showOutdated !== false,
 			sortBy: this.viewState.sortBy ?? CommentsSortOrder.ResourceAscending,
 		}, this.contextKeyService));
-		this.filter = new Filter(new FilterOptions(this.filterWidget.getFilterText(), this.filters.showResolved, this.filters.showUnresolved));
+		this.filter = new Filter(new FilterOptions(this.filterWidget.getFilterText(), this.filters.showResolved, this.filters.showUnresolved, this.filters.showOutdated));
 
 		this._register(this.filters.onDidChange((event: CommentsFiltersChangeEvent) => {
-			if (event.showResolved || event.showUnresolved) {
+			if (event.showResolved || event.showUnresolved || event.showOutdated) {
 				this.updateFilter();
 			}
 			if (event.sortBy) {
@@ -216,6 +218,7 @@ export class CommentsPanel extends FilterViewPane implements ICommentsView {
 		this.viewState.filterHistory = this.filterWidget.getHistory();
 		this.viewState.showResolved = this.filters.showResolved;
 		this.viewState.showUnresolved = this.filters.showUnresolved;
+		this.viewState.showOutdated = this.filters.showOutdated;
 		this.viewState.sortBy = this.filters.sortBy;
 		this.stateMemento.saveMemento();
 		super.saveState();
@@ -259,7 +262,7 @@ export class CommentsPanel extends FilterViewPane implements ICommentsView {
 	}
 
 	private updateFilter() {
-		this.filter.options = new FilterOptions(this.filterWidget.getFilterText(), this.filters.showResolved, this.filters.showUnresolved);
+		this.filter.options = new FilterOptions(this.filterWidget.getFilterText(), this.filters.showResolved, this.filters.showUnresolved, this.filters.showOutdated);
 		this.tree?.filterComments();
 
 		this.cachedFilterStats = undefined;

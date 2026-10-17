@@ -8,7 +8,7 @@ import { workbenchInstantiationService } from '../../../../test/browser/workbenc
 import { IRange, Range } from '../../../../../editor/common/core/range.js';
 import { CommentsPanel } from '../../browser/commentsView.js';
 import { CommentService, ICommentController, ICommentInfo, ICommentService, INotebookCommentInfo } from '../../browser/commentService.js';
-import { Comment, CommentInput, CommentReaction, CommentThread, CommentThreadCollapsibleState, CommentThreadState } from '../../../../../editor/common/languages.js';
+import { Comment, CommentInput, CommentReaction, CommentThread, CommentThreadApplicability, CommentThreadCollapsibleState, CommentThreadState } from '../../../../../editor/common/languages.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IViewContainerModel, IViewDescriptor, IViewDescriptorService, IViewPaneContainer, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
@@ -34,7 +34,8 @@ class TestCommentThread implements CommentThread<IRange> {
 		public readonly threadId: string,
 		public readonly resource: string,
 		public readonly range: IRange,
-		public readonly comments: Comment[]) { }
+		public readonly comments: Comment[],
+		public readonly applicability?: CommentThreadApplicability) { }
 
 	readonly onDidChangeComments: Event<readonly Comment[] | undefined> = new Emitter<readonly Comment[] | undefined>().event;
 	readonly onDidChangeInitialCollapsibleState: Event<CommentThreadCollapsibleState | undefined> = new Emitter<CommentThreadCollapsibleState | undefined>().event;
