@@ -280,7 +280,7 @@ export interface IListView<T> extends ISpliceable<T>, IDisposable {
 	delegateScrollFromMouseWheelEvent(browserEvent: IMouseWheelEvent): void;
 	delegateVerticalScrollbarPointerDown(browserEvent: PointerEvent): void;
 	updateWidth(index: number): void;
-	updateElementHeight(index: number, size: number | undefined, anchorIndex: number | null): void;
+	updateElementHeight(index: number, size: number | undefined, newScrollTop?: number | undefined): void;
 	rerender(): void;
 	layout(height?: number, width?: number): void;
 }
@@ -564,7 +564,7 @@ export class ListView<T> implements IListView<T> {
 		this.scrollableElement.delegateVerticalScrollbarPointerDown(browserEvent);
 	}
 
-	updateElementHeight(index: number, size: number | undefined, anchorIndex: number | null): void {
+	updateElementHeight(index: number, size: number | undefined, newScrollTop?: number | undefined): void {
 		if (index < 0 || index >= this.items.length) {
 			return;
 		}
@@ -587,11 +587,12 @@ export class ListView<T> implements IListView<T> {
 
 		const lastRenderRange = this.getRenderRange(this.lastRenderTop, this.lastRenderHeight);
 
-		let heightDiff = 0;
-
-		if (index < lastRenderRange.start) {
+		let scrollTop: number;
+		if (newScrollTop) {
+			scrollTop = newScrollTop;
+		} else if (index < lastRenderRange.start) {
 			// do not scroll the viewport if resized element is out of viewport
-			heightDiff = size - originalSize;
+			scrollTop = this.lastRenderTop + size - originalSize;
 		} else {
 			if (anchorIndex !== null && anchorIndex > index && anchorIndex < lastRenderRange.end) {
 				// anchor in viewport
@@ -604,8 +605,7 @@ export class ListView<T> implements IListView<T> {
 
 		this.rangeMap.splice(index, 1, [{ size: size }]);
 		this.items[index].size = size;
-
-		this.render(lastRenderRange, Math.max(0, this.lastRenderTop + heightDiff), this.lastRenderHeight, undefined, undefined, true);
+		this.render(lastRenderRange, Math.max(0, scrollTop), this.lastRenderHeight, undefined, undefined, true);
 		this.setScrollTop(this.lastRenderTop);
 
 		this.eventuallyUpdateScrollDimensions();

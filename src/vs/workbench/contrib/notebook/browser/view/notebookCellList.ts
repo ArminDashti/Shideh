@@ -1214,7 +1214,7 @@ export class NotebookCellList extends WorkbenchList<CellViewModel> implements ID
 		return elementBottom < this.scrollTop;
 	}
 
-	updateElementHeight2(element: ICellViewModel, size: number, anchorElementIndex: number | null = null): void {
+	updateElementHeight2(element: ICellViewModel, size: number, anchorElementIndex?: number | undefined): void {
 		const index = this._getViewIndexUpperBound(element);
 		if (index === undefined || index < 0 || index >= this.length) {
 			return;
