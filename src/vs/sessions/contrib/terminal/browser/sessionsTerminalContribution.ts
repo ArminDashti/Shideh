@@ -123,6 +123,16 @@ export class SessionsTerminalContribution extends Disposable implements IWorkben
 	 */
 	private readonly _archivedSessionIds = new Set<string>();
 
+	/**
+	 * Session ids already processed as archived. The archive cleanup runs only
+	 * on the not-archived → archived transition: the provider keeps archived
+	 * sessions cached and re-emits them in `changed` on every sync (status/summary
+	 * updates, the archive round-trip), so acting on the current archived state
+	 * would re-run the cwd cleanup each time and sweep terminals the user opened
+	 * afterwards. See #313510, #318645.
+	 */
+	private readonly _archivedSessionIds = new Set<string>();
+
 	constructor(
 		@ISessionsManagementService private readonly _sessionsManagementService: ISessionsManagementService,
 		@ISessionsService private readonly _sessionsService: ISessionsService,

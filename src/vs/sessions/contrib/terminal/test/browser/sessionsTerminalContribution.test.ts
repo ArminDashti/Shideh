@@ -1804,6 +1804,88 @@ suite('SessionsTerminalContribution', () => {
 		assert.strictEqual(disposedInstances.length, 1, 'no live session owns this cwd, terminal should be closed');
 	});
 
+	test('does not close the terminal at the active session cwd when archiving (just-opened terminal is protected)', async () => {
+		// Mirrors the "archive all sessions, then open a terminal" repro (#313510):
+		// a late archive event must not dispose the terminal the user is currently
+		// working in at the active session's cwd.
+		const worktreeUri = URI.file('/worktree');
+		const activeSession = makeAgentSession({ worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+		activeSessionObs.set(activeSession, undefined);
+		await tick();
+
+		assert.strictEqual(createdTerminals.length, 1);
+
+		// A different, now-archived session that happens to share the active cwd.
+		const archivedSession = makeAgentSession({ sessionId: 'test:archived', worktree: worktreeUri, providerType: AgentSessionProviders.Background, isArchived: true });
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [archivedSession] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 0, 'terminal at the active session cwd must not be disposed');
+	});
+
+	test('does not re-close a newly-opened terminal when an already-archived session is re-emitted', async () => {
+		// Mirrors the "every new terminal keeps dying" repro (#313510, #318645):
+		// the provider keeps archived sessions cached and re-emits them in `changed`
+		// on every sync. The archive cleanup must only run on the first archived
+		// transition, not on each re-emit.
+		const worktreeUri = URI.file('/worktree');
+		await contribution.ensureTerminal(worktreeUri, false); // terminal 1 at /worktree
+		await contribution.ensureTerminal(URI.file('/other'), false); // terminal 2 at /other, now active
+
+		const archivedSession = makeAgentSession({ sessionId: 'test:archived', worktree: worktreeUri, providerType: AgentSessionProviders.Background, isArchived: true });
+
+		// First archive event closes the terminal at the archived cwd (not active).
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [archivedSession] });
+		await tick();
+		assert.strictEqual(disposedInstances.length, 1);
+
+		// The user opens a new terminal at the same cwd, then moves focus elsewhere.
+		await contribution.ensureTerminal(worktreeUri, false); // terminal 3 at /worktree, active
+		await contribution.ensureTerminal(URI.file('/other'), false); // reuse terminal 2, active again
+
+		// The provider re-emits the still-archived session on a later sync. The
+		// transition guard makes this a no-op so the newly-opened terminal survives.
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [archivedSession] });
+		await tick();
+		assert.strictEqual(disposedInstances.length, 1, 're-emitted archived session must not close the newly-opened terminal');
+	});
+
+	test('terminal opened after archiving all sessions survives subsequent streamed updates', async () => {
+		const worktreeUri = URI.file('/worktree');
+		const session = makeAgentSession({ isArchived: true, worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+
+		// Archive transition with no live sessions left.
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		await tick();
+		assert.strictEqual(disposedInstances.length, 0, 'no terminal exists yet');
+
+		// User opens a terminal afterwards, then several background updates arrive
+		// for the archived session.
+		await contribution.ensureTerminal(worktreeUri, false);
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 0, 'terminal opened after archiving must stay open');
+	});
+
+	test('session restored already-archived does not close a terminal on its first change event', async () => {
+		const worktreeUri = URI.file('/worktree');
+		await contribution.ensureTerminal(worktreeUri, false);
+		assert.strictEqual(createdTerminals.length, 1);
+
+		const session = makeAgentSession({ isArchived: true, worktree: worktreeUri, providerType: AgentSessionProviders.Background });
+
+		// Restored sessions arrive as `added`; an already-archived one is not a
+		// transition and must not close a terminal when it later changes.
+		onDidChangeSessions.fire({ added: [session], removed: [], changed: [] });
+		await tick();
+		onDidChangeSessions.fire({ added: [], removed: [], changed: [session] });
+		await tick();
+
+		assert.strictEqual(disposedInstances.length, 0, 'restored already-archived session should not close the terminal');
+	});
+
 	// --- switching back to previously used path reuses terminal ---
 
 	test('switching back to a previously used background path reuses the existing terminal', async () => {
