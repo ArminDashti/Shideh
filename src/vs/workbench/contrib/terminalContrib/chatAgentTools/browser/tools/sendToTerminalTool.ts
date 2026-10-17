@@ -69,6 +69,9 @@ function isCancelSignal(command: string): boolean {
 	return /^[\u0003\u0004\u001c]$/.test(command.trim());
 }
 
+const SEND_TO_TERMINAL_OUTPUT_DELAY_MS = 100;
+const SEND_TO_TERMINAL_OUTPUT_LINES = 5;
+
 const FocusTerminalByIdCommandId = 'workbench.action.terminal.chat.focusTerminalById';
 CommandsRegistry.registerCommand(FocusTerminalByIdCommandId, async (accessor, instanceId: number) => {
 	const terminalService = accessor.get(ITerminalService);
@@ -384,6 +387,14 @@ export class SendToTerminalTool extends Disposable implements IToolImpl {
 		const steering = isCancelSignal(args.command)
 			? `\n\nNote: The input you sent was a cancel signal (Ctrl-C / Ctrl-D / Ctrl-\\). The previously running command was interrupted, not completed. This is not a signal to end the turn — if you intend to run a recovery or follow-up command, issue it now in this same turn. Call ${TerminalToolId.GetTerminalOutput} first if you need to verify the shell is back at a prompt.`
 			: '';
+
+		let recentOutput = '';
+		try {
+			await timeout(SEND_TO_TERMINAL_OUTPUT_DELAY_MS, _token);
+			recentOutput = getOutput(execution.instance, undefined, { lastNLines: SEND_TO_TERMINAL_OUTPUT_LINES });
+		} catch {
+			// Cancelled - skip reading output
+		}
 
 		return {
 			content: [{
