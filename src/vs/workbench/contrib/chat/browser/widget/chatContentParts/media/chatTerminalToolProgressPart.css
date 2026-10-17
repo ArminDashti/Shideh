@@ -207,7 +207,7 @@
 	border-bottom-right-radius: var(--vscode-cornerRadius-medium);
 	max-height: 300px;
 	box-sizing: border-box;
-	overflow: hidden;
+	overflow: auto;
 	position: relative;
 	max-width: 100%;
 	padding: 0;
