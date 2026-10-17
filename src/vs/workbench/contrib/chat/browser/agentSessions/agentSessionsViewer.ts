@@ -1693,7 +1693,9 @@ const WEEK_THRESHOLD = 7 * DAY_THRESHOLD;
 export function groupAgentSessionsByDate(sessions: IAgentSession[], sortBy?: AgentSessionsSorting): Map<AgentSessionSection, IAgentSessionSection> {
 	const now = Date.now();
 	const startOfToday = new Date(now).setHours(0, 0, 0, 0);
-	const startOfYesterday = startOfToday - DAY_THRESHOLD;
+	// Use 48 hours back from now to match what fromNow() displays as "1 day ago"
+	// (shown for sessions 24-48 hours old), ensuring these sessions are grouped as "Yesterday"
+	const yesterdayThreshold = now - (2 * DAY_THRESHOLD);
 	const weekThreshold = now - WEEK_THRESHOLD;
 
 	const pinnedSessions: IAgentSession[] = [];
@@ -1714,7 +1716,7 @@ export function groupAgentSessionsByDate(sessions: IAgentSession[], sortBy?: Age
 				: session.timing.created;
 			if (sessionTime >= startOfToday) {
 				todaySessions.push(session);
-			} else if (sessionTime >= startOfYesterday) {
+			} else if (sessionTime >= yesterdayThreshold) {
 				yesterdaySessions.push(session);
 			} else if (sessionTime >= weekThreshold) {
 				weekSessions.push(session);
