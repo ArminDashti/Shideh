@@ -306,6 +306,7 @@ suite('buildSandboxConfigForSdk', () => {
 			for (const platform of ['darwin', 'linux'] as const) {
 				assert.deepStrictEqual(buildSandboxConfigForSdk(platform, sandbox(platform, AgentSandboxEnabledValue.On, undefined, { allowedHosts: ['a.example'], blockedHosts: ['b.example'] }, true))?.userPolicy?.network, {
 					allowOutbound: true,
+					allowLocalNetwork: true,
 				}, platform);
 			}
 		});
