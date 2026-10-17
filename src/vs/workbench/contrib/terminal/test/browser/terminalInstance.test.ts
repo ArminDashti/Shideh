@@ -753,6 +753,83 @@ suite('Workbench - TerminalInstance', () => {
 			);
 		});
 	});
+
+	suite('setShellType', () => {
+		let instantiationService: TestInstantiationService;
+
+		setup(async () => {
+			instantiationService = workbenchInstantiationService({
+				configurationService: () => new TestConfigurationService({
+					files: {},
+					terminal: {
+						integrated: {
+							fontFamily: 'monospace',
+							scrollback: 1000,
+							fastScrollSensitivity: 2,
+							mouseWheelScrollSensitivity: 1,
+							unicodeVersion: '6',
+							shellIntegration: {
+								enabled: true
+							}
+						}
+					},
+				})
+			}, store);
+			instantiationService.set(ITerminalProfileResolverService, new MockTerminalProfileResolverService());
+			instantiationService.stub(IViewDescriptorService, new TestViewDescriptorService());
+			instantiationService.stub(IEnvironmentVariableService, store.add(instantiationService.createInstance(EnvironmentVariableService)));
+			instantiationService.stub(ITerminalInstanceService, store.add(new TestTerminalInstanceService()));
+		});
+
+		test('should handle undefined values correctly', async () => {
+			const terminalInstance = store.add(instantiationService.createInstance(TerminalInstance, terminalShellTypeContextKey, {}));
+
+			// Wait for the terminalInstance to be ready
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			// Initially should be undefined
+			strictEqual(terminalInstance.shellType, undefined);
+
+			// Set to a known shell type
+			terminalInstance.setShellType(GeneralShellType.PowerShell);
+			strictEqual(terminalInstance.shellType, GeneralShellType.PowerShell);
+
+			// Set back to undefined (this is the key test - should work after our fix)
+			// This addresses the issue where PowerShell -> unrecognized shell transitions
+			// weren't properly setting shell type to undefined
+			terminalInstance.setShellType(undefined);
+			strictEqual(terminalInstance.shellType, undefined);
+		});
+
+		test('should not fire events when value is the same', async () => {
+			const terminalInstance = store.add(instantiationService.createInstance(TerminalInstance, terminalShellTypeContextKey, {}));
+
+			// Wait for the terminalInstance to be ready
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			let eventCount = 0;
+			terminalInstance.onDidChangeShellType(() => {
+				eventCount++;
+			});
+
+			// Set initial value
+			terminalInstance.setShellType(GeneralShellType.PowerShell);
+			strictEqual(eventCount, 1);
+
+			// Set same value - should not fire event
+			terminalInstance.setShellType(GeneralShellType.PowerShell);
+			strictEqual(eventCount, 1);
+
+			// Set to undefined
+			terminalInstance.setShellType(undefined);
+			strictEqual(eventCount, 2);
+
+			// Set to undefined again - should not fire event
+			terminalInstance.setShellType(undefined);
+			strictEqual(eventCount, 2);
+		});
+	});
+
 	suite('TerminalLabelComputer', () => {
 		let instantiationService: TestInstantiationService;
 		let capabilities: TerminalCapabilityStore;
