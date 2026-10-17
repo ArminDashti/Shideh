@@ -1184,7 +1184,7 @@ export function getPermissionDisplay(request: PermissionRequest, workingDirector
 			const cleanedCommand = typeof shellParams?.command === 'string' ? shellParams.command : fullCommandText;
 			return {
 				confirmationTitle: shellConfirmationTitle,
-				invocationMessage: intention ?? getInvocationMessage(CopilotToolName.Bash, getToolDisplayName(CopilotToolName.Bash), cleanedCommand ? { command: cleanedCommand } : undefined),
+				invocationMessage: getInvocationMessage(CopilotToolName.Bash, getToolDisplayName(CopilotToolName.Bash), cleanedCommand ? { command: cleanedCommand } : undefined),
 				toolInput: cleanedCommand,
 				permissionKind: 'shell',
 				permissionPath: path,
