@@ -1064,6 +1064,10 @@ export class ChatGroupsView extends Themable {
 		return this._activeGroup?.view.submitInput() ?? Promise.resolve(false);
 	}
 
+	get submitButtonElement(): HTMLElement | undefined {
+		return this._activeGroup?.view.submitButtonElement;
+	}
+
 	selectWorkspace(folderUri: URI, options?: ISelectWorkspaceOptions): WorkspaceSelectionResult {
 		return this._activeGroup?.view.selectWorkspace(folderUri, options) ?? 'notReady';
 	}

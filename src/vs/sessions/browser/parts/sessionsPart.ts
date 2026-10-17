@@ -37,6 +37,8 @@ import { applyAgentsPartCardStyles, getAgentsPartCardContentSize } from './agent
 import { isPhoneLayout } from './mobile/mobileLayout.js';
 import { SessionsChatBackgroundRenderer } from '../../services/chatBackground/browser/chatBackgroundRenderer.js';
 import { ISessionsChatBackgroundService } from '../../services/chatBackground/browser/chatBackgroundService.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { SESSIONS_SUBMIT_CHAT_REQUEST_CONFETTI_SETTING } from '../../common/sessionConfig.js';
 import { noSessionPickerVisibility, SessionPickerVisibilityContextKeys } from '../../services/sessions/common/sessionPickerVisibility.js';
 import { ISessionGridSlot, SessionGridRequest } from '../../services/sessions/browser/sessionsPartService.js';
 import { SessionGridLayout } from './sessionGridLayout.js';
@@ -120,6 +122,8 @@ export class SessionsPart extends Part {
 		@ISessionsChatBackgroundService private readonly chatBackgroundService: ISessionsChatBackgroundService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@ISessionsManagementService sessionsManagementService: ISessionsManagementService,
 	) {
 		super(
 			Parts.SESSIONS_PART,
@@ -133,6 +137,11 @@ export class SessionsPart extends Part {
 		ActiveSessionsContext.bindTo(contextKeyService);
 		this._sessionsFocusKey = SessionsFocusContext.bindTo(contextKeyService);
 		this._multipleSessionsVisibleKey = MultipleSessionsVisibleContext.bindTo(contextKeyService);
+		this._register(sessionsManagementService.onDidSendRequest(event => {
+			if (!event.isNewChat) {
+				this.showSubmitConfetti(event.session.sessionId);
+			}
+		}));
 		this._pickerVisibilityContextKeys = this._register(new SessionPickerVisibilityContextKeys(contextKeyService));
 	}
 
@@ -197,6 +206,21 @@ export class SessionsPart extends Part {
 		}
 		this.accessibilityService.status(localize('sessionsChatBackground.confetti', "Confetti!"));
 		this.telemetryService.publicLog2<CodiconConfettiActivationEvent, CodiconConfettiActivationClassification>('vscodeAgents.codiconBackground/confetti', {});
+	}
+
+	private showSubmitConfetti(sessionId: string): void {
+		if (!this._sessionViewsVisible || !this.configurationService.getValue<boolean>(SESSIONS_SUBMIT_CHAT_REQUEST_CONFETTI_SETTING) || this.accessibilityService.isMotionReduced()) {
+			return;
+		}
+
+		const slot = this._slots.find(slot => slot.boundSessionId === sessionId);
+		if (!slot || !this._gridWidget?.isViewVisible(slot.view)) {
+			return;
+		}
+		const submitButton = slot.view.submitButtonElement;
+		if (submitButton) {
+			triggerConfettiAnimation(submitButton, { bounce: false });
+		}
 	}
 
 	private _findTargetView(child: HTMLElement): { readonly sessionId: string; readonly element: HTMLElement } | undefined {

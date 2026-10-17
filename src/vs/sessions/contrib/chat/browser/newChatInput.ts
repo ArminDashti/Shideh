@@ -75,6 +75,8 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { triggerConfettiAnimation } from '../../../../base/browser/ui/animations/animations.js';
+import { SESSIONS_SUBMIT_CHAT_REQUEST_CONFETTI_SETTING } from '../../../common/sessionConfig.js';
 import { getDictationHoverMarkdown } from '../../../../workbench/contrib/chat/browser/speechToText/micButtonHovers.js';
 import { addMicButtonContextMenuListener, getDictationContextMenuActions } from '../../../../workbench/contrib/chat/browser/speechToText/micButtonMenuActions.js';
 import { SlashCommandHandler } from './slashCommands.js';
@@ -1888,6 +1890,12 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 			this._updateInputLoadingState();
 		}
 		return sent;
+	}
+
+	private _showSubmitConfetti(): void {
+		if (this.configurationService.getValue<boolean>(SESSIONS_SUBMIT_CHAT_REQUEST_CONFETTI_SETTING) && !this.accessibilityService.isMotionReduced() && this._sendButton) {
+			triggerConfettiAnimation(this._sendButton.element, { bounce: false });
+		}
 	}
 
 	private _getNotificationContext(): IChatInputNotificationContext {

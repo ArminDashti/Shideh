@@ -146,12 +146,13 @@ export function triggerConfettiAnimation(target: HTMLElement | IAnimationTarget,
 	const fallDuration = options.fallDuration ?? defaultConfettiFallDuration;
 	const fallDistance = options.fallDistance ?? defaultConfettiFallDistance;
 
-	// Element bounce
-	bounceElement(element, {
-		scale: [1, 1.3, 1],
-		rotate: [0, -10, 10, 0],
-		duration: 350,
-	});
+	if (options?.bounce !== false) {
+		bounceElement(element, {
+			scale: [1, 1.3, 1],
+			rotate: [0, -10, 10, 0],
+			duration: 350,
+		});
+	}
 
 	// Confetti particles
 	const particleCount = 24;

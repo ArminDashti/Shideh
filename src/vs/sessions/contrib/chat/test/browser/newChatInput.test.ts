@@ -644,6 +644,47 @@ suite('NewChatInputWidget', () => {
 		assert.strictEqual(composerFocused, true);
 	});
 
+	test('shows submit confetti from the new-session send button when enabled', () => {
+		const workbench = document.createElement('div');
+		workbench.className = 'monaco-workbench';
+		const submitButton = document.createElement('button');
+		workbench.appendChild(submitButton);
+		document.body.appendChild(workbench);
+		const overlaysBefore = document.querySelectorAll('.animation-overlay').length;
+		disposables.add({
+			dispose: () => {
+				workbench.remove();
+				Array.from(document.querySelectorAll('.animation-overlay')).slice(overlaysBefore).forEach(overlay => overlay.remove());
+			},
+		});
+
+		let enabled = false;
+		let reducedMotion = false;
+		const harness: ISubmitConfettiHarness = {
+			_sendButton: { element: submitButton },
+			configurationService: { getValue: () => enabled },
+			accessibilityService: { isMotionReduced: () => reducedMotion },
+		};
+
+		showSubmitConfetti.call(harness);
+		enabled = true;
+		reducedMotion = true;
+		showSubmitConfetti.call(harness);
+		reducedMotion = false;
+		showSubmitConfetti.call(harness);
+
+		const overlays = Array.from(document.querySelectorAll<HTMLElement>('.animation-overlay')).slice(overlaysBefore);
+		assert.deepStrictEqual({
+			overlayCount: overlays.length,
+			particleCount: overlays[0]?.querySelectorAll('.animation-confetti-particle').length,
+			targetAnimations: submitButton.getAnimations().length,
+		}, {
+			overlayCount: 1,
+			particleCount: 24,
+			targetAnimations: 0,
+		});
+	});
+
 	test('delays initialization progress to avoid flicker for fast workspace changes', async () => {
 		const loadingSpinner = document.createElement('div');
 		const loading = { value: true };

@@ -558,6 +558,10 @@ export class ChatView extends AbstractChatView {
 		return this._widget;
 	}
 
+	override get submitButtonElement(): HTMLElement | undefined {
+		return this._widget.inputPart.submitButtonElement;
+	}
+
 	override setChat(chat: IChat, historyKey?: string, session?: ISession): void {
 		this.chatPillsDebugService.clear(this._chatPills);
 		const previousSession = this._currentSessionObs.get();

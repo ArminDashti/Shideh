@@ -160,6 +160,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			experiment: { mode: 'auto' }
 			// https://github.com/microsoft/vscode/issues/335801
 		},
+		[SESSIONS_SUBMIT_CHAT_REQUEST_CONFETTI_SETTING]: {
+			type: 'boolean',
+			tags: ['preview'],
+			description: localize('sessions.submitChatRequestConfetti', "Controls whether a confetti animation is shown after successfully submitting a chat request."),
+			default: false,
+		},
 		[AUTOMATIONS_NEW_BADGE_STYLE_SETTING]: {
 			type: 'string',
 			enum: ['accent', 'soft', 'outline', 'unread'],

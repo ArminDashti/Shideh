@@ -91,4 +91,16 @@ suite('Sessions Contribution', () => {
 			experiment: { mode: 'auto' },
 		});
 	});
+
+	test('disables chat request confetti by default', () => {
+		assert.deepStrictEqual({
+			type: submitChatRequestConfettiProperty.type,
+			default: submitChatRequestConfettiProperty.default,
+			tags: submitChatRequestConfettiProperty.tags,
+		}, {
+			type: 'boolean',
+			default: false,
+			tags: ['preview'],
+		});
+	});
 });

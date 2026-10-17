@@ -33,6 +33,7 @@ suite('Sessions - Sessions Part', () => {
 	const pickerKeys = new Set([SessionWorkspacePickerVisibleContext.key, SessionHarnessPickerVisibleContext.key, SessionIsolationPickerVisibleContext.key]);
 
 	const activateCodicon = Reflect.get(SessionsPart.prototype, 'activateCodicon') as (this: ICodiconActivationTestHarness, element: HTMLElement) => void;
+	const showSubmitConfetti = Reflect.get(SessionsPart.prototype, 'showSubmitConfetti') as (this: ISubmitConfettiTestHarness, sessionId: string) => void;
 
 	test('session separators stay subtle at rest and preserve contrast borders across theme changes', () => {
 		const colors = { [agentsPanelBorder]: '#ff0000', [agentsCardBorder]: '#00ff00' };
@@ -395,6 +396,93 @@ suite('Sessions - Sessions Part', () => {
 		}, {
 			statuses: ['Confetti!'],
 			telemetryEvents: [{ name: 'vscodeAgents.codiconBackground/confetti', data: {} }],
+		});
+	});
+
+	test('shows submit confetti only when enabled and motion is allowed', () => {
+		const workbench = document.createElement('div');
+		workbench.className = 'monaco-workbench';
+		const sessionView = new TestSessionView();
+		const submitButton = document.createElement('button');
+		submitButton.getBoundingClientRect = () => ({
+			x: 900,
+			y: 700,
+			top: 700,
+			right: 932,
+			bottom: 732,
+			left: 900,
+			width: 32,
+			height: 32,
+			toJSON() { },
+		});
+		sessionView.submitButtonElement = submitButton;
+		sessionView.element.appendChild(submitButton);
+		workbench.appendChild(sessionView.element);
+		document.body.appendChild(workbench);
+		const overlaysBefore = document.querySelectorAll('.animation-overlay').length;
+		store.add({
+			dispose: () => {
+				workbench.remove();
+				Array.from(document.querySelectorAll('.animation-overlay')).slice(overlaysBefore).forEach(overlay => overlay.remove());
+			},
+		});
+
+		let enabled = false;
+		let reducedMotion = false;
+		let gridViewVisible = true;
+		const host: ISubmitConfettiTestHarness = {
+			_slots: [{ view: sessionView, disposables: { dispose() { } }, boundSessionId: 'session' }],
+			_isPartVisible: true,
+			_contentVisible: true,
+			_gridWidget: {
+				isViewVisible: () => gridViewVisible,
+			},
+			configurationService: {
+				getValue: () => enabled,
+			},
+			accessibilityService: {
+				isMotionReduced: () => reducedMotion,
+			},
+		};
+		Object.setPrototypeOf(host, SessionsPart.prototype);
+
+		showSubmitConfetti.call(host, 'session');
+		enabled = true;
+		reducedMotion = true;
+		showSubmitConfetti.call(host, 'session');
+		reducedMotion = false;
+		host._isPartVisible = false;
+		showSubmitConfetti.call(host, 'session');
+		host._isPartVisible = true;
+		host._contentVisible = false;
+		showSubmitConfetti.call(host, 'session');
+		host._contentVisible = true;
+		gridViewVisible = false;
+		showSubmitConfetti.call(host, 'session');
+		gridViewVisible = true;
+		showSubmitConfetti.call(host, 'session');
+
+		const overlays = Array.from(document.querySelectorAll<HTMLElement>('.animation-overlay')).slice(overlaysBefore);
+		assert.deepStrictEqual({
+			overlayCount: overlays.length,
+			particleCount: overlays[0]?.querySelectorAll('.animation-confetti-particle').length,
+			overlayBounds: overlays[0] ? {
+				left: overlays[0].style.left,
+				top: overlays[0].style.top,
+				width: overlays[0].style.width,
+				height: overlays[0].style.height,
+			} : undefined,
+			targetAnimations: submitButton.getAnimations().length,
+		}, {
+			overlayCount: 1,
+			particleCount: 24,
+			overlayBounds: {
+				left: '900px',
+				top: '700px',
+				width: '32px',
+				height: '32px',
+			},
+			targetAnimations: 0,
 		});
 	});
 });
