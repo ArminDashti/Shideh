@@ -15,6 +15,12 @@ interface ICodexConversationResolverHarness {
 	readonly _sessions: Map<string, { readonly sessionUri: URI }>;
 }
 
+interface ICodexMcpRequestHarness {
+	readonly _sessionIdByChatUri: Map<string, string>;
+	readonly _sessions: Map<string, { readonly chatChannel: URI | undefined }>;
+	readonly _mcpInventory: Map<string, ICodexMcpServerEntry>;
+}
+
 function resolveConversationSession(harness: ICodexConversationResolverHarness, address: URI, context?: URI | IAgentChatContext): URI | undefined {
 	const resolver = (CodexAgent.prototype as unknown as {
 		_resolveConversationSession(this: ICodexConversationResolverHarness, address: URI, context?: URI | IAgentChatContext): URI | undefined;
