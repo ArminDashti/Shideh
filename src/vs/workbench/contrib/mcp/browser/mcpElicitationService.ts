@@ -488,6 +488,7 @@ export class McpElicitationService implements IMcpElicitationService {
 				return value.includes('@')
 					? { isValid: true }
 					: { isValid: false, message: localize('mcp.elicit.validation.email', 'Please enter a valid email address') };
+			}
 			case 'uri':
 				if (URL.canParse(value)) {
 					return { isValid: true };
