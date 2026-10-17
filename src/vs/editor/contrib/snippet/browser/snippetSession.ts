@@ -187,7 +187,14 @@ export class OneSnippet {
 			return selections;
 		});
 
-		return !couldSkipThisPlaceholder ? newSelections ?? [] : this.move(fwd);
+		if (couldSkipThisPlaceholder) {
+			return this.move(fwd);
+		}
+		if (newSelections?.length) {
+			return newSelections;
+		}
+		const selections = this._editor.getSelections();
+		return selections.length ? selections : [];
 	}
 
 	private _hasPlaceholderBeenCollapsed(placeholder: Placeholder): boolean {
