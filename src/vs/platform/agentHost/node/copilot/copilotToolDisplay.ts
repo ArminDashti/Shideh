@@ -829,6 +829,13 @@ export function getInvocationMessage(toolName: string, displayName: string, para
 			}
 			return localize('toolInvoke.writeAgentGeneric', "Write to agent");
 		}
+		case CopilotToolName.WebFetch: {
+			const args = parameters as ICopilotWebFetchToolArgs | undefined;
+			if (args?.url) {
+				return localize('toolInvoke.webFetch', "Fetching {0}", args.url);
+			}
+			return localize('toolInvoke.webFetchGeneric', "Fetching web content");
+		}
 		default:
 			return displayName;
 	}
