@@ -571,6 +571,7 @@ export class SnippetSession {
 				new CommentBasedVariableResolver(model, selection, languageConfigurationService),
 				new TimeBasedVariableResolver,
 				new WorkspaceBasedVariableResolver(workspaceService),
+				new UserBasedVariableResolver,
 				new RandomBasedVariableResolver,
 			]));
 
