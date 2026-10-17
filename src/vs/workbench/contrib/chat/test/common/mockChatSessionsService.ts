@@ -235,6 +235,10 @@ export class MockChatSessionsService implements IChatSessionsService {
 		return provider.provideChatInputCompletionTriggerCharacters();
 	}
 
+	getCheckpointHandler(_sessionResource: URI): ((requestId: string, token: CancellationToken) => Promise<void>) | undefined {
+		return undefined;
+	}
+
 	getOptionGroupsForSessionType(chatSessionType: string): IChatSessionProviderOptionGroup[] | undefined {
 		return this.optionGroups.get(chatSessionType);
 	}

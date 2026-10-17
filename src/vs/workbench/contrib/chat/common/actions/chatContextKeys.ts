@@ -101,6 +101,10 @@ export namespace ChatContextKeys {
 	/** Widget-scoped: whether the multi-root Folder picker should be shown for this session. Defaults to hidden; the harness decision reveals it, so the chip never flashes visible-then-hidden. */
 	export const chatAgentHostFolderPickerVisible = new RawContextKey<boolean>('chatAgentHostFolderPickerVisible', false, { type: 'boolean', description: localize('chatAgentHostFolderPickerVisible', "True when the multi-root Folder picker should be shown for this Agent Host session (revealed by the harness decision).") });
 	/**
+	 * True when the chat session supports checkpoint restoration.
+	 */
+	export const sessionSupportsCheckpoints = new RawContextKey<boolean>('chatSessionSupportsCheckpoints', false, { type: 'boolean', description: localize('chatSessionSupportsCheckpoints', "True when the chat session supports checkpoint restoration.") });
+	/**
 	 * True when the chat session has a customAgentTarget defined in its contribution,
 	 * which means the mode picker should be shown with filtered custom agents.
 	 */

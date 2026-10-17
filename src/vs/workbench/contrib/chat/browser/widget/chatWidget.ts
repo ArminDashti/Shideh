@@ -2997,6 +2997,13 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// outgoing model was torn down cannot consume it.
 		this._pendingFirstRenderSessionResource = model.sessionResource;
 
+		// Check if the session supports checkpoints and update UI accordingly
+		const hasCheckpointHandler = !!this.chatSessionsService.getCheckpointHandler(model.sessionResource);
+		this._sessionSupportsCheckpointsContextKey.set(hasCheckpointHandler);
+		if (hasCheckpointHandler && this._lockedAgent) {
+			this.listWidget?.updateRendererOptions({ restorable: true });
+		}
+
 		if (this._lockedAgent) {
 			let placeholder = this.chatSessionsService.getChatSessionContribution(this._lockedAgent.id)?.inputPlaceholder;
 			if (!placeholder) {

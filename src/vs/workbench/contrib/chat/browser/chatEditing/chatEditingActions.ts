@@ -32,6 +32,7 @@ import { isChatViewTitleActionContext } from '../../common/actions/chatActions.j
 import { ChatContextKeyExprs, ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { applyingChatEditsFailedContextKey, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME, chatEditingResourceContextKey, chatEditingWidgetFileStateContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, IChatEditingSession, ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
 import { IChatService } from '../../common/chatService/chatService.js';
+import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { isChatTreeItem, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
@@ -378,13 +379,25 @@ async function restoreSnapshotWithConfirmationByRequestId(accessor: ServicesAcce
 	}
 
 	const session = chatModel.editingSession;
-	if (!session) {
-		return;
-	}
 
 	const chatRequests = chatModel.getRequests();
 	const itemIndex = chatRequests.findIndex(request => request.id === requestId);
 	if (itemIndex === -1) {
+		return;
+	}
+
+	// Check if the session has a custom checkpoint handler
+	const chatSessionsService = accessor.get(IChatSessionsService);
+	const checkpointHandler = chatSessionsService.getCheckpointHandler(sessionResource);
+
+	if (checkpointHandler) {
+		const snapshotRequestId = chatRequests[itemIndex].id;
+		await checkpointHandler(snapshotRequestId, CancellationToken.None);
+		return;
+	}
+
+	// Default behavior requires an editing session
+	if (!session) {
 		return;
 	}
 

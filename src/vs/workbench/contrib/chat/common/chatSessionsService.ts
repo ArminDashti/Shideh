@@ -973,6 +973,11 @@ export interface IChatSessionsService {
 	 */
 	getChatInputCompletionTriggerCharacters(sessionType: string): Promise<readonly string[] | undefined>;
 
+	/**
+	 * Get the checkpoint handler for a specific session resource, if one exists.
+	 */
+	getCheckpointHandler(sessionResource: URI): ((requestId: string, token: CancellationToken) => Promise<void>) | undefined;
+
 	hasAnySessionOptions(sessionResource: URI): boolean;
 	getSessionOptions(sessionResource: URI): ReadonlyChatSessionOptionsMap | undefined;
 	getSessionOption(sessionResource: URI, optionId: string): string | IChatSessionProviderOptionItem | undefined;
