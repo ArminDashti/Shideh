@@ -322,6 +322,30 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		this._getBrowserView(id).selectDevice(requestId, deviceId);
 	}
 
+	async undo(id: string): Promise<void> {
+		return this._getBrowserView(id).undo();
+	}
+
+	async redo(id: string): Promise<void> {
+		return this._getBrowserView(id).redo();
+	}
+
+	async selectAll(id: string): Promise<void> {
+		return this._getBrowserView(id).selectAll();
+	}
+
+	async copy(id: string): Promise<void> {
+		return this._getBrowserView(id).copy();
+	}
+
+	async paste(id: string): Promise<void> {
+		return this._getBrowserView(id).paste();
+	}
+
+	async cut(id: string): Promise<void> {
+		return this._getBrowserView(id).cut();
+	}
+
 	async clearGlobalStorage(): Promise<void> {
 		const browserSession = BrowserSession.getOrCreateGlobal(this.instantiationService);
 		browserSession.connectStorage(this.applicationStorageMainService);

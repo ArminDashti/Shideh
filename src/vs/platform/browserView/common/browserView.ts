@@ -738,6 +738,42 @@ export interface IBrowserViewService {
 	getSelectedText(id: string): Promise<string>;
 
 	/**
+	 * Undo the last editing action
+	 * @param id The browser view identifier
+	 */
+	undo(id: string): Promise<void>;
+
+	/**
+	 * Redo the last undone action
+	 * @param id The browser view identifier
+	 */
+	redo(id: string): Promise<void>;
+
+	/**
+	 * Select all content
+	 * @param id The browser view identifier
+	 */
+	selectAll(id: string): Promise<void>;
+
+	/**
+	 * Copy selected content to clipboard
+	 * @param id The browser view identifier
+	 */
+	copy(id: string): Promise<void>;
+
+	/**
+	 * Paste content from clipboard
+	 * @param id The browser view identifier
+	 */
+	paste(id: string): Promise<void>;
+
+	/**
+	 * Cut selected content to clipboard
+	 * @param id The browser view identifier
+	 */
+	cut(id: string): Promise<void>;
+
+	/**
 	 * Clear all storage data for the global browser session
 	 */
 	clearGlobalStorage(): Promise<void>;

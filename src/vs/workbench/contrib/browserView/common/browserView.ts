@@ -1130,6 +1130,30 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 		this.history.favicons.hydrate(parseHistorySnapshot<ISerializedBrowserFaviconsSnapshot>(raw));
 	}
 
+	async undo(): Promise<void> {
+		return this.browserViewService.undo(this.id);
+	}
+
+	async redo(): Promise<void> {
+		return this.browserViewService.redo(this.id);
+	}
+
+	async selectAll(): Promise<void> {
+		return this.browserViewService.selectAll(this.id);
+	}
+
+	async copy(): Promise<void> {
+		return this.browserViewService.copy(this.id);
+	}
+
+	async paste(): Promise<void> {
+		return this.browserViewService.paste(this.id);
+	}
+
+	async cut(): Promise<void> {
+		return this.browserViewService.cut(this.id);
+	}
+
 	/**
 	 * Log navigation telemetry event
 	 */

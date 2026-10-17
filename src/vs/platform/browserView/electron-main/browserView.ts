@@ -1152,6 +1152,48 @@ export class BrowserView extends Disposable {
 	}
 
 	/**
+	 * Undo the last editing action
+	 */
+	async undo(): Promise<void> {
+		this._view.webContents.undo();
+	}
+
+	/**
+	 * Redo the last undone action
+	 */
+	async redo(): Promise<void> {
+		this._view.webContents.redo();
+	}
+
+	/**
+	 * Select all content
+	 */
+	async selectAll(): Promise<void> {
+		this._view.webContents.selectAll();
+	}
+
+	/**
+	 * Copy selected content to clipboard
+	 */
+	async copy(): Promise<void> {
+		this._view.webContents.copy();
+	}
+
+	/**
+	 * Paste content from clipboard
+	 */
+	async paste(): Promise<void> {
+		this._view.webContents.paste();
+	}
+
+	/**
+	 * Cut selected content to clipboard
+	 */
+	async cut(): Promise<void> {
+		this._view.webContents.cut();
+	}
+
+	/**
 	 * Get the underlying WebContentsView
 	 */
 	getWebContentsView(): WebContentsView {
