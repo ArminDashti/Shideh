@@ -73,6 +73,14 @@ suite('TerminalSandboxService - network domains', () => {
 		}
 	}
 
+	class MockFileService {
+		async createFile(uri: URI, content: VSBuffer): Promise<any> {
+			const contentString = content.toString();
+			createdFiles.set(uri.path, contentString);
+			return {};
+		}
+	}
+
 	class MockRemoteAgentService {
 		connection: IRemoteAgentConnection | null = null;
 		remoteEnvironment: IRemoteAgentEnvironment | null = {
@@ -1563,6 +1571,7 @@ suite('TerminalSandboxService - network domains', () => {
 		};
 		workspaceContextService.setWorkspaceFolders([URI.file('/c:/workspace-one')]);
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
+		await sandboxService.getSandboxConfigPath();
 
 		const configPath = await sandboxService.getSandboxConfigPath();
 		const wrapped = await sandboxService.wrapCommand('echo test', false, 'c:\\program files\\powershell\\7\\pwsh.exe', URI.file('/c:/workspace-one'));
@@ -1608,6 +1617,7 @@ suite('TerminalSandboxService - network domains', () => {
 		};
 		workspaceContextService.setWorkspaceFolders([URI.file('/c:/workspace-one')]);
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
+		await sandboxService.getSandboxConfigPath();
 
 		strictEqual(await sandboxService.isEnabled(), false, 'Windows sandbox should be disabled when the unified setting is off');
 		strictEqual(await sandboxService.getSandboxConfigPath(), undefined, 'Windows sandbox config should not be created unless the unified setting is enabled');

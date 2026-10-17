@@ -78,6 +78,11 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
+		this._appRoot = dirname(FileAccess.asFileUri('').path);
+		// Get the node executable path from native environment service if available (Electron's execPath with ELECTRON_RUN_AS_NODE)
+		const nativeEnv = this._environmentService as IEnvironmentService & { execPath?: string };
+		this._execPath = nativeEnv.execPath;
+		this._sandboxSettingsId = generateUuid();
 		this._remoteEnvDetailsPromise = this._remoteAgentService.getEnvironment();
 
 		const onDidChangeSandboxSettings = Event.filter(this._configurationService.onDidChangeConfiguration, affectsSandboxSettings);
