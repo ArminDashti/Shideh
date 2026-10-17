@@ -48,7 +48,7 @@ interface IPendingRecordedPullRequest {
 export class AgentHostGitStateService extends Disposable implements IAgentHostGitStateService {
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _onDidRefreshSessionGitState = this._register(new Emitter<string>());
+	private readonly _onDidRefreshSessionGitState = this._register(new Emitter<IAgentHostGitStateRefreshEvent>());
 	readonly onDidRefreshSessionGitState = this._onDidRefreshSessionGitState.event;
 
 	private readonly _onDidChangeSessionGitHubState = this._register(new Emitter<string>());

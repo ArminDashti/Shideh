@@ -46,7 +46,7 @@ export interface IAgentHostGitStateService {
 	/**
 	 * Fires when the git state for a session is refreshed.
 	 */
-	readonly onDidRefreshSessionGitState: Event<string>;
+	readonly onDidRefreshSessionGitState: Event<IAgentHostGitStateRefreshEvent>;
 
 	/** Fires when GitHub metadata that affects changeset operations changes. */
 	readonly onDidChangeSessionGitHubState: Event<string>;
@@ -56,7 +56,7 @@ export interface IAgentHostGitStateService {
 	 * @param sessionKey The key of the session for which to refresh the git state.
 	 * @param workingDirectory Optional working directory override; when omitted, the session summary's working directory is used.
 	 */
-	refreshSessionGitState(sessionKey: string, workingDirectory?: URI): Promise<void>;
+	refreshSessionGitState(sessionKey: string, workingDirectory?: URI, options?: IAgentHostGitStateRefreshOptions): Promise<void>;
 
 	/** Returns the latest live or restored Git state for a session or folder-scoped chat. */
 	readonly getSessionGitState?: (sessionKey: string) => ISessionGitState | undefined;
@@ -99,5 +99,5 @@ export interface IAgentHostGitStateService {
 	 * @param sessionKey The key of the session for which to check the GitHub pull request.
 	 * @param workingDirectory Optional working directory override; when omitted, the session summary's working directory is used.
 	 */
-	attachSessionGitHubPullRequest(sessionKey: string, workingDirectory?: URI): Promise<void>;
+	attachSessionGitHubPullRequest(sessionKey: string, workingDirectory?: URI, options?: IAgentHostGitStateRefreshOptions): Promise<void>;
 }

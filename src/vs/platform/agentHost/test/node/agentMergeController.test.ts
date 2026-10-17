@@ -14,7 +14,7 @@ import { AgentMergeConfigKey, agentMergeDisableReasons, agentMergeEnabledNotice,
 import { getWorkingDirectoryKey } from '../../common/agentHostWorkingDirectories.js';
 import type { IAgent } from '../../common/agent.js';
 import { AgentHostAutoApprovePolicyRestrictedConfigKey, platformRootSchema, platformSessionSchema } from '../../common/agentHostSchema.js';
-import { IAgentHostGitStateService } from '../../common/agentHostGitStateService.js';
+import { IAgentHostGitStateRefreshEvent, IAgentHostGitStateRefreshOptions, IAgentHostGitStateService } from '../../common/agentHostGitStateService.js';
 import { IAgentHostGitService } from '../../common/agentHostGitService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { constObservable } from '../../../../base/common/observable.js';
@@ -1057,7 +1057,7 @@ suite('AgentMergeController', () => {
 		const detached = `copilot:/agent-merge-controller-${++sessionCounter}`;
 		const stranded = `copilot:/agent-merge-controller-${++sessionCounter}`;
 		const refreshCounts = new Map<string, number>();
-		const onDidRefreshSessionGitState = disposables.add(new Emitter<string>());
+		const onDidRefreshSessionGitState = disposables.add(new Emitter<IAgentHostGitStateRefreshEvent>());
 		const gitStateService = new class extends mock<IAgentHostGitStateService>() {
 			override readonly onDidRefreshSessionGitState = onDidRefreshSessionGitState.event;
 			override readonly onDidChangeSessionGitHubState = Event.None;
@@ -1105,8 +1105,8 @@ suite('AgentMergeController', () => {
 		// Drive several evaluation cycles; without a guard each one would spawn
 		// another git call for both sessions.
 		for (let cycle = 0; cycle < 3; cycle++) {
-			onDidRefreshSessionGitState.fire(detached);
-			onDidRefreshSessionGitState.fire(stranded);
+			onDidRefreshSessionGitState.fire({ sessionKey: detached });
+			onDidRefreshSessionGitState.fire({ sessionKey: stranded });
 			await timeout(0);
 			await timeout(0);
 		}
