@@ -6509,6 +6509,10 @@ export class CopilotAgentSession extends Disposable {
 			void this._rejectSamplingRequest(e.data.requestId);
 		}));
 
+		this._register(wrapper.onSamplingRequested(e => {
+			void this._rejectSamplingRequest(e.data.requestId);
+		}));
+
 		// TODO@connor4312: Remove this correlation once the SDK permission callback includes auto-approval data.
 		this._register(wrapper.onPermissionRequested(e => {
 			const toolCallId = e.data.permissionRequest.toolCallId;
