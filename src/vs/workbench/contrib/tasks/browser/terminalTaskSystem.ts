@@ -1074,6 +1074,8 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 			});
 			let processStartedSignaled = false;
 			terminal.processReady.then(() => {
+				console.log(`(tasks) Terminal Process ID ${terminal!.processId}`);
+
 				if (!processStartedSignaled) {
 					this._fireTaskEvent(TaskEvent.processStarted(task, terminal!.instanceId, terminal!.processId!));
 					processStartedSignaled = true;
