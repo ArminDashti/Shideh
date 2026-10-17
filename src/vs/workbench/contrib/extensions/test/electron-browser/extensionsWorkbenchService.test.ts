@@ -5,6 +5,7 @@
 
 import * as sinon from 'sinon';
 import assert from 'assert';
+import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ExtensionState, AutoCheckUpdatesConfigurationKey, AutoUpdateConfigurationKey, AutoUpdateDelayConfigurationKey, ExtensionRuntimeActionType, AutoUpdateConfigurationValue } from '../../common/extensions.js';
 import { ExtensionsWorkbenchService } from '../../browser/extensionsWorkbenchService.js';
@@ -159,7 +160,7 @@ suite('ExtensionsWorkbenchServiceTest', () => {
 		instantiationService.stubPromise(INotificationService, 'prompt', 0);
 		(<TestExtensionEnablementService>instantiationService.get(IWorkbenchExtensionEnablementService)).reset();
 		instantiationService.stub(IUpdateService, { onStateChange: Event.None, state: State.Uninitialized });
-		instantiationService.stub(IMeteredConnectionService, { isConnectionMetered: false, onDidChangeIsConnectionMetered: Event.None });
+		instantiationService.stub(IMeteredConnectionService, { isConnectionMetered: false, whenInitialized: Promise.resolve(), onDidChangeIsConnectionMetered: Event.None });
 	});
 
 	test('test gallery extension', async () => {

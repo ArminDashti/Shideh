@@ -12,4 +12,4 @@ then
 	rm -f packages.microsoft.gpg
 
 apt update
-apt install -y code-insiders libsecret-1-dev libxkbfile-dev libkrb5-dev
+apt install -y code-insiders libglib2.0-dev libsecret-1-dev libxkbfile-dev libkrb5-dev
