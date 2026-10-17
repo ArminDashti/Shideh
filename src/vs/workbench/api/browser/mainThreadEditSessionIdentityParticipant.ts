@@ -27,9 +27,9 @@ class ExtHostEditSessionIdentityCreateParticipant implements IEditSessionIdentit
 
 			setTimeout(
 				() => reject(new Error(localize('timeout.onWillCreateEditSessionIdentity', "Aborted onWillCreateEditSessionIdentity-event after 10000ms"))),
-				this.timeout
+				10000
 			);
-			this._proxy.$onWillCreateEditSessionIdentity(workspaceFolder.uri, token, this.timeout).then(resolve, reject);
+			this._proxy.$onWillCreateEditSessionIdentity(workspaceFolder.uri).then(resolve, reject);
 		});
 
 		return raceCancellationError(p, token);
