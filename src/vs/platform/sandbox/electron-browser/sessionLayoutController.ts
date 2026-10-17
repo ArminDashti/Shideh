@@ -19,9 +19,10 @@ import { IChatService } from '../../../../workbench/contrib/chat/common/chatServ
 import { ViewContainerLocation } from '../../../../workbench/common/views.js';
 import { IEditorGroupsService, IEditorWorkingSet } from '../../../../workbench/services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
-import { IWorkbenchLayoutService, Parts } from '../../../../workbench/services/layout/browser/layoutService.js';
+import { Parts } from '../../../../workbench/services/layout/browser/layoutService.js';
 import { IPaneCompositePartService } from '../../../../workbench/services/panecomposite/browser/panecomposite.js';
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
+import { IAgentWorkbenchLayoutService } from '../../../browser/workbench.js';
 import { IActiveSession, ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { SessionStatus } from '../../../services/sessions/common/session.js';
 import { CHANGES_VIEW_ID } from '../../changes/common/changes.js';
@@ -76,7 +77,7 @@ export class LayoutController extends Disposable {
 	private readonly _workingSetSequencer = new Sequencer();
 
 	constructor(
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IAgentWorkbenchLayoutService private readonly _layoutService: IAgentWorkbenchLayoutService,
 		@ISessionsManagementService private readonly _sessionManagementService: ISessionsManagementService,
 		@IChatService private readonly _chatService: IChatService,
 		@IViewsService private readonly _viewsService: IViewsService,

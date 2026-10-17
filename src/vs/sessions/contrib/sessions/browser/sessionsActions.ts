@@ -2129,3 +2129,27 @@ registerAction2(class CloseEditorAreaAction extends Action2 {
 		layoutService.setPartHidden(true, Parts.EDITOR_PART);
 	}
 });
+
+// -- Close Editor Area (Watermark Toolbar) --
+
+registerAction2(class CloseEditorAreaAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessions.closeEditorArea',
+			title: localize2('closeEditorArea', "Close Editor Area"),
+			icon: Codicon.close,
+			category: SessionsCategories.Sessions,
+			menu: {
+				id: MenuId.EditorGroupWatermarkToolbar,
+				group: 'navigation',
+				order: 10,
+				when: IsSessionsWindowContext,
+			},
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		layoutService.setPartHidden(true, Parts.EDITOR_PART);
+	}
+});
