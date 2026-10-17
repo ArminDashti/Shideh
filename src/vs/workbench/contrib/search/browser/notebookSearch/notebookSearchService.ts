@@ -249,6 +249,7 @@ export class NotebookSearchService implements INotebookSearchService {
 					includeOutput: query.contentPattern.notebookInfo?.isInNotebookCellOutput ?? true,
 				}, token, false, true, searchID);
 
+			const uri = widget.viewModel!.uri;
 
 			if (matches.length) {
 				if (askMax && matches.length >= askMax) {
