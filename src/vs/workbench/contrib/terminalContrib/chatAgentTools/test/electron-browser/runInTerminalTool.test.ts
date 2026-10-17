@@ -301,7 +301,6 @@ suite('RunInTerminalTool', () => {
 				await terminal.sendText(`sudo apt install -y ${missingDependencies.join(' ')}`, true);
 				return { exitCode: 0 };
 			},
-			runSandboxRemediation: async () => ({ exitCode: 0 }),
 		};
 		instantiationService.stub(ITerminalSandboxService, terminalSandboxService);
 
@@ -522,8 +521,7 @@ suite('RunInTerminalTool', () => {
 	}
 
 	async function invokeToolTest(
-		params: Partial<IRunInTerminalInputParams>,
-		selectedCustomButton?: string,
+		params: Partial<IRunInTerminalInputParams>
 	): Promise<IToolResult> {
 		const parameters = {
 			command: 'echo hello',
@@ -542,7 +540,6 @@ suite('RunInTerminalTool', () => {
 			parameters,
 			context: { sessionResource: LocalChatSessionUri.forSession('run-in-terminal-test') },
 			toolSpecificData: preparedInvocation.toolSpecificData,
-			selectedCustomButton,
 		} as IToolInvocation, countTokens, noProgress, CancellationToken.None);
 	}
 
@@ -3229,7 +3226,7 @@ suite('RunInTerminalTool', () => {
 		strictEqual(capturedSteeringRequests.length, 2, 'Expected a changed prompt to trigger a new notification');
 	});
 
-	test('should suppress input-needed after disposal and omit successful exit code from terminal-exited notice', () => {
+	test('should suppress background input-needed notification when the terminal is disposed', () => {
 		const termId = 'test-input-needed-disposed-term';
 		const sessionResource = LocalChatSessionUri.forSession('test-input-needed-disposed-session');
 		const output = 'Press ENTER or type command to continue';
@@ -3246,7 +3243,6 @@ suite('RunInTerminalTool', () => {
 			},
 			onDisposed: terminalDisposedEmitter.event,
 			onDidInputData: inputDataEmitter.event,
-			exitCode: 0,
 			get isDisposed() { return isDisposed; },
 		} as unknown as ITerminalInstance;
 
@@ -3274,11 +3270,6 @@ suite('RunInTerminalTool', () => {
 		isDisposed = true;
 		inputNeededEmitter.fire();
 		strictEqual(capturedSteeringRequests.length, 0, 'Closing the terminal should not produce a spurious input-needed chat turn');
-
-		terminalDisposedEmitter.fire();
-		strictEqual(capturedSteeringRequests.length, 1, 'Closing the terminal should send one terminal-exited notification');
-		ok(capturedSteeringRequests[0].message.includes('terminal exited.'), 'Successful terminal exit should be reported without qualification');
-		ok(!capturedSteeringRequests[0].message.includes('exit code 0'), 'Successful terminal exit should not print exit code 0 to chat');
 	});
 
 	test('should suppress redundant input-needed notification for output already returned via foreground inputNeeded', () => {
@@ -3386,9 +3377,6 @@ suite('RunInTerminalTool', () => {
 
 		// After command finishes, the fg association still persists
 		commandFinishedEmitter.fire({ exitCode: 0 });
-		strictEqual(capturedSteeringRequests.length, 2, 'Should send a completion steering request');
-		ok(capturedSteeringRequests[1].message.includes('command completed.'), 'Successful completion should be reported without qualification');
-		ok(!capturedSteeringRequests[1].message.includes('exit code 0'), 'Successful completion should not print exit code 0 to chat');
 		ok(runInTerminalTool.sessionTerminalAssociations.has(sessionResource), 'Session terminal association should still be preserved after command finishes');
 		strictEqual(runInTerminalTool.sessionTerminalAssociations.get(sessionResource)!.isBackground, false, 'Terminal should still be foreground after command finishes');
 	});
@@ -3856,7 +3844,6 @@ suite('ChatAgentToolsContribution - tool registration refresh', () => {
 			getResolvedNetworkDomains: () => ({ allowedDomains: [], deniedDomains: [] }),
 			getMissingSandboxDependencies: async () => [],
 			installMissingSandboxDependencies: async () => ({ exitCode: 0 }),
-			runSandboxRemediation: async () => ({ exitCode: 0 }),
 		};
 		instantiationService.stub(ITerminalSandboxService, terminalSandboxService);
 

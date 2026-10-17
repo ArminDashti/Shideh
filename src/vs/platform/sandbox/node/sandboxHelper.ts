@@ -8,7 +8,6 @@ import { readFile } from 'fs/promises';
 import { getCaseInsensitive } from '../../../base/common/objects.js';
 import { win32 } from '../../../base/common/path.js';
 import { isLinux, isWindows } from '../../../base/common/platform.js';
-import { getOSReleaseInfo } from '../../../base/node/osReleaseInfo.js';
 import { findExecutable } from '../../../base/node/processes.js';
 import { ISandboxDependencyStatus, ISandboxHelperService, type IWindowsMxcConfig, IWindowsMxcFilesystemPolicy, type IWindowsMxcPolicyContainment, type IWindowsMxcSandboxPolicy } from '../common/sandboxHelperService.js';
 
@@ -88,20 +87,6 @@ export class SandboxHelperService implements ISandboxHelperService {
 
 	checkSandboxDependencies(): Promise<ISandboxDependencyStatus | undefined> {
 		return SandboxHelperService.checkSandboxDependenciesWith(findExecutable);
-	}
-
-	private static _probeBubblewrap(command: string): Promise<{ usable: boolean; error?: string }> {
-		return new Promise(resolve => {
-			execFile(command, ['--unshare-net', '--dev-bind', '/', '/', 'echo', 'ok'], { encoding: 'utf8', timeout: 5000 }, (error, stdout, stderr) => {
-				if (!error && stdout.trim() === 'ok') {
-					resolve({ usable: true });
-					return;
-				}
-
-				const detail = stderr.trim() || error?.message || `Unexpected output: ${stdout.trim()}`;
-				resolve({ usable: false, error: detail.slice(0, 1000) });
-			});
-		});
 	}
 
 	async getWindowsMxcFilesystemPolicy(): Promise<IWindowsMxcFilesystemPolicy | undefined> {

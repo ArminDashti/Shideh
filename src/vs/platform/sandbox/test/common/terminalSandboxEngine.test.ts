@@ -125,7 +125,7 @@ suite('TerminalSandboxEngine', () => {
 			getReadRoots: () => [],
 			getWriteRoots: () => [URI.file('/workspace')],
 			onDidChangeRoots: rootsEmitter.event,
-			checkSandboxDependencies: (): Promise<ISandboxDependencyStatus | undefined> => Promise.resolve({ bubblewrapInstalled: true, bubblewrapUsable: true, socatInstalled: true }),
+			checkSandboxDependencies: (): Promise<ISandboxDependencyStatus | undefined> => Promise.resolve({ bubblewrapInstalled: true, socatInstalled: true }),
 			getWindowsMxcFilesystemPolicy: (): Promise<IWindowsMxcFilesystemPolicy | undefined> => Promise.resolve(undefined),
 			getWindowsMxcEnvironment: (): Promise<string[] | undefined> => Promise.resolve(undefined),
 			buildWindowsMxcSandboxPayload: (commandLine, policy, workingDirectory, containerName, containment): Promise<IWindowsMxcConfig | undefined> => Promise.resolve(buildMockWindowsMxcSandboxPayload(commandLine, policy, workingDirectory, containerName, containment)),
@@ -1022,7 +1022,7 @@ suite('TerminalSandboxEngine', () => {
 		strictEqual(result.missingDependencies?.[0], 'bubblewrap');
 		strictEqual(result.canInstallMissingDependencies, true);
 
-		status = { bubblewrapInstalled: true, bubblewrapUsable: true, socatInstalled: true };
+		status = { bubblewrapInstalled: true, socatInstalled: true };
 		const result2 = await engine.checkForSandboxingPrereqs(true);
 		strictEqual(result2.failedCheck, undefined);
 	});

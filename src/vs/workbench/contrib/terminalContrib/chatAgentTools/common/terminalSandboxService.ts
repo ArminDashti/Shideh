@@ -354,7 +354,7 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 			// Handle cancellation
 			store.add(token.onCancellationRequested(() => resolveOnce(undefined)));
 
-			// Safety timeout — 5 minutes should be enough for package or system-policy remediation.
+			// Safety timeout — 5 minutes should be more than enough for apt install
 			const safetyTimeout = timeout(5 * 60 * 1000);
 			store.add({ dispose: () => safetyTimeout.cancel() });
 			safetyTimeout.then(() => resolveOnce(undefined));
@@ -372,7 +372,7 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 		// Set installCommandSent only after sendText completes because sendText
 		// fires onDidInputData internally, and the password-prompt listener would
 		// dismiss the elicitation prematurely if the flag were already true.
-		await instance.sendText(command, true);
+		await instance.sendText(installCommand, true);
 		installCommandSent = true;
 
 		return { exitCode: await completionPromise };
@@ -401,7 +401,7 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 			localize('runInTerminal.missingDeps.passwordPromptTitle', "The terminal is awaiting input."),
 			new MarkdownString(localize(
 				'runInTerminal.missingDeps.passwordPromptMessage',
-				"Applying sandbox prerequisites may prompt for your sudo password. Select Focus Terminal to type it in the terminal."
+				"Installing missing sandbox dependencies may prompt for your sudo password. Select Focus Terminal to type it in the terminal."
 			)),
 			'',
 			localize('runInTerminal.missingDeps.focusTerminal', 'Focus Terminal'),
@@ -425,5 +425,4 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 		}));
 		return store;
 	}
-
 }

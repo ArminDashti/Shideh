@@ -82,7 +82,7 @@ import { clamp } from '../../../../../../base/common/numbers.js';
 import { IOutputAnalyzer } from './outputAnalyzer.js';
 import { SandboxOutputAnalyzer, outputLooksSandboxBlocked, outputLooksSandboxNetworkBlocked } from './sandboxOutputAnalyzer.js';
 import { IAgentSessionsService } from '../../../../chat/browser/agentSessions/agentSessionsService.js';
-import { ITerminalSandboxService, TerminalSandboxPrerequisiteCheck, TerminalSandboxPreCheckRemediation, type ITerminalSandboxPrecheckInputs, type ITerminalSandboxResolvedNetworkDomains } from '../../common/terminalSandboxService.js';
+import { ITerminalSandboxService, TerminalSandboxPrerequisiteCheck, type ITerminalSandboxPrecheckInputs, type ITerminalSandboxResolvedNetworkDomains } from '../../common/terminalSandboxService.js';
 import { LanguageModelPartAudience } from '../../../../chat/common/languageModels.js';
 import { isSessionAutoApproveLevel, isTerminalAutoApproveAllowed, isToolEligibleForTerminalAutoApproval } from './terminalToolAutoApprove.js';
 import type { IJSONSchemaMap } from '../../../../../../base/common/jsonSchema.js';
@@ -1121,16 +1121,14 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			requestAllowNetwork: requiresAllowNetworkConfirmation,
 			requestAllowNetworkReason,
 			missingSandboxDependencies: missingDependencies,
-			sandboxRemediations,
-			sandboxPrerequisiteFailure,
 		};
 
-		let sandboxPrerequisiteConfirmation: IToolConfirmationMessages | undefined = undefined;
+		let sandboxConfirmationMessageForMissingDeps: IToolConfirmationMessages | undefined = undefined;
 		// If sandbox dependencies are missing, show a confirmation asking the user to install them.
 		// This is handled before the tool is invoked so the model never sees the dependency error.
 		if (missingDependencies && canInstallMissingDependencies) {
 			const depsList = missingDependencies.join(', ');
-			sandboxPrerequisiteConfirmation = {
+			sandboxConfirmationMessageForMissingDeps = {
 				title: localize('runInTerminal.missingDeps.title', "Missing Sandbox Dependencies"),
 				message: new MarkdownString(localize(
 					'runInTerminal.missingDeps.message',
@@ -1341,7 +1339,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		return {
 			invocationMessage,
 			icon: toolSpecificData.commandLine.isSandboxWrapped ? Codicon.terminalSecure : Codicon.terminal,
-			confirmationMessages: sandboxPrerequisiteConfirmation ?? confirmationMessages,
+			confirmationMessages: sandboxConfirmationMessageForMissingDeps ?? confirmationMessages,
 			toolSpecificData,
 		};
 	}
@@ -1831,7 +1829,14 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			if (invocation.selectedCustomButton === 'install') {
 				// Install dependencies, focus terminal for sudo password, wait for completion
 				const sessionResource = invocation.context.sessionResource;
-				const { exitCode } = await this._terminalSandboxService.installMissingSandboxDependencies(toolSpecificData.missingSandboxDependencies, sessionResource, token, sandboxPrerequisiteTerminalOptions);
+				const { exitCode } = await this._terminalSandboxService.installMissingSandboxDependencies(toolSpecificData.missingSandboxDependencies, sessionResource, token, {
+					createTerminal: async () => this._terminalService.createTerminal({}),
+					focusTerminal: async (terminal) => {
+						this._terminalService.setActiveInstance(terminal as ITerminalInstance);
+						await this._terminalService.revealTerminal(terminal as ITerminalInstance, true);
+						terminal.focus();
+					},
+				});
 				if (exitCode !== undefined && exitCode !== 0) {
 					return {
 						content: [{
@@ -3342,9 +3347,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			disposeNotification();
 
 			const exitCode = command.exitCode;
-			// A successful completion is already conveyed by "command completed";
-			// only surface an exit code in chat when it provides failure context.
-			const exitCodeText = exitCode !== undefined && exitCode !== 0 ? ` with exit code ${exitCode}` : '';
+			const exitCodeText = exitCode !== undefined ? ` with exit code ${exitCode}` : '';
 			const currentOutput = execution.getOutput();
 			// Only dispose if the terminal is still hidden from the user. Once the
 			// user reveals it (via the "Show" link), it joins `foregroundInstances`
@@ -3426,8 +3429,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			}
 			const currentOutput = executionForDisposal?.getOutput() ?? '';
 			const exitCode = terminalInstance.exitCode;
-			// Avoid reporting a successful exit code as diagnostic information in chat.
-			const exitCodeText = exitCode !== undefined && exitCode !== 0 ? ` with exit code ${exitCode}` : '';
+			const exitCodeText = exitCode !== undefined ? ` with exit code ${exitCode}` : '';
 			disposeNotification();
 			const message = `[Terminal ${termId} notification: terminal exited${exitCodeText}. The terminal process ended before the command could complete normally; further commands cannot be sent to this terminal ID.]\nTerminal output:\n${currentOutput}`;
 			this._logService.debug(`RunInTerminalTool: Background terminal ${termId} disposed${exitCodeText}, notifying chat session`);

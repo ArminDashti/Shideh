@@ -52,7 +52,7 @@ import { FileAccess } from '../../../../base/common/network.js';
 import { IIgnoredExtensionsManagementService } from '../../../../platform/userDataSync/common/ignoredExtensions.js';
 import { IUserDataAutoSyncService, IUserDataSyncEnablementService, SyncResource } from '../../../../platform/userDataSync/common/userDataSync.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { isDefined, isString, isUndefined } from '../../../../base/common/types.js';
+import { isBoolean, isDefined, isString, isUndefined } from '../../../../base/common/types.js';
 import { IExtensionManifestPropertiesService } from '../../../services/extensions/common/extensionManifestPropertiesService.js';
 import { IExtensionService, IExtensionsStatus as IExtensionRuntimeStatus, toExtension, toExtensionDescription } from '../../../services/extensions/common/extensions.js';
 import { isWeb, language } from '../../../../base/common/platform.js';
@@ -1225,7 +1225,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		if (this.meteredConnectionService.isConnectionMetered) {
 			return false;
 		}
-		return this.getAutoUpdateValue() !== 'off';
+		return this.getAutoUpdateValue() !== false;
 	}
 
 	getAutoUpdateValue(): AutoUpdateConfigurationValue {
@@ -1279,6 +1279,16 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 			|| trustedPublishers.includes(extension.publisherDisplayName.toLowerCase());
 	}
 
+	private isFromTrustedPublisher(extension: IExtension): boolean {
+		const trustedPublishers = this.productService.trustedExtensionPublishers;
+		if (!trustedPublishers?.length) {
+			return false;
+		}
+		const publisher = extension.publisher.toLowerCase();
+		return trustedPublishers.includes(publisher)
+			|| trustedPublishers.includes(extension.publisherDisplayName.toLowerCase());
+	}
+
 	async updateAutoUpdateForAllExtensions(isAutoUpdateEnabled: boolean): Promise<void> {
 		const wasAutoUpdateEnabled = this.isAutoUpdateEnabled();
 		if (wasAutoUpdateEnabled === isAutoUpdateEnabled) {
@@ -1299,7 +1309,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		// Reset extensions enabled for auto update first to prevent them from being updated
 		this.setEnabledAutoUpdateExtensions([]);
 
-		await this.configurationService.updateValue(AutoUpdateConfigurationKey, isAutoUpdateEnabled ? 'on' : 'off');
+		await this.configurationService.updateValue(AutoUpdateConfigurationKey, isAutoUpdateEnabled);
 
 		this.setDisabledAutoUpdateExtensions([]);
 		await this.updateExtensionsPinnedState(!isAutoUpdateEnabled);
@@ -2359,7 +2369,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
 		const autoUpdateValue = this.getAutoUpdateValue();
 
-		if (autoUpdateValue === 'off') {
+		if (autoUpdateValue === false) {
 			const extensionsToAutoUpdate = this.getEnabledAutoUpdateExtensions();
 			const extensionId = extension.identifier.id.toLowerCase();
 			if (extensionsToAutoUpdate.includes(extensionId)) {

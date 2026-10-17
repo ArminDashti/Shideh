@@ -350,6 +350,10 @@ export class TunnelAgentHostService extends Disposable implements ITunnelAgentHo
 			this._mainService.disconnect(result.connectionId).catch(() => { /* best effort */ });
 			throw err;
 		}
+
+		if (connectError) {
+			throw connectError;
+		}
 	}
 
 	private _createTransportDisposable(result: ITunnelConnectResult, userInitiated: boolean, editorFallback: boolean): IDisposable {

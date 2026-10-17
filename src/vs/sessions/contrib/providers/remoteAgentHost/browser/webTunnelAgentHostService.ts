@@ -266,6 +266,10 @@ export class WebTunnelAgentHostService extends Disposable implements ITunnelAgen
 		} finally {
 			this._connectionFactory.clearStagedConnection(address);
 		}
+
+		if (connectError) {
+			throw connectError;
+		}
 	}
 
 	private async _createConnection(entry: IRemoteAgentHostEntry, options: IRemoteAgentHostConnectOptions): Promise<IRemoteAgentHostCreatedConnection> {

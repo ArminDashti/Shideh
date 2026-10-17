@@ -453,7 +453,7 @@ export class TerminalSandboxEngine extends Disposable {
 		}
 
 		if (!forceRefresh && this._sandboxDependencyStatus) {
-			return this._sandboxDependencyStatus.bubblewrapInstalled && this._sandboxDependencyStatus.bubblewrapUsable && this._sandboxDependencyStatus.socatInstalled;
+			return this._sandboxDependencyStatus.bubblewrapInstalled && this._sandboxDependencyStatus.socatInstalled;
 		}
 
 		const status = await this._host.checkSandboxDependencies();
@@ -461,8 +461,6 @@ export class TerminalSandboxEngine extends Disposable {
 
 		if (status && !status.bubblewrapInstalled) {
 			this._logService.warn('TerminalSandboxEngine: bubblewrap (bwrap) is not installed');
-		} else if (status && !status.bubblewrapUsable) {
-			this._logService.warn('TerminalSandboxEngine: bubblewrap (bwrap) is installed but failed its capability check', status.bubblewrapError);
 		}
 		if (status && !status.socatInstalled) {
 			this._logService.warn('TerminalSandboxEngine: socat is not installed');

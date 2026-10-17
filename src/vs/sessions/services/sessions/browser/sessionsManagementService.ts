@@ -109,6 +109,15 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	 */
 	private readonly _pendingSendChatResources = new Set<string>();
 
+	/**
+	 * Chat resources for which this service has just kicked off a
+	 * `provider.sendRequest` and will emit `_onDidSendRequest` manually after
+	 * the provider call resolves. Used to suppress the duplicate event that
+	 * would otherwise arrive via {@link IChatService.onDidSubmitRequest},
+	 * which fires synchronously inside the same provider call.
+	 */
+	private readonly _pendingSendChatResources = new Set<string>();
+
 	constructor(
 		@ILogService private readonly logService: ILogService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,

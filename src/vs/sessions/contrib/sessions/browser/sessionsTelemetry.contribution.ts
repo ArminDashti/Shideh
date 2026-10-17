@@ -100,7 +100,15 @@ export class SessionsTelemetryContribution extends Disposable implements IWorkbe
 			// picked up by workspace when `onDidSendRequest` fires.
 			void this._getWorkspaceFileCount(session.workspace.get());
 		}));
-		this._register(this._sessionsManagementService.onDidSendRequest(e => this._logRequestSent(e)));
+		this._register(this._sessionsManagementService.onDidSendRequest(e => {
+			if (e.isNewChat) {
+				this._logNewChatRequestSent(e);
+			} else {
+				// Follow-up request within an existing chat: count it toward
+				// `requestsSent` without incrementing `chatCount`.
+				this._lifecycleTracker.recordRequestSent(e.session);
+			}
+		}));
 		this._register(this._sessionsManagementService.onDidArchiveSession(session => this._logSessionArchived(session)));
 		this._register(this._sessionsManagementService.onDidUnarchiveSession(session => this._logSessionUnarchived(session)));
 		this._register(this._sessionsManagementService.onDidDeleteSession(session => this._logSessionDeleted(session)));

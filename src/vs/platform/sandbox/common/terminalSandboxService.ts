@@ -126,7 +126,6 @@ export interface ITerminalSandboxService {
 	getResolvedNetworkDomains(): ITerminalSandboxResolvedNetworkDomains;
 	getMissingSandboxDependencies(): Promise<string[]>;
 	installMissingSandboxDependencies(missingDependencies: string[], sessionResource: URI | undefined, token: CancellationToken, options: ISandboxDependencyInstallOptions): Promise<ISandboxDependencyInstallResult>;
-	runSandboxRemediation(remediation: TerminalSandboxPreCheckRemediation, sessionResource: URI | undefined, token: CancellationToken, options: ISandboxDependencyInstallOptions): Promise<ISandboxDependencyInstallResult>;
 }
 
 export class NullTerminalSandboxService implements ITerminalSandboxService {
@@ -177,10 +176,6 @@ export class NullTerminalSandboxService implements ITerminalSandboxService {
 	}
 
 	async installMissingSandboxDependencies(): Promise<ISandboxDependencyInstallResult> {
-		return { exitCode: undefined };
-	}
-
-	async runSandboxRemediation(): Promise<ISandboxDependencyInstallResult> {
 		return { exitCode: undefined };
 	}
 }

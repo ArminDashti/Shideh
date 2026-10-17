@@ -931,6 +931,78 @@ suite('SSHRemoteAgentHostService (renderer)', () => {
 		});
 	});
 
+	test('incompatible handshake keeps SSH tunnel registered for server upgrade', async () => {
+		const connectPromise = service.connect(sampleConfig);
+		const client = await waitForClient(0);
+		await client.connectDeferred.error(new ProtocolError(
+			AHP_UNSUPPORTED_PROTOCOL_VERSION,
+			'Unsupported protocol version',
+			{ supportedVersions: ['^0.2.0'], _meta: { vscodeUpgradeMethod: '_vscodeUpgrade' } },
+		));
+
+		await assert.rejects(connectPromise, /Unsupported protocol version/);
+
+		assert.deepStrictEqual({
+			added: remoteAgentHostService.added.map(({ address, status }) => ({ address, status })),
+			connections: service.connections.map(connection => connection.localAddress),
+			disconnectCalls: mainService.disconnectCalls,
+		}, {
+			added: [{
+				address: 'ssh:remote.example',
+				status: RemoteAgentHostConnectionStatus.incompatible('Unsupported protocol version', [PROTOCOL_VERSION], ['^0.2.0'], '_vscodeUpgrade'),
+			}],
+			connections: ['ssh:remote.example'],
+			disconnectCalls: [],
+		});
+	});
+
+	test('reconnect after incompatible handshake replaces the stale handle and re-handshakes', async () => {
+		// Pin a stable connectionId so the simulated `replaceRelay` reconnect
+		// returns the same id as the initial connect — that is the real
+		// behavior of SSHRemoteAgentHostMainService.connect(replaceRelay=true).
+		mainService.connectResult = { connectionId: 'conn-stable', address: 'ssh:remote.example' };
+
+		// First connect: handshake rejected as incompatible. Per the existing
+		// fix, this still registers a managed connection in `incompatible`
+		// state so the server-upgrade RPC can reach the host.
+		const firstConnect = service.connect(sampleConfig);
+		const firstClient = await waitForClient(0);
+		await firstClient.connectDeferred.error(new ProtocolError(
+			AHP_UNSUPPORTED_PROTOCOL_VERSION,
+			'Unsupported protocol version',
+			{ supportedVersions: ['^0.2.0'], _meta: { vscodeUpgradeMethod: '_vscodeUpgrade' } },
+		));
+		await assert.rejects(firstConnect, /Unsupported protocol version/);
+
+		// User triggers the server upgrade and then the contribution reconnects.
+		// The reconnect must NOT short-circuit to the stale handle (whose
+		// protocol client is permanently stuck in incompatible state); it must
+		// build a fresh client and complete a fresh handshake against the
+		// upgraded server.
+		const reconnectPromise = service.reconnect('remote.example', 'My Remote');
+		const secondClient = await waitForClient(1);
+		await secondClient.connectDeferred.complete();
+		await reconnectPromise;
+
+		assert.deepStrictEqual({
+			clientCount: createdClients.length,
+			added: remoteAgentHostService.added.map(({ address, status }) => ({ address, statusKind: status?.kind })),
+			// The replaceRelay path keeps the SSH tunnel alive — we must not
+			// have asked the main service to disconnect it.
+			disconnectCalls: mainService.disconnectCalls,
+			// Exactly one renderer-side handle for the address.
+			connections: service.connections.map(connection => connection.localAddress),
+		}, {
+			clientCount: 2,
+			added: [
+				{ address: 'ssh:remote.example', statusKind: 'incompatible' },
+				{ address: 'ssh:remote.example', statusKind: 'connected' },
+			],
+			disconnectCalls: [],
+			connections: ['ssh:remote.example'],
+		});
+	});
+
 	test('disabled setting prevents SSH tunnel connects and reconnects', async () => {
 		configurationService.setRemoteAgentHostsEnabled(false);
 
