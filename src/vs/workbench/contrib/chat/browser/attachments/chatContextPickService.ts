@@ -33,6 +33,7 @@ export function isChatContextPickerPickItem(item: unknown): item is IChatContext
 interface IChatContextItem {
 	readonly label: string;
 	readonly icon: ThemeIcon;
+	readonly tooltip?: string;
 	readonly commandId?: string;
 	readonly ordinal?: number;
 	isEnabled?(widget: IChatWidget): Promise<boolean> | boolean;

@@ -52,6 +52,7 @@ export class McpAddContextContribution extends Disposable implements IWorkbenchC
 		this._addContextMenu.value = this._chatContextPickService.registerChatContextItem({
 			type: 'pickerPick',
 			label: localize('mcp.addContext', "MCP Resources..."),
+			tooltip: localize('mcp.addContext.tooltip', "Add resources from Model Context Protocol servers"),
 			icon: Codicon.mcp,
 			isEnabled(widget) {
 				return !!widget.attachmentCapabilities.supportsMCPAttachments;

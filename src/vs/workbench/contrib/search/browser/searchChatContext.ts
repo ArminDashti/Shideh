@@ -55,6 +55,7 @@ class SearchViewResultChatContextPick implements IChatContextValueItem {
 
 	readonly type = 'valuePick';
 	readonly label: string = localize('chatContext.searchResults', 'Search Results');
+	readonly tooltip: string = localize('chatContext.searchResults.tooltip', 'Include files from your current search results');
 	readonly icon: ThemeIcon = Codicon.search;
 	readonly ordinal = 500;
 
@@ -88,6 +89,7 @@ class SymbolsContextPickerPick implements IChatContextPickerItem {
 	readonly type = 'pickerPick';
 
 	readonly label: string = localize('symbols', 'Symbols...');
+	readonly tooltip: string = localize('symbols.tooltip', 'Search for and include symbols from your code');
 	readonly icon: ThemeIcon = Codicon.symbolField;
 	readonly ordinal = -200;
 
@@ -148,6 +150,7 @@ class FilesAndFoldersPickerPick implements IChatContextPickerItem {
 
 	readonly type = 'pickerPick';
 	readonly label = localize('chatContext.folder', 'Files & Folders...');
+	readonly tooltip = localize('chatContext.folder.tooltip', 'Browse and select files and folders to include');
 	readonly icon = Codicon.folder;
 	readonly ordinal = 600;
 
