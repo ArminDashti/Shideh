@@ -976,6 +976,7 @@ export class CopilotAgentSession extends Disposable {
 	/** Bumped when a child starts a model round so a task snapshot taken earlier cannot complete it; entries are dropped on completion. */
 	private readonly _subagentActivityRevisions = new Map<string, number>();
 	private _subagentTaskStatusRevision = 0;
+	private _subagentTaskStatusReconciledRevision = 0;
 	private readonly _subagentTaskStatusRefreshThrottler = this._register(new Throttler());
 	private readonly _unroutableSubagentToolCallIds = new Set<string>();
 	private readonly _autoApprovals = new Map<string, PermissionAssistedApproval | null>();
@@ -2035,6 +2036,7 @@ export class CopilotAgentSession extends Disposable {
 				} else {
 					this._subagentTaskCompletionSchedulers.deleteAndDispose(task.id);
 				}
+				this._subagentTaskStatusReconciledRevision = revision;
 			}
 			return true;
 		});
