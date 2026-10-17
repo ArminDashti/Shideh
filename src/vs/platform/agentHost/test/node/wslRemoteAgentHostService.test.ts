@@ -38,12 +38,12 @@ class MockWSLChild extends EventEmitter {
 	}
 }
 
-class MockWebSocket {
-	on(_event: string, _listener: (...args: never[]) => void): this {
-		return this;
-	}
+class MockWebSocket extends EventEmitter {
+	closeCalls = 0;
 
 	close(): void {
+		this.closeCalls++;
+		this.emit('close');
 	}
 }
 
@@ -53,11 +53,20 @@ class MockWebSocket {
  */
 class TestableWSLRemoteAgentHostMainService extends WSLRemoteAgentHostMainService {
 	readonly children: MockWSLChild[] = [];
+	readonly webSockets: MockWebSocket[] = [];
+	readonly webSocketUrls: string[] = [];
+	private nextWebSocket: DeferredPromise<MockWebSocket> | undefined;
 
 	private readonly _platform = new DeferredPromise<{ os: string; arch: string }>();
 
 	resolvePlatform(): void {
 		this._platform.complete({ os: 'linux', arch: 'x64' });
+	}
+
+	deferNextWebSocket(): DeferredPromise<MockWebSocket> {
+		const deferred = new DeferredPromise<MockWebSocket>();
+		this.nextWebSocket = deferred;
+		return deferred;
 	}
 
 	protected override _spawnAgentHost(_distro: string, _script: string): cp.ChildProcess {
@@ -70,8 +79,13 @@ class TestableWSLRemoteAgentHostMainService extends WSLRemoteAgentHostMainServic
 		return this._platform.p;
 	}
 
-	protected override async _openWebSocket(_url: string): Promise<WebSocket> {
-		return new MockWebSocket() as never;
+	protected override async _openWebSocket(url: string): Promise<WebSocket> {
+		this.webSocketUrls.push(url);
+		const deferred = this.nextWebSocket;
+		this.nextWebSocket = undefined;
+		const ws = deferred ? await deferred.p : new MockWebSocket();
+		this.webSockets.push(ws);
+		return ws as never;
 	}
 }
 
@@ -92,12 +106,10 @@ function createService(): TestableWSLRemoteAgentHostMainService {
 suite('WSL Remote Agent Host Service', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('deduplicates simultaneous connects to one distro', async () => {
+	test('shares one bootstrap while allocating separate relay leases', async () => {
 		const service = disposables.add(createService());
 		const first = service.connect({ distro: 'Ubuntu', name: 'Ubuntu' });
 		const second = service.connect({ distro: 'Ubuntu', name: 'Ubuntu' });
-
-		assert.strictEqual(first, second);
 
 		service.resolvePlatform();
 		await Promise.resolve();
@@ -105,10 +117,10 @@ suite('WSL Remote Agent Host Service', () => {
 		const [firstResult, secondResult] = await Promise.all([first, second]);
 
 		assert.deepStrictEqual(
-			{ spawnCount: service.children.length, sameResult: firstResult === secondResult, results: [firstResult, secondResult] },
+			{ spawnCount: service.children.length, sameRelay: firstResult.connectionId === secondResult.connectionId, results: [firstResult, secondResult] },
 			{
 				spawnCount: 1,
-				sameResult: true,
+				sameRelay: false,
 				results: [
 					{
 						connectionId: firstResult.connectionId,
@@ -118,7 +130,7 @@ suite('WSL Remote Agent Host Service', () => {
 						connectionToken: 'token',
 					},
 					{
-						connectionId: firstResult.connectionId,
+						connectionId: secondResult.connectionId,
 						address: 'wsl:Ubuntu',
 						distro: 'Ubuntu',
 						name: 'Ubuntu',
