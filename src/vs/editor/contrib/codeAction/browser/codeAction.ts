@@ -50,7 +50,6 @@ class ManagedCodeActionSet extends Disposable implements CodeActionSet {
 			return 0;
 		}
 	}
-
 	private static codeActionsComparator({ action: a }: CodeActionItem, { action: b }: CodeActionItem): number {
 		if (a.isAI && !b.isAI) {
 			return 1;
@@ -75,10 +74,12 @@ class ManagedCodeActionSet extends Disposable implements CodeActionSet {
 		disposables: DisposableStore,
 	) {
 		super();
+		console.log('actions : ', actions);
 
 		this._register(disposables);
 
 		this.allActions = [...actions].sort(ManagedCodeActionSet.codeActionsComparator);
+		console.log('this.allActions : ', this.allActions);
 		this.validActions = this.allActions.filter(({ action }) => !action.disabled);
 	}
 
@@ -105,6 +106,7 @@ export async function getCodeActions(
 	progress: IProgress<languages.CodeActionProvider>,
 	token: CancellationToken,
 ): Promise<CodeActionSet> {
+	console.log('Inside of getCodeActions');
 	const filter = trigger.filter || {};
 	const notebookFilter: CodeActionFilter = {
 		...filter,
@@ -120,6 +122,7 @@ export async function getCodeActions(
 	// if the trigger is auto (autosave, lightbulb, etc), we should exclude notebook codeActions
 	const excludeNotebookCodeActions = (trigger.type === languages.CodeActionTriggerType.Auto);
 	const providers = getCodeActionProviders(registry, model, (excludeNotebookCodeActions) ? notebookFilter : filter);
+	console.log('providers : ', providers);
 
 	const disposables = new DisposableStore();
 	const promises = providers.map(async provider => {
@@ -161,7 +164,9 @@ export async function getCodeActions(
 
 	try {
 		const actions = await Promise.all(promises);
+		console.log('actions in getCodeActions : ', actions);
 		const allActions = actions.map(x => x.actions).flat();
+		console.log('allActions : ', allActions);
 		const allDocumentation = [
 			...coalesce(actions.map(x => x.documentation)),
 			...getAdditionalDocumentationForShowingActions(registry, model, trigger, allActions)
@@ -183,6 +188,7 @@ function getCodeActionProviders(
 	model: ITextModel,
 	filter: CodeActionFilter
 ) {
+	console.log('registry.all(model) : ', registry.all(model));
 	return registry.all(model)
 		// Don't include providers that we know will not return code actions of interest
 		.filter(provider => {
@@ -372,6 +378,7 @@ CommandsRegistry.registerCommand('_executeCodeActionProvider', async function (a
 		{ type: languages.CodeActionTriggerType.Invoke, triggerAction: CodeActionTriggerSource.Default, filter: { includeSourceActions: true, include } },
 		Progress.None,
 		CancellationToken.None);
+	console.log('codeActionSet : ', codeActionSet);
 
 	const resolving: Promise<any>[] = [];
 	const resolveCount = Math.min(codeActionSet.validActions.length, typeof itemResolveCount === 'number' ? itemResolveCount : 0);
