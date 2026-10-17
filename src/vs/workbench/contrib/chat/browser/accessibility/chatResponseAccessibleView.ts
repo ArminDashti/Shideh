@@ -16,6 +16,7 @@ import { IAccessibleViewImplementation } from '../../../../../platform/accessibi
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { AccessibilityVerbositySettingId } from '../../../accessibility/browser/accessibilityConfiguration.js';
+import { IInlineAgentSurveyService } from '../../../surveys/common/inlineAgentSurveyService.js';
 import { migrateLegacyTerminalToolSpecificData } from '../../common/chat.js';
 import { autoModeRoutingTitle } from '../../common/chatAutoModeExplainability.js';
 import { formatChatToolError } from '../../common/chatProgressFormatting.js';
@@ -34,6 +35,7 @@ export class ChatResponseAccessibleView implements IAccessibleViewImplementation
 	getProvider(accessor: ServicesAccessor) {
 		const widgetService = accessor.get(IChatWidgetService);
 		const storageService = accessor.get(IStorageService);
+		const inlineAgentSurveyService = accessor.get(IInlineAgentSurveyService);
 		const widget = widgetService.lastFocusedWidget;
 		if (!widget) {
 			return;
@@ -58,7 +60,7 @@ export class ChatResponseAccessibleView implements IAccessibleViewImplementation
 			return;
 		}
 
-		return new ChatResponseAccessibleProvider(verifiedWidget, focusedItem, chatInputFocused, storageService);
+		return new ChatResponseAccessibleProvider(verifiedWidget, focusedItem, chatInputFocused, storageService, inlineAgentSurveyService);
 	}
 }
 
@@ -282,7 +284,8 @@ class ChatResponseAccessibleProvider extends Disposable implements IAccessibleVi
 		private readonly _widget: IChatWidget,
 		item: ChatTreeItem,
 		private readonly _wasOpenedFromInput: boolean,
-		private readonly _storageService: IStorageService
+		private readonly _storageService: IStorageService,
+		private readonly _inlineAgentSurveyService?: IInlineAgentSurveyService,
 	) {
 		super();
 		this._storageDisposables.add(this._storageService.onDidChangeValue(StorageScope.PROFILE, CHAT_ACCESSIBLE_VIEW_INCLUDE_THINKING_STORAGE_KEY, this._storageDisposables)(() => {
