@@ -73,6 +73,10 @@ class Tool {
 
 
 
+let intermdiateIdCounter = 0;
+// https://github.com/microsoft/vscode-prompt-tsx/blob/95db0af0474c479be54d7618bbe125fff7a73299/src/base/tsx.ts#L30
+const getFragmentCtor = () => (globalThis as any).vscppf;
+
 export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape {
 	/** A map of tools that were registered in this EH */
 	private readonly _registeredTools = new Map<string, { extension: IExtensionDescription; tool: vscode.LanguageModelTool<Object> }>();
@@ -383,5 +387,44 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 			this._registeredTools.delete(id);
 			this._proxy.$unregisterTool(id);
 		});
+	}
+
+	private makeProxiedTsxElement(invokationId: string, objectIdOrContentType: string | number) {
+		const that = this;
+
+		return class implements IToolsTsxPromptElement {
+			constructor(_props: unknown) { }
+
+			async render(_state: unknown, sizing: {
+				readonly tokenBudget: number;
+				readonly endpoint: { modelMaxPromptTokens: number };
+				countTokens(text: string, token?: CancellationToken): Promise<number> | number;
+			}, token?: CancellationToken) {
+				const callerId = generateUuid();
+				that._invokationCallers.set(callerId, { countTokens: sizing.countTokens });
+				try {
+					const result = await that._proxy.$invokeToolRender(callerId, invokationId, objectIdOrContentType, {
+						endpoint: sizing.endpoint,
+						tokenBudget: sizing.tokenBudget,
+					}, token);
+
+					const process = (part: IToolTsxPromptPiece): IToolTsxPromptPiece => {
+						return {
+							...part,
+							ctor: typeof part.ctor === 'object' && IsTsxElementToken in part.ctor
+								? part.ctor[IsTsxElementToken] === IsFragmentMarker
+									? getFragmentCtor()
+									: that.makeProxiedTsxElement(invokationId, part.ctor[IsTsxElementToken])
+								: part.ctor,
+							children: part.children.map((p): any => typeof p === 'object' && p ? process(p) : p),
+						};
+					};
+
+					return process(result);
+				} finally {
+					that._invokationCallers.delete(callerId);
+				}
+			}
+		};
 	}
 }

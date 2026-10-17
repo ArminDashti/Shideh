@@ -1876,6 +1876,20 @@ export interface MainThreadLanguageModelToolsShape extends IDisposable {
 	$registerTool(id: string, hasHandleToolStream: boolean): void;
 	$registerToolWithDefinition(extensionId: ExtensionIdentifier, definition: IToolDefinitionDto, hasHandleToolStream: boolean): void;
 	$unregisterTool(name: string): void;
+
+	/**
+	 * Invokes `render` on a tool's response or an element returns from a response previously.
+	 * @param callerId Caller ID for countToken lookups.
+	 * @param invokationId Tool invokation to address
+	 * @param objectIdOrContentType If a number, an ID of an existing invokation
+	 * object. If a string, an object from one of the content types.
+	 * @param context Context info to pass to `render()`
+	 */
+	$invokeToolRender(callerId: string, invokationId: string, objectIdOrContentType: number | string, context: IToolPromptContext, token: CancellationToken | undefined): Promise<IToolTsxPromptPiece>;
+	/** Frees data associated with a prior invokation. */
+	$freeToolInvokation(invokationId: string): void;
+	/** Counts tokens for a caller whos ID was passed to `invokeToolRender` */
+	$invokeToolCountTokens(callerId: string, input: string, token: CancellationToken | undefined): Promise<number>;
 }
 
 export interface MainThreadChatCustomInstructionsShape extends IDisposable {
