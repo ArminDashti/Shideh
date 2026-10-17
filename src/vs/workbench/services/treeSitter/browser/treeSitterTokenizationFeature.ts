@@ -44,7 +44,7 @@ class TreeSitterTokenizationFeature extends Disposable implements ITreeSitterTok
 
 		this._handleGrammarsExtPoint();
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(EDITOR_EXPERIMENTAL_PREFER_TREESITTER)) {
+			if (e.affectsConfiguration(EDITOR_PREFER_TREESITTER)) {
 				this._handleGrammarsExtPoint();
 			}
 		}));
