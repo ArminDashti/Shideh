@@ -550,6 +550,27 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 		return true;
 	}
 
+	private renderDiff(session: ITreeNode<IAgentSession, FuzzyScore>, template: IAgentSessionItemTemplate): boolean {
+		const diff = getAgentChangesSummary(session.element.changes);
+		if (!diff) {
+			return false;
+		}
+
+		if (diff.files > 0) {
+			template.diffFilesSpan.textContent = diff.files === 1 ? localize('diffFile', "1 file") : localize('diffFiles', "{0} files", diff.files);
+		}
+
+		if (diff.insertions >= 0 /* render even `0` for more homogeneity */) {
+			template.diffAddedSpan.textContent = `+${diff.insertions}`;
+		}
+
+		if (diff.deletions >= 0 /* render even `0` for more homogeneity */) {
+			template.diffRemovedSpan.textContent = `-${diff.deletions}`;
+		}
+
+		return true;
+	}
+
 	private getIcon(session: IAgentSession): ThemeIcon {
 		return getAgentSessionStatusIcon(session);
 	}

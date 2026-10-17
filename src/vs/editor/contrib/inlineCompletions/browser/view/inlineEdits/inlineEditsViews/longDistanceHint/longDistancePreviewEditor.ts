@@ -293,7 +293,6 @@ export class LongDistancePreviewEditor extends Disposable {
 			return undefined;
 		}
 
-
 		// find the horizontal range we want to show.
 		const preferredRange = growUntilVariableBoundaries(editor.getModel()!, firstCharacterChange, 5);
 		const leftOffset = this._previewEditorObs.getLeftOfPosition(preferredRange.getStartPosition(), reader);

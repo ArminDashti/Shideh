@@ -8,6 +8,7 @@
 	flex: 1 1 auto;
 	height: 100%;
 	min-height: 0;
+	overflow: hidden;
 
 	.pane-body & .monaco-scrollable-element {
 		padding: 0 6px;
@@ -70,6 +71,17 @@
 
 		.rendered-markdown {
 			a {
+				color: unset;
+			}
+		}
+
+		.agent-session-diff-container {
+			background-color: unset;
+			outline: 1px solid var(--vscode-foreground);
+
+			.agent-session-diff-files,
+			.agent-session-diff-added,
+			.agent-session-diff-removed {
 				color: unset;
 			}
 		}

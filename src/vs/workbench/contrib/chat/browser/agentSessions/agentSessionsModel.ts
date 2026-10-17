@@ -488,6 +488,11 @@ class AgentSessionsLogger extends Disposable {
 	}
 }
 
+interface IAgentSessionState {
+	readonly archived: boolean;
+	readonly read: number /* last date turned read */;
+}
+
 //#endregion
 
 export class AgentSessionsModel extends Disposable implements IAgentSessionsModel {

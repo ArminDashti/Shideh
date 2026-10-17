@@ -1054,6 +1054,52 @@ export class OpenAgentSessionInNewWindowAction extends BaseOpenAgentSessionActio
 	}
 }
 
+export class MarkAgentSessionUnreadAction extends BaseAgentSessionAction {
+
+	constructor() {
+		super({
+			id: 'agentSession.markUnread',
+			title: localize2('markUnread', "Mark as Unread"),
+			menu: {
+				id: MenuId.AgentSessionsContext,
+				group: 'edit',
+				order: 1,
+				when: ContextKeyExpr.and(
+					ChatContextKeys.isReadAgentSession,
+					ChatContextKeys.isArchivedAgentSession.negate() // no read state for archived sessions
+				),
+			}
+		});
+	}
+
+	runWithSession(session: IAgentSession): void {
+		session.setRead(false);
+	}
+}
+
+export class MarkAgentSessionReadAction extends BaseAgentSessionAction {
+
+	constructor() {
+		super({
+			id: 'agentSession.markRead',
+			title: localize2('markRead', "Mark as Read"),
+			menu: {
+				id: MenuId.AgentSessionsContext,
+				group: 'edit',
+				order: 1,
+				when: ContextKeyExpr.and(
+					ChatContextKeys.isReadAgentSession.negate(),
+					ChatContextKeys.isArchivedAgentSession.negate() // no read state for archived sessions
+				),
+			}
+		});
+	}
+
+	runWithSession(session: IAgentSession): void {
+		session.setRead(true);
+	}
+}
+
 //#endregion
 
 //#region Agent Sessions Sidebar

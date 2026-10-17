@@ -935,6 +935,7 @@ export interface IChatSessionsService {
 	 * Get the capabilities for a specific session type
 	 */
 	getCapabilitiesForSessionType(chatSessionType: string): IChatAgentAttachmentCapabilities | undefined;
+	onDidChangeOptionGroups: Event<string>;
 
 	/**
 	 * Get the customAgentTarget for a specific session type.
