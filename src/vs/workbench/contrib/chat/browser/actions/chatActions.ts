@@ -591,7 +591,7 @@ export function registerChatActions() {
 				linux: {
 					primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.KeyI
 				}
-			},);
+			});
 		}
 	});
 	registerAction2(class extends ModeOpenChatGlobalAction {

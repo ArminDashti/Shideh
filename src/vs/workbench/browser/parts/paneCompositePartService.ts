@@ -3,16 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from '../../../base/common/event.js';
+import { Event } from '../../../base/common/event.js';
 import { assertReturnsDefined } from '../../../base/common/types.js';
-import { SyncDescriptor0 } from '../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IProgressIndicator } from '../../../platform/progress/common/progress.js';
 import { PaneCompositeDescriptor } from '../panecomposite.js';
+import { AuxiliaryBarPart } from './auxiliarybar/auxiliaryBarPart.js';
+import { PanelPart } from './panel/panelPart.js';
+import { SidebarPart } from './sidebar/sidebarPart.js';
 import { IPaneComposite } from '../../common/panecomposite.js';
-import { ViewContainerLocation } from '../../common/views.js';
+import { ViewContainerLocation, ViewContainerLocations } from '../../common/views.js';
 import { IPaneCompositePartService } from '../../services/panecomposite/browser/panecomposite.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../base/common/lifecycle.js';
 import { IPaneCompositePart } from './paneCompositePart.js';
 import { SINGLE_WINDOW_PARTS } from '../../services/layout/browser/layoutService.js';
 
@@ -27,26 +29,20 @@ export class PaneCompositePartService extends Disposable implements IPaneComposi
 
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _onDidPaneCompositeOpen = this._register(new Emitter<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>());
-	readonly onDidPaneCompositeOpen = this._onDidPaneCompositeOpen.event;
-
-	private readonly _onDidPaneCompositeClose = this._register(new Emitter<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>());
-	readonly onDidPaneCompositeClose = this._onDidPaneCompositeClose.event;
+	readonly onDidPaneCompositeOpen: Event<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>;
+	readonly onDidPaneCompositeClose: Event<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>;
 
 	private readonly paneCompositeParts = new Map<ViewContainerLocation, IPaneCompositePart>();
 
 	constructor(
-		partsConfiguration: IPaneCompositePartsConfiguration,
-		@IInstantiationService instantiationService: IInstantiationService
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
 
-		// Create all parts eagerly - the layout needs them registered before renderWorkbench
-		this.registerPart(ViewContainerLocation.Panel, instantiationService.createInstance(partsConfiguration.panelPart));
-		this.registerPart(ViewContainerLocation.Sidebar, instantiationService.createInstance(partsConfiguration.sideBarPart));
-		this.registerPart(ViewContainerLocation.AuxiliaryBar, instantiationService.createInstance(partsConfiguration.auxiliaryBarPart));
-		this.registerPart(ViewContainerLocation.ChatBar, instantiationService.createInstance(partsConfiguration.chatBarPart));
-	}
+		const panelPart = instantiationService.createInstance(PanelPart);
+		const sideBarPart = instantiationService.createInstance(SidebarPart);
+		const auxiliaryBarPart = instantiationService.createInstance(AuxiliaryBarPart);
+		const chatBarPart = instantiationService.createInstance(ChatBarPart);
 
 		this.paneCompositeParts.set(ViewContainerLocation.Panel, panelPart);
 		this.paneCompositeParts.set(ViewContainerLocation.Sidebar, sideBarPart);

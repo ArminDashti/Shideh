@@ -70,74 +70,6 @@ export interface ITitleProperties {
 	prefix?: string;
 }
 
-/**
- * Options for configuring what features are supported in the titlebar.
- */
-export interface ITitlebarPartOptions {
-	/**
-	 * Whether the command center is supported.
-	 * @default true
-	 */
-	readonly supportsCommandCenter?: boolean;
-
-	/**
-	 * Whether the menubar is supported.
-	 * @default true
-	 */
-	readonly supportsMenubar?: boolean;
-
-	/**
-	 * Whether editor actions are supported.
-	 * @default true
-	 */
-	readonly supportsEditorActions?: boolean;
-
-	/**
-	 * Whether activity actions (accounts, global activity) are supported.
-	 * @default true
-	 */
-	readonly supportsActivityActions?: boolean;
-
-	/**
-	 * Whether global actions from the TitleBar menu are supported.
-	 * @default true
-	 */
-	readonly supportsGlobalActions?: boolean;
-
-	/**
-	 * Whether layout actions are supported.
-	 * @default true
-	 */
-	readonly supportsLayoutActions?: boolean;
-
-	/**
-	 * The context menu ID to use for the titlebar.
-	 * @default MenuId.TitleBarContext
-	 */
-	readonly contextMenuId?: MenuId;
-
-	/**
-	 * The menu ID to use for the left toolbar.
-	 * If provided, a toolbar will be rendered on the left side of the titlebar.
-	 */
-	readonly leftToolbarMenuId?: MenuId;
-}
-
-/**
- * Configuration for creating the titlebar service.
- */
-export interface ITitlebarPartConfiguration {
-	/**
-	 * Options for the main titlebar part.
-	 */
-	readonly mainOptions: ITitlebarPartOptions;
-
-	/**
-	 * Options for auxiliary titlebar parts.
-	 */
-	readonly auxiliaryOptions: ITitlebarPartOptions;
-}
-
 export interface ITitlebarPart extends IDisposable {
 
 	/**
@@ -162,17 +94,12 @@ export class BrowserTitleService extends MultiWindowParts<BrowserTitlebarPart> i
 
 	readonly mainPart: BrowserTitlebarPart;
 
-	protected readonly configuration: ITitlebarPartConfiguration;
-
 	constructor(
-		configuration: ITitlebarPartConfiguration,
 		@IInstantiationService protected readonly instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService
 	) {
 		super('workbench.titleService', themeService, storageService);
-
-		this.configuration = configuration;
 
 		this.mainPart = this._register(this.createMainTitlebarPart());
 		this.onMenubarVisibilityChange = this.mainPart.onMenubarVisibilityChange;
@@ -183,7 +110,7 @@ export class BrowserTitleService extends MultiWindowParts<BrowserTitlebarPart> i
 	}
 
 	protected createMainTitlebarPart(): BrowserTitlebarPart {
-		return this.instantiationService.createInstance(MainBrowserTitlebarPart, this.configuration.mainOptions);
+		return this.instantiationService.createInstance(MainBrowserTitlebarPart);
 	}
 
 	private registerActions(): void {
@@ -253,7 +180,7 @@ export class BrowserTitleService extends MultiWindowParts<BrowserTitlebarPart> i
 	}
 
 	protected doCreateAuxiliaryTitlebarPart(container: HTMLElement, editorGroupsContainer: IEditorGroupsContainer, instantiationService: IInstantiationService): BrowserTitlebarPart & IAuxiliaryTitlebarPart {
-		return instantiationService.createInstance(AuxiliaryBrowserTitlebarPart, container, editorGroupsContainer, this.mainPart, this.configuration.auxiliaryOptions);
+		return instantiationService.createInstance(AuxiliaryBrowserTitlebarPart, container, editorGroupsContainer, this.mainPart);
 	}
 
 	//#endregion
@@ -355,11 +282,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	private updateToolBarElement: HTMLElement | undefined;
 	private titleBarToolBarOverflowScheduler!: AnimationFrameScheduler;
 
-	private leftToolBar: WorkbenchToolBar | undefined;
-	private leftToolBarMenu: IMenu | undefined;
-	private readonly leftToolBarDisposable = this._register(new DisposableStore());
-	private leftToolBarElement: HTMLElement | undefined;
-
 	private globalToolbarMenu: IMenu | undefined;
 	private layoutToolbarMenu: IMenu | undefined;
 
@@ -383,13 +305,10 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 	protected readonly instantiationService: IInstantiationService;
 
-	protected readonly titlebarOptions: ITitlebarPartOptions;
-
 	constructor(
 		id: string,
 		private readonly targetWindow: CodeWindow,
 		private readonly editorGroupsContainer: IEditorGroupsContainer,
-		titlebarOptions: ITitlebarPartOptions,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IConfigurationService protected readonly configurationService: IConfigurationService,
 		@IBrowserWorkbenchEnvironmentService protected readonly environmentService: IBrowserWorkbenchEnvironmentService,
@@ -452,8 +371,8 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			this.updateStyles();
 		}
 
-		// Custom menu bar (disabled if auxiliary or not supported)
-		if (this.titlebarOptions.supportsMenubar !== false && !this.isAuxiliary && !hasNativeMenu(this.configurationService, this.titleBarStyle) && (!isMacintosh || isWeb)) {
+		// Custom menu bar (disabled if auxiliary)
+		if (!this.isAuxiliary && !hasNativeMenu(this.configurationService, this.titleBarStyle) && (!isMacintosh || isWeb)) {
 			if (event.affectsConfiguration(MenuSettings.MenuBarVisibility)) {
 				if (this.currentMenubarVisibility === 'compact') {
 					this.uninstallMenubar();
@@ -563,7 +482,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 		// Menubar: install a custom menu bar depending on configuration
 		if (
-			this.titlebarOptions.supportsMenubar !== false &&
 			!this.isAuxiliary &&
 			!hasNativeMenu(this.configurationService, this.titleBarStyle) &&
 			(!isMacintosh || isWeb) &&
@@ -668,7 +586,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 				if (isMacintosh && isHTMLElement(e.target) && isAncestor(e.target, this.title)) {
 					targetMenu = MenuId.TitleBarTitleContext;
 				} else {
-					targetMenu = this.titlebarOptions.contextMenuId ?? MenuId.TitleBarContext;
+					targetMenu = MenuId.TitleBarContext;
 				}
 
 				this.onContextMenu(e, targetMenu);
@@ -759,37 +677,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		const editorPaneAwareContextKeyService = this.editorGroupsContainer.activeGroup?.activeEditorPane?.scopedContextKeyService ?? this.contextKeyService;
 
 		return this.keybindingService.lookupKeybinding(action.id, editorPaneAwareContextKeyService);
-	}
-
-	private createLeftToolBar(): void {
-		if (!this.leftToolBarElement || !this.titlebarOptions.leftToolbarMenuId) {
-			return;
-		}
-
-		this.leftToolBarDisposable.clear();
-
-		// Create the left toolbar
-		this.leftToolBar = this.leftToolBarDisposable.add(this.instantiationService.createInstance(WorkbenchToolBar, this.leftToolBarElement, {
-			orientation: ActionsOrientation.HORIZONTAL,
-			ariaLabel: localize('ariaLabelLeftTitleActions', "Left title actions"),
-			getKeyBinding: action => this.getKeybinding(action),
-			anchorAlignmentProvider: () => AnchorAlignment.LEFT,
-			telemetrySource: 'titlePartLeft',
-			hoverDelegate: this.hoverDelegate,
-			hiddenItemStrategy: HiddenItemStrategy.NoHide // Actions cannot be hidden in this toolbar
-		}));
-
-		// Create the menu and populate actions
-		this.leftToolBarMenu = this.leftToolBarDisposable.add(this.menuService.createMenu(this.titlebarOptions.leftToolbarMenuId, this.contextKeyService));
-
-		const updateLeftToolBarActions = () => {
-			const actions: IToolbarActions = { primary: [], secondary: [] };
-			fillInActionBarActions(this.leftToolBarMenu!.getActions(), actions);
-			this.leftToolBar!.setActions(prepareActions(actions.primary), prepareActions(actions.secondary));
-		};
-
-		this.leftToolBarDisposable.add(this.leftToolBarMenu.onDidChange(() => updateLeftToolBarActions()));
-		updateLeftToolBarActions();
 	}
 
 	private createActionToolBar(): void {
@@ -1019,23 +906,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	private get layoutControlEnabled(): boolean {
-		if (this.titlebarOptions.supportsLayoutActions === false) {
-			return false;
-		}
 		return this.configurationService.getValue<boolean>(LayoutSettings.LAYOUT_ACTIONS) !== false;
 	}
 
 	protected get isCommandCenterVisible() {
-		if (this.titlebarOptions.supportsCommandCenter === false) {
-			return false;
-		}
 		return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
 	}
 
 	private get editorActionsEnabled(): boolean {
-		if (this.titlebarOptions.supportsEditorActions === false) {
-			return false;
-		}
 		return (this.editorGroupsContainer.partOptions.editorActionsLocation === EditorActionsLocation.TITLEBAR ||
 			(
 				this.editorGroupsContainer.partOptions.editorActionsLocation === EditorActionsLocation.DEFAULT &&
@@ -1044,17 +922,11 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	private get activityActionsEnabled(): boolean {
-		if (this.titlebarOptions.supportsActivityActions === false) {
-			return false;
-		}
 		const activityBarPosition = this.configurationService.getValue<ActivityBarPosition>(LayoutSettings.ACTIVITY_BAR_LOCATION);
-		return !this.isCompact && !this.isAuxiliary && (activityBarPosition === ActivityBarPosition.TOP || activityBarPosition === ActivityBarPosition.BOTTOM || this.layoutService.isActivityBarHidden());
+		return !this.isCompact && !this.isAuxiliary && (activityBarPosition === ActivityBarPosition.TOP || activityBarPosition === ActivityBarPosition.BOTTOM);
 	}
 
 	private get globalActionsEnabled(): boolean {
-		if (this.titlebarOptions.supportsGlobalActions === false) {
-			return false;
-		}
 		return !this.isCompact;
 	}
 
@@ -1147,7 +1019,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 export class MainBrowserTitlebarPart extends BrowserTitlebarPart {
 
 	constructor(
-		options: ITitlebarPartOptions,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IBrowserWorkbenchEnvironmentService environmentService: IBrowserWorkbenchEnvironmentService,
@@ -1184,7 +1055,6 @@ export class AuxiliaryBrowserTitlebarPart extends BrowserTitlebarPart implements
 		readonly container: HTMLElement,
 		editorGroupsContainer: IEditorGroupsContainer,
 		private readonly mainTitlebar: BrowserTitlebarPart,
-		options: ITitlebarPartOptions,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IBrowserWorkbenchEnvironmentService environmentService: IBrowserWorkbenchEnvironmentService,

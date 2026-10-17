@@ -20,12 +20,12 @@ The Agent Sessions Workbench (`AgentSessionsWorkbench`) provides a simplified, f
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                            Titlebar                             │
-├────────────┬─────────┬────────────────────────┬─────────────────┤
-│            │         │       Chat Bar         │  Auxiliary Bar  │
-│ Project    │ Sidebar ├────────────────────────┴─────────────────┤
-│ Bar        │         │                 Panel                    │
-└────────────┴─────────┴──────────────────────────────────────────┘
+│                    Titlebar               │
+├─────────┬────────────────────────────────────┬──────────────────┤
+│         │              Chat Bar              │  Auxiliary Bar   │
+│ Sidebar ├────────────────────────────────────┴──────────────────┤
+│         │                      Panel                            │
+└─────────┴───────────────────────────────────────────────────────┘
 
          ┌───────────────────────────────────────┐
          │     ╔═══════════════════════════╗     │
@@ -50,11 +50,10 @@ The Agent Sessions Workbench (`AgentSessionsWorkbench`) provides a simplified, f
 | Part | ID Constant | Position | Default Visibility | ViewContainerLocation |
 |------|-------------|----------|------------|----------------------|
 | Titlebar | `Parts.TITLEBAR_PART` | Top, full width | Always visible | — |
-| Project Bar | `Parts.PROJECTBAR_PART` | Left-most, in main content | Visible | — |
 | Sidebar | `Parts.SIDEBAR_PART` | Left of right section, in main content | Visible | `ViewContainerLocation.Sidebar` |
 | Chat Bar | `Parts.CHATBAR_PART` | Top-right section, takes remaining width | Visible | `ViewContainerLocation.ChatBar` |
 | Editor | `Parts.EDITOR_PART` | **Modal overlay** (not in grid) | Hidden | — |
-| Auxiliary Bar | `Parts.AUXILIARYBAR_PART` | Top-right section, right side | Hidden (auto-shows when chat has content) | `ViewContainerLocation.AuxiliaryBar` |
+| Auxiliary Bar | `Parts.AUXILIARYBAR_PART` | Top-right section, right side | Visible | `ViewContainerLocation.AuxiliaryBar` |
 | Panel | `Parts.PANEL_PART` | Below Chat Bar and Auxiliary Bar (right section only) | Hidden | `ViewContainerLocation.Panel` |
 
 #### Excluded Parts
@@ -63,7 +62,7 @@ The following parts from the default workbench are **not included**:
 
 | Part | ID Constant | Reason |
 |------|-------------|--------|
-| Activity Bar | `Parts.ACTIVITYBAR_PART` | Simplified navigation; global activities (Accounts, Manage) are in Project Bar instead |
+| Activity Bar | `Parts.ACTIVITYBAR_PART` | Simplified navigation; global activities (Accounts, Manage) are in titlebar instead |
 | Status Bar | `Parts.STATUSBAR_PART` | Reduced chrome |
 | Banner | `Parts.BANNER_PART` | Not needed |
 
@@ -71,36 +70,54 @@ The following parts from the default workbench are **not included**:
 
 ## 3. Titlebar Configuration
 
-The Agent Sessions workbench uses a customized titlebar with reduced functionality compared to the default workbench.
+The Agent Sessions workbench uses a dedicated titlebar part (`AgentSessionsTitlebarPart`) with its own title service (`AgentSessionsTitleService`), both implemented in `agentSessions/browser/parts/agentSessionTitlebarPart.ts`. This approach uses class inheritance — overriding protected getters on `BrowserTitlebarPart` — to customize behavior without modifying the base class's API.
 
-### 3.1 Titlebar Options
+### 3.1 Titlebar Part Architecture
 
-The titlebar is configured via `ITitlebarPartConfiguration` passed to the title service:
+The `AgentSessionsTitlebarPart` extends `BrowserTitlebarPart` and overrides protected getters to customize behavior:
 
-| Option | Default Workbench | Agent Sessions | Notes |
+| Getter | Default (`BrowserTitlebarPart`) | Override (`AgentSessionsTitlebarPart`) | Notes |
 |--------|-------------------|----------------|-------|
-| `supportsCommandCenter` | `true` | `false` | No command center in titlebar |
-| `supportsMenubar` | `true` | `false` | No menubar in titlebar |
-| `supportsEditorActions` | `true` | `false` | No editor actions in titlebar |
-| `supportsActivityActions` | `true` | `true` | Activity actions supported |
-| `supportsGlobalActions` | `true` | `true` | Global actions supported |
-| `supportsLayoutActions` | `true` | `true` | Layout actions supported |
-| `contextMenuId` | `MenuId.TitleBarContext` | `MenuId.TitleBarContext` | Default context menu |
-| `leftToolbarMenuId` | `undefined` | `MenuId.TitleBarLeft` | Custom left toolbar |
+| `isCommandCenterVisible` | Settings-driven | `true` (always) | Uses custom `AgentSessionsCommandCenter` menu IDs |
+| `installMenubar()` | Installs menubar | No-op | No menubar in titlebar |
+| `editorActionsEnabled` | Settings-driven | `false` | No editor actions in titlebar |
+| `contextMenuId` | `MenuId.TitleBarContext` | `AgentSessionsWorkbenchMenus.TitleBarContext` | Custom context menu |
+| `commandCenterMenuId` | `undefined` (defaults to `MenuId.CommandCenter`) | `AgentSessionsWorkbenchMenus.CommandCenter` | Custom command center menu |
+| `commandCenterCenterMenuId` | `undefined` (defaults to `MenuId.CommandCenterCenter`) | `AgentSessionsWorkbenchMenus.CommandCenterCenter` | Custom command center center submenu |
+| `titleBarMenuId` | `MenuId.TitleBar` | `AgentSessionsWorkbenchMenus.TitleBarRight` | Custom global (right-side) toolbar |
 
-### 3.2 Left Toolbar
+The `AgentSessionsTitleService` extends `BrowserTitleService` and overrides `createMainTitlebarPart()` and `doCreateAuxiliaryTitlebarPart()` to create `MainAgentSessionsTitlebarPart` and `AuxiliaryAgentSessionsTitlebarPart` respectively.
+
+### 3.2 Command Center
+
+The Agent Sessions titlebar includes a command center with a custom title bar widget (`AgentSessionsTitleBarWidget`). It uses custom menu IDs separate from the default workbench command center to avoid conflicts:
+
+- **`AgentSessionsWorkbenchMenus.CommandCenter`** — The outer command center toolbar menu (replaces `MenuId.CommandCenter`)
+- **`AgentSessionsWorkbenchMenus.TitleBarControlMenu`** — A submenu registered in the command center whose rendering is intercepted by `IActionViewItemService` to display the custom widget
+
+The widget:
+- Extends `BaseActionViewItem` and renders a clickable label showing the active session title
+- On click, opens the `AgentSessionsPicker` quick pick to switch between sessions
+- Gets the active session label from `IActiveAgentSessionService.getActiveSession()`, falling back to "New Session" if no active session is found
+- Re-renders automatically when the active session changes via `autorun` on `IActiveAgentSessionService.activeSession`
+- Is registered via `AgentSessionsTitleBarContribution` (an `IWorkbenchContribution`) that calls `IActionViewItemService.register()` to intercept the submenu rendering
+
+### 3.3 Left Toolbar
 
 The Agent Sessions titlebar includes a custom left toolbar that appears after the app icon. This toolbar:
 
-- Uses `MenuId.TitleBarLeft` for its actions
+- Uses `AgentSessionsWorkbenchMenus.TitleBarLeft` for its actions
 - Uses `HiddenItemStrategy.NoHide` so actions cannot be hidden by users
-- Displays actions registered to `MenuId.TitleBarLeft`
+- Displays actions registered to `AgentSessionsWorkbenchMenus.TitleBarLeft`
 
-### 3.3 Titlebar Actions
+### 3.4 Titlebar Actions
 
 | Action | ID | Location | Behavior |
 |--------|-----|----------|----------|
-| Toggle Sidebar | `workbench.action.agentToggleSidebarVisibility` | Left toolbar | Toggles primary sidebar visibility |
+| Toggle Sidebar | `workbench.action.agentToggleSidebarVisibility` | Left toolbar (`TitleBarLeft`) | Toggles primary sidebar visibility |
+| Toggle Terminal | `workbench.action.terminal.toggleTerminal` | Right toolbar (`TitleBarRight`) | Toggles terminal (standard command, added via `MenuRegistry.appendMenuItem`) |
+| Toggle Secondary Sidebar | `workbench.action.agentToggleSecondarySidebarVisibility` | Right toolbar (`TitleBarRight`) | Toggles auxiliary bar visibility |
+| Show Sessions | — | Title bar widget click | Opens the `AgentSessionsPicker` quick pick |
 
 The toggle sidebar action:
 - Shows `layoutSidebarLeft` icon when sidebar is visible
@@ -108,7 +125,12 @@ The toggle sidebar action:
 - Bound to `Ctrl+B` / `Cmd+B` keybinding
 - Announces visibility changes to screen readers
 
-### 3.4 Panel Title Actions
+The toggle terminal action:
+- Shows `terminal` icon in the right toolbar
+- Uses the standard `workbench.action.terminal.toggleTerminal` command (added via `MenuRegistry.appendMenuItem`)
+- Inherits keybinding from the standard terminal contribution (`` Ctrl+` `` / `` Cmd+` ``)
+
+### 3.5 Panel Title Actions
 
 The panel title bar includes actions for controlling the panel:
 
@@ -137,7 +159,6 @@ The Editor part is **not** in the grid — it is rendered as a modal overlay (se
 Orientation: VERTICAL (root)
 ├── Titlebar (leaf, size: titleBarHeight)
 └── Main Content (branch, HORIZONTAL, size: remaining height)
-    ├── Project Bar (leaf, size: 48px)
     ├── Sidebar (leaf, size: 300px default)
     └── Right Section (branch, VERTICAL, size: remaining width)
         ├── Top Right (branch, HORIZONTAL, size: remaining height - panel)
@@ -146,13 +167,12 @@ Orientation: VERTICAL (root)
         └── Panel (leaf, size: 300px default, hidden by default)
 ```
 
-This structure places the panel below only the Chat Bar and Auxiliary Bar, leaving the Project Bar and Sidebar to span the full height of the main content area.
+This structure places the panel below only the Chat Bar and Auxiliary Bar, leaving the Sidebar to span the full height of the main content area.
 
 ### 4.2 Default Sizes
 
 | Part | Default Size |
 |------|--------------|
-| Project Bar | 48px width (fixed) |
 | Sidebar | 300px width |
 | Auxiliary Bar | 300px width |
 | Chat Bar | Remaining space |
@@ -249,7 +269,7 @@ The `AgentSessionsWorkbench.layout()` passes the workbench dimensions to `Editor
 | Sidebar Position | ✅ Left/Right | 🔒 Fixed: Left | `getSideBarPosition()` returns `Position.LEFT` |
 | Panel Position | ✅ Top/Bottom/Left/Right | 🔒 Fixed: Bottom | `getPanelPosition()` returns `Position.BOTTOM` |
 | Panel Alignment | ✅ Left/Center/Right/Justify | 🔒 Fixed: Justify | `getPanelAlignment()` returns `'justify'` |
-| Maximize Panel | ✅ Supported | ✅ Supported | Excludes titlebar and project bar when maximizing |
+| Maximize Panel | ✅ Supported | ✅ Supported | Excludes titlebar when maximizing |
 | Maximize Auxiliary Bar | ✅ Supported | ❌ No-op | `toggleMaximizedAuxiliaryBar()` does nothing |
 | Zen Mode | ✅ Supported | ❌ No-op | `toggleZenMode()` does nothing |
 | Centered Editor Layout | ✅ Supported | ❌ No-op | `centerMainEditorLayout()` does nothing |
@@ -304,7 +324,7 @@ focusPart(part: Parts): void
 // Check if a part has focus
 hasFocus(part: Parts): boolean
 
-// Focus the editor (default focus target)
+// Focus the Chat Bar (default focus target)
 focus(): void
 ```
 
@@ -362,7 +382,6 @@ Applied to `mainContainer` based on part visibility:
 | Class | Applied When |
 |-------|--------------|
 | `nosidebar` | Sidebar is hidden |
-| `noprojectbar` | Project bar is hidden |
 | `nomaineditorarea` | Editor modal is hidden |
 | `noauxiliarybar` | Auxiliary bar is hidden |
 | `nochatbar` | Chat bar is hidden |
@@ -380,6 +399,7 @@ Applied to `mainContainer` based on part visibility:
 
 Applied during workbench render:
 - `monaco-workbench`
+- `agent-sessions-workbench`
 - `windows` / `linux` / `mac`
 - `web` (if running in browser)
 - `chromium` / `firefox` / `safari`
@@ -394,96 +414,26 @@ The Agent Sessions workbench uses specialized part implementations that extend t
 
 | Part | Class | Extends | Location |
 |------|-------|---------|----------|
-| Project Bar | `ProjectBarPart` | `Part` | `agentSessions/browser/parts/projectbar/projectBarPart.ts` |
 | Sidebar | `AgentSessionSidebarPart` | `AbstractPaneCompositePart` | `agentSessions/browser/parts/agentSessionSidebarPart.ts` |
 | Auxiliary Bar | `AgentSessionAuxiliaryBarPart` | `AbstractPaneCompositePart` | `agentSessions/browser/parts/agentSessionAuxiliaryBarPart.ts` |
 | Panel | `AgentSessionPanelPart` | `AbstractPaneCompositePart` | `agentSessions/browser/parts/agentSessionPanelPart.ts` |
+| Chat Bar | `ChatBarPart` | `AbstractPaneCompositePart` | `agentSessions/browser/parts/chatbar/chatBarPart.ts` |
 | Editor Modal | `EditorModal` | `Disposable` | `agentSessions/browser/parts/editorModal.ts` |
+| Sidebar Reveal Button | `SidebarRevealButton` | `Disposable` | `agentSessions/browser/parts/sidebarRevealButton.ts` |
 
-### 9.2 Project Bar
-
-The Project Bar is a new part specific to the Agent Sessions workbench that displays project folder entries and allows selection between them. Folder entries are stored in workspace-scoped storage rather than being added as workspace root folders. When a folder is selected, the workspace editing service replaces the current workspace folder with the selected one. It also hosts global activity actions (Accounts and Manage/Settings) at the bottom.
-
-#### Features
-
-| Feature | Description |
-|---------|-------------|
-| Folder entry display | Shows first letter of each stored folder entry as an icon button |
-| Folder selection | Click to select a folder; replaces the current workspace folder via `IWorkspaceEditingService.updateFolders()` |
-| Add folder button | Button with `+` icon to pick a folder via `IFileDialogService` and store it in workspace storage |
-| Hover tooltips | Shows full folder path on hover (via `ILabelService`) |
-| Keyboard navigation | Supports `Tab`, `Enter`, and `Space` for accessibility |
-| Global activities | Accounts and Manage icons at bottom via `GlobalCompositeBar` |
-| Storage-based state | Folder entries persisted in workspace storage (`StorageScope.WORKSPACE`, `StorageTarget.MACHINE`) |
-
-#### Visual Style
-
-- Uses Activity Bar styling (`ACTIVITY_BAR_BACKGROUND`, `ACTIVITY_BAR_BORDER`)
-- Fixed width: 48px (same as activity bar)
-- Action item height: 48px
-- Selected folder shows `checked` class with active indicator
-- Global activities (accounts, settings) pinned to bottom
-
-#### Structure
-
-```
-ProjectBarPart
-├── Content
-│   ├── Actions Container (folder entries at top)
-│   │   ├── Add Folder Button (+)
-│   │   └── Folder Entries (one per stored folder, from workspace storage)
-│   └── GlobalCompositeBar (accounts, settings at bottom)
-```
-
-#### GlobalCompositeBar
-
-The Project Bar includes a `GlobalCompositeBar` instance at the bottom, providing:
-
-| Activity | ID | Icon | Description |
-|----------|-----|------|-------------|
-| Accounts | `ACCOUNTS_ACTIVITY_ID` | `account` | Account management menu |
-| Manage | `GLOBAL_ACTIVITY_ID` | Profile icon | Settings and profile management |
-
-The GlobalCompositeBar:
-- Uses the same colors as the Activity Bar for consistency
-- Hover position is dynamically set based on sidebar position (right when sidebar is left)
-- Supports activity badges for notifications
-
-#### Events
-
-| Event | Fired When |
-|-------|------------|
-| `onDidSelectWorkspace` | User selects a different folder entry |
-
-#### API
-
-```typescript
-class ProjectBarPart extends Part {
-    // Properties
-    readonly minimumWidth: number = 48;
-    readonly maximumWidth: number = 48;
-    get selectedWorkspaceFolder(): URI | undefined;
-
-    // Events
-    readonly onDidSelectWorkspace: Event<URI | undefined>;
-
-    // Methods
-    focus(): void;                    // Focus add folder button
-    focusGlobalCompositeBar(): void;  // Focus global activities
-}
-```
-
-### 9.3 Key Differences from Standard Parts
+### 9.2 Key Differences from Standard Parts
 
 | Feature | Standard Parts | Agent Session Parts |
 |---------|----------------|---------------------|
-| Activity Bar integration | Full support | No activity bar (replaced by Project Bar) |
+| Activity Bar integration | Full support | No activity bar; global activities in titlebar |
 | Composite bar position | Configurable (top/bottom/title/hidden) | Fixed: Title |
+| Composite bar visibility | Configurable | Sidebar: hidden (`shouldShowCompositeBar()` returns `false`); ChatBar: hidden; Auxiliary Bar & Panel: visible |
 | Auto-hide support | Configurable | Disabled |
 | Configuration listening | Many settings | Minimal |
 | Context menu actions | Full set | Simplified |
+| Title bar | Full support | Sidebar & ChatBar: `hasTitle: false`; Auxiliary Bar & Panel: `hasTitle: true` |
 
-### 9.4 Part Selection
+### 9.3 Part Selection
 
 Each workbench layout is responsible for passing the appropriate pane composite part descriptors to the `PaneCompositePartService`. The parts are defined as `SyncDescriptor0` instances via `IPaneCompositePartsConfiguration`, and the service lazily instantiates them when first requested:
 
@@ -502,13 +452,16 @@ This architecture ensures that:
 1. The `PaneCompositePartService` has no knowledge of the workspace type—it simply receives part descriptors from the layout class
 2. Parts are only instantiated when first accessed, enabling lazy initialization
 
-### 9.5 Storage Keys
+### 9.4 Storage Keys
 
 Each agent session part uses separate storage keys to avoid conflicts with regular workbench state:
 
 | Part | Setting | Storage Key |
 |------|---------|-------------|
 | Sidebar | Active viewlet | `workbench.agentsession.sidebar.activeviewletid` |
+| Sidebar | Pinned viewlets | `workbench.agentsession.pinnedViewlets2` |
+| Sidebar | Placeholders | `workbench.agentsession.placeholderViewlets` |
+| Sidebar | Workspace state | `workbench.agentsession.viewletsWorkspaceState` |
 | Auxiliary Bar | Active panel | `workbench.agentsession.auxiliarybar.activepanelid` |
 | Auxiliary Bar | Pinned views | `workbench.agentsession.auxiliarybar.pinnedPanels` |
 | Auxiliary Bar | Placeholders | `workbench.agentsession.auxiliarybar.placeholderPanels` |
@@ -517,45 +470,52 @@ Each agent session part uses separate storage keys to avoid conflicts with regul
 | Panel | Pinned panels | `workbench.agentsession.panel.pinnedPanels` |
 | Panel | Placeholders | `workbench.agentsession.panel.placeholderPanels` |
 | Panel | Workspace state | `workbench.agentsession.panel.viewContainersWorkspaceState` |
-| Project Bar | Folder entries | `workbench.agentsession.projectbar.folders` |
+| Chat Bar | Active panel | `workbench.chatbar.activepanelid` |
+| Chat Bar | Pinned panels | `workbench.chatbar.pinnedPanels` |
+| Chat Bar | Placeholders | `workbench.chatbar.placeholderPanels` |
+| Chat Bar | Workspace state | `workbench.chatbar.viewContainersWorkspaceState` |
+
+### 9.5 Part Borders
+
+Each part manages its own border styling via the `updateStyles()` method. Borders are applied selectively based on grid position to avoid visual duplication:
+
+| Part | Border | Color Token | Notes |
+|------|--------|-------------|-------|
+| Sidebar | Right edge | `SIDE_BAR_BORDER` / `contrastBorder` | Separates sidebar from right section |
+| Chat Bar | None | — | No borders; `borderWidth` returns `0` |
+| Auxiliary Bar | Left edge | `SIDE_BAR_BORDER` / `contrastBorder` | Separates from chat bar |
+| Panel | Top edge | `PANEL_BORDER` / `contrastBorder` | Separates from chat bar and auxiliary bar above |
+
+---
+
+### 9.6 Auxiliary Bar Run Script Dropdown
+
+The `AgentSessionAuxiliaryBarPart` provides a custom `DropdownWithPrimaryActionViewItem` for the run script action (`workbench.action.agentSessions.runScript`). This is rendered as a split button with:
+
+- **Primary action**: Runs the main script action
+- **Dropdown**: Shows additional actions from the `AgentSessionsRunScriptDropdown` menu
+- The dropdown menu is created from `MenuId.for('AgentSessionsRunScriptDropdown')` and updates dynamically when menu items change
 
 ---
 
 ## 10. Workbench Contributions
 
-The Agent Sessions workbench registers workbench contributions for automatic behaviors.
+The Agent Sessions workbench registers contributions in `agentSessions.contributions.ts` via `registerAgentWorkbenchContributions()`:
 
-### 10.1 AuxiliaryBarVisibilityContribution
+| Contribution | Class | Phase | Description |
+|-------------|-------|-------|-------------|
+| Run Script | `RunScriptContribution` | `AfterRestored` | Script execution support for agent sessions |
+| Title Bar Widget | `AgentSessionsTitleBarContribution` | `AfterRestored` | Custom title bar widget with session picker |
 
-**ID:** `workbench.contrib.agentSessions.auxiliaryBarVisibility`
-**Phase:** `WorkbenchPhase.AfterRestored`
-**Location:** `agentSessions/browser/contrib/auxiliaryBarVisibilityContribution.ts`
+Additionally, `registerChatBranchActions()` is called to register chat branch session actions.
 
-This contribution automatically shows or hides the Auxiliary Bar based on the chat session state:
+### 10.1 Changes View
 
-| Chat Session State | Auxiliary Bar |
-|--------------------|---------------|
-| Empty (no requests) | Hidden |
-| Has requests | Shown |
+The contributions file also registers the Changes view:
 
-#### Behavior
-
-1. Observes all chat widgets at `ChatAgentLocation.Chat` location
-2. Listens for `onDidChangeViewModel` and model `onDidChange` events
-3. When a request is added (`addRequest` event), shows the auxiliary bar
-4. When a request is removed and session becomes empty (`removeRequest` event), hides the auxiliary bar
-5. Also listens for `onDidAddWidget` to observe newly created chat widgets
-
-#### Registration
-
-```typescript
-// In agentSessions.contributions.ts
-registerWorkbenchContribution2(
-    AuxiliaryBarVisibilityContribution.ID,
-    AuxiliaryBarVisibilityContribution,
-    WorkbenchPhase.AfterRestored
-);
-```
+- **Container**: `CHANGES_VIEW_CONTAINER_ID` in `ViewContainerLocation.AuxiliaryBar` (default, hidden if empty)
+- **View**: `CHANGES_VIEW_ID` with `ChangesViewPane`
+- **Layout visibility**: `LayoutVisibility.AgentSessions` (only visible in agent sessions workbench)
 
 ---
 
@@ -564,25 +524,32 @@ registerWorkbenchContribution2(
 ```
 src/vs/workbench/agentSessions/
 ├── browser/
-│   ├── agentSessions.contributions.ts      # Workbench contributions
+│   ├── agentSessions.contributions.ts      # Workbench contributions, view registrations, and contribution bootstrapping
+│   ├── agentSessionsCommandCenter.ts       # Legacy title bar widget (superseded by agentSessionTitleBarWidget.ts)
+│   ├── agentSessionTitleBarWidget.ts       # Title bar widget and rendering contribution (active)
 │   ├── agentSessionsWorkbench.ts           # Main layout implementation
-│   ├── agentSessions.contributions.ts      # View registrations and contributions
-│   ├── agentSessionsLayoutActions.ts       # Layout actions (toggle sidebar, etc.)
+│   ├── agentSessionsWorkbenchMenus.ts      # Agent sessions workbench menu IDs
+│   ├── agentSessionsLayoutActions.ts       # Layout actions (toggle sidebar, secondary sidebar, panel, terminal)
 │   ├── style.css                           # Layout-specific styles (including editor modal)
-│   ├── contrib/
-│   │   └── auxiliaryBarVisibilityContribution.ts  # Auto show/hide auxiliary bar based on chat state
+│   ├── media/
+│   │   └── agentSessionTitleBarWidget.css   # Title bar widget styles
+│   ├── actions/
+│   │   └── chatBranchSessionAction.ts      # Chat branch session actions
+│   ├── views/
+│   │   ├── changesView.ts                  # Changes view pane and container
+│   │   └── media/
+│   │       └── changesView.css             # Changes view styles
 │   ├── parts/
+│   │   ├── agentSessionTitlebarPart.ts     # Agent sessions titlebar part and title service
 │   │   ├── agentSessionSidebarPart.ts      # Agent session sidebar
-│   │   ├── agentSessionAuxiliaryBarPart.ts # Agent session auxiliary bar
+│   │   ├── agentSessionAuxiliaryBarPart.ts # Agent session auxiliary bar (with run script dropdown)
 │   │   ├── agentSessionPanelPart.ts        # Agent session panel
 │   │   ├── editorModal.ts                  # Editor modal overlay implementation
-│   │   ├── chatbar/
-│   │   │   ├── chatBarPart.ts              # Chat Bar part implementation
-│   │   │   └── media/
-│   │   │       └── chatBarPart.css         # Chat Bar styles
-│   │   └── projectbar/
-│   │       ├── projectBarPart.ts           # Project Bar part implementation
-│   │       └── projectBarPart.css          # Project Bar styles
+│   │   ├── sidebarRevealButton.ts          # Edge hover reveal buttons for hidden sidebars
+│   │   └── chatbar/
+│   │       ├── chatBarPart.ts              # Chat Bar part implementation
+│   │       └── media/
+│   │           └── chatBarPart.css         # Chat Bar styles
 └── LAYOUT.md                               # This specification
 ```
 
@@ -604,9 +571,9 @@ When modifying the Agent Sessions layout:
 
 ## 13. Lifecycle
 
-### 12.1 Startup Sequence
+### 13.1 Startup Sequence
 
-1. `constructor()` — Register error handlers
+1. `constructor()` — Register error handlers, register workbench contributions (`registerAgentWorkbenchContributions()`), register layout actions (`registerAgentSessionsLayoutActions()`)
 2. `startup()` — Initialize services and layout
 3. `initServices()` — Set up service collection, set lifecycle to `Ready`
 4. `initLayout()` — Get services, register layout listeners
@@ -615,7 +582,7 @@ When modifying the Agent Sessions layout:
 7. `layout()` — Perform initial layout
 8. `restore()` — Restore parts (open default view containers), set lifecycle to `Restored`, then `Eventually`
 
-### 12.2 Part Restoration
+### 13.2 Part Restoration
 
 During the `restore()` phase, `restoreParts()` is called to open the default view container for each visible part:
 
@@ -641,12 +608,11 @@ private restoreParts(): void {
 
 This ensures that when a part is visible, its default view container is automatically opened and displayed.
 
-### 12.3 State Tracking
+### 13.3 State Tracking
 
 ```typescript
 interface IPartVisibilityState {
     sidebar: boolean;
-    projectBar: boolean;
     auxiliaryBar: boolean;
     editor: boolean;
     panel: boolean;
@@ -659,11 +625,58 @@ interface IPartVisibilityState {
 | Part | Initial Visibility |
 |------|--------------------|
 | Sidebar | `true` (visible) |
-| Project Bar | `true` (visible) |
-| Auxiliary Bar | `false` (hidden) |
+| Auxiliary Bar | `true` (visible) |
 | Chat Bar | `true` (visible) |
 | Editor | `false` (hidden) |
 | Panel | `false` (hidden) |
+
+---
+
+## 14. Sidebar Reveal Buttons
+
+When the primary sidebar or auxiliary bar is hidden, a round reveal button appears at the corresponding edge of the workbench when the user hovers near it. Clicking the button reveals the sidebar.
+
+### 14.1 Behavior
+
+| Aspect | Detail |
+|--------|--------|
+| Trigger zone | 36px from the workbench edge |
+| Button size | 32px diameter |
+| Show animation | Slides in from the edge (0.15s ease-out) |
+| Hide animation | Slides out (0.15s ease-out) when mouse moves away from edge |
+| Click behavior | Button disappears **instantly** (no slide-out transition), then reveals the sidebar |
+| Mouse leave | Button hides when mouse leaves the workbench container entirely (prevents showing when mouse exits to another screen) |
+| Left sidebar button | Appears at left edge with chevron-right icon (pointing toward center) |
+| Auxiliary bar button | Appears at right edge with chevron-left icon (pointing toward center) |
+| Click action | Calls `setPartHidden(false, ...)` to reveal the sidebar |
+| Enabled state | Only active when the corresponding sidebar is hidden |
+
+### 14.2 CSS Classes
+
+| Class | Applied To | Notes |
+|-------|------------|-------|
+| `sidebar-reveal-button` | Button container | Positioned absolute at edge, 50% vertical |
+| `sidebar-reveal-button.left` | Left sidebar button | Slides in from left edge |
+| `sidebar-reveal-button.right` | Auxiliary bar button | Slides in from right edge |
+| `sidebar-reveal-button.visible` | When mouse is in trigger zone | Enables pointer events, slides button in |
+| `sidebar-reveal-button.no-transition` | Briefly applied during click | Disables CSS transition for instant hide |
+| `sidebar-reveal-button-icon` | Icon span | Contains the codicon chevron |
+
+### 14.3 Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `EDGE_TRIGGER_ZONE_PX` | 36 | Mouse proximity threshold in pixels |
+| `BUTTON_SIZE_PX` | 32 | Button diameter in pixels |
+
+### 14.4 Implementation
+
+The `SidebarRevealButton` class (`parts/sidebarRevealButton.ts`) creates one button per side. Two instances are created in `createWorkbenchLayout()` and registered as disposables:
+
+```typescript
+this._register(new SidebarRevealButton(this.mainContainer, 'left', this));
+this._register(new SidebarRevealButton(this.mainContainer, 'right', this));
+```
 
 ---
 
@@ -671,14 +684,25 @@ interface IPartVisibilityState {
 
 | Date | Change |
 |------|--------|
-| 2026-02-06 | Project Bar now stores folder entries in workspace storage (`StorageScope.WORKSPACE`) instead of adding as workspace root folders; selecting a folder uses `IWorkspaceEditingService.updateFolders()` to replace current workspace folder; events and API now use `URI` instead of `IWorkspaceFolder` |
+| 2026-02-10 | Titlebar customization now uses class inheritance with protected getter overrides on `BrowserTitlebarPart`; Base class retains original API — no `ITitlebarPartOptions`/`ITitlebarPartConfiguration` removed; `AgentSessionsTitlebarPart` and `AgentSessionsTitleService` in `parts/agentSessionTitlebarPart.ts` override `isCommandCenterVisible`, `editorActionsEnabled`, `installMenubar()`, and menu ID getters |
+| 2026-02-07 | Comprehensive spec update: fixed widget class names (`AgentSessionsTitleBarWidget`/`AgentSessionsTitleBarContribution`), corrected click behavior (uses `AgentSessionsPicker` not `FocusAgentSessionsAction`), corrected session label source (`IActiveAgentSessionService`), fixed toggle terminal details (uses standard `toggleTerminal` command via `MenuRegistry.appendMenuItem` on right toolbar), added sidebar/chatbar storage keys, added chatbar to part classes table, documented contributions section with `RunScriptContribution`/`AgentSessionsTitleBarContribution`/Changes view, added `agent-sessions-workbench` platform class, documented auxiliary bar run script dropdown, updated file structure with `actions/`, `views/`, `media/` directories, fixed lifecycle section numbering, corrected `focus()` target to ChatBar |
+| 2026-02-07 | Moved `ToggleTerminalAction` to `contrib/terminal/browser/terminalAgentSessionActions.ts`; Menu item registered via `MenuRegistry.appendMenuItem` from `agentSessionsLayoutActions.ts` to avoid layering violation |\n| 2026-02-07 | Added `TitleBarLeft`, `TitleBarCenter`, `TitleBarRight` menu IDs to `AgentSessionsWorkbenchMenus`; Added `titleBarMenuId` option to `ITitlebarPartOptions` for overriding the global toolbar menu; Actions now use agent-session-specific menu IDs instead of shared `MenuId.TitleBarLeft` / `MenuId.TitleBar` |
+| 2026-02-07 | Moved agent sessions workbench menu IDs to `agentSessionsWorkbenchMenus.ts`; Renamed `AgentSessionMenus` to `AgentSessionsWorkbenchMenus` |
+| 2026-02-07 | Added `MenuId.AgentSessionsTitleBarContext` as a separate titlebar context menu ID; `contextMenuId` option now set in both main and auxiliary titlebar configurations |
+| 2026-02-07 | Added `ToggleTerminalAction` to left toolbar; toggles panel with terminal view; bound to `` Ctrl+` `` |
+| 2026-02-06 | `AgentSessionsTitleBarStatusWidget` now shows active chat session title instead of workspace label; Clicking opens sessions view via `FocusAgentSessionsAction`; Removed folder picker and recent folders |
+| 2026-02-06 | Replaced command center folder picker with `AgentSessionsTitleBarStatusWidget` (custom `BaseActionViewItem`); Uses `IActionViewItemService` to intercept `AgentSessionsTitleBarControlMenu` submenu; Shows workspace label pill with quick pick for recent folders |
+| 2026-02-06 | Added Command Center with custom `AgentSessionsCommandCenter` menu IDs; Dropdown shows recent folders and Open Folder action; Added `AgentSessionsCommandCenterContribution` |
+| 2026-02-06 | Added sidebar reveal buttons (`SidebarRevealButton`) — round edge-hover buttons that appear when sidebars are hidden; implemented in `parts/sidebarRevealButton.ts` |
+| 2026-02-06 | Auxiliary Bar now visible by default; Removed `AuxiliaryBarVisibilityContribution` (no longer auto-shows/hides based on chat state) |
+| 2026-02-06 | Removed Command Center and Project Bar completely; Layout is now: Sidebar \| Chat Bar \| Auxiliary Bar; Global activities (Accounts, Settings) in titlebar via `supportsActivityActions` |
+| 2026-02-06 | ~~Removed Project Bar; Added Command Center to titlebar~~ (superseded) |
+| 2026-02-06 | ~~Project Bar now stores folder entries in workspace storage~~ (superseded) |
 | 2026-02-05 | Auxiliary Bar now hidden by default; Added `AuxiliaryBarVisibilityContribution` to auto-show when chat session has requests, auto-hide when empty |
 | 2026-02-05 | Hiding panel now exits maximized state first if panel was maximized |
-| 2026-02-05 | Added panel maximize/minimize support via `toggleMaximizedPanel()`; Uses `Grid.maximizeView()` with exclusions for titlebar and project bar; Added `TogglePanelMaximizedAction` and `TogglePanelVisibilityAction` to panel title bar |
-| 2026-02-05 | Changed layout structure: Panel is now below Chat Bar and Auxiliary Bar only (not full width); Project Bar and Sidebar span full height |
-| 2026-02-05 | Added `GlobalCompositeBar` to Project Bar for Accounts (`ACCOUNTS_ACTIVITY_ID`) and Manage (`GLOBAL_ACTIVITY_ID`) activities at the bottom; Added `focusGlobalCompositeBar()` method |
+| 2026-02-05 | Added panel maximize/minimize support via `toggleMaximizedPanel()`; Uses `Grid.maximizeView()` with exclusions for titlebar; Added `TogglePanelMaximizedAction` and `TogglePanelVisibilityAction` to panel title bar |
+| 2026-02-05 | Changed layout structure: Panel is now below Chat Bar and Auxiliary Bar only (not full width); Sidebar spans full height |
 | 2026-02-05 | Added configurable titlebar via `ITitlebarPartOptions` and `ITitlebarPartConfiguration`; Titlebar now disables command center, menubar, and editor actions; Added left toolbar with `MenuId.TitleBarLeft`; Added `ToggleSidebarVisibilityAction` in `agentSessionsLayoutActions.ts` |
-| 2026-02-05 | Added Project Bar part (`ProjectBarPart`) to display and select workspace folders; Layout order is now Project Bar \| Sidebar \| Chat Bar \| Auxiliary Bar |
 | 2026-02-04 | Modal sizing (80%, min/max constraints) moved from CSS to TypeScript; `EditorModal.layout()` now accepts workbench dimensions |
 | 2026-02-04 | Editor now renders as modal overlay instead of in grid; Added `EditorModal` class in `parts/editorModal.ts`; Closing modal closes all editors; Grid layout is now Sidebar \| Chat Bar \| Auxiliary Bar |
 | 2026-02-04 | Changed part creation to use `SyncDescriptor0` for lazy instantiation—parts are created when first accessed, not at service construction time |

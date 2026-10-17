@@ -64,7 +64,6 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 		id: string,
 		targetWindow: CodeWindow,
 		editorGroupsContainer: IEditorGroupsContainer,
-		options: ITitlebarPartOptions,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@INativeWorkbenchEnvironmentService environmentService: INativeWorkbenchEnvironmentService,
@@ -290,7 +289,6 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 export class MainNativeTitlebarPart extends NativeTitlebarPart {
 
 	constructor(
-		options: ITitlebarPartOptions,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@INativeWorkbenchEnvironmentService environmentService: INativeWorkbenchEnvironmentService,
@@ -321,7 +319,6 @@ export class AuxiliaryNativeTitlebarPart extends NativeTitlebarPart implements I
 		readonly container: HTMLElement,
 		editorGroupsContainer: IEditorGroupsContainer,
 		private readonly mainTitlebar: BrowserTitlebarPart,
-		options: ITitlebarPartOptions,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@INativeWorkbenchEnvironmentService environmentService: INativeWorkbenchEnvironmentService,
@@ -357,10 +354,10 @@ export class AuxiliaryNativeTitlebarPart extends NativeTitlebarPart implements I
 export class NativeTitleService extends BrowserTitleService {
 
 	protected override createMainTitlebarPart(): MainNativeTitlebarPart {
-		return this.instantiationService.createInstance(MainNativeTitlebarPart, this.configuration.mainOptions);
+		return this.instantiationService.createInstance(MainNativeTitlebarPart);
 	}
 
 	protected override doCreateAuxiliaryTitlebarPart(container: HTMLElement, editorGroupsContainer: IEditorGroupsContainer, instantiationService: IInstantiationService): AuxiliaryNativeTitlebarPart {
-		return instantiationService.createInstance(AuxiliaryNativeTitlebarPart, container, editorGroupsContainer, this.mainPart, this.configuration.auxiliaryOptions);
+		return instantiationService.createInstance(AuxiliaryNativeTitlebarPart, container, editorGroupsContainer, this.mainPart);
 	}
 }

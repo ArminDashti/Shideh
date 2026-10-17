@@ -298,6 +298,10 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 					if (element.section === AgentSessionSection.Repository && !this._recentRepositoryLabels.has(element.label)) {
 						return true; // Collapse repository sections that don't contain recent sessions
 					}
+					// Also collapse Yesterday when there are sessions from Today
+					if (element.section === AgentSessionSection.Yesterday && this.hasTodaySessions()) {
+						return true;
+					}
 				}
 			}
 

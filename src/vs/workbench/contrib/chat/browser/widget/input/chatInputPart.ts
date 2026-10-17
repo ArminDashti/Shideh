@@ -1274,7 +1274,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				newOptions.autoSurround = this.configurationService.getValue('editor.autoSurround');
 			}
 
-			this.inputEditor.updateOptions(newOptions);
+			this._inputEditor?.updateOptions(newOptions);
 		}));
 
 		this._chatEditsListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event, MenuId.ChatEditingWidgetModifiedFilesToolbar, { verticalScrollMode: ScrollbarVisibility.Visible }));
@@ -3049,13 +3049,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Only shown in full welcome view (when showFullWelcome is enabled and session is empty).
 	 */
 	private renderSpreadTargetButtons(): void {
-		if (!this.targetButtonsContainer || this.options.renderStyle === 'compact' || !this._widget?.showFullWelcome) {
+		if (!this.targetButtonsContainer || this.options.renderStyle === 'compact') {
 			return;
 		}
 
 		// Clear any existing buttons
 		this.targetButtonsDisposable.clear();
 		dom.clearNode(this.targetButtonsContainer);
+
+		// In full welcome mode, target buttons are rendered by ChatFullWelcomePart
+		if (this._widget?.showFullWelcome) {
+			return;
+		}
 
 		// Show spread buttons in welcome view (empty session or no model set)
 		// Once a message is sent, hide them and show the target picker inside the input instead
@@ -4016,7 +4021,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					// In full welcome mode (showFullWelcome), hide the target picker since:
 					// - For empty sessions: we show spread buttons in the bottom bar
 					// - For non-empty sessions: only delegation picker should appear
-					if (this._widget?.showFullWelcome && action.id === OpenSessionTargetPickerAction.ID) {
+					if (this._widget?.showFullWelcome && action.id === OpenSessionTargetPickerAction.ID && this.contextKeyService.contextMatchesRules(WorkspaceFolderCountContext.notEqualsTo(1))) {
 						const empty = new BaseActionViewItem(undefined, action);
 						if (empty.element) {
 							empty.element.style.display = 'none';

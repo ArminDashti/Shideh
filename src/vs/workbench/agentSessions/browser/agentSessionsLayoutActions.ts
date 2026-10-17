@@ -9,15 +9,19 @@ import { KeyCode, KeyMod } from '../../../base/common/keyCodes.js';
 import { localize, localize2 } from '../../../nls.js';
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
+import { AgentSessionsWorkbenchMenus } from './agentSessionsWorkbenchMenus.js';
+import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../platform/keybinding/common/keybindingsRegistry.js';
 import { registerIcon } from '../../../platform/theme/common/iconRegistry.js';
-import { PanelMaximizedContext, SideBarVisibleContext } from '../../common/contextkeys.js';
+import { AuxiliaryBarVisibleContext, PanelMaximizedContext, SideBarVisibleContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService, Parts } from '../../services/layout/browser/layoutService.js';
 
 // Register Icons
 const panelLeftIcon = registerIcon('agent-panel-left', Codicon.layoutSidebarLeft, localize('panelLeft', "Represents a side bar in the left position"));
 const panelLeftOffIcon = registerIcon('agent-panel-left-off', Codicon.layoutSidebarLeftOff, localize('panelLeftOff', "Represents a side bar in the left position that is hidden"));
+const panelRightIcon = registerIcon('agent-panel-right', Codicon.layoutSidebarRight, localize('panelRight', "Represents a secondary side bar in the right position"));
+const panelRightOffIcon = registerIcon('agent-panel-right-off', Codicon.layoutSidebarRightOff, localize('panelRightOff', "Represents a secondary side bar in the right position that is hidden"));
 const panelCloseIcon = registerIcon('agent-panel-close', Codicon.close, localize('agentPanelCloseIcon', "Icon to close the panel."));
 const panelMaximizeIcon = registerIcon('agent-panel-maximize', Codicon.screenFull, localize('agentPanelMaximizeIcon', 'Icon to maximize the panel.'));
 const panelRestoreIcon = registerIcon('agent-panel-restore', Codicon.screenNormal, localize('agentPanelRestoreIcon', 'Icon to restore the panel size.'));
@@ -49,9 +53,15 @@ class ToggleSidebarVisibilityAction extends Action2 {
 			},
 			menu: [
 				{
-					id: MenuId.TitleBarLeft,
+					id: MenuId.AgentSessionsToolbar,
 					group: 'navigation',
-					order: 0
+					order: 1000
+				},
+				{
+					id: AgentSessionsWorkbenchMenus.FloatingToolbar,
+					group: 'navigation',
+					order: 0,
+					when: ContextKeyExpr.not('sideBarVisible')
 				}
 			]
 		});
@@ -68,6 +78,79 @@ class ToggleSidebarVisibilityAction extends Action2 {
 			? localize('sidebarHidden', "Primary Side Bar hidden")
 			: localize('sidebarVisible', "Primary Side Bar shown");
 		alert(alertMessage);
+	}
+}
+
+class ToggleSecondarySidebarVisibilityAction extends Action2 {
+
+	static readonly ID = 'workbench.action.agentToggleSecondarySidebarVisibility';
+	static readonly LABEL = localize('compositePart.hideSecondarySideBarLabel', "Hide Secondary Side Bar");
+
+	constructor() {
+		super({
+			id: ToggleSecondarySidebarVisibilityAction.ID,
+			title: localize2('toggleSecondarySidebar', 'Toggle Secondary Side Bar Visibility'),
+			icon: panelRightOffIcon,
+			toggled: {
+				condition: AuxiliaryBarVisibleContext,
+				icon: panelRightIcon,
+				title: localize('secondary sidebar', "Secondary Side Bar"),
+				mnemonicTitle: localize({ key: 'secondary sidebar mnemonic', comment: ['&& denotes a mnemonic'] }, "&&Secondary Side Bar"),
+			},
+			metadata: {
+				description: localize('openAndCloseSecondarySidebar', 'Open/Show and Close/Hide Secondary Side Bar'),
+			},
+			category: Categories.View,
+			f1: true,
+			menu: [
+				{
+					id: AgentSessionsWorkbenchMenus.FloatingToolbarRight,
+					group: 'navigation',
+					order: 0,
+					when: ContextKeyExpr.not('auxiliaryBarVisible')
+				}
+			]
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const isCurrentlyVisible = layoutService.isVisible(Parts.AUXILIARYBAR_PART);
+
+		layoutService.setPartHidden(isCurrentlyVisible, Parts.AUXILIARYBAR_PART);
+
+		// Announce visibility change to screen readers
+		const alertMessage = isCurrentlyVisible
+			? localize('secondarySidebarHidden', "Secondary Side Bar hidden")
+			: localize('secondarySidebarVisible', "Secondary Side Bar shown");
+		alert(alertMessage);
+	}
+}
+
+class CloseSecondarySidebarAction extends Action2 {
+
+	static readonly ID = 'workbench.action.agentCloseSecondarySidebar';
+
+	constructor() {
+		super({
+			id: CloseSecondarySidebarAction.ID,
+			title: localize2('closeSecondarySidebar', 'Hide Secondary Side Bar'),
+			icon: panelRightIcon,
+			category: Categories.View,
+			menu: [
+				{
+					id: MenuId.AuxiliaryBarTitle,
+					group: 'navigation',
+					order: 3
+				}
+			]
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		layoutService.setPartHidden(true, Parts.AUXILIARYBAR_PART);
+		alert(localize('secondarySidebarHidden', "Secondary Side Bar hidden"));
 	}
 }
 
@@ -149,6 +232,8 @@ class TogglePanelMaximizedAction extends Action2 {
 
 export function registerAgentSessionsLayoutActions() {
 	registerAction2(ToggleSidebarVisibilityAction);
+	registerAction2(ToggleSecondarySidebarVisibilityAction);
+	registerAction2(CloseSecondarySidebarAction);
 	registerAction2(TogglePanelVisibilityAction);
 	registerAction2(TogglePanelMaximizedAction);
 }

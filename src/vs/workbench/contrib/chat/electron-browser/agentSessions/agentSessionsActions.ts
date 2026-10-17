@@ -1364,3 +1364,86 @@ export class AgentsParallelWorkContribution extends Disposable implements IWorkb
 		this._notificationService.deleteNotification(AgentsParallelWorkContribution.NOTIFICATION_ID);
 	}
 }
+
+export class OpenSessionWorktreeInVSCodeAction extends Action2 {
+	static readonly ID = 'chat.openSessionWorktreeInVSCode';
+
+	constructor() {
+		super({
+			id: OpenSessionWorktreeInVSCodeAction.ID,
+			title: localize2('openInVSCode', 'Open in VS Code'),
+			icon: Codicon.vscodeInsiders,
+			menu: [{
+				id: AgentSessionsWorkbenchMenus.AgentSessionsOpenSubMenu,
+				group: 'navigation',
+				order: 2,
+			}]
+		});
+	}
+
+	override async run(accessor: ServicesAccessor,): Promise<void> {
+		const nativeHostService = accessor.get(INativeHostService);
+		const agentSessionsService = accessor.get(IActiveAgentSessionService);
+
+		const activeSession = agentSessionsService.activeSession.get();
+		if (!activeSession) {
+			return;
+		}
+
+		const folderUri = isAgentSession(activeSession) && activeSession.providerType !== AgentSessionProviders.Cloud ? activeSession.worktree : undefined;
+
+		if (!folderUri) {
+			return;
+		}
+
+		await nativeHostService.openWindow([{ folderUri }], { forceNewWindow: true });
+	}
+}
+registerAction2(OpenSessionWorktreeInVSCodeAction);
+
+export class OpenSessionInTerminalAction extends Action2 {
+
+	constructor() {
+		super({
+			id: 'agentSession.openInTerminal',
+			title: localize2('openInTerminal', "Open Terminal"),
+			icon: Codicon.terminal,
+			menu: [{
+				id: AgentSessionsWorkbenchMenus.AgentSessionsOpenSubMenu,
+				group: 'navigation',
+				order: 1,
+			}]
+		});
+	}
+
+	override async run(accessor: ServicesAccessor,): Promise<void> {
+		const terminalService = accessor.get(ITerminalService);
+		const terminalGroupService = accessor.get(ITerminalGroupService);
+		const agentSessionsService = accessor.get(IActiveAgentSessionService);
+
+		const activeSession = agentSessionsService.activeSession.get();
+		const repository = isAgentSession(activeSession) && activeSession.providerType !== AgentSessionProviders.Cloud
+			? activeSession.worktree
+			: undefined;
+		if (repository) {
+			const instance = await terminalService.createTerminal({ config: { cwd: repository } });
+			if (instance) {
+				terminalService.setActiveInstance(instance);
+			}
+		}
+		terminalGroupService.showPanel(true);
+	}
+}
+
+registerAction2(OpenSessionInTerminalAction);
+
+// Register the split button menu item that combines Open in VS Code and Open in Terminal
+MenuRegistry.appendMenuItem(AgentSessionsWorkbenchMenus.TitleBarRight, {
+	submenu: AgentSessionsWorkbenchMenus.AgentSessionsOpenSubMenu,
+	isSplitButton: { togglePrimaryAction: true },
+	title: localize2('open', "Open..."),
+	icon: Codicon.folderOpened,
+	group: 'navigation',
+	order: 9,
+	when: IsAgentSessionsWorkspaceContext,
+});

@@ -5,45 +5,57 @@
 
 import './media/changesView.css';
 import * as dom from '../../../../base/browser/dom.js';
+import { IListVirtualDelegate } from '../../../../base/browser/ui/list/list.js';
+import { ICompressedTreeNode } from '../../../../base/browser/ui/tree/compressedObjectTreeModel.js';
+import { ICompressibleTreeRenderer } from '../../../../base/browser/ui/tree/objectTree.js';
+import { IObjectTreeElement, ITreeNode } from '../../../../base/browser/ui/tree/tree.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { MarkdownString } from '../../../../base/common/htmlContent.js';
+import { Iterable } from '../../../../base/common/iterator.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { autorun, derived, observableFromEvent, observableValue } from '../../../../base/common/observable.js';
-import { IActivityService, NumberBadge } from '../../../services/activity/common/activity.js';
-import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
-import { Iterable } from '../../../../base/common/iterator.js';
+import { basename, dirname } from '../../../../base/common/path.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { MenuWorkbenchButtonBar } from '../../../../platform/actions/browser/buttonbar.js';
-import { MenuId } from '../../../../platform/actions/common/actions.js';
+import { MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
+import { MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { FileKind } from '../../../../platform/files/common/files.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILabelService } from '../../../../platform/label/common/label.js';
+import { WorkbenchCompressibleObjectTree } from '../../../../platform/list/browser/listService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { bindContextKey } from '../../../../platform/observable/common/platformObservableUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { fillEditorsDragData } from '../../../browser/dnd.js';
+import { IResourceLabel, ResourceLabels } from '../../../browser/labels.js';
+import { ViewPane, IViewPaneOptions, ViewAction } from '../../../browser/parts/views/viewPane.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewDescriptorService } from '../../../common/views.js';
+import { IChatWidgetService } from '../../../contrib/chat/browser/chat.js';
+import { IAgentSessionsService } from '../../../contrib/chat/browser/agentSessions/agentSessionsService.js';
+import { AgentSessionProviders } from '../../../contrib/chat/browser/agentSessions/agentSessions.js';
 import { ChatContextKeys } from '../../../contrib/chat/common/actions/chatContextKeys.js';
-import { hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, ModifiedFileEntryState } from '../../../contrib/chat/common/editing/chatEditingService.js';
-import { CollapsibleListPool, IChatCollapsibleListItem } from '../../../contrib/chat/browser/widget/chatContentParts/chatReferencesContentPart.js';
+import { isIChatSessionFileChange2 } from '../../../contrib/chat/common/chatSessionsService.js';
+import { chatEditingWidgetFileStateContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, ModifiedFileEntryState } from '../../../contrib/chat/common/editing/chatEditingService.js';
+import { getChatSessionType } from '../../../contrib/chat/common/model/chatUri.js';
 import { createFileIconThemableTreeContainerScope } from '../../../contrib/files/browser/views/explorerView.js';
+import { IActivityService, NumberBadge } from '../../../services/activity/common/activity.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IChatWidgetService } from '../../../contrib/chat/browser/chat.js';
-import { isEqual } from '../../../../base/common/resources.js';
-import { IAgentSessionsService } from '../../../contrib/chat/browser/agentSessions/agentSessionsService.js';
-import { isIChatSessionFileChange2 } from '../../../contrib/chat/common/chatSessionsService.js';
 
 const $ = dom.$;
 
@@ -51,6 +63,108 @@ const $ = dom.$;
 
 export const CHANGES_VIEW_CONTAINER_ID = 'workbench.view.agentSessions.changesContainer';
 export const CHANGES_VIEW_ID = 'workbench.view.agentSessions.changes';
+
+// --- View Mode
+
+export const enum ChangesViewMode {
+	List = 'list',
+	Tree = 'tree'
+}
+
+const changesViewModeContextKey = new RawContextKey<ChangesViewMode>('changesViewMode', ChangesViewMode.List);
+
+// --- List Item
+
+type ChangeType = 'added' | 'modified' | 'deleted';
+
+interface IChangesFileItem {
+	readonly type: 'file';
+	readonly uri: URI;
+	readonly originalUri?: URI;
+	readonly state: ModifiedFileEntryState;
+	readonly isDeletion: boolean;
+	readonly changeType: ChangeType;
+	readonly linesAdded: number;
+	readonly linesRemoved: number;
+}
+
+interface IChangesFolderItem {
+	readonly type: 'folder';
+	readonly uri: URI;
+	readonly name: string;
+}
+
+type ChangesTreeElement = IChangesFileItem | IChangesFolderItem;
+
+function isChangesFileItem(element: ChangesTreeElement): element is IChangesFileItem {
+	return element.type === 'file';
+}
+
+/**
+ * Builds a tree of `IObjectTreeElement<ChangesTreeElement>` from a flat list of file items.
+ * Groups files by their directory path segments to create a hierarchical tree structure.
+ */
+function buildTreeChildren(items: IChangesFileItem[]): IObjectTreeElement<ChangesTreeElement>[] {
+	if (items.length === 0) {
+		return [];
+	}
+
+	interface FolderNode {
+		name: string;
+		uri: URI;
+		children: Map<string, FolderNode>;
+		files: IChangesFileItem[];
+	}
+
+	const root: FolderNode = { name: '', uri: URI.file('/'), children: new Map(), files: [] };
+
+	for (const item of items) {
+		const dirPath = dirname(item.uri.path);
+		const segments = dirPath.split('/').filter(Boolean);
+
+		let current = root;
+		let currentPath = '';
+		for (const segment of segments) {
+			currentPath += '/' + segment;
+			if (!current.children.has(segment)) {
+				current.children.set(segment, {
+					name: segment,
+					uri: item.uri.with({ path: currentPath }),
+					children: new Map(),
+					files: []
+				});
+			}
+			current = current.children.get(segment)!;
+		}
+		current.files.push(item);
+	}
+
+	function convert(node: FolderNode): IObjectTreeElement<ChangesTreeElement>[] {
+		const result: IObjectTreeElement<ChangesTreeElement>[] = [];
+
+		for (const [, child] of node.children) {
+			const folderElement: IChangesFolderItem = { type: 'folder', uri: child.uri, name: child.name };
+			const folderChildren = convert(child);
+			result.push({
+				element: folderElement,
+				children: folderChildren,
+				collapsible: true,
+				collapsed: false,
+			});
+		}
+
+		for (const file of node.files) {
+			result.push({
+				element: file,
+				collapsible: false,
+			});
+		}
+
+		return result;
+	}
+
+	return convert(root);
+}
 
 // --- View Pane
 
@@ -65,10 +179,27 @@ export class ChangesViewPane extends ViewPane {
 	// Actions container is positioned outside the card for this layout experiment
 	private actionsContainer: HTMLElement | undefined;
 
-	private readonly listPool: CollapsibleListPool;
-	private listRef: { object: import('../../../../platform/list/browser/listService.js').WorkbenchList<IChatCollapsibleListItem>; dispose(): void } | undefined;
+	private tree: WorkbenchCompressibleObjectTree<ChangesTreeElement> | undefined;
 
 	private readonly renderDisposables = this._register(new DisposableStore());
+
+	// Track current body dimensions for list layout
+	private currentBodyHeight = 0;
+	private currentBodyWidth = 0;
+
+	// View mode (list vs tree)
+	private readonly viewModeObs: ReturnType<typeof observableValue<ChangesViewMode>>;
+	private readonly viewModeContextKey: IContextKey<ChangesViewMode>;
+
+	get viewMode(): ChangesViewMode { return this.viewModeObs.get(); }
+	set viewMode(mode: ChangesViewMode) {
+		if (this.viewModeObs.get() === mode) {
+			return;
+		}
+		this.viewModeObs.set(mode, undefined);
+		this.viewModeContextKey.set(mode);
+		this.storageService.store('changesView.viewMode', mode, StorageScope.WORKSPACE, StorageTarget.USER);
+	}
 
 	// Track the active session's editing session resource
 	private readonly activeSessionResource = observableValue<URI | undefined>(this, undefined);
@@ -92,22 +223,32 @@ export class ChangesViewPane extends ViewPane {
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 		@IActivityService private readonly activityService: IActivityService,
 		@IAgentSessionsService private readonly agentSessionsService: IAgentSessionsService,
+		@ILabelService private readonly labelService: ILabelService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+
+		// View mode
+		const storedMode = this.storageService.get('changesView.viewMode', StorageScope.WORKSPACE);
+		const initialMode = storedMode === ChangesViewMode.Tree ? ChangesViewMode.Tree : ChangesViewMode.List;
+		this.viewModeObs = observableValue<ChangesViewMode>(this, initialMode);
+		this.viewModeContextKey = changesViewModeContextKey.bindTo(contextKeyService);
+		this.viewModeContextKey.set(initialMode);
 
 		// Setup badge tracking
 		this.registerBadgeTracking();
 
-		// Create the list pool
-		this.listPool = this._register(this.instantiationService.createInstance(
-			CollapsibleListPool,
-			this.onDidChangeBodyVisibility,
-			MenuId.ChatEditingWidgetModifiedFilesToolbar,
-			{ verticalScrollMode: ScrollbarVisibility.Visible }
-		));
-
 		// Track active session from focused chat widgets
 		this.registerActiveSessionTracking();
+
+		// Set chatSessionType on the view's context key service so ViewTitle
+		// menu items can use it in their `when` clauses. Update reactively
+		// when the active session changes.
+		const viewSessionTypeKey = this.scopedContextKeyService.createKey<string>(ChatContextKeys.agentSessionType.key, '');
+		this._register(autorun(reader => {
+			const sessionResource = this.activeSessionResource.read(reader);
+			viewSessionTypeKey.set(sessionResource ? getChatSessionType(sessionResource) : '');
+		}));
 	}
 
 	private registerActiveSessionTracking(): void {
@@ -173,10 +314,16 @@ export class ChangesViewPane extends ViewPane {
 				return 0;
 			}
 
-			// Count from editing session entries
-			const sessions = this.chatEditingService.editingSessionsObs.read(reader);
-			const session = sessions.find(candidate => isEqual(candidate.chatSessionResource, sessionResource));
-			const editingSessionCount = session ? session.entries.read(reader).length : 0;
+			// Background chat sessions render the working set based on the session files, not the editing session
+			const isBackgroundSession = getChatSessionType(sessionResource) === AgentSessionProviders.Background;
+
+			// Count from editing session entries (skip for background sessions)
+			let editingSessionCount = 0;
+			if (!isBackgroundSession) {
+				const sessions = this.chatEditingService.editingSessionsObs.read(reader);
+				const session = sessions.find(candidate => isEqual(candidate.chatSessionResource, sessionResource));
+				editingSessionCount = session ? session.entries.read(reader).length : 0;
+			}
 
 			// Count from session file changes (cloud/background sessions)
 			const sessionFiles = [...sessionFileChangesObs.read(reader)];
@@ -222,6 +369,13 @@ export class ChangesViewPane extends ViewPane {
 		this.contentContainer = dom.append(this.bodyContainer, $('.chat-editing-session-container.show-file-icons'));
 		this._register(createFileIconThemableTreeContainerScope(this.contentContainer, this.themeService));
 
+		// Toggle class based on whether the file icon theme has file icons
+		const updateHasFileIcons = () => {
+			this.contentContainer!.classList.toggle('has-file-icons', this.themeService.getFileIconTheme().hasFileIcons);
+		};
+		updateHasFileIcons();
+		this._register(this.themeService.onDidFileIconThemeChange(updateHasFileIcons));
+
 		// Overview section (header with summary only - actions moved outside card)
 		this.overviewContainer = dom.append(this.contentContainer, $('.chat-editing-session-overview'));
 		this.summaryContainer = dom.append(this.overviewContainer, $('.changes-summary'));
@@ -260,30 +414,35 @@ export class ChangesViewPane extends ViewPane {
 
 		// Create observable for edit session entries from the ACTIVE session only (local editing sessions)
 		const editSessionEntriesObs = derived(reader => {
+			const sessionResource = this.activeSessionResource.read(reader);
+
+			// Background chat sessions render the working set based on the session files, not the editing session
+			if (sessionResource && getChatSessionType(sessionResource) === AgentSessionProviders.Background) {
+				return [];
+			}
+
 			const session = activeEditingSessionObs.read(reader);
 			if (!session) {
 				return [];
 			}
 
 			const entries = session.entries.read(reader);
-			const items: IChatCollapsibleListItem[] = [];
+			const items: IChangesFileItem[] = [];
 
 			for (const entry of entries) {
-				const state = entry.state.read(reader);
-
+				const isDeletion = entry.isDeletion ?? false;
 				const linesAdded = entry.linesAdded?.read(reader) ?? 0;
 				const linesRemoved = entry.linesRemoved?.read(reader) ?? 0;
 
 				items.push({
-					reference: entry.modifiedURI,
-					state: state,
-					kind: 'reference',
-					options: {
-						diffMeta: { added: linesAdded, removed: linesRemoved },
-						isDeletion: entry.isDeletion,
-						originalUri: entry.originalURI,
-						status: undefined
-					}
+					type: 'file',
+					uri: entry.modifiedURI,
+					originalUri: entry.originalURI,
+					state: entry.state.read(reader),
+					isDeletion,
+					changeType: isDeletion ? 'deleted' : 'modified',
+					linesAdded,
+					linesRemoved,
 				});
 			}
 
@@ -306,19 +465,22 @@ export class ChangesViewPane extends ViewPane {
 
 		// Convert session file changes to list items (cloud/background sessions)
 		const sessionFilesObs = derived(reader =>
-			[...sessionFileChangesObs.read(reader)].map((entry): IChatCollapsibleListItem => ({
-				reference: isIChatSessionFileChange2(entry)
-					? entry.modifiedUri ?? entry.uri
-					: entry.modifiedUri,
-				state: ModifiedFileEntryState.Accepted,
-				kind: 'reference',
-				options: {
-					diffMeta: { added: entry.insertions, removed: entry.deletions },
-					isDeletion: entry.modifiedUri === undefined,
+			[...sessionFileChangesObs.read(reader)].map((entry): IChangesFileItem => {
+				const isDeletion = entry.modifiedUri === undefined;
+				const isAddition = entry.originalUri === undefined;
+				return {
+					type: 'file',
+					uri: isIChatSessionFileChange2(entry)
+						? entry.modifiedUri ?? entry.uri
+						: entry.modifiedUri,
 					originalUri: entry.originalUri,
-					status: undefined
-				}
-			}))
+					state: ModifiedFileEntryState.Accepted,
+					isDeletion,
+					changeType: isDeletion ? 'deleted' : isAddition ? 'added' : 'modified',
+					linesAdded: entry.insertions,
+					linesRemoved: entry.deletions,
+				};
+			})
 		);
 
 		// Combine both entry sources for display
@@ -332,15 +494,13 @@ export class ChangesViewPane extends ViewPane {
 		const topLevelStats = derived(reader => {
 			const editEntries = editSessionEntriesObs.read(reader);
 			const sessionFiles = sessionFilesObs.read(reader);
-			const entries = [...editEntries, ...sessionFiles];
+			const entries = combinedEntriesObs.read(reader);
 
 			let added = 0, removed = 0;
 
 			for (const entry of entries) {
-				if (entry.kind === 'reference' && entry.options?.diffMeta) {
-					added += entry.options.diffMeta.added;
-					removed += entry.options.diffMeta.removed;
-				}
+				added += entry.linesAdded;
+				removed += entry.linesRemoved;
 			}
 
 			const files = entries.length;
@@ -355,6 +515,14 @@ export class ChangesViewPane extends ViewPane {
 
 			const scopedContextKeyService = this.renderDisposables.add(this.contextKeyService.createScoped(this.actionsContainer));
 			const scopedInstantiationService = this.renderDisposables.add(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])));
+
+			// Set the chat session type context key reactively so that menu items with
+			// `chatSessionType == copilotcli` (e.g. Create Pull Request) are shown
+			const chatSessionTypeKey = scopedContextKeyService.createKey<string>(ChatContextKeys.agentSessionType.key, '');
+			this.renderDisposables.add(autorun(reader => {
+				const sessionResource = this.activeSessionResource.read(reader);
+				chatSessionTypeKey.set(sessionResource ? getChatSessionType(sessionResource) : '');
+			}));
 
 			// Bind required context keys for the menu buttons
 			this.renderDisposables.add(bindContextKey(hasUndecidedChatEditingResourceContextKey, scopedContextKeyService, r => {
@@ -381,7 +549,7 @@ export class ChangesViewPane extends ViewPane {
 			}));
 
 			this.renderDisposables.add(autorun(reader => {
-				const { isSessionMenu } = topLevelStats.read(reader);
+				const { isSessionMenu, added, removed } = topLevelStats.read(reader);
 				const sessionResource = this.activeSessionResource.read(reader);
 				reader.store.add(scopedInstantiationService.createInstance(
 					MenuWorkbenchButtonBar,
@@ -390,11 +558,18 @@ export class ChangesViewPane extends ViewPane {
 					{
 						telemetrySource: 'changesView',
 						menuOptions: isSessionMenu && sessionResource
-							? { args: [sessionResource] }
+							? { args: [sessionResource, this.agentSessionsService.getSession(sessionResource)?.metadata] }
 							: { shouldForwardArgs: true },
 						buttonConfigProvider: (action) => {
-							if (action.id === 'chatEditing.viewChanges' || action.id === 'chatEditing.viewPreviousEdits' || action.id === 'chatEditing.viewAllSessionChanges') {
-								return { showIcon: true, showLabel: false, isSecondary: true };
+							if (action.id === 'chatEditing.viewChanges' || action.id === 'chatEditing.viewPreviousEdits' || action.id === 'chatEditing.viewAllSessionChanges' || action.id === 'chat.openSessionWorktreeInVSCode') {
+								const diffStatsLabel = new MarkdownString(
+									`<span class="working-set-lines-added">+${added}</span>&nbsp;<span class="working-set-lines-removed">-${removed}</span>`,
+									{ supportHtml: true }
+								);
+								return { showIcon: true, showLabel: true, isSecondary: true, customClass: 'working-set-diff-stats', customLabel: diffStatsLabel };
+							}
+							if (action.id === 'github.createPullRequest') {
+								return { showIcon: true, showLabel: true, isSecondary: true, customClass: 'flex-grow' };
 							}
 							return undefined;
 						}
@@ -431,76 +606,172 @@ export class ChangesViewPane extends ViewPane {
 			}));
 		}
 
-		// Create or reuse list
-		if (!this.listRef && this.listContainer) {
-			this.listRef = this.listPool.get();
-			dom.append(this.listContainer, this.listRef.object.getHTMLElement());
+		// Create the tree
+		if (!this.tree && this.listContainer) {
+			const resourceLabels = this._register(this.instantiationService.createInstance(ResourceLabels, { onDidChangeVisibility: this.onDidChangeBodyVisibility }));
+			this.tree = this.instantiationService.createInstance(
+				WorkbenchCompressibleObjectTree<ChangesTreeElement>,
+				'ChangesViewTree',
+				this.listContainer,
+				new ChangesTreeDelegate(),
+				[this.instantiationService.createInstance(ChangesTreeRenderer, resourceLabels, MenuId.ChatEditingWidgetModifiedFilesToolbar)],
+				{
+					alwaysConsumeMouseWheel: false,
+					accessibilityProvider: {
+						getAriaLabel: (element: ChangesTreeElement) => isChangesFileItem(element) ? basename(element.uri.path) : element.name,
+						getWidgetAriaLabel: () => localize('changesViewTree', "Changes Tree")
+					},
+					dnd: {
+						getDragURI: (element: ChangesTreeElement) => element.uri.toString(),
+						getDragLabel: (elements) => {
+							const uris = elements.map(e => e.uri);
+							if (uris.length === 1) {
+								return this.labelService.getUriLabel(uris[0], { relative: true });
+							}
+							return `${uris.length}`;
+						},
+						dispose: () => { },
+						onDragOver: () => false,
+						drop: () => { },
+						onDragStart: (data, originalEvent) => {
+							try {
+								const elements = data.getData() as ChangesTreeElement[];
+								const uris = elements.filter(isChangesFileItem).map(e => e.uri);
+								this.instantiationService.invokeFunction(accessor => fillEditorsDragData(accessor, uris, originalEvent));
+							} catch {
+								// noop
+							}
+						},
+					},
+					identityProvider: {
+						getId: (element: ChangesTreeElement) => element.uri.toString()
+					},
+					compressionEnabled: true,
+					twistieAdditionalCssClass: (e: unknown) => {
+						if (this.viewMode === ChangesViewMode.List) {
+							return 'force-no-twistie';
+						}
+						// In tree mode, hide twistie for file items (they are never collapsible)
+						return isChangesFileItem(e as ChangesTreeElement) ? 'force-no-twistie' : undefined;
+					},
+				}
+			);
 		}
 
-		// Register list event handlers
-		if (this.listRef) {
-			const list = this.listRef.object;
+		// Register tree event handlers
+		if (this.tree) {
+			const tree = this.tree;
 
-			this.renderDisposables.add(list.onDidOpen(async (e) => {
-				if (e.element?.kind === 'reference' && URI.isUri(e.element.reference)) {
-					const modifiedFileUri = e.element.reference;
-					const originalUri = e.element.options?.originalUri;
+			this.renderDisposables.add(tree.onDidOpen(async (e) => {
+				if (!e.element) {
+					return;
+				}
 
-					if (e.element.options?.isDeletion && originalUri) {
-						await this.editorService.openEditor({
-							resource: originalUri,
-							options: e.editorOptions
-						}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
-						return;
-					}
+				// Ignore folder elements - only open files
+				if (!isChangesFileItem(e.element)) {
+					return;
+				}
 
-					if (originalUri) {
-						await this.editorService.openEditor({
-							original: { resource: originalUri },
-							modified: { resource: modifiedFileUri },
-							options: e.editorOptions
-						}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
-						return;
-					}
+				const { uri: modifiedFileUri, originalUri, isDeletion } = e.element;
 
+				if (isDeletion && originalUri) {
 					await this.editorService.openEditor({
-						resource: modifiedFileUri,
+						resource: originalUri,
 						options: e.editorOptions
 					}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
+					return;
 				}
+
+				if (originalUri) {
+					await this.editorService.openEditor({
+						original: { resource: originalUri },
+						modified: { resource: modifiedFileUri },
+						options: e.editorOptions
+					}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
+					return;
+				}
+
+				await this.editorService.openEditor({
+					resource: modifiedFileUri,
+					options: e.editorOptions
+				}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
 			}));
 		}
 
-		// Update list data with combined entries
+		// Update tree data with combined entries
 		this.renderDisposables.add(autorun(reader => {
 			const entries = combinedEntriesObs.read(reader);
+			const viewMode = this.viewModeObs.read(reader);
 
-			if (!this.listRef) {
+			if (!this.tree) {
 				return;
 			}
 
-			const maxItemsShown = 6;
-			const itemsShown = Math.min(entries.length, maxItemsShown);
-			const height = itemsShown * 22;
-			const list = this.listRef.object;
-			list.layout(height);
-			list.getHTMLElement().style.height = `${height}px`;
-			list.splice(0, list.length, entries);
+			// Toggle list-mode class to remove tree indentation in list mode
+			this.listContainer?.classList.toggle('list-mode', viewMode === ChangesViewMode.List);
+
+			if (viewMode === ChangesViewMode.Tree) {
+				// Tree mode: build hierarchical tree from file entries
+				const treeChildren = buildTreeChildren(entries);
+				this.tree.setChildren(null, treeChildren);
+			} else {
+				// List mode: flat list of file items
+				const listChildren: IObjectTreeElement<ChangesTreeElement>[] = entries.map(item => ({
+					element: item,
+					collapsible: false,
+				}));
+				this.tree.setChildren(null, listChildren);
+			}
+
+			this.layoutTree();
 		}));
+	}
+
+	private layoutTree(): void {
+		if (!this.tree || !this.listContainer) {
+			return;
+		}
+
+		// Calculate remaining height for the tree by subtracting other elements
+		const bodyHeight = this.currentBodyHeight;
+		if (bodyHeight <= 0) {
+			return;
+		}
+
+		// Measure non-list elements height (padding, actions, overview)
+		const bodyPadding = 16; // 8px top + 8px bottom from .changes-view-body
+		const actionsHeight = this.actionsContainer?.offsetHeight ?? 0;
+		const actionsMargin = actionsHeight > 0 ? 8 : 0; // margin-bottom on actions container
+		const overviewHeight = this.overviewContainer?.offsetHeight ?? 0;
+		const containerPadding = 8; // 4px top + 4px bottom from .chat-editing-session-container
+		const containerBorder = 2; // 1px top + 1px bottom border
+
+		const usedHeight = bodyPadding + actionsHeight + actionsMargin + overviewHeight + containerPadding + containerBorder;
+		const availableHeight = Math.max(0, bodyHeight - usedHeight);
+
+		// Limit height to the content so the tree doesn't exceed its items
+		const contentHeight = this.tree.contentHeight;
+		const treeHeight = Math.min(availableHeight, contentHeight);
+
+		this.tree.layout(treeHeight, this.currentBodyWidth);
+		this.tree.getHTMLElement().style.height = `${treeHeight}px`;
 	}
 
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
+		this.currentBodyHeight = height;
+		this.currentBodyWidth = width;
+		this.layoutTree();
 	}
 
 	override focus(): void {
 		super.focus();
-		this.listRef?.object.domFocus();
+		this.tree?.domFocus();
 	}
 
 	override dispose(): void {
-		this.listRef?.dispose();
-		this.listRef = undefined;
+		this.tree?.dispose();
+		this.tree = undefined;
 		super.dispose();
 	}
 }
@@ -527,3 +798,224 @@ export class ChangesViewPaneContainer extends ViewPaneContainer {
 		parent.classList.add('changes-viewlet');
 	}
 }
+
+// --- Tree Delegate & Renderer
+
+class ChangesTreeDelegate implements IListVirtualDelegate<ChangesTreeElement> {
+	getHeight(_element: ChangesTreeElement): number {
+		return 22;
+	}
+
+	getTemplateId(_element: ChangesTreeElement): string {
+		return ChangesTreeRenderer.TEMPLATE_ID;
+	}
+}
+
+interface IChangesTreeTemplate {
+	readonly label: IResourceLabel;
+	readonly templateDisposables: DisposableStore;
+	readonly toolbar: MenuWorkbenchToolBar | undefined;
+	readonly contextKeyService: IContextKeyService | undefined;
+	readonly decorationBadge: HTMLElement;
+	readonly addedSpan: HTMLElement;
+	readonly removedSpan: HTMLElement;
+	readonly lineCountsContainer: HTMLElement;
+}
+
+class ChangesTreeRenderer implements ICompressibleTreeRenderer<ChangesTreeElement, void, IChangesTreeTemplate> {
+	static TEMPLATE_ID = 'changesTreeRenderer';
+	readonly templateId: string = ChangesTreeRenderer.TEMPLATE_ID;
+
+	constructor(
+		private labels: ResourceLabels,
+		private menuId: MenuId | undefined,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@ILabelService private readonly labelService: ILabelService,
+	) { }
+
+	renderTemplate(container: HTMLElement): IChangesTreeTemplate {
+		const templateDisposables = new DisposableStore();
+		const label = templateDisposables.add(this.labels.create(container, { supportHighlights: true, supportIcons: true }));
+
+		const lineCountsContainer = $('.working-set-line-counts');
+		const addedSpan = dom.$('.working-set-lines-added');
+		const removedSpan = dom.$('.working-set-lines-removed');
+		lineCountsContainer.appendChild(addedSpan);
+		lineCountsContainer.appendChild(removedSpan);
+		label.element.appendChild(lineCountsContainer);
+
+		const decorationBadge = dom.$('.changes-decoration-badge');
+		label.element.appendChild(decorationBadge);
+
+		let toolbar: MenuWorkbenchToolBar | undefined;
+		let contextKeyService: IContextKeyService | undefined;
+		if (this.menuId) {
+			const actionBarContainer = $('.chat-collapsible-list-action-bar');
+			contextKeyService = templateDisposables.add(this.contextKeyService.createScoped(actionBarContainer));
+			const scopedInstantiationService = templateDisposables.add(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, contextKeyService])));
+			toolbar = templateDisposables.add(scopedInstantiationService.createInstance(MenuWorkbenchToolBar, actionBarContainer, this.menuId, { menuOptions: { shouldForwardArgs: true, arg: undefined } }));
+			label.element.appendChild(actionBarContainer);
+		}
+
+		return { templateDisposables, label, toolbar, contextKeyService, decorationBadge, addedSpan, removedSpan, lineCountsContainer };
+	}
+
+	renderElement(node: ITreeNode<ChangesTreeElement, void>, _index: number, templateData: IChangesTreeTemplate): void {
+		const element = node.element;
+		templateData.label.element.style.display = 'flex';
+
+		if (isChangesFileItem(element)) {
+			this.renderFileElement(element, templateData);
+		} else {
+			this.renderFolderElement(element, templateData);
+		}
+	}
+
+	renderCompressedElements(node: ITreeNode<ICompressedTreeNode<ChangesTreeElement>, void>, _index: number, templateData: IChangesTreeTemplate): void {
+		const compressed = node.element;
+		const lastElement = compressed.elements[compressed.elements.length - 1];
+
+		templateData.label.element.style.display = 'flex';
+
+		if (isChangesFileItem(lastElement)) {
+			// Shouldn't happen in practice - files don't get compressed
+			this.renderFileElement(lastElement, templateData);
+		} else {
+			// Compressed folder chain - show joined folder names
+			const label = compressed.elements.map(e => isChangesFileItem(e) ? basename(e.uri.path) : e.name);
+			templateData.label.setResource({ resource: lastElement.uri, name: label }, {
+				fileKind: FileKind.FOLDER,
+				separator: this.labelService.getSeparator(lastElement.uri.scheme),
+			});
+
+			// Hide file-specific decorations for folders
+			templateData.decorationBadge.style.display = 'none';
+			templateData.lineCountsContainer.style.display = 'none';
+
+			if (templateData.toolbar) {
+				templateData.toolbar.context = undefined;
+			}
+			if (templateData.contextKeyService) {
+				chatEditingWidgetFileStateContextKey.bindTo(templateData.contextKeyService).set(undefined!);
+			}
+		}
+	}
+
+	private renderFileElement(data: IChangesFileItem, templateData: IChangesTreeTemplate): void {
+		templateData.label.setFile(data.uri, {
+			fileKind: FileKind.FILE,
+			fileDecorations: undefined,
+			strikethrough: data.changeType === 'deleted',
+			hidePath: true,
+		});
+
+		// Show file-specific decorations
+		templateData.lineCountsContainer.style.display = '';
+		templateData.decorationBadge.style.display = '';
+
+		// Update decoration badge (A/M/D)
+		const badge = templateData.decorationBadge;
+		badge.className = 'changes-decoration-badge';
+		switch (data.changeType) {
+			case 'added':
+				badge.textContent = 'A';
+				badge.classList.add('added');
+				break;
+			case 'deleted':
+				badge.textContent = 'D';
+				badge.classList.add('deleted');
+				break;
+			case 'modified':
+			default:
+				badge.textContent = 'M';
+				badge.classList.add('modified');
+				break;
+		}
+
+		templateData.addedSpan.textContent = `+${data.linesAdded}`;
+		templateData.removedSpan.textContent = `-${data.linesRemoved}`;
+
+		// eslint-disable-next-line no-restricted-syntax
+		templateData.label.element.querySelector('.monaco-icon-name-container')?.classList.add('modified');
+
+		if (templateData.toolbar) {
+			templateData.toolbar.context = data.uri;
+		}
+		if (templateData.contextKeyService) {
+			chatEditingWidgetFileStateContextKey.bindTo(templateData.contextKeyService).set(data.state);
+		}
+	}
+
+	private renderFolderElement(data: IChangesFolderItem, templateData: IChangesTreeTemplate): void {
+		templateData.label.setFile(data.uri, {
+			fileKind: FileKind.FOLDER,
+		});
+
+		// Hide file-specific decorations for folders
+		templateData.decorationBadge.style.display = 'none';
+		templateData.lineCountsContainer.style.display = 'none';
+
+		if (templateData.toolbar) {
+			templateData.toolbar.context = undefined;
+		}
+		if (templateData.contextKeyService) {
+			chatEditingWidgetFileStateContextKey.bindTo(templateData.contextKeyService).set(undefined!);
+		}
+	}
+
+	disposeTemplate(templateData: IChangesTreeTemplate): void {
+		templateData.templateDisposables.dispose();
+	}
+}
+
+// --- View Mode Actions
+
+class SetChangesListViewModeAction extends ViewAction<ChangesViewPane> {
+	constructor() {
+		super({
+			id: 'workbench.changesView.action.setListViewMode',
+			title: localize('setListViewMode', "View as List"),
+			viewId: CHANGES_VIEW_ID,
+			f1: false,
+			icon: Codicon.listTree,
+			toggled: changesViewModeContextKey.isEqualTo(ChangesViewMode.List),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.equals('view', CHANGES_VIEW_ID),
+				group: '1_viewmode',
+				order: 1
+			}
+		});
+	}
+
+	async runInView(_: ServicesAccessor, view: ChangesViewPane): Promise<void> {
+		view.viewMode = ChangesViewMode.List;
+	}
+}
+
+class SetChangesTreeViewModeAction extends ViewAction<ChangesViewPane> {
+	constructor() {
+		super({
+			id: 'workbench.changesView.action.setTreeViewMode',
+			title: localize('setTreeViewMode', "View as Tree"),
+			viewId: CHANGES_VIEW_ID,
+			f1: false,
+			icon: Codicon.listFlat,
+			toggled: changesViewModeContextKey.isEqualTo(ChangesViewMode.Tree),
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.equals('view', CHANGES_VIEW_ID),
+				group: '1_viewmode',
+				order: 2
+			}
+		});
+	}
+
+	async runInView(_: ServicesAccessor, view: ChangesViewPane): Promise<void> {
+		view.viewMode = ChangesViewMode.Tree;
+	}
+}
+
+registerAction2(SetChangesListViewModeAction);
+registerAction2(SetChangesTreeViewModeAction);

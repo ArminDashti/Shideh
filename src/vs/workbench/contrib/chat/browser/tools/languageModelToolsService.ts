@@ -252,8 +252,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 
 	/**
 	 * Returns if the given tool or toolset is permitted in the current context.
-	 * When agent mode is enabled, all tools are permitted (no restriction)
-	 * When agent mode is disabled only a subset of read-only tools are permitted in agentic-loop contexts.
+	 * Agent mode is always enabled, so all tools are permitted.
 	 */
 	private isPermitted(toolOrToolSet: IToolData | ToolSet, reader?: IReader): boolean {
 		const agentModeEnabled = this._isAgentModeEnabled.read(reader);

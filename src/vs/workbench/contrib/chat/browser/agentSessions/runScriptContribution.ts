@@ -9,16 +9,18 @@ import { isEqualOrParent } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { localize, localize2 } from '../../../../../nls.js';
-import { MenuId, registerAction2, Action2 } from '../../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { MenuId, MenuRegistry, registerAction2, Action2 } from '../../../../../platform/actions/common/actions.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../../platform/quickinput/common/quickInput.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { TerminalLocation } from '../../../../../platform/terminal/common/terminal.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { AgentSessionsWorkbenchMenus } from '../../../../agentSessions/browser/agentSessionsWorkbenchMenus.js';
+import { IsAgentSessionsWorkspaceContext } from '../../../../common/contextkeys.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IDebugService, ILaunch } from '../../../debug/common/debug.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
+import { IActiveAgentSessionService } from './agentSessionsService.js';
 
 // Storage keys
 const STORAGE_KEY_DEFAULT_RUN_ACTION = 'workbench.agentSessions.defaultRunAction';
@@ -64,6 +66,7 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 		@IDebugService private readonly _debugService: IDebugService,
 		@IInstantiationService _instantiationService: IInstantiationService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IActiveAgentSessionService private readonly _activeAgentSessionService: IActiveAgentSessionService,
 	) {
 		super();
 
@@ -135,10 +138,9 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 					icon: Codicon.play,
 					category: localize2('agentSessions', 'Agent Sessions'),
 					menu: [{
-						id: MenuId.AuxiliaryBarTitle,
+						id: RunScriptDropdownMenuId,
 						group: 'navigation',
 						order: 0,
-						when: ContextKeyExpr.true()
 					}]
 				});
 			}
@@ -161,6 +163,7 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 					id: CONFIGURE_DEFAULT_RUN_ACTION_ID,
 					title: localize2('configureDefaultRunAction', "Configure Default Run Action..."),
 					category: localize2('agentSessions', 'Agent Sessions'),
+					icon: Codicon.play,
 					menu: [{
 						id: RunScriptDropdownMenuId,
 						group: '0_configure',
@@ -176,11 +179,8 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 	}
 
 	private getActiveWorkspaceFolderUri(): URI | undefined {
-		const folders = this._workspaceContextService.getWorkspace().folders;
-		if (folders.length === 1) {
-			return folders[0].uri;
-		}
-		return undefined;
+		const activeSession = this._activeAgentSessionService.activeSession.get();
+		return activeSession?.worktree;
 	}
 
 	private _registerDropdownMenuItems(): void {
@@ -333,6 +333,9 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 
 		// Get the active workspace folder as cwd
 		const cwd = this.getActiveWorkspaceFolderUri();
+		if (!cwd) {
+			return;
+		}
 
 		// Create a new terminal and run the command
 		const terminal = await terminalService.createTerminal({
@@ -353,3 +356,14 @@ export class RunScriptContribution extends Disposable implements IWorkbenchContr
 		return isEqualOrParent(launch.uri, workspaceUri);
 	}
 }
+
+// Register the Run split button submenu on the workbench title bar
+MenuRegistry.appendMenuItem(AgentSessionsWorkbenchMenus.TitleBarRight, {
+	submenu: RunScriptDropdownMenuId,
+	isSplitButton: { togglePrimaryAction: true },
+	title: localize2('run', "Run"),
+	icon: Codicon.play,
+	group: 'navigation',
+	order: 8,
+	when: IsAgentSessionsWorkspaceContext,
+});

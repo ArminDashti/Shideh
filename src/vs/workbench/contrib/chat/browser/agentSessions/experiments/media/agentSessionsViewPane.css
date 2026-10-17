@@ -5,6 +5,13 @@
 
 .agent-sessions-viewpane {
 
+	.agent-sessions-container {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+	}
+
 	/* Section headers - more prominent than time-based groupings */
 	.ai-customization-header,
 	.agent-sessions-header {
@@ -12,7 +19,7 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
-		padding: 6px 20px;
+		padding: 6px 20px 6px 12px;
 		letter-spacing: 0.05em;
 	}
 
@@ -49,21 +56,27 @@
 		opacity: 0.7;
 	}
 
-	/* AI Customization section */
+	/* AI Customization section - pinned to bottom */
 	.ai-customization-shortcuts {
 		display: flex;
 		flex-direction: column;
+		flex-shrink: 0;
+		border-top: 1px solid var(--vscode-widget-border);
+		margin-top: 8px;
+		padding-top: 4px;
 		padding-bottom: 8px;
-		border-bottom: 1px solid var(--vscode-widget-border);
 	}
 
 	.ai-customization-shortcuts .ai-customization-links {
 		display: flex;
 		flex-direction: column;
+		max-height: 500px;
+		overflow: hidden;
+		transition: max-height 0.2s ease-out;
 	}
 
 	.ai-customization-shortcuts .ai-customization-links.collapsed {
-		display: none;
+		max-height: 0;
 	}
 
 	.ai-customization-shortcuts .ai-customization-link {
@@ -101,23 +114,42 @@
 		flex: 1;
 	}
 
-	.ai-customization-shortcuts .ai-customization-link .link-count {
+	.ai-customization-shortcuts .ai-customization-link .link-counts {
 		flex-shrink: 0;
-		font-size: 11px;
-		color: var(--vscode-descriptionForeground);
-		opacity: 0.7;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-left: auto;
 	}
 
-	.ai-customization-shortcuts .ai-customization-link .link-count.hidden {
+	.ai-customization-shortcuts .ai-customization-link .link-counts.hidden {
 		display: none;
 	}
 
-	/* Sessions section */
+	.ai-customization-shortcuts .ai-customization-link .source-count-badge {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+
+	.ai-customization-shortcuts .ai-customization-link .source-count-icon {
+		font-size: 12px;
+		opacity: 0.6;
+	}
+
+	.ai-customization-shortcuts .ai-customization-link .source-count-num {
+		font-size: 11px;
+		color: var(--vscode-descriptionForeground);
+		opacity: 0.8;
+	}
+
+	/* Sessions section - fills remaining space above customizations */
 	.agent-sessions-section {
 		display: flex;
 		flex-direction: column;
 		flex: 1;
 		overflow: hidden;
+		min-height: 0;
 	}
 
 	.agent-sessions-header {
@@ -131,10 +163,6 @@
 
 	.agent-sessions-header .agent-sessions-header-toolbar {
 		margin-left: auto;
-	}
-
-	.agent-sessions-header:hover {
-		background-color: var(--vscode-list-hoverBackground);
 	}
 
 	.agent-sessions-header:focus {
@@ -160,5 +188,10 @@
 	.agent-sessions-control-container {
 		flex: 1;
 		overflow: hidden;
+
+		/* Override section header padding to align with dot indicators */
+		.agent-session-section {
+			padding-left: 12px;
+		}
 	}
 }
