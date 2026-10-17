@@ -1104,4 +1104,31 @@ export function preferredSideBySideGroupDirection(configurationService: IConfigu
 	return GroupDirection.RIGHT;
 }
 
+/**
+ * A layered disposable that can have two separate behaviors for a local and global dispose.
+ * Used for overriding `enablePreview` such that preview editors can be notified to become non-preview once the whole operation is done.
+ */
+export class EnablePreviewDisposable implements IDisposable {
+
+	private disposables: DisposableStore;
+
+	constructor(init: () => void, private set: () => void, private partialRestore: () => void, private finishRestore: () => void) {
+		this.disposables = new DisposableStore();
+		init();
+	}
+	public localEnable(): IDisposable {
+		this.set();
+		const disposable = toDisposable(() => {
+			this.partialRestore();
+		});
+		this.disposables.add(disposable);
+		return disposable;
+	}
+
+	dispose(): void {
+		this.disposables.dispose();
+		this.finishRestore();
+	}
+}
+
 //#endregion

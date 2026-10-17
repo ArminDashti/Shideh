@@ -941,6 +941,7 @@ export class TestEditorGroupsService implements IEditorGroupsService {
 
 	partOptions!: IEditorPartOptions;
 	enforcePartOptions(options: IEditorPartOptions): IDisposable { return Disposable.None; }
+	enforceEnablePreview(): EnablePreviewDisposable { throw new Error('not implemented'); }
 
 	readonly mainPart = this;
 	readonly activeModalEditorPart: IModalEditorPart | undefined = undefined;

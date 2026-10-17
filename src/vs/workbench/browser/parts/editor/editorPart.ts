@@ -145,7 +145,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	private readonly _onDidScroll = this._register(new Relay<void>());
 	readonly onDidScroll = Event.any(this.onDidSetGridWidget.event, this._onDidScroll.event);
 
-	private readonly _onDidChangeEditorPartOptions = this._register(new Emitter<IEditorPartOptionsChangeEvent>());
+	private readonly _onDidChangeEditorPartOptions = this._register(new PauseableEmitter<IEditorPartOptionsChangeEvent>());
 	readonly onDidChangeEditorPartOptions = this._onDidChangeEditorPartOptions.event;
 
 	private readonly _onWillDispose = this._register(new Emitter<void>());
@@ -235,6 +235,29 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 			this.enforcedPartOptions.splice(this.enforcedPartOptions.indexOf(options), 1);
 			this.handleChangedPartOptions();
 		});
+	}
+
+	enforceEnablePreview(): EnablePreviewDisposable {
+		const init = () => {
+			this._onDidChangeEditorPartOptions.pause();
+		};
+
+		const set = () => {
+			this.enforcedPartOptions.push({ enablePreview: true });
+			this.handleChangedPartOptions();
+		};
+
+		const partialRestore = () => {
+			this.enforcedPartOptions.splice(this.enforcedPartOptions.indexOf({ enablePreview: true }), 1);
+			this.handleChangedPartOptions();
+		};
+
+		const finishRestore = () => {
+			this.handleChangedPartOptions();
+			this._onDidChangeEditorPartOptions.resume();
+		};
+
+		return new EnablePreviewDisposable(init, set, partialRestore, finishRestore);
 	}
 
 	private top = 0;
