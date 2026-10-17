@@ -115,6 +115,9 @@ const fixedDiscoveryFiles: { workspace: IFixedDiscoveryFile[]; user: IFixedDisco
 	user: [],
 };
 
+// Back-compat alias for tests and callers that referenced the old symbol name.
+const agentInstructions = fixedDiscoveryFiles;
+
 function throwIfCancelled(token: CancellationToken): void {
 	if (token.isCancellationRequested) {
 		throw new CancellationError();
