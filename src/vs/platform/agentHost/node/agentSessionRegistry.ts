@@ -105,6 +105,11 @@ export class AgentSessionRegistry extends Disposable {
 		await this._database.unregisterRuntimeSession(session.toString());
 	}
 
+	/** Every registered session URI key without running legacy metadata migration. */
+	async listSessionKeys(): Promise<ReadonlySet<string>> {
+		return new Set((await this._database.listSessions()).map(entry => entry.session));
+	}
+
 	/**
 	 * Removes any registry entry for `session` (a true delete) and durably
 	 * tombstones it so discovery cannot register it. Used both to delete a
