@@ -320,6 +320,13 @@ export function generateAutoApproveActions(commandLine: string, subCommands: str
 			type: 'configure'
 		} satisfies TerminalNewAutoApproveButtonData
 	});
+	
+	actions.push({
+		label: localize('autoReply.configure', 'Configure Auto Reply...'),
+		data: {
+			type: 'configureAutoReply'
+		} satisfies TerminalNewAutoApproveButtonData
+	});
 
 	return actions;
 }
