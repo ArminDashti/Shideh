@@ -615,6 +615,9 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 			if (pendingToolCallKey) {
 				this._pendingToolCalls.delete(pendingToolCallKey);
 			}
+			if (store) {
+				this.cleanupCallDisposables(requestId, store);
+			}
 			return denialResult;
 		}
 
