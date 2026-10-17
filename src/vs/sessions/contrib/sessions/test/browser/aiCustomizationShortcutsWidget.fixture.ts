@@ -244,7 +244,8 @@ function renderWidget(ctx: ComponentFixtureContext, options?: { mcpServerCount?:
 
 export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 
-	Expanded: defineComponentFixture({
+	// Verifies default behavior from storage fallback (collapsed by default).
+	DefaultCollapsed: defineComponentFixture({
 		labels: { kind: 'screenshot' },
 		render: (ctx) => renderWidget(ctx),
 	}),
@@ -256,7 +257,7 @@ export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 
 	WithMcpServers: defineComponentFixture({
 		labels: { kind: 'screenshot' },
-		render: (ctx) => renderWidget(ctx, { mcpServerCount: 3 }),
+		render: (ctx) => renderWidget(ctx, { mcpServerCount: 3, collapsed: false }),
 	}),
 
 	MinimumHeightWithMcpServers: defineComponentFixture({
