@@ -1621,6 +1621,15 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			dom.clearNode(templateData.value);
 		} else if (isPendingDividerVM(templateData.currentElement)) {
 			dom.clearNode(templateData.value);
+
+			templateData.currentElement = undefined;
+			templateData.elementDisposables.clear();
+			if (templateData.titleToolbar) {
+				templateData.titleToolbar.context = undefined;
+			}
+			templateData.footerToolbar.context = undefined;
+			templateData.checkpointToolbar.context = undefined;
+			templateData.checkpointRestoreToolbar.context = undefined;
 		}
 		templateData.stickyScrollSource = undefined;
 

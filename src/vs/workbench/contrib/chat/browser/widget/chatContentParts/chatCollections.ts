@@ -246,6 +246,25 @@ export class KeyedResourcePool<T extends IDisposable> implements IDisposable {
 		}
 		this._inUse.clear();
 	}
+
+	/**
+	 * Clear and dispose the items in the pool that are not in use.
+	 */
+	clear(): void {
+		for (const item of this.pool) {
+			item.dispose();
+		}
+		this.pool.length = 0;
+	}
+
+	public dispose(): void {
+		this.clear();
+
+		for (const item of this._inUse) {
+			item.dispose();
+		}
+		this._inUse.clear();
+	}
 }
 
 export interface IDisposableReference<T> extends IDisposable {
