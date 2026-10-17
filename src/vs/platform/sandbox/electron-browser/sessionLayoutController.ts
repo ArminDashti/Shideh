@@ -41,6 +41,15 @@ interface ISessionViewState {
 }
 
 /**
+ * Shared layout state for the new-session (untitled) view. Untitled sessions
+ * each have a distinct resource, so a single value carries the user's choices
+ * across new sessions.
+ */
+interface INewSessionViewState {
+	readonly auxiliaryBarVisible: boolean;
+}
+
+/**
  * Full per-session layout state persisted to storage.
  */
 interface ISessionLayoutEntry {
@@ -53,6 +62,8 @@ interface ISessionLayoutEntry {
 const SESSION_LAYOUT_STATE_KEY = 'sessions.layoutState';
 /** Legacy key — read on startup for migration only. */
 const WORKING_SETS_STORAGE_KEY = 'sessions.workingSets';
+/** Shared layout state for the new-session (untitled) view. */
+const NEW_SESSION_VIEW_STATE_KEY = 'sessions.newSessionViewState';
 
 export class LayoutController extends Disposable {
 
@@ -264,6 +275,11 @@ export class LayoutController extends Disposable {
 		});
 	}
 
+	private _setNewSessionViewState(state: INewSessionViewState): void {
+		this._newSessionViewState = state;
+		this._storageService.store(NEW_SESSION_VIEW_STATE_KEY, JSON.stringify(state), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+	}
+
 	private _syncAuxiliaryBarVisibility(sessionResource: URI | undefined, hasWorkspace: boolean, isUntitled: boolean, hasChanges: boolean): void {
 		if (!sessionResource || !hasWorkspace) {
 			return;
@@ -295,6 +311,20 @@ export class LayoutController extends Disposable {
 	}
 
 	private _loadState(): void {
+		const newSessionRaw = this._storageService.get(NEW_SESSION_VIEW_STATE_KEY, StorageScope.WORKSPACE);
+		if (newSessionRaw) {
+			try {
+				const parsed = JSON.parse(newSessionRaw);
+				if (parsed && typeof parsed.auxiliaryBarVisible === 'boolean') {
+					this._newSessionViewState = { auxiliaryBarVisible: parsed.auxiliaryBarVisible };
+				} else {
+					this._storageService.remove(NEW_SESSION_VIEW_STATE_KEY, StorageScope.WORKSPACE);
+				}
+			} catch {
+				this._storageService.remove(NEW_SESSION_VIEW_STATE_KEY, StorageScope.WORKSPACE);
+			}
+		}
+
 		// Load from new key first
 		const raw = this._storageService.get(SESSION_LAYOUT_STATE_KEY, StorageScope.WORKSPACE);
 		if (raw) {
