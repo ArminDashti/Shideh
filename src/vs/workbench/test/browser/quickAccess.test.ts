@@ -13,7 +13,7 @@ import { DisposableStore, toDisposable, IDisposable } from '../../../base/common
 import { timeout } from '../../../base/common/async.js';
 import { PickerQuickAccessProvider, FastAndSlowPicks, IPickerQuickAccessItem } from '../../../platform/quickinput/browser/pickerQuickAccess.js';
 import { URI } from '../../../base/common/uri.js';
-import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
+import { GroupDirection, IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../services/editor/common/editorService.js';
 import { EditorService } from '../../services/editor/browser/editorService.js';
 import { PickerEditorState } from '../../browser/quickaccess.js';
