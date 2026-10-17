@@ -109,6 +109,28 @@ import { isSessionPullRequestOperation } from '../common/pullRequestCreation.js'
 
 const $ = dom.$;
 
+// --- Telemetry
+
+type ChangesViewVersionModeChangeEvent = {
+	mode: string;
+};
+
+type ChangesViewVersionModeChangeClassification = {
+	owner: 'osortega';
+	comment: 'Tracks when the user switches the version mode in the Changes panel (Branch Changes, All Changes, Last Turn).';
+	mode: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The version mode selected by the user.' };
+};
+
+type ChangesViewFileSelectEvent = {
+	changeType: string;
+};
+
+type ChangesViewFileSelectClassification = {
+	owner: 'osortega';
+	comment: 'Tracks when the user selects a changed file in the Changes panel.';
+	changeType: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The type of change (added, modified, deleted).' };
+};
+
 // --- Constants
 
 const RUN_SESSION_CODE_REVIEW_ACTION_ID = 'sessions.codeReview.run';
