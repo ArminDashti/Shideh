@@ -204,10 +204,14 @@ suite('AbstractUpdateService', () => {
 	}
 
 	function changeMode(service: TestUpdateService, mode: string): Promise<unknown> {
-		configurationService.setUserConfiguration('update.mode', mode);
 		const next = Event.toPromise(service.onStateChange);
-		configurationService.onDidChangeConfigurationEmitter.fire({ affectsConfiguration: () => true } as unknown as IConfigurationChangeEvent);
+		configureMode(mode);
 		return next;
+	}
+
+	function configureMode(mode: string): void {
+		configurationService.setUserConfiguration('update.mode', mode);
+		configurationService.onDidChangeConfigurationEmitter.fire({ affectsConfiguration: () => true } as unknown as IConfigurationChangeEvent);
 	}
 
 	function setPolicy(service: TestUpdateService, policyValue: string | undefined): Promise<unknown> {
