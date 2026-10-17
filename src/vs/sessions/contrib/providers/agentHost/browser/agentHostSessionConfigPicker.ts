@@ -64,7 +64,7 @@ import { showMobilePickerSheet, IMobilePickerSheetItem, IMobilePickerSheetSearch
 import { AgentHostModePicker } from './agentHostModePicker.js';
 import { createAgentHostModePicker } from '../../../shideh/browser/shidehAgentHostModePickerRegistration.js';
 import { AgentHostPermissionPickerActionItem } from './agentHostPermissionPickerActionItem.js';
-import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
+import { AgentHostPermissionPickerDelegate, isWellKnownAutoApproveSchema, isWellKnownClaudePermissionModeSchema, isWellKnownCodexApprovalsSchema, isWellKnownModeSchema } from './agentHostPermissionPickerDelegate.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { AGENT_HOST_CHECKOUT_CHANGESET_OPERATION_ID } from '../../../../../platform/agentHost/common/agentHostChangesetOperationService.js';
 import { CheckoutOperationPreAction, checkoutOperationMeta, isCheckoutOperationDirtyWorkingTreeErrorData } from '../../../../../platform/agentHost/common/meta/agentCheckoutOperationMeta.js';
@@ -1870,6 +1870,32 @@ registerAction2(class extends Action2 {
 				id: Menus.NewSessionControl,
 				group: 'navigation',
 				order: 2,
+				when: ContextKeyExpr.or(IsActiveSessionLocalAgentHost, IsActiveSessionRemoteAgentHost),
+			}],
+		});
+	}
+
+	override async run(): Promise<void> { }
+});
+
+// ---- New session Codex approvals picker (NewSessionControl) ----
+// Codex-specific "Approvals" chip. Shares the NewSessionControl navigation
+// group with the Claude permission-mode picker (order 2); the two are
+// mutually exclusive because each hides itself when the active session's
+// schema doesn't expose its backing property.
+
+const NEW_SESSION_CODEX_APPROVALS_PICKER_ID = 'sessions.agentHost.newSessionCodexApprovalsPicker';
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: NEW_SESSION_CODEX_APPROVALS_PICKER_ID,
+			title: localize2('agentHostNewSessionCodexApprovalsPicker', "Approvals"),
+			f1: false,
+			menu: [{
+				id: Menus.NewSessionControl,
+				group: 'navigation',
+				order: 3,
 				when: ContextKeyExpr.or(IsActiveSessionLocalAgentHost, IsActiveSessionRemoteAgentHost),
 			}],
 		});
