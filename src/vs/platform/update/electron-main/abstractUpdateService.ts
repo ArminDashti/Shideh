@@ -581,7 +581,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			this.doQuitAndInstall();
 		});
 
-		return Promise.resolve(undefined);
+		const vetoed = await this.lifecycleMainService.quit(true /* will restart */);
+		this.logService.trace(`update#quitAndInstall(): after lifecycle quit() with veto: ${vetoed}`);
+
+		if (vetoed) {
+			shutdownListener.dispose();
+		}
 	}
 
 	private async checkForOverwriteUpdates(explicit: boolean = false): Promise<boolean> {
