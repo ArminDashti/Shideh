@@ -53,6 +53,7 @@ import { ChatInteractivity, getSessionStatusMessage, IChat, isActiveSessionStatu
 import { IChatViewFactory } from '../../../services/chatView/browser/chatViewFactory.js';
 import { isExperimentalSessionComposerLayoutEnabled, NewChatWidget } from './newChatWidget.js';
 import { NewChatInSessionWidget } from './newChatInSessionWidget.js';
+import { AutomationsView } from '../../sessions/browser/views/automationsEditor.js';
 import { SessionInputBanners } from '../../sessionInputBanners/browser/sessionInputBanners.js';
 import { CustomizationMigrationAttentionPresenter } from '../../../../workbench/contrib/chat/browser/aiCustomization/customizationMigrationAttentionPresenter.js';
 import { SessionType } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
@@ -1077,5 +1078,9 @@ export class ChatViewFactory implements IChatViewFactory {
 			throw new Error('Cannot restore incompatible chat view state');
 		}
 		return instantiationService.createInstance(ChatView, parent, state);
+	}
+
+	createAutomationsView(): AbstractChatView {
+		return this.instantiationService.createInstance(AutomationsView);
 	}
 }

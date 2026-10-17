@@ -652,6 +652,43 @@ registerAction2(class NewQuickChatAction extends Action2 {
 	}
 });
 
+registerAction2(class ManageAutomationsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.manageAutomations',
+			title: localize2('manageAutomations', "Manage Automations"),
+			menu: []
+		});
+	}
+	override run(accessor: ServicesAccessor): void {
+		accessor.get(ISessionsPartService).showAutomationsPage();
+	}
+});
+
+registerAction2(class NewAutomationAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.newAutomation',
+			title: localize2('newAutomation', "New Automation"),
+			icon: Codicon.plus,
+			menu: [{
+				id: SessionSectionToolbarMenuId,
+				group: 'navigation',
+				order: 0,
+				when: ContextKeyExpr.equals(SessionSectionTypeContext.key, 'automations'),
+			}]
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const dialogService = accessor.get(IAutomationDialogService);
+		const automationService = accessor.get(IAutomationService);
+		const result = await dialogService.showAutomationDialog({});
+		if (result?.kind === 'create') {
+			await automationService.createAutomation(result.value);
+		}
+	}
+});
+
 const ConfirmArchiveStorageKey = 'sessions.confirmArchive';
 
 function getArchiveSectionConfirmationMessage(context: ISessionSection, wording: ChatSessionArchiveActionWording): string {

@@ -2561,10 +2561,13 @@ interface ISessionSectionTemplate extends ISessionHeaderTemplate, ISessionHeader
 	readonly chevron: HTMLElement;
 	readonly contextKeyService: IContextKeyService;
 	readonly disposables: DisposableStore;
+	readonly elementDisposables: DisposableStore;
 }
 
 export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, FuzzyScore, ISessionSectionTemplate> {
 	static readonly TEMPLATE_ID = 'session-section';
+
+	private static readonly READ_AUTOMATION_RUNS_KEY = 'sessionsListControl.readAutomationRuns';
 
 	private readonly templatesByElement = new WeakMap<ISessionSection, ISessionSectionTemplate>();
 	private readonly templatesById = new Map<string, ISessionSectionTemplate>();
@@ -7533,6 +7536,9 @@ export function computeReorderSortChanges(input: IReorderSortInput): { set: Map<
 
 /** Fixed section id for workspace-less "quick chat" sessions. */
 export const QUICK_CHATS_SECTION_ID = 'quickchats';
+
+/** Fixed section id for the non-expandable "Automations" shortcut row. */
+export const AUTOMATIONS_SECTION_ID = 'automations';
 
 /**
  * Whether a session is a workspace-less "quick chat", per the session's own
