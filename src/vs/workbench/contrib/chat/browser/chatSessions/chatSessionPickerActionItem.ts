@@ -60,6 +60,7 @@ export class ChatSessionPickerActionItem extends ActionWidgetDropdownActionViewI
 		@IOpenerService private readonly openerService: IOpenerService,
 	) {
 		const { group, item } = initialState;
+		const isLocked = group.locked ?? false;
 		const actionWithLabel: IAction = {
 			...action,
 			label: item?.name || group.name,
