@@ -42,6 +42,8 @@ export abstract class AbstractDiskFileSystemProvider extends Disposable implemen
 	Pick<IFileSystemProvider, 'onDidChangeFile'>,
 	Pick<IFileSystemProvider, 'onDidWatchError'> {
 
+	private isDisposed = false;
+
 	constructor(
 		protected readonly logService: ILogService,
 		private readonly options?: IDiskFileSystemProviderOptions
