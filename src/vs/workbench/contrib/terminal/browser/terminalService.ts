@@ -982,7 +982,6 @@ export class TerminalService extends Disposable implements ITerminalService {
 		if (this._terminalProfileService.availableProfiles.length === 0) {
 			const isPtyTerminal = options?.config && hasKey(options.config, { customPtyImplementation: true });
 			if (!isPtyTerminal && !isLocalInRemoteTerminal) {
-				this._logService.debug(`#terminalService#createTerminal: !isPtyTerminal and !isLocalInRemoteTerminal`);
 				if (this._connectionState === TerminalConnectionState.Connecting) {
 					mark(`code/terminal/willGetProfiles`);
 				}
@@ -1009,11 +1008,9 @@ export class TerminalService extends Disposable implements ITerminalService {
 
 		if (!config) {
 			config = this._terminalProfileService.getDefaultProfile();
-			this._logService.debug(`#terminalService#createTerminal: !config, so set it to new value: ${JSON.stringify(config)}`);
 		}
+		const shellLaunchConfig = config && hasKey(config, { extensionIdentifier: true }) ? {} : this._terminalInstanceService.convertProfileToShellLaunchConfig(config || {});
 
-		const shellLaunchConfig = config && 'extensionIdentifier' in config ? {} : this._terminalInstanceService.convertProfileToShellLaunchConfig(config || {});
-		this._logService.debug(`#terminalService#createTerminal: shellLaunchConfig is ${JSON.stringify(shellLaunchConfig)}`);
 		// Get the contributed profile if it was provided
 		const contributedProfile = options?.skipContributedProfileCheck ? undefined : await this._getContributedProfile(shellLaunchConfig, options);
 
