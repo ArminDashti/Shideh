@@ -5069,7 +5069,7 @@ export class CopilotAgentSession extends Disposable {
 				this._logService.warn(`[Copilot:${this.sessionId}] Permission request without toolCallId, auto-denying: kind=${request.kind}`);
 				return attributePermissionResult({ kind: 'reject' }, 'host_policy');
 			}
-			if (this._unroutableSubagentToolCallIds.delete(toolCallId)) {
+			if (this._subagentRouting.takeUnroutableToolCall(toolCallId)) {
 				this._logService.error(`[Copilot:${this.sessionId}] Rejecting permission request for unroutable subagent tool call: toolCallId=${toolCallId}, kind=${request.kind}`);
 				return attributePermissionResult({ kind: 'reject' }, 'unattended_fallback');
 			}
@@ -5780,7 +5780,6 @@ export class CopilotAgentSession extends Disposable {
 			});
 			return undefined;
 		}
-		this._pendingEditContentUris.set(toolCallId, afterUri);
 
 		const diffCounts = typeof request.diff === 'string' ? countUnifiedDiffLines(request.diff) : undefined;
 
@@ -5931,9 +5930,6 @@ export class CopilotAgentSession extends Disposable {
 				request: withChatInputRequestPurpose(inputRequest, ChatInputRequestPurpose.AskUser),
 			});
 
-			const result = await pendingInput;
-			this._logService.info(`[Copilot:${this.sessionId}] User input response: requestId=${requestId}, response=${result.response}`);
-
 			if (result.response !== ChatInputResponseKind.Accept || !result.answers) {
 				return { answer: '', wasFreeform: true };
 			}
@@ -5957,6 +5953,29 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.error(error, `[Copilot:${this.sessionId}] Failed to handle user input request: question="${questionPreview}"`);
 			throw error;
 		}
+	}
+
+	private async _requestChatInput<TResult, TMetadata>(options: {
+		readonly registry: PendingRequestRegistry<TResult, TMetadata>;
+		readonly label: string;
+		readonly metadata: TMetadata;
+		readonly detail?: string;
+		readonly buildRequest: (requestId: string) => ChatInputRequest;
+		readonly describeResponse: (result: TResult) => string;
+	}): Promise<TResult> {
+		const requestId = generateUuid();
+		this._logService.info(`[Copilot:${this.sessionId}] ${options.label} request: requestId=${requestId}${options.detail ? `, ${options.detail}` : ''}`);
+
+		const pendingRequest = options.registry.register(requestId, options.metadata);
+		const request = options.buildRequest(requestId);
+		this._emitAction({
+			type: ActionType.ChatInputRequested,
+			request,
+		});
+
+		const result = await pendingRequest;
+		this._logService.info(`[Copilot:${this.sessionId}] ${options.label} response: requestId=${requestId}, response=${options.describeResponse(result)}`);
+		return result;
 	}
 
 	/**
@@ -5987,9 +6006,6 @@ export class CopilotAgentSession extends Disposable {
 
 		const messagePreview = context.message.substring(0, 100);
 		try {
-			const requestId = generateUuid();
-			this._logService.info(`[Copilot:${this.sessionId}] Elicitation request: requestId=${requestId}, mode=${context.mode ?? 'form'}, source=${context.elicitationSource ?? '<unknown>'}, message="${messagePreview}"`);
-
 			const schema = context.mode === 'url' ? undefined : context.requestedSchema;
 			const requiredSet = new Set(schema?.required ?? []);
 			const questions: ChatInputQuestion[] | undefined = schema
@@ -6009,9 +6025,6 @@ export class CopilotAgentSession extends Disposable {
 				type: ActionType.ChatInputRequested,
 				request: inputRequest,
 			});
-
-			const result = await pendingElicitation;
-			this._logService.info(`[Copilot:${this.sessionId}] Elicitation response: requestId=${requestId}, response=${result.response}`);
 
 			if (result.response === ChatInputResponseKind.Decline) {
 				return { action: 'decline' };
@@ -6284,6 +6297,9 @@ export class CopilotAgentSession extends Disposable {
 
 	// ---- event wiring -------------------------------------------------------
 
+	/**
+	 * Subscribes SDK events that update session state, emit protocol actions, or report telemetry.
+	 */
 	private _subscribeToEvents(): void {
 		const wrapper = this._wrapper;
 		const sessionId = this.sessionId;
@@ -6351,7 +6367,7 @@ export class CopilotAgentSession extends Disposable {
 		//    pin the wrong event to the turn.
 		this._register(wrapper.onUserMessage(e => {
 			if (e.agentId) {
-				this._resumeSubagentForEvent(e, { text: e.data.content, origin: { kind: MessageKind.User } });
+				this._subagentRouting.resumeForEvent(e, { text: e.data.content, origin: { kind: MessageKind.User } });
 				return;
 			}
 			if (e.data.source && e.data.source.toLowerCase() !== 'user') {
@@ -6382,6 +6398,35 @@ export class CopilotAgentSession extends Disposable {
 				}
 				this._databaseRef.object.setTurnEventId(this._turnId, e.id);
 				this._currentTurn.value?.completeEventId(e.id);
+			}
+		}));
+
+		this._register(wrapper.onUserMessage(e => {
+			// Restricted `conversation.messageText` (source=user): the raw user prompt text. Emit only
+			// for genuine human prompts on the main agent — skip subagent turns (driven by the parent)
+			// and SDK-injected synthetic messages (skill/harness injections carry a non-`user` source,
+			// matching `isSyntheticUserMessage`) so injected content is not reported as the user's prompt.
+			if (!e.agentId && (!e.data.source || e.data.source.toLowerCase() === 'user')) {
+				void this._telemetryReporter.userMessageText(this.sessionUri.toString(), this._currentTurn?.clientType ?? AgentHostClientType.Unknown, e.data.content, this._turnOrdinal).catch(err => this._logService.trace(`[Copilot:${this.sessionId}] Telemetry emission failed: ${getErrorMessage(err)}`));
+			}
+		}));
+
+		this._register(wrapper.onTurnStart(e => {
+			this._currentTurn?.markRunning();
+			if (!e.agentId) {
+				const telemetryMessageId = this._currentTurn?.id ?? e.data.turnId;
+				if (this._activeRepoInfoTurn?.telemetryMessageId === telemetryMessageId) {
+					return;
+				}
+				this._cancelActiveRepoInfoTelemetry();
+				const turn: NonNullable<CopilotAgentSession['_activeRepoInfoTurn']> = {
+					telemetryMessageId,
+					cancelled: false,
+					begin: Promise.resolve(undefined),
+				};
+				const isCurrent = () => !turn.cancelled && this._isLaunchTokenCurrent();
+				turn.begin = this._beginRepoInfoTelemetry(telemetryMessageId, isCurrent);
+				this._activeRepoInfoTurn = turn;
 			}
 		}));
 
@@ -6851,10 +6896,10 @@ export class CopilotAgentSession extends Disposable {
 			}
 			const tracked = this._activeToolCalls.get(e.data.toolCallId);
 			if (!tracked) {
-				this._unroutableSubagentToolCallIds.delete(e.data.toolCallId);
+				this._subagentRouting.forgetUnroutableToolCall(e.data.toolCallId);
 				return;
 			}
-			const parentToolCallId = tracked.parentToolCallId ?? this._parentToolCallIdForSubagentEvent(e);
+			const parentToolCallId = tracked.parentToolCallId ?? this._subagentRouting.parentToolCallIdForEvent(e);
 			if (!parentToolCallId && e.agentId) {
 				this._logService.warn(`[Copilot:${this.sessionId}] Dropping tool.execution_complete for unknown subagent agentId=${e.agentId}`);
 				return;
@@ -7175,7 +7220,7 @@ export class CopilotAgentSession extends Disposable {
 					pluginVersion: e.data.pluginVersion,
 				});
 			}
-			const parentToolCallId = this._parentToolCallIdForSubagentEvent(e);
+			const parentToolCallId = this._subagentRouting.parentToolCallIdForEvent(e);
 			const synth = synthesizeSkillToolCall(e.data, e.id);
 			this._emitAction({
 				type: ActionType.ChatToolCallStart,
@@ -7258,6 +7303,20 @@ export class CopilotAgentSession extends Disposable {
 			const parentToolCallId = this._parentToolCallIdForSubagentEvent(e);
 			if (parentToolCallId) {
 				this._updateSubagentModel(parentToolCallId, e.data.model);
+			}
+		}));
+
+		this._register(wrapper.onSubagentCompleted(e => {
+			this._subagentRouting.completeSubagentTurn(e.agentId, e.data.toolCallId);
+		}));
+
+		this._register(wrapper.onSubagentFailed(e => {
+			this._subagentRouting.completeSubagentTurn(e.agentId, e.data.toolCallId);
+		}));
+
+		this._register(wrapper.onHookEnd(e => {
+			if (e.data.hookType === 'agentStop') {
+				this._subagentRouting.completeSubagentTurn(e.agentId);
 			}
 		}));
 
@@ -7736,7 +7795,7 @@ export class CopilotAgentSession extends Disposable {
 			if (this._shouldDropUnmappedSubagentEvent(e, 'assistant.reasoning_delta')) {
 				return;
 			}
-			this._emitReasoningDelta(e.data.deltaContent, this._parentToolCallIdForSubagentEvent(e));
+			this._emitReasoningDelta(e.data.deltaContent, this._subagentRouting.parentToolCallIdForEvent(e));
 		}));
 
 		// Sync the AHP session config when the SDK's `currentMode` changes
@@ -8117,9 +8176,7 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.warn(`[Copilot:${this.sessionId}] Rejecting plan review request without an active turn`);
 			return { approved: false };
 		}
-		const requestId = generateUuid();
 		const questionId = generateUuid();
-		this._logService.info(`[Copilot:${this.sessionId}] exitPlanMode.request: rpcId=${requestId}, actions=[${data.actions.join(',')}], recommended=${data.recommendedAction}`);
 
 		let planPath: string | null = null;
 		try {
@@ -8187,9 +8244,42 @@ export class CopilotAgentSession extends Disposable {
 		});
 
 		try {
-			return await pendingPlanReview;
+			return await this._requestChatInput({
+				registry: this._pendingPlanReviews,
+				label: 'Plan review',
+				metadata: {
+					actions: data.actions,
+					recommendedAction: data.recommendedAction,
+					questionId,
+				},
+				detail: `actions=[${data.actions.join(',')}], recommended=${data.recommendedAction}`,
+				buildRequest: id => {
+					requestId = id;
+					return {
+						id,
+						planReview: {
+							title: localize('agentHost.planReview.title', "Review Plan"),
+							content: data.summary || localize('agentHost.planReview.fallbackSummary', "A plan is ready for review."),
+							actions,
+							canProvideFeedback: true,
+							answerQuestionId: questionId,
+							...(planPath ? { planUri: URI.file(planPath).toString() } : {}),
+						},
+						questions: [{
+							kind: ChatInputQuestionKind.SingleSelect,
+							id: questionId,
+							title: localize('agentHost.planReview.title', "Review Plan"),
+							message: localize('agentHost.planReview.questionMessage', "How would you like to proceed?"),
+							required: true,
+							options,
+							allowFreeformInput: true,
+						}],
+					} satisfies ChatInputRequestWithPlanReview;
+				},
+				describeResponse: result => String(result.approved),
+			});
 		} catch (err) {
-			this._logService.error(err, `[Copilot:${this.sessionId}] exitPlanMode.request handler failed: rpcId=${requestId}`);
+			this._logService.error(err, `[Copilot:${this.sessionId}] exitPlanMode.request handler failed: requestId=${requestId ?? '<unknown>'}`);
 			return { approved: false };
 		}
 	}
@@ -8852,30 +8942,6 @@ export class CopilotAgentSession extends Disposable {
 
 		this._register(wrapper.onToolPartialResult(e => {
 			this._logService.trace(`[Copilot:${sessionId}] Tool partial result: ${e.data.toolCallId} (${e.data.partialOutput.length} chars)`);
-			const tracked = this._activeToolCalls.get(e.data.toolCallId);
-			if (!tracked || !isShellTool(tracked.toolName)) {
-				return;
-			}
-			if (this._shellManager?.getTerminalUriForToolCall(e.data.toolCallId)) {
-				// Client-hosted pty shell — its terminal channel streams live output itself.
-				return;
-			}
-			const appended = this._nonPtyShellTerminals.append(e.data.toolCallId, e.data.partialOutput);
-			if (appended?.created) {
-				const { uri } = appended;
-				tracked.content.push({
-					type: ToolResultContentType.Terminal,
-					resource: uri,
-					title: tracked.displayName,
-					isPty: false,
-				});
-				this._emitAction({
-					type: ActionType.ChatToolCallContentChanged,
-					turnId: this._turnId,
-					toolCallId: e.data.toolCallId,
-					content: tracked.content,
-				}, tracked.parentToolCallId);
-			}
 		}));
 
 		this._register(wrapper.onToolProgress(e => {
@@ -9039,14 +9105,7 @@ export class CopilotAgentSession extends Disposable {
 	 * (approved, denied, or cancelled) permission request.
 	 */
 	private _deletePendingEditContent(toolCallId: string): void {
-		const uri = this._pendingEditContentUris.get(toolCallId);
-		if (!uri) {
-			return;
-		}
-		this._pendingEditContentUris.delete(toolCallId);
-		this._fileService.del(uri).catch(err => {
-			this._logService.warn(`[Copilot:${this.sessionId}] Failed to delete pending edit content: ${uri.toString()}`, err);
-		});
+		this._pendingEditContent.delete(toolCallId);
 	}
 
 	private _cancelPendingUserInputs(): void {
