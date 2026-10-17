@@ -1129,5 +1129,44 @@ suite('Modal Editor Group', () => {
 		});
 	});
 
+	test('findGroup opens modal for RequiresModal editor even when setting is off', async () => {
+		const instantiationService = workbenchInstantiationService({ contextKeyService: instantiationService => instantiationService.createInstance(MockScopableContextKeyService) }, disposables);
+		instantiationService.invokeFunction(accessor => Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).start(accessor));
+		const configurationService = new TestConfigurationService();
+		await configurationService.setUserConfiguration('workbench.editor.useModal', 'off');
+		instantiationService.stub(IConfigurationService, configurationService);
+		const parts = await createEditorParts(instantiationService, disposables);
+		instantiationService.stub(IEditorGroupsService, parts);
+
+		const input = createTestFileEditorInput(URI.file('foo/bar'), TEST_EDITOR_INPUT_ID);
+		input.capabilities = EditorInputCapabilities.RequiresModal;
+
+		const result = instantiationService.invokeFunction(accessor => findGroup(accessor, { editor: input, options: { pinned: true } }, MODAL_GROUP));
+		assert.ok(result instanceof Promise);
+		const [group] = await result;
+
+		assert.ok(parts.activeModalEditorPart);
+		assert.strictEqual(group.id, parts.activeModalEditorPart.activeGroup.id);
+
+		parts.activeModalEditorPart.close();
+	});
+
+	test('findGroup does not open modal for non-RequiresModal editor when setting is off', async () => {
+		const instantiationService = workbenchInstantiationService({ contextKeyService: instantiationService => instantiationService.createInstance(MockScopableContextKeyService) }, disposables);
+		instantiationService.invokeFunction(accessor => Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).start(accessor));
+		const configurationService = new TestConfigurationService();
+		await configurationService.setUserConfiguration('workbench.editor.useModal', 'off');
+		instantiationService.stub(IConfigurationService, configurationService);
+		const parts = await createEditorParts(instantiationService, disposables);
+		instantiationService.stub(IEditorGroupsService, parts);
+
+		const input = createTestFileEditorInput(URI.file('foo/bar'), TEST_EDITOR_INPUT_ID);
+
+		const [group] = instantiationService.invokeFunction(accessor => findGroup(accessor, { editor: input, options: { pinned: true } }, MODAL_GROUP));
+
+		assert.strictEqual(parts.activeModalEditorPart, undefined);
+		assert.strictEqual(group.id, parts.mainPart.activeGroup.id);
+	});
+
 	ensureNoDisposablesAreLeakedInTestSuite();
 });
