@@ -176,6 +176,7 @@ export class ChatUsedReferencesListContentPart extends ChatCollapsibleListConten
 		context: IChatContentPartRenderContext,
 		contentReferencesListPool: CollapsibleListPool,
 		private readonly options: IChatUsedReferencesListOptions,
+		statusIcon: ThemeIcon | undefined,
 		@IOpenerService openerService: IOpenerService,
 		@IMenuService menuService: IMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,

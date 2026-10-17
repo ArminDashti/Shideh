@@ -25,6 +25,7 @@ export class ChatResultListSubPart extends BaseChatToolInvocationSubPart {
 		message: string | IMarkdownString,
 		toolDetails: Array<URI | Location>,
 		listPool: CollapsibleListPool,
+		hasError: boolean,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super(toolInvocation);

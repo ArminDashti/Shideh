@@ -55,6 +55,10 @@ export interface IFetchWebPageToolParams {
 
 type ResultType = string | { type: 'tooldata'; value: IToolResultDataPart } | { type: 'extracted'; value: WebContentExtractResult } | undefined;
 
+export interface IFetchWebPageToolMetadata {
+	hasError: boolean;
+}
+
 export class FetchWebPageTool implements IToolImpl {
 
 	constructor(
@@ -148,6 +152,7 @@ export class FetchWebPageTool implements IToolImpl {
 
 		// Skip confirming any results if every web content we got was an error or redirect
 		let confirmResults: undefined | boolean;
+		const hasError = webContents.some(e => e.status === 'error' || e.status === 'redirect');
 		if (webContents.every(e => e.status === 'error' || e.status === 'redirect')) {
 			confirmResults = false;
 		}
@@ -156,10 +161,13 @@ export class FetchWebPageTool implements IToolImpl {
 		// Only include URIs that actually had content successfully fetched
 		const actuallyValidUris = [...webUris.values(), ...successfulFileUris];
 
+		const metadata: IFetchWebPageToolMetadata = { hasError };
+
 		return {
 			content: this._getPromptPartsForResults(urls, results),
 			toolResultDetails: actuallyValidUris,
 			confirmResults,
+			toolMetadata: metadata,
 		};
 	}
 
