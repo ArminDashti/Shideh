@@ -37,6 +37,7 @@ registerAction2(DeleteAgentSessionAction);
 registerAction2(DeleteAllLocalSessionsAction);
 registerAction2(MarkAgentSessionUnreadAction);
 registerAction2(MarkAgentSessionReadAction);
+registerAction2(MarkAllAgentSessionsReadInSessionContextAction);
 registerAction2(OpenAgentSessionInNewWindowAction);
 registerAction2(OpenAgentSessionInEditorGroupAction);
 registerAction2(OpenAgentSessionInNewEditorGroupAction);
