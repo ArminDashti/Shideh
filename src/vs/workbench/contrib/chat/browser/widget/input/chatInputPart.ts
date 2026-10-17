@@ -581,6 +581,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private contextUsageWidgetHome!: HTMLElement;
 	private inputEditorTrailingSpace = 0;
 	private readonly _contextUsageDisposables = this._register(new MutableDisposable<DisposableStore>());
+	private readonly _belowInputPickerDisposables = this._register(new DisposableStore());
 
 	get inputContainerElement(): HTMLElement | undefined {
 		return this.inputContainer;
@@ -4032,6 +4033,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			return inputPickerCompactStates.get(action.id)?.get() ? CHAT_INPUT_COMPACT_PICKER_WIDTH : undefined;
 		};
 
+		this.belowInputToolbarContainer = elements.belowInputToolbar;
 		this._register(dom.addStandardDisposableListener(toolbarsContainer, dom.EventType.CLICK, e => this.inputEditor.focus()));
 		if (inputToolbarsLeft) {
 			this._register(dom.addStandardDisposableListener(inputToolbarsLeft, dom.EventType.CLICK, e => this.inputEditor.focus()));
