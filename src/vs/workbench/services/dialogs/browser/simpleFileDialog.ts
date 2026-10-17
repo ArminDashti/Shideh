@@ -39,6 +39,7 @@ import { getActiveDocument } from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export namespace OpenLocalFileCommand {
 	export const ID = 'workbench.action.files.openLocalFile';
@@ -147,6 +148,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 	private updatingPromise: CancelablePromise<boolean> | undefined;
 
 	private _showDotFiles: boolean = true;
+	private _autoCompleteEnabled: boolean = true;
 
 	constructor(
 		@IFileService private readonly fileService: IFileService,
@@ -163,7 +165,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
-		@IStorageService private readonly storageService: IStorageService
+		@IStorageService private readonly storageService: IStorageService,
+		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		super();
 		this.remoteAuthority = this.environmentService.remoteAuthority;
@@ -171,7 +174,13 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		this.scheme = this.pathService.defaultUriScheme;
 
 		this.getShowDotFiles();
+		this._autoCompleteEnabled = this.configurationService.getValue('files.simpleDialog.autoComplete') !== false;
 		const disposableStore = this._register(new DisposableStore());
+		disposableStore.add(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('files.simpleDialog.autoComplete')) {
+				this._autoCompleteEnabled = this.configurationService.getValue('files.simpleDialog.autoComplete') !== false;
+			}
+		}));
 		disposableStore.add(this.storageService.onDidChangeValue(StorageScope.WORKSPACE, 'remoteFileDialog.showDotFiles', disposableStore)(async _ => {
 			this.getShowDotFiles();
 			this.setButtons();
@@ -474,12 +483,16 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 				// update input box to match the first selected item
 				if ((i.length === 1) && this.isSelectionChangeFromUser()) {
 					this.filePickBox.validationMessage = undefined;
-					const userPath = this.constructFullUserPath();
-					if (!equalsIgnoreCase(this.filePickBox.value.substring(0, userPath.length), userPath)) {
-						this.filePickBox.valueSelection = [0, this.filePickBox.value.length];
-						this.insertText(userPath, userPath);
+					if (this._autoCompleteEnabled) {
+						const userPath = this.constructFullUserPath();
+						if (!equalsIgnoreCase(this.filePickBox.value.substring(0, userPath.length), userPath)) {
+							this.filePickBox.valueSelection = [0, this.filePickBox.value.length];
+							this.insertText(userPath, userPath);
+						}
+						this.setAutoComplete(userPath, this.userEnteredPathSegment, i[0], true);
+					} else {
+						this.activeItem = i[0];
 					}
-					this.setAutoComplete(userPath, this.userEnteredPathSegment, i[0], true);
 				}
 			}));
 
@@ -806,11 +819,14 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			}
 			return true;
 		} else if (force && (!equalsIgnoreCase(this.basenameWithTrailingSlash(quickPickItem.uri), (this.userEnteredPathSegment + this.autoCompletePathSegment)))) {
+			this.activeItem = quickPickItem;
+			if (!this._autoCompleteEnabled) {
+				return true;
+			}
 			this.userEnteredPathSegment = '';
 			if (!this.accessibilityService.isScreenReaderOptimized()) {
 				this.autoCompletePathSegment = this.trimTrailingSlash(itemBasename);
 			}
-			this.activeItem = quickPickItem;
 			if (!this.accessibilityService.isScreenReaderOptimized()) {
 				this.filePickBox.valueSelection = [this.pathFromUri(this.currentFolder, true).length, this.filePickBox.value.length];
 				// use insert text to preserve undo buffer
