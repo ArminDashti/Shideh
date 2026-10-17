@@ -936,6 +936,11 @@ export class AgentSideEffects extends Disposable {
 				usageMeta.directCopilotUsage?.totalNanoAiu,
 			);
 			// Subagent charges are already folded into the parent turn's aggregate.
+=======
+			// A subagent's charges are already folded into its parent turn's
+			// total, so recording them here too would double-count them when
+			// `billedNanoAiu` is summed across turns. Mirrors `_trackTurnUsage`.
+>>>>>>> 3bb0b7278db (agentHost: Report billed AI credits per turn (#331436))
 			if (!isSubagentChatUri(sessionKey)) {
 				this._turnTracker.updateBilledNanoAiu(sessionKey, action.turnId, usageMeta.copilotUsage?.totalNanoAiu);
 			}
