@@ -2979,6 +2979,13 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 	private _handleTerminalVisibility(toolTerminal: IToolTerminal, chatSessionResource: URI) {
 		const chatSessionOpenInWidget = !!this._chatWidgetService.getWidgetBySessionResource(chatSessionResource);
 		if (this._configurationService.getValue(TerminalChatAgentToolsSettingId.OutputLocation) === 'terminal' && chatSessionOpenInWidget) {
+			// Don't reveal the terminal if it's in the same view group as the chat view
+			const terminalLocation = this._viewDescriptorService.getViewLocationById(TERMINAL_VIEW_ID);
+			const chatLocation = this._viewDescriptorService.getViewLocationById(ChatViewId);
+			if (terminalLocation && chatLocation && terminalLocation === chatLocation) {
+				this._logService.debug(`RunInTerminalTool: Skipping terminal reveal because terminal and chat are in the same view location (${terminalLocation})`);
+				return;
+			}
 			this._terminalService.setActiveInstance(toolTerminal.instance);
 			this._terminalService.revealTerminal(toolTerminal.instance, true);
 		}
