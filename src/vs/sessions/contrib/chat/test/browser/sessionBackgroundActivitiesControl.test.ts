@@ -35,6 +35,7 @@ interface IControlHarness {
 	readonly control: SessionBackgroundActivitiesControl;
 	readonly subagents: readonly ReturnType<typeof createChat>[];
 	readonly getOpenedChat: () => URI | undefined;
+	readonly hidePicker: () => void;
 }
 
 function createChat(resource: URI, title: string, status: SessionStatus, origin?: IChat['origin']) {
@@ -65,6 +66,9 @@ function createControl(
 	const sessionsService = new class extends mock<ISessionsService>() {
 		override async openChat(_session: ISession, chatUri: URI): Promise<void> {
 			openedChat = chatUri;
+			if (spec.openChatError) {
+				throw spec.openChatError;
+			}
 		}
 	}();
 

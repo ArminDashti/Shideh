@@ -12,6 +12,7 @@ import { ISessionChatPillVisibilityService } from '../../../../workbench/contrib
 import { ISessionsService } from '../../../services/sessions/browser/sessionsService.js';
 import { ChatOriginKind, IChat, isActiveSessionStatus } from '../../../services/sessions/common/session.js';
 import { IActiveSession } from '../../../services/sessions/common/sessionsManagement.js';
+import { ISessionActivity, ISessionActivitySummary, SessionActivityPill } from './sessionActivityPill.js';
 import type { ISessionChatPillsDebugData } from './sessionChatInputToolbarDebug.js';
 
 /** Supplies the viewed chat's direct subagents, grouped and filtered by their activity status. */
