@@ -248,7 +248,7 @@ configurationRegistry.registerConfiguration({
 		},
 		'files.insertFinalNewline': {
 			'type': 'boolean',
-			'default': false,
+			'default': (isLinux ? true : false),
 			'description': nls.localize('insertFinalNewline', "When enabled, insert a final new line at the end of the file when saving it."),
 			'scope': ConfigurationScope.LANGUAGE_OVERRIDABLE
 		},
