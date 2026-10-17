@@ -13,9 +13,12 @@ import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
 import { McpServerStatus } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IMarkdownRendererService } from '../../../../../../platform/markdown/browser/markdownRenderer.js';
+import { observableConfigValue } from '../../../../../../platform/observable/common/platformObservableUtils.js';
 import { IAgentHostCustomizationService } from '../../agentSessions/agentHost/agentHostCustomizationService.js';
 import { IChatMcpAuthenticationRequired, IChatMcpAuthenticationRequiredServer } from '../../../common/chatService/chatService.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 import { ChatTreeItem } from '../../chat.js';
 import { IChatRendererContent } from '../../../common/model/chatViewModel.js';
 import { getCompactCodicon } from '../../chatIcons.js';
@@ -51,9 +54,11 @@ export class ChatMcpAuthenticationContentPart extends Disposable implements ICha
 		private readonly options: { onDidAuthenticate?: () => void; onDidRemoveFocusedAction?: () => void } = {},
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
 		@IAgentHostCustomizationService private readonly agentHostCustomizationService: IAgentHostCustomizationService,
+		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super();
 		this.domNode = dom.$('.chat-mcp-servers-interaction');
+		const hintsEnabled = observableConfigValue(ChatConfiguration.McpAuthenticationHintsEnabled, true, configurationService);
 		// Re-render whenever the set of servers requiring auth changes — e.g. a
 		// server whose auth requirement surfaced after this part was first shown
 		// is pushed into the same observable by the session handler — or while a

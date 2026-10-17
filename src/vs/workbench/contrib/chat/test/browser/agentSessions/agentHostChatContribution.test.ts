@@ -55,8 +55,8 @@ import { IDefaultAccountService } from '../../../../../../platform/defaultAccoun
 import { CommandsRegistry, ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { IProgress, IProgressNotificationOptions, IProgressService, IProgressStep } from '../../../../../../platform/progress/common/progress.js';
-import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
-import { NullTelemetryService } from '../../../../../../platform/telemetry/common/telemetryUtils.js';
+import { ITelemetryData, ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
+import { NullTelemetryService, NullTelemetryServiceShape } from '../../../../../../platform/telemetry/common/telemetryUtils.js';
 import { IAuthenticationService } from '../../../../../services/authentication/common/authentication.js';
 import { IAuthenticationMcpAccessService } from '../../../../../services/authentication/browser/authenticationMcpAccessService.js';
 import { IAuthenticationMcpService } from '../../../../../services/authentication/browser/authenticationMcpService.js';
@@ -1110,8 +1110,15 @@ function createSessionListController(disposables: DisposableStore, instantiation
 	return disposables.add(instantiationService.createInstance(AgentHostSessionListController, sessionType, provider, sessionListStore, description, 'local'));
 }
 
-function createContribution(disposables: DisposableStore, opts?: { authServiceOverride?: Partial<IAuthenticationService>; workingDirectoryResolver?: { resolve(sessionResource: URI): URI | undefined; isNewSession?: (sessionResource: URI) => boolean }; languageModels?: ReadonlyMap<string, ILanguageModelChatMetadata>; provisionalServiceOverride?: Partial<IAgentHostUntitledProvisionalSessionService>; languageModelToolsServiceOverride?: Partial<ILanguageModelToolsService>; configOverrides?: Record<string, unknown>; provider?: string; chatSessionsServiceOverride?: Partial<IChatSessionsService>; chatDebugServiceOverride?: Partial<IChatDebugService>; remoteAgentHostServiceOverride?: Partial<IRemoteAgentHostService>; customizationServiceOverride?: IAgentHostCustomizationService; agentHostTerminalServiceOverride?: Partial<IAgentHostTerminalService>; languageModelsServiceOverride?: Partial<ILanguageModelsService>; workspaceFolders?: readonly URI[]; hideAutoExplainability?: boolean; pendingTreatment?: Promise<void> }) {
+function createContribution(disposables: DisposableStore, opts?: { authServiceOverride?: Partial<IAuthenticationService>; workingDirectoryResolver?: { resolve(sessionResource: URI): URI | undefined; isNewSession?: (sessionResource: URI) => boolean }; languageModels?: ReadonlyMap<string, ILanguageModelChatMetadata>; provisionalServiceOverride?: Partial<IAgentHostUntitledProvisionalSessionService>; languageModelToolsServiceOverride?: Partial<ILanguageModelToolsService>; configOverrides?: Record<string, unknown>; configurationServiceOverride?: IConfigurationService; telemetryServiceOverride?: ITelemetryService; provider?: string; chatSessionsServiceOverride?: Partial<IChatSessionsService>; chatDebugServiceOverride?: Partial<IChatDebugService>; remoteAgentHostServiceOverride?: Partial<IRemoteAgentHostService>; customizationServiceOverride?: IAgentHostCustomizationService; agentHostTerminalServiceOverride?: Partial<IAgentHostTerminalService>; languageModelsServiceOverride?: Partial<ILanguageModelsService>; workspaceFolders?: readonly URI[]; hideAutoExplainability?: boolean; pendingTreatment?: Promise<void> }) {
 	const { instantiationService, agentHostService, chatAgentService, chatWidgetService, chatService, openerService, trustController, modelService, workingCopyService } = createTestServices(disposables, opts?.workingDirectoryResolver, opts?.authServiceOverride, opts?.languageModels, opts?.provisionalServiceOverride, false, opts?.languageModelToolsServiceOverride, opts?.configOverrides, opts?.chatSessionsServiceOverride, opts?.chatDebugServiceOverride, opts?.remoteAgentHostServiceOverride, opts?.customizationServiceOverride, opts?.agentHostTerminalServiceOverride, opts?.languageModelsServiceOverride, opts?.workspaceFolders);
+
+	if (opts?.configurationServiceOverride) {
+		instantiationService.stub(IConfigurationService, opts.configurationServiceOverride);
+	}
+	if (opts?.telemetryServiceOverride) {
+		instantiationService.stub(ITelemetryService, opts.telemetryServiceOverride);
+	}
 
 	if (opts?.hideAutoExplainability || opts?.pendingTreatment) {
 		const pending = opts?.pendingTreatment;
@@ -18169,11 +18176,11 @@ suite('AgentHostChatContribution', () => {
 		// An MCP server customization stuck in the auth-required state. Empty
 		// `authorization_servers` keeps the auto-grant probe off the network so it
 		// resolves to "not authenticated" and the server stays pending.
-		const authRequiredCustomization = () => ({
+		const authRequiredCustomization = (): McpServerCustomization => ({
 			type: CustomizationType.McpServer,
 			id: 'mcp-1',
 			name: 'GitHub MCP',
-			uri: URI.parse('https://example.com/mcp'),
+			uri: 'https://example.com/mcp',
 			state: {
 				kind: McpServerStatus.AuthRequired,
 				reason: McpAuthRequiredReason.Required,
@@ -18190,7 +18197,7 @@ suite('AgentHostChatContribution', () => {
 			chatAgentService: MockChatAgentService,
 			resource: URI,
 			seq: { v: number },
-			opts?: { customizations?: unknown[] },
+			opts?: { customizations?: McpServerCustomization[]; beforeComplete?: (progress: readonly IChatProgress[][]) => Promise<void> },
 		): Promise<IChatMcpAuthenticationRequired[]> {
 			const chatSession = await sessionHandler.provideChatSessionContent(resource, CancellationToken.None);
 			disposables.add(toDisposable(() => chatSession.dispose()));
@@ -18215,7 +18222,7 @@ suite('AgentHostChatContribution', () => {
 				const sessionChannel = parseDefaultChatUri(dispatch.channel.toString())!;
 				agentHostService.fireAction({
 					channel: sessionChannel,
-					action: { type: ActionType.SessionCustomizationsChanged, customizations: opts.customizations } as unknown as SessionAction,
+					action: { type: ActionType.SessionCustomizationsChanged, customizations: opts.customizations },
 					serverSeq: seq.v++,
 					origin: undefined,
 				});
@@ -18231,6 +18238,7 @@ suite('AgentHostChatContribution', () => {
 
 		test('silently authenticates identical successive MCP challenges without an active turn', async () => {
 			const { sessionHandler, agentHostService, instantiationService } = createContribution(disposables, {
+				configOverrides: { [ChatConfiguration.McpAuthenticationHintsEnabled]: false },
 				authServiceOverride: {
 					getOrActivateProviderIdForServer: async () => 'notion',
 					getSessions: async () => [{

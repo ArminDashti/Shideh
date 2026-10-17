@@ -57,6 +57,7 @@ import { ExtensionIdentifier } from '../../../../../../platform/extensions/commo
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
+import { observableConfigValue } from '../../../../../../platform/observable/common/platformObservableUtils.js';
 import { IOpenerService } from '../../../../../../platform/opener/common/opener.js';
 import { packErrorForTelemetry } from '../../../../../../platform/telemetry/common/errorTelemetry.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
@@ -183,6 +184,16 @@ type AgentHostInvocationFailedClassification = {
 	callstack: { classification: 'CallstackOrException'; purpose: 'PerformanceAndHealth'; comment: 'The error stack. VS Code telemetry scrubs file paths and likely secrets before transmission.' };
 	owner: 'roblourens';
 	comment: 'Captures errors that prevent an agent host request from reaching a terminal host turn.';
+};
+
+type McpAuthenticationHintEligibleEvent = {
+	hintsEnabled: boolean;
+};
+
+type McpAuthenticationHintEligibleClassification = {
+	hintsEnabled: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether proactive MCP authentication hints were enabled when the conversation first became eligible.' };
+	owner: 'alexdima';
+	comment: 'Records the first proactive MCP authentication hint opportunity per open conversation, including when hints are suppressed.';
 };
 
 
