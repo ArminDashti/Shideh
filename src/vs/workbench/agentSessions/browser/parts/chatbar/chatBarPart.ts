@@ -82,7 +82,7 @@ export class ChatBarPart extends AbstractPaneCompositePart {
 			},
 			ChatBarPart.activeViewSettingsKey,
 			ActiveChatBarContext.bindTo(contextKeyService),
-			ChatBarFocusContext.bindTo(contextKeyService),
+			ChatBarFocusContext,
 			'chatbar',
 			'chatbar',
 			undefined,
