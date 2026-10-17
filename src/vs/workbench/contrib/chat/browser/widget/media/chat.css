@@ -2506,7 +2506,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 }
 
 .interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label-container .monaco-highlighted-label {
-	display: inline-flex;
+	display: block;
 	align-items: center;
 	overflow: hidden;
 	white-space: nowrap;
