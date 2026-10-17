@@ -20,7 +20,6 @@ export type InstallSource = 'gallery' | 'local';
 export interface ILocalMcpServer {
 	readonly name: string;
 	readonly config: IMcpServerConfiguration;
-	readonly rootSandbox?: IMcpSandboxConfiguration;
 	readonly version?: string;
 	readonly mcpResource: URI;
 	readonly location?: URI;

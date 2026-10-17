@@ -385,7 +385,7 @@ export abstract class AbstractMcpResourceManagementService extends AbstractCommo
 			const scannedMcpServers = await this.mcpResourceScannerService.scanMcpServers(this.mcpResource, this.target, this.format);
 			if (scannedMcpServers.servers) {
 				await Promise.allSettled(Object.entries(scannedMcpServers.servers).map(async ([name, scannedServer]) => {
-					const server = await this.scanLocalServer(name, scannedServer, scannedMcpServers.sandbox);
+					const server = await this.scanLocalServer(name, scannedServer);
 					local.set(name, server);
 				}));
 			}
@@ -453,7 +453,7 @@ export abstract class AbstractMcpResourceManagementService extends AbstractCommo
 		return Array.from(this.local.values());
 	}
 
-	protected async scanLocalServer(name: string, config: IMcpServerConfiguration, rootSandbox?: IMcpSandboxConfiguration): Promise<ILocalMcpServer> {
+	protected async scanLocalServer(name: string, config: IMcpServerConfiguration): Promise<ILocalMcpServer> {
 		let mcpServerInfo = await this.getLocalServerInfo(name, config);
 		if (!mcpServerInfo) {
 			mcpServerInfo = { name, version: config.version, galleryUrl: isString(config.gallery) ? config.gallery : undefined };
@@ -462,7 +462,6 @@ export abstract class AbstractMcpResourceManagementService extends AbstractCommo
 		return {
 			name,
 			config,
-			rootSandbox,
 			mcpResource: this.mcpResource,
 			version: mcpServerInfo.version,
 			location: mcpServerInfo.location,

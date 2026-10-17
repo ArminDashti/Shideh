@@ -315,6 +315,18 @@ export const mcpServerSchema: IJSONSchema = {
 				}
 			}
 		},
+		...mcpDevModeProps(true),
+	}
+};
+
+export const mcpServerSchema: IJSONSchema = {
+	id: mcpSchemaId,
+	type: 'object',
+	title: localize('app.mcp.json.title', "Model Context Protocol Servers"),
+	allowTrailingCommas: true,
+	allowComments: true,
+	additionalProperties: false,
+	properties: {
 		servers: {
 			examples: [
 				mcpSchemaExampleServers,
