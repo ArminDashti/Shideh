@@ -370,7 +370,7 @@ export function isSupportedChatFileScheme(accessor: ServicesAccessor, scheme: st
  * agent sandbox is enforced by policy, Agent Host Copilot CLI is the default. It falls back to
  * the local harness when enabled, or to the first visible non-local provider.
  */
-export function getComputedDefaultSessionType(
+export function getDefaultNewChatSessionType(
 	configurationService: IConfigurationService,
 	chatSessionsService: Pick<IChatSessionsService, 'getChatSessionContribution' | 'getAllChatSessionContributions'>,
 	workspace: IWorkspace,
@@ -546,8 +546,15 @@ export function getDefaultNewChatSessionResource(
 	return getNewChatSessionResource(defaultType);
 }
 
-export function recordUserSelectedSessionType(
-	storageService: IStorageService,
+/**
+ * Storage key for the last-used non-local editor chat session type (agent), persisted at profile scope.
+ */
+export const ChatLastUsedEditorSessionTypeStorageKey = 'chat.lastUsedEditorSessionType';
+
+/**
+ * Resolves the session type (agent) for a new chat editor, preferring the last-used visible non-local agent when `chat.editor.defaultProvider` isn't explicitly configured.
+ */
+export function getNewChatEditorSessionType(
 	configurationService: IConfigurationService,
 	chatSessionsService: Pick<IChatSessionsService, 'getChatSessionContribution' | 'getAllChatSessionContributions'>,
 	workspace: IWorkspace,
@@ -559,6 +566,23 @@ export function recordUserSelectedSessionType(
 	} else {
 		storeUserSelectedSessionType(storageService, sessionType);
 	}
+
+	return getDefaultNewChatSessionType(configurationService, chatSessionsService);
+}
+
+/**
+ * Like {@link getDefaultNewChatSessionResource}, but prefers the user's
+ * last-used session type via {@link getNewChatEditorSessionType}.
+ */
+export function getNewChatEditorSessionResource(
+	configurationService: IConfigurationService,
+	chatSessionsService: Pick<IChatSessionsService, 'getChatSessionContribution' | 'getAllChatSessionContributions'>,
+	lastUsedSessionType: string | undefined,
+): URI {
+	const sessionType = getNewChatEditorSessionType(configurationService, chatSessionsService, lastUsedSessionType);
+	return sessionType === localChatSessionType
+		? LocalChatSessionUri.getNewSessionUri()
+		: URI.from({ scheme: sessionType, path: `/untitled-${generateUuid()}` });
 }
 
 /**

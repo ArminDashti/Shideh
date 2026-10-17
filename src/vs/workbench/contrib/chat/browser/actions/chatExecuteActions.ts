@@ -313,7 +313,7 @@ class ToggleChatModeAction extends Action2 {
 
 		reportChatModeChange(telemetryService, currentMode, switchToMode, requestCount, chatSession ? getChatSessionType(chatSession.sessionResource) : undefined);
 
-		widget.input.setChatMode(switchToMode.id, true, true);
+		widget.input.setChatMode(switchToMode.id);
 
 		if (chatModeCheck.needToClearSession) {
 			await commandService.executeCommand(ACTION_ID_NEW_CHAT);

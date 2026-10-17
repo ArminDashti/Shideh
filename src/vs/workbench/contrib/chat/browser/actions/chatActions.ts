@@ -446,7 +446,7 @@ abstract class OpenChatGlobalAction extends Action2 {
 			if (!chatModeCheck) {
 				return;
 			}
-			chatWidget.input.setChatMode(switchToMode.id, true, true);
+			chatWidget.input.setChatMode(switchToMode.id);
 
 			if (chatModeCheck.needToClearSession) {
 				await commandService.executeCommand(ACTION_ID_NEW_CHAT);
@@ -1626,12 +1626,14 @@ export interface IClearEditingSessionConfirmationOptions {
 }
 
 /**
- * Clears the current chat session and starts a new one using the shared
- * new-session harness resolver.
+ * Clears the current chat session and starts a new one, preserving
+ * the session type (e.g. Claude, Cloud, Background) for non-local sessions
+ * in the sidebar.
  */
 export async function clearChatSessionPreservingType(accessor: ServicesAccessor, widget: IChatWidget, sessionType: string | undefined): Promise<void> {
 	const viewsService = accessor.get(IViewsService);
 	const currentResource = widget.viewModel?.model.sessionResource;
+	const defaultType = getDefaultNewChatSessionType(configurationService, chatSessionsService);
 	const currentSessionType = currentResource ? getChatSessionType(currentResource) : undefined;
 	const resolvedSessionType = getDefaultNewChatSessionTypeAndReason(accessor, { explicitOverride: sessionType, currentSessionType });
 	const newSessionType = resolvedSessionType.sessionType;

@@ -127,7 +127,6 @@ suite('ChatConfiguration defaults', () => {
 	test('editor default returns local when agent host disabled and local enabled', () => {
 		const configurationService = new TestConfigurationService();
 		const chatSessionsService = createChatSessionsService(SessionType.AgentHostCopilot);
-		const storageService = disposables.add(new TestStorageService());
 
 		assert.deepStrictEqual({
 			computed: getComputedDefaultSessionType(configurationService, chatSessionsService, localWorkspace, false),
@@ -145,7 +144,6 @@ suite('ChatConfiguration defaults', () => {
 			[ChatConfiguration.DefaultToCopilotHarness]: true,
 		});
 		const chatSessionsService = createChatSessionsService(SessionType.AgentHostCopilot);
-		const storageService = disposables.add(new TestStorageService());
 
 		assert.deepStrictEqual({
 			computed: getComputedDefaultSessionType(configurationService, chatSessionsService, localWorkspace, true),
@@ -180,7 +178,6 @@ suite('ChatConfiguration defaults', () => {
 			[ChatConfiguration.EditorLocalAgentEnabled]: false,
 		});
 		const chatSessionsService = createChatSessionsService(SessionType.CopilotCLI);
-		const storageService = disposables.add(new TestStorageService());
 
 		assert.deepStrictEqual({
 			computed: getComputedDefaultSessionType(configurationService, chatSessionsService, localWorkspace, true),
@@ -198,7 +195,6 @@ suite('ChatConfiguration defaults', () => {
 			[ChatConfiguration.EditorLocalAgentEnabled]: false,
 		});
 		const chatSessionsService = createChatSessionsService(SessionType.CopilotCLI, SessionType.AgentHostCopilot);
-		const storageService = disposables.add(new TestStorageService());
 
 		assert.deepStrictEqual({
 			computed: getComputedDefaultSessionType(configurationService, chatSessionsService, localWorkspace, false),
@@ -296,7 +292,6 @@ suite('ChatConfiguration defaults', () => {
 			[ChatConfiguration.EditorLocalAgentEnabled]: false,
 		});
 		const chatSessionsService = createChatSessionsService();
-		const storageService = disposables.add(new TestStorageService());
 
 		assert.deepStrictEqual({
 			computed: getComputedDefaultSessionType(configurationService, chatSessionsService, localWorkspace, false),

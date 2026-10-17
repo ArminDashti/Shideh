@@ -16,7 +16,6 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../../../platform/opener/common/opener.js';
-import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IAgentHostEnablementService } from '../../../../../../platform/agentHost/common/agentHostEnablementService.js';
@@ -37,6 +36,8 @@ import { IGitService } from '../../../../git/common/gitService.js';
  * This picker allows switching to remote execution providers when the session is not empty.
  */
 export class DelegationSessionPickerActionItem extends SessionTypePickerActionItem {
+
+	private readonly _isSessionsWindow: boolean;
 
 	constructor(
 		action: MenuItemAction,
