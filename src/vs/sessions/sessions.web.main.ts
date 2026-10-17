@@ -200,8 +200,6 @@ import './contrib/providers/agentHost/browser/mobile/mobileChatInputConfigPicker
 // already-opened chat input. Web-only for the same reason as above.
 import './contrib/providers/agentHost/browser/mobile/mobileChatPhoneInputPresenter.js';
 
-// TODO: support agent feedback in web
-import './contrib/agentFeedback/browser/nullAgentFeedbackService.contribution.js';
 import '../workbench/contrib/webview/browser/webview.web.contribution.js';
 import '../workbench/contrib/extensions/browser/extensions.web.contribution.js';
 import '../workbench/contrib/terminal/browser/terminal.web.contribution.js';

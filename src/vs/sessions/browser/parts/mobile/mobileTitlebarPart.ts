@@ -101,6 +101,7 @@ export class MobileTitlebarPart extends Disposable {
 	// Changes pill state — kept here so the click handler can read the
 	// latest set without re-deriving it on each tap.
 	private latestChanges: readonly ISessionFileChange[] = [];
+	private latestActiveSessionResource: URI | undefined;
 
 	constructor(
 		parent: HTMLElement,

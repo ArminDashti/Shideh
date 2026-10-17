@@ -94,6 +94,31 @@ export interface IFileDiffViewData {
 }
 
 /**
+ * Minimal callback contract used by {@link MobileDiffView} to record an
+ * agent feedback comment authored from the diff view's bottom action bar.
+ *
+ * Defined locally to avoid importing the full `IAgentFeedbackService`
+ * interface from `vs/sessions/contrib` into `vs/sessions/browser`. The
+ * `vs/sessions/contrib/sessions/browser/mobile/mobileOverlayContribution`
+ * binds an `IAgentFeedbackService.addFeedback` adaptor here when running
+ * the full sessions workbench.
+ */
+export interface IMobileDiffFeedbackHandler {
+	/**
+	 * Author a file-wide feedback comment for the given session/resource
+	 * pair. Implementers are expected to forward the call to
+	 * `IAgentFeedbackService.addFeedback`.
+	 *
+	 * @param sessionResource The session that owns the diff.
+	 * @param resourceUri The modified resource the comment is anchored to.
+	 * @param text The trimmed comment text (non-empty).
+	 * @param diffHunks Optional rendered unified-diff string for the file
+	 * (used as feedback context for the agent).
+	 */
+	addFileFeedback(sessionResource: URI, resourceUri: URI, text: string, diffHunks: string | undefined): void;
+}
+
+/**
  * Data passed to {@link MobileDiffView} when opening a diff view.
  *
  * When {@link siblings} is provided and contains more than one entry,
@@ -147,7 +172,7 @@ export class MobileDiffView extends Disposable {
 	private scrollWrapper!: HTMLElement;
 
 	constructor(
-		workbenchContainer: HTMLElement,
+		private readonly workbenchContainer: HTMLElement,
 		data: IMobileDiffViewData,
 		private readonly textFileService: ITextFileService,
 		private readonly languageService: ILanguageService,
