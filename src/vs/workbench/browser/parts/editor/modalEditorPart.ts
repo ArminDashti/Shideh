@@ -24,7 +24,8 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ResultKind } from '../../../../platform/keybinding/common/keybindingResolver.js';
-import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { Orientation, OrthogonalEdge, Sash, SashState } from '../../../../base/browser/ui/sash/sash.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IEditorGroupView, IEditorPartsView } from './editor.js';
 import { EditorPart } from './editorPart.js';
@@ -114,6 +115,10 @@ const defaultModalEditorAllowableCommands = new Set([
 	NAVIGATE_MODAL_EDITOR_NEXT_COMMAND_ID,
 	TOGGLE_MODAL_EDITOR_SIDEBAR_COMMAND_ID,
 ]);
+
+const MODAL_EDITOR_CUSTOM_SIZE_KEY = 'modalEditorPart.customSize';
+const MIN_MODAL_WIDTH = 400;
+const MIN_MODAL_HEIGHT = 300;
 
 export interface ICreateModalEditorPartResult {
 	readonly part: ModalEditorPartImpl;
@@ -735,6 +740,69 @@ export class ModalEditorPart {
 
 			layout(true);
 		};
+
+		// Resize sashes
+		const eastSash = disposables.add(new Sash(shadowElement, { getVerticalSashLeft: () => currentWidth }, { orientation: Orientation.VERTICAL }));
+		const westSash = disposables.add(new Sash(shadowElement, { getVerticalSashLeft: () => 0 }, { orientation: Orientation.VERTICAL }));
+		const northSash = disposables.add(new Sash(shadowElement, { getHorizontalSashTop: () => 0 }, { orientation: Orientation.HORIZONTAL, orthogonalEdge: OrthogonalEdge.North }));
+		const southSash = disposables.add(new Sash(shadowElement, { getHorizontalSashTop: () => currentHeight }, { orientation: Orientation.HORIZONTAL, orthogonalEdge: OrthogonalEdge.South }));
+
+		northSash.orthogonalStartSash = westSash;
+		northSash.orthogonalEndSash = eastSash;
+		southSash.orthogonalStartSash = westSash;
+		southSash.orthogonalEndSash = eastSash;
+
+		let dragStartWidth = 0;
+		let dragStartHeight = 0;
+
+		disposables.add(Event.any(northSash.onDidStart, eastSash.onDidStart, southSash.onDidStart, westSash.onDidStart)(() => {
+			dragStartWidth = currentWidth;
+			dragStartHeight = currentHeight;
+		}));
+
+		// Use 2x deltas because the modal is centered (grows/shrinks equally on both sides)
+		const applyResize = (widthDelta: number, heightDelta: number) => {
+			const containerDimension = this.layoutService.mainContainerDimension;
+			const titleBarOffset = this.layoutService.mainContainerOffset.top;
+			const maxHeight = Math.max(containerDimension.height - titleBarOffset, 0);
+
+			customWidth = Math.max(MIN_MODAL_WIDTH, Math.min(dragStartWidth + widthDelta * 2, containerDimension.width));
+			customHeight = Math.max(MIN_MODAL_HEIGHT, Math.min(dragStartHeight + heightDelta * 2, maxHeight));
+			layoutModal();
+		};
+
+		disposables.add(eastSash.onDidChange(e => applyResize(e.currentX - e.startX, 0)));
+		disposables.add(westSash.onDidChange(e => applyResize(-(e.currentX - e.startX), 0)));
+		disposables.add(southSash.onDidChange(e => applyResize(0, e.currentY - e.startY)));
+		disposables.add(northSash.onDidChange(e => applyResize(0, -(e.currentY - e.startY))));
+
+		// Persist custom size on drag end
+		disposables.add(Event.any(northSash.onDidEnd, eastSash.onDidEnd, southSash.onDidEnd, westSash.onDidEnd)(() => {
+			if (customWidth !== undefined && customHeight !== undefined) {
+				this.storageService.store(MODAL_EDITOR_CUSTOM_SIZE_KEY,
+					JSON.stringify({ width: customWidth, height: customHeight }),
+					StorageScope.PROFILE, StorageTarget.MACHINE);
+			}
+		}));
+
+		// Reset to default size on double-click
+		disposables.add(Event.any(northSash.onDidReset, eastSash.onDidReset, southSash.onDidReset, westSash.onDidReset)(() => {
+			customWidth = undefined;
+			customHeight = undefined;
+			this.storageService.remove(MODAL_EDITOR_CUSTOM_SIZE_KEY, StorageScope.PROFILE);
+			layoutModal();
+		}));
+
+		// Disable sashes when maximized
+		const updateSashState = (maximized: boolean) => {
+			const state = maximized ? SashState.Disabled : SashState.Enabled;
+			northSash.state = state;
+			eastSash.state = state;
+			southSash.state = state;
+			westSash.state = state;
+		};
+		updateSashState(editorPart.maximized);
+
 		disposables.add(Event.runAndSubscribe(this.layoutService.onDidLayoutMainContainer, layoutModal));
 		disposables.add(editorPart.onDidChangeMaximized(() => layoutModal()));
 		disposables.add(editorPart.onDidRequestLayout(() => layoutModal()));
