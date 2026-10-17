@@ -43,12 +43,25 @@ export interface IAgentSessionsModel {
 	readonly onWillResolve: Event<string /* provider */>;
 	readonly onDidResolve: Event<string /* provider */>;
 
+	/**
+	 * Event fired when the sessions collection has changed.
+	 */
 	readonly onDidChangeSessions: Event<void>;
 	readonly onDidChangeSessionArchivedState: Event<IAgentSession>;
 
 	readonly resolved: boolean;
 
+	/**
+	 * All currently loaded agent sessions.
+	 */
 	readonly sessions: IAgentSession[];
+
+	/**
+	 * Retrieves a session by its resource URI.
+	 *
+	 * @param resource The URI of the session resource.
+	 * @returns The session if found, undefined otherwise.
+	 */
 	getSession(resource: URI): IAgentSession | undefined;
 
 	/**
@@ -69,17 +82,37 @@ export interface IAgentSessionsModel {
 
 interface IAgentSessionData extends Omit<IChatSessionItem, 'archived' | 'children' | 'iconPath' | 'isRead'> {
 
+	/**
+	 * The type identifier for the session provider.
+	 */
 	readonly providerType: string;
+
+	/**
+	 * The display label for the session provider.
+	 */
 	readonly providerLabel: string;
 
+	/**
+	 * The unique resource URI identifying this session.
+	 */
 	readonly resource: URI;
 
 	readonly status: AgentSessionStatus;
 	readonly statusKnown?: boolean;
 
+	/**
+	 * Optional tooltip text or markdown to display for this session.
+	 */
 	readonly tooltip?: string | IMarkdownString;
 
+	/**
+	 * The display label for this session.
+	 */
 	readonly label: string;
+
+	/**
+	 * Optional description text or markdown for this session.
+	 */
 	readonly description?: string | IMarkdownString;
 	readonly badge?: string | IMarkdownString;
 	readonly icon: ThemeIcon;
@@ -131,6 +164,15 @@ export function getAgentChangesSummary(changes: IAgentSession['changes']) {
 	return { files: changes.length, insertions, deletions };
 }
 
+/**
+ * Computes a summary of file changes from an agent session.
+ *
+ * If the changes are already in summary format, returns them as-is.
+ * If the changes are detailed file changes, aggregates them into a summary.
+ *
+ * @param changes The changes to summarize.
+ * @returns A summary object with file count and insertion/deletion totals, or undefined if no changes.
+ */
 export function getAgentChangesSummary(changes: IAgentSession['changes']) {
 	if (!changes) {
 		return;
@@ -150,8 +192,22 @@ export function getAgentChangesSummary(changes: IAgentSession['changes']) {
 	return { files: changes.length, insertions, deletions };
 }
 
+/**
+ * An agent session with methods to manage its archived and read states.
+ */
 export interface IAgentSession extends IAgentSessionData {
+	/**
+	 * Checks if this session is archived.
+	 *
+	 * @returns `true` if the session is archived, `false` otherwise.
+	 */
 	isArchived(): boolean;
+
+	/**
+	 * Sets the archived state of this session.
+	 *
+	 * @param archived The new archived state.
+	 */
 	setArchived(archived: boolean): void;
 
 	isPinned(): boolean;
@@ -187,6 +243,12 @@ interface IInternalAgentSession extends Omit<IAgentSession, 'children'>, Omit<II
 	readonly children?: readonly IInternalAgentSession[];
 }
 
+/**
+ * Type guard to check if a session is a local agent session.
+ *
+ * @param session The session to check.
+ * @returns `true` if the session is a local session, `false` otherwise.
+ */
 export function isLocalAgentSessionItem(session: IAgentSession): boolean {
 	return isLocalSessionProvider(session.providerType);
 }
@@ -507,13 +569,27 @@ class AgentSessionsLogger extends Disposable {
 	}
 }
 
+/**
+ * Persistent state information for an agent session.
+ */
 interface IAgentSessionState {
+	/** Whether the session is archived. */
 	readonly archived: boolean;
-	readonly read: number /* last date turned read */;
+	/** The last date the session was marked as read (timestamp in milliseconds). */
+	readonly read: number;
 }
 
 //#endregion
 
+/**
+ * The main implementation of the agent sessions model.
+ *
+ * This class manages the lifecycle of agent sessions, including:
+ * - Loading and caching sessions from storage
+ * - Resolving sessions from registered providers
+ * - Tracking session state (archived, read status)
+ * - Notifying consumers of changes
+ */
 export class AgentSessionsModel extends Disposable implements IAgentSessionsModel {
 
 	private readonly _onWillResolve = this._register(new Emitter<string>());
@@ -624,6 +700,9 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		}));
 	}
 
+	/**
+	 * Retrieves a session by its resource URI.
+	 */
 	getSession(resource: URI): IAgentSession | undefined {
 		const session = this._sessions.get(resource);
 		if (session) {
@@ -683,6 +762,12 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		return observable;
 	}
 
+	/**
+	 * Resolves sessions from the specified provider(s).
+	 *
+	 * This method throttles multiple resolve requests and batches them together.
+	 * The actual resolution happens in doResolve().
+	 */
 	async resolve(provider: string | string[] | undefined): Promise<void> {
 		const providers = Array.isArray(provider)
 			? provider
@@ -1201,6 +1286,9 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 
 //#region Sessions Cache
 
+/**
+ * Serializable representation of an agent session for persistence.
+ */
 interface ISerializedAgentSession {
 
 	readonly providerType: string;
@@ -1245,6 +1333,9 @@ interface ISerializedAgentSession {
 	readonly children?: readonly ISerializedAgentSession[];
 }
 
+/**
+ * Serializable representation of agent session state for persistence.
+ */
 interface ISerializedAgentSessionState extends IAgentSessionState {
 	readonly resource: UriComponents /* old shape */ | string /* new shape that is more compact */;
 }
@@ -1310,6 +1401,11 @@ export class AgentSessionsCache {
 		this.storageService.store(AgentSessionsCache.SESSIONS_STORAGE_KEY, safeStringify(serialized), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 	}
 
+	/**
+	 * Loads cached sessions from storage.
+	 *
+	 * @returns An array of session data, or an empty array if no valid cache exists.
+	 */
 	loadCachedSessions(): IInternalAgentSessionData[] {
 		const sessionsCache = this.storageService.get(AgentSessionsCache.SESSIONS_STORAGE_KEY, StorageScope.WORKSPACE);
 		if (!sessionsCache) {
