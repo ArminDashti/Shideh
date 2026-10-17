@@ -1806,8 +1806,6 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				}
 			}
 
-			// If reconnecting to an active turn, wire up an ongoing state listener
-			// to stream new progress into the session's progressObs.
 			if (activeTurnId && initialProgress !== undefined) {
 				this._reconnectToActiveTurn(resolvedSession, activeTurnId, session, initialProgress, initialResponsePartCount);
 			}

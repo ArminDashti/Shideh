@@ -902,8 +902,8 @@ suite('AgentHostClientTools', () => {
 				registerProvider: () => toDisposable(() => { }),
 			});
 			instantiationService.stub(IChatService, {
-				getSession: () => undefined,
-				onDidCreateModel: Event.None,
+				getSession: getSessionImpl,
+				onDidCreateModel: onDidCreateModel.event,
 				removePendingRequest: () => { },
 			});
 			instantiationService.stub(IAgentHostFileSystemService, {
