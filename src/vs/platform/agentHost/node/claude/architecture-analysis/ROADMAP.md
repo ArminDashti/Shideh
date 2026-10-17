@@ -55,13 +55,15 @@ The target end-state is **focused, legible, testable modules** where:
 ## Execution order (dependency-sequenced)
 
 ```
-  Tier 0 ✅ → C1 ✅ → C2 → C9 → C5 → { C6, C7 }
-                  └→ C3 · C4 · C8   (independent; any time after C1)
+  Tier 0 ✅ → C1 ✅ → C9 ✅ → C5 → { C6, C7 }
+                  └→ C3 · C4 ✅ · C8   (independent; any time after C1)
 
   C2 = one owner for live config (desired-on-session vs applied-on-pipeline)
-  C9 = immutable pipeline / session-orchestrated rebind:
-       deletes the rematerializer pass-in (claudeAgentSession.ts:476)
-       + the whole in-place swap machinery; supersedes most of C2
+       — folded into C9 (shipped): the immutable pipeline holds only the
+       ephemeral `_applied*` dedup, seeded once per build.
+  C9 = immutable pipeline / session-orchestrated rebuild (shipped):
+       deleted the rematerializer pass-in (claudeAgentSession.ts)
+       + the whole in-place swap machinery; superseded C2
 ```
 
 **Rationale.** Tier 0 first — free interface-shrink, unblocks nothing but clears
@@ -174,7 +176,7 @@ Legend — **Serves:** `dup` duplication/rematerializer · `cyc` overlap/circula
   once; suite green.
 - **Risk:** low.
 
-### C4 — Queue owns abort/done; delete the two back-reference closures  ·  Serves: cyc, life  ·  ⬜ proposed
+### C4 — Queue owns abort/done; delete the two back-reference closures  ·  Serves: cyc, life  ·  ✅ shipped
 - **Source:** report 01 (closure inventory).
 - **Goal:** remove the two avoidable dotted edges from the coupling map.
 - **Files:** `claudeSdkPipeline.ts` (`_getAbortSignal` L245, `_onSteeringYielded`
@@ -259,7 +261,7 @@ Legend — **Serves:** `dup` duplication/rematerializer · `cyc` overlap/circula
 - **Risk:** low-medium — must still await real subprocess exit on the remove-all
   path (the CLI rejects a fresh spawn while `<id>.jsonl` exists).
 
-### C9 — Immutable pipeline / session-orchestrated rebind  ·  Serves: cyc, life  ·  ★ removes the rematerializer  ·  ⬜ proposed
+### C9 — Immutable pipeline / session-orchestrated rebuild  ·  Serves: cyc, life  ·  ★ removes the rematerializer  ·  ✅ shipped
 - **Source:** the "Option B" design conversation (2026-07-16). Enabled by C1's
   `_startSdkQuery` extraction; explicitly requested.
 - **Goal:** `ClaudeSdkPipeline` owns exactly ONE `WarmQuery` for its whole life
