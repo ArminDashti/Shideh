@@ -320,6 +320,11 @@ export interface IAgentHostSessionsProvider extends ISessionsProvider {
 	getCustomizations(sessionId: string): readonly Customization[];
 
 	/**
+	 * Returns the connection used to inspect focused-session diagnostics.
+	 */
+	getDiagnosticsConnection(): IAgentConnection | undefined;
+
+	/**
 	 * Returns the working directory for the session, if provided by the host.
 	 */
 	getWorkingDirectory(sessionId: string): string | undefined;

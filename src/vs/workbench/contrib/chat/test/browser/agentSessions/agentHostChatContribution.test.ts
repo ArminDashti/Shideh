@@ -1063,6 +1063,7 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		_serviceBrand: undefined,
 		getSyncProvider: () => syncProvider,
 		getOrigin: () => undefined,
+		getMcpOrigin: () => undefined,
 		acquireScope,
 		acquireMcpServerSupportScope: () => undefined,
 		areScopeRootsEqual: (first, second) => JSON.stringify(first) === JSON.stringify(second),

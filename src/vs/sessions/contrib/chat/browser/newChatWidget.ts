@@ -46,7 +46,8 @@ import { IPickedSessionType, IPreferredSessionType } from './sessionTypePicker.j
 import { getLabeledPickerResponsiveItems, NEW_SESSION_PROMPT_PLACEHOLDER, NewChatInputWidget } from './newChatInput.js';
 import { ChatInputPickerResponsiveLayout } from '../../../../workbench/contrib/chat/browser/widget/input/chatInputPickerResponsiveLayout.js';
 import { NoAgentHostEmptyState } from './noAgentHostEmptyState.js';
-import { IChatRequestVariableEntry } from '../../../../workbench/contrib/chat/common/attachments/chatVariableEntries.js';
+import { IChatRequestVariableEntry, toToolSetVariableEntry } from '../../../../workbench/contrib/chat/common/attachments/chatVariableEntries.js';
+import { ILanguageModelToolsService } from '../../../../workbench/contrib/chat/common/tools/languageModelToolsService.js';
 import { IAgentHostFilterService } from '../../../services/agentHostFilter/common/agentHostFilter.js';
 import { IChatViewOptions, ISelectNoWorkspaceOptions, ISelectWorkspaceOptions, WorkspaceSelectionResult } from '../../../browser/parts/chatView.js';
 import { NewChatUserInteraction } from './newChatUserInteraction.js';
@@ -2194,6 +2195,17 @@ export class NewChatWidget extends Disposable {
 
 	attach(uris: URI[]): void {
 		this._newChatInput.attach(uris);
+	}
+
+	attachTextContext(name: string, content: string, id: string): void {
+		this._newChatInput.attachTextContext(name, content, Codicon.pulse, id);
+	}
+
+	attachToolSet(toolSetId: string): void {
+		const toolSet = this.languageModelToolsService.getToolSet(toolSetId);
+		if (toolSet) {
+			this._newChatInput.addAttachments(toToolSetVariableEntry(toolSet));
+		}
 	}
 
 	private _canApplyWorkspaceDefault(): boolean {

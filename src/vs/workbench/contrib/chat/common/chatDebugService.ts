@@ -82,6 +82,11 @@ export interface IChatDebugGenericEvent extends IChatDebugEventCommon {
 	readonly details?: string;
 	readonly level: ChatDebugLogLevel;
 	readonly category?: string;
+	readonly customization?: {
+		readonly type: 'skill';
+		readonly name: string;
+		readonly uri: URI | undefined;
+	};
 }
 
 /**
@@ -195,6 +200,18 @@ export interface IChatDebugService extends IDisposable {
 	 * This is used by the extension API (ChatDebugLogProvider).
 	 */
 	registerProvider(provider: IChatDebugLogProvider): IDisposable;
+
+	/**
+	 * Registers a resolver for translating a client-facing chat resource to the
+	 * backend resource used to locate provider data.
+	 */
+	registerSessionResourceResolver(resolver: (sessionResource: URI) => URI | undefined): IDisposable;
+
+	/**
+	 * Resolves the backend resource for provider data, falling back to the
+	 * original client-facing resource.
+	 */
+	resolveSessionResource(sessionResource: URI): URI;
 
 	/**
 	 * Check whether providers have already been invoked for a given session.
@@ -382,6 +399,7 @@ export interface IChatDebugEventModelTurnContent {
 export interface IChatDebugEventHookContent {
 	readonly kind: 'hook';
 	readonly hookType: string;
+	readonly sourceUri?: URI;
 	readonly command?: string;
 	readonly result?: ChatDebugHookResult;
 	readonly durationInMillis?: number;

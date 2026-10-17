@@ -54,7 +54,7 @@ export class DesktopMainEditorPart extends MainEditorPart {
 			},
 			showHeader: true,
 			useModernUITabs: true,
-			reserveHeaderSpace: editor => editor instanceof DockedEditorInput && this.agentWorkbenchLayoutService.isVisible(Parts.EDITOR_PART, mainWindow)
+			reserveHeaderSpace: editor => editor instanceof DockedEditorInput && editor.reserveEditorHeaderSpace && this.agentWorkbenchLayoutService.isVisible(Parts.EDITOR_PART, mainWindow)
 		};
 	}
 

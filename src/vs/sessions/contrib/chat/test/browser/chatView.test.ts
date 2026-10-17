@@ -534,6 +534,7 @@ suite('Sessions - Chat View', () => {
 			new class extends mock<ISessionsManagementService>() { }(),
 			sessionsService,
 			new class extends mock<IStorageService>() { }(),
+			new class extends mock<ILanguageModelToolsService>() { }(),
 		));
 
 		assert.strictEqual(inputOptions?.renderRepositoryControls, false);

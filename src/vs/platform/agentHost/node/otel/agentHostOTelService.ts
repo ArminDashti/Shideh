@@ -20,7 +20,7 @@ import {
 	resolveOtlpTracesEndpoint,
 	type IOutboundForwarder,
 } from '../../../otel/node/otlp/outboundForwarder.js';
-import { GenAiAttr } from '../../../otel/common/genAiAttributes.js';
+import { GenAiAttr, GenAiOperationName } from '../../../otel/common/genAiAttributes.js';
 import { ICompletedSpanData, SpanStatusCode } from '../../../otel/common/spanData.js';
 import { chatUserInteractionAttributes, ChatUserInteractionSpanName, IChatUserInteractionTiming } from '../../../otel/common/chatUserInteraction.js';
 import { OTelSqliteStore } from '../../../otel/node/sqlite/otelSqliteStore.js';
@@ -425,6 +425,43 @@ export class AgentHostOTelService extends Disposable implements IAgentHostOTelSe
 				[GenAiAttr.CONVERSATION_ID]: conversationId,
 				[AgentHostSessionTitleAttribute]: boundedTitle,
 				[AgentHostSessionUriAttribute]: sessionUri,
+			},
+			events: [],
+		});
+	}
+
+	emitHookExecution(conversationId: string, sessionUri: string, execution: IAgentHostHookExecution): void {
+		if (!this._config.enabled || (!this._config.dbSpanExporter && !this._canForwardSyntheticSpan())) {
+			return;
+		}
+		const context = this.getSessionTraceContext(conversationId, sessionUri);
+		const failed = execution.error !== undefined;
+		const contentAttributes = this._config.captureContent === true ? {
+			...(execution.sourceUri ? { [AgentHostHookSourceAttribute]: execution.sourceUri.slice(0, 4096) } : undefined),
+			...(execution.command ? { [AgentHostHookCommandAttribute]: execution.command.slice(0, 4096) } : undefined),
+			[AgentHostHookInputAttribute]: execution.input.slice(0, 50_000),
+			...(execution.output ? { [AgentHostHookOutputAttribute]: execution.output.slice(0, 50_000) } : undefined),
+		} : {};
+		this._queueSyntheticSpan({
+			name: `${GenAiOperationName.EXECUTE_HOOK} ${execution.hookType}`,
+			traceId: context?.traceId ?? generateUuid().replaceAll('-', ''),
+			spanId: generateUuid().replaceAll('-', '').slice(0, 16),
+			parentSpanId: context?.spanId,
+			startTime: execution.startTime,
+			endTime: execution.endTime,
+			status: {
+				code: failed ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+				...(failed && this._config.captureContent === true ? { message: execution.error?.slice(0, 4096) } : undefined),
+			},
+			attributes: {
+				...this._config.resourceAttributes,
+				[GenAiAttr.OPERATION_NAME]: GenAiOperationName.EXECUTE_HOOK,
+				[GenAiAttr.CONVERSATION_ID]: conversationId,
+				[AgentHostSessionUriAttribute]: sessionUri,
+				[AgentHostHookInvocationIdAttribute]: execution.invocationId,
+				[AgentHostHookTypeAttribute]: execution.hookType,
+				[AgentHostHookResultAttribute]: failed ? 'error' : 'success',
+				...contentAttributes,
 			},
 			events: [],
 		});

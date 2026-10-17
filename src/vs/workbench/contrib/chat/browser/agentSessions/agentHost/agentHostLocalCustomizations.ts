@@ -207,6 +207,7 @@ export async function collectNonPluginMcpServers(mcpService: IMcpService, config
 			name: server.definition.label,
 			configuration: projectedConfiguration,
 			...(definition.defaultCwd && { defaultCwd: definition.defaultCwd }),
+			...(source.definitionLocation?.uri || source.collectionUri ? { sourceUri: source.definitionLocation?.uri ?? source.collectionUri } : {}),
 			enablement: withCustomizationEnablement(undefined, CustomizationEnablementKind.Global, {
 				kind: CustomizationEnablementKind.Global,
 				enabled: mcpService.enablementModel.readProfileEnabled(server.definition.id),

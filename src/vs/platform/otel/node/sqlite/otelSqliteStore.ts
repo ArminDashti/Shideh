@@ -19,7 +19,7 @@ import type { ICompletedSpanData } from '../../common/spanData.js';
 // load synchronously on startup). Use createRequire so the binding is
 // only resolved when the store is actually opened.
 const nodeRequire = createRequire(import.meta.url);
-function loadSqlite(): typeof import('node:sqlite') {
+export function loadSqlite(): typeof import('node:sqlite') {
 	return nodeRequire('node:sqlite') as typeof import('node:sqlite');
 }
 
@@ -96,6 +96,12 @@ export interface SpanEventRow {
 	name: string;
 	timestamp_ms: number;
 	attributes: string | null;
+}
+
+export interface SpanAttributeRow {
+	span_id: string;
+	key: string;
+	value: string | null;
 }
 
 export interface SessionRow {
@@ -207,10 +213,43 @@ export class OTelSqliteStore {
 			.all(conversationId, conversationId) as unknown as SpanRow[];
 	}
 
+	getSpansByAttribute(key: string, value: string): SpanRow[] {
+		return this._ensureDb().prepare(`
+			SELECT spans.*
+			FROM spans
+			INNER JOIN span_attributes ON span_attributes.span_id = spans.span_id
+			WHERE span_attributes.key = ? AND span_attributes.value = ?
+			ORDER BY spans.start_time_ms
+		`).all(key, value) as unknown as SpanRow[];
+	}
+
+	getSpansByAttributeSuffix(key: string, suffix: string): SpanRow[] {
+		return this._ensureDb().prepare(`
+			SELECT spans.*
+			FROM spans
+			INNER JOIN span_attributes ON span_attributes.span_id = spans.span_id
+			WHERE span_attributes.key = ? AND span_attributes.value LIKE ?
+			ORDER BY spans.start_time_ms
+		`).all(key, `%${suffix}`) as unknown as SpanRow[];
+	}
+
 	getSpanAttributes(spanId: string): Array<{ key: string; value: string | null }> {
 		return this._ensureDb()
 			.prepare('SELECT key, value FROM span_attributes WHERE span_id = ?')
 			.all(spanId) as unknown as Array<{ key: string; value: string | null }>;
+	}
+
+	getSpanAttributesBySpanIds(spanIds: readonly string[], keys?: readonly string[]): SpanAttributeRow[] {
+		const rows: SpanAttributeRow[] = [];
+		for (let offset = 0; offset < spanIds.length; offset += 500) {
+			const chunk = spanIds.slice(offset, offset + 500);
+			const placeholders = chunk.map(() => '?').join(',');
+			const keyFilter = keys?.length ? ` AND key IN (${keys.map(() => '?').join(',')})` : '';
+			rows.push(...this._ensureDb()
+				.prepare(`SELECT span_id, key, value FROM span_attributes WHERE span_id IN (${placeholders})${keyFilter}`)
+				.all(...chunk, ...(keys ?? [])) as unknown as SpanAttributeRow[]);
+		}
+		return rows;
 	}
 
 	getSpanAttribute(spanId: string, key: string): string | null {
@@ -224,6 +263,18 @@ export class OTelSqliteStore {
 		return this._ensureDb()
 			.prepare('SELECT * FROM span_events WHERE span_id = ? ORDER BY timestamp_ms')
 			.all(spanId) as unknown as SpanEventRow[];
+	}
+
+	getSpanEventsBySpanIds(spanIds: readonly string[]): SpanEventRow[] {
+		const rows: SpanEventRow[] = [];
+		for (let offset = 0; offset < spanIds.length; offset += 500) {
+			const chunk = spanIds.slice(offset, offset + 500);
+			const placeholders = chunk.map(() => '?').join(',');
+			rows.push(...this._ensureDb()
+				.prepare(`SELECT * FROM span_events WHERE span_id IN (${placeholders}) ORDER BY timestamp_ms`)
+				.all(...chunk) as unknown as SpanEventRow[]);
+		}
+		return rows;
 	}
 
 	getTraceIds(conversationId?: string): string[] {

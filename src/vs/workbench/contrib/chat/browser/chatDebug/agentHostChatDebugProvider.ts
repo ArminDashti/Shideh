@@ -17,8 +17,10 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IAgentHostService } from '../../../../../platform/agentHost/common/agentService.js';
 import { agentHostAuthority } from '../../../../../platform/agentHost/common/agentHostUri.js';
 import { isCustomizationEnabled } from '../../../../../platform/agentHost/common/customizationEnablement.js';
+import { AgentHostHookCommandAttribute, AgentHostHookInputAttribute, AgentHostHookInvocationIdAttribute, AgentHostHookOutputAttribute, AgentHostHookResultAttribute, AgentHostHookSourceAttribute, AgentHostHookTypeAttribute } from '../../../../../platform/agentHost/common/otel/agentHostOTelService.js';
 import { IRemoteAgentHostService } from '../../../../../platform/agentHost/common/remoteAgentHostService.js';
-import { buildDefaultChatUri, CustomizationType, readUsageInfoMeta, StateComponents, type ChatState, type ChildCustomization, type Customization, type UsageInfo } from '../../../../../platform/agentHost/common/state/sessionState.js';
+import { buildDefaultChatUri, CustomizationType, parseChatUri, readUsageInfoMeta, ResponsePartKind, StateComponents, ToolCallStatus, type ActiveTurn, type ChatState, type ChildCustomization, type Customization, type Turn, type UsageInfo } from '../../../../../platform/agentHost/common/state/sessionState.js';
+import { type IOTelDiagnosticsMcpLifecycleEvent, IOTelDiagnosticsService, parseOTelMcpLifecycleEvent } from '../../../../../platform/otel/common/otelDiagnosticsService.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
@@ -115,6 +117,7 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		@ILogService private readonly _logService: ILogService,
 		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 		@IAgentHostCustomizationService private readonly _customizationService: IAgentHostCustomizationService,
+		@IOTelDiagnosticsService private readonly _otelDiagnosticsService: IOTelDiagnosticsService,
 	) {
 		super();
 
@@ -237,7 +240,7 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 	 * session (the one currently shown) is watched at a time. Remote
 	 * (non-`file`) sessions are not watched; they still load on open.
 	 */
-	private _ensureLiveRefresh(sessionResource: URI, eventsUri: URI): void {
+	private _ensureLiveRefresh(sessionResource: URI, sourceChatResource: URI, eventsUri: URI): void {
 		const key = sessionResource.toString();
 		if (this._watchedSessionKey === key) {
 			return; // already watching this session
@@ -271,7 +274,7 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		// Also refresh when the live AHP chat state changes: input/cache/AIU
 		// usage is on the chat channel (not in events.jsonl until
 		// session.shutdown), so a usage update mid-turn must re-render the tiles.
-		const liveSub = this._sessionChatSubscription(sessionResource);
+		const liveSub = this._sessionChatSubscription(sessionResource, sourceChatResource);
 		if (liveSub) {
 			store.add(liveSub.onDidChange(() => scheduler.schedule()));
 		}
@@ -279,7 +282,6 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		// The set of loaded customizations (skills/hooks/agents/MCP) is sourced
 		// from live session state, not events.jsonl, so re-read when it changes.
 		store.add(this._customizationService.onDidChangeCustomizations(() => scheduler.schedule()));
-
 		this._liveRefresh.value = store; // disposes any previously-watched session
 	}
 
@@ -290,7 +292,10 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 	 * subscribe to that channel rather than the session. Read-only: never
 	 * creates a subscription.
 	 */
-	private _sessionChatSubscription(sessionResource: URI) {
+	private _sessionChatSubscription(sessionResource: URI, sourceChatResource?: URI) {
+		if (sourceChatResource && parseChatUri(sourceChatResource)) {
+			return this._agentHostService.getSubscriptionUnmanaged(StateComponents.Chat, sourceChatResource);
+		}
 		if (sessionResource.scheme !== COPILOT_CLI_LOCAL_AH_SCHEME) {
 			return undefined; // live usage only for local Agent Host sessions
 		}
@@ -309,8 +314,8 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 	 * source for in-progress sessions (no `session.shutdown` summary yet).
 	 * Only AIU is reliable live; input/cache need the shutdown summary (F1).
 	 */
-	private _getLiveUsageTotals(sessionResource: URI): ISessionUsageTotals | undefined {
-		const chat = this._sessionChatSubscription(sessionResource)?.value;
+	private _getLiveUsageTotals(sessionResource: URI, sourceChatResource: URI): ISessionUsageTotals | undefined {
+		const chat = this._sessionChatSubscription(sessionResource, sourceChatResource)?.value;
 		if (!chat || chat instanceof Error) {
 			return undefined;
 		}
@@ -371,7 +376,17 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		if (!this._configurationService.getValue<boolean>(AgentHostAgentDebugLogEnabledSettingId)) {
 			return undefined; // agent-host debug logging disabled
 		}
-		const eventsUri = this._resolveEventsUri(sessionResource);
+		const sourceChatResource = this._chatDebugService.resolveSessionResource(sessionResource);
+		const parsedSourceChat = parseChatUri(sourceChatResource);
+		const sourceSessionResource = parsedSourceChat ? URI.parse(parsedSourceChat.session) : sourceChatResource;
+		const sessionIdentity = await this._otelDiagnosticsService.resolveSessionUri(sourceChatResource.toString());
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+		const eventsSessionResource = sessionIdentity
+			? URI.parse(sessionIdentity.sessionUri)
+			: sourceSessionResource;
+		const eventsUri = this._resolveEventsUri(eventsSessionResource);
 		if (!eventsUri) {
 			return undefined; // not an Agent Host Copilot CLI session
 		}
@@ -384,11 +399,19 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		// arming the watcher, live updates would never surface until the panel
 		// is re-opened. The watcher targets the (already-existing) session-state
 		// directory, so it fires when the CLI first creates the file.
-		this._ensureLiveRefresh(sessionResource, eventsUri);
+		this._ensureLiveRefresh(sessionResource, sourceChatResource, eventsUri);
 
 		const records = await this._readEventRecords(eventsUri, token);
 		if (records === undefined) {
-			return undefined; // session has no events.jsonl yet, or read failed
+			const chat = this._sessionChatSubscription(sessionResource, sourceChatResource)?.value;
+			if (!chat || chat instanceof Error) {
+				return undefined; // session has no events.jsonl or live chat state
+			}
+			const converted = convertAgentHostChatStateToDebugEvents(chat, sessionResource);
+			await this._appendOTelHookEvents(sourceSessionResource, sessionResource, converted.events, converted.resolved, token);
+			await this._appendOTelMcpLifecycleEvents(sourceSessionResource, sessionResource, converted.events, converted.resolved, token);
+			this.mergeResolvedDetails(converted.resolved);
+			return converted.events;
 		}
 		if (token.isCancellationRequested) {
 			return undefined;
@@ -397,13 +420,13 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		// For in-progress sessions (no session.shutdown yet), fall back to live
 		// Copilot AIU from the AHP session state so the usage tile isn't blank.
 		// (Input/cache stay blank until the session ends — see F1.)
-		const liveUsageTotals = this._getLiveUsageTotals(sessionResource);
+		const liveUsageTotals = this._getLiveUsageTotals(sessionResource, sourceChatResource);
 
 		// Prefer the client-local usage sidecar: it records exact per-request
 		// input/cache/AIU (captured live from ChatUsage actions) so metrics are
 		// correct per round and survive a restart. Falls back to the
 		// session.shutdown even-split / live totals when no sidecar exists.
-		const usageRecords = await this._readUsageRecords(sessionResource);
+		const usageRecords = await this._readUsageRecords(sourceSessionResource);
 		if (token.isCancellationRequested) {
 			return undefined;
 		}
@@ -416,15 +439,109 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		// captured by `AgentHostCustomizationRecorder`.
 		let customizations = this._customizationService.getCustomizations(sessionResource);
 		if (customizations.length === 0) {
-			customizations = await this._readCustomizationsSnapshot(sessionResource) ?? customizations;
+			customizations = await this._readCustomizationsSnapshot(sourceSessionResource) ?? customizations;
 			if (token.isCancellationRequested) {
 				return undefined;
 			}
 		}
 
 		const { events, resolved } = convertAgentHostEventsToDebugEvents(records, sessionResource, liveUsageTotals, usageRecords, customizations);
+		await this._appendOTelHookEvents(sourceSessionResource, sessionResource, events, resolved, token);
+		await this._appendOTelMcpLifecycleEvents(sourceSessionResource, sessionResource, events, resolved, token);
+		this.mergeResolvedDetails(resolved);
+		return events;
+	}
 
-		// Merge the resolved-detail map, evicting oldest entries past the cap.
+	private async _appendOTelHookEvents(
+		sourceSessionResource: URI,
+		sessionResource: URI,
+		events: IChatDebugEvent[],
+		resolved: Map<string, IChatDebugResolvedEventContent>,
+		token: CancellationToken,
+	): Promise<void> {
+		const spans = await this._otelDiagnosticsService.getSessionHookSpans(sourceSessionResource.toString());
+		if (token.isCancellationRequested) {
+			return;
+		}
+		for (const span of spans) {
+			const hookType = span.attributes[AgentHostHookTypeAttribute];
+			if (!hookType || events.some(event =>
+				event.kind === 'generic'
+				&& event.category === 'hook'
+				&& Math.abs(event.created.getTime() - span.startTime) < 10
+			)) {
+				continue;
+			}
+			const eventId = `agentHostHook:${span.attributes[AgentHostHookInvocationIdAttribute] ?? span.spanId}`;
+			const parent = events.findLast(event => event.kind === 'userMessage' && event.created.getTime() <= span.startTime);
+			const failed = span.attributes[AgentHostHookResultAttribute] === 'error' || span.statusCode === 2;
+			events.push({
+				kind: 'generic',
+				id: eventId,
+				sessionResource,
+				created: new Date(span.startTime),
+				parentEventId: parent?.id,
+				name: failed
+					? localize('agentHost.debug.hookFailed', "Hook Failed: {0}", hookType)
+					: localize('agentHost.debug.hookRan', "Hook: {0}", hookType),
+				details: failed ? span.statusMessage : undefined,
+				level: failed ? ChatDebugLogLevel.Error : ChatDebugLogLevel.Info,
+				category: 'hook',
+			});
+			const source = span.attributes[AgentHostHookSourceAttribute];
+			resolved.set(eventId, {
+				kind: 'hook',
+				hookType,
+				sourceUri: source ? URI.parse(source) : undefined,
+				command: span.attributes[AgentHostHookCommandAttribute],
+				result: failed ? ChatDebugHookResult.Error : ChatDebugHookResult.Success,
+				durationInMillis: span.duration,
+				input: span.attributes[AgentHostHookInputAttribute],
+				output: span.attributes[AgentHostHookOutputAttribute],
+				errorMessage: failed ? span.statusMessage : undefined,
+			});
+		}
+		events.sort((a, b) => a.created.getTime() - b.created.getTime());
+	}
+
+	private async _appendOTelMcpLifecycleEvents(
+		sourceSessionResource: URI,
+		sessionResource: URI,
+		events: IChatDebugEvent[],
+		resolved: Map<string, IChatDebugResolvedEventContent>,
+		token: CancellationToken,
+	): Promise<void> {
+		const logs = await this._otelDiagnosticsService.getSessionLogs(sourceSessionResource.toString());
+		if (token.isCancellationRequested) {
+			return;
+		}
+		for (const log of logs) {
+			const lifecycle = parseOTelMcpLifecycleEvent(log);
+			if (!lifecycle || events.some(event => event.id === lifecycle.id)) {
+				continue;
+			}
+			const failed = lifecycle.state === 'error';
+			const parent = events.findLast(event => event.kind === 'userMessage' && event.created.getTime() <= lifecycle.timestamp);
+			events.push({
+				kind: 'generic',
+				id: lifecycle.id,
+				sessionResource,
+				created: new Date(lifecycle.timestamp),
+				parentEventId: parent?.id,
+				name: localize('agentHost.debug.mcpLifecycle', "MCP Server {0}: {1}", lifecycle.serverName, mcpLifecycleStateLabel(lifecycle.state)),
+				details: lifecycle.error ?? lifecycle.source,
+				level: failed ? ChatDebugLogLevel.Error : ChatDebugLogLevel.Info,
+				category: 'mcpLifecycle',
+			});
+			resolved.set(lifecycle.id, {
+				kind: 'text',
+				value: mcpLifecycleDetail(lifecycle),
+			});
+		}
+		events.sort((a, b) => a.created.getTime() - b.created.getTime());
+	}
+
+	private mergeResolvedDetails(resolved: ReadonlyMap<string, IChatDebugResolvedEventContent>): void {
 		for (const [id, detail] of resolved) {
 			this._resolved.set(id, detail);
 			if (this._resolved.size > MAX_RESOLVED_DETAILS) {
@@ -434,8 +551,6 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 				}
 			}
 		}
-
-		return events;
 	}
 
 	/**
@@ -584,6 +699,153 @@ export class AgentHostChatDebugContribution extends Disposable implements IWorkb
 		}
 		return found.filter((s): s is NonNullable<typeof s> => s !== undefined);
 	}
+}
+
+function convertAgentHostChatStateToDebugEvents(
+	chat: ChatState,
+	sessionResource: URI,
+): { events: IChatDebugEvent[]; resolved: Map<string, IChatDebugResolvedEventContent> } {
+	const events: IChatDebugEvent[] = [];
+	const resolved = new Map<string, IChatDebugResolvedEventContent>();
+	const turns: readonly (Turn | ActiveTurn)[] = chat.activeTurn ? [...chat.turns, chat.activeTurn] : chat.turns;
+
+	for (const turn of turns) {
+		const isCompleted = isCompletedAgentHostTurn(turn, chat.activeTurn);
+		const created = new Date(turn.startedAt ?? chat.modifiedAt);
+		const userEventId = `agent-host-state:${turn.id}:user`;
+		const modelEventId = `agent-host-state:${turn.id}:model`;
+		const responseText = turn.responseParts
+			.filter(part => part.kind === ResponsePartKind.Markdown)
+			.map(part => part.content)
+			.join('');
+		const toolCalls = turn.responseParts
+			.filter(part => part.kind === ResponsePartKind.ToolCall)
+			.map(part => part.toolCall);
+		const model = turn.usage?.model ?? turn.message.model?.id;
+		const inputTokens = turn.usage?.inputTokens;
+		const outputTokens = turn.usage?.outputTokens;
+		const cachedTokens = turn.usage?.cacheReadTokens;
+		const totalTokens = inputTokens !== undefined || outputTokens !== undefined
+			? (inputTokens ?? 0) + (outputTokens ?? 0)
+			: undefined;
+		const durationInMillis = isCompleted ? turn.duration : undefined;
+
+		events.push({
+			kind: 'userMessage',
+			id: userEventId,
+			sessionResource,
+			created,
+			message: turn.message.text,
+			sections: [],
+		});
+		resolved.set(userEventId, {
+			kind: 'message',
+			type: 'user',
+			message: turn.message.text,
+			sections: [],
+		});
+
+		events.push({
+			kind: 'modelTurn',
+			id: modelEventId,
+			sessionResource,
+			created,
+			parentEventId: userEventId,
+			model,
+			requestName: 'agentHost',
+			inputTokens,
+			outputTokens,
+			cachedTokens,
+			totalTokens,
+			durationInMillis,
+		});
+		const modelSections: IChatDebugMessageSection[] = [{
+			name: 'Input Messages',
+			content: JSON.stringify([{
+				role: turn.message.origin.kind,
+				parts: [{ type: 'text', content: turn.message.text }],
+			}]),
+		}];
+		if (toolCalls.length > 0) {
+			modelSections.push({
+				name: 'Tools',
+				content: JSON.stringify(toolCalls.map(toolCall => ({ name: toolCall.toolName }))),
+			});
+		}
+		if (responseText) {
+			modelSections.push({ name: localize('agentHost.debug.response', "Response"), content: responseText });
+		}
+		resolved.set(modelEventId, {
+			kind: 'modelTurn',
+			requestName: 'agentHost',
+			model,
+			status: isCompleted ? turn.state : 'in-progress',
+			durationInMillis,
+			inputTokens,
+			outputTokens,
+			cachedTokens,
+			totalTokens,
+			requestOptions: turn.message.model?.config ? JSON.stringify(turn.message.model.config) : undefined,
+			sections: modelSections,
+		});
+
+		for (const toolCall of toolCalls) {
+			const eventId = `agent-host-state:${turn.id}:tool:${toolCall.toolCallId}`;
+			const input = toolCall.status === ToolCallStatus.Streaming
+				? toolCall.partialInput
+				: stringifyPayload(toolCall.toolInput);
+			const result = toolCall.status === ToolCallStatus.Completed
+				? toolCall.success ? 'success' : 'error'
+				: toolCall.status === ToolCallStatus.Cancelled ? 'error' : undefined;
+			const output = toolCall.status === ToolCallStatus.Completed
+				? stringifyPayload(toolCall.content ?? toolCall.structuredContent ?? toolCall.error)
+				: undefined;
+			events.push({
+				kind: 'toolCall',
+				id: eventId,
+				sessionResource,
+				created,
+				parentEventId: modelEventId,
+				toolName: toolCall.toolName,
+				toolCallId: toolCall.toolCallId,
+				input,
+				output,
+				result,
+			});
+			resolved.set(eventId, {
+				kind: 'toolCall',
+				toolName: toolCall.toolName,
+				input,
+				output,
+				result,
+			});
+		}
+
+		if (responseText) {
+			const responseEventId = `agent-host-state:${turn.id}:response`;
+			events.push({
+				kind: 'agentResponse',
+				id: responseEventId,
+				sessionResource,
+				created,
+				parentEventId: modelEventId,
+				message: responseText,
+				sections: [],
+			});
+			resolved.set(responseEventId, {
+				kind: 'message',
+				type: 'agent',
+				message: responseText,
+				sections: [],
+			});
+		}
+	}
+
+	return { events, resolved };
+}
+
+function isCompletedAgentHostTurn(turn: Turn | ActiveTurn, activeTurn: ActiveTurn | undefined): turn is Turn {
+	return turn !== activeTurn;
 }
 
 /**
@@ -1033,6 +1295,7 @@ export function convertAgentHostEventsToDebugEvents(
 			}
 			case 'skill.invoked': {
 				const name = asString(record.data.name) ?? 'skill';
+				const path = asString(record.data.path);
 				const trigger = asString(record.data.trigger);
 				const source = asString(record.data.pluginName) ?? asString(record.data.source);
 				const content = asString(record.data.content);
@@ -1040,7 +1303,8 @@ export function convertAgentHostEventsToDebugEvents(
 					kind: 'generic', id: record.id, sessionResource, created, parentEventId: turnParent,
 					name: localize('agentHost.debug.skillInvoked', "Skill Invoked: {0}", name),
 					details: [trigger, source].filter(Boolean).join(' \u00b7 ') || undefined,
-					level: ChatDebugLogLevel.Info, category: 'customization',
+					level: ChatDebugLogLevel.Info, category: 'skill',
+					customization: { type: 'skill', name, uri: path ? URI.file(path) : undefined },
 				});
 				if (content) {
 					resolved.set(record.id, { kind: 'text', value: truncate(content, MAX_DETAIL_PAYLOAD) ?? content });
@@ -1529,6 +1793,35 @@ export function parseJsonl(text: string): IAgentHostEventRecord[] {
 	const records: IAgentHostEventRecord[] = [];
 	appendJsonlRecords(text, records);
 	return records;
+}
+
+function mcpLifecycleStateLabel(state: string): string {
+	switch (state) {
+		case 'discovered':
+			return localize('agentHost.debug.mcpLifecycle.discovered', "Discovered");
+		case 'initialized':
+			return localize('agentHost.debug.mcpLifecycle.initialized', "Initialized");
+		case 'starting':
+		case 'pending':
+			return localize('agentHost.debug.mcpLifecycle.starting', "Starting");
+		case 'error':
+			return localize('agentHost.debug.mcpLifecycle.error', "Failed");
+		case 'stopped':
+			return localize('agentHost.debug.mcpLifecycle.stopped', "Stopped");
+		default:
+			return state;
+	}
+}
+
+function mcpLifecycleDetail(event: IOTelDiagnosticsMcpLifecycleEvent): string {
+	return [
+		localize('agentHost.debug.mcpLifecycle.server', "Server: {0}", event.serverName),
+		localize('agentHost.debug.mcpLifecycle.state', "State: {0}", mcpLifecycleStateLabel(event.state)),
+		...(event.source ? [localize('agentHost.debug.mcpLifecycle.source', "Source: {0}", event.source)] : []),
+		...(event.error ? [localize('agentHost.debug.mcpLifecycle.errorDetail', "Error: {0}", event.error)] : []),
+		localize('agentHost.debug.mcpLifecycle.trace', "Trace: {0}", event.traceId),
+		localize('agentHost.debug.mcpLifecycle.span', "Span: {0}", event.spanId),
+	].join('\n');
 }
 
 /**

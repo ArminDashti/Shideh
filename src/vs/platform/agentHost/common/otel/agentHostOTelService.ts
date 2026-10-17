@@ -104,6 +104,9 @@ export interface IAgentHostOTelService {
 	 */
 	emitSessionTitleChanged(conversationId: string, sessionUri: string, title: string): void;
 
+	/** Emit one completed configured-hook command invocation. */
+	emitHookExecution?(conversationId: string, sessionUri: string, execution: IAgentHostHookExecution): void;
+
 	/**
 	 * Drain any in-flight outbound forwarding. Safe to call concurrently with
 	 * ongoing ingestion.

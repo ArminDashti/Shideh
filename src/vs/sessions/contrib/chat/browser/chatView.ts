@@ -177,9 +177,7 @@ export class NewChatView extends AbstractChatView {
 	}
 
 	override prefillInput(text: string): void {
-		if (this._widget instanceof NewChatWidget) {
-			this._widget.prefillInput(text);
-		}
+		this._widget.prefillInput(text);
 	}
 
 
@@ -195,6 +193,14 @@ export class NewChatView extends AbstractChatView {
 
 	override attach(uris: URI[]): void {
 		this._widget.attach(uris);
+	}
+
+	override attachTextContext(name: string, content: string, id: string): void {
+		this._widget.attachTextContext(name, content, id);
+	}
+
+	override attachToolSet(toolSetId: string): void {
+		this._widget.attachToolSet(toolSetId);
 	}
 
 	override setVisible(visible: boolean): void {
@@ -885,6 +891,10 @@ export class ChatView extends AbstractChatView {
 
 	override focus(): void {
 		this._widget.focusInput();
+	}
+
+	override prefillInput(text: string): void {
+		this._widget.setInput(text);
 	}
 
 	override attach(uris: URI[]): void {

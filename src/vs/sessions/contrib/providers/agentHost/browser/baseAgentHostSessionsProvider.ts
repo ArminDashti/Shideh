@@ -5595,6 +5595,10 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		return sessionState?.customizations ?? [];
 	}
 
+	getDiagnosticsConnection(): IAgentConnection | undefined {
+		return this.connection;
+	}
+
 	getWorkingDirectory(sessionId: string): string | undefined {
 		const sessionState = this._lastSessionStates.get(sessionId);
 		return sessionState?.workingDirectories?.[0];
