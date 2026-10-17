@@ -1486,6 +1486,26 @@ declare const MOCK_POLICY_ENDPOINTS: EndpointDef[];
 		toastTimer = setTimeout(() => { node.hidden = true; }, 3000);
 	}
 
+	/**
+	 * The info (i) panel opens on hover and focus via CSS. Escape must also
+	 * dismiss it without moving focus off the trigger (WCAG 1.4.13); a following
+	 * hover or re-focus clears the dismissed state so it can open again.
+	 */
+	function setupInfoPopover(): void {
+		const trigger = $('overrides-info');
+		const popover = trigger.closest('.info-popover');
+		if (!popover) {
+			return;
+		}
+		trigger.addEventListener('keydown', event => {
+			if (event.key === 'Escape') {
+				popover.classList.add('dismissed');
+			}
+		});
+		popover.addEventListener('mouseenter', () => popover.classList.remove('dismissed'));
+		popover.addEventListener('focusout', () => popover.classList.remove('dismissed'));
+	}
+
 	async function init(): Promise<void> {
 		$('proxy-settings').textContent = vscodeProxySetting;
 		$('macos-cache-command').textContent = macOsCacheClearCommand;
@@ -1616,7 +1636,6 @@ declare const MOCK_POLICY_ENDPOINTS: EndpointDef[];
 			}
 			syncSetupDialog();
 		} catch (e) {
-			selectSetupMethod('proxy');
 			// Fall back to the shared endpoint definitions so the GUI still shows
 			// what exists (read-only) rather than rendering a blank page.
 			endpoints = MOCK_POLICY_ENDPOINTS.map(def => ({ ...def, status: def.presets[0]?.status ?? 200, body: def.presets[0]?.body ?? {}, mode: 'json' }));
