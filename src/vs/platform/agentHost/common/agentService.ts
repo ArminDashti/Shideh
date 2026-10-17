@@ -594,6 +594,14 @@ export function buildAgentSdkEnv(
 	return out;
 }
 
+/**
+ * Environment variable set by the agent host starters from
+ * {@link AgentHostCopilotDisableCustomTerminalToolsSettingId}. A value of `1`
+ * disables Agent Host's Copilot terminal tool override for the lifetime of the
+ * host process.
+ */
+export const AgentHostCopilotDisableCustomTerminalToolsEnvVar = 'VSCODE_AGENT_HOST_COPILOT_DISABLE_CUSTOM_TERMINAL_TOOLS';
+
 /** Result of starting the agent host WebSocket server on-demand. */
 export interface IAgentHostSocketInfo {
 	readonly socketPath: string;
