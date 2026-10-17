@@ -605,6 +605,36 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		}
 	}
 
+	/**
+	 * Rebuilds the view for the currently attached model, preserving the view
+	 * state (cursor, selection, scroll) and focus. This is required to react to
+	 * options that are only applied while constructing the view, such as
+	 * `experimentalGpuAcceleration`.
+	 */
+	private _recreateView(): void {
+		if (!this._modelData) {
+			return;
+		}
+		try {
+			this._beginUpdate();
+			const model = this._modelData.model;
+			const hasTextFocus = this.hasTextFocus();
+			const viewState = this.saveViewState();
+
+			this._detachModel();
+			this._attachModel(model);
+			this.restoreViewState(viewState);
+
+			if (hasTextFocus && this.hasModel()) {
+				this.focus();
+			}
+
+			this._contributionsDisposable = this._contributions.onAfterModelAttached();
+		} finally {
+			this._endUpdate();
+		}
+	}
+
 	private _removeDecorationTypes(): void {
 		this._decorationTypeKeysToIds = {};
 		if (this._decorationTypeSubtypes) {
