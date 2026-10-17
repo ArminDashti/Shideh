@@ -11,7 +11,6 @@ import { assertType } from '../../../../../../base/common/types.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
 import { LineRange } from '../../../../../../editor/common/core/ranges/lineRange.js';
 import { nullDocumentDiff } from '../../../../../../editor/common/diff/documentDiffProvider.js';
-import { PrefixSumComputer } from '../../../../../../editor/common/model/prefixSumComputer.js';
 import { localize } from '../../../../../../nls.js';
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { MenuId } from '../../../../../../platform/actions/common/actions.js';
@@ -309,6 +308,24 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 				this.deletedCellDecorator?.apply(changes, originalModel);
 				this.overlayToolbarDecorator?.decorate(changes.filter(c => c.type === 'insert' || c.type === 'modified'));
 			}
+
+			let index = 0;
+			const sortedCellChanges = sortCellChanges(cellChanges.read(r));
+			for (const change of sortedCellChanges) {
+				if (currentChange && currentChange.change === change) {
+					if (change.type === 'modified') {
+						index += currentChange.index;
+					}
+					break;
+				}
+				if (change.type === 'insert' || change.type === 'delete') {
+					index++;
+				} else if (change.type === 'modified') {
+					index += change.diff.read(r).changes.length;
+				}
+			}
+
+			this._currentIndex.set(index, undefined);
 		}));
 	}
 
@@ -494,7 +511,6 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 		}
 
 		// go to next
-		// first check if we are at the end of the current change
 		switch (currentChange.change.type) {
 			case 'modified':
 				{
