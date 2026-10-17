@@ -1995,6 +1995,25 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			};
 		}
 
+		const args = invocation.parameters as IRunInTerminalInputParams;
+		const allowUnsandboxedCommands = this._getAllowToRunUnsandboxedCommands(args);
+		const isSandboxEnabled = await this._terminalSandboxService.isEnabled();
+		if (this._shouldRejectUnsandboxedExecutionRequest(isSandboxEnabled, allowUnsandboxedCommands, args)) {
+			const message = this._getUnsandboxedExecutionDisabledMessage();
+			return {
+				toolResultError: message,
+				toolResultDetails: {
+					input: args.command,
+					output: [{ type: 'embed', isText: true, value: message }],
+					isError: true,
+				},
+				content: [{
+					kind: 'text',
+					value: message,
+				}],
+			};
+		}
+
 		// Handle missing sandbox dependencies install flow.
 		// The user was shown a confirmation window in prepareToolInvocation.
 		if (toolSpecificData.missingSandboxDependencies?.length) {
