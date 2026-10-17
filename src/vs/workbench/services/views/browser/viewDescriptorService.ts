@@ -304,11 +304,21 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	getViewContainerLocation(viewContainer: ViewContainer): ViewContainerLocation {
-		return this.viewContainersCustomLocations.get(viewContainer.id) ?? this.getDefaultViewContainerLocation(viewContainer);
+		const location = this.viewContainersCustomLocations.get(viewContainer.id) ?? this.getDefaultViewContainerLocation(viewContainer);
+		return this.getEffectiveViewContainerLocation(location);
 	}
 
 	getDefaultViewContainerLocation(viewContainer: ViewContainer): ViewContainerLocation {
-		return this.viewContainersRegistry.getViewContainerLocation(viewContainer);
+		return this.getEffectiveViewContainerLocation(this.viewContainersRegistry.getViewContainerLocation(viewContainer));
+	}
+
+	private getEffectiveViewContainerLocation(location: ViewContainerLocation): ViewContainerLocation {
+		// When not in agent sessions workspace, view containers contributed to ChatBar
+		// should be registered at the AuxiliaryBar location instead
+		if (!this.isAgentSessionsWorkspace && location === ViewContainerLocation.ChatBar) {
+			return ViewContainerLocation.AuxiliaryBar;
+		}
+		return location;
 	}
 
 	getDefaultContainerById(viewId: string): ViewContainer | null {
@@ -324,7 +334,23 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	getViewContainersByLocation(location: ViewContainerLocation): ViewContainer[] {
-		return this.viewContainers.filter(v => this.getViewContainerLocation(v) === location);
+		return this.viewContainers.filter(v => this.getViewContainerLocation(v) === location && this.isViewContainerVisible(v));
+	}
+
+	private isViewContainerVisible(viewContainer: ViewContainer): boolean {
+		const layoutVisibility = viewContainer.layoutVisibility;
+		if (this.isAgentSessionsWorkspace) {
+			return layoutVisibility === LayoutVisibility.AgentSessions || layoutVisibility === LayoutVisibility.Both;
+		}
+		return !layoutVisibility || layoutVisibility === LayoutVisibility.Workbench || layoutVisibility === LayoutVisibility.Both;
+	}
+
+	private isViewVisible(view: IViewDescriptor): boolean {
+		const layoutVisibility = view.layoutVisibility;
+		if (this.isAgentSessionsWorkspace) {
+			return layoutVisibility === LayoutVisibility.AgentSessions || layoutVisibility === LayoutVisibility.Both;
+		}
+		return !layoutVisibility || layoutVisibility === LayoutVisibility.Workbench || layoutVisibility === LayoutVisibility.Both;
 	}
 
 	private isViewContainerEnabled(viewContainer: ViewContainer): boolean {
@@ -349,6 +375,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	canMoveViews(): boolean {
 		return !this.isSessionsWindow;
+	}
+
+	canMoveViews(): boolean {
+		return !this.isAgentSessionsWorkspace;
 	}
 
 	moveViewContainerToLocation(viewContainer: ViewContainer, location: ViewContainerLocation, requestedIndex?: number, reason?: string): void {

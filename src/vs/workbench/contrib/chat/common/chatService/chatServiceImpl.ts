@@ -222,6 +222,9 @@ export class ChatService extends Disposable implements IChatService {
 	private readonly _onDidDisposeSession = this._register(new Emitter<{ readonly sessionResources: URI[]; reason: 'cleared' | 'disposed' }>());
 	public readonly onDidDisposeSession = this._onDidDisposeSession.event;
 
+	private readonly _onDidChangeSessions = this._register(new Emitter<void>());
+	public readonly onDidChangeSessions = this._onDidChangeSessions.event;
+
 	private readonly _sessionFollowupCancelTokens = this._register(new DisposableResourceMap<CancellationTokenSource>());
 	private readonly _chatServiceTelemetry: ChatServiceTelemetry;
 	private readonly _chatSessionStore: ChatSessionStore;
@@ -256,6 +259,7 @@ export class ChatService extends Disposable implements IChatService {
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
 		@IChatSlashCommandService private readonly chatSlashCommandService: IChatSlashCommandService,
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -299,6 +303,8 @@ export class ChatService extends Disposable implements IChatService {
 			this.chatSessionService.clearMaterializedSessionResource(model.sessionResource);
 			this._onDidDisposeSession.fire({ sessionResources: [model.sessionResource], reason: 'disposed' });
 		}));
+
+		this._register(workspaceContextService.onDidChangeWorkspaceFolders(() => this._onDidChangeSessions.fire()));
 
 		this._chatServiceTelemetry = this.instantiationService.createInstance(ChatServiceTelemetry);
 		this._chatSessionStore = this._register(this.instantiationService.createInstance(ChatSessionStore));
@@ -504,6 +510,7 @@ export class ChatService extends Disposable implements IChatService {
 	async getLiveSessionItems(): Promise<IChatDetail[]> {
 		return await Promise.all(Array.from(this._sessionModels.values())
 			.filter(session => this.shouldBeInHistory(session))
+			.filter(session => this.isPartOfWorkspace(session.workingFolder))
 			.map(async (session): Promise<IChatDetail> => {
 				const title = session.title || localize('newChat', "New Chat");
 				return {
@@ -514,6 +521,7 @@ export class ChatService extends Disposable implements IChatService {
 					isActive: true,
 					stats: await awaitStatsForSession(session),
 					lastResponseState: session.lastRequest?.response?.state ?? ResponseModelState.Pending,
+					workingFolder: session.workingFolder,
 				};
 			}));
 	}
@@ -526,6 +534,7 @@ export class ChatService extends Disposable implements IChatService {
 		return Object.values(index)
 			.filter(entry => !entry.isExternal)
 			.filter(entry => !this._sessionModels.has(LocalChatSessionUri.forSession(entry.sessionId)) && entry.initialLocation === ChatAgentLocation.Chat && !entry.isEmpty)
+			.filter(entry => this.isPartOfWorkspace(entry.workingFolder))
 			.map((entry): IChatDetail => {
 				const sessionResource = LocalChatSessionUri.forSession(entry.sessionId);
 				const { workingDirectory: workingDirectoryStr, ...rest } = entry;
@@ -552,6 +561,20 @@ export class ChatService extends Disposable implements IChatService {
 		}
 
 		return undefined;
+	}
+
+	private isPartOfWorkspace(workingFolder: string | undefined): boolean {
+		const folders = this.workspaceContextService.getWorkspace().folders;
+		if (!workingFolder) {
+			return true;
+		}
+		if (folders.length === 0) {
+			return true;
+		}
+		if (folders.length === 1) {
+			return this.uriIdentityService.extUri.isEqual(folders[0].uri, URI.parse(workingFolder));
+		}
+		return false;
 	}
 
 	private shouldBeInHistory(entry: ChatModel): boolean {

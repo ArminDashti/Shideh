@@ -786,6 +786,7 @@ export interface IChatSessionEntryMetadata {
 	hasPendingEdits?: boolean;
 	stats?: IChatSessionStats;
 	lastResponseState: ResponseModelState;
+	workingFolder?: string;
 
 	/**
 	 * The working directory URI string associated with this session.

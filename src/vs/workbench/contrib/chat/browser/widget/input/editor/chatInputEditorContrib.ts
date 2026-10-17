@@ -39,6 +39,7 @@ const placeholderDecorationType = 'chat-session-detail';
 const slashCommandTextDecorationType = 'chat-session-text';
 const clickableSlashPromptTextDecorationType = 'chat-session-clickable-text';
 const variableTextDecorationType = 'chat-variable-text';
+const inputPrefixDecorationType = 'chat-input-prefix';
 
 function agentAndCommandToKey(agent: IChatAgentData, subcommand: string | undefined): string {
 	return subcommand ? `${agent.id}__${subcommand}` : agent.id;
@@ -154,6 +155,11 @@ class InputEditorDecorations extends Disposable {
 			// Trigger decoration update when mode or its properties change
 			this.triggerInputEditorDecorationsUpdate();
 		}));
+		this._register(autorun(reader => {
+			// Watch for changes to the input prefix content
+			this.widget.inputPrefixContentObs.read(reader);
+			this.triggerInputEditorDecorationsUpdate();
+		}));
 
 		this.registerViewModelListeners();
 	}
@@ -168,6 +174,7 @@ class InputEditorDecorations extends Disposable {
 
 	private registeredDecorationTypes() {
 		this._register(this.codeEditorService.registerDecorationType(decorationDescription, placeholderDecorationType, {}));
+		this._register(this.codeEditorService.registerDecorationType(decorationDescription, inputPrefixDecorationType, {}));
 		this._register(this.codeEditorService.registerDecorationType(decorationDescription, slashCommandTextDecorationType, {
 			color: themeColorFromId(chatSlashCommandForeground),
 			backgroundColor: themeColorFromId(chatSlashCommandBackground),
@@ -217,6 +224,34 @@ class InputEditorDecorations extends Disposable {
 			}
 			return;
 		}
+
+		// Handle persistent prefix decoration (e.g., '> ' for full welcome mode)
+		const prefixContent = this.widget.inputPrefixContentObs.get();
+		if (prefixContent) {
+			const prefixDecoration: IDecorationOptions[] = [{
+				range: {
+					startLineNumber: 1,
+					endLineNumber: 1,
+					startColumn: 1,
+					endColumn: 1
+				},
+				renderOptions: {
+					before: {
+						contentText: prefixContent,
+						color: this.getPlaceholderColor()
+					}
+				}
+			}];
+			this.widget.inputEditor.setDecorationsByType(decorationDescription, inputPrefixDecorationType, prefixDecoration);
+
+			// No placeholder text needed when prefix is shown
+			this.updateAriaPlaceholder(undefined);
+			this.widget.inputEditor.setDecorationsByType(decorationDescription, placeholderDecorationType, []);
+			return;
+		}
+
+		// Clear prefix decoration when no prefix content is set
+		this.widget.inputEditor.setDecorationsByType(decorationDescription, inputPrefixDecorationType, []);
 
 		if (!inputValue) {
 			// If the editor's placeholder option is set (e.g. dictation shows

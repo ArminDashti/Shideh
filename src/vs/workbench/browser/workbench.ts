@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './style.js';
+import { registerLayoutActions } from './actions/layoutActions.js';
 import { runWhenWindowIdle } from '../../base/browser/dom.js';
 import { Event, Emitter, setGlobalLeakWarningThreshold } from '../../base/common/event.js';
 import { RunOnceScheduler, timeout } from '../../base/common/async.js';
@@ -18,7 +19,7 @@ import { getSingletonServiceDescriptors } from '../../platform/instantiation/com
 import { Position, Parts, IWorkbenchLayoutService, positionToString } from '../services/layout/browser/layoutService.js';
 import { IStorageService, WillSaveStateReason, StorageScope, StorageTarget } from '../../platform/storage/common/storage.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../platform/configuration/common/configuration.js';
-import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IConstructorSignature, IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../platform/instantiation/common/serviceCollection.js';
 import { LifecyclePhase, ILifecycleService, WillShutdownEvent } from '../services/lifecycle/common/lifecycle.js';
 import { INotificationService } from '../../platform/notification/common/notification.js';
@@ -49,6 +50,16 @@ import { AccessibleViewRegistry } from '../../platform/accessibility/browser/acc
 import { NotificationAccessibleView } from './parts/notifications/notificationAccessibleView.js';
 import { IMarkdownRendererService } from '../../platform/markdown/browser/markdownRenderer.js';
 import { EditorMarkdownCodeBlockRenderer } from '../../editor/browser/widget/markdownRenderer/browser/editorMarkdownCodeBlockRenderer.js';
+import { IPaneCompositePartService } from '../services/panecomposite/browser/panecomposite.js';
+import { IPaneCompositePartsConfiguration, PaneCompositePartService } from './parts/paneCompositePartService.js';
+import { AuxiliaryBarPart } from './parts/auxiliarybar/auxiliaryBarPart.js';
+import { PanelPart } from './parts/panel/panelPart.js';
+import { SidebarPart } from './parts/sidebar/sidebarPart.js';
+import { ChatBarPart } from '../agentSessions/browser/parts/chatbar/chatBarPart.js';
+import { SyncDescriptor } from '../../platform/instantiation/common/descriptors.js';
+import { registerTitleBarActions } from './parts/titlebar/titlebarActions.js';
+import { ITitleService } from '../services/title/browser/titleService.js';
+import { BrowserTitleService, ITitlebarPartConfiguration } from './parts/titlebar/titlebarPart.js';
 
 export interface IWorkbenchOptions {
 
@@ -61,6 +72,11 @@ export interface IWorkbenchOptions {
 	 * Whether to reset the workbench parts layout on startup.
 	 */
 	resetLayout?: boolean;
+
+	/**
+	 * The title service class to use. Defaults to BrowserTitleService.
+	 */
+	titleService?: IConstructorSignature<ITitleService, [ITitlebarPartConfiguration]>;
 }
 
 export class Workbench extends Layout {
@@ -83,6 +99,10 @@ export class Workbench extends Layout {
 		mark('code/willStartWorkbench');
 
 		this.registerErrorHandler(logService);
+
+		// Register layout actions specific to the default workbench
+		registerLayoutActions();
+		registerTitleBarActions();
 	}
 
 	private registerErrorHandler(logService: ILogService): void {
@@ -182,6 +202,22 @@ export class Workbench extends Layout {
 		//       is desktop only.
 		//
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		// Pane Composite Parts Service - pass descriptors for parts specific to default workbench
+		const paneCompositePartsConfiguration: IPaneCompositePartsConfiguration = {
+			panelPart: new SyncDescriptor(PanelPart),
+			sideBarPart: new SyncDescriptor(SidebarPart),
+			auxiliaryBarPart: new SyncDescriptor(AuxiliaryBarPart),
+			chatBarPart: new SyncDescriptor(ChatBarPart),
+		};
+		serviceCollection.set(IPaneCompositePartService, new SyncDescriptor(PaneCompositePartService, [paneCompositePartsConfiguration]));
+
+		// Title Service - pass configuration for titlebar parts with full feature support
+		const titlebarConfiguration: ITitlebarPartConfiguration = {
+			mainOptions: {},
+			auxiliaryOptions: {}
+		};
+		serviceCollection.set(ITitleService, new SyncDescriptor(this.options?.titleService ?? BrowserTitleService, [titlebarConfiguration]));
 
 		// All Contributed Services
 		const contributedServices = getSingletonServiceDescriptors();

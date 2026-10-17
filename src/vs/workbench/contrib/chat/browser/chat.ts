@@ -299,6 +299,34 @@ export interface IChatListItemRendererOptions {
 	readonly codeBlockRenderOptions?: ICodeBlockRenderOptions;
 }
 
+/**
+ * Configuration options for the full welcome view in ChatWidget.
+ * When showFullWelcome is enabled, these options customize the welcome experience.
+ */
+export interface IChatFullWelcomeOptions {
+	/**
+	 * Maximum number of sessions to display in the grid.
+	 */
+	readonly maxSessions?: number;
+
+	/**
+	 * Whether to show the "Show on startup" checkbox.
+	 */
+	readonly showStartupCheckbox?: boolean;
+
+
+
+	/**
+	 * Callback when a session is opened from the welcome view.
+	 */
+	readonly onSessionOpened?: () => void;
+
+	/**
+	 * Callback when "View All Sessions" is clicked.
+	 */
+	readonly onViewAllSessions?: () => void;
+}
+
 export interface IChatWidgetViewOptions {
 	readonly inputEditorState?: ChatInputEditorState;
 	autoScroll?: boolean | ((mode: ChatModeKind) => boolean);
@@ -500,6 +528,19 @@ export interface IChatWidget {
 	readonly contribs: readonly IChatWidgetContrib[];
 
 	readonly supportsChangingModes: boolean;
+	readonly showFullWelcome: boolean;
+
+	/**
+	 * Observable for the input prefix decoration content (e.g., '> ').
+	 * When set, this is shown as a non-editable prefix before any user input.
+	 */
+	readonly inputPrefixContentObs: IObservable<string | undefined>;
+
+	/**
+	 * Sets the input prefix decoration content.
+	 * Call with undefined to clear the prefix.
+	 */
+	setInputPrefixContent(content: string | undefined): void;
 
 	getContrib<T extends IChatWidgetContrib>(id: string): T | undefined;
 	reveal(item: ChatTreeItem): void;

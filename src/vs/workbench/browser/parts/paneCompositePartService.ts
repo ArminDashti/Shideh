@@ -3,39 +3,50 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../base/common/event.js';
+import { Emitter } from '../../../base/common/event.js';
 import { assertReturnsDefined } from '../../../base/common/types.js';
-import { InstantiationType, registerSingleton } from '../../../platform/instantiation/common/extensions.js';
+import { SyncDescriptor0 } from '../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IProgressIndicator } from '../../../platform/progress/common/progress.js';
 import { PaneCompositeDescriptor } from '../panecomposite.js';
-import { AuxiliaryBarPart } from './auxiliarybar/auxiliaryBarPart.js';
-import { PanelPart } from './panel/panelPart.js';
-import { SidebarPart } from './sidebar/sidebarPart.js';
 import { IPaneComposite } from '../../common/panecomposite.js';
 import { ViewContainerLocation } from '../../common/views.js';
 import { IPaneCompositePartService } from '../../services/panecomposite/browser/panecomposite.js';
-import { Disposable, DisposableStore } from '../../../base/common/lifecycle.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
 import { IPaneCompositePart } from './paneCompositePart.js';
 import { SINGLE_WINDOW_PARTS } from '../../services/layout/browser/layoutService.js';
+
+export interface IPaneCompositePartsConfiguration {
+	readonly panelPart: SyncDescriptor0<IPaneCompositePart>;
+	readonly sideBarPart: SyncDescriptor0<IPaneCompositePart>;
+	readonly auxiliaryBarPart: SyncDescriptor0<IPaneCompositePart>;
+	readonly chatBarPart: SyncDescriptor0<IPaneCompositePart>;
+}
 
 export class PaneCompositePartService extends Disposable implements IPaneCompositePartService {
 
 	declare readonly _serviceBrand: undefined;
 
-	readonly onDidPaneCompositeOpen: Event<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>;
-	readonly onDidPaneCompositeClose: Event<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>;
+	private readonly _onDidPaneCompositeOpen = this._register(new Emitter<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>());
+	readonly onDidPaneCompositeOpen = this._onDidPaneCompositeOpen.event;
+
+	private readonly _onDidPaneCompositeClose = this._register(new Emitter<{ composite: IPaneComposite; viewContainerLocation: ViewContainerLocation }>());
+	readonly onDidPaneCompositeClose = this._onDidPaneCompositeClose.event;
 
 	private readonly paneCompositeParts = new Map<ViewContainerLocation, IPaneCompositePart>();
 
 	constructor(
-		@IInstantiationService instantiationService: IInstantiationService,
+		partsConfiguration: IPaneCompositePartsConfiguration,
+		@IInstantiationService instantiationService: IInstantiationService
 	) {
 		super();
 
-		const panelPart = instantiationService.createInstance(PanelPart);
-		const sideBarPart = instantiationService.createInstance(SidebarPart);
-		const auxiliaryBarPart = instantiationService.createInstance(AuxiliaryBarPart);
+		// Create all parts eagerly - the layout needs them registered before renderWorkbench
+		this.registerPart(ViewContainerLocation.Panel, instantiationService.createInstance(partsConfiguration.panelPart));
+		this.registerPart(ViewContainerLocation.Sidebar, instantiationService.createInstance(partsConfiguration.sideBarPart));
+		this.registerPart(ViewContainerLocation.AuxiliaryBar, instantiationService.createInstance(partsConfiguration.auxiliaryBarPart));
+		this.registerPart(ViewContainerLocation.ChatBar, instantiationService.createInstance(partsConfiguration.chatBarPart));
+	}
 
 		this.paneCompositeParts.set(ViewContainerLocation.Panel, panelPart);
 		this.paneCompositeParts.set(ViewContainerLocation.Sidebar, sideBarPart);
@@ -102,5 +113,3 @@ export class PaneCompositePartService extends Disposable implements IPaneComposi
 	}
 
 }
-
-registerSingleton(IPaneCompositePartService, PaneCompositePartService, InstantiationType.Delayed);

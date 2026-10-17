@@ -232,7 +232,7 @@ export class ChatSubmitAction extends SubmitAction {
 					when: ContextKeyExpr.and(
 						whenNoActiveRequest,
 						menuCondition,
-						ChatContextKeys.withinEditSessionDiff.negate(),
+						ChatContextKeys.withinEditSessionDiff.negate()
 					),
 					group: 'navigation',
 					alt: {

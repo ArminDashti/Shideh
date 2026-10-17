@@ -471,6 +471,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+	private readonly fullWelcomePart: MutableDisposable<ChatFullWelcomePart> = this._register(new MutableDisposable());
+	private fullWelcomeContainer: HTMLElement | undefined;
+	private mainInputContainer: HTMLElement | undefined; // Container for input when not in welcome view (full welcome mode)
 
 	private readonly _gettingStartedTip = this._register(new MutableDisposable<ChatInputTipPresenter>());
 
@@ -608,6 +611,20 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	get supportsChangingModes(): boolean {
 		return !!this.viewOptions.supportsChangingModes;
+	}
+
+	get showFullWelcome(): boolean {
+		return !!this.viewOptions.showFullWelcome;
+	}
+
+	private readonly _inputPrefixContent = observableValue<string | undefined>(this, undefined);
+
+	get inputPrefixContentObs() {
+		return this._inputPrefixContent;
+	}
+
+	setInputPrefixContent(content: string | undefined): void {
+		this._inputPrefixContent.set(content, undefined);
 	}
 
 	get locationData() {
@@ -4149,6 +4166,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.listWidget.layout(contentHeight, width);
 
 		this.welcomeMessageContainer.style.height = `${contentHeight}px`;
+
+		// Layout full welcome part if active
+		if (this.fullWelcomePart.value && this.fullWelcomeContainer) {
+			this.fullWelcomeContainer.style.height = `${contentHeight}px`;
+			this.fullWelcomePart.value.layout(width);
+		}
 
 		const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
 		if (lastElementVisible && !this.listWidget.isAutoScrollHeld && (!lastResponseIsRendering || checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll))) {

@@ -2950,6 +2950,11 @@ export class ChatModel extends Disposable implements IChatModel {
 		return this._canUseTools;
 	}
 
+	private readonly _workingFolder: string | undefined;
+	get workingFolder(): string | undefined {
+		return this._workingFolder;
+	}
+
 	private _disableBackgroundKeepAlive: boolean;
 	get willKeepAlive(): boolean {
 		return !this._disableBackgroundKeepAlive;
@@ -3020,6 +3025,8 @@ export class ChatModel extends Disposable implements IChatModel {
 		this._canUseTools = initialModelProps.canUseTools;
 		this.isReadOnly = initialModelProps.isReadOnly ?? constObservable(false);
 		this.isInputBlocked = initialModelProps.isInputBlocked ?? constObservable(false);
+
+		this._workingFolder = (isValidFullData && initialData.workingFolder) || initialModelProps.workingFolder;
 
 		this.lastRequestObs = observableFromEvent(this, this.onDidChange, () => this._requests.at(-1));
 

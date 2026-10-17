@@ -128,11 +128,15 @@ export class DesktopMain extends Disposable {
 		// (fixes https://github.com/microsoft/vscode/issues/187982)
 		this.applyWindowZoomLevel(services.configurationService);
 
-		// Create Workbench
-		const workbench = new Workbench(mainWindow.document.body, {
-			extraClasses: this.getExtraClasses(),
-			resetLayout: this.configuration['disable-layout-restore'] === true
-		}, services.serviceCollection, services.logService);
+		// Create Workbench - use AgentSessionsWorkbench for agent sessions workspace
+		const workbench = services.configurationService.getWorkspace().isAgentSessionsWorkspace
+			? new AgentSessionsWorkbench(mainWindow.document.body, {
+				extraClasses: this.getExtraClasses(),
+			}, services.serviceCollection, services.logService)
+			: new Workbench(mainWindow.document.body, {
+				extraClasses: this.getExtraClasses(),
+				resetLayout: this.configuration['disable-layout-restore'] === true
+			}, services.serviceCollection, services.logService);
 
 		// Listeners
 		this.registerListeners(workbench, services.storageService);
@@ -164,14 +168,14 @@ export class DesktopMain extends Disposable {
 		return [];
 	}
 
-	private registerListeners(workbench: Workbench, storageService: NativeWorkbenchStorageService): void {
+	private registerListeners(workbench: Workbench | AgentSessionsWorkbench, storageService: NativeWorkbenchStorageService): void {
 
 		// Workbench Lifecycle
 		this._register(workbench.onWillShutdown(event => event.join(storageService.close(), { id: 'join.closeStorage', label: localize('join.closeStorage', "Saving UI state") })));
 		this._register(workbench.onDidShutdown(() => this.dispose()));
 	}
 
-	private async initServices(): Promise<{ serviceCollection: ServiceCollection; logService: ILogService; storageService: NativeWorkbenchStorageService; configurationService: IConfigurationService }> {
+	private async initServices(): Promise<{ serviceCollection: ServiceCollection; logService: ILogService; storageService: NativeWorkbenchStorageService; configurationService: WorkspaceService; isAgentSessionsWorkspace: boolean }> {
 		const serviceCollection = new ServiceCollection();
 
 
@@ -353,7 +357,10 @@ export class DesktopMain extends Disposable {
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-		return { serviceCollection, logService, storageService, configurationService };
+		// Check if this is an agent sessions workspace
+		const isAgentSessionsWorkspace = !!configurationService.getWorkspace().isAgentSessionsWorkspace;
+
+		return { serviceCollection, logService, storageService, configurationService, isAgentSessionsWorkspace };
 	}
 
 	private resolveWorkspaceIdentifier(environmentService: INativeWorkbenchEnvironmentService): IAnyWorkspaceIdentifier {

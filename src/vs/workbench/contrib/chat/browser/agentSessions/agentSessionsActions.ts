@@ -17,6 +17,7 @@ import { ChatContextKeyExprs, ChatContextKeys } from '../../common/actions/chatC
 import { getChatSessionType, LocalChatSessionUri } from '../../common/model/chatUri.js';
 import { IChatEditorOptions } from '../widgetHosts/editor/chatEditor.js';
 import { ChatViewId, IChatWidgetService } from '../chat.js';
+import { AgentSessionsViewPane } from './experiments/agentSessionsViewPane.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, PreferredGroup, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../../common/views.js';
 import { IWorkbenchLayoutService, Position } from '../../../../services/layout/browser/layoutService.js';
@@ -56,7 +57,10 @@ export class ToggleShowAgentSessionsAction extends Action2 {
 				id: MenuId.ChatWelcomeContext,
 				group: '0_sessions',
 				order: 2,
-				when: ChatContextKeys.inChatEditor.negate()
+				when: ContextKeyExpr.and(
+					ChatContextKeys.inChatEditor.negate(),
+					ChatContextKeys.agentSessionsViewerDedicated.negate()
+				)
 			}
 		});
 	}
@@ -74,7 +78,10 @@ MenuRegistry.appendMenuItem(MenuId.ChatWelcomeContext, {
 	title: localize2('chat.sessionsOrientation', "Sessions Orientation"),
 	group: '0_sessions',
 	order: 1,
-	when: ChatContextKeys.inChatEditor.negate()
+	when: ContextKeyExpr.and(
+		ChatContextKeys.inChatEditor.negate(),
+		ChatContextKeys.agentSessionsViewerDedicated.negate()
+	)
 });
 
 export class SetAgentSessionsOrientationStackedAction extends Action2 {
@@ -1111,11 +1118,16 @@ export class RefreshAgentSessionsViewerAction extends Action2 {
 			id: 'agentSessionsViewer.refresh',
 			title: localize2('refresh', "Refresh Agent Sessions"),
 			icon: Codicon.refresh,
-			menu: {
+			menu: [{
 				id: MenuId.AgentSessionsToolbar,
 				group: 'navigation',
 				order: 1,
-			},
+			}, {
+				id: MenuId.ViewTitle,
+				group: 'navigation',
+				order: 1,
+				when: ContextKeyExpr.equals('view', AgentSessionsViewId),
+			}],
 		});
 	}
 
@@ -1136,11 +1148,16 @@ export class FindAgentSessionInViewerAction extends Action2 {
 			id: 'agentSessionsViewer.find',
 			title: localize2('find', "Find Agent Session"),
 			icon: Codicon.search,
-			menu: {
+			menu: [{
 				id: MenuId.AgentSessionsToolbar,
 				group: 'navigation',
 				order: 2,
-			}
+			}, {
+				id: MenuId.ViewTitle,
+				group: 'navigation',
+				order: 2,
+				when: ContextKeyExpr.equals('view', AgentSessionsViewId),
+			}]
 		});
 	}
 

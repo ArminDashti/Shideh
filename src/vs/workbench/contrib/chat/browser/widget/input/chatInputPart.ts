@@ -62,6 +62,7 @@ import { IActionViewItemService, type IActionViewItemFactory } from '../../../..
 import { MenuEntryActionViewItem } from '../../../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../../../platform/actions/browser/toolbar.js';
 import { MenuId, MenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IDefaultAccountService } from '../../../../../../platform/defaultAccount/common/defaultAccount.js';
@@ -815,6 +816,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private delegationWidget: DelegationSessionPickerActionItem | undefined;
 	private readonly chatSessionPickerWidgets = this._register(new DisposableMap<string, ChatSessionPickerActionItem>());
 	private chatSessionPickerContainer: HTMLElement | undefined;
+	private targetButtonsContainer: HTMLElement | undefined;
+	private targetButtonsDisposable = this._register(new DisposableStore());
 	private _lastSessionPickerAction: MenuItemAction | undefined;
 	private _lastSessionPickerOptions: IChatInputPickerOptions | undefined;
 	private readonly _chatSessionOptionEmitters = this._register(new DisposableMap<string, Emitter<IChatSessionProviderOptionItem>>());
@@ -1151,6 +1154,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					this.refreshChatSessionPickers();
 				}
 			}
+		}));
+
+		// Re-render spread target buttons when session contributions become available
+		this._register(this.chatSessionsService.onDidChangeAvailability(() => {
+			this.renderSpreadTargetButtons();
 		}));
 
 		// Listen for session type changes from the welcome page delegate
@@ -2965,6 +2973,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Fires events for each option group with their current selection.
 	 */
 	private refreshChatSessionPickers(): void {
+		// Also refresh spread target buttons to keep active state in sync
+		this.renderSpreadTargetButtons();
+
 		// Use the shared helper to compute visibility and update context keys
 		const sessionResource = this.getCurrentSessionResource();
 		const allOptionsGroups = this.getAllOptionsGroups(sessionResource);
@@ -3030,6 +3041,96 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			widget.dispose();
 		}
 		this.chatSessionPickerWidgets.clear();
+	}
+
+	/**
+	 * Render spread target buttons in the bottom bar.
+	 * Each session type is rendered as a separate button that can be clicked to select it.
+	 * Only shown in full welcome view (when showFullWelcome is enabled and session is empty).
+	 */
+	private renderSpreadTargetButtons(): void {
+		if (!this.targetButtonsContainer || this.options.renderStyle === 'compact' || !this._widget?.showFullWelcome) {
+			return;
+		}
+
+		// Clear any existing buttons
+		this.targetButtonsDisposable.clear();
+		dom.clearNode(this.targetButtonsContainer);
+
+		// Show spread buttons in welcome view (empty session or no model set)
+		// Once a message is sent, hide them and show the target picker inside the input instead
+		const isWelcomeView = this._chatSessionIsEmpty || !this._inputModel;
+		if (!isWelcomeView) {
+			return;
+		}
+
+		// Get session types to display
+		const sessionTypes: AgentSessionProviders[] = [AgentSessionProviders.Local];
+
+		// Add contributed session types
+		const contributions = this.chatSessionsService.getAllChatSessionContributions();
+		for (const contribution of contributions) {
+			const agentSessionType = getAgentSessionProvider(contribution.type);
+			if (agentSessionType && agentSessionType !== AgentSessionProviders.Local) {
+				sessionTypes.push(agentSessionType);
+			}
+		}
+
+		// Get current active session type
+		const getActiveSessionType = (): AgentSessionProviders | undefined => {
+			// Prefer actual session resource type when available - this ensures
+			// the correct button is highlighted when opening an existing session
+			const sessionResource = this._widget?.viewModel?.sessionResource;
+			if (sessionResource) {
+				const sessionType = getAgentSessionProvider(sessionResource);
+				if (sessionType) {
+					return sessionType;
+				}
+			}
+			// Fall back to delegate for initial state before session is created
+			if (this.options.sessionTypePickerDelegate?.getActiveSessionProvider) {
+				return this.options.sessionTypePickerDelegate.getActiveSessionProvider();
+			}
+			return undefined;
+		};
+
+		const activeType = getActiveSessionType() ?? AgentSessionProviders.Local;
+
+		// Create buttons for each session type
+		for (const sessionType of sessionTypes) {
+			const button = dom.$('.chat-target-button');
+			const name = getAgentSessionProviderName(sessionType);
+
+			// Create button content with label only (no icon)
+			const labelEl = dom.$('span.chat-target-button-label', undefined, name);
+
+			button.appendChild(labelEl);
+
+			// Mark active button
+			button.classList.toggle('active', sessionType === activeType);
+
+			// Handle click
+			this.targetButtonsDisposable.add(dom.addDisposableListener(button, dom.EventType.CLICK, () => {
+				if (this.options.sessionTypePickerDelegate?.setActiveSessionProvider) {
+					// Welcome view mode - use delegate to set provider
+					this.options.sessionTypePickerDelegate.setActiveSessionProvider(sessionType);
+				} else if (this.options.sessionTypePickerDelegate?.setPendingDelegationTarget) {
+					// Session view mode - set pending delegation target
+					this.options.sessionTypePickerDelegate.setPendingDelegationTarget(sessionType);
+				} else {
+					// Execute command to create new session
+					const commandId = sessionType === AgentSessionProviders.Local
+						? `workbench.action.chat.openNewChatSessionInPlace.${sessionType}`
+						: `workbench.action.chat.openNewChatSessionExternal.${sessionType}`;
+					this.commandService.executeCommand(commandId, 'sidebar');
+				}
+
+				// Update button states
+				this.renderSpreadTargetButtons();
+			}));
+
+			this.targetButtonsContainer.appendChild(button);
+		}
 	}
 
 	/**
@@ -3443,6 +3544,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._register(widget.onDidChangeViewModel(e => this.handleViewModelChange(e)));
 
 		let elements;
+		let toolbarsContainer: HTMLElement;
+		let inputToolbarsLeft: HTMLElement | undefined;
 		if (this.options.renderStyle === 'compact') {
 			elements = dom.h(`.interactive-input-part.${chatInputSurfaceStackClass}`, [
 				dom.h('.chat-input-persistent-content@persistentContentContainer'),
@@ -3849,6 +3952,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		};
 
 		this._register(dom.addStandardDisposableListener(toolbarsContainer, dom.EventType.CLICK, e => this.inputEditor.focus()));
+		if (inputToolbarsLeft) {
+			this._register(dom.addStandardDisposableListener(inputToolbarsLeft, dom.EventType.CLICK, e => this.inputEditor.focus()));
+			// Store reference to target buttons container for spread buttons
+			this.targetButtonsContainer = inputToolbarsLeft;
+		}
 		this._register(dom.addStandardDisposableListener(this.attachmentsContainer, dom.EventType.CLICK, e => this.inputEditor.focus()));
 		const inputToolbarMenu = this.options.menus.inputToolbar ?? MenuId.ChatInput;
 		this.inputActionsToolbar = this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, this.options.renderInputToolbarBelowInput ? this.attachmentsContainer : toolbarsContainer, inputToolbarMenu, {
@@ -3905,6 +4013,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					inputOverflowPickerHandlers.set(action.id, anchor => showOverflowPicker(createPicker, anchor));
 					return this.modeWidget = createPicker();
 				} else if ((action.id === OpenSessionTargetPickerAction.ID || action.id === OpenDelegationPickerAction.ID) && action instanceof MenuItemAction) {
+					// In full welcome mode (showFullWelcome), hide the target picker since:
+					// - For empty sessions: we show spread buttons in the bottom bar
+					// - For non-empty sessions: only delegation picker should appear
+					if (this._widget?.showFullWelcome && action.id === OpenSessionTargetPickerAction.ID) {
+						const empty = new BaseActionViewItem(undefined, action);
+						if (empty.element) {
+							empty.element.style.display = 'none';
+						}
+						return empty;
+					}
 					// Use provided delegate if available, otherwise create default delegate
 					const delegate: ISessionTypePickerDelegate = this.options.sessionTypePickerDelegate ?? {
 						getActiveSessionProvider: () => {
@@ -3968,6 +4086,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.inputActionsToolbar.refresh();
 			}
 		}));
+		// Execute toolbar (send button) stays inside the input container
 		this.executeToolbar = this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, toolbarsContainer, this.options.menus.executeToolbar, {
 			telemetrySource: this.options.menus.telemetrySource,
 			menuOptions: {
@@ -5051,7 +5170,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			editSessionEntries.read(reader).length > 0 || sessionFiles.read(reader).length > 0);
 
 		this._renderingChatEdits.value = autorun(reader => {
-			if (this.options.renderWorkingSet && shouldRender.read(reader)) {
+			if (!this._widget?.showFullWelcome && this.options.renderWorkingSet && shouldRender.read(reader)) {
 				this.renderChatEditingSessionWithEntries(
 					reader.store,
 					chatEditingSession,
