@@ -846,6 +846,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 		Promise.all([modifiedCellModelPromise, originalCellModelPromise]).then(([modifiedCellModel, originalCellModel]) => {
 			this.getOrCreateModifiedTextFileEntryForCell(modifiedCell, modifiedCellModel, originalCellModel);
+		}).catch(() => {
+			// If promises fail due to disposal, ignore the error
 		});
 
 		const diff = observableValue('diff', nullDocumentDiff);
@@ -903,6 +905,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			// We want decorators for the cell just as we display decorators for modified cells.
 			// This way we have the ability to accept/reject the entire cell.
 			this.getOrCreateModifiedTextFileEntryForCell(cell, modifiedModel, originalModel);
+		}).catch(() => {
+			// If promise fails due to disposal, ignore the error
 		});
 		return {
 			type: 'insert' as const,
