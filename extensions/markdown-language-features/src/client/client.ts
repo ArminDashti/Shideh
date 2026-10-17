@@ -19,6 +19,12 @@ function toLspRange(range: vscode.Range): lsp.Range {
 	return lsp.Range.create(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
+interface DocumentDiagnosticReport {
+	kind: 'full' | 'unchanged';
+	items?: lsp.Diagnostic[];
+	resultId?: string;
+}
+
 export class MdLanguageClient implements IDisposable {
 
 	readonly #client: lsp.BaseLanguageClient;
