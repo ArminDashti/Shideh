@@ -3636,6 +3636,27 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	opacity: 1;
 }
 
+/* Hover chevron indicator for collapsible parts */
+.chat-collapsible-hover-chevron {
+	font-size: 12px;
+	opacity: 0;
+	transition: opacity 0.1s ease-in-out;
+	color: var(--vscode-descriptionForeground);
+}
+
+.chat-collapsible-hover-chevron.codicon-chevron-down {
+	opacity: 1;
+}
+
+.interactive-session .chat-used-context-label .monaco-button:hover .chat-collapsible-hover-chevron {
+	opacity: 1;
+}
+
+/* Hide completion checkmark icon on tool invocation progress lines */
+.chat-tool-invocation-part .progress-container > .codicon-check {
+	display: none;
+}
+
 .interactive-item-container .progress-container {
 	display: flex;
 	/* Keep the icon on the first line: a wrapped message must not drag it down

@@ -146,6 +146,14 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 			btn.iconElement.style.display = 'none';
 		}
 
+		// Only show leading icon for errors
+		if (isError) {
+			btn.icon = Codicon.error;
+		} else {
+			btn.icon = Codicon.blank;
+			btn.iconElement.style.display = 'none';
+		}
+
 		const expanded = this._expanded = observableValue(this, initiallyExpanded);
 		this._register(autorun(r => {
 			const value = expanded.read(r);
@@ -165,6 +173,10 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 
 			// Update hover chevron direction
 			hoverChevron.classList.toggle('expanded', value);
+
+			// Update hover chevron direction
+			hoverChevron.classList.toggle('codicon-chevron-right', !value);
+			hoverChevron.classList.toggle('codicon-chevron-down', value);
 
 			// Update hover chevron direction
 			hoverChevron.classList.toggle('codicon-chevron-right', !value);

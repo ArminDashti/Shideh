@@ -964,6 +964,7 @@ export class CollapsedCodeBlock extends ChatEditPillElement {
 		const iconText = this.labelService.getUriBasenameLabel(uri);
 		this.progressStore.add(autorun(r => {
 			if (isStreaming.read(r)) {
+				statusIconEl.style.display = '';
 				const codicon = ThemeIcon.modify(Codicon.loading, 'spin');
 				this.setStatus(codicon, localize('chat.codeblock.applyingEdits', 'Applying edits'));
 				const entry = editSession.readEntry(uri, r);
