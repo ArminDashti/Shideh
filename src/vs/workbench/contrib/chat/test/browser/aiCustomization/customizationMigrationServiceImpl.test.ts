@@ -343,6 +343,69 @@ suite('CustomizationMigrationService', () => {
 		store.add(instantiationService.createInstance(BaseCustomizationMigrationService));
 	});
 
+	async function createMcpRevalidationContext(root: URI) {
+		const sourceUri = URI.joinPath(root, '.vscode', 'mcp.json');
+		const targetUri = URI.joinPath(root, '.mcp.json');
+		const server = {
+			id: 'mcp.config.ws0.server',
+			name: 'server',
+			collectionId: 'mcp.config.ws0',
+			source: {
+				group: 'local' as const,
+				kind: AgentHostMcpServerSourceKind.VscodeWorkspaceFolder,
+				label: 'Workspace',
+				collectionUri: sourceUri,
+				definitionLocation: undefined,
+				remoteAuthority: null,
+				extensionId: undefined,
+				pluginUri: undefined,
+			},
+			enablement: { enabled: true, state: AgentHostMcpServerEnablementState.EnabledWorkspace },
+			applicability: AgentHostMcpServerApplicability.Applicable,
+			delivery: AgentHostMcpServerDelivery.ClientForwarded,
+			compatibility: { kind: 'supported' as const },
+		};
+		const snapshot = observableValue<IAgentHostMcpServerSupportSnapshot>('support', {
+			servers: [server],
+			discoveryComplete: true,
+			coverage: {
+				restrictedByMcpAccess: false,
+				restrictedByCustomizationPolicy: false,
+			},
+		});
+		const activeClientService = {
+			acquireMcpServerSupportScope: () => ({
+				support: snapshot,
+				isResolved: constObservable(true),
+				whenResolved: () => Promise.resolve(),
+				dispose: () => { },
+			}),
+		} as Partial<IAgentHostActiveClientService> as IAgentHostActiveClientService;
+		const fileService = store.add(new FileService(new NullLogService()));
+		const provider = store.add(new InMemoryFileSystemProvider());
+		store.add(fileService.registerProvider(Schemas.file, provider));
+		await fileService.writeFile(sourceUri, VSBuffer.fromString('{"servers":{"server":{"type":"stdio","command":"server"}}}'));
+		const service = new CustomizationMigrationService(
+			store.add(new TestPromptsService([])),
+			new TestCustomizationHarnessService(),
+			activeClientService,
+			new class extends mock<IAgentHostCustomizationService>() {
+				override getWorkingDirectories() { return [root.toString()]; }
+			}(),
+			fileService,
+			new NullLogService(),
+		);
+		return {
+			fileService,
+			server,
+			service,
+			sessionResource: URI.from({ scheme: SessionType.AgentHostCopilot, path: '/session' }),
+			snapshot,
+			sourceUri,
+			targetUri,
+		};
+	}
+
 	test('computes file and MCP migration candidates for Agent Host sessions', async () => {
 		const root = URI.file('/workspace');
 		const promptsService = store.add(new TestPromptsService([
@@ -377,10 +440,10 @@ suite('CustomizationMigrationService', () => {
 					name: 'Supported server',
 					collectionId: 'test',
 					source: {
-						group: undefined,
-						kind: AgentHostMcpServerSourceKind.UserProfile,
-						label: 'User',
-						collectionUri: undefined,
+						group: 'local',
+						kind: AgentHostMcpServerSourceKind.VscodeWorkspaceFolder,
+						label: 'Workspace',
+						collectionUri: URI.joinPath(root, '.vscode', 'mcp.json'),
 						definitionLocation: undefined,
 						remoteAuthority: null,
 						extensionId: undefined,

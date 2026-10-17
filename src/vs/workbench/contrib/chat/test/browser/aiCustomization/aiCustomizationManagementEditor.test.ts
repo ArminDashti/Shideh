@@ -1104,7 +1104,7 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.editorPreviewDisposables.dispose();
 	});
 
-	test('gates each migration category on its own experimental setting', () => {
+	test('gates optional migration categories on their experimental settings', () => {
 		const welcomePageCalls: ICustomizationMigrationCategorySummary[][] = [];
 		const configurationService = createConfigurationServiceStub({
 			[ChatConfiguration.ChatCustomizationsPromptMigrationEnabled]: false,
@@ -1112,7 +1112,7 @@ suite('aiCustomizationManagementEditor', () => {
 			[ChatConfiguration.ChatCustomizationsLocationsMigrationEnabled]: false,
 		}) as IConfigurationService & { setValue(key: string, value: unknown): void };
 		const editor = createTestEditor(undefined, configurationService);
-		editor.customizationsByMigrationCategory = new Map([
+		setMigrationState(editor, new Map([
 			[CustomizationMigrationCategoryId.PromptFiles, [{
 				uri: URI.file('/workspace/.github/prompts/prompt.prompt.md'),
 				storage: PromptsStorage.local,
@@ -1812,34 +1812,28 @@ suite('aiCustomizationManagementEditor', () => {
 
 	test('refreshes migration state when the active session changes within one harness', () => {
 		const editor = createTestEditor();
-		const sessionA = URI.parse('agent-host-test:/session-a');
-		const sessionB = URI.parse('agent-host-test:/session-b');
-		const refreshedSessions: string[] = [];
-		editor.harnessService.activeSessionResource.set(sessionA, undefined);
-		editor.refreshCustomizationMigrationInfo = async () => {
-			const sessionResource = editor.harnessService.activeSessionResource.get();
-			refreshedSessions.push(sessionResource.path);
-			editor.customizationsByMigrationCategory = new Map([[
-				CustomizationMigrationCategoryId.UserData,
-				[{
-					uri: URI.file(`/user-data${sessionResource.path}.instructions.md`),
-					storage: PromptsStorage.user,
-					type: PromptsType.instructions,
-					source: PromptFileSource.UserData,
-				} as MigratableConfiguration],
-			]]);
-			editor.customizationMigrationTargetFoldersByType = new Map([[
-				PromptsType.instructions,
-				[{
-					uri: URI.file('/home/test/.test-harness' + sessionResource.path + '/instructions'),
-					label: sessionResource.path,
-					source: AICustomizationSources.user,
-				}],
-			]]);
+		const serverA: IMcpServerCustomizationMigrationCandidate = {
+			type: CustomizationMigrationType.McpServers,
+			id: 'mcp.config.ws0.server-a',
+			name: 'server',
+			sourceUri: URI.file('/workspace-a/.vscode/mcp.json'),
+			targetUri: URI.file('/workspace-a/.mcp.json'),
+			configuration: { type: McpServerType.LOCAL, command: 'server' },
 		};
+		const serverB: IMcpServerCustomizationMigrationCandidate = {
+			...serverA,
+			id: 'mcp.config.ws0.server-b',
+			sourceUri: URI.file('/workspace-b/.vscode/mcp.json'),
+			targetUri: URI.file('/workspace-b/.mcp.json'),
+		};
+		setMigrationState(editor, new Map([[CustomizationMigrationCategoryId.McpServers, [serverA, serverB]]]));
+		editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.McpServers;
+		editor.selectedCustomizationMigrationItems = new Set();
+		editor.setCustomizationSelectedForMigration(serverA, true);
+		editor.migrationListContainer = document.createElement('div');
+		editor.migrationMigrateButton = { enabled: false, label: '' };
 
-		editor.registerCustomizationMigrationSessionRefresh();
-		editor.harnessService.activeSessionResource.set(sessionB, undefined);
+		editor.renderCustomizationMigrationPage();
 
 		assert.deepStrictEqual({
 			refreshedSessions,
@@ -1848,28 +1842,46 @@ suite('aiCustomizationManagementEditor', () => {
 				.map(candidate => candidate.uri.path),
 			destinationPaths: [...editor.customizationMigrationTargetFoldersByType.values()].flat().map(folder => folder.uri.path),
 		}, {
-			refreshedSessions: ['/session-a', '/session-b'],
-			candidatePaths: ['/user-data/session-b.instructions.md'],
-			destinationPaths: ['/home/test/.test-harness/session-b/instructions'],
+			rowText: [
+				'server/workspace-a/.vscode/mcp.json to /workspace-a/.mcp.json',
+				'server/workspace-b/.vscode/mcp.json to /workspace-b/.mcp.json',
+			],
+			selectAriaLabel: [
+				'Select server from /workspace-a/.vscode/mcp.json',
+				'Select server from /workspace-b/.vscode/mcp.json',
+			],
+			button: { enabled: true, label: 'Migrate 1' },
 		});
 		editor.editorPreviewDisposables.dispose();
 	});
 
-	test('suppresses prompt change refreshes only while migration writes are in progress', () => {
+	test('does not preserve MCP migration selection when a positional ID moves to another source', () => {
 		const editor = createTestEditor();
-		let refreshCount = 0;
-		editor.refreshCustomizationMigrationInfo = async () => {
-			refreshCount++;
+		const serverA: IMcpServerCustomizationMigrationCandidate = {
+			type: CustomizationMigrationType.McpServers,
+			id: 'mcp.config.ws0.server',
+			name: 'server',
+			sourceUri: URI.file('/workspace-a/.vscode/mcp.json'),
+			targetUri: URI.file('/workspace-a/.mcp.json'),
+			configuration: { type: McpServerType.LOCAL, command: 'server' },
+		};
+		const serverB: IMcpServerCustomizationMigrationCandidate = {
+			...serverA,
+			sourceUri: URI.file('/workspace-b/.vscode/mcp.json'),
+			targetUri: URI.file('/workspace-b/.mcp.json'),
 		};
 
-		editor.customizationMigrationInProgress = true;
-		editor.refreshCustomizationMigrationInfoFromPromptChange();
-		editor.customizationMigrationWritesInProgress = true;
-		editor.refreshCustomizationMigrationInfoFromPromptChange();
-		editor.customizationMigrationWritesInProgress = false;
-		editor.refreshCustomizationMigrationInfoFromPromptChange();
+		editor.setCustomizationsToMigrate(new Map([[CustomizationMigrationCategoryId.McpServers, [serverA]]]));
+		editor.setCustomizationSelectedForMigration(serverA, false);
+		editor.setCustomizationsToMigrate(new Map([[CustomizationMigrationCategoryId.McpServers, [serverB]]]));
 
-		assert.strictEqual(refreshCount, 2);
+		assert.deepStrictEqual({
+			oldSourceSelected: editor.isCustomizationSelectedForMigration(serverA),
+			newSourceSelected: editor.isCustomizationSelectedForMigration(serverB),
+		}, {
+			oldSourceSelected: false,
+			newSourceSelected: true,
+		});
 		editor.editorPreviewDisposables.dispose();
 	});
 
@@ -2262,15 +2274,14 @@ suite('aiCustomizationManagementEditor', () => {
 				source: PromptFileSource.GitHubWorkspace,
 			} as MigratableConfiguration,
 		];
-		editor.customizationsByMigrationCategory = new Map([
+		setMigrationState(editor, new Map([
 			[CustomizationMigrationCategoryId.UserData, userDataCustomizations],
 			[CustomizationMigrationCategoryId.PromptFiles, promptFiles],
-		]);
-		editor.customizationMigrationTargetFoldersByType = new Map([
+		]), new Map([
 			[PromptsType.agent, [{ uri: URI.file('/home/test/.copilot/agents'), label: '~/.copilot', source: AICustomizationSources.user }]],
 			[PromptsType.instructions, [{ uri: URI.file('/home/test/.copilot/instructions'), label: '~/.copilot', source: AICustomizationSources.user }]],
-		]);
-		editor.selectedCustomizationMigrationItems = new ResourceMap();
+		]));
+		editor.selectedCustomizationMigrationItems = new Set();
 		editor.migrationListContainer = document.createElement('div');
 		editor.migrationTitleElement = document.createElement('h2');
 		editor.migrationDescriptionElement = document.createElement('p');
@@ -2333,7 +2344,7 @@ suite('aiCustomizationManagementEditor', () => {
 		};
 		const openedItems: unknown[][] = [];
 		editor.showEmbeddedEditor = async (...args: unknown[]) => { openedItems.push(args); };
-		editor.customizationsByMigrationCategory = new Map([[CustomizationMigrationCategoryId.PromptFiles, [promptFile]]]);
+		setMigrationState(editor, new Map([[CustomizationMigrationCategoryId.PromptFiles, [promptFile]]]));
 		editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.PromptFiles;
 		editor.migrationListContainer = document.createElement('div');
 		editor.migrationMigrateButton = { enabled: false, label: '' };
@@ -3113,7 +3124,7 @@ suite('aiCustomizationManagementEditor', () => {
 				source: PromptFileSource.GitHubWorkspace,
 			} as MigratableConfiguration,
 		];
-		editor.customizationsByMigrationCategory = new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]);
+		setMigrationState(editor, new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]));
 		editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.PromptFiles;
 		for (const promptFile of promptFiles) {
 			editor.setCustomizationSelectedForMigration(promptFile, true);
@@ -3213,7 +3224,7 @@ suite('aiCustomizationManagementEditor', () => {
 				source: PromptFileSource.UserData,
 			} as MigratableConfiguration,
 		];
-		editor.customizationsByMigrationCategory = new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]);
+		setMigrationState(editor, new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]));
 		editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.PromptFiles;
 		for (const promptFile of promptFiles) {
 			editor.setCustomizationSelectedForMigration(promptFile, true);
@@ -3263,7 +3274,7 @@ suite('aiCustomizationManagementEditor', () => {
 				source: PromptFileSource.GitHubWorkspace,
 			} as MigratableConfiguration,
 		];
-		editor.customizationsByMigrationCategory = new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]);
+		setMigrationState(editor, new Map([[CustomizationMigrationCategoryId.PromptFiles, promptFiles]]));
 		editor.activeMigrationCategoryId = CustomizationMigrationCategoryId.PromptFiles;
 		for (const promptFile of promptFiles) {
 			editor.setCustomizationSelectedForMigration(promptFile, true);

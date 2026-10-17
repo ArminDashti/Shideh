@@ -735,7 +735,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private customizationMigrationLoadError: string | undefined;
 	private customizationMigrationResultsSettled = false;
 	private customizationMigrationInProgress = false;
-	private customizationMigrationWritesInProgress = false;
 
 	private readonly editorDisposables = this._register(new DisposableStore());
 	private _editorContentChanged = false;
@@ -791,6 +790,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
 	) {
 		super(AICustomizationManagementEditor.ID, group, telemetryService, themeService, storageService);
+		this.customizationMigrationModel = this._register(instantiationService.createInstance(CustomizationMigrationModel));
 
 		this.inEditorContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR.bindTo(contextKeyService);
 		this.sectionContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION.bindTo(contextKeyService);
@@ -1782,6 +1782,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 				this.addCustomizationMigrationItem(selectedItems, customization);
 			}
 		}
+		this.presentedCustomizationMigrationItems = this.createCustomizationMigrationItemMap([...candidatesByCategory.values()].flat());
 		this.selectedCustomizationMigrationItems = selectedItems;
 		this.customizationsByMigrationCategory = candidatesByCategory;
 		this.mcpServerMigrationExclusions = mcpServerMigrationExclusions;
@@ -2263,6 +2264,41 @@ export class AICustomizationManagementEditor extends EditorPane {
 			await timeout(0);
 			this.customizationMigrationWritesInProgress = false;
 		}
+
+		const confirmation = category.getConfirmation(servers, this.getActiveHarnessLabel());
+		const confirmResult = await this.dialogService.confirm({
+			type: 'question',
+			message: confirmation.message,
+			detail: confirmation.detail,
+			primaryButton: confirmation.primaryButton,
+		});
+		if (!confirmResult.confirmed || !this.isCustomizationMigrationSessionActive(sessionResource)) {
+			return;
+		}
+
+		const { migratedCount, failures } = await this.customizationMigrationService.migrateMcpServers(sessionResource, servers);
+		if (!this.isCustomizationMigrationSessionActive(sessionResource)) {
+			return;
+		}
+		for (const failure of failures) {
+			if (failure.error) {
+				onUnexpectedError(failure.error);
+			}
+		}
+		if (failures.length > 0) {
+			this.notificationService.error(category.getMcpServerFailureMessage?.(failures)
+				?? category.getFailedMessage(failures.slice(0, 3).map(failure => failure.name), Math.max(0, failures.length - 3)));
+		}
+		if (migratedCount === 0) {
+			if (failures.length === 0) {
+				this.notificationService.warn(category.nothingMigratedMessage);
+			}
+			await this.refreshCustomizationMigrationInfo();
+			return;
+		}
+
+		await this.refreshCustomizationMigrationInfo();
+		this.notificationService.info(category.getMigratedMessage(migratedCount));
 	}
 
 	private renderCustomizationMigrationPage(): void {
@@ -2317,7 +2353,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.updateCustomizationMigrationPageHeader(category, candidates);
 		this.updateCustomizationMigrationActionState();
 
-		if (this.customizationMigrationLoading) {
+		if (migrationState.loading) {
 			this.renderCustomizationMigrationState(
 				localize('customizationMigrationLoading', "Loading customizations..."),
 				localize('customizationMigrationLoadingDescription', "Checking the active harness and available destinations."),

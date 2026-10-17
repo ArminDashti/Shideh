@@ -1380,7 +1380,7 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 				override getWorkspace(): IWorkspace { return { id: 'test', folders: [] }; }
 				override getWorkbenchState(): WorkbenchState { return WorkbenchState.WORKSPACE; }
 			}());
-			reg.defineInstance(IFileService, new class extends mock<IFileService>() {
+			const fileService = new class extends mock<IFileService>() {
 				override readonly onDidFilesChange = Event.None;
 				override async exists(resource: URI) {
 					if (fileContents.has(resource) || createdFolders.has(resource)) {
@@ -1456,7 +1456,18 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 					}
 					promptFilesDidChangeEmitter.fire();
 				}
-			}());
+			}();
+			reg.defineInstance(IFileService, fileService);
+			reg.defineInstance(ICustomizationMigrationService, new CustomizationMigrationService(
+				promptsService,
+				harnessService,
+				new class extends mock<IAgentHostActiveClientService>() {
+					override acquireMcpServerSupportScope() { return undefined; }
+				}(),
+				agentHostCustomizationService,
+				fileService,
+				new NullLogService(),
+			));
 			reg.defineInstance(IPathService, new class extends mock<IPathService>() {
 				override readonly defaultUriScheme = 'file';
 				override userHome(): URI;
