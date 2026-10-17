@@ -4040,6 +4040,11 @@ declare namespace monaco.editor {
 		 */
 		renderWhitespace?: 'none' | 'boundary' | 'selection' | 'trailing' | 'all';
 		/**
+		 * Enable rendering of word wrap indicators.
+		 * Defaults to false.
+		 */
+		renderWordWrapIndicator?: boolean;
+		/**
 		 * Enable rendering of control characters.
 		 * Defaults to true.
 		 */
@@ -5549,6 +5554,7 @@ declare namespace monaco.editor {
 		renderLineHighlightOnlyWhenFocus: IEditorOption<EditorOption.renderLineHighlightOnlyWhenFocus, boolean>;
 		renderValidationDecorations: IEditorOption<EditorOption.renderValidationDecorations, 'off' | 'on' | 'editable'>;
 		renderWhitespace: IEditorOption<EditorOption.renderWhitespace, 'all' | 'none' | 'boundary' | 'selection' | 'trailing'>;
+		renderWordWrapIndicator: IEditorOption<EditorOption.renderWordWrapIndicator, boolean>;
 		revealHorizontalRightPadding: IEditorOption<EditorOption.revealHorizontalRightPadding, number>;
 		roundedSelection: IEditorOption<EditorOption.roundedSelection, boolean>;
 		rulers: IEditorOption<EditorOption.rulers, IRulerOption[]>;
