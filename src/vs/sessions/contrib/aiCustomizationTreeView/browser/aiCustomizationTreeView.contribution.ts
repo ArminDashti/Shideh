@@ -70,7 +70,7 @@ registerAction2(class extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		await editorService.openEditor({
 			resource: extractURI(context)
-		});
+		}, undefined, MODAL_GROUP);
 	}
 });
 
