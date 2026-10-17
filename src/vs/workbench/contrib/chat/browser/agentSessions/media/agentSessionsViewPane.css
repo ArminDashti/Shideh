@@ -1,0 +1,19 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.agent-sessions-viewpane {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+
+	.agent-sessions-new-button-container {
+		padding: 0 8px 8px;
+	}
+
+	.agent-sessions-control-container {
+		flex: 1;
+		min-height: 0;
+	}
+}

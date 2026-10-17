@@ -89,7 +89,7 @@ MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
 	title: localize2('filterAgentSessions', "Filter Agent Sessions"),
 	group: 'navigation',
 	order: 3,
-	icon: Codicon.filter,
+	icon: Codicon.treeFilterOnTypeOn,
 } satisfies ISubmenuItem);
 
 // Focus View
@@ -139,11 +139,13 @@ MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
 	)
 });
 
-MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
+MenuRegistry.appendMenuItem(MenuId.LayoutControlMenu, {
+	group: '2_pane_toggles',
 	command: {
-		id: HideAgentSessionsSidebar.ID,
-		title: HideAgentSessionsSidebar.TITLE,
-		icon: Codicon.layoutSidebarRight,
+		id: ToggleAgentSessionsSidebar.ID,
+		title: localize('toggleAgentSessionsList', "Toggle Agent Sessions"),
+		toggled: { condition: ChatSessionsPartVisibleContext, icon: chatSessionsLeftIcon },
+		icon: chatSessionsLeftOffIcon,
 	},
 	group: 'navigation',
 	order: 5,
@@ -209,6 +211,8 @@ MenuRegistry.appendMenuItem(MenuId.ChatViewSessionTitleToolbar, {
 	group: 'navigation',
 	order: 1,
 	when: ContextKeyExpr.and(
+		IsAuxiliaryWindowContext.negate(),
+		ChatContextKeys.enabled,
 		ContextKeyExpr.or(
 			ChatContextKeys.agentSessionsViewerVisible.negate(),
 			ChatContextKeys.agentSessionsViewerOrientation.isEqualTo(AgentSessionsViewerOrientation.Stacked),

@@ -4034,9 +4034,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		let numNeededWords = data.numWordsToRender;
 		const partsToRender: IChatRendererContent[] = [];
 
-		// Always add the references to avoid shifting the content parts when a reference is added, and having to re-diff all the content.
-		// The part will hide itself if the list is empty.
-		partsToRender.push({ kind: 'references', references: element.contentReferences });
+
 
 		let moreContentAvailable = false;
 		for (let i = 0; i < renderableResponse.length; i++) {

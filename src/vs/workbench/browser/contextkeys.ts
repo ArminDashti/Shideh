@@ -62,6 +62,7 @@ export class WorkbenchContextKeysHandler extends Disposable {
 	private auxiliaryBarVisibleContext: IContextKey<boolean>;
 	private secondarySideBarVisibleContext: IContextKey<boolean>;
 	private auxiliaryBarMaximizedContext: IContextKey<boolean>;
+	private chatSessionsPartVisibleContext: IContextKey<boolean>;
 	private editorTabsVisibleContext: IContextKey<boolean>;
 	private titleAreaVisibleContext: IContextKey<boolean>;
 	private titleBarStyleContext: IContextKey<string>;
@@ -205,6 +206,10 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.secondarySideBarVisibleContext.set(this.layoutService.isSecondarySideBarVisible());
 		this.auxiliaryBarMaximizedContext = AuxiliaryBarMaximizedContext.bindTo(this.contextKeyService);
 		this.auxiliaryBarMaximizedContext.set(this.layoutService.isAuxiliaryBarMaximized());
+
+		// Chat Sessions Part
+		this.chatSessionsPartVisibleContext = ChatSessionsPartVisibleContext.bindTo(this.contextKeyService);
+		this.chatSessionsPartVisibleContext.set(this.layoutService.isVisible(Parts.CHAT_SESSIONS_PART));
 
 		this.registerListeners();
 	}

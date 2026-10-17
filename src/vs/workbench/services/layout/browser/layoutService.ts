@@ -29,7 +29,8 @@ export const enum Parts {
 	SESSIONS_PART = 'workbench.parts.sessions',
 	CUSTOM_VIEW_GRID_PART = 'workbench.parts.customViewGrid',
 	EDITOR_PART = 'workbench.parts.editor',
-	STATUSBAR_PART = 'workbench.parts.statusbar'
+	STATUSBAR_PART = 'workbench.parts.statusbar',
+	CHAT_SESSIONS_PART = 'workbench.parts.chatsessions'
 }
 
 export const enum ZenModeSettings {

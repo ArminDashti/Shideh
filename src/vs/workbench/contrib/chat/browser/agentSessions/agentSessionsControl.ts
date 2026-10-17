@@ -151,6 +151,29 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 
 	private registerListeners(): void {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.revealAndFocusActiveEditorSession()));
+
+		// Track chat view widgets to sync selection when their model changes (e.g. on reload)
+		this._register(this.chatWidgetService.onDidAddWidget(widget => this.trackChatViewWidget(widget)));
+		for (const widget of this.chatWidgetService.getAllWidgets()) {
+			this.trackChatViewWidget(widget);
+		}
+	}
+
+	private trackChatViewWidget(widget: IChatWidget): void {
+		if (!isIChatViewViewContext(widget.viewContext)) {
+			return; // only track chat view widgets, not editor widgets
+		}
+
+		this.widgetViewModelListeners.set(widget, widget.onDidChangeViewModel(e => {
+			if (e.currentSessionResource) {
+				this.revealSession(e.currentSessionResource);
+			}
+		}));
+
+		// Sync immediately if the widget already has a session
+		if (widget.viewModel?.sessionResource) {
+			this.revealSession(widget.viewModel.sessionResource);
+		}
 	}
 
 	private loadViewState(): IAsyncDataTreeViewState | undefined {

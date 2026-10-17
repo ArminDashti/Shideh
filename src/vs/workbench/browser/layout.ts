@@ -45,6 +45,7 @@ import { IExtensionService } from '../services/extensions/common/extensions.js';
 import { ILogService } from '../../platform/log/common/log.js';
 import { DeferredPromise, Promises } from '../../base/common/async.js';
 import { IBannerService } from '../services/banner/browser/bannerService.js';
+import { IChatSessionsPartService } from './parts/chatSessions/chatSessionsPart.js';
 import { IPaneCompositePartService } from '../services/panecomposite/browser/panecomposite.js';
 import { AuxiliaryBarPart } from './parts/auxiliarybar/auxiliaryBarPart.js';
 import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
@@ -378,6 +379,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.notificationService = accessor.get(INotificationService);
 		this.statusBarService = accessor.get(IStatusbarService);
 		accessor.get(IBannerService);
+		accessor.get(IChatSessionsPartService);
 
 		// Listeners
 		this.registerLayoutListeners();
@@ -1351,6 +1353,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.paneCompositeService.getActivePaneComposite(ViewContainerLocation.AuxiliaryBar)?.focus();
 				break;
 			}
+			case Parts.CHAT_SESSIONS_PART: {
+				(this.getPart(Parts.CHAT_SESSIONS_PART) as import('./parts/chatSessions/chatSessionsPart.js').ChatSessionsPart).focusSessions();
+				break;
+			}
 			case Parts.ACTIVITYBAR_PART:
 				(this.getPart(Parts.SIDEBAR_PART) as SidebarPart).focusActivityBar();
 				break;
@@ -1410,6 +1416,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_HIDDEN);
 			case Parts.AUXILIARYBAR_PART:
 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN);
+			case Parts.CHAT_SESSIONS_PART:
+				return !this.stateModel.getRuntimeValue(LayoutStateKeys.CHAT_SESSIONS_HIDDEN);
 			case Parts.STATUSBAR_PART:
 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.STATUSBAR_HIDDEN);
 			case Parts.ACTIVITYBAR_PART:
@@ -1528,11 +1536,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				zenModeExitInfo.wasVisible.sideBar = this.isVisible(Parts.SIDEBAR_PART);
 				zenModeExitInfo.wasVisible.panel = this.isVisible(Parts.PANEL_PART);
 				zenModeExitInfo.wasVisible.auxiliaryBar = this.isVisible(Parts.AUXILIARYBAR_PART);
+				zenModeExitInfo.wasVisible.chatSessions = this.isVisible(Parts.CHAT_SESSIONS_PART);
 				this.stateModel.setRuntimeValue(LayoutStateKeys.ZEN_MODE_EXIT_INFO, zenModeExitInfo);
 			}
 
 			this.setPanelHidden(true, true);
 			this.setAuxiliaryBarHidden(true, true);
+			this.setChatSessionsHidden(true, true);
 			this.setSideBarHidden(true);
 
 			if (config.hideActivityBar) {
@@ -1615,6 +1625,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.setAuxiliaryBarHidden(false, true);
 			}
 
+			if (zenModeExitInfo.wasVisible.chatSessions) {
+				this.setChatSessionsHidden(false, true);
+			}
+
 			if (zenModeExitInfo.wasVisible.sideBar) {
 				this.setSideBarHidden(false);
 			}
@@ -1684,6 +1698,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const activityBar = this.getPart(Parts.ACTIVITYBAR_PART);
 		const panelPart = this.getPart(Parts.PANEL_PART);
 		const auxiliaryBarPart = this.getPart(Parts.AUXILIARYBAR_PART);
+		const chatSessionsPart = this.getPart(Parts.CHAT_SESSIONS_PART);
 		const sideBar = this.getPart(Parts.SIDEBAR_PART);
 		const statusBar = this.getPart(Parts.STATUSBAR_PART);
 
@@ -1695,6 +1710,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.editorPartView = editorPart;
 		this.panelPartView = panelPart;
 		this.auxiliaryBarPartView = auxiliaryBarPart;
+		this.chatSessionsPartView = chatSessionsPart;
 		this.statusBarPartView = statusBar;
 
 		const viewMap: Record<string, ISerializableView> = {
@@ -1705,7 +1721,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			[Parts.PANEL_PART]: this.panelPartView,
 			[Parts.SIDEBAR_PART]: this.sideBarPartView,
 			[Parts.STATUSBAR_PART]: this.statusBarPartView,
-			[Parts.AUXILIARYBAR_PART]: this.auxiliaryBarPartView
+			[Parts.AUXILIARYBAR_PART]: this.auxiliaryBarPartView,
+			[Parts.CHAT_SESSIONS_PART]: this.chatSessionsPartView
 		};
 
 		const fromJSON = ({ type }: { type: Parts }) => viewMap[type];
@@ -1720,7 +1737,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.workbenchGrid = workbenchGrid;
 		this.workbenchGrid.edgeSnapping = this.state.runtime.mainWindowFullscreen;
 
-		for (const part of [titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart, bannerPart]) {
+		for (const part of [titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart, chatSessionsPart, bannerPart]) {
 			this._register(part.onDidVisibilityChange(visible => {
 				if (!this.inMaximizedAuxiliaryBarTransition) {
 
@@ -1736,6 +1753,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 						this.setPanelHidden(!visible, true);
 					} else if (part === auxiliaryBarPart) {
 						this.setAuxiliaryBarHidden(!visible, true);
+					} else if (part === chatSessionsPart) {
+						this.setChatSessionsHidden(!visible);
 					} else if (part === editorPart) {
 						this.setEditorHidden(!visible);
 					}
@@ -1775,6 +1794,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				? this.workbenchGrid.getViewCachedVisibleSize(this.auxiliaryBarPartView)
 				: this.workbenchGrid.getViewSize(this.auxiliaryBarPartView).width;
 			this.stateModel.setInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE, auxiliaryBarSize as number);
+
+			// Chat Sessions Size
+			const chatSessionsSize = this.stateModel.getRuntimeValue(LayoutStateKeys.CHAT_SESSIONS_HIDDEN)
+				? this.workbenchGrid.getViewCachedVisibleSize(this.chatSessionsPartView)
+				: this.workbenchGrid.getViewSize(this.chatSessionsPartView).width;
+			this.stateModel.setInitializationValue(LayoutStateKeys.CHAT_SESSIONS_SIZE, chatSessionsSize as number);
 
 			this.stateModel.save(true, true);
 		}));
@@ -1889,6 +1914,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			case Parts.AUXILIARYBAR_PART:
 				viewSize = this.workbenchGrid.getViewSize(this.auxiliaryBarPartView);
 				this.workbenchGrid.resizeView(this.auxiliaryBarPartView, {
+					width: viewSize.width + sizeChangePxWidth,
+					height: viewSize.height
+				});
+				break;
+			case Parts.CHAT_SESSIONS_PART:
+				viewSize = this.workbenchGrid.getViewSize(this.chatSessionsPartView);
+				this.workbenchGrid.resizeView(this.chatSessionsPartView, {
 					width: viewSize.width + sizeChangePxWidth,
 					height: viewSize.height
 				});
@@ -2049,7 +2081,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const preMoveSideBarSize = !this.isVisible(Parts.SIDEBAR_PART) ? Sizing.Invisible(this.workbenchGrid.getViewCachedVisibleSize(this.sideBarPartView) ?? this.sideBarPartView.minimumWidth) : this.workbenchGrid.getViewSize(this.sideBarPartView).width;
 		const preMoveAuxiliaryBarSize = !this.isVisible(Parts.AUXILIARYBAR_PART) ? Sizing.Invisible(this.workbenchGrid.getViewCachedVisibleSize(this.auxiliaryBarPartView) ?? this.auxiliaryBarPartView.minimumWidth) : this.workbenchGrid.getViewSize(this.auxiliaryBarPartView).width;
 
-		const focusedPart = [Parts.PANEL_PART, Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART].find(part => this.hasFocus(part)) as SINGLE_WINDOW_PARTS | undefined;
+		const focusedPart = [Parts.PANEL_PART, Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.CHAT_SESSIONS_PART].find(part => this.hasFocus(part)) as SINGLE_WINDOW_PARTS | undefined;
 
 		if (sideBarPosition === Position.LEFT) {
 			this.workbenchGrid.moveViewTo(this.activityBarPartView, [2, 0]);
@@ -2059,6 +2091,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			} else {
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [2, -1]);
 			}
+			// Chat sessions on the outer edge, after auxiliary bar
+			this.workbenchGrid.moveViewTo(this.chatSessionsPartView, [2, -1]);
 		} else {
 			this.workbenchGrid.moveViewTo(this.activityBarPartView, [2, -1]);
 			this.workbenchGrid.moveView(this.sideBarPartView, preMoveSideBarSize, sideBarSiblingToEditor ? this.editorPartView : this.activityBarPartView, sideBarSiblingToEditor ? Direction.Right : Direction.Left);
@@ -2067,6 +2101,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			} else {
 				this.workbenchGrid.moveViewTo(this.auxiliaryBarPartView, [2, 0]);
 			}
+			// Chat sessions on the outer edge, before auxiliary bar
+			this.workbenchGrid.moveViewTo(this.chatSessionsPartView, [2, 0]);
 		}
 
 		// Maintain focus after moving parts
@@ -2453,6 +2489,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				return this.setAuxiliaryBarHidden(hidden);
 			case Parts.PANEL_PART:
 				return this.setPanelHidden(hidden);
+			case Parts.CHAT_SESSIONS_PART:
+				return this.setChatSessionsHidden(hidden);
 		}
 	}
 
@@ -2703,10 +2741,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		};
 	}
 
-	private arrangeMiddleSectionNodes(nodes: { editor: ISerializedNode; panel: ISerializedNode; activityBar: ISerializedNode; sideBar: ISerializedNode; auxiliaryBar: ISerializedNode }, availableWidth: number, availableHeight: number): ISerializedNode[] {
+	private arrangeMiddleSectionNodes(nodes: { editor: ISerializedNode; panel: ISerializedNode; activityBar: ISerializedNode; sideBar: ISerializedNode; auxiliaryBar: ISerializedNode; chatSessions: ISerializedNode }, availableWidth: number, availableHeight: number): ISerializedNode[] {
 		const activityBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.ACTIVITYBAR_HIDDEN) ? 0 : nodes.activityBar.size;
 		const sideBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.SIDEBAR_HIDDEN) ? 0 : nodes.sideBar.size;
 		const auxiliaryBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN) ? 0 : nodes.auxiliaryBar.size;
+		const chatSessionsSize = this.stateModel.getRuntimeValue(LayoutStateKeys.CHAT_SESSIONS_HIDDEN) ? 0 : nodes.chatSessions.size;
 		const panelSize = this.stateModel.getInitializationValue(LayoutStateKeys.PANEL_SIZE) ? 0 : nodes.panel.size;
 
 		const panelPostion = this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_POSITION);
@@ -2715,7 +2754,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const result = [] as ISerializedNode[];
 		if (!isHorizontal(panelPostion)) {
 			result.push(nodes.editor);
-			nodes.editor.size = availableWidth - activityBarSize - sideBarSize - panelSize - auxiliaryBarSize;
+			nodes.editor.size = availableWidth - activityBarSize - sideBarSize - panelSize - auxiliaryBarSize - chatSessionsSize;
 			if (panelPostion === Position.RIGHT) {
 				result.push(nodes.panel);
 			} else {
@@ -2723,11 +2762,15 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			}
 
 			if (sideBarPosition === Position.LEFT) {
+				// Auxiliary bar + chat sessions on right side
 				result.push(nodes.auxiliaryBar);
+				result.push(nodes.chatSessions);
 				result.splice(0, 0, nodes.sideBar);
 				result.splice(0, 0, nodes.activityBar);
 			} else {
-				result.splice(0, 0, nodes.auxiliaryBar);
+				// Auxiliary bar + chat sessions on left side
+				result.splice(0, 0, nodes.chatSessions);
+				result.splice(1, 0, nodes.auxiliaryBar);
 				result.push(nodes.sideBar);
 				result.push(nodes.activityBar);
 			}
@@ -2736,7 +2779,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			const sideBarNextToEditor = !(panelAlignment === 'center' || (sideBarPosition === Position.LEFT && panelAlignment === 'right') || (sideBarPosition === Position.RIGHT && panelAlignment === 'left'));
 			const auxiliaryBarNextToEditor = !(panelAlignment === 'center' || (sideBarPosition === Position.RIGHT && panelAlignment === 'right') || (sideBarPosition === Position.LEFT && panelAlignment === 'left'));
 
-			const editorSectionWidth = availableWidth - activityBarSize - (sideBarNextToEditor ? 0 : sideBarSize) - (auxiliaryBarNextToEditor ? 0 : auxiliaryBarSize);
+			const editorSectionWidth = availableWidth - activityBarSize - (sideBarNextToEditor ? 0 : sideBarSize) - (auxiliaryBarNextToEditor ? 0 : auxiliaryBarSize) - chatSessionsSize;
 
 			const editorNodes = this.arrangeEditorNodes({
 				editor: nodes.editor,
@@ -2768,9 +2811,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				}
 			}
 
+			// Chat sessions always on the outer edge, next to auxiliary bar
 			if (sideBarPosition === Position.LEFT) {
+				result.push(nodes.chatSessions);
 				result.splice(0, 0, nodes.activityBar);
 			} else {
+				result.splice(0, 0, nodes.chatSessions);
 				result.push(nodes.activityBar);
 			}
 		}
@@ -2782,6 +2828,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const { width, height } = this._mainContainerDimension;
 		const sideBarSize = this.stateModel.getInitializationValue(LayoutStateKeys.SIDEBAR_SIZE);
 		const auxiliaryBarSize = this.stateModel.getInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE);
+		const chatSessionsSize = this.stateModel.getInitializationValue(LayoutStateKeys.CHAT_SESSIONS_SIZE);
 		const panelSize = this.stateModel.getInitializationValue(LayoutStateKeys.PANEL_SIZE);
 
 		const titleBarHeight = this.titleBarPartView.minimumHeight;
@@ -2826,6 +2873,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			visible: this.isVisible(Parts.AUXILIARYBAR_PART)
 		};
 
+		const chatSessionsNode: ISerializedLeafNode = {
+			type: 'leaf',
+			data: { type: Parts.CHAT_SESSIONS_PART },
+			size: chatSessionsSize,
+			visible: !this.stateModel.getRuntimeValue(LayoutStateKeys.CHAT_SESSIONS_HIDDEN)
+		};
+
 		const editorNode: ISerializedLeafNode = {
 			type: 'leaf',
 			data: { type: Parts.EDITOR_PART },
@@ -2843,6 +2897,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const middleSection: ISerializedNode[] = this.arrangeMiddleSectionNodes({
 			activityBar: activityBarNode,
 			auxiliaryBar: auxiliaryBarNode,
+			chatSessions: chatSessionsNode,
 			editor: editorNode,
 			panel: panelNode,
 			sideBar: sideBarNode
@@ -2983,12 +3038,14 @@ const LayoutStateKeys = {
 			auxiliaryBar: false,
 			panel: false,
 			sideBar: false,
+			chatSessions: false,
 		},
 	}),
 
 	// Part Sizing
 	SIDEBAR_SIZE: new InitializationStateKey<number>('sideBar.size', StorageScope.PROFILE, StorageTarget.MACHINE, 300),
 	AUXILIARYBAR_SIZE: new InitializationStateKey<number>('auxiliaryBar.size', StorageScope.PROFILE, StorageTarget.MACHINE, 300),
+	CHAT_SESSIONS_SIZE: new InitializationStateKey<number>('chatSessions.size', StorageScope.PROFILE, StorageTarget.MACHINE, 250),
 	PANEL_SIZE: new InitializationStateKey<number>('panel.size', StorageScope.PROFILE, StorageTarget.MACHINE, 300),
 
 	// Part State
@@ -3022,6 +3079,7 @@ const LayoutStateKeys = {
 	EDITOR_HIDDEN: new RuntimeStateKey<boolean>('editor.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false),
 	PANEL_HIDDEN: new RuntimeStateKey<boolean>('panel.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
 	AUXILIARYBAR_HIDDEN: new RuntimeStateKey<boolean>('auxiliaryBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
+	CHAT_SESSIONS_HIDDEN: new RuntimeStateKey<boolean>('chatSessions.hidden2', StorageScope.WORKSPACE, StorageTarget.MACHINE, false),
 	STATUSBAR_HIDDEN: new RuntimeStateKey<boolean>('statusBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false, true)
 
 } as const;

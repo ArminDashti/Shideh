@@ -36,6 +36,7 @@ import { ChatPolicyBlockedView } from './viewsWelcome/chatPolicyBlockedView.js';
 import { MANAGED_PLUGINS_VIEW_ID, ManagedPluginsUnavailableContext } from '../common/plugins/managedPluginAvailability.js';
 import { MANAGED_SETTINGS_UPDATE_VIEW_ID, ManagedSettingsUpdateRequiredContext } from '../../../services/policies/common/managedSettingsUpdate.js';
 
+
 // --- Chat Container &  View Registration
 
 const chatViewIcon = registerIcon('chat-view-icon', Codicon.chatSparkle, localize('chatViewIcon', 'View icon of the chat view.'));
@@ -59,6 +60,7 @@ const chatViewDescriptor: IViewDescriptor = {
 	name: localize2('chat.viewContainer.label', "Chat"),
 	canToggleVisibility: false,
 	canMoveView: true,
+	order: 1,
 	openCommandActionDescriptor: {
 		id: ChatViewContainerId,
 		title: chatViewContainer.title,

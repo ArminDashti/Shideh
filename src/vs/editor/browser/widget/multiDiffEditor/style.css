@@ -40,15 +40,13 @@
 		width: auto;
 	}
 
-	.active {
-		--vscode-multiDiffEditor-border: var(--vscode-focusBorder);
-	}
-
 	.multiDiffEntry {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
+		padding: 0 12px;
+		box-sizing: border-box;
 
 		.collapse-button {
 			cursor: pointer;

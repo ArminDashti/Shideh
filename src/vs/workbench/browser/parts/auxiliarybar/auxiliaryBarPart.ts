@@ -102,7 +102,8 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			Parts.AUXILIARYBAR_PART,
 			{
 				hasTitle: true,
-				trailingSeparator: true,
+				titleHeight: 52,
+				trailingSeparator: false,
 				borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0,
 			},
 			AuxiliaryBarPart.activeViewSettingsKey,
@@ -291,8 +292,18 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	}
 
 	protected shouldShowCompositeBar(): boolean {
-		if (this.configuration.position === ActivityBarPosition.HIDDEN) {
-			return false;
+		return false;
+	}
+
+	private titleDescriptionElement: HTMLElement | undefined;
+
+	protected override createTitleLabel(parent: HTMLElement): ICompositeTitleLabel {
+		const titleLabel = super.createTitleLabel(parent);
+
+		// Append a description element below the title label
+		const titleLabelContainer = parent.querySelector('.title-label');
+		if (titleLabelContainer) {
+			this.titleDescriptionElement = append(titleLabelContainer as HTMLElement, $('span.title-description'));
 		}
 
 		// Check if auto-hide is enabled and there's only one visible view container
@@ -309,8 +320,6 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 				}
 			}
 		}
-
-		return true;
 	}
 
 	protected getCompositeBarPosition(): CompositeBarPosition {

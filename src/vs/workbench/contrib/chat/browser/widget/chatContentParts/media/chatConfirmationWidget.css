@@ -84,6 +84,21 @@
 		text-align: left;
 		align-items: center;
 	}
+
+	.chat-collapsible-hover-chevron {
+		font-size: 12px;
+		opacity: 0;
+		transition: opacity 0.1s ease-in-out;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.chat-collapsible-hover-chevron.codicon-chevron-down {
+		opacity: 1;
+	}
+
+	&:hover .chat-collapsible-hover-chevron {
+		opacity: 1;
+	}
 }
 
 .chat-confirmation-widget-message h3 {
@@ -534,7 +549,7 @@
 		&.monaco-button {
 			width: fit-content;
 			outline: none;
-			gap: 4px;
+			gap: 0;
 		}
 
 		&.monaco-text-button {
