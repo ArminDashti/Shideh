@@ -2456,12 +2456,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		const rootConfigValue = this._configurationService.getRootValue(platformRootSchema, AgentHostByokModelsEnabledConfigKey);
 		const { enabled, trace } = resolveByokLmEnablement(rootConfigValue);
 		this._logService.trace(`[Copilot] BYOK model publication ${trace}`);
-		if (!enabled) {
-			this._byokModels = [];
-			this._publishModels();
-			return;
-		}
-		this._byokModels = this._byokBridgeRegistry.getModels().map((m): IAgentModelInfo => {
+		const byokModels = enabled ? this._byokBridgeRegistry.getModels().map((m): IAgentModelInfo => {
 			const byokMeta = createAgentModelByokMeta(m.modelIdentifier);
 			const thinkingLevel = this._createThinkingLevelConfigSchemaProperty(m.supportedReasoningEfforts, m.defaultReasoningEffort, m.id);
 			return {
@@ -2475,7 +2470,13 @@ export class CopilotAgent extends Disposable implements IAgent {
 				...(thinkingLevel ? { configSchema: { type: 'object', properties: { [ThinkingLevelConfigKey]: thinkingLevel } } satisfies ConfigSchema } : {}),
 				...(byokMeta && { _meta: byokMeta }),
 			};
-		});
+		}) : [];
+		if (!equals(this._byokModels, byokModels)) {
+			for (const session of new Set([...this._sessionsPendingRegistration.values(), ...this._allLiveSessions()])) {
+				session.markByokModelConfigurationChanged();
+			}
+		}
+		this._byokModels = byokModels;
 		this._logService.trace(`[Copilot] Found ${this._byokModels.length} BYOK models${this._byokModels.length ? ': ' + this._byokModels.map(m => m.name).join(', ') : ''}`);
 		this._publishModels();
 		if (this._byokModels.length) {
@@ -4839,7 +4840,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		context: IResolvedCopilotChatContext,
 		entry: CopilotAgentSession,
 		workingDirectories: readonly URI[] | undefined,
-		options: { readonly operation: 'sendMessage' | 'startMcpServer'; readonly allowRestart: 'whenIdle' | 'always'; readonly turnId?: string; readonly token?: CancellationToken },
+		options: { readonly operation: 'sendMessage' | 'startMcpServer' | 'changeModel'; readonly allowRestart: 'whenIdle' | 'always'; readonly turnId?: string; readonly token?: CancellationToken },
 	): Promise<CopilotAgentSession> {
 		const activeClient = this._activeClients.get(context.configurationResource);
 		// MCP Stop still needs the queued sync to finish before it can resolve the server to stop.
@@ -4862,6 +4863,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			?? structuralRestartReason
 			?? (disabledRootMcpServersChanged ? 'disabledRootMcpServersChanged' : undefined)
 			?? (entry.requiresMcpLaunchConfigurationRefresh ? 'mcpLaunchConfigurationRefresh' : undefined)
+			?? (entry.requiresByokModelConfigurationRefresh ? 'byokModelsChanged' : undefined)
 			?? (entry.requiresControlPlaneResync ? 'controlPlaneResync' : undefined);
 		if (!refreshReason) {
 			return entry;
