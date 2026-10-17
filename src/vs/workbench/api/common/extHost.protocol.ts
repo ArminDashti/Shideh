@@ -221,6 +221,22 @@ export interface IXaaProviderDiscovery {
 	clientId?: string;
 }
 
+export interface AuthenticationChallenge {
+	scheme: string;
+	params: Record<string, string>;
+}
+
+export interface AuthenticationSessionRequest {
+	challenge: string;
+	scopes?: readonly string[];
+}
+
+//TODO: I don't love the name of this interface...
+export interface AuthenticationConstraint {
+	challenges: readonly AuthenticationChallenge[];
+	scopes?: readonly string[];
+}
+
 export interface MainThreadAuthenticationShape extends IDisposable {
 	$registerAuthenticationProvider(details: IRegisterAuthenticationProviderDetails): Promise<void>;
 	$unregisterAuthenticationProvider(id: string): Promise<void>;

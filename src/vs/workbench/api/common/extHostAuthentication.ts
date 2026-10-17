@@ -276,6 +276,40 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 		});
 	}
 
+	$getSessionsFromChallenges(providerId: string, constraint: vscode.AuthenticationConstraint, options: vscode.AuthenticationProviderSessionOptions): Promise<ReadonlyArray<vscode.AuthenticationSession>> {
+		return this._providerOperations.queue(providerId, async () => {
+			const providerData = this._authenticationProviders.get(providerId);
+			if (providerData) {
+				const provider = providerData.provider;
+				// Check if provider supports challenges
+				if (typeof provider.getSessionsFromChallenges === 'function') {
+					options.authorizationServer = URI.revive(options.authorizationServer);
+					return await provider.getSessionsFromChallenges(constraint, options);
+				}
+				throw new Error(`Authentication provider with handle: ${providerId} does not support getSessionsFromChallenges`);
+			}
+
+			throw new Error(`Unable to find authentication provider with handle: ${providerId}`);
+		});
+	}
+
+	$createSessionFromChallenges(providerId: string, constraint: vscode.AuthenticationConstraint, options: vscode.AuthenticationProviderSessionOptions): Promise<vscode.AuthenticationSession> {
+		return this._providerOperations.queue(providerId, async () => {
+			const providerData = this._authenticationProviders.get(providerId);
+			if (providerData) {
+				const provider = providerData.provider;
+				// Check if provider supports challenges
+				if (typeof provider.createSessionFromChallenges === 'function') {
+					options.authorizationServer = URI.revive(options.authorizationServer);
+					return await provider.createSessionFromChallenges(constraint, options);
+				}
+				throw new Error(`Authentication provider with handle: ${providerId} does not support createSessionFromChallenges`);
+			}
+
+			throw new Error(`Unable to find authentication provider with handle: ${providerId}`);
+		});
+	}
+
 	$onDidChangeAuthenticationSessions(id: string, label: string, extensionIdFilter?: string[]) {
 		// Don't fire events for the internal auth providers
 		if (!id.startsWith(INTERNAL_AUTH_PROVIDER_PREFIX)) {

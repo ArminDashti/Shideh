@@ -100,6 +100,46 @@ export interface IAuthenticationConstraint {
 	readonly fallbackScopes?: readonly string[];
 }
 
+export interface IAuthenticationSessionRequest {
+	/**
+	 * The raw WWW-Authenticate header value that triggered this challenge.
+	 * This will be parsed by the authentication provider to extract the necessary
+	 * challenge information.
+	 */
+	readonly challenge: string;
+
+	/**
+	 * Optional scopes for the session. If not provided, the authentication provider
+	 * may use default scopes or extract them from the challenge.
+	 */
+	readonly scopes?: readonly string[];
+}
+
+export function isAuthenticationSessionRequest(obj: unknown): obj is IAuthenticationSessionRequest {
+	return typeof obj === 'object'
+		&& obj !== null
+		&& 'challenge' in obj
+		&& typeof obj.challenge === 'string';
+}
+
+/**
+ * Represents constraints for authentication, including challenges and optional scopes.
+ * This is used when creating or retrieving sessions that must satisfy specific authentication
+ * requirements from WWW-Authenticate headers.
+ */
+export interface IAuthenticationConstraint {
+	/**
+	 * Array of authentication challenges parsed from WWW-Authenticate headers.
+	 */
+	readonly challenges: readonly IAuthenticationChallenge[];
+
+	/**
+	 * Optional scopes for the session. If not provided, the authentication provider
+	 * may extract scopes from the challenges or use default scopes.
+	 */
+	readonly scopes?: readonly string[];
+}
+
 /**
  * Options for getting authentication sessions via the service.
  */

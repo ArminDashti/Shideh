@@ -532,6 +532,7 @@ export class MsalAuthProvider implements AuthenticationProvider {
 						claims,
 						resource,
 						redirectUri,
+						claims,
 						forceRefresh
 					});
 					sessions.push(this.sessionFromAuthenticationResult(result, scopeData.originalScopes));
