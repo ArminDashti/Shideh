@@ -34,6 +34,7 @@ import './media/updateTitleBarEntry.css';
 import { UpdateTooltip } from './updateTooltip.js';
 
 const UPDATE_TITLE_BAR_ACTION_ID = 'workbench.actions.updateIndicator';
+const UPDATE_TOOLTIP_MAX_HEIGHT_RATIO = 1;
 
 const DISABLED_REMINDER_LAST_SHOWN_KEY = 'update/disabledReminderLastShown';
 const DISABLED_REMINDER_PERIOD = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -102,6 +103,7 @@ export class UpdateTitleBarContribution extends Disposable implements IWorkbench
 
 	private readonly context!: IContextKey<boolean>;
 	private readonly tooltip!: UpdateTooltip;
+	private readonly tooltipHoverDelegate!: WorkbenchHoverDelegate;
 	private state!: State;
 	private entry: UpdateTitleBarEntry | undefined;
 	private tooltipVisible = false;
@@ -125,6 +127,9 @@ export class UpdateTitleBarContribution extends Disposable implements IWorkbench
 
 		this.context = UpdateTitleBarContext.bindTo(contextKeyService);
 		this.tooltip = this._register(instantiationService.createInstance(UpdateTooltip));
+		this.tooltipHoverDelegate = this._register(instantiationService.createInstance(WorkbenchHoverDelegate, 'element', undefined, {
+			appearance: { maxHeightRatio: UPDATE_TOOLTIP_MAX_HEIGHT_RATIO },
+		}));
 
 		const chatInProgressContext = UpdateTitleBarChatInProgressContext.bindTo(contextKeyService);
 		this._register(autorun(reader => {
