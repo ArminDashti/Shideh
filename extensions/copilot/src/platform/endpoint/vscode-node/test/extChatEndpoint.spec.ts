@@ -55,4 +55,24 @@ describe('ExtensionContributedChatEndpoint', () => {
 			tokenLength: 17
 		});
 	});
+
+	it('uses the provider-declared maxOutputTokens when available', () => {
+		const endpoint = new ExtensionContributedChatEndpoint(
+			createLanguageModel(() => { }, { maxOutputTokens: 4096 }),
+			createInstantiationService(),
+			new NoopOTelService(resolveOTelConfig({ env: {}, extensionVersion: '1.0.0', sessionId: 'test' })),
+		);
+
+		expect(endpoint.maxOutputTokens).toBe(4096);
+	});
+
+	it('falls back to the default maxOutputTokens when the model does not declare one', () => {
+		const endpoint = new ExtensionContributedChatEndpoint(
+			createLanguageModel(() => { }),
+			createInstantiationService(),
+			new NoopOTelService(resolveOTelConfig({ env: {}, extensionVersion: '1.0.0', sessionId: 'test' })),
+		);
+
+		expect(endpoint.maxOutputTokens).toBe(8192);
+	});
 });

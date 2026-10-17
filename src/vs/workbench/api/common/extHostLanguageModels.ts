@@ -490,6 +490,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				supportsAdaptiveThinking: model.metadata.capabilities?.adaptiveThinking,
 			},
 			maxInputTokens: model.metadata.maxInputTokens,
+			maxOutputTokens: model.metadata.maxOutputTokens,
 			countTokens(text, token) {
 				if (!that._localModels.has(modelId)) {
 					throw extHostTypes.LanguageModelError.NotFound(modelId);
