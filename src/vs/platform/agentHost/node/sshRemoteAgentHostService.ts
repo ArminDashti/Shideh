@@ -1513,6 +1513,21 @@ export class SSHRemoteAgentHostMainService extends Disposable implements ISSHRem
 				liveKbiRequests.add(requestId);
 			}
 			: undefined;
+		const keyPassphraseHandler: SSHKeyPassphrasePromptHandler | undefined = attempts.some(a => a.type === 'publickey' && a.encrypted)
+			? (keyPath, finish) => {
+				const requestId = this._handleKeyboardInteractive(
+					connectionKey ?? displayHost,
+					displayHost,
+					config.username,
+					localize('sshKeyPassphraseName', "SSH Key Passphrase"),
+					'',
+					[{ prompt: localize('sshKeyPassphrasePrompt', "Enter passphrase for SSH key {0}.", keyPath), echo: false }],
+					responses => finish(responses[0]),
+					() => cancelConnectFromKbi?.(),
+				);
+				liveKbiRequests.add(requestId);
+			}
+			: undefined;
 		// Cast: the ssh2 @types don't model `false` (give-up) for the
 		// callback nor `null` for the first invocation's `methodsLeft`,
 		// even though the runtime supports both per the ssh2 docs.

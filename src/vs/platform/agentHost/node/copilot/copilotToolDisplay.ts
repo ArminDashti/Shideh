@@ -558,6 +558,10 @@ function formatUrlAsMarkdownLink(url: string): string {
 	return new MarkdownString().appendLink(url, truncate(url, 80)).value;
 }
 
+function formatUrlAsMarkdownLink(url: string): string {
+	return new MarkdownString().appendLink(url, truncate(url, 80)).value;
+}
+
 /**
  * Wraps a localized message containing a markdown file link into a
  * `StringOrMarkdown` object so the renderer treats it as markdown.
@@ -782,6 +786,13 @@ export function getInvocationMessage(toolName: string, displayName: string, para
 				return md(localize('toolInvoke.searchCodeQuery', "Search code for {0}", appendEscapedMarkdownInlineCode(truncate(args.query, 80))));
 			}
 			return localize('toolInvoke.searchCode', "Search code");
+		}
+		case CopilotToolName.WebFetch: {
+			const args = parameters as ICopilotWebFetchToolArgs | undefined;
+			if (args?.url) {
+				return md(localize('toolInvoke.webFetch', "Fetching {0}", formatUrlAsMarkdownLink(args.url)));
+			}
+			return localize('toolInvoke.webFetchGeneric', "Fetching URL");
 		}
 		case CopilotToolName.ExitPlanMode:
 			return localize('toolInvoke.exitPlanMode', "Present plan");

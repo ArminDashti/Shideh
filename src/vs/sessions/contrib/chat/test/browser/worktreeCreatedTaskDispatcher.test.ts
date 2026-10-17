@@ -363,4 +363,39 @@ suite('WorktreeCreatedTaskDispatcher', () => {
 		assert.deepStrictEqual(tasks.ranTasks, [{ label: 'setup', sessionId: 'a' }]);
 		assert.deepStrictEqual(tasks.stoppedTasks, [{ label: 'setup', sessionId: 'a' }]);
 	});
+
+	test('skips agent host sessions when the agent host setting is disabled (default)', async () => {
+		createDispatcher();
+		const { session, workspace } = makeSession({ id: 'a', providerId: LOCAL_AGENT_HOST_PROVIDER_ID, hasWorktree: false });
+		tasks.setTasks(session.sessionId, [entry('setup', 'worktreeCreated')]);
+		mgmt.emitter.fire({ added: [session], removed: [], changed: [] });
+		workspace.set(makeWorkspace(true), undefined);
+		await settle();
+
+		assert.deepStrictEqual(tasks.ranTasks, []);
+	});
+
+	test('runs agent host sessions when the agent host setting is enabled', async () => {
+		await configurationService.setUserConfiguration(AGENT_HOST_RUN_WORKTREE_CREATED_TASKS_SETTING, true);
+		createDispatcher();
+		const { session, workspace } = makeSession({ id: 'a', providerId: LOCAL_AGENT_HOST_PROVIDER_ID, hasWorktree: false });
+		tasks.setTasks(session.sessionId, [entry('setup', 'worktreeCreated')]);
+		mgmt.emitter.fire({ added: [session], removed: [], changed: [] });
+		workspace.set(makeWorkspace(true), undefined);
+		await settle();
+
+		assert.deepStrictEqual(tasks.ranTasks, [{ label: 'setup', sessionId: 'a' }]);
+	});
+
+	test('does not gate non-agent-host sessions on the agent host setting', async () => {
+		// Setting is `false` by default; non-agent-host sessions should still run.
+		createDispatcher();
+		const { session, workspace } = makeSession({ id: 'a', providerId: 'non-agent-host', hasWorktree: false });
+		tasks.setTasks(session.sessionId, [entry('setup', 'worktreeCreated')]);
+		mgmt.emitter.fire({ added: [session], removed: [], changed: [] });
+		workspace.set(makeWorkspace(true), undefined);
+		await settle();
+
+		assert.deepStrictEqual(tasks.ranTasks, [{ label: 'setup', sessionId: 'a' }]);
+	});
 });
