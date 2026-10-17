@@ -970,12 +970,26 @@ export class MCPServerActionRendering extends Disposable implements IWorkbenchCo
 							stateIndicator.style.display = 'none';
 						}
 					}));
+
+					// Add keyboard event handling for Enter and Space keys
+					this._register(addDisposableListener(action.root, EventType.KEY_DOWN, (e: KeyboardEvent) => {
+						const standardKeyboardEvent = new StandardKeyboardEvent(e);
+						if (standardKeyboardEvent.keyCode === KeyCode.Enter || standardKeyboardEvent.keyCode === KeyCode.Space) {
+							standardKeyboardEvent.preventDefault();
+							standardKeyboardEvent.stopPropagation();
+							this.executeAction();
+						}
+					}));
 				}
 
 				override async onClick(e: MouseEvent): Promise<void> {
 					e.preventDefault();
 					e.stopPropagation();
 
+					await this.executeAction();
+				}
+
+				private async executeAction(): Promise<void> {
 					const { state, servers } = displayedStateCurrent.get();
 					if (state === DisplayedState.NewTools) {
 						const interaction = new McpStartServerInteraction();
