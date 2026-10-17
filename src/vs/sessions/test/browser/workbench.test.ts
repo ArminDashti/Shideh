@@ -301,6 +301,7 @@ suite('Sessions - Workbench', () => {
 							viewSizes.set(auxiliaryBarPartView, options.customViewAuxiliaryBarSize);
 						}
 					}
+
 					gridVisibility.set(view, visible);
 					visibilityChanges.push(visible);
 					if (visible && sizing?.type === 'distribute') {
@@ -390,6 +391,16 @@ suite('Sessions - Workbench', () => {
 		Object.setPrototypeOf(host, options.single ? DesktopWorkbench.prototype : Workbench.prototype);
 		return host as unknown as ITestWorkbench;
 	}
+
+	test('enables modern tabs', () => {
+		const host = createHost();
+
+		enableModernUITabs.call(host);
+
+		assert.deepStrictEqual(host.classToggles, [
+			{ name: 'modern-ui-tabs', force: true },
+		]);
+	});
 
 	// The real SplitView calls `Part.setVisible` when a view's grid visibility
 	// changes, which the workbench maps back onto the desired part visibility.
