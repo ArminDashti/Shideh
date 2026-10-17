@@ -19,6 +19,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ICommandDetectionCapability, ITerminalCommand } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
 import { ICurrentPartialCommand, isFullTerminalCommand } from '../../../../../platform/terminal/common/capabilities/commandDetection/terminalCommand.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
@@ -59,6 +60,7 @@ export class TerminalStickyScrollOverlay extends Disposable {
 	private _currentStickyCommand?: ITerminalCommand | ICurrentPartialCommand;
 	private _currentContent?: string;
 	private _contextMenu: IMenu;
+	private _decorationAddon?: TerminalStickyScrollDecorationAddon;
 
 	private readonly _refreshListeners = this._register(new MutableDisposable());
 
@@ -74,9 +76,10 @@ export class TerminalStickyScrollOverlay extends Disposable {
 		private readonly _xtermColorProvider: IXtermColorProvider,
 		private readonly _commandDetection: ICommandDetectionCapability,
 		xtermCtor: Promise<typeof XTermTerminal>,
-		@IConfigurationService configurationService: IConfigurationService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IMenuService menuService: IMenuService,
 		@ITerminalConfigurationService private readonly _terminalConfigurationService: ITerminalConfigurationService,
@@ -92,9 +95,12 @@ export class TerminalStickyScrollOverlay extends Disposable {
 		}));
 
 		// React to configuration changes
-		this._register(Event.runAndSubscribe(configurationService.onDidChangeConfiguration, e => {
+		this._register(Event.runAndSubscribe(this._configurationService.onDidChangeConfiguration, e => {
 			if (!e || e.affectsConfiguration(TerminalStickyScrollSettingId.MaxLineCount)) {
-				this._rawMaxLineCount = configurationService.getValue(TerminalStickyScrollSettingId.MaxLineCount);
+				this._rawMaxLineCount = this._configurationService.getValue(TerminalStickyScrollSettingId.MaxLineCount);
+			}
+			if (!e || e.affectsConfiguration(TerminalSettingId.ShellIntegrationDecorationsEnabled)) {
+				this._refresh();
 			}
 			if (!e || e.affectsConfiguration(TerminalStickyScrollSettingId.IgnoredCommands)) {
 				this._ignoredCommands = configurationService.getValue(TerminalStickyScrollSettingId.IgnoredCommands);
@@ -117,7 +123,23 @@ export class TerminalStickyScrollOverlay extends Disposable {
 			}));
 			this._refreshGpuAcceleration();
 
-			this._register(configurationService.onDidChangeConfiguration(e => {
+			// Create and activate the decoration addon
+			this._decorationAddon = this._register(this._instantiationService.createInstance(
+				TerminalStickyScrollDecorationAddon,
+				this._instance,
+				this._xterm
+			));
+			this._stickyScrollOverlay.loadAddon(this._decorationAddon);
+
+			// Try to get the main terminal's decoration addon for delegation
+			const mainTerminal = this._xterm.raw as any;
+			const mainDecorationAddon = mainTerminal._decorationAddon ||
+				mainTerminal._decorationService?._decorationAddon;
+			if (mainDecorationAddon) {
+				this._decorationAddon.setMainDecorationAddon(mainDecorationAddon);
+			}
+
+			this._register(this._configurationService.onDidChangeConfiguration(e => {
 				if (e.affectsConfiguration(TERMINAL_CONFIG_SECTION)) {
 					this._syncOptions();
 				}
@@ -222,6 +244,9 @@ export class TerminalStickyScrollOverlay extends Disposable {
 	private _hide(): void {
 		this._pendingShowOperation = false;
 		this._element?.classList.toggle(CssClasses.Visible, false);
+
+		// Clear decorations through the addon
+		this._decorationAddon?.clearDecoration();
 	}
 
 	private _refresh(): void {
@@ -352,7 +377,18 @@ export class TerminalStickyScrollOverlay extends Disposable {
 
 		if (content) {
 			this._currentStickyCommand = command;
+
+			// CRITICAL: Set visible first
 			this._setVisible(true);
+
+			// CHANGE: Instead of queueMicrotask, use requestAnimationFrame
+			// This ensures the DOM is ready and xterm has completed its render cycle
+			getWindow(this._xterm.raw.element).requestAnimationFrame(() => {
+				// Ensure the overlay is fully rendered
+				if (this._stickyScrollOverlay?.element && this._decorationAddon) {
+					this._decorationAddon.registerCommandDecoration(command);
+				}
+			});
 
 			// Position the sticky scroll such that it never overlaps the prompt/output of the
 			// following command. This must happen after setVisible to ensure the element is
@@ -445,22 +481,42 @@ export class TerminalStickyScrollOverlay extends Disposable {
 			this._stickyScrollOverlay.loadAddon(this._ligaturesAddon);
 		});
 
-		// Scroll to the command on click
-		this._register(addStandardDisposableListener(hoverOverlay, 'click', () => {
+		// Scroll to the command on click, but only if not clicking on a decoration
+		this._register(addStandardDisposableListener(hoverOverlay, 'click', (e) => {
+			// Check if the click target is a decoration - if so, let the decoration handle it
+			const target = e.target as HTMLElement;
+			const isDecoration = target?.classList?.contains('xterm-decoration') ||
+				target?.classList?.contains('terminal-command-decoration') ||
+				target?.closest('.xterm-decoration') ||
+				target?.closest('.terminal-command-decoration');
+
+			if (isDecoration) {
+				// Don't stop propagation here - let the decoration handle it naturally
+				return;
+			}
+
+			// Navigate to the command location
 			if (this._xterm && this._currentStickyCommand) {
-				this._xterm.markTracker.revealCommand(this._currentStickyCommand);
-				this._instance.focus();
+				try {
+					this._xterm.markTracker.revealCommand(this._currentStickyCommand);
+					this._instance.focus();
+				} catch (error) {
+					console.error('Failed to reveal command:', error);
+				}
 			}
 		}));
 
 		// Forward mouse events to the terminal
 		this._register(addStandardDisposableListener(hoverOverlay, 'wheel', e => this._xterm?.raw.element?.dispatchEvent(new WheelEvent(e.type, e))));
 
-		// Context menu - stop propagation on mousedown because rightClickBehavior listens on
-		// mousedown, not contextmenu
+		// Context menu - only stop right-click mousedown events
 		this._register(addDisposableListener(hoverOverlay, 'mousedown', e => {
-			e.stopImmediatePropagation();
-			e.preventDefault();
+			// Only prevent default for right-click (button 2)
+			if (e.button === 2) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+			}
+			// For left-clicks, ensure they can bubble properly for the click handler
 		}));
 		this._register(addDisposableListener(hoverOverlay, 'contextmenu', e => {
 			e.stopImmediatePropagation();
@@ -473,6 +529,25 @@ export class TerminalStickyScrollOverlay extends Disposable {
 		// decorative characters like powerline symbols.
 		this._register(addStandardDisposableListener(hoverOverlay, 'mouseover', () => overlay.options.theme = this._getTheme(true)));
 		this._register(addStandardDisposableListener(hoverOverlay, 'mouseleave', () => overlay.options.theme = this._getTheme(false)));
+
+		// Additional click handler on the main element as backup
+		this._register(addStandardDisposableListener(this._element, 'click', (e) => {
+			// Only handle if not clicking on decorations
+			const target = e.target as HTMLElement;
+			const isDecoration = target?.classList?.contains('xterm-decoration') ||
+				target?.classList?.contains('terminal-command-decoration') ||
+				target?.closest('.xterm-decoration') ||
+				target?.closest('.terminal-command-decoration');
+
+			if (!isDecoration && this._xterm && this._currentStickyCommand) {
+				try {
+					this._xterm.markTracker.revealCommand(this._currentStickyCommand);
+					this._instance.focus();
+				} catch (error) {
+					console.error('Failed to reveal command from main element:', error);
+				}
+			}
+		}));
 	}
 
 	@throttle(0)
