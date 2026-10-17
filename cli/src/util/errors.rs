@@ -237,6 +237,15 @@ impl std::fmt::Display for NoAttachedServerError {
 }
 
 #[derive(Debug)]
+pub struct NoAgentHostError();
+
+impl std::fmt::Display for NoAgentHostError {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "The server was not started with an agent host socket. Agent host connections require a freshly spawned server.")
+	}
+}
+
+#[derive(Debug)]
 pub struct RefreshTokenNotAvailableError();
 
 impl std::fmt::Display for RefreshTokenNotAvailableError {
@@ -554,6 +563,7 @@ makeAnyError!(
 	ExtensionInstallFailed,
 	MismatchedLaunchModeError,
 	NoAttachedServerError,
+	NoAgentHostError,
 	RefreshTokenNotAvailableError,
 	NoInstallInUserProvidedPath,
 	UserCancelledInstallation,

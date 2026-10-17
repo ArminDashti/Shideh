@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-use super::paths::{InstalledServer, ServerPaths};
+use super::paths::{dev_server_path, InstalledServer, ServerPaths};
 use crate::async_pipe::get_socket_name;
 use crate::constants::{
 	AGENTS_WEB_URL, APPLICATION_NAME, COLORS_ENABLED, EDITOR_WEB_URL, QUALITYLESS_PRODUCT_NAME,
@@ -28,7 +28,7 @@ use crate::util::prereqs::skip_requirements_check;
 use regex::Regex;
 use serde::Deserialize;
 use std::fs;
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -268,6 +268,7 @@ struct UpdateServerVersion {
 pub struct SocketCodeServer {
 	pub commit_id: String,
 	pub socket: PathBuf,
+	pub agent_host_socket: Option<PathBuf>,
 	pub origin: Arc<CodeServerOrigin>,
 }
 
@@ -428,6 +429,8 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 		let contents = fs::read_to_string(&self.server_paths.logfile)
 			.expect("Something went wrong reading log file");
 
+		let agent_host_socket = parse_agent_host_from(&contents);
+
 		if let Some(port) = parse_port_from(&contents) {
 			Ok(Some(AnyCodeServer::Port(PortCodeServer {
 				commit_id: self.server_params.release.commit.to_owned(),
@@ -438,6 +441,7 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 			Ok(Some(AnyCodeServer::Socket(SocketCodeServer {
 				commit_id: self.server_params.release.commit.to_owned(),
 				socket,
+				agent_host_socket,
 				origin,
 			})))
 		} else {
@@ -457,6 +461,14 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 
 	/// Ensures the server is set up in the configured directory.
 	pub async fn setup(&self) -> Result<(), AnyError> {
+		if dev_server_path().is_some() {
+			info!(self.logger, "Using dev server override, skipping download");
+			create_dir_all(&self.server_paths.server_dir).map_err(|e| {
+				wrap(e, "error creating server directory for dev override")
+			})?;
+			return Ok(());
+		}
+
 		debug!(
 			self.logger,
 			"Installing and setting up {}...", QUALITYLESS_SERVER_NAME
@@ -602,10 +614,13 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 	async fn _listen_on_socket(&self, socket: &Path) -> Result<SocketCodeServer, AnyError> {
 		remove_file(&socket).await.ok(); // ignore any error if it doesn't exist
 
+		let agent_host_socket = get_socket_name();
+
 		let mut cmd = self.get_base_command();
 		cmd.arg("--start-server")
 			.arg("--enable-remote-auto-shutdown")
-			.arg(format!("--socket-path={}", socket.display()));
+			.arg(format!("--socket-path={}", socket.display()))
+			.arg(format!("--agent-host-path={}", agent_host_socket.display()));
 
 		let child = self.spawn_server_process(cmd).await?;
 		let log_file = self.get_logfile()?;
@@ -631,6 +646,7 @@ impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Htt
 		Ok(SocketCodeServer {
 			commit_id: self.server_params.release.commit.to_owned(),
 			socket,
+			agent_host_socket: Some(agent_host_socket),
 			origin: Arc::new(origin),
 		})
 	}
@@ -849,6 +865,12 @@ impl ServerOutputMatcher<()> for NoOpMatcher {
 
 fn parse_socket_from(text: &str) -> Option<PathBuf> {
 	LISTENING_PORT_RE
+		.captures(text)
+		.and_then(|cap| cap.get(1).map(|path| PathBuf::from(path.as_str())))
+}
+
+fn parse_agent_host_from(text: &str) -> Option<PathBuf> {
+	AGENT_HOST_RE
 		.captures(text)
 		.and_then(|cap| cap.get(1).map(|path| PathBuf::from(path.as_str())))
 }
