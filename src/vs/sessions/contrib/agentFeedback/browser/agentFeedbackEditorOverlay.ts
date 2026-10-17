@@ -93,6 +93,7 @@ export class AgentFeedbackOverlayController {
 			agentFeedbackService.onDidChangeNavigation,
 			planReviewFeedbackService.onDidChangeRegistrations,
 			agentFeedbackService.onDidChangeFeedbackScope,
+			commentsArbitrationService.onDidChange,
 		));
 
 		this._store.add(autorun(r => {
@@ -100,6 +101,9 @@ export class AgentFeedbackOverlayController {
 
 			const activeInput = group.activeEditorPane?.input;
 			const candidates = getAgentFeedbackOverlayResourceCandidates(activeInput);
+			for (const candidate of candidates) {
+				void commentsArbitrationService.resolve(candidate);
+			}
 			let navigationBearings = undefined;
 			let acceptedFeedbackCount = 0;
 			for (const { sessionResource } of getFeedbackSessionCandidates(candidates, candidate => agentFeedbackService.getFeedbackSessionResource(candidate))) {

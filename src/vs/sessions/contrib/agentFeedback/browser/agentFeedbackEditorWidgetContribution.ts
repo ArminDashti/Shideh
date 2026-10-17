@@ -20,6 +20,7 @@ import { ICodeReviewService, IPRReviewState } from '../../codeReview/browser/cod
 import { AgentFeedbackEditorWidget, IComposerDraft, IComposerDraftState } from './agentFeedbackEditorWidget.js';
 import { IAgentFeedbackService, shouldIncludeRawPRReviewComments } from './agentFeedbackService.js';
 import { getSessionEditorComments, groupNearbySessionEditorComments, ISessionEditorComment } from './sessionEditorComments.js';
+import { IAgentFeedbackCommentsArbitrationService } from './agentFeedbackCommentsArbitration.js';
 
 /**
  * Editor contribution that manages agent feedback widgets.
@@ -49,6 +50,7 @@ export class AgentFeedbackEditorWidgetContribution extends Disposable implements
 		@IAgentFeedbackService private readonly _agentFeedbackService: IAgentFeedbackService,
 		@ICodeReviewService private readonly _codeReviewService: ICodeReviewService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IAgentFeedbackCommentsArbitrationService private readonly _commentsArbitrationService: IAgentFeedbackCommentsArbitrationService,
 	) {
 		super();
 
@@ -62,6 +64,7 @@ export class AgentFeedbackEditorWidgetContribution extends Disposable implements
 			this._agentFeedbackService.onDidChangeFeedback,
 			this._agentFeedbackService.onDidChangeFeedbackVisibility,
 			this._agentFeedbackService.onDidChangeFeedbackScope,
+			this._commentsArbitrationService.onDidChange,
 			this._editor.onDidChangeModel,
 		));
 
@@ -89,6 +92,11 @@ export class AgentFeedbackEditorWidgetContribution extends Disposable implements
 	private _resolveSession(): void {
 		const model = this._editor.getModel();
 		if (!model) {
+			this._sessionResource = undefined;
+			return;
+		}
+		void this._commentsArbitrationService.resolve(model.uri);
+		if (!this._commentsArbitrationService.usesNativeComments(model.uri)) {
 			this._sessionResource = undefined;
 			return;
 		}

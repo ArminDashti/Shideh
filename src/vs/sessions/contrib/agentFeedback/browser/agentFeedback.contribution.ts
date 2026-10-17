@@ -85,12 +85,14 @@ registerWorkbenchContribution2(AgentFeedbackAttachmentContribution.ID, AgentFeed
 registerWorkbenchContribution2(AgentFeedbackPRThreadResolverContribution.ID, AgentFeedbackPRThreadResolverContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentFeedbackPRReviewSeederContribution.ID, AgentFeedbackPRReviewSeederContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentEditorCommentsProviderContribution.ID, AgentEditorCommentsProviderContribution, WorkbenchPhase.BlockRestore);
+registerWorkbenchContribution2(AgentFeedbackWorkbenchCommentsContribution.ID, AgentFeedbackWorkbenchCommentsContribution, WorkbenchPhase.BlockRestore);
 
 registerAgentFeedbackEditorActions();
 
 registerAgentFeedbackReviewCommands();
 
 registerSingleton(IAgentFeedbackService, AgentFeedbackService, InstantiationType.Delayed);
+registerSingleton(IAgentFeedbackCommentsArbitrationService, AgentFeedbackCommentsArbitrationService, InstantiationType.Delayed);
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'chat',
