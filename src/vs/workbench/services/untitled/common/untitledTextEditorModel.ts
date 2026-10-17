@@ -115,6 +115,8 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 
 	readonly capabilities = WorkingCopyCapabilities.Untitled;
 
+	private readonly initialMode: string;
+
 	//#region Name
 
 	private configuredLabelFormat: 'content' | 'name' = 'content';
@@ -164,6 +166,8 @@ export class UntitledTextEditorModel extends BaseTextEditorModel implements IUnt
 		if (preferredLanguageId) {
 			this.setLanguageId(preferredLanguageId);
 		}
+
+		this.initialMode = this.preferredMode ?? 'plaintext';
 
 		// Fetch config
 		this.onConfigurationChange(undefined, false);
