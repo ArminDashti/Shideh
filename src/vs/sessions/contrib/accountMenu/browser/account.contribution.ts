@@ -28,6 +28,7 @@ import { Action, IAction, Separator } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { registerUpdateTitleBarMenuPlacement } from '../../../../workbench/contrib/update/browser/updateTitleBarEntry.js';
 import { ChatEntitlement, ChatEntitlementService, IChatEntitlementService } from '../../../../workbench/services/chat/common/chatEntitlementService.js';
 import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
@@ -345,7 +346,7 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 	}
 
 	private getAvatarAltText(hasLoadedAvatar: boolean): string {
-		if (hasLoadedAvatar && this.accountProviderId === 'github' && this.accountName) {
+		if (hasLoadedAvatar && isGitHubAuthenticationProvider(this.accountProviderId) && this.accountName) {
 			return localize('accountAvatarAlt', "GitHub profile image for {0}", this.accountName);
 		}
 
@@ -365,41 +366,58 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 		this.avatarLoadDisposable.clear();
 		const requestId = ++this.avatarRequestCounter;
 
-		if (!avatarUrl) {
-			this.renderState();
-			return;
-		}
-
-		const image = new Image();
-		image.referrerPolicy = 'no-referrer';
-		const clearHandlers = () => {
-			image.onload = null;
-			image.onerror = null;
-		};
-		image.onload = () => {
+		try {
+			const avatarUrl = await this.accountProfileImageService.getDefaultProfileImageUrl();
 			if (requestId !== this.avatarRequestCounter) {
 				return;
 			}
 
-			this.loadedAvatarUrl = avatarUrl;
-			this.renderState();
-			clearHandlers();
-		};
-		image.onerror = () => {
-			if (requestId !== this.avatarRequestCounter) {
+			if (avatarUrl === this.currentAvatarUrl && this.loadedAvatarUrl) {
 				return;
 			}
 
+			this.currentAvatarUrl = avatarUrl;
 			this.loadedAvatarUrl = undefined;
+			this.avatarLoadDisposable.clear();
+
+			if (!avatarUrl) {
+				this.renderState();
+				return;
+			}
+
+			const image = new Image();
+			image.referrerPolicy = 'no-referrer';
+			const clearHandlers = () => {
+				image.onload = null;
+				image.onerror = null;
+			};
+			image.onload = () => {
+				if (requestId !== this.avatarRequestCounter) {
+					return;
+				}
+
+				this.loadedAvatarUrl = avatarUrl;
+				this.renderState();
+				clearHandlers();
+			};
+			image.onerror = () => {
+				if (requestId !== this.avatarRequestCounter) {
+					return;
+				}
+
+				this.loadedAvatarUrl = undefined;
+				this.renderState();
+				clearHandlers();
+			};
+			this.avatarLoadDisposable.value = toDisposable(() => {
+				clearHandlers();
+				image.src = '';
+			});
+			image.src = avatarUrl;
 			this.renderState();
-			clearHandlers();
-		};
-		this.avatarLoadDisposable.value = toDisposable(() => {
-			clearHandlers();
-			image.src = '';
-		});
-		image.src = avatarUrl;
-		this.renderState();
+		} catch (error) {
+			this.logService.error(error);
+		}
 	}
 
 	private getHoverTarget(): { targetElements: HTMLElement[]; x: number } {

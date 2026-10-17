@@ -9,7 +9,7 @@ import { ActionBar, ActionsOrientation } from '../../../base/browser/ui/actionba
 import { ACCOUNTS_ACTIVITY_ID, GLOBAL_ACTIVITY_ID } from '../../common/activity.js';
 import { IActivityService } from '../../services/activity/common/activity.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
-import { DisposableStore, Disposable } from '../../../base/common/lifecycle.js';
+import { DisposableStore, Disposable, MutableDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { IColorTheme, IThemeService } from '../../../platform/theme/common/themeService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../platform/storage/common/storage.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
@@ -30,6 +30,7 @@ import { getActionBarActions } from '../../../platform/actions/browser/menuEntry
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../platform/contextview/browser/contextView.js';
+import { IDefaultAccountService } from '../../../platform/defaultAccount/common/defaultAccount.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { IProductService } from '../../../platform/product/common/productService.js';
@@ -277,6 +278,7 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 
 	private readonly groupedAccounts: Map<string, (AuthenticationSessionAccount & { canSignOut: boolean })[]> = new Map();
 	private readonly problematicProviders: Set<string> = new Set();
+	private readonly avatarLoadDisposable = this._register(new MutableDisposable());
 
 	private initialized = false;
 	private sessionFromEmbedder = new Lazy<Promise<AuthenticationSessionInfo | undefined>>(() => getCurrentAuthenticationSessionInfo(this.secretStorageService, this.productService));
@@ -294,12 +296,14 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 		@IMenuService menuService: IMenuService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IAuthenticationService private readonly authenticationService: IAuthenticationService,
+		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		@IProductService private readonly productService: IProductService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ISecretStorageService private readonly secretStorageService: ISecretStorageService,
 		@ILogService private readonly logService: ILogService,
+		@IAccountProfileImageService private readonly accountProfileImageService: IAccountProfileImageService,
 		@IActivityService activityService: IActivityService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ICommandService private readonly commandService: ICommandService,
@@ -353,6 +357,8 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 		this._register(this.defaultAccountService.onDidChangeDefaultAccount(() => {
 			this.updateAvatar();
 		}));
+
+		this._register(this.defaultAccountService.onDidChangeDefaultAccount(() => this.refreshAccountProfileImage()));
 	}
 
 	// This function exists to ensure that the accounts are added for auth providers that had already been registered
@@ -672,7 +678,109 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 		}
 	}
 
+	override render(container: HTMLElement): void {
+		super.render(container);
+
+		this.accountProfileImageElement = append(this.label, $('img.workbench-account-profile-image', { 'aria-hidden': 'true', alt: '', draggable: 'false' })) as HTMLImageElement;
+		this.accountProfileImageElement.decoding = 'async';
+		this.accountProfileImageElement.referrerPolicy = 'no-referrer';
+		this.updateAccountProfileImage();
+	}
+
+	private async refreshAccountProfileImage(): Promise<void> {
+		try {
+			const requestId = ++this.profileImageResolveRequestCounter;
+			const profileImageUrl = await this.resolveAccountProfileImageUrl();
+			if (requestId !== this.profileImageResolveRequestCounter) {
+				return;
+			}
+
+			if (profileImageUrl === this.currentProfileImageUrl && this.profileImageLoadState !== 'failed') {
+				return;
+			}
+
+			this.currentProfileImageUrl = profileImageUrl;
+			this.loadedProfileImageUrl = undefined;
+			this.avatarLoadDisposable.clear();
+			const loadRequestId = ++this.profileImageLoadRequestCounter;
+
+			if (!profileImageUrl) {
+				this.profileImageLoadState = 'idle';
+				this.updateAccountProfileImage();
+				return;
+			}
+
+			this.profileImageLoadState = 'loading';
+			const image = new Image();
+			image.referrerPolicy = 'no-referrer';
+			const clearHandlers = () => {
+				image.onload = null;
+				image.onerror = null;
+			};
+			image.onload = () => {
+				if (loadRequestId !== this.profileImageLoadRequestCounter) {
+					return;
+				}
+
+				this.profileImageLoadState = 'loaded';
+				this.loadedProfileImageUrl = profileImageUrl;
+				this.updateAccountProfileImage();
+				clearHandlers();
+			};
+			image.onerror = () => {
+				if (loadRequestId !== this.profileImageLoadRequestCounter) {
+					return;
+				}
+
+				this.profileImageLoadState = 'failed';
+				this.loadedProfileImageUrl = undefined;
+				this.updateAccountProfileImage();
+				clearHandlers();
+			};
+			this.avatarLoadDisposable.value = toDisposable(() => {
+				clearHandlers();
+				image.src = '';
+			});
+			image.src = profileImageUrl;
+			this.updateAccountProfileImage();
+		} catch (error) {
+			this.logService.error(error);
+		}
+	}
+
+	private async resolveAccountProfileImageUrl(): Promise<string | undefined> {
+		return this.accountProfileImageService.getDefaultProfileImageUrl();
+	}
+
+	private updateAccountProfileImage(): void {
+		if (!this.accountProfileImageElement) {
+			return;
+		}
+
+		const action = this.action as CompositeBarAction;
+		const hasLoadedProfileImage = !!this.loadedProfileImageUrl;
+		const classNames = hasLoadedProfileImage
+			? ['workbench-account-profile-image-container']
+			: ThemeIcon.asClassNameArray(GlobalCompositeBar.ACCOUNTS_ICON);
+
+		if (action.compositeBarActionItem.classNames?.join(' ') !== classNames.join(' ')) {
+			action.compositeBarActionItem = {
+				...action.compositeBarActionItem,
+				classNames,
+			};
+		}
+
+		if (this.loadedProfileImageUrl) {
+			if (this.accountProfileImageElement.src !== this.loadedProfileImageUrl) {
+				this.accountProfileImageElement.src = this.loadedProfileImageUrl;
+			}
+		} else {
+			this.accountProfileImageElement.removeAttribute('src');
+		}
+	}
+
 	//#endregion
+
 }
 
 export class GlobalActivityActionViewItem extends AbstractGlobalActivityActionViewItem {
@@ -766,6 +874,7 @@ export class SimpleAccountActivityActionViewItem extends AccountsActivityActionV
 		@IMenuService menuService: IMenuService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IAuthenticationService authenticationService: IAuthenticationService,
+		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		@IProductService productService: IProductService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -773,6 +882,7 @@ export class SimpleAccountActivityActionViewItem extends AccountsActivityActionV
 		@ISecretStorageService secretStorageService: ISecretStorageService,
 		@IStorageService storageService: IStorageService,
 		@ILogService logService: ILogService,
+		@IAccountProfileImageService accountProfileImageService: IAccountProfileImageService,
 		@IActivityService activityService: IActivityService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ICommandService commandService: ICommandService,

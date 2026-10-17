@@ -11,6 +11,7 @@ import { localize } from '../../nls.js';
 import { ChatEntitlement, IChatSentiment, IQuotaSnapshot } from '../../workbench/services/chat/common/chatEntitlementService.js';
 import { IDefaultAccountService } from '../../platform/defaultAccount/common/defaultAccount.js';
 import { IAuthenticationService } from '../../workbench/services/authentication/common/authentication.js';
+import { GITHUB_AUTH_PROVIDER_ID, GITHUB_ENTERPRISE_AUTH_PROVIDER_ID } from '../../workbench/services/accounts/common/accountProfileImage.js';
 
 export interface IResolvedAccountInfo {
 	readonly accountName: string;
@@ -53,8 +54,6 @@ export async function resolveAccountInfo(
 				accountIcon: sessions[0].account.icon,
 			};
 		}
-	} catch {
-		// Provider not available yet
 	}
 
 	return undefined;

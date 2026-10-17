@@ -28,7 +28,7 @@ import { IsNewChatSessionContext } from '../../../common/contextkeys.js';
 import { SideBarVisibleContext } from '../../../../workbench/common/contextkeys.js';
 import { Menus } from '../../menus.js';
 import { ChatEntitlement, ChatEntitlementService, IChatEntitlementService } from '../../../../workbench/services/chat/common/chatEntitlementService.js';
-import { getAccountTitleBarState, getAccountProfileImageUrl, getAccountTitleBarBadgeKey, resolveAccountInfo } from '../../accountTitleBarState.js';
+import { getAccountTitleBarState, getAccountTitleBarBadgeKey, resolveAccountInfo } from '../../accountTitleBarState.js';
 import { IChatDashboardService } from '../../chatDashboardService.js';
 import { MOBILE_OPEN_CHANGES_VIEW_COMMAND_ID } from './contributions/mobileChangesView.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -84,7 +84,6 @@ export class MobileTitlebarPart extends Disposable {
 	private readonly accountIconElement: HTMLElement;
 	private readonly accountBadgeElement: HTMLElement;
 	private accountName: string | undefined;
-	private accountProviderId: string | undefined;
 	private accountProviderLabel: string | undefined;
 	private accountIcon: URI | undefined;
 	private isAccountLoading = true;
@@ -341,7 +340,6 @@ export class MobileTitlebarPart extends Disposable {
 		}
 
 		this.accountName = info?.accountName;
-		this.accountProviderId = info?.accountProviderId;
 		this.accountProviderLabel = info?.accountProviderLabel;
 		this.accountIcon = info?.accountIcon;
 		this.isAccountLoading = false;
@@ -412,28 +410,45 @@ export class MobileTitlebarPart extends Disposable {
 		this.avatarLoadDisposable.clear();
 		const requestId = ++this.avatarRequestCounter;
 
-		if (!avatarUrl) {
-			this.renderAccountState();
-			return;
-		}
+		try {
+			const avatarUrl = await this.accountProfileImageService.getDefaultProfileImageUrl();
+			if (requestId !== this.avatarRequestCounter) {
+				return;
+			}
 
-		const image = new Image();
-		image.referrerPolicy = 'no-referrer';
-		const clearHandlers = () => { image.onload = null; image.onerror = null; };
-		image.onload = () => {
-			if (requestId !== this.avatarRequestCounter) { return; }
-			this.loadedAvatarUrl = avatarUrl;
-			this.renderAccountState();
-			clearHandlers();
-		};
-		image.onerror = () => {
-			if (requestId !== this.avatarRequestCounter) { return; }
+			if (avatarUrl === this.currentAvatarUrl && this.loadedAvatarUrl) {
+				return;
+			}
+
+			this.currentAvatarUrl = avatarUrl;
 			this.loadedAvatarUrl = undefined;
-			this.renderAccountState();
-			clearHandlers();
-		};
-		this.avatarLoadDisposable.value = toDisposable(() => { clearHandlers(); image.src = ''; });
-		image.src = avatarUrl;
+			this.avatarLoadDisposable.clear();
+
+			if (!avatarUrl) {
+				this.renderAccountState();
+				return;
+			}
+
+			const image = new Image();
+			image.referrerPolicy = 'no-referrer';
+			const clearHandlers = () => { image.onload = null; image.onerror = null; };
+			image.onload = () => {
+				if (requestId !== this.avatarRequestCounter) { return; }
+				this.loadedAvatarUrl = avatarUrl;
+				this.renderAccountState();
+				clearHandlers();
+			};
+			image.onerror = () => {
+				if (requestId !== this.avatarRequestCounter) { return; }
+				this.loadedAvatarUrl = undefined;
+				this.renderAccountState();
+				clearHandlers();
+			};
+			this.avatarLoadDisposable.value = toDisposable(() => { clearHandlers(); image.src = ''; });
+			image.src = avatarUrl;
+		} catch (error) {
+			this.logService.error(error);
+		}
 	}
 
 	// --- Account Sheet --- //
