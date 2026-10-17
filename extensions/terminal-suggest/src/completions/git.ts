@@ -8234,7 +8234,7 @@ const completionSpec: Fig.Spec = {
 					name: ["-d", "--delete"],
 					description: "Delete fully merged branch",
 					args: {
-						generators: gitGenerators.localOrRemoteBranches,
+						generators: gitGenerators.remoteLocalBranches,
 						isVariadic: true,
 						suggestions: [
 							{
@@ -8248,7 +8248,7 @@ const completionSpec: Fig.Spec = {
 					name: "-D",
 					description: "Delete branch (even if not merged)",
 					args: {
-						generators: gitGenerators.localOrRemoteBranches,
+						generators: gitGenerators.remoteLocalBranches,
 						isVariadic: true,
 						suggestions: [
 							{
