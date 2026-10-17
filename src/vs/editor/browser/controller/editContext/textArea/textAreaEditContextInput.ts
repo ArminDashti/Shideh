@@ -411,6 +411,9 @@ export class TextAreaInput extends Disposable {
 		}));
 
 		this._register(this._textArea.onPaste((e) => {
+			if (PasteOptions.electronBugWorkaroundPasteEventHasFired2 === true) {
+				return;
+			}
 			this._logService.trace(`TextAreaInput#onPaste`, e);
 
 			// Fire onWillPaste event to allow interception
