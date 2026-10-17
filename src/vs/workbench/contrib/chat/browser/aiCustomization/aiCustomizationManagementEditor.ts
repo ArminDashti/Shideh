@@ -84,7 +84,7 @@ import { PromptsConfig } from '../../common/promptSyntax/config/config.js';
 import { getAttributeDefinition, getTarget } from '../../common/promptSyntax/languageProviders/promptFileAttributes.js';
 import { INewPromptOptions, NEW_PROMPT_COMMAND_ID, NEW_INSTRUCTIONS_COMMAND_ID, NEW_AGENT_COMMAND_ID, NEW_SKILL_COMMAND_ID } from '../promptSyntax/newPromptFileActions.js';
 import { showConfigureHooksQuickPick } from '../promptSyntax/hookActions.js';
-import { resolveWorkspaceTargetDirectory, resolveUserTargetDirectory, CustomizationLocationPicker } from './customizationCreatorService.js';
+import { resolveWorkspaceTargetDirectory, resolveUserTargetDirectory } from './customizationCreatorService.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { AICustomizationSources, IAICustomizationWorkspaceService } from '../../common/aiCustomizationWorkspaceService.js';
 import { hasReadableCustomizationContent } from '../../../../../platform/agentHost/common/agentHostCustomizationUri.js';
@@ -985,6 +985,11 @@ export class AICustomizationManagementEditor extends EditorPane {
 			hidden.add(AICustomizationManagementSection.Automations);
 		}
 
+		// Also hide the Automations section when the feature setting is off.
+		if (this.configurationService.getValue<boolean>(CHAT_AUTOMATIONS_ENABLED_SETTING) !== true) {
+			hidden.add(AICustomizationManagementSection.Automations);
+		}
+
 		this.sections.length = 0;
 		this.contributedSectionContextKeys.clear();
 		for (const s of this.allSections) {
@@ -1574,6 +1579,12 @@ export class AICustomizationManagementEditor extends EditorPane {
 			this.editorDisposables.add(autorun(reader => {
 				this.updateSectionCount(AICustomizationManagementSection.Plugins, pluginCount.read(reader));
 			}));
+		}
+		if (this.automationsListWidget) {
+			this.editorDisposables.add(this.automationsListWidget.onDidChangeItemCount(count => {
+				this.updateSectionCount(AICustomizationManagementSection.Automations, count);
+			}));
+			this.automationsListWidget.fireItemCount();
 		}
 		if (this.automationsListWidget) {
 			this.editorDisposables.add(this.automationsListWidget.onDidChangeItemCount(count => {
@@ -4147,6 +4158,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.automationsContentContainer) {
 			this.automationsContentContainer.style.display = !isEditorMode && !isDetailMode && isAutomationsSection ? '' : 'none';
 		}
+		if (this.automationsContentContainer) {
+			this.automationsContentContainer.style.display = !isEditorMode && !isDetailMode && isAutomationsSection ? '' : 'none';
+		}
 		if (this.pluginDetailContainer) {
 			this.pluginDetailContainer.style.display = isPluginDetailMode ? '' : 'none';
 		}
@@ -4310,13 +4324,10 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (targetDir === null) {
 			return; // User cancelled the picker
 		}
-
-		if (targetDir === undefined) {
-			// targetDir may be undefined when no matching folder exists for the
-			// requested storage type (e.g. skills have no user-storage folder).
-			await this.instantiationService.invokeFunction(showNoFoldersDialog, type);
-			return;
-		}
+		// targetDir may be undefined when no matching folder exists for the
+		// requested storage type (e.g. skills have no user-storage folder).
+		// Pass it through — the command handles undefined by showing its own
+		// folder picker via askForPromptSourceFolder.
 
 		// When the active harness overrides the file extension (e.g. Claude
 		// rules use .md instead of .instructions.md), pass it through so the
@@ -4325,11 +4336,11 @@ export class AICustomizationManagementEditor extends EditorPane {
 
 		const options: INewPromptOptions = {
 			targetFolder: targetDir,
-			targetStorage: target === AICustomizationSources.user ? PromptsStorage.user : PromptsStorage.local,
+			targetStorage: target === 'user' ? PromptsStorage.user : PromptsStorage.local,
 			fileExtension: override?.fileExtension,
 			openFile: async (uri) => {
-				const isWorkspace = target === AICustomizationSources.local;
-				await this.showEmbeddedEditor(uri, basename(uri), type, target, isWorkspace);
+				const isWorkspace = target === 'workspace';
+				await this.showEmbeddedEditor(uri, basename(uri), type, target === 'user' ? PromptsStorage.user : PromptsStorage.local, isWorkspace);
 				return this.embeddedEditor;
 			},
 		};
@@ -4345,6 +4356,72 @@ export class AICustomizationManagementEditor extends EditorPane {
 
 		await this.commandService.executeCommand(commandId, options);
 		this.listWidget?.refresh();
+	}
+
+	/**
+	 * Resolves the target directory for creating a new customization file.
+	 * If multiple source folders exist for the given storage type, shows a
+	 * picker to let the user choose. Otherwise, returns the single match.
+	 *
+	 * Source folders come from the active harness's item provider (via the
+	 * items model) — each session can supply its own set of customization
+	 * locations through `ICustomizationItemProvider.provideSourceFolders`.
+	 *
+	 * @returns the resolved URI, `undefined` when no folder is available,
+	 *          or `null` when the user cancelled the picker.
+	 */
+	private async resolveTargetDirectoryWithPicker(type: PromptsType, target: 'workspace' | 'user'): Promise<URI | undefined | null> {
+		const sessionResource = this.harnessService.activeSessionResource.get();
+		const activeDescriptor = this.harnessService.getActiveDescriptor();
+		const provider = activeDescriptor.itemProvider ?? this.instantiationService.createInstance(PromptsServiceCustomizationItemProvider, () => activeDescriptor);
+		if (!provider.provideSourceFolders) {
+			return undefined;
+		}
+		const allFolders = await provider.provideSourceFolders(sessionResource, type, CancellationToken.None);
+		if (!allFolders) {
+			// Provider returned no source folders for this type/session.
+			return undefined;
+		}
+
+		const projectRoot = this.workspaceService.getActiveProjectRoot();
+		const matchingFolders: ICustomizationSourceFolder[] = [];
+		const hasSeen = new ResourceSet();
+		for (const f of allFolders) {
+			if (target === 'workspace') {
+				if (projectRoot && isEqualOrParent(f.uri, projectRoot) && !hasSeen.has(f.uri)) {
+					hasSeen.add(f.uri);
+					matchingFolders.push(f);
+				}
+			} else {
+				if ((!projectRoot || !isEqualOrParent(f.uri, projectRoot)) && !hasSeen.has(f.uri)) {
+					hasSeen.add(f.uri);
+					matchingFolders.push(f);
+				}
+			}
+		}
+
+		if (matchingFolders.length === 0) {
+			// No matching folders — return undefined so the command can fall
+			// back to askForPromptSourceFolder (not null which means cancellation)
+			return undefined;
+		}
+
+		if (matchingFolders.length === 1) {
+			return matchingFolders[0].uri;
+		}
+
+		// Multiple directories — ask the user which one to use
+		const items: (IQuickPickItem & { uri: URI })[] = matchingFolders.map(folder => ({
+			label: folder.label,
+			description: folder.uri.fsPath,
+			uri: folder.uri,
+		}));
+
+		const picked = await this.quickInputService.pick(items, {
+			placeHolder: localize('selectTargetDirectory', "Select a directory for the new customization file"),
+		});
+
+		return picked?.uri ?? null;
 	}
 
 	override updateStyles(): void {

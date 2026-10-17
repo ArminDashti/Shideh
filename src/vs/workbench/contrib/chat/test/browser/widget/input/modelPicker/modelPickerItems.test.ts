@@ -1483,7 +1483,7 @@ suite('buildModelPickerItems', () => {
 		const auto = createAutoModel();
 		const modelA = createModel('gpt-4o', 'GPT-4o');
 		modelA.metadata = { ...modelA.metadata, priceCategory: 'medium' } as ILanguageModelChatMetadata;
-		const items = callBuild([auto, modelA]);
+		const items = callBuild([auto, modelA], { isUBB: true });
 		const gptItem = getActionItems(items).find(a => a.label === 'GPT-4o');
 		assert.ok(gptItem);
 		// Price category is no longer shown as circle indicators in the description

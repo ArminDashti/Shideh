@@ -12,7 +12,7 @@ import { CustomizationEnablementKind } from '../../../../platform/agentHost/comm
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { AICustomizationManagementSection, AICustomizationSource, BUILTIN_STORAGE } from './aiCustomizationWorkspaceService.js';
+import { AICustomizationManagementSection, AICustomizationSource, AICustomizationSources, BUILTIN_STORAGE, IStorageSourceFilter } from './aiCustomizationWorkspaceService.js';
 import { PromptsType } from './promptSyntax/promptTypes.js';
 import { IAgentSource, IChatPromptSlashCommand, ICustomAgent, IPromptsService, IResolvedChatPromptSlashCommand, matchesSessionType, PromptsStorage } from './promptSyntax/service/promptsService.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
@@ -179,6 +179,11 @@ export interface IHarnessDescriptor {
 	 * When `undefined`, the harness is always available (e.g. Local).
 	 */
 	readonly requiredAgentId?: string;
+	/**
+	 * Returns the storage source filter that should be applied to customization
+	 * items of the given type when this harness is active.
+	 */
+	getStorageSourceFilter(type: PromptsType): IStorageSourceFilter;
 	/**
 	 * When set, this harness is backed by an extension-contributed provider
 	 * that can supply customization items directly (bypassing promptsService
@@ -507,7 +512,14 @@ export interface ICustomizationSlashCommand {
 	readonly sessionTypes?: readonly string[];
 }
 
-// #region Shared descriptor constants
+// #region Shared filter constants
+
+/**
+ * Empty filter returned when no harness is registered yet.
+ */
+const EMPTY_FILTER: IStorageSourceFilter = {
+	sources: [],
+};
 
 /**
  * Empty descriptor returned when no harness is registered yet.
@@ -516,6 +528,7 @@ const EMPTY_DESCRIPTOR: IHarnessDescriptor = {
 	id: '',
 	label: '',
 	icon: Codicon.sparkle,
+	getStorageSourceFilter: () => EMPTY_FILTER,
 };
 
 
@@ -536,6 +549,7 @@ const EMPTY_DESCRIPTOR: IHarnessDescriptor = {
  * with no user-root restrictions.
  */
 export function createVSCodeHarnessDescriptor(): IHarnessDescriptor {
+	const filter: IStorageSourceFilter = { sources: AICustomizationSources.all };
 	return {
 		id: SessionType.Local,
 		label: localize('harness.local', "Local"),

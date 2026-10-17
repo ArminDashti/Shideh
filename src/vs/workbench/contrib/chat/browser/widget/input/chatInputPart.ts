@@ -1379,6 +1379,21 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			|| hasModelsTargetingSession(this.getAllMergedModels(), sessionType);
 	}
 
+	/**
+	 * Returns the persisted model for the current session type, if it exists in the current model pool.
+	 */
+	private _getRememberedSessionTypeModel(): ILanguageModelChatMetadataAndIdentifier | undefined {
+		const sessionType = this._currentSessionType;
+		if (!sessionType || !this.sessionTypeHasOwnModelPool(sessionType)) {
+			return undefined;
+		}
+		const persisted = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
+		if (!persisted) {
+			return undefined;
+		}
+		return this.getModels().find(m => m.identifier === persisted);
+	}
+
 	private initSelectedModel() {
 		// Drop the per-editor configuration snapshot so the next read re-seeds
 		// from the new (location, sessionType)-scoped storage bucket.
@@ -2270,6 +2285,23 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	public resetLanguageModelToDefault(storeSelection: boolean = true): void {
 		this._waitForPersistedLanguageModel.clear();
 		this.setCurrentLanguageModelToDefault(storeSelection);
+	}
+
+	/**
+	 * Reset the language model selection to the location's default (typically
+	 * "auto") and tear down any in-flight {@linkcode _waitForPersistedLanguageModel}
+	 * waiter armed by {@linkcode initSelectedModel}. Used by surfaces that have
+	 * their own opinion about the initial model (e.g. the automations dialog
+	 * opening a fresh form) so the workbench-global "last used" restore can't
+	 * land later and stomp the choice.
+	 *
+	 * `storeSelection` defaults to `true` for symmetry with the other model
+	 * setters; pass `false` when the reset is dialog-local and should not
+	 * persist into the regular chat input's selection.
+	 */
+	public resetLanguageModelToDefault(storeSelection: boolean = true): void {
+		this._waitForPersistedLanguageModel.clear();
+		this.setCurrentLanguageModelToDefault(undefined, storeSelection);
 	}
 
 	/**

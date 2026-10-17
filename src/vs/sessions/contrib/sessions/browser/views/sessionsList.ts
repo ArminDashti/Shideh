@@ -5206,7 +5206,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 		const sections = groupSessionsForList(forSections, grouping, sorting, session => this.isSessionPinned(session), (s, srt) => this._sessionsListModelService.getSortKey(s, sortingToMode(srt)), getChatSessionArchivedSectionLabel(getChatSessionArchiveActionWording(this.configurationService)), this.groupExternalSessions);
 
-		const hasRecentSessions = sections.some(s => s.id === 'recent' && s.sessions.length > 0);
+		const hasTodaySessions = sections.some(s => s.id === 'today' && s.sessions.length > 0);
 
 		// Keep the "Chats" default section visible even when empty so it stays
 		// discoverable, unless the user opts out via the setting or filter. The
@@ -5391,8 +5391,8 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 			// Default collapse state for older time sections
 			let defaultCollapsed: boolean | ObjectTreeElementCollapseState = ObjectTreeElementCollapseState.PreserveOrExpanded;
-			if (grouping === SessionsGrouping.Date && hasRecentSessions) {
-				const olderSections = ['older', 'archived'];
+			if (grouping === SessionsGrouping.Date && hasTodaySessions) {
+				const olderSections = ['yesterday', 'thisWeek', 'older', 'archived'];
 				if (olderSections.includes(section.id)) {
 					defaultCollapsed = ObjectTreeElementCollapseState.PreserveOrCollapsed;
 				}
@@ -7665,10 +7665,13 @@ export function groupByDate(sessions: ISession[], sorting: SessionsSorting, getS
 	const key = getSortKey ?? defaultSortKey;
 	const now = new Date();
 	const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+	const startOfYesterday = startOfToday - 86_400_000;
 	const startOfWeek = startOfToday - 7 * 86_400_000;
 	const recentlyUpdatedThreshold = now.getTime() - RECENTLY_UPDATED_SESSION_THRESHOLD_MS;
 
-	const recent: ISession[] = [];
+	const today: ISession[] = [];
+	const yesterday: ISession[] = [];
+	const week: ISession[] = [];
 	const older: ISession[] = [];
 
 	for (const session of sessions) {
@@ -7691,7 +7694,9 @@ export function groupByDate(sessions: ISession[], sorting: SessionsSorting, getS
 		}
 	};
 
-	addGroup('recent', localize('recent', "Recent"), recent);
+	addGroup('today', localize('today', "Today"), today);
+	addGroup('yesterday', localize('yesterday', "Yesterday"), yesterday);
+	addGroup('thisWeek', localize('lastSevenDays', "Last 7 Days"), week);
 	addGroup('older', localize('older', "Older"), older);
 
 	return sections;

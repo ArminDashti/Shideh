@@ -18,7 +18,7 @@ import { HookType, HOOK_METADATA } from '../../common/promptSyntax/hookTypes.js'
 import { formatHookCommandLabel } from '../../common/promptSyntax/hookSchema.js';
 import { PromptsType, getSourceDescription } from '../../common/promptSyntax/promptTypes.js';
 import { ICustomAgent, IPromptsService, matchesSessionType, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
-import { ICustomizationItem, ICustomizationItemProvider, ICustomizationSourceFolder } from '../../common/customizationHarnessService.js';
+import { ICustomizationItem, ICustomizationItemProvider, ICustomizationSourceFolder, IHarnessDescriptor } from '../../common/customizationHarnessService.js';
 import { BUILTIN_STORAGE } from './aiCustomizationManagement.js';
 import { getFriendlyName, isChatExtensionItem } from './aiCustomizationItemSource.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
@@ -32,6 +32,7 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 	readonly onDidChange: Event<void>;
 
 	constructor(
+		private readonly getActiveDescriptor: () => IHarnessDescriptor,
 		@IPromptsService private readonly promptsService: IPromptsService,
 		@IAICustomizationWorkspaceService private readonly workspaceService: IAICustomizationWorkspaceService,
 		@IProductService private readonly productService: IProductService,
@@ -184,7 +185,7 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 			await this.fetchPromptServiceInstructions(items, extensionInfoByUri, disabledUris, promptType);
 		}
 
-		return this.applyBuiltinGroupKeys(items, extensionInfoByUri);
+		return this.applyLocalFilters(this.applyBuiltinGroupKeys(items, extensionInfoByUri), promptType);
 	}
 
 	private async fetchPromptServiceHooks(items: ICustomizationItem[], disabledUris: ResourceSet, promptType: PromptsType): Promise<void> {
@@ -331,6 +332,14 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 				extensionLabel: extInfo.displayName || extInfo.id.value,
 			};
 		});
+	}
+
+	private applyLocalFilters(groupedItems: ICustomizationItem[], promptType: PromptsType): readonly ICustomizationItem[] {
+		const descriptor = this.getActiveDescriptor();
+		const filter = descriptor.getStorageSourceFilter(promptType);
+		const items = applySourceFilter(groupedItems, filter);
+
+		return items;
 	}
 
 }

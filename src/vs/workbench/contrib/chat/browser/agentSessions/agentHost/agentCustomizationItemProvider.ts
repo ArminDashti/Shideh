@@ -148,7 +148,7 @@ export class AgentCustomizationItemProvider extends Disposable implements ICusto
 		return items;
 	}
 
-	private toDirectoryChildItem(child: ChildCustomization, source: AICustomizationSource, isRemote: boolean): ICustomizationItem | undefined {
+	private toDirectoryChildItem(child: ChildCustomization, source: AICustomizationSource, groupKey: string | undefined): ICustomizationItem | undefined {
 		const type = toPromptsType(child.type);
 		if (!type) {
 			return undefined;
@@ -156,25 +156,6 @@ export class AgentCustomizationItemProvider extends Disposable implements ICusto
 		let userInvocable: boolean | undefined = undefined;
 		if (child.type === CustomizationType.Agent) {
 			userInvocable = readAgentCustomizationMeta(child).userInvocable !== false;
-		}
-		let groupKey = isRemote ? REMOTE_CLIENT_GROUP : undefined;
-		let badge: string | undefined = undefined;
-		let badgeTooltip: string | undefined = undefined;
-		if (!groupKey && child.type === CustomizationType.Rule) {
-			const pattern = child.globs?.[0];
-			if (child.globs && child.globs.length > 0) {
-				groupKey = 'context-instructions';
-				badge = pattern === '**'
-					? localize('alwaysAdded', 'always added')
-					: pattern;
-				badgeTooltip = pattern === '**'
-					? localize('alwaysIncluded', 'This instruction is automatically included in every interaction.')
-					: localize('contextInstructions', 'This instruction is automatically included when files matching \'{0}\' are in context.', pattern);
-			} else if (child.alwaysApply) {
-				groupKey = 'agent-instructions';
-			} else {
-				groupKey = 'on-demand-instructions';
-			}
 		}
 
 		return {
@@ -185,8 +166,6 @@ export class AgentCustomizationItemProvider extends Disposable implements ICusto
 			description: getChildDescription(child),
 			source,
 			groupKey,
-			badge,
-			badgeTooltip,
 			extensionId: undefined,
 			pluginUri: undefined,
 			userInvocable,

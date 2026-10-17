@@ -343,8 +343,9 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			label: agent.displayName,
 			icon: ThemeIcon.fromId(Codicon.server.id),
 			// The Tools section is surfaced for the Copilot CLI agent host only.
-			hiddenSections: agent.provider === 'copilotcli' ? [AICustomizationManagementSection.Prompts] : [AICustomizationManagementSection.Tools, AICustomizationManagementSection.Prompts],
+			hiddenSections: agent.provider === 'copilotcli' ? [] : [AICustomizationManagementSection.Tools],
 			hideGenerateButton: true,
+			getStorageSourceFilter: () => ({ sources: AICustomizationSources.all }),
 			syncProvider,
 			itemProvider,
 			pluginMarketplaceProvider,

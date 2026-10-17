@@ -84,6 +84,19 @@ export interface IModePickerDelegate {
 	 */
 	readonly setMode?: (mode: IChatMode) => void;
 	/**
+	 * When provided AND {@link sessionResource} returns `undefined`, the
+	 * picker calls this instead of dispatching `ToggleAgentModeActionId`.
+	 * This allows hosts that embed {@link ChatInputPart} without a
+	 * registered {@link IChatWidget} (e.g. the automations dialog) to
+	 * update mode state directly. Real chat widgets always have a
+	 * session URI and so always take the command path, preserving the
+	 * request-loss confirmation, telemetry, and new-chat-on-clear
+	 * behavior in `ToggleChatModeAction`.
+	 *
+	 * Mirrors `ISessionTypePickerDelegate.setActiveSessionProvider`.
+	 */
+	readonly setMode?: (mode: IChatMode) => void;
+	/**
 	 * When set, the mode picker will show custom agents whose target matches this value.
 	 * Custom agents without a target are always shown in all session types. If no agents match the target, shows a default "Agent" option.
 	 */

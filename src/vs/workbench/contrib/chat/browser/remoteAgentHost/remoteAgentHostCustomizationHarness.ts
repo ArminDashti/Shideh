@@ -140,6 +140,9 @@ export function createRemoteAgentHarnessDescriptor(
 	syncProvider: ICustomizationSyncProvider,
 	pluginMarketplaceProvider?: ICustomizationPluginMarketplaceProvider,
 ): IHarnessDescriptor {
+	const allSources = [AICustomizationSources.local, AICustomizationSources.user, AICustomizationSources.plugin, AICustomizationSources.extension, AICustomizationSources.builtin];
+	const filter: IStorageSourceFilter = { sources: allSources };
+
 	return {
 		id: harnessId,
 		label: displayName,
@@ -149,6 +152,9 @@ export function createRemoteAgentHarnessDescriptor(
 			AICustomizationManagementSection.McpServers,
 		],
 		hideGenerateButton: true,
+		getStorageSourceFilter(_type: PromptsType): IStorageSourceFilter {
+			return filter;
+		},
 		itemProvider,
 		syncProvider,
 		pluginActions: controller.pluginActions,
