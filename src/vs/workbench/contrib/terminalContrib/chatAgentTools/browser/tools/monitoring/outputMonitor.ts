@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../../../base/common/event.js';
 import { Disposable, MutableDisposable, toDisposable, type IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../../../nls.js';
 import { IToolInvocationContext } from '../../../../../chat/common/tools/languageModelToolsService.js';
+import { resolveLanguageModelWithFallback } from '../../../../../chat/common/modelSelectorUtil.js';
 import { ITaskService } from '../../../../../tasks/common/taskService.js';
 import { ILinkLocation } from '../../taskHelpers.js';
 import { IExecution, IPollingResult, OutputMonitorState, PollingConsts } from './types.js';
