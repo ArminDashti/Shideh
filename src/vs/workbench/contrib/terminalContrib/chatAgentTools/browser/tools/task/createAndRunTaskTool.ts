@@ -257,8 +257,8 @@ export class CreateAndRunTaskTool implements IToolImpl {
 			.appendCodeblock('shell', [task.command, ...(task.args ?? [])].join(' '));
 
 		return {
-			invocationMessage: new MarkdownString(localize('createdTask', 'Created task \`{0}\`', task.label)),
-			pastTenseMessage: new MarkdownString(localize('createdTaskPast', 'Created task \`{0}\`', task.label)),
+			invocationMessage: new MarkdownString(localize('createdTask', 'Created task \`{0}\`', task.label), { supportHtml: true }),
+			pastTenseMessage: new MarkdownString(localize('createdTaskPast', 'Created task \`{0}\`', task.label), { supportHtml: true }),
 			confirmationMessages: {
 				title: localize('allowTaskCreationExecution', 'Allow task creation and execution?'),
 				message: confirmationMessage,

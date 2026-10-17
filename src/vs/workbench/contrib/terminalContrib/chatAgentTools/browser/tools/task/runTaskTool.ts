@@ -141,7 +141,7 @@ export class RunTaskTool implements IToolImpl {
 		const taskLabel = task._label;
 		const activeTasks = await this._tasksService.getActiveTasks();
 		if (task && activeTasks.includes(task)) {
-			return { invocationMessage: new MarkdownString(localize('chat.taskAlreadyActive', 'The task is already running.')) };
+			return { invocationMessage: new MarkdownString(localize('chat.taskAlreadyActive', 'The task is already running.'), { supportHtml: true }) };
 		}
 
 		if (await this._isTaskActive(task)) {
