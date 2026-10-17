@@ -60,6 +60,10 @@ export interface IActionWidgetDropdownAction extends IAction {
 	 */
 	ariaDescription?: string;
 	/**
+	 * Optional aria label for accessibility. If provided, will be used instead of combining label and description.
+	 */
+	ariaLabel?: string;
+	/**
 	 * Optional flyout hover configuration shown when focusing/hovering over the action.
 	 */
 	hover?: IActionListItemHover;

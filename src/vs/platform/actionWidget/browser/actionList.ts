@@ -161,6 +161,10 @@ export interface IActionListItem<T> {
 	 */
 	readonly ariaDescription?: string;
 	/**
+	 * Optional aria label for accessibility. If provided, will be used instead of combining label and description.
+	 */
+	readonly ariaLabel?: string;
+	/**
 	 * Optional hover configuration shown when focusing/hovering over the item.
 	 */
 	readonly hover?: IActionListItemHover;
