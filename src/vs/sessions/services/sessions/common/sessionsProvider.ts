@@ -20,6 +20,24 @@ import { AutomationUnavailableReasonCode, IAutomationStore } from '../../../../w
 import { ChatModelSource, IChat, ISession, ISessionCreationReference, ISessionType, ISessionWorkspace, ISessionWorkspaceBrowseAction, ISideChatSelection } from './session.js';
 
 /**
+ * Readiness of a sessions provider, indicating whether it can currently
+ * create new sessions. Providers that are always ready (e.g. local
+ * providers) do not need to expose this observable.
+ */
+export type ProviderReadiness =
+	| { readonly state: 'ready' }
+	| { readonly state: 'preparing'; readonly label: string }
+	| { readonly state: 'unavailable'; readonly label: string };
+
+/**
+ * Returns the current readiness of a provider, defaulting to `ready` when
+ * the provider does not implement the readiness contract.
+ */
+export function getProviderReadiness(provider: ISessionsProvider): ProviderReadiness {
+	return provider.readiness?.get() ?? { state: 'ready' };
+}
+
+/**
  * Event fired when sessions change within a provider.
  */
 export interface ISessionChangeEvent {
