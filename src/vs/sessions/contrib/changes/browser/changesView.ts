@@ -834,6 +834,17 @@ export class ChangesViewPane extends ViewPane {
 	private readonly hasGitOperationInProgressObs: IObservable<boolean>;
 	private readonly scopedInstantiationService: IInstantiationService;
 
+	private treeAndDiffContainer: HTMLElement | undefined;
+	private diffPanelContainer: HTMLElement | undefined;
+	private horizontalSplitView: SplitView<number> | undefined;
+	private _multiDiffWidget: MultiDiffEditorWidget | undefined;
+	private readonly _currentDiffModelDisposable = this._register(new MutableDisposable());
+	private readonly _diffPanelOpenObs = observableValue<boolean>(this, false);
+	private _savedDiffPanelWidth = 0;
+	private _savedAuxBarWidth = 0;
+	private currentTreeWidth = 0;
+	private _combinedEntriesObs: IObservable<IChangesFileItem[]> | undefined;
+
 	private readonly renderDisposables = this._register(new DisposableStore());
 
 	// Track current body dimensions for list layout
@@ -974,6 +985,9 @@ export class ChangesViewPane extends ViewPane {
 			localize('changesView.noChanges', "No changed files"),
 		);
 
+		// Diff panel — right side of the horizontal split (initially hidden)
+		this.diffPanelContainer = dom.append(this.treeAndDiffContainer, $('.changes-diff-panel'));
+
 		// CI Status widget — bottom pane
 		this.ciStatusWidget = this._register(this.scopedInstantiationService.createInstance(CIStatusWidget, this.splitViewContainer));
 
@@ -1001,15 +1015,19 @@ export class ChangesViewPane extends ViewPane {
 		};
 		const thisView = this;
 
-		// Top pane: file tree
+		// Top pane: tree + inline diff (horizontal split wrapper)
 		const treePane: IView = {
 			element: this.contentContainer,
 			get minimumSize() { return thisView.getTreePaneMinimumSize(getReservedSectionHeight()); },
 			get maximumSize() { return thisView.getTreePaneMaximumSize(); },
 			onDidChange: this.treePaneSizeChange.event,
 			layout: (height) => {
-				this.contentContainer!.style.height = `${height}px`;
-				this._layoutTreeInPane(height);
+				this.treeAndDiffContainer!.style.height = `${height}px`;
+				if (this.horizontalSplitView) {
+					this.horizontalSplitView.layout(this.currentBodyWidth, height);
+				} else {
+					this._layoutTreeInPane(height);
+				}
 			},
 		};
 
@@ -1030,6 +1048,48 @@ export class ChangesViewPane extends ViewPane {
 
 		this.splitView.addView(treePane, Sizing.Distribute, 0, true);
 		this.splitView.addView(ciPane, CIStatusWidget.HEADER_HEIGHT + CIStatusWidget.PREFERRED_BODY_HEIGHT, 1, true);
+
+		// Horizontal split: file tree (left) | inline diff panel (right)
+		const TREE_MIN_WIDTH = 180;
+		const DIFF_PANEL_MIN_WIDTH = 300;
+
+		const treePaneH: IView<number> = {
+			element: this.contentContainer,
+			minimumSize: TREE_MIN_WIDTH,
+			maximumSize: Number.POSITIVE_INFINITY,
+			onDidChange: Event.None,
+			layout: (width, _offset, height) => {
+				this.currentTreeWidth = width;
+				this.contentContainer!.style.width = `${width}px`;
+				this.contentContainer!.style.height = `${height ?? 0}px`;
+				this._layoutTreeInPane(height ?? 0);
+			},
+		};
+
+		const diffPaneH: IView<number> = {
+			element: this.diffPanelContainer,
+			minimumSize: DIFF_PANEL_MIN_WIDTH,
+			maximumSize: Number.POSITIVE_INFINITY,
+			onDidChange: Event.None,
+			layout: (width, _offset, height) => {
+				this.diffPanelContainer!.style.width = `${width}px`;
+				this.diffPanelContainer!.style.height = `${height ?? 0}px`;
+				if (this._multiDiffWidget) {
+					this._multiDiffWidget.layout(new dom.Dimension(width, height ?? 0));
+				}
+			},
+		};
+
+		this.horizontalSplitView = this._register(new SplitView<number>(this.treeAndDiffContainer, {
+			orientation: Orientation.HORIZONTAL,
+			proportionalLayout: false,
+		}));
+		// Diff panel on the left (index 0), file tree on the right (index 1)
+		this.horizontalSplitView.addView(diffPaneH, Sizing.Distribute, 0);
+		this.horizontalSplitView.addView(treePaneH, Sizing.Distribute, 1);
+
+		// Initially hide the diff panel
+		this.horizontalSplitView.setViewVisible(0, false);
 
 		// Style the sash as a visible separator between sections
 		const updateSplitViewStyles = () => {
@@ -1218,6 +1278,16 @@ export class ChangesViewPane extends ViewPane {
 
 			this.renderDisposables.add(this.ciStatusWidget.setInput(checksViewModel));
 		}
+
+		// Keep the inline diff model in sync with changes when the panel is open
+		this.renderDisposables.add(autorun(reader => {
+			const isOpen = this._diffPanelOpenObs.read(reader);
+			const entries = combinedEntriesObs.read(reader);
+			if (isOpen) {
+				// Fire-and-forget: update the diff model with the latest entries
+				this._buildAndSetDiffModel(entries);
+			}
+		}));
 
 		// Update tree data with combined entries
 		this.renderDisposables.add(autorun(reader => {
@@ -2114,6 +2184,38 @@ class ChangesTreeSorter implements ITreeSorter<ChangesTreeElement> {
 		return compareFileNames(aName, bName);
 	}
 }
+
+// --- Inline Diff Panel Toggle Action (Sessions window only)
+
+class ToggleInlineDiffPanelAction extends ViewAction<ChangesViewPane> {
+	static readonly ID = 'sessions.changes.toggleDiffPanel';
+
+	constructor() {
+		super({
+			id: ToggleInlineDiffPanelAction.ID,
+			title: localize2('sessions.changes.toggleDiffPanel', 'View All Changes'),
+			viewId: CHANGES_VIEW_ID,
+			f1: false,
+			icon: Codicon.diffMultiple,
+			toggled: changesViewDiffPanelOpenContextKey.isEqualTo(true),
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('isSessionsWindow', true),
+				ChatContextKeys.hasAgentSessionChanges,
+			),
+			menu: [{
+				id: MenuId.ChatEditingSessionChangesToolbar,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.equals('isSessionsWindow', true),
+			}],
+		});
+	}
+
+	async runInView(_accessor: ServicesAccessor, view: ChangesViewPane): Promise<void> {
+		view.toggleDiffPanel();
+	}
+}
+registerAction2(ToggleInlineDiffPanelAction);
 
 // --- View Mode Actions
 
