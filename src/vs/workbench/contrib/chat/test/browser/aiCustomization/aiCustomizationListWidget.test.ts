@@ -30,7 +30,7 @@ import { ContributionEnablementState } from '../../../common/enablement.js';
 import { ChatConfiguration } from '../../../common/constants.js';
 import { getChatSessionType } from '../../../common/model/chatUri.js';
 import { IAgentPluginService } from '../../../common/plugins/agentPluginService.js';
-import { IPromptsService, PromptsStorage } from '../../../common/promptSyntax/service/promptsService.js';
+import { IPromptsService } from '../../../common/promptSyntax/service/promptsService.js';
 import { PromptsType } from '../../../common/promptSyntax/promptTypes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { ResourceSet } from '../../../../../../base/common/map.js';
