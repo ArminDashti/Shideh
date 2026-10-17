@@ -9,7 +9,7 @@ import { Disposable, DisposableStore, disposeIfDisposable, IDisposable, MutableD
 import { MultiWindowParts, Part } from '../../part.js';
 import { EventType as TouchEventType, Gesture, GestureEvent } from '../../../../base/browser/touch.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { StatusbarAlignment, IStatusbarService, IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarStyleOverride, isStatusbarEntryLocation, IStatusbarEntryLocation, isStatusbarEntryPriority, IStatusbarEntryPriority } from '../../../services/statusbar/browser/statusbar.js';
+import { StatusbarAlignment, IStatusbarService, IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarStyleOverride, isStatusbarEntryLocation, IStatusbarEntryLocation, isStatusbarEntryPriority, IStatusbarEntryPriority, IStatusbarEntryOverride } from '../../../services/statusbar/browser/statusbar.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -256,6 +256,28 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 	}
 
 	overrideEntry(id: string, override: Partial<IStatusbarEntry>): IDisposable {
+		this.entryOverrides.set(id, override);
+		this.onDidOverrideEntry.fire(id);
+
+		return toDisposable(() => {
+			const currentOverride = this.entryOverrides.get(id);
+			if (currentOverride === override) {
+				this.entryOverrides.delete(id);
+				this.onDidOverrideEntry.fire(id);
+			}
+		});
+	}
+
+	private withEntryOverride(entry: IStatusbarEntry, id: string): IStatusbarEntry {
+		const override = this.entryOverrides.get(id);
+		if (override) {
+			entry = { ...entry, ...override };
+		}
+
+		return entry;
+	}
+
+	overrideEntry(id: string, override: IStatusbarEntryOverride): IDisposable {
 		this.entryOverrides.set(id, override);
 		this.onDidOverrideEntry.fire(id);
 
