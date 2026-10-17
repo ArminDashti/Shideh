@@ -164,6 +164,12 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 				localize('symbolSortOrder.type', "Show symbol outline in symbol type order."),
 			]
 		},
+		'breadcrumbs.symbolSortOrderCaseSensitive': {
+			description: localize('symbolSortOrderCaseSensitive', "Controls whether symbol names are sorted case sensitive in the breadcrumbs outline view. This is helpful for languages where case indicates visibility like Go."),
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE
+		},
 		'breadcrumbs.icons': {
 			description: localize('icons', "Render breadcrumb items with icons."),
 			type: 'boolean',
