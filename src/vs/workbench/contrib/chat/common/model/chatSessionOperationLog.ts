@@ -79,6 +79,7 @@ const responsePartSchema = Adapt.v<PersistedResponsePart, SerializedChatResponse
 				case 'confirmation':
 				case 'extensions':
 				case 'hook':
+				case 'autoModelRouting':
 				case 'inlineReference':
 				case 'markdownVuln':
 				case 'progressMessage':

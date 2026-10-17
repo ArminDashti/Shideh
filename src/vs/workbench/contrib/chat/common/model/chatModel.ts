@@ -248,6 +248,7 @@ export type IChatProgressHistoryResponseContent =
 	| IChatExtensionsContent
 	| IChatThinkingPart
 	| IChatHookPart
+	| IChatAutoModelRoutingPart
 	| IChatPullRequestContent
 	| IChatWorkspaceEdit
 	| IChatExternalEdit
