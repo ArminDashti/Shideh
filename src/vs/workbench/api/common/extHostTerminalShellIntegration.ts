@@ -204,6 +204,7 @@ export class InternalTerminalShellIntegration extends Disposable {
 					value: Object.freeze({ ...that._env.value })
 				});
 			},
+
 			// executeCommand(commandLine: string): vscode.TerminalShellExecution;
 			// executeCommand(executable: string, args: string[]): vscode.TerminalShellExecution;
 			executeCommand(commandLineOrExecutable: string, args?: string[]): vscode.TerminalShellExecution {
