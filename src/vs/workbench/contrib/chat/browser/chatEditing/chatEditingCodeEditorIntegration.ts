@@ -7,7 +7,7 @@ import './media/chatEditorController.css';
 
 import { getTotalWidth } from '../../../../../base/browser/dom.js';
 import { Event } from '../../../../../base/common/event.js';
-import { DisposableStore, dispose, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, dispose, IDisposable, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { autorun, constObservable, derived, IObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { basename, isEqual } from '../../../../../base/common/resources.js';
 import { themeColorFromId } from '../../../../../base/common/themables.js';
@@ -453,6 +453,7 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 						widget.update(diff, diffEntry, this._editor.getModel()!.getVersionId(), isCreatedContent ? 0 : extraLines);
 					}
 					this._diffHunksRenderStore.add(toDisposable(() => {
+						widget.hideToolbar();
 						this._diffHunkWidgetPool.putBack(widget);
 					}));
 
