@@ -496,7 +496,20 @@ function asObjectTreeOptions<TInput, T, TFilterData>(options?: IAsyncDataTreeOpt
 				return (options.defaultFindVisibility as ((e: T) => TreeVisibility))(e.element as T);
 			}
 		},
-		stickyScrollDelegate: options.stickyScrollDelegate as IStickyScrollDelegate<IAsyncDataTreeNode<TInput, T>, TFilterData> | undefined
+		stickyScrollDelegate: options.stickyScrollDelegate as IStickyScrollDelegate<IAsyncDataTreeNode<TInput, T>, TFilterData> | undefined,
+		stickyNodes: options.stickyNodes && {
+			getStickyChildElements(node: IAsyncDataTreeNode<TInput, T> | null): IAsyncDataTreeNode<TInput, T>[] {
+				if (!node) {
+					// Root level - no access to children nodes here, return empty
+					// The user's stickyNodes returns T[], but we need to return wrapper nodes
+					return [];
+				}
+				const stickyElements = options.stickyNodes!.getStickyChildElements(node.element as T);
+				// Find the child nodes that match the sticky elements
+				return node.children.filter((child: IAsyncDataTreeNode<TInput, T>) => stickyElements.includes(child.element as T));
+			},
+			onDidChange: options.stickyNodes.onDidChange
+		} satisfies IStickyNodes<IAsyncDataTreeNode<TInput, T>>
 	};
 }
 export interface IAsyncDataTreeOptionsUpdate<T> extends IAbstractTreeOptionsUpdate<T> { }
@@ -1508,7 +1521,8 @@ function asCompressibleObjectTreeOptions<TInput, T, TFilterData>(options?: IComp
 				return options.keyboardNavigationLabelProvider!.getCompressedNodeKeyboardNavigationLabel(els.map(e => e.element as T));
 			}
 		},
-		stickyScrollDelegate: objectTreeOptions.stickyScrollDelegate as IStickyScrollDelegate<IAsyncDataTreeNode<TInput, T>, TFilterData> | undefined
+		stickyScrollDelegate: objectTreeOptions.stickyScrollDelegate as IStickyScrollDelegate<IAsyncDataTreeNode<TInput, T>, TFilterData> | undefined,
+		stickyNodes: objectTreeOptions.stickyNodes as IStickyNodes<IAsyncDataTreeNode<TInput, T>> | undefined
 	};
 }
 

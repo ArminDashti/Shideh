@@ -150,6 +150,26 @@ export interface IChatWidgetContrib extends IDisposable {
 	setInputState?(contrib: Readonly<Record<string, unknown>>): void;
 }
 
+class ChatStickyNodes implements IStickyNodes<ChatTreeItem> {
+
+	readonly onDidChange = Event.None;
+
+	constructor(private readonly _chatViewModelProvider: () => ChatViewModel | undefined) { }
+
+	getStickyChildElements(element: ChatTreeItem | null): ChatTreeItem[] {
+		if (element !== null) {
+			return [];
+		}
+
+		const viewModel = this._chatViewModelProvider();
+		if (!viewModel) {
+			return [];
+		}
+
+		return viewModel.getItems().filter(item => isRequestVM(item));
+	}
+}
+
 interface IChatRequestInputOptions {
 	input: string;
 	attachedContext: ChatRequestVariableSet;
