@@ -1728,6 +1728,15 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			tags: ['experimental', 'advanced'],
 		},
+		[OpusAltPromptEnabledSettingId]: {
+			type: 'boolean',
+			description: nls.localize('chat.opusAltPrompt.enabled', "When enabled, Copilot SDK sessions running a Claude Opus model apply system-prompt section overrides ported from the Copilot Chat Claude agent prompt, replacing the SDK's verification and thoroughness mandates with Copilot Chat's scope and exploration restraint guidance. Applies to sessions launched after the change."),
+			default: false,
+			tags: ['experimental', 'advanced'],
+			// Rolled out via experiment; the forwarded root-config key re-resolves the
+			// prompt on the next session launch, so `auto` needs no restart.
+			experiment: { mode: 'auto' },
+		},
 		[AgentHostToolSearchEnabledSettingId]: {
 			type: 'boolean',
 			description: nls.localize('chat.agentHost.copilot.toolSearch.enabled', "When enabled, Copilot SDK sessions defer MCP and non-core VS Code tools behind a tool-search tool so the model discovers them on demand instead of loading every tool definition up front."),

@@ -172,7 +172,7 @@ export const AgentHostClaudeMultiRootEnabledSettingId = 'chat.agentHost.claudeAg
 export const AgentHostAllowSignedOutWhenUsableSettingId = 'chat.agentHost.allowSignedOutWhenUsable';
 
 // The Copilot-CLI-specific setting IDs (`customTerminalTool`, `opus48Prompt`,
-// `modelCapabilityOverrides`) live with their root-config keys in
+// `opusAltPrompt`, `modelCapabilityOverrides`) live with their root-config keys in
 // `copilotCliConfig.ts`.
 
 /**
