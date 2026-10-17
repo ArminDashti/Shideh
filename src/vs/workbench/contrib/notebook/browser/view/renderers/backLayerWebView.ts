@@ -156,6 +156,8 @@ export class BackLayerWebView<T extends ICommonCellInfo> extends Themable {
 	private firstInit = true;
 	private initializeMarkupPromise?: { readonly requestId: string; readonly p: DeferredPromise<void>; readonly isFirstInit: boolean };
 
+	private readonly _renderLogger: ILogger;
+
 	private readonly nonce = UUID.generateUuid();
 
 	constructor(

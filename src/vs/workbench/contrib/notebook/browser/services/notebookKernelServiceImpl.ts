@@ -451,4 +451,53 @@ export class NotebookKernelService extends Disposable implements INotebookKernel
 			return actions.reduce((a, b) => a.concat(b), []);
 		});
 	}
+
+	registerNotebookKernelDetectionTask(task: INotebookKernelDetectionTask): IDisposable {
+		const notebookType = task.notebookType;
+		const all = this._kernelDetectionTasks.get(notebookType) ?? [];
+		all.push(task);
+		this._kernelDetectionTasks.set(notebookType, all);
+		this._onDidChangeKernelDetectionTasks.fire(notebookType);
+		return toDisposable(() => {
+			const all = this._kernelDetectionTasks.get(notebookType) ?? [];
+			const idx = all.indexOf(task);
+			if (idx >= 0) {
+				all.splice(idx, 1);
+				this._kernelDetectionTasks.set(notebookType, all);
+				this._onDidChangeKernelDetectionTasks.fire(notebookType);
+			}
+		});
+	}
+
+	getKernelDetectionTasks(notebook: INotebookTextModelLike): INotebookKernelDetectionTask[] {
+		return this._kernelDetectionTasks.get(notebook.viewType) ?? [];
+	}
+
+	registerKernelSourceActionProvider(viewType: string, provider: IKernelSourceActionProvider): IDisposable {
+		const providers = this._kernelSourceActionProviders.get(viewType) ?? [];
+		providers.push(provider);
+		this._kernelSourceActionProviders.set(viewType, providers);
+		this._onDidChangeSourceActions.fire({ viewType: viewType });
+
+		return toDisposable(() => {
+			const providers = this._kernelSourceActionProviders.get(viewType) ?? [];
+			const idx = providers.indexOf(provider);
+			if (idx >= 0) {
+				providers.splice(idx, 1);
+				this._kernelSourceActionProviders.set(viewType, providers);
+			}
+		});
+	}
+
+	/**
+	 * Get kernel source actions from providers
+	 */
+	getKernelSourceActions2(notebook: INotebookTextModelLike): Promise<INotebookKernelSourceAction[]> {
+		const viewType = notebook.viewType;
+		const providers = this._kernelSourceActionProviders.get(viewType) ?? [];
+		const promises = providers.map(provider => provider.provideKernelSourceActions());
+		return Promise.all(promises).then(actions => {
+			return actions.reduce((a, b) => a.concat(b), []);
+		});
+	}
 }

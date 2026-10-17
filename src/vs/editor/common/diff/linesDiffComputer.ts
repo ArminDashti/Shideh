@@ -33,7 +33,6 @@ export class LinesDiff {
 		readonly hitTimeout: boolean,
 	) {
 	}
-}
 
 export class MovedText {
 	public readonly lineRangeMapping: LineRangeMapping;
@@ -55,5 +54,9 @@ export class MovedText {
 
 	public flip(): MovedText {
 		return new MovedText(this.lineRangeMapping.flip(), this.changes.map(c => c.flip()));
+	}
+
+	public toString(): string {
+		return `[${this.startLineNumber},${this.endLineNumberExclusive})`;
 	}
 }

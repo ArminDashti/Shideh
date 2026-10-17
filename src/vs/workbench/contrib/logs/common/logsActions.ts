@@ -21,6 +21,13 @@ import { IDefaultLogLevelsService } from '../../../services/log/common/defaultLo
 type LogLevelQuickPickItem = IQuickPickItem & { level: LogLevel };
 type LogChannelQuickPickItem = IQuickPickItem & { id: string; channel: IOutputChannelDescriptor };
 
+type LogLevelQuickPickItem = IQuickPickItem & { level: LogLevel };
+type LogChannelQuickPickItem = IQuickPickItem & { channel: IOutputChannelDescriptor };
+
+function isLogLevel(thing: unknown): thing is LogLevel {
+	return isNumber(thing);
+}
+
 export class SetLogLevelAction extends Action {
 
 	static readonly ID = 'workbench.action.setLogLevel';

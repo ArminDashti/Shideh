@@ -188,6 +188,7 @@ export abstract class AbstractKeybindingService extends Disposable implements IK
 			}
 
 		}, 500);
+		IME.disable();
 	}
 
 	private _expectAnotherChord(firstChord: string, keypressLabel: string | null): void {

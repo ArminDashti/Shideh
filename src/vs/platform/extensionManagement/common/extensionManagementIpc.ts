@@ -273,6 +273,10 @@ export class ExtensionManagementChannelClient extends CommontExtensionManagement
 		return result.map(local => transformIncomingExtension(local, null));
 	}
 
+	installFromLocation(location: URI, profileLocation: URI): Promise<ILocalExtension> {
+		return Promise.resolve(this.channel.call<ILocalExtension>('installFromLocation', [location, profileLocation])).then(local => transformIncomingExtension(local, null));
+	}
+
 	getManifest(vsix: URI): Promise<IExtensionManifest> {
 		return Promise.resolve(this.channel.call<IExtensionManifest>('getManifest', [vsix]));
 	}

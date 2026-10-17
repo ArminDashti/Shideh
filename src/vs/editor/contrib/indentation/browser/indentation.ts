@@ -206,6 +206,20 @@ export class ChangeTabDisplaySize extends ChangeIndentationSizeAction {
 	}
 }
 
+export class ChangeTabDisplaySize extends ChangeIndentationSizeAction {
+
+	public static readonly ID = 'editor.action.changeTabDisplaySize';
+
+	constructor() {
+		super(true, true, {
+			id: ChangeTabDisplaySize.ID,
+			label: nls.localize('changeTabDisplaySize', "Change Tab Display Size"),
+			alias: 'Change Tab Display Size',
+			precondition: undefined
+		});
+	}
+}
+
 export class DetectIndentation extends EditorAction {
 
 	public static readonly ID = 'editor.action.detectIndentation';

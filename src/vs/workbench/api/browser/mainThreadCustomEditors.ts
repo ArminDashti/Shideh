@@ -92,6 +92,8 @@ export class MainThreadCustomEditors extends Disposable implements extHostProtoc
 
 	private readonly _webviewOriginStore: ExtensionKeyedWebviewOriginStore;
 
+	private readonly _webviewOriginStore: ExtensionKeyedWebviewOriginStore;
+
 	constructor(
 		context: IExtHostContext,
 		private readonly mainThreadWebview: MainThreadWebviews,

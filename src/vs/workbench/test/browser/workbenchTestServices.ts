@@ -1178,6 +1178,10 @@ export class InMemoryTestWorkingCopyBackupService extends BrowserWorkingCopyBack
 		return this.fileService;
 	}
 
+	testGetFileService(): IFileService {
+		return this.fileService;
+	}
+
 	joinBackupResource(): Promise<void> {
 		return new Promise(resolve => this.backupResourceJoiners.push(resolve));
 	}

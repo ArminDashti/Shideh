@@ -1040,6 +1040,7 @@ export function getLinesForCommand(buffer: IBuffer, command: ITerminalCommand, c
 
 	const linesToCheck = outputMatcher.length;
 	const lines: string[] = [];
+	let match: RegExpMatchArray | null | undefined;
 	if (outputMatcher.anchor === 'bottom') {
 		for (let i = endLine - (outputMatcher.offset || 0); i >= startLine; i--) {
 			let wrappedLineStart = i;
@@ -1069,6 +1070,51 @@ export function getLinesForCommand(buffer: IBuffer, command: ITerminalCommand, c
 	}
 	return lines;
 }
+
+export function getLinesForCommand(buffer: IBuffer, command: ITerminalCommand, cols: number, outputMatcher?: ITerminalOutputMatcher): string[] | undefined {
+	if (!outputMatcher) {
+		return undefined;
+	}
+	const executedMarker = command.executedMarker;
+	const endMarker = command.endMarker;
+	if (!executedMarker || !endMarker) {
+		throw new Error('No marker for command');
+	}
+	const startLine = executedMarker.line;
+	const endLine = endMarker.line;
+
+	const linesToCheck = outputMatcher.length;
+	const lines: string[] = [];
+	if (outputMatcher.anchor === 'bottom') {
+		for (let i = endLine - (outputMatcher.offset || 0); i >= startLine; i--) {
+			let wrappedLineStart = i;
+			const wrappedLineEnd = i;
+			while (wrappedLineStart >= startLine && buffer.getLine(wrappedLineStart)?.isWrapped) {
+				wrappedLineStart--;
+			}
+			i = wrappedLineStart;
+			lines.unshift(getXtermLineContent(buffer, wrappedLineStart, wrappedLineEnd, cols));
+			if (lines.length > linesToCheck) {
+				lines.pop();
+			}
+		}
+	} else {
+		for (let i = startLine + (outputMatcher.offset || 0); i < endLine; i++) {
+			const wrappedLineStart = i;
+			let wrappedLineEnd = i;
+			while (wrappedLineEnd + 1 < endLine && buffer.getLine(wrappedLineEnd + 1)?.isWrapped) {
+				wrappedLineEnd++;
+			}
+			i = wrappedLineEnd;
+			lines.push(getXtermLineContent(buffer, wrappedLineStart, wrappedLineEnd, cols));
+			if (lines.length === linesToCheck) {
+				lines.shift();
+			}
+		}
+	}
+	return lines;
+}
+
 
 function getXtermLineContent(buffer: IBuffer, lineStart: number, lineEnd: number, cols: number): string {
 	// Cap the maximum number of lines generated to prevent potential performance problems. This is

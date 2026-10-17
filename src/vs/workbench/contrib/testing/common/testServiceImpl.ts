@@ -436,6 +436,15 @@ export class TestService extends Disposable implements ITestService {
 		}
 	}
 
+	private updateEditorContextKeys() {
+		const uri = this.editorService.activeEditor?.resource;
+		if (uri) {
+			this.activeEditorHasTests.set(!Iterable.isEmpty(this.collection.getNodeByUrl(uri)));
+		} else {
+			this.activeEditorHasTests.set(false);
+		}
+	}
+
 	private async saveAllBeforeTest(req: ResolvedTestRunRequest, configurationService: IConfigurationService = this.configurationService, editorService: IEditorService = this.editorService): Promise<void> {
 		if (req.preserveFocus === true) {
 			return;

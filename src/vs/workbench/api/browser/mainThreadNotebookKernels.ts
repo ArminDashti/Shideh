@@ -108,6 +108,10 @@ class MainThreadKernelDetectionTask implements INotebookKernelDetectionTask {
 	constructor(readonly notebookType: string) { }
 }
 
+class MainThreadKernelDetectionTask implements INotebookKernelDetectionTask {
+	constructor(readonly notebookType: string) { }
+}
+
 @extHostNamedCustomer(MainContext.MainThreadNotebookKernels)
 export class MainThreadNotebookKernels implements MainThreadNotebookKernelsShape {
 

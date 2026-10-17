@@ -359,6 +359,50 @@ export class MainThreadTerminalService extends Disposable implements MainThreadT
 		this._quickFixProviders.deleteAndDispose(id);
 	}
 
+	public async $registerQuickFixProvider(id: string, extensionId: string): Promise<void> {
+		this._quickFixProviders.set(id, this._terminalQuickFixService.registerQuickFixProvider(id,
+			{
+				provideTerminalQuickFixes: async (terminalCommand: ITerminalCommand, lines: string[], option: ITerminalQuickFixOptions, token: CancellationToken) => {
+					if (token.isCancellationRequested) {
+						return;
+					}
+					if (option.outputMatcher?.length && option.outputMatcher.length > 40) {
+						option.outputMatcher.length = 40;
+						this._logService.warn('Cannot exceed output matcher length of 40');
+					}
+					const commandLineMatch = terminalCommand.command.match(option.commandLineMatcher);
+					if (!commandLineMatch) {
+						return;
+					}
+					const outputMatcher = option.outputMatcher;
+					let outputMatch;
+					if (outputMatcher) {
+						outputMatch = getOutputMatchForLines(lines, outputMatcher);
+					}
+					if (!outputMatch) {
+						return;
+					}
+					const matchResult = { commandLineMatch, outputMatch, commandLine: terminalCommand.command };
+
+					if (matchResult) {
+						const result = await this._proxy.$provideTerminalQuickFixes(id, matchResult, token);
+						if (result && Array.isArray(result)) {
+							return result.map(r => parseQuickFix(id, extensionId, r));
+						} else if (result) {
+							return parseQuickFix(id, extensionId, result);
+						}
+					}
+					return;
+				}
+			})
+		);
+	}
+
+	public $unregisterQuickFixProvider(id: string): void {
+		this._quickFixProviders.get(id)?.dispose();
+		this._quickFixProviders.delete(id);
+	}
+
 	private _onActiveTerminalChanged(terminalId: number | null): void {
 		this._proxy.$acceptActiveTerminalChanged(terminalId);
 	}

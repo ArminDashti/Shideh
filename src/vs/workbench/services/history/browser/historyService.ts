@@ -272,8 +272,10 @@ export class HistoryService extends Disposable implements IHistoryService {
 		this.handleActiveEditorChangeInNavigationStacks(group, editorPane);
 	}
 
-	private handleActiveEditorSelectionChangeEvent(group: IEditorGroup, editorPane: IEditorPaneWithSelection, event: IEditorPaneSelectionChangeEvent): void {
-		this.handleActiveEditorSelectionChangeInNavigationStacks(group, editorPane, event);
+	private handleActiveEditorSelectionChangeEvents(group: IEditorGroup, editorPane: IEditorPaneWithSelection, events: IEditorPaneSelectionChangeEvent[]): void {
+		for (const event of events) {
+			this.handleActiveEditorSelectionChangeInNavigationStacks(group, editorPane, event);
+		}
 	}
 
 	private move(event: FileOperationEvent): void {

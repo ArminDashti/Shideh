@@ -46,6 +46,7 @@ export class ExtensionsDownloader extends Disposable {
 	private readonly cleanUpPromise: Promise<void>;
 
 	constructor(
+		private readonly targetPlatform: Promise<TargetPlatform>,
 		@INativeEnvironmentService environmentService: INativeEnvironmentService,
 		@IFileService private readonly fileService: IFileService,
 		@IExtensionGalleryService private readonly extensionGalleryService: IExtensionGalleryService,
@@ -136,6 +137,22 @@ export class ExtensionsDownloader extends Disposable {
 		} catch (e) {
 			throw toExtensionManagementError(e, ExtensionManagementErrorCode.Download);
 		}
+	}
+
+	private async checkForVerification(extension: IGalleryExtension): Promise<boolean> {
+		if (!extension.isSigned) {
+			return false;
+		}
+		const targetPlatform = await this.targetPlatform;
+		// Signing module has issue in this platform - https://github.com/microsoft/vscode/issues/164726
+		if (targetPlatform === TargetPlatform.LINUX_ARMHF) {
+			return false;
+		}
+		const value = this.configurationService.getValue('extensions.verifySignature');
+		if (isBoolean(value)) {
+			return value;
+		}
+		return this.productService.quality !== 'stable';
 	}
 
 	private async downloadSignatureArchive(extension: IGalleryExtension): Promise<URI> {

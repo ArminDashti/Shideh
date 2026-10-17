@@ -250,6 +250,8 @@ export class NotebookFindInput extends FindInput {
 	) {
 		super(parent, contextViewProvider, options);
 
+		this._toggleStyles = options.toggleStyles;
+
 		this._register(registerAndCreateHistoryNavigationContext(contextKeyService, this.inputBox));
 		this._findFilter = this._register(new NotebookFindInputFilterButton(filters, contextMenuService, instantiationService, options));
 

@@ -257,3 +257,68 @@ export const defaultMenuStyles: IMenuStyles = {
 export function getMenuStyles(override: IStyleOverride<IMenuStyles>): IMenuStyles {
 	return overrideStyles(override, defaultMenuStyles);
 }
+
+export const defaultToggleStyles: IToggleStyles = getToggleStyles({});
+
+export function getToggleStyles(override: IStyleOverride<IToggleStyles>): IToggleStyles {
+	return {
+		inputActiveOptionBorder: asCssValue(override.inputActiveOptionBorder ?? inputActiveOptionBorder),
+		inputActiveOptionForeground: asCssValue(override.inputActiveOptionForeground ?? inputActiveOptionForeground),
+		inputActiveOptionBackground: asCssValue(override.inputActiveOptionBackground ?? inputActiveOptionBackground)
+	};
+}
+
+export const defaultCheckboxStyles: ICheckboxStyles = getCheckboxStyles({});
+
+export function getCheckboxStyles(override: IStyleOverride<ICheckboxStyles>): ICheckboxStyles {
+	return {
+		checkboxBackground: asCssValue(override.checkboxBackground ?? checkboxBackground),
+		checkboxBorder: asCssValue(override.checkboxBorder ?? checkboxBorder),
+		checkboxForeground: asCssValue(override.checkboxForeground ?? checkboxForeground)
+	};
+}
+
+export type IDialogStyleOverrides = IStyleOverride<IDialogStyles>;
+
+export const defaultDialogStyles = getDialogStyle({});
+
+export function getDialogStyle(override: IStyleOverride<IDialogStyles>): IDialogStyles {
+	return {
+		dialogBackground: asCssValue(override.dialogBackground ?? editorWidgetBackground),
+		dialogForeground: asCssValue(override.dialogForeground ?? editorWidgetForeground),
+		dialogShadow: asCssValue(override.dialogShadow ?? widgetShadow),
+		dialogBorder: asCssValue(override.dialogBorder ?? contrastBorder),
+		errorIconForeground: asCssValue(override.errorIconForeground ?? problemsErrorIconForeground),
+		warningIconForeground: asCssValue(override.warningIconForeground ?? problemsWarningIconForeground),
+		infoIconForeground: asCssValue(override.infoIconForeground ?? problemsInfoIconForeground),
+		textLinkForeground: asCssValue(override.textLinkForeground ?? textLinkForeground)
+	};
+}
+
+export const defaultInputBoxStyles = getInputBoxStyle({});
+
+export function getInputBoxStyle(override: IStyleOverride<IInputBoxStyles>): IInputBoxStyles {
+	return {
+		inputBackground: asCssValue(override.inputBackground ?? inputBackground),
+		inputForeground: asCssValue(override.inputForeground ?? inputForeground),
+		inputBorder: asCssValue(override.inputBorder ?? inputBorder),
+		inputValidationInfoBorder: asCssValue(override.inputValidationInfoBorder ?? inputValidationInfoBorder),
+		inputValidationInfoBackground: asCssValue(override.inputValidationInfoBackground ?? inputValidationInfoBackground),
+		inputValidationInfoForeground: asCssValue(override.inputValidationInfoForeground ?? inputValidationInfoForeground),
+		inputValidationWarningBorder: asCssValue(override.inputValidationWarningBorder ?? inputValidationWarningBorder),
+		inputValidationWarningBackground: asCssValue(override.inputValidationWarningBackground ?? inputValidationWarningBackground),
+		inputValidationWarningForeground: asCssValue(override.inputValidationWarningForeground ?? inputValidationWarningForeground),
+		inputValidationErrorBorder: asCssValue(override.inputValidationErrorBorder ?? inputValidationErrorBorder),
+		inputValidationErrorBackground: asCssValue(override.inputValidationErrorBackground ?? inputValidationErrorBackground),
+		inputValidationErrorForeground: asCssValue(override.inputValidationErrorForeground ?? inputValidationErrorForeground)
+	};
+}
+
+export const defaultFindWidgetStyles: IFindWidgetStyles = {
+	listFilterWidgetBackground: asCssValue(listFilterWidgetBackground),
+	listFilterWidgetOutline: asCssValue(listFilterWidgetOutline),
+	listFilterWidgetNoMatchesOutline: asCssValue(listFilterWidgetNoMatchesOutline),
+	listFilterWidgetShadow: asCssValue(listFilterWidgetShadow),
+	inputBoxStyles: defaultInputBoxStyles,
+	toggleStyles: defaultToggleStyles
+};

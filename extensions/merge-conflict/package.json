@@ -19,6 +19,9 @@
       "supported": true
     }
   },
+  "enabledApiProposals": [
+    "telemetryLogger"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],

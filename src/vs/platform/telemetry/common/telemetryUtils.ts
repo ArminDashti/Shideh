@@ -26,6 +26,15 @@ export class TelemetryTrustedValue<T> {
 	constructor(public readonly value: T) { }
 }
 
+/**
+ * A special class used to denoting a telemetry value which should not be clean.
+ * This is because that value is "Trusted" not to contain identifiable information such as paths.
+ * NOTE: This is used as an API type as well, and should not be changed.
+ */
+export class TrustedTelemetryValue<T> {
+	constructor(public readonly value: T) { }
+}
+
 export class NullTelemetryServiceShape implements ITelemetryService {
 	declare readonly _serviceBrand: undefined;
 	readonly telemetryLevel = TelemetryLevel.NONE;
@@ -113,6 +122,30 @@ export function isLoggingOnly(productService: IProductService, environmentServic
 	if (environmentService.extensionTestsLocationURI) {
 		return true;
 	}
+	// Logging only mode is only for OSS
+	if (environmentService.isBuilt) {
+		return false;
+	}
+
+	if (environmentService.disableTelemetry) {
+		return false;
+	}
+
+	if (productService.enableTelemetry && productService.aiConfig?.ariaKey) {
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Checks to see if we're in logging only mode to debug telemetry.
+ * This is if telemetry is enabled and we're in OSS, but no telemetry key is provided so it's not being sent just logged.
+ * @param productService
+ * @param environmentService
+ * @returns True if telemetry is actually disabled and we're only logging for debug purposes
+ */
+export function isLoggingOnly(productService: IProductService, environmentService: IEnvironmentService): boolean {
 	// Logging only mode is only for OSS
 	if (environmentService.isBuilt) {
 		return false;

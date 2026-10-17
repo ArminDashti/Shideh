@@ -90,4 +90,8 @@ export class ServerUserDataProfilesService extends UserDataProfilesService imple
 		return super.init();
 	}
 
+	protected override getDefaultProfileExtensionsLocation(): URI {
+		return this.uriIdentityService.extUri.joinPath(URI.file(this.nativeEnvironmentService.extensionsPath).with({ scheme: this.profilesHome.scheme }), 'extensions.json');
+	}
+
 }

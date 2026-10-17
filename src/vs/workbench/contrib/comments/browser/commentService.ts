@@ -26,6 +26,11 @@ import { Schemas } from '../../../../base/common/network.js';
 
 export const ICommentService = createDecorator<ICommentService>('commentService');
 
+export const WorkspaceHasCommenting = new RawContextKey<boolean>('workspaceHasCommenting', false, {
+	description: nls.localize('hasCommentingProvider', "Whether the open workspace has either comments or commenting ranges."),
+	type: 'boolean'
+});
+
 interface IResourceCommentThreadEvent {
 	resource: URI;
 	commentInfos: ICommentInfo[];
@@ -286,6 +291,22 @@ export class CommentService extends Disposable implements ICommentService {
 		return !!this.configurationService.getValue<ICommentsConfiguration | undefined>(COMMENTS_SECTION)?.visible;
 	}
 
+	private _handleZenMode() {
+		let preZenModeValue: boolean = this._isCommentingEnabled;
+		this._register(this.layoutService.onDidChangeZenMode(e => {
+			if (e) {
+				preZenModeValue = this._isCommentingEnabled;
+				this.enableCommenting(false);
+			} else {
+				this.enableCommenting(preZenModeValue);
+			}
+		}));
+	}
+
+	private get _defaultCommentingEnablement(): boolean {
+		return !!this.configurationService.getValue<ICommentsConfiguration>(COMMENTS_SECTION).visible;
+	}
+
 	get isCommentingEnabled(): boolean {
 		return this._isCommentingEnabled;
 	}
@@ -334,6 +355,9 @@ export class CommentService extends Disposable implements ICommentService {
 	}
 
 	setDocumentComments(resource: URI, commentInfos: ICommentInfo[]): void {
+		if (commentInfos.length) {
+			this._workspaceHasCommenting.set(true);
+		}
 		this._onDidSetResourceCommentInfos.fire({ resource, commentInfos });
 	}
 

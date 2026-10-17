@@ -21,6 +21,9 @@ use crate::util::errors::{
 use crate::util::http::{
 	DelegatedHttpRequest, DelegatedSimpleHttp, FallbackSimpleHttp, ReqwestSimpleHttp,
 };
+use crate::util::http::{
+	DelegatedHttpRequest, DelegatedSimpleHttp, FallbackSimpleHttp, ReqwestSimpleHttp,
+};
 use crate::util::io::SilentCopyProgress;
 use crate::util::is_integrated_cli;
 use crate::util::machine::kill_pid;
@@ -834,6 +837,7 @@ impl log::LogSink for ServerOutputSink {
 	fn write_result(&self, _message: &str) {}
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_serve(
 	c: Arc<HandlerContext>,
 	params: ServeParams,

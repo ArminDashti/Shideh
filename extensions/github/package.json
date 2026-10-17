@@ -14,7 +14,9 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "*",
+    "onProfile",
+    "onProfile:github"
   ],
   "extensionDependencies": [
     "vscode.git-base"

@@ -45,6 +45,28 @@ pub struct HttpHeadersParams {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct HttpBodyParams {
+	#[serde(with = "serde_bytes")]
+	pub segment: Vec<u8>,
+	pub complete: bool,
+	pub req_id: u32,
+}
+
+#[derive(Serialize, Debug)]
+pub struct HttpRequestParams<'a> {
+	pub url: &'a str,
+	pub method: &'static str,
+	pub req_id: u32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct HttpHeadersParams {
+	pub status_code: u16,
+	pub headers: Vec<(String, String)>,
+	pub req_id: u32,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct ForwardParams {
 	pub port: u16,
 	#[serde(default)]

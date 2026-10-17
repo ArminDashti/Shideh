@@ -651,6 +651,8 @@ export abstract class AbstractTimerService implements ITimerService {
 		return this._rndValueShouldSendTelemetry;
 	}
 
+	private readonly _shouldReportPerfMarks = Math.random() < .3;
+
 	private _reportPerformanceMarks(source: string, marks: perf.PerformanceMark[]) {
 
 		if (!this._shouldReportPerfMarks()) {

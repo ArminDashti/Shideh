@@ -170,6 +170,19 @@ export class ExtensionLinter {
 							}
 						}
 					}
+					const activationEventsNode = findNodeAtLocation(tree, ['activationEvents']);
+					if (activationEventsNode?.type === 'array' && activationEventsNode.children) {
+						for (const activationEventNode of activationEventsNode.children) {
+							const activationEvent = getNodeValue(activationEventNode);
+							for (const implicitActivationEventPrefix of reservedImplicitActivationEventPrefixes) {
+								if (activationEvent.startsWith(implicitActivationEventPrefix)) {
+									const start = document.positionAt(activationEventNode.offset);
+									const end = document.positionAt(activationEventNode.offset + activationEventNode.length);
+									diagnostics.push(new Diagnostic(new Range(start, end), implicitActivationEvent, DiagnosticSeverity.Error));
+								}
+							}
+						}
+					}
 				}
 				const activationEventsNode = findNodeAtLocation(tree, ['activationEvents']);
 				if (activationEventsNode?.type === 'array' && activationEventsNode.children) {

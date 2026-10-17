@@ -142,6 +142,11 @@ class ServerReadyDetector extends vscode.Disposable {
 		this.stoppedEmitter.fire();
 	}
 
+	override dispose() {
+		this.lateDisposables.forEach(d => d.dispose());
+		return super.dispose();
+	}
+
 	detectPattern(s: string): boolean {
 		if (!this.trigger.hasFired) {
 			const matches = this.regexp.exec(s);

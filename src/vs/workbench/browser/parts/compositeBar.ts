@@ -29,6 +29,7 @@ export interface ICompositeBarItem {
 
 	name?: string;
 	pinned: boolean;
+	badgeEnabled: boolean;
 	order?: number;
 	visible: boolean;
 }
@@ -724,10 +725,10 @@ class CompositeBarModel {
 		return this.items.filter(item => item.visible && item.pinned);
 	}
 
-	private createCompositeBarItem(id: string, name: string | undefined, order: number | undefined, pinned: boolean, visible: boolean): ICompositeBarModelItem {
+	private createCompositeBarItem(id: string, name: string | undefined, order: number | undefined, pinned: boolean, badgeEnabled: boolean, visible: boolean): ICompositeBarModelItem {
 		const options = this.options;
 		return {
-			id, name, pinned, order, visible,
+			id, name, pinned, order, visible, badgeEnabled,
 			activity: [],
 			get activityAction() {
 				return options.getActivityAction(id);
@@ -757,7 +758,7 @@ class CompositeBarModel {
 
 			return changed;
 		} else {
-			const item = this.createCompositeBarItem(id, name, order, true, true);
+			const item = this.createCompositeBarItem(id, name, order, true, true, true);
 			if (!isUndefinedOrNull(requestedIndex)) {
 				let index = 0;
 				let rIndex = requestedIndex;

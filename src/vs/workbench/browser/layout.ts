@@ -1395,6 +1395,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		return isWeb && !isWCOEnabled();
 	}
 
+	private shouldShowBannerFirst(): boolean {
+		return isWeb && !isWCOEnabled();
+	}
+
 	focus(): void {
 		if (this.isPanelMaximized() && this.mainContainer === this.activeContainer) {
 			this.focusPart(Parts.PANEL_PART);

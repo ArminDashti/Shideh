@@ -43,6 +43,7 @@ impl WindowsService {
 	}
 }
 
+#[async_trait]
 impl CliServiceManager for WindowsService {
 	async fn register(&self, exe: std::path::PathBuf, args: &[&str]) -> Result<(), AnyError> {
 		let key = WindowsService::open_key()?;

@@ -89,6 +89,20 @@ export interface ITerminalProfileService {
 	overrideDefaultProfile(extensionIdentifier: string, id: string): IDisposable;
 }
 
+export const ITerminalQuickFixService = createDecorator<ITerminalQuickFixService>('terminalQuickFixService');
+export interface ITerminalQuickFixService {
+	onDidRegisterProvider: Event<ITerminalQuickFixProviderSelector>;
+	onDidUnregisterProvider: Event<string>;
+	readonly _serviceBrand: undefined;
+	providers: Map<string, ITerminalQuickFixProvider>;
+	registerQuickFixProvider(id: string, provider: ITerminalQuickFixProvider): IDisposable;
+	registerCommandSelector(selector: ITerminalCommandSelector): void;
+}
+
+export interface ITerminalQuickFixProviderSelector {
+	selector: ITerminalCommandSelector;
+	provider: ITerminalQuickFixProvider;
+}
 export interface ITerminalProfileProvider {
 	createContributedTerminalProfile(options: ICreateContributedTerminalProfileOptions): Promise<void>;
 }
@@ -436,6 +450,7 @@ export const enum TerminalCommandId {
 	Split = 'workbench.action.terminal.split',
 	SplitActiveTab = 'workbench.action.terminal.splitActiveTab',
 	SplitInActiveWorkspace = 'workbench.action.terminal.splitInActiveWorkspace',
+	ShowQuickFixes = 'workbench.action.terminal.showQuickFixes',
 	Unsplit = 'workbench.action.terminal.unsplit',
 	JoinActiveTab = 'workbench.action.terminal.joinActiveTab',
 	Join = 'workbench.action.terminal.join',

@@ -1074,11 +1074,13 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 				// Process gone
 				else if (type === WindowError.PROCESS_GONE) {
-					let message: string;
-					if (!details) {
-						message = localize('appGone', "The window terminated unexpectedly");
-					} else {
-						message = localize('appGoneDetails', "The window terminated unexpectedly (reason: '{0}', code: '{1}')", details.reason, details.exitCode ?? '<unknown>');
+
+					// Windows: running as admin with AppLocker enabled is unsupported
+					//          when sandbox: true.
+					//          we cannot detect AppLocker use currently, but make a
+					//          guess based on the reason and exit code.
+					if (isWindows && details?.reason === 'launch-failed' && details.exitCode === 18 && await this.nativeHostMainService.isAdmin(undefined)) {
+						await this.handleWindowsAdminCrash(details);
 					}
 
 					// Show Dialog
@@ -1104,6 +1106,61 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				this.stopCollectingJScallStacks();
 				break;
 		}
+	}
+
+	private async handleWindowsAdminCrash(details: { reason: string; exitCode: number }) {
+
+		// Prepare telemetry event (TODO@bpasero remove me eventually)
+		const appenders: ITelemetryAppender[] = [];
+		const isInternal = isInternalTelemetry(this.productService, this.configurationService);
+		if (supportsTelemetry(this.productService, this.environmentMainService)) {
+			if (this.productService.aiConfig && this.productService.aiConfig.ariaKey) {
+				appenders.push(new OneDataSystemAppender(isInternal, 'monacoworkbench', null, this.productService.aiConfig.ariaKey));
+			}
+
+			const { installSourcePath } = this.environmentMainService;
+			const machineId = await resolveMachineId(this.stateMainService);
+
+			const config: ITelemetryServiceConfig = {
+				appenders,
+				sendErrorTelemetry: false,
+				commonProperties: resolveCommonProperties(this.fileService, release(), hostname(), process.arch, this.productService.commit, this.productService.version, machineId, isInternal, installSourcePath),
+				piiPaths: getPiiPathsFromEnvironment(this.environmentMainService)
+			};
+
+			const telemetryService = new TelemetryService(config, this.configurationService, this.productService);
+
+			type WindowAdminErrorClassification = {
+				reason: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'The reason of the window error to understand the nature of the error better.' };
+				code: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'The exit code of the window process to understand the nature of the error better' };
+				owner: 'bpasero';
+				comment: 'Provides insight into reasons the vscode window had an error when running as admin.';
+			};
+			type WindowAdminErrorEvent = {
+				reason: string | undefined;
+				code: number | undefined;
+			};
+			await telemetryService.publicLog2<WindowAdminErrorEvent, WindowAdminErrorClassification>('windowadminerror', { reason: details.reason, code: details.exitCode });
+		}
+
+		// Inform user
+		await this.dialogMainService.showMessageBox({
+			title: this.productService.nameLong,
+			type: 'error',
+			buttons: [
+				mnemonicButtonLabel(localize({ key: 'close', comment: ['&& denotes a mnemonic'] }, "&&Close"))
+			],
+			message: localize('appGoneAdminMessage', "Running as administrator is not supported"),
+			detail: localize('appGoneAdminDetail', "Please try again without administrator privileges.", this.productService.nameLong),
+			noLink: true,
+			defaultId: 0
+		}, this._win);
+
+		// Ensure to await flush telemetry
+		await Promise.all(appenders.map(appender => appender.flush()));
+
+		// Exit
+		await this.destroyWindow(false, false);
 	}
 
 	private async destroyWindow(reopen: boolean, skipRestoreEditors: boolean): Promise<void> {

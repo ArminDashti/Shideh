@@ -977,6 +977,7 @@ export class ListView<T> implements IListView<T> {
 	private insertItemInDOM(index: number, row?: IRow, alreadyRendered = false): void {
 		const item = this.items[index];
 
+		let isStale = false;
 		if (!item.row) {
 			if (row) {
 				item.row = row;

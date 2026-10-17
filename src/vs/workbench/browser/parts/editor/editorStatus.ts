@@ -385,6 +385,10 @@ class EditorStatus extends Disposable {
 	}
 
 	private registerListeners(): void {
+		this._register(this.accessibilityService.onDidChangeScreenReaderOptimized(() => {
+			const screenReaderMode = this.accessibilityService.getAccessibilitySupport() === AccessibilitySupport.Enabled;
+			this.updateState({ type: 'screenReaderMode', screenReaderMode });
+		}));
 		this._register(this.editorService.onDidActiveEditorChange(() => this.updateStatusBar()));
 		this._register(this.textFileService.untitled.onDidChangeEncoding(model => this.onResourceEncodingChange(model.resource)));
 		this._register(this.textFileService.files.onDidChangeEncoding(model => this.onResourceEncodingChange((model.resource))));

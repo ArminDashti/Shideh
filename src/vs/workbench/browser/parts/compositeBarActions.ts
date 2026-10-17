@@ -665,6 +665,13 @@ export class CompositeActionViewItem extends CompositeBarActionViewItem {
 			this.toggleCompositeBadgeAction.label = localize('showBadge', "Show Badge");
 		}
 
+		const isBadgeEnabled = this.compositeBar.areBadgesEnabled(this.activity.id);
+		if (isBadgeEnabled) {
+			this.toggleCompositeBadgeAction.label = localize('hideBadge', "Hide Badge");
+		} else {
+			this.toggleCompositeBadgeAction.label = localize('showBadge', "Show Badge");
+		}
+
 		const otherActions = this.contextMenuActionsProvider();
 		if (otherActions.length) {
 			actions.push(new Separator());

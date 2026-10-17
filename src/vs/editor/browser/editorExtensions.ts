@@ -64,6 +64,39 @@ export const enum EditorContributionInstantiation {
 	Lazy,
 }
 
+export const enum EditorContributionInstantiation {
+	/**
+	 * The contribution is created eagerly when the {@linkcode ICodeEditor} is instantiated.
+	 * Only Eager contributions can participate in saving or restoring of view state.
+	 */
+	Eager,
+
+	/**
+	 * The contribution is created at the latest 50ms after the first render after attaching a text model.
+	 * If the contribution is explicitly requested via `getContribution`, it will be instantiated sooner.
+	 * If there is idle time available, it will be instantiated sooner.
+	 */
+	AfterFirstRender,
+
+	/**
+	 * The contribution is created before the editor emits events produced by user interaction (mouse events, keyboard events).
+	 * If the contribution is explicitly requested via `getContribution`, it will be instantiated sooner.
+	 * If there is idle time available, it will be instantiated sooner.
+	 */
+	BeforeFirstInteraction,
+
+	/**
+	 * The contribution is created when there is idle time available, at the latest 5000ms after the editor creation.
+	 * If the contribution is explicitly requested via `getContribution`, it will be instantiated sooner.
+	 */
+	Eventually,
+
+	/**
+	 * The contribution is created only when explicitly requested via `getContribution`.
+	 */
+	Lazy,
+}
+
 export interface IEditorContributionDescription {
 	readonly id: string;
 	readonly ctor: EditorContributionCtor;

@@ -168,7 +168,7 @@ export class CodeActionCommandArgs {
 	) { }
 }
 
-export class CodeActionItem {
+export class CodeActionItem implements IActionItem {
 
 	constructor(
 		public readonly action: languages.CodeAction,
@@ -196,5 +196,10 @@ export interface CodeActionSet extends ActionSet<CodeActionItem> {
 	readonly validActions: readonly CodeActionItem[];
 	readonly allActions: readonly CodeActionItem[];
 
-	readonly documentation: readonly languages.Command[];
+	readonly documentation: readonly {
+		id: string;
+		title: string;
+		tooltip?: string;
+		commandArguments?: any[];
+	}[];
 }

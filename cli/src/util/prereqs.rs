@@ -35,6 +35,8 @@ static MIN_CXX_VERSION: LazyLock<SimpleSemver> = LazyLock::new(|| SimpleSemver::
 
 const NIXOS_TEST_PATH: &str = "/etc/NIXOS";
 
+const NIXOS_TEST_PATH: &str = "/etc/NIXOS";
+
 pub struct PreReqChecker {}
 
 impl Default for PreReqChecker {

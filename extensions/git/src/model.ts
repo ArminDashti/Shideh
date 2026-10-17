@@ -47,6 +47,31 @@ class RepositoryPick implements QuickPickItem {
 	constructor(public readonly repository: Repository, public readonly index: number) { }
 }
 
+class UnsafeRepositorySet extends Set<string> {
+	constructor() {
+		super();
+		this.updateContextKey();
+	}
+
+	override add(value: string): this {
+		const result = super.add(value);
+		this.updateContextKey();
+
+		return result;
+	}
+
+	override delete(value: string): boolean {
+		const result = super.delete(value);
+		this.updateContextKey();
+
+		return result;
+	}
+
+	private updateContextKey(): void {
+		commands.executeCommand('setContext', 'git.unsafeRepositoryCount', this.size);
+	}
+}
+
 export interface ModelChangeEvent {
 	repository: Repository;
 	uri: Uri;
@@ -283,6 +308,11 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 
 	// Throttle initial repository.status() across repositories to avoid starving the ext host (#318279).
 	private readonly _initialStatusLimiter = new Limiter<void>(5);
+
+	private _unsafeRepositories = new UnsafeRepositorySet();
+	get unsafeRepositories(): Set<string> {
+		return this._unsafeRepositories;
+	}
 
 	private disposables: Disposable[] = [];
 

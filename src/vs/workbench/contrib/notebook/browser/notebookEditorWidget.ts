@@ -1871,7 +1871,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		return Math.max(dimensionHeight - (this._notebookTopToolbar?.useGlobalToolbar ? /** Toolbar height */ 26 : 0), 0);
 	}
 
-	layout(dimension: DOM.Dimension, shadowElement?: HTMLElement, position?: DOM.IDomPosition): void {
+	layout(dimension: DOM.Dimension, shadowElement?: HTMLElement, _position?: DOM.IDomPosition): void {
 		if (!shadowElement && this._shadowElementViewInfo === null) {
 			this._dimension = dimension;
 			return;
@@ -1896,7 +1896,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 
 	private layoutNotebook(dimension: DOM.Dimension, shadowElement?: HTMLElement) {
 		if (shadowElement) {
-			this.updateShadowElement(shadowElement, dimension, position);
+			this.updateShadowElement(shadowElement, dimension, /*position*/ undefined);
 		}
 
 		if (this._shadowElementViewInfo && this._shadowElementViewInfo.width <= 0 && this._shadowElementViewInfo.height <= 0) {

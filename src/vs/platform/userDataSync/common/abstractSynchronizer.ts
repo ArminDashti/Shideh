@@ -47,6 +47,16 @@ export function isRemoteUserData(thing: any): thing is IRemoteUserData {
 	return false;
 }
 
+export function isRemoteUserData(thing: any): thing is IRemoteUserData {
+	if (thing
+		&& (thing.ref !== undefined && typeof thing.ref === 'string' && thing.ref !== '')
+		&& (thing.syncData !== undefined && (thing.syncData === null || isSyncData(thing.syncData)))) {
+		return true;
+	}
+
+	return false;
+}
+
 export function isSyncData(thing: any): thing is ISyncData {
 	if (thing
 		&& (thing.version !== undefined && typeof thing.version === 'number')

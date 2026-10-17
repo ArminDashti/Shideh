@@ -40,6 +40,7 @@ export interface IButtonOptions extends Partial<IButtonStyles> {
 	readonly disabled?: boolean;
 }
 
+
 export interface IButtonStyles {
 	readonly buttonBackground: string | undefined;
 	readonly buttonHoverBackground: string | undefined;

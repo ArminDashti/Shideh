@@ -52,6 +52,13 @@ export class ExtHostNotebookKernels implements ExtHostNotebookKernelsShape {
 	private _kernelSourceActionProviders = new Map<number, vscode.NotebookKernelSourceActionProvider>();
 	private _kernelSourceActionProviderHandlePool: number = 0;
 
+	private _kernelDetectionTask = new Map<number, vscode.NotebookControllerDetectionTask>();
+	private _kernelDetectionTaskHandlePool: number = 0;
+
+	private _kernelSourceActionProviders = new Map<number, vscode.NotebookKernelSourceActionProvider>();
+	private _kernelSourceActionProviderHandlePool: number = 0;
+	private _kernelSourceActionProviderCache = new Cache<IDisposable>('NotebookKernelSourceActionProviderCache');
+
 	private readonly _kernelData = new Map<number, IKernelData>();
 	private _handlePool: number = 0;
 

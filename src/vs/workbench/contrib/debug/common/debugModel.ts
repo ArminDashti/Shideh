@@ -1357,6 +1357,23 @@ export class ExceptionBreakpoint extends BaseBreakpoint implements IExceptionBre
 		this.fallback = isFallback;
 	}
 
+	setSupportedSession(sessionId: string, supported: boolean): void {
+		if (supported) {
+			this.supportedSessions.add(sessionId);
+		}
+		else {
+			this.supportedSessions.delete(sessionId);
+		}
+	}
+
+	/**
+	 * Used to specify which breakpoints to show when no session is specified.
+	 * Useful when no session is active and we want to show the exception breakpoints from the last session.
+	 */
+	setFallback(isFallback: boolean) {
+		this.fallback = isFallback;
+	}
+
 	get supported(): boolean {
 		return true;
 	}

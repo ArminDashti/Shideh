@@ -17,7 +17,7 @@ interface ResolveCodeActionKeybinding {
 	readonly resolvedKeybinding: ResolvedKeybinding;
 }
 
-export class CodeActionKeybindingResolver {
+export class CodeActionKeybindingResolver implements IActionKeybindingResolver {
 	private static readonly codeActionCommands: readonly string[] = [
 		refactorCommandId,
 		codeActionCommandId,

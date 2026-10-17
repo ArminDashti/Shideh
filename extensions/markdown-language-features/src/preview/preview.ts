@@ -848,6 +848,8 @@ export class DynamicMarkdownPreview extends Disposable implements IManagedMarkdo
 				default:
 					return;
 			}
+		} else if (!scrollLocation) {
+			scrollLocation = new StartingScrollLine(0);
 		}
 
 		this.#preview.dispose();

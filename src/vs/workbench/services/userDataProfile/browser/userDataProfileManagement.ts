@@ -24,6 +24,16 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IHostService } from '../../host/browser/host.js';
 import { DidChangeUserDataProfileEvent, IProfileTemplateInfo, IUserDataProfileManagementService, IUserDataProfileService } from '../common/userDataProfile.js';
 
+export type ProfileManagementActionExecutedClassification = {
+	owner: 'sandy081';
+	comment: 'Logged when profile management action is excuted';
+	id: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The identifier of the action that was run.' };
+};
+
+export type ProfileManagementActionExecutedEvent = {
+	id: string;
+};
+
 export class UserDataProfileManagementService extends Disposable implements IUserDataProfileManagementService {
 	readonly _serviceBrand: undefined;
 
@@ -138,6 +148,7 @@ export class UserDataProfileManagementService extends Disposable implements IUse
 			throw new Error(localize('cannotDeleteDefaultProfile', "Cannot delete the default profile"));
 		}
 		await this.userDataProfilesService.removeProfile(profile);
+		this.telemetryService.publicLog2<ProfileManagementActionExecutedEvent, ProfileManagementActionExecutedClassification>('profileManagementActionExecuted', { id: 'removeProfile' });
 	}
 
 	async switchProfile(profile: IUserDataProfile): Promise<void> {

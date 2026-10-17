@@ -237,6 +237,18 @@ export class FolderMatchRenderer extends Disposable implements ICompressibleTree
 			},
 		}));
 
+		const contextKeyService = this.contextKeyService.createOverlay([[FolderFocusKey.key, true], [FileFocusKey.key, false], [MatchFocusKey.key, false]]);
+		const instantiationService = this.instantiationService.createChild(new ServiceCollection([IContextKeyService, contextKeyService]));
+		const actions = disposables.add(instantiationService.createInstance(MenuWorkbenchToolBar, actionBarContainer, MenuId.SearchActionMenu, {
+			menuOptions: {
+				shouldForwardArgs: true
+			},
+			hiddenItemStrategy: HiddenItemStrategy.Ignore,
+			toolbarOptions: {
+				primaryGroup: g => /^inline/.test(g),
+			},
+		}));
+
 		return {
 			label,
 			badge,

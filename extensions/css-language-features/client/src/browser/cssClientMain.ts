@@ -9,11 +9,15 @@ import { startClient, LanguageClientConstructor } from '../cssClient';
 import { LanguageClient } from 'vscode-languageclient/browser';
 import { registerDropOrPasteResourceSupport } from '../dropOrPaste/dropOrPasteResource';
 
+
 let client: BaseLanguageClient | undefined;
 
 // this method is called when vs code is activated
 export async function activate(context: ExtensionContext) {
-	const serverMain = Uri.joinPath(context.extensionUri, 'server/dist/browser/cssServerMain.js');
+
+	const l10nPath = l10n.uri?.toString() ?? '';
+
+	const serverMain = Uri.joinPath(context.extensionUri, 'server/dist/browser/cssServerWorkerMain.js');
 	try {
 		const worker = new Worker(serverMain.toString());
 		worker.postMessage({ i10lLocation: l10n.uri?.toString(false) ?? '' });

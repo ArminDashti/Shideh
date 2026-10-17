@@ -349,7 +349,7 @@ async fn do_extension_install_on_running_server(
 	}
 }
 
-pub struct ServerBuilder<'a> {
+pub struct ServerBuilder<'a, Http: SimpleHttp + Send + Sync + Clone> {
 	logger: &'a log::Logger,
 	server_params: &'a ResolvedServerParams,
 	launcher_paths: &'a LauncherPaths,
@@ -379,7 +379,7 @@ fn ensure_executable(_path: &std::path::Path) -> Result<(), std::io::Error> {
 	Ok(())
 }
 
-impl<'a> ServerBuilder<'a> {
+impl<'a, Http: SimpleHttp + Send + Sync + Clone + 'static> ServerBuilder<'a, Http> {
 	pub fn new(
 		logger: &'a log::Logger,
 		server_params: &'a ResolvedServerParams,

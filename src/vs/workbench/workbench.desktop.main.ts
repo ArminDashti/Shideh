@@ -217,6 +217,9 @@ import './contrib/keybindingsExport/electron-browser/keybindingsExport.contribut
 // System-wide (OS global) Keybindings
 import './contrib/keybindings/electron-browser/systemWideKeybindings.contribution.js';
 
+// Sandbox
+import 'vs/workbench/contrib/sandbox/electron-sandbox/sandbox.contribution';
+
 //#endregion
 
 

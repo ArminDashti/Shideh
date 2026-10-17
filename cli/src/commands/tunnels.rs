@@ -28,6 +28,7 @@ use super::{
 	CommandContext,
 };
 
+use crate::tunnels::dev_tunnels::ActiveTunnel;
 use crate::{
 	async_pipe::{get_socket_name, listen_socket_rw_stream, AsyncRWAccepter},
 	auth::Auth,
@@ -586,6 +587,13 @@ fn get_connection_token(tunnel: &ActiveTunnel) -> String {
 	}
 
 	result
+}
+
+fn get_connection_token(tunnel: &ActiveTunnel) -> String {
+	let mut hash = Sha256::new();
+	hash.update(tunnel.id.as_bytes());
+	let result = hash.finalize();
+	base64::encode_config(result, base64::URL_SAFE_NO_PAD)
 }
 
 async fn serve_with_csa(

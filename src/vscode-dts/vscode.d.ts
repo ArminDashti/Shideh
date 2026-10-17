@@ -4043,6 +4043,22 @@ declare module 'vscode' {
 		set(uri: Uri, edits: ReadonlyArray<[NotebookEdit, WorkspaceEditEntryMetadata | undefined]>): void;
 
 		/**
+		 * Set (and replace) notebook edits for a resource.
+		 *
+		 * @param uri A resource identifier.
+		 * @param edits An array of edits.
+		 */
+		set(uri: Uri, edits: readonly NotebookEdit[]): void;
+
+		/**
+		 * Set (and replace) notebook edits with metadata for a resource.
+		 *
+		 * @param uri A resource identifier.
+		 * @param edits An array of edits.
+		 */
+		set(uri: Uri, edits: ReadonlyArray<[NotebookEdit, WorkspaceEditEntryMetadata]>): void;
+
+		/**
 		 * Get the text edits for a resource.
 		 *
 		 * @param uri A resource identifier.

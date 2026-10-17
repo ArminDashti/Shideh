@@ -128,6 +128,8 @@ export class WorkbenchToolBar extends ToolBar {
 
 		const extraSecondary: Array<IAction | undefined> = [];
 
+		const extraSecondary: IAction[] = [];
+
 		let someAreHidden = false;
 		// unless disabled, move all hidden items to secondary group or ignore them
 		if (this._options?.hiddenItemStrategy !== HiddenItemStrategy.NoHide) {

@@ -9,6 +9,11 @@ import { HtmlRenderingHook, IDisposable, IRichRenderContext, JavaScriptRendering
 import { ttPolicy } from './htmlHelper';
 import { formatStackTrace } from './stackTraceHelper';
 
+interface RenderOptions {
+	readonly lineLimit: number;
+	readonly outputScrolling: boolean;
+}
+
 function clearContainer(container: HTMLElement) {
 	while (container.firstChild) {
 		container.firstChild.remove();

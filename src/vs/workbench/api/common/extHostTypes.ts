@@ -60,6 +60,16 @@ export enum TerminalQuickFixType {
 	Command = 3
 }
 
+export enum TerminalOutputAnchor {
+	top = 'top',
+	bottom = 'bottom'
+}
+
+export enum TerminalQuickFixType {
+	command = 'command',
+	opener = 'opener'
+}
+
 @es5ClassCompat
 export class Disposable {
 

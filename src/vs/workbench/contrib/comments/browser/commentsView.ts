@@ -78,11 +78,13 @@ export class CommentsPanel extends FilterViewPane implements ICommentsView {
 	private treeContainer!: HTMLElement;
 	private messageBoxContainer!: HTMLElement;
 	private totalComments: number = 0;
+	private totalUnresolved = 0;
 	private readonly hasCommentsContextKey: IContextKey<boolean>;
 	private readonly someCommentsExpandedContextKey: IContextKey<boolean>;
 	private readonly commentsFocusedContextKey: IContextKey<boolean>;
 	private readonly filter: Filter;
 	readonly filters: CommentsFilters;
+	private readonly activity = this._register(new MutableDisposable<IDisposable>());
 
 	private currentHeight = 0;
 	private currentWidth = 0;
@@ -194,6 +196,16 @@ export class CommentsPanel extends FilterViewPane implements ICommentsView {
 			}
 		}));
 		this._register(this.filterWidget.onDidChangeFilterText(() => this.updateFilter()));
+	}
+
+	private updateBadge(unresolved: number) {
+		if (unresolved === this.totalUnresolved) {
+			return;
+		}
+
+		this.totalUnresolved = unresolved;
+		const message = nls.localize('totalUnresolvedComments', '{0} Unresolved Comments', this.totalUnresolved);
+		this.activity.value = this.activityService.showViewActivity(this.id, { badge: new NumberBadge(this.totalUnresolved, () => message) });
 	}
 
 	override saveState(): void {

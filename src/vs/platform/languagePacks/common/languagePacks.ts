@@ -16,6 +16,10 @@ export function getLocale(extension: IGalleryExtension): string | undefined {
 	return extension.tags.find(t => t.startsWith('lp-'))?.split('lp-')[1];
 }
 
+export function getLocale(extension: IGalleryExtension): string | undefined {
+	return extension.tags.find(t => t.startsWith('lp-'))?.split('lp-')[1];
+}
+
 export const ILanguagePackService = createDecorator<ILanguagePackService>('languagePackService');
 
 export interface ILanguagePackItem extends IQuickPickItem {

@@ -20,6 +20,7 @@ pub trait ServiceContainer: Send {
 	) -> Result<(), AnyError>;
 }
 
+#[async_trait]
 pub trait ServiceManager {
 	/// Registers the current executable as a service to run with the given set
 	/// of arguments.

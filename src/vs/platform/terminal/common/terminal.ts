@@ -1053,6 +1053,11 @@ export interface ITerminalContributions {
 	completionProviders?: ITerminalCompletionProviderContribution[];
 }
 
+export interface ITerminalContributions {
+	profiles?: ITerminalProfileContribution[];
+	quickFixes?: ITerminalCommandSelector[];
+}
+
 export const enum ShellIntegrationStatus {
 	/** No shell integration sequences have been encountered. */
 	Off,

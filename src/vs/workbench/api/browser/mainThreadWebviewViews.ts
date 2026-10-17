@@ -112,6 +112,21 @@ export class MainThreadWebviewsViews extends Disposable implements extHostProtoc
 					id: viewType,
 				});
 
+				type CreateWebviewViewTelemetry = {
+					extensionId: string;
+					id: string;
+				};
+				type Classification = {
+					extensionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Id of the extension' };
+					id: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Id of the view' };
+					owner: 'digitarald';
+					comment: 'Helps to gain insights on what extension contributed views are most popular';
+				};
+				this._telemetryService.publicLog2<CreateWebviewViewTelemetry, Classification>('webviews:createWebviewView', {
+					extensionId: extension.id.value,
+					id: viewType,
+				});
+
 				try {
 					await this._proxy.$resolveWebviewView(handle, viewType, webviewView.title, state, cancellation);
 				} catch (error) {

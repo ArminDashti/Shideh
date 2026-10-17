@@ -28,7 +28,8 @@ export class NotebookFindFilters extends Disposable {
 	set markupInput(value: boolean) {
 		if (this._markupInput !== value) {
 			this._markupInput = value;
-			this._onDidChange.fire({ markupInput: value });
+			this._markupPreview = !value;
+			this._onDidChange.fire({ markupInput: value, markupPreview: this._markupPreview });
 		}
 	}
 
@@ -41,7 +42,8 @@ export class NotebookFindFilters extends Disposable {
 	set markupPreview(value: boolean) {
 		if (this._markupPreview !== value) {
 			this._markupPreview = value;
-			this._onDidChange.fire({ markupPreview: value });
+			this._markupInput = !value;
+			this._onDidChange.fire({ markupPreview: value, markupInput: this._markupInput });
 		}
 	}
 	private _codeInput: boolean = true;

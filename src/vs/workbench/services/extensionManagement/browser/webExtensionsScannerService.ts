@@ -756,6 +756,8 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 			};
 		}
 
+		ImplicitActivationEvents.updateManifest(manifest);
+
 		const packageNLSUri = webExtension.packageNLSUris?.get(Language.value().toLowerCase());
 		const fallbackPackageNLS = webExtension.defaultManifestTranslations ?? webExtension.fallbackPackageNLSUri;
 
@@ -815,6 +817,22 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 			}
 		} catch (error) { /* ignore */ }
 		return manifest;
+	}
+
+	private async getExtensionManifest(location: URI): Promise<IExtensionManifest> {
+		const url = joinPath(location, 'package.json');
+		const content = await this.extensionResourceLoaderService.readExtensionResource(url);
+		return JSON.parse(content);
+	}
+
+	private async getTranslations(nlsUrl: URI): Promise<ITranslations | undefined> {
+		try {
+			const content = await this.extensionResourceLoaderService.readExtensionResource(nlsUrl);
+			return JSON.parse(content);
+		} catch (error) {
+			this.logService.error(`Error while fetching translations of an extension`, nlsUrl.toString(), getErrorMessage(error));
+		}
+		return undefined;
 	}
 
 	private async getExtensionManifest(location: URI): Promise<IExtensionManifest> {
