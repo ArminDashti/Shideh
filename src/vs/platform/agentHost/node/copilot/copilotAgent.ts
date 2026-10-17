@@ -3814,6 +3814,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				entry.sendSteering(steeringMessage);
 			}
 		},
+		getMessages: (chat: URI, context?: URI | IAgentChatContext): Promise<readonly Turn[]> => this._getChatMessages(chat, context),
 	};
 
 	getTurnDiagnosticSnapshot(chat: URI, turnId: string): IAgentTurnDiagnosticSnapshot {

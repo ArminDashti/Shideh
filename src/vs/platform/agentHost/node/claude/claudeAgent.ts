@@ -867,6 +867,17 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		this._logService.info(`[Claude:${sdkSessionId}] truncateChat removed all turns (deleteSession + fresh same-id)`);
 	}
 
+	private async _removeAllAdditionalChatTurns(session: URI, chat: URI, resource: URI, sdkSessionId: string, existing: ClaudeAgentSession | undefined): Promise<void> {
+		await existing?.shutdownLiveQuery();
+		if (existing) {
+			this._deleteSession(existing);
+		}
+		await this._sdkService.deleteSession(sdkSessionId);
+		const fresh = await this._buildProvisionalChat(session, chat, resource);
+		await fresh.pruneAllTurns(resource);
+		this._logService.info(`[Claude:${sdkSessionId}] truncateSession removed all turns (deleteSession + fresh same-id)`);
+	}
+
 	// ---- Chat surface ------------------------------------------------------
 	//
 	// `chats` exposes the per-chat operations addressed by a single, concrete
@@ -1437,6 +1448,26 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		return chatSession;
 	}
 
+	private async _ensureResolvedChatSession(context: IResolvedClaudeChatContext, workingDirectory?: URI): Promise<ClaudeAgentSession> {
+		const existing = context.target;
+		if (existing?.isPipelineReady) {
+			return existing;
+		}
+		if (existing) {
+			if (this._isUnboundSession(context.sessionId)) {
+				this._bindSessionChat(context.sessionId, context.chat);
+			}
+			return this._materializeProvisional(context.sessionId, workingDirectory);
+		}
+		if (this._chatBindings.has(context.chatKey)) {
+			if (context.sdkSessionId === context.sessionId && context.resource.toString() === context.session.toString()) {
+				return this._resumeSession(context.sessionId, context.session, context.chat, context.resource);
+			}
+			return this._materializeChatLocked(context);
+		}
+		return this._resumeSession(context.sessionId, context.session, context.chat, context.resource);
+	}
+
 	/**
 	 * Resolves the live runtime for an addressed chat, materializing or
 	 * cold-resuming its exact backing as needed.
@@ -1494,7 +1525,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		const permissionMode = readClaudePermissionMode(this._configurationService, configurationResource) ?? overlay.permissionMode ?? 'default';
 		// Overlay takes precedence over the backing: `changeModel` always writes
 		// the overlay first (via `setModel` or `_metadataStore.write`) and then
-		// the backing. If the backing update is lost, the overlay already holds
+		// the binding. If the binding update is lost, the overlay already holds
 		// the newest model; preferring it here ensures a model change is never
 		// silently reverted after a restart.
 		const model = overlay.model ?? info.model;

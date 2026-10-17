@@ -5320,6 +5320,10 @@ export class AgentService extends Disposable implements IAgentService {
 		return AgentSession.uri(provider.id, generateUuid());
 	}
 
+	private _chatContext(session: URI, chat: URI): IAgentChatContext {
+		return { session, resource: resolveChatUri(session, chat) };
+	}
+
 	private async _createProviderSession(provider: IAgent, config: IAgentCreateSessionConfig | undefined, deferWorktreeCreation: boolean): Promise<IAgentCreateSessionResult> {
 		const requestedSessionId = deferWorktreeCreation && config?.session ? AgentSession.id(config.session) : undefined;
 		if (requestedSessionId) {

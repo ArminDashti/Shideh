@@ -20344,6 +20344,9 @@ suite('AgentService (node dispatcher)', () => {
 				releaseChat: async (chat: URI) => {
 					this.chatCalls.push({ op: 'releaseChat', args: [chat.toString()] });
 				},
+				releaseChat: async (chat: URI) => {
+					this.chatCalls.push({ op: 'releaseChat', args: [chat.toString()] });
+				},
 				sendMessage: async () => { },
 				abort: async () => { },
 				changeModel: async () => { },
@@ -20674,6 +20677,24 @@ suite('AgentService (node dispatcher)', () => {
 					{ op: 'disposeChat', args: [buildDefaultChatUri(session)] },
 				],
 			});
+		});
+
+		test('session disposal visits peer chats before the default chat', async () => {
+			const agent = disposables.add(new ChatSurfaceAgent('copilot'));
+			service.registerProvider(agent);
+			const session = await service.createSession({ provider: 'copilot' });
+			const chatA = URI.parse(buildChatUri(session, 'peer-a'));
+			const chatB = URI.parse(buildChatUri(session, 'peer-b'));
+			await service.createChat(session, chatA);
+			await service.createChat(session, chatB);
+
+			await service.disposeSession(session);
+
+			assert.deepStrictEqual(agent.chatCalls.filter(call => call.op === 'disposeChat').map(call => call.args[0]), [
+				chatA.toString(),
+				chatB.toString(),
+				buildDefaultChatUri(session),
+			]);
 		});
 
 		test('fork routes to chats.fork with the resolved source chat', async () => {

@@ -37,6 +37,7 @@ import { McpServerStatus, ToolCallContributorKind, type AgentInfo, type SessionA
 import type { CustomizationEnablement } from '../common/state/protocol/channels-session/state.js';
 import { ActionType, isChatAction, StateAction, type ChatDeltaAction, type ChatReasoningAction, type ChatResponsePartAction, type ChatToolCallCompleteAction, type ChatToolCallStartAction, type ChatTurnStartedAction } from '../common/state/sessionActions.js';
 import {
+	buildDefaultChatUri,
 	buildSubagentChatUri,
 	createErrorResponsePart,
 	getErrorResponsePart,
@@ -53,6 +54,7 @@ import {
 	ResponsePartKind,
 	readUsageInfoMeta,
 	ROOT_STATE_URI,
+	resolveChatUri,
 	SessionLifecycle,
 	CustomizationType,
 	ToolCallStatus,
