@@ -134,10 +134,13 @@ export class ExtHostTreeViews extends Disposable implements ExtHostTreeViewsShap
 			get badge() {
 				return treeView.badge;
 			},
-			set badge(badge: vscode.ViewBadge | undefined) {
+			set badge(badge: vscode.ViewBadge2 | undefined) {
 				if ((badge !== undefined) && extHostTypes.ViewBadge.isViewBadge(badge)) {
+					if (!isNumber(badge.value)) {
+						checkProposedApiEnabled(extension, 'treeIconBadge');
+					}
 					treeView.badge = {
-						value: Math.floor(Math.abs(badge.value)),
+						value: isNumber(badge.value) ? Math.floor(Math.abs(badge.value)) : badge.value,
 						tooltip: badge.tooltip
 					};
 				} else if (badge === undefined) {
@@ -563,12 +566,12 @@ class ExtHostTreeView<T> extends Disposable {
 		this._proxy.$setTitle(this._viewId, this._title, description);
 	}
 
-	private _badge: vscode.ViewBadge | undefined;
-	get badge(): vscode.ViewBadge | undefined {
+	private _badge: vscode.ViewBadge2 | undefined;
+	get badge(): vscode.ViewBadge2 | undefined {
 		return this._badge;
 	}
 
-	set badge(badge: vscode.ViewBadge | undefined) {
+	set badge(badge: vscode.ViewBadge2 | undefined) {
 		if (this._badge?.value === badge?.value &&
 			this._badge?.tooltip === badge?.tooltip) {
 			return;
