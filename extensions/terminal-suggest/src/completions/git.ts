@@ -163,6 +163,7 @@ export const gitGenerators = {
 	// Commit history
 	commits: {
 		script: ["git", "--no-optional-locks", "log", "--oneline", "-n", "1000"],
+		scriptTimeout: 10000, // Allow 10 seconds for git log in large repos
 		postProcess: function (out) {
 			const output = filterMessages(out);
 
@@ -215,6 +216,7 @@ export const gitGenerators = {
 
 	revs: {
 		script: ["git", "rev-list", "--all", "--oneline"],
+		scriptTimeout: 12000, // Allow 12 seconds for git rev-list in large repos
 		postProcess: function (out) {
 			const output = filterMessages(out);
 
@@ -262,6 +264,7 @@ export const gitGenerators = {
 
 	treeish: {
 		script: ["git", "--no-optional-locks", "diff", "--cached", "--name-only"],
+		scriptTimeout: 8000, // Allow 8 seconds for git diff --cached in large repos
 		postProcess: function (out, tokens) {
 			const output = filterMessages(out);
 
@@ -287,6 +290,7 @@ export const gitGenerators = {
 			"refs/heads/",
 			"refs/remotes/",
 		],
+		scriptTimeout: 8000, // Allow 8 seconds for git branch in repos with many remotes
 		postProcess: postProcessBranches({ insertWithoutRemotes: true }),
 	},
 
@@ -380,6 +384,7 @@ export const gitGenerators = {
 	// Files for staging
 	files_for_staging: {
 		script: ["git", "--no-optional-locks", "status", "--short"],
+		scriptTimeout: 15000, // Allow 15 seconds for git status in large repos
 		postProcess: (out, context) => {
 			// This whole function is a mess
 
@@ -444,6 +449,9 @@ export const gitGenerators = {
 				});
 			});
 
+			// Limit to first 100 files to avoid overwhelming completions in large repos
+			files = files.slice(0, 100);
+
 			return [
 				...dirArr.map((name) => {
 					return {
@@ -495,7 +503,12 @@ export const gitGenerators = {
 	} satisfies Fig.Generator,
 
 	getUnstagedFiles: {
-		script: ["git", "--no-optional-locks", "diff", "--name-only"],
+		script: [
+			"bash",
+			"-c",
+			"git --no-optional-locks diff --name-only | head -100",
+		],
+		scriptTimeout: 10000, // Allow 10 seconds for git diff in large repos
 		splitOn: "\n",
 	} satisfies Fig.Generator,
 
