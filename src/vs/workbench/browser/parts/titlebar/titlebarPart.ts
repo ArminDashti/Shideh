@@ -854,6 +854,19 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 			this.element.style.backgroundColor = titleBackground;
 			this.layoutService.getContainer(getWindow(this.element)).style.setProperty('--modern-ui-shell-background', shellBackground);
 
+			// Update <meta name="theme-color" content=""> based on selected theme
+			if (isWeb) {
+				const metaElementId = 'monaco-workbench-meta-theme-color';
+				let metaElement = mainWindow.document.getElementById(metaElementId) as HTMLMetaElement | null;
+				if (!metaElement) {
+					metaElement = createMetaElement();
+					metaElement.name = 'theme-color';
+					metaElement.id = metaElementId;
+				}
+
+				metaElement.content = titleBackground.toString();
+			}
+
 			if (this.appIconBadge) {
 				this.appIconBadge.style.backgroundColor = titleBackground;
 			}

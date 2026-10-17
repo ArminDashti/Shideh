@@ -5,12 +5,10 @@
 
 import './media/style.css';
 import { registerThemingParticipant } from '../../platform/theme/common/themeService.js';
-import { WORKBENCH_BACKGROUND, TITLE_BAR_ACTIVE_BACKGROUND } from '../common/theme.js';
-import { isWeb, isIOS } from '../../base/common/platform.js';
-import { createMetaElement } from '../../base/browser/dom.js';
+import { WORKBENCH_BACKGROUND } from '../common/theme.js';
+import { isIOS } from '../../base/common/platform.js';
 import { isSafari, isStandalone } from '../../base/browser/browser.js';
 import { selectionBackground } from '../../platform/theme/common/colorRegistry.js';
-import { mainWindow } from '../../base/browser/window.js';
 
 registerThemingParticipant((theme, collector) => {
 
