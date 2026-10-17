@@ -1617,6 +1617,10 @@ export class CodeApplication extends Disposable {
 		const webContentExtractorChannel = ProxyChannel.fromService(accessor.get(IWebContentExtractorService), disposables);
 		mainProcessElectronServer.registerChannel('webContentExtractor', webContentExtractorChannel);
 
+		// Agent Session Status
+		const agentSessionStatusChannel = new AgentSessionStatusMainChannel(accessor.get(IAgentSessionStatusMainService));
+		mainProcessElectronServer.registerChannel('agentSessionStatus', agentSessionStatusChannel);
+
 		// Workspaces
 		const workspacesChannel = ProxyChannel.fromService(accessor.get(IWorkspacesService), disposables);
 		mainProcessElectronServer.registerChannel('workspaces', workspacesChannel);
