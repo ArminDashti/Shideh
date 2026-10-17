@@ -155,6 +155,12 @@ export class ConfigureToolsAction extends Action2 {
 		const chatWidgetService = accessor.get(IChatWidgetService);
 		const telemetryService = accessor.get(ITelemetryService);
 
+		// Extract filter from arguments if provided
+		let filter: string | undefined;
+		if (args.length > 0 && typeof args[0] === 'string') {
+			filter = args[0];
+		}
+
 		let widget = chatWidgetService.lastFocusedWidget;
 		if (!widget) {
 			widget = this.extractWidget(args);
