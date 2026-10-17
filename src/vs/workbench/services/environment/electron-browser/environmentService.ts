@@ -174,6 +174,7 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 				tmpDir: configuration.tmpDir,
 				userDataDir: configuration.userDataDir,
 			},
-			productService);
+			productService,
+			!!configuration.isEmbeddedApp);
 	}
 }

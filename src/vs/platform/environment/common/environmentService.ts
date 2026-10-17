@@ -299,12 +299,23 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 		this.args.continueOn = value;
 	}
 
+	@memoize
+	get parentAppNameShort(): string | undefined {
+		return getParentAppName(this.productService, this.isEmbeddedApp, 'short');
+	}
+
+	@memoize
+	get parentAppNameLong(): string | undefined {
+		return getParentAppName(this.productService, this.isEmbeddedApp, 'long');
+	}
+
 	get args(): NativeParsedArgs { return this._args; }
 
 	constructor(
 		private readonly _args: NativeParsedArgs,
 		private readonly paths: INativeEnvironmentPaths,
-		protected readonly productService: IProductService
+		protected readonly productService: IProductService,
+		readonly isEmbeddedApp: boolean = false
 	) { }
 }
 
@@ -326,4 +337,19 @@ export function parseDebugParams(debugArg: string | undefined, debugBrkArg: stri
 	}
 
 	return { port, break: brk, debugId, env };
+}
+
+function getParentAppName(productService: IProductService, isEmbeddedApp: boolean, variant: 'short' | 'long'): string | undefined {
+	if (!isEmbeddedApp) {
+		return undefined;
+	}
+	const quality = productService.quality;
+	if (quality === 'stable') {
+		return variant === 'short' ? 'VS Code' : 'Visual Studio Code';
+	} else if (quality === 'insider') {
+		return variant === 'short' ? 'VS Code Insiders' : 'Visual Studio Code Insiders';
+	} else if (quality === 'exploration') {
+		return variant === 'short' ? 'VS Code Exploration' : 'Visual Studio Code Exploration';
+	}
+	return undefined;
 }

@@ -84,6 +84,7 @@ export interface IEnvironmentService {
 	extensionLogLevel?: [string, string][];
 	verbose: boolean;
 	isBuilt: boolean;
+	isEmbeddedApp?: boolean;
 
 	// --- telemetry/exp
 	disableTelemetry: boolean;

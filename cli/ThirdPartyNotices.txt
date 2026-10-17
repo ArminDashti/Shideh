@@ -1338,6 +1338,7 @@ DEALINGS IN THE SOFTWARE.
 ---------------------------------------------------------
 
 cpufeatures 0.2.17 - MIT OR Apache-2.0
+cpufeatures 0.3.0 - MIT OR Apache-2.0
 https://github.com/RustCrypto/utils
 
 All crates licensed under either of
@@ -7463,6 +7464,7 @@ https://github.com/r-efi/r-efi
 
 ---------------------------------------------------------
 
+rand 0.10.1 - MIT OR Apache-2.0
 rand 0.7.3 - MIT OR Apache-2.0
 rand 0.8.6 - MIT OR Apache-2.0
 rand 0.9.4 - MIT OR Apache-2.0
@@ -7533,6 +7535,7 @@ DEALINGS IN THE SOFTWARE.
 
 ---------------------------------------------------------
 
+rand_core 0.10.1 - MIT OR Apache-2.0
 rand_core 0.5.1 - MIT OR Apache-2.0
 rand_core 0.6.4 - MIT OR Apache-2.0
 rand_core 0.9.5 - MIT OR Apache-2.0
