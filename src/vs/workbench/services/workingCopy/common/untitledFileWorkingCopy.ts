@@ -260,7 +260,7 @@ export class UntitledFileWorkingCopy<M extends IUntitledFileWorkingCopyModel> ex
 	}
 
 	async backup(token: CancellationToken): Promise<IWorkingCopyBackup> {
-		let content: VSBufferReadableStream | undefined = undefined;
+		let content: VSBufferReadableStream | VSBufferReadable | undefined = undefined;
 
 		// Make sure to check whether this working copy has been
 		// resolved or not and fallback to the initial value -
