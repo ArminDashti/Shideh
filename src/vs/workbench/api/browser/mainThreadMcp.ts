@@ -128,6 +128,11 @@ export class MainThreadMcp extends Disposable implements MainThreadMcpShape {
 
 				return launch;
 			},
+			async resolveVariables(launch, folderUri) {
+				const serialized = McpServerLaunch.toSerialized(launch);
+				const result = await proxy.$substituteMcpLaunch(folderUri ? folderUri : undefined, serialized);
+				return McpServerLaunch.fromSerialized(result);
+			}
 		}));
 
 		// Subscribe to MCP server definition changes and notify ext host

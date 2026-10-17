@@ -43,6 +43,10 @@ class TestMcpHostDelegate extends Disposable implements IMcpHostDelegate {
 		return this._canStartValue;
 	}
 
+	resolveVariables(launch: McpServerLaunch, folderUri: URI | undefined): Promise<McpServerLaunch> {
+		return Promise.resolve(launch);
+	}
+
 	start(): IMcpMessageTransport {
 		if (!this._canStartValue) {
 			throw new Error('Cannot start server');

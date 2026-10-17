@@ -43,6 +43,10 @@ class TestMcpHostDelegate extends Disposable implements IMcpHostDelegate {
 		return true;
 	}
 
+	resolveVariables(launch: McpServerLaunch, folderUri: URI | undefined): Promise<McpServerLaunch> {
+		return Promise.resolve(launch);
+	}
+
 	start(): TestMcpMessageTransport {
 		return this._transport;
 	}

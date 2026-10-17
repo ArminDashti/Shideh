@@ -107,6 +107,10 @@ class TestMcpHostDelegate implements IMcpHostDelegate {
 		return new TestMcpMessageTransport();
 	}
 
+	resolveVariables(launch: any): Promise<any> {
+		return Promise.resolve(launch);
+	}
+
 	waitForInitialProviderPromises(): Promise<void> {
 		return Promise.resolve();
 	}
