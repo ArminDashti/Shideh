@@ -11,21 +11,17 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { errorHandler, setUnexpectedErrorHandler } from '../../../../../../base/common/errors.js';
 import { Event } from '../../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { ResourceMap } from '../../../../../../base/common/map.js';
-import { ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { mock } from '../../../../../../base/test/common/mock.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
-import type { IManagedHover } from '../../../../../../base/browser/ui/hover/hover.js';
-import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IConfirmation, IDialogService } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { CustomizationMarketplaceConfiguration } from '../../../../../../platform/customizationMarketplace/common/customizationMarketplaceSources.js';
 import { AGENT_BUILTIN_CUSTOMIZATION_SCHEME } from '../../../../../../platform/agentHost/common/agentHostCustomizationUri.js';
 import { toAgentHostUri } from '../../../../../../platform/agentHost/common/agentHostUri.js';
-import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
 import { AICustomizationManagementEditor, isCurrentPluginContributionNavigation } from '../../../browser/aiCustomization/aiCustomizationManagementEditor.js';
 import { IAICustomizationListItem } from '../../../browser/aiCustomization/aiCustomizationItemSource.js';
 import { AgentPluginItemKind, IAgentPluginItem } from '../../../browser/agentPluginEditor/agentPluginItems.js';
@@ -139,7 +135,7 @@ suite('aiCustomizationManagementEditor', () => {
 
 	type TestableEditor = {
 		currentEditingPromptType: PromptsType | undefined;
-		currentEditingSource: string | undefined;
+		currentEditingSource: AICustomizationSource | undefined;
 		currentEditingReadOnly: boolean;
 		customizationsByMigrationCategory: Map<CustomizationMigrationCategoryId, readonly CustomizationMigrationCandidate[]>;
 		mcpServerMigrationExclusions: readonly IMcpServerCustomizationMigrationExclusion[];
@@ -194,7 +190,6 @@ suite('aiCustomizationManagementEditor', () => {
 		refreshMcpDetailMigrationState(): void;
 		dimension: undefined;
 		hoverService: IHoverService;
-		instantiationService: IInstantiationService;
 		configurationService: IConfigurationService;
 		editorDisposables: DisposableStore;
 		harnessService: { activeSessionResource: ISettableObservable<URI>; activeHarness: ISettableObservable<string>; findHarnessById: ICustomizationHarnessService['findHarnessById'] };
@@ -241,6 +236,7 @@ suite('aiCustomizationManagementEditor', () => {
 		goBackToList(): void;
 		showWelcomePage(options?: { resetFilters?: boolean }): void;
 		renderPreviewAttribute(attribute: IHeaderAttribute, promptType: PromptsType, target: Target): void;
+		showEmbeddedEditor(uri: URI, displayName: string, promptType: PromptsType, source: AICustomizationSource, isWorkspaceFile?: boolean, isReadOnly?: boolean): Promise<void>;
 		onStructuredPreviewSettingChanged(): void;
 		refreshCustomizationMigrationUi(): void;
 		refreshCustomizationMigrationInfoFromPromptChange(): void;
@@ -287,7 +283,6 @@ suite('aiCustomizationManagementEditor', () => {
 	};
 
 	function createConfigurationServiceStub(values: Record<string, unknown> = {}): IConfigurationService {
-		// Default to enabling the structured preview so existing assertions exercise the preview path.
 		const merged: Record<string, unknown> = {
 			[ChatConfiguration.ChatCustomizationsStructuredPreviewEnabled]: true,
 			[CustomizationMarketplaceConfiguration.MarketplaceEnabled]: true,
@@ -364,7 +359,6 @@ suite('aiCustomizationManagementEditor', () => {
 				update() { },
 			}),
 		} as unknown as IHoverService;
-		editor.instantiationService = workbenchInstantiationService({}, editor.editorPreviewDisposables);
 		editor.configurationService = configurationService ?? createConfigurationServiceStub();
 		editor.markdownRendererService = {
 			render: markdown => {
@@ -1068,12 +1062,9 @@ suite('aiCustomizationManagementEditor', () => {
 
 		try {
 			editor.renderPreviewAttribute(createScalarAttribute('description', 'Helpful text'), PromptsType.agent, Target.VSCode);
-
 			const helpButton = container.querySelector('button.editor-preview-row-help') as HTMLButtonElement | null;
 			assert.ok(helpButton);
-
 			helpButton.click();
-
 			assert.strictEqual(focused, true);
 		} finally {
 			container.remove();
@@ -1103,10 +1094,7 @@ suite('aiCustomizationManagementEditor', () => {
 		editor.currentEditingPromptType = PromptsType.agent;
 		editor.editorDisplayMode = 'preview';
 
-		// Sanity: setting is on and file is editable, so label is "Edit" (preview mode).
 		assert.strictEqual(editor.getEditorModeButtonLabel(), 'Edit');
-
-		// Flip the setting off and run the change handler.
 		configurationService.setValue(ChatConfiguration.ChatCustomizationsStructuredPreviewEnabled, false);
 		editor.onStructuredPreviewSettingChanged();
 

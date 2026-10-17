@@ -12,6 +12,7 @@ import { PromptsConfig } from '../../common/promptSyntax/config/config.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import { CustomizationMigrationCandidate, CustomizationMigrationType, IMcpServerCustomizationMigrationCandidate, IMcpServerCustomizationMigrationExclusion, IMcpServerCustomizationMigrationFailure, isConfiguredLocationMigrationCandidate, isMcpServerCustomizationMigrationCandidate, isPromptFileMigrationCandidate, isUserDataMigrationCandidate, McpServerCustomizationMigrationFailureReason, mcpServerCustomizationMigrationRemovableProperties, MigratableConfiguration } from '../../common/promptSyntax/service/customizationMigrationService.js';
 import { PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
+import { ICustomizationMigrationBanner } from './customizationMigrationPage.js';
 
 export const enum CustomizationMigrationCategoryId {
 	PromptFiles = 'promptFiles',
@@ -238,6 +239,12 @@ const userDataMigrationCategory: ICustomizationMigrationCategory = {
 	},
 
 
+
+	getMigrateButtonLabel(selectedCount) {
+		return selectedCount > 0
+			? localize('customizationMigrationPageButtonWithCount', "Migrate {0}", selectedCount)
+			: localize('customizationMigrationPageButton', "Migrate");
+	},
 
 	getConfirmation(customizations, harnessLabel, destinationLabel) {
 		const { agentCount, instructionsCount, totalCount } = countUserDataTypes(customizations);
