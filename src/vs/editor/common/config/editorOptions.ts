@@ -3210,11 +3210,13 @@ class EditorStickyScroll extends BaseEditorOption<EditorOption.stickyScroll, IEd
 			{
 				'editor.stickyScroll.enabled': {
 					type: 'boolean',
+					scope: ConfigurationScope.APPLICATION,
 					default: defaults.enabled,
 					description: nls.localize('editor.stickyScroll.enabled', "Shows the nested current scopes during the scroll at the top of the editor.")
 				},
 				'editor.stickyScroll.maxLineCount': {
 					type: 'number',
+					scope: ConfigurationScope.APPLICATION,
 					default: defaults.maxLineCount,
 					minimum: 1,
 					maximum: 20,
@@ -3222,12 +3224,14 @@ class EditorStickyScroll extends BaseEditorOption<EditorOption.stickyScroll, IEd
 				},
 				'editor.stickyScroll.defaultModel': {
 					type: 'string',
+					scope: ConfigurationScope.APPLICATION,
 					enum: ['outlineModel', 'foldingProviderModel', 'indentationModel'],
 					default: defaults.defaultModel,
 					description: nls.localize('editor.stickyScroll.defaultModel', "Defines the model to use for determining which lines to stick. If the outline model does not exist, it will fall back on the folding provider model which falls back on the indentation model. This order is respected in all three cases.")
 				},
 				'editor.stickyScroll.scrollWithEditor': {
 					type: 'boolean',
+					scope: ConfigurationScope.APPLICATION,
 					default: defaults.scrollWithEditor,
 					description: nls.localize('editor.stickyScroll.scrollWithEditor', "Enable scrolling of Sticky Scroll with the editor's horizontal scrollbar.")
 				},
