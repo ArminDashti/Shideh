@@ -148,7 +148,7 @@ async function detectAvailableWindowsProfiles(
 
 	if (includeDetectedProfiles && useWslProfiles && allowWslDiscovery) {
 		try {
-			const result = await getWslProfiles(`${system32Path}\\wsl.exe`, defaultProfileName);
+			const result = await getWslProfiles(`${system32Path}\\wsl.exe`, defaultProfileName, useWslProfiles);
 			for (const wslProfile of result) {
 				if (!configProfiles || !Object.prototype.hasOwnProperty.call(configProfiles, wslProfile.profileName)) {
 					resultProfiles.push(wslProfile);
@@ -344,7 +344,12 @@ async function getPowershellPaths(): Promise<string[]> {
 	return paths;
 }
 
-async function getWslProfiles(wslPath: string, defaultProfileName: string | undefined): Promise<ITerminalProfile[]> {
+async function getWslProfiles(wslPath: string, defaultProfileName: string | undefined, useWslProfiles: boolean = true): Promise<ITerminalProfile[]> {
+	// Safety check: Don't execute wsl.exe if useWslProfiles is disabled
+	if (!useWslProfiles) {
+		return [];
+	}
+	
 	const profiles: ITerminalProfile[] = [];
 	const distroOutput = await new Promise<string>((resolve, reject) => {
 		// wsl.exe output is encoded in utf16le (ie. A -> 0x4100) by default, force it in case the
