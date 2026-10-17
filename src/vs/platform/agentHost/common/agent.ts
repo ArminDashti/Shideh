@@ -20,10 +20,11 @@ import { ProtectedResourceMetadata, type Changeset, type ChatInteractivity, type
 import type { ActionOrigin, AuthRequiredParams, SessionAction, ChatAction } from './state/sessionActions.js';
 import { ChatInputResponseKind, ChatOriginKind, SessionStatus, buildSubagentChatUri, parseRequiredSessionUriFromChatUri, type AgentCapabilities, type ClientPluginCustomization, type Customization, type ErrorInfo, type ISessionFolderPickerDecision, type Message, type PendingMessage, type ChatInputAnswer, type SessionMeta, type ToolCallResult, type Turn, type PolicyState } from './state/sessionState.js';
 
-/** User-selected permission action and its originating client. */
+/** Permission response provenance and its originating client. */
 export interface IAgentPermissionResponseContext {
 	readonly selectedOptionId?: string;
 	readonly origin?: ActionOrigin;
+	readonly decisionSource?: AgentPermissionDecisionSource;
 }
 
 /** Error returned when the Agent Host process cannot be started. */

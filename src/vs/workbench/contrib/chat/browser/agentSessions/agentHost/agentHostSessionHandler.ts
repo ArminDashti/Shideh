@@ -516,6 +516,20 @@ function confirmedReasonToProtocol(reason: ConfirmedReason | undefined): ToolCal
 	}
 }
 
+function confirmedReasonToDecisionSource(reason: ConfirmedReason, cancellationToken: CancellationToken): AgentPermissionDecisionSource | undefined {
+	switch (reason.type) {
+		case ToolConfirmKind.UserAction:
+			return 'human_response';
+		case ToolConfirmKind.ConfirmationNotNeeded:
+		case ToolConfirmKind.Setting:
+		case ToolConfirmKind.LmServicePerTool:
+			return 'host_policy';
+		case ToolConfirmKind.Denied:
+		case ToolConfirmKind.Skipped:
+			return reason.isUserAction === true ? 'human_response' : cancellationToken.isCancellationRequested ? 'unattended_fallback' : undefined;
+	}
+}
+
 function getClientToolPreApproval(toolCall: ToolCallState): ConfirmedReason | undefined {
 	if (readToolCallMeta(toolCall).autoApproveBySetting === true) {
 		return { type: ToolConfirmKind.Setting, id: SessionConfigKey.AutoApprove };
@@ -2355,6 +2369,19 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const target = isChatAction(action)
 			? this._requireChatURI(chatURI, action.type)
 			: channel.toString();
+		if (action.type === ActionType.ChatToolCallConfirmed && action._meta) {
+			const { turnId, toolCallId } = action;
+			const parsed = parseChatUri(target);
+			const state = parsed ? this._getSessionState(parsed.session, target) : undefined;
+			const turn = state?.activeTurn?.id === turnId ? state.activeTurn : state?.turns.find(turn => turn.id === turnId);
+			const part = turn?.responseParts.find(part => part.kind === ResponsePartKind.ToolCall && part.toolCall.toolCallId === toolCallId);
+			const toolCall = part?.kind === ResponsePartKind.ToolCall ? part.toolCall : undefined;
+			// Confirmation metadata replaces the whole bag in the protocol reducer.
+			action = {
+				...action,
+				_meta: toAgentPermissionResponseMeta(readAgentPermissionResponseMeta(action), { _meta: { ...toolCall?._meta, ...action._meta } }),
+			};
+		}
 		this._config.connection.dispatch(target, action);
 	}
 
@@ -3444,6 +3471,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			const approved = selectedOption
 				? selectedOption.kind === ConfirmationOptionKind.Approve
 				: reason.type !== ToolConfirmKind.Denied && reason.type !== ToolConfirmKind.Skipped;
+			const responseMeta = toAgentPermissionResponseMeta({ decisionSource: confirmedReasonToDecisionSource(reason, cancellationToken) });
 
 			this._logService.info(`[AgentHost] Tool confirmation: toolCallId=${toolCallId}, approved=${approved}, selectedOptionId=${selectedOption?.id}`);
 			const target = this._requireChatURI(chatURI, ActionType.ChatToolCallConfirmed);
@@ -3453,7 +3481,8 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					turnId,
 					toolCallId,
 					approved: true,
-					confirmed: ToolCallConfirmationReason.UserAction,
+					confirmed: confirmedReasonToProtocol(reason),
+					_meta: responseMeta,
 					...(selectedOption ? { selectedOptionId: selectedOption.id } : {}),
 				}
 				: {
@@ -3462,6 +3491,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					toolCallId,
 					approved: false,
 					reason: ToolCallCancellationReason.Denied,
+					_meta: responseMeta,
 					...(selectedOption ? { selectedOptionId: selectedOption.id } : {}),
 				}, confirmationId));
 		}).catch(err => {
@@ -4075,7 +4105,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			return;
 		}
 		this._resolvedToolCalls.add(key);
-		this._config.connection.dispatch(chatURI, action);
+		this._dispatchAction(URI.parse(chatURI), action, chatURI);
 	}
 
 	private _forgetResolvedToolCall(toolCallKey: string): void {
@@ -4537,6 +4567,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 						toolCallId,
 						approved: true,
 						confirmed: confirmedReasonToProtocol(state.confirmed),
+						_meta: toAgentPermissionResponseMeta({ decisionSource: confirmedReasonToDecisionSource(state.confirmed, opts.cancellationToken) }),
 						...(selectedOptionId ? { selectedOptionId } : {}),
 					}
 					: {
@@ -4545,6 +4576,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 						toolCallId,
 						approved: false,
 						reason: ToolCallCancellationReason.Denied,
+						_meta: toAgentPermissionResponseMeta({ decisionSource: confirmedReasonToDecisionSource(state.confirmed, opts.cancellationToken) }),
 						...(selectedOptionId ? { selectedOptionId } : {}),
 					}, confirmationId));
 			} else if (state.type === IChatToolInvocation.StateKind.Cancelled) {

@@ -27,6 +27,7 @@ import { AgentHostLaunchKind, createUnknownAgentHostClientTelemetryContext, type
 import { AgentSession, AgentSignal, IAgent, IAgentChatContext, IAgentToolPendingConfirmationSignal, type AgentSubagentTaskModelSource, type IAgentModelCallCompletedSignal, type IAgentModelCallFinishedSignal } from '../common/agent.js';
 import { isPresentationOnlyToolCall, readToolCallMeta, toToolCallMeta } from '../common/meta/agentToolCallMeta.js';
 import { isAgentMergeMessage } from '../common/meta/agentMergeMessageMeta.js';
+import { readAgentPermissionResponseMeta } from '../common/meta/agentPermissionResponseMeta.js';
 
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { ISessionDataService } from '../common/sessionDataService.js';
@@ -155,7 +156,7 @@ class PendingSubagentSignals extends Disposable {
 		super.dispose();
 		for (const { signal, agent } of entries) {
 			if (signal.kind === 'pending_confirmation') {
-				agent.respondToPermissionRequest(signal.state.toolCallId, false);
+				agent.respondToPermissionRequest(signal.state.toolCallId, false, { decisionSource: 'unattended_fallback' });
 			}
 		}
 	}
@@ -730,7 +731,7 @@ export class AgentSideEffects extends Disposable {
 			if (!this._stateManager.getChatState(sessionKey)) {
 				this._logService.warn(`[AgentSideEffects] Dropping ${this._describeSignal(signal)} for disposed parent chat ${sessionKey}`);
 				if (signal.kind === 'pending_confirmation') {
-					agent.respondToPermissionRequest(signal.state.toolCallId, false);
+					agent.respondToPermissionRequest(signal.state.toolCallId, false, { decisionSource: 'unattended_fallback' });
 				}
 				return;
 			}
@@ -757,7 +758,7 @@ export class AgentSideEffects extends Disposable {
 			const key = `${sessionKey}\0${parentToolCallId}`;
 			if (this._failedSubagentRoutes.get(key) !== undefined) {
 				if (signal.kind === 'pending_confirmation') {
-					agent.respondToPermissionRequest(signal.state.toolCallId, false);
+					agent.respondToPermissionRequest(signal.state.toolCallId, false, { decisionSource: 'unattended_fallback' });
 				}
 				return;
 			}
@@ -765,7 +766,7 @@ export class AgentSideEffects extends Disposable {
 			const buffer = this._getPendingSubagentSignals(sessionKey, parentToolCallId);
 			if (buffer.failed) {
 				if (signal.kind === 'pending_confirmation') {
-					agent.respondToPermissionRequest(signal.state.toolCallId, false);
+					agent.respondToPermissionRequest(signal.state.toolCallId, false, { decisionSource: 'unattended_fallback' });
 				}
 				return;
 			}
@@ -1557,7 +1558,7 @@ export class AgentSideEffects extends Disposable {
 		const activeTurn = this._stateManager.getSessionState(sessionKey)?.activeTurn;
 		if (turnId && activeTurn?.id !== turnId) {
 			this._logService.warn(`[AgentSideEffects] Rejecting permission after its turn ended: turnId=${turnId}, toolCallId=${e.state.toolCallId}`);
-			agent.respondToPermissionRequest(e.state.toolCallId, false);
+			agent.respondToPermissionRequest(e.state.toolCallId, false, { decisionSource: 'unattended_fallback' });
 			return;
 		}
 		const part = activeTurn?.responseParts.find(part => part.kind === ResponsePartKind.ToolCall && part.toolCall.toolCallId === e.state.toolCallId);
@@ -1595,7 +1596,7 @@ export class AgentSideEffects extends Disposable {
 			}
 			this._toolCallAgents.delete(toolCallKey);
 			this._managedApprovalToolCalls.delete(toolCallKey);
-			agent.respondToPermissionRequest(e.state.toolCallId, approved);
+			agent.respondToPermissionRequest(e.state.toolCallId, approved, { decisionSource: approved ? 'host_policy' : 'unattended_fallback' });
 			return;
 		}
 		if (e.managedApprovalRequired) {
@@ -1738,6 +1739,7 @@ export class AgentSideEffects extends Disposable {
 					this._toolCallAgents.delete(toolCallKey);
 					const agent = this._options.agents.get().find(a => a.id === agentId);
 					agent?.respondToPermissionRequest(action.toolCallId, action.approved, {
+						...readAgentPermissionResponseMeta(action),
 						selectedOptionId: action.selectedOptionId,
 						origin: clientId !== undefined && clientSeq !== undefined ? { clientId, clientSeq } : undefined,
 					});
