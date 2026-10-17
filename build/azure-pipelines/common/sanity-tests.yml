@@ -5,6 +5,9 @@ parameters:
     type: string
   - name: poolName
     type: string
+  - name: poolImage
+    type: string
+    default: ""
   - name: os
     type: string
     default: linux
@@ -79,7 +82,7 @@ jobs:
       - checkout: self
         fetchDepth: 1
         fetchTags: false
-        sparseCheckoutDirectories: build/azure-pipelines/config test/sanity .nvmrc
+        sparseCheckoutDirectories: build/azure-pipelines/config build/azure-pipelines/common test/sanity .nvmrc
         retryCountOnTaskFailure: 3
         displayName: Checkout test/sanity
 
@@ -151,6 +154,10 @@ jobs:
           version: '22.22.0'
         displayName: Install Node.js
 
+      - ${{ if eq(parameters.os, 'macOS') }}:
+        - script: node build/azure-pipelines/common/captureDarwinMemory.ts
+          displayName: Capture macOS memory before dependency setup
+
       - task: Cache@2
         inputs:
           key: '"sanity-node_modules" | "$(Agent.OS)" | "${{ parameters.arch }}" | $(TEST_DIR)/package-lock.json'
@@ -196,13 +203,44 @@ jobs:
 
       # macOS
       - ${{ if eq(parameters.os, 'macOS') }}:
-        - bash: $(TEST_DIR)/scripts/run-macOS.sh -c $(BUILD_COMMIT) -q $(BUILD_QUALITY) -t $(LOG_FILE) -s $(SCREENSHOTS_DIR) -d $(CRASH_DUMPS_DIR) -v $(ARTIFACTS_ARG) ${{ parameters.args }}
+        - bash: |
+            sw_vers
+            uname -a
+            sysctl hw.model hw.ncpu hw.physicalcpu hw.logicalcpu hw.memsize kern.osversion
+            uptime
+            vm_stat
+            iostat -w 1 -c 2
+            spctl --status
+            systemextensionsctl list
+            if command -v mdatp >/dev/null 2>&1; then
+              mdatp health --field app_version
+              mdatp health --field engine_version
+              mdatp health --field definitions_version
+              mdatp health --field real_time_protection_enabled
+            else
+              echo "mdatp is not available on PATH"
+            fi
+            node build/azure-pipelines/common/captureDarwinMemory.ts
+          displayName: Capture macOS image and resource details
+          continueOnError: true
+
+        - bash: node "$(Build.SourcesDirectory)/build/azure-pipelines/common/captureDarwinMemory.ts" -- $(TEST_DIR)/scripts/run-macOS.sh -c $(BUILD_COMMIT) -q $(BUILD_QUALITY) -t $(LOG_FILE) -s $(SCREENSHOTS_DIR) -d $(CRASH_DUMPS_DIR) -v $(ARTIFACTS_ARG) ${{ parameters.args }}
           workingDirectory: $(TEST_DIR)
           displayName: Run Sanity Tests
           env:
             DEBUG: pw:browser
             GITHUB_ACCOUNT: $(sanity-tests-account)
             GITHUB_PASSWORD: $(sanity-tests-password)
+
+        - bash: |
+            uptime
+            vm_stat
+            iostat -w 1 -c 2
+            node build/azure-pipelines/common/captureDarwinMemory.ts
+            hdiutil info
+          displayName: Capture macOS resources after sanity tests
+          condition: always()
+          continueOnError: true
 
       # Native Linux host
       - ${{ if and(eq(parameters.container, ''), eq(parameters.os, 'linux')) }}:
