@@ -98,6 +98,18 @@ const MANAGED_SETTINGS_REQUEST_TIMEOUT_MS = 5000;
 /** Minimum spacing between cache-bypassing retries while the refresh gate is closed. */
 const MANAGED_SETTINGS_BLOCKED_RETRY_INTERVAL_MS = 60 * 1000;
 
+/** Per-call options for {@link DefaultAccountProvider.request}. */
+interface IRequestOptions {
+	/** Per-call request timeout in milliseconds. */
+	readonly timeoutMs?: number;
+	/**
+	 * Retry the URL on the next authenticated GitHub session when the response is `404`.
+	 * Defaults to `true`; pass `false` for endpoints where 404 means "no policy for this account" so a
+	 * single call does not fan out into N sequential 404s.
+	 */
+	readonly retryOn404?: boolean;
+}
+
 interface ITokenEntitlementsResponse {
 	token: string;
 }
