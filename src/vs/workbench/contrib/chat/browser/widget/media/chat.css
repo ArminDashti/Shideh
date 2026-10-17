@@ -3372,6 +3372,8 @@ have to be updated for changes to the rules above, or to support more deeply nes
 .interactive-session .chat-used-context-label .monaco-button .codicon {
 	font-size: var(--vscode-codiconFontSize-compact);
 	color: var(--vscode-icon-foreground) !important;
+	/* Remove margin to prevent horizontal shift - gap property on button provides spacing */
+	margin: 0;
 }
 
 /* Hide the leading icon on collapsible parts by default; show-checkmarks restores it */
