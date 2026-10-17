@@ -18,6 +18,7 @@ import { IContextViewService } from '../../contextview/browser/contextView.js';
 import { InstantiationType, registerSingleton } from '../../instantiation/common/extensions.js';
 import { createDecorator, IInstantiationService, ServicesAccessor } from '../../instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../keybinding/common/keybindingsRegistry.js';
+import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { inputActiveOptionBackground, registerColor } from '../../theme/common/colorRegistry.js';
 import { StandardMouseEvent } from '../../../base/browser/mouseEvent.js';
 import { IListAccessibilityProvider } from '../../../base/browser/ui/list/listWidget.js';
@@ -82,7 +83,8 @@ export class ActionWidgetService extends Disposable implements IActionWidgetServ
 	constructor(
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 	) {
 		super();
 	}
