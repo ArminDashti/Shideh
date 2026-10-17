@@ -80,6 +80,15 @@ export class AgentHostCopilotCliSettingsContribution extends Disposable implemen
 				},
 			},
 			{
+				key: CopilotCliConfigKey.Memory,
+				computeValue: () => this._defaultAccountService.policyData?.chat_preview_features_enabled !== false
+					&& this._configurationService.getValue<boolean>(AgentHostCopilotMemoryEnabledSettingId) === true,
+				registerTriggers: (store, push) => {
+					this._pushOnSettingChange(store, push, AgentHostCopilotMemoryEnabledSettingId);
+					store.add(this._defaultAccountService.onDidChangePolicyData(push));
+				},
+			},
+			{
 				key: CopilotCliConfigKey.AutoModeTierOverride,
 				computeValue: () => this._configurationService.getValue<string | null>(CopilotAutoModeTierOverrideSettingId) ?? '',
 				registerTriggers: (store, push) => this._pushOnSettingChange(store, push, CopilotAutoModeTierOverrideSettingId),
