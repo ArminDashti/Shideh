@@ -2646,6 +2646,10 @@ export class Repository {
 				args.push('-w');
 			}
 
+			if (ignoreWhitespace) {
+				args.push('-w');
+			}
+
 			if (ref) {
 				args.push(ref);
 			}
