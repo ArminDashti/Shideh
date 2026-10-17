@@ -269,6 +269,7 @@
     "yaserver": "^0.4.0"
   },
   "overrides": {
+    "@github/copilot": "$@github/copilot",
     "@typescript-eslint/types": "8.66.0",
     "node-gyp-build": "4.8.1",
     "kerberos@2.1.1": {
