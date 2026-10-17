@@ -68,7 +68,7 @@ import { ADVANCED_SETTING_TAG, AGENTS_WINDOW_SETTING_TAG, CONTEXT_AI_SETTING_RES
 import { settingsHeaderBorder, settingsSashBorder, settingsTextInputBorder } from '../common/settingsEditorColorRegistry.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import './media/settingsEditor2.css';
-import { preferencesAiResultsIcon, preferencesClearInputIcon, preferencesFilterIcon } from './preferencesIcons.js';
+import { preferencesAdvancedIcon, preferencesAiResultsIcon, preferencesClearInputIcon, preferencesFilterIcon } from './preferencesIcons.js';
 import { SettingsTarget, SettingsTargetsWidget } from './preferencesWidgets.js';
 import { ISettingOverrideClickEvent } from './settingsEditorSettingIndicators.js';
 import { getCommonlyUsedData, ITOCEntry, tocData } from './settingsLayout.js';
@@ -130,6 +130,7 @@ export class SettingsEditor2 extends EditorPane {
 	private static EDITOR_MIN_WIDTH: number = 500;
 	// Below NARROW_TOTAL_WIDTH, we only render the editor rather than the ToC.
 	private static NARROW_TOTAL_WIDTH: number = this.TOC_RESET_WIDTH + this.EDITOR_MIN_WIDTH;
+	private static SHOW_ADVANCED_SETTINGS_KEY: string = 'settingsEditor2.showAdvancedSettings';
 
 	private static SUGGESTIONS: string[] = [
 		`@${MODIFIED_SETTING_TAG}`,
@@ -233,6 +234,7 @@ export class SettingsEditor2 extends EditorPane {
 	private renderedSearchQuery: string | undefined = '';
 
 	private showAiResultsAction: Action | null = null;
+	private showAdvancedSettingsAction: Action | null = null;
 
 	private searchInputDelayer: Delayer<void>;
 	private updatedConfigSchemaDelayer: Delayer<void>;
@@ -845,6 +847,15 @@ export class SettingsEditor2 extends EditorPane {
 			await this.onDidToggleAiSearch();
 		}));
 
+		const showAdvancedSettingsActionClassNames = ['action-label', ThemeIcon.asClassName(preferencesAdvancedIcon)];
+		this.showAdvancedSettingsAction = this._register(new Action(SETTINGS_EDITOR_COMMAND_SHOW_ADVANCED_SETTINGS,
+			localize('showAdvancedSettings', "Show Advanced Settings"), showAdvancedSettingsActionClassNames.join(' '), true
+		));
+		this.showAdvancedSettingsAction.checked = this.viewState.showAdvancedSettings ?? false;
+		this._register(this.showAdvancedSettingsAction.onDidChange(async () => {
+			await this.onDidToggleAdvancedSettings();
+		}));
+
 		const filterAction = this._register(new Action(SETTINGS_EDITOR_COMMAND_SUGGEST_FILTERS,
 			localize('filterInput', "Filter Settings"), ThemeIcon.asClassName(preferencesFilterIcon)
 		));
@@ -939,11 +950,17 @@ export class SettingsEditor2 extends EditorPane {
 					const keybindingLabel = this.keybindingService.lookupKeybinding(SETTINGS_EDITOR_COMMAND_TOGGLE_AI_SEARCH)?.getLabel();
 					return new ToggleActionViewItem(null, action, { ...options, keybinding: keybindingLabel, toggleStyles: defaultToggleStyles });
 				}
+				if (this.showAdvancedSettingsAction && action.id === this.showAdvancedSettingsAction.id) {
+					return new ToggleActionViewItem(null, action, { ...options, toggleStyles: defaultToggleStyles });
+				}
 				return undefined;
 			}
 		}));
 
 		const actionsToPush = [clearInputAction, filterAction];
+		if (this.showAdvancedSettingsAction) {
+			actionsToPush.push(this.showAdvancedSettingsAction);
+		}
 		this.searchInputActionBar.push(actionsToPush, { label: false, icon: true });
 
 		this.disableAiSearchToggle();
@@ -964,6 +981,16 @@ export class SettingsEditor2 extends EditorPane {
 			this.searchResultModel.showAiResults = this.showAiResultsAction.checked ?? false;
 			this.renderResultCountMessages(false);
 			this.onDidFinishSearch(true, undefined);
+		}
+	}
+
+	private async onDidToggleAdvancedSettings(): Promise<void> {
+		if (this.showAdvancedSettingsAction) {
+			this.viewState.showAdvancedSettings = this.showAdvancedSettingsAction.checked ?? false;
+			// Store the preference
+			this.storageService.store(SettingsEditor2.SHOW_ADVANCED_SETTINGS_KEY, this.viewState.showAdvancedSettings, StorageScope.PROFILE, StorageTarget.USER);
+			// Rebuild the tree to apply the filter
+			this.onConfigUpdate(undefined, true);
 		}
 	}
 
