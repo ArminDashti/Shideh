@@ -14,7 +14,7 @@ import { ResourceMap } from '../../../base/common/map.js';
 @extHostNamedCustomer(MainContext.MainThreadDiagnostics)
 export class MainThreadDiagnostics implements MainThreadDiagnosticsShape {
 
-	private readonly _activeOwners = new Set<string>();
+	private readonly _extHostMarkers = new Map<string, Set<string>>();
 
 	private readonly _proxy: ExtHostDiagnosticsShape;
 	private readonly _markerListener: IDisposable;
@@ -26,6 +26,7 @@ export class MainThreadDiagnostics implements MainThreadDiagnosticsShape {
 		extHostContext: IExtHostContext,
 		@IMarkerService private readonly _markerService: IMarkerService,
 		@IUriIdentityService private readonly _uriIdentService: IUriIdentityService,
+		@IModelService private readonly _modelService: IModelService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostDiagnostics);
 
@@ -67,6 +68,11 @@ export class MainThreadDiagnostics implements MainThreadDiagnosticsShape {
 	}
 
 	$changeMany(owner: string, entries: [UriComponents, IMarkerData[]][]): void {
+		let resources = this._extHostMarkers.get(owner);
+		if (resources === undefined) {
+			resources = new Set<string>();
+			this._extHostMarkers.set(owner, resources);
+		}
 		for (const entry of entries) {
 			const [uri, markers] = entry;
 			if (markers) {
@@ -84,13 +90,14 @@ export class MainThreadDiagnostics implements MainThreadDiagnosticsShape {
 					}
 				}
 			}
-			this._markerService.changeOne(owner, this._uriIdentService.asCanonicalUri(URI.revive(uri)), markers);
+			const canonicalUri = this._uriIdentService.asCanonicalUri(URI.revive(uri));
+			this._markerService.changeOne(owner, canonicalUri, markers);
+			resources.add(canonicalUri.toString());
 		}
-		this._activeOwners.add(owner);
 	}
 
 	$clear(owner: string): void {
 		this._markerService.changeAll(owner, []);
-		this._activeOwners.delete(owner);
+		this._extHostMarkers.delete(owner);
 	}
 }
