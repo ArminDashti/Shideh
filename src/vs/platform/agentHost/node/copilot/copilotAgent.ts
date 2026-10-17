@@ -905,6 +905,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	}
 
 	private readonly _chatEntriesBySdkId = this._register(new DisposableMap<string, CopilotChatEntry>());
+	private readonly _backgroundShellWatches = this._register(new DisposableResourceMap<MutableDisposable<IDisposable>>());
 	/** Sessions that may issue SDK callbacks before joining `_chatEntriesBySdkId`. */
 	private readonly _sessionsPendingRegistration = this._register(new DisposableSet<CopilotAgentSession>());
 	private _connectorRefreshGeneration = 0;
@@ -6161,6 +6162,24 @@ export class CopilotAgent extends Disposable implements IAgent {
 		this._chatEntriesBySdkId.deleteAndDispose(session.sessionId);
 		this._chatEntriesBySdkId.set(session.sessionId, this._createChatEntry(session, activeClient));
 		this._chatBackings.set(chat.toString(), { ...current, sdkSessionId: session.sessionId });
+		const watch = this._backgroundShellWatches.get(chat);
+		if (watch) {
+			watch.value = session.observeBackgroundShells();
+		}
+	}
+
+	watchChatBackgroundShells(chat: URI): IDisposable {
+		const watch = new MutableDisposable<IDisposable>();
+		this._backgroundShellWatches.set(chat, watch);
+		const session = this._findChatByUri(chat);
+		if (session) {
+			watch.value = session.observeBackgroundShells();
+		}
+		return toDisposable(() => {
+			if (this._backgroundShellWatches.get(chat) === watch) {
+				this._backgroundShellWatches.deleteAndDispose(chat);
+			}
+		});
 	}
 
 	private _registerUnboundSession(session: CopilotAgentSession, activeClient: ActiveClient): void {

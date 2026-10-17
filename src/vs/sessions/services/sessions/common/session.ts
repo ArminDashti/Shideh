@@ -678,6 +678,16 @@ export const enum ChatModelSource {
 	CarriedOver = 'carriedOver',
 }
 
+/** Provider-neutral metadata for an active background shell owned by a chat. */
+export interface IChatBackgroundShell {
+	readonly id: string;
+	readonly description: string;
+	readonly command: string;
+	readonly status: 'running' | 'idle';
+	readonly startedAt: string;
+	readonly attachmentMode: 'attached' | 'detached';
+}
+
 /**
  * Per-chat capabilities. Consumers gate chat-management UI (rename, delete) on
  * these flags rather than on the chat's origin/provider, so the affordances are

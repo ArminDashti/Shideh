@@ -157,6 +157,45 @@ suite('AgentHostStateManager', () => {
 		assert.strictEqual(snapshot, undefined);
 	});
 
+	test('background shells mirror into the session catalog and survive turn completion with chat-scoped IDs', () => {
+		manager.createSession(makeSessionSummary());
+		const peer = buildChatUri(sessionUri, 'peer');
+		manager.addChat(sessionUri, peer);
+		const shell = {
+			id: 'shared-id', description: 'Run tests', command: 'npm test',
+			status: BackgroundShellStatus.Running, startedAt: new Date(0).toISOString(),
+			attachmentMode: BackgroundShellAttachmentMode.Attached,
+		};
+		const updates: string[] = [];
+		disposables.add(manager.onDidEmitEnvelope(envelope => {
+			if (envelope.action.type === ActionType.SessionChatUpdated && envelope.action.changes.backgroundShells) {
+				updates.push(envelope.action.chat);
+			}
+		}));
+		manager.dispatchServerAction(sessionChatUri, { type: ActionType.ChatBackgroundShellSet, shell });
+		manager.dispatchServerAction(peer, { type: ActionType.ChatBackgroundShellSet, shell: { ...shell, command: 'npm run build' } });
+		manager.dispatchServerAction(sessionChatUri, {
+			type: ActionType.ChatTurnStarted, turnId: 'turn', startedAt: new Date(0).toISOString(),
+			message: { text: 'Follow-up', origin: { kind: MessageKind.User } },
+		});
+		manager.dispatchServerAction(sessionChatUri, { type: ActionType.ChatTurnComplete, turnId: 'turn', duration: 1 });
+		const afterTurn = manager.getChatState(sessionChatUri)?.backgroundShells;
+		manager.dispatchServerAction(sessionChatUri, { type: ActionType.ChatBackgroundShellRemoved, shellId: shell.id });
+
+		assert.deepStrictEqual({
+			afterTurn,
+			catalog: manager.getSessionState(sessionUri)?.chats.map(chat => ({ resource: chat.resource, shells: chat.backgroundShells })),
+			updates,
+		}, {
+			afterTurn: [shell],
+			catalog: [
+				{ resource: sessionChatUri, shells: [] },
+				{ resource: peer, shells: [{ ...shell, command: 'npm run build' }] },
+			],
+			updates: [sessionChatUri, peer, sessionChatUri],
+		});
+	});
+
 	test('getSnapshot returns root snapshot', () => {
 		const snapshot = manager.getSnapshot(ROOT_STATE_URI);
 		assert.ok(snapshot);
