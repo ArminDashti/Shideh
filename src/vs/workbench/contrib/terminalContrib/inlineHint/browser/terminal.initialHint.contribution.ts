@@ -3,12 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import type { IDecoration, ITerminalAddon, Terminal as RawXtermTerminal } from '@xterm/xterm';
-import * as dom from '../../../../../base/browser/dom.js';
-import { IContentActionHandler, renderFormattedText } from '../../../../../base/browser/formattedTextRenderer.js';
-import { StandardMouseEvent } from '../../../../../base/browser/mouseEvent.js';
-import { status } from '../../../../../base/browser/ui/aria/aria.js';
-import { KeybindingLabel } from '../../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
-import { WorkbenchActionExecutedClassification, WorkbenchActionExecutedEvent } from '../../../../../base/common/actions.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { OS } from '../../../../../base/common/platform.js';
@@ -16,7 +10,6 @@ import { hasKey } from '../../../../../base/common/types.js';
 import { localize } from '../../../../../nls.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
