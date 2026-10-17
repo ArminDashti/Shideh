@@ -3705,6 +3705,11 @@ declare namespace monaco.editor {
 		 */
 		links?: boolean;
 		/**
+		 * Enable underlining links in the editor.
+		 * Defaults to true.
+		 */
+		linkUnderline?: boolean;
+		/**
 		 * Enable inline color decorators and color picker rendering.
 		 */
 		colorDecorators?: boolean;
@@ -5521,6 +5526,7 @@ declare namespace monaco.editor {
 		lineNumbersMinChars: IEditorOption<EditorOption.lineNumbersMinChars, number>;
 		linkedEditing: IEditorOption<EditorOption.linkedEditing, boolean>;
 		links: IEditorOption<EditorOption.links, boolean>;
+		linkUnderline: IEditorOption<EditorOption.linkUnderline, boolean>;
 		matchBrackets: IEditorOption<EditorOption.matchBrackets, 'always' | 'never' | 'near'>;
 		minimap: IEditorOption<EditorOption.minimap, Readonly<Required<IEditorMinimapOptions>>>;
 		mouseStyle: IEditorOption<EditorOption.mouseStyle, 'default' | 'text' | 'copy'>;
