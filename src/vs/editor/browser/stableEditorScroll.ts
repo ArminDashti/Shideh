@@ -7,9 +7,21 @@ import { ICodeEditor } from './editorBrowser.js';
 import { Position } from '../common/core/position.js';
 import { ScrollType } from '../common/editorCommon.js';
 
+export const enum StableEditorScrollStrategy {
+	/**
+	 * Try to keep stable the line where the cursor is positioned.
+	 * If the cursor is not in the viewport, try to keep stable the first line in the viewport.
+	 */
+	CursorOrFirstViewportLine = 0,
+	/**
+	 * Try to keep stable the first line in the viewport.
+	 */
+	FirstViewportLine = 1
+}
+
 export class StableEditorScrollState {
 
-	public static capture(editor: ICodeEditor): StableEditorScrollState {
+	public static capture(editor: ICodeEditor, strategy = StableEditorScrollStrategy.CursorOrFirstViewportLine): StableEditorScrollState {
 		if (editor.getScrollTop() === 0 || editor.hasPendingScrollAnimation()) {
 			// Never mess with the scroll top if the editor is at the top of the file or if there is a pending scroll animation
 			return new StableEditorScrollState(editor.getScrollTop(), editor.getContentHeight(), null, 0, null);

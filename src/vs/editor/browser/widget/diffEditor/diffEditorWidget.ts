@@ -391,7 +391,8 @@ export class DiffEditorWidget extends DelegatingEditor implements IDiffEditor {
 		this._register(applyViewZones(this._editors.modified, modifiedViewZones, isUpdatingModViewZones => {
 			isUpdatingViewZones = isUpdatingModViewZones;
 			if (isUpdatingViewZones) {
-				scrollState = StableEditorScrollState.capture(this._editors.modified);
+				// TODO@hediet: Using the FirstViewportLine strategy here to avoid flickering when deleting lines
+				scrollState = StableEditorScrollState.capture(this._editors.modified, StableEditorScrollStrategy.FirstViewportLine);
 			} else {
 				scrollState?.restore(this._editors.modified);
 				scrollState = undefined;
