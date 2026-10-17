@@ -1301,7 +1301,7 @@ export class Emitter<T> {
 			}
 
 			if (_enableDisposeWithListenerWarning) {
-				contained.stack = stack ?? Stacktrace.create();
+				// contained.stack = stack ?? Stacktrace.create();
 			}
 
 			if (!this._listeners) {
