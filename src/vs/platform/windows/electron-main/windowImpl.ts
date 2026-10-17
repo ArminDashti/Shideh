@@ -197,6 +197,11 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 				this.logService.debug(`Saved maximized window ${this.id} display state:`, this.maximizedWindowState);
 			}
 
+			// Track maximized state (not on macOS where maximized state works differently)
+			if (!isMacintosh) {
+				this.wasMaximized = true;
+			}
+
 			this._onDidMaximize.fire();
 		}));
 		this._register(Event.fromNodeEventEmitter(win, 'unmaximize')(() => {
@@ -205,6 +210,9 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 				this.logService.debug(`Cleared maximized window ${this.id} state`);
 			}
+
+			// Clear maximized tracking when explicitly unmaximized
+			this.wasMaximized = false;
 
 			this._onDidUnmaximize.fire();
 		}));
@@ -1547,7 +1555,9 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		let mode: WindowMode;
 
 		// get window mode
-		if (!isMacintosh && this._win.isMaximized()) {
+		// Note: when a window is minimized, isMaximized() returns false, so we need
+		// to check our tracked wasMaximized state to correctly save the maximized mode
+		if (!isMacintosh && (this._win.isMaximized() || (this._win.isMinimized() && this.wasMaximized))) {
 			mode = WindowMode.Maximized;
 		} else {
 			mode = WindowMode.Normal;
