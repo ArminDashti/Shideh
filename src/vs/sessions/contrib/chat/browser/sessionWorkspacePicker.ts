@@ -1161,7 +1161,7 @@ export class WorkspacePicker extends Disposable {
 	 * when the item is a browse action or command rather than a workspace.
 	 */
 	private _reportPickerClosed(item: IWorkspacePickerItem): void {
-		const beforeFromStorage = this._restoreCheckedWorkspace();
+		const beforeFromStorage = this._getCheckedWorkspace();
 		const before = beforeFromStorage ?? this._selectedResolved;
 		const afterUri = item.folderUri;
 		const afterResolved = afterUri ? this._resolveFolder(afterUri) : undefined;
@@ -2253,9 +2253,27 @@ export class WorkspacePicker extends Disposable {
 						: recent.source === 'vscodeWorkspace' ? WorkspaceSelectionOrigin.VSCodeWorkspace : WorkspaceSelectionOrigin.VSCodeRecent,
 				};
 			}
-			return undefined;
-		} catch {
-			return undefined;
+		};
+		void restoration.then(clearRestoration, clearRestoration);
+		return restoration;
+	}
+
+	private async _doRestoreSelection(): Promise<void> {
+		const generation = ++this._restorationGeneration;
+		const restored = await this._restoreSelectedWorkspace();
+		if (generation !== this._restorationGeneration || this._userHasPicked) {
+			return;
+		}
+		const folderUri = restored?.workspace.folders[0]?.root;
+		if ((!folderUri && !this._selectedFolderUri) || this._isSelectedFolder(folderUri)) {
+			return;
+		}
+		this._applySelection(restored);
+		this._updateTriggerLabel();
+		this._onDidChangeSelection.fire();
+		this._onDidSelectWorkspace.fire(this._selectedFolderUri);
+		if (restored) {
+			this._watchForConnectionFailure(restored);
 		}
 	}
 

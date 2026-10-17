@@ -22,6 +22,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { isRecentFolder, IRecentWorkspace as IRecentWorkspaceFile, isStoredWorkspaceFolder, IWorkspacesService, toWorkspaceFolders } from '../../../../platform/workspaces/common/workspaces.js';
 import { ISessionWorkspace } from '../common/session.js';
+import { ISessionsManagementService } from '../common/sessionsManagement.js';
 import { ISessionsProvidersService } from './sessionsProvidersService.js';
 import { WorkspaceHistoryLoadState } from '../../../common/workspaceSelection.js';
 
@@ -94,6 +95,12 @@ export interface ISessionsRecentWorkspacesService {
 	 */
 	getRecentWorkspaces(includeVSCodeRecents?: boolean, collapseWorktrees?: boolean): IRecentWorkspace[];
 
+	/** Returns the highest-priority existing workspace to preselect in a new-session view. */
+	getWorkspaceToRestore(): Promise<IRecentWorkspace | undefined>;
+
+	/** Returns whether `folderUri` can be validated as an existing folder, pruning authoritative stale entries. */
+	isExistingWorkspace(folderUri: URI): Promise<boolean>;
+
 	/** Records `folderUri` as most-recently used; `checked` un-checks every other entry. */
 	addRecentWorkspace(folderUri: URI, providerId: string | undefined, checked: boolean): void;
 
@@ -142,7 +149,7 @@ export class SessionsRecentWorkspacesService extends Disposable implements ISess
 	) {
 		super();
 
-		this._refreshVSCodeRecentWorkspaces();
+		this._initialRecentWorkspacesRefresh = this._refreshVSCodeRecentWorkspaces();
 		this._register(this.workspacesService.onDidChangeRecentlyOpened(() => this._refreshVSCodeRecentWorkspaces()));
 		this._register(this.fileService.onDidChangeFileSystemProviderRegistrations(() => this._refreshVSCodeRecentWorkspaces()));
 	}
@@ -439,6 +446,33 @@ export class SessionsRecentWorkspacesService extends Disposable implements ISess
 			} else {
 				this.storageService.remove(STORAGE_KEY_EXCLUDED_VSCODE_FOLDERS, StorageScope.PROFILE);
 			}
+		}
+	}
+
+	async isExistingWorkspace(folderUri: URI): Promise<boolean> {
+		try {
+			const stat = await this.fileService.stat(folderUri);
+			if (stat.isDirectory) {
+				return true;
+			}
+			this.removeRecentWorkspace(folderUri);
+		} catch (error) {
+			if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
+				this.removeRecentWorkspace(folderUri);
+			}
+		}
+		return false;
+	}
+
+	private _getLastRequestWorkspace(): IStoredRecentWorkspace | undefined {
+		const raw = this.storageService.get(STORAGE_KEY_LAST_REQUEST_WORKSPACE, StorageScope.PROFILE);
+		if (!raw) {
+			return undefined;
+		}
+		try {
+			return JSON.parse(raw) as IStoredRecentWorkspace;
+		} catch {
+			return undefined;
 		}
 	}
 
