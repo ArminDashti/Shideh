@@ -3381,6 +3381,44 @@ suite('RunInTerminalTool', () => {
 		strictEqual(runInTerminalTool.sessionTerminalAssociations.get(sessionResource)!.isBackground, false, 'Terminal should still be foreground after command finishes');
 	});
 
+	test('should dedupe rapid repeated background input-needed notifications', () => {
+		const termId = 'test-input-needed-term';
+		const sessionResource = LocalChatSessionUri.forSession('test-input-needed-session');
+		let output = 'Enter value:';
+
+		const commandFinishedEmitter = new Emitter<{ exitCode: number | undefined }>();
+		const terminalDisposedEmitter = new Emitter<void>();
+		const inputNeededEmitter = new Emitter<void>();
+
+		const terminalInstance = {
+			capabilities: {
+				get: (cap: TerminalCapability) => cap === TerminalCapability.CommandDetection ? { onCommandFinished: commandFinishedEmitter.event } : undefined,
+			},
+			onDisposed: terminalDisposedEmitter.event,
+		} as unknown as ITerminalInstance;
+
+		const outputMonitor = {
+			onDidDetectInputNeeded: inputNeededEmitter.event,
+			continueMonitoringAsync: () => { },
+			dispose: () => { },
+		} as unknown as { onDidDetectInputNeeded: Event<void>; continueMonitoringAsync: () => void; dispose: () => void };
+
+		(runInTerminalTool.constructor as unknown as { _activeExecutions: Map<string, { getOutput(): string }> })._activeExecutions.set(termId, {
+			getOutput: () => output,
+		});
+
+		(runInTerminalTool as unknown as { _registerCompletionNotification: (terminal: ITerminalInstance, termId: string, session: URI, commandName: string, outputMonitor: { onDidDetectInputNeeded: Event<void>; continueMonitoringAsync: () => void; dispose: () => void }) => void })
+			._registerCompletionNotification(terminalInstance, termId, sessionResource, 'npm init', outputMonitor);
+
+		inputNeededEmitter.fire();
+		inputNeededEmitter.fire();
+		strictEqual(capturedSteeringRequests.length, 1, 'Expected duplicate rapid input-needed events to be suppressed');
+
+		output = 'Confirm (y/N):';
+		inputNeededEmitter.fire();
+		strictEqual(capturedSteeringRequests.length, 2, 'Expected a changed prompt to trigger a new notification');
+	});
+
 	suite('auto approve warning acceptance mechanism', () => {
 		test('should require confirmation for auto-approvable commands when warning not accepted', async () => {
 			setConfig(TerminalChatAgentToolsSettingId.EnableAutoApprove, true);
