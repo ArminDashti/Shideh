@@ -492,7 +492,7 @@ export async function getCompletionItemsFromSpecs(
 		const commandEndIndex = spaceIndex === -1 ? currentCommandString.length : spaceIndex;
 		const lastDotIndex = currentCommandString.lastIndexOf('.', commandEndIndex);
 		if (lastDotIndex > 0) { // Don't treat dotfiles as extensions
-			currentCommandString = currentCommandString.substring(0, lastDotIndex) + currentCommandString.substring(spaceIndex);
+			currentCommandString = currentCommandString.substring(0, lastDotIndex) + (spaceIndex === -1 ? '' : currentCommandString.substring(spaceIndex));
 		}
 	}
 
