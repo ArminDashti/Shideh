@@ -119,6 +119,7 @@ export class Workbench extends Layout {
 
 	startup(): IInstantiationService {
 		try {
+			console.log('Hello Code');
 
 			// Configure emitter leak warning threshold
 			this._register(setGlobalLeakWarningThreshold(175));
