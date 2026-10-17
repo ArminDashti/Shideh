@@ -73,6 +73,7 @@ class VisibleTextAreaData {
 	) {
 	}
 
+	// called mainly inside of onCompositionStart and onCompositionUpdate. In order to understand why this is needed, need to first start working with the IME issues, and make the div 0 by 0 pixels before touching this ground.
 	prepareRender(visibleRangeProvider: IVisibleRangeProvider): void {
 		const startModelPosition = new Position(this.modelLineNumber, this.distanceToModelLineStart + 1);
 		const endModelPosition = new Position(this.modelLineNumber, this._context.viewModel.model.getLineMaxColumn(this.modelLineNumber) - this.distanceToModelLineEnd);
@@ -90,6 +91,7 @@ class VisibleTextAreaData {
 		}
 	}
 
+	// This is data relative to the visible text area, also presumably will be needed when working with IME.
 	definePresentation(tokenPresentation: ITokenPresentation | null): ITokenPresentation {
 		if (!this._previousPresentation) {
 			// To avoid flickering, once set, always reuse a presentation throughout the entire IME session
@@ -119,6 +121,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 	private _scrollTop: number;
 
 	private _accessibilitySupport!: AccessibilitySupport;
+	// the number of lines in the hidden text area
 	private _accessibilityPageSize!: number;
 	private _textAreaWrapping!: boolean;
 	private _textAreaWidth!: number;
@@ -128,6 +131,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 	private _fontInfo: FontInfo;
 	private _emptySelectionClipboard: boolean;
 
+	// The text area is visible when using IME?
 	/**
 	 * Defined only when the text area is visible (composition case).
 	 */
@@ -164,6 +168,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		const options = this._context.configuration.options;
 		const layoutInfo = options.get(EditorOption.layoutInfo);
 
+		// Savinf the layout info and the options information
 		this._setAccessibilityOptions(options);
 		this._contentLeft = layoutInfo.contentLeft;
 		this._contentWidth = layoutInfo.contentWidth;
@@ -172,12 +177,14 @@ export class TextAreaEditContext extends AbstractEditContext {
 		this._emptySelectionClipboard = options.get(EditorOption.emptySelectionClipboard);
 
 		this._visibleTextArea = null;
+		// initial selections are an array with one selection at the top left corner
 		this._selections = [new Selection(1, 1, 1, 1)];
 		this._modelSelections = [new Selection(1, 1, 1, 1)];
 		this._lastRenderPosition = null;
 
 		// Text Area (The focus will always be in the textarea when the cursor is blinking)
 		this.textArea = createFastDomNode(document.createElement('textarea'));
+		// Adding som fingerprint attribute to the text area in order for the hit test to determine that this is a text area
 		PartFingerprints.write(this.textArea, PartFingerprint.TextArea);
 		this.textArea.setClassName(`inputarea ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME}`);
 		this.textArea.setAttribute('wrap', this._textAreaWrapping && !this._visibleTextArea ? 'on' : 'off');
@@ -205,19 +212,23 @@ export class TextAreaEditContext extends AbstractEditContext {
 		const textAreaInputHost: ITextAreaInputHost = {
 			context: this._context,
 			getScreenReaderContent: (): TextAreaState => {
+				console.log('getScreenReaderContent');
 				if (this._accessibilitySupport === AccessibilitySupport.Disabled) {
 					// We know for a fact that a screen reader is not attached
 					// On OSX, we write the character before the cursor to allow for "long-press" composition
 					// Also on OSX, we write the word before the cursor to allow for the Accessibility Keyboard to give good hints
 					const selection = this._selections[0];
 					if (platform.isMacintosh && selection.isEmpty()) {
+						// main position of the selection
 						const position = selection.getStartPosition();
 
+						// Either get the character or the word before the position
 						let textBefore = this._getWordBeforePosition(position);
 						if (textBefore.length === 0) {
 							textBefore = this._getCharacterBeforePosition(position);
 						}
 
+						// If there is a character or word before the position, the return a text are state
 						if (textBefore.length > 0) {
 							return new TextAreaState(textBefore, textBefore.length, textBefore.length, Range.fromPositions(position), 0);
 						}
@@ -237,6 +248,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 					// is selected in the textarea.
 					if (browser.isSafari && !selection.isEmpty()) {
 						const placeholderText = 'vscode-placeholder';
+						// if nothing is selected then we send the placeholder text?
 						return new TextAreaState(placeholderText, 0, placeholderText.length, null, undefined);
 					}
 
@@ -269,6 +281,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		};
 
 		const textAreaWrapper = this._register(new TextAreaWrapper(this.textArea.domNode));
+		// we have some options indicating whether we are on android, chrome, firefox or safari
 		this._textAreaInput = this._register(this._instantiationService.createInstance(TextAreaInput, textAreaInputHost, textAreaWrapper, platform.OS, {
 			isAndroid: browser.isAndroid,
 			isChrome: browser.isChrome,
@@ -311,6 +324,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 				if (_debugComposition) {
 					console.log(` => compositionType: <<${e.text}>>, ${e.replacePrevCharCnt}, ${e.replaceNextCharCnt}, ${e.positionDelta}`);
 				}
+				// sending type event forwards
 				this._viewController.compositionType(e.text, e.replacePrevCharCnt, e.replaceNextCharCnt, e.positionDelta);
 			} else {
 				if (_debugComposition) {
@@ -321,6 +335,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		}));
 
 		this._register(this._textAreaInput.onSelectionChangeRequest((modelSelection: Selection) => {
+			// when the selection changes on the text are input, then we change it also in the view controller
 			this._viewController.setSelection(modelSelection);
 		}));
 
@@ -348,13 +363,17 @@ export class TextAreaEditContext extends AbstractEditContext {
 			const ta = this.textArea.domNode;
 			const modelSelection = this._modelSelections[0];
 
+			// immediately executed function
 			const { distanceToModelLineStart, widthOfHiddenTextBefore } = (() => {
 				// Find the text that is on the current line before the selection
 				const textBeforeSelection = ta.value.substring(0, Math.min(ta.selectionStart, ta.selectionEnd));
+				// finding the last index of the new line character
 				const lineFeedOffset1 = textBeforeSelection.lastIndexOf('\n');
+				// find the last line after the last new line character
 				const lineTextBeforeSelection = textBeforeSelection.substring(lineFeedOffset1 + 1);
 
 				// We now search to see if we should hide some part of it (if it contains \t)
+				// finding the last tab index
 				const tabOffset1 = lineTextBeforeSelection.lastIndexOf('\t');
 				const desiredVisibleBeforeCharCount = lineTextBeforeSelection.length - tabOffset1 - 1;
 				const startModelPosition = modelSelection.getStartPosition();
@@ -383,6 +402,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			})();
 
 			// Scroll to reveal the location in the editor where composition occurs
+			// Scrolling in an immediate manner
 			this._context.viewModel.revealRange(
 				'keyboard',
 				true,
@@ -408,6 +428,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			// Show the textarea
 			this.textArea.setClassName(`inputarea ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME} ime-input`);
 
+			// need to signal that the composition has started to the view controller and the context view model
 			this._viewController.compositionStart();
 			this._context.viewModel.onCompositionStart();
 		}));
@@ -455,6 +476,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 	}
 
 	public writeScreenReaderContent(reason: string): void {
+		// write the screen reader content in the text area input
 		this._textAreaInput.writeNativeTextAreaContent(reason);
 	}
 
@@ -468,6 +490,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		this.textAreaCover.domNode.remove();
 	}
 
+	// Getting the android word when placing the finger on a specific position
 	private _getAndroidWordAtPosition(position: Position): [string, number] {
 		if (position.lineNumber > this._context.viewModel.getLineCount()) {
 			return ['', 0];
@@ -551,9 +574,11 @@ export class TextAreaEditContext extends AbstractEditContext {
 		this._accessibilitySupport = options.get(EditorOption.accessibilitySupport);
 		const accessibilityPageSize = options.get(EditorOption.accessibilityPageSize);
 		if (this._accessibilitySupport === AccessibilitySupport.Enabled && accessibilityPageSize === EditorOptions.accessibilityPageSize.defaultValue) {
-			// If a screen reader is attached and the default value is not set we should automatically increase the page size to 500 for a better experience
+			// If a screen reader is attached and the default value is not set we should automatically increase the page size to 500 for a better experience.
+			// Meaning that the hidden text area will have 500 lines of text
 			this._accessibilityPageSize = 500;
 		} else {
+			// The value of the setting
 			this._accessibilityPageSize = accessibilityPageSize;
 		}
 

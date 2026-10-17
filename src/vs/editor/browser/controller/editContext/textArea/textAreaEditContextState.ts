@@ -56,6 +56,7 @@ export class TextAreaState {
 			const valueBeforeSelectionStart = value.substring(0, selectionStart);
 			const previousValueBeforeSelectionStart = previousState.value.substring(0, previousState.selectionStart);
 			if (valueBeforeSelectionStart === previousValueBeforeSelectionStart) {
+				// if the value before the selection start is equal to the previous value before the selection start then update the new line count before the selection
 				newlineCountBeforeSelection = previousState.newlineCountBeforeSelection;
 			}
 		}
@@ -84,6 +85,7 @@ export class TextAreaState {
 		}
 		textArea.setValue(reason, this.value);
 		if (select) {
+			// if the selection should be reset then we set the selection range using the fields selectionStart and selectionEnd
 			textArea.setSelectionRange(reason, this.selectionStart, this.selectionEnd);
 		}
 	}
