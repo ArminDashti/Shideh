@@ -218,13 +218,14 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 
 	constructor(
 		labelOrSerializedGroup: ISerializedEditorGroupModel | undefined,
+		uriResolver: ((uri: URI) => URI) | undefined,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		super();
 
 		if (isSerializedEditorGroupModel(labelOrSerializedGroup)) {
-			this._id = this.deserialize(labelOrSerializedGroup);
+			this._id = this.deserialize(labelOrSerializedGroup, uriResolver);
 		} else {
 			this._id = EditorGroupModel.IDS++;
 		}
@@ -1157,7 +1158,7 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 	}
 
 	clone(): EditorGroupModel {
-		const clone = this.instantiationService.createInstance(EditorGroupModel, undefined);
+		const clone = this.instantiationService.createInstance(EditorGroupModel, undefined, undefined);
 
 		// Copy over group properties
 		clone.editors = this.editors.slice(0);
@@ -1229,7 +1230,7 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 		};
 	}
 
-	private deserialize(data: ISerializedEditorGroupModel): number {
+	private deserialize(data: ISerializedEditorGroupModel, uriResolver?: (uri: URI) => URI): number {
 		const registry = Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory);
 
 		if (typeof data.id === 'number') {
@@ -1249,7 +1250,7 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 
 			const editorSerializer = registry.getEditorSerializer(e.id);
 			if (editorSerializer) {
-				const deserializedEditor = editorSerializer.deserialize(this.instantiationService, e.value);
+				const deserializedEditor = editorSerializer.deserialize(this.instantiationService, e.value, uriResolver);
 				if (deserializedEditor instanceof EditorInput) {
 					editor = deserializedEditor;
 					this.registerEditorListeners(editor);

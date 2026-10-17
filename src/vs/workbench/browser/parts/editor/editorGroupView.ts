@@ -182,9 +182,9 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		if (from instanceof EditorGroupView) {
 			this.model = this._register(from.model.clone());
 		} else if (isSerializedEditorGroupModel(from)) {
-			this.model = this._register(instantiationService.createInstance(EditorGroupModel, from));
+			this.model = this._register(instantiationService.createInstance(EditorGroupModel, from, this.uriResolver));
 		} else {
-			this.model = this._register(instantiationService.createInstance(EditorGroupModel, undefined));
+			this.model = this._register(instantiationService.createInstance(EditorGroupModel, undefined, this.uriResolver));
 		}
 
 		//#region create()

@@ -195,6 +195,55 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		this._partOptions = getEditorPartOptions(this.configurationService, this.themeService);
 
 		this.registerListeners();
+
+		this._register(EditSessionRegistry.registerEditSessionsContribution('workbenchEditorLayout', this));
+	}
+
+	private static readonly EditSessionContributionSchemaVersion = 1;
+
+	getStateToStore() {
+		return {
+			version: EditorPart.EditSessionContributionSchemaVersion,
+			serializedGrid: this.gridWidget.serialize(),
+			activeGroup: this._activeGroup.id,
+			mostRecentActiveGroups: this.mostRecentActiveGroups
+		};
+	}
+
+	resumeState(state: unknown, uriResolver: (uri: URI) => URI) {
+		if (typeof state === 'object' && state !== null && 'serializedGrid' in state && 'activeGroup' in state && 'mostRecentActiveGroups' in state && 'version' in state) {
+			if (state.version === EditorPart.EditSessionContributionSchemaVersion) {
+				this.mostRecentActiveGroups = (state as IEditorPartUIState).mostRecentActiveGroups;
+				this.instantiationService.invokeFunction(async (accessor) => {
+					const restoreFocus = this.shouldRestoreFocus(this.container);
+
+					await accessor.get(ICommandService).executeCommand('workbench.action.closeAllEditors').catch(() => { });
+
+					const serializedGrid = (state as IEditorPartUIState).serializedGrid;
+
+					this.doCreateGridControlWithState(serializedGrid, (state as IEditorPartUIState).activeGroup, undefined, uriResolver);
+
+					// Layout
+					this.doLayout(this._contentDimension);
+
+					// Update container
+					this.updateContainer();
+
+					// Events for groups that got added
+					for (const groupView of this.getGroups(GroupsOrder.GRID_APPEARANCE)) {
+						this._onDidAddGroup.fire(groupView);
+					}
+
+					// Notify group index change given layout has changed
+					this.notifyGroupIndexChange();
+
+					// Restore focus as needed
+					if (restoreFocus) {
+						this._activeGroup.focus();
+					}
+				});
+			}
+		}
 	}
 
 	private registerListeners(): void {
