@@ -1038,7 +1038,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 						store.add(this.capabilities.onDidAddCommandDetectionCapability(waitForPromptInput));
 					}
 				}),
-				timeout(timeoutMs)
+				timeout(timeoutMs).then(() => {
+					this._logService.trace(`runCommand: Timed out waiting for command detection prompt input after ${timeoutMs}ms, proceeding to run command`);
+				})
 			]);
 			store.dispose();
 		}
@@ -1050,6 +1052,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this.xterm?.shellIntegration.setNextCommandId(commandLineToReport, commandId);
 			await this._processManager.setNextCommandId(commandLineToReport, commandId);
 		}
+
+		// TODO: Friday)
+		// - Figure out which of the component is leading to \x03
 
 		// Determine whether to send ETX (ctrl+c) before running the command. Only do this when the
 		// command will be executed immediately or when command detection shows the prompt contains text.
