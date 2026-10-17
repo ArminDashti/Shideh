@@ -3581,7 +3581,7 @@ export class ChatToolInvocationPart {
 	pastTenseMessage?: string | vscode.MarkdownString;
 	isConfirmed?: boolean;
 	isComplete?: boolean;
-	toolSpecificData?: ChatTerminalToolInvocationData2;
+	toolSpecificData?: ChatTerminalToolInvocationData2 | ChatMcpToolInvocationData | ChatTodoToolInvocationData;
 	subAgentInvocationId?: string;
 	subAgentName?: string;
 	presentation?: 'hidden' | 'hiddenAfterComplete' | undefined;
