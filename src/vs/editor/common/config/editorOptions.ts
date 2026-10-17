@@ -795,6 +795,11 @@ export interface IEditorOptions {
 	 */
 	renderLineHighlightOnlyWhenFocus?: boolean;
 	/**
+	 * Control if the current line highlight should be rendered when there is a selection.
+	 * Defaults to false.
+	 */
+	cursorSurroundingLinesHighlightOnSelection?: boolean;
+	/**
 	 * Inserting and deleting whitespace follows tab stops.
 	 */
 	useTabStops?: boolean;
@@ -6062,6 +6067,7 @@ export const enum EditorOption {
 	renderFinalNewline,
 	renderLineHighlight,
 	renderLineHighlightOnlyWhenFocus,
+	cursorSurroundingLinesHighlightOnSelection,
 	renderValidationDecorations,
 	renderWhitespace,
 	renderWordWrapIndicator,
@@ -6765,6 +6771,10 @@ export const EditorOptions = {
 	renderLineHighlightOnlyWhenFocus: register(new EditorBooleanOption(
 		EditorOption.renderLineHighlightOnlyWhenFocus, 'renderLineHighlightOnlyWhenFocus', false,
 		{ description: nls.localize('renderLineHighlightOnlyWhenFocus', "Controls if the editor should render the current line highlight only when the editor is focused.") }
+	)),
+	cursorSurroundingLinesHighlightOnSelection: register(new EditorBooleanOption(
+		EditorOption.cursorSurroundingLinesHighlightOnSelection, 'cursorSurroundingLinesHighlightOnSelection', false,
+		{ description: nls.localize('cursorSurroundingLinesHighlightOnSelection', "Controls whether the editor should render the current line highlight when there is a selection.") }
 	)),
 	renderValidationDecorations: register(new EditorStringEnumOption(
 		EditorOption.renderValidationDecorations, 'renderValidationDecorations',

@@ -4065,6 +4065,11 @@ declare namespace monaco.editor {
 		 */
 		renderLineHighlightOnlyWhenFocus?: boolean;
 		/**
+		 * Control if the current line highlight should be rendered when there is a selection.
+		 * Defaults to false.
+		 */
+		cursorSurroundingLinesHighlightOnSelection?: boolean;
+		/**
 		 * Inserting and deleting whitespace follows tab stops.
 		 */
 		useTabStops?: boolean;
