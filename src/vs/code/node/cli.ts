@@ -38,7 +38,7 @@ function shouldSpawnCliProcess(argv: NativeParsedArgs): boolean {
 		|| !!argv['update-extensions']
 		|| !!argv['locate-extension']
 		|| !!argv['add-mcp']
-		|| !!argv['telemetry'];
+		|| !!argv.telemetry;
 }
 
 export async function main(argv: string[]): Promise<void> {
@@ -65,7 +65,7 @@ export async function main(argv: string[]): Promise<void> {
 			// on the following variable. For the server we need to unset
 			// it to prevent importing any electron specific modules.
 			// Refs https://github.com/microsoft/vscode/issues/221883
-			delete env['ELECTRON_RUN_AS_NODE'];
+			delete env.ELECTRON_RUN_AS_NODE;
 
 			const tunnelArgs = argv.slice(argv.indexOf(subcommand) + 1); // all arguments behind `tunnel`
 			return new Promise((resolve, reject) => {
@@ -227,12 +227,12 @@ export async function main(argv: string[]): Promise<void> {
 			'ELECTRON_NO_ATTACH_CONSOLE': '1'
 		};
 
-		delete env['ELECTRON_RUN_AS_NODE'];
+		delete env.ELECTRON_RUN_AS_NODE;
 
 		const processCallbacks: ((child: ChildProcess) => Promise<void>)[] = [];
 
 		if (args.verbose) {
-			env['ELECTRON_ENABLE_LOGGING'] = '1';
+			env.ELECTRON_ENABLE_LOGGING = '1';
 		}
 
 		if (args.verbose || args.status) {
@@ -245,7 +245,7 @@ export async function main(argv: string[]): Promise<void> {
 		}
 
 		// Handle --transient option
-		if (args['transient']) {
+		if (args.transient) {
 			const tempParentDir = randomPath(tmpdir(), 'vscode');
 			const tempUserDataDir = join(tempParentDir, 'data');
 			const tempExtensionsDir = join(tempParentDir, 'extensions');
@@ -485,13 +485,13 @@ export async function main(argv: string[]): Promise<void> {
 		};
 
 		if (!args.verbose) {
-			options['stdio'] = 'ignore';
+			options.stdio = 'ignore';
 		}
 
 		let child: ChildProcess;
 		if (!isMacintosh) {
 			if (!args.verbose && args.status) {
-				options['stdio'] = ['ignore', 'pipe', 'ignore']; // restore ability to see output when --status is used
+				options.stdio = ['ignore', 'pipe', 'ignore']; // restore ability to see output when --status is used
 			}
 
 			// On Windows, Chromium filters standalone URL-like argv tokens (containing "://")
@@ -561,7 +561,7 @@ export async function main(argv: string[]): Promise<void> {
 
 			spawnArgs.push('--args', ...argv.slice(2)); // pass on our arguments
 
-			if (env['VSCODE_DEV']) {
+			if (env.VSCODE_DEV) {
 				// If we're in development mode, replace the . arg with the
 				// vscode source arg. Because the OSS app isn't bundled,
 				// it needs the full vscode source arg to launch properly.
