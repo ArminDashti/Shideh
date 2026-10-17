@@ -1172,6 +1172,33 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 	}
 
 	/**
+	 * Filter out custom agents with target: vscode from option groups.
+	 * These agents have tools that are only available in VS Code's Agent and
+	 * should not be shown in external providers like the Background Agent.
+	 */
+	private async _filterOptionGroupsForVSCodeTarget(optionGroups: IChatSessionProviderOptionGroup[]): Promise<IChatSessionProviderOptionGroup[]> {
+		try {
+			// Get all custom agents to check their target
+			const customAgents = await this._promptsService.getCustomAgents(CancellationToken.None);
+			const vsCodeTargetAgentNames = new Set(
+				customAgents
+					.filter(agent => agent.target === 'vscode')
+					.map(agent => agent.name)
+			);
+
+			// Filter out option items whose id matches a vscode-targeted agent
+			return optionGroups.map(group => ({
+				...group,
+				items: group.items.filter(item => !vsCodeTargetAgentNames.has(item.id))
+			})).filter(group => group.items.length > 0); // Remove empty groups
+		} catch (error) {
+			this._logService.error('Error filtering option groups for vscode target:', error);
+			// On error, return original option groups to avoid breaking functionality
+			return optionGroups;
+		}
+	}
+
+	/**
 	 * Notify the extension about option changes for a session
 	 */
 	async notifyOptionsChange(handle: number, sessionId: string, updates: ReadonlyArray<{ optionId: string; value: string | undefined }>): Promise<void> {
