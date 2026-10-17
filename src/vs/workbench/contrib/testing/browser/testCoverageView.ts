@@ -733,7 +733,7 @@ registerAction2(class TestCoverageChangePerTestFilterAction extends Action2 {
 		type TItem = { label: string; description?: string; testId?: TestId };
 
 		const items: QuickPickInput<TItem>[] = [
-			{ label: coverUtils.labels.allTests, id: undefined },
+			{ label: coverUtils.labels.allTests, testId: undefined },
 			{ type: 'separator' },
 			...tests.map(testId => ({ ...coverUtils.getLabelForItem(result, testId, commonPrefix), testId })),
 		];
