@@ -16,6 +16,10 @@ import { createDecorator } from '../../instantiation/common/instantiation.js';
 import { IFileService } from '../../files/common/files.js';
 import { INativeEnvironmentService } from '../../environment/common/environment.js';
 import { ILogService } from '../../log/common/log.js';
+import { IFileService } from '../../files/common/files.js';
+import { INativeEnvironmentService } from '../../environment/common/environment.js';
+import { IAgentPluginManager } from '../common/agentPluginManager.js';
+import { AgentHostAutomationCustomizations } from './agentHostAutomationCustomizations.js';
 import { getAutomationTelemetryIsolation, getAutomationTelemetryMode, getAutomationTelemetryPermissionLevel, getAutomationTelemetryProvider, logAutomationCreated, logAutomationUpdated, logAutomationDeleted, logAutomationRunCreated, logAutomationRunCompleted, logAutomationRunStarted, type AutomationRunOutcome, type IAutomationConfigurationTelemetry, type IAutomationDefinitionTelemetry, type IAutomationRunTelemetry } from './agentHostAutomationTelemetry.js';
 import { toTelemetryModel } from './agentHostTelemetryReporter.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
@@ -146,7 +150,9 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		@INativeEnvironmentService private readonly _environmentService: INativeEnvironmentService,
 	) {
 		super();
+		this._customizations = new AgentHostAutomationCustomizations(pluginManager.hostPluginsPath, fileService, this._logService, environmentService.userHome);
 		this._register(toDisposable(() => this._cancellations.clear()));
+		this._register(toDisposable(() => this._mcpAuthenticationChallenges.clear()));
 		const stored = this._load();
 		this._runs = new Map(stored?.runs?.map(run => [run.resource, run]));
 		this._sessionCreationByRun = new Map(stored?.sessionCreations?.map(creation => [creation.run, creation.session]));
@@ -203,6 +209,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		return this.isAvailable ? {
 			create: {},
 			schedules: {},
+			customizations: {},
 			runCancellation: {},
 			runHistoryLimit: RUN_HISTORY_PAGE_SIZE,
 		} : undefined;
@@ -352,6 +359,17 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			this._scheduleNext();
 		} finally {
 			lease.dispose();
+		}
+	}
+
+	/** Runs a catalogue mutation, then reclaims copies it left unreferenced, including those of a rejected capture. */
+	private async _collectingCustomizations(mutation: () => Promise<void>): Promise<void> {
+		try {
+			await mutation();
+		} finally {
+			if (this._catalog) {
+				await this._customizations.collectGarbage(this._catalog.entries);
+			}
 		}
 	}
 
@@ -859,7 +877,15 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 
 	private async _startRun(initialRun: AutomationRunState, definition: AutomationDefinition, customizations: readonly PluginCustomization[]): Promise<void> {
 		try {
-			const template = getExecutionSessionTemplate(definition);
+			await this._startup;
+			const entry = this._catalog?.entries.find(candidate => candidate.resource === initialRun.automation);
+			if (!entry) {
+				throw new Error(`Automation not found: ${initialRun.automation}`);
+			}
+			definition = entry.definition;
+			const sessionTemplate = getExecutionSessionTemplate(definition);
+			const template = { ...sessionTemplate, agent: this._customizations.resolveAgent(sessionTemplate, entry.customizations ?? []) };
+			const activeClient = this._customizations.toRunActiveClient(entry);
 			if (!this._execution.isSessionTemplateAvailable(template)) {
 				this._logService.info(`[AgentHostAutomationService] Deferring Automation run until its provider is available: run=${initialRun.resource}.`);
 				return;
@@ -1050,6 +1076,14 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		if (envelope.rejectionReason) {
 			return;
 		}
+		switch (envelope.action.type) {
+			case ActionType.SessionCustomizationsChanged:
+			case ActionType.SessionCustomizationUpdated:
+			case ActionType.SessionCustomizationRemoved:
+			case ActionType.SessionMcpServerStateChanged:
+				this._handleMcpAuthentication(envelope.channel);
+				break;
+		}
 		if (!isDefaultChatUri(envelope.channel)) {
 			return;
 		}
@@ -1100,6 +1134,64 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			}
 			await this._commitRun({ ...current, lifecycle }, [{ type: ActionType.AutomationRunLifecycleChanged, lifecycle }]);
 		}).catch(error => this._logService.error(`[AgentHostAutomationService] Failed to persist terminal automation lifecycle: run=${run.resource}, error=${toErrorMessage(error)}`));
+	}
+
+	private _handleMcpAuthentication(session: string): void {
+		if (!this.isAvailable || !this._isAutomationsEnabled() || this._store.isDisposed) {
+			this._mcpAuthenticationChallenges.clear();
+			return;
+		}
+		const runSessions = new Set([...this._runs.values()].flatMap(run => run.sessions));
+		for (const trackedSession of this._mcpAuthenticationChallenges.keys()) {
+			if (!runSessions.has(trackedSession)) {
+				this._mcpAuthenticationChallenges.delete(trackedSession);
+			}
+		}
+		if (!runSessions.has(session)) {
+			return;
+		}
+		const servers = getMcpServerCustomizations(this._stateManager.getSessionState(session)?.customizations ?? []);
+		const challenges = this._mcpAuthenticationChallenges.get(session) ?? new Map<string, Set<string>>();
+		this._mcpAuthenticationChallenges.set(session, challenges);
+		for (const serverName of challenges.keys()) {
+			if (!servers.some(server => server.name === serverName && server.state?.kind === McpServerStatus.AuthRequired)) {
+				challenges.delete(serverName);
+			}
+		}
+		for (const server of servers) {
+			if (server.state?.kind !== McpServerStatus.AuthRequired) {
+				continue;
+			}
+			const { resource, requiredScopes, reason, oauthClient, description } = server.state;
+			const auth: McpAuthRequirement = {
+				resource, reason,
+				...(requiredScopes !== undefined ? { requiredScopes } : {}),
+				...(oauthClient !== undefined ? { oauthClient } : {}),
+				...(description !== undefined ? { description } : {}),
+			};
+			const key = JSON.stringify([resource, requiredScopes, reason, oauthClient?.clientId]);
+			const attempted = challenges.get(server.name) ?? new Set<string>();
+			if (attempted.has(key)) {
+				continue;
+			}
+			attempted.add(key);
+			challenges.set(server.name, attempted);
+			void this._requestMcpAuthentication(session, { serverName: server.name, auth });
+		}
+		if (challenges.size > 0) {
+			this._mcpAuthenticationChallenges.set(session, challenges);
+		} else {
+			this._mcpAuthenticationChallenges.delete(session);
+		}
+	}
+
+	private async _requestMcpAuthentication(session: string, request: IAgentHostMcpAuthenticationRequest): Promise<void> {
+		try {
+			const authenticated = await this._clientConnections.requestMcpAuthentication(request);
+			this._logService.info(`[AgentHostAutomationService] MCP authentication completed: session=${session}, server=${request.serverName}, authenticated=${authenticated}.`);
+		} catch (error) {
+			this._logService.info(`[AgentHostAutomationService] MCP authentication failed: session=${session}, server=${request.serverName}, error=${toErrorMessage(error)}`);
+		}
 	}
 
 	private async _commitRun(

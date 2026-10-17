@@ -314,6 +314,7 @@ function defaultChatUri(session: URI): URI {
 class FakeAgentPluginManager implements IAgentPluginManager {
 	declare readonly _serviceBrand: undefined;
 	readonly basePath = URI.from({ scheme: 'inmemory', path: '/agentPlugins' });
+	readonly hostPluginsPath = URI.joinPath(this.basePath, '.host');
 
 	syncResult: readonly ISyncedCustomization[] | undefined;
 	syncCalls: { clientId: string; customizations: readonly ClientPluginCustomization[] }[] = [];

@@ -5,9 +5,11 @@
 
 import assert from 'assert';
 import { DeferredPromise, timeout } from '../../../../base/common/async.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
 import { constObservable, observableValue } from '../../../../base/common/observable.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
@@ -57,9 +59,27 @@ suite('AgentHostAutomationService', () => {
 	let writeAttempts: number;
 	let storageEvents: string[] | undefined;
 	let telemetry: RecordingAutomationTelemetry;
+	let fileService: FileService;
+	let pluginManager: AgentPluginManager;
+	let clientConnections: AgentHostClientConnectionService;
+	let authenticationRequests: IAgentHostMcpAuthenticationRequest[];
+	let authenticationResult: Promise<boolean>;
 
 	setup(() => {
 		disposables = new DisposableStore();
+		clientConnections = disposables.add(new AgentHostClientConnectionService());
+		authenticationRequests = [];
+		authenticationResult = Promise.resolve(false);
+		disposables.add(clientConnections.registerSource({
+			hasSeenClient: () => false,
+			isClientConnected: () => false,
+			getConnectedClientTransportCounts: () => new Map(),
+			requestWorkspaceTrust: async () => false,
+			requestMcpAuthentication: request => {
+				authenticationRequests.push(request);
+				return authenticationResult;
+			},
+		}));
 		stateManager = disposables.add(new AgentHostStateManager(new NullLogService()));
 		stateManager.dispatchServerAction(ROOT_STATE_URI, {
 			type: ActionType.RootConfigChanged,
@@ -69,6 +89,10 @@ suite('AgentHostAutomationService', () => {
 		writeAttempts = 0;
 		storageEvents = undefined;
 		telemetry = new RecordingAutomationTelemetry();
+		fileService = disposables.add(new FileService(new NullLogService()));
+		disposables.add(fileService.registerProvider(Schemas.file, disposables.add(new InMemoryFileSystemProvider())));
+		disposables.add(fileService.registerProvider(AGENT_CLIENT_SCHEME, disposables.add(new InMemoryFileSystemProvider())));
+		pluginManager = new AgentPluginManager(URI.file('/userData'), fileService, new NullLogService());
 		const writer: IAgentHostStorageWriter = {
 			mkdir: async () => { },
 			writeFile: async () => {
@@ -510,7 +534,7 @@ suite('AgentHostAutomationService', () => {
 			definition: stateManager.getAutomationCatalogState()?.entries[0].definition,
 			operations: stateManager.getAutomationCatalogState()?.entries[0].operations,
 		}, {
-			capabilities: { create: {}, schedules: {}, runCancellation: {}, runHistoryLimit: 50 },
+			capabilities: { create: {}, schedules: {}, customizations: {}, runCancellation: {}, runHistoryLimit: 50 },
 			triggers: { items: [] },
 			definition: savedDefinition,
 			operations: [AutomationOperation.Update, AutomationOperation.Remove, AutomationOperation.Run],

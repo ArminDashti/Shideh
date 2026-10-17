@@ -891,6 +891,27 @@ async function forceAuthenticationInteractively(
 	}
 }
 
+/** Supplies a previously authorized MCP token without creating sessions or prompting for access. */
+export function autoAuthenticateMcpServer(
+	accessor: ServicesAccessor,
+	connection: IAgentConnection,
+	agentHost: { readonly scheme: string; readonly authority: string },
+	serverName: string,
+	auth: Pick<McpAuthRequirement, 'resource' | 'oauthClient' | 'requiredScopes'>,
+): Promise<boolean> {
+	return resolveMcpServerAuthentication(accessor, auth.resource, {
+		allowInteraction: false,
+		logPrefix: '[AgentHost]',
+		mcpServerId: agentHostMcpServerId(agentHost.authority, serverName, auth.resource.resource),
+		mcpServerName: serverName,
+		mcpServerUrl: auth.resource.resource,
+		oauthClient: auth.oauthClient,
+		scopes: auth.requiredScopes ?? [],
+		agentHost,
+		authenticate: request => connection.authenticate(request),
+	});
+}
+
 export async function resolveMcpServerAuthentication(
 	accessor: ServicesAccessor,
 	protectedResource: ProtectedResourceMetadata,

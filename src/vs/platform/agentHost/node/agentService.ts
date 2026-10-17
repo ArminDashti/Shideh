@@ -893,6 +893,7 @@ export class AgentService extends Disposable implements IAgentService {
 				provider: template.provider,
 				model: template.model,
 				agent: template.agent,
+				activeClient,
 				workingDirectories: template.workingDirectories?.map(resource => URI.parse(resource)),
 				config: template.config,
 			}, {
