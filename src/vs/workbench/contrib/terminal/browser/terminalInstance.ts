@@ -2489,7 +2489,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		const colorStyleDisposable = createColorStyleElement(colorTheme);
 		const items: QuickPickItem[] = [];
 		for (const colorKey of standardColors) {
-			const colorClass = getColorClass(colorKey);
+			const colorClass = getColorClass(colorKey) || '';
 			items.push({
 				label: `$(${Codicon.circleFilled.id}) ${colorKey.replace('terminal.ansi', '')}`, id: colorKey, description: colorKey, iconClasses: [colorClass]
 			});

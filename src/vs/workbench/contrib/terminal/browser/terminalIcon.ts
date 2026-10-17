@@ -27,8 +27,8 @@ export function getColorClass(terminalOrColorKey: ITerminalInstance | IExtension
 	let color = undefined;
 	if (isString(terminalOrColorKey)) {
 		color = terminalOrColorKey;
-	} else if (terminalOrColorKey.color) {
-		color = terminalOrColorKey.color.replace(/\./g, '_');
+	} else if ('color' in terminalOrColorKey) {
+		color = terminalOrColorKey.color?.replace(/\./g, '_');
 	} else if (ThemeIcon.isThemeIcon(terminalOrColorKey.icon) && terminalOrColorKey.icon.color) {
 		color = terminalOrColorKey.icon.color.id.replace(/\./g, '_');
 	}
