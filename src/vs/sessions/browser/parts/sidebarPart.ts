@@ -75,6 +75,7 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	private sidebarTitleLeadingToolbar: IDisposable | undefined;
 	private footerToolbar: MenuWorkbenchToolBar | undefined;
 	private previousLayoutDimensions: { width: number; height: number; top: number; left: number } | undefined;
+	private isInactive: boolean = false;
 
 	//#region IView
 
@@ -146,6 +147,11 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			menuService,
 			configurationService,
 		);
+
+		this._register(this.hostService.onDidChangeFocus(focused => {
+			this.isInactive = !focused;
+			this.updateStyles();
+		}));
 	}
 
 	override create(parent: HTMLElement): void {
