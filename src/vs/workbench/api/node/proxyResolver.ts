@@ -53,7 +53,7 @@ export function connectProxyResolver(
 	const isRemote = initData.remote.isRemote;
 	const useHostProxyDefault = initData.environment.useHostProxy ?? !isRemote;
 	const fallbackToLocalKerberos = useHostProxyDefault;
-	const loadLocalCertificates = useHostProxyDefault;
+	const loadCertificatesFromMainProcess = initData.environment.useHostProxy ?? false;
 	const isUseHostProxyEnabled = () => !isRemote || configProvider.getConfiguration('http').get<boolean>('useLocalProxyConfiguration', useHostProxyDefault);
 	const timedResolveProxy = createTimedResolveProxy(extHostWorkspace, mainThreadTelemetry);
 	const params: ProxyAgentParams = {

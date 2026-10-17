@@ -287,6 +287,13 @@ export class NativeLocalProcessExtensionHost extends Disposable implements IExte
 		// unconditionally.
 		opts.execArgv.unshift('--dns-result-order=ipv4first', '--experimental-network-inspection');
 
+		// TODO
+		// const values: ConfigurationInspect<T> | undefined = configProvider.getConfiguration().inspect<T>(key);
+		// return values?.globalLocalValue ?? values?.defaultValue ?? fallback;
+		if (this._configurationService.getValue('http.systemCertificates')) {
+			opts.execArgv.unshift('--use-system-ca');
+		}
+
 		// Catch all output coming from the extension host process
 		type Output = { data: string; format: string[] };
 		const onStdout = this._register(this._handleProcessOutputStream(this._extensionHostProcess.onStdout));
