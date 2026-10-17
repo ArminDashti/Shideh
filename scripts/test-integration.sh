@@ -333,7 +333,7 @@ npm run test-extension -- -l copilot "${GREP_ARGS[@]}"
 kill_app
 fi
 
-# Tests standalone (CommonJS)
+# # Tests standalone (CommonJS)
 
 if should_run_suite css; then
 echo

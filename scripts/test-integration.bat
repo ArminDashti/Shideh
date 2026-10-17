@@ -301,7 +301,7 @@ if defined GREP_PATTERN (
 if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_copilot
 
-:: Tests standalone (CommonJS)
+@REM :: Tests standalone (CommonJS)
 
 call :should_run_suite css || goto skip_css
 echo.
