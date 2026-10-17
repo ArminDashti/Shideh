@@ -2872,6 +2872,10 @@ export interface IChatResponseClearToPreviousToolInvocationDto {
 	reason: ChatResponseClearToPreviousToolInvocationReason;
 }
 
+export interface IChatClearWidgetDto {
+	kind: 'clearWidget';
+}
+
 export type ICellEditOperationDto =
 	notebookCommon.ICellMetadataEdit
 	| notebookCommon.IDocumentMetadataEdit

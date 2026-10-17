@@ -3407,6 +3407,14 @@ export namespace ChatResponseCodeCitationPart {
 	}
 }
 
+export namespace ChatResponseClearWidgetPart {
+	export function from(part: vscode.ChatResponseClearWidgetPart): extHostProtocol.IChatClearWidgetDto {
+		return {
+			kind: 'clearWidget'
+		};
+	}
+}
+
 export namespace ChatResponsePart {
 
 	export function from(part: vscode.ExtendedChatResponsePart, commandsConverter: CommandsConverter, commandDisposables: DisposableStore): extHostProtocol.IChatProgressDto {
