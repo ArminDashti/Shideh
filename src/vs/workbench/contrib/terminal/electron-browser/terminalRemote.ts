@@ -12,7 +12,6 @@ import { registerTerminalAction } from '../browser/terminalActions.js';
 import { TerminalCommandId, ITerminalProfileResolverService } from '../common/terminal.js';
 import { ITerminalLogService } from '../../../../platform/terminal/common/terminal.js';
 import { IHistoryService } from '../../../services/history/common/history.js';
-import { OS } from '../../../../base/common/platform.js';
 
 export function registerRemoteContributions() {
 	registerTerminalAction({
