@@ -116,6 +116,10 @@ suite('ChatQuotaExceededPart', () => {
 		return widget.domNode.querySelector('.chat-quota-error-button');
 	}
 
+	function getRetryButton(widget: ChatQuotaExceededPart): HTMLElement | null {
+		return widget.domNode.querySelector('.chat-quota-error-secondary-button');
+	}
+
 	teardown(() => {
 		for (const el of mainWindow.document.body.querySelectorAll('.chat-quota-error-widget')) {
 			el.remove();
@@ -194,6 +198,7 @@ suite('ChatQuotaExceededPart', () => {
 			await new Promise(r => setTimeout(r, 0));
 
 			assert.strictEqual(executedCommands[0], 'workbench.action.chat.manageAdditionalSpend');
+			assert.strictEqual(getRetryButton(widget), null);
 		});
 
 		test('Free user clicks "Upgrade" -> upgradePlan', async () => {
