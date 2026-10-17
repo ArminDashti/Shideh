@@ -56,6 +56,7 @@ import { IChatOutputRendererService, type RenderedOutputPart } from '../../chatO
 import { allowedChatMarkdownHtmlTags } from '../chatContentMarkdownRenderer.js';
 import { IMarkdownDiffBlockData, MarkdownDiffBlockPart, parseUnifiedDiff } from './chatDiffBlockPart.js';
 import { ChatEditingActionContext } from '../../chatEditing/chatEditingActions.js';
+import { isChatEditPureCreation } from '../../chatEditing/chatEditing.js';
 import { ChatMarkdownDecorationsRenderer } from './chatMarkdownDecorationsRenderer.js';
 import { CodeBlockPart, ICodeBlockData, ICodeBlockRenderOptions } from './codeBlockPart.js';
 import './media/chatCodeBlockPill.css';

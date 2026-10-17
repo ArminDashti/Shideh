@@ -135,6 +135,7 @@ import { ChatImplicitContexts } from '../../attachments/chatImplicitContext.js';
 import { ImplicitContextAttachmentWidget, isImplicitContextAlreadyAttached } from '../../attachments/implicitContextAttachment.js';
 import { IChatWidget, IChatWidgetService, IChatWidgetViewModelChangeEvent, ISessionTypePickerDelegate, isIChatResourceViewContext, isIChatViewViewContext, IWorkspacePickerDelegate } from '../../chat.js';
 import { ChatEditingShowChangesAction, ViewPreviousEditsAction } from '../../chatEditing/chatEditingActions.js';
+import { isChatEditPureCreation } from '../../chatEditing/chatEditing.js';
 import { resizeImage } from '../../chatImageUtils.js';
 import { ChatSessionPickerActionItem, IChatSessionPickerDelegate } from '../../chatSessions/chatSessionPickerActionItem.js';
 import { AgentHostChatInputPicker, AgentHostChatInputPickerActionViewItem } from '../../agentSessions/agentHost/agentHostChatInputPicker.js';
@@ -5078,8 +5079,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						return;
 					}
 
-					// If there's a originalUri, open as diff editor
-					if (originalUri) {
+					// If there's a originalUri, open as diff editor. The exception is a
+					// pure creation (only additions into an empty/non-existing original),
+					// which has nothing meaningful to diff against and opens normally.
+					if (originalUri && !await isChatEditPureCreation(this.textModelResolverService, originalUri, e.element.options?.diffMeta?.removed ?? 0)) {
 						await this.editorService.openEditor({
 							original: { resource: originalUri },
 							modified: { resource: modifiedFileUri },
