@@ -3550,6 +3550,10 @@ export abstract class AbstractTree<T, TFilterData, TRef> implements IDisposable 
 
 	protected abstract createModel(user: string, options: IAbstractTreeOptions<T, TFilterData>): ITreeModel<T, TFilterData, TRef>;
 
+	createNewModel(options: IAbstractTreeOptions<T, TFilterData> = {}): ITreeModel<T, TFilterData, TRef> {
+		return this.createModel(this._user, { ...this._options, filter: this.findFilter as ITreeFilter<T, TFilterData> | undefined, ...options });
+	}
+
 	private readonly modelDisposables = new DisposableStore();
 	private setupModel(model: ITreeModel<T, TFilterData, TRef>) {
 		this.modelDisposables.clear();
