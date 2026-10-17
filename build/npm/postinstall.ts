@@ -157,6 +157,43 @@ function removeParcelWatcherPrebuild(dir: string) {
 	}
 }
 
+function removeManifestFolders(folder: string, dir: string) {
+	if (!fs.existsSync(folder)) {
+		return;
+	}
+
+	for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+		if (!entry.isDirectory()) {
+			continue;
+		}
+
+		const entryPath = path.join(folder, entry.name);
+		if (entry.name === '_manifest') {
+			fs.rmSync(entryPath, { recursive: true, force: true });
+			log(dir || '.', `Removed _manifest folder ${entryPath}`);
+			continue;
+		}
+
+		removeManifestFolders(entryPath, dir);
+	}
+}
+
+function removeMxcManifestFolders(dir: string) {
+	for (const folder of [
+		path.join(root, dir, 'node_modules', '@github', 'copilot', 'mxc-bin'),
+		path.join(root, dir, 'node_modules', '@microsoft', 'mxc-sdk', 'bin')
+	]) {
+		removeManifestFolders(folder, dir);
+	}
+}
+
+function removeRootAndRemoteMxcManifestFolders() {
+	removeMxcManifestFolders('');
+	removeMxcManifestFolders('remote');
+	removeMxcManifestFolders('.build/distro/npm');
+	removeMxcManifestFolders('.build/distro/npm/remote');
+}
+
 function getNpmrcConfigKeys(npmrcPath: string): string[] {
 	if (!fs.existsSync(npmrcPath)) {
 		return [];
@@ -315,6 +352,7 @@ async function main() {
 	const concurrency = Math.min(os.cpus().length, 8);
 	log('.', `Running ${parallelTasks.length} npm installs with concurrency ${concurrency}...`);
 	await runWithConcurrency(parallelTasks, concurrency);
+	removeRootAndRemoteMxcManifestFolders();
 
 	child_process.execSync('git config pull.rebase merges');
 	child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
