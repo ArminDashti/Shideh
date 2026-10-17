@@ -756,8 +756,6 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 			};
 		}
 
-		ImplicitActivationEvents.updateManifest(manifest);
-
 		const packageNLSUri = webExtension.packageNLSUris?.get(Language.value().toLowerCase());
 		const fallbackPackageNLS = webExtension.defaultManifestTranslations ?? webExtension.fallbackPackageNLSUri;
 
