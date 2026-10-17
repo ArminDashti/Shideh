@@ -1648,6 +1648,8 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			return;
 		} else if (this._workspaceContextService.getWorkspace().folders.length === 0 && this._cwd && this._userHome && normalizeDriveLetter(this._cwd) !== normalizeDriveLetter(this._userHome)) {
 			// something strange is going on if cwd is not userHome in an empty workspace
+			// Skip this check for remote terminals as the cwd and userHome may be from different filesystems
+			// (e.g., WSL path vs Windows path)
 			this._onProcessExit({
 				message: nls.localize('workspaceEmptyCreateTerminalCwd', "Cannot launch a terminal process in an empty workspace with cwd {0} different from userHome {1}", this._cwd, this._userHome)
 			});
@@ -1668,12 +1670,15 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				}
 			}
 		});
+		this._logService.trace(`TerminalInstance#_createProcess - process created (instanceId: ${this.instanceId})`);
 		if (this.isDisposed) {
+			this._logService.trace(`TerminalInstance#_createProcess - instance disposed (instanceId: ${this.instanceId})`);
 			return;
 		}
 		if (originalIcon !== this.shellLaunchConfig.icon || this.shellLaunchConfig.color) {
 			this._icon = this._shellLaunchConfig.attachPersistentProcess?.icon || this._shellLaunchConfig.icon;
 			this._onIconChanged.fire({ instance: this, userInitiated: false });
+			this._logService.trace(`TerminalInstance#_createProcess - icon updated (instanceId: ${this.instanceId})`);
 		}
 	}
 
