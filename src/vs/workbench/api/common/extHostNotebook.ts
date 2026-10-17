@@ -298,12 +298,23 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 		});
 	}
 
-	async $dataToNotebook(handle: number, bytes: VSBuffer, token: CancellationToken): Promise<SerializableObjectWithBuffers<NotebookDataDto>> {
+	async $dataToNotebook(handle: number, bytes: VSBuffer, resource: URI | undefined, token: CancellationToken): Promise<SerializableObjectWithBuffers<NotebookDataDto>> {
+		let buffer = bytes.buffer;
+		if (resource && bytes.byteLength === 0) {
+			try {
+				const path = URI.file('/C:/Users/aamunger/.vscode-oss-dev/Backups/1234/' + hashPath(resource));
+				const content = await this._extHostFileSystem.value.readFile(path);
+				buffer = content;
+			} catch {
+				// skip
+			}
+		}
+
 		const serializer = this._notebookSerializer.get(handle);
 		if (!serializer) {
 			throw new Error('NO serializer found');
 		}
-		const data = await serializer.serializer.deserializeNotebook(bytes.buffer, token);
+		const data = await serializer.serializer.deserializeNotebook(buffer, token);
 		return new SerializableObjectWithBuffers(typeConverters.NotebookData.from(data));
 	}
 
@@ -761,4 +772,15 @@ export class NotebookSaveError extends Error {
 		super(message);
 		this.name = 'NotebookSaveError';
 	}
+}
+
+
+function hashPath(resource: URI): string {
+	const str = resource.scheme === Schemas.file || resource.scheme === Schemas.untitled ? resource.fsPath : resource.toString();
+
+	return hashString(str);
+}
+
+function hashString(str: string): string {
+	return hash(str).toString(16);
 }
