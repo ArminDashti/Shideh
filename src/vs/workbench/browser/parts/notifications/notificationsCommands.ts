@@ -17,7 +17,7 @@ import { INotificationService, INotificationSourceFilter, NotificationsFilter } 
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ActionRunner, IAction, WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification } from '../../../../base/common/actions.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -417,3 +417,80 @@ export class NotificationActionRunner extends ActionRunner {
 		}
 	}
 }
+
+// Demo command for special formatting notification
+CommandsRegistry.registerCommand('_workbench.showSpecialFormattingNotificationDemo', (accessor) => {
+	const notificationService = accessor.get(INotificationService);
+
+	notificationService.notify({
+		severity: 1, // Info
+		message: 'Special Formatting Notification',
+		source: 'Demo',
+		specialFormattingContent: {
+			type: 'specialFormatting',
+			heading: 'Welcome to Special Formatting Notifications',
+			sections: [
+				{
+					title: 'Key Features',
+					content: 'This notification type supports multiple sections with custom formatting. Each section can have an optional title and detailed content.'
+				},
+				{
+					title: 'Use Cases',
+					content: 'Perfect for:\n• Release notes with multiple sections\n• Error messages with detailed explanations\n• Feature announcements with multiple points\n• System updates with changelog details'
+				},
+				{
+					content: 'Sections can also be displayed without a title, like this one. The content automatically wraps and maintains proper formatting.'
+				}
+			]
+		},
+		sticky: true
+	});
+});
+
+// Workbench contribution to show special formatting notification on startup
+class SpecialFormattingNotificationDemoContribution extends Disposable implements IWorkbenchContribution {
+
+	static readonly ID = 'workbench.contrib.specialFormattingNotificationDemo';
+
+	constructor(
+		@INotificationService private readonly notificationService: INotificationService
+	) {
+		super();
+
+		// Show the special formatting notification on startup
+		this.showDemoNotification();
+	}
+
+	private showDemoNotification(): void {
+		this.notificationService.notify({
+			severity: Severity.Info,
+			message: 'Special Formatting Notification',
+			source: 'Demo',
+			specialFormattingContent: {
+				type: 'specialFormatting',
+				heading: 'Welcome to Special Formatting Notifications',
+				sections: [
+					{
+						title: 'Key Features',
+						content: 'This notification type supports multiple sections with custom formatting. Each section can have an optional title and detailed content.'
+					},
+					{
+						title: 'Use Cases',
+						content: 'Perfect for:\n• Release notes with multiple sections\n• Error messages with detailed explanations\n• Feature announcements with multiple points\n• System updates with changelog details'
+					},
+					{
+						content: 'Sections can also be displayed without a title, like this one. The content automatically wraps and maintains proper formatting.'
+					}
+				]
+			},
+			sticky: true
+		});
+	}
+}
+
+// Register the contribution to run at workbench restoration phase
+registerWorkbenchContribution2(
+	SpecialFormattingNotificationDemoContribution.ID,
+	SpecialFormattingNotificationDemoContribution,
+	WorkbenchPhase.AfterRestored
+);
