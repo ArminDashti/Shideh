@@ -436,24 +436,36 @@ class AsyncFindTreeNode<T> {
 	constructor(
 		public element: T | undefined,
 		public id: string,
+		private readonly sorter: ITreeSorter<T> | undefined,
 	) { }
 
 	addChild(child: AsyncFindTreeNode<T>): void {
-		this._children.push(child);
+		if (!this.sorter) {
+			this._children.push(child);
+			return;
+		}
+
+		const index = this._children.findIndex(existingChild => this.sorter!.compare(child.element!, existingChild.element!) < 0);
+		if (index !== -1) {
+			this._children.splice(index, 0, child);
+		} else {
+			this._children.push(child);
+		}
 	}
 }
 
 class AsyncFindTree<TInput, T> {
 
 	private cachedNodes = new Map<string, AsyncFindTreeNode<T>>();
-	private readonly root = new AsyncFindTreeNode<T>(undefined, '_AsyncFindTreeRoot_');
+	private readonly root = new AsyncFindTreeNode<T>(undefined, '_AsyncFindTreeRoot_', this.sorter);
 	get rootNodes(): AsyncFindTreeNode<T>[] {
 		return [...this.root.children];
 	}
 
 	constructor(
 		private readonly dataSource: IAsyncDataSource<TInput, T>,
-		private readonly identityProvider: IIdentityProvider<T>
+		private readonly identityProvider: IIdentityProvider<T>,
+		private readonly sorter?: ITreeSorter<T>,
 	) {
 		if (!dataSource.getParent) {
 			throw new Error('Data source must implement `getParent`');
@@ -490,7 +502,7 @@ class AsyncFindTree<TInput, T> {
 			}
 
 			// create parent node
-			const newParent = new AsyncFindTreeNode(currentParentElement, parentId);
+			const newParent = new AsyncFindTreeNode(currentParentElement, parentId, this.sorter);
 			this.cachedNodes.set(parentId, newParent);
 			newParent.addChild(currentNode);
 
@@ -596,6 +608,7 @@ class AsyncFindController<TInput, T, TFilterData> extends AbstractFindController
 		protected override readonly tree: ObjectTree<IAsyncDataTreeNode<TInput, T>, TFilterData>,
 		private readonly findProvider: IAsyncFindProvider<T>,
 		filter: AsyncFindFilter<TInput, T>,
+		private readonly sorter: ITreeSorter<T> | undefined,
 		private readonly dataSource: IAsyncDataSource<TInput, T>,
 		this.sorter = options.sorter;
 		this.getDefaultCollapseState = e => options.collapseByDefault ? (options.collapseByDefault(e) ? ObjectTreeElementCollapseState.PreserveOrCollapsed : ObjectTreeElementCollapseState.PreserveOrExpanded) : undefined;
@@ -680,7 +693,7 @@ class AsyncFindController<TInput, T, TFilterData> extends AbstractFindController
 		// Remove all nodes
 		this.clearFindResults();
 
-		const findTree = new AsyncFindTree<TInput, T>(this.dataSource, this.identityProvider);
+		const findTree = new AsyncFindTree<TInput, T>(this.dataSource, this.identityProvider, this.sorter);
 		for await (const result of results) {
 			if (token.isCancellationRequested) {
 				return;
