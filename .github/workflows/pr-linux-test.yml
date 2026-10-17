@@ -297,6 +297,11 @@ jobs:
             sleep 5
           done
 
+      # TEMPORARY (flaky test smoke-out): run ONLY the `McpStdioStateHandler` suite
+      # (which contains the suspected-flaky `sigterm after grace` test), repeatedly,
+      # and fail the build the moment it fails. GitHub Actions runs `run:` with
+      # `bash -eo pipefail`, so the first non-zero `test.sh` exit aborts the loop and
+      # fails the step. Revert this step to `./scripts/test.sh --tfs "Unit Tests"` when done.
       - name: 🧪 Run unit tests (Electron)
         if: ${{ inputs.electron_tests && inputs.unit_tests }}
         timeout-minutes: 15
@@ -368,7 +373,7 @@ jobs:
           VSCODE_SKIP_PRELAUNCH: '1'
 
       - name: Compile smoke tests
-        if: ${{ inputs.smoke_tests }}
+        if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         working-directory: test/smoke
         run: npm run compile
 
@@ -407,7 +412,7 @@ jobs:
           sudo chown "$(id -u):$(id -g)" /etc/vscode
 
       - name: 🧪 Run smoke tests (Electron)
-        if: ${{ inputs.electron_tests && inputs.smoke_tests }}
+        if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
         run: npm run smoketest-no-compile -- --tracing
         env:
@@ -422,12 +427,12 @@ jobs:
           sudo rmdir /etc/vscode
 
       - name: 🧪 Run smoke tests (Browser, Chromium)
-        if: ${{ inputs.browser_tests && inputs.smoke_tests }}
+        if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
         run: npm run smoketest-no-compile -- --web --tracing --headless
 
       - name: 🧪 Run smoke tests (Remote)
-        if: ${{ inputs.remote_tests && inputs.smoke_tests }}
+        if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
         run: npm run smoketest-no-compile -- --remote --tracing
         env:
