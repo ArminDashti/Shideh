@@ -224,14 +224,14 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 			} else {
 				await this._extensionService.whenInstalledExtensionsRegistered();
 				const providers = this._notebookService.getContributedNotebookTypes(resource);
-				viewType = providers.find(provider => provider.priority === 'exclusive')?.id ??
+				notebookType = providers.find(provider => provider.priority === 'exclusive')?.id ??
 					providers.find(provider => provider.priority === 'default')?.id ??
 					providers[0]?.id;
 			}
 		}
 
-		if (!viewType) {
-			throw new Error(`Missing viewType for '${resource}'`);
+		if (!notebookType) {
+			throw new Error(`Missing notebook type for '${resource}'`);
 		}
 
 		if (existingNotebook && existingNotebook.viewType !== viewType) {
@@ -239,9 +239,9 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 			await this._onWillFailWithConflict.fireAsync({ resource: resource, viewType }, CancellationToken.None);
 
 			// check again, listener should have done cleanup
-			const existingViewType2 = this._notebookService.getNotebookTextModel(resource)?.viewType;
-			if (existingViewType2 && existingViewType2 !== viewType) {
-				throw new Error(`A notebook with view type '${existingViewType2}' already exists for '${resource}', CANNOT create another notebook with view type ${viewType}`);
+			const existingType2 = this._notebookService.getNotebookTextModel(resource)?.notebookType;
+			if (existingType2 && existingType2 !== notebookType) {
+				throw new Error(`A notebook with type '${existingType2}' already exists for '${resource}', CANNOT create another notebook with different type ${notebookType}`);
 			}
 		}
 		return { resource, viewType };

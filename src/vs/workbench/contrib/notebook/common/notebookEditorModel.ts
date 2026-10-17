@@ -340,6 +340,7 @@ export class NotebookFileWorkingCopyModelFactory implements IStoredFileWorkingCo
 
 	constructor(
 		private readonly _viewType: string,
+		private readonly _repl: boolean,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
