@@ -23090,6 +23090,45 @@ suite('AgentService (node dispatcher)', () => {
 		});
 	});
 
+	suite('workspace conversion server tool', () => {
+		for (const scenario of [
+			{ name: 'workspace-less', supported: true, workspaceless: true, roots: ['file:///scratch'], enabled: true },
+			{ name: 'provisional workspace-less', supported: true, workspaceless: true, roots: undefined, enabled: true },
+			{ name: 'unsupported provider', supported: false, workspaceless: true, roots: ['file:///scratch'], enabled: false },
+			{ name: 'existing workspace', supported: true, workspaceless: false, roots: ['file:///workspace'], enabled: false },
+		]) {
+			test(`set_workspace is ${scenario.enabled ? 'available' : 'disabled'} for ${scenario.name} Codex sessions`, async () => {
+				class ServerToolAgent extends MockAgent {
+					serverToolHost: IAgentServerToolHost | undefined;
+
+					setServerToolHost(host: IAgentServerToolHost): void {
+						this.serverToolHost = host;
+					}
+				}
+				const agent = disposables.add(new ServerToolAgent('codex', {}, { workspaceConversion: scenario.supported }));
+				registerTestAgentProvider(service, agent);
+				const session = AgentSession.uri('codex', 'workspace-conversion');
+				const stateManager = getStateManager(service);
+				stateManager.createSession({
+					resource: session.toString(), provider: 'codex', title: scenario.name,
+					status: SessionStatus.Idle,
+					createdAt: new Date(0).toISOString(), modifiedAt: new Date(0).toISOString(),
+					workingDirectories: scenario.roots,
+					_meta: withSessionWorkspaceless(undefined, scenario.workspaceless),
+				});
+				const host = agent.serverToolHost!;
+				host.advertise(session.toString());
+				assert.deepStrictEqual({
+					advertised: stateManager.getSessionState(session.toString())?.serverTools?.some(tool => tool.name === SessionServerToolName.SetWorkspace),
+					definitions: host.getDefinitionsForSession(session.toString()).some(tool => tool.name === SessionServerToolName.SetWorkspace),
+				}, { advertised: scenario.enabled, definitions: scenario.enabled });
+				if (!scenario.enabled) {
+					await assert.rejects(async () => host.executeTool(buildDefaultChatUri(session), SessionServerToolName.SetWorkspace, { workspaceFolder: '/workspace', isolation: false }), /set_workspace.*disabled/);
+				}
+			});
+		}
+	});
+
 	suite('rename server tools', () => {
 		test('rename_chat replaces live and persisted default and peer chat titles', async () => {
 			class RecordingTitleDatabase extends TestSessionDatabase {
