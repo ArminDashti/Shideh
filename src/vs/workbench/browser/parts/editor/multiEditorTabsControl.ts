@@ -1015,6 +1015,8 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 		tabContainer.appendChild(tabFillContainer);
 		const tabConnectedEdgeContainer = $('.tab-connected-edge', { 'aria-hidden': true });
 		tabContainer.appendChild(tabConnectedEdgeContainer);
+		const tabDivider = $('.tab-divider', { 'aria-hidden': true });
+		tabContainer.appendChild(tabDivider);
 
 		// Tab Border Top
 		const tabBorderTopContainer = $('.tab-border-top-container');
@@ -2223,7 +2225,7 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 
 			// Remove old css classes that are not needed anymore
 			for (const tab of tabsContainer.children) {
-				tab.classList.remove('last-in-row');
+				tab.classList.remove('first-in-row', 'last-in-row');
 			}
 		}
 
@@ -2293,16 +2295,13 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 			});
 		}
 
-		// Update the `last-in-row` class on tabs when wrapping
-		// is enabled (it doesn't do any harm otherwise). This
-		// class controls additional properties of tab when it is
-		// the last tab in a row
+		// Measure before changing row-boundary classes to avoid layout churn.
 		if (tabsWrapMultiLine) {
 
 			// Using a map here to change classes after the for loop is
 			// crucial for performance because changing the class on a
 			// tab can result in layouts of the rendering engine.
-			const tabs = new Map<HTMLElement, boolean /* last in row */>();
+			const tabs = new Map<HTMLElement, { firstInRow: boolean; lastInRow: boolean }>();
 
 			let currentTabsPosY: number | undefined = undefined;
 			let lastTab: HTMLElement | undefined = undefined;
@@ -2314,27 +2313,37 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 				const tabPosY = tab.offsetTop;
 
 				// Marks a new or the first row of tabs
-				if (tabPosY !== currentTabsPosY) {
+				const firstInRow = tabPosY !== currentTabsPosY;
+				if (firstInRow) {
 					currentTabsPosY = tabPosY;
 					if (lastTab) {
-						tabs.set(lastTab, true); // previous tab must be last in row then
+						tabs.get(lastTab)!.lastInRow = true;
 					}
 				}
 
-				// Always remember last tab and ensure the
-				// last-in-row class is not present until
-				// we know the tab is last
 				lastTab = tab;
-				tabs.set(tab, false);
+				tabs.set(tab, { firstInRow, lastInRow: false });
 			}
 
-			// Last tab overally is always last-in-row
+			// The final tab is always last-in-row.
 			if (lastTab) {
-				tabs.set(lastTab, true);
+				tabs.get(lastTab)!.lastInRow = true;
 			}
 
-			for (const [tab, lastInRow] of tabs) {
+			for (const [tab, { firstInRow, lastInRow }] of tabs) {
+				tab.classList.toggle('first-in-row', firstInRow);
 				tab.classList.toggle('last-in-row', lastInRow);
+			}
+		} else {
+			let firstInRow = true;
+			for (const child of tabsContainer.children) {
+				if (child === this.addTabContainer) {
+					continue;
+				}
+
+				child.classList.toggle('first-in-row', firstInRow);
+				child.classList.remove('last-in-row');
+				firstInRow = false;
 			}
 		}
 
@@ -2821,7 +2830,7 @@ registerThemingParticipant((theme, collector) => {
 	if (tabHoverBorder) {
 		collector.addRule(`
 			.monaco-workbench .part.editor > .content .editor-group-container.active > .title .tabs-container > .tab:hover > .tab-border-bottom-container {
-				display: block;
+				display: var(--editor-tab-border-indicator-display, block);
 				position: absolute;
 				left: 0;
 				pointer-events: none;
@@ -2838,7 +2847,7 @@ registerThemingParticipant((theme, collector) => {
 	if (tabUnfocusedHoverBorder) {
 		collector.addRule(`
 			.monaco-workbench .part.editor > .content .editor-group-container > .title .tabs-container > .tab:hover > .tab-border-bottom-container  {
-				display: block;
+				display: var(--editor-tab-border-indicator-display, block);
 				position: absolute;
 				left: 0;
 				pointer-events: none;
