@@ -688,6 +688,13 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private marketplaceDetailResource: ICustomizationMarketplaceResource | undefined;
 	private readonly marketplaceDetailScrollUpdate = this._register(new MutableDisposable());
 
+	private marketplaceDetailContainer: HTMLElement | undefined;
+	private marketplaceDetailScrollable: DomScrollableElement | undefined;
+	private embeddedMarketplaceDetail: EmbeddedMarketplaceDetail | undefined;
+	private marketplaceDetailBackButton: HTMLButtonElement | undefined;
+	private marketplaceDetailOrigin: ICustomizationMarketplaceOrigin | undefined;
+	private marketplaceDetailResource: ICustomizationMarketplaceResource | undefined;
+
 	// Embedded plugin detail view
 	private pluginDetailContainer: HTMLElement | undefined;
 	private embeddedPluginDetail: EmbeddedAgentPluginDetail | undefined;
@@ -3959,6 +3966,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.mcpListWidget?.setVisible(!isEditorMode && !isMigrationMode && !isDetailMode && isMcpSection);
 		if (this.mcpDetailContainer) {
 			this.mcpDetailContainer.style.display = isMcpDetailMode ? '' : 'none';
+		}
+		if (this.marketplaceDetailContainer) {
+			this.marketplaceDetailContainer.style.display = isMarketplaceDetailMode ? '' : 'none';
 		}
 		if (this.marketplaceDetailContainer) {
 			this.marketplaceDetailContainer.style.display = isMarketplaceDetailMode ? '' : 'none';

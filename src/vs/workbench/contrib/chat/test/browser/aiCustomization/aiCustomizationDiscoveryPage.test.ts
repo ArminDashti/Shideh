@@ -1483,6 +1483,29 @@ suite('AICustomizationDiscoveryPage', () => {
 		});
 	});
 
+	test('resetting filters restores unfiltered browse results', async () => {
+		const fixture = createPage(['agentFinder', 'copilotConnectors']);
+		fixture.page.setVisible(true);
+		await fixture.requests[0].result.complete({ items: [resource('all-featured')] });
+		await fixture.selectSource('copilotConnectors');
+		await fixture.requests[1].result.complete({ items: [resource('connector-featured', { sourceId: 'copilotConnectors' })] });
+		fixture.page.setSearchQuery('mail');
+		await timeout(0);
+		await fixture.requests[2].result.complete({ items: [resource('connector-search', { sourceId: 'copilotConnectors' })] });
+
+		fixture.page.resetFilters();
+
+		assert.deepStrictEqual({
+			browseMode: fixture.page.getAccessibilityContent().includes('Browse mode.'),
+			source: fixture.container.querySelector('.customization-discovery-source .monaco-button')?.textContent,
+			content: fixture.page.getAccessibilityContent().match(/^(?:all|connector)-(?:featured|search)$/gm),
+		}, {
+			browseMode: true,
+			source: 'All sources',
+			content: ['all-featured'],
+		});
+	});
+
 
 	test('source recovery during search invalidates cached browse failures', async () => {
 		const fixture = createPage(['agentFinder', 'other']);

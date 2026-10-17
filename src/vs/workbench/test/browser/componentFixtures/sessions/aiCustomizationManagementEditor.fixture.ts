@@ -3410,6 +3410,41 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		}),
 	}),
 
+	DiscoverAvailableSearchResultNarrow: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['At a narrow width, marketplace detail facts and metadata sections remain readable in one column with explicit Back, Install, Open Resource, and Open Repository actions.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			marketplaceVisibilityEnabled: true,
+			discoveryQuery: 'correctness',
+			selectDiscoveryResult: true,
+			width: 560,
+			height: 520,
+		}),
+	}),
+
+	DiscoverMcpDetail: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['An MCP marketplace item without a safely resolved workbench server uses the generic detail presentation and preserves its setup/install state and metadata.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			marketplaceVisibilityEnabled: true,
+			discoveryQuery: 'website',
+			selectDiscoveryResult: true,
+		}),
+	}),
+
+	DiscoverPluginDetail: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['A plugin marketplace item backed by a real plugin marketplace model reuses the embedded plugin detail presentation with its Install action and marketplace provenance.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			marketplaceVisibilityEnabled: true,
+			discoveryQuery: 'figma',
+			selectDiscoveryResult: true,
+		}),
+	}),
+
 	DiscoverInfiniteScroll: defineComponentFixture({
 		labels: { kind: 'screenshot', blocksCi: false },
 		expectedVisualDescriptions: ['The flat Discover results list keeps loaded rows visible with a trailing Marketplace loading placeholder, no loading text, and an inactive reserved progress slot above search.'],
