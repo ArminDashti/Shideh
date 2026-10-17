@@ -11,6 +11,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IGitHubService } from '../../../../platform/github/common/githubService.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
@@ -25,7 +26,6 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IIssueFormService, IssueReporterData } from '../common/issue.js';
-import { IssueReporter } from './issueReporterService.js';
 
 export class NativeIssueFormService extends IssueFormService implements IIssueFormService {
 
@@ -108,5 +108,7 @@ export class NativeIssueFormService extends IssueFormService implements IIssueFo
 			this.issueReporterWindow.addEventListener('beforeunload', () => this.legacyReporter.clear(), { once: true });
 			issueReporter.render();
 		}
+
+		this.openEditorTabReporter(data);
 	}
 }
