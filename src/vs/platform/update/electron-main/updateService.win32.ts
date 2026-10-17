@@ -645,6 +645,22 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				this.logService.trace('update#cancelPendingUpdate: process did not exit gracefully, killing process tree');
 				await killTree(pid, true);
 			}
+		} else if (!updateProcess) {
+			if (cancelFilePath) {
+				try {
+					await pfs.Promises.writeFile(cancelFilePath, 'cancel');
+				} catch (err) {
+					this.logService.warn('update#cancelPendingUpdate: failed to write cancel file', err);
+				}
+			}
+
+			const mutex = await import('@vscode/windows-mutex');
+			const setupMutexName = `${this.productService.win32MutexName}setup`;
+			let retries = 30;
+			while (mutex.isActive(setupMutexName) && retries > 0) {
+				await timeout(1000);
+				retries--;
+			}
 		}
 
 		// Clean up the flag file
