@@ -7,6 +7,7 @@ import './media/sessionsViewPane.css';
 import * as DOM from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { isMacintosh } from '../../../../base/common/platform.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { EditorsVisibleContext } from '../../../../workbench/common/contextkeys.js';
@@ -167,15 +168,39 @@ export class AgenticSessionsViewPane extends ViewPane {
 
 		// New Session Button
 		const newSessionButtonContainer = DOM.append(sessionsContent, $('.agent-sessions-new-button-container'));
-		const newSessionButton = this._register(new Button(newSessionButtonContainer, { ...defaultButtonStyles, secondary: true }));
-		newSessionButton.label = localize('newSession', "New Session");
+		const keybindingModifierLabel = isMacintosh ? '\u2318' : 'Ctrl';
+		const keybindingKeyLabel = 'N';
+		const keybindingLabel = `${keybindingModifierLabel} ${keybindingKeyLabel}`;
+		const keybindingAriaLabel = isMacintosh ? 'Command+N' : 'Control+N';
+		const newSessionButtonTitle = keybindingLabel
+			? localize('newSessionButtonTitle', "New Session ({0})", keybindingLabel)
+			: localize('newSessionButtonTitleWithoutKeybinding', "New Session");
+		const newSessionButtonAriaLabel = keybindingAriaLabel
+			? localize('newSessionButtonAriaLabel', "New Session ({0})", keybindingAriaLabel)
+			: localize('newSessionButtonAriaLabelWithoutKeybinding', "New Session");
+		const newSessionButton = this._register(new Button(newSessionButtonContainer, {
+			...defaultButtonStyles,
+			secondary: true,
+			supportIcons: true,
+			title: newSessionButtonTitle,
+			ariaLabel: newSessionButtonAriaLabel,
+		}));
+		newSessionButton.label = `$(${Codicon.plus.id}) ${localize('sessionLabel', "Session")}`;
 		this._register(newSessionButton.onDidClick(() => this.activeSessionService.openNewSessionView()));
 
-		// Keybinding hint inside the button
-		const keybinding = this.keybindingService.lookupKeybinding(ACTION_ID_NEW_CHAT);
-		if (keybinding) {
-			const keybindingHint = DOM.append(newSessionButton.element, $('span.new-session-keybinding-hint'));
-			keybindingHint.textContent = keybinding.getLabel() ?? '';
+		const buttonLabel = $('.new-session-button-label');
+		DOM.append(buttonLabel, ...Array.from(newSessionButton.element.childNodes));
+		for (const icon of buttonLabel.querySelectorAll('.codicon')) {
+			icon.setAttribute('aria-hidden', 'true');
+		}
+		DOM.reset(newSessionButton.element, buttonLabel);
+		if (keybindingLabel) {
+			const keybindingHint = $('span.new-session-keybinding-hint');
+			DOM.append(keybindingHint,
+				$(`span.new-session-keybinding-modifier${isMacintosh ? '.mac' : ''}`, undefined, keybindingModifierLabel),
+				$('span.new-session-keybinding-key', undefined, keybindingKeyLabel)
+			);
+			DOM.append(newSessionButton.element, keybindingHint);
 		}
 
 		// Sessions Control
