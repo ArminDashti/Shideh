@@ -479,7 +479,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 					onExit.dispose();
 					this._fireTaskEvent(TaskEvent.terminated(terminatedTask, terminal.instanceId, terminal.exitReason));
 				} catch (error) {
-					// Do nothing.
+
 				}
 				resolve({ success: true, task: terminatedTask });
 			});
