@@ -890,7 +890,7 @@ export class NewChatWidget extends Disposable {
 		// Re-seed the selected target when the composer swaps out of quick-chat
 		// mode without another active draft.
 		if (!isWeb) {
-			let wasQuickChat = this._isQuickChatComposer.get();
+			let previousSession = this._session.get();
 			this._register(autorun(reader => {
 				const isQuickChat = this._isQuickChatComposer.read(reader);
 				if (wasQuickChat && !isQuickChat && !this._session.read(reader)) {
@@ -898,7 +898,6 @@ export class NewChatWidget extends Disposable {
 						this._seedWorkspaceDraft();
 					}
 				}
-				wasQuickChat = isQuickChat;
 			}));
 		}
 
