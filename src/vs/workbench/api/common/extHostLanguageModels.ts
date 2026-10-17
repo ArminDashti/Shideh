@@ -409,7 +409,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		return this.getLanguageModelByIdentifier(extension, defaultModelId);
 	}
 
-	async getLanguageModelByIdentifier(extension: IExtensionDescription, modelId: string | undefined): Promise<vscode.LanguageModelChat | undefined> {
+	async getLanguageModelByIdentifier(extension: IExtensionDescription, modelId: string | undefined, resolveIfMissing: boolean = true): Promise<vscode.LanguageModelChat | undefined> {
 		if (!modelId) {
 			return undefined;
 		}
@@ -428,6 +428,9 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache after re-resolving models.`);
 				return undefined;
 			}
+		} else if (!model) {
+			this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache.`);
+			return undefined;
 		}
 
 		return this._createLanguageModelChatApi(extension, modelId);
