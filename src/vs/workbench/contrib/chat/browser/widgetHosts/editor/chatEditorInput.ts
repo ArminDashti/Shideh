@@ -16,10 +16,13 @@ import * as nls from '../../../../../../nls.js';
 import { ConfirmResult, IDialogService } from '../../../../../../platform/dialogs/common/dialogs.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
+<<<<<<< HEAD
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { IProgressService, ProgressLocation } from '../../../../../../platform/progress/common/progress.js';
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
+=======
+>>>>>>> fc3def6774c ([Cherry-pick] Remove last-used session type and agent logic (#323484) (#324826))
 import { registerIcon } from '../../../../../../platform/theme/common/iconRegistry.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IAgentHostEnablementService } from '../../../../../../platform/agentHost/common/agentHostEnablementService.js';
@@ -76,6 +79,7 @@ export class ChatEditorInput extends EditorInput implements IEditorCloseHandler 
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+<<<<<<< HEAD
 		@IStorageService private readonly storageService: IStorageService,
 		@ILogService private readonly logService: ILogService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,

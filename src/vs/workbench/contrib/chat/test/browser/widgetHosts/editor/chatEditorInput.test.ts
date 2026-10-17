@@ -156,6 +156,7 @@ suite('ChatEditorInput', () => {
 			{} as IConfigurationService,
 			{} as IChatSessionsService,
 			{} as IInstantiationService,
+<<<<<<< HEAD
 			{} as IStorageService,
 			new NullLogService(),
 			new TestContextService(),
@@ -376,6 +377,7 @@ suite('ChatEditorInput', () => {
 			{} as IConfigurationService,
 			{} as IChatSessionsService,
 			{} as IInstantiationService,
+<<<<<<< HEAD
 			{} as IStorageService,
 			new NullLogService(),
 			new TestContextService(),

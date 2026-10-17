@@ -1380,21 +1380,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			|| hasModelsTargetingSession(this.getAllMergedModels(), sessionType);
 	}
 
-	/**
-	 * Returns the persisted model for the current session type, if it exists in the current model pool.
-	 */
-	private _getRememberedSessionTypeModel(): ILanguageModelChatMetadataAndIdentifier | undefined {
-		const sessionType = this._currentSessionType;
-		if (!sessionType || !this.sessionTypeHasOwnModelPool(sessionType)) {
-			return undefined;
-		}
-		const persisted = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
-		if (!persisted) {
-			return undefined;
-		}
-		return this.getModels().find(m => m.identifier === persisted);
-	}
-
 	private initSelectedModel() {
 		// Drop the per-editor configuration snapshot so the next read re-seeds
 		// from the new (location, sessionType)-scoped storage bucket.
