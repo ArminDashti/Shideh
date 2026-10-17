@@ -776,6 +776,7 @@ const mcpServersValueProperties: Record<string, SessionConfigPropertySchema> = {
 	},
 };
 
+
 export const platformRootSchema = createSchema({
 	...agentHostProxyConfigDefinition,
 	[SessionConfigKey.Permissions]: permissionsProperty,
@@ -964,6 +965,7 @@ export const platformRootSchema = createSchema({
 		properties: mcpServersValueProperties,
 		default: {},
 	}),
+
 });
 
 /**

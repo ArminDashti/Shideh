@@ -55,6 +55,8 @@ import { AgentHostTurnTracker, IAgentHostTurnTracker } from '../../node/agentHos
 import { AgentHostTurnService, IAgentHostTurnService } from '../../node/agentHostTurnService.js';
 import { AgentHostClientConnectionService, IAgentHostClientConnectionService } from '../../node/agentHostClientConnectionService.js';
 import { AgentConfigurationService, IAgentConfigurationService } from '../../node/agentConfigurationService.js';
+import { AgentHostCustomizationEnablementService, IAgentHostCustomizationEnablementService } from '../../node/agentHostCustomizationEnablementService.js';
+import { AgentHostStorageService, IAgentHostStorageService } from '../../node/agentHostStorageService.js';
 import { IAgentHostChangesetService } from '../../common/agentHostChangesetService.js';
 import { IAgentHostGitStateService } from '../../common/agentHostGitStateService.js';
 import { AgentSideEffects } from '../../node/agentSideEffects.js';
@@ -251,6 +253,8 @@ suite('AgentSideEffects — turn tracker telemetry', () => {
 
 		logService = new NullLogService();
 		const configService = disposables.add(new AgentConfigurationService(stateManager, logService));
+		const storageService = disposables.add(new AgentHostStorageService(logService));
+		const enablementService = disposables.add(new AgentHostCustomizationEnablementService(storageService, configService, stateManager));
 		const telemetryService = disposables.add(new AgentHostTelemetryService(telemetry));
 		const sessionDataService = createNullSessionDataService();
 		const customizationEnablementService: IAgentHostCustomizationEnablementService = {
@@ -268,6 +272,8 @@ suite('AgentSideEffects — turn tracker telemetry', () => {
 		const services = new ServiceCollection(
 			[ILogService, logService],
 			[IAgentConfigurationService, configService],
+			[IAgentHostStorageService, storageService],
+			[IAgentHostCustomizationEnablementService, enablementService],
 			[IAgentHostChangesetService, new FakeChangesetService()],
 			[IAgentHostCheckpointService, NULL_CHECKPOINT_SERVICE],
 			[IAgentHostGitStateService, createNoopGitStateService()],

@@ -158,6 +158,11 @@ export function createPolicyManagedEnablementAction(plugin: IAgentPlugin, notifi
 
 /**
  * Builds the standard context menu action groups for an installed plugin.
+ *
+ * @param effectiveState overrides the plugin's local enablement when deciding
+ * whether to offer the enable or the disable actions. Callers that merge this
+ * menu with a second runtime's enablement (the agent host) pass the combined
+ * state, so that a plugin disabled in either runtime still offers a way back.
  */
 export function getInstalledPluginContextMenuActions(plugin: IAgentPlugin, instantiationService: IInstantiationService, removePlugin?: () => Promise<boolean>): IAction[][] {
 	return instantiationService.invokeFunction(accessor => {
@@ -169,7 +174,7 @@ export function getInstalledPluginContextMenuActions(plugin: IAgentPlugin, insta
 			groups.push([policyAction]);
 		} else {
 			groups.push(buildEnablementContextMenuGroup(
-				plugin.enablement.get(),
+				effectiveState ?? plugin.enablement.get(),
 				plugin.uri.toString(),
 				agentPluginService.enablementModel,
 				workspaceService,

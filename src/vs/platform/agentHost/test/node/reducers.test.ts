@@ -684,7 +684,6 @@ suite('sessionReducer – SessionCustomizationUpdated', () => {
 
 		assert.deepStrictEqual(state.customizations, [customization]);
 	});
-
 	test('update: replaces the matching entry entirely', () => {
 		const initial = pluginA({ load: { kind: CustomizationLoadStatus.Loading }, children: [agentA] });
 		const seeded = sessionReducer(makeSession(), {

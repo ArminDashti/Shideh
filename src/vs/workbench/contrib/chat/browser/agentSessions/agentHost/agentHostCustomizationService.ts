@@ -188,14 +188,15 @@ export abstract class AbstractAgentHostCustomizationService extends Disposable i
 	 * so subsequent failures and recoveries land in the channel history.
 	 */
 	private readonly _mcpDiagnosticSessions = new ResourceSet();
-
 	protected constructor(
 		protected readonly _instantiationService: IInstantiationService,
 		protected readonly _logService: ILogService,
 	) {
 		super();
 		this._mcpLogRegistry = this._register(this._instantiationService.createInstance(AgentHostMcpServerLogRegistry));
-		this._register(this.onDidChangeCustomizations(() => this._recordMcpDiagnostics()));
+		this._register(this.onDidChangeCustomizations(() => {
+			this._recordMcpDiagnostics();
+		}));
 	}
 
 	protected abstract _resolveTarget(sessionResource: URI): IAgentHostCustomizationTarget | undefined;

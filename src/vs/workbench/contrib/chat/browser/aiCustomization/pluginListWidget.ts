@@ -27,6 +27,8 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { Delayer } from '../../../../../base/common/async.js';
 import { Action, IAction, Separator } from '../../../../../base/common/actions.js';
 import { basename, dirname, isEqual } from '../../../../../base/common/resources.js';
+import { fromAgentHostUri } from '../../../../../platform/agentHost/common/agentHostUri.js';
+import { CustomizationEnablementKind } from '../../../../../platform/agentHost/common/state/protocol/channels-session/state.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { IAgentPlugin, IAgentPluginService } from '../../common/plugins/agentPluginService.js';

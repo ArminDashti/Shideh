@@ -108,7 +108,6 @@ class TestAgentHostCustomizationService extends AbstractAgentHostCustomizationSe
 	protected override _resolveTarget(sessionResource: URI): IAgentHostCustomizationTarget | undefined {
 		return this._targets.get(sessionResource);
 	}
-
 }
 
 class TestSessionSubscription extends mock<IAgentSubscription<SessionState>>() {
@@ -136,6 +135,7 @@ class TestSessionSubscription extends mock<IAgentSubscription<SessionState>>() {
 
 suite('AbstractAgentHostCustomizationService', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
+	const session = URI.from({ scheme: 'agent-host-copilotcli', authority: 'session-a', path: '/' });
 
 	function createSut(authenticationError?: Error): TestAgentHostCustomizationService {
 		const instantiationService = store.add(new TestInstantiationService());

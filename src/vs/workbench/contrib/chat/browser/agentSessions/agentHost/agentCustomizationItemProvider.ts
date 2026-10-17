@@ -112,6 +112,7 @@ export class AgentCustomizationItemProvider extends Disposable implements ICusto
 		const clientId = customization.clientId; // set if the configuration came from the client
 		const badge = this.toBadge(customization, clientId !== undefined);
 		const uri = this.toRemoteUri(customization.uri);
+		const setEnablement = this._pluginEnablementSetter(sessionResource, customization.id);
 		return {
 			itemKey: customizationItemKey(customization, clientId),
 			uri: uri,
@@ -430,6 +431,68 @@ export class AgentCustomizationItemProvider extends Disposable implements ICusto
 		return children;
 	}
 }
+
+function getPluginEnablementActions(
+	customization: PluginCustomization,
+	workingDirectories: readonly string[],
+	setEnablement: (kind: CustomizationEnablementKind, enabled: boolean) => void,
+): ICustomizationItemAction[] {
+	const actions: ICustomizationItemAction[] = [];
+	const addAction = (kind: CustomizationEnablementKind, enabled: boolean, id: string, label: string) => {
+		actions.push({
+			id,
+			label,
+			run: () => setEnablement(kind, enabled),
+		});
+	};
+
+	const globallyEnabled = findDecisiveCustomizationEnablement(customization.enablement, CustomizationEnablementKind.Global)?.enabled ?? true;
+	addAction(
+		CustomizationEnablementKind.Global,
+		!globallyEnabled,
+		globallyEnabled ? 'plugin.agentHost.disable' : 'plugin.agentHost.enable',
+		globallyEnabled ? localize('pluginDisable', "Disable") : localize('pluginEnable', "Enable"),
+	);
+
+	if (workingDirectories.length > 0) {
+		const workspaceEnabled = findDecisiveCustomizationEnablement(customization.enablement, CustomizationEnablementKind.Workspace)?.enabled ?? true;
+		addAction(
+			CustomizationEnablementKind.Workspace,
+			!workspaceEnabled,
+			workspaceEnabled ? 'plugin.agentHost.disableWorkspace' : 'plugin.agentHost.enableWorkspace',
+			workspaceEnabled ? localize('pluginDisableWorkspace', "Disable (Workspace)") : localize('pluginEnableWorkspace', "Enable (Workspace)"),
+		);
+	}
+
+	const sessionEnabled = findDecisiveCustomizationEnablement(customization.enablement, CustomizationEnablementKind.Session)?.enabled ?? true;
+	addAction(
+		CustomizationEnablementKind.Session,
+		!sessionEnabled,
+		sessionEnabled ? 'plugin.agentHost.disableSession' : 'plugin.agentHost.enableSession',
+		sessionEnabled ? localize('pluginDisableSession', "Disable (Session)") : localize('pluginEnableSession', "Enable (Session)"),
+	);
+
+	return actions;
+}
+
+/**
+ * The decision that governs a given scope's action label, following inheritance
+ * rather than looking only for an entry of that exact kind: a workspace action
+ * reflects the global decision it would inherit, and a session action reflects
+ * the currently effective decision. Each action therefore always offers the
+ * inverse of what the user sees today at that scope.
+ */
+function findDecisiveCustomizationEnablement(enablement: readonly CustomizationEnablement[] | undefined, kind: CustomizationEnablementKind): CustomizationEnablement | undefined {
+	switch (kind) {
+		case CustomizationEnablementKind.Global:
+			return enablement?.find(entry => entry.kind === CustomizationEnablementKind.Global);
+		case CustomizationEnablementKind.Workspace:
+			return enablement?.find(entry => entry.kind === CustomizationEnablementKind.Workspace || entry.kind === CustomizationEnablementKind.Global);
+		case CustomizationEnablementKind.Session:
+			return enablement?.[0];
+	}
+}
+
 function isParentOrEqual(folderURI: string, childURI: string): boolean {
 	try {
 		return extUriBiasedIgnorePathCase.isEqualOrParent(URI.parse(childURI), URI.parse(folderURI));

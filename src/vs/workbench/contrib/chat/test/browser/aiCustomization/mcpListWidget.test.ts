@@ -88,6 +88,7 @@ function createAgentHostServer(overrides: Partial<AgentHostMcpServer> = {}): Age
 		id: 'server-1',
 		name: 'Server One',
 		enabled: true,
+		disabledByContainer: false,
 		status: McpServerStatus.Ready,
 		state: { kind: McpServerStatus.Ready },
 		setEnabled: () => { },
@@ -949,6 +950,18 @@ suite('mcpListWidget', () => {
 		});
 	});
 
+	suite('getSessionServerStatusKind', () => {
+		test('reports the runtime status while the server is enabled', () => {
+			const server = createAgentHostServer({ enabled: true, status: McpServerStatus.AuthRequired });
+			assert.strictEqual(getSessionServerStatusKind(server), McpServerStatus.AuthRequired);
+		});
+
+		test('reports disabled when the session override turned the server off', () => {
+			const server = createAgentHostServer({ enabled: false, status: McpServerStatus.Ready });
+			assert.strictEqual(getSessionServerStatusKind(server), 'disabled');
+		});
+	});
+
 	suite('getAgentHostMcpServerEnablementActions', () => {
 		const sessionResource = URI.parse('vscode-agent-session:///session-1');
 
@@ -1094,6 +1107,16 @@ suite('mcpListWidget', () => {
 			const actions = getServerItemContextMenuActions([localActions], undefined, undefined, []);
 
 			assert.deepStrictEqual(actions.filter(action => !(action instanceof Separator)).map(action => action.label), localActions.map(action => action.label));
+		});
+
+		test('offers durable Disable actions when a session override disables a globally enabled server', () => {
+			const { service } = createAgentHostCustomizations(ContributionEnablementState.EnabledProfile);
+			const server = createAgentHostServer({
+				enabled: false,
+				enablement: [{ kind: CustomizationEnablementKind.Session, enabled: false }, { kind: CustomizationEnablementKind.Global, enabled: true }],
+			});
+			const actions = trackActions(disposables, getAgentHostMcpServerEnablementActions(service, sessionResource, server, false));
+			assert.deepStrictEqual(actions.map(a => a.label), ['Disable', 'Disable (Workspace)']);
 		});
 	});
 
@@ -1251,6 +1274,90 @@ suite('mcpListWidget', () => {
 			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', true));
 			assert.deepStrictEqual(actions.map(a => a.label), ['Enable']);
 		});
+
+		test('writes only the local model for a globally disabled non-plugin server backed by an agent host', () => {
+			const { service, calls } = createMcpService(ContributionEnablementState.EnabledProfile);
+			const { service: agentHostCustomizations, calls: agentHostCalls } = createAgentHostCustomizations(ContributionEnablementState.EnabledProfile);
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', false, {
+				agentHostCustomizations,
+				sessionResource,
+				serverName: 'Server One',
+				isPluginSourced: false,
+			}));
+
+			runAction(actions[0]);
+
+			assert.deepStrictEqual({ calls, agentHostCalls }, {
+				calls: [['server-def-id', ContributionEnablementState.DisabledProfile]],
+				agentHostCalls: [],
+			});
+		});
+
+		test('writes both runtimes for a globally disabled plugin server backed by an agent host', () => {
+			const { service, calls } = createMcpService(ContributionEnablementState.EnabledProfile);
+			const { service: agentHostCustomizations, calls: agentHostCalls } = createAgentHostCustomizations(ContributionEnablementState.EnabledProfile);
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', false, {
+				agentHostCustomizations,
+				sessionResource,
+				serverName: 'Server One',
+				isPluginSourced: true,
+			}));
+
+			runAction(actions[0]);
+
+			assert.deepStrictEqual({ calls, agentHostCalls }, {
+				calls: [['server-def-id', ContributionEnablementState.DisabledProfile]],
+				agentHostCalls: [[sessionResource, 'Server One', ContributionEnablementState.DisabledProfile]],
+			});
+		});
+
+		test('writes only the agent host for a workspace-disabled server backed by an agent host', () => {
+			const { service, calls } = createMcpService(ContributionEnablementState.EnabledProfile);
+			const { service: agentHostCustomizations, calls: agentHostCalls } = createAgentHostCustomizations(ContributionEnablementState.EnabledProfile);
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', false, {
+				agentHostCustomizations,
+				sessionResource,
+				serverName: 'Server One',
+				isPluginSourced: false,
+			}));
+
+			runAction(actions[1]);
+
+			assert.deepStrictEqual({ calls, agentHostCalls }, {
+				calls: [],
+				agentHostCalls: [[sessionResource, 'Server One', ContributionEnablementState.DisabledWorkspace]],
+			});
+		});
+
+		test('writes both scopes only to the local model without an active session server', () => {
+			const { service, calls } = createMcpService(ContributionEnablementState.EnabledProfile);
+			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', false));
+
+			runAction(actions[0]);
+			runAction(actions[1]);
+
+			assert.deepStrictEqual(calls, [
+				['server-def-id', ContributionEnablementState.DisabledProfile],
+				['server-def-id', ContributionEnablementState.DisabledWorkspace],
+			]);
+		});
+
+		test('uses the agent-host state for the workspace action label', () => {
+			const { service } = createMcpService(ContributionEnablementState.EnabledProfile);
+			const { service: agentHostCustomizations } = createAgentHostCustomizations(ContributionEnablementState.DisabledWorkspace);
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const actions = trackActions(disposables, getLocalMcpServerEnablementActions(service, 'server-def-id', false, {
+				agentHostCustomizations,
+				sessionResource,
+				serverName: 'Server One',
+				isPluginSourced: false,
+			}));
+
+			assert.deepStrictEqual(actions.map(action => action.label), ['Disable', 'Enable (Workspace)']);
+		});
 	});
 
 	suite('getActiveSessionServerOptionsActions', () => {
@@ -1278,6 +1385,44 @@ suite('mcpListWidget', () => {
 				'(separator)',
 				'Server Options',
 			]);
+		});
+
+		test('hides the lifecycle action while the host publishes a disabled server', () => {
+			const { service } = createAgentHostCustomizations(ContributionEnablementState.DisabledProfile);
+			const server = createAgentHostServer({ enabled: false, status: McpServerStatus.Ready, disabledByContainer: false });
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const commandService = { executeCommand: async () => undefined } as unknown as ICommandService;
+			const actions = trackActions(disposables, getActiveSessionServerOptionsActions(
+				commandService,
+				service,
+				false,
+				sessionResource,
+				server,
+			));
+
+			assert.deepStrictEqual(actions.map(a => a instanceof Separator ? '(separator)' : a.label), [
+				'Enable',
+				'Enable (Workspace)',
+				'Enable (Session)',
+				'(separator)',
+				'Server Options',
+			]);
+		});
+
+		test('omits child enablement actions when disabled by a plugin', () => {
+			const { service } = createAgentHostCustomizations(ContributionEnablementState.DisabledProfile);
+			const server = createAgentHostServer({ enabled: false, status: McpServerStatus.Ready, disabledByContainer: true });
+			const sessionResource = URI.parse('vscode-agent-session:///session-1');
+			const commandService = { executeCommand: async () => undefined } as unknown as ICommandService;
+			const actions = trackActions(disposables, getActiveSessionServerOptionsActions(
+				commandService,
+				service,
+				false,
+				sessionResource,
+				server,
+			));
+
+			assert.deepStrictEqual(actions.map(action => action instanceof Separator ? '(separator)' : action.label), ['Server Options']);
 		});
 	});
 

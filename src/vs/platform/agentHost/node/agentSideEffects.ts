@@ -1793,6 +1793,10 @@ export class AgentSideEffects extends Disposable {
 				this._publishAllSessionCustomizations();
 				break;
 			}
+			case ActionType.SessionCustomizationToggled: {
+				this._customizationEnablementService.handleToggle(sessionChannel, action.id, action.enablement);
+				break;
+			}
 			case ActionType.SessionMcpServerStartRequested: {
 				this._pendingMcpServerStarts.get(sessionChannel, action.id)?.dispose(true);
 				const source = new CancellationTokenSource();
@@ -2212,6 +2216,7 @@ export class AgentSideEffects extends Disposable {
 		super.dispose();
 	}
 }
+
 
 /**
  * Whether a visible-progress action advances the user's request, as opposed to

@@ -776,6 +776,20 @@ interface CustomizationBase {
 	uri: URI;
 	/** Human-readable name. */
 	name: string;
+	/**
+	 * Explicit enablement decisions for this customization, one entry per scope
+	 * that has one. This is a wire contract: producers MUST publish entries
+	 * sorted by descending specificity (Session, Workspace, then Global).
+	 * The agent host emits at most one Workspace entry, for the session's primary
+	 * working directory. Consumers MAY treat
+	 * `enablement[0]` as the decisive decision and
+	 * `enablement?.[0]?.enabled ?? true` as the effective enabled value. An
+	 * absent or empty array means no explicit decision exists, so the
+	 * customization is enabled by default.
+	 *
+	 * Only the agent host publishes this; clients treat it as read-only provenance.
+	 */
+	enablement?: CustomizationEnablement[];
 	/** Icons for UI display. */
 	icons?: Icon[];
 	/**

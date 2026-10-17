@@ -16,6 +16,8 @@ import { DEFAULT_MCP_APP, DEFAULT_MCP_APP_CAPABILITIES } from '../../common/stat
 import { parseChatUri } from '../../common/state/sessionState.js';
 import type { SessionAction } from '../../common/state/sessionActions.js';
 import { AgentHostStateManager, IAgentHostStateManager } from '../agentHostStateManager.js';
+import { getPrimaryWorkingDirectory, MCP_TOP_LEVEL_CUSTOMIZATION_ID_PREFIX } from './mcpServerEnablement.js';
+import { IAgentHostCustomizationEnablementService } from '../agentHostCustomizationEnablementService.js';
 
 /**
  * SDK-neutral description of a single MCP server, as the controller's
@@ -142,7 +144,7 @@ interface ILiveEntry {
 }
 
 export function buildMcpTopLevelCustomizationId(providerId: string, sessionId: string, serverName: string): string {
-	return `mcp-top-level:${providerId}:${sessionId}:${serverName}`;
+	return `${MCP_TOP_LEVEL_CUSTOMIZATION_ID_PREFIX}${providerId}:${sessionId}:${serverName}`;
 }
 
 export function buildMcpChannel(chatUri: URI, serverName: string): string {
@@ -184,6 +186,9 @@ export class McpCustomizationController extends Disposable {
 	/** Per-server live entries, keyed by server name. */
 	private readonly _live = observableValue<ReadonlyMap<string, ILiveEntry>>(this, new Map());
 
+	/** Child ids resolved during this controller's lifetime, keyed by server name. */
+	private readonly _knownChildIds = new Map<string, string>();
+
 	/**
 	 * Snapshot of every live server's runtime {@link IMcpServerRuntimeState},
 	 * keyed by its retained published customization id. Child entries keep that
@@ -194,6 +199,7 @@ export class McpCustomizationController extends Disposable {
 	constructor(
 		private readonly _options: IMcpCustomizationControllerOptions,
 		@IAgentHostStateManager private readonly _stateManager: AgentHostStateManager,
+		@IAgentHostCustomizationEnablementService private readonly _customizationEnablementService: IAgentHostCustomizationEnablementService,
 	) {
 		super();
 		this._chatUri = this._options.chatUri;
@@ -359,10 +365,24 @@ export class McpCustomizationController extends Disposable {
 		const previous = this._live.get().get(server.name);
 		const state = this._stateForUpdate(previous?.state, server.state, server.allowAuthRequiredToStarting === true);
 		const enabled = server.enabled ?? previous?.enabled ?? true;
-		// Once promoted to a top-level entry, stay top-level for the
-		// session — flipping back to a child mid-stream would orphan the
-		// previously-published top-level id.
+		const childId = this._options.resolveChildId(server.name);
 		let topLevelId = previous?.topLevelId;
+		if (topLevelId !== undefined && childId !== undefined) {
+			this._knownChildIds.set(server.name, childId);
+			this._deleteLiveEntry(server.name, tx);
+			this._options.emit({
+				type: ActionType.SessionCustomizationRemoved,
+				id: topLevelId,
+			});
+			this._setLiveEntry(server.name, { serverName: server.name, state, enabled, topLevelId: undefined }, tx);
+			this._options.emit({
+				type: ActionType.SessionMcpServerStateChanged,
+				id: childId,
+				state,
+				channel: this._buildChannel(server.name, state),
+			});
+			return;
+		}
 		if (topLevelId === undefined) {
 			const published = this._findPublishedMcpCustomization(server.name);
 			const retainChildIdentity = published === undefined
@@ -412,9 +432,8 @@ export class McpCustomizationController extends Disposable {
 	 * inventory.
 	 *
 	 * For child entries we emit a final {@link ActionType.SessionMcpServerStateChanged}
-	 * carrying {@link McpServerStatus.Stopped} so the UI sees the
-	 * server settle into a terminal state; the plugin layer owns the
-	 * actual removal of the child container.
+	 * carrying {@link McpServerStatus.Stopped}. If its plugin has already
+	 * removed the child, we remove the last published child customization instead.
 	 */
 	remove(serverName: string): void {
 		transaction(tx => this._remove(serverName, tx));
@@ -438,9 +457,8 @@ export class McpCustomizationController extends Disposable {
 			return;
 		}
 		this._options.emit({
-			type: ActionType.SessionMcpServerStateChanged,
-			id: childId,
-			state: { kind: McpServerStatus.Stopped },
+			type: ActionType.SessionCustomizationRemoved,
+			id: knownChildId,
 		});
 	}
 
@@ -599,11 +617,11 @@ export function applyMcpServerEnablement(customizations: readonly Customization[
 	const desiredById = new Map(getEffectiveMcpServerCustomizations(desired).map(({ server }) => [server.id, server.enablement]));
 	return customizations.map(customization => {
 		if (customization.type === CustomizationType.McpServer) {
-			return applyMcpEnablement(customization, desiredById);
+			return applySessionMcpEnablement(customization, desiredById);
 		}
 		let changed = false;
 		const children = customization.children?.map(child => {
-			const next = child.type === CustomizationType.McpServer ? applyMcpEnablement(child, desiredById) : child;
+			const next = child.type === CustomizationType.McpServer ? applySessionMcpEnablement(child, desiredById) : child;
 			changed ||= next !== child;
 			return next;
 		});

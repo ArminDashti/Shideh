@@ -1542,9 +1542,9 @@ export function getLocalMcpServerEnablementActions(mcpService: IMcpService, serv
 		? !getActiveSessionServerPresentation(options.activeSessionServer).enabled
 		: isContributionDisabled(mcpService.enablementModel.readEnabled(serverId));
 	const actions: IAction[] = [];
-	if (disabled) {
+	if (globallyDisabled) {
 		actions.push(new Action('mcpServer.builtin.enable', localize('builtinMcpServerEnable', "Enable"), undefined, true, () => {
-			mcpService.enablementModel.setEnabled(serverId, ContributionEnablementState.EnabledProfile);
+			setLocalMcpServerEnablement(mcpService, serverId, ContributionEnablementState.EnabledProfile, agentHostTarget);
 		}));
 		if (includeWorkspace && !isEmptyWorkbench) {
 			actions.push(new Action('mcpServer.builtin.enableWorkspace', localize('builtinMcpServerEnableForWorkspace', "Enable (Workspace)"), undefined, true, () => {
@@ -1557,7 +1557,7 @@ export function getLocalMcpServerEnablementActions(mcpService: IMcpService, serv
 		}));
 		if (includeWorkspace && !isEmptyWorkbench) {
 			actions.push(new Action('mcpServer.builtin.disableWorkspace', localize('builtinMcpServerDisableForWorkspace', "Disable (Workspace)"), undefined, true, () => {
-				mcpService.enablementModel.setEnabled(serverId, ContributionEnablementState.DisabledWorkspace);
+				setLocalMcpServerEnablement(mcpService, serverId, ContributionEnablementState.DisabledWorkspace, agentHostTarget);
 			}));
 		}
 	}
@@ -1592,7 +1592,8 @@ export function getActiveSessionServerOptionsActions(commandService: ICommandSer
 		if (actions.length > 0) {
 			actions.push(new Separator());
 		}
-		actions.push(...durableActions);
+
+		actions.push(getSessionEnablementAction(server));
 	}
 
 	actions.push(new Separator());

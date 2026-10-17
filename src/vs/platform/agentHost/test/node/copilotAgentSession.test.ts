@@ -15,7 +15,7 @@ import { DeferredPromise, timeout } from '../../../../base/common/async.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { join, sep } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -80,6 +80,8 @@ import { IAgentHostTerminalManager } from '../../node/agentHostTerminalManager.j
 import { TestAgentHostTerminalManager } from './testAgentHostTerminalManager.js';
 import { buildCopilotSystemNotification, getCopilotSubagentDisplayNames } from '../../node/copilot/copilotSystemNotification.js';
 import { IAgentConfigurationService } from '../../node/agentConfigurationService.js';
+import { IAgentHostCustomizationEnablementService } from '../../node/agentHostCustomizationEnablementService.js';
+import { resolveEnablement } from '../../node/shared/mcpServerEnablement.js';
 import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
 import { AgentHostAutoApprovePolicyRestrictedConfigKey, AgentHostAutoReplyEnabledConfigKey, AgentHostDisableRepoInfoTelemetryConfigKey, AgentHostGlobalAutoApproveEnabledConfigKey } from '../../common/agentHostSchema.js';
 import { CopilotCliConfigKey } from '../../common/copilotCliConfig.js';
@@ -1282,6 +1284,14 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 		whenIdle: async () => { /* no-op */ },
 	};
 	services.set(IAgentConfigurationService, fakeConfigurationService);
+	services.set(IAgentHostCustomizationEnablementService, {
+		_serviceBrand: undefined,
+		onDidChangeEnablement: Event.None,
+		resolveEnablement: customization => resolveEnablement(customization, undefined, undefined),
+		resolveRootMcpServerEnablement: () => ({ enabled: true }),
+		applyEnablement: customizations => customizations,
+		handleToggle: () => { },
+	} as IAgentHostCustomizationEnablementService);
 	const stateManager = disposables.add(new class extends AgentHostStateManager {
 		readonly dispatchedActions: StateAction[] = [];
 		override dispatchServerAction(channel: string, action: StateAction): void {
@@ -20369,6 +20379,43 @@ Use the attached image as context.
 				resolved: true,
 				authResult: { kind: 'token', accessToken: 'token' },
 				resolvedToolCalls: ['tool-auth-continue'],
+			});
+		});
+
+		test('declines authentication for a server the user has disabled instead of prompting', async () => {
+			// The SDK can start a server we cannot withhold (plugin-directory or CLI-owned),
+			// so a disabled server may still ask for auth before the reconcile stops it.
+			const serverName = 'slack';
+			const id = 'mcp-top-level:copilot:test-session-1:slack';
+			const { runtime, signals } = await createAgentSession(disposables, {
+				sessionCustomizations: () => [{
+					type: CustomizationType.McpServer,
+					id,
+					uri: id,
+					name: serverName,
+					enabled: false,
+					enablement: [{ kind: CustomizationEnablementKind.Global, enabled: false }],
+					state: { kind: McpServerStatus.Stopped },
+				}],
+			});
+
+			const result = await runtime.handleMcpAuthRequest({
+				requestId: '0f1d6f5c-6d0b-4a1e-9f5f-7a2f0b1d3c4e',
+				serverName,
+				serverUrl: 'https://mcp.slack.com',
+				reason: 'initial',
+				wwwAuthenticateParams: { error: 'invalid_request' },
+			}, { sessionId: 'test-session-1' });
+
+			assert.deepStrictEqual({
+				result,
+				authRequiredUpdates: getActions(signals)
+					.filter(action => action.type === ActionType.SessionCustomizationUpdated)
+					.filter(action => action.customization.type === CustomizationType.McpServer && action.customization.state.kind === McpServerStatus.AuthRequired)
+					.length,
+			}, {
+				result: { kind: 'cancelled' },
+				authRequiredUpdates: 0,
 			});
 		});
 

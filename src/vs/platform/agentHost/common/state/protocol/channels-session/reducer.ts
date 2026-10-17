@@ -386,6 +386,7 @@ export function sessionReducer(state: SessionState, action: SessionAction, log?:
 				updated[i] = { ...container, children: newChildren };
 				return { ...state, customizations: updated };
 			}
+
 			return state;
 		}
 

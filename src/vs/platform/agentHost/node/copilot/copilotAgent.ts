@@ -1890,6 +1890,37 @@ export class CopilotAgent extends Disposable implements IAgent {
 		}
 	}
 
+	/**
+	 * The session's primary working directory, used to key workspace-scoped
+	 * customization enablement policy.
+	 *
+	 * `getEffectiveWorkingDirectories` reads the state manager, but the initial
+	 * customization set is seeded (see `AgentService.createSession`) *before*
+	 * the session is registered there. Without `fallback` that seeding would
+	 * resolve no workspace policy and publish a disabled server as enabled,
+	 * and nothing would revisit it. `fallback` is the session's customization
+	 * anchor, which tracks the same worktree the state manager later reports,
+	 * so both sources agree on the persisted key.
+	 */
+	private _primaryWorkingDirectory(session: URI, fallback: URI | undefined): string | undefined {
+		return getPrimaryWorkingDirectory(this._configurationService.getEffectiveWorkingDirectories(session.toString())) ?? fallback?.toString();
+	}
+
+	private async _reconcileMcpServerEnablement(session: URI): Promise<void> {
+		const sessionId = AgentSession.id(session);
+		const entry = this._sessions.get(sessionId);
+		const chats = [
+			...(entry?.defaultChat ? [entry.defaultChat] : []),
+			...(entry?.peerChatSessions() ?? []),
+		];
+		const results = await Promise.allSettled(chats.map(chat => chat.reconcileMcpServerEnablement()));
+		for (const result of results) {
+			if (result.status === 'rejected') {
+				this._logService.error('[CopilotAgent] Failed to apply MCP server enablement policy', result.reason);
+			}
+		}
+	}
+
 	async stopMcpServer(session: URI, id: string): Promise<void> {
 		const controlChat = this._resolveMcpServerControlChat(session);
 		if (!controlChat) {
@@ -7683,7 +7714,7 @@ class SessionPluginController extends Disposable {
 			changed = true;
 			return { ...child, enabled: desiredEnabled };
 		});
-		return changed ? { ...customization, enabled, children } : customization;
+		return changed ? { ...container, children } : customization;
 	}
 
 	private _resolveCustomizationForPublish<T extends Customization>(customization: T): T {

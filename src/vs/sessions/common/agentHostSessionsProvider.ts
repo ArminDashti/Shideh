@@ -475,3 +475,21 @@ export function buildMutableConfigSchema(config: Record<string, unknown>): Recor
 	}
 	return properties;
 }
+
+/**
+ * Resolves the protocol-level customization id to dispatch for a UI-level id.
+ *
+ * MCP server ids surfaced to the UI are scoped as `<authority>/<rawId>`, but
+ * plugin and other customization ids are not scoped at all. Stripping a leading
+ * segment unconditionally would corrupt an unscoped id such as
+ * `file:///path/to/plugin` into `//path/to/plugin`, and the agent host would
+ * silently find no customization to toggle. The scope is therefore only removed
+ * when the id actually resolved to a known MCP server.
+ *
+ * @param rawId the id as surfaced to the UI.
+ * @param matchedServerId the scoped id of the MCP server `rawId` resolved to,
+ * or `undefined` when it is not an MCP server.
+ */
+export function unscopeCustomizationId(rawId: string, matchedServerId: string | undefined): string {
+	return matchedServerId === undefined ? rawId : matchedServerId.slice(matchedServerId.indexOf('/') + 1);
+}
