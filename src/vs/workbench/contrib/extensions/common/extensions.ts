@@ -200,6 +200,7 @@ export const AutoCheckUpdatesConfigurationKey = 'extensions.autoCheckUpdates';
 export const AutoUpdateMinimumReleaseAgeConfigurationKey = 'extensions.autoUpdate.minimumReleaseAge';
 export const CloseExtensionDetailsOnViewChangeKey = 'extensions.closeExtensionDetailsOnViewChange';
 export const AutoRestartConfigurationKey = 'extensions.autoRestart';
+export const ExcludeDisabledAutoUpdateFromBadgeKey = 'extensions.excludeDisabledAutoUpdateFromBadge';
 
 export type AutoUpdateConfigurationValue = 'on' | 'off';
 
