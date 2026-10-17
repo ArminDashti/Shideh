@@ -80,6 +80,7 @@ export class ModelPicker extends Disposable {
 				this._selectionModel.selectModel(model.identifier, false);
 			},
 			getModels: () => [...this._selectionModel.state.get().models],
+			getChatSessionType: () => this._sessionContext.session.get()?.sessionType,
 			getPresentationOptions: () => ({
 				...this._selectionModel.state.get().options,
 				showModelIcon: true,
