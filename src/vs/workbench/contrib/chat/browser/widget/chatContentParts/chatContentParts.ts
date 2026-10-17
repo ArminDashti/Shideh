@@ -13,6 +13,7 @@ import { ITextModel } from '../../../../../../editor/common/model.js';
 import { ILanguageSelection } from '../../../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../../../editor/common/services/model.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { ChatAgentLocation } from '../../../common/constants.js';
 
 export interface IChatContentPart extends IDisposable {
 	domNode: HTMLElement | undefined;

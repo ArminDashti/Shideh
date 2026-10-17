@@ -192,7 +192,7 @@ export interface IChatWidgetService {
 	openSession(sessionResource: URI, target?: PreferredGroup, options?: IChatEditorOptions): Promise<IChatWidget | undefined>;
 	openSession(sessionResource: URI, target?: typeof ChatViewPaneTarget | PreferredGroup, options?: IChatEditorOptions): Promise<IChatWidget | undefined>;
 
-	getWidgetBySessionResource(sessionResource: URI): IChatWidget | undefined;
+	getWidgetBySessionResource(sessionResource: URI, location?: ChatAgentLocation): IChatWidget | undefined;
 
 	getWidgetsByLocations(location: ChatAgentLocation): ReadonlyArray<IChatWidget>;
 
@@ -279,6 +279,7 @@ export function unwrapChatContextMenuActionContext(context: unknown): unknown {
 }
 
 export interface IChatListItemRendererOptions {
+	readonly location?: ChatAgentLocation;
 	readonly renderStyle?: 'compact' | 'minimal';
 	readonly noHeader?: boolean;
 	readonly noFooter?: boolean;
