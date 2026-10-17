@@ -143,6 +143,69 @@ suite('ChatListRenderer', () => {
 			]);
 		});
 
+		suite('splitMarkdownContentAtRenderedCodeBlocks', () => {
+			const split = (value: string) => splitMarkdownContentAtRenderedCodeBlocks(
+				{ kind: 'markdownContent', content: new MarkdownString(value) },
+				languageId => languageId.toLowerCase() === 'mermaid',
+			).map(part => part.content.value);
+
+			test('keeps completed rendered code blocks stable while trailing markdown streams', () => {
+				const baseUri = URI.parse('https://example.com/base/');
+				const uri = URI.parse('https://example.com/target');
+				const metadataSource = {
+					kind: 'markdownContent' as const,
+					content: new MarkdownString('```mermaid\ngraph TD\n```\n[link](target)', { isTrusted: true }),
+				};
+				metadataSource.content.baseUri = baseUri;
+				metadataSource.content.uris = { target: uri };
+				const metadataParts = splitMarkdownContentAtRenderedCodeBlocks(metadataSource, languageId => languageId === 'mermaid');
+
+				assert.deepStrictEqual({
+					incomplete: split('```mermaid\ngraph TD'),
+					noTrailingContent: split('```mermaid\ngraph TD\n```'),
+					trailingContent: split('```mermaid\ngraph TD\n```\nTrailing'),
+					caseInsensitiveWithInfo: split('```Mermaid extra\ngraph TD\n```\nTrailing'),
+					longFence: split('````mermaid\ngraph TD\n````\nTrailing'),
+					tildeFence: split('~~~mermaid\ngraph TD\n~~~\nTrailing'),
+					nonRenderedFence: split('```typescript\nconst value = 1;\n```\nTrailing'),
+					multipleFences: split('```mermaid\ngraph TD\n```\nBetween\n```mermaid\ngraph LR\n```\nAfter'),
+					nestedFence: split('> ```mermaid\n> graph TD\n> ```\nTrailing'),
+					crlfFence: split('Before\r\n```mermaid\r\ngraph TD\r\n```\r\nAfter'),
+					metadata: metadataParts.map(part => ({
+						value: part.content.value,
+						isTrusted: part.content.isTrusted,
+						baseUri: part.content.baseUri?.toString(),
+						uris: part.content.uris,
+					})),
+				}, {
+					incomplete: ['```mermaid\ngraph TD'],
+					noTrailingContent: ['```mermaid\ngraph TD\n```'],
+					trailingContent: ['```mermaid\ngraph TD\n```\n', 'Trailing'],
+					caseInsensitiveWithInfo: ['```Mermaid extra\ngraph TD\n```\n', 'Trailing'],
+					longFence: ['````mermaid\ngraph TD\n````\n', 'Trailing'],
+					tildeFence: ['~~~mermaid\ngraph TD\n~~~\n', 'Trailing'],
+					nonRenderedFence: ['```typescript\nconst value = 1;\n```\nTrailing'],
+					multipleFences: ['```mermaid\ngraph TD\n```\n', 'Between\n```mermaid\ngraph LR\n```\n', 'After'],
+					nestedFence: ['> ```mermaid\n> graph TD\n> ```\n', 'Trailing'],
+					crlfFence: ['Before\r\n```mermaid\r\ngraph TD\r\n```\r\n', 'After'],
+					metadata: [
+						{
+							value: '```mermaid\ngraph TD\n```\n',
+							isTrusted: true,
+							baseUri: baseUri.toString(),
+							uris: { target: uri },
+						},
+						{
+							value: '[link](target)',
+							isTrusted: true,
+							baseUri: baseUri.toString(),
+							uris: { target: uri },
+						},
+					],
+				});
+			});
+		});
+
 		suite('getFinalResponseStartIndex', () => {
 			test('finds the trailing markdown response while leaving trailing adjuncts in place', () => {
 				assert.deepStrictEqual([

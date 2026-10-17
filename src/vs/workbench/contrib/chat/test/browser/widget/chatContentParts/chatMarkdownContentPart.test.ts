@@ -696,6 +696,21 @@ suite('ChatMarkdownContentPart', () => {
 		assert.ok(part.domNode.textContent?.includes('Rendering code block'));
 	});
 
+	test('keeps chat output renderer pending when incomplete tokens are filled in', () => {
+		const ctx = createRenderContext(false);
+		const part = createMarkdownPart('```mermaid\ngraph TD', ctx, true);
+
+		assert.deepStrictEqual({
+			renderedOutputs: renderedCodeBlockOutputs,
+			codeBlockCount: part.codeblocks.length,
+			isPending: part.domNode.textContent?.includes('Rendering code block'),
+		}, {
+			renderedOutputs: [],
+			codeBlockCount: 1,
+			isPending: true,
+		});
+	});
+
 	test('renders multiple code blocks with correct indices', () => {
 		const part = createMarkdownPart(
 			'Some text\n```python\nprint("a")\n```\nMore text\n```typescript\nconst x = 1;\n```'
