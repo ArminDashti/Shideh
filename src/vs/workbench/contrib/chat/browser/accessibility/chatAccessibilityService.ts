@@ -33,18 +33,9 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IChatWidgetService private readonly _widgetService: IChatWidgetService,
-		@IChatService private readonly _chatService: IChatService,
 	) {
 		super();
 		this._register(this._widgetService.onDidBackgroundSession(e => {
-			const session = this._chatService.getSession(e);
-			if (!session) {
-				return;
-			}
-			const requestInProgress = session.requestInProgress.get();
-			if (!requestInProgress) {
-				return;
-			}
 			this.disposeRequest(e);
 		}));
 	}
