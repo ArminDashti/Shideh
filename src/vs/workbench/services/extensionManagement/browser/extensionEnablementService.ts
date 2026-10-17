@@ -227,7 +227,10 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 		}
 
 		try {
-			this.throwErrorIfCannotChangeWorkspaceEnablement(extension);
+			// Passing `true` to check if the enable operation is allowed in workspace.
+			// For auth provider extensions, enabling is allowed but disabling is not.
+			// This means canChangeWorkspaceEnablement returns true for auth extensions.
+			this.throwErrorIfCannotChangeWorkspaceEnablement(extension, true);
 			return true;
 		} catch (error) {
 			return false;
@@ -296,7 +299,7 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 		}
 	}
 
-	private throwErrorIfCannotChangeWorkspaceEnablement(extension: IExtension): void {
+	private throwErrorIfCannotChangeWorkspaceEnablement(extension: IExtension, enable: boolean): void {
 		if (!this.hasWorkspace) {
 			throw new Error(localize('noWorkspace', "No workspace."));
 		}
@@ -314,9 +317,10 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 		}
 
 		const workspace = newState === EnablementState.DisabledWorkspace || newState === EnablementState.EnabledWorkspace;
+		const enable = newState === EnablementState.EnabledGlobally || newState === EnablementState.EnabledWorkspace;
 		for (const extension of extensions) {
 			if (workspace) {
-				this.throwErrorIfCannotChangeWorkspaceEnablement(extension);
+				this.throwErrorIfCannotChangeWorkspaceEnablement(extension, enable);
 			} else {
 				this.throwErrorIfCannotChangeEnablement(extension);
 			}
