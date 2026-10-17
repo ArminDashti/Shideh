@@ -143,6 +143,12 @@
 	padding-top: 4px;
 }
 
+/* Reserve space for scrollbars to prevent overlay on content */
+.review-widget .body .review-comment .review-comment-contents .monaco-scrollable-element {
+	padding-right: 12px;
+	padding-bottom: 12px;
+}
+
 .review-widget .body .review-comment .review-comment-contents .comment-body-max-height {
 	max-height: 20em;
 }
