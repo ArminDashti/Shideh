@@ -1163,6 +1163,24 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 			this._logService.error(`[MainThreadChatSessions] notifyOptionsChange: error for handle ${handle}, sessionResource ${sessionResource}:`, error);
 		}
 	}
+
+	/**
+	 * Get the available models for a session provider
+	 */
+	getModelsForProvider(handle: number): ILanguageModelChatMetadata[] | undefined {
+		return this._contentProviderModels.get(handle);
+	}
+
+	/**
+	 * Notify the extension about option changes for a session
+	 */
+	async notifyOptionsChange(handle: number, sessionId: string, updates: ReadonlyArray<{ optionId: string; value: string | undefined }>): Promise<void> {
+		try {
+			await this._proxy.$provideHandleOptionsChange(handle, sessionId, updates, CancellationToken.None);
+		} catch (error) {
+			this._logService.error(`Error notifying extension about options change for handle ${handle}, sessionId ${sessionId}:`, error);
+		}
+	}
 }
 
 function reviveMarkdownString(value: string | IMarkdownString | undefined): string | MarkdownString | undefined {

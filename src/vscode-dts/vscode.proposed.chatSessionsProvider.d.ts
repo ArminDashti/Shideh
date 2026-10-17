@@ -688,6 +688,13 @@ declare module 'vscode' {
 		isReadOnly?: boolean;
 	}
 
+	export interface ChatSessionOptions {
+		/**
+		 * Set of available models.
+		 */
+		models?: LanguageModelChatInformation[];
+	}
+
 	/**
 	 * Represents a single selectable item within a provider option group.
 	 */

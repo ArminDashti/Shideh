@@ -730,7 +730,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 				this._proxy.$handleProgressComplete(handle, sessionResource, 'ongoing');
 			});
 		}
-		const { capabilities } = provider;
+		const { capabilities, extension } = provider;
 		return {
 			resource: URI.revive(sessionResource),
 			title: session.title,
