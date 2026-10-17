@@ -31,6 +31,7 @@ export enum TerminalCompletionItemKind {
 	// Core-only kinds
 	InlineSuggestion = 100,
 	InlineSuggestionAlwaysOnTop = 101,
+	VscodeCommand = 102,
 }
 
 // Maps CompletionItemKind from language server based completion to TerminalCompletionItemKind
