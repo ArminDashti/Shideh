@@ -22,6 +22,7 @@ import { InstantiationType, registerSingleton } from '../../../../../platform/in
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
+import { AgentsVoiceSettingId } from '../../../agentsVoice/common/agentsVoice.js';
 import { IVoiceTranscriptEntryMetadata, IVoiceTranscriptStore, IVoiceTranscriptTurn, VoiceTranscriptKind } from '../../../agentsVoice/common/voiceTranscriptStore.js';
 import { IVoiceAudioResponse, IVoiceBargeIn, IVoiceCheckpointNarrationMetadata, IVoiceClientService, IVoiceFatalDisconnect, IVoicePriorTimelineEntry, IVoiceSessionContext, IVoiceFeedbackPayload, IVoiceFeedbackTranscriptTurn, IVoiceTranscription, IVoiceTurnAutoEnded, IVoiceNarrationAck, IVoiceNarrationSignal, isVoiceCheckpointId, VoiceCheckpointId, VoiceConfirmationType, VoiceNarrationKind, IVoiceSessionPending, IVoicePendingQuestion, derivePendingId, getVoiceToolApprovalCommand, isPendingIdResolved, restoreResolvedPendingId, VOICE_AGENT_PROGRESS_SETTING } from '../../common/voiceClient/voiceClientService.js';
 import { voiceCloseCodeInfo, VoiceCloseCode } from '../../common/voiceClient/voiceCloseCodes.js';
@@ -806,6 +807,7 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 	private _telemetryFirstTranscriptionMs: number | undefined;
 	private _telemetryTtsInterrupted = false;
 	private _entitlementCheckScheduled = false;
+	private _didNotifyGptLiveByok = false;
 
 	// --- Transcript persistence (local-only) ---
 	/** Cached GitHub login resolved on connect; used as transcript partition key. */
@@ -1077,11 +1079,27 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 			this.notificationService.warn(localize('voiceMode.disabled', "Voice Mode is disabled."));
 			return;
 		}
-		if (!isVoiceEntitled(this.chatEntitlementService)) {
+		let hasGptLiveByok = false;
+		try {
+			hasGptLiveByok = await this.voiceClientService.hasGptLiveByok();
+			this.logService.info(`[voice] GPT-Live BYOK is ${hasGptLiveByok ? 'available' : 'unavailable'}.`);
+		} catch (error) {
+			this.logService.debug('[voice] GPT-Live BYOK availability check failed', error);
+			this.notificationService.error(localize('voiceMode.gptLiveAvailabilityFailed', "Unable to check the OpenAI GPT-Live configuration."));
+			return;
+		}
+		if (!hasGptLiveByok && !isVoiceEntitled(this.chatEntitlementService)) {
 			this.notificationService.warn(this.chatEntitlementService.entitlement === ChatEntitlement.Business || this.chatEntitlementService.entitlement === ChatEntitlement.Enterprise
 				? localize('voiceMode.organizationUnavailable', "Voice Mode is not available for GitHub Copilot Business or Enterprise accounts.")
 				: localize('voiceMode.requiresPaidPlan', "Voice Mode requires a paid GitHub Copilot plan."));
 			return;
+		}
+		if (hasGptLiveByok && !this._didNotifyGptLiveByok) {
+			const modelId = this.configurationService.getValue<string>(AgentsVoiceSettingId.UseBYOKVoiceModel)?.trim();
+			if (modelId) {
+				this._didNotifyGptLiveByok = true;
+				this.notificationService.info(localize('voiceMode.usingOpenAIModel', "Using {0} from your OpenAI provider for Voice Mode.", modelId));
+			}
 		}
 		const connectAttemptGeneration = ++this._connectAttemptGeneration;
 
@@ -1740,6 +1758,22 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 					});
 					this._voiceState.set('idle', undefined);
 					this._statusText.set('Reconnecting...', undefined);
+				}
+			}
+		}));
+
+		this._voiceEventDisposables.add(this.voiceClientService.onDidChangeRemoteAudioState(speaking => {
+			if (speaking) {
+				this._clearAutoListenTimer();
+				this._awaitingReplyAudio = false;
+				this._replyPlayedSinceSend = true;
+				this._voiceState.set('speaking', undefined);
+				this._statusText.set('Speaking...', undefined);
+			} else if (this._isConnected.get()) {
+				this._voiceState.set('idle', undefined);
+				this._statusText.set('Hold to speak...', undefined);
+				if (this._isHandsFreeEnabled()) {
+					this._scheduleAutoListen();
 				}
 			}
 		}));

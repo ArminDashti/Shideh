@@ -1838,6 +1838,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				const snippet = this.getSnippetForFirstUnconfiguredProperty(configuration ?? {}, vendor.configuration);
 				await this._languageModelsConfigurationService.configureLanguageModels({ group: saved, snippet });
 			}
+
 		} catch (error) {
 			if (isCancellationError(error)) {
 				return;
