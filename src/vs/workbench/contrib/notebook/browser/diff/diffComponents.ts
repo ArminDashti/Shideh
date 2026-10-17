@@ -2136,12 +2136,13 @@ export class ModifiedElement extends AbstractElementRenderer {
 
 export class CollapsedCellOverlayWidget extends Disposable implements IDiffCellMarginOverlay {
 	private readonly _nodes = DOM.h('div.diff-hidden-cells', [
-		DOM.h('div.center@content', { style: { display: 'flex' } }, [
-			DOM.$('a', {
-				title: localize('showUnchangedCells', 'Show Unchanged Cells'),
-				role: 'button',
-				onclick: () => { this._action.fire(); }
-			},
+		DOM.h('div.center@content', {
+			style: { display: 'flex' },
+			title: localize('showUnchangedCells', 'Show Unchanged Cells'),
+			role: 'button',
+			onclick: () => { this._action.fire(); }
+		}, [
+			DOM.$('span', {},
 				...renderLabelWithIcons('$(unfold)'))]
 		),
 	]);
@@ -2175,15 +2176,15 @@ export class CollapsedCellOverlayWidget extends Disposable implements IDiffCellM
 
 export class UnchangedCellOverlayWidget extends Disposable implements IDiffCellMarginOverlay {
 	private readonly _nodes = DOM.h('div.diff-hidden-cells', [
-		DOM.h('div.center@content', { style: { display: 'flex' } }, [
-			DOM.$('a', {
-				title: localize('hideUnchangedCells', 'Hide Unchanged Cells'),
-				role: 'button',
-				onclick: () => { this._action.fire(); }
-			},
+		DOM.h('div.center@content', {
+			style: { display: 'flex' },
+			title: localize('hideUnchangedCells', 'Hide Unchanged Cells'),
+			role: 'button',
+			onclick: () => { this._action.fire(); }
+		}, [
+			DOM.$('span', {},
 				...renderLabelWithIcons('$(fold)')
-			),
-		]
+			)]
 		),
 	]);
 
