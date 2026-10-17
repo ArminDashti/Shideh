@@ -103,6 +103,13 @@ export interface IPersistedTurnRecord {
 	seq?: number;
 	/** JSON-serialized protocol `Turn`. */
 	payload: string;
+	/**
+	 * Optional model-facing context contributed by this local turn (e.g. the
+	 * command a `!command` ran and its output). Prepended to the next real
+	 * message so the model learns what the user did out-of-band. `undefined`
+	 * for local turns that contribute nothing (e.g. `/rename`).
+	 */
+	modelContext?: string;
 }
 
 interface ISessionCatalogSyncIdentity {

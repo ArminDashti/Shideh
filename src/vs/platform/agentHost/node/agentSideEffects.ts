@@ -2282,6 +2282,26 @@ export class AgentSideEffects extends Disposable {
 		}
 	}
 
+	/**
+	 * Prepends the model-facing context of the pending host-injected local turns
+	 * in `chat` (the trailing locals in the transcript — see
+	 * {@link AgentHostLocalTurns.collectPendingModelContext}) to `text`. Returns
+	 * `text` unchanged when there is no pending context. The in-flight real
+	 * message being sent lives in the active turn, so the pending locals are the
+	 * trailing completed turns the model has not yet seen.
+	 */
+	private _augmentWithPendingLocalContext(chat: ProtocolURI, text: string): string {
+		const turns = this._stateManager.getSessionState(chat)?.turns;
+		if (!turns) {
+			return text;
+		}
+		const context = this._options.localTurns.collectPendingModelContext(chat, turns);
+		if (context.length === 0) {
+			return text;
+		}
+		return `${context.join('\n\n')}\n\n${text}`;
+	}
+
 
 	override dispose(): void {
 		for (const source of this._pendingMcpServerStarts.values()) {

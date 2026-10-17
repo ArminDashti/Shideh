@@ -50,6 +50,41 @@ export class BangLocalCommand extends Disposable implements ILocalChatCommand {
 		return { run: () => this._run(request.turnChannel, request.turnId, command), suggestedTitle: command };
 	}
 
+	/**
+	 * Contributes the command the user ran and its captured output as
+	 * model-facing context so the next real message tells the model what
+	 * happened out-of-band. Reads the completed terminal tool call from the
+	 * (already sanitized) turn; returns `undefined` when no command is present.
+	 */
+	getModelContext(turn: Turn): string | undefined {
+		const part = turn.responseParts.find(p => p.kind === ResponsePartKind.ToolCall && p.toolCall.toolName === 'terminal');
+		if (!part || part.kind !== ResponsePartKind.ToolCall) {
+			return undefined;
+		}
+		const toolCall = part.toolCall;
+		// A finished bang tool call is always Completed (it never requests
+		// result confirmation); this narrows to the state carrying toolInput and
+		// content without an `in` check.
+		if (toolCall.status !== ToolCallStatus.Completed) {
+			return undefined;
+		}
+		const command = toolCall.toolInput;
+		if (!command) {
+			return undefined;
+		}
+		const output = (toolCall.content ?? [])
+			.flatMap(c => c.type === ToolResultContentType.Text ? [c.text] : [])
+			.join('\n')
+			.trim();
+		const lines = [`The user ran a terminal command themselves (not the assistant):`, '', `$ ${command}`];
+		if (output) {
+			lines.push('', 'Output:', output);
+		} else {
+			lines.push('', '(no output)');
+		}
+		return lines.join('\n');
+	}
+
 	private async _run(turnChannel: ProtocolURI, turnId: string, command: string): Promise<void> {
 		const ctx = this._context;
 		const sessionChannel = isAhpChatChannel(turnChannel) ? parseRequiredSessionUriFromChatUri(turnChannel) : turnChannel;

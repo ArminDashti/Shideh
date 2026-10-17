@@ -831,6 +831,7 @@ export class SessionDatabase implements ISessionDatabase {
 			anchorTurnId: (r.anchor_turn_id as string | null) ?? undefined,
 			seq: r.seq as number,
 			payload: r.payload as string,
+			modelContext: (r.model_context as string | null) ?? undefined,
 		}));
 	}
 

@@ -192,7 +192,7 @@ export class AgentHostLocalCommands extends Disposable {
 			// drain any messages queued behind it.
 			this._stateManager.dispatchServerAction(request.turnChannel, { type: ActionType.ChatTurnComplete, turnId: request.turnId, duration: Math.max(0, stopWatch.elapsed()) });
 			if (command.recordsLocalTurn) {
-				this._recordLocalTurn(request.turnChannel, request.turnId);
+				this._recordLocalTurn(command, request.turnChannel, request.turnId);
 			}
 			const session = isAhpChatChannel(request.turnChannel) ? parseRequiredSessionUriFromChatUri(request.turnChannel) : request.turnChannel;
 			this._chatContributions.turnEnd({ session, channel: request.turnChannel, turnId: request.turnId, reason: { kind: 'localCommand' } });
@@ -204,9 +204,12 @@ export class AgentHostLocalCommands extends Disposable {
 	 * it survives reload and fork/truncate can resolve it to the preceding
 	 * concrete turn. Works uniformly for the default chat and any peer chat —
 	 * the turn is keyed by its chat channel. Live terminal references are
-	 * stripped from the payload (the PTY does not survive a reload).
+	 * stripped from the payload (the PTY does not survive a reload). The
+	 * handling `command` may contribute model-facing context (see
+	 * {@link ILocalChatCommand.getModelContext}) that is prepended to the next
+	 * real message.
 	 */
-	private _recordLocalTurn(turnChannel: ProtocolURI, turnId: string): void {
+	private _recordLocalTurn(command: ILocalChatCommand, turnChannel: ProtocolURI, turnId: string): void {
 		const chat = turnChannel;
 		const session = isAhpChatChannel(turnChannel) ? parseRequiredSessionUriFromChatUri(turnChannel) : turnChannel;
 		const turns = this._stateManager.getSessionState(turnChannel)?.turns;
