@@ -163,6 +163,12 @@ export class CommandLineFileWriteAnalyzer extends Disposable implements ICommand
 								break;
 							}
 
+							// Allow writes to /tmp directory on Unix-like systems
+							if (options.os !== OperatingSystem.Windows && fileUri.path.startsWith('/tmp/')) {
+								this._log('File write to /tmp allowed', fileUri.toString());
+								continue;
+							}
+
 							const isInsideWorkspace = workspaceFolders.some(folder =>
 								folder.uri.scheme === fileUri.scheme &&
 								extUri.isEqualOrParent(fileUri, folder.uri)
