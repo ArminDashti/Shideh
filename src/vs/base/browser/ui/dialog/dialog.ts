@@ -8,6 +8,7 @@ import { localize } from '../../../../nls.js';
 import { $, addDisposableListener, addStandardDisposableListener, clearNode, EventHelper, EventType, getWindow, hide, isActiveElement, isAncestor, isEditableElement, isHTMLElement, show } from '../../dom.js';
 import { StandardKeyboardEvent } from '../../keyboardEvent.js';
 import { ActionBar } from '../actionbar/actionbar.js';
+import { alert } from '../aria/aria.js';
 import { ButtonBar, ButtonBarAlignment, ButtonWithDescription, ButtonWithDropdown, IButton, IButtonStyles, IButtonWithDropdownOptions } from '../button/button.js';
 import { ICheckboxStyles, Checkbox } from '../toggle/toggle.js';
 import { IInputBoxStyles, InputBox } from '../inputbox/inputBox.js';
