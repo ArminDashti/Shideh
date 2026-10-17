@@ -62,6 +62,7 @@
     },
     "koffi": "3.2.1",
     "yauzl": "^3.3.1"
+<<<<<<< HEAD
   },
   "allowScripts": {
     "kerberos@2.1.1": true,
