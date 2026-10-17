@@ -8,7 +8,7 @@ This repository ("`Code - OSS`") is where we (Microsoft) develop the [Visual Stu
 Fresh ideas and steady iteration keep this repository moving forward.
 
 ## Visual Studio Code
-
+asdfadsifjadslkfjhaksd;fhjkladshfkjlsahfljkdsahfjadklshflsjadk
 <p align="center">
   <img alt="VS Code in action" src="https://github.com/user-attachments/assets/56af271c-949d-454c-a3ea-16188c063414">
 </p>
