@@ -7,6 +7,7 @@ import '../../platform/update/common/update.config.contribution.js';
 import '../../platform/policy/common/policy.config.contribution.js';
 
 import { app, dialog } from 'electron';
+import { homedir } from 'os';
 import { unlinkSync, promises } from 'fs';
 import { URI } from '../../base/common/uri.js';
 import { joinPath } from '../../base/common/resources.js';
