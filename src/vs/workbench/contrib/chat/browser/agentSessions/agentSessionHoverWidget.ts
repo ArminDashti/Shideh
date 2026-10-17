@@ -17,6 +17,7 @@ import { localize } from '../../../../../nls.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { SESSION_META_EHCLI_ADOPTABLE_KEY } from '../../../../../platform/agentHost/common/state/sessionState.js';
 import { IChatService } from '../../common/chatService/chatService.js';
+import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatAgentLocation, ChatModeKind } from '../../common/constants.js';
 import { IChatModel } from '../../common/model/chatModel.js';
 import { ChatViewModel } from '../../common/model/chatViewModel.js';
@@ -191,10 +192,10 @@ export class AgentSessionHoverWidget extends Disposable {
 
 		// Provider icon + name + Duration or start time
 		const providerType = getAgentSessionProvider(session.providerType);
-		const provider = providerType ?? AgentSessionProviders.Local;
-		const providerIcon = getAgentSessionProviderIcon(provider);
+		const provider = providerType ?? localSessionProvider.type;
+		const providerIcon = getAgentSessionProviderIcon(provider, this.chatSessionsService);
 		dom.append(detailsRow, renderIcon(providerIcon));
-		dom.append(detailsRow, dom.$('span', undefined, getAgentSessionProviderName(provider)));
+		dom.append(detailsRow, dom.$('span', undefined, getAgentSessionProviderName(provider, this.chatSessionsService)));
 		dom.append(detailsRow, dom.$('span.separator', undefined, '•'));
 
 		if (session.timing.lastRequestEnded && session.timing.lastRequestStarted) {
@@ -282,10 +283,8 @@ export class AgentSessionHoverWidget extends Disposable {
 		const details: string[] = [];
 
 		// Provider icon + name + Duration or start time
-		const providerType = getAgentSessionProvider(session.providerType);
-		const provider = providerType ?? AgentSessionProviders.Local;
-		const providerIcon = getAgentSessionProviderIcon(provider);
-		const providerName = getAgentSessionProviderName(provider);
+		const providerIcon = getAgentSessionProviderIcon(session.providerType, this.chatSessionsService);
+		const providerName = getAgentSessionProviderName(session.providerType, this.chatSessionsService);
 		let timeLabel: string;
 		if (session.timing.lastRequestEnded && session.timing.lastRequestStarted) {
 			const duration = this.toDuration(session.timing.lastRequestStarted, session.timing.lastRequestEnded, true);

@@ -50,9 +50,70 @@ export function getAgentSessionProvider(sessionResource: URI | string): AgentSes
 		default:
 			return undefined;
 	}
+
+	return sessionResource;
 }
 
-export function getAgentSessionProviderName(provider: AgentSessionProviders): string {
+export function isBuiltInAgentSessionProvider(provider: AgentSessionProviderType): boolean {
+	return isLocalSessionProvider(provider);
+}
+
+export function isFirstPartyAgentSessionProvider(contribution: IChatSessionsExtensionPoint): boolean;
+export function isFirstPartyAgentSessionProvider(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): boolean;
+export function isFirstPartyAgentSessionProvider(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): boolean {
+	const contribution = getSessionProviderContribution(providerOrContribution, chatSessionsService);
+
+	if (isBuiltInAgentSessionProvider(contribution.type)) {
+		return true;
+	}
+
+	return firstPartyAgentSessionProviders.includes(contribution.type);
+}
+
+export function getAgentSessionProviderName(contribution: IChatSessionsExtensionPoint): string;
+export function getAgentSessionProviderName(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): string;
+export function getAgentSessionProviderName(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): string {
+	return getSessionProviderContribution(providerOrContribution, chatSessionsService).displayName;
+}
+
+export function getAgentSessionProviderDescription(contribution: IChatSessionsExtensionPoint): string;
+export function getAgentSessionProviderDescription(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): string;
+export function getAgentSessionProviderDescription(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): string {
+	return getSessionProviderContribution(providerOrContribution, chatSessionsService).description;
+}
+
+export function getAgentSessionProviderIcon(contribution: IChatSessionsExtensionPoint): ThemeIcon;
+export function getAgentSessionProviderIcon(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): ThemeIcon;
+export function getAgentSessionProviderIcon(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): ThemeIcon {
+	const icon = getSessionProviderContribution(providerOrContribution, chatSessionsService).icon;
+	if (icon === undefined) {
+		return Codicon.question;
+	}
+
+	const codicon = typeof icon === 'string' ? ThemeIcon.fromString(icon) : undefined;
+	if (codicon) {
+		return codicon;
+	}
+
+	return Codicon.code;
+}
+
+export function getAgentCanContinueIn(contribution: IChatSessionsExtensionPoint): boolean;
+export function getAgentCanContinueIn(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): boolean;
+export function getAgentCanContinueIn(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): boolean {
+	return getSessionProviderContribution(providerOrContribution, chatSessionsService).canDelegate ?? false;
+}
+
+// Contribution getters
+
+function getSessionProviderContribution(providerOrContribution: AgentSessionProviderType | IChatSessionsExtensionPoint, chatSessionsService?: IChatSessionsService): IChatSessionsExtensionPoint {
+	if (typeof providerOrContribution === 'string') {
+		return getSessionProviderContributionFromService(providerOrContribution, chatSessionsService!);
+	}
+	return providerOrContribution;
+}
+
+function getSessionProviderContributionFromService(provider: AgentSessionProviderType, chatSessionsService: IChatSessionsService): IChatSessionsExtensionPoint {
 	switch (provider) {
 		case AgentSessionProviders.Local:
 			return localize('chat.session.providerLabel.local', "Local");

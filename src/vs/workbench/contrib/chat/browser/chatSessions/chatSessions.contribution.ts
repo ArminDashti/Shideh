@@ -370,7 +370,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 			this._evaluateAvailability();
 		}));
 
-		const builtinSessionProviders = [AgentSessionProviders.Local];
+		const builtinSessionProviders = [localSessionProvider.type];
 		const contributedSessionProviders = observableFromEvent(
 			this.onDidChangeAvailability,
 			() => Array.from(this._contributions.keys()).filter(key => this._contributionDisposables.has(key) && isAgentSessionProviderType(key)) as AgentSessionProviders[],
@@ -643,8 +643,6 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	}
 
 	private _registerCommands(contribution: IChatSessionsExtensionPoint): IDisposable {
-		const isAvailableInSessionTypePicker = isAgentSessionProviderType(contribution.type);
-
 		return combinedDisposable(
 			registerAction2(class OpenChatSessionAction extends Action2 {
 				constructor() {
@@ -715,10 +713,7 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 						icon: Codicon.plus,
 						f1: false, // Hide from Command Palette
 						precondition: ChatContextKeys.enabled,
-						menu: !isAvailableInSessionTypePicker ? {
-							id: MenuId.ChatNewMenu,
-							group: '3_new_special',
-						} : undefined,
+						menu: undefined,
 					});
 				}
 

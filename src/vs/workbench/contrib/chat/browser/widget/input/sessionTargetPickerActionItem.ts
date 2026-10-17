@@ -42,7 +42,7 @@ import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/drop
 
 
 export interface ISessionTypeItem {
-	type: AgentSessionProviders;
+	type: AgentSessionProviderType;
 	label: string;
 	hoverDescription: string;
 	commandId: string;
@@ -345,10 +345,10 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 
 	private _updateAgentSessionItems(): void {
 		const localSessionItem: ISessionTypeItem = {
-			type: AgentSessionProviders.Local,
-			label: getAgentSessionProviderName(AgentSessionProviders.Local),
-			hoverDescription: getAgentSessionProviderDescription(AgentSessionProviders.Local),
-			commandId: `workbench.action.chat.openNewChatSessionInPlace.${AgentSessionProviders.Local}`,
+			type: localSessionProvider.type,
+			label: getAgentSessionProviderName(localSessionProvider.type, this.chatSessionsService),
+			hoverDescription: getAgentSessionProviderDescription(localSessionProvider.type, this.chatSessionsService),
+			commandId: `workbench.action.chat.openNewChatSessionInPlace.${localSessionProvider.type}`,
 		};
 
 		const allAgentSessionItems: ISessionTypeItem[] = [localSessionItem];
@@ -384,9 +384,9 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 
 			const description = getAgentSessionProviderDescription(agentSessionType);
 			agentSessionItems.push({
-				type: agentSessionType,
-				label: getAgentSessionProviderName(agentSessionType),
-				hoverDescription: getAgentSessionProviderDescription(agentSessionType),
+				type: contribution.type,
+				label: getAgentSessionProviderName(contribution),
+				hoverDescription: getAgentSessionProviderDescription(contribution),
 				commandId: contribution.canDelegate ?
 					`workbench.action.chat.openNewChatSessionInPlace.${contribution.type}` :
 					`workbench.action.chat.openNewChatSessionExternal.${contribution.type}`,
@@ -433,7 +433,7 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 	}
 
 	protected _getSessionCategory(sessionTypeItem: ISessionTypeItem) {
-		return isFirstPartyAgentSessionProvider(sessionTypeItem.type) ? firstPartyCategory : otherCategory;
+		return isFirstPartyAgentSessionProvider(sessionTypeItem.type, this.chatSessionsService) ? firstPartyCategory : otherCategory;
 	}
 
 	protected _getSessionDescription(_sessionTypeItem: ISessionTypeItem): string | undefined {

@@ -78,7 +78,7 @@ export class DelegationSessionPickerActionItem extends SessionTypePickerActionIt
 		}
 	}
 
-	protected override _getSelectedSessionType(): AgentSessionProviders | undefined {
+	protected override _getSelectedSessionType(): AgentSessionProviderType | undefined {
 		const delegationTarget = this.delegate.getPendingDelegationTarget ? this.delegate.getPendingDelegationTarget() : undefined;
 		if (delegationTarget) {
 			return delegationTarget;
@@ -147,11 +147,11 @@ export class DelegationSessionPickerActionItem extends SessionTypePickerActionIt
 			return false;
 		}
 
-		return getAgentCanContinueIn(type);
+		return getAgentCanContinueIn(type, this.chatSessionsService);
 	}
 
 	protected override _getSessionCategory(sessionTypeItem: ISessionTypeItem) {
-		if (isFirstPartyAgentSessionProvider(sessionTypeItem.type)) {
+		if (isFirstPartyAgentSessionProvider(sessionTypeItem.type, this.chatSessionsService)) {
 			return { label: localize('continueIn', "Continue In"), order: 1, showHeader: true };
 		}
 		return { label: localize('continueInThirdParty', "Continue In (Third Party)"), order: 2, showHeader: false };

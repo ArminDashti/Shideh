@@ -21,13 +21,14 @@ import { Disposable, DisposableStore, IDisposable } from '../../../../../../base
 import { IChatWidget, IChatWidgetService } from '../../chat.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IAgentSessionsService } from '../agentSessionsService.js';
-import { AgentSessionProviders } from '../agentSessions.js';
 import { IChatEditingService, ModifiedFileEntryState } from '../../../common/editing/chatEditingService.js';
 import { isSessionInProgressStatus } from '../agentSessionsModel.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { autorun } from '../../../../../../base/common/observable.js';
 
 import './unifiedQuickAccessActions.js'; // Register unified quick access actions
+import { IChatSessionsService } from '../../../common/chatSessionsService.js';
+import { isLocalSessionProvider } from '../agentSessions.js';
 
 /**
  * Contribution that watches for projection-capable sessions and shows
@@ -48,6 +49,7 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 		@IAgentSessionsService private readonly agentSessionsService: IAgentSessionsService,
 		@IAgentSessionProjectionService private readonly agentSessionProjectionService: IAgentSessionProjectionService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
+		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
 	) {
 		super();
 
@@ -174,7 +176,8 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 		this.agentSessionsService.model.observeSession(sessionResource);
 
 		// Check if this is a projection-capable provider
-		if (!AGENT_SESSION_PROJECTION_ENABLED_PROVIDERS.has(session.providerType)) {
+		const enabledProviders = getAgentSessionProjectionEnabledProviders(this.chatSessionsService);
+		if (!enabledProviders.has(session.providerType)) {
 			this._clearEntriesWatcher();
 			this.agentTitleBarStatusService.exitSessionReadyMode();
 			return;
@@ -189,7 +192,7 @@ class AgentSessionReadyContribution extends Disposable implements IWorkbenchCont
 
 		let hasPendingChanges = false;
 
-		if (session.providerType === AgentSessionProviders.Local) {
+		if (isLocalSessionProvider(session.providerType)) {
 			// Local sessions track undecided edits via the editing service
 			const editingSession = this.chatEditingService.getEditingSession(sessionResource);
 			if (!editingSession) {

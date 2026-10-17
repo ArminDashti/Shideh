@@ -420,8 +420,8 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 
 		let hasAgentSessionChanges = false;
 		if (
-			session.element.providerType === AgentSessionProviders.Background ||
-			session.element.providerType === AgentSessionProviders.Cloud
+			session.element.providerType === backgroundAgentSessionProviderType ||
+			session.element.providerType === cloudAgentSessionProviderType
 		) {
 			// Background and Cloud agents provide the list of changes directly,
 			// so we have to use the list of changes to determine whether to show

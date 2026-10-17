@@ -169,7 +169,7 @@ interface IInternalAgentSession extends Omit<IAgentSession, 'children'>, Omit<II
 }
 
 export function isLocalAgentSessionItem(session: IAgentSession): boolean {
-	return session.providerType === AgentSessionProviders.Local;
+	return isLocalSessionProvider(session.providerType);
 }
 
 /**
@@ -745,8 +745,8 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 				let providerLabel: string;
 				const agentSessionProvider = getAgentSessionProvider(chatSessionType);
 				if (agentSessionProvider !== undefined) {
-					providerLabel = getAgentSessionProviderName(agentSessionProvider);
-					icon = getAgentSessionProviderIcon(agentSessionProvider);
+					providerLabel = getAgentSessionProviderName(agentSessionProvider, this.chatSessionsService);
+					icon = getAgentSessionProviderIcon(agentSessionProvider, this.chatSessionsService);
 				} else {
 					providerLabel = mapSessionContributionToType.get(chatSessionType)?.name ?? chatSessionType;
 					icon = session.iconPath ?? Codicon.terminal;

@@ -67,7 +67,7 @@ abstract class SubmitAction extends Action2 {
 
 		// Check if there's a pending delegation target
 		const pendingDelegationTarget = widget?.input.pendingDelegationTarget;
-		if (pendingDelegationTarget && pendingDelegationTarget !== AgentSessionProviders.Local) {
+		if (pendingDelegationTarget && pendingDelegationTarget !== localSessionProvider.type) {
 			return await this.handleDelegation(accessor, widget, pendingDelegationTarget);
 		}
 

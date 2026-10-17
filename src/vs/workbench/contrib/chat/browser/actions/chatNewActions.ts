@@ -318,7 +318,7 @@ async function runNewChatAction(
 	accessor: ServicesAccessor,
 	context: EditingSessionActionContext | undefined,
 	executeCommandContext?: INewEditSessionActionContext,
-	sessionType?: AgentSessionProviders
+	sessionType?: AgentSessionProviderType
 ) {
 	const accessibilityService = accessor.get(IAccessibilityService);
 	const instantiationService = accessor.get(IInstantiationService);
