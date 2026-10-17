@@ -196,6 +196,20 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		});
 	}
 
+	public convertToBackground(): void {
+		// Set state to ConvertedToBackground, which will stop the polling loop
+		if (this._state === OutputMonitorState.PollingForIdle || this._state === OutputMonitorState.Timeout) {
+			this._state = OutputMonitorState.ConvertedToBackground;
+			// Hide any active prompt
+			try {
+				this._promptPart?.hide();
+			} catch {
+				// Ignore errors when hiding prompt
+			}
+			this._promptPart = undefined;
+		}
+	}
+
 	private async _startMonitoring(
 		command: string,
 		invocationContext: IToolInvocationContext | undefined,
@@ -238,6 +252,7 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 						}
 					}
 					case OutputMonitorState.Cancelled:
+					case OutputMonitorState.ConvertedToBackground:
 						break;
 					case OutputMonitorState.Idle: {
 						this._logService.trace('OutputMonitor: Entering Idle handler');
@@ -264,7 +279,7 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 						break;
 					}
 				}
-				if (this._state === OutputMonitorState.Idle || this._state === OutputMonitorState.Cancelled || this._state === OutputMonitorState.Timeout) {
+				if (this._state === OutputMonitorState.Idle || this._state === OutputMonitorState.Cancelled || this._state === OutputMonitorState.Timeout || this._state === OutputMonitorState.ConvertedToBackground) {
 					break;
 				}
 			}
