@@ -1961,6 +1961,7 @@ export namespace TestItem {
 			busy: item.busy,
 			tags: item.tags.map(t => TestTag.namespace(ctrlId, t.id)),
 			range: editorRange.Range.lift(Range.from(item.range)),
+			relatedCode: item.relatedCode?.map(r => ({ uri: URI.revive(r.uri), range: editorRange.Range.lift(Range.from(r.range)) })) || null,
 			description: item.description || null,
 			sortText: item.sortText || null,
 			error: item.error ? (MarkdownString.fromStrict(item.error) || null) : null,

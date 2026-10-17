@@ -370,6 +370,10 @@ export interface ITestTagDisplayInfo {
 
 /**
  * The TestItem from .d.ts, as a plain object without children.
+ *
+ * If you want to add a new property here (new API from vscode.TestItem), make
+ * sure to also add it to `TestItemWritableProps` and ITestItemUpdate's
+ * serialization, and follow the compile errors to add it everywhere else.
  */
 export interface ITestItem {
 	/** ID of the test given by the test controller */
@@ -380,10 +384,14 @@ export interface ITestItem {
 	children?: never;
 	uri: URI | undefined;
 	range: Range | null;
+	relatedCode: { uri: URI; range: Range }[] | null;
 	description: string | null;
 	error: string | IMarkdownString | null;
 	sortText: string | null;
 }
+
+/** Subset of the ITestItem which is writable after the item's creation. */
+export type TestItemWritableProps = Pick<ITestItem, 'range' | 'label' | 'description' | 'sortText' | 'busy' | 'error' | 'tags' | 'relatedCode'>;
 
 export namespace ITestItem {
 	export interface Serialized {
@@ -394,6 +402,7 @@ export namespace ITestItem {
 		children?: never;
 		uri: UriComponents | undefined;
 		range: IRange | null;
+		relatedCode: { uri: UriComponents; range: IRange }[] | null;
 		description: string | null;
 		error: string | IMarkdownString | null;
 		sortText: string | null;
@@ -407,6 +416,7 @@ export namespace ITestItem {
 		children: undefined,
 		uri: item.uri?.toJSON(),
 		range: item.range?.toJSON() || null,
+		relatedCode: item.relatedCode || null,
 		description: item.description,
 		error: item.error,
 		sortText: item.sortText
@@ -420,6 +430,7 @@ export namespace ITestItem {
 		children: undefined,
 		uri: serialized.uri ? uriIdentity.asCanonicalUri(URI.revive(serialized.uri)) : undefined,
 		range: serialized.range ? Range.lift(serialized.range) : null,
+		relatedCode: serialized.relatedCode?.map(r => ({ uri: URI.revive(r.uri), range: Range.lift(r.range) })) || null,
 		description: serialized.description,
 		error: serialized.error,
 		sortText: serialized.sortText
@@ -494,6 +505,7 @@ export namespace ITestItemUpdate {
 			if (u.item.description !== undefined) { item.description = u.item.description; }
 			if (u.item.error !== undefined) { item.error = u.item.error; }
 			if (u.item.sortText !== undefined) { item.sortText = u.item.sortText; }
+			if (u.item.relatedCode !== undefined) { item.relatedCode = u.item.relatedCode; }
 		}
 
 		return { extId: u.extId, expand: u.expand, item };
@@ -510,6 +522,7 @@ export namespace ITestItemUpdate {
 			if (u.item.description !== undefined) { item.description = u.item.description; }
 			if (u.item.error !== undefined) { item.error = u.item.error; }
 			if (u.item.sortText !== undefined) { item.sortText = u.item.sortText; }
+			if (u.item.relatedCode !== undefined) { item.relatedCode = u.item.relatedCode?.map(r => ({ uri: URI.revive(r.uri), range: Range.lift(r.range) })) || null; }
 		}
 
 		return { extId: u.extId, expand: u.expand, item };

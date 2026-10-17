@@ -164,6 +164,12 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 		this._register(modelService.onModelRemoved(e => this.decorationCache.delete(e.uri)));
 
 		const debounceInvalidate = this._register(new RunOnceScheduler(() => this.invalidate(), 100));
+		const invalidateDecorationsIn = (uri: URI) => {
+			const rec = this.decorationCache.get(uri);
+			if (rec) {
+				rec.testRangesUpdated = true;
+			}
+		};
 
 		// If ranges were updated in the document, mark that we should explicitly
 		// sync decorations to the published lines, since we assume that everything
@@ -303,9 +309,15 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 					continue;
 				}
 
-				const stateLookup = this.results.getStateById(test.item.extId);
-				const line = test.item.range.startLineNumber;
-				runDecorations.push({ line, id: '', test, resultItem: stateLookup?.[1] });
+				if (test.item.relatedCode) {
+					for (const { uri, range } of test.item.relatedCode) {
+						if (uri.toString() === uriStr) {
+							const stateLookup = this.results.getStateById(test.item.extId);
+							const line = range.startLineNumber;
+							runDecorations.push({ line, id: '', test, resultItem: stateLookup?.[1] });
+						}
+					}
+				}
 			}
 
 			for (const [line, tests] of runDecorations.lines()) {
@@ -921,6 +933,7 @@ abstract class RunTestDecoration {
 	public displayedStates: readonly (TestResultState | undefined)[];
 
 	constructor(
+		public readonly line: number,
 		protected tests: readonly {
 			test: IncrementalTestCollectionItem;
 			resultItem: TestResultItem | undefined;
@@ -1252,6 +1265,7 @@ class MultiRunTestDecoration extends RunTestDecoration implements ITestDecoratio
 
 class RunSingleTestDecoration extends RunTestDecoration implements ITestDecoration {
 	constructor(
+		line: number,
 		test: IncrementalTestCollectionItem,
 		resultItem: TestResultItem | undefined,
 		model: ITextModel,
@@ -1265,7 +1279,7 @@ class RunSingleTestDecoration extends RunTestDecoration implements ITestDecorati
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IMenuService menuService: IMenuService,
 	) {
-		super([{ test, resultItem }], visible, model, codeEditorService, testService, contextMenuService, commandService, configurationService, testProfiles, contextKeyService, menuService);
+		super(line, [{ test, resultItem }], visible, model, codeEditorService, testService, contextMenuService, commandService, configurationService, testProfiles, contextKeyService, menuService);
 	}
 
 	override getContextMenuActions() {

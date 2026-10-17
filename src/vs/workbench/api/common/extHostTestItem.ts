@@ -36,7 +36,7 @@ const testItemPropAccessor = <K extends keyof vscode.TestItem>(
 	};
 };
 
-type WritableProps = Pick<vscode.TestItem, 'range' | 'label' | 'description' | 'sortText' | 'canResolveChildren' | 'busy' | 'error' | 'tags'>;
+type WritableProps = Pick<vscode.TestItem, (keyof TestItemWritableProps) | 'canResolveChildren'>;
 
 const strictEqualComparator = <T>(a: T, b: T) => a === b;
 
@@ -45,6 +45,11 @@ const propComparators: { [K in keyof Required<WritableProps>]: (a: vscode.TestIt
 		if (a === b) { return true; }
 		if (!a || !b) { return false; }
 		return a.isEqual(b);
+	},
+	relatedCode: (a, b) => {
+		if (a === b) { return true; }
+		if (!a || !b) { return false; }
+		return a.length === b.length && a.every((r, i) => r.uri.toString() === b[i].uri.toString() && r.range.isEqual(b[i].range));
 	},
 	label: strictEqualComparator,
 	description: strictEqualComparator,
@@ -130,6 +135,7 @@ export class TestItemImpl implements vscode.TestItem {
 	public readonly children!: ITestItemChildren<vscode.TestItem>;
 	public readonly parent!: TestItemImpl | undefined;
 
+	public relatedCode!: vscode.Location[] | undefined;
 	public range!: vscode.Range | undefined;
 	public description!: string | undefined;
 	public sortText!: string | undefined;

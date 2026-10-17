@@ -58,6 +58,7 @@ export class TestTestItem implements ITestItemLike {
 			label,
 			range: null,
 			sortText: null,
+			relatedCode: null,
 			tags: [],
 			uri,
 		};

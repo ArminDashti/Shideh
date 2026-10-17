@@ -105,12 +105,18 @@ export interface ITestItemCollectionOptions<T> {
 }
 
 const strictEqualComparator = <T>(a: T, b: T) => a === b;
-const diffableProps: { [K in keyof ITestItem]?: (a: ITestItem[K], b: ITestItem[K]) => boolean } = {
+const diffableProps: { [K in keyof TestItemWritableProps]: (a: ITestItem[K], b: ITestItem[K]) => boolean } = {
 	range: (a, b) => {
 		if (a === b) { return true; }
 		if (!a || !b) { return false; }
 		return a.equalsRange(b);
 	},
+	relatedCode: (a, b) => {
+		if (a === b) { return true; }
+		if (!a || !b) { return false; }
+		return a.length === b.length && a.every((r, i) => r.uri.toString() === b[i].uri.toString() && r.range.equalsRange(b[i].range));
+	},
+	sortText: strictEqualComparator,
 	busy: strictEqualComparator,
 	label: strictEqualComparator,
 	description: strictEqualComparator,
