@@ -35,6 +35,8 @@ import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.
 import { IChatBackgroundTaskService } from '../../chat/browser/chatBackgroundTaskService.js';
 import { McpServer } from './mcpServer.js';
 
+const MCP_TOOL_RETRIES = 3;
+
 interface ISyncedToolData {
 	toolData: IToolData;
 	store: DisposableStore;
@@ -405,6 +407,33 @@ class McpToolImplementation implements IToolImpl {
 
 		result.toolResultDetails = details;
 		return result;
+	}
+
+	private async _callWithRetry(invocation: IToolInvocation, progress: ToolProgress, token: CancellationToken) {
+		const annotations = this._tool.definition.annotations;
+		const canRetry = annotations?.readOnlyHint === true || annotations?.idempotentHint === true;
+		const maxAttempts = canRetry ? MCP_TOOL_RETRIES : 1;
+
+		let lastError: unknown;
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			try {
+				return await this._tool.callWithProgress(
+					invocation.parameters as Record<string, unknown>,
+					progress,
+					{ chatRequestId: invocation.chatRequestId, chatSessionId: invocation.context?.sessionId },
+					token
+				);
+			} catch (err) {
+				lastError = err;
+				// Only retry on connection failures for idempotent/read-only tools, and if we have more attempts
+				const isRetryableError = err instanceof McpConnectionFailedError;
+				if (!isRetryableError || attempt >= maxAttempts) {
+					throw err;
+				}
+				// Otherwise, loop and retry
+			}
+		}
+		throw lastError;
 	}
 
 }
