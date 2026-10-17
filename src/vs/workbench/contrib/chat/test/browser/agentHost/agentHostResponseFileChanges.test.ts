@@ -1145,7 +1145,7 @@ suite('AgentHostResponseFileChangesProvider', () => {
 		);
 	});
 
-	test('includes deleted response edits when a turn checkpoint is unavailable', () => {
+	test('includes deleted response edits when a turn checkpoint fails', () => {
 		const ds = store.add(new DisposableStore());
 		const conn = new FakeAgentConnection();
 		const provider = ds.add(createProvider(conn, () => backendSession, () => defaultChatUri));

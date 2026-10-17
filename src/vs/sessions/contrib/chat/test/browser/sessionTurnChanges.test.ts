@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { autorun, constObservable, IObservable, observableValue, transaction } from '../../../../../base/common/observable.js';
+import { constObservable, IObservable, observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock, upcastPartial } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
@@ -16,7 +16,6 @@ import { ISessionsService } from '../../../../services/sessions/browser/sessions
 import { IChat, ISession, ISessionChangeset, ISessionFileChange, ISessionFolder, ISessionTurnFileChange, ISessionWorkspace, TURN_CHANGES_CHANGESET_ID } from '../../../../services/sessions/common/session.js';
 import { IActiveSession, ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 import { ISessionChangesEditorOptions, ISessionChangesService } from '../../../changes/browser/sessionChangesService.js';
-import { IChangesViewService } from '../../../changes/common/changesViewService.js';
 import { SessionsChatResponseFileChangesService } from '../../browser/sessionTurnChanges.js';
 
 suite('SessionTurnChanges', () => {
@@ -88,7 +87,6 @@ suite('SessionTurnChanges', () => {
 			sessionsService,
 			sessionChangesService,
 			layoutService,
-			createChangesViewService(),
 		));
 
 		service.openChangesForRequest(chatResource, undefined, { isLastTurn: true });
@@ -176,7 +174,6 @@ suite('SessionTurnChanges', () => {
 			sessionsService,
 			sessionChangesService,
 			layoutService,
-			createChangesViewService(),
 		));
 		disposables.add(service.registerProvider('chat', {
 			getChangesForRequest: () => constObservable([{
@@ -278,7 +275,6 @@ suite('SessionTurnChanges', () => {
 			sessionsService,
 			sessionChangesService,
 			layoutService,
-			createChangesViewService(),
 		));
 		disposables.add(service.registerProvider('chat', {
 			getChangesForRequest: () => constObservable([]),
@@ -351,7 +347,6 @@ suite('SessionTurnChanges', () => {
 			new class extends mock<IAgentWorkbenchLayoutService>() {
 				override revealEditorPartExplicitly(): void { }
 			}(),
-			createChangesViewService(),
 		));
 		disposables.add(service.registerProvider('chat', {
 			getChangesForRequest: () => constObservable([{
@@ -398,7 +393,6 @@ suite('SessionTurnChanges', () => {
 			new class extends mock<ISessionsService>() { }(),
 			new class extends mock<ISessionChangesService>() { }(),
 			new class extends mock<IAgentWorkbenchLayoutService>() { }(),
-			createChangesViewService(),
 		));
 		disposables.add(service.registerProvider('test', {
 			getChangesForRequest: () => constObservable([{

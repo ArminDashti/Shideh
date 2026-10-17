@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { constObservable, derived, derivedObservableWithCache, IObservable, IReader } from '../../../../base/common/observable.js';
+import { constObservable, derived, IObservable, IReader } from '../../../../base/common/observable.js';
 import { extUriBiasedIgnorePathCase, isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -16,17 +16,12 @@ import { ISessionsService } from '../../../services/sessions/browser/sessionsSer
 import { IChat, ISession, ISessionChangeset, ISessionFileChange, TURN_CHANGES_CHANGESET_ID } from '../../../services/sessions/common/session.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionChangesEditorOptions, ISessionChangesService } from '../../changes/browser/sessionChangesService.js';
-import { IChangesViewService } from '../../changes/common/changesViewService.js';
 
 interface ISessionTransientTurnChanges {
 	readonly id: string;
 	readonly label: string;
 	readonly description: string;
 	readonly changes: IObservable<readonly ISessionFileChange[]>;
-}
-
-function changeStatsEqual(a: IChatResponseFileChangesStats, b: IChatResponseFileChangesStats): boolean {
-	return a.files === b.files && a.insertions === b.insertions && a.deletions === b.deletions;
 }
 
 /** Opens response changes in the canonical Agents Changes editor. */
@@ -37,7 +32,6 @@ export class SessionsChatResponseFileChangesService extends AbstractChatResponse
 		@ISessionsService private readonly _sessionsService: ISessionsService,
 		@ISessionChangesService private readonly _sessionChangesService: ISessionChangesService,
 		@IAgentWorkbenchLayoutService private readonly _layoutService: IAgentWorkbenchLayoutService,
-		@IChangesViewService private readonly _changesViewService: IChangesViewService,
 	) {
 		super();
 	}

@@ -257,6 +257,10 @@ export class AgentHostResponseFileChangesProvider extends Disposable implements 
 			if (changesetStatus === ChangesetStatus.Ready && retained.length === 0) {
 				return select('authoritativeEmpty', AUTHORITATIVE_EMPTY_CHAT_RESPONSE_FILE_CHANGES, changesetStatus);
 			}
+			// Default chats wait for their checkpoint so restored response edits never flash different stats.
+			if (!isPeerChat && (changesetState === undefined || changeset?.status === ChangesetStatus.Computing)) {
+				return select('loading', retained, changeset?.status);
+			}
 
 			const responseFileEdits = responseFileEditsObs.read(reader);
 			if (!responseFileEdits.hasValidEdits) {
