@@ -19,6 +19,7 @@ import {
 	AgentHostClaudeAgentEnabledSettingId,
 	AgentHostClaudeMultiRootEnabledSettingId,
 	AgentHostCopilotMultiRootEnabledSettingId,
+	AgentHostGitHubMcpServerEnabledSettingId,
 	AgentHostMarkdownPlanRichLinksEnabledSettingId,
 	AgentHostOTelCaptureContentSettingId,
 	AgentHostOTelDbSpanExporterEnabledSettingId,

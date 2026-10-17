@@ -207,6 +207,9 @@ export const AgentHostClaudeAgentEnabledEnvVar = 'VSCODE_AGENT_HOST_CLAUDE_AGENT
 /** Overrides the soft cap on resident session roots. Primarily used by integration tests. */
 export const AgentHostSessionResidencyLimitEnvVar = 'VSCODE_AGENT_HOST_SESSION_RESIDENCY_LIMIT';
 
+/** Serialized {@link IAgentHostAcpAgentConfiguration} entries forwarded to the Agent Host process. */
+export const AgentHostAcpAgentsEnvVar = 'VSCODE_AGENT_HOST_ACP_AGENTS';
+
 /** Overrides the retry delay after a provider temporarily vetoes session release. Primarily used by integration tests. */
 export const AgentHostSessionReleaseRetryMsEnvVar = 'VSCODE_AGENT_HOST_SESSION_RELEASE_RETRY_MS';
 
