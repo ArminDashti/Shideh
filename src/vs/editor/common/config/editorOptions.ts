@@ -4737,7 +4737,7 @@ class InlineEditorSuggest extends BaseEditorOption<EditorOption.inlineSuggest, I
 				showLongDistanceHint: true,
 				longDistanceHintContextLineCount: 0,
 			},
-			triggerCommandOnProviderChange: false,
+			triggerCommandOnProviderChange: true,
 			experimental: {
 				suppressInlineSuggestions: '',
 				showOnSuggestConflict: 'never',

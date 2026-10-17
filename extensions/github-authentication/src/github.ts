@@ -255,6 +255,9 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 			return sessions;
 		});
 
+		const supportedAuthorizationServers = ghesUri
+			? [vscode.Uri.joinPath(ghesUri, '/login/oauth')]
+			: [vscode.Uri.parse('https://github.com/login/oauth')];
 		this._disposable = vscode.Disposable.from(
 			this._telemetryReporter,
 			this._sessionChangeEmitter,
