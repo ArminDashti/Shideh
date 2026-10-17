@@ -17,6 +17,7 @@ import { isEqual } from '../../../../../base/common/resources.js';
 import { isDefined, Mutable } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { Position } from '../../../../../editor/common/core/position.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { TextEdit } from '../../../../../editor/common/languages.js';
 import { DefaultEndOfLine, EndOfLinePreference, ITextModel, ValidAnnotatedEditOperation } from '../../../../../editor/common/model.js';
