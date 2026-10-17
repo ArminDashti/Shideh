@@ -490,6 +490,8 @@ export class SessionCustomizationDiscovery extends Disposable {
 			}
 		}
 
+		throwIfCancelled(token);
+
 		this._reconcileWatchers(nextWatchRootUris);
 	}
 

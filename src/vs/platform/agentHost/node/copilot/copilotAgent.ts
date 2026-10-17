@@ -6917,6 +6917,69 @@ export function mapToParsedPlugin(customizations: readonly DirectoryCustomizatio
 	};
 }
 
+
+/**
+ * Projects already-parsed discovered customizations into an in-memory
+ * {@link IParsedPlugin} while preserving original source URIs.
+ */
+export function mapToParsedPlugin(customizations: readonly DirectoryCustomization[]): IParsedPlugin | undefined {
+	if (customizations.length === 0) {
+		return undefined;
+	}
+
+	const agents: IParsedAgent[] = [];
+	const skills: IParsedSkill[] = [];
+	const instructions: IParsedRule[] = [];
+
+	for (const directory of customizations) {
+		for (const child of directory.children ?? []) {
+			if (child.type === CustomizationType.Agent) {
+				agents.push({
+					uri: URI.parse(child.uri),
+					name: child.name,
+					description: child.description,
+					customization: child,
+				});
+				continue;
+			}
+
+			if (child.type === CustomizationType.Skill) {
+				skills.push({
+					uri: URI.parse(child.uri),
+					name: child.name,
+					description: child.description,
+					customization: child,
+				});
+				continue;
+			}
+
+			if (child.type === CustomizationType.Rule) {
+				if (child.alwaysApply && child.name.match(/\.md$/i)) {
+					continue; // agent instruction
+				}
+				instructions.push({
+					uri: URI.parse(child.uri),
+					name: child.name,
+					description: child.description,
+					customization: child,
+				});
+			}
+		}
+	}
+
+	if (agents.length === 0 && skills.length === 0 && instructions.length === 0) {
+		return undefined;
+	}
+
+	return {
+		hooks: [],
+		mcpServers: [],
+		skills: skills,
+		agents: agents,
+		instructions: instructions,
+	};
+}
+
 /**
  * Process-wide plugin state shared across all sessions.
  *
