@@ -2305,6 +2305,7 @@ function renderSessionHeaderToolbar<T>(template: ISessionHeaderTemplate, element
 
 interface ISessionSectionTemplate extends ISessionHeaderTemplate {
 	readonly container: HTMLElement;
+	element: ISessionSection | undefined;
 	readonly label: HTMLElement;
 	readonly migrationIndicator: HTMLElement;
 	readonly count: HTMLElement;
@@ -2359,6 +2360,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 	});
 
 	constructor(
+		private readonly delegate: ISessionSectionRendererDelegate,
 		private readonly hideSectionCount: boolean,
 		private readonly select: (element: ISessionSection, event: MouseEvent) => void,
 		private readonly showUnreadInCollapsedSections: IObservable<boolean>,
@@ -2478,6 +2480,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 		if (!isSessionSection(element)) {
 			return;
 		}
+		template.element = element;
 		this.templatesByElement.set(element, template);
 		this.templatesById.set(element.id, template);
 		template.container.classList.remove(SESSION_HEADER_DROP_TARGET_CLASS);
@@ -2576,7 +2579,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			}));
 		}
 
-		this.updateChevron(template, node.collapsible, node.collapsed);
+		this.updateChevron(template, node.collapsible, node.collapsed, element.label);
 
 		if (element.id === SHIDEH_SEARCH_SECTION_ID) {
 			template.container.classList.add('session-section-search');
@@ -2679,7 +2682,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 	updateCollapseState(element: ISessionSection, collapsed: boolean): void {
 		const template = this.templatesByElement.get(element);
 		if (template) {
-			this.updateChevron(template, true, collapsed);
+			this.updateChevron(template, true, collapsed, element.label);
 		}
 	}
 
@@ -2695,6 +2698,17 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			template.chevron.classList.add('collapsible');
 			const icon = collapsed ? Codicon.chevronRight : Codicon.chevronDown;
 			template.chevron.classList.add(...ThemeIcon.asClassNameArray(icon));
+			template.chevron.disabled = false;
+			template.chevron.tabIndex = 0;
+			template.chevron.setAttribute('aria-expanded', String(!collapsed));
+			template.chevron.setAttribute('aria-label', collapsed
+				? localize('expandSection', "Expand {0}", label)
+				: localize('collapseSection', "Collapse {0}", label));
+		} else {
+			template.chevron.disabled = true;
+			template.chevron.tabIndex = -1;
+			template.chevron.removeAttribute('aria-expanded');
+			template.chevron.removeAttribute('aria-label');
 		}
 	}
 
@@ -2704,6 +2718,7 @@ export class SessionSectionRenderer implements ITreeRenderer<SessionListItem, Fu
 			this.templatesByElement.delete(node.element);
 			this.templatesById.delete(node.element.id);
 		}
+		template.element = undefined;
 	}
 
 	disposeTemplate(template: ISessionSectionTemplate): void {
@@ -2941,7 +2956,7 @@ class SessionGroupRenderer implements ITreeRenderer<SessionListItem, FuzzyScore,
 	updateCollapseState(element: ISessionGroupItem, collapsed: boolean): void {
 		const template = this.templatesByElement.get(element);
 		if (template) {
-			this.updateChevron(template, true, collapsed);
+			this.updateChevron(template, true, collapsed, element.group.name);
 		}
 	}
 
@@ -2957,6 +2972,17 @@ class SessionGroupRenderer implements ITreeRenderer<SessionListItem, FuzzyScore,
 			template.chevron.classList.add('collapsible');
 			const icon = collapsed ? Codicon.chevronRight : Codicon.chevronDown;
 			template.chevron.classList.add(...ThemeIcon.asClassNameArray(icon));
+			template.chevron.disabled = false;
+			template.chevron.tabIndex = 0;
+			template.chevron.setAttribute('aria-expanded', String(!collapsed));
+			template.chevron.setAttribute('aria-label', collapsed
+				? localize('expandSection', "Expand {0}", label)
+				: localize('collapseSection', "Collapse {0}", label));
+		} else {
+			template.chevron.disabled = true;
+			template.chevron.tabIndex = -1;
+			template.chevron.removeAttribute('aria-expanded');
+			template.chevron.removeAttribute('aria-label');
 		}
 	}
 
@@ -2965,6 +2991,7 @@ class SessionGroupRenderer implements ITreeRenderer<SessionListItem, FuzzyScore,
 			this.templatesByElement.delete(node.element);
 			this.templatesById.delete(node.element.group.id);
 		}
+		template.element = undefined;
 		template.elementDisposables.clear();
 	}
 
@@ -6434,6 +6461,13 @@ export class SessionsList extends Disposable implements ISessionsList {
 		}
 		this.openWindowSourceFolder = folder;
 		this.update();
+	}
+
+	private toggleSectionCollapsed(element: ISessionSection | ISessionGroupItem): void {
+		if (this.tree.hasElement(element)) {
+			this.tree.setFocus([element]);
+			this.tree.toggleCollapsed(element);
+		}
 	}
 
 	collapseAllSections(): void {

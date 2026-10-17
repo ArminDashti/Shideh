@@ -1193,7 +1193,14 @@
 		height: 22px;
 		margin-right: 6px;
 		border-radius: var(--vscode-cornerRadius-small);
+		background: transparent;
+		cursor: pointer;
 		justify-content: center;
+	}
+
+	.session-section-chevron:focus-visible {
+		outline: var(--vscode-strokeThickness) solid var(--vscode-focusBorder);
+		outline-offset: calc(-1 * var(--vscode-strokeThickness));
 	}
 }
 
@@ -1250,6 +1257,11 @@
 
 .session-section.dropdown-active .session-section-toolbar .monaco-dropdown-with-primary {
 	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.agent-sessions-workbench.phone-layout .sessions-list-control .monaco-list-row .session-section .session-section-chevron.collapsible {
+	display: flex;
+	align-items: center;
 }
 
 .sessions-list-control {
