@@ -9,7 +9,6 @@ import { ResourceMap } from '../../../../../base/common/map.js';
 import { revive } from '../../../../../base/common/marshalling.js';
 import { joinPath } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { EditSuggestionId } from '../../../../../editor/common/textModelEditSource.js';
 import { IEnvironmentService } from '../../../../../platform/environment/common/environment.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -31,7 +30,7 @@ export interface StoredSessionState {
 export class ChatEditingSessionStorage {
 	private readonly storageKey: string;
 	constructor(
-		private readonly _chatSessionResource: URI,
+		_chatSessionResource: URI,
 		@IFileService private readonly _fileService: IFileService,
 		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 		@ILogService private readonly _logService: ILogService,
@@ -70,7 +69,7 @@ export class ChatEditingSessionStorage {
 			return { stopId: 'stopId' in stopDTO ? stopDTO.stopId : undefined, entries };
 		};
 		const deserializeSnapshotEntry = async (entry: ISnapshotEntryDTO) => {
-			return {
+			const snapshotEntry: ISnapshotEntry = {
 				resource: URI.parse(entry.resource),
 				languageId: entry.languageId,
 				original: await getFileContent(entry.originalHash),
@@ -276,8 +275,8 @@ interface IModifiedEntryTelemetryInfoDTO {
 
 type ResourceMapDTO<T> = [string, T][];
 
-const COMPATIBLE_STORAGE_VERSIONS = [1, 2];
-const STORAGE_VERSION = 2;
+const COMPATIBLE_STORAGE_VERSIONS = [1, 2, 3];
+const STORAGE_VERSION = 3;
 
 /** Old history uses IChatEditingSessionSnapshotDTO, new history uses IChatEditingSessionSnapshotDTO. */
 interface IChatEditingSessionDTO {

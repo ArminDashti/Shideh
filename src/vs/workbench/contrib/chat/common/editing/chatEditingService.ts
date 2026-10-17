@@ -93,6 +93,47 @@ export interface IModifiedEntryTelemetryInfo {
 	readonly feature: 'sideBarChat' | 'inlineChat' | undefined;
 }
 
+/**
+ * Metadata tracked for each diff hunk.
+ * This allows us to know which session/request created which changes.
+ */
+export interface IHunkTelemetryInfo {
+	readonly telemetryInfo: IModifiedEntryTelemetryInfo;
+	readonly requestId: string;
+	readonly undoStopId: string | undefined;
+}
+
+/**
+ * DTO for serializing attributed edit ranges to snapshots.
+ * Uses offset-based ranges for precise tracking.
+ */
+export interface IAttributedRangeDTO {
+	/** Start offset in the document */
+	readonly start: number;
+	/** End offset (exclusive) in the document */
+	readonly end: number;
+	/** The telemetry info for the agent that made this edit */
+	readonly telemetryInfo: IModifiedEntryTelemetryInfo;
+	/** The request ID */
+	readonly requestId: string;
+	/** The undo stop ID */
+	readonly undoStopId: string | undefined;
+	/** Whether this is a user edit (vs agent edit) */
+	readonly isUserEdit: boolean;
+}
+
+/**
+ * DTO for serializing hunk telemetry to snapshots
+ * @deprecated Use IAttributedRangeDTO instead for new code
+ */
+export interface IHunkTelemetryInfoDTO {
+	readonly telemetryInfo: IModifiedEntryTelemetryInfo;
+	readonly requestId: string;
+	readonly undoStopId: string | undefined;
+	readonly originalContentHash?: string;
+	readonly modifiedContentHash?: string;
+}
+
 export interface ISnapshotEntry {
 	readonly resource: URI;
 	readonly languageId: string;
@@ -425,13 +466,12 @@ export interface IModifiedFileEntry {
 	readonly modifiedURI: URI;
 	readonly isDeletion?: boolean;
 
-	readonly lastModifyingRequestId: string;
+	wasModifiedByRequest(requestId: string): boolean;
 
 	readonly state: IObservable<ModifiedFileEntryState>;
 	readonly isCurrentlyBeingModifiedBy: IObservable<{ responseModel: IChatResponseModel; undoStopId: string | undefined } | undefined>;
 	readonly lastModifyingResponse: IObservable<IChatResponseModel | undefined>;
 	readonly rewriteRatio: IObservable<number>;
-
 	readonly waitsForLastEdits: IObservable<boolean>;
 
 	accept(): Promise<void>;

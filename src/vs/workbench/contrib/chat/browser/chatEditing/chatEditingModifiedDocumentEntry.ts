@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IReference, MutableDisposable } from '../../../../../base/common/lifecycle.js';
+import { ResourceSet, setsEqual } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { ITransaction, autorun, transaction } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
@@ -36,11 +37,16 @@ import { IChatService } from '../../common/chatService/chatService.js';
 import { ChatEditKind, IModifiedEntryTelemetryInfo, IModifiedFileEntry, IModifiedFileEntryEditorIntegration, ISnapshotEntry, ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
 import { IChatEditMetadata, IChatResponseModel } from '../../common/model/chatModel.js';
 import { ChatEditingCodeEditorIntegration } from './chatEditingCodeEditorIntegration.js';
-import { AbstractChatEditingModifiedFileEntry } from './chatEditingModifiedFileEntry.js';
+import { filterRangesBySession, generateConflictMarkers, IRebaseConflict, IRebaseResult, rebaseAttributedRanges } from './chatEditingAttribution.js';
+import { AbstractChatEditingModifiedFileEntry, getTelemetryInfoForModel } from './chatEditingModifiedFileEntry.js';
 import { ChatEditingTextModelChangeService } from './chatEditingTextModelChangeService.js';
-import { ChatEditingSnapshotTextModelContentProvider, ChatEditingTextModelContentProvider } from './chatEditingTextModelContentProviders.js';
+import { ChatEditingSnapshotTextModelContentProvider } from './chatEditingTextModelContentProviders.js';
 
-interface IMultiDiffEntryDelegate {
+/**
+ * Delegate interface for multi-diff entry operations.
+ * This allows file entries to coordinate with their managing session/service.
+ */
+export interface IMultiDiffEntryDelegate {
 	collapse: (transaction: ITransaction | undefined) => void;
 }
 
@@ -53,6 +59,12 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	readonly modifiedModel: ITextModel;
 
 	private readonly _docFileEditorModel: IResolvedTextEditorModel;
+	readonly lastModifyingRequestId = ''; // todo
+
+	wasModifiedByRequest(requestId: string): boolean {
+		const attributions = this._textModelChangeService.getUniqueAgentAttributions();
+		return attributions.some(attribution => attribution.requestId === requestId);
+	}
 
 	override get changesCount() {
 		return this._textModelChangeService.diffInfo.map(diff => diff.changes.length);
@@ -81,13 +93,18 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 		});
 	}
 
+	get participatingSessions() {
+		return derivedOpts<ResourceSet>({ equalsFn: setsEqual }, reader => {
+			const { changes } = this._textModelChangeService.diffInfo.read(reader);
+			return new ResourceSet(changes.map(change => change.chatTelemetryInfo?.sessionResource).filter(isDefined));
+		});
+	}
+
 	readonly originalURI: URI;
 	private readonly _textModelChangeService: ChatEditingTextModelChangeService;
 
 	constructor(
 		resourceRef: IReference<IResolvedTextEditorModel>,
-		private readonly _multiDiffEntryDelegate: IMultiDiffEntryDelegate,
-		telemetryInfo: IModifiedEntryTelemetryInfo,
 		kind: ChatEditKind,
 		initialContent: string | undefined,
 		@IMarkerService markerService: IMarkerService,
@@ -106,7 +123,6 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	) {
 		super(
 			resourceRef.object.textEditorModel.uri,
-			telemetryInfo,
 			kind,
 			configService,
 			fileConfigService,
@@ -119,7 +135,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 		this._docFileEditorModel = this._register(resourceRef).object;
 		this.modifiedModel = resourceRef.object.textEditorModel;
-		this.originalURI = ChatEditingTextModelContentProvider.getFileURI(telemetryInfo.sessionResource, this.entryId, this.modifiedURI.path);
+		// Generate a unique URI for the original model based on entry ID
+		this.originalURI = URI.from({ scheme: 'chat-editing-original', path: `/${this.entryId}${this.modifiedURI.path}` });
 
 		this.initialContent = initialContent ?? this.modifiedModel.getValue();
 		const docSnapshot = this.originalModel = this._register(
@@ -195,6 +212,10 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	createSnapshot(chatSessionResource: URI, requestId: string | undefined, undoStop: string | undefined): ISnapshotEntry {
+		// Filter attributed ranges to only include those from this session
+		const allRanges = this._textModelChangeService.getAttributedRangesDTO();
+		const sessionRanges = filterRangesBySession(allRanges, chatSessionResource);
+
 		return {
 			resource: this.modifiedURI,
 			languageId: this.modifiedModel.getLanguageId(),
@@ -202,7 +223,7 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			original: this.originalModel.getValue(),
 			current: this.modifiedModel.getValue(),
 			state: this.state.get(),
-			telemetryInfo: this._telemetryInfo
+			attributedRanges: sessionRanges,
 		};
 	}
 
@@ -212,7 +233,96 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 	async restoreFromSnapshot(snapshot: ISnapshotEntry, restoreToDisk = true) {
 		this._stateObs.set(snapshot.state, undefined);
-		await this._textModelChangeService.resetDocumentValues(snapshot.original, restoreToDisk ? snapshot.current : undefined);
+
+		// Check if the file has changed since the snapshot was saved
+		// This can happen if another session modified the file, or if external edits occurred
+		const currentContent = this.modifiedModel.getValue();
+		const hasContentChanges = snapshot.current !== currentContent;
+
+		if (hasContentChanges && snapshot.attributedRanges && snapshot.attributedRanges.length > 0) {
+			// Content changed - need to rebase attributed ranges to current positions
+			const rebaseResult = await this._rebaseAttributedRangesForExternalChanges(
+				snapshot.attributedRanges,
+				snapshot.current,
+				currentContent,
+			);
+
+			// Don't reset the original model if there might be other sessions active -
+			// just merge the attributed ranges. The original model should already be
+			// in sync if another session set it up.
+			if (this.originalModel.getValue() !== snapshot.original) {
+				// Original model differs - this is the first session restoring this file
+				await this._textModelChangeService.resetDocumentValues(snapshot.original, undefined);
+			}
+
+			// Handle conflicts by inserting conflict markers
+			if (rebaseResult.conflicts.length > 0) {
+				await this._insertConflictMarkers(rebaseResult.conflicts, currentContent);
+			}
+
+			// Merge rebased attributed edits with any existing attributions
+			if (rebaseResult.ranges.length > 0) {
+				this._textModelChangeService.mergeAttributedEdits(rebaseResult.ranges);
+			}
+		} else {
+			// No content changes - restore normally but still merge attributions
+			// to avoid clobbering any existing session's attributions
+			await this._textModelChangeService.resetDocumentValues(snapshot.original, restoreToDisk ? snapshot.current : undefined);
+
+			// Merge attributed edits if present (don't replace existing ones)
+			if (snapshot.attributedRanges && snapshot.attributedRanges.length > 0) {
+				this._textModelChangeService.mergeAttributedEdits(snapshot.attributedRanges);
+			}
+		}
+	}
+
+	/**
+	 * Rebases attributed ranges when the file has changed externally.
+	 */
+	private async _rebaseAttributedRangesForExternalChanges(
+		ranges: readonly IAttributedRangeDTO[],
+		storedContent: string,
+		currentContent: string,
+	): Promise<IRebaseResult> {
+		// Compute the diff between stored content and current content
+		const externalEdit = await this._editorWorkerService.computeStringEditFromDiff(
+			storedContent,
+			currentContent,
+			{ maxComputationTimeMs: 5000 },
+			'advanced'
+		);
+
+		if (externalEdit.isEmpty()) {
+			// No meaningful diff - content might be identical after normalization
+			return { ranges: [...ranges], conflicts: [] };
+		}
+
+		return rebaseAttributedRanges(ranges, storedContent, currentContent, externalEdit);
+	}
+
+	/**
+	 * Inserts Git-style conflict markers for ranges that couldn't be rebased.
+	 */
+	private async _insertConflictMarkers(conflicts: IRebaseConflict[], currentContent: string): Promise<void> {
+		// Sort conflicts by position (descending) so we can insert from the end
+		const sortedConflicts = [...conflicts].sort((a, b) => b.approximateStart - a.approximateStart);
+
+		let newContent = currentContent;
+		for (const conflict of sortedConflicts) {
+			const markers = generateConflictMarkers(conflict);
+			// Insert conflict markers at the approximate location
+			const before = newContent.substring(0, conflict.approximateStart);
+			const after = newContent.substring(conflict.approximateEnd);
+			newContent = before + markers + after;
+		}
+
+		// Update the modified model with conflict markers
+		this.modifiedModel.pushStackElement();
+		this.modifiedModel.applyEdits([{
+			range: this.modifiedModel.getFullModelRange(),
+			text: newContent
+		}]);
+		this.modifiedModel.pushStackElement();
 	}
 
 	async resetToInitialContent() {
@@ -264,7 +374,6 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 	protected override async _doAccept(): Promise<void> {
 		this._textModelChangeService.keep();
-		this._multiDiffEntryDelegate.collapse(undefined);
 
 		const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
 		if (!config.autoSave || !this._textFileService.isDirty(this.modifiedURI)) {
@@ -283,23 +392,26 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	protected override async _doReject(): Promise<void> {
-		if (this.createdInRequestId === this._telemetryInfo.requestId) {
+		this._textModelChangeService.undo();
+
+		// If the file is now empty after rejection, delete it
+		if (this.modifiedModel.getValueLength() === 0) {
 			if (isTextFileEditorModel(this._docFileEditorModel)) {
 				await this._docFileEditorModel.revert({ soft: true });
-				await this._fileService.del(this.modifiedURI).catch(err => {
+				await this._fileService.del(this.modifiedURI).catch(_err => {
 					// don't block if file is already deleted
 				});
 			}
 			this._onDidDelete.fire();
-		} else {
-			this._textModelChangeService.undo();
-			if (this._textModelChangeService.allEditsAreFromUs && isTextFileEditorModel(this._docFileEditorModel) && this._shouldAutoSave()) {
-				// save the file after discarding so that the dirty indicator goes away
-				// and so that an intermediate saved state gets reverted
-				await this._docFileEditorModel.save({ reason: SaveReason.EXPLICIT, skipSaveParticipants: true });
-			}
-			this._multiDiffEntryDelegate.collapse(undefined);
+		} else if (this._textModelChangeService.allEditsAreFromUs && isTextFileEditorModel(this._docFileEditorModel) && this._shouldAutoSave()) {
+			// save the file after discarding so that the dirty indicator goes away
+			// and so that an intermediate saved state gets reverted
+			await this._docFileEditorModel.save({ reason: SaveReason.EXPLICIT, skipSaveParticipants: true });
 		}
+	}
+
+	protected override _getNotifySessionTelemetryInfo(): IModifiedEntryTelemetryInfo[] {
+		return this._textModelChangeService.diffInfo.get().changes.map(change => change.chatTelemetryInfo).filter(isDefined);
 	}
 
 	protected _createEditorIntegration(editor: IEditorPane): IModifiedFileEntryEditorIntegration {
@@ -309,6 +421,16 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 		const diffInfo = this._textModelChangeService.diffInfo;
 
 		return this._instantiationService.createInstance(ChatEditingCodeEditorIntegration, this, codeEditor, diffInfo, false);
+	}
+
+	public override acceptStreamingEditsStart(responseModel: IChatResponseModel, undoStopId: string | undefined, tx: ITransaction | undefined): void {
+		super.acceptStreamingEditsStart(responseModel, undoStopId, tx);
+		this._textModelChangeService.setEditContext(getTelemetryInfoForModel(responseModel), responseModel.requestId, undoStopId);
+	}
+
+	public override async acceptStreamingEditsEnd(): Promise<void> {
+		await super.acceptStreamingEditsEnd();
+		await this._textModelChangeService.clearEditContext();
 	}
 
 	private _shouldAutoSave() {

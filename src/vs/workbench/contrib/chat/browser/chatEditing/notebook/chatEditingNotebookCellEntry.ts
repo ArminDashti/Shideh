@@ -118,4 +118,25 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	public async undo(change: DetailedLineRangeMapping): Promise<boolean> {
 		return this._textModelChangeService.diffInfo.get().undo(change);
 	}
+
+	/**
+	 * Gets all unique agent attributions for this cell's edits.
+	 */
+	public getUniqueAgentAttributions(): AgentAttribution[] {
+		return this._textModelChangeService.getUniqueAgentAttributions();
+	}
+
+	/**
+	 * Gets all attributed ranges as DTOs for serialization.
+	 */
+	public getAttributedRangesDTO(): IAttributedRangeDTO[] {
+		return this._textModelChangeService.getAttributedRangesDTO();
+	}
+
+	/**
+	 * Merges attributed edits from serialized DTOs into the cell's tracking state.
+	 */
+	public mergeAttributedEdits(attributedRanges: readonly IAttributedRangeDTO[]): void {
+		this._textModelChangeService.mergeAttributedEdits(attributedRanges);
+	}
 }

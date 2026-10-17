@@ -5,6 +5,7 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { Iterable } from '../../../../../base/common/iterator.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { alert } from '../../../../../base/browser/ui/aria/aria.js';
 import { basename } from '../../../../../base/common/resources.js';

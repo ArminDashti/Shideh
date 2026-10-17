@@ -9,7 +9,6 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { groupBy } from '../../../../../base/common/collections.js';
 import { ErrorNoTelemetry } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, dispose, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { LinkedList } from '../../../../../base/common/linkedList.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
@@ -43,11 +42,12 @@ import { IChatService } from '../../common/chatService/chatService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ChatEditorInput } from '../widgetHosts/editor/chatEditorInput.js';
 import { AbstractChatEditingModifiedFileEntry } from './chatEditingModifiedFileEntry.js';
+import { ChatEditingModifiedNotebookEntry } from './chatEditingModifiedNotebookEntry.js';
 import { ChatEditingSession } from './chatEditingSession.js';
 import { ChatEditingSessionV2 } from './chatEditingSessionV2Timeline.js';
 import { ChatEditingSnapshotTextModelContentProvider, ChatEditingTextModelContentProvider } from './chatEditingTextModelContentProviders.js';
 
-export class ChatEditingService extends Disposable implements IChatEditingService {
+export class ChatEditingService extends Disposable implements IChatEditingService, IChatEditingSessionCoordinator {
 
 	_serviceBrand: undefined;
 
@@ -64,7 +64,7 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IMultiDiffSourceResolverService multiDiffSourceResolverService: IMultiDiffSourceResolverService,
-		@ITextModelService textModelService: ITextModelService,
+		@ITextModelService private readonly textModelService: ITextModelService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IChatService private readonly _chatService: IChatService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -145,17 +145,112 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		return this.getEditingSession(chatModel.sessionResource) || this.createEditingSession(chatModel, true);
 	}
 
-	private _lookupEntry(uri: URI): AbstractChatEditingModifiedFileEntry | undefined {
+	//#region IChatEditingSessionCoordinator implementation
 
-		for (const item of Iterable.concat(this.editingSessionsObs.get())) {
-			const candidate = item.getEntry(uri);
-			if (candidate instanceof AbstractChatEditingModifiedFileEntry) {
-				// make sure to ref-count this object
-				return candidate.acquire();
+	async getOrCreateModifiedFileEntry(resource: URI, chatSessionResource: URI, initialContent?: string): Promise<IModifiedFileEntry | undefined> {
+		resource = CellUri.parse(resource)?.notebook ?? resource;
+
+		const existingEntry = this._entries.get(resource);
+		if (existingEntry) {
+			// Track this session as having edits in this entry
+			const sessions = this._entrySessionMap.get(resource) ?? new Set();
+			sessions.add(chatSessionResource);
+			this._entrySessionMap.set(resource, sessions);
+			return existingEntry;
+		}
+
+		// Create new entry
+		const content = initialContent ?? this._initialFileContents.get(resource);
+		const entry = await this._createModifiedFileEntry(resource, content);
+		if (!entry) {
+			return undefined;
+		}
+
+		if (initialContent === undefined) {
+			this._initialFileContents.set(resource, entry.initialContent);
+		}
+
+		// Store the entry globally
+		this._entries.set(resource, entry);
+
+		// Track this session
+		const sessions = new Set<URI>();
+		sessions.add(chatSessionResource);
+		this._entrySessionMap.set(resource, sessions);
+
+		// Handle entry deletion
+		this._register(entry.onDidDelete(() => {
+			this._entries.delete(resource);
+			this._entrySessionMap.delete(resource);
+			this._editorService.closeEditors(this._editorService.findEditors(entry.modifiedURI));
+			this._updateEntriesObs();
+		}));
+
+		this._updateEntriesObs();
+		return entry;
+	}
+
+	async acquireEditLock(resource: URI): Promise<void> {
+		return this._streamingEditLocks.queue(resource.toString(), async () => { });
+	}
+
+	releaseEditLock(resource: URI): void {
+		// The lock is automatically released when the promise resolves
+	}
+
+	private _updateEntriesObs(): void {
+		const entries = Array.from(this._entries.values());
+		this._entriesObs.set(entries, undefined);
+	}
+
+	private async _createModifiedFileEntry(resource: URI, initialContent: string | undefined): Promise<AbstractChatEditingModifiedFileEntry | undefined> {
+		const notebookUri = CellUri.parse(resource)?.notebook || resource;
+		const doCreate = async (chatKind: ChatEditKind) => {
+			const notebookEntry = await this.notebookService.canResolve(notebookUri.toString());
+			if (notebookEntry) {
+				return await ChatEditingModifiedNotebookEntry.create(notebookUri, chatKind, initialContent, this._instantiationService);
+			} else {
+				const ref = await this.textModelService.createModelReference(resource);
+				return this._instantiationService.createInstance(ChatEditingModifiedDocumentEntry, ref, chatKind, initialContent);
+			}
+		};
+
+		try {
+			return await doCreate(ChatEditKind.Modified);
+		} catch (err) {
+			if (await this._fileService.exists(resource)) {
+				// The file exists but we failed to create an entry for it
+				throw err;
+			}
+			// The file does not exist, so we need to create it
+			return await doCreate(ChatEditKind.Created);
+		}
+	}
+
+	/**
+	 * Clears a session's edits from an entry. If no sessions remain, disposes the entry.
+	 */
+	clearSessionFromEntry(resource: URI, chatSessionResource: URI): void {
+		const sessions = this._entrySessionMap.get(resource);
+		if (!sessions) {
+			return;
+		}
+
+		sessions.delete(chatSessionResource);
+
+		if (sessions.size === 0) {
+			// No more sessions have edits in this entry, dispose it
+			const entry = this._entries.get(resource);
+			if (entry) {
+				entry.dispose();
+				this._entries.delete(resource);
+				this._entrySessionMap.delete(resource);
+				this._updateEntriesObs();
 			}
 		}
-		return undefined;
 	}
+
+	//#endregion
 
 	getEditingSession(chatSessionResource: URI): IChatEditingSession | undefined {
 		return this._editingSessions.get(chatSessionResource);

@@ -94,7 +94,7 @@ abstract class SubmitAction extends Action2 {
 
 				const requestsToRemove = chatRequests.slice(itemIndex);
 				const requestIdsToRemove = new Set(requestsToRemove.map(request => request.id));
-				const entriesModifiedInRequestsToRemove = session.entries.get().filter((entry) => requestIdsToRemove.has(entry.lastModifyingRequestId)) ?? [];
+				const entriesModifiedInRequestsToRemove = session.entries.get().filter((entry) => Iterable.some(requestIdsToRemove, requestId => entry.wasModifiedByRequest(requestId))) ?? [];
 				const shouldPrompt = entriesModifiedInRequestsToRemove.length > 0 && configurationService.getValue('chat.editing.confirmEditRequestRemoval') === true;
 
 				let message: string;
