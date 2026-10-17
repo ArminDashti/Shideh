@@ -682,6 +682,22 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('accountsShowAvatar', "Controls whether signed-in account profile images (avatars) are shown in account-related UI, such as the Accounts item in the Activity Bar.")
 			},
+			[LayoutSettings.NOTIFICATIONS_POSITION]: {
+				'type': 'string',
+				'enum': [NotificationsPosition.BOTTOM_RIGHT, NotificationsPosition.BOTTOM_LEFT, NotificationsPosition.TOP_RIGHT],
+				'default': NotificationsPosition.BOTTOM_RIGHT,
+				'description': localize('notificationsPosition', "Controls the position of the notification toasts and notification center."),
+				'enumDescriptions': [
+					localize('workbench.notifications.position.bottom-right', "Show notifications in the bottom right corner."),
+					localize('workbench.notifications.position.bottom-left', "Show notifications in the bottom left corner."),
+					localize('workbench.notifications.position.top-right', "Show notifications in the top right corner, similar to OS-level notifications.")
+				]
+			},
+			[LayoutSettings.NOTIFICATIONS_BUTTON]: {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('notificationsButton', "Controls the visibility of the Notifications button in the title bar. Only applies when notifications are positioned at the top right.")
+			},
 			[LayoutSettings.ACTIVITY_BAR_LOCATION]: {
 				'type': 'string',
 				'enum': ['default', 'top', 'bottom', 'hidden'],

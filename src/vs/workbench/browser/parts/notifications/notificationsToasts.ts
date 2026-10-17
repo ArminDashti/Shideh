@@ -11,7 +11,7 @@ import { addDisposableListener, EventType, Dimension, scheduleAtNextAnimationFra
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { NotificationsList } from './notificationsList.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, LayoutSettings, NotificationsPosition, Parts } from '../../../services/layout/browser/layoutService.js';
 import { NOTIFICATIONS_TOAST_BORDER, NOTIFICATIONS_BACKGROUND } from '../../../common/theme.js';
 import { IThemeService, Themable } from '../../../../platform/theme/common/themeService.js';
 import { asCssVariable } from '../../../../platform/theme/common/colorRegistry.js';
@@ -267,9 +267,11 @@ export class NotificationsToasts extends Themable implements INotificationsToast
 		// Container
 		const notificationToastContainer = $('.notification-toast-container');
 
+		const position = this.getNotificationsPosition();
 		const firstToast = notificationsToastsContainer.firstChild;
 		if (firstToast) {
-			notificationsToastsContainer.insertBefore(notificationToastContainer, firstToast); // always first
+			// Always insert new toasts at the top
+			notificationsToastsContainer.insertBefore(notificationToastContainer, firstToast);
 		} else {
 			notificationsToastsContainer.appendChild(notificationToastContainer);
 		}

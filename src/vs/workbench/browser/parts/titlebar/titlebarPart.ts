@@ -794,6 +794,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 				);
 			}
 
+			// --- Global Actions (after layout so e.g. notification bell appears to the right of layout controls)
+			if (this.globalToolbarMenu) {
+				fillInActionBarActions(
+					this.globalToolbarMenu.getActions(),
+					actions
+				);
+			}
+
 			// --- Activity Actions (always at the end)
 			if (this.activityActionsEnabled) {
 				if (isAccountsActionVisible(this.storageService)) {
