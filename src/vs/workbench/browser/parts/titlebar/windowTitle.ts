@@ -83,6 +83,7 @@ export class WindowTitle extends Disposable {
 
 	private titleIncludesFocusedView: boolean = false;
 	private titleIncludesEditorState: boolean = false;
+	private titleIncludesNotebookStatus: boolean = false;
 
 	private readonly windowId: number;
 
@@ -126,17 +127,26 @@ export class WindowTitle extends Disposable {
 			if (e.affectsSome(this.variables)) {
 				this.titleUpdater.schedule();
 			}
+			// Update title when notebook execution state changes (notebookHasSomethingRunning context key)
+			if (this.titleIncludesNotebookStatus && e.affectsSome(new Set(['notebookHasSomethingRunning']))) {
+				this.titleUpdater.schedule();
+			}
 		}));
-		this._register(this.accessibilityService.onDidChangeScreenReaderOptimized(() => this.titleUpdater.schedule()));
+		this._register(this.accessibilityService.onDidChangeScreenReaderOptimized(() => {
+			this.checkTitleVariables();
+			this.titleUpdater.schedule();
+		}));
 	}
 
 	private onConfigurationChanged(event: IConfigurationChangeEvent): void {
 		const affectsTitleConfiguration = event.affectsConfiguration(WindowSettingNames.title);
-		if (affectsTitleConfiguration) {
+		const affectsAccessibilityTitleOptimization = event.affectsConfiguration('accessibility.windowTitleOptimized');
+
+		if (affectsTitleConfiguration || affectsAccessibilityTitleOptimization) {
 			this.checkTitleVariables();
 		}
 
-		if (affectsTitleConfiguration || event.affectsConfiguration(WindowSettingNames.titleSeparator)) {
+		if (affectsTitleConfiguration || affectsAccessibilityTitleOptimization || event.affectsConfiguration(WindowSettingNames.titleSeparator)) {
 			this.titleUpdater.schedule();
 		}
 	}
@@ -147,6 +157,9 @@ export class WindowTitle extends Disposable {
 			this.titleIncludesFocusedView = titleTemplate.includes('${focusedView}');
 			this.titleIncludesEditorState = titleTemplate.includes('${activeEditorState}');
 		}
+		// Notebook status is added dynamically for screen reader users, check if it would be included
+		this.titleIncludesNotebookStatus = this.accessibilityService.isScreenReaderOptimized() &&
+			this.configurationService.getValue('accessibility.windowTitleOptimized');
 	}
 
 	private onActiveEditorChange(): void {
@@ -364,6 +377,9 @@ export class WindowTitle extends Disposable {
 		const activeEditorState = editorResource ? this.decorationsService.getDecoration(editorResource, false)?.tooltip : undefined;
 		const activeEditorLanguageId = this.editorService.activeTextEditorLanguageId;
 
+		// Compute notebook status for screen reader users
+		const notebookStatus = this.getNotebookStatus();
+
 		const variables: Record<string, string> = {};
 		for (const [contextKey, name] of this.variables) {
 			variables[name] = this.contextKeyService.getContextKeyValue(contextKey) ?? '';
@@ -376,6 +392,9 @@ export class WindowTitle extends Disposable {
 
 		if (!this.titleIncludesEditorState && this.accessibilityService.isScreenReaderOptimized() && this.configurationService.getValue('accessibility.windowTitleOptimized')) {
 			titleTemplate += '${separator}${activeEditorState}';
+			if (notebookStatus) {
+				titleTemplate += '${separator}${notebookStatus}';
+			}
 		}
 
 		let separator = this.configurationService.getValue<string>(WindowSettingNames.titleSeparator);
@@ -403,8 +422,44 @@ export class WindowTitle extends Disposable {
 			profileName,
 			focusedView,
 			activeEditorState,
+			notebookStatus,
 			separator: { label: separator }
 		});
+	}
+
+	/**
+	 * Computes the notebook execution status text that can be shown in the window title.
+	 *
+	 * This only returns a localized string when:
+	 * - the screen reader optimized mode is enabled, and
+	 * - the active editor is a notebook, and
+	 * - at least one cell in the active notebook is currently executing.
+	 *
+	 * In all other cases, this method returns `undefined` so that no additional
+	 * notebook status is rendered in the window title.
+	 *
+	 * @returns A localized status string indicating that notebook cells are executing,
+	 * or `undefined` if no status should be shown.
+	 */
+	private getNotebookStatus(): string | undefined {
+		// Only show notebook status for screen reader users
+		if (!this.accessibilityService.isScreenReaderOptimized()) {
+			return undefined;
+		}
+
+		// Check if the active editor is a notebook using the editor ID from activeEditor
+		const activeEditor = this.editorService.activeEditor;
+		if (!activeEditor || activeEditor.editorId !== 'workbench.editor.notebook') {
+			return undefined;
+		}
+
+		// Check if any cells are executing using the context key
+		const hasExecutingCells = this.contextKeyService.getContextKeyValue<boolean>('notebookHasSomethingRunning');
+		if (hasExecutingCells) {
+			return localize('notebookExecuting', "Notebook Cells Executing");
+		}
+
+		return undefined;
 	}
 
 	isCustomTitleFormat(): boolean {
