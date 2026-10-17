@@ -23,6 +23,7 @@ import { asCssVariable } from '../../../theme/common/colorUtils.js';
 import { IQuickTreeCheckboxEvent, IQuickTreeItem, IQuickTreeItemButtonEvent } from '../../common/quickInput.js';
 import { quickInputButtonsToActionArrays } from '../quickInputUtils.js';
 import { IQuickTreeFilterData } from './quickInputTree.js';
+import { QuickInputCheckboxStateHandler } from './quickInputTreeController.js';
 
 const $ = dom.$;
 
@@ -62,6 +63,7 @@ export class QuickInputTreeRenderer<T extends IQuickTreeItem> extends Disposable
 	constructor(
 		private readonly _hoverDelegate: IHoverDelegate | undefined,
 		private readonly _buttonTriggeredEmitter: Emitter<IQuickTreeItemButtonEvent<T>>,
+		private readonly _checkboxStateHandler: QuickInputCheckboxStateHandler<T>,
 		private readonly onCheckedEvent: Event<IQuickTreeCheckboxEvent<T>>,
 		private readonly _checkboxStateHandler: QuickInputCheckboxStateHandler<T>,
 		private readonly _toggleStyles: IToggleStyles,
