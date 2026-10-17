@@ -502,6 +502,21 @@ suite('ObservableChatSession', function () {
 		// Session should be complete since it has no capabilities
 		assert.strictEqual(session.isCompleteObs.get(), true);
 	});
+
+	test('session supports isReadOnly capability', async function () {
+		const sessionContent = createSessionContent({
+			isReadOnly: true,
+			hasActiveResponseCallback: false,
+			hasRequestHandler: false
+		});
+
+		const session = disposables.add(await createInitializedSession(sessionContent));
+
+		// Session should be complete and have proper initial state
+		assert.strictEqual(session.isCompleteObs.get(), true);
+		assert.deepStrictEqual(session.progressObs.get(), []);
+		assert.deepStrictEqual(session.history, []);
+	});
 });
 
 suite('MainThreadChatSessions', function () {
