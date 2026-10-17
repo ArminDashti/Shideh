@@ -369,6 +369,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 
 		return new Promise<URI[] | URI | undefined>((resolve) => {
 			this.filePickBox = this._register(this.quickInputService.createQuickPick<FileQuickPickItem>());
+			this.filePickBox.canSelectMany = canSelectMany;
 			this.busy = true;
 			this.filePickBox.matchOnLabel = false;
 			this.filePickBox.sortByLabel = false;
@@ -455,7 +456,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 				this.filePickBox.hide();
 				if (isSave) {
 					return this.fileDialogService.showSaveDialog(this.options).then(result => {
-						doResolve(result);
+						doResolve(result ? [result] : undefined);
 					});
 				} else {
 					return this.fileDialogService.showOpenDialog(this.options).then(result => {
@@ -500,7 +501,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			this._register(this.filePickBox.onDidChangeActive(i => {
 				isAcceptHandled = false;
 				// update input box to match the first selected item
-				if ((i.length === 1) && this.isSelectionChangeFromUser()) {
+				// In canSelectMany mode, skip auto-complete since users check items via checkboxes
+				if (!canSelectMany && (i.length === 1) && this.isSelectionChangeFromUser()) {
 					this.filePickBox.validationMessage = undefined;
 					if (this._autoCompleteEnabled) {
 						const userPath = this.constructFullUserPath();
@@ -628,11 +630,46 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		}
 	}
 
-	private async onDidAccept(): Promise<URI | undefined> {
+	private async onDidAccept(): Promise<URI[] | undefined> {
 		this.busy = true;
+
+		// In canSelectMany mode, handle folder navigation and multi-select
+		if (this.filePickBox.canSelectMany) {
+			const activeItem = this.filePickBox.activeItems[0];
+			// Folders have pickable: false, so clicking one temporarily sets selectedItems to [folder]
+			// and triggers accept. We distinguish this from pressing OK (where selectedItems = checked files)
+			// by checking that selectedItems contains exactly one folder.
+			if (activeItem?.isFolder && this.filePickBox.selectedItems.length === 1 && this.filePickBox.selectedItems[0].isFolder) {
+				if (!this.updatingPromise) {
+					const folderItem = this.filePickBox.selectedItems[0];
+					if (this.trailing) {
+						await this.updateItems(folderItem.uri, true, this.trailing);
+					} else {
+						await this.updateItems(folderItem.uri, true);
+					}
+				}
+				this.filePickBox.busy = false;
+				return;
+			}
+			// Collect all checked file items
+			const checkedFiles = this.filePickBox.selectedItems.filter(item => !item.isFolder);
+			if (checkedFiles.length > 0) {
+				const uris = checkedFiles.map(item => this.addPostfix(item.uri));
+				for (const uri of uris) {
+					if (!await this.validate(uri)) {
+						this.busy = false;
+						return undefined;
+					}
+				}
+				this.busy = false;
+				return uris;
+			}
+			// No items checked — fall through to single-item behavior
+		}
+
 		if (!this.updatingPromise && this.filePickBox.activeItems.length === 1) {
 			const item = this.filePickBox.selectedItems[0];
-			if (item.isFolder) {
+			if (item?.isFolder) {
 				if (this.trailing) {
 					await this.updateItems(item.uri, true, this.trailing);
 				} else {
@@ -665,14 +702,14 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		if (this.filePickBox.activeItems.length === 0) {
 			resolveValue = this.filePickBoxValue();
 		} else if (this.filePickBox.activeItems.length === 1) {
-			resolveValue = this.filePickBox.selectedItems[0].uri;
+			resolveValue = this.filePickBox.selectedItems[0]?.uri;
 		}
 		if (resolveValue) {
 			resolveValue = this.addPostfix(resolveValue);
 		}
 		if (await this.validate(resolveValue)) {
 			this.busy = false;
-			return resolveValue;
+			return resolveValue ? [resolveValue] : undefined;
 		}
 		this.busy = false;
 		return undefined;
@@ -1187,7 +1224,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		if (!resources.isEqual(fileRepresentationCurr, fileRepresentationParent)) {
 			const parentFolder = resources.dirname(currFolder);
 			if (await this.fileService.exists(parentFolder)) {
-				return { label: '..', uri: resources.addTrailingPathSeparator(parentFolder, this.separator), isFolder: true };
+				return { label: '..', uri: resources.addTrailingPathSeparator(parentFolder, this.separator), isFolder: true, pickable: this.options.canSelectMany ? false : undefined };
 			}
 		}
 		return undefined;
@@ -1253,7 +1290,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		if (stat.isDirectory) {
 			const filename = resources.basename(fullPath);
 			fullPath = resources.addTrailingPathSeparator(fullPath, this.separator);
-			return { label: filename, uri: fullPath, isFolder: true, iconClasses: getIconClasses(this.modelService, this.languageService, fullPath || undefined, FileKind.FOLDER) };
+			return { label: filename, uri: fullPath, isFolder: true, pickable: this.options.canSelectMany ? false : undefined, iconClasses: getIconClasses(this.modelService, this.languageService, fullPath || undefined, FileKind.FOLDER) };
 		} else if (!stat.isDirectory && this.allowFileSelection && this.filterFile(fullPath)) {
 			return { label: stat.name, uri: fullPath, isFolder: false, iconClasses: getIconClasses(this.modelService, this.languageService, fullPath || undefined) };
 		}
