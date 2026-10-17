@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { DeferredPromise } from '../../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
@@ -85,6 +86,8 @@ class StubTunnelService extends Disposable implements ITunnelAgentHostService {
 
 	/** Records every `connect()` call for assertions on the `userInitiated` threading. */
 	readonly connectCalls: Array<{ tunnel: ITunnelInfo; authProvider: string | undefined; options: { readonly userInitiated?: boolean } | undefined }> = [];
+	readonly reconnectCalls: Array<{ tunnel: ITunnelInfo; authProvider: string | undefined; options: { readonly userInitiated?: boolean } | undefined }> = [];
+	connectBarrier: DeferredPromise<void> | undefined;
 	readonly disconnectCalls: string[] = [];
 
 	setCached(tunnels: ICachedTunnel[]): void {
@@ -133,6 +136,11 @@ class StubTunnelService extends Disposable implements ITunnelAgentHostService {
 
 	async connect(tunnel: ITunnelInfo, authProvider?: 'github' | 'microsoft', options?: { readonly userInitiated?: boolean }): Promise<void> {
 		this.connectCalls.push({ tunnel, authProvider, options });
+		await this.connectBarrier?.p;
+	}
+
+	async reconnect(tunnel: ITunnelInfo, authProvider?: 'github' | 'microsoft', options?: { readonly userInitiated?: boolean }): Promise<void> {
+		this.reconnectCalls.push({ tunnel, authProvider, options });
 	}
 
 	async disconnect(address: string): Promise<void> { this.disconnectCalls.push(address); }

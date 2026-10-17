@@ -350,6 +350,7 @@ function createProvider(disposables: DisposableStore, connection: MockAgentConne
 		preferenceKey: overrides?.preferenceKey,
 		name: overrides !== undefined && Object.prototype.hasOwnProperty.call(overrides, 'connectionName') ? overrides.connectionName ?? '' : 'Test Host',
 		connectOnDemand: overrides?.connectOnDemand,
+		reconnectOnDemand: overrides?.reconnectOnDemand,
 		omitHostFromWorkspaceLabel: overrides?.omitHostFromWorkspaceLabel,
 		workspaceTypeIcon: overrides?.workspaceTypeIcon,
 		sessionSchemeAlias: overrides?.sessionSchemeAlias,
@@ -889,6 +890,20 @@ suite('RemoteAgentHostSessionsProvider', () => {
 			connectCallsAfterResolve: 0,
 			connectCalls: 1,
 		});
+	});
+
+	test('uses the explicit reconnect hook instead of the ordinary ensure hook', async () => {
+		let ensureCalls = 0;
+		let reconnectCalls = 0;
+		const provider = createProvider(disposables, connection, {
+			noConnection: true,
+			connectOnDemand: async () => { ensureCalls++; },
+			reconnectOnDemand: async () => { reconnectCalls++; },
+		});
+
+		await provider.connect();
+
+		assert.deepStrictEqual({ ensureCalls, reconnectCalls }, { ensureCalls: 0, reconnectCalls: 1 });
 	});
 
 	test('remoteLocationPreferenceKey defaults to the live address when no stable preference key is given (e.g. tunnels/WSL)', () => {

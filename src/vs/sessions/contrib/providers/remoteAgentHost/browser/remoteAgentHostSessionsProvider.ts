@@ -80,6 +80,8 @@ export interface IRemoteAgentHostSessionsProviderConfig {
 	readonly preferenceKey?: string;
 	/** Optional hook to establish a connection on demand (e.g. tunnel relay). */
 	readonly connectOnDemand?: () => Promise<void>;
+	/** Optional hook to explicitly replace the current connection on demand. */
+	readonly reconnectOnDemand?: () => Promise<void>;
 	/** Optional hook to tear down the active connection on demand (e.g. tunnel relay). */
 	readonly disconnectOnDemand?: () => Promise<void>;
 	/** Optional hook to permanently remove the host from its provider inventory. */
@@ -213,6 +215,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 	private readonly _onDidChangeResourceLabelHomes = Event.any(this._onDidChangeSessionsImmediately, this._onDidChangeDraftSessions.event);
 	private readonly _connectionAuthority: string;
 	private readonly _connectOnDemand: (() => Promise<void>) | undefined;
+	private readonly _reconnectOnDemand: (() => Promise<void>) | undefined;
 	private readonly _disconnectOnDemand: (() => Promise<void>) | undefined;
 	private readonly _removeOnDemand: (() => Promise<void>) | undefined;
 	private readonly _sessionSchemeAlias: IAgentHostSessionSchemeAlias | undefined;
@@ -286,6 +289,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 		this._register(this.onDidChangeSessionTypes(registerResolvers));
 		registerResolvers();
 		this._connectOnDemand = config.connectOnDemand;
+		this._reconnectOnDemand = config.reconnectOnDemand;
 		this._disconnectOnDemand = config.disconnectOnDemand;
 		this._removeOnDemand = config.removeOnDemand;
 		this._sessionSchemeAlias = config.sessionSchemeAlias;
@@ -769,10 +773,14 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 
 	/**
 	 * Establish (or re-establish) the connection for this host on demand.
-	 * Tunnel-backed providers use their relay hook; other providers fall
-	 * back to the generic remote agent host reconnect path.
+	 * Transport-backed providers use their explicit reconnect hook; other
+	 * on-demand providers fall back to their ensure hook.
 	 */
 	async connect(): Promise<void> {
+		if (this._reconnectOnDemand) {
+			await this._reconnectOnDemand();
+			return;
+		}
 		if (this._connectOnDemand) {
 			await this._connectOnDemand();
 			return;

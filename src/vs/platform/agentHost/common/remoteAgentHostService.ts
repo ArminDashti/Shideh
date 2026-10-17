@@ -297,7 +297,7 @@ export interface IRemoteAgentHostConnectOptions {
 
 /** A built, not-yet-handshaken connection and its owned resources. */
 export interface IRemoteAgentHostCreatedConnection {
-	/** The client the service will handshake and own. */
+	/** The client the service will handshake and own. Its transport must be fresh and uninitialized. */
 	readonly connection: IRemoteAgentHostProtocolClient;
 	/**
 	 * Teardown for resources the factory established alongside the client
@@ -327,10 +327,12 @@ export interface IRemoteAgentHostConnectionFactory {
 	/** Captured once per dial so callbacks from a replaced entry cannot observe its replacement. */
 	getConnectionObserver?(entry: IRemoteAgentHostEntry): RemoteAgentHostConnectionObserver;
 	/**
-	 * Build a client bound to a transport for `entry`.
+	 * Build a new client bound to a fresh, uninitialized transport for `entry`.
 	 *
 	 * Must NOT perform the protocol handshake — the service calls `connect()`
 	 * itself so handshake outcome classification lives in exactly one place.
+	 * A factory backed by a lower process must replace any retained relay rather
+	 * than bind the new client to a transport that another client initialized.
 	 */
 	createConnection(entry: IRemoteAgentHostEntry, options: IRemoteAgentHostConnectOptions): Promise<IRemoteAgentHostCreatedConnection>;
 }
@@ -759,6 +761,15 @@ export interface IRemoteAgentHostService {
 	waitForConnection(address: string): Promise<IRemoteAgentHostConnectionInfo>;
 
 	/**
+	 * Ensures a configured remote host has a usable protocol client.
+	 *
+	 * Retains an existing client while it is connected, connecting,
+	 * reconnecting, or incompatibly alive. Starts a fresh factory connection
+	 * only when no live client exists.
+	 */
+	ensureConnection(address: string, userInitiated?: boolean): void;
+
+	/**
 	 * Disconnects an active remote host connection by address.
 	 */
 	removeRemoteAgentHost(address: string): Promise<void>;
@@ -855,6 +866,7 @@ export class NullRemoteAgentHostService implements IRemoteAgentHostService {
 	async waitForConnection(): Promise<IRemoteAgentHostConnectionInfo> {
 		throw new Error('Remote agent host connections are not supported in this environment.');
 	}
+	ensureConnection(_address: string, _userInitiated?: boolean): void { }
 	async removeRemoteAgentHost(_address: string): Promise<void> { }
 	reconnect(_address: string, _userInitiated?: boolean): void { }
 	reconnectNow(_address: string): void { }
