@@ -1101,6 +1101,7 @@ export interface IAgentSessionsFilterExcludes {
 
 	readonly archived: boolean;
 	readonly read: boolean;
+	readonly automation: boolean;
 	readonly repositoryGroupCapped: boolean;
 }
 

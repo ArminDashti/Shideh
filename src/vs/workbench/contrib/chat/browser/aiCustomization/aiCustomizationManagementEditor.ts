@@ -54,6 +54,7 @@ import { McpListWidget } from './mcpListWidget.js';
 import { PluginListWidget } from './pluginListWidget.js';
 import { ToolsListWidget } from './toolsListWidget.js';
 import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE } from '../agentSessions/agentHost/agentHostToolSetEnablementService.js';
+import { AutomationsListWidget } from './automationsListWidget.js';
 import {
 	AI_CUSTOMIZATION_ITEM_STORAGE_KEY,
 	AI_CUSTOMIZATION_ITEM_TYPE_KEY,
@@ -979,6 +980,11 @@ export class AICustomizationManagementEditor extends EditorPane {
 			hidden.add(AICustomizationManagementSection.Automations);
 		}
 
+		// Also hide the Automations section when the feature setting is off.
+		if (this.configurationService.getValue<boolean>(CHAT_AUTOMATIONS_ENABLED_SETTING) !== true) {
+			hidden.add(AICustomizationManagementSection.Automations);
+		}
+
 		this.sections.length = 0;
 		this.contributedSectionContextKeys.clear();
 		for (const s of this.allSections) {
@@ -1568,6 +1574,12 @@ export class AICustomizationManagementEditor extends EditorPane {
 			this.editorDisposables.add(autorun(reader => {
 				this.updateSectionCount(AICustomizationManagementSection.Plugins, pluginCount.read(reader));
 			}));
+		}
+		if (this.automationsListWidget) {
+			this.editorDisposables.add(this.automationsListWidget.onDidChangeItemCount(count => {
+				this.updateSectionCount(AICustomizationManagementSection.Automations, count);
+			}));
+			this.automationsListWidget.fireItemCount();
 		}
 		if (this.automationsListWidget) {
 			this.editorDisposables.add(this.automationsListWidget.onDidChangeItemCount(count => {
@@ -4082,6 +4094,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		const isMcpSection = this.selectedSection === AICustomizationManagementSection.McpServers;
 		const isPluginsSection = this.selectedSection === AICustomizationManagementSection.Plugins;
 		const isToolsSection = this.selectedSection === AICustomizationManagementSection.Tools;
+		const isAutomationsSection = this.selectedSection === AICustomizationManagementSection.Automations;
 
 		if (this.welcomePage) {
 			const welcomeVisible = isWelcome && !isEditorMode && !isMigrationMode && !isDetailMode;
@@ -4124,6 +4137,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.pluginListWidget?.setVisible(!isEditorMode && !isMigrationMode && !isDetailMode && isPluginsSection);
 		if (this.connectorDetailContainer) {
 			this.connectorDetailContainer.style.display = isConnectorDetailMode ? '' : 'none';
+		}
+		if (this.automationsContentContainer) {
+			this.automationsContentContainer.style.display = !isEditorMode && !isDetailMode && isAutomationsSection ? '' : 'none';
 		}
 		if (this.automationsContentContainer) {
 			this.automationsContentContainer.style.display = !isEditorMode && !isDetailMode && isAutomationsSection ? '' : 'none';

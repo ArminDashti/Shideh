@@ -33,6 +33,8 @@ import { IAgentsActivityService } from '../../../services/activity/browser/agent
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILanguageModelToolsService } from '../../../../workbench/contrib/chat/common/tools/languageModelToolsService.js';
 import { AGENT_HOST_COPILOT_CLI_SESSION_TYPE, countEnabledCustomizationTools, IAgentHostToolSetEnablementService } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostToolSetEnablementService.js';
+import { CHAT_AUTOMATIONS_ENABLED_SETTING } from '../../../../workbench/contrib/chat/common/automations/automationsEnabled.js';
+import { IAutomationService } from '../../../../workbench/contrib/chat/common/automations/automationService.js';
 
 const $ = DOM.$;
 
@@ -257,6 +259,19 @@ export class AICustomizationOverviewView extends ViewPane {
 				this.updateCountElements();
 			}));
 		}
+
+		// Update automation count reactively. Only re-renders the count
+		// when the Automations tile is currently included in `sections`
+		// — if the user disabled the setting the tile is gone and there
+		// is nothing to update.
+		this._register(autorun(reader => {
+			const automations = this.automationService.automations.read(reader);
+			const automationSection = this.sections.find(s => s.id === AICustomizationManagementSection.Automations);
+			if (automationSection) {
+				automationSection.count = automations.length;
+				this.updateCountElements();
+			}
+		}));
 
 		this.updateCountElements();
 	}

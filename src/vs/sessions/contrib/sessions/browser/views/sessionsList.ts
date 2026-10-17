@@ -4298,6 +4298,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 		@ISessionComparisonService private readonly sessionComparisonService: ISessionComparisonService,
 		@ISessionSectionOrderService private readonly _sessionSectionOrderService: ISessionSectionOrderService,
 		@IAgentHostFilterService private readonly _agentHostFilterService: IAgentHostFilterService,
+		@IAutomationService private readonly _automationService: IAutomationService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IStorageService private readonly storageService: IStorageService,
