@@ -2400,6 +2400,7 @@ export class AgentService extends Disposable implements IAgentService {
 				this._backgroundCatalogStateWrites.delete(sessionKey);
 			}
 		}
+		await Promise.all(retries);
 	}
 
 	private async _persistListVisibleSessionState(session: URI, metadataOverrides: Readonly<Record<string, string>>, chatsOverride?: readonly ICatalogChat[]): Promise<void> {
