@@ -257,6 +257,8 @@ interface ISnapshotEntryDTO {
 	readonly currentHash: string;
 	readonly state: ModifiedFileEntryState;
 	readonly snapshotUri: string;
+	readonly wasJustCreated: boolean | undefined;
+	readonly deleted: boolean | undefined;
 	readonly telemetryInfo: IModifiedEntryTelemetryInfoDTO;
 	/** True if this entry represents a deleted file */
 	readonly isDeleted?: boolean;

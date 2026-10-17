@@ -1930,8 +1930,15 @@ export type IDocumentContextDto = {
 	ranges: IRange[];
 };
 
+export interface IChatWorkspaceEditDto {
+	kind: 'workspaceEdit';
+	id: string;
+	edit: IWorkspaceEditDto;
+}
+
 export type IChatProgressDto =
-	| Dto<Exclude<IChatProgress, IChatTask | IChatNotebookEdit>>
+	| Dto<Exclude<IChatProgress, IChatTask | IChatNotebookEdit | IChatWorkspaceEdit>>
+	| IChatWorkspaceEditDto
 	| IChatTaskDto
 	| IChatNotebookEditDto
 	| IChatExternalEditsDto

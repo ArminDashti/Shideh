@@ -3298,7 +3298,6 @@ export namespace ChatResponseTextEditPart {
 		result.autoTier = part.autoTier;
 		return result;
 	}
-
 }
 
 export namespace NotebookEdit {

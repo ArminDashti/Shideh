@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { IReference, MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceSet, setsEqual } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
@@ -24,7 +25,7 @@ import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IFileService } from '../../../../../platform/files/common/files.js';
+import { FileOperationError, FileOperationResult, IFileService } from '../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IMarkerService } from '../../../../../platform/markers/common/markers.js';
 import { IUndoRedoElement, IUndoRedoService } from '../../../../../platform/undoRedo/common/undoRedo.js';
@@ -222,6 +223,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			snapshotUri: ChatEditingSnapshotTextModelContentProvider.getSnapshotFileURI(chatSessionResource, requestId, undoStop, this.modifiedURI.path, this.modifiedURI.scheme, this.modifiedURI.authority),
 			original: this.originalModel.getValue(),
 			current: this.modifiedModel.getValue(),
+			wasJustCreated: this._wasJustCreated.get() ? true : undefined,
+			deleted: this._willBeDeleted.get() ? true : undefined,
 			state: this.state.get(),
 			attributedRanges: sessionRanges,
 		};
@@ -375,18 +378,20 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	protected override async _doAccept(): Promise<void> {
 		this._textModelChangeService.keep();
 
-		const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
-		if (!config.autoSave || !this._textFileService.isDirty(this.modifiedURI)) {
-			// SAVE after accept for manual-savers, for auto-savers
-			// trigger explict save to get save participants going
-			try {
-				await this._textFileService.save(this.modifiedURI, {
-					reason: SaveReason.EXPLICIT,
-					force: true,
-					ignoreErrorHandler: true
-				});
-			} catch {
-				// ignored
+		if (!this._willBeDeleted.get()) {
+			const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
+			if (!config.autoSave || !this._textFileService.isDirty(this.modifiedURI)) {
+				// SAVE after accept for manual-savers, for auto-savers
+				// trigger explict save to get save participants going
+				try {
+					await this._textFileService.save(this.modifiedURI, {
+						reason: SaveReason.EXPLICIT,
+						force: true,
+						ignoreErrorHandler: true
+					});
+				} catch {
+					// ignored
+				}
 			}
 		}
 	}

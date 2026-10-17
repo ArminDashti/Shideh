@@ -33,7 +33,6 @@ import { CommandsConverter, ExtHostCommands } from './extHostCommands.js';
 import { ExtHostDiagnostics } from './extHostDiagnostics.js';
 import { ExtHostDocuments } from './extHostDocuments.js';
 import { ExtHostLanguageModels } from './extHostLanguageModels.js';
-import { ExtHostLanguageModelTools } from './extHostLanguageModelTools.js';
 import * as typeConvert from './extHostTypeConverters.js';
 import * as extHostTypes from './extHostTypes.js';
 import { IPromptFileContext, IPromptFileResource } from '../../contrib/chat/common/promptSyntax/service/promptsService.js';
@@ -48,6 +47,10 @@ export class ChatAgentResponseStream {
 	private _firstProgress: number | undefined;
 	private _apiObject: vscode.ChatResponseStream | undefined;
 
+	private _workspaceEdits = new Set<extHostTypes.WorkspaceEdit>();
+	private _sendQueue: (IChatProgressDto | [IChatProgressDto, number])[] = [];
+	private _notify: Function[] = [];
+
 	constructor(
 		private readonly _extension: IExtensionDescription,
 		private readonly _request: IChatAgentRequest,
@@ -60,6 +63,40 @@ export class ChatAgentResponseStream {
 
 	close() {
 		this._isClosed = true;
+	}
+
+	async getWorkspaceEditDataTransfer(itemId: string) {
+		for (const edit of this._workspaceEdits) {
+			for (const e of edit._allEntries()) {
+				if (e._type === extHostTypes.FileEditType.File && e.options && !ArrayBuffer.isView(e.options.contents)) {
+					if ((e.options.contents as extHostTypes.DataTransferFile)._itemId === itemId) {
+						return VSBuffer.wrap(await (e.options.contents as extHostTypes.DataTransferFile).data());
+					}
+				}
+			}
+		}
+		return undefined;
+	}
+
+	send(chunk: IChatProgressDto): void;
+	send(chunk: IChatProgressDto, handle: number): Promise<void>;
+	send(chunk: IChatProgressDto, handle?: number) {
+		// push data into send queue. the first entry schedules the micro task which
+		// does the actual send to the main thread
+		const newLen = this._sendQueue.push(handle !== undefined ? [chunk, handle] : chunk);
+		if (newLen === 1) {
+			queueMicrotask(() => {
+				this._proxy.$handleProgressChunk(this._request.requestId, this._sendQueue).finally(() => {
+					this._notify.forEach(f => f());
+					this._notify.length = 0;
+				});
+				this._sendQueue.length = 0;
+			});
+		}
+		if (handle !== undefined) {
+			return new Promise<void>(resolve => { this._notify.push(resolve); });
+		}
+		return;
 	}
 
 	get timings(): IChatAgentResultTimings {
@@ -122,24 +159,24 @@ export class ChatAgentResponseStream {
 
 				if (task) {
 					const myHandle = taskHandlePool++;
-					const progressReporterPromise = send(progress, myHandle);
+					const progressReporterPromise = this.send(progress, myHandle);
 					const progressReporter = {
 						report: (p: vscode.ChatResponseWarningPart | vscode.ChatResponseReferencePart) => {
 							progressReporterPromise.then(() => {
 								if (extHostTypes.MarkdownString.isMarkdownString(p.value)) {
-									send(typeConvert.ChatResponseWarningPart.from(<vscode.ChatResponseWarningPart>p), myHandle);
+									this.send(typeConvert.ChatResponseWarningPart.from(<vscode.ChatResponseWarningPart>p), myHandle);
 								} else {
-									send(typeConvert.ChatResponseReferencePart.from(<vscode.ChatResponseReferencePart>p), myHandle);
+									this.send(typeConvert.ChatResponseReferencePart.from(<vscode.ChatResponseReferencePart>p), myHandle);
 								}
 							});
 						}
 					};
 
 					Promise.all([progressReporterPromise, task(progressReporter)]).then(([_void, res]) => {
-						send(typeConvert.ChatTaskResult.from(res), myHandle);
+						this.send(typeConvert.ChatTaskResult.from(res), myHandle);
 					});
 				} else {
-					send(progress);
+					this.send(progress);
 				}
 			};
 
@@ -448,6 +485,12 @@ export class ChatAgentResponseStream {
 						const p = this.externalEdit(part.uris, part.callback);
 						p.then((value) => part.didGetApplied(value));
 						return this;
+					} else if (part instanceof extHostTypes.ChatResponseWorkspaceEditPart) {
+						checkProposedApiEnabled(that._extension, 'chatParticipantAdditions');
+						that._workspaceEdits.add(part.value as extHostTypes.WorkspaceEdit);
+						const dto = typeConvert.ChatResponseWorkspaceEditPart.from(part);
+						_report(dto);
+						return this;
 					} else {
 						const dto = typeConvert.ChatResponsePart.from(part, that._commandsConverter, that._sessionDisposables);
 						_report(dto);
@@ -479,6 +522,7 @@ export class ChatAgentResponseStream {
 
 interface InFlightChatRequest {
 	requestId: string;
+	sessionId: string;
 	extRequest: vscode.ChatRequest;
 	extension: IRelaxedExtensionDescription;
 	hooks?: ChatRequestHooks;
@@ -1105,6 +1149,10 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 			}
 			stream?.close();
 		}
+	}
+
+	public getInFlightRequestForSession(sessionId: string): InFlightChatRequest | undefined {
+		return Iterable.find(this._inFlightRequests, r => r.sessionId === sessionId);
 	}
 
 	private getDiagnosticsWhenEnabled(extension: Readonly<IRelaxedExtensionDescription>) {

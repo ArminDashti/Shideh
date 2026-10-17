@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RunOnceScheduler } from '../../../../../base/common/async.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Disposable, DisposableMap, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
@@ -74,8 +74,8 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 
 	readonly entryId = `${AbstractChatEditingModifiedFileEntry.scheme}::${++AbstractChatEditingModifiedFileEntry.lastEntryId}`;
 
-	protected readonly _onDidDelete = this._register(new Emitter<void>());
-	readonly onDidDelete = this._onDidDelete.event;
+	protected readonly _fileIsDeleted = observableValue('isDeleted', false);
+	readonly fileIsDeleted: IObservable<boolean> = this._fileIsDeleted;
 
 	protected readonly _stateObs = observableValue<ModifiedFileEntryState>(this, ModifiedFileEntryState.Modified);
 	readonly state: IObservable<ModifiedFileEntryState> = this._stateObs;
@@ -143,8 +143,12 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 		if (this.modifiedURI.scheme !== Schemas.untitled && this.modifiedURI.scheme !== Schemas.vscodeNotebookCell) {
 			this._register(this._fileService.watch(this.modifiedURI));
 			this._register(this._fileService.onDidFilesChange(e => {
-				if (e.affects(this.modifiedURI) && kind === ChatEditKind.Created && e.gotDeleted()) {
-					this._onDidDelete.fire();
+				if (e.affects(this.modifiedURI)) {
+					if (e.gotDeleted()) {
+						this._fileIsDeleted.set(true, undefined);
+					} else if (e.gotAdded()) {
+						this._fileIsDeleted.set(false, undefined);
+					}
 				}
 			}));
 		}

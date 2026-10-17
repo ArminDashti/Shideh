@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { streamToBuffer } from '../../../../../base/common/buffer.js';
+import { streamToBuffer, VSBuffer } from '../../../../../base/common/buffer.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { StringSHA1 } from '../../../../../base/common/hash.js';
 import { DisposableStore, IReference, thenRegisterOrDispose } from '../../../../../base/common/lifecycle.js';
@@ -511,20 +511,22 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		restoreSnapshot(this.originalModel, snapshot);
 		this.initializeModelsFromDiff();
 
-		const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
-		if (this.modifiedModel.uri.scheme !== Schemas.untitled && (!config.autoSave || !this.notebookResolver.isDirty(this.modifiedURI))) {
-			// SAVE after accept for manual-savers, for auto-savers
-			// trigger explict save to get save participants going
-			await this._applyEdits(async () => {
-				try {
-					await this.modifiedResourceRef.object.save({
-						reason: SaveReason.EXPLICIT,
-						force: true,
-					});
-				} catch {
-					// ignored
-				}
-			});
+		if (!this._willBeDeleted.get()) {
+			const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
+			if (this.modifiedModel.uri.scheme !== Schemas.untitled && (!config.autoSave || !this.notebookResolver.isDirty(this.modifiedURI))) {
+				// SAVE after accept for manual-savers, for auto-savers
+				// trigger explict save to get save participants going
+				await this._applyEdits(async () => {
+					try {
+						await this.modifiedResourceRef.object.save({
+							reason: SaveReason.EXPLICIT,
+							force: true,
+						});
+					} catch {
+						// ignored
+					}
+				});
+			}
 		}
 	}
 
@@ -638,6 +640,11 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	private _areOriginalAndModifiedIdenticalImpl(): boolean {
 		const snapshot = createSnapshot(this.originalModel, this.transientOptions, this.configurationService);
 		return new SnapshotComparer(snapshot).isEqual(this.modifiedModel);
+	}
+
+	override async acceptAgentDelete(resource: URI): Promise<void> {
+		this._willBeDeleted.set((await this._fileService.readFile(resource)).value, undefined);
+		await this._fileService.del(resource);
 	}
 
 	private newNotebookEditGenerator?: ChatEditingNewNotebookContentEdits;
@@ -1095,8 +1102,12 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	}
 
 	override async restoreFromSnapshot(snapshot: ISnapshotEntry, restoreToDisk = true): Promise<void> {
-		this.updateCellDiffInfo([], undefined);
-		this._stateObs.set(snapshot.state, undefined);
+		transaction(tx => {
+			this.updateCellDiffInfo([], tx);
+			this._stateObs.set(snapshot.state, tx);
+			this._wasJustCreated.set(!!snapshot.wasJustCreated, tx);
+			this._willBeDeleted.set(snapshot.deleted ? VSBuffer.fromString(snapshot.current) : undefined, tx);
+		});
 		restoreSnapshot(this.originalModel, snapshot.original);
 		if (restoreToDisk) {
 			this.restoreSnapshotInModifiedModel(snapshot.current);
@@ -1166,6 +1177,9 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 		this.updateCellDiffInfo([], undefined);
 		this.initializeModelsFromDiff();
+		if (snapshot.deleted) {
+			this.acceptAgentDelete(snapshot.resource);
+		}
 	}
 
 	override async resetToInitialContent(): Promise<void> {

@@ -417,13 +417,13 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					return [];
 				}
 
-				return this._proxy.$provideFollowups(request, handle, result, { history }, token);
+				return this._proxy.$provideFollowups(request, handle, result, { history: history.map(chatAgentHistoryEntryToDto) }, token);
 			},
 			provideChatTitle: (history, token) => {
-				return this._proxy.$provideChatTitle(handle, history, token);
+				return this._proxy.$provideChatTitle(handle, history.map(chatAgentHistoryEntryToDto), token);
 			},
 			provideChatSummary: (history, token) => {
-				return this._proxy.$provideChatSummary(handle, history, token);
+				return this._proxy.$provideChatSummary(handle, history.map(chatAgentHistoryEntryToDto), token);
 			},
 		};
 
@@ -563,6 +563,10 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 				revivedProgress.uri = this._uriIdentityService.asCanonicalUri(revivedProgress.uri);
 			}
 
+			if (revivedProgress.kind === 'workspaceEdit') {
+				revivedProgress.edit = reviveWorkspaceEditDto((progress as IChatWorkspaceEditDto).edit, this._uriIdentityService, async id => await this._proxy.$getWorkspaceEditDataTransfer(requestId, id) || VSBuffer.alloc(0));
+			}
+
 			if (responsePartHandle !== undefined) {
 
 				if (revivedProgress.kind === 'progressTask') {
@@ -697,7 +701,7 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		this._chatParticipantDetectionProviders.set(handle, this._chatAgentService.registerChatParticipantDetectionProvider(handle,
 			{
 				provideParticipantDetection: async (request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation; participants: IChatParticipantMetadata[] }, token: CancellationToken) => {
-					return await this._proxy.$detectChatParticipant(handle, request, { history }, options, token);
+					return await this._proxy.$detectChatParticipant(handle, request, { history: history.map(chatAgentHistoryEntryToDto) }, options, token);
 				}
 			}
 		));

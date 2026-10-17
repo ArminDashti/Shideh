@@ -9,6 +9,7 @@ import { CancellationToken } from '../../../base/common/cancellation.js';
 import { CancellationError } from '../../../base/common/errors.js';
 import { IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { revive } from '../../../base/common/marshalling.js';
+import { isAsyncIterable } from '../../../base/common/types.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
 import { IPreparedToolInvocation, IStreamedToolInvocation, isToolInvocationContext, IToolInvocation, IToolInvocationContext, IToolInvocationPreparationContext, IToolInvocationStreamContext, IToolResult, ToolInvocationPresentation } from '../../contrib/chat/common/tools/languageModelToolsService.js';
@@ -89,6 +90,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 	constructor(
 		mainContext: IMainContext,
 		private readonly _languageModels: ExtHostLanguageModels,
+		private readonly _chatAgents: ExtHostChatAgents2,
 	) {
 		this._proxy = mainContext.getProxy(MainContext.MainThreadLanguageModelTools);
 
@@ -203,8 +205,12 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 			options.tracestate = dto.tracestate;
 		}
 
+		const opStreamRef = { isDone: false };
 		if (isProposedApiEnabled(item.extension, 'chatParticipantAdditions') && dto.modelId) {
 			options.model = await this.getModel(dto.modelId, item.extension);
+			if (dto.context?.sessionId && dto.chatRequestId) {
+				(options as vscode.LanguageModelToolInvocation<any>).operations = this.createOperationStream(dto.context.sessionId, opStreamRef, token);
+			}
 		}
 		if (isProposedApiEnabled(item.extension, 'chatParticipantAdditions') && dto.chatStreamToolCallId) {
 			options.chatStreamToolCallId = dto.chatStreamToolCallId;
