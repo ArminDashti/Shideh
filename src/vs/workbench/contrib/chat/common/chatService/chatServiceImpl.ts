@@ -1955,6 +1955,7 @@ export class ChatService extends Disposable implements IChatService {
 							contrib: { ...model.inputModel.state.get()?.contrib, [customizationMigrationHintShownStateKey]: true }
 						});
 
+						const notificationId = generateUuid();
 						const reviewLink = createMarkdownCommandLink({
 							id: AICustomizationManagementCommands.OpenEditor,
 							text: localize('customizationMigrationHint.review', "Review Migrations"),
@@ -1965,11 +1966,12 @@ export class ChatService extends Disposable implements IChatService {
 							id: AICustomizationManagementCommands.DismissMigrationHint,
 							text: localize('customizationMigrationHint.dismiss', "Don't Show Again"),
 							tooltip: localize('customizationMigrationHint.dismiss.tooltip', "Do not show this migration hint again for this harness in this workspace"),
-							arguments: [{ hint }],
+							arguments: [{ hint, notificationId }],
 						});
 						this.customizationMigrationTelemetryService.hintShown(hint);
 						progressCallback([{
 							kind: 'systemNotification',
+							id: notificationId,
 							content: new MarkdownString(
 								localize('customizationMigrationHint', "*{0} {1} | {2}*", hint.message, reviewLink, dismissLink),
 								{ isTrusted: { enabledCommands: [AICustomizationManagementCommands.OpenEditor, AICustomizationManagementCommands.DismissMigrationHint] } }
