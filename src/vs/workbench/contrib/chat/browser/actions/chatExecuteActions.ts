@@ -40,7 +40,8 @@ import { type IChatAcceptInputOptions, IChatWidget, IChatWidgetService } from '.
 import { getAgentSessionProvider, AgentSessionProviders, AgentSessionTarget } from '../agentSessions/agentSessions.js';
 import { getEditingSessionContext } from '../chatEditing/chatEditingActions.js';
 import { ctxHasEditorModification, ctxHasRequestInProgress, ctxIsGlobalEditingSession } from '../chatEditing/chatEditingEditorContextKeys.js';
-import { ACTION_ID_NEW_CHAT, CHAT_CATEGORY, clearChatSessionPreservingType, handleCurrentEditingSession, handleModeSwitch } from './chatActions.js';
+import { ChatEntitlement, IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
+import { ACTION_ID_NEW_CHAT, CHAT_CATEGORY, CHAT_SETUP_ACTION_ID, clearChatSessionPreservingType, handleCurrentEditingSession, handleModeSwitch } from './chatActions.js';
 import { CreateRemoteAgentJobAction } from './chatContinueInAction.js';
 
 export interface IVoiceChatExecuteActionContext {
@@ -169,6 +170,16 @@ abstract class SubmitAction extends Action2 {
 
 	private async handleDelegation(accessor: ServicesAccessor, widget: IChatWidget, delegationTarget: Exclude<AgentSessionTarget, AgentSessionProviders.Local>): Promise<void> {
 		const chatSessionsService = accessor.get(IChatSessionsService);
+		const chatEntitlementService = accessor.get(IChatEntitlementService);
+		const commandService = accessor.get(ICommandService);
+
+		// If the user is not signed in, trigger the sign-in/setup flow before delegating
+		if (chatEntitlementService.entitlement === ChatEntitlement.Unknown && !chatEntitlementService.anonymous) {
+			const setupSucceeded = await commandService.executeCommand<boolean | undefined>(CHAT_SETUP_ACTION_ID);
+			if (!setupSucceeded) {
+				return;
+			}
+		}
 
 		// Find the contribution for the delegation target
 		const contributions = chatSessionsService.getAllChatSessionContributions();
