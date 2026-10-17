@@ -70,6 +70,7 @@ import { ISessionCollectionsSwitcherDelegate, SESSION_COLLECTIONS_CONTROLLER_ID,
 
 const $ = DOM.$;
 export const SessionsViewId = 'sessions.workbench.view.sessionsView';
+export const SESSIONS_LIST_DEFAULT_SORT_ORDER_SETTING = 'sessions.list.defaultSortOrder';
 const GROUPING_STORAGE_KEY = 'sessionsViewPane.grouping';
 const SORTING_STORAGE_KEY = 'sessionsViewPane.sorting';
 const COMPACT_STORAGE_KEY = 'sessionsViewPane.compact';
@@ -191,7 +192,7 @@ export class SessionsView extends ViewPane {
 	private readonly collectionSwitcher: IObservable<SessionsCollectionSwitcher>;
 	private customizationsPresentation: CustomizationsPresentation = 'hidden';
 	private currentGrouping: SessionsGrouping = SessionsGrouping.Workspace;
-	private currentSorting: SessionsSorting = SessionsSorting.Created;
+	private currentSorting: SessionsSorting;
 	private currentCompact = false;
 	private groupingContextKey: IContextKey | undefined;
 	private sortingContextKey: IContextKey | undefined;
@@ -253,6 +254,12 @@ export class SessionsView extends ViewPane {
 
 		// Bind workspace group capped context key (will be synced with persisted state in renderBody)
 		this.workspaceGroupCappedContextKey = IsWorkspaceGroupCappedContext.bindTo(contextKeyService);
+
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(SESSIONS_LIST_DEFAULT_SORT_ORDER_SETTING)) {
+				this.updateSorting(this.getPreferredSorting());
+			}
+		}));
 	}
 
 	private _handleSessionOpened(session: ISession): void {
@@ -1117,12 +1124,27 @@ export class SessionsView extends ViewPane {
 	}
 
 	setSorting(sorting: SessionsSorting): void {
+		this.storageService.store(SORTING_STORAGE_KEY, sorting, StorageScope.PROFILE, StorageTarget.USER);
+		this.updateSorting(sorting);
+	}
+
+	private getPreferredSorting(): SessionsSorting {
+		const storedSorting = this.storageService.get(SORTING_STORAGE_KEY, StorageScope.PROFILE);
+		if (storedSorting === SessionsSorting.Created || storedSorting === SessionsSorting.Updated) {
+			return storedSorting;
+		}
+
+		return this.configurationService.getValue<SessionsSorting>(SESSIONS_LIST_DEFAULT_SORT_ORDER_SETTING) === SessionsSorting.Updated
+			? SessionsSorting.Updated
+			: SessionsSorting.Created;
+	}
+
+	private updateSorting(sorting: SessionsSorting): void {
 		if (this.currentSorting === sorting) {
 			return;
 		}
 
 		this.currentSorting = sorting;
-		this.storageService.store(SORTING_STORAGE_KEY, this.currentSorting, StorageScope.PROFILE, StorageTarget.USER);
 		this.sortingContextKey?.set(this.currentSorting);
 		this.sessionsControl?.update();
 	}

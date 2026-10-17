@@ -15,6 +15,7 @@ import '../../browser/sessions.contribution.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 // Capture the registered schema before configuration tests reset the shared registry.
+const defaultSortOrderProperty = configurationRegistry.getConfigurationProperties()[SESSIONS_LIST_DEFAULT_SORT_ORDER_SETTING];
 const collapsedSectionStatusProperty = configurationRegistry.getConfigurationProperties()[SESSIONS_LIST_SHOW_UNREAD_IN_COLLAPSED_SECTIONS_SETTING];
 const showChatTabsProperty = configurationRegistry.getConfigurationProperties()[SESSIONS_CHAT_TABS_SETTING];
 const markAsDoneConfettiProperty = configurationRegistry.getConfigurationProperties()[SESSIONS_MARK_AS_DONE_CONFETTI_SETTING];
