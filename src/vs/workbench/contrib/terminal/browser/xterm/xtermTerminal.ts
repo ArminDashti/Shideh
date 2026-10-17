@@ -129,6 +129,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	private static _suggestedRendererType: 'dom' | undefined = undefined;
 	private _attached?: { container: HTMLElement; options: IXtermAttachToElementOptions };
 	private _isPhysicalMouseWheel = MouseWheelClassifier.INSTANCE.isPhysicalMouseWheel();
+	private readonly _readonly: boolean;
 	private _lastInputEvent: string | undefined;
 	get lastInputEvent(): string | undefined { return this._lastInputEvent; }
 	private _progressState: IProgressState = { state: 0, value: 0 };
@@ -641,7 +642,13 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	}
 
 	private _updateSmoothScrolling() {
-		this.raw.options.smoothScrollDuration = this._terminalConfigurationService.config.smoothScrolling && this._isPhysicalMouseWheel ? RenderConstants.SmoothScrollDuration : 0;
+		// For readonly terminals (e.g., mirrored terminals in chat), apply smooth scrolling based on
+		// the setting alone without checking for physical mouse wheel. For interactive terminals,
+		// only enable smooth scrolling with a physical mouse wheel to avoid performance issues with trackpads.
+		const shouldEnableSmoothScrolling = this._readonly
+			? this._terminalConfigurationService.config.smoothScrolling
+			: this._terminalConfigurationService.config.smoothScrolling && this._isPhysicalMouseWheel;
+		this.raw.options.smoothScrollDuration = shouldEnableSmoothScrolling ? RenderConstants.SmoothScrollDuration : 0;
 	}
 
 	private _shouldLoadWebgl(): boolean {
