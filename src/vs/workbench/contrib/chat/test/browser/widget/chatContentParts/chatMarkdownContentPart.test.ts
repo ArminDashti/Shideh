@@ -88,9 +88,10 @@ suite('ChatMarkdownContentPart', () => {
 		} as unknown as EditorPool;
 	}
 
-	function createRenderContext(isComplete: boolean = true): IChatContentPartRenderContext {
+	function createRenderContext(isComplete: boolean = true, isCanceled: boolean = false): IChatContentPartRenderContext {
 		const mockElement: Partial<IChatResponseViewModel> = {
 			isComplete,
+			isCanceled,
 			isCompleteAddedRequest: false,
 			id: 'test-response-id',
 			sessionResource: URI.parse('chat-session://test/session1'),
@@ -532,7 +533,13 @@ suite('ChatMarkdownContentPart', () => {
 		assert.ok(part.domNode.querySelector('.chat-output-code-block'));
 	});
 
-	test('reuses rendered code block webview across incremental rerenders when content is unchanged', async () => {
+	test('renders complete standalone chat output while its response is streaming', () => {
+		createMarkdownPart('```mermaid\ngraph TD\n```', createRenderContext(false));
+
+		assert.deepStrictEqual(renderedCodeBlockOutputs, [{ identifier: 'mermaid', text: 'graph TD' }]);
+	});
+
+	test('keeps chat output pending across incremental rerenders', async () => {
 		const configService = instantiationService.get(IConfigurationService) as TestConfigurationService;
 		configService.setUserConfiguration(ChatConfiguration.IncrementalRendering, true);
 		configService.setUserConfiguration(ChatConfiguration.IncrementalRenderingBuffering, 'off');
@@ -541,7 +548,7 @@ suite('ChatMarkdownContentPart', () => {
 		const markdown = '```mermaid\ngraph TD\n```';
 		const part = createMarkdownPart(markdown, ctx, true);
 
-		assert.strictEqual(renderedCodeBlockOutputs.length, 1);
+		assert.strictEqual(renderedCodeBlockOutputs.length, 0);
 		assert.strictEqual(part.tryIncrementalUpdate({ kind: 'markdownContent', content: new MarkdownString(`${markdown}\n\nNext paragraph`) }), true);
 
 		await new Promise<void>(resolve => mainWindow.requestAnimationFrame(() => resolve()));
@@ -550,7 +557,7 @@ suite('ChatMarkdownContentPart', () => {
 			renderedOutputs: renderedCodeBlockOutputs,
 			outputBlockCount: part.domNode.querySelectorAll('.chat-output-code-block').length,
 		}, {
-			renderedOutputs: [{ identifier: 'mermaid', text: 'graph TD' }],
+			renderedOutputs: [],
 			outputBlockCount: 1,
 		});
 	});
