@@ -10,6 +10,7 @@ import { constObservable, IObservable, ISettableObservable, observableValue, tra
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { IOffsetRange } from '../../../../editor/common/core/ranges/offsetRange.js';
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -871,4 +872,16 @@ export async function buildCustomAgentHandoffsInfo(modes: readonly IChatMode[], 
 			})),
 		};
 	});
+}
+
+/**
+ * Check if agent mode is disabled by organization policy.
+ * Returns true if the setting is both false AND managed by organization policy.
+ */
+export function isAgentModePolicyDisabled(configurationService: IConfigurationService): boolean {
+	const inspection = configurationService.inspect<boolean>(ChatConfiguration.AgentEnabled);
+	// Agent mode is policy-disabled if:
+	// 1. There is a policy value set (organization-managed)
+	// 2. The policy value is false
+	return inspection.policyValue !== undefined && inspection.policyValue === false;
 }
