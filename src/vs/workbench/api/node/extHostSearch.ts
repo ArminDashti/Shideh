@@ -155,6 +155,12 @@ export class NativeExtHostSearch extends ExtHostSearch implements IDisposable {
 		});
 	}
 
+	private doInternalFileSearch(handle: number, session: number, rawQuery: IFileQuery, token: vscode.CancellationToken): Promise<ISearchCompleteStats> {
+		return this.$doInternalFileSearchWithCustomCallback(rawQuery, token, (data) => {
+			this._proxy.$handleFileMatch(handle, session, data);
+		});
+	}
+
 	override $clearCache(cacheKey: string): Promise<void> {
 		this._internalFileSearchProvider?.clearCache(cacheKey);
 
