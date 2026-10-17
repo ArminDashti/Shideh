@@ -3966,6 +3966,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "winresource"
+version = "0.1.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e287ced0f21cd11f4035fe946fd3af145f068d1acb708afd248100f89ec7432d"
+dependencies = [
+ "toml",
+ "version_check",
+]
+
+[[package]]
 name = "wit-bindgen"
 version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
