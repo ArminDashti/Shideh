@@ -1898,6 +1898,29 @@ suite('CopilotSessionLauncher resume config', () => {
 		return (launcher as unknown as { _buildSessionConfig(plan: unknown, runtime: unknown, onManagedSettingsResolved: () => void): Promise<{ model?: string; reasoningEffort?: string; contextTier?: string; availableTools?: string[]; excludedTools?: string[]; modelCapabilities?: Record<string, unknown>; toolSearch?: { enabled: boolean }; enableExperimentalMode?: boolean; featureFlags?: Record<string, boolean>; memory?: { enabled: boolean } }> })._buildSessionConfig(plan, runtime, () => { });
 	}
 
+	test('enables Agent Factories only with explicit opt-in', async () => {
+		const store = disposables.add(new DisposableStore());
+		const enabled = await buildResumeConfig(createLauncher(store, { agentFactories: true }), undefined);
+		const disabled = await buildResumeConfig(createLauncher(store, { agentFactories: false }), undefined);
+		const notConfigured = await buildResumeConfig(createLauncher(store, {}), undefined);
+
+		assert.deepStrictEqual({
+			enabledExtensions: enabled.requestExtensions,
+			enabledFeatureFlags: enabled.featureFlags,
+			disabledExtensions: disabled.requestExtensions,
+			disabledFeatureFlags: disabled.featureFlags,
+			defaultExtensions: notConfigured.requestExtensions,
+			defaultFeatureFlags: notConfigured.featureFlags,
+		}, {
+			enabledExtensions: true,
+			enabledFeatureFlags: { agent_factories: true, EXTENSIONS: true },
+			disabledExtensions: false,
+			disabledFeatureFlags: undefined,
+			defaultExtensions: false,
+			defaultFeatureFlags: undefined,
+		});
+	});
+
 	test('enables experimental mode only with HydraFusion opt-in', async () => {
 		const store = disposables.add(new DisposableStore());
 		const enabled = await buildResumeConfig(createLauncher(store, { hydraFusion: true }), { id: 'hydrafusion' });

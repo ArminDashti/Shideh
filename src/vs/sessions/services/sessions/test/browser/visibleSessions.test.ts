@@ -1162,6 +1162,7 @@ suite('VisibleSession - property forwarding', () => {
 		const session: ISession = {
 			...stubSession('S'),
 			artifacts: constObservable([]),
+			factoryRuns: constObservable([]),
 		};
 		const visible = disposables.add(new VisibleSession(session, stubChat));
 

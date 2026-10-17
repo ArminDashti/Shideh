@@ -1140,6 +1140,21 @@ export class AgentHostSessionInputPills extends Disposable {
 		};
 	}
 
+	private _factoryRunEntry(run: ISessionFactoryRun, sessionResource: URI): IChatPillEntry {
+		const description = describeFactoryRun(run);
+		return {
+			id: run.runId,
+			label: run.factoryName,
+			pillLabel: run.factoryName,
+			badge: description,
+			icon: getFactoryRunStatusIcon(run.status),
+			ariaLabel: localize('agentHostSessionPills.openFactoryRun', "Open factory run {0}", run.factoryName),
+			ariaDescription: description,
+			tooltip: `${run.factoryName}\n${description}`,
+			open: () => { void this._editorService.openEditor(new AgentHostFactoryRunEditorInput(sessionResource, run.runId, run.factoryName), { pinned: true }); },
+		};
+	}
+
 	private async _openBrowser(input: BrowserEditorInput, sessionResource: URI | undefined): Promise<void> {
 		const url = input.url;
 		const shared = url

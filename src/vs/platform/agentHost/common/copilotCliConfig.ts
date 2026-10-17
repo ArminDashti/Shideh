@@ -37,6 +37,8 @@ export const enum CopilotCliConfigKey {
 	OpusAltPrompt = 'opusAltPrompt',
 	/** Enable runtime tool search (deferred-tool loading) for Copilot SDK sessions. On by default. */
 	ToolSearchEnabled = 'toolSearchEnabled',
+	/** Enable Agent Factories and extension management for Copilot SDK sessions. Off by default. */
+	AgentFactories = 'agentFactories',
 	/** Minimum tool count before MCP/external tools are deferred behind tool search. 0 = always defer. */
 	ToolSearchDeferThreshold = 'toolSearchDeferThreshold',
 	/** Default thinking level shown in the model picker for Claude models; unsupported values are ignored. */
@@ -75,6 +77,8 @@ export const AgentHostOpus48PromptEnabledSettingId = 'chat.agentHost.opus48Promp
 export const OpusAltPromptEnabledSettingId = 'chat.opusAltPrompt.enabled';
 
 export const AgentHostToolSearchEnabledSettingId = 'chat.agentHost.copilot.toolSearch.enabled';
+
+export const AgentHostAgentFactoriesEnabledSettingId = 'chat.agentHost.copilot.agentFactories.enabled';
 
 export const AgentHostToolSearchDeferThresholdSettingId = 'chat.agentHost.copilot.toolSearch.deferThreshold';
 
@@ -225,6 +229,12 @@ export const copilotCliConfigSchema = createSchema({
 		title: localize('agentHost.config.toolSearchEnabled.title', "Agent Host Tool Search"),
 		description: localize('agentHost.config.toolSearchEnabled.description', "When enabled, Copilot SDK sessions defer MCP and non-core VS Code tools behind a tool-search tool so the model discovers them on demand instead of loading every tool definition up front."),
 		default: true,
+	}),
+	[CopilotCliConfigKey.AgentFactories]: schemaProperty<boolean>({
+		type: 'boolean',
+		title: localize('agentHost.config.agentFactories.title', "Agent Factories"),
+		description: localize('agentHost.config.agentFactories.description', "When enabled, Copilot SDK sessions can discover, author, and run Agent Factories."),
+		default: false,
 	}),
 	[CopilotCliConfigKey.ToolSearchDeferThreshold]: schemaProperty<number>({
 		type: 'number',

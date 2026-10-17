@@ -714,6 +714,17 @@ export class AgentSideEffects extends Disposable {
 			});
 			return;
 		}
+
+		if (signal.kind === 'factory_runs_changed') {
+			const session = signal.session.toString();
+			const state = this._stateManager.getSessionState(session);
+			if (!state) {
+				this._logService.trace(`[AgentSideEffects] Dropping factory runs for unknown session ${session}`);
+				return;
+			}
+			this._stateManager.setSessionMeta(session, withSessionFactoryRuns(state._meta, signal.runs));
+			return;
+		}
 		const signalResource = signal.kind === 'action' || signal.kind === 'model_call_completed' || signal.kind === 'model_call_finished' ? signal.resource.toString() : signal.chat.toString();
 		if (signal.kind === 'action' && !isChatAction(signal.action) && isAhpChatChannel(signalResource)) {
 			throw new Error(`Session action ${signal.action.type} must not be dispatched on chat channel ${signalResource}`);

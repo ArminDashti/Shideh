@@ -903,6 +903,11 @@ export interface ISession {
 	 * {@link recordedArtifacts} is absent, this is also the complete recorded set.
 	 */
 	readonly artifacts?: IObservable<readonly ISessionArtifact[]>;
+	/**
+	 * Agent Factory runs the session owns, in durable creation order. Absent for
+	 * providers without factories.
+	 */
+	readonly factoryRuns?: IObservable<readonly ISessionFactoryRun[]>;
 	/** Currently selected model identifier. */
 	readonly modelId: IObservable<string | undefined>;
 	readonly mode: IObservable<{ readonly id: string; readonly kind: string } | undefined>;

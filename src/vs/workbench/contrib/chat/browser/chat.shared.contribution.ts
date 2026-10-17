@@ -138,6 +138,8 @@ import './agentSessions/agentSessions.contribution.js';
 import { AgentHostChatDebugContribution } from './chatDebug/agentHostChatDebugProvider.js';
 import { ChatDebugEditor } from './chatDebug/chatDebugEditor.js';
 import { ChatDebugEditorInput, ChatDebugEditorInputSerializer } from './chatDebug/chatDebugEditorInput.js';
+import { AgentHostFactoryRunEditor } from './agentSessions/agentHost/agentHostFactoryRunEditor.js';
+import { AgentHostFactoryRunEditorInput, AgentHostFactoryRunEditorInputSerializer } from './agentSessions/agentHost/agentHostFactoryRunEditorInput.js';
 import { ChatGoalSummaryService, IChatGoalSummaryService } from './chatGoalSummaryService.js';
 import { ChatSubmitRequestHandlerService, IChatSubmitRequestHandlerService } from './chatSubmitRequestHandlerService.js';
 import { PromptsDebugContribution } from './promptsDebugContribution.js';
@@ -1744,6 +1746,13 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			tags: ['experimental', 'advanced'],
 		},
+		[AgentHostAgentFactoriesEnabledSettingId]: {
+			type: 'boolean',
+			description: nls.localize('chat.agentHost.copilot.agentFactories.enabled', "When enabled, new Copilot Agent Host sessions can discover, author, and run experimental Agent Factories."),
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			tags: ['experimental', 'advanced'],
+		},
 		[AgentHostToolSearchDeferThresholdSettingId]: {
 			type: 'number',
 			description: nls.localize('chat.agentHost.copilot.toolSearch.deferThreshold', "Minimum number of tools before MCP and external tools are deferred behind tool search. Set to 0 to always defer external tools. Only effective when tool search is enabled."),
@@ -2614,6 +2623,16 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 );
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
+		AgentHostFactoryRunEditor,
+		AgentHostFactoryRunEditorInput.ID,
+		nls.localize('agentHostFactoryRun', "Factory Run")
+	),
+	[
+		new SyncDescriptor(AgentHostFactoryRunEditorInput)
+	]
+);
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
 		AgentPluginEditor,
 		AgentPluginEditor.ID,
 		nls.localize('agentPlugin', "Agent Plugin")
@@ -3285,6 +3304,7 @@ AccessibleViewRegistry.register(new ChatPetAchievementsAccessibilityHelp());
 registerEditorFeature(ChatInputBoxContentProvider);
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(ChatEditorInput.TypeID, ChatEditorInputSerializer);
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(ChatDebugEditorInput.ID, ChatDebugEditorInputSerializer);
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(AgentHostFactoryRunEditorInput.ID, AgentHostFactoryRunEditorInputSerializer);
 
 registerWorkbenchContribution2(CopilotTelemetryContribution.ID, CopilotTelemetryContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(EditorChatUsageContribution.ID, EditorChatUsageContribution, WorkbenchPhase.BlockRestore);

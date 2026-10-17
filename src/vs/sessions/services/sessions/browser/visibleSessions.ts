@@ -271,6 +271,7 @@ export class VisibleSession extends Disposable implements IActiveSession {
 	get completedStateIcon() { return this._session.completedStateIcon; }
 	get changesSummary() { return this._session.changesSummary; }
 	get artifacts() { return this._session.artifacts; }
+	get factoryRuns() { return this._session.factoryRuns; }
 	get modelId() { return this._activeChatModelId; }
 	get mode() { return this._activeChatMode; }
 	get permissionLevel() { return this._session.permissionLevel; }
@@ -325,6 +326,7 @@ class ResourceOverrideSession implements ISession {
 	get completedStateIcon() { return this._session.completedStateIcon; }
 	get changesSummary() { return this._session.changesSummary; }
 	get artifacts() { return this._session.artifacts; }
+	get factoryRuns() { return this._session.factoryRuns; }
 	get modelId() { return this._session.modelId; }
 	get mode() { return this._session.mode; }
 	get permissionLevel() { return this._session.permissionLevel; }

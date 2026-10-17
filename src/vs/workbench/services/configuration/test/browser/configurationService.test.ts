@@ -105,6 +105,49 @@ suite('ConfigurationDefaultOverridesContribution', () => {
 		return contribution;
 	}
 
+	test('applies the HydraFusion startup treatment as the default while preserving explicit values', async () => {
+		const setting = 'chat.copilot.hydraFusion.enabled';
+		const configuration: IConfigurationNode = {
+			id: 'test.hydraFusionStartupExperiment',
+			type: 'object',
+			properties: {
+				[setting]: {
+					type: 'boolean',
+					default: false,
+					experiment: { mode: 'startup' }
+				}
+			}
+		};
+		const contribution = createTestContribution({ [`config.${setting}`]: true });
+		configurationRegistry.registerConfiguration(configuration);
+
+		try {
+			await contribution.processExperimentalSettings([setting], false);
+			const treatmentDefault = configurationRegistry.getConfigurationProperties()[setting].default;
+			const defaultConfiguration = ConfigurationModel.createEmptyModel(new NullLogService());
+			defaultConfiguration.setValue(setting, treatmentDefault);
+			const explicitFalseConfiguration = ConfigurationModel.createEmptyModel(new NullLogService());
+			explicitFalseConfiguration.setValue(setting, false);
+			const explicitTrueConfiguration = ConfigurationModel.createEmptyModel(new NullLogService());
+			explicitTrueConfiguration.setValue(setting, true);
+
+			assert.deepStrictEqual({
+				treatmentDefault,
+				explicitFalse: defaultConfiguration.merge(explicitFalseConfiguration).getValue(setting),
+				explicitTrue: defaultConfiguration.merge(explicitTrueConfiguration).getValue(setting),
+			}, {
+				treatmentDefault: true,
+				explicitFalse: false,
+				explicitTrue: true,
+			});
+		} finally {
+			if (contribution.registeredExperimentalDefaults.size) {
+				configurationRegistry.deregisterDefaultConfigurations([...contribution.registeredExperimentalDefaults.values()]);
+			}
+			configurationRegistry.deregisterConfigurations([configuration]);
+		}
+	});
+
 	const firstSetting = 'test.firstAutoExperimentalSetting';
 	const secondSetting = 'test.secondAutoExperimentalSetting';
 	const configuration: IConfigurationNode = {

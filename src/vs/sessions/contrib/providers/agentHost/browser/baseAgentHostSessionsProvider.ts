@@ -1453,6 +1453,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 			const meta = this._metaObs.read(reader);
 			return partitionSessionArtifacts(meta, this._options.mapDiffUri).entries.map(entry => entry.artifact);
 		});
+		this.factoryRuns = derivedOpts<readonly ISessionFactoryRun[]>({ owner: this, equalsFn: structuralEquals }, reader => readSessionFactoryRuns(this._metaObs.read(reader)));
 
 		this.gitHubInfo = this._presentGitHubInfo(derivedOpts<IGitHubInfo | undefined>({
 			equalsFn: isGitHubInfoEqual

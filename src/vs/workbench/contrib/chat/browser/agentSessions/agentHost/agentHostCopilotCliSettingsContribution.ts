@@ -66,6 +66,11 @@ export class AgentHostCopilotCliSettingsContribution extends Disposable implemen
 				registerTriggers: (store, push) => this._pushOnSettingChange(store, push, AgentHostToolSearchEnabledSettingId),
 			},
 			{
+				key: CopilotCliConfigKey.AgentFactories,
+				computeValue: () => this._configurationService.getValue<boolean>(AgentHostAgentFactoriesEnabledSettingId) === true,
+				registerTriggers: (store, push) => this._pushOnSettingChange(store, push, AgentHostAgentFactoriesEnabledSettingId),
+			},
+			{
 				key: CopilotCliConfigKey.ToolSearchDeferThreshold,
 				computeValue: () => normalizeToolSearchDeferThreshold(this._configurationService.getValue<number>(AgentHostToolSearchDeferThresholdSettingId)),
 				registerTriggers: (store, push) => this._pushOnSettingChange(store, push, AgentHostToolSearchDeferThresholdSettingId),

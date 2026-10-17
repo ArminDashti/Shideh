@@ -990,7 +990,8 @@ export type AgentSignal =
 	| IAgentSubagentStartedSignal
 	| IAgentSubagentResumedSignal
 	| IAgentSubagentCompletedSignal
-	| IAgentSteeringConsumedSignal;
+	| IAgentSteeringConsumedSignal
+	| IAgentFactoryRunsChangedSignal;
 
 /**
  * Carries a protocol {@link SessionAction} produced by an agent. The host
@@ -1194,6 +1195,22 @@ export interface IAgentSteeringConsumedSignal {
 	readonly kind: 'steering_consumed';
 	readonly chat: URI;
 	readonly id: string;
+}
+
+/**
+ * The session's Agent Factory runs changed. Carries the complete current set,
+ * which the host publishes on the session's `_meta` bag under
+ * `agentHost/factoryRuns` so every client surface reads the same projection.
+ *
+ * Kept as a non-action signal because the host owns the `_meta` merge: a
+ * provider only knows its own slot, not the other conventions layered on the
+ * bag.
+ */
+export interface IAgentFactoryRunsChangedSignal {
+	readonly kind: 'factory_runs_changed';
+	/** Owning session URI. */
+	readonly session: URI;
+	readonly runs: readonly ISessionFactoryRun[];
 }
 
 // ---- Session URI helpers ----------------------------------------------------
