@@ -828,6 +828,9 @@ class TreeActionsProvider {
 		const secondary: IAction[] = [];
 
 		if (element instanceof TaskElement) {
+			contextKeys.push(
+				[TestingContextKeys.controllerId.key, element.task.ctrlId]
+			);
 			primary.push(new Action(
 				'testing.outputPeek.showResultOutput',
 				localize('testing.showResultOutput', "Show Result Output"),
