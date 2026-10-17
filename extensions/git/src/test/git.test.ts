@@ -6,7 +6,7 @@
 import 'mocha';
 import { GitStatusParser, parseGitCommits, parseGitmodules, parseLsTree, parseLsFiles, parseGitRemotes, parseCoAuthors } from '../git';
 import * as assert from 'assert';
-import { splitInChunks } from '../util';
+import { splitInChunks, pathEquals } from '../util';
 
 suite('git', () => {
 	suite('GitStatusParser', () => {
