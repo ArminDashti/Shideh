@@ -960,6 +960,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 		// The runtime defaults CONNECTORS on, so the VS Code rollout gate must explicitly disable it.
 		const featureFlags = {
 			CONNECTORS: copilotConnectorsEnabled,
+			TGREP: tgrepEnabled,
 			...(copilotConnectorsEnabled ? { MANAGED_MCP_SERVERS: true } : {}),
 			...(hydraFusionEnabled ? { HYDRAFUSION: true, HYDRAFUSION_ROLLOUT: true } : {}),
 		};
