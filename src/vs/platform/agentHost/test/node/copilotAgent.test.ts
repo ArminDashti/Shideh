@@ -18857,7 +18857,7 @@ suite('CopilotAgent', () => {
 		type AgentInternals = {
 			_getAlternativeAgentForWorktree(provisional: unknown, workingDirectory: URI | undefined): AgentSelection | undefined;
 			_resolveAgentWhenMaterializing(provisional: unknown, snapshot: IActiveClientSnapshot, workingDirectory: URI | undefined): Promise<{ agent: AgentSelection; name: string } | undefined>;
-			_resolveAgentName(sessionUri: URI, snapshot: IActiveClientSnapshot, agent: AgentSelection): Promise<string | undefined>;
+			_resolveAgentName(snapshot: IActiveClientSnapshot, agent: AgentSelection): string | undefined;
 			_resolveSessionWorkingDirectory(config: unknown, sessionId: string, prompt?: string): Promise<URI | undefined>;
 			_createAgentSession(launchPlan: CopilotSessionLaunchPlan, customizationDirectory: URI | undefined, activeClient: unknown, channelUri?: URI): CopilotAgentSession;
 			_readSessionMetadata(session: URI): Promise<{ agent?: AgentSelection }>;
@@ -18915,7 +18915,7 @@ suite('CopilotAgent', () => {
 			const agent = createTestAgent(disposables, { copilotClient: new TestCopilotClient([]) });
 			try {
 				const internals = agent as unknown as AgentInternals;
-				internals._resolveAgentName = async (_sessionUri, _snapshot, selection) => selection.uri === repoAgentUri ? 'Repo Agent' : undefined;
+				internals._resolveAgentName = (_snapshot, selection) => selection.uri === repoAgentUri ? 'Repo Agent' : undefined;
 				// Folder isolation: the resolved working directory equals the
 				// user-picked folder, so there is no worktree copy to translate to
 				// and the originally selected agent is kept as-is.
@@ -18932,7 +18932,7 @@ suite('CopilotAgent', () => {
 			const agent = createTestAgent(disposables, { copilotClient: new TestCopilotClient([]) });
 			try {
 				const internals = agent as unknown as AgentInternals;
-				internals._resolveAgentName = async () => undefined;
+				internals._resolveAgentName = () => undefined;
 				assert.deepStrictEqual(
 					{
 						noAgent: await internals._resolveAgentWhenMaterializing(provisional(repo, undefined), emptySnapshot, worktree),
