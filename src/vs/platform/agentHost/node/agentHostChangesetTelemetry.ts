@@ -151,7 +151,7 @@ type ChangesetComputedClassification = IAgentHostEventClassification & {
 };
 
 /**
- * Shared emitter for `agentHost.changesetComputed`. Correlation (`provider`,
+ * Shared emitter for `agentHost.changesetComputed`. Correlation (`harness`,
  * `agentSessionId`) is derived from `session`; `turnId` is included when set.
  */
 function reportChangesetComputed(telemetryService: ITelemetryService, session: string, turnId: string | undefined, fields: Omit<ChangesetComputedEvent, 'provider' | 'agentSessionId' | 'turnId' | keyof IAgentHostEventTelemetry>, clientContext?: IAgentHostClientTelemetryContext): void {

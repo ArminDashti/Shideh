@@ -16,6 +16,7 @@ import { ILanguageModelsService } from '../languageModels.js';
 import { chatSessionResourceToId, getChatSessionType } from '../model/chatUri.js';
 import { getAgentHostProviderForTelemetry, isAgentHostSessionResource } from '../chatSessionsService.js';
 import { isRemoteAgentHostSessionType, parseRemoteAgentHostHarness } from '../../../../../platform/agentHost/common/agentHostSessionType.js';
+import { toAgentHostTelemetryHarness } from '../../../../../platform/agentHost/common/agentHostTelemetry.js';
 
 type ChatSessionModeEvent = {
 	isAgentHostSession: boolean;
@@ -493,5 +494,6 @@ function getIsAgentHostSessionForTelemetry(sessionResource: URI): boolean {
  * telemetry gap #2 in #8209. Undefined for non-remote sessions.
  */
 function getHarnessForTelemetry(sessionResource: URI): string | undefined {
-	return parseRemoteAgentHostHarness(getChatSessionType(sessionResource));
+	const harness = parseRemoteAgentHostHarness(getChatSessionType(sessionResource));
+	return harness === undefined ? undefined : toAgentHostTelemetryHarness(harness);
 }

@@ -119,14 +119,14 @@ suite('Agent Edit Attribution Service', () => {
 					modelId: 'model',
 					conversationId: 'session-1',
 					requestId: 'turn-1',
-					harness: 'copilotcli',
+					harness: 'copilot',
 				},
 			},
 			events: [{
 				eventName: 'editTelemetry.editSources.details',
 				statsUuidMatches: true,
-				sourceKey: 'source:Chat.applyEdits-$modelId:model-$harness:copilotcli-$origin:agentHost',
-				sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilotcli-$origin:agentHost',
+				sourceKey: 'source:Chat.applyEdits-$modelId:model-$harness:copilot-$origin:agentHost',
+				sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilot-$origin:agentHost',
 				conversationId: 'session-1',
 				modifiedCount: 2,
 				deltaModifiedCount: 2,
@@ -206,8 +206,8 @@ suite('Agent Edit Attribution Service', () => {
 			first?.status !== 'skipped' ? first?.source : undefined,
 			second?.status !== 'skipped' ? second?.source : undefined,
 		], [
-			{ modelId: 'model', conversationId: 'session-1', requestId: 'turn-1', harness: 'copilotcli' },
-			{ modelId: 'model', conversationId: 'session-1', requestId: 'turn-2', harness: 'copilotcli' },
+			{ modelId: 'model', conversationId: 'session-1', requestId: 'turn-1', harness: 'copilot' },
+			{ modelId: 'model', conversationId: 'session-1', requestId: 'turn-2', harness: 'copilot' },
 		]);
 	});
 
@@ -396,15 +396,15 @@ suite('Agent Edit Attribution Service', () => {
 			],
 			events: [
 				{
-					sourceKey: 'source:Chat.applyEdits-$modelId:copilot-model-$harness:copilotcli-$origin:agentHost',
-					sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilotcli-$origin:agentHost',
+					sourceKey: 'source:Chat.applyEdits-$modelId:copilot-model-$harness:copilot-$origin:agentHost',
+					sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilot-$origin:agentHost',
 					conversationId: 'Y29waWxvdGNsaTovc2Vzc2lvbi0x',
 					requestId: 'turn-default',
 					provider: 'copilotcli',
 				},
 				{
-					sourceKey: 'source:Chat.applyEdits-$modelId:copilot-model-$harness:copilotcli-$origin:agentHost',
-					sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilotcli-$origin:agentHost',
+					sourceKey: 'source:Chat.applyEdits-$modelId:copilot-model-$harness:copilot-$origin:agentHost',
+					sourceKeyCleaned: 'source:Chat.applyEdits-$harness:copilot-$origin:agentHost',
 					conversationId: 'Y29waWxvdGNsaTovc2Vzc2lvbi0x',
 					requestId: 'turn-peer',
 					provider: 'copilotcli',

@@ -303,7 +303,7 @@ export class AgentEditAttributionService extends Disposable implements IAgentEdi
 			this._excludeOtherSessionAgentIntervals(resource);
 		}
 
-		const provider = getSessionProvider(edit.sessionUri);
+		const harness = toAgentHostTelemetryHarness(getSessionProvider(edit.sessionUri));
 		const modelSegment = edit.modelId ? `-$modelId:${edit.modelId}` : '';
 		const sourceKey = `source:Chat.applyEdits${modelSegment}-$harness:${provider}-$origin:agentHost`;
 		const conversationId = AgentSession.id(edit.sessionUri);
@@ -315,12 +315,12 @@ export class AgentEditAttributionService extends Disposable implements IAgentEdi
 			source = {
 				trackingKey,
 				sourceKey,
-				sourceKeyCleaned: `source:Chat.applyEdits-$harness:${provider}-$origin:agentHost`,
+				sourceKeyCleaned: `source:Chat.applyEdits-$harness:${harness}-$origin:agentHost`,
 				modelId: edit.modelId,
 				conversationId,
 				chatSessionId,
 				requestId: edit.turnId,
-				harness: provider,
+				harness,
 				insertedCount: 0,
 			};
 			resource.sources.set(trackingKey, source);
@@ -338,7 +338,7 @@ export class AgentEditAttributionService extends Disposable implements IAgentEdi
 				conversationId,
 				...(chatSessionId !== undefined ? { chatSessionId } : {}),
 				requestId: edit.turnId,
-				harness: provider,
+				harness,
 			},
 		};
 		resource.lastSequence = marker.sequence;
@@ -811,7 +811,7 @@ export class AgentEditAttributionService extends Disposable implements IAgentEdi
 			} as const;
 			sendEditSourcesDetailsTelemetry(this._telemetryService, data);
 			const agentHostTelemetryService = this._telemetryService as Partial<IAgentHostTelemetryService>;
-			if (source.harness === 'copilotcli') {
+			if (prepared.githubTelemetryEnabled) {
 				agentHostTelemetryService.sendGHTelemetryEvent?.('vscode.editTelemetry.editSources.details', {
 					mode: data.mode,
 					sourceKey: data.sourceKey,

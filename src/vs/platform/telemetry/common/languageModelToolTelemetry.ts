@@ -36,7 +36,7 @@ export type LanguageModelToolInvokedEvent = LanguageModelToolTelemetryData & {
 	result: 'success' | 'error' | 'userCancelled';
 	prepareTimeMs?: number;
 	invocationTimeMs?: number;
-	provider?: string;
+	harness?: string;
 	resultSizeInCharacters?: number;
 	turnId?: string;
 	model?: string | TelemetryTrustedValue<string>;

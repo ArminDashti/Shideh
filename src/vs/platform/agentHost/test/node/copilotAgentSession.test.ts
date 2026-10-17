@@ -12928,7 +12928,7 @@ Use the attached image as context.
 					operation: 'write',
 					target: 'todos',
 					toolCallId: 'tc-sql',
-					provider: 'copilotcli',
+					harness: 'copilot',
 					agentSessionId: 'test-session-1',
 					isSubagentSession: false,
 				},

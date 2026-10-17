@@ -162,7 +162,7 @@ type ObservedSessionInputRequest = Exclude<SessionInputRequest, SessionToolClien
 
 type AgentHostInvocationFailedEvent = {
 	requestId: string;
-	provider: string;
+	harness: string;
 	failureStage: AgentHostInvocationFailureStage;
 	isFirstRequest: boolean;
 	hasUserSelectedModel: boolean;
@@ -173,8 +173,8 @@ type AgentHostInvocationFailedEvent = {
 };
 
 type AgentHostInvocationFailedClassification = {
-	requestId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The chat request identifier, used to correlate this failure with provider and host turn telemetry.' };
-	provider: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The agent host provider handling the request.' };
+	requestId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The chat request identifier, used to correlate this failure with workbench and host turn telemetry.' };
+	harness: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The agent host harness handling the request.' };
 	failureStage: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The bounded workbench adapter stage at which the request failed.' };
 	isFirstRequest: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether this was the first request in the chat session.' };
 	hasUserSelectedModel: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether the workbench request carried a selected language model identifier.' };
@@ -2081,7 +2081,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const requests = this._chatService.getSession(request.sessionResource)?.getRequests();
 		this._telemetryService.publicLogError2<AgentHostInvocationFailedEvent, AgentHostInvocationFailedClassification>('agentHost.invocationFailed', {
 			requestId: request.requestId,
-			provider: this._config.provider,
+			harness: toAgentHostTelemetryHarness(this._config.provider),
 			failureStage,
 			isFirstRequest: requests?.[0]?.id === request.requestId,
 			hasUserSelectedModel: request.userSelectedModelId !== undefined,

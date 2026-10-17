@@ -699,7 +699,7 @@ export interface IAgentHostAskQuestionsToolInvokedEvent extends IAgentHostEventT
 	recommendedAvailableCount: number;
 	recommendedSelectedCount: number;
 	duration: number;
-	provider: string;
+	harness: string;
 	agentSessionId: string;
 	isSubagentSession: boolean;
 }
@@ -713,7 +713,7 @@ export type IAgentHostAskQuestionsToolInvokedClassification = IAgentHostEventCla
 	recommendedAvailableCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'The number of questions that had a recommended option' };
 	recommendedSelectedCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'The number of questions where the user selected the recommended option' };
 	duration: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'The total time in milliseconds to complete all questions' };
-	provider: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The provider handling the agent host session.' };
+	harness: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The harness handling the agent host session.' };
 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The agent host session identifier.' };
 	isSubagentSession: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the questions belong to a subagent session.' };
 	owner: 'digitarald';
@@ -1623,7 +1623,7 @@ export class AgentHostTelemetryReporter {
 			toolSourceKind: report.toolSourceKind,
 			toolCallId: report.toolCallId,
 			invocationTimeMs: report.invocationTimeMs,
-			provider: report.provider,
+			harness: toAgentHostTelemetryHarness(report.provider),
 			resultSizeInCharacters: report.resultSizeInCharacters,
 			turnId: report.turnId,
 			model: toTelemetryModel(report.model, report.modelTelemetryKind),
@@ -1663,7 +1663,7 @@ export class AgentHostTelemetryReporter {
 			recommendedAvailableCount: report.recommendedAvailableCount,
 			recommendedSelectedCount: report.recommendedSelectedCount,
 			duration: report.duration,
-			provider: report.provider,
+			harness: toAgentHostTelemetryHarness(report.provider),
 			agentSessionId: AgentSession.id(session),
 			isSubagentSession: isSubagentChatUri(report.session) || isSubagentSession(session),
 		});

@@ -1661,7 +1661,7 @@ suite('AgentSideEffects', () => {
 			assert.deepStrictEqual(telemetryService.events, [{
 				eventName: 'agentHost.userMessageSent',
 				data: {
-					provider: 'mock',
+					harness: 'mock',
 					hostLaunchKind: 'vscode_main_process',
 					initiatorClientId: 'client-agents',
 					initiatorClientType: 'agents_window',
@@ -4161,7 +4161,7 @@ suite('AgentSideEffects', () => {
 			assert.deepStrictEqual(telemetryService.events, [{
 				eventName: 'agentHost.userMessageSent',
 				data: {
-					provider: 'mock',
+					harness: 'mock',
 					hostLaunchKind: 'vscode_main_process',
 					initiatorClientId: undefined,
 					initiatorClientType: 'unknown',
@@ -6785,7 +6785,7 @@ suite('AgentSideEffects', () => {
 			}, {
 				eventName: 'agentHost.executionModeChanged',
 				data: {
-					provider: 'mock',
+					harness: 'mock',
 					agentSessionId: 'session-1',
 					isSubagentSession: false,
 					previousMode: 'plan',
@@ -6795,7 +6795,7 @@ suite('AgentSideEffects', () => {
 			}, {
 				eventName: 'agentHost.executionModeChanged',
 				data: {
-					provider: 'mock',
+					harness: 'mock',
 					agentSessionId: 'session-1',
 					isSubagentSession: false,
 					previousMode: 'autopilot',
@@ -7887,7 +7887,7 @@ suite('AgentSideEffects', () => {
 					recommendedAvailableCount: 0,
 					recommendedSelectedCount: 0,
 					duration: 'number',
-					provider: agent.id,
+					harness: agent.id,
 					agentSessionId: AgentSession.id(sessionUri),
 					isSubagentSession: false,
 				},
