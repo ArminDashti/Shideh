@@ -871,6 +871,16 @@ class MockPathService implements IPathService {
 	resolvedUserHome: URI | undefined;
 }
 
+class MockUriIdentityService implements IUriIdentityService {
+	_serviceBrand: undefined;
+	extUri: IExtUri = new ExtUri((uri: uri) => {
+		return true;
+	});
+	asCanonicalUri(uri: uri): uri {
+		throw new Error('Method not implemented.');
+	}
+}
+
 class MockInputsConfigurationService extends TestConfigurationService {
 	public override getValue(arg1?: any, arg2?: any): any {
 		let configuration;

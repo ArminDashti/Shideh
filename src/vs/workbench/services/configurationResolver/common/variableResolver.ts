@@ -145,6 +145,10 @@ export abstract class AbstractVariableResolverService implements IConfigurationR
 			throw new VariableError(variableKind, localize('canNotResolveFolderForFile', "Variable {0}: can not find workspace folder of '{1}'.", replacement.id, paths.basename(filePath)));
 		};
 
+		const getFilePath = (): string => {
+			return this.fsPath(getFileUri());
+		};
+
 		// common error handling for all variables that require an open folder and accept a folder name argument
 		const getFolderUri = (variableKind: VariableKind): uri => {
 			if (argument) {
