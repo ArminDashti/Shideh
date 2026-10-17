@@ -411,6 +411,9 @@ import './contrib/welcomeViews/common/newFile.contribution.js';
 // Welcome Onboarding
 import './contrib/welcomeOnboarding/browser/welcomeOnboarding.contribution.js';
 
+// Import from other editors (e.g. Cursor)
+import './contrib/externalEditorImport/browser/externalEditorImport.contribution.js';
+
 // Onboarding (scenario engine)
 import './contrib/onboarding/browser/onboarding.contribution.js';
 import './contrib/chat/browser/onboarding/modelPickerTryout.contribution.js';
