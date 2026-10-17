@@ -333,4 +333,41 @@ suite('Debug - REPL', () => {
 		const r6 = getFilteredElements();
 		assert.strictEqual(r6.length, 0);
 	});
+
+	test('repl expressions should return success status', async () => {
+		const session = disposables.add(createTestSession(model));
+		assert.strictEqual(session.getReplElements().length, 0);
+		model.addSession(session);
+
+		// eslint-disable-next-line local/code-no-any-casts
+		session['raw'] = <any>rawSession;
+		const thread = new Thread(session, 'mockthread', 1);
+		// eslint-disable-next-line local/code-no-any-casts
+		const stackFrame = new StackFrame(thread, 1, <any>undefined, 'app.js', 'normal', { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 10 }, 1, true);
+		const replModel = new ReplModel(configurationService);
+
+		// Successful evaluation should return true
+		const success = await replModel.addReplExpression(session, stackFrame, 'myVariable');
+		assert.strictEqual(success, true);
+	});
+
+	test('repl expressions should return false for errors', async () => {
+		const session = disposables.add(createTestSession(model));
+		model.addSession(session);
+
+		const adapter = new MockDebugAdapter();
+		const raw = disposables.add(new RawDebugSession(adapter, undefined!, '', '', undefined!, undefined!, undefined!, undefined!,));
+		session.initializeForTest(raw);
+
+		// Error evaluation (starting with 'error.') should return false
+		const success = await session.addReplExpression(undefined, 'error.test');
+		assert.strictEqual(success, false);
+
+		// Verify that the error result is still added to REPL elements
+		const elements = session.getReplElements();
+		// Should have input and result (error)
+		assert.ok(elements.length >= 2, 'Should have at least input and error result elements');
+		const result = elements[elements.length - 1] as ReplEvaluationResult;
+		assert.ok(result.value.includes('error'), 'Result should contain error message');
+	});
 });

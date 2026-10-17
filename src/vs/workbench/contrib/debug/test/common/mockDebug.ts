@@ -270,8 +270,8 @@ export class MockSession implements IDebugSession {
 		throw new Error('not implemented');
 	}
 
-	addReplExpression(stackFrame: IStackFrame, name: string): Promise<void> {
-		return Promise.resolve(undefined);
+	addReplExpression(stackFrame: IStackFrame, name: string): Promise<boolean> {
+		return Promise.resolve(true);
 	}
 
 	appendToRepl(data: INewReplElementData): void { }
@@ -643,6 +643,18 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
 		this.acceptMessage(response);
 	}
 
+	sendErrorResponse(request: DebugProtocol.Request, message: string) {
+		const response: DebugProtocol.Response = {
+			seq: ++this.seq,
+			type: 'response',
+			request_seq: request.seq,
+			command: request.command,
+			success: false,
+			message
+		};
+		this.acceptMessage(response);
+	}
+
 	sendEventBody(event: string, body: any) {
 		const response: DebugProtocol.Event = {
 			seq: ++this.seq,
@@ -674,6 +686,12 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
 	}
 
 	evaluate(request: DebugProtocol.Request, args: DebugProtocol.EvaluateArguments) {
+		// Support error simulation for expressions starting with 'error.'
+		if (args.expression.indexOf('error.') === 0) {
+			this.sendErrorResponse(request, 'Evaluation error: ' + args.expression);
+			return;
+		}
+
 		if (args.expression.indexOf('before.') === 0) {
 			this.sendEventBody('output', { output: args.expression });
 		}
