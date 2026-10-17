@@ -223,7 +223,8 @@ export function registerNewChatActions() {
 			ChatContextKeys.agentSessionsViewerDedicated.negate() // when sessions are in a dedicated view, no need for a back button
 		),
 		group: 'navigation',
-		order: 1
+		order: 1,
+		when: ChatContextKeys.inChatEditor.negate()
 	});
 
 	registerAction2(class UndoChatEditInteractionAction extends EditingSessionAction {
