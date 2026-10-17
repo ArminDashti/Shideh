@@ -3469,6 +3469,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		options.cursorWidth = 1;
 		options.wrappingStrategy = 'advanced';
 		options.bracketPairColorization = { enabled: false };
+		// Chat is prose: enable native autocorrect/autocapitalize/spellcheck on the
+		// input element so the mobile keyboard's auto-correction works for chat
+		// messages. Limited to web mobile (vscode.dev) where this matters most;
+		// desktop users keep the current code-editor-style input behavior.
+		options.inputAids = isWeb && isMobile;
 		// Respect user's editor settings for auto-closing and auto-surrounding behavior
 		options.autoClosingBrackets = this.configurationService.getValue('editor.autoClosingBrackets');
 		options.autoClosingQuotes = this.configurationService.getValue('editor.autoClosingQuotes');

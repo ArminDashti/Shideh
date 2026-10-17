@@ -3346,6 +3346,13 @@ declare namespace monaco.editor {
 		 */
 		ariaLabel?: string;
 		/**
+		 * Enable native input aids on the editor's input element: `autocorrect`, `autocapitalize`
+		 * and `spellcheck`. Useful for prose-style inputs such as chat where mobile keyboard
+		 * auto-correction is desired. The `autocomplete` attribute (form autofill) is not affected.
+		 * Defaults to `false`.
+		 */
+		inputAids?: boolean;
+		/**
 		 * Whether the aria-required attribute should be set on the editors textarea.
 		 */
 		ariaRequired?: boolean;
@@ -5484,6 +5491,7 @@ declare namespace monaco.editor {
 		hover: IEditorOption<EditorOption.hover, Readonly<Required<IEditorHoverOptions>>>;
 		inDiffEditor: IEditorOption<EditorOption.inDiffEditor, boolean>;
 		inertialScroll: IEditorOption<EditorOption.inertialScroll, boolean>;
+		inputAids: IEditorOption<EditorOption.inputAids, boolean>;
 		letterSpacing: IEditorOption<EditorOption.letterSpacing, number>;
 		lightbulb: IEditorOption<EditorOption.lightbulb, Readonly<Required<IEditorLightbulbOptions>>>;
 		lineDecorationsWidth: IEditorOption<EditorOption.lineDecorationsWidth, number>;
