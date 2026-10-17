@@ -7,6 +7,46 @@ import { Disposable, DisposableMap, IDisposable } from '../../../base/common/lif
 import { type AgentSelection, type ModelSelection } from '../common/state/protocol/state.js';
 
 /**
+ * Resolves the index of the first turn owned by a side chat.
+ *
+ * The transcript holds the inherited turns and then the own turns, and the
+ * first own turn carries the seed marker. The marker is therefore the
+ * boundary, and the last marker wins, because a side chat that forks another
+ * side chat inherits the markers of its ancestors and they all precede its
+ * own. The persisted count is only a fallback for a chat that did not send a
+ * message yet: the count is a copy of a value that changes with time and it
+ * can drift, while the marker stays correct.
+ */
+export function resolveSideChatBoundary(turns: readonly Turn[], sideChat: IPersistedSideChat | undefined): number {
+	if (!sideChat) {
+		return 0;
+	}
+	for (let i = turns.length - 1; i >= 0; i--) {
+		if (parseSideChatSeed(turns[i].message.text) !== undefined) {
+			return i;
+		}
+	}
+	return Math.min(Math.max(sideChat.inheritedTurnCount ?? 0, 0), turns.length);
+}
+
+/**
+ * Returns a side chat's own turns, using its self-describing seed marker to
+ * correct a stale persisted inherited-turn count when necessary.
+ */
+export function sliceSideChatTurns(turns: readonly Turn[], sideChat: IPersistedSideChat | undefined, onMisaligned?: (message: string) => void): readonly Turn[] {
+	if (!sideChat) {
+		return turns;
+	}
+
+	const recorded = Math.min(Math.max(sideChat.inheritedTurnCount ?? 0, 0), turns.length);
+	const boundary = resolveSideChatBoundary(turns, sideChat);
+	if (boundary !== recorded) {
+		onMisaligned?.(`Side chat inherited turn count misaligned: recorded ${recorded}, resolved ${boundary}.`);
+	}
+	return stripSideChatContext(turns.slice(boundary), sideChat);
+}
+
+/**
  * Provider-owned backing for an exact chat. Records the SDK chat id so it can
  * be resumed after a process restart,
  * along with any model or custom-agent selection. This is also the shape
