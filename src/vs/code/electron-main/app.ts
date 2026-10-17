@@ -263,6 +263,10 @@ export class CodeApplication extends Disposable {
 
 		const alwaysAllowedPermissions = new Set(['pointerLock', 'notifications']);
 
+		const allowedPermissionsInMainFrame = new Set([
+			'media'
+		]);
+
 		const allowedPermissionsInWebview = new Set([
 			...alwaysAllowedPermissions,
 			'clipboard-read',

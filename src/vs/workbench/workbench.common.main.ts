@@ -483,4 +483,7 @@ import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 // Opener
 import './contrib/opener/browser/opener.contribution.js';
 
+// Recorder
+import 'vs/workbench/contrib/recorder/browser/recorder.contribution';
+
 //#endregion
