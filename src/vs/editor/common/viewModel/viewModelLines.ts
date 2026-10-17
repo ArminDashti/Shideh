@@ -561,6 +561,10 @@ export class ViewModelLinesFromProjectedModel implements IViewModelLines {
 		return new ViewLineInfo(lineIndex + 1, remainder);
 	}
 
+	private getModelLineProjection(modelLineNumber: number): IModelLineProjection | undefined {
+		return this.modelLineProjections[modelLineNumber - 1];
+	}
+
 	private getMinColumnOfViewLine(viewLineInfo: ViewLineInfo): number {
 		const lineIndex = viewLineInfo.modelLineNumber - 1;
 		if (!this.isValidLineIndex(lineIndex)) {
