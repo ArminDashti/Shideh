@@ -137,6 +137,8 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 	private tabActionBars: ActionBar[] = [];
 	private tabDisposables: IDisposable[] = [];
 
+	private dndIndicator: DndBetweenIndicator | undefined;
+
 	private dimensions: IEditorTitleControlDimensions & { used?: Dimension } = {
 		container: Dimension.None,
 		available: Dimension.None
@@ -526,6 +528,12 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 				}
 
 				this.updateDropFeedback(tabsContainer, true, e);
+			},
+
+			onDragOver: e => {
+				if (e.target === tabsContainer) {
+					this.dndIndicator?.setAfterLast(tabsContainer);
+				}
 			},
 
 			onDragLeave: e => {
@@ -931,6 +939,11 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 			oldOptions.tabSizing !== newOptions.tabSizing
 		) {
 			this.updateTabSizing(true);
+		}
+
+		// Update Dnd marker height
+		if (oldOptions.tabHeight !== newOptions.tabHeight) {
+			this.dndIndicator?.updateHeights(this.tabHeight, this.tabHeight);
 		}
 
 		// Redraw tabs when other options change
@@ -1390,6 +1403,12 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 		}));
 
 		return disposables;
+	}
+
+	private isHeadOfTab(tab: HTMLElement, e: MouseEvent): boolean {
+		const rect = tab.getBoundingClientRect();
+		const offsetXRelativeToParent = e.clientX - rect.left;
+		return offsetXRelativeToParent <= rect.width / 2;
 	}
 
 	private isSupportedDropTransfer(e: DragEvent): boolean {

@@ -287,6 +287,9 @@ export class CompositeBar extends Widget implements ICompositeBar {
 
 	create(parent: HTMLElement): HTMLElement {
 		const actionBarDiv = parent.appendChild($('.composite-bar'));
+
+		const dndIndicator = new DndBetweenIndicator(actionBarDiv, this.dimension?.height || 35, 25);
+
 		this.compositeSwitcherBar = this._register(new ActionBar(actionBarDiv, {
 			actionViewItemProvider: (action, options) => {
 				if (action instanceof CompositeOverflowActivityAction) {
@@ -302,6 +305,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 					compositeId => this.options.getContextMenuActionsForComposite(compositeId),
 					() => this.getContextMenuActions(),
 					this.options.dndHandler,
+					dndIndicator,
 					this
 				);
 			},
