@@ -42,7 +42,7 @@ export class TreeItemCheckbox extends Disposable {
 
 	public render(node: ITreeItem) {
 		if (node.checkbox) {
-			if (!this.toggle) {
+			if (!this.checkbox) {
 				this.createCheckbox(node);
 			}
 			else {
@@ -56,27 +56,27 @@ export class TreeItemCheckbox extends Disposable {
 			this.toggle = new Checkbox('', node.checkbox.isChecked, { ...defaultCheckboxStyles, size: 15 });
 			this.setHover(node.checkbox);
 			this.setAccessibilityInformation(node.checkbox);
-			this.toggle.domNode.classList.add(TreeItemCheckbox.checkboxClass);
-			this.toggle.domNode.tabIndex = 1;
-			DOM.append(this.checkboxContainer, this.toggle.domNode);
+			this.checkbox.domNode.classList.add(TreeItemCheckbox.checkboxClass);
+			this.checkbox.domNode.tabIndex = 1;
+			DOM.append(this.checkboxContainer, this.checkbox.domNode);
 			this.registerListener(node);
 		}
 	}
 
 	private registerListener(node: ITreeItem) {
-		if (this.toggle) {
+		if (this.checkbox) {
 			this._register({ dispose: () => this.removeCheckbox() });
-			this._register(this.toggle);
-			this._register(this.toggle.onChange(() => {
+			this._register(this.checkbox);
+			this._register(this.checkbox.onChange(() => {
 				this.setCheckbox(node);
 			}));
 		}
 	}
 
 	private setHover(checkbox: ITreeItemCheckboxState) {
-		if (this.toggle) {
+		if (this.checkbox) {
 			if (!this.hover) {
-				this.hover = this._register(this.hoverService.setupManagedHover(this.hoverDelegate, this.toggle.domNode, this.checkboxHoverContent(checkbox)));
+				this.hover = this._register(this.hoverService.setupManagedHover(this.hoverDelegate, this.checkbox.domNode, this.checkboxHoverContent(checkbox)));
 			} else {
 				this.hover.update(checkbox.tooltip);
 			}
@@ -102,7 +102,7 @@ export class TreeItemCheckbox extends Disposable {
 		if (this.toggle && checkbox.accessibilityInformation) {
 			this.toggle.setTitle(checkbox.accessibilityInformation.label);
 			if (checkbox.accessibilityInformation.role) {
-				this.toggle.domNode.role = checkbox.accessibilityInformation.role;
+				this.checkbox.domNode.role = checkbox.accessibilityInformation.role;
 			}
 		}
 	}
