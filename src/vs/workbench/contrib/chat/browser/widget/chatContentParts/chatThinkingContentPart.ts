@@ -559,6 +559,14 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 			this.setShimmerTitle(initialTitle);
 		}
 
+		// Track mouse hover state to prevent auto-collapse when user is reading
+		this._register(addDisposableListener(node, 'mouseenter', () => {
+			this.isMouseOver = true;
+		}));
+		this._register(addDisposableListener(node, 'mouseleave', () => {
+			this.isMouseOver = false;
+		}));
+
 		if (this.fixedScrollingMode) {
 			node.classList.add('chat-thinking-fixed-mode');
 			this.currentTitle = this.defaultTitle;
@@ -1455,6 +1463,40 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 
 	public setArrayThinkingSource(content: IChatThinkingPart): void {
 		this.arrayThinkingSource = content;
+	}
+
+	private showManualCollapseButton(): void {
+		if (this.manualCollapseButton || !this.wrapper || this._store.isDisposed) {
+			return;
+		}
+
+		// Create a container for the collapse button at the bottom
+		this.collapseButtonContainer = $('.chat-thinking-collapse-button-container');
+		this.manualCollapseButton = this._register(new Button(this.collapseButtonContainer, {
+			secondary: true,
+			supportIcons: true
+		}));
+		this.manualCollapseButton.label = localize('chat.thinking.collapse', 'Collapse');
+		this.manualCollapseButton.element.classList.add('chat-thinking-collapse-button');
+
+		this._register(this.manualCollapseButton.onDidClick(() => {
+			this.setExpanded(false);
+			this.hideManualCollapseButton();
+		}));
+
+		this.wrapper.appendChild(this.collapseButtonContainer);
+		this._onDidChangeHeight.fire();
+	}
+
+	private hideManualCollapseButton(): void {
+		if (this.collapseButtonContainer) {
+			this.collapseButtonContainer.remove();
+			this.collapseButtonContainer = undefined;
+		}
+		if (this.manualCollapseButton) {
+			this.manualCollapseButton.dispose();
+			this.manualCollapseButton = undefined;
+		}
 	}
 
 	public updateThinking(content: IChatThinkingPart): void {

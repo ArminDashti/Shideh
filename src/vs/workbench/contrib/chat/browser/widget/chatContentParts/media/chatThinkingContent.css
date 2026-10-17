@@ -819,3 +819,14 @@
 	line-height: inherit;
 	padding: 1px 3px;
 }
+
+.interactive-session .interactive-response .value .chat-thinking-box .chat-thinking-collapse-button-container {
+	padding: 6px 12px;
+	display: flex;
+	justify-content: flex-end;
+}
+
+.interactive-session .interactive-response .value .chat-thinking-box .chat-thinking-collapse-button {
+	padding: 2px 8px;
+	font-size: var(--vscode-chat-font-size-body-s);
+}
