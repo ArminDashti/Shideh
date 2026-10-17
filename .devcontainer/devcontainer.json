@@ -1,7 +1,12 @@
 {
 	"name": "Code - OSS",
 	"build": {
-		"dockerfile": "Dockerfile"
+		"dockerfile": "Dockerfile",
+		"args": {
+			"BASE_IMAGE": "mcr.microsoft.com/devcontainers/typescript-node:16-bullseye", // Use `fedora:latest` to install from rpm.
+			"VSCODE_DOWNLOAD_URL": "" // Copy from builds page.
+			// Launch from Integrated Terminal with: env -i HOME="$HOME" DISPLAY="$DISPLAY" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" $SHELL -lic code
+		}
 	},
 	"features": {
 		"ghcr.io/devcontainers/features/desktop-lite:": {},
