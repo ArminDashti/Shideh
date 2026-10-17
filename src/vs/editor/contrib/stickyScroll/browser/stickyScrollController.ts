@@ -88,7 +88,8 @@ export class StickyScrollController extends Disposable implements IEditorContrib
 		@IInstantiationService private readonly _instaService: IInstantiationService,
 		@ILanguageConfigurationService _languageConfigurationService: ILanguageConfigurationService,
 		@ILanguageFeatureDebounceService _languageFeatureDebounceService: ILanguageFeatureDebounceService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
 		this._stickyScrollWidget = new StickyScrollWidget(this._editor);
@@ -450,6 +451,23 @@ export class StickyScrollController extends Disposable implements IEditorContrib
 			- this._editor.getOption(EditorOption.lineHeight) * stickyLine.index + 1;
 		this._editor.setScrollTop(scrollTop);
 		this._renderStickyScroll(line);
+	}
+
+	private _logEnablementChangeEvent() {
+		this._telemetryService.publicLog2<
+			{ value: boolean },
+			{
+				comment: 'Helps understand the effectiveness of the editor sticky scroll gradual release';
+				value: {
+					classification: 'SystemMetaData';
+					purpose: 'FeatureInsight';
+					comment: 'Helps understand the effectiveness of the editor sticky scroll gradual release';
+				};
+				owner: 'aiday-mar';
+			}
+		>('editorStickyScrollSettingChange', {
+			value: this._editor.getOption(EditorOption.stickyScroll).enabled
+		});
 	}
 
 	private _readConfiguration() {
