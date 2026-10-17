@@ -58,6 +58,15 @@ async function main() {
 	if (args['without-connection-token']) {
 		serverArgs.push('--without-connection-token');
 	}
+	if (args['registry-url']) {
+		serverArgs.push('--registry-url', String(args['registry-url']));
+	}
+	if (args['github-token']) {
+		serverArgs.push('--github-token', String(args['github-token']));
+	}
+	if (args['host-name']) {
+		serverArgs.push('--host-name', String(args['host-name']));
+	}
 
 	await startServer(serverArgs);
 }

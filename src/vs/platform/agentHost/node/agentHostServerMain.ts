@@ -76,6 +76,12 @@ interface IServerOptions {
 	readonly quiet: boolean;
 	/** Connection token string, or `undefined` when `--without-connection-token`. */
 	readonly connectionToken: string | undefined;
+	/** URL of the host registry (e.g. https://vscode.dev/sessions/api/hosts) */
+	readonly registryUrl: string | undefined;
+	/** GitHub token for host registry authentication */
+	readonly githubToken: string | undefined;
+	/** Human-readable host name for registry */
+	readonly hostName: string | undefined;
 }
 
 function parseServerOptions(): IServerOptions {
@@ -315,6 +321,8 @@ async function main(): Promise<void> {
 	));
 
 	// Report ready
+	let registrationHandle: { stop: () => void } | undefined;
+
 	function reportReady(addr: string): void {
 		const listeningPort = Number(addr.split(':').pop());
 		process.stdout.write(`READY:${listeningPort}\n`);
