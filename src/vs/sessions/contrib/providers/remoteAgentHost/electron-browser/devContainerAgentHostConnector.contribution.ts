@@ -128,6 +128,7 @@ export async function isDevContainerWorkspaceAvailable(
 	fileService: IFileService,
 	mainService: IDevContainerAgentHostMainService,
 	configurationService: IConfigurationService,
+	logService?: ILogService,
 ): Promise<boolean> {
 	if (
 		!configurationService.getValue<boolean>(DevContainerAgentHostEnabledSettingId)

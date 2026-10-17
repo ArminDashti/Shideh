@@ -551,6 +551,19 @@ export class WorkspacePicker extends Disposable {
 				this._clearDevContainerAvailability(true);
 			}
 		}));
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(DevContainerAgentHostEnabledSettingId) || e.affectsConfiguration(RemoteAgentHostsEnabledSettingId)) {
+				this._clearDevContainerAvailability(true);
+			}
+		}));
+		this._register(this.fileService.onDidFilesChange(e => {
+			const changedResources = [...e.rawAdded, ...e.rawUpdated, ...e.rawDeleted];
+			if (changedResources.some(resource => resource.path.endsWith('/.devcontainer')
+				|| resource.path.endsWith('/.devcontainer.json')
+				|| resource.path.endsWith('/.devcontainer/devcontainer.json'))) {
+				this._clearDevContainerAvailability(true);
+			}
+		}));
 		// Re-arm auto-tab whenever the workspace selection changes to a new
 		// value, but only while the picker is closed. This way picking a tab
 		// and then a workspace within the same open keeps that tab active for

@@ -20,6 +20,7 @@ import { AgentHostProtocolClient } from '../../../../../platform/agentHost/brows
 import { getEntryAddress, getEntryTypeConfig, IRemoteAgentHostEntry, IRemoteAgentHostService, RemoteAgentHostConnectionStatus, RemoteAgentHostEntryType, type IRemoteAgentHostConnectOptions, type IRemoteAgentHostConnectionFactory, type IRemoteAgentHostCreatedConnection } from '../../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceTrustRequestService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { IDevContainerAgentHostConnection, IDevContainerAgentHostConnector, IDevContainerAgentHostService, IDevContainerAgentHostTarget } from '../../../../common/devContainerAgentHostService.js';
@@ -208,6 +209,7 @@ export class DevContainerAgentHostService extends Disposable implements IDevCont
 			throw new Error(localize('devContainerAgentHost.connectorAlreadyRegistered', "A Dev Container Agent Host connector is already registered."));
 		}
 		this._connector = connector;
+		this._logService.info('[DevContainerAgentHostService] Connector registered');
 		this._onDidRegisterConnector.fire(connector);
 		this._onDidChangeAvailability.fire();
 		return toDisposable(() => {
@@ -219,7 +221,12 @@ export class DevContainerAgentHostService extends Disposable implements IDevCont
 	}
 
 	isAvailable(workspaceUri: URI): Promise<boolean> {
-		return this._connector?.isAvailable(workspaceUri) ?? Promise.resolve(false);
+		if (!this._connector) {
+			this._logService.info(`[DevContainerAgentHostService] Availability skipped: scheme=${workspaceUri.scheme}, connectorRegistered=false`);
+			return Promise.resolve(false);
+		}
+		this._logService.info(`[DevContainerAgentHostService] Availability delegated: scheme=${workspaceUri.scheme}, connectorRegistered=true`);
+		return this._connector.isAvailable(workspaceUri);
 	}
 
 	async connect(workspaceUri: URI, token: CancellationToken): Promise<IDevContainerAgentHostTarget> {
