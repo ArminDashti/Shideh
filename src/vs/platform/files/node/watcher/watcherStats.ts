@@ -101,14 +101,18 @@ function computeRequestStatus(requests: IUniversalWatchRequest[], watcher: Parce
 	return { suspended, polling };
 }
 
-function computeRecursiveWatchStatus(recursiveWatcher: ParcelWatcher): { active: number; failed: number; stopped: number } {
+function computeRecursiveWatchStatus(recursiveWatcher: ParcelWatcher): { active: number; failed: number; reusing: number; stopped: number } {
 	let active = 0;
 	let failed = 0;
 	let stopped = 0;
+	let reusing = 0;
 
 	for (const watcher of recursiveWatcher.watchers) {
 		if (!watcher.failed && !watcher.stopped) {
 			active++;
+		}
+		if (watcher.isReusingRecursiveWatcher) {
+			reusing++;
 		}
 		if (watcher.failed) {
 			failed++;
@@ -118,7 +122,7 @@ function computeRecursiveWatchStatus(recursiveWatcher: ParcelWatcher): { active:
 		}
 	}
 
-	return { active, failed, stopped };
+	return { active, failed, reusing, stopped };
 }
 
 function computeNonRecursiveWatchStatus(nonRecursiveWatcher: NodeJSWatcher): { active: number; failed: number; reusing: number } {
@@ -191,13 +195,16 @@ function requestDetailsToString(request: IUniversalWatchRequest): string {
 function fillRecursiveWatcherStats(lines: string[], recursiveWatcher: ParcelWatcher): void {
 	const watchers = sortByPathPrefix(Array.from(recursiveWatcher.watchers));
 
-	const { active, failed, stopped } = computeRecursiveWatchStatus(recursiveWatcher);
-	lines.push(`\n[Recursive Watchers (${watchers.length}, active: ${active}, failed: ${failed}, stopped: ${stopped})]:`);
+	const { active, failed, reusing, stopped } = computeRecursiveWatchStatus(recursiveWatcher);
+	lines.push(`\n[Recursive Watchers (${watchers.length}, active: ${active}, failed: ${failed}, stopped: ${stopped}, reusing: ${reusing})]:`);
 
 	for (const watcher of watchers) {
 		const decorations = [];
 		if (watcher.failed) {
 			decorations.push('[FAILED]');
+		}
+		if (watcher.isReusingRecursiveWatcher) {
+			decorations.push('[REUSING]');
 		}
 		if (watcher.stopped) {
 			decorations.push('[STOPPED]');

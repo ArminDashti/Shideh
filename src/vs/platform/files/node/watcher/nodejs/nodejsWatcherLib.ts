@@ -169,7 +169,7 @@ export class NodeJSFileWatcherLibrary extends Disposable {
 		}
 
 		const resource = URI.file(this.request.path);
-		const subscription = this.recursiveWatcher?.subscribe(this.request.path, async (error, change) => {
+		const subscription = this.recursiveWatcher?.subscribe(this.request, async (error, change) => {
 			if (disposables.isDisposed) {
 				return; // return early if already disposed
 			}

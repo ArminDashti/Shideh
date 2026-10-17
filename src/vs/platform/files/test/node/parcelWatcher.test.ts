@@ -207,8 +207,8 @@ suite.skip('File Watcher (parcel)', function () {
 
 		// New file
 		const newFilePath = join(testDir, 'deep', 'newFile.txt');
-		disposables.add(instance.subscribe(newFilePath, change => subscriptions1.set(change.resource.fsPath, change.type)));
-		disposables.add(instance.subscribe(newFilePath, change => subscriptions2.set(change.resource.fsPath, change.type))); // can subscribe multiple times
+		disposables.add(instance.subscribe({ path: newFilePath, recursive: false, excludes: [] }, change => subscriptions1.set(change.resource.fsPath, change.type)));
+		disposables.add(instance.subscribe({ path: newFilePath, recursive: false, excludes: [] }, change => subscriptions2.set(change.resource.fsPath, change.type))); // can subscribe multiple times
 		assert.strictEqual(instance.include(newFilePath), true);
 		assert.strictEqual(instance.exclude(newFilePath), false);
 		let changeFuture: Promise<unknown> = awaitEvent(watcher, newFilePath, FileChangeType.ADDED);
@@ -219,8 +219,8 @@ suite.skip('File Watcher (parcel)', function () {
 
 		// New folder
 		const newFolderPath = join(testDir, 'deep', 'New Folder');
-		disposables.add(instance.subscribe(newFolderPath, change => subscriptions1.set(change.resource.fsPath, change.type)));
-		const disposable = instance.subscribe(newFolderPath, change => subscriptions2.set(change.resource.fsPath, change.type));
+		disposables.add(instance.subscribe({ path: newFolderPath, recursive: false, excludes: [] }, change => subscriptions1.set(change.resource.fsPath, change.type)));
+		const disposable = instance.subscribe({ path: newFolderPath, recursive: false, excludes: [] }, change => subscriptions2.set(change.resource.fsPath, change.type));
 		disposable.dispose();
 		assert.strictEqual(instance.include(newFolderPath), true);
 		assert.strictEqual(instance.exclude(newFolderPath), false);
@@ -232,7 +232,7 @@ suite.skip('File Watcher (parcel)', function () {
 
 		// Rename file
 		let renamedFilePath = join(testDir, 'deep', 'renamedFile.txt');
-		disposables.add(instance.subscribe(renamedFilePath, change => subscriptions1.set(change.resource.fsPath, change.type)));
+		disposables.add(instance.subscribe({ path: renamedFilePath, recursive: false, excludes: [] }, change => subscriptions1.set(change.resource.fsPath, change.type)));
 		changeFuture = Promise.all([
 			awaitEvent(watcher, newFilePath, FileChangeType.DELETED),
 			awaitEvent(watcher, renamedFilePath, FileChangeType.ADDED)
@@ -244,7 +244,7 @@ suite.skip('File Watcher (parcel)', function () {
 
 		// Rename folder
 		let renamedFolderPath = join(testDir, 'deep', 'Renamed Folder');
-		disposables.add(instance.subscribe(renamedFolderPath, change => subscriptions1.set(change.resource.fsPath, change.type)));
+		disposables.add(instance.subscribe({ path: renamedFolderPath, recursive: false, excludes: [] }, change => subscriptions1.set(change.resource.fsPath, change.type)));
 		changeFuture = Promise.all([
 			awaitEvent(watcher, newFolderPath, FileChangeType.DELETED),
 			awaitEvent(watcher, renamedFolderPath, FileChangeType.ADDED)
