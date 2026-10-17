@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ISequence, LcsDiff } from '../../../../../base/common/diff/diff.js';
 import { Emitter, Event, PauseableEmitter } from '../../../../../base/common/event.js';
 import { hash } from '../../../../../base/common/hash.js';
@@ -478,12 +479,21 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 		);
 	}
 
+	private _shouldTreatOutputsAsTransient(): boolean {
+		return this.transientOptions.transientOutputs || // From serializer
+			!!this.metadata.transientOutputs || // From notebook metadata
+			this._configurationService.getValue(NotebookSetting.transientOutputs, { resource: this.uri }); // From user setting
+	}
+
 	createSnapshot(options: INotebookSnapshotOptions): NotebookData {
 		const transientOptions = options.transientOptions ?? this.transientOptions;
 		const data: NotebookData = {
 			metadata: filter(this.metadata, key => !transientOptions.transientDocumentMetadata[key]),
 			cells: [],
 		};
+
+		// Check if outputs should be transient based on multiple sources
+		const shouldTreatOutputsAsTransient = this._shouldTreatOutputsAsTransient();
 
 		let outputSize = 0;
 		for (const cell of this.cells) {
@@ -507,7 +517,7 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 				}
 			}
 
-			cellData.outputs = !transientOptions.transientOutputs ? cell.outputs : [];
+			cellData.outputs = !shouldTreatOutputsAsTransient ? cell.outputs : [];
 			cellData.metadata = filter(cell.metadata, key => !transientOptions.transientCellMetadata[key]);
 
 			data.cells.push(cellData);
@@ -1245,7 +1255,7 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 				index: this._cells.indexOf(cell),
 				outputs: cell.outputs.map(output => output.asDto()) ?? [],
 				append,
-				transient: this.transientOptions.transientOutputs,
+				transient: this._shouldTreatOutputsAsTransient(),
 			}],
 			versionId: this.versionId,
 			synchronous: true,
@@ -1262,7 +1272,7 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 					outputId: outputId,
 					outputItems: items,
 					append: true,
-					transient: this.transientOptions.transientOutputs
+					transient: this._shouldTreatOutputsAsTransient()
 
 				}],
 				versionId: this.versionId,
@@ -1281,7 +1291,7 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 					outputId: outputId,
 					outputItems: items,
 					append: false,
-					transient: this.transientOptions.transientOutputs
+					transient: this._shouldTreatOutputsAsTransient()
 
 				}],
 				versionId: this.versionId,
