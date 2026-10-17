@@ -29,7 +29,6 @@ import { BrowserNewTabPlacementSettingId } from '../browserViewWorkbenchService.
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { workbenchConfigurationNodeBase } from '../../../../common/configuration.js';
 import { IExternalOpener, IOpenerService } from '../../../../../platform/opener/common/opener.js';
-import { isLocalhostAuthority, isAllInterfacesAuthority } from '../../../../../platform/url/common/trustedDomains.js';
 import { IConfigurationService, isConfigured } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
@@ -46,6 +45,7 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { IsSessionsWindowContext, ResourceContextKey } from '../../../../common/contextkeys.js';
+import { BrowserLinkOpenerSettingKey, getIntegratedBrowserLinkOpenerSetting } from '../../common/browserLinkOpeners.js';
 import { Schemas } from '../../../../../base/common/network.js';
 
 const CONTEXT_BROWSER_EDITOR_OPEN = new RawContextKey<boolean>('browserEditorOpen', false, localize('browser.editorOpen', "Whether any browser editor is currently open"));
@@ -573,10 +573,10 @@ class BrowserEditorOpenContextKeyContribution extends Disposable implements IWor
 registerWorkbenchContribution2(BrowserEditorOpenContextKeyContribution.ID, BrowserEditorOpenContextKeyContribution, WorkbenchPhase.AfterRestored);
 
 /**
- * Opens localhost URLs and all-interfaces URLs in the Integrated Browser when the setting is enabled.
+ * Opens links in the Integrated Browser when the corresponding opener setting is enabled.
  */
-class LocalhostLinkOpenerContribution extends Disposable implements IWorkbenchContribution, IExternalOpener {
-	static readonly ID = 'workbench.contrib.localhostLinkOpener';
+class BrowserLinkOpenerContribution extends Disposable implements IWorkbenchContribution, IExternalOpener {
+	static readonly ID = 'workbench.contrib.browserLinkOpener';
 
 	constructor(
 		@IOpenerService openerService: IOpenerService,
@@ -612,11 +612,16 @@ class LocalhostLinkOpenerContribution extends Disposable implements IWorkbenchCo
 			return false;
 		}
 
-		logBrowserOpen(this.telemetryService, 'localhostLinkOpener');
+		if (!this.configurationService.getValue<boolean>(openerSetting)) {
+			return false;
+		}
 
-		// Check whether the setting was explicitly set by the user or is still at its default value.
-		// When it is a default, tag the viewState so that the hint pill can be shown.
-		const isDefaultLinkOpen = !isConfigured(this.configurationService.inspect('workbench.browser.openLocalhostLinks'));
+		logBrowserOpen(this.telemetryService, openerSetting === BrowserLinkOpenerSettingKey.OpenExternalLinks ? 'externalLinkOpener' : 'localhostLinkOpener');
+
+		// Check whether the localhost setting was explicitly set by the user or is still at its default value.
+		// The existing hint pill is localhost-specific, so suppress it for external links.
+		const isDefaultLinkOpen = openerSetting !== BrowserLinkOpenerSettingKey.OpenExternalLinks
+			&& !isConfigured(this.configurationService.inspect(openerSetting));
 
 		const browserUri = BrowserViewUri.forId(generateUuid());
 		await this.editorService.openEditor({ resource: browserUri, options: { pinned: true, viewState: { url: href, isDefaultLinkOpen } } }, await this.browserViewWorkbenchService.getPreferredGroup());
@@ -624,7 +629,7 @@ class LocalhostLinkOpenerContribution extends Disposable implements IWorkbenchCo
 	}
 }
 
-registerWorkbenchContribution2(LocalhostLinkOpenerContribution.ID, LocalhostLinkOpenerContribution, WorkbenchPhase.BlockStartup);
+registerWorkbenchContribution2(BrowserLinkOpenerContribution.ID, BrowserLinkOpenerContribution, WorkbenchPhase.BlockStartup);
 
 // ---- Link opened hint pill (URL bar widget) --------------------------------
 
