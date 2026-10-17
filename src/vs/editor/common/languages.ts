@@ -111,6 +111,14 @@ export interface QueryCapture {
 }
 
 /**
+ * An intermediate interface for scaffolding the new tree sitter tokenization support. Not final.
+ * @internal
+ */
+export interface ITreeSitterTokenizationSupport {
+	name: string;
+}
+
+/**
  * @internal
  */
 export interface ITokenizationSupport {

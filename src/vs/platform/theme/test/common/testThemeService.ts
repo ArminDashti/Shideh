@@ -19,6 +19,10 @@ export class TestColorTheme implements IColorTheme {
 		public readonly semanticHighlighting = false
 	) { }
 
+	resolveScopes(scopes: ProbeScope[], definitions?: ITextMateThemingRule): TokenStyle | undefined {
+		throw new Error('Method not implemented.');
+	}
+
 	getColor(color: string, useDefault?: boolean): Color | undefined {
 		const value = this.colors[color];
 		if (value) {
