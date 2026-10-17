@@ -144,9 +144,9 @@ export class SearchService extends Disposable implements ISearchService {
 					if (!openEditorResults.results.has(progress.resource) && !resolvedAsyncNotebookFilesToIgnore.has(progress.resource) && onProgress) { // don't override open editor results
 						onProgress(progress);
 					}
-				} else if (onProgress) {
+				} else if (onProgress && isProgressMessage(progress)) {
 					// Progress
-					onProgress(<IProgressMessage>progress);
+					onProgress(progress);
 				}
 
 				if (isProgressMessage(progress)) {

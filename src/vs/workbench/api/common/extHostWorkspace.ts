@@ -217,7 +217,7 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 	private readonly _extHostFileSystemInfo: IExtHostFileSystemInfo;
 	private readonly _uriTransformerService: IURITransformerService;
 
-	private readonly _activeSearchCallbacks: ((match: IRawFileMatch2) => any)[] = [];
+	private readonly _activeSearchCallbacks: ((match: IRawTextResultProgress) => any)[] = [];
 
 	private _trusted: boolean = false;
 
@@ -907,6 +907,10 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 
 		this._activeSearchCallbacks[requestId] = p => {
 			if (isCanceled) {
+				return;
+			}
+			if (isUserFacingProgress(p)) {
+				// findTextInFiles does not need to know about progress items
 				return;
 			}
 

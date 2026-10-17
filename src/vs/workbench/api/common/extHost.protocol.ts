@@ -2525,7 +2525,7 @@ allow(ExtHostContext.ExtHostWorkspace, '$initializeWorkspace');
 export interface ExtHostWorkspaceShape {
 	$initializeWorkspace(workspace: IWorkspaceData | null, trusted: boolean): void;
 	$acceptWorkspaceData(workspace: IWorkspaceData | null): void;
-	$handleTextSearchResult(result: search.IRawFileMatch2, requestId: number): void;
+	$handleTextSearchResult(result: search.IRawTextResultProgress, requestId: number): void;
 	$onDidGrantWorkspaceTrust(): void;
 	$onDidChangeWorkspaceTrustedFolders(): void;
 	$getEditSessionIdentifier(folder: UriComponents, token: CancellationToken): Promise<string | undefined>;

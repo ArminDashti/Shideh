@@ -199,6 +199,8 @@ export interface IFileMatch<U extends UriComponents = URI> {
 
 export type IRawFileMatch2 = IFileMatch<UriComponents>;
 
+export type IRawTextResultProgress = IRawFileMatch2 | IUserFacingProgress;
+
 export interface ITextSearchPreviewOptions {
 	matchLines: number;
 	charsPerLine: number;

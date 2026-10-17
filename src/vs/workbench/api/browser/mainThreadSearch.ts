@@ -74,7 +74,7 @@ export class MainThreadSearch implements MainThreadSearchShape {
 		provider.handleFindMatch(session, data);
 	}
 
-	$handleTextMatch(handle: number, session: number, data: IRawFileMatch2[]): void {
+	$handleTextMatch(handle: number, session: number, data: IRawTextResultProgress[]): void {
 		const provider = this._searchProvider.get(handle);
 		if (!provider) {
 			throw new Error('Got result for unknown provider');
@@ -190,7 +190,7 @@ class RemoteSearchProvider implements ISearchResultProvider, IDisposable {
 		return Promise.resolve(this._proxy.$clearCache(cacheKey));
 	}
 
-	handleFindMatch(session: number, dataOrUri: Array<UriComponents | IRawFileMatch2>): void {
+	handleFindMatch(session: number, dataOrUri: Array<UriComponents | IRawTextResultProgress>): void {
 		const searchOp = this._searches.get(session);
 
 		if (!searchOp) {
@@ -199,7 +199,9 @@ class RemoteSearchProvider implements ISearchResultProvider, IDisposable {
 		}
 
 		dataOrUri.forEach(result => {
-			if ((<IRawFileMatch2>result).results) {
+			if (isUserFacingProgress(result)) {
+				searchOp.addProgress(result);
+			} else if ((<IRawFileMatch2>result).results) {
 				searchOp.addMatch(revive((<IRawFileMatch2>result)));
 			} else {
 				searchOp.addMatch({

@@ -18,9 +18,106 @@ export interface IFileUtils {
 	readdir: (resource: URI) => Promise<string[]>;
 	toCanonicalName: (encoding: string) => string;
 }
-interface IAITextQueryProviderPair {
-	query: IAITextQuery; provider: AITextSearchProvider;
+
+export abstract class TextSearchManagerBase<ResultType> {
+	protected collector: TextSearchResultsCollector | null = null;
+
+	protected isLimitHit = false;
+	protected resultCount = 0;
+
+	constructor(
+		protected fileUtils: IFileUtils,
+		protected processType: ITextSearchStats['type']) { }
+
+	protected abstract get query(): IAITextQuery | ITextQuery;
+	protected abstract search(onProgress: (matches: ResultType[]) => void, token: CancellationToken): Promise<ISearchCompleteStats>;
+
+	protected resultSize(result: TextSearchResult): number {
+		if (extensionResultIsMatch(result)) {
+			return Array.isArray(result.ranges) ?
+				result.ranges.length :
+				1;
+		}
+		else {
+			// #104400 context lines shoudn't count towards result count
+			return 0;
+		}
+	}
+
+	protected trimResultToSize(result: TextSearchMatch, size: number): TextSearchMatch {
+		const rangesArr = Array.isArray(result.ranges) ? result.ranges : [result.ranges];
+		const matchesArr = Array.isArray(result.preview.matches) ? result.preview.matches : [result.preview.matches];
+
+		return {
+			ranges: rangesArr.slice(0, size),
+			preview: {
+				matches: matchesArr.slice(0, size),
+				text: result.preview.text
+			},
+			uri: result.uri
+		};
+	}
+
+
+
+	// protected abstract provideResults(options: TextSearchOptions, progress: IProgress<TextSearchResult>, token: CancellationToken): Promise<TextSearchComplete | null | undefined>;
+
+	protected validateProviderResult(result: TextSearchResult): boolean {
+		if (extensionResultIsMatch(result)) {
+			if (Array.isArray(result.ranges)) {
+				if (!Array.isArray(result.preview.matches)) {
+					console.warn('INVALID - A text search provider match\'s`ranges` and`matches` properties must have the same type.');
+					return false;
+				}
+
+				if ((<Range[]>result.preview.matches).length !== result.ranges.length) {
+					console.warn('INVALID - A text search provider match\'s`ranges` and`matches` properties must have the same length.');
+					return false;
+				}
+			} else {
+				if (Array.isArray(result.preview.matches)) {
+					console.warn('INVALID - A text search provider match\'s`ranges` and`matches` properties must have the same length.');
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	protected getSearchOptionsForFolder(fq: IFolderQuery<URI>): TextSearchOptions {
+		const includes = resolvePatternsForProvider(this.query.includePattern, fq.includePattern);
+		const excludes = resolvePatternsForProvider(this.query.excludePattern, fq.excludePattern);
+
+		const options = {
+			folder: URI.from(fq.folder),
+			excludes,
+			includes,
+			useIgnoreFiles: !fq.disregardIgnoreFiles,
+			useGlobalIgnoreFiles: !fq.disregardGlobalIgnoreFiles,
+			useParentIgnoreFiles: !fq.disregardParentIgnoreFiles,
+			followSymlinks: !fq.ignoreSymlinks,
+			encoding: fq.fileEncoding && this.fileUtils.toCanonicalName(fq.fileEncoding),
+			maxFileSize: this.query.maxFileSize,
+			maxResults: this.query.maxResults ?? DEFAULT_MAX_SEARCH_RESULTS,
+			previewOptions: this.query.previewOptions,
+			afterContext: this.query.afterContext,
+			beforeContext: this.query.beforeContext
+		};
+		if ('usePCRE2' in this.query) {
+			(<IExtendedExtensionSearchOptions>options).usePCRE2 = this.query.usePCRE2;
+		}
+		return options;
+	}
 }
+export class TextSearchManager extends TextSearchManagerBase<IFileMatch> {
+	constructor(
+		protected query: ITextQuery,
+		private provider: TextSearchProvider,
+		fileUtils: IFileUtils,
+		processType: ITextSearchStats['type']) {
+		super(fileUtils, processType);
+	}
 
 interface ITextQueryProviderPair {
 	query: ITextQuery; provider: TextSearchProvider2;
@@ -193,6 +290,7 @@ export class TextSearchManager {
 
 		return result;
 	}
+}
 
 	private getSearchOptionsForFolder(fq: IFolderQuery<URI>): TextSearchProviderFolderOptions {
 		const includes = resolvePatternsForProvider(this.query.includePattern, fq.includePattern);

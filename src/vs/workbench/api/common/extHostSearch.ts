@@ -208,8 +208,8 @@ export class ExtHostSearch implements IExtHostSearch {
 		}, 'textSearchProvider');
 	}
 
-	protected createAITextSearchManager(query: IAITextQuery, provider: vscode.AITextSearchProvider): TextSearchManager {
-		return new TextSearchManager({ query, provider }, {
+	protected createAITextSearchManager(query: IAITextQuery, provider: vscode.AITextSearchProvider): AITextSearchManager {
+		return new AITextSearchManager(query, provider, {
 			readdir: resource => Promise.resolve([]),
 			toCanonicalName: encoding => encoding
 		}, 'aiTextSearchProvider');

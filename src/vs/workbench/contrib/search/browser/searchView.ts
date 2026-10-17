@@ -163,6 +163,7 @@ export class SearchView extends ViewPane {
 	private treeLabels!: ResourceLabels;
 	private viewletState: ISearchViewState;
 	private messagesElement!: HTMLElement;
+	private progressElement!: HTMLElement;
 	private readonly messageDisposables: DisposableStore = new DisposableStore();
 	private searchWidgetsContainerElement!: HTMLElement;
 	private searchWidget: SearchWidget | undefined;
@@ -590,6 +591,7 @@ export class SearchView extends ViewPane {
 		this._register(this.inputPatternIncludes.onSubmit(onFilePatternSubmit));
 		this._register(this.inputPatternExcludes.onSubmit(onFilePatternSubmit));
 
+		this.progressElement = dom.append(this.container, $('.messages.text-search-provider-progress'));
 		this.messagesElement = dom.append(this.container, $('.messages.text-search-provider-messages'));
 		if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY) {
 			this.showSearchWithoutFolderMessage();
@@ -951,6 +953,35 @@ export class SearchView extends ViewPane {
 		}
 
 		return newMessage;
+	}
+
+	private clearProgress() {
+		const wasHidden = this.progressElement.style.display === 'none';
+		dom.clearNode(this.progressElement);
+		dom.show(this.progressElement);
+		if (wasHidden) {
+			this.reLayout();
+		}
+	}
+
+	private addProgressMessages(progress: string[]) {
+		this.clearProgress();
+		const wasHidden = this.progressElement.style.display === 'none';
+		if (wasHidden) {
+			this.reLayout();
+		}
+
+		for (let i = 0; i < progress.length; i++) {
+			const newMessage = dom.append(this.progressElement, $('.message'));
+			const iconElement = dom.append(newMessage, $('span'));
+			if (i === progress.length - 1) {
+				iconElement.classList.add(...ThemeIcon.asClassNameArray(Codicon.loading), 'codicon-modifier-spin');
+			} else {
+				iconElement.classList.add(...ThemeIcon.asClassNameArray(Codicon.check));
+			}
+			dom.append(newMessage, $('span', undefined, progress[i]));
+		}
+
 	}
 
 	private createSearchResultsView(container: HTMLElement): void {
@@ -1385,7 +1416,8 @@ export class SearchView extends ViewPane {
 
 		const widgetHeight = dom.getTotalHeight(this.searchWidgetsContainerElement);
 		const messagesHeight = dom.getTotalHeight(this.messagesElement);
-		this.tree.layout(this.size.height - widgetHeight - messagesHeight, this.size.width - 28);
+		const progressHeight = dom.getTotalHeight(this.progressElement);
+		this.tree.layout(this.size.height - widgetHeight - messagesHeight - progressHeight, this.size.width - 28);
 	}
 
 	protected override layoutBody(height: number, width: number): void {
@@ -1813,6 +1845,7 @@ export class SearchView extends ViewPane {
 
 		// Complete up to 100% as needed
 		progressComplete();
+		this.clearProgress();
 
 		if (shouldDoFinalRefresh) {
 			// anything that gets called from `getChildren` should not do this, since the tree will refresh anyways.
@@ -1982,6 +2015,15 @@ export class SearchView extends ViewPane {
 		this.progressService.withProgress({ location: this.getProgressLocation(), delay: triggeredOnType ? 300 : 0 }, _progress => {
 			return new Promise<void>(resolve => progressComplete = resolve);
 		});
+
+		const progressMessages: string[] = [];
+		const onAIProgress = (result: ISearchProgressItem) => {
+			if (isUserFacingProgress(result)) {
+				progressMessages.push(result.text);
+				this.addProgressMessages(progressMessages);
+			}
+		};
+
 
 		this.searchWidget.searchInput?.clearMessage();
 		this.state = SearchUIState.Searching;
