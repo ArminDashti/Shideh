@@ -14,7 +14,7 @@ import { ITerminalLogService, type ITerminalLaunchError } from '../../../../../.
 import { trackIdleOnPrompt, waitForIdle, type ITerminalExecuteStrategy, type ITerminalExecuteStrategyResult } from './executeStrategy.js';
 import type { IMarker as IXtermMarker } from '@xterm/xterm';
 import { ITerminalInstance } from '../../../../terminal/browser/terminal.js';
-import { createAltBufferPromise, setupRecreatingStartMarker, stripCommandEchoAndPrompt } from './strategyHelpers.js';
+import { createAltBufferPromise, setupRecreatingStartMarker } from './strategyHelpers.js';
 import { TerminalChatAgentToolsSettingId } from '../../common/terminalChatAgentToolsConfiguration.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
 import { isMultilineCommand } from '../runInTerminalHelpers.js';
@@ -182,7 +182,7 @@ export class BasicExecuteStrategy extends Disposable implements ITerminalExecute
 			this._log('Waiting for idle');
 			await waitForIdle(this._instance.onData, idlePollInterval);
 
-			const markerRecreation = setupRecreatingStartMarker(
+			setupRecreatingStartMarker(
 				xterm,
 				this._startMarker,
 				m => this._onDidCreateStartMarker.fire(m),

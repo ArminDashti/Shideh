@@ -12,7 +12,7 @@ import { ITerminalLogService } from '../../../../../../platform/terminal/common/
 import { waitForIdle, waitForIdleWithPromptHeuristics, type ITerminalExecuteStrategy, type ITerminalExecuteStrategyResult } from './executeStrategy.js';
 import type { IMarker as IXtermMarker } from '@xterm/xterm';
 import { ITerminalInstance } from '../../../../terminal/browser/terminal.js';
-import { createAltBufferPromise, setupRecreatingStartMarker, stripCommandEchoAndPrompt } from './strategyHelpers.js';
+import { createAltBufferPromise, setupRecreatingStartMarker } from './strategyHelpers.js';
 import { TerminalChatAgentToolsSettingId } from '../../common/terminalChatAgentToolsConfiguration.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
 import { isMultilineCommand } from '../runInTerminalHelpers.js';
@@ -65,7 +65,7 @@ export class NoneExecuteStrategy extends Disposable implements ITerminalExecuteS
 				throw new CancellationError();
 			}
 
-			const markerRecreation = setupRecreatingStartMarker(
+			setupRecreatingStartMarker(
 				xterm,
 				this._startMarker,
 				m => this._onDidCreateStartMarker.fire(m),
@@ -95,37 +95,6 @@ export class NoneExecuteStrategy extends Disposable implements ITerminalExecuteS
 			const startLine = this._startMarker.value?.line;
 			const forceBracketedPasteMode = isMacintosh || isMultilineCommand(commandLine);
 			this._instance.sendText(commandLine, true, forceBracketedPasteMode);
-
-			// Wait for the cursor to move past the command line before
-			// starting idle detection. Without this, the idle poll may
-			// resolve immediately on the existing prompt if the shell
-			// hasn't started processing the command yet.
-			if (startLine !== undefined) {
-				this._log('Waiting for cursor to move past start line');
-				const cursorMovedPromise = new Promise<void>(resolve => {
-					const check = () => {
-						const buffer = xterm.raw.buffer.active;
-						const cursorLine = buffer.baseY + buffer.cursorY;
-						if (cursorLine > startLine) {
-							resolve();
-						}
-					};
-					const listener = this._instance.onData(() => check());
-					store.add(listener);
-					check();
-				});
-
-				const cursorMoveTimeout = new Promise<'timeout'>(resolve => {
-					const handle = setTimeout(() => resolve('timeout'), 5000);
-					store.add({ dispose: () => clearTimeout(handle) });
-				});
-
-				const raceResult = await Promise.race([cursorMovedPromise, cursorMoveTimeout]);
-				if (raceResult === 'timeout') {
-					this._log('Cursor did not move past start line before timeout, proceeding with idle detection');
-				}
-			}
-
 
 			// Assume the command is done when it's idle
 			this._log('Waiting for idle with prompt heuristics');
@@ -199,11 +168,6 @@ export class NoneExecuteStrategy extends Disposable implements ITerminalExecuteS
 				this._log('Failed to fetch output via markers');
 				additionalInformationLines.push('Failed to retrieve command output');
 			}
-
-			if (output !== undefined && output.trim().length === 0) {
-				additionalInformationLines.push('Command produced no output');
-			}
-
 			return {
 				output,
 				additionalInformation: additionalInformationLines.length > 0 ? additionalInformationLines.join('\n') : undefined,
