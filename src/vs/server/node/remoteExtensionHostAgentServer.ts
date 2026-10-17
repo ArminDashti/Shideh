@@ -571,8 +571,30 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				}
 			);
 
-			socket.once('error', e);
-		});
+				this._connectTunnelSocket('127.0.0.1', port, cts.token).then(doResolve, doReject);
+				this._connectTunnelSocket('::1', port, cts.token).then(doResolve, doReject);
+				return deferred.p;
+			} else {
+				return new Promise<net.Socket>((resolve, reject) => {
+					const socket = net.createConnection({ host, port }, () => {
+						socket.removeListener('error', reject);
+						socket.pause();
+						resolve(socket);
+					});
+
+					if (ct) {
+						store.add(ct.onCancellationRequested(() => {
+							socket.destroy();
+							reject(new CancellationError());
+						}));
+					}
+
+					socket.once('error', reject);
+				});
+			}
+		} finally {
+			store.dispose();
+		}
 	}
 
 	private _updateWithFreeDebugPort(startParams: IRemoteExtensionHostStartParams): Thenable<IRemoteExtensionHostStartParams> {
