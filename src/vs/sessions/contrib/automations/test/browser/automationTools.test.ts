@@ -588,6 +588,65 @@ suite('AutomationTools', () => {
 		});
 	});
 
+	test('listAutomations describes when its catalogue is complete', () => {
+		const description = new ListAutomationsTool(new FakeAutomationService(), createConfigurationService()).getToolData().modelDescription ?? '';
+
+		assert.deepStrictEqual({
+			reportsState: description.includes('catalogueState'),
+			definesComplete: description.includes('only "ready" means the list is complete'),
+			warnsAboutFalseEmpty: description.includes('never interpret an empty non-ready result as no configured automations'),
+		}, { reportsState: true, definesComplete: true, warnsAboutFalseEmpty: true });
+	});
+
+	for (const catalogueState of ['loading', 'unavailable', 'error'] as const) {
+		test(`listAutomations preserves available rows in an incomplete ${catalogueState} catalogue`, async () => {
+			const automationService = new FakeAutomationService();
+			automationService.catalogueState.set(catalogueState, undefined);
+			const tool = new ListAutomationsTool(automationService, createConfigurationService());
+			const empty = await invoke(tool, {});
+			const sessionTemplate = { modelId: 'provider-model', config: { providerOption: true } };
+			automationService.automations.set([createAutomation({ sessionTemplate })], undefined);
+			const populated = await invoke(tool, {});
+			const populatedContent = JSON.parse(getText(populated));
+
+			assert.deepStrictEqual({
+				empty: JSON.parse(getText(empty)),
+				emptyMessage: empty.toolResultMessage,
+				populated: {
+					state: populatedContent.catalogueState,
+					ids: populatedContent.automations.map((automation: { id: string }) => automation.id),
+					sessionTemplate: populatedContent.automations[0].sessionTemplate,
+				},
+				populatedMessage: populated.toolResultMessage,
+			}, {
+				empty: { catalogueState, automations: [] },
+				emptyMessage: 'Listed 0 available automations; catalogue is incomplete',
+				populated: { state: catalogueState, ids: ['automation-1'], sessionTemplate },
+				populatedMessage: 'Listed 1 available automations; catalogue is incomplete',
+			});
+		});
+	}
+
+	test('listAutomations emits flat aliases only for legacy rows', async () => {
+		const automation = createAutomation();
+		const tool = new ListAutomationsTool(new FakeAutomationService([automation]), createConfigurationService());
+
+		const result = await invoke(tool, {});
+		const listed = JSON.parse(getText(result)).automations[0];
+
+		assert.deepStrictEqual({
+			sessionTemplate: listed.sessionTemplate,
+			modelId: listed.modelId,
+			mode: listed.mode,
+			permissionLevel: listed.permissionLevel,
+		}, {
+			sessionTemplate: undefined,
+			modelId: 'gpt-test',
+			mode: 'agent',
+			permissionLevel: 'default',
+		});
+	});
+
 	test('runAutomation confirms and starts a manual run', async () => {
 		const automation = createAutomation();
 		const automationService = new FakeAutomationService([automation]);

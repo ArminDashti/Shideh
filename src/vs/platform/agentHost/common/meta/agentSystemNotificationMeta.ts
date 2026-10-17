@@ -32,6 +32,11 @@ export const enum AgentSystemNotificationWorkspaceKind {
 	Worktree = 'worktree',
 }
 
+export const enum AgentSystemNotificationWorkspaceKind {
+	Folder = 'folder',
+	Worktree = 'worktree',
+}
+
 export const enum AgentSystemNotificationSeverity {
 	Warning = 'warning',
 }
@@ -97,6 +102,36 @@ export function readAgentSystemNotificationMeta(source: IHasSystemNotificationMe
 export function toAgentSystemNotificationMeta(meta: IAgentSystemNotificationMeta): Record<string, unknown> {
 	const { fusionDescription, ...rest } = meta;
 	return fusionDescription === undefined ? rest : { ...rest, [VSCODE_FUSION_DESCRIPTION_META_KEY]: fusionDescription };
+}
+
+/** Serializes a durable workspace-transition boundary. */
+export function serializeAgentWorkspaceTransition(record: IAgentWorkspaceTransitionRecord): string {
+	return JSON.stringify(record);
+}
+
+/** Parses and validates a durable workspace-transition boundary. */
+export function parseAgentWorkspaceTransition(value: string): IAgentWorkspaceTransitionRecord | undefined {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		return undefined;
+	}
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		return undefined;
+	}
+	const candidate = parsed as Partial<IAgentWorkspaceTransitionRecord>;
+	if (typeof candidate.content !== 'string'
+		|| typeof candidate.workspaceName !== 'string'
+		|| (candidate.workspaceKind !== AgentSystemNotificationWorkspaceKind.Folder && candidate.workspaceKind !== AgentSystemNotificationWorkspaceKind.Worktree)
+	) {
+		return undefined;
+	}
+	return {
+		content: candidate.content,
+		workspaceKind: candidate.workspaceKind,
+		workspaceName: candidate.workspaceName,
+	};
 }
 
 /** Serializes a durable workspace-transition boundary. */

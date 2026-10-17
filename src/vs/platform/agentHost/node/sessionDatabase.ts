@@ -1082,8 +1082,8 @@ export class SessionDatabase implements ISessionDatabase {
 					await dbExec(db, 'ROLLBACK');
 					throw err;
 				}
-			});
-		}));
+			})
+		));
 	}
 
 	async transitionMetadataValuesAndCatalogSyncSnapshot(values: Readonly<Record<string, string>>, expectedSessionGeneration: string, snapshot: ISessionCatalogSyncPendingSnapshot): Promise<boolean> {
@@ -1113,8 +1113,15 @@ export class SessionDatabase implements ISessionDatabase {
 					await dbExec(db, 'ROLLBACK');
 					throw err;
 				}
-			});
-		}));
+				for (const [targetKey, value] of Object.entries(values)) {
+					await dbRun(db, 'INSERT OR REPLACE INTO session_metadata (key, value) VALUES (?, ?)', [targetKey, value]);
+				}
+				for (const [targetKey, sourceKey] of Object.entries(copies)) {
+					await dbRun(db, 'INSERT OR REPLACE INTO session_metadata (key, value) SELECT ?, value FROM session_metadata WHERE key = ?', [targetKey, sourceKey]);
+				}
+				return true;
+			})
+		));
 	}
 
 	setMetadataValuesIfAbsent(key: string, values: Readonly<Record<string, string>>, copies: Readonly<Record<string, string>> = {}): Promise<boolean> {

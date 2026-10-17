@@ -108,6 +108,7 @@ suite('ProviderAutomationService', () => {
 				providers.push(provider);
 				changed.fire({ added: [provider], removed: [] });
 			},
+			settleInitialProviders: () => providersSettled.set(true, undefined),
 		};
 	}
 

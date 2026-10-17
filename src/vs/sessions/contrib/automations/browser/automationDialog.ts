@@ -529,6 +529,23 @@ const AUTOMATIONS_HARNESS_CHIP_ACTION_ID = 'workbench.action.chat.renderAutomati
 const AUTOMATIONS_WORKSPACE_PICKER_ACTION_ID = 'workbench.action.chat.renderAutomationsWorkspacePicker';
 const AUTOMATIONS_ISOLATION_GROUP_ACTION_ID = 'workbench.action.chat.renderAutomationsIsolationGroup';
 
+export function getAutomationTargetHint(target: Pick<IFormState, 'isQuickChat' | 'folderUri' | 'providerId' | 'sessionTypeId'>, sessionTypes: readonly IProviderSessionType[]): string | undefined {
+	if (!target.isQuickChat && !target.folderUri) {
+		return localize('automation.form.targetHint.choose', "Choose a workspace or No workspace to see which agents can run this automation.");
+	}
+	if (sessionTypes.length === 0) {
+		return localize('automation.form.targetHint.unavailable', "No agents are currently available for this target.");
+	}
+	if (sessionTypes.length === 1
+		&& sessionTypes[0].sessionType.id === target.sessionTypeId
+		&& (!target.providerId || sessionTypes[0].providerId === target.providerId)) {
+		return target.isQuickChat
+			? localize('automation.form.targetHint.singleQuickChat', "Only {0} is available without a workspace. Choose a workspace to use a different agent.", sessionTypes[0].sessionType.label)
+			: localize('automation.form.targetHint.singleWorkspace', "Only {0} is available for this workspace. Change the workspace to use a different agent.", sessionTypes[0].sessionType.label);
+	}
+	return undefined;
+}
+
 type BranchLoadState = 'noFolder' | 'loadingRepository' | 'noRepository' | 'loadingBranches' | 'ready' | 'empty' | 'error';
 
 function setAutomationControlVisible(container: HTMLElement, visible: boolean): void {

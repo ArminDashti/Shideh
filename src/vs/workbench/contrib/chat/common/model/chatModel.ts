@@ -45,7 +45,7 @@ import { IChatEditingService, IChatEditingSession, ModifiedFileEntryState } from
 import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier } from '../languageModels.js';
 import { IIntendedModelSelection, ModelSelectionReason } from '../modelSelection.js';
 import { IChatAgentCommand, IChatAgentData, IChatAgentResult, IChatAgentService, UserSelectedTools, reviveSerializedAgent } from '../participants/chatAgents.js';
-import { ChatRequestTextPart, IChatPromptText, IParsedChatRequest, reviveParsedChatRequest } from '../requestParser/chatParserTypes.js';
+import { ChatRequestTextPart, IParsedChatRequest, reviveParsedChatRequest } from '../requestParser/chatParserTypes.js';
 import { chatSessionResourceToId, LocalChatSessionUri } from './chatUri.js';
 import { ObjectMutationLog } from './objectMutationLog.js';
 
@@ -3620,8 +3620,8 @@ export function updateRanges(variableData: IChatRequestVariableData, promptText:
 		variables: variableData.variables.map(v => ({
 			...v,
 			range: v.range && {
-				start: mapOffset(v.range.start),
-				endExclusive: mapOffset(v.range.endExclusive)
+				start: v.range.start - diff,
+				endExclusive: v.range.endExclusive - diff
 			}
 		}))
 	};

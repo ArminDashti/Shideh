@@ -5696,6 +5696,45 @@ suite('LocalAgentHostSessionsProvider', () => {
 		});
 	});
 
+	test('Automation drafts merge derived worktree settings with saved provider configuration', () => {
+		const configService = new TestConfigurationService();
+		configService.setUserConfiguration('git.branchPrefix', 'automation/');
+		configService.setUserConfiguration('git.worktreeIncludeFiles', ['product.overrides.json']);
+		const provider = createProvider(disposables, agentHost, undefined, { configurationService: configService });
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{
+				automationConfiguration: {
+					sessionTemplate: {
+						config: {
+							mode: 'plan',
+							autoApprove: 'assisted',
+						},
+					},
+				},
+			},
+		);
+
+		assert.deepStrictEqual({
+			seededImmediately: provider.getSessionConfig(session.sessionId)?.values,
+			forwardedToAgentHost: agentHost.resolveSessionConfigRequests.at(-1)?.config,
+		}, {
+			seededImmediately: {
+				worktreeBranchPrefix: 'automation/',
+				worktreeIncludeFiles: ['product.overrides.json'],
+				mode: 'plan',
+				autoApprove: 'assisted',
+			},
+			forwardedToAgentHost: {
+				worktreeBranchPrefix: 'automation/',
+				worktreeIncludeFiles: ['product.overrides.json'],
+				mode: 'plan',
+				autoApprove: 'assisted',
+			},
+		});
+	});
+
 	test('createNewSession gives remembered autoApprove precedence over a configured setting while policy still clamps', async () => {
 		const storageService = disposables.add(new InMemoryStorageService());
 		storageService.store(STORAGE_KEY_REMEMBERED_SESSION_CONFIG_VALUES, JSON.stringify({
@@ -5965,6 +6004,346 @@ suite('LocalAgentHostSessionsProvider', () => {
 		}, {
 			eagerModel: { id: 'model', config: { thinkingLevel: 'high' } },
 			sent: [{ model: modelId, configuration: { thinkingLevel: 'high' } }],
+			sharedWrites: [],
+		});
+	});
+
+	test('Automation picker edits are captured independently and survive provider model qualification', async () => {
+		const modelId = 'agent-host-copilotcli:model';
+		const metadata: ILanguageModelChatMetadata = {
+			...createTestLanguageModel('model'),
+			targetChatSessionType: 'agent-host-copilotcli',
+			configurationSchema: {
+				type: 'object',
+				properties: { thinkingLevel: { type: 'string', enum: ['low', 'medium', 'high'], default: 'medium' } },
+			},
+		};
+		const writes: Record<string, unknown>[] = [];
+		const provider = createProvider(disposables, agentHost, undefined, {
+			languageModelIds: [modelId],
+			lookupLanguageModel: id => id === modelId ? metadata : id === 'model' ? { ...metadata, targetChatSessionType: 'copilotcli' } : undefined,
+			languageModelsService: {
+				getModelConfiguration: () => ({ thinkingLevel: 'high' }),
+				setModelConfiguration: async (_modelId, values) => { writes.push(values); },
+			},
+		});
+		const session = provider.createNewSession(URI.file('/home/user/project'), provider.sessionTypes[0].id, {
+			automationConfiguration: { sessionTemplate: { modelId: 'model', modelConfiguration: { thinkingLevel: 'low' } } },
+		});
+		provider.setModel(session.sessionId, session.mainChat.get().resource, modelId, ChatModelSource.Chosen);
+		const restored = await provider.getAutomationSessionConfiguration(session.sessionId);
+		await provider.getAutomationModelConfiguration(session.sessionId)!.setModelConfiguration(modelId, { thinkingLevel: 'medium' });
+		const edited = await provider.getAutomationSessionConfiguration(session.sessionId);
+		provider.deleteNewSession(session.sessionId);
+
+		assert.deepStrictEqual({
+			restored: restored?.sessionTemplate?.modelConfiguration,
+			edited: edited?.sessionTemplate?.modelConfiguration,
+			writes,
+		}, {
+			restored: { thinkingLevel: 'low' },
+			edited: { thinkingLevel: 'medium' },
+			writes: [{ thinkingLevel: 'medium' }],
+		});
+	});
+
+	test('Automation capture rejects failed initial configuration resolution', async () => {
+		agentHost.failResolveSessionConfig = true;
+		const provider = createProvider(disposables, agentHost);
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{ automationConfiguration: { sessionTemplate: { config: { mode: 'plan' } } } },
+		);
+
+		await assert.rejects(provider.getAutomationSessionConfiguration(session.sessionId), /resolveSessionConfig unavailable/);
+	});
+
+	test('Automation capture retries failed resolution without dropping edited preferences', async () => {
+		const initialConfig = { mode: 'interactive', autoApprove: 'default', providerOption: true };
+		const updatedConfig = { ...initialConfig, mode: 'plan', autoApprove: 'assisted' };
+		agentHost.resolveSessionConfigResult = {
+			schema: { type: 'object', properties: {} },
+			values: initialConfig,
+		};
+		const provider = createProvider(disposables, agentHost);
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{ automationConfiguration: { sessionTemplate: { config: initialConfig } } },
+		);
+		await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		agentHost.failResolveSessionConfig = true;
+		await provider.setSessionConfigValue(session.sessionId, SessionConfigKey.Mode, 'plan');
+		await provider.setSessionConfigValue(session.sessionId, SessionConfigKey.AutoApprove, 'assisted');
+		await assert.rejects(provider.getAutomationSessionConfiguration(session.sessionId), /resolveSessionConfig unavailable/);
+
+		agentHost.failResolveSessionConfig = false;
+		agentHost.resolveSessionConfigResult = {
+			schema: { type: 'object', properties: {} },
+			values: updatedConfig,
+		};
+		const captured = await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		assert.deepStrictEqual({
+			retriedConfig: agentHost.resolveSessionConfigRequests.at(-1)?.config,
+			capturedConfig: captured?.sessionTemplate?.config,
+			initialConfig,
+		}, {
+			retriedConfig: updatedConfig,
+			capturedConfig: updatedConfig,
+			initialConfig: { mode: 'interactive', autoApprove: 'default', providerOption: true },
+		});
+	});
+
+	test('Automation capture waits for tracked configuration operations before reading values', async () => {
+		const initialConfig = { mode: 'interactive' };
+		agentHost.resolveSessionConfigResult = {
+			schema: { type: 'object', properties: {} },
+			values: initialConfig,
+		};
+		const provider = createProvider(disposables, agentHost);
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{ automationConfiguration: { sessionTemplate: { config: initialConfig } } },
+		);
+		await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		const barrier = new DeferredPromise<void>();
+		const operation = (async () => {
+			await barrier.p;
+			agentHost.resolveSessionConfigResult = {
+				schema: { type: 'object', properties: {} },
+				values: { mode: 'plan' },
+			};
+			await provider.setSessionConfigValue(session.sessionId, SessionConfigKey.Mode, 'plan');
+		})();
+		provider.trackSessionConfigOperation(session.sessionId, operation);
+		let captured = false;
+		const capture = provider.getAutomationSessionConfiguration(session.sessionId).then(result => {
+			captured = true;
+			return result;
+		});
+		await timeout(0);
+		const capturedBeforeOperation = captured;
+		await barrier.complete();
+
+		assert.deepStrictEqual({
+			capturedBeforeOperation,
+			config: (await capture)?.sessionTemplate?.config,
+		}, {
+			capturedBeforeOperation: false,
+			config: { mode: 'plan' },
+		});
+	});
+
+	test('createNewSession restores legacy Automation fields at the provider boundary', async () => {
+		const provider = createProvider(disposables, agentHost);
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{
+				automationConfiguration: {
+					modelId: 'agent-host-copilotcli:auto',
+					mode: 'autopilot',
+					permissionLevel: 'assisted',
+				},
+			},
+		);
+		const captured = await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		assert.deepStrictEqual({
+			initialConfig: agentHost.resolveSessionConfigRequests.at(-1)?.config,
+			modelId: session.modelId.get(),
+			captured,
+		}, {
+			initialConfig: {
+				mode: 'autopilot',
+				autoApprove: 'assisted',
+			},
+			modelId: 'agent-host-copilotcli:auto',
+			captured: {
+				sessionTemplate: {
+					modelId: 'agent-host-copilotcli:auto',
+					config: {
+						mode: 'autopilot',
+						autoApprove: 'assisted',
+					},
+				},
+				modelId: 'agent-host-copilotcli:auto',
+				mode: 'autopilot',
+				permissionLevel: 'assisted',
+			},
+		});
+	});
+
+	test('Automation drafts display policy-clamped approvals without overwriting the saved preference', async () => {
+		const sessionTemplate = {
+			config: {
+				autoApprove: 'autoApprove',
+			},
+		};
+		agentHost.resolveSessionConfigResult = {
+			schema: {
+				type: 'object',
+				properties: {
+					autoApprove: { type: 'string', title: 'Auto Approve', enum: ['default', 'autoApprove'] },
+				},
+			},
+			values: { autoApprove: 'default' },
+		};
+		const provider = createProvider(disposables, agentHost, undefined, {
+			configurationService: createPolicyRestrictedConfigurationService(),
+		});
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{ automationConfiguration: { sessionTemplate } },
+		);
+
+		const capturedWithoutEdit = await provider.getAutomationSessionConfiguration(session.sessionId);
+		await provider.setSessionConfigValue(session.sessionId, SessionConfigKey.AutoApprove, 'default');
+		const capturedAfterEdit = await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		assert.deepStrictEqual({
+			displayed: provider.getSessionConfig(session.sessionId)?.values.autoApprove,
+			initialConfig: agentHost.resolveSessionConfigRequests.at(-2)?.config?.autoApprove,
+			capturedWithoutEdit: capturedWithoutEdit?.sessionTemplate?.config?.autoApprove,
+			capturedAfterEdit: capturedAfterEdit?.sessionTemplate?.config?.autoApprove,
+		}, {
+			displayed: 'default',
+			initialConfig: 'default',
+			capturedWithoutEdit: 'autoApprove',
+			capturedAfterEdit: 'default',
+		});
+	});
+
+	test('createNewSession restores and captures an Automation session template', async () => {
+		const sessionTemplate = {
+			modelId: 'agent-host-copilotcli:auto',
+			modelConfiguration: { thinkingLevel: 'low', futureOption: true },
+			agent: { uri: 'file:///agents/reviewer.agent.md' },
+			config: {
+				mode: 'plan',
+				autoApprove: 'assisted',
+				providerOption: { enabled: true },
+				clearedOption: true,
+				[SessionConfigKey.Permissions]: { allow: ['Shell(echo *)'], deny: [] },
+				[SessionConfigKey.WorktreeBranchPrefix]: 'template-prefix/',
+				[SessionConfigKey.WorktreeIncludeFiles]: ['template.json'],
+				[SessionConfigKey.ShellInitScripts]: [{ shell: 'bash', script: 'source ~/.bashrc' }],
+				[SessionConfigKey.AgentMerge]: true,
+			},
+		};
+		agentHost.resolveSessionConfigResult = {
+			schema: {
+				type: 'object',
+				properties: {
+					clearedOption: { type: 'boolean', title: 'Cleared option' },
+				},
+			},
+			values: {
+				mode: 'plan',
+				autoApprove: 'assisted',
+				[SessionConfigKey.WorktreeBranchPrefix]: 'stale-prefix/',
+				[SessionConfigKey.ShellInitScripts]: [{ shell: 'bash', script: 'source ~/.bashrc' }],
+			},
+		};
+		const provider = createProvider(disposables, agentHost);
+		const session = provider.createNewSession(
+			URI.parse('file:///home/user/project'),
+			provider.sessionTypes[0].id,
+			{ automationConfiguration: { sessionTemplate } },
+		);
+		await provider.getAutomationSessionConfiguration(session.sessionId);
+		await provider.setSessionConfigValue(session.sessionId, 'clearedOption', false);
+		const captured = await provider.getAutomationSessionConfiguration(session.sessionId);
+
+		assert.deepStrictEqual({
+			captured,
+			initialConfig: agentHost.resolveSessionConfigRequests.at(-2)?.config,
+			modelId: session.modelId.get(),
+			agentUri: session.mode.get()?.id,
+		}, {
+			captured: {
+				sessionTemplate: {
+					...sessionTemplate,
+					config: {
+						mode: 'plan',
+						autoApprove: 'assisted',
+						providerOption: { enabled: true },
+					},
+				},
+				modelId: sessionTemplate.modelId,
+				mode: 'plan',
+				permissionLevel: 'assisted',
+			},
+			initialConfig: {
+				mode: 'plan',
+				autoApprove: 'assisted',
+				providerOption: { enabled: true },
+				clearedOption: true,
+			},
+			modelId: sessionTemplate.modelId,
+			agentUri: sessionTemplate.agent.uri,
+		});
+	});
+
+	test('rejects Automation model configuration without a model before acquiring a draft', async () => {
+		const provider = createProvider(disposables, agentHost);
+		assert.throws(() => provider.createNewSession(URI.file('/home/user/project'), provider.sessionTypes[0].id, {
+			automationConfiguration: { sessionTemplate: { modelConfiguration: { thinkingLevel: 'low' } } },
+		}), /model configuration requires a model identifier/);
+		await timeout(0);
+		assert.deepStrictEqual(agentHost.createSessionConfigs, []);
+	});
+
+	test('Automation model options reach eager creation and the browser-executed first request', async () => {
+		const modelId = 'agent-host-copilotcli:model';
+		const metadata: ILanguageModelChatMetadata = {
+			...createTestLanguageModel('model'),
+			targetChatSessionType: 'agent-host-copilotcli',
+			configurationSchema: {
+				type: 'object',
+				properties: { thinkingLevel: { type: 'string', enum: ['low', 'medium', 'high'], default: 'medium' } },
+			},
+		};
+		const sent: IChatSendRequestOptions[] = [];
+		const sharedWrites: Record<string, unknown>[] = [];
+		const provider = createProvider(disposables, agentHost, undefined, {
+			languageModelIds: [modelId],
+			lookupLanguageModel: () => metadata,
+			languageModelsService: {
+				getModelConfiguration: () => ({ thinkingLevel: 'high' }),
+				setModelConfiguration: async (_modelId, values) => { sharedWrites.push(values); },
+			},
+			sendRequest: async (_resource, _message, options) => {
+				if (options) {
+					sent.push(options);
+				}
+				return { kind: 'rejected', reason: 'Test request captured' };
+			},
+		});
+		const session = provider.createNewSession(URI.file('/home/user/project'), provider.sessionTypes[0].id, {
+			automationConfiguration: {
+				sessionTemplate: { modelId, modelConfiguration: { thinkingLevel: 'low', futureOption: true } },
+			},
+		});
+		const captured = await provider.getAutomationSessionConfiguration(session.sessionId);
+		const chat = await provider.createNewChat(session.sessionId);
+		await assert.rejects(provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' }), /Test request captured/);
+
+		assert.deepStrictEqual({
+			eagerModel: agentHost.createSessionConfigs[0]?.model,
+			captured: captured?.sessionTemplate?.modelConfiguration,
+			sent: sent.map(options => ({ model: options.userSelectedModelId, configuration: options.userSelectedModelConfiguration })),
+			sharedWrites,
+		}, {
+			eagerModel: { id: 'model', config: { thinkingLevel: 'low' } },
+			captured: { thinkingLevel: 'low', futureOption: true },
+			sent: [{ model: modelId, configuration: { thinkingLevel: 'low' } }],
 			sharedWrites: [],
 		});
 	});

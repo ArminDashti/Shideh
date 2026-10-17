@@ -461,6 +461,13 @@ class AutomationCardsSection extends Disposable {
 				}
 			}
 		}
+		const nextContainer = showTemplates ? this.getEmptyStateContainer(catalogueState) : this.container;
+		const previousContainer = this.visibleContainer;
+		if (previousContainer !== nextContainer) {
+			nextContainer.style.display = '';
+			this.visibleContainer = nextContainer;
+		}
+		this.renderPartialState(automations.length > 0 ? catalogueState : 'ready');
 
 		if (!this.pluginTemplatesUserToggled) {
 			const defaultExpanded = automations.length === 0;
