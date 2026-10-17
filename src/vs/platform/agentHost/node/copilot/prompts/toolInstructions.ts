@@ -60,6 +60,10 @@ const agenticBrowserToolNames = browserChatToolReferenceNames.filter(name => nam
 export const COPILOT_AGENT_HOST_LARGE_OUTPUT_TOOL_INSTRUCTION = 'When a tool reports that its output was saved to a temporary file because it was too large, inspect that file with targeted, bounded reads: search it for what you need with the `grep` or `rg` tool, then use `view` with a narrow `view_range` to read the relevant lines. Do not dump the whole file (for example with `cat` or `view` without a range) or run broad searches, because oversized output will be offloaded again.';
 const largeOutputToolInstructions: ToolInstructionLine = () => COPILOT_AGENT_HOST_LARGE_OUTPUT_TOOL_INSTRUCTION;
 
+/** Steers workspace discovery toward a shallow layout orientation followed by scoped, parallel searches instead of broad exploration. */
+export const COPILOT_AGENT_HOST_TARGETED_SEARCH_TOOL_INSTRUCTION = 'To find relevant code, first orient yourself with a quick, shallow look at the workspace layout (for example, its top-level directories) unless you already know it, then use that structure to run targeted searches for the concrete file names, symbols, strings, and paths in the request, scoped to the most relevant directories. Run independent searches and reads in parallel in a single batch rather than one at a time. Avoid recursively listing the entire workspace, and stop searching once you have enough context to act.';
+const targetedSearchToolInstructions: ToolInstructionLine = () => COPILOT_AGENT_HOST_TARGETED_SEARCH_TOOL_INSTRUCTION;
+
 /** Keeps subagents on their default model unless the user explicitly requests another model. */
 export const COPILOT_AGENT_HOST_SUBAGENT_TOOL_INSTRUCTIONS = [
 	'When launching subagents with the task tool, leave the `model`, `reasoning_effort`, and `context_tier` parameters unset — each agent type already runs on a model suited to it, and overriding the model changes the session\'s cost and behavior profile.',

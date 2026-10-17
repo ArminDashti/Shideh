@@ -48,11 +48,13 @@ suite('toolInstructions', () => {
 
 		test('always renders the registered unconditional instructions in order', () => {
 			assert.deepStrictEqual([
+				COPILOT_AGENT_HOST_TARGETED_SEARCH_TOOL_INSTRUCTION,
 				COPILOT_AGENT_HOST_LARGE_OUTPUT_TOOL_INSTRUCTION,
 				COPILOT_AGENT_HOST_SUBAGENT_TOOL_INSTRUCTIONS,
 				COPILOT_AGENT_HOST_PASSWORD_PROMPT_TOOL_INSTRUCTION,
 				universalToolInstructions(hasTools()),
 			], [
+				'To find relevant code, first orient yourself with a quick, shallow look at the workspace layout (for example, its top-level directories) unless you already know it, then use that structure to run targeted searches for the concrete file names, symbols, strings, and paths in the request, scoped to the most relevant directories. Run independent searches and reads in parallel in a single batch rather than one at a time. Avoid recursively listing the entire workspace, and stop searching once you have enough context to act.',
 				'When a tool reports that its output was saved to a temporary file because it was too large, inspect that file with targeted, bounded reads: search it for what you need with the `grep` or `rg` tool, then use `view` with a narrow `view_range` to read the relevant lines. Do not dump the whole file (for example with `cat` or `view` without a range) or run broad searches, because oversized output will be offloaded again.',
 				'When launching subagents with the task tool, leave the `model`, `reasoning_effort`, and `context_tier` parameters unset — each agent type already runs on a model suited to it, and overriding the model changes the session\'s cost and behavior profile.\nOnly set the task tool\'s `model` parameter when the user explicitly names the model the subagent should run on.',
 				'When a shell command needs a password, such as `sudo`, ask the user to run it by sending `!<command>` in chat, which runs it in a terminal where they can enter the password, and continue once they confirm it finished.',
