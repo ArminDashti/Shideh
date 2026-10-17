@@ -86,6 +86,11 @@ interface DiffChange extends Change {
 	readonly deletions: number;
 }
 
+interface DiffChange extends Change {
+	readonly insertions: number;
+	readonly deletions: number;
+}
+
 interface Repository {
 	readonly rootUri: vscode.Uri;
 	readonly state: RepositoryState;
@@ -332,6 +337,20 @@ export class ExtHostGitExtensionService extends Disposable implements IExtHostGi
 		} catch {
 			return [];
 		}
+	}
+
+	async $diffBetweenWithStats(handle: number, ref1: string, ref2: string, path?: string): Promise<GitDiffChangeDto[]> {
+		const repository = this._repositories.get(handle);
+		if (!repository) {
+			return [];
+		}
+
+		const changes = await repository.diffBetweenWithStats(ref1, ref2, path);
+		return changes.map(c => ({
+			...toGitChangeDto(c),
+			insertions: c.insertions,
+			deletions: c.deletions,
+		}));
 	}
 
 	private async _ensureGitApi(): Promise<GitExtensionAPI | undefined> {
