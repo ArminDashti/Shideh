@@ -45,7 +45,7 @@ export class ModelPerInlineEdit {
 		this._model.accept(undefined, alternativeAction);
 	}
 
-	handleInlineEditShownNextFrame(viewKind: InlineCompletionViewKind, viewData: InlineCompletionViewData) {
+	handleInlineEditShownNextFrame(viewKind: InlineCompletionViewKind, viewData: InlineCompletionViewData, requestStartTime: number) {
 		const item = this.inlineEdit.inlineCompletion;
 		const timeWhenShown = Date.now();
 		item.addRef();

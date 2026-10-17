@@ -124,6 +124,8 @@ abstract class InlineSuggestionItemBase {
 
 	public get requestUuid(): string { return this._data.context.requestUuid; }
 
+	public get requestStartTime(): number { return this._data.requestStartTime; }
+
 	public get partialAccepts(): PartialAcceptance { return this._data.partialAccepts; }
 
 	/**

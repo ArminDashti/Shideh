@@ -430,6 +430,7 @@ export class InlineSuggestData {
 
 	public get partialAccepts(): PartialAcceptance { return this._partiallyAcceptedSinceOriginal; }
 
+	public get requestStartTime(): number { return this._requestInfo.startTime; }
 
 	public async reportInlineEditShown(commandService: ICommandService, updatedInsertText: string, viewKind: InlineCompletionViewKind, viewData: InlineCompletionViewData, editKind: InlineSuggestionEditKind | undefined, timeWhenShown: number): Promise<void> {
 		this.updateShownDuration(viewKind);
