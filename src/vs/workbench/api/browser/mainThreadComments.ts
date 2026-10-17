@@ -302,7 +302,6 @@ export class MainThreadCommentController extends Disposable implements ICommentC
 	constructor(
 		private readonly _proxy: ExtHostCommentsShape,
 		private readonly _handle: number,
-		private readonly _uniqueId: string,
 		private readonly _id: string,
 		private readonly _label: string,
 		private _features: CommentProviderFeatures,
@@ -356,14 +355,14 @@ export class MainThreadCommentController extends Disposable implements ICommentC
 
 
 		if (thread.isDocumentCommentThread()) {
-			this._commentService.updateComments(this._uniqueId, {
+			this._commentService.updateComments(this._id, {
 				added: [thread],
 				removed: [],
 				changed: [],
 				pending: []
 			});
 		} else {
-			this._commentService.updateNotebookComments(this._uniqueId, {
+			this._commentService.updateNotebookComments(this._id, {
 				added: [thread as MainThreadCommentThread<ICellRange>],
 				removed: [],
 				changed: [],
@@ -382,14 +381,14 @@ export class MainThreadCommentController extends Disposable implements ICommentC
 		thread.batchUpdate(changes);
 
 		if (thread.isDocumentCommentThread()) {
-			this._commentService.updateComments(this._uniqueId, {
+			this._commentService.updateComments(this._id, {
 				added: [],
 				removed: [],
 				changed: [thread],
 				pending: []
 			});
 		} else {
-			this._commentService.updateNotebookComments(this._uniqueId, {
+			this._commentService.updateNotebookComments(this._id, {
 				added: [],
 				removed: [],
 				changed: [thread as MainThreadCommentThread<ICellRange>],
@@ -405,14 +404,14 @@ export class MainThreadCommentController extends Disposable implements ICommentC
 		thread.dispose();
 
 		if (thread.isDocumentCommentThread()) {
-			this._commentService.updateComments(this._uniqueId, {
+			this._commentService.updateComments(this._id, {
 				added: [],
 				removed: [thread],
 				changed: [],
 				pending: []
 			});
 		} else {
-			this._commentService.updateNotebookComments(this._uniqueId, {
+			this._commentService.updateNotebookComments(this._id, {
 				added: [],
 				removed: [thread as MainThreadCommentThread<ICellRange>],
 				changed: [],

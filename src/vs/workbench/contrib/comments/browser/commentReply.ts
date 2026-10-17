@@ -44,6 +44,7 @@ function isCommentThreadReplyContext(context: unknown): context is { thread: lan
 }
 
 export const COMMENTEDITOR_DECORATION_KEY = 'commenteditordecoration';
+export type PendingComment = { comment: string; range: IRange; useTemplate: boolean };
 
 export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 	commentEditor: ICodeEditor;
@@ -203,7 +204,9 @@ export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 		this.commentEditor.focus();
 	}
 
-	public expandReplyAreaAndFocusCommentEditor() {
+	public expandReplyAreaAndFocusCommentEditor(pendingComment?: string) {
+		this._pendingComment = pendingComment;
+		this.commentEditor.setValue(pendingComment ?? '');
 		this.expandReplyArea();
 		this.commentEditor.focus();
 	}

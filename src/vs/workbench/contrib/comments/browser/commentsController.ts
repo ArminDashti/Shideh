@@ -461,6 +461,7 @@ export function revealCommentThread(commentService: ICommentService, editorServi
 export class CommentController extends Disposable implements IEditorContribution {
 	private readonly localToDispose: DisposableStore = this._register(new DisposableStore());
 	private editor: ICodeEditor | undefined;
+	private model: ITextModel | null | undefined;
 	private _commentWidgets: ReviewZoneWidget[];
 	private _commentInfos: ICommentInfo[];
 	private _commentingRangeDecorator!: CommentingRangeDecorator;
@@ -504,6 +505,7 @@ export class CommentController extends Disposable implements IEditorContribution
 		this._commentWidgets = [];
 		this._pendingNewCommentCache = {};
 		this._pendingEditsCache = {};
+		this.restorePendingCommentCache(this.getPendingCommentsFromStore() ?? {});
 		this._computePromise = null;
 		this._activeCursorHasCommentingRange = CommentContextKeys.activeCursorHasCommentingRange.bindTo(contextKeyService);
 		this._activeCursorHasComment = CommentContextKeys.activeCursorHasComment.bindTo(contextKeyService);
@@ -939,6 +941,7 @@ export class CommentController extends Disposable implements IEditorContribution
 	}
 
 	public onModelChanged(): void {
+		this.model = this.editor?.getModel();
 		this.localToDispose.clear();
 		this.tryUpdateReservedSpace();
 
@@ -1428,7 +1431,93 @@ export class CommentController extends Disposable implements IEditorContribution
 		this._commentWidgets?.find(widget => widget.commentThread.threadId === threadId)?.collapseAndFocusRange();
 	}
 
-	private removeCommentWidgetsAndStoreCache() {
+	private storePendingInfo() {
+		const caches = this.collectCommentWidgetsCache();
+		const pendingNewComments: PendingNewComments[] = this.storageService.getObject(pendingNewCommentsKey, StorageScope.WORKSPACE, []);
+		let newCommentsIndex = -1;
+		for (let i = 0; i < pendingNewComments.length; i++) {
+			const pendingNewComment = pendingNewComments[i];
+			if (pendingNewComment.uri.toString() === this.editor?.getModel()?.uri.toString()) {
+				newCommentsIndex = i;
+				pendingNewComment.cache = caches.pendingNewCommentCache;
+				break;
+			}
+		}
+		if (newCommentsIndex === -1) {
+			const uri = this.editor?.getModel()?.uri;
+			if (uri) {
+				pendingNewComments.push({ uri, cache: caches.pendingNewCommentCache });
+			}
+		}
+		this.storageService.store(pendingNewCommentsKey, pendingNewComments, StorageScope.WORKSPACE, StorageTarget.USER);
+
+		const pendingEdits: PendingEdits[] = this.storageService.getObject(pendingEditsKey, StorageScope.WORKSPACE, []);
+		let editsIndex = -1;
+		for (let i = 0; i < pendingEdits.length; i++) {
+			const pendingEdit = pendingEdits[i];
+			if (pendingEdit.uri.toString() === this.editor?.getModel()?.uri.toString()) {
+				editsIndex = i;
+				pendingEdit.cache = caches.pendingEditsCache;
+				break;
+			}
+		}
+		if (editsIndex === -1) {
+			const uri = this.editor?.getModel()?.uri;
+			if (uri) {
+				pendingEdits.push({ uri, cache: caches.pendingEditsCache });
+			}
+		}
+		this.storageService.store(pendingEditsKey, pendingEdits, StorageScope.WORKSPACE, StorageTarget.USER);
+	}
+
+	private restorePendingCommentCache(newValue: { [key: string]: { [key: string]: PendingComment } }) {
+		const owners = Object.keys(newValue);
+		for (const owner of owners) {
+			const threads = Object.keys(newValue[owner]);
+			for (const thread of threads) {
+				if (!this._pendingNewCommentCache[owner]) {
+					this._pendingNewCommentCache[owner] = {};
+				}
+				if (!this._pendingNewCommentCache[owner][thread]) {
+					this._pendingNewCommentCache[owner][thread] = newValue[owner][thread];
+					if (this.model) {
+						const widget = this._commentWidgets.find(widget => widget.owner === owner && Range.equalsRange(widget.commentThread.range, newValue[owner][thread].range));
+						if (widget) {
+							widget.setPendingComment(newValue[owner][thread].comment);
+						} else if (newValue[owner][thread].useTemplate) {
+							this.commentService.createCommentThreadTemplate(owner, this.model.uri, Range.lift(newValue[owner][thread].range));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private restorePendingEditsCache(newValue: { [key: string]: { [key: string]: { [key: number]: string } } }) {
+		const owners = Object.keys(newValue);
+		for (const owner of owners) {
+			const threads = Object.keys(newValue[owner]);
+			for (const thread of threads) {
+				const comments = Object.keys(newValue[owner][thread]);
+				for (const comment of comments) {
+					const commentNumber = Number(comment);
+					if (!this._pendingEditsCache[owner]) {
+						this._pendingEditsCache[owner] = {};
+					}
+					if (!this._pendingEditsCache[owner][thread]) {
+						this._pendingEditsCache[owner][thread] = {};
+					}
+					if (!this._pendingEditsCache[owner][thread][commentNumber]) {
+						this._pendingEditsCache[owner][thread][commentNumber] = newValue[owner][thread][commentNumber];
+					}
+				}
+			}
+		}
+	}
+
+	private collectCommentWidgetsCache(): { pendingNewCommentCache: { [key: string]: { [key: string]: PendingComment } }; pendingEditsCache: { [key: string]: { [key: string]: { [key: number]: string } } } } {
+		const pendingNewCommentCache: { [key: string]: { [key: string]: PendingComment } } = deepClone(this._pendingNewCommentCache);
+		const pendingEditsCache: { [key: string]: { [key: string]: { [key: number]: string } } } = deepClone(this._pendingEditsCache);
 		if (this._commentWidgets) {
 			this._commentWidgets.forEach(zone => {
 				const pendingComments = zone.getPendingComments();
@@ -1466,7 +1555,23 @@ export class CommentController extends Disposable implements IEditorContribution
 				} else if (providerEditsCacheStore) {
 					delete providerEditsCacheStore[zone.commentThread.threadId];
 				}
+			});
+		}
+		return { pendingNewCommentCache, pendingEditsCache };
+	}
 
+	private storeCache() {
+		const newCaches = this.collectCommentWidgetsCache();
+		this._pendingNewCommentCache = newCaches.pendingNewCommentCache;
+		this._pendingEditsCache = newCaches.pendingEditsCache;
+		this.restorePendingCommentCache(this.getPendingCommentsFromStore() ?? {});
+		this.restorePendingEditsCache(this.getPendingEditsFromStore() ?? {});
+	}
+
+	private removeCommentWidgetsAndStoreCache() {
+		this.storeCache();
+		if (this._commentWidgets) {
+			this._commentWidgets.forEach(zone => {
 				zone.dispose();
 			});
 		}

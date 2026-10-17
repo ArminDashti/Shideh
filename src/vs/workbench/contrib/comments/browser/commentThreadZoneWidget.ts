@@ -535,6 +535,11 @@ export class ReviewZoneWidget extends ZoneWidget implements ICommentThreadWidget
 		this._commentThreadWidget.applyTheme(fontInfo);
 	}
 
+	setPendingComment(pendingComment: string) {
+		this.expand();
+		this._commentThreadWidget.expandReplyAreaAndFocusCommentEditor(pendingComment);
+	}
+
 	override show(rangeOrPos: IRange | IPosition | undefined, heightInLines: number): void {
 		const glyphPosition = this._commentGlyph?.getPosition();
 		let range = Range.isIRange(rangeOrPos) ? rangeOrPos : (rangeOrPos ? Range.fromPositions(rangeOrPos) : undefined);
