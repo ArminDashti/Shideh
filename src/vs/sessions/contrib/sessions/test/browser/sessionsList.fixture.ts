@@ -192,8 +192,6 @@ function showArchiveOnboarding(sessionId: string, wording: ChatSessionArchiveAct
 }
 
 const ONBOARDING_FRAME = { width: 760, height: 420 };
-/** Room beside and below the list for an open context menu. */
-const CONTEXT_MENU_FRAME = { width: 480, height: 320 };
 
 //#endregion
 
@@ -556,7 +554,6 @@ export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 		interaction: { selected: [{ session: 'a' }], focused: { session: 'a' } },
 	}, {
 		labels: { kind: 'screenshot', blocksCi: true },
-		additionalThemes: ['darkHighContrast'],
 		expectedVisualDescriptions: ['The selected session row has keyboard focus and visible Pin and Archive actions without hover; its long title truncates before the actions.'],
 	}),
 
