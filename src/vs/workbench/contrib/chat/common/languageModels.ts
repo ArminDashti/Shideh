@@ -1269,6 +1269,8 @@ export class LanguageModelsService implements ILanguageModelsService {
 				}
 			}
 		}
+		this._onLanguageModelChange.fire();
+		this._logService.trace(`[LM] Updated model picker preference for ${modelIdentifier} to ${showInModelPicker}`);
 	}
 
 	private _invalidateVendorCache(vendor: string): void {

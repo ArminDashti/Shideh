@@ -2833,6 +2833,11 @@ export interface IQuotaSnapshotsDto {
 	readonly weeklyRateLimit?: IRateLimitSnapshotDto;
 }
 
+export interface IChatResponseClearToPreviousToolInvocationDto {
+	kind: 'clearToPreviousToolInvocation';
+	reason: ChatResponseClearToPreviousToolInvocationReason;
+}
+
 export type ICellEditOperationDto =
 	notebookCommon.ICellMetadataEdit
 	| notebookCommon.IDocumentMetadataEdit
