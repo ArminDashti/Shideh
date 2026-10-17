@@ -67,6 +67,8 @@ function mergeGitHubReferences<T extends IGitHubIssueRef>(recorded: readonly T[]
  */
 export function getSessionGitHubReferences(session: ISession | undefined, reader: IReader | undefined, chat?: IChat): ISessionGitHubReferences {
 	const chatWorkspace = chat?.workspace?.read(reader);
+	const sessionArtifacts = session?.artifacts?.read(reader) ?? [];
+	const recordedReferenceIds = new Set(sessionArtifacts.filter(artifact => !artifact.isArtifact).map(artifact => artifact.id));
 	// A chat reports the repository associations of each of its folders.
 	const folderGitHubInfos = chatWorkspace
 		? chatWorkspace.folders.map(folder => folder.gitRepository?.gitHubInfo.read(reader)).filter(isDefined)

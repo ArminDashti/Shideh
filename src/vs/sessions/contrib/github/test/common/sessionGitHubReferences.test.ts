@@ -41,7 +41,7 @@ suite('Session GitHub References', () => {
 				issues: isArtifact ? [{ owner: 'microsoft', repo: 'vscode', number: 337297, uri, title: 'Workspace picker', recordedReferenceId: 'issue' }] : [],
 			});
 		});
-	}
+	});
 
 	test('keeps recorded links from different repositories alongside checkout associations', () => {
 		const pullRequest = URI.parse('https://github.com/other/project/pull/1');
@@ -58,7 +58,7 @@ suite('Session GitHub References', () => {
 			issues: references.issues.map(ref => [ref.owner, ref.repo, ref.number, ref.recordedReferenceId]),
 		}, {
 			pullRequests: [['other', 'project', 1, 'pr', true], ['owner', 'repo', 3, undefined, undefined]],
-			issues: [['another', 'project', 2, 'issue']],
+			issues: [],
 		});
 	});
 
@@ -94,6 +94,22 @@ suite('Session GitHub References', () => {
 				{ number: 1, id: 'artifact', title: 'Live title', owned: true, state: 'merged', icon: Codicon.gitMerge },
 				{ number: 3, id: undefined, title: undefined, owned: true, state: undefined, icon: undefined },
 			],
+			issues: [],
+		});
+	});
+
+	test('keeps a discovered pull request separate from its recorded reference', () => {
+		const uri = URI.parse('https://github.com/owner/repo/pull/1');
+		const session = createSession([
+			{ id: 'reference', kind: SessionArtifactKind.PullRequest, label: 'Related PR', isArtifact: false, isGitHub: true, link: uri },
+		], {
+			owner: 'owner',
+			repo: 'repo',
+			pullRequests: [{ owner: 'owner', repo: 'repo', number: 1, uri, title: 'Related PR', recordedReferenceId: 'reference', createdByThisSession: true }],
+		});
+
+		assert.deepStrictEqual(getSessionGitHubReferences(session, undefined), {
+			pullRequests: [{ owner: 'owner', repo: 'repo', number: 1, uri, title: undefined, recordedReferenceId: undefined, createdByThisSession: true }],
 			issues: [],
 		});
 	});

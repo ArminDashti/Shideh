@@ -1314,7 +1314,7 @@ suite('SessionChatInputToolbar', () => {
 					opened: [isPullRequest ? { pullRequest: { ...ref, createdByThisSession: true } } : { issue: ref }],
 					removeLabel: `Remove ${isPullRequest ? 'Pull Request' : 'Issue'} Artifact from Session`,
 					removed: [{ owningSession: true, id: 'recorded' }],
-					modelRequests: [`microsoft/vscode/${isPullRequest ? 'pull/42' : 'issues/337297'}`],
+					modelRequests: isArtifact ? [`microsoft/vscode/${isPullRequest ? 'pull/42' : 'issues/337297'}`] : [],
 					unrelatedArtifactModelRequests: 0,
 					remainingPills: 0,
 				} : {
@@ -1444,7 +1444,7 @@ suite('SessionChatInputToolbar', () => {
 				return undefined;
 			}
 			target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-			return menu.find(action => action.id.startsWith('sessionChatPills.removePullRequest.'));
+			return menu.find(action => action.id === 'sessions.artifacts.remove.pr-reference');
 		};
 		const unavailable = !!removal();
 		capabilities.set({ supportsMultipleChats: false, supportsRemoveArtifacts: true }, undefined);
