@@ -1289,6 +1289,26 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		}
 	}
 
+	/**
+	 * Records a mirrored patch. These keys are host-level and last-writer-wins
+	 * across every window on the host, so both the connect-time push and later
+	 * configuration changes have to be attributable.
+	 */
+	private _logMirroredRootConfig(trigger: string, patch: Record<string, unknown>): void {
+		if (!Object.keys(patch).length) {
+			return;
+		}
+		const settingIds = new Map(getAgentHostConfigurationSyncEntries(this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY)
+			.map(entry => [entry.sync.key, entry.settingId] as const));
+		const mirrored = Object.entries(patch).map(([key, value]) => {
+			const settingId = settingIds.get(key);
+			return settingId
+				? `${key}=${formatAgentHostConfigurationSyncValueForLog(settingId, value)} (${settingId})`
+				: key;
+		});
+		this._logService.info(`[RemoteAgentHostProtocol] Mirroring configuration to host root config (${trigger}): ${mirrored.join(', ')}`);
+	}
+
 	private _updateAutoApprovePolicyRestriction(): void {
 		const policyRestricted = this._configurationService.inspect<boolean>(GLOBAL_AUTO_APPROVE_SETTING_ID)?.policyValue === false;
 		this._dispatchRootConfig({ [AgentHostAutoApprovePolicyRestrictedConfigKey]: policyRestricted });
