@@ -397,6 +397,39 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		await Promise.all(promises);
 	}
 
+	private async getWindowsMutex(context: string): Promise<IWindowsMutexModule | undefined> {
+		try {
+			return await import('@vscode/windows-mutex');
+		} catch (error) {
+			this.logService.error(`update#${context}: failed to import windows mutex module`, error);
+			this.logApplyBreadcrumb('mutex_import_failed');
+			return undefined;
+		}
+	}
+
+	private isInstallerMutexActive(mutex: IWindowsMutexModule): boolean {
+		if (!this.productService.win32MutexName) {
+			return false;
+		}
+
+		const setupMutexName = `${this.productService.win32MutexName}setup`;
+		const updatingMutexName = `${this.productService.win32MutexName}-updating`;
+		return mutex.isActive(setupMutexName) || mutex.isActive(updatingMutexName);
+	}
+
+	private isReadyMutexActive(mutex: IWindowsMutexModule): boolean {
+		if (!this.productService.win32MutexName) {
+			return false;
+		}
+
+		const readyMutexName = `${this.productService.win32MutexName}-ready`;
+		return mutex.isActive(readyMutexName);
+	}
+
+	private logApplyBreadcrumb(reason: 'mutex_import_failed' | 'installer_already_running' | 'resume_installer_missing' | 'poll_timeout' | 'recovery_with_active_installer'): void {
+		this.telemetryService.publicLog2<{ reason: string }, IUpdateWin32ApplyBreadcrumbClassification>('update:win32ApplyBreadcrumb', { reason });
+	}
+
 	protected override async doApplyUpdate(): Promise<void> {
 		if (this.state.type !== StateType.Downloaded) {
 			return Promise.resolve(undefined);
@@ -409,6 +442,18 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const update = this.state.update;
 		const explicit = this.state.explicit;
 		this.setState(State.Updating(update, explicit));
+
+		const mutex = await this.getWindowsMutex('doApplyUpdate');
+		if (!mutex) {
+			this.setState(State.Idle(getUpdateType(), 'Unable to coordinate update setup state'));
+			return;
+		}
+
+		const installerAlreadyRunning = this.isInstallerMutexActive(mutex);
+		if (installerAlreadyRunning) {
+			this.logService.info('update#doApplyUpdate: installer already running, skipping setup spawn');
+			this.logApplyBreadcrumb('installer_already_running');
+		}
 
 		const cachePath = await this.cachePath;
 		const sessionEndFlagPath = path.join(cachePath, 'session-ending.flag');
@@ -712,6 +757,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.setState(State.Downloading(update, true, false));
 		this.availableUpdate = { packagePath };
 		this.setState(State.Downloaded(update, true, false));
+
+		const mutex = await this.getWindowsMutex('_applySpecificUpdate');
+		if (mutex && this.isInstallerMutexActive(mutex)) {
+			this.logService.info('update#_applySpecificUpdate: installer already running during recovery, not spawning a second setup');
+			this.logApplyBreadcrumb('recovery_with_active_installer');
+		}
 
 		if (fastUpdatesEnabled && this.productService.target === 'user') {
 			this.doApplyUpdate();

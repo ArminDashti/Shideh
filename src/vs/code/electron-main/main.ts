@@ -651,6 +651,7 @@ class CodeMain {
 		}
 
 		try {
+			const setupMutexName = `${productService.win32MutexName}setup`;
 			const updatingMutexName = `${productService.win32MutexName}-updating`;
 			const mutex = await import('@vscode/windows-mutex');
 
