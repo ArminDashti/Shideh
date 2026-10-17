@@ -10,6 +10,7 @@ import { VSBuffer } from '../../../base/common/buffer.js';
 import { IBrowserViewAudience, IBrowserViewBounds, IBrowserViewDevToolsStateEvent, IBrowserViewFocusEvent, IBrowserViewKeyDownEvent, IBrowserViewState, IBrowserViewNavigationEvent, IBrowserViewLoadingEvent, IBrowserViewLoadError, IBrowserViewTitleChangeEvent, IBrowserViewFaviconChangeEvent, IBrowserViewCaptureScreenshotOptions, IBrowserViewFindInPageOptions, IBrowserViewFindInPageResult, IBrowserViewVisibilityEvent, browserViewIsolatedWorldId, browserZoomFactors, browserZoomDefaultIndex, IBrowserViewOwner, IBrowserViewEditorOpenOptions, IBrowserViewPermissionRequestEvent, equalsBrowserViewAudience, isBrowserViewAssociatedResourceNavigation, matchesBrowserViewAudience, IBrowserViewHost, BrowserViewPresentation } from '../common/browserView.js';
 import { BrowserViewEmulator } from './browserViewEmulator.js';
 import { BrowserViewInspector } from './browserViewInspector.js';
+import { BrowserViewAgentNetworkFilterSources } from './browserViewAgentNetworkFilter.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 import { ICodeWindow, LoadReason } from '../../window/electron-main/window.js';
 import { IAuxiliaryWindowsMainService } from '../../auxiliaryWindow/electron-main/auxiliaryWindows.js';
@@ -684,6 +685,23 @@ export class BrowserView extends Disposable {
 		return this._view.webContents;
 	}
 
+	setAgentNetworkFiltering(sourceId: string, enabled: boolean): void {
+		this.session.setAgentNetworkFiltering(this._webContentsId, this._agentNetworkFilterSources.set(sourceId, enabled));
+	}
+
+	setAgentNetworkAction(sourceId: string, enabled: boolean): void {
+		if (enabled) {
+			this._agentNetworkActionSources.add(sourceId);
+		} else {
+			this._agentNetworkActionSources.delete(sourceId);
+		}
+		this.session.setAgentNetworkAction(this._webContentsId, sourceId, enabled);
+	}
+
+	getAgentNetworkPolicyError(navigationOnly?: boolean): string | undefined {
+		return this.session.getAgentNetworkPolicyError(this._webContentsId, navigationOnly);
+	}
+
 	/**
 	 * Get the current navigation state of this browser view
 	 */
@@ -1222,6 +1240,13 @@ export class BrowserView extends Disposable {
 			return;
 		}
 		this._isDisposed = true;
+		this._agentNetworkFilterSources.clear();
+		this.session.setAgentNetworkFiltering(this._webContentsId, false);
+		for (const sourceId of this._agentNetworkActionSources) {
+			this.session.setAgentNetworkAction(this._webContentsId, sourceId, false);
+		}
+		this._agentNetworkActionSources.clear();
+		this.session.unregisterAgentNetworkWebContents(this._webContentsId);
 
 		// Dispose debugger. This detaches debug sessions first.
 		this.debugger.dispose();

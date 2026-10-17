@@ -260,6 +260,7 @@ export class BrowserSession {
 		readonly storageScope: BrowserViewStorageScope,
 		@IAgentNetworkFilterService private readonly agentNetworkFilterService: IAgentNetworkFilterService,
 	) {
+		this._agentNetworkFilter = new BrowserSessionNetworkFilter(agentNetworkFilterService);
 		this._trust = new BrowserSessionTrust(this);
 		this._history = new BrowserSessionHistory(this);
 		this._remote = new BrowserSessionRemote(this);
@@ -290,6 +291,26 @@ export class BrowserSession {
 	/** Public permissions interface owning per-origin permission state. */
 	get permissions(): IBrowserSessionPermissions {
 		return this._permissions;
+	}
+
+	setAgentNetworkFiltering(webContentsId: number, enabled: boolean): void {
+		this._agentNetworkFilter.setFiltering(webContentsId, enabled);
+	}
+
+	registerAgentNetworkWebContents(webContentsId: number): void {
+		this._agentNetworkFilter.registerWebContents(webContentsId);
+	}
+
+	unregisterAgentNetworkWebContents(webContentsId: number): void {
+		this._agentNetworkFilter.unregisterWebContents(webContentsId);
+	}
+
+	setAgentNetworkAction(webContentsId: number, sourceId: string, enabled: boolean): void {
+		this._agentNetworkFilter.setAgentAction(webContentsId, sourceId, enabled);
+	}
+
+	getAgentNetworkPolicyError(webContentsId: number, navigationOnly?: boolean): string | undefined {
+		return this._agentNetworkFilter.getPolicyError(webContentsId, navigationOnly);
 	}
 
 	/**
@@ -334,6 +355,7 @@ export class BrowserSession {
 	 */
 	private configure(): void {
 		this._permissions.configure(this.electronSession);
+		this.electronSession.webRequest.onBeforeRequest((details, callback) => this._agentNetworkFilter.onBeforeRequest(details, callback));
 		this.electronSession.registerPreloadScript({
 			type: 'frame',
 			filePath: FileAccess.asFileUri('vs/platform/browserView/electron-browser/preload-browserView.js').fsPath

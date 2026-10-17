@@ -465,6 +465,7 @@ export interface IBrowserViewModel extends IDisposable {
 	findInPage(text: string, options?: IBrowserViewFindInPageOptions): Promise<void>;
 	stopFindInPage(keepSelection?: boolean): Promise<void>;
 	getSelectedText(): Promise<string>;
+	getNetworkPolicyError(): Promise<string | undefined>;
 	clearStorage(): Promise<void>;
 	setOwner(owner: IBrowserViewOwner): Promise<void>;
 	setSharedWithAgent(shared: boolean): Promise<IBrowserViewModel | undefined>;

@@ -246,6 +246,8 @@ export type IBrowserViewOwner =
 export interface IBrowserViewAgentAudience {
 	readonly type: 'agent';
 	readonly sessionId?: string;
+	/** Optional source that keeps network filtering active while an agent tracks the view. */
+	readonly agentNetworkFilterSourceId?: string;
 }
 
 export type IBrowserViewAudience = IBrowserViewAgentAudience;
