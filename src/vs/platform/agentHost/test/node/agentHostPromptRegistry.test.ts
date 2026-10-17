@@ -168,7 +168,7 @@ suite('AgentHostPromptRegistry', () => {
 		registry.registerPrompt(class {
 			static readonly familyPrefixes = ['claude'];
 			resolveSectionOverrides(_model: ModelSelection, ctx: IAgentHostPromptContext): Partial<Record<SystemMessageSection, SectionOverride>> | undefined {
-				return ctx.getSetting(CopilotCliConfigKey.Opus48Prompt) === true ? { tone: { action: 'append', content: 'GATED' } } : undefined;
+				return ctx.getSetting(CopilotCliConfigKey.RubberDuck) === true ? { tone: { action: 'append', content: 'GATED' } } : undefined;
 			}
 		});
 		assert.deepStrictEqual(
@@ -190,8 +190,10 @@ suite('AgentHostPromptRegistry', () => {
 	suite('Opus contributor (registered via allPrompts)', () => {
 		const opusModel: ModelSelection = { id: 'claude-opus-4-8' };
 
-		function resolveOpus(enabled: boolean | undefined) {
-			return agentHostPromptRegistry.resolveSystemMessageConfig(opusModel, context(enabled === undefined ? {} : { [CopilotCliConfigKey.Opus48Prompt]: enabled }));
+		function resolveOpus(tools: readonly string[] = []) {
+			const config = agentHostPromptRegistry.resolveSystemMessageConfig(opusModel, context({}, tools));
+			assert.strictEqual(config.mode, 'customize');
+			return config;
 		}
 
 		test('applies customize overrides only when enabled', () => {

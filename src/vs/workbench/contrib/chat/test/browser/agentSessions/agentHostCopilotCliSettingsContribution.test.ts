@@ -210,13 +210,13 @@ suite('AgentHostCopilotCliSettingsContribution', () => {
 			]);
 		});
 		agentHostService.setRootState(makeRootStateWithSchema({
-			[CopilotCliConfigKey.Opus48Prompt]: { type: 'boolean', title: 'Opus 4.8 Agent Prompt' },
+			[CopilotCliConfigKey.ToolSearchEnabled]: { type: 'boolean', title: 'Agent Host Tool Search' },
 		}));
 		await flush();
 
 		assert.strictEqual(agentHostService.dispatchedActions.length, 1);
 		assert.deepStrictEqual((agentHostService.dispatchedActions[0].action as IRootConfigChangedAction).config, {
-			[CopilotCliConfigKey.Opus48Prompt]: true,
+			[CopilotCliConfigKey.ToolSearchEnabled]: true,
 		});
 	});
 
@@ -276,7 +276,7 @@ suite('AgentHostCopilotCliSettingsContribution', () => {
 	test('does not dispatch to a host whose schema does not advertise any key', async () => {
 		const { agentHostService } = setup(disposables, {
 			[AgentHostCopilotSdkLogLevelSettingId]: 'trace',
-			[AgentHostOpus48PromptEnabledSettingId]: true,
+			[AgentHostToolSearchEnabledSettingId]: true,
 		});
 		agentHostService.setRootState(makeRootStateWithSchema({}));
 		await flush();

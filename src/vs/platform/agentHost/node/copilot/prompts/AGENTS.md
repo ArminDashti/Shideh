@@ -111,6 +111,36 @@ The runtime keeps its *own* per-model config (system-prompt parts, capabilities,
 
 > **Security note.** The setting is application-scoped (not workspace-configurable) and forwarded to the agent host. `promptOverrideString` and `promptOverrideFile` deliberately carry prompt content and a host-local file path for debugging and evaluation; do not add other prompt or filesystem inputs to this setting without an explicit security review. Code-managed prompt experiments should still use a contributor (Lever 2) gated on its own opt-in setting.
 
+### Owning the whole prompt
+
+To replace all of the SDK's guidance, do NOT reach for `replace` mode. Use
+`customize` with `action: 'replace'` on every instruction-bearing section —
+`preamble`, `tone`, `tool_efficiency`, `code_change_rules`, `guidelines`,
+`tool_instructions`, `last_instructions` — which is what `anthropicPrompt.ts`
+does. You keep what `replace` mode would silently cost you:
+
+- **Repository custom instructions.** In `replace` mode the CLI never loads
+  them, so `AGENTS.md` / `.github/copilot-instructions.md` stop applying.
+- **Session context and the git co-author trailer.**
+- **This folder's composition layer** — universal `tool_instructions` lines, the
+  file-link contract, and the workspace-less scratch block, all of which only
+  run for `customize` configs.
+
+Leave `environment_context`, `custom_instructions` and `runtime_instructions`
+alone: they carry session facts, not guidance.
+
+**`identity` is a group, not a section.** It expands to `preamble`, `tone`,
+`tool_efficiency`, `search_and_delegation`, `version_information`,
+`model_information` and `task_instructions`, so `identity: replace` drops all
+seven — including the model banner the agent needs to answer "which model are
+you?" and the search/delegation text the SDK interpolates the session's real
+tool names into. Address the three you actually own individually instead.
+
+**`safety` is not a static section either.** It maps to
+`environment_limitations`, whose opening line the SDK picks from the live
+sandbox config (`chat.agentHost.sdkSandbox.enabled`); replacing it hardcodes one
+sandbox state and drops the prohibited-actions list. `append` to it.
+
 ## Reference
 
 - **Modes** (`SystemMessageConfig.mode`): `append` (foundation + text, default), `customize` (override named sections), `replace` (own the whole prompt, no guardrails).
