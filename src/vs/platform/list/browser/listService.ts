@@ -1485,6 +1485,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			description: localize('sticky scroll', "Controls whether sticky scrolling is enabled in trees."),
+			tags: ['experimental']
 		},
 		[treeStickyScrollMaxElements]: {
 			type: 'number',

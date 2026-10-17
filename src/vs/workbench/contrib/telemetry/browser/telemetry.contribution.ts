@@ -177,6 +177,38 @@ export class TelemetryContribution extends Disposable implements IWorkbenchContr
 		}
 	}
 
+	private stickyScrollExperimentTelemetry(): void {
+		type StickyScrollConfigurationEvent = { value: boolean };
+		type BaseStickyScrollConfigurationClassification = {
+			comment: 'Helps understand the effectiveness of the sticky scroll gradual release';
+			value: {
+				classification: 'SystemMetaData';
+				purpose: 'FeatureInsight';
+				comment: 'Helps understand the effectiveness of the sticky scroll gradual release';
+			};
+		};
+
+		type StickyScrollConfigurationClassificationTree = BaseStickyScrollConfigurationClassification & {
+			owner: 'BeniBenj';
+		};
+
+		type StickyScrollConfigurationClassificationEditor = BaseStickyScrollConfigurationClassification & {
+			owner: 'aiday-mar';
+		};
+
+		// Editor
+		const editorStickyScrollSetting = this.configurationService.getValue<boolean>('editor.stickyScroll.enabled');
+		this.telemetryService.publicLog2<StickyScrollConfigurationEvent, StickyScrollConfigurationClassificationEditor>('stickyScrollSettingEditor', {
+			value: editorStickyScrollSetting
+		});
+
+		// Tree
+		const treeStickyScrollSetting = this.configurationService.getValue<boolean>('workbench.tree.enableStickyScroll');
+		this.telemetryService.publicLog2<StickyScrollConfigurationEvent, StickyScrollConfigurationClassificationTree>('stickyScrollSettingTree', {
+			value: treeStickyScrollSetting
+		});
+	}
+
 	private getTypeIfSettings(resource: URI): string {
 		if (extname(resource) !== '.json') {
 			return '';
