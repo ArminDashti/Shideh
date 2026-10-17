@@ -80,6 +80,7 @@ export class EditorRemoteAgentHostServiceClient extends Disposable implements IA
 		onDidApplyAction: Event.None,
 	};
 	private _connectStarted = false;
+	private _didFireAgentHostStart = false;
 
 	constructor(
 		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
