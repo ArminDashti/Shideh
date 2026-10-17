@@ -126,6 +126,13 @@ enum LayoutClasses {
 	PHONE_LAYOUT = 'phone-layout'
 }
 
+/**
+ * Width threshold (in CSS pixels) below which the sessions workbench
+ * switches to a compact, single-column layout suitable for phones and
+ * other narrow viewports.
+ */
+const COMPACT_WIDTH_THRESHOLD = 600;
+
 //#endregion
 
 //#region Part Visibility State
@@ -447,6 +454,7 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 	};
 
 	private mainWindowFullscreen = false;
+	private _isCompact = false;
 	private readonly maximized = new Set<number>();
 	protected readonly layoutPolicy = this._register(new SessionsLayoutPolicy());
 	private readonly mobileNavStack = this._register(new MobileNavigationStack());
