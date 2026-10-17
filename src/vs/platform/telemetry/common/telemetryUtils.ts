@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { cloneAndChange, safeStringify } from '../../../base/common/objects.js';
+import { ProxyChannel } from '../../../base/parts/ipc/common/ipc.js';
 import { isObject } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
 import { localize } from '../../../nls.js';

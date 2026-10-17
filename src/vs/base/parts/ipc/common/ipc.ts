@@ -1149,6 +1149,16 @@ export namespace ProxyChannel {
 		unbufferedEvents?: readonly string[];
 	}
 
+	let bufferUsageReporter: ((serviceName: string, eventName: string, bufferedCount: number) => void) | undefined;
+
+	/**
+	 * Sets a process-wide reporter invoked when a {@link fromService} channel flushes buffered events to a
+	 * late-attaching listener, to discover which channels rely on buffering. Pass `undefined` to clear.
+	 */
+	export function setBufferUsageReporter(reporter: ((serviceName: string, eventName: string, bufferedCount: number) => void) | undefined): void {
+		bufferUsageReporter = reporter;
+	}
+
 	export function fromService<TContext>(service: unknown, disposables: DisposableStore, options?: ICreateServiceChannelOptions): IServerChannel<TContext> {
 		const handler = service as { [key: string]: unknown };
 		const disableMarshalling = options?.disableMarshalling;

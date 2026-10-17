@@ -61,7 +61,7 @@ import { ICustomEndpointTelemetryService, ITelemetryService } from '../../../pla
 import { TelemetryAppenderChannel } from '../../../platform/telemetry/common/telemetryIpc.js';
 import { TelemetryLogAppender } from '../../../platform/telemetry/common/telemetryLogAppender.js';
 import { TelemetryService } from '../../../platform/telemetry/common/telemetryService.js';
-import { supportsTelemetry, ITelemetryAppender, NullAppender, NullTelemetryService, getPiiPathsFromEnvironment, isInternalTelemetry, isLoggingOnly } from '../../../platform/telemetry/common/telemetryUtils.js';
+import { supportsTelemetry, ITelemetryAppender, NullAppender, NullTelemetryService, getPiiPathsFromEnvironment, isInternalTelemetry, isLoggingOnly, installProxyChannelBufferUsageTelemetry } from '../../../platform/telemetry/common/telemetryUtils.js';
 import { CustomEndpointTelemetryService } from '../../../platform/telemetry/node/customEndpointTelemetryService.js';
 import { ExtensionStorageService, IExtensionStorageService } from '../../../platform/extensionManagement/common/extensionStorage.js';
 import { IgnoredExtensionsManagementService, IIgnoredExtensionsManagementService } from '../../../platform/userDataSync/common/ignoredExtensions.js';
