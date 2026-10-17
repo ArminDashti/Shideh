@@ -468,7 +468,7 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 
 		this._register(runWhenGlobalIdle(() => {
 			this._updateChecksInitialized = true;
-			this._scheduleUpdateCheck();
+			void this._initializeUpdateChecks();
 			this._register(Event.filter(
 				_configurationService.onDidChangeConfiguration,
 				e => e.affectsConfiguration(AutoUpdateConfigurationKey)
@@ -1085,6 +1085,11 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 	}
 
 	private async _doRunUpdateCheck(): Promise<void> {
+		await this._meteredConnectionService.whenInitialized;
+		if (this._store.isDisposed) {
+			return;
+		}
+
 		if (this._meteredConnectionService.isConnectionMetered) {
 			return;
 		}
