@@ -331,7 +331,7 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 	readonly onReset = this._onReset.event;
 
 	constructor(
-		@IMcpGalleryManifestService mcpGalleryManifestService: IMcpGalleryManifestService,
+		@IMcpGalleryManifestService private readonly mcpGalleryManifestService: IMcpGalleryManifestService,
 		@IMcpGalleryService private readonly mcpGalleryService: IMcpGalleryService,
 		@IWorkbenchMcpManagementService private readonly mcpManagementService: IWorkbenchMcpManagementService,
 		@IEditorService private readonly editorService: IEditorService,
@@ -1097,6 +1097,33 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 		return undefined;
 	}
 
+	private getConfiguredRegistryInfo(): { hasRegistry: boolean; registryUrl?: string } {
+		const registryUrl = this.configurationService.getValue<string>(mcpGalleryServiceUrlConfig);
+		if (registryUrl) {
+			return { hasRegistry: true, registryUrl };
+		}
+
+		// Check if product has a default gallery
+		const manifest = this.mcpGalleryManifestService.mcpGalleryManifestStatus;
+		if (manifest === 'available') {
+			return { hasRegistry: true };
+		}
+
+		return { hasRegistry: false };
+	}
+
+	private getRegistryDisabledMessage(settingsCommandLink: string, registrySettingsLink: string): string {
+		const registryInfo = this.getConfiguredRegistryInfo();
+
+		if (registryInfo.hasRegistry && registryInfo.registryUrl) {
+			return localize('disabled - not from registry with url', "This MCP server is disabled because it is not from one of the [configured registries]({0}). Currently configured registry: `{1}`. This [setting]({2}) restricts the allowed registries.", registrySettingsLink, registryInfo.registryUrl, settingsCommandLink);
+		} else if (registryInfo.hasRegistry) {
+			return localize('disabled - not from registry', "This MCP server is disabled because it is not from one of the configured MCP registries. This [setting]({0}) restricts the allowed registries.", settingsCommandLink);
+		} else {
+			return localize('disabled - no registry configured', "This MCP server is disabled because no MCP registry is configured. Please configure a [registry URL]({0}) or change the [access setting]({1}).", registrySettingsLink, settingsCommandLink);
+		}
+	}
+
 	private getEnablementStatus(mcpServer: McpWorkbenchServer): McpServerEnablementStatus | undefined {
 		if (!mcpServer.local) {
 			return undefined;
@@ -1122,7 +1149,7 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 					state: McpServerEnablementState.DisabledByAccess,
 					message: {
 						severity: Severity.Warning,
-						text: new MarkdownString(localize('disabled - some not allowed', "This MCP Server is disabled because it is configured to be disabled in the Editor. Please check your [settings]({0}).", settingsCommandLink))
+						text: new MarkdownString(this.getRegistryDisabledMessage(settingsCommandLink, registrySettingsLink))
 					}
 				};
 			}
@@ -1134,7 +1161,7 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 					state: McpServerEnablementState.DisabledByAccess,
 					message: {
 						severity: Severity.Warning,
-						text: new MarkdownString(localize('disabled - some not allowed', "This MCP Server is disabled because it is configured to be disabled in the Editor. Please check your [settings]({0}).", settingsCommandLink))
+						text: new MarkdownString(this.getRegistryDisabledMessage(settingsCommandLink, registrySettingsLink))
 					}
 				};
 			}
