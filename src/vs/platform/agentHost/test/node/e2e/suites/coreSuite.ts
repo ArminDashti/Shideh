@@ -520,6 +520,7 @@ export function defineCoreTests(context: IAgentHostE2ETestContext): void {
 		const state = await fetchSessionWithChat(context.client, sessionUri);
 		assert.deepStrictEqual({
 			response: replacement.responseText.trim(),
+			cancelledTurns: state.turns.filter(turn => turn.id === turnId).map(turn => turn.state),
 			replacementTurns: state.turns.filter(turn => turn.id === 'turn-after-input-cancel').map(turn => ({
 				message: turn.message.text,
 				state: turn.state,
@@ -528,6 +529,7 @@ export function defineCoreTests(context: IAgentHostE2ETestContext): void {
 			inputNeeded: state.inputNeeded,
 		}, {
 			response: 'replacement',
+			cancelledTurns: [TurnState.Cancelled],
 			replacementTurns: [{ message: 'Reply exactly "replacement".', state: TurnState.Complete }],
 			activeTurn: undefined,
 			inputNeeded: undefined,
