@@ -968,7 +968,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		);
 	}
 
-	private async _createRequest(requestDto: Dto<IChatAgentRequest>, context: { history: IChatAgentHistoryEntryDto[] }, extension: IExtensionDescription) {
+	private async _createRequest(requestDto: Dto<IChatAgentRequest>, context: { history: IChatAgentHistoryEntryDto[]; isDefault?: boolean; isContributedChatSession?: boolean }, extension: IExtensionDescription) {
 		const request = revive<IChatAgentRequest>(requestDto);
 		const convertedHistory = await this.prepareHistoryTurns(extension, request.agentId, context);
 
@@ -1230,7 +1230,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		this._onDidChangeActiveChatPanelSessionResource.fire(sessionResource);
 	}
 
-	async $provideFollowups(requestDto: Dto<IChatAgentRequest>, handle: number, result: IChatAgentResult, context: { history: IChatAgentHistoryEntryDto[] }, token: CancellationToken): Promise<IChatFollowup[]> {
+	async $provideFollowups(requestDto: Dto<IChatAgentRequest>, handle: number, result: IChatAgentResult, context: { history: IChatAgentHistoryEntryDto[]; isContributedChatSession?: boolean }, token: CancellationToken): Promise<IChatFollowup[]> {
 		const agent = this._agents.get(handle);
 		if (!agent) {
 			return Promise.resolve([]);
