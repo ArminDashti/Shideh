@@ -62,9 +62,6 @@ import { IAgentHostAuthenticationService } from '../agentHostAuthenticationServi
 import { IAgentHostGitHubEndpointService } from '../agentHostGitHubEndpointService.js';
 import { AGENT_MERGE_GITHUB_TOOL_RESTRICTION, getAgentMergeGitHubToolRestriction, isAgentMergeRestrictedMcpServer } from '../shared/agentMergeToolRestrictions.js';
 
-// Re-export for callers that import IRematerializer from the session.
-export type { IRematerializer } from './claudeSdkPipeline.js';
-
 /**
  * Inputs to {@link ClaudeAgentSession.materialize}. Carries the
  * agent-supplied dependencies that the session itself does not own
@@ -582,6 +579,7 @@ export class ClaudeAgentSession extends Disposable {
 				dbRef,
 				this.subagents,
 				(toolName: string) => this.toolDiff.model.ownerOf(toolName),
+				() => this._rebuildSdkQuery(),
 			));
 		} catch (err) {
 			dbRef.dispose();
@@ -689,6 +687,64 @@ export class ClaudeAgentSession extends Disposable {
 		// client-pushed slice; firing here prompts the workbench to refetch
 		// and pick up the bundled `Discovered in Claude` entry.
 		this._onDidCustomizationsChange.fire();
+	}
+
+	/**
+	 * Build the SDK `Options` from live session state and start the subprocess —
+	 * the single source of truth for creating a `WarmQuery` (materialize and every
+	 * rebuild). Returns the permission mode it built with.
+	 */
+	private async _startSdkQuery(isResume: boolean, abortController: AbortController): Promise<{ readonly warm: WarmQuery; readonly permissionMode: ClaudePermissionMode }> {
+		const start = this._sdkStart;
+		if (!start) {
+			throw new Error(`Cannot start SDK for session ${this.sessionId}: materialize context missing`);
+		}
+		const workingDirectory = this.workingDirectory;
+		if (!workingDirectory) {
+			throw new Error(`Cannot start SDK for session ${this.sessionId}: workingDirectory is required`);
+		}
+		const permissionMode = resolveCurrentPermissionMode(this._configurationService, this._storageUri, this._permissionModeFallback);
+		const { mcpServers, allowedTools } = await this._buildStartupToolWiring(start.serverToolHost);
+		const agentName = await resolveClaudeAgentName(this._provisionalAgent, this._fileService, this._logService, this.sessionId);
+		const options = await buildOptions(
+			{
+				sessionId: this.sessionId,
+				workingDirectory,
+				model: this._provisionalModel,
+				abortController,
+				permissionMode,
+				canUseTool: start.canUseTool,
+				onElicitation: start.onElicitation,
+				isResume,
+				resumeSessionAt: this._pendingResumeSessionAt,
+				mcpServers,
+				allowedTools,
+				plugins: this.clientCustomizationsDiff.consume(),
+				agent: agentName,
+			},
+			start.transport,
+			data => this._logService.error(`[Claude SDK stderr] ${data}`),
+		);
+		this._logService.info(`[Claude] session ${this.sessionId}: startup isResume=${isResume} agent=${options.agent ?? '(none)'}`);
+		const warm = await this._sdkService.startup({ options });
+		return { warm, permissionMode };
+	}
+
+	/**
+	 * The pipeline's rebuild hook ({@link IRematerializer}), passed at construction.
+	 * On failure re-marks the tool / customization diffs dirty and rethrows.
+	 */
+	private async _rebuildSdkQuery(): Promise<{ readonly warm: WarmQuery; readonly abortController: AbortController }> {
+		const abortController = new AbortController();
+		try {
+			const { warm } = await this._startSdkQuery(true, abortController);
+			this._pendingResumeSessionAt = undefined;
+			return { warm, abortController };
+		} catch (err) {
+			this.toolDiff.markDirty();
+			this.clientCustomizationsDiff.markDirty();
+			throw err;
+		}
 	}
 
 	/**
@@ -878,20 +934,6 @@ export class ClaudeAgentSession extends Disposable {
 	 */
 	async shutdownLiveQuery(): Promise<void> {
 		await this._pipeline?.shutdownAndWait();
-	}
-
-	/**
-	 * Seed the pipeline's current + applied config cache from
-	 * materialize-time `Options`. The SDK already starts with these
-	 * values, so the cache prevents a redundant first `setModel` /
-	 * `applyFlagSettings` call.
-	 */
-	seedBijectiveState(state: { model?: string; effort?: ClaudeRuntimeEffortLevel; permissionMode?: PermissionMode }): void {
-		this._requirePipeline().seedCurrentConfig(state.model, state.effort, state.permissionMode);
-	}
-
-	attachRematerializer(rematerializer: IRematerializer): void {
-		this._requirePipeline().attachRematerializer(rematerializer);
 	}
 
 	/**
@@ -1245,16 +1287,6 @@ export class ClaudeAgentSession extends Disposable {
 	completeClientToolCall(toolCallId: string, result: ToolCallResult): boolean {
 		const converted = convertToolCallResult(result, toolCallId);
 		return this._pendingClientToolCalls.respond(toolCallId, converted);
-	}
-
-	/**
-	 * Drive a yield-restart so the SDK picks up the new client-tool set
-	 * on its next user request. Public entry point for callers that need
-	 * to force a tool-only rebind; internal pre-flight goes through
-	 * {@link _rebindForSyncedState}.
-	 */
-	async rebindForClientTools(): Promise<void> {
-		await this._rebindForSyncedState();
 	}
 
 	// #endregion
