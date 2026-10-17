@@ -346,10 +346,71 @@ class CliMain extends Disposable {
 		else if (this.argv.telemetry) {
 			console.log(await buildTelemetryMessage(environmentService.appRoot, environmentService.extensionsPath));
 		}
+
+		// Export Theme Colors
+		else if (this.argv['export-theme-colors'] !== undefined) {
+			const outputPath = this.argv['export-theme-colors'];
+			const themeColors = this.generateThemeColorsJSON();
+			
+			if (outputPath) {
+				// Write to file
+				fs.writeFileSync(outputPath, themeColors, 'utf8');
+				console.log(`Theme colors exported to: ${outputPath}`);
+			} else {
+				// Output to stdout
+				console.log(themeColors);
+			}
+		}
 	}
 
 	private asExtensionIdOrVSIX(inputs: string[]): (string | URI)[] {
 		return inputs.map(input => /\.vsix$/i.test(input) ? URI.file(isAbsolute(input) ? input : join(cwd(), input)) : input);
+	}
+
+	private generateThemeColorsJSON(): string {
+		const colorRegistry = getColorRegistry();
+		const allColors = colorRegistry.getColors();
+		
+		const result = {
+			version: "1.0",
+			generated: new Date().toISOString(),
+			description: "Complete VS Code theme color definitions with default values",
+			totalColors: allColors.length,
+			colors: {} as Record<string, any>
+		};
+
+		for (const color of allColors) {
+			const colorInfo: any = {
+				description: color.description,
+				needsTransparency: color.needsTransparency
+			};
+
+			// Handle different types of defaults
+			if (color.defaults) {
+				if (typeof color.defaults === 'object' && color.defaults !== null && 'light' in color.defaults) {
+					// This is a ColorDefaults object with theme variants
+					colorInfo.defaults = {
+						light: color.defaults.light,
+						dark: color.defaults.dark,
+						hcDark: color.defaults.hcDark,
+						hcLight: color.defaults.hcLight
+					};
+				} else {
+					// This is a single ColorValue
+					colorInfo.defaults = color.defaults;
+				}
+			} else {
+				colorInfo.defaults = null;
+			}
+
+			if (color.deprecationMessage) {
+				colorInfo.deprecationMessage = color.deprecationMessage;
+			}
+
+			result.colors[color.id] = colorInfo;
+		}
+
+		return JSON.stringify(result, null, 2);
 	}
 }
 
