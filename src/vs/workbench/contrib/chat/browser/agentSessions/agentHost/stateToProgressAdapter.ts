@@ -50,7 +50,7 @@ import { AgentHostCompletionReferenceKind, restoreChatTranscriptContextVariableE
 import { type IToolConfirmationMessages, type IToolData, type IPreparedToolInvocation, type IToolResult, type IToolResultInputOutputDetails, ToolDataSource, ToolInvocationPresentation } from '../../../common/tools/languageModelToolsService.js';
 import { MCP } from '../../../../mcp/common/modelContextProtocol.js';
 import { basename, isEqual } from '../../../../../../base/common/resources.js';
-import { hasKey, type Mutable } from '../../../../../../base/common/types.js';
+import { hasKey, isObject, type Mutable } from '../../../../../../base/common/types.js';
 import { localize } from '../../../../../../nls.js';
 import type { IRange } from '../../../../../../editor/common/core/range.js';
 import { isSessionReferenceTrajectoryAttachment, restoreSessionReferenceVariableEntryFromAttachment } from './agentHostSessionReferenceAttachment.js';
@@ -1653,6 +1653,42 @@ function getTerminalCommandResult(tc: { content?: ToolResultContent[] }): Termin
 	return tc.content?.find(c => (c as { type: string }).type === 'terminalComplete') as ILegacyTerminalCompleteContent | undefined;
 }
 
+interface ITerminalCommandStructuredContent {
+	readonly exitCode?: number;
+	readonly cwd?: string;
+}
+
+function readTerminalCommandStructuredContent(structuredContent: Record<string, unknown> | undefined): ITerminalCommandStructuredContent | undefined {
+	const terminalCommand = structuredContent?.['terminalCommand'];
+	if (!isObject(terminalCommand)) {
+		return undefined;
+	}
+	const exitCode = Reflect.get(terminalCommand, 'exitCode');
+	const cwd = Reflect.get(terminalCommand, 'cwd');
+	if (typeof exitCode !== 'number' && typeof cwd !== 'string') {
+		return undefined;
+	}
+	return {
+		...(typeof exitCode === 'number' ? { exitCode } : {}),
+		...(typeof cwd === 'string' ? { cwd } : {}),
+	};
+}
+
+function getTerminalCommandState(tc: ToolCallState, fallbackSuccess?: boolean): IChatTerminalToolInvocationData['terminalCommandState'] | undefined {
+	const structuredContent = tc.status === ToolCallStatus.Completed || tc.status === ToolCallStatus.PendingResultConfirmation
+		? tc.structuredContent
+		: undefined;
+	const terminalCommand = readTerminalCommandStructuredContent(structuredContent);
+	if (terminalCommand !== undefined) {
+		if (terminalCommand.exitCode !== undefined) {
+			return { exitCode: terminalCommand.exitCode };
+		}
+		return undefined;
+	}
+
+	return fallbackSuccess === undefined ? undefined : { exitCode: fallbackSuccess ? 0 : 1 };
+}
+
 function getTerminalLanguage(tc: ToolCallState) {
 	return tc.toolName === 'powershell' ? 'powershell' : 'shellscript';
 }
@@ -2025,6 +2061,7 @@ export function completedToolCallToSerialized(tc: ICompletedToolCall, subAgentIn
 
 	let toolSpecificData: IChatTerminalToolInvocationData | IChatSearchToolInvocationData | IChatToolInputInvocationData | IChatSessionCreatedData | IChatGeneratedImageData | IChatAutomationConfiguredData | undefined;
 	if (isTerminal) {
+		const terminalCommandState = getTerminalCommandState(tc, isSuccess);
 		toolSpecificData = {
 			...buildTerminalToolSpecificData(tc, sessionResource),
 			terminalCommandState: getTerminalCommandState(tc, isSuccess),
@@ -2996,6 +3033,7 @@ export function finalizeToolInvocation(invocation: ChatToolInvocation, tc: ToolC
 
 	if (isTerminal && (isCompleted || isCancelled)) {
 		const existing = invocation.toolSpecificData?.kind === 'terminal' ? invocation.toolSpecificData : undefined;
+		const terminalCommandState = getTerminalCommandState(tc, isCompleted && tc.success);
 		invocation.presentation = undefined;
 		invocation.toolSpecificData = {
 			...buildTerminalToolSpecificData(tc, backendSession, existing),

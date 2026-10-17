@@ -1142,6 +1142,7 @@ function makeCompletedToolCallPart(
 		success: d.success,
 		pastTenseMessage: getPastTenseMessage(info.toolName, info.displayName, info.parameters, d.success, d.success ? toolOutput : undefined, path => resolveToolDisplayPath(path, workingDirectory), resolveAgentName),
 		content: content.length > 0 ? content : undefined,
+		structuredContent: isShellTool(info.toolName) ? getSdkTerminalStructuredContentFromText(d.result?.content) : d.result?.structuredContent,
 		error: d.error,
 		confirmed: ToolCallConfirmationReason.NotNeeded,
 		_meta: toToolCallMeta({

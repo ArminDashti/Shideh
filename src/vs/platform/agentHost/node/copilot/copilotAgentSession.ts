@@ -6833,6 +6833,7 @@ export class CopilotAgentSession extends Disposable {
 			}
 			const displayName = tracked.displayName;
 			const toolOutput = e.data.error?.message ?? e.data.result?.content;
+			const structuredContent = isShellTool(tracked.toolName) ? getSdkTerminalStructuredContentFromText(e.data.result?.content) : e.data.result?.structuredContent;
 
 			if (isTaskCompleteTool(tracked.toolName)) {
 				if (this._shouldDropSubagentEvent(e, 'tool.execution_complete')) {
