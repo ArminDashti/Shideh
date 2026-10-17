@@ -150,6 +150,8 @@ export interface IStorageService {
 	 *
 	 * @param target allows to define the target of the storage operation
 	 * to either the current machine or user.
+	 *
+	 * @param source allows to specify the source of the storage change.
 	 */
 	store(key: string, value: StorageValue, scope: StorageScope, target: StorageTarget): void;
 
