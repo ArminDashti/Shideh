@@ -116,7 +116,8 @@ export class NotebookCellsLayout implements IRangeMap {
 		if (afterPosition > 0) {
 			const index = afterPosition - 1;
 			const itemSize = this._items[index].size;
-			const accSize = itemSize + size;
+			const allWhitespacesAtPosition = this._whitespace.filter(ws => ws.afterPosition === afterPosition);
+			const accSize = itemSize + allWhitespacesAtPosition.reduce((acc, ws) => acc + ws.size, 0);
 			this._prefixSumComputer.setValue(index, accSize);
 		}
 	}
@@ -135,14 +136,16 @@ export class NotebookCellsLayout implements IRangeMap {
 			if (oldAfterPosition > 0 && oldAfterPosition <= this._items.length) {
 				const index = oldAfterPosition - 1;
 				const itemSize = this._items[index].size;
-				const accSize = itemSize;
+				const remainingWhitespacesAtOldPosition = this._whitespace.filter(ws => ws.afterPosition === oldAfterPosition);
+				const accSize = itemSize + remainingWhitespacesAtOldPosition.reduce((acc, ws) => acc + ws.size, 0);
 				this._prefixSumComputer.setValue(index, accSize);
 			}
 
 			if (afterPosition > 0 && afterPosition <= this._items.length) {
 				const index = afterPosition - 1;
 				const itemSize = this._items[index].size;
-				const accSize = itemSize + size;
+				const allWhitespacesAtNewPosition = this._whitespace.filter(ws => ws.afterPosition === afterPosition);
+				const accSize = itemSize + allWhitespacesAtNewPosition.reduce((acc, ws) => acc + ws.size, 0);
 				this._prefixSumComputer.setValue(index, accSize);
 			}
 		}
@@ -189,7 +192,10 @@ export class NotebookCellsLayout implements IRangeMap {
 		const index = afterPosition - 1;
 		const previousItemPosition = this._prefixSumComputer.getPrefixSum(index);
 		const previousItemSize = this._items[index].size;
-		return previousItemPosition + previousItemSize + whitespaceBeforeFirstItem + this.paddingTop;
+		// find all whitespaces at the same position but with higher priority (smaller number)
+		const whitespacesAtSamePosition = this._whitespace.filter(ws => ws.afterPosition === afterPosition && ws.priority < whitespace.priority);
+		const whitespacesAtSamePositionSize = whitespacesAtSamePosition.reduce((acc, ws) => acc + ws.size, 0);
+		return previousItemPosition + previousItemSize + whitespaceBeforeFirstItem + this.paddingTop + whitespacesAtSamePositionSize;
 	}
 
 	indexAt(position: number): number {
