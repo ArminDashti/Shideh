@@ -211,7 +211,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 					// markers can misfire and getOutput() includes the command echo.
 					// Strip it defensively — the function is a no-op when the output
 					// is already clean.
-					output = stripCommandEchoAndPrompt(commandOutput, commandLine, this._log.bind(this));
+					output = stripCommandEchoAndPrompt(commandOutput, commandLineForOutput, this._log.bind(this));
 				}
 			}
 			if (output === undefined) {
@@ -223,7 +223,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 					// The marker-based output includes the command echo and trailing
 					// prompt lines. Strip them to isolate the actual command output.
 					if (output !== undefined) {
-						output = stripCommandEchoAndPrompt(output, commandLine, this._log.bind(this));
+						output = stripCommandEchoAndPrompt(output, commandLineForOutput, this._log.bind(this));
 					}
 
 					if (startMarkerDisposed) {

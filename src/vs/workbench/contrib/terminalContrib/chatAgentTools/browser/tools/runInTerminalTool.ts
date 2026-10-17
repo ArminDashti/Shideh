@@ -3434,6 +3434,7 @@ class ActiveTerminalExecution extends Disposable implements IActiveTerminalExecu
 	 * @param commandLine The command to execute
 	 * @param token Cancellation token
 	 * @param commandId Optional command ID for linking
+	 * @param stripCommandLine Optional command line to strip from output as the visible command echo
 	 * @returns The execution result
 	 */
 	async start(commandLine: string, token: CancellationToken, commandId?: string, commandLineForMetadata?: string): Promise<ITerminalExecuteStrategyResult> {

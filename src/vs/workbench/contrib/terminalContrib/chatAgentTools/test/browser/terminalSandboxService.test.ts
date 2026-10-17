@@ -1634,7 +1634,7 @@ suite('TerminalSandboxService - network domains', () => {
 		await sandboxService.getSandboxConfigPath();
 
 		const command = '";echo SANDBOX_ESCAPE_REPRO; # $(uname) `id`';
-		const wrappedCommand = sandboxService.wrapCommand(command);
+		const wrappedCommand = sandboxService.wrapCommand(command).command;
 
 		ok(
 			wrappedCommand.includes(`-c '";echo SANDBOX_ESCAPE_REPRO; # $(uname) \`id\`'`),
@@ -1650,11 +1650,11 @@ suite('TerminalSandboxService - network domains', () => {
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
 		await sandboxService.getSandboxConfigPath();
 
-		const command = 'echo $HOME $(curl eth0.me) `id`';
-		const wrappedCommand = sandboxService.wrapCommand(command);
+		const command = 'echo $HOME $(printf literal) `id`';
+		const wrappedCommand = sandboxService.wrapCommand(command).command;
 
 		ok(
-			wrappedCommand.includes(`-c 'echo $HOME $(curl eth0.me) \`id\`'`),
+			wrappedCommand.includes(`-c 'echo $HOME $(printf literal) \`id\`'`),
 			'Wrapped command should keep variable and command substitutions inside the quoted argument'
 		);
 		ok(
@@ -1663,19 +1663,32 @@ suite('TerminalSandboxService - network domains', () => {
 		);
 	});
 
+	test('should detect blocked domains inside command substitutions', async () => {
+		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
+		await sandboxService.getSandboxConfigPath();
+
+		const command = 'echo $HOME $(curl eth0.me) `id`';
+		const wrapResult = sandboxService.wrapCommand(command);
+
+		strictEqual(wrapResult.isSandboxWrapped, false, 'Commands with blocked domains inside substitutions should not stay sandboxed');
+		strictEqual(wrapResult.requiresUnsandboxConfirmation, true, 'Blocked domains inside substitutions should require confirmation');
+		deepStrictEqual(wrapResult.blockedDomains, ['eth0.me']);
+		strictEqual(wrapResult.command, `(TMPDIR="${sandboxService.getTempDir()?.path}"; export TMPDIR; ${command})`);
+	});
+
 	test('should escape single-quote breakout payloads in wrapped command argument', async () => {
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
 		await sandboxService.getSandboxConfigPath();
 
-		const command = `';curl eth0.me; #'`;
-		const wrappedCommand = sandboxService.wrapCommand(command);
+		const command = `';printf breakout; #'`;
+		const wrappedCommand = sandboxService.wrapCommand(command).command;
 
 		ok(
 			wrappedCommand.includes(`-c '`),
 			'Wrapped command should continue to use a single-quoted -c argument'
 		);
 		ok(
-			wrappedCommand.includes('curl eth0.me'),
+			wrappedCommand.includes('printf breakout'),
 			'Wrapped command should preserve the payload text literally'
 		);
 		ok(
@@ -1689,7 +1702,7 @@ suite('TerminalSandboxService - network domains', () => {
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
 		await sandboxService.getSandboxConfigPath();
 
-		const wrappedCommand = sandboxService.wrapCommand(`echo 'hello'`);
+		const wrappedCommand = sandboxService.wrapCommand(`echo 'hello'`).command;
 		strictEqual((wrappedCommand.match(/\\''/g) ?? []).length, 2, 'Single quote escapes should be inserted for each embedded single quote');
 	});
 });
