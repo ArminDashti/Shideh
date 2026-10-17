@@ -2802,6 +2802,37 @@ export class CopilotAgentSession extends Disposable {
 	}
 
 	/**
+	 * Builds SDK tool handlers for the agent host's feedback ("comments")
+	 * server tools. Each handler executes the tool against this session's
+	 * annotations channel via the {@link IAgentFeedbackToolHost} and returns
+	 * its textual result. Returns an empty list when no feedback tool host is
+	 * wired (e.g. test / standalone construction).
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private _createServerSdkTools(): Tool<any>[] {
+		const host = this._feedbackToolHost;
+		if (!host) {
+			return [];
+		}
+		const sessionUri = this.sessionUri.toString();
+		return feedbackServerToolDefinitions.map(def => ({
+			name: def.name,
+			description: def.description ?? '',
+			parameters: def.inputSchema ?? { type: 'object' as const, properties: {} },
+			handler: async (args: Record<string, unknown>): Promise<ToolResultObject> => {
+				try {
+					const text = host.executeTool(sessionUri, def.name, args);
+					return { textResultForLlm: text, resultType: 'success' };
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					this._logService.error(error, `[Copilot:${this.sessionId}] Failed in feedback server tool handler: tool=${def.name}`);
+					return { textResultForLlm: message, resultType: 'failure', error: message };
+				}
+			},
+		}));
+	}
+
+	/**
 	 * Resolves a pending client tool call. If the SDK handler has not yet
 	 * registered for `toolCallId`, the result is buffered so the handler
 	 * resolves immediately once it does.

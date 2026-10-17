@@ -11240,27 +11240,7 @@ suite('AgentHostChatContribution', () => {
 
 			assert.strictEqual(agentHostService.turnActions.length, 1);
 			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
-			assert.deepStrictEqual(turnAction.message.attachments, [{
-				type: MessageAttachmentKind.Simple,
-				label: 'Feedback',
-				modelRepresentation: 'Feedback text for the model',
-				displayKind: AgentFeedbackAttachmentDisplayKind,
-				_meta: {
-					source: 'test',
-					[AgentFeedbackAttachmentMetadataKey]: {
-						sessionResource: sessionResource.toString(),
-						feedbackItems: [{
-							id: 'feedback-1',
-							text: 'Please simplify this.',
-							resourceUri: URI.file('/workspace/foo.ts').toString(),
-							range: {
-								start: { line: 1, character: 2 },
-								end: { line: 3, character: 4 },
-							},
-						}],
-					},
-				},
-			}]);
+			assert.strictEqual(turnAction.message.attachments, undefined);
 		}));
 
 		test('directory variable with file:// URI becomes directory attachment', () => runWithFakedTimers({ useFakeTimers: true }, async () => {

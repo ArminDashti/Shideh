@@ -370,6 +370,11 @@ export class AgentFeedbackService extends Disposable implements IAgentFeedbackSe
 	/** Annotations-channel-backed store for agent-host sessions; created lazily. */
 	private _annotationsBackend: AnnotationsAgentFeedbackItemsBackend | undefined;
 
+	/** In-memory store used for every non-agent-host provider. */
+	private readonly _inMemoryBackend = this._register(new InMemoryAgentFeedbackItemsBackend());
+	/** Annotations-channel-backed store for agent-host sessions; created lazily. */
+	private _annotationsBackend: AnnotationsAgentFeedbackItemsBackend | undefined;
+
 	constructor(
 		@IChatEditingService private readonly _chatEditingService: IChatEditingService,
 		@ISessionsManagementService private readonly _sessionsManagementService: ISessionsManagementService,
@@ -525,6 +530,43 @@ export class AgentFeedbackService extends Disposable implements IAgentFeedbackSe
 		if (isEqual(sessionResource, AGENT_FEEDBACK_NEW_SESSION_RESOURCE)) {
 			this._rebindNewSessionWorkspace();
 		}
+	}
+
+	/** Resolves the storage backend that owns feedback for the given session. */
+	private _backendForSession(sessionResource: URI): IAgentFeedbackItemsBackend {
+		if (this._isAgentHostSession(sessionResource)) {
+			return this._getAnnotationsBackend();
+		}
+		return this._inMemoryBackend;
+	}
+
+	private _getAnnotationsBackend(): AnnotationsAgentFeedbackItemsBackend {
+		if (!this._annotationsBackend) {
+			this._annotationsBackend = this._register(this._instantiationService.createInstance(AnnotationsAgentFeedbackItemsBackend));
+			this._register(this._annotationsBackend.onDidChangeItems(resource => this._handleBackendChange(resource)));
+		}
+		return this._annotationsBackend;
+	}
+
+	private _backends(): readonly IAgentFeedbackItemsBackend[] {
+		return this._annotationsBackend ? [this._inMemoryBackend, this._annotationsBackend] : [this._inMemoryBackend];
+	}
+
+	/**
+	 * Centralized handler for backend item changes (local mutations and
+	 * server-driven updates). Maintains recency ordering and re-broadcasts the
+	 * generic feedback / navigation change events.
+	 */
+	private _handleBackendChange(sessionResource: URI): void {
+		const key = sessionResource.toString();
+		const feedbackItems = this._backendForSession(sessionResource).getItems(sessionResource);
+		if (feedbackItems.length) {
+			this._sessionUpdatedOrder.set(key, ++this._sessionUpdatedSequence);
+		} else {
+			this._sessionUpdatedOrder.delete(key);
+		}
+		this._onDidChangeFeedback.fire({ sessionResource, feedbackItems });
+		this._onDidChangeNavigation.fire(sessionResource);
 	}
 
 	private _trackVisibleEditorResources(): void {

@@ -18090,6 +18090,73 @@ Use the attached image as context.
 		});
 	});
 
+	// ---- Feedback server tools ---------------------------------------------
+
+	suite('feedback server tools', () => {
+
+		class FakeFeedbackToolHost implements IAgentFeedbackToolHost {
+			readonly advertised: string[] = [];
+			readonly executions: Array<{ sessionUri: string; toolName: string; rawArgs: unknown }> = [];
+			result = 'ok';
+			error: Error | undefined;
+
+			advertise(sessionUri: string): void {
+				this.advertised.push(sessionUri);
+			}
+
+			executeTool(sessionUri: string, toolName: string, rawArgs: unknown): string {
+				this.executions.push({ sessionUri, toolName, rawArgs });
+				if (this.error) {
+					throw this.error;
+				}
+				return this.result;
+			}
+		}
+
+		test('advertises the feedback tools on initialize and exposes them as server SDK tools', async () => {
+			const feedbackToolHost = new FakeFeedbackToolHost();
+			const { runtime } = await createAgentSession(disposables, { feedbackToolHost });
+
+			const sessionUri = AgentSession.uri('copilot', 'test-session-1').toString();
+			assert.deepStrictEqual(feedbackToolHost.advertised, [sessionUri]);
+
+			const tools = runtime.createServerSdkTools();
+			assert.deepStrictEqual(tools.map(t => t.name).sort(), [...feedbackServerToolNames].sort());
+		});
+
+		test('server tool handler routes to the host and returns a success result', async () => {
+			const feedbackToolHost = new FakeFeedbackToolHost();
+			feedbackToolHost.result = 'listed 2 comments';
+			const { runtime } = await createAgentSession(disposables, { feedbackToolHost });
+
+			const tools = runtime.createServerSdkTools();
+			const result = await invokeClientToolHandler(tools[0], 'tc-feedback', { foo: 'bar' });
+
+			const sessionUri = AgentSession.uri('copilot', 'test-session-1').toString();
+			assert.deepStrictEqual(feedbackToolHost.executions, [{ sessionUri, toolName: tools[0].name, rawArgs: { foo: 'bar' } }]);
+			assert.strictEqual(result.resultType, 'success');
+			assert.strictEqual(result.textResultForLlm, 'listed 2 comments');
+		});
+
+		test('server tool handler surfaces host failures as a failure result', async () => {
+			const feedbackToolHost = new FakeFeedbackToolHost();
+			feedbackToolHost.error = new Error('boom');
+			const { runtime } = await createAgentSession(disposables, { feedbackToolHost });
+
+			const tools = runtime.createServerSdkTools();
+			const result = await invokeClientToolHandler(tools[0], 'tc-feedback');
+
+			assert.strictEqual(result.resultType, 'failure');
+			assert.strictEqual(result.textResultForLlm, 'boom');
+			assert.strictEqual(result.error, 'boom');
+		});
+
+		test('exposes no server SDK tools and advertises nothing when no host is wired', async () => {
+			const { runtime } = await createAgentSession(disposables);
+			assert.deepStrictEqual(runtime.createServerSdkTools(), []);
+		});
+	});
+
 	// ---- Plan mode ----------------------------------------------------------
 
 	suite('plan mode', () => {
