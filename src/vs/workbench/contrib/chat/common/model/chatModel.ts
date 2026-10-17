@@ -708,10 +708,14 @@ class AbstractResponse implements IResponse {
 					segment = { text: part.content.value, isBlock: true };
 					break;
 				case 'toolInvocation':
-				case 'toolInvocationSerialized':
-					// Include tool invocations in the copy text
-					segment = this.getToolInvocationText(part);
+				case 'toolInvocationSerialized': {
+					// Skip hidden tool invocations
+					const toolText = this.getToolInvocationText(part);
+					if (toolText) {
+						segment = toolText;
+					}
 					break;
+				}
 				case 'inlineReference':
 					segment = { text: this.inlineRefToRepr(part) };
 					break;
@@ -743,6 +747,10 @@ class AbstractResponse implements IResponse {
 					// Ignore any unknown/obsolete parts, but assert that all are handled:
 					softAssertNever(part);
 					continue;
+			}
+
+			if (!segment) {
+				continue;
 			}
 
 			if (segment.isBlock) {

@@ -40,6 +40,7 @@ import { ChatRequestQueueKind, ChatResponseClearToPreviousToolInvocationReason, 
 import { IToolResult, ToolDataSource } from '../../../common/tools/languageModelToolsService.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../common/constants.js';
 import { MockChatService } from '../chatService/mockChatService.js';
+import { ToolDataSource, ToolInvocationPresentation } from '../../../common/tools/languageModelToolsService.js';
 
 suite('ChatModel', () => {
 	const testDisposables = ensureNoDisposablesAreLeakedInTestSuite();
