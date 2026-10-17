@@ -4296,6 +4296,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		// Only append child tools (those with subAgentInvocationId)
 		if (!isParentSubagentTool(toolInvocation)) {
 			subagentPart.appendToolInvocation(toolInvocation, codeBlockStartIndex);
+			// Set up confirmation watcher for this tool
+			this.setupSubagentConfirmationWatcher(toolInvocation, subagentPart, context, templateData);
 		}
 
 		return subagentPart;
@@ -5000,6 +5002,32 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		});
 
 		thinkingPart.addDisposable(disposable);
+	}
+
+	// watch for confirmation when tool invocation is in a subagent
+	private setupSubagentConfirmationWatcher(
+		toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized,
+		subagentPart: ChatSubagentContentPart,
+		context: IChatContentPartRenderContext,
+		templateData: IChatListItemTemplate
+	): void {
+		if (toolInvocation.kind !== 'toolInvocation' || !IChatToolInvocation.isStreaming(toolInvocation)) {
+			return;
+		}
+
+		let wasStreaming = true;
+		const disposable = autorun(reader => {
+			const state = toolInvocation.state.read(reader);
+			if (wasStreaming && state.type !== IChatToolInvocation.StateKind.Streaming) {
+				wasStreaming = false;
+				if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+					// Expand the subagent to show the confirmation
+					subagentPart.expand();
+				}
+			}
+		});
+
+		subagentPart.addDisposable(disposable);
 	}
 
 	private renderExtensionsContent(extensionsContent: IChatExtensionsContent, context: IChatContentPartRenderContext, templateData: IChatListItemTemplate): IChatContentPart | undefined {

@@ -121,6 +121,7 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 	private agentDisplayName: string | undefined;
 	private agentName: string | undefined;
 	private prompt: string | undefined;
+	private currentToolStatus: string | undefined;
 
 	// Lazy rendering support
 	private readonly lazyItems: ILazyItem[] = [];
@@ -400,6 +401,7 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 		private readonly currentWidthDelegate: () => number,
 		private readonly announcedToolProgressKeys: Set<string>,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IChatMarkdownAnchorService private readonly chatMarkdownAnchorService: IChatMarkdownAnchorService,
 		@IHoverService hoverService: IHoverService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
