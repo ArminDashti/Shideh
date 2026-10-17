@@ -157,7 +157,7 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'workbench/screencastmode',
 					label: localize('screencastMode', "Screencast Mode"),
-					settings: ['screencastMode.*']
+					settings: ['workbench.screencastMode.enabled', 'screencastMode.*']
 				},
 				{
 					id: 'workbench/browser',
