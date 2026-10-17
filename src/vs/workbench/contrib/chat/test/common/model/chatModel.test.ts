@@ -713,7 +713,7 @@ suite('ChatModel', () => {
 		model.inputModel.setState({ inputText: 'typing', contrib: { widgetOwnedKey: 'from-widget' } });
 
 		assert.deepStrictEqual(model.inputModel.state.get()?.contrib, {
-			customizationMigrationHintShown: true,
+			serviceOwnedKey: true,
 			widgetOwnedKey: 'from-widget',
 		});
 	});

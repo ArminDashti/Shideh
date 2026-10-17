@@ -9,8 +9,7 @@ import { IStringDictionary } from '../../../../../base/common/collections.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { BugIndicatingError, ErrorNoTelemetry, isCancellationError, onUnexpectedError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
-import { createMarkdownCommandLink, MarkdownString } from '../../../../../base/common/htmlContent.js';
+import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableResourceMap, DisposableStore, IDisposable, MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
@@ -62,14 +61,10 @@ import { IPromptsService } from '../promptSyntax/service/promptsService.js';
 import { AGENT_DEBUG_LOG_FILE_LOGGING_ENABLED_SETTING, TROUBLESHOOT_COMMAND_NAME, TROUBLESHOOT_SKILL_PATH, COPILOT_SKILL_URI_SCHEME } from '../promptSyntax/promptTypes.js';
 import { ChatRequestHooks, mergeHooks } from '../promptSyntax/hookSchema.js';
 import { ComputeAutomaticInstructions } from '../promptSyntax/computeAutomaticInstructions.js';
-import { ICustomizationMigrationHint, ICustomizationMigrationService } from '../promptSyntax/service/customizationMigrationService.js';
-import { ICustomizationMigrationTelemetryService } from '../promptSyntax/service/customizationMigrationTelemetryService.js';
 import { findLast } from '../../../../../base/common/arraysFind.js';
 import { ChatMode } from '../chatModes.js';
-import { AICustomizationManagementCommands, getCustomizationMigrationHintDismissedStorageKey } from '../aiCustomizationWorkspaceService.js';
 
 const serializedChatKey = 'interactive.sessions';
-const customizationMigrationHintShownStateKey = 'customizationMigrationHintShown';
 
 /**
  * True when the user has typed text or attached non-trivial context to the input
@@ -269,8 +264,6 @@ export class ChatService extends Disposable implements IChatService {
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IChatDebugService private readonly chatDebugService: IChatDebugService,
-		@ICustomizationMigrationTelemetryService private readonly customizationMigrationTelemetryService: ICustomizationMigrationTelemetryService,
-		@ICustomizationMigrationService private readonly customizationMigrationService: ICustomizationMigrationService,
 	) {
 		super();
 
@@ -1790,11 +1783,10 @@ export class ChatService extends Disposable implements IChatService {
 					const thisRequest = request;
 					completeResponseCreated();
 
-					// --- Step 2: Collect request context and hints in parallel (after UI is shown) ---
-					const [hooksResult, instructionEntries, customizationMigrationHint] = await Promise.all([
+					// --- Step 2: Collect request context in parallel (after UI is shown) ---
+					const [hooksResult, instructionEntries] = await Promise.all([
 						collectHooks(),
 						collectInstructions(),
-						collectCustomizationMigrationHint(),
 					]);
 					const collectedHooks = hooksResult.hooks;
 					const hasDisabledClaudeHooks = hooksResult.hasDisabledClaudeHooks;
