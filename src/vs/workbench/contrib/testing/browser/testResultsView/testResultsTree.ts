@@ -21,7 +21,6 @@ import { MarshalledId } from '../../../../../base/common/marshallingIds.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { count } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { isDefined } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { MenuEntryActionViewItem, fillInActionBarActions } from '../../../../../platform/actions/browser/menuEntryActionViewItem.js';
@@ -41,6 +40,7 @@ import { ITestExplorerFilterState } from '../../common/testExplorerFilterState.j
 import { TestId } from '../../common/testId.js';
 import { ITestProfileService } from '../../common/testProfileService.js';
 import { ITestResult, ITestRunTaskResults, LiveTestResult, TestResultItemChangeReason, maxCountPriority } from '../../common/testResult.js';
+import { TestResultTreeState } from '../../common/testResultTreeState.js';
 import { ITestResultService } from '../../common/testResultService.js';
 import { IRichLocation, ITestItemContext, ITestMessage, InternalTestItem, TestMessageType, TestResultItem, TestResultState, TestRunProfileBitset, testResultStateToContextValues } from '../../common/testTypes.js';
 import { TestingContextKeys } from '../../common/testingContextKeys.js';
@@ -360,15 +360,27 @@ export class OutputPeekTree extends Disposable {
 		)) as WorkbenchCompressibleObjectTree<TreeElement, FuzzyScore>;
 
 		const cc = new CreationCache<TreeElement>();
+		const taskItems = new Map<TaskElement, TestResultTreeState<void>>();
+		const messageChildren = new Map<TestResultItem, ICompressedTreeElement<TreeElement>[]>();
 
-		const getTaskChildren = (taskElem: TaskElement): Iterable<ICompressedTreeElement<TreeElement>> => {
+		const getTaskChildren = (taskElem: TaskElement, includeMessageChildren = true, changedItems?: Set<TestResultItem>): Iterable<ICompressedTreeElement<TreeElement>> => {
 			const { results, index, itemsCache, task } = taskElem;
-			const tests = Iterable.filter(results.tests, test => test.tasks[index].state >= TestResultState.Running || test.tasks[index].messages.length > 0);
-			let result: Iterable<ICompressedTreeElement<TreeElement>> = Iterable.map(tests, test => ({
-				element: itemsCache.getOrCreate(test, () => new TestCaseElement(results, test, index)),
-				incompressible: true,
-				children: getTestChildren(results, test, index),
-			}));
+			const state = taskItems.get(taskElem) ?? new TestResultTreeState<void>();
+			taskItems.set(taskElem, state);
+			if (includeMessageChildren) {
+				state.update(Iterable.filter(results.tests, test => test.tasks[index].state >= TestResultState.Running || test.tasks[index].messages.length > 0), true);
+			} else {
+				state.update([], false, changedItems);
+			}
+			const testElements: ICompressedTreeElement<TreeElement>[] = [];
+			for (const test of state.getItems()) {
+				testElements.push({
+					element: itemsCache.getOrCreate(test, () => new TestCaseElement(results, test, index)),
+					incompressible: true,
+					children: includeMessageChildren ? getTestChildren(results, test, index) : messageChildren.get(test) ?? [],
+				});
+			}
+			let result: Iterable<ICompressedTreeElement<TreeElement>> = testElements;
 
 			if (task.coverage.get()) {
 				result = Iterable.concat(
@@ -385,13 +397,16 @@ export class OutputPeekTree extends Disposable {
 		};
 
 		const getTestChildren = (result: ITestResult, test: TestResultItem, taskIndex: number): Iterable<ICompressedTreeElement<TreeElement>> => {
-			return test.tasks[taskIndex].messages
-				.map((m, messageIndex) =>
-					m.type === TestMessageType.Error
-						? { element: cc.getOrCreate(m, () => new TestMessageElement(result, test, taskIndex, messageIndex)), incompressible: false }
-						: undefined
-				)
-				.filter(isDefined);
+			const children: ICompressedTreeElement<TreeElement>[] = [];
+			const messages = test.tasks[taskIndex].messages;
+			for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+				const m = messages[messageIndex];
+				if (m.type === TestMessageType.Error) {
+					children.push({ element: cc.getOrCreate(m, () => new TestMessageElement(result, test, taskIndex, messageIndex)), incompressible: false });
+				}
+			}
+			messageChildren.set(test, children);
+			return children;
 		};
 
 		const getResultChildren = (result: ITestResult): ICompressedTreeElement<TreeElement>[] => {
@@ -445,18 +460,26 @@ export class OutputPeekTree extends Disposable {
 
 		// Queued result updates to prevent spamming CPU when lots of tests are
 		// completing and messaging quickly (#142514)
-		const taskChildrenToUpdate = new Set<TaskElement>();
+		const taskChildrenToUpdate = new Map<TaskElement, { includeMessageChildren: boolean; changedItems: Set<TestResultItem> }>();
 		const taskChildrenUpdate = this._register(new RunOnceScheduler(() => {
-			for (const taskNode of taskChildrenToUpdate) {
+			for (const [taskNode, update] of taskChildrenToUpdate) {
 				if (this.tree.hasElement(taskNode)) {
-					this.tree.setChildren(taskNode, getTaskChildren(taskNode), { diffIdentityProvider });
+					this.tree.setChildren(taskNode, getTaskChildren(taskNode, update.includeMessageChildren, update.changedItems), { diffIdentityProvider });
 				}
 			}
 			taskChildrenToUpdate.clear();
 		}, 300));
 
-		const queueTaskChildrenUpdate = (taskNode: TaskElement) => {
-			taskChildrenToUpdate.add(taskNode);
+		const queueTaskChildrenUpdate = (taskNode: TaskElement, includeMessageChildren = true, changedItem?: TestResultItem) => {
+			const previous = taskChildrenToUpdate.get(taskNode);
+			const changedItems = previous?.changedItems ?? new Set<TestResultItem>();
+			if (changedItem) {
+				changedItems.add(changedItem);
+			}
+			taskChildrenToUpdate.set(taskNode, {
+				includeMessageChildren: includeMessageChildren || previous?.includeMessageChildren === true,
+				changedItems,
+			});
 			if (!taskChildrenUpdate.isScheduled()) {
 				taskChildrenUpdate.schedule();
 			}
@@ -500,7 +523,7 @@ export class OutputPeekTree extends Disposable {
 						return;
 					}
 
-					queueTaskChildrenUpdate(taskNode);
+					queueTaskChildrenUpdate(taskNode, e.reason !== TestResultItemChangeReason.NewMessage || e.message.type !== TestMessageType.Output, e.item);
 				}
 			}));
 

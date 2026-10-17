@@ -54,6 +54,7 @@ import { ITestResult, LiveTestResult, TestResultItemChangeReason } from '../comm
 import { ITestResultService } from '../common/testResultService.js';
 import { ITestService, getContextForTestItem, simplifyTestsToExecute, testsInFile } from '../common/testService.js';
 import { ITestErrorMessage, ITestMessage, ITestRunProfile, IncrementalTestCollectionItem, InternalTestItem, TestDiffOpType, TestMessageType, TestResultItem, TestResultState, TestRunProfileBitset } from '../common/testTypes.js';
+import { shouldSkipTestOutputDecoration } from '../common/testResultTreeState.js';
 import { ITestDecoration as IPublicTestDecoration, ITestingDecorationsService, TestDecorations } from '../common/testingDecorations.js';
 import { ITestingPeekOpener } from '../common/testingPeekOpener.js';
 import { isFailedState, maxPriority } from '../common/testingStates.js';
@@ -409,6 +410,10 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 				return;
 			}
 
+			if (shouldSkipTestOutputDecoration(ev.message, ev.item)) {
+				return;
+			}
+
 			msgThrottler.queue(() => {
 				this.applyResults();
 				return timeout(100);
@@ -464,7 +469,6 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 			if (!this._currentUri || !model) {
 				return;
 			}
-
 			let changed = false;
 			for (const [message, deco] of this.loggedMessageDecorations) {
 				// invalidate decorations if either the line they're on was changed,
@@ -678,7 +682,7 @@ export class TestingDecorations extends Disposable implements IEditorContributio
 				const state = test.tasks[taskId];
 				for (let i = state.messages.length - 1; i >= 0; i--) {
 					const m = state.messages[i];
-					if (m.type === TestMessageType.Output) {
+					if (m.type === TestMessageType.Output && m.location) {
 						tryAdd(test, m, buildTestUri({
 							type: TestUriType.ResultActualOutput,
 							messageIndex: i,
