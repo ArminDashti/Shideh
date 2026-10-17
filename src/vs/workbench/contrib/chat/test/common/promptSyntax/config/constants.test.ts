@@ -79,6 +79,14 @@ suite('Prompt Constants', () => {
 			assert(
 				isPromptOrInstructionsFile(URI.file('.github/copilot-instructions.md')),
 			);
+
+			assert(
+				isPromptOrInstructionsFile(URI.file('/path/to/my-instruction.instructions.md')),
+			);
+
+			assert(
+				isPromptOrInstructionsFile(URI.file('./some-mode.chatmode.md')),
+			);
 		});
 
 		test('returns `true` for instruction files', () => {
