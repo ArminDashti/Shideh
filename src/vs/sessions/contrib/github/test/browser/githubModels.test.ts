@@ -916,6 +916,33 @@ suite('parseWorkflowRunId', () => {
 	});
 });
 
+suite('parseWorkflowRunId', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('extracts run ID from GitHub Actions URL', () => {
+		assert.strictEqual(
+			parseWorkflowRunId('https://github.com/microsoft/vscode/actions/runs/12345/job/67890'),
+			12345,
+		);
+	});
+
+	test('extracts run ID from URL without job segment', () => {
+		assert.strictEqual(
+			parseWorkflowRunId('https://github.com/owner/repo/actions/runs/99999'),
+			99999,
+		);
+	});
+
+	test('returns undefined for non-Actions URL', () => {
+		assert.strictEqual(parseWorkflowRunId('https://example.com/check/1'), undefined);
+	});
+
+	test('returns undefined for undefined input', () => {
+		assert.strictEqual(parseWorkflowRunId(undefined), undefined);
+	});
+});
+
 
 //#region Test Helpers
 
