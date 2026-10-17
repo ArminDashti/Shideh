@@ -526,7 +526,11 @@ export class TerminalCompletionService extends Disposable implements ITerminalCo
 					break;
 				}
 				case 'absolute': {
-					label = lastWordFolder;
+					if (shellType === WindowsShellType.GitBash) {
+						label = toGitBashPath(lastWordFolderResource);
+					} else {
+						label = lastWordFolder;
+					}
 					break;
 				}
 				case 'relative': {
