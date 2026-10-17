@@ -30,6 +30,7 @@ import { IContextKey, IContextKeyService } from '../../../../platform/contextkey
 import { IHostService } from '../../../services/host/browser/host.js';
 import { WindowTitle } from './windowTitle.js';
 import { CommandCenterControl } from './commandCenterControl.js';
+import { CommandCenterControlRegistry } from './commandCenterControlRegistry.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar, WorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
 import { IActionViewItemService } from '../../../../platform/actions/browser/actionViewItemService.js';
@@ -358,6 +359,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		}));
 		this._register(this.configurationService.onDidChangeConfiguration(e => this.onConfigurationChanged(e)));
 		this._register(this.editorGroupsContainer.onDidChangeEditorPartOptions(e => this.onEditorPartConfigurationChange(e)));
+
+		// Re-create title when any registered command center control's context key changes
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			const registeredContextKeys = new Set(CommandCenterControlRegistry.getRegistrations().map(r => r.contextKey));
+			if (registeredContextKeys.size > 0 && e.affectsSome(registeredContextKeys)) {
+				this.createTitle();
+			}
+		}));
 	}
 
 	private onEditorPartConfigurationChange({ oldPartOptions, newPartOptions }: IEditorPartOptionsChangeEvent): void {
@@ -637,9 +646,24 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 		// Menu Title
 		else {
-			const commandCenter = this.instantiationService.createInstance(CommandCenterControl, this.windowTitle, this.hoverDelegate);
-			reset(this.title, commandCenter.element);
-			this.titleDisposables.add(commandCenter);
+			// Check if any registered command center control should be shown
+			let customControlShown = false;
+			for (const registration of CommandCenterControlRegistry.getRegistrations()) {
+				if (this.contextKeyService.getContextKeyValue<boolean>(registration.contextKey)) {
+					const control = registration.create(this.instantiationService);
+					reset(this.title, control.element);
+					this.titleDisposables.add(control);
+					customControlShown = true;
+					break;
+				}
+			}
+
+			if (!customControlShown) {
+				// Normal mode - show regular command center
+				const commandCenter = this.instantiationService.createInstance(CommandCenterControl, this.windowTitle, this.hoverDelegate);
+				reset(this.title, commandCenter.element);
+				this.titleDisposables.add(commandCenter);
+			}
 		}
 	}
 
