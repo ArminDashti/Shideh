@@ -75,6 +75,10 @@ type AgentStatusClickClassification = {
 const TOGGLE_CHAT_ACTION_ID = 'workbench.action.chat.toggle';
 const QUICK_OPEN_ACTION_ID = 'workbench.action.quickOpenWithModes';
 
+// Mirrors SCM's window title variable registration for this widget's local WindowTitle instance.
+const SCM_ACTIVE_REPOSITORY_NAME_CONTEXT_KEY = 'scmActiveRepositoryName';
+const SCM_ACTIVE_REPOSITORY_BRANCH_NAME_CONTEXT_KEY = 'scmActiveRepositoryBranchName';
+
 // Storage key for filter state
 const FILTER_STORAGE_KEY = 'agentSessions.filterExcludes.agentsessionsviewerfiltersubmenu';
 // Storage key for saving user's filter state before we override it

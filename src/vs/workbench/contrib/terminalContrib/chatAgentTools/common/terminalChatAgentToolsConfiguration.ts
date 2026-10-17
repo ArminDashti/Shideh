@@ -48,6 +48,7 @@ export const enum TerminalChatAgentToolsSettingId {
 	TerminalProfileMacOs = 'chat.tools.terminal.terminalProfile.osx',
 	TerminalProfileWindows = 'chat.tools.terminal.terminalProfile.windows',
 
+	DeprecatedTerminalSandboxNetwork = 'chat.tools.terminal.sandbox.network',
 	DeprecatedAutoApproveCompatible = 'chat.agent.terminal.autoApprove',
 	DeprecatedAutoApprove1 = 'chat.agent.terminal.allowList',
 	DeprecatedAutoApprove2 = 'chat.agent.terminal.denyList',
@@ -934,3 +935,15 @@ for (const id of [
 		markdownDeprecationMessage: localize('autoApprove.deprecated', 'Use {0} instead', `\`#${TerminalChatAgentToolsSettingId.AutoApprove}#\``)
 	};
 }
+
+terminalChatAgentToolsConfiguration[TerminalChatAgentToolsSettingId.DeprecatedTerminalSandboxNetwork] = {
+	type: 'object',
+	deprecated: true,
+	markdownDeprecationMessage: localize(
+		'terminalSandboxNetwork.deprecated',
+		'This setting has been split into {0}, {1}, and {2}.',
+		`\`#${TerminalChatAgentToolsSettingId.TerminalSandboxNetworkAllowedDomains}#\``,
+		`\`#${TerminalChatAgentToolsSettingId.TerminalSandboxNetworkDeniedDomains}#\``,
+		`\`#${TerminalChatAgentToolsSettingId.TerminalSandboxNetworkAllowTrustedDomains}#\``,
+	),
+};

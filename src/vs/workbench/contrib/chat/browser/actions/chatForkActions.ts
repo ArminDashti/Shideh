@@ -294,5 +294,7 @@ export class ForkConversationAction extends Action2 {
 		} finally {
 			this.pendingFork.delete(pendingKey);
 		}
+	} finally {
+		cts.dispose();
 	}
 }

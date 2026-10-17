@@ -2545,7 +2545,7 @@ export class ActionListWidget<T> extends Disposable {
 	}
 
 	private _showHoverForElement(element: IActionListItem<T>, index: number): void {
-		if (this._currentSubmenuElement === element) {
+		if (this._currentSubmenuElement === element || element.submenuActions?.length) {
 			return;
 		}
 
@@ -2755,6 +2755,9 @@ export class ActionListWidget<T> extends Disposable {
 				if (e.key === 'Escape') {
 					dom.EventHelper.stop(e, true);
 					this._hideSubmenu();
+					if (parentItem) {
+						this._delegate.onSelect(parentItem);
+					}
 					this.hide();
 				} else if (e.key === 'ArrowLeft') {
 					dom.EventHelper.stop(e, true);
