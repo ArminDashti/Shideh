@@ -673,6 +673,7 @@ export interface IChatTerminalToolInvocationData {
 	commandLine: {
 		original: string;
 		userEdited?: string;
+		/** The tool-edited command for execution (may include leading whitespace for history prevention) */
 		toolEdited?: string;
 		/** Whether the command contains a comment, which could mislead the Autopilot risk assessment. */
 		hasComment?: boolean;
