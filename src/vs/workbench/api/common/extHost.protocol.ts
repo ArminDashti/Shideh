@@ -1302,6 +1302,13 @@ export interface MainThreadNotebookEditorsShape extends IDisposable {
 	$trySetSelections(id: string, range: ICellRange[]): void;
 }
 
+export interface NotebookCreationOptions {
+	viewType: string;
+	content?: NotebookDataDto;
+	resouce?: UriComponents;
+	repl?: boolean;
+}
+
 export interface MainThreadNotebookDocumentsShape extends IDisposable {
 	$tryCreateNotebook(options: { notebookType: string; content?: NotebookDataDto; repl?: boolean }): Promise<UriComponents>;
 	$tryOpenNotebook(uriComponents: UriComponents): Promise<UriComponents>;

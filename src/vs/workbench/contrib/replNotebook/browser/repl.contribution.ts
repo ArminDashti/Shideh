@@ -111,8 +111,7 @@ export class ReplDocumentContribution extends Disposable implements IWorkbenchCo
 		@INotebookService notebookService: INotebookService,
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@INotebookEditorModelResolverService private readonly notebookEditorModelResolverService: INotebookEditorModelResolverService,
-		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IInstantiationService private readonly instantiationService: IInstantiationService
 	) {
 		super();
 
@@ -122,7 +121,7 @@ export class ReplDocumentContribution extends Disposable implements IWorkbenchCo
 			{
 				id: 'repl',
 				label: 'repl Editor',
-				priority: RegisteredEditorPriority.option
+				priority: RegisteredEditorPriority.builtin
 			},
 			{
 				// We want to support all notebook types which could have any file extension,
