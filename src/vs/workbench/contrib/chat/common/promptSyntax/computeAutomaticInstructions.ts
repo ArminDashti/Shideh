@@ -29,7 +29,7 @@ export type { InstructionsCollectionEvent, InstructionsCollectionDebugInfo } fro
 export { newInstructionsCollectionEvent, newInstructionsCollectionDebugInfo } from './service/promptsService.js';
 import { AGENT_DEBUG_LOG_FILE_LOGGING_ENABLED_SETTING, TROUBLESHOOT_SKILL_PATH } from './promptTypes.js';
 import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
-import { ChatModeKind } from '../constants.js';
+import { ChatConfiguration, ChatModeKind, GeneralPurposeAgentName } from '../constants.js';
 import { UserSelectedTools } from '../participants/chatAgents.js';
 import { hash } from '../../../../../base/common/hash.js';
 import { IAgentPlugin, IAgentPluginService } from '../plugins/agentPluginService.js';
@@ -518,6 +518,8 @@ export class ComputeAutomaticInstructions {
 			}
 		}
 		if (runSubagentTool) {
+			const generalPurposeAgentEnabled = !!this._configurationService.getValue<boolean>(ChatConfiguration.GeneralPurposeAgentEnabled);
+
 			const canUseAgent = (() => {
 				if (!this._enabledSubagents || this._enabledSubagents.includes('*')) {
 					return (agent: ICustomAgent) => agent.visibility.agentInvocable && matchesSessionType(agent.sessionTypes, currentSessionType);
@@ -528,7 +530,7 @@ export class ComputeAutomaticInstructions {
 			})();
 			const agents = (await this._promptsService.getCustomAgents(token)).filter(a => a.enabled);
 
-			if (agents.length > 0) {
+			if (generalPurposeAgentEnabled || agents.length > 0) {
 				entries.push('<agents>');
 				entries.push('Here is a list of agents that can be used when running a subagent.');
 				entries.push('Each agent has optionally a description with the agent\'s purpose and expertise. When asked to run a subagent, choose the most appropriate agent from this list.');
@@ -659,3 +661,4 @@ export function getFilePath(uri: URI, remoteOS: OperatingSystem | undefined, isR
 	}
 	return uri.toString();
 }
+
