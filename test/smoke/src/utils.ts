@@ -79,6 +79,12 @@ export const MOCK_CONFIG_MODEL_DEFAULT_SECTIONS: readonly IModelConfigSection[] 
 	},
 ];
 
+export interface MockLlmServer {
+	readonly url: string;
+	requestCount(): number;
+	close(): Promise<void>;
+}
+
 export function describeRepeat(n: number, description: string, callback: (this: Suite) => void): void {
 	for (let i = 0; i < n; i++) {
 		describe(`${description} (iteration ${i})`, callback);

@@ -239,6 +239,16 @@ export class Chat {
 		return (await response.textContent()) ?? '';
 	}
 
+	async waitForEditorResponse(retryCount?: number): Promise<void> {
+		await this.code.waitForElement(CHAT_EDITOR_RESPONSE, undefined, retryCount);
+		await this.code.waitForElement(CHAT_EDITOR_RESPONSE_COMPLETE, undefined, retryCount);
+	}
+
+	async getLatestEditorResponseText(): Promise<string> {
+		const response = this.code.driver.currentPage.locator(CHAT_EDITOR_RESPONSE_COMPLETE).last();
+		return (await response.textContent()) ?? '';
+	}
+
 	async waitForModelInFooter(): Promise<void> {
 		await this.code.waitForElements(CHAT_FOOTER_DETAILS, false, el => {
 			return el.some(el => {
