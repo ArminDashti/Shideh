@@ -262,6 +262,7 @@ class RenderLineOutputWithOffset extends RenderLineOutput {
 }
 
 function renderOriginalLine(
+	cursorConfig: CursorConfiguration | undefined,
 	viewLineIdx: number,
 	lineTokens: IViewLineTokens,
 	decorations: LineDecoration[],

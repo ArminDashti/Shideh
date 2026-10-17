@@ -260,10 +260,18 @@ export class CharacterMapping {
 		this._horizontalOffset[column - 1] = horizontalOffset;
 	}
 
-	public getHorizontalOffset(column: number): number {
-		if (this._horizontalOffset.length === 0) {
+	// check if virtual space is used
+	public getHorizontalOffset(config: CursorConfiguration | undefined, column: number): number {
+		// console.log('getHorizontalOffset');
+		const virtualSpace = config?.virtualSpace;
+		const lineLength = this._horizontalOffset.length;
+		// console.log('lineLength : ', lineLength);
+		if (lineLength === 0) {
 			// No characters on this line
-			return 0;
+			return virtualSpace ? 0 : column - 1;
+		}
+		if (virtualSpace && column > lineLength) {
+			return this._horizontalOffset[lineLength - 1] + column - lineLength;
 		}
 		return this._horizontalOffset[column - 1];
 	}

@@ -156,8 +156,17 @@ export class ViewCursor {
 	private _getGraphemeAwarePosition(): [Position, string] {
 		const { lineNumber, column } = this._position;
 		const lineContent = this._context.viewModel.getLineContent(lineNumber);
-		const [startOffset, endOffset] = strings.getCharContainingOffset(lineContent, column - 1);
-		return [new Position(lineNumber, startOffset + 1), lineContent.substring(startOffset, endOffset)];
+		// console.log('_getGraphemeAwarePosition:');
+		// console.log('lineContent:', lineContent);
+		// console.log('column:', column);
+		const virtualSpace = this._context.configuration.options.get(EditorOption.virtualSpace);
+		// Since the column can be past the line content length, we need return an appropriate next grapheme for this case
+		if (virtualSpace && column > lineContent.length) {
+			return [new Position(lineNumber, column), ''];
+		} else {
+			const [startOffset, endOffset] = strings.getCharContainingOffset(lineContent, column - 1);
+			return [new Position(lineNumber, startOffset + 1), lineContent.substring(startOffset, endOffset)];
+		}
 	}
 
 	private _prepareRender(ctx: RenderingContext): ViewCursorRenderData | null {

@@ -890,6 +890,11 @@ export interface IEditorOptions {
 	 * Controls whether the accessibility hint should be provided to screen reader users when an inline completion is shown.
 	 */
 	inlineCompletionsAccessibilityVerbose?: boolean;
+
+	/**
+	 * Use virtual space
+	 */
+	virtualSpace?: boolean;
 }
 
 /**
@@ -6852,6 +6857,8 @@ export const EditorOptions = {
 	inlineSuggest: register(new InlineEditorSuggest()),
 	inlineCompletionsAccessibilityVerbose: register(new EditorBooleanOption(EditorOption.inlineCompletionsAccessibilityVerbose, 'inlineCompletionsAccessibilityVerbose', false,
 		{ description: nls.localize('inlineCompletionsAccessibilityVerbose', "Controls whether the accessibility hint should be provided to screen reader users when an inline completion is shown.") })),
+	virtualSpace: register(new EditorBooleanOption(EditorOption.virtualSpace, 'virtualSpace', false,
+		{ description: nls.localize('virtualSpace', "Controls whether virtual space is used.") })),
 	suggestFontSize: register(new EditorIntOption(
 		EditorOption.suggestFontSize, 'suggestFontSize',
 		0, 0, 1000,

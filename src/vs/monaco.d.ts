@@ -1983,6 +1983,7 @@ declare namespace monaco.editor {
 		readonly defaultEOL: DefaultEndOfLine;
 		readonly trimAutoWhitespace: boolean;
 		readonly bracketPairColorizationOptions: BracketPairColorizationOptions;
+		readonly virtualSpace: boolean;
 		get originalIndentSize(): number | 'tabSize';
 	}
 
@@ -1997,6 +1998,7 @@ declare namespace monaco.editor {
 		insertSpaces?: InsertSpaces;
 		trimAutoWhitespace?: boolean;
 		bracketColorizationOptions?: BracketPairColorizationOptions;
+		virtualSpace?: boolean;
 	}
 
 	export class FindMatch {
@@ -4155,6 +4157,10 @@ declare namespace monaco.editor {
 		 * Controls whether the accessibility hint should be provided to screen reader users when an inline completion is shown.
 		 */
 		inlineCompletionsAccessibilityVerbose?: boolean;
+		/**
+		 * Use virtual space
+		 */
+		virtualSpace?: boolean;
 	}
 
 	export type DiffEditorViewMode = 'inline' | 'sideBySide' | 'automatic';
@@ -5569,6 +5575,7 @@ declare namespace monaco.editor {
 		suggest: IEditorOption<EditorOption.suggest, Readonly<Required<ISuggestOptions>>>;
 		inlineSuggest: IEditorOption<EditorOption.inlineSuggest, Readonly<RequiredRecursive<IInlineSuggestOptions>>>;
 		inlineCompletionsAccessibilityVerbose: IEditorOption<EditorOption.inlineCompletionsAccessibilityVerbose, boolean>;
+		virtualSpace: IEditorOption<EditorOption.virtualSpace, boolean>;
 		suggestFontSize: IEditorOption<EditorOption.suggestFontSize, number>;
 		suggestLineHeight: IEditorOption<EditorOption.suggestLineHeight, number>;
 		suggestOnTriggerCharacters: IEditorOption<EditorOption.suggestOnTriggerCharacters, boolean>;

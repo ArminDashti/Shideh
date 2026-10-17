@@ -56,11 +56,13 @@ export class ViewLine implements IVisibleLine {
 	public static readonly CLASS_NAME = 'view-line';
 
 	private _options: ViewLineOptions;
+	private _context: ViewContext;
 	private _isMaybeInvalid: boolean;
 	private _renderedViewLine: IRenderedViewLine | null;
 
 	constructor(private readonly _viewGpuContext: ViewGpuContext | undefined, private readonly _viewContext: ViewContext, options: ViewLineOptions) {
 		this._options = options;
+		this._context = viewContext;
 		this._isMaybeInvalid = true;
 		this._renderedViewLine = null;
 	}
@@ -222,6 +224,7 @@ export class ViewLine implements IVisibleLine {
 			&& output.containsForeignElements === ForeignElementType.None
 		) {
 			renderedViewLine = new FastRenderedViewLine(
+				this._context,
 				this._renderedViewLine ? this._renderedViewLine.domNode : null,
 				renderLineInput,
 				output
@@ -324,8 +327,18 @@ export class ViewLine implements IVisibleLine {
 			return null;
 		}
 
-		startColumn = Math.min(this._renderedViewLine.input.lineContent.length + 1, Math.max(1, startColumn));
-		endColumn = Math.min(this._renderedViewLine.input.lineContent.length + 1, Math.max(1, endColumn));
+		// the columns can now be past the line length
+		const virtualSpace = this._context.configuration.options.get(EditorOption.virtualSpace);
+		if (virtualSpace) {
+			startColumn = Math.max(1, startColumn);
+			endColumn = Math.max(1, endColumn);
+		} else {
+			startColumn = Math.min(this._renderedViewLine.input.lineContent.length + 1, Math.max(1, startColumn));
+			endColumn = Math.min(this._renderedViewLine.input.lineContent.length + 1, Math.max(1, endColumn));
+		}
+		// console.log('getVisibleRangesForRange');
+		// console.log('startColumn : ', startColumn);
+		// console.log('endColumn : ', endColumn);
 
 		const stopRenderingLineAfter = this._renderedViewLine.input.stopRenderingLineAfter;
 
@@ -404,6 +417,7 @@ class FastRenderedViewLine implements IRenderedViewLine {
 	private readonly _charWidth: number;
 	private readonly _keyColumnPixelOffsetCache: Float32Array | null;
 	private _cachedWidth: number = -1;
+	private _context: ViewContext;
 
 	constructor(domNode: FastDomNode<HTMLElement> | null, renderLineInput: RenderLineInput, output: RenderLineOutput) {
 		this.domNode = domNode;
@@ -421,11 +435,12 @@ class FastRenderedViewLine implements IRenderedViewLine {
 
 		this._characterMapping = output.characterMapping;
 		this._charWidth = renderLineInput.spaceWidth;
+		this._context = context;
 	}
 
 	public getWidth(context: DomReadingContext | null): number {
 		if (!this.domNode || this.input.lineContent.length < Constants.MaxMonospaceDistance) {
-			const horizontalOffset = this._characterMapping.getHorizontalOffset(this._characterMapping.length);
+			const horizontalOffset = this._characterMapping.getHorizontalOffset(this._context.viewModel.cursorConfig, this._characterMapping.length);
 			return Math.round(this._charWidth * horizontalOffset);
 		}
 		if (this._cachedWidth === -1) {
@@ -470,8 +485,9 @@ class FastRenderedViewLine implements IRenderedViewLine {
 	}
 
 	private _getColumnPixelOffset(lineNumber: number, column: number, context: DomReadingContext): number {
+		const cursorConfig = this._context.viewModel.cursorConfig;
 		if (column <= Constants.MaxMonospaceDistance) {
-			const horizontalOffset = this._characterMapping.getHorizontalOffset(column);
+			const horizontalOffset = this._characterMapping.getHorizontalOffset(cursorConfig, column);
 			return this._charWidth * horizontalOffset;
 		}
 
@@ -488,12 +504,12 @@ class FastRenderedViewLine implements IRenderedViewLine {
 
 		if (keyColumnPixelOffset === -1) {
 			// Could not read actual key column pixel offset
-			const horizontalOffset = this._characterMapping.getHorizontalOffset(column);
+			const horizontalOffset = this._characterMapping.getHorizontalOffset(cursorConfig, column);
 			return this._charWidth * horizontalOffset;
 		}
 
-		const keyColumnHorizontalOffset = this._characterMapping.getHorizontalOffset(keyColumn);
-		const horizontalOffset = this._characterMapping.getHorizontalOffset(column);
+		const keyColumnHorizontalOffset = this._characterMapping.getHorizontalOffset(cursorConfig, keyColumn);
+		const horizontalOffset = this._characterMapping.getHorizontalOffset(cursorConfig, column);
 		return keyColumnPixelOffset + this._charWidth * (horizontalOffset - keyColumnHorizontalOffset);
 	}
 
@@ -532,7 +548,7 @@ class RenderedViewLine implements IRenderedViewLine {
 	private readonly _isWhitespaceOnly: boolean;
 	private readonly _containsForeignElements: ForeignElementType;
 	private _cachedWidth: number;
-
+	private _context: ViewContext;
 	/**
 	 * This is a map that is used only when the line is guaranteed to be rendered LTR and has no RTL text.
 	 */
@@ -546,6 +562,7 @@ class RenderedViewLine implements IRenderedViewLine {
 		this._isWhitespaceOnly = /^\s*$/.test(renderLineInput.lineContent);
 		this._containsForeignElements = output.containsForeignElements;
 		this._cachedWidth = -1;
+		this._context = context;
 
 		this._pixelOffsetCache = null;
 		if (renderLineInput.isLTR) {
@@ -635,40 +652,42 @@ class RenderedViewLine implements IRenderedViewLine {
 			// This line has no content
 			if (this._containsForeignElements === ForeignElementType.None) {
 				// We can assume the line is really empty
-				return 0;
+				return pixelOffset;
 			}
 			if (this._containsForeignElements === ForeignElementType.After) {
 				// We have foreign elements after the (empty) line
-				return 0;
+				return pixelOffset;
 			}
 			if (this._containsForeignElements === ForeignElementType.Before) {
 				// We have foreign elements before the (empty) line
-				return this.getWidth(context);
+				return this.getWidth(context) + pixelOffset;
 			}
 			// We have foreign elements before & after the (empty) line
 			const readingTarget = this._getReadingTarget(domNode);
 			if (readingTarget.firstChild) {
 				context.markDidDomLayout();
-				return (<HTMLSpanElement>readingTarget.firstChild).offsetWidth;
+				return (<HTMLSpanElement>readingTarget.firstChild).offsetWidth + pixelOffset;
 			} else {
-				return 0;
+				return pixelOffset;
 			}
 		}
 
 		if (this._pixelOffsetCache !== null) {
 			// the text is guaranteed to be LTR
 
-			const cachedPixelOffset = this._pixelOffsetCache[column];
-			if (cachedPixelOffset !== -1) {
-				return cachedPixelOffset;
+				const cachedPixelOffset = this._pixelOffsetCache[column];
+				if (cachedPixelOffset !== -1) {
+					return cachedPixelOffset;
+				}
+
+				const result = this._actualReadPixelOffset(domNode, lineNumber, column, context);
+				// console.log('result : ', result);
+				this._pixelOffsetCache[column] = result;
+				return result;
 			}
 
-			const result = this._actualReadPixelOffset(domNode, lineNumber, column, context);
-			this._pixelOffsetCache[column] = result;
-			return result;
+			return this._actualReadPixelOffset(domNode, lineNumber, column, context);
 		}
-
-		return this._actualReadPixelOffset(domNode, lineNumber, column, context);
 	}
 
 	private _actualReadPixelOffset(domNode: FastDomNode<HTMLElement>, lineNumber: number, column: number, context: DomReadingContext): number {
@@ -713,7 +732,7 @@ class RenderedViewLine implements IRenderedViewLine {
 		}
 		const result = r[0].left;
 		if (this.input.isBasicASCII) {
-			const horizontalOffset = this._characterMapping.getHorizontalOffset(column);
+			const horizontalOffset = this._characterMapping.getHorizontalOffset(this._context.viewModel.cursorConfig, column);
 			const expectedResult = Math.round(this.input.spaceWidth * horizontalOffset);
 			if (Math.abs(expectedResult - result) <= 1) {
 				return expectedResult;

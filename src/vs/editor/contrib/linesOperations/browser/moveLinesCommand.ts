@@ -27,6 +27,8 @@ export class MoveLinesCommand implements ICommand {
 	private _selectionId: string | null;
 	private _moveEndPositionDown?: boolean;
 	private _moveEndLineSelectionShrink: boolean;
+	private startVirtualSpace: number;
+	private endVirtualSpace: number;
 
 	constructor(
 		selection: Selection,
@@ -39,6 +41,8 @@ export class MoveLinesCommand implements ICommand {
 		this._autoIndent = autoIndent;
 		this._selectionId = null;
 		this._moveEndLineSelectionShrink = false;
+		this.startVirtualSpace = 0;
+		this.endVirtualSpace = 0;
 	}
 
 	private createVirtualModel(
@@ -64,6 +68,21 @@ export class MoveLinesCommand implements ICommand {
 
 	public getEditOperations(model: ITextModel, builder: IEditOperationBuilder): void {
 
+		let s = this._selection;
+		// console.log('s : ', s);
+		const maxStartColumn = model.getLineMaxColumn(s.startLineNumber);
+		// console.log('maxStartColumn : ', maxStartColumn);
+		if (s.startColumn >= maxStartColumn) {
+			this.startVirtualSpace = s.startColumn - maxStartColumn;
+			s = s.setStartPosition(s.startLineNumber, maxStartColumn);
+		}
+		const maxEndColumn = model.getLineMaxColumn(s.endLineNumber);
+		// console.log('maxEndColumn : ', maxEndColumn);
+		if (s.endColumn >= maxEndColumn) {
+			this.endVirtualSpace = s.endColumn - maxEndColumn;
+			s = s.setEndPosition(s.endLineNumber, maxEndColumn);
+		}
+
 		const modelLineCount = model.getLineCount();
 
 		// Tracking the selection, when selection touches the border of the model line span
@@ -71,13 +90,12 @@ export class MoveLinesCommand implements ICommand {
 			this._selectionId = builder.trackSelection(this._selection);
 			return;
 		}
-		if (!this._isMovingDown && this._selection.startLineNumber === 1) {
-			this._selectionId = builder.trackSelection(this._selection);
+		if (!this._isMovingDown && s.startLineNumber === 1) {
+			this._selectionId = builder.trackSelection(s);
 			return;
 		}
 
 		this._moveEndPositionDown = false;
-		let s = this._selection;
 
 		// If the end column is one, then decrease the line number so we only indent the full lines above
 		if (s.startLineNumber < s.endLineNumber && s.endColumn === 1) {
@@ -432,6 +450,20 @@ export class MoveLinesCommand implements ICommand {
 
 	public computeCursorState(model: ITextModel, helper: ICursorStateComputerData): Selection {
 		let result = helper.getTrackedSelection(this._selectionId!);
+
+		// console.log('computeCursorState');
+		// console.log('this.endVirtualSpace : ', this.endVirtualSpace);
+		// console.log('this.startVirtualSpace : ', this.startVirtualSpace);
+
+		if (this.endVirtualSpace > 0) {
+			result = result.setEndPosition(result.endLineNumber, result.endColumn + this.endVirtualSpace);
+			// console.log('result : ', result);
+		}
+
+		if (this.startVirtualSpace > 0) {
+			result = result.setStartPosition(result.startLineNumber, result.startColumn + this.startVirtualSpace);
+			// console.log('result : ', result);
+		}
 
 		if (this._moveEndPositionDown) {
 			result = result.setEndPosition(result.endLineNumber + 1, 1);
