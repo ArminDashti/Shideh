@@ -5,7 +5,6 @@
 
 import { getWindow, getWindowById } from '../../../../base/browser/dom.js';
 import { IMouseWheelEvent } from '../../../../base/browser/mouseEvent.js';
-import { OverlayLayoutElement } from '../../../../base/browser/overlayLayoutElement.js';
 import { CodeWindow } from '../../../../base/browser/window.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -15,6 +14,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_ENABLED, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_VISIBLE, WebviewContentOptions, WebviewExtensionDescription, WebviewInitInfo, WebviewMessageReceivedEvent, WebviewOptions } from './webview.js';
 
 /**
@@ -24,8 +24,19 @@ import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING
  * Absolutely positioning is needed because webviews (iframes) cannot be re-parented without losing their state.
  * This means that webviews are always placed on a top level and then moved over
  * the element they are anchored to so they visually look like they are part of the original layout.
+ *
+ * Here's the dom structure of the overlay webview elements:
+ *
+ * ```
+ * root
+ *     clippingWrapper — Used for clipping the webview. Needed for cases where the webview is in a container that can be scrolled.
+ *         container - Element laid out over the anchor element. Also holds the find widget.
+ *             webview - The actual webview element. This is created and destroyed as needed.
+ * ```
  */
 export class OverlayWebview extends Disposable implements IOverlayWebview {
+
+	private static readonly _supportsAnchorPositioning = new Lazy(() => CSS.supports('(top: anchor(top))'));
 
 	private _isFirstLoad = true;
 	private readonly _firstLoadPendingMessages = new Set<{ readonly message: unknown; readonly transfer?: readonly ArrayBuffer[]; readonly resolve: (value: boolean) => void }>();
@@ -55,7 +66,11 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 
 	public origin: string;
 
-	private _overlayLayout: OverlayLayoutElement | undefined;
+	private _container: HTMLDivElement | undefined;
+	private _clippingWrapper: HTMLDivElement | undefined;
+
+	private _clippingAnchor: { readonly element: HTMLElement; readonly name: string } | undefined;
+	private _anchor: { readonly element: HTMLElement; readonly name: string } | undefined;
 
 	private _anchorState: { readonly anchorElement: HTMLElement; readonly clippingContainer?: HTMLElement } | undefined;
 	private _outerEdgePart: Element | undefined;
@@ -66,6 +81,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IContextKeyService private readonly _baseContextKeyService: IContextKeyService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 	) {
 		super();
 
@@ -90,8 +106,10 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	override dispose() {
 		this._isDisposed = true;
 
-		this._overlayLayout?.dispose();
-		this._overlayLayout = undefined;
+		this._clippingWrapper?.remove();
+		this._clippingWrapper = undefined;
+		this._container?.remove();
+		this._container = undefined;
 
 		for (const msg of this._firstLoadPendingMessages) {
 			msg.resolve(false);
@@ -142,8 +160,10 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 			// since we are moving to a new window, we need to dispose the webview and recreate
 			this._webview.clear();
 			this._webviewEvents.clear();
-			this._overlayLayout?.dispose();
-			this._overlayLayout = undefined;
+			this._clippingWrapper?.remove();
+			this._clippingWrapper = undefined;
+			this._container?.remove();
+			this._container = undefined;
 		}
 
 		this._owner = owner;
@@ -183,8 +203,8 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		this._scopedContextKeyService.clear();
 
 		this._owner = undefined;
-		if (this._overlayLayout) {
-			this._overlayLayout.content.style.visibility = 'hidden';
+		if (this._container) {
+			this._container.style.visibility = 'hidden';
 		}
 
 		if (this._options.retainContextWhenHidden) {
@@ -311,8 +331,8 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 			this._shouldShowFindWidgetOnRestore = false;
 		}
 
-		if (this._overlayLayout) {
-			this._overlayLayout.content.style.visibility = 'visible';
+		if (this._container) {
+			this._container.style.visibility = 'visible';
 		}
 	}
 
@@ -441,4 +461,25 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	setContextKeyService(contextKeyService: IContextKeyService) {
 		this._webview.value?.setContextKeyService(contextKeyService);
 	}
+}
+
+function getOrCreateAnchorName(element: HTMLElement): string {
+	const existing = element.style.getPropertyValue('anchor-name');
+	if (existing) {
+		return existing;
+	}
+	const name = `--overlay-webview-anchor-${generateUuid()}`;
+	element.style.setProperty('anchor-name', name);
+	return name;
+}
+
+function computeClippingRect(frameRect: DOMRectReadOnly, clipper: HTMLElement) {
+	const rootRect = clipper.getBoundingClientRect();
+
+	const top = Math.max(rootRect.top - frameRect.top, 0);
+	const right = Math.max(frameRect.width - (frameRect.right - rootRect.right), 0);
+	const bottom = Math.max(frameRect.height - (frameRect.bottom - rootRect.bottom), 0);
+	const left = Math.max(rootRect.left - frameRect.left, 0);
+
+	return { top, right, bottom, left };
 }
