@@ -181,6 +181,7 @@ import { SessionTypePickerActionItem } from './sessionTargetPickerActionItem.js'
 import { WorkspacePickerActionItem } from './workspacePickerActionItem.js';
 import { WorkspacePickerInputActionItem } from './workspacePickerInputActionItem.js';
 import { ChatContextUsageWidget } from '../../widgetHosts/viewPane/chatContextUsageWidget.js';
+import { ChatInputStatusActionViewItem } from './chatInputStatusActionViewItem.js';
 import { Target } from '../../../common/promptSyntax/promptTypes.js';
 import { ConfigureToolsAction } from '../../actions/chatToolActions.js';
 import { InlineCompletionsController } from '../../../../../../editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController.js';
