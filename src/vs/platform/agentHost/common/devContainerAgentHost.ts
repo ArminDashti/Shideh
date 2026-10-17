@@ -10,6 +10,12 @@ import { IRelayChannel } from './relayTransport.js';
 export const DEV_CONTAINER_AGENT_HOST_CHANNEL = 'devContainerAgentHost';
 export const VSCODE_REMOTE_CONTAINERS_SESSION_ENV = 'VSCODE_REMOTE_CONTAINERS_SESSION';
 
+/** Experimental setting that enables Dev Container Agent Host sessions. */
+export const DevContainerAgentHostEnabledSettingId = 'chat.agentHost.devContainer.enabled';
+
+/** Hidden experimental setting that enables combining Dev Container execution with a new worktree. */
+export const DevContainerWorktreeEnabledSettingId = 'chat.agentHost.devContainer.worktree.enabled';
+
 /** Inputs required to start or reuse a workspace's Dev Container Agent Host. */
 export interface IDevContainerAgentHostConfig {
 	readonly connectionId: string;
