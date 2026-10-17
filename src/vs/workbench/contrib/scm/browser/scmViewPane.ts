@@ -1403,6 +1403,14 @@ class CollapseAllAction extends ViewAction<SCMViewPane> {
 
 registerAction2(CollapseAllAction);
 
+class SCMStickyScrollDelegate extends DefaultStickyScrollDelegate<TreeElement, FuzzyScore> {
+
+	shouldStick(node: ITreeNode<TreeElement, FuzzyScore>): boolean {
+		// SCM input nodes should stick
+		return isSCMInput(node.element);
+	}
+}
+
 export class SCMViewPane extends ViewPane {
 
 	private readonly _onDidLayout: Emitter<void>;

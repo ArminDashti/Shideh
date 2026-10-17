@@ -164,7 +164,10 @@ class CompressibleStickyScrollDelegate<T, TFilterData> implements IStickyScrollD
 
 	private readonly compressedStickyNodes = new Map<ITreeNode<T, TFilterData>, ITreeNode<ICompressedTreeNode<T>, TFilterData>>();
 
-	constructor(private readonly modelProvider: () => CompressibleObjectTreeModel<T, TFilterData>) { }
+	constructor(
+		private readonly modelProvider: () => CompressibleObjectTreeModel<T, TFilterData>,
+		private readonly baseDelegate?: IStickyScrollDelegate<T, TFilterData>
+	) { }
 
 	getCompressedNode(node: ITreeNode<T, TFilterData>): ITreeNode<ICompressedTreeNode<T>, TFilterData> | undefined {
 		return this.compressedStickyNodes.get(node);
@@ -243,6 +246,28 @@ class CompressibleStickyScrollDelegate<T, TFilterData> implements IStickyScrollD
 		this.compressedStickyNodes.set(stickyTreeNode, compressedNode);
 
 		return compressedStickyNode;
+	}
+
+	shouldStick(node: ITreeNode<T, TFilterData>): boolean {
+		if (!this.baseDelegate?.shouldStick) {
+			return false;
+		}
+
+		// Get the compressed node structure which contains ICompressedTreeNode<T>
+		const compressionModel = this.modelProvider();
+		const compressedNode = compressionModel.getCompressedTreeNode(node.element);
+		
+		// Check if any of the unwrapped elements should stick
+		// We create a node for each element to pass to the base delegate
+		if (compressedNode.element) {
+			for (const element of compressedNode.element.elements) {
+				if (this.baseDelegate.shouldStick({ ...compressedNode, element } as ITreeNode<T, TFilterData>)) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 }
 

@@ -1400,6 +1400,7 @@ class StickyScrollState<T, TFilterData, TRef> {
 
 export interface IStickyScrollDelegate<T, TFilterData> {
 	constrainStickyScrollNodes(stickyNodes: StickyScrollNode<T, TFilterData>[], stickyScrollMaxItemCount: number, maxWidgetHeight: number): StickyScrollNode<T, TFilterData>[];
+	shouldStick?(node: ITreeNode<T, TFilterData>): boolean;
 }
 
 export interface IStickyNodes<T> {
@@ -1613,21 +1614,30 @@ class StickyScrollController<T, TFilterData, TRef> extends Disposable {
 		const stickyNodes: StickyScrollNode<T, TFilterData>[] = [];
 		let firstVisibleNodeUnderWidget: ITreeNode<T, TFilterData> | undefined = firstVisibleNode;
 		let stickyNodesHeight = 0;
+		let previousStickyNode: ITreeNode<T, TFilterData> | undefined = undefined;
+		const processedShouldStickNodes = new Set<ITreeNode<T, TFilterData>>();
 
-		let nextStickyNode = this.getNextStickyNode(firstVisibleNodeUnderWidget, undefined, stickyNodesHeight);
-		while (nextStickyNode) {
+		let nextStickyNodeResult = this.getNextStickyNode(firstVisibleNodeUnderWidget, previousStickyNode, stickyNodesHeight, processedShouldStickNodes);
+		while (nextStickyNodeResult) {
 
-			stickyNodes.push(nextStickyNode);
-			stickyNodesHeight += nextStickyNode.height;
+			stickyNodes.push(nextStickyNodeResult.stickyNode);
+			stickyNodesHeight += nextStickyNodeResult.stickyNode.height;
 
 			if (stickyNodes.length <= this.stickyScrollMaxItemCount) {
-				firstVisibleNodeUnderWidget = this.getNextVisibleNode(nextStickyNode);
+				firstVisibleNodeUnderWidget = this.getNextVisibleNode(nextStickyNodeResult.stickyNode);
 				if (!firstVisibleNodeUnderWidget) {
 					break;
 				}
 			}
 
-			nextStickyNode = this.getNextStickyNode(firstVisibleNodeUnderWidget, nextStickyNode.node, stickyNodesHeight);
+			// Track shouldStick nodes and only update previousStickyNode for parent nodes
+			if (nextStickyNodeResult.isShouldStickNode) {
+				processedShouldStickNodes.add(nextStickyNodeResult.stickyNode.node);
+			} else {
+				previousStickyNode = nextStickyNodeResult.stickyNode.node;
+			}
+
+			nextStickyNodeResult = this.getNextStickyNode(firstVisibleNodeUnderWidget, previousStickyNode, stickyNodesHeight, processedShouldStickNodes);
 		}
 
 		const contrainedStickyNodes = this.constrainStickyNodes(stickyNodes);
