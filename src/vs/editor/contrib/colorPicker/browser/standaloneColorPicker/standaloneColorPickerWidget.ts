@@ -45,7 +45,7 @@ export class StandaloneColorPickerWidget extends Disposable implements IContentW
 	private readonly _standaloneColorPickerParticipant: StandaloneColorPickerParticipant;
 
 	private _body: HTMLElement = document.createElement('div');
-	private _colorHover: StandaloneColorPickerHover | null = null;
+	private _colorHover: IColorHover | null = null;
 	private _selectionSetInEditor: boolean = false;
 	private _selections: IRange[];
 
@@ -102,7 +102,7 @@ export class StandaloneColorPickerWidget extends Disposable implements IContentW
 			}
 		}));
 		this._register(this.onResult((result) => {
-			this._render(result.value, result.foundInEditor);
+			this._render(this._body, result.value, result.foundInEditor);
 		}));
 		this._start(selection);
 		this._body.style.zIndex = '50';
@@ -157,7 +157,7 @@ export class StandaloneColorPickerWidget extends Disposable implements IContentW
 		this._onResult.fire(new StandaloneColorPickerResult(computeAsyncResult.result, computeAsyncResult.foundInEditor));
 	}
 
-	private async _computeAsync(range: IRange): Promise<{ result: StandaloneColorPickerHover; foundInEditor: boolean } | null> {
+	private async _computeAsync(range: IRange): Promise<{ result: IColorHover; foundInEditor: boolean } | null> {
 		if (!this._editor.hasModel()) {
 			return null;
 		}
@@ -165,14 +165,14 @@ export class StandaloneColorPickerWidget extends Disposable implements IContentW
 			range: range,
 			color: { red: 0, green: 0, blue: 0, alpha: 1 }
 		};
-		const colorHoverResult: { colorHover: StandaloneColorPickerHover; foundInEditor: boolean } | null = await this._standaloneColorPickerParticipant.createColorHover(colorInfo, new DefaultDocumentColorProvider(this._editorWorkerService), this._languageFeaturesService.colorProvider);
+		const colorHoverResult: { colorHover: IColorHover; foundInEditor: boolean } | null = await this._standaloneColorPickerParticipant.createColorHover(colorInfo, new DefaultDocumentColorProvider(this._modelService, this._languageConfigurationService), this._languageFeaturesService.colorProvider);
 		if (!colorHoverResult) {
 			return null;
 		}
 		return { result: colorHoverResult.colorHover, foundInEditor: colorHoverResult.foundInEditor };
 	}
 
-	private _render(colorHover: StandaloneColorPickerHover, foundInEditor: boolean) {
+	private _render(container: HTMLElement, colorHover: IColorHover, foundInEditor: boolean) {
 		const fragment = document.createDocumentFragment();
 		this._renderedStatusBar.value = this._register(new EditorHoverStatusBar(this._keybindingService, this._hoverService));
 
@@ -199,32 +199,6 @@ export class StandaloneColorPickerWidget extends Disposable implements IContentW
 		this._body.tabIndex = 0;
 		this._body.appendChild(fragment);
 		colorPicker.layout();
-
-		const colorPickerBody = colorPicker.body;
-		const saturationBoxWidth = colorPickerBody.saturationBox.domNode.clientWidth;
-		const widthOfOriginalColorBox = colorPickerBody.domNode.clientWidth - saturationBoxWidth - CLOSE_BUTTON_WIDTH - PADDING;
-		const enterButton: InsertButton | null = colorPicker.body.enterButton;
-		enterButton?.onClicked(() => {
-			this.updateEditor();
-			this.hide();
-		});
-		const colorPickerHeader = colorPicker.header;
-		const pickedColorNode = colorPickerHeader.pickedColorNode;
-		pickedColorNode.style.width = saturationBoxWidth + PADDING + 'px';
-		const originalColorNode = colorPickerHeader.originalColorNode;
-		originalColorNode.style.width = widthOfOriginalColorBox + 'px';
-		const closeButton = colorPicker.header.closeButton;
-		closeButton?.onClicked(() => {
-			this.hide();
-		});
-		// When found in the editor, highlight the selection in the editor
-		if (foundInEditor) {
-			if (enterButton) {
-				enterButton.button.textContent = 'Replace';
-			}
-			this._selectionSetInEditor = true;
-			this._editor.setSelection(colorHover.range);
-		}
 		this._editor.layoutContentWidget(this);
 	}
 }
