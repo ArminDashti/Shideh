@@ -36,6 +36,7 @@ import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IAgentHostService } from '../../../../../platform/agentHost/common/agentService.js';
@@ -118,6 +119,8 @@ import { ChatUserInteraction } from '../chatUserInteractionTelemetry.js';
 import { ChatContentMarkdownRenderer } from './chatContentMarkdownRenderer.js';
 
 const $ = dom.$;
+const LOCAL_TO_AGENT_HOST_COPILOT_HANDOFF_NOTIFICATION_ID = 'chat.localAgentDisabled.continueInAgentHostCopilot';
+const LOCAL_TO_AGENT_HOST_COPILOT_HANDOFF_COMMAND_ID = 'workbench.action.chat.localAgentDisabled.continueInAgentHostCopilot';
 
 /**
  * Baseline total horizontal padding of a chat item in the Agents window (`.interactive-item-container`,
@@ -510,6 +513,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private _goalSummaryTokenSource: CancellationTokenSource | undefined;
 	private _goalBannerDismissedForCurrentRequest = false;
 	private readonly _goalBannerDismissListener = this._register(new MutableDisposable<IDisposable>());
+	private _localToAgentHostCopilotHandoffNotificationSession: string | undefined;
 
 	private readonly viewModelDisposables = this._register(new DisposableStore());
 	private _viewModel: ChatViewModel | undefined;
@@ -3117,6 +3121,56 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	getInput(): string {
 		return this.input.inputEditor.getValue();
+	}
+
+	private maybeAutoDelegateLocalSessionToAgentHostCopilot(): void {
+		const model = this.viewModel?.model;
+		if (!model || isQuickChat(this) || isInlineChat(this) || IsSessionsWindowContext.getValue(this.contextKeyService)) {
+			this.clearLocalToAgentHostCopilotHandoffNotification();
+			return;
+		}
+
+		if (shouldAutoDelegateLocalSessionToAgentHostCopilot(getChatSessionType(model.sessionResource), model.hasRequests, this.configurationService, this.chatSessionsService)) {
+			if (!this.inputPart.pendingDelegationTarget) {
+				this.inputPart.setPendingDelegationTarget(SessionType.AgentHostCopilot);
+			}
+			if (this.inputPart.pendingDelegationTarget === SessionType.AgentHostCopilot) {
+				this.showLocalToAgentHostCopilotHandoffNotification(model.sessionResource);
+			} else {
+				this.clearLocalToAgentHostCopilotHandoffNotification();
+			}
+			return;
+		}
+		this.clearLocalToAgentHostCopilotHandoffNotification();
+	}
+
+	private showLocalToAgentHostCopilotHandoffNotification(sessionResource: URI): void {
+		const sessionKey = sessionResource.toString();
+		if (this._localToAgentHostCopilotHandoffNotificationSession === sessionKey) {
+			return;
+		}
+		this._localToAgentHostCopilotHandoffNotificationSession = sessionKey;
+		this.chatInputNotificationService.setNotification({
+			id: LOCAL_TO_AGENT_HOST_COPILOT_HANDOFF_NOTIFICATION_ID,
+			severity: ChatInputNotificationSeverity.Info,
+			message: localize('chat.localAgentDisabled.continueInAgentHostCopilot.message', "Local chat is disabled by the chat.editor.localAgent.enabled setting."),
+			description: localize('chat.localAgentDisabled.continueInAgentHostCopilot.description', "Type a new message here to continue in Copilot CLI [Agent Host], or re-enable the setting to continue using Local."),
+			actions: [{
+				label: localize('chat.localAgentDisabled.continueInAgentHostCopilot.action', "Focus Chat Input"),
+				commandId: LOCAL_TO_AGENT_HOST_COPILOT_HANDOFF_COMMAND_ID,
+			}],
+			dismissible: true,
+			autoDismissOnMessage: false,
+			sessionTypes: [localChatSessionType],
+		});
+	}
+
+	private clearLocalToAgentHostCopilotHandoffNotification(): void {
+		if (!this._localToAgentHostCopilotHandoffNotificationSession) {
+			return;
+		}
+		this._localToAgentHostCopilotHandoffNotificationSession = undefined;
+		this.chatInputNotificationService.deleteNotification(LOCAL_TO_AGENT_HOST_COPILOT_HANDOFF_NOTIFICATION_ID);
 	}
 
 	getContrib<T extends IChatWidgetContrib>(id: string): T | undefined {

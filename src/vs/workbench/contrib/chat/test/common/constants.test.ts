@@ -806,4 +806,5 @@ suite('ChatConfiguration defaults', () => {
 			localRememberedUsable: true,
 		});
 	});
+
 });
