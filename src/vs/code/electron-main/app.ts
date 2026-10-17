@@ -1975,7 +1975,15 @@ export class CodeApplication extends Disposable {
 			try {
 				const WindowsMutex = await import('@vscode/windows-mutex');
 				const mutex = new WindowsMutex.Mutex(win32MutexName);
-				Event.once(this.lifecycleMainService.onWillShutdown)(() => mutex.release());
+
+				// Do not explicitly release the mutex during shutdown. The OS
+				// will release it when the process exits. Releasing it earlier
+				// (on `onWillShutdown`) causes a race where the Inno Setup
+				// installer proceeds while VS Code is still cleaning up,
+				// before `doQuitAndInstall()` has deleted the update flag file.
+				// Keep a reference to prevent GC from collecting the mutex
+				// (and closing the handle) before process exit.
+				this._register(toDisposable(() => mutex.release()));
 			} catch (error) {
 				this.logService.error(error);
 			}
