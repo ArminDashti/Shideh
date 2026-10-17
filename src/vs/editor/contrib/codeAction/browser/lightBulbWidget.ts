@@ -330,6 +330,9 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 		const isFolded = (lineNumber: number) => {
 			return lineNumber > 2 && this._editor.getTopForLineNumber(lineNumber) === this._editor.getTopForLineNumber(lineNumber - 1);
 		};
+		const updateEffectiveColumnNumber = () => {
+			effectiveColumnNumber = /^\S\s*$/.test(model.getLineContent(effectiveLineNumber)) ? 2 : 1;
+		};
 
 		// Check for glyph margin decorations of any kind
 		const currLineDecorations = this._editor.getLineDecorations(lineNumber);
@@ -390,12 +393,14 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 				}
 			} else if ((lineNumber < model.getLineCount()) && !isFolded(lineNumber + 1)) {
 				effectiveLineNumber += 1;
+				if (lineNumber < model.getLineCount()) {
+					updateEffectiveColumnNumber();
+				}
 			} else if (column * fontInfo.spaceWidth < 22) {
 				// cannot show lightbulb above/below and showing
 				// it inline would overlay the cursor...
 				return this.hide();
 			}
-			effectiveColumnNumber = /^\S\s*$/.test(model.getLineContent(effectiveLineNumber)) ? 2 : 1;
 		}
 
 		this._state.set(new LightBulbState.Showing(actions, trigger, atPosition, {
