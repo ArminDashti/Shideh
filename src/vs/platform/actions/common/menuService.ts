@@ -33,7 +33,7 @@ export class MenuService extends Disposable implements IMenuService {
 	}
 
 	createMenu(id: MenuId, contextKeyService: IContextKeyService, options?: IMenuCreateOptions): IMenu {
-		return new MenuImpl(id, this._hiddenStates, { emitEventsForSubmenuChanges: false, eventDebounceDelay: 50, ...options }, this._commandService, this._keybindingService, contextKeyService);
+		return new MenuImpl(id, this._hiddenStates, { emitEventsForSubmenuChanges: false, eventDebounceDelay: 50, ignoreHiddenStates: false, ...options }, this._commandService, this._keybindingService, contextKeyService);
 	}
 
 	getMenuActions(id: MenuId, contextKeyService: IContextKeyService, options?: IMenuActionOptions): [string, Array<MenuItemAction | SubmenuItemAction>][] {
@@ -452,9 +452,11 @@ class MenuImpl implements IMenu {
 					this._onDidChange.fire({ menu: this, isStructuralChange, isEnablementChange, isToggleChange });
 				}
 			}));
-			lazyListener.add(hiddenStates.onDidChange(e => {
-				this._onDidChange.fire({ menu: this, isStructuralChange: true, isEnablementChange: false, isToggleChange: false });
-			}));
+			if (!options.ignoreHiddenStates) {
+				lazyListener.add(hiddenStates.onDidChange(e => {
+					this._onDidChange.fire({ menu: this, isStructuralChange: true, isEnablementChange: false, isToggleChange: false });
+				}));
+			}
 		};
 
 		this._onDidChange = new DebounceEmitter({
