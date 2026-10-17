@@ -5840,6 +5840,48 @@ suite('AgentSideEffects', () => {
 			]);
 		});
 
+		test('auto-approval resolves the originating permission at AHP publication', async () => {
+			setupSessionWithConfig('autoApprove');
+			startTurn('turn-1');
+			disposables.add(sideEffects.registerProgressListener(agent));
+			agent.fireProgress({
+				kind: 'action', resource: URI.parse(defaultChatUri),
+				action: {
+					type: ActionType.ChatToolCallStart, turnId: 'turn-1',
+					toolCallId: 'tc-owned-approval', toolName: 'write', displayName: 'Write File',
+				},
+			});
+			const order: string[] = [];
+			disposables.add(stateManager.onDidEmitEnvelope(envelope => {
+				if (envelope.channel === defaultChatUri && envelope.action.type === ActionType.ChatToolCallReady) {
+					order.push('ready');
+				}
+			}));
+			agent.fireProgress({
+				kind: 'pending_confirmation', chat: URI.parse(defaultChatUri),
+				state: {
+					status: ToolCallStatus.PendingConfirmation,
+					toolCallId: 'tc-owned-approval', toolName: 'write', displayName: 'Write File',
+					invocationMessage: 'Create approved.lock', confirmationTitle: 'Create file?',
+				},
+				permissionKind: 'write',
+				permissionPath: '/workspace/approved.lock',
+				permissionRequest: {
+					id: 'permission-auto-approval',
+					isPending: () => true,
+					onWillPublish: () => { order.push('publish'); return true; },
+					respond: approved => { order.push(`respond:${approved}`); return true; },
+				},
+			});
+
+			assert.strictEqual(order.length, 0);
+			await waitForState(stateManager, () => order.includes('ready') || undefined);
+			assert.deepStrictEqual({ order, legacyResponses: agent.respondToPermissionCalls }, {
+				order: ['publish', 'respond:true', 'ready'],
+				legacyResponses: [],
+			});
+		});
+
 		test('auto-approves shell commands when autoApprove is set to bypass', async () => {
 			setupSessionWithConfig('autoApprove');
 			startTurn('turn-1');
@@ -8468,32 +8510,47 @@ suite('AgentSideEffects', () => {
 				}
 			}));
 
-			agent.fireProgress({
-				kind: 'action', resource: URI.parse(defaultChatUri),
-				action: {
-					type: ActionType.ChatToolCallStart, turnId: 'turn-1',
-					toolCallId: 'tc-snapshot-write', toolName: 'edit', displayName: 'Edit', contributor: undefined,
-					_meta: { toolKind: undefined, language: undefined },
-				},
-			});
-			agent.fireProgress({
-				kind: 'pending_confirmation', chat: URI.parse(defaultChatUri),
-				state: {
-					status: ToolCallStatus.PendingConfirmation,
-					toolCallId: 'tc-snapshot-write', toolName: 'edit', displayName: 'Edit',
-					invocationMessage: 'Edit file', toolInput: undefined,
-					confirmationTitle: 'Edit file', edits: undefined,
-				},
-				permissionKind: 'write',
-				permissionPath: '/session-data/session-1/attachments/abc/Pasted text #1.txt',
-			});
+			const scopedResponses: boolean[] = [];
+			let publicationCount = 0;
+			for (const requestScoped of [false, true]) {
+				const toolCallId = requestScoped ? 'tc-scoped-snapshot-write' : 'tc-snapshot-write';
+				agent.fireProgress({
+					kind: 'action', resource: URI.parse(defaultChatUri),
+					action: {
+						type: ActionType.ChatToolCallStart, turnId: 'turn-1',
+						toolCallId, toolName: 'edit', displayName: 'Edit', contributor: undefined,
+						_meta: { toolKind: undefined, language: undefined },
+					},
+				});
+				agent.fireProgress({
+					kind: 'pending_confirmation', chat: URI.parse(defaultChatUri),
+					state: {
+						status: ToolCallStatus.PendingConfirmation,
+						toolCallId, toolName: 'edit', displayName: 'Edit',
+						invocationMessage: 'Edit file', toolInput: undefined,
+						confirmationTitle: 'Edit file', edits: undefined,
+					},
+					permissionKind: 'write',
+					permissionPath: '/session-data/session-1/attachments/abc/Pasted text #1.txt',
+					permissionRequest: requestScoped ? {
+						id: 'permission-snapshot',
+						isPending: () => true,
+						onWillPublish: () => { publicationCount++; return true; },
+						respond: approved => { scopedResponses.push(approved); return true; },
+					} : undefined,
+				});
+			}
 
 			await waitForState(stateManager, () => agent.respondToPermissionCalls.length > 0 || undefined);
 			assert.deepStrictEqual({
 				responses: agent.respondToPermissionCalls,
+				scopedResponses,
+				publicationCount,
 				readyActionCount: readyActions.length,
 			}, {
 				responses: [{ requestId: 'tc-snapshot-write', approved: false }],
+				scopedResponses: [false],
+				publicationCount: 0,
 				readyActionCount: 0,
 			});
 		});

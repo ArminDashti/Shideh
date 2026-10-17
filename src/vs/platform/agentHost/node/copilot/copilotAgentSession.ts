@@ -5040,15 +5040,12 @@ export class CopilotAgentSession extends Disposable {
 			// likewise excluded: the sandbox contains a command to the workspace,
 			// not to that surface's one file, so it can still edit other files.
 			if (!managedApprovalRequired && !this._launchPlan.hasScopedEditSurface && isShellRequest && !requestSandboxBypass && await this._isShellSandboxedByDefault()) {
-				// Session may have been disposed while we awaited the engine
-				// check; if so the deferred has already been settled and
-				// removed, so leave it alone.
-				if (this._pendingPermissions.has(toolCallId)) {
+				// Preserve a user decision that settled while the sandbox check was in flight.
+				if (isPending()) {
 					this._pendingPermissions.respond(toolCallId, { kind: 'approve-once' });
 					this._logService.info(`[Copilot:${this.sessionId}] Auto-approving sandboxed shell command for tool call ${toolCallId}`);
-					return { kind: 'approve-once' };
 				}
-				return { kind: 'reject' };
+				return await pendingPermission;
 			}
 
 			// For write permission requests, build a FileEdit preview so the
@@ -5056,14 +5053,11 @@ export class CopilotAgentSession extends Disposable {
 			// awaits async filesystem operations; the SDK already calls
 			// `handlePermissionRequest` from an arbitrary async context, so the
 			// extra await here is fine.
-			const edits = await this._buildEditsForPermission(request, toolCallId);
+			const edits = await this._buildEditsForPermission(request, toolCallId, isPending);
 
-			// If the session was aborted/disposed while we were building the
-			// preview, the deferred has already been resolved and the
-			// `pending-edit-content:` entry has been cleaned up. Bail without
-			// firing tool_ready.
-			if (!this._pendingPermissions.has(toolCallId)) {
-				return { kind: 'reject' };
+			// A user decision can race the preview just like abort/disposal; preserve the settled result.
+			if (!isPending()) {
+				return await pendingPermission;
 			}
 
 			// A tool from a provisional Fusion phase is hidden until it needs
@@ -5088,6 +5082,7 @@ export class CopilotAgentSession extends Disposable {
 			this._onDidSessionProgress.fire({
 				kind: 'pending_confirmation',
 				chat: this._chatChannelUri,
+				permissionRequest,
 				state: {
 					status: ToolCallStatus.PendingConfirmation,
 					toolCallId,
@@ -5557,19 +5552,10 @@ export class CopilotAgentSession extends Disposable {
 	}
 
 	/**
-	 * Builds an {@link FileEdit} preview for a write permission request.
-	 *
-	 * The `before` side references the existing file on disk directly (if it
-	 * exists); the `after` side is written to the `pending-edit-content:`
-	 * in-memory filesystem so the client can fetch it via `resourceRead`.
-	 *
-	 * Returns `undefined` for permission kinds that don't describe file
-	 * edits or when the request is missing the fields needed to build a
-	 * preview. If the permission request is no longer pending by the time
-	 * the in-memory write completes (e.g. the session was aborted), the
-	 * just-written entry is deleted so it cannot leak.
+	 * Builds a write-permission preview backed by transient in-memory content.
+	 * Content from settled or superseded requests is removed without affecting a replacement request.
 	 */
-	private async _buildEditsForPermission(request: PermissionRequest, toolCallId: string): Promise<{ items: FileEdit[] } | undefined> {
+	private async _buildEditsForPermission(request: PermissionRequest, toolCallId: string, isPending: () => boolean): Promise<{ items: FileEdit[] } | undefined> {
 		if (request.kind !== 'write') {
 			return undefined;
 		}
@@ -5589,7 +5575,8 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.warn(`[Copilot:${this.sessionId}] Failed to check file for edit preview: ${filePath}`, err);
 		}
 
-		const afterUri = buildPendingEditContentUri(this._storageUri.toString(), toolCallId, filePath);
+		// A reused tool-call ID must not share preview storage with an older request.
+		const afterUri = buildPendingEditContentUri(this._storageUri.toString(), `${toolCallId}-${generateUuid()}`, filePath);
 		try {
 			await this._fileService.writeFile(afterUri, VSBuffer.fromString(newFileContents));
 		} catch (err) {
@@ -5597,10 +5584,7 @@ export class CopilotAgentSession extends Disposable {
 			return undefined;
 		}
 
-		// If the request was already resolved (aborted/disposed) while we
-		// were awaiting the write, drop the in-memory entry immediately;
-		// `_deletePendingEditContent` has already run and won't run again.
-		if (!this._pendingPermissions.has(toolCallId)) {
+		if (!isPending()) {
 			this._fileService.del(afterUri).catch(err => {
 				this._logService.warn(`[Copilot:${this.sessionId}] Failed to delete orphaned pending edit content: ${afterUri.toString()}`, err);
 			});
@@ -5636,7 +5620,10 @@ export class CopilotAgentSession extends Disposable {
 			return false;
 		}
 		const managedApprovalRequired = policy?.enabled === true;
-		const pendingPermission = this._pendingPermissions.register(request.toolCallId, { managedApprovalRequired });
+		this._deletePendingEditContent(request.toolCallId);
+		const pendingRequest = { managedApprovalRequired };
+		const pendingPermission = this._pendingPermissions.register(request.toolCallId, pendingRequest);
+		const permissionRequest = this._createPermissionRequestHandle(request.toolCallId, pendingRequest);
 
 		const displayName = getToolDisplayName(request.toolName);
 		const blockedDomains = request.blockedDomains?.length ? request.blockedDomains.join(', ') : undefined;
@@ -5654,6 +5641,7 @@ export class CopilotAgentSession extends Disposable {
 		this._onDidSessionProgress.fire({
 			kind: 'pending_confirmation',
 			chat: this._chatChannelUri,
+			permissionRequest,
 			state: {
 				status: ToolCallStatus.PendingConfirmation,
 				toolCallId: request.toolCallId,
@@ -6643,6 +6631,9 @@ export class CopilotAgentSession extends Disposable {
 
 		const handleToolComplete = (e: SessionEventPayload<'tool.execution_complete'>): void => {
 			this._approvedDuplicablePermissionSignatures.delete(e.data.toolCallId);
+			if (!this._pendingPermissions.has(e.data.toolCallId)) {
+				this._publishedPermissionRequests.delete(e.data.toolCallId);
+			}
 			const tracked = this._activeToolCalls.get(e.data.toolCallId);
 			if (!tracked) {
 				this._unroutableSubagentToolCallIds.delete(e.data.toolCallId);

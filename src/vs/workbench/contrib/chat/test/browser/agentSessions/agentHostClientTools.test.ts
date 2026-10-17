@@ -2061,7 +2061,7 @@ suite('AgentHostClientTools', () => {
 			);
 		});
 
-		async function provideSessionWithPendingConfirmationClientTool(handler: AgentHostSessionHandler, connection: MockAgentHostConnection): Promise<URI> {
+		async function provideSessionWithPendingConfirmationClientTool(handler: AgentHostSessionHandler, connection: MockAgentHostConnection, confirmationId?: string): Promise<URI> {
 			const sessionResource = URI.parse('agent-host-copilot:/session-1');
 			const backendSession = AgentSession.uri('copilot', 'session-1').toString();
 			const chatURI = URI.parse(buildDefaultChatUri(backendSession));
@@ -2091,6 +2091,7 @@ suite('AgentHostClientTools', () => {
 					{ id: 'allow-once', label: 'Allow Once', kind: ConfirmationOptionKind.Approve },
 					{ id: 'skip', label: 'Skip', kind: ConfirmationOptionKind.Deny },
 				],
+				...withToolConfirmationId({}, confirmationId),
 			} as ChatAction);
 
 			await handler.provideChatSessionContent(sessionResource, CancellationToken.None);
@@ -2110,6 +2111,7 @@ suite('AgentHostClientTools', () => {
 						toolInput: '{"task":"build"}',
 						confirmationTitle: 'Run Task',
 						contributor: { kind: ToolCallContributorKind.Client, clientId: connection.clientId },
+						...withToolConfirmationId({}, confirmationId),
 					},
 				},
 			});

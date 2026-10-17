@@ -269,7 +269,7 @@ async function driveTurnWithModel(c: TestProtocolClient, sessionUri: string, mod
 		}, 60_000);
 		seenNotifications.add(n as object);
 
-		const envelope = n as { params?: { action?: { type?: string; turnId?: string; toolCallId?: string; message?: unknown } } };
+		const envelope = n as { params?: { action?: { type?: string; turnId?: string; toolCallId?: string; message?: unknown; _meta?: Record<string, unknown> } } };
 		const type = envelope?.params?.action?.type;
 		if (type === ActionType.ChatError) {
 			// The request may still have reached the proxy, so failing here is what
@@ -285,6 +285,7 @@ async function driveTurnWithModel(c: TestProtocolClient, sessionUri: string, mod
 				clientSeq: nextClientSeq++,
 				action: {
 					type: ActionType.ChatToolCallConfirmed,
+					_meta: withToolConfirmationId({}, readToolConfirmationId(envelope.params!.action!))._meta,
 					turnId: envelope.params!.action!.turnId!,
 					toolCallId: envelope.params!.action!.toolCallId!,
 					approved: true,
