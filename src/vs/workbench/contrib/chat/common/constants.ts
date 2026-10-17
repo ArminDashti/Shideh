@@ -183,7 +183,8 @@ export const DEFAULT_AGENTS_HANDOFF_TIP_DELAY_SECONDS = 5;
 export enum ChatModeKind {
 	Ask = 'ask',
 	Edit = 'edit',
-	Agent = 'agent'
+	Agent = 'agent',
+	Plan = 'plan'
 }
 
 /**
