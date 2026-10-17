@@ -889,7 +889,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				const error = e instanceof Error ? e : new Error(String(e));
 				if (error instanceof FileOperationError && error.fileOperationResult === FileOperationResult.FILE_NOT_FOUND) {
 					this.logger.warn(`[computeAgentDiscoveryInfo] Skipping agent file that does not exist: ${uri}`, error.message);
-				} else {
+				} else if (!isCancellationError(e)) {
 					this.logger.error(`[computeAgentDiscoveryInfo] Failed to parse agent file: ${uri}`, error);
 				}
 				return {
