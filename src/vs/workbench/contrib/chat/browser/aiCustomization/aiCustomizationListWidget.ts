@@ -1806,6 +1806,7 @@ export class AICustomizationListWidget extends Disposable {
 		} else {
 			this.emptyStateContainer.style.display = 'none';
 			this.listContainer.style.display = '';
+			this.list.layout(this.listContainer.clientHeight, this.listContainer.clientWidth);
 		}
 	}
 
