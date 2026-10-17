@@ -557,6 +557,14 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 					this._setupIdleInputListener();
 					return this._state;
 				}
+
+				// Only check for input-required patterns if the task is still active
+				const currentOutput = execution.getOutput();
+				const promptResult = detectsInputRequiredPattern(currentOutput);
+				if (promptResult) {
+					this._state = OutputMonitorState.Idle;
+					return this._state;
+				}
 			}
 		} finally {
 			onDataDisposable.dispose();
