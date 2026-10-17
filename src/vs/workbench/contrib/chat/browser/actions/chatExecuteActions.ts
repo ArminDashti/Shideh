@@ -868,13 +868,13 @@ export class ChatSubmitWithCodebaseAction extends Action2 {
 	}
 }
 
-class SendToNewChatAction extends Action2 {
+class SendToChatAndCreateNewChatAction extends Action2 {
 	constructor() {
 		const precondition = ChatContextKeys.inputHasText;
 
 		super({
-			id: 'workbench.action.chat.sendToNewChat',
-			title: localize2('chat.newChat.label', "Send to New Chat"),
+			id: 'workbench.action.chat.sendToChatAndCreateNewChat',
+			title: localize2('chat.sendAndNewChat.label', "Send and Create New Chat"),
 			precondition,
 			category: CHAT_CATEGORY,
 			f1: false,
