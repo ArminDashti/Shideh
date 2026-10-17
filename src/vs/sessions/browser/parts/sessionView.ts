@@ -515,6 +515,53 @@ export class SessionView extends Disposable implements ISerializableView {
 		}
 	}
 
+	/**
+	 * Grid hook invoked by the part's internal split view when this leaf is
+	 * hidden or shown (e.g. when a sibling session is maximized).
+	 */
+	setVisible(visible: boolean): void {
+		if (this._isLeafVisible === visible) {
+			return;
+		}
+		const wasVisible = this._isVisible;
+		this._isLeafVisible = visible;
+		this._updateVisibility(wasVisible);
+	}
+
+	/**
+	 * Called by the owning {@link SessionsPart} when the part itself is hidden or
+	 * shown in the workbench grid. Combined with this leaf's own visibility to
+	 * form the view's effective visibility.
+	 */
+	setPartVisible(visible: boolean): void {
+		if (this._isPartVisible === visible) {
+			return;
+		}
+		const wasVisible = this._isVisible;
+		this._isPartVisible = visible;
+		this._updateVisibility(wasVisible);
+	}
+
+	/**
+	 * Whether this view is actually shown. Unrelated to {@link setActive}:
+	 * inactive sessions shown side by side are still visible.
+	 */
+	private get _isVisible(): boolean {
+		return this._isPartVisible && this._isLeafVisible;
+	}
+
+	private _updateVisibility(wasVisible: boolean): void {
+		const visible = this._isVisible;
+		if (visible === wasVisible) {
+			return;
+		}
+		this._currentView.value?.setVisible(visible);
+		if (visible) {
+			// Catch up on the layout passes that were skipped while hidden.
+			this._layoutChildren();
+		}
+	}
+
 	private _applyActiveSessionStyles(): void {
 		this.element.classList.toggle('modern-ui-editor-tab-group-active', this._isActive);
 		applySessionViewThemeColors(this.element, this.themeService.getColorTheme(), this._isActive);
