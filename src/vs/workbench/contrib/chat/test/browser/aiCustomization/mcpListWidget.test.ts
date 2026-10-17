@@ -750,32 +750,27 @@ suite('mcpListWidget', () => {
 		});
 	});
 
-	test('cancels delayed and in-flight gallery work when access is revoked', () => {
+	test('cancels in-flight gallery work when access is revoked', () => {
 		const widget = createMcpAccessTestWidget(McpAccessValue.All, undefined, disposables);
 		widget.updateAccessState();
 		widget.galleryCts = { dispose: cancel => widget.requestCancelCount += cancel ? 1 : 0 };
 		widget.gallerySnapshotLoading = true;
-		widget.gallerySearchLoading = true;
 
 		widget.access = McpAccessValue.None;
 		widget.updateAccessState();
 
 		assert.deepStrictEqual({
 			accessEnabled: widget.mcpAccessEnabled,
-			delayedCancelCount: widget.delayedCancelCount,
 			requestCancelCount: widget.requestCancelCount,
 			gallerySnapshotLoading: widget.gallerySnapshotLoading,
-			gallerySearchLoading: widget.gallerySearchLoading,
 		}, {
 			accessEnabled: false,
-			delayedCancelCount: 1,
 			requestCancelCount: 1,
 			gallerySnapshotLoading: false,
-			gallerySearchLoading: false,
 		});
 	});
 
-	test('restarts a retained marketplace search when access is restored', () => {
+	test('refreshes installed servers when access is restored', () => {
 		const widget = createMcpAccessTestWidget(McpAccessValue.None, undefined, disposables);
 		widget.searchQuery = 'github';
 		widget.visible = true;
@@ -784,13 +779,7 @@ suite('mcpListWidget', () => {
 		widget.access = McpAccessValue.All;
 		widget.updateAccessState();
 
-		assert.deepStrictEqual({
-			queryCount: widget.queryCount,
-			refreshCount: widget.refreshCount,
-		}, {
-			queryCount: 1,
-			refreshCount: 0,
-		});
+		assert.strictEqual(widget.refreshCount, 1);
 	});
 
 	test('refreshes installed servers when access is restored', () => {

@@ -76,6 +76,30 @@ suite('aiCustomizationManagementEditor', () => {
 		]);
 	});
 
+	test('routes marketplace entry points to typed Discover searches', () => {
+		const editor = createTestEditor();
+		const queries: string[] = [];
+		let welcomePageShows = 0;
+		Object.assign(editor, {
+			welcomePage: {
+				setSearchQuery: (value: string) => queries.push(value),
+			},
+			showWelcomePage: () => welcomePageShows++,
+		});
+
+		editor.showMarketplace(AICustomizationManagementSection.Plugins);
+		editor.showMarketplace(AICustomizationManagementSection.McpServers);
+
+		assert.deepStrictEqual({
+			welcomePageShows,
+			queries,
+		}, {
+			welcomePageShows: 2,
+			queries: ['@type:plugin', '@type:mcp'],
+		});
+		editor.editorPreviewDisposables.dispose();
+	});
+
 	test('rejects stale plugin contribution navigation', () => {
 		assert.deepStrictEqual([
 			isCurrentPluginContributionNavigation(2, 2, AICustomizationManagementSection.Skills, AICustomizationManagementSection.Skills, true),
@@ -213,7 +237,12 @@ suite('aiCustomizationManagementEditor', () => {
 		fileDialogService: { showOpenDialog(): Promise<URI[]> };
 		showEmbeddedEditor(...args: unknown[]): Promise<void>;
 		getActiveHarnessLabel(): string;
-		welcomePage: { setMigrationCategories(categories: readonly unknown[]): void } | undefined;
+		welcomePage: {
+			container?: HTMLElement;
+			rebuildCards?(visibleSectionIds: ReadonlySet<AICustomizationManagementSection>): void;
+			setSearchQuery?(value: string): void;
+			setVisible?(visible: boolean): void;
+		} | undefined;
 		selectedSection: AICustomizationManagementSection | undefined;
 		contributedSectionContainers: Map<AICustomizationManagementSection, HTMLElement>;
 		contributedSectionWidgets: Map<AICustomizationManagementSection, IAICustomizationManagementSectionWidget>;

@@ -206,7 +206,8 @@ export class PluginInstallService implements IPluginInstallService {
 			// marketplaces, so we do NOT register the reference under the
 			// `chat.plugins.marketplaces` config — updates flow through
 			// `updatePluginSource` via the plugin's git source descriptor.
-			const singlePlugin = await this._pluginMarketplaceService.readSinglePluginManifest(repoDir, reference);
+			const manifest = await this._pluginMarketplaceService.readSinglePluginManifest(repoDir, reference);
+			const singlePlugin = manifest ? { ...manifest, sourceDescriptor } : undefined;
 			if (singlePlugin) {
 				if (options?.plugin && options.plugin !== singlePlugin.name) {
 					return {

@@ -37,7 +37,7 @@ import { McpCommandIds } from '../../../../contrib/mcp/common/mcpCommandIds.js';
 import { autorun, derived, IObservable, IReader, observableSignalFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { InputBox, MessageType } from '../../../../../base/browser/ui/inputbox/inputBox.js';
+import { InputBox } from '../../../../../base/browser/ui/inputbox/inputBox.js';
 import { IContextMenuService, IContextViewService } from '../../../../../platform/contextview/browser/contextView.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Delayer } from '../../../../../base/common/async.js';
@@ -1354,10 +1354,6 @@ export function updateMcpCardRuntimePresentation(
 	description.textContent = descriptionText;
 }
 
-export function shouldLoadMcpGallerySnapshot(visible: boolean, query: string, itemCount: number, failed: boolean, loading: boolean, accessEnabled: boolean): boolean {
-	return accessEnabled && visible && !query.trim() && itemCount === 0 && !failed && !loading;
-}
-
 export function hasSameMcpMembership(previous: string, current: string): boolean {
 	return previous === current;
 }
@@ -1790,7 +1786,6 @@ export class McpListWidget extends Disposable {
 	private readonly cardListControllers = new WeakMap<HTMLElement, CustomizationCardListController>();
 	private sectionLists: IMcpSectionList[] = [];
 	private readonly delayedFilter = new Delayer<void>(200);
-	private readonly delayedGallerySearch = new Delayer<void>(400);
 	private readonly agentHostCustomizationsChanged: IObservable<void>;
 	private readonly mcpServerCompatibility = observableValue<ReadonlyMap<string, CustomizationMcpServerCompatibilityKind>>(this, new Map());
 	private readonly mcpServerCompatibilityScope = this._register(new MutableDisposable<DisposableStore>());
@@ -1842,13 +1837,8 @@ export class McpListWidget extends Disposable {
 			this.galleryCts = undefined;
 			this.gallerySnapshotServers = [];
 			this.galleryServers = [];
-			this.gallerySnapshotFailed = false;
 			this.gallerySnapshotLoading = false;
-			if (this.searchQuery.trim()) {
-				void this.queryMcpSearch();
-			} else {
-				void this.refresh();
-			}
+			void this.refresh();
 		}));
 		if (!this.isGalleryDiscoveryEnabled()) {
 			void mcpGalleryManifestService.getMcpGalleryManifest();
@@ -1882,7 +1872,6 @@ export class McpListWidget extends Disposable {
 		this._register({
 			dispose: () => {
 				this.delayedFilter.cancel();
-				this.delayedGallerySearch.cancel();
 				this.galleryCts?.dispose(true);
 			}
 		});
@@ -1944,14 +1933,11 @@ export class McpListWidget extends Disposable {
 		}));
 
 		this._register(this.searchInput.onDidChange(() => {
+			this.showAvailableOnHome = false;
 			this.searchQuery = this.searchInput.value;
 			this.galleryCts?.dispose(true);
 			this.galleryCts = undefined;
 			this.searchInput.hideMessage();
-			const query = this.searchQuery.toLowerCase().trim();
-			this.galleryServers = query
-				? this.gallerySnapshotServers.filter(server => this.matchesGalleryServerQuery(server, query))
-				: [...this.gallerySnapshotServers];
 			this.delayedFilter.trigger(() => this.filterServers());
 			if (!this.mcpAccessEnabled || this.isGalleryDiscoveryEnabled()) {
 				this.gallerySearchLoading = false;
@@ -2126,6 +2112,7 @@ export class McpListWidget extends Disposable {
 			this.updateMcpServerCompatibilityScope();
 			void this.refresh();
 		} else {
+			this.showAvailableOnHome = false;
 			this.clearMcpServerCompatibilityScope();
 		}
 	}
@@ -2170,11 +2157,9 @@ export class McpListWidget extends Disposable {
 		this.element.classList.toggle('access-disabled', disabled);
 
 		if (disabled) {
-			this.delayedGallerySearch.cancel();
 			this.galleryCts?.dispose(true);
 			this.galleryCts = undefined;
 			this.gallerySnapshotLoading = false;
-			this.gallerySearchLoading = false;
 			this.searchInput.hideMessage();
 			this.disabledIcon.className = 'empty-icon';
 			this.disabledIcon.classList.add(...ThemeIcon.asClassNameArray(policyLocked ? Codicon.shield : mcpServerIcon));
@@ -2212,6 +2197,7 @@ export class McpListWidget extends Disposable {
 		}
 		this.searchInput.value = '';
 		this.searchQuery = '';
+		this.showAvailableOnHome = true;
 		void this.queryGallerySnapshot(true);
 	}
 
@@ -2248,7 +2234,6 @@ export class McpListWidget extends Disposable {
 
 			this.gallerySnapshotServers = servers;
 			this.galleryServers = [...this.gallerySnapshotServers];
-			this.gallerySnapshotFailed = false;
 			this.gallerySnapshotLoading = false;
 			this.renderMcpHome();
 			if (revealMarketplace) {
@@ -2261,7 +2246,6 @@ export class McpListWidget extends Disposable {
 			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled) {
 				this.gallerySnapshotServers = [];
 				this.galleryServers = [];
-				this.gallerySnapshotFailed = true;
 				this.gallerySnapshotLoading = false;
 				this.renderMcpHome();
 			}

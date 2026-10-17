@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Schemas } from '../../../../base/common/network.js';
+import { CustomizationMarketplaceConfiguration } from '../../../../platform/customizationMarketplace/common/customizationMarketplaceSources.js';
 import { IChatSessionsService, isAgentHostTarget, localChatSessionType, SessionType } from './chatSessionsService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';

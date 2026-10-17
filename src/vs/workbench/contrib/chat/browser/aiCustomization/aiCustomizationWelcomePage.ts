@@ -23,18 +23,6 @@ import { IAICustomizationListItem } from './aiCustomizationItemSource.js';
 
 const $ = DOM.$;
 
-/**
- * A migration flow offered on the overview, already resolved to display copy.
- */
-export interface ICustomizationMigrationCategorySummary {
-	readonly id: CustomizationMigrationCategoryId;
-	readonly label: string;
-	readonly description: string;
-	readonly actionLabel: string;
-	readonly actionAriaLabel: string;
-	readonly count: number;
-}
-
 export interface IWelcomePageCallbacks {
 	selectSection(section: AICustomizationManagementSection): void;
 	selectSectionWithMarketplace(section: AICustomizationManagementSection): void;
@@ -47,7 +35,6 @@ export interface IWelcomePageCallbacks {
 	}): void;
 	openMarketplaceItem(resource: ICustomizationMarketplaceResource, origin: ICustomizationMarketplaceOrigin): void;
 	closeEditor(): void;
-	reviewMigrations(): void;
 	/**
 	 * Prefill the chat input with a query. In the sessions window this
 	 * uses the sessions chat widget; in core VS Code it opens the chat view.
@@ -213,5 +200,21 @@ export class AICustomizationWelcomePage extends Disposable {
 
 	setSearchQuery(value: string): void {
 		this.implementation.value?.setSearchQuery?.(value);
+	}
+
+	setVisible(visible: boolean): void {
+		this.implementation.setVisible?.(visible);
+	}
+
+	layout(dimension: DOM.Dimension | undefined): void {
+		this.implementation.layout?.(dimension);
+	}
+
+	getAccessibilityContent(): string {
+		return this.implementation.getAccessibilityContent?.() ?? '';
+	}
+
+	setSearchQuery(value: string): void {
+		this.implementation.setSearchQuery?.(value);
 	}
 }

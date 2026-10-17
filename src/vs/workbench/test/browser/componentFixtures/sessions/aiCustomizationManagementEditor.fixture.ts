@@ -2762,8 +2762,8 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		render: ctx => renderEditor(ctx, { sessionResource: localSessionResource, selectedSection: AICustomizationManagementSection.Agents }),
 	}),
 
-	// Agent-host welcome page variant that highlights local prompt files which
-	// need to be migrated because the active harness only consumes skills.
+	// Agent-host welcome page variant with migration candidates available through
+	// the editor's migration shortcut rather than a Discover banner.
 	AgentHostPromptMigration: defineComponentFixture({
 		labels: { kind: 'screenshot', blocksCi: false },
 		render: ctx => renderEditor(ctx, {

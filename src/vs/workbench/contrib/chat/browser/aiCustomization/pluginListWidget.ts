@@ -20,7 +20,7 @@ import { defaultButtonStyles, defaultInputBoxStyles, getButtonStyles } from '../
 import { autorun, derived, IObservable } from '../../../../../base/common/observable.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { InputBox, MessageType } from '../../../../../base/browser/ui/inputbox/inputBox.js';
+import { InputBox } from '../../../../../base/browser/ui/inputbox/inputBox.js';
 import { IContextMenuService, IContextViewService } from '../../../../../platform/contextview/browser/contextView.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
@@ -775,7 +775,6 @@ export class PluginListWidget extends Disposable {
 	private installedItems: IInstalledPluginItem[] = [];
 	private remoteItems: ICustomizationItem[] = [];
 	private marketplaceItems: IMarketplacePluginItem[] = [];
-	private readonly marketplaceSnapshot = new PluginMarketplaceSnapshotModel();
 	private searchQuery: string = '';
 	private currentTreeGroups: readonly ICustomizationTreeGroup<IPluginListEntry>[] = [];
 	private browseMode: boolean = false;
@@ -789,7 +788,6 @@ export class PluginListWidget extends Disposable {
 	private _layoutDeferred = false;
 	private readonly revealLastItemScheduler = this._register(new MutableDisposable());
 	private marketplaceCts: CancellationTokenSource | undefined;
-	private marketplaceSnapshotCts: CancellationTokenSource | undefined;
 	private readonly delayedFilter = new Delayer<void>(200);
 	private readonly delayedMarketplaceSearch = new Delayer<void>(400);
 	private filterGeneration = 0;
@@ -842,8 +840,6 @@ export class PluginListWidget extends Disposable {
 				this.delayedMarketplaceSearch.cancel();
 				this.marketplaceCts?.dispose(true);
 				this.marketplaceCts = undefined;
-				this.marketplaceSnapshotCts?.dispose(true);
-				this.marketplaceSnapshotCts = undefined;
 			}
 		});
 	}
@@ -927,8 +923,6 @@ export class PluginListWidget extends Disposable {
 			this.marketplaceCts = undefined;
 			if (this.browseMode) {
 				this.delayedMarketplaceSearch.trigger(() => this.queryMarketplace());
-			} else if (this.searchQuery.trim()) {
-				this.delayedMarketplaceSearch.trigger(() => this.queryPluginSearch());
 			} else {
 				this.delayedMarketplaceSearch.cancel();
 				this.marketplaceItems = [];
@@ -1052,8 +1046,6 @@ export class PluginListWidget extends Disposable {
 		}));
 		this._register(this.pluginMarketplaceService.onDidChangeMarketplaces(() => {
 			this.marketplaceItems = [];
-			this.marketplaceSnapshotCts?.dispose(true);
-			this.marketplaceSnapshot.reset();
 			void this.refresh();
 		}));
 		this._register(autorun(reader => {
@@ -1099,8 +1091,6 @@ export class PluginListWidget extends Disposable {
 	private async refresh(): Promise<void> {
 		if (this.browseMode) {
 			await this.queryMarketplace();
-		} else if (this.searchQuery.trim()) {
-			await this.queryPluginSearch();
 		} else {
 			this.filterPlugins();
 		}
@@ -1755,35 +1745,6 @@ export class PluginListWidget extends Disposable {
 			button.label = localize('install', "Install");
 			button.enabled = true;
 			this.notificationService.error(localize('pluginInstallFailed', "Unable to install plugin: {0}", getErrorMessage(error)));
-		}
-	}
-
-	private async queryMarketplaceSnapshot(): Promise<void> {
-		if (!this.marketplaceSnapshot.beginLoading()) {
-			return;
-		}
-		this.marketplaceSnapshotCts?.dispose(true);
-		const cts = this.marketplaceSnapshotCts = new CancellationTokenSource();
-		try {
-			const plugins = await this.pluginMarketplaceService.fetchMarketplacePlugins(cts.token);
-			if (this.marketplaceSnapshotCts !== cts) {
-				return;
-			}
-			if (cts.token.isCancellationRequested) {
-				this.marketplaceSnapshot.reset();
-				return;
-			}
-			this.marketplaceSnapshot.complete(plugins.map(marketplacePluginToItem));
-			if (!this.browseMode && !this.searchQuery.trim()) {
-				this.renderPluginHome();
-			}
-		} catch {
-			if (this.marketplaceSnapshotCts === cts && !cts.token.isCancellationRequested) {
-				this.marketplaceSnapshot.fail();
-				if (!this.browseMode && !this.searchQuery.trim()) {
-					this.renderPluginHome();
-				}
-			}
 		}
 	}
 

@@ -1113,7 +1113,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private createSidebarHeader(sidebarContent: HTMLElement): void {
 		const headerRow = this.sidebarHeaderContainer = DOM.append(sidebarContent, $('.sidebar-header-row'));
 
-		// Home/overview button
+		// Discover button
 		const homeButton = this.homeButton = DOM.append(headerRow, $('button.sidebar-home-button'));
 		homeButton.classList.add('sidebar-harness-home-button');
 		this.editorDisposables.add(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), homeButton, () => this.getHomeButtonTooltip()));
@@ -1954,30 +1954,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 			.filter(candidate => !isMcpServerCustomizationMigrationCandidate(candidate));
 	}
 
-	private getMigrationCategorySummaries(): readonly ICustomizationMigrationCategorySummary[] {
-		const harnessLabel = this.getActiveHarnessLabel();
-		const summaries: ICustomizationMigrationCategorySummary[] = [];
-		for (const id of homepageMigrationCategories) {
-			const category = getCustomizationMigrationCategory(id);
-			const candidates = this.getMigrationCandidates(category)
-				.filter(candidate => !this.migrationWorkspaceSkipped || this.getMigrationCandidateStorage(candidate) !== PromptsStorage.local);
-			if (candidates.length === 0) {
-				continue;
-			}
-			summaries.push({
-				id: category.id,
-				label: category.cardLabel,
-				description: category.getCardDescription(candidates, harnessLabel),
-				actionLabel: category.cardActionLabel,
-				actionAriaLabel: category.cardActionAriaLabel,
-				count: candidates.length,
-			});
-		}
-		return summaries;
-	}
-
 	private refreshCustomizationMigrationUi(): void {
-		this.welcomePage?.setMigrationCategories(this.getMigrationCategorySummaries());
 		this.updateSidebarMigrationShortcut();
 		this.renderCustomizationMigrationPage();
 	}
