@@ -1882,6 +1882,12 @@ export class McpListWidget extends Disposable {
 			}
 		}));
 
+		this.treeTabs = this._register(new CustomizationTreeTabs(this.element, localize('mcpServerGroups', "MCP Server Groups")));
+		this._register(this.treeTabs.onDidSelect(groupKey => {
+			this.selectedGroupKey = groupKey;
+			this.renderMcpTree();
+		}));
+
 		// Empty state
 		this.emptyContainer = DOM.append(this.element, $('.mcp-empty-state'));
 		const emptyHeader = DOM.append(this.emptyContainer, $('.empty-state-header'));

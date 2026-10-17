@@ -667,6 +667,7 @@ export class AICustomizationListWidget extends Disposable {
 	private addButtonContainer!: HTMLElement;
 	private addButton!: ButtonWithDropdown;
 	private addButtonSimple!: Button;
+	private treeTabs!: CustomizationTreeTabs;
 	private listContainer!: HTMLElement;
 	private list!: WorkbenchObjectTree<IListEntry>;
 	private emptyStateContainer!: HTMLElement;
@@ -677,6 +678,8 @@ export class AICustomizationListWidget extends Disposable {
 	private allItems: readonly IAICustomizationListItem[] = [];
 	private displayEntries: IListEntry[] = [];
 	private searchQuery: string = '';
+	private selectedGroupKey: string | undefined;
+	private currentTreeGroups: readonly ICustomizationTreeGroup<IListEntry>[] = [];
 	private sectionLoading = false;
 	private readonly collapsedGroups = new Set<string>();
 	private _layoutDeferred = false;
@@ -723,6 +726,7 @@ export class AICustomizationListWidget extends Disposable {
 		@ICommandService private readonly commandService: ICommandService,
 		@IAICustomizationItemsModel private readonly itemsModel: IAICustomizationItemsModel,
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
 		this.element = $('.ai-customization-list-widget');
@@ -739,6 +743,12 @@ export class AICustomizationListWidget extends Disposable {
 			this.harnessService.activeHarness.read(reader);
 			this.harnessService.availableHarnesses.read(reader);
 			this.updateAddButton();
+		}));
+		this._register(this.configurationService.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('chat.experimental.customizations.listLayout') && this.usesCustomizationTreePresentation()) {
+				this.filterItems();
+				this.layout(this.lastLayoutHeight, this.lastLayoutWidth);
+			}
 		}));
 	}
 

@@ -7,6 +7,7 @@ import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { CustomizationToggle } from '../../../browser/aiCustomization/customizationToggle.js';
 import { isToolsTreeKeyboardTarget } from '../../../browser/aiCustomization/toolsListWidget.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 
 suite('toolsListWidget', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

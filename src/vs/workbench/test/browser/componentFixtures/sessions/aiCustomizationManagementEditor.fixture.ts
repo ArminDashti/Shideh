@@ -2956,6 +2956,16 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		}),
 	}),
 
+	AgentsTree: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['The Agents page uses a classic tree with collapsible Workspace, User, Plugins, Extensions, and Built-In groups where applicable.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.Agents,
+			configuration: { [ChatConfiguration.ChatCustomizationsListLayout]: 'tree' },
+		}),
+	}),
+
 	AgentsSearch: defineComponentFixture({
 		labels: { kind: 'screenshot', blocksCi: false },
 		render: ctx => renderEditor(ctx, {
@@ -3098,6 +3108,21 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		}),
 	}),
 
+	ToolsTree: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['The Tools page shows Built-in Tools, Connected Sources, and Extension Tools as collapsible parent nodes in a classic tree.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.Tools,
+			availableHarnesses: [{ ...createVSCodeHarnessDescriptor(), hiddenSections: [] }],
+			managementSections: [
+				AICustomizationManagementSection.Agents,
+				AICustomizationManagementSection.Tools,
+			],
+			configuration: { [ChatConfiguration.ChatCustomizationsListLayout]: 'tree' },
+		}),
+	}),
+
 	ToolsTabNarrow: defineComponentFixture({
 		labels: { kind: 'screenshot', blocksCi: false },
 		deferPaint: true,
@@ -3218,6 +3243,16 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		render: ctx => renderEditor(ctx, {
 			sessionResource: localSessionResource,
 			selectedSection: AICustomizationManagementSection.Plugins,
+		}),
+	}),
+
+	PluginsTree: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['The Plugins page uses a classic tree with collapsible Installed and Available groups.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.Plugins,
+			configuration: { [ChatConfiguration.ChatCustomizationsListLayout]: 'tree' },
 		}),
 	}),
 

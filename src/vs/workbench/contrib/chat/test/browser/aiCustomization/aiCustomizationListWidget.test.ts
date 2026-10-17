@@ -26,6 +26,7 @@ import { extractExtensionIdFromPath, getCustomizationSecondaryText, truncateToFi
 import { AICustomizationManagementSection, IAICustomizationWorkspaceService } from '../../../common/aiCustomizationWorkspaceService.js';
 import { ICustomizationHarnessService, IHarnessDescriptor } from '../../../common/customizationHarnessService.js';
 import { ContributionEnablementState } from '../../../common/enablement.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 import { getChatSessionType } from '../../../common/model/chatUri.js';
 import { IAgentPluginService } from '../../../common/plugins/agentPluginService.js';
 import { IPromptsService, PromptsStorage } from '../../../common/promptSyntax/service/promptsService.js';
@@ -47,7 +48,8 @@ suite('aiCustomizationListWidget', () => {
 			agents: true,
 			skills: true,
 			hooks: true,
-			prompts: true,
+			prompts: false,
+			promptsKeepCardLayout: true,
 		});
 	});
 
