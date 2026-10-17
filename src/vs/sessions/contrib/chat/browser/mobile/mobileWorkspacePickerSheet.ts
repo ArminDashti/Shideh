@@ -18,6 +18,12 @@ import { ISessionWorkspaceBrowseAction } from '../../../../services/sessions/com
 /** Prefix used for ids of dynamically-loaded folder rows in the sheet. */
 const SEARCH_RESULT_ID_PREFIX = 'searchResult:';
 
+/** Prefix used for ids of recent workspace matches in the inline search results. */
+const RECENT_SEARCH_RESULT_ID_PREFIX = 'recentSearchResult:';
+
+/** Id for the synthetic row that confirms the currently browsed folder. */
+const USE_CURRENT_FOLDER_ID = 'useFolder:';
+
 /**
  * Plan for translating an action-widget picker entry into mobile sheet
  * rows. Each plan entry pairs the row(s) we'll show in the bottom sheet
@@ -25,6 +31,17 @@ const SEARCH_RESULT_ID_PREFIX = 'searchResult:';
  */
 type MobilePickerRow = {
 	readonly sheetItem: IMobilePickerSheetItem;
+	readonly folderUri?: NonNullable<IWorkspacePickerItem['folderUri']>;
+	readonly run: () => void;
+};
+
+type RecentWorkspacePickerRow = MobilePickerRow & {
+	readonly folderUri: NonNullable<IWorkspacePickerItem['folderUri']>;
+};
+
+type BrowsedFolder = {
+	readonly query: string;
+	readonly label: string;
 	readonly run: () => void;
 };
 
@@ -103,6 +120,7 @@ export function buildMobileWorkspacePickerRows(
 				disabled: item.disabled,
 				sectionTitle,
 			},
+			folderUri: isWorkspaceRow ? data?.folderUri : undefined,
 			run: () => {
 				if (data) {
 					dispatch(data);
@@ -136,6 +154,21 @@ function descriptionToString(value: IActionListItem<IWorkspacePickerItem>['descr
 		return value;
 	}
 	return value.value;
+}
+
+function findRecentWorkspaceMatches(rows: readonly MobilePickerRow[], query: string): readonly RecentWorkspacePickerRow[] {
+	const normalizedQuery = query.trim().toLocaleLowerCase();
+	if (!normalizedQuery) {
+		return [];
+	}
+	return rows.filter((row): row is RecentWorkspacePickerRow => {
+		if (!row.folderUri || row.sheetItem.disabled) {
+			return false;
+		}
+		const label = row.sheetItem.label.toLocaleLowerCase();
+		const description = row.sheetItem.description?.toLocaleLowerCase();
+		return label.includes(normalizedQuery) || !!description?.includes(normalizedQuery);
+	});
 }
 
 /**
@@ -194,6 +227,8 @@ export async function showMobileWorkspacePickerSheet(
 		label: b.label,
 		icon: b.icon,
 	}));
+	const foldersSectionTitle = localize('mobileWorkspacePicker.foldersSection', "Folders");
+	const recentSectionTitle = localize('mobileWorkspacePicker.recentSection', "Recent");
 
 	// Build the inline search source and a parallel id→dispatch map so
 	// the sheet can resolve folder taps back to a provider selection.
@@ -244,6 +279,9 @@ export async function showMobileWorkspacePickerSheet(
 					if (!folderUri) {
 						return;
 					}
+					if (recentFolderUris.has(folderUri.toString())) {
+						return;
+					}
 					folderRunById.set(id, () => dispatch({ folderUri, providerId: entry.providerId }));
 					folderLabelById.set(id, entry.workspace.label);
 					sheetItems.push({
@@ -253,6 +291,7 @@ export async function showMobileWorkspacePickerSheet(
 						icon: entry.workspace.icon,
 						navigates: true,
 					});
+					hasAddedFolderSection = true;
 				});
 				return sheetItems;
 			},
