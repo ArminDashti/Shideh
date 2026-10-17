@@ -16,8 +16,6 @@ import { hasKey, type SingleOrMany } from '../../../../../../base/common/types.j
 import { URI } from '../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { ITreeSitterLibraryService } from '../../../../../../editor/common/services/treeSitter/treeSitterLibraryService.js';
-import { OffsetRange } from '../../../../../../editor/common/core/ranges/offsetRange.js';
-import { Range } from '../../../../../../editor/common/core/range.js';
 import { ConfigurationTarget } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
@@ -82,6 +80,8 @@ class TestRunInTerminalTool extends RunInTerminalTool {
 		this._osBackend = Promise.resolve(os);
 	}
 }
+
+type ITestRunInTerminalToolInvocationData = IChatTerminalToolInvocationData & { requiresConfirmationForRetry?: boolean };
 
 suite('RunInTerminalTool', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -1022,14 +1022,17 @@ suite('RunInTerminalTool', () => {
 			}), false);
 		});
 
-		test('should show retry elicitation when prepared invocation was auto-approved', async () => {
+		test('should not show retry elicitation when prepared invocation was auto-approved', async () => {
 			setAutoApprove({ echo: true });
-			const sessionResource = LocalChatSessionUri.forSession('auto-retry-auto-approved-session');
 
 			const preparedInvocation = await executeToolTest({ command: 'echo hello' });
 			assertAutoApproved(preparedInvocation);
+			const terminalData = preparedInvocation!.toolSpecificData as ITestRunInTerminalToolInvocationData;
+			strictEqual(terminalData.requiresConfirmationForRetry, false);
 
-			await assertAutomaticUnsandboxRetryElicitation(runInTerminalTool, sessionResource, 'echo hello', 'bash', undefined);
+			const shouldRetry = await confirmAutomaticUnsandboxRetry(runInTerminalTool, undefined, 'echo hello', 'bash', undefined, terminalData.requiresConfirmationForRetry);
+
+			strictEqual(shouldRetry, true);
 		});
 
 		test('should auto-retry without elicitation when session is in auto-approve permission level', async () => {
@@ -1051,6 +1054,8 @@ suite('RunInTerminalTool', () => {
 			} as IToolInvocationPreparationContext, CancellationToken.None);
 
 			assertAutoApproved(preparedInvocation);
+			const terminalData = preparedInvocation!.toolSpecificData as ITestRunInTerminalToolInvocationData;
+			strictEqual(terminalData.requiresConfirmationForRetry, false);
 
 			const model = createChatModelWithRequest(sessionResource);
 			const shouldRetry = await confirmAutomaticUnsandboxRetry(autoApproveRunInTerminalTool, sessionResource, 'rm dangerous-file.txt', 'bash', undefined);
@@ -1064,8 +1069,12 @@ suite('RunInTerminalTool', () => {
 
 			const preparedInvocation = await executeToolTest({ command: 'rm dangerous-file.txt' });
 			assertConfirmationRequired(preparedInvocation);
+			const terminalData = preparedInvocation!.toolSpecificData as ITestRunInTerminalToolInvocationData;
+			strictEqual(terminalData.requiresConfirmationForRetry, true);
 
-			await assertAutomaticUnsandboxRetryElicitation(runInTerminalTool, LocalChatSessionUri.forSession('auto-retry-confirmation-required-session'), 'rm dangerous-file.txt', 'bash', undefined);
+			const shouldRetry = await confirmAutomaticUnsandboxRetry(runInTerminalTool, undefined, 'rm dangerous-file.txt', 'bash', undefined, terminalData.requiresConfirmationForRetry);
+
+			strictEqual(shouldRetry, false);
 		});
 
 		test('should use retry confirmation title without sandbox link', () => {
@@ -1115,10 +1124,13 @@ suite('RunInTerminalTool', () => {
 			const preparedInvocation = await executeToolTest({ command: 'rm dangerous-file.txt' });
 
 			assertAutoApproved(preparedInvocation);
-			const terminalData = preparedInvocation!.toolSpecificData as IChatTerminalToolInvocationData;
+			const terminalData = preparedInvocation!.toolSpecificData as ITestRunInTerminalToolInvocationData;
 			strictEqual(terminalData.commandLine.isSandboxWrapped, true);
+			strictEqual(terminalData.requiresConfirmationForRetry, true);
 
-			await assertAutomaticUnsandboxRetryElicitation(runInTerminalTool, LocalChatSessionUri.forSession('auto-retry-sandbox-force-approved-session'), 'rm dangerous-file.txt', 'bash', undefined);
+			const shouldRetry = await confirmAutomaticUnsandboxRetry(runInTerminalTool, undefined, 'rm dangerous-file.txt', 'bash', undefined, terminalData.requiresConfirmationForRetry);
+
+			strictEqual(shouldRetry, false);
 		});
 
 	});
