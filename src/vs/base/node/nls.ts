@@ -132,6 +132,8 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 				promises.readFile(mainLanguagePackPath, 'utf-8').then(content => JSON.parse(content)),
 			]);
 
+		await promises.mkdir(commitLanguagePackCachePath, { recursive: true });
+
 		const nlsResult: string[] = [];
 
 		// We expect NLS messages to be in a flat array in sorted order as they
