@@ -44,7 +44,7 @@ export const readScripts = (document: IPositionOffsetTransformer & { getText?():
 		},
 		onObjectEnd(offset) {
 			if (inScripts) {
-				end = document.positionAt(offset);
+				end = offsetToPosition(offset);
 				inScripts = false;
 			}
 			level--;
@@ -54,7 +54,7 @@ export const readScripts = (document: IPositionOffsetTransformer & { getText?():
 				scripts.push({
 					...buildingScript,
 					value,
-					valueRange: new Range(document.positionAt(offset), document.positionAt(offset + length)),
+					valueRange: new Range(offsetToPosition(offset), offsetToPosition(offset + length)),
 				});
 				buildingScript = undefined;
 			}
@@ -62,11 +62,11 @@ export const readScripts = (document: IPositionOffsetTransformer & { getText?():
 		onObjectProperty(property: string, offset: number, length: number) {
 			if (level === 1 && property === 'scripts') {
 				inScripts = true;
-				start = document.positionAt(offset);
+				start = offsetToPosition(offset);
 			} else if (inScripts) {
 				buildingScript = {
 					name: property,
-					nameRange: new Range(document.positionAt(offset), document.positionAt(offset + length))
+					nameRange: new Range(offsetToPosition(offset), offsetToPosition(offset + length))
 				};
 			}
 		},
@@ -78,5 +78,5 @@ export const readScripts = (document: IPositionOffsetTransformer & { getText?():
 		return undefined;
 	}
 
-	return { location: new Location(document.uri, new Range(start, end ?? start)), scripts };
+	return { location: new Location(uri, new Range(start, end ?? start)), scripts };
 };
