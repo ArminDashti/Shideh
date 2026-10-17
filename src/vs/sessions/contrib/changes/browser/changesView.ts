@@ -87,6 +87,7 @@ import { logChangesViewFileSelect, logChangesViewVersionModeChange, logChangesVi
 import { renderSessionsEmptyState } from '../../../browser/parts/sessionsEmptyState.js';
 import { ChecksViewModel } from './checksViewModel.js';
 import { REVEAL_CI_CHECKS_COMMAND_ID } from './checksActions.js';
+import { CHANGES_OUTSIDE_CARD_CLASS, getChangesButtonBarIconLabelSpacing } from './changesButtonBarSpacing.js';
 // eslint-disable-next-line local/code-import-patterns -- TODO: move skill button constants out of providers
 import { AGENT_HOST_SKILL_BUTTON_UPDATE_PR_ID, isAgentHostSkillButtonId } from '../../providers/agentHost/browser/agentHostSkillButtons.js';
 import { AGENT_HOST_AUTO_MERGE_OPERATION_IDS, AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID } from '../../../../platform/agentHost/common/agentHostChangesetOperationService.js';
@@ -172,6 +173,7 @@ class ChangesMenuWorkbenchButtonBarWidget extends Disposable implements IChanges
 		@IChatPetService chatPetService: IChatPetService,
 	) {
 		super();
+		const iconLabelSpacing = getChangesButtonBarIconLabelSpacing(container);
 
 		const outgoingChangesObs = derivedObservableWithCache<number | undefined>(this, (reader, lastValue) => {
 			const activeSessionState = changesViewService.activeSessionStateObs.read(reader);
@@ -211,7 +213,7 @@ class ChangesMenuWorkbenchButtonBarWidget extends Disposable implements IChanges
 					buttonConfigProvider: (action, index) => {
 						const configuration = this._getButtonConfiguration(action, outgoingChanges, hasGitOperationInProgress, runningLabelObs);
 						return index === 0
-							? { ...configuration, showIcon: true, showLabel: true }
+							? { ...configuration, showIcon: true, showLabel: true, iconLabelSpacing }
 							: configuration;
 					}
 				},
@@ -338,6 +340,7 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 	) {
 		super();
+		const iconLabelSpacing = getChangesButtonBarIconLabelSpacing(container);
 
 		const menu = this._register(menuService.createMenu(MenuId.AgentsChangesToolbar, contextKeyService, { emitEventsForSubmenuChanges: true }));
 		const dropdownMenu = this._register(menuService.createMenu(Menus.ChangesOperationsDropdown, contextKeyService, { emitEventsForSubmenuChanges: true }));
@@ -362,7 +365,7 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 				renderSecondaryActions: false,
 				buttonConfigProvider: (action, index) => {
 					return index === 0
-						? { showIcon: true, showLabel: true, customLabel: primaryCustomLabel ?? stripIcons(action.label), showSpinner: primaryIsBusy }
+						? { showIcon: true, showLabel: true, customLabel: primaryCustomLabel ?? stripIcons(action.label), showSpinner: primaryIsBusy, iconLabelSpacing }
 						: { showIcon: true, showLabel: false };
 				}
 			}
@@ -940,7 +943,7 @@ export class ChangesViewPane extends ViewPane {
 		welcomeMessage.textContent = localize('changesView.noChanges', "No files have been changed.");
 
 		// Actions container - positioned outside and above the card
-		this.actionsContainer = dom.append(this.bodyContainer, $('.chat-editing-session-actions.outside-card'));
+		this.actionsContainer = dom.append(this.bodyContainer, $(`.chat-editing-session-actions.${CHANGES_OUTSIDE_CARD_CLASS}`));
 
 		// Main container with file icons support (the "card")
 		this.contentContainer = dom.append(this.bodyContainer, $('.chat-editing-session-container.show-file-icons'));
