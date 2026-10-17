@@ -455,6 +455,7 @@ function createMockPromptsService(files: IFixtureFile[], agentInstructions: IAge
 				storage: f.storage,
 				pattern: f.applyTo,
 				extension: toExtensionInfo(f) as never,
+				contentHash: -1,
 			}));
 		}
 		override async findAgentSkills(): Promise<IAgentSkill[]> {

@@ -300,7 +300,7 @@ declare module 'vscode' {
 		 * @param token A cancellation token.
 		 * @returns An array of custom agents or a promise that resolves to such.
 		 */
-		provideCustomAgents(context: unknown, token: CancellationToken): ProviderResult<ChatResource[]>;
+		provideCustomAgents(context: unknown, token: CancellationToken): ProviderResult<ChatCustomAgent[]>;
 	}
 
 	/**
@@ -318,7 +318,7 @@ declare module 'vscode' {
 		 * @param token A cancellation token.
 		 * @returns An array of instructions or a promise that resolves to such.
 		 */
-		provideInstructions(context: unknown, token: CancellationToken): ProviderResult<ChatResource[]>;
+		provideInstructions(context: unknown, token: CancellationToken): ProviderResult<ChatInstruction[]>;
 	}
 
 	/**
@@ -380,7 +380,7 @@ declare module 'vscode' {
 		 * @param token A cancellation token.
 		 * @returns An array of skill resources or a promise that resolves to such.
 		 */
-		provideSkills(context: unknown, token: CancellationToken): ProviderResult<ChatResource[]>;
+		provideSkills(context: unknown, token: CancellationToken): ProviderResult<ChatSkill[]>;
 	}
 
 	// #endregion

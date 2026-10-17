@@ -64,6 +64,42 @@ import { ChatConfiguration } from '../../constants.js';
 const PROMPT_FILE_DISCOVERY_CONCURRENCY = 10;
 
 /**
+ * Compares resolved prompt resource arrays using their URI and content hash.
+ */
+const equalsPromptResources = arrayEqualsC<{ readonly uri: URI; readonly contentHash: number }>((a, b) => {
+	return (a.contentHash === b.contentHash) && (a.contentHash !== -1) && isEqual(a.uri, b.uri);
+});
+
+/**
+ * Ref-counts prompt-resource observables and disposes their listeners when the last consumer releases them.
+ */
+interface IObservableReferenceEntry<T> {
+	readonly promise: Promise<IObservable<readonly T[]>>;
+	readonly store: DisposableStore;
+}
+
+class ObservableReferenceCollection<T> extends ReferenceCollection<Promise<IObservable<readonly T[]>>> {
+	private readonly stores = new Map<string, DisposableStore>();
+
+	constructor(
+		private readonly createObservable: () => IObservableReferenceEntry<T>,
+	) {
+		super();
+	}
+
+	protected createReferencedObject(key: string): Promise<IObservable<readonly T[]>> {
+		const { promise, store } = this.createObservable();
+		this.stores.set(key, store);
+		return promise;
+	}
+
+	protected destroyReferencedObject(key: string, _object: Promise<IObservable<readonly T[]>>): void {
+		this.stores.get(key)?.dispose();
+		this.stores.delete(key);
+	}
+}
+
+/**
  * Provides prompt services.
  */
 export class PromptsService extends Disposable implements IPromptsService {
@@ -238,6 +274,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			(token) => this.computeSkillDiscovery(token),
 			() => Event.any(
 				this.getFileLocatorEvent(PromptsType.skill),
+				Event.filter(this.configurationService.onDidChangeConfiguration, e => e.affectsConfiguration(PromptsConfig.USE_AGENT_SKILLS)),
 				Event.filter(modelChangeEvent, e => e.promptType === PromptsType.skill),
 				Event.filter(onDidChangeExtensionPromptFiles, e => e.type === PromptsType.skill),
 				Event.filter(this._onDidPluginPromptFilesChange.event, t => t === PromptsType.skill),
@@ -548,6 +585,28 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cachedSlashCommands.onDidChangePromise;
 	}
 
+	/**
+	 * Internal observable state used by the main-thread chat bridge to publish updates
+	 * once slash command discovery has actually finished recomputing.
+	 */
+	public get slashCommandsCachedValue(): IObservable<PromiseResult<ISlashCommandDiscoveryInfo> | undefined> {
+		return this.cachedSlashCommands.cachedValue;
+	}
+
+	private _slashCommandsObservableRefs: AsyncReferenceCollection<IObservable<readonly IChatPromptSlashCommand[]>> | undefined;
+
+	/**
+	 * Gets a reference-counted observable of the resolved prompt slash commands.
+	 */
+	public getPromptSlashCommandsObservable(): Promise<IReference<IObservable<readonly IChatPromptSlashCommand[]>>> {
+		this._slashCommandsObservableRefs ??= this._createPromptResourceObservableRefs(
+			this.cachedSlashCommands,
+			discoveryInfo => Array.from(this.slashCommandsFromDiscoveryInfo(discoveryInfo)),
+			'slash commands',
+		);
+		return this._slashCommandsObservableRefs.acquire('slashCommands');
+	}
+
 	public async getPromptSlashCommands(token: CancellationToken): Promise<readonly IChatPromptSlashCommand[]> {
 		const discoveryInfo = await this.cachedSlashCommands.get(token);
 		const result = this.slashCommandsFromDiscoveryInfo(discoveryInfo);
@@ -592,7 +651,8 @@ export class PromptsService extends Disposable implements IPromptsService {
 				const description = parsedPromptFile?.header?.description ?? promptPath.description;
 				const argumentHint = parsedPromptFile?.header?.argumentHint;
 				const userInvocable = parsedPromptFile?.header?.userInvocable;
-				return { status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, name, description), argumentHint, userInvocable } satisfies ISlashCommandDiscoveryResult;
+				const contentHash = parsedPromptFile?.contentHash;
+				return { status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, name, description), argumentHint, userInvocable, contentHash } satisfies ISlashCommandDiscoveryResult;
 			} catch (e) {
 				if (!isCancellationError(e)) {
 					this.logger.error(`[computeSlashCommandDiscoveryInfo] Failed to parse prompt file for slash command: ${promptPath.uri}`, e instanceof Error ? e.message : String(e));
@@ -642,7 +702,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 		for (const file of discoveryInfo.files) {
 			if (file.status === 'loaded') {
-				result.push(this.asChatPromptSlashCommand(file.argumentHint, file.userInvocable, file.promptPath));
+				result.push(this.asChatPromptSlashCommand(file.argumentHint, file.userInvocable, file.contentHash, file.promptPath));
 				seen.add(file.promptPath.uri);
 			}
 		}
@@ -651,9 +711,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 		for (const model of this.modelService.getModels()) {
 			if (model.getLanguageId() === PROMPT_LANGUAGE_ID && model.uri.scheme === Schemas.untitled && !seen.has(model.uri)) {
 				const parsedPromptFile = this.getParsedPromptFile(model);
-				const name = parsedPromptFile?.header?.name ?? getCleanPromptName(model.uri);
-				const description = parsedPromptFile?.header?.description;
-				result.push(this.asChatPromptSlashCommand(parsedPromptFile?.header?.argumentHint, parsedPromptFile?.header?.userInvocable, { uri: model.uri, storage: PromptsStorage.local, type: PromptsType.prompt, name, description }));
+				const name = parsedPromptFile.header?.name ?? getCleanPromptName(model.uri);
+				const description = parsedPromptFile.header?.description;
+				const contentHash = parsedPromptFile.contentHash;
+				result.push(this.asChatPromptSlashCommand(parsedPromptFile.header?.argumentHint, parsedPromptFile.header?.userInvocable, contentHash, { uri: model.uri, storage: PromptsStorage.local, type: PromptsType.prompt, name, description }));
 			}
 		}
 
@@ -699,7 +760,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return undefined;
 	}
 
-	private asChatPromptSlashCommand(argumentHint: string | undefined, userInvocable: boolean | undefined, promptPath: IPromptPath): IChatPromptSlashCommand {
+	private asChatPromptSlashCommand(argumentHint: string | undefined, userInvocable: boolean | undefined, contentHash: number, promptPath: IPromptPath): IChatPromptSlashCommand {
 		let name = promptPath.name ?? getCleanPromptName(promptPath.uri);
 		name = name.replace(/[^\p{L}\d_\-\.:]+/gu, '-'); // replace spaces with dashes
 		return {
@@ -736,8 +797,18 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cachedCustomAgents.onDidChangePromise;
 	}
 
-	public get onDidChangeInstructions(): Event<void> {
-		return this.cachedInstructions.onDidChangePromise;
+	private _customAgentsObservableRefs: AsyncReferenceCollection<IObservable<readonly ICustomAgent[]>> | undefined;
+
+	/**
+	 * Gets a reference-counted observable of the resolved custom agents.
+	 */
+	public getCustomAgentsObservable(): Promise<IReference<IObservable<readonly ICustomAgent[]>>> {
+		this._customAgentsObservableRefs ??= this._createPromptResourceObservableRefs(
+			this.cachedCustomAgents,
+			discoveryInfo => Array.from(this.agentsFromDiscoveryInfo(discoveryInfo)),
+			'custom agents',
+		);
+		return this._customAgentsObservableRefs.acquire('customAgents');
 	}
 
 	public get onDidChangeAgentInstructions(): Event<void> {
@@ -821,6 +892,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 					skipReason: 'parse-error',
 					errorMessage: error.message,
 					promptPath,
+					contentHash: -1,
 				};
 			}
 		})));
@@ -1071,6 +1143,20 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cachedSkills.onDidChangePromise;
 	}
 
+	private _skillsObservableRefs: AsyncReferenceCollection<IObservable<readonly IAgentSkill[]>> | undefined;
+
+	/**
+	 * Gets a reference-counted observable of the resolved skills.
+	 */
+	public getSkillsObservable(): Promise<IReference<IObservable<readonly IAgentSkill[]>>> {
+		this._skillsObservableRefs ??= this._createPromptResourceObservableRefs(
+			this.cachedSkills,
+			discoveryInfo => this.skillsFromDiscoveryInfo(discoveryInfo),
+			'skills',
+		);
+		return this._skillsObservableRefs.acquire('skills');
+	}
+
 	public get onDidChangeHooks(): Event<void> {
 		return this.cachedHooks.onDidChangePromise;
 	}
@@ -1080,7 +1166,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 		if (!useAgentSkills) {
 			return undefined;
 		}
-
 		const discoveryInfo = await this.cachedSkills.get(token);
 		const result = this.skillsFromDiscoveryInfo(discoveryInfo);
 		return result;
@@ -1266,10 +1351,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return { ...promptPath, name, description };
 	}
 
-	private async computeInstructionFiles(token: CancellationToken): Promise<IInstructionDiscoveryInfo> {
-		return await this.getInstructionsDiscoveryInfo(token);
-	}
-
 	private async computeHooks(token: CancellationToken): Promise<IHookDiscoveryInfo> {
 		const stopWatch = StopWatch.create(true);
 		const useChatHooks = this.configurationService.getValue(PromptsConfig.USE_CHAT_HOOKS);
@@ -1280,6 +1361,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			const files = hookFiles.map(promptPath => ({
 				status: 'skipped' as const,
 				skipReason,
+				contentHash: -1,
 				promptPath: this.withPromptPathMetadata(promptPath, basename(promptPath.uri), promptPath.description),
 			}));
 			const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.hook);
@@ -1312,6 +1394,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				return {
 					file: {
 						status: 'loaded',
+						contentHash: -1,
 						promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description),
 					},
 				};
@@ -1341,6 +1424,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 						file: {
 							status: 'skipped',
 							skipReason: 'parse-error',
+							contentHash: hash(content),
 							errorMessage: 'Invalid hooks file: must be a JSON object',
 							promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description),
 						},
@@ -1362,6 +1446,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 						file: {
 							status: 'skipped',
 							skipReason: 'all-hooks-disabled',
+							contentHash: -1,
 							promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description),
 						},
 					};
@@ -1375,6 +1460,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 						file: {
 							status: 'skipped',
 							skipReason: 'claude-hooks-disabled',
+							contentHash: -1,
 							promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description),
 						},
 						hasDisabledClaudeHooks: hasAnyCommands,
@@ -1395,7 +1481,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				}
 
 				return {
-					file: { status: 'loaded', promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description) },
+					file: { status: 'loaded', contentHash: hash(content), promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description) },
 					hooks,
 					sourceUri: hookFile.uri,
 				};
@@ -1407,6 +1493,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 						status: 'skipped',
 						skipReason: 'parse-error',
 						errorMessage: msg,
+						contentHash: -1,
 						promptPath: this.withPromptPathMetadata(hookFile, name, hookFile.description),
 					},
 				};
@@ -1503,6 +1590,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 	 * Returns the discovery results for skill files.
 	 */
 	private async computeSkillDiscoveryInfo(token: CancellationToken): Promise<IPromptFileDiscoveryResult[]> {
+		const useAgentSkills = this.configurationService.getValue(PromptsConfig.USE_AGENT_SKILLS);
+		if (!useAgentSkills) {
+			return [];
+		}
 		const files: IPromptFileDiscoveryResult[] = [];
 		const seenNames = new Set<string>();
 		const nameToUri = new Map<string, URI>();
@@ -1540,6 +1631,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 				let name = parsedFile.header?.name;
 				const description = parsedFile.header?.description;
+				const contentHash = parsedFile.contentHash;
 
 				if (!name) {
 					this.logger.debug(`[computeSkillDiscoveryInfo] Agent skill file missing name attribute, using folder name "${folderName}": ${uri}`);
@@ -1553,7 +1645,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 				if (seenNames.has(sanitizedName)) {
 					this.logger.debug(`[computeSkillDiscoveryInfo] Skipping duplicate agent skill name: ${sanitizedName} at ${uri}`);
-					files.push({ status: 'skipped', skipReason: 'duplicate-name', duplicateOf: nameToUri.get(sanitizedName), promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description) });
+					files.push({ status: 'skipped', skipReason: 'duplicate-name', duplicateOf: nameToUri.get(sanitizedName), promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description), contentHash });
 					continue;
 				}
 
@@ -1562,7 +1654,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				const disableModelInvocation = parsedFile.header?.disableModelInvocation === true;
 				const userInvocable = parsedFile.header?.userInvocable !== false;
 
-				files.push({ status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description), disableModelInvocation, userInvocable });
+				files.push({ status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description), disableModelInvocation, userInvocable, contentHash });
 			} catch (e) {
 				const msg = e instanceof Error ? e.message : String(e);
 				this.logger.error(`[computeSkillDiscoveryInfo] Failed to validate Agent skill file: ${uri}`, msg);
@@ -1571,6 +1663,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 					skipReason: 'parse-error',
 					errorMessage: msg,
 					promptPath,
+					contentHash: -1,
 				});
 			}
 		}
@@ -1578,7 +1671,27 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return files;
 	}
 
-	private async getInstructionsDiscoveryInfo(token: CancellationToken): Promise<IInstructionDiscoveryInfo> {
+	// Instructions
+
+	public get onDidChangeInstructions(): Event<void> {
+		return this.cachedInstructions.onDidChangePromise;
+	}
+
+	private _instructionsObservableRefs: AsyncReferenceCollection<IObservable<readonly IInstructionFile[]>> | undefined;
+
+	/**
+	 * Gets a reference-counted observable of the resolved instruction files.
+	 */
+	public getInstructionsObservable(): Promise<IReference<IObservable<readonly IInstructionFile[]>>> {
+		this._instructionsObservableRefs ??= this._createPromptResourceObservableRefs(
+			this.cachedInstructions,
+			discoveryInfo => this.instructionsFromDiscoveryInfo(discoveryInfo),
+			'instructions',
+		);
+		return this._instructionsObservableRefs.acquire('instructions');
+	}
+
+	private async computeInstructionFiles(token: CancellationToken): Promise<IInstructionDiscoveryInfo> {
 		const stopWatch = StopWatch.create(true);
 		const files: IInstructionDiscoveryResult[] = [];
 
@@ -1591,10 +1704,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 				const name = parsedPromptFile?.header?.name ?? promptPath.name ?? getCleanPromptName(uri);
 				const description = parsedPromptFile?.header?.description ?? promptPath.description;
 				const pattern = evaluateApplyToPattern(parsedPromptFile.header, isInClaudeRulesFolder(uri));
+				const contentHash = parsedPromptFile.contentHash;
 				files.push({
 					status: 'loaded',
 					pattern,
 					promptPath: this.withPromptPathMetadata(promptPath, name, description),
+					contentHash
 				});
 			} catch (e) {
 				files.push({
@@ -1602,6 +1717,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 					skipReason: 'parse-error',
 					errorMessage: e instanceof Error ? e.message : String(e),
 					promptPath,
+					contentHash: -1,
 				});
 			}
 		}
@@ -1617,6 +1733,7 @@ class CachedPromise<T> extends Disposable {
 	private cachedPromise: Promise<T> | undefined = undefined;
 	private cachedPool: CancellationTokenPool | undefined = undefined;
 	private readonly onDidUpdatePromiseEmitter: Emitter<void>;
+	private readonly _cachedValue = observableValue<PromiseResult<T> | undefined>(this, undefined);
 
 	constructor(private readonly computeFn: (token: CancellationToken) => Promise<T>, private readonly getEvent: () => Event<void>, private readonly delay: number = 0) {
 		super();
@@ -1630,6 +1747,14 @@ class CachedPromise<T> extends Disposable {
 
 	public get onDidChangePromise(): Event<void> {
 		return this.onDidUpdatePromiseEmitter.event;
+	}
+
+	/**
+	 * The most recently resolved value for the cached promise.
+	 * Is `undefined` before the promise resolves or after invalidation.
+	 */
+	public get cachedValue(): IObservable<PromiseResult<T> | undefined> {
+		return this._cachedValue;
 	}
 
 	public get(token: CancellationToken): Promise<T> {

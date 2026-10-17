@@ -12,7 +12,7 @@ import { Emitter, Event } from '../../../../../../../base/common/event.js';
 import { match } from '../../../../../../../base/common/glob.js';
 import { ResourceSet } from '../../../../../../../base/common/map.js';
 import { Schemas } from '../../../../../../../base/common/network.js';
-import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
+import { autorun, ISettableObservable, observableValue, waitForState } from '../../../../../../../base/common/observable.js';
 import { basename, relativePath } from '../../../../../../../base/common/resources.js';
 import { URI } from '../../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
@@ -1188,7 +1188,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/agent1.agent.md').toString(),
@@ -1248,7 +1248,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/agent1.agent.md').toString(),
@@ -1331,7 +1331,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/agent1.agent.md').toString(),
@@ -1427,7 +1427,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/github-agent.agent.md').toString(),
@@ -1551,7 +1551,7 @@ suite('PromptsService', () => {
 				},
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/copilot-agent.agent.md').toString(),
@@ -1659,7 +1659,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/demonstrate.md').toString(),
@@ -1733,7 +1733,7 @@ suite('PromptsService', () => {
 				}
 			]);
 
-			const result = (await service.getCustomAgents(CancellationToken.None)).map(agent => ({ ...agent, uri: URI.from(agent.uri) }));
+			const result = (await service.getCustomAgents(CancellationToken.None)).map(normalizeCustomAgent);
 			const expected: ICustomAgent[] = [
 				{
 					id: URI.joinPath(rootFolderUri, '.github/agents/restricted-agent.agent.md').toString(),
@@ -5330,6 +5330,196 @@ suite('PromptsService', () => {
 			const agents = await service.getCustomAgents(CancellationToken.None);
 			assert.strictEqual(agents.length, 1);
 			assert.strictEqual(agents[0].hooks?.[HookType.PreToolUse]?.[0].command, 'echo managed');
+		});
+	});
+
+	suite('observable references', () => {
+		test('getPromptSlashCommandsObservable is ref-counted and returns slash commands', async () => {
+			const rootFolderUri = URI.file('/observable-slash-commands');
+			workspaceContextService.setWorkspace(testWorkspace(rootFolderUri));
+
+			await mockFiles(fileService, [
+				{
+					path: '/observable-slash-commands/.github/prompts/review.prompt.md',
+					contents: [
+						'---',
+						'description: "Review prompt"',
+						'---',
+						'Review this change.',
+					],
+				},
+			]);
+
+			await assertReferenceCountedObservable(
+				() => service.getPromptSlashCommandsObservable(),
+				items => items.map(item => item.name),
+				['review'],
+			);
+		});
+
+		test('getInstructionsObservable is ref-counted and returns instructions', async () => {
+			const rootFolderUri = URI.file('/observable-instructions');
+			workspaceContextService.setWorkspace(testWorkspace(rootFolderUri));
+
+			await mockFiles(fileService, [
+				{
+					path: '/observable-instructions/.github/instructions/formatting.instructions.md',
+					contents: [
+						'---',
+						'description: "Formatting rules"',
+						'applyTo: "**/*.ts"',
+						'---',
+						'Prefer const where possible.',
+					],
+				},
+			]);
+
+			await assertReferenceCountedObservable(
+				() => service.getInstructionsObservable(),
+				items => items.map(item => item.name),
+				['formatting'],
+			);
+		});
+
+		test('getInstructionsObservable returns the expected instructions and updates on changes', async () => {
+			const formattingUri = URI.parse('file://extensions/my-extension/formatting.instructions.md');
+			const testingUri = URI.parse('file://extensions/my-extension/testing.instructions.md');
+			const extension = {
+				identifier: { value: 'test.my-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			await mockFiles(fileService, [
+				{
+					path: formattingUri.path,
+					contents: [
+						'---',
+						'description: "Formatting rules"',
+						'applyTo: "**/*.ts"',
+						'---',
+						'Prefer const where possible.',
+					],
+				},
+				{
+					path: testingUri.path,
+					contents: [
+						'---',
+						'description: "Testing rules"',
+						'applyTo: "**/*.test.ts"',
+						'---',
+						'Write focused tests.',
+					],
+				},
+			]);
+
+			let providedFiles = [{ uri: formattingUri }];
+			const onDidChangePromptFiles = new Emitter<void>();
+			const registered = service.registerPromptFileProvider(extension, PromptsType.instructions, {
+				onDidChangePromptFiles: onDidChangePromptFiles.event,
+				providePromptFiles: async (_context: IPromptFileContext, _token: CancellationToken) => providedFiles,
+			});
+
+			const ref = await service.getInstructionsObservable();
+			const observable = ref.object;
+			let observableUpdateCount = 0;
+			const counter = autorun(reader => {
+				observable.read(reader);
+				observableUpdateCount++;
+			});
+			try {
+				assert.deepStrictEqual(
+					observable.get().map(item => ({ name: item.name, description: item.description, pattern: item.pattern })),
+					[{ name: 'formatting', description: 'Formatting rules', pattern: '**/*.ts' }],
+					'Should expose the initial instruction file through the observable.',
+				);
+
+				{
+					providedFiles = [{ uri: formattingUri }, { uri: testingUri }];
+					onDidChangePromptFiles.fire();
+					const updatedInstructions = await waitForState(ref.object, items => items.length === 2);
+					assert.deepStrictEqual(
+						updatedInstructions.map(item => ({ name: item.name, description: item.description, pattern: item.pattern })).sort((a, b) => a.name.localeCompare(b.name)),
+						[
+							{ name: 'formatting', description: 'Formatting rules', pattern: '**/*.ts' },
+							{ name: 'testing', description: 'Testing rules', pattern: '**/*.test.ts' },
+						],
+						'Should update when instruction contributions change.',
+					);
+					assert.equal(observableUpdateCount, 2, 'Should update the observable the expected number of times.');
+				}
+				{
+					onDidChangePromptFiles.fire(); // no-op change, should not update the observable
+
+					providedFiles = [];
+					onDidChangePromptFiles.fire();
+					const updatedInstructions = await waitForState(ref.object, items => items.length === 0);
+					assert.deepStrictEqual(
+						updatedInstructions.map(item => ({ name: item.name, description: item.description, pattern: item.pattern })).sort((a, b) => a.name.localeCompare(b.name)),
+						[
+							{ name: 'formatting', description: 'Formatting rules', pattern: '**/*.ts' },
+							{ name: 'testing', description: 'Testing rules', pattern: '**/*.test.ts' },
+						],
+						'Should update when instruction contributions change.',
+					);
+					assert.equal(observableUpdateCount, 2, 'Should update the observable the expected number of times.');
+				}
+
+			} finally {
+				counter.dispose();
+				ref.dispose();
+				registered.dispose();
+				onDidChangePromptFiles.dispose();
+			}
+		});
+
+		test('getSkillsObservable is ref-counted and returns skills', async () => {
+			testConfigService.setUserConfiguration(PromptsConfig.USE_AGENT_SKILLS, true);
+			testConfigService.setUserConfiguration(PromptsConfig.SKILLS_LOCATION_KEY, {});
+
+			const rootFolderUri = URI.file('/observable-skills');
+			workspaceContextService.setWorkspace(testWorkspace(rootFolderUri));
+
+			await mockFiles(fileService, [
+				{
+					path: '/observable-skills/.github/skills/my-skill/SKILL.md',
+					contents: [
+						'---',
+						'name: "my-skill"',
+						'description: "Useful skill"',
+						'---',
+						'Skill details.',
+					],
+				},
+			]);
+
+			await assertReferenceCountedObservable(
+				() => service.getSkillsObservable(),
+				items => items.map(item => item.name),
+				['my-skill'],
+			);
+		});
+
+		test('getCustomAgentsObservable is ref-counted and returns custom agents', async () => {
+			const rootFolderUri = URI.file('/observable-custom-agents');
+			workspaceContextService.setWorkspace(testWorkspace(rootFolderUri));
+
+			await mockFiles(fileService, [
+				{
+					path: '/observable-custom-agents/.github/agents/helper.agent.md',
+					contents: [
+						'---',
+						'description: "Helper agent"',
+						'---',
+						'You are a helper agent.',
+					],
+				},
+			]);
+
+			await assertReferenceCountedObservable(
+				() => service.getCustomAgentsObservable(),
+				items => items.map(item => item.name),
+				['helper'],
+			);
 		});
 	});
 

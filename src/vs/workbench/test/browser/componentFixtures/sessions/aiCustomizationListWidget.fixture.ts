@@ -19,7 +19,7 @@ import { IAgentPluginService } from '../../../../contrib/chat/common/plugins/age
 import { IChatSessionsService } from '../../../../contrib/chat/common/chatSessionsService.js';
 import { getChatSessionType, LocalChatSessionUri } from '../../../../contrib/chat/common/model/chatUri.js';
 import { PromptsType } from '../../../../contrib/chat/common/promptSyntax/promptTypes.js';
-import { IPromptsService, AgentInstructionFileType, PromptsStorage, IPromptPath, IAgentInstructionFile } from '../../../../contrib/chat/common/promptSyntax/service/promptsService.js';
+import { IPromptsService, AgentInstructionFileType, PromptsStorage, IPromptPath, IAgentInstructionFile, IInstructionFile } from '../../../../contrib/chat/common/promptSyntax/service/promptsService.js';
 import { AICustomizationManagementSection } from '../../../../contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { AICustomizationItemsModel, IAICustomizationItemsModel } from '../../../../contrib/chat/browser/aiCustomization/aiCustomizationItemsModel.js';
 import { AICustomizationListWidget } from '../../../../contrib/chat/browser/aiCustomization/aiCustomizationListWidget.js';
@@ -73,11 +73,12 @@ function createMockPromptsService(instructionFiles: IFixtureInstructionFile[], a
 				description: f.description,
 				storage: f.promptPath.storage,
 				pattern: f.applyTo,
+				contentHash: -1
 			}));
 		}
 		override async parseNew(uri: URI): Promise<ParsedPromptFile> {
 			const file = instructionFiles.find(f => isEqual(f.promptPath.uri, uri));
-			const headerLines = [];
+			const headerLines: string[] = [];
 			headerLines.push('---\n');
 			if (file) {
 				if (file.name) {
@@ -96,7 +97,7 @@ function createMockPromptsService(instructionFiles: IFixtureInstructionFile[], a
 				uri,
 				headerLines
 			);
-			return new ParsedPromptFile(uri, header);
+			return new ParsedPromptFile(uri, headerLines.join(''), header);
 		}
 	}();
 }

@@ -480,6 +480,7 @@ export class CustomChatMode implements IChatMode {
 	private _sessionTypes: readonly string[] | undefined;
 
 	public readonly id: string;
+	public readonly contentHash: number;
 
 	get name(): IObservable<string> {
 		return this._nameObservable;
@@ -551,6 +552,7 @@ export class CustomChatMode implements IChatMode {
 		customChatMode: ICustomAgent
 	) {
 		this.id = customChatMode.uri.toString();
+		this.contentHash = customChatMode.contentHash;
 		this._nameObservable = observableValue('name', customChatMode.name);
 		this._descriptionObservable = observableValue('description', customChatMode.description);
 		this._customToolsObservable = observableValue('customTools', customChatMode.tools);

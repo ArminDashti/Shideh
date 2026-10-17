@@ -1339,6 +1339,7 @@ suite('ComputeAutomaticInstructions', () => {
 						identifier: new ExtensionIdentifier('publisher.my-extension'),
 						version: '1.2.3',
 					} as IExtensionDescription,
+					contentHash: -1
 				},
 				{
 					uri: URI.file(`${rootFolder}/plugin-skills/plugin-skill/SKILL.md`),
@@ -1348,6 +1349,7 @@ suite('ComputeAutomaticInstructions', () => {
 					disableModelInvocation: false,
 					userInvocable: true,
 					pluginUri: URI.parse('plugin://my-plugin/4.5.6'),
+					contentHash: -1
 				},
 			];
 			sinon.stub(service, 'findAgentSkills').resolves(stubSkills);
@@ -1420,6 +1422,7 @@ suite('ComputeAutomaticInstructions', () => {
 					name: 'no-when-skill',
 					description: 'A skill without when clause',
 					disableModelInvocation: false,
+					contentHash: -1,
 					userInvocable: true,
 				},
 			];

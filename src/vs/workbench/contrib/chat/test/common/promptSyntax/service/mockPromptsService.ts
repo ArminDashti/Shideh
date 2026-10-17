@@ -5,13 +5,14 @@
 
 import { CancellationToken } from '../../../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../../../base/common/event.js';
-import { IDisposable } from '../../../../../../../base/common/lifecycle.js';
+import { IObservable, observableValue } from '../../../../../../../base/common/observable.js';
+import { IDisposable, IReference } from '../../../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../../../editor/common/model.js';
 import { IExtensionDescription } from '../../../../../../../platform/extensions/common/extensions.js';
 import { PromptsType } from '../../../../common/promptSyntax/promptTypes.js';
 import { ParsedPromptFile } from '../../../../common/promptSyntax/promptFileParser.js';
-import { IAgentSkill, ICustomAgent, IPromptDiscoveryInfo, IPromptFileContext, IPromptFileResource, IPromptPath, IPromptsService, IAgentInstructionFile, IInstructionFile, PromptsStorage } from '../../../../common/promptSyntax/service/promptsService.js';
+import { IAgentSkill, IChatPromptSlashCommand, ICustomAgent, IPromptDiscoveryInfo, IPromptFileContext, IPromptFileResource, IPromptPath, IPromptsService, IAgentInstructionFile, IInstructionFile, PromptsStorage } from '../../../../common/promptSyntax/service/promptsService.js';
 import { ResourceSet } from '../../../../../../../base/common/map.js';
 
 export class MockPromptsService implements IPromptsService {
@@ -22,14 +23,23 @@ export class MockPromptsService implements IPromptsService {
 	readonly onDidChangeCustomAgents = this._onDidChangeCustomAgents.event;
 
 	private _customModes: ICustomAgent[] = [];
+	private readonly _customModesObservable = observableValue<readonly ICustomAgent[]>(this, []);
+	private readonly _slashCommandsObservable = observableValue<readonly IChatPromptSlashCommand[]>(this, []);
+	private readonly _instructionsObservable = observableValue<readonly IInstructionFile[]>(this, []);
+	private readonly _skillsObservable = observableValue<readonly IAgentSkill[]>(this, []);
 
 	setCustomModes(modes: ICustomAgent[]): void {
 		this._customModes = modes;
+		this._customModesObservable.set(modes, undefined);
 		this._onDidChangeCustomAgents.fire();
 	}
 
 	async getCustomAgents(token: CancellationToken): Promise<readonly ICustomAgent[]> {
 		return this._customModes;
+	}
+
+	getCustomAgentsObservable(): Promise<IReference<IObservable<readonly ICustomAgent[]>>> {
+		return Promise.resolve({ object: this._customModesObservable, dispose: () => { } });
 	}
 
 	// Stub implementations for required interface methods
@@ -47,10 +57,11 @@ export class MockPromptsService implements IPromptsService {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	resolvePromptSlashCommand(command: string, _sessionType: string | undefined, _token: CancellationToken): Promise<any> { throw new Error('Not implemented'); }
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	getPromptSlashCommands(_token: CancellationToken): Promise<any[]> { throw new Error('Not implemented'); }
-	getPromptSlashCommandName(uri: URI, _token: CancellationToken): Promise<string> { throw new Error('Not implemented'); }
+	getPromptSlashCommands(): Promise<any[]> { return Promise.resolve([]); }
+	getPromptSlashCommandsObservable(): Promise<IReference<IObservable<readonly IChatPromptSlashCommand[]>>> { return Promise.resolve({ object: this._slashCommandsObservable, dispose: () => { } }); }
+	getPromptSlashCommandName(uri: URI): Promise<string> { throw new Error('Not implemented'); }
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	parse(_uri: URI, _type: any, _token: CancellationToken): Promise<any> { throw new Error('Not implemented'); }
+	parse(_uri: URI, _type: any): Promise<any> { throw new Error('Not implemented'); }
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	parseNew(uri: URI, _token: CancellationToken): Promise<any> { return Promise.resolve({ uri }); }
 	getParsedPromptFile(textModel: ITextModel): ParsedPromptFile { throw new Error('Not implemented'); }
@@ -62,10 +73,12 @@ export class MockPromptsService implements IPromptsService {
 	getDisabledPromptFiles(type: PromptsType): ResourceSet { throw new Error('Method not implemented.'); }
 	setDisabledPromptFiles(type: PromptsType, uris: ResourceSet): void { throw new Error('Method not implemented.'); }
 	registerPromptFileProvider(extension: IExtensionDescription, type: PromptsType, provider: { providePromptFiles: (context: IPromptFileContext, token: CancellationToken) => Promise<IPromptFileResource[] | undefined> }): IDisposable { throw new Error('Method not implemented.'); }
-	findAgentSkills(token: CancellationToken): Promise<IAgentSkill[] | undefined> { throw new Error('Method not implemented.'); }
+	findAgentSkills(_token: CancellationToken): Promise<IAgentSkill[] | undefined> { return Promise.resolve([]); }
+	getSkillsObservable(): Promise<IReference<IObservable<readonly IAgentSkill[]>>> { return Promise.resolve({ object: this._skillsObservable, dispose: () => { } }); }
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	getHooks(_token: CancellationToken): Promise<any> { throw new Error('Method not implemented.'); }
-	getInstructionFiles(_token: CancellationToken): Promise<readonly IInstructionFile[]> { throw new Error('Method not implemented.'); }
+	getInstructionFiles(_token: CancellationToken): Promise<readonly IInstructionFile[]> { return Promise.resolve([]); }
+	getInstructionsObservable(): Promise<IReference<IObservable<readonly IInstructionFile[]>>> { return Promise.resolve({ object: this._instructionsObservable, dispose: () => { } }); }
 	getDiscoveryInfo(_type: PromptsType, _token: CancellationToken): Promise<IPromptDiscoveryInfo> { throw new Error('Method not implemented.'); }
 	async getVoiceInstructions(_token: CancellationToken): Promise<undefined> { return undefined; }
 	async getDictationInstructions(_token: CancellationToken): Promise<undefined> { return undefined; }
