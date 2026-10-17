@@ -29,7 +29,8 @@ parameters:
 jobs:
   - job: ${{ parameters.name }}
     displayName: ${{ parameters.displayName }}
-    continueOnError: ${{ parameters.continueOnError }}
+    condition: and(succeeded(), eq('${{ parameters.name }}', 'macos_arm64'))
+    continueOnError: false
     pool:
       name: ${{ parameters.poolName }}
       os: ${{ parameters.os }}
@@ -199,6 +200,7 @@ jobs:
           workingDirectory: $(TEST_DIR)
           displayName: Run Sanity Tests
           env:
+            DEBUG: pw:browser
             GITHUB_ACCOUNT: $(sanity-tests-account)
             GITHUB_PASSWORD: $(sanity-tests-password)
 
