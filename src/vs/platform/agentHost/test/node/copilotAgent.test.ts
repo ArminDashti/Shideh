@@ -1183,6 +1183,10 @@ class ResumePathCopilotAgent extends CopilotAgent {
 		this.createdClientOptions.push(options);
 		return this._copilotClient as CopilotClient;
 	}
+
+	resolveWorktreeForTest(config: Parameters<CopilotAgent['createSession']>[0], sessionId: string, prompt?: string): Promise<URI | undefined> {
+		return this._resolveSessionWorkingDirectory(config, sessionId, prompt);
+	}
 }
 
 class TestableCopilotAgent extends CopilotAgent {
@@ -18698,6 +18702,19 @@ suite('CopilotAgent', () => {
 				enabledHasSecondary: 1,
 				disabled: [],
 			});
+		});
+
+		test('does not replace a session with an empty session when the working directory is missing', async () => {
+			const { client, getCreateSessionCalls } = createResumeFailingClient('Request session.resume failed with message: Directory does not exist or cannot be accessed: /missing/worktree');
+			const agent = createTestAgent(disposables, { copilotClient: client, useRealResumePath: true, sessionDataService: disposables.add(new TestSessionDataService()) });
+			const internals = agent as unknown as AgentInternals;
+			try {
+				await agent.authenticate(GITHUB_COPILOT_PROTECTED_RESOURCE.resource, 'token');
+				await assert.rejects(() => internals._resumeSession('s1'), /Directory does not exist/);
+				assert.strictEqual(getCreateSessionCalls(), 0);
+			} finally {
+				await disposeAgent(agent);
+			}
 		});
 	});
 
