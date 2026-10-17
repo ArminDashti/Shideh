@@ -28,7 +28,7 @@ export class ChatResultListSubPart extends BaseChatToolInvocationSubPart {
 		hasError: boolean,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
-		super(toolInvocation);
+	super(toolInvocation);
 
 		const collapsibleListPart = this._register(instantiationService.createInstance(
 			ChatCollapsibleListContentPart,
