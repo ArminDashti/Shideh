@@ -433,6 +433,7 @@ export class ExtHostTesting extends Disposable implements ExtHostTestingShape {
 	public $acceptDiff(diff: TestsDiffOp.Serialized[]): void {
 		this.observer.applyDiff(diff.map(d => TestsDiffOp.deserialize({ asCanonicalUri: u => u }, d)));
 	}
+}
 
 	/**
 	 * Runs tests with the given set of IDs. Allows for test from multiple
@@ -456,6 +457,7 @@ export class ExtHostTesting extends Disposable implements ExtHostTestingShape {
 		if (!token.isCancellationRequested && !res.some(r => r.error)) {
 			await new Promise(r => token.onCancellationRequested(r));
 		}
+	});
 
 		cts.dispose(true);
 		return res;

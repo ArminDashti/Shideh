@@ -789,6 +789,7 @@ class TestingExplorerViewModel extends Disposable {
 				instantiationService.createInstance(TestItemRenderer, this.actionRunner),
 				instantiationService.createInstance(ErrorRenderer),
 			],
+			new TestTreeDataSource(() => this.projection.value),
 			{
 				identityProvider: instantiationService.createInstance(IdentityProvider),
 				hideTwistiesOfChildlessElements: false,
@@ -933,7 +934,7 @@ class TestingExplorerViewModel extends Disposable {
 		}));
 
 		this._register(testResults.onResultsChanged(() => {
-			this.tree.resort(null);
+			this.tree.resort(undefined);
 		}));
 
 		this._register(this.testProfileService.onDidChange(() => {

@@ -23,7 +23,7 @@ import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions
 import { ExtHostContext, ExtHostTestingShape, ILocationDto, ITestControllerPatch, MainContext, MainThreadTestingShape } from '../common/extHost.protocol.js';
 
 @extHostNamedCustomer(MainContext.MainThreadTesting)
-export class MainThreadTesting extends Disposable implements MainThreadTestingShape {
+export class MainThreadTesting extends Disposable implements MainThreadTestingShape, ITestRootProvider {
 	private readonly proxy: ExtHostTestingShape;
 	private readonly diffListener = this._register(new MutableDisposable());
 	private readonly testProviderRegistrations = new Map<string, {

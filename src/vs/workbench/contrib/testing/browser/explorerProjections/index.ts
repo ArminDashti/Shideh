@@ -22,7 +22,7 @@ import { ITestItemContext, InternalTestItem, TestItemExpandState, TestResultStat
  * using a single IncrementalTestChangeCollector, but this became hairy
  * with status projections.
  */
-export interface ITestTreeProjection extends IDisposable {
+export interface ITestTreeProjection extends IDisposable, IAsyncDataSource<null, ITestTreeElement> {
 	/**
 	 * Event that fires when the projection changes.
 	 */

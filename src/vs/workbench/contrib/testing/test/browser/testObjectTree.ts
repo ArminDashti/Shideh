@@ -48,10 +48,11 @@ class TestObjectTree<T> extends ObjectTree<T, any> {
 					templateId: 'default'
 				} satisfies ITreeRenderer<T, any, { store: DisposableStore; container: HTMLElement }>
 			],
+			dataProvider,
 			{
 				sorter: sorter ?? {
 					compare: (a, b) => serializer(a).localeCompare(serializer(b))
-				}
+				},
 			}
 		);
 		this.layout(1000, 200);
