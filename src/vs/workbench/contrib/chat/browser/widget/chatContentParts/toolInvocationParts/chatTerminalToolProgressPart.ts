@@ -1702,15 +1702,20 @@ export class ChatTerminalToolOutputSection extends Disposable {
 			}
 		}));
 
-		// Show horizontal scrollbar on hover/focus, hide otherwise to prevent flickering during streaming
+		// Show horizontal scrollbar on hover/focus only when content requires scrolling,
+		// hide otherwise to prevent flickering during streaming
 		this._register(dom.addDisposableListener(this.domNode, dom.EventType.MOUSE_ENTER, () => {
-			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+			if (this._needsHorizontalScroll) {
+				this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+			}
 		}));
 		this._register(dom.addDisposableListener(this.domNode, dom.EventType.MOUSE_LEAVE, () => {
 			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Hidden });
 		}));
 		this._register(dom.addDisposableListener(this.domNode, dom.EventType.FOCUS_IN, () => {
-			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+			if (this._needsHorizontalScroll) {
+				this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+			}
 		}));
 		this._register(dom.addDisposableListener(this.domNode, dom.EventType.FOCUS_OUT, () => {
 			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Hidden });
@@ -2021,6 +2026,18 @@ export class ChatTerminalToolOutputSection extends Disposable {
 		// ends on a whole row.
 		scrollableDomNode.style.height = `${contentRows * rowHeight + outputPadding}px`;
 		this._scrollableContainer.scanDomNode();
+
+		// Update horizontal scroll state based on actual scroll dimensions
+		// This handles cases where _applyContentWidth couldn't calculate (no maxColumnWidth)
+		this._updateNeedsHorizontalScroll();
+	}
+
+	private _updateNeedsHorizontalScroll(): void {
+		if (!this._scrollableContainer) {
+			return;
+		}
+		const dimensions = this._scrollableContainer.getScrollDimensions();
+		this._needsHorizontalScroll = dimensions.scrollWidth > dimensions.width;
 	}
 
 	private _computeIsAtBottom(): boolean {
