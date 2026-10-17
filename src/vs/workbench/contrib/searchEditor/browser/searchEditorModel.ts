@@ -56,6 +56,10 @@ class SearchEditorModelFactory {
 
 	constructor() { }
 
+	getConfigSync(resource: URI): SearchConfiguration | undefined {
+		return this.models.get(resource)?.config;
+	}
+
 	initializeModelFromExistingModel(accessor: ServicesAccessor, resource: URI, config: SearchConfiguration) {
 		if (this.models.has(resource)) {
 			throw Error('Unable to contruct model for resource that already exists');
@@ -69,6 +73,7 @@ class SearchEditorModelFactory {
 		let ongoingResolve: Promise<SearchEditorData> | undefined;
 
 		this.models.set(resource, {
+			config,
 			resolve: () => {
 				if (!ongoingResolve) {
 					ongoingResolve = (async () => {
@@ -102,6 +107,7 @@ class SearchEditorModelFactory {
 		let ongoingResolve: Promise<SearchEditorData> | undefined;
 
 		this.models.set(resource, {
+			config,
 			resolve: () => {
 				if (!ongoingResolve) {
 					ongoingResolve = (async () => {
