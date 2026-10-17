@@ -2038,7 +2038,7 @@ export class AgentSideEffects extends Disposable {
 	 * dispatches {@link ActionType.ChatError} on the turn channel, and marks the
 	 * turn errored.
 	 */
-	private async _sendTurnMessage(options: ISendTurnMessageOptions): Promise<void> {
+	private async _sendTurnMessage(options: ISendTurnMessageOptions): Promise<ErrorInfo | undefined> {
 		const { agent, sessionChannel, turnChannel, chat, message, turnId, senderClientId, clientContext, turnStopWatch } = options;
 
 		const chatUri = URI.parse(chat);
@@ -2157,7 +2157,9 @@ export class AgentSideEffects extends Disposable {
 				});
 			}
 			this._failSessionCreationIfStillCreating(sessionChannel, error);
+			return error;
 		}
+		return undefined;
 	}
 
 	/**
