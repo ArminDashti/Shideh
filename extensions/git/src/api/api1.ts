@@ -392,12 +392,22 @@ export class ApiGit implements Git {
 export class ApiImpl implements API {
 	#model: Model;
 	#cloneManager: CloneManager;
+	#repositoryCache: Map<BaseRepository, ApiRepository> = new Map();
 	readonly git: ApiGit;
 
 	constructor(privates: { model: Model; cloneManager: CloneManager }) {
 		this.#model = privates.model;
 		this.#cloneManager = privates.cloneManager;
 		this.git = new ApiGit(this.#model);
+	}
+
+	#getApiRepository(repository: BaseRepository): ApiRepository {
+		let apiRepository = this.#repositoryCache.get(repository);
+		if (!apiRepository) {
+			apiRepository = new ApiRepository(repository);
+			this.#repositoryCache.set(repository, apiRepository);
+		}
+		return apiRepository;
 	}
 
 	get state(): APIState {
@@ -413,15 +423,21 @@ export class ApiImpl implements API {
 	}
 
 	get onDidOpenRepository(): Event<Repository> {
-		return mapEvent(this.#model.onDidOpenRepository, r => new ApiRepository(r));
+		return mapEvent(this.#model.onDidOpenRepository, r => this.#getApiRepository(r));
 	}
 
 	get onDidCloseRepository(): Event<Repository> {
-		return mapEvent(this.#model.onDidCloseRepository, r => new ApiRepository(r));
+		return mapEvent(this.#model.onDidCloseRepository, r => {
+			// Get the cached instance so listeners receive the same object they've been using.
+			// If not cached (edge case), create a new instance without caching since the repo is closing.
+			const apiRepository = this.#repositoryCache.get(r) ?? new ApiRepository(r);
+			this.#repositoryCache.delete(r);
+			return apiRepository;
+		});
 	}
 
 	get repositories(): Repository[] {
-		return this.#model.repositories.map(r => new ApiRepository(r));
+		return this.#model.repositories.map(r => this.#getApiRepository(r));
 	}
 
 	get recentRepositories(): Iterable<RepositoryAccessDetails> {
@@ -434,7 +450,7 @@ export class ApiImpl implements API {
 
 	getRepository(uri: Uri): Repository | null {
 		const result = this.#model.getRepository(uri);
-		return result ? new ApiRepository(result) : null;
+		return result ? this.#getApiRepository(result) : null;
 	}
 
 	async getRepositoryRoot(uri: Uri): Promise<Uri | null> {
