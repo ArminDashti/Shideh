@@ -499,7 +499,7 @@ function doScoreItemFuzzyMultiple(label: string, description: string | undefined
 function doScoreItemFuzzySingle(label: string, description: string | undefined, path: string | undefined, query: IPreparedQueryPiece, preferLabelMatches: boolean, allowNonContiguousMatches: boolean): IItemScore {
 
 	// Prefer label matches if told so or we have no description
-	if (preferLabelMatches || !description) {
+	if ((preferLabelMatches && !query.excludeQuery) || !description) {
 		const [labelScore, labelPositions] = scoreFuzzy(
 			label,
 			query.normalized,
@@ -870,6 +870,14 @@ function queryExpectsExactMatch(query: string) {
 	return query.startsWith('"') && query.endsWith('"');
 }
 
+/*
+ * If a query is wrapped in quotes, the user does not want to
+ * use fuzzy search for this query.
+ */
+function queryIsExcludeQuery(query: string) {
+	return query.length > 1 && query.startsWith('-');
+}
+
 /**
  * Helper function to prepare a search value for scoring by removing unwanted characters
  * and allowing to score on multiple pieces separated by whitespace character.
@@ -881,7 +889,11 @@ export function prepareQuery(original: string): IPreparedQuery {
 	}
 
 	const originalLowercase = original.toLowerCase();
-	const { pathNormalized, normalized, normalizedLowercase } = normalizeQuery(original);
+	// we only support excluding results if you have multiple queries.
+	// This is so users searching for files like foo-bar.txt can search
+	// for "-bar" and still get results.
+	const excludeQuery = false;
+	const { pathNormalized, normalized, normalizedLowercase } = normalizeQuery(original, excludeQuery);
 	const containsPathSeparator = pathNormalized.indexOf(sep) >= 0;
 	const expectExactMatch = queryExpectsExactMatch(original);
 
@@ -891,11 +903,12 @@ export function prepareQuery(original: string): IPreparedQuery {
 	if (originalSplit.length > 1) {
 		for (const originalPiece of originalSplit) {
 			const expectExactMatchPiece = queryExpectsExactMatch(originalPiece);
+			const excludeQueryPiece = queryIsExcludeQuery(originalPiece);
 			const {
 				pathNormalized: pathNormalizedPiece,
 				normalized: normalizedPiece,
 				normalizedLowercase: normalizedLowercasePiece
-			} = normalizeQuery(originalPiece);
+			} = normalizeQuery(originalPiece, excludeQueryPiece);
 
 			if (normalizedPiece) {
 				if (!values) {
@@ -920,9 +933,9 @@ export function prepareQuery(original: string): IPreparedQuery {
 function normalizeQuery(original: string): { pathNormalized: string; normalized: string; normalizedLowercase: string } {
 	let pathNormalized: string;
 	if (isWindows) {
-		pathNormalized = original.replace(/\//g, sep); // Help Windows users to search for paths when using slash
+		pathNormalized = baseline.replace(/\//g, sep); // Help Windows users to search for paths when using slash
 	} else {
-		pathNormalized = original.replace(/\\/g, sep); // Help macOS/Linux users to search for paths when using backslash
+		pathNormalized = baseline.replace(/\\/g, sep); // Help macOS/Linux users to search for paths when using backslash
 	}
 
 	// remove certain characters that help find better results:
