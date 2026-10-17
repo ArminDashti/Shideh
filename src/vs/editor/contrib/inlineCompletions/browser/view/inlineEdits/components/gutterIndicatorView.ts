@@ -197,8 +197,13 @@ export class InlineEditsGutterIndicator extends Disposable {
 			return new Animation(null, null).finished;
 		}
 
+		const icon = this._icon.get()?.element;
+		if (!icon) {
+			return Promise.resolve(new Animation());
+		}
+
 		// PULSE ANIMATION:
-		const animation = this._iconRef.element.animate([
+		const animation = icon.animate([
 			{
 				outline: `2px solid ${this._gutterIndicatorStyles.map(v => v.border).get()}`,
 				outlineOffset: '-1px',
@@ -441,7 +446,7 @@ export class InlineEditsGutterIndicator extends Disposable {
 	});
 
 
-	protected readonly _iconRef = n.ref<HTMLDivElement>();
+	private readonly _icon = observableValue<ObserverNodeWithElement<HTMLDivElement> | null>(this, null);
 
 	// Tracks the actual mounting of the icon node. `_iconRef` is assigned
 	// synchronously when the inner `n.div` below is constructed, but that only
@@ -492,8 +497,14 @@ export class InlineEditsGutterIndicator extends Disposable {
 		}));
 		disposableStore.add(toDisposable(() => this._focusIsInMenu.set(false, undefined)));
 
+		const icon = this._icon.get()?.element;
+		if (!icon) {
+			disposableStore.dispose();
+			return;
+		}
+
 		const h = this._hoverService.showInstantHover({
-			target: this._iconRef.element,
+			target: icon,
 			content: content.element,
 		}) as HoverWidget | undefined;
 		if (h) {
