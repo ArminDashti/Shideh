@@ -22,13 +22,8 @@
   },
   "activationEvents": [
     "onResolveRemoteAuthority:test",
-    "onCommand:vscode-testresolver.newWindow",
-    "onCommand:vscode-testresolver.currentWindow",
     "onCommand:vscode-testresolver.newWindowWithError",
-    "onCommand:vscode-testresolver.showLog",
-    "onCommand:vscode-testresolver.openTunnel",
-    "onCommand:vscode-testresolver.startRemoteServer",
-    "onCommand:vscode-testresolver.toggleConnectionPause"
+    "onStartupFinished"
   ],
   "main": "./out/extension",
   "browser": "./dist/browser/testResolverMain",
@@ -179,6 +174,11 @@
         },
         "testresolver.supportPublicPorts": {
           "description": "If set, the test resolver tunnel factory will support mock public ports. Forwarded ports will not actually be public. Requires reload.",
+          "type": "boolean",
+          "default": false
+        },
+        "testresolver.downloadServerInBackground": {
+          "description": "If set, the test resolver downloads the server bits when it discoveres a new update",
           "type": "boolean",
           "default": false
         }
