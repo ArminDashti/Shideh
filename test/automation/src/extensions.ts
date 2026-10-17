@@ -64,6 +64,8 @@ export class Extensions extends Viewlet {
 				if (attempt++ === 3) {
 					throw err;
 				}
+				// Wait a bit longer before retrying, especially for language packs which might need more time
+				await this.code.wait(3000);
 			}
 		}
 
@@ -74,6 +76,7 @@ export class Extensions extends Viewlet {
 
 	private async waitForExtensionToBeInstalled(): Promise<void> {
 		let attempt = 1;
+		const maxAttempts = 6; // Increased from 3 to 6 attempts
 		while (true) {
 			try {
 				await this.code.waitForElement(`.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.label.uninstall`, undefined);
@@ -83,9 +86,20 @@ export class Extensions extends Viewlet {
 					if (attempt++ === 3) {
 						throw err;
 					}
-					this.code.logger.log('Extension is still being installed. Waiting...');
+					this.code.logger.log(`Extension is still being installed. Attempt ${attempt}/${maxAttempts}. Waiting...`);
+					await this.code.wait(5000); // Wait 5 seconds before retrying
 				} else {
-					throw err;
+					// Check if the extension editor failed to load
+					const hasError = await this.code.getElement(`.extension-editor .monaco-editor-error`).catch(() => null);
+					if (hasError) {
+						throw new Error('Extension editor failed to load. The editor could not be opened due to an unexpected error.');
+					}
+					
+					if (attempt++ >= maxAttempts) {
+						throw new Error(`Could not find uninstall button after ${maxAttempts} attempts. Extension may have failed to install properly.`);
+					}
+					this.code.logger.log(`Uninstall button not found. Attempt ${attempt}/${maxAttempts}. Retrying...`);
+					await this.code.wait(2000); // Wait 2 seconds before retrying
 				}
 			}
 		}
