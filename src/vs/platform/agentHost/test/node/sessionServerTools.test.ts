@@ -8,6 +8,7 @@ import { DeferredPromise } from '../../../../base/common/async.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isWindows } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../log/common/log.js';
 import type { IAgentCreateSessionConfig, IAgentModelInfo, IAgentSessionMetadata } from '../../common/agent.js';
@@ -2578,5 +2579,93 @@ suite('SessionServerTools', () => {
 		const text = await applyDeleteSessionTool(accessor, { session: 'copilot:/s2' }, URI.parse('copilot:/s1'));
 		assert.strictEqual(deleted?.toString(), 'copilot:/s2');
 		assert.ok(text.includes('copilot:/s2'));
+	});
+
+	test('a session created via create_session appears immediately in list_sessions', async () => {
+		// Simulate the AgentService.listSessions() pipeline:
+		// 1. Provider returns existing sessions (NOT including the provisional one)
+		// 2. State manager overlay fills in sessions known to state but not provider
+		const store = new DisposableStore();
+		const stateManager = store.add(new AgentHostStateManager(new NullLogService()));
+		const existingSession = sessionMeta('existing', SessionStatus.Idle, workspace);
+		const newSessionUri = URI.parse('copilot:/new');
+
+		// Build an accessor that mirrors the real AgentService behavior:
+		// - createSession seeds the state manager (provisional, no notification)
+		// - startPrompt dispatches ChatTurnStarted
+		// - listSessions composes provider results + state manager overlay
+		const accessor = createAccessor({
+			createSession: async (config) => {
+				const now = new Date().toISOString();
+				const summary: SessionSummary = {
+					resource: newSessionUri.toString(),
+					provider: 'copilot',
+					title: '',
+					status: SessionStatus.Idle,
+					createdAt: now,
+					modifiedAt: now,
+					workingDirectory: config.workingDirectory?.toString(),
+				};
+				stateManager.createSession(summary, { emitNotification: false });
+				return newSessionUri;
+			},
+			startPrompt: async (_session, chat, prompt) => {
+				const message = { text: prompt, origin: { kind: MessageKind.User } };
+				const action = { type: ActionType.ChatTurnStarted as const, turnId: generateUuid(), message };
+				stateManager.dispatchServerAction(chat.toString(), action);
+			},
+			listSessions: async () => {
+				// Simulates AgentService.listSessions():
+				// Provider returns only the existing session (provisional not in SDK/DB).
+				const providerResults = [existingSession];
+				// State manager overlay adds sessions known to state but not provider.
+				const known = new Set(providerResults.map(s => s.session.toString()));
+				const additions: IAgentSessionMetadata[] = [];
+				for (const summary of stateManager.getOverlaySessionSummaries()) {
+					if (known.has(summary.resource)) {
+						continue;
+					}
+					additions.push({
+						session: URI.parse(summary.resource),
+						startTime: Date.parse(summary.createdAt),
+						modifiedTime: Date.parse(summary.modifiedAt),
+						summary: summary.title,
+						status: summary.status,
+						activity: summary.activity,
+						workingDirectory: typeof summary.workingDirectory === 'string' ? URI.parse(summary.workingDirectory) : undefined,
+					});
+				}
+				return [...providerResults, ...additions];
+			},
+		});
+
+		// Step 1: create_session
+		await applyCreateSessionTool(accessor, { workspace: workspace.toString(), prompt: 'do it' });
+
+		// Step 2: list_sessions — the new session must appear
+		const allSessions = await accessor.listSessions();
+		const allIds = allSessions.map(s => s.session.toString());
+		assert.ok(allIds.includes('copilot:/new'), `Expected new session in list, got: ${JSON.stringify(allIds)}`);
+
+		// Step 3: list_sessions with workspace filter — the new session must still appear
+		const filtered = filterSessions(allSessions, getListSessionsArgs({ workspace: workspace.toString() }));
+		const filteredIds = filtered.map(s => s.session.toString());
+		assert.ok(filteredIds.includes('copilot:/new'), `Expected new session in workspace-filtered list, got: ${JSON.stringify(filteredIds)}`);
+
+		store.dispose();
+	});
+
+	test('sessionMatchesWorkspace accepts child paths (worktree within workspace)', () => {
+		// After materialization with worktree isolation, the session's working
+		// directory changes to a subdirectory of the original workspace.
+		const worktreePath = URI.parse('file:///workspace/app/.copilot/worktrees/agents/feature-branch');
+		const worktreeSession = sessionMeta('wt', SessionStatus.Idle, worktreePath);
+
+		// The tool's workspace filter uses parent-child matching (via
+		// extUriBiasedIgnorePathCase.isEqualOrParent), so a session whose
+		// working directory is a subdirectory of the workspace (a worktree)
+		// is still attributed to that workspace.
+		const filtered = filterSessions([worktreeSession], getListSessionsArgs({ workspace: workspace.toString() }));
+		assert.strictEqual(filtered.length, 1, `Expected worktree session to match workspace filter, got ${filtered.length} results`);
 	});
 });
