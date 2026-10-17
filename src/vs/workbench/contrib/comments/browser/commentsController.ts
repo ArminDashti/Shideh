@@ -19,6 +19,7 @@ import { ModelDecorationOptions, TextModel } from '../../../../editor/common/mod
 import * as languages from '../../../../editor/common/languages.js';
 import * as nls from '../../../../nls.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IMenuService, MenuId } from '../../../../platform/actions/common/actions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../platform/quickinput/common/quickInput.js';
 import { CommentGlyphWidget } from './commentGlyphWidget.js';
@@ -490,10 +491,11 @@ export class CommentController extends Disposable implements IEditorContribution
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@ICodeEditorService private readonly codeEditorService: ICodeEditorService,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
+		@IMenuService private readonly menuService: IMenuService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@IViewsService private readonly viewsService: IViewsService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
@@ -1117,7 +1119,42 @@ export class CommentController extends Disposable implements IEditorContribution
 	}
 
 	private onEditorMouseDown(e: IEditorMouseEvent): void {
-		this.mouseDownInfo = (e.target.element?.className.indexOf('comment-range-glyph') ?? -1) >= 0 ? parseMouseDownInfoFromEvent(e) : null;
+		const isCommentGlyph = (e.target.element?.className.indexOf('comment-range-glyph') ?? -1) >= 0;
+		
+		// Handle right-click on comment glyph
+		if (isCommentGlyph && e.event?.rightButton) {
+			e.event.preventDefault();
+			e.event.stopPropagation();
+			this.showCommentGlyphContextMenu(e);
+			return;
+		}
+		
+		// Handle left-click for normal comment operations
+		this.mouseDownInfo = isCommentGlyph ? parseMouseDownInfoFromEvent(e) : null;
+	}
+
+	private showCommentGlyphContextMenu(e: IEditorMouseEvent): void {
+		if (!this.editor) {
+			return;
+		}
+
+		const actions = this.menuService.getMenuActions(MenuId.CommentGlyphContext, this.contextKeyService, { shouldForwardArgs: true });
+		const menuActions = actions.flatMap(([, items]) => items);
+
+		if (menuActions.length === 0) {
+			return;
+		}
+
+		const useShadowDOM = this.editor.getOption(EditorOption.useShadowDOM);
+		const domNode = this.editor.getDomNode();
+		this.contextMenuService.showContextMenu({
+			domForShadowRoot: useShadowDOM && domNode ? domNode : undefined,
+			getAnchor: () => ({ x: e.event.posx, y: e.event.posy }),
+			getActions: () => menuActions,
+			onHide: () => {
+				this.editor?.focus();
+			}
+		});
 	}
 
 	private onEditorMouseUp(e: IEditorMouseEvent): void {
