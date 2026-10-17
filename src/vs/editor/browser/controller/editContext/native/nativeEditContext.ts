@@ -113,6 +113,7 @@ export class NativeEditContext extends AbstractEditContext {
 		this._screenReaderSupport = this._register(instantiationService.createInstance(ScreenReaderSupport, this.domNode, context, this._viewController));
 
 		this._register(addDisposableListener(this.domNode.domNode, 'copy', (e) => {
+			performance.mark('code/nativeEditContext/copy');
 			this.logService.trace('NativeEditContext#copy');
 
 			// !!!!!
@@ -130,6 +131,7 @@ export class NativeEditContext extends AbstractEditContext {
 			copyEvent.ensureClipboardGetsEditorData();
 		}));
 		this._register(addDisposableListener(this.domNode.domNode, 'cut', (e) => {
+			performance.mark('code/nativeEditContext/cut');
 			this.logService.trace('NativeEditContext#cut');
 			const cutEvent = createClipboardCopyEvent(e, /* isCut */ true, this._context, this.logService, isFirefox);
 			this._onWillCut.fire(cutEvent);
@@ -141,6 +143,7 @@ export class NativeEditContext extends AbstractEditContext {
 			this._screenReaderSupport.onWillCut();
 			cutEvent.ensureClipboardGetsEditorData();
 			this.logService.trace('NativeEditContext#cut (before viewController.cut)');
+			performance.mark('code/nativeEditContext/beforeViewControllerCut');
 			this._viewController.cut();
 		}));
 		this._register(addDisposableListener(this.domNode.domNode, 'selectionchange', () => {

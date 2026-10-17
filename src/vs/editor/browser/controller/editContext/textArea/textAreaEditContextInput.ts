@@ -433,6 +433,7 @@ export class TextAreaInput extends Disposable {
 			}
 
 			this._logService.trace(`TextAreaInput#onPaste (before onPaste)`);
+			performance.mark('code/TextAreaInput/beforeOnPaste');
 			this._onPaste.fire({
 				text: pasteEvent.text,
 				metadata: pasteEvent.metadata

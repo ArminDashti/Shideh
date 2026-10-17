@@ -169,6 +169,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 	private handleCopy(e: IClipboardCopyEvent) {
 		this._logService.trace('CopyPasteController#handleCopy');
 		if (!this._editor.hasTextFocus()) {
+			performance.mark('code/CopyPasteController/handleCopy/earlyReturn1');
 			return;
 		}
 
@@ -199,6 +200,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			.filter(x => !!x.prepareDocumentPaste);
 		if (!providers.length) {
 			this.setCopyMetadata(e.clipboardData, { defaultPastePayload });
+			performance.mark('code/CopyPasteController/handleCopy/earlyReturn5');
 			return;
 		}
 
@@ -227,6 +229,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 
 		CopyPasteController._currentCopyOperation?.operations.forEach(entry => entry.operation.cancel());
 		CopyPasteController._currentCopyOperation = { handle, operations };
+		performance.mark('code/CopyPasteController/endHandleCopy');
 	}
 
 	private async handlePaste(e: IClipboardPasteEvent) {
@@ -249,6 +252,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		const model = this._editor.getModel();
 		const selections = this._editor.getSelections();
 		if (!selections?.length || !model) {
+			performance.mark('code/CopyPasteController/handlePaste/earlyReturn2');
 			return;
 		}
 
@@ -256,6 +260,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			this._editor.getOption(EditorOption.readOnly) // Never enabled if editor is readonly.
 			|| (!this.isPasteAsEnabled() && !this._pasteAsActionContext) // Or feature disabled (but still enable if paste was explicitly requested)
 		) {
+			performance.mark('code/CopyPasteController/handlePaste/earlyReturn3');
 			return;
 		}
 
@@ -295,6 +300,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 				// Also prevent default paste from applying
 				e.setHandled();
 			}
+			performance.mark('code/CopyPasteController/handlePaste/earlyReturn4');
 			return;
 		}
 
@@ -308,6 +314,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		} else {
 			this.doPasteInline(allProviders, selections, dataTransfer, metadata, e.browserEvent);
 		}
+		performance.mark('code/CopyPasteController/endHandlePaste');
 	}
 
 	private showPasteAsNoEditMessage(selections: readonly Selection[], preference: PastePreference) {
