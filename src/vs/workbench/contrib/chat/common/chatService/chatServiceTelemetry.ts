@@ -379,6 +379,7 @@ export class ChatRequestTelemetry {
 		}
 
 		this.isComplete = true;
+		const modelMetadata = this.lookupModelMetadata(this.opts.options?.userSelectedModelId);
 		this.telemetryService.publicLog2<ChatProviderInvokedEvent, ChatProviderInvokedClassification>('interactiveSessionProviderInvoked', {
 			provider: getAgentHostProviderForTelemetry(getChatSessionType(this.opts.sessionResource)),
 			requestIndex: this.opts.requestIndex,
@@ -450,8 +451,8 @@ export class ChatRequestTelemetry {
 		});
 	}
 
-	private resolveModelId(userSelectedModelId: string | undefined): string | undefined {
-		return userSelectedModelId && this.languageModelsService.lookupLanguageModel(userSelectedModelId)?.id;
+	private lookupModelMetadata(userSelectedModelId: string | undefined): ILanguageModelChatMetadata | undefined {
+		return userSelectedModelId ? this.languageModelsService.lookupLanguageModel(userSelectedModelId) : undefined;
 	}
 }
 
