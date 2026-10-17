@@ -282,8 +282,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 	openExistingWindow(window: ICodeWindow, openConfig: IOpenConfiguration): void {
 
-		// Bring window to front
-		window.focus();
+		// Bring window to front (unless background mode is enabled)
+		if (!openConfig.cli?.background) {
+			window.focus();
+		}
 
 		// Handle `<app> --wait`
 		this.handleWaitMarkerFile(openConfig, [window]);
@@ -438,7 +440,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		if (usedWindows.length > 1) {
 
 			// 1.) focus window we opened files in always with highest priority
-			if (filesOpenedInWindow) {
+			if (filesOpenedInWindow && !openConfig.cli?.background) {
 				filesOpenedInWindow.focus();
 			}
 
@@ -451,7 +453,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 				// 2.) focus last active window if we are not instructed to open any paths
 				if (focusLastActive) {
 					const lastActiveWindow = usedWindows.filter(window => this.windowsStateHandler.state.lastActiveWindow && window.backupPath === this.windowsStateHandler.state.lastActiveWindow.backupPath);
-					if (lastActiveWindow.length) {
+					if (lastActiveWindow.length && !openConfig.cli?.background) {
 						lastActiveWindow[0].focus();
 						focusLastOpened = false;
 						focusLastWindow = false;
@@ -469,14 +471,16 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 							continue;
 						}
 
-						usedWindow.focus();
+						if (!openConfig.cli?.background) {
+							usedWindow.focus();
+						}
 						focusLastWindow = false;
 						break;
 					}
 				}
 
 				// 4.) finally, always ensure to have at least last used window focused
-				if (focusLastWindow) {
+				if (focusLastWindow && !openConfig.cli?.background) {
 					usedWindows[usedWindows.length - 1].focus();
 				}
 			}
@@ -582,7 +586,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			const authority = foldersToAdd.at(0)?.remoteAuthority ?? foldersToRemove.at(0)?.remoteAuthority;
 			const lastActiveWindow = this.getLastActiveWindowForAuthority(authority);
 			if (lastActiveWindow) {
-				addUsedWindow(this.doAddRemoveFoldersInExistingWindow(lastActiveWindow, foldersToAdd.map(folderToAdd => folderToAdd.workspace.uri), foldersToRemove.map(folderToRemove => folderToRemove.workspace.uri)));
+				addUsedWindow(this.doAddRemoveFoldersInExistingWindow(lastActiveWindow, foldersToAdd.map(folderToAdd => folderToAdd.workspace.uri), foldersToRemove.map(folderToRemove => folderToRemove.workspace.uri), openConfig));
 			}
 		}
 
@@ -741,7 +745,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	private doOpenFilesInExistingWindow(configuration: IOpenConfiguration, window: ICodeWindow, filesToOpen?: IFilesToOpen): ICodeWindow {
 		this.logService.trace('windowsManager#doOpenFilesInExistingWindow', { filesToOpen });
 
-		this.focusMainOrChildWindow(window); // make sure window or any of the children has focus
+		if (!configuration.cli?.background) {
+			this.focusMainOrChildWindow(window); // make sure window or any of the children has focus
+		}
 
 		const params: INativeOpenFileRequest = {
 			filesToOpenOrCreate: filesToOpen?.filesToOpenOrCreate,
@@ -769,10 +775,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		windowToFocus.focus();
 	}
 
-	private doAddRemoveFoldersInExistingWindow(window: ICodeWindow, foldersToAdd: URI[], foldersToRemove: URI[]): ICodeWindow {
+	private doAddRemoveFoldersInExistingWindow(window: ICodeWindow, foldersToAdd: URI[], foldersToRemove: URI[], openConfig: IOpenConfiguration): ICodeWindow {
 		this.logService.trace('windowsManager#doAddRemoveFoldersToExistingWindow', { foldersToAdd, foldersToRemove });
 
-		window.focus(); // make sure window has focus
+		if (!openConfig.cli?.background) {
+			window.focus(); // make sure window has focus
+		}
 
 		const request: IAddRemoveFoldersRequest = { foldersToAdd, foldersToRemove };
 		window.sendWhenReady('vscode:addRemoveFolders', CancellationToken.None, request);
@@ -1422,7 +1430,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		const existingWindow = findWindowOnExtensionDevelopmentPath(this.getWindows(), extensionDevelopmentPaths);
 		if (existingWindow) {
 			this.lifecycleMainService.reload(existingWindow, openConfig.cli);
-			existingWindow.focus(); // make sure it gets focus and is restored
+			if (!openConfig.cli?.background) {
+				existingWindow.focus(); // make sure it gets focus and is restored
+			}
 
 			return [existingWindow];
 		}

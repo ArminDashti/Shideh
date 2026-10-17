@@ -349,7 +349,10 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 			// to reduce flicker from the default window size
 			// to maximize or fullscreen, we only show after
-			this._win?.show();
+			// but skip showing if background mode is enabled
+			if (!this.background) {
+				this._win?.show();
+			}
 		}
 	}
 
@@ -740,6 +743,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 	private readonly configObjectUrl: IIPCObjectUrl<INativeWindowConfiguration>;
 	private pendingLoadConfig: INativeWindowConfiguration | undefined;
 	private wasLoaded = false;
+	private readonly background: boolean;
 
 	private readonly jsCallStackMap: Map<string, number>;
 	private readonly jsCallStackEffectiveSampleCount: number;
@@ -770,6 +774,8 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		@IInstantiationService instantiationService: IInstantiationService
 	) {
 		super(configurationService, stateService, environmentMainService, logService);
+
+		this.background = config.background || false;
 
 		//#region create browser window
 		{
