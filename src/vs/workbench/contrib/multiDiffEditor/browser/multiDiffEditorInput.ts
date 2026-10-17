@@ -279,6 +279,7 @@ export class MultiDiffEditorInput extends EditorInput implements ILanguageSuppor
 			/** @description Update documents */
 			const cancellationToken = cancelOnDispose(reader.store);
 			const docsPromises = documentsWithPromises.read(reader);
+			console.log('docsPromise : ', docsPromises);
 			const docs = await Promise.all(docsPromises);
 			if (cancellationToken.isCancellationRequested) {
 				return;
@@ -330,6 +331,8 @@ export class MultiDiffEditorInput extends EditorInput implements ILanguageSuppor
 	override revert(group: GroupIdentifier, options?: IRevertOptions): Promise<void> {
 		return this.doSaveOrRevert('revert', group, options);
 	}
+
+	// Need a method to cancel the auto run on the diff editor input
 
 	private async doSaveOrRevert(mode: 'save', group: GroupIdentifier, options?: ISaveOptions): Promise<void>;
 	private async doSaveOrRevert(mode: 'revert', group: GroupIdentifier, options?: IRevertOptions): Promise<void>;

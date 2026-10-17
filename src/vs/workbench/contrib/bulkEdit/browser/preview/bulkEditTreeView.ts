@@ -252,7 +252,11 @@ export class BulkEditTreeView extends Disposable {
 
 		return new Promise<ResourceEdit[] | undefined>(resolve => {
 
-			token.onCancellationRequested(() => resolve(undefined));
+			console.log('inside of the resolve');
+			token.onCancellationRequested(() => {
+				console.log('inside of on cancellation requested');
+				resolve(undefined);
+			});
 
 			this._currentResolve = resolve;
 			this._setTreeInput(input);
