@@ -24,6 +24,11 @@ export interface IResolvedAgentChat<TSession extends IDisposable> {
 	readonly isDefault: boolean;
 }
 
+export interface IResolvedAgentChat<TSession extends IDisposable> {
+	readonly chatSession: TSession;
+	readonly isDefault: boolean;
+}
+
 /**
  * Serializes a peer-chat backing into the opaque `providerData` token the
  * orchestrator persists verbatim. The encoding is the agent's private business

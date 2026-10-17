@@ -3793,6 +3793,20 @@ export class CopilotAgent extends Disposable implements IAgent {
 			}
 			return Promise.resolve(session.resolveCanvasSource(instanceId, revision));
 		},
+		setPendingMessages: (chat: URI, steeringMessage: PendingMessage | undefined, _queuedMessages: readonly PendingMessage[]): void => {
+			const { sessionId } = this._getChatContext(chat);
+			const entry = this._findAnySession(sessionId);
+			if (!entry) {
+				this._logService.warn(`[Copilot:${sessionId}] setPendingMessages: session not found`);
+				return;
+			}
+			// Steering: send with mode 'immediate' so the SDK injects it mid-turn.
+			// Queued messages are consumed server-side (AgentSideEffects) and need
+			// no SDK-level enqueue.
+			if (steeringMessage) {
+				entry.sendSteering(steeringMessage);
+			}
+		},
 	};
 
 	getTurnDiagnosticSnapshot(chat: URI, turnId: string): IAgentTurnDiagnosticSnapshot {

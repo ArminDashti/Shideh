@@ -400,6 +400,10 @@ export class MockAgent implements IAgent {
 			this._recordContext('getMessages', chat, context);
 			return this.getSessionMessages(chat);
 		},
+		setPendingMessages: (chat: URI, steeringMessage: PendingMessage | undefined, queuedMessages: readonly PendingMessage[]): void => {
+			const { session } = this._resolveChatTarget(chat);
+			this.setPendingMessagesCalls.push({ session, steeringMessage, queuedMessages, chat });
+		},
 	};
 
 	async materializeChat(_chat: URI, _context: URI | IAgentChatContext, _providerData: string | undefined): Promise<IAgentCreateChatResult | void> { }
@@ -1164,6 +1168,14 @@ export class ScriptedMockAgent implements IAgent {
 		},
 		getMessages: (chat: URI, context: URI | IAgentChatContext): Promise<readonly Turn[]> => {
 			return this.getSessionMessages(this._resolveChatTarget(chat, context).session);
+		},
+		setPendingMessages: (chat: URI, steeringMessage: PendingMessage | undefined, _queuedMessages: readonly PendingMessage[]): void => {
+			// When steering is set, consume it on the next tick.
+			if (steeringMessage) {
+				timeout(20).then(() => {
+					this._onDidSessionProgress.fire({ kind: 'steering_consumed', chat, id: steeringMessage.id });
+				});
+			}
 		},
 	};
 

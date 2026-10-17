@@ -306,6 +306,10 @@ async function startActiveTurn(disposables: Pick<DisposableStore, 'add'>, ctx: I
 	}));
 }
 
+function defaultChatUri(session: URI): URI {
+	return URI.parse(buildDefaultChatUri(session));
+}
+
 class FakeAgentPluginManager implements IAgentPluginManager {
 	declare readonly _serviceBrand: undefined;
 	readonly basePath = URI.from({ scheme: 'inmemory', path: '/agentPlugins' });
