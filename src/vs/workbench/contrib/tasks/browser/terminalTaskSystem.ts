@@ -61,6 +61,7 @@ interface ITerminalData {
 	lastTask: string;
 	group?: string;
 	shellIntegrationNonce?: string;
+	disposables: DisposableStore;
 }
 
 interface IInstanceCount {
@@ -1557,6 +1558,8 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 		delete this._terminals[terminal.instanceId];
 		delete this._sameTaskTerminals[terminalData.lastTask];
 		this._idleTaskTerminals.delete(terminalData.lastTask);
+		// Dispose terminal-specific listeners to prevent memory leaks
+		terminalData.disposables.dispose();
 		// Delete the task now as a work around for cases when the onExit isn't fired.
 		// This can happen if the terminal wasn't shutdown with an "immediate" flag and is expected.
 		// For correct terminal re-use, the task needs to be deleted immediately.
