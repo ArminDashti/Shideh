@@ -9,9 +9,12 @@ import { Disposable, DisposableMap, MutableDisposable, toDisposable } from '../.
 import { equals } from '../../../base/common/objects.js';
 import { autorun, type IReader } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
+import { extUriBiasedIgnorePathCase, isEqual, joinPath } from '../../../base/common/resources.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { localize } from '../../../nls.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
+import { IFileService } from '../../files/common/files.js';
+import { INativeEnvironmentService } from '../../environment/common/environment.js';
 import { ILogService } from '../../log/common/log.js';
 import { getAutomationTelemetryIsolation, getAutomationTelemetryMode, getAutomationTelemetryPermissionLevel, getAutomationTelemetryProvider, logAutomationCreated, logAutomationUpdated, logAutomationDeleted, logAutomationRunCreated, logAutomationRunCompleted, logAutomationRunStarted, type AutomationRunOutcome, type IAutomationConfigurationTelemetry, type IAutomationDefinitionTelemetry, type IAutomationRunTelemetry } from './agentHostAutomationTelemetry.js';
 import { toTelemetryModel } from './agentHostTelemetryReporter.js';
@@ -20,7 +23,7 @@ import { AgentSession } from '../common/agent.js';
 import { readAgentHostAutomationHistoryState, withAgentHostAutomationHistoryState } from '../common/meta/agentHostAutomationsMeta.js';
 import { SessionConfigKey } from '../common/sessionConfigKeys.js';
 import { ActionType, type ActionEnvelope, type AutomationCreateRequestedAction, type AutomationRemovedAction, type AutomationRunCancelRequestedAction, type AutomationRunLifecycleChangedAction, type AutomationRunPrimarySessionChangedAction, type AutomationRunSessionSetAction, type AutomationUpdateRequestedAction } from '../common/state/sessionActions.js';
-import { AUTOMATION_CATALOG_URI, isDefaultChatUri, parseRequiredSessionUriFromChatUri, type AutomationState, type Message } from '../common/state/sessionState.js';
+import { AUTOMATION_CATALOG_URI, CustomizationType, isDefaultChatUri, parseRequiredSessionUriFromChatUri, type AutomationState, type ClientPluginCustomization, type Message, type PluginCustomization } from '../common/state/sessionState.js';
 import { automationReducer } from '../common/state/sessionReducers.js';
 import type { AutomationCapabilities } from '../common/state/protocol/common/commands.js';
 import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomationTriggerDefinitionsParams, ListAutomationTriggerDefinitionsResult, RunAutomationParams, RunAutomationResult } from '../common/state/protocol/channels-automation/commands.js';
@@ -34,11 +37,20 @@ import { nextAutomationCronOccurrence, validateAutomationCron } from './automati
 import { AGENT_HOST_AUTOMATIONS_ENABLED_CONFIG_KEY, AGENT_HOST_AUTOMATION_RUN_TIMEOUT_MINUTES_CONFIG_KEY, DEFAULT_AGENT_HOST_AUTOMATION_RUN_TIMEOUT_MINUTES, migrateLegacyAutomationSessionConfig } from '../common/automationConfig.js';
 import { IAgentHostProviderService } from './agentHostProviderService.js';
 import { getModelTelemetryContext } from './agentHostTurnTelemetryContext.js';
+import { IAgentPluginManager, type ICustomizationCaptureLease } from '../common/agentPluginManager.js';
+import { AutomationCapturedPluginMetaKey } from '../common/meta/clientPluginCustomizationMeta.js';
+import { isCustomizationEnabled } from '../common/customizationEnablement.js';
+import { getCapturedPluginSourceMeta, parseCapturedPluginCustomization } from './shared/automationCustomizations.js';
 
 const STORAGE_KEY = 'automations';
 const SCHEDULE_CURSORS_META_KEY = 'vscode.scheduleCursors';
 const SCHEDULE_RETRY_DELAY_MS = 60_000;
 const RUN_HISTORY_PAGE_SIZE = 50;
+
+const EMPTY_CUSTOMIZATION_CAPTURE_LEASE: ICustomizationCaptureLease = {
+	customizations: [],
+	dispose: () => { },
+};
 
 interface IStoredManualRunRequest {
 	readonly requestId: string;
@@ -88,8 +100,8 @@ export interface IAgentHostAutomationService {
 	readonly _serviceBrand: undefined;
 	readonly capabilities: AutomationCapabilities | undefined;
 	readonly isAvailable: boolean;
-	handleCreate(action: AutomationCreateRequestedAction): Promise<void>;
-	handleUpdate(action: AutomationUpdateRequestedAction): Promise<void>;
+	handleCreate(action: AutomationCreateRequestedAction, clientId?: string): Promise<void>;
+	handleUpdate(action: AutomationUpdateRequestedAction, clientId?: string): Promise<void>;
 	handleRemove(action: AutomationRemovedAction): Promise<void>;
 	deleteAutomation(resource: string, deleteHistory: boolean, legacySessions?: readonly URI[]): Promise<void>;
 	handleCancel(resource: string, action: AutomationRunCancelRequestedAction): Promise<void>;
@@ -129,6 +141,9 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		@ILogService private readonly _logService: ILogService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 		@IAgentHostProviderService private readonly _providerService: IAgentHostProviderService,
+		@IAgentPluginManager private readonly _pluginManager: IAgentPluginManager,
+		@IFileService private readonly _fileService: IFileService,
+		@INativeEnvironmentService private readonly _environmentService: INativeEnvironmentService,
 	) {
 		super();
 		this._register(toDisposable(() => this._cancellations.clear()));
@@ -151,6 +166,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		} : undefined;
 		this._manualRunRequests = new Map(stored?.manualRunRequests?.map(request => [request.requestId, request]));
 		if (this._catalog) {
+			this._committedCustomizationHolders = this._getCustomizationHolders(this._catalog, this._runCustomizations);
 			this._stateManager.setAutomationCatalogState(this._catalog);
 		}
 		for (const run of this._runs.values()) {
@@ -237,11 +253,11 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		this._scheduleNext();
 	}
 
-	async handleCreate(action: AutomationCreateRequestedAction): Promise<void> {
-		return this._enqueueMutation(() => this._handleCreate(action));
+	async handleCreate(action: AutomationCreateRequestedAction, clientId?: string): Promise<void> {
+		return this._enqueueMutation(() => this._handleCreate(action, clientId));
 	}
 
-	private async _handleCreate(action: AutomationCreateRequestedAction): Promise<void> {
+	private async _handleCreate(action: AutomationCreateRequestedAction, clientId?: string): Promise<void> {
 		const catalog = this._requireCatalog();
 		this._validateAutomationResource(action.resource);
 		const definition = action.definition;
@@ -255,32 +271,38 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			throw new Error(`Automation already exists: ${action.resource}`);
 		}
 
-		const timestamp = new Date().toISOString();
-		const automation = this._withInitialScheduleState({
-			resource: action.resource,
-			definition,
-			runs: [],
-			operations: [
-				AutomationOperation.Update,
-				AutomationOperation.Remove,
-				...(this._isAutomationsEnabled() ? [AutomationOperation.Run] : []),
-			],
-			createdAt: timestamp,
-			modifiedAt: timestamp,
-		}, new Date(timestamp));
-		const next = automationReducer(catalog, { type: ActionType.AutomationSet, automation }, this._log);
-		await this._persist(next, this._runs, this._manualRunRequests);
-		this._catalog = next;
-		this._stateManager.dispatchServerAction(AUTOMATION_CATALOG_URI, { type: ActionType.AutomationSet, automation });
-		logAutomationCreated(this._telemetryService, this._definitionTelemetry(automation));
-		this._scheduleNext();
+		const lease = await this._captureCustomizations(definition.session.customizations, undefined, clientId, definition.session.workingDirectories?.[0]);
+		try {
+			const timestamp = new Date().toISOString();
+			const automation = this._withInitialScheduleState({
+				resource: action.resource,
+				definition,
+				runs: [],
+				operations: [
+					AutomationOperation.Update,
+					AutomationOperation.Remove,
+					...(this._isAutomationsEnabled() ? [AutomationOperation.Run] : []),
+				],
+				...(lease.customizations.length > 0 ? { customizations: Array.from(lease.customizations) } : {}),
+				createdAt: timestamp,
+				modifiedAt: timestamp,
+			}, new Date(timestamp));
+			const next = automationReducer(catalog, { type: ActionType.AutomationSet, automation }, this._log);
+			await this._persist(next, this._runs, this._manualRunRequests);
+			this._catalog = next;
+			this._stateManager.dispatchServerAction(AUTOMATION_CATALOG_URI, { type: ActionType.AutomationSet, automation });
+			logAutomationCreated(this._telemetryService, this._definitionTelemetry(automation));
+			this._scheduleNext();
+		} finally {
+			lease.dispose();
+		}
 	}
 
-	async handleUpdate(action: AutomationUpdateRequestedAction): Promise<void> {
-		return this._enqueueMutation(() => this._handleUpdate(action));
+	async handleUpdate(action: AutomationUpdateRequestedAction, clientId?: string): Promise<void> {
+		return this._enqueueMutation(() => this._handleUpdate(action, clientId));
 	}
 
-	private async _handleUpdate(action: AutomationUpdateRequestedAction): Promise<void> {
+	private async _handleUpdate(action: AutomationUpdateRequestedAction, clientId?: string): Promise<void> {
 		const catalog = this._requireCatalog();
 		const existing = catalog.entries.find(automation => automation.resource === action.resource);
 		if (!existing) {
@@ -297,30 +319,40 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			modifiedAt: new Date().toISOString(),
 		};
 		this._validateDefinition(automation.definition);
+		const lease = await this._captureCustomizations(automation.definition.session.customizations, existing, clientId, automation.definition.session.workingDirectories?.[0]);
+		if (lease.customizations.length > 0) {
+			automation = { ...automation, customizations: Array.from(lease.customizations) };
+		} else {
+			automation = { ...automation, customizations: undefined };
+		}
 		if (action.changes.triggers !== undefined || action.changes.enabled !== undefined) {
 			automation = this._withInitialScheduleState(automation, new Date());
 		}
 		automation = { ...automation, operations: this._operationsForItem(automation) };
 		const next = automationReducer(catalog, { type: ActionType.AutomationSet, automation }, this._log);
-		await this._persist(next, this._runs, this._manualRunRequests);
-		this._catalog = next;
-		this._stateManager.dispatchServerAction(AUTOMATION_CATALOG_URI, { type: ActionType.AutomationSet, automation });
-		const enabledChanged = existing.definition.enabled !== automation.definition.enabled;
-		const scheduleChanged = !equals(existing.definition.triggers, automation.definition.triggers);
-		const sessionConfigurationChanged = !equals(existing.definition.session, automation.definition.session);
-		const promptChanged = !equals(existing.definition.message, automation.definition.message);
-		const titleChanged = existing.definition.title !== automation.definition.title;
-		if (enabledChanged || scheduleChanged || sessionConfigurationChanged || promptChanged || titleChanged) {
-			logAutomationUpdated(this._telemetryService, {
-				...this._definitionTelemetry(automation),
-				enabledChanged,
-				scheduleChanged,
-				sessionConfigurationChanged,
-				promptChanged,
-				titleChanged,
-			});
+		try {
+			await this._persist(next, this._runs, this._manualRunRequests);
+			this._catalog = next;
+			this._stateManager.dispatchServerAction(AUTOMATION_CATALOG_URI, { type: ActionType.AutomationSet, automation });
+			const enabledChanged = existing.definition.enabled !== automation.definition.enabled;
+			const scheduleChanged = !equals(existing.definition.triggers, automation.definition.triggers);
+			const sessionConfigurationChanged = !equals(existing.definition.session, automation.definition.session);
+			const promptChanged = !equals(existing.definition.message, automation.definition.message);
+			const titleChanged = existing.definition.title !== automation.definition.title;
+			if (enabledChanged || scheduleChanged || sessionConfigurationChanged || promptChanged || titleChanged) {
+				logAutomationUpdated(this._telemetryService, {
+					...this._definitionTelemetry(automation),
+					enabledChanged,
+					scheduleChanged,
+					sessionConfigurationChanged,
+					promptChanged,
+					titleChanged,
+				});
+			}
+			this._scheduleNext();
+		} finally {
+			lease.dispose();
 		}
-		this._scheduleNext();
 	}
 
 	async handleRemove(action: AutomationRemovedAction): Promise<void> {
@@ -434,7 +466,11 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 	async runAutomation(params: RunAutomationParams): Promise<RunAutomationResult> {
 		const created = await this._enqueueMutation(() => this._createManualRun(params));
 		if (created.definition) {
-			void this._startRun(created.run, created.definition);
+			if (!created.customizations) {
+				void this._enqueueMutation(() => this._failRun(created.run.resource, new Error('Automation run inputs are unavailable or corrupted.'), 'error'));
+			} else {
+				void this._startRun(created.run, created.definition, created.customizations);
+			}
 		}
 		return { resource: created.run.resource };
 	}
@@ -584,7 +620,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			if (!this._isAutomationsEnabled()) {
 				return;
 			}
-			this._startPendingRuns(available);
+			this._startPendingRuns();
 			const timestamps = available
 				.filter(automation => automation.definition.enabled
 					&& automation.operations.includes(AutomationOperation.Run)
@@ -607,15 +643,17 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		});
 	}
 
-	private async _claimDueRuns(): Promise<readonly { readonly run: AutomationRunState; readonly definition: AutomationDefinition }[]> {
+	private async _claimDueRuns(): Promise<readonly { readonly run: AutomationRunState; readonly definition: AutomationDefinition; readonly customizations: readonly PluginCustomization[] }[]> {
 		const catalog = this._requireAvailableCatalog();
 		const now = new Date();
 		const nowTimestamp = now.getTime();
 		const createdAt = now.toISOString();
 		let nextCatalog = catalog;
 		const nextRuns = new Map(this._runs);
+		const nextRunCustomizations = new Map(this._runCustomizations);
+		const nextRunDefinitions = new Map(this._runDefinitions);
 		const changed = new Map<string, AutomationEntry>();
-		const claimed: { run: AutomationRunState; definition: AutomationDefinition }[] = [];
+		const claimed: { run: AutomationRunState; definition: AutomationDefinition; customizations: readonly PluginCustomization[] }[] = [];
 
 		for (const current of catalog.entries) {
 			if (!current.definition.enabled) {
@@ -651,8 +689,11 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 								...(catchUp ? { catchUp: true } : {}),
 							}, createdAt);
 							nextRuns.set(run.resource, run);
+							const customizations = current.customizations ?? [];
+							nextRunCustomizations.set(run.resource, customizations);
+							nextRunDefinitions.set(run.resource, current.definition);
 							automation = withRunSummary(automation, nextRuns);
-							claimed.push({ run, definition: automation.definition });
+							claimed.push({ run, definition: automation.definition, customizations });
 							claimedForAutomation = true;
 						}
 						// A sibling trigger already claimed this Automation this
@@ -678,9 +719,11 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		if (changed.size === 0) {
 			return [];
 		}
-		await this._persist(nextCatalog, nextRuns, this._manualRunRequests);
+		await this._persist(nextCatalog, nextRuns, this._manualRunRequests, nextRunCustomizations, nextRunDefinitions);
 		this._catalog = nextCatalog;
 		this._runs = nextRuns;
+		this._runCustomizations = nextRunCustomizations;
+		this._runDefinitions = nextRunDefinitions;
 		for (const { run, definition } of claimed) {
 			this._stateManager.setAutomationRunState(run);
 			logAutomationRunCreated(this._telemetryService, {
@@ -714,19 +757,43 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		}
 	}
 
-	private _startPendingRuns(availableAutomations: readonly AutomationEntry[]): void {
+	private _startPendingRuns(): void {
 		for (const run of this._runs.values()) {
 			if (run.lifecycle.status !== AutomationRunStatus.Pending) {
 				continue;
 			}
-			const automation = availableAutomations.find(candidate => candidate.resource === run.automation);
-			if (automation?.operations.includes(AutomationOperation.Run)) {
-				void this._startRun(run, automation.definition);
+			const definition = this._runDefinitions.get(run.resource);
+			const customizations = this._runCustomizations.get(run.resource);
+			if (definition && customizations && this._execution.isSessionTemplateAvailable(getExecutionSessionTemplate(definition))) {
+				void this._startRun(run, definition, customizations);
+			} else if (definition === undefined && customizations === undefined) {
+				void this._enqueueMutation(async () => {
+					const catalog = this._requireAvailableCatalog();
+					const legacyDefinition = catalog.entries.find(automation => automation.resource === run.automation)?.definition;
+					if (!legacyDefinition || legacyDefinition.session.customizations !== undefined) {
+						await this._failRun(run.resource, new Error('Automation run inputs are unavailable or corrupted.'), 'error');
+						return;
+					}
+					const definitions = new Map(this._runDefinitions).set(run.resource, legacyDefinition);
+					const captures = new Map(this._runCustomizations).set(run.resource, []);
+					await this._persist(catalog, this._runs, this._manualRunRequests, captures, definitions);
+					this._runDefinitions = definitions;
+					this._runCustomizations = captures;
+					if (this._execution.isSessionTemplateAvailable(getExecutionSessionTemplate(legacyDefinition))) {
+						void this._startRun(run, legacyDefinition, []);
+					}
+				}).catch(error => {
+					this._logService.error(`[AgentHostAutomationService] Failed to recover pending Automation run: run=${run.resource}`, error);
+				});
+			} else if (!definition || !customizations) {
+				void this._enqueueMutation(() => this._failRun(run.resource, new Error('Automation run inputs are unavailable or corrupted.'), 'error')).catch(error => {
+					this._logService.error(`[AgentHostAutomationService] Failed to recover pending Automation run: run=${run.resource}`, error);
+				});
 			}
 		}
 	}
 
-	private async _createManualRun(params: RunAutomationParams): Promise<{ readonly run: AutomationRunState; readonly definition?: AutomationDefinition }> {
+	private async _createManualRun(params: RunAutomationParams): Promise<{ readonly run: AutomationRunState; readonly definition?: AutomationDefinition; readonly customizations?: readonly PluginCustomization[] }> {
 		const catalog = this._requireAvailableCatalog();
 		if (params.requestId.trim().length === 0) {
 			throw new Error('Automation run requestId must not be empty.');
@@ -757,11 +824,18 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		const nextCatalog = this._catalogWithRun(catalog, run);
 		const nextRuns = new Map(this._runs);
 		nextRuns.set(run.resource, run);
+		const nextRunCustomizations = new Map(this._runCustomizations);
+		const customizations = automation.customizations ?? [];
+		nextRunCustomizations.set(run.resource, customizations);
+		const nextRunDefinitions = new Map(this._runDefinitions);
+		nextRunDefinitions.set(run.resource, automation.definition);
 		const nextRequests = new Map(this._manualRunRequests);
 		nextRequests.set(params.requestId, { requestId: params.requestId, automation: params.automation, run: run.resource });
-		await this._persist(nextCatalog, nextRuns, nextRequests);
+		await this._persist(nextCatalog, nextRuns, nextRequests, nextRunCustomizations, nextRunDefinitions);
 		this._catalog = nextCatalog;
 		this._runs = nextRuns;
+		this._runCustomizations = nextRunCustomizations;
+		this._runDefinitions = nextRunDefinitions;
 		this._manualRunRequests = nextRequests;
 		this._stateManager.setAutomationRunState(run);
 		this._publishAutomation(nextCatalog, automation.resource);
@@ -770,7 +844,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			...this._configurationTelemetry(automation.definition.session),
 		});
 		this._logService.info(`[AgentHostAutomationService] Created durable manual automation run: automation=${automation.resource}, run=${run.resource}.`);
-		return { run, definition: automation.definition };
+		return { run, definition: automation.definition, customizations };
 	}
 
 	private _createRunState(automation: string, origin: AutomationRunOrigin, createdAt: string): AutomationRunState {
@@ -783,7 +857,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		};
 	}
 
-	private async _startRun(initialRun: AutomationRunState, definition: AutomationDefinition): Promise<void> {
+	private async _startRun(initialRun: AutomationRunState, definition: AutomationDefinition, customizations: readonly PluginCustomization[]): Promise<void> {
 		try {
 			const template = getExecutionSessionTemplate(definition);
 			if (!this._execution.isSessionTemplateAvailable(template)) {
@@ -896,6 +970,11 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			completedAt: new Date().toISOString(),
 		};
 		await this._commitRun({ ...run, lifecycle }, [{ type: ActionType.AutomationRunLifecycleChanged, lifecycle }], cancellation.outcome);
+		// A running run may still be between createSession and durable session
+		// linkage. Keep its capture until that session is linked and deleted.
+		if (run.lifecycle.status !== AutomationRunStatus.Running) {
+			await this._releaseRunCustomizations(resource);
+		}
 		return [];
 	}
 
@@ -933,6 +1012,37 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		actions.push({ type: ActionType.AutomationRunLifecycleChanged, lifecycle });
 		await this._commitRun({ ...run, lifecycle }, actions, outcome, sessionCreations);
 		this._logService.error(`[AgentHostAutomationService] Automation run failed: run=${resource}, error=${toErrorMessage(error)}`);
+	}
+
+	/**
+	 * Releases a run's immutable capture only after its sole persisted session
+	 * has been permanently deleted. Residency disposal is intentionally not a
+	 * release boundary: a later restore must still materialize the same bytes.
+	 */
+	handleSessionDeleted(session: URI): Promise<void> {
+		return this._enqueueMutation(async () => {
+			const sessionResource = session.toString();
+			for (const run of this._runs.values()) {
+				if (run.sessions.length === 1 && run.sessions[0] === sessionResource) {
+					await this._releaseRunCustomizations(run.resource);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Returns the immutable inputs admitted for an automation-created session.
+	 * This deliberately consults run-owned state rather than the current
+	 * automation definition, which may have changed or been deleted.
+	 */
+	getSessionCustomizations(session: URI): readonly PluginCustomization[] | undefined {
+		const sessionResource = session.toString();
+		for (const run of this._runs.values()) {
+			if (run.sessions.includes(sessionResource)) {
+				return this._runCustomizations.get(run.resource);
+			}
+		}
+		return undefined;
 	}
 
 	private _handleEnvelope(envelope: ActionEnvelope): void {
@@ -1104,6 +1214,13 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 		if (definition.message.origin.kind !== MessageKind.Automation) {
 			throw new Error('Automation message must have an automation origin.');
 		}
+		const customizationIds = new Set<string>();
+		for (const customization of definition.session.customizations ?? []) {
+			if (customization.id.trim().length === 0 || customizationIds.has(customization.id)) {
+				throw new Error(`Automation customization ids must be non-empty and unique: ${customization.id}`);
+			}
+			customizationIds.add(customization.id);
+		}
 		const triggerIds = new Set<string>();
 		for (const trigger of definition.triggers) {
 			if (trigger.id.trim().length === 0 || triggerIds.has(trigger.id)) {
@@ -1115,6 +1232,86 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 			}
 			validateAutomationCron(trigger.schedule.expression, trigger.schedule.timeZone);
 		}
+	}
+
+	private async _captureCustomizations(
+		customizations: readonly ClientPluginCustomization[] | undefined,
+		existing: AutomationEntry | undefined,
+		clientId: string | undefined,
+		primaryWorkingDirectory: string | undefined,
+	): Promise<ICustomizationCaptureLease> {
+		if (!customizations || customizations.length === 0) {
+			return EMPTY_CUSTOMIZATION_CAPTURE_LEASE;
+		}
+		const existingInputs = new Map((existing?.definition.session.customizations ?? []).map(customization => [customization.id, customization]));
+		const existingCaptures = new Map((existing?.customizations ?? []).map(customization => [customization.id, toHostCustomization(customization, true)]));
+		const enabledCustomizations = customizations.filter(isCustomizationEnabled);
+		const changed = enabledCustomizations.filter(customization => {
+			const previous = existingInputs.get(customization.id);
+			return !previous || !existingCaptures.has(customization.id) || previous.uri !== customization.uri || previous.nonce !== customization.nonce;
+		});
+		if (changed.length > 0 && !clientId) {
+			throw new Error('Automation customizations require the dispatching client identity.');
+		}
+		const captured = changed.length > 0
+			? await this._pluginManager.captureCustomizations(clientId!, [...changed])
+			: EMPTY_CUSTOMIZATION_CAPTURE_LEASE;
+		try {
+			const capturedById = new Map(captured.customizations.map(customization => [customization.id, toHostCustomization(customization)]));
+			const complete = await Promise.all(enabledCustomizations.map(async customization => {
+				const capturedCustomization = capturedById.get(customization.id);
+				if (!capturedCustomization) {
+					const existingCapture = existingCaptures.get(customization.id);
+					return existingCapture;
+				}
+				return this._parseCapturedCustomization(capturedCustomization, customization, primaryWorkingDirectory);
+			}));
+			if (complete.some(customization => customization === undefined)) {
+				throw new Error('Automation customization capture is incomplete.');
+			}
+			return {
+				customizations: complete as PluginCustomization[],
+				dispose: () => captured.dispose(),
+			};
+		} catch (error) {
+			captured.dispose();
+			throw error;
+		}
+	}
+
+	private async _parseCapturedCustomization(captured: PluginCustomization, source: ClientPluginCustomization, primaryWorkingDirectory: string | undefined): Promise<PluginCustomization> {
+		if (captured.children !== undefined && captured.load?.kind === 'loaded') {
+			return mergeSourceIntoHostCustomization(toHostCustomization(captured), source);
+		}
+		const pluginDir = this._pluginManager.getCapturedPluginDir(captured.uri);
+		if (!pluginDir) {
+			throw new Error(`Captured plugin directory is unavailable: ${captured.uri}`);
+		}
+		const parsed = await parseCapturedPluginCustomization(
+			captured,
+			source,
+			pluginDir,
+			primaryWorkingDirectory ? URI.parse(primaryWorkingDirectory) : undefined,
+			this._environmentService.userHome,
+			this._fileService,
+		);
+		if (parsed.load?.kind === 'error') {
+			throw new Error(`Failed to parse captured plugin '${source.id}': ${parsed.load.message}`);
+		}
+		return toHostCustomization(parsed, true);
+	}
+
+	private async _releaseRunCustomizations(run: string): Promise<void> {
+		if (!this._runCustomizations.has(run) && !this._runDefinitions.has(run)) {
+			return;
+		}
+		const customizations = new Map(this._runCustomizations);
+		const definitions = new Map(this._runDefinitions);
+		customizations.delete(run);
+		definitions.delete(run);
+		await this._persist(this._requireCatalog(), this._runs, this._manualRunRequests, customizations, definitions);
+		this._runCustomizations = customizations;
+		this._runDefinitions = definitions;
 	}
 
 	private _requireOperation(automation: AutomationEntry, operation: AutomationOperation): void {
@@ -1150,7 +1347,10 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
 	}
 
 	private _enqueueMutation<T>(mutation: () => Promise<T>): Promise<T> {
-		const next = this._mutationTail.then(mutation);
+		const next = this._mutationTail.then(async () => {
+			await this._waitForInitialization();
+			return mutation();
+		});
 		this._mutationTail = next.then(() => undefined, () => undefined);
 		return next;
 	}
@@ -1162,6 +1362,63 @@ function getExecutionSessionTemplate(definition: AutomationDefinition): Automati
 	return definition.message.model === undefined
 		? definition.session
 		: { ...definition.session, model: definition.message.model };
+}
+
+function resolveCapturedAutomationAgentSelection(template: AutomationSessionTemplate, customizations: readonly PluginCustomization[]): AutomationSessionTemplate {
+	if (!template.agent) {
+		return template;
+	}
+	const selectedAgentUri = URI.parse(template.agent.uri);
+	const source = template.customizations?.find(source => {
+		const sourceUri = URI.parse(source.uri);
+		return sourceUri.scheme === selectedAgentUri.scheme
+			&& sourceUri.authority === selectedAgentUri.authority
+			&& extUriBiasedIgnorePathCase.isEqualOrParent(selectedAgentUri, sourceUri);
+	});
+	if (!source) {
+		return template;
+	}
+	const captured = customizations.find(customization => customization.id === source.id);
+	const relativePath = extUriBiasedIgnorePathCase.relativePath(URI.parse(source.uri), selectedAgentUri);
+	if (!captured || relativePath === undefined) {
+		throw new Error(`Automation custom agent selection could not be resolved from captured customization '${source.id}': ${selectedAgentUri.toString()}`);
+	}
+	const capturedUri = joinPath(URI.parse(captured.uri), relativePath);
+	const agent = captured.children?.find(child =>
+		child.type === CustomizationType.Agent && isEqual(URI.parse(child.uri), capturedUri));
+	if (!agent) {
+		throw new Error(`Automation custom agent selection is not present in captured customization '${source.id}': ${selectedAgentUri.toString()}`);
+	}
+	return { ...template, agent: { uri: agent.uri } };
+}
+
+function toHostCustomization(customization: PluginCustomization, preserveValidatedMeta = false): PluginCustomization {
+	const { clientId: _clientId, nonce: _nonce, childEnablement: _childEnablement, _meta: _meta, ...hostCustomization } = customization as ClientPluginCustomization;
+	return {
+		...hostCustomization,
+		_meta: {
+			...(preserveValidatedMeta ? getCapturedPluginSourceMeta(customization, customization.children ?? []) : {}),
+			[AutomationCapturedPluginMetaKey]: true,
+		},
+	};
+}
+
+function mergeSourceIntoHostCustomization(host: PluginCustomization, source: ClientPluginCustomization): PluginCustomization {
+	const children = host.children?.map(child => {
+		if (child.type !== CustomizationType.McpServer) {
+			return child;
+		}
+		const { enablement: _enablement, ...rest } = child;
+		const enablement = source.childEnablement?.[child.name];
+		return enablement ? { ...rest, enablement } : rest;
+	});
+	return toHostCustomization({
+		...source,
+		uri: host.uri,
+		...(children ? { children } : {}),
+		...(host.load ? { load: host.load } : {}),
+		_meta: getCapturedPluginSourceMeta(source, children ?? []),
+	}, true);
 }
 
 function isStoredAutomationCatalog(value: unknown): value is IStoredAutomationCatalog {

@@ -458,6 +458,8 @@ export interface IAgentCreateSessionConfig {
 	/** Requested sources, separate from the resolved working directories. */
 	readonly repositories?: readonly IRepositorySource[];
 	readonly config?: Record<string, unknown>;
+	/** Host-owned immutable plugin snapshots for a durable automation run. */
+	readonly automationCustomizations?: readonly PluginCustomization[];
 	/**
 	 * Eagerly claim the active client role for the new session. When provided,
 	 * the server initializes the session with this client as the active

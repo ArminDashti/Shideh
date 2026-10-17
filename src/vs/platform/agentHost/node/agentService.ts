@@ -4831,8 +4831,11 @@ export class AgentService extends Disposable implements IAgentService {
 		const defaultChat = URI.parse(buildDefaultChatUri(session));
 		const workingDirectories = config?.workingDirectories;
 		const [initialCustomizations, folderPickerDecision] = await Promise.all([
-			provider.getChatCustomizations(defaultChat, this._chatContext(session, defaultChat), this._hostCustomizations(session)).catch(err => {
+			provider.getChatCustomizations(defaultChat, this._chatContext(session, defaultChat), config?.automationCustomizations ?? this._hostCustomizations(session)).catch(err => {
 				this._logService.error('[AgentService] createSession: failed to resolve initial customizations', err);
+				if (config?.automationCustomizations) {
+					throw err;
+				}
 				return undefined;
 			}),
 			// The harness owns the Folder-picker decision (it is provider-specific),
@@ -6520,6 +6523,7 @@ export class AgentService extends Disposable implements IAgentService {
 				await this._worktree.deleteDetachedWorktree(additionalWorktree.handle);
 			}
 			await this._sessionDataService.deleteSessionData(session, cleanupWorkingDirectories);
+			await this._automationService.handleSessionDeleted(session);
 			await this._worktree.removeSessionWorktree(sessionId, worktree);
 			this._changesetCoordinator.onSessionDisposed(session.toString());
 			this._sideEffects.clearInputRequestsForSession(session.toString());
@@ -7264,7 +7268,7 @@ export class AgentService extends Disposable implements IAgentService {
 				return;
 			}
 
-			void this._dispatchAutomationAction(action).catch(error => {
+			void this._dispatchAutomationAction(action, clientId).catch(error => {
 				const message = toErrorMessage(error);
 				this._logService.error(`[AgentService] automation action failed: ${message}`);
 				this._stateManager.rejectClientAction(channel, action, origin, message);
@@ -7388,12 +7392,12 @@ export class AgentService extends Disposable implements IAgentService {
 		this._clientDispatchQueues.set(clientId, next);
 	}
 
-	private async _dispatchAutomationAction(action: ClientAutomationAction): Promise<void> {
+	private async _dispatchAutomationAction(action: ClientAutomationAction, clientId: string): Promise<void> {
 		switch (action.type) {
 			case ActionType.AutomationCreateRequested:
-				return this._automationService.handleCreate(action);
+				return this._automationService.handleCreate(action, clientId);
 			case ActionType.AutomationUpdateRequested:
-				return this._automationService.handleUpdate(action);
+				return this._automationService.handleUpdate(action, clientId);
 			case ActionType.AutomationRemoved:
 				return this._automationService.handleRemove(action);
 		}
@@ -8898,13 +8902,17 @@ export class AgentService extends Disposable implements IAgentService {
 		const restoredConfigValues = meta.workingDirectories?.length
 			? { [SessionConfigKey.Isolation]: 'folder', ...persistedConfigValues }
 			: persistedConfigValues;
+		const admittedAutomationCustomizations = this._automationService.getSessionCustomizations(session);
 		const [restoredConfig, restoredCustomizations] = await Promise.all([
 			this._resolveCreatedSessionConfig(agent, {
 				workingDirectories: meta.workingDirectories,
 				config: restoredConfigValues,
 			}),
-			agent.getChatCustomizations(defaultChatUri, chatContext, this._hostCustomizations(session)).catch(err => {
+			agent.getChatCustomizations(defaultChatUri, chatContext, admittedAutomationCustomizations ?? this._hostCustomizations(session)).catch(err => {
 				this._logService.error('[AgentService] restoreSession: failed to resolve chat customizations', err);
+				if (admittedAutomationCustomizations !== undefined) {
+					throw err;
+				}
 				return undefined;
 			}),
 			...promises

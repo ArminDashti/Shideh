@@ -292,6 +292,18 @@ class TestAgentPluginManager implements IAgentPluginManager {
 	async syncCustomizations(_clientId: string, _customizations: ClientPluginCustomization[], _progress?: (status: PluginCustomization) => void): Promise<ISyncedCustomization[]> {
 		return [];
 	}
+
+	async captureCustomizations(_clientId: string, _customizations: ClientPluginCustomization[]): Promise<ICustomizationCaptureLease> {
+		return { customizations: [], dispose: () => { } };
+	}
+
+	async retainCustomizationHolders(_holders: ReadonlyMap<string, readonly PluginCustomization[]>): Promise<void> { }
+
+	async reconcileCustomizationHolders(_holderPrefix: string, _holders: ReadonlyMap<string, readonly PluginCustomization[]>): Promise<void> { }
+
+	getCapturedPluginDir(_capturedUri: string): URI | undefined {
+		return undefined;
+	}
 }
 
 class TestAgentHostGitService implements IAgentHostGitService {

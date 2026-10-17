@@ -7,12 +7,15 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileService } from '../../../files/common/files.js';
+import { INativeEnvironmentService } from '../../../environment/common/environment.js';
 import { InstantiationService } from '../../../instantiation/common/instantiationService.js';
 import { StrictServiceCollection } from '../../../instantiation/common/strictServiceCollection.js';
 import { ILogService } from '../../../log/common/log.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { ITelemetryService } from '../../../telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
+import { upcastPartial } from '../../../../base/test/common/mock.js';
+import { IAgentPluginManager } from '../../common/agentPluginManager.js';
 import { type IAgentCustomizationSettingsRegistration } from '../../common/agentCustomizationSettings.js';
 import { IAgentHostGitService } from '../../common/agentHostGitService.js';
 import { IAgentEditAttributionService, NullAgentEditAttributionService } from '../../common/fileEditAttribution.js';
@@ -198,6 +201,12 @@ export function createTestAgentService(
 		hostLaunchKind,
 	});
 	services.set(IAgentHostFileMonitorService, effectiveFileMonitorService);
+	services.set(INativeEnvironmentService, upcastPartial<INativeEnvironmentService>({ userHome: URI.file('/') }));
+	services.set(IAgentPluginManager, upcastPartial<IAgentPluginManager>({
+		captureCustomizations: async () => ({ customizations: [], dispose: () => { } }),
+		retainCustomizationHolders: async () => { },
+		reconcileCustomizationHolders: async () => { },
+	}));
 	services.set(IAgentEditAttributionService, new NullAgentEditAttributionService());
 	services.set(IAgentHostOTelService, NullAgentHostOTelService);
 	if (startupPerformance) {

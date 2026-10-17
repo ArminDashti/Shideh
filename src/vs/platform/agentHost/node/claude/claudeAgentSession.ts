@@ -9,6 +9,7 @@ import { Sequencer } from '../../../../base/common/async.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { equals } from '../../../../base/common/objects.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { INativeEnvironmentService } from '../../../environment/common/environment.js';
@@ -49,7 +50,7 @@ import { discoverClaudeMultiRootCustomizations } from './customizations/claudeMu
 import { resolvePromptToContentBlocks } from './claudePromptResolver.js';
 import { SessionMcpDiscovery } from '../shared/sessionMcpDiscovery.js';
 import { parsePlugin, type IMcpServerDefinition } from '../../../agentPlugins/common/pluginParsers.js';
-import { hasClientPluginMcpDefaultCwds, readClientPluginMcpDefaultCwd } from '../../common/meta/clientPluginCustomizationMeta.js';
+import { hasClientPluginMcpDefaultCwds, isAutomationCapturedPlugin, readClientPluginMcpDefaultCwd } from '../../common/meta/clientPluginCustomizationMeta.js';
 import { ClaudeSdkPipeline, IRematerializer, type ISdkResolvedCustomizations } from './claudeSdkPipeline.js';
 import { SubagentRegistry } from './claudeSubagentRegistry.js';
 import { ClaudePermissionKind } from './claudeToolDisplay.js';
@@ -402,7 +403,11 @@ export class ClaudeAgentSession extends Disposable {
 	}
 
 	setHostCustomizations(customizations: readonly Customization[]): void {
+		if (equals(this._hostCustomizations, customizations)) {
+			return;
+		}
 		this._hostCustomizations = customizations;
+		this._onDidCustomizationsChange.fire();
 	}
 
 	markMcpConfigurationDirty(): void {
@@ -925,6 +930,32 @@ export class ClaudeAgentSession extends Disposable {
 				this._logService.warn(`[Claude:${this.sessionId}] Failed to parse MCP servers from '${synced.customization.uri}': ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}
+		for (const plugin of this._desiredHostPlugins()) {
+			try {
+				const pluginDir = URI.parse(plugin.uri);
+				const parsed = await parsePlugin(pluginDir, this._fileService, primaryCwd, this._environmentService.userHome, pluginDir);
+				if (gitHubMcpServerConfiguration && parsed.mcpServers.some(definition => isGitHubMcpServerDefinition(definition, gitHubMcpServerConfiguration))) {
+					hasGitHubMcpServer = true;
+				}
+				const resolved = resolveCustomizationEnablement(this._customizationEnablementService, this._configurationResource, [plugin]);
+				if (!isCustomizationSdkEligible(resolved, plugin)) {
+					continue;
+				}
+				const enabledById = getSdkMcpServerEnablement(resolved);
+				for (const definition of parsed.mcpServers) {
+					if (enabledById.get(definition.customization.id) !== true) {
+						deniedServers.push(toClaudeDeniedMcpServer(definition));
+						continue;
+					}
+					definitions.set(definition.name, {
+						...definition,
+						defaultCwd: readClientPluginMcpDefaultCwd(plugin, definition.name, primaryCwd) ?? definition.defaultCwd,
+					});
+				}
+			} catch (error) {
+				throw new Error(`Failed to load required captured plugin '${plugin.id}': ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
 		if (gitHubMcpServerConfiguration && !hasGitHubMcpServer) {
 			const customization = createClaudeInternalMcpServerCustomization(GITHUB_MCP_SERVER_NAME);
 			const definition: IMcpServerDefinition = {
@@ -1427,6 +1458,8 @@ export class ClaudeAgentSession extends Disposable {
 	 */
 	async getSessionCustomizations(): Promise<readonly Customization[]> {
 		const { synced } = this.clientCustomizationsDiff.model.state.get();
+		const captured = this._capturedHostPlugins();
+		await this._assertCapturedHostPluginsAvailable(captured);
 		const userHome = this._environmentService.userHome;
 		const [multiRoot, rules, mcpServers, hooks] = await Promise.all([
 			discoverClaudeMultiRootCustomizations(this.workingDirectories, userHome, this._fileService, this._logService),
@@ -1454,10 +1487,10 @@ export class ClaudeAgentSession extends Disposable {
 		// both agents and skills, so the SDK-vs-curated decision lives in one place.
 		const discoveredCustomizations = buildDiscoveredCustomizations([...multiRoot.discovered, ...rules], mcpServers, hooks, multiRoot.nativePlugins, multiRoot.workingDirectories, userHome, sdk);
 
-		// Final projection: the client-pushed tier first, then the discovered
-		// tier, with session MCP enablement applied to both.
+		// Captured plugins replace their live client-source entries.
 		const state = this._hostCustomizations;
-		const result: Customization[] = synced.map(item => {
+		const capturedIds = new Set(captured.map(customization => customization.id));
+		const result: Customization[] = synced.filter(item => !capturedIds.has(item.customization.id)).map(item => {
 			const desired = state.find(customization => customization.id === item.customization.id);
 			if (desired?.type !== CustomizationType.Plugin) {
 				return item.customization;
@@ -1468,11 +1501,18 @@ export class ClaudeAgentSession extends Disposable {
 			const { enablement: _enablement, ...withoutEnablement } = item.customization;
 			return withoutEnablement;
 		});
+		result.push(...captured);
 		result.push(...discoveredCustomizations);
 		// Cache for the MCP-contributor signal enrichment (see
 		// {@link _enrichSignalWithMcpContributor}).
 		const projected = applyMcpServerEnablement(result, state);
-		const enabled = resolveCustomizationEnablement(this._customizationEnablementService, this._configurationResource, projected, this._clientChildEnablement, this._clientPluginEnablement);
+		const enabled = resolveCustomizationEnablement(
+			this._customizationEnablementService,
+			this._configurationResource,
+			projected,
+			this._clientChildEnablement,
+			this._clientPluginEnablement,
+		);
 		this._lastCustomizations = enabled.customizations;
 		return enabled.customizations;
 	}
@@ -1531,14 +1571,23 @@ export class ClaudeAgentSession extends Disposable {
 	}
 
 	private _desiredClientPluginPaths(): readonly URI[] {
-		return this._desiredClientPlugins().flatMap(synced => synced.pluginDir ? [synced.pluginDir] : []);
+		return [
+			...this._desiredClientPlugins().flatMap(synced => synced.pluginDir ? [synced.pluginDir] : []),
+			...this._desiredHostPlugins().map(plugin => URI.parse(plugin.uri)),
+		];
 	}
 
 	private _desiredClientPluginConfigs(): readonly { readonly uri: URI; readonly skipMcpDiscovery: boolean }[] {
-		return this._desiredClientPlugins().flatMap(synced => synced.pluginDir ? [{
-			uri: synced.pluginDir,
-			skipMcpDiscovery: hasClientPluginMcpDefaultCwds(synced.customization),
-		}] : []);
+		return [
+			...this._desiredClientPlugins().flatMap(synced => synced.pluginDir ? [{
+				uri: synced.pluginDir,
+				skipMcpDiscovery: hasClientPluginMcpDefaultCwds(synced.customization),
+			}] : []),
+			...this._desiredHostPlugins().map(plugin => ({
+				uri: URI.parse(plugin.uri),
+				skipMcpDiscovery: hasClientPluginMcpDefaultCwds(plugin),
+			})),
+		];
 	}
 
 	private _desiredClientPlugins(): readonly ISyncedCustomization[] {
@@ -1546,9 +1595,36 @@ export class ClaudeAgentSession extends Disposable {
 		const desiredById = new Map(resolved.customizations
 			.filter(customization => isCustomizationSdkEligible(resolved, customization))
 			.map(customization => [customization.id, customization.type === CustomizationType.Directory ? customization.enabled : isCustomizationEnabled(customization)]));
+		const capturedIds = new Set(this._capturedHostPlugins().map(plugin => plugin.id));
 		return this.clientCustomizationsDiff.model.state.get().synced.filter(synced =>
+			!capturedIds.has(synced.customization.id) &&
 			(desiredById.get(synced.customization.id) ?? isCustomizationEnabled(synced.customization)) !== false
 		);
+	}
+
+	private _desiredHostPlugins(): readonly Extract<Customization, { type: CustomizationType.Plugin }>[] {
+		const plugins = this._capturedHostPlugins();
+		const resolved = resolveCustomizationEnablement(this._customizationEnablementService, this._configurationResource, plugins);
+		return resolved.customizations.filter((customization): customization is Extract<Customization, { type: CustomizationType.Plugin }> =>
+			customization.type === CustomizationType.Plugin
+			&& isCustomizationSdkEligible(resolved, customization)
+			&& isCustomizationEnabled(customization)
+		);
+	}
+
+	private _capturedHostPlugins(): readonly Extract<Customization, { type: CustomizationType.Plugin }>[] {
+		return this._hostCustomizations.filter((customization): customization is Extract<Customization, { type: CustomizationType.Plugin }> =>
+			customization.type === CustomizationType.Plugin && isAutomationCapturedPlugin(customization)
+		);
+	}
+
+	private async _assertCapturedHostPluginsAvailable(plugins: readonly Extract<Customization, { type: CustomizationType.Plugin }>[]): Promise<void> {
+		await Promise.all(plugins.map(async plugin => {
+			const stat = await this._fileService.stat(URI.parse(plugin.uri));
+			if (!stat.isDirectory) {
+				throw new Error(`Captured plugin '${plugin.id}' is not a directory: ${plugin.uri}`);
+			}
+		}));
 	}
 
 	async startMcpServer(id: string): Promise<void> {
