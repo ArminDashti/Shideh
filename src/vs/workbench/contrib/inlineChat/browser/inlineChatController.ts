@@ -27,7 +27,6 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { IMarkerDecorationsService } from '../../../../editor/common/services/markerDecorations.js';
 import { localize } from '../../../../nls.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -141,6 +140,17 @@ export class InlineChatUntitledSaveHandler {
 		await this._onSaved(resource, savedResource, message);
 		return true;
 	}
+	// Stub methods for V1 actions (never called since CTX_INLINE_CHAT_V1_ENABLED is false)
+	unstashLastSession(): void { throw new Error('V1 controller removed'); }
+	run(): void { throw new Error('V1 controller removed'); }
+	arrowOut(_up: boolean): void { throw new Error('V1 controller removed'); }
+	acceptHunk(_hunk?: any): void { throw new Error('V1 controller removed'); }
+	discardHunk(_hunk?: any): void { throw new Error('V1 controller removed'); }
+	get chatWidget(): any { throw new Error('V1 controller removed'); }
+	cancelSession(): void { throw new Error('V1 controller removed'); }
+	moveHunk(_next: boolean): void { throw new Error('V1 controller removed'); }
+	viewInChat(): void { throw new Error('V1 controller removed'); }
+	toggleDiff(_hunk?: any): void { throw new Error('V1 controller removed'); }
 }
 
 export class InlineChatController implements IEditorContribution {
