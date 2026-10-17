@@ -49,7 +49,8 @@ export function updateEditorModel(editor: IActiveCodeEditor, range: Range, model
 	if (model.presentation.additionalTextEdits) {
 		textEdits.push(...model.presentation.additionalTextEdits);
 	}
-	const replaceRange = Range.lift(edit.range);
+	
+	const replaceRange = Range.lift(textEdits[0].range);
 	const trackedRange = editor.getModel()._setTrackedRange(null, replaceRange, TrackedRangeStickiness.GrowsOnlyWhenTypingAfter);
 	if (insertionRanges) {
 		textEdits.push(...insertionRanges.map(insertionRange => ({ range: insertionRange, text: edit.text, forceMoveMarkers: false })));
