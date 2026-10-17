@@ -81,6 +81,7 @@ export class AgentSessionsViewModel extends Disposable implements IAgentSessions
 	private readonly resolver = this._register(new ThrottledDelayer<void>(100));
 
 	constructor(
+		sessionTracker: ChatSessionTracker,
 		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
 		@IChatService private readonly chatService: IChatService,
 	) {
@@ -101,6 +102,18 @@ export class AgentSessionsViewModel extends Disposable implements IAgentSessions
 			const sessions = await provider.provideChatSessionItems(token);
 			if (token.isCancellationRequested) {
 				return;
+			}
+
+			// For non-local providers, also add hybrid local editor sessions
+			if (provider.chatSessionType !== localChatSessionType) {
+				const hybridSessions = await this.sessionTracker.getHybridSessionsForProvider(provider);
+				// Merge hybrid sessions, avoiding duplicates
+				const existingResources = new Set(sessions.map(s => s.resource.toString()));
+				for (const hybridSession of hybridSessions) {
+					if (!existingResources.has(hybridSession.resource.toString())) {
+						sessions.push(hybridSession);
+					}
+				}
 			}
 
 			for (const session of sessions) {
