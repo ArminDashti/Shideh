@@ -587,6 +587,35 @@ ${this.description}
 	}
 }
 
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function checkMinimumReleaseAge(releaseDate: number, minimumReleaseAgeDays: number): boolean {
+	if (!minimumReleaseAgeDays || minimumReleaseAgeDays <= 0) {
+		return true;
+	}
+	if (!releaseDate || releaseDate <= 0) {
+		// If release date is invalid, allow the extension (fail open)
+		return true;
+	}
+	const now = Date.now();
+	const daysSinceRelease = (now - releaseDate) / MILLISECONDS_PER_DAY;
+	return daysSinceRelease >= minimumReleaseAgeDays;
+}
+
+function calculateDaysRemaining(releaseDate: number, minimumReleaseAgeDays: number): number {
+	if (!minimumReleaseAgeDays || minimumReleaseAgeDays <= 0) {
+		return 0;
+	}
+	if (!releaseDate || releaseDate <= 0) {
+		return 0; // Invalid release date, return 0 days remaining
+	}
+	const now = Date.now();
+	const daysSinceRelease = (now - releaseDate) / MILLISECONDS_PER_DAY;
+	const daysRemaining = minimumReleaseAgeDays - daysSinceRelease;
+	// Round up to be conservative (show full days remaining)
+	return Math.max(0, Math.ceil(daysRemaining));
+}
+
 const EXTENSIONS_AUTO_UPDATE_KEY = 'extensions.autoUpdate';
 const EXTENSIONS_DONOT_AUTO_UPDATE_KEY = 'extensions.donotAutoUpdate';
 const EXTENSIONS_DISMISSED_NOTIFICATIONS_KEY = 'extensions.dismissedNotifications';
@@ -2289,9 +2318,16 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
 		const toUpdate: IExtension[] = [];
 		const disabledAutoUpdate = [];
+		const blockedByMinimumAge = [];
 		const consentRequired = [];
 		let soonestDelayRemaining = Number.MAX_SAFE_INTEGER;
 		for (const extension of this.outdated) {
+			// Check minimum release age first to provide specific feedback
+			if (minimumReleaseAge > 0 && extension.gallery && !checkMinimumReleaseAge(extension.gallery.releaseDate, minimumReleaseAge)) {
+				const daysRemaining = calculateDaysRemaining(extension.gallery.releaseDate, minimumReleaseAge);
+				blockedByMinimumAge.push({ id: extension.identifier.id, daysRemaining });
+				continue;
+			}
 			if (!this.shouldAutoUpdateExtension(extension)) {
 				disabledAutoUpdate.push(extension.identifier.id);
 				continue;
@@ -2425,6 +2461,25 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		}
 
 		return nls.localize('consentRequiredToUpdate', "The update for {0} extension introduces executable code, which is not present in the currently installed version.", extension.displayName);
+	}
+
+	getMinimumReleaseAgeStatus(extension: IExtension): string | undefined {
+		if (!extension.outdated || !extension.gallery) {
+			return undefined;
+		}
+
+		const minimumReleaseAge = this.configurationService.getValue<number>(AutoUpdateMinimumReleaseAgeConfigurationKey);
+		if (!minimumReleaseAge || minimumReleaseAge <= 0) {
+			return undefined;
+		}
+
+		if (!checkMinimumReleaseAge(extension.gallery.releaseDate, minimumReleaseAge)) {
+			const daysRemaining = calculateDaysRemaining(extension.gallery.releaseDate, minimumReleaseAge);
+			const daysText = daysRemaining === 1 ? nls.localize('day', "day") : nls.localize('days', "days");
+			return nls.localize('autoUpdateDelayedDueToMinimumAge', "Automatic update is delayed by {0} {1} due to the minimum release age setting.", daysRemaining, daysText);
+		}
+
+		return undefined;
 	}
 
 	isAutoUpdateEnabledFor(extensionOrPublisher: IExtension | string): boolean {

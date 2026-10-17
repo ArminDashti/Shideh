@@ -157,6 +157,7 @@ export interface IExtensionsWorkbenchService {
 	isAutoUpdateEnabledFor(extensionOrPublisher: IExtension | string): boolean;
 	updateAutoUpdateEnablementFor(extensionOrPublisher: IExtension | string, enable: boolean): Promise<void>;
 	shouldRequireConsentToUpdate(extension: IExtension): Promise<string | undefined>;
+	getMinimumReleaseAgeStatus(extension: IExtension): string | undefined;
 	updateAutoUpdateForAllExtensions(value: boolean): Promise<void>;
 	open(extension: IExtension | string, options?: IExtensionEditorOptions): Promise<void>;
 	openSearch(searchValue: string, focus?: boolean): Promise<void>;
@@ -196,6 +197,7 @@ export const ConfigurationKey = 'extensions';
 export const AutoUpdateConfigurationKey = 'extensions.autoUpdate';
 export const AutoUpdateDelayConfigurationKey = 'extensions.autoUpdateDelay';
 export const AutoCheckUpdatesConfigurationKey = 'extensions.autoCheckUpdates';
+export const AutoUpdateMinimumReleaseAgeConfigurationKey = 'extensions.autoUpdate.minimumReleaseAge';
 export const CloseExtensionDetailsOnViewChangeKey = 'extensions.closeExtensionDetailsOnViewChange';
 export const AutoRestartConfigurationKey = 'extensions.autoRestart';
 

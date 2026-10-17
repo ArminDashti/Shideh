@@ -61,6 +61,8 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { IMeteredConnectionService } from '../../../../../platform/meteredConnection/common/meteredConnection.js';
 import { ExtensionGalleryManifestStatus, IExtensionGalleryManifestService } from '../../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+
 suite('ExtensionsWorkbenchServiceTest', () => {
 
 	let instantiationService: TestInstantiationService;
@@ -1776,6 +1778,46 @@ suite('ExtensionsWorkbenchServiceTest', () => {
 
 		assert.deepStrictEqual(testObject.getEnabledAutoUpdateExtensions(), []);
 		assert.deepStrictEqual(testObject.getDisabledAutoUpdateExtensions(), []);
+	});
+
+	test('Test extension is shown as outdated regardless of minimum release age', async () => {
+		const now = Date.now();
+		const oneDayAgo = now - (1 * MILLISECONDS_PER_DAY);
+
+		const local = aLocalExtension('myext', { version: '1.0.0' });
+		const gallery = aGalleryExtension('myext', { version: '2.0.0', releaseDate: oneDayAgo });
+
+		instantiationService.stubPromise(IExtensionManagementService, 'getInstalled', [local]);
+		stubConfiguration(true, true, 2); // Set minimum release age to 2 days
+		testObject = await aWorkbenchService();
+
+		const extension = testObject.local[0];
+		extension.gallery = gallery;
+
+		// Extension should be marked as outdated even though it doesn't meet the minimum age
+		// The minimum age only affects auto-update, not the outdated status
+		assert.strictEqual(true, extension.outdated);
+	});
+
+	test('Test extension appears in gallery search regardless of minimum release age', async () => {
+		const now = Date.now();
+		const oneDayAgo = now - (1 * MILLISECONDS_PER_DAY);
+		const threeDaysAgo = now - (3 * MILLISECONDS_PER_DAY);
+
+		const recentExtension = aGalleryExtension('recent', { version: '1.0.0', releaseDate: oneDayAgo });
+		const oldExtension = aGalleryExtension('old', { version: '1.0.0', releaseDate: threeDaysAgo });
+
+		stubConfiguration(true, true, 2); // Set minimum release age to 2 days
+		testObject = await aWorkbenchService();
+		instantiationService.stubPromise(IExtensionGalleryService, 'query', aPage(recentExtension, oldExtension));
+
+		const result = await testObject.queryGallery(CancellationToken.None);
+
+		// Both extensions should be returned regardless of minimum age
+		// The minimum age only affects auto-update, not search results
+		assert.strictEqual(2, result.firstPage.length);
+		assert.strictEqual('recent', result.firstPage[0].name);
+		assert.strictEqual('old', result.firstPage[1].name);
 	});
 
 	async function aWorkbenchService(): Promise<ExtensionsWorkbenchService> {

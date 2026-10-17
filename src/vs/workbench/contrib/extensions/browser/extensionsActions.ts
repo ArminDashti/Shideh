@@ -2637,7 +2637,7 @@ export class ExtensionStatusAction extends ExtensionAction {
 			if (message) {
 				hasConsentWarning = true;
 				const markdown = new MarkdownString();
-				markdown.appendMarkdown(`${message} `);
+				markdown.appendMarkdown(`${consentMessage} `);
 				markdown.appendMarkdown(
 					localize('auto update message', "Please [review the extension]({0}) and update it manually.",
 						this.extension.hasChangelog()
@@ -2647,6 +2647,13 @@ export class ExtensionStatusAction extends ExtensionAction {
 								: createCommandUri('extension.open', this.extension.identifier.id).toString()
 					));
 				this.updateStatus({ icon: warningIcon, message: markdown }, true);
+				return;
+			}
+
+			const minimumAgeMessage = this.extensionsWorkbenchService.getMinimumReleaseAgeStatus(this.extension);
+			if (minimumAgeMessage) {
+				this.updateStatus({ icon: infoIcon, message: new MarkdownString(minimumAgeMessage) }, true);
+				return;
 			}
 			if (this.extensionsWorkbenchService.isAutoUpdateDelayed(this.extension)) {
 				const delay = fromNow(Date.now() - this.extensionsWorkbenchService.getAutoUpdateDelay(), false, true);

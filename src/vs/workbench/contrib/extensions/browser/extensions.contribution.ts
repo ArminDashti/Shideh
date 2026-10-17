@@ -194,6 +194,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices']
 			},
+			'extensions.autoUpdate.minimumReleaseAge': {
+				type: 'number',
+				minimum: 0,
+				description: localize('extensionsAutoUpdateMinimumReleaseAge', "Minimum number of days an extension must be released before it is automatically updated. This setting helps protect against malicious extensions by allowing time for detection. Set to 0 to disable this feature. This only affects automatic updates, not manual updates."),
+				default: 0,
+				scope: ConfigurationScope.APPLICATION
+			},
 			'extensions.ignoreRecommendations': {
 				type: 'boolean',
 				description: localize('extensionsIgnoreRecommendations', "When enabled, the notifications for extension recommendations will not be shown."),
