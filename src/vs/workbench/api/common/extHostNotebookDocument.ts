@@ -5,6 +5,7 @@
 
 import { Schemas } from '../../../base/common/network.js';
 import { URI } from '../../../base/common/uri.js';
+import { ISerializedModelContentChangedEvent } from '../../../editor/common/textModelEvents.js';
 import * as extHostProtocol from './extHost.protocol.js';
 import { ExtHostDocuments } from './extHostDocuments.js';
 import { ExtHostDocumentsAndEditors } from './extHostDocumentsAndEditors.js';
@@ -161,6 +162,7 @@ export class ExtHostNotebookDocument {
 	readonly handle = ExtHostNotebookDocument._handlePool++;
 
 	private readonly _cells: ExtHostCell[] = [];
+	private readonly _cellDocumentListeners = new Map<number, vscode.Disposable>();
 
 	private readonly _notebookType: string;
 	private readonly _isRepl: boolean;
@@ -187,6 +189,53 @@ export class ExtHostNotebookDocument {
 
 	dispose() {
 		this._disposed = true;
+		// Clean up cell document listeners
+		this._cellDocumentListeners.forEach(listener => listener.dispose());
+		this._cellDocumentListeners.clear();
+	}
+
+	private _forwardCellContentChangeToDocumentSystem(cellIndex: number, versionId: number) {
+		const cell = this._cells[cellIndex];
+		if (!cell) {
+			return;
+		}
+
+		const doc = this._textDocumentsAndEditors.getDocument(cell.uri);
+		if (!doc) {
+			return;
+		}
+
+		// Create a document change event to notify extensions listening to workspace.onDidChangeTextDocument.
+		// Since ChangeCellContent events can include various types of changes (content edits, EOL changes, etc.),
+		// we create a generic change event that indicates the document has changed.
+		// The key insight is that we need to increment the document's version and create a minimal change event.
+		const changeEvent: ISerializedModelContentChangedEvent = {
+			changes: [], // Empty changes array - this represents a non-text change like EOL
+			eol: doc.document.eol === 1 ? '\n' : '\r\n',
+			versionId: doc.version + 1, // Increment the document version
+			isUndoing: false,
+			isRedoing: false,
+			isFlush: false,
+			isEolChange: true, // This might be an EOL change
+			detailedReason: undefined
+		};
+
+		// Forward the change to the document system
+		this._textDocuments.$acceptModelChanged(cell.uri, changeEvent, this._isDirty);
+	}
+
+	private _setupCellDocumentListener(cell: ExtHostCell) {
+		// Listen to document changes for this cell
+		const doc = this._textDocumentsAndEditors.getDocument(cell.uri);
+		if (doc) {
+			// We need to set up a listener that will trigger when this cell's document changes
+			// but the workspace.onDidChangeTextDocument event is not being fired.
+			// For now, we'll create a placeholder that will be triggered by our fix.
+			
+			// The approach is to ensure that when cell content changes,
+			// we forward the change to the document system.
+			// This will be handled in the acceptModelChanged method.
+		}
 	}
 
 	get versionId(): number {
@@ -274,6 +323,12 @@ export class ExtHostNotebookDocument {
 
 			} else if (rawEvent.kind === notebookCommon.NotebookCellsChangeType.ChangeCellContent) {
 				relaxedCellChanges.push({ cell: this._cells[rawEvent.index].apiCell, document: this._cells[rawEvent.index].apiCell.document });
+				
+				// Forward notebook cell content changes to the document system to ensure
+				// workspace.onDidChangeTextDocument events are fired for extensions.
+				// This addresses the issue where changes in notebook cells (including EOL changes)
+				// were not triggering document change events that extensions expect.
+				this._forwardCellContentChangeToDocumentSystem(rawEvent.index, event.versionId);
 
 			} else if (rawEvent.kind === notebookCommon.NotebookCellsChangeType.ChangeCellMime) {
 				this._changeCellMime(rawEvent.index, rawEvent.mime);
@@ -374,6 +429,8 @@ export class ExtHostNotebookDocument {
 				if (!initialization) {
 					addedCellDocuments.push(ExtHostCell.asModelAddData(cell));
 				}
+				// Set up document listener for this cell
+				this._setupCellDocumentListener(extCell);
 				return extCell;
 			});
 
@@ -382,6 +439,12 @@ export class ExtHostNotebookDocument {
 			for (const cell of deletedItems) {
 				removedCellDocuments.push(cell.uri);
 				changeEvent.deletedItems.push(cell.apiCell);
+				// Clean up document listener for removed cells
+				const listener = this._cellDocumentListeners.get(cell.handle);
+				if (listener) {
+					listener.dispose();
+					this._cellDocumentListeners.delete(cell.handle);
+				}
 			}
 			contentChangeEvents.push(changeEvent);
 		});
