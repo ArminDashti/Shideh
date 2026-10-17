@@ -22,15 +22,14 @@ import { resolveCommandsContext } from '../../../../browser/parts/editor/editorC
 import { ActiveEditorContext } from '../../../../common/contextkeys.js';
 import { EditorResourceAccessor, SideBySideEditor, TEXT_DIFF_EDITOR_ID } from '../../../../common/editor.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
-import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { ACTIVE_GROUP, IEditorService } from '../../../../services/editor/common/editorService.js';
 import { MultiDiffEditor } from '../../../multiDiffEditor/browser/multiDiffEditor.js';
 import { IDocumentDiffItemWithMultiDiffEditorItem, MultiDiffEditorInput } from '../../../multiDiffEditor/browser/multiDiffEditorInput.js';
-import { NOTEBOOK_CELL_LIST_FOCUSED, NOTEBOOK_EDITOR_FOCUSED } from '../../../notebook/common/notebookContextKeys.js';
+import { NOTEBOOK_CELL_LIST_FOCUSED } from '../../../notebook/common/notebookContextKeys.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatEditReviewSession, IChatEditingService, IModifiedFileEntry, IModifiedFileEntryChangeHunk, IModifiedFileEntryEditorIntegration, ModifiedFileEntryState, parseChatMultiDiffUri, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME } from '../../common/editing/chatEditingService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
-import { ctxCursorInChangeRange, ctxHasEditorModification, ctxHasRequestInProgress, ctxIsCurrentlyBeingModified, ctxIsGlobalEditingSession, ctxReviewModeEnabled } from './chatEditingEditorContextKeys.js';
+import { ctxHasEditorModification, ctxHasRequestInProgress, ctxIsCurrentlyBeingModified, ctxIsGlobalEditingSession, ctxReviewModeEnabled } from './chatEditingEditorContextKeys.js';
 import { ChatEditingExplanationWidgetManager } from './chatEditingExplanationWidget.js';
 import { IChatEditingExplanationModelManager, IExplanationDiffInfo } from './chatEditingExplanationModelManager.js';
 import { DiffEditorViewModel } from '../../../../../editor/browser/widget/diffEditor/diffEditorViewModel.js';
@@ -657,17 +656,10 @@ export function registerChatEditorActions() {
 	registerAction2(class NextAction extends NavigateAction { constructor() { super(true); } });
 	registerAction2(class PrevAction extends NavigateAction { constructor() { super(false); } });
 	registerAction2(ReviewChangesAction);
-	registerAction2(AcceptAction);
-	registerAction2(RejectAction);
-	registerAction2(AcceptAllEditsAction);
-	registerAction2(AcceptHunkAction);
-	registerAction2(RejectHunkAction);
 	registerAction2(ToggleDiffAction);
 	registerAction2(AddHunkToChatAction);
 	registerAction2(ToggleAccessibleDiffViewAction);
 
-	registerAction2(class extends MultiDiffAcceptDiscardAction { constructor() { super(true); } });
-	registerAction2(class extends MultiDiffAcceptDiscardAction { constructor() { super(false); } });
 	registerAction2(ExplainMultiDiffAction);
 
 	MenuRegistry.appendMenuItem(MenuId.ChatEditingEditorContent, {

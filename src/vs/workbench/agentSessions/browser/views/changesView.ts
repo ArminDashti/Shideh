@@ -525,15 +525,6 @@ export class ChangesViewPane extends ViewPane {
 			}));
 
 			// Bind required context keys for the menu buttons
-			this.renderDisposables.add(bindContextKey(hasUndecidedChatEditingResourceContextKey, scopedContextKeyService, r => {
-				const session = activeEditingSessionObs.read(r);
-				if (!session) {
-					return false;
-				}
-				const entries = session.entries.read(r);
-				return entries.some(entry => entry.state.read(r) === ModifiedFileEntryState.Modified);
-			}));
-
 			this.renderDisposables.add(bindContextKey(hasAppliedChatEditsContextKey, scopedContextKeyService, r => {
 				const session = activeEditingSessionObs.read(r);
 				if (!session) {
@@ -561,7 +552,10 @@ export class ChangesViewPane extends ViewPane {
 							? { args: [sessionResource, this.agentSessionsService.getSession(sessionResource)?.metadata, cachedGitHubToken] }
 							: { shouldForwardArgs: true },
 						buttonConfigProvider: (action) => {
-							if (action.id === 'chatEditing.viewChanges' || action.id === 'chatEditing.viewPreviousEdits' || action.id === 'chatEditing.viewAllSessionChanges' || action.id === 'chat.openSessionWorktreeInVSCode') {
+							if (action.id === 'chatEditing.viewChanges') {
+								return { showIcon: false, showLabel: true, isSecondary: true };
+							}
+							if (action.id === 'chatEditing.viewPreviousEdits' || action.id === 'chatEditing.viewAllSessionChanges' || action.id === 'chat.openSessionWorktreeInVSCode') {
 								const diffStatsLabel = new MarkdownString(
 									`<span class="working-set-lines-added">+${added}</span>&nbsp;<span class="working-set-lines-removed">-${removed}</span>`,
 									{ supportHtml: true }

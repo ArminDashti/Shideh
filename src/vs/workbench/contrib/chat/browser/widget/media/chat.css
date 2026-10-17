@@ -3140,6 +3140,10 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 
 	.checkpoint-file-changes-summary-header .chat-file-changes-label .monaco-button {
 		width: 100%;
+		background-color: transparent !important;
+		color: var(--vscode-descriptionForeground);
+		padding: 0;
+		gap: 2px;
 	}
 
 	.checkpoint-file-changes-summary-header .chat-file-changes-label .monaco-button .codicon {
@@ -3149,7 +3153,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	.chat-summary-list {
 		width: 100%;
 		max-width: 100%;
-		padding: 0px;
+		padding: 2px;
 		margin-bottom: 0px;
 		border-bottom: 0px;
 		border-left: 0px;
@@ -3160,6 +3164,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 
 	.chat-summary-list .monaco-icon-label {
 		display: flex;
+		padding: 0px 3px;
 	}
 
 	.chat-summary-list .monaco-scrollable-element {
