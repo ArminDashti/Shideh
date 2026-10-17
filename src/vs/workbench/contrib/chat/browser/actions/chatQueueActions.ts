@@ -66,8 +66,8 @@ export class ChatQueueMessageAction extends Action2 {
 	constructor() {
 		super({
 			id: ChatQueueMessageAction.ID,
-			title: localize2('chat.queueMessage', "Add to Queue"),
-			tooltip: localize('chat.queueMessage.tooltip', "Queue this message to send after the current request completes"),
+			title: localize2('chat.sendNext', "Send Next (after current)"),
+			tooltip: localize('chat.sendNext.tooltip', "Queue this message to send after the current request completes"),
 			icon: Codicon.add,
 			f1: false,
 			category: CHAT_CATEGORY,
@@ -385,7 +385,7 @@ export function registerChatQueueActions(): void {
 	// replaces the default rendering with a dropdown that shows hover descriptions.
 	// We still need items in ChatExecuteQueue so the menu system treats it as non-empty.
 	MenuRegistry.appendMenuItem(MenuId.ChatExecuteQueue, {
-		command: { id: ChatQueueMessageAction.ID, title: localize2('chat.queueMessage', "Add to Queue"), icon: Codicon.add },
+		command: { id: ChatQueueMessageAction.ID, title: localize2('chat.sendNext', "Send Next (after current)"), icon: Codicon.add },
 		group: 'navigation',
 		order: 1,
 	});

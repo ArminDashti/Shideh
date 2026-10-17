@@ -1482,6 +1482,11 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	flex-direction: column;
 	gap: 2px;
 	overflow: hidden;
+	transition: opacity 0.2s ease-in-out;
+}
+
+.interactive-session .chat-editing-session .chat-editing-session-list {
+	transition: max-height 0.2s ease-in-out, opacity 0.15s ease-in-out;
 }
 
 .interactive-session .chat-editing-session .monaco-list-row .chat-collapsible-list-action-bar {
@@ -1535,11 +1540,13 @@ have to be updated for changes to the rules above, or to support more deeply nes
 }
 
 .interactive-session .chat-editing-session .chat-editing-session-container .chat-editing-session-overview .working-set-line-counts .working-set-lines-added {
-	color: var(--vscode-chat-linesAddedForeground);
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-charts-green));
+	font-weight: 600;
 }
 
 .interactive-session .chat-editing-session .chat-editing-session-container .chat-editing-session-overview .working-set-line-counts .working-set-lines-removed {
-	color: var(--vscode-chat-linesRemovedForeground);
+	color: var(--vscode-gitDecoration-deletedResourceForeground, var(--vscode-charts-red));
+	font-weight: 600;
 }
 
 .interactive-session .chat-editing-session .chat-editing-session-list .working-set-line-counts {
@@ -1550,11 +1557,13 @@ have to be updated for changes to the rules above, or to support more deeply nes
 }
 
 .interactive-session .chat-editing-session .chat-editing-session-list .working-set-line-counts .working-set-lines-added {
-	color: var(--vscode-chat-linesAddedForeground);
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-charts-green));
+	font-weight: 600;
 }
 
 .interactive-session .chat-editing-session .chat-editing-session-list .working-set-line-counts .working-set-lines-removed {
-	color: var(--vscode-chat-linesRemovedForeground);
+	color: var(--vscode-gitDecoration-deletedResourceForeground, var(--vscode-charts-red));
+	font-weight: 600;
 }
 
 .interactive-session .chat-editing-session .working-set-title {
@@ -1746,6 +1755,12 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	scroll-behavior: smooth;
 	scroll-padding-top: 24px;
 	/* Half item height to show partial next item */
+	transition: max-height 0.2s ease-in-out, opacity 0.15s ease-in-out;
+}
+
+.interactive-session .interactive-input-part > .chat-todo-list-widget-container .chat-todo-list-widget .expand-icon {
+	transition: transform 0.15s ease-in-out;
+}
 	scroll-padding-bottom: 24px;
 	/* Half item height to show partial previous item */
 }
