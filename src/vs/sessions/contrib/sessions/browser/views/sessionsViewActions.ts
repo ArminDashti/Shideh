@@ -689,6 +689,52 @@ registerAction2(class NewAutomationAction extends Action2 {
 	}
 });
 
+registerAction2(class ManageAutomationsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.manageAutomations',
+			title: localize2('manageAutomations', "Manage Automations"),
+			menu: []
+		});
+	}
+	override run(accessor: ServicesAccessor): void {
+		accessor.get(ISessionsPartService).showAutomationsPage();
+	}
+});
+
+const MARK_ALL_AUTOMATION_RUNS_READ_COMMAND_ID = 'sessionsView.markAllAutomationRunsRead';
+const READ_AUTOMATION_RUNS_KEY = 'sessionsListControl.readAutomationRuns';
+
+registerAction2(class MarkAllAutomationRunsReadAction extends Action2 {
+	constructor() {
+		super({
+			id: MARK_ALL_AUTOMATION_RUNS_READ_COMMAND_ID,
+			title: localize2('markAllAutomationRunsRead', "Mark All as Read"),
+		});
+	}
+	override run(accessor: ServicesAccessor): void {
+		const automationService = accessor.get(IAutomationService);
+		const sessionsManagementService = accessor.get(ISessionsManagementService);
+		const storageService = accessor.get(IStorageService);
+
+		const runs = automationService.runs.get();
+		const readIds: string[] = [];
+		for (const run of runs) {
+			if ((run.status === 'completed' || run.status === 'failed') && run.sessionResource) {
+				if (sessionsManagementService.getSession(URI.parse(run.sessionResource))) {
+					readIds.push(run.id);
+				}
+			}
+		}
+		storageService.store(
+			READ_AUTOMATION_RUNS_KEY,
+			JSON.stringify(readIds),
+			StorageScope.PROFILE,
+			StorageTarget.USER,
+		);
+	}
+});
+
 const ConfirmArchiveStorageKey = 'sessions.confirmArchive';
 
 function getArchiveSectionConfirmationMessage(context: ISessionSection, wording: ChatSessionArchiveActionWording): string {

@@ -1083,4 +1083,8 @@ export class ChatViewFactory implements IChatViewFactory {
 	createAutomationsView(): AbstractChatView {
 		return this.instantiationService.createInstance(AutomationsView);
 	}
+
+	createAutomationsView(): AbstractChatView {
+		return this.instantiationService.createInstance(AutomationsView);
+	}
 }
