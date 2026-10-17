@@ -132,7 +132,7 @@ export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 			}
 		}));
 
-		this.createTextModelListener(this.commentEditor, this._form);
+		this.createTextModelListener(this.commentEditor);
 
 		this.setCommentEditorDecorations();
 
@@ -258,7 +258,7 @@ export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 		this.commentEditor.updateOptions({ placeholder });
 	}
 
-	private createTextModelListener(commentEditor: ICodeEditor, commentForm: HTMLElement) {
+	private createTextModelListener(commentEditor: ICodeEditor) {
 		this._commentThreadDisposables.push(commentEditor.onDidFocusEditorWidget(() => {
 			this._commentThread.input = {
 				uri: commentEditor.getModel()!.uri,
@@ -293,7 +293,7 @@ export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 
 				if (input.value === '') {
 					this._pendingComment = { body: '', cursor: new Position(1, 1) };
-					commentForm.classList.remove('expand');
+					this._container.classList.remove('expand');
 					commentEditor.getDomNode()!.style.outline = '';
 					this._error.textContent = '';
 					this._error.classList.add('hidden');
@@ -412,8 +412,8 @@ export class CommentReply<T extends IRange | ICellRange> extends Disposable {
 		this._register(dom.addDisposableListener(this._reviewThreadReplyButton, 'focus', _ => this.clearAndExpandReplyArea()));
 
 		this._register(commentEditor.onDidBlurEditorWidget(() => {
-			if (commentEditor.getModel()!.getValueLength() === 0 && commentForm.classList.contains('expand')) {
-				commentForm.classList.remove('expand');
+			if (commentEditor.getModel()!.getValueLength() === 0 && this.isReplyExpanded) {
+				this._container.classList.remove('expand');
 			}
 		}));
 	}
