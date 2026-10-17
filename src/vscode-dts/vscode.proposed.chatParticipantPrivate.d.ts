@@ -336,6 +336,7 @@ declare module 'vscode' {
 	export type PreToolUsePermissionDecision = 'allow' | 'deny' | 'ask';
 
 	export interface LanguageModelToolInvocationOptions<T> {
+		/* deprecated, use chatRequestMetadata instead  */
 		chatRequestId?: string;
 		chatSessionResource?: Uri;
 		chatInteractionId?: string;
