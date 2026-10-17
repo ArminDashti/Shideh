@@ -19,6 +19,7 @@ registerColor('editor.foldPlaceholderForeground', { light: '#808080', dark: '#80
 registerColor('editorGutter.foldingControlForeground', iconForeground, localize('editorGutter.foldingControlForeground', 'Color of the folding control in the editor gutter.'));
 
 export const foldingExpandedIcon = registerIcon('folding-expanded', Codicon.chevronDown, localize('foldingExpandedIcon', 'Icon for expanded ranges in the editor glyph margin.'));
+// TODO will need this icon
 export const foldingCollapsedIcon = registerIcon('folding-collapsed', Codicon.chevronRight, localize('foldingCollapsedIcon', 'Icon for collapsed ranges in the editor glyph margin.'));
 export const foldingManualCollapsedIcon = registerIcon('folding-manual-collapsed', foldingCollapsedIcon, localize('foldingManualCollapedIcon', 'Icon for manually collapsed ranges in the editor glyph margin.'));
 export const foldingManualExpandedIcon = registerIcon('folding-manual-expanded', foldingExpandedIcon, localize('foldingManualExpandedIcon', 'Icon for manually expanded ranges in the editor glyph margin.'));
@@ -30,6 +31,7 @@ const expanded = localize('linesExpanded', "Click to collapse the range.");
 
 export class FoldingDecorationProvider implements IDecorationProvider {
 
+	// TODO: how to use this?
 	private static readonly COLLAPSED_VISUAL_DECORATION = ModelDecorationOptions.register({
 		description: 'folding-collapsed-visual-decoration',
 		stickiness: TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges,
@@ -138,6 +140,7 @@ export class FoldingDecorationProvider implements IDecorationProvider {
 	constructor(private readonly editor: ICodeEditor) {
 	}
 
+	// How to use this?
 	getDecorationOption(isCollapsed: boolean, isHidden: boolean, isManual: boolean): IModelDecorationOptions {
 		if (isHidden) { // is inside another collapsed region
 			return FoldingDecorationProvider.HIDDEN_RANGE_DECORATION;
