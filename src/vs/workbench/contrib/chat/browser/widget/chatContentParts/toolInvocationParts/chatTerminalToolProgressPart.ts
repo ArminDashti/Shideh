@@ -1861,10 +1861,16 @@ export class ChatTerminalToolOutputSection extends Disposable {
 		if (this._store.isDisposed) {
 			return;
 		}
+		if (this._store.isDisposed) {
+			return;
+		}
 		dom.clearNode(this._terminalContainer);
 		this._snapshotMirror = this._register(this._instantiationService.createInstance(DetachedTerminalSnapshotMirror, snapshot, this._getStoredTheme));
 		this._register(this._snapshotMirror.onDidChangeRowHeight(() => this._handleMirrorRowHeightChange()));
 		await this._snapshotMirror.attach(this._terminalContainer);
+		if (this._store.isDisposed) {
+			return;
+		}
 		this._snapshotMirror.setOutput(snapshot);
 		await this._layoutMirrorWidth(this._snapshotMirror);
 		const result = await this._snapshotMirror.render();
