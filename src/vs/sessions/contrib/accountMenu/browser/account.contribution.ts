@@ -172,6 +172,7 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 	private container: HTMLElement | undefined;
 	private avatarElement: HTMLImageElement | undefined;
 	private iconElement: HTMLElement | undefined;
+	private avatarElement: HTMLImageElement | undefined;
 	private labelElement: HTMLElement | undefined;
 	private badgeElement: HTMLElement | undefined;
 	private accountName: string | undefined;
@@ -254,8 +255,23 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 		this.avatarElement.decoding = 'async';
 		this.avatarElement.referrerPolicy = 'no-referrer';
 		this.iconElement = append(container, $('.sessions-account-titlebar-widget-icon'));
+		this.avatarElement = append(container, $('img.sessions-account-titlebar-widget-avatar')) as HTMLImageElement;
+		this.avatarElement.style.display = 'none';
+		this._register(addDisposableListener(this.avatarElement, EventType.LOAD, () => {
+			this.avatarLoaded = true;
+			this.renderState();
+		}));
+		this._register(addDisposableListener(this.avatarElement, EventType.ERROR, () => {
+			this.avatarLoaded = false;
+			this.renderState();
+		}));
 		this.labelElement = append(container, $('span.sessions-account-titlebar-widget-label'));
 		this.badgeElement = append(container, $('span.sessions-account-titlebar-widget-badge'));
+
+		// If account data was resolved before render(), set the avatar src now
+		if (this.accountName && this.accountProviderId === 'github') {
+			this.avatarElement.src = `https://github.com/${encodeURIComponent(this.accountName)}.png?size=64`;
+		}
 
 		this.renderState();
 	}
@@ -324,6 +340,7 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 		const loadedAvatarUrl = !this.isAccountLoading ? this.loadedAvatarUrl : undefined;
 		const hasLoadedAvatar = !!loadedAvatarUrl;
 		const titleBarIcon = state.dotBadge ? Codicon.account : state.icon;
+		const showAvatar = this.avatarLoaded && state.source === 'account' && state.kind === 'default';
 
 		this.avatarElement.classList.toggle('visible', hasLoadedAvatar);
 		this.avatarElement.alt = this.getAvatarAltText(hasLoadedAvatar);
