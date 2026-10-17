@@ -311,7 +311,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private readonly _extensionAgentRegistered: IContextKey<boolean>;
 	private readonly _defaultAgentRegistered: IContextKey<boolean>;
 
-	private _chatParticipantDetectionProviders = new Map<number, IChatParticipantDetectionProvider>();
+	private _chatParticipantDetectionProviders= new Map<number, IChatParticipantDetectionProvider>();
 
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
