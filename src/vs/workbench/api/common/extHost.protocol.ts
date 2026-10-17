@@ -3788,22 +3788,7 @@ export interface IMcpAuthenticationOptions {
 	clientId?: string;
 }
 
-export const enum IAuthResourceMetadataSource {
-	Header = 'header',
-	WellKnown = 'wellKnown',
-	None = 'none',
-}
-
-export const enum IAuthServerMetadataSource {
-	ResourceMetadata = 'resourceMetadata',
-	WellKnown = 'wellKnown',
-	Default = 'default',
-}
-
-export interface IAuthMetadataSource {
-	resourceMetadataSource: IAuthResourceMetadataSource;
-	serverMetadataSource: IAuthServerMetadataSource;
-}
+export { IAuthResourceMetadataSource, IAuthServerMetadataSource, IAuthMetadataSource } from '../../../platform/oauth/common/oauthMetadata.js';
 
 export interface MainThreadMcpShape {
 	/** Checks an MCP request destination against current policy, returning the denial reason if blocked. */
