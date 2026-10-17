@@ -1466,6 +1466,46 @@ suite('RunInTerminalTool', () => {
 
 	});
 
+	suite('subagent background notifications', () => {
+		test('should skip background notification messaging for subagent invocations', async () => {
+			setAutoApprove({ echo: true });
+			setConfig(TerminalChatAgentToolsSettingId.BackgroundNotifications, true);
+			createdTerminalInstance.sendText = async () => { };
+
+			const sessionResource = LocalChatSessionUri.forSession('subagent-1-session');
+			const preparedInvocation = await runInTerminalTool.prepareToolInvocation({
+				parameters: {
+					command: 'echo hello',
+					explanation: 'Print hello',
+					goal: 'Print hello',
+					mode: 'sync',
+					timeout: 1,
+				} as IRunInTerminalInputParams,
+				chatSessionResource: sessionResource,
+			} as IToolInvocationPreparationContext, CancellationToken.None);
+
+			ok(preparedInvocation, 'Expected prepared invocation to be defined');
+			let didRegisterCompletionNotification = false;
+			(runInTerminalTool as unknown as { _registerCompletionNotification: (...args: unknown[]) => void })._registerCompletionNotification = () => {
+				didRegisterCompletionNotification = true;
+			};
+
+			const result = await runInTerminalTool.invoke({
+				callId: 'call-id',
+				toolId: TerminalToolId.RunInTerminal,
+				parameters: {},
+				context: { sessionResource },
+				toolSpecificData: preparedInvocation.toolSpecificData,
+				subAgentInvocationId: 'subagent-1',
+			} as IToolInvocation, async () => 0, { report: () => { } }, CancellationToken.None);
+
+			const textResult = result.content.find(part => part.kind === 'text');
+			ok(textResult && textResult.kind === 'text', 'Expected text output');
+			ok(!textResult.value.includes('automatically notified on your next turn when it completes'), 'Expected no completion notification hint for subagent invocation');
+			ok(!didRegisterCompletionNotification, 'Expected no completion notification registration for subagent invocation');
+		});
+	});
+
 	suite('default auto-approve rules', () => {
 		const defaults = terminalChatAgentToolsConfiguration[TerminalChatAgentToolsSettingId.AutoApprove].default as Record<string, boolean | { approve: boolean; matchCommandLine?: boolean }>;
 
