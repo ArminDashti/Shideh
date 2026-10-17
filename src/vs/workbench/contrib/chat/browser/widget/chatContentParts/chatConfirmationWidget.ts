@@ -183,7 +183,7 @@ abstract class BaseSimpleChatConfirmationWidget<T> extends Disposable {
 			]),
 		]);
 		configureAccessibilityContainer(elements.container, title, message);
-		this._domNode = elements.root;
+		this._domNode = elements.container;
 
 		this._register(instantiationService.createInstance(
 			ChatQueryTitlePart,
@@ -243,6 +243,20 @@ abstract class BaseSimpleChatConfirmationWidget<T> extends Disposable {
 				this._register(buttonData.onDidChangeDisablement(disabled => button.enabled = !disabled));
 			}
 		});
+
+		// Add keyboard shortcut handler for cmd+enter
+		this._register(dom.addStandardDisposableListener(elements.container, dom.EventType.KEY_DOWN, (e: StandardKeyboardEvent) => {
+			// Check for cmd+enter (Mac) or ctrl+enter (Windows/Linux)
+			if (e.keyCode === KeyCode.Enter && (e.ctrlKey || e.metaKey)) {
+				// Find the first non-secondary button (the primary action)
+				const primaryButton = this.buttons.find(btn => !btn.isSecondary);
+				if (primaryButton && !primaryButton.disabled && this.showingButtons) {
+					e.preventDefault();
+					e.stopPropagation();
+					this._onDidClick.fire(primaryButton);
+				}
+			}
+		}));
 
 		// Create toolbar if actions are provided
 		if (options?.toolbarData) {
@@ -411,6 +425,20 @@ abstract class BaseChatConfirmationWidget<T> extends Disposable {
 		}
 
 		this.updateButtons(buttons);
+
+		// Add keyboard shortcut handler for cmd+enter
+		this._register(dom.addStandardDisposableListener(elements.container, dom.EventType.KEY_DOWN, (e: StandardKeyboardEvent) => {
+			// Check for cmd+enter (Mac) or ctrl+enter (Windows/Linux)
+			if (e.keyCode === KeyCode.Enter && (e.ctrlKey || e.metaKey)) {
+				// Find the first non-secondary button (the primary action)
+				const primaryButton = this.buttons.find(btn => !btn.isSecondary);
+				if (primaryButton && !primaryButton.disabled && this.showingButtons) {
+					e.preventDefault();
+					e.stopPropagation();
+					this._onDidClick.fire(primaryButton);
+				}
+			}
+		}));
 
 		// Create toolbar if actions are provided
 		if (options?.toolbarData) {
