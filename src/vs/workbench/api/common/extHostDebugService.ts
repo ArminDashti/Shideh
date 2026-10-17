@@ -104,6 +104,7 @@ export abstract class ExtHostDebugServiceBase extends DisposableCls implements I
 
 	private _debugAdapters: Map<number, IDebugAdapter>;
 	private _debugAdaptersTrackers: Map<number, vscode.DebugAdapterTracker>;
+	private readonly _debugVisualizationProviders = new Map<string, vscode.DebugVisualizationProvider<vscode.DebugVisualization>>();
 
 	private _debugVisualizationTreeItemIdsCounter = 0;
 	private readonly _debugVisualizationProviders = new Map<string, vscode.DebugVisualizationProvider>();
