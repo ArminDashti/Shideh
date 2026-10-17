@@ -78,6 +78,8 @@ registerAction2(ToggleAgentSessionsSidebar);
 registerAction2(ToggleShowAgentSessionsAction);
 registerAction2(SetAgentSessionsOrientationStackedAction);
 registerAction2(SetAgentSessionsOrientationSideBySideAction);
+registerAction2(MaximizeAgentSessionsPanelAction);
+registerAction2(RestoreAgentSessionsPanelAction);
 
 // --- Agent Sessions Toolbar
 
