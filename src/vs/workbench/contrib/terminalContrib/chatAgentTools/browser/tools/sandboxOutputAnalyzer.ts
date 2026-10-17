@@ -59,6 +59,219 @@ ${networkRecovery}
 
 Here is the output of the command:\n`;
 	}
+
+	private _withNpxRetrySuggestion(commandLine: string): string | undefined {
+		const rewrittenCommandLine = this._rewriteNpxCommand(commandLine);
+		if (!rewrittenCommandLine) {
+			return undefined;
+		}
+
+		return localize(
+			'runInTerminalTool.sandboxNpxRetrySuggestion',
+			"Command failed while running in sandboxed mode. If this command uses npx in the sandbox, retry it as {0}.",
+			`\`${rewrittenCommandLine}\``
+		);
+	}
+
+	private _rewriteNpxCommand(commandLine: string): string | undefined {
+		if (!/\bnpx\b/.test(commandLine)) {
+			return undefined;
+		}
+
+		return commandLine.replace(/\bnpx\b/, 'node --import npx');
+	}
+
+	private async _askToAddDomain(domain: string, chatSessionResource: IOutputAnalyzerOptions['chatSessionResource'], chatRequestId: string | undefined, token: CancellationToken): Promise<boolean | undefined> {
+		if (!chatSessionResource) {
+			return undefined;
+		}
+
+		try {
+			const result = await this._languageModelToolsService.invokeTool({
+				callId: generateUuid(),
+				toolId: AskQuestionsToolId,
+				parameters: {
+					questions: [{
+						header: addDomainQuestionHeader,
+						question: localize('runInTerminalTool.sandboxDomainQuestion', 'Add {0} to the terminal sandbox allowed domains?', domain),
+						options: [{
+							label: localize('runInTerminalTool.sandboxDomainQuestion.add', 'Add Domain'),
+							recommended: true,
+						}, {
+							label: localize('runInTerminalTool.sandboxDomainQuestion.skip', 'Do Not Add'),
+						}]
+					}]
+				},
+				context: { sessionResource: chatSessionResource },
+				chatRequestId,
+			}, async () => 0, token);
+
+			const answer = this._parseAskQuestionsAnswer(result, addDomainQuestionHeader);
+			if (!answer || answer.skipped || !answer.selected.includes(localize('runInTerminalTool.sandboxDomainQuestion.add', 'Add Domain'))) {
+				return false;
+			}
+
+			return this._sandboxService.addDomainToAllowedDomains(domain);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private async _askToAddPath(path: string, chatSessionResource: IOutputAnalyzerOptions['chatSessionResource'], chatRequestId: string | undefined, token: CancellationToken): Promise<boolean | undefined> {
+		if (!chatSessionResource) {
+			return undefined;
+		}
+
+		try {
+			const result = await this._languageModelToolsService.invokeTool({
+				callId: generateUuid(),
+				toolId: AskQuestionsToolId,
+				parameters: {
+					questions: [{
+						header: addPathQuestionHeader,
+						question: localize('runInTerminalTool.sandboxPathQuestion', 'Add {0} to the terminal sandbox allowWrite list?', path),
+						options: [{
+							label: localize('runInTerminalTool.sandboxPathQuestion.add', 'Add Path'),
+							recommended: true,
+						}, {
+							label: localize('runInTerminalTool.sandboxPathQuestion.skip', 'Do Not Add'),
+						}]
+					}]
+				},
+				context: { sessionResource: chatSessionResource },
+				chatRequestId,
+			}, async () => 0, token);
+
+			const answer = this._parseAskQuestionsAnswer(result, addPathQuestionHeader);
+			if (!answer || answer.skipped || !answer.selected.includes(localize('runInTerminalTool.sandboxPathQuestion.add', 'Add Path'))) {
+				return false;
+			}
+
+			return this._sandboxService.addPathToAllowedWrite(path);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private _parseAskQuestionsAnswer(result: Awaited<ReturnType<ILanguageModelToolsService['invokeTool']>>, header: string): { selected: string[]; skipped: boolean } | undefined {
+		const resultText = result.content.find(part => part.kind === 'text');
+		if (!resultText) {
+			return undefined;
+		}
+
+		try {
+			const parsed = JSON.parse(resultText.value) as { answers?: Record<string, { selected?: string[]; skipped?: boolean }> };
+			const answer = parsed.answers?.[header];
+			if (!answer) {
+				return undefined;
+			}
+
+			return {
+				selected: answer.selected ?? [],
+				skipped: answer.skipped ?? false,
+			};
+		} catch {
+			return undefined;
+		}
+	}
+
+	private _findBlockedDomain(exitResult: string): string | undefined {
+		const lines = exitResult.split(/\r?\n/);
+		for (const line of lines) {
+			if (!networkLinePattern.test(line)) {
+				continue;
+			}
+
+			const domain = this._extractDomainCandidate(line);
+			if (domain) {
+				return domain;
+			}
+		}
+
+		if (!networkIssuePattern.test(exitResult)) {
+			return undefined;
+		}
+
+		return this._extractDomainCandidate(exitResult);
+	}
+
+	private _findBlockedFileSystemPath(exitResult: string): string | undefined {
+		const lines = exitResult.split(/\r?\n/);
+		for (const line of lines) {
+			const blockedPath = this._extractFileSystemPathCandidate(line);
+			if (blockedPath) {
+				return blockedPath;
+			}
+		}
+		return this._extractFileSystemPathCandidate(exitResult);
+	}
+
+	private _extractDomainCandidate(text: string): string | undefined {
+		for (const match of text.matchAll(domainCandidatePattern)) {
+			const candidate = match.groups?.urlHost ?? match.groups?.host;
+			const normalized = this._normalizeDomain(candidate);
+			if (normalized) {
+				return normalized;
+			}
+		}
+
+		return undefined;
+	}
+
+	private _extractFileSystemPathCandidate(text: string): string | undefined {
+		for (const match of text.matchAll(filesystemPathCandidatePattern)) {
+			const candidate = this._normalizePath(match.groups?.path);
+			if (!candidate) {
+				continue;
+			}
+
+			const permissionPath = this._toPermissionPath(candidate, text);
+			if (permissionPath) {
+				return permissionPath;
+			}
+		}
+
+		return undefined;
+	}
+
+	private _normalizeDomain(domain: string | undefined): string | undefined {
+		if (!domain) {
+			return undefined;
+		}
+
+		return domain.trim().toLowerCase().replace(/^\.+/, '').replace(/\.+$/, '').replace(/:\d+$/, '') || undefined;
+	}
+
+	private _toPermissionPath(path: string, line: string): string | undefined {
+		if (path === '/' || path === '.' || path === '..' || path.endsWith('/')) {
+			return path;
+		}
+
+		if (/(writing to|reading from|open|opening|mkdir|create directory|creating directory|touch|redirect|permission denied|operation not permitted|read-only file system)/i.test(line)) {
+			const parent = posixDirname(path);
+			return parent === '.' && !path.startsWith('.') ? path : parent;
+		}
+
+		return path;
+	}
+
+	private _normalizePath(path: string | undefined): string | undefined {
+		if (!path) {
+			return undefined;
+		}
+
+		const trimmedPath = path.trim().replace(/^['"`]+|['"`]+$/g, '');
+		if (!trimmedPath) {
+			return undefined;
+		}
+
+		const normalizedPath = posix.normalize(trimmedPath.replace(/\\/g, '/'));
+		if (normalizedPath === '/') {
+			return normalizedPath;
+		}
+
+		return normalizedPath.replace(/\/+$/, '') || undefined;
+	}
 }
 
 /**

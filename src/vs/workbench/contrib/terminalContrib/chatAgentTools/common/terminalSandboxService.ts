@@ -56,6 +56,8 @@ function affectsSandboxSettings(e: IConfigurationChangeEvent): boolean {
 	return SANDBOX_SETTING_KEYS.some(key => e.affectsConfiguration(key));
 }
 
+type ITerminalSandboxFileSystemSettings = { denyRead?: string[]; allowWrite?: string[]; denyWrite?: string[] };
+
 export class TerminalSandboxService extends Disposable implements ITerminalSandboxService {
 	readonly _serviceBrand: undefined;
 
