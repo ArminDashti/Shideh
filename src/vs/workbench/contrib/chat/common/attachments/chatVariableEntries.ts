@@ -529,6 +529,18 @@ export interface ITerminalVariableEntry extends IBaseChatRequestVariableEntry {
 	readonly exitCode?: number;
 }
 
+export interface ITerminalSelectionVariableEntry extends IBaseChatRequestVariableEntry {
+	readonly kind: 'terminalSelection';
+	readonly value: string;
+	readonly resource: URI;
+	readonly selection: {
+		readonly startLine: number;
+		readonly startColumn: number;
+		readonly endLine: number;
+		readonly endColumn: number;
+	};
+}
+
 export interface IDebugVariableEntry extends IBaseChatRequestVariableEntry {
 	readonly kind: 'debugVariable';
 	readonly value: string;
@@ -854,6 +866,10 @@ export function restoreChatTranscriptContextVariableEntry(label: string, value: 
 
 export function isTerminalVariableEntry(obj: IChatRequestVariableEntry): obj is ITerminalVariableEntry {
 	return obj.kind === 'terminalCommand';
+}
+
+export function isTerminalSelectionVariableEntry(obj: IChatRequestVariableEntry): obj is ITerminalSelectionVariableEntry {
+	return obj.kind === 'terminalSelection';
 }
 
 export function isDebugVariableEntry(obj: IChatRequestVariableEntry): obj is IDebugVariableEntry {

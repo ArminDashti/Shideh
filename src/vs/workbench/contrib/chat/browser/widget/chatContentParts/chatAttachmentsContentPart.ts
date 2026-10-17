@@ -245,6 +245,8 @@ export class ChatAttachmentsContentPart extends Disposable {
 			widget = this.instantiationService.createInstance(FileAttachmentWidget, resource, range, attachment, correspondingContentReference, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);
 		} else if (isTerminalVariableEntry(attachment)) {
 			widget = this.instantiationService.createInstance(TerminalCommandAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);
+		} else if (isTerminalSelectionVariableEntry(attachment)) {
+			widget = this.instantiationService.createInstance(TerminalSelectionAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);
 		} else if (isPasteVariableEntry(attachment)) {
 			widget = this.instantiationService.createInstance(PasteAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);
 		} else if (resource && isNotebookOutputVariableEntry(attachment)) {
