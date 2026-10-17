@@ -1330,6 +1330,18 @@ export class UserDataProfilesEditorModel extends EditorModel {
 			} else {
 				this.onDidChangeProfiles({ added: [profile], removed: [], updated: [], all: this.userDataProfilesService.profiles });
 			}
+			// Switch to the newly created profile
+			if (wasNotPreview) {
+				try {
+					if (isWeb) {
+						await this.userDataProfileManagementService.switchProfile(profile);
+					} else {
+						await this.openWindow(profile);
+					}
+				} catch (error) {
+					// ignore - profile was created successfully, user can switch manually if needed
+				}
+			}
 		}
 
 		return profile;
