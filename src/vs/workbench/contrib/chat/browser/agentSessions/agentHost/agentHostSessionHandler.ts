@@ -1779,6 +1779,12 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				this._ensureDraftSyncSubscription(sessionResource, resolvedSession, chatURI);
 			}
 
+			// Add (or refresh) this client's active-client entry — its tools and
+			// customizations — so the host merges them into the session and the
+			// agent picker lists the client's custom agents when merely opening
+			// an existing session.
+			this._syncActiveClient(sessionResource);
+
 			// Eagerly create the snapshot controller once the ChatModel for
 			// this session is available so that "Restore Checkpoint" works
 			// on historical turns. The model may already exist (in which
