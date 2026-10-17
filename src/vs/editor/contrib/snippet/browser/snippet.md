@@ -32,6 +32,7 @@ With `$name` or `${name:default}` you can insert the value of a variable. When a
 * `TM_FULLNAME` The current user's name based on git environment variables (`GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME`) or OS environment variables (`USER`, `USERNAME`, `LOGNAME`)
 * `TM_EMAIL` The current user's email based on git environment variables (`GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_EMAIL`) or the `EMAIL` environment variable
 * `RELATIVE_FILEPATH` The relative (to the opened workspace or folder) file path of the current document
+* `REVERSE_RELATIVE_FILEPATH` The relative path from the current document's directory to the opened workspace or folder
 * `CLIPBOARD` The contents of your clipboard
 * `WORKSPACE_NAME` The name of the opened workspace or folder
 * `WORKSPACE_FOLDER` The path of the opened workspace or folder
