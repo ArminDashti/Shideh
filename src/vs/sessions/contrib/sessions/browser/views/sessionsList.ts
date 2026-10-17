@@ -559,6 +559,14 @@ class SessionsTreeDelegate implements IListVirtualDelegate<SessionListItem> {
 	 */
 	private static readonly CHAT_APPROVAL_BOTTOM_SLACK = 6;
 	/**
+	 * Bottom slack reserved under a chat row's approval prompt. The session row
+	 * absorbs the rendered code-block's line-height rounding in its own bottom
+	 * padding; the chat row has none, so it reserves this small buffer instead.
+	 * Keep in sync with the `.session-approval-row.visible` bottom margin in
+	 * `sessionsList.css`.
+	 */
+	private static readonly CHAT_APPROVAL_BOTTOM_SLACK = 6;
+	/**
 	 * Phone layout uses a taller row so the inline action toolbar can
 	 * meet the 44px minimum touch target without overflowing. Sized to
 	 * fit a 44px toolbar centered between the title and details rows.
@@ -4210,6 +4218,11 @@ export class SessionsList extends Disposable implements ISessionsList {
 	private _sessionRenderer!: SessionItemRenderer;
 	private _chatRenderer!: SessionChatItemRenderer;
 	private readonly _sessionContextMenuDisposables = this._register(new MutableDisposable<DisposableStore>());
+
+	/** Tree delegate, retained so height reconciliation can recompute row heights. */
+	private _delegate!: SessionsTreeDelegate;
+	/** Approval model tracking pending tool confirmations across the shown chats. */
+	private _approvalModel!: AgentSessionApprovalModel;
 
 	/**
 	 * Maximum number of sessions shown per workspace section or user group.
