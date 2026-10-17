@@ -11,6 +11,17 @@ suite('remoteHosts', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
+	test('isVscodeRemoteUri', () => {
+		assert.strictEqual(isVscodeRemoteUri('vscode-remote://ssh-remote+root@docker-vscode/root'), true);
+		assert.strictEqual(isVscodeRemoteUri('vscode-remote://wsl+Ubuntu/home/user'), true);
+		assert.strictEqual(isVscodeRemoteUri('vscode-remote://codespaces+abc123/workspace'), true);
+		assert.strictEqual(isVscodeRemoteUri('/home/user/folder'), false);
+		assert.strictEqual(isVscodeRemoteUri('C:\\Users\\Documents'), false);
+		assert.strictEqual(isVscodeRemoteUri('file:///home/user/folder'), false);
+		assert.strictEqual(isVscodeRemoteUri('vscode://file/path'), false);
+		assert.strictEqual(isVscodeRemoteUri(''), false);
+	});
+
 	test('parseAuthority hostname', () => {
 		assert.deepStrictEqual(parseAuthorityWithPort('localhost:8080'), { host: 'localhost', port: 8080 });
 	});
