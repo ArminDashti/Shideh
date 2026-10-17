@@ -434,7 +434,7 @@ suite('StoredFileWorkingCopy', function () {
 		await workingCopy.resolve({ contents: bufferToStream(VSBuffer.fromString('hello backup')) });
 
 		const backup = await workingCopy.backup(CancellationToken.None);
-		await accessor.workingCopyBackupService.backup(workingCopy, backup.content, undefined, backup.meta);
+		await accessor.workingCopyBackupService.backupContent(workingCopy, backup.content, undefined, backup.meta);
 
 		assert.strictEqual(accessor.workingCopyBackupService.hasBackupSync(workingCopy), true);
 
@@ -471,7 +471,7 @@ suite('StoredFileWorkingCopy', function () {
 			assert.strictEqual(workingCopy.hasState(StoredFileWorkingCopyState.ORPHAN), true);
 
 			const backup = await workingCopy.backup(CancellationToken.None);
-			await accessor.workingCopyBackupService.backup(workingCopy, backup.content, undefined, backup.meta);
+			await accessor.workingCopyBackupService.backupContent(workingCopy, backup.content, undefined, backup.meta);
 
 			assert.strictEqual(accessor.workingCopyBackupService.hasBackupSync(workingCopy), true);
 

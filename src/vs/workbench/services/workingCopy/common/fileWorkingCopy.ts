@@ -83,6 +83,12 @@ export interface IFileWorkingCopyModel extends IDisposable {
 	snapshot(context: SnapshotContext, token: CancellationToken): Promise<VSBufferReadableStream>;
 
 	/**
+	 * Determine if this model should handle the file write operation
+	 * and, if so, return a function to perform that action.
+	 */
+	getWriteBackupFunction?(): BackupToTargetFunction | undefined;
+
+	/**
 	 * Updates the model with the provided contents. The implementation should
 	 * behave in a similar fashion as `IFileWorkingCopyModelFactory#createModel`
 	 * except that here the model already exists and just needs to update to

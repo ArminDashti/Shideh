@@ -825,6 +825,13 @@ export class StoredFileWorkingCopy<M extends IStoredFileWorkingCopyModel> extend
 		return { meta, content };
 	}
 
+	getWriteBackupFunction() {
+		if (this.isResolved()) {
+			return this.model.getWriteBackupFunction?.();
+		}
+		return undefined;
+	}
+
 	//#endregion
 
 	//#region Save

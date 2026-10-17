@@ -59,9 +59,14 @@ export interface IWorkingCopyBackupService {
 	resolve<T extends IWorkingCopyBackupMeta>(identifier: IWorkingCopyIdentifier): Promise<IResolvedWorkingCopyBackup<T> | undefined>;
 
 	/**
+	 * Stores a new working copy backup for the given identifier, with the actual write operation delegated to the provided callback.
+	 */
+	delegatedBackup(writeDelegate: (target: URI, preamble: string) => Promise<boolean>, identifier: IWorkingCopyIdentifier, versionId?: number, meta?: IWorkingCopyBackupMeta, token?: CancellationToken): Promise<void>;
+
+	/**
 	 * Stores a new working copy backup for the given identifier.
 	 */
-	backup(identifier: IWorkingCopyIdentifier, content?: VSBufferReadable | VSBufferReadableStream, versionId?: number, meta?: IWorkingCopyBackupMeta, token?: CancellationToken): Promise<void>;
+	backupContent(identifier: IWorkingCopyIdentifier, content?: VSBufferReadable | VSBufferReadableStream, versionId?: number, meta?: IWorkingCopyBackupMeta, token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Discards the working copy backup associated with the identifier if it exists.

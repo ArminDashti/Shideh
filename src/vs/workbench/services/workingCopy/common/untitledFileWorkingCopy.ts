@@ -275,6 +275,14 @@ export class UntitledFileWorkingCopy<M extends IUntitledFileWorkingCopyModel> ex
 		return { content };
 	}
 
+	getWriteBackupFunction(): BackupToTargetFunction | undefined {
+		if (this.isResolved()) {
+			return this.model.getWriteBackupFunction?.();
+		}
+		return undefined;
+	}
+
+
 	//#endregion
 
 

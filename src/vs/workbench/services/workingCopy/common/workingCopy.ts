@@ -50,6 +50,8 @@ export interface IWorkingCopyBackup {
 	content?: VSBufferReadable | VSBufferReadableStream;
 }
 
+export type BackupToTargetFunction = (target: URI, preamble: string, token: CancellationToken) => Promise<IFileStatWithMetadata>;
+
 /**
  * Working copy backup metadata that can be associated
  * with the backup.
@@ -202,6 +204,13 @@ export interface IWorkingCopy extends IWorkingCopyIdentifier {
 	 * @param token support for cancellation
 	 */
 	backup(token: CancellationToken): Promise<IWorkingCopyBackup>;
+
+	/**
+	 * Determine if the working copy should handle the file write operation
+	 * for backup purposes. If so, return a function that performs the backup.
+	 *
+	 */
+	getWriteBackupFunction?(): BackupToTargetFunction | undefined;
 
 	/**
 	 * Asks the working copy to save. If the working copy was dirty, it is
