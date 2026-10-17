@@ -1908,6 +1908,10 @@ export interface ExtHostLanguageModelToolsShape {
 	$prepareToolInvocation(toolId: string, context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined>;
 }
 
+export interface MainThreadNotebookRenderersShape extends IDisposable {
+	$postMessage(rendererId: string, message: unknown): void;
+}
+
 export interface MainThreadUrlsShape extends IDisposable {
 	$registerUriHandler(handle: number, extensionId: ExtensionIdentifier, extensionDisplayName: string): Promise<void>;
 	$unregisterUriHandler(handle: number): Promise<void>;
@@ -3558,6 +3562,10 @@ export interface ExtHostNotebookShape extends ExtHostNotebookDocumentsAndEditors
 
 export interface ExtHostNotebookDocumentSaveParticipantShape {
 	$participateInSave(resource: UriComponents, reason: SaveReason, token: CancellationToken): Promise<boolean>;
+}
+
+export interface ExtHostNotebookRenderersShape {
+	$postRendererMessage(editorId: string, rendererId: string, message: unknown): void;
 }
 
 export interface ExtHostNotebookRenderersShape {
