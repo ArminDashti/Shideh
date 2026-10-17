@@ -49,6 +49,8 @@ import { IAICustomizationItemsModel } from './aiCustomizationItemsModel.js';
 import { UpdateAgentPluginsCommandId } from '../chat.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { getErrorMessage } from '../../../../../base/common/errors.js';
+import { getEnabledCustomizationMarketplaceSources } from '../../../../../platform/customizationMarketplace/common/customizationMarketplaceSources.js';
+import { ICustomizationMarketplaceService, ICustomizationMarketplaceSourceInfo } from '../../../../../platform/customizationMarketplace/common/customizationMarketplaceService.js';
 import { getPluginInclusionLabel } from './aiCustomizationPresentation.js';
 import { status } from '../../../../../base/browser/ui/aria/aria.js';
 import { createCustomizationCardPrimaryAction, CustomizationCardListController, getVirtualizedSectionMinimumHeight, layoutVirtualizedSectionList, layoutVirtualizedSections, setVirtualizedRowActionsTabbable, trackCustomizationCardPrimaryActionFocus } from './customizationCardList.js';
@@ -120,9 +122,11 @@ export function isCurrentPluginMarketplaceRequest(
 	currentBrowseMode: boolean,
 	isActiveRequest: boolean,
 	isCancellationRequested: boolean,
+	legacyMarketplaceAvailable: boolean,
 ): boolean {
 	return isActiveRequest
 		&& !isCancellationRequested
+		&& legacyMarketplaceAvailable
 		&& requestQuery === currentQuery
 		&& requestBrowseMode === currentBrowseMode;
 }
@@ -793,6 +797,7 @@ export class PluginListWidget extends Disposable {
 	private readonly delayedFilter = new Delayer<void>(200);
 	private readonly delayedMarketplaceSearch = new Delayer<void>(400);
 	private filterGeneration = 0;
+	private readonly legacyMarketplaceAvailability: LegacyPluginMarketplaceAvailability;
 
 	constructor(
 		private readonly marketplaceBrowsingAvailable = !isWeb,
@@ -812,6 +817,11 @@ export class PluginListWidget extends Disposable {
 		@ICustomizationMarketplaceInstallService private readonly marketplaceInstallService: ICustomizationMarketplaceInstallService,
 	) {
 		super();
+		this.legacyMarketplaceAvailability = this._register(new LegacyPluginMarketplaceAvailability(
+			this.marketplaceBrowsingAvailable,
+			this.customizationMarketplaceService.sources,
+			this.configurationService,
+		));
 		this.element = $('.mcp-list-widget.plugin-list-widget'); // reuse MCP shell, add plugin-specific row styling
 		this.create();
 		const resizeObserver = this._register(new DOM.DisposableResizeObserver(
@@ -836,6 +846,7 @@ export class PluginListWidget extends Disposable {
 				void this.refresh();
 			}
 		}));
+		this._register(this.legacyMarketplaceAvailability.onDidChange(available => this.updateLegacyMarketplaceAvailability(available)));
 		this._register({
 			dispose: () => {
 				this.delayedFilter.cancel();
@@ -1178,7 +1189,53 @@ export class PluginListWidget extends Disposable {
 	}
 
 	private isBrowseMarketplaceAvailable(): boolean {
-		return this.marketplaceBrowsingAvailable;
+		return this.legacyMarketplaceAvailability.available;
+	}
+
+	private updateLegacyMarketplaceAvailability(legacyMarketplaceAvailable: boolean): void {
+		if (!legacyMarketplaceAvailable) {
+			this.cancelLegacyMarketplaceWork();
+			if (this.browseMode) {
+				this.selectedGroupKey = this.getPreferredInstalledGroupKey();
+				this.toggleBrowseMode(false, true);
+				return;
+			}
+			this.updateToolbarActions();
+			if (this.searchQuery.trim()) {
+				void this.filterPlugins();
+			} else {
+				this.renderPluginHome();
+			}
+			return;
+		}
+
+		this.updateToolbarActions();
+		void this.refresh();
+	}
+
+	private cancelLegacyMarketplaceWork(): void {
+		this.delayedMarketplaceSearch.cancel();
+		this.marketplaceCts?.dispose(true);
+		this.marketplaceCts = undefined;
+		this.marketplaceSnapshotCts?.dispose(true);
+		this.marketplaceSnapshotCts = undefined;
+		this.marketplaceItems = [];
+		this.marketplaceSnapshot.reset();
+		this.searchInput.hideMessage();
+	}
+
+	private getPreferredInstalledGroupKey(): string {
+		const partitionedInstalledItems = partitionInstalledPluginItemsByScope(this.installedItems);
+		if (partitionedInstalledItems.user.length > 0) {
+			return 'user';
+		}
+		if (partitionedInstalledItems.workspace.length > 0) {
+			return 'workspace';
+		}
+		if (this.remoteItems.length > 0) {
+			return 'remote';
+		}
+		return 'user';
 	}
 
 	private buildAddActions(): readonly ICustomizationItemAction[] {
@@ -1769,7 +1826,7 @@ export class PluginListWidget extends Disposable {
 		}
 	}
 
-	private toggleBrowseMode(browse: boolean): void {
+	private toggleBrowseMode(browse: boolean, focusInstalledAfter = false): void {
 		this.delayedMarketplaceSearch.cancel();
 		this.marketplaceCts?.dispose(true);
 		this.marketplaceCts = undefined;
@@ -1789,7 +1846,11 @@ export class PluginListWidget extends Disposable {
 			void this.queryMarketplace();
 		} else {
 			this.marketplaceItems = [];
-			void this.filterPlugins();
+			void this.filterPlugins().then(() => {
+				if (focusInstalledAfter) {
+					this.focus();
+				}
+			});
 		}
 
 		// Re-layout to account for the back link height change
@@ -1934,6 +1995,7 @@ export class PluginListWidget extends Disposable {
 			this.browseMode,
 			this.marketplaceCts === cts,
 			cts.token.isCancellationRequested,
+			this.isBrowseMarketplaceAvailable(),
 		);
 	}
 
