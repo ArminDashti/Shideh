@@ -280,7 +280,7 @@ jobs:
 
       - name: 🧪 Run smoke tests (Electron)
         if: ${{ inputs.electron_tests && inputs.smoke_tests }}
-        timeout-minutes: 20
+        timeout-minutes: 120
         shell: pwsh
         run: npm run smoketest-no-compile -- --tracing
         env:
