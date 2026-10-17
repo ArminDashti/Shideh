@@ -23,7 +23,7 @@ import {
 	ResponsePartKind, ChatInputAnswerState, ChatInputAnswerValueKind, ChatInputQuestionKind,
 	ChatInputResponseKind, ToolResultContentType, ToolCallConfirmationReason, ToolCallCancellationReason, buildDefaultChatUri,
 	getInlineToolInput, MessageKind, ROOT_STATE_URI, type MessageAttachment, type ChatInputAnswer, type ChatInputRequest, type RootState, type TerminalState,
-	type ToolResultContent,
+	type SessionActiveClient, type ToolResultContent,
 } from '../../../../common/state/sessionState.js';
 import type { SubscribeResult } from '../../../../common/state/protocol/commands.js';
 import { TerminalClaimKind } from '../../../../common/state/protocol/channels-terminal/state.js';
@@ -439,6 +439,71 @@ export async function createRealSession(
 	c.clearAhpSnapshot();
 
 	return sessionUri;
+}
+
+/**
+ * Pushes root config as the product client does on connect; the host applies
+ * no schema defaults to unpushed keys. May be called after initialization,
+ * including before session creation. The state check avoids waiting for an
+ * echo the server deliberately suppresses when the patch is already applied.
+ */
+export async function setRootConfigValues(c: TestProtocolClient, config: Record<string, unknown>, clientSeq: number): Promise<void> {
+	const satisfied = (bag: Readonly<Record<string, unknown>> | undefined) =>
+		Object.entries(config).every(([key, value]) => equals(bag?.[key], value));
+	const subscribed = await c.call<SubscribeResult>('subscribe', { channel: ROOT_STATE_URI });
+	if (satisfied((subscribed.snapshot?.state as RootState | undefined)?.config?.values)) {
+		return;
+	}
+	const afterServerSeq = latestReceivedServerSeq(c);
+	c.dispatch({ channel: ROOT_STATE_URI, clientSeq, action: { type: ActionType.RootConfigChanged, config } });
+	const notification = await c.waitForNotification(n => {
+		if (!isActionNotification(n, ActionType.RootConfigChanged)) {
+			return false;
+		}
+		const envelope = getActionEnvelope(n);
+		return envelope.serverSeq > afterServerSeq
+			&& envelope.channel === ROOT_STATE_URI
+			&& envelope.origin?.clientSeq === clientSeq;
+	}, 30_000);
+	throwIfRejected(notification, ActionType.RootConfigChanged);
+}
+
+/** Publishes the supplied active client and waits for its successful echo before the first turn. */
+export async function registerActiveClient(c: TestProtocolClient, sessionUri: string, activeClient: SessionActiveClient): Promise<void> {
+	const clientSeq = 1;
+	const afterServerSeq = latestReceivedServerSeq(c);
+	c.dispatch({
+		channel: sessionUri,
+		clientSeq,
+		action: {
+			type: ActionType.SessionActiveClientSet,
+			activeClient,
+		},
+	});
+	const notification = await c.waitForNotification(n => {
+		if (!isActionNotification(n, ActionType.SessionActiveClientSet)) {
+			return false;
+		}
+		const envelope = getActionEnvelope(n);
+		const action = envelope.action as { readonly activeClient?: { readonly clientId?: string } };
+		return envelope.serverSeq > afterServerSeq
+			&& envelope.channel === sessionUri
+			&& envelope.origin?.clientSeq === clientSeq
+			&& action.activeClient?.clientId === activeClient.clientId;
+	}, 30_000);
+	throwIfRejected(notification, ActionType.SessionActiveClientSet);
+}
+
+function latestReceivedServerSeq(c: TestProtocolClient): number {
+	return c.receivedNotifications(n => n.method === 'action')
+		.reduce((latest, notification) => Math.max(latest, getActionEnvelope(notification).serverSeq), 0);
+}
+
+function throwIfRejected(notification: Parameters<typeof getActionEnvelope>[0], actionType: string): void {
+	const rejectionReason = getActionEnvelope(notification).rejectionReason;
+	if (rejectionReason) {
+		throw new Error(`Agent Host rejected ${actionType}: ${rejectionReason}`);
+	}
 }
 
 export async function runAhpSnapshotTest(

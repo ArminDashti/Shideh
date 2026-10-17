@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Pins every field of the model request body the bundled Copilot CLI sends per
- * model.
+ * Pins the complete normalized initial model request for a defined client profile.
  *
  * The prompt is compiled into the SDK-owned Copilot runtime and only becomes
  * observable when the runtime serializes it onto the wire, so it is read off a
@@ -17,6 +16,9 @@
  * A diff means the CLI changed (an SDK bump) or the host changed what it hands
  * the CLI. See the README's "Prompt snapshots" section for what is elided and
  * how to add a model.
+ *
+ * Workspace and client-plugin instructions are controlled fixture inputs whose
+ * contents remain visible alongside the client tool definitions and model catalog.
  *
  * Run, then accept a new baseline and review the diff:
  *   ./scripts/test-integration.sh --run <this file>
@@ -44,6 +46,9 @@ import { COPILOT_CONFIG } from './copilotTestConfiguration.js';
 const UPDATE_SNAPSHOTS = process.env[AgentHostUpdateAhpSnapshotsEnvVar] === '1';
 const RECORDING = process.env[AgentHostUpdateSnapshotsEnvVar] === '1'
 	|| process.env['AGENT_HOST_REPLAY_RECORD'] === '1';
+
+const WORKSPACE_INSTRUCTIONS = readFileSync(new URL('./fixtures/copilotPromptWorkspaceInstructions.txt', import.meta.url), 'utf8');
+const CLIENT_INSTRUCTIONS = readFileSync(new URL('./fixtures/copilotPromptClientInstructions.txt', import.meta.url), 'utf8');
 
 /**
  * Includes the model families covered by the extension's `agentPrompt.spec.tsx`
@@ -81,14 +86,37 @@ const SNAPSHOT_MODELS = [
 	'gemini-2.0-flash',
 ] as const;
 
-suite('Agent Host E2E — Copilot prompts', function () {
+type SnapshotModel = typeof SNAPSHOT_MODELS[number];
+
+const CLAUDE_CLIENT_TOOL_SEARCH_MODELS: ReadonlySet<SnapshotModel> = new Set([
+	'claude-haiku-4.5',
+	'claude-sonnet-4.5',
+	'claude-opus-4.5',
+	'claude-sonnet-4.6',
+	'claude-opus-4.6',
+	'claude-opus-4.7',
+	'claude-opus-4.8',
+	'claude-sonnet-5',
+	'claude-opus-5',
+]);
+
+const GPT_CLIENT_TOOL_SEARCH_MODELS: ReadonlySet<SnapshotModel> = new Set([
+	'gpt-5.6-sol',
+	'gpt-5.6-luna',
+	'gpt-5.6-terra',
+]);
+
+(process.platform === 'win32' ? suite.skip : suite)('Agent Host E2E — Copilot prompts', function () {
 
 	let client: TestProtocolClient;
+	let clientTools: ToolDefinition[];
 	let lease: AgentHostE2EServerLease | undefined;
 	const createdSessions: string[] = [];
 	const tempDirs: string[] = [];
 
-	suiteSetup(function () {
+	suiteSetup(async function () {
+		this.timeout(180_000);
+		clientTools = await collectWorkbenchClientTools();
 		lease = new AgentHostE2EServerLease(COPILOT_CONFIG);
 	});
 
@@ -138,18 +166,31 @@ suite('Agent Host E2E — Copilot prompts', function () {
 		// than being a renaming of this one, and one is gated on a machine probe.
 		// SDK drift is provider-wide, so POSIX runners already catch it. See
 		// KNOWN_ISSUES.md.
-		(process.platform === 'win32' ? test.skip : test)(model, async function () {
+		test(model, async function () {
 			this.timeout(120_000);
 
 			const workspaceDir = await mkdtemp(`${tmpdir()}/ahp-prompt-snap-`);
 			tempDirs.push(workspaceDir);
+			initTestGitRepo(workspaceDir);
+			const customization = await createPromptInstructions(workspaceDir);
 
 			const sessionUri = await createRealSession(client, COPILOT_CONFIG, `prompt-snap-${model}`, createdSessions, URI.file(workspaceDir));
+			await setRootConfigValues(client, { [CopilotCliConfigKey.ToolSearchEnabled]: true }, 1);
+			await registerActiveClient(client, sessionUri, {
+				clientId: `prompt-snap-${model}`,
+				tools: clientTools,
+				customizations: [customization],
+			});
+			await waitForPromptInstructions(client, sessionUri, customization.id);
 			await driveTurnWithModel(client, sessionUri, model);
 
-			// Taking the last keeps this meaningful if the CLI inserts a preflight request.
-			const body = lease!.observedModelRequestBodies.at(-1);
-			assert.ok(body, 'no model request body was captured — the turn never reached the model');
+			const body = getInitialModelRequest(lease!.observedModelRequestBodies);
+			assertToolSearchWire(body, model, clientTools);
+			const request = JSON.parse(body) as IWireRequest;
+			const requestText = [extractText(request.instructions ?? request.system), ...readMessages(request).map(message => message.text)].join('\n');
+			for (const instructions of [WORKSPACE_INSTRUCTIONS, CLIENT_INSTRUCTIONS]) {
+				assert.ok(requestText.includes(instructions.trim()), `initial request for '${model}' omitted fixture instructions: ${instructions.trim()}`);
+			}
 
 			await assertPromptSnapshot(this.test!, formatPromptSnapshot(body));
 		});
@@ -324,6 +365,64 @@ interface IWireRequest {
 	readonly tools?: readonly unknown[];
 }
 
+interface IWireTool {
+	readonly name?: unknown;
+	readonly type?: unknown;
+	readonly description?: unknown;
+	readonly input_schema?: unknown;
+	readonly parameters?: unknown;
+	readonly defer_loading?: unknown;
+	readonly execution?: unknown;
+}
+
+function assertToolSearchWire(rawBody: string, model: SnapshotModel, clientTools: readonly ToolDefinition[]): void {
+	const request = JSON.parse(rawBody) as IWireRequest;
+	assert.ok(Array.isArray(request.tools), `request for '${model}' carried no tool definitions`);
+	const tools = request.tools as readonly IWireTool[];
+	const expectsClaudeClientSearch = CLAUDE_CLIENT_TOOL_SEARCH_MODELS.has(model);
+	const expectsGptClientSearch = GPT_CLIENT_TOOL_SEARCH_MODELS.has(model);
+	const clientSearch = tools.find(tool => tool.name === 'tool_search_tool');
+	const hostedSearch = tools.find(tool => tool.type === 'tool_search');
+
+	assert.strictEqual(clientSearch !== undefined, expectsClaudeClientSearch,
+		`request for '${model}' has an unexpected client tool-search definition`);
+	assert.strictEqual(hostedSearch !== undefined, expectsGptClientSearch,
+		`request for '${model}' has an unexpected Responses tool-search definition`);
+	assert.strictEqual(hostedSearch?.execution, expectsGptClientSearch ? 'client' : undefined,
+		`request for '${model}' has unexpected Responses tool-search execution`);
+
+	if (clientSearch) {
+		assertNaturalLanguageToolSearchDefinition(clientSearch.description, clientSearch.input_schema, model, clientTools);
+	}
+	if (hostedSearch) {
+		assertNaturalLanguageToolSearchDefinition(hostedSearch.description, hostedSearch.parameters, model, clientTools);
+	}
+
+	const instructionLines = new Set([extractText(request.instructions ?? request.system), ...readMessages(request).map(message => message.text)].flatMap(text => text.split('\n')));
+	for (const clientTool of clientTools.filter(tool => tool.name !== 'toolSearch')) {
+		const toolName = clientTool.name;
+		const tool = tools.find(candidate => candidate.name === toolName);
+		if (!tool && expectsGptClientSearch) {
+			assert.ok(instructionLines.has(`- ${toolName}`), `request for '${model}' omitted deferred client tool '${toolName}'`);
+		} else {
+			assert.ok(tool, `request for '${model}' is missing client tool '${toolName}'`);
+			assert.strictEqual(tool.description, clientTool.description, `request for '${model}' changed '${toolName}' description`);
+			if (!expectsClaudeClientSearch) {
+				assert.notStrictEqual(tool.defer_loading, true, `request for '${model}' unexpectedly deferred '${toolName}'`);
+			}
+		}
+	}
+}
+
+function assertNaturalLanguageToolSearchDefinition(description: unknown, schema: unknown, model: SnapshotModel, clientTools: readonly ToolDefinition[]): void {
+	const searchTool = clientTools.find(tool => tool.name === 'toolSearch');
+	assert.ok(searchTool, 'client profile must contain toolSearch');
+	assert.strictEqual(description, searchTool.description,
+		`client tool search for '${model}' does not use the extension's exact description`);
+	assert.deepStrictEqual(schema, searchTool.inputSchema,
+		`client tool search for '${model}' does not use the extension's exact input schema`);
+}
+
 function formatPromptSnapshot(rawBody: string): string {
 	const request = JSON.parse(rawBody) as IWireRequest;
 	const system = extractText(request.instructions ?? request.system);
@@ -431,14 +530,7 @@ function extractText(content: unknown): string {
 	return '';
 }
 
-/**
- * Elides what `CapiReplayProxy._normalize` does not: values that differ between
- * two correct runs, plus two that are stable but belong to another file's change
- * budget — the injected repository instructions, and the model catalog the CLI
- * inlines into the `Task` schema, either of which would otherwise rewrite every
- * baseline here on an unrelated edit. Each keeps its label or wrapper, so a
- * change to the shape of these lines, or their disappearance, still fails.
- */
+/** Normalizes runtime-generated values while preserving tool, instruction, and model-catalog content. */
 function normalizeVolatile(text: string): string {
 	return text
 		.replaceAll('\r\n', '\n')
@@ -446,15 +538,17 @@ function normalizeVolatile(text: string): string {
 		.replace(/<current_datetime>[^<]*<\/current_datetime>/g, '<current_datetime>${datetime}</current_datetime>')
 		.replace(/^\* Operating System: .*$/gm, '* Operating System: ${os}')
 		.replace(/^\* Available tools: .*$/gm, '* Available tools: ${available_tools}')
-		.replace(/^\* You can install (?:Linux, )?Python, JavaScript and Go packages with the (?:`apt`, )?`pip`, `npm` and `go` commands\.$/gm, '* You can install ${platform_packages}.')
-		.replace(/<custom_instruction>[\s\S]*?<\/custom_instruction>/g, '<custom_instruction>${repository_instructions}</custom_instruction>')
-		.replace(/\(\d+ models available\)/g, '(${model_count} models available)')
-		.replace(/(Available models:)(?:\n {2}- '[^']*' \([^)]*\)[^\n]*)+/g, '$1${model_catalog}')
-		// Last, so the labelled ids above keep their own placeholders.
-		.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '${uuid}');
+		.replace(/^\* You can install (?:Linux, )?Python, JavaScript and Go packages with the (?:`apt`, )?`pip`, `npm` and `go` commands\.$/gm, '* You can install ${platform_packages}.');
 }
 
 suite('Copilot prompt snapshot formatting', () => {
+	test('rejects missing or additional requests instead of silently selecting the last', () => {
+		assert.strictEqual(getInitialModelRequest(['initial']), 'initial');
+		for (const bodies of [[], ['initial', 'follow-up']]) {
+			assert.throws(() => getInitialModelRequest(bodies), /expected exactly one initial model request/);
+		}
+	});
+
 	test('rejects incomplete request body shapes', () => {
 		const validBody = {
 			system: 'System prompt',
@@ -494,7 +588,21 @@ suite('Copilot prompt snapshot formatting', () => {
 		assert.deepStrictEqual(JSON.parse(lines.slice(1, lines.indexOf('```', 1)).join('\n')), {
 			...body,
 			system: 'System prompt\n* Operating System: ${os}\n<current_datetime>${datetime}</current_datetime>',
-			metadata: { session_id: '${uuid}' },
 		});
+	});
+
+	test('preserves customization text, tool schemas, model catalogs, and literal identifiers', () => {
+		const instructions = '<custom_instruction>Keep reference 12345678-1234-1234-1234-123456789abc intact.</custom_instruction>';
+		const body = {
+			instructions,
+			tools: [{
+				name: 'task',
+				description: 'Choose a model (2 models available)\nAvailable models:\n  - \'first\' (First Model)\n  - \'second\' (Second Model)',
+				parameters: { type: 'object', properties: { model: { enum: ['first', 'second'] } }, additionalProperties: false },
+			}],
+			input: [{ role: 'user', content: [{ type: 'input_text', text: CLIENT_INSTRUCTIONS }] }],
+			new_request_field: { enabled: true },
+		};
+		assert.strictEqual(formatPromptSnapshot(JSON.stringify(body)), `\`\`\`json\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`);
 	});
 });

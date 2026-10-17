@@ -62,6 +62,12 @@ const suites: readonly ISuite[] = [
 		label: 'Copilot',
 		args: ['--run', 'src/vs/platform/agentHost/test/node/e2e/providers/copilotAgentHostE2E.integrationTest.ts'],
 	},
+	{
+		id: 'copilot-prompts',
+		label: 'Copilot prompts',
+		file: 'src/vs/platform/agentHost/test/node/e2e/providers/copilotPromptsE2E.integrationTest.ts',
+		recordProtocolSurface: false,
+	},
 ];
 
 const nodeIntegrationSuite: ISuite = {
@@ -152,7 +158,7 @@ function parseArguments(args: readonly string[]): { jobs: number; forwardedArgs:
 		throw new Error(`${conflictingArgument} is managed by the Agent Host E2E runner`);
 	}
 
-	const defaultJobs = Math.min(suites.length, availableParallelism?.() ?? cpus().length);
+	const defaultJobs = Math.min(4, availableParallelism?.() ?? cpus().length);
 	const jobs = requestedJobs === undefined ? defaultJobs : Number(requestedJobs);
 	if (!Number.isInteger(jobs) || jobs < 1) {
 		throw new Error(`Invalid Agent Host E2E worker count: ${requestedJobs}`);
@@ -195,6 +201,7 @@ async function runSuite(suite: ISuite, forwardedArgs: readonly string[], surface
 	const environment: NodeJS.ProcessEnv = {
 		...process.env,
 		VSCODE_SKIP_PRELAUNCH: '1',
+		...(suite.recordProtocolSurface === false ? { AGENT_HOST_RECORD_PROTOCOL_SURFACE: '0' } : {}),
 		...(surfaceOutput ? { AGENT_HOST_PROTOCOL_SURFACE_OUT: surfaceOutput } : {}),
 	};
 	delete environment.ELECTRON_RUN_AS_NODE;

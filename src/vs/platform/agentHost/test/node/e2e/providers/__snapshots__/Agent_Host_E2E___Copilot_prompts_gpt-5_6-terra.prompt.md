@@ -12,9 +12,36 @@
         }
       ],
       "type": "message"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "<system_reminder>\nIMPORTANT: The tools listed below are deferred — their full definitions are NOT loaded, so you cannot call them directly yet. Whenever a task could be served by any of these tools, you MUST FIRST call the tool search tool. Do not guess a deferred tool's arguments, or signature, and never invoke one before searching for it.\n\nOther tools:\n- clickElement\n- dragElement\n- handleDialog\n- hoverElement\n- navigatePage\n- openBrowserPage\n- readPage\n- runPlaywrightCode\n- screenshotPage\n- testFailure\n- typeInPage\n</system_reminder>"
+        }
+      ],
+      "type": "message"
     }
   ],
   "tools": [
+    {
+      "type": "tool_search",
+      "execution": "client",
+      "description": "Search for relevant tools by describing what you need. Returns tool references for tools matching your query. Use this when you need to find a tool but aren't sure of its exact name. Check the deferred tools list in your instructions for the full set of deferred tools, and include relevant tool names from that list in your query for more accurate results. Use broad queries to find all related tools in a single call rather than making multiple narrow searches.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language description of what tool capability you are looking for. Use broad queries to cover related tools in one search (e.g., \"github\" instead of separate searches for issues and PRs)."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
     {
       "name": "bash",
       "description": "Runs a Bash command.\n* The \"command\" parameter does NOT need to be XML-escaped.\n* You can run Python, Node.js and Go code with `python`, `node` and `go`.\n* Sync sessions are discarded after the command completes. Use async mode for sessions that need follow-up interaction.\n* `initial_wait` must be 30-600 seconds. Use short waits for commands that you can leave running in the background — you'll be notified when commands complete. Use longer waits (120+ seconds) for commands that you need to wait for.\n* If a command hasn't completed within initial_wait, it returns partial output and continues running. Use `read_bash` for more output or `stop_bash` to stop it.\n* You can install ${platform_packages}.",
@@ -598,6 +625,113 @@
           "prompt",
           "agent_type",
           "description"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "rename",
+      "description": "Rename a code symbol across the workspace using the language server's rename functionality. This performs a precise, semantics-aware rename that updates all references.\n\nInput:\n- \"symbol\": The exact current name of the symbol to rename.\n- \"newName\": The new name for the symbol.\n- \"uri\": A full URI (e.g. \"file:///path/to/file.ts\") of a file within the current workspace or working directory where the symbol appears. Provide either \"uri\" or \"filePath\".\n- \"filePath\": A file path relative to the current working directory when one is set, otherwise the first workspace folder (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\".\n- \"lineContent\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\n\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\n\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\n\nIf the file's language has no rename provider registered, the tool returns an error.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The exact current name of the symbol to rename."
+          },
+          "newName": {
+            "type": "string",
+            "description": "The new name for the symbol."
+          },
+          "uri": {
+            "type": "string",
+            "description": "A full URI of a file within the current workspace or working directory where the symbol appears (e.g. \"file:///path/to/file.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "A file path relative to the current working directory when one is set, otherwise the first workspace folder, where the symbol appears (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "lineContent": {
+            "type": "string",
+            "description": "A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file."
+          }
+        },
+        "required": [
+          "symbol",
+          "newName",
+          "lineContent"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "runTests",
+      "description": "Runs unit tests in files. Use this tool if the user asks to run tests or when you want to validate changes using unit tests, and prefer using this tool instead of the terminal tool. When possible, always try to provide `files` paths containing the relevant unit tests in order to avoid unnecessarily long test runs. This tool outputs detailed information about the results of the test run. Set mode=\"coverage\" to also collect coverage and optionally provide coverageFiles for focused reporting.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Absolute paths to the test files to run. If not provided, all test files will be run."
+          },
+          "testNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "An array of test names to run. Depending on the context, test names defined in code may be strings or the names of functions or classes containing the test cases. If not provided, all tests in the files will be run."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "run",
+              "coverage"
+            ],
+            "description": "Execution mode: \"run\" (default) runs tests normally, \"coverage\" collects coverage."
+          },
+          "coverageFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "When mode=\"coverage\": absolute file paths to include detailed coverage info for. If not provided, a file-level summary of all files with incomplete coverage is shown."
+          }
+        }
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "usages",
+      "description": "Find all usages (references, definitions, and implementations) of a code symbol across the workspace. This tool locates where a symbol is referenced, defined, or implemented.\n\nInput:\n- \"symbol\": The exact name of the symbol to search for (function, class, method, variable, type, etc.).\n- \"uri\": A full URI (e.g. \"file:///path/to/file.ts\") of a file within the current workspace or working directory where the symbol appears. Provide either \"uri\" or \"filePath\".\n- \"filePath\": A file path relative to the current working directory when one is set, otherwise the first workspace folder (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\".\n- \"lineContent\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\n\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\n\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\n\nIf the file's language has no reference provider registered, the tool returns an error.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The exact name of the symbol (function, class, method, variable, type, etc.) to find usages of."
+          },
+          "uri": {
+            "type": "string",
+            "description": "A full URI of a file within the current workspace or working directory where the symbol appears (e.g. \"file:///path/to/file.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "A file path relative to the current working directory when one is set, otherwise the first workspace folder, where the symbol appears (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "lineContent": {
+            "type": "string",
+            "description": "A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file."
+          }
+        },
+        "required": [
+          "symbol",
+          "lineContent"
         ]
       },
       "strict": false,

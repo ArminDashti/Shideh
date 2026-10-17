@@ -651,6 +651,455 @@
       "type": "function"
     },
     {
+      "name": "clickElement",
+      "description": "Click on an element in a browser page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element reference to click."
+          },
+          "selector": {
+            "type": "string",
+            "description": "Playwright selector of the element to click when \"ref\" is not available."
+          },
+          "element": {
+            "type": "string",
+            "description": "Human-readable description of the element to click (e.g., \"submit button\", \"search icon\")."
+          },
+          "dblClick": {
+            "type": "boolean",
+            "description": "Set to true for double clicks. Default is false."
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right",
+              "middle"
+            ],
+            "description": "Mouse button to click with. Default is \"left\"."
+          }
+        },
+        "required": [
+          "pageId",
+          "element"
+        ],
+        "$comment": "One of \"ref\" or \"selector\" is required."
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "dragElement",
+      "description": "Drag an element over another element in a browser page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "fromRef": {
+            "type": "string",
+            "description": "Element reference of the element to drag."
+          },
+          "fromSelector": {
+            "type": "string",
+            "description": "Playwright selector of the element to drag when \"fromRef\" is not available."
+          },
+          "fromElement": {
+            "type": "string",
+            "description": "Human-readable description of the element to drag (e.g., \"file item\", \"draggable card\")."
+          },
+          "toRef": {
+            "type": "string",
+            "description": "Element reference of the element to drop onto."
+          },
+          "toSelector": {
+            "type": "string",
+            "description": "Playwright selector of the element to drop onto when \"toRef\" is not available."
+          },
+          "toElement": {
+            "type": "string",
+            "description": "Human-readable description of the element to drop onto (e.g., \"drop zone\", \"target folder\")."
+          }
+        },
+        "required": [
+          "pageId",
+          "fromElement",
+          "toElement"
+        ],
+        "$comment": "One of \"fromRef\" or \"fromSelector\" is required, and one of \"toRef\" or \"toSelector\" is required."
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "handleDialog",
+      "description": "Respond to a pending modal (alert, confirm, prompt) or file chooser dialog on a browser page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "acceptModal": {
+            "type": "boolean",
+            "description": "Whether to accept (true) or dismiss (false) a modal dialog."
+          },
+          "promptText": {
+            "type": "string",
+            "description": "Text to enter into a prompt dialog."
+          },
+          "selectFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Absolute paths of files to select, or empty to dismiss. Required for file chooser dialogs."
+          }
+        },
+        "required": [
+          "pageId"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "hoverElement",
+      "description": "Hover over an element in a browser page. Provide either a Playwright selector or an element reference.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element reference to hover over."
+          },
+          "selector": {
+            "type": "string",
+            "description": "Playwright selector of the element to hover over when \"ref\" is not available."
+          },
+          "element": {
+            "type": "string",
+            "description": "Human-readable description of the element to hover over (e.g., \"navigation menu\", \"tooltip trigger\")."
+          }
+        },
+        "required": [
+          "pageId",
+          "element"
+        ],
+        "$comment": "One of \"ref\" or \"selector\" is required."
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "navigatePage",
+      "description": "Navigate a browser page by URL, history, or reload.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID to navigate, acquired from context or the open tool."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "url",
+              "back",
+              "forward",
+              "reload"
+            ],
+            "description": "Navigation type: \"url\" to navigate to a URL (default, requires \"url\" param), \"back\" or \"forward\" for history, \"reload\" to refresh."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL to navigate to. Required when type is \"url\"."
+          }
+        },
+        "required": [
+          "pageId"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "openBrowserPage",
+      "description": "Open a new browser page in the integrated browser at the given URL.\nMay prompt the user to share a page if there is a similar one already open, unless \"forceNew\" is true.\nReturns a page ID that must be used with other browser tools to interact with the page, as well as an accessibility snapshot of the page.\n\nImportant: Prefer to reuse existing pages whenever possible and only call this tool if you do not already have access to a tab you can reuse.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to open in the browser. Must be an absolute URI with a scheme such as file:, http:, or https:. For local files, use the canonical absolute form, for example file:///path/to/file."
+          },
+          "forceNew": {
+            "type": "boolean",
+            "description": "Whether to force opening a new page even if a page with the same host already exists. Default is false."
+          }
+        },
+        "$comment": "If you omit \"url\", the user will be prompted to share an existing page instead. Use this if there are unshared pages that the user may be interested in sharing with you."
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "readPage",
+      "description": "Get a snapshot of the current browser page state. This is better than screenshot.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID to read, acquired from context or the open tool."
+          }
+        },
+        "required": [
+          "pageId"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "rename",
+      "description": "Rename a code symbol across the workspace using the language server's rename functionality. This performs a precise, semantics-aware rename that updates all references.\n\nInput:\n- \"symbol\": The exact current name of the symbol to rename.\n- \"newName\": The new name for the symbol.\n- \"uri\": A full URI (e.g. \"file:///path/to/file.ts\") of a file within the current workspace or working directory where the symbol appears. Provide either \"uri\" or \"filePath\".\n- \"filePath\": A file path relative to the current working directory when one is set, otherwise the first workspace folder (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\".\n- \"lineContent\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\n\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\n\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\n\nIf the file's language has no rename provider registered, the tool returns an error.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The exact current name of the symbol to rename."
+          },
+          "newName": {
+            "type": "string",
+            "description": "The new name for the symbol."
+          },
+          "uri": {
+            "type": "string",
+            "description": "A full URI of a file within the current workspace or working directory where the symbol appears (e.g. \"file:///path/to/file.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "A file path relative to the current working directory when one is set, otherwise the first workspace folder, where the symbol appears (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "lineContent": {
+            "type": "string",
+            "description": "A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file."
+          }
+        },
+        "required": [
+          "symbol",
+          "newName",
+          "lineContent"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "runPlaywrightCode",
+      "description": "Run a Playwright code snippet to control a browser page. Only use this if other browser tools are insufficient.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "code": {
+            "type": "string",
+            "description": "The Playwright code to execute. The code must be concise, serve one clear purpose, and be self-contained. You **must not** directly access `document` or `window` using this tool. You must access it via the provided `page` object, e.g. \"return page.evaluate(() => document.title)\". Omit this when resuming a deferred execution via deferredResultId."
+          },
+          "deferredResultId": {
+            "type": "string",
+            "description": "If a previous call returned a deferredResultId, pass it here to continue waiting for that execution to complete."
+          },
+          "timeoutMs": {
+            "type": "number",
+            "description": "Maximum time in milliseconds to wait for the code to complete. Defaults to 5000 (5 seconds)."
+          }
+        },
+        "required": [
+          "pageId"
+        ],
+        "$comment": "Either \"code\" or \"deferredResultId\" must be provided."
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "runTests",
+      "description": "Runs unit tests in files. Use this tool if the user asks to run tests or when you want to validate changes using unit tests, and prefer using this tool instead of the terminal tool. When possible, always try to provide `files` paths containing the relevant unit tests in order to avoid unnecessarily long test runs. This tool outputs detailed information about the results of the test run. Set mode=\"coverage\" to also collect coverage and optionally provide coverageFiles for focused reporting.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Absolute paths to the test files to run. If not provided, all test files will be run."
+          },
+          "testNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "An array of test names to run. Depending on the context, test names defined in code may be strings or the names of functions or classes containing the test cases. If not provided, all tests in the files will be run."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "run",
+              "coverage"
+            ],
+            "description": "Execution mode: \"run\" (default) runs tests normally, \"coverage\" collects coverage."
+          },
+          "coverageFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "When mode=\"coverage\": absolute file paths to include detailed coverage info for. If not provided, a file-level summary of all files with incomplete coverage is shown."
+          }
+        }
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "screenshotPage",
+      "description": "Capture a screenshot of the current browser page. You can't perform actions based on the screenshot; use read_page for actions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID to capture, acquired from context or the open tool."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element reference to capture. If omitted, captures the whole viewport."
+          },
+          "selector": {
+            "type": "string",
+            "description": "Playwright selector of an element to capture when \"ref\" is not available. If omitted, captures the whole viewport."
+          },
+          "element": {
+            "type": "string",
+            "description": "Human-readable description of the element to capture (e.g., \"chart diagram\", \"product image\")."
+          },
+          "scrollIntoViewIfNeeded": {
+            "type": "boolean",
+            "description": "Whether to scroll the element into view before capturing. Defaults to false."
+          }
+        },
+        "required": [
+          "pageId"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "testFailure",
+      "description": "Includes test failure information in the prompt. Use this tool to get the details of test failures from the most recent test run. If there are no failures yet, suggest running tests first.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "typeInPage",
+      "description": "Type text or press keys in a browser page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "description": "The browser page ID, acquired from context or the open tool."
+          },
+          "text": {
+            "type": "string",
+            "description": "The text to type. One of \"text\" or \"key\" must be provided."
+          },
+          "submit": {
+            "type": "boolean",
+            "description": "Whether to press Enter after typing text. Ignored when \"key\" is provided. Default is false."
+          },
+          "key": {
+            "type": "string",
+            "description": "A key or key combination to press (e.g., \"Enter\", \"Tab\", \"Control+c\"). One of \"text\" or \"key\" must be provided."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element reference to focus and type into. If omitted, types into the focused element."
+          },
+          "selector": {
+            "type": "string",
+            "description": "Playwright selector of element to focus and type into. Use if \"ref\" is not available. If omitted, types into the focused element."
+          },
+          "element": {
+            "type": "string",
+            "description": "Human-readable description of the element to type into (e.g., \"search box\", \"comment field\"). Required when \"ref\" or \"selector\" is specified."
+          }
+        },
+        "required": [
+          "pageId"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
+      "name": "usages",
+      "description": "Find all usages (references, definitions, and implementations) of a code symbol across the workspace. This tool locates where a symbol is referenced, defined, or implemented.\n\nInput:\n- \"symbol\": The exact name of the symbol to search for (function, class, method, variable, type, etc.).\n- \"uri\": A full URI (e.g. \"file:///path/to/file.ts\") of a file within the current workspace or working directory where the symbol appears. Provide either \"uri\" or \"filePath\".\n- \"filePath\": A file path relative to the current working directory when one is set, otherwise the first workspace folder (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\".\n- \"lineContent\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\n\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\n\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\n\nIf the file's language has no reference provider registered, the tool returns an error.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The exact name of the symbol (function, class, method, variable, type, etc.) to find usages of."
+          },
+          "uri": {
+            "type": "string",
+            "description": "A full URI of a file within the current workspace or working directory where the symbol appears (e.g. \"file:///path/to/file.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "A file path relative to the current working directory when one is set, otherwise the first workspace folder, where the symbol appears (e.g. \"src/utils/helpers.ts\"). Provide either \"uri\" or \"filePath\"."
+          },
+          "lineContent": {
+            "type": "string",
+            "description": "A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file."
+          }
+        },
+        "required": [
+          "symbol",
+          "lineContent"
+        ]
+      },
+      "strict": false,
+      "type": "function"
+    },
+    {
       "name": "addComment",
       "description": "Add a comment to a file range.",
       "parameters": {
