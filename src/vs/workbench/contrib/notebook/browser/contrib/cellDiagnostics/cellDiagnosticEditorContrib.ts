@@ -114,7 +114,7 @@ export class CellDiagnostics extends Disposable implements INotebookEditorContri
 		}
 
 		const metadata = cell.model.internalMetadata;
-		if (cell instanceof CodeCellViewModel && !metadata.lastRunSuccess && metadata?.error?.location) {
+		if (cell instanceof CodeCellViewModel && !metadata.lastRunSuccess) {
 			const disposables: IDisposable[] = [];
 			const errorLabel = metadata.error.name ? `${metadata.error.name}: ${metadata.error.message}` : metadata.error.message;
 			const marker = this.createMarkerData(errorLabel, metadata.error.location);

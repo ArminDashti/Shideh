@@ -8,7 +8,7 @@ import { autorun } from '../../../../../../base/common/observable.js';
 import { localize } from '../../../../../../nls.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
-import { OPEN_CELL_FAILURE_ACTIONS_COMMAND_ID } from './cellDiagnosticsActions.js';
+import { FIX_CELL_ERROR_COMMAND_ID, OPEN_CELL_FAILURE_ACTIONS_COMMAND_ID } from './cellDiagnosticsActions.js';
 import { NotebookStatusBarController } from '../cellStatusBar/executionStatusBarItemController.js';
 import { INotebookEditor, INotebookEditorContribution, INotebookViewModel } from '../../notebookBrowser.js';
 import { registerNotebookContribution } from '../../notebookEditorExtensions.js';
@@ -54,24 +54,29 @@ class DiagnosticCellStatusBarItem extends Disposable {
 		return !!agents.find(agent => agent.locations.includes(ChatAgentLocation.Notebook));
 	}
 
-	private async updateSparkleItem(error: ICellExecutionError | undefined) {
-		let item: INotebookCellStatusBarItem | undefined;
+	private async updateQuickActions(error: ICellExecutionError | undefined) {
+		let items: INotebookCellStatusBarItem[] = [];
 
 		if (error?.location && this.hasNotebookAgent()) {
 			const tooltip = this.keybindingService.appendKeybinding(
 				localize('notebook.cell.status.diagnostic', "Quick Actions"),
 				OPEN_CELL_FAILURE_ACTIONS_COMMAND_ID);
 
-			item = {
-				text: `$(sparkle)`,
+			items = [{
+				text: `$(sparkle) fix`,
+				tooltip,
+				alignment: CellStatusbarAlignment.Left,
+				command: FIX_CELL_ERROR_COMMAND_ID,
+				priority: Number.MAX_SAFE_INTEGER - 1
+			}, {
+				text: `$(sparkle) explain`,
 				tooltip,
 				alignment: CellStatusbarAlignment.Left,
 				command: OPEN_CELL_FAILURE_ACTIONS_COMMAND_ID,
 				priority: Number.MAX_SAFE_INTEGER - 1
-			};
+			}];
 		}
 
-		const items = item ? [item] : [];
 		this._currentItemIds = this._notebookViewModel.deltaCellStatusBarItems(this._currentItemIds, [{ handle: this.cell.handle, items }]);
 	}
 
