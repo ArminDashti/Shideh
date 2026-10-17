@@ -26,6 +26,10 @@ class TestableAskQuestionsTool extends AskQuestionsTool {
 		}
 		return this.convertCarouselAnswers(questions, carouselAnswers, idToHeaderMap);
 	}
+
+	public testSanitizeQuestion(question: IQuestion): IQuestion {
+		return this.sanitizeQuestion(question);
+	}
 }
 
 suite('AskQuestionsTool - convertCarouselAnswers', () => {

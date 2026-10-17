@@ -185,12 +185,15 @@ export class AskQuestionsTool extends Disposable implements IToolImpl {
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
 		const stopWatch = StopWatch.create(true);
 		const parameters = invocation.parameters as IAskQuestionsParams;
-		const { questions } = parameters;
-		this.logService.trace(`[AskQuestionsTool] Invoking with ${questions?.length ?? 0} question(s)`);
+		const rawQuestions = parameters.questions;
+		this.logService.trace(`[AskQuestionsTool] Invoking with ${rawQuestions?.length ?? 0} question(s)`);
 
-		if (!questions || questions.length === 0) {
+		if (!rawQuestions || rawQuestions.length === 0) {
 			throw new Error(localize('askQuestionsTool.noQuestions', 'No questions provided. The questions array must contain at least one question.'));
 		}
+
+		// Apply hard limits to guard against model overshoot of the soft-limit hints in the schema
+		const questions = rawQuestions.map(q => this.sanitizeQuestion(q));
 
 		const chatSessionResource = invocation.context?.sessionResource;
 		const chatRequestId = invocation.chatRequestId;
