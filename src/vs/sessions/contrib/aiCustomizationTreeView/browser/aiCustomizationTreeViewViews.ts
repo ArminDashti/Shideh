@@ -382,6 +382,13 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 			},
 			{
 				type: 'link',
+				id: 'link-automations',
+				label: localize('automations', "Automations"),
+				icon: automationIcon,
+				section: AICustomizationManagementSection.Automations,
+			},
+			{
+				type: 'link',
 				id: 'link-mcp-servers',
 				label: localize('mcpServers', "MCP Servers"),
 				icon: mcpServerIcon,
