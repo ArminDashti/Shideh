@@ -228,6 +228,9 @@ interface ICopilotSessionMetadataCache {
 	references: number;
 }
 
+/** How often the runtime connection is probed while a turn is in flight. */
+const COPILOT_TURN_KEEPALIVE_INTERVAL_MS = 30_000;
+
 interface ICopilotClosedConnectionRecoveryResult {
 	readonly failedTurnIds: ReadonlySet<string>;
 	readonly stopSucceeded: boolean;
@@ -1321,6 +1324,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * session making the call.
 	 */
 	private _onChatTurnEnded(): void {
+		this._updateTurnKeepalive();
 		if (this._pendingClientRestartReasons.size === 0) {
 			return;
 		}
@@ -4833,6 +4837,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 				return;
 			}
 			throw error;
+		} finally {
+			// The runtime now drives the turn over notifications, so watch the
+			// connection until the turn ends.
+			this._updateTurnKeepalive();
 		}
 	}
 

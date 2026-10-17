@@ -569,7 +569,7 @@ interface ITestCopilotModelInfo {
 	readonly supportedReasoningEfforts?: CopilotModelInfo['supportedReasoningEfforts'];
 }
 
-interface ITestCopilotClient extends Pick<CopilotClient, 'start' | 'stop' | 'listSessions' | 'createSession' | 'resumeSession' | 'getSessionMetadata' | 'deleteSession'> {
+interface ITestCopilotClient extends Pick<CopilotClient, 'start' | 'stop' | 'ping' | 'listSessions' | 'createSession' | 'resumeSession' | 'getSessionMetadata' | 'deleteSession'> {
 	readonly rpc: {
 		readonly agents: CopilotAgentDiscovery;
 		readonly instructions: CopilotInstructionDiscovery;
@@ -789,6 +789,13 @@ class TestCopilotClient implements ITestCopilotClient {
 	async stop(): ReturnType<ITestCopilotClient['stop']> {
 		this.stopCallCount++;
 		return [];
+	}
+	async ping(message?: string): ReturnType<ITestCopilotClient['ping']> {
+		this.pingCallCount++;
+		if (this.pingError) {
+			throw this.pingError;
+		}
+		return { message: message ?? '', timestamp: new Date(0).toISOString() };
 	}
 	async listSessions(): ReturnType<ITestCopilotClient['listSessions']> {
 		this.listSessionCallCount++;
@@ -1206,6 +1213,8 @@ class TestableCopilotAgent extends CopilotAgent {
 	// Keep model-refresh retries effectively instant in tests.
 	protected override readonly _modelRefreshBaseDelayMs = 1;
 	protected override readonly _modelRefreshMaxDelayMs = 2;
+	// Keep the in-flight-turn liveness probe fast enough to observe in tests.
+	protected override readonly _turnKeepaliveIntervalMs = 1;
 
 	constructor(
 		private readonly _copilotClient: ITestCopilotClient,
