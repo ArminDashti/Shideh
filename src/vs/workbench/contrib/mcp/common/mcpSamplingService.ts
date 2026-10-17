@@ -302,7 +302,7 @@ export class McpSamplingService extends Disposable implements IMcpSamplingServic
 			const mapping = getConfigValueInTarget(configValue, target);
 			const config = mapping?.[key];
 			if (config) {
-				return { value: config, key, mapping, target, resource };
+				return { value: config, key, target, resource };
 			}
 		}
 
@@ -310,14 +310,18 @@ export class McpSamplingService extends Disposable implements IMcpSamplingServic
 	}
 
 	public async updateConfig(server: IMcpServer, mutate: (r: IMcpServerSamplingConfiguration) => unknown) {
-		const { value, mapping, key, target, resource } = this._getConfig(server);
+		const { value, key, target, resource } = this._getConfig(server);
 
 		const newConfig = { ...value };
 		mutate(newConfig);
 
+		// Read the full existing configuration from the target scope to preserve other servers
+		const configValue = this._configurationService.inspect<Record<string, IMcpServerSamplingConfiguration>>(mcpServerSamplingSection, { resource });
+		const existingMapping = getConfigValueInTarget(configValue, target) || {};
+
 		await this._configurationService.updateValue(
 			mcpServerSamplingSection,
-			{ ...mapping, [key]: newConfig },
+			{ ...existingMapping, [key]: newConfig },
 			{ resource },
 			target,
 		);
