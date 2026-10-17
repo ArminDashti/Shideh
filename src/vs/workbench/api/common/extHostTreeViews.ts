@@ -434,6 +434,9 @@ class ExtHostTreeView<T> extends Disposable {
 					return this._refresh(elements).then(() => {
 						this._debugLogRefresh('done', elements, childrenToClear);
 						this._clearNodes(childrenToClear);
+						try {
+							this._logService.info(`[treeView:${this._viewId}] cleared nodes`);
+						} catch { /* ignore logging errors */ }
 						return _promiseCallback();
 					}).catch(e => {
 						const message = e instanceof Error ? e.message : JSON.stringify(e);
