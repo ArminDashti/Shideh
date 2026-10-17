@@ -26,7 +26,7 @@ export const OutputInnerContainerTopPadding = 4;
 
 export interface NotebookDisplayOptions { // TODO @Yoyokrazy rename to a more generic name, not display
 	showCellStatusBar: ShowCellStatusBarType;
-	cellToolbarLocation: string | { [key: string]: string };
+	cellToolbarLocation: 'left' | 'right' | 'hidden';
 	cellToolbarInteraction: string;
 	compactView: boolean;
 	focusIndicator: 'border' | 'gutter';
@@ -160,7 +160,7 @@ export class NotebookOptions extends Disposable {
 		const consolidatedOutputButton = this.configurationService.getValue<boolean | undefined>(NotebookSetting.consolidatedOutputButton) ?? true;
 		const consolidatedRunButton = this.configurationService.getValue<boolean | undefined>(NotebookSetting.consolidatedRunButton) ?? false;
 		const dragAndDropEnabled = overrides?.dragAndDropEnabled ?? this.configurationService.getValue<boolean | undefined>(NotebookSetting.dragAndDropEnabled) ?? true;
-		const cellToolbarLocation = this.configurationService.getValue<string | { [key: string]: string }>(NotebookSetting.cellToolbarLocation) ?? { 'default': 'right' };
+		const cellToolbarLocation = this._migrateCellToolbarSetting();
 		const cellToolbarInteraction = overrides?.cellToolbarInteraction ?? this.configurationService.getValue<string>(NotebookSetting.cellToolbarVisibility);
 		const compactView = this.configurationService.getValue<boolean | undefined>(NotebookSetting.compactView) ?? true;
 		const focusIndicator = this._computeFocusIndicatorOption();
@@ -412,7 +412,7 @@ export class NotebookOptions extends Disposable {
 		}
 
 		if (cellToolbarLocation) {
-			configuration.cellToolbarLocation = this.configurationService.getValue<string | { [key: string]: string }>(NotebookSetting.cellToolbarLocation) ?? { 'default': 'right' };
+			configuration.cellToolbarLocation = this._migrateCellToolbarSetting();
 		}
 
 		if (cellToolbarInteraction && !this.overrides?.cellToolbarInteraction) {
@@ -676,32 +676,8 @@ export class NotebookOptions extends Disposable {
 	computeCellToolbarLocation(viewType?: string): 'right' | 'left' | 'hidden' {
 		const cellToolbarLocation = this._layoutConfiguration.cellToolbarLocation;
 
-		if (typeof cellToolbarLocation === 'string') {
-			if (cellToolbarLocation === 'left' || cellToolbarLocation === 'right' || cellToolbarLocation === 'hidden') {
-				return cellToolbarLocation;
-			}
-		} else {
-			if (viewType) {
-				const notebookSpecificSetting = cellToolbarLocation[viewType] ?? cellToolbarLocation['default'];
-				let cellToolbarLocationForCurrentView: 'right' | 'left' | 'hidden' = 'right';
-
-				switch (notebookSpecificSetting) {
-					case 'left':
-						cellToolbarLocationForCurrentView = 'left';
-						break;
-					case 'right':
-						cellToolbarLocationForCurrentView = 'right';
-						break;
-					case 'hidden':
-						cellToolbarLocationForCurrentView = 'hidden';
-						break;
-					default:
-						cellToolbarLocationForCurrentView = 'right';
-						break;
-				}
-
-				return cellToolbarLocationForCurrentView;
-			}
+		if (cellToolbarLocation === 'left' || cellToolbarLocation === 'right' || cellToolbarLocation === 'hidden') {
+			return cellToolbarLocation;
 		}
 
 		return 'right';
