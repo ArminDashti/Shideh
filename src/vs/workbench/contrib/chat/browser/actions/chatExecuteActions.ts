@@ -955,6 +955,76 @@ class SendToChatAndCreateNewChatAction extends Action2 {
 	}
 }
 
+export class ChatWorktreeAction extends Action2 {
+	static readonly ID = 'workbench.action.chat.worktree';
+
+	constructor() {
+		super({
+			id: ChatWorktreeAction.ID,
+			title: localize2('chat.worktree.label', "Delegate to Worktree"),
+			category: CHAT_CATEGORY,
+			f1: false,
+			icon: Codicon.listTree,
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('config.chat.worktree.enabled', true),
+				ChatContextKeys.inputHasText
+			),
+			menu: [
+				{
+					id: MenuId.ChatExecute,
+					group: 'navigation',
+					order: 3.1,
+					when: ContextKeyExpr.and(
+						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Panel),
+						ContextKeyExpr.equals('config.chat.worktree.enabled', true),
+						ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent)
+					)
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor, ...args: any[]): Promise<void> {
+		const context: IChatExecuteActionContext | undefined = args[0];
+		const widgetService = accessor.get(IChatWidgetService);
+		const commandService = accessor.get(ICommandService);
+		const dialogService = accessor.get(IDialogService);
+
+		const widget = context?.widget ?? widgetService.lastFocusedWidget;
+		if (!widget) {
+			return;
+		}
+
+
+		// Get the current user input from chat
+		const userInput = widget.getInput();
+
+		if (!userInput) {
+			return;
+		}
+
+		// Show confirmation dialog
+		const result = await dialogService.confirm({
+			title: localize('worktree.confirm.title', "Create Worktree"),
+			message: localize('worktree.confirm.message', "Create a worktree and delegate this task to Copilot."),
+			detail: localize('worktree.confirm.detail', "You will create a new branch and worktree where Copilot can work on this task."),
+			primaryButton: localize('worktree.confirm.ok', "OK"),
+			cancelButton: localize('worktree.confirm.cancel', "Cancel")
+		});
+
+		if (!result.confirmed) {
+			return; // User cancelled
+		}
+
+		// Clear the chat input since we're delegating the work
+		widget.setInput('');
+
+		// Create the worktree (this will open the VS Code flow for branch/path selection)
+		await commandService.executeCommand('git.createWorktree', undefined, true);
+
+	}
+}
+
 export const CancelChatActionId = 'workbench.action.chat.cancel';
 export class CancelAction extends Action2 {
 	static readonly ID = CancelChatActionId;

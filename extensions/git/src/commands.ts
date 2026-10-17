@@ -3678,7 +3678,7 @@ export class CommandCenter {
 			return;
 		}
 
-		await this._createWorktree(repository);
+		await this._createWorktree(repository, chatWorktreeEnabled);
 	}
 
 	async _createWorktree(repository: Repository): Promise<void> {
@@ -3720,16 +3720,6 @@ export class CommandCenter {
 		const showRefDetails = config.get<boolean>('showReferenceDetails') === true;
 
 		const createBranch = new CreateBranchItem();
-		const getBranchPicks = async () => {
-			const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
-			const itemsProcessor = new RefItemsProcessor(repository, [
-				new RefProcessor(RefType.Head),
-				new RefProcessor(RefType.RemoteHead),
-				new RefProcessor(RefType.Tag)
-			]);
-			const branchItems = itemsProcessor.processRefs(refs);
-			return [createBranch, { label: '', kind: QuickPickItemKind.Separator }, ...branchItems];
-		};
 
 		const placeHolder = l10n.t('Select a branch or tag to create the new worktrees from');
 		const choice = await this.pickRef(getBranchPicks(), placeHolder);
