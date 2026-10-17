@@ -566,6 +566,51 @@ export class TreeRenderer<T, TFilterData, TRef, TTemplateData> implements IListR
 		templateData.indentGuidesDisposable = disposableStore;
 	}
 
+	private isCheckboxTree(): boolean {
+		// Check if the renderer is the custom tree view renderer with checkboxes
+		// We use duck typing to detect if this is a checkbox tree
+		const renderer = this.renderer as any;
+		return (
+			('onDidChangeCheckboxState' in renderer && typeof renderer.onDidChangeCheckboxState === 'object') ||
+			('renderCheckbox' in renderer && typeof renderer.renderCheckbox === 'function') ||
+			('checkbox' in renderer) ||
+			// Check for common checkbox-related template IDs or properties
+			(this.templateId && this.templateId.includes('checkbox'))
+		);
+	}
+
+	private isFlatTree(): boolean {
+		// Check if the tree model has only top-level nodes (depth 1)
+		// by examining the root node's children
+		try {
+			const rootNode = this.model.getNode();
+			if (!rootNode.children) {
+				return true; // No children means it's effectively flat
+			}
+			
+			// Check if any child has its own children (which would make it not flat)
+			for (const child of rootNode.children) {
+				if (child.children && child.children.length > 0) {
+					return false; // Found a child with its own children, not flat
+				}
+			}
+			return true; // All children are leaf nodes, so it's flat
+		} catch {
+			// Fallback: if we can't access the model, check rendered nodes
+			// but only if we have a reasonable number of rendered nodes
+			if (this.renderedNodes.size === 0) {
+				return true; // Assume flat if no nodes rendered yet
+			}
+			
+			for (const [node] of this.renderedNodes) {
+				if (node.depth > 1) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
 	private _onDidChangeActiveNodes(nodes: ITreeNode<T, TFilterData>[]): void {
 		if (!this.shouldRenderIndentGuides) {
 			return;
