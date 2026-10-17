@@ -234,6 +234,48 @@ export type ChatProviderInvokedClassification = ChatSessionModeClassification & 
 	comment: 'Provides insight into the performance of Chat agents.';
 };
 
+type ChatSessionCreatedEvent = {
+	location: string;
+	isRestored: boolean;
+	duration: number;
+};
+
+type ChatSessionCreatedClassification = {
+	location: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Location where session was created (Chat, EditorInline, etc.).' };
+	isRestored: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether this was a restored session or new session.' };
+	duration: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Time taken to create session in milliseconds.' };
+	owner: 'microsoft';
+	comment: 'Tracks chat session creation performance and patterns.';
+};
+
+type ChatSessionRestoredEvent = {
+	sessionId: string;
+	success: boolean;
+	duration: number;
+};
+
+type ChatSessionRestoredClassification = {
+	sessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Anonymized session identifier for correlation.' };
+	success: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the session was successfully restored.' };
+	duration: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Time taken to restore session in milliseconds.' };
+	owner: 'microsoft';
+	comment: 'Tracks chat session restoration performance and success rates.';
+};
+
+type ChatSessionClearedEvent = {
+	sessionId: string;
+	requestCount: number;
+	savedToHistory: boolean;
+};
+
+type ChatSessionClearedClassification = {
+	sessionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Anonymized session identifier for correlation.' };
+	requestCount: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Number of requests in the session when cleared.' };
+	savedToHistory: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; isMeasurement: true; comment: 'Whether the session was saved to history before clearing.' };
+	owner: 'microsoft';
+	comment: 'Tracks chat session clearing patterns and usage.';
+};
+
 export class ChatServiceTelemetry {
 	constructor(
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
