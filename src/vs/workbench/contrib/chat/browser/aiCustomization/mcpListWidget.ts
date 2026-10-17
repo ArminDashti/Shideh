@@ -1795,6 +1795,7 @@ export class McpListWidget extends Disposable {
 	private connectorsLoadGeneration = 0;
 	private visible = false;
 	private mcpAccessEnabled = false;
+	private legacyMarketplaceEnabled = false;
 	private firstCardFocusElement: HTMLElement | undefined;
 	private narrowLayout = false;
 	private wideLayout = false;
@@ -1851,6 +1852,7 @@ export class McpListWidget extends Disposable {
 		));
 		this._register(resizeObserver.observe(this.element));
 		this.updateAccessState();
+		this.updateLegacyMarketplaceState();
 		this._register(mcpGalleryManifestService.onDidChangeMcpGalleryManifest(() => {
 			if (this.isGalleryDiscoveryEnabled()) {
 				return;
@@ -1884,6 +1886,13 @@ export class McpListWidget extends Disposable {
 			}
 			if (e.affectsConfiguration(ChatConfiguration.ChatCustomizationsMigrationEnabled)) {
 				this.updateMcpServerCompatibilityScope();
+			}
+			if (this.customizationMarketplaceService.sources.some(source => e.affectsConfiguration(source.enablementSetting))) {
+				const wasEnabled = this.legacyMarketplaceEnabled;
+				this.updateLegacyMarketplaceState();
+				if (!wasEnabled && this.legacyMarketplaceEnabled) {
+					void mcpGalleryManifestService.getMcpGalleryManifest();
+				}
 			}
 		}));
 		this._register(this.connectorsService.onDidChangeConnectors(() => {
@@ -2210,6 +2219,24 @@ export class McpListWidget extends Disposable {
 		}
 	}
 
+	private updateLegacyMarketplaceState(): void {
+		const enabled = getEnabledCustomizationMarketplaceSources(this.configurationService, this.customizationMarketplaceService.sources).length === 0;
+		if (this.legacyMarketplaceEnabled === enabled) {
+			return;
+		}
+		this.legacyMarketplaceEnabled = enabled;
+		this.delayedGallerySearch.cancel();
+		this.galleryCts?.dispose(true);
+		this.galleryCts = undefined;
+		this.gallerySnapshotServers = [];
+		this.galleryServers = [];
+		this.gallerySnapshotFailed = false;
+		this.gallerySnapshotLoading = false;
+		this.gallerySearchLoading = false;
+		this.searchInput.hideMessage();
+		void this.refresh();
+	}
+
 	public showBrowseMarketplace(): void {
 		if (this.isGalleryDiscoveryEnabled()) {
 			return;
@@ -2265,7 +2292,7 @@ export class McpListWidget extends Disposable {
 				}
 			}
 		} catch {
-			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled) {
+			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled && this.legacyMarketplaceEnabled) {
 				this.gallerySnapshotServers = [];
 				this.galleryServers = [];
 				this.gallerySnapshotLoading = false;
@@ -2295,7 +2322,7 @@ export class McpListWidget extends Disposable {
 			this.galleryServers = servers;
 			this.searchInput.hideMessage();
 		} catch {
-			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled && this.searchQuery.trim() === query) {
+			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled && this.legacyMarketplaceEnabled && this.searchQuery.trim() === query) {
 				this.galleryServers = this.gallerySnapshotServers.filter(server => this.matchesGalleryServerQuery(server, query.toLowerCase()));
 				this.searchInput.showMessage({
 					content: localize('mcpSearchMarketplaceUnavailable', "Marketplace results are unavailable. Showing installed MCP servers and connectors only."),
@@ -2303,7 +2330,7 @@ export class McpListWidget extends Disposable {
 				});
 			}
 		} finally {
-			if (this.galleryCts === cts && this.mcpAccessEnabled && this.searchQuery.trim() === query) {
+			if (this.galleryCts === cts && this.mcpAccessEnabled && this.legacyMarketplaceEnabled && this.searchQuery.trim() === query) {
 				this.gallerySearchLoading = false;
 				this.filterServers();
 			}

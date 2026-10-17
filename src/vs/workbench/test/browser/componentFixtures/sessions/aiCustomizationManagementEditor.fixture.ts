@@ -2169,6 +2169,9 @@ async function renderMcpBrowseMode(ctx: ComponentFixtureContext): Promise<void> 
 			reg.defineInstance(IOutputService, new class extends mock<IOutputService>() {
 				override async showChannel() { }
 			}());
+			reg.defineInstance(ICustomizationMarketplaceService, new class extends mock<ICustomizationMarketplaceService>() {
+				override readonly sources = [];
+			}());
 		},
 	});
 
@@ -2458,6 +2461,9 @@ function renderMcpDisabled(ctx: ComponentFixtureContext, byPolicy: boolean): voi
 			reg.defineInstance(IAgentHostCustomizationService, createMockAgentHostCustomizationService());
 			reg.defineInstance(IOutputService, new class extends mock<IOutputService>() {
 				override async showChannel() { }
+			}());
+			reg.defineInstance(ICustomizationMarketplaceService, new class extends mock<ICustomizationMarketplaceService>() {
+				override readonly sources = [];
 			}());
 		},
 	});
@@ -2835,6 +2841,27 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 			selectedSection: AICustomizationManagementSection.McpServers,
 			agentFinderPublicFeedEnabled: false,
 			marketplaceVisibilityEnabled: false,
+		}),
+	}),
+
+	McpServersLegacyMarketplaceTab: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['With all unified marketplace sources disabled, the MCP Servers page restores the legacy Available tab beside User and Workspace.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			agentFinderPublicFeedEnabled: false,
+		}),
+	}),
+
+	McpServersLegacyMarketplaceTree: defineComponentFixture({
+		labels: { kind: 'screenshot', blocksCi: false },
+		expectedVisualDescriptions: ['With all unified marketplace sources disabled, the MCP Servers page restores the classic tree with Installed and Available groups.'],
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			agentFinderPublicFeedEnabled: false,
+			configuration: { [ChatConfiguration.ChatCustomizationsListLayout]: 'tree' },
 		}),
 	}),
 
