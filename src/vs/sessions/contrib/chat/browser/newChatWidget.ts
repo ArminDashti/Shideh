@@ -70,7 +70,8 @@ import { AgentsWindowUsage } from '../../../../workbench/contrib/chat/common/age
 import { INewSessionComposerService, NewSessionWorkspacePreselectionSource } from './newSessionComposerService.js';
 import { Menus } from '../../../browser/menus.js';
 import { getAdditionalFolderContextId, getAdditionalRepositoryContextId } from '../common/newChatContextIds.js';
-import { AGENTS_PICKER_IN_ATTACH_CONTEXT_MENU_SETTING, COLLAPSED_SESSION_OPTIONS_SHOW_ICONS_SETTING, COMPARE_AGENTS_ENABLED_SETTING, EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING, NEW_SESSION_COMPOSER_OPTIONS_EXPANDED_SETTING, NEW_SESSION_WELCOME_NAME_SETTING, NEW_SESSION_WELCOME_PHRASES_SETTING, UNIFIED_WORKSPACE_PICKER_SETTING } from '../common/constants.js';
+import { AGENTS_PICKER_IN_ATTACH_CONTEXT_MENU_SETTING, COLLAPSED_SESSION_OPTIONS_SHOW_ICONS_SETTING, COMPARE_AGENTS_ENABLED_SETTING, EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING, NEW_SESSION_COMPOSER_OPTIONS_EXPANDED_SETTING, NEW_SESSION_WELCOME_MESSAGES_SETTING, NEW_SESSION_WELCOME_NAME_SETTING, NEW_SESSION_WELCOME_PHRASES_SETTING, UNIFIED_WORKSPACE_PICKER_SETTING } from '../common/constants.js';
+import { getNewSessionWelcomePhrases, INewSessionWelcomeMessagesConfiguration } from '../common/welcomePhrases.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ISessionComparisonAttemptConfiguration, ISessionComparisonHarness, ISessionComparisonService } from '../../../services/sessions/common/sessionComparison.js';
 import { OPEN_SESSION_COMPARISON_COMMAND_ID } from '../../sessionComparison/common/sessionComparison.js';
@@ -94,7 +95,6 @@ const MIN_SESSIONS_FOR_FIRST_RUN_NOTICES = 2;
 /** Persists whether the user explicitly chose to expand the new-session options tray. */
 const SESSION_OPTIONS_EXPANDED_STORAGE_KEY = 'agentSessions.newSession.sessionOptionsExpanded2';
 let sessionOptionsIdPool = 0;
-const NEW_SESSION_WELCOME_PHRASE_COUNT = 5;
 let nextNewSessionWelcomePhraseIndex = 0;
 const githubProfileNames = new Map<string, Promise<string | undefined>>();
 
@@ -193,7 +193,7 @@ export class NewChatWidget extends Disposable {
 
 	private static _takeNextWelcomePhraseIndex(): number {
 		const index = nextNewSessionWelcomePhraseIndex;
-		nextNewSessionWelcomePhraseIndex = (nextNewSessionWelcomePhraseIndex + 1) % NEW_SESSION_WELCOME_PHRASE_COUNT;
+		nextNewSessionWelcomePhraseIndex = index + 1 < Number.MAX_SAFE_INTEGER ? index + 1 : 0;
 		return index;
 	}
 
@@ -645,6 +645,7 @@ export class NewChatWidget extends Disposable {
 			hiddenItemStrategy: HiddenItemStrategy.NoHide,
 			toolbarOptions: { primaryGroup: () => true },
 			telemetrySource: 'newSessionWelcome',
+			menuOptions: { arg: welcomeMessageActions },
 		}));
 		this._register(dom.addDisposableListener(welcomeMessage, dom.EventType.CONTEXT_MENU, event => {
 			event.preventDefault();
@@ -661,6 +662,10 @@ export class NewChatWidget extends Disposable {
 			this,
 			Event.filter(this.configurationService.onDidChangeConfiguration, event => event.affectsConfiguration(NEW_SESSION_WELCOME_NAME_SETTING)),
 		);
+		const configuredWelcomeMessagesChanged = observableSignalFromEvent(
+			this,
+			Event.filter(this.configurationService.onDidChangeConfiguration, event => event.affectsConfiguration(NEW_SESSION_WELCOME_MESSAGES_SETTING)),
+		);
 		this._register(autorun(reader => {
 			configuredWelcomeNameChanged.read(reader);
 			this._showWelcomePhrases.read(reader);
@@ -668,6 +673,7 @@ export class NewChatWidget extends Disposable {
 		}));
 		this._register(autorun(reader => {
 			configuredWelcomeNameChanged.read(reader);
+			configuredWelcomeMessagesChanged.read(reader);
 			const profileName = this._githubProfileName.read(reader);
 			const inputVisible = this.options.inputVisible?.read(reader) ?? true;
 			const shidehChrome = isShidehSimplifiedChatChrome(this.productService);
