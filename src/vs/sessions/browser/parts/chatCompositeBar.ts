@@ -160,9 +160,14 @@ export class ChatCompositeBar extends Disposable {
 		super();
 
 		this._container = $('.chat-composite-bar.session-chat-tabs-bar');
-		const updateCompactHeight = () => this._container.classList.toggle('compact-height', this._editorGroupsService.partOptions.tabHeight === 'compact');
-		updateCompactHeight();
-		this._register(this._editorGroupsService.onDidChangeEditorPartOptions(updateCompactHeight));
+		const updateTabOptions = () => {
+			const options = this._editorGroupsService.partOptions;
+			this._container.classList.toggle('compact-height', options.tabHeight === 'compact');
+			this._container.classList.toggle('tab-actions-left', options.tabActionLocation === 'left');
+			this._container.classList.toggle('tab-actions-reserve-space', options.tabActionReserveSpace);
+		};
+		updateTabOptions();
+		this._register(this._editorGroupsService.onDidChangeEditorPartOptions(updateTabOptions));
 
 		// Tabs row — only shown when the group has multiple chats or is split out.
 		this._tabsRow = $('.chat-composite-bar-tabs-row.modern-ui-editor-tab-strip');
@@ -443,6 +448,7 @@ export class ChatCompositeBar extends Disposable {
 		// session, so its tab renders no actions toolbar.
 		let tabToolbar: MenuWorkbenchToolBar | undefined;
 		if (!isMainChat && session) {
+			tab.classList.add('has-tab-actions');
 			const actionsContainer = $('.chat-composite-bar-tab-actions');
 			tab.appendChild(actionsContainer);
 			tabToolbar = this._tabDisposables.add(this._instantiationService.createInstance(MenuWorkbenchToolBar, actionsContainer, Menus.SessionChatTab, {
