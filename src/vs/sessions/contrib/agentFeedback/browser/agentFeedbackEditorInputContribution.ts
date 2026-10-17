@@ -257,9 +257,15 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 			if (!this._visible) {
 				return;
 			}
+			if (this._hasInputText()) {
+				return;
+			}
 			// Defer so focus has settled to the new target
 			getWindow(this._editor.getDomNode()!).setTimeout(() => {
 				if (this._store.isDisposed || !this._visible) {
+					return;
+				}
+				if (this._hasInputText()) {
 					return;
 				}
 				if (this._isWidgetTarget(getWindow(this._editor.getDomNode()!).document.activeElement)) {
@@ -444,6 +450,12 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 	): void {
 		const widget = this._ensureWidget();
 		this._clearHoverGlyph();
+
+		const selection = this._editor.getSelection();
+		if (!selection) {
+			return;
+		}
+		this._targetSelection = selection;
 
 		if (!this._visible) {
 			this._visible = true;
@@ -780,11 +792,18 @@ export class AgentFeedbackEditorInputContribution extends Disposable implements 
 			this._updatePosition();
 		}));
 
-		// Hide when input loses focus to something outside both editor and widget
+		// Hide when input loses focus to something outside both editor and widget,
+		// unless the user has typed feedback that should be preserved.
 		this._widgetListeners.add(addStandardDisposableListener(widget.inputElement, 'blur', () => {
+			if (this._hasInputText()) {
+				return;
+			}
 			const win = getWindow(widget.inputElement);
 			win.setTimeout(() => {
 				if (this._store.isDisposed || !this._visible) {
+					return;
+				}
+				if (this._hasInputText()) {
 					return;
 				}
 				if (this._editor.hasWidgetFocus()) {
