@@ -264,7 +264,24 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			storageService.remove('update/updateNotificationTime', StorageScope.APPLICATION);
 		}
 
+		// Re-evaluate the badge when the title bar visibility changes
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(TitleBarSetting.CUSTOM_TITLE_BAR_VISIBILITY) ||
+				e.affectsConfiguration(TitleBarSetting.TITLE_BAR_STYLE)) {
+				this.onUpdateStateChange(this.state);
+			}
+		}));
+
 		this.registerGlobalActivityActions();
+	}
+
+	/**
+	 * Returns whether the badge on the settings gear should be shown.
+	 * The badge is only shown on web (where there is no title bar indicator) or
+	 * on desktop when the title bar is hidden (e.g. on macOS with a native title bar).
+	 */
+	private shouldShowBadge(): boolean {
+		return isWeb || !shouldShowCustomTitleBar(this.configurationService, mainWindow);
 	}
 
 	private async onUpdateStateChange(state: UpdateState): Promise<void> {
