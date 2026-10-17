@@ -10,7 +10,27 @@ import type { IExtensionDefinition } from './builtInExtensions.ts';
 
 const root = path.dirname(path.dirname(import.meta.dirname));
 const rootCG = path.join(root, 'extensionsCG');
-const productjson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
+let productjson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
+
+// On non-main branches, product.json may not have builtInExtensions (distro mixin hasn't run).
+// Try to read from the distro mixin directory if available.
+const quality = process.env['VSCODE_QUALITY'] || 'insider';
+const distroProductPath = path.join(root, '.build', 'distro', 'mixin', quality, 'product.json');
+if ((!productjson.builtInExtensions || productjson.builtInExtensions.length === 0)) {
+	if (fs.existsSync(distroProductPath)) {
+		console.log(`product.json missing builtInExtensions, using distro product.json from ${distroProductPath}`);
+		const distroProduct = JSON.parse(fs.readFileSync(distroProductPath, 'utf8'));
+		if (distroProduct.builtInExtensions) {
+			productjson.builtInExtensions = distroProduct.builtInExtensions;
+		}
+		if (distroProduct.webBuiltInExtensions) {
+			productjson.webBuiltInExtensions = distroProduct.webBuiltInExtensions;
+		}
+	} else {
+		console.log(`product.json has no builtInExtensions and distro not available at ${distroProductPath}`);
+		console.log('This is expected on non-main branches. Built-in extension CG data will be incomplete.');
+	}
+}
 const builtInExtensions = productjson.builtInExtensions as IExtensionDefinition[] || [];
 const webBuiltInExtensions = productjson.webBuiltInExtensions as IExtensionDefinition[] || [];
 
