@@ -300,6 +300,13 @@ export class AgentHostTurnTracker extends Disposable {
 		}
 	}
 
+	markFirstEdit(session: string, turnId: string): void {
+		const timing = this._turnTimings.get(this._key(session, turnId));
+		if (timing && timing.firstEditMs === undefined) {
+			timing.firstEditMs = timing.stopWatch.elapsed();
+		}
+	}
+
 	/**
 	 * Records progress that advances the user's request, as opposed to host
 	 * bookkeeping the agent was told to do first (naming the chat). Substantive
