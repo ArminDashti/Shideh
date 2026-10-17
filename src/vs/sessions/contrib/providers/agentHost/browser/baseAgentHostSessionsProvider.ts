@@ -7174,6 +7174,8 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			return;
 		}
 		cached.reconcileSelectedAgent(getEffectiveAgents(state.customizations));
+=======
+>>>>>>> a22d0030065 (AgentHost - restore changesets when reloading the window (#323512))
 	}
 
 	/**
