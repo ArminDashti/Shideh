@@ -112,7 +112,6 @@ import { EmbeddedAgentPluginDetail } from './embeddedAgentPluginDetail.js';
 import { EmbeddedMarketplaceDetail } from './embeddedMarketplaceDetail.js';
 import { IMcpService, IMcpWorkbenchService, type IWorkbenchMcpServer, McpServerInstallState } from '../../../mcp/common/mcpTypes.js';
 import { IAgentHostCustomizationService } from '../agentSessions/agentHost/agentHostCustomizationService.js';
-import { EmbeddedExtensionToolsDetail } from './embeddedExtensionToolsDetail.js';
 import { ICustomizationHarnessService, type ICustomizationSourceFolder } from '../../common/customizationHarnessService.js';
 import { IConnectorPresentation } from '../../common/connectorsManagementService.js';
 import { ChatConfiguration } from '../../common/constants.js';
@@ -1511,13 +1510,8 @@ export class AICustomizationManagementEditor extends EditorPane {
 			// Tools customizations only target the agent host (Copilot CLI), in both windows.
 			this.toolsListWidget = this.editorDisposables.add(this.instantiationService.createInstance(ToolsListWidget, AGENT_HOST_COPILOT_CLI_SESSION_TYPE));
 			this.toolsContentContainer.appendChild(this.toolsListWidget.element);
-
-			// Embedded tool-contributing extension detail view
-			this.toolsDetailContainer = DOM.append(contentInner, $('.tools-detail-container'));
-			this.createEmbeddedToolDetail();
-
-			this.editorDisposables.add(this.toolsListWidget.onDidSelectExtension(extension => {
-				this.showEmbeddedToolDetail(extension);
+			this.editorDisposables.add(this.toolsListWidget.onDidRequestBrowseMarketplace(() => {
+				void this.browseToolExtensions().catch(error => this.notificationService.error(error));
 			}));
 		}
 
@@ -4079,9 +4073,6 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.toolsContentContainer) {
 			this.toolsContentContainer.style.display = !isEditorMode && !isMigrationMode && !isDetailMode && isToolsSection ? '' : 'none';
 		}
-		if (this.toolsDetailContainer) {
-			this.toolsDetailContainer.style.display = isToolsDetailMode ? '' : 'none';
-		}
 		for (const [section, container] of this.contributedSectionContainers) {
 			const visible = !isEditorMode && !isMigrationMode && !isDetailMode && this.selectedSection === section && this.isContributedSectionEnabled(section);
 			container.style.display = visible ? '' : 'none';
@@ -4144,6 +4135,13 @@ export class AICustomizationManagementEditor extends EditorPane {
 		return this.isCustomizationDiscoveryDetailVisible()
 			? this.embeddedMarketplaceDetail?.getAccessibilityContent() ?? ''
 			: this.welcomePage?.getAccessibilityContent() ?? '';
+	}
+
+	private async browseToolExtensions(): Promise<void> {
+		if (this.input && !await this.group.closeEditor(this.input)) {
+			return;
+		}
+		await this.extensionsWorkbenchService.openSearch('@tag:language-model-tools');
 	}
 
 	/**
