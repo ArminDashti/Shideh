@@ -2403,6 +2403,8 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		if (!hidden && sidePaneWasClosed && !skipSidePaneReveal) {
 			this._onSidePaneRevealed();
 		}
+
+		this._savePartVisibility();
 	}
 
 	/**
