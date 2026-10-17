@@ -38,6 +38,5 @@ steps:
 
   - task: NodeTool@0
     inputs:
-      versionSource: fromFile
       versionFilePath: .nvmrc
   - template: ./distro/download-distro.yml@self
