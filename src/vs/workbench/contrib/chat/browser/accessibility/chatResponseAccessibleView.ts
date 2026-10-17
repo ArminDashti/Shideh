@@ -8,6 +8,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IMarkdownString, isMarkdownString } from '../../../../../base/common/htmlContent.js';
 import { stripIcons } from '../../../../../base/common/iconLabels.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { basename } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { AccessibleViewProviderId, AccessibleViewType, IAccessibleViewContentProvider } from '../../../../../platform/accessibility/browser/accessibleView.js';
@@ -23,7 +24,7 @@ import { IChatAgentFeedbackReviewConfirmationData, IChatAutomationConfigurationD
 import { IChatResponseViewModel, isResponseVM } from '../../common/model/chatViewModel.js';
 import { IToolResultInputOutputDetails, IToolResultOutputDetails, isToolResultInputOutputDetails, isToolResultOutputDetails, toolContentToA11yString } from '../../common/tools/languageModelToolsService.js';
 import { ChatTreeItem, IChatWidget, IChatWidgetService } from '../chat.js';
-import { Location } from '../../../../../editor/common/languages.js';
+import { isLocation, Location } from '../../../../../editor/common/languages.js';
 
 export class ChatResponseAccessibleView implements IAccessibleViewImplementation {
 	readonly priority = 100;
