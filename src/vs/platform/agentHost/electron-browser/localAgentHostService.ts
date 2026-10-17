@@ -184,13 +184,6 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 	private readonly _authenticationPending: ISettableObservable<boolean> = observableValue('authenticationPending', true);
 	readonly authenticationPending: IObservable<boolean> = this._authenticationPending;
 	private _authenticationSettled = false;
-	private readonly _noopRootState: IAgentSubscription<RootState> = {
-		value: undefined,
-		verifiedValue: undefined,
-		onDidChange: Event.None,
-		onWillApplyAction: Event.None,
-		onDidApplyAction: Event.None,
-	};
 
 	constructor(
 		private readonly _clientInfo: Implementation,
@@ -378,11 +371,11 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 	}
 
 	get initializeResult(): IObservable<InitializeResult | undefined> {
-		return this._protocolClient?.initializeResult ?? constObservable(undefined);
+		return this._protocolClient.initializeResult;
 	}
 
 	get rootState(): IAgentSubscription<RootState> {
-		return this._protocolClient?.rootState ?? this._noopRootState;
+		return this._protocolClient.rootState;
 	}
 
 	getSubscription<T extends StateComponents>(kind: T, resource: URI, owner: string): IReference<IAgentSubscription<ComponentToState[T]>> {
@@ -390,15 +383,15 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 	}
 
 	getSubscriptionUnmanaged<T extends StateComponents>(kind: T, resource: URI): IAgentSubscription<ComponentToState[T]> | undefined {
-		return this._protocolClient?.getSubscriptionUnmanaged<ComponentToState[T]>(kind, resource);
+		return this._protocolClient.getSubscriptionUnmanaged<ComponentToState[T]>(kind, resource);
 	}
 
 	getInflightSessionCreate(resource: URI): Promise<unknown> | undefined {
-		return this._protocolClient?.getInflightSessionCreate(resource);
+		return this._protocolClient.getInflightSessionCreate(resource);
 	}
 
 	getActiveSubscriptions(): readonly IActiveSubscriptionInfo[] {
-		return this._protocolClient?.getActiveSubscriptions() ?? [];
+		return this._protocolClient.getActiveSubscriptions();
 	}
 
 	dispatch(channel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | ClientAutomationAction | ClientAutomationRunAction | IRootConfigChangedAction): void {

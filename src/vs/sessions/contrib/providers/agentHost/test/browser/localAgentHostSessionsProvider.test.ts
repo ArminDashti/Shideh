@@ -172,11 +172,22 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 		this._rootStateSubscription = {
 			get value() { return self._rootStateValue; },
 			get verifiedValue() { return self._rootStateValue instanceof Error ? undefined : self._rootStateValue; },
-			onDidChange: self._onDidRootStateChange.event,
+			get onDidChange() {
+				if (self._agentsOnNextRootStateListenerAccess) {
+					self._rootStateValue = { agents: self._agentsOnNextRootStateListenerAccess };
+					self._agentsOnNextRootStateListenerAccess = undefined;
+				}
+				return self._onDidRootStateChange.event;
+			},
 			onDidError: self._onDidRootStateError.event,
 			onWillApplyAction: Event.None,
 			onDidApplyAction: Event.None,
 		};
+	}
+
+	setAgentsOnNextRootStateListenerAccess(agents: AgentInfo[]): void {
+		this._rootStateValue = undefined;
+		this._agentsOnNextRootStateListenerAccess = agents;
 	}
 
 	nextClientSeq(): number {
@@ -858,6 +869,18 @@ suite('LocalAgentHostSessionsProvider', () => {
 		assert.deepStrictEqual(provider.sessionTypes.map(t => ({ id: t.id, label: t.label })), [
 			{ id: 'copilotcli', label: 'Copilot' },
 			{ id: 'openai', label: 'OpenAI' },
+		]);
+	});
+
+	test('session types hydrate when root state changes while the provider subscribes', () => {
+		agentHost.setAgentsOnNextRootStateListenerAccess([
+			{ provider: 'copilotcli', displayName: 'Copilot', description: '', models: [] } as AgentInfo,
+		]);
+
+		const provider = createProvider(disposables, agentHost);
+
+		assert.deepStrictEqual(provider.sessionTypes.map(t => ({ id: t.id, label: t.label })), [
+			{ id: 'copilotcli', label: 'Copilot' },
 		]);
 	});
 
