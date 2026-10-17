@@ -12,7 +12,7 @@ import { ILanguageService } from '../languages/language.js';
 
 import * as nls from 'vs/nls';
 
-const enum SemanticTokensProviderStylingConstants {
+export const enum SemanticTokensProviderStylingConstants {
 	NO_STYLING = 0b01111111111111111111111111111111
 }
 

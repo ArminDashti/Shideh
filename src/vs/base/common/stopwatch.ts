@@ -8,8 +8,8 @@ const performanceNow = globalThis.performance.now.bind(globalThis.performance);
 
 export class StopWatch {
 
-	private _startTime: number;
-	private _stopTime: number;
+	private _startTime!: number;
+	private _stopTime!: number;
 
 	private readonly _now: () => number;
 

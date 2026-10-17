@@ -15,6 +15,11 @@ export interface ITokenizationTextModelPart {
 	readonly hasTokens: boolean;
 
 	/**
+	 * @internal
+	 */
+	setTokens(tokens: ContiguousMultilineTokens[]): void;
+
+	/**
 	 * Replaces all semantic tokens with the provided `tokens`.
 	 * @internal
 	 */
