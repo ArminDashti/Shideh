@@ -519,7 +519,7 @@ suite('WorkspacePicker - Connection Status', () => {
 		const getRemoteItems = (picker: TestablePicker) => picker.getItems()
 			.filter(item => item.label?.startsWith('Provider agenthost-'))
 			.map(item => ({ label: item.label, description: item.description, ariaLabel: item.item?.ariaLabel }));
-		const unifiedRemoteItem = unifiedPicker.getItems().find(item => item.label === 'Remote');
+		const unifiedRemoteItem = unifiedPicker.getItems().find(item => item.label === 'Manage Remote Connections...');
 		const unifiedRemoteActions = unifiedRemoteItem?.submenuActions?.[0];
 
 		assert.deepStrictEqual({
@@ -570,7 +570,7 @@ suite('WorkspacePicker - Connection Status', () => {
 				preserveVerticalPosition: true,
 				alignToAnchorTop: true,
 				submenuFilter: true,
-				submenuFilterPlaceholder: 'Search Remote',
+				submenuFilterPlaceholder: 'Search Remote Connections',
 				submenuFocusFilterOnOpen: true,
 				submenuWidth: { min: 180, max: undefined },
 				openSubmenuOnClick: true,
@@ -635,7 +635,7 @@ suite('WorkspacePicker - Connection Status', () => {
 
 		providersService.setProviders([secondProvider]);
 
-		const remoteItem = updates[0]?.find(item => item.label === 'Remote');
+		const remoteItem = updates[0]?.find(item => item.label === 'Manage Remote Connections...');
 		const submenu = remoteItem?.submenuActions?.[0];
 		assert.deepStrictEqual({
 			showCount,
@@ -812,7 +812,7 @@ suite('WorkspacePicker - Connection Status', () => {
 
 		onDidChangeSessionTypes.fire();
 
-		const remoteItem = updates[0]?.find(item => item.label === 'Remote');
+		const remoteItem = updates[0]?.find(item => item.label === 'Manage Remote Connections...');
 		assert.deepStrictEqual({
 			showCount,
 			hideCount,
@@ -870,7 +870,7 @@ suite('WorkspacePicker - Connection Status', () => {
 		onDidChangeDevContainerAvailability.fire();
 		await timeout(80);
 
-		const remoteItem = updates[0]?.find(item => item.label === 'Remote');
+		const remoteItem = updates[0]?.find(item => item.label === 'Manage Remote Connections...');
 		assert.deepStrictEqual({
 			showCount,
 			hideCount,
@@ -4585,7 +4585,9 @@ class TestablePicker extends WorkspacePicker {
 	}
 
 	getItemLabels(): string[] {
-		return this.getItems().flatMap(entry => entry.label ? [entry.label] : []);
+		return this.getItems()
+			.filter(entry => entry.kind === ActionListItemKind.Action)
+			.flatMap(entry => entry.label ? [entry.label] : []);
 	}
 
 	showsFilter(): boolean {
@@ -4911,6 +4913,29 @@ suite('WorkspacePicker - Tab discovery', () => {
 			...Array.from({ length: 10 }, (_, index) => `local/folder-${index}`),
 			'Open Folder...',
 			'Select Remote',
+		]);
+	});
+
+	test('labels recent workspaces and workspace actions in the unified picker', () => {
+		const storage = disposables.add(new TestStorageService());
+		seedStorage(storage, [{
+			uri: URI.file('/local/project'),
+			providerId: 'local',
+			checked: false,
+		}]);
+		providersService.setProviders([
+			{ ...createMockProvider('local'), supportsLocalWorkspaces: true },
+		]);
+		const picker = createTestablePicker(disposables, providersService, false, {}, undefined, storage, true);
+
+		assert.deepStrictEqual(picker.getItems().map(item => ({
+			kind: item.kind,
+			label: item.label,
+		})), [
+			{ kind: ActionListItemKind.Header, label: 'Recent workspaces' },
+			{ kind: ActionListItemKind.Action, label: 'local/project' },
+			{ kind: ActionListItemKind.Header, label: 'Choose a workspace' },
+			{ kind: ActionListItemKind.Action, label: 'Open Folder...' },
 		]);
 	});
 
@@ -5313,13 +5338,14 @@ suite('WorkspacePicker - Tab discovery', () => {
 		const picker = createTestablePicker(disposables, providersService, true, {}, undefined, storage, true);
 
 		const recents = picker.getItems()
-			.filter(item => item.kind === ActionListItemKind.Separator || item.item?.folderUri)
+			.filter(item => item.kind === ActionListItemKind.Header || item.item?.folderUri)
 			.map(item => ({ kind: item.kind, label: item.label }));
 
 		assert.deepStrictEqual(recents, [
+			{ kind: ActionListItemKind.Header, label: 'Recent workspaces' },
 			{ kind: ActionListItemKind.Action, label: 'local/folder' },
 			{ kind: ActionListItemKind.Action, label: 'local/repository' },
-			{ kind: ActionListItemKind.Separator, label: '' },
+			{ kind: ActionListItemKind.Header, label: 'Recent repositories' },
 			{ kind: ActionListItemKind.Action, label: 'microsoft/vscode/HEAD' },
 		]);
 	});
@@ -5515,7 +5541,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 
 		picker.selectWorkspaceActions();
 		picker.selectTab(SESSION_WORKSPACE_GROUP_REMOTE);
-		const remoteItem = picker.getItems().find(item => item.label === 'Remote');
+		const remoteItem = picker.getItems().find(item => item.label === 'Manage Remote Connections...');
 		const remoteActions = remoteItem?.submenuActions?.[0];
 
 		assert.deepStrictEqual({
@@ -5533,7 +5559,7 @@ suite('WorkspacePicker - Tab discovery', () => {
 				'Provider agenthost-menu',
 				'Repository',
 				'Attach Repository',
-				'Remote',
+				'Manage Remote Connections...',
 			],
 			remoteItems: [
 				{ label: 'Manage Provider agenthost-menu', enabled: true, removable: false },

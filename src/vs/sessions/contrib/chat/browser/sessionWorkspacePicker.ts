@@ -1665,7 +1665,14 @@ export class WorkspacePicker extends Disposable {
 			};
 			const modeActions = createWorkspaceModeActions(workspace, folderUri, providerId, item);
 			const recentWorkspaceIsRepository = ThemeIcon.isEqual(icon, Codicon.repo);
-			if (previousRecentWorkspaceIsRepository !== undefined && previousRecentWorkspaceIsRepository !== recentWorkspaceIsRepository) {
+			if (useRemoteSubmenu && (previousRecentWorkspaceIsRepository === undefined || previousRecentWorkspaceIsRepository !== recentWorkspaceIsRepository)) {
+				items.push({
+					kind: ActionListItemKind.Header,
+					label: recentWorkspaceIsRepository
+						? localize('workspacePicker.recentRepositories', "Recent repositories")
+						: localize('workspacePicker.recentWorkspaces', "Recent workspaces"),
+				});
+			} else if (previousRecentWorkspaceIsRepository !== undefined && previousRecentWorkspaceIsRepository !== recentWorkspaceIsRepository) {
 				items.push({ kind: ActionListItemKind.Separator, label: '' });
 			}
 			previousRecentWorkspaceIsRepository = recentWorkspaceIsRepository;
@@ -1699,7 +1706,12 @@ export class WorkspacePicker extends Disposable {
 		const remoteProviders = allProviders.filter(isAgentHostProvider).filter(p => p.connectionStatus !== undefined);
 		const includeRemoteProviders = remoteAgentHostsEnabled
 			&& (activeGroup === undefined || activeGroup === SESSION_WORKSPACE_GROUP_REMOTE);
-		if (items.length > 0 && (workspaceGroupAction || allBrowseActions.length > 0)) {
+		if (useRemoteSubmenu && (workspaceGroupAction || allBrowseActions.length > 0)) {
+			items.push({
+				kind: ActionListItemKind.Header,
+				label: localize('workspacePicker.chooseWorkspace', "Choose a workspace"),
+			});
+		} else if (items.length > 0 && (workspaceGroupAction || allBrowseActions.length > 0)) {
 			items.push({ kind: ActionListItemKind.Separator, label: '' });
 		}
 
@@ -1865,7 +1877,7 @@ export class WorkspacePicker extends Disposable {
 			}
 			items.push({
 				kind: ActionListItemKind.Action,
-				label: localize('workspacePicker.remote', "Remote"),
+				label: localize('workspacePicker.manageRemoteConnections', "Manage Remote Connections..."),
 				group: { title: '', icon: Codicon.remote },
 				item: remotePickerItem,
 				hover: { preserveVerticalPosition: true, alignToAnchorTop: true },
@@ -1874,7 +1886,7 @@ export class WorkspacePicker extends Disposable {
 				openSubmenuOnClick: true,
 				submenuOptions: {
 					showFilter: true,
-					filterPlaceholder: localize('workspacePicker.remoteFilter', "Search Remote"),
+					filterPlaceholder: localize('workspacePicker.remoteFilter', "Search remote connections"),
 					filterAsCombobox: true,
 					focusFilterOnOpen: true,
 					minWidth: 180,
