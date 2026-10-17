@@ -1170,6 +1170,7 @@ export class AgentService extends Disposable implements IAgentService {
 		};
 	}
 
+<<<<<<< HEAD
 	/**
 	 * Runs `work` once startup has settled, serialized behind any deferred work
 	 * queued before it. For maintenance that is fine to run late and must not
@@ -1305,6 +1306,8 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 	}
 
+=======
+>>>>>>> e5b4addd5c7 (Revert https://github.com/microsoft/vscode/pull/327408 (#328871))
 	// ---- provider registration ----------------------------------------------
 
 	private _toProviderConfig<T extends { readonly config?: Record<string, unknown> }>(request: T): T {
