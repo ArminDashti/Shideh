@@ -273,6 +273,30 @@ function toSessionSummaryHoverData(item: IChatSessionItem, userHome: string): IS
 	};
 }
 
+/**
+ * Maps a chat session item onto the shared session hover data.
+ *
+ * The editor window only knows a session through its item, so the hover is
+ * necessarily thinner than the Agents window's: the worktree path and the
+ * session's pull requests have no representation here and are left out rather
+ * than guessed at. Everything the item does carry — the workspace or worktree
+ * path, the branch and the change counts — is surfaced through the same widget.
+ */
+function toSessionSummaryHoverData(item: IChatSessionItem): ISessionSummaryHoverData {
+	const metadata = item.metadata;
+	const changes = getAgentChangesSummary(item.changes);
+	const worktree = metadata?.worktreePath;
+	return {
+		title: item.label,
+		location: {
+			workspace: metadata?.repositoryPath ?? metadata?.workingDirectoryPath,
+			worktree,
+			branch: metadata?.branchName ?? metadata?.branch,
+			changes: changes && (changes.insertions > 0 || changes.deletions > 0) ? changes : undefined,
+		},
+	};
+}
+
 function chatSessionStatusName(status: ChatSessionStatus | undefined): AgentSessionLinkStatus {
 	switch (status) {
 		case ChatSessionStatus.Failed: return 'error';

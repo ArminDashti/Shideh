@@ -76,6 +76,21 @@ export class OpenSessionLinkOpenerContribution extends Disposable implements IWo
 				return session ? getSessionSummaryHoverData(session, sessionsProvidersService, openerService, labelService, preferencesService) : undefined;
 			},
 		}));
+		// A session pill in chat output gets the same hover as the sessions list,
+		// built from the live session this window already owns.
+		this._register(sessionSummaryHoverService.registerProvider({
+			provideSessionSummaryHoverData: async resource => {
+				const session = this._findSessionForLink(resource);
+				return session ? getSessionSummaryHoverData(session, sessionsProvidersService) : undefined;
+			},
+		}));
+	}
+
+	private _findSessionForLink(resource: URI | string): ISession | undefined {
+		const backendSession = parseOpenSessionLinkUri(resource);
+		return backendSession
+			? findSession(backendSession, this._sessionsManagementService, this._connectionsService)
+			: undefined;
 	}
 
 	private _findSessionForLink(resource: URI | string): ISession | undefined {
