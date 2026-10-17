@@ -164,6 +164,26 @@ export class ReleaseNotesManager extends Disposable {
 		}
 		const title = nls.localize('releaseNotesInputName', "Release Notes: {0}", version);
 
+		// Store source for later use in engagement telemetry
+		this._currentSource = source;
+		this._openTimestamp = Date.now();
+
+		// Log telemetry for release notes being opened (always track, even for fromFile)
+		type ReleaseNotesOpenedClassification = {
+			owner: 'rebornix';
+			comment: 'Track when release notes are opened and from what source';
+			version: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The version of the release notes being opened' };
+			source: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'How the release notes were opened: update (automatic on update), commandPalette (manual via command), or fromFile (from current file)' };
+		};
+		type ReleaseNotesOpened = {
+			version: string;
+			source: string;
+		};
+		this._telemetryService.publicLog2<ReleaseNotesOpened, ReleaseNotesOpenedClassification>('releaseNotesOpened', {
+			version,
+			source
+		});
+
 		const activeEditorPane = this._editorService.activeEditorPane;
 		const reuseWebview = !!this._currentReleaseNotes;
 		if (this._currentReleaseNotes) {
@@ -711,6 +731,19 @@ export class ReleaseNotesManager extends Disposable {
 						const href = event.target.href ?? event.target.parentElement?.href ?? event.target.parentElement?.parentElement?.href;
 						if (href && (href.startsWith('${Schemas.codeSetting}'))) {
 							vscode.postMessage({ type: 'clickSetting', documentId, value: { uri: href, x: event.clientX, y: event.clientY }});
+						}
+						
+						// Track TOC navigation clicks
+						const target = event.target;
+						const tocLink = target.closest('#toc-nav a');
+						if (tocLink) {
+							const section = tocLink.textContent || 'unknown';
+							vscode.postMessage({ type: 'tocNavigation', value: { section }});
+						}
+						
+						// Track scroll to top button clicks
+						if (target.id === 'scroll-to-top' || target.closest('#scroll-to-top')) {
+							vscode.postMessage({ type: 'scrollToTop' });
 						}
 					});
 

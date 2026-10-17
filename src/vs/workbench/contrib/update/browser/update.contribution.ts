@@ -100,7 +100,7 @@ export class ShowCurrentReleaseNotesFromCurrentFileAction extends Action2 {
 		const productService = accessor.get(IProductService);
 
 		try {
-			await showReleaseNotesInEditor(instantiationService, productService.version, true);
+			await showReleaseNotesInEditor(instantiationService, productService.version, true, 'fromFile');
 		} catch (err) {
 			throw new Error(localize('releaseNotesFromFileNone', "Cannot open the current file as Release Notes"));
 		}

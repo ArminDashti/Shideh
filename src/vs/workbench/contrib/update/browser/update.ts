@@ -39,12 +39,12 @@ export const MAJOR_MINOR_UPDATE_AVAILABLE = new RawContextKey<boolean>('majorMin
 
 let releaseNotesManager: ReleaseNotesManager | undefined = undefined;
 
-export function showReleaseNotesInEditor(instantiationService: IInstantiationService, version: string, useCurrentFile: boolean) {
+export function showReleaseNotesInEditor(instantiationService: IInstantiationService, version: string, useCurrentFile: boolean, source?: 'update' | 'commandPalette' | 'fromFile') {
 	if (!releaseNotesManager) {
 		releaseNotesManager = instantiationService.createInstance(ReleaseNotesManager);
 	}
 
-	return releaseNotesManager.show(version, useCurrentFile);
+	return releaseNotesManager.show(version, useCurrentFile, source || 'commandPalette');
 }
 
 async function openLatestReleaseNotesInBrowser(accessor: ServicesAccessor) {
