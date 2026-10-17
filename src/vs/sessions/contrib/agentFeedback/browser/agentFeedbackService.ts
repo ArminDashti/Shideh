@@ -47,6 +47,57 @@ export { AgentFeedbackKind, AgentFeedbackState, type IAgentFeedback };
 /** Shared feedback scope for every undefined or uncreated active session. */
 export const AGENT_FEEDBACK_NEW_SESSION_RESOURCE = URI.from({ scheme: 'agent-feedback', path: '/new-session' });
 
+/**
+ * How long submitting feedback waits for the session's chat model to be loaded into a chat widget
+ * before giving up.
+ */
+const WIDGET_LOAD_TIMEOUT_MS = 10_000;
+
+/**
+ * Resolves the chat widget that has the session loaded, waiting for it to appear when the session's
+ * model has not been loaded into a widget yet.
+ *
+ * Feedback can be submitted (e.g. from the Changes editor or the comments input banner) while the
+ * session is still being restored into its chat widget. `getWidgetBySessionResource` matches on the
+ * widget's *loaded* view model, so it returns `undefined` until the model arrives — submitting then
+ * would silently drop the feedback. Resolves `undefined` if no widget loads the session in time.
+ *
+ * Exported for tests.
+ */
+export async function whenWidgetForSession(chatWidgetService: IChatWidgetService, sessionResource: URI, timeoutMs: number = WIDGET_LOAD_TIMEOUT_MS): Promise<IChatWidget | undefined> {
+	const existing = chatWidgetService.getWidgetBySessionResource(sessionResource);
+	if (existing) {
+		return existing;
+	}
+
+	const store = new DisposableStore();
+	try {
+		const loaded = new Promise<IChatWidget>(resolve => {
+			const check = () => {
+				const widget = chatWidgetService.getWidgetBySessionResource(sessionResource);
+				if (widget) {
+					resolve(widget);
+				}
+			};
+
+			const observe = (candidate: IChatWidget) => store.add(candidate.onDidChangeViewModel(check));
+
+			chatWidgetService.getAllWidgets().forEach(observe);
+			store.add(chatWidgetService.onDidAddWidget(added => {
+				observe(added);
+				check();
+			}));
+
+			// A widget may have loaded the session while the listeners were being wired up.
+			check();
+		});
+
+		return await raceTimeout(loaded, timeoutMs);
+	} finally {
+		store.dispose();
+	}
+}
+
 export interface INavigableSessionComment {
 	readonly id: string;
 }
