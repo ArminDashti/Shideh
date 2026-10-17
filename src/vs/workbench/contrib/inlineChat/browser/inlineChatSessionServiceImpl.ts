@@ -300,7 +300,6 @@ export class InlineChatEnabler {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IChatAgentService chatAgentService: IChatAgentService,
 		@IEditorService editorService: IEditorService,
-		@IConfigurationService configService: IConfigurationService,
 	) {
 		this.#ctxHasProvider = CTX_INLINE_CHAT_HAS_AGENT.bindTo(contextKeyService);
 		this.#ctxHasNotebookProvider = CTX_INLINE_CHAT_HAS_NOTEBOOK_AGENT.bindTo(contextKeyService);
