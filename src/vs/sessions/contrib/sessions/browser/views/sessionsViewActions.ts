@@ -890,6 +890,99 @@ registerAction2(class NewSessionInGroupAction extends Action2 {
 
 //  Session Item Actions
 
+const GroupColorsEnabledContext = ContextKeyExpr.equals(`config.${SESSIONS_LIST_GROUP_COLORS_SETTING}`, true);
+
+registerAction2(class EditSessionGroupAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.editGroup',
+			title: localize2('editGroup', "Edit Group..."),
+			icon: Codicon.edit,
+			precondition: GroupColorsEnabledContext,
+			menu: [{
+				id: SessionGroupToolbarMenuId,
+				group: 'navigation',
+				order: 1.5,
+				when: GroupColorsEnabledContext,
+			}]
+		});
+	}
+	run(accessor: ServicesAccessor, context?: ISessionGroupItem): void {
+		if (context) {
+			accessor.get(IViewsService).getViewWithId<SessionsView>(SessionsViewId)?.sessionsControl?.editHeaderColor(`group:${context.group.id}`);
+		}
+	}
+});
+
+registerAction2(class ColorSessionSectionAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.colorSection',
+			title: localize2('colorSection', "Color Section..."),
+			icon: Codicon.edit,
+			precondition: GroupColorsEnabledContext,
+			menu: [{
+				id: SessionSectionToolbarMenuId,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.and(GroupColorsEnabledContext, SessionSectionIsColorableContext, SessionSectionTypeContext.notEqualsTo('workspace')),
+			}]
+		});
+	}
+	run(accessor: ServicesAccessor, context?: ISessionSection): void {
+		if (context) {
+			accessor.get(IViewsService).getViewWithId<SessionsView>(SessionsViewId)?.sessionsControl?.editHeaderColor(context.id);
+		}
+	}
+});
+
+registerAction2(class ColorWorkspaceSectionAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.colorWorkspace',
+			title: localize2('colorWorkspace', "Color Workspace..."),
+			icon: Codicon.edit,
+			precondition: GroupColorsEnabledContext,
+			menu: [{
+				id: SessionSectionToolbarMenuId,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.and(GroupColorsEnabledContext, SessionSectionIsColorableContext, SessionSectionTypeContext.isEqualTo('workspace')),
+			}]
+		});
+	}
+	run(accessor: ServicesAccessor, context?: ISessionSection): void {
+		if (context) {
+			accessor.get(IViewsService).getViewWithId<SessionsView>(SessionsViewId)?.sessionsControl?.editHeaderColor(context.id);
+		}
+	}
+});
+
+registerAction2(class EditFocusedSessionHeaderAction extends Action2 {
+	constructor() {
+		super({
+			id: 'sessionsView.editFocusedHeader',
+			title: localize2('editFocusedHeader', "Edit Group or Section Color"),
+			precondition: GroupColorsEnabledContext,
+			keybinding: {
+				primary: KeyCode.F2,
+				// Wins over Rename on the same key while a colorable header is focused.
+				weight: KeybindingWeight.SessionsContrib + 1,
+				when: ContextKeyExpr.and(
+					IsSessionsWindowContext,
+					GroupColorsEnabledContext,
+					FocusedViewContext.isEqualTo(SessionsViewId),
+					WorkbenchListFocusContextKey,
+					SessionsListFocusedColorableHeaderContext.notEqualsTo(''),
+				),
+			},
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		accessor.get(IViewsService).getViewWithId<SessionsView>(SessionsViewId)?.sessionsControl?.editFocusedHeaderColor();
+	}
+});
+
 registerAction2(class PinSessionAction extends Action2 {
 	constructor() {
 		super({
