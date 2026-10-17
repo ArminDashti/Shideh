@@ -32,9 +32,9 @@ export const graph = (() => {
 
         private _nodes = new Map<T, Node<T>>();
 
-        inertEdge(from: T, to: T): void {
-            const fromNode = this.lookupOrInsertNode(from);
-            const toNode = this.lookupOrInsertNode(to);
+		inertEdge(from: T, to: T): void {
+			const fromNode = this.lookupOrInsertNode(from);
+			const toNode = this.lookupOrInsertNode(to);
 
             fromNode.outgoing.set(toNode.data, toNode);
             toNode.incoming.set(fromNode.data, fromNode);
@@ -59,8 +59,8 @@ export const graph = (() => {
                 this._nodes.set(data, node);
             }
 
-            return node;
-        }
+			return node;
+		}
 
         lookup(data: T): Node<T> | null {
             return this._nodes.get(data) ?? null;
