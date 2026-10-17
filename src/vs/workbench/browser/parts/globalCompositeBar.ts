@@ -198,8 +198,8 @@ abstract class AbstractGlobalActivityActionViewItem extends CompositeBarActionVi
 		(this.action as CompositeBarAction).activities = this.activityService.getActivity(this.compositeBarActionItem.id);
 	}
 
-	override render(container: HTMLElement): void {
-		super.render(container);
+	override render(container: HTMLElement, rerenderAction: (rerender: boolean) => void): void {
+		super.render(container, rerenderAction);
 
 		this._register(addDisposableListener(this.container, EventType.MOUSE_DOWN, async (e: MouseEvent) => {
 			EventHelper.stop(e, true);
@@ -818,8 +818,8 @@ export class GlobalActivityActionViewItem extends AbstractGlobalActivityActionVi
 		}));
 	}
 
-	override render(container: HTMLElement): void {
-		super.render(container);
+	override render(container: HTMLElement, actionUpdated: (rerender: boolean) => void): void {
+		super.render(container, actionUpdated);
 
 		this.profileBadge = append(container, $('.profile-badge'));
 		this.profileBadgeContent = append(this.profileBadge, $('.profile-badge-content'));
@@ -851,9 +851,10 @@ export class GlobalActivityActionViewItem extends AbstractGlobalActivityActionVi
 		this.profileBadgeContent.textContent = this.userDataProfileService.currentProfile.name.substring(0, 2).toUpperCase();
 	}
 
-	protected override updateActivity(): void {
-		super.updateActivity();
+	protected override updateActivity(): boolean {
+		const updated = super.updateActivity();
 		this.updateProfileBadge();
+		return updated;
 	}
 
 	protected override getTooltip(): string {

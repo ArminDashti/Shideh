@@ -12,7 +12,7 @@ import { DropdownMenuActionViewItem } from '../dropdown/dropdownActionViewItem.j
 import { Action, IAction, IActionRunner, Separator, SubmenuAction } from '../../../common/actions.js';
 import { Codicon } from '../../../common/codicons.js';
 import { ThemeIcon } from '../../../common/themables.js';
-import { EventMultiplexer } from '../../../common/event.js';
+import { Emitter, EventMultiplexer } from '../../../common/event.js';
 import { ResolvedKeybinding } from '../../../common/keybindings.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../common/lifecycle.js';
 import './toolbar.css';
@@ -103,6 +103,9 @@ export class ToolBar extends Disposable {
 	private hiddenActions: IAction[] = [];
 	private readonly disposables = this._register(new DisposableStore());
 
+	private readonly _onDidChangeToolbarSize = this._register(new Emitter<void>());
+	public readonly onDidChangeToolbarSize = this._onDidChangeToolbarSize.event;
+
 	constructor(private readonly container: HTMLElement, contextMenuProvider: IContextMenuProvider, options: IToolBarOptions = { orientation: ActionsOrientation.HORIZONTAL }) {
 		super();
 
@@ -183,6 +186,10 @@ export class ToolBar extends Disposable {
 
 				return undefined;
 			}
+		}));
+
+		this._register(this.actionBar.onDidRerenderItem(() => {
+			this._onDidChangeToolbarSize.fire();
 		}));
 
 		// Responsive support
@@ -568,6 +575,8 @@ export class ToolBar extends Disposable {
 		};
 
 		let minimumWidth = actionBarMinimumWidth();
+
+		const initialActionBarWidth = actionBarWidth();
 
 		// Action bar fits and there are no hidden actions to show
 		if (minimumWidth <= containerWidth && this.hiddenActions.length === 0) {
