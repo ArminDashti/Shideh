@@ -62,7 +62,7 @@ import { SessionSummaryHoverWidget } from '../../../../../workbench/contrib/chat
 import { AICustomizationManagementEditorInput } from '../../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
 import { IEditorService } from '../../../../../workbench/services/editor/common/editorService.js';
 import { IPreferencesService, IOpenSettingsOptions } from '../../../../../workbench/services/preferences/common/preferences.js';
-import { AgentMergeSessionState } from '../../../../../platform/agentHost/common/agentMerge.js';
+import { AgentMergeSessionState, AgentMergeSettingId } from '../../../../../platform/agentHost/common/agentMerge.js';
 import { getSessionChatDragData, isSessionChatDrag, SessionsDataTransfers } from '../../../../browser/dnd.js';
 import { IsPhoneLayoutContext, IsQuickChatSessionContext, SessionIsArchivedContext, SessionSupportsMultipleChatsContext } from '../../../../common/contextkeys.js';
 import { ARCHIVE_CHAT_COMMAND_ID, ARCHIVE_SESSION_COMMAND_ID, UNARCHIVE_CHAT_COMMAND_ID } from '../../../../common/sessionCommands.js';
@@ -3922,6 +3922,7 @@ suite('Sessions - SessionsList', () => {
 
 	suite('session pull request icon', () => {
 		test('shows an open pull request while Agent Merge handles CI failures and review comments', () => {
+			const configService = new TestConfigurationService({ [AgentMergeSettingId.Enabled]: true });
 			const stateBySession = new Map<string, AgentMergeSessionState>([['handled', { enabled: true }]]);
 			const enablementEmitters = new Map<string, Emitter<void>>();
 			const enablementObservables = new Map<string, IObservable<AgentMergeSessionState>>();
@@ -3947,11 +3948,47 @@ suite('Sessions - SessionsList', () => {
 				override readonly id = LOCAL_AGENT_HOST_PROVIDER_ID;
 				override getAgentMergeClientStateObservable(sessionId: string) { return getEnablementObservable(sessionId); }
 			};
-			const completedStateIcon = observableValue('completedStateIcon', computePullRequestIcon(GitHubPullRequestState.Open, { hasFailingChecks: true }));
+			const pullRequestUri = URI.parse('https://github.com/owner/repo/pull/1');
+			const pullRequestInfo = (icon: ReturnType<typeof computePullRequestIcon>, status: IPullRequestIconStatus): IGitHubInfo => ({
+				owner: 'owner',
+				repo: 'repo',
+				pullRequests: [{ owner: 'owner', repo: 'repo', number: 1, uri: pullRequestUri, icon, status }],
+				pullRequest: { number: 1, uri: pullRequestUri, icon, status },
+			});
+			const initialIcon = computePullRequestIcon(GitHubPullRequestState.Open, { hasFailingChecks: true });
+			const completedStateIcon = observableValue('completedStateIcon', initialIcon);
+			const pullRequestGitHubInfo = observableValue<IGitHubInfo | undefined>('pullRequestGitHubInfo', pullRequestInfo(initialIcon, { hasFailingChecks: true }));
+			const setPullRequestStatus = (status: IPullRequestIconStatus) => {
+				const icon = computePullRequestIcon(GitHubPullRequestState.Open, status);
+				completedStateIcon.set(icon, undefined);
+				pullRequestGitHubInfo.set(pullRequestInfo(icon, status), undefined);
+			};
+			const fireAgentMergeConfigChange = () => configService.onDidChangeConfigurationEmitter.fire({
+				source: ConfigurationTarget.USER,
+				affectedKeys: new Set([AgentMergeSettingId.Enabled]),
+				change: { keys: [AgentMergeSettingId.Enabled], overrides: [] },
+				affectsConfiguration: (key: string) => key === AgentMergeSettingId.Enabled,
+			});
 			const base = createTestSession('Agent Merge', { resourceId: 'handled' }).session;
+			const workspace = base.workspace.get()!;
 			const session: ISession = {
 				...base,
 				providerId: provider.id,
+				workspace: constObservable({
+					...workspace,
+					folders: [{
+						root: URI.file('/repo'),
+						workingDirectory: URI.file('/repo'),
+						name: 'repo',
+						description: undefined,
+						gitRepository: {
+							uri: URI.file('/repo'),
+							workTreeUri: undefined,
+							baseBranchName: 'main',
+							gitHubInfo: pullRequestGitHubInfo,
+						},
+					}],
+				}),
 				completedStateIcon,
 			};
 			const healthyBase = createTestSession('Healthy Pull Request', { resourceId: 'healthy' }).session;
@@ -3961,6 +3998,7 @@ suite('Sessions - SessionsList', () => {
 				completedStateIcon: constObservable(computePullRequestIcon(GitHubPullRequestState.Open)),
 			};
 			const harness = createListHarness(disposables, [session, healthySession], instantiationService => {
+				instantiationService.stub(IConfigurationService, configService);
 				instantiationService.stub(ISessionsProvidersService, new class extends mock<ISessionsProvidersService>() {
 					override readonly onDidChangeProviders = Event.None;
 					override getProviders() { return [provider]; }
@@ -3984,13 +4022,22 @@ suite('Sessions - SessionsList', () => {
 			};
 
 			const failingCI = currentIconId('Agent Merge');
+			setState(session.sessionId, { enabled: true, overrides: { addressReviews: false } });
+			const ciOnlyWithReviewsDisabled = currentIconId('Agent Merge');
 			setState(session.sessionId, { enabled: true, overrides: { fixCI: false } });
 			const unhandledCI = currentIconId('Agent Merge');
 			setState(session.sessionId, { enabled: true });
-			completedStateIcon.set(computePullRequestIcon(GitHubPullRequestState.Open, { hasUnresolvedComments: true }), undefined);
+			setPullRequestStatus({ hasUnresolvedComments: true });
 			const reviewComments = currentIconId('Agent Merge');
 			setState(session.sessionId, { enabled: true, overrides: { addressReviews: false } });
 			const unhandledComments = currentIconId('Agent Merge');
+			setState(session.sessionId, { enabled: true });
+			void configService.setUserConfiguration(AgentMergeSettingId.Enabled, false);
+			fireAgentMergeConfigChange();
+			const globallyDisabled = currentIconId('Agent Merge');
+			void configService.setUserConfiguration(AgentMergeSettingId.Enabled, true);
+			fireAgentMergeConfigChange();
+			const globallyReEnabled = currentIconId('Agent Merge');
 			setState(session.sessionId, { enabled: false });
 			const disabled = currentIconId('Agent Merge');
 			setState(session.sessionId, { enabled: true });
@@ -3998,18 +4045,24 @@ suite('Sessions - SessionsList', () => {
 			assert.deepStrictEqual({
 				observerCounts: Object.fromEntries(observerCounts),
 				failingCI,
+				ciOnlyWithReviewsDisabled,
 				unhandledCI,
 				reviewComments,
 				unhandledComments,
+				globallyDisabled,
+				globallyReEnabled,
 				disabled,
 				reEnabled: currentIconId('Agent Merge'),
 				healthy: currentIconId('Healthy Pull Request'),
 			}, {
 				observerCounts: { handled: 1 },
 				failingCI: 'codicon-git-pull-request',
+				ciOnlyWithReviewsDisabled: 'codicon-git-pull-request',
 				unhandledCI: 'codicon-git-pull-request-error',
 				reviewComments: 'codicon-git-pull-request',
 				unhandledComments: 'codicon-git-pull-request-comment',
+				globallyDisabled: 'codicon-git-pull-request-comment',
+				globallyReEnabled: 'codicon-git-pull-request',
 				disabled: 'codicon-git-pull-request-comment',
 				reEnabled: 'codicon-git-pull-request',
 				healthy: 'codicon-git-pull-request',

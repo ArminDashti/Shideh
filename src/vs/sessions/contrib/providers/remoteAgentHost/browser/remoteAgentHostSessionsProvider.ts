@@ -966,6 +966,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 		const wasUnpublished = this._unpublished;
 		this._connectionListeners.clear();
 		this._sessionStateSubscriptions.clearAndDisposeAll();
+		this._resetAgentMergeSessionStateSubscriptions();
 		this._connection = connection;
 		this._devContainerIdleSince = undefined;
 		this._connectionChanged.trigger(undefined);
@@ -985,6 +986,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 		}
 
 		this._attachConnectionListeners(connection, this._connectionListeners);
+		this._reacquireObservedAgentMergeSessionStates();
 
 		// Always refresh sessions when a connection is (re)established.
 		// `_refreshSessions` owns `_cacheInitialized` (set on a successful
@@ -1005,6 +1007,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 		this._devContainerIdleSince = undefined;
 		this._connectionListeners.clear();
 		this._sessionStateSubscriptions.clearAndDisposeAll();
+		this._resetAgentMergeSessionStateSubscriptions();
 		this._onDidDisconnect.fire();
 		this._connection = undefined;
 		this._connectionChanged.trigger(undefined);

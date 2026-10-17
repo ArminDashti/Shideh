@@ -340,6 +340,8 @@ export interface IGitHubInfo {
 		readonly icon?: ThemeIcon;
 		/** Pull request title, when known. */
 		readonly title?: string;
+		/** Additional live status used to refine the icon of an open pull request. */
+		readonly status?: IGitHubPullRequestStatus;
 		/** Object ID of the base ref (merge target) commit. */
 		readonly baseRefOid?: string;
 		/** Object ID of the head ref (PR branch) commit. */
@@ -382,6 +384,13 @@ export interface IGitHubPullRequestRef {
 	readonly createdByThisSession?: boolean;
 }
 
+/** Additional live status used to refine the icon of an open pull request. */
+export interface IGitHubPullRequestStatus {
+	readonly hasMergeConflicts?: boolean;
+	readonly hasFailingChecks?: boolean;
+	readonly hasUnresolvedComments?: boolean;
+}
+
 /** Returns all pull requests associated with GitHub info, including its legacy single-PR shape. */
 export function getGitHubPullRequestRefs(gitHubInfo: IGitHubInfo | undefined): readonly IGitHubPullRequestRef[] {
 	if (gitHubInfo?.pullRequests?.length) {
@@ -399,6 +408,7 @@ export function getGitHubPullRequestRefs(gitHubInfo: IGitHubInfo | undefined): r
 		state: gitHubInfo.pullRequest.state,
 		liveState: gitHubInfo.pullRequest.liveState,
 		title: gitHubInfo.pullRequest.title,
+		status: gitHubInfo.pullRequest.status,
 	}];
 }
 
