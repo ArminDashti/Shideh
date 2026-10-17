@@ -264,10 +264,25 @@ const T3_2 = /^{\*\*\/\*?[\w\.-]+(\/(\*\*)?)?(,\*\*\/\*?[\w\.-]+(\/(\*\*)?)?)*}$
 const T4 = /^\*\*((\/[\w\.-]+)+)\/?$/; 												// **/something/else
 const T5 = /^([\w\.-]+(\/[\w\.-]+)*)\/?$/; 											// something/else
 
+function endsWith(str: string, candidate: string, ignoreCase: boolean | undefined): boolean {
+	if (ignoreCase) {
+		return endsWithIgnoreCase(str, candidate);
+	}
+
+	return str.endsWith(candidate);
+}
+
+function equals(a: string, b: string, ignoreCase: boolean | undefined): boolean {
+	if (ignoreCase) {
+		return equalsIgnoreCase(a, b);
+	}
+
+	return a === b;
+}
+
 export type ParsedPattern = (path: string, basename?: string) => boolean;
 
-// The `ParsedExpression` returns a `Promise`
-// iff `hasSibling` returns a `Promise`.
+// The `ParsedExpression` returns a `Promise` if `hasSibling` returns a `Promise`.
 export type ParsedExpression = (path: string, basename?: string, hasSibling?: (name: string) => boolean | Promise<boolean>) => string | null | Promise<string | null> /* the matching pattern */;
 
 export interface IGlobOptions {
@@ -847,7 +862,7 @@ function aggregateBasenameMatches(parsedPatterns: Array<ParsedStringPattern | Pa
 // NOTE: This is not used for actual matching, only for resetting watcher when patterns change.
 // That is why it's ok to avoid case-insensitive comparison here.
 export function patternsEquals(patternsA: Array<string | IRelativePattern> | undefined, patternsB: Array<string | IRelativePattern> | undefined): boolean {
-	return equals(patternsA, patternsB, (a, b) => {
+	return arrayEquals(patternsA, patternsB, (a, b) => {
 		if (typeof a === 'string' && typeof b === 'string') {
 			return a === b;
 		}
