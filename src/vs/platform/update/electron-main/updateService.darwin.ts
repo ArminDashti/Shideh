@@ -65,7 +65,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		return true;
 	}
 
-	protected override async initialize(): Promise<void> {
+	override async initialize(): Promise<void> {
 		await super.initialize();
 
 		this.onRawError(this.onError, this, this._store);
@@ -204,7 +204,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 
 	protected override doQuitAndInstall(): void {
-		this.logService.trace('update#quitAndInstall(): running raw#quitAndInstall()');
+		this.logService.info('update#quitAndInstall(): running raw#quitAndInstall()');
 		electron.autoUpdater.quitAndInstall();
 	}
 }

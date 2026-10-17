@@ -113,10 +113,12 @@ export interface IUpdateService {
 	readonly onStateChange: Event<State>;
 	readonly state: State;
 
+	initialize(): Promise<void>;
+
 	checkForUpdates(explicit: boolean): Promise<void>;
 	downloadUpdate(explicit: boolean): Promise<void>;
 	applyUpdate(): Promise<void>;
-	quitAndInstall(): Promise<void>;
+	quitAndInstall(force?: boolean): Promise<void>;
 
 	/**
 	 * @deprecated This method should not be used any more. It will be removed in a future release.

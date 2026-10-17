@@ -189,7 +189,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	 * optimization, to avoid using extra CPU cycles before first window open.
 	 * https://github.com/microsoft/vscode/issues/89784
 	 */
-	protected async initialize(): Promise<void> {
+	async initialize(): Promise<void> {
 		if (!this.environmentMainService.isBuilt) {
 			this.setDisabledPermanently(DisablementReason.NotBuilt);
 			return; // updates are never enabled when running out of sources
@@ -555,14 +555,14 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		this.logService.trace('update#quitAndInstall(): before lifecycle quit()');
 
 		this.lifecycleMainService.quit(true /* will restart */).then(vetod => {
-			this.logService.trace(`update#quitAndInstall(): after lifecycle quit() with veto: ${vetod}`);
+			this.logService.info(`update#quitAndInstall(): after lifecycle quit() with veto: ${vetod}`);
 			if (vetod) {
 				this.logService.info('update#quitAndInstall(): quit was vetoed, restoring Ready state');
 				this.setState(readyState);
 				return;
 			}
 
-			this.logService.trace('update#quitAndInstall(): running raw#quitAndInstall()');
+			this.logService.info('update#quitAndInstall(): running raw#quitAndInstall()');
 			this.doQuitAndInstall();
 		});
 
@@ -651,7 +651,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return undefined;
 		}
 
-		const mode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
+		const mode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default' | 'block'>('update.mode');
 
 		if (mode === 'none') {
 			return undefined;

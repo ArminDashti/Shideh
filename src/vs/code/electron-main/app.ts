@@ -89,7 +89,7 @@ import { ITelemetryService, TelemetryLevel } from '../../platform/telemetry/comm
 import { TelemetryAppenderClient } from '../../platform/telemetry/common/telemetryIpc.js';
 import { ITelemetryServiceConfig, TelemetryService } from '../../platform/telemetry/common/telemetryService.js';
 import { getPiiPathsFromEnvironment, getTelemetryLevel, isInternalTelemetry, NullTelemetryService, supportsTelemetry } from '../../platform/telemetry/common/telemetryUtils.js';
-import { IUpdateService } from '../../platform/update/common/update.js';
+import { IUpdateService, StateType } from '../../platform/update/common/update.js';
 import { UpdateChannel } from '../../platform/update/common/updateIpc.js';
 import { NotAvailableUpdateDialog } from '../../platform/update/electron-main/notAvailableUpdateDialog.js';
 import { DarwinUpdateService } from '../../platform/update/electron-main/updateService.darwin.js';
@@ -822,6 +822,94 @@ export class CodeApplication extends Disposable {
 			(accessor.get(IMeteredConnectionService) as MeteredConnectionMainService).setTelemetryService(accessor.get(ITelemetryService));
 		});
 
+		// Update mode: block
+		if (this.configurationService.getValue('update.mode') === 'block') {
+			await appInstantiationService.invokeFunction(async accessor => {
+				const updateService = accessor.get(IUpdateService);
+
+				const logUpdate = () => {
+					switch (updateService.state.type) {
+						case StateType.Uninitialized:
+							this.logService.info('Update State: Uninitialized');
+							break;
+						case StateType.Idle:
+							this.logService.info('Update State: Idle');
+							break;
+						case StateType.Disabled:
+							this.logService.info('Update State: Disabled');
+							break;
+						case StateType.CheckingForUpdates:
+							this.logService.info('Update State: CheckingForUpdates');
+							break;
+						case StateType.AvailableForDownload:
+							this.logService.info('Update State: AvailableForDownload');
+							break;
+						case StateType.Downloading:
+							this.logService.info('Update State: Downloading');
+							break;
+						case StateType.Downloaded:
+							this.logService.info('Update State: Downloaded');
+							break;
+						case StateType.Updating:
+							this.logService.info('Update State: Updating');
+							break;
+						case StateType.Ready:
+							this.logService.info('Update State: Ready');
+							break;
+					}
+				};
+
+				logUpdate();
+				await updateService.initialize();
+				logUpdate();
+
+				setInterval(() => logUpdate(), 100);
+
+				let notification = new Notification({
+					title: 'Checking for updates...',
+					timeoutType: 'never'
+				});
+				notification.show();
+
+				app.setBadgeCount();
+
+				await updateService.checkForUpdates(true);
+				await this.awaitUpdateState(updateService, StateType.Ready, StateType.Idle);
+				notification.close();
+
+				if (updateService.state.type === StateType.Ready) {
+					// this.logService.info('Before downloadUpdate()');
+					// notification = new Notification({
+					// 	title: 'Downloading update...',
+					// 	timeoutType: 'never'
+					// });
+					// notification.show();
+					// await updateService.downloadUpdate();
+					// this.logService.info('After downloadUpdate()');
+
+					// notification.close();
+					// notification = new Notification({
+					// 	title: 'Applying update...',
+					// 	timeoutType: 'never'
+					// });
+					// notification.show();
+					// this.logService.info('Before applyUpdate()');
+					// await updateService.applyUpdate();
+					// this.logService.info('After applyUpdate()');
+
+					// notification.close();
+					notification = new Notification({
+						title: 'Restarting...',
+						timeoutType: 'never'
+					});
+					notification.show();
+					await updateService.quitAndInstall(true);
+
+					return;
+				}
+			});
+		}
+
 		// Auth Handler
 		appInstantiationService.invokeFunction(accessor => accessor.get(IProxyAuthService));
 
@@ -887,6 +975,17 @@ export class CodeApplication extends Disposable {
 			]);
 			await this.lifecycleMainService.quit();
 		}
+	}
+
+	private awaitUpdateState(updateService: IUpdateService, ...types: StateType[]): Promise<void> {
+		return new Promise<void>(resolve => {
+			const disposable = this._register(updateService.onStateChange(e => {
+				if (types.includes(e.type)) {
+					disposable.dispose();
+					resolve();
+				}
+			}));
+		});
 	}
 
 	private async setupProtocolUrlHandlers(accessor: ServicesAccessor, mainProcessElectronServer: ElectronIPCServer): Promise<IInitialProtocolUrls | undefined> {
