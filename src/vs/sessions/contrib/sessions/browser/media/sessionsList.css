@@ -534,14 +534,6 @@
 
 		.session-separator {
 			display: none;
-
-			&.has-separator {
-				display: inline;
-
-				&::before {
-					content: '\00B7';
-				}
-			}
 		}
 	}
 
