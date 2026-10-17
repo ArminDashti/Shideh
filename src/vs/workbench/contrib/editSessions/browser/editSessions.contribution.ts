@@ -352,6 +352,16 @@ export class EditSessionsContribution extends Disposable implements IWorkbenchCo
 		this._register(registerAction2(class ContinueEditSessionAction extends Action2 {
 			constructor() {
 				super(continueWorkingOnCommand);
+
+				MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
+					group: '2_open',
+					order: 100,
+					command: {
+						id: continueWorkingOnCommand.id,
+						title: continueWorkingOnCommand.title
+					},
+					when: continueWorkingOnCommand.precondition
+				});
 			}
 
 			async run(accessor: ServicesAccessor, workspaceUri: URI | undefined, destination: string | undefined): Promise<void> {
