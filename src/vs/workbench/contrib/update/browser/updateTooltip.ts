@@ -8,7 +8,6 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -24,10 +23,14 @@ import './media/updateTooltip.css';
 export class UpdateTooltip extends Disposable {
 	public readonly domNode: HTMLElement;
 
-	// Header section
+	// Header
 	private readonly titleNode: HTMLElement;
+	private readonly headerLogo: HTMLElement;
 
-	// Product info section
+	// Step indicator
+	private readonly stepperContainer: HTMLElement;
+
+	// Release notes link
 	private readonly productInfoNode: HTMLElement;
 	private readonly productNameNode: HTMLElement;
 	private readonly currentVersionNode: HTMLElement;
@@ -38,16 +41,22 @@ export class UpdateTooltip extends Disposable {
 	private readonly latestVersionCopyButton: HTMLElement;
 	private readonly releaseDateNode: HTMLElement;
 
+	// Separator
+	private readonly separator: HTMLElement;
+
 	// Progress section
 	private readonly progressContainer: HTMLElement;
 	private readonly progressFill: HTMLElement;
 	private readonly progressPercentNode: HTMLElement;
 	private readonly progressSizeNode: HTMLElement;
 
-	// Extra download info
-	private readonly downloadStatsContainer: HTMLElement;
-	private readonly timeRemainingNode: HTMLElement;
-	private readonly speedInfoNode: HTMLElement;
+	// Collapsible details section (versions, download stats)
+	private readonly detailsSection: HTMLDetailsElement;
+	private readonly currentVersionNode: HTMLElement;
+	private readonly targetVersionNode: HTMLElement;
+	private readonly downloadStatsRow: HTMLElement;
+	private readonly downloadedSizeNode: HTMLElement;
+	private readonly downloadSpeedNode: HTMLElement;
 
 	// State-specific message
 	private readonly messageNode: HTMLElement;
@@ -70,21 +79,27 @@ export class UpdateTooltip extends Disposable {
 
 		this.domNode = dom.$('.update-tooltip');
 
-		// Header section
+		// Header
 		const header = dom.append(this.domNode, dom.$('.header'));
 		this.titleNode = dom.append(header, dom.$('.title'));
 
 		// Product info section
 		this.productInfoNode = dom.append(this.domNode, dom.$('.product-info'));
+		this.releaseDateNode = dom.append(this.productInfoNode, dom.$('.product-release-date'));
 
-		const logoContainer = dom.append(this.productInfoNode, dom.$('.product-logo'));
-		logoContainer.setAttribute('role', 'img');
-		logoContainer.setAttribute('aria-label', this.productService.nameLong);
+		// Separator
+		this.separator = dom.append(this.domNode, dom.$('.tooltip-separator'));
 
-		const details = dom.append(this.productInfoNode, dom.$('.product-details'));
+		// Progress
+		this.progressContainer = dom.append(this.domNode, dom.$('.progress-container'));
+		const progressBar = dom.append(this.progressContainer, dom.$('.progress-bar'));
+		this.progressFill = dom.append(progressBar, dom.$('.progress-fill'));
+		const progressText = dom.append(this.progressContainer, dom.$('.progress-text'));
+		this.progressPercentNode = dom.append(progressText, dom.$('span'));
+		this.progressSizeNode = dom.append(progressText, dom.$('span'));
 
-		this.productNameNode = dom.append(details, dom.$('.product-name'));
-		this.productNameNode.textContent = this.productService.nameLong;
+		// Markdown
+		this.markdownContainer = dom.append(this.domNode, dom.$('.update-markdown'));
 
 		const currentVersionRow = this.createVersionRow(details);
 		this.currentVersionNode = currentVersionRow.label;
@@ -156,14 +171,63 @@ export class UpdateTooltip extends Disposable {
 
 	private hideAll() {
 		this.productInfoNode.style.display = '';
+		this.headerLogo.style.display = '';
+		this.stepperContainer.style.display = 'none';
+		this.separator.style.display = 'none';
 		this.progressContainer.style.display = 'none';
-		this.speedInfoNode.textContent = '';
-		this.timeRemainingNode.textContent = '';
+		this.detailsSection.style.display = 'none';
+		this.detailsSection.open = false;
+		this.downloadStatsRow.style.display = 'none';
+		this.downloadedSizeNode.textContent = '';
+		this.downloadSpeedNode.textContent = '';
 		this.messageNode.style.display = 'none';
 		this.actionButton.style.display = 'none';
 		this.actionButton.tabIndex = -1;
 		this.actionButton.dataset.commandId = '';
 		this.releaseNotesButton.style.marginRight = '';
+	}
+
+	/**
+	 * Shows a contextual stepper based on the active step.
+	 * Shows all steps with completed/active/pending states.
+	 */
+	private setStepper(activeStep: number, inProgress = false) {
+		const allSteps = [
+			localize('updateTooltip.stepDownload', "Download"),
+			localize('updateTooltip.stepInstall', "Install"),
+			localize('updateTooltip.stepRestart', "Restart"),
+		];
+		const completedLabels = [
+			localize('updateTooltip.stepDownloaded', "Downloaded"),
+			localize('updateTooltip.stepInstalled', "Installed"),
+			localize('updateTooltip.stepRestarted', "Restarted"),
+		];
+
+		this.stepperContainer.style.display = '';
+		dom.clearNode(this.stepperContainer);
+
+		for (let i = 0; i < allSteps.length; i++) {
+			if (i > 0) {
+				const line = dom.append(this.stepperContainer, dom.$('.step-line'));
+				if (i <= activeStep) {
+					line.classList.add('completed');
+				}
+			}
+			const step = dom.append(this.stepperContainer, dom.$('.step'));
+			const circle = dom.append(step, dom.$('.step-circle'));
+			const label = dom.append(step, dom.$('.step-label'));
+			label.textContent = allSteps[i];
+			if (i < activeStep) {
+				step.classList.add('completed');
+				circle.classList.add(...ThemeIcon.asClassNameArray(Codicon.check));
+				label.textContent = completedLabels[i];
+			} else if (i === activeStep) {
+				step.classList.add('active');
+				if (inProgress) {
+					step.classList.add('in-progress');
+				}
+			}
+		}
 	}
 
 	public renderState(state: State) {
@@ -215,6 +279,7 @@ export class UpdateTooltip extends Disposable {
 
 	private renderDisabled({ reason }: Disabled) {
 		this.renderTitleAndInfo(localize('updateTooltip.updatesDisabledTitle', "Updates Disabled"));
+		this.showSeparator();
 		switch (reason) {
 			case DisablementReason.NotBuilt:
 				this.renderMessage(
@@ -263,13 +328,13 @@ export class UpdateTooltip extends Disposable {
 	private renderIdle({ error, notAvailable }: Idle) {
 		if (error) {
 			this.renderTitleAndInfo(localize('updateTooltip.updateErrorTitle', "Update Error"));
+			this.showSeparator();
 			this.renderMessage(error, Codicon.error);
 			return;
 		}
 
 		if (notAvailable) {
-			this.renderTitleAndInfo(localize('updateTooltip.noUpdateAvailableTitle', "No Update Available"));
-			this.renderMessage(localize('updateTooltip.noUpdateAvailableMessage', "There are no updates currently available."), Codicon.info);
+			this.renderTitleAndInfo(localize('updateTooltip.upToDateTitle', "Up to Date"));
 			return;
 		}
 
@@ -295,6 +360,8 @@ export class UpdateTooltip extends Disposable {
 
 	private renderCheckingForUpdates() {
 		this.renderTitleAndInfo(localize('updateTooltip.checkingForUpdatesTitle', "Checking for Updates"));
+		this.releaseNotesLink.style.display = 'none';
+		this.showSeparator();
 		this.renderMessage(localize('updateTooltip.checkingPleaseWait', "Checking for updates, please wait..."));
 	}
 
@@ -304,27 +371,35 @@ export class UpdateTooltip extends Disposable {
 	}
 
 	private renderDownloading(state: Downloading) {
-		this.renderTitleAndInfo(localize('updateTooltip.downloadingUpdateTitle', "Downloading Update"), state.update);
+		this.renderTitleAndInfo(localize('updateTooltip.downloadingUpdateTitle', "Downloading"), state.update);
+		this.setStepper(0, true);
+		this.showDetails(state.update);
 
 		const { downloadedBytes, totalBytes } = state;
 		if (downloadedBytes !== undefined && totalBytes !== undefined && totalBytes > 0) {
 			const percentage = computeProgressPercent(downloadedBytes, totalBytes) ?? 0;
 			this.progressFill.style.width = `${percentage}%`;
 			this.progressPercentNode.textContent = `${percentage}%`;
-			this.progressSizeNode.textContent = `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}`;
-			this.progressContainer.style.display = '';
-
-			const speed = computeDownloadSpeed(state);
-			if (speed !== undefined && speed > 0) {
-				this.speedInfoNode.textContent = localize('updateTooltip.downloadSpeed', '{0}/s', formatBytes(speed));
-			}
 
 			const timeRemaining = computeDownloadTimeRemaining(state);
 			if (timeRemaining !== undefined && timeRemaining > 0) {
-				this.timeRemainingNode.textContent = `~${formatTimeRemaining(timeRemaining)} ${localize('updateTooltip.timeRemaining', "remaining")}`;
+				this.progressSizeNode.textContent = `~${formatTimeRemaining(timeRemaining)} ${localize('updateTooltip.timeRemaining', "remaining")}`;
+			} else {
+				this.progressSizeNode.textContent = '';
 			}
 
-			this.downloadStatsContainer.style.display = '';
+			// Download stats in details section
+			this.downloadedSizeNode.textContent = `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}`;
+			const speed = computeDownloadSpeed(state);
+			if (speed !== undefined && speed > 0) {
+				const mbps = (speed * 8) / (1024 * 1024);
+				this.downloadSpeedNode.textContent = localize('updateTooltip.downloadSpeed', "{0} Mbps", mbps.toFixed(1));
+			} else {
+				this.downloadSpeedNode.textContent = '';
+			}
+			this.downloadStatsRow.style.display = '';
+
+			this.progressContainer.style.display = '';
 		} else {
 			this.renderMessage(localize('updateTooltip.downloadingPleaseWait', "Downloading update, please wait..."));
 		}
@@ -336,7 +411,9 @@ export class UpdateTooltip extends Disposable {
 	}
 
 	private renderUpdating({ update, currentProgress, maxProgress }: Updating) {
-		this.renderTitleAndInfo(localize('updateTooltip.installingUpdateTitle', "Installing Update"), update);
+		this.renderTitleAndInfo(localize('updateTooltip.installingUpdateTitle', "Installing"), update);
+		this.setStepper(1, true);
+		this.showDetails(update);
 
 		const percentage = computeProgressPercent(currentProgress, maxProgress);
 		if (percentage !== undefined) {
@@ -360,6 +437,8 @@ export class UpdateTooltip extends Disposable {
 
 	private renderOverwriting({ update }: Overwriting) {
 		this.renderTitleAndInfo(localize('updateTooltip.downloadingNewerUpdateTitle', "Downloading Newer Update"), update);
+		this.setStepper(0, true);
+		this.showDetails(update);
 		this.renderMessage(localize('updateTooltip.downloadingNewerPleaseWait', "A newer update was released. Downloading, please wait..."));
 	}
 
@@ -376,7 +455,6 @@ export class UpdateTooltip extends Disposable {
 	private renderTitleAndInfo(title: string, update?: IUpdate) {
 		this.titleNode.textContent = title;
 
-		// Latest version
 		const version = update?.productVersion;
 		if (version) {
 			const updateCommitId = update.version?.substring(0, 7);
@@ -430,16 +508,16 @@ export class UpdateTooltip extends Disposable {
 		const label = dom.append(row, dom.$('span'));
 		const copyValue = { value: '' };
 
-		const copyButton = dom.append(row, dom.$('a.copy-version-button'));
-		copyButton.setAttribute('role', 'button');
-		copyButton.setAttribute('tabindex', '0');
-		const title = localize('updateTooltip.copyVersion', "Copy");
-		copyButton.title = title;
-		copyButton.setAttribute('aria-label', title);
+	private showDetails(update?: IUpdate) {
+		this.currentVersionNode.textContent = this.productService.version;
+		this.targetVersionNode.textContent = update?.productVersion ?? '';
+		this.detailsSection.style.display = '';
+	}
 
-		const copyIcon = dom.append(copyButton, dom.$('.copy-icon'));
-		copyIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.copy));
-		this._register(dom.addDisposableListener(copyButton, 'click', e => {
+	private showAction(label: string, action: () => void) {
+		this.actionButton.textContent = label;
+		this.actionButton.style.display = '';
+		this.actionButton.onclick = e => {
 			e.preventDefault();
 			e.stopPropagation();
 			if (copyValue.value) {

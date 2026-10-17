@@ -341,8 +341,14 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 			return;
 		}
 
+		// Clear previous hint timer
+		if (this.hintTimer !== undefined) {
+			clearTimeout(this.hintTimer);
+			this.hintTimer = undefined;
+		}
+
 		dom.clearNode(this.content);
-		this.content.classList.remove('prominent', 'progress-indefinite', 'progress-percent', 'update-disabled');
+		this.content.classList.remove('prominent', 'progress-indefinite', 'progress-percent', 'update-disabled', 'hint-visible');
 		this.content.style.removeProperty('--update-progress');
 
 		const label = dom.append(this.content, dom.$('.indicator-label'));
@@ -368,6 +374,30 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 				label.textContent = localize('updateIndicator.update', "Update");
 				this.content.classList.add('prominent');
 				break;
+
+			case StateType.AvailableForDownload: {
+				label.textContent = localize('updateIndicator.update', "Update");
+				this.content.classList.add('prominent');
+				const hint = dom.append(this.content, dom.$('.indicator-hint'));
+				hint.textContent = localize('updateIndicator.availableHint', "Available. Download?");
+				this.flashHintOnce();
+				break;
+			}
+
+			case StateType.Downloaded: {
+				label.textContent = localize('updateIndicator.update', "Update");
+				this.content.classList.add('prominent');
+				const hint = dom.append(this.content, dom.$('.indicator-hint'));
+				hint.textContent = localize('updateIndicator.downloadedHint', "Downloaded. Install?");
+				this.flashHintOnce();
+				break;
+			}
+
+			case StateType.Ready: {
+				label.textContent = localize('updateIndicator.update', "Update");
+				this.content.classList.add('prominent');
+				break;
+			}
 
 			case StateType.Downloading:
 				label.textContent = localize('updateIndicator.downloading', "Downloading...");
@@ -395,6 +425,25 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		}
 
 		this.element?.setAttribute('aria-label', label.textContent);
+	}
+
+	private flashHintOnce() {
+		const content = this.content;
+		if (!content) {
+			return;
+		}
+
+		// Flash the hint once after a short delay
+		this.hintTimer = setTimeout(() => {
+			dom.getWindow(content).requestAnimationFrame(() => {
+				content.classList.add('hint-visible');
+			});
+
+			this.hintTimer = setTimeout(() => {
+				content.classList.remove('hint-visible');
+				this.hintTimer = undefined;
+			}, 3000);
+		}, 500);
 	}
 
 	private renderProgressState(content: HTMLElement, percentage?: number) {

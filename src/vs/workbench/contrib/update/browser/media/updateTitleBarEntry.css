@@ -24,6 +24,23 @@
 	position: relative;
 }
 
+/* Expanded hint — slides out to the right inside the button */
+.monaco-action-bar .update-indicator .indicator-hint {
+	display: inline-block;
+	max-width: 0;
+	opacity: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	font-size: var(--vscode-bodyFontSize-small);
+	margin-left: 3px;
+	transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease 0.15s;
+}
+
+.monaco-action-bar .update-indicator.hint-visible .indicator-hint {
+	max-width: 180px;
+	opacity: 1;
+}
+
 /* Prominent state (action required) — primary button style */
 .monaco-action-bar .update-indicator.prominent {
 	background-color: var(--vscode-button-background);
