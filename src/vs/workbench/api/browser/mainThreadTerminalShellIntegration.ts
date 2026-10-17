@@ -12,6 +12,7 @@ import { IWorkbenchEnvironmentService } from '../../services/environment/common/
 import { extHostNamedCustomer, type IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { TerminalShellExecutionCommandLineConfidence } from '../common/extHostTypes.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
+import { ITerminalLogService } from '../../../platform/terminal/common/terminal.js';
 
 @extHostNamedCustomer(MainContext.MainThreadTerminalShellIntegration)
 export class MainThreadTerminalShellIntegration extends Disposable implements MainThreadTerminalShellIntegrationShape {
@@ -21,7 +22,8 @@ export class MainThreadTerminalShellIntegration extends Disposable implements Ma
 		extHostContext: IExtHostContext,
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IWorkbenchEnvironmentService workbenchEnvironmentService: IWorkbenchEnvironmentService,
-		@IExtensionService private readonly _extensionService: IExtensionService
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ITerminalLogService private readonly _logService: ITerminalLogService
 	) {
 		super();
 
@@ -100,6 +102,7 @@ export class MainThreadTerminalShellIntegration extends Disposable implements Ma
 			// their own events, so send this immediately. This means that the D sequence will not
 			// be included as it's currently being parsed when the command finished event fires.
 			this._proxy.$shellExecutionEnd(instanceId, e.data.command, convertToExtHostCommandLineConfidence(e.data), e.data.isTrusted, e.data.exitCode);
+			this._logService.trace(`PromptInputModel#_onDidEndTerminalShellExecution# state of promptInputModel after shellExecutionEnd is	: ${e.instance.capabilities.get(TerminalCapability.CommandDetection)?.promptInputModel.state}`);
 		}));
 
 		// Clean up after dispose

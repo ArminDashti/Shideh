@@ -42,6 +42,12 @@ export interface IPromptInputModel extends IPromptInputModelState {
 	getCombinedString(emptyStringWhenEmpty?: boolean): string;
 
 	setShellType(shellType?: TerminalShellType): void;
+
+	/**
+	 * Clears the prompt input value. This should be called when the command has finished
+	 * and the value is no longer relevant as editable prompt input.
+	 */
+	clearValue(): void;
 }
 
 export interface IPromptInputModelState {
@@ -241,8 +247,10 @@ export class PromptInputModel extends Disposable implements IPromptInputModel {
 
 	private _handleCommandExecuted() {
 		if (this._state === PromptInputState.Execute) {
+			this._logService.trace('PromptInputModel#_handleCommandExecuted: already in Execute state');
 			return;
 		}
+		this._logService.trace('PromptInputModel#_handleCommandExecuted: Inside _handleCommandExecuted but not PromptInputState.Execute yet');
 
 		this._cursorIndex = -1;
 
