@@ -27,6 +27,7 @@ import { IDragAndDropData } from '../../../../../base/browser/dnd.js';
 import { ListViewTargetSector } from '../../../../../base/browser/ui/list/listView.js';
 import { coalesce } from '../../../../../base/common/arrays.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { fillEditorsDragData } from '../../../../browser/dnd.js';
 import { HoverStyle, IDelayedHoverOptions } from '../../../../../base/browser/ui/hover/hover.js';
 import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
