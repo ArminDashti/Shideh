@@ -260,9 +260,6 @@ suite('IssueReporterOverlay', () => {
 			throw new Error('Next button not found');
 		}
 
-		nextButton.click();
-		nextButton.click();
-
 		let submission: { title: string; body: string } | undefined;
 		store.add(overlay.onDidSubmit(event => submission = event));
 		nextButton.click();

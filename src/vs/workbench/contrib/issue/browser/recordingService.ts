@@ -19,6 +19,17 @@ export interface IRecordingData {
 	readonly stoppedBySize?: boolean;
 }
 
+export type ScreenCapturePermissionStatus = 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+
+/**
+ * Returns whether VS Code should show its own System Settings guidance after a
+ * failed screen-capture permission check. The first request is left to the
+ * native macOS prompt so the user does not see two prompts for the same action.
+ */
+export function shouldShowScreenCapturePermissionSettings(status: ScreenCapturePermissionStatus, previouslyRequested: boolean): boolean {
+	return status === 'restricted' || (status !== 'granted' && previouslyRequested);
+}
+
 export const enum RecordingState {
 	Idle = 'idle',
 	Recording = 'recording',
@@ -67,13 +78,19 @@ export interface IRecordingService {
 	 * concept doesn't apply (e.g. web) implementations return 'granted' so callers can
 	 * proceed straight to the recording flow.
 	 */
-	getScreenCapturePermissionStatus(): Promise<'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'>;
+	getScreenCapturePermissionStatus(): Promise<ScreenCapturePermissionStatus>;
+
+	/**
+	 * Requests screen-capture access from the OS without beginning capture. On macOS this
+	 * registers the application with Screen Recording privacy settings and may show the system prompt.
+	 */
+	requestScreenCapturePermission(): Promise<boolean>;
 
 	/**
 	 * Opens the OS-level UI for granting screen-capture permission. No-op on platforms
 	 * where this isn't applicable.
 	 */
-	openScreenCapturePermissionSettings(): void;
+	openScreenCapturePermissionSettings(): Promise<void>;
 }
 
 /**
@@ -105,7 +122,11 @@ export class BrowserRecordingService implements IRecordingService {
 		return 'granted';
 	}
 
-	openScreenCapturePermissionSettings(): void {
+	async requestScreenCapturePermission(): Promise<boolean> {
+		return true;
+	}
+
+	async openScreenCapturePermissionSettings(): Promise<void> {
 		// No-op
 	}
 }

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Issue Reporter - Wizard UI (editor tab mode).
- * The wizard renders inside an editor pane container.
- * A floating capture bar appears on step 3.
+ * Issue Reporter UI (editor tab mode).
+ * The form renders inside an editor pane container.
+ * A floating capture bar remains available while the reporter is open.
  */
 
 /* Wizard Panel - renders inside the editor tab */
@@ -615,6 +615,17 @@ label/control gap, so the buttons must not add their own margin. */
 	flex-wrap: wrap;
 	align-content: flex-start;
 	min-height: 50px;
+}
+
+.issue-reporter-wizard .wizard-attachments-step {
+	border: 1px dashed transparent;
+	border-radius: 6px;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+
+.issue-reporter-wizard .wizard-attachments-step.drag-over {
+	background: var(--vscode-list-dropBackground, var(--vscode-editor-background));
+	border-color: var(--vscode-focusBorder, #007acc);
 }
 
 .issue-reporter-wizard .wizard-screenshots-empty {
@@ -1853,4 +1864,368 @@ extension field is hidden (no fixed-width placeholder needed). */
 /* Keep the floating capture bar above workbench overlays such as modal dialogs. */
 .issue-reporter-floating-bar {
 	z-index: 5000;
+}
+
+/* Single-page issue form */
+.issue-reporter-wizard {
+	overflow: hidden;
+}
+
+.issue-reporter-wizard .issue-reporter-header {
+	padding: 28px 40px 20px;
+	border-bottom: 1px solid var(--vscode-panel-border, #444);
+	background: var(--vscode-editor-background);
+	flex-shrink: 0;
+}
+
+.issue-reporter-wizard .issue-reporter-title {
+	margin: 0;
+	font-size: 26px;
+	font-weight: 500;
+	line-height: 1.25;
+	color: var(--vscode-foreground);
+}
+
+.issue-reporter-wizard .issue-reporter-subtitle {
+	margin: 6px 0 0;
+	max-width: 760px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.issue-reporter-wizard .wizard-step-container {
+	position: static;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 16px;
+	overflow: auto;
+	padding: 24px 40px 32px;
+	min-height: 0;
+	min-width: 0;
+}
+
+.issue-reporter-wizard .wizard-step.issue-reporter-section {
+	position: static;
+	inset: auto;
+	display: flex;
+	overflow: visible;
+	padding: 20px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-input-border));
+	border-radius: var(--vscode-cornerRadius-large, 6px);
+	background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+	box-sizing: border-box;
+	flex: none;
+	min-width: 0;
+}
+
+.issue-reporter-wizard .issue-reporter-compose-section {
+	order: 1;
+}
+
+.issue-reporter-wizard .wizard-attachments-step {
+	order: 2;
+}
+
+.issue-reporter-wizard .wizard-step-review {
+	order: 3;
+}
+
+.issue-reporter-wizard .wizard-heading {
+	font-size: 17px;
+	line-height: 1.3;
+}
+
+.issue-reporter-wizard .issue-reporter-description-header {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.issue-reporter-wizard .issue-reporter-description-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-review-button.monaco-button {
+	width: auto;
+	padding: 4px 10px;
+	font-size: 12px;
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-modes {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px;
+	border-radius: 5px;
+	background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-mode {
+	appearance: none;
+	border: 0;
+	border-radius: 3px;
+	padding: 4px 10px;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-mode:hover {
+	color: var(--vscode-foreground);
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-mode.selected {
+	color: var(--vscode-foreground);
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-button-secondaryBackground));
+}
+
+.issue-reporter-wizard .wizard-textarea {
+	min-height: 220px;
+	resize: vertical;
+	overflow: auto;
+	border-radius: 6px;
+	font-family: var(--monaco-monospace-font, monospace);
+}
+
+.issue-reporter-wizard .issue-reporter-description-editor {
+	height: 220px;
+	min-height: 220px;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-input-border, #555);
+	border-radius: 6px;
+	overflow: hidden;
+	background: var(--vscode-input-background);
+}
+
+.issue-reporter-wizard .issue-reporter-description-editor:focus-within {
+	border-color: var(--vscode-focusBorder);
+}
+
+.issue-reporter-wizard .issue-reporter-description-editor.invalid-input {
+	border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+	background: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.1));
+}
+
+.issue-reporter-wizard .issue-reporter-description-editor .monaco-editor,
+.issue-reporter-wizard .issue-reporter-description-editor .monaco-editor-background,
+.issue-reporter-wizard .issue-reporter-description-editor .margin {
+	background: var(--vscode-input-background);
+}
+
+.issue-reporter-wizard .issue-reporter-description-editor.hidden {
+	display: none;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-squiggle-warning {
+	text-decoration: underline wavy var(--vscode-editorWarning-foreground);
+	text-decoration-skip-ink: none;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-squiggle-info {
+	text-decoration: underline wavy var(--vscode-editorInfo-foreground);
+	text-decoration-skip-ink: none;
+}
+
+.issue-reporter-wizard .wizard-title-field .monaco-inputbox.issue-reporter-quality-title-warning,
+.issue-reporter-wizard .wizard-title-field .monaco-inputbox.issue-reporter-quality-title-warning .input {
+	border-color: var(--vscode-editorWarning-foreground) !important;
+}
+
+.issue-reporter-wizard .wizard-title-field .monaco-inputbox.issue-reporter-quality-title-info,
+.issue-reporter-wizard .wizard-title-field .monaco-inputbox.issue-reporter-quality-title-info .input {
+	border-color: var(--vscode-editorInfo-foreground) !important;
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-preview {
+	min-height: 220px;
+	padding: 12px 16px;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-input-border, #555);
+	border-radius: 6px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	line-height: 1.55;
+	overflow: auto;
+}
+
+.issue-reporter-wizard .issue-reporter-markdown-preview.hidden,
+.issue-reporter-wizard .wizard-textarea.hidden {
+	display: none;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-results {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-input-border));
+	border-radius: 6px;
+	background: var(--vscode-editor-background);
+}
+
+.issue-reporter-wizard .issue-reporter-quality-results.hidden {
+	display: none;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-header,
+.issue-reporter-wizard .issue-reporter-quality-heading,
+.issue-reporter-wizard .issue-reporter-quality-diagnostic-header,
+.issue-reporter-wizard .issue-reporter-quality-actions {
+	display: flex;
+	align-items: center;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-heading {
+	gap: 6px;
+	font-weight: 600;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-summary {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.45;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-diagnostic {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	padding: 10px 12px;
+	border-left: 3px solid var(--vscode-editorInfo-foreground);
+	border-radius: 4px;
+	background: var(--vscode-editorWidget-background);
+}
+
+.issue-reporter-wizard .issue-reporter-quality-diagnostic.severity-warning {
+	border-left-color: var(--vscode-editorWarning-foreground);
+}
+
+.issue-reporter-wizard .issue-reporter-quality-diagnostic-header {
+	gap: 8px;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-target {
+	font-weight: 600;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-severity {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-message {
+	line-height: 1.45;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-actions {
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-actions .monaco-button {
+	width: auto;
+	padding: 3px 9px;
+	font-size: 12px;
+}
+
+.issue-reporter-wizard .issue-reporter-quality-status {
+	color: var(--vscode-descriptionForeground);
+}
+
+.issue-reporter-wizard .wizard-screenshots {
+	min-height: 104px;
+	padding: 12px;
+	border: 1px dashed var(--vscode-input-border, #555);
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--vscode-input-background) 65%, transparent);
+}
+
+.issue-reporter-wizard .wizard-attachments-step.drag-over {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder) inset;
+}
+
+.issue-reporter-wizard .wizard-review-details {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+	gap: 20px;
+	align-items: start;
+	min-width: 0;
+}
+
+.issue-reporter-wizard .wizard-review-similar-section,
+.issue-reporter-wizard .review-diagnostics {
+	margin: 0;
+	padding: 14px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-input-border));
+	border-radius: 6px;
+	background: var(--vscode-editor-background);
+	box-sizing: border-box;
+	min-width: 0;
+}
+
+.issue-reporter-wizard .issue-reporter-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 40px;
+	border-top: 1px solid var(--vscode-panel-border, #444);
+	background: var(--vscode-editor-background);
+	flex-shrink: 0;
+}
+
+.issue-reporter-wizard .issue-reporter-actions .monaco-button {
+	width: auto;
+	min-width: 140px;
+	padding: 7px 16px;
+}
+
+@media (max-width: 760px) {
+	.issue-reporter-wizard .issue-reporter-header,
+	.issue-reporter-wizard .wizard-step-container,
+	.issue-reporter-wizard .issue-reporter-actions {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+
+	.issue-reporter-wizard .wizard-review-details {
+		grid-template-columns: 1fr;
+	}
+
+	.issue-reporter-wizard .wizard-target-row .wizard-extension-field {
+		min-width: 0;
+	}
+}
+
+.issue-reporter-wizard .wizard-target-row .wizard-source-field {
+	flex: 1 1 100%;
+	min-width: 0;
+}
+
+.issue-reporter-wizard .wizard-source-buttons {
+	max-width: 100%;
+}
+
+.issue-reporter-wizard .monaco-button.wizard-source-btn {
+	max-width: 100%;
+	white-space: normal;
+	text-align: left;
+}
+
+.issue-reporter-wizard .issue-reporter-section,
+.issue-reporter-wizard .wizard-field,
+.issue-reporter-wizard .wizard-target-row {
+	min-width: 0;
 }
