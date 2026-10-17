@@ -867,6 +867,12 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				checkProposedApiEnabled(extension, 'textEditorDiffInformation');
 				return _asExtensionEvent(extHostEditors.onDidChangeTextEditorDiffInformation)(listener, thisArg, disposables);
 			},
+			onDidOpenInlineChat(listener, thisArg?, disposables?) {
+				return extHostEditors.onDidOpenInlineChat(listener, thisArg, disposables);
+			},
+			onWillCloseInlineChat(listener, thisArg?, disposables?) {
+				return extHostEditors.onWillCloseInlineChat(listener, thisArg, disposables);
+			},
 			onDidCloseTerminal(listener, thisArg?, disposables?) {
 				return _asExtensionEvent(extHostTerminalService.onDidCloseTerminal)(listener, thisArg, disposables);
 			},

@@ -32,6 +32,8 @@ export class ExtHostEditors extends Disposable implements ExtHostEditorsShape {
 	readonly onDidChangeTextEditorDiffInformation: Event<vscode.TextEditorDiffInformationChangeEvent> = this._onDidChangeTextEditorDiffInformation.event;
 	readonly onDidChangeActiveTextEditor: Event<vscode.TextEditor | undefined> = this._onDidChangeActiveTextEditor.event;
 	readonly onDidChangeVisibleTextEditors: Event<readonly vscode.TextEditor[]> = this._onDidChangeVisibleTextEditors.event;
+	readonly onDidOpenInlineChat: Event<void> = this._onDidOpenInlineChat.event;
+	readonly onWillCloseInlineChat: Event<void> = this._onWillCloseInlineChat.event;
 
 	private readonly _proxy: MainThreadTextEditorsShape;
 
