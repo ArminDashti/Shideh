@@ -107,6 +107,8 @@ export function matchesSessionType(sessionTypes: readonly string[] | undefined, 
 
 /**
  * Provides prompt services.
+ * This includes working with prompt files, instruction files, and agent files.
+ * These are all referred to as "prompts" within this service, distinguished by different PromptsType values.
  */
 export const IPromptsService = createDecorator<IPromptsService>('IPromptsService');
 

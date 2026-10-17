@@ -101,6 +101,8 @@ class ObservableReferenceCollection<T> extends ReferenceCollection<Promise<IObse
 
 /**
  * Provides prompt services.
+ * This includes working with prompt files, instruction files, and agent files.
+ * These are all referred to as "prompts" within this service, distinguished by different PromptsType values.
  */
 export class PromptsService extends Disposable implements IPromptsService {
 	public declare readonly _serviceBrand: undefined;
