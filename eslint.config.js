@@ -8,7 +8,6 @@ import { defineConfig } from 'eslint/config';
 import fs from 'fs';
 import { builtinModules } from 'module';
 import path from 'path';
-import tseslint from 'typescript-eslint';
 
 import stylistic from '@stylistic/eslint-plugin';
 import * as pluginLocal from './.eslint-plugin-local/index.ts';
@@ -17,6 +16,11 @@ import pluginImport from 'eslint-plugin-import';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
 
 import pluginHeader from 'eslint-plugin-header';
+import pluginJsdoc from 'eslint-plugin-jsdoc';
+import tseslint from 'typescript-eslint';
+
+import * as pluginLocal from './.eslint-plugin-local/index.js';
+
 pluginHeader.rules.header.meta.schema = false;
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
