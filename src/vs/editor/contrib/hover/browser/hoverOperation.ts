@@ -228,3 +228,15 @@ class Debouncer<TArgs> extends Disposable {
 		this._scheduler.cancel();
 	}
 }
+
+export class DisposableHoverOperation<T extends IOptionalDisposable> extends HoverOperation<T> {
+
+	override cancel(): void {
+		super.cancel();
+		this._result?.forEach(item => {
+			if (item && item.dispose) {
+				item.dispose();
+			}
+		});
+	}
+}

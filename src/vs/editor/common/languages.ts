@@ -211,6 +211,12 @@ export interface Hover {
 }
 
 /**
+ * A hover represents additional information for a symbol or word. Hovers are
+ * rendered in a tooltip-like widget.
+ */
+export interface DisposableHover extends Hover, IDisposable { }
+
+/**
  * The hover provider interface defines the contract between extensions and
  * the [hover](https://code.visualstudio.com/docs/editor/intellisense)-feature.
  */

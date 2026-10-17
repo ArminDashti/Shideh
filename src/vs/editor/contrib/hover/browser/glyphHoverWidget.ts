@@ -25,7 +25,6 @@ export class GlyphHoverWidget extends Disposable implements IOverlayWidget, IHov
 	private readonly _hover: HoverWidget;
 
 	private _isVisible: boolean;
-	private _messages: IHoverMessage[];
 
 	private readonly _hoverOperation: HoverOperation<GlyphHoverComputerOptions, IHoverMessage>;
 	private readonly _renderDisposeables = this._register(new DisposableStore());
@@ -40,7 +39,6 @@ export class GlyphHoverWidget extends Disposable implements IOverlayWidget, IHov
 		this._editor = editor;
 
 		this._isVisible = false;
-		this._messages = [];
 
 		this._hover = this._register(new HoverWidget(true));
 		this._hover.containerDomNode.classList.toggle('hidden', !this._isVisible);

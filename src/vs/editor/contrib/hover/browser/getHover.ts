@@ -13,13 +13,12 @@ import { Hover, HoverProvider } from '../../../common/languages.js';
 import { LanguageFeatureRegistry } from '../../../common/languageFeatureRegistry.js';
 import { ILanguageFeaturesService } from '../../../common/services/languageFeatures.js';
 
-export class HoverProviderResult {
+export class HoverProviderResult<THover = Hover> {
 	constructor(
 		public readonly provider: HoverProvider,
-		public readonly hover: Hover,
+		public readonly hover: THover,
 		public readonly ordinal: number
 	) { }
-}
 
 /**
  * Does not throw or return a rejected promise (returns undefined instead).
@@ -58,8 +57,20 @@ registerModelAndPositionCommand('_executeHoverProvider_recursive', (accessor, mo
 	return getHoversPromise(languageFeaturesService.hoverProvider, model, position, CancellationToken.None, true);
 });
 
-function isValid(result: Hover) {
+function isValid(result: DisposableHover) {
 	const hasRange = (typeof result.range !== 'undefined');
 	const hasHtmlContent = typeof result.contents !== 'undefined' && result.contents && result.contents.length > 0;
 	return hasRange && hasHtmlContent;
 }
+
+function convertDisposableHoverToHover(disposableHover: DisposableHover): Hover {
+	const hover: Hover = {
+		contents: disposableHover.contents,
+		range: disposableHover.range,
+		canIncreaseVerbosity: disposableHover.canIncreaseVerbosity,
+		canDecreaseVerbosity: disposableHover.canDecreaseVerbosity,
+	};
+	disposableHover.dispose();
+	return hover;
+}
+

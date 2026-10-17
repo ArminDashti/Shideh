@@ -57,6 +57,36 @@ export class MarkdownHover implements IHoverPart {
 			&& this.range.endColumn >= anchor.range.endColumn
 		);
 	}
+
+	dispose() {
+		this.source?.dispose();
+	}
+
+	clone() {
+		return this;
+	}
+}
+
+class HoverSource implements IDisposable {
+
+	constructor(
+		readonly hover: DisposableHover,
+		readonly hoverProvider: HoverProvider,
+		readonly hoverPosition: Position,
+	) { }
+
+	public supportsVerbosityAction(hoverVerbosityAction: HoverVerbosityAction): boolean {
+		switch (hoverVerbosityAction) {
+			case HoverVerbosityAction.Increase:
+				return this.hover.canIncreaseVerbosity ?? false;
+			case HoverVerbosityAction.Decrease:
+				return this.hover.canDecreaseVerbosity ?? false;
+		}
+	}
+
+	dispose() {
+		this.hover.dispose();
+	}
 }
 
 class HoverSource {
@@ -547,4 +577,31 @@ export function labelForHoverVerbosityAction(keybindingService: IKeybindingServi
 		case HoverVerbosityAction.Decrease:
 			return keybindingService.appendKeybinding(nls.localize('decreaseVerbosity', "Decrease Hover Verbosity"), DECREASE_HOVER_VERBOSITY_ACTION_ID);
 	}
+}
+
+function renderMarkdownInContainer(
+	editor: ICodeEditor,
+	container: DocumentFragment | HTMLElement,
+	markdownStrings: IMarkdownString[],
+	languageService: ILanguageService,
+	openerService: IOpenerService,
+	onFinishedRendering: () => void,
+): IDisposable {
+	const store = new DisposableStore();
+	for (const contents of markdownStrings) {
+		if (isEmptyMarkdownString(contents)) {
+			continue;
+		}
+		const markdownHoverElement = $('div.markdown-hover');
+		const hoverContentsElement = dom.append(markdownHoverElement, $('div.hover-contents'));
+		const renderer = store.add(new MarkdownRenderer({ editor }, languageService, openerService));
+		store.add(renderer.onDidRenderAsync(() => {
+			hoverContentsElement.className = 'hover-contents code-hover-contents';
+			onFinishedRendering();
+		}));
+		const renderedContents = store.add(renderer.render(contents));
+		hoverContentsElement.appendChild(renderedContents.element);
+		container.appendChild(markdownHoverElement);
+	}
+	return store;
 }
