@@ -408,6 +408,11 @@ class LocalStorageURLCallbackProvider extends Disposable implements IURLCallback
 	}
 }
 
+interface IWorkspaceOpenOptions {
+	readonly reuse?: boolean;
+	readonly payload?: object;
+}
+
 class WorkspaceProvider implements IWorkspaceProvider {
 
 	private static QUERY_PARAM_EMPTY_WINDOW = 'ew';
@@ -422,6 +427,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 		let payload = Object.create(null);
 
 		const query = new URL(document.location.href).searchParams;
+
 		query.forEach((value, key) => {
 			switch (key) {
 
@@ -453,7 +459,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 
 				// Empty
 				case WorkspaceProvider.QUERY_PARAM_EMPTY_WINDOW:
-					workspace = undefined;
+					workspace = value === 'true' ? undefined : { remoteAuthority: value };
 					foundWorkspace = true;
 					break;
 
@@ -490,7 +496,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 	) {
 	}
 
-	async open(workspace: IWorkspace, options?: { reuse?: boolean; payload?: object }): Promise<boolean> {
+	async open(workspace: IWorkspace, options?: IWorkspaceOpenOptions): Promise<boolean> {
 		if (options?.reuse && !options.payload && this.isSame(this.workspace, workspace)) {
 			return true; // return early if workspace and environment is not changing and we are reusing window
 		}
@@ -515,12 +521,12 @@ class WorkspaceProvider implements IWorkspaceProvider {
 		return false;
 	}
 
-	private createTargetUrl(workspace: IWorkspace, options?: { reuse?: boolean; payload?: object }): string | undefined {
+	private createTargetUrl(workspace: IWorkspace, options?: IWorkspaceOpenOptions): string | undefined {
 
 		// Empty
 		let targetHref: string | undefined = undefined;
-		if (!workspace) {
-			targetHref = `${document.location.origin}${document.location.pathname}?${WorkspaceProvider.QUERY_PARAM_EMPTY_WINDOW}=true`;
+		if (!workspace || isEmptyWorkspace(workspace)) {
+			targetHref = `${document.location.origin}${document.location.pathname}?${WorkspaceProvider.QUERY_PARAM_EMPTY_WINDOW}=${workspace?.remoteAuthority ?? 'true'}`;
 		}
 
 		// Folder
@@ -544,7 +550,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 	}
 
 	private encodeWorkspacePath(uri: URI): string {
-		if (this.config.remoteAuthority && uri.scheme === Schemas.vscodeRemote) {
+		if (uri.scheme === Schemas.vscodeRemote && isEqualAuthority(this.config.remoteAuthority, uri.authority)) {
 
 			// when connected to a remote and having a folder
 			// or workspace for that remote, only use the path
@@ -564,12 +570,16 @@ class WorkspaceProvider implements IWorkspaceProvider {
 			return workspaceA === workspaceB; // both empty
 		}
 
-		if (isFolderToOpen(workspaceA) && isFolderToOpen(workspaceB)) {
-			return isEqual(workspaceA.folderUri, workspaceB.folderUri); // same workspace
+		if (isFolderToOpen(workspaceA)) {
+			return isFolderToOpen(workspaceB) && isEqual(workspaceA.folderUri, workspaceB.folderUri); // same workspace
 		}
 
-		if (isWorkspaceToOpen(workspaceA) && isWorkspaceToOpen(workspaceB)) {
-			return isEqual(workspaceA.workspaceUri, workspaceB.workspaceUri); // same workspace
+		if (isWorkspaceToOpen(workspaceA)) {
+			return isWorkspaceToOpen(workspaceB) && isEqual(workspaceA.workspaceUri, workspaceB.workspaceUri); // same workspace
+		}
+
+		if (isEmptyWorkspace(workspaceA)) {
+			return isEmptyWorkspace(workspaceB) && isEqualAuthority(workspaceA.remoteAuthority, workspaceB.remoteAuthority); // same workspace
 		}
 
 		return false;
@@ -588,6 +598,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 
 		return true;
 	}
+
 }
 
 function readCookie(name: string): string | undefined {

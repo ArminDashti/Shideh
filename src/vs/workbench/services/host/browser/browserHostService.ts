@@ -325,7 +325,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 						environment.set('mergeFileBase', editors[2].resource.toString());
 						environment.set('mergeFileResult', editors[3].resource.toString());
 
-						this.doOpen(undefined, { payload: Array.from(environment.entries()) });
+						this.doOpen(this.newEmptyWorkspace(options?.remoteAuthority), { payload: Array.from(environment.entries()) });
 					}
 				}
 
@@ -351,7 +351,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 						environment.set('diffFileSecondary', editors[0].resource.toString());
 						environment.set('diffFilePrimary', editors[1].resource.toString());
 
-						this.doOpen(undefined, { payload: Array.from(environment.entries()) });
+						this.doOpen(this.newEmptyWorkspace(options?.remoteAuthority), { payload: Array.from(environment.entries()) });
 					}
 				}
 
@@ -388,7 +388,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 								environment.set('gotoLineMode', 'true');
 							}
 
-							this.doOpen(undefined, { payload: Array.from(environment.entries()) });
+							this.doOpen(this.newEmptyWorkspace(options?.remoteAuthority), { payload: Array.from(environment.entries()) });
 						}
 					}
 				}
@@ -476,8 +476,27 @@ export class BrowserHostService extends Disposable implements IHostService {
 		return !openInNewWindow;
 	}
 
+	/**
+	 * Returns a representation of an empty workspace.
+	 *  - `undefined` is used to open a workspace that has the same remote authority as the current workspace.
+	 *  - `IEmptyWorkspace` is used to open a workspace with a different remote authority than the current workspace.
+	 * @param remoteAuthority the remoteAuthority for the new workspace. undefined to use the current remote authority, null to enforce a local workspace
+	 * @returns a representation of an empty workspace.
+	 */
+	private newEmptyWorkspace(remoteAuthority: string | undefined | null): undefined | IEmptyWorkspace {
+		if (remoteAuthority === null) {
+			// open a local workspace
+			return this.environmentService.remoteAuthority === undefined ? undefined : { remoteAuthority: '' };
+		} else if (remoteAuthority !== undefined) {
+			// open a remote workspace
+			return isEqualAuthority(remoteAuthority, this.environmentService.remoteAuthority) ? undefined : { remoteAuthority };
+		}
+		// stick with the current remote authority
+		return undefined;
+	}
+
 	private async doOpenEmptyWindow(options?: IOpenEmptyWindowOptions): Promise<void> {
-		return this.doOpen(undefined, {
+		return this.doOpen(this.newEmptyWorkspace(options?.remoteAuthority), {
 			reuse: options?.forceReuseWindow,
 			payload: this.preservePayload(true /* empty window */, options)
 		});
