@@ -223,6 +223,11 @@ export class ChatEditingCodeEditorIntegration implements IModifiedFileEntryEdito
 				return;
 			}
 
+			// Only play signals when in accessible diff viewer mode
+			if (!this._accessibleDiffViewVisible.read(r)) {
+				return;
+			}
+
 			const diff = documentDiffInfo.read(r);
 			const changeAtCursor = diff.changes.find(m => m.modified.contains(position.lineNumber) || m.modified.isEmpty && m.modified.startLineNumber === position.lineNumber);
 
