@@ -338,6 +338,7 @@ export class SessionChatInputToolbar extends Disposable {
 		}
 		return this._findOwningSession(chat.resource, reader);
 	});
+	private readonly _isSubagentChat: IObservable<boolean> = derived(this, reader => this._chat.read(reader)?.origin?.kind === ChatOriginKind.Tool);
 
 	/**
 	 * Whether the reflected chat is a subagent (worker) chat. Its pills describe

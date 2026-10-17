@@ -1551,4 +1551,90 @@ suite('SessionChatInputToolbar', () => {
 			removeCalls: ['durable-artifact'],
 		});
 	});
+
+	test('hides the pills in a subagent chat', () => {
+		const instantiationService = workbenchInstantiationService(undefined, store);
+		(instantiationService.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ChatConfiguration.TurnStatusPills, true);
+		const chat = upcastPartial<IChat>({
+			resource: URI.parse('chat:main'),
+			title: constObservable('Main chat'),
+			status: constObservable(SessionStatus.InProgress),
+			lastTurnChanges: constObservable([{
+				uri: URI.file('/session-change.ts'),
+				modifiedUri: URI.file('/session-change.ts'),
+				insertions: 10,
+				deletions: 4,
+				isOutsideWorkspace: false,
+			}]),
+		});
+		const subagentChat = upcastPartial<IChat>({
+			resource: URI.parse('chat:subagent'),
+			title: constObservable('Subagent'),
+			status: constObservable(SessionStatus.InProgress),
+			origin: { kind: ChatOriginKind.Tool, parentChat: chat.resource },
+		});
+		const forkedChat = upcastPartial<IChat>({
+			resource: URI.parse('chat:fork'),
+			title: constObservable('Fork'),
+			status: constObservable(SessionStatus.InProgress),
+			origin: { kind: ChatOriginKind.Fork, parentChat: chat.resource },
+			lastTurnChanges: constObservable([{
+				uri: URI.file('/fork-change.ts'),
+				modifiedUri: URI.file('/fork-change.ts'),
+				insertions: 10,
+				deletions: 4,
+				isOutsideWorkspace: false,
+			}]),
+		});
+		const forkSubagentChat = upcastPartial<IChat>({
+			resource: URI.parse('chat:fork-subagent'),
+			title: constObservable('Fork subagent'),
+			status: constObservable(SessionStatus.InProgress),
+			origin: { kind: ChatOriginKind.Tool, parentChat: forkedChat.resource },
+		});
+		const session = upcastPartial<IActiveSession>({
+			sessionId: 'provider:session',
+			providerId: 'provider',
+			sessionType: 'test',
+			resource: URI.parse('session:1'),
+			status: constObservable(SessionStatus.InProgress),
+			isArchived: constObservable(false),
+			isRead: constObservable(true),
+			capabilities: constObservable({ supportsMultipleChats: true }),
+			chats: constObservable([chat, subagentChat, forkedChat, forkSubagentChat]),
+			activeChat: constObservable(chat),
+			mainChat: constObservable(chat),
+			visibleChatTabs: constObservable([chat]),
+			workspace: constObservable(upcastPartial<ISessionWorkspace>({ folders: [] })),
+			worktreePending: constObservable(false),
+			changesets: constObservable([]),
+			changes: constObservable([]),
+			isCreated: constObservable(true),
+			sticky: constObservable(false),
+			shouldShowChatTabs: constObservable(false),
+		});
+		instantiationService.stub(IBrowserViewWorkbenchService, upcastPartial<IBrowserViewWorkbenchService>({
+			onDidChangeBrowserViews: Event.None,
+			getKnownBrowserViews: () => new Map(),
+		}));
+		instantiationService.stub(ISessionChangesStatsCache, upcastPartial<ISessionChangesStatsCache>({ get: () => undefined }));
+		instantiationService.stub(ISessionsProvidersService, upcastPartial<ISessionsProvidersService>({ getProvider: () => undefined }));
+		instantiationService.stub(ISessionsService, upcastPartial<ISessionsService>({
+			visibleSessions: constObservable([]),
+			activeSession: constObservable(undefined),
+		}));
+		const toolbar = store.add(instantiationService.createInstance(SessionChatInputToolbar));
+
+		toolbar.setSession(session, chat);
+		const main = toolbar.visible;
+		toolbar.setSession(session, subagentChat);
+		const subagent = toolbar.visible;
+		toolbar.setSession(session, forkedChat);
+
+		assert.deepStrictEqual({ main, subagent, fork: toolbar.visible }, {
+			main: true,
+			subagent: false,
+			fork: true,
+		});
+	});
 });
