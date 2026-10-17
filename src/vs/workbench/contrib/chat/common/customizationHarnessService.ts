@@ -561,6 +561,74 @@ export function createVSCodeHarnessDescriptor(): IHarnessDescriptor {
 
 // #endregion
 
+// #region Item provider factory
+
+/**
+ * Creates an {@link IExternalCustomizationItemProvider} that wraps
+ * {@link IPromptsService} so that static harnesses (Local, CLI) can
+ * supply items through the same provider-based code path used by
+ * extension-contributed harnesses.
+ *
+ * Returns the provider and a disposable that manages the change-event
+ * wiring. Callers must dispose it when the harness is torn down.
+ */
+export function createPromptsServiceItemProvider(promptsService: IPromptsService): { itemProvider: IExternalCustomizationItemProvider; disposable: IDisposable } {
+	const emitter = new Emitter<void>();
+
+	const changeListener = Event.any(
+		promptsService.onDidChangeCustomAgents,
+		promptsService.onDidChangeSlashCommands,
+		promptsService.onDidChangeSkills,
+		promptsService.onDidChangeHooks,
+		promptsService.onDidChangeInstructions,
+	)(() => emitter.fire());
+
+	const itemProvider: IExternalCustomizationItemProvider = {
+		onDidChange: emitter.event,
+		async provideChatSessionCustomizations(token: CancellationToken): Promise<IExternalCustomizationItem[] | undefined> {
+			const [agents, skills, instructions, prompts, hooks] = await Promise.all([
+				promptsService.getCustomAgents(token),
+				promptsService.findAgentSkills(token),
+				promptsService.listPromptFiles(PromptsType.instructions, token),
+				promptsService.listPromptFiles(PromptsType.prompt, token),
+				promptsService.listPromptFiles(PromptsType.hook, token),
+			]);
+
+			const items: IExternalCustomizationItem[] = [];
+
+			for (const agent of agents ?? []) {
+				items.push({ uri: agent.uri, type: PromptsType.agent, name: agent.name, description: agent.description });
+			}
+			for (const skill of skills ?? []) {
+				items.push({ uri: skill.uri, type: PromptsType.skill, name: skill.name, description: skill.description });
+			}
+			for (const file of instructions) {
+				items.push({ uri: file.uri, type: PromptsType.instructions, name: file.name ?? basename(file.uri.path) });
+			}
+			for (const file of prompts) {
+				items.push({ uri: file.uri, type: PromptsType.prompt, name: file.name ?? basename(file.uri.path) });
+			}
+			for (const file of hooks) {
+				items.push({ uri: file.uri, type: PromptsType.hook, name: file.name ?? basename(file.uri.path) });
+			}
+
+			return items;
+		},
+	};
+
+	return {
+		itemProvider,
+		disposable: {
+			dispose() {
+				changeListener.dispose();
+				emitter.dispose();
+			},
+		},
+	};
+}
+
+// #endregion
+
 // #region Base implementation
 
 /**
@@ -568,7 +636,7 @@ export function createVSCodeHarnessDescriptor(): IHarnessDescriptor {
  * Concrete registrations only need to supply the list of harness
  * descriptors and a default harness id.
  */
-export class CustomizationHarnessServiceBase implements ICustomizationHarnessService {
+export class CustomizationHarnessServiceBase extends Disposable implements ICustomizationHarnessService {
 	declare readonly _serviceBrand: undefined;
 	private readonly _onDidChangeSlashCommands = new Emitter<{ readonly sessionType: string }>();
 	readonly onDidChangeSlashCommands = this._onDidChangeSlashCommands.event;
@@ -595,6 +663,7 @@ export class CustomizationHarnessServiceBase implements ICustomizationHarnessSer
 		defaultHarness: string,
 		private readonly promptsService: IPromptsService,
 	) {
+		super();
 		this._staticHarnesses = staticHarnesses;
 		this.promptsService = promptsService;
 		this._activeSessionResource = observableValue<URI>(this, this.getSessionResourceForHarness(defaultHarness));

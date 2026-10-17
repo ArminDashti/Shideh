@@ -30,6 +30,8 @@ class CustomizationHarnessService extends CustomizationHarnessServiceBase {
 			SessionType.Local,
 			promptsService,
 		);
+
+		this._register(disposable);
 	}
 
 	override getSessionResourceForHarness(sessionType: string): URI {

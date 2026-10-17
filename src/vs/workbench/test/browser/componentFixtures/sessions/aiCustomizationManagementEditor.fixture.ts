@@ -983,6 +983,7 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 			} : undefined,
 		},
 	];
+	const availableHarnesses = rawHarnesses.map(h => h.itemProvider ? h : { ...h, itemProvider });
 
 	const allMcpServers = [...mcpWorkspaceServers, ...mcpUserServers];
 	const toolSets = options.toolSets ?? fixtureToolSets;

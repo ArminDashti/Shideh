@@ -165,6 +165,8 @@ async function renderInstructionsTab(ctx: ComponentFixtureContext, instructionFi
 		override layout(): void { }
 	};
 
+	const promptsService = createMockPromptsService(instructionFiles, agentInstructionFiles);
+
 	const instantiationService = createEditorServices(ctx.disposableStore, {
 		colorTheme: ctx.theme,
 		additionalServices: (reg) => {
@@ -172,7 +174,7 @@ async function renderInstructionsTab(ctx: ComponentFixtureContext, instructionFi
 			reg.defineInstance(IContextMenuService, contextMenuService);
 			reg.defineInstance(IContextViewService, contextViewService);
 			reg.define(IListService, ListService);
-			reg.defineInstance(IPromptsService, createMockPromptsService(instructionFiles, agentInstructionFiles));
+			reg.defineInstance(IPromptsService, promptsService);
 			reg.defineInstance(IAICustomizationWorkspaceService, createMockWorkspaceService());
 			reg.defineInstance(ICustomizationHarnessService, createMockHarnessService());
 			reg.defineInstance(ICustomizationMarketplaceInstallService, new class extends mock<ICustomizationMarketplaceInstallService>() {
