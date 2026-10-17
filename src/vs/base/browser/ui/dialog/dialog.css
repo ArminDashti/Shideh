@@ -164,6 +164,10 @@
 	white-space: normal;
 }
 
+.monaco-dialog-box .dialog-message-row .dialog-message-container {
+	min-width: 0;
+}
+
 .monaco-dialog-box .dialog-footer-row {
 	margin-top: 20px;
 }
@@ -195,6 +199,10 @@
 	margin-bottom: 4px;
 	display: flex;
 	align-items: center;
+}
+
+.monaco-dialog-box .dialog-message-row .dialog-message-container .dialog-message .dialog-message-text {
+	min-width: 0;
 }
 
 /** Dialog: Details */
