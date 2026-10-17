@@ -34,12 +34,14 @@ grep -l "serverLicense" out-vscode-reh-web-test/vs/code/browser/workbench/workbe
 - **[index.ts](index.ts)** - Main build orchestrator
   - `build-fast` command: Persistent non-watch incremental development build
   - `transpile` command: Fast TS → JS using `esbuild.transform()`
+  - `nls` command: Canonical core NLS extraction before target bundling
   - `bundle` command: TS → bundled JS using `esbuild.build()`
 - **[build-fast.ts](../../build/next/build-fast.ts)** - Git change discovery, persistent state, lane planning, and orchestration
 - **[transpile.ts](../../build/next/transpile.ts)** - Shared full/watch/incremental transpile and copy operations
 - **[resources.ts](../../build/next/resources.ts)** - Curated production resource selection and copied JavaScript minification
 - **[standalone.ts](../../build/next/standalone.ts)** - Unbundled desktop Electron preloads and their source-map publication
 - **[nls-plugin.ts](nls-plugin.ts)** - NLS (localization) esbuild plugin
+- **[nls-catalog.ts](../../build/next/nls-catalog.ts)** - Source-wide NLS extraction, canonical indices, and metadata publication
 - **[private-to-property.ts](../../build/next/private-to-property.ts)** - Native private to property transformation
 - **[svg.ts](../../build/next/svg.ts)** - Production-only SVG finishing, independent of the legacy gulp infrastructure
 
@@ -57,6 +59,7 @@ grep -l "serverLicense" out-vscode-reh-web-test/vs/code/browser/workbench/workbe
 
 In [build/gulpfile.vscode.ts](../../build/gulpfile.vscode.ts), the `core-ci` task wires up these helpers (defined in [build/lib/esbuild.ts](../../build/lib/esbuild.ts)):
 - `runEsbuildTranspile()` → transpile command
+- `runEsbuildNLS()` → canonical extraction and shared metadata, after transpilation and before parallel bundles
 - `runEsbuildBundle()` → bundle command
 
 Desktop, server, server-web, and standalone web packaging use the same `runEsbuildBundle()` helper. Minified bundles enable `--minify --mangle-privates --nls`. Local server and web builds generate API proposal names and the shared build date explicitly instead of compiling an intermediate production tree.
@@ -155,7 +158,7 @@ Two placeholders that need injection:
 
 **Lesson:** Keep target-specific entry points in `getEntryPointsForTarget()` in [build/next/index.ts](../../build/next/index.ts). Desktop keyboard layouts are bundled dependencies, not additional entry points.
 
-### 6. NLS Output File Parity
+### 6. Canonical Core NLS Catalog
 
 `finalizeNLS()` writes `nls.messages.json`, `nls.keys.json`, `nls.metadata.json`, and `nls.messages.js`, matching the retained stream compiler's metadata formats. The JavaScript catalog is required by the localization upload pipeline; its shared ASCII serializer preserves decoded message values. Production bundles replace English strings with indices, while Monaco preserves English messages.
 

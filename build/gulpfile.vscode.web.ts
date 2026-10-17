@@ -27,8 +27,15 @@ const quality = (product as { quality?: string }).quality;
 const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
 
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
-const esbuildBundleVSCodeWebTask = task.define('esbuild-vscode-web', () => runEsbuildBundle('out-vscode-web', false, true, 'web'));
-const esbuildBundleVSCodeWebMinTask = task.define('esbuild-vscode-web-min', () => runEsbuildBundle('out-vscode-web-min', true, true, 'web', `${sourceMappingURLBase}/core`));
+const nlsCatalogPath = path.join('out-build', NLS_CATALOG_FILE);
+const esbuildBundleVSCodeWebTask = task.define('esbuild-vscode-web', task.series(
+	() => runEsbuildNLS('out-build'),
+	() => runEsbuildBundle('out-vscode-web', false, true, 'web', undefined, nlsCatalogPath)
+));
+const esbuildBundleVSCodeWebMinTask = task.define('esbuild-vscode-web-min', task.series(
+	() => runEsbuildNLS('out-build'),
+	() => runEsbuildBundle('out-vscode-web-min', true, true, 'web', `${sourceMappingURLBase}/core`, nlsCatalogPath)
+));
 
 function packageTask(sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
