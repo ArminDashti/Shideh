@@ -679,6 +679,7 @@ const mcpUserServers = [
 	makeLocalMcpServer('mcp-web-search', 'Web Search', LocalMcpServerScope.User, 'Search the web'),
 	makeLocalMcpServer('mcp-filesystem', 'Filesystem', LocalMcpServerScope.User, 'Local file operations'),
 	makeLocalMcpServer('mcp-puppeteer', 'Puppeteer', LocalMcpServerScope.User, 'Browser automation'),
+	makeLocalMcpServer('a365copilotsearchmcp', 'a365copilotsearchmcp', LocalMcpServerScope.User, 'Search Microsoft 365 Copilot content'),
 ];
 const mcpRuntimeServers = [
 	{ definition: { id: 'github-copilot-mcp', label: 'GitHub Copilot' }, collection: { id: 'ext.github.copilot/mcp', label: 'ext.github.copilot/mcp' }, enablement: constObservable(ContributionEnablementState.EnabledProfile), connectionState: constObservable({ state: McpConnectionState.Kind.Starting }), readDefinitions: () => constObservable({ server: undefined, collection: undefined }), showOutput() { } },
@@ -1352,6 +1353,10 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 			}());
 			reg.defineInstance(ICustomizationHarnessService, harnessService);
 			reg.defineInstance(IAgentHostCustomizationService, agentHostCustomizationService);
+			reg.defineInstance(IConnectorsManagementService, ctx.disposableStore.add(new FixtureConnectorsManagementService(
+				options.connectors ?? (options.connectorsAvailable === false ? [] : fixtureConnectors),
+				options.connectorsAvailable ?? true,
+			)));
 			// AICustomizationItemsModel is the single source of truth for items
 			// in the editor. Register the real implementation — it will resolve
 			// items via the mock prompts service / harness service above.
@@ -3516,6 +3521,77 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		labels: { kind: 'screenshot', blocksCi: false },
 		expectedVisualDescriptions: ['The Plugins page shows separate User and Workspace sections plus Available, with no Featured section.'],
 		render: renderPluginHomeMode,
+	}),
+
+	ConnectorDetailAvailable: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			mcpSearchQuery: 'Calendar',
+			openFirstItem: true,
+		}),
+	}),
+
+	ConnectorDetailPending: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			mcpSearchQuery: 'Teams',
+			openFirstItem: true,
+		}),
+	}),
+
+	ConnectorDetailError: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			mcpSearchQuery: 'OneDrive',
+			openFirstItem: true,
+		}),
+	}),
+
+	ConnectorDetailNarrow: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			mcpSearchQuery: 'Calendar',
+			openFirstItem: true,
+			width: 550,
+			height: 400,
+		}),
+	}),
+
+	McpServersWithoutConnectors: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			connectors: [],
+		}),
+	}),
+
+	McpServersConnectorsUnavailable: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			connectorsAvailable: false,
+		}),
+	}),
+
+	McpServersLongConnectorContent: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			connectors: longContentConnectors,
+			width: 650,
+			height: 400,
+		}),
 	}),
 
 	PluginCatalogSearch: defineComponentFixture({

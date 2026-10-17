@@ -111,6 +111,81 @@ export function getMarketplaceMcpManagementAction(
 
 const COPILOT_EXTENSION_IDS = ['github.copilot', 'github.copilot-chat'];
 
+export type ConnectorRowAction = 'connect' | 'sign_in' | 'reconnect' | 'review' | 'retry' | 'more';
+export type ConnectorRowStatusIcon = 'connected' | 'attention' | 'pending' | 'error' | 'info';
+
+export interface IConnectorRowPresentation {
+	readonly statusLabel: string;
+	readonly statusIcon?: ConnectorRowStatusIcon;
+	readonly action?: ConnectorRowAction;
+	readonly actionLabel?: string;
+}
+
+export function getConnectorRowPresentation(connector: IConnectorPresentation): IConnectorRowPresentation {
+	switch (connector.connectionStatusDetail) {
+		case 'sign_in_required':
+			return {
+				statusLabel: localize('connectors.status.signInRequired', "Sign in required"),
+				statusIcon: 'attention',
+				action: 'sign_in',
+				actionLabel: localize('connectors.action.signIn', "Sign in"),
+			};
+		case 'reconnect_required':
+			return {
+				statusLabel: localize('connectors.status.reconnectRequired', "Reconnect required"),
+				statusIcon: 'attention',
+				action: 'reconnect',
+				actionLabel: localize('connectors.action.reconnect', "Reconnect"),
+			};
+		case 'review_required':
+			return {
+				statusLabel: localize('connectors.status.reviewRequired', "Review required"),
+				statusIcon: 'attention',
+				action: 'review',
+				actionLabel: localize('connectors.action.review', "Review"),
+			};
+		case 'retryable_error':
+			return {
+				statusLabel: localize('connectors.status.retryableError', "Connection failed"),
+				statusIcon: 'error',
+				action: 'retry',
+				actionLabel: localize('connectors.action.tryAgain', "Try again"),
+			};
+		case 'unavailable':
+			return {
+				statusLabel: localize('connectors.status.unavailable', "Currently unavailable"),
+				statusIcon: 'info',
+			};
+	}
+
+	switch (connector.connectionStatus) {
+		case 'connected':
+			return {
+				statusLabel: getConnectorStatusLabel(connector.connectionStatus),
+				statusIcon: 'connected',
+				action: 'more',
+			};
+		case 'pending':
+			return {
+				statusLabel: getConnectorStatusLabel(connector.connectionStatus),
+				statusIcon: 'pending',
+			};
+		case 'error':
+			return {
+				statusLabel: getConnectorStatusLabel(connector.connectionStatus),
+				statusIcon: 'error',
+				action: 'reconnect',
+				actionLabel: getConnectorActionLabel('reconnect'),
+			};
+		case 'not_connected':
+			return {
+				statusLabel: getConnectorStatusLabel(connector.connectionStatus),
+				action: 'connect',
+				actionLabel: getConnectorActionLabel('connect'),
+			};
+	}
+}
+
 function isCopilotExtension(id: ExtensionIdentifier): boolean {
 	return COPILOT_EXTENSION_IDS.some(copilotId => ExtensionIdentifier.equals(id, copilotId));
 }
@@ -229,6 +304,7 @@ class McpSectionDelegate implements IListVirtualDelegate<IMcpSectionEntry> {
 
 export interface IMcpInstalledPresentation {
 	readonly entry: IMcpInstalledEntry;
+	readonly connector?: IConnectorPresentation;
 }
 
 export function preserveMcpEntryOrder(entries: readonly IMcpInstalledPresentation[], order: Map<string, number>): IMcpInstalledPresentation[] {
@@ -1693,6 +1769,12 @@ export class McpListWidget extends Disposable {
 	private gallerySnapshotFailed = false;
 	private gallerySnapshotLoading = false;
 	private gallerySearchLoading = false;
+	private connectors: readonly IConnectorPresentation[] = [];
+	private filteredConnectors: readonly IConnectorPresentation[] = [];
+	private unmatchedConnectorMcpServers: readonly { readonly connector: IConnectorPresentation; readonly server: NonNullable<IConnectorPresentation['mcpServers']>[number] }[] = [];
+	private connectorsAvailable = false;
+	private connectorsLoading = false;
+	private connectorsLoadGeneration = 0;
 	private visible = false;
 	private mcpAccessEnabled = false;
 	private firstCardFocusElement: HTMLElement | undefined;
@@ -1792,6 +1874,11 @@ export class McpListWidget extends Disposable {
 				this.updateMcpServerCompatibilityScope();
 			}
 		}));
+		this._register(this.connectorsService.onDidChangeConnectors(() => {
+			if (this.visible) {
+				void this.refreshConnectors();
+			}
+		}));
 		this._register({
 			dispose: () => {
 				this.delayedFilter.cancel();
@@ -1809,7 +1896,7 @@ export class McpListWidget extends Disposable {
 		sectionTitle.textContent = localize('mcpServers', "MCP Servers");
 		const sectionTitleDescription = DOM.append(this.sectionTitleHeader, $('p.section-title-description'));
 		const sectionTitleDescriptionText = DOM.append(sectionTitleDescription, $('span.section-title-description-text'));
-		sectionTitleDescriptionText.textContent = localize('mcpServersDescription', "An open standard that lets AI use external tools and services. MCP servers provide tools for file operations, databases, APIs, and more.");
+		sectionTitleDescriptionText.textContent = localize('mcpServersDescription', "Connect AI to external tools and services. Install MCP servers for VS Code or connect services across supported Copilot experiences.");
 		// Real whitespace text node between description and link so the gap collapses
 		// when the link wraps to a new line (a CSS margin-left would push it inward).
 		sectionTitleDescription.appendChild(document.createTextNode(' '));
@@ -1851,7 +1938,8 @@ export class McpListWidget extends Disposable {
 		// Search container
 		const searchContainer = DOM.append(this.searchAndButtonContainer, $('.list-search-container'));
 		this.searchInput = this._register(new InputBox(searchContainer, this.contextViewService, {
-			placeholder: localize('searchMcpPlaceholder', "Type to search..."),
+			placeholder: localize('searchMcpPlaceholder', "Search MCP servers and connectors..."),
+			ariaLabel: localize('searchMcpAriaLabel', "Search MCP servers and connectors"),
 			inputBoxStyles: defaultInputBoxStyles,
 		}));
 
@@ -2204,7 +2292,7 @@ export class McpListWidget extends Disposable {
 			if (this.galleryCts === cts && !cts.token.isCancellationRequested && this.mcpAccessEnabled && this.searchQuery.trim() === query) {
 				this.galleryServers = this.gallerySnapshotServers.filter(server => this.matchesGalleryServerQuery(server, query.toLowerCase()));
 				this.searchInput.showMessage({
-					content: localize('mcpSearchMarketplaceUnavailable', "Marketplace results are unavailable. Showing installed MCP servers only."),
+					content: localize('mcpSearchMarketplaceUnavailable', "Marketplace results are unavailable. Showing installed MCP servers and connectors only."),
 					type: MessageType.WARNING,
 				});
 			}
@@ -2792,6 +2880,12 @@ export class McpListWidget extends Disposable {
 
 	private filterServers(render = true): void {
 		const query = this.searchQuery.toLowerCase().trim();
+		this.filteredConnectors = this.connectors.filter(connector =>
+			!query ||
+			connector.displayName.toLowerCase().includes(query) ||
+			connector.description.toLowerCase().includes(query) ||
+			connector.mcpServers?.some(server => server.name.toLowerCase().includes(query))
+		);
 		const activeSessionResource = this.customizationHarnessService.activeSessionResource.get();
 		const activeSessionMatcher = new ActiveSessionMcpServerMatcher(this.agentHostCustomizationService.getMcpServers(activeSessionResource));
 		const localServerMatcher = new LocalMcpServerMatcher(this.mcpService.servers.get());
@@ -2856,7 +2950,7 @@ export class McpListWidget extends Disposable {
 		}
 		const activeSessionOnlyServers = activeSessionMatcher.unmatched(query);
 		const activeSessionBuiltinEntries = createBuiltinActiveSessionMcpEntries(activeSessionOnlyServers);
-		this.installedEntries = [
+		const installedEntries: IMcpInstalledPresentation[] = [
 			...groups.flatMap(group => group.entries.map(entry => ({ entry }))),
 			...pluginServers.map(({ server, activeSessionServer }) => ({ entry: createBuiltinEntry(server, activeSessionServer) })),
 			...extensionServers.map(({ server, activeSessionServer, extensionId }) => ({ entry: createBuiltinEntry(server, activeSessionServer, extensionId) })),

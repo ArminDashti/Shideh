@@ -114,6 +114,7 @@ import { IMcpService, IMcpWorkbenchService, McpServerInstallState } from '../../
 import { IAgentHostCustomizationService } from '../agentSessions/agentHost/agentHostCustomizationService.js';
 import { EmbeddedExtensionToolsDetail } from './embeddedExtensionToolsDetail.js';
 import { ICustomizationHarnessService, type ICustomizationSourceFolder } from '../../common/customizationHarnessService.js';
+import { IConnectorPresentation } from '../../common/connectorsManagementService.js';
 import { ChatConfiguration } from '../../common/constants.js';
 import { AICustomizationWelcomePage, type ICustomizationMarketplaceOrigin, type ICustomizationMigrationCategorySummary } from './aiCustomizationWelcomePage.js';
 import { ICustomizationMarketplaceInstallService } from '../../common/customizationMarketplaceInstallService.js';
@@ -671,6 +672,12 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private readonly pluginDetailScrollUpdate = this._register(new MutableDisposable());
 	private pluginDetailInput: IAgentPluginItem | undefined;
 	private pluginDetailOrigin: CustomizationDetailBaseOrigin | undefined;
+
+	// Embedded connector detail view
+	private connectorDetailContainer: HTMLElement | undefined;
+	private embeddedConnectorDetail: EmbeddedConnectorDetail | undefined;
+	private connectorDetailBackButton: HTMLButtonElement | undefined;
+	private readonly connectorDetailDisposables = this._register(new DisposableStore());
 
 	// Embedded tool-contributing extension detail view
 	private toolsDetailContainer: HTMLElement | undefined;
@@ -3570,6 +3577,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.viewMode === 'pluginDetail') {
 			this.goBackFromPluginDetail();
 		}
+		if (this.viewMode === 'connectorDetail') {
+			this.goBackFromConnectorDetail();
+		}
 		if (this.viewMode === 'toolsDetail') {
 			this.goBackFromToolDetail();
 		}
@@ -3617,6 +3627,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		}
 		if (this.viewMode === 'pluginDetail') {
 			this.goBackFromPluginDetail();
+		}
+		if (this.viewMode === 'connectorDetail') {
+			this.goBackFromConnectorDetail();
 		}
 		if (this.viewMode === 'toolsDetail') {
 			this.goBackFromToolDetail();
@@ -3705,6 +3718,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		const isMarketplaceDetailMode = this.viewMode === 'marketplaceDetail';
 		const isMcpDetailMode = this.viewMode === 'mcpDetail';
 		const isPluginDetailMode = this.viewMode === 'pluginDetail';
+		const isConnectorDetailMode = this.viewMode === 'connectorDetail';
 		const isToolsDetailMode = this.viewMode === 'toolsDetail';
 		const isDetailMode = isMarketplaceDetailMode || isMcpDetailMode || isPluginDetailMode || isToolsDetailMode;
 		const isWelcome = this.selectedSection === undefined;
@@ -3750,6 +3764,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 			this.pluginContentContainer.style.display = !isEditorMode && !isMigrationMode && !isDetailMode && isPluginsSection ? '' : 'none';
 		}
 		this.pluginListWidget?.setVisible(!isEditorMode && !isMigrationMode && !isDetailMode && isPluginsSection);
+		if (this.connectorDetailContainer) {
+			this.connectorDetailContainer.style.display = isConnectorDetailMode ? '' : 'none';
+		}
 		if (this.pluginDetailContainer) {
 			this.pluginDetailContainer.style.display = isPluginDetailMode ? '' : 'none';
 		}
@@ -3994,6 +4011,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.viewMode === 'pluginDetail') {
 			this.goBackFromPluginDetail();
 		}
+		if (this.viewMode === 'connectorDetail') {
+			this.goBackFromConnectorDetail();
+		}
 		if (this.viewMode === 'toolsDetail') {
 			this.goBackFromToolDetail();
 		}
@@ -4112,6 +4132,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 			if (this.viewMode === 'pluginDetail') {
 				this.goBackFromPluginDetail();
 			}
+			if (this.viewMode === 'connectorDetail') {
+				this.goBackFromConnectorDetail();
+			}
 			if (this.viewMode === 'toolsDetail') {
 				this.goBackFromToolDetail();
 			}
@@ -4161,6 +4184,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		}
 		if (this.viewMode === 'pluginDetail') {
 			this.goBackFromPluginDetail();
+		}
+		if (this.viewMode === 'connectorDetail') {
+			this.goBackFromConnectorDetail();
 		}
 		if (this.viewMode === 'toolsDetail') {
 			this.goBackFromToolDetail();
@@ -5633,6 +5659,56 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.marketplaceDetailResource = undefined;
 		this.embeddedMarketplaceDetail?.clearInput();
 		void this.restoreDetailOrigin(origin);
+	}
+
+	//#endregion
+
+	//#region Embedded Connector Detail
+
+	private createEmbeddedConnectorDetail(): void {
+		if (!this.connectorDetailContainer) {
+			return;
+		}
+
+		const detailBody = DOM.append(this.connectorDetailContainer, $('.connector-detail-editor-container'));
+		this.embeddedConnectorDetail = this.editorDisposables.add(this.instantiationService.createInstance(EmbeddedConnectorDetail, detailBody));
+
+		const backButton = DOM.append(this.embeddedConnectorDetail.leadingSlot, $<HTMLButtonElement>('button.editor-back-button'));
+		this.connectorDetailBackButton = backButton;
+		backButton.type = 'button';
+		backButton.setAttribute('aria-label', localize('backToMcpServersList', "Back to MCP servers"));
+		this.editorDisposables.add(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), backButton, localize('backToMcpServersListTooltip', "Back to MCP servers")));
+		const backIcon = DOM.append(backButton, $(`.codicon.codicon-${Codicon.arrowLeft.id}`));
+		backIcon.setAttribute('aria-hidden', 'true');
+		this.editorDisposables.add(DOM.addDisposableListener(backButton, 'click', () => this.goBackFromConnectorDetail()));
+	}
+
+	private showEmbeddedConnectorDetail(connector: IConnectorPresentation): void {
+		if (!this.embeddedConnectorDetail) {
+			return;
+		}
+
+		this.viewMode = 'connectorDetail';
+		this.updateContentVisibility();
+		this.connectorDetailDisposables.clear();
+		this.embeddedConnectorDetail.setInput(connector);
+
+		if (this.dimension) {
+			this.layout(this.dimension);
+		}
+		this.connectorDetailBackButton?.focus();
+	}
+
+	private goBackFromConnectorDetail(): void {
+		this.connectorDetailDisposables.clear();
+		this.embeddedConnectorDetail?.clearInput();
+		this.viewMode = 'list';
+		this.updateContentVisibility();
+
+		if (this.dimension) {
+			this.layout(this.dimension);
+		}
+		this.mcpListWidget?.focusSearch();
 	}
 
 	//#endregion

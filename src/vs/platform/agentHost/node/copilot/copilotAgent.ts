@@ -7831,6 +7831,7 @@ class ActiveClient extends Disposable {
 		pluginController: SessionPluginController,
 		onDidSessionProgress: Emitter<AgentSignal>,
 		@IAgentConfigurationService private readonly _configurationService: IAgentConfigurationService,
+		@IAgentHostMcpConnectorsService private readonly _mcpConnectorsService: IAgentHostMcpConnectorsService,
 	) {
 		super();
 		this.pluginController = this._register(pluginController);

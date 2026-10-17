@@ -360,6 +360,7 @@ export class ClaudeAgentSession extends Disposable {
 		@ICopilotApiService private readonly _copilotApiService: ICopilotApiService,
 		@IAgentHostAuthenticationService private readonly _authenticationService: IAgentHostAuthenticationService,
 		@IAgentHostGitHubEndpointService private readonly _gitHubEndpointService: IAgentHostGitHubEndpointService,
+		@IAgentHostMcpConnectorsService private readonly _mcpConnectorsService: IAgentHostMcpConnectorsService,
 	) {
 		super();
 		this._chatChannelUri = chatChannelUri;
@@ -369,6 +370,10 @@ export class ClaudeAgentSession extends Disposable {
 			if (event.resource === this._gitHubEndpointService.getCopilotResource().resource) {
 				this.markMcpConfigurationDirty();
 			}
+		}));
+		this._register(this._mcpConnectorsService.onDidChange(() => {
+			this.markMcpConfigurationDirty();
+			this._onDidCustomizationsChange.fire();
 		}));
 		this._provisionalModel = model;
 		this._provisionalAgent = agent;
@@ -768,6 +773,8 @@ export class ClaudeAgentSession extends Disposable {
 		const discoveredEnablement = getSdkMcpServerEnablement(discoveredResolution);
 		const deniedServers: ClaudeDeniedMcpServerSpec[] = [];
 		for (const definition of discoveredDefinitions) {
+			// Primary-workspace definitions loaded natively by Claude must still reserve their names here.
+			definitions.delete(definition.name);
 			if (discoveredEnablement.get(definition.customization.id) !== true) {
 				if (definition.defaultCwd && isEqual(definition.defaultCwd, primaryCwd)) {
 					deniedServers.push(toClaudeDeniedMcpServer(definition));

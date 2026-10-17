@@ -61,6 +61,7 @@ import {
 	isMcpServerCollectionVisible,
 	isPrimaryMcpServerEnabled,
 	getMcpStatusRenderSignature,
+	getConnectorRowPresentation,
 	getServerItemContextMenuActions,
 	getToggledMcpEnablementState,
 	McpListWidget,
@@ -91,6 +92,16 @@ function createAgentHostServer(overrides: Partial<AgentHostMcpServer> = {}): Age
 		stop: () => { },
 		...overrides,
 	} as AgentHostMcpServer;
+}
+
+function createConnector(overrides: Partial<IConnectorPresentation>): IConnectorPresentation {
+	return {
+		id: 'connector',
+		displayName: 'Connector',
+		description: 'Connector description',
+		connectionStatus: 'not_connected',
+		...overrides,
+	};
 }
 
 function createAgentHostCustomizations(hasWorkspace = true): { service: IAgentHostCustomizationService; calls: unknown[][] } {

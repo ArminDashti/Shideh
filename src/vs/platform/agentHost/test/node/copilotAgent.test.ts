@@ -90,6 +90,7 @@ import { SEMANTIC_SEARCH_TOOL_NAME } from '../../common/semanticSearchConstants.
 import { basename, dirname, join } from '../../../../base/common/path.js';
 import { AgentHostGitHubEndpointService, IAgentHostGitHubEndpointService } from '../../node/agentHostGitHubEndpointService.js';
 import { createTestGitHubEndpointService } from './testGitHubEndpointService.js';
+import { createTestMcpConnectorsService } from './testMcpConnectorsService.js';
 import { createNoopCustomizationEnablementService } from './testCustomizationEnablementService.js';
 import { CopilotAgentSession } from '../../node/copilot/copilotAgentSession.js';
 import { ModelCallTurnCorrelation, type IModelCallTurnCorrelationResult } from '../../node/copilot/modelCallTurnCorrelation.js';
@@ -12991,6 +12992,52 @@ suite('CopilotAgent', () => {
 					skuWhileRefreshing: 'sku-a',
 					credentialUpdates: [],
 					clientStops: 0,
+				});
+			} finally {
+				await disposeAgent(agent);
+			}
+		});
+
+		test('materialization merges connector MCP servers below user root configuration', async () => {
+			const sessionDataService = disposables.add(new TestSessionDataService());
+			const client = new TestCopilotClient([]);
+			let capturedConfig: Parameters<ITestCopilotClient['createSession']>[0] | undefined;
+			client.createSession = async config => {
+				capturedConfig = config;
+				return new MockCopilotSession() as unknown as CopilotSession;
+			};
+			const connector = (serverName: string, url: string): IAgentHostMcpConnector => ({
+				pluginName: `${serverName}-plugin`,
+				displayName: serverName,
+				serverName,
+				configuration: { type: McpServerType.REMOTE, url, headers: { Authorization: 'Bearer connector-token' } },
+				scopes: [],
+			});
+			const { agent } = createTestAgentContext(disposables, {
+				sessionDataService,
+				copilotClient: client,
+				mcpConnectorsService: createTestMcpConnectorsService([
+					connector('mail', 'https://connectors.example.test/mail'),
+					connector('collision', 'https://connectors.example.test/collision'),
+				]),
+				rootConfig: {
+					[AgentHostMcpServersConfigKey]: {
+						collision: { type: McpServerType.REMOTE, url: 'https://user.example.test/mcp', headers: { 'X-Source': 'user' } },
+					},
+				},
+			});
+
+			try {
+				await agent.authenticate('https://api.github.com', 'token');
+				const result = await provisionSession(agent, {
+					session: AgentSession.uri('copilotcli', 'connector-mcp-session'),
+					workingDirectories: [URI.file('/workspace')],
+				});
+				await agent.chats.sendMessage(defaultChatUri(result.session), 'hello', undefined, undefined, undefined, undefined, exactChatContext(result.session, defaultChatUri(result.session), result.session));
+
+				assert.deepStrictEqual(capturedConfig?.mcpServers, {
+					mail: { type: 'http', url: 'https://connectors.example.test/mail', headers: { Authorization: 'Bearer connector-token' }, tools: ['*'] },
+					collision: { type: 'http', url: 'https://user.example.test/mcp', headers: { 'X-Source': 'user' }, tools: ['*'] },
 				});
 			} finally {
 				await disposeAgent(agent);

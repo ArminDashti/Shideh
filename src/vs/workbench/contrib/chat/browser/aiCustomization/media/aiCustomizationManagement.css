@@ -11,6 +11,100 @@
 	overflow: hidden;
 }
 
+.connectors-list-widget {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+.connectors-list-widget .list-search-and-button-container {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	margin-bottom: var(--vscode-spacing-size160);
+}
+
+.connectors-list-widget .list-search-container {
+	flex: 1;
+	min-width: 0;
+}
+
+.connectors-list-widget .list-search-container .monaco-inputbox {
+	width: 100%;
+}
+
+.connectors-list-container {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.connectors-state {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-body1);
+	text-align: center;
+}
+
+.connector-list-item {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	box-sizing: border-box;
+	cursor: pointer;
+}
+
+.connector-section-header {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	box-sizing: border-box;
+}
+
+.connector-list-item-details {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.connector-list-item-trailing {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+}
+
+.connector-list-item-action {
+	opacity: 0;
+}
+
+.connector-list-item:hover .connector-list-item-action,
+.connector-list-item:focus-within .connector-list-item-action,
+.monaco-list-row.focused .connector-list-item-action {
+	opacity: 1;
+}
+
+.connector-list-item-action .monaco-button {
+	width: auto;
+}
+
+.connectors-list-widget.narrow-layout .connector-list-item {
+	padding-inline: var(--vscode-spacing-size80) var(--vscode-spacing-size160);
+}
+
+.connectors-list-widget.narrow-layout .connector-list-item-trailing {
+	align-items: flex-end;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
 .plugin-list-widget .plugin-card-section-count {
 	min-width: var(--vscode-spacing-size160);
 	padding: 0 var(--vscode-spacing-size40);
@@ -981,6 +1075,14 @@ per-word capitalization does not survive translation. */
 	margin: 0 0 8px 0;
 }
 
+.connectors-list-widget .section-title-header .section-title-description {
+	min-height: 0;
+}
+
+.connectors-list-widget .list-search-and-button-container {
+	padding-top: 0;
+}
+
 .ai-customization-list-widget .section-title-header .section-title-link,
 .mcp-list-widget .section-title-header .section-title-link,
 .ai-customization-management-editor .tools-list-widget .section-title-header .section-title-link {
@@ -1116,6 +1218,7 @@ per-word capitalization does not survive translation. */
 .ai-customization-management-editor .prompt-migration-content-container,
 .ai-customization-management-editor .mcp-content-container,
 .ai-customization-management-editor .plugin-content-container,
+.ai-customization-management-editor .connectors-content-container,
 .ai-customization-management-editor .models-content-container,
 .ai-customization-management-editor .tools-content-container {
 	height: 100%;
@@ -2601,6 +2704,13 @@ per-word capitalization does not survive translation. */
 	white-space: nowrap;
 }
 
+.ai-customization-management-editor .embedded-connector-detail .embedded-detail-fact-value {
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
 .ai-customization-management-editor .ai-customization-embedded-detail .embedded-detail-fact-value.has-actions {
 	overflow: visible;
 }
@@ -2776,6 +2886,13 @@ per-word capitalization does not survive translation. */
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.ai-customization-management-editor .embedded-connector-detail .plugin-detail-contribution-description {
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
 }
 
 .vscode-high-contrast .ai-customization-management-editor .ai-customization-embedded-detail .plugin-detail-flat-list {
