@@ -3994,7 +3994,7 @@ export class CopilotAgentSession extends Disposable {
 				return;
 			}
 			turn?.markProviderCallResolved();
-			this._logService.info(`[Copilot:${this.sessionId}] zero-message continuation returned`);
+			this._logService.info(`[Copilot:${this.sessionId}] resume-pending continuation enqueued`);
 		} catch (error) {
 			if (this._resumingTurnAwaitingProviderStart === turn) {
 				this._resumingTurnAwaitingProviderStart = undefined;
