@@ -160,6 +160,7 @@ const globAsync = util.promisify(glob);
 
 async function loadTestModules(opts) {
 
+function loadTestModules(opts) {
 	if (opts.run) {
 		const files = Array.isArray(opts.run) ? opts.run : [opts.run];
 		const modules = files.map(file => {
@@ -490,7 +491,7 @@ ipcRenderer.on('run', async (_e, opts) => {
 		await runTests(opts);
 	} catch (err) {
 		if (typeof err !== 'string') {
-			err = JSON.stringify(err);
+			err = JSON.stringify({ stack: err.stack, message: err.message });
 		}
 		console.error(err);
 		ipcRenderer.send('error', err);
