@@ -145,6 +145,10 @@ export abstract class AbstractFileDialogService implements IFileDialogService {
 		return userHome;
 	}
 
+	private isUserSettingsScheme(uri: URI): boolean {
+		return uri.scheme === Schemas.vscodeUserData || uri.scheme === Schemas.vscodeSettings;
+	}
+
 	async defaultWorkspacePath(schemeFilter = this.getSchemeFilterForWindow()): Promise<URI> {
 		let defaultWorkspacePath: URI | undefined;
 
