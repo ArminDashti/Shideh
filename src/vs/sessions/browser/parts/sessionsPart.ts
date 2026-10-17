@@ -362,6 +362,34 @@ export class SessionsPart extends Part {
 			const isActive = slot === activeSlot;
 			slot.view.element.classList.toggle('is-active', isActive);
 			slot.view.setActive(isActive);
+			if (isActive) {
+				activeSlot = slot;
+				activeSlotBecameActive = !wasActive;
+			}
+		}
+
+		// When a session transitions from inactive to active its chat input fades
+		// in (see the `is-active` opacity transitions in `sessionView.css`) and
+		// is auto-focused so the user can start typing. {@link SessionView.beginActivation}
+		// owns the per-view animation and deferred focus; the part only decides
+		// when to arm it.
+		//
+		// Arm whenever the active slot newly becomes active OR the active slot
+		// keeps its `is-active` state but swaps in a different session (the
+		// single-column case, where `is-active` never toggles because there is
+		// only one slot) — in both cases the input re-renders and fades in.
+		//
+		// Focus is requested only when the active session id actually changes,
+		// to avoid stealing focus on every reconciliation.
+		const focusAfterFade = activeSlot !== undefined && activeId !== undefined && activeId !== this._lastFocusedActiveSessionId;
+		const armActivation = activeSlot !== undefined && (activeSlotBecameActive || activeSlot.previousBoundSessionId !== activeSlot.boundSessionId);
+		if (activeSlot && (armActivation || focusAfterFade)) {
+			activeSlot.view.beginActivation(focusAfterFade);
+		}
+		if (focusAfterFade) {
+			this._lastFocusedActiveSessionId = activeId;
+		} else if (activeId === undefined) {
+			this._lastFocusedActiveSessionId = undefined;
 		}
 
 		this._gridWidget.reconcile(next.map((slot, index) => ({ id: slot.id, view: slot.view, placement: gridSlots?.[index].placement })), activeSlot?.id ?? next[0]?.id);

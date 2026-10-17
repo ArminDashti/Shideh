@@ -8,6 +8,7 @@ import { localize } from '../../../nls.js';
 import './media/sessionView.css';
 import { $, isAncestorOfActiveElement, size } from '../../../base/browser/dom.js';
 import { ISerializableView, IViewSize } from '../../../base/browser/ui/grid/grid.js';
+import { disposableTimeout } from '../../../base/common/async.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
@@ -525,6 +526,9 @@ export class SessionView extends Disposable implements ISerializableView {
 		this._sessionIsMaximizedKey.set(maximized);
 	}
 
+	/** Whether this view currently hosts the active session in the grid. */
+	get isActive(): boolean { return this._isActive; }
+
 	/**
 	 * Updates whether this view currently hosts the active session in the grid.
 	 * Forwarded to the inner chat view so it can adjust its visual styling
@@ -634,6 +638,39 @@ export class SessionView extends Disposable implements ISerializableView {
 			// Catch up on the layout passes that were skipped while hidden.
 			this._layoutChildren();
 		}
+	}
+
+	/**
+	 * Marks this view as `activating` for the duration of the chat input fade-in
+	 * that runs when a session is promoted to active (see the `is-active` opacity
+	 * transitions in `sessionView.css`). While the class is present the CSS
+	 * suppresses the chat input's focus border so it does not flash around the
+	 * still-fading placeholder/editor.
+	 *
+	 * When {@link focusAfterFade} is `true`, the chat input is also focused once
+	 * the fade has settled — skipped if focus has moved elsewhere in the
+	 * workbench before the timer fires, so we never steal focus from outside the
+	 * sessions area.
+	 *
+	 * Replaces any previously armed activation on this view.
+	 */
+	beginActivation(focusAfterFade: boolean): void {
+		this.element.classList.add('activating');
+		const store = new DisposableStore();
+		if (focusAfterFade) {
+			store.add(disposableTimeout(() => {
+				const activeElement = this.element.ownerDocument.activeElement;
+				if (activeElement && !isAncestor(activeElement, this.element)) {
+					return;
+				}
+				this.focus();
+			}, SessionView.SESSION_VIEW_FADE_IN_MS));
+		}
+		store.add(disposableTimeout(
+			() => this.element.classList.remove('activating'),
+			SessionView.SESSION_VIEW_FADE_IN_MS + SessionView.ACTIVATING_FOCUS_BUFFER_MS
+		));
+		this._pendingActivation.value = store;
 	}
 
 	private _applyActiveSessionStyles(): void {
