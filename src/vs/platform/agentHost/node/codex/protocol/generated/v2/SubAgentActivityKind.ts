@@ -6,4 +6,4 @@
 // Regenerate: npm run codex:gen-protocol
 // Source file: v2/SubAgentActivityKind.ts
 
-export type SubAgentActivityKind = "started" | "interacted" | "interrupted";
+export type SubAgentActivityKind = "started" | "interacted" | "interrupted" | "completed";
