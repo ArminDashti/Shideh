@@ -3030,7 +3030,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData);
 		const partsToRender = this.diff(templateData.renderedParts ?? [], contentForThisTurn.content, element);
-		const contentIsAlreadyRendered = partsToRender.every(part => part === null);
+		const contentIsAlreadyRendered = partsToRender.length === (templateData.renderedParts?.length ?? 0) && partsToRender.every(part => part === null);
 		if (!contentIsAlreadyRendered) {
 			this.renderChatContentDiff(partsToRender, contentForThisTurn.content, element, index, templateData);
 		} else {
@@ -3123,7 +3123,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData);
 		const partsToRender = this.diff(templateData.renderedParts ?? [], contentForThisTurn.content, element);
 
-		const contentIsAlreadyRendered = partsToRender.every(part => part === null);
+		const contentIsAlreadyRendered = partsToRender.length === (templateData.renderedParts?.length ?? 0) && partsToRender.every(part => part === null);
 		if (contentIsAlreadyRendered) {
 			if (!element.isComplete) {
 				this.remountRenderedParts(templateData);
@@ -3554,6 +3554,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				delete renderedParts[i];
 			}
 		}
+		renderedParts.length = partsToRender.length;
 
 		if (!this.pendingProgressContent.has(templateData)) {
 			const animateCollapse = templateData.wasResponseComplete === false && element.isComplete;
@@ -5627,6 +5628,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 						lastPart = itemPart;
 					}
 				}
+			}
+			if (lastPart instanceof ChatThinkingContentPart) {
+				lastPart.setArrayThinkingSource(content);
 			}
 			return lastPart ?? this.renderNoContent(other => content.kind === other.kind);
 			// non-array, handle case where we are currently thinking vs. starting a new thinking part
