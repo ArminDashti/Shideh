@@ -55,9 +55,12 @@ export class GitHubPullRequestModel extends Disposable {
 	readonly mergeability: IObservable<IGitHubPullRequestMergeability | undefined> = this._mergeability;
 
 	private _refreshPromise: Promise<void> | undefined = undefined;
+	private _pullRequestRefreshPromise: Promise<void> | undefined = undefined;
 
 	private readonly _pollScheduler: RunOnceScheduler;
 	private readonly _pollingDisposables = this._register(new DisposableSet());
+	private readonly _pullRequestPollScheduler: RunOnceScheduler;
+	private readonly _pullRequestPollingDisposables = this._register(new DisposableSet());
 
 	constructor(
 		readonly owner: string,
@@ -69,6 +72,7 @@ export class GitHubPullRequestModel extends Disposable {
 		super();
 
 		this._pollScheduler = this._register(new RunOnceScheduler(() => this._poll(), DEFAULT_POLL_INTERVAL_MS));
+		this._pullRequestPollScheduler = this._register(new RunOnceScheduler(() => this._pollPullRequest(), DEFAULT_POLL_INTERVAL_MS));
 	}
 
 	/**
@@ -83,6 +87,22 @@ export class GitHubPullRequestModel extends Disposable {
 		}
 
 		return this._refreshPromise;
+	}
+
+	/**
+	 * Refresh only the pull request metadata. Use this when a caller only needs
+	 * lightweight state such as open/closed/merged/draft and does not need
+	 * reviews or mergeability.
+	 */
+	refreshPullRequest(): Promise<void> {
+		if (!this._pullRequestRefreshPromise) {
+			this._pullRequestRefreshPromise = this._refreshPullRequest()
+				.finally(() => {
+					this._pullRequestRefreshPromise = undefined;
+				});
+		}
+
+		return this._pullRequestRefreshPromise;
 	}
 
 	/**
@@ -120,12 +140,42 @@ export class GitHubPullRequestModel extends Disposable {
 		return disposable;
 	}
 
+	/**
+	 * Start periodic polling for pull request metadata only. This is used for
+	 * background session-list icons; richer active-session data uses the full
+	 * model refresh and the dedicated CI/review-thread models.
+	 */
+	startPullRequestPolling(intervalMs: number = DEFAULT_POLL_INTERVAL_MS): IDisposable {
+		const disposable = toDisposable(() => {
+			this._pullRequestPollingDisposables.deleteAndDispose(disposable);
+
+			if (this._pullRequestPollingDisposables.size === 0) {
+				this._pullRequestPollScheduler.cancel();
+			}
+		});
+		this._pullRequestPollingDisposables.add(disposable);
+
+		if (this._pullRequestPollingDisposables.size === 1) {
+			this._pullRequestPollScheduler.schedule(intervalMs);
+		}
+
+		return disposable;
+	}
+
 	private async _poll(): Promise<void> {
 		this._logService.trace(`${TRACE_PREFIX} [PRModel] Poll cycle for ${this.owner}/${this.repo}#${this.prNumber}`);
 		await this.refresh();
 		// Re-schedule for next poll cycle (RunOnceScheduler is one-shot)
 		if (!this._store.isDisposed && this._pollingDisposables.size > 0) {
 			this._pollScheduler.schedule();
+		}
+	}
+
+	private async _pollPullRequest(): Promise<void> {
+		await this.refreshPullRequest();
+		// Re-schedule for next poll cycle (RunOnceScheduler is one-shot)
+		if (!this._store.isDisposed && this._pullRequestPollingDisposables.size > 0) {
+			this._pullRequestPollScheduler.schedule();
 		}
 	}
 
@@ -166,6 +216,26 @@ export class GitHubPullRequestModel extends Disposable {
 			this._logService.trace(`${TRACE_PREFIX} [PRModel] Refreshed ${this.owner}/${this.repo}#${this.prNumber}: prStatus ${pr.statusCode}, reviewsStatus ${reviews.statusCode}, state ${current?.state ?? 'unknown'}, isDraft ${current?.isDraft ?? 'unknown'}, headSha ${current?.headSha ?? 'unknown'}`);
 		} catch (err) {
 			this._logService.error(`${TRACE_PREFIX} ${LOG_PREFIX} Failed to refresh PR #${this.prNumber}:`, err);
+		}
+	}
+
+	private async _refreshPullRequest(): Promise<void> {
+		try {
+			const pr = await this._fetcher.getPullRequest(this.owner, this.repo, this.prNumber, this._pullRequestEtag);
+			if (pr.statusCode === 200 && pr.data) {
+				const pullRequest = pr.data;
+				transaction(tx => {
+					this._pullRequestEtag = pr.etag;
+					this._pullRequest.set(pullRequest, tx);
+
+					const reviews = this._reviews.get();
+					if (reviews) {
+						this._mergeability.set(computeMergeability(pullRequest, reviews), tx);
+					}
+				});
+			}
+		} catch (err) {
+			this._logService.error(`${LOG_PREFIX} Failed to refresh PR #${this.prNumber}:`, err);
 		}
 	}
 

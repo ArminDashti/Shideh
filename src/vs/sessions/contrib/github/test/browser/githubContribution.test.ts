@@ -235,8 +235,8 @@ suite('GitHubPullRequestPollingContribution', () => {
 		sessionsManagementService.fireSessionsChanged({ added: [addedSession] });
 
 		assert.deepStrictEqual(gitHubService.snapshot(), {
-			'owner/repo/1': { startPollingCalls: 1, stopPollingCalls: 0, disposeCalls: 0 },
-			'owner/repo/2': { startPollingCalls: 1, stopPollingCalls: 0, disposeCalls: 0 },
+			'owner/repo/1': { refreshPullRequestCalls: 1, startPullRequestPollingCalls: 1, stopPullRequestPollingCalls: 0, disposeCalls: 0 },
+			'owner/repo/2': { refreshPullRequestCalls: 1, startPullRequestPollingCalls: 1, stopPullRequestPollingCalls: 0, disposeCalls: 0 },
 		});
 		assert.strictEqual(existingSession.isArchived.get(), false);
 	});
@@ -347,14 +347,14 @@ suite('GitHubPullRequestPollingContribution', () => {
 		sessionsManagementService.fireSessionsChanged({ changed: [session] });
 
 		assert.deepStrictEqual(gitHubService.snapshot(), {
-			'owner/repo/1': { startPollingCalls: 1, stopPollingCalls: 1, disposeCalls: 0 },
+			'owner/repo/1': { refreshPullRequestCalls: 1, startPullRequestPollingCalls: 1, stopPullRequestPollingCalls: 1, disposeCalls: 0 },
 		});
 
 		sessionsManagementService.setArchived(session, false);
 		sessionsManagementService.fireSessionsChanged({ changed: [session] });
 
 		assert.deepStrictEqual(gitHubService.snapshot(), {
-			'owner/repo/1': { startPollingCalls: 2, stopPollingCalls: 1, disposeCalls: 0 },
+			'owner/repo/1': { refreshPullRequestCalls: 2, startPullRequestPollingCalls: 2, stopPullRequestPollingCalls: 1, disposeCalls: 0 },
 		});
 	});
 
@@ -368,7 +368,7 @@ suite('GitHubPullRequestPollingContribution', () => {
 		sessionsManagementService.fireSessionsChanged({ changed: [session] });
 
 		assert.deepStrictEqual(gitHubService.snapshot(), {
-			'owner/repo/1': { startPollingCalls: 1, stopPollingCalls: 0, disposeCalls: 0 },
+			'owner/repo/1': { refreshPullRequestCalls: 1, startPullRequestPollingCalls: 1, stopPullRequestPollingCalls: 0, disposeCalls: 0 },
 		});
 	});
 
@@ -379,7 +379,7 @@ suite('GitHubPullRequestPollingContribution', () => {
 		contribution.dispose();
 
 		assert.deepStrictEqual(gitHubService.snapshot(), {
-			'owner/repo/1': { startPollingCalls: 1, stopPollingCalls: 1, disposeCalls: 0 },
+			'owner/repo/1': { refreshPullRequestCalls: 1, startPullRequestPollingCalls: 1, stopPullRequestPollingCalls: 1, disposeCalls: 0 },
 		});
 		assert.strictEqual(session.isArchived.get(), false);
 	});
@@ -650,8 +650,9 @@ class TestGitHubService extends mock<IGitHubService>() {
 
 	snapshot(): Record<string, { startPollingCalls: number; stopPollingCalls: number; disposeCalls: number }> {
 		const entries = [...this._models.entries()].map(([key, model]) => [key, {
-			startPollingCalls: model.startPollingCalls,
-			stopPollingCalls: model.stopPollingCalls,
+			refreshPullRequestCalls: model.refreshPullRequestCalls,
+			startPullRequestPollingCalls: model.startPullRequestPollingCalls,
+			stopPullRequestPollingCalls: model.stopPullRequestPollingCalls,
 			disposeCalls: model.disposeCalls,
 		}] as const);
 		return Object.fromEntries(entries);
@@ -667,8 +668,9 @@ class TestGitHubService extends mock<IGitHubService>() {
 
 class TestPullRequestModel implements IDisposable {
 
-	startPollingCalls = 0;
-	stopPollingCalls = 0;
+	refreshPullRequestCalls = 0;
+	startPullRequestPollingCalls = 0;
+	stopPullRequestPollingCalls = 0;
 	disposeCalls = 0;
 
 	private readonly _pullRequest = observableValue<IGitHubPullRequest | undefined>('test.pullRequest', undefined);
@@ -683,7 +685,8 @@ class TestPullRequestModel implements IDisposable {
 		return toDisposable(() => this.stopPollingCalls++);
 	}
 
-	refresh(): Promise<void> {
+	refreshPullRequest(): Promise<void> {
+		this.refreshPullRequestCalls++;
 		return Promise.resolve();
 	}
 

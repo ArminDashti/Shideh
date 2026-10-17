@@ -145,7 +145,6 @@ export class GitHubPullRequestPollingContribution extends Disposable implements 
 			this._trackSession(session);
 		}
 
-		// Removed sessions
 		for (const session of e.removed) {
 			const tracker = this._sessionTrackers.get(session.sessionId);
 			if (tracker && this._hasSamePollingSource(tracker.session, session)) {
