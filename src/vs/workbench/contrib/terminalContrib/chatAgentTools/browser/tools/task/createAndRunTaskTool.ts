@@ -118,7 +118,7 @@ export class CreateAndRunTaskTool implements IToolImpl {
 			await timeout(100);
 		}
 		if (!task) {
-			return { content: [{ kind: 'text', value: `Task not found: ${args.task.label}` }], toolResultMessage: new MarkdownString(localize('copilotChat.taskNotFound', 'Task not found: `{0}`', args.task.label)) };
+			return { content: [{ kind: 'text', value: `Task not found: ${args.task.label}` }], toolResultMessage: new MarkdownString(localize('copilotChat.taskNotFound', 'Task not found: `{0}`', args.task.label), { supportThemeIcons: true }) };
 		}
 
 		const preRunMarkersStore = new DisposableStore();
