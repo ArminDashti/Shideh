@@ -376,6 +376,8 @@ class TestAgentHostTerminalManager implements IAgentHostTerminalManager {
 	onCommandFinished(): IDisposable { return Disposable.None; }
 	createAltBufferPromise(_uri: string, _store: DisposableStore): Promise<void> { return new Promise(() => { }); }
 	getContent(): string | undefined { return undefined; }
+	async getRenderedContent(): Promise<string | undefined> { return undefined; }
+	isBracketedPasteMode(): boolean { return false; }
 	getClaim(): undefined { return undefined; }
 	hasTerminal(): boolean { return false; }
 	supportsCommandDetection(): boolean { return false; }

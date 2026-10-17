@@ -40,6 +40,10 @@ class TestAgentHostTerminalManager implements IAgentHostTerminalManager {
 	declare readonly _serviceBrand: undefined;
 
 	defaultShell = '/bin/bash';
+	terminalExists = false;
+	supportsCommandDetectionValue = false;
+	content = '';
+	renderedContent: string | undefined;
 	readonly created: { params: CreateTerminalParams; options?: { shell?: string; preventShellHistory?: boolean; nonInteractive?: boolean } }[] = [];
 	readonly writes: { uri: string; data: string }[] = [];
 	readonly sentTexts: { uri: string; data: string; options: ISendTextOptions }[] = [];
@@ -58,6 +62,13 @@ class TestAgentHostTerminalManager implements IAgentHostTerminalManager {
 
 	async createTerminal(params: CreateTerminalParams, options?: { shell?: string; preventShellHistory?: boolean; nonInteractive?: boolean }): Promise<void> {
 		this.created.push({ params, options: { ...options, shell: options?.shell ?? this.defaultShell } });
+		this._terminals.add(params.terminal);
+	}
+	writeInput(uri: string, data: string): void {
+		this.rawInputs.push({ uri, data });
+	}
+	writeCommandInput(uri: string, data: string, options?: IWriteCommandInputOptions): void {
+		this.commandInputs.push({ uri, data, options });
 	}
 	writeInput(uri: string, data: string): void {
 		this.writes.push({ uri, data });
@@ -392,6 +403,21 @@ suite('CopilotShellTools', () => {
 	test('prefixForHistorySuppression prepends a space for POSIX shells, no-op for PowerShell', () => {
 		assert.strictEqual(prefixForHistorySuppression('bash'), ' ');
 		assert.strictEqual(prefixForHistorySuppression('powershell'), '');
+	});
+
+	test('formatTerminalCommandInput uses bracketed paste for multiline input only when enabled', () => {
+		assert.strictEqual(
+			formatTerminalCommandInput('echo one\necho two', { addNewLine: true, forceBracketedPaste: true }, true),
+			'\x1b[200~echo one\recho two\x1b[201~\r'
+		);
+		assert.strictEqual(
+			formatTerminalCommandInput('echo one\necho two', { addNewLine: true, forceBracketedPaste: true }, false),
+			'echo one\recho two\r'
+		);
+		assert.strictEqual(
+			formatTerminalCommandInput('hello', { forceBracketedPaste: true }, true),
+			'hello'
+		);
 	});
 
 	test('shellTypeForExecutable maps known shell basenames and falls back to platform default', () => {

@@ -299,6 +299,21 @@ export class ShellManager extends Disposable {
 	}
 }
 
+async function getReadTerminalContent(terminalManager: IAgentHostTerminalManager, terminalUri: string): Promise<string> {
+	const renderedContent = await terminalManager.getRenderedContent(terminalUri);
+	if (renderedContent?.trim()) {
+		return renderedContent;
+	}
+	return terminalManager.getContent(terminalUri) ?? '';
+}
+
+function writeShellCommand(terminalManager: IAgentHostTerminalManager, shell: IManagedShell, command: string): void {
+	terminalManager.writeCommandInput(shell.terminalUri, `${prefixForHistorySuppression(shell.shellType)}${command}`, {
+		addNewLine: true,
+		forceBracketedPaste: true,
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Tool implementations
 // ---------------------------------------------------------------------------
@@ -553,7 +568,7 @@ export async function createShellTools(
 		},
 		overridesBuiltInTool: true,
 		skipPermission: true,
-		handler: (args) => {
+		handler: async (args) => {
 			const shells = shellManager.listShells();
 			const shell = args.shell_id
 				? shellManager.getShell(args.shell_id)
@@ -561,7 +576,7 @@ export async function createShellTools(
 			if (!shell) {
 				return makeFailureResult('No active shell found.', 'no_shell');
 			}
-			const content = terminalManager.getContent(shell.terminalUri);
+			const content = await getReadTerminalContent(terminalManager, shell.terminalUri);
 			if (!content) {
 				return makeSuccessResult('(no output)');
 			}

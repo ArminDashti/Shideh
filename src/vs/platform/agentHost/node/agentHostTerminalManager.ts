@@ -128,6 +128,8 @@ export interface IAgentHostTerminalManager {
 	onCommandFinished(uri: string, cb: (event: ICommandFinishedEvent) => void): IDisposable;
 	createAltBufferPromise(uri: string, store: DisposableStore): Promise<void>;
 	getContent(uri: string): string | undefined;
+	getRenderedContent(uri: string, options?: { lines?: number }): Promise<string | undefined>;
+	isBracketedPasteMode(uri: string): boolean;
 	getClaim(uri: string): TerminalClaim | undefined;
 	hasTerminal(uri: string): boolean;
 	supportsCommandDetection(uri: string): boolean;
@@ -452,6 +454,16 @@ export class AgentHostTerminalManager extends Disposable implements IAgentHostTe
 		store.add(toDisposable(() => {
 			try { ptyProcess.kill(); } catch { /* already dead */ }
 		}));
+		store.add(headlessTerminal.onResponseData(data => {
+			if (managed.exitCode !== undefined) {
+				return;
+			}
+			try {
+				ptyProcess.write(data);
+			} catch (err) {
+				this._logService.warn(`[TerminalManager] Failed to write headless terminal response for ${uri}: ${err}`);
+			}
+		}));
 
 		const onFirstData = new DeferredPromise<void>();
 		const dataListener = ptyProcess.onData(rawData => {
@@ -576,6 +588,17 @@ export class AgentHostTerminalManager extends Disposable implements IAgentHostTe
 		return terminal.content.map(p => p.type === 'command' ? p.output : p.value).join('');
 	}
 
+	/** Get rendered terminal content from the headless xterm mirror. */
+	async getRenderedContent(uri: string, options?: { lines?: number }): Promise<string | undefined> {
+		const terminal = this._terminals.get(uri);
+		return terminal?.headlessTerminal?.getRecentRenderedText(options);
+	}
+
+	/** Whether the headless terminal mirror currently reports bracketed paste mode. */
+	isBracketedPasteMode(uri: string): boolean {
+		return this._terminals.get(uri)?.headlessTerminal?.isBracketedPasteMode() ?? false;
+	}
+
 	/** Get the current claim for a terminal. */
 	getClaim(uri: string): TerminalClaim | undefined {
 		return this._terminals.get(uri)?.claim;
@@ -598,6 +621,7 @@ export class AgentHostTerminalManager extends Disposable implements IAgentHostTe
 		if (terminal?.lifecycle.status === TerminalLifecycleStatus.Running) {
 			terminal.cols = cols;
 			terminal.rows = rows;
+			terminal.headlessTerminal?.resize(cols, rows);
 			terminal.pty.resize(cols, rows);
 			terminal.headlessTerminal?.resize(cols, rows);
 		}
