@@ -41,7 +41,7 @@ class CustomizationMigrationAccessibleView implements IAccessibleViewImplementat
 				localize('migrationHelpMcpDetails', "Open an MCP server that cannot be migrated to review its details. Edit Configuration opens the source file and selects that server's JSON configuration."),
 				localize('migrationHelpSkip', "Skip Workspace excludes workspace migrations from the checklist count without changing files. Include Workspace restores them."),
 				localize('migrationHelpActivity', "Migration activity records successful changes locally. Expand an activity entry with Enter or Space to read its source and destination paths. Dismiss removes the activity record, not the migrated files."),
-				localize('migrationHelpView', "Use {0} to read the checklist and activity in the Accessible View.", '<keybinding:editor.action.accessibleView>'),
+				localize('migrationHelpView', "Use {0} to read the migrations and activity in the Accessible View.", '<keybinding:editor.action.accessibleView>'),
 			].join('\n\n') : content,
 			() => DOM.isHTMLElement(focused) && focused.isConnected ? focused.focus() : editor.focus(),
 			AccessibilityVerbositySettingId.CustomizationMigrations,

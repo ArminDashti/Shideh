@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { createCommandUri, isMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { Schemas } from '../../../../../../base/common/network.js';
@@ -15,7 +14,6 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { FileType, IFileDeleteOptions, IFileWriteOptions, createFileSystemProviderError, FileSystemProviderErrorCode } from '../../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { McpServerType } from '../../../../../../platform/mcp/common/mcpPlatformTypes.js';
-import { PromptsConfig } from '../../../common/promptSyntax/config/config.js';
 import { PromptFileSource, PromptsType } from '../../../common/promptSyntax/promptTypes.js';
 import { CustomizationMigrationType, FileCustomizationMigrationFailureReason, IMcpServerCustomizationMigrationCandidate, isMcpServerCustomizationMigrationCandidate, McpServerCustomizationMigrationFailureReason, type MigratableConfiguration } from '../../../common/promptSyntax/service/customizationMigrationService.js';
 import { PromptsStorage, type IPromptPath } from '../../../common/promptSyntax/service/promptsService.js';
@@ -237,7 +235,7 @@ suite('customizationMigration', () => {
 			},
 			confirmation: {
 				message: 'Migrate 1 MCP server to .mcp.json?',
-				detail: 'Selected entries are removed from .vscode/mcp.json after they are written and verified in .mcp.json. Entries that cannot be migrated and unselected entries stay in place.',
+				detail: 'Eligible entries are removed from .vscode/mcp.json after they are written and verified in .mcp.json. Entries that cannot be migrated stay in place.',
 				primaryButton: 'Migrate',
 			},
 			failure: 'Could not migrate \'Server\' because the destination already contains a different server with that name.',
@@ -347,11 +345,8 @@ suite('customizationMigration', () => {
 		const workspace = { ...user, id: 'workspace', storage: PromptsStorage.local } as const;
 		const confirmations = [[user], [user, { ...user, id: 'secondUser' }], [user, workspace]]
 			.map(candidates => category.getConfirmation(candidates, 'Copilot'));
-		const banner = category.getBanner?.([user], 'Copilot', undefined, []);
 		assert.deepStrictEqual({
-			groups: category.group([workspace, user]).map(group => [group.label, group.customizations.map(candidate => candidate.storage)]),
 			confirmations,
-			banner: banner?.message,
 		}, {
 			groups: [['Ready to migrate', [PromptsStorage.local, PromptsStorage.user]]],
 			confirmations: [
@@ -371,7 +366,6 @@ suite('customizationMigration', () => {
 					primaryButton: 'Migrate',
 				},
 			],
-			banner: 'User servers move to mcp-config.json in Copilot home, making them available across profiles and workspaces. Disabled user servers may become enabled after migration. Workspace servers move to the root .mcp.json. Unselected servers and servers that cannot be migrated stay in their current files.',
 		});
 	});
 
