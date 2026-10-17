@@ -235,6 +235,38 @@ abstract class OpenChatGlobalAction extends Action2 {
 			await this.handleSwitchToMode(switchToMode, chatWidget, instaService, commandService);
 		}
 
+		// Handle target parameter to set session target dropdown
+		// Only switch session type if needed and session is empty
+		if (opts?.target) {
+			const targetProvider = TARGET_TO_PROVIDER_MAP[opts.target];
+			if (targetProvider) {
+				const isEmpty = (chatWidget.viewModel?.getItems().length ?? 0) === 0;
+				const viewModel = chatWidget.viewModel;
+				const isLocalSession = viewModel && (
+					viewModel.sessionResource.scheme === Schemas.vscodeLocalChatSession ||
+					viewModel.sessionResource.scheme === Schemas.vscodeChatEditor
+				);
+
+				// Determine current session's provider type
+				const currentProvider = viewModel ? getAgentSessionProvider(viewModel.sessionResource) ?? AgentSessionProviders.Local : AgentSessionProviders.Local;
+
+				// If the current session already matches the target, no action needed
+				if (currentProvider === targetProvider) {
+					// Already on the correct target, nothing to do
+				} else if (!isEmpty) {
+					// Session has content and target is different - don't disrupt existing work
+				} else if (isLocalSession && targetProvider !== AgentSessionProviders.Local) {
+					// Empty local session, switch to the specified target type
+					const position = chatWidget.location === ChatAgentLocation.Chat ? 'sidebar' : 'editor';
+					await commandService.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.${targetProvider}`, position);
+					// Get the updated widget after session change
+					chatWidget = widgetService.lastFocusedWidget ?? chatWidget;
+				}
+			} else {
+				logService.warn(`Invalid target value: ${opts.target}. Valid values are: local, background, cloud, claude, codex`);
+			}
+		}
+
 		if (opts?.modelSelector) {
 			const ids = await languageModelService.selectLanguageModels(opts.modelSelector);
 			const id = ids.sort().at(0);
