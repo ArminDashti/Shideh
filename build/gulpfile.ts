@@ -17,7 +17,6 @@ import { runEsbuildTranspile } from './lib/esbuild.ts';
 // Extension point names
 task.task(compilation.compileExtensionPointNamesTask);
 
-const require = createRequire(import.meta.url);
 
 // API proposal names
 task.task(compilation.checkApiProposalNamesTask);
@@ -56,7 +55,7 @@ process.on('unhandledRejection', (reason, p) => {
 });
 
 // Load all the gulpfiles only if running tasks other than the editor tasks
-glob.sync('gulpfile.*.ts', { cwd: import.meta.dirname })
-	.forEach(f => {
-		return require(`./${f}`);
-	});
+await Promise.all(
+	glob.sync('gulpfile.*.ts', { cwd: import.meta.dirname })
+		.map((f: string) => import(`./${f}`))
+);
