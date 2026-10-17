@@ -1619,6 +1619,7 @@ export class PreferredExtensionsPagedModel implements IPagedModel<IExtension> {
 		this.length = (preferredExtensions.length - this.preferredGalleryExtensions.size) + this.pager.total;
 
 		const totalPages = Math.ceil(this.pager.total / this.pager.pageSize);
+		validatePagerPage(this.pager, 0, this.pager.firstPage);
 		this.populateResolvedExtensions(0, this.pager.firstPage);
 		this.pages = range(totalPages - 1).map(() => ({
 			promise: null,
@@ -1652,7 +1653,10 @@ export class PreferredExtensionsPagedModel implements IPagedModel<IExtension> {
 		if (!page.promise) {
 			page.cts = new CancellationTokenSource();
 			page.promise = this.pager.getPage(pageIndex, page.cts.token)
-				.then(extensions => this.populateResolvedExtensions(pageIndex, extensions))
+				.then(extensions => {
+					validatePagerPage(this.pager, pageIndex, extensions);
+					this.populateResolvedExtensions(pageIndex, extensions);
+				})
 				.catch(e => { page.promise = null; throw e; })
 				.finally(() => page.cts = null);
 		}
