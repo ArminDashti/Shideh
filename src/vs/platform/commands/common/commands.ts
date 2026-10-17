@@ -19,6 +19,10 @@ export interface ICommandEvent {
 	readonly args: unknown[];
 }
 
+export interface ICommandExecuteEvent extends ICommandEvent {
+	result: any;
+}
+
 export interface ICommandService {
 	readonly _serviceBrand: undefined;
 	readonly onWillExecuteCommand: Event<ICommandEvent>;

@@ -251,6 +251,9 @@ import './contrib/replNotebook/browser/repl.contribution.js';
 // Testing
 import './contrib/testing/browser/testing.contribution.js';
 
+// Flow
+import 'vs/workbench/contrib/flowEditor/browser/flowEditor.contribution';
+
 // Logs
 import './contrib/logs/common/logs.contribution.js';
 

@@ -301,9 +301,9 @@ export class StandaloneCommandService implements ICommandService {
 	private readonly _instantiationService: IInstantiationService;
 
 	private readonly _onWillExecuteCommand = new Emitter<ICommandEvent>();
-	private readonly _onDidExecuteCommand = new Emitter<ICommandEvent>();
+	private readonly _onDidExecuteCommand = new Emitter<ICommandExecuteEvent>();
 	public readonly onWillExecuteCommand: Event<ICommandEvent> = this._onWillExecuteCommand.event;
-	public readonly onDidExecuteCommand: Event<ICommandEvent> = this._onDidExecuteCommand.event;
+	public readonly onDidExecuteCommand: Event<ICommandExecuteEvent> = this._onDidExecuteCommand.event;
 
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService
@@ -321,7 +321,7 @@ export class StandaloneCommandService implements ICommandService {
 			this._onWillExecuteCommand.fire({ commandId: id, args });
 			const result = this._instantiationService.invokeFunction.apply(this._instantiationService, [command.handler, ...args]) as T;
 
-			this._onDidExecuteCommand.fire({ commandId: id, args });
+			this._onDidExecuteCommand.fire({ commandId: id, args, result });
 			return Promise.resolve(result);
 		} catch (err) {
 			return Promise.reject(err);
