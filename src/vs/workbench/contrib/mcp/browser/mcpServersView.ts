@@ -85,6 +85,7 @@ export class McpServersListView extends AbstractExtensionsListView<IWorkbenchMcp
 	private readonly contextMenuActionRunner = this._register(new ActionRunner());
 	private readonly modalNavigationDisposable = this._register(new MutableDisposable());
 	private input: IQueryResult | undefined;
+	private currentQueryPromise: Promise<IQueryResult> | undefined;
 
 	constructor(
 		private readonly mpcViewOptions: McpServerListViewOptions,
@@ -106,6 +107,15 @@ export class McpServersListView extends AbstractExtensionsListView<IWorkbenchMcp
 		@ILogService private readonly logService: ILogService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+	}
+
+	override dispose(): void {
+		if (this.input) {
+			this.input.disposables.dispose();
+			this.input = undefined;
+		}
+		this.currentQueryPromise = undefined;
+		super.dispose();
 	}
 
 	protected override renderBody(container: HTMLElement): void {
