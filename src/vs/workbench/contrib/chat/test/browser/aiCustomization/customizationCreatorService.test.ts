@@ -15,7 +15,8 @@ import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../
 import { PromptsType } from '../../../common/promptSyntax/promptTypes.js';
 import { IPromptsService, PromptsStorage } from '../../../common/promptSyntax/service/promptsService.js';
 import { ICustomizationHarnessService, IHarnessDescriptor } from '../../../common/customizationHarnessService.js';
-import { CustomizationLocationPicker, resolveUserTargetDirectory } from '../../../browser/aiCustomization/customizationCreatorService.js';
+import { CustomizationLocationPicker, filterCustomizationSourceFolders, getCustomizationLocationPickItems, resolveUserTargetDirectory } from '../../../browser/aiCustomization/customizationCreatorService.js';
+import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 
 suite('customizationCreatorService', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -81,6 +82,7 @@ suite('customizationCreatorService', () => {
 			harnessService,
 			new class extends mock<IInstantiationService>() { }(),
 			new class extends mock<ILabelService>() { }(),
+			new class extends mock<IWorkspaceContextService>() { }(),
 		);
 
 		const result = await picker.resolveTargetDirectoryWithPicker(sessionResource, PromptsType.agent, 'local');

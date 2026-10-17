@@ -20,6 +20,8 @@ import { PromptsServiceCustomizationItemProvider } from './promptsServiceCustomi
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { isEqual } from '../../../../../base/common/resources.js';
 
 /**
  * Service that opens an AI-guided chat session to help the user create
@@ -43,7 +45,7 @@ export class CustomizationCreatorService {
 
 	) { }
 
-	async createWithAI(type: PromptsType): Promise<void> {
+	async createWithAI(type: PromptsType, workspaceFolder?: URI): Promise<void> {
 		const currentSessionResource = this.harnessService.activeSessionResource.get();
 
 
@@ -75,6 +77,7 @@ export class CustomizationCreatorService {
 			currentSessionResource,
 			type,
 			'local',
+			workspaceFolder,
 		);
 		if (targetDir === null) {
 			return; // User cancelled the picker
@@ -130,7 +133,8 @@ export class CustomizationLocationPicker {
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@ICustomizationHarnessService private readonly harnessService: ICustomizationHarnessService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@ILabelService private readonly labelService: ILabelService
+		@ILabelService private readonly labelService: ILabelService,
+		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 	) { }
 
 	/** Resolves a writable target URI, or `null` when the user cancels destination selection. */
@@ -171,6 +175,47 @@ export class CustomizationLocationPicker {
 		return allFolders?.filter(folder => target ? folder.source === target : folder.source === 'local' || folder.source === 'user');
 	}
 
+}
+
+export function filterCustomizationSourceFolders(
+	folders: readonly ICustomizationSourceFolder[],
+	target: 'local' | 'user',
+	workspaceFolder: URI | undefined,
+	workspaceContextService: IWorkspaceContextService,
+): readonly ICustomizationSourceFolder[] {
+	return folders.filter(folder => {
+		if (folder.source !== target) {
+			return false;
+		}
+		if (!workspaceFolder || target !== PromptsStorage.local) {
+			return true;
+		}
+		return isEqual(workspaceContextService.getWorkspaceFolder(folder.uri)?.uri, workspaceFolder);
+	});
+}
+
+export function getCustomizationLocationPickItems(
+	folders: readonly ICustomizationSourceFolder[],
+	labelService: ILabelService,
+	workspaceContextService: IWorkspaceContextService,
+	selectedWorkspaceFolder?: URI,
+): (IQuickPickItem & { uri: URI })[] {
+	const isMultiRootWorkspace = workspaceContextService.getWorkspace().folders.length > 1;
+	return folders.map(folder => {
+		const workspaceFolder = folder.source === PromptsStorage.local ? workspaceContextService.getWorkspaceFolder(folder.uri) : undefined;
+		const relativePath = labelService.getUriLabel(folder.uri, { relative: true, noPrefix: !!workspaceFolder });
+		if (workspaceFolder && selectedWorkspaceFolder && isEqual(workspaceFolder.uri, selectedWorkspaceFolder)) {
+			return {
+				label: relativePath,
+				uri: folder.uri,
+			};
+		}
+		return {
+			label: isMultiRootWorkspace && workspaceFolder ? workspaceFolder.name : folder.label,
+			description: relativePath,
+			uri: folder.uri,
+		};
+	});
 }
 
 /**

@@ -265,6 +265,29 @@ function getMcpInstalledEntryIcon(entry: IMcpInstalledEntry): CustomizationMarke
 	return icon ? { light: URI.parse(icon.light), dark: URI.parse(icon.dark) } : undefined;
 }
 
+function getMcpEntrySecondaryText(element: IMcpInstalledEntry, plugins: readonly { uri: URI; label: string }[], labelService: ILabelService): string | undefined {
+	const activeSessionServer = getActiveSessionServer(element);
+	const localServer = element.type === 'session-server-item' ? undefined : element.localServer;
+	const pluginUriString = getPluginUriFromCollectionId(localServer?.collection.id);
+	const pluginUri = pluginUriString ? URI.parse(pluginUriString) : undefined;
+	const sourceUri = createInstalledMcpServerDetailInput(element).source?.uri;
+	const plugin = pluginUri
+		? plugins.find(candidate => isEqual(candidate.uri, pluginUri))
+		: activeSessionServer?.isPluginProvided && sourceUri
+			? plugins.find(candidate => isEqualOrParent(sourceUri, candidate.uri))
+			: undefined;
+	const disabledReason = activeSessionServer?.disabledReason;
+	const pluginLabel = plugin?.label ?? (disabledReason?.source === 'plugin' ? disabledReason.plugin.name : undefined);
+	return getMcpServerSecondaryText(sourceUri, pluginLabel, labelService);
+}
+
+export function getMcpServerAriaLabel(label: string, secondaryText: string | undefined, status: string | undefined): string {
+	const labelWithSource = secondaryText ? localize('mcpServerAriaLabelWithSource', "{0}. {1}", label, secondaryText) : label;
+	return status
+		? localize('mcpServerAriaLabelWithStatus', "{0}, {1}", labelWithSource, status)
+		: labelWithSource;
+}
+
 interface IMcpMarketplaceEntry {
 	readonly type: 'marketplace-item';
 	readonly server: IWorkbenchMcpServer;
@@ -382,6 +405,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		@IAICustomizationWorkspaceService private readonly workspaceService: IAICustomizationWorkspaceService,
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
 		@IHoverService private readonly hoverService: IHoverService,
+		@ILabelService private readonly labelService: ILabelService,
 		@IAgentHostCustomizationService private readonly agentHostCustomizationService: IAgentHostCustomizationService,
 		@ICustomizationHarnessService private readonly customizationHarnessService: ICustomizationHarnessService,
 		@ILabelService private readonly labelService: ILabelService,
@@ -513,21 +537,6 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 			templateData.container.classList.add('builtin');
 			templateData.name.textContent = formatDisplayName(element.label);
 			this.updateKnownServerStatus(templateData, element);
-
-			// Add hover with plugin provenance for plugin-sourced builtin items
-			const pluginUriStr = getPluginUriFromCollectionId(element.collectionId);
-			if (pluginUriStr) {
-				templateData.elementDisposables.add(this.hoverService.setupDelayedHover(templateData.container, () => {
-					const plugin = this.agentPluginService.plugins.get().find(p => p.uri.toString() === pluginUriStr);
-					if (plugin) {
-						return {
-							content: `${element.label}\n${localize('fromPlugin', "Plugin: {0}", plugin.label)}`,
-							appearance: { compact: true, skipFadeInAnimation: true },
-						};
-					}
-					return { content: element.label, appearance: { compact: true, skipFadeInAnimation: true } };
-				}));
-			}
 			return;
 		}
 
@@ -561,6 +570,18 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 				this.updateStatus(templateData, element, element, disabled ? 'disabled' : connectionState?.state, this._getCompatibilityKind(element, reader));
 			}));
 		}
+	}
+
+	private getDescription(element: IMcpServerItemEntry | IMcpSessionServerItemEntry | IMcpBuiltinItemEntry): string | undefined {
+		return element.type === 'server-item'
+			? element.server.description
+			: element.type === 'builtin-item'
+				? element.description
+				: undefined;
+	}
+
+	private getSecondaryText(element: IMcpServerItemEntry | IMcpSessionServerItemEntry | IMcpBuiltinItemEntry): string | undefined {
+		return getMcpEntrySecondaryText(element, this.agentPluginService.plugins.get(), this.labelService);
 	}
 
 	private updateKnownServerStatus(templateData: IMcpServerItemTemplateData, element: IMcpServerItemEntry | IMcpBuiltinItemEntry): void {

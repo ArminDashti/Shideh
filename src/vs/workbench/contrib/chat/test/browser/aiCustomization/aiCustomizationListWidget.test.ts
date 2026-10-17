@@ -12,6 +12,7 @@ import { derived, observableValue } from '../../../../../../base/common/observab
 import { setARIAContainer } from '../../../../../../base/browser/ui/aria/aria.js';
 import { mock } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
+import { mock } from '../../../../../../base/test/common/mock.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { CustomizationMarketplaceMediaType } from '../../../../../../platform/customizationMarketplace/common/customizationMarketplaceService.js';
 import { IListService, ListService } from '../../../../../../platform/list/browser/listService.js';
@@ -23,8 +24,8 @@ import { AICustomizationListWidget, getAlwaysVisibleCustomizationGroupKeys, getC
 import { IAICustomizationListItem } from '../../../browser/aiCustomization/aiCustomizationItemSource.js';
 import { IAICustomizationItemsModel } from '../../../browser/aiCustomization/aiCustomizationItemsModel.js';
 import { extractExtensionIdFromPath, getCustomizationSecondaryText, truncateToFirstLine } from '../../../browser/aiCustomization/aiCustomizationListWidgetUtils.js';
-import { AICustomizationManagementSection, IAICustomizationWorkspaceService } from '../../../common/aiCustomizationWorkspaceService.js';
-import { ICustomizationHarnessService, IHarnessDescriptor } from '../../../common/customizationHarnessService.js';
+import { AICustomizationManagementSection, AICustomizationSources, IAICustomizationWorkspaceService } from '../../../common/aiCustomizationWorkspaceService.js';
+import { ICustomizationHarnessService, ICustomizationItem, IHarnessDescriptor } from '../../../common/customizationHarnessService.js';
 import { ContributionEnablementState } from '../../../common/enablement.js';
 import { ChatConfiguration } from '../../../common/constants.js';
 import { getChatSessionType } from '../../../common/model/chatUri.js';
@@ -34,6 +35,9 @@ import { PromptsType } from '../../../common/promptSyntax/promptTypes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { ResourceSet } from '../../../../../../base/common/map.js';
 import { createCustomizationCardPrimaryAction, CustomizationCardListController, getVirtualizedSectionMinimumHeight, layoutVirtualizedSectionList, layoutVirtualizedSections, renderVirtualizedSectionLoadingPlaceholder, setVirtualizedRowActionsTabbable, setupCollapsibleSection } from '../../../browser/aiCustomization/customizationCardList.js';
+import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
+import { ILabelService } from '../../../../../../platform/label/common/label.js';
+import { IProductService } from '../../../../../../platform/product/common/productService.js';
 
 suite('aiCustomizationListWidget', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -51,6 +55,30 @@ suite('aiCustomizationListWidget', () => {
 			prompts: false,
 			promptsKeepCardLayout: true,
 		});
+	});
+
+	test('uses relative source labels for remote workspace customizations', () => {
+		const remoteUri = URI.parse('vscode-remote://ssh-remote+test/workspace/.github/skills/review/SKILL.md');
+		const labelService = new class extends mock<ILabelService>() {
+			override getUriLabel(resource: URI, options?: { relative?: boolean; noPrefix?: boolean }): string {
+				assert.deepStrictEqual({ resource: resource.toString(), options }, {
+					resource: remoteUri.toString(),
+					options: { relative: true, noPrefix: true },
+				});
+				return '.github/skills/review/SKILL.md';
+			}
+		};
+		const normalizer = new AICustomizationItemNormalizer(labelService, new class extends mock<IProductService>() { });
+		const item: ICustomizationItem = {
+			uri: remoteUri,
+			type: PromptsType.skill,
+			name: 'Review',
+			source: AICustomizationSources.local,
+			extensionId: undefined,
+			pluginUri: undefined,
+		};
+
+		assert.strictEqual(normalizer.normalizeItem(item, PromptsType.skill).filename, '.github/skills/review/SKILL.md');
 	});
 
 	test('keeps editable source sections visible until search filtering starts', () => {
@@ -197,7 +225,7 @@ suite('aiCustomizationListWidget', () => {
 			status: 'degraded',
 		};
 
-		assert.strictEqual(getCustomizationItemAriaLabel(item), 'Review. Review the current changes. Needs attention');
+		assert.strictEqual(getCustomizationItemAriaLabel(item), 'Review. review.prompt.md. Needs attention');
 	});
 
 	test('virtualized row actions use a focused-row tab stop and skip disabled controls', () => {
@@ -464,23 +492,48 @@ suite('aiCustomizationListWidget', () => {
 	});
 
 	suite('getCustomizationSecondaryText', () => {
-		test('keeps hook descriptions intact', () => {
+		test('shows hook source paths instead of descriptions', () => {
 			assert.strictEqual(
-				getCustomizationSecondaryText('echo "setup". echo "run".', 'hook.json', PromptsType.hook),
-				'echo "setup". echo "run".'
+				getCustomizationSecondaryText('.github/hooks/hook.json'),
+				'.github/hooks/hook.json'
 			);
 		});
 
-		test('truncates non-hook descriptions to the first line', () => {
+		test('shows prompt source paths instead of descriptions', () => {
 			assert.strictEqual(
-				getCustomizationSecondaryText('Show the first line.\nHide the rest.', 'prompt.md', PromptsType.prompt),
-				'Show the first line.'
+				getCustomizationSecondaryText('.github/prompts/example.prompt.md'),
+				'.github/prompts/example.prompt.md'
+			);
+		});
+
+		test('shows the source path instead of the description for skills', () => {
+			assert.strictEqual(
+				getCustomizationSecondaryText('.github/skills/example/SKILL.md'),
+				'.github/skills/example/SKILL.md'
+			);
+		});
+
+		test('shows descriptions in hover content', () => {
+			const item: IAICustomizationListItem = {
+				id: 'example',
+				uri: URI.file('/workspace/.github/skills/example/SKILL.md'),
+				name: 'Example',
+				filename: '.github/skills/example/SKILL.md',
+				description: 'Use this skill for example tasks.',
+				source: PromptsStorage.local,
+				promptType: PromptsType.skill,
+				disabled: false,
+			};
+
+			assert.strictEqual(
+				getCustomizationItemHoverContent(item, '.github/skills/example/SKILL.md'),
+				'Use this skill for example tasks.'
 			);
 		});
 
 		test('falls back to filename when description is missing', () => {
 			assert.strictEqual(
-				getCustomizationSecondaryText(undefined, 'prompt.md', PromptsType.prompt),
+				getCustomizationSecondaryText('prompt.md'),
 				'prompt.md'
 			);
 		});
@@ -623,6 +676,11 @@ suite('aiCustomizationListWidget', () => {
 				generateCustomization: async () => { },
 				setOverrideProjectRoot: () => { },
 				clearOverrideProjectRoot: () => { },
+			});
+			instaService.stub(IWorkspaceContextService, {
+				getWorkspace: () => ({ id: 'test', folders: [] }),
+				getWorkspaceFolder: () => null,
+				onDidChangeWorkspaceFolders: Event.None,
 			});
 
 			const activeSessionResource = observableValue('test', URI.parse('test:///session'));
