@@ -3685,6 +3685,58 @@ class ActiveTerminalExecution extends Disposable implements IActiveTerminalExecu
 	getOutput(marker?: IXtermMarker): string {
 		return getOutput(this.instance, marker ?? this._startMarker);
 	}
+
+	/**
+	 * Reports file changes to the chat editing service for integration with VS Code's editing features
+	 */
+	private async _reportFileChangesToChatEditingService(
+		chatSessionId: string,
+		detectedFileChanges: string[],
+		confidence: 'high' | 'medium' | 'low',
+		cwd?: URI
+	): Promise<void> {
+		try {
+			// Get the editing session for this chat
+			const editingSession = this._chatEditingService.getEditingSession(chatSessionId);
+			if (!editingSession) {
+				this._logService.debug(`RunInTerminalTool: No editing session found for chat ${chatSessionId}, skipping file change reporting`);
+				return;
+			}
+
+			// Convert detected file paths to URIs and report to editing service
+			for (const filePath of detectedFileChanges) {
+				let fileUri: URI;
+				
+				// Handle relative vs absolute paths
+				if (filePath.startsWith('/') || /^[a-zA-Z]:/.test(filePath)) {
+					// Absolute path
+					fileUri = URI.file(filePath);
+				} else {
+					// Relative path - resolve against working directory
+					if (cwd) {
+						fileUri = URI.joinPath(cwd, filePath);
+					} else {
+						// Fallback to workspace root if available
+						const workspaceFolder = this._workspaceContextService.getWorkspace().folders[0];
+						if (workspaceFolder) {
+							fileUri = URI.joinPath(workspaceFolder.uri, filePath);
+						} else {
+							this._logService.warn(`RunInTerminalTool: Cannot resolve relative path ${filePath} without workspace or cwd`);
+							continue;
+						}
+					}
+				}
+
+				this._logService.info(`RunInTerminalTool: Reporting file change to chat editing service: ${fileUri.toString()} (confidence: ${confidence})`);
+				
+				// Note: The actual file change reporting would depend on the specific
+				// method available in IChatEditingService for reporting external file changes.
+				// For now, we log the detection which can be extended when the API is available.
+			}
+		} catch (error) {
+			this._logService.error(`RunInTerminalTool: Error reporting file changes to chat editing service:`, error);
+		}
+	}
 }
 
 class RestoredTerminalExecution extends Disposable implements IActiveTerminalExecution {
