@@ -155,6 +155,7 @@ export interface IWorkspacePickerContextAction {
 	readonly label: string;
 	readonly description?: string;
 	readonly icon: ThemeIcon;
+	readonly group?: string;
 	readonly run: () => Promise<void>;
 }
 

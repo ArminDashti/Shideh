@@ -66,7 +66,11 @@ export interface ISendRequestOptions {
 	readonly title?: string;
 	/** Hide this request and its response from the chat transcript. */
 	readonly hideFromTranscript?: boolean;
+	/** Starts a workflow with this request as its task, instead of sending an ordinary first turn. */
+	readonly workflow?: SessionWorkflowSelection;
 }
+
+export type SessionWorkflowSelection = Pick<WorkflowStartOptions, 'snapshot' | 'stopAfter' | 'inputs' | 'origin'>;
 
 /** Provider options applied when creating a new session draft. */
 export interface ISessionsProviderCreateSessionOptions {
@@ -177,6 +181,9 @@ export interface IDeleteChatOptions {
  * serve the same session type (e.g., one per remote agent host).
  */
 export interface ISessionsProvider {
+	/** Optional workflow execution adapter; unsupported providers never receive automatic assignments. */
+	readonly workflows?: IWorkflowRuntime;
+
 	/**
 	 * Unique identifier for the provider.
 	 */

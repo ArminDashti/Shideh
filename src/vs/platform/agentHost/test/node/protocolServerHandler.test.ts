@@ -154,6 +154,13 @@ class TestTelemetryService implements ITelemetryService {
 
 class MockAgentService implements IAgentService {
 	declare readonly _serviceBrand: undefined;
+	readonly workflowChanges = new Emitter<IAgentWorkflowRunChange>();
+	readonly onDidChangeWorkflowRun = this.workflowChanges.event;
+	getWorkflowRun?: IAgentService['getWorkflowRun'];
+	startWorkflow?: IAgentService['startWorkflow'];
+	controlWorkflow?: IAgentService['controlWorkflow'];
+	setWorkflowSourceEnabled?: IAgentService['setWorkflowSourceEnabled'];
+	setWorkflowExtensionSources?: IAgentService['setWorkflowExtensionSources'];
 	readonly handledActions: (SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | IRootConfigChangedAction | ClientAutomationAction | ClientAutomationRunAction)[] = [];
 	readonly handledClientTypes: (AgentHostClientType | undefined)[] = [];
 	readonly handledClientContexts: (IAgentHostClientTelemetryContext | undefined)[] = [];
@@ -367,6 +374,7 @@ class MockAgentService implements IAgentService {
 	async handleMcpRequest(): Promise<unknown> { throw new Error('Method not found'); }
 
 	dispose(): void {
+		this.workflowChanges.dispose();
 		this._onDidAction.dispose();
 		this._onDidNotification.dispose();
 		this._onMcpNotification.dispose();
@@ -1442,6 +1450,153 @@ suite('ProtocolServerHandler', () => {
 			uninitialized: false,
 			response: { jsonrpc: '2.0', id: 20, result: null },
 			calls: [{ session: 'copilotcli:/session-1', artifactId: 'artifact-1' }],
+		});
+	});
+
+	for (const localTransport of [false, true]) {
+		test(`advertises complete workflow support and routes every typed extension (${localTransport ? 'local' : 'remote'} transport)`, async () => {
+			if (localTransport) {
+				handler.dispose();
+				disposables.add(handler = new ProtocolServerHandler(
+					agentService, stateManager, server,
+					{ allowExtensionMethods: false, allowWorkflowMethods: true },
+					fileSystemProvider, logService, agentHostTelemetryService, managedSettingsService, clientConnections,
+				));
+			}
+			const run = workflowStoreRun();
+			const startOptions: IAgentHostWorkflowStartOptions = {
+				...run, model: { id: 'picked-model', config: { reasoning: 'high', limit: 64 } }, agent: { uri: 'file:///reviewer.agent.md' },
+				attachments: [{ type: MessageAttachmentKind.Simple, label: 'Context', modelRepresentation: 'Preserve this context' }],
+			};
+			let started: IAgentHostWorkflowStartOptions | undefined;
+			const calls: string[] = [];
+			agentService.getWorkflowRun = async session => { calls.push(session.toString()); return undefined; };
+			agentService.startWorkflow = async options => { started = options; calls.push(options.task); return run; };
+			agentService.controlWorkflow = async control => { calls.push(control.kind); return run; };
+			agentService.setWorkflowSourceEnabled = async (source, enabled) => { calls.push(`${source}:${enabled}`); };
+			agentService.setWorkflowExtensionSources = async sources => { calls.push(JSON.stringify(sources)); };
+			const transport = connectClient('workflow-client');
+			const initialized = findResponse(transport.sent, 1);
+			assert.ok(initialized && hasKey(initialized, { result: true }));
+			const requested = [
+				{ method: GetWorkflowRunExtensionMethod, params: { session: run.session } },
+				{ method: StartWorkflowExtensionMethod, params: startOptions },
+				{ method: ControlWorkflowExtensionMethod, params: { kind: 'pause', runId: run.id, revision: run.revision } },
+				{ method: SetWorkflowSourceEnabledExtensionMethod, params: { sourceId: 'workspace/workflow', enabled: false } },
+				{ method: SetWorkflowExtensionSourcesExtensionMethod, params: { sources: { 'example.workflows': false } } },
+				{ method: ControlWorkflowExtensionMethod, params: { kind: 'provideInputs', runId: run.id, revision: run.revision, inputs: { repository: 'https://github.com/example/project' } } },
+			];
+			const responses = requested.map((entry, index) => {
+				const response = waitForResponse(transport, index + 10);
+				transport.simulateMessage(request(index + 10, entry.method, entry.params));
+				return response;
+			});
+			agentService.workflowChanges.fire({ session: run.session });
+			assert.deepStrictEqual({
+				supported: supportsAgentHostWorkflows(initialized.result as InitializeResult),
+				artifactRemovalSupported: supportsAgentHostArtifactRemoval(initialized.result as InitializeResult),
+				responses: await Promise.all(responses),
+				calls,
+				started,
+				notifications: findNotifications(transport.sent, WorkflowRunChangedExtensionMethod).filter(message => String(message.method) === WorkflowRunChangedExtensionMethod),
+			}, {
+				supported: true,
+				artifactRemovalSupported: !localTransport,
+				responses: [
+					{ jsonrpc: '2.0', id: 10, result: {} },
+					{ jsonrpc: '2.0', id: 11, result: run },
+					{ jsonrpc: '2.0', id: 12, result: run },
+					{ jsonrpc: '2.0', id: 13, result: null },
+					{ jsonrpc: '2.0', id: 14, result: null },
+					{ jsonrpc: '2.0', id: 15, result: run },
+				],
+				calls: [run.session, run.task, 'pause', 'workspace/workflow:false', '{"example.workflows":false}', 'provideInputs'],
+				started: startOptions,
+				notifications: [{ jsonrpc: '2.0', method: WorkflowRunChangedExtensionMethod, params: { session: run.session } }],
+			});
+			if (localTransport) {
+				transport.simulateMessage(request(30, 'shutdown', {}));
+				assert.deepStrictEqual({ response: findResponse(transport.sent, 30), shutdownCalls: agentService.shutdownCalls }, {
+					response: { jsonrpc: '2.0', id: 30, error: { code: JsonRpcErrorCodes.MethodNotFound, message: 'Method not found: shutdown' } },
+					shutdownCalls: 0,
+				});
+			}
+		});
+	}
+
+	for (const config of [
+		{ allowExtensionMethods: false },
+		{ allowExtensionMethods: false, allowWorkflowMethods: false },
+		{ allowExtensionMethods: true, allowWorkflowMethods: false },
+	]) {
+		test(`disabled workflow extensions do not advertise, route or notify (${JSON.stringify(config)})`, async () => {
+			handler.dispose();
+			disposables.add(handler = new ProtocolServerHandler(
+				agentService, stateManager, server, config,
+				fileSystemProvider, logService, agentHostTelemetryService, managedSettingsService, clientConnections,
+			));
+			const run = workflowStoreRun();
+			const calls: string[] = [];
+			agentService.getWorkflowRun = async () => { calls.push('get'); return run; };
+			agentService.startWorkflow = async () => { calls.push('start'); return run; };
+			agentService.controlWorkflow = async () => { calls.push('control'); return run; };
+			agentService.setWorkflowSourceEnabled = async () => { calls.push('source'); };
+			agentService.setWorkflowExtensionSources = async () => { calls.push('extensions'); };
+			const transport = connectClient('workflow-disabled');
+			const initialized = findResponse(transport.sent, 1);
+			assert.ok(initialized && hasKey(initialized, { result: true }));
+			const methods = [GetWorkflowRunExtensionMethod, StartWorkflowExtensionMethod, ControlWorkflowExtensionMethod, SetWorkflowSourceEnabledExtensionMethod, SetWorkflowExtensionSourcesExtensionMethod];
+			const responses = methods.map((method, index) => {
+				const response = waitForResponse(transport, index + 10);
+				transport.simulateMessage(request(index + 10, method, {}));
+				return response;
+			});
+			agentService.workflowChanges.fire({ session: run.session });
+			assert.deepStrictEqual({
+				supported: supportsAgentHostWorkflows(initialized.result as InitializeResult),
+				responses: await Promise.all(responses),
+				calls,
+				notifications: findNotifications(transport.sent, WorkflowRunChangedExtensionMethod),
+			}, {
+				supported: false,
+				responses: methods.map((method, index) => ({ jsonrpc: '2.0', id: index + 10, error: { code: JsonRpcErrorCodes.MethodNotFound, message: `Method not found: ${method}` } })),
+				calls: [],
+				notifications: [],
+			});
+		});
+	}
+
+	test('invalid extension-source snapshots never reach workflow execution', async () => {
+		let calls = 0;
+		agentService.setWorkflowExtensionSources = async () => { calls++; };
+		const transport = connectClient('invalid-workflow-sources');
+		const values = [undefined, null, [], { 'Example.Workflows': true }, { 'example.workflows': 'true' }, { '': false }];
+		const codes: (number | undefined)[] = [];
+		for (const [index, sources] of values.entries()) {
+			const response = waitForResponse(transport, index + 10);
+			transport.simulateMessage(request(index + 10, SetWorkflowExtensionSourcesExtensionMethod, { sources }));
+			const result = await response;
+			codes.push(hasKey(result, { error: true }) ? result.error.code : undefined);
+		}
+		assert.deepStrictEqual({ calls, codes }, { calls: 0, codes: values.map(() => JsonRpcErrorCodes.InvalidParams) });
+	});
+
+	test('partial workflow implementations remain unadvertised and reject malformed requests', async () => {
+		let calls = 0;
+		agentService.getWorkflowRun = async () => { calls++; return undefined; };
+		const transport = connectClient('partial-workflow-client');
+		const initialized = findResponse(transport.sent, 1);
+		assert.ok(initialized && hasKey(initialized, { result: true }));
+		const response = waitForResponse(transport, 10);
+		transport.simulateMessage(request(10, GetWorkflowRunExtensionMethod, { session: 42 }));
+		assert.deepStrictEqual({
+			supported: supportsAgentHostWorkflows(initialized.result as InitializeResult),
+			response: await response,
+			calls,
+		}, {
+			supported: false,
+			response: { jsonrpc: '2.0', id: 10, error: { code: JsonRpcErrorCodes.InvalidParams, message: 'session must be an Agent Session URI' } },
+			calls: 0,
 		});
 	});
 

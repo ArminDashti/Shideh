@@ -164,6 +164,9 @@ export class NewChatWidget extends Disposable {
 	private _quickChatHeaderPickerHost: HTMLElement | undefined;
 
 	private readonly _session: IObservable<IActiveSession | undefined>;
+	private readonly _workflowDraft: SessionWorkflowDraft;
+	private get _workflow(): IObservable<SessionWorkflowSelection | undefined> { return this._workflowDraft.selection; }
+	private readonly _workflowsEnabled: IObservable<boolean>;
 
 	/** Whether the active draft is a workspace-less quick chat. */
 	private readonly _isQuickChatComposer: IObservable<boolean>;
@@ -216,6 +219,7 @@ export class NewChatWidget extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ILogService private readonly logService: ILogService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsService private readonly sessionsService: ISessionsService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
@@ -242,6 +246,10 @@ export class NewChatWidget extends Disposable {
 		this._usage = new AgentsWindowUsage(storageService);
 		this._register(this._pendingPreferredUpgrade);
 		this._register(this._newSessionCreation);
+		const workflowSetting = observableFromEvent(this,
+			Event.filter(configurationService.onDidChangeConfiguration, event => event.affectsConfiguration('chat.workflows.enabled')),
+			() => configurationService.getValue<boolean>('chat.workflows.enabled'));
+		this._workflowsEnabled = derived(this, reader => workflowSetting.read(reader) && !chatEntitlementService.sentimentObs.read(reader).hidden);
 
 		this._restoreSessionOptionsExpanded();
 
@@ -361,15 +369,26 @@ export class NewChatWidget extends Disposable {
 				.filter(item => item.state === AgentFeedbackState.Accepted);
 		});
 
+		const workflowUnavailableReason = derived(this, reader => {
+			if (!this._workflow.read(reader)) {
+				return undefined;
+			}
+			if (!this._workflowsEnabled.read(reader)) {
+				return localize('workflow.startDisabled', "Workflows are disabled. Remove the workflow to send a regular message.");
+			}
+			providersChanged.read(reader);
+			const session = this._session.read(reader);
+			if (session && !session.capabilities.read(reader).supportsWorkflows) {
+				return localize('workflow.providerUnavailable', "The selected provider does not support workflows. Choose a workflow-capable provider or remove the workflow.");
+			}
+			if (session && !this.sessionsProvidersService.getProvider(session.providerId)?.workflows) {
+				return localize('workflow.runtimeUnavailable', "Workflow support is not available for this provider. Reconnect the agent host or choose another provider.");
+			}
+			return undefined;
+		});
 		const canSendRequest = derived(reader => {
 			const session = this._session.read(reader);
-			if (!session) {
-				return false;
-			}
-			if (session.loading.read(reader)) {
-				return false;
-			}
-			return true;
+			return !!session && !session.loading.read(reader) && !workflowUnavailableReason.read(reader);
 		});
 
 		const loading = derived(reader => {
@@ -2274,6 +2293,9 @@ export class NewChatWidget extends Disposable {
 			restoreWorkspace();
 		}
 		this._workspacePicker.clearAttachedContext();
+		if (workflow && this._workflow.get() === workflow) {
+			this._workflowDraft.setSelection(undefined);
+		}
 
 		// A background send graduated the composer's in-flight session and
 		// returned the view to a fresh (but session-less) new-session composer.
@@ -2289,6 +2311,18 @@ export class NewChatWidget extends Disposable {
 			}
 		}
 		return true;
+	}
+
+	private async _selectWorkflow(selection?: SessionWorkflowSelection, anchor?: HTMLElement): Promise<void> {
+		const selected = await this.commandService.executeCommand<SessionWorkflowSelection | null | undefined>('sessions.workflows.pick', {
+			workspace: this._workspacePicker.selectedFolderUri,
+			selection: selection ?? this._workflow.get(),
+			anchor,
+		});
+		if (selected !== undefined) {
+			this._workflowDraft.setSelection(selected ?? undefined);
+			this._newChatInput.focus();
+		}
 	}
 
 	private _getWorkspaceRoots(session: ISession): readonly URI[] {

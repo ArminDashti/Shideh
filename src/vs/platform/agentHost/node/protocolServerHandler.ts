@@ -6,7 +6,7 @@
 import { disposableTimeout } from '../../../base/common/async.js';
 import { encodeBase64 } from '../../../base/common/buffer.js';
 import { Emitter } from '../../../base/common/event.js';
-import { isJsonRpcResponse } from '../../../base/common/jsonRpcProtocol.js';
+import { isJsonRpcResponse, type IJsonRpcNotification } from '../../../base/common/jsonRpcProtocol.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { StopWatch } from '../../../base/common/stopwatch.js';
@@ -334,6 +334,8 @@ export interface IProtocolServerConfig {
 	 * methods such as `vscode/removeSessionArtifact` are always available.
 	 */
 	readonly allowExtensionMethods?: boolean;
+	/** Allows the workflow extension independently; defaults to {@link allowExtensionMethods}. */
+	readonly allowWorkflowMethods?: boolean;
 	/**
 	 * Characters that, when typed in a {@link UserMessage} input, SHOULD
 	 * cause the client to issue a `completions` request. Announced to
@@ -388,6 +390,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 	private readonly _canvasSnapshots = new Map<string, IAgentCanvasSnapshot>();
 	private readonly _canvasSnapshotChatsByClient = new Map<string, Set<string>>();
 	private readonly _telemetryReporter: AgentHostTelemetryReporter;
+	private readonly _allowWorkflowMethods: boolean;
 	private readonly _managedSettingsOwnerId = generateUuid();
 	private readonly _connectionDisposables = this._register(new DisposableMap<IProtocolTransport, DisposableStore>());
 
@@ -410,6 +413,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		@IAgentHostOTelService private readonly _otelService: IAgentHostOTelService,
 	) {
 		super();
+		this._allowWorkflowMethods = this._config.allowWorkflowMethods ?? this._config.allowExtensionMethods !== false;
 		this._telemetryReporter = new AgentHostTelemetryReporter(this._telemetryService);
 		this._register(this._clientConnections.registerSource(this));
 
@@ -2262,6 +2266,64 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			return undefined;
 		}
 
+		switch (method) {
+			case GetWorkflowRunExtensionMethod:
+				if (!this._agentService.getWorkflowRun) {
+					return undefined;
+				}
+				if (!isParamsObject(params) || typeof params.session !== 'string' || !AgentSession.provider(params.session)) {
+					return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'session must be an Agent Session URI'));
+				}
+				return this._agentService.getWorkflowRun(URI.parse(params.session)).then(run => run ? { run } : {});
+			case StartWorkflowExtensionMethod:
+				if (!this._agentService.startWorkflow) {
+					return undefined;
+				}
+				if (!isParamsObject(params) || typeof params.session !== 'string' || !AgentSession.provider(params.session)
+					|| typeof params.chat !== 'string' || typeof params.task !== 'string' || typeof params.stopAfter !== 'string' || !isParamsObject(params.snapshot)) {
+					return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Invalid workflow start options'));
+				}
+				return this._agentService.startWorkflow(params as unknown as IAgentHostWorkflowStartOptions);
+			case ControlWorkflowExtensionMethod:
+				if (!this._agentService.controlWorkflow) {
+					return undefined;
+				}
+				if (!isParamsObject(params) || typeof params.runId !== 'string' || typeof params.revision !== 'number' || !Number.isSafeInteger(params.revision) || params.revision < 0
+					|| !['pause', 'resume', 'cancel', 'setStopAfter', 'provideInputs'].includes(String(params.kind))
+					|| (params.kind === 'setStopAfter' && typeof params.checkpointId !== 'string')
+					|| (params.kind === 'provideInputs' && !isParamsObject(params.inputs))) {
+					return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Invalid workflow control'));
+				}
+				return this._agentService.controlWorkflow(params as unknown as WorkflowControl);
+			case SetWorkflowSourceEnabledExtensionMethod:
+				if (!this._agentService.setWorkflowSourceEnabled) {
+					return undefined;
+				}
+				if (!isParamsObject(params) || typeof params.sourceId !== 'string' || typeof params.enabled !== 'boolean') {
+					return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Invalid workflow source enablement'));
+				}
+				return this._agentService.setWorkflowSourceEnabled(params.sourceId, params.enabled);
+			case SetWorkflowExtensionSourcesExtensionMethod:
+				if (!this._agentService.setWorkflowExtensionSources) {
+					return undefined;
+				}
+				if (!isParamsObject(params) || !isWorkflowExtensionSources(params.sources)) {
+					return Promise.reject(new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Invalid workflow extension source snapshot'));
+				}
+				return this._agentService.setWorkflowExtensionSources(params.sources);
+		}
+		return undefined;
+	}
+
+	/** Returns a promise for a recognized VS Code extension method. */
+	private _handleExtensionRequest(method: string, params: unknown): Promise<unknown> | undefined {
+		const workflowRequest = this._handleWorkflowRequest(method, params);
+		if (workflowRequest) {
+			return workflowRequest;
+		}
+		if (this._config.allowExtensionMethods === false) {
+			return undefined;
+		}
 		switch (method) {
 			case 'shutdown':
 				return this._agentService.shutdown();

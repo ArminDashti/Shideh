@@ -23,6 +23,7 @@ import { IChatRequestOrigin } from './chatRequestOrigin.js';
 import { IChatProgress, IChatResponseErrorDetails, IChatSessionTiming } from './chatService/chatService.js';
 import { ChatAgentLocation } from './constants.js';
 import { Target } from './promptSyntax/promptTypes.js';
+import type { IChatRequestVariableEntry } from './attachments/chatVariableEntries.js';
 
 export const enum ChatSessionsExtensions {
 	AsyncActivation = 'workbench.contrib.chatSessions.asyncActivation'
@@ -516,6 +517,23 @@ export interface IChatSession extends IDisposable {
 	 * @returns A promise that resolves once the rename has been dispatched. The promise is rejected if renaming fails.
 	 */
 	renameSession?: (title: string, token: CancellationToken) => Promise<void>;
+}
+
+export interface IAgentHostMessageContextOptions {
+	readonly userSelectedModelId?: string;
+	readonly modelConfiguration?: Record<string, unknown>;
+	readonly agentHostSessionConfig?: Record<string, unknown>;
+	readonly attachments: readonly IChatRequestVariableEntry[];
+	readonly agent?: AgentSelection;
+}
+
+export interface IAgentHostChatSession extends IChatSession {
+	/** Initializes the host session and prepares normal input context without submitting a chat turn. */
+	prepareMessageContext(options: IAgentHostMessageContextOptions, token: CancellationToken): Promise<Pick<Message, 'model' | 'agent' | 'attachments'>>;
+}
+
+export function isAgentHostChatSession(session: IChatSession): session is IAgentHostChatSession {
+	return 'prepareMessageContext' in session && typeof session.prepareMessageContext === 'function';
 }
 
 export interface IChatSessionContentProvider {

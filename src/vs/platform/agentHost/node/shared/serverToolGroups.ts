@@ -8,6 +8,8 @@ import { createSessionServerToolGroup, type ISessionServerToolAccessor } from '.
 import type { IServerToolDisplay, IServerToolDisplayResult, IServerToolGroup } from './agentServerToolHost.js';
 import { createAgentMergeServerToolGroup, type IAgentMergeToolAccessor } from './agentMergeServerTools.js';
 import { createArtifactServerToolGroup, type IArtifactServerToolAccessor } from './artifactServerTools.js';
+import { createWorkflowServerToolGroup } from '../workflow/workflowServerTools.js';
+import type { IAgentHostWorkflowService } from '../workflow/agentHostWorkflowService.js';
 
 /**
  * Builds the server-tool groups contributed to every agent host session, in
@@ -31,6 +33,7 @@ export function buildServerToolGroups(sessionAccessor?: ISessionServerToolAccess
 		createSessionServerToolGroup(sessionAccessor, areAgentOrchestrationLimitsEnabled),
 		createAgentMergeServerToolGroup(agentMergeAccessor),
 		createArtifactServerToolGroup(artifactAccessor),
+		createWorkflowServerToolGroup(workflows),
 	];
 }
 

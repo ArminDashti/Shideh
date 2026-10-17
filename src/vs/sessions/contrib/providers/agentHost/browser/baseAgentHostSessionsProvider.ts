@@ -7,6 +7,7 @@ import { disposableTimeout, raceCancellation, raceCancellationError } from '../.
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { arrayEquals, structuralEquals } from '../../../../../base/common/equals.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IMarkdownString, MarkdownString, markdownStringEqual } from '../../../../../base/common/htmlContent.js';
 import { Disposable, DisposableMap, DisposableStore, IDisposable, IReference, MutableDisposable, ReferenceCollection, toDisposable } from '../../../../../base/common/lifecycle.js';
@@ -57,6 +58,8 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
+import { IWorkflowRuntime, WorkflowProgress, WorkflowStartOptions } from '../../../../../platform/workflow/common/workflow.js';
+import { AgentHostWorkflowRuntime } from './agentHostWorkflowRuntime.js';
 import { AgentHostDownloadProgress } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostDownloadProgress.js';
 import { getRepositoryPreparationCapability, getRepositoriesFromSelection } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostRepositoryConfig.js';
 import { IAgentCustomizationScope, IAgentHostActiveClientService } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostActiveClientService.js';
@@ -65,7 +68,7 @@ import type { IChatBackgroundShell } from '../../../../../workbench/contrib/chat
 import { IChatWidgetService } from '../../../../../workbench/contrib/chat/browser/chat.js';
 import { ChatMode } from '../../../../../workbench/contrib/chat/common/chatModes.js';
 import { IChatSendRequestOptions, IChatService, type IChatModelReference } from '../../../../../workbench/contrib/chat/common/chatService/chatService.js';
-import { IChatSessionFileChange, IChatSessionFileChange2, IChatSessionsService } from '../../../../../workbench/contrib/chat/common/chatSessionsService.js';
+import { IAgentHostMessageContextOptions, IChatSessionFileChange, IChatSessionFileChange2, IChatSessionsService, isAgentHostChatSession } from '../../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { assertAutomationSessionTemplate, IAutomationSessionTemplate } from '../../../../../workbench/contrib/chat/common/automations/automation.js';
 import { AutomationModelConfiguration } from '../../../automations/browser/automationModelConfiguration.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind, ChatPermissionLevel, getChatPermissionLevelFromDefaultConfiguration, isChatPermissionLevel, type IChatDefaultConfiguration } from '../../../../../workbench/contrib/chat/common/constants.js';
@@ -1334,6 +1337,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 
 	/** Artifacts recorded by the agent, derived from the session's `_meta` bag. */
 	readonly artifacts: IObservable<readonly ISessionArtifact[]>;
+	readonly workflow: IObservable<WorkflowProgress | undefined>;
 
 	private _activity: ISettableObservable<string | undefined>;
 
@@ -1591,7 +1595,8 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 			return !!initializeResult && isActionKnownToVersion({ type: ActionType.ChatIsArchivedChanged, isArchived: false }, initializeResult.protocolVersion);
 		});
 		this.capabilities = derivedOpts<ISessionCapabilities>({ owner: this, equalsFn: structuralEquals }, reader => {
-			const agentCapabilities = this._options.agentCapabilities.read(reader)?.get(this.agentProvider);
+			const agent = this._options.agentInfoByProvider.read(reader)?.get(this.agentProvider);
+			const agentCapabilities = agent?.capabilities;
 			this._options.connectionStatus?.read(reader);
 			const connection = this._options.getConnection();
 			connection?.initializeResult.read(reader);
@@ -2915,7 +2920,15 @@ class NewSession extends Disposable {
 			lastTurnEnd,
 			mainChat: this._mainChat,
 			chats,
-			capabilities: constObservable({ supportsMultipleChats: false, supportsRename: true, supportsDelete: true }),
+			capabilities: derivedOpts<ISessionCapabilities>({ owner: this, equalsFn: structuralEquals }, reader => {
+				connectionStatus?.read(reader);
+				const connection = _options.getConnection();
+				const agent = _options.agentInfoByProvider.read(reader)?.get(this.agentProvider);
+				return {
+					supportsMultipleChats: false, supportsRename: true, supportsDelete: true,
+					supportsWorkflows: !!connection?.startWorkflow && supportsAgentHostWorkflows(connection.initializeResult.read(reader)) && supportsAgentHostWorkflows(agent),
+				};
+			}),
 		};
 		this.sessionId = this.session.sessionId;
 
@@ -3409,6 +3422,11 @@ class NewSession extends Disposable {
 		this._configRequestSeq++;
 	}
 
+	/** An unconfirmed workflow start may already be durable, so closing its draft must not delete the host session. */
+	releaseBackendOwnership(): void {
+		this._connection = undefined;
+	}
+
 	override dispose(): void {
 		this._lifetimeCts.cancel();
 		// Bump the seq so any in-flight resolveConfig discards itself.
@@ -3476,6 +3494,8 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	readonly usesCombinedNewSessionConfigPicker = true;
 	readonly supportsModelConfigurationForCreation = true;
 	readonly supportsAutomationSessionConfiguration = true;
+	private readonly _workflowRuntime: AgentHostWorkflowRuntime;
+	get workflows(): IWorkflowRuntime { return this._workflowRuntime; }
 
 	getPermissionOptionsForCreation(sessionTypeId: string): readonly ISessionPermissionOption[] {
 		return getAgentHostSessionPermissionOptions(
@@ -3492,7 +3512,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	protected abstract readonly sessionIconFallback: ThemeIcon;
 
 	private _lastAgents: readonly AgentInfo[] | undefined;
-	private readonly _agentCapabilities = observableValue<ReadonlyMap<string, AgentCapabilities | undefined> | undefined>(this, undefined);
+	private readonly _agentInfoByProvider = observableValue<ReadonlyMap<string, AgentInfo> | undefined>(this, undefined);
 
 	protected readonly _onDidChangeSessionTypes = this._register(new Emitter<void>());
 	readonly onDidChangeSessionTypes: Event<void> = this._onDidChangeSessionTypes.event;
@@ -3774,6 +3794,20 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			this._languageModelsService.onDidChangeModelVisibility,
 		), false, this._store);
 		this._downloadProgress = this._register(this._instantiationService.createInstance(AgentHostDownloadProgress));
+		this._workflowRuntime = this._register(this._instantiationService.createInstance(AgentHostWorkflowRuntime, {
+			enabled: observableFromEvent(this, this._baseConfigurationService.onDidChangeConfiguration, () =>
+				this._baseConfigurationService.getValue<boolean>(WORKFLOWS_ENABLED_SETTING_ID) === true
+				&& this._baseConfigurationService.getValue<boolean>('chat.disableAIFeatures') !== true),
+			toBackendSession: resource => {
+				const backend = this._getBackendSessionUri(toSessionId(this.id, resource));
+				if (!backend) {
+					throw new Error(localize('workflow.sessionUnavailable', "The workflow session is no longer available."));
+				}
+				return backend;
+			},
+			toClientSession: resource => this._mapBackendSessionResource(resource),
+			onProgress: change => this._handleWorkflowProgressChanged(change),
+		}));
 		this._register(toDisposable(() => {
 			for (const cached of this._sessionCache.values()) {
 				cached.dispose();
@@ -3975,7 +4009,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			return;
 		}
 
-		this._syncAgentCapabilities(undefined);
+		this._syncAgentInfo(undefined);
 		if (this._sessionTypes.length > 0) {
 			this._sessionTypes = [];
 			this._onDidChangeSessionTypes.fire();
@@ -3986,13 +4020,13 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 	}
 
-	private _syncAgentCapabilities(agents: readonly AgentInfo[] | undefined): void {
+	private _syncAgentInfo(agents: readonly AgentInfo[] | undefined): void {
 		if (this._lastAgents === agents) {
 			return;
 		}
 
 		this._lastAgents = agents;
-		this._agentCapabilities.set(agents ? new Map(agents.map(agent => [agent.provider, agent.capabilities])) : undefined, undefined);
+		this._agentInfoByProvider.set(agents ? new Map(agents.map(agent => [agent.provider, agent])) : undefined, undefined);
 		this._onDidChangeCustomAgents.fire();
 		this._onDidChangeCustomizations.fire();
 	}
@@ -6494,6 +6528,11 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		if (!this.connection) {
 			throw new Error(this._notConnectedSendErrorMessage());
 		}
+		if (options.workflow && (!newSession.session.capabilities.get().supportsWorkflows
+			|| this._baseConfigurationService.getValue<boolean>(WORKFLOWS_ENABLED_SETTING_ID) !== true
+			|| this._baseConfigurationService.getValue<boolean>('chat.disableAIFeatures'))) {
+			throw new Error(localize('workflowNewSessionUnavailable', "Workflows are unavailable for this session."));
+		}
 		await newSession.waitForConfigurationReady();
 		await newSession.waitForEagerCreate();
 		if (this._getNewSession(newSession.sessionId) !== newSession) {
@@ -6573,9 +6612,30 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 		const newSessionRawId = chatResource.path.replace(/^\//, '');
 
-		const result = await this._chatService.sendRequest(chatResource, query, sendOptions);
-		if (result.kind === 'rejected') {
-			throw new Error(`[${this.id}] sendRequest rejected: ${result.reason}`);
+		try {
+			if (options.workflow) {
+				await this._startNewSessionWorkflow(newSession, chatResource, {
+					...options.workflow,
+					session: newSession.session.resource.toString(),
+					chat: chatResource.toString(),
+					workspace: newSession.workspaceUri?.toString(),
+					task: query,
+				}, {
+					userSelectedModelId: selectedModelId,
+					modelConfiguration: sendOptions.userSelectedModelConfiguration ?? (selectedModelId ? this._languageModelsService.getModelConfiguration(selectedModelId) : undefined),
+					agentHostSessionConfig: sendOptions.agentHostSessionConfig,
+					attachments: attachedContext ?? [],
+					agent: selectedAgent,
+				});
+			} else {
+				const result = await this._chatService.sendRequest(chatResource, query, sendOptions);
+				if (result.kind === 'rejected') {
+					throw new Error(`[${this.id}] sendRequest rejected: ${result.reason}`);
+				}
+			}
+		} catch (error) {
+			this._inFlightNewSessionOwnIds.delete(newSessionRawId);
+			throw error;
 		}
 
 		if (newSession.workspaceUri && !newSession.getInitialSessionTemplate()) {
@@ -6655,6 +6715,36 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 		this._onDidChangeSessions.fire({ added: [], removed: [skeleton], changed: [] });
 		throw new Error(localize('sessionNotCommitted', "Agent host session was not committed."));
+	}
+
+	private async _startNewSessionWorkflow(newSession: NewSession, chatResource: URI, options: WorkflowStartOptions, input: IAgentHostMessageContextOptions): Promise<void> {
+		const connection = this.connection;
+		const modelRef = await this._chatService.acquireOrLoadSession(chatResource, ChatAgentLocation.Chat, newSession.cancellationToken);
+		if (!modelRef) {
+			throw new Error(localize('workflowChatUnavailable', "The workflow's chat could not be loaded."));
+		}
+		const store = new DisposableStore();
+		store.add(modelRef);
+		try {
+			const chat = await this._chatSessionsService.getOrCreateChatSession(chatResource, newSession.cancellationToken);
+			if (!isAgentHostChatSession(chat)) {
+				throw new Error(localize('workflowContextUnavailable', "This chat cannot prepare a workflow's initial context."));
+			}
+			const context = await chat.prepareMessageContext(input, newSession.cancellationToken);
+			if (this._getNewSession(newSession.sessionId) !== newSession || newSession.cancellationToken.isCancellationRequested) {
+				throw new CancellationError();
+			}
+			if (!connection || connection !== this.connection) {
+				throw new Error(localize('workflowStartConnectionChanged', "The workflow host connection changed before it could be started. Reconnect and try again."));
+			}
+			newSession.releaseBackendOwnership();
+			await this._workflowRuntime.start(options, context);
+			if (newSession.cancellationToken.isCancellationRequested) {
+				throw new CancellationError();
+			}
+		} finally {
+			store.dispose();
+		}
 	}
 
 	/** Localized error message when sendRequest is invoked without a connection. Subclasses can override. */
@@ -7869,6 +7959,18 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		if (cached?.setMeta(meta)) {
 			this._onDidChangeSessions.fire({ added: [], removed: [], changed: [cached] });
 		}
+	}
+
+	private _handleWorkflowProgressChanged(change: IAgentWorkflowRunChange): void {
+		const cached = this._sessionCache.get(AgentSession.id(change.session));
+		if (!cached) {
+			return;
+		}
+		const previous = cached.workflow.get();
+		if (previous?.runId === change.progress?.runId && previous && change.progress && previous.revision >= change.progress.revision) {
+			return;
+		}
+		this._handleSessionMetaChanged(change.session, withAgentWorkflowProgress(cached.sessionMeta, change.progress));
 	}
 
 	/**

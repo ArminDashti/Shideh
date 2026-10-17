@@ -26,6 +26,8 @@ export interface IAgentHostLocalTurns {
 	findAnchorTurnId(chat: string, turns: readonly Turn[], turnId: string): string | undefined;
 	/** Records `turn` as a host-injected local turn anchored to `anchorTurnId`. */
 	record(session: string, chat: string, turn: Turn, anchorTurnId: string | undefined): void;
+	/** Records a local turn and rejects if it cannot be persisted. Updating a turn preserves its order. */
+	recordAndWait(session: string, chat: string, turn: Turn, anchorTurnId: string | undefined): Promise<void>;
 }
 
 /**
@@ -85,15 +87,20 @@ export class AgentHostLocalTurns implements IAgentHostLocalTurns {
 	 * none). `session` identifies the database to persist into.
 	 */
 	record(session: string, chat: string, turn: Turn, anchorTurnId: string | undefined): void {
-		const seq = (this._seqBySession.get(session) ?? 0) + 1;
+		void this.recordAndWait(session, chat, turn, anchorTurnId).catch(error => {
+			this._logService.warn(`[AgentHostLocalTurns] Failed to persist local turn ${turn.id}`, error);
+		});
+	}
+
+	async recordAndWait(session: string, chat: string, turn: Turn, anchorTurnId: string | undefined): Promise<void> {
+		const seq = this._byChat.get(chat)?.get(turn.id)?.seq ?? (this._seqBySession.get(session) ?? 0) + 1;
 		this._noteInMemory(session, chat, turn.id, anchorTurnId, seq);
 		const record: IPersistedTurnRecord = { kind: 'local', turnId: turn.id, chatUri: chat, anchorTurnId, seq, payload: JSON.stringify(turn) };
 		let ref: IReference<ISessionDatabase>;
 		try {
-			ref = this._sessionDataService.openDatabase(URI.parse(session));
-		} catch (err) {
-			this._logService.warn(`[AgentHostLocalTurns] Failed to open database to persist local turn ${turn.id}`, err);
-			return;
+			await ref.object.insertLocalTurn(record);
+		} finally {
+			ref.dispose();
 		}
 		ref.object.insertPersistedTurn(record).catch(err => {
 			this._logService.warn(`[AgentHostLocalTurns] Failed to persist local turn ${turn.id}`, err);

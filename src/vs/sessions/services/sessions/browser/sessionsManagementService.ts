@@ -966,11 +966,20 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			throw new Error(`Sessions provider '${session.providerId}' not found`);
 		}
 
+		this._assertWorkflowSupport(provider, options);
 		const isNewSessionRequest = session.status.get() === SessionStatus.Untitled;
 		const inFlightRequest = isNewSessionRequest ? this.trackInFlightNewSessionRequest(session, options) : undefined;
 
 		if (options.background) {
 			this._newSession.set(undefined, undefined);
+			if (options.workflow) {
+				try {
+					await this._prepareAndSendNewChatRequestInBackground(provider, session, options);
+				} finally {
+					inFlightRequest?.dispose();
+				}
+				return;
+			}
 			void this._prepareAndSendNewChatRequestInBackground(provider, session, options)
 				.catch(e => {
 					if (!isCancellationError(e) && !(e instanceof WorkspaceNotTrustedError)) {
@@ -987,6 +996,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			requestActivity.value = provider.startNewSessionRequest?.(session.sessionId);
 			const newSessionConfig = provider.getNewSessionConfig ? await provider.getNewSessionConfig(session.sessionId) : undefined;
 			({ provider, session } = await this._prepareNewSessionForSend(provider, session, requestActivity, true, options.query));
+			this._assertWorkflowSupport(provider, options);
 
 			// The session is graduating into the list (being sent),
 			// so the provider keeps owning it — just drop the pointer, do not delete.
@@ -1372,8 +1382,13 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		if (!provider) {
 			throw new Error(`Sessions provider '${session.providerId}' not found`);
 		}
+		this._assertWorkflowSupport(provider, options);
 
 		if (options.background) {
+			if (options.workflow) {
+				await this._sendRequestInBackground(provider, session, chat, options);
+				return;
+			}
 			// Fire-and-forget so the composer can reset immediately. Unlike the
 			// foreground path this skips `_onWillSendRequest` so the view's
 			// send-follow does not navigate the visible slot into the sent chat.
@@ -1403,6 +1418,12 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		}
 
 		this._onDidSendRequest.fire({ session: updatedSession, chat, isNewSession: false, isNewChat: true, options });
+	}
+
+	private _assertWorkflowSupport(provider: ISessionsProvider, options: ISendRequestOptions): void {
+		if (options.workflow && !provider.workflows) {
+			throw new Error(localize('unsupportedWorkflowProvider', "{0} does not support workflows.", provider.label));
+		}
 	}
 
 	/**

@@ -128,7 +128,7 @@ interface IAttachTextContextHarness {
 }
 
 interface IUpdateSendButtonStateHarness {
-	readonly _sendButton: { enabled: boolean } | undefined;
+	readonly _sendButton: Button | undefined;
 	readonly _sending: boolean;
 	readonly _editor: {
 		getModel(): { getValue(): string } | null;
@@ -966,7 +966,8 @@ suite('NewChatInputWidget', () => {
 	});
 
 	test('enables send after restoring an unchanged retained input model', () => {
-		const sendButton = { enabled: false };
+		const sendButton = disposables.add(new Button(document.createElement('div'), {}));
+		sendButton.enabled = false;
 		const harness: IRestoreStateHarness & IUpdateSendButtonStateHarness = {
 			_getDraftState: () => ({ inputText: 'Fix this', attachments: [] }),
 			_sendButton: sendButton,
@@ -993,6 +994,38 @@ suite('NewChatInputWidget', () => {
 
 		assert.strictEqual(sendButton.enabled, true);
 	});
+
+	for (const scenario of [
+		{ name: 'missing prompt', query: '', canSend: true, loading: false, model: true, reason: undefined, expected: /Enter a prompt/ },
+		{ name: 'session initialization', query: 'Fix this', canSend: false, loading: true, model: true, reason: undefined, expected: /still initializing/ },
+		{ name: 'unsupported provider', query: 'Fix this', canSend: false, loading: false, model: true, reason: 'Choose a workflow-capable provider.', expected: /workflow-capable provider/ },
+		{ name: 'missing model', query: 'Fix this', canSend: false, loading: false, model: false, reason: undefined, expected: /Choose an available model/ },
+		{ name: 'ready workflow', query: 'Fix this', canSend: true, loading: false, model: true, reason: undefined, expected: /Adjust its stopping point/ },
+	]) {
+		test(`Start Workflow explains ${scenario.name} and is reachable by keyboard`, () => {
+			const button = disposables.add(new Button(document.createElement('div'), {}));
+			const harness: IWorkflowSendButtonHarness = {
+				_sendButton: button, _sending: false,
+				_editor: { getModel: () => ({ getValue: () => scenario.query }) },
+				_contextAttachments: { attachments: [] },
+				_canSendRequest: { get: () => scenario.canSend },
+				options: {
+					loading: { get: () => scenario.loading },
+					workflow: {
+						enabled: { get: () => true }, selection: { get: () => ({ snapshot: testWorkflowSnapshot(), stopAfter: 'plan' }) },
+						unavailableReason: { get: () => scenario.reason },
+					},
+				},
+				_modelSelection: { state: { get: () => ({ ...EMPTY_MODEL_SELECTION_STATE, hasSelectableModel: scenario.model }) } },
+				_getWorkflowStartDisabledReason: getWorkflowStartDisabledReason,
+			};
+			updateSendButtonState.call(harness);
+			assert.deepStrictEqual({
+				enabled: button.enabled, label: button.element.textContent, keyboard: button.element.tabIndex,
+				explained: scenario.expected.test(button.element.getAttribute('aria-description') ?? ''),
+			}, { enabled: scenario.canSend && !!scenario.query, label: 'Start Workflow', keyboard: 0, explained: true });
+		});
+	}
 
 	test('synchronizes GitHub context attachments with issue and pull request links in the input', () => {
 		let input = 'Fix https://github.com/microsoft/vscode/issues/333845 and review https://www.github.com/microsoft/vscode/pull/333575#discussion.';

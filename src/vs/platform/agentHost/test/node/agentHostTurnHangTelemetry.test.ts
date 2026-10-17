@@ -277,6 +277,7 @@ suite('AgentSideEffects — turn hang telemetry', () => {
 		// Blocked-turn hang telemetry is reported by `SessionInputNeededContribution`,
 		// so the built-in contributions must be registered for this graph to mirror
 		// production wiring.
+		services.set(IAgentHostWorkflowService, createTestWorkflowService());
 		disposables.add(registerBuiltInChatContributions(chatContributions));
 		sideEffects = disposables.add(instantiationService.createInstance(AgentSideEffects, stateManager, customizationEnablementService, {
 			getAgent: () => agent,

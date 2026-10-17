@@ -46,6 +46,22 @@ export function activateAgentHostContributions(accessor: ServicesAccessor, insta
 			session => (stateManager.getSessionState(session)?.turns.length ?? 0) > 0,
 		)));
 		store.add(registerBuiltInChatContributions(accessor.get(IAgentHostChatContributions)));
+		const agentService = accessor.get(IAgentService);
+		const workflowClientId = generateUuid();
+		let workflowClientSequence = 0;
+		store.add(accessor.get(IAgentHostWorkflowService).activate({
+			restore: async (_session, chat) => {
+				const subscriber = generateUuid();
+				try {
+					await agentService.subscribe(chat, subscriber);
+				} finally {
+					agentService.unsubscribe(chat, subscriber);
+				}
+			},
+			cancel: (chat, turnId) => agentService.dispatchAction(chat, {
+				type: ActionType.ChatTurnCancelled, turnId, duration: 0,
+			}, workflowClientId, ++workflowClientSequence),
+		}));
 		return store;
 	} catch (error) {
 		store.dispose();

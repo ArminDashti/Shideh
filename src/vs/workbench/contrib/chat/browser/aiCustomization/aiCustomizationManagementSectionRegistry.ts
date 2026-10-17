@@ -4,15 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Dimension } from '../../../../../base/browser/dom.js';
+import { Event } from '../../../../../base/common/event.js';
 import { IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { AICustomizationManagementSection } from '../../common/aiCustomizationWorkspaceService.js';
 
 export interface IAICustomizationManagementSectionWidget extends IDisposable {
+	readonly onDidChangeItemCount?: Event<number>;
+	fireItemCount?(): void;
 	layout?(dimension: Dimension): void;
 	focus?(): void;
 	setVisible?(visible: boolean): void;
+}
+
+export interface IAICustomizationManagementSectionData extends IDisposable {
+	readonly onDidChange: Event<void>;
+	getCount(): number;
 }
 
 export interface IAICustomizationManagementSectionContribution {
@@ -23,6 +32,7 @@ export interface IAICustomizationManagementSectionContribution {
 	/** At least one of these boolean settings must be enabled to show or instantiate the section. */
 	readonly enablementSettings?: readonly string[];
 	readonly supportsHarness: (harnessId: string) => boolean;
+	createData?(instantiationService: IInstantiationService): IAICustomizationManagementSectionData;
 	create(instantiationService: IInstantiationService, container: HTMLElement): IAICustomizationManagementSectionWidget;
 }
 

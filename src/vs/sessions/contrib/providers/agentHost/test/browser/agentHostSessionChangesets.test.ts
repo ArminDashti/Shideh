@@ -550,7 +550,7 @@ suite('AgentHostSessionChangesets', () => {
 				buildWorkspace: () => undefined,
 				instantiationService,
 				getConnection: () => undefined,
-				agentCapabilities: constObservable(undefined),
+				agentInfoByProvider: constObservable(undefined),
 				mapBackendSessionResource: resource => resource,
 				defaultChangesetKind,
 			};
@@ -632,7 +632,7 @@ suite('AgentHostSessionChangesets', () => {
 				buildWorkspace: () => undefined,
 				instantiationService,
 				getConnection: () => undefined,
-				agentCapabilities: constObservable(undefined),
+				agentInfoByProvider: constObservable(undefined),
 				mapBackendSessionResource: resource => resource,
 			};
 			const [changeset] = createChangesets(sessionUri, options, constObservable(false), [entry(ChangesetKind.Uncommitted)]);
@@ -1084,7 +1084,7 @@ suite('AgentHostSessionChangesets', () => {
 			buildWorkspace: () => undefined,
 			instantiationService,
 			getConnection: () => connection,
-			agentCapabilities: constObservable(undefined),
+			agentInfoByProvider: constObservable(undefined),
 			mapBackendSessionResource: resource => resource,
 		};
 		const changeset = createChangesets(sessionUri, options, constObservable(true), [{
@@ -1252,7 +1252,7 @@ suite('AgentHostSessionChangesets', () => {
 			buildWorkspace: () => undefined,
 			instantiationService,
 			getConnection: () => connection,
-			agentCapabilities: constObservable(undefined),
+			agentInfoByProvider: constObservable(undefined),
 			mapBackendSessionResource: resource => resource,
 		};
 		const changeset = createChangesets(
@@ -1316,7 +1316,7 @@ suite('AgentHostSessionChangesets', () => {
 				buildWorkspace: () => undefined,
 				instantiationService,
 				getConnection: () => connection,
-				agentCapabilities: constObservable(undefined),
+				agentInfoByProvider: constObservable(undefined),
 				mapBackendSessionResource: resource => resource,
 			}, constObservable(true), [{ label: 'Session Changes', changeKind: ChangesetKind.Session, uriTemplate: 'changeset:/session-1' }])[0];
 			return {
@@ -1466,7 +1466,7 @@ suite('AgentHostSessionChangesets', () => {
 				buildWorkspace: () => undefined,
 				instantiationService,
 				getConnection: () => connection,
-				agentCapabilities: constObservable(undefined),
+				agentInfoByProvider: constObservable(undefined),
 				mapBackendSessionResource: resource => resource,
 			}, constObservable(true), [{ label: 'Uncommitted Changes', changeKind: ChangesetKind.Uncommitted, uriTemplate: channel }]);
 			const workspace = constObservable(upcastPartial<ISessionWorkspace>({

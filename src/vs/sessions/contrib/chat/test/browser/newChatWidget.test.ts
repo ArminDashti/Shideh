@@ -252,6 +252,10 @@ interface ISendHarness {
 	readonly recentWorkspacesService: { restoreDismissedWorkspace(folderUri: URI): void };
 	readonly newSessionComposerService: { notifyWillSendRequest(options: ISendRequestOptions, selection: IWorkspaceSelectionSnapshot | undefined): void };
 	readonly _session: IObservable<ISession | undefined>;
+	readonly _workflow: IObservable<SessionWorkflowSelection | undefined>;
+	readonly _workflowsEnabled?: IObservable<boolean>;
+	readonly _workflowDraft?: { setSelection(selection: SessionWorkflowSelection | undefined): void };
+	readonly _pendingBackgroundSends?: DisposableMap<ISendRequestOptions, IDisposable>;
 	readonly _feedbackItems: IObservable<readonly never[]>;
 	readonly _comparisonAttempts: IObservable<readonly ISessionComparisonAttemptConfiguration[]>;
 	_comparisonSubmitArmed?: boolean;
@@ -646,6 +650,7 @@ suite('NewChatWidget', () => {
 			items: [
 				{ label: 'WorktreeBranch', className: 'new-chat-repository-controls-host' },
 				{ label: 'Copilot', className: 'sessions-chat-session-type-picker sessions-workspace-category-picker-slot' },
+				{ label: 'Workflow', className: 'monaco-workflow-draft empty sessions-chat-picker-slot sessions-workspace-category-picker-slot' },
 			],
 			workspaceTriggers: [{ tooltip: 'Choose where the new session runs', icon: isWeb ? 'repo' : 'project', attachesContext: false }],
 			workspaceVisibility: [false, true],
@@ -2005,6 +2010,7 @@ suite('NewChatWidget', () => {
 			_pendingBackgroundSends: { set: () => { }, deleteAndDispose: () => { } },
 			recentWorkspacesService: { restoreDismissedWorkspace: uri => stages.push(`restore:${uri.toString()}`) },
 			_session: constObservable(session),
+			_workflow: constObservable(undefined),
 			_feedbackItems: constObservable([]),
 			_workspacePicker: {
 				selectedFolderUri: primaryFolder,
@@ -2075,6 +2081,7 @@ suite('NewChatWidget', () => {
 			_pendingBackgroundSends: { set: () => { }, deleteAndDispose: () => { } },
 			recentWorkspacesService: { restoreDismissedWorkspace: () => assert.fail('No session was sent') },
 			_session: constObservable(undefined),
+			_workflow: constObservable(undefined),
 			_feedbackItems: constObservable([]),
 			_workspacePicker: {
 				selectedFolderUri: undefined,

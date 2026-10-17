@@ -48,6 +48,11 @@ import { isHostSnapshotAttachment, toHostSnapshotAttachmentMeta } from '../commo
 import { readEphemeralSessionMeta, withEphemeralSessionMeta, withoutEphemeralSessionMeta, withPromotableDraftSessionMeta } from '../common/meta/agentEphemeralSessionMeta.js';
 import { IAgentMessageDelegationMeta, toAgentMessageDelegationMeta } from '../common/meta/agentMessageDelegationMeta.js';
 import { toAgentMergeMessageMeta } from '../common/meta/agentMergeMessageMeta.js';
+import { IAgentHostWorkflowService } from './workflow/agentHostWorkflowService.js';
+import type { WorkflowControl, WorkflowRun } from '../../workflow/common/workflow.js';
+import type { IAgentHostWorkflowStartOptions } from '../common/agentHostWorkflow.js';
+import type { IAgentWorkflowRunChange } from '../common/meta/agentWorkflowMeta.js';
+import { equals } from '../../../base/common/arrays.js';
 import { readChatSurfaceMeta, withChatSurfaceMeta } from '../common/meta/agentChatSurfaceMeta.js';
 import { AH_META_DEV_CONTAINER_WORKTREE_DB_KEY, readAgentDevContainerWorktreeMetadata, withAgentDevContainerWorktreeMetadata } from '../common/meta/agentDevContainerWorktreeMeta.js';
 import { IRemoteSessionOrigin, parseRemoteSessionOrigin, readRemoteSessionOrigin, REMOTE_SESSION_ORIGIN_METADATA_KEY, withRemoteSessionOrigin } from '../common/meta/agentRemoteSessionMeta.js';
@@ -3931,8 +3936,8 @@ export class AgentService extends Disposable implements IAgentService {
 		// transiently drop a session (e.g. `CopilotAgent.listSessions` returns
 		// an empty array right after `session/turnComplete`), and a provisional
 		// session (created but not yet materialized — see `createSession`) that
-		// has had any turn activity must stay visible until it materializes.
-		// Idle provisional sessions are deliberately *not* overlaid so the
+		// has durable host activity or turn activity must stay visible until it
+		// materializes. Uncommitted idle provisional sessions are not overlaid so the
 		// new-session composer's eagerly-created session doesn't leak into the
 		// list before its first message (#321269).
 		const known = new Set(hiddenExternal);
@@ -3975,7 +3980,7 @@ export class AgentService extends Disposable implements IAgentService {
 				...(summaryMeta !== undefined ? { _meta: summaryMeta } : {}),
 			});
 		}
-		const combined = additions.length > 0 ? [...withStatus, ...additions] : withStatus;
+		const combined = await this._workflowService.projectSessions(additions.length > 0 ? [...withStatus, ...additions] : withStatus);
 		const now = Date.now();
 		const recentSessionKeys = mode === AgentHostExternalSessionsMode.Recent
 			? this._getRecentSessionKeys(combined, now)
@@ -6298,6 +6303,30 @@ export class AgentService extends Disposable implements IAgentService {
 
 	get automationCapabilities(): AutomationCapabilities | undefined {
 		return this._automationService.capabilities;
+	}
+
+	get onDidChangeWorkflowRun(): Event<IAgentWorkflowRunChange> {
+		return this._workflowService.onDidChangeWorkflowRun;
+	}
+
+	getWorkflowRun(session: URI): Promise<WorkflowRun | undefined> {
+		return this._workflowService.getWorkflowRun(session);
+	}
+
+	startWorkflow(options: IAgentHostWorkflowStartOptions): Promise<WorkflowRun> {
+		return this._workflowService.startWorkflow(options);
+	}
+
+	controlWorkflow(control: WorkflowControl): Promise<WorkflowRun> {
+		return this._workflowService.controlWorkflow(control);
+	}
+
+	setWorkflowSourceEnabled(sourceId: string, enabled: boolean): Promise<void> {
+		return this._workflowService.setWorkflowSourceEnabled(sourceId, enabled);
+	}
+
+	setWorkflowExtensionSources(sources: Readonly<Record<string, boolean>>): Promise<void> {
+		return this._workflowService.setWorkflowExtensionSources(sources);
 	}
 
 	async listAutomationTriggerDefinitions(params: ListAutomationTriggerDefinitionsParams): Promise<ListAutomationTriggerDefinitionsResult> {

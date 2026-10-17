@@ -38,6 +38,13 @@ import { noSessionPickerVisibility, SessionPickerVisibilityContextKeys } from '.
  */
 export interface ISessionViewOptions extends IChatViewOptions { }
 
+/** Contributed content beside the chat grid, owned by the currently displayed session view. */
+export interface ISessionViewSidebar {
+	render(container: HTMLElement): IDisposable;
+	layout(dimension: Dimension): void;
+	onHide(): void;
+}
+
 /**
  * A stable single-slot grid leaf for the Sessions Part. `SessionsPart`
  * delegates `openSession(...)` to this host so it no longer needs to remove/add
@@ -51,6 +58,9 @@ export class SessionView extends Disposable implements ISerializableView {
 
 	static readonly TYPE = 'sessions.sessionView';
 	private static readonly CENTERED_CONTENT_MAX_WIDTH = AGENTS_CENTERED_CONTENT_MAX_WIDTH;
+	private static readonly SIDEBAR_WIDTH = 360;
+	private static readonly MIN_SIDEBAR_WIDTH = 280;
+	private static readonly MIN_CHAT_WIDTH = 360;
 
 	readonly element: HTMLElement = $('.session-view.modern-ui-editor-tab-group');
 
@@ -68,7 +78,11 @@ export class SessionView extends Disposable implements ISerializableView {
 	private _preparationView: AbstractChatView | undefined;
 	private readonly _floatingToolbar: SessionViewFloatingToolbar;
 	private readonly _centeredContentContainer: HTMLElement;
+	private readonly _bodyContainer: HTMLElement;
 	private readonly _contentContainer: HTMLElement;
+	private readonly _sidebarContainer: HTMLElement;
+	private readonly _sidebarDisposables = this._register(new MutableDisposable<DisposableStore>());
+	private _sidebar: ISessionViewSidebar | undefined;
 
 	private _lastLayout: { readonly width: number; readonly height: number; readonly top: number; readonly left: number } | undefined;
 
@@ -138,8 +152,13 @@ export class SessionView extends Disposable implements ISerializableView {
 		this._header = this._register(this._scopedInstantiationService.createInstance(SessionHeader));
 		this._centeredContentContainer.appendChild(this._header.element);
 
+		this._bodyContainer = $('.session-view-body');
+		this.element.appendChild(this._bodyContainer);
 		this._contentContainer = $('.session-view-content');
-		this.element.appendChild(this._contentContainer);
+		this._bodyContainer.appendChild(this._contentContainer);
+		this._sidebarContainer = $('.session-view-sidebar');
+		this._sidebarContainer.style.display = 'none';
+		this._bodyContainer.appendChild(this._sidebarContainer);
 
 		this._groupsView = this._register(this._scopedInstantiationService.createInstance(ChatGroupsView));
 		this._contentContainer.appendChild(this._groupsView.element);
@@ -284,6 +303,34 @@ export class SessionView extends Disposable implements ISerializableView {
 		this._layoutChildren();
 	}
 
+	/** Shows one in-flow sidebar until closed, replaced, or the view changes session. */
+	showSidebar(sidebar: ISessionViewSidebar): IDisposable {
+		this._sidebarDisposables.clear();
+		const store = new DisposableStore();
+		this._sidebarDisposables.value = store;
+		this._sidebar = sidebar;
+		this._sidebarContainer.style.display = '';
+		store.add(toDisposable(() => {
+			this._sidebar = undefined;
+			this._sidebarContainer.replaceChildren();
+			this._sidebarContainer.style.display = 'none';
+			this._layoutChildren();
+			sidebar.onHide();
+		}));
+		try {
+			store.add(sidebar.render(this._sidebarContainer));
+			this._layoutChildren();
+		} catch (error) {
+			this._sidebarDisposables.clear();
+			throw error;
+		}
+		return toDisposable(() => {
+			if (this._sidebarDisposables.value === store) {
+				this._sidebarDisposables.clear();
+			}
+		});
+	}
+
 	private _layoutChildren(): void {
 		if (!this._lastLayout) {
 			return;
@@ -304,16 +351,15 @@ export class SessionView extends Disposable implements ISerializableView {
 		// Cap the host's height to the header so the chat groups grid sits below it.
 		size(this._centeredContentContainer, width, barHeight);
 
-		// Lay out the chat groups grid at full width so its scrollbar reaches the
-		// right edge; the chat rows and input center themselves via CSS.
-		const contentHeight = height - barHeight;
+		const contentHeight = Math.max(0, height - barHeight);
 		const contentTop = top + barHeight;
 		const standaloneView = this._visibleStandaloneView;
 		if (standaloneView) {
-			standaloneView.layout(width, contentHeight, contentTop, left);
+			standaloneView.layout(chatWidth, chatHeight, contentTop, left);
 		} else {
-			this._groupsView.layout(width, contentHeight, contentTop, left);
+			this._groupsView.layout(chatWidth, chatHeight, contentTop, left);
 		}
+		this._sidebar?.layout(new Dimension(this._sidebarContainer.clientWidth, this._sidebarContainer.clientHeight));
 	}
 
 	toJSON(): object {

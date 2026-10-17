@@ -608,6 +608,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			provider: this.id,
 			displayName: localize('claudeAgent.displayName', "Claude"),
 			description: localize('claudeAgent.description', "Claude agent backed by the Anthropic Claude Agent SDK"),
+			_meta: toAgentWorkflowCapabilityMeta(this.agentHostCapabilities.workflows),
 			capabilities: {
 				multipleChats: { fork: true, sideChat: true },
 				...(this._isMultiRootEnabled() ? { multipleWorkingDirectories: { immutablePrimary: true } } : {}),
@@ -1025,6 +1026,10 @@ export class ClaudeAgent extends Disposable implements IAgent {
 			return this._abortSession(chatUri, context);
 		},
 		getModel: chatUri => this._chatBackings.get(chatUri.toString())?.model,
+		getAgent: async (chatUri, operationContext) => {
+			const context = this._resolveChatContext(chatUri, operationContext);
+			return context.target ? context.target.provisionalAgent : (await this._metadataStore.read(context.resource)).agent;
+		},
 		changeModel: (chatUri, model, context) => {
 			return this._changeModel(chatUri, model, context);
 		},

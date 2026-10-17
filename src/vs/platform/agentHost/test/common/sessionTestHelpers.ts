@@ -23,6 +23,7 @@ export class TestSessionDatabase implements ISessionDatabase {
 	private readonly _persistedTurns = new Map<string, IPersistedTurnRecord & { seq: number }>();
 	private readonly _turnUsages = new Map<string, string>();
 	private readonly _turnDelegations = new Map<string, string>();
+	private readonly _turnRequestSources = new Map<string, string>();
 	private readonly _turnWorkspaceTransitions = new Map<string, string>();
 	private readonly _turnEventIds = new Map<string, string>();
 	private readonly _terminalOutputs = new Map<string, { turnId: string; content: Uint8Array }>();
@@ -47,6 +48,7 @@ export class TestSessionDatabase implements ISessionDatabase {
 		this._turns.delete(turnId);
 		this._persistedTurns.delete(turnId);
 		this._turnDelegations.delete(turnId);
+		this._turnRequestSources.delete(turnId);
 		this._turnWorkspaceTransitions.delete(turnId);
 		this._turnEventIds.delete(turnId);
 		this._deleteTerminalOutputsForTurns(new Set([turnId]));
@@ -282,11 +284,23 @@ export class TestSessionDatabase implements ISessionDatabase {
 	}
 
 	async getTurnDelegations(): Promise<Map<string, string>> {
-		const result = new Map(this._turnDelegations);
+		return this._withEventIds(this._turnDelegations);
+	}
+
+	async setTurnRequestSource(turnId: string, source: string): Promise<void> {
+		this._turnRequestSources.set(turnId, source);
+	}
+
+	async getTurnRequestSources(): Promise<Map<string, string>> {
+		return this._withEventIds(this._turnRequestSources);
+	}
+
+	private _withEventIds(values: ReadonlyMap<string, string>): Map<string, string> {
+		const result = new Map(values);
 		for (const [turnId, eventId] of this._turnEventIds) {
-			const delegation = this._turnDelegations.get(turnId);
-			if (delegation) {
-				result.set(eventId, delegation);
+			const value = values.get(turnId);
+			if (value !== undefined) {
+				result.set(eventId, value);
 			}
 		}
 		return result;
@@ -356,6 +370,7 @@ export class TestSessionDatabase implements ISessionDatabase {
 		this._turns.clear();
 		this._edits.length = 0;
 		this._turnDelegations.clear();
+		this._turnRequestSources.clear();
 		this._turnWorkspaceTransitions.clear();
 		this._metadata.delete(AH_META_HAS_WORKSPACE_TRANSITIONS_DB_KEY);
 		this._turnEventIds.clear();

@@ -79,6 +79,9 @@ import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomati
 import type { CreateResourceWatchParams, CreateResourceWatchResult, ResourceCopyParams, ResourceCopyResult, ResourceDeleteParams, ResourceDeleteResult, ResourceListResult, ResourceMkdirParams, ResourceMkdirResult, ResourceMoveParams, ResourceMoveResult, ResourceReadResult, ResourceResolveParams, ResourceResolveResult, ResourceWriteParams, ResourceWriteResult } from '../common/state/sessionProtocol.js';
 import type { ActionEnvelope, ChatAction, ClientAnnotationsAction, ClientAutomationAction, ClientAutomationRunAction, ClientChangesetAction, INotification, IRootConfigChangedAction, SessionAction, TerminalAction } from '../common/state/sessionActions.js';
 import type { ComponentToState, RootState, StateComponents } from '../common/state/sessionState.js';
+import type { WorkflowControl, WorkflowRun } from '../../workflow/common/workflow.js';
+import type { IAgentHostWorkflowStartOptions } from '../common/agentHostWorkflow.js';
+import type { IAgentWorkflowRunChange } from '../common/meta/agentWorkflowMeta.js';
 
 const LOG_PREFIX = '[AgentHost:renderer]';
 

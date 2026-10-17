@@ -6,6 +6,7 @@
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { computePullRequestIcon, type ChatPullRequestState, type IPullRequestIconStatus } from '../../../../workbench/common/chatPullRequest.js';
+import { computeIssueIcon } from '../../../../workbench/common/chatIssue.js';
 
 export { computePullRequestIcon, type IPullRequestIconStatus };
 export { computeAggregateIssueIcon, computeIssueIcon } from '../../../../workbench/common/chatIssue.js';

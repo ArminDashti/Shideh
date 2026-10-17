@@ -141,6 +141,7 @@ export class AgentMergeController extends Disposable {
 		@IAgentHostGitHubService private readonly _gitHubService: IAgentHostGitHubService,
 		@IAgentHostGitHubEndpointService private readonly _gitHubEndpointService: IAgentHostGitHubEndpointService,
 		@IAgentHostProviderService private readonly _providerService: IAgentHostProviderService,
+		@IAgentHostWorkflowService private readonly _workflows: IAgentHostWorkflowService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();

@@ -59,6 +59,7 @@ class AICustomizationWorkspaceService implements IAICustomizationWorkspaceServic
 		AICustomizationManagementSection.Hooks,
 		AICustomizationManagementSection.Tools,
 		AICustomizationManagementSection.Prompts,
+		AICustomizationManagementSection.Workflows,
 		AICustomizationManagementSection.HarnessSettings,
 		// Shown only when `chat.customizations.permissions.enabled` is on; the editor filters them.
 		AICustomizationManagementSection.PermissionsTerminal,

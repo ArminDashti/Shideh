@@ -11,6 +11,7 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { WorkflowProgress } from '../../../../platform/workflow/common/workflow.js';
 import { getHighestPriorityPullRequestIcon } from '../../../../workbench/common/chatPullRequest.js';
 import { IChatSessionFileChange, IChatSessionFileChange2, isIChatSessionFileChange2 } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { ISessionChatCustomization } from '../../../../workbench/contrib/chat/common/sessionChatCustomizations.js';
@@ -866,6 +867,8 @@ export interface ISession {
 	readonly remoteConnectionStatus?: IObservable<SessionRemoteConnectionStatus>;
 	/** Session turn that created this session, when it was created by another agent session. */
 	readonly createdBySession?: IObservable<ISessionCreationReference | undefined>;
+	/** Lightweight workflow state; reading it never loads the conversation or starts work. */
+	readonly workflow?: IObservable<WorkflowProgress | undefined>;
 
 	// Reactive properties
 
@@ -921,6 +924,11 @@ export interface ISession {
 	 * arrives after the session's first state update).
 	 */
 	readonly capabilities: IObservable<ISessionCapabilities>;
+}
+
+export function getSessionActivityTime(session: ISession, reader?: IReader): Date {
+	const workflow = session.workflow?.read(reader);
+	return workflow?.activityAt !== undefined ? new Date(workflow.activityAt) : session.updatedAt.read(reader);
 }
 
 export interface ISessionCreationReference {

@@ -294,6 +294,8 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 
 	private readonly _onDidNotification = this._register(new Emitter<INotification>());
 	readonly onDidNotification = this._onDidNotification.event;
+	private readonly _onDidChangeWorkflowRun = this._register(new Emitter<IAgentWorkflowRunChange>());
+	readonly onDidChangeWorkflowRun = this._onDidChangeWorkflowRun.event;
 
 	private readonly _onMcpNotification = this._register(new Emitter<IMcpNotification>());
 	readonly onMcpNotification = this._onMcpNotification.event;

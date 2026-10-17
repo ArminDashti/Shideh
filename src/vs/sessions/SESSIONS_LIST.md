@@ -114,6 +114,8 @@ List-owned state is removed only when:
 
 Stale entries that match no current session are inert and may be compacted by their owning service.
 
+Workflow completion may suggest a named custom group through the group service. The service records ownership of automatic placement, applies each completed-checkpoint hint idempotently, and creates a missing group only when a move actually occurs. Existing non-workflow placement, manual grouping or ungrouping, pinning, and archiving take precedence; a user move relinquishes workflow placement ownership.
+
 ## Sorting and filtering
 
 The list supports created-time and updated-time sorting. Manual ordering stores list-owned sort keys for each mode without changing provider timestamps.

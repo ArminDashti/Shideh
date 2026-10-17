@@ -122,6 +122,8 @@ export function registerAgentHostCoreServices(services: ServiceCollection, input
 	services.set(IAgentHostSessionPromptService, new SyncDescriptor(AgentHostSessionPromptService));
 	services.set(IAgentHostChatContributions, new SyncDescriptor(AgentHostChatContributions));
 	services.set(IAgentHostTurnService, new SyncDescriptor(AgentHostTurnService));
+	services.set(IAgentHostWorkingDirectoryService, new SyncDescriptor(AgentHostWorkingDirectoryService));
+	services.set(IAgentHostWorkflowService, new SyncDescriptor(AgentHostWorkflowService));
 	services.set(IAgentHostTelemetryReporter, new SyncDescriptor(AgentHostTelemetryReporter));
 	services.set(IAgentHostStartupPerformance, new SyncDescriptor(AgentHostStartupPerformance, [inputs.hostLaunchKind ?? AgentHostLaunchKind.Unknown, inputs.startupMarks]));
 	services.set(IAgentHostTurnTracker, new SyncDescriptor(AgentHostTurnTracker));

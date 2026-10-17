@@ -49,6 +49,7 @@ export function registerBuiltInChatContributions(
 	registrations.add(contributions.registerContribution(CheckpointAndChangesetContribution));
 	registrations.add(contributions.registerContribution(SessionWorkspaceConversionContribution));
 	registrations.add(contributions.registerContribution(QueueDrainContribution));
+	registrations.add(contributions.registerContribution(WorkflowContribution));
 	registrations.add(contributions.registerContribution(SessionInputNeededContribution));
 	registrations.add(contributions.registerContribution(GitHubReferencesContribution));
 	registrations.add(contributions.registerContribution(SessionTitleContribution));

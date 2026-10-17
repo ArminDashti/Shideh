@@ -11,7 +11,7 @@ import { assert } from '../../../../../base/common/assert.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { constObservable, observableValue } from '../../../../../base/common/observable.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -25,6 +25,7 @@ import { IActionViewItemService } from '../../../../../platform/actions/browser/
 import { ActionWidgetService, IActionWidgetService } from '../../../../../platform/actionWidget/browser/actionWidget.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IMenuService, MenuId } from '../../../../../platform/actions/common/actions.js';
+import { ActionWidgetService, IActionWidgetService } from '../../../../../platform/actionWidget/browser/actionWidget.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TABBED_MODEL_PICKER_SETTING_ID } from '../../../../../workbench/contrib/chat/browser/widget/input/modelPicker/modelPickerWidget.js';
@@ -94,6 +95,24 @@ import '../../../../browser/parts/mobile/mobileChatShell.css';
 
 const DEFAULT_WIDTH = 800;
 const DEFAULT_HEIGHT = 560;
+
+class WorkflowPickerFixtureCommandService extends TestCommandService {
+	constructor(
+		@IInstantiationService instantiationService: IInstantiationService,
+		@IWorkflowUIService private readonly workflows: IWorkflowUIService,
+	) {
+		super(instantiationService);
+	}
+
+	override executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
+		if (id === 'sessions.workflows.pick') {
+			const [options] = args as [SessionWorkflowPickOptions];
+			return this.workflows.selectWorkflow(options.workspace, options.selection, options.anchor) as Promise<T>;
+		}
+		return super.executeCommand<T>(id, ...args);
+	}
+}
+
 const ATTACHED_FOLDER_URI = URI.file('/Code/docs');
 const ATTACHED_REPOSITORY_URI = URI.parse('https://github.com/microsoft/typescript');
 const ATTACHED_REPOSITORY_ROOT = URI.parse('vscode-vfs://github/microsoft/typescript/HEAD');
@@ -107,6 +126,7 @@ interface INewChatWidgetFixtureOptions {
 	readonly selectedOptionIndex?: number;
 	readonly editedInput?: string;
 	readonly withWorkspace?: boolean;
+	readonly workflowState?: 'empty' | 'selected' | 'unsupported';
 	readonly withRemoteWorkspace?: boolean;
 	readonly openWorkspacePicker?: boolean;
 	readonly openGitHubContextPicker?: boolean;
@@ -240,6 +260,7 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 		selectedOptionIndex,
 		editedInput,
 		withWorkspace = false,
+		workflowState,
 		withRemoteWorkspace = false,
 		openWorkspacePicker = false,
 		openGitHubContextPicker = false,
@@ -327,6 +348,7 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 				override readonly activeContainer = container;
 				override readonly mainContainer = container;
 				override readonly mainContainerDimension = { width, height };
+				override readonly onDidLayoutContainer = Event.None;
 				override getContainer() { return container; }
 			}());
 			reg.defineInstance(ISearchService, new class extends mock<ISearchService>() { }());
@@ -1123,6 +1145,12 @@ function createFixtureProvider(workspace: ISessionWorkspace, sessionTypes: reado
 		override readonly onDidChangeSessionTypes = Event.None;
 		override readonly onDidChangeSessions = Event.None;
 		override readonly onDidChangeModels = Event.None;
+		override readonly workflows = supportsWorkflows ? {
+			onDidChangeRun: Event.None,
+			getSessionRun: async () => undefined,
+			start: async () => { throw new Error('Fixtures do not start workflows'); },
+			control: async () => { throw new Error('Fixtures do not control workflows'); },
+		} : undefined;
 		override readonly browseActions = [
 			{
 				label: 'Repository...',
@@ -1336,6 +1364,7 @@ function createFixtureActiveSession(workspace: ISessionWorkspace, sessionType: I
 		override readonly status = constObservable(SessionStatus.Untitled);
 		override readonly isCreated = constObservable(false);
 		override readonly loading = constObservable(false);
+		override readonly capabilities = constObservable({ supportsMultipleChats: false, supportsWorkflows });
 		override readonly workspace = constObservable(workspace);
 		override readonly branch = constObservable<string | undefined>('main');
 		override readonly modelId = constObservable<string | undefined>(undefined);

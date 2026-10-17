@@ -1924,6 +1924,7 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 		// Details row — reactive: badge · diff stats · time · status description
 		const timeDisposable = template.elementDisposables.add(new MutableDisposable());
 		const descriptionDisposable = template.elementDisposables.add(new MutableDisposable());
+		const workflowHover = template.elementDisposables.add(new MutableDisposable());
 		template.elementDisposables.add(autorun(reader => {
 			const sessionStatus = getSessionRowStatus(
 				element,
@@ -1934,6 +1935,8 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 			const workspace = element.workspace.read(reader);
 			const description = element.description.read(reader);
 			const isQuickChat = element.isQuickChat?.read(reader) ?? false;
+			const workflow = element.workflow?.read(reader);
+			workflowHover.clear();
 
 			// Clear and rebuild details row
 			DOM.clearNode(template.detailsRow);
@@ -2049,6 +2052,11 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 				if (typeof statusMessage === 'string') {
 					descriptionDisposable.clear();
 					statusEl.textContent = statusMessage;
+					if (workflow) {
+						const workflowDescription = getWorkflowProgressDescription(workflow);
+						statusEl.setAttribute('aria-label', localize('workflowCheckpointDescription', "{0}. {1}", statusMessage, workflowDescription));
+						workflowHover.value = this.hoverService.setupDelayedHover(statusEl, { content: workflowDescription });
+					}
 				} else {
 					descriptionDisposable.value = this.markdownRendererService.render(statusMessage, { sanitizerConfig: { replaceWithPlaintext: true } }, statusEl);
 				}

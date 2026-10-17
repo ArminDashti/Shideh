@@ -9351,6 +9351,7 @@ suite('ClaudeAgent — Phase 11 customizations', () => {
 		const sessionId = created.sdkSessionId;
 
 		await agent.chats.changeAgent(defaultChatUri(created.session), { uri: 'file:///foo/agents/code-reviewer.md' }, chatContext(defaultChatUri(created.session)));
+		assert.deepStrictEqual(await agent.chats.getAgent!(defaultChatUri(created.session), chatContext(defaultChatUri(created.session))), { uri: 'file:///foo/agents/code-reviewer.md' });
 		assert.strictEqual(sdk.startupCallCount, 0, 'no SDK startup from changeAgent on provisional');
 
 		sdk.nextQueryMessages = [makeSystemInitMessage(sessionId), makeResultSuccess(sessionId)];

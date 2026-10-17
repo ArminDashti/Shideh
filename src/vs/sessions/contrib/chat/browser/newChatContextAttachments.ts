@@ -272,7 +272,9 @@ export class NewChatContextAttachments extends Disposable implements INewChatAtt
 
 		const picker = this.quickInputService.createQuickPick<IContextQuickPickItem>({ useSeparators: true });
 		const disposables = new DisposableStore();
-		picker.placeholder = localize('chatContext.attach.placeholder', "Attach as context...");
+		picker.placeholder = contextActions.some(action => action.group)
+			? localize('chatContext.add.placeholder', "Add to this session...")
+			: localize('chatContext.attach.placeholder', "Attach as context...");
 		picker.matchOnDescription = true;
 		picker.sortByLabel = false;
 		picker.anchor = anchor;
@@ -353,6 +355,20 @@ export class NewChatContextAttachments extends Disposable implements INewChatAtt
 	}
 
 	private _getStaticPicks(contextActions: readonly IWorkspacePickerContextAction[]): (IContextQuickPickItem | IQuickPickSeparator)[] {
+		const actionPicks: (IContextQuickPickItem | IQuickPickSeparator)[] = [];
+		let previousGroup: string | undefined;
+		for (const action of contextActions) {
+			if (actionPicks.length === 0 || action.group !== previousGroup) {
+				actionPicks.push({ type: 'separator', label: action.group });
+				previousGroup = action.group;
+			}
+			actionPicks.push({
+				label: action.label,
+				description: action.description,
+				iconClass: ThemeIcon.asClassName(action.icon),
+				contextAction: action,
+			});
+		}
 		return [
 			{
 				label: localize('files', "Files..."),
@@ -364,13 +380,7 @@ export class NewChatContextAttachments extends Disposable implements INewChatAtt
 				iconClass: ThemeIcon.asClassName(Codicon.fileMedia),
 				id: 'sessions.imageFromClipboard',
 			},
-			...(contextActions.length > 0 ? [{ type: 'separator' as const }] : []),
-			...contextActions.map(action => ({
-				label: action.label,
-				description: action.description,
-				iconClass: ThemeIcon.asClassName(action.icon),
-				contextAction: action,
-			})),
+			...actionPicks,
 		];
 	}
 

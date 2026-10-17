@@ -1010,3 +1010,9 @@ export const clientOwnedApprovalRootConfigKeys: ReadonlySet<string> = new Set([
 	AgentHostAutoReplyEnabledConfigKey,
 	AgentHostWorkspaceTrustConfigKey,
 ]);
+
+/** Client mirrors must be republished before a restarted host enables their behavior. */
+export const clientOwnedRootConfigKeys: ReadonlySet<string> = new Set([
+	...clientOwnedApprovalRootConfigKeys,
+	AgentHostWorkflowsEnabledConfigKey,
+]);

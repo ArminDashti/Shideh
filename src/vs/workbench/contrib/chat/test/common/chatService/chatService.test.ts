@@ -3963,6 +3963,7 @@ suite('ChatService', () => {
 				history: [
 					{ id: 'user', type: 'request', prompt: 'user request', participant: remoteScheme },
 					{ id: 'history', type: 'request', prompt: 'merge history', participant: remoteScheme, isSystemInitiated: true, requestSource: 'agentMerge' },
+					{ id: 'workflow-history', type: 'request', prompt: 'full workflow prompt', participant: remoteScheme, isSystemInitiated: true, requestSource: workflow },
 				],
 				progressObs: observableValue<IChatProgress[]>('progress', []),
 				interruptActiveResponseCallback: async () => true,
@@ -3973,16 +3974,22 @@ suite('ChatService', () => {
 			assert.ok(ref);
 			testDisposables.add(ref);
 			onDidStartServerRequest.fire({ id: 'live', prompt: 'merge live', isSystemInitiated: true, requestSource: 'agentMerge' });
+			onDidStartServerRequest.fire({ id: 'workflow-live', prompt: 'full workflow prompt', isSystemInitiated: true, requestSource: workflow });
 
 			const viewModel = testDisposables.add(instantiationService.createInstance(ChatViewModel, ref.object, undefined));
+			const expected = [
+				{ id: 'user', requestSource: undefined }, { id: 'history', requestSource: 'agentMerge' },
+				{ id: 'workflow-history', requestSource: workflow }, { id: 'live', requestSource: 'agentMerge' },
+				{ id: 'workflow-live', requestSource: workflow },
+			];
 			assert.deepStrictEqual({
 				requests: ref.object.getRequests().map(request => ({ id: request.id, requestSource: request.requestSource })),
 				viewModels: viewModel.getItems().filter(isRequestVM).map(request => ({ id: request.id, requestSource: request.requestSource })),
 				serialized: ref.object.toJSON().requests.map(request => ({ id: request.requestId, requestSource: request.requestSource })),
 			}, {
-				requests: [{ id: 'user', requestSource: undefined }, { id: 'history', requestSource: 'agentMerge' }, { id: 'live', requestSource: 'agentMerge' }],
-				viewModels: [{ id: 'user', requestSource: undefined }, { id: 'history', requestSource: 'agentMerge' }, { id: 'live', requestSource: 'agentMerge' }],
-				serialized: [{ id: 'user', requestSource: undefined }, { id: 'history', requestSource: 'agentMerge' }, { id: 'live', requestSource: 'agentMerge' }],
+				requests: expected,
+				viewModels: expected,
+				serialized: expected,
 			});
 		});
 

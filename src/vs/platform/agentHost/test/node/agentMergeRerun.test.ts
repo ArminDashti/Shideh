@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { createTestWorkflowService } from './testWorkflowService.js';
 import { DeferredPromise, timeout } from '../../../../base/common/async.js';
 import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -594,6 +595,7 @@ class RerunTestHarness extends Disposable {
 			new class extends mock<IAgentHostProviderService>() {
 				override getProviderForSession(): undefined { return undefined; }
 			}(),
+			createTestWorkflowService(),
 			this.logService,
 		));
 		this.tools = this._register(new AgentMergeTools(() => this.controller.isEnabled(), chat => this.controller.getTurnContext(chat), (chat, enabled, overrides) => this.controller.setEnabled(chat, enabled, overrides), this.logService, this.stateManager, this.configurationService));

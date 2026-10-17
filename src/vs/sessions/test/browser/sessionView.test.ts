@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { $, append, Dimension } from '../../../base/browser/dom.js';
+import { mainWindow } from '../../../base/browser/window.js';
 import { SessionView } from '../../browser/parts/sessionView.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
@@ -130,6 +132,9 @@ suite('Sessions - Session View', () => {
 			_isPartVisible: true,
 			_isLeafVisible: true,
 			_centeredContentContainer: centeredContentContainer,
+			_bodyContainer: document.createElement('div'),
+			_contentContainer: document.createElement('div'),
+			_sidebarContainer: document.createElement('div'),
 			_header: { visible: true, height: 35 },
 			_groupsView: { layout: (...dimensions: number[]) => groupsLayout.push(...dimensions) },
 			_standaloneView: { get: () => undefined },
@@ -177,6 +182,7 @@ suite('Sessions - Session View', () => {
 			_sessionObs: observableValue<IActiveSession | undefined>('session', undefined),
 			_isVisibleObs: hostVisible,
 			_openSessionDisposables: openSessionDisposables,
+			_sidebarDisposables: disposables.add(new MutableDisposable<DisposableStore>()),
 			_header: { setSession: () => { } },
 			_groupsView: {
 				element: groupsElement,
@@ -307,6 +313,111 @@ suite('Sessions - Session View', () => {
 			single: { headerDisplay: '', tabBarDisplay: 'none', tabsReplaceHeader: false },
 			singleSideBySide: { headerDisplay: 'none', tabBarDisplay: 'none', tabsReplaceHeader: false },
 			restoredMultiple: { headerDisplay: 'none', tabBarDisplay: '', tabsReplaceHeader: true },
+		});
+	});
+
+	function createSidebarView() {
+		const instantiationService = workbenchInstantiationService(undefined, disposables);
+		instantiationService.stub(IChatViewFactory, new class extends mock<IChatViewFactory>() {
+			override createNewChatView() { return new TestNewSessionView(); }
+		}());
+		instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() { }());
+		instantiationService.stub(ISessionsManagementService, new class extends mock<ISessionsManagementService>() {
+			override readonly onDidChangeSessions = Event.None;
+		}());
+		instantiationService.stub(ISessionChangesStatsCache, new class extends mock<ISessionChangesStatsCache>() { }());
+		instantiationService.stub(ISessionsListModelService, new class extends mock<ISessionsListModelService>() { }());
+		const container = append(mainWindow.document.body, $('div'));
+		container.style.setProperty('--vscode-strokeThickness', '1px');
+		container.style.setProperty('--vscode-widget-border', 'transparent');
+		disposables.add(toDisposable(() => container.remove()));
+		const view = disposables.add(instantiationService.createInstance(SessionView));
+		container.appendChild(view.element);
+		return view;
+	}
+
+	test('the sidebar reserves chat space and stacks without overlap below the width constraint', () => {
+		const view = createSidebarView();
+		view.openSession(undefined, {});
+		const layouts: Dimension[] = [];
+		const registration = disposables.add(view.showSidebar({
+			render: container => {
+				append(container, $('button', undefined, 'Sidebar'));
+				return toDisposable(() => { });
+			},
+			layout: dimension => layouts.push(dimension),
+			onHide: () => { },
+		}));
+		const sizes = [1200, 640, 639, 200].map(width => {
+			view.layout(width, 600, 0, 0);
+			const chat = view.element.querySelector<HTMLElement>('.session-view-content')!;
+			const sidebar = view.element.querySelector<HTMLElement>('.session-view-sidebar')!;
+			const chatBounds = chat.getBoundingClientRect();
+			const sidebarBounds = sidebar.getBoundingClientRect();
+			return {
+				chat: [chat.clientWidth, chat.clientHeight],
+				sidebar: [sidebar.offsetWidth, sidebar.offsetHeight],
+				noOverlap: chatBounds.right <= sidebarBounds.left || chatBounds.bottom <= sidebarBounds.top,
+				withinView: sidebarBounds.right <= view.element.getBoundingClientRect().right,
+			};
+		});
+		registration.dispose();
+		assert.deepStrictEqual({
+			sizes,
+			layouts: layouts.map(dimension => [dimension.width, dimension.height]),
+			closed: [view.element.querySelector<HTMLElement>('.session-view-content')!.clientWidth, view.element.querySelector<HTMLElement>('.session-view-sidebar')!.style.display],
+		}, {
+			sizes: [
+				{ chat: [840, 600], sidebar: [360, 600], noOverlap: true, withinView: true },
+				{ chat: [360, 600], sidebar: [280, 600], noOverlap: true, withinView: true },
+				{ chat: [639, 300], sidebar: [639, 300], noOverlap: true, withinView: true },
+				{ chat: [200, 300], sidebar: [200, 300], noOverlap: true, withinView: true },
+			],
+			layouts: [[359, 600], [279, 600], [639, 299], [200, 299]],
+			closed: [200, 'none'],
+		});
+	});
+
+	test('sidebar replacement, view rebinding, and disposal each release their content once', () => {
+		const view = createSidebarView();
+		const closed: string[] = [];
+		const released: string[] = [];
+		const show = (id: string) => disposables.add(view.showSidebar({
+			render: container => {
+				append(container, $('button', undefined, id));
+				return toDisposable(() => released.push(id));
+			},
+			layout: () => { },
+			onHide: () => closed.push(id),
+		}));
+		const first = show('first');
+		show('second');
+		first.dispose();
+		const preservedReplacement = view.element.querySelector('.session-view-sidebar')?.textContent;
+		view.openSession(undefined, {});
+		show('third');
+		view.dispose();
+		assert.deepStrictEqual({ preservedReplacement, closed, released }, {
+			preservedReplacement: 'second', closed: ['first', 'second', 'third'], released: ['first', 'second', 'third'],
+		});
+	});
+
+	test('a hidden view catches the sidebar up on reveal without negative content dimensions', () => {
+		const view = createSidebarView();
+		view.openSession(undefined, {});
+		const layouts: Dimension[] = [];
+		disposables.add(view.showSidebar({
+			render: () => toDisposable(() => { }),
+			layout: dimension => layouts.push(dimension),
+			onHide: () => { },
+		}));
+		view.layout(900, 600, 0, 0);
+		view.setVisible(false);
+		view.layout(300, 100, 0, 0);
+		const whileHidden = layouts.length;
+		view.setVisible(true);
+		assert.deepStrictEqual({ whileHidden, layouts: layouts.map(dimension => [dimension.width, dimension.height]) }, {
+			whileHidden: 1, layouts: [[359, 600], [300, 49]],
 		});
 	});
 });

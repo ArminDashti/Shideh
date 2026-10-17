@@ -176,6 +176,21 @@ class TestWorkspaceTrustManagementService extends mock<IWorkspaceTrustManagement
 	}
 }
 
+function createWorkflowSelection(): NonNullable<ISendRequestOptions['workflow']> {
+	const type: WorkflowCheckpointType = {
+		id: 'test.plan', version: 1, label: 'Plan', instructions: 'Write a plan.',
+		proofSchema: { type: 'object' },
+		completion: { kind: 'reported' },
+	};
+	return {
+		snapshot: {
+			id: 'test.feature', version: 1, label: 'Feature',
+			checkpoints: [{ id: 'plan', type, label: 'Plan', instructions: type.instructions, inputs: {} }],
+		},
+		stopAfter: 'plan',
+	};
+}
+
 class TestSessionsProvidersService extends mock<ISessionsProvidersService>() {
 	override readonly onDidChangeProviders = Event.None;
 

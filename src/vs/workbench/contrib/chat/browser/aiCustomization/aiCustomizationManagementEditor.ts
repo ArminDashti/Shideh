@@ -600,6 +600,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private toolsContentContainer: HTMLElement | undefined;
 	private readonly contributedSectionContainers = new Map<AICustomizationManagementSection, HTMLElement>();
 	private readonly contributedSectionWidgets = new Map<AICustomizationManagementSection, IAICustomizationManagementSectionWidget>();
+	private readonly contributedSectionData = this._register(new DisposableStore());
 	private modelsFooterElement: HTMLElement | undefined;
 
 	// Embedded editor state
@@ -785,9 +786,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		super(AICustomizationManagementEditor.ID, group, telemetryService, themeService, storageService);
 		this.customizationMigrationModel = this._register(instantiationService.createInstance(CustomizationMigrationModel));
 
-		this.inEditorContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR.bindTo(contextKeyService);
-		this.sectionContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION.bindTo(contextKeyService);
-		this.harnessContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS.bindTo(contextKeyService);
+		this.inEditorContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR.bindTo(sectionContextKeyService);
+		this.sectionContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION.bindTo(sectionContextKeyService);
+		this.harnessContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS.bindTo(sectionContextKeyService);
 		this.updateTargetLabelPresentation();
 		this._register(this.themeService.onDidColorThemeChange(() => this.renderEditorItemIcon()));
 
@@ -966,6 +967,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		const permissionsEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.ChatCustomizationsPermissionsEnabled) === true;
 
 		this.sections.length = 0;
+		this.contributedSectionContextKeys.clear();
 		for (const s of this.allSections) {
 			if (!permissionsEnabled && AI_CUSTOMIZATION_PERMISSION_SECTIONS.includes(s.id)) {
 				continue;
@@ -981,6 +983,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.sectionsList) {
 			this.refreshSidebarItems();
 			this.layoutSidebar(this.sidebarWidth, this.sidebarHeight);
+			this.refreshContributedSectionCounts();
 		}
 
 		// Rebuild welcome cards to reflect new visible sections
@@ -1091,6 +1094,11 @@ export class AICustomizationManagementEditor extends EditorPane {
 			this._previousActiveHarnessId = activeId;
 		}));
 
+		this.editorDisposables.add(this.sectionContextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(this.contributedSectionContextKeys)) {
+				this.rebuildVisibleSections();
+			}
+		}));
 		this.editorDisposables.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (this.welcomePage?.isMarketplaceConfigurationChange(e)) {
 				this.updateHomeButtonHarnessPresentation();

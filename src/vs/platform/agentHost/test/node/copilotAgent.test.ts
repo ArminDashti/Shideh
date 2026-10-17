@@ -2754,8 +2754,9 @@ suite('CopilotAgent', () => {
 					displayName: 'Copilot',
 					description: 'Copilot SDK agent running in the local agent host process',
 					capabilities: { multipleChats: { fork: true, sideChat: true } },
+					_meta: { 'vscode.workflows': true },
 				},
-				agentHostCapabilities: { workspaceConversion: true },
+				agentHostCapabilities: { workspaceConversion: true, workflows: true },
 			});
 		} finally {
 			await disposeAgent(agent);
@@ -19237,8 +19238,8 @@ suite('CopilotAgent', () => {
 				// resume path consumes, so asserting it stands in for restore.
 				const stored = await internals._readSessionMetadata(result.session);
 				assert.deepStrictEqual(
-					{ storedAgent: stored.agent, launchAgentName },
-					{ storedAgent: { uri: worktreeAgentFile.toString() }, launchAgentName: 'My Agent' },
+					{ storedAgent: stored.agent, currentAgent: await agent.chats.getAgent!(defaultChatUri(result.session), exactChatContext(result.session, defaultChatUri(result.session))), launchAgentName },
+					{ storedAgent: { uri: worktreeAgentFile.toString() }, currentAgent: { uri: worktreeAgentFile.toString() }, launchAgentName: 'My Agent' },
 					'the repo agent must be rewritten to its worktree copy, both for the SDK launch and the persisted metadata the restore path reads',
 				);
 			} finally {

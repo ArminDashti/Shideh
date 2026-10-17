@@ -25,6 +25,7 @@ import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateM
 import type { IArtifactServerToolAccessor } from './shared/artifactServerTools.js';
 import type { IAgentServiceSessionServerToolAccessor } from './shared/sessionServerTools.js';
 import { hostBuildInfoFromProduct } from '../common/state/sessionState.js';
+import { AgentHostDatabase, IAgentHostDatabase } from './agentHostDatabase.js';
 
 export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder {
 	private callbacks: IAgentServiceCallbacks | undefined;
@@ -79,6 +80,7 @@ export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder 
 }
 
 export interface IAgentServiceFoundation {
+	readonly orchestratorDatabase: IAgentHostDatabase;
 	readonly callbackAdapter: AgentServiceCallbackAdapter;
 	readonly stateManager: AgentHostStateManager;
 	readonly configurationService: AgentConfigurationService;
@@ -96,6 +98,7 @@ export interface ICreateAgentServiceFoundationOptions {
 	readonly logService: ILogService;
 	readonly productService: IProductService;
 	readonly rootConfigResource?: URI;
+	readonly orchestratorDatabase?: IAgentHostDatabase;
 	readonly providerConfigurations?: readonly IAgentCustomizationSettingsRegistration[];
 	readonly transientProxyConfiguration: boolean;
 	readonly proxyResolver?: IAgentHostProxyResolver;
@@ -103,6 +106,8 @@ export interface ICreateAgentServiceFoundationOptions {
 }
 
 export function createAgentServiceFoundation(options: ICreateAgentServiceFoundationOptions): IAgentServiceFoundation {
+	const databasePath = options.rootConfigResource ? joinPath(dirname(options.rootConfigResource), 'agent-host.db').fsPath : ':memory:';
+	const orchestratorDatabase = options.owned.add(options.orchestratorDatabase ?? new AgentHostDatabase(databasePath));
 	const callbackAdapter = new AgentServiceCallbackAdapter();
 	const stateManager = options.owned.add(new AgentHostStateManager(options.logService, {
 		hostBuildInfo: hostBuildInfoFromProduct(options.productService),
@@ -128,6 +133,7 @@ export function createAgentServiceFoundation(options: ICreateAgentServiceFoundat
 	const fetchFn = options.fetchFn ?? proxyResolver.fetch.bind(proxyResolver);
 
 	options.services.set(IAgentHostStateManager, stateManager);
+	options.services.set(IAgentHostDatabase, orchestratorDatabase);
 	options.services.set(IAgentConfigurationService, configurationService);
 	options.services.set(IAgentHostAuthenticationService, authenticationService);
 	options.services.set(IAgentHostAuthenticationController, authenticationService);
@@ -136,6 +142,7 @@ export function createAgentServiceFoundation(options: ICreateAgentServiceFoundat
 	options.services.set(IRequestService, requestService);
 
 	return {
+		orchestratorDatabase,
 		callbackAdapter,
 		stateManager,
 		configurationService,

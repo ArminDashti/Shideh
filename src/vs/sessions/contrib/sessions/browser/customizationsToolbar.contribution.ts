@@ -46,6 +46,7 @@ export interface ICustomizationItemConfig {
 	readonly isMcp?: boolean;
 	readonly isPlugins?: boolean;
 	readonly isTools?: boolean;
+	readonly isWorkflows?: boolean;
 	/** Additional `when` clause beyond the standard harness-visibility gate. */
 	readonly when?: ContextKeyExpression;
 }
@@ -203,9 +204,14 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 		@IAICustomizationMcpServerCountService private readonly _mcpServerCountService: IAICustomizationMcpServerCountService,
 		@ILanguageModelToolsService private readonly _toolsService: ILanguageModelToolsService,
 		@IAgentHostToolSetEnablementService private readonly _toolEnablementService: IAgentHostToolSetEnablementService,
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super(undefined, action, options);
 		this._viewItemDisposables = this._register(new DisposableStore());
+		if (_config.isWorkflows) {
+			this._workflowModel = this._register(instantiationService.createInstance(WorkflowCatalogViewModel));
+			this._workflowChanged = observableSignalFromEvent(this, this._workflowModel.onDidChange);
+		}
 	}
 
 	protected override getTooltip(): string | undefined {

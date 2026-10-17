@@ -157,7 +157,7 @@ A provider that must establish backend state before presenting a session may imp
 
 ### Drafts
 
-`createNewSession` and `createQuickChat` return untitled drafts. A draft remains `Untitled` while its first request is prepared; `isNewSessionRequestInProgress` separately lets the UI present that activity without treating the session as committed. Draft preparation receives the first query so a provider can materialize query-dependent execution state before replacing the draft. A draft enters the committed catalog when its first request is sent. The management service owns the currently presented draft; the provider owns its backend resources. `deleteNewSession` disposes an abandoned draft.
+`createNewSession` and `createQuickChat` return untitled drafts. A draft remains `Untitled` while its first request is prepared; `isNewSessionRequestInProgress` separately lets the UI present that activity without treating the session as committed. Draft preparation receives the first query so a provider can materialize query-dependent execution state before replacing the draft. A draft enters the committed catalog when its first request is sent or its workflow is durably admitted. The management service owns the currently presented draft; the provider owns its backend resources. `deleteNewSession` disposes an abandoned draft.
 
 An editor-window draft handoff fills the existing New Session composer only when its input and attachments are empty. The handoff preserves occupied live or restored drafts, including their workspace, and yields to newer input or navigation while awaiting setup or workspace creation. It never sends a request or clears the source editor's draft.
 
@@ -213,6 +213,8 @@ Providers may expose an `ISessionConfigurationSnapshot` of resolved draft config
 ### Existing session
 
 Requests route through `ISessionsManagementService` to the provider identified by the session. Providers update chat and session observables. Foreground sends may update view state through lifecycle notifications; background sends do not implicitly steal focus.
+
+Attaching a workflow retains the existing conversation and workspace and requires an explicit task and stopping point. Starting after an active turn is an explicit choice. Inspection and checkpoint navigation do not start or resume execution; extending a stopping point requires Apply. Archiving pauses execution, restoring does not resume it, and deletion revokes the owning runtime's work.
 
 ### Multiple chats
 

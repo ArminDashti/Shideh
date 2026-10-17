@@ -152,6 +152,33 @@ export interface GitHubComparison {
 	readonly filesComplete: boolean;
 }
 
+export interface GitHubCommitAncestry {
+	readonly baseSha: string;
+	readonly headSha: string;
+	readonly mergeBaseSha: string;
+	readonly isAncestor: boolean;
+}
+
+export interface GitHubRelease {
+	readonly id: string;
+	readonly tagName: string;
+	readonly url: string;
+	readonly draft: boolean;
+	readonly prerelease: boolean;
+	readonly publishedAt?: string;
+}
+
+export interface GitHubReleasesPage {
+	readonly releases: readonly GitHubRelease[];
+	readonly nextPage?: number;
+}
+
+export interface GitHubResolvedTag {
+	readonly tagName: string;
+	readonly tagSha: string;
+	readonly commitSha: string;
+}
+
 export interface GitHubPullRequestSummary {
 	readonly number: number;
 	readonly title: string;
@@ -242,6 +269,9 @@ export interface GitHubQueryApi {
 	subscribeCommit(ref: GitHubCommitRef, options: GitHubResourceSubscriptionOptions): GitHubCommitSubscription;
 	hydrateResources(refs: readonly GitHubHydratableResourceRef[], signal: AbortSignal): Promise<void>;
 	compare(ref: GitHubRepositoryRef, base: string, head: string, signal: AbortSignal): Promise<GitHubComparison>;
+	compareCommitAncestry(ref: GitHubRepositoryRef, baseSha: string, headSha: string, signal: AbortSignal): Promise<GitHubCommitAncestry>;
+	listReleases(ref: GitHubRepositoryRef, page: number, signal: AbortSignal): Promise<GitHubReleasesPage>;
+	resolveTag(ref: GitHubRepositoryRef, tagName: string, signal: AbortSignal): Promise<GitHubResolvedTag>;
 	listPullRequests(ref: GitHubRepositoryRef, cursor: string | undefined, signal: AbortSignal): Promise<GitHubPullRequestsPage>;
 	listPullRequestsWaitingForReview(ref: GitHubRepositoryRef, signal: AbortSignal): Promise<readonly GitHubPullRequestSummary[]>;
 	listPullRequestsAssignedToViewer(ref: GitHubRepositoryRef, signal: AbortSignal): Promise<readonly GitHubPullRequestSummary[]>;

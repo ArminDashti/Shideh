@@ -88,7 +88,7 @@ import {
 import { coerceImageBuffer } from '../../../common/chatImageExtraction.js';
 import { ChatErrorLevel, ChatRequestQueueKind, ConfirmedReason, ElicitationState, IChatProgress, IChatQuestionAnswers, IChatService, IChatToolInvocation, IRemotePendingRequest, ToolConfirmKind, type IChatAutoModeResolutionPart, type IChatMcpAuthenticationRequiredServer, type IChatMcpStartingServer, type IChatMultiSelectAnswer, type IChatPlanReviewResult, type IChatResponseErrorDetails, type IChatSingleSelectAnswer, type IChatTerminalToolInvocationData, type IChatToolInvocationSerialized } from '../../../common/chatService/chatService.js';
 import { isInConversationModelChoice } from '../../../common/modelSelection.js';
-import { IChatSession, IChatSessionContentProvider, IChatSessionHistoryItem, IChatSessionItem, IChatSessionRequestHistoryItem, isTerminalCommandPrompt, SessionType, type IChatInputCompletionItem, type IChatInputCompletionsParams, type IChatInputCompletionsResult, type IChatSessionServerRequest } from '../../../common/chatSessionsService.js';
+import { IAgentHostChatSession, IAgentHostMessageContextOptions, IChatSession, IChatSessionContentProvider, IChatSessionHistoryItem, IChatSessionItem, IChatSessionRequestHistoryItem, isTerminalCommandPrompt, SessionType, type IChatInputCompletionItem, type IChatInputCompletionsParams, type IChatInputCompletionsResult, type IChatSessionServerRequest } from '../../../common/chatSessionsService.js';
 import { IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { IWorkingCopyService } from '../../../../../services/workingCopy/common/workingCopyService.js';
 import { ChatMode } from '../../../common/chatModes.js';
@@ -720,7 +720,7 @@ function getChatTitle(state: Pick<SessionState, 'chats' | 'title'>, chatURI: str
 // Chat session
 // =============================================================================
 
-class AgentHostChatSession extends Disposable implements IChatSession {
+class AgentHostChatSession extends Disposable implements IAgentHostChatSession {
 	readonly progressObs = observableValue<IChatProgress[]>('agentHostProgress', []);
 	readonly isCompleteObs = observableValue<boolean>('agentHostComplete', true);
 	readonly isReadOnly: IObservable<boolean>;
@@ -768,6 +768,7 @@ class AgentHostChatSession extends Disposable implements IChatSession {
 		historySubagentObservations: IDisposable,
 		onDispose: () => void,
 		interruptActiveResponse: () => boolean,
+		readonly prepareMessageContext: IAgentHostChatSession['prepareMessageContext'],
 		@ILogService private readonly _logService: ILogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
@@ -1766,6 +1767,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					});
 					return true;
 				},
+				(options, token) => this._prepareMessageContext(sessionResource, options, token),
 			);
 		} catch (err) {
 			historySubagentObservations.dispose();
@@ -2088,6 +2090,93 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				chatId: chatId ? parseChatUri(chatId)?.chatId : undefined,
 			}).catch(() => this._logService.debug('[AgentHostFirstResponse] OTel diagnostic could not be delivered'));
 		}
+	}
+
+	private async _ensureRequestTrusted(sessionResource: URI, token: CancellationToken): Promise<boolean> {
+		const folders = await this._resolveSessionTrustFolders(sessionResource, token);
+		if (token.isCancellationRequested || (folders !== undefined && !await this._ensureFoldersTrusted(folders))) {
+			return false;
+		}
+		return !token.isCancellationRequested;
+	}
+
+	private async _prepareSessionForRequest(
+		request: Pick<IChatAgentRequest, 'sessionResource' | 'userSelectedModelId' | 'modelConfiguration' | 'agentHostSessionConfig'>,
+		token: CancellationToken,
+		onFailureStage?: (stage: AgentHostInvocationFailureStage) => void,
+		onImportConversation?: () => void,
+	): Promise<URI | undefined> {
+		onFailureStage?.('provisionalSession');
+		await raceCancellation(this._provisionalService.waitForPending(request.sessionResource), token);
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+		const resolvedSession = this._resolveSessionUri(request.sessionResource);
+		const sessionKey = resolvedSession.toString();
+		if (this._provisionalService.get(request.sessionResource)) {
+			this._ensureSessionSubscription(sessionKey);
+		}
+
+		onFailureStage?.('sessionState');
+		const existingState = await this._readEagerlyCreatedSessionState(resolvedSession, token);
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+		if (!existingState) {
+			const imported = this._importConversationStore.take(request.sessionResource);
+			if (imported) {
+				onImportConversation?.();
+			}
+			const initialConfig = { ...this._provisionalService.getInitialSessionConfig(), ...request.agentHostSessionConfig };
+			await this._createAndSubscribe(
+				request.sessionResource,
+				imported?.model ?? this._createModelSelection(request.userSelectedModelId, request.modelConfiguration),
+				Object.keys(initialConfig).length > 0 ? initialConfig : undefined,
+				imported ? { turns: imported.turns, model: imported.model } : undefined,
+				onFailureStage,
+			);
+		} else {
+			onFailureStage?.('authentication');
+			await this._ensureRequiredAuthentication(this._createModelSelection(request.userSelectedModelId, request.modelConfiguration));
+			onFailureStage?.('subscribeSession');
+			const sessionSub = this._ensureSessionSubscription(sessionKey);
+			const chatURI = this._resolveChatUriFromState(request.sessionResource, existingState);
+			this._setChatURI(request.sessionResource, chatURI);
+			const chatSub = this._ensureChatSubscription(sessionKey, chatURI);
+			this._activeSessions.get(request.sessionResource)?.setStateSubscriptions(sessionSub, chatSub);
+			this._ensurePendingMessageSubscription(request.sessionResource, resolvedSession);
+			this._watchForServerInitiatedTurns(resolvedSession, request.sessionResource);
+			if (request.agentHostSessionConfig && Object.keys(request.agentHostSessionConfig).length > 0) {
+				this._dispatchAction(resolvedSession, {
+					type: ActionType.SessionConfigChanged,
+					config: request.agentHostSessionConfig,
+				});
+			}
+		}
+		return resolvedSession;
+	}
+
+	private async _prepareMessageContext(sessionResource: URI, options: IAgentHostMessageContextOptions, token: CancellationToken): Promise<Pick<Message, 'model' | 'agent' | 'attachments'>> {
+		if (!await this._ensureRequestTrusted(sessionResource, token)) {
+			throw new CancellationError();
+		}
+		const session = await this._prepareSessionForRequest({ sessionResource, ...options }, token);
+		if (!session || token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		this._shellInitSynchronizer.reconcile(session);
+		await this._workingDirectorySynchronizer.reconcile(session, token);
+		await this._ensureActiveClient(sessionResource, session, token);
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		const attachments = this._variableEntriesToAttachments(options.attachments, sessionResource);
+		this._appendActiveEditorAttachments(attachments, { sessionResource, variables: { variables: [...options.attachments] } });
+		return {
+			model: this._createModelSelection(options.userSelectedModelId, options.modelConfiguration),
+			agent: options.agent,
+			attachments: attachments.length > 0 ? attachments : undefined,
+		};
 	}
 
 	private _reportInvocationFailure(request: IChatAgentRequest, failureStage: AgentHostInvocationFailureStage, error: unknown): void {
@@ -6509,7 +6598,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	 * {@link ChatConfiguration.ImplicitContextActiveEditor} (on by default, off in the Agents window).
 	 * Unsaved handling lives in {@link _convertVariableToAttachment}.
 	 */
-	private _appendActiveEditorAttachments(attachments: MessageAttachment[], request: IChatAgentRequest): void {
+	private _appendActiveEditorAttachments(attachments: MessageAttachment[], request: Pick<IChatAgentRequest, 'sessionResource' | 'variables'> & { readonly message?: string }): void {
 		if (!this._configurationService.getValue<boolean>(ChatConfiguration.ImplicitContextActiveEditor)) {
 			return;
 		}
