@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Buffer } from 'buffer';
 import { BinarySizeStatusBarEntry } from '../binarySizeStatusBarEntry';
 import { MediaPreview, PreviewState, isGitLfsPointer, reopenAsText } from '../mediaPreview';
 import { escapeAttribute } from '../util/dom';
@@ -238,6 +239,12 @@ class ImagePreview extends MediaPreview {
 	public async reopenAsText() {
 		await vscode.commands.executeCommand('reopenActiveEditorWith', 'default');
 		this._webviewEditor.dispose();
+	}
+
+	private asImageDataURI(contents: Buffer): vscode.Uri {
+		return vscode.Uri.parse(
+			`data:image/jpeg;size:${contents.byteLength};base64,${contents.toString('base64')}`
+		);
 	}
 }
 
