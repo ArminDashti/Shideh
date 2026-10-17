@@ -325,7 +325,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		this._updateUnicodeVersion();
 		this._markNavigationAddon = this._instantiationService.createInstance(MarkNavigationAddon, options.capabilities);
 		this.raw.loadAddon(this._markNavigationAddon);
-		this._decorationAddon = this._instantiationService.createInstance(DecorationAddon, resource, this._capabilities);
+		this._decorationAddon = this._instantiationService.createInstance(DecorationAddon, resource, this._capabilities, !options.detached);
 		this._register(this._decorationAddon.onDidRequestRunCommand(e => this._onDidRequestRunCommand.fire(e)));
 		this._register(this._decorationAddon.onDidRequestCopyAsHtml(e => this._onDidRequestCopyAsHtml.fire(e)));
 		this.raw.loadAddon(this._decorationAddon);
@@ -619,6 +619,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 			kittyKeyboard: config.enableKittyKeyboardProtocol,
 			win32InputMode: config.enableWin32InputMode,
 		};
+		this._decorationAddon?.refreshConfiguration();
 
 		this._updateSmoothScrolling();
 		if (this._attached) {
@@ -1142,6 +1143,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	 */
 	updateTheme(): void {
 		this._updateTheme();
+		this._decorationAddon?.refreshStyles();
 	}
 
 	refresh() {
