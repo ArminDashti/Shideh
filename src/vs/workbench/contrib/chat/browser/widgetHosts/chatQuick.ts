@@ -247,6 +247,7 @@ class QuickChat extends Disposable {
 					enableImplicitContext: true,
 					defaultMode: ChatMode.Ask,
 					clear: () => this.clear(),
+					dndContainer: parent,
 				},
 				{
 					listForeground: quickInputForeground,
