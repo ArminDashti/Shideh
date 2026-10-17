@@ -80,6 +80,7 @@ suite('PluginInstallService', () => {
 		marketplaceManaged: boolean;
 		/** Whether the strict-marketplace enterprise policy is active */
 		strictMarketplacePolicyActive?: boolean;
+		installedPluginsReady: Promise<void>;
 		installedPlugins: IMarketplaceInstalledPlugin[];
 		durablePluginUris: URI[];
 		removedPluginUris: string[];
@@ -136,6 +137,7 @@ suite('PluginInstallService', () => {
 			marketplaceTrusted: true,
 			marketplaceManaged: false,
 			strictMarketplacePolicyActive: false,
+			installedPluginsReady: Promise.resolve(),
 			installedPlugins: [],
 			durablePluginUris: [],
 			removedPluginUris: [],
@@ -1004,6 +1006,36 @@ suite('PluginInstallService', () => {
 			}, {
 				pulled: [first.plugin.marketplaceReference.canonicalId],
 				fetched: [[first.plugin.marketplaceReference.canonicalId]],
+			});
+		});
+
+		test('waits for installed plugins to become ready before updating', async () => {
+			const ready = new DeferredPromise<void>();
+			const installed = installedPlugin('installed', 'microsoft/installed');
+			const { service, state } = createService({
+				installedPlugins: [installed],
+				installedPluginsReady: ready.p,
+			});
+
+			const update = service.updateAllPlugins({ silent: true }, CancellationToken.None);
+			await Promise.resolve();
+			assert.deepStrictEqual({
+				pullRepositoryCalls: state.pullRepositoryCalls,
+				fetchMarketplaceCalls: state.fetchMarketplaceCalls,
+			}, {
+				pullRepositoryCalls: [],
+				fetchMarketplaceCalls: [],
+			});
+
+			ready.complete();
+			await update;
+
+			assert.deepStrictEqual({
+				pulled: state.pullRepositoryCalls.map(call => call.marketplace.canonicalId),
+				fetched: state.fetchMarketplaceCalls,
+			}, {
+				pulled: [installed.plugin.marketplaceReference.canonicalId],
+				fetched: [[installed.plugin.marketplaceReference.canonicalId]],
 			});
 		});
 

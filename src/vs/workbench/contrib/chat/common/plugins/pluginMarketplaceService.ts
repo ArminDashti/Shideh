@@ -495,7 +495,7 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			const entries = this._installedPluginsStore.value.read(reader);
 			const unhydrated = entries.filter(e => !this._pluginMetadata.has(e.pluginUri.toString()));
 			if (unhydrated.length > 0) {
-				this._hydratePluginMetadata(unhydrated);
+				this._installedPluginsHydration = this._installedPluginsHydration.then(() => this._hydratePluginMetadata(unhydrated));
 			}
 		}));
 	}
