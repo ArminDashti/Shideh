@@ -1343,6 +1343,31 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 	}
 
 	/**
+	 * Returns `true` only when the worktree's branch is safe to remove without
+	 * losing local-only work: it tracks an upstream branch, has no unpushed
+	 * commits, and has a clean working tree. Fails closed (returns `false`) when
+	 * the git state can't be determined.
+	 */
+	private async _isBranchUpToDateWithRemote(worktreePath: URI, branchName: string, sessionId: string): Promise<boolean> {
+		const gitState = await this._gitService.getSessionGitState(worktreePath).catch(() => undefined);
+		if (!gitState) {
+			this._logService.info(`[${this._logLabel}:${sessionId}] Skipping worktree cleanup: unable to determine git state for branch '${branchName}'`);
+			return false;
+		}
+		if (!gitState.upstreamBranchName) {
+			this._logService.info(`[${this._logLabel}:${sessionId}] Skipping worktree cleanup: branch '${branchName}' has no upstream tracking branch`);
+			return false;
+		}
+		const outgoingChanges = gitState.outgoingChanges ?? 0;
+		const uncommittedChanges = gitState.uncommittedChanges ?? 0;
+		if (outgoingChanges > 0 || uncommittedChanges > 0) {
+			this._logService.info(`[${this._logLabel}:${sessionId}] Skipping worktree cleanup: branch '${branchName}' is not up to date with its remote (outgoing=${outgoingChanges}, uncommitted=${uncommittedChanges})`);
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * On unarchive, recreates a previously cleaned-up worktree against its
 	 * preserved branch. No-op when the directory still exists or the branch is
 	 * missing.
