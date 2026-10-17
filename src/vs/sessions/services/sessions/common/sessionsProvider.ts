@@ -187,9 +187,9 @@ export interface ISessionsProvider {
 	readonly label: string;
 
 	/**
-	 * Icon for the provider, used in the UI.
+	 * Optional icon for the provider, used in the UI.
 	 */
-	readonly icon: ThemeIcon;
+	readonly icon?: ThemeIcon;
 
 	/**
 	 * Sort order that determines the precedence of this provider's session

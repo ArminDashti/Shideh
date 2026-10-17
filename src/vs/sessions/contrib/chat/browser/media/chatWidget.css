@@ -791,6 +791,18 @@
 	display: none;
 }
 
+.sessions-chat-picker-slot.sessions-chat-session-type-picker .action-label > .codicon.sessions-chat-dropdown-provider-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	font-size: 13px;
+	line-height: 1;
+	margin-left: 4px;
+	margin-right: -2px;
+	opacity: 0.7;
+}
+
 .sessions-chat-dropdown-label {
 	margin-left: 6px;
 	overflow: hidden;

@@ -856,6 +856,8 @@ export class SessionTypePicker extends Disposable {
 			?? this._folderSessionTypes.find(t => t.sessionType.id === this._picked?.sessionTypeId)?.sessionType;
 		const modeIcon = currentType?.icon ?? Codicon.terminal;
 		const modeLabel = currentType?.label ?? this._picked?.sessionTypeId ?? '';
+		const provider = currentEntry ? this.sessionsProvidersService.getProvider(currentEntry.providerId) : undefined;
+		const providerIcon = provider?.icon;
 
 		dom.append(this._triggerElement, renderIcon(modeIcon));
 		const labelSpan = dom.append(this._triggerElement, dom.$('span.sessions-chat-dropdown-label'));

@@ -2062,8 +2062,24 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 					timeEl.textContent = formatTime();
 				}, 60_000);
 				timeDisposable.value = toDisposable(() => targetWindow.clearInterval(interval));
+				parts.push(timeEl);
 			} else {
 				timeDisposable.clear();
+			}
+
+			// Provider-defined icon for session type disambiguation.
+			const provider = this.sessionsProvidersService.getProvider(element.providerId);
+			const providerIcon = provider?.icon;
+			if (providerIcon) {
+				if (parts.length > 0) {
+					DOM.append(template.detailsRow, $('span.session-separator.has-separator'));
+				}
+				const providerIconEl = DOM.append(template.detailsRow, $('span.session-provider-icon'));
+				DOM.append(providerIconEl, $(`span${ThemeIcon.asCSSSelector(providerIcon)}`));
+				const tooltip = provider?.label ?? localize('sessionsList.providerIndicator', "Session type indicator");
+				template.elementDisposables.add(this.hoverService.setupDelayedHover(providerIconEl, {
+					content: tooltip,
+				}));
 			}
 		}));
 
