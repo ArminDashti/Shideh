@@ -15,6 +15,7 @@ import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contex
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IChatWidget } from '../../../../contrib/chat/browser/chat.js';
+import { CancelAction } from '../../../../contrib/chat/browser/actions/chatExecuteActions.js';
 import { OpenAgentHostAutoApprovePickerAction, OpenAgentHostModePickerAction } from '../../../../contrib/chat/browser/agentSessions/agentHost/agentHostChatInputPicker.contribution.js';
 import { SessionType } from '../../../../contrib/chat/common/chatSessionsService.js';
 import { getNewChatSessionResource } from '../../../../contrib/chat/common/model/chatUri.js';
@@ -105,6 +106,7 @@ export interface ChatInputFixtureOptions {
 	readonly isSessionsWindow?: boolean;
 	/** Seeds the input editor with this text. */
 	readonly value?: string;
+	readonly requestInProgress?: boolean;
 	/** Selects this range after seeding the text, to exercise selection rendering (e.g. reverse-rounded corners). */
 	readonly selection?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
 	/** Sets the fixture width, useful for exercising the compact picker layout. */
