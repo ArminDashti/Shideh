@@ -114,7 +114,6 @@ import { isInConversationModelChoice, ModelSelectionReason, resolveConfiguredMod
 import { filterModelsForSession, hasModelsTargetingSession, isModelHiddenInPicker, isModelSupportedForInlineChat, isModelSupportedForMode, isNewConversation, isSessionStarted, mergeModelsWithCache, shouldDropAgnosticDraftModel, shouldResetOnModelListChange, shouldRestorePerTypeModelOnSessionSwitch } from './chatInputModelUtils.js';
 import { getChatSessionType, isUntitledChatSession, LocalChatSessionUri } from '../../../common/model/chatUri.js';
 import { IChatResponseViewModel, isResponseVM } from '../../../common/model/chatViewModel.js';
-import { IChatAgentService } from '../../../common/participants/chatAgents.js';
 import { ILanguageModelToolsService } from '../../../common/tools/languageModelToolsService.js';
 import { ChatHistoryNavigator } from '../../../common/widget/chatWidgetHistoryService.js';
 import { ChatEditingSessionSubmitAction, ChatSessionPrimaryPickerAction, ChatSubmitAction, IChatExecuteActionContext, OpenDelegationPickerAction, OpenModelPickerAction, OpenModePickerAction, OpenPermissionPickerAction, OpenSessionTargetPickerAction, OpenWorkspacePickerAction } from '../../actions/chatExecuteActions.js';
@@ -847,10 +846,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private permissionLevelKey: IContextKey<ChatPermissionLevel>;
 
 	public get currentModeKind(): ChatModeKind {
-		const mode = this._currentModeObservable.get();
-		return mode.kind === ChatModeKind.Agent && !this.agentService.hasToolsAgent ?
-			ChatModeKind.Edit :
-			mode.kind;
+		return this._currentModeObservable.get().kind;
 	}
 
 	public get currentModeObs(): IObservable<IChatMode> {
@@ -2325,11 +2321,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const validMode = this._currentChatModesObservable.get().findModeById(currentMode.id);
 		const isAgentModeEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.AgentEnabled);
 		if (!validMode) {
-			this.setChatMode(isAgentModeEnabled ? ChatModeKind.Agent : ChatModeKind.Ask);
-			return;
-		}
-		if (currentMode.kind === ChatModeKind.Agent && !isAgentModeEnabled) {
-			this.setChatMode(ChatModeKind.Ask);
+			this.setChatMode(ChatModeKind.Agent);
 			return;
 		}
 	}

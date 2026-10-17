@@ -33,7 +33,6 @@ import type { LanguageModelToolApprovalClassification, LanguageModelToolInvokedC
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import * as JSONContributionRegistry from '../../../../../platform/jsonschemas/common/jsonContributionRegistry.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { observableConfigValue } from '../../../../../platform/observable/common/platformObservableUtils.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
@@ -165,8 +164,6 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		@IChatToolRiskAssessmentService private readonly _riskAssessmentService: IChatToolRiskAssessmentService,
 	) {
 		super();
-
-		this._isAgentModeEnabled = observableConfigValue(ChatConfiguration.AgentEnabled, true, this._configurationService);
 
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(this._toolContextKeys)) {
@@ -405,11 +402,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		const extensionToolsEnabled = this._configurationService.getValue<boolean>(ChatConfiguration.ExtensionToolsEnabled);
 		return Iterable.filter(
 			toolDatas,
-			toolData => {
-				const satisfiesExternalToolCheck = toolData.source.type !== 'extension' || !!extensionToolsEnabled;
-				const satisfiesPermittedCheck = this.isPermitted(toolData);
-				return satisfiesExternalToolCheck && satisfiesPermittedCheck;
-			});
+			toolData => toolData.source.type !== 'extension' || !!extensionToolsEnabled);
 	}
 
 	getTool(id: string): IToolData | undefined {
@@ -1733,8 +1726,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 	private readonly _toolSets = new ObservableSet<ToolSet>();
 
 	readonly toolSets: IObservable<Iterable<ToolSet>> = derived(this, reader => {
-		const allToolSets = Array.from(this._toolSets.observable.read(reader));
-		return allToolSets.filter(toolSet => this.isPermitted(toolSet, reader));
+		return this._toolSets.observable.read(reader);
 	});
 
 	getToolSetsForModel(model: ILanguageModelChatMetadata | undefined, reader?: IReader): Iterable<IToolSet> {
@@ -1818,7 +1810,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				continue;
 			}
 
-			if (tool.canBeReferencedInPrompt && !coveredByToolSets.has(tool) && this.isPermitted(tool, reader)) {
+			if (tool.canBeReferencedInPrompt && !coveredByToolSets.has(tool)) {
 				result.push([tool, getToolFullReferenceName(tool)]);
 			}
 		}

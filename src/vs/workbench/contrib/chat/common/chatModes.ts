@@ -10,13 +10,11 @@ import { constObservable, IObservable, ISettableObservable, observableValue, tra
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { IOffsetRange } from '../../../../editor/common/core/ranges/offsetRange.js';
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IChatAgentService } from './participants/chatAgents.js';
 import { ChatContextKeys } from './actions/chatContextKeys.js';
 import { getChatSessionType, LocalChatSessionUri } from './model/chatUri.js';
 import { ChatConfiguration, ChatModeKind } from './constants.js';
@@ -302,7 +300,9 @@ class ChatModes extends Disposable implements IChatModes {
 
 	private getBuiltinModes(): IChatMode[] {
 		const builtinModes: IChatMode[] = [
+			ChatMode.Agent,
 			ChatMode.Ask,
+			ChatMode.Edit,
 		];
 
 		// Include Agent mode if:
