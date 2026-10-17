@@ -3017,6 +3017,7 @@ export class ChatModel extends Disposable implements IChatModel {
 		this._timestamp = (isValidFullData && initialData.creationDate) || Date.now();
 		this._requests = initialData ? this._deserialize(initialData) : [];
 		this._customTitle = isValidFullData ? initialData.customTitle : undefined;
+		this._isForkedSession = isValidFullData ? (initialData.isForkedSession ?? false) : false;
 
 		// Hydrate todo list from serialized tool invocations
 		this._hydrateTodoList();
