@@ -101,6 +101,11 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 		return root;
 	}
 
+	getAllProjectRoots(): readonly URI[] {
+		const root = this.getActiveProjectRoot();
+		return root ? [root] : [];
+	}
+
 	setOverrideProjectRoot(root: URI): void {
 		this._overrideRoot.set(root, undefined);
 	}

@@ -51,6 +51,10 @@ class AICustomizationWorkspaceService implements IAICustomizationWorkspaceServic
 		return folders[0]?.uri;
 	}
 
+	getAllProjectRoots(): readonly URI[] {
+		return this.workspaceContextService.getWorkspace().folders.map(f => f.uri);
+	}
+
 	readonly managementSections: readonly AICustomizationManagementSection[] = [
 		AICustomizationManagementSection.Plugins,
 		AICustomizationManagementSection.McpServers,
