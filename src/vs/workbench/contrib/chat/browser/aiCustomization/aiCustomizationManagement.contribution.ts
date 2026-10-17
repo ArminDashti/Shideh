@@ -473,7 +473,8 @@ registerAction2(class extends Action2 {
 });
 
 /**
- * When clause that hides an action for read-only (extension, plugin, built-in) items.
+ * When clause that hides an action for read-only items: extension-,
+ * plugin-, built-in-, and remote-AHP-served entries.
  */
 const WHEN_ITEM_IS_DELETABLE = ContextKeyExpr.and(
 	ContextKeyExpr.notEquals(AI_CUSTOMIZATION_ITEM_STORAGE_KEY, AICustomizationSources.extension),

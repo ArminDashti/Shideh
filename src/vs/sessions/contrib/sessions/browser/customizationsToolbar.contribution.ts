@@ -194,7 +194,6 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 
 	private readonly _viewItemDisposables: DisposableStore;
 	private _button: Button | undefined;
-	private _countContainer: HTMLElement | undefined;
 
 	constructor(
 		action: IAction,
@@ -239,7 +238,7 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 		}));
 
 		// Count container (inside button, floating right)
-		this._countContainer = append(this._button.element, $('span.customization-link-counts'));
+		const countContainer = append(this._button.element, $('span.customization-link-counts'));
 
 		this._viewItemDisposables.add(autorun(reader => {
 			const count = readCustomizationCount(this._config, reader, this._itemsModel, this._mcpServerCountService, this._toolsService, this._toolEnablementService);

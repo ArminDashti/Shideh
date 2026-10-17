@@ -78,6 +78,11 @@ export async function generateCustomizationDebugReport(
 	}
 
 
+	// Stage 2.5: Sync pipeline — what we send to the server and what's disabled
+	if (activeDescriptor?.disableProvider) {
+		await appendSyncPipelineData(lines, promptsService, activeDescriptor.disableProvider, promptType);
+	}
+
 	// Stage 3: Widget state
 	appendWidgetState(lines, widgetState);
 

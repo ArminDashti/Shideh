@@ -5,7 +5,6 @@
 
 import './media/aiCustomizationManagement.css';
 import * as DOM from '../../../../base/browser/dom.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
@@ -44,7 +43,6 @@ interface ISectionSummary {
 	readonly id: AICustomizationManagementSection;
 	readonly label: string;
 	readonly icon: ThemeIcon;
-	count: number;
 }
 
 /**
@@ -114,7 +112,6 @@ export class AICustomizationOverviewView extends ViewPane {
 		this.sectionsContainer = DOM.append(this.container, $('.overview-sections'));
 
 		this.renderSections();
-		void this.loadCounts();
 
 		// Force initial layout
 		this.layoutBody(this.bodyElement.offsetHeight, this.bodyElement.offsetWidth);
@@ -140,8 +137,14 @@ export class AICustomizationOverviewView extends ViewPane {
 			labelElement.textContent = section.label;
 
 			const countElement = DOM.append(sectionElement, $('.section-count'));
-			countElement.textContent = `${section.count}`;
-			this.countElements.set(section.id, countElement);
+
+			// Drive count + aria-label off the shared counts service.
+			const count$ = this.countsService.observeCount(section.id);
+			this._register(autorun(reader => {
+				const count = count$.read(reader);
+				countElement.textContent = `${count}`;
+				sectionElement.setAttribute('aria-label', `${section.label}: ${count} items`);
+			}));
 
 			// Click handler to open the management editor overview
 			this._register(DOM.addDisposableListener(sectionElement, 'click', () => {

@@ -74,10 +74,6 @@ export interface IAICustomizationListItem {
 	readonly status?: 'loading' | 'loaded' | 'degraded' | 'error';
 	/** Human-readable status detail (e.g. error message or warning). */
 	readonly statusMessage?: string;
-	/** When true, this item can be selected for syncing to a remote harness. */
-	readonly syncable?: boolean;
-	/** When true, this syncable item is currently selected for syncing. */
-	readonly synced?: boolean;
 	nameMatches?: IMatch[];
 	descriptionMatches?: IMatch[];
 }

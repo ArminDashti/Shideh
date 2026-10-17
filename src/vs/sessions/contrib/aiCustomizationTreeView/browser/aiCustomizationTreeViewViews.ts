@@ -311,12 +311,10 @@ interface ICachedTypeData {
  */
 class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, AICustomizationTreeItem> {
 	private cache = new Map<PromptsType, ICachedTypeData>();
-	private totalItemCount = 0;
 
 	constructor(
 		private readonly promptsService: IPromptsService,
 		private readonly logService: ILogService,
-		private readonly onItemCountChanged: (count: number) => void,
 	) { }
 
 	/**
@@ -324,7 +322,6 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 	 */
 	clearCache(): void {
 		this.cache.clear();
-		this.totalItemCount = 0;
 	}
 
 	hasChildren(element: RootElement | AICustomizationTreeItem): boolean {
@@ -405,8 +402,6 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 			if (!cached.skills) {
 				const skills = await this.promptsService.findAgentSkills(CancellationToken.None);
 				cached.skills = skills || [];
-				this.totalItemCount += cached.skills.length;
-				this.onItemCountChanged(this.totalItemCount);
 			}
 
 			const workspaceSkills = cached.skills.filter(s => s.storage === PromptsStorage.local);
@@ -456,10 +451,6 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 				[PromptsStorage.extension, extensionItems],
 				[PromptsStorage.builtIn, builtinItems],
 			]);
-
-			const itemCount = allItems.length;
-			this.totalItemCount += itemCount;
-			this.onItemCountChanged(this.totalItemCount);
 		}
 
 		const workspaceItems = cached.files!.get(PromptsStorage.local) || [];
@@ -626,6 +617,7 @@ export class AICustomizationViewPane extends ViewPane {
 		@ILogService private readonly logService: ILogService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAICustomizationWorkspaceService private readonly workspaceService: IAICustomizationWorkspaceService,
+		@ICustomizationCountsService private readonly countsService: ICustomizationCountsService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
@@ -634,6 +626,18 @@ export class AICustomizationViewPane extends ViewPane {
 		this.itemTypeContextKey = AICustomizationItemTypeContextKey.bindTo(contextKeyService);
 		this.itemDisabledContextKey = AICustomizationItemDisabledContextKey.bindTo(contextKeyService);
 		this.itemStorageContextKey = AICustomizationItemStorageContextKey.bindTo(contextKeyService);
+
+		// Drive the empty context key from the shared counts service so the
+		// tree's "empty" badge stays in sync with what the management editor
+		// and sidebar show.
+		const totalCount$ = this.countsService.observeTotalCount([
+			AICustomizationManagementSection.Agents,
+			AICustomizationManagementSection.Skills,
+			AICustomizationManagementSection.Instructions,
+		]);
+		this._register(autorun(reader => {
+			this.isEmptyContextKey.set(totalCount$.read(reader) === 0);
+		}));
 
 		// Subscribe to prompt service events to refresh tree
 		this._register(this.promptsService.onDidChangeCustomAgents(() => this.refresh()));
@@ -662,11 +666,10 @@ export class AICustomizationViewPane extends ViewPane {
 			return;
 		}
 
-		// Create data source with callback for tracking item count
+		// Create data source (empty-state context key is driven by the counts service)
 		this.dataSource = new UnifiedAICustomizationDataSource(
 			this.promptsService,
 			this.logService,
-			(count) => this.isEmptyContextKey.set(count === 0),
 		);
 
 		this.tree = this.treeDisposables.add(this.instantiationService.createInstance(

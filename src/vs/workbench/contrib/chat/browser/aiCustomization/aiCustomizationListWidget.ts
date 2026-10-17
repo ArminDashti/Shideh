@@ -699,9 +699,6 @@ export class AICustomizationListWidget extends Disposable {
 	private readonly _onDidSelectItem = this._register(new Emitter<IAICustomizationListItem>());
 	readonly onDidSelectItem: Event<IAICustomizationListItem> = this._onDidSelectItem.event;
 
-	private readonly _onDidChangeItemCount = this._register(new Emitter<number>());
-	readonly onDidChangeItemCount: Event<number> = this._onDidChangeItemCount.event;
-
 	private readonly _onDidRequestCreate = this._register(new Emitter<PromptsType>());
 	readonly onDidRequestCreate: Event<PromptsType> = this._onDidRequestCreate.event;
 
