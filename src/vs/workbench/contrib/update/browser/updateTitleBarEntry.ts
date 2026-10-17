@@ -342,10 +342,7 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		}
 
 		// Clear previous hint timer
-		if (this.hintTimer !== undefined) {
-			clearTimeout(this.hintTimer);
-			this.hintTimer = undefined;
-		}
+		this._hintTimer.clear();
 
 		dom.clearNode(this.content);
 		this.content.classList.remove('prominent', 'progress-indefinite', 'progress-percent', 'update-disabled', 'hint-visible');
