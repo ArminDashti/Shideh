@@ -57,6 +57,18 @@ pub const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 pub const UPDATE_POLL_INTERVAL: Duration = Duration::from_secs(10 * 60);
 /// How long to wait for the server to signal readiness.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+/// Timeout for the reuse health probe ([`probe_agent_host_responsive`]).
+/// Comfortably exceeds a warm backend dial but is far below the
+/// "wedged forever" failure mode of a stale supervisor stuck
+/// re-downloading its server after an in-place VS Code update.
+pub const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+/// Path the supervisor answers directly — before starting/loading the
+/// backend — so a reuse health probe is cheap and side-effect free.
+pub const AGENT_HOST_HEALTH_PATH: &str = "/_agent_host_health";
+/// Marker header the supervisor sets on its [`AGENT_HOST_HEALTH_PATH`]
+/// response. Lets a probe tell a first-party health answer apart from a
+/// response proxied through to the backend, for diagnostics.
+const AGENT_HOST_HEALTH_HEADER: &str = "x-agent-host-health";
 /// Environment variable carrying the path of the management control
 /// socket the CLI is listening on. Read by the agent host server at
 /// startup; its presence is what tells the server that it has a managing
@@ -945,6 +957,21 @@ pub async fn handle_request(
 	manager: Arc<AgentHostManager>,
 	req: Request<Incoming>,
 ) -> Result<Response<HyperBody>, Infallible> {
+	// Health probe: answer directly, *before* `ensure_server()`, so a
+	// reuse probe is cheap and never triggers an on-demand backend
+	// download/start. A supervisor wedged re-downloading its backend
+	// (e.g. one left over from a previous VS Code build after an in-place
+	// update) would otherwise stall here — which is exactly the signal
+	// `probe_agent_host_responsive` relies on for older supervisors that
+	// predate this endpoint.
+	if req.method() == ::http::Method::GET && req.uri().path() == AGENT_HOST_HEALTH_PATH {
+		return Ok(Response::builder()
+			.status(200)
+			.header(AGENT_HOST_HEALTH_HEADER, "alive")
+			.body(full_body("ok"))
+			.unwrap());
+	}
+
 	let socket_path = match manager.ensure_server().await {
 		Ok(p) => p,
 		Err(e) => {
@@ -2461,6 +2488,65 @@ mod tests {
 			Some(idle_timeout::ActivityEvent::Disconnected)
 		);
 		server.await.unwrap();
+	}
+
+	#[tokio::test]
+	async fn probe_responsive_returns_true() {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let addr = listener.local_addr().unwrap();
+		tokio::spawn(async move {
+			let (mut sock, _) = listener.accept().await.unwrap();
+			let mut buf = [0u8; 1024];
+			let _ = sock.read(&mut buf).await;
+			// Minimal valid HTTP/1.1 response; status is irrelevant to the
+			// probe, which only checks that *some* response arrives.
+			let _ = sock
+				.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n")
+				.await;
+			let _ = sock.flush().await;
+		});
+
+		assert!(
+			probe_agent_host_responsive("127.0.0.1", addr.port(), None, Duration::from_secs(5))
+				.await
+		);
+	}
+
+	#[tokio::test]
+	async fn probe_unresponsive_returns_false() {
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let addr = listener.local_addr().unwrap();
+		tokio::spawn(async move {
+			// Accept the connection but never answer — the signature of a
+			// supervisor wedged re-downloading its backend.
+			let (_sock, _) = listener.accept().await.unwrap();
+			tokio::time::sleep(Duration::from_secs(30)).await;
+		});
+
+		assert!(
+			!probe_agent_host_responsive(
+				"127.0.0.1",
+				addr.port(),
+				None,
+				Duration::from_millis(300)
+			)
+			.await
+		);
+	}
+
+	#[tokio::test]
+	async fn probe_connection_refused_returns_false() {
+		// Bind to claim a free port, then drop the listener so nothing is
+		// accepting on it.
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let addr = listener.local_addr().unwrap();
+		drop(listener);
+
+		assert!(
+			!probe_agent_host_responsive("127.0.0.1", addr.port(), None, Duration::from_secs(2))
+				.await
+		);
 	}
 
 	#[tokio::test]

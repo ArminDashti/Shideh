@@ -665,6 +665,46 @@ async fn replace_existing(
 	Ok(())
 }
 
+/// Like [`classify_agent_host_lockfile`], but health-probes a `Reuse`
+/// candidate before trusting it. A supervisor whose PID is alive yet no
+/// longer answers on its listener — the signature of a process left
+/// running from a previous VS Code build that is wedged re-downloading
+/// its backend after an in-place update — is reaped (killed + lockfile
+/// cleared) and reported as [`AgentHostLockfileDecision::SpawnFresh`] so a
+/// healthy supervisor can take its place.
+///
+/// The probe keys on *responsiveness*, not version, so a supervisor from a
+/// different build that is still serving is preserved (see
+/// [`probe_agent_host_responsive`]).
+async fn resolve_agent_host_reuse(
+	log: &log::Logger,
+	lockfile_path: &Path,
+) -> AgentHostLockfileDecision {
+	let decision = classify_agent_host_lockfile(log, lockfile_path);
+	let AgentHostLockfileDecision::Reuse {
+		pid, host, port, token, ..
+	} = &decision
+	else {
+		return decision;
+	};
+
+	let dial = dial_host(host.as_deref());
+	if probe_agent_host_responsive(dial, *port, token.as_deref(), HEALTH_PROBE_TIMEOUT).await {
+		return decision;
+	}
+
+	warning!(
+		log,
+		"Agent host (PID {}, port {}) is registered but not responding within {}s; \
+		 reaping it and starting fresh",
+		pid,
+		port,
+		HEALTH_PROBE_TIMEOUT.as_secs()
+	);
+	let _ = replace_existing(log, lockfile_path, *pid).await;
+	AgentHostLockfileDecision::SpawnFresh
+}
+
 /// Re-launch the current `code agent host` invocation in a detached
 /// background process with [`SUPERVISOR_ENV`] set, and wait on the
 /// child's stdout for the readiness sentinel before returning. The
