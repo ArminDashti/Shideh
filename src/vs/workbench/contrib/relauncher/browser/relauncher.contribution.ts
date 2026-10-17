@@ -158,6 +158,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 			// macOS: Click through (accept first mouse)
 			processChanged(isMacintosh && this.clickThroughInactive.handleChange(config.window?.clickThroughInactive));
 
+			// macOS: Experimental transparency
+			processChanged(isMacintosh && this.experimentalTransparency.handleChange(config.window?.experimentalTransparency));
+
 			// Windows/Linux: Window controls style
 			processChanged(!isMacintosh && this.controlsStyle.handleChange(config.window?.controlsStyle));
 

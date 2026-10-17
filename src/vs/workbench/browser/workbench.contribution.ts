@@ -870,6 +870,11 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'tags': ['experimental'],
 				'markdownDescription': localize({ key: 'modernUIEditorTabStyle', comment: ['{0} is a placeholder for a setting identifier.'] }, "Controls the editor tab style when {0} is enabled, and the chat and side-panel tab style in the Agents window. High contrast themes retain explicit selection and focus borders.", '`#workbench.experimental.modernUI#`'),
 			},
+			'workbench.experimental.focusDimming.enabled': {
+				'type': 'boolean',
+				'default': false,
+				'description': localize('focusDimming.enabled', "When enabled, dims the sidebar and status bar when focus is in the editor area.")
+			},
 		}
 	});
 

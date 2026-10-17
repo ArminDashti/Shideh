@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/style.css';
+import './media/stealthShadows.css';
 import { registerThemingParticipant } from '../../platform/theme/common/themeService.js';
 import { WORKBENCH_BACKGROUND } from '../common/theme.js';
 import { isIOS } from '../../base/common/platform.js';
