@@ -448,7 +448,7 @@
 		}
 	},
 	{
-		"c": "../../../../build/lib/tsb",
+		"c": "gulp-tsb",
 		"t": "source.js meta.var.expr.js string.quoted.single.js",
 		"r": {
 			"dark_plus": "string: #CE9178",
@@ -4448,7 +4448,7 @@
 		}
 	},
 	{
-		"c": "\t",
+		"c": "    ",
 		"t": "source.js meta.function.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
@@ -4544,7 +4544,7 @@
 		}
 	},
 	{
-		"c": "\t",
+		"c": "    ",
 		"t": "source.js meta.function.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
@@ -4688,7 +4688,7 @@
 		}
 	},
 	{
-		"c": "\t",
+		"c": "    ",
 		"t": "source.js meta.function.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
@@ -5232,7 +5232,7 @@
 		}
 	},
 	{
-		"c": "\t\t",
+		"c": "        ",
 		"t": "source.js meta.function.js meta.block.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
@@ -5488,7 +5488,7 @@
 		}
 	},
 	{
-		"c": "\t",
+		"c": "    ",
 		"t": "source.js meta.function.js meta.block.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
@@ -5520,7 +5520,7 @@
 		}
 	},
 	{
-		"c": "\t",
+		"c": "    ",
 		"t": "source.js meta.function.js meta.block.js",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
