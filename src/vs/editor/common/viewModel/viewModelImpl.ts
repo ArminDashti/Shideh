@@ -1201,8 +1201,8 @@ export class ViewModel extends Disposable implements IViewModel {
 		this._withViewEventsCollector(eventsCollector => this._cursor.restoreState(eventsCollector, states));
 	}
 
-	private _executeCursorEdit(callback: (eventsCollector: ViewModelEventsCollector) => void): void {
-		if (this._cursor.context.cursorConfig.readOnly) {
+	private _executeCursorEdit(callback: (eventsCollector: ViewModelEventsCollector) => void, overrideReadOnly: boolean = true): void {
+		if (this._cursor.context.cursorConfig.readOnly && overrideReadOnly) {
 			// we cannot edit when read only...
 			this._eventDispatcher.emitOutgoingEvent(new ReadOnlyEditAttemptEvent());
 			return;

@@ -41,12 +41,8 @@ import { BulkEditPreviewProvider, BulkFileOperation, BulkFileOperations, BulkFil
 import { BulkEditAccessibilityProvider, BulkEditDataSource, BulkEditDelegate, BulkEditElement, BulkEditIdentityProvider, BulkEditNaviLabelProvider, BulkEditSorter, CategoryElement, CategoryElementRenderer, compareBulkFileOperations, FileElement, FileElementRenderer, TextEditElement, TextEditElementRenderer } from './bulkEditTree.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 
-const enum State {
-	Data = 'data',
-	Message = 'message'
-}
-
-export class BulkEditPane extends ViewPane {
+// No longer needs to be a view pane. Since it's now just a simple HTML embedded element.
+export class BulkEditTreeView extends Disposable {
 
 	static readonly ID = 'refactorPreview';
 	static readonly Schema = 'vscode-bulkeditpreview-multieditor';
@@ -60,7 +56,6 @@ export class BulkEditPane extends ViewPane {
 	private _tree!: WorkbenchAsyncDataTree<BulkFileOperations, BulkEditElement, FuzzyScore>;
 	private _treeDataSource!: BulkEditDataSource;
 	private _treeViewStates = new Map<boolean, IAsyncDataTreeViewState>();
-	private _message!: HTMLSpanElement;
 
 	private readonly _ctxHasCategories: IContextKey<boolean>;
 	private readonly _ctxGroupByFile: IContextKey<boolean>;
@@ -73,11 +68,8 @@ export class BulkEditPane extends ViewPane {
 	private _currentProvider?: BulkEditPreviewProvider;
 
 	constructor(
-		options: IViewletViewOptions,
 		@IInstantiationService private readonly _instaService: IInstantiationService,
-		@IEditorService private readonly _editorService: IEditorService,
 		@ILabelService private readonly _labelService: ILabelService,
-		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IDialogService private readonly _dialogService: IDialogService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -101,6 +93,9 @@ export class BulkEditPane extends ViewPane {
 		this._ctxHasCheckedChanges = BulkEditPane.ctxHasCheckedChanges.bindTo(contextKeyService);
 	}
 
+	private readonly _onDidTreeOpen = this._register(new Emitter<IOpenEvent<BulkEditElement | undefined>>());
+	public readonly onDidTreeOpen = this._onDidTreeOpen.event;
+
 	override dispose(): void {
 		this._tree.dispose();
 		this._disposables.dispose();
@@ -108,9 +103,17 @@ export class BulkEditPane extends ViewPane {
 		super.dispose();
 	}
 
-	protected override renderBody(parent: HTMLElement): void {
-		super.renderBody(parent);
+	public focus(): void {
+		this._parent?.focus();
+	}
 
+	public getHeight(): number {
+		return this._parent?.clientHeight ?? 0;
+	}
+
+	public renderBody(parent: HTMLElement): void {
+
+		this._parent = parent;
 		const resourceLabels = this._instaService.createInstance(
 			ResourceLabels,
 			{ onDidChangeVisibility: this.onDidChangeBodyVisibility }
@@ -118,15 +121,17 @@ export class BulkEditPane extends ViewPane {
 		this._disposables.add(resourceLabels);
 
 		const contentContainer = document.createElement('div');
-		contentContainer.className = 'content';
-		parent.appendChild(contentContainer);
+		this._contentContainer = contentContainer;
+		this._contentContainer.className = 'content';
+		parent.appendChild(this._contentContainer);
 
 		// tree
 		const treeContainer = document.createElement('div');
-		contentContainer.appendChild(treeContainer);
+		treeContainer.className = 'tree-refactor-preview-class';
+		this._contentContainer.appendChild(treeContainer);
 
 		this._treeDataSource = this._instaService.createInstance(BulkEditDataSource);
-		this._treeDataSource.groupByFile = this._storageService.getBoolean(BulkEditPane._memGroupByFile, StorageScope.PROFILE, true);
+		this._treeDataSource.groupByFile = this._storageService.getBoolean(BulkEditTreeView._memGroupByFile, StorageScope.PROFILE, true);
 		this._ctxGroupByFile.set(this._treeDataSource.groupByFile);
 
 		this._tree = this._instaService.createInstance(
@@ -144,14 +149,22 @@ export class BulkEditPane extends ViewPane {
 				selectionNavigation: true
 			}
 		);
+		this._tree.layout(500, 500);
 
 		this._disposables.add(this._tree.onContextMenu(this._onContextMenu, this));
-		this._disposables.add(this._tree.onDidOpen(e => this._openElementInMultiDiffEditor(e)));
+		this._disposables.add(this._tree.onDidOpen(e => {
+			console.log('inside of tree on did open, with e : ', e);
+			this._onDidTreeOpen.fire(e);
+		}));
 
 		// buttons
 		const buttonsContainer = document.createElement('div');
 		buttonsContainer.className = 'buttons';
-		contentContainer.appendChild(buttonsContainer);
+		buttonsContainer.style.paddingBottom = '6px';
+		buttonsContainer.style.height = '30px';
+		buttonsContainer.style.minHeight = '30px';
+		buttonsContainer.style.bottom = '0px';
+		this._contentContainer.appendChild(buttonsContainer);
 		const buttonBar = new ButtonBar(buttonsContainer);
 		this._disposables.add(buttonBar);
 
@@ -163,29 +176,58 @@ export class BulkEditPane extends ViewPane {
 		btnCancel.label = localize('cancel', 'Discard');
 		btnCancel.onDidClick(() => this.discard(), this, this._disposables);
 
-		// message
-		this._message = document.createElement('span');
-		this._message.className = 'message';
-		this._message.innerText = localize('empty.msg', "Invoke a code action, like rename, to see a preview of its changes here.");
-		parent.appendChild(this._message);
-
-		//
-		this._setState(State.Message);
+		// Adding the sash
+		this._sash = new Sash(parent, {
+			getHorizontalSashTop: () => (parent.clientHeight + buttonsContainer.clientHeight) ?? 0
+		}, { orientation: Orientation.HORIZONTAL, orthogonalEdge: OrthogonalEdge.South });
+		this._sash.state = SashState.Enabled;
+		this._sash.onDidStart(() => {
+			if (this._currentHeight === undefined) {
+				this._currentHeight = parent.clientHeight;
+			}
+		});
+		this._sash.onDidEnd(() => {
+			if (this._currentHeight !== undefined) {
+				this._currentHeight = undefined;
+			}
+		});
+		this._sash.onDidChange(e => {
+			if (this._currentHeight) {
+				const deltaY = e.currentY - e.startY;
+				const heightOfParent = this._currentHeight + deltaY;
+				// We don't want to resize down more than the height of the button bar
+				if (heightOfParent > 30) {
+					parent.style.height = `${heightOfParent}px`;
+					contentContainer.style.height = `${heightOfParent}px`;
+					treeContainer.style.height = `${heightOfParent - 36}px`;
+					this._tree.layout(heightOfParent - 36, parent.clientWidth);
+					this._sash?.layout();
+					this._onSashMoved.fire();
+				}
+			}
+		});
+		this._sash.layout();
 	}
 
-	protected override layoutBody(height: number, width: number): void {
-		super.layoutBody(height, width);
+	layoutBody(height: number, width: number): void {
 		const treeHeight = height - 50;
 		this._tree.getHTMLElement().parentElement!.style.height = `${treeHeight}px`;
 		this._tree.layout(treeHeight, width);
+
+		// Setting also the appropriate height on the tree and the content container
+		if (this._contentContainer && this._parent) {
+			this._contentContainer.style.height = `${height}px`;
+			this._parent.style.height = `${height}px`;
+		}
+		this._sash?.layout();
 	}
 
 	private _setState(state: State): void {
 		this.element.dataset.state = state;
 	}
 
-	async setInput(edit: ResourceEdit[], token: CancellationToken): Promise<ResourceEdit[] | undefined> {
-		this._setState(State.Data);
+	async setInput(edit: IResourceEdit[], token: CancellationToken): Promise<ResourceEdit[] | undefined> {
+		console.log('inside of setInput of bulk edit tree view');
 		this._sessionDisposables.clear();
 		this._treeViewStates.clear();
 
@@ -206,6 +248,7 @@ export class BulkEditPane extends ViewPane {
 		this._ctxHasCheckedChanges.set(input.checked.checkedCount > 0);
 
 		this._currentInput = input;
+		this._sash?.layout();
 
 		return new Promise<ResourceEdit[] | undefined>(resolve => {
 
@@ -214,12 +257,17 @@ export class BulkEditPane extends ViewPane {
 			this._currentResolve = resolve;
 			this._setTreeInput(input);
 
-			// refresh when check state changes
-			this._sessionDisposables.add(input.checked.onDidChange(() => {
+			this._sessionDisposables.add(input.checked.onDidChange(async (e) => {
+				console.log('when input checked state changed');
 				this._tree.updateChildren();
 				this._ctxHasCheckedChanges.set(input.checked.checkedCount > 0);
+				this._onToggleChecked.fire(e);
 			}));
 		});
+	}
+
+	isResourceChecked(e: ResourceEdit): boolean {
+		return this._currentInput?.checked.isChecked(e) ?? false;
 	}
 
 	hasInput(): boolean {
@@ -274,9 +322,9 @@ export class BulkEditPane extends ViewPane {
 	}
 
 	private _done(accept: boolean): void {
+		console.log('inside of _done, accept : ', accept);
 		this._currentResolve?.(accept ? this._currentInput?.getWorkspaceEdit() : undefined);
 		this._currentInput = undefined;
-		this._setState(State.Message);
 		this._sessionDisposables.clear();
 	}
 
@@ -314,7 +362,7 @@ export class BulkEditPane extends ViewPane {
 			this._setTreeInput(input);
 
 			// (3) remember preference
-			this._storageService.store(BulkEditPane._memGroupByFile, this._treeDataSource.groupByFile, StorageScope.PROFILE, StorageTarget.USER);
+			this._storageService.store(BulkEditTreeView._memGroupByFile, this._treeDataSource.groupByFile, StorageScope.PROFILE, StorageTarget.USER);
 			this._ctxGroupByFile.set(this._treeDataSource.groupByFile);
 		}
 	}
@@ -414,7 +462,7 @@ export class BulkEditPane extends ViewPane {
 
 		this._contextMenuService.showContextMenu({
 			menuId: MenuId.BulkEditContext,
-			contextKeyService: this.contextKeyService,
+			contextKeyService: this._contextKeyService,
 			getAnchor: () => e.anchor
 		});
 	}

@@ -580,7 +580,7 @@ function registerOpenEditorAPICommands(): void {
 			});
 		}
 
-		await editorService.openEditor({ resources: editor, label: title });
+		await editorService.openEditor({ diffResources: editor, label: title });
 	});
 
 	CommandsRegistry.registerCommand('_workbench.openMultiDiffEditor', async (accessor: ServicesAccessor, options: OpenMultiFileDiffEditorOptions) => {

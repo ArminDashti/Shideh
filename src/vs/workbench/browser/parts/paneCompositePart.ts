@@ -502,6 +502,7 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 	}
 
 	async openPaneComposite(id?: string, focus?: boolean): Promise<PaneComposite | undefined> {
+		console.log('openPaneComposite');
 		if (typeof id === 'string' && this.getPaneComposite(id)) {
 			return this.doOpenPaneComposite(id, focus);
 		}

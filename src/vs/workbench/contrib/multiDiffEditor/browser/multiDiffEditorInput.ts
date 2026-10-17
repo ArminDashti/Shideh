@@ -174,6 +174,10 @@ export class MultiDiffEditorInput extends EditorInput implements ILanguageSuppor
 		}));
 	}
 
+	protected getLabel(): string {
+		return localize('name', "Multi Diff Editor");
+	}
+
 	public serialize(): ISerializedMultiDiffEditorInput {
 		return {
 			label: this.label,

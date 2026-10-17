@@ -314,6 +314,8 @@ export type DiffEditorInputFactoryFunction = (diffEditorInput: IResourceDiffEdit
 
 export type MultiDiffEditorInputFactoryFunction = (multiDiffEditorInput: IResourceMultiDiffEditorInput, group: IEditorGroup) => EditorInputFactoryResult;
 
+export type RefactorPreviewInputFactoryFunction = (refactorPreviewInput: IResourceBulkEditEditorInput, group: IEditorGroup) => EditorInputFactoryResult;
+
 export type MergeEditorInputFactoryFunction = (mergeEditorInput: IResourceMergeEditorInput, group: IEditorGroup) => EditorInputFactoryResult;
 
 type EditorInputFactories = {

@@ -818,6 +818,15 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 			return { editor: inputWithOptions.editor, options: inputWithOptions.options ?? options };
 		}
 
+		// If it's a refactor preview editor we trigger the create refactor preview editor input
+		if (isResourceBulkEditEditorInput(editor)) {
+			if (!selectedEditor.editorFactoryObject.createBulkEditorInput) {
+				return;
+			}
+			const inputWithOptions = await selectedEditor.editorFactoryObject.createBulkEditorInput(editor, group);
+			return { editor: inputWithOptions.editor, options: inputWithOptions.options ?? options };
+		}
+
 		if (isResourceSideBySideEditorInput(editor)) {
 			throw new Error(`Untyped side by side editor input not supported here.`);
 		}

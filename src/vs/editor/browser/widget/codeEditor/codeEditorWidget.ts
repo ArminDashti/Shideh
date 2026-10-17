@@ -1345,7 +1345,7 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		if (!this._modelData) {
 			return false;
 		}
-		if (this._configuration.options.get(EditorOption.readOnly)) {
+		if (this._configuration.options.get(EditorOption.readOnly) && overrideReadOnly) {
 			// read only editor => sorry!
 			return false;
 		}

@@ -110,7 +110,7 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 	}
 
 	protected openComposite(id: string, focus?: boolean): Composite | undefined {
-
+		console.log('inside of open composite');
 		// Check if composite already visible and just focus in that case
 		if (this.activeComposite?.getId() === id) {
 			if (focus) {
@@ -131,6 +131,7 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 	}
 
 	private doOpenComposite(id: string, focus: boolean = false): Composite | undefined {
+		console.log('inside of doOpenComposite');
 
 		// Use a generated token to avoid race conditions from long running promises
 		const currentCompositeOpenToken = defaultGenerator.nextId();
@@ -177,6 +178,7 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 	}
 
 	protected createComposite(id: string, isActive?: boolean): Composite {
+		console.log('inside of create composite');
 
 		// Check if composite is already created
 		const compositeItem = this.instantiatedCompositeItems.get(id);
@@ -215,6 +217,7 @@ export abstract class CompositePart<T extends Composite, MementoType extends obj
 	}
 
 	protected showComposite(composite: Composite): void {
+		console.log('inside of showComposite');
 
 		// Remember Composite
 		this.activeComposite = composite;

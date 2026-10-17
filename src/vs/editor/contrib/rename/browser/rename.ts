@@ -270,7 +270,7 @@ class RenameController implements IEditorContribution {
 
 		// no result, only hint to focus the editor or not
 		if (typeof inputFieldResult === 'boolean') {
-			trace(`returning early - rename input field response - ${inputFieldResult}`);
+			trace(`returning early - rename input field response - ${inputFieldResult} `);
 			if (inputFieldResult) {
 				this.editor.focus();
 			}
@@ -293,7 +293,7 @@ class RenameController implements IEditorContribution {
 			}
 
 			if (renameResult.rejectReason) {
-				trace(`returning early - rejected with reason: ${renameResult.rejectReason}`);
+				trace(`returning early - rejected with reason: ${renameResult.rejectReason} `);
 				this._notificationService.info(renameResult.rejectReason);
 				return;
 			}
@@ -317,7 +317,7 @@ class RenameController implements IEditorContribution {
 					alert(nls.localize('aria', "Successfully renamed '{0}' to '{1}'. Summary: {2}", loc.text, inputFieldResult.newName, result.ariaSummary));
 				}
 			}).catch(err => {
-				trace(`error when applying edits ${JSON.stringify(err, null, '\t')}`);
+				trace(`error when applying edits ${JSON.stringify(err, null, '\t')} `);
 				this._notificationService.error(nls.localize('rename.failedApply', "Rename failed to apply edits"));
 				this._logService.error(err);
 			});

@@ -15,6 +15,7 @@ import { CancellationToken } from '../../../base/common/cancellation.js';
 import { TextModelEditSource } from '../../common/textModelEditSource.js';
 
 export const IBulkEditService = createDecorator<IBulkEditService>('IWorkspaceEditService');
+export const IBulkEditEditorService = createDecorator<IBulkEditEditorService>('IWorkspaceEditEditorService');
 
 export class ResourceEdit {
 
@@ -123,4 +124,25 @@ export interface IBulkEditService {
 	setPreviewHandler(handler: IBulkEditPreviewHandler): IDisposable;
 
 	apply(edit: ResourceEdit[] | WorkspaceEdit, options?: IBulkEditOptions): Promise<IBulkEditResult>;
+}
+
+export interface IBulkEditEditorService {
+
+	readonly _serviceBrand: undefined;
+
+	openBulkEditEditor(edits: ResourceEdit[]): Promise<ResourceEdit[] | undefined>;
+
+	hasInput(): boolean;
+
+	accept(): void;
+
+	discard(): void;
+
+	toggleChecked(): void;
+
+	groupByFile(): void;
+
+	groupByType(): void;
+
+	toggleGrouping(): void;
 }

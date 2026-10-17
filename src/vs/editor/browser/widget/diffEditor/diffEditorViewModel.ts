@@ -212,6 +212,9 @@ export class DiffEditorViewModel extends Disposable implements IDiffEditorViewMo
 				newUnchangedRegions2.map(r => ({ range: r.modifiedUnchangedRange.toInclusiveRange()!, options: { description: 'unchanged' } }))
 			);
 
+			console.log('originalDecorationIds : ', originalDecorationIds);
+			console.log('modifiedDecorationIds : ', modifiedDecorationIds);
+
 			this._unchangedRegions.set(
 				{
 					regions: newUnchangedRegions2,
@@ -307,6 +310,8 @@ export class DiffEditorViewModel extends Disposable implements IDiffEditorViewMo
 			result = normalizeDocumentDiff(result, model.original, model.modified);
 			result = applyOriginalEdits(result, originalTextEditInfos, model.original, model.modified) ?? result;
 			result = applyModifiedEdits(result, modifiedTextEditInfos, model.original, model.modified) ?? result;
+
+			console.log('result : ', result);
 
 			transaction(tx => {
 				/** @description write diff result */

@@ -288,15 +288,18 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 	}
 
 	openEditor(candidate: EditorInput, options?: IEditorOpenOptions): IEditorOpenResult {
+		console.log('inside of openEditor of EditorGroupModel');
 		const makeSticky = options?.sticky || (typeof options?.index === 'number' && this.isSticky(options.index));
 		const makePinned = options?.pinned || options?.sticky;
 		const makeTransient = !!options?.transient;
 		const makeActive = options?.active || !this.activeEditor || (!makePinned && this.preview === this.activeEditor);
 
 		const existingEditorAndIndex = this.findEditor(candidate, options);
+		console.log('existingEditorAndIndex : ', existingEditorAndIndex);
 
 		// New editor
 		if (!existingEditorAndIndex) {
+			console.log('need to create a new edior');
 			const newEditor = candidate;
 			const indexOfActive = this.indexOf(this.active);
 
@@ -376,6 +379,7 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 						targetIndex--; // accommodate for the fact that the preview editor closes
 					}
 
+					console.log('inside of replaceEditor');
 					this.replaceEditor(this.preview, newEditor, targetIndex, !makeActive);
 				}
 
@@ -492,6 +496,7 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 	}
 
 	private replaceEditor(toReplace: EditorInput, replaceWith: EditorInput, replaceIndex: number, openNext = true): void {
+		console.log('inside of replaceEditor');
 		const closeResult = this.doCloseEditor(toReplace, EditorCloseContext.REPLACE, openNext); // optimization to prevent multiple setActive() in one call
 
 		// We want to first add the new editor into our model before emitting the close event because
@@ -525,8 +530,13 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 	}
 
 	private doCloseEditor(candidate: EditorInput, context: EditorCloseContext, openNext: boolean): IEditorCloseResult | undefined {
+		console.log('doCloseEditor');
+		console.log('candidate : ', candidate);
+
 		const index = this.indexOf(candidate);
 		if (index === -1) {
+			console.log('inside of first if statement');
+
 			return undefined; // not found
 		}
 
@@ -1102,7 +1112,11 @@ export class EditorGroupModel extends Disposable implements IEditorGroupModel {
 	}
 
 	private matches(editor: EditorInput | null | undefined, candidate: EditorInput | IUntypedEditorInput | null, options?: IMatchEditorOptions): boolean {
+		console.log('inside of matches of editor group model');
+		console.log('editor : ', editor);
+		console.log('options : ', options);
 		if (!editor || !candidate) {
+			console.log('early false return');
 			return false;
 		}
 

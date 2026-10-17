@@ -1177,6 +1177,8 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 	//#region openEditor()
 
 	async openEditor(editor: EditorInput, options?: IEditorOptions, internalOptions?: IInternalEditorOpenOptions): Promise<IEditorPane | undefined> {
+		console.log('editor : ', editor);
+		console.log('options : ', options);
 		return this.doOpenEditor(editor, options, {
 			// Appply given internal open options
 			...internalOptions,
@@ -1188,6 +1190,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 	}
 
 	private async doOpenEditor(editor: EditorInput, options?: IEditorOptions, internalOptions?: IInternalEditorOpenOptions): Promise<IEditorPane | undefined> {
+		console.log('inside of doOpenEditor');
 
 		// Guard against invalid editors. Disposed editors
 		// should never open because they emit no events
@@ -1259,6 +1262,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		// the model. It is possible that the editor was already opened and we
 		// want to ensure that we use the existing instance in that case.
 		const { editor: openedEditor, isNew } = this.model.openEditor(editor, openEditorOptions);
+		console.log('openedEditor : ', openedEditor);
 
 		// Conditionally lock the group
 		if (
@@ -1286,6 +1290,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 	}
 
 	private doShowEditor(editor: EditorInput, context: { active: boolean; isNew: boolean }, options?: IEditorOptions, internalOptions?: IInternalEditorOpenOptions): Promise<IEditorPane | undefined> {
+		console.log('inside of doShowEditor');
 
 		// Show in editor control if the active editor changed
 		let openEditorPromise: Promise<IEditorPane | undefined>;

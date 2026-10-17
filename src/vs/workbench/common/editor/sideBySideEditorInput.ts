@@ -288,7 +288,8 @@ export class SideBySideEditorInput extends EditorInput implements ISideBySideEdi
 			!isResourceDiffEditorInput(primaryResourceEditorInput) && !isResourceDiffEditorInput(secondaryResourceEditorInput) &&
 			!isResourceMultiDiffEditorInput(primaryResourceEditorInput) && !isResourceMultiDiffEditorInput(secondaryResourceEditorInput) &&
 			!isResourceSideBySideEditorInput(primaryResourceEditorInput) && !isResourceSideBySideEditorInput(secondaryResourceEditorInput) &&
-			!isResourceMergeEditorInput(primaryResourceEditorInput) && !isResourceMergeEditorInput(secondaryResourceEditorInput)
+			!isResourceMergeEditorInput(primaryResourceEditorInput) && !isResourceMergeEditorInput(secondaryResourceEditorInput) &&
+			!isResourceBulkEditEditorInput(primaryResourceEditorInput) && !isResourceBulkEditEditorInput(secondaryResourceEditorInput)
 		) {
 			const untypedInput: IResourceSideBySideEditorInput = {
 				label: this.preferredName,

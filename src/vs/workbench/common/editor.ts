@@ -642,6 +642,22 @@ export function isResourceMultiDiffEditorInput(editor: unknown): editor is IReso
 	return !!candidate.resources || !!candidate.multiDiffSource;
 }
 
+export function isResourceBulkEditEditorInput(editor: unknown): editor is IResourceBulkEditEditorInput {
+	if (isEditorInput(editor)) {
+		return false; // make sure to not accidentally match on typed editor inputs
+	}
+
+	const candidate = editor as IResourceBulkEditEditorInput | undefined;
+	if (!candidate) {
+		return false;
+	}
+	if (candidate.diffResources && !Array.isArray(candidate.diffResources)) {
+		return false;
+	}
+
+	return !!candidate.diffResources || !!candidate.refactorPreviewSource;
+}
+
 export function isResourceSideBySideEditorInput(editor: unknown): editor is IResourceSideBySideEditorInput {
 	if (isEditorInput(editor)) {
 		return false; // make sure to not accidentally match on typed editor inputs
@@ -883,7 +899,7 @@ export const enum EditorInputCapabilities {
 	CannotClose = 1 << 13
 }
 
-export type IUntypedEditorInput = IResourceEditorInput | ITextResourceEditorInput | IUntitledTextResourceEditorInput | IResourceDiffEditorInput | IResourceMultiDiffEditorInput | IResourceSideBySideEditorInput | IResourceMergeEditorInput;
+export type IUntypedEditorInput = IResourceEditorInput | ITextResourceEditorInput | IUntitledTextResourceEditorInput | IResourceDiffEditorInput | IResourceMultiDiffEditorInput | IResourceSideBySideEditorInput | IResourceMergeEditorInput | IResourceBulkEditEditorInput;
 
 export abstract class AbstractEditorInput extends Disposable {
 	// Marker class for implementing `isEditorInput`

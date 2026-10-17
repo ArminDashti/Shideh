@@ -98,9 +98,9 @@ class BulkEditPreviewContribution {
 
 	constructor(
 		@IPaneCompositePartService private readonly _paneCompositeService: IPaneCompositePartService,
-		@IViewsService private readonly _viewsService: IViewsService,
 		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IDialogService private readonly _dialogService: IDialogService,
+		@IBulkEditEditorService private readonly _bulkEditEditorService: IBulkEditEditorService,
 		@IBulkEditService bulkEditService: IBulkEditService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
@@ -112,14 +112,9 @@ class BulkEditPreviewContribution {
 		this._ctxEnabled.set(true);
 
 		const uxState = this._activeSession?.uxState ?? new UXState(this._paneCompositeService, this._editorGroupsService);
-		const view = await getBulkEditPane(this._viewsService);
-		if (!view) {
-			this._ctxEnabled.set(false);
-			return edits;
-		}
 
 		// check for active preview session and let the user decide
-		if (view.hasInput()) {
+		if (this._bulkEditEditorService.hasInput()) {
 			const { confirmed } = await this._dialogService.confirm({
 				type: Severity.Info,
 				message: localize('overlap', "Another refactoring is being previewed."),
@@ -146,7 +141,7 @@ class BulkEditPreviewContribution {
 		// the actual work...
 		try {
 
-			return await view.setInput(edits, session.cts.token) ?? [];
+			return await this._bulkEditEditorService.openBulkEditEditor(edits) ?? [];
 
 		} finally {
 			// restore UX state
@@ -170,7 +165,7 @@ registerAction2(class ApplyAction extends Action2 {
 			title: localize2('apply', "Apply Refactoring"),
 			category: localize2('cat', "Refactor Preview"),
 			icon: Codicon.check,
-			precondition: ContextKeyExpr.and(BulkEditPreviewContribution.ctxEnabled, BulkEditPane.ctxHasCheckedChanges),
+			precondition: ContextKeyExpr.and(BulkEditPreviewContribution.ctxEnabled, BulkEditTreeView.ctxHasCheckedChanges),
 			menu: [{
 				id: MenuId.BulkEditContext,
 				order: 1
@@ -208,9 +203,8 @@ registerAction2(class DiscardAction extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const viewsService = accessor.get(IViewsService);
-		const view = await getBulkEditPane(viewsService);
-		view?.discard();
+		const bulkEditEditorService = accessor.get(IBulkEditEditorService);
+		bulkEditEditorService.discard();
 	}
 });
 
@@ -237,9 +231,8 @@ registerAction2(class ToggleAction extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const viewsService = accessor.get(IViewsService);
-		const view = await getBulkEditPane(viewsService);
-		view?.toggleChecked();
+		const bulkEditEditorService = accessor.get(IBulkEditEditorService);
+		bulkEditEditorService.toggleChecked();
 	}
 });
 
@@ -253,10 +246,10 @@ registerAction2(class GroupByFile extends Action2 {
 			title: localize2('groupByFile', "Group Changes By File"),
 			category: localize2('cat', "Refactor Preview"),
 			icon: Codicon.ungroupByRefType,
-			precondition: ContextKeyExpr.and(BulkEditPane.ctxHasCategories, BulkEditPane.ctxGroupByFile.negate(), BulkEditPreviewContribution.ctxEnabled),
+			precondition: ContextKeyExpr.and(BulkEditTreeView.ctxHasCategories, BulkEditTreeView.ctxGroupByFile.negate(), BulkEditPreviewContribution.ctxEnabled),
 			menu: [{
 				id: MenuId.BulkEditTitle,
-				when: ContextKeyExpr.and(BulkEditPane.ctxHasCategories, BulkEditPane.ctxGroupByFile.negate()),
+				when: ContextKeyExpr.and(BulkEditTreeView.ctxHasCategories, BulkEditTreeView.ctxGroupByFile.negate()),
 				group: 'navigation',
 				order: 3,
 			}]
@@ -264,9 +257,8 @@ registerAction2(class GroupByFile extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const viewsService = accessor.get(IViewsService);
-		const view = await getBulkEditPane(viewsService);
-		view?.groupByFile();
+		const bulkEditEditorService = accessor.get(IBulkEditEditorService);
+		bulkEditEditorService.groupByFile();
 	}
 });
 
@@ -278,10 +270,10 @@ registerAction2(class GroupByType extends Action2 {
 			title: localize2('groupByType', "Group Changes By Type"),
 			category: localize2('cat', "Refactor Preview"),
 			icon: Codicon.groupByRefType,
-			precondition: ContextKeyExpr.and(BulkEditPane.ctxHasCategories, BulkEditPane.ctxGroupByFile, BulkEditPreviewContribution.ctxEnabled),
+			precondition: ContextKeyExpr.and(BulkEditTreeView.ctxHasCategories, BulkEditTreeView.ctxGroupByFile, BulkEditPreviewContribution.ctxEnabled),
 			menu: [{
 				id: MenuId.BulkEditTitle,
-				when: ContextKeyExpr.and(BulkEditPane.ctxHasCategories, BulkEditPane.ctxGroupByFile),
+				when: ContextKeyExpr.and(BulkEditTreeView.ctxHasCategories, BulkEditTreeView.ctxGroupByFile),
 				group: 'navigation',
 				order: 3
 			}]
@@ -289,9 +281,8 @@ registerAction2(class GroupByType extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const viewsService = accessor.get(IViewsService);
-		const view = await getBulkEditPane(viewsService);
-		view?.groupByType();
+		const bulkEditEditorService = accessor.get(IBulkEditEditorService);
+		bulkEditEditorService.groupByType();
 	}
 });
 
@@ -303,8 +294,8 @@ registerAction2(class ToggleGrouping extends Action2 {
 			title: localize2('groupByType', "Group Changes By Type"),
 			category: localize2('cat', "Refactor Preview"),
 			icon: Codicon.listTree,
-			toggled: BulkEditPane.ctxGroupByFile.negate(),
-			precondition: ContextKeyExpr.and(BulkEditPane.ctxHasCategories, BulkEditPreviewContribution.ctxEnabled),
+			toggled: BulkEditTreeView.ctxGroupByFile.negate(),
+			precondition: ContextKeyExpr.and(BulkEditTreeView.ctxHasCategories, BulkEditPreviewContribution.ctxEnabled),
 			menu: [{
 				id: MenuId.BulkEditContext,
 				order: 3
@@ -313,34 +304,22 @@ registerAction2(class ToggleGrouping extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const viewsService = accessor.get(IViewsService);
-		const view = await getBulkEditPane(viewsService);
-		view?.toggleGrouping();
+		const bulkEditEditorService = accessor.get(IBulkEditEditorService);
+		bulkEditEditorService.toggleGrouping();
 	}
 });
 
-registerWorkbenchContribution2(
-	BulkEditPreviewContribution.ID, BulkEditPreviewContribution, WorkbenchPhase.BlockRestore
-);
+registerSingleton(IBulkEditEditorService, BulkEditEditorService, InstantiationType.Eager);
 
-const refactorPreviewViewIcon = registerIcon('refactor-preview-view-icon', Codicon.lightbulb, localize('refactorPreviewViewIcon', 'View icon of the refactor preview view.'));
+registerWorkbenchContribution2(BulkEditPreviewContribution.ID, BulkEditPreviewContribution, WorkbenchPhase.BlockRestore);
 
-const container = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
-	id: BulkEditPane.ID,
-	title: localize2('panel', "Refactor Preview"),
-	hideIfEmpty: true,
-	ctorDescriptor: new SyncDescriptor(
-		ViewPaneContainer,
-		[BulkEditPane.ID, { mergeViewWithContainerWhenSingleView: true }]
-	),
-	icon: refactorPreviewViewIcon,
-	storageId: BulkEditPane.ID
-}, ViewContainerLocation.Panel);
+registerWorkbenchContribution2(BulkEditEditorResolverContribution.ID, BulkEditEditorResolverContribution, WorkbenchPhase.BlockStartup);
 
-Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
-	id: BulkEditPane.ID,
-	name: localize2('panel', "Refactor Preview"),
-	when: BulkEditPreviewContribution.ctxEnabled,
-	ctorDescriptor: new SyncDescriptor(BulkEditPane),
-	containerIcon: refactorPreviewViewIcon,
-}], container);
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane)
+	.registerEditorPane(
+		EditorPaneDescriptor.create(BulkEditEditor, BulkEditEditor.ID, localize('name', "Bulk Edit Editor")),
+		[new SyncDescriptor(BulkEditEditorInput)]
+	);
+
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory)
+	.registerEditorSerializer(BulkEditEditorInput.ID, BulkEditEditorSerializer);

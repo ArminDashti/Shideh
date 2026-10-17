@@ -23,7 +23,7 @@ export class ConflictDetector {
 	readonly onDidConflict: Event<this> = this._onDidConflict.event;
 
 	constructor(
-		edits: ResourceEdit[],
+		edits: IResourceEdit[],
 		@IFileService fileService: IFileService,
 		@IModelService modelService: IModelService,
 		@ILogService logService: ILogService,
