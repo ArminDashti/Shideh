@@ -215,6 +215,8 @@ KeybindingsRegistry.registerKeybindingRule({
 
 const INITIALIZATION_LOADING_DELAY_MS = 500;
 
+const INITIALIZATION_LOADING_DELAY_MS = 500;
+
 export function hasSendableNewChatContent(query: string, attachments: readonly IChatRequestVariableEntry[], hasAdditionalSendContent = false): boolean {
 	return !!query.trim() || attachments.some(isExplicitFileOrImageVariableEntry) || hasAdditionalSendContent;
 }
