@@ -378,6 +378,21 @@ export function resolveConfigChipValue(isUntitled: boolean, serverValue: unknown
 }
 
 /**
+ * Per-chip rendering behavior. Today the only knob is whether the chip
+ * label should always include the schema title (e.g. `Sandbox Workspace
+ * Write`) instead of bare values (e.g. `Workspace Write`). Dedicated
+ * chips have icons and short value labels so they read well on their own;
+ * generic chips don't, so they opt in to title-prefixed labels.
+ */
+export interface IAgentHostChatInputPickerOptions {
+	readonly labelStyle?: 'value' | 'titledValue';
+}
+
+const DEFAULT_PICKER_OPTIONS: Required<IAgentHostChatInputPickerOptions> = {
+	labelStyle: 'value',
+};
+
+/**
  * One workbench chat-input chip bound to a single agent-host session-config
  * property. Used both for dedicated well-known property chips
  * (`SessionConfigKey.Mode`, `.AutoApprove`) and for generic per-property chips
@@ -401,6 +416,7 @@ export class AgentHostChatInputPicker extends Disposable {
 	constructor(
 		private readonly _widget: IChatWidget,
 		private readonly _property: string,
+		private readonly _options: IAgentHostChatInputPickerOptions = DEFAULT_PICKER_OPTIONS,
 		@IAgentHostService private readonly _agentHostService: IAgentHostService,
 		@IActionWidgetService private readonly _actionWidgetService: IActionWidgetService,
 		@IHoverService private readonly _hoverService: IHoverService,

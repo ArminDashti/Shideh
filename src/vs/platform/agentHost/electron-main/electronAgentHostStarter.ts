@@ -127,6 +127,17 @@ export class ElectronAgentHostStarter extends Disposable implements IAgentHostSt
 			claudeAgentEnabled: this._configurationService.getValue<boolean>(AgentHostClaudeAgentEnabledSettingId),
 		}, process.env);
 
+		// Codex agent is opt-in via `chat.agentHost.codexAgent.path` for the same
+		// reason as Claude: the SDK ships a ~190MB native binary per platform that
+		// we don't want to bundle with VS Code.
+		const codexSdkPath = this._configurationService.getValue<string>(AgentHostCodexAgentSdkPathSettingId)
+			|| process.env[AgentHostCodexSdkPathEnvVar]
+			|| '';
+
+		// Optional TCP WebSocket port for AHP clients (e.g. ahpx). Off by default.
+		const devWsPort = this._configurationService.getValue<number>(AgentHostDevWebSocketPortSettingId);
+		const devWsPortEnv = devWsPort && devWsPort > 0 ? String(devWsPort) : '';
+
 		// Translate `chat.agentHost.otel.*` settings into the env vars consumed by
 		// the agent host process. Any value already present on `process.env` wins
 		// for user settings, while enterprise policy values win over inherited env —

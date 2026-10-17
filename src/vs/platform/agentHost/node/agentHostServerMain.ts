@@ -230,6 +230,14 @@ async function main(): Promise<void> {
 			providerService.registerProvider(instantiationService.createInstance(ClaudeAgent));
 			log('ClaudeAgent registered');
 		}
+		if (options.codexSdkPath) {
+			// `CodexAgentSdkService` reads `AgentHostCodexSdkPathEnvVar` directly,
+			// so make sure it is set even if the path was provided via CLI flag.
+			process.env[AgentHostCodexSdkPathEnvVar] = options.codexSdkPath;
+			const codexAgent = disposables.add(instantiationService.createInstance(CodexAgent));
+			agentService.registerProvider(codexAgent);
+			log('CodexAgent registered');
+		}
 	}
 
 	// Surface agent-SDK download progress to clients as generic `progress`

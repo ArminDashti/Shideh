@@ -26,6 +26,25 @@ import { resolveAgentHostChatSession, toAgentHostBackendSessionUri } from './age
 import { retrySessionConfigSubscriptionOnCreation } from './agentHostSessionConfigSubscription.js';
 
 /**
+ * Visual ordering rank for generic chips. Lower numbers render leftmost.
+ * Properties not listed here keep their schema-declared order and sort
+ * after any explicitly ranked ones.
+ *
+ * Codex chips are ordered so always-visible knobs (sandbox, approvals,
+ * web search) sit on the left, and the chips that only render under
+ * `sandbox=workspace-write` (writable roots, network access) come after.
+ * Hardcoding the property names keeps this widget free of a runtime
+ * dependency on the codex node-side keys.
+ */
+const CHIP_ORDER = new Map<string, number>([
+	['codex.sandboxMode', 0],
+	['codex.approvalPolicy', 1],
+	['codex.webSearchMode', 2],
+	['codex.additionalDirectories', 3],
+	['codex.networkAccessEnabled', 4],
+]);
+
+/**
  * Direct-render chip lane for agent-host session-config properties that are
  * advertised by the agent's schema but are NOT handled by a dedicated
  * well-known picker (e.g. Claude's custom approval-mode property).
@@ -209,7 +228,7 @@ export class AgentHostGenericConfigChips extends Disposable {
 			if (this._chips.has(property)) {
 				continue;
 			}
-			const chip = this._instantiationService.createInstance(AgentHostChatInputPicker, this._widget, property);
+			const chip = this._instantiationService.createInstance(AgentHostChatInputPicker, this._widget, property, { labelStyle: 'titledValue' });
 			// `chat-input-picker-item` matches the class that
 			// `ChatInputPickerActionViewItem` applies to the dedicated
 			// chips' container — required so the secondary-toolbar styling

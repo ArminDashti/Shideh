@@ -85,6 +85,16 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 		}, process.env);
 		Object.assign(env, sdkEnv);
 
+		// Codex agent is opt-in via `chat.agentHost.codexAgent.path` for the same
+		// reason as Claude: the SDK ships a ~190MB native binary per platform that
+		// we don't want to bundle with VS Code.
+		const codexSdkPath = this._configurationService.getValue<string>(AgentHostCodexAgentSdkPathSettingId)
+			|| process.env[AgentHostCodexSdkPathEnvVar]
+			|| '';
+		if (codexSdkPath) {
+			env[AgentHostCodexSdkPathEnvVar] = codexSdkPath;
+		}
+
 		// Translate `chat.agentHost.otel.*` settings into the env vars consumed by
 		// the agent host process. Any value already present on `process.env` wins
 		// for user settings, while enterprise policy values win over inherited env —

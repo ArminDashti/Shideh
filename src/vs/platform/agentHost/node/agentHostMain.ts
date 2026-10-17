@@ -612,8 +612,14 @@ async function startWebSocketServer(
 	// port is only known after this point — emitting the requested port
 	// would print `localhost:0` and break the CLI's readiness parser.
 	await wsServer.whenListening;
-	const listenTarget = socketPath ?? `${host}:${wsServer.boundPort ?? port}`;
+	const boundPort = wsServer.boundPort ?? (port ? parseInt(port, 10) : undefined);
+	const listenTarget = socketPath ?? `${host}:${boundPort ?? port}`;
 	logService.info(`[AgentHost] WebSocket server listening on ${listenTarget}`);
+	if (!socketPath && boundPort) {
+		const tokenQuery = connectionToken ? `?tkn=${encodeURIComponent(connectionToken)}` : '';
+		// Surface a copy-paste-able URL for AHP clients (e.g. ahpx).
+		logService.info(`[AgentHost] AHP URL: ws://${host}:${boundPort}${tokenQuery}`);
+	}
 	// Do not change this line. The CLI looks for this in the output.
 	console.log(`Agent host server listening on ${listenTarget}`);
 }
