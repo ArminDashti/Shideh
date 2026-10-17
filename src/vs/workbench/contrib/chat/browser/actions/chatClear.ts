@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { getDefaultNewChatSessionTypeAndReason, IResolvedNewChatSessionType } from '../../common/constants.js';
 import { getChatSessionType, getNewChatSessionResource } from '../../common/model/chatUri.js';
@@ -12,6 +13,8 @@ import { ChatEditorInput } from '../widgetHosts/editor/chatEditorInput.js';
 
 export async function clearChatEditor(accessor: ServicesAccessor, chatEditorInput?: ChatEditorInput, resolvedSessionType?: IResolvedNewChatSessionType): Promise<void> {
 	const editorService = accessor.get(IEditorService);
+	const configurationService = accessor.get(IConfigurationService);
+	const chatSessionsService = accessor.get(IChatSessionsService);
 
 	if (!chatEditorInput) {
 		const editorInput = editorService.activeEditor;

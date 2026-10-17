@@ -312,6 +312,14 @@ export class ChatEditorInput extends EditorInput implements IEditorCloseHandler 
 				}
 			}
 
+			if (this.shouldReplaceEmptyLocalSession(this._sessionResource)) {
+				const defaultResource = getDefaultNewChatSessionResource(this.configurationService, this.chatSessionsService);
+				if (getChatSessionType(defaultResource) !== localChatSessionType) {
+					this._sessionResource = defaultResource;
+					this.modelRef.value = await this.chatService.acquireOrLoadSession(defaultResource, ChatAgentLocation.Chat, CancellationToken.None, 'ChatEditorInput#resolveDefaultSession');
+				}
+			}
+
 			// For local session only, if we find no existing session, create a new one
 			if (!this.model && LocalChatSessionUri.parseLocalSessionId(this._sessionResource)) {
 				this.modelRef.value = this.chatService.startNewLocalSession(ChatAgentLocation.Chat, { canUseTools: true, debugOwner: 'ChatEditorInput#resolveNewLocalSession', sessionTypeSelectionReason: this.options.sessionTypeSelectionReason });
