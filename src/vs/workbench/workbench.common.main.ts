@@ -231,6 +231,7 @@ import './contrib/workflows/browser/workflows.contribution.js';
 import './contrib/chat/browser/agentSessions/agentHost/agentHost.contribution.js';
 import './contrib/chat/browser/remoteAgentHost/remoteAgentHost.contribution.js';
 import './contrib/chat/browser/chat.view.contribution.js';
+import './contrib/chat/browser/automations/automations.contribution.js';
 import './contrib/inlineChat/browser/inlineChat.contribution.js';
 
 // Copilot Voice

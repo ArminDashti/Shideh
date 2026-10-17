@@ -1470,7 +1470,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			this._pendingSendChatResources.delete(chatResourceKey);
 		}
 		if (this._store.isDisposed) {
-			return;
+			return undefined;
 		}
 		this._onDidSendRequest.fire({ session: updatedSession, chat, isNewSession: false, isNewChat: true, options });
 	}

@@ -121,6 +121,13 @@ export const CUSTOMIZATION_ITEMS: ICustomizationItemConfig[] = [
 		isPlugins: true,
 	},
 	{
+		id: 'sessions.customization.automations',
+		label: localize('automations', "Automations"),
+		icon: automationIcon,
+		section: AICustomizationManagementSection.Automations,
+		isAutomations: true,
+	},
+	{
 		id: 'sessions.customization.mcpServers',
 		label: localize('mcpServers', "MCP Servers"),
 		icon: mcpServerIcon,
@@ -283,6 +290,9 @@ export class CustomizationLinkViewItem extends BaseActionViewItem {
 		}
 		if (this._config.isPlugins) {
 			return this._agentPluginService.plugins.read(reader).length;
+		}
+		if (this._config.isAutomations) {
+			return this._automationService.automations.read(reader).length;
 		}
 		return 0;
 	}

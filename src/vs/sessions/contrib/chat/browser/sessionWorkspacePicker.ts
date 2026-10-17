@@ -2088,6 +2088,7 @@ export class WorkspacePicker extends Disposable {
 			trigger.append(contents.chevron);
 			return;
 		}
+	}
 
 		dom.clearNode(trigger);
 		const noWorkspaceSelected = this._getNoWorkspaceOption()?.isSelected === true;

@@ -95,6 +95,34 @@ export class AICustomizationOverviewView extends ViewPane {
 			{ id: AICustomizationManagementSection.Tools, label: localize('tools', "Tools"), icon: toolsIcon, count: 0 },
 		);
 
+		// Re-render when the user toggles `chat.automations.enabled`,
+		// so the tile appears/disappears live without a reload.
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (!e.affectsConfiguration(CHAT_AUTOMATIONS_ENABLED_SETTING)) {
+				return;
+			}
+			const present = this.sections.some(s => s.id === AICustomizationManagementSection.Automations);
+			const desired = this._isAutomationsEnabled();
+			if (present === desired) {
+				return;
+			}
+			if (desired) {
+				// Insert before McpServers to preserve the original order.
+				const mcpIdx = this.sections.findIndex(s => s.id === AICustomizationManagementSection.McpServers);
+				const insertAt = mcpIdx === -1 ? this.sections.length : mcpIdx;
+				this.sections.splice(insertAt, 0, { id: AICustomizationManagementSection.Automations, label: localize('automations', "Automations"), icon: automationIcon, count: 0 });
+			} else {
+				const idx = this.sections.findIndex(s => s.id === AICustomizationManagementSection.Automations);
+				if (idx !== -1) {
+					this.sections.splice(idx, 1);
+				}
+			}
+			if (this.sectionsContainer) {
+				this.renderSections();
+				void this.loadCounts();
+			}
+		}));
+
 		// Listen to changes
 		this._register(this.promptsService.onDidChangeCustomAgents(() => this.loadCounts()));
 		this._register(this.promptsService.onDidChangeSlashCommands(() => this.loadCounts()));
@@ -231,6 +259,10 @@ export class AICustomizationOverviewView extends ViewPane {
 		}
 
 		this.updateCountElements();
+	}
+
+	private _isAutomationsEnabled(): boolean {
+		return this.configurationService.getValue<boolean>(CHAT_AUTOMATIONS_ENABLED_SETTING) === true;
 	}
 
 	private getSectionAriaLabel(section: ISectionSummary): string {

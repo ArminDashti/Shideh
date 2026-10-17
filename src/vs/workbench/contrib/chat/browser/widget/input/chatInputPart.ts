@@ -179,6 +179,7 @@ import { IModePickerDelegate, ModePickerActionItem } from './modePickerActionIte
 import { IPermissionPickerDelegate, PermissionPickerActionItem } from './permissionPickerActionItem.js';
 import { SessionTypePickerActionItem } from './sessionTargetPickerActionItem.js';
 import { WorkspacePickerActionItem } from './workspacePickerActionItem.js';
+import { WorkspacePickerInputActionItem } from './workspacePickerInputActionItem.js';
 import { ChatContextUsageWidget } from '../../widgetHosts/viewPane/chatContextUsageWidget.js';
 import { Target } from '../../../common/promptSyntax/promptTypes.js';
 import { ConfigureToolsAction } from '../../actions/chatToolActions.js';
@@ -1585,9 +1586,35 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	private _createModePickerDelegate(): IModePickerDelegate {
+		// When `hideCustomChatModes` is set (e.g. the automations dialog),
+		// strip genuinely user-defined custom agents from the picker
+		// while preserving extension-contributed modes (Plan / new-Ask /
+		// new-Edit) that the picker categorises as built-in via
+		// `isModeConsideredBuiltIn`. Those live in `IChatModes.custom` but
+		// are part of the built-in product surface, not the
+		// folder-scoped agent files we want to hide. The underlying
+		// observable is untouched so mode validation, model picking and
+		// persistence continue to see the real list.
+		const productService = this.productService;
+		const currentChatModes: IObservable<IChatModes> = this.options.hideCustomChatModes
+			? derived(reader => {
+				const inner = this._currentChatModesObservable.read(reader);
+				const filteredCustom = inner.custom.filter(m => isModeConsideredBuiltIn(m, productService));
+				const wrapped: IChatModes = {
+					onDidChange: inner.onDidChange,
+					builtin: inner.builtin,
+					custom: filteredCustom,
+					findModeById: (id: string) => inner.builtin.find(m => m.id === id) ?? filteredCustom.find(m => m.id === id),
+					findModeByName: (name: string) => inner.builtin.find(m => m.name.read(undefined) === name) ?? filteredCustom.find(m => m.name.read(undefined) === name),
+					waitForPendingUpdates: () => inner.waitForPendingUpdates(),
+				};
+				return wrapped;
+			})
+			: this._currentChatModesObservable;
+
 		return {
 			currentMode: this._currentModeObservable,
-			currentChatModes: this._currentChatModesObservable,
+			currentChatModes,
 			sessionResource: () => this._widget?.viewModel?.sessionResource,
 			// Direct setter for hosts that embed `ChatInputPart` without
 			// registering an `IChatWidget` (e.g. the automations dialog).
@@ -2226,6 +2253,23 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	/** Resets the language model to the location default, forgetting what was preferred before. */
 	public resetLanguageModelToDefault(): void {
 		this._modelSelectionController.resetToDefault(this.getCurrentSessionType());
+	}
+
+	/**
+	 * Reset the language model selection to the location's default (typically
+	 * "auto") and tear down any in-flight {@linkcode _waitForPersistedLanguageModel}
+	 * waiter armed by {@linkcode initSelectedModel}. Used by surfaces that have
+	 * their own opinion about the initial model (e.g. the automations dialog
+	 * opening a fresh form) so the workbench-global "last used" restore can't
+	 * land later and stomp the choice.
+	 *
+	 * `storeSelection` defaults to `true` for symmetry with the other model
+	 * setters; pass `false` when the reset is dialog-local and should not
+	 * persist into the regular chat input's selection.
+	 */
+	public resetLanguageModelToDefault(storeSelection: boolean = true): void {
+		this._waitForPersistedLanguageModel.clear();
+		this.setCurrentLanguageModelToDefault(storeSelection);
 	}
 
 	/**
