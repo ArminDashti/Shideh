@@ -114,6 +114,18 @@ function normalizeStoredCustomEditorDescriptor(descriptor: StoredCustomEditorDes
 	};
 }
 
+function hasBuiltinPriority(contribution: ICustomEditorsExtensionPoint['priority']): boolean {
+	if (contribution === CustomEditorPriority.builtin) {
+		return true;
+	}
+	if (!contribution || typeof contribution === 'string') {
+		return false;
+	}
+	return contribution.editor === CustomEditorPriority.builtin
+		|| contribution.diff === CustomEditorPriority.builtin
+		|| contribution.merge === CustomEditorPriority.builtin;
+}
+
 function getPriorityFromContribution(
 	contribution: ICustomEditorsExtensionPoint['priority'],
 	extension: IExtensionDescription,
