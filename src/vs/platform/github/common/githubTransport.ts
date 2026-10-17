@@ -1093,7 +1093,7 @@ async function readBoundedResponse(
 		return { bytes: concatenateBytes(chunks, length), truncated: false };
 	} finally {
 		if (!complete) {
-			cancelDownloadBody(reader, logService);
+			cancelResponseBody(reader, logService);
 		}
 		reader.releaseLock();
 	}
@@ -1119,7 +1119,7 @@ function readResponseChunk(reader: ReadableStreamDefaultReader<Uint8Array>, sign
 
 function cancelDownloadBody(body: { cancel(): Promise<void> }, logService?: ILogService): void {
 	// Cancellation must not block the deadline on an unresponsive underlying source.
-	void body.cancel().catch(() => logService?.warn('[GitHubTransport] Failed to cancel a download body'));
+	void body.cancel().catch(() => logService?.warn('[GitHubTransport] Failed to cancel a response body'));
 }
 
 function concatenateBytes(chunks: readonly Uint8Array[], length: number): Uint8Array {
