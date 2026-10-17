@@ -70,8 +70,33 @@ export const enum DefaultAccountStatus {
 
 export const CONTEXT_DEFAULT_ACCOUNT_STATE = new RawContextKey<string>('defaultAccountStatus', DefaultAccountStatus.Uninitialized);
 const CACHED_POLICY_DATA_KEY = 'defaultAccount.cachedPolicyData';
+/**
+ * Sticky record of an admin having required a fresh managed-settings fetch. Deliberately stored
+ * outside {@link CACHED_POLICY_DATA_KEY}: the cached policy payload expires after
+ * {@link ACCOUNT_DATA_POLL_INTERVAL_MS} and is dropped when a fetch fails, which would otherwise
+ * take the requirement down with it and silently reopen the gate.
+ */
+const MANAGED_SETTINGS_REFRESH_REQUIRED_KEY = 'defaultAccount.managedSettingsRefreshRequired';
+
+/**
+ * Persisted form of the refresh requirement: the accounts whose organization set the control.
+ * Only the server channel is recorded per account — native MDM and the on-disk file are read live
+ * on every evaluation, so they need no persistence, while a server-delivered value cannot be
+ * re-derived offline. Precedence between the channels is applied when the requirement is read.
+ */
+interface IManagedSettingsRefreshRequirement {
+	readonly accounts: readonly string[];
+	/**
+	 * Last known machine-wide requirement from the local channels. Only a startup hint: those
+	 * channels load asynchronously and start empty, so without it the gate would stand open until
+	 * native MDM reports in. Live values take over as soon as they arrive.
+	 */
+	readonly local?: boolean;
+}
 const ACCOUNT_DATA_POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const MANAGED_SETTINGS_REQUEST_TIMEOUT_MS = 5000;
+/** Minimum spacing between cache-bypassing retries while the refresh gate is closed. */
+const MANAGED_SETTINGS_BLOCKED_RETRY_INTERVAL_MS = 60 * 1000;
 
 interface ITokenEntitlementsResponse {
 	token: string;
@@ -160,6 +185,9 @@ export class DefaultAccountService extends Disposable implements IDefaultAccount
 
 	private readonly _onDidChangeManagedSettingsFreshness = this._register(new Emitter<IManagedSettingsFreshness>());
 	readonly onDidChangeManagedSettingsFreshness = this._onDidChangeManagedSettingsFreshness.event;
+
+	private readonly _onDidChangeManagedSettingsRefreshBlocked = this._register(new Emitter<boolean>());
+	readonly onDidChangeManagedSettingsRefreshBlocked = this._onDidChangeManagedSettingsRefreshBlocked.event;
 
 	private readonly defaultAccountConfig: IDefaultAccountConfig;
 	private defaultAccountProvider: IDefaultAccountProvider | null = null;
@@ -277,8 +305,8 @@ interface IAccountSessionContext {
 }
 
 type ManagedSettingsRequestResult =
-	| { readonly kind: 'success'; readonly data: Partial<IPolicyData> }
-	| { readonly kind: 'noSettings' }
+	| { readonly kind: 'success'; readonly data: Partial<IPolicyData>; readonly accountId: string | undefined }
+	| { readonly kind: 'noSettings'; readonly accountId: string | undefined }
 	| { readonly kind: 'updateRequired'; readonly error: IManagedSettingsCompatibilityError }
 	| { readonly kind: 'network' }
 	| { readonly kind: 'rateLimited' }
@@ -348,6 +376,22 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 	private _managedSettingsFreshness: IManagedSettingsFreshness = MANAGED_SETTINGS_FRESHNESS_NOT_REQUIRED;
 	get managedSettingsFreshness(): IManagedSettingsFreshness { return this._managedSettingsFreshness; }
 
+	/**
+	 * Accounts whose organization requires a fresh fetch. The server delivers the control per
+	 * account, so one account's response must never speak for another's. Persisted because, unlike
+	 * the local channels, it cannot be re-derived while offline.
+	 */
+	private readonly _serverRefreshRequiredAccounts = new Set<string>();
+	/** @see IManagedSettingsRefreshRequirement.local */
+	private _localRefreshRequiredHint = false;
+	/** Whether the asynchronously-loading local channels have reported, making their values usable. */
+	private _localChannelsReported = false;
+	/** The account for which the server last answered authoritatively, if any (per process). */
+	private _managedSettingsFreshForAccount: string | undefined;
+	private _managedSettingsRefreshBlocked = false;
+	get managedSettingsRefreshBlocked(): boolean { return this._managedSettingsRefreshBlocked; }
+	private _managedSettingsAttemptedAt = 0;
+
 	private readonly _onDidChangeDefaultAccount = this._register(new Emitter<IDefaultAccount | null>());
 	readonly onDidChangeDefaultAccount = this._onDidChangeDefaultAccount.event;
 
@@ -364,6 +408,9 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 
 	private readonly _onDidChangeManagedSettingsFreshness = this._register(new Emitter<IManagedSettingsFreshness>());
 	readonly onDidChangeManagedSettingsFreshness = this._onDidChangeManagedSettingsFreshness.event;
+
+	private readonly _onDidChangeManagedSettingsRefreshBlocked = this._register(new Emitter<boolean>());
+	readonly onDidChangeManagedSettingsRefreshBlocked = this._onDidChangeManagedSettingsRefreshBlocked.event;
 
 	private readonly accountStatusContext: IContextKey<string>;
 	private initialized = false;
@@ -657,6 +704,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 			this.setCopilotTokenInfo(account.copilotTokenInfo);
 			this.setPolicyData(account.policyData);
 			this.setManagedSettingsCompatibilityError(account.policyData?.managedSettingsCompatibilityError ?? null);
+			this.updateManagedSettingsRefreshBlocked();
 			this._onDidChangeDefaultAccount.fire(this._defaultAccount.defaultAccount);
 			this.accountStatusContext.set(DefaultAccountStatus.Available);
 			this.logService.debug('[DefaultAccount] Account status set to Available');
@@ -676,6 +724,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 			this.setPolicyData(retainedPolicyData);
 			this.setManagedSettingsCompatibilityError(null);
 			this.setCopilotTokenInfo(null);
+			this.updateManagedSettingsRefreshBlocked();
 			this._onDidChangeDefaultAccount.fire(null);
 			this.accountDataPollScheduler.cancel();
 			this.accountStatusContext.set(DefaultAccountStatus.Unavailable);
@@ -1355,7 +1404,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 		const status = response.res.statusCode ?? 0;
 		if (status === 404) {
 			this.reportManagedSettingsOutcome(status, rateLimitBackoffActive);
-			return { kind: 'noSettings' };
+			return { kind: 'noSettings', accountId: respondingSession.session?.account.id };
 		}
 		if (status === 466) {
 			const error = await this.readManagedSettingsCompatibilityError(response);
@@ -1388,7 +1437,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 				this.logService.trace('[DefaultAccount] Managed settings payload:', JSON.stringify(adapted));
 			}
 			this.reportManagedSettingsOutcome('ok', rateLimitBackoffActive);
-			return { kind: 'success', data: adapted };
+			return { kind: 'success', data: adapted, accountId: respondingSession.session?.account.id };
 		} catch (error) {
 			this.logService.error('[DefaultAccount] Failed to parse managed settings response', getErrorMessage(error));
 			this.reportManagedSettingsOutcome('parse-error', rateLimitBackoffActive);
@@ -1498,6 +1547,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 		}
 
 		let lastResponse: IRequestContext | undefined;
+		let lastResponseSession: AuthenticationSession | undefined;
 
 		const sessionContext = options?.sessionContext ?? this.getAccountSessionContext(sessions[0]);
 		for (const session of this.getSessionsForContext(sessions, sessionContext)) {
@@ -1528,9 +1578,13 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 				if (status === 401 || (status === 404 && options?.retryNotFound !== false)) {
 					this.logService.debug(`[DefaultAccount] Received ${status} for URL ${url} with session ${session.id}, likely due to expired/revoked token or insufficient permissions.`, 'Trying next session if available.');
 					lastResponse = response;
+					lastResponseSession = session;
 					continue; // try next session
 				}
 
+				if (respondingSession) {
+					respondingSession.session = session;
+				}
 				return response;
 			} catch (error) {
 				if (!token.isCancellationRequested) {
@@ -1544,6 +1598,9 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 			return undefined;
 		}
 
+		if (respondingSession) {
+			respondingSession.session = lastResponseSession;
+		}
 		return lastResponse;
 	}
 

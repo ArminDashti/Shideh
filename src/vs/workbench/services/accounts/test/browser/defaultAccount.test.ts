@@ -23,7 +23,7 @@ import { COPILOT_FORCE_REMOTE_SETTINGS_REFRESH_KEY, IFileManagedSettingsService,
 import { IManagedSettingsFreshness, ManagedSettingsFreshnessFailure, ManagedSettingsFreshnessState } from '../../../../../platform/policy/common/managedSettingsFreshness.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IRequestService } from '../../../../../platform/request/common/request.js';
-import { InMemoryStorageService, IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { InMemoryStorageService, IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
@@ -1702,7 +1702,20 @@ suite('DefaultAccountProvider', () => {
 			copilotVersions: { runtime: '0.0.344', sdk: '0.1.0' },
 		});
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		instantiationService.stub(IStorageService, disposables.add(new InMemoryStorageService()));
+		instantiationService.stub(IStorageService, options?.storageService ?? disposables.add(new InMemoryStorageService()));
+		const getNativeManagedSettings = options?.getNativeManagedSettings ?? (() => options?.nativeManagedSettings ?? {});
+		instantiationService.stub(INativeManagedSettingsService, {
+			get managedSettings() { return getNativeManagedSettings(); },
+			onDidChangeManagedSettings: options?.onDidChangeNativeManagedSettings ?? Event.None,
+			initialize: options?.nativeInitialize ?? (async () => ({})),
+			updatePolicyDefinitions: async () => ({}),
+		});
+		instantiationService.stub(IFileManagedSettingsService, {
+			managedSettings: options?.fileManagedSettings ?? {},
+			rawManagedSettings: {},
+			onDidChangeManagedSettings: Event.None,
+			onDidChangeRawManagedSettings: Event.None,
+		});
 		instantiationService.stub(IHostService, {
 			hasFocus: true,
 			onDidChangeFocus: Event.None,
