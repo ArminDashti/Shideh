@@ -610,9 +610,9 @@ export class HoverWidget extends Widget implements IHoverWidget {
 		if (this._forcePosition) {
 			const padding = (this._hoverPointer ? Constants.PointerSize : 0) + Constants.HoverBorderWidth;
 			if (this._hoverPosition === HoverPosition.ABOVE) {
-				maxHeight = Math.min(maxHeight, target.top - padding);
+				maxHeight = target.top - padding;
 			} else if (this._hoverPosition === HoverPosition.BELOW) {
-				maxHeight = Math.min(maxHeight, this._targetWindow.innerHeight - target.bottom - padding);
+				maxHeight = this._targetWindow.innerHeight - target.bottom - padding;
 			}
 		}
 
