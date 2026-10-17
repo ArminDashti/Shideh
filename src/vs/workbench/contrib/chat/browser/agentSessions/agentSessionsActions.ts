@@ -240,6 +240,7 @@ abstract class BaseArchiveAgentSessionSectionAction extends Action2 {
 			return;
 		}
 
+		const chatService = accessor.get(IChatService);
 		const dialogService = accessor.get(IDialogService);
 		const storageService = accessor.get(IStorageService);
 
