@@ -9,6 +9,8 @@ import { PromptFileSource, PromptsType } from '../promptTypes.js';
 import { PromptsStorage } from '../service/promptsService.js';
 import { compareIgnoreCase } from '../../../../../../base/common/strings.js';
 
+const { basename, dirname } = posix;
+
 /**
  * File extension for the reusable prompt files.
  */
@@ -172,9 +174,11 @@ export interface IResolvedPromptSourceFolder {
 export const DEFAULT_SKILL_SOURCE_FOLDERS: readonly IPromptSourceFolder[] = [
 	{ path: '.agents/skills', source: PromptFileSource.AgentsWorkspace, storage: PromptsStorage.local },
 	{ path: '.github/skills', source: PromptFileSource.GitHubWorkspace, storage: PromptsStorage.local },
+	{ path: '.agents/skills', source: PromptFileSource.AgentsWorkspace, storage: PromptsStorage.local },
 	{ path: '.claude/skills', source: PromptFileSource.ClaudeWorkspace, storage: PromptsStorage.local },
 	{ path: '~/.agents/skills', source: PromptFileSource.AgentsPersonal, storage: PromptsStorage.user },
 	{ path: '~/.copilot/skills', source: PromptFileSource.CopilotPersonal, storage: PromptsStorage.user },
+	{ path: '~/.agents/skills', source: PromptFileSource.AgentsPersonal, storage: PromptsStorage.user },
 	{ path: '~/.claude/skills', source: PromptFileSource.ClaudePersonal, storage: PromptsStorage.user },
 ];
 
@@ -380,6 +384,11 @@ export function getCleanPromptName(fileUri: URI): string {
 	// For .md files in .claude/rules/ folder, treat them as instruction files
 	if (fileName.endsWith('.md') && fileName !== 'README.md' && isInClaudeRulesFolder(fileUri)) {
 		return basename(fileUri, '.md');
+	}
+
+	// For .md files in .claude/rules/ folder, treat them as instruction files
+	if (fileName.endsWith('.md') && fileName !== 'README.md' && isInClaudeRulesFolder(fileUri)) {
+		return basename(fileUri.path, '.md');
 	}
 
 	// because we now rely on the `prompt` language ID that can be explicitly

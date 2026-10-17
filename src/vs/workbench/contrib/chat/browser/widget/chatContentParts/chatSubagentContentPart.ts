@@ -158,6 +158,10 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 	private _openChatToolbar: WorkbenchToolBar | undefined;
 	private readonly _openChatActionViewRegistration = this._register(new MutableDisposable());
 
+	// Model name used by this subagent for hover tooltip
+	private modelName: string | undefined;
+	private readonly _hoverDisposable = this._register(new MutableDisposable());
+
 	// Confirmation auto-expand tracking
 	private toolsWaitingForConfirmation: number = 0;
 	private userManuallyExpanded: boolean = false;
@@ -495,6 +499,9 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 		// Scheduler for coalescing layout operations
 		this.layoutScheduler = this._register(new AnimationFrameScheduler(this.domNode, () => this.performLayout()));
 
+		// Set up hover tooltip with model name if available
+		this.updateHover();
+
 		// Render the prompt section at the start if available (must be after wrapper is initialized)
 		this.renderPromptSection();
 
@@ -819,6 +826,16 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 			.filter((candidate): candidate is string => !!candidate)
 			.map(candidate => candidate.toLocaleLowerCase());
 		return genericLabels.includes(normalizedLabel) ? undefined : label;
+	}
+
+	private updateHover(): void {
+		if (!this.modelName || !this._collapseButton) {
+			return;
+		}
+
+		this._hoverDisposable.value = this.hoverService.setupDelayedHover(this._collapseButton.element, {
+			content: localize('chat.subagent.modelTooltip', 'Model: {0}', this.modelName),
+		});
 	}
 
 	/**
@@ -1476,6 +1493,12 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 			const result = item.lazy.value;
 			this.appendEditItemToDOM(result.domNode, item.partId);
 			if (result.disposable && !item.eagerlyRegistered) {
+				this._register(result.disposable);
+			}
+		} else if (item.kind === 'hook') {
+			const result = item.lazy.value;
+			this.appendHookItemToDOM(result.domNode, item.hookPart);
+			if (result.disposable) {
 				this._register(result.disposable);
 			}
 		} else if (item.kind === 'hook') {

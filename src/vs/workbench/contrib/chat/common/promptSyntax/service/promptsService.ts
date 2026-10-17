@@ -15,6 +15,7 @@ import { IChatModeInstructions, IVariableReference } from '../../chatModes.js';
 import { PromptFileSource, PromptsType, Target } from '../promptTypes.js';
 import { IHandOff, ParsedPromptFile } from '../promptFileParser.js';
 import { ResourceSet } from '../../../../../../base/common/map.js';
+import { IChatRequestHooks } from '../hookSchema.js';
 import { IResolvedPromptSourceFolder } from '../config/promptFileLocations.js';
 import { ChatRequestHooks } from '../hookSchema.js';
 import { isEqual } from '../../../../../../base/common/resources.js';
@@ -277,6 +278,13 @@ export function isCustomAgentVisibility(obj: unknown): obj is ICustomAgentVisibi
 	}
 	const v = obj as { userInvocable?: unknown; agentInvocable?: unknown };
 	return typeof v.userInvocable === 'boolean' && typeof v.agentInvocable === 'boolean';
+}
+
+export enum Target {
+	VSCode = 'vscode',
+	GitHubCopilot = 'github-copilot',
+	Claude = 'claude',
+	Undefined = 'undefined',
 }
 
 export interface ICustomAgent {
@@ -606,6 +614,11 @@ export interface IConfiguredHooksInfo {
  */
 export interface IHookDiscoveryInfo extends IPromptDiscoveryInfo {
 	readonly hooksInfo: IConfiguredHooksInfo | undefined;
+}
+
+export interface IConfiguredHooksInfo {
+	readonly hooks: IChatRequestHooks;
+	readonly hasDisabledClaudeHooks: boolean;
 }
 
 /**

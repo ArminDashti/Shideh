@@ -654,3 +654,76 @@ export function evaluateApplyToPattern(header: PromptHeader | undefined, isClaud
 	}
 	return header?.applyTo;
 }
+
+/**
+ * Parses a comma-separated list of values into an array of strings.
+ * Values can be unquoted or quoted (single or double quotes).
+ *
+ * @param input A string containing comma-separated values
+ * @returns An IArrayValue containing the parsed values and their ranges
+ */
+export function parseCommaSeparatedList(stringValue: IStringValue): IArrayValue {
+	const result: IStringValue[] = [];
+	const input = stringValue.value;
+	const positionOffset = stringValue.range.getStartPosition();
+	let pos = 0;
+	const isWhitespace = (char: string): boolean => char === ' ' || char === '\t';
+
+	while (pos < input.length) {
+		// Skip leading whitespace
+		while (pos < input.length && isWhitespace(input[pos])) {
+			pos++;
+		}
+
+		if (pos >= input.length) {
+			break;
+		}
+
+		const startPos = pos;
+		let value = '';
+		let endPos: number;
+
+		const char = input[pos];
+		if (char === '"' || char === `'`) {
+			// Quoted string
+			const quote = char;
+			pos++; // Skip opening quote
+
+			while (pos < input.length && input[pos] !== quote) {
+				value += input[pos];
+				pos++;
+			}
+			endPos = pos + 1; // Include closing quote in the range
+
+			if (pos < input.length) {
+				pos++;
+			}
+
+		} else {
+			// Unquoted string - read until comma or end
+			const startPos = pos;
+			while (pos < input.length && input[pos] !== ',') {
+				value += input[pos];
+				pos++;
+			}
+			value = value.trimEnd();
+			endPos = startPos + value.length;
+		}
+
+		result.push({ type: 'string', value: value, range: new Range(positionOffset.lineNumber, positionOffset.column + startPos, positionOffset.lineNumber, positionOffset.column + endPos) });
+
+		// Skip whitespace after value
+		while (pos < input.length && isWhitespace(input[pos])) {
+			pos++;
+		}
+
+		// Skip comma if present
+		if (pos < input.length && input[pos] === ',') {
+			pos++;
+		}
+	}
+
+	return { type: 'array', items: result, range: stringValue.range };
+}
+
+

@@ -40,6 +40,7 @@ import { IChatHarnessSwitchFeedbackSurveyService } from '../../feedbackSurvey/ch
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
 import { ISessionTypePickerDelegate } from '../../chat.js';
 import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/dropdown.js';
+import { autorun } from '../../../../../../base/common/observable.js';
 
 
 export interface ISessionTypeItem {

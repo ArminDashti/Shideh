@@ -50,6 +50,24 @@ import {
 import { ManageTodoListToolToolId } from './manageTodoListTool.js';
 import { createToolSimpleTextResult } from './toolHelpers.js';
 
+/**
+ * Parses a multiplier string like "2X" or "0.5X" to a number.
+ * Returns 1 if parsing fails.
+ */
+export function parseMultiplier(multiplier: string | undefined): number {
+	if (!multiplier) {
+		// No multiplier- byok?
+		return 1000;
+	}
+	const match = /^([\d.]+)\s*[xX]$/i.exec(multiplier.trim());
+	if (!match) {
+		// Doesn't match 3x pattern, maybe auto mode
+		return 1;
+	}
+	const value = parseFloat(match[1]);
+	return isNaN(value) ? 1 : value;
+}
+
 const BaseModelDescription = `Launch a new agent to handle complex, multi-step tasks autonomously. This tool is good at researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries, use this agent to perform the search for you.
 
 - Agents do not run async or in the background, you will wait for the agent\'s result.
@@ -112,6 +130,9 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 	private readonly _runningSubagents = new Map<string, IRunningSubagent>();
 
 	private _autoModelResolution: Promise<string | undefined> | undefined;
+
+	/** Hack to port data between prepare/invoke */
+	private readonly _resolvedModels = new Map<string, { modeModelId: string | undefined; resolvedModelName: string | undefined }>();
 
 	constructor(
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
@@ -392,6 +413,15 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 			}
 			if (agentHooks) {
 				collectedHooks = mergeHooks(collectedHooks, agentHooks);
+			}
+
+			// Collect hooks from hook .json files
+			let collectedHooks: IChatRequestHooks | undefined;
+			try {
+				const info = await this.promptsService.getHooks(token);
+				collectedHooks = info?.hooks;
+			} catch (error) {
+				this.logService.warn('[ChatService] Failed to collect hooks:', error);
 			}
 
 			// Build the agent request
@@ -704,6 +734,12 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 
 		// Resolve the model early and cache it for invoke()
 		const resolved = await this.resolveSubagentModel(subagent, context.modelId, args.model, currentModeInstructions, requestedAgentName ? undefined : callingSubagent?.model);
+		this._resolvedModels.set(context.toolCallId, resolved);
+
+		const subagent = args.agentName ? await this.getSubAgentByName(args.agentName) : undefined;
+
+		// Resolve the model early and cache it for invoke()
+		const resolved = this.resolveSubagentModel(subagent, context.modelId);
 		this._resolvedModels.set(context.toolCallId, resolved);
 
 		return {

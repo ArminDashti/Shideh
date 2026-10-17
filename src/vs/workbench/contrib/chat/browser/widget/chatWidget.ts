@@ -3703,6 +3703,15 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return;
 		}
 
+		const model = this.viewModel.model;
+		const requestInProgress = model.requestInProgress.get();
+		if (requestInProgress) {
+			options.queue ??= ChatRequestQueueKind.Queued;
+		}
+		if (!requestInProgress && !isEditing && !(await this.confirmPendingRequestsBeforeSend(model, options))) {
+			return;
+		}
+
 		// process the prompt command
 		// Skipped for preserveInput: parsedInput is the draft, and an agent switch can clear the session.
 		if (!options.preserveInput) {

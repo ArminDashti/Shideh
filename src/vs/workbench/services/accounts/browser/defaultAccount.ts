@@ -507,7 +507,7 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 		await this.whenDefaultAccountAuthenticationProviderAvailable();
 
 		this.logService.debug('[DefaultAccount] Starting initialization');
-		await this.doUpdateDefaultAccount();
+		await this.doUpdateDefaultAccount(false, false);
 		this.logService.debug('[DefaultAccount] Initialization complete');
 
 		this._register(this.onDidChangeDefaultAccount(account => {

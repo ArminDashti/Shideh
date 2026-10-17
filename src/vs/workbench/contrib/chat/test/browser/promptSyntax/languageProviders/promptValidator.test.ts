@@ -25,7 +25,7 @@ import { getPromptFileExtension } from '../../../../common/promptSyntax/config/p
 import { PromptValidator } from '../../../../common/promptSyntax/languageProviders/promptValidator.js';
 import { PromptsType, Target } from '../../../../common/promptSyntax/promptTypes.js';
 import { PromptFileParser } from '../../../../common/promptSyntax/promptFileParser.js';
-import { ICustomAgent, IPromptsService, PromptsStorage } from '../../../../common/promptSyntax/service/promptsService.js';
+import { ICustomAgent, IPromptsService, PromptsStorage, Target } from '../../../../common/promptSyntax/service/promptsService.js';
 import { MockChatModeService } from '../../../common/mockChatModeService.js';
 import { MockPromptsService } from '../../../common/promptSyntax/service/mockPromptsService.js';
 

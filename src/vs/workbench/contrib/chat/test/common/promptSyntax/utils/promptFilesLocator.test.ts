@@ -2285,9 +2285,11 @@ suite('PromptFilesLocator', () => {
 						// defaults
 						'/Users/legomushroom/repos/vscode/.agents/skills',
 						'/Users/legomushroom/repos/vscode/.github/skills',
+						'/Users/legomushroom/repos/vscode/.agents/skills',
 						'/Users/legomushroom/repos/vscode/.claude/skills',
 						'/Users/legomushroom/.agents/skills',
 						'/Users/legomushroom/.copilot/skills',
+						'/Users/legomushroom/.agents/skills',
 						'/Users/legomushroom/.claude/skills',
 						// custom
 						'/Users/legomushroom/repos/vscode/custom-skills',

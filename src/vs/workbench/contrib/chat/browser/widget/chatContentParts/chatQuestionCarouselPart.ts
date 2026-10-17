@@ -144,6 +144,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private _collapseButton: Button | undefined;
 	private _prevButton: Button | undefined;
 	private _nextButton: Button | undefined;
+	private readonly _nextButtonHover: MutableDisposable<{ dispose(): void }> = this._register(new MutableDisposable());
 	private _skipAllButton: Button | undefined;
 
 	private _isSkipped = false;
@@ -1246,8 +1247,32 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			freeformTextarea.placeholder = localize('chat.questionCarousel.enterCustomAnswer', 'Enter custom answer');
 			freeformTextarea.rows = 1;
 
-			if (previousFreeform !== undefined) {
-				freeformTextarea.value = previousFreeform;
+			// Selection indicator (checkmark when selected)
+			const indicator = dom.$('.chat-question-list-indicator');
+			if (isSelected) {
+				indicator.classList.add('codicon', 'codicon-check');
+			}
+			indicators.push(indicator);
+
+			// Label with optional description (format: "Title - Description")
+			const label = dom.$('.chat-question-list-label');
+			const separatorIndex = option.label.indexOf(' - ');
+			if (separatorIndex !== -1) {
+				const titleSpan = dom.$('span.chat-question-list-label-title');
+				titleSpan.textContent = option.label.substring(0, separatorIndex);
+				label.appendChild(titleSpan);
+
+				const descSpan = dom.$('span.chat-question-list-label-desc');
+				descSpan.textContent = ': ' + option.label.substring(separatorIndex + 3);
+				label.appendChild(descSpan);
+			} else {
+				label.textContent = option.label;
+			}
+			listItem.appendChild(label);
+			listItem.appendChild(indicator);
+
+			if (isSelected) {
+				listItem.classList.add('selected');
 			}
 
 			// Setup auto-resize behavior
@@ -1439,21 +1464,99 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			freeformTextarea.placeholder = localize('chat.questionCarousel.enterCustomAnswer', 'Enter custom answer');
 			freeformTextarea.rows = 1;
 
-			if (previousFreeform !== undefined) {
-				freeformTextarea.value = previousFreeform;
+			if (isChecked) {
+				listItem.classList.add('checked');
+				if (firstCheckedIndex === -1) {
+					firstCheckedIndex = index;
+				}
 			}
 
 			// Setup auto-resize behavior
 			const autoResize = this.setupTextareaAutoResize(freeformTextarea);
 			this._inputBoxes.add(dom.addDisposableListener(freeformTextarea, dom.EventType.INPUT, () => this.saveCurrentAnswer()));
 
-			freeformContainer.appendChild(freeformTextarea);
-			container.appendChild(freeformContainer);
-			this._freeformTextareas.set(question.id, freeformTextarea);
+		this._multiSelectCheckboxes.set(question.id, checkboxes);
 
-			// Resize textarea if it has restored content
-			if (previousFreeform !== undefined) {
-				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => autoResize()));
+		// Always show freeform input for multi-select questions
+		const freeformContainer = dom.$('.chat-question-freeform');
+
+		// Number indicator for freeform (comes after all options)
+		const freeformNumber = dom.$('.chat-question-freeform-number');
+		freeformNumber.textContent = `${options.length + 1}`;
+		freeformContainer.appendChild(freeformNumber);
+
+		const freeformTextarea = dom.$<HTMLTextAreaElement>('textarea.chat-question-freeform-textarea');
+		freeformTextarea.placeholder = localize('chat.questionCarousel.enterCustomAnswer', 'Enter custom answer');
+		freeformTextarea.rows = 1;
+
+		if (previousFreeform !== undefined) {
+			freeformTextarea.value = previousFreeform;
+		}
+
+		// Setup auto-resize behavior
+		const autoResize = this.setupTextareaAutoResize(freeformTextarea);
+
+		freeformContainer.appendChild(freeformTextarea);
+		container.appendChild(freeformContainer);
+		this._freeformTextareas.set(question.id, freeformTextarea);
+
+		// Keyboard navigation for the list
+		this._inputBoxes.add(dom.addDisposableListener(selectContainer, dom.EventType.KEY_DOWN, (e: KeyboardEvent) => {
+			const event = new StandardKeyboardEvent(e);
+
+			// Guard against empty list
+			if (!listItems.length) {
+				return;
+			}
+
+			if (event.keyCode === KeyCode.DownArrow) {
+				e.preventDefault();
+				focusedIndex = Math.min(focusedIndex + 1, listItems.length - 1);
+				listItems[focusedIndex].focus();
+			} else if (event.keyCode === KeyCode.UpArrow) {
+				e.preventDefault();
+				focusedIndex = Math.max(focusedIndex - 1, 0);
+				listItems[focusedIndex].focus();
+			} else if (event.keyCode === KeyCode.Enter) {
+				e.preventDefault();
+				e.stopPropagation();
+				this.handleNext();
+			} else if (event.keyCode === KeyCode.Space) {
+				e.preventDefault();
+				// Toggle the currently focused checkbox using click() to trigger onChange
+				if (focusedIndex >= 0 && focusedIndex < checkboxes.length) {
+					checkboxes[focusedIndex].domNode.click();
+				}
+			} else if (event.keyCode >= KeyCode.Digit1 && event.keyCode <= KeyCode.Digit9) {
+				// Number keys 1-9 toggle the corresponding checkbox, or focus freeform for next number
+				const numberIndex = event.keyCode - KeyCode.Digit1;
+				if (numberIndex < checkboxes.length) {
+					e.preventDefault();
+					checkboxes[numberIndex].domNode.click();
+				} else if (numberIndex === checkboxes.length) {
+					e.preventDefault();
+					freeformTextarea.focus();
+				}
+			}
+		}));
+
+		// Resize textarea if it has restored content
+		if (previousFreeform !== undefined) {
+			this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => autoResize()));
+		}
+
+		// Focus on the appropriate row when rendered or textarea if it has content
+		if (this._options.shouldAutoFocus !== false) {
+			if (previousFreeform) {
+				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(freeformTextarea), () => {
+					freeformTextarea.focus();
+				}));
+			} else if (listItems.length > 0) {
+				const initialFocusIndex = firstCheckedIndex >= 0 ? firstCheckedIndex : 0;
+				focusedIndex = initialFocusIndex;
+				this._inputBoxes.add(dom.runAtThisOrScheduleAtNextAnimationFrame(dom.getWindow(selectContainer), () => {
+					listItems[initialFocusIndex]?.focus();
+				}));
 			}
 		}
 

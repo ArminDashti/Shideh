@@ -4656,6 +4656,51 @@ suite('backfillTransferredModel', () => {
 	test('returns undefined state as-is', () => {
 		assert.strictEqual(backfillTransferredModel(undefined, model('agent-host-copilotcli:gpt-5.6-sol')), undefined);
 	});
+
+	test('steering message queued triggers setYieldRequested', async () => {
+		const requestStarted = new DeferredPromise<void>();
+		const completeRequest = new DeferredPromise<void>();
+		let setYieldRequestedCalled = false;
+
+		const slowAgent: IChatAgentImplementation = {
+			async invoke(request, progress, history, token) {
+				requestStarted.complete();
+				await completeRequest.p;
+				return {};
+			},
+			setYieldRequested(requestId: string) {
+				setYieldRequestedCalled = true;
+			},
+		};
+
+		testDisposables.add(chatAgentService.registerAgent('slowAgent', { ...getAgentData('slowAgent'), isDefault: true }));
+		testDisposables.add(chatAgentService.registerAgentImplementation('slowAgent', slowAgent));
+
+		const testService = createChatService();
+		const modelRef = testDisposables.add(startSessionModel(testService));
+		const model = modelRef.object;
+
+		// Start a request that will wait
+		const response = await testService.sendRequest(model.sessionResource, 'first request', { agentId: 'slowAgent' });
+		ChatSendResult.assertSent(response);
+
+		// Wait for the agent to start processing
+		await requestStarted.p;
+
+		// Queue a steering message while the first request is still in progress
+		const steeringResponse = await testService.sendRequest(model.sessionResource, 'steering message', {
+			agentId: 'slowAgent',
+			queue: ChatRequestQueueKind.Steering
+		});
+		assert.strictEqual(steeringResponse.kind, 'queued');
+
+		// setYieldRequested should have been called on the agent
+		assert.strictEqual(setYieldRequestedCalled, true, 'setYieldRequested should be called when a steering message is queued');
+
+		// Complete the first request
+		completeRequest.complete();
+		await response.data.responseCompletePromise;
+	});
 });
 
 

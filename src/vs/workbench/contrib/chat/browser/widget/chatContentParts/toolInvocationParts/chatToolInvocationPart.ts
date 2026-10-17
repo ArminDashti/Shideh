@@ -245,6 +245,7 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 				return;
 			}
 
+			dom.show(this.domNode);
 			this.subPart = partStore.add(this.createToolInvocationSubPart());
 			partStore.add(autorun(reader => {
 				this._isVisible.set(!this.defersConfirmationToCarousel() && (!this.subPart.isHidden.read(reader) || !!appData.read(reader)), undefined);

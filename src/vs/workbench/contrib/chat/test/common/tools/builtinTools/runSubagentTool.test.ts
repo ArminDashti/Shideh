@@ -252,6 +252,19 @@ suite('RunSubagentTool', () => {
 			};
 			promptsService.setCustomModes([customMode]);
 
+			const promptsService = new MockPromptsService();
+			const customMode: ICustomAgent = {
+				uri: URI.parse('file:///test/custom-agent.md'),
+				name: 'CustomAgent',
+				description: 'A test custom agent',
+				tools: ['tool1', 'tool2'],
+				agentInstructions: { content: 'Custom agent body', toolReferences: [] },
+				source: { storage: PromptsStorage.local },
+				target: Target.Undefined,
+				visibility: { userInvokable: true, agentInvokable: true }
+			};
+			promptsService.setCustomModes([customMode]);
+
 			const tool = testDisposables.add(new RunSubagentTool(
 				{} as IChatAgentService,
 				{} as IChatService,

@@ -191,6 +191,9 @@ export interface IChatListItemTemplate {
 	/** Drag handle element for reordering pending requests, if currently rendered. */
 	dragHandle?: HTMLElement;
 
+	/** Drag handle element for reordering pending requests, if currently rendered. */
+	dragHandle?: HTMLElement;
+
 	readonly rowContainer: HTMLElement;
 	/** Height allocated by the list for the currently rendered row. */
 	allocatedHeight?: number;
@@ -990,6 +993,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 		}));
 		this.observeToolConfirmations();
+	}
+
+	private _pendingDragController: ChatPendingDragController | undefined;
+
+	set pendingDragController(controller: ChatPendingDragController) {
+		this._pendingDragController = controller;
 	}
 
 	private _pendingDragController: ChatPendingDragController | undefined;

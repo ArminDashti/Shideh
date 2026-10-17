@@ -310,6 +310,21 @@ export class ComputeAutomaticInstructions {
 		}
 	}
 
+	/**
+	 * Combines the `applyTo` and `paths` attributes into a single comma-separated
+	 * pattern string that can be matched by {@link _matches}.
+	 * Used for the instructions list XML output where both should be shown.
+	 */
+	private _getApplyToPattern(applyTo: string | undefined, paths: readonly string[] | undefined): string | undefined {
+		if (applyTo) {
+			return applyTo;
+		}
+		if (paths && paths.length > 0) {
+			return paths.join(', ');
+		}
+		return undefined;
+	}
+
 	private _matches(files: ResourceSet, applyToPattern: string): { pattern: string; file?: URI } | undefined {
 		const patterns = splitGlobAware(applyToPattern, ',');
 		const patterMatches = (pattern: string): { pattern: string; file?: URI } | undefined => {

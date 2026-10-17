@@ -177,6 +177,16 @@ export class PromptsService extends Disposable implements IPromptsService {
 	private readonly knownPromptSlashCommandNames = new Set<string>();
 
 	/**
+	 * Cached skills. Caching only happens if the `onDidChangeSkills` event is used.
+	 */
+	private readonly cachedSkills: CachedPromise<IAgentSkill[]>;
+
+	/**
+	 * Cached hooks. Invalidated when hook files change.
+	 */
+	private readonly cachedHooks: CachedPromise<IConfiguredHooksInfo | undefined>;
+
+	/**
 	 * Cache for parsed prompt files keyed by URI.
 	 * The number in the returned tuple is textModel.getVersionId(), which is an internal VS Code counter that increments every time the text model's content changes.
 	 */
@@ -1097,6 +1107,42 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return contents.length > 0 ? contents.join('\n\n') : undefined;
 	}
 
+	public async listAgentInstructions(token: CancellationToken, logger: Logger | undefined): Promise<IResolvedAgentFile[]> {
+		const [agentMDs, claudeMDs, copilotInstructionsMDs] = await Promise.all([
+			this.listAgentMDs(token, logger),
+			this.listClaudeMDs(token, logger),
+			this.listCopilotInstructionsMDs(token, logger)
+		]);
+		if (token.isCancellationRequested) {
+			return [];
+		}
+		// first look at non-symlinked files, then add symlinks only if target not already included
+		const seenFileURI = new ResourceSet();
+		const symlinks: (IResolvedAgentFile & { realPath: URI })[] = [];
+		const result: IResolvedAgentFile[] = [];
+		const add = (file: IResolvedAgentFile) => {
+			if (file.realPath) {
+				symlinks.push(file as IResolvedAgentFile & { realPath: URI });
+			} else {
+				result.push(file);
+				seenFileURI.add(file.uri);
+			}
+			return true;
+		};
+		agentMDs.forEach(add);
+		claudeMDs.forEach(add);
+		copilotInstructionsMDs.forEach(add);
+		for (const symlink of symlinks) {
+			if (seenFileURI.has(symlink.realPath)) {
+				logger?.logInfo(`Skipping symlinked agent instructions file ${symlink.uri} as target already included: ${symlink.realPath}`);
+			} else {
+				result.push(symlink);
+				seenFileURI.add(symlink.realPath);
+			}
+		}
+		return result;
+	}
+
 	public getAgentFileURIFromModeFile(oldURI: URI): URI | undefined {
 		return this.fileLocator.getAgentFileURIFromModeFile(oldURI);
 	}
@@ -1765,6 +1811,90 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.instructions);
 		return { type: PromptsType.instructions, files, sourceFolders, durationInMillis: stopWatch.elapsed() };
+	}
+
+	private async getHookDiscoveryInfo(token: CancellationToken): Promise<IPromptDiscoveryInfo> {
+		const files: IPromptFileDiscoveryResult[] = [];
+
+		// Get user home for tilde expansion
+		const userHomeUri = await this.pathService.userHome();
+		const userHome = userHomeUri.scheme === Schemas.file ? userHomeUri.fsPath : userHomeUri.path;
+
+		// Get workspace root for resolving relative cwd paths
+		const workspaceFolder = this.workspaceService.getWorkspace().folders[0];
+		const workspaceRootUri = workspaceFolder?.uri;
+
+		const useClaudeHooks = this.configurationService.getValue<boolean>(PromptsConfig.USE_CLAUDE_HOOKS);
+		const hookFiles = await this.listPromptFiles(PromptsType.hook, token);
+		for (const promptPath of hookFiles) {
+			const uri = promptPath.uri;
+			const storage = promptPath.storage;
+			const extensionId = promptPath.extension?.identifier?.value;
+			const name = basename(uri);
+
+			// Skip Claude hooks when the setting is disabled
+			if (getHookSourceFormat(uri) === HookSourceFormat.Claude && useClaudeHooks === false) {
+				files.push({
+					uri,
+					storage,
+					status: 'skipped',
+					skipReason: 'claude-hooks-disabled',
+					name,
+					extensionId
+				});
+				continue;
+			}
+
+			try {
+				// Try to parse the JSON to validate it (supports JSONC with comments)
+				const content = await this.fileService.readFile(uri);
+				const json = parseJSONC(content.value.toString());
+
+				// Validate it's an object
+				if (!json || typeof json !== 'object') {
+					files.push({
+						uri,
+						storage,
+						status: 'skipped',
+						skipReason: 'parse-error',
+						errorMessage: 'Invalid hooks file: must be a JSON object',
+						name,
+						extensionId
+					});
+					continue;
+				}
+
+				// Use format-aware parsing to check for disabledAllHooks
+				const { disabledAllHooks } = parseHooksFromFile(uri, json, workspaceRootUri, userHome);
+
+				if (disabledAllHooks) {
+					files.push({
+						uri,
+						storage,
+						status: 'skipped',
+						skipReason: 'all-hooks-disabled',
+						name,
+						extensionId
+					});
+					continue;
+				}
+
+				// File is valid
+				files.push({ uri, storage, status: 'loaded', name, extensionId });
+			} catch (e) {
+				files.push({
+					uri,
+					storage,
+					status: 'skipped',
+					skipReason: 'parse-error',
+					errorMessage: e instanceof Error ? e.message : String(e),
+					name,
+					extensionId
+				});
+			}
+		}
+
+		return { type: PromptsType.hook, files };
 	}
 }
 

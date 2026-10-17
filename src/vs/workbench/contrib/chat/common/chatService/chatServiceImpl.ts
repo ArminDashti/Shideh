@@ -1988,6 +1988,15 @@ export class ChatService extends Disposable implements IChatService {
 						progressCallback([{ kind: 'disabledClaudeHooks' }]);
 					}
 
+					// Check for disabled Claude Code hooks and notify the user once per workspace
+					const disabledClaudeHooksDismissedKey = 'chat.disabledClaudeHooks.notification';
+					if (!this.storageService.getBoolean(disabledClaudeHooksDismissedKey, StorageScope.WORKSPACE)) {
+						this.storageService.store(disabledClaudeHooksDismissedKey, true, StorageScope.WORKSPACE, StorageTarget.USER);
+						if (hasDisabledClaudeHooks) {
+							progressCallback([{ kind: 'disabledClaudeHooks' }]);
+						}
+					}
+
 					// MCP autostart: only run for native VS Code sessions (sidebar, new editors) but not for extension contributed sessions that have inputType set.
 					if (model.canUseTools) {
 						const autostartResult = new ChatMcpServersStarting(this.mcpService.autostart(token));
@@ -2639,6 +2648,34 @@ export class ChatService extends Disposable implements IChatService {
 		this.setPendingRequests(sessionResource, reordered);
 		await this.cancelCurrentRequestForSession(sessionResource, 'queueRunNext');
 		this.processPendingRequests(sessionResource);
+	}
+
+	setYieldRequested(sessionResource: URI): void {
+		const pendingRequest = this._pendingRequests.get(sessionResource);
+		if (pendingRequest) {
+			pendingRequest.setYieldRequested();
+		}
+	}
+
+	removePendingRequest(sessionResource: URI, requestId: string): void {
+		const model = this._sessionModels.get(sessionResource) as ChatModel | undefined;
+		if (model) {
+			model.removePendingRequest(requestId);
+		}
+
+		// Reject the deferred promise for the removed request
+		const deferred = this._queuedRequestDeferreds.get(requestId);
+		if (deferred) {
+			deferred.complete({ kind: 'rejected', reason: 'Request was removed from queue' });
+			this._queuedRequestDeferreds.delete(requestId);
+		}
+	}
+
+	setPendingRequests(sessionResource: URI, requests: readonly { requestId: string; kind: ChatRequestQueueKind }[]): void {
+		const model = this._sessionModels.get(sessionResource) as ChatModel | undefined;
+		if (model) {
+			model.setPendingRequests(requests);
+		}
 	}
 
 	public hasSessions(): boolean {

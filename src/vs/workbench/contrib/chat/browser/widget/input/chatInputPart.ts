@@ -303,6 +303,7 @@ export interface IChatInputPartOptions {
 	/** Whether this input is a transient surface (inline, terminal, or quick chat). */
 	isTransientChat?: boolean;
 	widgetViewKindTag: string;
+	isQuickChat?: boolean;
 	/**
 	 * Optional delegate for the session target picker.
 	 * When provided, allows the input part to maintain independent state for the selected session type.

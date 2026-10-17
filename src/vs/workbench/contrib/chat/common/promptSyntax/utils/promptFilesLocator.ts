@@ -442,6 +442,40 @@ export class PromptFilesLocator {
 	}
 
 	/**
+	 * Gets the hook source folders for creating new hooks.
+	 * Returns folders from config, excluding user storage and Claude paths (which are read-only).
+	 */
+	public async getHookSourceFolders(): Promise<readonly URI[]> {
+		const userHome = await this.pathService.userHome();
+		const configuredLocations = PromptsConfig.promptSourceFolders(this.configService, PromptsType.hook);
+
+		// Ignore claude folders since they aren't first-class supported, so we don't want to create invalid formats
+		// Check for .claude as an actual path segment (starts with ".claude/" or contains "/.claude/")
+		const allowedHookFolders = configuredLocations.filter(loc =>
+			!loc.path.startsWith('.claude/') && !loc.path.includes('/.claude/')
+		);
+
+		// Convert to absolute URIs
+		const result = new ResourceSet();
+		const absoluteLocations = this.toAbsoluteLocations(PromptsType.hook, allowedHookFolders, userHome);
+
+		for (const location of absoluteLocations) {
+			// For hook configs, entries are directories unless the path ends with .json (specific file)
+			// Default entries have filePattern, user entries don't but are still directories
+			const isSpecificFile = location.uri.path.endsWith('.json');
+			if (isSpecificFile) {
+				// It's a specific file path (like .github/hooks/hooks.json), use parent directory
+				result.add(dirname(location.uri));
+			} else {
+				// It's a directory path (like .github/hooks or .github/books)
+				result.add(location.uri);
+			}
+		}
+
+		return [...result];
+	}
+
+	/**
 	 * Get all possible unambiguous prompt file source folders based on
 	 * the current workspace folder structure.
 	 *
