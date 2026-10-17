@@ -156,6 +156,21 @@ export class LocalAgentsSessionsController extends Disposable implements IChatSe
 			}
 			this.refresh(CancellationToken.None).catch(onUnexpectedError);
 		}));
+
+		this._register(this.chatService.onDidChangeSessionTitle(({ sessionResource, title }) => {
+			// When the model is loaded, the autorun in addModelListeners handles the update.
+			// This handles the case where the model is not loaded (e.g. renaming from the list).
+			if (this.chatService.getSession(sessionResource)) {
+				return;
+			}
+
+			const existing = this._items.get(sessionResource);
+			if (existing && existing.label !== title) {
+				const updated = existing.withTitle(title);
+				this._items.set(sessionResource, updated);
+				this._onDidChangeChatSessionItems.fire({ addedOrUpdated: [updated] });
+			}
+		}));
 	}
 
 	private async tryUpdateLiveSessionItem(model: IChatModel, modelListeners: DisposableStore): Promise<void> {
@@ -267,5 +282,10 @@ class LocalChatSessionItem implements IChatSessionItem {
 			&& this.timing.lastRequestEnded === other.timing.lastRequestEnded
 			&& equals(this.changes, other.changes)
 			&& equals(this.metadata, other.metadata);
+	}
+
+	withTitle(title: string): LocalChatSessionItem {
+		const updated = Object.create(LocalChatSessionItem.prototype) as LocalChatSessionItem;
+		return Object.assign(updated, this, { label: title });
 	}
 }

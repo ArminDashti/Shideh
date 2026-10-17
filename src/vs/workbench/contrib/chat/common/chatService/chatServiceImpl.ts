@@ -436,6 +436,8 @@ export class ChatService extends Disposable implements IChatService {
 			// Trigger immediate save to ensure consistency
 			this.saveState();
 		}
+
+		this._onDidChangeSessionTitle.fire({ sessionResource, title });
 	}
 
 	private trace(method: string, message?: string): void {
