@@ -238,10 +238,10 @@ import './contrib/inlineChat/browser/inlineChat.contribution.js';
 // Copilot Voice
 import './contrib/agentsVoice/browser/agentsVoice.contribution.js';
 import './contrib/mcp/browser/mcp.contribution.js';
-import './contrib/mcp/browser/mcp.view.contribution.js';
 import './contrib/chat/browser/chatSessions/chatSessions.contribution.js';
 import './contrib/chat/browser/contextContrib/chatContext.contribution.js';
 import './contrib/imageCarousel/browser/imageCarousel.contribution.js';
+import './browser/workbench.contribution.lazy.js';
 
 // Interactive
 import './contrib/interactive/browser/interactive.contribution.js';
@@ -283,9 +283,6 @@ import './contrib/search/browser/searchView.js';
 
 // Search Editor
 import './contrib/searchEditor/browser/searchEditor.contribution.js';
-
-// Sash
-import './contrib/sash/browser/sash.contribution.js';
 
 // Git
 import './contrib/git/browser/git.contributions.js';
@@ -432,9 +429,6 @@ import './contrib/typeHierarchy/browser/typeHierarchy.contribution.js';
 import './contrib/codeEditor/browser/outline/documentSymbolsOutline.js';
 import './contrib/outline/browser/outline.contribution.js';
 
-// Language Detection
-import './contrib/languageDetection/browser/languageDetection.contribution.js';
-
 // Language Status
 import './contrib/languageStatus/browser/languageStatus.contribution.js';
 
@@ -475,26 +469,14 @@ import './contrib/list/browser/list.contribution.js';
 // Accessibility Signals
 import './contrib/accessibilitySignals/browser/accessibilitySignal.contribution.js';
 
-// Bracket Pair Colorizer 2 Telemetry
-import './contrib/bracketPairColorizer2Telemetry/browser/bracketPairColorizer2Telemetry.contribution.js';
-
 // Accessibility
 import './contrib/accessibility/browser/accessibility.contribution.js';
-
-// Metered Connection
-import './contrib/meteredConnection/browser/meteredConnection.contribution.js';
 
 // Share
 import './contrib/share/browser/share.contribution.js';
 
-// Synchronized Scrolling
-import './contrib/scrollLocking/browser/scrollLocking.contribution.js';
-
 // Inline Completions
 import './contrib/inlineCompletions/browser/inlineCompletions.contribution.js';
-
-// Drop or paste into
-import './contrib/dropOrPasteInto/browser/dropOrPasteInto.contribution.js';
 
 // Edit Telemetry
 import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
