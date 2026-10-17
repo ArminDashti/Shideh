@@ -406,6 +406,7 @@
 		"--vscode-extensionIcon-starForeground",
 		"--vscode-extensionIcon-verifiedForeground",
 		"--vscode-focusBorder",
+		"--vscode-font-family",
 		"--vscode-foreground",
 		"--vscode-icon-foreground",
 		"--vscode-inactiveSessionView-background",

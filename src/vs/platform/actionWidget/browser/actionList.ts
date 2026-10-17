@@ -134,7 +134,7 @@ export interface IActionListItemInlineToggle {
 export interface IActionListItem<T> {
 	readonly item?: T;
 	readonly kind: ActionListItemKind;
-	readonly group?: { kind?: unknown; icon?: ThemeIcon; title: string };
+	readonly group?: { kind?: unknown; icon?: ThemeIcon; iconUrl?: URI; title: string };
 	readonly disabled?: boolean;
 	readonly label?: string;
 	/**
