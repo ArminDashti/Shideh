@@ -743,7 +743,7 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 	}
 
 	private _getHandleForSessionType(chatSessionType: string): number | undefined {
-		return this._sessionTypeToHandle.get(chatSessionType);
+		return this._contentProviderSchemeToHandle.get(chatSessionType);
 	}
 
 	$registerChatSessionItemController(handle: number, chatSessionType: string, supportsResolve: boolean): void {
@@ -1002,7 +1002,7 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 		this._contentProvidersRegistrations.deleteAndDispose(handle);
 		for (const [sessionType, h] of this._sessionTypeToHandle) {
 			if (h === handle) {
-				this._sessionTypeToHandle.delete(sessionType);
+				this._contentProviderSchemeToHandle.delete(sessionType);
 				break;
 			}
 		}
@@ -1269,11 +1269,11 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 	/**
 	 * Notify the extension about option changes for a session
 	 */
-	async notifyOptionsChange(handle: number, sessionId: string, updates: ReadonlyArray<{ optionId: string; value: string | undefined }>): Promise<void> {
+	async notifyOptionsChange(handle: number, sessionResource: URI, updates: ReadonlyArray<{ optionId: string; value: string | undefined }>): Promise<void> {
 		try {
-			await this._proxy.$provideHandleOptionsChange(handle, sessionId, updates, CancellationToken.None);
+			await this._proxy.$provideHandleOptionsChange(handle, sessionResource, updates, CancellationToken.None);
 		} catch (error) {
-			this._logService.error(`Error notifying extension about options change for handle ${handle}, sessionId ${sessionId}:`, error);
+			this._logService.error(`Error notifying extension about options change for handle ${handle}, sessionResource ${sessionResource}:`, error);
 		}
 	}
 }
