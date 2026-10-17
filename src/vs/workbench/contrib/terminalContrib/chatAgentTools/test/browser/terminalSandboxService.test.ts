@@ -85,6 +85,14 @@ suite('TerminalSandboxService - network domains', () => {
 		}
 	}
 
+	class MockFileService {
+		async createFile(uri: URI, content: VSBuffer): Promise<any> {
+			const contentString = content.toString();
+			createdFiles.set(uri.path, contentString);
+			return {};
+		}
+	}
+
 	class MockRemoteAgentService {
 		connection: IRemoteAgentConnection | null = null;
 		remoteEnvironment: IRemoteAgentEnvironment | null = {
