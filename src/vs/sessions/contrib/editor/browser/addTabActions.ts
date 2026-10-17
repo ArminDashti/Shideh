@@ -198,3 +198,64 @@ export class NewChangesTabAction extends Action2 {
 		}
 	}
 }
+
+export class NewSearchTabAction extends Action2 {
+
+	constructor() {
+		super({
+			id: NEW_SEARCH_TAB_COMMAND_ID,
+			title: localize2('newSearchTab', "Search"),
+			category: SessionsCategories.Sessions,
+			icon: Codicon.search,
+			f1: true,
+			precondition: addTabActionWhen,
+			keybinding: {
+				weight: KeybindingWeight.SessionsContrib,
+				when: addTabActionWhen,
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyS),
+			},
+			menu: {
+				id: MenuId.EditorTabsBarAddTab,
+				group: 'navigation',
+				order: 3,
+				when: addTabLayoutWhen
+			}
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const instantiationService = accessor.get(IInstantiationService);
+		await instantiationService.invokeFunction(openNewSearchEditor, { location: 'new' });
+	}
+}
+
+export class NewChangesTabAction extends Action2 {
+
+	constructor() {
+		super({
+			id: NEW_CHANGES_TAB_COMMAND_ID,
+			title: localize2('newChangesTab', "Changes"),
+			category: SessionsCategories.Sessions,
+			icon: Codicon.gitCompare,
+			f1: false,
+			precondition: addTabActionWhen,
+			menu: {
+				id: MenuId.EditorTabsBarAddTab,
+				group: 'navigation',
+				order: 0,
+				// Only offer when the session has a Changes editor but its tab is closed.
+				when: ContextKeyExpr.and(addTabLayoutWhen, SinglePaneChangesTabMissingContext)
+			}
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const sessionsService = accessor.get(ISessionsService);
+		const sessionChangesService = accessor.get(ISessionChangesService);
+
+		const sessionResource = sessionsService.activeSession.get()?.resource;
+		if (sessionResource) {
+			await sessionChangesService.openChangesEditor(sessionResource);
+		}
+	}
+}

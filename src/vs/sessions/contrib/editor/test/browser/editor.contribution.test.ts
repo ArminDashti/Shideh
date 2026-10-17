@@ -700,6 +700,58 @@ suite('Sessions - Editor Contribution', () => {
 		assert.strictEqual(opened, false);
 	});
 
+	test('new search tab action opens a new search editor', async () => {
+		const instantiationService = store.add(new TestInstantiationService());
+		const invoked: unknown[] = [];
+		instantiationService.stub(IInstantiationService, new class extends mock<IInstantiationService>() {
+			override invokeFunction<R, TS extends any[] = []>(fn: (accessor: ServicesAccessor, ...args: TS) => R, ..._args: TS): R {
+				invoked.push(fn);
+				return undefined as R;
+			}
+		});
+
+		await new NewSearchTabAction().run(instantiationService);
+
+		assert.deepStrictEqual(invoked, [openNewSearchEditor]);
+	});
+
+	test('new changes tab action opens the changes editor for the active session', async () => {
+		const instantiationService = store.add(new TestInstantiationService());
+		const resource = URI.parse('session:1');
+		instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() {
+			override readonly activeSession = constObservable({ resource } as IActiveSession);
+		});
+		const openedResources: URI[] = [];
+		instantiationService.stub(ISessionChangesService, new class extends mock<ISessionChangesService>() {
+			override async openChangesEditor(sessionResource: URI): Promise<undefined> {
+				openedResources.push(sessionResource);
+				return undefined;
+			}
+		});
+
+		await new NewChangesTabAction().run(instantiationService);
+
+		assert.deepStrictEqual(openedResources, [resource]);
+	});
+
+	test('new changes tab action is a no-op when there is no active session', async () => {
+		const instantiationService = store.add(new TestInstantiationService());
+		instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() {
+			override readonly activeSession = constObservable(undefined);
+		});
+		let opened = false;
+		instantiationService.stub(ISessionChangesService, new class extends mock<ISessionChangesService>() {
+			override async openChangesEditor(): Promise<undefined> {
+				opened = true;
+				return undefined;
+			}
+		});
+
+		await new NewChangesTabAction().run(instantiationService);
+
+		assert.strictEqual(opened, false);
+	});
+
 	test('maximize editor hides the terminal panel before maximizing', async () => {
 		const instantiationService = store.add(new TestInstantiationService());
 		const layoutService = new class extends mock<IAgentWorkbenchLayoutService>() {
