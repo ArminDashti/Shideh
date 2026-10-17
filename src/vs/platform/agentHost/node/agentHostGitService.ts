@@ -636,18 +636,15 @@ export class AgentHostGitService implements IAgentHostGitService {
 			const resolvedBase = await this._resolveRemoteTrackingBranch(repositoryRoot, baseBranch) ?? baseBranch;
 			mergeBaseCommit = (await this._runGit(repositoryRoot, ['merge-base', 'HEAD', resolvedBase]))?.trim();
 		}
-		if (!mergeBaseCommit) {
-			mergeBaseCommit = (await this._runGit(repositoryRoot, ['rev-parse', 'HEAD']))?.trim();
-		}
 
-		return mergeBaseCommit ?? EMPTY_TREE_OBJECT;
+		return mergeBaseCommit ?? this._resolveHeadTreeish(repositoryRoot);
 	}
 
 	private async _runWithTempIndex(repositoryRoot: URI, mergeBaseCommit: string, changedPaths: readonly string[]): Promise<string | undefined> {
 		// Build a throwaway index so we can stage the changed working tree
 		// paths (including untracked files) without disturbing the user's real
-		// index. `read-tree HEAD` seeds it; in empty repos that fails so we
-		// fall back to the empty tree, leaving everything as "added".
+		// index. Resolve the seed explicitly so a Git failure cannot make a
+		// populated repository look like an empty one.
 		const tempDir = URI.joinPath(this._environmentService.tmpDir, `agent-host-git-diff-${generateUuid()}`);
 		await this._fileService.createFolder(tempDir);
 		// `GIT_INDEX_FILE` is consumed by the `git` subprocess so it must be
@@ -660,11 +657,7 @@ export class AgentHostGitService implements IAgentHostGitService {
 		// the extension's `buildTempIndexEnv` does for the same reason.
 		env.COMMAND_HOOK_LOCK = '1';
 		try {
-			const seeded = await this._runGit(repositoryRoot, ['read-tree', 'HEAD'], { env });
-			if (seeded === undefined) {
-				// Empty repo (no HEAD yet) - `read-tree` of the empty tree always succeeds.
-				await this._runGit(repositoryRoot, ['read-tree', EMPTY_TREE_OBJECT], { env });
-			}
+			await this._seedTempIndex(repositoryRoot, env);
 			if (!(await this._stageChangedPaths(repositoryRoot, tempDir, changedPaths, env))) {
 				return undefined;
 			}
@@ -1952,6 +1945,19 @@ export function parseGitStatusV2(output: string | undefined): {
 		}
 	}
 	return { branchName, isDetachedHead, upstreamBranchName, outgoingChanges, incomingChanges, uncommittedChanges };
+}
+
+/** Exported for tests. */
+export function parseGitStatusBranchOid(output: string | undefined): string | undefined {
+	if (!output) {
+		return undefined;
+	}
+	for (const line of output.split(/\r?\n/g)) {
+		if (line.startsWith('# branch.oid ')) {
+			return line.substring('# branch.oid '.length).trim() || undefined;
+		}
+	}
+	return undefined;
 }
 
 /** Exported for tests. */
