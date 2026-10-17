@@ -176,8 +176,48 @@ class ThemingRegistry extends Disposable implements IThemingRegistry {
 const themingRegistry = new ThemingRegistry();
 platform.Registry.add(Extensions.ThemingContribution, themingRegistry);
 
+
+
 export function registerThemingParticipant(participant: IThemingParticipant): IDisposable {
 	return themingRegistry.onColorThemeChange(participant);
+}
+
+
+/**
+ * @returns Used as a tool for the migration to CSS variables
+ */
+export function generateCSSRulesWithVariables(environmentService: IEnvironmentService): string[] {
+
+	const redRgb = new RGBA(255, 0, 0, 1);
+	class ColorStandIn extends Color {
+		constructor(private id: string) {
+			super(redRgb);
+		}
+		override toString() {
+			return asCssValue(this.id);
+		}
+	}
+
+	const colorThemeStandin: IColorTheme = {
+		defines: () => true,
+		getColor: (colorId: string) => new ColorStandIn(colorId),
+		getTokenStyleMetadata: () => undefined,
+		label: 'standIn',
+		semanticHighlighting: false,
+		tokenColorMap: [],
+		type: ColorScheme.DARK
+	};
+
+	const rules: string[] = [];
+	themingRegistry.getThemingParticipants().forEach(p => {
+		const collector = {
+			addRule(rule: string): void {
+				rules.push(rule);
+			}
+		};
+		p(colorThemeStandin, collector, environmentService);
+	});
+	return rules;
 }
 
 /**

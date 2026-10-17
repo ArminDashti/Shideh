@@ -783,6 +783,25 @@ registerAction2(class extends Action2 {
 	}
 });
 
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: '_workbench.action.generateCSSRules',
+			title: { value: localize('generateCSSRules.label', "Generate Stylesheet with Color Variables"), original: 'Generate Stylesheet with Color Variables' },
+			category: Categories.Developer,
+			f1: true
+		});
+	}
+
+	override async run(accessor: ServicesAccessor) {
+		const environmentService = accessor.get(IEnvironmentService);
+		const rules = generateCSSRulesWithVariables(environmentService);
+		const editorService = accessor.get(IEditorService);
+		await editorService.openEditor({ resource: undefined, contents: rules.join('\n'), languageId: 'css', options: { pinned: true } });
+	}
+});
+
+
 const toggleLightDarkThemesCommandId = 'workbench.action.toggleLightDarkThemes';
 
 registerAction2(class extends Action2 {
