@@ -26,9 +26,8 @@ export class SandboxOutputAnalyzer extends Disposable implements IOutputAnalyzer
 		}
 
 		const knownFailure = options.exitCode !== undefined && options.exitCode !== 0;
-		const suspectedFailure = !knownFailure && options.exitCode === undefined && this._outputLooksSandboxBlocked(options.exitResult);
 
-		if (!knownFailure && !suspectedFailure) {
+		if (!knownFailure) {
 			return undefined;
 		}
 
@@ -59,17 +58,6 @@ export class SandboxOutputAnalyzer extends Disposable implements IOutputAnalyzer
 ${networkRecovery}
 
 Here is the output of the command:\n`;
-	}
-
-	/**
-	 * Checks whether the command output contains strings that typically indicate
-	 * the sandbox blocked the operation. Used when exit code is unavailable.
-	 *
-	 * The output may contain newlines inserted by terminal wrapping, so we
-	 * strip them before testing.
-	 */
-	private _outputLooksSandboxBlocked(output: string): boolean {
-		return outputLooksSandboxBlocked(output);
 	}
 }
 
