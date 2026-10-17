@@ -43,7 +43,7 @@ import { ViewZones } from './viewParts/viewZones/viewZones.js';
 import { WhitespaceOverlay } from './viewParts/whitespace/whitespace.js';
 import { WordWrapIndicatorOverlay } from './viewParts/wordWrapIndicator/wordWrapIndicator.js';
 import { IEditorConfiguration } from '../common/config/editorConfiguration.js';
-import { EditorOption } from '../common/config/editorOptions.js';
+import { EditorOption, IComputedEditorOptions } from '../common/config/editorOptions.js';
 import { Position } from '../common/core/position.js';
 import { Range } from '../common/core/range.js';
 import { Selection } from '../common/core/selection.js';

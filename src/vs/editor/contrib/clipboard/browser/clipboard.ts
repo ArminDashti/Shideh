@@ -19,6 +19,7 @@ import { NativeEditContextRegistry } from '../../../browser/controller/editConte
 import { IActiveCodeEditor, ICodeEditor } from '../../../browser/editorBrowser.js';
 import { Command, EditorAction, MultiCommand, registerEditorAction } from '../../../browser/editorExtensions.js';
 import { ICodeEditorService } from '../../../browser/services/codeEditorService.js';
+import { useExperimentalEditContext } from '../../../browser/view.js';
 import { EditorOption } from '../../../common/config/editorOptions.js';
 import { Handler } from '../../../common/editorCommon.js';
 import { EditorContextKeys } from '../../../common/editorContextKeys.js';
