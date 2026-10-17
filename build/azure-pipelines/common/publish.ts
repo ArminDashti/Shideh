@@ -978,24 +978,16 @@ async function processArtifact(
 	log(`Successfully released lease for: ${friendlyFileName}`);
 }
 
-// It is VERY important that we don't download artifacts too much too fast from AZDO.
-// AZDO throttles us SEVERELY if we do. Not just that, but they also close open
-// sockets, so the whole things turns to a grinding halt. So, downloading and extracting
-// happens serially in the main thread, making the downloads are spaced out
-// properly. For each extracted artifact, we spawn a worker thread to upload it to
-// the CDN and finally update the build in Cosmos DB.
-async function main() {
+async function main(args: string[]) {
 	if (!isMainThread) {
 		const { artifact, artifactFilePath } = workerData;
 		await processArtifact(artifact, artifactFilePath);
 		return;
 	}
 
-	const done = new State();
-	const processing = new Set<string>();
-
-	for (const name of done) {
-		console.log(`\u2705 ${name}`);
+	const [mode] = args;
+	if (args.length > 1 || (mode && mode !== '--process-artifacts' && mode !== '--validate-producer-stages')) {
+		throw new Error('Usage: node publish.ts [--process-artifacts | --validate-producer-stages]');
 	}
 
 	const stages = new Set<string>(['Quality']);
@@ -1074,10 +1066,10 @@ async function main() {
 			});
 
 			const artifactFilePaths = await unzip(artifactZipPath, e('AGENT_TEMPDIRECTORY'));
-			const artifactFilePath = artifactFilePaths.filter(p => !/_manifest/.test(p))[0];
-
-			processing.add(artifact.name);
-			const promise = new Promise<void>((resolve, reject) => {
+			return artifactFilePaths.filter(p => !/_manifest/.test(p))[0];
+		},
+		publishArtifact: (artifact, artifactFilePath) => {
+			return new Promise<void>((resolve, reject) => {
 				const worker = new Worker(import.meta.filename, { workerData: { artifact, artifactFilePath } });
 				worker.on('error', reject);
 				worker.on('exit', code => {
@@ -1088,18 +1080,16 @@ async function main() {
 					}
 				});
 			});
+		},
+		wait: () => new Promise(resolve => setTimeout(resolve, 10_000)),
+		log: message => console.log(message),
+		logError: (message, error) => console.error(message, error),
+	});
 
-			const operation = promise.then(() => {
-				processing.delete(artifact.name);
-				done.add(artifact.name);
-				console.log(`\u2705 ${artifact.name} `);
-			});
-
-			operations.push({ name: artifact.name, operation });
-			resultPromise = Promise.allSettled(operations.map(o => o.operation));
-		}
-
-		await new Promise(c => setTimeout(c, 10_000));
+	console.log(`Finished processing ${done.size} discovered artifacts.`);
+	if (mode !== '--process-artifacts') {
+		validateProducerStages(timeline, stages);
+		console.log('All producer stages succeeded.');
 	}
 
 	console.log(`Found all ${done.size + processing.size + artifactsBlocked.length} artifacts, waiting for ${processing.size} artifacts to finish publishing...`);
@@ -1151,10 +1141,16 @@ async function main() {
 }
 
 if (import.meta.main) {
-	main().then(() => {
-		process.exit(0);
+	main(process.argv.slice(2)).then(() => {
+		if (!isMainThread) {
+			process.exit(0);
+		}
 	}, err => {
 		console.error(err);
-		process.exit(1);
+		if (isMainThread && err instanceof ProducerStageError) {
+			process.exitCode = 1;
+		} else {
+			process.exit(1);
+		}
 	});
 }
