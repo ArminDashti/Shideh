@@ -652,6 +652,29 @@ declare module 'vscode' {
 		questionCarousel(questions: ChatQuestion[], allowSkip?: boolean): Thenable<Record<string, unknown> | undefined>;
 
 		/**
+		 * Show a message with choices to the user. Items will be presented as clickable buttons.
+		 * A choice will result in another chat request being made {@link ChatRequest.choiceData}.
+		 * Additional JSON-stringifiable data can be provided on each item when given as an object,
+		 * and will be included in the `choiceData`.
+		 *
+		 * @param title Title to show.
+		 * @param message The message to show.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 */
+		choices<T extends string | ChatResponseChoice>(title: string, message: string, ...items: T[]): void;
+
+		/**
+		 * Show a message with choices to the user. Items will be presented as clickable buttons.
+		 * A choice will result in another chat request being made {@link ChatRequest.choiceData}.
+		 * Additional JSON-stringifiable data can be provided on each item when given as an object,
+		 * and will be included in the `choiceData`.
+		 *
+		 * @param options Configuration for the choices.
+		 * @param items A set of items that will be rendered as actions in the message.
+		 */
+		choices<T extends string | ChatResponseChoice>(options: ChatChoicesOptions, ...items: T[]): void;
+
+		/**
 		 * Push a warning to this stream. Short-hand for
 		 * `push(new ChatResponseWarningPart(message))`.
 		 *
@@ -744,6 +767,13 @@ declare module 'vscode' {
 		 * The `data` for any confirmations that were rejected
 		 */
 		rejectedConfirmationData?: any[];
+
+		/**
+		 * The data for any choices that were made. The data is the item passed
+		 * to the original {@link ChatResponseStream.choices} call: either a string
+		 * or a JSON-deserialized {@link ChatResponseChoice} object.
+		 */
+		choiceData?: Array<string | ChatResponseChoice>;
 	}
 
 	export interface ChatRequest {
