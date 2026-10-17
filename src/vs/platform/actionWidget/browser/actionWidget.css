@@ -487,6 +487,14 @@
 	border-top: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
+.action-widget .action-list-filter:first-child {
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.action-widget .action-list-filter:last-child {
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
 .action-widget .action-list-filter-input {
 	width: 100%;
 	min-width: 0;
