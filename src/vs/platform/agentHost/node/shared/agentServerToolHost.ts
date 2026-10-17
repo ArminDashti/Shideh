@@ -287,4 +287,11 @@ export class AgentServerToolHost implements IAgentHostServerToolService {
 			? advertisedTools.some(tool => tool.name === toolName) || group.legacyToolNames?.has(requestedToolName) === true
 			: group.isEnabled(toolName, sessionUri);
 	}
+
+	private _isEnabledForSession(group: IServerToolGroup, sessionUri: URI, toolName: string): boolean {
+		const advertisedTools = this._stateManager.getSessionState(sessionUri)?.serverTools;
+		return advertisedTools
+			? advertisedTools.some(tool => tool.name === toolName)
+			: group.isEnabled(toolName);
+	}
 }

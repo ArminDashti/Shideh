@@ -6231,6 +6231,15 @@ export class AgentService extends Disposable implements IAgentService {
 		};
 	}
 
+	private async _whenSessionDataIdle(session: URI): Promise<void> {
+		const ref = this._sessionDataService.openDatabase(session);
+		try {
+			await ref.object.whenIdle();
+		} finally {
+			ref.dispose();
+		}
+	}
+
 	// ---- Protocol methods ---------------------------------------------------
 
 	async createTerminal(params: CreateTerminalParams, clientType = AgentHostClientType.Unknown): Promise<void> {

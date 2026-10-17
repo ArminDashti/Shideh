@@ -3368,6 +3368,8 @@ export class CopilotAgentSession extends Disposable {
 			this._hostInstructions = undefined;
 			this._pendingSnapshotReminder = undefined;
 			throw err;
+		} finally {
+			this._hostInstructions = undefined;
 		}
 	}
 
