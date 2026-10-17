@@ -19,7 +19,7 @@ import { IAgentConfigurationService } from '../agentConfigurationService.js';
 import { ISyncedCustomization } from '../../common/agentPluginManager.js';
 import { ClaudePermissionMode } from '../../common/claudeSessionConfigKeys.js';
 import { ClaudeRuntimeEffortLevel, toRuntimeEffortLevel, resolveClaudeEffort } from '../../common/claudeModelConfig.js';
-import { AgentSignal, IAgentSessionProjectInfo } from '../../common/agent.js';
+import { AgentSignal, AgentWorkingDirectoryChangedError, IAgentSessionProjectInfo } from '../../common/agent.js';
 import type { IAgentHostClientTelemetryContext } from '../../common/agentHostTelemetry.js';
 import type { IAgentServerToolHost } from '../../common/agentServerTools.js';
 import { PendingRequestRegistry } from '../../common/pendingRequestRegistry.js';
@@ -197,6 +197,8 @@ export class ClaudeAgentSession extends Disposable {
 		return this._workingDirectory ?? this.workspace;
 	}
 	private _workingDirectory: URI | undefined;
+	managedWorkingDirectory: URI | undefined;
+	private _workspaceRestorationBlocked = false;
 
 	/**
 	 * The additional (non-primary) working directories this session's agent is
@@ -987,6 +989,46 @@ export class ClaudeAgentSession extends Disposable {
 		this._pendingClientToolCalls.rejectAll(new CancellationError());
 		await this._requirePipeline().rebindForRestart();
 		this._onDidCustomizationsChange.fire();
+	}
+
+	setWorkingDirectory(workingDirectory: URI): Promise<URI> {
+		return this._mcpEnablementSequencer.queue(() => this._setWorkingDirectory(workingDirectory));
+	}
+
+	private async _setWorkingDirectory(workingDirectory: URI): Promise<URI> {
+		const pipeline = this._requirePipeline();
+		if (pipeline.hasActiveTurn) {
+			throw new Error(`Cannot change the working directory for busy Claude session ${this.sessionId}`);
+		}
+		if (this._desiredAdditionalDirectories.length > 0 || this._appliedAdditionalDirectories.length > 0) {
+			throw new Error(`Cannot change the working directory for multi-root Claude session ${this.sessionId}`);
+		}
+		let appliedDirectory: URI;
+		try {
+			appliedDirectory = await pipeline.setWorkingDirectory(workingDirectory);
+		} catch (error) {
+			if (error instanceof AgentWorkingDirectoryChangedError) {
+				this._workingDirectory = error.workingDirectory;
+				this._workspaceRestorationBlocked = error.requiresQuarantine;
+				if (!error.requiresQuarantine) {
+					this.clientCustomizationsDiff.markDirty();
+				}
+			}
+			throw error;
+		}
+		this._workingDirectory = appliedDirectory;
+		this._lastReconciledMcpEnablement = undefined;
+		this._lastCustomizations = [];
+		this.clientCustomizationsDiff.markDirty();
+		try {
+			this._watchCustomizations([appliedDirectory]);
+			await pipeline.rebindAfterWorkingDirectoryChange();
+			await this._doReconcileMcpServerEnablement();
+			this._onDidCustomizationsChange.fire();
+		} catch (error) {
+			throw new AgentWorkingDirectoryChangedError(appliedDirectory, `Claude changed the working directory, but runtime alignment failed: ${error instanceof Error ? error.message : String(error)}`);
+		}
+		return appliedDirectory;
 	}
 
 	/**

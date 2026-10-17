@@ -16,3 +16,14 @@ export const AGENT_HOST_WORKSPACELESS_INSTRUCTIONS = [
 	'- Before workspace-dependent work: use `list_sessions` if needed; ask exactly one single-select question via `ask_user`. Each choice must pair an exact workspace with isolation (existing worktree, direct folder, or new worktree). Then call `set_workspace` with that choice as the turn\'s final tool call. Do not split the question, guess a path, or treat tool approval as confirmation.',
 	'</workspaceless_chat>',
 ].join('\n');
+
+/** Adds provider-owned tool guidance to the shared workspace-less workflow. */
+export function getWorkspacelessInstructions(userInputTool: string): string {
+	return [
+		'<workspaceless_chat>',
+		...workspacelessInstructions,
+		'',
+		`Use \`${userInputTool}\` as the user-input tool for workspace and isolation confirmation.`,
+		'</workspaceless_chat>',
+	].join('\n');
+}

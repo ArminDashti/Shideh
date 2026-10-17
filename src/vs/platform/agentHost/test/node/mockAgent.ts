@@ -153,7 +153,7 @@ export class MockAgent implements IAgent {
 		return { provider: this.id, displayName: `Agent ${this.id}`, description: `Test ${this.id} agent`, capabilities: this._capabilities };
 	}
 
-	async setWorkingDirectory(_chat: URI, _context: URI | IAgentChatContext, _workingDirectory: URI): Promise<void> {
+	async setWorkingDirectory(_chat: URI, _context: URI | IAgentChatContext, _workingDirectory: URI): Promise<URI> {
 		throw new Error(`Agent '${this.id}' does not support changing the working directory of an existing session.`);
 	}
 
@@ -576,7 +576,7 @@ export class ScriptedMockAgent implements IAgent {
 		};
 	}
 
-	async setWorkingDirectory(_chat: URI, _context: URI | IAgentChatContext, _workingDirectory: URI): Promise<void> {
+	async setWorkingDirectory(_chat: URI, _context: URI | IAgentChatContext, _workingDirectory: URI): Promise<URI> {
 		throw new Error('The scripted mock agent does not support changing the working directory of an existing session.');
 	}
 

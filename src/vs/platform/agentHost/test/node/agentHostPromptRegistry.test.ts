@@ -11,7 +11,7 @@ import type { ModelSelection } from '../../common/state/protocol/state.js';
 import { AgentHostPromptRegistry, agentHostPromptRegistry, type IAgentHostPromptContext } from '../../node/copilot/prompts/promptRegistry.js';
 import { COPILOT_AGENT_HOST_SYSTEM_MESSAGE } from '../../node/copilot/prompts/systemMessage.js';
 import { AGENT_HOST_FILE_LINK_INSTRUCTIONS } from '../../node/shared/fileLinkInstructions.js';
-import { AGENT_HOST_WORKSPACELESS_INSTRUCTIONS } from '../../node/shared/workspacelessInstructions.js';
+import { AGENT_HOST_WORKSPACELESS_INSTRUCTIONS, getWorkspacelessInstructions } from '../../node/shared/workspacelessInstructions.js';
 import { COPILOT_AGENT_HOST_LARGE_OUTPUT_TOOL_INSTRUCTION, COPILOT_AGENT_HOST_SUBAGENT_TOOL_INSTRUCTIONS } from '../../node/copilot/prompts/toolInstructions.js';
 import { BrowserChatToolReferenceName } from '../../../browserView/common/browserChatToolReferenceNames.js';
 import { CLIENT_TOOL_SEARCH_REFERENCE_NAME } from '../../common/toolSearchConstants.js';
@@ -299,6 +299,17 @@ suite('AgentHostPromptRegistry', () => {
 			});
 		});
 
+		test('keeps provider-selected tool guidance inside the shared workflow tag', () => {
+			const lines = getWorkspacelessInstructions('custom_input').split('\n');
+			assert.deepStrictEqual({
+				sharedLines: lines.slice(0, -3),
+				ending: lines.slice(-3),
+			}, {
+				sharedLines: AGENT_HOST_WORKSPACELESS_INSTRUCTIONS.split('\n').slice(0, -1),
+				ending: ['', 'Use `custom_input` as the user-input tool for workspace and isolation confirmation.', '</workspaceless_chat>'],
+			});
+		});
+
 		test('appends the scratch instructions to the default config for a workspace-less chat', () => {
 			const registry = new AgentHostPromptRegistry();
 			assert.deepStrictEqual(
@@ -309,7 +320,7 @@ suite('AgentHostPromptRegistry', () => {
 						...COPILOT_AGENT_HOST_SYSTEM_MESSAGE.sections,
 						tool_instructions: { action: 'append', content: `\n${UNCONDITIONAL_TOOL_INSTRUCTIONS}` },
 					},
-					content: `${AGENT_HOST_WORKSPACELESS_INSTRUCTIONS}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}`,
+					content: `${getWorkspacelessInstructions('ask_user')}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}`,
 				}
 			);
 		});
@@ -339,7 +350,7 @@ suite('AgentHostPromptRegistry', () => {
 						guidelines: { action: 'append', content: 'Be concise.' },
 						tool_instructions: { action: 'append', content: `\n${UNCONDITIONAL_TOOL_INSTRUCTIONS}` },
 					},
-					content: `${AGENT_HOST_WORKSPACELESS_INSTRUCTIONS}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}`,
+					content: `${getWorkspacelessInstructions('ask_user')}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}`,
 				}
 			);
 		});
@@ -354,7 +365,7 @@ suite('AgentHostPromptRegistry', () => {
 			});
 			assert.deepStrictEqual(
 				registry.resolveSystemMessageConfig({ id: 'gpt-5-mini' }, context({}, [], true)),
-				{ mode: 'replace', content: `FULL PROMPT\n\n${UNCONDITIONAL_TOOL_INSTRUCTIONS}\n\n${AGENT_HOST_WORKSPACELESS_INSTRUCTIONS}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}` }
+				{ mode: 'replace', content: `FULL PROMPT\n\n${UNCONDITIONAL_TOOL_INSTRUCTIONS}\n\n${getWorkspacelessInstructions('ask_user')}\n\n${AGENT_HOST_FILE_LINK_INSTRUCTIONS}` }
 			);
 		});
 	});
