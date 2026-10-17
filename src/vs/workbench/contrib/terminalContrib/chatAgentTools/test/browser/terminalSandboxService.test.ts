@@ -940,6 +940,33 @@ suite('TerminalSandboxService - network domains', () => {
 		}
 	});
 
+	test('should restrict Ruby gem read access on Linux and macOS', () => {
+		for (const os of [OperatingSystem.Linux, OperatingSystem.Macintosh]) {
+			for (const keyword of ['ruby', 'gem', 'bundle', 'bundler', 'rake', 'rbenv', 'rvm']) {
+				deepStrictEqual(
+					getTerminalSandboxReadAllowListForCommands(os, [keyword]).filter(path => path.startsWith('~/.gem')),
+					['~/.gem/ruby', '~/.gem/specs'],
+					`${keyword} should only include non-credential gem roots on ${os}`
+				);
+			}
+		}
+	});
+
+	test('should generate Ruby policy without gem credentials', async () => {
+		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
+		const configPath = await sandboxService.getSandboxConfigPath();
+		ok(configPath);
+
+		await sandboxService.wrapCommand('bundle install', false, 'bash', undefined, [{ keyword: 'bundle', args: ['install'] }]);
+		const configContent = createdFiles.get(configPath);
+		ok(configContent);
+		const config = JSON.parse(configContent);
+		deepStrictEqual(
+			config.filesystem.allowRead.filter((path: string) => path.startsWith('/home/user/.gem')),
+			['/home/user/.gem/ruby', '/home/user/.gem/specs']
+		);
+	});
+
 	test('should add GnuPG read allow-list paths for gpg command keywords', () => {
 		deepStrictEqual(getTerminalSandboxReadAllowListForCommands(OperatingSystem.Linux, ['gpg']), ['~/.gnupg']);
 	});
