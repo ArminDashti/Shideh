@@ -45,6 +45,8 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 
 	private readonly _onDidChangeSessions = this._register(new Emitter<ISessionsChangeEvent>());
 	readonly onDidChangeSessions: Event<ISessionsChangeEvent> = this._onDidChangeSessions.event;
+	private readonly _onWillReplaceSession = this._register(new Emitter<ISessionReplaceEvent>());
+	readonly onWillReplaceSession: Event<ISessionReplaceEvent> = this._onWillReplaceSession.event;
 	private readonly _onDidStartSession = this._register(new Emitter<ISession>());
 	readonly onDidStartSession: Event<ISession> = this._onDidStartSession.event;
 
@@ -185,6 +187,13 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	private _handleDidReplaceSession(from: ISession, to: ISession): void {
+		// Fire `onWillReplaceSession` BEFORE `onDidReplaceSession` so listeners
+		// can migrate any resource-keyed state from `from.resource` to
+		// `to.resource` before downstream observers — including the view
+		// service that swaps the active-session observable — react to the
+		// replacement.
+		this._onWillReplaceSession.fire({ from, to });
+
 		this.chatWidgetHistoryService.moveHistory(ChatAgentLocation.Chat, from.sessionId, to.sessionId);
 		// Notify the view service so it can update the visible grid slot.
 		this._onDidReplaceSession.fire({ from, to });
