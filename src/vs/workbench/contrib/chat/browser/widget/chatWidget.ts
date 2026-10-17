@@ -175,6 +175,16 @@ interface IChatRequestInputOptions {
 	attachedContext: ChatRequestVariableSet;
 }
 
+/**
+ * Represents a chat request that has been queued to be sent after the current request completes.
+ * When a user submits a message while a request is in progress, that message is stored here
+ * and will be automatically sent when the current request finishes.
+ */
+interface IQueuedChatRequest {
+	query?: { query: string };
+	options?: IChatAcceptInputOptions;
+}
+
 export interface IChatWidgetLocationOptions {
 	location: ChatAgentLocation;
 
