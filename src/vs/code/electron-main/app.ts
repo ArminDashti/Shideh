@@ -228,7 +228,7 @@ export class CodeApplication extends Disposable {
 	private nativeHostMainService: INativeHostMainService | undefined;
 
 	constructor(
-		private readonly mainProcessNodeIpcServer: NodeIPCServer,
+		private readonly mainProcessNodeIpcServer: NodeIPCServer | undefined,
 		private readonly userEnv: IProcessEnvironment,
 		@IInstantiationService private readonly mainInstantiationService: IInstantiationService,
 		@ILogService private readonly logService: ILogService,
