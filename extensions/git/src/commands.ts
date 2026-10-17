@@ -3757,6 +3757,8 @@ export class CommandCenter {
 				} else {
 					return undefined;
 				}
+
+				commitish = 'HEAD';
 			} else {
 				// Check whether the selected branch is checked out in an existing worktree
 				let worktree: Worktree | undefined = repository.worktrees.find(w => w.ref === choice.refId);
@@ -3783,23 +3785,99 @@ export class CommandCenter {
 			const worktreeRoot = this.globalState.get<string>(`${Repository.WORKTREE_ROOT_STORAGE_KEY}:${repository.root}`);
 			const defaultUri = worktreeRoot ? Uri.file(worktreeRoot) : Uri.file(path.dirname(repository.root));
 
-			const uris = await window.showOpenDialog({
-				defaultUri,
-				canSelectFiles: false,
-				canSelectFolders: true,
-				canSelectMany: false,
-				openLabel: l10n.t('Select as Worktree Destination'),
+				const uris = await window.showOpenDialog({
+					defaultUri,
+					canSelectFiles: false,
+					canSelectFolders: true,
+					canSelectMany: false,
+					openLabel: l10n.t('Select as Worktree Destination'),
+				});
+
+				if (!uris || uris.length === 0) {
+					return;
+				}
+
+				return path.join(uris[0].fsPath, worktreeName);
+			};
+
+			const getValueSelection = (value: string): [number, number] | undefined => {
+				if (!value || !worktreeName) {
+					return;
+				}
+
+				const start = value.length - worktreeName.length;
+				return [start, value.length];
+			};
+
+			const getValidationMessage = (value: string): InputBoxValidationMessage | undefined => {
+				const worktree = repository.worktrees.find(worktree => pathEquals(path.normalize(worktree.path), path.normalize(value)));
+				return worktree ? {
+					message: l10n.t('A worktree already exists at "{0}".', value),
+					severity: InputBoxValidationSeverity.Warning
+				} : undefined;
+			};
+
+			// Default worktree path is based on the last worktree location or a worktree folder for the repository
+			const defaultWorktreeRoot = this.globalState.get<string>(`${CommandCenter.WORKTREE_ROOT_KEY}:${repository.root}`);
+			const defaultWorktreePath = defaultWorktreeRoot
+				? path.join(defaultWorktreeRoot, worktreeName)
+				: path.join(path.dirname(repository.root), `${path.basename(repository.root)}.worktrees`, worktreeName);
+
+			const disposables: Disposable[] = [];
+			const inputBox = window.createInputBox();
+			disposables.push(inputBox);
+
+			inputBox.placeholder = l10n.t('Worktree path');
+			inputBox.prompt = l10n.t('Please provide a worktree path');
+			inputBox.value = defaultWorktreePath;
+			inputBox.valueSelection = getValueSelection(inputBox.value);
+			inputBox.validationMessage = getValidationMessage(inputBox.value);
+			inputBox.ignoreFocusOut = true;
+			inputBox.buttons = [
+				{
+					iconPath: new ThemeIcon('folder'),
+					tooltip: l10n.t('Select Worktree Destination'),
+					location: QuickInputButtonLocation.Inline
+				}
+			];
+
+			inputBox.show();
+
+			const worktreePath = await new Promise<string | undefined>((resolve) => {
+				disposables.push(inputBox.onDidHide(() => resolve(undefined)));
+				disposables.push(inputBox.onDidAccept(() => resolve(inputBox.value)));
+				disposables.push(inputBox.onDidChangeValue(value => {
+					inputBox.validationMessage = getValidationMessage(value);
+				}));
+				disposables.push(inputBox.onDidTriggerButton(async () => {
+					inputBox.value = await getWorktreePath() ?? '';
+					inputBox.valueSelection = getValueSelection(inputBox.value);
+				}));
 			});
 
-			if (!uris || uris.length === 0) {
+			dispose(disposables);
+
+			if (!worktreePath) {
 				return;
 			}
 
-			return path.join(uris[0].fsPath, worktreeName);
-		};
+			try {
+				await repository.addWorktree({ path: worktreePath, branch, commitish: commitish });
 
-		const getValueSelection = (value: string): [number, number] | undefined => {
-			if (!value || !worktreeName) {
+				// Update worktree root in global state
+				const worktreeRoot = path.dirname(worktreePath);
+				if (worktreeRoot !== defaultWorktreeRoot) {
+					this.globalState.update(`${CommandCenter.WORKTREE_ROOT_KEY}:${repository.root}`, worktreeRoot);
+				}
+			} catch (err) {
+				if (err.gitErrorCode === GitErrorCodes.WorktreeAlreadyExists) {
+					await this.handleWorktreeAlreadyExists(err);
+				} else if (err.gitErrorCode === GitErrorCodes.WorktreeBranchAlreadyUsed) {
+					await this.handleWorktreeBranchAlreadyUsed(err);
+				} else {
+					throw err;
+				}
+
 				return;
 			}
 
