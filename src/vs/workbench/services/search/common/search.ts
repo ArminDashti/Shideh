@@ -458,6 +458,7 @@ export interface ISearchConfigurationProperties {
 	useParentIgnoreFiles: boolean;
 	followSymlinks: boolean;
 	smartCase: boolean;
+	confirmReplaceAll?: boolean;
 	globalFindClipboard: boolean;
 	useReplacePreview: boolean;
 	showLineNumbers: boolean;
