@@ -71,13 +71,43 @@ export interface ITerminalQuickSuggestionsOptions {
  * - `false` -> { commands: 'off', arguments: 'off', unknown: 'off' }
  * - object -> passed through as-is
  */
-export function normalizeQuickSuggestionsConfig(config: ITerminalSuggestConfiguration['quickSuggestions']): ITerminalQuickSuggestionsOptions {
+export function normalizeQuickSuggestionsConfig(config: ITerminalSuggestConfiguration['quickSuggestions']): ITerminalQuickSuggestionsInternalOptions {
+	const defaults: ITerminalQuickSuggestionsInternalOptions = {
+		commands: 'off',
+		arguments: 'off',
+		unknown: 'off'
+	};
+
 	if (typeof config === 'boolean') {
+		// When true, enable commands and arguments but keep unknown off
+		// When false, disable everything
 		return config
 			? { commands: 'on', arguments: 'on', unknown: 'off' }
 			: { commands: 'off', arguments: 'off', unknown: 'off' };
 	}
-	return config;
+
+	if (!config || typeof config !== 'object') {
+		return defaults;
+	}
+
+	const normalizeValue = (value: boolean | 'off' | 'on' | undefined, defaultValue: 'off' | 'on'): 'off' | 'on' => {
+		if (value === undefined) {
+			return defaultValue;
+		}
+		if (typeof value === 'boolean') {
+			return value ? 'on' : 'off';
+		}
+		if (value === 'on' || value === 'off') {
+			return value;
+		}
+		return defaultValue;
+	};
+
+	return {
+		commands: normalizeValue(config.commands, defaults.commands),
+		arguments: normalizeValue(config.arguments, defaults.arguments),
+		unknown: normalizeValue(config.unknown, defaults.unknown)
+	};
 }
 
 export const terminalSuggestConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
