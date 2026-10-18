@@ -36,6 +36,7 @@ export class NoneExecuteStrategy extends Disposable implements ITerminalExecuteS
 		private readonly _hasReceivedUserInput: () => boolean,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITerminalLogService private readonly _logService: ITerminalLogService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		super();
 	}

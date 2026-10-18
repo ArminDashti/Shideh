@@ -13,6 +13,8 @@ import { isCI } from '../../../../../../base/common/platform.js';
 import type { ICommandDetectionCapability } from '../../../../../../platform/terminal/common/capabilities/capabilities.js';
 import { ITerminalLogService, type ITerminalLaunchError } from '../../../../../../platform/terminal/common/terminal.js';
 import type { ITerminalInstance } from '../../../../terminal/browser/terminal.js';
+import { getOutput } from '../outputHelpers.js';
+import { OutputMonitor } from '../tools/monitoring/outputMonitor.js';
 import { trackIdleOnPrompt, type ITerminalExecuteStrategy, type ITerminalExecuteStrategyResult } from './executeStrategy.js';
 import type { IMarker as IXtermMarker } from '@xterm/xterm';
 import { createAltBufferPromise, setupRecreatingStartMarker } from './strategyHelpers.js';
@@ -68,6 +70,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 		private readonly _isSyncMode: boolean,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITerminalLogService private readonly _logService: ITerminalLogService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		super();
 	}
@@ -259,6 +262,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 				output,
 				additionalInformation: additionalInformationLines.length > 0 ? additionalInformationLines.join('\n') : undefined,
 				exitCode,
+				autoReplyResult
 			};
 		} finally {
 			this._executionStores.delete(store);

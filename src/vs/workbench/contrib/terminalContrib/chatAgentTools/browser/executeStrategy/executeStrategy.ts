@@ -33,6 +33,7 @@ export interface ITerminalExecuteStrategyResult {
 	output: string | undefined;
 	additionalInformation?: string;
 	exitCode?: number;
+	autoReply?: string;
 	error?: string;
 	didEnterAltBuffer?: boolean;
 }

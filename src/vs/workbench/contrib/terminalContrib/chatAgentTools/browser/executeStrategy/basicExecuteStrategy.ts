@@ -83,6 +83,7 @@ export class BasicExecuteStrategy extends Disposable implements ITerminalExecute
 		private readonly _commandDetection: ICommandDetectionCapability,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITerminalLogService private readonly _logService: ITerminalLogService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		super();
 	}

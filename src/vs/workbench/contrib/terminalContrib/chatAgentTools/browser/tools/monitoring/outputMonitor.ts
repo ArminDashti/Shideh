@@ -356,6 +356,19 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		});
 	}
 
+	public async checkIfInputRequired(token: CancellationToken, recursionDepth?: number): Promise<{ selectedOption: string; confirmed: boolean } | undefined> {
+		const confirmationPrompt = await this._determineUserInputOptions(this._execution, token);
+		const selectedOption = await this._selectAndHandleOption(confirmationPrompt, token);
+		if (selectedOption) {
+			if (recursionDepth && recursionDepth >= PollingConsts.MaxRecursionCount) {
+				return;
+			}
+			const confirmed = await this._confirmRunInTerminal(selectedOption, this._execution);
+			return { selectedOption, confirmed };
+		}
+		return;
+	}
+
 
 	private async _handleIdleState(token: CancellationToken): Promise<{ resources?: ILinkLocation[]; shouldContinuePolling: boolean; output?: string }> {
 		const output = this._execution.getOutput();
