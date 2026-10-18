@@ -102,7 +102,7 @@ export class ModePicker extends Disposable {
 		this._renderDisposables.add(dom.addDisposableListener(trigger, dom.EventType.KEY_DOWN, (e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
 				dom.EventHelper.stop(e, true);
-				this._showPicker();
+				this.showPicker();
 			}
 		}));
 
@@ -137,7 +137,7 @@ export class ModePicker extends Disposable {
 		return result;
 	}
 
-	private _showPicker(): void {
+	showPicker(): void {
 		if (!this._triggerElement || this.actionWidgetService.isVisible) {
 			return;
 		}
