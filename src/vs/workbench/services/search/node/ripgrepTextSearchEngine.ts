@@ -17,13 +17,13 @@ import { DEFAULT_MAX_SEARCH_RESULTS, ITextSearchPreviewOptions, SearchError, Sea
 import { Range, TextSearchComplete2, TextSearchContext2, TextSearchMatch2, TextSearchProviderOptions, TextSearchQuery2, TextSearchResult2 } from '../common/searchExtTypes.js';
 import { AST as ReAST, RegExpParser, RegExpVisitor } from 'vscode-regexpp';
 import { anchorGlob, IOutputChannel, Maybe, rangeToSearchRange, searchRangeToRange } from './ripgrepSearchUtils.js';
-import type { RipgrepTextSearchOptions } from '../common/searchExtTypesInternal.js';
+import { RipgrepTextSearchContext, RipgrepTextSearchMatch, RipgrepTextSearchOptions, RipgrepTextSearchResult } from '../common/searchExtTypesInternal.js';
 import { newToOldPreviewOptions } from '../common/searchExtConversionTypes.js';
 import { rgDiskPath } from '../../../../base/node/ripgrep.js';
 
 export class RipgrepTextSearchEngine {
 
-	constructor(private outputChannel: IOutputChannel, private readonly _numThreads?: number | undefined) { }
+	constructor(private outputChannel: IOutputChannel, protected readonly _numThreads?: number | undefined) { }
 
 	provideTextSearchResults(query: TextSearchQuery2, options: TextSearchProviderOptions, progress: Progress<TextSearchResult2>, token: CancellationToken): Promise<TextSearchComplete2> {
 		return Promise.all(options.folderOptions.map(folderOption => {

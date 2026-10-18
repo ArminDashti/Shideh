@@ -178,22 +178,9 @@ declare module 'vscode' {
 		 * The uri for the matching document.
 		 */
 		uri: Uri;
-
-		/**
-		 * The ranges associated with this match.
-		 */
-		ranges: {
-			/**
-			 * The range of the match within the document, or multiple ranges for multiple matches.
-			 */
-			sourceRange: Range;
-			/**
-			 * The Range within `previewText` corresponding to the text of the match.
-			 */
-			previewRange: Range;
-		}[];
-
-		previewText: string;
+		range: Range; // target range
+		preview: { text: string; location: { start: number; end: number } };
+		contextLines: { text: string; lineNumber: number }[];
 	}
 
 	/**

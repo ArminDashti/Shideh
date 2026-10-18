@@ -303,7 +303,6 @@ export class TextSearchMatch2 {
 		public uri: URI,
 		public ranges: { sourceRange: Range; previewRange: Range }[],
 		public previewText: string) { }
-
 }
 
 /**
@@ -319,6 +318,13 @@ export class TextSearchContext2 {
 		public uri: URI,
 		public text: string,
 		public lineNumber: number) { }
+}
+
+export interface TextSearchResultNew {
+	uri: URI;
+	range: Range; // target range
+	preview: { text: string; location: { start: number; end: number } };
+	contextLines: { text: string; lineNumber: number }[];
 }
 
 /**
