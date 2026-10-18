@@ -393,8 +393,8 @@ export class ScreencastModeContribution extends Disposable implements IWorkbench
 					commandAndGroupLabel = `${commandDetails.category}: ${commandAndGroupLabel} `;
 				}
 
-				if (shortcut?.commandId) {
-					const keybindings = keybindingService.lookupKeybindings(shortcut.commandId)
+				if (commandId) {
+					const keybindings = keybindingService.lookupKeybindings(commandId)
 						.filter(k => k.getLabel()?.endsWith(keyLabel ?? ''));
 
 					if (keybindings.length > 0) {

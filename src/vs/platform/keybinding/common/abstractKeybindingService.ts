@@ -334,7 +334,7 @@ export abstract class AbstractKeybindingService extends Disposable implements IK
 
 		const resolveResult = this._getResolver().resolve(contextValue, currentChords, userPressedChord);
 
-		this._logService.trace('KeybindingService#dispatch', keypressLabel, resolveResult?.commandId);
+		this._logService.trace('KeybindingService#dispatch', keypressLabel, resolveResult?.commands);
 
 		if (resolveResult && resolveResult.enterMultiChord) {
 			shouldPreventDefault = true;
@@ -402,7 +402,7 @@ export abstract class AbstractKeybindingService extends Disposable implements IK
 
 		this._leaveChordMode();
 
-		if (resolveResult && resolveResult.commandId) {
+		if (resolveResult && resolveResult.commands.length > 0) {
 			if (!resolveResult.bubble) {
 				shouldPreventDefault = true;
 			}

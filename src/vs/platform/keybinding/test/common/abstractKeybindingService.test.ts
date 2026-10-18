@@ -227,8 +227,7 @@ suite('AbstractKeybindingService', () => {
 	function kbItem(keybinding: number | number[], command: string | null, when?: ContextKeyExpression): ResolvedKeybindingItem {
 		return new ResolvedKeybindingItem(
 			createUSLayoutResolvedKeybinding(keybinding, OS),
-			command,
-			null,
+			[{ command, args: null }],
 			when,
 			true,
 			null,

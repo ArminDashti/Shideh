@@ -12,9 +12,8 @@ export class ResolvedKeybindingItem {
 
 	public readonly resolvedKeybinding: ResolvedKeybinding | undefined;
 	public readonly chords: string[];
-	public readonly bubble: boolean;
-	public readonly command: string | null;
-	public readonly commandArgs: any;
+	public readonly bubble: boolean = false;
+	public readonly commands: KeyboundCommand[];
 	public readonly when: ContextKeyExpression | undefined;
 	public readonly isDefault: boolean;
 	public readonly extensionId: string | null;
@@ -33,9 +32,12 @@ export class ResolvedKeybindingItem {
 			// handle possible single modifier chord keybindings
 			this.chords = toEmptyArrayIfContainsNull(resolvedKeybinding.getSingleModifierDispatchChords());
 		}
-		this.bubble = (command ? command.charCodeAt(0) === CharCode.Caret : false);
-		this.command = this.bubble ? command!.substr(1) : command;
-		this.commandArgs = commandArgs;
+		const processedCommands = [...commands]; // we have to copy because we possibly need to mutate the first command in the array
+		if (processedCommands.length === 1 && processedCommands[0].command.charCodeAt(0) === CharCode.Caret) { // preserves support for `bubble` - should we remove it?
+			this.bubble = true;
+			processedCommands[0].command = processedCommands[0].command.substring(1);
+		}
+		this.commands = processedCommands;
 		this.when = when;
 		this.isDefault = isDefault;
 		this.extensionId = extensionId;
@@ -44,6 +46,7 @@ export class ResolvedKeybindingItem {
 	}
 }
 
+// TODO@ulugbekna: do we need to copy actually? could we do a faster copy?
 export function toEmptyArrayIfContainsNull<T>(arr: (T | null)[]): T[] {
 	const result: T[] = [];
 	for (let i = 0, len = arr.length; i < len; i++) {

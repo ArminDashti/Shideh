@@ -94,8 +94,7 @@ function createCodeActionKeybinding(keycode: KeyCode, command: string, commandAr
 		new USLayoutResolvedKeybinding(
 			[new KeyCodeChord(false, true, false, false, keycode)],
 			OperatingSystem.Linux),
-		command,
-		commandArgs,
+		[{ command, args: commandArgs }],
 		undefined,
 		false,
 		null,

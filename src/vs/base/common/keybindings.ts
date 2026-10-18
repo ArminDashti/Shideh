@@ -232,6 +232,11 @@ export class ResolvedChord {
 	) { }
 }
 
+export type KeyboundCommand = { command: string; args?: any };
+export function keyboundCommandEquals({ command, args }: KeyboundCommand, b: KeyboundCommand): boolean {
+	return command === b.command && objects.equals(args, b.args);
+}
+
 export type SingleModifierChord = 'ctrl' | 'shift' | 'alt' | 'meta';
 
 /**

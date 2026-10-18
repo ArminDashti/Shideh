@@ -13,8 +13,7 @@ import { LinkedList } from '../../../base/common/linkedList.js';
 
 export interface IKeybindingItem {
 	keybinding: Keybinding | null;
-	command: string | null;
-	commandArgs?: any;
+	commands: KeyboundCommand[];
 	when: ContextKeyExpression | null | undefined;
 	weight1: number;
 	weight2: number;
@@ -40,7 +39,7 @@ export interface IKeybindings {
 }
 
 export interface IKeybindingRule extends IKeybindings {
-	id: string;
+	id: string; // TODO@ulugbekna: non-user-defined multi-command keybindings
 	weight: number;
 	args?: any;
 	/**
@@ -51,7 +50,7 @@ export interface IKeybindingRule extends IKeybindings {
 
 export interface IExtensionKeybindingRule {
 	keybinding: Keybinding | null;
-	id: string;
+	id: string; // TODO@ulugbekna: non-user-defined multi-command keybindings
 	args?: any;
 	weight: number;
 	when: ContextKeyExpression | undefined;
@@ -156,8 +155,7 @@ class KeybindingsRegistryImpl implements IKeybindingsRegistry {
 			if (rule.keybinding) {
 				result[keybindingsLen++] = {
 					keybinding: rule.keybinding,
-					command: rule.id,
-					commandArgs: rule.args,
+					commands: [{ command: rule.id, args: rule.args }],
 					when: rule.when,
 					weight1: rule.weight,
 					weight2: 0,
@@ -181,8 +179,7 @@ class KeybindingsRegistryImpl implements IKeybindingsRegistry {
 	private _registerDefaultKeybinding(keybinding: Keybinding, commandId: string, commandArgs: any, weight1: number, weight2: number, when: ContextKeyExpression | null | undefined): IDisposable {
 		const remove = this._coreKeybindings.push({
 			keybinding: keybinding,
-			command: commandId,
-			commandArgs: commandArgs,
+			commands: [{ command: commandId, args: commandArgs }],
 			when: when,
 			weight1: weight1,
 			weight2: weight2,
@@ -262,13 +259,18 @@ function sorter(a: IKeybindingItem, b: IKeybindingItem): number {
 	if (a.weight1 !== b.weight1) {
 		return a.weight1 - b.weight1;
 	}
-	if (a.command && b.command) {
-		if (a.command < b.command) {
-			return -1;
-		}
-		if (a.command > b.command) {
-			return 1;
-		}
+
+	const cmdCountDiff = a.commands.length - b.commands.length;
+	if (cmdCountDiff !== 0) {
+		return cmdCountDiff;
 	}
+
+	for (let i = 0; i < a.commands.length; ++i) {
+		const cmdA = a.commands[i].command;
+		const cmdB = b.commands[i].command;
+		if (cmdA < cmdB) { return -1; }
+		if (cmdA > cmdB) { return 1; }
+	}
+
 	return a.weight2 - b.weight2;
 }

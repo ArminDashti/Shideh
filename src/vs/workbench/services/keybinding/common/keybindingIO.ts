@@ -24,16 +24,54 @@ export class KeybindingIO {
 			return;
 		}
 		const quotedSerializedKeybinding = JSON.stringify(item.resolvedKeybinding.getUserSettingsLabel());
-		out.write(`{ "key": ${rightPaddedString(quotedSerializedKeybinding + ',', 25)} "command": `);
+		out.write(`{ "key": ${rightPaddedString(quotedSerializedKeybinding + ',', 25)} `);
 
-		const quotedSerializedWhen = item.when ? JSON.stringify(item.when.serialize()) : '';
-		const quotedSerializeCommand = JSON.stringify(item.command);
-		if (quotedSerializedWhen.length > 0) {
-			out.write(`${quotedSerializeCommand},`);
-			out.writeLine();
-			out.write(`                                     "when": ${quotedSerializedWhen}`);
+		if (item.commands.length < 2) {
+			let command: string | null = null;
+			let args: any | undefined = undefined;
+
+			if (item.commands[0] !== undefined) { // single command keybinding
+				command = item.commands[0].command;
+				args = item.commands[0].args;
+			}
+
+			out.write(`"command": `);
+			out.write(`${JSON.stringify(command)}`);
+
+			const quotedSerializedWhen = item.when ? JSON.stringify(item.when.serialize()) : '';
+			if (quotedSerializedWhen.length > 0) {
+				out.write(',');
+				out.writeLine();
+				out.write(`                                     "when": ${quotedSerializedWhen}`);
+			}
+
+			if (args) {
+				out.write(',');
+				out.writeLine();
+				out.write(`                                     "args": ${JSON.stringify(args)}`);
+			}
+			out.write(' }');
 		} else {
-			out.write(`${quotedSerializeCommand}`);
+			out.writeLine(`"commands": [`);
+
+			for (const cmd of item.commands) {
+				if (cmd.args !== undefined) {
+					out.write(JSON.stringify(cmd));
+				} else {
+					out.write(JSON.stringify(cmd.command));
+				}
+				out.writeLine(',');
+			}
+			out.write(`                                    ]`);
+
+			const quotedSerializedWhen = item.when ? JSON.stringify(item.when.serialize()) : '';
+			if (quotedSerializedWhen.length > 0) {
+				out.write(',');
+				out.writeLine();
+				out.write(`                                     "when": ${quotedSerializedWhen}`);
+			}
+
+			out.write(' }');
 		}
 		if (item.commandArgs) {
 			out.write(',');
@@ -48,6 +86,22 @@ export class KeybindingIO {
 		out.write(' }');
 	}
 
+	/**
+	 * {
+	 *  key?: string;
+	 * 	command?: string;
+	 *  args?: any;
+	 * 	when?: string
+	 * }
+	 *
+	 * OR
+	 *
+	 * {
+	 *  key?: string;
+	 *  commands?: KeyboundCommand[];
+	 *  when?: string
+	 * }
+	 */
 	public static readUserKeybindingItem(input: Object): IUserKeybindingItem {
 		const keybinding = 'key' in input && typeof input.key === 'string'
 			? KeybindingParser.parseKeybinding(input.key)
@@ -66,8 +120,7 @@ export class KeybindingIO {
 			: false;
 		return {
 			keybinding,
-			command,
-			commandArgs,
+			commands,
 			when,
 			systemWide,
 			_sourceKey: 'key' in input && typeof input.key === 'string' ? input.key : undefined,

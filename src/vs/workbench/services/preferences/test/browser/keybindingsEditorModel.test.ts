@@ -118,8 +118,8 @@ suite('KeybindingsEditorModel', () => {
 			aResolvedKeybindingItem({ command: 'd' + uuid.generateUuid(), firstChord: { keyCode: KeyCode.Escape }, secondChord: { keyCode: KeyCode.Escape } })
 		);
 
-		registerCommandWithTitle(keybindings[1].command!, 'B Title');
-		registerCommandWithTitle(keybindings[3].command!, 'A Title');
+		registerCommandWithTitle(keybindings[1].commands[0].command, 'B Title');
+		registerCommandWithTitle(keybindings[3].commands[0].command, 'A Title');
 
 		const expected = [keybindings[3], keybindings[1], keybindings[0], keybindings[2]];
 		instantiationService.stub(IKeybindingService, 'getKeybindings', () => keybindings);
@@ -165,7 +165,7 @@ suite('KeybindingsEditorModel', () => {
 
 		await testObject.resolve(new Map<string, string>());
 		const actual = testObject.fetch('')[0];
-		assert.strictEqual(actual.keybindingItem.command, expected.command);
+		assert.strictEqual(actual.keybindingItem.command, expected.commands[0].command);
 		assert.strictEqual(actual.keybindingItem.commandLabel, '');
 		assert.strictEqual(actual.keybindingItem.commandDefaultLabel, null);
 		assert.strictEqual(actual.keybindingItem.keybinding.getAriaLabel(), expected.resolvedKeybinding!.getAriaLabel());
@@ -175,11 +175,11 @@ suite('KeybindingsEditorModel', () => {
 	test('convert keybinding with title to entry', async () => {
 		const expected = aResolvedKeybindingItem({ command: 'a' + uuid.generateUuid(), firstChord: { keyCode: KeyCode.Escape }, when: 'context1 && context2' });
 		prepareKeybindingService(expected);
-		registerCommandWithTitle(expected.command!, 'Some Title');
+		registerCommandWithTitle(expected.commands[0].command, 'Some Title');
 
 		await testObject.resolve(new Map<string, string>());
 		const actual = testObject.fetch('')[0];
-		assert.strictEqual(actual.keybindingItem.command, expected.command);
+		assert.strictEqual(actual.keybindingItem.command, expected.commands[0].command);
 		assert.strictEqual(actual.keybindingItem.commandLabel, 'Some Title');
 		assert.strictEqual(actual.keybindingItem.commandDefaultLabel, null);
 		assert.strictEqual(actual.keybindingItem.keybinding.getAriaLabel(), expected.resolvedKeybinding!.getAriaLabel());
@@ -724,7 +724,7 @@ suite('KeybindingsEditorModel', () => {
 	}
 
 	function assertKeybindingItem(actual: ResolvedKeybindingItem, expected: ResolvedKeybindingItem): void {
-		assert.strictEqual(actual.command, expected.command);
+		assert.deepStrictEqual(actual.commands, expected.commands);
 		if (actual.when) {
 			assert.ok(!!expected.when);
 			assert.strictEqual(actual.when.serialize(), expected.when.serialize());
@@ -754,7 +754,7 @@ suite('KeybindingsEditorModel', () => {
 			}
 		}
 		const keybinding = chords.length > 0 ? new USLayoutResolvedKeybinding(chords, OS) : undefined;
-		return new ResolvedKeybindingItem(keybinding, command || 'some command', null, when ? ContextKeyExpr.deserialize(when) : undefined, isDefault === undefined ? true : isDefault, extensionId ?? null, false);
+		return new ResolvedKeybindingItem(keybinding, [{ command: command || 'some command', args: null }], when ? ContextKeyExpr.deserialize(when) : undefined, isDefault === undefined ? true : isDefault, extensionId ?? null, false);
 	}
 
 	function asResolvedKeybindingItems(keybindingEntries: IKeybindingItemEntry[], keepUnassigned: boolean = false): ResolvedKeybindingItem[] {
