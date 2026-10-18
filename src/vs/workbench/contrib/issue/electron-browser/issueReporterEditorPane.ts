@@ -134,6 +134,7 @@ export class IssueReporterEditorPane extends EditorPane {
 		this.container = append(parent, $('div.issue-reporter-editor-tab'));
 		this.container.style.height = '100%';
 		this.container.style.overflow = 'auto';
+		this._register(this.onDidFocus(() => this.wizard?.activateFloatingBar()));
 	}
 
 	private shouldShowUpdateBanner(): boolean {
@@ -267,12 +268,10 @@ export class IssueReporterEditorPane extends EditorPane {
 					return;
 				}
 
-				const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-					const image = mainWindow.document.createElement('img');
-					image.onload = () => resolve(image);
-					image.onerror = reject;
-					image.src = dataUrl;
-				});
+				const img = await loadScreenshotImage(dataUrl);
+				if (!img) {
+					throw new Error('Failed to load captured screenshot');
+				}
 
 				this.wizard.addScreenshot({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
 
@@ -638,9 +637,7 @@ ${description}
 		const data = input?.data;
 
 		try {
-			// Version info
-			const vscodeVersion = `${product.nameShort} ${!!product.darwinUniversalAssetId ? `${product.version} (Universal)` : product.version} (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`;
-			const systemInfo = await this.processService.getSystemInfo();
+			const { vscodeVersion, systemInfo } = await this.issueDiagnosticsService.getIssueReporterSystemInfo();
 			this.wizard.updateModel({
 				versionInfo: { vscodeVersion, os: systemInfo.os },
 				systemInfo,

@@ -12,6 +12,7 @@ import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../
 import { StopWatch } from '../../../../../../base/common/stopwatch.js';
 import { autorun, IReader, observableFromEvent } from '../../../../../../base/common/observable.js';
 import { ResourceMap, ResourceSet } from '../../../../../../base/common/map.js';
+import { FileAccess, Schemas } from '../../../../../../base/common/network.js';
 import { basename, dirname, isEqual, joinPath } from '../../../../../../base/common/resources.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { OffsetRange } from '../../../../../../editor/common/core/ranges/offsetRange.js';
@@ -36,7 +37,6 @@ import { IWorkspaceInstructionFile, PromptFilesLocator } from '../utils/promptFi
 import { evaluateApplyToPattern, PromptFileParser, ParsedPromptFile, PromptHeaderAttributes } from '../promptFileParser.js';
 import { IAgentInstructions, IAgentSource, IChatPromptSlashCommand, IConfiguredHooksInfo, ICustomAgent, IExtensionPromptPath, ILocalPromptPath, IPluginPromptPath, IBuiltinPromptPath, IPromptPath, IPromptsService, IAgentSkill, IInstructionDiscoveryInfo, IInstructionDiscoveryResult, IInstructionFile, IUserPromptPath, PromptsStorage, IPromptFileContext, IPromptFileResource, IPromptDiscoveryInfo, IPromptFileDiscoveryResult, IPromptSourceFolderResult, ICustomAgentVisibility, IAgentInstructionFile, AgentInstructionFileSource, AgentInstructionFileType, Logger, ISlashCommandDiscoveryInfo, ISlashCommandDiscoveryResult, IAgentDiscoveryInfo, IAgentDiscoveryResult, IHookDiscoveryInfo, IResolvedChatPromptSlashCommand, matchesSessionType } from './promptsService.js';
 import { Delayer, Limiter, raceCancellationError } from '../../../../../../base/common/async.js';
-import { Schemas } from '../../../../../../base/common/network.js';
 import { ChatRequestHooks, parseSubagentHooksFromYaml } from '../hookSchema.js';
 import { type IParsedHookCommand } from '../../../../../../platform/agentPlugins/common/pluginParsers.js';
 import { HookType } from '../hookTypes.js';
@@ -63,6 +63,9 @@ import { PromptDiscoveryTelemetry, SpeechInstructionOutcome } from './promptDisc
  * plugin or skill collections can exhaust the process file handle limit.
  */
 const PROMPT_FILE_DISCOVERY_CONCURRENCY = 10;
+
+/** URI root for built-in skills available in every workbench. */
+export const BUILTIN_SKILLS_URI = FileAccess.asFileUri('vs/workbench/contrib/chat/common/promptSyntax/builtinSkills');
 
 /**
  * Compares resolved prompt resource arrays using their URI and content hash.
@@ -528,12 +531,70 @@ export class PromptsService extends Disposable implements IPromptsService {
 	}
 
 	/**
-	 * Returns the built-in prompt files of the given type. The base service ships
-	 * no built-in prompts; subclasses (e.g. the Agents app) override this to
-	 * contribute bundled prompts such as built-in skills.
+	 * Returns prompt files bundled for every workbench. Subclasses can override
+	 * this to add surface-specific built-ins.
 	 */
 	protected async getBuiltinPromptFiles(type: PromptsType, token: CancellationToken): Promise<readonly IBuiltinPromptPath[]> {
-		return [];
+		if (type !== PromptsType.skill) {
+			return [];
+		}
+		if (!this._builtinSkillsCache) {
+			this._builtinSkillsCache = this.discoverBuiltinSkills();
+		}
+		const skills = await this._builtinSkillsCache;
+		if (token.isCancellationRequested) {
+			return [];
+		}
+		return skills.map(skill => ({
+			uri: skill.uri,
+			storage: PromptsStorage.builtIn,
+			type: PromptsType.skill,
+			name: skill.name,
+			description: skill.description,
+		}));
+	}
+
+	private async discoverBuiltinSkills(): Promise<readonly IAgentSkill[]> {
+		try {
+			const stat = await this.fileService.resolve(BUILTIN_SKILLS_URI);
+			if (!stat.children) {
+				return [];
+			}
+
+			const skills: IAgentSkill[] = [];
+			for (const child of stat.children) {
+				if (!child.isDirectory) {
+					continue;
+				}
+				const skillFileUri = joinPath(child.resource, SKILL_FILENAME);
+				try {
+					const parsed = await this.parseNew(skillFileUri, CancellationToken.None);
+					const rawName = parsed.header?.name;
+					const rawDescription = parsed.header?.description;
+					if (!rawName || !rawDescription) {
+						continue;
+					}
+					const name = sanitizeBuiltinSkillText(rawName, 64);
+					const description = sanitizeBuiltinSkillText(rawDescription, 1024);
+					if (name !== basename(child.resource)) {
+						continue;
+					}
+					skills.push({
+						uri: skillFileUri,
+						storage: PromptsStorage.builtIn,
+						name,
+						description,
+						disableModelInvocation: parsed.header?.disableModelInvocation === true,
+						userInvocable: parsed.header?.userInvocable !== false,
+					});
+				} catch (error) {
+					this.logger.warn(`[PromptsService] Failed to parse built-in skill: ${skillFileUri}`, error instanceof Error ? error.message : String(error));
+				}
+			}
+			return skills;
+		} catch {
+			return [];
+		}
 	}
 
 	private async getEnrichedBuiltinPromptFiles(type: PromptsType, token: CancellationToken): Promise<readonly IBuiltinPromptPath[]> {
@@ -1962,6 +2023,14 @@ export class PromptsService extends Disposable implements IPromptsService {
 }
 
 // helpers
+
+/**
+ * Strips XML tags and truncates metadata read from a bundled skill.
+ */
+function sanitizeBuiltinSkillText(text: string, maxLength: number): string {
+	const sanitized = text.replace(/<[^>]+>/g, '');
+	return sanitized.length > maxLength ? sanitized.substring(0, maxLength) : sanitized;
+}
 
 class CachedPromise<T> extends Disposable {
 	private cachedPromise: Promise<T> | undefined = undefined;

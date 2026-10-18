@@ -68,6 +68,8 @@ export interface IBuildOptionsInput {
 	readonly mcpServers: Record<string, McpServerConfig> | undefined;
 	/** Workspace MCP servers that must be blocked before native project discovery runs. */
 	readonly deniedMcpServers?: readonly ClaudeDeniedMcpServerSpec[];
+	/** Tool names omitted from the SDK session at launch. */
+	readonly disallowedTools?: readonly string[];
 	/**
 	 * SDK-prefixed tool names to auto-approve without prompting (projected
 	 * onto `Options.allowedTools`). Used for the agent host's feedback server
@@ -168,7 +170,7 @@ export async function buildOptions(
 		allowDangerouslySkipPermissions: true,
 		canUseTool: input.canUseTool,
 		onElicitation: input.onElicitation,
-		disallowedTools: ['WebSearch'],
+		disallowedTools: [...new Set(['WebSearch', ...(input.disallowedTools ?? [])])],
 		includePartialMessages: true,
 		forwardSubagentText: true,
 		enableFileCheckpointing: true,

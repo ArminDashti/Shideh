@@ -142,6 +142,23 @@ export interface ISessionTypePickerDelegate {
 
 export const IChatWidgetService = createDecorator<IChatWidgetService>('chatWidgetService');
 
+/**
+ * Options for creating a fresh Agent Host chat editor session.
+ */
+export interface INewAgentHostEditorSessionOptions {
+	readonly sessionType: string;
+	readonly displayName: string;
+	readonly workspaceFolder?: URI;
+}
+
+/**
+ * A freshly created Agent Host editor session and its exact widget.
+ */
+export interface INewAgentHostEditorSession {
+	readonly sessionResource: URI;
+	readonly widget: IChatWidget;
+}
+
 export interface IChatWidgetService {
 
 	readonly _serviceBrand: undefined;

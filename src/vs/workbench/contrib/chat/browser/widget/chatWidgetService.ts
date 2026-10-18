@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { combinedDisposable, Disposable, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
@@ -161,6 +162,26 @@ export class ChatWidgetService extends Disposable implements IChatWidgetService 
 		} finally {
 			modelRef?.dispose();
 		}
+	}
+
+	async openNewAgentHostEditorSession(options: INewAgentHostEditorSessionOptions): Promise<INewAgentHostEditorSession | undefined> {
+		const sessionResource = URI.from({
+			scheme: options.sessionType,
+			path: `/untitled-${generateUuid()}`,
+		});
+		if (options.workspaceFolder) {
+			this.agentHostNewSessionFolderService.setFolder(sessionResource, options.workspaceFolder);
+		}
+		const widget = await this.openSession(sessionResource, ACTIVE_GROUP, {
+			pinned: true,
+			sessionTypeSelectionReason: 'explicitOverride',
+			title: { fallback: options.displayName },
+		});
+		if (!widget) {
+			this.agentHostNewSessionFolderService.clear(sessionResource);
+			return undefined;
+		}
+		return { sessionResource, widget };
 	}
 
 	private async revealSessionIfAlreadyOpen(sessionResource: URI, options?: IChatEditorOptions): Promise<IChatWidget | undefined> {

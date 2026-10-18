@@ -4594,7 +4594,8 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		const baseInitialConfigValues = initialAutomationConfiguration
 			? {
 				...this._derivedNewSessionConfig(workspace),
-				...this._normalizeAutomationSessionConfig(initialSessionTemplate?.config),
+				...this._normalizeInitialSessionConfig(initialSessionTemplate?.config),
+				...this._normalizeInitialSessionConfig(initialSessionConfig),
 			}
 			: this._initialNewSessionConfig(workspace);
 		const permissionConfig = initialPermissionId
@@ -4707,7 +4708,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		};
 	}
 
-	private _normalizeAutomationSessionConfig(config: Readonly<Record<string, unknown>> | undefined): Record<string, unknown> {
+	private _normalizeInitialSessionConfig(config: Readonly<Record<string, unknown>> | undefined): Record<string, unknown> {
 		const policyRestricted = isAutoApprovePolicyRestricted(this._baseConfigurationService);
 		return Object.fromEntries(Object.entries(config ?? {}).map(([key, value]) => [
 			key,

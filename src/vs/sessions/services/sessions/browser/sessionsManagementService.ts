@@ -1036,7 +1036,10 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			// so the provider keeps owning it — just drop the pointer, do not delete.
 			// Clearing the new session recomputes the isNewChatSession context key
 			// via the view service's active-session autorun.
-			this._newSession.set(undefined, undefined);
+			if (this._newSession.get()?.sessionId === session.sessionId) {
+				clearedDraft = session;
+				this._newSession.set(undefined, undefined);
+			}
 
 			// Foreground send: notify listeners that a send is starting. Listeners
 			// (e.g., telemetry) can use this to prewarm caches whose result is
@@ -1134,6 +1137,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			requestActivity.value = preparedRequestActivity;
 		}
 		if (replaceCurrentDraft) {
+			this._newSession.set(preparedSession, undefined);
 			this._onDidReplaceNewDraftSession.fire({ from: originalSession, to: preparedSession });
 		}
 		return { provider: preparedProvider, session: preparedSession };

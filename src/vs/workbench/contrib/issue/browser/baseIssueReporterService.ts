@@ -102,7 +102,7 @@ export class BaseIssueReporterService extends Disposable {
 			...data,
 			issueType: data.issueType || IssueType.Bug,
 			versionInfo: {
-				vscodeVersion: `${product.nameShort} ${!!product.darwinUniversalAssetId ? `${product.version} (Universal)` : product.version} (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,
+				vscodeVersion: formatIssueReporterVersion(product),
 				os: `${this.os.type} ${this.os.arch} ${this.os.release}${isLinuxSnap ? ' snap' : ''}`
 			},
 			extensionsDisabled: !!this.disableExtensions,

@@ -15,7 +15,6 @@ import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js'
 import { InputBox } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { ISelectOptionItem, SelectBox } from '../../../../base/browser/ui/selectBox/selectBox.js';
 import { Checkbox } from '../../../../base/browser/ui/toggle/toggle.js';
-import { Action, Separator } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
@@ -32,6 +31,7 @@ import { normalizeGitHubUrl } from '../common/issueReporterUtil.js';
 import { IIssueFormService, ISimilarIssue, IssueReporterData, IssueReporterExtensionData, IssueSource, IssueType } from '../common/issue.js';
 import { IssueReporterModel } from './issueReporterModel.js';
 import { RecordingState } from './recordingService.js';
+import { ScreenshotCaptureBar } from './screenshotCaptureBar.js';
 import { IAnnotationEditorState, ScreenshotAnnotationEditor } from './screenshotAnnotation.js';
 
 const MAX_ATTACHMENTS = 5;
@@ -206,11 +206,9 @@ export class IssueReporterOverlay {
 
 	// Attachments
 	private screenshotContainer!: HTMLElement;
-	private screenshotDelay = 0;
 	private recordingElapsedTimer: number | undefined;
 	private recordingStartTime = 0;
 	private currentRecordingState = RecordingState.Idle;
-	private delayedScreenshotPending = false;
 	private readonly recordings: { filePath: string; durationMs: number; thumbnailDataUrl?: string }[] = [];
 
 	// Supporting information
@@ -235,11 +233,10 @@ export class IssueReporterOverlay {
 	private readonly screenshots: IScreenshot[] = [];
 	private readonly model: IssueReporterModel;
 	private visible = false;
-	private floatingBar: HTMLElement | undefined;
+	private screenshotCaptureBar: ScreenshotCaptureBar | undefined;
 	private previewOpened = false;
 	private previewedDraftKey: string | undefined;
 	private closeButton: Button | undefined;
-	private _hideToolbarInScreenshots = true;
 
 	constructor(
 		private data: IssueReporterData,
@@ -249,7 +246,7 @@ export class IssueReporterOverlay {
 		private readonly searchGitHubIssues: IIssueFormService['searchGitHubIssues'],
 		private readonly contextMenuProvider?: IContextMenuProvider,
 		private readonly markdownRendererService?: IMarkdownRendererService,
-		initialHideToolbar: boolean = true,
+		private readonly initialHideToolbar: boolean = true,
 		private readonly resolveExtensionIssueData?: (extensionId: string) => Promise<IssueReporterData | undefined>,
 		private readonly openExternalLink?: (url: string) => Promise<void>,
 		private showUpdateBanner = false,
@@ -258,7 +255,6 @@ export class IssueReporterOverlay {
 		private readonly resolveKeybinding?: (commandId: string) => ResolvedKeybinding | undefined,
 		private readonly descriptionEditorFactory?: IssueReporterDescriptionEditorFactory,
 	) {
-		this._hideToolbarInScreenshots = initialHideToolbar;
 		const hasStandaloneExtensionData = !!data.data && !data.extensionId;
 		this.includeExtensionData = hasStandaloneExtensionData;
 		this.model = this.disposables.add(new IssueReporterModel({
@@ -355,133 +351,24 @@ export class IssueReporterOverlay {
 		this.createFloatingCaptureBar();
 	}
 
-	private captureStripCaptureBtn: Button | undefined;
-	private captureStripDelayBtn: Button | undefined;
 	private captureStripRecordBtn: Button | undefined;
 
 	private createFloatingCaptureBar(): void {
-		const targetWindow = getWindow(this.container);
-		// Mount inside .monaco-workbench so VS Code's color theme CSS vars
-		// (--vscode-debugToolBar-background, etc.) cascade and the bar matches the
-		// active theme. body is outside that scope and the vars wouldn't resolve.
-		// eslint-disable-next-line no-restricted-syntax
-		const workbench = targetWindow.document.querySelector('.monaco-workbench') as HTMLElement | null;
-		const mountTarget = workbench ?? targetWindow.document.body;
-
-		this.floatingBar = $('div.issue-reporter-floating-bar');
-
-		// Drag handle
-		const dragArea = append(this.floatingBar, $('div.wizard-floating-drag'));
-		dragArea.appendChild(renderIcon(Codicon.gripper));
-
-		// Segmented screenshot button: [Screenshot | options]
-		const segmented = append(this.floatingBar, $('div.wizard-segmented-btn'));
-		const floatingButtonStyles = this.getFloatingBarButtonStyles(targetWindow);
-
-		const captureBtn = this.disposables.add(new Button(segmented, { ...floatingButtonStyles, supportIcons: true }));
-		captureBtn.element.classList.add('wizard-segmented-main');
-		captureBtn.label = `$(device-camera) ${localize('screenshot', "Screenshot")}`;
-		this.captureStripCaptureBtn = captureBtn;
-
-		// Delay/options dropdown using VS Code's context menu
-		const delayOptions = this.getScreenshotDelayOptions();
-		const delayDropdownButton = this.disposables.add(new Button(segmented, { ...floatingButtonStyles, supportIcons: true }));
-		delayDropdownButton.element.classList.add('wizard-segmented-dropdown');
-		delayDropdownButton.element.title = localize('captureOptions', "Capture options");
-		delayDropdownButton.element.setAttribute('aria-label', localize('captureOptions', "Capture options"));
-		delayDropdownButton.label = '$(chevron-down)';
-		this.captureStripDelayBtn = delayDropdownButton;
-
-		if (this.contextMenuProvider) {
-			let menuOpen = false;
-			this.disposables.add(delayDropdownButton.onDidClick(() => {
-				if (!delayDropdownButton.enabled || menuOpen) {
-					return;
-				}
-				// Hide-toolbar-in-screenshots toggle (first)
-				const hideAction = new Action(
-					'hide-toolbar',
-					localize('hideToolbarInScreenshots', "Hide Toolbar in Screenshots"),
-					undefined,
-					true,
-					async () => {
-						this._hideToolbarInScreenshots = !this._hideToolbarInScreenshots;
-					}
-				);
-				hideAction.checked = this._hideToolbarInScreenshots;
-
-				const actions = delayOptions.map(opt => {
-					const action = new Action(
-						`delay-${opt.value}`,
-						opt.label,
-						undefined,
-						true,
-						async () => { this.screenshotDelay = opt.value; }
-					);
-					action.checked = opt.value === this.screenshotDelay;
-					return action;
-				});
-
-				const allActions = [hideAction, new Separator(), ...actions];
-				menuOpen = true;
-				this.contextMenuProvider!.showContextMenu({
-					getAnchor: () => this.floatingBar!,
-					getActions: () => allActions,
-					skipTelemetry: true,
-					onHide: () => {
-						menuOpen = false;
-						hideAction.dispose();
-						for (const a of actions) { a.dispose(); }
-					},
-				});
-			}));
-
-			// Close the delay menu when drag starts.
-			// The drag handler calls e.preventDefault() on pointerdown which
-			// suppresses the mousedown event that the context menu uses for
-			// outside-click detection, so we dispatch a synthetic one.
-			this.disposables.add(addDisposableListener(dragArea, EventType.POINTER_DOWN, () => {
-				dragArea.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-			}));
-		}
-
-		this.disposables.add(captureBtn.onDidClick(() => {
-			if (this.getTotalAttachments() >= MAX_ATTACHMENTS || !captureBtn.enabled) {
-				return;
-			}
-			if (this.screenshotDelay > 0) {
-				// Lock width so button doesn't shrink during countdown
-				captureBtn.element.style.minWidth = `${captureBtn.element.offsetWidth}px`;
-				captureBtn.enabled = false;
-				this.delayedScreenshotPending = true;
-				this.updateScreenshotThumbnails();
-				this.updateAttachmentButtons();
-				let remaining = this.screenshotDelay;
-				captureBtn.label = `${remaining}...`;
-				const targetWindow = getWindow(this.container);
-				const intervalDisposable = this.disposables.add(disposableWindowInterval(targetWindow, () => {
-					remaining--;
-					if (remaining > 0) {
-						captureBtn.label = `${remaining}...`;
-					} else {
-						this.disposables.delete(intervalDisposable);
-						captureBtn.label = `$(device-camera) ${localize('screenshot', "Screenshot")}`;
-						captureBtn.element.style.minWidth = '';
-						captureBtn.enabled = true;
-						this.delayedScreenshotPending = false;
-						this.updateScreenshotThumbnails();
-						this.updateAttachmentButtons();
-						this._onDidRequestScreenshot.fire();
-					}
-				}, 1000));
-			} else {
+		const captureBar = this.disposables.add(new ScreenshotCaptureBar(this.container, this.contextMenuProvider, this.initialHideToolbar));
+		this.screenshotCaptureBar = captureBar;
+		this.disposables.add(captureBar.onDidRequestScreenshot(() => {
+			if (this.getTotalAttachments() < MAX_ATTACHMENTS) {
 				this._onDidRequestScreenshot.fire();
 			}
+		}));
+		this.disposables.add(captureBar.onDidChangeCaptureState(() => {
+			this.updateScreenshotThumbnails();
+			this.updateAttachmentButtons();
 		}));
 
 		// Record button
 		if (this.recordingSupported) {
-			this.captureStripRecordBtn = this.disposables.add(new Button(this.floatingBar, { ...defaultButtonStyles, secondary: true, supportIcons: true }));
+			this.captureStripRecordBtn = this.disposables.add(new Button(captureBar.element, { ...defaultButtonStyles, secondary: true, supportIcons: true }));
 			this.captureStripRecordBtn.label = `$(record) ${localize('recordVideo', "Record video")}`;
 			this.captureStripRecordBtn.element.classList.add('wizard-record-btn');
 			this.disposables.add(this.captureStripRecordBtn.onDidClick(() => {
@@ -602,11 +489,8 @@ export class IssueReporterOverlay {
 	}
 
 	private updateCaptureStripVisibility(): void {
-		if (!this.floatingBar) {
-			return;
-		}
 		// Show on all steps so the user can capture screenshots of the wizard itself
-		this.floatingBar.style.display = '';
+		this.screenshotCaptureBar?.show();
 	}
 
 	// Step 1: Describe (category + description + title)
@@ -2039,19 +1923,11 @@ export class IssueReporterOverlay {
 		const wouldReachMax = this.getTotalAttachments() >= MAX_ATTACHMENTS - 1;
 
 		// Screenshot disabled when: at max, OR recording will fill the last slot, OR delayed screenshot pending
-		const screenshotDisabled = atMax || (wouldReachMax && this.currentRecordingState === RecordingState.Recording) || this.delayedScreenshotPending;
+		const screenshotDisabled = atMax || (wouldReachMax && this.currentRecordingState === RecordingState.Recording) || !!this.screenshotCaptureBar?.capturePending;
 		// Record disabled when: at max, OR delayed screenshot will fill the last slot
-		const recordDisabled = atMax || (wouldReachMax && this.delayedScreenshotPending);
+		const recordDisabled = atMax || (wouldReachMax && !!this.screenshotCaptureBar?.capturePending);
 
-		if (this.captureStripCaptureBtn) {
-			this.captureStripCaptureBtn.enabled = !screenshotDisabled;
-			this.captureStripCaptureBtn.element.title = screenshotDisabled ? maxMsg : localize('screenshot', "Screenshot");
-		}
-		if (this.captureStripDelayBtn) {
-			// Delay dropdown also disabled while countdown is running
-			this.captureStripDelayBtn.enabled = !screenshotDisabled;
-			this.captureStripDelayBtn.element.title = screenshotDisabled ? maxMsg : localize('captureOptions', "Capture options");
-		}
+		this.screenshotCaptureBar?.setCaptureEnabled(!screenshotDisabled, maxMsg);
 		if (this.captureStripRecordBtn) {
 			if (this.currentRecordingState !== RecordingState.Recording) {
 				this.captureStripRecordBtn.enabled = !recordDisabled;
@@ -2163,7 +2039,7 @@ export class IssueReporterOverlay {
 
 		if (this.getTotalAttachments() < MAX_ATTACHMENTS) {
 			const wouldReachMax = this.getTotalAttachments() >= MAX_ATTACHMENTS - 1;
-			const addDisabled = wouldReachMax && (this.currentRecordingState === RecordingState.Recording || this.delayedScreenshotPending);
+			const addDisabled = wouldReachMax && (this.currentRecordingState === RecordingState.Recording || !!this.screenshotCaptureBar?.capturePending);
 			const addCard = append(this.screenshotContainer, $('div.wizard-screenshot-card.wizard-screenshot-add'));
 			if (addDisabled) {
 				addCard.classList.add('disabled');
@@ -2453,41 +2329,24 @@ ${rows.map(row => row.map(value => this.escapeMarkdownTableCell(value ?? '')).jo
 	}
 
 	hideFloatingBar(): void {
-		if (this.floatingBar) {
-			this.floatingBar.style.display = 'none';
-		}
+		this.screenshotCaptureBar?.hide();
 	}
 
 	showFloatingBar(): void {
-		if (this.floatingBar) {
-			this.floatingBar.style.display = '';
-		}
+		this.screenshotCaptureBar?.show();
+	}
+
+	activateFloatingBar(): void {
+		this.screenshotCaptureBar?.activate();
 	}
 
 	get shouldHideToolbarForCapture(): boolean {
-		return this._hideToolbarInScreenshots;
+		return this.screenshotCaptureBar?.shouldHideForCapture ?? true;
 	}
 
 	/** Re-parent the floating bar into the wizard's current window. */
 	reparentFloatingBar(): void {
-		if (!this.floatingBar) {
-			return;
-		}
-		const targetWindow = getWindow(this.container);
-		// Mount inside .monaco-workbench so theme CSS vars cascade. Fall back to
-		// document.body when no workbench root is present (shouldn't happen in
-		// practice but keeps the bar visible regardless).
-		// eslint-disable-next-line no-restricted-syntax
-		const workbench = targetWindow.document.querySelector('.monaco-workbench') as HTMLElement | null;
-		const mountTarget = workbench ?? targetWindow.document.body;
-		if (this.floatingBar.parentElement !== mountTarget) {
-			this.floatingBar.remove();
-			mountTarget.appendChild(this.floatingBar);
-			// Reset position so it appears in the new window
-			this.floatingBar.style.left = '';
-			this.floatingBar.style.top = '';
-			this.floatingBar.style.right = '30%';
-		}
+		this.screenshotCaptureBar?.reparent();
 	}
 
 	/** Update the internal model with additional data loaded asynchronously */
@@ -2770,11 +2629,7 @@ ${rows.map(row => row.map(value => this.escapeMarkdownTableCell(value ?? '')).jo
 	 * No-op when the capture button is disabled (e.g. at the attachment limit).
 	 */
 	triggerCaptureScreenshot(): void {
-		const btn = this.captureStripCaptureBtn;
-		if (!btn?.enabled) {
-			return;
-		}
-		btn.element.click();
+		void this.screenshotCaptureBar?.triggerCapture();
 	}
 
 	/**

@@ -1956,6 +1956,42 @@ suite('SessionsManagementService', () => {
 		}, { visible: [null], active: undefined });
 	});
 
+	test('explicit workspace and quick-chat opens render, activate, and focus their fresh sessions', async () => {
+		const folderUri = URI.parse('test:///workspace');
+		const workspaceSession = stubSession({ sessionId: 'issue-workspace', providerId: 'test' });
+		const quickChatSession = stubSession({
+			sessionId: 'issue-quick-chat',
+			providerId: 'test',
+			isQuickChat: constObservable(true),
+		});
+		const provider = new class extends TestSessionsProvider {
+			override readonly supportsQuickChats = true;
+			override resolveWorkspace(_folderUri: URI): ISessionWorkspace { return upcastPartial<ISessionWorkspace>({ uri: _folderUri }); }
+			override createNewSession(): ISession { return workspaceSession; }
+			override createQuickChat(): ISession { return quickChatSession; }
+		}(workspaceSession);
+		const { view, sessionsPartService } = createSessionsManagementService(workspaceSession, disposables, provider);
+
+		const workspaceResult = await view.openNewSession({ folderUri, providerId: 'test', sessionTypeId: 'test', cancelRestore: true });
+		const quickChatResult = view.openQuickChat({ providerId: 'test', sessionTypeId: 'test' });
+
+		assert.deepStrictEqual({
+			workspaceResult: workspaceResult.session?.sessionId,
+			quickChatResult: quickChatResult?.sessionId,
+			active: view.activeSession.get()?.sessionId,
+			visible: view.visibleSessions.get().map(session => session?.sessionId),
+			focused: sessionsPartService.focusedSessions,
+			lastRendered: sessionsPartService.renderedStates.at(-1),
+		}, {
+			workspaceResult: 'issue-workspace',
+			quickChatResult: 'issue-quick-chat',
+			active: 'issue-quick-chat',
+			visible: ['issue-quick-chat'],
+			focused: ['issue-workspace', 'issue-quick-chat'],
+			lastRendered: { visible: ['issue-quick-chat'], active: 'issue-quick-chat' },
+		});
+	});
+
 	test('openNewSession with toSide moves the existing composer beside the active session', async () => {
 		const first = stubSession({ sessionId: 'first', providerId: 'test' });
 		const middle = stubSession({ sessionId: 'middle', providerId: 'test' });
@@ -3534,21 +3570,51 @@ suite('SessionsManagementService', () => {
 	});
 
 	test('sendNewChatRequest clears first-request tracking when chat creation fails', async () => {
+		const folderUri = URI.parse('test:///workspace');
 		const session = stubSession({
 			sessionId: 's1',
 			providerId: 'test',
 			status: constObservable(SessionStatus.Untitled),
 		});
 		const provider = new class extends TestSessionsProvider {
+			override resolveWorkspace(_folderUri: URI): ISessionWorkspace { return upcastPartial<ISessionWorkspace>({ uri: _folderUri }); }
 			override async createNewChat(): Promise<IChat> {
 				throw new Error('create failed');
 			}
 		}(session);
 		const { service } = createSessionsManagementService(session, disposables, provider);
+		const draft = service.createNewSession(folderUri, { providerId: 'test', sessionTypeId: 'test' });
 
-		await assert.rejects(service.sendNewChatRequest(session, { query: 'hi' }), /create failed/);
+		await assert.rejects(service.sendNewChatRequest(draft, { query: 'hi' }), /create failed/);
 
-		assert.deepStrictEqual(service.getInFlightNewSessionRequests(), []);
+		assert.deepStrictEqual({
+			inFlight: service.getInFlightNewSessionRequests(),
+			retryableDraft: service.newSession.get()?.sessionId,
+		}, {
+			inFlight: [],
+			retryableDraft: 's1',
+		});
+	});
+
+	test('sendNewChatRequest leaves a newer composer draft intact when sending a stale draft', async () => {
+		const folderUri = URI.parse('test:///workspace');
+		const drafts = [
+			stubSession({ sessionId: 'stale', providerId: 'test', status: constObservable(SessionStatus.Untitled) }),
+			stubSession({ sessionId: 'newer', providerId: 'test', status: constObservable(SessionStatus.Untitled) }),
+		];
+		let createIndex = 0;
+		const provider = new class extends TestSessionsProvider {
+			override resolveWorkspace(_folderUri: URI): ISessionWorkspace { return upcastPartial<ISessionWorkspace>({ uri: _folderUri }); }
+			override createNewSession(): ISession { return drafts[createIndex++]; }
+			override async sendRequest(sessionId: string): Promise<ISession> { return drafts.find(draft => draft.sessionId === sessionId)!; }
+		}(drafts[0]);
+		const { service } = createSessionsManagementService(drafts[0], disposables, provider);
+		const staleDraft = service.createNewSession(folderUri, { providerId: 'test', sessionTypeId: 'test' });
+		const newerDraft = service.createNewSession(folderUri, { providerId: 'test', sessionTypeId: 'test' });
+
+		await service.sendNewChatRequest(staleDraft, { query: 'stale request' });
+
+		assert.strictEqual(service.newSession.get(), newerDraft);
 	});
 
 	test('sendNewChatRequest with background resolves before preparation and routes the replacement in the background', async () => {

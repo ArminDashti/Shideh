@@ -341,6 +341,18 @@ suite('agentHostSchema', () => {
 			assert.strictEqual(platformSessionSchema.validate(SessionConfigKey.Permissions, { allow: [] }), true);
 		});
 
+		test('reads only string tool names from the session deny list', () => {
+			assert.deepStrictEqual([
+				getSessionDeniedTools({ permissions: { deny: ['ask_user', 42] } }),
+				getSessionDeniedTools({ permissions: 'invalid' }),
+				getSessionDeniedTools(undefined),
+			], [
+				['ask_user'],
+				[],
+				[],
+			]);
+		});
+
 		test('validates the agent modes', () => {
 			const modes: SessionMode[] = ['interactive', 'plan', 'autopilot'];
 			for (const mode of modes) {

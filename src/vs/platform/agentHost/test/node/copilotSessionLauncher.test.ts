@@ -1990,6 +1990,7 @@ suite('CopilotSessionLauncher resume config', () => {
 		services.set(IAgentConfigurationService, {
 			_serviceBrand: undefined,
 			getRootValue: (_schema: unknown, key: string) => values[key as keyof typeof values],
+			getEffectiveValue: () => ({ allow: [], deny: [...sessionDeniedTools] }),
 		} as unknown as IAgentConfigurationService);
 		// The launcher's other dependencies are unused by this path and resolve
 		// to `undefined` under the non-strict InstantiationService.
@@ -2119,6 +2120,14 @@ suite('CopilotSessionLauncher resume config', () => {
 			[disabled.excludedTools, enabled.excludedTools, filtered.excludedTools],
 			[[`builtin:${SEMANTIC_SEARCH_TOOL_NAME}`], undefined, [`custom:${SEMANTIC_SEARCH_TOOL_NAME}`, `builtin:${SEMANTIC_SEARCH_TOOL_NAME}`]],
 		);
+		store.dispose();
+	});
+
+	test('removes session-denied tools from the SDK launch config', async () => {
+		const store = new DisposableStore();
+		const config = await buildResumeConfig(createLauncher(store, {}, ['ask_user']), { id: 'gpt-5' });
+
+		assert.deepStrictEqual(config.excludedTools, ['ask_user', `builtin:${SEMANTIC_SEARCH_TOOL_NAME}`]);
 		store.dispose();
 	});
 

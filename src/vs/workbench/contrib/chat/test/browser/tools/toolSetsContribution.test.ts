@@ -30,7 +30,7 @@ suite('ToolSetsContribution', () => {
 		return store.add(instaService.createInstance(LanguageModelToolsService));
 	}
 
-	test('ClientToolSetsContribution exposes only Tool Search from vscode-general in the Sessions window', () => {
+	test('ClientToolSetsContribution exposes VS Code diagnostics in editor and Sessions windows', () => {
 		const makeTool = (name: string): IToolData => ({
 			id: name,
 			modelDescription: name,
@@ -38,7 +38,7 @@ suite('ToolSetsContribution', () => {
 			toolReferenceName: name,
 			source: ToolDataSource.Internal,
 		});
-		const general = ['runTests', 'testFailure', 'rename', 'usages', 'toolSearch'].map(makeTool);
+		const general = ['runTests', 'testFailure', 'rename', 'usages', 'getVSCodeInfo', 'searchVSCodeLogs', 'toolSearch'].map(makeTool);
 		const removed = ['extensions', 'installExtension', 'newWorkspace', 'runCommand', 'vscodeAPI'].map(makeTool);
 		const createContribution = (isSessionsWindow: boolean) => {
 			const toolsService = createToolsService();
@@ -59,8 +59,8 @@ suite('ToolSetsContribution', () => {
 			sessionsMembers: Array.from(sessionsToolsService.getToolSet('vscode-general')?.getTools() ?? [], tool => tool.toolReferenceName),
 			coreMembers: Array.from(coreToolsService.getToolSet('vscode-general')?.getTools() ?? [], tool => tool.toolReferenceName),
 		}, {
-			sessionsMembers: ['toolSearch'],
-			coreMembers: ['runTests', 'testFailure', 'rename', 'usages', 'toolSearch'],
+			sessionsMembers: ['getVSCodeInfo', 'searchVSCodeLogs', 'toolSearch'],
+			coreMembers: ['runTests', 'testFailure', 'rename', 'usages', 'getVSCodeInfo', 'searchVSCodeLogs', 'toolSearch'],
 		});
 	});
 

@@ -56,7 +56,8 @@ import { SubagentRegistry } from './claudeSubagentRegistry.js';
 import { ClaudePermissionKind } from './claudeToolDisplay.js';
 import { getSdkMcpServerEnablement, isCustomizationSdkEligible, resolveCustomizationEnablement } from '../shared/customizationEnablementGate.js';
 import { McpServerType, type IMcpServerConfiguration } from '../../../mcp/common/mcpPlatformTypes.js';
-import { AgentHostGitHubMcpServerEnabledConfigKey, platformRootSchema } from '../../common/agentHostSchema.js';
+import { AgentHostGitHubMcpServerEnabledConfigKey, platformRootSchema, platformSessionSchema } from '../../common/agentHostSchema.js';
+import { getSessionDeniedTools, SessionConfigKey } from '../../common/sessionConfigKeys.js';
 import { GITHUB_MCP_SERVER_NAME, resolveGitHubMcpServerConfiguration } from '../shared/githubMcpServer.js';
 import { ICopilotApiService } from '../shared/copilotApiService.js';
 import { IAgentHostAuthenticationService } from '../agentHostAuthenticationService.js';
@@ -556,6 +557,7 @@ export class ClaudeAgentSession extends Disposable {
 				resumeSessionAt: this._pendingResumeSessionAt,
 				mcpServers,
 				deniedMcpServers,
+				disallowedTools,
 				allowedTools,
 				plugins,
 				agent: agentName,
@@ -657,6 +659,7 @@ export class ClaudeAgentSession extends Disposable {
 						resumeSessionAt: this._pendingResumeSessionAt,
 						mcpServers: rebuildMcp,
 						deniedMcpServers: rebuildDeniedMcpServers,
+						disallowedTools: rebuildDisallowedTools,
 						allowedTools: rebuildAllowedTools,
 						plugins: rebuildPlugins,
 						agent: rebuildAgentName,
@@ -848,6 +851,19 @@ export class ClaudeAgentSession extends Disposable {
 			allowedTools: autoApproveToolNames ? serverToolAllowList(autoApproveToolNames) : undefined,
 			agentMergeRestrictedMcpServerNames: externalServers.agentMergeRestrictedServerNames,
 		};
+	}
+
+	private _getDisallowedTools(configResource: URI): readonly string[] | undefined {
+		const sessionConfig = this._configurationService.getSessionConfigValues(configResource.toString());
+		const configWithOwnPermissions = sessionConfig && Object.hasOwn(sessionConfig, SessionConfigKey.Permissions)
+			? sessionConfig
+			: this.provisionalConfig && Object.hasOwn(this.provisionalConfig, SessionConfigKey.Permissions)
+				? this.provisionalConfig
+				: undefined;
+		const deniedTools = configWithOwnPermissions
+			? getSessionDeniedTools(configWithOwnPermissions)
+			: this._configurationService.getEffectiveValue(configResource.toString(), platformSessionSchema, SessionConfigKey.Permissions)?.deny ?? [];
+		return deniedTools.length > 0 ? deniedTools : undefined;
 	}
 
 	private async _getGitHubMcpServerConfiguration(): Promise<IMcpServerConfiguration | undefined> {
