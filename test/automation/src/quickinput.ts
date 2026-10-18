@@ -57,7 +57,7 @@ export class QuickInput {
 			await this.code.dispatchKeybinding('down', async () => { });
 		}
 		await this.code.dispatchKeybinding('enter', async () => {
-			if (!keepOpen) {
+			if (keepOpen === false) {
 				await this.waitForQuickInputClosed();
 			}
 		});
