@@ -23,6 +23,7 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { AgentHostAllowSignedOutWhenUsableSettingId } from '../../../../../platform/agentHost/common/agentService.js';
 import { AGENT_HOST_EXISTING_SESSION_HARNESS_PICKER_ENABLED_CONTEXT_KEY } from '../../../../../platform/agentHost/common/agentHostEnablementService.js';
@@ -1492,6 +1493,7 @@ export function registerChatExecuteActions(): DisposableStore {
 	store.add(registerAction2(SubmitWithoutDispatchingAction));
 	store.add(registerAction2(CancelAction));
 	store.add(registerAction2(SendToNewChatAction));
+	store.add(registerAction2(ChooseChatModelWithLayaAction));
 	store.add(registerAction2(ChatSubmitWithCodebaseAction));
 	store.add(registerAction2(ToggleChatModeAction));
 	store.add(registerAction2(SwitchToNextModelAction));
