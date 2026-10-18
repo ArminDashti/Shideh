@@ -4415,7 +4415,6 @@ export class McpHttpServerDefinition implements vscode.McpHttpServerDefinition {
 		public headers: Record<string, string> = {},
 		public version?: string,
 		public metadata?: vscode.McpServerMetadata,
-		public authentication?: { providerId: string; scopes: string[] },
 	) { }
 }
 //#endregion

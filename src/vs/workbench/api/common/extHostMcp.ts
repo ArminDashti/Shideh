@@ -57,10 +57,6 @@ const serverDataValidation = vObj({
 			availability: vNumber(),
 			definition: vObjAny(),
 		}))),
-	})),
-	authentication: vOptionalProp(vObj({
-		providerId: vString(),
-		scopes: vArray(vString()),
 	}))
 });
 
@@ -203,9 +199,6 @@ export class ExtHostMcpService extends Disposable implements IExtHostMpcService 
 				}
 
 				serverDataValidation.validateOrThrow(item);
-				if ((item as vscode.McpHttpServerDefinition2).authentication) {
-					checkProposedApiEnabled(extension, 'mcpToolDefinitions');
-				}
 
 				let staticMetadata: McpServerStaticMetadata | undefined;
 				const castAs2 = item as McpStdioServerDefinition | McpHttpServerDefinition;

@@ -774,17 +774,6 @@ export function mcpOAuthClientSecretStorageKey(mcpServerUrl: string, clientId: s
 	return `mcp.oauth.clientSecret:${mcpServerUrl}:${clientId}`;
 }
 
-export interface McpServerTransportHTTPAuthentication {
-	/**
-	 * Authentication provider ID to use to get a session for the initial MCP server connection.
-	 */
-	readonly providerId: string;
-	/**
-	 * Scopes to use to get a session for the initial MCP server connection.
-	 */
-	readonly scopes: string[];
-}
-
 /**
  * MCP server launched on the command line which communicated over SSE or Streamable HTTP.
  * https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/transports/#http-with-sse

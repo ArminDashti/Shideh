@@ -496,7 +496,7 @@ export class MainThreadMcp extends Disposable implements MainThreadMcpShape {
 			do {
 				session = await this._authenticationService.createSession(
 					providerId,
-					scopes,
+					resolvedScopes,
 					{
 						...providerOptions,
 						activateImmediate: true,
