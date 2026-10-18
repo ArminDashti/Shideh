@@ -777,6 +777,9 @@ export class AICustomizationListWidget extends Disposable {
 	private _sectionLoadId = 0;
 
 	private readonly delayedFilter = new Delayer<void>(200);
+	private readonly itemNormalizer: AICustomizationItemNormalizer;
+	private readonly promptsServiceItemProvider: PromptsServiceCustomizationItemProvider;
+	private cachedItemSource: { descriptorId: string; source: IAICustomizationItemSource } | undefined;
 
 	/** Subscription to the items model for the current section; refreshed on setSection. */
 	private readonly currentSectionSubscription = this._register(new MutableDisposable());
@@ -814,6 +817,21 @@ export class AICustomizationListWidget extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
+		this.itemNormalizer = new AICustomizationItemNormalizer(
+			this.workspaceContextService,
+			this.workspaceService,
+			this.labelService,
+			this.agentPluginService,
+			this.productService,
+		);
+		this.promptsServiceItemProvider = new PromptsServiceCustomizationItemProvider(
+			() => this.harnessService.getActiveDescriptor(),
+			this.promptsService,
+			this.workspaceService,
+			this.fileService,
+			this.pathService,
+			this.productService,
+		);
 		this.element = $('.ai-customization-list-widget');
 		this.create();
 
