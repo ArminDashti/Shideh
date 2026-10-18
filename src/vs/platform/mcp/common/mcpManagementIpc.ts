@@ -77,6 +77,14 @@ export class McpManagementChannel<TContext = RemoteAgentConnectionContext | stri
 						mcpResource: transformOutgoingURI(i.mcpResource, uriTransformer)
 					}))) as Event<T>;
 			}
+			case 'onDidUpdateMcpServers': {
+				return Event.map<readonly InstallMcpServerResult[], readonly InstallMcpServerResult[]>(this.onDidUpdateMcpServers, results =>
+					results.map(i => ({
+						...i,
+						local: i.local ? transformOutgoingExtension(i.local, uriTransformer) : i.local,
+						mcpResource: transformOutgoingURI(i.mcpResource, uriTransformer)
+					})));
+			}
 			case 'onUninstallMcpServer': {
 				return Event.map<UninstallMcpServerEvent, UninstallMcpServerEvent>(this.onUninstallMcpServer, event => {
 					return { ...event, mcpResource: transformOutgoingURI(event.mcpResource, uriTransformer) };

@@ -48,11 +48,6 @@ interface IExpectedReferenceOptions {
 	 */
 	readonly pathStartColumn: number;
 
-	/**
-	 * Either an `error` that was generated during attempt to resolve this reference,
-	 * or a list of expected child references if the attempt was successful.
-	 */
-	readonly childrenOrError?: TErrorCondition | ExpectedReference[];
 }
 
 /**

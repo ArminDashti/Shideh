@@ -360,6 +360,64 @@ export class ChatModeService extends Disposable implements IChatModeService {
 				this.updateAgentModePolicyContextKey();
 			}
 		}));
+		this._register(this.storageService.onWillSaveState(() => this.saveCachedModes()));
+
+		// Ideally we can get rid of the setting to disable agent mode?
+		let didHaveToolsAgent = this.chatAgentService.hasToolsAgent;
+		this._register(this.chatAgentService.onDidChangeAgents(() => {
+			if (didHaveToolsAgent !== this.chatAgentService.hasToolsAgent) {
+				didHaveToolsAgent = this.chatAgentService.hasToolsAgent;
+				this._onDidChangeChatModes.fire();
+			}
+		}));
+	}
+
+	private loadCachedModes(): void {
+		try {
+			const cachedCustomModes = this.storageService.getObject(ChatModeService.CUSTOM_MODES_STORAGE_KEY, StorageScope.WORKSPACE);
+			if (cachedCustomModes) {
+				this.deserializeCachedModes(cachedCustomModes);
+			}
+		} catch (error) {
+			this.logService.error(error, 'Failed to load cached custom chat modes');
+		}
+	}
+
+	private deserializeCachedModes(cachedCustomModes: any): void {
+		if (!Array.isArray(cachedCustomModes)) {
+			this.logService.error('Invalid cached custom modes data: expected array');
+			return;
+		}
+
+		for (const cachedMode of cachedCustomModes) {
+			if (isCachedChatModeData(cachedMode) && cachedMode.uri) {
+				try {
+					const uri = URI.revive(cachedMode.uri);
+					const customChatMode: ICustomChatMode = {
+						uri,
+						name: cachedMode.name,
+						description: cachedMode.description,
+						tools: cachedMode.customTools,
+						body: cachedMode.body || ''
+					};
+					const instance = new CustomChatMode(customChatMode);
+					this._customModeInstances.set(uri.toString(), instance);
+				} catch (error) {
+					this.logService.error(error, 'Failed to create custom chat mode instance from cached data');
+				}
+			}
+		}
+
+		this.hasCustomModes.set(this._customModeInstances.size > 0);
+	}
+
+	private saveCachedModes(): void {
+		try {
+			const modesToCache = Array.from(this._customModeInstances.values());
+			this.storageService.store(ChatModeService.CUSTOM_MODES_STORAGE_KEY, modesToCache, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		} catch (error) {
+			this.logService.warn('Failed to save cached custom chat modes', error);
+		}
 	}
 
 	createModes(sessionResource: URI): IChatModes & IDisposable {

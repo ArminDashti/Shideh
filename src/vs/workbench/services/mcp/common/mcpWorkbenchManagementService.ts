@@ -288,6 +288,47 @@ export class WorkbenchMcpManagementService extends AbstractMcpManagementService 
 		}
 	}
 
+	private handleInstallMcpServerResultsFromEvent(e: readonly InstallMcpServerResult[], emitter: Emitter<readonly InstallMcpServerResult[]>, currentProfileEmitter: Emitter<readonly InstallMcpServerResult[]>): void {
+		const mcpServerInstallResult: IWorkbenchMcpServerInstallResult[] = [];
+		const mcpServerInstallResultInCurrentProfile: IWorkbenchMcpServerInstallResult[] = [];
+		for (const result of e) {
+			const workbenchResult = {
+				...result,
+				local: result.local ? this.toWorkspaceMcpServer(result.local, LocalMcpServerScope.User) : undefined
+			};
+			mcpServerInstallResult.push(workbenchResult);
+			if (this.uriIdentityService.extUri.isEqual(result.mcpResource, this.userDataProfileService.currentProfile.mcpResource)) {
+				mcpServerInstallResultInCurrentProfile.push(workbenchResult);
+			}
+		}
+
+		emitter.fire(mcpServerInstallResult);
+		if (mcpServerInstallResultInCurrentProfile.length) {
+			currentProfileEmitter.fire(mcpServerInstallResultInCurrentProfile);
+		}
+	}
+
+	private async handleRemoteInstallMcpServerResultsFromEvent(e: readonly InstallMcpServerResult[], emitter: Emitter<readonly InstallMcpServerResult[]>, currentProfileEmitter: Emitter<readonly InstallMcpServerResult[]>): Promise<void> {
+		const mcpServerInstallResult: IWorkbenchMcpServerInstallResult[] = [];
+		const mcpServerInstallResultInCurrentProfile: IWorkbenchMcpServerInstallResult[] = [];
+		const remoteMcpResource = await this.getRemoteMcpResource(this.userDataProfileService.currentProfile.mcpResource);
+		for (const result of e) {
+			const workbenchResult = {
+				...result,
+				local: result.local ? this.toWorkspaceMcpServer(result.local, LocalMcpServerScope.RemoteUser) : undefined
+			};
+			mcpServerInstallResult.push(workbenchResult);
+			if (remoteMcpResource ? this.uriIdentityService.extUri.isEqual(result.mcpResource, remoteMcpResource) : this.userDataProfileService.currentProfile.isDefault) {
+				mcpServerInstallResultInCurrentProfile.push(workbenchResult);
+			}
+		}
+
+		emitter.fire(mcpServerInstallResult);
+		if (mcpServerInstallResultInCurrentProfile.length) {
+			currentProfileEmitter.fire(mcpServerInstallResultInCurrentProfile);
+		}
+	}
+
 	async getInstalled(): Promise<IWorkbenchLocalMcpServer[]> {
 		const installed: IWorkbenchLocalMcpServer[] = [];
 		const [userServers, remoteServers, workspaceServers] = await Promise.all([

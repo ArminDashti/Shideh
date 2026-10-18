@@ -506,6 +506,45 @@ class SCMRepositoriesViewModel extends Disposable {
 	}
 }
 
+class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<SCMRepositoriesViewModel, ISCMRepository> {
+	async getChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): Promise<Iterable<ISCMRepository>> {
+		if (inputOrElement instanceof SCMRepositoriesViewModel) {
+			return inputOrElement.repositories;
+		}
+		return [];
+	}
+
+	hasChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): boolean {
+		return inputOrElement instanceof SCMRepositoriesViewModel;
+	}
+}
+
+class RepositoryTreeIdentityProvider implements IIdentityProvider<ISCMRepository> {
+	getId(element: ISCMRepository): string {
+		return element.provider.id;
+	}
+}
+
+class SCMRepositoriesViewModel extends Disposable {
+	readonly onDidChangeRepositoriesSignal: IObservable<void>;
+	readonly onDidChangeVisibleRepositoriesSignal: IObservable<void>;
+
+	constructor(
+		@ISCMViewService private readonly scmViewService: ISCMViewService
+	) {
+		super();
+
+		this.onDidChangeRepositoriesSignal = observableSignalFromEvent(this,
+			this.scmViewService.onDidChangeRepositories);
+		this.onDidChangeVisibleRepositoriesSignal = observableSignalFromEvent(this,
+			this.scmViewService.onDidChangeVisibleRepositories);
+	}
+
+	get repositories(): ISCMRepository[] {
+		return this.scmViewService.repositories;
+	}
+}
+
 export class SCMRepositoriesViewPane extends ViewPane {
 
 	// here

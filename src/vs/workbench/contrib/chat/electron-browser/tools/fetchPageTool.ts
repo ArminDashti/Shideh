@@ -15,6 +15,7 @@ import { detectEncodingFromBuffer } from '../../../../services/textfile/common/e
 import { ChatImageMimeType } from '../../common/languageModels.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolInvocationPreparationContext, IToolResult, IToolResultDataPart, IToolResultTextPart, ToolDataSource, ToolProgress } from '../../common/languageModelToolsService.js';
 import { InternalFetchWebPageToolId } from '../../common/tools/tools.js';
+import { detectEncodingFromBuffer } from '../../../../services/textfile/common/encoding.js';
 
 export const FetchWebPageToolData: IToolData = {
 	id: InternalFetchWebPageToolId,

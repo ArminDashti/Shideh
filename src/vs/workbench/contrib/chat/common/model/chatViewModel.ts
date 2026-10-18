@@ -66,6 +66,10 @@ export function isChatTreeItem(item: unknown): item is IChatRequestViewModel | I
 	return isRequestVM(item) || isResponseVM(item);
 }
 
+export function isChatTreeItem(item: unknown): item is IChatRequestViewModel | IChatResponseViewModel {
+	return isRequestVM(item) || isResponseVM(item);
+}
+
 export function assertIsResponseVM(item: unknown): asserts item is IChatResponseViewModel {
 	if (!isResponseVM(item)) {
 		throw new Error('Expected item to be IChatResponseViewModel');

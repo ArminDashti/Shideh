@@ -5,7 +5,7 @@
 
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Disposable, dispose, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
-import { isLinux, isMacintosh, isNative } from '../../../../base/common/platform.js';
+import { isLinux, isMacintosh, isNative, isWindows } from '../../../../base/common/platform.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';

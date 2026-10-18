@@ -663,6 +663,30 @@ export class ComputeAutomaticInstructions {
 			}
 			next = todo.pop();
 		}
+		let next = todo.pop();
+		while (next) {
+			const result = await this._parseInstructionsFile(next, token);
+			const refsToCheck: { resource: URI }[] = [];
+			for (const ref of result.references) {
+				if (!seen.has(ref) && isPromptOrInstructionsFile(ref)) {
+					refsToCheck.push({ resource: ref });
+					seen.add(ref);
+				}
+			}
+			if (refsToCheck.length > 0) {
+				const stats = await this._fileService.resolveAll(refsToCheck);
+				for (let i = 0; i < stats.length; i++) {
+					const stat = stats[i];
+					const uri = refsToCheck[i].resource;
+					if (stat.success && stat.stat?.isFile) {
+						todo.push(uri);
+						const reason = localize('instruction.file.reason.referenced', 'Referenced by {0}', basename(next));
+						attachedContext.add(toPromptFileVariableEntry(uri, PromptFileVariableKind.InstructionReference, reason));
+					}
+				}
+			}
+			next = todo.pop();
+		}
 	}
 }
 

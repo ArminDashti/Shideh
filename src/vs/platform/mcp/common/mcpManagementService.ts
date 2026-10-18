@@ -755,3 +755,74 @@ export class McpManagementService extends AbstractMcpManagementService implement
 	}
 
 }
+
+export class McpManagementService extends Disposable implements IMcpManagementService {
+
+	readonly _serviceBrand: undefined;
+
+	private readonly _onInstallMcpServer = this._register(new Emitter<InstallMcpServerEvent>());
+	readonly onInstallMcpServer = this._onInstallMcpServer.event;
+
+	private readonly _onDidInstallMcpServers = this._register(new Emitter<readonly InstallMcpServerResult[]>());
+	readonly onDidInstallMcpServers = this._onDidInstallMcpServers.event;
+
+	private readonly _onDidUpdateMcpServers = this._register(new Emitter<readonly InstallMcpServerResult[]>());
+	readonly onDidUpdateMcpServers = this._onDidUpdateMcpServers.event;
+
+	private readonly _onUninstallMcpServer = this._register(new Emitter<UninstallMcpServerEvent>());
+	readonly onUninstallMcpServer = this._onUninstallMcpServer.event;
+
+	private readonly _onDidUninstallMcpServer = this._register(new Emitter<DidUninstallMcpServerEvent>());
+	readonly onDidUninstallMcpServer = this._onDidUninstallMcpServer.event;
+
+	private readonly mcpResourceManagementServices = new ResourceMap<{ service: McpUserResourceManagementService } & IDisposable>();
+
+	constructor(
+		@IUserDataProfilesService private readonly userDataProfilesService: IUserDataProfilesService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+	) {
+		super();
+	}
+
+	private getMcpResourceManagementService(mcpResource: URI): McpUserResourceManagementService {
+		let mcpResourceManagementService = this.mcpResourceManagementServices.get(mcpResource);
+		if (!mcpResourceManagementService) {
+			const disposables = new DisposableStore();
+			const service = disposables.add(this.instantiationService.createInstance(McpUserResourceManagementService, mcpResource));
+			disposables.add(service.onInstallMcpServer(e => this._onInstallMcpServer.fire(e)));
+			disposables.add(service.onDidInstallMcpServers(e => this._onDidInstallMcpServers.fire(e)));
+			disposables.add(service.onDidUpdateMcpServers(e => this._onDidUpdateMcpServers.fire(e)));
+			disposables.add(service.onUninstallMcpServer(e => this._onUninstallMcpServer.fire(e)));
+			disposables.add(service.onDidUninstallMcpServer(e => this._onDidUninstallMcpServer.fire(e)));
+			this.mcpResourceManagementServices.set(mcpResource, mcpResourceManagementService = { service, dispose: () => disposables.dispose() });
+		}
+		return mcpResourceManagementService.service;
+	}
+
+	async getInstalled(mcpResource?: URI): Promise<ILocalMcpServer[]> {
+		const mcpResourceUri = mcpResource || this.userDataProfilesService.defaultProfile.mcpResource;
+		return this.getMcpResourceManagementService(mcpResourceUri).getInstalled();
+	}
+
+	async install(server: IInstallableMcpServer, options?: InstallOptions): Promise<ILocalMcpServer> {
+		const mcpResourceUri = options?.mcpResource || this.userDataProfilesService.defaultProfile.mcpResource;
+		return this.getMcpResourceManagementService(mcpResourceUri).install(server, options);
+	}
+
+	async uninstall(server: ILocalMcpServer, options?: UninstallOptions): Promise<void> {
+		const mcpResourceUri = options?.mcpResource || this.userDataProfilesService.defaultProfile.mcpResource;
+		return this.getMcpResourceManagementService(mcpResourceUri).uninstall(server, options);
+	}
+
+	async installFromGallery(server: IGalleryMcpServer, options?: InstallOptions): Promise<ILocalMcpServer> {
+		const mcpResourceUri = options?.mcpResource || this.userDataProfilesService.defaultProfile.mcpResource;
+		return this.getMcpResourceManagementService(mcpResourceUri).installFromGallery(server, options);
+	}
+
+	override dispose(): void {
+		this.mcpResourceManagementServices.forEach(service => service.dispose());
+		this.mcpResourceManagementServices.clear();
+		super.dispose();
+	}
+
+}

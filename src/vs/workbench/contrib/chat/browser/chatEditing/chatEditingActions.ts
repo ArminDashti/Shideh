@@ -407,6 +407,7 @@ registerAction2(class EditAction extends Action2 {
 			item = widget?.getFocus();
 		}
 
+
 		if (!item) {
 			return;
 		}

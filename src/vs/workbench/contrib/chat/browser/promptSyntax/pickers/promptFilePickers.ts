@@ -283,6 +283,22 @@ const GENERATE_AGENT_OPTION: IPromptPickerQuickPickItem = {
 };
 
 /**
+ * A quick pick item that starts the 'Update Instructions' command.
+ */
+const UPDATE_INSTRUCTIONS_OPTION: IPromptPickerQuickPickItem = Object.freeze({
+	type: 'item',
+	label: `$(refresh) ${localize(
+		'commands.update-instructions.select-dialog.label',
+		'Generate instructions...',
+	)}`,
+	value: URI.parse(INSTRUCTIONS_DOCUMENTATION_URL),
+	pickable: false,
+	alwaysShow: true,
+	buttons: [HELP_BUTTON],
+	commandId: 'workbench.action.chat.updateInstructions',
+});
+
+/**
  * A quick pick item that starts the 'New Instructions File' command.
  */
 const CONFIGURE_VISIBILITY_OPTION: IPromptPickerQuickPickItem = {

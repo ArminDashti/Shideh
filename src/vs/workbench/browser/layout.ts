@@ -2335,13 +2335,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		return true;
 	}
 
-	private auxiliaryBarOpensMaximized(): boolean {
-		const auxiliaryBarOpensMaximized = partOpensMaximizedFromString(this.configurationService.getValue<string>(WorkbenchLayoutSettings.AUXILIARY_BAR_OPENS_MAXIMIZED));
-		const auxiliaryBarLastIsMaximized = this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_WAS_LAST_MAXIMIZED);
-
-		return auxiliaryBarOpensMaximized === PartOpensMaximizedOptions.ALWAYS || (auxiliaryBarOpensMaximized === PartOpensMaximizedOptions.REMEMBER_LAST && auxiliaryBarLastIsMaximized);
-	}
-
 	isPanelMaximized(): boolean {
 		return !this.isVisible(Parts.EDITOR_PART, mainWindow) && !this.isAuxiliaryBarMaximized();
 	}
@@ -3110,7 +3103,6 @@ enum WorkbenchLayoutSettings {
 	ACTIVITY_BAR_VISIBLE = 'workbench.activityBar.visible',
 	PANEL_POSITION = 'workbench.panel.defaultLocation',
 	PANEL_OPENS_MAXIMIZED = 'workbench.panel.opensMaximized',
-	AUXILIARY_BAR_OPENS_MAXIMIZED = 'workbench.secondarySideBar.opensMaximized',
 	ZEN_MODE_CONFIG = 'zenMode',
 	EDITOR_CENTERED_LAYOUT_AUTO_RESIZE = 'workbench.editor.centeredLayoutAutoResize',
 	EDITOR_RESTORE_EDITORS = 'workbench.editor.restoreEditors',
