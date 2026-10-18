@@ -4901,6 +4901,13 @@ export class AgentService extends Disposable implements IAgentService {
 			this._sessionResidency.touch(config.session);
 			this._otelService.setSessionComparisonMetadata(config.session.toString(), readSessionComparisonMetadata(config._meta));
 		}
+		const cleanupWasPending = config?.session
+			? this._pendingSessionGc.has(config.session) || this._pendingSessionRelease.has(config.session)
+			: false;
+		if (config?.session) {
+			this._cancelPendingSessionGc(config.session);
+			this._cancelPendingSessionRelease(config.session);
+		}
 
 		// Capability gate: only a provider that advertises
 		// `multipleWorkingDirectories` accepts more than one working directory.
@@ -7274,6 +7281,28 @@ export class AgentService extends Disposable implements IAgentService {
 		return true;
 	}
 
+	private _getOwningSessionResource(resource: URI): URI {
+		const resourceString = resource.toString();
+		if (isAhpChatChannel(resourceString)) {
+			return URI.parse(parseRequiredSessionUriFromChatUri(resourceString));
+		}
+		const changeset = parseChangesetUri(resourceString);
+		if (changeset) {
+			return URI.parse(changeset.sessionUri);
+		}
+		const annotations = parseAnnotationsUri(resourceString);
+		return annotations ? URI.parse(annotations.sessionUri) : resource;
+	}
+
+	private _hasSessionSubscribers(resource: URI): boolean {
+		for (const subscribedResource of this._resourceSubscribers.keys()) {
+			if (isEqual(this._getOwningSessionResource(subscribedResource), resource)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * If `resource` names a session that no client is still subscribed to and
 	 * that has produced no turns (and has no active turn), schedule a delayed
@@ -7317,8 +7346,20 @@ export class AgentService extends Disposable implements IAgentService {
 			this._pendingSessionGc.deleteAndDispose(session);
 			this._runSessionGc(session).catch(err => {
 				this._logService.error(err, `[AgentService] GC failed for ${key}`);
+			}).finally(() => {
+				if (this._pendingSessionGc.get(resource) === pending) {
+					this._pendingSessionGc.deleteAndDispose(resource);
+				}
 			});
 		}, SESSION_GC_GRACE_MS));
+	}
+
+	private _isEmptyProvisionalSession(resource: URI): boolean {
+		const state = this._stateManager.getSessionState(resource.toString());
+		return state?.lifecycle === SessionLifecycle.Creating
+			&& state.turns.length === 0
+			&& state.activeTurn === undefined
+			&& state.draft === undefined;
 	}
 
 	private _cancelPendingSessionGc(resource: URI): void {
@@ -7340,6 +7381,12 @@ export class AgentService extends Disposable implements IAgentService {
 		await this.disposeSession(session);
 	}
 
+	private async _hasPersistedSessionData(resource: URI): Promise<boolean> {
+		const ref = await this._sessionDataService.tryOpenDatabase(resource);
+		ref?.dispose();
+		return ref !== undefined;
+	}
+
 	/**
 	 * Fires {@link SESSION_GC_GRACE_MS} after a session lost its last
 	 * subscriber while empty. Re-checks the invariants (still no subscribers,
@@ -7348,13 +7395,15 @@ export class AgentService extends Disposable implements IAgentService {
 	 * residency reconciliation; in that case we still proceed because
 	 * "evicted + no resubscribe" implies no client is observing the session.
 	 */
-	private async _runSessionGc(resource: URI): Promise<void> {
+	private async _runSessionGc(resource: URI, token: CancellationToken): Promise<void> {
 		const key = resource.toString();
 		if (this._subscriptions.hasSessionSubscribers(resource)) {
 			return;
 		}
-		const state = this._stateManager.getSessionState(key);
-		if (state && (state.turns.length > 0 || state.activeTurn !== undefined)) {
+		if (await this._hasPersistedSessionData(resource)) {
+			return;
+		}
+		if (token.isCancellationRequested || this._hasSessionSubscribers(resource) || !this._isEmptyProvisionalSession(resource)) {
 			return;
 		}
 		// The session may have been rehydrated or used during the grace window.

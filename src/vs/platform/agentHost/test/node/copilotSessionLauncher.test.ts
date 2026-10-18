@@ -1434,6 +1434,17 @@ suite('CopilotSessionLauncher resume fallback', () => {
 	test('falls back to createSession when the SDK reports the session was not found', async () => {
 		const { launcher, plan, getCreateSessionCalls } = createResumeFailingLaunch('Request session.resume failed with message: Session not found: session-1');
 
+		try {
+			await assert.rejects(() => launcher.launch(plan, testRuntime), /something went wrong/);
+			assert.strictEqual(getCreateSessionCalls(), 0);
+		} finally {
+			await launcher.disposeByokProxyHandle();
+		}
+	});
+
+	test('falls back to createSession when the SDK session is not found', async () => {
+		const { launcher, plan, getCreateSessionCalls } = createResumeFailingLaunch('Request session.resume failed with message: Session not found: session-1');
+
 		const sessions = new DisposableStore();
 		try {
 			sessions.add(await launcher.launch(plan, testRuntime));

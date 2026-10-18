@@ -210,6 +210,7 @@ export class MockAgent implements IAgent {
 
 	/** Optional override for the working directory returned by initializing createChat. */
 	resolvedWorkingDirectory: URI | undefined;
+	createSessionProvisional = false;
 
 	/**
 	 * When set, {@link sendMessage} rejects with this error after recording the

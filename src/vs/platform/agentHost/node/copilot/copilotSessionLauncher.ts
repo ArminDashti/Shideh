@@ -422,7 +422,6 @@ function shouldCreateEmptySessionAfterResumeError(err: unknown): boolean {
 	if (getCopilotSdkErrorCode(err) !== -32603) {
 		return false;
 	}
-
 	const message = getErrorMessage(err);
 	return RESUMABLE_HISTORY_ABSENT_PATTERNS.some(pattern => pattern.test(message));
 }
