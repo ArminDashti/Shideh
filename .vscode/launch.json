@@ -771,6 +771,10 @@
 				"Attach to Agent Host Process",
 				"Resume Stuck Renderer"
 			],
+			"env": {
+				"FORCE_DEV_INTEGRATION": "1",
+				"IS_SCENARIO_AUTOMATION": "1",
+			},
 			"preLaunchTask": "Ensure Prelaunch Dependencies",
 			"presentation": {
 				"group": "0_vscode",
