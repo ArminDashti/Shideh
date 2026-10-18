@@ -14061,7 +14061,6 @@ suite('AgentService (node dispatcher)', () => {
 			class NotYetMigratableAgent extends MockAgent {
 				override readonly onDidDiscoverChats = Event.None;
 				migrationCalls = 0;
-				enumerable = false;
 			}
 			const db = new TransientRegistryWriteDatabase();
 			const existing = AgentSession.uri('copilot', 'existing-before-unavailable');
@@ -14111,9 +14110,42 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual({
 				registryWrites: db.registryWriteAttempts,
 				registered: (await svc.getRegisteredSessions()).map(session => session.toString()),
+				backfilled: await svc.isProviderRegistryBackfilled('copilot'),
 			}, {
 				registryWrites: writesBeforeUnavailable,
 				registered: [],
+				backfilled: false,
+			});
+		});
+
+		test('a provider that becomes enumerable after its initial migration failed recovers without a restart', async () => {
+			// The initial migration promise is already settled by then, so
+			// without an in-process re-arm these sessions would stay hidden
+			// until the next Agent Host process start.
+			class EventuallyEnumerableAgent extends MockAgent {
+				enumerable = false;
+			}
+			const svc = disposables.add(new FastRetryAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			svc.configurationService.updateRootConfig({ [AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.All });
+			const agent = disposables.add(new EventuallyEnumerableAgent('copilot'));
+			const legacy = AgentSession.uri('copilot', 'legacy-migration-eventually-ready');
+			(agent as unknown as { listChatsToMigrate: () => Promise<readonly IAgentChatMetadata[] | undefined> }).listChatsToMigrate = async () => agent.enumerable
+				? [{ chat: URI.parse(buildDefaultChatUri(legacy)), startTime: 1, modifiedTime: 1 }]
+				: undefined;
+			svc.registerProvider(agent);
+			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacy), legacy);
+			const beforeReady = await svc.listSessions().then(() => 'resolved', () => 'rejected');
+
+			agent.enumerable = true;
+
+			assert.deepStrictEqual({
+				beforeReady,
+				afterReady: (await svc.listSessions()).map(s => s.session.toString()),
+				backfilled: await svc.isProviderRegistryBackfilled('copilot'),
+			}, {
+				beforeReady: 'rejected',
+				afterReady: [legacy.toString()],
+				backfilled: true,
 			});
 
 			agent.enumerable = true;
