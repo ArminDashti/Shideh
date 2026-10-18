@@ -1260,3 +1260,24 @@ registerAction2(class extends Action2 {
 		}
 	}
 });
+
+
+function getRevealExcludes(configuration: IFilesConfiguration): IExpression {
+	const fileExcludes = configuration && configuration.files && configuration.files.exclude;
+	const revealExcludes = configuration && configuration.explorer && configuration.explorer.autoRevealExclude;
+
+	if (!fileExcludes && !revealExcludes) {
+		return {};
+	}
+
+	if (!fileExcludes || !revealExcludes) {
+		return fileExcludes || revealExcludes;
+	}
+
+	let allExcludes: IExpression = Object.create(null);
+	// clone the config as it could be frozen
+	allExcludes = mixin(allExcludes, deepClone(fileExcludes));
+	allExcludes = mixin(allExcludes, deepClone(revealExcludes), true);
+
+	return allExcludes;
+}

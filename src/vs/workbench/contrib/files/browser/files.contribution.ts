@@ -482,6 +482,20 @@ configurationRegistry.registerConfiguration({
 				]
 			}
 		},
+		'explorer.autoRevealExclude': {
+			'type': 'object',
+			'markdownDescription': nls.localize('autoRevealExclude', "Configure glob patterns for excluding files and folders from being revealed and selected in the explorer when they are opened. Inherits all glob patterns from the `#files.exclude#` setting. Read more about glob patterns [here](https://code.visualstudio.com/docs/editor/codebasics#_advanced-search-options). Note that `when` conditions are not supported for this setting."),
+			'default': {},
+			'additionalProperties': {
+				'type': 'boolean',
+				'description': nls.localize('explorer.autoRevealExclude.boolean', "The glob pattern to match file paths against. Set to true or false to enable or disable the pattern."),
+			}
+		},
+		'explorer.enableAutoRevealExcludes': {
+			'type': 'boolean',
+			'markdownDescription': nls.localize('enableAutoRevealExcludes', "When enabled, files that match the `#explorer.autoRevealExclude#` setting will not be revealed when they are opened."),
+			'default': false,
+		},
 		'explorer.enableDragAndDrop': {
 			'type': 'boolean',
 			'description': nls.localize('enableDragAndDrop', "Controls whether the Explorer should allow to move files and folders via drag and drop. This setting only effects drag and drop from inside the Explorer."),

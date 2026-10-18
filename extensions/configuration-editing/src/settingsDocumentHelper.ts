@@ -30,6 +30,10 @@ export class SettingsDocument {
 		if (location.path[0] === 'files.exclude' || location.path[0] === 'search.exclude' || location.path[0] === 'explorer.autoRevealExclude') {
 			return this.provideExcludeCompletionItems(location, position);
 		}
+		// explorer.autoRevealExclude doesn't support when conditions
+		if (location.path[0] === 'explorer.autoRevealExclude') {
+			return this.provideExcludeCompletionItems(location, range, false);
+		}
 
 		// files.defaultLanguage
 		if (location.path[0] === 'files.defaultLanguage') {
