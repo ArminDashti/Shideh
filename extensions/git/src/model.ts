@@ -225,7 +225,7 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 	private openRepositories: OpenRepository[] = [];
 	get repositories(): Repository[] { return this.openRepositories.map(r => r.repository); }
 
-	private possibleGitRepositoryPaths = new Set<string>();
+	private possibleGitRepositoryPaths = new Map<string, Set<string>>();
 
 	private _onDidChangeState = new EventEmitter<State>();
 	readonly onDidChangeState = this._onDidChangeState.event;
@@ -480,18 +480,29 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 			return;
 		}
 
-		this.eventuallyScanPossibleGitRepository(uri.fsPath.replace(/\.git.*$/, ''));
+		const repository = this.getRepository(uri);
+		if (!repository) {
+			return;
+		}
+
+		this.eventuallyScanPossibleGitRepository(repository.sourceControl.id, uri.fsPath.replace(/\.git.*$/, ''));
 	}
 
-	private eventuallyScanPossibleGitRepository(path: string) {
-		this.possibleGitRepositoryPaths.add(path);
+	private eventuallyScanPossibleGitRepository(id: string, path: string) {
+		if (!this.possibleGitRepositoryPaths.has(id)) {
+			this.possibleGitRepositoryPaths.set(id, new Set<string>());
+		}
+
+		this.possibleGitRepositoryPaths.get(id)!.add(path);
 		this.eventuallyScanPossibleGitRepositories();
 	}
 
 	@debounce(500)
 	private eventuallyScanPossibleGitRepositories(): void {
-		for (const path of this.possibleGitRepositoryPaths) {
-			this.openRepository(path);
+		for (const [id, paths] of this.possibleGitRepositoryPaths) {
+			for (const path of paths) {
+				this.openRepository(path, false, { parentRoot: id, contextValue: 'submodule' });
+			}
 		}
 
 		this.possibleGitRepositoryPaths.clear();
@@ -841,7 +852,7 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 				.map(r => path.join(repository.root, r.path))
 				.forEach(p => {
 					this.logger.trace(`[Model][open] Opening submodule: '${p}'`);
-					this.eventuallyScanPossibleGitRepository(p);
+					this.eventuallyScanPossibleGitRepository(repository.root, p);
 				});
 		};
 

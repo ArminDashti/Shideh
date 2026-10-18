@@ -489,18 +489,34 @@ class RepositoryTreeIdentityProvider implements IIdentityProvider<ISCMRepository
 }
 
 class SCMRepositoriesViewModel extends Disposable {
+	readonly onDidChangeRepositoryContextValueSignal: IObservableSignal<void>;
 	readonly onDidChangeRepositoriesSignal: IObservable<void>;
 	readonly onDidChangeVisibleRepositoriesSignal: IObservable<void>;
 
 	constructor(
+		@ISCMService private readonly scmService: ISCMService,
 		@ISCMViewService private readonly scmViewService: ISCMViewService
 	) {
 		super();
 
+		this.onDidChangeRepositoryContextValueSignal = observableSignal(this);
+
 		this.onDidChangeRepositoriesSignal = observableSignalFromEvent(this,
 			this.scmViewService.onDidChangeRepositories);
+
 		this.onDidChangeVisibleRepositoriesSignal = observableSignalFromEvent(this,
 			this.scmViewService.onDidChangeVisibleRepositories);
+
+		this.scmService.onDidAddRepository(this._onDidAddRepository, this, this._store);
+		for (const repository of this.scmService.repositories) {
+			this._onDidAddRepository(repository);
+		}
+	}
+
+	private _onDidAddRepository(repository: ISCMRepository): void {
+		this._store.add(runOnChange(repository.provider.contextValue, () => {
+			this.onDidChangeRepositoryContextValueSignal.trigger(undefined);
+		}));
 	}
 
 	get repositories(): ISCMRepository[] {
