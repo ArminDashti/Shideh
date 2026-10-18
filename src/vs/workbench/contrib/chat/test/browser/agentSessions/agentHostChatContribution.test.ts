@@ -805,8 +805,10 @@ class MockWorkingCopyService extends mock<IWorkingCopyService>() {
 function createTestServices(disposables: DisposableStore, workingDirectoryResolver?: { resolve(sessionResource: URI): URI | undefined; isNewSession?: (sessionResource: URI) => boolean }, authServiceOverride?: Partial<IAuthenticationService>, languageModels?: ReadonlyMap<string, ILanguageModelChatMetadata>, provisionalServiceOverride?: Partial<IAgentHostUntitledProvisionalSessionService>, isSessionsWindow = false, languageModelToolsServiceOverride?: Partial<ILanguageModelToolsService>, configOverrides?: Record<string, unknown>, chatSessionsServiceOverride?: Partial<IChatSessionsService>, chatDebugServiceOverride?: Partial<IChatDebugService>, remoteAgentHostServiceOverride?: Partial<IRemoteAgentHostService>, customizationServiceOverride?: IAgentHostCustomizationService, agentHostTerminalServiceOverride?: Partial<IAgentHostTerminalService>, languageModelsServiceOverride?: Partial<ILanguageModelsService>, workspaceFolders: readonly URI[] = [], defaultAccountServiceOverride?: Partial<IDefaultAccountService>) {
 	const instantiationService = disposables.add(new TestInstantiationService());
 
-	const agentHostService = new MockAgentHostService();
-	disposables.add(toDisposable(() => agentHostService.dispose()));
+	const agentHostService = existingAgentHostService ?? new MockAgentHostService();
+	if (!existingAgentHostService) {
+		disposables.add(toDisposable(() => agentHostService.dispose()));
+	}
 
 	const chatAgentService = new MockChatAgentService();
 	const chatWidgetService = new MockChatWidgetService();
@@ -1449,7 +1451,13 @@ suite('AgentHostChatContribution', () => {
 
 	const disposables = new DisposableStore();
 
-	teardown(() => disposables.clear());
+	teardown(() => {
+		disposables.clear();
+		// The static `_sessionToBackend` map persists across handler disposal
+		// (intentionally — see AgentHostSessionHandler). Reset it between
+		// tests so URI mappings from one test don't leak into another.
+		AgentHostSessionHandler._resetForTests();
+	});
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	// ---- Registration ---------------------------------------------------

@@ -1405,6 +1405,21 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			customizations: this._config.customizations?.get() ?? [],
 		})));
 
+		// Evict static `_sessionToBackend` entries when the host signals that a
+		// backend session is gone. Without this, a chat session URI could
+		// remain mapped to a stale backend URI and `_tryReattachToBackendSession`
+		// would have to discover the staleness on the next request.
+		this._register(this._config.connection.onDidNotification(n => {
+			if (n.type === 'notify/sessionRemoved') {
+				const removedKey = n.session.toString();
+				for (const [chatUri, backendUri] of AgentHostSessionHandler._sessionToBackend) {
+					if (backendUri.toString() === removedKey) {
+						AgentHostSessionHandler._sessionToBackend.delete(chatUri);
+					}
+				}
+			}
+		}));
+
 		this._registerAgent();
 	}
 
