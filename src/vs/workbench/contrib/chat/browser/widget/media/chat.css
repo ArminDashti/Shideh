@@ -1495,10 +1495,6 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 		rely on a visible focus/container outline for accessibility. */
 	border-color: var(--vscode-input-border, transparent);
 	overflow: visible;
-
-	> .chat-editor-container {
-		overflow: hidden;
-	}
 }
 
 .monaco-workbench .interactive-session .interactive-input-part:not(.compact) .chat-input-container.working > .chat-editor-container {
