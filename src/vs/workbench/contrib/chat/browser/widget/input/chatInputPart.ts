@@ -537,6 +537,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private _maxHeight: number | undefined;
 	private container!: HTMLElement;
 
+	private _sash: Sash | undefined;
+	private _sashStartHeight: number | undefined;
+	private _userSetMinHeight: number | undefined;
+	private _containerHeight: number | undefined;
+
 	private inputSideToolbarContainer?: HTMLElement;
 	private secondaryToolbarContainer!: HTMLElement;
 	private secondaryToolbar!: MenuWorkbenchToolBar;
@@ -3908,6 +3913,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const archiveNudgeContextKeyService = this._register(this.contextKeyService.createScoped(this.sessionArchiveNudgeContainer));
 		ChatContextKeys.inChatInput.bindTo(archiveNudgeContextKeyService).set(true);
 
+		// Create the resize sash for the input part
+		this._createSash(this.container);
+
 		this.followupsContainer = elements.followupsContainer;
 		const inputAndSideToolbar = elements.inputAndSideToolbar; // The chat input and toolbar to the right
 		this.inputAndSideToolbar = inputAndSideToolbar;
@@ -6054,8 +6062,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	/**
 	 * Layout the input part with the given width. Height is intrinsic - determined by content
 	 * and detected via ResizeObserver, which updates `inputPartHeight` for the parent to observe.
+	 * @param width The width of the input part
+	 * @param containerHeight The total height available in the chat widget container, used to constrain sash resizing
 	 */
-	layout(width: number) {
+	layout(width: number, containerHeight?: number) {
 		this.cachedWidth = width;
 		this._sessionInputRequestsWidth.set(width, undefined);
 		this._updateWorkingProgressAnimationDuration(width);

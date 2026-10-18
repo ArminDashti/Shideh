@@ -2714,6 +2714,11 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	display: none;
 }
 
+.interactive-session .interactive-input-part > .monaco-sash {
+	/* Position the sash at the top of the input part */
+	top: 0;
+}
+
 .interactive-session .interactive-input-part.compact {
 	margin: 0;
 	padding: 8px 0 0 0
