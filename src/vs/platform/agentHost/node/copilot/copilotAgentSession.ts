@@ -7059,6 +7059,19 @@ export class CopilotAgentSession extends Disposable {
 				return;
 			}
 
+			if (isTaskCompleteTool(tracked.toolName)) {
+				this._sendToolInvokedTelemetry(e.data.success, e.data.error?.code, tracked);
+				const summary = getTaskCompleteSummary(tracked.parameters, toolOutput);
+				if (summary) {
+					this._emitAction({
+						type: ActionType.SessionResponsePart,
+						turnId: this._turnId,
+						part: { kind: ResponsePartKind.Markdown, id: generateUuid(), content: summary },
+					});
+				}
+				return;
+			}
+
 			const content: ToolResultContent[] = [...tracked.content];
 			if (toolOutput !== undefined) {
 				content.push({ type: ToolResultContentType.Text, text: toolOutput });
