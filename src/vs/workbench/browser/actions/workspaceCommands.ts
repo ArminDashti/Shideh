@@ -189,6 +189,22 @@ CommandsRegistry.registerCommand({
 
 		const uri = URI.from(uriComponents, true);
 
+		const urisToOpen: IWindowOpenable[] = [
+			(hasWorkspaceFileExtension(uri) || uri.scheme === Schemas.untitled) ? { workspaceUri: uri } : { folderUri: uri }
+		];
+
+		let gotoLineMode;
+		if (arg?.filesToOpen && arg.filesToOpen.length > 0) {
+			urisToOpen.push(...arg.filesToOpen.map<IFileToOpen>(file => {
+				let uri = URI.revive(file.uri);
+				if (typeof file.line === 'number' || typeof file.column === 'number') {
+					gotoLineMode = true;
+					uri = uri.with({ path: `${uri.path}:${file.line || 0}:${file.column || 0}` });
+				}
+				return { fileUri: uri };
+			}));
+		}
+
 		const options: IOpenWindowOptions = {
 			forceNewWindow: arg?.forceNewWindow,
 			forceReuseWindow: arg?.forceReuseWindow,
