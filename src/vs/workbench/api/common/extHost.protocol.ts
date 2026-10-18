@@ -2150,6 +2150,7 @@ export interface SCMProviderFeatures {
 	historyItemGroup?: any;
 	acceptInputCommand?: languages.Command;
 	actionButton?: SCMActionButtonDto | null;
+	notification?: SCMNotificationDto | null;
 	statusBarCommands?: ICommandDto[];
 	contextValue?: string;
 	activeRepositoryName?: string | null;
@@ -2159,6 +2160,11 @@ export interface SCMActionButtonDto {
 	command: ICommandDto & { shortTitle?: string };
 	secondaryCommands?: ICommandDto[][];
 	enabled: boolean;
+}
+
+export interface SCMNotificationDto {
+	message: string | IMarkdownString;
+	severity: ISCMNotificationSeverity;
 }
 
 export interface SCMGroupFeatures {

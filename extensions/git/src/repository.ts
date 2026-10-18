@@ -3275,6 +3275,20 @@ export class Repository implements Disposable {
 		return { indexGroup, mergeGroup, untrackedGroup, workingTreeGroup };
 	}
 
+	private getNotification(): SourceControlNotification | undefined {
+		if (this.isRepositoryHuge) {
+			const message = new MarkdownString(localize('tooManyChangesWarning', "Too many changes were detected, and only the first {0} changes will be shown below. Only a subset of Git features will be enabled. [Configure limit](command:workbench.action.openSettings?%5B%22git.statusLimit%22%5D)", this.isRepositoryHuge.limit));
+			message.isTrusted = true;
+
+			return {
+				message,
+				severity: SourceControlNotificationSeverity.Warning
+			};
+		}
+
+		return undefined;
+	}
+
 	private setCountBadge(): void {
 		const config = workspace.getConfiguration('git', Uri.file(this.repository.root));
 		const countBadge = config.get<'all' | 'tracked' | 'off'>('countBadge');

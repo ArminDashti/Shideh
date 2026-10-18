@@ -2204,6 +2204,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			ResolvedAuthority: extHostTypes.ResolvedAuthority,
 			ManagedResolvedAuthority: extHostTypes.ManagedResolvedAuthority,
 			SourceControlInputBoxValidationType: extHostTypes.SourceControlInputBoxValidationType,
+			SourceControlNotificationSeverity: extHostTypes.SourceControlNotificationSeverity,
 			ExtensionRuntime: extHostTypes.ExtensionRuntime,
 			TimelineItem: extHostTypes.TimelineItem,
 			NotebookRange: extHostTypes.NotebookRange,
