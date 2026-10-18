@@ -352,7 +352,6 @@ export class ListView<T> implements IListView<T> {
 	private readonly currentSelectionDisposable = this.disposables.add(new MutableDisposable<IDisposable>());
 	private readonly currentSelectionMovementDisposable = this.disposables.add(new MutableDisposable<IDisposable>());
 	private currentSelectionBounds: IRange | undefined;
-	private activeElement: HTMLElement | undefined;
 
 	private readonly _onDidChangeContentHeight = this.disposables.add(new Emitter<number>());
 	private readonly _onDidChangeContentWidth = this.disposables.add(new Emitter<number>());
