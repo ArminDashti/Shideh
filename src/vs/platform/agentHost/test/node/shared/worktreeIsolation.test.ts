@@ -1004,6 +1004,35 @@ suite('WorktreeIsolation', () => {
 		});
 	});
 
+	test('resolveWorkingDirectory keeps a submodule working tree rather than the git directory git reports', async () => {
+		// Inside a submodule `git worktree list` answers with the superproject's
+		// git directory, so the worktree must not be derived from it.
+		const submoduleCheckout = URI.joinPath(repoRoot, 'vendored');
+		const submoduleGitDir = URI.joinPath(repoRoot, '.git', 'modules', 'vendored');
+		const gitService = createGitService();
+		gitService.getRepositoryRoot = async () => submoduleCheckout;
+		gitService.getWorktreeRoots = async () => [submoduleGitDir];
+		const isolation = createIsolation(disposables, { gitService });
+
+		const worktree = await isolation.resolveWorkingDirectory({
+			sessionUri,
+			sessionId,
+			workingDirectory: submoduleCheckout,
+			config: { [SessionConfigKey.Isolation]: 'worktree', [SessionConfigKey.Branch]: 'main' },
+		});
+		const meta = await isolation.readWorktreeMetadata(sessionUri);
+
+		assert.deepStrictEqual({
+			worktree: worktree?.toString(),
+			metaRepositoryRoot: meta?.repositoryRoot?.toString(),
+			createdInsideGitDirectory: existsSync(getWorktreesRoot(submoduleGitDir).fsPath),
+		}, {
+			worktree: URI.joinPath(getWorktreesRoot(submoduleCheckout), getWorktreeName(branchName)).toString(),
+			metaRepositoryRoot: submoduleCheckout.toString(),
+			createdInsideGitDirectory: false,
+		});
+	});
+
 	test('resolveWorkingDirectory names each creation phase, rounding percentages down and debouncing updates', async () => {
 		const gitService = createGitService();
 		gitService.addWorktree = async (_root, options) => {
