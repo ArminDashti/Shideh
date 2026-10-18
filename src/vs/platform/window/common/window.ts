@@ -316,6 +316,7 @@ export function hasNativeMenu(configurationService: IConfigurationService, title
 }
 
 export type MenuBarVisibility = 'classic' | 'visible' | 'toggle' | 'hidden' | 'compact';
+export type TitleBarVisibility = 'always' | 'windowed' | 'contents';
 
 export function getMenuBarVisibility(configurationService: IConfigurationService): MenuBarVisibility {
 	const menuBarVisibility = configurationService.getValue<MenuBarVisibility | 'default'>(MenuSettings.MenuBarVisibility);
@@ -325,6 +326,10 @@ export function getMenuBarVisibility(configurationService: IConfigurationService
 	} else {
 		return menuBarVisibility;
 	}
+}
+
+export function getTitleBarVisibility(configurationService: IConfigurationService): TitleBarVisibility {
+	return configurationService.getValue<TitleBarVisibility>('window.titleBarVisibility');
 }
 
 export interface IWindowsConfiguration {

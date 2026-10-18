@@ -545,7 +545,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (visible !== this.state.runtime.menuBar.toggled) {
 			this.state.runtime.menuBar.toggled = visible;
 
-			const menuBarVisibility = getMenuBarVisibility(this.configurationService);
+			const wasVisible = this.isVisible(Parts.TITLEBAR_PART);
+			const shouldBeVisible = this.shouldShowTitleBar();
 
 			// The menu bar toggles the title bar in web because it does not need to be shown for window controls only
 			if (isWeb && menuBarVisibility === 'toggle') {
