@@ -31,6 +31,8 @@ export const enum MarkdownStringTextNewlineStyle {
 }
 
 export class MarkdownString implements IMarkdownString {
+	private readonly _isTrusted: boolean;
+	private readonly _supportThemeIcons: boolean;
 
 	public value: string;
 	public isTrusted?: boolean | MarkdownStringTrustedOptions;
