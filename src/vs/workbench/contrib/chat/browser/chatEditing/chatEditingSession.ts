@@ -1147,6 +1147,13 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		await entry.acceptAgentEdits(resource, textEdits, isLastEdits, responseModel, metadata);
 	}
 
+	private async _acceptNotebookEdits(resource: URI, edits: ICellEditOperation[], isLastEdits: boolean, responseModel: IChatResponseModel): Promise<void> {
+		const entry = await this._getOrCreateModifiedFileEntry(resource, this._getTelemetryInfoForModel(responseModel)) as IModifiedFileEntry;
+		if (entry.acceptAgentNotebookEdits) {
+			entry.acceptAgentNotebookEdits(edits, isLastEdits, responseModel);
+		}
+	}
+
 	private _getTelemetryInfoForModel(responseModel: IChatResponseModel): IModifiedEntryTelemetryInfo {
 		// Make these getters because the response result is not available when the file first starts to be edited
 		return new class implements IModifiedEntryTelemetryInfo {
