@@ -121,6 +121,7 @@ export class ClientToolSetsContribution extends Disposable implements IWorkbench
 				'getVSCodeInfo',
 				'searchVSCodeLogs',
 				'toolSearch',
+				'codeTour',
 			],
 		}));
 

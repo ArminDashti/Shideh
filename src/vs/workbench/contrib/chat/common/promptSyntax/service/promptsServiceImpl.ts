@@ -156,6 +156,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 	private readonly cachedSkills: CachedPromise<IPromptDiscoveryInfo>;
 
 	/**
+	 * Built-in skills bundled with the workbench. They never change at runtime,
+	 * so the folder is scanned once per service instance.
+	 */
+	private _builtinSkillsCache: Promise<readonly IBuiltinPromptPath[]> | undefined;
+
+	/**
 	 * Cached instructions.
 	 */
 	private readonly cachedInstructions: CachedPromise<IInstructionDiscoveryInfo>;
@@ -265,6 +271,16 @@ export class PromptsService extends Disposable implements IPromptsService {
 		}));
 
 		const modelChangeEvent = this._register(new ModelChangeTracker(this.modelService)).onDidPromptChange;
+		const builtinSkillEnablementChangeEvent = Event.filter(
+			this.configurationService.onDidChangeConfiguration,
+			e => BUILTIN_SKILL_ENABLEMENT_SETTING_IDS.some(setting => e.affectsConfiguration(setting)));
+
+		// Which built-in skills are offered depends on configuration, so the
+		// memoized file list has to be dropped alongside the discovery caches.
+		this._register(builtinSkillEnablementChangeEvent(() => {
+			this.cachedFileLocations[PromptsType.skill] = undefined;
+		}));
+
 		this.cachedCustomAgents = this._register(new CachedPromise(
 			(token) => this.computeAgentDiscoveryInfo(token),
 			() => Event.any(

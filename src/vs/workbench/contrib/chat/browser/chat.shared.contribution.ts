@@ -954,6 +954,12 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			tags: ['experimental']
 		},
+		[ChatConfiguration.CodeTourEnabled]: {
+			default: false,
+			description: nls.localize('chat.codeTour.enabled', "Controls whether the agent can present explanations as a guided code tour that opens and highlights files as it narrates."),
+			type: 'boolean',
+			tags: ['experimental']
+		},
 		[ChatConfiguration.ArtifactsRulesByMimeType]: {
 			default: {
 				'image/*': { groupName: 'Screenshots', onlyShowGroup: true }

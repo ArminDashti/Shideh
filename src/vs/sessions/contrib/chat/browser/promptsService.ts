@@ -5,10 +5,9 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { FileAccess } from '../../../../base/common/network.js';
-import { basename, joinPath } from '../../../../base/common/resources.js';
-import { SKILL_FILENAME } from '../../../../workbench/contrib/chat/common/promptSyntax/config/promptFileLocations.js';
 import { PromptsType } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
-import { IAgentSkill, IBuiltinPromptPath, PromptsStorage } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
+import { discoverBuiltinSkills } from '../../../../workbench/contrib/chat/common/promptSyntax/service/builtinSkillDiscovery.js';
+import { IBuiltinPromptPath } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { PromptsService } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsServiceImpl.js';
 
 /** URI root for built-in skills available only in the Agents app. */

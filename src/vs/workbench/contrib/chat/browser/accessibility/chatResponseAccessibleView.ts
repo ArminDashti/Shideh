@@ -127,6 +127,13 @@ export function getToolSpecificDataDescription(toolSpecificData: ToolSpecificDat
 		}
 		case 'pullRequest':
 			return localize('pullRequestInfo', "PR: {0} by {1}", toolSpecificData.title, toolSpecificData.author);
+		case 'codeTour': {
+			const stops = toolSpecificData.stops;
+			if (stops.length === 0) {
+				return toolSpecificData.title;
+			}
+			return localize('codeTourInfo', "Code tour \"{0}\", {1} stops: {2}", toolSpecificData.title, stops.length, stops.map(s => s.title).join('; '));
+		}
 		case 'input':
 			return typeof toolSpecificData.rawInput === 'string'
 				? toolSpecificData.rawInput
