@@ -3,11 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Unified Quick Access Tabs Container */
+/* Unified Quick Access Tabs Container (rendered inside picker's headerWidget slot) */
 .unified-quick-access-tabs {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	padding: 2px 6px 8px;
 	gap: 8px;
 }
@@ -29,7 +28,6 @@
 	color: var(--vscode-quickInput-foreground);
 	opacity: 0.7;
 	border: none;
-	transition: opacity 0.1s ease, background-color 0.1s ease;
 }
 
 .unified-quick-access-tabs .monaco-custom-radio .monaco-button:hover {

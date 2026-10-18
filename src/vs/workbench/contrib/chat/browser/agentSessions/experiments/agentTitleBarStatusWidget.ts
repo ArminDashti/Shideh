@@ -18,8 +18,27 @@ import { AgentSessionHoverWidget } from '../agentSessionHoverWidget.js';
 import { AgentStatusMode, IAgentTitleBarStatusService } from './agentTitleBarStatusService.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
+
+/**
+ * Register both click and keyboard (Enter/Space) handlers on an interactive element.
+ * Reduces the repeated pattern of addDisposableListener(CLICK) + addDisposableListener(KEY_DOWN, if Enter/Space).
+ */
+function registerActivationHandler(disposables: DisposableStore, element: HTMLElement, handler: (e: Event) => void): void {
+	disposables.add(addDisposableListener(element, EventType.CLICK, (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		handler(e);
+	}));
+	disposables.add(addDisposableListener(element, EventType.KEY_DOWN, (e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			e.stopPropagation();
+			handler(e);
+		}
+	}));
+}
+
 import { EnterAgentSessionProjectionAction, ExitAgentSessionProjectionAction } from './agentSessionProjectionActions.js';
-import { UNIFIED_QUICK_ACCESS_ACTION_ID } from './unifiedQuickAccessActions.js';
 import { IAgentSessionsService } from '../agentSessionsService.js';
 import { AgentSessionStatus, IAgentSession, isSessionInProgressStatus } from '../agentSessionsModel.js';
 import { BaseActionViewItem, IBaseActionViewItemOptions } from '../../../../../../base/browser/ui/actionbar/actionViewItems.js';
@@ -83,6 +102,10 @@ const SCM_ACTIVE_REPOSITORY_NAME_CONTEXT_KEY = 'scmActiveRepositoryName';
 const SCM_ACTIVE_REPOSITORY_BRANCH_NAME_CONTEXT_KEY = 'scmActiveRepositoryBranchName';
 
 // Storage key for filter state
+// TODO: This directly accesses another component's (AgentSessionsFilter) storage key.
+// This violates the rule "You MUST NOT use storage keys of another component".
+// The proper fix is to extract a shared IAgentSessionsFilterService with get/set/onDidChange APIs
+// that both AgentSessionsFilter and this widget can consume.
 const FILTER_STORAGE_KEY = 'agentSessions.filterExcludes.agentsessionsviewerfiltersubmenu';
 // Storage key for saving user's filter state before we override it
 const PREVIOUS_FILTER_STORAGE_KEY = 'agentSessions.filterExcludes.previousUserFilter';
@@ -360,8 +383,6 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 				activeCount: activeSessions.length,
 				unreadCount: unreadSessions.length,
 				attentionCount: attentionNeededSessions.length,
-				attentionText,
-				label,
 				isFilteredToUnread,
 				isFilteredToInProgress,
 				isFilteredToNeedsInput,
@@ -824,20 +845,9 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 		disposables.add(this.hoverService.setupManagedHover(hoverDelegate, searchButton, searchTooltip));
 
 		// Click handler
-		disposables.add(addDisposableListener(searchButton, EventType.CLICK, (e) => {
-			e.preventDefault();
-			e.stopPropagation();
+		registerActivationHandler(disposables, searchButton, () => {
 			this.commandService.executeCommand(QUICK_OPEN_ACTION_ID);
-		}));
-
-		// Keyboard handler
-		disposables.add(addDisposableListener(searchButton, EventType.KEY_DOWN, (e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				e.stopPropagation();
-				this.commandService.executeCommand(QUICK_OPEN_ACTION_ID);
-			}
-		}));
+		});
 	}
 
 	/**
@@ -968,19 +978,10 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 			unreadCount.textContent = String(unreadSessions.length);
 			unreadSection.appendChild(unreadCount);
 
-			// Click handler - filter to unread sessions
-			disposables.add(addDisposableListener(unreadSection, EventType.CLICK, (e) => {
-				e.preventDefault();
-				e.stopPropagation();
+			// Click/keyboard handler - filter to unread sessions
+			registerActivationHandler(disposables, unreadSection, () => {
 				this._openSessionsWithFilter('unread');
-			}));
-			disposables.add(addDisposableListener(unreadSection, EventType.KEY_DOWN, (e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					e.stopPropagation();
-					this._openSessionsWithFilter('unread');
-				}
-			}));
+			});
 
 			// Hover tooltip for unread section
 			const unreadTooltip = unreadSessions.length === 1
@@ -1045,14 +1046,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 				e.preventDefault();
 				e.stopPropagation();
 				this._openSessionsWithFilter('inProgress');
-			}));
-			disposables.add(addDisposableListener(activeSection, EventType.KEY_DOWN, (e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					e.stopPropagation();
-					this._openSessionsWithFilter('inProgress');
-				}
-			}));
+			});
 
 			const activeTooltip = inProgressOnly.length === 1
 				? localize('activeSessionsTooltip1', "{0} session in progress", inProgressOnly.length)
@@ -1266,27 +1260,14 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 		const hoverDelegate = getDefaultHoverDelegate('mouse');
 		disposables.add(this.hoverService.setupManagedHover(hoverDelegate, escButton, localize('exitAgentSessionProjectionTooltip', "Exit Agent Session Projection (Escape)")));
 
-		// Click handler
+		// Click/keyboard handlers
+		const exitProjection = () => this.commandService.executeCommand(ExitAgentSessionProjectionAction.ID);
 		disposables.add(addDisposableListener(escButton, EventType.MOUSE_DOWN, (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			this.commandService.executeCommand(ExitAgentSessionProjectionAction.ID);
+			exitProjection();
 		}));
-
-		disposables.add(addDisposableListener(escButton, EventType.CLICK, (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			this.commandService.executeCommand(ExitAgentSessionProjectionAction.ID);
-		}));
-
-		// Keyboard handler
-		disposables.add(addDisposableListener(escButton, EventType.KEY_DOWN, (e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				e.stopPropagation();
-				this.commandService.executeCommand(ExitAgentSessionProjectionAction.ID);
-			}
-		}));
+		registerActivationHandler(disposables, escButton, exitProjection);
 	}
 
 	/**
@@ -1310,10 +1291,8 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 			: localize('enterAgentSessionProjectionTooltipNoKey', "Review Changes");
 		disposables.add(this.hoverService.setupManagedHover(hoverDelegate, enterButton, hoverText));
 
-		// Enter projection handler - same as clicking the pill
-		const enterProjection = (e: Event) => {
-			e.preventDefault();
-			e.stopPropagation();
+		// Enter projection handler
+		const enterProjection = () => {
 			const sessionInfo = this.agentTitleBarStatusService.sessionInfo;
 			if (sessionInfo) {
 				const session = this.agentSessionsService.getSession(sessionInfo.sessionResource);
@@ -1323,16 +1302,13 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 			}
 		};
 
-		// Click handler
-		disposables.add(addDisposableListener(enterButton, EventType.MOUSE_DOWN, enterProjection));
-		disposables.add(addDisposableListener(enterButton, EventType.CLICK, enterProjection));
-
-		// Keyboard handler
-		disposables.add(addDisposableListener(enterButton, EventType.KEY_DOWN, (e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				enterProjection(e);
-			}
+		// Click/keyboard handler
+		disposables.add(addDisposableListener(enterButton, EventType.MOUSE_DOWN, (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			enterProjection();
 		}));
+		registerActivationHandler(disposables, enterButton, enterProjection);
 	}
 
 	// #endregion
@@ -1447,7 +1423,6 @@ export class AgentTitleBarStatusRendering extends Disposable implements IWorkben
 			const enhanced = enabled && statusMode === 'compact';
 
 			mainWindow.document.body.classList.toggle('agent-status-enabled', enabled);
-			mainWindow.document.body.classList.toggle('unified-agents-bar', enhanced);
 		};
 		updateClass();
 		this._register(configurationService.onDidChangeConfiguration(e => {

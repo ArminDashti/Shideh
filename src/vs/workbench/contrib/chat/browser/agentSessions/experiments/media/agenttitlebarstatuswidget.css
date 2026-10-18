@@ -4,28 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* Command Center Integration */
-.unified-agents-bar .command-center .action-item.command-center-center {
-	display: none !important;
-}
-
-.agent-status-enabled .command-center,
-.unified-agents-bar .command-center {
-	overflow: visible !important;
-}
-
-/* Container layouts */
-.unified-agents-bar .command-center .action-item.agent-status-container {
-	width: 38vw;
-	max-width: 600px;
-	display: flex;
-	flex-direction: row;
-	flex-wrap: nowrap;
-	align-items: center;
-	justify-content: flex-start;
+.agent-status-enabled .command-center {
+	overflow: visible;
 }
 
 /* Badge-only mode - compact layout next to command center */
-.agent-status-enabled:not(.unified-agents-bar) .command-center .action-item.agent-status-container {
+.agent-status-enabled .command-center .action-item.agent-status-container {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: nowrap;

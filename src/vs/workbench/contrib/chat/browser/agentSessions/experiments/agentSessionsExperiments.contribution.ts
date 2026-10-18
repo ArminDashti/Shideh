@@ -8,6 +8,16 @@ import { MenuId, MenuRegistry, registerAction2, Action2 } from '../../../../../.
 import { IAgentSessionProjectionService, AgentSessionProjectionService, AGENT_SESSION_PROJECTION_ENABLED_PROVIDERS } from './agentSessionProjectionService.js';
 import { EnterAgentSessionProjectionAction, ExitAgentSessionProjectionAction, ToggleUnifiedAgentsBarAction } from './agentSessionProjectionActions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../../common/contributions.js';
+import { IChatWidget, IChatWidgetService } from '../../chat.js';
+import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
+import { ChatAgentLocation, ChatConfiguration } from '../../../common/constants.js';
+import { IChatEditingService, ModifiedFileEntryState } from '../../../common/editing/chatEditingService.js';
+import { AgentSessionProviders } from '../agentSessions.js';
+import { AgentSessionStatus, IAgentSession, isSessionInProgressStatus } from '../agentSessionsModel.js';
+import { openSession } from '../agentSessionsOpener.js';
+import { IAgentSessionsService } from '../agentSessionsService.js';
+import { IAgentSessionProjectionService, AgentSessionProjectionService, AGENT_SESSION_PROJECTION_ENABLED_PROVIDERS } from './agentSessionProjectionService.js';
+import { EnterAgentSessionProjectionAction, ExitAgentSessionProjectionAction, ToggleAgentStatusAction } from './agentSessionProjectionActions.js';
 import { AgentTitleBarStatusRendering } from './agentTitleBarStatusWidget.js';
 import { AgentTitleBarStatusService, IAgentTitleBarStatusService } from './agentTitleBarStatusService.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -253,6 +263,14 @@ registerSingleton(IAgentTitleBarStatusService, AgentTitleBarStatusService, Insta
 registerWorkbenchContribution2(AgentTitleBarStatusRendering.ID, AgentTitleBarStatusRendering, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentSessionReadyContribution.ID, AgentSessionReadyContribution, WorkbenchPhase.AfterRestored);
 
+// Register and expose the UnifiedQuickAccess contribution so actions can access it
+registerWorkbenchContribution2(UnifiedQuickAccessContribution.ID, class extends UnifiedQuickAccessContribution {
+	constructor(...args: ConstructorParameters<typeof UnifiedQuickAccessContribution>) {
+		super(...args);
+		_setUnifiedQuickAccessContribution(this);
+	}
+}, WorkbenchPhase.AfterRestored);
+
 // Register Agent Status as a menu item in the command center (alongside the search box, not replacing it)
 MenuRegistry.appendMenuItem(MenuId.CommandCenter, {
 	submenu: MenuId.AgentsTitleBarControlMenu,
@@ -294,19 +312,64 @@ MenuRegistry.appendMenuItem(MenuId.AgentsTitleBarControlMenu, {
 	order: 1
 });
 
-// Toggle for Agent Quick Input (Insiders only)
-MenuRegistry.appendMenuItem(MenuId.AgentsTitleBarControlMenu, {
-	command: {
-		id: `toggle.${ChatConfiguration.UnifiedAgentsBar}`,
-		title: localize('toggleAgentQuickInput', "Agent Quick Input (Experimental)"),
-		toggled: ContextKeyExpr.has(`config.${ChatConfiguration.UnifiedAgentsBar}`),
-	},
+// #region Chat Command Center Attention Indicator
+
+const OPEN_ATTENTION_SESSION_ID = 'chat.commandCenter.openAttentionSession';
+
+/**
+ * Sort sessions by most recently started request (descending).
+ */
+function compareByMostRecentRequest(a: IAgentSession, b: IAgentSession): number {
+	const timeA = a.timing.lastRequestStarted ?? a.timing.created;
+	const timeB = b.timing.lastRequestStarted ?? b.timing.created;
+	return timeB - timeA;
+}
+
+/**
+ * Contribution that watches agent sessions for NeedsInput status and
+ * sets the `chat.sessionNeedsAttention` context key accordingly.
+ */
+class ChatAttentionContextKeyContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'chat.attentionContextKey';
+
+	constructor(
+		@IAgentSessionsService private readonly agentSessionsService: IAgentSessionsService,
+		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
+		@IContextKeyService contextKeyService: IContextKeyService,
+	) {
+		super();
+
+		const sessionNeedsAttention = ChatContextKeys.sessionNeedsAttention.bindTo(contextKeyService);
+
+		const update = () => {
+			const hasAttention = this.agentSessionsService.model.sessions.some(
+				s => s.status === AgentSessionStatus.NeedsInput
+					&& !s.isArchived()
+					&& !this.chatWidgetService.getWidgetBySessionResource(s.resource)
+			);
+			sessionNeedsAttention.set(hasAttention);
+		};
+
+		update();
+		this._register(this.agentSessionsService.model.onDidChangeSessions(() => update()));
+		this._register(this.chatWidgetService.onDidAddWidget(() => update()));
+		this._register(this.chatWidgetService.onDidBackgroundSession(() => update()));
+	}
+}
+
+registerWorkbenchContribution2(ChatAttentionContextKeyContribution.ID, ChatAttentionContextKeyContribution, WorkbenchPhase.AfterRestored);
+
+// Register active content submenu on CommandCenterCenter - when visible,
+// replaces the entire command center center with attention indicator.
+MenuRegistry.appendMenuItem(MenuId.CommandCenterCenter, {
+	submenu: MenuId.CommandCenterCenterActiveContent,
+	title: localize('chatAttention', "Chat Attention"),
+	icon: Codicon.report,
+	order: 0,
 	when: ContextKeyExpr.and(
-		ChatContextKeys.enabled,
-		ProductQualityContext.notEqualsTo('stable')
+		ChatContextKeys.sessionNeedsAttention,
+		ContextKeyExpr.has(`config.${ChatConfiguration.CommandCenterShowStatus}`)
 	),
-	group: 'z_experimental',
-	order: 10
 });
 
 // #region ============================================================

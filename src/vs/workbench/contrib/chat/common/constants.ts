@@ -51,7 +51,7 @@ export enum ChatConfiguration {
 	SaveBeforeSend = 'chat.saveBeforeSend',
 	AgentStatusEnabled = 'chat.agentsControl.enabled',
 	EditorAssociations = 'chat.editorAssociations',
-	UnifiedAgentsBar = 'chat.unifiedAgentsBar.enabled',
+	CommandCenterShowStatus = 'chat.commandCenter.showStatus',
 	AgentSessionProjectionEnabled = 'chat.agentSessionProjection.enabled',
 	MigrateLegacyCopilotCliSessions = 'chat.agentSessions.migrateLegacyCopilotCli',
 	SessionCatalogEnabled = 'chat.agentHost.sessionCatalog.enabled',

@@ -254,6 +254,10 @@ export class QuickInputController extends Disposable {
 
 		const description1 = dom.append(container, $('.quick-input-description'));
 
+		// Header widget container (for custom content between header and list)
+		const headerWidgetContainer = dom.append(container, $('.quick-input-header-widget'));
+		headerWidgetContainer.style.display = 'none';
+
 		// List
 		const listId = this.idPrefix + 'list';
 		const list = this._register(this.instantiationService.createInstance(QuickInputList, container, this.options.hoverDelegate, this.options.linkOpenerDelegate, listId, this.styles));
@@ -464,6 +468,7 @@ export class QuickInputController extends Disposable {
 			message,
 			customButtonContainer,
 			customButton,
+			headerWidgetContainer,
 			list,
 			tree,
 			progressBar,
@@ -822,6 +827,7 @@ export class QuickInputController extends Disposable {
 		ui.countContainer.style.display = visibilities.count ? '' : 'none';
 		ui.okContainer.style.display = visibilities.ok ? '' : 'none';
 		ui.customButtonContainer.style.display = visibilities.customButton ? '' : 'none';
+		ui.headerWidgetContainer.style.display = visibilities.headerWidget ? '' : 'none';
 		ui.message.style.display = visibilities.message ? '' : 'none';
 		ui.progressBar.getContainer().style.display = visibilities.progressBar ? '' : 'none';
 		ui.list.displayed = !!visibilities.list;
