@@ -338,6 +338,8 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				return;
 			}
 
+			this._logService.trace(`LM reported progress`);
+
 			let part: IChatResponsePart | undefined;
 			if (fragment instanceof extHostTypes.LanguageModelToolCallPart) {
 				part = { type: 'tool_use', name: fragment.name, parameters: fragment.input, toolCallId: fragment.callId };
