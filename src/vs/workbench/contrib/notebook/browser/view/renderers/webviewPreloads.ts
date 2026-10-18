@@ -3263,3 +3263,8 @@ export function preloadsScriptStr(styleValues: PreloadStyles, options: PreloadOp
 		}
 	];
 }
+
+// Can not import directly from dom.ts file?
+export function isEditableElement(element: Element): boolean {
+	return element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea' || 'editContext' in element;
+}

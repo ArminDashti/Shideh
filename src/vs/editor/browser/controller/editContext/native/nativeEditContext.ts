@@ -67,6 +67,9 @@ export class NativeEditContext extends AbstractEditContext {
 	private _decorations: string[] = [];
 	private _primarySelection: Selection = new Selection(1, 1, 1, 1);
 
+	public readonly domNode: FastDomNode<HTMLDivElement>;
+	private readonly _editContext: EditContextWrapper;
+	private readonly _screenReaderSupport: ScreenReaderSupport;
 
 	private _targetWindowId: number = -1;
 	private _scrollTop: number = 0;

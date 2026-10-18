@@ -140,6 +140,9 @@ export class View extends ViewEventHandler {
 	private _renderAnimationFrame: IDisposable | null;
 	private _ownerID: string;
 
+	// Edit context
+	private _editContext: AbstractEditContext;
+
 	constructor(
 		editorContainer: HTMLElement,
 		ownerID: string,
@@ -563,6 +566,17 @@ export class View extends ViewEventHandler {
 	private _getEditorClassName() {
 		const focused = this._editContext.isFocused() ? ' focused' : '';
 		return this._context.configuration.options.get(EditorOption.editorClassName) + ' ' + getThemeTypeSelector(this._context.theme.type) + focused;
+	}
+
+	private _instantiateEditContext(): AbstractEditContext {
+		const editContextType = this._context.configuration.options.get(EditorOption.editContext).type;
+		let editContextHandler: AbstractEditContext;
+		if (editContextType === 'native') {
+			editContextHandler = this._instantiationService.createInstance(NativeEditContext, this._context, this._viewController);
+		} else {
+			editContextHandler = this._instantiationService.createInstance(TextAreaEditContext, this._context, this._viewController, this._createTextAreaHandlerHelper());
+		}
+		return editContextHandler;
 	}
 
 	// --- begin event handlers

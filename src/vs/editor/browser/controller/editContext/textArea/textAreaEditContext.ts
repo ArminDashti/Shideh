@@ -482,6 +482,10 @@ export class TextAreaEditContext extends AbstractEditContext {
 		return this.textArea;
 	}
 
+	public get domNode() {
+		return this.textArea;
+	}
+
 	appendTo(overflowGuardContainer: FastDomNode<HTMLElement>): void {
 		overflowGuardContainer.appendChild(this.textArea);
 		overflowGuardContainer.appendChild(this.textAreaCover);
