@@ -134,7 +134,7 @@ interface SyncStatusBarState {
 	readonly isCommitRunning: boolean;
 	readonly isSyncRunning: boolean;
 	readonly hasRemotes: boolean;
-	readonly HEAD: Branch | undefined;
+	readonly HEAD: Ref | undefined;
 	readonly remoteSourcePublishers: RemoteSourcePublisher[];
 }
 
@@ -238,7 +238,7 @@ class SyncStatusBar {
 		let command = '';
 		let tooltip = '';
 
-		if (HEAD && HEAD.name && HEAD.commit) {
+		if (HEAD && HEAD.type === RefType.Head && HEAD.name && HEAD.commit) {
 			if (HEAD.upstream) {
 				if (HEAD.ahead || HEAD.behind) {
 					text += this.repository.syncLabel;

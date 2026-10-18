@@ -21,12 +21,13 @@ export const enum ForcePushMode {
 }
 
 export const enum RefType {
-	Head,
-	RemoteHead,
-	Tag
+	Head = 0,
+	RemoteHead = 1,
+	Tag = 2,
+	Commit = 3
 }
 
-export interface Ref {
+interface RefBase {
 	readonly type: RefType;
 	readonly name?: string;
 	readonly commit?: string;
@@ -40,7 +41,8 @@ export interface UpstreamRef {
 	readonly commit?: string;
 }
 
-export interface Branch extends Ref {
+export interface BranchRef extends RefBase {
+	readonly type: RefType.Head | RefType.RemoteHead;
 	readonly upstream?: UpstreamRef;
 	readonly ahead?: number;
 	readonly behind?: number;
@@ -129,7 +131,7 @@ export interface DiffChange extends Change {
 export type RepositoryKind = 'repository' | 'submodule' | 'worktree';
 
 export interface RepositoryState {
-	readonly HEAD: Branch | undefined;
+	readonly HEAD: Ref | undefined;
 	readonly refs: Ref[];
 	readonly remotes: Remote[];
 	readonly submodules: Submodule[];
@@ -285,7 +287,7 @@ export interface Repository {
 
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
-	getBranch(name: string): Promise<Branch>;
+	getBranch(name: string): Promise<BranchRef>;
 	getBranches(query: BranchQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
 	getBranchBase(name: string): Promise<Branch | undefined>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;

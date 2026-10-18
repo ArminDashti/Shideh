@@ -486,7 +486,7 @@ class DotGitWatcher implements IFileWatcher {
 	private updateTransientWatchers() {
 		this.transientDisposables = dispose(this.transientDisposables);
 
-		if (!this.repository.HEAD || !this.repository.HEAD.upstream) {
+		if (this.repository.HEAD?.type !== RefType.Head || !this.repository.HEAD.upstream) {
 			return;
 		}
 
@@ -1767,7 +1767,7 @@ export class Repository implements Disposable {
 		await this.run(Operation.Move, () => this.repository.move(from, to));
 	}
 
-	async getBranch(name: string): Promise<Branch> {
+	async getBranch(name: string): Promise<BranchRef> {
 		return await this.run(Operation.GetBranch, () => this.repository.getBranch(name));
 	}
 
@@ -2355,7 +2355,7 @@ export class Repository implements Disposable {
 		});
 	}
 
-	async findTrackingBranches(upstreamRef: string): Promise<Branch[]> {
+	async findTrackingBranches(upstreamRef: string): Promise<BranchRef[]> {
 		return await this.run(Operation.FindTrackingBranches, () => this.repository.findTrackingBranches(upstreamRef));
 	}
 
@@ -2457,11 +2457,11 @@ export class Repository implements Disposable {
 	}
 
 	@throttle
-	async pullWithRebase(head: Branch | undefined): Promise<void> {
+	async pullWithRebase(head: Ref | undefined): Promise<void> {
 		let remote: string | undefined;
 		let branch: string | undefined;
 
-		if (head && head.name && head.upstream) {
+		if ((head?.type === RefType.Head || head?.type === RefType.RemoteHead) && head.upstream) {
 			remote = head.upstream.remote;
 			branch = `${head.upstream.name}`;
 		}
@@ -2470,11 +2470,11 @@ export class Repository implements Disposable {
 	}
 
 	@throttle
-	async pull(head?: Branch, unshallow?: boolean): Promise<void> {
+	async pull(head?: Ref, unshallow?: boolean): Promise<void> {
 		let remote: string | undefined;
 		let branch: string | undefined;
 
-		if (head && head.name && head.upstream) {
+		if ((head?.type === RefType.Head || head?.type === RefType.RemoteHead) && head.upstream) {
 			remote = head.upstream.remote;
 			branch = `${head.upstream.name}`;
 		}
@@ -2519,11 +2519,11 @@ export class Repository implements Disposable {
 	}
 
 	@throttle
-	async push(head: Branch, forcePushMode?: ForcePushMode): Promise<void> {
+	async push(head: Ref, forcePushMode?: ForcePushMode): Promise<void> {
 		let remote: string | undefined;
 		let branch: string | undefined;
 
-		if (head && head.name && head.upstream) {
+		if ((head?.type === RefType.Head || head?.type === RefType.RemoteHead) && head.upstream) {
 			remote = head.upstream.remote;
 			branch = `${head.name}:${head.upstream.name}`;
 		}
@@ -2556,16 +2556,16 @@ export class Repository implements Disposable {
 	}
 
 	@throttle
-	sync(head: Branch, rebase: boolean): Promise<void> {
+	sync(head: Ref, rebase: boolean): Promise<void> {
 		return this._sync(head, rebase);
 	}
 
-	private async _sync(head: Branch, rebase: boolean): Promise<void> {
+	private async _sync(head: Ref, rebase: boolean): Promise<void> {
 		let remoteName: string | undefined;
 		let pullBranch: string | undefined;
 		let pushBranch: string | undefined;
 
-		if (head.name && head.upstream) {
+		if ((head.type === RefType.Head || head.type === RefType.RemoteHead) && head.upstream) {
 			remoteName = head.upstream.remote;
 			pullBranch = `${head.upstream.name}`;
 			pushBranch = `${head.name}:${head.upstream.name}`;
@@ -2609,7 +2609,7 @@ export class Repository implements Disposable {
 					return;
 				}
 
-				const shouldPush = this.HEAD && (typeof this.HEAD.ahead === 'number' ? this.HEAD.ahead > 0 : true);
+				const shouldPush = this.HEAD && this.HEAD.type === RefType.Head && (typeof this.HEAD.ahead === 'number' ? this.HEAD.ahead > 0 : true);
 
 				if (shouldPush) {
 					await this._push(remoteName, pushBranch, false, followTags);
@@ -3413,6 +3413,7 @@ export class Repository implements Disposable {
 		if (!this.HEAD
 			|| !this.HEAD.name
 			|| !this.HEAD.commit
+			|| this.HEAD.type !== RefType.Head
 			|| !this.HEAD.upstream
 			|| !(this.HEAD.ahead || this.HEAD.behind)
 		) {
@@ -3433,6 +3434,7 @@ export class Repository implements Disposable {
 		if (!this.HEAD
 			|| !this.HEAD.name
 			|| !this.HEAD.commit
+			|| this.HEAD.type !== RefType.Head
 			|| !this.HEAD.upstream
 			|| !(this.HEAD.ahead || this.HEAD.behind)
 		) {

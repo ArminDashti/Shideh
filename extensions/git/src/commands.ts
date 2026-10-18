@@ -4139,10 +4139,10 @@ export class CommandCenter {
 
 		const remoteItems: RemoteItem[] = repository.remotes.map(r => new RemoteItem(repository, r));
 
-		if (repository.HEAD?.upstream?.remote) {
+		if ((repository.HEAD?.type === RefType.Head || repository.HEAD?.type === RefType.RemoteHead) && repository.HEAD?.upstream?.remote) {
 			// Move default remote to the top
 			const defaultRemoteIndex = remoteItems
-				.findIndex(r => r.remoteName === repository.HEAD!.upstream!.remote);
+				.findIndex(r => r.remoteName === (repository.HEAD as BranchRef).upstream!.remote);
 
 			if (defaultRemoteIndex !== -1) {
 				remoteItems.splice(0, 0, ...remoteItems.splice(defaultRemoteIndex, 1));
@@ -4537,7 +4537,7 @@ export class CommandCenter {
 
 		const HEAD = repository.HEAD;
 
-		if (!HEAD) {
+		if (!HEAD || HEAD.type !== RefType.Head) {
 			return;
 		} else if (!HEAD.upstream) {
 			this._push(repository, { pushType: PushType.Push });
@@ -4591,7 +4591,7 @@ export class CommandCenter {
 
 			const HEAD = repository.HEAD;
 
-			if (!HEAD || !HEAD.upstream) {
+			if (!HEAD || HEAD.type !== RefType.Head || !HEAD.upstream) {
 				return;
 			}
 
