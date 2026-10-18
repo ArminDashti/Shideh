@@ -152,3 +152,122 @@ class AskQuickChatAction extends Action2 {
 		} : undefined);
 	}
 }
+
+// class InteractiveQuickPickSession extends Disposable {
+
+// 	private _model: ChatModel;
+// 	private _viewModel: ChatViewModel;
+
+// 	private readonly _onDidClickFollowup: Emitter<IChatReplyFollowup> = this._register(new Emitter<IChatReplyFollowup>());
+// 	onDidClickFollowup: Event<IChatReplyFollowup> = this._onDidClickFollowup.event;
+
+// 	private _listDisposable: DisposableStore | undefined;
+
+// 	constructor(
+// 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+// 		@IChatService private readonly _chatService: IChatService,
+// 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService
+// 	) {
+// 		super();
+
+// 		const providerInfo = _chatService.getProviderInfos()[0];
+// 		this._model = this._register(_chatService.startSession(providerInfo.id, CancellationToken.None)!);
+// 		this._viewModel = this._register(new ChatViewModel(this._model, _instantiationService));
+// 	}
+
+// 	createList(container: HTMLElement, offsetWidth: number) {
+// 		this._listDisposable?.dispose();
+// 		this._listDisposable = new DisposableStore();
+// 		const options = this._listDisposable.add(this._instantiationService.createInstance(ChatEditorOptions, 'quickpick-interactive', foreground, editorBackground, editorBackground));
+// 		const list = this._listDisposable.add(this._instantiationService.createInstance(
+// 			ChatListItemRenderer,
+// 			options,
+// 			{
+// 				getListLength: () => {
+// 					return 1;
+// 				},
+// 				getSlashCommands() {
+// 					return [];
+// 				},
+// 			}
+// 		));
+
+// 		const template = list.renderTemplate(container);
+// 		list.layout(offsetWidth);
+// 		this._listDisposable.add(this._viewModel.onDidChange(() => {
+// 			const items = this._viewModel.getItems();
+// 			const node = {
+// 				element: items[items.length - 1],
+// 				children: [],
+// 				collapsed: false,
+// 				collapsible: false,
+// 				depth: 0,
+// 				filterData: undefined,
+// 				visible: true,
+// 				visibleChildIndex: 0,
+// 				visibleChildrenCount: 1,
+// 			};
+// 			list.disposeElement(node, 0, template);
+// 			list.renderElement(node, 0, template);
+// 		}));
+
+// 		if (this._viewModel.getItems().length) {
+// 			const items = this._viewModel.getItems();
+// 			const node = {
+// 				element: items[items.length - 1],
+// 				children: [],
+// 				collapsed: false,
+// 				collapsible: false,
+// 				depth: 0,
+// 				filterData: undefined,
+// 				visible: true,
+// 				visibleChildIndex: 0,
+// 				visibleChildrenCount: 1,
+// 			};
+// 			list.disposeElement(node, 0, template);
+// 			list.renderElement(node, 0, template);
+// 		}
+
+// 		this._listDisposable.add(list.onDidClickFollowup(e => {
+// 			this._onDidClickFollowup.fire(e);
+// 		}));
+// 	}
+
+// 	get providerId() {
+// 		return this._model.providerId;
+// 	}
+
+// 	get sessionId() {
+// 		return this._model.sessionId;
+// 	}
+
+// 	async accept(query: string) {
+// 		await this._model.waitForInitialization();
+// 		const requests = this._model.getRequests();
+// 		const lastRequest = requests[requests.length - 1];
+// 		if (lastRequest?.message && lastRequest?.message === query) {
+// 			return;
+// 		}
+// 		if (this._model.requestInProgress) {
+// 			this._chatService.cancelCurrentRequestForSession(this.sessionId);
+// 		}
+// 		await this._chatService.sendRequest(this.sessionId, query);
+// 	}
+
+// 	async openInChat(value: string) {
+// 		const widget = await this._chatWidgetService.revealViewForProvider(this.providerId);
+// 		if (!widget?.viewModel) {
+// 			return;
+// 		}
+
+// 		const requests = this._model.getRequests().reverse();
+// 		const response = requests.find(r => r.response?.response.value !== undefined);
+// 		const message = response?.response?.response.value;
+// 		if (message) {
+// 			this._chatService.addCompleteRequest(widget.viewModel.sessionId, value, { message });
+// 		} else if (value) {
+// 			this._chatService.sendRequest(widget.viewModel.sessionId, value);
+// 		}
+// 		widget.focusInput();
+// 	}
+// }
