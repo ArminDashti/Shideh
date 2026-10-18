@@ -908,7 +908,9 @@ export class SearchView extends ViewPane {
 
 	private async refreshAndUpdateCount(event?: IChangeEvent): Promise<void> {
 		this.searchWidget.setReplaceAllActionState(!this.viewModel.searchResult.isEmpty());
-		this.updateSearchResultCount(this.viewModel.searchResult.query!.userDisabledExcludesAndIgnoreFiles, this.viewModel.searchResult.query?.onlyOpenEditors, event?.clearingAll);
+		if (!this.model.cachedResults) {
+			this.updateSearchResultCount(this.viewModel.searchResult.query!.userDisabledExcludesAndIgnoreFiles, this.viewModel.searchResult.query?.onlyOpenEditors, event?.clearingAll);
+		}
 		return this.refreshTreeController.queue(event);
 	}
 
@@ -2252,7 +2254,7 @@ export class SearchView extends ViewPane {
 
 		this._visibleMatches = 0;
 
-		this._refreshResultsScheduler.schedule();
+		// this._refreshResultsScheduler.schedule();
 
 		this.searchWidget?.setReplaceAllActionState(false);
 
@@ -2958,6 +2960,20 @@ class SearchViewDataSource implements IAsyncDataSource<ISearchResult, Renderable
 		return ret;
 
 	}
+
+	// private createAISearchResultsIterator(aiSearchResult: ITextSearchHeading): Iterable<ISearchTreeFolderMatch | ISearchTreeFileMatch> {
+	// 	// setTimeout(() => {
+	// 	// 	this.searchView.getControl().updateChildren();
+	// 	// }, 30000);
+	// 	const folderMatches = aiSearchResult.folderMatches()
+	// 		.filter(fm => !fm.isEmpty())
+	// 		.sort(searchMatchComparer);
+
+	// 	if (folderMatches.length === 1) {
+	// 		return this.createFolderIterator(folderMatches[0]);
+	// 	}
+	// 	return folderMatches;
+	// }
 
 	private createTextSearchResultIterator(textSearchResult: ITextSearchHeading): Iterable<ISearchTreeFolderMatch | ISearchTreeFileMatch> {
 		const folderMatches = textSearchResult.folderMatches()

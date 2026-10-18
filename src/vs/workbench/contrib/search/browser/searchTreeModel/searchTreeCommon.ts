@@ -106,8 +106,13 @@ export interface ISearchModel {
 	};
 	cancelSearch(cancelledForNewSearch?: boolean): boolean;
 	cancelAISearch(cancelledForNewSearch?: boolean): boolean;
-	clearAiSearchResults(): void;
+	clearAiSearchResults(clearAll: boolean): void;
+	replaceAllSearchResults(results: ISearchResult): void;
 	dispose(): void;
+	cachedResults: {
+		complete: ISearchComplete;
+		query: string;
+	} | undefined;
 }
 
 
