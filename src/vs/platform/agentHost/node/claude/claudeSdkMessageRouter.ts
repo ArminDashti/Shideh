@@ -17,7 +17,7 @@ import type { IAgentHostClientTelemetryContext } from '../../common/agentHostTel
 import { ISessionDatabase } from '../../common/sessionDataService.js';
 import { buildSubagentChatUri, parseRequiredSessionUriFromChatUri } from '../../common/state/sessionState.js';
 import { ClaudeFileEditObserver } from './claudeFileEditObserver.js';
-import { ClaudeMapperState, mapSDKMessageToAgentSignals } from './claudeMapSessionEvents.js';
+import { ClaudeMapperState, mapSDKMessageToAgentSignals, type ContextUsageBreakdown } from './claudeMapSessionEvents.js';
 import type { SubagentRegistry } from './claudeSubagentRegistry.js';
 import { ClaudeTerminalOutputs } from './claudeTerminalOutput.js';
 

@@ -515,6 +515,13 @@ class FakeClaudeAgentSdkService implements IClaudeAgentSdkService {
 	 */
 	supportedModelsRejection: Error | undefined;
 
+	/**
+	 * Programmable {@link FakeQuery.getContextUsage} response. Stays unmodeled
+	 * (throwing) until a test opts in; the pipeline swallows the throw and
+	 * simply omits the breakdown from the turn's ChatUsage.
+	 */
+	getContextUsageResult: SDKControlGetContextUsageResponse | undefined = undefined;
+
 	/** All warm queries produced by {@link startup}. Last entry is the most recent. */
 	readonly warmQueries: FakeWarmQuery[] = [];
 	readonly setCwdCalls: { path: string; options?: { trustAccepted: boolean; trustedDirectory: string } }[] = [];
@@ -928,7 +935,10 @@ class FakeQuery implements AsyncGenerator<SDKMessage, void> {
 		if (this._sdk.mcpServerStatusResult === undefined) { throw new Error('FakeQuery: mcpServerStatus not modeled'); }
 		return Promise.resolve(this._sdk.mcpServerStatusResult) as never;
 	}
-	getContextUsage(): never { throw new Error('FakeQuery: getContextUsage not modeled'); }
+	getContextUsage(): never {
+		if (this._sdk.getContextUsageResult === undefined) { throw new Error('FakeQuery: getContextUsage not modeled'); }
+		return Promise.resolve(this._sdk.getContextUsageResult) as never;
+	}
 	usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(): never { throw new Error('FakeQuery: usage_EXPERIMENTAL not modeled'); }
 	/** Phase 11 — programmable tool-name snapshot returned by `reloadPlugins()`. */
 	reloadPluginsResults: readonly string[][] = [];

@@ -477,6 +477,7 @@ function mapResult(
 	state: ClaudeMapperState,
 	logService: ILogService,
 	registry: SubagentRegistry,
+	contextUsage?: ContextUsageBreakdown,
 ): AgentSignal[] {
 	const signals: AgentSignal[] = [];
 	if (message.subtype === 'success') {

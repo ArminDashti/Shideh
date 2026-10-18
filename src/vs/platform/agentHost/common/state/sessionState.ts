@@ -636,6 +636,29 @@ function filterStringAttributes(raw: Record<string, unknown>): Record<string, st
 	return result;
 }
 
+function readContextUsage(value: unknown): UsageInfoMeta['contextUsage'] | undefined {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return undefined;
+	}
+	const raw = value as Record<string, unknown>;
+	if (typeof raw['totalTokens'] !== 'number' || !Array.isArray(raw['categories'])) {
+		return undefined;
+	}
+	const categories: { name: string; tokens: number }[] = [];
+	for (const entry of raw['categories']) {
+		if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+			const category = entry as Record<string, unknown>;
+			if (typeof category['name'] === 'string' && typeof category['tokens'] === 'number') {
+				categories.push({ name: category['name'], tokens: category['tokens'] });
+			}
+		}
+	}
+	if (categories.length === 0) {
+		return undefined;
+	}
+	return { categories, totalTokens: raw['totalTokens'] };
+}
+
 export {
 	ChangesetOperationTargetKind, type ChangesetOperationFollowUp, type ChangesetOperationTarget
 } from './protocol/commands.js';
