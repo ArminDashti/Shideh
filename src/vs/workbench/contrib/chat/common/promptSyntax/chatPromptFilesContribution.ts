@@ -244,7 +244,6 @@ export class ChatPromptFilesExtensionPointHandler implements IWorkbenchContribut
 export interface IExtensionPromptFileResult {
 	readonly uri: UriComponents;
 	readonly type: PromptsType;
-	readonly extensionId: string;
 }
 
 /**
