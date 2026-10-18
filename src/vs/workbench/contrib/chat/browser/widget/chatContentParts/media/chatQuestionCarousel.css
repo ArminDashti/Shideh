@@ -170,6 +170,35 @@
 		.chat-question-validation-message {
 			display: none;
 		}
+
+		.monaco-button.chat-question-collapse-toggle {
+			min-width: 22px;
+			width: 22px;
+			height: 22px;
+			padding: 0;
+			border: none !important;
+			box-shadow: none !important;
+			background: transparent !important;
+			color: var(--vscode-icon-foreground) !important;
+		}
+
+		.monaco-button.chat-question-collapse-toggle:hover:not(.disabled) {
+			background: var(--vscode-toolbar-hoverBackground) !important;
+		}
+	}
+}
+
+.interactive-session .chat-question-carousel-container.chat-question-carousel-collapsed {
+	.chat-question-carousel-content {
+		.chat-question-description,
+		.chat-question-input-scrollable,
+		.chat-question-validation-message {
+			display: none;
+		}
+	}
+
+	.chat-question-footer-row {
+		display: none;
 	}
 
 	.chat-question-footer-row {

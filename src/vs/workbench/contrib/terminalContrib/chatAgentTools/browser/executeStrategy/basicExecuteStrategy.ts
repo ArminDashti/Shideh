@@ -242,7 +242,13 @@ export class BasicExecuteStrategy extends Disposable implements ITerminalExecute
 			// the exit code from SIGINT (130) instead of the actual command's exit code.
 			const idlePromptPromise = trackIdleOnPrompt(this._instance, 1000, store);
 			const onDone = Promise.race([
-				Event.toPromise(this._commandDetection.onCommandFinished, store).then(e => {
+				Event.toPromise(Event.filter(this._commandDetection.onCommandFinished, e => {
+					const isMatch = commandMatchesRequestedId(e, commandId);
+					if (!isMatch) {
+						this._log(`Ignoring command-finished event for id=${e.id ?? 'none'}, waiting for requested=${commandId}`);
+					}
+					return isMatch;
+				}), store).then(e => {
 					// When shell integration is basic, it means that the end execution event is
 					// often misfired since we don't have command line verification. Because of this
 					// we make sure the prompt is idle after the end execution event happens.
@@ -315,6 +321,7 @@ export class BasicExecuteStrategy extends Disposable implements ITerminalExecute
 			if (token.isCancellationRequested) {
 				throw new CancellationError();
 			}
+			await waitForOutputFlush(this._instance.onData);
 			const endMarker = store.add(xterm.raw.registerMarker());
 
 			// Assemble final result

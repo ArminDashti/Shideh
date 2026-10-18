@@ -224,6 +224,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 			if (token.isCancellationRequested) {
 				throw new CancellationError();
 			}
+			await waitForOutputFlush(this._instance.onData);
 			const endMarker = store.add(xterm.raw.registerMarker());
 
 			// Assemble final result
