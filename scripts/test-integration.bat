@@ -14,6 +14,8 @@ set "RUN_GLOB="
 set "GREP_PATTERN="
 set "SUITE_FILTER="
 set "SHOW_HELP="
+set "RUN_HAS_AGENT_HOST_E2E="
+set "RUN_HAS_OTHER="
 
 :parse_args
 if "%~1"=="" goto done_parsing
@@ -31,6 +33,14 @@ if /i "%~1"=="--suite" (set "SUITE_FILTER=%~2"& shift & shift & goto parse_args)
 shift
 goto parse_args
 :done_parsing
+
+set "RUN_FOCUSED_AGENT_HOST_E2E="
+if defined RUN_HAS_AGENT_HOST_E2E if defined RUN_HAS_OTHER (
+	echo Error: --run cannot mix Agent Host E2E files with other integration tests.
+	exit /b 1
+)
+if defined RUN_HAS_AGENT_HOST_E2E set "RUN_FOCUSED_AGENT_HOST_E2E=1"
+:focused_e2e_routing_done
 
 if defined SHOW_HELP (
 	echo Usage: %~nx0 [options]

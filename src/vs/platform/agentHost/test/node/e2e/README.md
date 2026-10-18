@@ -6,7 +6,7 @@ They do this by recording the model traffic once (against real CAPI) into commit
 
 > **New here?** Read [Mental model](#mental-model), then [Running the tests](#running-the-tests). Writing a test? Jump to [Writing a new test](#writing-a-new-test). CI is red? Jump to [Troubleshooting](#troubleshooting).
 
-> These are **e2e tests**. The `*.integrationTest.ts` file suffix and `test-integration.sh` script are just the VS Code test-runner conventions they hook into.
+> These are **e2e tests**. The `*.integrationTest.ts` file suffix and `test-integration.sh` script are just the VS Code test-runner conventions they hook into. Unlike other source integration tests, the script runs this Node-only suite directly in Node instead of Electron.
 
 ---
 
@@ -699,7 +699,7 @@ This system is a lighter-weight adaptation of the `copilot-agent-runtime` CLI e2
 | **Providers** | Multi-provider (Claude / Copilot / Codex) via one shared parameterized suite | Copilot CLI only |
 | **Response matching** | Sequence-based per `(method, path)` — no body matching | Normalized **request-body** matching (canonicalized to chat-completions), reports a `mismatchReason` on miss |
 | **Fixtures** | One minimal YAML per `(provider, test)` | A directory of named YAML snapshots per scenario |
-| **Runner / record** | Mocha (Electron) via `test-integration.sh`; record with `AGENT_HOST_REPLAY_RECORD=1` | vitest; `SKIP_CACHE` / `STRICT_CAPTURES`, plus asciinema session recording |
+| **Runner / record** | Mocha (Node.js) via `test-integration.sh`; record with `AGENT_HOST_REPLAY_RECORD=1` | vitest; `SKIP_CACHE` / `STRICT_CAPTURES`, plus asciinema session recording |
 | **Scope** | A focused set of protocol behaviors | Broad: MCP, plugins, permissions, resume, auto-mode, TUI, … |
 
 Practical upshot: the CLI harness matches on request *content* (tolerant of call-order changes, but more setup), while this one matches on call *sequence* (simpler, but sensitive to non-deterministic ordering — see the subagent notes in [Troubleshooting](#troubleshooting)).

@@ -13,8 +13,7 @@ const { availableParallelism, cpus } = os;
 const { basename, dirname, extname, join, resolve } = path;
 
 const repoRoot = resolve(__dirname, '..');
-const testScript = join(repoRoot, 'scripts', process.platform === 'win32' ? 'test-integration.bat' : 'test-integration.sh');
-const windowsTestWrapper = join(repoRoot, 'scripts', 'test-agent-host-e2e-child.ps1');
+const testRunner = join(repoRoot, 'test', 'unit', 'node', 'index.js');
 const incompatibleFlags = [
 	'AGENT_HOST_REPLAY_RECORD',
 	'AGENT_HOST_UPDATE_AHP_SNAPSHOTS',
@@ -174,7 +173,7 @@ function prepareTestRuntime(): void {
 	if (!existsSync(join(repoRoot, 'node_modules'))) {
 		runSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install'], environment);
 	}
-	if (process.env['VSCODE_SKIP_PRELAUNCH'] !== '1') {
+	if (!process.env['INTEGRATION_TEST_ELECTRON_PATH'] && process.env['VSCODE_SKIP_PRELAUNCH'] !== '1') {
 		runSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'electron'], environment);
 	}
 }

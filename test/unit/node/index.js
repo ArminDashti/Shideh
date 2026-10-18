@@ -20,18 +20,35 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import semver from 'semver';
 
 /**
- * @type {{ build: boolean; run: string; runGlob: string; coverage: boolean; help: boolean; coverageFormats: string | string[]; coveragePath: string; }}
+ * @type {{
+ * build: boolean;
+ * run: string | string[];
+ * runGlob: string;
+ * grep: string;
+ * reporter: string;
+ * 'reporter-options': string | string[];
+ * timeout: string;
+ * tfs: string;
+ * integration: boolean;
+ * coverage: boolean;
+ * help: boolean;
+ * coverageFormats: string | string[];
+ * coveragePath: string;
+ * }}
  */
 const args = minimist(process.argv.slice(2), {
-	boolean: ['build', 'coverage', 'help'],
-	string: ['run', 'coveragePath', 'coverageFormats'],
+	boolean: ['build', 'coverage', 'help', 'integration'],
+	string: ['run', 'grep', 'reporter', 'reporter-options', 'timeout', 'tfs', 'coveragePath', 'coverageFormats'],
 	alias: {
+		grep: ['g', 'f'],
 		h: 'help'
 	},
 	default: {
 		build: false,
 		coverage: false,
-		help: false
+		help: false,
+		reporter: 'spec',
+		'reporter-options': ''
 	},
 	description: {
 		build: 'Run from out-build',
@@ -49,6 +66,7 @@ if (args.help) {
 Options:
 --build          Run from out-build
 --run <file>     Run a single file
+--grep <pattern> Run tests with titles matching a pattern
 --coverage       Generate a coverage report
 --help           Show help
 
@@ -58,6 +76,7 @@ VSCODE_TEST_QUALITY=<quality>  override product.quality (insider, stable, explor
 }
 
 const TEST_GLOB = '**/test/**/*.test.js';
+const IS_CI = !!process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || !!process.env.GITHUB_WORKSPACE;
 
 const excludeGlobs = [
 	'**/{browser,electron-browser,electron-main,electron-utility}/**/*.test.js',
@@ -72,6 +91,7 @@ const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const out = args.build ? 'out-build' : 'out';
 const src = path.join(REPO_ROOT, out);
 const baseUrl = pathToFileURL(src);
+const product = module.createRequire(import.meta.url)(`${REPO_ROOT}/product.json`);
 
 const electronConfig = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'electron.config.json'), 'utf8'));
 //@ts-ignore
@@ -99,6 +119,11 @@ function main() {
 	}
 	globalThis._VSCODE_PRODUCT_JSON = testQuality ? { ...product, quality: testQuality } : product;
 	globalThis._VSCODE_PACKAGE_JSON = _require(`${REPO_ROOT}/package.json`);
+	if (args.integration) {
+		process.env['VSCODE_AGENT_HOST_E2E_EXEC_PATH'] = process.env['INTEGRATION_TEST_ELECTRON_PATH'] || (process.platform === 'darwin'
+			? path.join(REPO_ROOT, '.build', 'electron', `${product.nameLong}.app`, 'Contents', 'MacOS', product.nameShort)
+			: path.join(REPO_ROOT, '.build', 'electron', process.platform === 'win32' ? `${product.nameShort}.exe` : product.applicationName));
+	}
 
 	// VSCODE_GLOBALS: file root
 	globalThis._VSCODE_FILE_ROOT = baseUrl.href;
@@ -162,9 +187,32 @@ function main() {
 	};
 
 
-	const runner = new Mocha({
-		ui: 'tdd'
-	});
+	const runner = new Mocha({ ui: 'tdd' });
+	if (args.integration) {
+		const { importMochaReporter } = _require('../reporter.js');
+		let Reporter;
+		try {
+			Reporter = importMochaReporter(args.reporter);
+		} catch {
+			try {
+				Reporter = _require(args.reporter);
+			} catch {
+				Reporter = process.platform === 'win32' ? Mocha.reporters.List : Mocha.reporters.Spec;
+				console.warn(`could not load reporter: ${args.reporter}, using ${Reporter.name}`);
+			}
+		}
+		const reporterOptions = (typeof args['reporter-options'] === 'string' ? [args['reporter-options']] : args['reporter-options'])
+			.reduce((result, option) => {
+				const match = /^([^=]+)=(.*)$/.exec(option);
+				return match ? Object.assign(result, { [match[1]]: match[2] }) : result;
+			}, {});
+		runner.reporter(Reporter, reporterOptions);
+		runner.timeout(args.timeout ? Number(args.timeout) : (IS_CI ? 30000 : 5000));
+		runner.forbidOnly(IS_CI);
+		if (args.grep) {
+			runner.grep(new RegExp(args.grep));
+		}
+	}
 
 	/**
 	 * @param modules
@@ -199,7 +247,7 @@ function main() {
 	} else if (args.run) {
 		const tests = (typeof args.run === 'string') ? [args.run] : args.run;
 		const modulesToLoad = tests.map(function(test) {
-			test = test.replace(/^src/, 'out');
+			test = test.replace(/^src/, out);
 			test = test.replace(/\.ts$/, '.js');
 			return path.relative(src, path.resolve(test)).replace(/(\.js)|(\.js\.map)$/, '').replace(/\\/g, '/');
 		});
@@ -261,7 +309,18 @@ function main() {
 			});
 
 			// fire up mocha
-			runner.run(failures => process.exit(failures ? 1 : 0));
+			const mochaRunner = runner.run(failures => process.exit(failures ? 1 : 0));
+			if (args.integration && args.tfs) {
+				const MochaJUnitReporter = _require('mocha-junit-reporter');
+				const testResultsRoot = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || process.env.GITHUB_WORKSPACE;
+				const reportName = `${args.tfs} Agent Host E2E ${process.platform}`;
+				new MochaJUnitReporter(mochaRunner, {
+					reporterOptions: {
+						testsuitesTitle: reportName,
+						mochaFile: testResultsRoot ? path.join(testResultsRoot, `test-results/${process.platform}-${process.arch}-${args.tfs.toLowerCase().replace(/[^\w]/g, '-')}-agent-host-e2e-results.xml`) : undefined
+					}
+				});
+			}
 		});
 	});
 }

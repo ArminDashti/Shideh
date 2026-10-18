@@ -34,6 +34,11 @@ while [[ $# -gt 0 ]]; do
 		--run)
 			RUN_FILE="$2"
 			EXTRA_ARGS+=("$1" "$2")
+			if [[ "${2//\\//}" == *"/agentHost/test/node/e2e/"* ]]; then
+				RUN_HAS_AGENT_HOST_E2E=true
+			else
+				RUN_HAS_OTHER=true
+			fi
 			shift 2
 			;;
 		--grep|-g|-f)
@@ -106,6 +111,14 @@ fi
 HAS_FILTER=false
 if [[ -n "$RUN_FILE" || -n "$RUN_GLOB" ]]; then
 	HAS_FILTER=true
+fi
+
+RUN_FOCUSED_AGENT_HOST_E2E=false
+if $RUN_HAS_AGENT_HOST_E2E && $RUN_HAS_OTHER; then
+	echo "Error: --run cannot mix Agent Host E2E files with other integration tests."
+	exit 1
+elif $RUN_HAS_AGENT_HOST_E2E; then
+	RUN_FOCUSED_AGENT_HOST_E2E=true
 fi
 
 # Check whether a given suite name matches the --suite filter.
