@@ -270,6 +270,8 @@ suite('AgentHostUntitledProvisionalSessionService', () => {
 	let importStore: AgentHostImportConversationStore;
 	let provisional: IAgentHostUntitledProvisionalSessionService;
 	let folderService: IAgentHostNewSessionFolderService;
+	let configService: TestConfigurationService;
+	let environmentService: { isSessionsWindow: boolean };
 	let cleanup: DisposableStore;
 	let workspaceTrusted: boolean;
 	let untrustedFolders: Set<string>;
@@ -1022,6 +1024,52 @@ suite('AgentHostUntitledProvisionalSessionService', () => {
 		await provisional.getOrCreate(untitledChatUri('agents-window'), 'copilot', workspaceFolders[0]);
 
 		assert.strictEqual(agentHost.createCalls[0]._meta, undefined);
+	});
+
+	test('getOrCreate seeds the default model from chat.defaultConfiguration', async () => {
+		agentHost.resolveQueue = [];
+		await configService.setUserConfiguration(ChatConfiguration.DefaultConfiguration, { model: 'gpt-5' });
+		const ui = untitledChatUri('model-a');
+		await provisional.getOrCreate(ui, 'copilot', undefined);
+		assert.deepStrictEqual(agentHost.createCalls[0].model, { id: 'gpt-5' });
+	});
+
+	test('getOrCreate omits the model when none is configured', async () => {
+		agentHost.resolveQueue = [];
+		const ui = untitledChatUri('model-b');
+		await provisional.getOrCreate(ui, 'copilot', undefined);
+		assert.strictEqual(agentHost.createCalls[0].model, undefined);
+	});
+
+	test('getOrCreate omits the model when configured value is empty', async () => {
+		agentHost.resolveQueue = [];
+		await configService.setUserConfiguration(ChatConfiguration.DefaultConfiguration, { model: '' });
+		const ui = untitledChatUri('model-c');
+		await provisional.getOrCreate(ui, 'copilot', undefined);
+		assert.strictEqual(agentHost.createCalls[0].model, undefined);
+	});
+
+	test('getOrCreate omits the model in the Agents window', async () => {
+		agentHost.resolveQueue = [];
+		environmentService.isSessionsWindow = true;
+		await configService.setUserConfiguration(ChatConfiguration.DefaultConfiguration, { model: 'gpt-5' });
+		const ui = untitledChatUri('model-d');
+		await provisional.getOrCreate(ui, 'copilot', undefined);
+		assert.strictEqual(agentHost.createCalls[0].model, undefined);
+	});
+
+	test('tryRebind preserves the seeded model on the new provisional', async () => {
+		agentHost.resolveQueue = [];
+		await configService.setUserConfiguration(ChatConfiguration.DefaultConfiguration, { model: 'gpt-5' });
+		const ui = untitledChatUri('model-e');
+		await provisional.getOrCreate(ui, 'copilot', undefined);
+
+		const newUi = URI.from({ scheme: 'agent-host-copilot', path: '/real-model-e' });
+		await provisional.tryRebind(ui, newUi, 'copilot', undefined);
+
+		const reboundCreate = agentHost.createCalls.find(c => c.session?.path === '/real-model-e');
+		assert.ok(reboundCreate, 'rebind triggered a createSession');
+		assert.deepStrictEqual(reboundCreate!.model, { id: 'gpt-5' });
 	});
 
 	test('getOrCreate does not spawn a backend provisional in an untrusted workspace', async () => {

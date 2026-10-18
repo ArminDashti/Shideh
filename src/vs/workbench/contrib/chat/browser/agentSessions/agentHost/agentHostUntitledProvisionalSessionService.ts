@@ -289,6 +289,14 @@ interface IEntry {
 	usesWorkspaceRootSet: boolean;
 	eagerlyMaterialize: boolean;
 	/**
+	 * Workbench-owned default model selection for this provisional, seeded from
+	 * the `chat.defaultConfiguration` `model` property at create time. Unlike
+	 * mode/approvals (which live in {@link config}), the model is a dedicated
+	 * `createSession` field, so it is preserved separately across
+	 * {@link tryRebind} and working-directory changes.
+	 */
+	model?: ModelSelection;
+	/**
 	 * Latest re-resolved config (schema + values) for this provisional, set
 	 * by {@link applyConfigChange} after each value change. Cleared when the
 	 * entry is rebound or disposed.
@@ -1453,6 +1461,31 @@ export class AgentHostUntitledProvisionalSessionService extends Disposable imple
 		}
 
 		return migrateLegacyAutopilotConfig(config);
+	}
+
+	/**
+	 * Workbench-side initial model seed sent at `createSession` time. Unlike
+	 * mode/approvals (which live in the config bag), the model is a dedicated
+	 * `createSession` field carrying a {@link ModelSelection}.
+	 *
+	 * Seeded from the `model` property of the single `chat.defaultConfiguration`
+	 * object setting, which stores the agent-host model id. An empty/missing id
+	 * returns `undefined` so the provider falls back to its default model. The
+	 * id is provider-specific; the agent ignores ids it does not recognize.
+	 *
+	 * Skipped entirely in the Agents window, where the sessions provider
+	 * supplies config (and model) via `request.agentHostSessionConfig` instead.
+	 */
+	private _getInitialModel(): ModelSelection | undefined {
+		if (this._environmentService.isSessionsWindow) {
+			return undefined;
+		}
+		const configuredDefaults = this._configurationService.getValue<IChatDefaultConfiguration>(ChatConfiguration.DefaultConfiguration);
+		const configuredModel = configuredDefaults?.model;
+		if (typeof configuredModel === 'string' && configuredModel.length > 0) {
+			return { id: configuredModel };
+		}
+		return undefined;
 	}
 }
 

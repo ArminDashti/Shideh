@@ -825,6 +825,13 @@ configurationRegistry.registerConfiguration({
 						value: nls.localize('chat.defaultModel.policy', "Sets the default chat model for new conversations. Accepts \"auto\", a model family name (such as \"opus\" or \"gemini\"), or a full model id. Users can still switch the model within a conversation.")
 					}
 				},
+				model: {
+					type: 'string',
+					enum: AgentSessionDefaultModel.modelIds,
+					enumDescriptions: AgentSessionDefaultModel.modelDescriptions,
+					default: '',
+					description: nls.localize('chat.defaultConfiguration.model.description', "The starting language model for new agent sessions. Leave empty to use the provider's default model. The model is provider-specific; when it does not apply to the active provider, the agent falls back to its default."),
+				},
 			},
 		},
 		[ChatConfiguration.GlobalAutoApprove]: {
