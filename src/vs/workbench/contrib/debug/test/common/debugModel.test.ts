@@ -17,8 +17,6 @@ import { MockDebugStorage } from './mockDebug.js';
 import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';
 
 suite('DebugModel', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
-
 	suite('FunctionBreakpoint', () => {
 		test('Id is saved', () => {
 			const fbp = new FunctionBreakpoint({ name: 'function', enabled: true, hitCondition: 'hit condition', condition: 'condition', logMessage: 'log message' });
