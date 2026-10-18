@@ -34,7 +34,7 @@ Agents Control - Unified titlebar control
 	gap: 0;
 }
 
-.agents-control-container {
+.agent-status-container {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -66,12 +66,12 @@ Agents Control - Unified titlebar control
 	cursor: pointer;
 }
 
-.agents-control-pill.chat-input-mode:hover {
+.agent-status-pill.chat-input-mode:hover {
 	background-color: var(--vscode-commandCenter-activeBackground, rgba(0, 0, 0, 0.1));
 	border-color: var(--vscode-commandCenter-activeBorder, rgba(0, 0, 0, 0.2));
 }
 
-.agents-control-pill.chat-input-mode:focus {
+.agent-status-pill.chat-input-mode:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }

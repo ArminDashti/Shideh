@@ -20,12 +20,12 @@ import { IsCompactTitleBarContext } from '../../../../common/contextkeys.js';
 
 //#region Enter Agent Session Projection
 
-export class EnterFocusViewAction extends Action2 {
+export class EnterAgentSessionProjectionAction extends Action2 {
 	static readonly ID = 'agentSession.enterAgentSessionProjection';
 
 	constructor() {
 		super({
-			id: EnterFocusViewAction.ID,
+			id: EnterAgentSessionProjectionAction.ID,
 			title: localize2('enterAgentSessionProjection', "Enter Agent Session Projection"),
 			category: CHAT_CATEGORY,
 			f1: true,
@@ -46,7 +46,7 @@ export class EnterFocusViewAction extends Action2 {
 	}
 
 	override async run(accessor: ServicesAccessor, context?: IAgentSession | IMarshalledAgentSessionContext): Promise<void> {
-		const focusViewService = accessor.get(IFocusViewService);
+		const projectionService = accessor.get(IAgentSessionProjectionService);
 		const agentSessionsService = accessor.get(IAgentSessionsService);
 
 		let session: IAgentSession | undefined;
@@ -68,7 +68,7 @@ export class EnterFocusViewAction extends Action2 {
 		}
 
 		if (session) {
-			await focusViewService.enterFocusView(session);
+			await projectionService.enterProjection(session);
 		}
 	}
 }
@@ -77,12 +77,12 @@ export class EnterFocusViewAction extends Action2 {
 
 //#region Exit Agent Session Projection
 
-export class ExitFocusViewAction extends Action2 {
+export class ExitAgentSessionProjectionAction extends Action2 {
 	static readonly ID = 'agentSession.exitAgentSessionProjection';
 
 	constructor() {
 		super({
-			id: ExitFocusViewAction.ID,
+			id: ExitAgentSessionProjectionAction.ID,
 			title: localize2('exitAgentSessionProjection', "Exit Agent Session Projection"),
 			category: CHAT_CATEGORY,
 			f1: true,
@@ -90,14 +90,14 @@ export class ExitFocusViewAction extends Action2 {
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyCode.Escape,
-				when: ChatContextKeys.inFocusViewMode,
+				when: ChatContextKeys.inAgentSessionProjection,
 			},
 		});
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
-		const focusViewService = accessor.get(IFocusViewService);
-		await focusViewService.exitFocusView();
+		const projectionService = accessor.get(IAgentSessionProjectionService);
+		await projectionService.exitProjection();
 	}
 }
 
@@ -141,9 +141,9 @@ export class OpenInChatPanelAction extends Action2 {
 
 //#endregion
 
-//#region Toggle Agents Control
+//#region Toggle Agent Status
 
-export class ToggleAgentsControl extends ToggleTitleBarConfigAction {
+export class ToggleAgentStatusAction extends ToggleTitleBarConfigAction {
 	constructor() {
 		super(
 			'chat.agentSessionProjection.enabled',

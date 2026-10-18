@@ -92,11 +92,12 @@ MenuRegistry.appendMenuItem(MenuId.AgentSessionsToolbar, {
 	icon: Codicon.treeFilterOnTypeOn,
 } satisfies ISubmenuItem);
 
-// Focus View
-registerAction2(EnterFocusViewAction);
-registerAction2(ExitFocusViewAction);
+// Agent Session Projection
+registerAction2(EnterAgentSessionProjectionAction);
+registerAction2(ExitAgentSessionProjectionAction);
 registerAction2(OpenInChatPanelAction);
-registerAction2(ToggleAgentsControl);
+registerAction2(ToggleAgentStatusAction);
+registerAction2(ToggleAgentSessionProjectionAction);
 
 // --- Agent Sessions Toolbar
 
