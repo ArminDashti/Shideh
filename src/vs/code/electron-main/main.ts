@@ -497,7 +497,10 @@ class CodeMain {
 			stateService.init(),
 
 			// Configuration service
-			configurationService.initialize()
+			configurationService.initialize(),
+
+			// Initialize Default Profile Extensions
+			userDataProfilesMainService.initializeDefaultProfileExtensions()
 		]);
 
 		// Initialize user data profiles after initializing the state

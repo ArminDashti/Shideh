@@ -27,6 +27,12 @@ export class UserDataProfilesReadonlyService extends BaseUserDataProfilesService
 		super(nativeEnvironmentService, fileService, uriIdentityService, logService);
 	}
 
+	async initializeDefaultProfileExtensions(): Promise<void> {
+		if (!(await this.fileService.exists(this.uriIdentityService.extUri.dirname(this.defaultProfile.extensionsResource)))) {
+			await this.fileService.createFile(this.defaultProfile.extensionsResource, VSBuffer.fromString('[]'));
+		}
+	}
+
 	protected override getStoredProfiles(): StoredUserDataProfile[] {
 		const storedProfilesState = this.stateReadonlyService.getItem<UriDto<StoredUserDataProfileState>[]>(UserDataProfilesReadonlyService.PROFILES_KEY, []);
 		return storedProfilesState.map(p => ({
@@ -86,7 +92,7 @@ export class ServerUserDataProfilesService extends UserDataProfilesService imple
 	}
 
 	override async init(): Promise<void> {
-		await (this.stateService as StateService).init();
+		await Promise.all([(this.stateService as StateService).init(), this.initializeDefaultProfileExtensions()]);
 		return super.init();
 	}
 

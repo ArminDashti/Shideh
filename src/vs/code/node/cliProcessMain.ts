@@ -202,7 +202,8 @@ class CliMain extends Disposable {
 		// Initialize
 		await Promise.all([
 			stateService.init(),
-			configurationService.initialize()
+			configurationService.initialize(),
+			userDataProfilesService.initializeDefaultProfileExtensions(),
 		]);
 
 		// Get machine ID
