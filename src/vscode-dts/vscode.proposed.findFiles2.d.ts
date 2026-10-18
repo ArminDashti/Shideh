@@ -69,6 +69,13 @@ declare module 'vscode' {
 		 * For more info, see the setting description for `search.followSymlinks`.
 		 */
 		followSymlinks?: boolean;
+	}
+
+	export interface FindFiles2Options {
+		/**
+		 * options that dictate which files to target
+		 */
+		fileTargetOptions?: FindFilesTargetOptions;
 
 		/**
 		 * Whether glob patterns should be matched case-insensitively.

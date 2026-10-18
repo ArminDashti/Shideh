@@ -17,18 +17,31 @@ declare module 'vscode' {
 		 * to restrict the search results to a {@link WorkspaceFolder workspace folder}.
 		 */
 		include?: GlobPattern;
+	}
+
+	/**
+	 * Options that can be set on a findTextInFiles search.
+	 */
+	export interface FindTextInFilesOptions {
+		/**
+		 * options that dictate which files to target
+		 */
+		fileTargetOptions?: FindTextInFilesTargetOptions;
 
 		/**
-		 * A {@link GlobPattern glob pattern} that defines files and folders to exclude. The glob pattern
-		 * will be matched against the file paths of resulting matches relative to their workspace. When `undefined`, default excludes will
-		 * apply.
+		 * Options that dictate how the search query is presented
 		 */
-		exclude?: GlobPattern;
+		presentationOptions?: {
+			/**
+			 * Options to specify the size of the result text preview.
+			 */
+			previewOptions?: TextSearchPreviewOptions;
 
-		/**
-		 * Whether to use the default and user-configured excludes. Defaults to true.
-		 */
-		useDefaultExcludes?: boolean;
+			/**
+			 * Number of lines of context to include before and after each match.
+			 */
+			surroundingContext?: number;
+		};
 
 		/**
 		 * The maximum number of results to search for
@@ -36,49 +49,11 @@ declare module 'vscode' {
 		maxResults?: number;
 
 		/**
-		 * Whether external files that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useIgnoreFiles"`.
-		 */
-		useIgnoreFiles?: boolean;
-
-		/**
-		 * Whether global files that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useGlobalIgnoreFiles"`.
-		 */
-		useGlobalIgnoreFiles?: boolean;
-
-		/**
-		 * Whether files in parent directories that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useParentIgnoreFiles"`.
-		 */
-		useParentIgnoreFiles?: boolean;
-
-		/**
-		 * Whether symlinks should be followed while searching.
-		 * See the vscode setting `"search.followSymlinks"`.
-		 */
-		followSymlinks?: boolean;
-
-		/**
 		 * Interpret files using this encoding.
 		 * See the vscode setting `"files.encoding"`
 		 */
 		encoding?: string;
 
-		/**
-		 * Options to specify the size of the result text preview.
-		 */
-		previewOptions?: TextSearchPreviewOptions;
-
-		/**
-		 * Number of lines of context to include before each match.
-		 */
-		beforeContext?: number;
-
-		/**
-		 * Number of lines of context to include after each match.
-		 */
-		afterContext?: number;
 	}
 
 	export namespace workspace {
@@ -86,6 +61,7 @@ declare module 'vscode' {
 		 * Search text in files across all {@link workspace.workspaceFolders workspace folders} in the workspace.
 		 * @param query The query parameters for the search - the search string, whether it's case-sensitive, or a regex, or matches whole words.
 		 * @param callback A callback, called for each result
+		 * @param options A set of query options.
 		 * @param token A token that can be used to signal cancellation to the underlying search engine.
 		 * @return A thenable that resolves when the search is complete.
 		 */

@@ -37,55 +37,11 @@ declare module 'vscode' {
 		isWordMatch?: boolean;
 	}
 
-	/**
-	 * A file glob pattern to match file paths against.
-	 * TODO@roblourens merge this with the GlobPattern docs/definition in vscode.d.ts.
-	 * @see {@link GlobPattern}
-	 */
-	export type GlobString = string;
-
-	/**
-	 * Options common to file and text search
-	 */
-	export interface SearchOptions {
+	export interface TextSearchProviderFileTargetOptions extends FileTargetOptions {
 		/**
-		 * The root folder to search within.
+		 * exclude files larger than `maxFileSize` in bytes.
 		 */
-		folder: Uri;
-
-		/**
-		 * Files that match an `includes` glob pattern should be included in the search.
-		 */
-		includes: GlobString[];
-
-		/**
-		 * Files that match an `excludes` glob pattern should be excluded from the search.
-		 */
-		excludes: GlobString[];
-
-		/**
-		 * Whether external files that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useIgnoreFiles"`.
-		 */
-		useIgnoreFiles: boolean;
-
-		/**
-		 * Whether symlinks should be followed while searching.
-		 * See the vscode setting `"search.followSymlinks"`.
-		 */
-		followSymlinks: boolean;
-
-		/**
-		 * Whether global files that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useGlobalIgnoreFiles"`.
-		 */
-		useGlobalIgnoreFiles: boolean;
-
-		/**
-		 * Whether files in parent directories that exclude files, like .gitignore, should be respected.
-		 * See the vscode setting `"search.useParentIgnoreFiles"`.
-		 */
-		useParentIgnoreFiles: boolean;
+		maxFileSize: number;
 	}
 
 	/**
@@ -108,37 +64,37 @@ declare module 'vscode' {
 	/**
 	 * Options that apply to text search.
 	 */
-	export interface TextSearchOptions extends SearchOptions {
+	export interface TextSearchProviderOptions {
+		/**
+		 * Options for choosing which files to include in the search
+		 */
+		fileTargetOptions: TextSearchProviderFileTargetOptions;
+
+		/**
+		 * Options that dictate how the search query is presented
+		 */
+		presentationOptions: {
+			/**
+			 * Options to specify the size of the result text preview.
+			 */
+			previewOptions: TextSearchPreviewOptions;
+
+			/**
+			 * Number of lines of context to include before and after each match.
+			 */
+			surroundingContext: number;
+		};
+
 		/**
 		 * The maximum number of results to be returned.
 		 */
 		maxResults: number;
 
 		/**
-		 * Options to specify the size of the result text preview.
-		 */
-		previewOptions?: TextSearchPreviewOptions;
-
-		/**
-		 * Exclude files larger than `maxFileSize` in bytes.
-		 */
-		maxFileSize?: number;
-
-		/**
 		 * Interpret files using this encoding.
 		 * See the vscode setting `"files.encoding"`
 		 */
-		encoding?: string;
-
-		/**
-		 * Number of lines of context to include before each match.
-		 */
-		beforeContext?: number;
-
-		/**
-		 * Number of lines of context to include after each match.
-		 */
-		afterContext?: number;
+		encoding: string;
 	}
 
 	/**
@@ -174,7 +130,7 @@ declare module 'vscode' {
 	export interface TextSearchCompleteOld {
 		/**
 		 * Whether the search hit the limit on the maximum number of search results.
-		 * `maxResults` on {@linkcode TextSearchOptions} specifies the max number of results.
+		 * `maxResults` on {@linkcode TextSearchProviderOptions} specifies the max number of results.
 		 * - If exactly that number of matches exist, this should be false.
 		 * - If `maxResults` matches are returned and more exist, this should be true.
 		 * - If search hits an internal limit which is less than `maxResults`, this should be true.
@@ -218,15 +174,7 @@ declare module 'vscode' {
 		 */
 		uri: Uri;
 
-		/**
-		 * The range of the match within the document, or multiple ranges for multiple matches.
-		 */
-		ranges: Range | Range[];
-
-		/**
-		 * A preview of the text match.
-		 */
-		preview: TextSearchMatchPreview;
+		previewText: string;
 	}
 
 	/**
