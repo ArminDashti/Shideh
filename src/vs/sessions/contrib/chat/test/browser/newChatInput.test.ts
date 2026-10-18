@@ -55,6 +55,20 @@ const showContextPicker = Reflect.get(NewChatInputWidget.prototype, '_showContex
 const showAttachmentPicker = Reflect.get(NewChatContextAttachments.prototype, 'showPicker') as (this: IAttachmentPickerHarness, folderUri?: URI, contextActions?: readonly IWorkspacePickerContextAction[], anchor?: HTMLElement) => void;
 const updateAttachmentRendering = Reflect.get(NewChatContextAttachments.prototype, '_updateRendering') as (this: IAttachmentRenderingHarness) => void;
 const getStaticContextPicks = Reflect.get(NewChatContextAttachments.prototype, '_getStaticPicks') as (contextActions: readonly { label: string; icon: ThemeIcon }[]) => readonly { label?: string; type?: string }[];
+const setDraft = Reflect.get(NewChatInputWidget.prototype, 'setDraft') as (this: {
+	options: { draft?: INewChatInputDraft };
+	_editor?: object;
+	_draftListener: MutableDisposable<IDisposable>;
+	_applyDraft(state: INewChatInputDraftState): void;
+}, draft: INewChatInputDraft | undefined) => void;
+const clearSubmittedDraft = Reflect.get(NewChatInputWidget.prototype, '_clearSubmittedDraft') as (this: {
+	options: { draft?: INewChatInputDraft };
+	_store: { isDisposed: boolean };
+	_contextAttachments: { clear(): void };
+	_editor: { getModel(): { setValue(value: string): void } };
+	getInputDraft(): INewChatInputDraftState;
+	_clearDraftState(): void;
+}, target: INewChatInputDraft | undefined, submitted: INewChatInputDraftState) => void;
 
 interface IDraftStateHarness {
 	readonly options?: { readonly draftStorageKey: string };
@@ -90,6 +104,7 @@ interface IUpdateDraftStateHarness extends IDraftStateHarness {
 
 interface IUpdateAndSaveDraftStateHarness extends IUpdateDraftStateHarness {
 	readonly _sending: boolean;
+	readonly _applyingDraft?: boolean;
 	_updateDraftState(): void;
 	saveState(): void;
 }
@@ -889,6 +904,133 @@ suite('NewChatInputWidget', () => {
 			'Issue...',
 			'Pull Request...',
 		]);
+	});
+
+	test('saves a host-owned draft without writing the new-session storage key', () => {
+		const state = observableValue<INewChatInputDraftState>('reviewDraft', { inputText: '', attachments: [] });
+		const attachment = toPasteVariableEntry('Review context', 'Review this result', { id: 'review-context' });
+		const writes: string[] = [];
+		const harness: IDraftStateHarness = {
+			options: { draft: { state, save: value => state.set(value, undefined) } },
+			storageService: {
+				get: () => undefined,
+				store: key => writes.push(key),
+			},
+			_draftState: { inputText: 'Explain this change', attachments: [attachment] },
+		};
+
+		saveState.call(harness);
+
+		assert.deepStrictEqual({ draft: state.get(), writes }, {
+			draft: { inputText: 'Explain this change', attachments: [attachment] },
+			writes: [],
+		});
+
+		test('binding a seeded draft after rendering updates native input and releases the previous binding', () => {
+			const listener = disposables.add(new MutableDisposable<IDisposable>());
+			const first = observableValue<INewChatInputDraftState>('first', { inputText: 'First task', attachments: [] });
+			const second = observableValue<INewChatInputDraftState>('second', { inputText: 'Second task', attachments: [] });
+			const applied: string[] = [];
+			const harness = {
+				options: {} as { draft?: INewChatInputDraft },
+				_editor: {}, _draftListener: listener,
+				_applyDraft: (state: INewChatInputDraftState) => applied.push(state.inputText),
+			};
+			setDraft.call(harness, { state: first, save: value => first.set(value, undefined) });
+			first.set({ inputText: 'Edited first task', attachments: [] }, undefined);
+			setDraft.call(harness, { state: second, save: value => second.set(value, undefined) });
+			first.set({ inputText: 'Stale first task', attachments: [] }, undefined);
+			setDraft.call(harness, undefined);
+			second.set({ inputText: 'Detached second task', attachments: [] }, undefined);
+			assert.deepStrictEqual(applied, ['First task', 'Edited first task', 'Second task']);
+		});
+
+		test('binding before rendering defers editor updates until render', () => {
+			const state = observableValue<INewChatInputDraftState>('seed', { inputText: 'Task', attachments: [] });
+			const draft: INewChatInputDraft = { state, save: value => state.set(value, undefined) };
+			let applied = false;
+			const harness = {
+				options: {} as { draft?: INewChatInputDraft },
+				_draftListener: disposables.add(new MutableDisposable<IDisposable>()),
+				_applyDraft: () => { applied = true; },
+			};
+			setDraft.call(harness, draft);
+			assert.deepStrictEqual({ bound: harness.options.draft === draft, applied }, { bound: true, applied: false });
+		});
+	});
+
+	test('saves text edits and clearing to the host draft without writing new-session storage', () => {
+		const state = observableValue<INewChatInputDraftState>('reviewDraft', { inputText: '', attachments: [] });
+		const writes: string[] = [];
+		let editorValue = 'An unsent reply';
+		const harness: IUpdateAndSaveDraftStateHarness = {
+			options: { draft: { state, save: value => state.set(value, undefined) } },
+			storageService: { get: () => undefined, store: key => writes.push(key) },
+			_sending: false,
+			_editor: { getModel: () => ({ getValue: () => editorValue }) },
+			_contextAttachments: { attachments: [] },
+			_updateDraftState() { updateDraftState.call(this); },
+			saveState() { saveState.call(this); },
+		};
+
+		updateAndSaveDraftState.call(harness);
+		const edited = state.get().inputText;
+		editorValue = '';
+		updateAndSaveDraftState.call(harness);
+		const cleared = state.get().inputText;
+		editorValue = 'An intermediate model value';
+		updateAndSaveDraftState.call({ ...harness, _applyingDraft: true });
+		updateAndSaveDraftState.call({ ...harness, _sending: true });
+
+		assert.deepStrictEqual({ edited, cleared, afterProgrammaticUpdates: state.get().inputText, writes }, {
+			edited: 'An unsent reply', cleared: '', afterProgrammaticUpdates: '', writes: [],
+		});
+	});
+
+	test('only clears an unchanged host draft after a send completes', () => {
+		const attachment = toPasteVariableEntry('First result', 'First', { id: 'first' });
+		const nextAttachment = toPasteVariableEntry('Second result', 'Second', { id: 'second' });
+		const sent: INewChatInputDraftState = { inputText: 'Review this', attachments: [attachment] };
+
+		assert.deepStrictEqual({
+			same: isNewChatInputDraftUnchanged({ ...sent, attachments: [attachment] }, sent),
+			changedText: isNewChatInputDraftUnchanged({ ...sent, inputText: 'A new thought' }, sent),
+			addedContext: isNewChatInputDraftUnchanged({ ...sent, attachments: [attachment, nextAttachment] }, sent),
+			removedContext: isNewChatInputDraftUnchanged({ ...sent, attachments: [] }, sent),
+		}, {
+			same: true,
+			changedText: false,
+			addedContext: false,
+			removedContext: false,
+		});
+
+		test('background completion clears retained submitted content but never a different replacement draft', () => {
+			const attachment = toPasteVariableEntry('Context', 'Task context', { id: 'context' });
+			const submitted: INewChatInputDraftState = { inputText: 'Submitted task', attachments: [attachment] };
+			const outcomes = [];
+			for (const replacement of ['unbound-same', 'unbound-edited', 'bound-same'] as const) {
+				const source = observableValue('source', submitted);
+				const target: INewChatInputDraft = { state: source, save: value => source.set(value, undefined) };
+				let visible = replacement === 'unbound-edited' ? { ...submitted, inputText: 'Different task' } : submitted;
+				const next = observableValue('replacement', submitted);
+				const nextDraft: INewChatInputDraft = { state: next, save: value => next.set(value, undefined) };
+				let storageClears = 0;
+				clearSubmittedDraft.call({
+					options: { draft: replacement === 'bound-same' ? nextDraft : undefined },
+					_store: { isDisposed: false },
+					_contextAttachments: { clear: () => { visible = { ...visible, attachments: [] }; } },
+					_editor: { getModel: () => ({ setValue: value => { visible = { ...visible, inputText: value }; } }) },
+					getInputDraft: () => visible,
+					_clearDraftState: () => { storageClears++; },
+				}, target, submitted);
+				outcomes.push({ replacement, source: source.get().inputText, visible: visible.inputText, attachments: visible.attachments.length, storageClears });
+			}
+			assert.deepStrictEqual(outcomes, [
+				{ replacement: 'unbound-same', source: '', visible: '', attachments: 0, storageClears: 1 },
+				{ replacement: 'unbound-edited', source: '', visible: 'Different task', attachments: 1, storageClears: 0 },
+				{ replacement: 'bound-same', source: '', visible: 'Submitted task', attachments: 1, storageClears: 0 },
+			]);
+		});
 	});
 
 	test('enables send after restoring an unchanged retained input model', () => {

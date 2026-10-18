@@ -971,6 +971,9 @@ export class ChatListWidget extends Disposable {
 					},
 				}
 			});
+			if (!this._useTreeHierarchy) {
+				this._tree.refilter();
+			}
 		});
 
 		// Update aria-busy state to prevent screen readers (e.g., VoiceOver) from losing

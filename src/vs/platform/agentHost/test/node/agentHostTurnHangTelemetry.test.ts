@@ -253,6 +253,8 @@ suite('AgentSideEffects — turn hang telemetry', () => {
 				requestSessionWorkspaceUpdate: () => { },
 				isPending: () => false,
 				cancel: () => { },
+				finishContinuation: () => { },
+				resumeContinuation: () => { },
 				updateSessionWorkspace: async () => { },
 			}],
 		);

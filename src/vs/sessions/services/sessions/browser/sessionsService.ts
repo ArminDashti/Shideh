@@ -206,6 +206,16 @@ export interface ISessionsService {
 	moveSessionsToWindow(sessions: readonly ISession[], partId: string): Promise<void>;
 	returnSessionsToMainWindow(partId: string): void;
 
+	readonly isSessionBoardVisible: IObservable<boolean>;
+
+	/** Switch between the regular grid and a board of all non-archived sessions. */
+	setSessionBoardVisible(visible: boolean): void;
+
+	readonly sessionReview: IObservable<ISessionReviewState | undefined>;
+	openSessionReview(session: ISession, section: SessionReviewSection, options?: ISessionReviewOpenOptions): Promise<void>;
+	closeSessionReview(): void;
+	setSessionReviewSection(section: SessionReviewSection, options?: ISessionReviewOptions): void;
+
 	/** Whether the initial persisted visible-session restore has settled. */
 	readonly initialRestoreComplete: IObservable<boolean>;
 
@@ -249,8 +259,9 @@ export interface ISessionsService {
 	 * Whether the given session may be opened, honoring workspace trust. Prompts
 	 * for trust on any untrusted folder the session runs in and resolves to
 	 * `false` if the user declines.
+	 * A silent check returns `false` for untrusted folders without prompting.
 	 */
-	canOpenSession(session: ISession): Promise<boolean>;
+	canOpenSession(session: ISession, options?: { readonly silent?: boolean }): Promise<boolean>;
 
 	/**
 	 * Open a specific chat within a session and show it in the grid.
@@ -397,6 +408,12 @@ export class SessionsService extends Disposable implements ISessionsService {
 	private readonly _gridRequest = observableValue<SessionGridRequest | undefined>(this, undefined);
 	readonly visibleSessions: IObservable<readonly (IActiveSession | undefined)[]>;
 	readonly mainVisibleSessions: IObservable<readonly (IActiveSession | undefined)[]>;
+
+	private readonly _isSessionBoardVisible = observableValue(this, false);
+	readonly isSessionBoardVisible: IObservable<boolean> = this._isSessionBoardVisible;
+	private _sessionBoardPreviousGrid: ISessionGridSnapshot | undefined;
+	private readonly _sessionReview = observableValue<ISessionReviewState | undefined>(this, undefined);
+	readonly sessionReview: IObservable<ISessionReviewState | undefined> = this._sessionReview;
 
 	/** Remembers the single most recently closed chat or session for {@link reopenLastClosedItem}. */
 	private readonly _closedItems: ClosedItemHistory;
@@ -564,6 +581,9 @@ export class SessionsService extends Disposable implements ISessionsService {
 		// Drive the part: reconcile the grid and move focus into the active
 		// session whenever the visible sessions or the active session change.
 		this._register(autorun(reader => {
+			if (this._isSessionBoardVisible.read(reader)) {
+				return;
+			}
 			const visible = this.visibleSessions.read(reader);
 			const active = this._visibility.activeSession.read(reader);
 			const preserveFocus = this._visibility.activePreserveFocus.read(reader);
@@ -840,6 +860,125 @@ export class SessionsService extends Disposable implements ISessionsService {
 				this.sessionsPartService.closeAuxiliaryPart(part.partId);
 			}
 		}
+	}
+
+	setSessionBoardVisible(visible: boolean): void {
+		if (visible === this._isSessionBoardVisible.get()) {
+			if (visible && this.customViewService.activeCustomView.get()?.id !== SESSION_BOARD_VIEW_ID) {
+				this.customViewService.showCustomView(SESSION_BOARD_VIEW_ID);
+			}
+			return;
+		}
+		this._cancelRestore();
+		this._startOpenSession();
+		this._snapshotVisibleSessionStates();
+		if (visible) {
+			for (const session of this.visibleSessions.get()) {
+				if (session) {
+					this.inputDraftService.getDraft(session.activeChat.get().resource);
+				}
+			}
+			this._sessionBoardPreviousGrid = {
+				slots: this.visibleSessions.get().map(session => ({ resource: session?.resource, sticky: session?.sticky.get() ?? false })),
+				activeResource: this.activeSession.get()?.resource,
+			};
+			this.customViewService.showCustomView(SESSION_BOARD_VIEW_ID);
+			this._isSessionBoardVisible.set(true, undefined);
+		} else {
+			const previous = this._sessionBoardPreviousGrid;
+			this._sessionBoardPreviousGrid = undefined;
+			const slots = previous?.slots.flatMap(slot => {
+				const session = slot.resource ? this.sessionsManagementService.getSession(slot.resource) : undefined;
+				return slot.resource && !session ? [] : [{ session, sticky: slot.sticky }];
+			}) ?? [];
+			const activeIndex = slots.findIndex(slot => this.uriIdentityService.extUri.isEqual(slot.session?.resource, previous?.activeResource));
+			transaction(tx => {
+				this._sessionReview.set(undefined, tx);
+				this._isSessionBoardVisible.set(false, tx);
+				this._visibility.restoreGrid(slots, activeIndex);
+			});
+			if (this.customViewService.activeCustomView.get()?.id === SESSION_BOARD_VIEW_ID) {
+				this.customViewService.hideCustomView();
+			}
+		}
+	}
+
+	async openSessionReview(session: ISession, section: SessionReviewSection, options?: ISessionReviewOpenOptions): Promise<void> {
+		this._cancelRestore();
+		const token = this._startOpenSession();
+		const resource = await this.sessionsManagementService.resolveSessionResource(session.resource, 'open');
+		if (token.isCancellationRequested) {
+			return;
+		}
+		const target = this._getSession(resource);
+		if (target.isArchived.get()) {
+			throw new Error(localize('sessionReview.archived', "Restore this session before opening it in the session board."));
+		}
+		if (section === SessionReviewSection.Conversation && !await this.canOpenSession(target)) {
+			return;
+		}
+		if (token.isCancellationRequested) {
+			return;
+		}
+		await this.sessionsProvidersService.getProvider(target.providerId)?.prepareSessionForOpen?.(target, 'open');
+		if (token.isCancellationRequested) {
+			return;
+		}
+		const { chatResource, ...reviewOptions } = options ?? {};
+		const resolvedChatResource = chatResource && this.uriIdentityService.extUri.isEqual(chatResource, session.mainChat.get().resource)
+			? target.mainChat.get().resource : chatResource;
+		const requestedChat = resolvedChatResource
+			? target.chats.get().find(chat => this.uriIdentityService.extUri.isEqual(chat.resource, resolvedChatResource))
+			: undefined;
+		if (resolvedChatResource && !requestedChat) {
+			throw new Error(localize('sessionReview.missingChat', "The requested conversation is no longer part of this session."));
+		}
+		this.setSessionBoardVisible(true);
+		transaction(tx => {
+			this._activate(target, true);
+			if (requestedChat) {
+				this._visibility.openChat(target, requestedChat);
+				this._visibility.setActiveChat(target, requestedChat);
+				this._setChatVisibilityState(target, requestedChat, true);
+			}
+			this._sessionReview.set({ ...reviewOptions, sessionResource: target.resource, section }, tx);
+		});
+		this.workTrackingService.markOpened(target.resource);
+	}
+
+	closeSessionReview(): void {
+		this._sessionReview.set(undefined, undefined);
+	}
+
+	setSessionReviewSection(section: SessionReviewSection, options?: ISessionReviewOptions): void {
+		const review = this._sessionReview.get();
+		if (!review) {
+			return;
+		}
+		this._sessionReview.set({ ...options, sessionResource: review.sessionResource, section }, undefined);
+	}
+
+	private _reconcileSessionBoard(sessions: readonly ISession[]): void {
+		const current = this.visibleSessions.get();
+		const remaining = new Map(sessions.map(session => [session.sessionId, session]));
+		const ordered: ISession[] = [];
+		for (const session of current) {
+			const existing = session && remaining.get(session.sessionId);
+			if (existing) {
+				ordered.push(existing);
+				remaining.delete(existing.sessionId);
+			}
+		}
+		ordered.push(...[...remaining.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || a.sessionId.localeCompare(b.sessionId)));
+		if (ordered.length === current.length && ordered.every((session, index) => session.sessionId === current[index]?.sessionId)) {
+			return;
+		}
+		this._snapshotVisibleSessionStates();
+		const activeId = this.activeSession.get()?.sessionId;
+		this._visibility.restoreGrid(
+			ordered.map(session => ({ session, sticky: false })),
+			ordered.findIndex(session => session.sessionId === activeId),
+		);
 	}
 
 	private _onDidReplaceSession(from: ISession, to: ISession): void {
@@ -1304,9 +1443,9 @@ export class SessionsService extends Disposable implements ISessionsService {
 		this._showSession(session, { ...options, partId });
 	}
 
-	async canOpenSession(session: ISession): Promise<boolean> {
-		// Re-focusing the already-active session is not a new open, so never gate it.
-		if (this.activeSession.get()?.sessionId === session.sessionId) {
+	async canOpenSession(session: ISession, options?: { readonly silent?: boolean }): Promise<boolean> {
+		// A board card can become active before its workspace has been trusted or its chat mounted.
+		if (!options?.silent && !this._isSessionBoardVisible.get() && this.activeSession.get()?.sessionId === session.sessionId) {
 			return true;
 		}
 		const workspace = session.workspace.get();
@@ -1335,6 +1474,9 @@ export class SessionsService extends Disposable implements ISessionsService {
 		const folders = workspace.folders.map(folder => folder.workingDirectory);
 		const trustInfos = await Promise.all(folders.map(folder => this.workspaceTrustManagementService.getUriTrustInfo(folder)));
 		const untrustedFolders = folders.filter((_, index) => !trustInfos[index].trusted);
+		if (options?.silent) {
+			return untrustedFolders.length === 0;
+		}
 		for (const folder of untrustedFolders) {
 			const trusted = await this.workspaceTrustRequestService.requestResourcesTrust({
 				uri: folder,
@@ -2112,6 +2254,16 @@ export class SessionsService extends Disposable implements ISessionsService {
 			});
 		}
 
+		const previous = this._sessionBoardPreviousGrid;
+		if (previous) {
+			for (const entry of entries) {
+				const resource = URI.parse(entry.sessionResource);
+				const index = previous.slots.findIndex(slot => this.uriIdentityService.extUri.isEqual(slot.resource, resource));
+				entry.visibleOrder = index < 0 ? undefined : index;
+				entry.isSticky = index < 0 ? undefined : previous.slots[index].sticky;
+				entry.isActive = index >= 0 && this.uriIdentityService.extUri.isEqual(previous.activeResource, resource);
+			}
+		}
 		this.storageService.store(ACTIVE_SESSION_STATES_KEY, JSON.stringify(entries), StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		const snapshots = new Map(this._restoringWindows);
 		const partIds = new Set([MAIN_SESSIONS_PART, ...this.sessionsPartService.getParts().map(part => part.partId)]);

@@ -14,6 +14,7 @@ import { constObservable, observableValue } from '../../../../../base/common/obs
 import { OperatingSystem } from '../../../../../base/common/platform.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { hasKey } from '../../../../../base/common/types.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { isICommandActionToggleInfo } from '../../../../../platform/action/common/action.js';
 import { isIMenuItem, isISubmenuItem, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
@@ -554,6 +555,24 @@ suite('Sessions - Actions', () => {
 		}]);
 	});
 
+	test('position shortcuts focus metadata rows without opening or activating archived work', async () => {
+		const instantiation = disposables.add(new TestInstantiationService());
+		const archived = createTestSession('Archived work', { isArchived: true }).session;
+		const focused: (string | undefined)[] = [];
+		let activations = 0;
+		instantiation.stub(ISessionsBoardService, {
+			options: constObservable({ ...DEFAULT_SESSIONS_BOARD_OPTIONS, view: 'archived' }),
+			activeView: constObservable(new class extends mock<ISessionsBoardView>() {
+				override readonly sessions = [archived];
+				override focusSession(id: string | undefined): void { focused.push(id); }
+			}()),
+		});
+		instantiation.stub(ISessionsService, { visibleSessions: constObservable([]), setActive: () => { activations++; } });
+		instantiation.stub(ISessionsPartService, { focusSession: () => { throw new Error('A metadata row must not mount a session view'); } });
+		await instantiation.invokeFunction(accessor => CommandsRegistry.getCommand('sessions.focusSessionInGrid1')!.handler(accessor));
+		assert.deepStrictEqual({ focused, activations }, { focused: [archived.sessionId], activations: 0 });
+	});
+
 	test('keeps the Command Palette delete action explicit', () => {
 		const deleteChat = MenuRegistry.getCommand('sessions.chatCompositeBar.deleteChat');
 
@@ -585,6 +604,7 @@ suite('Sessions - Actions', () => {
 			});
 			instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() {
 				override readonly activeSession = activeSession;
+				override readonly isSessionBoardVisible = constObservable(false);
 				override unsetNewSession() {
 					unsetNewSessionCalls++;
 					activeSession.set(undefined, undefined);
@@ -1499,6 +1519,7 @@ suite('Sessions - Actions', () => {
 				const requests: (IOpenNewSessionOptions | undefined)[] = [];
 				instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() {
 					override readonly activeSession = constObservable(activeSession);
+					override readonly isSessionBoardVisible = constObservable(false);
 					override async openNewSession(options?: IOpenNewSessionOptions): Promise<IOpenNewSessionResult> {
 						requests.push(options);
 						return { session: undefined, trustDeclined: false };
@@ -1529,6 +1550,7 @@ suite('Sessions - Actions', () => {
 		const error = new Error('Opening failed');
 		instantiationService.stub(ISessionsService, new class extends mock<ISessionsService>() {
 			override readonly activeSession = constObservable(undefined);
+			override readonly isSessionBoardVisible = constObservable(false);
 			override async openNewSession(): Promise<IOpenNewSessionResult> {
 				throw error;
 			}
@@ -1537,5 +1559,31 @@ suite('Sessions - Actions', () => {
 		const command = CommandsRegistry.getCommand(NEW_SESSION_ACTION_ID);
 		assert.ok(command);
 		await assert.rejects(async () => command.handler(instantiationService, { toSide: true }), error);
+	});
+
+	test('New Session stays in the dashboard even when invoked with open-to-side options', async () => {
+		const instantiation = disposables.add(new TestInstantiationService());
+		let starts = 0;
+		instantiation.stub(ISessionsService, { isSessionBoardVisible: constObservable(true) });
+		instantiation.stub(ISessionsBoardService, {
+			activeView: constObservable(new class extends mock<ISessionsBoardView>() {
+				override async startNewWork(): Promise<void> { starts++; }
+			}())
+		});
+		const command = CommandsRegistry.getCommand(NEW_SESSION_ACTION_ID)!;
+		await command.handler(instantiation);
+		await command.handler(instantiation, { toSide: true });
+		assert.strictEqual(starts, 2);
+	});
+
+	test('New Quick Chat retains its ordinary behavior even while the dashboard is visible', async () => {
+		const instantiation = disposables.add(new TestInstantiationService());
+		let opened = 0;
+		let focused = 0;
+		instantiation.stub(ISessionsService, { isSessionBoardVisible: constObservable(true), openQuickChat: () => { opened++; return undefined; } });
+		instantiation.stub(ISessionsPartService, { focusSession: () => { focused++; } });
+		instantiation.stub(IConfigurationService, new TestConfigurationService({ [UNIFIED_WORKSPACE_PICKER_SETTING]: false }));
+		await CommandsRegistry.getCommand('sessionsView.newQuickChat')!.handler(instantiation);
+		assert.deepStrictEqual({ opened, focused }, { opened: 1, focused: 1 });
 	});
 });

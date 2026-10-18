@@ -218,6 +218,9 @@ export abstract class AbstractChatView extends Disposable implements ISerializab
 		// no-op by default
 	}
 
+	/** Controls the owned composer through the chat widget's native visibility API. */
+	setInputVisible(_visible: boolean): void { }
+
 	/**
 	 * Notifies the view of its position and whether the chat grid is split.
 	 * Session-scoped UI can use this to avoid repeating across split groups and adapt its layout.

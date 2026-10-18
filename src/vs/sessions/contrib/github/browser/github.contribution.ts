@@ -22,6 +22,7 @@ import { AUTO_DELETE_MARKED_AS_DONE_MERGED_SESSIONS_AFTER_DAYS_SETTING, AUTO_MAR
 import { GitHubService, IGitHubService } from './githubService.js';
 
 import './pullRequestActions.js';
+import './pullRequestReviewEditor.js';
 import './createSessionFromPullRequestAction.js';
 import './issueActions.js';
 

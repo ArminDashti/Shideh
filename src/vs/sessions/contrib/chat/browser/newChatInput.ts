@@ -6,6 +6,7 @@
 import './media/chatInput.css';
 import './media/chatInputMobile.css';
 import * as dom from '../../../../base/browser/dom.js';
+import { equals } from '../../../../base/common/arrays.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { Gesture, EventType as TouchEventType } from '../../../../base/browser/touch.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
@@ -16,6 +17,7 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { NewChatUserInteraction } from './newChatUserInteraction.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
 import { ActionViewItem } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
@@ -635,6 +637,8 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		inputText: '',
 		attachments: [],
 	};
+	private _applyingDraft = false;
+	private readonly _draftListener = this._register(new MutableDisposable());
 
 	// Input history
 	private readonly _history: ChatHistoryNavigator;
@@ -674,7 +678,9 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 			historyKey?: IObservable<string | undefined>;
 			draftStorageKey?: string;
 			minEditorHeight?: number;
+			maxEditorHeight?: IObservable<number>;
 			placeholder?: string;
+			accessibilityVerbositySetting?: AccessibilityVerbositySettingId;
 			renderSendButton?: boolean;
 			renderRepositoryControls?: boolean;
 			sessionTypePickerOptions?: ISessionTypePickerOptions;
@@ -823,6 +829,8 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 	render(parent: HTMLElement, root: HTMLElement): void {
 		// Input slot, and the stack the notices, prompt options and input area sit in.
 		const chatInputContainer = dom.append(parent, dom.$(`.new-chat-input-container.${chatInputStackClass}`));
+		const embedded = this.options.layoutMode === 'embedded';
+		chatInputContainer.classList.toggle('embedded', embedded);
 
 		// Overflow widget DOM node at the top level so the suggest widget
 		// is not clipped by any overflow:hidden ancestor.
@@ -945,21 +953,8 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		const updateAttachmentOffset = () => {
 			if (isPhoneLayout(this.layoutService)) {
 				parent.style.removeProperty('top');
-				return;
-			}
-			parent.style.top = `${-attachRow.getBoundingClientRect().height / 2}px`;
-		};
-		this._updateAttachmentOffset = updateAttachmentOffset;
-		const attachmentResizeObserver = this._register(new dom.DisposableResizeObserver(
-			'NewChatInputWidget.attachments',
-			updateAttachmentOffset,
-			dom.getWindow(attachRow),
-		));
-		this._register(attachmentResizeObserver.observe(attachRow));
-		this._register(toDisposable(() => {
-			this._updateAttachmentOffset = undefined;
-			parent.style.removeProperty('top');
-		}));
+			}));
+		}
 		this._register(this.instantiationService.createInstance(ChatDragAndDrop, () => undefined, {
 			get attachments() { return contextAttachments.attachments; },
 			addAttachments: (entries: readonly IChatRequestVariableEntry[]) => contextAttachments.addAttachments(...entries),
@@ -1003,6 +998,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		this._createInputToolbar(inputArea);
 
 		const newChatBottomContainer = dom.append(parent, dom.$('.new-chat-bottom-container'));
+		newChatBottomContainer.classList.toggle('embedded', embedded);
 		const newChatControlsContainer = dom.append(newChatBottomContainer, dom.$('.new-chat-controls-container'));
 		if (this._sessionControlsContainer && this._inputToolbar && this._configContainer) {
 			const sessionControlsContainer = this._sessionControlsContainer;
@@ -1082,8 +1078,12 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		}));
 		this._secondaryPickerResponsiveLayout.layout();
 
-		// Restore draft input state from storage
-		this._restoreState();
+		if (this.options.draft) {
+			const draft = this.options.draft;
+			this._draftListener.value = autorun(reader => this._applyDraft(draft.state.read(reader)));
+		} else {
+			this._restoreState();
+		}
 
 		// The composer is a stack, and was just added to its host's stack. Hosts
 		// often dock a notice - the sub-session tip, a feedback banner - before
@@ -1151,7 +1151,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 	// --- Editor ---
 
 	private _getAriaLabel(): string {
-		const verbose = this.configurationService.getValue<boolean>(AccessibilityVerbositySettingId.SessionsChat);
+		const verbose = this.configurationService.getValue<boolean>(this.options.accessibilityVerbositySetting ?? AccessibilityVerbositySettingId.SessionsChat);
 		if (verbose) {
 			const kbLabel = this.keybindingService.lookupKeybinding(AccessibilityCommandId.OpenAccessibilityHelp)?.getLabel();
 			return kbLabel
@@ -1284,7 +1284,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 
 		// Update aria label when accessibility verbosity setting changes
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(AccessibilityVerbositySettingId.SessionsChat)) {
+			if (e.affectsConfiguration(this.options.accessibilityVerbositySetting ?? AccessibilityVerbositySettingId.SessionsChat)) {
 				this._editor.updateOptions({ ariaLabel: this._getAriaLabel() });
 			}
 		}));
@@ -1365,19 +1365,26 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		updateHistoryNavigationEnablement();
 
 		let previousHeight = -1;
-		this._register(this._editor.onDidContentSizeChange(e => {
-			if (!e.contentHeightChanged) {
-				return;
-			}
+		const updateEditorHeight = (maximumHeight: number) => {
 			const contentHeight = this._editor.getContentHeight();
-			const clampedHeight = Math.min(MAX_EDITOR_HEIGHT, Math.max(this.options.minEditorHeight ?? MIN_EDITOR_HEIGHT, contentHeight));
+			const minimumHeight = this.options.minEditorHeight ?? MIN_EDITOR_HEIGHT;
+			const clampedHeight = Math.min(maximumHeight, Math.max(minimumHeight, contentHeight));
 			if (clampedHeight === previousHeight) {
 				return;
 			}
 			previousHeight = clampedHeight;
 			this._editorContainer.style.height = `${clampedHeight}px`;
 			this._editor.layout();
+		};
+		this._register(this._editor.onDidContentSizeChange(e => {
+			if (e.contentHeightChanged) {
+				updateEditorHeight(this.options.maxEditorHeight?.get() ?? MAX_EDITOR_HEIGHT);
+			}
 		}));
+		const maximumHeight = this.options.maxEditorHeight;
+		if (maximumHeight) {
+			this._register(autorun(reader => updateEditorHeight(maximumHeight.read(reader))));
+		}
 
 		// Slash commands
 		this._register(this._scopedInstantiationService.createInstance(SlashCommandHandler, this._editor));
@@ -1407,7 +1414,11 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 
 		this._register(this._editor.onDidChangeModelContent(() => {
 			this._syncInputGitHubContext();
-			this._updateDraftState();
+			if (this.options.draft) {
+				this._updateAndSaveDraftState();
+			} else {
+				this._updateDraftState();
+			}
 			this._updateSendButtonState();
 			this._updateEditorFontFamily();
 			this._promptOptionsWidget.value?.setInputValue(this._editor.getValue());
@@ -1844,7 +1855,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 	}
 
 	private _updateAndSaveDraftState(): void {
-		if (this._sending) {
+		if (this._sending || this._applyingDraft) {
 			return;
 		}
 		this._updateDraftState();

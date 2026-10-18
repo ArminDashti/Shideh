@@ -15,12 +15,18 @@ This specification defines stable placement and state-ownership rules. Row styli
 | Session catalog and lifecycle | `ISessionsManagementService` |
 | Pin and per-sort ordering state | `ISessionsListModelService` |
 | Custom groups and membership | `ISessionGroupsService` |
+| Saved work queries and promoted automatic collections | `ISessionsBoardService` |
+| Scoped work-card order, size intent, and section collapse state | `ISessionsBoardService` |
 | Top-level group/workspace order | `ISessionSectionOrderService` |
 | Header colors (groups, workspace sections, Pinned, Chats) | `ISessionSectionColorsService` |
 | Collections, the active collection, and collection membership | `ISessionCollectionsService` |
 | Tree composition and presentation | `SessionsView` and `SessionsList` |
 
 List-owned state is local presentation state. It is not synchronized back to a provider and must not mutate provider timestamps or metadata.
+
+Manual collections in the work overview use the existing custom groups and membership service. They are not filesystem folders, execution boundaries, or additional session identities. Automatic collections are promoted work queries, not manually maintained membership sets; their sections also remain in My work. Saved queries may overlap without creating additional group memberships. Removing a manual group, automatic shortcut, or saved view never deletes its sessions.
+
+Work-card layouts are workspace-local presentation state, scoped by view/section or manual collection and sort mode. They store logical order, column-span intent, and optional expanded height, independently of the sidebar's sort keys. Filtering merges visible edits into the unfiltered order without discarding hidden sizes or temporarily unavailable sessions. Canonical session replacement transfers this intent; definitive deletion removes it. Section collapse choices are saved independently of temporary search expansion.
 
 ## Inputs
 
@@ -128,6 +134,7 @@ Drag and drop changes list-owned presentation state, opens sessions through the 
 
 - sessions may reorder within valid sections;
 - sessions may move into user-created groups;
+- work cards share the native session drag payload with the sidebar; only manual collections accept membership drops, while automatic query collections reject them;
 - non-archived sessions may move into the pinned section;
 - user groups and workspace sections may reorder where the grouping mode allows;
 - dropping sessions on the Sessions grid opens them through `ISessionsService`;

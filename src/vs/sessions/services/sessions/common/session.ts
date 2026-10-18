@@ -892,6 +892,8 @@ export interface ISession {
 	readonly worktreePending?: IObservable<boolean>;
 	/** Whether this is a workspace-less "quick chat". Only quick-chat-capable providers set this; absent means `false`. */
 	readonly isQuickChat?: IObservable<boolean>;
+	/** Host-reported workspace setup; absent when no setup operation has been reported. */
+	readonly workspaceSetup?: IObservable<ISessionWorkspaceSetup | undefined>;
 	/** Whether this session is associated with an automation run. Absent means `false`. */
 	readonly isAutomation?: IObservable<boolean>;
 	/** Whether this session is still treated as external to the current host. Absent means `false`. */
@@ -1015,6 +1017,8 @@ export interface ISessionCapabilities {
 	readonly supportsCanvases?: boolean;
 	/** Whether this session supports multiple chats. */
 	readonly supportsMultipleChats: boolean;
+	/** Whether the live owning default chat is eligible to attach its first workspace in place. */
+	readonly supportsWorkspaceConversion?: boolean;
 	/**
 	 * Whether this session supports forking a chat from a turn into a new peer
 	 * chat. The agents-window fork gesture gates on this flag rather than on the

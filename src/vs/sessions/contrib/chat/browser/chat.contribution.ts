@@ -28,6 +28,7 @@ import { AgentHostSandboxNotifications } from '../../../../workbench/contrib/cha
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
 import { ISessionsService } from '../../../services/sessions/browser/sessionsService.js';
 import { BranchChatSessionAction } from './branchChatSessionAction.js';
+import { NewChatInSessionsWindowAction } from './newChatInSessionsWindowAction.js';
 import { RunScriptContribution } from './runScriptAction.js';
 import { OpenForwardedPortContribution } from './openForwardedPortAction.js';
 import { AgentsWebPortForwardingContribution } from './agentsWebPortForwardingContribution.js';
@@ -38,7 +39,6 @@ import './newSessionPickerTryout.js';
 import './agentHostDelegation.js';
 import './newSessionFolderQuickPickAction.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ISessionsTasksService, SessionsTasksService } from './sessionsTasksService.js';
 import { ISessionTaskRunnerRegistry, SessionTaskRunnerRegistry } from './sessionTaskRunner.js';
 import { RegisterDefaultSessionTaskRunnersContribution } from './registerDefaultSessionTaskRunners.js';

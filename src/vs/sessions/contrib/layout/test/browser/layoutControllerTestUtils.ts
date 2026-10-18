@@ -179,6 +179,7 @@ export interface ITestLayoutHarness {
 	storageService: TestStorageService;
 	activeSessionObs: ISettableObservable<IActiveSession | undefined>;
 	visibleSessionsObs: ISettableObservable<readonly (IActiveSession | undefined)[]>;
+	boardVisibleObs: ISettableObservable<boolean>;
 	onDidChangeSessions: Emitter<ISessionsChangeEvent>;
 	onDidChangeWorkspaceFolders: Emitter<IWorkspaceFoldersChangeEvent>;
 	workspaceFolders: readonly { readonly uri: URI }[] | undefined;
@@ -296,6 +297,7 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 		storageService,
 		activeSessionObs: observableValue<IActiveSession | undefined>('activeSession', undefined),
 		visibleSessionsObs: observableValue<readonly (IActiveSession | undefined)[]>('visibleSessions', []),
+		boardVisibleObs: observableValue('boardVisible', false),
 		onDidChangeSessions: store.add(new Emitter<ISessionsChangeEvent>()),
 		onDidChangeWorkspaceFolders: store.add(new Emitter<IWorkspaceFoldersChangeEvent>()),
 		workspaceFolders: options.workspaceFolders,

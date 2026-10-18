@@ -346,6 +346,8 @@ function showTestCustomView(customViewService: ICustomViewService, disposables: 
 	customViewService.showCustomView('test.customView');
 }
 
+const registeredBoardViews = new WeakSet<ICustomViewService>();
+
 /**
  * Builds a {@link SessionsService} over an already-created management
  * service, stubbing the management service instance and a passive part so the
@@ -362,6 +364,22 @@ function createView(
 	instantiationService.stub(ISessionsManagementService, service);
 	instantiationService.stub(ISessionsPartService, sessionsPartService);
 	instantiationService.stub(ICustomViewService, customViewService);
+	if (!registeredBoardViews.has(customViewService)) {
+		registeredBoardViews.add(customViewService);
+		disposables.add(customViewService.registerCustomView({ id: SESSION_BOARD_VIEW_ID, ctor: new SyncDescriptor(TestCustomView) }));
+	}
+	instantiationService.stub(ISessionInputDraftService, {
+		getDraft: () => constObservable({ inputText: '', attachments: [] }),
+		setDraft: () => { },
+		addAttachments: () => { },
+		rebindDraft: () => { },
+	});
+	instantiationService.stub(ISessionWorkTrackingService, {
+		getState: () => constObservable({}),
+		markOpened: () => { },
+		markReviewed: () => { },
+		keep: () => { },
+	});
 	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(ISessionOpenTelemetryService, openTelemetryService);
 	return disposables.add(instantiationService.createInstance(SessionsService));
@@ -1565,6 +1583,23 @@ suite('SessionsManagementService', () => {
 			cancelled: [stubChat.resource],
 			disposedModelRefs: 1,
 		});
+	});
+
+	test('cancelCurrentRequest targets an explicit peer chat rather than the session main chat', async () => {
+		const peer = { ...stubChat, resource: URI.parse('test:/peer') };
+		const session = { ...stubSession({ sessionId: 'session', providerId: 'test' }), chats: constObservable([stubChat, peer]) };
+		const { service, chatService } = createSessionsManagementService(session, disposables);
+		await service.cancelCurrentRequest(session, peer);
+		assert.deepStrictEqual({
+			loaded: chatService.loadedResources, cancelled: chatService.cancelledResources, released: chatService.disposedModelRefs,
+		}, { loaded: [peer.resource], cancelled: [peer.resource], released: 1 });
+	});
+
+	test('cancelCurrentRequest rejects a chat from another session without loading or cancelling it', async () => {
+		const session = stubSession({ sessionId: 'session', providerId: 'test' });
+		const { service, chatService } = createSessionsManagementService(session, disposables);
+		await assert.rejects(service.cancelCurrentRequest(session, { ...stubChat, resource: URI.parse('test:/foreign') }), /no longer belongs/);
+		assert.deepStrictEqual({ loaded: chatService.loadedResources, cancelled: chatService.cancelledResources }, { loaded: [], cancelled: [] });
 	});
 
 	test('cancelCurrentRequest rejects when the chat model cannot be loaded', async () => {
@@ -2934,6 +2969,254 @@ suite('SessionsManagementService', () => {
 			visible: ['a', 'b', 'c'],
 			sticky: [true, false, false],
 			active: 'b',
+		});
+	});
+
+	suite('Sessions board', () => {
+		test('reviewing an attention item selects its owning peer chat without loading history', async () => {
+			const resource = URI.parse('test:/attention');
+			const main = { ...stubChat, resource: resource.with({ fragment: 'main' }), status: constObservable(SessionStatus.Completed) };
+			const peer = { ...stubChat, resource: resource.with({ fragment: 'peer' }), status: constObservable(SessionStatus.NeedsInput) };
+			const session = stubSession({ resource, sessionId: 'attention', providerId: 'test', status: constObservable(SessionStatus.NeedsInput), mainChat: constObservable(main), chats: constObservable([main, peer]) });
+			const { view, chatService } = createSessionsManagementService(session, disposables);
+			await view.openSessionReview(session, SessionReviewSection.Artifacts, { chatResource: peer.resource });
+			assert.deepStrictEqual({
+				session: view.sessionReview.get()?.sessionResource,
+				chat: view.activeSession.get()?.activeChat.get().resource,
+				loads: chatService.loadedResources,
+			}, { session: resource, chat: peer.resource, loads: [] });
+		});
+
+		test('review rejects a chat outside the session without changing the active work', async () => {
+			const session = stubSession({ sessionId: 'attention', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const { view } = createSessionsManagementService(session, disposables);
+			await assert.rejects(() => view.openSessionReview(session, SessionReviewSection.Artifacts, { chatResource: URI.parse('test:/foreign') }), /no longer part of this session/);
+			assert.strictEqual(view.sessionReview.get(), undefined);
+		});
+
+		test('review navigation keeps the canonical session and does not acquire a chat model', async () => {
+			const session = stubSession({ sessionId: 'review', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const { view, chatService, customViewService } = createSessionsManagementService(session, disposables);
+			await view.openSessionReview(session, SessionReviewSection.Artifacts);
+			const active = view.activeSession.get();
+			view.setSessionReviewSection(SessionReviewSection.Changes);
+			assert.deepStrictEqual({
+				board: view.isSessionBoardVisible.get(),
+				customView: customViewService.activeCustomView.get()?.id,
+				session: view.sessionReview.get()?.sessionResource,
+				section: view.sessionReview.get()?.section,
+				sameActive: view.activeSession.get() === active,
+				loads: chatService.loadedResources,
+			}, {
+				board: true,
+				customView: SESSION_BOARD_VIEW_ID,
+				session: session.resource,
+				section: SessionReviewSection.Changes,
+				sameActive: true,
+				loads: [],
+			});
+		});
+
+		test('closing review leaves the board catalog intact', async () => {
+			const session = stubSession({ sessionId: 'review', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const { view } = createSessionsManagementService(session, disposables);
+			await view.openSessionReview(session, SessionReviewSection.Artifacts);
+			const visible = view.visibleSessions.get();
+			view.closeSessionReview();
+			assert.deepStrictEqual({ board: view.isSessionBoardVisible.get(), review: view.sessionReview.get(), sameCatalog: view.visibleSessions.get() === visible }, {
+				board: true, review: undefined, sameCatalog: true,
+			});
+		});
+
+		test('automatically includes all non-archived sessions and follows catalog changes', () => {
+			const archived = observableValue('archived', true);
+			const first = stubSession({ sessionId: 'first', providerId: 'test', status: constObservable(SessionStatus.Completed), createdAt: new Date(0) });
+			const hidden = stubSession({ sessionId: 'archived', providerId: 'test', status: constObservable(SessionStatus.Completed), isArchived: archived });
+			const draft = stubSession({ sessionId: 'draft', providerId: 'test' });
+			let sessions = [first, hidden, draft, ...Array.from({ length: 40 }, (_, index) => stubSession({
+				sessionId: `session-${index}`,
+				providerId: 'test',
+				status: constObservable(SessionStatus.InProgress),
+				isRead: constObservable(false),
+				createdAt: new Date(index + 1),
+			}))];
+			const changed = disposables.add(new Emitter<ISessionChangeEvent>());
+			const provider = new class extends TestSessionsProvider {
+				override readonly onDidChangeSessions = changed.event;
+				override getSessions(): ISession[] { return sessions; }
+			}(first);
+			const { view } = createSessionsManagementService(first, disposables, provider);
+			view.setSessionBoardVisible(true);
+			const initialIds = view.visibleSessions.get().map(session => session!.sessionId);
+			const unread = view.visibleSessions.get().filter(session => !session!.isRead.get()).length;
+			archived.set(false, undefined);
+			const unarchivedIncluded = view.visibleSessions.get().some(session => session!.sessionId === hidden.sessionId);
+			const added = stubSession({ sessionId: 'added', providerId: 'test', status: constObservable(SessionStatus.NeedsInput) });
+			sessions = [...sessions.filter(session => session !== first), added];
+			changed.fire({ added: [added], removed: [first], changed: [] });
+
+			assert.deepStrictEqual({
+				initialCount: initialIds.length,
+				excluded: initialIds.includes('archived') || initialIds.includes('draft'),
+				unread,
+				unarchivedIncluded,
+				removed: view.visibleSessions.get().some(session => session!.sessionId === 'first'),
+				added: view.visibleSessions.get().some(session => session!.sessionId === 'added'),
+				active: view.activeSession.get(),
+			}, {
+				initialCount: 41,
+				excluded: false,
+				unread: 40,
+				unarchivedIncluded: true,
+				removed: false,
+				added: true,
+				active: undefined,
+			});
+		});
+
+		test('keeps chat switching on the board and restores the regular grid on exit', async () => {
+			const main = { ...stubChat, status: constObservable(SessionStatus.Completed) };
+			const peer = { ...main, resource: URI.parse('test:///peer') };
+			const sessions = ['a', 'b', 'c'].map(sessionId => stubSession({
+				sessionId, providerId: 'test', status: constObservable(SessionStatus.Completed),
+				chats: constObservable([main, peer]), mainChat: constObservable(main),
+			}));
+			const provider = new class extends TestSessionsProvider {
+				override getSessions(): ISession[] { return sessions; }
+			}(sessions[0]);
+			const { view } = createSessionsManagementService(sessions[0], disposables, provider);
+			await view.openSession(sessions[0].resource);
+			view.toggleSessionStickiness(sessions[0]);
+			await view.openSession(sessions[1].resource);
+			const snapshot = () => ({
+				visible: view.visibleSessions.get().map(session => session?.sessionId),
+				sticky: view.visibleSessions.get().map(session => session?.sticky.get()),
+				active: view.activeSession.get()?.sessionId,
+			});
+			const before = snapshot();
+			view.setSessionBoardVisible(true);
+			await view.openChat(sessions[2], peer.resource);
+			const onBoard = { visible: view.isSessionBoardVisible.get(), chat: view.activeSession.get()?.activeChat.get().resource };
+			view.setSessionBoardVisible(false);
+			const after = snapshot();
+			await view.openSession(sessions[2].resource);
+
+			assert.deepStrictEqual({
+				before, after, onBoard,
+				restoredChat: view.activeSession.get()?.activeChat.get().resource,
+			}, {
+				before: { visible: ['a', 'b'], sticky: [true, false], active: 'b' },
+				after: { visible: ['a', 'b'], sticky: [true, false], active: 'b' },
+				onBoard: { visible: true, chat: peer.resource },
+				restoredChat: peer.resource,
+			});
+		});
+
+		test('persists the regular arrangement rather than restoring every board card as a column', async () => {
+			const sessions = ['a', 'b', 'c'].map(sessionId => stubSession({
+				sessionId, providerId: 'test', status: constObservable(SessionStatus.Completed),
+			}));
+			const provider = new class extends TestSessionsProvider {
+				override getSessions(): ISession[] { return sessions; }
+			}(sessions[0]);
+			const { view, storage } = createSessionsManagementService(sessions[0], disposables, provider);
+			await view.openSession(sessions[0].resource);
+			view.toggleSessionStickiness(sessions[0]);
+			await view.openSession(sessions[1].resource);
+			view.setSessionBoardVisible(true);
+			view.setActive(view.visibleSessions.get().find(session => session?.sessionId === 'c'));
+			await storage.flush();
+			const saved: { sessionResource: string; visibleOrder?: number; isSticky?: boolean; isActive?: boolean }[] = JSON.parse(storage.get('agentSessions.activeSessionStates', StorageScope.WORKSPACE)!);
+
+			assert.deepStrictEqual(saved.filter(entry => entry.visibleOrder !== undefined).map(entry => ({
+				resource: entry.sessionResource, order: entry.visibleOrder, sticky: entry.isSticky, active: entry.isActive,
+			})), [
+				{ resource: sessions[0].resource.toString(), order: 0, sticky: true, active: false },
+				{ resource: sessions[1].resource.toString(), order: 1, sticky: false, active: true },
+			]);
+		});
+
+		test('archiving the active card keeps the board open without creating a draft', () => {
+			const archived = observableValue('archived', false);
+			const session = stubSession({ sessionId: 'session', providerId: 'test', status: constObservable(SessionStatus.Completed), isArchived: archived });
+			let createdDrafts = 0;
+			const provider = new class extends TestSessionsProvider {
+				override createNewSession(): ISession { createdDrafts++; return session; }
+			}(session);
+			const { view } = createSessionsManagementService(session, disposables, provider);
+			view.setSessionBoardVisible(true);
+			view.setActive(view.visibleSessions.get()[0]);
+			archived.set(true, undefined);
+			assert.deepStrictEqual({
+				board: view.isSessionBoardVisible.get(),
+				sessions: view.visibleSessions.get().length,
+				createdDrafts,
+			}, { board: true, sessions: 0, createdDrafts: 0 });
+		});
+
+		test('opening a session explicitly leaves the board', async () => {
+			const session = stubSession({ sessionId: 'session', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const { view } = createSessionsManagementService(session, disposables);
+			view.setSessionBoardVisible(true);
+			await view.openSession(session.resource);
+			assert.deepStrictEqual({
+				board: view.isSessionBoardVisible.get(),
+				sessions: view.visibleSessions.get().map(session => session?.sessionId),
+			}, { board: false, sessions: ['session'] });
+		});
+
+		test('entering the board cancels an older session open without changing its active card', async () => {
+			const active = stubSession({ sessionId: 'active', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const pending = stubSession({ sessionId: 'pending', providerId: 'test', status: constObservable(SessionStatus.Completed) });
+			const preparation = new DeferredPromise<void>();
+			const provider = new class extends TestSessionsProvider {
+				override getSessions(): ISession[] { return [active, pending]; }
+				override async prepareSessionForOpen(session: ISession): Promise<void> {
+					if (session === pending) {
+						await preparation.p;
+					}
+				}
+			}(active);
+			const { view } = createSessionsManagementService(active, disposables, provider);
+			await view.openSession(active.resource);
+			const opening = view.openSession(pending.resource);
+			await timeout(0);
+			view.setSessionBoardVisible(true);
+			await preparation.complete();
+			await opening;
+			assert.deepStrictEqual({
+				board: view.isSessionBoardVisible.get(),
+				active: view.activeSession.get()?.sessionId,
+				visible: view.visibleSessions.get().map(session => session?.sessionId),
+			}, { board: true, active: 'active', visible: ['active', 'pending'] });
+		});
+
+		test('silent trust checks never prompt or bypass trust for an active untrusted card', async () => {
+			const root = URI.file('/untrusted-board-workspace');
+			const session = stubSession({
+				sessionId: 'session', providerId: 'test', status: constObservable(SessionStatus.Completed),
+				workspace: constObservable({
+					uri: root, label: 'Untrusted', icon: Codicon.vm,
+					folders: [{ root, workingDirectory: root, name: 'Untrusted', description: undefined }],
+					requiresWorkspaceTrust: true, isVirtualWorkspace: false,
+				}),
+			});
+			const trustManagement = new class extends TestWorkspaceTrustManagementService {
+				override async getUriTrustInfo(uri: URI) { return { uri, trusted: false }; }
+			};
+			let prompts = 0;
+			const trustRequest = new class extends mock<IWorkspaceTrustRequestService>() {
+				override async requestResourcesTrust() { prompts++; return true; }
+			};
+			const { view } = createSessionsManagementService(session, disposables, new TestSessionsProvider(session), trustManagement, trustRequest);
+			view.setSessionBoardVisible(true);
+			view.setActive(view.visibleSessions.get()[0]);
+			const silentResult = await view.canOpenSession(session, { silent: true });
+			const silentPrompts = prompts;
+			const explicitResult = await view.canOpenSession(session);
+			assert.deepStrictEqual({ silentResult, silentPrompts, explicitResult, prompts }, {
+				silentResult: false, silentPrompts: 0, explicitResult: true, prompts: 1,
+			});
 		});
 	});
 
@@ -4735,6 +5018,35 @@ suite('SessionsManagementService', () => {
 			isQuickChat: constObservable(true),
 			chats: constObservable([chat]),
 			mainChat: constObservable(chat),
+		});
+
+		test('caller-owned drafts and replies do not replace or discard the regular Quick Chat draft', async () => {
+			const active = stubSession({ sessionId: 'active', providerId: 'test' });
+			const regular = stubSession({ sessionId: 'regular-draft', providerId: 'test', status: constObservable(SessionStatus.Untitled), isQuickChat: constObservable(true) });
+			const dashboard = stubSession({ sessionId: 'dashboard-draft', providerId: 'test', status: constObservable(SessionStatus.Untitled), isQuickChat: constObservable(true) });
+			const other = stubSession({ sessionId: 'other-dashboard-draft', providerId: 'test', status: constObservable(SessionStatus.Untitled), isQuickChat: constObservable(true) });
+			let created = 0;
+			const deleted: string[] = [];
+			const provider = new class extends TestSessionsProvider {
+				override readonly supportsQuickChats = true;
+				override createQuickChat(): ISession { return [regular, dashboard, other][created++]; }
+				override deleteNewSession(id: string): void { deleted.push(id); }
+				override async sendRequest(id: string): Promise<ISession> { return id === dashboard.sessionId ? { ...dashboard, status: constObservable(SessionStatus.Completed) } : active; }
+			}(active);
+			const { service, view } = createSessionsManagementService(active, disposables, provider);
+			await view.openSession(active.resource);
+			service.createQuickChat();
+			let ordinarySendFocus = 0;
+			disposables.add(service.onWillSendRequest(() => ordinarySendFocus++));
+			const draft = service.createSessionDraft(undefined, { providerId: 'test', sessionTypeId: 'test' });
+			const discarded = service.createSessionDraft(undefined, { providerId: 'test', sessionTypeId: 'test' });
+			service.discardSessionDraft(discarded);
+			const committed = await service.sendSessionDraft(draft, { query: 'Build an extension' });
+			await service.sendRequest(committed!, committed!.mainChat.get(), { query: 'Continue', preservePendingDraft: true });
+			assert.deepStrictEqual({
+				pending: service.newSession.get()?.sessionId, active: view.activeSession.get()?.sessionId,
+				committed: committed?.sessionId, deleted, ordinarySendFocus,
+			}, { pending: regular.sessionId, active: active.sessionId, committed: dashboard.sessionId, deleted: [other.sessionId], ordinarySendFocus: 0 });
 		});
 		const sendStarted = new DeferredPromise<void>();
 		const sendDone = new DeferredPromise<void>();

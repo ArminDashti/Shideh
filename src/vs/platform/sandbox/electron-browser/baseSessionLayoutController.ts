@@ -111,6 +111,7 @@ export abstract class BaseLayoutController extends Disposable {
 
 	protected readonly activeSessionResourceObs;
 	protected readonly multipleSessionsVisibleObs;
+	private readonly _sessionForLayout;
 
 	/**
 	 * `> 0` while the controller is restoring a session's layout on a session
@@ -205,11 +206,14 @@ export abstract class BaseLayoutController extends Disposable {
 		// [B4] Persist on shutdown.
 		this._register(this._storageService.onWillSaveState(() => this._saveState()));
 
+		this._sessionForLayout = derivedObservableWithCache<IActiveSession | undefined>(this, (reader, previous) =>
+			this._sessionsService.isSessionBoardVisible.read(reader) ? previous : this._sessionsService.activeSession.read(reader));
+
 		// All session-switch logic is observable-driven.
 		this.activeSessionResourceObs = derivedOpts<URI | undefined>({
 			equalsFn: isEqual
 		}, reader => {
-			const activeSession = this._sessionsService.activeSession.read(reader);
+			const activeSession = this._sessionForLayout.read(reader);
 			return activeSession?.resource;
 		});
 
@@ -335,6 +339,9 @@ export abstract class BaseLayoutController extends Disposable {
 		// [B2] The active session updates before the workspace folders do; hold back
 		// the new session until the folders reflect its working directory.
 		const activeSessionForWorkingSet = derivedObservableWithCache<IActiveSession | undefined>(this, (reader, lastValue) => {
+			if (this._sessionsService.isSessionBoardVisible.read(reader)) {
+				return lastValue;
+			}
 			const workspaceFolders = workspaceFoldersObs.read(reader);
 			const activeSession = this._sessionsService.activeSession.read(reader);
 			const activeChat = activeSession?.activeChat.read(reader);

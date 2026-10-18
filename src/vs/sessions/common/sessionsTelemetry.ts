@@ -159,7 +159,7 @@ export type SessionsInteractionButton =
 	| 'openInVSCode'
 	| 'openForwardedPort';
 
-export type SessionsInteractionSource = 'menu' | 'actionWidget' | 'titleBar' | 'sidebar';
+export type SessionsInteractionSource = 'menu' | 'actionWidget' | 'titleBar' | 'sidebar' | 'dashboard';
 
 type SessionsInteractionEvent = {
 	button: string;
@@ -170,11 +170,11 @@ type SessionsInteractionClassification = {
 	owner: 'osortega';
 	comment: 'Tracks user interactions with buttons in the Agents window';
 	button: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The identifier of the button that was clicked' };
-	source?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The UI surface that triggered the interaction (menu, actionWidget, titleBar or sidebar)' };
+	source?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The UI surface that triggered the interaction (menu, actionWidget, titleBar, sidebar or dashboard)' };
 };
 
 /**
- * Log a titlebar button interaction in the Agents window.
+ * Log a button interaction in the Agents window.
  */
 export function logSessionsInteraction(telemetryService: ITelemetryService, button: SessionsInteractionButton, source?: SessionsInteractionSource): void {
 	telemetryService.publicLog2<SessionsInteractionEvent, SessionsInteractionClassification>('vscodeAgents.interaction', source ? { button, source } : { button });

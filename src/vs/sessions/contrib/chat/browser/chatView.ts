@@ -356,6 +356,8 @@ export class ChatView extends AbstractChatView {
 
 	/** Whether this view currently represents the active session. */
 	private _isActive = true;
+	private _inputVisible = true;
+	private _chatReadOnly = false;
 	/** Whether this view occupies the first group in the session's chat grid. */
 	private readonly _isPrimaryObs = observableValue(this, false);
 	private _isSplit = false;
@@ -1111,6 +1113,11 @@ export class ChatView extends AbstractChatView {
 		this._widget.setVisible(visible);
 		this._isVisibleObs.set(visible, undefined);
 		this._nextUserMessageSuggestionController.setViewState(this._isActive, visible);
+	}
+
+	override setInputVisible(visible: boolean): void {
+		this._inputVisible = visible;
+		this._widget.setInputVisible(visible && !this._chatReadOnly);
 	}
 }
 

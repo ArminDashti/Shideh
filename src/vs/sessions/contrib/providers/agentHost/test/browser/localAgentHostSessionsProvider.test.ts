@@ -30,6 +30,7 @@ import type { ResolveSessionConfigResult, SessionConfigCompletionsResult } from 
 import { AutomationRunOriginKind, AutomationRunStatus, ChatInteractivity as ProtocolChatInteractivity, ChatOriginKind as ProtocolChatOriginKind, CustomizationEnablementKind, CustomizationLoadStatus, CustomizationType, McpServerStatus, MessageKind, SessionLifecycle, SessionOriginKind, type AgentCustomization, type AgentInfo, type AutomationState, type ChangesSummary, type Customization, type RootState, type SessionActiveClient, type SessionConfigState, type SessionOrigin, type SessionState } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { AUTOMATION_CATALOG_URI, buildChatUri, buildDefaultChatUri, buildSubagentChatUri, ChangesetStatus, isAhpAutomationCatalogChannel, parseRequiredSessionUriFromChatUri, ResponsePartKind, SessionSourceControlOutcome, SessionStatus as ProtocolSessionStatus, StateComponents, ToolCallConfirmationReason, ToolCallStatus, ToolResultContentType, TurnState, withMostRecentRelatedSessionPullRequest, withSessionCreationReference, withSessionExternal, withSessionEhcliAdoptable, withSessionGitHubState, withSessionGitState, withSessionMultiRootMetadata, withSessionSourceControlState, withSessionWorkspaceless, withWorkingDirectoryKey, withWorkingDirectoryScopeId, type ChangesetState, type ChatState, type ChatSummary } from '../../../../../../platform/agentHost/common/state/sessionState.js';
 import { SessionArtifactType, withSessionArtifacts } from '../../../../../../platform/agentHost/common/sessionArtifacts.js';
+import { withAgentWorkspaceConversionCapability, withAgentWorkspaceSetup, type IAgentWorkspaceSetup } from '../../../../../../platform/agentHost/common/meta/agentWorkspaceConversionMeta.js';
 import { ActionType, NotificationType, type ActionEnvelope, type IRootConfigChangedAction, type ChatAction, type SessionAction, type TerminalAction, type INotification, type ClientAnnotationsAction, type SessionSummaryChangedParams } from '../../../../../../platform/agentHost/common/state/sessionActions.js';
 import { PROTOCOL_VERSION } from '../../../../../../platform/agentHost/common/state/protocol/version/registry.js';
 import { SessionConfigKey } from '../../../../../../platform/agentHost/common/sessionConfigKeys.js';
@@ -4388,6 +4389,106 @@ suite('LocalAgentHostSessionsProvider', () => {
 		const provider = createProvider(disposables, agentHost);
 		assert.strictEqual(provider.supportsQuickChats, true);
 	});
+
+	test('advertises workspace conversion before draft creation only from host support', () => {
+		const provider = createProvider(disposables, agentHost);
+		const before = provider.sessionTypes[0].supportsWorkspaceConversion;
+		let changes = 0;
+		disposables.add(provider.onDidChangeSessionTypes(() => changes++));
+		const agent: AgentInfo = {
+			provider: 'copilotcli', displayName: 'Copilot', description: '', models: [],
+			capabilities: withAgentWorkspaceConversionCapability({ multipleChats: {} }, true),
+		};
+		agentHost.setAgents([agent]);
+		const after = provider.sessionTypes[0].supportsWorkspaceConversion;
+		const draft = provider.createQuickChat(provider.sessionTypes[0].id);
+		const draftCapability = draft.capabilities.get().supportsWorkspaceConversion;
+		agentHost.setAgents([{ ...agent, capabilities: {} }]);
+		assert.deepStrictEqual({
+			before, after, draftCapability, changes,
+			afterRevocation: provider.sessionTypes[0].supportsWorkspaceConversion,
+			draftAfterRevocation: draft.capabilities.get().supportsWorkspaceConversion,
+		}, { before: false, after: true, draftCapability: true, changes: 2, afterRevocation: false, draftAfterRevocation: false });
+	});
+
+	test('projects workspace setup and gates conversion on live owning-chat eligibility', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		agentHost.setAgents([{
+			provider: 'copilotcli', displayName: 'Copilot', description: '', models: [],
+			capabilities: withAgentWorkspaceConversionCapability(undefined, true),
+		}]);
+		agentHost.addSession(createSession('conversion', { quickChat: true, workingDirectory: URI.file('/scratch') }));
+		const provider = createProvider(disposables, agentHost);
+		provider.getSessions();
+		await timeout(0);
+		const session = provider.getSessions()[0];
+		const beforeHydration = session.capabilities.get().supportsWorkspaceConversion;
+		provider.getSessionConfig(session.sessionId);
+		const backend = AgentSession.uri('copilotcli', 'conversion');
+		const defaultChat = buildDefaultChatUri(backend);
+		const state: SessionState = {
+			provider: 'copilotcli', title: 'Intake', status: ProtocolSessionStatus.Idle,
+			lifecycle: SessionLifecycle.Ready, activeClients: [], defaultChat,
+			workingDirectories: ['file:///scratch'],
+			_meta: withSessionWorkspaceless(undefined, true),
+			chats: [{ resource: defaultChat, title: '', status: ProtocolSessionStatus.Idle, modifiedAt: new Date(0).toISOString() }],
+		};
+		agentHost.setSessionState('conversion', 'copilotcli', state);
+		const hydrated = session.capabilities.get().supportsWorkspaceConversion;
+		agentHost.setSessionState('conversion', 'copilotcli', { ...state, chats: [{ ...state.chats[0], interactivity: ProtocolChatInteractivity.ReadOnly }] });
+		const readOnly = session.capabilities.get().supportsWorkspaceConversion;
+		const setup: IAgentWorkspaceSetup = {
+			version: 1, operationId: 'operation-1', chat: defaultChat, turnId: 'turn-1',
+			requestedWorkspace: 'file:///workspace/project', isolation: 'worktree',
+			phase: 'preparing', continuation: 'pending',
+		};
+		agentHost.setSessionState('conversion', 'copilotcli', { ...state, _meta: withAgentWorkspaceSetup(state._meta, setup) });
+		const preparing = session.capabilities.get().supportsWorkspaceConversion;
+		const attached: IAgentWorkspaceSetup = {
+			...setup, phase: 'attached', actualWorkspace: 'file:///worktrees/project',
+			continuation: 'failed', continuationError: 'Provider disconnected',
+		};
+		agentHost.setSessionState('conversion', 'copilotcli', {
+			...state, workingDirectories: [attached.actualWorkspace!],
+			_meta: withAgentWorkspaceSetup(withSessionWorkspaceless(undefined, false), attached),
+		});
+		const summary = session.workspaceSetup?.get();
+		assert.deepStrictEqual({
+			beforeHydration, hydrated, readOnly, preparing,
+			afterAttachment: session.capabilities.get().supportsWorkspaceConversion,
+			setup: summary && {
+				operationId: summary.operationId, chat: summary.chatResource.toString(),
+				requested: summary.requestedWorkspace.toString(), actual: summary.actualWorkspace?.toString(),
+				phase: summary.phase, continuation: summary.continuation, error: summary.continuationError,
+			},
+		}, {
+			beforeHydration: false, hydrated: true, readOnly: false, preparing: false, afterAttachment: false,
+			setup: {
+				operationId: 'operation-1', chat: session.mainChat.get().resource.toString(),
+				requested: 'file:///workspace/project', actual: 'file:///worktrees/project',
+				phase: 'attached', continuation: 'failed', error: 'Provider disconnected',
+			},
+		});
+	}));
+
+	test('restores cached in-flight workspace setup as unknown until authoritative metadata arrives', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const storageService = disposables.add(new InMemoryStorageService());
+		const setup: IAgentWorkspaceSetup = {
+			version: 1, operationId: 'operation-1', chat: buildDefaultChatUri(AgentSession.uri('copilotcli', 'cached-setup')), turnId: 'turn-1',
+			requestedWorkspace: 'file:///workspace/project', isolation: 'folder', phase: 'preparing', continuation: 'pending',
+		};
+		await persistCachedSessions(disposables, storageService, [
+			createSession('cached-setup', { quickChat: true, _meta: withAgentWorkspaceSetup(undefined, setup) }),
+		]);
+		const nextHost = new MockAgentHostService();
+		disposables.add(toDisposable(() => nextHost.dispose()));
+		nextHost.setAuthenticationPending(true);
+		const session = createProvider(disposables, nextHost, undefined, { storageService }).getSessions()[0];
+		assert.deepStrictEqual({
+			phase: session.workspaceSetup?.get()?.phase,
+			continuation: session.workspaceSetup?.get()?.continuation,
+			canConvert: session.capabilities.get().supportsWorkspaceConversion,
+		}, { phase: 'unknown', continuation: 'unknown', canConvert: false });
+	}));
 
 	test('createQuickChat returns a workspace-less untitled session', () => {
 		const provider = createProvider(disposables, agentHost);

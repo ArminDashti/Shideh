@@ -18285,6 +18285,38 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual(getStateManager(localService).getSessionState(sessionResource.toString())?._meta, withSessionExternal({ workspaceless: true }, false));
 		});
 
+		test('lists and restores interrupted workspace setup as unknown without replay', async () => {
+			const sessionData = createPerSessionDataService();
+			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, sessionData.service, { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			await createAgentSession(copilotAgent);
+			const sessionResource = (await copilotAgent.listSessions())[0].session;
+			const db = sessionData.database(sessionResource);
+			copilotAgent.sessionMessages = [];
+			const setup: IAgentWorkspaceSetup = {
+				version: 1, operationId: 'operation-1', chat: buildDefaultChatUri(sessionResource), turnId: 'turn-1',
+				requestedWorkspace: 'file:///workspace/project', isolation: 'worktree',
+				phase: 'preparing', continuation: 'pending', continuationTurnId: 'continuation-1',
+			};
+			await db.setMetadata(AGENT_WORKSPACE_SETUP_META_KEY, JSON.stringify(setup));
+			getConfigurationService(localService).updateRootConfig({ [AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.Last30Days });
+			copilotAgent.listChatsToMigrate = () => copilotAgent.listExternalChats();
+			registerTestAgentProvider(localService, copilotAgent);
+			const listed = (await localService.listSessions()).find(session => isEqual(session.session, sessionResource));
+			assert.ok(listed, 'The interrupted session must be discoverable');
+			await localService.restoreSession(sessionResource);
+			const restored = readAgentWorkspaceSetup(getStateManager(localService).getSessionState(sessionResource.toString())!);
+			assert.deepStrictEqual({
+				listedPhase: readAgentWorkspaceSetup(listed)?.phase,
+				restoredPhase: restored?.phase,
+				continuation: restored?.continuation,
+				operationId: restored?.operationId,
+				messages: copilotAgent.sessionMessages,
+			}, {
+				listedPhase: 'unknown', restoredPhase: 'unknown', continuation: 'unknown',
+				operationId: 'operation-1', messages: [],
+			});
+		});
+
 		test('restores persisted multi-root metadata', async () => {
 			const db = new TestSessionDatabase();
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(db), { _serviceBrand: undefined } as IProductService, createNoopGitService()));

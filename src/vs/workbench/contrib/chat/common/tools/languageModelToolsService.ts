@@ -65,6 +65,8 @@ export interface IToolData {
 	readonly canRequestPreApproval?: boolean;
 	/** True if this tool might ask for post-approval */
 	readonly canRequestPostApproval?: boolean;
+	/** Requests the trusted caller identity even when no chat request is being rendered. */
+	readonly requiresSessionContext?: boolean;
 	/**
 	 * Model selectors that this tool is available for.
 	 * If defined, the tool is only available when the selected model matches one of the selectors.
@@ -195,6 +197,8 @@ export interface IToolInvocation {
 	parameters: Record<string, any>;
 	tokenBudget?: number;
 	context: IToolInvocationContext | undefined;
+	/** Trusted caller identity for headless tools, independent of a rendered chat request. */
+	originSessionResource?: URI;
 	chatRequestId?: string;
 	chatInteractionId?: string;
 	/**
@@ -262,6 +266,7 @@ export interface IToolInvocationPreparationContext {
 	toolCallId: string;
 	chatRequestId?: string;
 	chatSessionResource: URI | undefined;
+	readonly originSessionResource?: URI;
 	chatInteractionId?: string;
 	/** The {@link IToolInvocationContext.requestId} of the invocation. */
 	invocationRequestId?: string;

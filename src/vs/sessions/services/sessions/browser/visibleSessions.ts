@@ -323,6 +323,7 @@ export class VisibleSession extends Disposable implements IActiveSession {
 	get icon() { return this._session.icon; }
 	get createdAt() { return this._session.createdAt; }
 	get workspace() { return this._session.workspace; }
+	get workspaceSetup() { return this._session.workspaceSetup; }
 	get hasGitRepository() { return this._session.hasGitRepository; }
 	get worktreePending() { return this._session.worktreePending; }
 	get isQuickChat() { return this._session.isQuickChat; }
@@ -381,6 +382,7 @@ class ResourceOverrideSession implements ISession {
 	get icon() { return this._session.icon; }
 	get createdAt() { return this._session.createdAt; }
 	get workspace() { return this._session.workspace; }
+	get workspaceSetup() { return this._session.workspaceSetup; }
 	get hasGitRepository() { return this._session.hasGitRepository; }
 	get worktreePending() { return this._session.worktreePending; }
 	get isQuickChat() { return this._session.isQuickChat; }
@@ -774,8 +776,9 @@ export class VisibleSessions extends Disposable {
 		// Dispose wrappers for sessions that are no longer part of the grid so
 		// the model does not leak entries from a previous (e.g. transient
 		// new-session) state.
+		const visibleIds = new Set(this._visibleList);
 		for (const existingId of [...this._wrappers.keys()]) {
-			if (!this._visibleList.includes(existingId)) {
+			if (!visibleIds.has(existingId)) {
 				this._wrappers.deleteAndDispose(existingId);
 			}
 		}

@@ -3004,6 +3004,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 						void this._executeClientTool(
 							request,
 							contextSessionResource,
+							sessionResource,
 							execution.source.token,
 							() => requestGeneration === generation && (invocationStarted || equals(request$.read(undefined), request)),
 							() => {

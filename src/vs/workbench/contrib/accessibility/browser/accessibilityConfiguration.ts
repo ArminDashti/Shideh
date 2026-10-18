@@ -255,6 +255,14 @@ const configuration: IConfigurationNode = {
 			description: localize('verbosity.newSessionWelcome', "Announce the welcome message when a new session composer is shown."),
 			...baseVerbosityProperty
 		},
+		[AccessibilityVerbositySettingId.SessionsBoard]: {
+			description: localize('verbosity.sessionsBoard', "Provide information about accessibility help for navigating and resizing live chats in the Sessions board."),
+			...baseVerbosityProperty
+		},
+		[AccessibilityVerbositySettingId.SessionReview]: {
+			description: localize('verbosity.sessionReview', "Provide information about reviewing session results and replying without leaving the native review editor."),
+			...baseVerbosityProperty
+		},
 		[AccessibilityVerbositySettingId.SessionsChanges]: {
 			description: localize('verbosity.sessionsChanges', 'Provide information about how to access the Changes view accessibility help menu when the Changes view is focused.'),
 			...baseVerbosityProperty

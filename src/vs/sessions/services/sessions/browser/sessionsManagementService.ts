@@ -345,7 +345,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	getSession(resource: URI): ISession | undefined {
-		const unlistedSession = this._unlistedNewSessions.get(resource);
+		const unlistedSession = this._sessionDrafts.get(resource) ?? this._unlistedNewSessions.get(resource);
 		if (unlistedSession) {
 			return unlistedSession;
 		}
@@ -838,6 +838,49 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			this._getProvider(previousNewSession)?.deleteNewSession(previousNewSession.sessionId);
 		}
 		return session;
+	}
+
+	createSessionDraft(folder: URI | undefined, options?: ICreateNewSessionOptions): ISession {
+		const { provider, sessionTypeId } = folder ? this._resolveProviderForNewSession(folder, options) : this._resolveProviderForQuickChat(options);
+		const session = folder
+			? provider.createNewSession(folder, sessionTypeId, this._providerCreateSessionOptions(provider, options))
+			: provider.createQuickChat(sessionTypeId, this._providerCreateSessionOptions(provider, options));
+		this._sessionDrafts.set(session.resource, session);
+		return session;
+	}
+
+	async sendSessionDraft(session: ISession, options: ISendRequestOptions, token: CancellationToken = CancellationToken.None): Promise<ISession | undefined> {
+		if (this._sessionDrafts.get(session.resource) !== session) {
+			throw new Error('This draft is no longer owned by the calling surface');
+		}
+		const provider = this._getProvider(session);
+		if (!provider) { throw new Error(`Sessions provider '${session.providerId}' not found`); }
+		const workspace = session.workspace.get();
+		if (workspace?.requiresWorkspaceTrust) {
+			for (const folder of workspace.folders) {
+				if (!(await this.workspaceTrustManagementService.getUriTrustInfo(folder.workingDirectory)).trusted) { throw new WorkspaceNotTrustedError(); }
+			}
+		}
+		const inFlight = this.trackInFlightNewSessionRequest(session);
+		try {
+			const prepared = await this._prepareNewSessionForSend(provider, session, undefined, false, options.query);
+			if (prepared.session !== session) {
+				this._sessionDrafts.delete(session.resource);
+				this._sessionDrafts.set(prepared.session.resource, prepared.session);
+				this._handleDidReplaceSession(session, prepared.session);
+			}
+			const committed = await this._sendNewChatRequestInBackground(prepared.provider, prepared.session, { ...options, preservePendingDraft: true }, token);
+			this._sessionDrafts.delete(prepared.session.resource);
+			return committed;
+		} finally {
+			inFlight.dispose();
+		}
+	}
+
+	discardSessionDraft(session: ISession): void {
+		if (this._sessionDrafts.get(session.resource) !== session) { return; }
+		this._sessionDrafts.delete(session.resource);
+		this._getProvider(session)?.deleteNewSession(session.sessionId);
 	}
 
 	createAutomationQuickChat(options?: ICreateNewSessionOptions): ISession {
@@ -1355,6 +1398,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 
 	override dispose(): void {
 		this._disposeCts.cancel();
+		for (const session of [...this._sessionDrafts.values()]) { this.discardSessionDraft(session); }
 		super.dispose();
 	}
 

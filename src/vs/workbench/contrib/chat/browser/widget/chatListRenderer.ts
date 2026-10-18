@@ -113,6 +113,7 @@ import { ChatErrorConfirmationContentPart } from './chatContentParts/chatErrorCo
 import { ChatErrorContentPart } from './chatContentParts/chatErrorContentPart.js';
 import { ChatPlanReviewPart } from './chatContentParts/chatPlanReviewPart.js';
 import { ChatQuestionCarouselPart } from './chatContentParts/chatQuestionCarouselPart.js';
+import { ChatToolConfirmationCarouselPart } from './chatContentParts/toolInvocationParts/chatToolConfirmationCarouselPart.js';
 import { ChatExtensionsContentPart } from './chatContentParts/chatExtensionsContentPart.js';
 import { ChatMarkdownContentPart, codeblockHasClosingFence } from './chatContentParts/chatMarkdownContentPart.js';
 import { ChatMcpServersInteractionContentPart } from './chatContentParts/chatMcpServersInteractionContentPart.js';
@@ -783,6 +784,42 @@ export function shouldPinToolInvocationToThinking(state: IChatToolInvocation.Sta
 		&& state !== IChatToolInvocation.StateKind.WaitingForPostApproval
 		&& state !== IChatToolInvocation.StateKind.WaitingForAuthentication
 		&& !hasConfirmationMessages;
+}
+
+type PendingChatContent = IChatToolInvocation | IChatQuestionCarousel | IChatPlanReview | IChatConfirmation | IChatElicitationRequest;
+
+function isPendingChatContent(content: IChatRendererContent | IChatProgressResponseContent, reader?: IReader): content is PendingChatContent {
+	switch (content.kind) {
+		case 'toolInvocation': {
+			if (content.presentation === 'hidden') {
+				return false;
+			}
+			const state = content.state.read(reader);
+			return (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation && !!state.confirmationMessages?.title)
+				|| state.type === IChatToolInvocation.StateKind.WaitingForPostApproval
+				|| state.type === IChatToolInvocation.StateKind.WaitingForAuthentication;
+		}
+		case 'questionCarousel':
+			return !content.isUsed && content.questions.length > 0
+				&& (content instanceof ChatQuestionCarouselData ? !content.completion.isSettled : !!content.resolveId);
+		case 'planReview':
+			return !content.isUsed && content.actions.length > 0
+				&& content instanceof ChatPlanReviewData && !content.completion.isSettled;
+		case 'confirmation':
+			return !content.isUsed;
+		case 'elicitation2':
+			return !content.isHidden?.read(reader) && content.state.read(reader) === ElicitationState.Pending;
+		default:
+			return false;
+	}
+}
+
+/** Returns only actionable runtime content, never restored or completed requests. */
+export function getPendingChatResponseParts(element: IChatResponseViewModel, reader?: IReader): IChatRendererContent[] {
+	if (element.isComplete || element.isCanceled || element.isStale || element.shouldBeRemovedOnSend || element.shouldBeBlocked.read(reader)) {
+		return [];
+	}
+	return element.response.value.filter(content => isPendingChatContent(content, reader));
 }
 
 function toolInvocationHasMcpAppData(toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized): boolean {
@@ -2274,7 +2311,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		// - And the response is not complete
 		//   - Or, we previously started a progressive rendering of this element (if the element is complete, we will finish progressive rendering with a very fast rate)
 		const incrementalRendering = this.configService.getValue<boolean>(ChatConfiguration.IncrementalRendering);
-		if (isResponseVM(element) && isStickyScrollTargetItem && (!element.isComplete || element.renderData)) {
+		if (!this.rendererOptions.renderPendingOnly && isResponseVM(element) && isStickyScrollTargetItem && (!element.isComplete || element.renderData)) {
 			this.traceLayout('renderElement', `start progressive render, index=${index}`);
 
 			if (incrementalRendering && !element.renderData) {
@@ -2440,6 +2477,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 	private renderChatResponseBasic(element: IChatResponseViewModel, index: number, templateData: IChatListItemTemplate) {
 		templateData.rowContainer.classList.toggle('chat-response-loading', (isResponseVM(element) && !element.isComplete));
+
+		if (this.rendererOptions.renderPendingOnly) {
+			const content = getPendingChatResponseParts(element);
+			this.renderChatContentDiff(this.diff(templateData.renderedParts ?? [], content, element), content, element, index, templateData);
+			return;
+		}
 
 		this.finalizeCompletedResponseParts(element, templateData);
 
@@ -4734,7 +4777,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		templateData: IChatListItemTemplate,
 		codeBlockStartIndex: number,
 	): void {
-		if (!this.configService.getValue<boolean>(ChatConfiguration.ToolConfirmationCarousel)) {
+		if (this.rendererOptions.renderInputControlsInline || this.rendererOptions.renderPendingOnly || !this.configService.getValue<boolean>(ChatConfiguration.ToolConfirmationCarousel)) {
 			return;
 		}
 		if (toolInvocation.kind !== 'toolInvocation' || !isResponseVM(context.element)) {
@@ -5195,6 +5238,23 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return { domNode: lazilyCreatedPart.domNode, disposable: lazilyCreatedPart, part: lazilyCreatedPart, isVisible: lazilyCreatedPart.isVisible };
 		};
 
+		if ((this.rendererOptions.renderPendingOnly || this.rendererOptions.renderInputControlsInline)
+			&& toolInvocation.kind === 'toolInvocation' && toolInvocation.source.type !== 'mcp'
+			&& toolInvocation.state.get().type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+			const store = new DisposableStore();
+			const carousel = store.add(new ChatToolConfirmationCarouselPart(() => createToolPart().part, [toolInvocation]));
+			return {
+				domNode: carousel.domNode,
+				get codeblocks() { return lazilyCreatedPart?.codeblocks; },
+				get codeblocksPartId() { return lazilyCreatedPart?.codeblocksPartId; },
+				hasSameContent: other => other === toolInvocation && toolInvocation.state.get().type === IChatToolInvocation.StateKind.WaitingForConfirmation,
+				dispose: () => store.dispose(),
+			};
+		}
+		if (this.rendererOptions.renderPendingOnly) {
+			return createToolPart().part;
+		}
+
 		// handling for when we want to put tool invocations inside a thinking part
 		const collapsedToolsMode = this.getCollapsedToolsMode();
 		if (isResponseVM(context.element) && collapsedToolsMode !== CollapsedToolsDisplayMode.Off) {
@@ -5356,7 +5416,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			type === IChatToolInvocation.StateKind.Streaming || type === IChatToolInvocation.StateKind.Executing;
 
 		const tryRouteConfirmationToCarousel = (): boolean => {
-			if (!this.configService.getValue<boolean>(ChatConfiguration.ToolConfirmationCarousel) ||
+			if (this.rendererOptions.renderInputControlsInline || !this.configService.getValue<boolean>(ChatConfiguration.ToolConfirmationCarousel) ||
 				!isResponseVM(context.element) ||
 				!isCarouselToolConfirmation(toolInvocation)) {
 				return false;
@@ -5556,7 +5616,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 	private renderQuestionCarousel(context: IChatContentPartRenderContext, carousel: IChatQuestionCarousel, templateData: IChatListItemTemplate): IChatContentPart {
 		this.finalizeCurrentThinkingPart(context, templateData);
-		this._notifyOnQuestionCarousel(context, carousel);
+		if (!this.rendererOptions.renderInputControlsInline && !this.rendererOptions.renderPendingOnly) {
+			this._notifyOnQuestionCarousel(context, carousel);
+		}
 
 		// Backfill terminal correlation on the carousel from the originating request.
 		// This keeps focus button / send_to_terminal correlation working even when
@@ -5573,7 +5635,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 		}
 
-		const widget = isResponseVM(context.element) ? this.chatWidgetService.getWidgetBySessionResource(context.element.sessionResource) : undefined;
+		const widget = !this.rendererOptions.renderInputControlsInline && !this.rendererOptions.renderPendingOnly && isResponseVM(context.element)
+			? this.chatWidgetService.getWidgetBySessionResource(context.element.sessionResource) : undefined;
 		// Only auto-focus if the chat input is empty AND focus is already within the chat widget
 		// This prevents stealing focus from other VS Code UI (editor, terminal, etc.)
 		const shouldAutoFocus = !!widget && dom.isAncestorOfActiveElement(widget.domNode) && widget.getInput() === '';
@@ -5724,7 +5787,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	}
 
 	private renderPlanReview(context: IChatContentPartRenderContext, review: IChatPlanReview, templateData: IChatListItemTemplate): IChatContentPart {
-		const widget = isResponseVM(context.element) ? this.chatWidgetService.getWidgetBySessionResource(context.element.sessionResource) : undefined;
+		const widget = !this.rendererOptions.renderInputControlsInline && !this.rendererOptions.renderPendingOnly && isResponseVM(context.element)
+			? this.chatWidgetService.getWidgetBySessionResource(context.element.sessionResource) : undefined;
 		const responseId = isResponseVM(context.element) ? context.element.requestId : undefined;
 		const reviewKey = review.resolveId ?? `${responseId ?? ''}_${context.contentIndex}`;
 
@@ -5733,6 +5797,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		this.finalizeCurrentThinkingPart(context, templateData);
 
 		const handleSubmit = (result: IChatPlanReviewResult) => {
+			if (review.isUsed || context.readOnly || context.element.isComplete || (isResponseVM(context.element) && context.element.isCanceled)) {
+				return;
+			}
 			review.data = result;
 			review.isUsed = true;
 			if (review instanceof ChatPlanReviewData) {

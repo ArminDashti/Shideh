@@ -359,7 +359,7 @@ export interface IModalEditorPartOptions {
 	readonly navigation?: IModalEditorNavigation;
 
 	/**
-	 * Optional sidebar content to render on the left side of the
+	 * Optional sidebar content to render beside or below the
 	 * modal editor. The caller provides a render callback that
 	 * receives a container element and a layout callback, and
 	 * returns a disposable to clean up when the modal closes.
@@ -369,6 +369,12 @@ export interface IModalEditorPartOptions {
 	 * after the modal editor is opened.
 	 */
 	readonly sidebar?: IModalEditorSidebar;
+
+	/**
+	 * Optional content below the editor column, independent of the sidebar.
+	 * Created once when opening the modal and disposed when it closes; ignored by later option updates.
+	 */
+	readonly contentFooter?: IModalEditorContentFooter;
 }
 
 /**
@@ -401,14 +407,27 @@ export function isModalEditorOptionsProvider(obj: unknown): obj is IModalEditorO
 }
 
 /**
- * Modal sidebar supports rendering custom content in a sidebar next to the main editor content.
+ * Modal sidebar supports rendering custom content beside or below the main editor content.
  */
 export interface IModalEditorSidebar {
 
 	/**
+	 * Defaults to `left`. `auto` moves below the editor when the preferred
+	 * sidebar width and 400px of editor content cannot fit inside the modal.
+	 */
+	readonly placement?: 'left' | 'bottom' | 'auto';
+
+	/**
 	 * Sidebar width set by the user via resizing, if any.
+	 * Used for left placement and retained across automatic placement changes.
 	 */
 	readonly sidebarWidth?: number;
+
+	/**
+	 * Preferred positive, finite height in pixels for bottom placement (default 240, minimum 160 when space permits).
+	 * Clamped to the available space and remembered only for this modal's lifetime.
+	 */
+	readonly sidebarHeight?: number;
 
 	/**
 	 * Whether the sidebar is hidden.
@@ -427,6 +446,16 @@ export interface IModalEditorSidebar {
 	 * 		has focus.
 	 * @returns A disposable to clean up when the modal closes.
 	 */
+	readonly render: (container: unknown /* HTMLElement */, onDidLayout: Event<{ readonly height: number; readonly width: number }>, contextKeyService: IContextKeyService) => IDisposable;
+}
+
+/** Content hosted below the native editor column, without spanning a left sidebar. */
+export interface IModalEditorContentFooter {
+
+	/** Preferred positive, finite height including the separator; reduced when needed to keep the editor visible. */
+	readonly height: number;
+
+	/** Renders once in a modal-scoped container and receives its available content dimensions. */
 	readonly render: (container: unknown /* HTMLElement */, onDidLayout: Event<{ readonly height: number; readonly width: number }>, contextKeyService: IContextKeyService) => IDisposable;
 }
 

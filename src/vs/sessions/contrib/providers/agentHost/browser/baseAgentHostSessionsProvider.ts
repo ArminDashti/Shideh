@@ -380,6 +380,11 @@ function deserializeMetadata(raw: ISerializedSessionMetadata): IAgentSessionMeta
 		if (raw.devContainerWorktree) {
 			_meta = withAgentDevContainerWorktreeMetadata(_meta, raw.devContainerWorktree.handle);
 		}
+		const setup = readAgentWorkspaceSetup({ _meta: { [AGENT_WORKSPACE_SETUP_META_KEY]: raw.workspaceSetup } });
+		const restoredSetup = setup ? restoreAgentWorkspaceSetup(JSON.stringify(setup)) : undefined;
+		if (restoredSetup) {
+			_meta = withAgentWorkspaceSetup(_meta, restoredSetup);
+		}
 		return {
 			session: URI.parse(raw.session),
 			origin: raw.origin,
@@ -1620,6 +1625,12 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 				supportsSideChat: agentCapabilities?.multipleChats?.sideChat ?? false,
 				supportsRename: true,
 				supportsDelete: true,
+				supportsWorkspaceConversion: readAgentWorkspaceConversionCapability({ capabilities: agentCapabilities })
+					&& this._conversionChatEligible.read(reader)
+					&& this.isQuickChat.read(reader)
+					&& this._defaultChat.interactivity.read(reader) === ChatInteractivity.Full
+					&& (!connectionStatus || connectionStatus.read(reader).kind === 'connected')
+					&& setup?.phase !== 'requested' && setup?.phase !== 'preparing' && setup?.phase !== 'unknown',
 			};
 		});
 		this.applyChatMetadata(metadata.chats);
@@ -1758,6 +1769,9 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 			? summary.resource.toString() === defaultChatUri
 			: isDefaultChatUri(summary.resource);
 		const defaultSummary = state.chats.find(isDefault);
+		this._conversionChatEligible.set(state.defaultChat === buildDefaultChatUri(this.backendUri)
+			&& state.workingDirectories?.length === 1
+			&& !!defaultSummary, undefined);
 		this._defaultChatTitleOverride.set(defaultSummary?.title || undefined, undefined);
 		this._defaultChatInteractivity.set(toChatInteractivity(defaultSummary?.interactivity), undefined);
 		this._defaultChatWorkingDirectories.set(defaultSummary?.workingDirectories, undefined);

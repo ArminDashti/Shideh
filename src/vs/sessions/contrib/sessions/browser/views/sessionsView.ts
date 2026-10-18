@@ -327,6 +327,9 @@ export class SessionsView extends ViewPane {
 
 		// Sessions List Control
 		this.sessionsControlContainer = DOM.append(sessionsContent, $('.agent-sessions-control-container'));
+		this.workNavigationContainer = DOM.append(sessionsContent, $('.agent-sessions-control-container'));
+		this.workNavigationContainer.style.display = 'none';
+		this.workNavigation = this._register(this.instantiationService.createInstance(SessionWorkNavigation, this.workNavigationContainer));
 		const sessionsControl = this.sessionsControl = this._register(this.instantiationService.createInstance(SessionsList, this.sessionsControlContainer, {
 			overrideStyles: this.getLocationBasedColors().listOverrideStyles,
 			grouping: () => this.currentGrouping,
@@ -452,6 +455,7 @@ export class SessionsView extends ViewPane {
 			layout: height => {
 				sessionsSection.style.height = `${height}px`;
 				this.sessionsControl?.layout(this.sessionsControlContainer?.offsetHeight ?? 0, this.currentBodyWidth);
+				this.workNavigation?.layout(this.workNavigationContainer?.offsetHeight ?? 0, this.currentBodyWidth);
 			},
 		};
 
@@ -918,8 +922,11 @@ export class SessionsView extends ViewPane {
 
 	override focus(): void {
 		super.focus();
-
-		this.sessionsControl?.focus();
+		if (this.sessionsService.isSessionBoardVisible.get()) {
+			this.workNavigation?.focus();
+		} else {
+			this.sessionsControl?.focus();
+		}
 	}
 
 	refresh(): void {
