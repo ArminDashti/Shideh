@@ -227,8 +227,8 @@ export interface AuthenticationChallenge {
 	params: Record<string, string>;
 }
 
-export interface AuthenticationSessionRequest {
-	challenge: string;
+export interface AuthenticationWWWAuthenticateRequest {
+	wwwAuthenticate: string;
 	scopes?: readonly string[];
 }
 

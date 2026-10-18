@@ -45,7 +45,7 @@ export function applyCoreTools(server: McpServer, appService: ApplicationService
 			return {
 				content: [{
 					type: 'text' as const,
-					text: 'VS Code stopped successfully'
+					text: `VS Code started successfully`
 				}]
 			};
 		}

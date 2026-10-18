@@ -91,6 +91,14 @@
 	padding: 0 4px;
 }
 
+.issue-reporter-body .monaco-button-dropdown {
+	align-self: flex-end;
+}
+
+.issue-reporter-body .monaco-button-dropdown > .monaco-button.monaco-dropdown-button {
+	padding: 0 4px;
+}
+
 .issue-reporter-body select {
 	height: calc(2.25rem + 2px);
 	display: inline-block;

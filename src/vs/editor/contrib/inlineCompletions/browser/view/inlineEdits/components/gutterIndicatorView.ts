@@ -130,7 +130,7 @@ export class InlineEditsGutterIndicator extends Disposable {
 		const indicator = this._indicator.keepUpdated(this._store);
 
 		this._originalRangeObs = mapOutFalsy(this._originalRange);
-		this._state = derived(reader => {
+		this._state = derived(this, reader => {
 			const range = this._originalRangeObs.read(reader);
 			if (!range) { return undefined; }
 			return {
@@ -261,7 +261,7 @@ export class InlineEditsGutterIndicator extends Disposable {
 
 			// The icon which will be rendered in the pill
 			const iconNoneDocked = this._tabAction.map(action => action === InlineEditTabAction.Accept ? Codicon.keyboardTab : Codicon.arrowRight);
-			const iconDocked = derived(reader => {
+			const iconDocked = derived(this, reader => {
 				if (this._isHoveredOverIconDebounced.read(reader) || this._isHoveredOverInlineEditDebounced.read(reader)) {
 					return Codicon.check;
 				}

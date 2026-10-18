@@ -100,13 +100,13 @@ export interface IAuthenticationConstraint {
 	readonly fallbackScopes?: readonly string[];
 }
 
-export interface IAuthenticationSessionRequest {
+export interface IAuthenticationWWWAuthenticateRequest {
 	/**
 	 * The raw WWW-Authenticate header value that triggered this challenge.
 	 * This will be parsed by the authentication provider to extract the necessary
 	 * challenge information.
 	 */
-	readonly challenge: string;
+	readonly wwwAuthenticate: string;
 
 	/**
 	 * Optional scopes for the session. If not provided, the authentication provider
@@ -115,11 +115,11 @@ export interface IAuthenticationSessionRequest {
 	readonly scopes?: readonly string[];
 }
 
-export function isAuthenticationSessionRequest(obj: unknown): obj is IAuthenticationSessionRequest {
+export function isAuthenticationWWWAuthenticateRequest(obj: unknown): obj is IAuthenticationWWWAuthenticateRequest {
 	return typeof obj === 'object'
 		&& obj !== null
-		&& 'challenge' in obj
-		&& typeof obj.challenge === 'string';
+		&& 'wwwAuthenticate' in obj
+		&& (typeof obj.wwwAuthenticate === 'string');
 }
 
 /**

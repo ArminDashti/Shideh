@@ -369,6 +369,18 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		return;
 	}
 
+	/**
+	 * Waits for any change in output length or activity flip, up to a short cap.
+	 * This prevents immediately re-evaluating the same idle snapshot after sending input.
+	 */
+	private async _waitForNextDataOrActivityChange(): Promise<boolean> {
+		const maxMs = Math.max(PollingConsts.MinPollingDuration * 2, 250);
+		return await raceTimeout(
+			Event.toPromise(this._execution.instance.onData).then(() => true),
+			maxMs,
+			() => false
+		) ?? false;
+	}
 
 	private async _handleIdleState(token: CancellationToken): Promise<{ resources?: ILinkLocation[]; shouldContinuePolling: boolean; output?: string }> {
 		const output = this._execution.getOutput();

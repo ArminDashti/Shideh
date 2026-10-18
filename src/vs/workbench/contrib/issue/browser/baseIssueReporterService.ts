@@ -130,6 +130,26 @@ export class BaseIssueReporterService extends Disposable {
 			}
 		}));
 
+		this._register(this.authenticationService.onDidChangeSessions(async () => {
+			const previousAuthState = !!this.data.githubAccessToken;
+
+			let githubAccessToken = '';
+			try {
+				const githubSessions = await this.authenticationService.getSessions('github');
+				const potentialSessions = githubSessions.filter(session => session.scopes.includes('repo'));
+				githubAccessToken = potentialSessions[0]?.accessToken;
+			} catch (e) {
+				// Ignore
+			}
+
+			this.data.githubAccessToken = githubAccessToken;
+
+			const currentAuthState = !!githubAccessToken;
+			if (previousAuthState !== currentAuthState) {
+				this.recreateGithubButton();
+			}
+		}));
+
 		const fileOnMarketplace = data.issueSource === IssueSource.Marketplace;
 		const fileOnProduct = data.issueSource === IssueSource.VSCode;
 		this.issueReporterModel.update({ fileOnMarketplace, fileOnProduct });
