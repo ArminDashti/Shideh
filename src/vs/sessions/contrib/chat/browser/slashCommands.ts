@@ -70,6 +70,9 @@ export class SlashCommandHandler extends Disposable implements IChatSubmitReques
 	private readonly _commandDecorations: IEditorDecorationsCollection;
 	private readonly _placeholderDecorations: IEditorDecorationsCollection;
 
+	private readonly _commandDecorations: IEditorDecorationsCollection;
+	private readonly _placeholderDecorations: IEditorDecorationsCollection;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		@ICommandService private readonly commandService: ICommandService,
