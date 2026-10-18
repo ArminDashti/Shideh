@@ -23,8 +23,11 @@
 	padding: 4px 10px !important;
 	box-sizing: border-box;
 }
+
+/* Include the widget owner to outrank the max-width from
+ * `.new-chat-widget-container .new-chat-bottom-container` in chatWidget.css. */
 .new-chat-in-session .new-chat-input-container,
-.new-chat-in-session .new-chat-bottom-container,
+.new-chat-in-session .new-chat-widget-container .new-chat-bottom-container,
 .new-chat-in-session .new-chat-input-area {
 	max-width: 950px;
 }
@@ -58,7 +61,9 @@
 }
 
 /* Bottom container: match VS Code secondary toolbar */
-.new-chat-in-session .new-chat-bottom-container {
+/* Outrank `.new-chat-widget-container .new-chat-bottom-container`, which sets
+ * generic padding, min-height, and gap values in chatWidget.css. */
+.new-chat-in-session .new-chat-widget-container .new-chat-bottom-container {
 	padding: 0 4px 0 5px;
 	margin-top: 4px;
 	min-height: auto;

@@ -2049,8 +2049,10 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	font-size: var(--vscode-codiconFontSize-compact);
 }
 
-.interactive-session .interactive-input-part .chat-editor-container .interactive-input-editor .monaco-editor,
-.interactive-session .interactive-input-part .chat-editor-container .interactive-input-editor .monaco-editor .monaco-editor-background {
+/* Outrank `.monaco-workbench .part.auxiliarybar > .content .monaco-editor` so
+ * embedded chat inputs use the input background instead of the sidebar one. */
+.interactive-session .interactive-input-part .chat-input-container .chat-editor-container .interactive-input-editor .monaco-editor,
+.interactive-session .interactive-input-part .chat-input-container .chat-editor-container .interactive-input-editor .monaco-editor .monaco-editor-background {
 	background-color: var(--vscode-input-background);
 }
 
