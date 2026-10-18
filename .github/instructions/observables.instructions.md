@@ -2,6 +2,53 @@
 description: Guidelines for writing code using observables and deriveds. Use when writing or reviewing code that uses autorun, derived, observableValue, observable-driven DOM rendering, or any reactive observable pattern.
 ---
 
+# Observables System Overview
+
+## Purpose
+
+The observables system provides a reactive programming framework for VS Code, enabling automatic dependency tracking and efficient updates when data changes. It follows patterns similar to MobX but is specifically tailored for VS Code's architecture and performance requirements.
+
+## Scope
+
+- **Included**: Observable values, derived computations, automatic dependency tracking, transaction batching, event-based observables, and reactive autoruns
+- **Out of scope**: Direct DOM manipulation, HTTP requests, or async operations (use utility functions for async integration)
+- **Integration points**: Disposables system, event system, VS Code services, and extension APIs
+
+## Architecture
+
+### High-Level Design
+
+The observables system uses a **push-pull hybrid approach** with automatic dependency tracking:
+
+1. **Observable Values** store data and notify observers of changes
+2. **Derived Observables** compute values lazily based on other observables
+3. **Autoruns** execute side effects when dependencies change
+4. **Transactions** batch multiple changes to prevent intermediate notifications
+5. **Readers** track dependencies automatically during computation
+
+### Key Classes & Interfaces
+
+- **`IObservable<T>`**: Core interface for readable observable values with dependency tracking
+- **`ISettableObservable<T>`**: Interface for observable values that can be updated
+- **`ObservableValue`**: Implementation for simple observable values with change notification
+- **`Derived`**: Implementation for computed observables derived from other observables
+- **`AutorunObserver`**: Implementation for reactive side effects that re-run on dependency changes
+- **`TransactionImpl`**: Batches multiple observable changes into single notification cycles
+
+### Key Files
+
+- **`src/vs/base/common/observableInternal/index.ts`**: Main facade exposing all observable APIs
+- **`src/vs/base/common/observableInternal/base.ts`**: Core interfaces and contracts for the observable system
+- **`src/vs/base/common/observableInternal/observables/observableValue.ts`**: Implementation of basic observable values
+- **`src/vs/base/common/observableInternal/observables/derived.ts`**: Implementation of computed observables
+- **`src/vs/base/common/observableInternal/reactions/autorun.ts`**: Implementation of reactive side effects
+- **`src/vs/base/common/observableInternal/transaction.ts`**: Transaction system for batching changes
+- **`src/vs/base/common/observableInternal/utils/utils.ts`**: Utility functions for advanced observable patterns
+
+## Development Guidelines
+
+### Basic Usage Pattern
+
 ```ts
 class MyService extends Disposable {
     private _myData1 = observableValue(/* always put `this` here */ this, /* initial value*/ 0);
@@ -47,19 +94,20 @@ class MyService extends Disposable {
 }
 ```
 
+### Most Important Symbols
 
-Most important symbols:
-* `observableValue`
-* `disposableObservableValue`
-* `derived`
-* `autorun`
-* `transaction`
-* `observableFromEvent`
-* `observableSignalFromEvent`
-* `observableSignal(...): IObservable<void>` - use `.trigger(tx)` to trigger a change
+* `observableValue` - Creates basic observable values
+* `disposableObservableValue` - Observable values that auto-dispose their contents
+* `derived` - Creates computed observables
+* `autorun` - Creates reactive side effects
+* `transaction` - Batches multiple changes
+* `observableFromEvent` - Creates observables from events
+* `observableSignalFromEvent` - Creates signal observables from events
+* `observableSignal(...): IObservable<void>` - Use `.trigger(tx)` to trigger a change
 
+Check `src/vs/base/common/observableInternal/index.ts` for a complete list of all observable utilities.
 
-* Check src\vs\base\common\observableInternal\index.ts for a list of all observable utitilies
+## Learnings
 
 ## Learnings
 
