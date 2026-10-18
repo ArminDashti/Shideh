@@ -148,6 +148,9 @@ import './contrib/surveys/browser/survey.contribution.js';
 // Process Explorer
 import './contrib/processExplorer/electron-browser/processExplorer.contribution.js';
 
+// Process State Protocol (PSP)
+import './contrib/processStateProtocol/electron-browser/processStateProtocol.contribution.js';
+
 // Remote
 import './contrib/remote/electron-browser/remote.contribution.js';
 

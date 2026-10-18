@@ -15,6 +15,11 @@ import * as util from './lib/util.ts';
 import { runEsbuildTranspile } from './lib/esbuild.ts';
 import { paths } from './folders.ts';
 
+// Centralized Process State Protocol reporter. Attaches to gulp's lifecycle events and
+// publishes one aggregated doc covering every running task. No-op outside a PSP-enabled
+// terminal (env vars missing).
+attachPspGulpReporter(gulp, 'gulp');
+
 // Extension point names
 task.task(compilation.compileExtensionPointNamesTask);
 

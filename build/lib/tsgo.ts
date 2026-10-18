@@ -27,11 +27,25 @@ const ts7TscPath = path.join(path.dirname(createRequire(import.meta.url).resolve
 export function spawnTsgo(projectPath: string, config: { taskName: string; noEmit?: boolean }, onComplete?: () => Promise<void> | void): Promise<void> {
 	function runReporter(output: string) {
 		const lines = (output || '').split('\n');
-		const errorLines = lines.filter(line => /error \w+:/.test(line));
-		fancyLog(`Finished ${ansiColors.green(config.taskName)} ${projectPath} with ${errorLines.length} errors.`);
-		for (const line of errorLines) {
+		const errors: ITsgoError[] = [];
+		for (const line of lines) {
+			const m = errorLineRegex.exec(line);
+			if (!m) {
+				continue;
+			}
+			errors.push({
+				file: m[1],
+				line: Number(m[2]),
+				column: Number(m[3]),
+				code: m[4],
+				message: m[5],
+			});
+		}
+		fancyLog(`Finished ${ansiColors.green(config.taskName)} ${projectPath} with ${errors.length} errors.`);
+		for (const line of lines.filter(l => /error \w+:/.test(l))) {
 			fancyLog(line);
 		}
+		config.onResult?.({ errors });
 	}
 
 	const args = [ts7TscPath, '--project', projectPath, '--pretty', 'false', '--incremental'];
@@ -82,7 +96,7 @@ export function spawnTsgo(projectPath: string, config: { taskName: string; noEmi
 	});
 }
 
-export function createTsgoStream(projectPath: string, config: { taskName: string; noEmit?: boolean }, onComplete?: () => Promise<void> | void): NodeJS.ReadWriteStream {
+export function createTsgoStream(projectPath: string, config: ITsgoConfig, onComplete?: () => Promise<void> | void): NodeJS.ReadWriteStream {
 	const stream = es.through();
 
 	spawnTsgo(projectPath, config, onComplete).then(() => {
