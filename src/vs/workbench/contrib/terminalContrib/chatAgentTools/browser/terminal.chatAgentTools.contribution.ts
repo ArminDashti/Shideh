@@ -96,6 +96,10 @@ export class ChatAgentToolsContribution extends Disposable implements IWorkbench
 		@IToolResultCompressor toolResultCompressor: IToolResultCompressor,
 	) {
 		super();
+		if (configurationService.getValue(TerminalChatAgentToolsSettingId.TaskTools2Enabled)) {
+			const runInTerminalTool = instantiationService.createInstance(RunInTerminalTool);
+			this._register(toolsService.registerToolData(RunInTerminalToolData));
+			this._register(toolsService.registerToolImplementation(RunInTerminalToolData.id, runInTerminalTool));
 
 		registerTerminalCompressors(toolResultCompressor);
 
