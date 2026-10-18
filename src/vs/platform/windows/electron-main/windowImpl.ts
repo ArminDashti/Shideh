@@ -474,6 +474,10 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 			return;
 		}
 
+		if (!win.isVisible()) {
+			win.show();
+		}
+
 		if (win.isMinimized()) {
 			win.restore();
 		}
