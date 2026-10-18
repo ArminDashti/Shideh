@@ -8,7 +8,7 @@ type DOMString = string;
 declare class EditContext extends EventTarget {
 	constructor(options?: EditContextInit);
 
-	updateText(rangeStart: number, rangeEnd: number, text: DOMString): void;
+	updateText(rangeStart: number, rangeEnd: number, text: string): void;
 	updateSelection(start: number, end: number): void;
 	updateControlBounds(controlBounds: DOMRect): void;
 	updateSelectionBounds(selectionBounds: DOMRect): void;
@@ -16,7 +16,7 @@ declare class EditContext extends EventTarget {
 
 	attachedElements(): HTMLElement[];
 
-	get text(): DOMString;
+	get text(): string;
 	get selectionStart(): number;
 	get selectionEnd(): number;
 	get characterBoundsRangeStart(): number;

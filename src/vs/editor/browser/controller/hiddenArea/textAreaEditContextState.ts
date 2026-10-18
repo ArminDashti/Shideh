@@ -11,9 +11,9 @@ import { ISimpleScreenReaderContentState } from '../screenReaderUtils.js';
 
 export const _debugComposition = false;
 
-export interface ITextAreaWrapper {
+export interface IHiddenAreaWrapper {
 	getValue(): string;
-	setValue(reason: string, value: string): void;
+	setValue(reason: string, value: string, selection: Range | null): void;
 
 	getSelectionStart(): number;
 	getSelectionEnd(): number;
@@ -27,9 +27,9 @@ export interface ITypeData {
 	positionDelta: number;
 }
 
-export class TextAreaState {
+export class HiddenAreaState {
 
-	public static readonly EMPTY = new TextAreaState('', 0, 0, null, undefined);
+	public static readonly EMPTY = new HiddenAreaState('', 0, 0, null, null, undefined);
 
 	constructor(
 		public readonly value: string,
@@ -39,15 +39,22 @@ export class TextAreaState {
 		public readonly selectionEnd: number,
 		/** the editor range in the view coordinate system that matches the selection inside `value` */
 		public readonly selection: Range | null,
+		/** the editor range of the value */
+		public readonly selectionOfValue: Range | null,
 		/** the visible line count (wrapped, not necessarily matching \n characters) for the text in `value` before `selectionStart` */
 		public readonly newlineCountBeforeSelection: number | undefined,
-	) { }
+	) {
+		console.log('HiddenAreaState');
+		console.log('selectionStart : ', selectionStart);
+		console.log('selectionEnd : ', selectionEnd);
+		console.log('value : ', value);
+	}
 
 	public toString(): string {
 		return `[ <${this.value}>, selectionStart: ${this.selectionStart}, selectionEnd: ${this.selectionEnd}]`;
 	}
 
-	public static readFromTextArea(textArea: ITextAreaWrapper, previousState: TextAreaState | null): TextAreaState {
+	public static readFromTextArea(textArea: IHiddenAreaWrapper, previousState: HiddenAreaState | null): HiddenAreaState {
 		const value = textArea.getValue();
 		const selectionStart = textArea.getSelectionStart();
 		const selectionEnd = textArea.getSelectionEnd();
@@ -60,14 +67,17 @@ export class TextAreaState {
 				newlineCountBeforeSelection = previousState.newlineCountBeforeSelection;
 			}
 		}
-		return new TextAreaState(value, selectionStart, selectionEnd, null, newlineCountBeforeSelection);
+		console.log('readFromTextArea');
+		console.log('value : ', value);
+		return new HiddenAreaState(value, selectionStart, selectionEnd, null, null, newlineCountBeforeSelection);
 	}
 
-	public collapseSelection(): TextAreaState {
+	public collapseSelection(): HiddenAreaState {
 		if (this.selectionStart === this.value.length) {
 			return this;
 		}
-		return new TextAreaState(this.value, this.value.length, this.value.length, null, undefined);
+		console.log('collapseSelection');
+		return new HiddenAreaState(this.value, this.value.length, this.value.length, null, null, undefined);
 	}
 
 	public isWrittenToTextArea(textArea: ITextAreaWrapper, select: boolean): boolean {
@@ -83,7 +93,7 @@ export class TextAreaState {
 		if (_debugComposition) {
 			console.log(`writeToTextArea ${reason}: ${this.toString()}`);
 		}
-		textArea.setValue(reason, this.value);
+		textArea.setValue(reason, this.value, this.selectionOfValue);
 		if (select) {
 			// if the selection should be reset then we set the selection range using the fields selectionStart and selectionEnd
 			textArea.setSelectionRange(reason, this.selectionStart, this.selectionEnd);
@@ -116,7 +126,12 @@ export class TextAreaState {
 		return [anchor, signum * deltaText.length, lineFeedCnt];
 	}
 
-	public static deduceInput(previousState: TextAreaState, currentState: TextAreaState, couldBeEmojiInput: boolean): ITypeData {
+	public static deduceInput(previousState: HiddenAreaState, currentState: HiddenAreaState, couldBeEmojiInput: boolean): ITypeData {
+
+		console.log('deduceInput');
+		console.log('previousState : ', previousState);
+		console.log('currentState : ', currentState);
+
 		if (!previousState) {
 			// This is the EMPTY state
 			return {
@@ -180,7 +195,7 @@ export class TextAreaState {
 		};
 	}
 
-	public static deduceAndroidCompositionInput(previousState: TextAreaState, currentState: TextAreaState): ITypeData {
+	public static deduceAndroidCompositionInput(previousState: HiddenAreaState, currentState: HiddenAreaState): ITypeData {
 		if (!previousState) {
 			// This is the EMPTY state
 			return {

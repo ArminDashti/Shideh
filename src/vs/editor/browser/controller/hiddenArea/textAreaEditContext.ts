@@ -148,9 +148,10 @@ export class TextAreaEditContext extends AbstractEditContext {
 	 */
 	private _lastRenderPosition: Position | null;
 
-	public readonly textArea: FastDomNode<HTMLTextAreaElement>;
-	public readonly textAreaCover: FastDomNode<HTMLElement>;
-	private readonly _textAreaInput: TextAreaInput;
+	public readonly domAreaCover: FastDomNode<HTMLElement>;
+	private readonly _domElement: FastDomNode<HTMLElement>;
+	private readonly _wrapper: ICompleteHiddenAreaWrapper;
+	private readonly _hiddenAreaInput: HiddenAreaInput;
 
 	constructor(
 		ownerID: string,
@@ -163,7 +164,8 @@ export class TextAreaEditContext extends AbstractEditContext {
 	) {
 		console.log('text area edit context constructor');
 		super(context);
-
+		this._wrapper = this._register(wrapper);
+		this._domElement = wrapper.actual;
 		this._viewController = viewController;
 		this._visibleRangeProvider = visibleRangeProvider;
 		this._scrollLeft = 0;
@@ -206,8 +208,8 @@ export class TextAreaEditContext extends AbstractEditContext {
 
 		this._ensureReadOnlyAttribute();
 
-		this.textAreaCover = createFastDomNode(document.createElement('div'));
-		this.textAreaCover.setPosition('absolute');
+		this.domAreaCover = createFastDomNode(document.createElement('div'));
+		this.domAreaCover.setPosition('absolute');
 
 		overflowGuardContainer.appendChild(this.textArea);
 		overflowGuardContainer.appendChild(this.textAreaCover);
@@ -261,7 +263,8 @@ export class TextAreaEditContext extends AbstractEditContext {
 					const LIMIT_CHARS = 500;
 					if (platform.isMacintosh && !selection.isEmpty() && simpleModel.getValueLengthInRange(selection, EndOfLinePreference.TextDefined) < LIMIT_CHARS) {
 						const text = simpleModel.getValueInRange(selection, EndOfLinePreference.TextDefined);
-						return new TextAreaState(text, 0, text.length, selection, 0);
+						console.log('2nd hidden area state');
+						return new HiddenAreaState(text, 0, text.length, selection, selection, 0);
 					}
 
 					// on Safari, document.execCommand('cut') and document.execCommand('copy') will just not work
@@ -273,7 +276,8 @@ export class TextAreaEditContext extends AbstractEditContext {
 						return new TextAreaState(placeholderText, 0, placeholderText.length, null, undefined);
 					}
 
-					return TextAreaState.EMPTY;
+					console.log('4th hidden area state');
+					return HiddenAreaState.EMPTY;
 				}
 
 				if (browser.isAndroid) {
@@ -286,10 +290,13 @@ export class TextAreaEditContext extends AbstractEditContext {
 						const position = selection.getStartPosition();
 						const [wordAtPosition, positionOffsetInWord] = this._getAndroidWordAtPosition(position);
 						if (wordAtPosition.length > 0) {
-							return new TextAreaState(wordAtPosition, positionOffsetInWord, positionOffsetInWord, Range.fromPositions(position), 0);
+							console.log('5th hidden area state');
+							const rangeOfValue = Range.fromPositions(new Position(position.lineNumber, position.column - wordAtPosition.length), position);
+							return new HiddenAreaState(wordAtPosition, positionOffsetInWord, positionOffsetInWord, Range.fromPositions(position), rangeOfValue, 0);
 						}
 					}
-					return TextAreaState.EMPTY;
+					console.log('6th hidden area state');
+					return HiddenAreaState.EMPTY;
 				}
 
 				const screenReaderContentState = PagedScreenReaderStrategy.fromEditorSelection(simpleModel, this._selections[0], this._accessibilityPageSize, this._accessibilitySupport === AccessibilitySupport.Unknown);
@@ -320,7 +327,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			this._viewController.emitKeyDown(e);
 		}));
 
-		this._register(this._textAreaInput.onKeyUp((e: IKeyboardEvent) => {
+		this._register(this._hiddenAreaInput.onKeyUp((e: IKeyboardEvent) => {
 			this._viewController.emitKeyUp(e);
 		}));
 
@@ -355,11 +362,15 @@ export class TextAreaEditContext extends AbstractEditContext {
 				}
 				// sending type event forwards
 				this._viewController.compositionType(e.text, e.replacePrevCharCnt, e.replaceNextCharCnt, e.positionDelta);
+				console.log('this._context.viewModel.model.getValue(); : ', this._context.viewModel.model.getValue());
 			} else {
 				if (_debugComposition) {
 					console.log(` => type: <<${e.text}>>`);
 				}
+				console.log('before type');
+				console.log('this._context.viewModel.model.getValue(); : ', this._context.viewModel.model.getValue());
 				this._viewController.type(e.text);
+				console.log('this._context.viewModel.model.getValue(); : ', this._context.viewModel.model.getValue());
 			}
 		}));
 
@@ -368,7 +379,9 @@ export class TextAreaEditContext extends AbstractEditContext {
 			this._viewController.setSelection(modelSelection);
 		}));
 
-		this._register(this._textAreaInput.onCompositionStart((e) => {
+		this._register(this._hiddenAreaInput.onCompositionStart((e) => {
+
+			console.log('on composition start');
 
 			// The textarea might contain some content when composition starts.
 			//
@@ -389,7 +402,6 @@ export class TextAreaEditContext extends AbstractEditContext {
 			// inside the <textarea> will not align nicely with our rendering. We therefore
 			// will hide (if necessary) some of the leading text on the current line.
 
-			const ta = this.textArea.domNode;
 			const modelSelection = this._modelSelections[0];
 
 			// immediately executed function
@@ -410,14 +422,14 @@ export class TextAreaEditContext extends AbstractEditContext {
 				const distanceToModelLineStart = startModelPosition.column - 1 - visibleBeforeCharCount;
 				const hiddenLineTextBefore = lineTextBeforeSelection.substring(0, lineTextBeforeSelection.length - visibleBeforeCharCount);
 				const { tabSize } = this._context.viewModel.model.getOptions();
-				const widthOfHiddenTextBefore = measureText(this.textArea.domNode.ownerDocument, hiddenLineTextBefore, this._fontInfo, tabSize);
+				const widthOfHiddenTextBefore = measureText(this._domElement.domNode.ownerDocument, hiddenLineTextBefore, this._fontInfo, tabSize);
 
 				return { distanceToModelLineStart, widthOfHiddenTextBefore };
 			})();
 
 			const { distanceToModelLineEnd } = (() => {
 				// Find the text that is on the current line after the selection
-				const textAfterSelection = ta.value.substring(Math.max(ta.selectionStart, ta.selectionEnd));
+				const textAfterSelection = this._wrapper.getValue().substring(Math.max(this._wrapper.getSelectionStart(), this._wrapper.getSelectionEnd()));
 				const lineFeedOffset2 = textAfterSelection.indexOf('\n');
 				const lineTextAfterSelection = lineFeedOffset2 === -1 ? textAfterSelection : textAfterSelection.substring(0, lineFeedOffset2);
 
@@ -449,13 +461,13 @@ export class TextAreaEditContext extends AbstractEditContext {
 			);
 
 			// We turn off wrapping if the <textarea> becomes visible for composition
-			this.textArea.setAttribute('wrap', this._textAreaWrapping && !this._visibleTextArea ? 'on' : 'off');
+			this._domElement.setAttribute('wrap', this._textAreaWrapping && !this._visibleTextArea ? 'on' : 'off');
 
 			this._visibleTextArea.prepareRender(this._visibleRangeProvider);
 			this._render();
 
 			// Show the textarea
-			this.textArea.setClassName(`inputarea ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME} ime-input`);
+			this._domElement.setClassName(`${this._wrapper.className} ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME} ime-input`);
 
 			// need to signal that the composition has started to the view controller and the context view model
 			this._viewController.compositionStart();
@@ -463,7 +475,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			console.log('on composition start');
 		}));
 
-		this._register(this._textAreaInput.onCompositionUpdate((e: ICompositionData) => {
+		this._register(this._hiddenAreaInput.onCompositionUpdate((e: ICompositionData) => {
 			if (!this._visibleTextArea) {
 				return;
 			}
@@ -473,16 +485,16 @@ export class TextAreaEditContext extends AbstractEditContext {
 			console.log('on composition update');
 		}));
 
-		this._register(this._textAreaInput.onCompositionEnd(() => {
+		this._register(this._hiddenAreaInput.onCompositionEnd(() => {
 
 			this._visibleTextArea = null;
 
 			// We turn on wrapping as necessary if the <textarea> hides after composition
-			this.textArea.setAttribute('wrap', this._textAreaWrapping && !this._visibleTextArea ? 'on' : 'off');
+			this._domElement.setAttribute('wrap', this._textAreaWrapping && !this._visibleTextArea ? 'on' : 'off');
 
 			this._render();
 
-			this.textArea.setClassName(`inputarea ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME}`);
+			this._domElement.setClassName(`${this._wrapper.className} ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME}`);
 			this._viewController.compositionEnd();
 			this._context.viewModel.onCompositionEnd();
 			console.log('on composition end');
@@ -514,8 +526,9 @@ export class TextAreaEditContext extends AbstractEditContext {
 	}
 
 	appendTo(overflowGuardContainer: FastDomNode<HTMLElement>): void {
-		overflowGuardContainer.appendChild(this.textArea);
-		overflowGuardContainer.appendChild(this.textAreaCover);
+		overflowGuardContainer.appendChild(this._domElement);
+		overflowGuardContainer.appendChild(this.domAreaCover);
+		this._wrapper.setParent(overflowGuardContainer.domNode);
 	}
 
 	public writeScreenReaderContent(reason: string): void {
@@ -666,17 +679,18 @@ export class TextAreaEditContext extends AbstractEditContext {
 		}
 
 		if (e.hasChanged(EditorOption.accessibilitySupport)) {
-			this._textAreaInput.writeNativeTextAreaContent('strategy changed');
+			this._hiddenAreaInput.writeNativeTextAreaContent('strategy changed');
 		}
 
 		return true;
 	}
 	public override onCursorStateChanged(e: viewEvents.ViewCursorStateChangedEvent): boolean {
+		console.log('onCursorStateChanged');
 		this._selections = e.selections.slice(0);
 		this._modelSelections = e.modelSelections.slice(0);
 		// We must update the <textarea> synchronously, otherwise long press IME on macos breaks.
 		// See https://github.com/microsoft/vscode/issues/165821
-		this._textAreaInput.writeNativeTextAreaContent('selection changed');
+		this._hiddenAreaInput.writeNativeTextAreaContent('selection changed');
 		return true;
 	}
 	public override onDecorationsChanged(e: viewEvents.ViewDecorationsChangedEvent): boolean {
@@ -709,7 +723,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 	// --- begin view API
 
 	public isFocused(): boolean {
-		return this._textAreaInput.isFocused();
+		return this._hiddenAreaInput.isFocused();
 	}
 
 	public focus(): void {
@@ -728,16 +742,16 @@ export class TextAreaEditContext extends AbstractEditContext {
 
 	public setAriaOptions(options: IEditorAriaOptions): void {
 		if (options.activeDescendant) {
-			this.textArea.setAttribute('aria-haspopup', 'true');
-			this.textArea.setAttribute('aria-autocomplete', 'list');
-			this.textArea.setAttribute('aria-activedescendant', options.activeDescendant);
+			this._domElement.setAttribute('aria-haspopup', 'true');
+			this._domElement.setAttribute('aria-autocomplete', 'list');
+			this._domElement.setAttribute('aria-activedescendant', options.activeDescendant);
 		} else {
-			this.textArea.setAttribute('aria-haspopup', 'false');
-			this.textArea.setAttribute('aria-autocomplete', 'both');
-			this.textArea.removeAttribute('aria-activedescendant');
+			this._domElement.setAttribute('aria-haspopup', 'false');
+			this._domElement.setAttribute('aria-autocomplete', 'both');
+			this._domElement.removeAttribute('aria-activedescendant');
 		}
 		if (options.role) {
-			this.textArea.setAttribute('role', options.role);
+			this._domElement.setAttribute('role', options.role);
 		}
 	}
 
@@ -749,9 +763,9 @@ export class TextAreaEditContext extends AbstractEditContext {
 		// This will prevent composition.
 		const useReadOnly = !IME.enabled || (options.get(EditorOption.domReadOnly) && options.get(EditorOption.readOnly));
 		if (useReadOnly) {
-			this.textArea.setAttribute('readonly', 'true');
+			this._domElement.setAttribute('readonly', 'true');
 		} else {
-			this.textArea.removeAttribute('readonly');
+			this._domElement.removeAttribute('readonly');
 		}
 	}
 
@@ -769,14 +783,17 @@ export class TextAreaEditContext extends AbstractEditContext {
 		this._primaryCursorPosition = new Position(this._selections[0].positionLineNumber, this._selections[0].positionColumn);
 		this._primaryCursorVisibleRange = ctx.visibleRangeForPosition(this._primaryCursorPosition);
 		this._visibleTextArea?.prepareRender(ctx);
+		this._wrapper.setRenderingContext(ctx);
 	}
 
 	public render(ctx: RestrictedRenderingContext): void {
-		this._textAreaInput.writeNativeTextAreaContent('render');
+		this._hiddenAreaInput.writeNativeTextAreaContent('render');
 		this._render();
 	}
 
 	private _render(): void {
+		console.log('_render');
+
 		if (this._visibleTextArea) {
 			// The text area is visible for composition reasons
 
@@ -914,8 +931,13 @@ export class TextAreaEditContext extends AbstractEditContext {
 	private _doRender(renderData: IRenderData): void {
 		this._lastRenderPosition = renderData.lastRenderPosition;
 
-		const ta = this.textArea;
-		const tac = this.textAreaCover;
+		const ha = this._domElement;
+		const hac = this.domAreaCover;
+		applyFontInfo(ha, this._fontInfo);
+		ha.setTop(renderData.top);
+		ha.setLeft(renderData.left);
+		ha.setWidth(renderData.width);
+		ha.setHeight(renderData.height);
 
 		applyFontInfo(ta, this._fontInfo);
 		if (this._lastRenderPosition) {
@@ -935,24 +957,24 @@ export class TextAreaEditContext extends AbstractEditContext {
 		ta.setFontStyle(renderData.italic ? 'italic' : '');
 		if (renderData.bold) {
 			// fontWeight is also set by `applyFontInfo`, so only overwrite it if necessary
-			ta.setFontWeight('bold');
+			ha.setFontWeight('bold');
 		}
-		ta.setTextDecoration(`${renderData.underline ? ' underline' : ''}${renderData.strikethrough ? ' line-through' : ''}`);
+		ha.setTextDecoration(`${renderData.underline ? ' underline' : ''}${renderData.strikethrough ? ' line-through' : ''}`);
 
-		tac.setTop(renderData.useCover ? renderData.top : 0);
-		tac.setLeft(renderData.useCover ? renderData.left : 0);
-		tac.setWidth(renderData.useCover ? renderData.width : 0);
-		tac.setHeight(renderData.useCover ? renderData.height : 0);
+		hac.setTop(renderData.useCover ? renderData.top : 0);
+		hac.setLeft(renderData.useCover ? renderData.left : 0);
+		hac.setWidth(renderData.useCover ? renderData.width : 0);
+		hac.setHeight(renderData.useCover ? renderData.height : 0);
 
 		const options = this._context.configuration.options;
 
 		if (options.get(EditorOption.glyphMargin)) {
-			tac.setClassName('monaco-editor-background textAreaCover ' + Margin.OUTER_CLASS_NAME);
+			hac.setClassName('monaco-editor-background textAreaCover ' + Margin.OUTER_CLASS_NAME);
 		} else {
 			if (options.get(EditorOption.lineNumbers).renderType !== RenderLineNumbersType.Off) {
-				tac.setClassName('monaco-editor-background textAreaCover ' + LineNumbersOverlay.CLASS_NAME);
+				hac.setClassName('monaco-editor-background textAreaCover ' + LineNumbersOverlay.CLASS_NAME);
 			} else {
-				tac.setClassName('monaco-editor-background textAreaCover');
+				hac.setClassName('monaco-editor-background textAreaCover');
 			}
 		}
 	}

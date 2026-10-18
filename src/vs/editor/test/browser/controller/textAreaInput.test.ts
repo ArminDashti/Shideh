@@ -56,7 +56,11 @@ suite('TextAreaInput', () => {
 				throw new Error('Function not implemented.');
 			}
 		};
-		const wrapper = disposables.add(new class extends Disposable implements ICompleteTextAreaWrapper {
+		const wrapper = disposables.add(new class extends Disposable implements ICompleteHiddenAreaWrapper {
+
+			public readonly className: string = 'test';
+			public readonly actual = createFastDomNode(document.createElement('div'));
+
 			private _onKeyDown = this._register(new Emitter<KeyboardEvent>());
 			readonly onKeyDown = this._onKeyDown.event;
 
@@ -78,7 +82,7 @@ suite('TextAreaInput', () => {
 			private _onBeforeInput = this._register(new Emitter<InputEvent>());
 			readonly onBeforeInput = this._onBeforeInput.event;
 
-			private _onInput = this._register(new Emitter<InputEvent>());
+			private _onInput = this._register(new Emitter<{ timeStamp: number; type: string; data: string; inputType: string; isComposing: boolean }>());
 			readonly onInput = this._onInput.event;
 
 			readonly onCut = Event.None;
@@ -165,14 +169,21 @@ suite('TextAreaInput', () => {
 					if (event.type === 'beforeinput') {
 						this._onBeforeInput.fire(mockEvent);
 					} else {
-						this._onInput.fire(mockEvent);
+						this._onInput.fire({
+							timeStamp: mockEvent.timeStamp,
+							type: mockEvent.type,
+							data: mockEvent.data ?? '',
+							inputType: mockEvent.inputType,
+							isComposing: mockEvent.isComposing
+						});
 					}
 				} else {
 					throw new Error(`Not Implemented`);
 				}
 				this._currDispatchingEvent = null;
 			}
-
+			setRenderingContext(): void { }
+			setParent(): void { }
 			getValue(): string {
 				return this._state.value;
 			}
@@ -203,7 +214,7 @@ suite('TextAreaInput', () => {
 
 			public hasFocus(): boolean { return true; }
 		});
-		const input = disposables.add(new TextAreaInput(host, wrapper, recorded.env.OS, recorded.env.browser, new TestAccessibilityService(), new NullLogService()));
+		const input = disposables.add(new HiddenAreaInput(host, wrapper, recorded.env.OS, recorded.env.browser, new TestAccessibilityService(), new NullLogService()));
 
 		wrapper._initialize(recorded.initial);
 		input._initializeFromTest();

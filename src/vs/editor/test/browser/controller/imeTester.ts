@@ -88,7 +88,7 @@ function doCreateTest(strategy:TextAreaStrategy, description:string, inputStr:st
 	let input = document.createElement('textarea');
 	input.setAttribute('rows', '10');
 	input.setAttribute('cols', '40');
-	container.appendChild(input);
+	container.appendChild(input.domNode);
 
 	let textAreaWrapper = new TextAreaWrapper(input);
 
@@ -157,7 +157,7 @@ function doCreateTest(strategy:TextAreaStrategy, description:string, inputStr:st
 
 	startBtn.onclick = function() {
 		updateModelAndPosition('some  text', 5, 0);
-		input.focus();
+		input.domNode.focus();
 	};
 
 	return container;
