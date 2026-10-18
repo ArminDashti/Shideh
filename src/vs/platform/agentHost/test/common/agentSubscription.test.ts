@@ -225,6 +225,156 @@ suite('Automation subscriptions', () => {
 	});
 });
 
+suite('createActiveAgentHostSubscriptionObs', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('preserves snapshots and follows active lifetime', () => {
+		const changed = disposables.add(new Emitter<{ value: number }>());
+		let value: { value: number } | undefined = { value: 42 };
+		let acquired = 0;
+		let released = 0;
+		const subscription: IAgentSubscription<{ value: number }> = {
+			get value() { return value; },
+			verifiedValue: undefined,
+			onDidChange: changed.event,
+			onWillApplyAction: Event.None,
+			onDidApplyAction: Event.None,
+		};
+		const connection = {
+			getSubscription: <T extends StateComponents>(_kind: T, _resource: URI, _owner: string): IReference<IAgentSubscription<ComponentToState[T]>> => {
+				acquired++;
+				return {
+					object: subscription as unknown as IAgentSubscription<ComponentToState[T]>,
+					dispose: () => released++,
+				};
+			},
+		} as IAgentConnection;
+		const enabled = observableValue('enabled', true);
+		const observed = createActiveAgentHostSubscriptionObs<{ value: number }>(
+			{},
+			constObservable(connection),
+			enabled,
+			StateComponents.Changeset,
+			constObservable(URI.parse('ahp-session:/test/changeset/branch')),
+			'test',
+		);
+		const observedValues: Array<number | undefined | null> = [];
+		const observer = disposables.add(autorun(reader => {
+			const state = observed.read(reader).read(reader);
+			observedValues.push(state === null ? null : state instanceof Error ? undefined : state?.value);
+		}));
+
+		value = { value: 1 };
+		changed.fire(value);
+		value = { value: 2 };
+		changed.fire(value);
+		enabled.set(false, undefined);
+		enabled.set(true, undefined);
+		observer.dispose();
+
+		assert.deepStrictEqual({
+			observedValues,
+			acquired,
+			released,
+		}, {
+			observedValues: [42, 1, 2, null, 2],
+			acquired: 2,
+			released: 2,
+		});
+	});
+
+	test('acquires after a connection-dependent resource becomes available', () => {
+		const subscription: IAgentSubscription<{ value: number }> = {
+			value: { value: 42 },
+			verifiedValue: { value: 42 },
+			onDidChange: Event.None,
+			onWillApplyAction: Event.None,
+			onDidApplyAction: Event.None,
+		};
+		let acquired = 0;
+		let released = 0;
+		const connection = {
+			getSubscription: <T extends StateComponents>(_kind: T, _resource: URI, _owner: string): IReference<IAgentSubscription<ComponentToState[T]>> => {
+				acquired++;
+				return {
+					object: subscription as unknown as IAgentSubscription<ComponentToState[T]>,
+					dispose: () => released++,
+				};
+			},
+		} as IAgentConnection;
+		const connectionObs = observableValue<IAgentConnection | undefined>('connection', undefined);
+		const observed = createActiveAgentHostSubscriptionObs<{ value: number }>(
+			{},
+			connectionObs,
+			constObservable(true),
+			StateComponents.Changeset,
+			constObservable(URI.parse('ahp-session:/test/changeset/branch')),
+			'test',
+		);
+		const observedValues: Array<number | null | undefined> = [];
+		const observer = disposables.add(autorun(reader => {
+			const state = observed.read(reader).read(reader);
+			observedValues.push(state === null ? null : state instanceof Error ? undefined : state?.value);
+		}));
+
+		connectionObs.set(connection, undefined);
+		observer.dispose();
+
+		assert.deepStrictEqual({
+			observedValues,
+			acquired,
+			released,
+		}, {
+			observedValues: [null, 42],
+			acquired: 1,
+			released: 1,
+		});
+	});
+
+	test('reacquires when the connection changes', () => {
+		const acquired: number[] = [];
+		const released: number[] = [];
+		const createConnection = (value: number): IAgentConnection => ({
+			getSubscription: <T extends StateComponents>(_kind: T, _resource: URI, _owner: string): IReference<IAgentSubscription<ComponentToState[T]>> => {
+				acquired.push(value);
+				return {
+					object: {
+						value: { value },
+						verifiedValue: { value },
+						onDidChange: Event.None,
+						onWillApplyAction: Event.None,
+						onDidApplyAction: Event.None,
+					} as unknown as IAgentSubscription<ComponentToState[T]>,
+					dispose: () => released.push(value),
+				};
+			},
+		} as IAgentConnection);
+		const connectionObs = observableValue<IAgentConnection | undefined>('connection', createConnection(1));
+		const observed = createActiveAgentHostSubscriptionObs<{ value: number }>(
+			{},
+			connectionObs,
+			constObservable(true),
+			StateComponents.Changeset,
+			constObservable(URI.parse('ahp-session:/test/changeset/branch')),
+			'test',
+		);
+		const observedValues: Array<number | null | undefined> = [];
+		const observer = disposables.add(autorun(reader => {
+			const state = observed.read(reader).read(reader);
+			observedValues.push(state === null ? null : state instanceof Error ? undefined : state?.value);
+		}));
+
+		connectionObs.set(createConnection(2), undefined);
+		observer.dispose();
+
+		assert.deepStrictEqual({ observedValues, acquired, released }, {
+			observedValues: [1, 2],
+			acquired: [1, 2],
+			released: [1, 2],
+		});
+	});
+});
+
 suite('ChangesetStateSubscription', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 

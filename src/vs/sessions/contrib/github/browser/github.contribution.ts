@@ -20,7 +20,6 @@ import { getSessionGitHubReferences } from '../common/sessionGitHubReferences.js
 import { getPullRequestKey } from '../common/utils.js';
 import { AUTO_DELETE_MARKED_AS_DONE_MERGED_SESSIONS_AFTER_DAYS_SETTING, AUTO_MARK_AS_DONE_MERGED_SESSIONS_AFTER_DAYS_SETTING } from '../common/sessionLifecycleSettings.js';
 import { GitHubService, IGitHubService } from './githubService.js';
-import { IPullRequestIconCache, PullRequestIconCache } from './pullRequestIconCache.js';
 
 import './pullRequestActions.js';
 import './createSessionFromPullRequestAction.js';
@@ -331,5 +330,3 @@ export class GitHubPullRequestPollingContribution extends Disposable implements 
 registerWorkbenchContribution2(GitHubPullRequestPollingContribution.ID, GitHubPullRequestPollingContribution, WorkbenchPhase.AfterRestored);
 
 registerSingleton(IGitHubService, GitHubService, InstantiationType.Delayed);
-
-registerSingleton(IPullRequestIconCache, PullRequestIconCache, InstantiationType.Delayed);

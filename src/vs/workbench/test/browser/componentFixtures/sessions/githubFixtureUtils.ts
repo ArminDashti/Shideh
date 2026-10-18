@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, IDisposable, IReference, ReferenceCollection } from '../../../../../base/common/lifecycle.js';
+import { Event } from '../../../../../base/common/event.js';
 import { constObservable, IObservable } from '../../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { GitHubCommit } from '../../../../../platform/github/common/githubQueryService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { IAgentSessionPullRequestIconCache } from '../../../../services/agentHost/common/agentSessionPullRequestIconCache.js';
 // eslint-disable-next-line local/code-import-patterns
 import { GitHubPRFetcher } from '../../../../../sessions/contrib/github/browser/fetchers/githubPRFetcher.js';
 // eslint-disable-next-line local/code-import-patterns
@@ -23,8 +25,6 @@ import { GitHubIssueModel } from '../../../../../sessions/contrib/github/browser
 import { GitHubIssueFetcher } from '../../../../../sessions/contrib/github/browser/fetchers/githubIssueFetcher.js';
 // eslint-disable-next-line local/code-import-patterns
 import { IGitHubService } from '../../../../../sessions/contrib/github/browser/githubService.js';
-// eslint-disable-next-line local/code-import-patterns
-import { IPullRequestIconCache } from '../../../../../sessions/contrib/github/browser/pullRequestIconCache.js';
 // eslint-disable-next-line local/code-import-patterns
 import { GitHubCIOverallStatus, IGitHubIssue, IGitHubPullRequest, IGitHubPullRequestReviewThread } from '../../../../../sessions/contrib/github/common/types.js';
 
@@ -160,10 +160,11 @@ export function createFixtureGitHubService(entries: readonly IFixturePullRequest
 	}();
 }
 
-export function createFixturePullRequestIconCache(): IPullRequestIconCache {
+export function createFixturePullRequestIconCache(): IAgentSessionPullRequestIconCache {
 	const icons = new Map<string, ThemeIcon>();
 	return {
 		_serviceBrand: undefined,
+		onDidChange: Event.None,
 		get: link => icons.get(link),
 		set: (link, icon) => { icons.set(link, icon); },
 	};

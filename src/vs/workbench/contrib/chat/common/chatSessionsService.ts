@@ -302,6 +302,9 @@ export interface IChatSessionItemMetadata {
 	readonly outgoingChanges?: number;
 	//#endregion
 
+	readonly pullRequestUrl?: string;
+	readonly pullRequestNumber?: number;
+
 	readonly [key: string]: unknown;
 }
 

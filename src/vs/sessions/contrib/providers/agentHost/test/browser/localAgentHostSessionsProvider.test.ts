@@ -75,7 +75,7 @@ import { ILogService, NullLogService } from '../../../../../../platform/log/comm
 import { IWorkflowSourceEnablementService } from '../../../../../../workbench/contrib/workflows/common/workflowSources.js';
 import { IGitHubService } from '../../../../github/browser/githubService.js';
 import { GitHubPullRequestModel } from '../../../../github/browser/models/githubPullRequestModel.js';
-import { IPullRequestIconCache, PullRequestIconCache } from '../../../../github/browser/pullRequestIconCache.js';
+import { AgentSessionPullRequestIconCache, IAgentSessionPullRequestIconCache } from '../../../../../../workbench/services/agentHost/common/agentSessionPullRequestIconCache.js';
 import { computePullRequestIcon, GitHubPullRequestState, type IGitHubPullRequest } from '../../../../github/common/types.js';
 import { IWorkbenchEnvironmentService } from '../../../../../../workbench/services/environment/common/environmentService.js';
 import { IAgentHostSessionsProvider } from '../../../../../common/agentHostSessionsProvider.js';

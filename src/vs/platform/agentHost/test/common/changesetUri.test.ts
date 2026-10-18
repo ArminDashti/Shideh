@@ -101,6 +101,15 @@ suite('changesetUri', () => {
 		assert.throws(() => buildFolderChangesetOwnerUri(sessionUri, 'a/b'));
 	});
 
+	test('default changeset prefers Branch Changes', () => {
+		const changesets = [
+			{ label: 'Session Changes', uriTemplate: `${sessionUri}/changeset/session`, changeKind: ChangesetKind.Session },
+			{ label: 'Branch Changes', uriTemplate: `${sessionUri}/changeset/branch`, changeKind: ChangesetKind.Branch },
+		];
+		assert.strictEqual(getDefaultChangeset(changesets), changesets[1]);
+		assert.strictEqual(getDefaultChangeset(changesets.slice(0, 1)), changesets[0]);
+	});
+
 	test('parseChangesetUri identifies the well-known kinds', () => {
 		assert.deepStrictEqual(parseChangesetUri(buildSessionChangesetUri(sessionUri)),
 			{ ownerUri: sessionUri, sessionUri, changesetId: 'session', kind: ChangesetKind.Session });

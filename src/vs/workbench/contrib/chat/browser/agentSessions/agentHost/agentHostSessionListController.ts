@@ -293,9 +293,10 @@ export class AgentHostSessionListController extends Disposable implements IChatS
 	}): IChatSessionItem {
 		const inProgress = opts.status !== undefined && (opts.status & SessionStatus.InProgress) !== 0;
 		const description = inProgress && opts.activity ? opts.activity : this._description;
+		const pullRequestUrl = getSessionRelatedPullRequestUrls(readSessionGitHubState(opts.meta))[0];
 		const metadata = opts.adoptable
-			? { ...(this._buildMetadata(opts.workingDirectory) ?? {}), [SESSION_META_EHCLI_ADOPTABLE_KEY]: true }
-			: this._buildMetadata(opts.workingDirectory);
+			? { ...(this._buildMetadata(opts.workingDirectory, pullRequestUrl) ?? {}), [SESSION_META_EHCLI_ADOPTABLE_KEY]: true }
+			: this._buildMetadata(opts.workingDirectory, pullRequestUrl);
 		return {
 			resource: opts.chat ? this._chatResource(rawId, opts.chat) : this._resource(rawId),
 			label: opts.title || `Session ${rawId.substring(0, 8)}`,
@@ -344,8 +345,8 @@ export class AgentHostSessionListController extends Disposable implements IChatS
 		return URI.from({ scheme: this._sessionType, path: `/${rawId}` });
 	}
 
-	private _buildMetadata(workingDirectory: URI | undefined): { readonly [key: string]: unknown } | undefined {
-		if (!this._description && !workingDirectory) {
+	private _buildMetadata(workingDirectory: URI | undefined, pullRequestUrl: string | undefined): IChatSessionItemMetadata | undefined {
+		if (!this._description && !workingDirectory && !pullRequestUrl) {
 			return undefined;
 		}
 		const result: { [key: string]: unknown } = {};
@@ -354,6 +355,13 @@ export class AgentHostSessionListController extends Disposable implements IChatS
 		}
 		if (workingDirectory) {
 			result.workingDirectoryPath = workingDirectory.fsPath;
+		}
+		if (pullRequestUrl) {
+			result.pullRequestUrl = pullRequestUrl;
+			const [pullRequest] = parseGitHubPullRequestReferences(pullRequestUrl);
+			if (pullRequest) {
+				result.pullRequestNumber = pullRequest.number;
+			}
 		}
 		return Object.keys(result).length > 0 ? result : undefined;
 	}

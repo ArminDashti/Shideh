@@ -17,6 +17,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI, UriComponents } from '../../../../../base/common/uri.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { localize } from '../../../../../nls.js';
+import { toGitHubPullRequestUrl } from '../../../../../platform/agentHost/common/githubPullRequestReferences.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService, LogLevel } from '../../../../../platform/log/common/log.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
@@ -24,6 +25,7 @@ import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
+import { IResourceMultiDiffEditorInput } from '../../../../common/editor.js';
 import { IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
@@ -284,7 +286,7 @@ export function getAgentSessionPullRequestUri(session: Pick<IAgentSession, 'meta
 	const owner = metadata.owner;
 	const name = metadata.name;
 	if (typeof prNumber === 'number' && typeof owner === 'string' && owner && typeof name === 'string' && name) {
-		return URI.parse(`https://github.com/${owner}/${name}/pull/${prNumber}`);
+		return URI.parse(toGitHubPullRequestUrl({ owner, repo: name, number: prNumber }));
 	}
 
 	return undefined;

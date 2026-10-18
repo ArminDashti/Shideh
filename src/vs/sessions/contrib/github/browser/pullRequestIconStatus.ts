@@ -10,7 +10,6 @@ import { getAgentMergeAwarePullRequestIcon, ISessionAgentMergeConfiguration } fr
 import { getHighestPriorityPullRequestIcon, IGitHubPullRequestRef } from '../../../services/sessions/common/session.js';
 import { computePullRequestIcon, GitHubCIOverallStatus, GitHubPullRequestState, IGitHubPullRequest, IPullRequestIconStatus } from '../common/types.js';
 import { IGitHubService } from './githubService.js';
-import { IPullRequestIconCache } from './pullRequestIconCache.js';
 
 export interface IResolvedSessionPullRequest {
 	readonly ref: IGitHubPullRequestRef;

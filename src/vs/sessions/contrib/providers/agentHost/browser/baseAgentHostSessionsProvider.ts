@@ -1393,7 +1393,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 		private readonly _acquireChatDetails: (sessionId: string) => IDisposable,
 		@IGitHubService private readonly _gitHubService: IGitHubService,
 		@ISessionsService private readonly _sessionsService: ISessionsService,
-		@IPullRequestIconCache private readonly _pullRequestIconCache: IPullRequestIconCache,
+		@IAgentSessionPullRequestIconCache private readonly _pullRequestIconCache: IAgentSessionPullRequestIconCache,
 	) {
 		super();
 		const rawId = AgentSession.id(metadata.session);
@@ -3992,6 +3992,10 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 	/** Current connection (always present for local; may be undefined while disconnected for remote). */
 	protected abstract get connection(): IAgentConnection | undefined;
+
+	protected _setAdapterConnection(connection: IAgentConnection | undefined): void {
+		this._adapterConnection.set(connection, undefined);
+	}
 
 	/** Provider-level authentication-pending observable used to derive `loading` for sessions. */
 	protected abstract get authenticationPending(): IObservable<boolean>;

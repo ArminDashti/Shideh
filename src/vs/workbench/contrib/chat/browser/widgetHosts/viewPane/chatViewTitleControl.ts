@@ -9,7 +9,7 @@ import { renderAsPlaintext } from '../../../../../../base/browser/markdownRender
 
 import { Emitter } from '../../../../../../base/common/event.js';
 import { MarkdownString } from '../../../../../../base/common/htmlContent.js';
-import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { MarshalledId } from '../../../../../../base/common/marshallingIds.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
@@ -37,9 +37,13 @@ export class ChatViewTitleControl extends Disposable {
 	private titleLabel: HTMLElement | undefined;
 
 	private model: IChatModel | undefined;
-	private modelDisposables = this._register(new MutableDisposable());
+	private modelDisposables = this._register(new MutableDisposable<DisposableStore>());
+	private readonly session = observableValue<IAgentSession | undefined>(this, undefined);
 
 	private actionsToolbar?: MenuWorkbenchToolBar;
+	private readonly sessionMetaActionViewItems = new Map<string, SessionHeaderMetaActionViewItem>();
+	private readonly viewChangesAction: Action;
+	private readonly openPullRequestAction: Action;
 
 	private lastKnownHeight = 0;
 
@@ -48,8 +52,25 @@ export class ChatViewTitleControl extends Disposable {
 		private readonly delegate: IChatViewTitleDelegate,
 		resizeObserverCtor: typeof ResizeObserver | undefined,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IAgentSessionsService private readonly agentSessionsService: IAgentSessionsService,
+		@ICommandService private readonly commandService: ICommandService,
 	) {
 		super();
+
+		this.viewChangesAction = this._register(new Action(
+			VIEW_AGENT_SESSION_CHANGES_ACTION_ID,
+			localize('chat.viewAgentSessionChanges', "Changes"),
+			ThemeIcon.asClassName(Codicon.diffMultiple),
+			true,
+			async () => this.executeSessionMetaAction(VIEW_AGENT_SESSION_CHANGES_ACTION_ID),
+		));
+		this.openPullRequestAction = this._register(new Action(
+			OPEN_AGENT_SESSION_PULL_REQUEST_ACTION_ID,
+			localize('chat.openAgentSessionPullRequest', "Open Pull Request"),
+			ThemeIcon.asClassName(Codicon.gitPullRequest),
+			true,
+			async () => this.executeSessionMetaAction(OPEN_AGENT_SESSION_PULL_REQUEST_ACTION_ID),
+		));
 
 		this.render(this.container);
 		// Avoid forcing layout; ResizeObserver reports the final size before paint and triggers relayout.
@@ -102,9 +123,58 @@ export class ChatViewTitleControl extends Disposable {
 				h('div.chat-view-title-actions-toolbar@actionsToolbar'),
 			]),
 		]);
+		this.titleInner = elements.titleInner;
 
 		// Title label (plain text)
 		this.titleLabel = elements.titleLabel;
+
+		this.sessionMetaContainer = elements.sessionMeta;
+		this.sessionMetaToolbar = this._register(this.instantiationService.createInstance(WorkbenchToolBar, elements.sessionMeta, {
+			ariaLabel: localize('chat.sessionMetadata', "Chat Session Metadata"),
+			actionViewItemProvider: (action, options) => {
+				if (options.isMenu) {
+					return undefined;
+				}
+
+				let item: SessionHeaderMetaActionViewItem | undefined;
+				if (action.id === VIEW_AGENT_SESSION_CHANGES_ACTION_ID) {
+					item = this.instantiationService.createInstance(SessionChangesMetaActionViewItem, undefined, action, options, reader => {
+						const session = this.session.read(reader);
+						const summary = getAgentChangesSummary(session?.changes);
+						const branchName = session?.metadata?.branchName;
+						const branch = session?.metadata?.branch;
+						return {
+							branch: typeof branchName === 'string' ? branchName : typeof branch === 'string' ? branch : undefined,
+							files: summary?.files ?? 0,
+							insertions: summary?.insertions ?? 0,
+							deletions: summary?.deletions ?? 0,
+						};
+					});
+				} else if (action.id === OPEN_AGENT_SESSION_PULL_REQUEST_ACTION_ID) {
+					item = this.instantiationService.createInstance(ChatViewTitlePullRequestActionViewItem, action, options, this.session);
+				}
+
+				if (item) {
+					this.sessionMetaActionViewItems.set(action.id, item);
+				}
+				return item;
+			},
+		}));
+		const hasSessionChanges = derived(this, reader => canOpenAgentSessionChanges(this.session.read(reader)));
+		const hasSessionPullRequest = derived(this, reader => {
+			const session = this.session.read(reader);
+			return !!session && !!getAgentSessionPullRequestUri(session);
+		});
+		this._register(autorun(reader => {
+			const actions: IAction[] = [];
+			if (hasSessionChanges.read(reader)) {
+				actions.push(this.viewChangesAction);
+			}
+			if (hasSessionPullRequest.read(reader)) {
+				actions.push(this.openPullRequestAction);
+			}
+			this.setSessionMetaActions(actions);
+		}));
 
 		// Actions toolbar on the right
 		this.actionsToolbar = this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, elements.actionsToolbar, MenuId.ChatViewSessionTitleToolbar, {
@@ -116,23 +186,79 @@ export class ChatViewTitleControl extends Disposable {
 		this.titleContainer = elements.root;
 
 		parent.appendChild(this.titleContainer);
+
+		const compactObserver = this._register(new DisposableResizeObserver('ChatViewTitleControl.compact', entries => {
+			if (entries[0]) {
+				this.updateCompactState();
+			}
+		}));
+		this._register(compactObserver.observe(elements.titleInner));
+	}
+
+	private executeSessionMetaAction(actionId: string): Promise<unknown> | undefined {
+		const context = this.getTitleActionContext();
+		return context ? this.commandService.executeCommand(actionId, context) : undefined;
+	}
+
+	private getTitleActionContext(): IChatViewTitleActionContext | undefined {
+		return this.model && {
+			$mid: MarshalledId.ChatViewContext,
+			sessionResource: this.model.sessionResource,
+		};
+	}
+
+	private setSessionMetaActions(actions: readonly IAction[]): void {
+		if (!this.sessionMetaToolbar || !this.sessionMetaContainer) {
+			return;
+		}
+
+		const activeElement = this.sessionMetaContainer.ownerDocument.activeElement;
+		const focusedActionId = isHTMLElement(activeElement) && this.sessionMetaToolbar.getElement().contains(activeElement)
+			? this.sessionMetaToolbar.getItemAction(activeElement)?.id
+			: undefined;
+
+		this.sessionMetaContainer.classList.toggle('visible', actions.length > 0);
+		this.sessionMetaActionViewItems.clear();
+		this.sessionMetaToolbar.setActions(actions);
+		this.updateCompactState();
+
+		if (focusedActionId) {
+			const focusedItem = this.sessionMetaActionViewItems.get(focusedActionId);
+			if (focusedItem) {
+				focusedItem.focus();
+			} else {
+				this.navigationToolbar?.focus();
+			}
+		}
 	}
 
 	update(model: IChatModel | undefined): void {
 		this.model = model;
 
-		this.modelDisposables.value = model?.onDidChange(e => {
-			if (e.kind === 'setCustomTitle' || e.kind === 'addRequest') {
+		const store = new DisposableStore();
+		this.modelDisposables.value = store;
+		this.session.set(undefined, undefined);
+		if (model) {
+			store.add(model.onDidChange(e => {
+				if (e.kind === 'setCustomTitle' || e.kind === 'addRequest') {
+					this.doUpdate();
+				}
+			}));
+			const session = this.agentSessionsService.model.observeSession(model.sessionResource);
+			store.add(autorun(reader => {
+				this.session.set(session.read(reader), undefined);
 				this.doUpdate();
-			}
-		});
+			}));
+		}
 
 		this.doUpdate();
 	}
 
 	private doUpdate(): void {
 		const markdownTitle = new MarkdownString(this.model?.title ?? '');
-		this.title = renderAsPlaintext(markdownTitle);
+		const modelTitle = renderAsPlaintext(markdownTitle);
+		const sessionTitle = renderAsPlaintext(new MarkdownString(this.session.get()?.label ?? ''));
+		this.title = modelTitle || sessionTitle || undefined;
 
 		this.updateTitle(this.title ?? ChatViewTitleControl.DEFAULT_TITLE);
 
@@ -157,7 +283,7 @@ export class ChatViewTitleControl extends Disposable {
 	}
 
 	private shouldRender(): boolean {
-		return !!this.model?.title; // we need a chat showing and not being empty
+		return !!this.model && !!this.title; // we need a chat showing and not being empty
 	}
 
 	getHeight(): number {

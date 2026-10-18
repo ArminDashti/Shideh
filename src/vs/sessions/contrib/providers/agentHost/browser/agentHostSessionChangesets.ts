@@ -5,7 +5,7 @@
 
 import { arrayEqualsC, structuralEquals } from '../../../../../base/common/equals.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
-import { constObservable, derived, derivedObservableWithCache, derivedOpts, IObservable, IReader, mapObservableArrayCached, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { constObservable, derived, derivedObservableWithCache, derivedOpts, IObservable, IReader, mapObservableArrayCached, observableValue } from '../../../../../base/common/observable.js';
 import { basename, extUriBiasedIgnorePathCase, isEqual } from '../../../../../base/common/resources.js';
 import { format } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
@@ -17,6 +17,7 @@ import { AGENT_MERGE_CHANGESET_ID, ChangesetKind, resolveChangesetUriTemplate, r
 import { isAgentMergeMessage } from '../../../../../platform/agentHost/common/meta/agentMergeMessageMeta.js';
 import { ChangesetOperationTargetKind, InvokeChangesetOperationResult } from '../../../../../platform/agentHost/common/state/protocol/channels-changeset/commands.js';
 import { ChangesetOperation, ChangesetOperationScope, type ChangesetFile, ChangesetOperationStatus } from '../../../../../platform/agentHost/common/state/protocol/state.js';
+import { createActiveAgentHostSubscriptionObs } from '../../../../../platform/agentHost/common/state/agentSubscription.js';
 import { ActionType } from '../../../../../platform/agentHost/common/state/sessionActions.js';
 import { buildDefaultChatUri, ChangesetStatus, Changeset, isHostNoticeTurn, lastAttributableTurnId, MessageKind, StateComponents, TurnState, type ChangesetState, type ChatState, type ChatSummary, type SessionState } from '../../../../../platform/agentHost/common/state/sessionState.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -588,7 +589,7 @@ abstract class AbstractAgentHostChangeset implements ISessionChangeset {
 			return;
 		}
 
-		const connection = this._options.getConnection();
+		const connection = this._options.connection.get();
 		const channel = this.channelUriObs.get();
 		if (!connection || !channel) {
 			return;
@@ -644,11 +645,13 @@ class AgentHostChangeset extends AbstractAgentHostChangeset {
 		this.resource = URI.parse(changesetSummary.uriTemplate);
 		this.channelUriObs = constObservable(this.resource);
 
-		this.changesetStateObs = createActiveSessionSubscriptionObs<ChangesetState>(
-			options,
+		this.changesetStateObs = createActiveAgentHostSubscriptionObs<ChangesetState>(
+			this,
+			options.connection,
 			isActiveSessionObs,
 			StateComponents.Changeset,
 			this.channelUriObs,
+			'AgentHostSessionChangesets',
 		);
 
 		this.id = changesetSummary.id ?? changesetSummary.changeKind;
@@ -706,11 +709,13 @@ class AgentHostLastTurnChangeset extends AbstractAgentHostChangeset {
 				return selectMostRecentChatUri(sessionState, sessionUri);
 			});
 
-		const chatStateObs = createActiveSessionSubscriptionObs<ChatState>(
-			options,
+		const chatStateObs = createActiveAgentHostSubscriptionObs<ChatState>(
+			this,
+			options.connection,
 			isActiveSessionObs,
 			StateComponents.Chat,
 			mostRecentChatUriObs,
+			'AgentHostSessionChangesets',
 		);
 
 		this._workingDirectoriesObs = derived(reader => {
@@ -749,11 +754,13 @@ class AgentHostLastTurnChangeset extends AbstractAgentHostChangeset {
 		});
 
 		// Subscribe to last turn changes
-		this.changesetStateObs = createActiveSessionSubscriptionObs<ChangesetState>(
-			options,
+		this.changesetStateObs = createActiveAgentHostSubscriptionObs<ChangesetState>(
+			this,
+			options.connection,
 			isActiveSessionObs,
 			StateComponents.Changeset,
 			this.channelUriObs,
+			'AgentHostSessionChangesets',
 		);
 
 		this.isEnabled = derived(reader => this.channelUriObs.read(reader) !== undefined);

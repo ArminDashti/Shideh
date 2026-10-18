@@ -52,12 +52,6 @@ export interface IGitHubChangedFile {
 
 //#region Pull Request
 
-export const enum GitHubPullRequestState {
-	Open = 'open',
-	Closed = 'closed',
-	Merged = 'merged',
-}
-
 export interface IGitHubUser {
 	readonly login: string;
 	readonly avatarUrl: string;
