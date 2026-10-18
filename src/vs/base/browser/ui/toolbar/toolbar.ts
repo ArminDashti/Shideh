@@ -125,6 +125,7 @@ export class ToolBar extends Disposable {
 			allowContextMenu: options.allowContextMenu,
 			highlightToggledItems: options.highlightToggledItems,
 			hoverDelegate: options.hoverDelegate,
+			focusOnlyEnabledItems: true,
 			actionViewItemProvider: (action, viewItemOptions) => {
 				if (action.id === ToggleMenuAction.ID) {
 					this.toggleMenuActionViewItem = new DropdownMenuActionViewItem(
