@@ -529,7 +529,8 @@ export class ChatTerminalToolProgressPart extends BaseChatToolInvocationSubPart 
 
 		this._renderImagePills(toolInvocation, context, elements.container);
 
-		// Only auto-expand in thinking containers if there's actual output to show
+		// Auto-expand output in collapsible wrappers if there's actual stored output to show.
+		// This covers both thinking containers and simple terminal mode on restore.
 		const hasStoredOutput = !!terminalData.terminalCommandOutput;
 		const storedExpandedState = expandedStateByInvocation.get(toolInvocation);
 		const hasStoredExpandedState = expandedStateByInvocation.has(toolInvocation);
