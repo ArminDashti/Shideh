@@ -1531,6 +1531,25 @@ suite('AgentHostAutomationService', () => {
 			run: AutomationRunStatus.Completed,
 			summary: AutomationRunStatus.Completed,
 		});
+		const writesBeforeConfigRefresh = writeAttempts;
+		let cataloguePublications = 0;
+		disposables.add(stateManager.onDidEmitEnvelope(envelope => {
+			if (envelope.channel === AUTOMATION_CATALOG_URI && envelope.action.type === ActionType.AutomationSet) {
+				cataloguePublications++;
+			}
+		}));
+		stateManager.dispatchServerAction(ROOT_STATE_URI, {
+			type: ActionType.RootConfigChanged, config: { 'test.unrelated': true },
+		});
+		await service.handleConfigurationChanged();
+		assert.deepStrictEqual({
+			writes: writeAttempts - writesBeforeConfigRefresh,
+			cataloguePublications,
+			operations: stateManager.getAutomationCatalogState()?.entries[0].operations,
+		}, {
+			writes: 0, cataloguePublications: 0,
+			operations: [AutomationOperation.Update, AutomationOperation.Remove, AutomationOperation.Run],
+		});
 		stateManager.dispatchServerAction(buildDefaultChatUri(session), { type: ActionType.ChatTurnComplete, turnId, duration: 10 });
 		await service.fetchAutomationRuns({ channel: 'ahp-automations://', automation: params.automation });
 		assert.deepStrictEqual(telemetry.events.filter(event => event.name !== 'automation.created').map(event => ({

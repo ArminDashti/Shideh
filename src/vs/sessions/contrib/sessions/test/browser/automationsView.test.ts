@@ -9,6 +9,7 @@ import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js
 import { DataTransfers } from '../../../../../base/browser/dnd.js';
 import { EventType, getWindow, ModifierKeyEmitter } from '../../../../../base/browser/dom.js';
 import { GestureEvent, EventType as TouchEventType } from '../../../../../base/browser/touch.js';
+import { setARIAContainer } from '../../../../../base/browser/ui/aria/aria.js';
 import type { IDelayedHoverOptions } from '../../../../../base/browser/ui/hover/hover.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
@@ -373,11 +374,12 @@ class TestKeybindingService extends MockKeybindingService {
 
 class FakeRunner extends mock<IAutomationRunner>() {
 	whenDispatched: Promise<IAutomationRunDispatch> = Promise.resolve({ kind: 'notStarted', reason: 'targetUnavailable' });
+	whenCompleted: Promise<void> = Promise.resolve();
 	runCalls = 0;
 
 	override runOnce(_automation: IAutomationDescriptor, _token?: CancellationToken): IAutomationRunOperation {
 		this.runCalls++;
-		return { whenDispatched: this.whenDispatched, whenCompleted: Promise.resolve() };
+		return { whenDispatched: this.whenDispatched, whenCompleted: this.whenCompleted };
 	}
 }
 
@@ -613,6 +615,13 @@ suite('AutomationsCardsWidget', () => {
 	function isMarkAllReadVisible(widget: AutomationsCardsWidget): boolean {
 		const button = widget.element.querySelector<HTMLElement>('.automations-mark-all-read');
 		return !!button && button.style.display !== 'none';
+	}
+
+	function createAriaHost(): HTMLElement {
+		const host = document.body.appendChild(document.createElement('div'));
+		setARIAContainer(host);
+		disposables.add(toDisposable(() => host.remove()));
+		return host;
 	}
 
 	function setup(archiveWording: 'archive' | 'done' = 'archive', hoverService: IHoverService = NullHoverService, fileService?: IFileService, storageService?: IStorageService) {
