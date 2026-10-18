@@ -126,15 +126,15 @@ const testModules = (async function () {
 			file = file.replace(/^src/, 'out');
 			file = file.replace(/\.ts$/, '.js');
 			return path.relative(out, file);
-		}));
+		});
+	}
 
-	} else {
-		// glob patterns (--glob)
+	const getGlobFiles = (globPattern) => {
 		const defaultGlob = '**/*.test.js';
 		const pattern = args.runGlob || defaultGlob;
 		isDefaultModules = pattern === defaultGlob;
 
-		promise = new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			glob(pattern, { cwd: out }, (err, files) => {
 				if (err) {
 					reject(err);
@@ -143,6 +143,42 @@ const testModules = (async function () {
 				}
 			});
 		});
+	}
+
+	if (argv.run) {
+		// use file list (--run)
+		isDefaultModules = false;
+		promise = Promise.resolve(processTestFiles(argv.run));
+
+	} else if (argv.local) {
+		// use file list based on commit (--local)
+		isDefaultModules = false;
+
+		const changes = tia.getLocalChangeDetails();
+		const testSuites = tia.getReachableTestSuites(changes);
+		promise = Promise.resolve(processTestFiles(testSuites));
+
+	} else if (argv.commit) {
+		// use file list based on commit (--commit)
+		isDefaultModules = false;
+
+		// Get commit details
+		const commnitChanges = tia.getCommitDetails(argv.commit);
+		if (commnitChanges.some(file => !file.endsWith('.ts'))) {
+			console.log('****************************************************************************************************');
+			console.log('* WARNING: Commit contains changes to other than .ts files. Fallback to executing all test suites. *');
+			console.log('****************************************************************************************************');
+			promise = getGlobFiles(undefined);
+			return;
+		}
+
+		// Add reachable test suites
+		const testSuites = tia.getReachableTestSuites(commnitChanges);
+		promise = Promise.resolve(processTestFiles(testSuites));
+
+	} else {
+		// glob patterns (--glob)
+		promise = getGlobFiles(argv.glob);
 	}
 
 	return promise.then(files => {
