@@ -688,6 +688,7 @@ export class AgentHostTurnTracker extends Disposable {
 				usageRecordCount: 0, inputKnownRecordCount: 0, outputKnownRecordCount: 0, cacheKnownRecordCount: 0,
 			}];
 		}
+		const usage = this._turnUsages.get(key);
 		this._disposeTurn(key, timing);
 
 		this._reporter.turnCompleted({
