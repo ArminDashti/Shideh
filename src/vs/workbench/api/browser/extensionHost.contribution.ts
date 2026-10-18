@@ -108,6 +108,7 @@ import './mainThreadMeteredConnection.js';
 import './mainThreadGitExtensionService.js';
 import './mainThreadBrowsers.js';
 
+
 export class ExtensionPoints implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.extensionPoints';
