@@ -417,6 +417,7 @@ export class NotebookClipboardContribution extends Disposable {
 			return false;
 		}
 
+		console.log('run cut cells');
 		return runCutCells(accessor, editor, undefined);
 	}
 }
