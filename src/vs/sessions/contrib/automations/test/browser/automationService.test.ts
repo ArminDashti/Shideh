@@ -35,6 +35,47 @@ function dailySchedule(hour = 9, minute = 0): IAutomationSchedule {
 	return { interval: 'daily', scheduleHour: hour, scheduleMinute: minute, scheduleDay: 0 };
 }
 
+function serializeLedgerAutomation(id: string, name: string) {
+	return {
+		id,
+		name,
+		prompt: 'p',
+		schedule: dailySchedule(),
+		target: { kind: 'workspace', folderUri: FOLDER.toJSON(), isolation: { kind: 'default' } },
+		enabled: true,
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z',
+	};
+}
+
+class DeferredCompareAndSwapAutomationStorageService implements IAutomationStorageService {
+
+	declare readonly _serviceBrand: undefined;
+
+	readonly compareAndSwapCommitted = new DeferredPromise<void>();
+	readonly releaseCompareAndSwap = new DeferredPromise<void>();
+
+	constructor(private currentValue: string | undefined) { }
+
+	async read(): Promise<string | undefined> {
+		return this.currentValue;
+	}
+
+	async compareAndSwap(expectedValue: string | undefined, newValue: string): Promise<IAutomationStorageCompareAndSwapResult> {
+		if (this.currentValue !== expectedValue) {
+			return { swapped: false, currentValue: this.currentValue };
+		}
+		this.currentValue = newValue;
+		await this.compareAndSwapCommitted.complete();
+		await this.releaseCompareAndSwap.p;
+		return { swapped: true, currentValue: newValue };
+	}
+
+	setValue(value: string): void {
+		this.currentValue = value;
+	}
+}
+
 suite('AutomationService', () => {
 
 	const teardown = ensureNoDisposablesAreLeakedInTestSuite();
@@ -311,6 +352,82 @@ suite('AutomationService', () => {
 		await service.createAutomation({ name: 'B', prompt: 'p', schedule: dailySchedule(), folderUri: FOLDER });
 		const after = JSON.parse(storage.get('chat.automations.ledger', -1)!);
 		assert.ok(after.revision > 5000, `expected revision > 5000, got ${after.revision}`);
+	});
+
+	test('successful CAS accepts a restored lower revision without accepting stale notifications', async () => {
+		const storage = teardown.add(new InMemoryStorageService());
+		storage.store('chat.automations.ledger', JSON.stringify({
+			schemaVersion: 3,
+			revision: 40,
+			automations: [serializeLedgerAutomation('newer', 'Before restore')],
+			runs: [],
+		}), -1, 1);
+		const service = teardown.add(createAutomationService(storage, new NullLogService(), NullTelemetryService));
+		const restoredLedger = JSON.stringify({
+			schemaVersion: 3,
+			revision: 1,
+			automations: [serializeLedgerAutomation('restored', 'Restored')],
+			runs: [],
+		});
+		storage.store('chat.automations.ledger', restoredLedger, -1, 1);
+
+		const created = await service.createAutomation({
+			name: 'After restore',
+			prompt: 'p',
+			schedule: dailySchedule(),
+			target: workspaceTarget(),
+		});
+		const persisted = JSON.parse(storage.get('chat.automations.ledger', -1)!);
+		storage.store('chat.automations.ledger', restoredLedger, -1, 1);
+
+		assert.deepStrictEqual({
+			createdName: created.name,
+			persistedRevision: persisted.revision,
+			persistedNames: persisted.automations.map((automation: { name: string }) => automation.name),
+			inMemoryNames: service.automations.get().map(automation => automation.name),
+		}, {
+			createdName: 'After restore',
+			persistedRevision: 2,
+			persistedNames: ['After restore', 'Restored'],
+			inMemoryNames: ['After restore', 'Restored'],
+		});
+	});
+
+	test('successful CAS does not overwrite a newer notification observed before it resolves', async () => {
+		const storage = teardown.add(new InMemoryStorageService());
+		const initialLedger = JSON.stringify({
+			schemaVersion: 3,
+			revision: 1,
+			automations: [serializeLedgerAutomation('initial', 'Initial')],
+			runs: [],
+		});
+		storage.store('chat.automations.ledger', initialLedger, -1, 1);
+		const automationStorageService = new DeferredCompareAndSwapAutomationStorageService(initialLedger);
+		const service = teardown.add(new AutomationService(storage, new NullLogService(), NullTelemetryService, automationStorageService));
+
+		const createPromise = service.createAutomation({
+			name: 'Local',
+			prompt: 'p',
+			schedule: dailySchedule(),
+			target: workspaceTarget(),
+		});
+		await automationStorageService.compareAndSwapCommitted.p;
+		const localLedger = JSON.parse((await automationStorageService.read())!);
+		const newerLedger = JSON.stringify({
+			...localLedger,
+			revision: 3,
+			automations: [serializeLedgerAutomation('concurrent', 'Concurrent'), ...localLedger.automations],
+		});
+		automationStorageService.setValue(newerLedger);
+		storage.store('chat.automations.ledger', newerLedger, -1, 1);
+		await automationStorageService.releaseCompareAndSwap.complete();
+		await createPromise;
+
+		assert.deepStrictEqual(service.automations.get().map(automation => automation.name), [
+			'Concurrent',
+			'Local',
+			'Initial',
+		]);
 	});
 
 	test('reading a corrupt ledger leaves observables empty without throwing', () => {

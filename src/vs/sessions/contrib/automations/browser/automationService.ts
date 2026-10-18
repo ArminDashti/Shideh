@@ -33,6 +33,7 @@ import {
 	IAutomationRun,
 } from '../../../../workbench/contrib/chat/common/automations/automation.js';
 import {
+	type AutomationMutationGuard,
 	IAutomationService,
 	ICreateAutomationOptions,
 	IUpdateAutomationOptions,
@@ -102,6 +103,7 @@ export class AutomationService extends Disposable implements IAutomationService 
 	private _unsupportedSchema = false;
 
 	private _lastSeenRevision = 0;
+	private _storageChangeGeneration = 0;
 
 	readonly automations: IObservable<readonly IAutomation[]>;
 	readonly runs: IObservable<readonly IAutomationRun[]>;
