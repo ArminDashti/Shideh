@@ -69,7 +69,7 @@ export class InlineEditsCustomView extends Disposable implements IInlineEditsVie
 
 		const state = displayLocation.map(dl => dl ? this.getState(dl) : undefined);
 
-		const view = state.map(s => s ? this.getRendering(s, styles) : undefined);
+		const view = state.map(s => s ? this.getRendering(s, styles, labelContainsCode.get()) : undefined);
 
 		this.minEditorScrollHeight = derived(this, reader => {
 			const s = state.read(reader);
