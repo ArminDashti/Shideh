@@ -5,6 +5,7 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IObservable } from '../../../../base/common/observable.js';
+import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { PromptsType } from './promptSyntax/promptTypes.js';

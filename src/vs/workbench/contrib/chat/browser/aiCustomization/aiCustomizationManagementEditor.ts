@@ -1620,6 +1620,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 			}));
 			this.toolsListWidget.fireItemCount();
 		}
+
+		// Trigger a count refresh so badges/overview are up-to-date
+		this.workspaceService.refreshCounts();
 	}
 
 	private bindItemsModel(itemsModel: IAICustomizationItemsModelInstance): void {
@@ -4478,6 +4481,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		if (this.dimension) {
 			this.layout(this.dimension);
 		}
+
+		// Refresh counts each time the editor is focused/opened
+		this.workspaceService.refreshCounts();
 	}
 
 	override clearInput(): void {

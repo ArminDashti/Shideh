@@ -125,4 +125,59 @@ suite('customizationCreatorService', () => {
 		const result = await picker.resolveTargetDirectoryWithPicker(URI.parse('test-harness:///session'), PromptsType.skill);
 		assert.deepStrictEqual({ result: result?.path, labels }, { result: user.path, labels: ['Workspace', 'User'] });
 	});
+
+	suite('getUserStorageSubfolder (via resolveUserTargetDirectory behavior)', () => {
+
+		test('instructions maps to instructions/ subfolder', async () => {
+			const result = await resolveUserTargetDirectory(
+				createMockPromptsService() as IPromptsService,
+				PromptsType.instructions,
+				createMockConfigService('~/.copilot') as IConfigurationService,
+				createMockPathService() as IPathService,
+			);
+			assert.ok(result?.path.endsWith('/instructions'));
+		});
+
+		test('skill maps to skills/ subfolder', async () => {
+			const result = await resolveUserTargetDirectory(
+				createMockPromptsService() as IPromptsService,
+				PromptsType.skill,
+				createMockConfigService('~/.copilot') as IConfigurationService,
+				createMockPathService() as IPathService,
+			);
+			assert.ok(result?.path.endsWith('/skills'));
+		});
+
+		test('prompt has no subfolder mapping — falls through to getSourceFolders', async () => {
+			const fallbackUri = URI.file('/profile/prompts');
+			const result = await resolveUserTargetDirectory(
+				createMockPromptsService(fallbackUri) as IPromptsService,
+				PromptsType.prompt,
+				createMockConfigService('~/.copilot') as IConfigurationService,
+				createMockPathService() as IPathService,
+			);
+			assert.strictEqual(result?.path, '/profile/prompts');
+		});
+
+		test('agent has no subfolder mapping — falls through to getSourceFolders', async () => {
+			const fallbackUri = URI.file('/profile/prompts');
+			const result = await resolveUserTargetDirectory(
+				createMockPromptsService(fallbackUri) as IPromptsService,
+				PromptsType.agent,
+				createMockConfigService('~/.copilot') as IConfigurationService,
+				createMockPathService() as IPathService,
+			);
+			assert.strictEqual(result?.path, '/profile/prompts');
+		});
+
+		test('hook has no subfolder mapping and no user folder — returns undefined', async () => {
+			const result = await resolveUserTargetDirectory(
+				createMockPromptsService() as IPromptsService,
+				PromptsType.hook,
+				createMockConfigService('~/.copilot') as IConfigurationService,
+				createMockPathService() as IPathService,
+			);
+			assert.strictEqual(result, undefined);
+		});
+	});
 });

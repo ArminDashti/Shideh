@@ -32,7 +32,7 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
  * copied into the worktree and committed there so the running session
  * picks it up immediately.
  */
-export class SessionsAICustomizationWorkspaceService implements IAICustomizationWorkspaceService {
+export class SessionsAICustomizationWorkspaceService extends Disposable implements IAICustomizationWorkspaceService {
 	declare readonly _serviceBrand: undefined;
 
 	readonly activeProjectRoot: IObservable<URI | undefined>;
@@ -44,6 +44,51 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 	 * returns this value instead of the session-derived root.
 	 */
 	private readonly _overrideRoot: ISettableObservable<URI | undefined>;
+
+	private readonly _itemCounts = new Map<string, number>();
+	private readonly _onDidChangeItemCounts = new Emitter<void>();
+	readonly onDidChangeItemCounts: Event<void> = this._onDidChangeItemCounts.event;
+
+	private _pendingRefresh: Promise<void> | undefined;
+	private _refreshScheduled = false;
+
+	getItemCount(type: PromptsType, storage?: PromptsStorage): number {
+		const key = storage ? `${type}:${storage}` : type;
+		return this._itemCounts.get(key) ?? 0;
+	}
+
+	setItemCounts(type: PromptsType, items: readonly { storage: PromptsStorage }[]): void {
+		const byStorage = new Map<PromptsStorage, number>();
+		for (const item of items) {
+			byStorage.set(item.storage, (byStorage.get(item.storage) ?? 0) + 1);
+		}
+		this._itemCounts.set(type, items.length);
+		for (const s of Object.values(PromptsStorage)) {
+			this._itemCounts.set(`${type}:${s}`, byStorage.get(s) ?? 0);
+		}
+		this._onDidChangeItemCounts.fire();
+	}
+
+	refreshCounts(): void {
+		// If there's already a refresh in flight, schedule another after it finishes
+		if (this._pendingRefresh) {
+			this._refreshScheduled = true;
+			return;
+		}
+		this._doRefresh();
+	}
+
+	private _doRefresh(): void {
+		this._refreshScheduled = false;
+		this._pendingRefresh = preloadAllCounts(this.promptsService, this).then(() => {
+			this._pendingRefresh = undefined;
+			if (this._refreshScheduled) {
+				this._doRefresh();
+			}
+		}, () => {
+			this._pendingRefresh = undefined;
+		});
+	}
 
 	constructor(
 		@ISessionsService private readonly sessionsService: ISessionsService,
@@ -91,6 +136,14 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 		this.hasOverrideProjectRoot = derived(reader => {
 			return this._overrideRoot.read(reader) !== undefined;
 		});
+
+		// Auto-refresh counts when prompts change or the active session changes
+		this._register(this.promptsService.onDidChangeCustomAgents(() => this.refreshCounts()));
+		this._register(this.promptsService.onDidChangeSlashCommands(() => this.refreshCounts()));
+		this._register(autorun(reader => {
+			this.activeProjectRoot.read(reader);
+			this.refreshCounts();
+		}));
 	}
 
 	getActiveProjectRoot(): URI | undefined {

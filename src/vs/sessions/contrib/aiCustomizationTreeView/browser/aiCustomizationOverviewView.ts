@@ -72,8 +72,6 @@ export class AICustomizationOverviewView extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@IEditorService private readonly editorService: IEditorService,
-		@IPromptsService private readonly promptsService: IPromptsService,
-		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAICustomizationWorkspaceService private readonly workspaceService: IAICustomizationWorkspaceService,
 		@IMcpService private readonly mcpService: IMcpService,
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
@@ -126,16 +124,9 @@ export class AICustomizationOverviewView extends ViewPane {
 			}
 		}));
 
-		// Listen to changes
-		this._register(this.promptsService.onDidChangeCustomAgents(() => this.loadCounts()));
-		this._register(this.promptsService.onDidChangeSlashCommands(() => this.loadCounts()));
-
-		// Listen to workspace folder changes to update counts
-		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(() => this.loadCounts()));
-		this._register(autorun(reader => {
-			this.workspaceService.activeProjectRoot.read(reader);
-			this.loadCounts();
-		}));
+		// Listen to count cache changes only — the workspace service
+		// refreshes the cache in response to prompt/session events.
+		this._register(this.workspaceService.onDidChangeItemCounts(() => this.loadCounts()));
 
 		// Reactively track MCP server count (register once, not per-loadCounts call)
 		const mcpSection = this.sections.find(s => s.id === AICustomizationManagementSection.McpServers);
@@ -226,7 +217,7 @@ export class AICustomizationOverviewView extends ViewPane {
 		}
 	}
 
-	private async loadCounts(): Promise<void> {
+	private loadCounts(): void {
 		const sectionPromptTypes: Array<{ section: AICustomizationManagementSection; type: PromptsType }> = [
 			{ section: AICustomizationManagementSection.Agents, type: PromptsType.agent },
 			{ section: AICustomizationManagementSection.Skills, type: PromptsType.skill },
@@ -257,9 +248,9 @@ export class AICustomizationOverviewView extends ViewPane {
 
 			const sectionData = this.sections.find(s => s.id === section);
 			if (sectionData) {
-				sectionData.count = count;
+				sectionData.count = this.workspaceService.getItemCount(type);
 			}
-		}));
+		}
 
 		// Update MCP server count reactively
 		const mcpSection = this.sections.find(s => s.id === AICustomizationManagementSection.McpServers);

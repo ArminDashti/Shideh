@@ -7,7 +7,7 @@ import { constObservable, derived, IObservable, observableFromEventOpts } from '
 import { URI } from '../../../../../base/common/uri.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
-import { IAICustomizationWorkspaceService, AICustomizationManagementSection } from '../../common/aiCustomizationWorkspaceService.js';
+import { IAICustomizationWorkspaceService, AICustomizationManagementSection, CustomizationCreationTarget } from '../../common/aiCustomizationWorkspaceService.js';
 import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
 import { IChatPromptSlashCommand, IPromptsService } from '../../common/promptSyntax/service/promptsService.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -80,6 +80,32 @@ class AICustomizationWorkspaceService implements IAICustomizationWorkspaceServic
 	readonly hasOverrideProjectRoot = constObservable(false);
 	setOverrideProjectRoot(_root: URI): void { }
 	clearOverrideProjectRoot(): void { }
+
+	private readonly _itemCounts = new Map<string, number>();
+	private readonly _onDidChangeItemCounts = new Emitter<void>();
+	readonly onDidChangeItemCounts: Event<void> = this._onDidChangeItemCounts.event;
+
+	getItemCount(type: PromptsType, storage?: PromptsStorage): number {
+		const key = storage ? `${type}:${storage}` : type;
+		return this._itemCounts.get(key) ?? 0;
+	}
+
+	setItemCounts(type: PromptsType, items: readonly { storage: PromptsStorage }[]): void {
+		// Count total and per-storage
+		const byStorage = new Map<PromptsStorage, number>();
+		for (const item of items) {
+			byStorage.set(item.storage, (byStorage.get(item.storage) ?? 0) + 1);
+		}
+		this._itemCounts.set(type, items.length);
+		for (const s of Object.values(PromptsStorage)) {
+			this._itemCounts.set(`${type}:${s}`, byStorage.get(s) ?? 0);
+		}
+		this._onDidChangeItemCounts.fire();
+	}
+
+	refreshCounts(): void {
+		// No-op in core VS Code — counts are populated by the management editor's list widget.
+	}
 
 	async commitFiles(_projectRoot: URI, _fileUris: URI[]): Promise<void> {
 		// No-op in core VS Code.
