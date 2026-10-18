@@ -34,7 +34,7 @@ import { ITelemetryService } from '../../../../../platform/telemetry/common/tele
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { isVirtualWorkspace } from '../../../../../platform/workspace/common/virtualWorkspace.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
+import { IChatEntitlementService, validateQuotaSnapshotFromMetadata } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IChatDebugService } from '../chatDebugService.js';
 import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { awaitStatsForSession } from '../chat.js';
@@ -2123,6 +2123,13 @@ export class ChatService extends Disposable implements IChatService {
 
 					if (rawResult.errorDetails?.isRateLimited) {
 						this.chatEntitlementService.markAnonymousRateLimited();
+					}
+
+					// Forward quota snapshot from the extension to the entitlement
+					// service so the dashboard reflects the latest usage immediately.
+					const validatedQuota = validateQuotaSnapshotFromMetadata(rawResult.metadata?.quotaSnapshot);
+					if (validatedQuota) {
+						this.chatEntitlementService.updateQuotaSnapshot(validatedQuota.snapshot, validatedQuota.additionalUsage);
 					}
 
 					shouldProcessPending = !rawResult.errorDetails
