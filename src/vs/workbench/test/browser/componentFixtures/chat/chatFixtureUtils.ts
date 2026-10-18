@@ -271,6 +271,15 @@ export function registerChatFixtureServices(reg: ServiceRegistration, options: I
 		override resetAchievements() { }
 		override setHorizontalPosition(position: number) { this.horizontalPosition.set(position, undefined); }
 	}());
+	reg.defineInstance(IChatPetHostService, new class extends mock<IChatPetHostService>() {
+		override registerHost() {
+			return {
+				visible: constObservable(false),
+				activity: constObservable(undefined),
+				dispose: () => { },
+			};
+		}
+	}());
 	reg.defineInstance(IChatWidgetService, new class extends mock<IChatWidgetService>() {
 		override readonly lastFocusedWidget = undefined;
 		override readonly onDidAddWidget = Event.None;

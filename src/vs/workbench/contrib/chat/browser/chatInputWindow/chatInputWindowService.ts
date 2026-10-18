@@ -123,11 +123,15 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 
 	async openWindow(): Promise<void> {
 		if (this._window) {
-			return;
+			if (mode.kind === 'omni' && this._mode.kind === 'omni') {
+				return;
+			}
+			this.closeWindow();
 		}
 		// Coalesce concurrent open/toggle calls so we never create two aux windows.
 		if (this._openOperation) {
-			return this._openOperation;
+			await this._openOperation;
+			return this._open(mode, invokingWindowBounds, claimOwnership);
 		}
 		this._openOperation = this._doOpenWindow();
 		try {
@@ -143,6 +147,7 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 		const auxiliaryWindow = await this.auxiliaryWindowService.open({
 			bounds,
 			alwaysOnTop: true,
+			alwaysOnTopLevel: this._mode.kind === 'pet' && isMacintosh ? 'screen-saver' : undefined,
 			frameless: true,
 			// Transparent so the surface's rounded corners read against whatever
 			// is behind the window rather than against a square of chrome.
@@ -151,6 +156,10 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 			nativeTitlebar: false,
 			noBackgroundThrottling: true,
 			backgroundColor: '#00000000',
+			parentless: this._mode.kind === 'pet',
+			skipTaskbar: this._mode.kind === 'pet',
+			visibleOnAllWorkspaces: this._mode.kind === 'pet',
+			visibleOnFullScreen: this._mode.kind === 'pet',
 		});
 
 		this._window = auxiliaryWindow;
@@ -252,11 +261,15 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 			this._window = undefined;
 			this._windowDisposables.clear();
 			this._auxiliaryWindowRef.value = undefined;
-			this.storageService.store(ChatInputWindowStorageKeys.WindowOpen, false, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			if (this._mode.kind === 'omni') {
+				this.storageService.store(ChatInputWindowStorageKeys.WindowOpen, false, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			}
 			this._onDidChangeOpen.fire(false);
 		});
 
-		this.storageService.store(ChatInputWindowStorageKeys.WindowOpen, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		if (this._mode.kind === 'omni') {
+			this.storageService.store(ChatInputWindowStorageKeys.WindowOpen, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		}
 		this._onDidChangeOpen.fire(true);
 	}
 
@@ -299,6 +312,7 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 		// Mark this surface so its dedicated accessibility help (routing + how to
 		// close) takes precedence over the generic Quick Chat help.
 		ChatContextKeys.inChatInputWindow.bindTo(scopedContextKeyService).set(true);
+		ChatContextKeys.inChatPetInputWindow.bindTo(scopedContextKeyService).set(mode.kind === 'pet');
 		const scopedInstantiationService = this._windowDisposables.add(this.instantiationService.createChild(
 			new ServiceCollection([
 				IContextKeyService,
@@ -374,6 +388,18 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 			},
 		};
 		this._routingController = this._windowDisposables.add(this.instantiationService.createInstance(ChatSessionRoutingController, host, 'chatInputWindow'));
+		if (mode.kind === 'pet') {
+			widget.focusInput();
+			if (this.chatSpeechToTextService.isConfigured) {
+				void this.commandService.executeCommand('workbench.action.chat.toggleSpeechToText', { widget }).catch(error => {
+					this.logService.error('[chatPetInputWindow] Failed to start dictation', error);
+					status(localize('chatPetInputWindow.dictationFailed', "Dictation could not start. Type your request in the pet input instead."));
+					widget.focusInput();
+				});
+			} else {
+				status(localize('chatPetInputWindow.dictationUnavailable', "Dictation is unavailable. Type your request in the pet input instead."));
+			}
+		}
 
 		// Lay the widget out against its own content height rather than the
 		// window's, then size the window to match. Otherwise the input floats in
@@ -597,6 +623,41 @@ export class ChatInputWindowService extends Disposable implements IChatInputWind
 			height: CHAT_INPUT_WINDOW_DEFAULT_HEIGHT,
 		};
 	}
+}
+
+export function isChatInputWindowModeEnabled(mode: ChatInputWindowMode['kind'], omniEnabled: boolean, aiHidden: boolean): boolean {
+	return !aiHidden && (mode === 'pet' || omniEnabled);
+}
+
+export function getChatPetInputWindowBounds(petBounds: IRectangle, displayBounds: IRectangle, width: number, height: number): IRectangle {
+	const margin = 8;
+	const displayRight = displayBounds.x + displayBounds.width;
+	const displayBottom = displayBounds.y + displayBounds.height;
+	const rightX = petBounds.x + petBounds.width + margin;
+	const leftX = petBounds.x - width - margin;
+	const aboveY = petBounds.y - height - margin;
+	const belowY = petBounds.y + petBounds.height + margin;
+	let x: number;
+	let y: number;
+	if (rightX + width <= displayRight) {
+		x = rightX;
+		y = petBounds.y + (petBounds.height - height) / 2;
+	} else if (leftX >= displayBounds.x) {
+		x = leftX;
+		y = petBounds.y + (petBounds.height - height) / 2;
+	} else if (aboveY >= displayBounds.y) {
+		x = petBounds.x + (petBounds.width - width) / 2;
+		y = aboveY;
+	} else {
+		x = petBounds.x + (petBounds.width - width) / 2;
+		y = belowY;
+	}
+	return {
+		x: Math.round(Math.min(Math.max(x, displayBounds.x), Math.max(displayBounds.x, displayRight - width))),
+		y: Math.round(Math.min(Math.max(y, displayBounds.y), Math.max(displayBounds.y, displayBottom - height))),
+		width,
+		height,
+	};
 }
 
 registerSingleton(IChatInputWindowService, ChatInputWindowService, InstantiationType.Delayed);

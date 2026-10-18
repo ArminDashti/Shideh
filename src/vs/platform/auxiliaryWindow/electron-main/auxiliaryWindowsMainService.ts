@@ -3,17 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { BrowserWindow, BrowserWindowConstructorOptions, HandlerDetails, WebContents, app } from 'electron';
+import { BrowserWindow, HandlerDetails, WebContents, app } from 'electron';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { FileAccess } from '../../../base/common/network.js';
+import { isMacintosh } from '../../../base/common/platform.js';
 import { validatedIpcMain } from '../../../base/parts/ipc/electron-main/ipcMain.js';
 import { AuxiliaryWindow, IAuxiliaryWindow } from './auxiliaryWindow.js';
-import { IAuxiliaryWindowsMainService } from './auxiliaryWindows.js';
+import { IAuxiliaryBrowserWindowOptions, IAuxiliaryWindowsMainService } from './auxiliaryWindows.js';
 import { IInstantiationService } from '../../instantiation/common/instantiation.js';
 import { ILogService } from '../../log/common/log.js';
-import { IWindowState, WindowMode, defaultAuxWindowState } from '../../window/electron-main/window.js';
+import { IWindowState, defaultAuxWindowState } from '../../window/electron-main/window.js';
 import { IDefaultBrowserWindowOptionsOverrides, WindowStateValidator, defaultBrowserWindowOptions, getLastFocused } from '../../windows/electron-main/windows.js';
+import { parseAuxiliaryWindowFeatures } from './auxiliaryWindowFeatures.js';
 
 export class AuxiliaryWindowsMainService extends Disposable implements IAuxiliaryWindowsMainService {
 

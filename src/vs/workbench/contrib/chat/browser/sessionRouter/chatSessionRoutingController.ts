@@ -63,6 +63,14 @@ type PendingTarget =
 	| { readonly kind: 'session'; readonly sessionId: string; readonly label: string; readonly confidence: number }
 	| { readonly kind: 'new'; readonly label: string };
 
+interface IPreparedChatSubmission {
+	readonly submittedInput: string;
+	readonly submittedAttachmentIds: readonly string[];
+	readonly submittedUtterance: string;
+	readonly requestOptions: IChatSendRequestOptions;
+	readonly cts: CancellationTokenSource;
+}
+
 function statusToString(status: AgentSessionStatus): string {
 	switch (status) {
 		case AgentSessionStatus.Failed: return 'failed';

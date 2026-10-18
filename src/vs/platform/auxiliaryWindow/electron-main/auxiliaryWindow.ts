@@ -14,6 +14,8 @@ import { IStateService } from '../../state/node/state.js';
 import { hasNativeTitlebar, TitlebarStyle } from '../../window/common/window.js';
 import { IBaseWindow, WindowMode } from '../../window/electron-main/window.js';
 import { BaseWindow } from '../../windows/electron-main/windowImpl.js';
+import { IAuxiliaryBrowserWindowOptions } from './auxiliaryWindows.js';
+import { shouldApplyAuxiliaryWindowState } from './auxiliaryWindowFeatures.js';
 
 export interface IAuxiliaryWindow extends IBaseWindow {
 	readonly parentId: number;
@@ -52,34 +54,35 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 		this.tryClaimWindow();
 	}
 
-	tryClaimWindow(options?: BrowserWindowConstructorOptions): void {
+	tryClaimWindow(options?: IAuxiliaryBrowserWindowOptions | BrowserWindowConstructorOptions): void {
 		if (this._store.isDisposed || this.webContents.isDestroyed()) {
 			return; // already disposed
 		}
 
-		const effectiveOptions = options ?? this.windowOptions;
+		const effectiveOptions = (options as IAuxiliaryBrowserWindowOptions | undefined) ?? this.windowOptions;
 
 		this.doTryClaimWindow(effectiveOptions);
 
-		if (effectiveOptions && !this.stateApplied) {
+		if (this._win && effectiveOptions && shouldApplyAuxiliaryWindowState(true, true, this.stateApplied)) {
 			this.stateApplied = true;
 
+			const mode = effectiveOptions.vscodeWindowState?.mode ?? WindowMode.Normal;
 			this.applyState({
 				x: effectiveOptions.x,
 				y: effectiveOptions.y,
 				width: effectiveOptions.width,
 				height: effectiveOptions.height,
-				// We currently do not support restoring fullscreen state for auxiliary
-				// windows because we do not get hold of the original `features` string
-				// that contains that info in `window-fullscreen`. However, we can
-				// probe the `options.show` value for whether the window should be maximized
-				// or not because we never show maximized windows initially to reduce flicker.
-				mode: effectiveOptions.show === false ? WindowMode.Maximized : WindowMode.Normal
-			});
+				mode
+			}, undefined, effectiveOptions.vscodeShowHidden ? 'hidden' : effectiveOptions.vscodeShowInactive ? 'inactive' : 'active');
+
+			if (mode === WindowMode.Normal && effectiveOptions.vscodeShowInactive) {
+				this._win?.showInactive();
+			}
+
 		}
 	}
 
-	private doTryClaimWindow(options?: BrowserWindowConstructorOptions): void {
+	private doTryClaimWindow(options?: IAuxiliaryBrowserWindowOptions): void {
 		if (this._win) {
 			return; // already claimed
 		}

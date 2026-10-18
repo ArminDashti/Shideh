@@ -109,6 +109,10 @@ export class TestNativeHostService implements INativeHostService {
 	async syncSystemWideKeybindings(_keybindings: INativeSystemWideKeybinding[]): Promise<INativeSystemWideKeybindingResult> { return { failed: [] }; }
 
 	async toggleFullScreen(): Promise<void> { }
+	async hideWindow(options?: INativeHostOptions): Promise<void> { }
+	async showWindow(options?: INativeHostOptions & { inactive?: boolean }): Promise<void> { }
+	async setWindowIgnoreMouseEvents(ignore: boolean, options?: INativeHostOptions & { forward?: boolean }): Promise<void> { }
+	async setWindowShape(rectangles: readonly IRectangle[], options?: INativeHostOptions): Promise<void> { }
 	async isMaximized(): Promise<boolean> { return true; }
 	async isFullScreen(): Promise<boolean> { return true; }
 	async maximizeWindow(): Promise<void> { }
@@ -119,6 +123,8 @@ export class TestNativeHostService implements INativeHostService {
 	async toggleWindowAlwaysOnTop(options?: INativeHostOptions): Promise<void> { }
 	async setWindowAlwaysOnTop(alwaysOnTop: boolean, options?: INativeHostOptions): Promise<void> { }
 	async getCursorScreenPoint(): Promise<{ readonly point: IPoint; readonly display: IRectangle }> { throw new Error('Method not implemented.'); }
+	async getDisplays(): Promise<readonly INativeDisplayLayout[]> { return []; }
+	async getLinuxDisplayProtocol(): Promise<LinuxDisplayProtocol> { return 'unknown'; }
 	async positionWindow(position: IRectangle, options?: INativeHostOptions): Promise<void> { }
 	async updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string }): Promise<void> { }
 	async updateWindowAccentColor(color: string): Promise<void> { }

@@ -1100,6 +1100,10 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		}, { once: true }));
 	}
 
+	setHostVisible(visible: boolean): void {
+		this._hostVisible.set(visible, undefined);
+	}
+
 	private _updateInputLoadingState(): void {
 		const loading = this._sending;
 		if (loading) {

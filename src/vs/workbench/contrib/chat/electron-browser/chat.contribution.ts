@@ -53,12 +53,24 @@ import { HoldToVoiceChatInChatViewAction, InlineVoiceChatAction, KeywordActivati
 import { OpenWorkspaceInAgentsWindowAction, OpenWorkspaceInAgentsContribution, OpenAgentsWindowAction, OpenChatSessionInAgentsWindowAction, AgentsHandoffInputTipContribution, AgentsParallelWorkContribution, ToggleOpenInAgentsWindowTitleBarAction, OpenWorkspaceInAgentsWindowChatTitleAction, OpenWorkspaceInAgentsWindowTitleBarAction, ResetCopilotHarnessIntroductionAction } from './agentSessions/agentSessionsActions.js';
 import { NativeBuiltinToolsContribution } from './builtInTools/tools.js';
 import { NativePluginGitCommandService } from './pluginGitCommandService.js';
+import { DesktopChatPetService } from './chatPetDesktopService.js';
+import { IChatPetHostService } from '../browser/chatPetHostService.js';
 
 // Override the browser PluginGitCommandService with the native one that always
 // runs git locally via the shared process. See the decision matrix on the
 // `IPluginGitService` interface for the full per-flavor wiring.
 registerSingleton(IPluginGitService, NativePluginGitCommandService, InstantiationType.Delayed);
+registerSingleton(IChatPetHostService, DesktopChatPetService, InstantiationType.Delayed);
 registerSharedProcessRemoteService(ILocalGitService, 'localGit');
+
+class ChatPetDesktopContribution {
+
+	static readonly ID = 'workbench.contrib.chatPetDesktop';
+
+	constructor(
+		@IChatPetHostService _chatPetHostService: IChatPetHostService,
+	) { }
+}
 
 class ChatCommandLineHandler extends Disposable {
 
@@ -295,6 +307,7 @@ registerWorkbenchContribution2(ChatCommandLineHandler.ID, ChatCommandLineHandler
 registerWorkbenchContribution2(ChatSuspendThrottlingHandler.ID, ChatSuspendThrottlingHandler, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CopilotPrototypeShellNativeWindowControlsContribution.ID, CopilotPrototypeShellNativeWindowControlsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatLifecycleHandler.ID, ChatLifecycleHandler, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(ChatPetDesktopContribution.ID, ChatPetDesktopContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OpenWorkspaceInAgentsContribution.ID, OpenWorkspaceInAgentsContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(AgentsHandoffInputTipContribution.ID, AgentsHandoffInputTipContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(AgentsParallelWorkContribution.ID, AgentsParallelWorkContribution, WorkbenchPhase.Eventually);

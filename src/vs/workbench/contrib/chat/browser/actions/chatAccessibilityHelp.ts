@@ -5,6 +5,7 @@
 
 import { isNative } from '../../../../../base/common/platform.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import * as dom from '../../../../../base/browser/dom.js';
 import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { AccessibleDiffViewerNext } from '../../../../../editor/browser/widget/diffEditor/commands.js';
 import { localize } from '../../../../../nls.js';
@@ -59,6 +60,28 @@ export class ChatInputWindowAccessibilityHelp implements IAccessibleViewImplemen
 	}
 }
 
+export class ChatPetAccessibilityHelp implements IAccessibleViewImplementation {
+	readonly priority = 122;
+	readonly name = 'chatPet';
+	readonly type = AccessibleViewType.Help;
+	readonly when = ChatContextKeys.chatPetFocused;
+
+	getProvider(accessor: ServicesAccessor) {
+		return getStandaloneChatAccessibilityHelpProvider(accessor, 'chatPet');
+	}
+}
+
+export class ChatPetInputWindowAccessibilityHelp implements IAccessibleViewImplementation {
+	readonly priority = 123;
+	readonly name = 'chatPetInputWindow';
+	readonly type = AccessibleViewType.Help;
+	readonly when = ChatContextKeys.inChatPetInputWindow;
+
+	getProvider(accessor: ServicesAccessor) {
+		return getStandaloneChatAccessibilityHelpProvider(accessor, 'chatPetInputWindow');
+	}
+}
+
 export class EditsChatAccessibilityHelp implements IAccessibleViewImplementation {
 	readonly priority = 119;
 	readonly name = 'editsView';
@@ -97,6 +120,7 @@ export function getAccessibilityHelpText(type: 'panelChat' | 'inlineChat' | 'qui
 			? localize('chat.sessionDoneNudge', "A mark as done suggestion appears above the chat input when the session's pull requests are merged. Use Tab or Shift+Tab to reach Mark as Done, Configure Automatic Cleanup, or Dismiss Mark as Done Suggestion, then press Enter or Space. Configure Automatic Cleanup opens the settings for automatically archiving inactive merged sessions and permanently deleting automatically archived merged sessions. The explanation under What Does \"Mark as Done\" Do? is collapsed by default. Use Tab to reach it and Enter or Space to expand or collapse it. Dismissing the suggestion, including with Escape while it is focused, returns to the chat input. Marking the session as done hides it from the sessions list so you can focus on your remaining tasks. The session is not deleted. Ask your agent to find it, or look in the \"Done\" section of the sessions list. You can restore it anytime. The worktree created for the session, if any, will be deleted. You can recreate it by restoring the session.")
 			: localize('chat.sessionArchiveNudge', "An archive suggestion appears above the chat input when the session's pull requests are merged. Use Tab or Shift+Tab to reach Archive, Configure Automatic Cleanup, or Dismiss Archive Suggestion, then press Enter or Space. Configure Automatic Cleanup opens the settings for automatically archiving inactive merged sessions and permanently deleting automatically archived merged sessions. The explanation under What Does \"Archive\" Do? is collapsed by default. Use Tab to reach it and Enter or Space to expand or collapse it. Dismissing the suggestion, including with Escape while it is focused, returns to the chat input. Archiving the session hides it from the sessions list so you can focus on your remaining tasks. The session is not deleted. Ask your agent to find it, or look in the \"Archived\" section of the sessions list. You can unarchive it anytime. The worktree created for the session, if any, will be deleted. You can recreate it by unarchiving the session."));
 	}
+
 	if (type === 'panelChat' || type === 'quickChat' || type === 'editsView' || type === 'agentView') {
 		content.push(localize('chat.modelPicker.autoMode', "In the tabbed model picker, the active Copilot tab has an Auto switch beside the provider name. The provider button and switch are separate keyboard targets. Turning Auto on replaces Copilot's individual models with automatic routing choices; provider tabs and search remain available. Turn Auto off to restore the previous manual Copilot model. The switch is disabled when no individual Copilot model is available. Browsing another provider does not change the selected model."));
 		content.push(localize('chat.modelPicker.managedDefault', "In the tabbed model picker, Org default identifies the model your organization sets for new chats. It remains on that model when you choose another model for this chat; the checkmark identifies your current selection. The Auto section carries the same label when Auto is the organization default."));
@@ -268,6 +292,22 @@ export function getAccessibilityHelpText(type: 'panelChat' | 'inlineChat' | 'qui
 	}
 	content.push(localize('chat.signals', "Accessibility Signals can be changed via settings with a prefix of signals.chat. By default, if a request takes more than 4 seconds, you will hear a sound indicating that progress is still occurring."));
 	return content.join('\n');
+}
+
+function getStandaloneChatAccessibilityHelpProvider(accessor: ServicesAccessor, type: 'chatPet' | 'chatPetInputWindow'): AccessibleContentProvider {
+	const focusedElement = dom.getActiveDocument().activeElement;
+	const helpText = getAccessibilityHelpText(type, accessor.get(IKeybindingService), false);
+	return new AccessibleContentProvider(
+		type === 'chatPet' ? AccessibleViewProviderId.ChatPet : AccessibleViewProviderId.ChatPetInputWindow,
+		{ type: AccessibleViewType.Help },
+		() => helpText,
+		() => {
+			if (dom.isHTMLElement(focusedElement)) {
+				focusedElement.focus();
+			}
+		},
+		AccessibilityVerbositySettingId.Chat,
+	);
 }
 
 export function getChatAccessibilityHelpProvider(accessor: ServicesAccessor, editor: ICodeEditor | undefined, type: 'panelChat' | 'inlineChat' | 'quickChat' | 'editsView' | 'agentView' | 'chatInputWindow'): AccessibleContentProvider | undefined {

@@ -105,7 +105,7 @@ import { ChatResponseResourceFileSystemProvider, ChatResponseResourceWorkbenchCo
 import { ChatTerminalOutputTextModelService, ChatTerminalOutputTextModelWorkbenchContribution, IChatTerminalOutputTextModelService } from './agentSessions/agentHost/chatTerminalOutputTextModelContentProvider.js';
 import { ChatWidgetHistoryService, IChatWidgetHistoryService } from '../common/widget/chatWidgetHistoryService.js';
 import { registerChatAccessibilityActions } from './actions/chatAccessibilityActions.js';
-import { AgentChatAccessibilityHelp, ChatInputWindowAccessibilityHelp, EditsChatAccessibilityHelp, PanelChatAccessibilityHelp, QuickChatAccessibilityHelp } from './actions/chatAccessibilityHelp.js';
+import { AgentChatAccessibilityHelp, ChatInputWindowAccessibilityHelp, ChatPetAccessibilityHelp, ChatPetInputWindowAccessibilityHelp, EditsChatAccessibilityHelp, PanelChatAccessibilityHelp, QuickChatAccessibilityHelp } from './actions/chatAccessibilityHelp.js';
 import { ModeOpenChatGlobalAction, registerChatActions } from './actions/chatActions.js';
 import { ChatAgentRecommendation } from './actions/chatAgentRecommendationActions.js';
 import { CodeBlockActionRendering, registerChatCodeBlockActions, registerChatCodeCompareBlockActions } from './actions/chatCodeblockActions.js';

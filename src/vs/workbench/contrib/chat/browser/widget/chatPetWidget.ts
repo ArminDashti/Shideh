@@ -1420,6 +1420,8 @@ export class ChatPetView extends Disposable {
 	private _variant: ChatPetVariant;
 	private _selectedAccessory: ChatPetAccessoryId | undefined;
 	private _scale = 1;
+	private _completionTokenInitialized = false;
+	private _lastCompletionToken: string | undefined;
 
 	constructor(
 		host: IChatPetWidgetHost,
@@ -1450,6 +1452,14 @@ export class ChatPetView extends Disposable {
 			ariaLabel: this._getAriaLabel(false, false),
 		}));
 		this._button.element.classList.add('chat-pet-button');
+		if (this.desktopHost) {
+			this._button.element.tabIndex = -1;
+		}
+		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(this._button.element));
+		const petFocused = ChatContextKeys.chatPetFocused.bindTo(scopedContextKeyService);
+		const focusTracker = this._register(dom.trackFocus(this._button.element));
+		this._register(focusTracker.onDidFocus(() => petFocused.set(true)));
+		this._register(focusTracker.onDidBlur(() => petFocused.set(false)));
 		this._button.element.dataset.facing = this._facingController.direction;
 		this._hostPositionScheduler = this._register(new dom.AnimationFrameScheduler(this._button.element, () => {
 			if (this._hostTransition.get()?.phase === 'pending') {
@@ -1533,6 +1543,12 @@ export class ChatPetView extends Disposable {
 			this._updateSpeechBubblePosition();
 		}
 		this._register(dom.addDisposableListener(speechBubbleImage, 'load', () => this._updateSpeechBubble(this._renderedState, true)));
+		this.desktopHost?.setInteractiveElements([
+			this._button.element,
+			...this._sprites.map(sprite => sprite.container),
+			this._speechBubble.container,
+			this._respawnEffect.container,
+		]);
 		this._gazeScheduler = this._register(new dom.AnimationFrameScheduler(this._button.element, () => this._updateGaze()));
 		this._register(dom.addDisposableListener(dom.getWindow(this._button.element).document, dom.EventType.POINTER_MOVE, (event: PointerEvent) => {
 			this._trackCursor(event);
@@ -1583,7 +1599,7 @@ export class ChatPetView extends Disposable {
 			}
 			this._dismissBounceResult();
 			dom.EventHelper.stop(event, true);
-			this._showContextMenu(event);
+			void this._showContextMenu(event);
 		}));
 		this._register(autorun(reader => {
 			const currentHost = this._host.read(reader);
@@ -1708,7 +1724,7 @@ export class ChatPetView extends Disposable {
 			const currentHost = this._host.read(reader);
 			const chatModel = currentHost.model.read(reader);
 			const request = chatModel?.lastRequestObs.read(reader);
-			const needsInput = !!request?.response?.isPendingConfirmation.read(reader);
+			const needsInput = externalActivity?.needsInput ?? !!request?.response?.isPendingConfirmation.read(reader);
 			let confirmationAttentionExpired = this._confirmationAttentionExpired.read(reader);
 			if (!needsInput) {
 				this._confirmationAttentionScheduler.cancel();
@@ -1796,6 +1812,12 @@ export class ChatPetView extends Disposable {
 					this._idleExpired.set(false, undefined);
 					transientState = this._beginWakeAnimation() ?? transientState;
 				}
+			} else if (this.desktopHost) {
+				this._idleScheduler.cancel();
+				if (idleExpired) {
+					idleExpired = false;
+					this._idleExpired.set(false, undefined);
+				}
 			} else if (!idleExpired && !this._idleScheduler.isScheduled()) {
 				this._idleScheduler.schedule();
 			}
@@ -1835,8 +1857,22 @@ export class ChatPetView extends Disposable {
 				if (e.reason === 'completedRequest' && !response.isCanceled && !reacting) {
 					this._showTransientState('buttonPress');
 				}
+				this._lastCompletionToken = completionToken;
 			}));
-		}));
+		} else {
+			this._register(autorun(reader => {
+				const chatModel = model.read(reader);
+				const response = chatModel?.lastRequestObs.read(reader)?.response;
+				if (!response) {
+					return;
+				}
+				reader.store.add(response.onDidChange(e => {
+					if (e.reason === 'completedRequest' && !response.isCanceled) {
+						this._showTransientState('buttonPress');
+					}
+				}));
+			}));
+		}
 	}
 
 	setHost(host: IChatPetWidgetHost): void {
@@ -2099,12 +2135,15 @@ export class ChatPetView extends Disposable {
 	}
 
 	private _startDrag(event: PointerEvent): void {
-		if (!this._enabled || this._isDead.get() || this._isDragging.get() || this._isAirborne() || this.chatPetService.onTheRun.get() || event.button !== 0) {
+		if (!this._enabled || this._isDead.get() || this._isDragging.get() || this._isAirborne() || this.chatPetService.onTheRun.get() || event.button !== 0 || (this.desktopHost && !this.desktopHost.canMove())) {
+			return;
+		}
+		if (this.desktopHost) {
+			this._startDesktopDrag(event);
 			return;
 		}
 		this._wake();
 		dom.EventHelper.stop(event);
-		this._button.element.focus();
 		const targetWindow = dom.getWindow(this._button.element);
 		const startX = event.clientX;
 		const startY = event.clientY;
@@ -2123,6 +2162,7 @@ export class ChatPetView extends Disposable {
 			while (pointerSamples.length > 2 && sampleTime - pointerSamples[0].time > THROW_VELOCITY_SAMPLE_DURATION) {
 				pointerSamples.shift();
 			}
+
 			if (!didDrag && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) {
 				return;
 			}
@@ -2152,6 +2192,42 @@ export class ChatPetView extends Disposable {
 				} else {
 					this._beginFall(CHAT_PET_MOUSE_BOUNCE_RELEASE_GRACE_DURATION);
 				}
+			}
+		});
+	}
+
+	private _startDesktopDrag(event: PointerEvent): void {
+		this._wake();
+		dom.EventHelper.stop(event);
+		const startX = event.screenX;
+		const startY = event.screenY;
+		let didDrag = false;
+		let lastDeltaX = 0;
+		let lastDeltaY = 0;
+		this._dragMonitor.startMonitoring(this._button.element, event.pointerId, event.buttons, moveEvent => {
+			const deltaX = moveEvent.screenX - startX;
+			const deltaY = moveEvent.screenY - startY;
+			if (!didDrag && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) {
+				return;
+			}
+			if (!didDrag) {
+				didDrag = true;
+				this._button.element.classList.remove('entering');
+				this._button.element.classList.add('dragging');
+				this._isDragging.set(true, undefined);
+			}
+			dom.EventHelper.stop(moveEvent, true);
+			this.desktopHost?.moveBy(deltaX - lastDeltaX, deltaY - lastDeltaY);
+			lastDeltaX = deltaX;
+			lastDeltaY = deltaY;
+		}, () => {
+			this._button.element.classList.remove('dragging');
+			if (didDrag) {
+				this._isDragging.set(false, undefined);
+				this._suppressNextPointerClick = true;
+				this._clickSuppressionScheduler.schedule();
+				this.desktopHost?.finishMove();
+				status(localize('chatPet.movedOnDesktop', "VS Code pet moved on the desktop"));
 			}
 		});
 	}
@@ -2605,6 +2681,29 @@ export class ChatPetView extends Disposable {
 		));
 		const interactionSeparator = new Separator();
 		const appearanceSeparator = new Separator();
+		const desktopActions = this.desktopHost?.getContextMenuActions(actions) ?? [];
+		const desktopSeparator = desktopActions.length ? new Separator() : undefined;
+		const menuActions: IAction[] = [
+			...desktopActions,
+			...(desktopSeparator ? [desktopSeparator] : []),
+			onTheRunAction,
+			interactionSeparator,
+			grow,
+			shrink,
+			appearanceSeparator,
+			stable,
+			insiders,
+		];
+		const onHide = () => {
+			this._contextMenuVisible = false;
+			if (this._contextMenuActions.value === actions) {
+				this._contextMenuActions.clear();
+			}
+		};
+		if (this.desktopHost) {
+			this.desktopHost.showContextMenu(event, menuActions, onHide);
+			return;
+		}
 		this.contextMenuService.showContextMenu({
 			getAnchor: () => new StandardMouseEvent(dom.getWindow(this._button.element), event),
 			getActions: (): IAction[] => [
@@ -2637,6 +2736,29 @@ export class ChatPetView extends Disposable {
 			return;
 		}
 		const keyboardEvent = new StandardKeyboardEvent(event);
+		if (this.desktopHost) {
+			let deltaX = 0;
+			let deltaY = 0;
+			const distance = event.shiftKey ? HOP_DISTANCE * 2 : HOP_DISTANCE;
+			if (keyboardEvent.equals(KeyCode.LeftArrow) || keyboardEvent.equals(KeyMod.Shift | KeyCode.LeftArrow)) {
+				deltaX = -distance;
+			} else if (keyboardEvent.equals(KeyCode.RightArrow) || keyboardEvent.equals(KeyMod.Shift | KeyCode.RightArrow)) {
+				deltaX = distance;
+			} else if (keyboardEvent.equals(KeyCode.UpArrow) || keyboardEvent.equals(KeyMod.Shift | KeyCode.UpArrow)) {
+				deltaY = -distance;
+			} else if (keyboardEvent.equals(KeyCode.DownArrow) || keyboardEvent.equals(KeyMod.Shift | KeyCode.DownArrow)) {
+				deltaY = distance;
+			} else {
+				return;
+			}
+			this._wake();
+			keyboardEvent.preventDefault();
+			keyboardEvent.stopPropagation();
+			this.desktopHost.moveBy(deltaX, deltaY);
+			this.desktopHost.finishMove();
+			status(localize('chatPet.movedOnDesktop', "VS Code pet moved on the desktop"));
+			return;
+		}
 		let direction = 0;
 		let throwRequested = false;
 		if (keyboardEvent.equals(KeyMod.Shift | KeyCode.LeftArrow)) {

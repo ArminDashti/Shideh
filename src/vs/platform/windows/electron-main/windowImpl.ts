@@ -318,7 +318,7 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		}));
 	}
 
-	protected applyState(state: IWindowState, hasMultipleDisplays = electron.screen.getAllDisplays().length > 0): void {
+	protected applyState(state: IWindowState, hasMultipleDisplays = electron.screen.getAllDisplays().length > 0, initialShowMode: 'active' | 'inactive' | 'hidden' = 'active'): void {
 
 		// TODO@electron (Electron 4 regression): when running on multiple displays where the target display
 		// to open the window has a larger resolution than the primary display, the window will not size

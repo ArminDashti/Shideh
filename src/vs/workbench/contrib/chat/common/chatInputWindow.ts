@@ -23,6 +23,10 @@ export const enum ChatInputWindowStorageKeys {
 
 export const IChatInputWindowService = createDecorator<IChatInputWindowService>('chatInputWindowService');
 
+export type ChatPetInputTarget =
+	| { readonly kind: 'new' }
+	| { readonly kind: 'session'; readonly sessionResource: URI };
+
 export interface IChatInputWindowService {
 	readonly _serviceBrand: undefined;
 
