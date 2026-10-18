@@ -274,7 +274,7 @@ export class WorkbenchToolBar extends ToolBar {
 					}));
 				}
 
-				if (actions.length === 0) {
+				if (actions.length === 0 && !this._options?.contextMenu) {
 					return;
 				}
 
