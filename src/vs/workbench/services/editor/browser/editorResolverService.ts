@@ -753,6 +753,9 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 			conflictingDefault = true;
 		}
 
+		console.log(`Possible Editors: ${JSON.stringify(possibleEditors.map(e => e.editorInfo.id))}`);
+		console.log(`Selected View Type: ${selectedViewType}`);
+
 		return {
 			editor: selectedEditor,
 			source: EditorSelectionSource.EditorPriority,
