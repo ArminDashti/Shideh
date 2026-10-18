@@ -506,3 +506,59 @@ if ($Global:__VSCodeState.HasPSReadLine) {
 		$env:VSCODE_PREVENT_SHELL_HISTORY = $null
 	}
 }
+
+# Right prompt detection
+function Get-OhMyPoshRightPromptInfo {
+	$result = [PSCustomObject]@{
+		HasRightPrompt = $false
+		SchemaType     = "unknown"
+		ThemePath      = $null
+		Reason         = ""
+	}
+
+	if ($env:POSH_THEME) {
+		$themePath = $env:POSH_THEME -replace '^~', $HOME
+	}
+
+	if (-not $themePath) {
+		try {
+			$ompInitLine = Get-Content $PROFILE -ErrorAction SilentlyContinue | Where-Object { $_ -like '*oh-my-posh init*--config*' }
+			if ($ompInitLine -match '--config\s+["'']?([^"'']+\.omp\.json)["'']?') {
+				$themePath = $Matches[1] -replace '^~', $HOME
+			}
+		} catch {}
+	}
+
+	if (-not $themePath -or !(Test-Path $themePath)) {
+		return $result
+	}
+
+	$result.ThemePath = $themePath
+
+	try {
+		$theme = Get-Content $themePath -Raw | ConvertFrom-Json
+
+		if ($theme.blocks) {
+			$result.SchemaType = "blocks"
+			$rightAligned = $theme.blocks | Where-Object { $_.alignment -eq 'right' }
+			$rpromptBlock = $theme.blocks | Where-Object { $_.type -eq 'rprompt' }
+
+			if ($rightAligned.Count -gt 0) {
+				$result.HasRightPrompt = $true
+				$result.Reason = "'alignment': 'right'"
+			} elseif ($rpromptBlock.Count -gt 0) {
+				$result.HasRightPrompt = $true
+				$result.Reason = "'type': 'rprompt'"
+			}
+		} elseif ($theme.segments) {
+			$result.SchemaType = "segments"
+			$rprompt = $theme.segments | Where-Object { $_.type -eq 'rprompt' }
+			if ($rprompt.Count -gt 0) {
+				$result.HasRightPrompt = $true
+				$result.Reason = "'type': 'rprompt'"
+			}
+		}
+	} catch {}
+
+	return $result
+}
