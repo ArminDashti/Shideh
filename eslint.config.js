@@ -1929,7 +1929,7 @@ export default defineConfig(
 						{
 							'when': 'hasBrowser',
 							'pattern': 'vscode-textmate'
-						} // node module allowed even in /browser/
+						}, // node module allowed even in /browser/
 					]
 				},
 				{
