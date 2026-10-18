@@ -33,7 +33,7 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 
 	declare _serviceBrand: undefined;
 
-	public readonly SIZE_LIMIT = Math.floor(1024 * 1024 * 1.9); // 2 MB
+	public readonly SIZE_LIMIT; // 2 MB
 
 	private serverConfiguration;
 	private machineClient: IUserDataSyncMachinesService | undefined;
@@ -41,7 +41,7 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 	private authenticationInfo: { sessionId: string; token: string; providerId: string } | undefined;
 	private static CACHED_SESSION_STORAGE_KEY = 'editSessionAccountPreference';
 
-	private initialized = false;
+	private initialized;
 	private readonly signedInContext: IContextKey<boolean>;
 
 	get isSignedIn() {
@@ -58,12 +58,12 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 		return this._didSignOut.event;
 	}
 
-	private _lastWrittenResources = new Map<SyncResource, { ref: string; content: string }>();
+	private _lastWrittenResources;
 	get lastWrittenResources() {
 		return this._lastWrittenResources;
 	}
 
-	private _lastReadResources = new Map<SyncResource, { ref: string; content: string }>();
+	private _lastReadResources;
 	get lastReadResources() {
 		return this._lastReadResources;
 	}
