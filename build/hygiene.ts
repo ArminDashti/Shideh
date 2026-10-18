@@ -65,6 +65,23 @@ export function checkNoNewJavaScriptFiles(repoRoot: string): string | undefined 
 	return undefined;
 }
 
+/** Checks that the repository does not contain a tracked pnpm lockfile. */
+export function checkNoPnpmLockfiles(repoRoot: string): string | undefined {
+	const out = cp.execFileSync('git', ['ls-files', '--', 'pnpm-lock.yaml', ':(glob)**/pnpm-lock.yaml'], {
+		cwd: repoRoot,
+		encoding: 'utf8',
+	});
+	const lockfiles = out.split(/\r?\n/).filter(line => !!line);
+
+	if (lockfiles.length > 0) {
+		return [
+			'pnpm-lock.yaml files are not allowed in this repository. Offending files:',
+			...lockfiles.map(file => `  ${file}`),
+		].join('\n');
+	}
+	return undefined;
+}
+
 /**
  * Main hygiene function that runs checks on files
  */

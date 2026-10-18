@@ -7,6 +7,7 @@ import type { LinkPresentation as MarkdownLinkPresentation } from '@vscode/markd
 import { derived, observableValue, type IObservable, type ISettableObservable } from '@vscode/observables';
 import * as vscode from 'vscode';
 import type { ILogger } from '../../logging';
+import { buildLoadingPresentationFromCached } from './linkPresentationBuilders';
 
 export type LinkPresentation = MarkdownLinkPresentation & {
 	readonly isLoading?: boolean;
