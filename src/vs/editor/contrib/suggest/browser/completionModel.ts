@@ -154,6 +154,7 @@ export class CompletionModel {
 			} else {
 				this._itemsByProvider.set(item.provider, [item]);
 			}
+			this._allProvider.add(item.provider);
 
 			// 'word' is that remainder of the current line that we
 			// filter and score against. In theory each suggestion uses a
