@@ -17,6 +17,7 @@ import { IKeybindingRule, KeybindingsRegistry } from '../../keybinding/common/ke
 
 export interface IMenuItem {
 	command: ICommandAction;
+	title?: string | ICommandActionTitle;
 	alt?: ICommandAction;
 	/**
 	 * Menu item is hidden if this expression returns false.
@@ -622,6 +623,7 @@ export class MenuItemAction implements IAction {
 
 	constructor(
 		item: ICommandAction,
+		title: string | ICommandActionTitle | undefined,
 		alt: ICommandAction | undefined,
 		options: IMenuActionOptions | undefined,
 		readonly hideActions: IMenuItemHide | undefined,
