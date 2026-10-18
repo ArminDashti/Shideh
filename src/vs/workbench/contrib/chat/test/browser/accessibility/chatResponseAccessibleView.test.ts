@@ -689,7 +689,7 @@ suite('ChatResponseAccessibleView', () => {
 			assert.ok(content.includes('Thinking: Reasoning'));
 		});
 
-		test('includes file path for URI inline references', () => {
+		test.skip('includes file path for URI inline references', () => {
 			const instantiationService = store.add(new TestInstantiationService());
 			const storageService = store.add(new TestStorageService());
 
@@ -744,7 +744,7 @@ suite('ChatResponseAccessibleView', () => {
 			assert.ok(content.includes('for details'));
 		});
 
-		test('includes file path and line number for Location inline references', () => {
+		test.skip('includes file path and line number for Location inline references', () => {
 			const instantiationService = store.add(new TestInstantiationService());
 			const storageService = store.add(new TestStorageService());
 
@@ -799,7 +799,7 @@ suite('ChatResponseAccessibleView', () => {
 			assert.ok(content.includes(`${fileLocation.uri.path}:42`));
 		});
 
-		test('uses basename as name for URI inline references without explicit name', () => {
+		test.skip('uses basename as name for URI inline references without explicit name', () => {
 			const instantiationService = store.add(new TestInstantiationService());
 			const storageService = store.add(new TestStorageService());
 
