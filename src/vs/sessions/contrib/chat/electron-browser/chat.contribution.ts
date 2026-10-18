@@ -57,6 +57,7 @@ export class SelectAgentsFolderContribution extends Disposable implements IWorkb
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@ILogService private readonly logService: ILogService,
 		@ISessionsPartService private readonly sessionsPartService: ISessionsPartService,
+		@ISessionsRecentWorkspacesService private readonly sessionsRecentWorkspacesService: ISessionsRecentWorkspacesService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@INewSessionComposerService private readonly newSessionComposerService: INewSessionComposerService,
