@@ -1600,6 +1600,93 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		this._onDidSendRequest.fire({ session: updatedSession, chat, isNewSession: false, isNewChat: true, options });
 	}
 
+	private _getLastActiveSessionState(): ISessionState | undefined {
+		for (const [, state] of this._sessionStates) {
+			if (state.isActive) {
+				return state;
+			}
+		}
+		return undefined;
+	}
+
+	async restoreLastActiveSession(): Promise<void> {
+		const lastActive = this._getLastActiveSessionState();
+		if (!lastActive) {
+			return;
+		}
+
+		// Synchronously switch away from the new-session view before any await so
+		// that NewChatViewPane never renders and cannot call createNewSession()
+		// which would cancel our restore token.
+		this.isNewChatSessionContext.set(false);
+		this._isNewChatInSessionContext.set(false);
+
+		const sessionResource = URI.parse(lastActive.sessionResource);
+		const token = this._startOpenSession();
+
+		const doRestore = async () => {
+			// Session may already be available if the provider registered early
+			const existing = this.getSession(sessionResource);
+			if (existing) {
+				try {
+					await this._doOpenSession(sessionResource, token);
+				} catch {
+					if (!token.isCancellationRequested) {
+						this.openNewSessionView();
+					}
+				}
+				return;
+			}
+
+			// Wait for the session to become available via provider registration.
+			// Cancel if the user navigates while we are waiting.
+			await new Promise<void>(resolve => {
+				const disposables = new DisposableStore();
+
+				const cancel = () => {
+					disposables.dispose();
+					resolve();
+				};
+
+				disposables.add(token.onCancellationRequested(cancel));
+
+				const tryRestore = () => {
+					if (token.isCancellationRequested) {
+						cancel();
+						return;
+					}
+
+					const session = this.getSession(sessionResource);
+					if (session) {
+						disposables.dispose();
+						this._doOpenSession(sessionResource, token).then(resolve, () => {
+							if (!token.isCancellationRequested) {
+								this.openNewSessionView();
+							}
+							resolve();
+						});
+					}
+				};
+
+				disposables.add(this.onDidChangeSessions(() => tryRestore()));
+				disposables.add(this.sessionsProvidersService.onDidChangeProviders(() => tryRestore()));
+			});
+		};
+
+		const restorePromise = doRestore();
+		if (!this.isNewChatSessionContext.get()) {
+			// Race against new-session navigation so progress stops immediately
+			// when the user opens the new session view, but not when they open
+			// another existing session (which should show its own progress).
+			const progressPromise = Promise.race([
+				restorePromise,
+				new Promise<void>(resolve => this._onDidOpenNewSessionView.event(() => resolve()))
+			]);
+			this.progressService.withProgress({ location: ChatViewId, delay: 200 }, () => progressPromise);
+		}
+		await restorePromise;
+	}
+
 	// -- Session Actions --
 
 	private _getProvider(session: ISession): ISessionsProvider | undefined {
