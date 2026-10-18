@@ -2150,6 +2150,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		}
 
 		this._logService.debug(`RunInTerminalTool: Invoking with options ${JSON.stringify(args)}`);
+		const command = toolSpecificData.commandLine.userEdited ?? toolSpecificData.commandLine.toolEdited ?? toolSpecificData.commandLine.original;
 		let toolResultMessage: string | IMarkdownString | undefined;
 
 		// Backend owns timeout decisions unconditionally. Any model-supplied

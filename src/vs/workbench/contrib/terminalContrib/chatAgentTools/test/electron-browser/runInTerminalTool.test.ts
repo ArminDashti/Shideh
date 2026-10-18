@@ -708,6 +708,38 @@ suite('RunInTerminalTool', () => {
 	});
 
 	suite('sandbox invocation messaging', () => {
+		test('should return minimum timeout recommendations for known long-running command patterns', () => {
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'npm install'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'pip install requests'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'cargo build --release'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'cmake --build .'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'make'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'make all'), 10 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'docker build .'), 20 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'qemu-system-x86_64 -m 1024'), 20 * 60_000);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'npm test'), 5 * 60_000);
+		});
+
+		test('should not return minimum timeout recommendation for quick commands', () => {
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'echo hello'), undefined);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'ls -la'), undefined);
+			// cmake configuration steps (not compilation) should not match
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'cmake ..'), undefined);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'cmake -B build'), undefined);
+			// fast make targets should not match
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'make clean'), undefined);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'make distclean'), undefined);
+			strictEqual(getMinimumTimeoutMsForCommand(runInTerminalTool, 'make help'), undefined);
+		});
+
+		test('should instruct models to use generous timeouts for long-running one-shot commands', async () => {
+			sandboxEnabled = false;
+
+			const toolData = await instantiationService.invokeFunction(createRunInTerminalToolData);
+
+			ok(toolData.modelDescription?.includes('a generous timeout'), 'Expected model description to recommend a generous timeout for one-shot long-running commands');
+		});
+
 		test('should instruct models to use $TMPDIR instead of /tmp when sandboxed', async () => {
 			sandboxEnabled = true;
 
