@@ -375,8 +375,8 @@ export class ActivitybarPart extends Part {
 	override layout(width: number, height: number): void {
 		super.layout(width, height, 0, 0);
 
-		if (!this.content) {
-			return; // not created yet
+		if (!this.compositeBar.value) {
+			return;
 		}
 
 		const { top, bottom } = this.getFloatingGutters();
