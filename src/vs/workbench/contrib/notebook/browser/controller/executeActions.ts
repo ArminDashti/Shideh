@@ -817,3 +817,52 @@ registerAction2(class RevealLastFailedCellAction extends NotebookAction {
 		}
 	}
 });
+
+registerAction2(class RevealLastFailedCellAction extends NotebookAction {
+	constructor() {
+		super({
+			id: REVEAL_LAST_FAILED_CELL,
+			title: localize('revealLastFailedCell', "Go to Most Recently Failed Cell"),
+			tooltip: localize('revealLastFailedCell', "Go to Most Recently Failed Cell"),
+			shortTitle: localize('revealLastFailedCellShort', "Go To"),
+			precondition: NOTEBOOK_LAST_CELL_FAILED,
+			menu: [
+				{
+					id: MenuId.EditorTitle,
+					when: ContextKeyExpr.and(
+						NOTEBOOK_IS_ACTIVE_EDITOR,
+						NOTEBOOK_LAST_CELL_FAILED,
+						NOTEBOOK_HAS_RUNNING_CELL.toNegated(),
+						ContextKeyExpr.notEquals('config.notebook.globalToolbar', true)
+					),
+					group: 'navigation',
+					order: 0
+				},
+				{
+					id: MenuId.NotebookToolbar,
+					when: ContextKeyExpr.and(
+						NOTEBOOK_IS_ACTIVE_EDITOR,
+						NOTEBOOK_LAST_CELL_FAILED,
+						NOTEBOOK_HAS_RUNNING_CELL.toNegated(),
+						ContextKeyExpr.equals('config.notebook.globalToolbar', true)
+					),
+					group: 'navigation/execute',
+					order: 0
+				},
+			],
+			icon: icons.errorStateIcon,
+		});
+	}
+
+	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
+		const notebookExecutionStateService = accessor.get(INotebookExecutionStateService);
+		const notebook = context.notebookEditor.textModel.uri;
+		const lastFailedCellHandle = notebookExecutionStateService.getLastFailedCellForNotebook(notebook);
+		if (lastFailedCellHandle !== undefined) {
+			const lastFailedCell = context.notebookEditor.getCellByHandle(lastFailedCellHandle);
+			if (lastFailedCell) {
+				context.notebookEditor.focusNotebookCell(lastFailedCell, 'container');
+			}
+		}
+	}
+});

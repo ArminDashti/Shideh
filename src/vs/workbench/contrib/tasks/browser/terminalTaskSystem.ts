@@ -177,6 +177,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 	private _terminals: IStringDictionary<ITerminalData>;
 	private _idleTaskTerminals: LinkedMap<string, string>;
 	private _sameTaskTerminals: IStringDictionary<string>;
+	private _terminalForTask: ITerminalInstance | undefined;
 	private _taskSystemInfoResolver: ITaskSystemInfoResolver;
 	private _lastTask: VerifiedTask | undefined;
 	// Should always be set in run
@@ -256,6 +257,19 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 		this._register(this._taskProblemMonitor = instantiationService.createInstance(TaskProblemMonitor));
 		this._taskTerminalActive = TASK_TERMINAL_ACTIVE.bindTo(contextKeyService);
 		this._register(this._terminalService.onDidChangeActiveInstance((e) => this._taskTerminalActive.set(e?.shellLaunchConfig.type === 'Task')));
+	}
+
+	private _reconnectToTerminals(terminals: ITerminalInstance[]): void {
+		for (const terminal of terminals) {
+			const taskForTerminal = terminal.shellLaunchConfig.attachPersistentProcess?.task;
+			if (taskForTerminal?.id && taskForTerminal?.lastTask) {
+				this._tasksToReconnect.push(taskForTerminal.id);
+				this._terminals[terminal.instanceId] = { terminal, lastTask: taskForTerminal.lastTask, group: taskForTerminal.group };
+			} else {
+				this._logService.trace(`Could not reconnect to terminal ${terminal.instanceId} with process details ${terminal.shellLaunchConfig.attachPersistentProcess}`);
+			}
+		}
+		this._hasReconnected = true;
 	}
 
 	public get onDidStateChange(): Event<ITaskEvent> {
@@ -1078,7 +1092,8 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 				}
 			}
 		} else {
-			[terminal, error] = await this._createTerminal(task, resolver, workspaceFolder);
+			[terminal, error] = this._terminalForTask ? [this._terminalForTask, undefined] : await this._createTerminal(task, resolver, workspaceFolder);
+			this._terminalForTask = undefined;
 
 			if (error) {
 				return Promise.reject(new Error((<TaskError>error).message));
@@ -1600,7 +1615,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 				}, 'Executing task: {0}', task._label), { excludeLeadingNewLine: true }) : undefined,
 				isFeatureTerminal: true,
 				icon: task.configurationProperties.icon?.id ? ThemeIcon.fromId(task.configurationProperties.icon.id) : undefined,
-				color: task.configurationProperties.icon?.color || undefined,
+				color: task.configurationProperties.icon?.color || undefined
 			};
 		} else {
 			const resolvedResult: { command: CommandString; args: CommandString[] } = await this._resolveCommandAndArgs(resolver, task.command);

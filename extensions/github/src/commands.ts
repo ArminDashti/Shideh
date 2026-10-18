@@ -266,5 +266,9 @@ export function registerCommands(gitAPI: GitAPI): vscode.Disposable {
 		return openPullRequest(gitAPI, sessionResource, sessionMetadata, accessToken);
 	}));
 
+	disposables.add(vscode.commands.registerCommand('github.openOnVscodeDev', async () => {
+		return openVscodeDevLink(gitAPI);
+	}));
+
 	return disposables;
 }

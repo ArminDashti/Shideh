@@ -608,6 +608,7 @@ export class PtyService extends Disposable implements IPtyService {
 
 	@traceRpc
 	async setTerminalLayoutInfo(args: ISetTerminalLayoutInfoArgs): Promise<void> {
+		this._logService.trace('ptyService#setLayoutInfo', args.tabs);
 		this._workspaceLayoutInfos.set(args.workspaceId, args);
 	}
 

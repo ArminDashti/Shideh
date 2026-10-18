@@ -18,18 +18,25 @@ import { flakySuite, getRandomTestPath } from '../testUtils.js';
 
 configureFlushOnWrite(false); // speed up all unit tests by disabling flush on write
 
+configureFlushOnWrite(false); // speed up all unit tests by disabling flush on write
+
 flakySuite('PFS', function () {
 
 	let testDir: string;
 
 	setup(() => {
+		configureFlushOnWrite(true); // but enable flushing for the purpose of these tests
 		testDir = getRandomTestPath(tmpdir(), 'vsctests', 'pfs');
 
 		return fs.promises.mkdir(testDir, { recursive: true });
 	});
 
-	teardown(() => {
-		return Promises.rm(testDir);
+	teardown(async () => {
+		try {
+			await Promises.rm(testDir);
+		} finally {
+			configureFlushOnWrite(false);
+		}
 	});
 
 	test('writeFile', async () => {

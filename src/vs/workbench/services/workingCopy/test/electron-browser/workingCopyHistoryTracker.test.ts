@@ -40,6 +40,7 @@ suite('WorkingCopyHistoryTracker', () => {
 	let workingCopyService: WorkingCopyService;
 	let fileService: IFileService;
 	let configurationService: TestConfigurationService;
+	let inMemoryFileSystemDisposable: IDisposable;
 
 	let tracker: WorkingCopyHistoryTracker;
 

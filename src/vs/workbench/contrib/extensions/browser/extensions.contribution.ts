@@ -1633,6 +1633,24 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 				}
 			}
 		});
+		this.registerExtensionAction({
+			id: ClearLanguageAction.ID,
+			title: ClearLanguageAction.TITLE,
+			menu: {
+				id: MenuId.ExtensionContext,
+				group: INSTALL_ACTIONS_GROUP,
+				order: 0,
+				when: ContextKeyExpr.and(ContextKeyExpr.not('inExtensionEditor'), ContextKeyExpr.has('canSetLanguage'), ContextKeyExpr.has('isActiveLanguagePackExtension'))
+			},
+			run: async (accessor: ServicesAccessor, extensionId: string) => {
+				const instantiationService = accessor.get(IInstantiationService);
+				const extensionsWorkbenchService = accessor.get(IExtensionsWorkbenchService);
+				const extension = (await extensionsWorkbenchService.getExtensions([{ id: extensionId }], CancellationToken.None))[0];
+				const action = instantiationService.createInstance(ClearLanguageAction);
+				action.extension = extension;
+				return action.run();
+			}
+		});
 
 		this.registerExtensionAction({
 			id: 'workbench.extensions.action.copyExtension',

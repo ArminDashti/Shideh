@@ -40,7 +40,8 @@
           ".repo"
         ],
         "filenames": [
-          "gitconfig"
+          "gitconfig",
+          ".env"
         ],
         "filenamePatterns": [
           "**/.config/git/config",

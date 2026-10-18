@@ -3232,6 +3232,10 @@ export abstract class AbstractTree<T, TFilterData, TRef> implements IDisposable 
 
 	layout(height?: number, width?: number): void {
 		this.view.layout(height, width);
+
+		if (isNumber(width)) {
+			this.findController?.layout(width);
+		}
 	}
 
 	style(styles: IListStyles): void {

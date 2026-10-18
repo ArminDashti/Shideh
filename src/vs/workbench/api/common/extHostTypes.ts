@@ -2962,6 +2962,7 @@ export function validateTestCoverageCount(cc?: vscode.TestCoverageCount) {
 	}
 }
 
+@es5ClassCompat
 export class FileCoverage implements vscode.FileCoverage {
 	public static fromDetails(uri: vscode.Uri, details: vscode.FileCoverageDetail[]): vscode.FileCoverage {
 		const statements = new TestCoverageCount(0, 0);
@@ -3007,6 +3008,7 @@ export class FileCoverage implements vscode.FileCoverage {
 	}
 }
 
+@es5ClassCompat
 export class StatementCoverage implements vscode.StatementCoverage {
 	// back compat until finalization:
 	get executionCount() { return +this.executed; }
@@ -3019,6 +3021,7 @@ export class StatementCoverage implements vscode.StatementCoverage {
 	) { }
 }
 
+@es5ClassCompat
 export class BranchCoverage implements vscode.BranchCoverage {
 	// back compat until finalization:
 	get executionCount() { return +this.executed; }

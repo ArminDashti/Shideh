@@ -702,6 +702,7 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 				this._openTaskFile(resource, TaskSourceKind.WorkspaceFile);
 			}
 		});
+		TaskCommandsRegistered.bindTo(this._contextKeyService).set(true);
 	}
 
 	private get workspaceFolders(): IWorkspaceFolder[] {
@@ -3233,11 +3234,24 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 
 		const placeholder = nls.localize('TaskService.pickRunTask', 'Select the task to run');
 
-		this._showIgnoredFoldersMessage().then(() => {
+		this._showIgnoredFoldersMessage().then(async () => {
 			if (this._configurationService.getValue(USE_SLOW_PICKER)) {
 				let taskResult: { tasks: Promise<Task[]>; grouped: Promise<TaskMap> } | undefined = undefined;
 				if (!tasks) {
 					taskResult = this._tasksAndGroupedTasks();
+				}
+				if (filter && typeFilter) {
+					const picker: IQuickPick<ITaskTwoLevelQuickPickEntry> = this._quickInputService.createQuickPick();
+					picker.placeholder = nls.localize('TaskService.pickRunTask', 'Select the task to run');
+					picker.matchOnDescription = true;
+					picker.ignoreFocusOut = false;
+					const taskQuickPick = new TaskQuickPick(this, this._configurationService, this._quickInputService, this._notificationService, this._themeService, this._dialogService);
+					const result = await taskQuickPick.doPickerSecondLevel(picker, filter);
+					if (result?.task) {
+						pickThen(result.task as Task);
+						taskQuickPick.dispose();
+					}
+					return;
 				}
 				this._showQuickPick(tasks ? tasks : taskResult!.tasks, placeholder,
 					{

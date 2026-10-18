@@ -731,17 +731,20 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 						},
 						'languageId': {
 							'type': 'string'
+						},
+						'path': {
+							'type': 'string'
 						}
 					}
 				}
 			}
 		]
 	},
-	handler: async (accessor, args?: { languageId?: string; viewType?: string }) => {
+	handler: async (accessor, args?: { languageId?: string; viewType?: string; path?: string }) => {
 		const editorService = accessor.get(IEditorService);
 
 		await editorService.openEditor({
-			resource: undefined,
+			resource: args?.path ? URI.from({ scheme: Schemas.untitled, path: args.path }) : undefined,
 			options: {
 				override: args?.viewType,
 				pinned: true

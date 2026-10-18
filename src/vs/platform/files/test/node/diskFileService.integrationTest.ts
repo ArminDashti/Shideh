@@ -163,6 +163,8 @@ flakySuite('Disk File Service', function () {
 	const disposables = new DisposableStore();
 
 	setup(async () => {
+		DiskFileSystemProvider.configureFlushOnWrite(true); // but enable flushing for the purpose of these tests
+
 		const logService = new NullLogService();
 
 		service = disposables.add(new FileService(logService));
@@ -180,10 +182,14 @@ flakySuite('Disk File Service', function () {
 		await Promises.copy(sourceDir, testDir, { preserveSymlinks: false });
 	});
 
-	teardown(() => {
-		disposables.clear();
+	teardown(async () => {
+		try {
+			disposables.clear();
 
-		return Promises.rm(testDir);
+			await Promises.rm(testDir);
+		} finally {
+			DiskFileSystemProvider.configureFlushOnWrite(false);
+		}
 	});
 
 	test('createFolder', async () => {

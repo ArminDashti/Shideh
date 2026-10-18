@@ -498,4 +498,7 @@ import './contrib/opener/browser/opener.contribution.js';
 // Recorder
 import 'vs/workbench/contrib/recorder/browser/recorder.contribution';
 
+// Deprecated Extension Migrator
+import 'vs/workbench/contrib/deprecatedExtensionMigrator/browser/deprecatedExtensionMigrator.contribution';
+
 //#endregion

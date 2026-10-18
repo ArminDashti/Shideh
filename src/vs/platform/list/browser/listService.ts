@@ -1240,6 +1240,7 @@ class WorkbenchTreeInternals<TInput, T, TFilterData> {
 		this.treeElementHasParent = WorkbenchTreeElementHasParent.bindTo(this.contextKeyService);
 		this.treeElementCanExpand = WorkbenchTreeElementCanExpand.bindTo(this.contextKeyService);
 		this.treeElementHasChild = WorkbenchTreeElementHasChild.bindTo(this.contextKeyService);
+		this.treeFindOpen = WorkbenchTreeFindOpen.bindTo(this.contextKeyService);
 
 		this.treeFindOpen = WorkbenchTreeFindOpen.bindTo(this.contextKeyService);
 		this.treeStickyScrollFocused = WorkbenchTreeStickyScrollFocused.bindTo(this.contextKeyService);
@@ -1459,6 +1460,16 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 5,
 			markdownDescription: localize('Fast Scroll Sensitivity', "Scrolling speed multiplier when pressing `Alt`.")
+		},
+		[defaultFindModeSettingKey]: {
+			type: 'string',
+			enum: ['highlight', 'filter'],
+			enumDescriptions: [
+				localize('defaultFindModeSettingKey.highlight', "Highlight elements when searching. Further up and down navigation will traverse only the highlighted elements."),
+				localize('defaultFindModeSettingKey.filter', "Filter elements when searching.")
+			],
+			default: 'highlight',
+			description: localize('defaultFindModeSettingKey', "Controls the default find mode for lists and trees in the workbench.")
 		},
 		[defaultFindModeSettingKey]: {
 			type: 'string',

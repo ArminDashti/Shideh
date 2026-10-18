@@ -435,6 +435,8 @@ export class SubmenuEntryActionViewItem extends DropdownMenuActionViewItem {
 				setBackgroundImage();
 			}));
 		}
+
+		this._register(registerConfigureMenu(this._contextMenuService, this, action));
 	}
 }
 
@@ -602,6 +604,8 @@ export class DropdownWithDefaultActionViewItem extends BaseActionViewItem {
 				event.stopPropagation();
 			}
 		}));
+
+		this._register(registerConfigureMenu(this._contextMenuService, this, (<SubmenuItemAction>this.action)));
 	}
 
 	override focus(fromRight?: boolean): void {

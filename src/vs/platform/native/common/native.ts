@@ -275,6 +275,8 @@ export interface ICommonNativeHostService {
 
 	readonly onDidTriggerWindowSystemContextMenu: Event<{ readonly windowId: number; readonly x: number; readonly y: number }>;
 
+	readonly onDidTriggerSystemContextMenu: Event<{ windowId: number; x: number; y: number }>;
+
 	// Window
 	getWindows(options: { includeAuxiliaryWindows: true }): Promise<Array<IOpenedMainWindow | IOpenedAuxiliaryWindow>>;
 	getWindows(options: { includeAuxiliaryWindows: false }): Promise<Array<IOpenedMainWindow>>;

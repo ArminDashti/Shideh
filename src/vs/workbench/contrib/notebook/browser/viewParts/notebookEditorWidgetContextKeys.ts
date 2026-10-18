@@ -163,6 +163,12 @@ export class NotebookEditorContextKeys {
 		}
 	}
 
+	private _updateForLastRunFailState(e: INotebookFailStateChangedEvent): void {
+		if (e.notebook === this._editor.textModel?.uri) {
+			this._lastCellFailed.set(e.failed);
+		}
+	}
+
 	private async _updateForInstalledExtension(): Promise<void> {
 		if (!this._editor.hasModel()) {
 			return;
