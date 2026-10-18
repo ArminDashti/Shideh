@@ -930,12 +930,13 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 		}
 
 		try {
-			const result = await Promise.all(queryOptions?.map(option => this._proxy.$startTextSearch(
-				query,
-				option.folder ?? null,
-				option.options,
-				requestId,
-				token) || {}
+			const result = await Promise.all(queryOptions?.map(option =>
+				this._proxy.$startTextSearch(
+					query,
+					option.folder ?? null,
+					option.options,
+					requestId,
+					token) || {}
 			) ?? []);
 			delete this._activeSearchCallbacks[requestId];
 
