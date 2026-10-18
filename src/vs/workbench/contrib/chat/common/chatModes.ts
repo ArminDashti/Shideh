@@ -584,6 +584,7 @@ function agentToCustomizationItem(agent: ICustomAgent): IAgentCustomizationItem 
 
 export class CustomChatMode implements IChatMode {
 	private readonly _nameObservable: ISettableObservable<string>;
+	private readonly _displayNameObservable: ISettableObservable<string | undefined>;
 	private readonly _descriptionObservable: ISettableObservable<string | undefined>;
 	private readonly _promptObservable: ISettableObservable<string | undefined>;
 	private readonly _customToolsObservable: ISettableObservable<readonly string[] | undefined>;
@@ -643,7 +644,7 @@ export class CustomChatMode implements IChatMode {
 	}
 
 	get label(): IObservable<string> {
-		return this.name;
+		return derived(reader => this._displayNameObservable.read(reader) ?? this._nameObservable.read(reader));
 	}
 
 	get handOffs(): IObservable<readonly IHandOff[] | undefined> {
@@ -678,6 +679,7 @@ export class CustomChatMode implements IChatMode {
 		this.id = customChatMode.uri.toString();
 		this.contentHash = customChatMode.contentHash;
 		this._nameObservable = observableValue('name', customChatMode.name);
+		this._displayNameObservable = observableValue('displayName', customChatMode.displayName);
 		this._descriptionObservable = observableValue('description', customChatMode.description);
 		this._promptObservable = observableValue('prompt', (customChatMode as any).prompt);
 		this._customToolsObservable = observableValue('customTools', customChatMode.tools);

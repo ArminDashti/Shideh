@@ -170,6 +170,10 @@ export class PromptHeader {
 		return this.getStringAttribute(PromptHeaderAttributes.name);
 	}
 
+	public get displayName(): string | undefined {
+		return this.getStringAttribute('display_name') ?? this.getStringAttribute('displayName');
+	}
+
 	public get description(): string | undefined {
 		return this.getStringAttribute(PromptHeaderAttributes.description);
 	}
