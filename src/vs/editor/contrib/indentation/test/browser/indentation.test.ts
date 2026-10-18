@@ -1310,7 +1310,6 @@ suite('Auto Indent On Type - TypeScript/JavaScript', () => {
 		});
 	});
 
-
 	test.skip('issue #40115: keep indentation when added', () => {
 
 		// https://github.com/microsoft/vscode/issues/40115
