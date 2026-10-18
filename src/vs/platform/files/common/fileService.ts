@@ -220,12 +220,13 @@ export class FileService extends Disposable implements IFileService {
 		const resolveTo = options?.resolveTo;
 		const resolveSingleChildDescendants = options?.resolveSingleChildDescendants;
 		const resolveMetadata = options?.resolveMetadata;
+		const resolveSymlinkTarget = options?.resolveSymlinkTarget;
 
 		const stat = await provider.stat(resource);
 
 		let trie: TernarySearchTree<URI, boolean> | undefined;
 
-		return this.toFileStat(provider, resource, stat, undefined, !!resolveMetadata, (stat, siblings) => {
+		return this.toFileStat(provider, resource, stat, undefined, !!resolveMetadata, resolveSymlinkTarget ?? false, (stat, siblings) => {
 
 			// lazy trie to check for recursive resolving
 			if (!trie) {
@@ -250,10 +251,37 @@ export class FileService extends Disposable implements IFileService {
 		});
 	}
 
-	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat | { type: FileType } & Partial<IStat>, siblings: number | undefined, resolveMetadata: boolean, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStat>;
-	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat, siblings: number | undefined, resolveMetadata: true, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStatWithMetadata>;
-	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat | { type: FileType } & Partial<IStat>, siblings: number | undefined, resolveMetadata: boolean, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStat> {
+	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat | { type: FileType } & Partial<IStat>, siblings: number | undefined, resolveMetadata: boolean, resolveSymlinkTarget: boolean, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStat>;
+	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat, siblings: number | undefined, resolveMetadata: true, resolveSymlinkTarget: boolean, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStatWithMetadata>;
+	private async toFileStat(provider: IFileSystemProvider, resource: URI, stat: IStat | { type: FileType } & Partial<IStat>, siblings: number | undefined, resolveMetadata: boolean, resolveSymlinkTarget: boolean, recurse: (stat: IFileStat, siblings?: number) => boolean): Promise<IFileStat> {
 		const { providerExtUri } = this.getExtUri(provider);
+		const isSymbolicLink = (stat.type & FileType.SymbolicLink) !== 0;
+		let symbolicLinkTarget: string | undefined = undefined;
+		if (resolveMetadata && isSymbolicLink) {
+			// Resolve with provider
+			try {
+				const resolvedSymlinkStat = await provider.stat?.(resource);
+				if (resolvedSymlinkStat) {
+					symbolicLinkTarget = resolvedSymlinkStat.symbolicLinkTarget;
+				}
+				const fileStatWithMetadata: IFileStatWithMetadata = {
+					resource,
+					name: providerExtUri.basename(resource),
+					isFile: (stat.type & FileType.File) !== 0,
+					isDirectory: (stat.type & FileType.Directory) !== 0,
+					isSymbolicLink,
+					mtime: stat.mtime!,
+					ctime: stat.ctime!,
+					size: stat.size!,
+					readonly: Boolean((stat.permissions ?? 0) & FilePermission.Readonly) || Boolean(provider.capabilities & FileSystemProviderCapabilities.Readonly),
+					locked: Boolean((stat.permissions ?? 0) & FilePermission.Locked),
+					etag: etag({ mtime: stat.mtime, size: stat.size })!,
+					children: undefined,
+					symbolicLinkTarget
+				};
+				return fileStatWithMetadata;
+			} catch { }
+		}
 
 		const readonly = Boolean((stat.permissions ?? 0) & FilePermission.Readonly) || Boolean(provider.capabilities & FileSystemProviderCapabilities.Readonly);
 		// convert to file stat
@@ -262,7 +290,7 @@ export class FileService extends Disposable implements IFileService {
 			name: providerExtUri.basename(resource),
 			isFile: (stat.type & FileType.File) !== 0,
 			isDirectory: (stat.type & FileType.Directory) !== 0,
-			isSymbolicLink: (stat.type & FileType.SymbolicLink) !== 0,
+			isSymbolicLink,
 			mtime: stat.mtime,
 			ctime: stat.ctime,
 			size: stat.size,
@@ -270,8 +298,9 @@ export class FileService extends Disposable implements IFileService {
 			locked: Boolean((stat.permissions ?? 0) & FilePermission.Locked),
 			executable: Boolean((stat.permissions ?? 0) & FilePermission.Executable),
 			etag: etag({ mtime: stat.mtime, size: stat.size }),
-			children: undefined
+			children: undefined,
 		};
+
 
 		// check to recurse for directories
 		if (fileStat.isDirectory && recurse(fileStat, siblings)) {
@@ -282,7 +311,7 @@ export class FileService extends Disposable implements IFileService {
 						const childResource = providerExtUri.joinPath(resource, name);
 						const childStat = resolveMetadata ? await provider.stat(childResource) : { type, permissions: readonly ? FilePermission.Readonly : undefined };
 
-						return await this.toFileStat(provider, childResource, childStat, entries.length, resolveMetadata, recurse);
+						return await this.toFileStat(provider, childResource, childStat, entries.length, resolveMetadata, resolveSymlinkTarget, recurse);
 					} catch (error) {
 						this.logService.trace(error);
 
@@ -325,7 +354,7 @@ export class FileService extends Disposable implements IFileService {
 
 		const stat = await provider.stat(resource);
 
-		return this.toFileStat(provider, resource, stat, undefined, true, () => false /* Do not resolve any children */);
+		return this.toFileStat(provider, resource, stat, undefined, true, true, () => false /* Do not resolve any children */);
 	}
 
 	async realpath(resource: URI): Promise<URI | undefined> {

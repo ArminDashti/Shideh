@@ -118,6 +118,8 @@ export class TestDiskFileSystemProvider extends DiskFileSystemProvider {
 		} else if (this.readonly) {
 			// eslint-disable-next-line local/code-no-any-casts
 			(res as any).permissions = FilePermission.Readonly;
+		} else if (resource.path.includes('symlink')) {
+			(res as any).type = FileType.File;
 		}
 
 		return res;
@@ -473,6 +475,17 @@ flakySuite('Disk File Service', function () {
 		const resolved = await service.resolve(link);
 		assert.strictEqual(resolved.isDirectory, false);
 		assert.strictEqual(resolved.isSymbolicLink, true);
+	});
+
+	(isWindows ? test.skip /* windows: cannot create file symbolic link without elevated context */ : test)('resolve - file symbolic link with realpath', async () => {
+		// Create a target and symlink in the temp test directory
+		const target = URI.file(join(testDir, 'symlink-target.txt'));
+		const link = URI.file(join(testDir, 'symlinked.txt'));
+
+		const resolved = await service.resolve(link, { resolveSymlinkTarget: true });
+		assert.strictEqual(resolved.isDirectory, false);
+		assert.strictEqual(resolved.isSymbolicLink, true);
+		assert.strictEqual(resolved.resource.fsPath, target.fsPath);
 	});
 
 	test('resolve - symbolic link pointing to nonexistent file does not break', async () => {
@@ -2870,5 +2883,13 @@ flakySuite('Disk File Service', function () {
 			deleteFileError = error;
 		}
 		assert.ok(deleteFileError);
+	});
+
+	(isWindows ? test.skip : test)('resolve - symlink fixture real type: file', async () => {
+		const symlinkDir = join(testDir, 'symlink');
+		const link = URI.file(join(symlinkDir, 'symlink.txt'));
+
+		const resolved = await service.resolve(link, { resolveSymlinkTarget: true });
+		assert.strictEqual(resolved.isFile, true);
 	});
 });
