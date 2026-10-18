@@ -79,6 +79,18 @@ async function bundleWithNLS(
 		}
 	}
 
+	// Optionally apply post-processing transforms and adjust source maps.
+	let mapJson: RawSourceMap = JSON.parse(mapContent);
+
+	if (opts?.manglePrivates) {
+		const preMangleContent = jsContent;
+		const mangleResult = convertPrivateFields(jsContent, entryPoint.replace(/\.ts$/, '.js'));
+		jsContent = mangleResult.code;
+		if (mangleResult.edits.length > 0) {
+			mapJson = adjustSourceMap(mapJson, preMangleContent, mangleResult.edits);
+		}
+	}
+
 	// Optionally apply NLS post-processing (replaces placeholders with indices)
 	if (opts?.postProcess) {
 		const preNLSCode = jsContent;
@@ -96,7 +108,6 @@ async function bundleWithNLS(
 	assert.ok(jsContent, 'Expected JS output');
 	assert.ok(mapContent, 'Expected source map output');
 
-	const mapJson = JSON.parse(mapContent);
 	const map = new SourceMapConsumer(mapJson);
 	const cleanup = () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -130,6 +141,22 @@ function findColumn(text: string, needle: string): number {
 		}
 	}
 	throw new Error(`Could not find "${needle}" in text`);
+}
+
+function createIdentitySourceMap(code: string, sourceName: string): RawSourceMap {
+	const generator = new SourceMapGenerator();
+	generator.setSourceContent(sourceName, code);
+	const lines = code.split('\n');
+	for (let line = 0; line < lines.length; line++) {
+		for (let col = 0; col < lines[line].length; col++) {
+			generator.addMapping({
+				generated: { line: line + 1, column: col },
+				original: { line: line + 1, column: col },
+				source: sourceName,
+			});
+		}
+	}
+	return JSON.parse(generator.toString());
 }
 
 suite('NLS plugin source maps', () => {
