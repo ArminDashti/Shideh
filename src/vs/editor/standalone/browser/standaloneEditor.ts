@@ -497,6 +497,13 @@ export function registerEditorOpener(opener: ICodeEditorOpener): IDisposable {
 }
 
 /**
+ * Clears all cached font measurements and triggers re-measurement.
+ */
+export function remeasureFonts(): void {
+	clearAllFontInfos();
+}
+
+/**
  * @internal
  */
 export function createMonacoEditorAPI(): typeof monaco.editor {
