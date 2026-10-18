@@ -1206,6 +1206,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 				icon: SYNC_VIEW_ICON,
 				hideIfEmpty: true,
 			}, ViewContainerLocation.Sidebar);
+		// add random comment
 	}
 
 	private registerResetSyncDataAction(): void {
