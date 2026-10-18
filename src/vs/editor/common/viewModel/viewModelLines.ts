@@ -17,6 +17,8 @@ import { ILineBreaksComputer, ModelLineProjectionData, InjectedText, ILineBreaks
 import { ConstantTimePrefixSumComputer } from '../model/prefixSumComputer.js';
 import { ViewLineData } from '../viewModel.js';
 import { ICoordinatesConverter, IdentityCoordinatesConverter } from '../coordinatesConverter.js';
+import { IdentityInlineDecorationsComputer, InlineDecoration } from './inlineDecorations.js';
+import { LineTokens } from '../tokens/lineTokens.js';
 import { LineInjectedText } from '../textModelEvents.js';
 
 export interface IViewModelLines extends IDisposable {
@@ -64,8 +66,7 @@ export class ViewModelLinesFromProjectedModel implements IViewModelLines {
 	private readonly model: ITextModel;
 	private _validModelVersionId: number;
 
-	private readonly _domLineBreaksComputerFactory: ILineBreaksComputerFactory;
-	private readonly _monospaceLineBreaksComputerFactory: ILineBreaksComputerFactory;
+	private readonly _lineBreaksComputerFactory: ILineBreaksComputerFactory;
 
 	private fontInfo: FontInfo;
 	private tabSize: number;
@@ -325,8 +326,17 @@ export class ViewModelLinesFromProjectedModel implements IViewModelLines {
 			getLineContent: (lineNumber: number): string => {
 				return this.model.getLineContent(lineNumber);
 			},
+			getLineTokens: (lineNumber: number): LineTokens => {
+				return this.model.getLineTokens(lineNumber, this._editorId);
+			},
 			getLineInjectedText: (lineNumber: number): LineInjectedText[] => {
 				return this.model.getLineInjectedText(lineNumber, this._editorId);
+			},
+			getLineInlineDecorations: (lineNumber: number): InlineDecoration[] => {
+				return inlineDecorationsComputer.getLineInlineDecorations(lineNumber);
+			},
+			hasVariableFonts: (lineNumber: number): boolean => {
+				return inlineDecorationsComputer.hasVariableFonts(lineNumber);
 			}
 		};
 		return lineBreaksComputerFactory.createLineBreaksComputer(context, this.fontInfo, this.tabSize, this.wrappingColumn, this.wrappingIndent, this.wordBreak, this.wrapOnEscapedLineFeeds, this.useTwoCellFullwidthCharacters);

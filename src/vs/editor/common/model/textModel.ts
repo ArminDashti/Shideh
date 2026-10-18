@@ -1845,7 +1845,11 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 		if (affectedFontLines && affectedFontLines.size > 0) {
 			const affectedLines = Array.from(affectedFontLines);
 			const fontChangeEvent = affectedLines.map(fontChange => new ModelFontChanged(fontChange.ownerId, fontChange.lineNumber));
-			this._onDidChangeFont.fire(new ModelFontChangedEvent(fontChangeEvent));
+			const modelFontChangedEvent = new ModelFontChangedEvent(fontChangeEvent);
+			this._onDidChangeFont.fire(modelFontChangedEvent);
+			for (const viewModel of this._viewModels) {
+				viewModel.onFontChanged(modelFontChangedEvent);
+			}
 		}
 	}
 

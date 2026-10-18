@@ -65,8 +65,17 @@ function getLineBreakData(factory: ILineBreaksComputerFactory, tabSize: number, 
 		maxDigitWidth: 7
 	}, false);
 	const context: ILineBreaksComputerContext = {
+		getLineMaxColumn(lineNumber) {
+			return text.length;
+		},
 		getLineContent(lineNumber: number) {
 			return text;
+		},
+		getLineInlineDecorations(lineNumber: number) {
+			return [];
+		},
+		getLineTokens(lineNumber: number) {
+			return new LineTokens(new Uint32Array(text.length), text, new LanguageIdCodec());
 		},
 		getLineInjectedText(lineNumber) {
 			return injectedText;

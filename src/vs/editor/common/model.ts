@@ -870,6 +870,12 @@ export interface ITextModel {
 	getLineContent(lineNumber: number): string;
 
 	/**
+	 * Get the line tokens for a certain line, including the injected text.
+	 * @internal
+	 */
+	getLineTokens(lineNumber: number, ownerId?: number): LineTokens;
+
+	/**
 	 * Get the line injected text for a certain line.
 	 * @internal
 	 */

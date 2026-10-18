@@ -9,6 +9,8 @@ import { FontInfo } from './config/fontInfo.js';
 import { Position } from './core/position.js';
 import { InjectedTextCursorStops, InjectedTextOptions, PositionAffinity } from './model.js';
 import { LineInjectedText } from './textModelEvents.js';
+import { LineTokens } from './tokens/lineTokens.js';
+import { InlineDecoration } from './viewModel/inlineDecorations.js';
 
 /**
  * *input*:
@@ -329,8 +331,12 @@ export class OutputPosition {
 }
 
 export interface ILineBreaksComputerContext {
+	getLineMaxColumn(lineNumber: number): number;
 	getLineContent(lineNumber: number): string;
 	getLineInjectedText(lineNumber: number): LineInjectedText[] | null;
+	getLineInlineDecorations(lineNumber: number): InlineDecoration[];
+	getLineTokens(lineNumber: number): LineTokens;
+	hasVariableFonts(lineNumber: number): boolean;
 }
 
 export interface ILineBreaksComputerFactory {

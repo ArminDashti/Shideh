@@ -6,8 +6,9 @@
 import { IModelDecoration, InjectedTextOptions, ITextModel, PositionAffinity } from '../model.js';
 import { Range } from '../core/range.js';
 import { Position } from '../core/position.js';
-import { ICoordinatesConverter } from '../coordinatesConverter.js';
+import { ICoordinatesConverter, IdentityCoordinatesConverter } from '../coordinatesConverter.js';
 import { isModelDecorationVisible, ViewModelDecoration } from './viewModelDecoration.js';
+import { filterFontDecorations, filterValidationDecorations, IComputedEditorOptions } from '../config/editorOptions.js';
 
 export const enum InlineDecorationType {
 	Regular = 0,
@@ -88,7 +89,7 @@ export interface IInlineDecorationsComputer {
 	/**
 	 * Get the inline decorations for a specific model line number, split by view line number
 	 */
-	getInlineDecorations(modelLineNumber: number): InlineDecoration[][];
+	getInlineDecorations(modelLineNumber: number): LineInlineDecorations;
 }
 
 export interface IInlineModelDecorationsComputerContext {
@@ -110,11 +111,14 @@ export class InlineModelDecorationsComputer implements IInlineDecorationsCompute
 		this._decorationsCache = Object.create(null);
 	}
 
-	public getInlineDecorations(modelLineNumber: number): InlineDecoration[][] {
+	public getInlineDecorations(modelLineNumber: number): LineInlineDecorations {
 		const modelRange = new Range(modelLineNumber, 1, modelLineNumber, this.model.getLineMaxColumn(modelLineNumber));
 		const viewRange = this.coordinatesConverter.convertModelRangeToViewRange(modelRange);
 		const decorationsViewportData = this.getDecorations(viewRange, false, false);
-		return decorationsViewportData.inlineDecorations;
+		return {
+			decorations: decorationsViewportData.inlineDecorations,
+			hasVariableFonts: decorationsViewportData.hasVariableFonts
+		};
 	}
 
 	public getDecorations(viewRange: Range, onlyMinimapDecorations: boolean, onlyMarginDecorations: boolean): IViewDecorationsCollection {
