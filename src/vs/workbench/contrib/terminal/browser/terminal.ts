@@ -1667,6 +1667,8 @@ export interface IXtermTerminal extends IDisposable {
 }
 
 export interface IDetachedXtermTerminal extends IXtermTerminal {
+	raw?: RawXtermTerminal;
+
 	/**
 	 * The raw xterm.js terminal instance, this is only available when the terminal is attached
 	 */
