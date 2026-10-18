@@ -208,7 +208,16 @@ export class PieceTreeTextBuffer extends Disposable implements ITextBuffer {
 	}
 
 	public getLineFirstNonWhitespaceColumn(lineNumber: number): number {
-		const result = strings.firstNonWhitespaceIndex(this.getLineContent(lineNumber));
+		const lineLength = this.getLineLength(lineNumber);
+		let result = -1;
+		for (let i = 0, len = lineLength; i < len; i++) {
+			const chCode = this.getLineCharCode(lineNumber, i);
+			if (chCode !== CharCode.Space && chCode !== CharCode.Tab) {
+				result = i;
+				break;
+			}
+		}
+
 		if (result === -1) {
 			return 0;
 		}
@@ -216,7 +225,17 @@ export class PieceTreeTextBuffer extends Disposable implements ITextBuffer {
 	}
 
 	public getLineLastNonWhitespaceColumn(lineNumber: number): number {
-		const result = strings.lastNonWhitespaceIndex(this.getLineContent(lineNumber));
+		const lineLength = this.getLineLength(lineNumber);
+		let result = -1;
+
+		for (let i = lineLength - 1; i >= 0; i--) {
+			const chCode = this.getLineCharCode(lineNumber, i);
+			if (chCode !== CharCode.Space && chCode !== CharCode.Tab) {
+				result = i;
+				break;
+			}
+		}
+
 		if (result === -1) {
 			return 0;
 		}
