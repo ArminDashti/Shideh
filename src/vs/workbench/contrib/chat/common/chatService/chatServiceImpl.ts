@@ -1956,7 +1956,9 @@ export class ChatService extends Disposable implements IChatService {
 					const agent = (detectedAgent ?? agentPart?.agent ?? defaultAgent)!;
 					const command = detectedCommand ?? agentSlashCommandPart?.command;
 
-					await this.extensionService.activateByEvent(`onChatParticipant:${agent.id}`);
+					// Start activation early — overlaps with request preparation below
+					const activationPromise = this.extensionService.activateByEvent(`onChatParticipant:${agent.id}`);
+					activationPromise.catch(() => { }); // Prevent unhandled rejection if request exits before await
 
 					// Recompute history in case the agent or command changed
 					const history = this.getHistoryEntriesFromModel(requests, location, agent.id);
@@ -2038,6 +2040,9 @@ export class ChatService extends Disposable implements IChatService {
 							await autostartResult.wait();
 						}
 					}
+
+					// Ensure extension is activated before invoking the agent
+					await activationPromise;
 
 					const agentResult = await this.chatAgentService.invokeAgent(agent.id, requestProps, progressCallback, history, token);
 					rawResult = agentResult;
