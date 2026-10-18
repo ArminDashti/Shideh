@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { applyEdits, removeProperty } from '../../../../../base/common/jsonEdit.js';
@@ -11,7 +12,6 @@ import { Schemas } from '../../../../../base/common/network.js';
 import { isMacintosh, isWindows } from '../../../../../base/common/platform.js';
 import { basename, dirname, isEqualOrParent } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { getCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
@@ -47,8 +47,8 @@ import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/servi
 import { ICustomizationMigrationHint } from '../../common/promptSyntax/service/customizationMigrationService.js';
 import { ICustomizationMigrationTelemetryService } from '../../common/promptSyntax/service/customizationMigrationTelemetryService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
-import { IChatWidgetService } from '../chat.js';
 import { AgentPluginItemKind } from '../agentPluginEditor/agentPluginItems.js';
+import { IChatWidgetService } from '../chat.js';
 import {
 	AI_CUSTOMIZATION_ITEM_DISABLED_KEY,
 	AI_CUSTOMIZATION_ITEM_PLUGIN_URI_KEY,

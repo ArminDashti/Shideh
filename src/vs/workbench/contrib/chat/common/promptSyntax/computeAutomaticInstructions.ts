@@ -5,21 +5,26 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { match, splitGlobAware } from '../../../../../base/common/glob.js';
+import { hash } from '../../../../../base/common/hash.js';
 import { ResourceMap, ResourceSet } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { OperatingSystem } from '../../../../../base/common/platform.js';
 import { basename, dirname } from '../../../../../base/common/resources.js';
 import { escape as escapeXml } from '../../../../../base/common/strings.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IRemoteAgentService } from '../../../../services/remote/common/remoteAgentService.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
-import { ChatRequestVariableSet, IChatRequestVariableEntry, isPromptFileVariableEntry, toPromptFileVariableEntry, toPromptTextVariableEntry, PromptFileVariableKind, IPromptTextVariableEntry, ChatRequestToolReferenceEntry, toToolVariableEntry } from '../attachments/chatVariableEntries.js';
+import { IRemoteAgentService } from '../../../../services/remote/common/remoteAgentService.js';
+import { ChatRequestToolReferenceEntry, ChatRequestVariableSet, IChatRequestVariableEntry, IPromptTextVariableEntry, isPromptFileVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry, toPromptTextVariableEntry, toToolVariableEntry } from '../attachments/chatVariableEntries.js';
+import { ChatConfiguration, ChatModeKind, GeneralPurposeAgentName } from '../constants.js';
+import { UserSelectedTools } from '../participants/chatAgents.js';
+import { IAgentPlugin, IAgentPluginService } from '../plugins/agentPluginService.js';
 import { ILanguageModelToolsService, IToolData, VSCodeToolReference } from '../tools/languageModelToolsService.js';
 import { PromptsConfig } from './config/config.js';
 import { isInClaudeAgentsFolder, isInClaudeRulesFolder, isPromptOrInstructionsFile } from './config/promptFileLocations.js';

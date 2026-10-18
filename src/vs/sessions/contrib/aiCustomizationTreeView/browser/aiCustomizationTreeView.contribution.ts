@@ -16,13 +16,16 @@ import { URI } from '../../../../base/common/uri.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
 import { IFileService, FileSystemProviderCapabilities } from '../../../../platform/files/common/files.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IPromptsService, PromptsStorage } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { SessionsView, SessionsViewId } from '../../sessions/browser/views/sessionsView.js';
 import { IsSessionsWindowContext } from '../../../../workbench/common/contextkeys.js';
+import { PromptsType } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
+import { IPromptsService } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
 import { TerminalContextKeys } from '../../../../workbench/contrib/terminal/common/terminalContextKey.js';
 import { ChatContextKeys } from '../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
 import { IsPhoneLayoutContext } from '../../../common/contextkeys.js';
@@ -238,7 +241,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// Context menu: Disable (shown when builtin item is enabled)
+// Context menu: Disable (shown when a skill is enabled)
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	command: { id: DISABLE_AI_CUSTOMIZATION_ITEM_ID, title: localize('disable', "Disable") },
 	group: '4_toggle',
@@ -250,7 +253,7 @@ MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	),
 });
 
-// Context menu: Enable (shown when builtin item is disabled)
+// Context menu: Enable (shown when a skill is disabled)
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	command: { id: ENABLE_AI_CUSTOMIZATION_ITEM_ID, title: localize('enable', "Enable") },
 	group: '4_toggle',
@@ -262,7 +265,7 @@ MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	),
 });
 
-// Inline hover: Disable (shown when builtin item is enabled)
+// Inline hover: Disable (shown when a skill is enabled)
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	command: { id: DISABLE_AI_CUSTOMIZATION_ITEM_ID, title: localize('disable', "Disable"), icon: Codicon.eyeClosed },
 	group: 'inline',
@@ -274,7 +277,7 @@ MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	),
 });
 
-// Inline hover: Enable (shown when builtin item is disabled)
+// Inline hover: Enable (shown when a skill is disabled)
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 	command: { id: ENABLE_AI_CUSTOMIZATION_ITEM_ID, title: localize('enable', "Enable"), icon: Codicon.eye },
 	group: 'inline',

@@ -113,7 +113,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 				}
 			}
 		} else if (promptType === PromptsType.skill) {
-			const skills = await this.promptsService.findAgentSkills(token);
 			const allSkillFiles = await this.promptsService.listPromptFiles(PromptsType.skill, token);
 			for (const file of allSkillFiles) {
 				if (file.extension) {
@@ -122,7 +121,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 			}
 			const seenUris = new ResourceSet();
 			for (const skill of skills || []) {
-				const skillName = skill.name || basename(dirname(skill.uri)) || basename(skill.uri);
 				seenUris.add(skill.uri);
 				items.push({
 					uri: skill.uri,
