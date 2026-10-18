@@ -1013,7 +1013,7 @@ class NotebookSelectAllFindMatches extends NotebookAction {
 	constructor() {
 		super({
 			id: NOTEBOOK_SELECT_ALL_FIND_MATCHES_ID,
-			title: localize('selectAllFindMatches', "Select All Occurrences of Find Match"),
+			title: localize('selectAllFindMatches', "Select All Find Matches"),
 			precondition: ContextKeyExpr.and(
 				ContextKeyExpr.equals('config.notebook.multiCursor.enabled', true),
 			),
