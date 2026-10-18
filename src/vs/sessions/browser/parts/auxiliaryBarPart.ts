@@ -163,6 +163,17 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 		super.create(parent);
 		parent.setAttribute('role', 'complementary');
 		parent.setAttribute('aria-label', localize('auxiliaryBarAriaLabel', "Session Details"));
+
+		// Watch for external decorations (e.g. the Pet dock) that reserve a
+		// bottom strip via `data-reserved-bottom`. Self-relayout when the value
+		// changes so the active composite resizes in lockstep.
+		const observer = new MutationObserver(() => {
+			if (this.dimension && this.contentPosition) {
+				this.layout(this.dimension.width, this.dimension.height, this.contentPosition.top, this.contentPosition.left);
+			}
+		});
+		observer.observe(parent, { attributes: true, attributeFilter: ['data-reserved-bottom'] });
+		this._register({ dispose: () => observer.disconnect() });
 	}
 
 	override updateStyles(): void {
@@ -314,6 +325,11 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 		const editorVisible = this.layoutService.isVisible(Parts.EDITOR_PART, mainWindow);
 		const paddingLeft = editorVisible ? AuxiliaryBarPart.CONTENT_PADDING_LEFT : 0;
 		const marginBottom = AuxiliaryBarPart.MARGIN_BOTTOM;
+
+		// Bottom region reserved by an external decoration (e.g. the Pet dock).
+		// Read from a DOM attribute so the part stays decoupled from the decoration owner.
+		const container = this.getContainer();
+		const reservedBottom = container ? Math.max(0, parseInt(container.getAttribute('data-reserved-bottom') ?? '0', 10) || 0) : 0;
 
 		super.layout(
 			width - borderTotal - paddingLeft,

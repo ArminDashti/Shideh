@@ -825,6 +825,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/buddy",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/chatDebug",
 			"project": "vscode-sessions"
 		},
