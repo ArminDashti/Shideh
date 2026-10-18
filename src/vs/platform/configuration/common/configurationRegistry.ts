@@ -179,6 +179,11 @@ export interface IConfigurationRegistry {
 	 * Register the identifiers for editor configurations
 	 */
 	registerOverrideIdentifiers(identifiers: string[]): void;
+
+	/**
+	 * Invokes `callback`, pauses events while it runs, and sends composite events after that.
+	 */
+	withBufferedEvents<R = any>(callback: () => R): R;
 }
 
 export const enum ConfigurationScope {
