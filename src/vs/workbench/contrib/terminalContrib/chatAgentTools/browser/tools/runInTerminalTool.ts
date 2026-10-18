@@ -2181,6 +2181,10 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			? toolSpecificData.commandLine.forDisplay ?? toolSpecificData.commandLine.original
 			: undefined;
 
+		// Check sandbox setting, assume it's correct
+
+		// Wrap command with srt "..."
+
 		if (token.isCancellationRequested) {
 			throw new CancellationError();
 		}
