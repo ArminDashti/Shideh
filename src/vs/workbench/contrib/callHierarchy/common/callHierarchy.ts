@@ -50,6 +50,11 @@ export interface CallHierarchySession {
 	dispose(): void;
 }
 
+export interface CallHierarchyEdge {
+	from: CallHierarchyItem;
+	to: CallHierarchyItem;
+}
+
 export interface CallHierarchyProvider {
 
 	prepareCallHierarchy(document: ITextModel, position: IPosition, token: CancellationToken): ProviderResult<CallHierarchySession>;
