@@ -47,6 +47,10 @@ const checkPackageJSONTask = task.define('check-package-json', () => {
 			if (jsAllowlistError) {
 				this.emit('error', jsAllowlistError);
 			}
+			const libcError = checkPackageLockLibc(repoRoot);
+			if (libcError) {
+				this.emit('error', libcError);
+			}
 		})
 	);
 });
