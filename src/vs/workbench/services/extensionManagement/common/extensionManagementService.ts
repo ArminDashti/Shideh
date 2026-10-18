@@ -425,6 +425,19 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		return new MarkdownString().appendText(localize('cannot be installed', "Cannot install the '{0}' extension because it is not available in this setup.", extension.manifest.displayName ?? extension.identifier.id));
 	}
 
+	private canInstallResourceExtension(extension: IResourceExtension): boolean {
+		if (this.extensionManagementServerService.localExtensionManagementServer) {
+			return true;
+		}
+		if (this.extensionManagementServerService.remoteExtensionManagementServer && this.extensionManifestPropertiesService.canExecuteOnWorkspace(extension.manifest)) {
+			return true;
+		}
+		if (this.extensionManagementServerService.webExtensionManagementServer && this.extensionManifestPropertiesService.canExecuteOnWeb(extension.manifest)) {
+			return true;
+		}
+		return false;
+	}
+
 	async updateFromGallery(gallery: IGalleryExtension, extension: ILocalExtension, installOptions?: InstallOptions): Promise<ILocalExtension> {
 		const server = this.getServer(extension);
 		if (!server) {
