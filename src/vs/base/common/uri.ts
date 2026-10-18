@@ -735,10 +735,10 @@ function _asFormatted(uri: URI, skipEncoding: boolean): string {
 			authority = authority.substr(idx + 1);
 			idx = userinfo.lastIndexOf(':');
 			if (idx === -1) {
-				res += encoder(userinfo, false, false);
+				res += encoder(userinfo, false);
 			} else {
 				// <user>:<pass>@<auth>
-				res += encoder(userinfo.substr(0, idx), false, false);
+				res += encoder(userinfo.substr(0, idx), false);
 				res += ':';
 				res += encoder(userinfo.substr(idx + 1), false, true);
 			}
@@ -770,7 +770,7 @@ function _asFormatted(uri: URI, skipEncoding: boolean): string {
 			}
 		}
 		// encode the rest of the path
-		res += encoder(path, true, false);
+		res += encoder(path, true);
 	}
 	if (query) {
 		res += '?';
@@ -778,7 +778,7 @@ function _asFormatted(uri: URI, skipEncoding: boolean): string {
 	}
 	if (fragment) {
 		res += '#';
-		res += !skipEncoding ? encodeURIComponentFast(fragment, false, false) : fragment;
+		res += !skipEncoding ? encodeURIComponentFast(fragment, false) : fragment;
 	}
 	return res;
 

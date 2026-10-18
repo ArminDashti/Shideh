@@ -18,9 +18,6 @@
 			"include": "#preprocessor-rule-conditional"
 		},
 		{
-			"include": "#predefined_macros"
-		},
-		{
 			"include": "#comments"
 		},
 		{
@@ -3473,12 +3470,12 @@
 					"name": "keyword.control.switch.c"
 				}
 			},
-			"end": "(?:(?<=\\}|%>|\\?\\?>)|(?=[;>\\[\\]=]))",
+			"end": "(?:(?<=\\})|(?=[;>\\[\\]=]))",
 			"patterns": [
 				{
 					"name": "meta.head.switch.c",
 					"begin": "\\G ?",
-					"end": "((?:\\{|<%|\\?\\?<|(?=;)))",
+					"end": "((?:\\{|(?=;)))",
 					"endCaptures": {
 						"1": {
 							"name": "punctuation.section.block.begin.bracket.curly.switch.c"
@@ -3495,8 +3492,8 @@
 				},
 				{
 					"name": "meta.body.switch.c",
-					"begin": "(?<=\\{|<%|\\?\\?<)",
-					"end": "(\\}|%>|\\?\\?>)",
+					"begin": "(?<=\\{)",
+					"end": "(\\})",
 					"endCaptures": {
 						"1": {
 							"name": "punctuation.section.block.end.bracket.curly.switch.c"
@@ -3519,7 +3516,7 @@
 				},
 				{
 					"name": "meta.tail.switch.c",
-					"begin": "(?<=\\}|%>|\\?\\?>)[\\s\\n]*",
+					"begin": "(?<=})[\\s\\n]*",
 					"end": "[\\s\\n]*(?=;)",
 					"patterns": [
 						{
