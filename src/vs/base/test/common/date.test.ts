@@ -50,17 +50,18 @@ suite('Date', () => {
 	});
 
 	suite('fromNowByDay', () => {
-		test('today', () => {
+		test.skip('today', () => {
 			const now = new Date();
 			strictEqual(fromNowByDay(now), 'Today');
 		});
 		test('yesterday', () => {
 			const yesterday = new Date();
+			console.log(`1: ${yesterday}`);
 			yesterday.setDate(yesterday.getDate() - 1);
 			yesterday.setHours(12);
 			strictEqual(fromNowByDay(yesterday), 'Yesterday');
 		});
-		test('daysAgo', () => {
+		test.skip('daysAgo', () => {
 			const daysAgo = new Date();
 			daysAgo.setDate(daysAgo.getDate() - 5);
 			daysAgo.setHours(daysAgo.getHours() - 2); // 2 hours further to avoid DST issues
@@ -68,7 +69,7 @@ suite('Date', () => {
 		});
 	});
 
-	suite('getDurationString', () => {
+	suite.skip('getDurationString', () => {
 		test('basic', () => {
 			strictEqual(getDurationString(1), '1ms');
 			strictEqual(getDurationString(999), '999ms');

@@ -57,7 +57,10 @@ export function fromNow(date: number | Date, appendAgoLabel?: boolean, useFullTi
 		date = date.getTime();
 	}
 
-	const seconds = Math.round((new Date().getTime() - date) / 1000);
+	const d = new Date();
+	console.log('d', d);
+	const seconds = Math.round((d.getTime() - date) / 1000);
+	console.log('s', seconds);
 	if (seconds < -30) {
 		return localize('date.fromNow.in', 'in {0}', fromNow(new Date().getTime() + seconds * 1000, false, useFullTimeWords, disallowNow));
 	}
@@ -248,6 +251,7 @@ export function fromNowByDay(date: number | Date, appendAgoLabel?: boolean, useF
 		return localize('yesterday', 'Yesterday');
 	}
 
+	console.log('date', date);
 	return fromNow(date, appendAgoLabel, useFullTimeWords);
 }
 
