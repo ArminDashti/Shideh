@@ -259,7 +259,8 @@ class ChangesMenuWorkbenchButtonBarWidget extends Disposable implements IChanges
 	private _getButtonConfiguration(action: IAction, outgoingChanges: number, hasGitOperationInProgress: boolean, runningLabelObs: IObservable<string | IMarkdownString | undefined>): IButtonConfig | undefined {
 		if (
 			action.id === 'github.copilot.sessions.commit' ||
-			action.id === 'github.copilot.chat.createPullRequestCopilotCLIAgentSession.createPR'
+			action.id === 'github.copilot.chat.createPullRequestCopilotCLIAgentSession.createPR' ||
+			action.id === 'github.copilot.chat.createDraftPullRequestCopilotCLIAgentSession.createDraftPR'
 		) {
 			if (!hasGitOperationInProgress) {
 				return { showIcon: true, showLabel: true, isSecondary: false };
@@ -295,7 +296,6 @@ class ChangesMenuWorkbenchButtonBarWidget extends Disposable implements IChanges
 			return { showIcon: false, showLabel: true, isSecondary: false };
 		}
 		if (
-			action.id === 'github.copilot.chat.createPullRequestCopilotCLIAgentSession.createPR' ||
 			action.id === 'github.copilot.chat.mergeCopilotCLIAgentSessionChanges.merge' ||
 			action.id === 'github.copilot.chat.checkoutPullRequestReroute' ||
 			action.id === 'pr.checkoutFromChat' ||
