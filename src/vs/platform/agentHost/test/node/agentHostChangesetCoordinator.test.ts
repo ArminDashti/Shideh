@@ -432,22 +432,30 @@ suite('ChangesetSessionCoordinator', () => {
 		}
 	}
 
-	test('refreshes changeset operations when a session gains or loses a working directory', () => {
+	test('refreshes subscribed changesets and operations when a session gains or loses a working directory', () => {
 		const session = AgentSession.uri('mock', 'session-wd').toString();
 		const environment = createEnvironment();
 		createSession(environment.stateManager, session, 'file:///repoA');
+		environment.coordinator.onFirstSubscriber(URI.parse(buildBranchChangesetUri(session)));
+		environment.changesets.clearRefreshes();
 		const baseline = environment.updateOperationsCalls.length;
 
-		// Editor Window adds a second root -> multi-root: operations must refresh.
 		environment.stateManager.dispatchServerAction(session, { type: ActionType.SessionWorkingDirectorySet, directory: 'file:///repoB' });
 		assert.deepStrictEqual(environment.updateOperationsCalls.slice(baseline), [session], 'adding a root refreshes every session operation owner once');
 
-		// A no-op working-directory action (same root) must not refresh again.
 		const afterAdd = environment.updateOperationsCalls.length;
+		environment.changesets.clearRefreshes();
 		environment.stateManager.dispatchServerAction(session, { type: ActionType.SessionWorkingDirectorySet, directory: 'file:///repoB' });
-		assert.strictEqual(environment.updateOperationsCalls.length, afterAdd, 'a no-op working-directory action does not refresh');
+		assert.deepStrictEqual({
+			operations: environment.updateOperationsCalls.slice(afterAdd),
+			recomputed: environment.changesets.recomputed,
+			branch: environment.changesets.branchRefreshes,
+		}, {
+			operations: [],
+			recomputed: [],
+			branch: [],
+		});
 
-		// Removing the second root -> back to single-root: operations refresh again (restore).
 		environment.stateManager.dispatchServerAction(session, { type: ActionType.SessionWorkingDirectoryRemoved, directory: 'file:///repoB' });
 		assert.deepStrictEqual(environment.updateOperationsCalls.slice(afterAdd), [session], 'removing a root refreshes every session operation owner once');
 	});
@@ -612,13 +620,14 @@ suite('ChangesetSessionCoordinator', () => {
 		});
 	});
 
-	test('forwards session changeset refresh and recomputes current subscriptions on materialization', async () => {
+	test('recomputes current subscriptions once when a session is materialized', async () => {
 		const session = AgentSession.uri('mock', 'session-1').toString();
 		const environment = createEnvironment();
 		createSession(environment.stateManager, session, undefined, false);
 
 		environment.coordinator.onFirstSubscriber(URI.parse(buildSessionChangesetUri(session)));
 		await tick();
+		environment.changesets.clearRefreshes();
 
 		const summary = environment.stateManager.getSessionSummary(session)!;
 		environment.stateManager.markSessionPersisted(session, { ...summary, workingDirectories: ['file:///repo/worktree'] });
@@ -627,7 +636,7 @@ suite('ChangesetSessionCoordinator', () => {
 
 		assert.deepStrictEqual({
 			sessionRefreshes: environment.changesets.sessionRefreshes,
-			workingDirectoryAvailable: environment.changesets.workingDirectoryAvailable,
+			recomputed: environment.changesets.recomputed,
 		}, {
 			sessionRefreshes: [session, session],
 			workingDirectoryAvailable: [session],
@@ -1281,6 +1290,7 @@ class TestGitStateService extends Disposable implements IAgentHostGitStateServic
 		this.refreshedWith.push({ sessionKey, workingDirectory: workingDirectory?.toString() });
 		this._onDidRefreshSessionGitState.fire({ sessionKey, source: options?.source });
 	}
+	async findPullRequestForWorkingDirectory(): Promise<string | undefined> { return undefined; }
 	getMaterializedWorktreeMeta(_sessionKey: string, _branchName: string): undefined { return undefined; }
 	async resolveSessionBaseBranchName(): Promise<string | undefined> { return undefined; }
 	async setSessionGitHubState(_sessionKey: string, _state: ISessionGitHubState): Promise<void> { }
@@ -1438,7 +1448,8 @@ class TestChangesetService implements IAgentHostChangesetService {
 		}
 	}
 	async computeUncommittedChangeset(session: string): Promise<string> {
-		if (this._subscriptions.getSessionSubscriptions(session).has(URI.parse(buildUncommittedChangesetUri(session)).toString())) {
+		if ([...this._subscriptions.getSessionSubscriptions(session)]
+			.some(changeset => parseChangesetUri(changeset)?.kind === ChangesetKind.Uncommitted)) {
 			this.uncommittedRefreshes.push(session);
 		}
 		return `${session}/changeset/uncommitted`;

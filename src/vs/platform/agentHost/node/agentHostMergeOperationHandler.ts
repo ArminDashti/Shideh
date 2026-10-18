@@ -10,7 +10,7 @@ import { localize } from '../../../nls.js';
 import { ILogService } from '../../log/common/log.js';
 import { AGENT_HOST_MERGE_CHANGESET_OPERATION_ID, IChangesetOperationHandler } from '../common/agentHostChangesetOperationService.js';
 import { IAgentHostGitService, tryResolvePrimaryWorktreeRoot } from '../common/agentHostGitService.js';
-import { parseChangesetUri } from '../common/changesetUri.js';
+import { getChangesetSessionUri, parseChangesetUri } from '../common/changesetUri.js';
 import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from '../common/state/protocol/channels-changeset/commands.js';
 import { AHP_SESSION_NOT_FOUND, JsonRpcErrorCodes, ProtocolError } from '../common/state/sessionProtocol.js';
 import { hasSessionPullRequestForBranch, readSessionGitHubState, readSessionGitState, type SessionState } from '../common/state/sessionState.js';
@@ -62,7 +62,7 @@ export class AgentHostMergeOperationHandler implements IChangesetOperationHandle
 		if (!targetBranch) {
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.merge.targetBranchMissing', "Could not determine the branch to merge into."));
 		}
-		const gitState = await this._gitService.getSessionGitState(worktreeRoot, targetBranch) ?? storedGitState;
+		const gitState = targetGitState ?? storedGitState;
 		const sourceBranch = gitState?.branchName ?? await this._gitService.getCurrentBranch(worktreeRoot);
 		if (!sourceBranch) {
 			throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.merge.sourceBranchMissing', "Could not determine the worktree branch."));
@@ -94,14 +94,14 @@ export class AgentHostMergeOperationHandler implements IChangesetOperationHandle
 		let shouldRefresh = false;
 		try {
 			const hasUncommittedChanges = await this._gitService.hasUncommittedChanges(worktreeRoot);
-			this._throwIfPullRequestExists(sessionUri, sourceBranch);
+			this._throwIfPullRequestExists(parentSessionUri, sourceBranch);
 			if (hasUncommittedChanges) {
 				await this._gitService.commitAll(worktreeRoot, localize('agentHost.changeset.merge.commitMessage', "Agent Host changes for {0}", sourceBranch));
 				didCommit = true;
 				shouldRefresh = true;
 			}
 			this._throwIfCancelled(token);
-			this._throwIfPullRequestExists(sessionUri, sourceBranch);
+			this._throwIfPullRequestExists(parentSessionUri, sourceBranch);
 
 			this._logService.info(`[AgentHostMergeOperationHandler] Merging ${sourceBranch} into ${targetBranch} for ${parsed.ownerUri}`);
 			try {
@@ -126,7 +126,7 @@ export class AgentHostMergeOperationHandler implements IChangesetOperationHandle
 			if (!mergeCommit) {
 				throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.merge.commitMissing', "Changes were merged into '{0}', but the resulting commit could not be recorded.", targetBranch));
 			}
-			await this._onMerged(sessionUri, mergeCommit);
+			await this._onMerged(parentSessionUri, mergeCommit);
 		} finally {
 			if (shouldRefresh) {
 				try {

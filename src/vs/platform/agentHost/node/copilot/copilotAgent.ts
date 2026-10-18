@@ -6045,6 +6045,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 				const storedMetadata = await this._readSessionMetadata(configurationResource);
 				const resumeWorkingDirectories = this._workingDirectoriesForResume(storedMetadata, workingDirectories);
 				const parentEntry = this._findSessionBySdkId(configurationId);
+				const sessionWorkingDirectory = storedMetadata.workingDirectory
+					?? parentEntry?.workingDirectory
+					?? this._provisionalSessions.get(configurationId)?.workingDirectory;
 				const persistedWorkingDirectory = resumeWorkingDirectories?.[0] ?? parentEntry?.workingDirectory
 					?? this._provisionalSessions.get(configurationId)?.workingDirectory
 					?? storedMetadata.workingDirectory;
@@ -6052,7 +6055,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 					this._logService.warn(`[Copilot] Cannot resume chat ${chatKey}: missing working directory`);
 					return undefined;
 				}
-				const workingDirectory = await this._worktree.resolveWorkingDirectoryForResume(configurationResource, AgentSession.id(configurationResource), persistedWorkingDirectory);
+				const workingDirectory = resumeWorkingDirectories?.[0] && !isEqual(resumeWorkingDirectories[0], sessionWorkingDirectory)
+					? resumeWorkingDirectories[0]
+					: await this._worktree.resolveWorkingDirectoryForResume(configurationResource, AgentSession.id(configurationResource), persistedWorkingDirectory);
 				const launchWorkingDirectories = resumeWorkingDirectories
 					? [workingDirectory, ...resumeWorkingDirectories.slice(1)]
 					: undefined;

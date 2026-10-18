@@ -53,6 +53,7 @@ export class AgentMergeTools extends Disposable implements IAgentMergeToolAccess
 		@ILogService private readonly _logService: ILogService,
 		@IAgentHostStateManager private readonly _stateManager: AgentHostStateManager,
 		@IAgentConfigurationService private readonly _configurationService: IAgentConfigurationService,
+		@IAgentHostGitService private readonly _gitService: IAgentHostGitService,
 	) {
 		super();
 		this._register(toDisposable(() => this._abort.abort(new Error('Agent Merge tools disposed.'))));
@@ -78,6 +79,64 @@ export class AgentMergeTools extends Disposable implements IAgentMergeToolAccess
 			monitoring: !updated.enabled ? 'disabled' : !updated.target ? 'pending' : updated.target.pullRequestUrl ? 'bound' : 'waitingForPullRequest',
 			...(updated.enabled && updated.target ? { target: { branchName: updated.target.branchName, pullRequestUrl: updated.target.pullRequestUrl } } : {}),
 		});
+	}
+
+	private async _setEnabledForChat(session: string, chatUri: string, enabled: boolean): Promise<string> {
+		if (!enabled) {
+			return this._setEnabledForSession(session, false);
+		}
+		if (!this.isEnabled()) {
+			throw new Error('Agent Merge is disabled in the host configuration.');
+		}
+		const state = this._stateManager.getSessionState(chatUri);
+		if (!state) {
+			throw new Error(`Cannot update Agent Merge for unknown chat: ${chatUri}`);
+		}
+		if (isSessionStatusArchived(state.status)) {
+			throw new Error('Cannot enable Agent Merge for an archived session.');
+		}
+		const values = this._configurationService.getSessionConfigValues(session);
+		if (!values) {
+			throw new Error('Cannot update Agent Merge before session configuration is available.');
+		}
+		const current = readAgentMergeSessionState(values);
+		if (current?.enabled) {
+			return JSON.stringify({ enabled: true });
+		}
+		const workingDirectories = this._stateManager.getChatWorkingDirectories(chatUri) ?? state.workingDirectories;
+		if (!workingDirectories?.length) {
+			return this._setEnabledForSession(session, true);
+		}
+		if (workingDirectories.length !== 1) {
+			throw new Error('Cannot enable Agent Merge unless the current chat has exactly one working directory.');
+		}
+		const workingDirectory = URI.parse(workingDirectories[0]);
+		const currentBranchName = this._gitService.getCurrentBranchName
+			? await this._gitService.getCurrentBranchName(workingDirectory)
+			: undefined;
+		const branchName = currentBranchName ?? await this._gitService.getCurrentBranch(workingDirectory);
+		if (!branchName) {
+			throw new Error('Cannot enable Agent Merge because the current branch could not be determined.');
+		}
+		const enabledAt = new Date().toISOString();
+		this._configurationService.updateSessionConfig(session, {
+			[SessionConfigKey.AgentMerge]: {
+				enabled: true,
+				...(current?.overrides ? { overrides: current.overrides } : {}),
+			},
+			[SessionConfigKey.AgentMergeController]: {
+				target: {
+					branchName,
+					chatUri,
+					workingDirectory: workingDirectories[0],
+					enabledAt,
+					commentWatermark: enabledAt,
+					announcementPending: true,
+				},
+			},
+		});
+		this._logService.info(`[AgentMergeTools] Set chat-targeted session enablement: session=${session}, chat=${chatUri}`);
+		return JSON.stringify({ enabled: true });
 	}
 
 	async readFailedCI(session: string, input: AgentMergeCIRequest = {}): Promise<string> {

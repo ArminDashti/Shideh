@@ -91,6 +91,14 @@ export interface IChangesetOperationContext {
 	readonly gitHubState?: ISessionGitHubState;
 }
 
+/** Host-owned repository context for one concrete changeset channel. */
+export interface IChangesetOperationTargetContext {
+	readonly ownerUri: URI;
+	readonly workingDirectories: readonly URI[];
+	readonly gitState?: ISessionGitState;
+	readonly gitHubState?: ISessionGitHubState;
+}
+
 /**
  * Registration surface handed to changeset operation contributions.
  *
@@ -146,6 +154,8 @@ export interface IAgentHostChangesetOperationService extends IDisposable {
 	 * unregisters the handlers and disposes the contribution.
 	 */
 	registerContribution(contribution: IChangesetOperationContribution): IDisposable;
+	/** Associates a concrete changeset channel with its trusted repository context. */
+	setChangesetTarget(sessionKey: string, changeset: string, target: IChangesetOperationTargetContext | undefined): void;
 	/**
 	 * Recomputes operations using the provided or current Git state.
 	 * Without Git state, clears cached operations but defers initial publication.

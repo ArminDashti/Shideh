@@ -621,6 +621,17 @@ export class AgentHostStateManager extends Disposable {
 		return this._chatEntries.get(chat)?.state;
 	}
 
+	/** Returns a chat's explicit working-directory subset, including before hydration. */
+	getChatWorkingDirectories(chat: URI): readonly string[] | undefined {
+		const entry = this._chatEntries.get(chat);
+		return entry?.state?.workingDirectories ?? entry?.summary.workingDirectories;
+	}
+
+	/** Returns the authoritative chat catalog for a session without merging a default chat state. */
+	getSessionChats(session: URI): readonly ChatSummary[] {
+		return this._sessionStates.get(session)?.state.chats ?? [];
+	}
+
 	/**
 	 * Returns a chat's {@link ChatOrigin} from its catalog summary, not its
 	 * (lazily-materialized) {@link ChatState}: a restored chat registers its
@@ -662,7 +673,11 @@ export class AgentHostStateManager extends Disposable {
 				throw new Error(`Restored chat was invalidated while resolving: ${chat}`);
 			}
 			if (!entry.state) {
-				entry.state = { ...createChatState(entry.summary), turns: restored.turns, draft: restored.draft ?? entry.draft };
+				entry.state = {
+					...createChatState(entry.summary),
+					turns: restored.turns,
+					draft: restored.draft ?? entry.draft,
+				};
 				entry.resolver = undefined;
 				if (restored.turns.length > 0) {
 					this.markSessionUsed(entry.session);
@@ -1326,7 +1341,11 @@ export class AgentHostStateManager extends Disposable {
 		this._chatEntries.set(chatUri, {
 			session: sessionKey,
 			summary: chatSummary,
-			state: { ...createChatState(chatSummary), turns: turns ?? [], draft },
+			state: {
+				...createChatState(chatSummary),
+				turns: turns ?? [],
+				draft,
+			},
 			valid: true,
 		});
 		const entry = this._sessionStates.get(sessionKey);
@@ -1429,7 +1448,10 @@ export class AgentHostStateManager extends Disposable {
 		this._chatEntries.set(chatUri, {
 			session,
 			summary: chatSummary,
-			state: { ...createChatState(chatSummary), turns: options?.turns ?? [] },
+			state: {
+				...createChatState(chatSummary),
+				turns: options?.turns ?? [],
+			},
 			providerData: options?.providerData,
 			inheritedTurnId: options?.inheritedTurnId,
 			valid: true,

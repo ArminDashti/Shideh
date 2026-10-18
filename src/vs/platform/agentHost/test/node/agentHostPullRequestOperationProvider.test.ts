@@ -36,6 +36,7 @@ const nullGitStateService = new class implements IAgentHostGitStateService {
 	readonly onDidRefreshSessionGitState = Event.None;
 	readonly onDidChangeSessionGitHubState = Event.None;
 	async refreshSessionGitState(): Promise<void> { }
+	async findPullRequestForWorkingDirectory(): Promise<string | undefined> { return undefined; }
 	getMaterializedWorktreeMeta(): undefined { return undefined; }
 	async resolveSessionBaseBranchName(): Promise<string | undefined> { return undefined; }
 	async getSessionGitHubState(): Promise<ISessionGitHubState | undefined> { return undefined; }
@@ -196,10 +197,17 @@ suite('AgentHostPullRequestOperationContribution', () => {
 			live: [{
 				chat: buildDefaultChatUri('agent:/session'),
 				type: SessionArtifactType.PullRequest,
+				label: 'Referenced PR',
+				isArtifact: false,
+				link: 'https://github.com/microsoft/vscode/pull/123',
+				isGitHub: true,
+			}, {
+				type: SessionArtifactType.PullRequest,
 				label: 'Improve archive nudges',
 				isArtifact: true,
 				link: 'https://github.com/microsoft/vscode/pull/123',
 				isGitHub: true,
+				chat: 'agent:/session/chat/default',
 			}, {
 				chat: buildDefaultChatUri('agent:/session'),
 				type: SessionArtifactType.PullRequest,
@@ -207,14 +215,22 @@ suite('AgentHostPullRequestOperationContribution', () => {
 				isArtifact: true,
 				link: 'https://github.com/microsoft/vscode/pull/124',
 				isGitHub: true,
+				chat: 'agent:/session/chat/default',
 			}],
 			persisted: [{
 				chat: buildDefaultChatUri('agent:/session'),
 				type: SessionArtifactType.PullRequest,
+				label: 'Referenced PR',
+				isArtifact: false,
+				link: 'https://github.com/microsoft/vscode/pull/123',
+				isGitHub: true,
+			}, {
+				type: SessionArtifactType.PullRequest,
 				label: 'Improve archive nudges',
 				isArtifact: true,
 				link: 'https://github.com/microsoft/vscode/pull/123',
 				isGitHub: true,
+				chat: 'agent:/session/chat/default',
 			}, {
 				chat: buildDefaultChatUri('agent:/session'),
 				type: SessionArtifactType.PullRequest,
@@ -222,6 +238,7 @@ suite('AgentHostPullRequestOperationContribution', () => {
 				isArtifact: true,
 				link: 'https://github.com/microsoft/vscode/pull/124',
 				isGitHub: true,
+				chat: 'agent:/session/chat/default',
 			}],
 		});
 	});
@@ -344,15 +361,23 @@ suite('AgentHostPullRequestOperationContribution', () => {
 	test('advertises PR operations for GitHub branches with uncommitted changes', () => {
 		const provider = createContribution();
 
-		const operations = provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, changesetKind: ChangesetKind.Session, changesetUri: '' });
+		const operations = provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, changesetKind: ChangesetKind.Branch, changesetUri: '' });
 
 		assert.deepStrictEqual(operations?.map(op => op.id), ['create-pr', PREPARE_PULL_REQUEST_OPERATION_ID]);
+	});
+
+	test('does not advertise PR operations on Session Changes', () => {
+		const provider = createContribution();
+
+		const operations = provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, changesetKind: ChangesetKind.Session, changesetUri: '' });
+
+		assert.deepStrictEqual(operations, undefined);
 	});
 
 	test('advertises only creation and preparation even when Agent Merge is enabled', () => {
 		const provider = createContribution(undefined, undefined, Event.None, true);
 
-		const operations = provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, changesetKind: ChangesetKind.Session, changesetUri: '' });
+		const operations = provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, changesetKind: ChangesetKind.Branch, changesetUri: '' });
 
 		assert.deepStrictEqual(operations?.map(({ id, label }) => ({ id, label })), [
 			{ id: 'create-pr', label: 'Create PR' },
@@ -421,9 +446,9 @@ suite('AgentHostPullRequestOperationContribution', () => {
 		const provider = createContribution();
 
 		const actual = [
-			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, hasGitHubRemote: false }, changesetKind: ChangesetKind.Session, changesetUri: '' }),
-			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, uncommittedChanges: 0, outgoingChanges: 0 }, changesetKind: ChangesetKind.Session, changesetUri: '' }),
-			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, uncommittedChanges: 0, outgoingChanges: 2, hasBaseBranchChanges: false }, changesetKind: ChangesetKind.Session, changesetUri: '' }),
+			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, hasGitHubRemote: false }, changesetKind: ChangesetKind.Branch, changesetUri: '' }),
+			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, uncommittedChanges: 0, outgoingChanges: 0 }, changesetKind: ChangesetKind.Branch, changesetUri: '' }),
+			provider.getOperations({ sessionKey: 'agent:/session', gitState: { ...githubBranchWithUncommittedChanges, uncommittedChanges: 0, outgoingChanges: 2, hasBaseBranchChanges: false }, changesetKind: ChangesetKind.Branch, changesetUri: '' }),
 		];
 
 		assert.deepStrictEqual(actual, [undefined, undefined, undefined]);
@@ -433,8 +458,8 @@ suite('AgentHostPullRequestOperationContribution', () => {
 		const provider = createContribution();
 
 		const actual = [
-			provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Session, changesetUri: '' }),
-			provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: { ...pullRequestForBranch, pullRequestBranchName: 'feature/other' }, changesetKind: ChangesetKind.Session, changesetUri: '' }),
+			provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Branch, changesetUri: '' }),
+			provider.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: { ...pullRequestForBranch, pullRequestBranchName: 'feature/other' }, changesetKind: ChangesetKind.Branch, changesetUri: '' }),
 		];
 
 		assert.deepStrictEqual(actual.map(operations => operations?.map(op => op.id)), [undefined, ['create-pr', PREPARE_PULL_REQUEST_OPERATION_ID]]);
@@ -442,7 +467,7 @@ suite('AgentHostPullRequestOperationContribution', () => {
 
 	test('advertises lifecycle operations for a pull request on the current branch', () => {
 		const operationsFor = (status?: IAgentHostPullRequestStatus, agentMergeEnabled = false) => createContribution(status, undefined, Event.None, agentMergeEnabled, agentMergeEnabled)
-			.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Session, changesetUri: '' })
+			.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Branch, changesetUri: '' })
 			?.map(op => op.id);
 
 		assert.deepStrictEqual({
@@ -472,7 +497,7 @@ suite('AgentHostPullRequestOperationContribution', () => {
 
 	test('uses the same label for the Agent Merge Mark Ready operation', () => {
 		const operations = createContribution(openPullRequest({ draft: true, agentMergeReadyForReview: false }), undefined, Event.None, true, true)
-			.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Session, changesetUri: '' });
+			.getOperations({ sessionKey: 'agent:/session', gitState: githubBranchWithUncommittedChanges, gitHubState: pullRequestForBranch, changesetKind: ChangesetKind.Branch, changesetUri: '' });
 
 		assert.deepStrictEqual(operations?.map(({ id, label }) => ({ id, label })), [{
 			id: AgentHostPullRequestLifecycleOperationHandler.OPERATION_MARK_READY_WITH_AGENT_MERGE,

@@ -28,7 +28,7 @@ import { IAgentHostChangesetOperationService } from '../../common/agentHostChang
 import { IAgentHostGitStateService } from '../../common/agentHostGitStateService.js';
 import { NULL_CHECKPOINT_SERVICE, type IAgentHostCheckpointService } from '../../common/agentHostCheckpointService.js';
 import { IAgentHostReviewService, NULL_REVIEW_SERVICE } from '../../common/agentHostReviewService.js';
-import { IAgentHostGitService } from '../../common/agentHostGitService.js';
+import { IAgentHostGitService, META_DIFF_BASE_BRANCH } from '../../common/agentHostGitService.js';
 import { ITelemetryService, TelemetryLevel } from '../../../telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
 import { AgentHostStateManager } from '../../node/agentHostStateManager.js';
@@ -99,6 +99,7 @@ function createOperationService(): IAgentHostChangesetOperationService {
 	return {
 		_serviceBrand: undefined,
 		registerContribution: () => toDisposable(() => { }),
+		setChangesetTarget: () => { },
 		updateOperations: () => { },
 		getOperations: () => undefined,
 		invokeChangesetOperation: async () => { throw new Error('not implemented'); },
@@ -594,6 +595,7 @@ suite.skip('AgentHostChangesetService', () => {
 				{ after: { uri: 'file:///wd/b.ts', content: { uri: 'file:///wd/b.ts' } }, diff: { added: 2, removed: 1 } },
 			];
 			const stubGit = {
+				getRepositoryRoot: async (workingDirectory: URI) => workingDirectory,
 				computeSessionFileDiffs: async () => gitDiffs,
 			} as unknown as IAgentHostGitService;
 
@@ -668,6 +670,7 @@ suite.skip('AgentHostChangesetService', () => {
 
 		test('git throws: state goes Error with original message', async () => {
 			const stubGit = {
+				getRepositoryRoot: async (workingDirectory: URI) => workingDirectory,
 				computeSessionFileDiffs: async () => { throw new Error('git command failed'); },
 			} as unknown as IAgentHostGitService;
 			const localStateManager = disposables.add(new AgentHostStateManager(new NullLogService()));
@@ -1571,6 +1574,7 @@ suite('AgentHostChangesetService - materialization refresh', () => {
 		const worktreeDirectory = 'file:///repo/worktree';
 		const computedWorkingDirectories: string[] = [];
 		const gitService = createNoopGitService();
+		gitService.getRepositoryRoot = async workingDirectory => workingDirectory;
 		gitService.computeSessionFileDiffs = async workingDirectory => {
 			computedWorkingDirectories.push(workingDirectory.toString());
 			return [];
@@ -1753,7 +1757,7 @@ suite('AgentHostChangesetService - multi-root and recomputation', () => {
 			}
 			await timeout(1);
 		}
-		assert.fail(`changeset ${changesetUri} never reached Ready`);
+		assert.fail(`changeset ${changesetUri} never reached Ready: ${JSON.stringify(stateManager.getChangesetState(changesetUri))}`);
 	}
 
 	function build(options: {
@@ -1764,6 +1768,7 @@ suite('AgentHostChangesetService - multi-root and recomputation', () => {
 		log?: RecordingLogService;
 		telemetry?: ITelemetryService;
 		review?: IAgentHostReviewService;
+		operationService?: IAgentHostChangesetOperationService;
 		subscriptions?: string[];
 		isolation?: 'folder' | 'worktree';
 		peer?: { resource: string; db: TestSessionDatabase; turnId: string; workingDirectories?: readonly string[]; onDispose?: () => void; openError?: Error };
@@ -1807,7 +1812,7 @@ suite('AgentHostChangesetService - multi-root and recomputation', () => {
 			options.git,
 			options.checkpoint,
 			disposables.add(new AgentConfigurationService(stateManager, new NullLogService())),
-			createOperationService(),
+			options.operationService ?? createOperationService(),
 			createSubscriptionService(...(options.subscriptions ?? [])),
 			options.review ?? NULL_REVIEW_SERVICE,
 			options.telemetry ?? NullTelemetryService,

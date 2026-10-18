@@ -9,7 +9,7 @@ import { localize } from '../../../nls.js';
 import { ILogService } from '../../log/common/log.js';
 import { AGENT_HOST_CHECKOUT_CHANGESET_OPERATION_ID, type IChangesetOperationHandler } from '../common/agentHostChangesetOperationService.js';
 import { CheckoutBlockedByLocalChangesError, IAgentHostGitService } from '../common/agentHostGitService.js';
-import { ChangesetKind, parseChangesetUri } from '../common/changesetUri.js';
+import { ChangesetKind, getChangesetSessionUri, parseChangesetUri } from '../common/changesetUri.js';
 import { CheckoutOperationPreAction, checkoutOperationDirtyWorkingTreeErrorData, readCheckoutOperationPreAction, readCheckoutOperationTreeish } from '../common/meta/agentCheckoutOperationMeta.js';
 import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from '../common/state/protocol/channels-changeset/commands.js';
 import { AHP_SESSION_NOT_FOUND, JsonRpcErrorCodes, ProtocolError } from '../common/state/sessionProtocol.js';

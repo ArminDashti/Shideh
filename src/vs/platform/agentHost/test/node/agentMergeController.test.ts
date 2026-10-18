@@ -160,6 +160,7 @@ suite('AgentMergeController', () => {
 			new NullLogService(),
 			stateManager,
 			configurationService,
+			noopGitService,
 		));
 		configurationService.updateSessionConfig(session, {
 			[SessionConfigKey.Mode]: 'interactive',
@@ -1304,6 +1305,10 @@ suite('AgentMergeController', () => {
 			override readonly onDidChangeSessionGitHubState = Event.None;
 			override async refreshSessionGitState(): Promise<void> { }
 			override async attachSessionGitHubPullRequest(): Promise<void> { }
+			override async findPullRequestForWorkingDirectory(_sessionKey: string, workingDirectory: URI): Promise<string | undefined> {
+				pullRequestLookup?.workingDirectories.push(workingDirectory.toString());
+				return pullRequestLookup?.url;
+			}
 		}();
 		const endpointService = disposables.add(new AgentHostGitHubEndpointService(configurationService, logService));
 		const notices: { kind: AgentSystemNotificationKind; content: string }[] = [];
@@ -1490,6 +1495,152 @@ suite('AgentMergeController', () => {
 			});
 		});
 	}
+
+	test('restores monitoring and notices against a peer chat repository', async () => {
+		const pullRequestUrl = 'https://github.com/octo/peer/pull/1';
+		const snapshot: PullRequestSnapshot = {
+			ref: { owner: 'octo', repo: 'peer', number: 1, host: 'api.github.com', accountId: 'account' },
+			generation: 1,
+			headGeneration: 1,
+			core: {
+				status: 'ready',
+				complete: true,
+				value: {
+					repositoryNameWithOwner: 'octo/peer',
+					number: 1, title: 'Peer change', url: pullRequestUrl, state: 'merged', draft: false,
+					headSha: 'head', headRef: 'feature/peer', baseSha: 'base', baseRef: 'main',
+				},
+			},
+			topLevelComments: { status: 'missing', complete: false },
+			submittedReviews: { status: 'missing', complete: false },
+			inlineComments: { status: 'missing', complete: false },
+			reviewThreads: { status: 'missing', complete: false },
+			checks: { status: 'missing', complete: false },
+			mergeability: { status: 'missing', complete: false },
+			participants: { status: 'missing', complete: false },
+		};
+		const branchWorkingDirectories: string[] = [];
+		const gitService = new class extends mock<IAgentHostGitService>() {
+			override async getCurrentBranchName(workingDirectory: URI): Promise<string> {
+				branchWorkingDirectories.push(workingDirectory.toString());
+				return 'feature/peer';
+			}
+		}();
+		const { stateManager, configurationService, session, notices, noticeChats } = createControllerHarness(disposables, snapshot, gitService);
+		const chat = buildChatUri(session, 'peer');
+		const workingDirectory = URI.file('/peer').toString();
+		stateManager.addChat(session, chat, { workingDirectories: [workingDirectory] });
+		stateManager.setSessionMeta(session, withSessionGitState(undefined, { branchName: 'feature/primary', baseBranchName: 'main' }));
+		const disabled = new Promise<void>(resolve => {
+			disposables.add(stateManager.onDidChangeSessionConfig(event => {
+				if (event.session.toString() === session && readAgentMergeSessionState(event.current?.values)?.enabled === false) {
+					resolve();
+				}
+			}));
+		});
+		configurationService.updateSessionConfig(session, {
+			[SessionConfigKey.AgentMerge]: { enabled: true },
+			[SessionConfigKey.AgentMergeController]: {
+				target: {
+					branchName: 'feature/peer',
+					pullRequestUrl,
+					chatUri: chat,
+					workingDirectory,
+					enabledAt: new Date(0).toISOString(),
+					commentWatermark: new Date(0).toISOString(),
+				},
+			},
+		});
+		stateManager.dispatchServerAction(session, { type: ActionType.SessionReady });
+		await disabled;
+
+		assert.deepStrictEqual({
+			branchWorkingDirectories,
+			noticeChats,
+			notices,
+		}, {
+			branchWorkingDirectories: [workingDirectory],
+			noticeChats: [chat],
+			notices: [{
+				kind: AgentSystemNotificationKind.AgentMergePullRequestMerged,
+				content: 'Pull request [#1](https://github.com/octo/peer/pull/1) was merged. Agent Merge is now disabled.',
+			}],
+		});
+	});
+
+	test('binds a peer chat pull request without replacing primary session Git state', async () => {
+		const pullRequestUrl = 'https://github.com/octo/peer/pull/1';
+		const snapshot: PullRequestSnapshot = {
+			ref: { owner: 'octo', repo: 'peer', number: 1, host: 'api.github.com', accountId: 'account' },
+			generation: 1,
+			headGeneration: 1,
+			core: {
+				status: 'ready',
+				complete: true,
+				value: {
+					repositoryNameWithOwner: 'octo/peer',
+					number: 1, title: 'Peer change', url: pullRequestUrl, state: 'open', draft: false,
+					headSha: 'head', headRef: 'feature/peer', baseSha: 'base', baseRef: 'main',
+				},
+			},
+			topLevelComments: { status: 'missing', complete: false },
+			submittedReviews: { status: 'missing', complete: false },
+			inlineComments: { status: 'missing', complete: false },
+			reviewThreads: { status: 'missing', complete: false },
+			checks: { status: 'missing', complete: false },
+			mergeability: { status: 'missing', complete: false },
+			participants: { status: 'missing', complete: false },
+		};
+		const gitService = new class extends mock<IAgentHostGitService>() {
+			override async getCurrentBranchName(): Promise<string> {
+				return 'feature/peer';
+			}
+		}();
+		const lookupWorkingDirectories: string[] = [];
+		const { stateManager, configurationService, session } = createControllerHarness(
+			disposables,
+			snapshot,
+			gitService,
+			{ url: pullRequestUrl, workingDirectories: lookupWorkingDirectories },
+		);
+		const chat = buildChatUri(session, 'peer');
+		const workingDirectory = URI.file('/peer').toString();
+		const primaryGitState = { branchName: 'feature/primary', baseBranchName: 'main' };
+		stateManager.addChat(session, chat, { workingDirectories: [workingDirectory] });
+		stateManager.setSessionMeta(session, withSessionGitState(undefined, primaryGitState));
+		const bound = new Promise<void>(resolve => {
+			disposables.add(stateManager.onDidChangeSessionConfig(event => {
+				if (readAgentMergeSessionState(event.current?.values)?.target?.pullRequestUrl === pullRequestUrl) {
+					resolve();
+				}
+			}));
+		});
+		configurationService.updateSessionConfig(session, {
+			[SessionConfigKey.AgentMerge]: { enabled: true },
+			[SessionConfigKey.AgentMergeController]: {
+				target: {
+					branchName: 'feature/peer',
+					chatUri: chat,
+					workingDirectory,
+					enabledAt: new Date(0).toISOString(),
+					commentWatermark: new Date(0).toISOString(),
+				},
+			},
+		});
+
+		stateManager.dispatchServerAction(session, { type: ActionType.SessionReady });
+		await bound;
+
+		assert.deepStrictEqual({
+			lookupWorkingDirectories,
+			gitState: readSessionGitState(stateManager.getSessionState(session)?._meta),
+			pullRequestUrl: readAgentMergeSessionState(configurationService.getSessionConfigValues(session))?.target?.pullRequestUrl,
+		}, {
+			lookupWorkingDirectories: [workingDirectory],
+			gitState: primaryGitState,
+			pullRequestUrl,
+		});
+	});
 
 	test('announces enablement once it captures a branch, and again on the branch that turned it off', async () => {
 		const logService = new NullLogService();

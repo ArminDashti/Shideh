@@ -6,7 +6,7 @@
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
 import { IAgentSessionMetadata } from '../common/agent.js';
-import { buildBranchChangesetUri, buildSessionChangesetUri, ChangesetKind, parseChangesetUri } from '../common/changesetUri.js';
+import { buildBranchChangesetUri, buildSessionChangesetUri, ChangesetKind, getChangesetSessionUri, parseChangesetUri } from '../common/changesetUri.js';
 import { ChangesetFileMonitorCoordinator } from './agentHostChangesetFileMonitorCoordinator.js';
 import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
 import { IAgentHostChangesetService, META_CHANGESET_BRANCH, META_CHANGESET_SESSION, META_LEGACY_DIFFS } from '../common/agentHostChangesetService.js';
@@ -129,8 +129,7 @@ export class AgentHostChangesetCoordinator extends Disposable {
 	}
 
 	/**
-	 * Called when a provisional session is materialized (working directory
-	 * becomes known). Recomputes every current changeset subscription.
+	 * Called after a provisional session is materialized.
 	 */
 	onSessionMaterialized(sessionStr: string): void {
 		this._refreshChangesetCatalogs(sessionStr);
@@ -495,8 +494,9 @@ export class AgentHostChangesetCoordinator extends Disposable {
 		if (parsed.kind === ChangesetKind.Unknown) {
 			throw new Error(`Cannot subscribe to unknown changeset resource: ${resourceStr}`);
 		}
-		if (!this._stateManager.getSessionState(parsed.sessionUri)) {
-			await restoreSession(URI.parse(parsed.sessionUri));
+		const session = getChangesetSessionUri(resourceStr);
+		if (session && !this._stateManager.getSessionState(session)) {
+			await restoreSession(URI.parse(session));
 		}
 		if (this._pendingChangesetSubscriptions.delete(resourceStr)
 			&& this._changesetSubscriptions.getSessionSubscriptions(parsed.ownerUri).has(resourceStr)) {
@@ -546,6 +546,10 @@ export class AgentHostChangesetCoordinator extends Disposable {
 			throw new Error(`Cannot subscribe to unknown changeset resource: ${resourceStr}`);
 		}
 		await this.restoreSessionIfChangesetSubscription(resource, restoreSession);
+		const session = getChangesetSessionUri(resourceStr);
+		if (!session) {
+			return false;
+		}
 		if (parsed.kind === ChangesetKind.Turn && parsed.turnId) {
 			if (!this._stateManager.getChangesetState(resourceStr)) {
 				void this._changesets.computeTurnChangeset(parsed.ownerUri, parsed.turnId, 'fileEditTracker');
@@ -666,6 +670,8 @@ export class AgentHostChangesetCoordinator extends Disposable {
 	 * external edits, so re-attach the file monitor for the session (and its
 	 * inheriting subagents) — otherwise a folder added or removed mid-session
 	 * would not start/stop being watched until an unrelated lifecycle event.
+	 * Recompute subscribed changesets as well because their contents are scoped
+	 * to the effective working-directory set.
 	 */
 	private onDidChangeSessionWorkingDirectories(sessionStr: string): void {
 		this._changesetOperationService.updateOperations(sessionStr);
@@ -699,6 +705,7 @@ export class AgentHostChangesetCoordinator extends Disposable {
 			if (parseSubagentSessionUri(candidate)?.parentSession.toString() === sessionStr) {
 				this._changesetOperationService.updateOperations(candidate);
 				this._changesetFileMonitor.onSessionWorkingDirectoriesChanged(candidate);
+				this._changesets.recomputeSubscribedChangesets(candidate);
 			}
 		}
 		if (this._pendingSessionRefreshes.delete(sessionStr)) {

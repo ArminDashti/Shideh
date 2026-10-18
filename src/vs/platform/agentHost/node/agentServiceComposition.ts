@@ -37,6 +37,7 @@ import { AgentMergeController } from './agentMergeController.js';
 import { AgentMergeTools } from './agentMergeTools.js';
 import { AgentServerToolHost, IAgentHostServerToolService } from './shared/agentServerToolHost.js';
 import { buildServerToolGroups } from './shared/serverToolGroups.js';
+import { AgentHostCreateSessionRelationshipConfigKey, platformRootSchema } from '../common/agentHostSchema.js';
 import type { ISessionServerToolAccessor } from './shared/sessionServerTools.js';
 import { type IAgentServiceFoundation } from './agentServiceFoundation.js';
 import { IAgentHostProviderService } from './agentHostProviderService.js';
@@ -148,6 +149,7 @@ export function createAgentServiceComposition(
 				resolveWorkingDirectoryBeforeSend: params => callbackAdapter.value.resolveWorkingDirectoryBeforeSend(params),
 				announceUnsentProvisionalSession: params => callbackAdapter.value.announceUnsentProvisionalSession(params),
 				resolveChatAttachmentTurns: resource => callbackAdapter.value.resolveChatAttachmentTurns(resource),
+				setAdditionalWorktreesArchived: (session, archived, strictCleanup) => callbackAdapter.value.setAdditionalWorktreesArchived(session, archived, strictCleanup),
 			},
 		));
 		const agentMergeTools = owned.add(instantiationService.createInstance(

@@ -640,6 +640,12 @@ export class AgentMergeController extends Disposable {
 			this._disable(session, runtime.folderKey, agentMerge, agentMergeDisableReasons.branchChanged(target.branchName, branchName));
 			return;
 		}
+		if (target.announcementPending) {
+			const announcedTarget = { ...target, announcementPending: undefined };
+			this._postEnabledNotice(session, { ...agentMerge, target: announcedTarget });
+			this._updateAgentMergeState(session, agentMerge, { target: announcedTarget });
+			return;
+		}
 
 		const gitStateKey = runtime.folderKey === this._sessionFolderKey(state) ? session : chat;
 		await this._gitStateService.attachSessionGitHubPullRequest(gitStateKey, this._workingDirectoryForFolder(session, runtime.folderKey));
@@ -1306,7 +1312,7 @@ export class AgentMergeController extends Disposable {
 		agentMerge: AgentMergeFolderState,
 		configuration: AgentMergeConfiguration,
 	): Promise<boolean> {
-		if (configuration.mergePullRequest !== 'ifUnchanged' || agentMerge.repairBaseCommit === undefined) {
+		if (configuration.mergePullRequest !== 'ifUnchanged' || agentMerge.repairBaseCommit === undefined || !agentMerge.target) {
 			return false;
 		}
 		const currentCommit = await this._resolveLocalCommit(session, folderKey);

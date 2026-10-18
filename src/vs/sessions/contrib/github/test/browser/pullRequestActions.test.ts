@@ -17,6 +17,7 @@ import { IClipboardService } from '../../../../../platform/clipboard/common/clip
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IListService } from '../../../../../platform/list/browser/listService.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../platform/quickinput/common/quickInput.js';
 import { Menus } from '../../../../browser/menus.js';
 import { SessionHasPullRequestContext } from '../../../../common/contextkeys.js';
 import { IGitHubPullRequestRef, ISessionWorkspace } from '../../../../services/sessions/common/session.js';
@@ -58,6 +59,7 @@ function createSessionWithPullRequest(pullRequestUri: URI | undefined, pullReque
 	};
 	return new class extends mock<IActiveSession>() {
 		override readonly workspace = constObservable<ISessionWorkspace | undefined>(workspace);
+		override readonly chats = constObservable(chats);
 	};
 }
 

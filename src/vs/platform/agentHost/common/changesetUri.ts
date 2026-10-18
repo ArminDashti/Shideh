@@ -354,6 +354,15 @@ export function parseChangesetUri(uri: URI): { ownerUri: URI; sessionUri: URI; c
 	return { ownerUri, sessionUri, changesetId, kind: ChangesetKind.Unknown };
 }
 
+/** Resolves the parent session of either a session- or chat-owned changeset URI. */
+export function getChangesetSessionUri(uri: URI): URI | undefined {
+	const owner = parseChangesetUri(uri)?.sessionUri;
+	if (!owner) {
+		return undefined;
+	}
+	return isAhpChatChannel(owner) ? parseDefaultChatUri(owner) : owner;
+}
+
 /** Returns `true` iff `uri` looks like a changeset URI we recognise. */
 export function isChangesetUri(uri: URI): boolean {
 	return parseChangesetUri(uri) !== undefined;

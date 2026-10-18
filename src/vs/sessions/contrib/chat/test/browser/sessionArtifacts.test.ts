@@ -58,6 +58,9 @@ suite('Session Artifacts', () => {
 		const telemetryEvents: { readonly name: string | undefined; readonly data: unknown }[] = [];
 		let removalError: Error | undefined;
 		const gitHubInfo = observableValue<IGitHubInfo | undefined>('gitHubInfo', info);
+		const chat = observableValue<IChat | undefined>('chat', new class extends mock<IChat>() {
+			override readonly resource = URI.parse('test-chat:/session#chat-a');
+		}());
 		const root = URI.file('/repo');
 		const workspace = observableValue<ISessionWorkspace | undefined>('workspace', {
 			uri: root,
@@ -78,11 +81,13 @@ suite('Session Artifacts', () => {
 			override readonly artifacts = artifacts;
 			override readonly capabilities = constObservable({ supportsMultipleChats: false, supportsRemoveArtifacts: true });
 			override readonly workspace = workspace;
+			override readonly pullRequests = pullRequests ? constObservable(pullRequests) : undefined;
 		}());
 		const configurationService = new TestConfigurationService();
 		disposables.add(configurationService.onDidChangeConfigurationEmitter);
 		const presentation = disposables.add(new SessionArtifacts(
 			session,
+			chat,
 			constObservable(new Set<string>()),
 			derived(reader => getSessionGitHubReferences(session.read(reader), reader, fromChat ? upcastPartial<IChat>({ workspace }) : undefined)),
 			constObservable(undefined),
@@ -148,6 +153,56 @@ suite('Session Artifacts', () => {
 			'https://example.com/dashboard',
 			'myapp://team/board?id=42',
 		]);
+	});
+
+	test('shows chat-owned artifacts and references only in their chat', () => {
+		const chatA = URI.parse('test-chat:/session#chat-a');
+		const chatB = URI.parse('test-chat:/session#chat-b');
+		const { presentation, chat } = createPresentation([
+			{ id: 'global-artifact', kind: SessionArtifactKind.Website, label: 'Global artifact', isArtifact: true, link: URI.parse('https://example.com/global') },
+			{ id: 'global-reference', kind: SessionArtifactKind.Resource, label: 'Global reference', isArtifact: false, uri: URI.parse('https://example.com/global-ref') },
+			{ id: 'chat-a-artifact', kind: SessionArtifactKind.File, label: 'Chat A artifact', chat: chatA, isArtifact: true, uri: URI.file('/repo/a.md') },
+			{ id: 'chat-a-reference', kind: SessionArtifactKind.Website, label: 'Chat A reference', chat: chatA, isArtifact: false, link: URI.parse('https://example.com/a') },
+			{ id: 'chat-b-artifact', kind: SessionArtifactKind.File, label: 'Chat B artifact', chat: chatB, isArtifact: true, uri: URI.file('/repo/b.md') },
+			{ id: 'chat-b-reference', kind: SessionArtifactKind.Website, label: 'Chat B reference', chat: chatB, isArtifact: false, link: URI.parse('https://example.com/b') },
+		]);
+
+		const chatAEntries = visibleEntries(presentation);
+		chat.set(new class extends mock<IChat>() {
+			override readonly resource = chatB;
+		}(), undefined);
+		const chatBEntries = visibleEntries(presentation);
+
+		assert.deepStrictEqual({ chatAEntries, chatBEntries }, {
+			chatAEntries: {
+				artifacts: ['global-artifact', 'chat-a-artifact'],
+				references: ['chat-a-reference', 'global-reference'],
+			},
+			chatBEntries: {
+				artifacts: ['global-artifact', 'chat-b-artifact'],
+				references: ['chat-b-reference', 'global-reference'],
+			},
+		});
+	});
+
+	test('filters promoted GitHub artifacts without hiding session-level refs', () => {
+		const chatA = URI.parse('test-chat:/session#chat-a');
+		const chatB = URI.parse('test-chat:/session#chat-b');
+		const refs = [1, 2, 3, 4].map(number => ({ number, uri: URI.parse(`https://github.com/microsoft/vscode/pull/${number}`) }));
+		const artifacts: readonly ISessionArtifact[] = [
+			{ id: 'a', kind: SessionArtifactKind.PullRequest, label: 'A', chat: chatA, isArtifact: true, link: refs[0].uri },
+			{ id: 'b', kind: SessionArtifactKind.PullRequest, label: 'B', chat: chatB, isArtifact: true, link: refs[1].uri },
+			{ id: 'global', kind: SessionArtifactKind.PullRequest, label: 'Global', isArtifact: true, link: refs[3].uri },
+		];
+		const visible = (chat: URI) => filterSessionArtifactGitHubRefsForChat(refs, artifacts, SessionArtifactKind.PullRequest, chat).map(ref => ref.number);
+
+		assert.deepStrictEqual({
+			chatA: visible(chatA),
+			chatB: visible(chatB),
+		}, {
+			chatA: [1, 3, 4],
+			chatB: [2, 3, 4],
+		});
 	});
 
 	test('shows each artifact path or link beside its dropdown entry', () => {
@@ -303,6 +358,32 @@ suite('Session Artifacts', () => {
 
 		assert.deepStrictEqual(visibleEntries(presentation), {
 			artifacts: ['other-repo-pr'],
+			references: [],
+		});
+	});
+
+	test('omits a peer-repository pull request promoted through the session collection', () => {
+		const chat = URI.parse('test-chat:/session#chat-a');
+		const link = URI.parse('https://github.com/octo/peer/pull/12');
+		const artifact: ISessionArtifact = {
+			id: 'peer-pr',
+			kind: SessionArtifactKind.PullRequest,
+			label: 'Peer PR',
+			isArtifact: true,
+			isGitHub: true,
+			link,
+			chat,
+		};
+		const { presentation } = createPresentation([artifact], undefined, [{
+			owner: 'octo',
+			repo: 'peer',
+			number: 12,
+			uri: link,
+			chat,
+		}]);
+
+		assert.deepStrictEqual(visibleEntries(presentation), {
+			artifacts: [],
 			references: [],
 		});
 	});

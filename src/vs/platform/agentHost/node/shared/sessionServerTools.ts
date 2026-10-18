@@ -10,7 +10,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { toAgentMessageDelegationMeta, type IAgentMessageDelegationMeta } from '../../common/meta/agentMessageDelegationMeta.js';
 import { readAgentHostPersistentTeamState } from '../../common/meta/agentHostPersistentTeamMeta.js';
 import { localize } from '../../../../nls.js';
-import { AgentSession, type AgentProvider, type IAgentCreateSessionConfig, type IAgentModelInfo, type IAgentSessionMetadata } from '../../common/agent.js';
+import { AgentSession, type AgentProvider, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentModelInfo, type IAgentSessionMetadata } from '../../common/agent.js';
 import { SessionStatus } from '../../common/state/protocol/channels-session/state.js';
 import { ActionType } from '../../common/state/sessionActions.js';
 import type { IAgentServerToolDefinition } from '../../common/agentServerTools.js';
@@ -275,6 +275,14 @@ export const sessionServerToolDefinitions: IAgentServerToolDefinition[] = [
 		deferLoading: true,
 	},
 ];
+
+const sessionServerToolDefinitionsWithoutCreateSessionRelationship: readonly IAgentServerToolDefinition[] = sessionServerToolDefinitions.map(definition => definition.name === SessionServerToolName.CreateSession
+	? {
+		...definition,
+		description: 'Create delegated work as a new chat in the current session and start it with an initial prompt.',
+		inputSchema: createSessionWithoutRelationshipInputSchema,
+	}
+	: definition);
 
 /** Resolves the owning backend session URI for the channel a tool call runs on. */
 export function currentSessionUri(toolCallChannel: ProtocolURI): URI {
@@ -670,6 +678,8 @@ export function getCreateSessionArgs(rawArgs: unknown, sessions: readonly IAgent
 		}
 		return {
 			relationship,
+			...(workspace !== undefined ? { workspace: resolveWorkspace(workspace, sessions) } : {}),
+			...(worktree !== undefined ? { worktree } : {}),
 			prompt,
 			title,
 			...(model !== undefined ? { model } : {}),
@@ -1836,7 +1846,9 @@ export function createSessionServerToolGroup(accessor?: ISessionServerToolAccess
 	let createdChatCount = 0;
 	let sentMessageCount = 0;
 	const group: IServerToolGroup = {
-		definitions: sessionServerToolDefinitions,
+		get definitions() {
+			return isCreateSessionRelationshipEnabled() ? sessionServerToolDefinitions : sessionServerToolDefinitionsWithoutCreateSessionRelationship;
+		},
 		// Remove after 2026-10-26; self-mapped because its arguments differ from create_session.
 		legacyToolNames: new Map([[SessionServerToolName.CreateChat, SessionServerToolName.CreateChat]]),
 		materializeDefinitions: true,
@@ -1867,6 +1879,9 @@ export function createSessionServerToolGroup(accessor?: ISessionServerToolAccess
 			return sessionToolRequiresConfirmation(toolName);
 		},
 		getDisplay(toolName: string, args: unknown, result?: IServerToolDisplayResult): IServerToolDisplay | undefined {
+			if (toolName === SessionServerToolName.CreateSession && !isCreateSessionRelationshipEnabled()) {
+				return getSessionToolDisplay(toolName, { relationship: 'currentSession' }, result);
+			}
 			return getSessionToolDisplay(toolName, args, result);
 		},
 		async execute(stateManager: AgentHostStateManager, context, toolName: string, rawArgs: unknown): Promise<string> {

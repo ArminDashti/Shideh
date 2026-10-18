@@ -480,6 +480,7 @@ export class SessionArtifacts extends Disposable {
 
 	constructor(
 		session: IObservable<IActiveSession | undefined>,
+		chat: IObservable<IChat | undefined>,
 		/** The URLs the browsers pill lists; website entries for them are left out. */
 		private readonly _browserUrls: IObservable<ReadonlySet<string>>,
 		private readonly _gitHubReferences: IObservable<ISessionGitHubReferences>,
@@ -577,6 +578,8 @@ export class SessionArtifacts extends Disposable {
 			if (!current) {
 				return [];
 			}
+			const chatResource = chat.read(reader)?.resource;
+			const artifacts = current.artifacts?.read(reader) ?? [];
 			locationFormatting.read(reader);
 			// Only artifacts are promoted into the pull request and issue pills; references always stay in the references pill.
 			const gitHubReferences = isArtifact ? this._gitHubReferences.read(reader) : undefined;

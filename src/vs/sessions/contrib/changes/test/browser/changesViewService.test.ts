@@ -57,6 +57,7 @@ suite('ChangesViewService', () => {
 			changes: constObservable([]),
 			changesets: constObservable(options?.changesets ?? []),
 			workspace: constObservable(workspace),
+			activeChat: constObservable(chat),
 		});
 		return upcastPartial<IActiveSession>({
 			resource: URI.from({ scheme: 'test-session', path: `/${id}` }),
@@ -944,6 +945,27 @@ suite('ChangesViewService', () => {
 			authoritativeEmpty: { changesets: [], catalogueLoading: false, selected: undefined },
 			restored: { changesets: ['branch', 'selected'], catalogueLoading: false, selected: 'selected' },
 			noSession: { changesets: undefined, catalogueLoading: true, selected: undefined },
+		});
+	});
+
+	test('uses the active chat changesets when the provider exposes them', () => {
+		const sessionBranch = createChangeset([]);
+		const chatBranch = {
+			...createChangeset([]),
+			id: 'chat-branch',
+			label: 'Chat Branch Changes',
+		};
+		const { service } = createHarness(createSession('chat-changesets', {
+			changesets: [sessionBranch],
+			chatChangesets: [chatBranch],
+		}));
+
+		assert.deepStrictEqual({
+			changesets: service.activeSessionChangesetsObs.get()?.map(changeset => changeset.id),
+			selected: service.activeSessionChangesetObs.get()?.id,
+		}, {
+			changesets: ['chat-branch'],
+			selected: 'chat-branch',
 		});
 	});
 

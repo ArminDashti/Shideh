@@ -9420,6 +9420,168 @@ suite('LocalAgentHostSessionsProvider', () => {
 			});
 		});
 
+		test('chat workspaces expose explicit subsets and inherit the full session workspace', () => {
+			const provider = createProvider(disposables, agentHost);
+			const primaryDirectory = URI.file('/workspace-primary');
+			const peerDirectory = URI.file('/workspace-peer');
+			const session = setupMultiChatSession(provider, 'multi-workspaces', [primaryDirectory, peerDirectory]);
+			const sessionUri = AgentSession.uri('copilotcli', 'multi-workspaces').toString();
+			const defaultChat = buildDefaultChatUri(sessionUri);
+			const peerChat = buildChatUri(sessionUri, 'peer-1');
+			const inheritedPeerChat = buildChatUri(sessionUri, 'peer-2');
+
+			agentHost.setSessionState('multi-workspaces', 'copilotcli', makeState([
+				makeChatSummary(defaultChat, '', ProtocolSessionStatus.Idle, [primaryDirectory.toString()]),
+				makeChatSummary(peerChat, 'Peer', ProtocolSessionStatus.Idle, [peerDirectory.toString()]),
+				makeChatSummary(inheritedPeerChat, 'Inherited Peer'),
+			], { defaultChat }));
+
+			assert.deepStrictEqual({
+				session: session.workspace.get()?.folders.map(folder => folder.workingDirectory.toString()),
+				defaultChat: session.mainChat.get().workspace.get()?.folders.map(folder => folder.workingDirectory.toString()),
+				peerChat: session.chats.get().find(chat => chat.resource.fragment === 'peer-1')?.workspace.get()?.folders.map(folder => folder.workingDirectory.toString()),
+				inheritedPeerChat: session.chats.get().find(chat => chat.resource.fragment === 'peer-2')?.workspace.get()?.folders.map(folder => folder.workingDirectory.toString()),
+			}, {
+				session: [primaryDirectory.toString(), peerDirectory.toString()],
+				defaultChat: [primaryDirectory.toString()],
+				peerChat: [peerDirectory.toString()],
+				inheritedPeerChat: [primaryDirectory.toString(), peerDirectory.toString()],
+			});
+		});
+
+		test('additional worktrees preserve their source repository identity', () => {
+			const provider = createProvider(disposables, agentHost);
+			const primaryDirectory = URI.file('/agent-host-protocol.worktrees/session');
+			const peerDirectory = URI.file('/vscode.worktrees/peer-session');
+			const session = setupMultiChatSession(provider, 'multi-worktrees', [primaryDirectory, peerDirectory]);
+			const peerFolder = session.workspace.get()?.folders[1];
+
+			assert.deepStrictEqual({
+				root: peerFolder?.root.toString(),
+				workingDirectory: peerFolder?.workingDirectory.toString(),
+				name: peerFolder?.name,
+				repository: peerFolder?.gitRepository?.uri.toString(),
+				workTree: peerFolder?.gitRepository?.workTreeUri?.toString(),
+				isRepository: peerFolder?.gitRepository?.isRepository?.get(),
+			}, {
+				root: URI.file('/vscode').toString(),
+				workingDirectory: peerDirectory.toString(),
+				name: 'vscode',
+				repository: URI.file('/vscode').toString(),
+				workTree: peerDirectory.toString(),
+				isRepository: true,
+			});
+		});
+
+		test('active peer chat exposes repository changesets from its workspace only', () => {
+			const primaryDirectory = URI.file('/workspace-primary');
+			const peerDirectory = URI.file('/workspace-peer');
+			const activeSession = observableValue<IActiveSession | undefined>('test.activeSession', undefined);
+			const provider = createProvider(disposables, agentHost, undefined, { activeSession });
+			const session = setupMultiChatSession(provider, 'multi-chat-changesets', [primaryDirectory, peerDirectory]);
+			const sessionUri = AgentSession.uri('copilotcli', 'multi-chat-changesets').toString();
+			const defaultChat = buildDefaultChatUri(sessionUri);
+			const peerChat = buildChatUri(sessionUri, 'peer-1');
+			const branchChangeset = {
+				label: 'Branch Changes',
+				uriTemplate: `${sessionUri}/changeset/branch`,
+				changeKind: 'branch',
+				capabilities: { review: {} },
+			};
+			const peerBranchChangeset = {
+				...branchChangeset,
+				uriTemplate: `${peerChat}/changeset/branch`,
+			};
+			const uncommittedChangeset = {
+				label: 'Uncommitted Changes',
+				uriTemplate: `${sessionUri}/changeset/uncommitted`,
+				changeKind: 'uncommitted',
+			};
+			const peerUncommittedChangeset = {
+				...uncommittedChangeset,
+				uriTemplate: `${peerChat}/changeset/uncommitted`,
+			};
+
+			agentHost.setSessionState('multi-chat-changesets', 'copilotcli', {
+				...makeState([
+					makeChatSummary(defaultChat, '', ProtocolSessionStatus.Idle, [primaryDirectory.toString()]),
+					makeChatSummary(peerChat, 'Peer', ProtocolSessionStatus.Idle, [peerDirectory.toString()]),
+				], { defaultChat }),
+				workingDirectories: [primaryDirectory.toString(), peerDirectory.toString()],
+				changesets: [branchChangeset, uncommittedChangeset],
+			});
+			const peer = session.chats.get().find(chat => chat.resource.fragment === 'peer-1');
+			assert.ok(peer);
+			activeSession.set({
+				resource: session.resource,
+				sessionId: session.sessionId,
+				activeChat: constObservable(peer),
+			} as IActiveSession, undefined);
+			agentHost.setChatState(peerChat, {
+				...makeChatSummary(peerChat, 'Peer', ProtocolSessionStatus.Idle, [peerDirectory.toString()]),
+				turns: [],
+			});
+			agentHost.setChangesetState(peerBranchChangeset.uriTemplate, {
+				status: ChangesetStatus.Ready,
+				files: [peerDirectory].map(directory => {
+					const resource = URI.joinPath(directory, 'changed.ts');
+					return {
+						id: resource.toString(),
+						edit: {
+							after: { uri: resource.toString(), content: { uri: resource.toString() } },
+							diff: { added: 1, removed: 0 },
+						},
+					};
+				}),
+				operations: [{
+					id: 'create-pr',
+					label: 'Create PR',
+					scopes: [ChangesetOperationScope.Changeset],
+					status: ChangesetOperationStatus.Idle,
+				}],
+			});
+			agentHost.setChangesetState(peerUncommittedChangeset.uriTemplate, {
+				status: ChangesetStatus.Ready,
+				files: [peerDirectory].map(directory => {
+					const resource = URI.joinPath(directory, 'uncommitted.ts');
+					return {
+						id: resource.toString(),
+						edit: {
+							after: { uri: resource.toString(), content: { uri: resource.toString() } },
+							diff: { added: 1, removed: 0 },
+						},
+					};
+				}),
+				operations: [{
+					id: 'commit',
+					label: 'Commit',
+					scopes: [ChangesetOperationScope.Changeset],
+					status: ChangesetOperationStatus.Idle,
+				}, {
+					id: 'discard-changes',
+					label: 'Discard Changes',
+					scopes: [ChangesetOperationScope.Resource],
+					status: ChangesetOperationStatus.Idle,
+				}],
+			});
+
+			const branch = peer.changesets?.get()?.find(changeset => changeset.id === ChangesetKind.Branch);
+			const uncommitted = peer.changesets?.get()?.find(changeset => changeset.id === ChangesetKind.Uncommitted);
+			assert.deepStrictEqual({
+				changes: branch?.changes.get().map(change => isIChatSessionFileChange2(change) ? change.uri.toString() : change.modifiedUri.toString()),
+				operations: branch?.operations.get().map(operation => operation.id),
+				review: branch?.capabilities?.review,
+				uncommittedChanges: uncommitted?.changes.get().map(change => isIChatSessionFileChange2(change) ? change.uri.toString() : change.modifiedUri.toString()),
+				uncommittedOperations: uncommitted?.operations.get().map(operation => operation.id),
+			}, {
+				changes: [URI.joinPath(peerDirectory, 'changed.ts').toString()],
+				operations: ['create-pr'],
+				review: true,
+				uncommittedChanges: [URI.joinPath(peerDirectory, 'uncommitted.ts').toString()],
+				uncommittedOperations: ['commit', 'discard-changes'],
+			});
+		});
+
 		test('equivalent chat catalogs do not notify chat observers', () => {
 			const provider = createProvider(disposables, agentHost);
 			const session = setupMultiChatSession(provider, 'multi-stable');

@@ -565,6 +565,7 @@ export interface IAgentServiceCallbacks {
 	readonly resolveWorkingDirectoryBeforeSend: NonNullable<IAgentSideEffectsOptions['resolveWorkingDirectoryBeforeSend']>;
 	readonly announceUnsentProvisionalSession: NonNullable<IAgentSideEffectsOptions['announceUnsentProvisionalSession']>;
 	readonly resolveChatAttachmentTurns: NonNullable<IAgentSideEffectsOptions['resolveChatAttachmentTurns']>;
+	readonly setAdditionalWorktreesArchived: NonNullable<IAgentSideEffectsOptions['setAdditionalWorktreesArchived']>;
 	readonly sessionServerToolAccessor: IAgentServiceSessionServerToolAccessor;
 	readonly artifactServerToolAccessor: IArtifactServerToolAccessor;
 	/** Writes list-visible session metadata through the `sessions_v2` catalog and awaits the sync receipt. */
@@ -1009,6 +1010,7 @@ export class AgentService extends Disposable implements IAgentService {
 			resolveWorkingDirectoryBeforeSend: params => this._resolveWorkingDirectoryBeforeSend(params),
 			announceUnsentProvisionalSession: params => this._announceUnsentProvisionalSession(params.session, params.workingDirectories),
 			resolveChatAttachmentTurns: resource => this._resolveChatAttachmentTurns(resource),
+			setAdditionalWorktreesArchived: (session, archived, strictCleanup) => this._setAdditionalWorktreesArchived(session, archived, strictCleanup),
 			sessionServerToolAccessor: this._createSessionServerToolAccessor(),
 			artifactServerToolAccessor: this._createArtifactServerToolAccessor(),
 			persistListVisibleSessionState: (session, values) => this._persistListVisibleSessionState(URI.parse(session), values),
@@ -1108,6 +1110,7 @@ export class AgentService extends Disposable implements IAgentService {
 		this._register(this._stateManager.onDidChangeSessionConfig(({ session, previous, current }) => this._syncAgentMergeIndex(URI.parse(session), previous, current)));
 		let externalSessionsMode = this._getExternalSessionsMode();
 		let agentMergeEnabled = this._isAgentMergeEnabled();
+		let createSessionRelationshipEnabled = this._isCreateSessionRelationshipEnabled();
 		this._register(this._configurationService.onDidRootConfigChange(() => {
 			const nextMode = this._getExternalSessionsMode();
 			if (nextMode !== externalSessionsMode) {
@@ -1133,6 +1136,13 @@ export class AgentService extends Disposable implements IAgentService {
 					this._agentMergeRestore = this._agentMergeRestore
 						.then(() => this._restoreAgentMergeMonitoredSessions())
 						.catch(err => this._logService.warn('[AgentService] Failed to restore Agent-Merge-enabled sessions', err));
+				}
+			}
+			const nextCreateSessionRelationshipEnabled = this._isCreateSessionRelationshipEnabled();
+			if (nextCreateSessionRelationshipEnabled !== createSessionRelationshipEnabled) {
+				createSessionRelationshipEnabled = nextCreateSessionRelationshipEnabled;
+				for (const session of this._stateManager.getSessionUris()) {
+					this._serverToolHost.advertise(session);
 				}
 			}
 		}));
@@ -1377,8 +1387,8 @@ export class AgentService extends Disposable implements IAgentService {
 	 *    worktree (created here on the first send, see
 	 *    {@link _resolveWorktreeBeforeSend}); for `folder` isolation the picked
 	 *    folder; `undefined` (whole result) for workspace-less sessions.
-	 *  - the tail carries any additional session roots as-is (only index 0 is
-	 *    worktree-remapped; additional roots are passed through unchanged).
+	 *  - an explicit peer-chat subset is already resolved and must not be
+	 *    remapped through the owning session's worktree.
 	 */
 	private async _resolveWorkingDirectoryBeforeSend(params: { session: string; chat: string; turnId: string; prompt: string }): Promise<readonly URI[] | undefined> {
 		const sessionId = AgentSession.id(params.session);
@@ -1389,6 +1399,10 @@ export class AgentService extends Disposable implements IAgentService {
 		const pickedFolders = this._configurationService.getEffectiveWorkingDirectories(params.chat);
 		const pickedFolderUri = pickedFolders?.[0] ? URI.parse(pickedFolders[0]) : undefined;
 		const tail = (pickedFolders ?? []).slice(1).map(d => URI.parse(d));
+
+		if (!isDefaultChatUri(params.chat) && chatWorkingDirectories !== undefined) {
+			return pickedFolderUri ? [pickedFolderUri, ...tail] : undefined;
+		}
 
 		// Only worktree-isolation sessions defer directory resolution to the first
 		// send (so the prompt can name the branch); folder / workspace-less
@@ -1794,6 +1808,10 @@ export class AgentService extends Disposable implements IAgentService {
 		return this._configurationService.getRootValue(platformRootSchema, AgentHostArtifactToolsConfigKey) === true;
 	}
 
+	private _isCreateSessionRelationshipEnabled(): boolean {
+		return this._configurationService.getRootValue(platformRootSchema, AgentHostCreateSessionRelationshipConfigKey) !== false;
+	}
+
 	/**
 	 * Persists the GitHub state of each folder of a restored session that was
 	 * recorded before each folder had its own state, and removes the original
@@ -1938,7 +1956,7 @@ export class AgentService extends Disposable implements IAgentService {
 		if (this._stateManager.getChatState(chat)?.activeTurn) {
 			const pending = this._pendingAgentMergeNotices.get(chat);
 			if (pending) {
-				pending.push({ kind, content });
+				pending.push({ chat, kind, content });
 			} else {
 				this._pendingAgentMergeNotices.set(chat, [{ kind, content }]);
 			}
@@ -2747,7 +2765,7 @@ export class AgentService extends Disposable implements IAgentService {
 	private _agentMergeRestore: Promise<void> = Promise.resolve();
 	private _agentMergeIndexWrites: Promise<void> = Promise.resolve();
 	/** Agent Merge notices waiting for a session's in-flight turn to finish. */
-	private readonly _pendingAgentMergeNotices = new Map<string, { readonly kind: AgentSystemNotificationKind; readonly content: string }[]>();
+	private readonly _pendingAgentMergeNotices = new Map<string, { readonly chat: string; readonly kind: AgentSystemNotificationKind; readonly content: string }[]>();
 
 	/** Test surface: settles once the startup Agent Merge restore pass and the index writes it enqueued have run. */
 	async whenAgentMergeSessionsRestored(): Promise<void> {
@@ -5267,6 +5285,11 @@ export class AgentService extends Disposable implements IAgentService {
 		return this._worktree.setDetachedWorktreeArchived(handle, archived);
 	}
 
+	private async _setAdditionalWorktreesArchived(session: URI, archived: boolean, strictCleanup: boolean): Promise<void> {
+		const worktrees = await readSessionAdditionalWorktrees(this._sessionDataService, session);
+		await Promise.all(worktrees.map(worktree => this._worktree.setDetachedWorktreeArchived(worktree.handle, archived, strictCleanup)));
+	}
+
 	claimDetachedWorktree(handle: string): Promise<void> {
 		return this._worktree.claimDetachedWorktree(handle);
 	}
@@ -5313,6 +5336,12 @@ export class AgentService extends Disposable implements IAgentService {
 		let forkedSourceTitle: string | undefined;
 		const { sideChat, ...providerOptions } = options ?? {};
 		let createOptions: IAgentCreateChatOptions | undefined = providerOptions;
+		if (createOptions.workingDirectories !== undefined && !createOptions.fork) {
+			createOptions = {
+				...createOptions,
+				workingDirectories: this._resolveChatWorkingDirectories(session, provider, createOptions.workingDirectories),
+			};
+		}
 		// Persist exhaustive provenance for peer chats. Fresh user-created chats
 		// leave this undefined and default to `ChatOriginKind.User`.
 		let peerChatOrigin: ChatOrigin | undefined;
@@ -7860,10 +7889,10 @@ export class AgentService extends Disposable implements IAgentService {
 		if (!state || state.lifecycle !== SessionLifecycle.Ready || !workingDirectories?.length) {
 			throw new Error(`Session is not ready for working-directory changes: ${session}`);
 		}
-		if (!readSessionMultiRootMetadata(state._meta)
+		if ((!options?.allowWithoutMultiRootMetadata && !readSessionMultiRootMetadata(state._meta))
 			|| readSessionWorkspaceless(state._meta)
-			|| state.config?.values[SessionConfigKey.Isolation] === 'worktree'
-			|| state.chats.length !== 1
+			|| (!options?.allowWorktreeIsolation && state.config?.values[SessionConfigKey.Isolation] === 'worktree')
+			|| (!options?.allowMultipleChats && state.chats.length !== 1)
 			|| !state.defaultChat
 			|| state.defaultChat !== state.chats[0].resource) {
 			throw new Error(`Session does not support dynamic working-directory changes: ${session}`);
@@ -8123,6 +8152,148 @@ export class AgentService extends Disposable implements IAgentService {
 				changes: { workingDirectories: [...workingDirectories] },
 			});
 		}
+	}
+
+	private async _addSessionWorkingDirectoryForChat(session: URI, directory: URI, options: IAddSessionWorkingDirectoryOptions): Promise<URI> {
+		return this._additionalWorktreeSequencer.queue(session.toString(), async () => {
+			const workingDirectories = this._stateManager.getSessionSummary(session.toString())?.workingDirectories ?? [];
+			const existing = workingDirectories.find(candidate => isEqual(URI.parse(candidate), directory));
+			if (existing !== undefined && !(options.isolation === 'worktree' && options.forceNewWorktree)) {
+				return URI.parse(existing);
+			}
+			if (options.isolation !== 'worktree') {
+				return this._attachSessionWorkingDirectoryForChat(session, directory);
+			}
+
+			const worktreeRoots = await this._gitService.getWorktreeRoots(directory);
+			const existingWorktree = workingDirectories.find(candidate =>
+				worktreeRoots.some(root => isEqual(root, URI.parse(candidate))));
+			if (existingWorktree !== undefined && !options.forceNewWorktree) {
+				return URI.parse(existingWorktree);
+			}
+
+			const repositoryRoot = worktreeRoots[0] ?? directory;
+			const defaultBranch = await this._gitService.getDefaultBranch(repositoryRoot);
+			const selectedBranch = defaultBranch?.name
+				?? await this._gitService.getCurrentBranch(repositoryRoot)
+				?? 'HEAD';
+			const sessionConfig = this._configurationService.getSessionConfigValues(session.toString());
+			const detached = await this._worktree.createDetachedWorktree({
+				workingDirectory: directory,
+				config: {
+					...sessionConfig,
+					[SessionConfigKey.Isolation]: 'worktree',
+					[SessionConfigKey.Branch]: selectedBranch,
+				},
+				prompt: options.prompt,
+				githubToken: this._authService.getAuthToken({
+					resource: this._gitHubEndpointService.getCopilotResource().resource,
+					scopes: this._gitHubEndpointService.getCopilotResource().scopes_supported,
+				}),
+			});
+			const record: ISessionAdditionalWorktree = {
+				handle: detached.handle,
+				workingDirectory: detached.worktree.toString(),
+				repositoryRoot: repositoryRoot.toString(),
+			};
+			let recorded = false;
+			try {
+				const records = await readSessionAdditionalWorktrees(this._sessionDataService, session);
+				await writeSessionAdditionalWorktrees(this._sessionDataService, session, [...records, record]);
+				recorded = true;
+				await this._worktree.claimDetachedWorktree(detached.handle);
+				return await this._attachSessionWorkingDirectoryForChat(session, detached.worktree);
+			} catch (error) {
+				try {
+					if (recorded) {
+						const records = await readSessionAdditionalWorktrees(this._sessionDataService, session);
+						await writeSessionAdditionalWorktrees(this._sessionDataService, session, records.filter(candidate => candidate.handle !== detached.handle));
+					}
+					await this._worktree.deleteDetachedWorktree(detached.handle);
+				} catch (cleanupError) {
+					this._logService.error(`[AgentService] Failed to clean up additional worktree ${detached.handle}: ${toErrorMessage(cleanupError)}`);
+				}
+				throw error;
+			}
+		});
+	}
+
+	private async _attachSessionWorkingDirectoryForChat(session: URI, directory: URI): Promise<URI> {
+		const sessionKey = session.toString();
+		const state = this._stateManager.getSessionState(sessionKey);
+		const workingDirectories = this._stateManager.getSessionSummary(sessionKey)?.workingDirectories;
+		if (!state || !workingDirectories?.length) {
+			throw new Error(`Session is not ready for working-directory changes: ${sessionKey}`);
+		}
+		const action = this._prepareWorkingDirectoryAction(sessionKey, {
+			type: ActionType.SessionWorkingDirectorySet,
+			directory: directory.toString(),
+		}, { allowMultipleChats: true, allowWithoutMultiRootMetadata: true, allowWorktreeIsolation: true });
+		const canonicalDirectory = URI.parse(action.directory);
+		if (workingDirectories.includes(action.directory)) {
+			return canonicalDirectory;
+		}
+
+		const inheritingChats = state.chats.filter(chat => chat.workingDirectories === undefined);
+		const resolvedChats = await Promise.all(inheritingChats.map(async chat => ({
+			summary: chat,
+			state: await this._stateManager.resolveChatState(chat.resource),
+		})));
+		const unresolvedChat = resolvedChats.find(chat => chat.state === undefined);
+		if (unresolvedChat) {
+			throw new Error(`Cannot preserve the working directories of chat ${unresolvedChat.summary.resource}.`);
+		}
+
+		for (const chat of resolvedChats) {
+			if (chat.state?.workingDirectories !== undefined) {
+				continue;
+			}
+			if (isDefaultChatUri(chat.summary.resource)) {
+				await persistSessionMetadataValues(this._sessionDataService, chat.summary.resource, {
+					[CHAT_WORKING_DIRECTORIES_METADATA_KEY]: JSON.stringify(workingDirectories),
+				});
+			} else {
+				await this._peerChatStore.upsert(session, URI.parse(chat.summary.resource), undefined, undefined, undefined, workingDirectories);
+			}
+		}
+		for (const chat of resolvedChats) {
+			if (chat.state?.workingDirectories !== undefined) {
+				continue;
+			}
+			for (const workingDirectory of workingDirectories) {
+				this._stateManager.dispatchServerAction(chat.summary.resource, {
+					type: ActionType.ChatWorkingDirectorySet,
+					directory: workingDirectory,
+				});
+			}
+			this._stateManager.dispatchServerAction(sessionKey, {
+				type: ActionType.SessionChatUpdated,
+				chat: chat.summary.resource,
+				changes: { workingDirectories: [...workingDirectories] },
+			});
+		}
+		this._stateManager.dispatchServerAction(sessionKey, action);
+		return canonicalDirectory;
+	}
+
+	private _resolveChatWorkingDirectories(session: URI, provider: IAgent, requested: readonly URI[]): readonly URI[] {
+		if (!provider.getDescriptor().capabilities?.multipleWorkingDirectories) {
+			throw new Error(`[AgentService] createChat: provider ${provider.id} does not support chat working directories`);
+		}
+		const sessionDirectories = this._stateManager.getSessionSummary(session.toString())?.workingDirectories ?? [];
+		const resolved: URI[] = [];
+		for (const directory of requested) {
+			const match = sessionDirectories.find(candidate => isEqual(URI.parse(candidate), directory));
+			if (!match) {
+				throw new Error(`[AgentService] createChat: working directory ${directory.toString()} does not belong to session ${session.toString()}`);
+			}
+			const canonicalDirectory = URI.parse(match);
+			if (resolved.some(candidate => isEqual(candidate, canonicalDirectory))) {
+				throw new Error(`[AgentService] createChat: working directories must be unique`);
+			}
+			resolved.push(canonicalDirectory);
+		}
+		return resolved;
 	}
 
 	/**
@@ -9873,6 +10044,32 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 	}
 
+	private async _readDefaultChatWorkingDirectories(defaultChat: URI): Promise<readonly string[] | undefined> {
+		const ref = await this._sessionDataService.tryOpenDatabase?.(defaultChat);
+		if (!ref) {
+			return undefined;
+		}
+		let raw: string | undefined;
+		try {
+			raw = await ref.object.getMetadata(CHAT_WORKING_DIRECTORIES_METADATA_KEY);
+		} finally {
+			ref.dispose();
+		}
+		if (!raw) {
+			return undefined;
+		}
+		try {
+			const parsed: unknown = JSON.parse(raw);
+			if (!Array.isArray(parsed) || !parsed.every(directory => typeof directory === 'string')) {
+				throw new Error('expected an array of working-directory URIs');
+			}
+			return parsed;
+		} catch (error) {
+			this._logService.warn(`[AgentService] Ignoring malformed default-chat working directories for ${defaultChat.toString()}: ${toErrorMessage(error)}`);
+			return undefined;
+		}
+	}
+
 	private async _isWorkspaceConversionQuarantined(session: URI): Promise<boolean> {
 		const ref = await this._sessionDataService.tryOpenDatabase?.(session);
 		if (!ref) {
@@ -9996,6 +10193,27 @@ export class AgentService extends Disposable implements IAgentService {
 				throw fallbackErr;
 			}
 		}
+	}
+
+	private async _withPersistedSessionWorkingDirectories(session: URI, metadata: IAgentSessionMetadata | undefined): Promise<IAgentSessionMetadata | undefined> {
+		if (!metadata) {
+			return undefined;
+		}
+		const registered = await this._sessionRegistry.get(session, entry => this._migrateRegisteredSession(entry));
+		if (!registered) {
+			return metadata;
+		}
+		const cached = await this._catalogListReader.read(registered);
+		if (!cached.eligible || cached.data.workingDirectories.length <= 1) {
+			return metadata;
+		}
+		const workingDirectories = [...(metadata.workingDirectories ?? [])];
+		for (const directory of cached.data.workingDirectories.slice(workingDirectories.length > 0 ? 1 : 0)) {
+			if (!workingDirectories.some(candidate => isEqual(candidate, directory))) {
+				workingDirectories.push(directory);
+			}
+		}
+		return { ...metadata, workingDirectories };
 	}
 
 	/**

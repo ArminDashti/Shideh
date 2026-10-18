@@ -83,6 +83,7 @@ suite('Agent Merge server tools', () => {
 			logService,
 			stateManager,
 			configurationService,
+			new class extends mock<IAgentHostGitService>() { }(),
 		));
 		const host = new AgentServerToolHost(stateManager, [createAgentMergeServerToolGroup(tools)]);
 		return { stateManager, configurationService, gitService, branchReads, controller, tools, host };

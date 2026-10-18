@@ -30,7 +30,7 @@ function parseUri(value: string | undefined): URI | undefined {
 	}
 }
 
-function toSessionArtifact(artifact: IProtocolSessionArtifact, mapFileUri: (uri: URI) => URI): ISessionArtifact | undefined {
+function toSessionArtifact(artifact: IProtocolSessionArtifact, mapFileUri: (uri: URI) => URI, mapChat: ((chat: string) => URI | undefined) | undefined): ISessionArtifact | undefined {
 	const kind = kindByType.get(artifact.type);
 	if (!kind) {
 		return undefined;
@@ -39,8 +39,9 @@ function toSessionArtifact(artifact: IProtocolSessionArtifact, mapFileUri: (uri:
 	const link = parseUri(artifact.link);
 	const parsedUri = parseUri(artifact.uri);
 	const uri = parsedUri && artifact.type === SessionArtifactType.File ? mapFileUri(parsedUri) : parsedUri;
+	const chat = artifact.chat ? (mapChat ? mapChat(artifact.chat) : parseUri(artifact.chat)) : undefined;
 	// An artifact the client cannot act on is not worth surfacing.
-	if (!link && !uri && !artifact.commitHash) {
+	if ((!link && !uri && !artifact.commitHash) || (artifact.chat && !chat)) {
 		return undefined;
 	}
 
@@ -51,6 +52,7 @@ function toSessionArtifact(artifact: IProtocolSessionArtifact, mapFileUri: (uri:
 		label: artifact.label,
 		...(chat ? { chat } : {}),
 		isArtifact: artifact.isArtifact,
+		...(chat ? { chat } : {}),
 		...(link ? { link } : {}),
 		...(uri ? { uri } : {}),
 		...(artifact.commitHash ? { commitHash: artifact.commitHash } : {}),
@@ -96,7 +98,7 @@ export function partitionSessionArtifacts(meta: SessionMeta | undefined, mapFile
 	const issues: IRecordedGitHubReference[] = [];
 
 	for (const artifact of readSessionArtifacts(meta)) {
-		const mapped = toSessionArtifact(artifact, mapFileUri);
+		const mapped = toSessionArtifact(artifact, mapFileUri, mapChat);
 		if (!mapped) {
 			continue;
 		}

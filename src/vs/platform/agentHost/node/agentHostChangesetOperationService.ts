@@ -29,6 +29,7 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 	private readonly _changesetOperationHandlers = new Map<string, IChangesetOperationHandler>();
 	private readonly _inFlightOperations = new Map<string, Promise<InvokeChangesetOperationResult>>();
 	private readonly _operationLanes = new Map<string, Promise<InvokeChangesetOperationResult>>();
+	private readonly _operationTargets = new Map<string, { readonly sessionKey: string; readonly target: IChangesetOperationTargetContext }>();
 
 	constructor(
 		@IAgentHostStateManager private readonly _stateManager: AgentHostStateManager,
@@ -43,6 +44,13 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 			refreshSessionGitState: sessionKey => this._refreshGitState(sessionKey),
 			onDidChangeOperations: sessionKey => this.updateOperations(sessionKey),
 		};
+		this._register(this._stateManager.onDidRemoveSession(sessionKey => {
+			for (const [changeset, entry] of this._operationTargets) {
+				if (entry.sessionKey === sessionKey) {
+					this._operationTargets.delete(changeset);
+				}
+			}
+		}));
 	}
 
 	private async _refreshGitState(owner: string): Promise<void> {
@@ -87,6 +95,14 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 		});
 	}
 
+	setChangesetTarget(sessionKey: string, changeset: string, target: IChangesetOperationTargetContext | undefined): void {
+		if (target) {
+			this._operationTargets.set(changeset, { sessionKey, target });
+		} else {
+			this._operationTargets.delete(changeset);
+		}
+	}
+
 	getOperations(sessionKey: string, changeset: string, gitState?: ISessionGitState, gitHubState?: ISessionGitHubState): readonly ChangesetOperation[] {
 		const parsed = parseChangesetUri(changeset);
 		if (!parsed) {
@@ -126,7 +142,7 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 			return [];
 		}
 
-		return this._getOperations({
+		const operations = this._getOperations({
 			sessionKey,
 			ownerKey,
 			sourceKey,
@@ -134,6 +150,14 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 			changesetKind: parsed.kind,
 			gitState,
 			gitHubState
+		});
+		const workingDirectories = target?.workingDirectories ?? this._configurationService.getEffectiveWorkingDirectories(sessionKey);
+		if (!workingDirectories || workingDirectories.length <= 1) {
+			return operations;
+		}
+		return operations.flatMap(operation => {
+			const scopes = operation.scopes.filter(scope => scope !== ChangesetOperationScope.Changeset);
+			return scopes.length > 0 ? [{ ...operation, scopes }] : [];
 		});
 	}
 
@@ -303,7 +327,23 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 		// otherwise re-enable invocation mid-turn and let the working tree /
 		// branch state be mutated.
 		const parsed = parseChangesetUri(params.channel);
-		if (parsed && this._stateManager.hasActiveTurn(parsed.sessionUri)) {
+		const sessionKey = getChangesetSessionUri(params.channel);
+		const targetEntry = this._operationTargets.get(params.channel);
+		if (targetEntry) {
+			const targetOwner = parsed?.sessionUri;
+			if (!targetOwner || !sessionKey || targetEntry.sessionKey !== sessionKey || targetEntry.target.ownerUri !== targetOwner) {
+				throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, `Changeset operation target is no longer valid: ${params.channel}`);
+			}
+			if (isAhpChatChannel(targetOwner) && !this._stateManager.getSessionChats(sessionKey).some(chat => chat.resource === targetOwner)) {
+				throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, `Changeset chat no longer exists: ${targetOwner}`);
+			}
+			const currentWorkingDirectories = this._stateManager.getChatWorkingDirectories(targetOwner)
+				?? this._stateManager.getSessionState(sessionKey)?.workingDirectories;
+			if (!sameWorkingDirectories(currentWorkingDirectories, targetEntry.target.workingDirectories)) {
+				throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, `Changeset operation target has changed: ${params.channel}`);
+			}
+		}
+		if (sessionKey && this._stateManager.hasActiveTurn(sessionKey)) {
 			throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, `Operation '${params.operationId}' is disabled while a turn is active on changeset ${params.channel}`);
 		}
 
@@ -313,6 +353,7 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 		// advertised operations can go stale if the session became multi-root
 		// after they were published (e.g. the Editor Window added a root), so a
 		// stale operation must not be invocable.
+		const targetWorkingDirectories = this._operationTargets.get(params.channel)?.target.workingDirectories;
 		if (parsed
 			&& (parsed.kind === ChangesetKind.Turn || parsed.kind === ChangesetKind.Compare)
 			&& isMultiRootSession(this._configurationService.getEffectiveWorkingDirectories(resolveChangesetOwnerScope(this._stateManager, parsed.ownerUri).sourceUri))) {
@@ -340,8 +381,11 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 		handler: IChangesetOperationHandler,
 		params: InvokeChangesetOperationParams,
 	): Promise<InvokeChangesetOperationResult> {
-		const operationLane = `${params.channel}\x00${params.operationId}`;
-		const operationKey = `${operationLane}\x00${stableStringify({ target: params.target ?? null, _meta: params._meta ?? null })}`;
+		const target = this._operationTargets.get(params.channel)?.target;
+		const operationLane = target?.workingDirectories.length === 1
+			? target.workingDirectories[0]
+			: `${params.channel}\x00${params.operationId}`;
+		const operationKey = `${operationLane}\x00${params.channel}\x00${stableStringify({ target: params.target ?? null, _meta: params._meta ?? null })}`;
 		const inFlightOperationResult = this._inFlightOperations.get(operationKey);
 		if (inFlightOperationResult && this._operationLanes.get(operationLane) === inFlightOperationResult) {
 			return inFlightOperationResult;
@@ -409,6 +453,10 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 			}
 		});
 	}
+}
+
+function sameWorkingDirectories(left: readonly string[] | undefined, right: readonly string[]): boolean {
+	return left?.length === right.length && left.every((directory, index) => directory === right[index]);
 }
 
 function toChangesetOperationError(error: unknown): ErrorInfo {

@@ -30,6 +30,25 @@ import { ISessionSandboxState, readSessionSandboxState, withSessionSandboxState 
 
 export const IAgentConfigurationService = createDecorator<IAgentConfigurationService>('agentConfigurationService');
 
+function getSessionWorkingDirectories(stateManager: AgentHostStateManager, session: ProtocolURI): string[] | undefined {
+	const summaryWorkingDirectories = stateManager.getSessionSummary(session)?.workingDirectories;
+	const stateWorkingDirectories = stateManager.getSessionState(session)?.workingDirectories;
+	if (!stateWorkingDirectories?.length) {
+		return summaryWorkingDirectories;
+	}
+	if (!summaryWorkingDirectories?.length) {
+		return stateWorkingDirectories;
+	}
+
+	const workingDirectories = [...stateWorkingDirectories];
+	for (const workingDirectory of summaryWorkingDirectories.slice(1)) {
+		if (!workingDirectories.includes(workingDirectory)) {
+			workingDirectories.push(workingDirectory);
+		}
+	}
+	return workingDirectories;
+}
+
 /**
  * @deprecated Use {@link getEffectiveWorkingDirectories} instead, which preserves every root instead of collapsing to the primary.
  */
@@ -38,7 +57,7 @@ export function getEffectiveWorkingDirectory(stateManager: AgentHostStateManager
 }
 
 export function getEffectiveWorkingDirectories(stateManager: AgentHostStateManager, session: ProtocolURI): string[] | undefined {
-	const own = stateManager.getSessionState(session)?.workingDirectories;
+	const own = getSessionWorkingDirectories(stateManager, session);
 	if (own !== undefined) {
 		return own.map(getWorkingDirectoryUri);
 	}

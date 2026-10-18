@@ -891,6 +891,12 @@ export const platformRootSchema = createSchema({
 		description: localize('agentHost.config.mcpConnectorsEnabled.description', "Whether Copilot agent sessions expose MCP servers provided by connected Copilot Connectors."),
 		default: false,
 	}),
+	[AgentHostCreateSessionRelationshipConfigKey]: schemaProperty<boolean>({
+		type: 'boolean',
+		title: localize('agentHost.config.createSessionRelationship.title', "Create Session Relationship"),
+		description: localize('agentHost.config.createSessionRelationship.description', "Whether agents can choose between creating a chat in the current session and creating an independent session. When disabled, delegated work is always created as a chat in the current session."),
+		default: true,
+	}),
 	[AgentHostMarkdownPlanRichLinksEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',
 		title: localize('agentHost.config.markdownPlanRichLinks.title', "Markdown Plan Rich Links"),

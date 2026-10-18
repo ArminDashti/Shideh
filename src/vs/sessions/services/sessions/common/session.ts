@@ -416,6 +416,27 @@ export function getGitHubPullRequestRefs(gitHubInfo: IGitHubInfo | undefined): r
 	}];
 }
 
+/** Returns every pull request associated with a session across all of its repositories. */
+export function getSessionGitHubPullRequestRefs(session: ISession | undefined, reader?: IReader): readonly IGitHubPullRequestRef[] {
+	const pullRequests = session?.pullRequests?.read(reader);
+	if (pullRequests) {
+		return pullRequests;
+	}
+
+	const result: IGitHubPullRequestRef[] = [];
+	const seen = new Set<string>();
+	for (const folder of session?.workspace.read(reader)?.folders ?? []) {
+		for (const pullRequest of getGitHubPullRequestRefs(folder.gitRepository?.gitHubInfo.read(reader))) {
+			const key = `${pullRequest.owner.toLowerCase()}/${pullRequest.repo.toLowerCase()}#${pullRequest.number}`;
+			if (!seen.has(key)) {
+				seen.add(key);
+				result.push(pullRequest);
+			}
+		}
+	}
+	return result;
+}
+
 /** Excludes inherited checkout PRs, while accepting the primary PR from providers without provenance. */
 export function getSessionOwnedGitHubPullRequestRefs(gitHubInfo: IGitHubInfo | undefined): readonly IGitHubPullRequestRef[] {
 	return gitHubInfo?.pullRequests

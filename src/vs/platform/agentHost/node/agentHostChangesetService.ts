@@ -193,6 +193,33 @@ function tryParsePersistedDiffs(raw: string | undefined, sessionUri: string, kin
 	}
 }
 
+function filterGitHubStateForRepository(gitHubState: ISessionGitHubState | undefined, gitState: ISessionGitState | undefined): ISessionGitHubState | undefined {
+	const owner = gitState?.githubOwner;
+	const repo = gitState?.githubRepo;
+	if (!owner || !repo) {
+		return undefined;
+	}
+	const belongsToRepository = (url: string): boolean => {
+		const parsed = parsePullRequestUrl(url);
+		return parsed?.owner.toLowerCase() === owner.toLowerCase() && parsed.repo.toLowerCase() === repo.toLowerCase();
+	};
+	const pullRequestUrls = gitHubState?.pullRequestUrls?.filter(belongsToRepository);
+	const currentPullRequestMatches = gitHubState?.pullRequestUrls?.[0] !== undefined && belongsToRepository(gitHubState.pullRequestUrls[0]);
+	const pullRequestStateUrl = gitHubState?.pullRequestStateUrl && belongsToRepository(gitHubState.pullRequestStateUrl)
+		? gitHubState.pullRequestStateUrl
+		: undefined;
+	return {
+		owner,
+		repo,
+		pullRequestUrls,
+		initialPullRequestUrls: gitHubState?.initialPullRequestUrls?.filter(belongsToRepository),
+		associatedPullRequestUrls: gitHubState?.associatedPullRequestUrls?.filter(belongsToRepository),
+		pullRequestBranchName: currentPullRequestMatches ? gitHubState?.pullRequestBranchName : undefined,
+		pullRequestStateUrl,
+		pullRequestState: pullRequestStateUrl ? gitHubState?.pullRequestState : undefined,
+	};
+}
+
 export class AgentHostChangesetService extends Disposable implements IAgentHostChangesetService {
 	declare readonly _serviceBrand: undefined;
 
@@ -253,6 +280,11 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 	 */
 	private _hasSubscription(session: ProtocolURI, changeset: ProtocolURI): boolean {
 		return this._changesetSubscriptions.getSessionSubscriptions(session).has(changeset);
+	}
+
+	private _hasSubscriptionOfKind(session: ProtocolURI, kind: ChangesetKind): boolean {
+		return [...this._changesetSubscriptions.getSessionSubscriptions(session)]
+			.some(changeset => parseChangesetUri(changeset)?.kind === kind);
 	}
 
 	private _hasWorkingDirectory(session: ProtocolURI): boolean {
@@ -874,11 +906,13 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 					status: ChangesetStatus.Error,
 					error: { errorType: 'computeFailed', message: 'Failed to compute uncommitted diff from git.' },
 				});
+				this._dispatchChatRepositoryChangesetStatus(session, ChangesetKind.Uncommitted, ChangesetStatus.Error, 'Failed to compute uncommitted diff from git.');
 				outcome = 'gitUnavailable';
 				return uncommittedUri;
 			}
 
 			this._publishChangesetDiffs(session, uncommittedUri, diffs);
+			await this._publishChatRepositoryChangesets(session, ChangesetKind.Uncommitted, diffs);
 			fileCount = diffs.length;
 			outcome = 'computed';
 		} catch (err) {
@@ -888,6 +922,7 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 				status: ChangesetStatus.Error,
 				error: { errorType: 'computeFailed', message: err instanceof Error ? err.message : String(err) },
 			});
+			this._dispatchChatRepositoryChangesetStatus(session, ChangesetKind.Uncommitted, ChangesetStatus.Error, err instanceof Error ? err.message : String(err));
 			outcome = 'error';
 		} finally {
 			if (reportTelemetry) {
@@ -911,16 +946,24 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 			return undefined;
 		}
 
-		let workingDirectoryUri: URI;
+		const workingDirectoryUris = this._parseWorkingDirectoryUris(session, workingDirectories);
+		if (workingDirectoryUris.length === 1) {
+			return this._gitService.computeSessionFileDiffs(workingDirectoryUris[0], {
+				sessionUri: session,
+			});
+		}
+
+		const { gitRepositories } = await resolveSessionRepositories(workingDirectoryUris, this._gitService);
+		if (gitRepositories.length === 0) {
+			return undefined;
+		}
+
+		const limiter = new Limiter<readonly ISessionFileDiff[] | undefined>(MAX_DIFF_REPOSITORY_CONCURRENCY);
 		try {
 			workingDirectoryUri = URI.parse(getWorkingDirectoryUri(workingDirectory));
 		} catch {
 			return undefined;
 		}
-
-		return this._gitService.computeSessionFileDiffs(workingDirectoryUri, {
-			sessionUri: session,
-		});
 	}
 
 	private async _computeTurnDiffs(session: ProtocolURI, db: ISessionDatabase, turnId: string, strategy: 'auto' | 'fileEditTracker'): Promise<ITurnDiffResult> {
@@ -1433,7 +1476,7 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 			}
 		}
 
-		if (this._hasSubscription(session, buildUncommittedChangesetUri(session))) {
+		if (this._hasSubscriptionOfKind(session, ChangesetKind.Uncommitted)) {
 			this._scheduleUncommittedRecompute(session, turnId, true, clientContext);
 		}
 
@@ -1911,11 +1954,18 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 	 * (fileSet, fileRemoved) and moves the changeset to `ready` once the
 	 * fresh file list has been applied.
 	 */
-	private _publishChangesetDiffs(session: ProtocolURI, changesetUri: ProtocolURI, diffs: readonly ISessionFileDiff[], reviewed?: { readonly repoRoot: URI; readonly paths: ReadonlySet<string> }): void {
+	private _publishChangesetDiffs(
+		session: ProtocolURI,
+		changesetUri: ProtocolURI,
+		diffs: readonly ISessionFileDiff[],
+		reviewed?: { readonly repoRoot: URI; readonly paths: ReadonlySet<string> },
+		gitState?: ISessionGitState,
+		gitHubState?: ISessionGitHubState,
+	): void {
 		// Get the available operations for this changeset. This call assumes that at this point
 		// the git state of the session is up-to-date as it is being used to determine the available
 		// operations. Long term this should be replaced with a more robust mechanism.
-		const operations = this._changesetOperationService.getOperations(session, changesetUri);
+		const operations = this._changesetOperationService.getOperations(session, changesetUri, gitState, gitHubState);
 
 		const files: ChangesetFile[] = [];
 		for (const edit of diffs) {
@@ -1952,6 +2002,72 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 				type: ActionType.ChangesetStatusChanged,
 				status: ChangesetStatus.Ready,
 			});
+		}
+	}
+
+	private async _publishChatRepositoryChangesets(
+		session: ProtocolURI,
+		kind: ChangesetKind.Branch | ChangesetKind.Uncommitted,
+		diffs: readonly ISessionFileDiff[],
+		reviewed?: { readonly repoRoot: URI; readonly paths: ReadonlySet<string> },
+	): Promise<void> {
+		const sessionState = this._stateManager.getSessionState(session);
+		const sessionWorkingDirectories = this._configurationService.getEffectiveWorkingDirectories(session);
+		if (!sessionState || !sessionWorkingDirectories) {
+			return;
+		}
+		const sessionGitState = readSessionGitState(sessionState._meta);
+		const sessionGitHubState = readSessionGitHubState(sessionState._meta);
+		for (const chat of this._stateManager.getSessionChats(session)) {
+			const changesetUri = kind === ChangesetKind.Branch
+				? buildBranchChangesetUri(chat.resource)
+				: buildUncommittedChangesetUri(chat.resource);
+			this._stateManager.registerChangeset(changesetUri);
+			const workingDirectories = this._stateManager.getChatWorkingDirectories(chat.resource) ?? sessionWorkingDirectories;
+			const workingDirectoryUris = workingDirectories.map(directory => URI.parse(directory));
+			const chatDiffs = diffs.filter(diff => {
+				const resource = diff.after?.uri ?? diff.before?.uri;
+				return resource !== undefined && workingDirectoryUris.some(directory => extUriBiasedIgnorePathCase.isEqualOrParent(URI.parse(resource), directory));
+			});
+			const usesSessionPrimary = workingDirectories.length === sessionWorkingDirectories.length
+				&& workingDirectories.every((directory, index) => directory === sessionWorkingDirectories[index]);
+			const gitState = usesSessionPrimary
+				? sessionGitState
+				: workingDirectoryUris.length === 1
+					? await this._gitService.getSessionGitState(workingDirectoryUris[0])
+					: undefined;
+			const gitHubState = filterGitHubStateForRepository(sessionGitHubState, gitState);
+			this._changesetOperationService.setChangesetTarget(session, changesetUri, {
+				ownerUri: chat.resource,
+				workingDirectories,
+				gitState,
+				gitHubState,
+			});
+			this._publishChangesetDiffs(session, changesetUri, chatDiffs, reviewed, gitState, gitHubState);
+		}
+	}
+
+	private _dispatchChatRepositoryChangesetStatus(
+		session: ProtocolURI,
+		kind: ChangesetKind.Branch | ChangesetKind.Uncommitted,
+		status: ChangesetStatus,
+		errorMessage?: string,
+	): void {
+		for (const chat of this._stateManager.getSessionChats(session)) {
+			const changesetUri = kind === ChangesetKind.Branch
+				? buildBranchChangesetUri(chat.resource)
+				: buildUncommittedChangesetUri(chat.resource);
+			this._stateManager.registerChangeset(changesetUri);
+			this._stateManager.dispatchServerAction(changesetUri, errorMessage === undefined
+				? {
+					type: ActionType.ChangesetStatusChanged,
+					status,
+				}
+				: {
+					type: ActionType.ChangesetStatusChanged,
+					status,
+					error: { errorType: 'computeFailed', message: errorMessage },
+				});
 		}
 	}
 

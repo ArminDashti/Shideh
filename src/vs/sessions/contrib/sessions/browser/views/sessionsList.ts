@@ -1882,7 +1882,6 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 			template.isQuickChatContext.set(isQuickChat);
 			template.supportsMultipleChatsContext.set(capabilities.supportsMultipleChats);
 			template.supportsDeleteContext.set(capabilities.supportsDelete === true);
-			const gitHubInfo = element.workspace.read(reader)?.folders[0]?.gitRepository?.gitHubInfo.read(reader);
 			let completedStateIcon = element.completedStateIcon?.read(reader)
 				?? getHighestPriorityPullRequestIcon(pullRequests.map(pullRequest => pullRequest.icon));
 			if (completedStateIcon && isAgentMergePullRequestIcon(completedStateIcon)) {
@@ -2358,6 +2357,18 @@ function getWorkspaceBadgeLabel(workspace: ISessionWorkspace): string | undefine
 		}
 	}
 	return workspace.label;
+}
+
+function getChatWorkspaceBadgeLabel(sessionWorkspace: ISessionWorkspace | undefined, chatWorkspace: ISessionWorkspace | undefined): string | undefined {
+	const firstSessionFolder = sessionWorkspace?.folders[0];
+	if (
+		!firstSessionFolder ||
+		!sessionWorkspace.folders.some(folder => !isEqual(folder.root, firstSessionFolder.root)) ||
+		chatWorkspace?.folders.length !== 1
+	) {
+		return undefined;
+	}
+	return chatWorkspace.folders[0].name;
 }
 
 //#endregion
@@ -3557,6 +3568,21 @@ class SessionsAccessibilityProvider {
 				: undefined;
 			if (inputNeededMessage) {
 				label = localize('sessionItemInputNeededMessageAria', "{0}, {1}", label, renderAsPlaintext(inputNeededMessage, { omitMarkdownSyntax: true }));
+			}
+			const pullRequests = getSessionGitHubPullRequestRefs(element, reader);
+			if (pullRequests.length > 0) {
+				const states = [
+					['open', localize('sessionItemPullRequestsOpenAria', "{0} open", pullRequests.filter(pullRequest => (pullRequest.liveState ?? pullRequest.state) === 'open').length)],
+					['merged', localize('sessionItemPullRequestsMergedAria', "{0} merged", pullRequests.filter(pullRequest => (pullRequest.liveState ?? pullRequest.state) === 'merged').length)],
+					['closed', localize('sessionItemPullRequestsClosedAria', "{0} closed", pullRequests.filter(pullRequest => (pullRequest.liveState ?? pullRequest.state) === 'closed').length)],
+				].filter(([state]) => pullRequests.some(pullRequest => (pullRequest.liveState ?? pullRequest.state) === state))
+					.map(([, stateLabel]) => stateLabel);
+				const pullRequestSummary = pullRequests.length === 1
+					? localize('sessionItemPullRequestAria', "1 pull request")
+					: localize('sessionItemPullRequestsAria', "{0} pull requests", pullRequests.length);
+				label = states.length > 0
+					? localize('sessionItemPullRequestStatesAria', "{0}, {1}: {2}", label, pullRequestSummary, states.join(', '))
+					: localize('sessionItemPullRequestCountAria', "{0}, {1}", label, pullRequestSummary);
 			}
 			const workspace = element.workspace.read(reader);
 			const workspaceLabel = workspace ? getWorkspaceBadgeLabel(workspace) : undefined;
@@ -6683,7 +6709,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 			[SessionSupportsRenameContext.key, element.capabilities.get().supportsRename ?? false],
 			[SessionSupportsDeleteContext.key, element.capabilities.get().supportsDelete ?? false],
 			[IsQuickChatSessionContext.key, element.isQuickChat?.get() ?? false],
-			[SessionHasPullRequestContext.key, !!element.workspace.get()?.folders[0]?.gitRepository?.gitHubInfo.get()?.pullRequest],
+			[SessionHasPullRequestContext.key, getSessionGitHubPullRequestRefs(element).length > 0],
 		];
 
 		const disposables = new DisposableStore();

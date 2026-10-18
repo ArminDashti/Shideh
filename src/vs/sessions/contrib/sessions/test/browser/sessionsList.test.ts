@@ -5407,6 +5407,106 @@ suite('Sessions - SessionsList', () => {
 			);
 		});
 
+		test('shows a compact folder badge for chats scoped to one folder of a multi-root session', () => {
+			const firstRoot = URI.file('/workspace/first');
+			const secondRoot = URI.file('/workspace/second');
+			const firstFolder = { root: firstRoot, workingDirectory: firstRoot, name: 'first', description: undefined };
+			const secondFolder = { root: secondRoot, workingDirectory: secondRoot, name: 'second', description: undefined };
+			const base = createTestSession('Session').session;
+			const sessionWorkspace = {
+				...base.workspace.get()!,
+				label: 'Multi-root workspace',
+				folders: [firstFolder, secondFolder],
+			};
+			const main = upcastPartial<IChat>({
+				...createChat('Main chat'),
+				workspace: constObservable(sessionWorkspace),
+			});
+			const peer = upcastPartial<IChat>({
+				...createChat('Peer chat', ChatOriginKind.User),
+				workspace: constObservable({
+					...sessionWorkspace,
+					uri: secondRoot,
+					label: secondFolder.name,
+					folders: [secondFolder],
+				}),
+			});
+			const session: ISession = {
+				...base,
+				workspace: constObservable(sessionWorkspace),
+				chats: constObservable([main, peer]),
+				mainChat: constObservable(main),
+				capabilities: constObservable({ supportsMultipleChats: true }),
+			};
+
+			const { container } = renderSessionChatsList(session, undefined, false, true);
+			const row = container.querySelector<HTMLElement>('.session-chat-item');
+
+			assert.deepStrictEqual({
+				compact: container.querySelector('.sessions-list-control')?.classList.contains('compact'),
+				hasFolderLabel: row?.classList.contains('has-compact-folder-label'),
+				folder: row?.querySelector('.session-compact-hover-description')?.textContent,
+				ariaLabel: row?.closest('.monaco-list-row')?.getAttribute('aria-label'),
+			}, {
+				compact: true,
+				hasFolderLabel: true,
+				folder: 'second',
+				ariaLabel: 'Peer chat, chat in folder second, updated now, State: Completed',
+			});
+		});
+
+		test('hides the compact folder badge when session folders are worktrees of the same project', () => {
+			const projectRoot = URI.file('/repos/project');
+			const firstWorkingDirectory = URI.file('/worktrees/project-first');
+			const secondWorkingDirectory = URI.file('/worktrees/project-second');
+			const firstFolder = { root: projectRoot, workingDirectory: firstWorkingDirectory, name: 'project (first)', description: undefined };
+			const secondFolder = { root: projectRoot, workingDirectory: secondWorkingDirectory, name: 'project (second)', description: undefined };
+			const base = createTestSession('Session').session;
+			const sessionWorkspace = {
+				...base.workspace.get()!,
+				label: 'Project worktrees',
+				folders: [firstFolder, secondFolder],
+			};
+			const main = upcastPartial<IChat>({
+				...createChat('Main chat'),
+				workspace: constObservable({
+					...sessionWorkspace,
+					uri: firstWorkingDirectory,
+					label: firstFolder.name,
+					folders: [firstFolder],
+				}),
+			});
+			const peer = upcastPartial<IChat>({
+				...createChat('Peer chat', ChatOriginKind.User),
+				workspace: constObservable({
+					...sessionWorkspace,
+					uri: secondWorkingDirectory,
+					label: secondFolder.name,
+					folders: [secondFolder],
+				}),
+			});
+			const session: ISession = {
+				...base,
+				workspace: constObservable(sessionWorkspace),
+				chats: constObservable([main, peer]),
+				mainChat: constObservable(main),
+				capabilities: constObservable({ supportsMultipleChats: true }),
+			};
+
+			const { container } = renderSessionChatsList(session, undefined, false, true);
+			const row = container.querySelector<HTMLElement>('.session-chat-item');
+
+			assert.deepStrictEqual({
+				hasFolderLabel: row?.classList.contains('has-compact-folder-label'),
+				folder: row?.querySelector('.session-compact-hover-description')?.textContent,
+				ariaLabel: row?.closest('.monaco-list-row')?.getAttribute('aria-label'),
+			}, {
+				hasFolderLabel: false,
+				folder: '',
+				ariaLabel: 'Peer chat, chat, updated now, State: Completed',
+			});
+		});
+
 		test('updates nested chat rows when the session chat catalog changes', () => {
 			const main = createChat('Main chat');
 			const peer = createChat('Peer chat', ChatOriginKind.User);

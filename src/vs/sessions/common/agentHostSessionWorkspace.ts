@@ -12,6 +12,7 @@ import { URI } from '../../base/common/uri.js';
 import type { ISessionGitState } from '../../platform/agentHost/common/state/sessionState.js';
 import { getRepositoryRootFromWorktree } from '../../platform/agentHost/common/worktreePaths.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { deriveRepositoryRootFromWorktree } from '../../platform/agentHost/common/worktreePaths.js';
 import { IGitHubInfo, ISessionFolder, ISessionWorkspace } from '../services/sessions/common/session.js';
 
 export interface IAgentHostSessionProjectSummary {

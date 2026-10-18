@@ -95,6 +95,10 @@ First-workspace conversion is separately advertised through the versioned `vscod
 - derives capabilities from the advertised agent and live host state;
 - updates observable state without replacing the facade when identity is stable.
 
+The session working-directory set is authoritative for the folders projected through `ISessionWorkspace`. When an agent creates a peer chat with a different folder, the host first adds that folder to the session and then records the chat's working directories as a subset of the session set. Existing chats that inherited the full set are pinned to the previous set before expansion so they do not silently gain access to the new folder. When the invoking session uses worktree isolation, a peer chat that adds another project without an explicit isolation choice inherits that policy and reuses a session worktree when that repository is already represented. An explicit `worktree: true` request instead allocates a fresh worktree, including when another chat already owns a worktree from the same repository. Every additional worktree is owned by the parent session across restore, archive, and deletion. The session set and per-chat subsets are persisted in the host catalog and restored together after restart. This flow requires the agent's multiple-working-directories capability; omitting a chat subset preserves full-session inheritance.
+
+The experiment-backed `chat.agentHost.experimental.createSessionRelationship` setting controls whether the session-creation tool exposes a relationship choice. When disabled, the host omits that property from the advertised schema and authoritatively creates every request as a peer chat in the invoking session, including calls from stale clients that still supply an independent relationship. The setting defaults to enabled for compatibility, and changes are re-advertised to existing sessions without restarting the Agent Host.
+
 The provider cache owns adapter identity. Catalog notifications describe membership; adapter observables describe mutable state.
 
 Provider-specific metadata such as pull-request provenance, changesets, agent configuration, and external visibility is translated inside this provider. Shared Sessions code consumes only provider-neutral fields and capabilities.
@@ -147,7 +151,7 @@ Before assigning an additional repository or folder to a chat, the host prepares
 
 External sessions remain provider-owned domain objects. Visibility and interactivity fields determine whether shared Sessions surfaces present them; shared code does not infer visibility from Agent Host URI formats.
 
-Host-owned background activities remain independent of client visibility. Agent Merge monitoring prevents an enabled session from idle eviction while work is active, resumes eligible sessions after host startup, and releases that retention when monitoring ends.
+Host-owned background activities remain independent of client visibility. Agent Merge monitoring prevents an enabled session from idle eviction while work is active, resumes eligible sessions after host startup, and releases that retention when monitoring ends. Its persisted target identifies the owning chat and working directory, so restored monitoring, repair turns, notices, and compare-turn changes remain attached to the repository/chat that enabled it rather than the session's default chat.
 
 ### Host session catalog
 

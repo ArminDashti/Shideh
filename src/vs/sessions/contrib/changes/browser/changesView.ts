@@ -1659,6 +1659,7 @@ export class ChangesViewPane extends ViewPane {
 		if (items.length === 0 || !folder) {
 			return undefined;
 		}
+		const folder = folders[0];
 
 		const workspaceFolderUri = folder.workingDirectory;
 		if (workspaceFolderUri.scheme === GITHUB_REMOTE_FILE_SCHEME) {

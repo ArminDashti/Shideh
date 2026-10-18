@@ -306,6 +306,7 @@ const artifactValidator = plainObject(vObj({
 	chat: vOptionalProp(boundedString()),
 	type: vEnum('pullRequest', 'issue', 'commit', 'website', 'file', 'resource'),
 	label: boundedString(AGENT_HOST_CATALOG_TITLE_LENGTH_LIMIT),
+	chat: vOptionalProp(uriString()),
 	isArtifact: vOptionalProp(vBoolean()),
 	link: vOptionalProp(boundedString()),
 	uri: vOptionalProp(boundedString()),

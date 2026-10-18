@@ -236,6 +236,27 @@ suite('AgentHostDiscardChangesOperationHandler', () => {
 		});
 	});
 
+	test('restores a chat-owned resource through the chat working directory', async () => {
+		const primaryDirectory = URI.file('/primary');
+		const peerDirectory = URI.file('/peer');
+		const { handler, gitService, session, stateManager } = setup(disposables, { workingDirectories: [primaryDirectory, peerDirectory] });
+		const chat = buildChatUri(session.toString(), 'peer');
+		const target = URI.file('/peer/src/file.ts');
+		stateManager.addChat(session.toString(), chat, { workingDirectories: [peerDirectory.toString()] });
+
+		await handler.invoke({
+			channel: buildUncommittedChangesetUri(chat),
+			operationId: AgentHostDiscardChangesOperationHandler.OPERATION_DISCARD_CHANGES,
+			target: makeResourceTarget(target),
+		}, CancellationToken.None);
+
+		assert.deepStrictEqual(gitService.restoreCalls, [{
+			workingDirectory: peerDirectory.toString(),
+			paths: [target.fsPath],
+			options: undefined,
+		}]);
+	});
+
 	test('rejects channels that are not uncommitted-changeset URIs', async () => {
 		const { handler, gitService, session } = setup(disposables);
 		const target = URI.file('/repo/src/file.ts');

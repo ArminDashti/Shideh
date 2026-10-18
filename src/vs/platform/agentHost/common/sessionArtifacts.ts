@@ -36,6 +36,8 @@ export interface ISessionArtifact {
 	readonly chat?: string;
 	readonly type: SessionArtifactType;
 	readonly label: string;
+	/** Chat that recorded this entry. Absent for session-wide entries. */
+	readonly chat?: string;
 	/**
 	 * `true` for an artifact — something this chat produced — and `false` for a
 	 * reference, something it only points the user at.
@@ -83,6 +85,7 @@ function parseSessionArtifact(value: unknown): ISessionArtifact | undefined {
 		chat?: string;
 		type: SessionArtifactType;
 		label: string;
+		chat?: string;
 		isArtifact: boolean;
 		link?: string;
 		uri?: string;

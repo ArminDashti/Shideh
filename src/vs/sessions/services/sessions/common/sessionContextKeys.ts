@@ -186,8 +186,7 @@ function setSessionContextKeysUnbuffered(session: ISession | undefined, contextK
 	const cachedFiles = !changesReported && session ? changesStatsCache?.get(session.sessionId, reader)?.files ?? 0 : 0;
 	keys.hasCachedChanges.set(!worktreePending && cachedFiles > 0);
 
-	const pullRequest = session?.workspace.read(reader)?.folders[0]?.gitRepository?.gitHubInfo.read(reader)?.pullRequest;
-	keys.hasPullRequest.set(!!pullRequest);
+	keys.hasPullRequest.set(getSessionGitHubPullRequestRefs(session, reader).length > 0);
 
 	const issues = session?.workspace.read(reader)?.folders[0]?.gitRepository?.gitHubInfo.read(reader)?.issues;
 	keys.hasIssues.set(!!issues?.length);

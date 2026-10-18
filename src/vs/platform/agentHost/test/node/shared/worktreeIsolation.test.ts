@@ -211,15 +211,19 @@ suite('WorktreeIsolation', () => {
 		rmSync(worktreesRoot.fsPath, { recursive: true, force: true });
 	});
 
-	test('getWorktreesRoot / getWorktreeName derive sibling paths and strip the agents/ prefix', () => {
+	test('worktree path helpers derive sibling paths and strip the agents/ prefix', () => {
 		assert.deepStrictEqual({
 			root: getWorktreesRoot(URI.file('/src/vscode')).fsPath,
+			repository: deriveRepositoryRootFromWorktree(URI.file('/src/vscode.worktrees/add-config'))?.fsPath,
+			plainFolderRepository: deriveRepositoryRootFromWorktree(URI.file('/src/worktrees/add-config')),
 			named: getWorktreeName('agents/add-config'),
 			namedFlattened: getWorktreeName('agents/feature/sub-topic'),
 			namedNoPrefix: getWorktreeName('plain-branch'),
 			namedWithBranchPrefix: getWorktreeName('users/alice/agents/add-config', 'users/alice/'),
 		}, {
 			root: URI.file('/src/vscode.worktrees').fsPath,
+			repository: URI.file('/src/vscode').fsPath,
+			plainFolderRepository: undefined,
 			named: 'add-config',
 			namedFlattened: 'feature-sub-topic',
 			namedNoPrefix: 'plain-branch',

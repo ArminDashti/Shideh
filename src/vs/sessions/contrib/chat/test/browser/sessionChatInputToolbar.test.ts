@@ -87,10 +87,16 @@ suite('SessionChatInputToolbar', () => {
 		const pendingStats = derived(reader => computeSessionInputPillStats(pendingSession, chat, reader));
 
 		assert.deepStrictEqual({
-			session: stats.get(),
+			chat: stats.get(),
+			sessionFallback: fallbackStats.get(),
 			pendingWorktree: pendingStats.get(),
 		}, {
-			session: {
+			chat: {
+				files: 1,
+				insertions: 2,
+				deletions: 1,
+			},
+			sessionFallback: {
 				files: 1,
 				insertions: 10,
 				deletions: 4,
@@ -247,6 +253,75 @@ suite('SessionChatInputToolbar', () => {
 			});
 		}
 	}
+
+	test('opens Branch Changes for the current chat worktree', () => {
+		const { instantiationService } = createServices();
+		const root = URI.file('/repo');
+		const worktree = URI.file('/repo.worktrees/chat');
+		const chat = upcastPartial<IChat>({
+			resource: URI.parse('chat:peer'),
+			workspace: constObservable(upcastPartial<ISessionWorkspace>({
+				folders: [{
+					root,
+					workingDirectory: worktree,
+					name: 'repo',
+					description: undefined,
+					gitRepository: {
+						uri: root,
+						workTreeUri: worktree,
+						baseBranchName: 'main',
+						gitHubInfo: constObservable(undefined),
+					},
+				}],
+			})),
+			changesets: constObservable([upcastPartial<ISessionChangeset>({
+				id: BRANCH_CHANGES_CHANGESET_ID,
+				isEnabled: constObservable(true),
+				changes: constObservable([{
+					modifiedUri: URI.joinPath(worktree, 'changed.ts'),
+					insertions: 2,
+					deletions: 1,
+				}]),
+			})]),
+		});
+		const session = upcastPartial<IActiveSession>({
+			sessionId: 'provider:session',
+			capabilities: constObservable({ supportsMultipleChats: true }),
+			resource: URI.parse('session:1'),
+			chats: constObservable([chat]),
+			workspace: constObservable(upcastPartial<ISessionWorkspace>({
+				folders: [{ root, workingDirectory: root, name: 'repo', description: undefined }],
+			})),
+			changesets: constObservable([]),
+			changes: constObservable([]),
+		});
+		const calls: { action: string; options?: ISessionChangesEditorOptions }[] = [];
+		instantiationService.stub(ISessionsService, 'setActive', () => {
+			calls.push({ action: 'activate' });
+		});
+		instantiationService.stub(IAgentWorkbenchLayoutService, upcastPartial<IAgentWorkbenchLayoutService>({
+			revealEditorPartExplicitly: () => { calls.push({ action: 'reveal' }); },
+		}));
+		instantiationService.stub(ISessionChangesService, upcastPartial<ISessionChangesService>({
+			openChangesEditor: async (_resource, options) => {
+				calls.push({ action: 'open', options });
+				return undefined;
+			},
+		}));
+		const toolbar = store.add(instantiationService.createInstance(SessionChatInputToolbar, false, undefined));
+		toolbar.setSession(session, chat);
+
+		toolbar.element.querySelector<HTMLElement>('.chat-changes-pill-button')?.click();
+
+		assert.deepStrictEqual(calls, [{
+			action: 'activate',
+		}, {
+			action: 'reveal',
+		}, {
+			action: 'open',
+			options: { changesetSelection: { kind: 'id', id: BRANCH_CHANGES_CHANGESET_ID } },
+		}]);
+	});
 
 	test('adds rich GitHub hovers only when live details are available', async () => {
 		const commands: { readonly id: string; readonly args: readonly unknown[] }[] = [];

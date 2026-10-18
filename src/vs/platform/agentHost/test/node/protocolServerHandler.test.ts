@@ -3594,6 +3594,7 @@ suite('ProtocolServerHandler', () => {
 			const transport = connectClient('client-cc');
 			transport.sent.length = 0;
 			const responsePromise = waitForResponse(transport, 2);
+			const workingDirectory = 'file:///workspace/other';
 
 			transport.simulateMessage(request(2, 'createChat', {
 				channel: sessionUri,

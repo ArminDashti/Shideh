@@ -19,6 +19,7 @@ import { IPullRequestResources } from '../../../github/common/pullRequestResourc
 import { GitHubRequestError } from '../../../github/common/githubTransport.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { defaultAgentMergeConfiguration } from '../../common/agentMerge.js';
+import { IAgentHostGitService } from '../../common/agentHostGitService.js';
 import { AgentConfigurationService } from '../../node/agentConfigurationService.js';
 import { AgentHostStateManager } from '../../node/agentHostStateManager.js';
 import { AgentMergeCIEvidenceStore, agentMergeCIResponseBytes, ciJsonBytes, readCIRange, readCITail, searchCIEvidence } from '../../node/agentMergeCIEvidence.js';

@@ -9,7 +9,7 @@ import { URI } from '../../../base/common/uri.js';
 import { localize } from '../../../nls.js';
 import { IAgentHostAuthenticationService } from './agentHostAuthenticationService.js';
 import { IAgentHostGitHubEndpointService } from './agentHostGitHubEndpointService.js';
-import { parseChangesetUri } from '../common/changesetUri.js';
+import { getChangesetSessionUri, parseChangesetUri } from '../common/changesetUri.js';
 import { AGENT_HOST_COMMIT_CHANGESET_OPERATION_ID, type IChangesetOperationHandler } from '../common/agentHostChangesetOperationService.js';
 import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from '../common/state/protocol/channels-changeset/commands.js';
 import { AHP_AUTH_REQUIRED, AHP_SESSION_NOT_FOUND, JsonRpcErrorCodes, ProtocolError } from '../common/state/sessionProtocol.js';
@@ -103,6 +103,7 @@ export class AgentHostCommitOperationHandler implements IChangesetOperationHandl
 
 		let message: string;
 		try {
+			const branchName = await this._gitService.getCurrentBranch(workingDirectory);
 			message = this._cleanCommitMessage(await this._copilotApiService.utilityChatCompletion(authToken, {
 				messages: this._buildCommitMessagePrompt(workingDirectory, branchName, diffs),
 			}, { signal }));

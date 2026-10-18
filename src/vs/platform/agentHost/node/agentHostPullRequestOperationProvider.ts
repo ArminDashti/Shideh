@@ -25,6 +25,7 @@ import { ActionType } from '../common/state/sessionActions.js';
 import { PREPARE_PULL_REQUEST_OPERATION_ID } from '../common/meta/agentPullRequestOperationMeta.js';
 import { persistSessionMetadataValues, SESSION_ARTIFACTS_KEY } from './shared/persistSessionMetadata.js';
 import { SessionArtifacts } from './shared/sessionArtifacts.js';
+import { ChangesetKind } from '../common/changesetUri.js';
 
 export class AgentHostPullRequestOperationContribution extends Disposable implements IChangesetOperationContribution {
 
@@ -174,6 +175,10 @@ export class AgentHostPullRequestOperationContribution extends Disposable implem
 			this._logService.trace(`[AgentHostPullRequestOperationContribution] No pull request operations: session=${sessionKey}, reason=pull request state has not resolved yet`);
 			return undefined;
 		}
+		if (!targetPullRequestUrls?.some(url => url.toLowerCase() === status.url.toLowerCase())) {
+			this._logService.trace(`[AgentHostPullRequestOperationContribution] No pull request operations: session=${sessionKey}, reason=pull request state belongs to a different repository target`);
+			return undefined;
+		}
 		if (status.state !== 'open') {
 			this._logService.trace(`[AgentHostPullRequestOperationContribution] No pull request operations: session=${sessionKey}, reason=pull request is ${status.state}`);
 			return undefined;
@@ -276,6 +281,7 @@ export class AgentHostPullRequestOperationContribution extends Disposable implem
 			label: event.pullRequestTitle ?? '',
 			isArtifact: true,
 			link: event.pullRequestUrl,
+			chat: event.chatUri,
 		}, generateUuid));
 
 		const gitHubState = readFolderGitHubState(this._stateManager.getSessionState(sessionKey)?._meta, folder.folderKey);

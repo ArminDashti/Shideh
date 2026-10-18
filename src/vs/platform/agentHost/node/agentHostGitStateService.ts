@@ -129,6 +129,70 @@ export class AgentHostGitStateService extends Disposable implements IAgentHostGi
 		await this._queuePullRequestLookup(sessionUri);
 	}
 
+	async findPullRequestForWorkingDirectory(sessionKey: string, workingDirectory: URI): Promise<string | undefined> {
+		const state = this._stateManager.getSessionState(sessionKey);
+		if (!state || state.lifecycle !== SessionLifecycle.Ready) {
+			return undefined;
+		}
+
+		try {
+			const primaryWorkingDirectory = state.workingDirectories?.[0];
+			const baseBranchName = primaryWorkingDirectory && isEqual(URI.parse(primaryWorkingDirectory), workingDirectory)
+				? await this.resolveSessionBaseBranchName(sessionKey)
+				: undefined;
+			const gitState = await this._gitService.getSessionGitState(workingDirectory, baseBranchName);
+			const branchName = gitState?.branchName;
+			const owner = gitState?.githubOwner;
+			const repo = gitState?.githubRepo;
+			if (!branchName || branchName === gitState?.baseBranchName || !owner || !repo) {
+				return undefined;
+			}
+
+			const authToken = this._getGitHubAuthToken();
+			if (!authToken) {
+				return undefined;
+			}
+
+			const allowedPullRequestUrls = this._isAutomaticPullRequestAttachmentEnabled()
+				? undefined
+				: this._getRecordedPullRequestUrls(state);
+			if (allowedPullRequestUrls?.length === 0) {
+				return undefined;
+			}
+
+			const pullRequest = await this._pullRequestAssociationResolver.resolveForCheckout(
+				{ ...state, workingDirectories: [workingDirectory.toString()] },
+				owner,
+				repo,
+				gitState,
+				branchName,
+				authToken,
+				allowedPullRequestUrls,
+			);
+			return pullRequest?.url;
+		} catch (error) {
+			this._logService.warn(`[AgentHostGitStateService][findPullRequestForWorkingDirectory] Failed to find pull request for ${sessionKey}`, error);
+			return undefined;
+		}
+	}
+
+	private _getRecordedPullRequestUrls(state: ISessionWithDefaultChat): string[] {
+		const urls = [
+			...readSessionArtifacts(state._meta)
+				.flatMap(artifact => artifact.type === SessionArtifactType.PullRequest && artifact.isArtifact && artifact.isGitHub === true && artifact.link ? [artifact.link] : []),
+			...getSessionRelatedPullRequestUrls(readSessionGitHubState(state._meta)),
+		];
+		const seen = new Set<string>();
+		return urls.filter(url => {
+			const key = getSessionPullRequestUrlKey(url);
+			if (seen.has(key)) {
+				return false;
+			}
+			seen.add(key);
+			return true;
+		});
+	}
+
 	/**
 	 * Queues a pull request lookup on the session's sequencer so overlapping
 	 * triggers (turn completion, session restore, a refresh observing a branch

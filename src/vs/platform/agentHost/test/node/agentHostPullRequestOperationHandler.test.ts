@@ -36,7 +36,7 @@ import type { CCAModel } from '@vscode/copilot-api';
 import type { IAgentHostAuthenticationService, IAgentHostAuthTokenChangeEvent } from '../../node/agentHostAuthenticationService.js';
 import type { IAgentBranchNameGenerator, IAgentBranchNameGeneratorRequest } from '../../node/shared/agentBranchNameGenerator.js';
 import { mock } from '../../../../base/test/common/mock.js';
-import { AgentMergeConfigKey, readAgentMergeSessionState, type AgentMergeConfiguration, type AgentMergeControllerState, type AgentMergeSessionOverrides } from '../../common/agentMerge.js';
+import { AgentMergeConfigKey, readAgentMergeSessionState, type AgentMergeConfiguration, type AgentMergeControllerState, type AgentMergeSessionOverrides, type AgentMergeTarget } from '../../common/agentMerge.js';
 import type { IAgentConfigurationService } from '../../node/agentConfigurationService.js';
 import { createPullRequestConversationMeta, createPullRequestOperationMeta, createPullRequestValidationMeta, PREPARE_PULL_REQUEST_OPERATION_ID, readPullRequestDetailsResult, type IPullRequestCreateOptions } from '../../common/meta/agentPullRequestOperationMeta.js';
 import { JsonRpcErrorCodes, ProtocolError } from '../../common/state/sessionProtocol.js';
@@ -181,6 +181,7 @@ class TestGitHubClient extends mock<IGitHubClient>() {
 	lastBody: string | undefined;
 	lastHead: string | undefined;
 	lastBase: string | undefined;
+	lastRepository: string | undefined;
 	readonly findRequests: { branch: string; headOwner: string | undefined }[] = [];
 
 	override readonly credentials = createTestGitHubClient().credentials;
@@ -1064,6 +1065,14 @@ suite('AgentHostPullRequestOperationHandler', () => {
 			operationId: 'create-pr',
 			_meta: createPullRequestOperationMeta({ ...submittedOptions, agentMerge: true, draft: true }),
 		}, CancellationToken.None);
+		const target = readAgentMergeSessionState(sessionConfigValues)?.target;
+		assertAgentMergeTarget(target, {
+			branchName: 'feature/test',
+			pullRequestUrl: 'https://github.com/microsoft/vscode/pull/123',
+			chatUri: buildDefaultChatUri(session).toString(),
+			workingDirectory: URI.file('/repo').toString(),
+			announcementPending: true,
+		});
 
 		assert.deepStrictEqual({ message: result.message, sessionConfigUpdates }, {
 			message: { markdown: 'Created draft pull request [#123](https://github.com/microsoft/vscode/pull/123) and enabled Agent Merge.' },
@@ -1090,6 +1099,14 @@ suite('AgentHostPullRequestOperationHandler', () => {
 				operationId: 'create-pr',
 				_meta: createPullRequestOperationMeta({ ...submittedOptions, agentMerge: true, agentMergeOptions }),
 			}, CancellationToken.None);
+			const target = readAgentMergeSessionState(sessionConfigValues)?.target;
+			assertAgentMergeTarget(target, {
+				branchName: 'feature/test',
+				pullRequestUrl: 'https://github.com/microsoft/vscode/pull/123',
+				chatUri: buildDefaultChatUri(session).toString(),
+				workingDirectory: URI.file('/repo').toString(),
+				announcementPending: true,
+			});
 			assert.deepStrictEqual({ stateAtCreation, sessionConfigUpdates, state: readAgentMergeSessionState(sessionConfigValues) }, {
 				stateAtCreation: [false],
 				sessionConfigUpdates: [agentMergeFolderPatch(session, { enabled: true, overrides: agentMergeOptions })],
@@ -1206,6 +1223,63 @@ suite('AgentHostPullRequestOperationHandler', () => {
 		});
 	});
 
+	test('creates a pull request from a peer chat repository and attributes it to that chat', async () => {
+		const gitService = new TestGitService();
+		gitService.gitState = {
+			hasGitHubRemote: true,
+			githubOwner: 'octo',
+			githubRepo: 'peer',
+			branchName: 'feature/peer',
+			baseBranchName: 'develop',
+		};
+		const octoKitService = new TestOctoKitService();
+		const { handler, session, stateManager, createdEvents, createdChats } = setup(disposables, gitService, octoKitService);
+		const chat = buildChatUri(session.toString(), 'peer');
+		stateManager.addChat(session.toString(), chat, { workingDirectories: [URI.file('/peer').toString()] });
+
+		await handler.invoke({ channel: buildBranchChangesetUri(chat), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_PR }, CancellationToken.None);
+
+		assert.deepStrictEqual({
+			repository: octoKitService.lastRepository,
+			baseBranch: octoKitService.lastBase,
+			requestedBaseBranches: gitService.requestedBaseBranches,
+			createdEvents,
+			createdChats,
+		}, {
+			repository: 'octo/peer',
+			baseBranch: 'develop',
+			requestedBaseBranches: [undefined],
+			createdEvents: ['agent:/session:https://github.com/microsoft/vscode/pull/123'],
+			createdChats: [chat],
+		});
+	});
+
+	test('targets Agent Merge at the peer chat repository that created the pull request', async () => {
+		const gitService = new TestGitService();
+		gitService.gitState = {
+			hasGitHubRemote: true,
+			githubOwner: 'octo',
+			githubRepo: 'peer',
+			branchName: 'feature/peer',
+			baseBranchName: 'develop',
+		};
+		const octoKitService = new TestOctoKitService();
+		const { handler, session, stateManager, sessionConfigValues } = setup(disposables, gitService, octoKitService, { enableAgentMerge: true });
+		const chat = buildChatUri(session.toString(), 'peer');
+		const workingDirectory = URI.file('/peer').toString();
+		stateManager.addChat(session.toString(), chat, { workingDirectories: [workingDirectory] });
+
+		await handler.invoke({ channel: buildBranchChangesetUri(chat), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_PR_AGENT_MERGE }, CancellationToken.None);
+
+		assertAgentMergeTarget(readAgentMergeSessionState(sessionConfigValues)?.target, {
+			branchName: 'feature/peer',
+			pullRequestUrl: 'https://github.com/microsoft/vscode/pull/123',
+			chatUri: chat,
+			workingDirectory,
+			announcementPending: true,
+		});
+	});
+
 	test('enables Agent Merge after creating the pull request, preserves overrides, and clears stale controller state', async () => {
 		const gitService = new TestGitService();
 		const gitHubClient = new TestGitHubClient();
@@ -1224,6 +1298,14 @@ suite('AgentHostPullRequestOperationHandler', () => {
 		});
 
 		const result = await handler.invoke({ channel: buildSessionChangesetUri(session.toString()), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_PR_AGENT_MERGE }, CancellationToken.None);
+		const target = readAgentMergeSessionState(sessionConfigValues)?.target;
+		assertAgentMergeTarget(target, {
+			branchName: 'feature/test',
+			pullRequestUrl: 'https://github.com/microsoft/vscode/pull/123',
+			chatUri: buildDefaultChatUri(session).toString(),
+			workingDirectory: URI.file('/repo').toString(),
+			announcementPending: true,
+		});
 
 		assert.deepStrictEqual({
 			message: result.message,
@@ -1245,6 +1327,14 @@ suite('AgentHostPullRequestOperationHandler', () => {
 		});
 
 		const result = await handler.invoke({ channel: buildSessionChangesetUri(session.toString()), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_DRAFT_PR_AGENT_MERGE }, CancellationToken.None);
+		const target = readAgentMergeSessionState(sessionConfigValues)?.target;
+		assertAgentMergeTarget(target, {
+			branchName: 'feature/test',
+			pullRequestUrl: 'https://github.com/microsoft/vscode/pull/123',
+			chatUri: buildDefaultChatUri(session).toString(),
+			workingDirectory: URI.file('/repo').toString(),
+			announcementPending: true,
+		});
 
 		assert.deepStrictEqual({
 			message: result.message,

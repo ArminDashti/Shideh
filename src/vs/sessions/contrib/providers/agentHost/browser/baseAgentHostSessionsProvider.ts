@@ -511,6 +511,20 @@ function isGitHubInfoEqual(a: IGitHubInfo | undefined, b: IGitHubInfo | undefine
 			x.recordedReferenceId === y.recordedReferenceId);
 }
 
+function pullRequestRefsEqual(a: readonly IGitHubPullRequestRef[], b: readonly IGitHubPullRequestRef[]): boolean {
+	return arrayEquals(a, b, (x, y) =>
+		x.owner === y.owner &&
+		x.repo === y.repo &&
+		x.number === y.number &&
+		isEqual(x.uri, y.uri) &&
+		isEqual(x.chat, y.chat) &&
+		x.icon?.id === y.icon?.id &&
+		x.state === y.state &&
+		x.liveState === y.liveState &&
+		x.title === y.title &&
+		x.createdByThisSession === y.createdByThisSession);
+}
+
 function dateEquals(a: Date | undefined, b: Date | undefined): boolean {
 	return a?.getTime() === b?.getTime();
 }
@@ -680,7 +694,7 @@ function toGitHubInfo(meta: SessionMeta | undefined, workingDirectory: URI | und
 	return {
 		owner: repository.owner,
 		repo: repository.repo,
-		pullRequests: pullRequests?.length ? pullRequests : undefined,
+		pullRequests: pullRequests.length ? pullRequests : undefined,
 		pullRequest: pullRequest ? {
 			number: pullRequest.number,
 			uri: pullRequest.uri,
@@ -826,6 +840,8 @@ export interface IAgentHostAdapterOptions {
 	readonly backendSessionScheme?: string;
 	/** Maps a backend session URI to the client resource used by this host. */
 	readonly mapBackendSessionResource: (resource: URI) => URI;
+	/** Maps a backend working-directory URI to the client resource used by this host. */
+	readonly mapWorkingDirectoryUri?: AgentHostUriMapper;
 	/** `Changeset.changeKind` the Changes view selects by default. Defaults to `branch`. */
 	readonly defaultChangesetKind?: ChangesetKind.Branch | ChangesetKind.Uncommitted | ChangesetKind.Session;
 	/** Connection state from the backing remote provider, when there is one. */
@@ -1226,6 +1242,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 	readonly description: IObservable<IMarkdownString | undefined>;
 	readonly lastTurnEnd: ISettableObservable<Date | undefined>;
 	readonly gitHubInfo: IObservable<IGitHubInfo | undefined>;
+	readonly pullRequests: IObservable<readonly IGitHubPullRequestRef[]>;
 
 	readonly mainChat: IObservable<IChat>;
 	readonly chats: IObservable<readonly IChat[]>;
@@ -1462,7 +1479,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 		});
 		this.artifacts = derivedOpts<readonly ISessionArtifact[]>({ owner: this, equalsFn: structuralEquals }, reader => {
 			const meta = this._metaObs.read(reader);
-			return partitionSessionArtifacts(meta, this._options.mapDiffUri).entries.map(entry => entry.artifact);
+			return partitionSessionArtifacts(meta, this._options.mapDiffUri, chat => this._mapArtifactChat(chat)).entries.map(entry => entry.artifact);
 		});
 		this.factoryRuns = derivedOpts<readonly ISessionFactoryRun[]>({ owner: this, equalsFn: structuralEquals }, reader => readSessionFactoryRuns(this._metaObs.read(reader)));
 
@@ -1896,6 +1913,61 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 			chat.setModelId(selection.modelId, selection.source);
 		}
 		return chat;
+	}
+
+	private _createChatChangesets(clientChatResource: URI, backendChatResource: URI, workspace: IObservable<ISessionWorkspace | undefined>): IObservable<readonly ISessionChangeset[] | undefined> {
+		const isActiveChatObs = derived(this, reader => {
+			const activeSession = this._sessionsService.activeSession.read(reader);
+			return !!activeSession
+				&& isEqual(activeSession.resource, this.resource)
+				&& isEqual(activeSession.activeChat.read(reader).resource, clientChatResource);
+		});
+		const chatChangesetCatalog = derivedOpts<readonly Changeset[] | undefined>({ owner: this, equalsFn: structuralEquals }, reader => {
+			return this._changesetMetadata.read(reader)?.map(changeset => {
+				switch (changeset.changeKind) {
+					case ChangesetKind.Branch:
+						return { ...changeset, uriTemplate: buildBranchChangesetUri(backendChatResource.toString()) };
+					case ChangesetKind.Uncommitted:
+						return { ...changeset, uriTemplate: buildUncommittedChangesetUri(backendChatResource.toString()) };
+					default:
+						return changeset;
+				}
+			});
+		});
+		const workingDirectories = derivedOpts<readonly string[] | undefined>({ owner: this, equalsFn: structuralEquals }, reader =>
+			workspace.read(reader)?.folders.map(folder => folder.workingDirectory.toString()));
+
+		return derived(this, reader => {
+			const sessionChangesets = this.changesets.read(reader);
+			const chatCatalog = chatChangesetCatalog.read(reader);
+			if (chatCatalog === undefined) {
+				return sessionChangesets;
+			}
+
+			const repositoryChangesets = createChangesets(
+				backendChatResource,
+				this._options,
+				isActiveChatObs,
+				chatCatalog
+					.filter(changeset => changeset.changeKind === ChangesetKind.Branch || changeset.changeKind === ChangesetKind.Uncommitted)
+					.map(changeset => ({
+						...changeset,
+						workingDirectories,
+					})),
+			);
+			if (!sessionChangesets) {
+				return repositoryChangesets;
+			}
+
+			const repositoryChangesetsByKind = new Map(repositoryChangesets.map(changeset => [changeset.id, changeset]));
+			return sessionChangesets.flatMap(changeset => {
+				if (changeset.id !== ChangesetKind.Branch && changeset.id !== ChangesetKind.Uncommitted) {
+					return [changeset];
+				}
+				const repositoryChangeset = repositoryChangesetsByKind.get(changeset.id);
+				return repositoryChangeset ? [repositoryChangeset] : [];
+			});
+		});
 	}
 
 	/**
@@ -4126,6 +4198,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			canvasSnapshots: this._canvasSnapshots,
 			backendSessionScheme: this._backendSessionScheme(provider),
 			mapBackendSessionResource: resource => this._mapBackendSessionResource(resource),
+			mapWorkingDirectoryUri: uri => this.mapWorkingDirectoryUri(uri),
 			connectionStatus: this.remoteConnectionStatus,
 			...this._adapterOptions(),
 		} satisfies IAgentHostAdapterOptions;
@@ -4743,6 +4816,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				agentCapabilities: this._agentCapabilities,
 				canvasSnapshots: this._canvasSnapshots,
 				mapBackendSessionResource: resource => this._mapBackendSessionResource(resource),
+				mapWorkingDirectoryUri: uri => this.mapWorkingDirectoryUri(uri),
 				connectionStatus: this.remoteConnectionStatus,
 				...this._adapterOptions(),
 			} satisfies IAgentHostAdapterOptions);

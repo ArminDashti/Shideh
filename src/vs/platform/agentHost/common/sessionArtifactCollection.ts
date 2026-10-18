@@ -13,6 +13,8 @@ export interface ISessionArtifactInput {
 	readonly label: string;
 	/** `true` for an artifact the session produced, `false` for a reference. */
 	readonly isArtifact: boolean;
+	/** Host-owned chat attribution. Model-provided inputs never populate this field. */
+	readonly chat?: string;
 	readonly link?: string;
 	readonly uri?: string;
 	readonly commitHash?: string;
@@ -154,7 +156,8 @@ export class SessionArtifactCollection {
 	add(input: ISessionArtifactInput, createId: () => string, origin?: ArtifactOrigin): IAddSessionArtifactResult {
 		const artifact = this._create(input, createId, origin);
 		const value = getSessionArtifactValue(artifact);
-		const existing = this._artifacts.find(candidate => getSessionArtifactValue(candidate) === value);
+		const existing = this._artifacts.find(candidate =>
+			candidate.chat === artifact.chat && getSessionArtifactValue(candidate) === value);
 		if (existing) {
 			return { artifacts: this._artifacts, artifact: existing, added: false };
 		}
@@ -188,6 +191,7 @@ export class SessionArtifactCollection {
 			id: string;
 			type: SessionArtifactType;
 			label: string;
+			chat?: string;
 			isArtifact: boolean;
 			link?: string;
 			uri?: string;
@@ -196,6 +200,7 @@ export class SessionArtifactCollection {
 			origin?: ArtifactOrigin;
 		} = { id: createId(), type: input.type, label: input.label, isArtifact: input.isArtifact };
 
+		if (input.chat !== undefined) { artifact.chat = input.chat; }
 		if (input.link !== undefined) { artifact.link = input.link; }
 		if (input.uri !== undefined) { artifact.uri = input.uri; }
 		if (input.commitHash !== undefined) { artifact.commitHash = input.commitHash; }

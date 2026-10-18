@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { realpath } from 'fs/promises';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { basename, extUriBiasedIgnorePathCase } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
@@ -17,6 +18,7 @@ import { resolveChangesetOwnerScope } from './agentHostBranchChangesetScope.js';
 import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
 import { ILogService } from '../../log/common/log.js';
 import { IAgentHostGitService } from '../common/agentHostGitService.js';
+import { resolveRealPathForNonexistent } from './sessionPermissions.js';
 
 export class AgentHostDiscardChangesOperationHandler implements IChangesetOperationHandler {
 
