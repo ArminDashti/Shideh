@@ -1526,6 +1526,11 @@ export interface IXtermTerminal extends IDisposable {
 	 */
 	attachToElement(container: HTMLElement, options?: Partial<IXtermAttachToElementOptions>): void;
 
+	/**
+	 * Gets the DOM element of the terminal.
+	 */
+	getElement(): HTMLElement | undefined;
+
 	findResult?: { resultIndex: number; resultCount: number };
 
 	/**
@@ -1637,6 +1642,11 @@ export interface IXtermTerminal extends IDisposable {
 	getRangeAsVT(startMarker: IXtermMarker, endMarker?: IXtermMarker): Promise<string>;
 
 	/**
+	 * Gets the contents of the buffer from a start marker to an end marker as VT sequences.
+	 */
+	getRangeAsVT(startMarker: IXtermMarker, endMarker?: IXtermMarker): Promise<string>;
+
+	/**
 	 * Refreshes the terminal after it has been moved.
 	 */
 	refresh(): void;
@@ -1657,6 +1667,10 @@ export interface IXtermTerminal extends IDisposable {
 }
 
 export interface IDetachedXtermTerminal extends IXtermTerminal {
+	/**
+	 * The raw xterm.js terminal instance, this is only available when the terminal is attached
+	 */
+	raw?: RawXtermTerminal;
 	/**
 	 * Writes data to the terminal.
 	 * @param data data to write
