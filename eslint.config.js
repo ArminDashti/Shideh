@@ -1545,7 +1545,7 @@ export default defineConfig(
 				{
 					'paths': [
 						{
-							'name': 'electron',
+							'name': 'electron/utility',
 							'allowImportNames': [
 								'net',
 								'system-preferences',
@@ -1673,7 +1673,9 @@ export default defineConfig(
 					// - electron-main
 					'when': 'hasElectron',
 					'allow': [
-						'electron'
+						'electron/main',
+						'electron/common',
+						'electron/utility',
 					]
 				},
 				{

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import electron from 'electron';
+import { BrowserWindow, WebContents, screen, Rectangle } from 'electron/main';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
@@ -25,7 +25,7 @@ export interface IBaseWindow extends IDisposable {
 	readonly onDidClose: Event<void>;
 
 	readonly id: number;
-	readonly win: electron.BrowserWindow | null;
+	readonly win: BrowserWindow | null;
 
 	readonly lastFocusTime: number;
 	focus(options?: { mode: FocusMode }): void;
@@ -43,7 +43,7 @@ export interface IBaseWindow extends IDisposable {
 
 	updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string }): void;
 
-	matches(webContents: electron.WebContents): boolean;
+	matches(webContents: WebContents): boolean;
 }
 
 export interface ICodeWindow extends IBaseWindow {
@@ -80,7 +80,7 @@ export interface ICodeWindow extends IBaseWindow {
 
 	close(): void;
 
-	getBounds(): electron.Rectangle;
+	getBounds(): Rectangle;
 
 	send(channel: string, ...args: unknown[]): void;
 	sendWhenReady(channel: string, token: CancellationToken, ...args: unknown[]): void;
@@ -163,7 +163,7 @@ export const defaultAuxWindowState = function (): IWindowState {
 
 	const width = DEFAULT_AUX_WINDOW_SIZE.width;
 	const height = DEFAULT_AUX_WINDOW_SIZE.height;
-	const workArea = electron.screen.getPrimaryDisplay().workArea;
+	const workArea = screen.getPrimaryDisplay().workArea;
 	const x = Math.max(workArea.x + (workArea.width / 2) - (width / 2), 0);
 	const y = Math.max(workArea.y + (workArea.height / 2) - (height / 2), 0);
 

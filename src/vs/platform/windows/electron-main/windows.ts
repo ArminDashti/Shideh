@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import electron, { Display, Rectangle } from 'electron';
+import { BrowserWindow, Display, Rectangle, WebContents, WebPreferences, BrowserWindowConstructorOptions, screen } from 'electron/main';
 import { Color } from '../../../base/common/color.js';
 import { Event } from '../../../base/common/event.js';
 import { join } from '../../../base/common/path.js';
@@ -53,7 +53,7 @@ export interface IWindowsMainService {
 	getLastActiveWindow(): ICodeWindow | undefined;
 
 	getWindowById(windowId: number): ICodeWindow | undefined;
-	getWindowByWebContents(webContents: electron.WebContents): ICodeWindow | undefined;
+	getWindowByWebContents(webContents: WebContents): ICodeWindow | undefined;
 }
 
 export interface IWindowsCountChangedEvent {
@@ -131,7 +131,7 @@ export interface IDefaultBrowserWindowOptionsOverrides {
 	isSessionsWindow?: boolean;
 }
 
-export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowState: IWindowState, overrides?: IDefaultBrowserWindowOptionsOverrides, webPreferences?: electron.WebPreferences): electron.BrowserWindowConstructorOptions & { experimentalDarkMode: boolean } {
+export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowState: IWindowState, overrides?: IDefaultBrowserWindowOptionsOverrides, webPreferences?: WebPreferences): BrowserWindowConstructorOptions & { experimentalDarkMode: boolean } {
 	const themeMainService = accessor.get(IThemeMainService);
 	const productService = accessor.get(IProductService);
 	const configurationService = accessor.get(IConfigurationService);
@@ -295,7 +295,7 @@ export function getLastFocused(windows: ICodeWindow[] | IAuxiliaryWindow[]): ICo
 
 export namespace WindowStateValidator {
 
-	export function validateWindowState(logService: ILogService, state: IWindowState, displays = electron.screen.getAllDisplays()): IWindowState | undefined {
+	export function validateWindowState(logService: ILogService, state: IWindowState, displays = screen.getAllDisplays()): IWindowState | undefined {
 		logService.trace(`window#validateWindowState: validating window state on ${displays.length} display(s)`, state);
 
 		if (
@@ -393,10 +393,10 @@ export namespace WindowStateValidator {
 		}
 
 		// Multi Monitor (non-fullscreen): ensure window is within display bounds
-		let display: electron.Display | undefined;
-		let displayWorkingArea: electron.Rectangle | undefined;
+		let display: Display | undefined;
+		let displayWorkingArea: Rectangle | undefined;
 		try {
-			display = electron.screen.getDisplayMatching({ x: state.x, y: state.y, width: state.width, height: state.height });
+			display = screen.getDisplayMatching({ x: state.x, y: state.y, width: state.width, height: state.height });
 			displayWorkingArea = getWorkingArea(display);
 
 			logService.trace('window#validateWindowState: multi-monitor working area', displayWorkingArea);
@@ -437,7 +437,7 @@ export namespace WindowStateValidator {
 		);
 	}
 
-	function getWorkingArea(display: electron.Display): electron.Rectangle | undefined {
+	function getWorkingArea(display: Display): Rectangle | undefined {
 
 		// Prefer the working area of the display to account for taskbars on the
 		// desktop being positioned somewhere (https://github.com/microsoft/vscode/issues/50830).
@@ -464,5 +464,5 @@ export namespace WindowStateValidator {
  * @returns An array of all BrowserWindow instances that are not offscreen.
  */
 export function getAllWindowsExcludingOffscreen() {
-	return electron.BrowserWindow.getAllWindows().filter(win => !win.webContents.isOffscreen());
+	return BrowserWindow.getAllWindows().filter(win => !win.webContents.isOffscreen());
 }
