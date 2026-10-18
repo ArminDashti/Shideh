@@ -1184,6 +1184,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 		const chatControlsContainer = this._chatControlsContainer = append(parent, $('.chat-controls-container'));
 
 		const locationBasedColors = this.getLocationBasedColors();
+		const chatBackground = this.workbenchEnvironmentService.isSessionsWindow ? editorBackground : locationBasedColors.background;
 
 		// Editor overflow widgets - only create once (not on recreation)
 		if (!this.editorOverflowWidgetsDomNode) {
@@ -1250,7 +1251,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 				listBackground: locationBasedColors.background,
 				listShadow: locationBasedColors.listOverrideStyles.treeStickyScrollShadow,
 				overlayBackground: locationBasedColors.overlayBackground,
-				inputEditorBackground: locationBasedColors.background,
+				inputEditorBackground: chatBackground,
 				resultEditorBackground: editorBackground,
 			}));
 		this._widget.render(chatControlsContainer, parent);

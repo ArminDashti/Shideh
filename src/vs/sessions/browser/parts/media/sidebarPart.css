@@ -47,6 +47,7 @@
 	padding: 6px 0 0 0;
 	margin: 0 10px 2px 10px;
 	flex-shrink: 0;
+	background-color: var(--part-background);
 }
 
 /* Make the toolbar fill the footer width and stack actions vertically */

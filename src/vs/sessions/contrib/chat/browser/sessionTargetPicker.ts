@@ -23,6 +23,11 @@ export type IsolationMode = 'worktree' | 'workspace';
 
 // #region --- Target Picker ---
 
+interface ITargetItem {
+	target: AgentSessionProviders;
+	label: string;
+}
+
 /**
  * A self-contained widget for selecting the session target type.
  *

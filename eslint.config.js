@@ -2261,7 +2261,8 @@ export default defineConfig(
 						'vs/workbench/contrib/**',
 						'vs/workbench/services/*/~',
 						'vs/sessions/~',
-						'vs/sessions/services/*/~'
+						'vs/sessions/services/*/~',
+						'vs/sessions/contrib/*/~'
 					]
 				},
 				{

@@ -133,6 +133,18 @@ MenuRegistry.appendMenuItem(Menus.PanelTitle, {
 	order: 2
 });
 
+// Light/dark theme toggle in titlebar
+MenuRegistry.appendMenuItem(Menus.TitleBarRightLayout, {
+	command: {
+		id: 'workbench.action.toggleLightDarkThemes',
+		title: localize('toggleTheme', "Toggle Light/Dark Theme"),
+		icon: Codicon.colorMode,
+	},
+	when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated(), ContextKeyExpr.not('config.window.autoDetectColorScheme')),
+	group: 'navigation',
+	order: 1
+});
+
 // Floating window controls: always-on-top
 MenuRegistry.appendMenuItem(Menus.TitleBarRightLayout, {
 	command: {

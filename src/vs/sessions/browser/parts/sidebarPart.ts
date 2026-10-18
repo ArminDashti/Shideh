@@ -33,7 +33,7 @@ import { IDisposable } from '../../../base/common/lifecycle.js';
 import { IHoverService } from '../../../platform/hover/browser/hover.js';
 import { Extensions } from '../../../workbench/browser/panecomposite.js';
 import { Menus } from '../menus.js';
-import { $, append, getWindowId, prepend } from '../../../base/browser/dom.js';
+import { $, append } from '../../../base/browser/dom.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../platform/actions/browser/toolbar.js';
 import { isFullscreen, onDidChangeFullscreen } from '../../../base/browser/browser.js';
 import { mainWindow } from '../../../base/browser/window.js';
@@ -58,10 +58,10 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	static readonly placeholderViewContainersKey = 'workbench.agentsession.placeholderViewlets';
 	static readonly viewContainersWorkspaceStateKey = 'workbench.agentsession.viewletsWorkspaceState';
 
-	/** Visual margin values - sidebar is flush (no card appearance) */
-	static readonly MARGIN_TOP = 0;
-	static readonly MARGIN_BOTTOM = 0;
-	static readonly MARGIN_LEFT = 0;
+	/** Visual margin values for the card-like appearance */
+	static readonly MARGIN_TOP = 8;
+	static readonly MARGIN_BOTTOM = 18;
+	static readonly MARGIN_LEFT = 16;
 	private static readonly FOOTER_ITEM_HEIGHT = 26;
 	private static readonly FOOTER_ITEM_GAP = 4;
 	private static readonly FOOTER_VERTICAL_PADDING = 6;
@@ -289,10 +289,10 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		this.updateFooterVisibility();
 		const footerHeight = Math.min(height, this.getFooterHeight());
 
-		// Layout content with reduced height to account for footer
+		// Layout content with reduced dimensions to account for visual margins
 		super.layout(
-			width,
-			height - footerHeight,
+			width - SidebarPart.MARGIN_LEFT,
+			height - SidebarPart.MARGIN_TOP - SidebarPart.MARGIN_BOTTOM - footerHeight,
 			top, left
 		);
 

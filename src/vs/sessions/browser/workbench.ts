@@ -684,6 +684,18 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 				// Layout
 				this.layout();
 
+				// Collapsed Sidebar Widget (shown when sidebar is hidden)
+				this.collapsedSidebarWidget = this._register(instantiationService.createInstance(CollapsedSidebarWidget, this.mainContainer));
+				if (!this.partVisibility.sidebar) {
+					this.collapsedSidebarWidget.show();
+				}
+
+				// Collapsed Auxiliary Bar Widget (shown when auxiliary bar is hidden)
+				this.collapsedAuxiliaryBarWidget = this._register(instantiationService.createInstance(CollapsedAuxiliaryBarWidget, this.mainContainer));
+				if (!this.partVisibility.auxiliaryBar) {
+					this.collapsedAuxiliaryBarWidget.show();
+				}
+
 				// Restore
 				this.restore(lifecycleService);
 			});
@@ -2526,6 +2538,13 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 
 		this._applySideBarResize(hidden, resizeContext);
 
+		// Toggle collapsed sidebar widget
+		if (hidden) {
+			this.collapsedSidebarWidget?.show();
+		} else {
+			this.collapsedSidebarWidget?.hide();
+		}
+
 		// If sidebar becomes hidden, also hide the current active pane composite
 		if (hidden && this.paneCompositeService.getActivePaneComposite(ViewContainerLocation.Sidebar)) {
 			this.paneCompositeService.hideActivePaneComposite(ViewContainerLocation.Sidebar);
@@ -2575,6 +2594,13 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 
 		this._applyAuxiliaryBarVisibility(hidden, source);
 		this._updateEditorPaneVisibilityClass();
+
+		// Toggle collapsed auxiliary bar widget
+		if (hidden) {
+			this.collapsedAuxiliaryBarWidget?.show();
+		} else {
+			this.collapsedAuxiliaryBarWidget?.hide();
+		}
 
 		// If auxiliary bar becomes hidden, also hide the current active pane composite
 		if (hidden && this.paneCompositeService.getActivePaneComposite(ViewContainerLocation.AuxiliaryBar)) {
