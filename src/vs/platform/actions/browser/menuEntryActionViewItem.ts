@@ -399,7 +399,9 @@ export class SubmenuEntryActionViewItem extends DropdownMenuActionViewItem {
 		options: IDropdownMenuActionViewItemOptions | undefined,
 		@IKeybindingService protected _keybindingService: IKeybindingService,
 		@IContextMenuService protected _contextMenuService: IContextMenuService,
-		@IThemeService protected _themeService: IThemeService
+		@IThemeService protected _themeService: IThemeService,
+		@IConfigurationService _configurationService: IConfigurationService,
+		@IHoverService _hoverService: IHoverService,
 	) {
 		const dropdownOptions: IDropdownMenuActionViewItemOptions = {
 			...options,
