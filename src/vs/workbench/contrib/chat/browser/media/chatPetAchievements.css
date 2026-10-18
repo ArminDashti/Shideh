@@ -232,6 +232,8 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.hc-black .chat-pet-tabs,
+.hc-light .chat-pet-tabs,
 .hc-black .chat-pet-achievement-card,
 .hc-light .chat-pet-achievement-card,
 .hc-black .chat-pet-achievement-preview,
