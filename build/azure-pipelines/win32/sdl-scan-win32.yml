@@ -42,6 +42,14 @@ steps:
       targets:
         - x86_64-pc-windows-msvc
 
+  - task: NuGetAuthenticate@1
+    displayName: Setup NuGet Authentication
+
+  - template: ./steps/product-build-win32-install-rust.yml@self
+    parameters:
+      targets:
+        - x86_64-pc-windows-msvc
+
   - pwsh: |
       $includes = @'
         {
