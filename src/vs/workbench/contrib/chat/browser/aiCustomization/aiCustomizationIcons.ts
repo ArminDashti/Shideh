@@ -15,6 +15,11 @@ import { type AICustomizationSource, AICustomizationSources } from '../../common
 export const aiCustomizationViewIcon = registerIcon('ai-customization-view-icon', Codicon.sparkle, localize('aiCustomizationViewIcon', "Icon for the Agent Customization view."));
 
 /**
+ * Icon for the Overview section.
+ */
+export const overviewIcon = registerIcon('ai-customization-overview', Codicon.home, localize('aiCustomizationOverviewIcon', "Icon for Overview section."));
+
+/**
  * Icon for custom agents.
  */
 export const agentIcon = registerIcon('ai-customization-agent', Codicon.agent, localize('aiCustomizationAgentIcon', "Icon for custom agents."));

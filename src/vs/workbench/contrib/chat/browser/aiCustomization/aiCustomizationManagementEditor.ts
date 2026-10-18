@@ -841,6 +841,10 @@ export class AICustomizationManagementEditor extends EditorPane {
 		}
 	}
 
+	getOverviewWidget(): AICustomizationOverviewWidget | undefined {
+		return this.overviewWidget;
+	}
+
 	protected override createEditor(parent: HTMLElement): void {
 		this.cancelCustomizationMigrationRefresh();
 		this.editorDisposables.clear();
@@ -4013,6 +4017,11 @@ export class AICustomizationManagementEditor extends EditorPane {
 
 		// Update content visibility
 		this.updateContentVisibility();
+
+		// Update Overview counts if selected
+		if (section === AICustomizationManagementSection.Overview) {
+			this.overviewWidget?.refresh();
+		}
 
 		// Load items for the new section (only for prompts-based sections)
 		if (this.isPromptsSection(section)) {

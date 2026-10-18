@@ -951,3 +951,9 @@ registerWorkbenchContribution2(
 );
 
 //#endregion
+
+//#region Accessibility
+
+AccessibleViewRegistry.register(new AICustomizationAccessibilityHelp());
+
+//#endregion
