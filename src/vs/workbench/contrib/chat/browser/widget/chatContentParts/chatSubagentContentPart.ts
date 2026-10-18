@@ -1240,6 +1240,56 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 		// Track tool state for title updates and auto-expand/collapse on confirmation
 		this.trackToolState(toolInvocation);
 
+		// Batch tools that are already waiting for confirmation
+		if (toolInvocation.kind === 'toolInvocation') {
+			const state = toolInvocation.state.get();
+			if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+				// If there's an existing confirmation tool part, add to it
+				if (this.lastConfirmationToolPart?.isWaitingForConfirmation) {
+					this.lastConfirmationToolPart.addBatchedToolInvocation(toolInvocation);
+
+					// Move the batch DOM to the subagent's wrapper so it's a direct child
+					// (addBatchedToolInvocation appends to the tool part's parent which is
+					// a .chat-thinking-tool-wrapper, not the subagent wrapper)
+					const batchNode = this.lastConfirmationToolPart.batchDomNode;
+					if (batchNode && this.wrapper && batchNode.parentElement !== this.wrapper) {
+						this.wrapper.appendChild(batchNode);
+					}
+
+					// Watch for the tool to leave confirmation state, then create its tool part.
+					// Self-dispose after firing to avoid wasted re-evaluations.
+					const watcher = autorun(r => {
+						const currentState = toolInvocation.state.read(r);
+						if (currentState.type !== IChatToolInvocation.StateKind.WaitingForConfirmation) {
+							const part = this.createToolPart(toolInvocation, codeBlockStartIndex);
+							this.appendToolPartToDOM(part, toolInvocation);
+							watcher.dispose();
+						}
+					});
+					this._register(watcher);
+					return;
+				}
+
+				// First confirmation — render normally and track for potential batching
+				const part = this.createToolPart(toolInvocation, codeBlockStartIndex);
+				this.appendToolPartToDOM(part, toolInvocation);
+				this.lastConfirmationToolPart = part;
+
+				// Clear tracking when this tool leaves confirmation AND the batch is no longer active.
+				// Keep the reference while the batch is active so appendToolPartToDOM can
+				// find the batchDomNode and insert new tool wrappers before it.
+				this._register(autorun(r => {
+					const currentState = toolInvocation.state.read(r);
+					if (currentState.type !== IChatToolInvocation.StateKind.WaitingForConfirmation) {
+						if (this.lastConfirmationToolPart === part && !part.hasActiveBatch) {
+							this.lastConfirmationToolPart = undefined;
+						}
+					}
+				}));
+				return;
+			}
+		}
+
 		// Render immediately only if already expanded or has been expanded before
 		if (this.isExpanded() || this.hasExpandedOnce) {
 			const part = this.createToolPart(toolInvocation, codeBlockStartIndex);

@@ -2579,6 +2579,10 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return undefined;
 		}
 
+		if (this.hasActiveBatchedConfirmation(templateData.renderedParts)) {
+			return false;
+		}
+
 		if (
 			!lastPart ||
 			lastPart.kind === 'references' ||
@@ -5237,6 +5241,47 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 
 		return part;
+	}
+
+	/**
+	 * Finds a ChatToolInvocationPart that's waiting for confirmation and is
+	 * immediately adjacent (the previous rendered part) to the given content index.
+	 * This ensures we only batch consecutive confirmations, not ones separated by other content.
+	 */
+	private findAdjacentWaitingConfirmationPart(contentIndex: number, renderedParts: ReadonlyArray<IChatContentPart> | undefined): ChatToolInvocationPart | undefined {
+		if (!renderedParts || contentIndex <= 0) {
+			return undefined;
+		}
+		// Walk backwards from the immediately preceding index to find
+		// a confirmation part, skipping placeholder/no-content parts
+		for (let i = contentIndex - 1; i >= 0; i--) {
+			const part = renderedParts[i];
+			if (!part) {
+				continue;
+			}
+			// Found a waiting confirmation part — it's adjacent
+			if (part instanceof ChatToolInvocationPart && (part.isWaitingForConfirmation || part.hasActiveBatch)) {
+				return part;
+			}
+			// Found a placeholder for a batched tool — skip it and keep looking
+			if (part.domNode?.classList.contains('chat-batched-tool-placeholder')) {
+				continue;
+			}
+			break;
+		}
+		return undefined;
+	}
+
+	private hasActiveBatchedConfirmation(renderedParts: ReadonlyArray<IChatContentPart> | undefined): boolean {
+		if (!renderedParts) {
+			return false;
+		}
+		for (const part of renderedParts) {
+			if (part instanceof ChatToolInvocationPart && part.hasActiveBatch) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// watch for confirmation part transition when tool invocation is streaming
