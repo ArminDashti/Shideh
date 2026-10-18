@@ -735,6 +735,10 @@ export class ChangesViewService extends Disposable implements IChangesViewServic
 	}
 
 	private _bindContextKeys(): void {
+		this._register(bindContextKey<boolean>(ActiveSessionContextKeys.HasChanges, this.contextKeyService, reader => {
+			return this.activeSessionChangesSummaryObs.read(reader) !== undefined;
+		}));
+
 		this._register(bindContextKey<boolean>(ChangesetReviewSupportContext, this.contextKeyService, reader => {
 			const changeset = this.activeSessionChangesetObs.read(reader);
 			return changeset?.capabilities?.review === true;

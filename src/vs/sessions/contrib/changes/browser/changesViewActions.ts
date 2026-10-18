@@ -72,7 +72,6 @@ class ChangesViewActionsContribution extends Disposable implements IWorkbenchCon
 
 	constructor(
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@ISessionsService sessionsService: ISessionsService,
 		@IChangesViewService changesViewService: IChangesViewService,
 		@IEditorService editorService: IEditorService,
 	) {
