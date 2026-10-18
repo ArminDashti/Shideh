@@ -2,7 +2,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Config"
+    "value": "#### Config\n"
   },
   {
     "kind": 2,
@@ -12,7 +12,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "### Finalization"
+    "value": "### Finalization\n"
   },
   {
     "kind": 2,
@@ -22,7 +22,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "### Proposals"
+    "value": "### Proposals\n"
   },
   {
     "kind": 2,

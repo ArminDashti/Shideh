@@ -2,7 +2,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "##### `Config`: This should be changed every month/milestone"
+    "value": "##### `Config`: This should be changed every month/milestone\n"
   },
   {
     "kind": 2,
@@ -12,7 +12,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Milestone Work"
+    "value": "## Milestone Work\n"
   },
   {
     "kind": 2,
@@ -22,12 +22,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Bugs, Debt, Features..."
+    "value": "## Bugs, Debt, Features...\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### My Bugs"
+    "value": "#### My Bugs\n"
   },
   {
     "kind": 2,
@@ -37,7 +37,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Debt & Engineering"
+    "value": "#### Debt & Engineering\n"
   },
   {
     "kind": 2,
@@ -47,7 +47,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Performance 🐌 🔜 🏎"
+    "value": "#### Performance 🐌 🔜 🏎\n"
   },
   {
     "kind": 2,
@@ -57,7 +57,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Feature Requests"
+    "value": "#### Feature Requests\n"
   },
   {
     "kind": 2,
@@ -77,7 +77,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Triage Needed"
+    "value": "#### Triage Needed\n"
   },
   {
     "kind": 2,
@@ -87,7 +87,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "\n#### Missing Type label"
+    "value": "#### Missing Type label\n"
   },
   {
     "kind": 2,
@@ -97,7 +97,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Missing Area Label\n\nFeature area labels are light or strong blue (`1d76db` or `c5def5`) and they denote a specific feature or feature area, like `editor-clipboard` or `file-explorer`"
+    "value": "#### Missing Area Label\n\nFeature area labels are light or strong blue (`1d76db` or `c5def5`) and they denote a specific feature or feature area, like `editor-clipboard` or `file-explorer`\n"
   },
   {
     "kind": 2,
@@ -107,7 +107,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "### Missing Milestone"
+    "value": "### Missing Milestone\n"
   },
   {
     "kind": 2,
@@ -117,7 +117,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Not Actionable"
+    "value": "#### Not Actionable\n"
   },
   {
     "kind": 2,
@@ -127,12 +127,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "### Pull Requests"
+    "value": "### Pull Requests\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "✅ Approved"
+    "value": "✅ Approved\n"
   },
   {
     "kind": 2,
@@ -142,7 +142,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "⌛ Pending Approval"
+    "value": "⌛ Pending Approval\n"
   },
   {
     "kind": 2,
@@ -152,7 +152,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "⚠️ Changes Requested"
+    "value": "⚠️ Changes Requested\n"
   },
   {
     "kind": 2,

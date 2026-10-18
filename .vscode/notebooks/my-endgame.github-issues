@@ -2,7 +2,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "#### Macros"
+    "value": "#### Macros\n"
   },
   {
     "kind": 2,
@@ -17,12 +17,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "# Preparation"
+    "value": "# Preparation\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Open Pull Requests on the Milestone"
+    "value": "## Open Pull Requests on the Milestone\n"
   },
   {
     "kind": 2,
@@ -32,7 +32,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Open Issues on the Milestone"
+    "value": "## Open Issues on the Milestone\n"
   },
   {
     "kind": 2,
@@ -42,7 +42,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Feature Requests Missing Labels"
+    "value": "## Feature Requests Missing Labels\n"
   },
   {
     "kind": 2,
@@ -52,7 +52,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Test Plan Items"
+    "value": "## Test Plan Items\n"
   },
   {
     "kind": 2,
@@ -62,7 +62,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Verification Needed"
+    "value": "## Verification Needed\n"
   },
   {
     "kind": 2,
@@ -72,12 +72,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "# Testing"
+    "value": "# Testing\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Test Plan Items"
+    "value": "## Test Plan Items\n"
   },
   {
     "kind": 2,
@@ -87,7 +87,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Verification Needed"
+    "value": "## Verification Needed\n"
   },
   {
     "kind": 2,
@@ -97,12 +97,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "# Fixing"
+    "value": "# Fixing\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Open Issues"
+    "value": "## Open Issues\n"
   },
   {
     "kind": 2,
@@ -112,7 +112,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Open Bugs"
+    "value": "## Open Bugs\n"
   },
   {
     "kind": 2,
@@ -122,12 +122,12 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "# Verification"
+    "value": "# Verification\n"
   },
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## My Issues (verification-steps-needed)"
+    "value": "## My Issues (verification-steps-needed)\n"
   },
   {
     "kind": 2,
@@ -137,7 +137,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## My Issues (verification-found)"
+    "value": "## My Issues (verification-found)\n"
   },
   {
     "kind": 2,
@@ -147,7 +147,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Issues filed by me"
+    "value": "## Issues filed by me\n"
   },
   {
     "kind": 2,
@@ -157,7 +157,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Issues filed from outside team"
+    "value": "## Issues filed from outside team\n"
   },
   {
     "kind": 2,
@@ -167,7 +167,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "## Issues filed by others"
+    "value": "## Issues filed by others\n"
   },
   {
     "kind": 2,
@@ -187,7 +187,7 @@
   {
     "kind": 1,
     "language": "markdown",
-    "value": "# Release Notes"
+    "value": "# Release Notes\n"
   },
   {
     "kind": 2,
