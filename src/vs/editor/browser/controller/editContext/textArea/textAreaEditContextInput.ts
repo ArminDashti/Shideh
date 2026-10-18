@@ -446,6 +446,7 @@ export class TextAreaInput extends Disposable {
 		}));
 
 		this._register(this._textArea.onFocus(() => {
+			console.log('onFocus of TextAreaWrapper');
 			const hadFocus = this._hasFocus;
 
 			this._setHasFocus(true);
@@ -474,6 +475,7 @@ export class TextAreaInput extends Disposable {
 				// Fire artificial composition end
 				this._onCompositionEnd.fire();
 			}
+			console.log('onBlur of TextAreaWrapper');
 			this._setHasFocus(false);
 		}));
 		this._register(this._textArea.onSyntheticTap(() => {
@@ -593,6 +595,7 @@ export class TextAreaInput extends Disposable {
 	}
 
 	public focusTextArea(): void {
+		console.log('focusTextArea');
 		// Setting this._hasFocus and writing the screen reader content
 		// will result in a focus() and setSelectionRange() in the textarea
 		this._setHasFocus(true);
@@ -606,6 +609,7 @@ export class TextAreaInput extends Disposable {
 	}
 
 	public refreshFocusState(): void {
+		console.log('refreshFocusState');
 		this._setHasFocus(this._textArea.hasFocus());
 	}
 
@@ -626,6 +630,7 @@ export class TextAreaInput extends Disposable {
 		}
 
 		if (this._hasFocus) {
+			console.log('write this._hasFocus');
 			this.writeNativeTextAreaContent('focusgain');
 		}
 

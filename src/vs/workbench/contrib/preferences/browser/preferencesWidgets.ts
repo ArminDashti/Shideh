@@ -485,7 +485,11 @@ export class SearchWidget extends Widget {
 	}
 
 	focus() {
+		console.log('focus of search widget');
 		this.inputBox.focus();
+		const selection = DOM.getActiveDocument().getSelection();
+		console.log('selection : ', selection);
+
 		if (this.getValue()) {
 			this.inputBox.select();
 		}

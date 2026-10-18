@@ -314,6 +314,7 @@ export class SettingsEditor2 extends EditorPane {
 		@IExperimentalSettingsService experimentalSettingsService: IExperimentalSettingsService,
 		@IManagedSettingsPresentationService managedSettingsPresentationService: IManagedSettingsPresentationService,
 	) {
+		console.log('settingseditor2 constructor');
 		super(SettingsEditor2.ID, group, telemetryService, themeService, storageService);
 		this.searchDelayer = this._register(new Delayer(200));
 		this.viewState = { settingsTarget: ConfigurationTarget.USER_LOCAL };
@@ -667,6 +668,7 @@ export class SettingsEditor2 extends EditorPane {
 	}
 
 	override focus(): void {
+		console.log('focus of settings editor 2');
 		super.focus();
 
 		if (this._currentFocusContext === SettingsFocusContext.Search) {

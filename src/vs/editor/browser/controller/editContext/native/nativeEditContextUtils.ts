@@ -59,6 +59,7 @@ export class FocusTracker extends Disposable {
 		if (this._isFocused === focused) {
 			return;
 		}
+		console.log('after early return');
 		this._isFocused = focused;
 		this._onFocusChange(this._isFocused);
 	}
@@ -90,6 +91,13 @@ export class FocusTracker extends Disposable {
 		const activeElement = shadowRoot ? shadowRoot.activeElement : this._domNode.ownerDocument.activeElement;
 		const focused = this._domNode === activeElement;
 		this._handleFocusedChanged(focused);
+	}
+
+	public refreshFocusState(): void {
+		console.log('refreshFocusState of FocusTracker');
+		const isFocused = getActiveElement() === this._domNode;
+		console.log('isFocused : ', isFocused);
+		this._handleFocusedChanged(isFocused);
 	}
 
 	get isFocused(): boolean {
