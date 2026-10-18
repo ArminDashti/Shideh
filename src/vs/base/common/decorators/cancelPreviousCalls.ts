@@ -11,7 +11,7 @@ import { CancellationTokenSource, CancellationToken } from '../cancellation.js';
  * Helper type that represents a function that has an optional {@linkcode CancellationToken}
  * argument argument at the end of the arguments list.
  *
- * @typeparam `TFunction` - Type of the function arguments list of which will be extended
+ * @param `TFunction` - Type of the function arguments list of which will be extended
  * 							with an optional {@linkcode CancellationToken} argument.
  */
 type TWithOptionalCancellationToken<TFunction extends Function> = TFunction extends (...args: infer TArgs) => infer TReturn
@@ -31,9 +31,9 @@ type TWithOptionalCancellationToken<TFunction extends Function> = TFunction exte
  *   this requirement comes from the internal implementation of the decorator that
  *   creates new resources that need to be eventually disposed by someone
  *
- * @typeparam `TObject` - Object type that the decorated method belongs to.
- * @typeparam `TArgs` - Argument list of the decorated method.
- * @typeparam `TReturn` - Return value type of the decorated method.
+ * @param `TObject` - Object type that the decorated method belongs to.
+ * @param `TArgs` - Argument list of the decorated method.
+ * @param `TReturn` - Return value type of the decorated method.
  *
  * ### Examples
  *

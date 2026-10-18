@@ -1,0 +1,42 @@
+{
+  "name": "prompt-syntax",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "vscode",
+  "license": "MIT",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "0.10.x"
+  },
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "categories": [
+    "Programming Languages"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false
+  },
+  "contributes": {},
+  "scripts": {
+    "compile": "npx gulp compile-extension:prompt-syntax",
+    "watch": "npx gulp watch-extension:prompt-syntax"
+  },
+  "dependencies": {
+    "assert": "^2.0",
+    "buffer": "^6.0.3",
+    "vscode-jsonrpc": "^8.2",
+    "vscode-uri": "^3.1"
+  },
+  "devDependencies": {
+    "sinon": "^19.0",
+    "@types/node": "20.x",
+    "@types/assert": "^1.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode.git"
+  }
+}
