@@ -16,6 +16,8 @@ import { Schemas } from '../../../base/common/network.js';
 import { equals } from '../../../base/common/objects.js';
 import { dirname as resourcesDirname, extname as resourcesExtname, extUriBiasedIgnorePathCase, isEqual, isEqualOrParent, joinPath } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
+import { type AgentCanvasInput, type IAgentCanvas, type IAgentCanvasType, isAgentCanvasInput } from '../common/meta/agentCanvasMeta.js';
+import { IAgentHostCanvasController } from './agentHostCanvasController.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { hasKey } from '../../../base/common/types.js';
 import { localize } from '../../../nls.js';
@@ -1724,6 +1726,47 @@ export class AgentService extends Disposable implements IAgentService {
 	async resetPersistentTeamMember(request: IAgentHostPersistentTeamReset): Promise<IAgentHostPersistentTeamState> {
 		await this.restoreSession(URI.parse(request.session));
 		return this._persistentTeams.resetMember(request);
+	}
+
+	closeCanvas(session: URI, chat: URI, instanceId: string): Promise<void> {
+		return this._canvasController.closeCanvas(session, chat, instanceId);
+	}
+
+	async listCanvases(session: URI, chat: URI): Promise<readonly IAgentCanvasType[]> {
+		await this._prepareCanvasChat(session, chat);
+		return this._canvasController.listCanvases(session, chat);
+	}
+
+	async openCanvas(session: URI, chat: URI, extensionId: string, canvasTypeId: string, input?: AgentCanvasInput): Promise<IAgentCanvas> {
+		if (!extensionId.trim() || !canvasTypeId.trim() || (input !== undefined && !isAgentCanvasInput(input))) {
+			throw new Error('Canvas requires a provider, type, and JSON input');
+		}
+		await this._prepareCanvasChat(session, chat);
+		return this._canvasController.openCanvas(session, chat, extensionId, canvasTypeId, input);
+	}
+
+	/** Routes direct Canvas requests through normal host restore and provider materialization. */
+	private async _prepareCanvasChat(session: URI, chat: URI): Promise<void> {
+		if (session.authority || session.query || session.fragment || !session.path.startsWith('/') || session.path.length < 2
+			|| parseChatUri(session) || parseChatUri(chat)?.session !== session.toString()) {
+			throw new Error('Canvas requires an owning session and chat');
+		}
+		const provider = this._providerService.getProviderForSession(session);
+		if (!provider?.prepareCanvasChat) {
+			throw new Error('Agent provider does not support Canvas operations');
+		}
+		await this.restoreSession(session);
+		const state = this._stateManager.getSessionState(session.toString());
+		if (!state?.chats.some(candidate => candidate.resource === chat.toString())) {
+			throw new Error('Canvas chat is not part of the requested session');
+		}
+		if (!await this._stateManager.resolveChatState(chat.toString())) {
+			throw new Error('Cannot restore Canvas chat');
+		}
+		await provider.prepareCanvasChat(chat, this._chatContext(session, chat));
+		if (!this._stateManager.getSessionState(session.toString())?.chats.some(candidate => candidate.resource === chat.toString())) {
+			throw new Error('Canvas chat was disposed while preparing');
+		}
 	}
 
 	private _isArtifactToolsEnabled(): boolean {

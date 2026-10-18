@@ -974,6 +974,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	private _isShuttingDown = false;
 	private readonly _plugins: PluginController;
 	private readonly _sessionLauncher: CopilotSessionLauncher;
+	private _extensionSdkPath: string | undefined;
 	private readonly _gitHubTelemetryForwarder: CopilotGitHubTelemetryForwarder;
 	private readonly _secondaryAssignmentContext: CopilotSecondaryAssignmentContext;
 	private readonly _githubTelemetryRouter: AgentHostGitHubTelemetryRouter | undefined;
@@ -2752,7 +2753,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 			const copilotSdkLogLevelAtStartup = this._resolveCopilotSdkLogLevel(startupConfig.copilotSdkLogLevel);
 			const gitHubToken = startupConfig.enterpriseHost || startupConfig.copilotConnectors ? this._githubCredentials.token : undefined;
 
+			const extensionLaunch = await getCopilotExtensionLaunch(cliPath);
+			this._extensionSdkPath = extensionLaunch?.extensionSdkPath;
 			const clientOptions: CopilotClientOptions = {
+				...(extensionLaunch ? { onExtensionLaunch: extensionLaunch.onExtensionLaunch } : {}),
 				useLoggedInUser: false,
 				gitHubToken,
 				connection: RuntimeConnection.forStdio({ path: runtimePath }),

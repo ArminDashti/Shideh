@@ -358,7 +358,8 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 
 	async createBrowserView(options: IBrowserViewWorkbenchCreateOptions, editorOpenOptions?: IBrowserViewEditorOpenOptions): Promise<BrowserEditorInput> {
 		const input = this._getOrCreateLazy({
-			id: generateUuid(),
+			id: options.id ?? generateUuid(),
+			transient: options.transient,
 			associatedResource: options.associatedResource,
 			url: options.initialUrl
 		}, undefined, { ...options, initialUrl: undefined });

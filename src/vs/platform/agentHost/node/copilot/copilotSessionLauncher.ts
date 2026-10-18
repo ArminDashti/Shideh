@@ -733,6 +733,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 	private _byokProxyHandle: Promise<IByokLmProxyHandle> | undefined;
 
 	constructor(
+		private readonly _getExtensionSdkPath: () => string | undefined,
 		@IAgentConfigurationService private readonly _configurationService: IAgentConfigurationService,
 		@IAgentHostManagedSettingsService private readonly _managedSettingsService: IAgentHostManagedSettingsService,
 		@IAgentHostTerminalManager private readonly _terminalManager: IAgentHostTerminalManager,

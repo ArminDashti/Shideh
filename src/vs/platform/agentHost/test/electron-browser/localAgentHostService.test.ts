@@ -374,6 +374,57 @@ suite('registerAgentHostClientChannels', () => {
 				reconnectedClient: client,
 			});
 		});
+
+			test('Canvas list/open use local management rather than disabled protocol extensions', async () => {
+				const instantiationService = disposables.add(new TestInstantiationService());
+				const rootState = { value: undefined, verifiedValue: undefined, onDidChange: Event.None, onWillApplyAction: Event.None, onDidApplyAction: Event.None };
+				const initializeResult = observableValue<InitializeResult | undefined>('initialize', undefined);
+				instantiationService.stub(ILogService, new NullLogService());
+				instantiationService.stub(IConfigurationService, new TestConfigurationService());
+				instantiationService.stub(IEnvironmentService, { logsHome: URI.file('/logs') } as Partial<IEnvironmentService>);
+				instantiationService.stub(INotificationService, new TestNotificationService());
+				instantiationService.stubInstance(AgentHostProtocolClient, {
+					clientId: 'test-client', connect: async () => { }, dispose: () => { }, rootState,
+					onDidChangeConnectionState: Event.None, onDidFatalClose: Event.None,
+					initializeResult,
+					listCanvases: async () => { throw new Error('Must not use local protocol extension RPC'); },
+					openCanvas: async () => { throw new Error('Must not use local protocol extension RPC'); },
+				});
+				instantiationService.stubInstance(AgentHostStartupTelemetry, { protocolConnected: () => { }, connectionFailed: () => { }, dispose: () => { } });
+				instantiationService.set(IInstantiationService, instantiationService);
+				const service = disposables.add(instantiationService.createInstance(LocalAgentHostServiceClient, editorWindowAgentHostClientInfo));
+				service.startAgentHost();
+				assert.strictEqual(service.initializeResult.get(), undefined);
+				initializeResult.set(upcastPartial<InitializeResult>({ _meta: {} }), undefined);
+				assert.deepStrictEqual([
+					supportsAgentHostCanvasOpen(service.initializeResult.get()),
+					supportsAgentHostCanvasClose(service.initializeResult.get()),
+				], [true, true]);
+				const calls: { command: string; args: unknown }[] = [];
+				const session = URI.parse('copilotcli:/session');
+				const chat = URI.parse('ahp-chat:/chat');
+				const canvas = { chat: chat.toString(), instanceId: 'counter', canvasTypeId: 'main' };
+				const management = (service as unknown as { _managementConnection: LocalAgentHostManagementConnection })._managementConnection;
+				await management.acquire(Promise.resolve({
+					getChannel: <T extends IChannel>(name: string): T => {
+						assert.strictEqual(name, AgentHostIpcChannels.Management);
+						const channel: IChannel = {
+							listen: () => Event.None,
+							call: async <R>(command: string, args?: unknown): Promise<R> => {
+								calls.push({ command, args });
+								return (command === 'listCanvases' ? [] : canvas) as R;
+							},
+						};
+						return channel as T;
+					},
+				}));
+				management.connected();
+				await service.listCanvases(session, chat);
+				const result = await service.openCanvas(session, chat, 'project:counter', 'main', { count: 2 });
+				assert.deepStrictEqual({ result, commands: calls.map(call => call.command) }, {
+					result: canvas, commands: ['listCanvases', 'openCanvas'],
+				});
+		});
 	});
 
 	test('registers a null BYOK channel when the handler is missing', () => {

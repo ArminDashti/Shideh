@@ -1397,6 +1397,8 @@ export interface IAgent {
 
 	/** Exact-chat operations: create, send, abort, mutate, restore history, release, and dispose. */
 	readonly chats: IAgentChats;
+	/** Makes an existing chat's Canvas provider live without starting a model turn. */
+	prepareCanvasChat?(chat: URI, context: IAgentChatContext): Promise<void>;
 
 	/** Optional live-session marketplace operations owned by this provider. */
 	readonly pluginMarketplaces?: IAgentPluginMarketplaces;

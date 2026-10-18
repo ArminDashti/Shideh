@@ -3392,6 +3392,75 @@ suite('CopilotAgent', () => {
 		}
 	});
 
+			test('Canvas preparation materializes a provisional chat without sending a model turn', async () => {
+				const client = new TestCopilotClient([]);
+				const sdk = new MockCopilotSession('canvas-sdk');
+				let sends = 0;
+				let creates = 0;
+				sdk.send = async () => { sends++; return ''; };
+				client.createSession = async () => { creates++; return sdk as unknown as CopilotSession; };
+				const agent = createTestAgent(disposables, { copilotClient: client, sessionDataService: disposables.add(new TestSessionDataService()) });
+				const session = AgentSession.uri('copilotcli', 'canvas-provisional');
+				const chat = defaultChatUri(session);
+				try {
+					await agent.authenticate('https://api.github.com', 'github-token');
+					const created = await provisionSession(agent, { session, workingDirectories: [URI.file('/workspace')] });
+					(agent as unknown as { _extensionSdkPath: string })._extensionSdkPath = '/runtime/copilot-sdk';
+					await Promise.all([
+						agent.prepareCanvasChat(chat, exactChatContext(session, chat, session)),
+						agent.prepareCanvasChat(chat, exactChatContext(session, chat, session)),
+					]);
+					assert.deepStrictEqual({ provisional: created.provisional, live: hasLiveChat(agent, chat), sends, creates }, {
+						provisional: true, live: true, sends: 0, creates: 1,
+					});
+				} finally {
+					await disposeAgent(agent);
+				}
+			});
+
+			test('Canvas preparation rejects unsupported SDKs before creating a runtime session', async () => {
+				const client = new TestCopilotClient([]);
+				let created = false;
+				client.createSession = async () => { created = true; throw new Error('Unexpected create'); };
+				const agent = createTestAgent(disposables, { copilotClient: client });
+				const session = AgentSession.uri('copilotcli', 'canvas-unsupported');
+				const chat = defaultChatUri(session);
+				try {
+					await provisionSession(agent, { session, workingDirectories: [URI.file('/workspace')] });
+					await assert.rejects(agent.prepareCanvasChat(chat, exactChatContext(session, chat, session)), /does not support standalone Canvas/);
+					assert.strictEqual(created, false);
+				} finally {
+					await disposeAgent(agent);
+				}
+			});
+
+			test('Canvas preparation resumes the exact dormant peer without a turn', async () => {
+				const client = new TestCopilotClient([]);
+				const resumed: string[] = [];
+				let sends = 0;
+				client.resumeSession = async id => {
+					resumed.push(id);
+					const sdk = new MockCopilotSession(id);
+					sdk.send = async () => { sends++; return ''; };
+					return sdk as unknown as CopilotSession;
+				};
+				const agent = createTestAgent(disposables, { copilotClient: client, useRealResumePath: true, sessionDataService: disposables.add(new TestSessionDataService()) });
+				const session = AgentSession.uri('copilotcli', 'canvas-dormant');
+				const chat = URI.parse(buildChatUri(session, 'peer'));
+				try {
+					await agent.authenticate('https://api.github.com', 'github-token');
+					await provisionSession(agent, { session, workingDirectories: [URI.file('/workspace')] });
+					(agent as unknown as { _extensionSdkPath: string })._extensionSdkPath = '/runtime/copilot-sdk';
+					await agent.materializeChat(chat, exactChatContext(session, chat, chat), JSON.stringify({ sdkSessionId: 'canvas-peer-sdk' }));
+					await agent.prepareCanvasChat(chat, exactChatContext(session, chat, chat));
+					assert.deepStrictEqual({ resumed, live: hasLiveChat(agent, chat), sends }, {
+						resumed: ['canvas-peer-sdk'], live: true, sends: 0,
+					});
+				} finally {
+					await disposeAgent(agent);
+				}
+			});
+
 	test('passes the GitHub token when refreshing models', async () => {
 		const client = new TestCopilotClient([], [{
 			id: 'gpt-4o',

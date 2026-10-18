@@ -15,6 +15,7 @@ import { equals } from '../../../base/common/objects.js';
 import { Schemas } from '../../../base/common/network.js';
 import { hasKey } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
+import { supportsAgentHostCanvasClose, supportsAgentHostCanvasOpen, type AgentCanvasInput, type IAgentCanvas, type IAgentCanvasType } from '../common/meta/agentCanvasMeta.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { vArray, vEnum, vObj, vOptionalProp, vString } from '../../../base/common/validation.js';
 import { localize } from '../../../nls.js';

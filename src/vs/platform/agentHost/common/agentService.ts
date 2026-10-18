@@ -13,6 +13,7 @@ import { IReference } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import type { IObservable } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
+import type { AgentCanvasInput, IAgentCanvas, IAgentCanvasType } from './meta/agentCanvasMeta.js';
 import type { IConfigurationChangeEvent, IConfigurationService } from '../../configuration/common/configuration.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import type { IActiveSubscriptionInfo, IAgentSubscription } from './state/agentSubscription.js';
@@ -1170,6 +1171,10 @@ export interface IAgentHostManagementService {
 	 * `createChat` (`title` and `model`).
 	 */
 	createChatWithExtensions(session: URI, chat: URI, options: IAgentCreateChatRequestOptions): Promise<void>;
+	/** Local Canvas dismissal until Canvas commands are represented in AHP. */
+	closeCanvas(session: URI, chat: URI, instanceId: string): Promise<void>;
+	listCanvases(session: URI, chat: URI): Promise<readonly IAgentCanvasType[]>;
+	openCanvas(session: URI, chat: URI, extensionId: string, canvasTypeId: string, input?: AgentCanvasInput): Promise<IAgentCanvas>;
 	createDetachedWorktree(session: URI, prompt: string): Promise<{ handle: string; worktree: URI }>;
 	setDetachedWorktreeArchived(handle: string, archived: boolean): Promise<void>;
 	claimDetachedWorktree(handle: string): Promise<void>;

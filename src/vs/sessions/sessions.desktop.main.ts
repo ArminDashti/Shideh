@@ -197,6 +197,7 @@ import '../workbench/contrib/webview/electron-browser/webview.contribution.js';
 
 // Browser
 import '../workbench/contrib/browserView/electron-browser/browserView.contribution.js';
+import '../workbench/contrib/chat/electron-browser/agentHostCanvas.contribution.js';
 
 // Splash
 import '../workbench/contrib/splash/electron-browser/splash.contribution.js';
