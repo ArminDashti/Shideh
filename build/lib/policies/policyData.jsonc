@@ -294,7 +294,10 @@
             },
             "type": "boolean",
             "default": false,
-            "included": true
+            "included": true,
+            "agentHost": {
+                "status": "enforced"
+            }
         },
         {
             "key": "chat.agentHost.otel.captureContent",

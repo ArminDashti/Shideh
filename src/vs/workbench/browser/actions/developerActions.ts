@@ -1264,6 +1264,12 @@ class PolicyDiagnosticsAction extends Action2 {
 			content += `*Error rendering managed settings diagnostics: ${markdownText(getErrorMessage(error))}*\n\n`;
 		}
 
+		const configuredPolicyGaps = getAgentHostPolicyGaps(configurationService);
+		const policyGaps = new Set(configuredPolicyGaps.map(gap => gap.policyName));
+		const readiness = agentHostPolicyReadiness(
+			configuredPolicyGaps.map(gap => ({ ...gap, source: policyValueSourceLabel(policyService.getPolicyValueSource(gap.policyName)) })),
+			agentHostEnablementService.managedSandboxEnforced.get(),
+		);
 		content += '## Policy-Controlled Settings\n\n';
 
 		const policyConfigurations = configurationRegistry.getPolicyConfigurations();
@@ -1313,11 +1319,13 @@ class PolicyDiagnosticsAction extends Action2 {
 			summary.policyControlledSettings = `${appliedPolicy.length} applied, ${notAppliedPolicy.length} not applied`;
 			if (appliedPolicy.length > 0) {
 				content += markdownTable(
-					['Setting Key', 'Policy Name', 'Policy Source'],
+					['Setting Key', 'Policy Name', 'Policy Source', 'Catalog support (all sources)', 'Listed in readiness'],
 					appliedPolicy.map(setting => [
 						setting.key,
 						setting.name,
-						getPolicySource(setting.name)
+						getPolicySource(setting.name),
+						agentHostPolicySupport[setting.name]?.status ?? 'Not audited',
+						policyGaps.has(setting.name) ? 'Yes' : 'No'
 					])
 				);
 
@@ -1342,14 +1350,14 @@ class PolicyDiagnosticsAction extends Action2 {
 				content += '*No settings are currently controlled by policies*\n\n';
 			}
 
-			content += '### Non-applied Policy\n\n';
 			if (notAppliedPolicy.length > 0) {
-				content += markdownTable(
-					['Setting Key', 'Policy Name'],
-					notAppliedPolicy.map(setting => [setting.key, setting.name])
+				content += markdownDetails(
+					'Non-applied policy inventory (not current enforcement gaps)',
+					markdownTable(
+						['Setting Key', 'Policy Name'],
+						notAppliedPolicy.map(setting => [setting.key, setting.name])
+					)
 				);
-			} else {
-				content += '*All policy-controllable settings are currently being enforced*\n\n';
 			}
 		} else {
 			summary.policyControlledSettings = 'No policy-controlled settings found';
@@ -1432,8 +1440,8 @@ class PolicyDiagnosticsAction extends Action2 {
 			content += `*Error retrieving authentication information: ${markdownText(getErrorMessage(error))}*\n\n`;
 		}
 
-		const report = '# VS Code Policy Diagnostics\n\n' +
-			'*WARNING: This file may contain sensitive information.*\n\n' +
+		const report = policyDiagnosticsReport(
+			readiness,
 			'## Summary\n\n' +
 			markdownTable(
 				['Diagnostic', 'Result'],
@@ -1447,7 +1455,8 @@ class PolicyDiagnosticsAction extends Action2 {
 					['Policy-controlled settings', summary.policyControlledSettings]
 				]
 			) +
-			content;
+			content
+		);
 
 		return report;
 	}
