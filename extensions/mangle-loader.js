@@ -15,6 +15,8 @@ const { Mangler } = require('../build/lib/mangleTypeScript');
  */
 const mangleMap = new Map();
 
+const sequentializer = Promise.resolve();
+
 /**
  * @param {string} projectPath
  */
