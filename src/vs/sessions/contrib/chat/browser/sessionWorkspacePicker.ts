@@ -1609,8 +1609,10 @@ export class WorkspacePicker extends Disposable {
 	protected _buildItems(): IActionListItem<IWorkspacePickerItem>[] {
 		const items: IActionListItem<IWorkspacePickerItem>[] = [];
 
-		// Collect recent workspaces from picker storage across all providers
-		const allProviders = this.sessionsProvidersService.getProviders();
+		// Collect recent workspaces from picker storage. Scoped to the active
+		// provider only when the host bar rail is driving selection
+		// (vscode.dev/agents); otherwise falls back to all providers.
+		const allProviders = this._getProvidersForPicker();
 		const providerIds = new Set(allProviders.map(p => p.id));
 		const availableTabs = this._getAvailableTabs();
 		const activeGroup = this._activeTab ?? (availableTabs.length === 1 ? availableTabs[0].id : undefined);

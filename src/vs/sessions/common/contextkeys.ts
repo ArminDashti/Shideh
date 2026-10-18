@@ -221,3 +221,9 @@ export const SessionsHasMultipleCollectionsContext = new RawContextKey<boolean>(
 export const SessionsTourVisibleContext = new RawContextKey<boolean>('sessionsTourVisible', false, localize('sessionsTourVisible', "Whether the sessions product tour overlay is visible"));
 
 //#endregion
+
+//#region < --- Host Bar --- >
+
+export const HostBarVisibleContext = new RawContextKey<boolean>('hostBarVisible', false, localize('hostBarVisible', "Whether the agent host switcher rail is visible"));
+
+//#endregion

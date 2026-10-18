@@ -1015,17 +1015,29 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 		// Warm up font cache information before building up too many dom elements
 		this.restoreFontInfo(storageService, configurationService);
 
+		// Determine whether to show the host switcher rail (web + remote agent hosts enabled).
+		this.hostBarEnabled = isWeb && configurationService.getValue<boolean>(RemoteAgentHostsEnabledSettingId) === true;
+		if (this.hostBarEnabled) {
+			// Instantiating the part auto-registers it with this layout service via Part base class.
+			instantiationService.createInstance(HostBarPart);
+		}
+
 		// Create Parts (editor starts hidden and is shown when an editor opens)
-		for (const { id, role, classes } of [
+		const partDescriptors: { id: string; role: string; classes: string[] }[] = [
 			{ id: Parts.TITLEBAR_PART, role: 'none', classes: ['titlebar'] },
 			{ id: Parts.SIDEBAR_PART, role: 'none', classes: ['sidebar', 'left'] },
 			{ id: Parts.AUXILIARYBAR_PART, role: 'none', classes: ['auxiliarybar', 'basepanel', 'right'] },
 			{ id: Parts.PANEL_PART, role: 'none', classes: ['panel', 'basepanel', positionToString(this.getPanelPosition())] },
-		]) {
+		];
+		if (this.hostBarEnabled) {
+			partDescriptors.push({ id: AgenticParts.HOSTBAR_PART, role: 'none', classes: ['hostbar', 'left'] });
+		}
+
+		for (const { id, role, classes } of partDescriptors) {
 			const partContainer = this.createPartContainer(id, role, classes);
 
 			mark(`code/willCreatePart/${id}`);
-			this.getPart(id).create(partContainer);
+			this.getPart(id as Parts).create(partContainer);
 			mark(`code/didCreatePart/${id}`);
 		}
 
@@ -1672,6 +1684,16 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 			[Parts.CUSTOM_VIEW_GRID_PART]: this.customViewGridPartView,
 			[Parts.EDITOR_PART]: this.editorPartView
 		};
+
+		// Host switcher rail (web-only) — wired into the grid left of the sidebar.
+		let hostBarPart: Part | undefined;
+		if (this.hostBarEnabled) {
+			hostBarPart = this.parts.get(AgenticParts.HOSTBAR_PART);
+			if (hostBarPart) {
+				this.hostBarPartView = hostBarPart;
+				viewMap[AgenticParts.HOSTBAR_PART] = this.hostBarPartView;
+			}
+		}
 
 		const fromJSON = ({ type }: { type: string }) => viewMap[type];
 		const workbenchGrid = SerializableGrid.deserialize(
