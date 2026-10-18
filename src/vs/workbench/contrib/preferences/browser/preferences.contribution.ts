@@ -1579,6 +1579,8 @@ registerWorkbenchContribution2(SettingsEditorTitleContribution.ID, SettingsEdito
 
 registerEditorContribution(SettingsEditorContribution.ID, SettingsEditorContribution, EditorContributionInstantiation.AfterFirstRender);
 
+registerEditorContribution(SettingsEditorContribution.ID, SettingsEditorContribution);
+
 // Preferences menu
 
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
