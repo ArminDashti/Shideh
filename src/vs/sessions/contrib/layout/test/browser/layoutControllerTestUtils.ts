@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDimension } from '../../../../../base/browser/dom.js';
 import { constObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
@@ -18,7 +19,7 @@ import { MockContextKeyService } from '../../../../../platform/keybinding/test/c
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
-import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersChangeEvent, toWorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
 import { IViewContainerModel, IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../../workbench/common/views.js';
 import { ICloseEditorOptions, IEditorGroup, IEditorGroupContextKeyProvider, IEditorGroupsService, IEditorReplacement, IEditorWorkingSet } from '../../../../../workbench/services/editor/common/editorGroupsService.js';
 import { IEditorsChangeEvent, IEditorService } from '../../../../../workbench/services/editor/common/editorService.js';
@@ -33,7 +34,8 @@ import { IActiveSession, ISessionsChangeEvent, ISessionsManagementService } from
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
 import { AgentWorkbenchLayout, IAgentWorkbenchLayoutService, ISidePaneToggleEvent } from '../../../../browser/workbench.js';
 import { ChatInteractivity, IChat, ISession, ISessionChangeset, ISessionFileChange, ISessionWorkspace, SessionStatus } from '../../../../services/sessions/common/session.js';
-import { ISessionChangesService, SessionChangesService } from '../../../changes/browser/sessionChangesService.js';
+import { ISessionChangesEditorOptions, ISessionChangesService, SessionChangesService } from '../../../changes/browser/sessionChangesService.js';
+import { ISessionChangesModelService } from '../../../changes/browser/sessionChangesModelService.js';
 import { CHANGES_VIEW_CONTAINER_ID } from '../../../changes/common/changes.js';
 import { SESSIONS_FILES_CONTAINER_ID } from '../../../files/browser/files.contribution.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -178,6 +180,8 @@ export interface ITestLayoutHarness {
 	activeSessionObs: ISettableObservable<IActiveSession | undefined>;
 	visibleSessionsObs: ISettableObservable<readonly (IActiveSession | undefined)[]>;
 	onDidChangeSessions: Emitter<ISessionsChangeEvent>;
+	onDidChangeWorkspaceFolders: Emitter<IWorkspaceFoldersChangeEvent>;
+	workspaceFolders: readonly { readonly uri: URI }[] | undefined;
 	onDidReplaceSession: Emitter<{ readonly from: ISession; readonly to: ISession }>;
 	onDidChangePartVisibility: Emitter<IPartVisibilityChangeEvent>;
 	onWillToggleSidePane: Emitter<void>;
@@ -234,6 +238,7 @@ export interface ITestLayoutHarness {
 	editorGroupsHaveContent: boolean;
 	/** Records every `applyWorkingSet` call made by the controller. */
 	applyWorkingSetCalls: (IEditorWorkingSet | 'empty')[];
+	applyWorkingSetOptions: (IEditorWorkingSetOptions | undefined)[];
 	/** Records the name of every `saveWorkingSet` call made by the controller. */
 	saveWorkingSetCalls: string[];
 	/**
@@ -241,13 +246,14 @@ export interface ITestLayoutHarness {
 	 * tests to simulate external visibility changes (e.g. the desktop detail
 	 * panel) while `_isRestoringSessionLayout` is true.
 	 */
-	onApplyWorkingSet?: (workingSet: IEditorWorkingSet | 'empty') => void;
+	onApplyWorkingSet?: (workingSet: IEditorWorkingSet | 'empty') => boolean | void | Promise<boolean | void>;
+	waitForSessionSwitchPaint?: (token: CancellationToken) => Promise<void>;
 	/**
 	 * Optional async hook awaited at the start of `openChangesEditor`, letting a
 	 * test pause a managed-tab reconcile mid-open (e.g. to switch sessions and
 	 * assert the superseded reconcile's intents do not leak).
 	 */
-	onOpenChangesEditor?: () => Promise<void> | void;
+	onOpenChangesEditor?: (cancellationToken: CancellationToken) => Promise<void> | void;
 	/** Optional async hook awaited before `closeEditors` mutates the group. */
 	onCloseEditors?: () => Promise<void> | void;
 	/** Optional async hook awaited before `replaceEditors` mutates the group. */
@@ -291,6 +297,8 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 		activeSessionObs: observableValue<IActiveSession | undefined>('activeSession', undefined),
 		visibleSessionsObs: observableValue<readonly (IActiveSession | undefined)[]>('visibleSessions', []),
 		onDidChangeSessions: store.add(new Emitter<ISessionsChangeEvent>()),
+		onDidChangeWorkspaceFolders: store.add(new Emitter<IWorkspaceFoldersChangeEvent>()),
+		workspaceFolders: options.workspaceFolders,
 		onDidReplaceSession: store.add(new Emitter<{ readonly from: ISession; readonly to: ISession }>()),
 		onDidChangePartVisibility: store.add(new Emitter<IPartVisibilityChangeEvent>()),
 		onWillToggleSidePane: store.add(new Emitter<void>()),
@@ -342,6 +350,7 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 		activeEditorInput: undefined,
 		editorGroupsHaveContent: true,
 		applyWorkingSetCalls: [],
+		applyWorkingSetOptions: [],
 		saveWorkingSetCalls: [],
 		openChangesEditorCalls: [],
 		sessionChangesService: store.add(new SessionChangesService(new class extends mock<IEditorService>() { }, instaService, new class extends mock<IAgentWorkbenchLayoutService>() {
@@ -412,10 +421,13 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 		override readonly activeSessionUncommittedChangesCountObs = harness.sessionChangesService.activeSessionUncommittedChangesCountObs;
 		override getChangesEditorResource(sessionResource: URI): URI { return harness.sessionChangesService.getChangesEditorResource(sessionResource); }
 		override getSessionResource(editorResource: URI): URI | undefined { return harness.sessionChangesService.getSessionResource(editorResource); }
-		override async openChangesEditor(sessionResource: URI, options?: { index?: number; inactive?: boolean }): Promise<IEditorGroup> {
+		override async openChangesEditor(sessionResource: URI, options?: ISessionChangesEditorOptions, _group?: PreferredGroup, cancellationToken: CancellationToken = CancellationToken.None): Promise<IEditorGroup | undefined> {
 			harness.openChangesEditorCalls.push({ sessionResource, active: !options?.inactive });
 			if (harness.onOpenChangesEditor) {
-				await harness.onOpenChangesEditor();
+				await harness.onOpenChangesEditor(cancellationToken);
+			}
+			if (cancellationToken.isCancellationRequested) {
+				return undefined;
 			}
 			const resource = harness.sessionChangesService.getChangesEditorResource(sessionResource);
 			let editor = harness.activeGroupEditors.find(e => e.resource && isEqual(e.resource, resource));
@@ -439,6 +451,7 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 	instaService.stub(IChangesViewService, new class extends mock<IChangesViewService>() {
 		override setChangesetId(): void { }
 	});
+	instaService.stub(ISessionChangesModelService, new class extends mock<ISessionChangesModelService>() { });
 	instaService.stub(ILifecycleService, new class extends mock<ILifecycleService>() {
 		// Resolves only when a test opts in via `activateAux`, so the desktop
 		// managed-tab / detail-panel behaviour is not spun up otherwise.
@@ -705,10 +718,10 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 			}] as unknown as IEditorGroupsService['groups'];
 		}
 		override saveWorkingSet(name: string): IEditorWorkingSet { harness.saveWorkingSetCalls.push(name); return { id: name, name }; }
-		override async applyWorkingSet(workingSet: IEditorWorkingSet | 'empty') {
+		override async applyWorkingSet(workingSet: IEditorWorkingSet | 'empty', options?: IEditorWorkingSetOptions) {
 			harness.applyWorkingSetCalls.push(workingSet);
-			harness.onApplyWorkingSet?.(workingSet);
-			return true;
+			harness.applyWorkingSetOptions.push(options);
+			return await harness.onApplyWorkingSet?.(workingSet) ?? true;
 		}
 		override registerContextKeyProvider<T extends ContextKeyValue>(provider: IEditorGroupContextKeyProvider<T>): IDisposable {
 			const key = provider.contextKey.bindTo(contextKeyService);
@@ -726,8 +739,16 @@ export function createTestHarness(store: DisposableStore, options: ICreateOption
 	});
 
 	instaService.stub(IWorkspaceContextService, new class extends mock<IWorkspaceContextService>() {
-		override readonly onDidChangeWorkspaceFolders = Event.None;
-		override getWorkspace(): IWorkspace { return { id: 'test', folders: (options.workspaceFolders ?? []) as IWorkspace['folders'] }; }
+		override readonly onDidChangeWorkspaceFolders = Event.any(
+			harness.onDidChangeWorkspaceFolders.event,
+			Event.map(Event.fromObservableLight(harness.activeSessionObs), () => ({ added: [], removed: [], changed: [] })),
+		);
+		override getWorkspace(): IWorkspace {
+			const folders = harness.workspaceFolders
+				?? harness.activeSessionObs.get()?.workspace.get()?.folders.map(folder => ({ uri: folder.workingDirectory }))
+				?? [];
+			return { id: 'test', folders: folders.map(folder => toWorkspaceFolder(folder.uri)) };
+		}
 	});
 
 	return harness;

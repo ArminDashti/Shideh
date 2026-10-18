@@ -18,6 +18,7 @@ import { ITerminalProfileProvider, ITerminalProfileService, TERMINAL_CONFIG_SECT
 import { IRemoteAgentService } from '../../../../services/remote/common/remoteAgentService.js';
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import type { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 
 suite('Workbench - TerminalService', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -81,6 +82,34 @@ suite('Workbench - TerminalService', () => {
 	});
 
 	suite('background terminals', () => {
+		test('embedded terminals keep focus and reveal in their owner without moving to the panel', async () => {
+			const focused = store.add(new Emitter<ITerminalInstance>());
+			const disposed = store.add(new Emitter<ITerminalInstance>());
+			let reveals = 0;
+			let focuses = 0;
+			const instance = new class extends mock<ITerminalInstance>() {
+				override readonly instanceId = 42;
+				override readonly target = TerminalLocation.Panel;
+				override readonly hasFocus = true;
+				override readonly shellLaunchConfig = { hideFromUser: true };
+				override readonly onDidFocus = focused.event;
+				override readonly onDisposed = disposed.event;
+				override async focusWhenReady(): Promise<void> { focuses++; }
+			}();
+			store.add(terminalService.registerEmbeddedTerminal(instance, async () => { reveals++; }));
+			focused.fire(instance);
+			await terminalService.revealTerminal(instance);
+			const active = terminalService.activeInstance;
+			disposed.fire(instance);
+
+			deepStrictEqual({
+				active: active?.instanceId,
+				reveals, focuses,
+				hidden: instance.shellLaunchConfig.hideFromUser,
+				disposedActive: terminalService.activeInstance,
+			}, { active: 42, reveals: 1, focuses: 1, hidden: true, disposedActive: undefined });
+		});
+
 		test('should remove disposed hidden terminals and their listeners', async () => {
 			const disposalEmitters = Array.from({ length: 3 }, () => store.add(new Emitter<ITerminalInstance>()));
 			const instances = disposalEmitters.map((emitter, index) => ({

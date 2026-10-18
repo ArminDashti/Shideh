@@ -1600,6 +1600,10 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 		const statusIcon = disposables.add(this.instantiationService.createInstance(SessionStatusIcon, iconContainer));
 		const mainCol = DOM.append(container, $('.session-main'));
 		const titleRow = DOM.append(mainCol, $('.session-title-row'));
+		const presentationIcon = DOM.append(titleRow, $('span.session-presentation-icon'));
+		presentationIcon.setAttribute('aria-hidden', 'true');
+		presentationIcon.style.display = 'none';
+		disposables.add(this.hoverService.setupManagedHover(getDefaultHoverDelegate('mouse'), presentationIcon, localize('sessionTerminalIcon', "Native CLI terminal session")));
 		const titleContainer = DOM.append(titleRow, $('.session-title'));
 		const title = disposables.add(new HighlightedLabel(titleContainer));
 		const titleTime = DOM.append(titleRow, $('span.session-title-time'));
@@ -1907,6 +1911,12 @@ class SessionItemRenderer implements ITreeRenderer<SessionListItem, FuzzyScore |
 		}));
 
 		// Title — reactive
+		template.presentationIcon.style.display = element.presentation === 'terminal' ? '' : 'none';
+		DOM.clearNode(template.presentationIcon);
+		if (element.presentation === 'terminal') {
+			DOM.append(template.presentationIcon, $(`span${ThemeIcon.asCSSSelector(element.icon)}`));
+			DOM.append(template.presentationIcon, $(`span.session-terminal-marker${ThemeIcon.asCSSSelector(Codicon.terminal)}`));
+		}
 		template.elementDisposables.add(autorun(reader => {
 			const titleText = comparisonAttemptLabel ?? element.title.read(reader);
 			template.title.set(titleText, matches);

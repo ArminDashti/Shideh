@@ -2092,9 +2092,7 @@ export class AgentService extends Disposable implements IAgentService {
 			return undefined;
 		}
 		if (fallback && metadata.modifiedTime > fallback.modifiedTime) {
-			// This computation already returns the fresher metadata, and settled
-			// list computations are not cached. Persist without invalidating the
-			// in-flight computation into a redundant second pass.
+			// The cached entry records this newer timestamp without invalidating its own read.
 			await this._advanceSessionModifiedTime(session, metadata.modifiedTime, false);
 		}
 		const sessionMetadata = this._toSessionMetadata(metadata);
@@ -3601,7 +3599,7 @@ export class AgentService extends Disposable implements IAgentService {
 			`modified-time update for ${session.toString()}`,
 		);
 		if (changed && invalidate) {
-			this._invalidateSessionList();
+			this._invalidateSessionList(session);
 		}
 	}
 
@@ -3670,8 +3668,31 @@ export class AgentService extends Disposable implements IAgentService {
 
 	private _registryEpoch = 0;
 
-	private _invalidateSessionList(): void {
+	private _invalidateSessionList(session?: URI): void {
+		if (session) {
+			const key = session.toString();
+			this._sessionListMetadata.delete(key);
+			this._sessionListOverlays.delete(key);
+		}
 		this._registryEpoch++;
+	}
+
+	private _sessionListMetadataVersion(entry: IRegisteredSession): string {
+		return JSON.stringify([entry.provider, entry.startTime, entry.modifiedTime, entry.external, entry.source]);
+	}
+
+	private _readSessionListOverlay(session: URI, keys: Record<string, true>): Promise<Record<string, string | undefined> | undefined> {
+		return this._sessionListOverlays.get(session.toString(), Object.keys(keys).sort().join(','), async () => {
+			const ref = await this._sessionDataService.tryOpenDatabase(session);
+			if (!ref) {
+				return undefined;
+			}
+			try {
+				return await ref.object.getMetadataObject(keys);
+			} finally {
+				ref.dispose();
+			}
+		});
 	}
 
 	async listSessions(mode = this._getExternalSessionsMode()): Promise<IAgentSessionMetadata[]> {
@@ -3907,6 +3928,16 @@ export class AgentService extends Disposable implements IAgentService {
 			if (agent?.prewarmSessionMetadata) {
 				fallbackProviders.set(result.registeredSession.provider, { agent, sessionCount: 1 });
 			}
+			const agent = this._providerService.getProvider(entry.provider);
+			if (!agent?.prewarmSessionMetadata) {
+				continue;
+			}
+			const counts = providerEntries.get(entry.provider) ?? { agent, total: 0, missing: 0 };
+			counts.total++;
+			if (!this._sessionListMetadata.has(entry.session.toString(), this._sessionListMetadataVersion(entry))) {
+				counts.missing++;
+			}
+			providerEntries.set(entry.provider, counts);
 		}
 		const prewarmDisposables: IDisposable[] = [];
 		await Promise.all([...fallbackProviders.values()].map(async ({ agent, sessionCount }) => {

@@ -25,6 +25,7 @@ import { buildAgentHostTelemetryIdEnv, IAgentHostForwardedTelemetryIds } from '.
 import { AgentHostLaunchKind, AgentHostLaunchKindEnvVar, telemetryLevelToAgentHostValue } from '../common/agentHostTelemetry.js';
 import { AgentHostClaudeAgentEnabledSettingId, AgentHostIpcChannels, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOtlpProtocolSettingId, AgentHostOTelOutfileSettingId, AgentHostOTelResourceAttributesSettingId, AgentHostOTelServiceNameSettingId, AgentHostOTelPolicyIpcChannel, AgentHostOTelPolicyState, AgentHostRestartIpcChannel, AgentHostWillRestartIpcChannel, buildAgentHostOTelEnv, buildAgentSdkEnv, IAgentHostManagementService, IAgentHostOTelSettings } from '../common/agentService.js';
 import { deepClone } from '../../../base/common/objects.js';
+import { AGENT_HOST_CONTROL_CLIENT_ID } from '../common/agentHostClientProxyChannel.js';
 import '../common/agentHostStarter.config.contribution.js';
 
 export class ElectronAgentHostStarter extends Disposable implements IAgentHostStarter {
@@ -208,7 +209,7 @@ export class ElectronAgentHostStarter extends Disposable implements IAgentHostSt
 			}
 
 			const port = utilityProcess.connect();
-			const client = new MessagePortClient(port, 'agentHost');
+			const client = new MessagePortClient(port, AGENT_HOST_CONTROL_CLIENT_ID);
 			const managementService = ProxyChannel.toService<IAgentHostManagementService>(client.getChannel(AgentHostIpcChannels.Management));
 
 			const store = new DisposableStore();

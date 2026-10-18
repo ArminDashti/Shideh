@@ -94,6 +94,8 @@ The durable state and transition catalog lives in [DESKTOP.md](DESKTOP.md). Impl
 
 Editors must be opened through `IEditorService`. Sessions-specific presentation must not bypass editor service behavior by opening directly on an editor group.
 
+Changes editor inputs lease their multi-diff models from a Sessions-owned, bounded cache. Closing, replacing, or cancelling an input releases its lease and pending resolutions without discarding its restorable identity; inactive models may survive a session switch, but eviction, session removal, and shutdown release them. Diff rows resolve their contents on demand without holding up the active session surface.
+
 Chat input status-pill composition is owned by the shared workbench `ChatInputPills` and `StandardChatInputPillSources` components. The Agents Window and Agent Host editor/panel surfaces supply observable data adapters and their allowed pill kinds only; ordering, per-kind presentation, visibility, context menus, keyboard behavior, compact layout, and lifecycle rendering must not be reimplemented per surface. Per-kind visibility preferences belong to `ISessionChatPillVisibilityService`; data adapters apply them before supplying pill data and option actions to the shared renderer.
 
 Session providers register internal per-session directories as resource label homes. URI labels render as `<home label>/<relative path>`, and breadcrumbs render the same home label as their root segment. Without a matching home formatter, existing URI-label and breadcrumb behavior is unchanged.

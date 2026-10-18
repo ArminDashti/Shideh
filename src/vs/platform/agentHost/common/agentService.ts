@@ -1156,7 +1156,7 @@ export interface IConnectionTrackerService {
  * Narrow renderer-to-local-agent-host control surface. All stateful agent
  * operations travel over {@link AgentHostIpcChannels.Protocol}.
  */
-export interface IAgentHostManagementService {
+export interface IAgentHostManagementService extends INativeCliProxyService, INativeCliLifecycleService {
 	readonly _serviceBrand: undefined;
 
 	/**
@@ -1703,6 +1703,10 @@ export const IAgentHostService = createDecorator<IAgentHostService>('agentHostSe
 export interface IAgentHostService extends IAgentConnection {
 
 	readonly _serviceBrand: undefined;
+
+	/** Local-only Copilot API routing for native CLI terminals. */
+	readonly nativeCliProxy?: INativeCliProxyService;
+	readonly nativeCliLifecycle?: INativeCliLifecycleService;
 
 	readonly onAgentHostExit: Event<number>;
 	readonly onAgentHostStart: Event<void>;

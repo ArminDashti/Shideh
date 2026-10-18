@@ -109,6 +109,7 @@ const desktopEntryPoints = [
 	'vs/platform/terminal/node/ptyHostMain',
 	'vs/platform/agentHost/node/agentHostMain',
 	'vs/platform/agentHost/node/diffWorkerMain',
+	'vs/platform/agentHost/node/nativeCliHook',
 	'vs/workbench/api/node/extensionHostProcess',
 ];
 
@@ -139,6 +140,7 @@ const serverEntryPoints = [
 	'vs/platform/terminal/node/ptyHostMain',
 	'vs/platform/agentHost/node/agentHostMain',
 	'vs/platform/agentHost/node/diffWorkerMain',
+	'vs/platform/agentHost/node/nativeCliHook',
 ];
 
 /**

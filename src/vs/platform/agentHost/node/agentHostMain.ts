@@ -52,7 +52,7 @@ import { parseAcpAgentConfigurations } from './acp/acpAgentConfiguration.js';
 import { AgentHostClientFileSystemProvider } from '../common/agentHostClientFileSystemProvider.js';
 import { AGENT_CLIENT_SCHEME } from '../common/agentClientUri.js';
 import { AGENT_HOST_CLIENT_BYOK_LM_CHANNEL, createAgentHostClientByokLmConnection } from '../common/agentHostClientByokLmChannel.js';
-import { AGENT_HOST_CLIENT_PROXY_CHANNEL, createAgentHostClientProxyConnection } from '../common/agentHostClientProxyChannel.js';
+import { AGENT_HOST_CLIENT_PROXY_CHANNEL, createAgentHostClientProxyConnection, isAgentHostRendererClient } from '../common/agentHostClientProxyChannel.js';
 import { join } from '../../../base/common/path.js';
 import ErrorTelemetry from '../../telemetry/node/errorTelemetry.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
@@ -243,7 +243,7 @@ async function startAgentHost(): Promise<void> {
 					return;
 				}
 				const clientId = connection.ctx;
-				if (typeof clientId !== 'string' || !clientId) {
+				if (!isAgentHostRendererClient(clientId)) {
 					return;
 				}
 				const connectionStore = new DisposableStore();

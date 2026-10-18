@@ -452,6 +452,12 @@ class TestSessionDatabase extends SessionDatabase {
 	private _metadataWriteFailure: { readonly key: string; readonly error: Error } | undefined;
 	private _metadataWriteGate: { readonly key: string; readonly wait: Promise<void>; readonly entered: DeferredPromise<void> } | undefined;
 	readonly metadataWrites: { readonly key: string; readonly value: string }[] = [];
+	metadataReadCount = 0;
+
+	override async getMetadataObject<T extends Record<string, unknown>>(keys: T): Promise<{ [K in keyof T]: string | undefined }> {
+		this.metadataReadCount++;
+		return super.getMetadataObject(keys);
+	}
 
 	failNextMetadataWrite(key: string, error: Error): void {
 		this._metadataWriteFailure = { key, error };
@@ -530,6 +536,10 @@ class TestSessionDataService extends Disposable implements ISessionDataService {
 		const db = this._databases.get(AgentSession.id(session));
 		assert.ok(db, `No database exists for ${session.toString()}`);
 		return db.metadataWrites;
+	}
+
+	metadataReadCount(session: URI): number {
+		return this._databases.get(AgentSession.id(session))?.metadataReadCount ?? 0;
 	}
 
 	deleteSessionData(): Promise<void> { return Promise.resolve(); }
@@ -4294,7 +4304,7 @@ suite('CopilotAgent', () => {
 				startupEvents,
 			}, {
 				startCallCount: 1,
-				listSessionCallCount: 2,
+				listSessionCallCount: 1,
 				startupEvents: [{
 					outcome: 'success',
 					durationMs: 'number',
@@ -7363,7 +7373,9 @@ suite('CopilotAgent', () => {
 		});
 
 		test('resolves the proxy on first client start without a bridge', async () => {
-			const client = new TestCopilotClient([]);
+			const client = new StopCountingClient([]);
+			const stopGate = new DeferredPromise<void>();
+			client.stopGate = stopGate.p;
 			const proxyResolver = new TestProxyResolver();
 			const proxy = 'http://late-system-proxy.example:8080';
 			const { agent } = createTestAgentContext(disposables, { copilotClient: client, proxyResolver });
@@ -7371,18 +7383,35 @@ suite('CopilotAgent', () => {
 				await timeout(0);
 				proxyResolver.resolvedProxy = proxy;
 				await agent.listChatsToMigrate();
-				for (let i = 0; i < 20 && client.stopCallCount < 1; i++) {
+				for (let i = 0; i < 20 && client.stopCount < 1; i++) {
 					await timeout(0);
 				}
-				await agent.listChatsToMigrate();
+				// Keep the replacement inside the original proxy refresh regardless of catalog latency.
+				const replacement = agent.listChatsToMigrate();
+				await timeout(0);
+				const whileStopping = {
+					startCallCount: client.startCallCount,
+					stopCallCount: client.stopCallCount,
+					stopRequests: client.stopCount,
+					resolveProxyCalls: proxyResolver.resolveProxyCalls,
+				};
+				stopGate.complete();
+				await replacement;
 
 				assert.deepStrictEqual({
+					whileStopping,
 					startCallCount: client.startCallCount,
 					stopCallCount: client.stopCallCount,
 					resolveProxyCalls: proxyResolver.resolveProxyCalls,
 					httpProxy: getCreatedClientOptions(agent).at(-1)?.env?.['HTTP_PROXY'],
 					httpsProxy: getCreatedClientOptions(agent).at(-1)?.env?.['HTTPS_PROXY'],
 				}, {
+					whileStopping: {
+						startCallCount: 1,
+						stopCallCount: 0,
+						stopRequests: 1,
+						resolveProxyCalls: 1,
+					},
 					startCallCount: 2,
 					stopCallCount: 1,
 					resolveProxyCalls: 1,
@@ -7390,6 +7419,7 @@ suite('CopilotAgent', () => {
 					httpsProxy: proxy,
 				});
 			} finally {
+				stopGate.complete();
 				await disposeAgent(agent);
 			}
 		});

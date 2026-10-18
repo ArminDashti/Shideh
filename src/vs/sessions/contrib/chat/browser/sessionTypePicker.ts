@@ -297,7 +297,10 @@ export class SessionTypePicker extends Disposable {
 			return sessionTypes;
 		}
 		const session = this._session.get();
-		return session ? this._sessionTypesForSession(session) : [];
+		if (session) {
+			return this._sessionTypesForSession(session);
+		}
+		return this._options?.presentation?.get() === 'terminal' ? this.sessionsManagementService.getAllProviderSessionTypes() : [];
 	}
 
 	/** The pick to display for the current source: the active session's type, otherwise the folder or stored default. */
@@ -795,7 +798,7 @@ export class SessionTypePicker extends Disposable {
 	}
 
 	private _readStoredPick(): IPreferredSessionType | undefined {
-		const raw = this.storageService.get(STORAGE_KEY_LAST_SESSION_TYPE, StorageScope.PROFILE);
+		const raw = this.storageService.get(this._storageKey, StorageScope.PROFILE);
 		if (!raw) {
 			return undefined;
 		}
@@ -818,7 +821,7 @@ export class SessionTypePicker extends Disposable {
 
 	private _writeStoredPick(pick: IPickedSessionType): void {
 		const stored: IStoredSessionTypePick = { providerId: pick.providerId, sessionTypeId: pick.sessionTypeId };
-		this.storageService.store(STORAGE_KEY_LAST_SESSION_TYPE, JSON.stringify(stored), StorageScope.PROFILE, StorageTarget.MACHINE);
+		this.storageService.store(this._storageKey, JSON.stringify(stored), StorageScope.PROFILE, StorageTarget.MACHINE);
 	}
 
 	/**
@@ -827,7 +830,11 @@ export class SessionTypePicker extends Disposable {
 	 * reading {@link getUserPickedSessionType} fall back to the preferred type.
 	 */
 	private _clearStoredPick(): void {
-		this.storageService.remove(STORAGE_KEY_LAST_SESSION_TYPE, StorageScope.PROFILE);
+		this.storageService.remove(this._storageKey, StorageScope.PROFILE);
+	}
+
+	private get _storageKey(): string {
+		return this._options?.presentation?.get() === 'terminal' ? `${STORAGE_KEY_LAST_SESSION_TYPE}.terminal` : STORAGE_KEY_LAST_SESSION_TYPE;
 	}
 
 	private _updateTriggerLabel(): void {

@@ -5,13 +5,14 @@
 
 import { mainWindow } from '../../../../base/browser/window.js';
 import { alert } from '../../../../base/browser/ui/aria/aria.js';
-import { isThenable, Sequencer } from '../../../../base/common/async.js';
+import { isThenable, raceCancellation, Sequencer } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { autorun, derived, derivedObservableWithCache, derivedOpts, observableFromEvent, runOnChange } from '../../../../base/common/observable.js';
+import { autorun, derived, derivedOpts, observableFromEvent, runOnChange } from '../../../../base/common/observable.js';
 import { isEqual } from '../../../../base/common/resources.js';
-import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -41,9 +42,10 @@ import { CustomViewVisibleContext, IsQuickChatSessionContext, DesktopLayoutConte
 import { logSidePanelToggle } from '../../../common/sessionsTelemetry.js';
 import { ISessionChangesService } from '../../changes/browser/sessionChangesService.js';
 import { IChangesViewService } from '../../changes/common/changesViewService.js';
-import { IActiveSession, ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
+import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsService } from '../../../services/sessions/browser/sessionsService.js';
 import { ISession, SessionStatus } from '../../../services/sessions/common/session.js';
+import { waitForSessionSwitchPaint } from './sessionLayoutScheduling.js';
 
 const secondarySidebarToggleClosedIcon = registerIcon('agent-secondary-sidebar-toggle-closed', Codicon.layoutSidebarRightOff, localize('agentSecondarySidebarToggleClosedIcon', "Icon for the sessions secondary sidebar when closed."));
 const secondarySidebarToggleOpenIcon = registerIcon('agent-secondary-sidebar-toggle-open', Codicon.layoutSidebarRight, localize('agentSecondarySidebarToggleOpenIcon', "Icon for the sessions secondary sidebar when open."));
@@ -101,6 +103,11 @@ export abstract class BaseLayoutController extends Disposable {
 	 */
 	protected readonly _editorPartHiddenBySession = new ResourceMap<boolean>();
 	private readonly _workingSetSequencer = new Sequencer();
+	private readonly _workingSetRestoreCancellation = this._register(new MutableDisposable<CancellationTokenSource>());
+	private readonly _sessionLayoutRestores = this._register(new DisposableStore());
+	private _workingSetSessionResource: URI | undefined;
+	private _workingSetRestorePending = false;
+	private _sessionSwitchPaint: Promise<void> | undefined;
 
 	protected readonly activeSessionResourceObs;
 	protected readonly multipleSessionsVisibleObs;
@@ -114,7 +121,7 @@ export abstract class BaseLayoutController extends Disposable {
 	private _restoringSessionLayoutDepth = 0;
 
 	protected get _isRestoringSessionLayout(): boolean {
-		return this._restoringSessionLayoutDepth > 0;
+		return this._workingSetRestorePending || this._restoringSessionLayoutDepth > 0;
 	}
 
 	/**
@@ -367,16 +374,51 @@ export abstract class BaseLayoutController extends Disposable {
 					this._saveWorkingSet(previousSession.resource);
 				}
 			}
+
+			this._workingSetRestoreCancellation.value?.cancel();
+			this._workingSetRestoreCancellation.value = new CancellationTokenSource();
+			this._sessionSwitchPaint = undefined;
+			this._workingSetSessionResource = undefined;
+			this._workingSetRestorePending = true;
 		}));
 
-		// [B2] Session changed (apply)
-		this._register(runOnChange(activeSessionForWorkingSet, (session, previousSession) => {
-			// Apply working set for current session.
-			// On initial load (no previous session), only apply if we have a saved working set —
-			// skip applying 'empty' to avoid closing editors that are being restored.
-			if (previousSession || (session && this._workingSets.has(session.resource))) {
-				this._withSessionLayoutRestore(() => this._applyWorkingSet(session?.resource, { isInitialRestore: !previousSession }));
+		let previousWorkingSetSessionResource = this._workingSetSessionResource;
+		let scheduledRestoreToken: CancellationToken | undefined;
+		this._register(autorun(reader => {
+			const session = this._sessionsService.activeSession.read(reader);
+			const workspaceFolders = workspaceFoldersObs.read(reader);
+			const workingDirectory = session?.workspace.read(reader)?.folders[0]?.workingDirectory;
+			const token = this._workingSetRestoreCancellation.value?.token;
+			if (!this._workingSetRestorePending || !token || token === scheduledRestoreToken
+				|| (workingDirectory && !workspaceFolders.some(folder => isEqual(folder.uri, workingDirectory)))) {
+				return;
 			}
+
+			scheduledRestoreToken = token;
+			const isInitialRestore = !previousWorkingSetSessionResource;
+			const shouldApply = !!previousWorkingSetSessionResource || !!session && this._workingSets.has(session.resource);
+			previousWorkingSetSessionResource = session?.resource;
+			if (!shouldApply) {
+				this._workingSetSessionResource = session?.resource;
+				this._workingSetRestorePending = false;
+				if (!this._isRestoringSessionLayout) {
+					this._onDidEndSessionLayoutRestore.fire();
+				}
+				return;
+			}
+
+			this._withSessionLayoutRestore(async () => {
+				try {
+					const applied = await this._applyWorkingSet(session?.resource, token, { isInitialRestore });
+					if (!token.isCancellationRequested && applied) {
+						this._workingSetSessionResource = session?.resource;
+					}
+				} finally {
+					if (!token.isCancellationRequested) {
+						this._workingSetRestorePending = false;
+					}
+				}
+			});
 		}));
 
 		// [B2] Session state changed (archive, delete)
@@ -562,30 +604,51 @@ export abstract class BaseLayoutController extends Disposable {
 	 * restore causes can be re-baselined rather than reacted to.
 	 */
 	protected _withSessionLayoutRestore(work: () => void | Promise<unknown>): void {
+		if (this._store.isDisposed) {
+			return;
+		}
 		this._restoringSessionLayoutDepth++;
+		const restore = this._sessionLayoutRestores.add(new DisposableStore());
 		const suppression = this._suppressEditorVisibilityDuringRestore();
+		if (suppression) {
+			restore.add(suppression);
+		}
+		restore.add(toDisposable(() => this._endSessionLayoutRestore()));
 		let settledSync = true;
 		try {
 			const result = work();
 			if (isThenable(result)) {
 				settledSync = false;
 				Promise.resolve(result).catch(() => undefined).finally(() => {
-					this._endSessionLayoutRestore(suppression);
+					this._sessionLayoutRestores.delete(restore);
 				});
 			}
 		} finally {
 			if (settledSync) {
-				this._endSessionLayoutRestore(suppression);
+				this._sessionLayoutRestores.delete(restore);
 			}
 		}
 	}
 
-	private _endSessionLayoutRestore(suppression: IDisposable | undefined): void {
+	private _endSessionLayoutRestore(): void {
 		this._restoringSessionLayoutDepth--;
-		suppression?.dispose();
-		if (this._restoringSessionLayoutDepth === 0) {
+		if (!this._isRestoringSessionLayout && !this._store.isDisposed) {
 			this._onDidEndSessionLayoutRestore.fire();
 		}
+	}
+
+	override dispose(): void {
+		this._workingSetRestoreCancellation.value?.cancel();
+		this._workingSetRestorePending = false;
+		super.dispose();
+	}
+
+	protected _waitForSessionSwitchPaint(token: CancellationToken): Promise<void> {
+		if (this._store.isDisposed || token.isCancellationRequested) {
+			return Promise.resolve();
+		}
+		this._sessionSwitchPaint ??= waitForSessionSwitchPaint(mainWindow, this._workingSetRestoreCancellation.value?.token ?? token);
+		return raceCancellation(this._sessionSwitchPaint, token);
 	}
 
 	/**
@@ -710,7 +773,8 @@ export abstract class BaseLayoutController extends Disposable {
 		}
 
 		// [B4] Capture working set for the active session (skip untitled)
-		if (activeSession && activeSession.status.read(undefined) !== SessionStatus.Untitled) {
+		if (activeSession && activeSession.status.read(undefined) !== SessionStatus.Untitled
+			&& !this._workingSetRestorePending && isEqual(activeSession.resource, this._workingSetSessionResource)) {
 			this._saveWorkingSet(activeSession.resource);
 		}
 
@@ -779,20 +843,29 @@ export abstract class BaseLayoutController extends Disposable {
 
 	// --- Editor working sets [B2] ---
 
-	private async _applyWorkingSet(sessionResource: URI | undefined, options?: { readonly isInitialRestore?: boolean }): Promise<void> {
-		// Restoring a session's editor working set must never pull keyboard focus
-		// into the editor area. Focus during a session switch is owned by the
-		// switch itself (it moves focus into the active session's chat input, or
-		// leaves it on the panel); letting the editor restore grab focus would
-		// steal it from the chat input whenever the target session has editors
-		// open.
-		const preserveFocus = true;
-		const workingSet: IEditorWorkingSet | 'empty' = sessionResource
-			? (this._workingSets.get(sessionResource) ?? 'empty')
-			: 'empty';
-		this._onWillApplyWorkingSet(workingSet);
-
+	private async _applyWorkingSet(sessionResource: URI | undefined, token: CancellationToken, options?: { readonly isInitialRestore?: boolean }): Promise<boolean> {
+		const isCancelled = () => token.isCancellationRequested || this._store.isDisposed
+			|| !isEqual(this._sessionsService.activeSession.get()?.resource, sessionResource);
 		return this._workingSetSequencer.queue(async () => {
+			if (isCancelled()) {
+				return false;
+			}
+			await this._waitForSessionSwitchPaint(token);
+			if (isCancelled()) {
+				return false;
+			}
+
+			const workingSet: IEditorWorkingSet | 'empty' = sessionResource
+				? (this._workingSets.get(sessionResource) ?? 'empty')
+				: 'empty';
+			this._onWillApplyWorkingSet(workingSet);
+			if (isCancelled()) {
+				return false;
+			}
+
+			const canChangeVisibility = () => !isCancelled()
+				&& this._sessionsService.visibleSessions.get().length <= 1
+				&& !this._isCustomViewVisible();
 			// When multiple sessions are visible, applying a working set must never
 			// change the visibility of the editor part: the editor area is shared
 			// across the visible sessions and its visibility is controlled by the
@@ -827,28 +900,26 @@ export abstract class BaseLayoutController extends Disposable {
 				&& this._shouldHideEditorPartOnApply(editorPartHidden);
 
 			if (workingSet === 'empty') {
-				await this._editorGroupsService.applyWorkingSet(workingSet, { preserveFocus });
+				const result = await this._applyEditorWorkingSet(workingSet, token);
+				if (!canChangeVisibility()) {
+					return result;
+				}
 				if (this._shouldRevealEditorPartForEmptyWorkingSet(revealEditorPart) && !this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 					this._revealEditorPartForWorkingSet();
 				} else if (hideEditorPart && this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 					this._hideEditorPartForWorkingSet();
 				}
-				return;
+				return result;
 			}
 
 			// On the initial restore after a reload, preserve the editor part
 			// visibility that the workbench already restored.
 			if (options?.isInitialRestore) {
-				const suppression = this._layoutService.suppressEditorPartAutoVisibility();
-				try {
-					await this._editorGroupsService.applyWorkingSet(workingSet, { preserveFocus });
-				} finally {
-					suppression.dispose();
-				}
-				if (this._shouldHideEditorPartOnApply(editorPartHidden) && this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
+				const result = await this._applyEditorWorkingSet(workingSet, token, true);
+				if (canChangeVisibility() && this._shouldHideEditorPartOnApply(editorPartHidden) && this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 					this._hideEditorPartForWorkingSet();
 				}
-				return;
+				return result;
 			}
 
 			if (revealEditorPart && !this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
@@ -857,13 +928,38 @@ export abstract class BaseLayoutController extends Disposable {
 				this._hideEditorPartForWorkingSet();
 			}
 
-			const result = await this._editorGroupsService.applyWorkingSet(workingSet, { preserveFocus });
+			const result = await this._applyEditorWorkingSet(workingSet, token);
+			if (!canChangeVisibility()) {
+				return result;
+			}
 			if (revealEditorPart && result && !this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 				this._revealEditorPartForWorkingSet();
 			} else if (hideEditorPart && this._layoutService.isVisible(Parts.EDITOR_PART, mainWindow)) {
 				this._hideEditorPartForWorkingSet();
 			}
+			return result;
 		});
+	}
+
+	private async _applyEditorWorkingSet(workingSet: IEditorWorkingSet | 'empty', token: CancellationToken, suppressAutoVisibility = false): Promise<boolean> {
+		if (token.isCancellationRequested || this._store.isDisposed) {
+			return false;
+		}
+
+		const restore = this._sessionLayoutRestores.add(new DisposableStore());
+		const suppression = restore.add(new MutableDisposable<IDisposable>());
+		if (suppressAutoVisibility) {
+			suppression.value = this._layoutService.suppressEditorPartAutoVisibility();
+		}
+		// The shared apply cannot be cancelled; suppress its late auto-visibility until it settles.
+		restore.add(token.onCancellationRequested(() => {
+			suppression.value ??= this._layoutService.suppressEditorPartAutoVisibility();
+		}));
+		try {
+			return await this._editorGroupsService.applyWorkingSet(workingSet, { preserveFocus: true });
+		} finally {
+			this._sessionLayoutRestores.delete(restore);
+		}
 	}
 
 	private _saveWorkingSet(sessionResource: URI): void {

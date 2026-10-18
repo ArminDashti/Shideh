@@ -125,6 +125,7 @@ function createChat(id: string, status: SessionStatus = SessionStatus.Completed,
 }
 
 class TestActiveSession extends mock<IActiveSession>() {
+	override presentation: SessionPresentation | undefined;
 	override readonly sessionId = 'session';
 	override readonly resource = URI.parse('test-session://session');
 	override readonly providerId: string;
@@ -1152,6 +1153,26 @@ suite('Sessions - ChatGroupsView', () => {
 			during: ['chat'],
 			after: ['newSession'],
 		});
+	});
+
+	test('terminal sessions use the terminal surface while chat sessions keep their renderer', () => {
+		const { view } = createHarness(disposables);
+		const draft = new TestActiveSession([createChat('draft', SessionStatus.Untitled)], undefined, false);
+		draft.presentation = 'terminal';
+		view.setSession(draft, options);
+		const creationView = view.element.querySelector<HTMLElement>('.chat-view');
+		const before = view.element.querySelector<HTMLElement>('.chat-view')?.dataset.kind;
+		draft.isNewSessionRequestInProgress.set(true, undefined);
+		const starting = view.element.querySelector<HTMLElement>('.chat-view')?.dataset.kind;
+		const keptCreationView = view.element.querySelector<HTMLElement>('.chat-view') === creationView;
+		const terminal = new TestActiveSession([createChat('terminal')]);
+		terminal.presentation = 'terminal';
+		view.setSession(terminal, options);
+		const running = view.element.querySelector<HTMLElement>('.chat-view')?.dataset.kind;
+		view.setSession(new TestActiveSession([createChat('chat')]), options);
+		const chat = view.element.querySelector<HTMLElement>('.chat-view')?.dataset.kind;
+
+		assert.deepStrictEqual({ before, starting, keptCreationView, running, chat }, { before: 'newSession', starting: 'newSession', keptCreationView: true, running: 'terminal', chat: 'chat' });
 	});
 
 	test('opening a hidden chat to the side removes its temporary active-group assignment', async () => {

@@ -135,11 +135,41 @@ export function areNewSessionWelcomePhrasesEnabled(configurationService: IConfig
 	return configurationService.getValue<boolean>(NEW_SESSION_WELCOME_PHRASES_SETTING);
 }
 
+/**
+ * Writes into an ARIA live region only when the text actually changes. Assigning
+ * `textContent` replaces the text node, which makes assistive technology re-announce
+ * an unchanged message.
+ */
+function setLiveText(element: HTMLElement, text: string): void {
+	if (element.textContent !== text) {
+		element.textContent = text;
+	}
+}
+
 export class NewChatWidget extends Disposable {
 
 	private readonly _usage: AgentsWindowUsage;
 	private readonly _workspacePicker: WorkspacePicker;
 	private readonly _newChatInput: NewChatInputWidget;
+	private readonly _presentation = observableValue<SessionPresentation>(this, 'chat');
+	private readonly _sessionTypesChanged = observableSignalFromEvent(this, this.sessionsManagementService.onDidChangeSessionTypes);
+	/**
+	 * The presentation actually in effect. Quick chat forces the chat composer back on, and
+	 * a provider can stop advertising terminal types, so the raw `_presentation` pick is not
+	 * authoritative on its own — every consumer must agree or input is routed to a hidden
+	 * surface and silently dropped.
+	 */
+	private readonly _effectivePresentation = derived(this, reader => {
+		this._sessionTypesChanged.read(reader);
+		const available = !isWeb && !this._isQuickChatComposer.read(reader)
+			&& this.sessionsManagementService.getAllProviderSessionTypes().some(type => type.sessionType.presentation === 'terminal');
+		return available && this._presentation.read(reader) === 'terminal' ? 'terminal' : 'chat';
+	});
+	private readonly _startingTerminal = observableValue(this, false);
+	private readonly _sessionCreationInProgress = observableValue(this, false);
+	private _terminalStartButton: Button | undefined;
+	private _terminalWarmupView: TerminalChatView | undefined;
+	private _terminalDimensions: dom.Dimension | undefined;
 	private readonly _chatTipPresenter = this._register(new MutableDisposable<ChatInputTipPresenter>());
 	private readonly _customizationMigrationAttention = this._register(new MutableDisposable<CustomizationMigrationAttentionPresenter>());
 	private _isChatTipSessionInitialized = false;
@@ -264,6 +294,7 @@ export class NewChatWidget extends Disposable {
 
 			return activeSession;
 		});
+		this._presentation.set(this._session.get()?.presentation ?? 'chat', undefined);
 
 		// A quick chat is workspace-less; the composer hides the workspace picker
 		// (nothing to pick) and surfaces the session-type picker in the controls.
@@ -329,7 +360,10 @@ export class NewChatWidget extends Disposable {
 			getWorkspaceGroupAction: group => {
 				if (group === SESSION_WORKSPACE_GROUP_GITHUB && shouldShowGitHubWorkspaceGroupSignIn(
 					this.defaultAccountService.currentDefaultAccount !== null,
-					isAllowSignedOutWhenUsableEnabled(this.configurationService),
+					isSignedOutWindowUsable(
+						isAllowSignedOutWhenUsableEnabled(this.configurationService),
+						this.sessionsManagementService.getAllProviderSessionTypes().map(({ sessionType }) => sessionType),
+					),
 				)) {
 					return {
 						label: localize('workspacePicker.signInGitHub', "Sign in to GitHub"),
@@ -537,7 +571,7 @@ export class NewChatWidget extends Disposable {
 				context.icon,
 				`github-context:${contextUri}`,
 			);
-			this._newChatInput.focus();
+			this.focusInput();
 		}));
 		this._register(this._workspacePicker.onDidSelectFolderContext(folderUri => {
 			this._newChatInput.addAttachments({
@@ -1229,6 +1263,7 @@ export class NewChatWidget extends Disposable {
 		const creationCts = new CancellationTokenSource(handoff?.token);
 		const creationLifecycle = toDisposable(() => creationCts.dispose(true));
 		this._newSessionCreation.value = creationLifecycle;
+		this._sessionCreationInProgress.set(true, undefined);
 		// Session creation is async, so a provider can start serving the folder
 		// (e.g. the local agent host finishing its handshake) between the call
 		// below and the listener installed after it. That change would land in
@@ -2384,6 +2419,8 @@ export class NewChatWidget extends Disposable {
 
 	layout(_height: number, _width: number): void {
 		this._newChatInput.layout(_height, _width);
+		this._terminalDimensions = new dom.Dimension(_width, _height);
+		this._terminalWarmupView?.layout(_width, _height, 0, 0);
 	}
 
 	focusInput(): void {
@@ -2394,6 +2431,10 @@ export class NewChatWidget extends Disposable {
 		const emptyState = this._activeEmptyState.get();
 		if (emptyState) {
 			emptyState.focus();
+			return;
+		}
+		if (this._effectivePresentation.get() === 'terminal') {
+			this._terminalStartButton?.focus();
 			return;
 		}
 		this._newChatInput.focus();
@@ -2474,6 +2515,10 @@ export class NewChatWidget extends Disposable {
 	}
 
 	sendQuery(text: string): void {
+		if (this._effectivePresentation.get() === 'terminal') {
+			void this._startTerminalSession(text);
+			return;
+		}
 		this._newChatInput.sendQuery(text);
 	}
 
@@ -2481,6 +2526,9 @@ export class NewChatWidget extends Disposable {
 		if (!this._session.get()) {
 			this._workspacePicker.showPicker();
 			return Promise.resolve(false);
+		}
+		if (this._effectivePresentation.get() === 'terminal') {
+			return this._startTerminalSession();
 		}
 		return this._newChatInput.submit();
 	}

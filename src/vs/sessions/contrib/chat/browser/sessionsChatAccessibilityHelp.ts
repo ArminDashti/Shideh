@@ -7,6 +7,7 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { getActiveElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { AccessibleViewProviderId, AccessibleViewType, AccessibleContentProvider } from '../../../../platform/accessibility/browser/accessibleView.js';
+import { accessibleViewCurrentProviderId, accessibleViewIsShown } from '../../../../workbench/contrib/accessibility/browser/accessibilityConfiguration.js';
 import { getModePickerAccessibilityHelp } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostModePickerPresentation.js';
 import { getBackgroundShellsPillAccessibilityHelp } from '../../../../workbench/contrib/chat/browser/sessionBackgroundShellsControl.js';
 import { IAccessibleViewImplementation } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
@@ -49,6 +50,10 @@ export class SessionsChatAccessibilityHelp implements IAccessibleViewImplementat
 
 		const content: string[] = [];
 		content.push(localize('sessionsChat.overview', "You are in the Agents window. The Agents window is a dedicated workspace for working with AI agents. It provides a chat interface, a changes view for reviewing agent-generated changes, a file explorer, and customization options."));
+		if (!isWeb) {
+			content.push(localize('sessionsChat.terminalSessions', "When creating a workspace session, the Session interface radio group lets you choose Chat or CLI Terminal. Use the arrow keys to focus an option and Enter or Space to select it. Choose a CLI and local folder, then activate Start Terminal Session to open its idle terminal without submitting a prompt. Changing pickers does not start a session. New Claude Code and Codex sessions default to GitHub Copilot; the CLI account source radio group on the creation screen lets you explicitly choose the native account instead. The source determines which account's usage limits apply and cannot be changed after starting. Account controls are not shown above the running terminal. Model selection stays in the CLI using /model; no pre-launch model choice is required. Terminal sessions show their CLI's icon with a terminal marker and remain grouped with their repository. Native conversation switches update the selected session and its repository details. Progress reflects native work rather than an idle terminal. Files and Changes remain available. Inside the terminal, Accessibility Help describes terminal navigation and Accessible View reads its output."));
+			content.push(localize('sessionsChat.terminalStartup', "After starting a CLI, the creation screen announces startup progress and remains visible until the CLI has an initial screen to display. Native sign-in and trust prompts appear in the terminal when they need your input. Startup failures leave the creation screen available for retry."));
+		}
 		content.push(localize('sessionsChat.input', "You are in the chat input. Type a message and press Enter to send it."));
 		content.push(localize('sessionsChat.harnessSwitchFeedbackSurvey', "After you switch from Copilot to Local, a two-step feedback survey may appear above the chat input. Use Shift+Tab to reach it. In the first step, use Up and Down Arrow to choose why you switched, then press Enter or Space. In the second step, enter any optional feedback and use Tab to reach Submit. Dismiss Survey or Escape closes the survey. After submission, the questions are replaced above the input by a message that your feedback was recorded. Use Dismiss Feedback Acknowledgement or Escape to close it."));
 		if (configurationService.getValue<boolean>(NEW_SESSION_WELCOME_PHRASES_SETTING)) {

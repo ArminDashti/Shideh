@@ -254,6 +254,26 @@ suite('DiffEditorWidget2', () => {
 			return regions.map(r => `${r.originalUnchangedRange} - ${r.modifiedUnchangedRange}`);
 		}
 
+		test('overlapping tracked regions are compared with the last retained region', () => {
+			const regions = [
+				new UnchangedRegion(150, 150, 53, 0, 0),
+				new UnchangedRegion(160, 160, 10, 0, 0),
+				new UnchangedRegion(180, 180, 10, 0, 0),
+				new UnchangedRegion(220, 220, 10, 0, 0),
+			];
+			const retained = filterWithPrevious(regions, (current, previous) => !previous || (
+				current.originalLineNumber >= previous.originalLineNumber + previous.lineCount
+				&& current.modifiedLineNumber >= previous.modifiedLineNumber + previous.lineCount
+			));
+			const hidden = retained.map(region => new LineRangeMapping(region.getHiddenOriginalRange(undefined), region.getHiddenModifiedRange(undefined)));
+
+			assert.deepStrictEqual(LineRangeMapping.inverse(hidden, 250, 250).map(range => range.toString()), [
+				'{[1,150)->[1,150)}',
+				'{[203,220)->[203,220)}',
+				'{[230,251)->[230,251)}',
+			]);
+		});
+
 		test('Everything changed', () => {
 			assert.deepStrictEqual(serialize(UnchangedRegion.fromDiffs(
 				[new DetailedLineRangeMapping(new LineRange(1, 10), new LineRange(1, 10), [])],

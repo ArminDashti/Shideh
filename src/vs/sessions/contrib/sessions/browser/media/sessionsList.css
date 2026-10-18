@@ -177,7 +177,9 @@
 	.monaco-list:focus .monaco-list-row.selected .session-icon > .codicon,
 	.monaco-list:focus .monaco-list-row.selected .session-icon > .monaco-pixel-spinner,
 	.monaco-list:focus .monaco-list-row.selected .session-chat-icon > .codicon,
-	.monaco-list:focus .monaco-list-row.selected .session-chat-icon > .monaco-pixel-spinner {
+	.monaco-list:focus .monaco-list-row.selected .session-chat-icon > .monaco-pixel-spinner,
+	.monaco-list:focus .monaco-list-row.selected .session-presentation-icon,
+	.monaco-list:focus .monaco-list-row.selected .session-presentation-icon > .codicon {
 		color: var(--vscode-list-activeSelectionForeground) !important;
 	}
 

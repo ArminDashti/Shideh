@@ -338,6 +338,7 @@ export class SessionChangesEditor extends AbstractEditorWithViewState<IMultiDiff
 	}
 
 	override async setInput(input: SessionChangesEditorInput, options: IMultiDiffEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
+		const stopwatch = StopWatch.create();
 		await super.setInput(input, options, context, token);
 		if (token.isCancellationRequested) {
 			return;
@@ -372,13 +373,14 @@ export class SessionChangesEditor extends AbstractEditorWithViewState<IMultiDiff
 		// automatic first-change navigation sees the restored active item instead
 		// of navigating to (and focusing) the first file.
 		const viewState = this.loadEditorViewState(input, context);
+		this.widget?.setViewModel(viewModel, { preserveFocus: options?.preserveFocus, viewState });
+		this._applyOptions(options);
 		this._logger.log('changes editor set input', {
 			session: this.sessionChangesService.getSessionResource(input.multiDiffSource),
 			preserveFocus: !!options?.preserveFocus,
 			hasPersistedViewState: !!viewState,
+			modelBoundDurationMs: stopwatch.elapsed(),
 		});
-		this.widget?.setViewModel(viewModel, { preserveFocus: options?.preserveFocus, viewState });
-		this._applyOptions(options);
 	}
 
 	protected override setEditorVisible(visible: boolean): void {

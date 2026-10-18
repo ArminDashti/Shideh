@@ -4,16 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { timeout } from '../../../../../base/common/async.js';
+import { mainWindow } from '../../../../../base/browser/window.js';
+import { DeferredPromise, raceCancellation, timeout } from '../../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Event } from '../../../../../base/common/event.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { StorageScope, WillSaveStateReason } from '../../../../../platform/storage/common/storage.js';
+import { IEditorWorkingSet } from '../../../../../workbench/services/editor/common/editorGroupsService.js';
 import { Parts } from '../../../../../workbench/services/layout/browser/layoutService.js';
 import { ViewContainerLocation } from '../../../../../workbench/common/views.js';
 import { TERMINAL_VIEW_ID } from '../../../../../workbench/contrib/terminal/common/terminal.js';
 import { BaseLayoutController } from '../../browser/baseSessionLayoutController.js';
+import { waitForSessionSwitchPaint } from '../../browser/sessionLayoutScheduling.js';
 import { createTestHarness, ICreateOptions, ITestLayoutHarness, makePaneComposite, makeSession } from './layoutControllerTestUtils.js';
 
 /** Concrete, behaviourless subclass so the abstract base (its view-state hook is a no-op) can be instantiated. */
@@ -28,6 +33,23 @@ suite('BaseLayoutController', () => {
 
 	const store = new DisposableStore();
 	let harness: ITestLayoutHarness;
+
+	class TestBaseLayoutController extends BaseLayoutController {
+		readonly preparedWorkingSets: (IEditorWorkingSet | 'empty')[] = [];
+		protected override _waitForSessionSwitchPaint(token: CancellationToken): Promise<void> {
+			return harness.waitForSessionSwitchPaint?.(token) ?? Promise.resolve();
+		}
+		protected override _onWillApplyWorkingSet(workingSet: IEditorWorkingSet | 'empty'): void {
+			this.preparedWorkingSets.push(workingSet);
+		}
+		get isRestoring(): boolean { return this._isRestoringSessionLayout; }
+		readonly onDidEndRestore = this.onDidEndSessionLayoutRestore;
+		getWorkingSet(resource: URI): IEditorWorkingSet | undefined { return this._workingSets.get(resource); }
+	}
+
+	class TestWorkbenchPanelLayoutController extends TestBaseLayoutController {
+		protected override get _isPanelVisibilityPerSession(): boolean { return false; }
+	}
 
 	function createController(options: ICreateOptions = {}): TestBaseLayoutController {
 		harness = createTestHarness(store, options);

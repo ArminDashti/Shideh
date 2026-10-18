@@ -245,6 +245,10 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	 * so an unresolvable session still opens the way it does today.
 	 */
 	async resolveSessionResource(resource: URI, reason?: SessionResourceResolveReason): Promise<URI> {
+		const aliased = this._getAliasedSession(resource);
+		if (aliased) {
+			return aliased.resource;
+		}
 		for (const provider of this.sessionsProvidersService.getProviders()) {
 			if (!provider.resolveSessionResource) {
 				continue;
@@ -345,7 +349,12 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		if (unlistedSession) {
 			return unlistedSession;
 		}
-		return this._getMergedSessions().find(s =>
+		const sessions = this._getMergedSessions();
+		const aliased = this._getAliasedSession(resource, sessions);
+		if (aliased) {
+			return aliased;
+		}
+		return sessions.find(s =>
 			this.uriIdentityService.extUri.isEqual(s.resource, resource)
 		);
 	}

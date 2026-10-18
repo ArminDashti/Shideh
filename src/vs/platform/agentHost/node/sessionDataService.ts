@@ -27,11 +27,12 @@ class SessionDatabaseCollection extends ReferenceCollection<ISessionDatabase> {
 	constructor(
 		private readonly _getDbPath: (key: string) => string,
 		private readonly _logService: ILogService,
+		private readonly _onDidChangeMetadata: (session: URI) => void,
 	) {
 		super();
 	}
 
-	protected createReferencedObject(key: string): ISessionDatabase {
+	protected createReferencedObject(key: string, session: URI): ISessionDatabase {
 		const dbPath = this._getDbPath(key);
 		this._logService.trace(`[SessionDataService] Opening database: ${dbPath}`);
 		this.opens++;
@@ -57,6 +58,8 @@ export class SessionDataService implements ISessionDataService {
 	private readonly _databases: SessionDatabaseCollection;
 	private _stats = 0;
 	private readonly _onWillDeleteSessionData = new Emitter<IWillDeleteSessionDataEvent>();
+	private readonly _onDidChangeSessionMetadata = new Emitter<URI>();
+	readonly onDidChangeSessionMetadata = this._onDidChangeSessionMetadata.event;
 
 	get onWillDeleteSessionData(): Event<IWillDeleteSessionDataEvent> {
 		return this._onWillDeleteSessionData.event;
@@ -72,6 +75,7 @@ export class SessionDataService implements ISessionDataService {
 		this._databases = new SessionDatabaseCollection(
 			getDbPath ?? (key => URI.joinPath(this._basePath, key, SESSION_DB_FILENAME).fsPath),
 			this._logService,
+			session => this._onDidChangeSessionMetadata.fire(session),
 		);
 	}
 
@@ -107,7 +111,7 @@ export class SessionDataService implements ISessionDataService {
 	}
 
 	openDatabase(session: URI): IReference<ISessionDatabase> {
-		return this._databases.acquire(this._sanitizedSessionKey(session));
+		return this._databases.acquire(this._sanitizedSessionKey(session), session);
 	}
 
 	async tryOpenDatabase(session: URI): Promise<IReference<ISessionDatabase> | undefined> {
@@ -122,7 +126,7 @@ export class SessionDataService implements ISessionDataService {
 			}
 			throw error;
 		}
-		return this._databases.acquire(key);
+		return this._databases.acquire(key, session);
 	}
 
 	async deleteSessionData(session: URI, workingDirectories?: readonly string[]): Promise<void> {
@@ -152,6 +156,7 @@ export class SessionDataService implements ISessionDataService {
 		try {
 			if (await this._fileService.exists(dir)) {
 				await this._fileService.del(dir, { recursive: true });
+				this._onDidChangeSessionMetadata.fire(session);
 				this._logService.trace(`[SessionDataService] Deleted session data: ${dir.toString()}`);
 			}
 		} catch (err) {

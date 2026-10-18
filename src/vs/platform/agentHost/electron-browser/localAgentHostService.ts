@@ -158,6 +158,14 @@ export class LocalAgentHostManagementConnection extends Disposable {
  */
 export class LocalAgentHostServiceClient extends Disposable implements IAgentHostService {
 	declare readonly _serviceBrand: undefined;
+	get nativeCliProxy(): INativeCliProxyService {
+		this.startAgentHost();
+		return this._getManagementService();
+	}
+	get nativeCliLifecycle(): INativeCliLifecycleService {
+		this.startAgentHost();
+		return this._getManagementService();
+	}
 
 	readonly clientId = generateUuid();
 	get resourceUris() { return this._protocolClient?.resourceUris ?? identityAgentHostResourceUriMapper; }

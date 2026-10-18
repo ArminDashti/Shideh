@@ -1285,6 +1285,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 				sessionData.providerId,
 				this.activeSession.get()?.sessionId === sessionData.sessionId,
 				sessionData.loading.get(),
+				sessionData.presentation,
 			);
 			this._showSession(sessionData, options, this.navigationRequest.get() === navigation);
 			await this._waitForOpenSessionToLoad(sessionData, token, telemetryAttempt);
