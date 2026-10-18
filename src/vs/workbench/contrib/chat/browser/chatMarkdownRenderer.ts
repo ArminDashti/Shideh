@@ -362,6 +362,7 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 	}
 
 	private getVulnerabilitiesLabel(): string {
+		// This is never assigned?
 		if (!this.currentCodeBlockData || !this.currentCodeBlockData.vulns) {
 			return '';
 		}
