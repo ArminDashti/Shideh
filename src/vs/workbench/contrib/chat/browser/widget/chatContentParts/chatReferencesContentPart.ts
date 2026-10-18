@@ -238,6 +238,7 @@ export class CollapsibleListPool extends Disposable {
 		private _onDidChangeVisibility: Event<boolean>,
 		private readonly menuId: MenuId | undefined,
 		private readonly listOptions: IListOptions<IChatCollapsibleListItem> | undefined,
+		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IThemeService private readonly themeService: IThemeService,
 		@ILabelService private readonly labelService: ILabelService,
@@ -335,11 +336,7 @@ export class CollapsibleListPool extends Disposable {
 	}
 }
 
-class CollapsibleListDelegate implements IListVirtualDelegate<IChatCollapsibleListItem> {
-	getHeight(element: IChatCollapsibleListItem): number {
-		return 22;
-	}
-
+class CollapsibleListDelegate extends ChatListDelegate<IChatCollapsibleListItem> {
 	getTemplateId(element: IChatCollapsibleListItem): string {
 		if (element.kind === 'divider') {
 			return DividerRenderer.TEMPLATE_ID;
