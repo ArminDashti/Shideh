@@ -38,7 +38,7 @@ if (!process.env['VSCODE_SKIP_NODE_VERSION_CHECK']) {
 }
 
 if (process.env.npm_execpath?.includes('yarn')) {
-	console.error('\x1b[1;31m*** Seems like you are using `yarn` which is not supported in this repo any more, please use `npm i` instead. ***\x1b[0;0m');
+	console.error('\x1b[1;31m*** Seems like you are using `yarn` which is not supported in this repo, please use `pnpm install` instead. ***\x1b[0;0m');
 	throw new Error();
 }
 
@@ -68,7 +68,9 @@ if (process.platform === 'win32') {
 	}
 }
 
-installHeaders();
+// With pnpm workspaces, native module headers are installed via a separate
+// rebuild script (scripts/rebuild-native.ts) rather than at preinstall time.
+// All native modules use N-API which is ABI-stable, so prebuilds work for dev.
 
 if (process.arch !== os.arch()) {
 	console.error(`\x1b[1;31m*** ARCHITECTURE MISMATCH: The node.js process is ${process.arch}, but your OS architecture is ${os.arch()}. ***\x1b[0;0m`);

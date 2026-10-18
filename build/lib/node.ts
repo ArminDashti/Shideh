@@ -12,7 +12,7 @@ const npmrc = fs.readFileSync(npmrcPath, 'utf8');
 const version = /^target="(.*)"$/m.exec(npmrc)?.[1];
 
 if (!version) {
-	throw new Error('Failed to extract Node version from .npmrc');
+	throw new Error('Failed to extract Node version from electron.config.json');
 }
 
 const platform = process.platform;

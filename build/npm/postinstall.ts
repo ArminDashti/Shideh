@@ -3,9 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
-import path from 'path';
-import * as os from 'os';
 import * as child_process from 'child_process';
 import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';

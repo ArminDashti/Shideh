@@ -5546,7 +5546,7 @@ declare namespace monaco.editor {
 		foldingMaximumRegions: IEditorOption<EditorOption.foldingMaximumRegions, number>;
 		unfoldOnClickAfterEndOfLine: IEditorOption<EditorOption.unfoldOnClickAfterEndOfLine, boolean>;
 		fontFamily: IEditorOption<EditorOption.fontFamily, string>;
-		fontInfo: IEditorOption<EditorOption.fontInfo, FontInfo>;
+		fontInfo: IEditorOption<EditorOption.fontInfo, any>;
 		fontLigatures2: IEditorOption<EditorOption.fontLigatures, string>;
 		fontSize: IEditorOption<EditorOption.fontSize, number>;
 		fontWeight: IEditorOption<EditorOption.fontWeight, string>;
@@ -5590,7 +5590,7 @@ declare namespace monaco.editor {
 		pasteAs: IEditorOption<EditorOption.pasteAs, Readonly<Required<IPasteAsOptions>>>;
 		parameterHints: IEditorOption<EditorOption.parameterHints, Readonly<Required<IEditorParameterHintOptions>>>;
 		peekWidgetDefaultFocus: IEditorOption<EditorOption.peekWidgetDefaultFocus, 'tree' | 'editor'>;
-		placeholder: IEditorOption<EditorOption.placeholder, string>;
+		placeholder: IEditorOption<EditorOption.placeholder, string | undefined>;
 		definitionLinkOpensInPeek: IEditorOption<EditorOption.definitionLinkOpensInPeek, boolean>;
 		quickSuggestions: IEditorOption<EditorOption.quickSuggestions, InternalQuickSuggestionsOptions>;
 		quickSuggestionsDelay: IEditorOption<EditorOption.quickSuggestionsDelay, number>;
@@ -7833,7 +7833,7 @@ declare namespace monaco.languages {
 		readonly completionKind: CompletionItemKind;
 		readonly isSnippetText: boolean;
 		constructor(range: IRange, text: string, completionKind: CompletionItemKind, isSnippetText: boolean);
-		equals(other: SelectedSuggestionInfo): boolean;
+		equals(other: SelectedSuggestionInfo): any;
 	}
 
 	export interface InlineCompletion {

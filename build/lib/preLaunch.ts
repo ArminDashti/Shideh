@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { paths } from '../folders.ts';
 
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const rootDir = path.resolve(import.meta.dirname, '..', '..');
 
 function runProcess(command: string, args: ReadonlyArray<string> = []) {
@@ -29,7 +29,7 @@ async function exists(subdir: string) {
 
 async function ensureNodeModules() {
 	if (!(await exists('node_modules'))) {
-		await runProcess(npm, ['ci']);
+		await runProcess(pnpm, ['install', '--frozen-lockfile']);
 	}
 }
 

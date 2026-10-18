@@ -17,22 +17,18 @@ shasum.update(fs.readFileSync(paths.npmrc.absPath));
 shasum.update(fs.readFileSync(paths.build.npmrc.absPath));
 shasum.update(fs.readFileSync(paths.remote.npmrc.absPath));
 
-// Add `package.json` and `package-lock.json` files
-for (const dir of dirs) {
-	const packageJsonPath = path.join(ROOT, dir, 'package.json');
-	const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
-	const relevantPackageJsonSections = {
-		dependencies: packageJson.dependencies,
-		devDependencies: packageJson.devDependencies,
-		optionalDependencies: packageJson.optionalDependencies,
-		resolutions: packageJson.resolutions,
-		distro: packageJson.distro
-	};
-	shasum.update(JSON.stringify(relevantPackageJsonSections));
+// With pnpm workspaces, a single pnpm-lock.yaml replaces all package-lock.json files
+shasum.update(fs.readFileSync(path.join(ROOT, 'pnpm-lock.yaml')));
+shasum.update(fs.readFileSync(path.join(ROOT, 'pnpm-workspace.yaml')));
 
-	const packageLockPath = path.join(ROOT, dir, 'package-lock.json');
-	shasum.update(fs.readFileSync(packageLockPath));
-}
+// Hash root package.json sections that affect dependency resolution
+const rootPackageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json')).toString());
+shasum.update(JSON.stringify({
+	dependencies: rootPackageJson.dependencies,
+	devDependencies: rootPackageJson.devDependencies,
+	optionalDependencies: rootPackageJson.optionalDependencies,
+	pnpm: rootPackageJson.pnpm
+}));
 
 // Add any other command line arguments
 for (let i = 2; i < process.argv.length; i++) {
