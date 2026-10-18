@@ -32,6 +32,7 @@ import { Disposable, DisposableStore, IDisposable } from '../../../../../../base
 import { IChatWidget, IChatWidgetService } from '../../chat.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IAgentSessionsService } from '../agentSessionsService.js';
+import { AgentSessionProviders } from '../agentSessions.js';
 import { IChatEditingService, ModifiedFileEntryState } from '../../../common/editing/chatEditingService.js';
 import { isSessionInProgressStatus } from '../agentSessionsModel.js';
 import { URI } from '../../../../../../base/common/uri.js';
