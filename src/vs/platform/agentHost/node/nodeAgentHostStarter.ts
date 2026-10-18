@@ -147,6 +147,23 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 			env[AgentHostCodexAgentBinaryArgsEnvVar] = JSON.stringify(codexArgs);
 		}
 
+		// Codex agent is opt-in via `chat.agentHost.codexAgent.path`. Mirrors the
+		// Claude opt-in pattern above.
+		const codexBinaryPath = this._configurationService.getValue<string>(AgentHostCodexAgentBinaryPathSettingId)
+			|| process.env[AgentHostCodexAgentBinaryPathEnvVar]
+			|| '';
+		if (codexBinaryPath) {
+			env[AgentHostCodexAgentBinaryPathEnvVar] = codexBinaryPath;
+		}
+		const codexHome = this._configurationService.getValue<string>(AgentHostCodexAgentCodexHomeSettingId) || '';
+		if (codexHome) {
+			env[AgentHostCodexAgentCodexHomeEnvVar] = codexHome;
+		}
+		const codexArgs = this._configurationService.getValue<readonly string[]>(AgentHostCodexAgentBinaryArgsSettingId);
+		if (Array.isArray(codexArgs) && codexArgs.length > 0) {
+			env[AgentHostCodexAgentBinaryArgsEnvVar] = JSON.stringify(codexArgs);
+		}
+
 		// Translate `chat.agentHost.otel.*` settings into the env vars consumed by
 		// the agent host process. Any value already present on `process.env` wins
 		// for user settings, while enterprise policy values win over inherited env —
