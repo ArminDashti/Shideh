@@ -385,6 +385,11 @@ export function computeChatSessionStateIndicatorState(input: {
 	return { state, requestActive, hasUnvisitedCompletion };
 }
 
+interface PromptCompletionState {
+	collection: IEditorDecorationsCollection;
+	insertText: string | undefined;
+}
+
 export class ChatWidget extends Disposable implements IChatWidget {
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -511,6 +516,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private fullWelcomeContainer: HTMLElement | undefined;
 
 	private readonly chatSuggestNextWidget: ChatSuggestNextWidget;
+
+	private promptCompletionState: PromptCompletionState | undefined;
+	private promptCompletionTimeout: Timeout | undefined;
+	private ignorePromptCompletions: boolean = false;
 
 	private bodyDimension: dom.Dimension | undefined;
 	private maximumWidth = 950;
@@ -2803,6 +2812,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (this.bodyDimension?.width) {
 			input.layout(this.bodyDimension.width);
 		}
+		this.promptCompletionState = {
+			collection: this.inputEditor.createDecorationsCollection(),
+			insertText: undefined
+		};
 
 		store.add(input.onDidLoadInputState(() => {
 			this.refreshParsedInput();
@@ -2853,6 +2866,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		store.add(input.inputEditor.onDidChangeModelContent(() => {
 			this.parsedChatRequest = undefined;
 			this.updateChatInputContext();
+			this.updateInlineCompletions();
+		}));
+		this._register(this.inputEditor.onDidChangeCursorPosition(() => {
+			this.updateInlineCompletions();
+		}));
+		this._register(this.inputEditor.onKeyDown((e) => {
+			if (e.keyCode === KeyCode.Tab) {
+				const accepted = this.acceptPromptCompletion();
+				if (accepted) {
+					e.stopPropagation();
+					e.preventDefault();
+				}
+			}
+			if (e.keyCode === KeyCode.Escape) {
+				this.clearPromptCompletions();
+			}
 		}));
 		store.add(this.chatAgentService.onDidChangeAgents(() => {
 			this.parsedChatRequest = undefined;
