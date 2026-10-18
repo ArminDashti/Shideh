@@ -287,6 +287,31 @@ registerAction2(class extends Action2 {
 	}
 });
 
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'debug.toggleReplIgnoreFocus',
+			title: nls.localize('debugPanel', "Debug Console"),
+			toggled: ContextKeyDefinedExpr.create(`view.${REPL_VIEW_ID}.visible`),
+			menu: [{
+				id: ViewsSubMenu,
+				group: '3_toggleRepl',
+				order: 30,
+				when: ContextKeyExpr.and(ContextKeyEqualsExpr.create('viewContainer', VIEWLET_ID))
+			}]
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const viewsService = accessor.get(IViewsService);
+		if (viewsService.isViewVisible(REPL_VIEW_ID)) {
+			viewsService.closeView(REPL_VIEW_ID);
+		} else {
+			await viewsService.openView(REPL_VIEW_ID);
+		}
+	}
+});
+
 MenuRegistry.appendMenuItem(MenuId.ViewContainerTitle, {
 	when: ContextKeyExpr.and(
 		ContextKeyExpr.equals('viewContainer', VIEWLET_ID),

@@ -742,6 +742,10 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		return this.userDataSyncEnablementService.isEnabled() && this.userDataSyncEnablementService.isResourceEnabled(SyncResource.Extensions);
 	}
 
+	private isExtensionsSyncEnabled(): boolean {
+		return this.userDataAutoSyncEnablementService.isEnabled() && this.userDataSyncResourceEnablementService.isResourceEnabled(SyncResource.Extensions);
+	}
+
 	private async hasToFlagExtensionsMachineScoped(extensions: IGalleryExtension[]): Promise<boolean> {
 		if (this.isExtensionsSyncEnabled()) {
 			const { result } = await this.dialogService.prompt<boolean>({
