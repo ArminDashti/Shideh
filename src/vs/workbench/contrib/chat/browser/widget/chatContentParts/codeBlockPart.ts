@@ -497,6 +497,18 @@ export class CodeBlockPart extends Disposable {
 			this.contextKeyService.updateParent(data.parentContextKeyService);
 		}
 
+		// Set initial toolbar context immediately with available text so copy works during streaming
+		if (text !== undefined) {
+			this.toolbar.context = {
+				code: text,
+				codeBlockIndex: data.codeBlockIndex,
+				element: data.element,
+				languageId: data.languageId,
+				codemapperUri: data.codemapperUri,
+				chatSessionResource: data.chatSessionResource
+			} satisfies ICodeBlockActionContext;
+		}
+
 		if (this.getEditorOptionsFromConfig().wordWrap === 'on') {
 			// Initialize the editor with the new proper width so that getContentHeight
 			// will be computed correctly in the next call to layout()
