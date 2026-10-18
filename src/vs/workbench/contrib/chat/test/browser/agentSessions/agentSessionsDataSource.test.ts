@@ -1283,6 +1283,16 @@ suite('AgentSessionsDataSource', () => {
 			});
 			assert.strictEqual(getRepositoryName(session), 'vscode');
 		});
+
+		test('does not throw when badge is an IMarkdownString with undefined value', () => {
+			const session = createMockSession({ id: '1', badge: { value: undefined! } as IMarkdownString });
+			assert.strictEqual(getRepositoryName(session), undefined);
+		});
+
+		test('extracts repo name from IMarkdownString badge with valid value', () => {
+			const session = createMockSession({ id: '1', badge: { value: '$(repo) vscode' } as IMarkdownString });
+			assert.strictEqual(getRepositoryName(session), 'vscode');
+		});
 	});
 
 	suite('getRepositoryNwo', () => {
