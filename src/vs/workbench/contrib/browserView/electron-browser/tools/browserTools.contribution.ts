@@ -75,6 +75,30 @@ class BrowserChatAgentToolsContribution extends Disposable implements IWorkbench
 				void this.playwrightService.disposeSession(resource.toString()).catch(() => { });
 			}
 		}));
+
+		// Register URL-based confirmation contributions for open and navigate tools.
+		// This confirmation will be stored in settings and shared with other tools that
+		// register ChatUrlFetchingConfirmationContribution, such as the `fetch` tool.
+		this._register(confirmationService.registerConfirmationContribution(
+			OpenBrowserToolData.id,
+			instantiationService.createInstance(
+				ChatUrlFetchingConfirmationContribution,
+				(params: unknown) => {
+					const url = (params as { url?: string }).url;
+					return url ? [url] : undefined;
+				}
+			)
+		));
+		this._register(confirmationService.registerConfirmationContribution(
+			NavigateBrowserToolData.id,
+			instantiationService.createInstance(
+				ChatUrlFetchingConfirmationContribution,
+				(params: unknown) => {
+					const p = params as { type?: string; url?: string };
+					return (!p.type || p.type === 'url') && p.url ? [p.url] : undefined;
+				}
+			)
+		));
 	}
 
 	private _updateToolRegistrations(): void {
