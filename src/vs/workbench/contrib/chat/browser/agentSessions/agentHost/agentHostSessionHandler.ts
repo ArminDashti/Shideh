@@ -4008,6 +4008,18 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					};
 				});
 		});
+		const modelLookup = this._createTurnModelLookup(opts.sessionResource, undefined);
+		if (opts.subAgentInvocationId === undefined) {
+			let lastAutoModeResolution: IChatAutoModeResolutionPart | undefined;
+			store.add(autorun(reader => {
+				const resolution = modelLookup.toAutoModeResolution?.(usage$.read(reader));
+				if (!resolution || equals(lastAutoModeResolution, resolution)) {
+					return;
+				}
+				lastAutoModeResolution = resolution;
+				opts.sink([resolution]);
+			}));
+		}
 
 		// Subagent observation context: dedups subagent tool calls so each is
 		// observed once.
@@ -4084,8 +4096,6 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		// Per-turn adjuncts skipped for subagent observers.
 		if (opts.subAgentInvocationId === undefined) {
 			let lastUsage: ReturnType<typeof usageInfoToChatUsage>;
-			let lastAutoModeResolution: IChatAutoModeResolutionPart | undefined;
-			const modelLookup = this._createTurnModelLookup(opts.sessionResource, undefined);
 
 			// Surface the host's chat activity — e.g. the live "Creating
 			// isolated worktree (42%)" progress reported while the session's

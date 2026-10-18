@@ -14148,6 +14148,58 @@ suite('AgentHostChatContribution', () => {
 			assert.strictEqual(lastMarkdown.content.value, ' and more');
 		}));
 
+		test('keeps a completed tool call out of streamed markdown when reconnecting mid-turn', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService } = createContribution(disposables);
+
+			const sessionUri = AgentSession.uri('copilot', 'reconnect-completed-tool');
+			const sessionState = makeSessionStateWithActiveTurn(sessionUri.toString(), { streamingText: 'The real fix is' });
+			// A settled tool call ahead of the partial trailing markdown.
+			sessionState.activeTurn!.responseParts.unshift({
+				kind: ResponsePartKind.ToolCall,
+				toolCall: {
+					status: ToolCallStatus.Completed,
+					toolCallId: 'tc-completed',
+					toolName: 'bash',
+					displayName: 'Bash',
+					invocationMessage: 'Running command',
+					pastTenseMessage: 'Ran command',
+					confirmed: ToolCallConfirmationReason.NotNeeded,
+					success: true,
+					content: [],
+				},
+			});
+			agentHostService.sessionStates.set(sessionUri.toString(), sessionState);
+
+			const sessionResource = URI.from({ scheme: 'agent-host-copilot', path: '/reconnect-completed-tool' });
+			const session = await sessionHandler.provideChatSessionContent(sessionResource, CancellationToken.None);
+			disposables.add(toDisposable(() => session.dispose()));
+
+			agentHostService.fireAction({
+				channel: sessionUri.toString(),
+				action: { type: 'chat/delta', turnId: 'turn-active', partId: 'md-active', content: ' to stop guessing.' } as ChatAction,
+				serverSeq: 1,
+				origin: undefined,
+			});
+
+			await timeout(10);
+
+			assert.deepStrictEqual((session.progressObs?.get() ?? []).map(part => {
+				switch (part.kind) {
+					case 'markdownContent':
+						return { kind: part.kind, value: part.content.value };
+					case 'toolInvocation':
+					case 'toolInvocationSerialized':
+						return { kind: part.kind, value: part.toolCallId };
+					default:
+						return { kind: part.kind, value: undefined };
+				}
+			}), [
+				{ kind: 'toolInvocation', value: 'tc-completed' },
+				{ kind: 'markdownContent', value: 'The real fix is' },
+				{ kind: 'markdownContent', value: ' to stop guessing.' },
+			]);
+		}));
+
 		test('marks session complete when turn finishes', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const { sessionHandler, agentHostService } = createContribution(disposables);
 
@@ -14601,12 +14653,7 @@ suite('AgentHostChatContribution', () => {
 		}));
 
 		test('reconnect during streaming then confirmation renders exactly one card (#314858)', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
-			// Reload/reconnect while a terminal tool is still streaming its
-			// arguments, then the tool requests confirmation. The reconnect
-			// snapshot must adopt a native streaming invocation so the live
-			// observer drives it in place through `transitionFromStreaming` —
-			// not an Executing placeholder that would trigger the duplicate
-			// confirmation card on `Streaming → PendingConfirmation`.
+			// The observer must restore a streaming invocation and drive it through confirmation in place.
 			const { sessionHandler, agentHostService } = createContribution(disposables);
 
 			const sessionUri = AgentSession.uri('copilot', 'reconnect-stream-confirm');
