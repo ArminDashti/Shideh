@@ -1,7 +1,7 @@
 [
 	{
 		"c": "swagger",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -17,7 +17,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -33,7 +33,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -49,7 +49,7 @@
 	},
 	{
 		"c": "'",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml punctuation.definition.string.begin.yaml",
+		"t": "source.yaml string.quoted.single.yaml punctuation.definition.string.begin.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -65,7 +65,7 @@
 	},
 	{
 		"c": "2.0",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml",
+		"t": "source.yaml string.quoted.single.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "'",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml punctuation.definition.string.end.yaml",
+		"t": "source.yaml string.quoted.single.yaml punctuation.definition.string.end.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -97,7 +97,7 @@
 	},
 	{
 		"c": "info",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -113,7 +113,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -129,7 +129,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -145,7 +145,7 @@
 	},
 	{
 		"c": "description",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -177,7 +177,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -193,7 +193,7 @@
 	},
 	{
 		"c": "'",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml punctuation.definition.string.begin.yaml",
+		"t": "source.yaml string.quoted.single.yaml punctuation.definition.string.begin.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -209,7 +209,7 @@
 	},
 	{
 		"c": "The API Management Service API defines an updated and refined version",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml",
+		"t": "source.yaml string.quoted.single.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -256,8 +256,8 @@
 		}
 	},
 	{
-		"c": "of the concepts currently known as Developer, APP, and API Product in Edge. Of",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml",
+		"c": "    note is the introduction of the API concept, missing previously from Edge",
+		"t": "source.yaml string.quoted.single.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -353,7 +353,7 @@
 	},
 	{
 		"c": "'",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.quoted.single.yaml punctuation.definition.string.end.yaml",
+		"t": "source.yaml string.quoted.single.yaml punctuation.definition.string.end.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.quoted.single.yaml: #0000FF",
@@ -369,7 +369,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -385,7 +385,7 @@
 	},
 	{
 		"c": "title",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -401,7 +401,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -417,7 +417,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -433,7 +433,7 @@
 	},
 	{
 		"c": "API Management Service API",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
@@ -449,7 +449,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -465,7 +465,7 @@
 	},
 	{
 		"c": "version",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -481,7 +481,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -497,7 +497,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -513,7 +513,7 @@
 	},
 	{
 		"c": "initial",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",

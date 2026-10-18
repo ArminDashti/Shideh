@@ -1,7 +1,7 @@
 [
 	{
 		"c": "test1",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -17,7 +17,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -33,7 +33,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -49,7 +49,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -65,7 +65,7 @@
 	},
 	{
 		"c": "dsd",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "test2",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -97,7 +97,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -113,7 +113,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -129,7 +129,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -145,7 +145,7 @@
 	},
 	{
 		"c": "abc-def",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": "test-3",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -177,7 +177,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -193,7 +193,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -209,7 +209,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -225,7 +225,7 @@
 	},
 	{
 		"c": "abcdef",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
@@ -241,7 +241,7 @@
 	},
 	{
 		"c": "test-4",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"dark_plus": "entity.name.tag: #569CD6",
 			"light_plus": "entity.name.tag: #800000",
@@ -257,7 +257,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -273,7 +273,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -289,7 +289,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -305,7 +305,7 @@
 	},
 	{
 		"c": "abc-def",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"dark_plus": "string: #CE9178",
 			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
