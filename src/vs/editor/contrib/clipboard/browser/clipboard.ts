@@ -316,7 +316,7 @@ if (PasteAction) {
 				performance.mark('code/registerExecCommandImpl/code-editor/paste/triggerPasteDefined');
 				return triggerPaste.then(async () => {
 					logService.trace('registerExecCommandImpl (after triggerPaste)');
-					return CopyPasteController.get(focusedEditor)?.finishedPaste() ?? Promise.resolve();
+					return Promise.resolve();
 				});
 			} else {
 				performance.mark('code/registerExecCommandImpl/code-editor/paste/triggerPasteUndefined');
