@@ -44,6 +44,9 @@ export function activateShared(
 	const previewManager = new MarkdownPreviewManager(contentProvider, logger, contributions, opener, context.workspaceState);
 	context.subscriptions.push(previewManager);
 
+	const decorationManager = new MarkdownDecorationManager(engine);
+	context.subscriptions.push(decorationManager);
+
 	context.subscriptions.push(registerMarkdownLanguageFeatures(client, commandManager, engine));
 	context.subscriptions.push(registerMarkdownCommands(commandManager, previewManager, telemetryReporter, cspArbiter, engine));
 
