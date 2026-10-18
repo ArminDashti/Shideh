@@ -50,6 +50,7 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
+		this._sdkDownloader = new AgentHostSdkDownloader(product, this._environmentService.userDataPath, this._logService);
 	}
 
 	/**
