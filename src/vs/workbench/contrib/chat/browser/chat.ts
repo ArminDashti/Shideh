@@ -28,6 +28,7 @@ import { ChatRequestQueueKind, IChatElicitationRequest, IChatLocationData, IChat
 import { IChatRequestViewModel, IChatResponseViewModel, IChatViewModel, IChatPendingDividerViewModel } from '../common/model/chatViewModel.js';
 import { ChatAgentLocation, ChatModeKind, IResolvedNewChatSessionType } from '../common/constants.js';
 import { ChatAttachmentModel } from './attachments/chatAttachmentModel.js';
+import { IChatRequestVariableEntry } from '../common/attachments/chatVariableEntries.js';
 import { IChatEditorOptions } from './widgetHosts/editor/chatEditor.js';
 import { ChatInputPart } from './widget/input/chatInputPart.js';
 import { ChatInputEditorState } from './widget/input/chatInputEditorState.js';

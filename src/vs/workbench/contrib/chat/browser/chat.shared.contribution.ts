@@ -73,6 +73,8 @@ import { CodeMapperService, ICodeMapperService } from '../common/editing/chatCod
 import { IChatEditingService } from '../common/editing/chatEditingService.js';
 import { ILanguageModelIgnoredFilesService, LanguageModelIgnoredFilesService } from '../common/ignoredFiles.js';
 import { ILanguageModelsService, LanguageModelsService } from '../common/languageModels.js';
+import { ISessionRouter } from '../common/sessionRouter.js';
+import { SessionRouterService } from './sessionRouter/sessionRouterService.js';
 import { ILanguageModelStatsService, LanguageModelStatsService } from '../common/languageModelStats.js';
 import { ChatTransferService, IChatTransferService } from '../common/model/chatTransferService.js';
 import { IChatPermissionSnapshotService } from '../common/permissions/chatPermissionSnapshotService.js';
@@ -104,7 +106,7 @@ import { ChatResponseResourceFileSystemProvider, ChatResponseResourceWorkbenchCo
 import { ChatTerminalOutputTextModelService, ChatTerminalOutputTextModelWorkbenchContribution, IChatTerminalOutputTextModelService } from './agentSessions/agentHost/chatTerminalOutputTextModelContentProvider.js';
 import { ChatWidgetHistoryService, IChatWidgetHistoryService } from '../common/widget/chatWidgetHistoryService.js';
 import { registerChatAccessibilityActions } from './actions/chatAccessibilityActions.js';
-import { AgentChatAccessibilityHelp, EditsChatAccessibilityHelp, PanelChatAccessibilityHelp, QuickChatAccessibilityHelp } from './actions/chatAccessibilityHelp.js';
+import { AgentChatAccessibilityHelp, ChatInputWindowAccessibilityHelp, EditsChatAccessibilityHelp, PanelChatAccessibilityHelp, QuickChatAccessibilityHelp } from './actions/chatAccessibilityHelp.js';
 import { ModeOpenChatGlobalAction, registerChatActions } from './actions/chatActions.js';
 import { ChatAgentRecommendation } from './actions/chatAgentRecommendationActions.js';
 import { CodeBlockActionRendering, registerChatCodeBlockActions, registerChatCodeCompareBlockActions } from './actions/chatCodeblockActions.js';
@@ -3442,6 +3444,7 @@ registerSingleton(IChatAccessibilityService, ChatAccessibilityService, Instantia
 registerSingleton(IChatWidgetHistoryService, ChatWidgetHistoryService, InstantiationType.Delayed);
 registerSingleton(ILanguageModelsConfigurationService, LanguageModelsConfigurationService, InstantiationType.Delayed);
 registerSingleton(ILanguageModelsService, LanguageModelsService, InstantiationType.Delayed);
+registerSingleton(ISessionRouter, SessionRouterService, InstantiationType.Delayed);
 registerSingleton(ILanguageModelStatsService, LanguageModelStatsService, InstantiationType.Delayed);
 registerSingleton(IChatSlashCommandService, ChatSlashCommandService, InstantiationType.Delayed);
 registerSingleton(IChatAgentService, ChatAgentService, InstantiationType.Delayed);

@@ -48,6 +48,16 @@ export class QuickChatAccessibilityHelp implements IAccessibleViewImplementation
 	}
 }
 
+export class ChatInputWindowAccessibilityHelp implements IAccessibleViewImplementation {
+	readonly priority = 121;
+	readonly name = 'chatInputWindow';
+	readonly type = AccessibleViewType.Help;
+	readonly when = ChatContextKeys.inChatInputWindow;
+	getProvider(accessor: ServicesAccessor) {
+		return getChatAccessibilityHelpProvider(accessor, undefined, 'chatInputWindow');
+	}
+}
+
 export class EditsChatAccessibilityHelp implements IAccessibleViewImplementation {
 	readonly priority = 119;
 	readonly name = 'editsView';
@@ -248,7 +258,7 @@ export function getAccessibilityHelpText(type: 'panelChat' | 'inlineChat' | 'qui
 	return content.join('\n');
 }
 
-export function getChatAccessibilityHelpProvider(accessor: ServicesAccessor, editor: ICodeEditor | undefined, type: 'panelChat' | 'inlineChat' | 'quickChat' | 'editsView' | 'agentView'): AccessibleContentProvider | undefined {
+export function getChatAccessibilityHelpProvider(accessor: ServicesAccessor, editor: ICodeEditor | undefined, type: 'panelChat' | 'inlineChat' | 'quickChat' | 'editsView' | 'agentView' | 'chatInputWindow'): AccessibleContentProvider | undefined {
 	const widgetService = accessor.get(IChatWidgetService);
 	const keybindingService = accessor.get(IKeybindingService);
 	const environmentService = accessor.get(IWorkbenchEnvironmentService);
@@ -269,11 +279,11 @@ export function getChatAccessibilityHelpProvider(accessor: ServicesAccessor, edi
 	const isInlineChat = isIChatResourceViewContext(widget.viewContext) && widget.viewContext.isInlineChat;
 	const helpText = getAccessibilityHelpText(type, keybindingService, widget.supportsFileReferences, environmentService.isSessionsWindow, isStickyPromptHeaderShown(widget, configurationService), !widget.rendersInputOnTop && !isInlineChat, widget.inputPart.hasSessionArchiveNudge, getChatSessionArchiveActionWording(configurationService));
 	return new AccessibleContentProvider(
-		type === 'panelChat' ? AccessibleViewProviderId.PanelChat : type === 'inlineChat' ? AccessibleViewProviderId.InlineChat : type === 'agentView' ? AccessibleViewProviderId.AgentChat : AccessibleViewProviderId.QuickChat,
+		type === 'panelChat' ? AccessibleViewProviderId.PanelChat : type === 'inlineChat' ? AccessibleViewProviderId.InlineChat : type === 'agentView' ? AccessibleViewProviderId.AgentChat : type === 'chatInputWindow' ? AccessibleViewProviderId.ChatInputWindow : AccessibleViewProviderId.QuickChat,
 		{ type: AccessibleViewType.Help },
 		() => helpText,
 		() => {
-			if (type === 'quickChat' || type === 'editsView' || type === 'agentView' || type === 'panelChat') {
+			if (type === 'quickChat' || type === 'editsView' || type === 'agentView' || type === 'panelChat' || type === 'chatInputWindow') {
 				if (cachedPosition) {
 					inputEditor.setPosition(cachedPosition);
 				}

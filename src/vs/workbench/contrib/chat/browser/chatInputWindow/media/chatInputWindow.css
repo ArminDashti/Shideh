@@ -1,0 +1,340 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The floating chat input window is a single surface that sits above every
+ * other app, so it is styled as one object rather than as a miniature
+ * workbench: rounded at the surface tier, opaque, and only as tall as what it
+ * is holding. Everything here is scoped to `.chat-input-window` so the same
+ * chat input keeps its normal appearance everywhere else.
+ */
+
+.chat-input-window {
+	/*
+	 * One rail down the left for every row of content — input text, section
+	 * headers, footers — and the same air on the right. Rows indent from it by
+	 * exactly the width of their status column, so labels line up as a second
+	 * rail rather than drifting.
+	 */
+	--omni-rail: 20px;
+	--omni-icon-column: 16px;
+	--omni-row-gap: 8px;
+
+	/* The most prominent surface in the product: it floats above every window. */
+	border-radius: var(--vscode-cornerRadius-xLarge, 12px);
+	overflow: hidden;
+}
+
+/*
+ * The window itself is transparent so the rounded corners read against
+ * whatever is behind it; the surface underneath supplies the opaque fill.
+ */
+.chat-input-window-body {
+	background: transparent !important;
+	overflow: hidden;
+}
+
+/* One row: what you are talking about, then what you are saying. */
+.chat-input-window .chat-input-window-row {
+	display: flex;
+	align-items: center;
+	flex: 1 1 auto;
+	min-height: 0;
+	padding-right: var(--omni-rail);
+}
+
+/*
+ * A frameless window can only be moved by a drag region, so the row opens with
+ * one. It stays blank and narrow: the bar spends its width on what you are
+ * saying, not on a picture of a handle.
+ */
+.chat-input-window .chat-input-window-lead {
+	flex: 0 0 auto;
+	width: 14px;
+	align-self: stretch;
+	cursor: grab;
+}
+
+.chat-input-window .chat-input-window-lead:active {
+	cursor: grabbing;
+}
+
+/* Trailing chrome: the way out of the bar. */
+.chat-input-window .chat-input-window-trail {
+	display: flex;
+	align-items: center;
+	flex: 0 0 auto;
+	/* The arrow and the close control were touching at 6px. */
+	padding-left: 8px;
+}
+
+.chat-input-window .chat-input-window-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	color: var(--vscode-icon-foreground);
+	opacity: .7;
+	cursor: pointer;
+	/* Frameless-window drag regions swallow clicks; keep the control live. */
+	-webkit-app-region: no-drag;
+}
+
+.chat-input-window .chat-input-window-close:hover {
+	opacity: 1;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.chat-input-window .chat-input-window-close:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+	opacity: 1;
+}
+
+.chat-input-window .chat-input-window-close .codicon[class*='codicon-'] {
+	font-size: var(--vscode-codiconFontSize-compact, 12px);
+}
+
+/* The chat input's own side toolbar is replaced by the bar's trailing chrome. */
+.chat-input-window .chat-side-toolbar {
+	display: none;
+}
+
+/*
+ * Model selection and attachments belong to the surface you read responses in.
+ * This bar is for saying the thing and getting out of the way, so they are
+ * dropped rather than shrunk — fewer controls competing with the sentence.
+ */
+.chat-input-window .chat-input-toolbars .chat-input-picker-item,
+.chat-input-window .chat-input-toolbars .action-item > .codicon-add {
+	display: none;
+}
+
+/*
+ * At rest the input carries no chrome of its own — the window is the surface.
+ * Only the colour is dropped, not the border: the box stays the same size, and
+ * while the agent is working the input restores that ring itself, deliberately,
+ * so the perimeter stays visible behind the travelling comet. Removing the
+ * border outright took that away, and with it the boundary the animation is
+ * drawn against.
+ */
+.chat-input-window .chat-input-container:not(.working) {
+	border-color: transparent !important;
+	background: transparent !important;
+}
+
+/*
+ * The chat input sizes itself for a panel that owns its full column, so left
+ * alone it overflows the row and pushes the close control off the right edge.
+ * Pin every box between the row and the editor to the width it is given.
+ */
+.chat-input-window .chat-input-window-row > .interactive-session,
+.chat-input-window .interactive-session,
+.chat-input-window .interactive-input-part,
+.chat-input-window .interactive-input-and-edit-session,
+.chat-input-window .interactive-input-and-side-toolbar,
+.chat-input-window .chat-input-container,
+.chat-input-window .chat-editor-container {
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.chat-input-window .interactive-input-part,
+.chat-input-window .interactive-input-and-edit-session,
+.chat-input-window .interactive-input-and-side-toolbar {
+	width: 100%;
+}
+
+/* The editor takes what the controls leave, rather than a fixed share. */
+.chat-input-window .chat-input-container {
+	width: 100%;
+}
+
+.chat-input-window .chat-editor-container {
+	flex: 1 1 auto;
+}
+
+/*
+ * The submit affordance never leaves, so the way to send never moves. It rests
+ * dim and arms — full strength, heavier glyph — the moment there is something
+ * of yours to send.
+ *
+ * No filled block: the accent belongs to the glow, which is the thing actually
+ * carrying state. A solid button beside it reads as two accents competing on
+ * one surface, and the arrow alone is legible enough to press. The chat input
+ * paints that block with `!important` from a deep selector, so these have to
+ * carry the same chain to out-specify it — a shorter selector loses and leaves
+ * a white glyph on a light bar.
+ */
+.chat-input-window .interactive-session .chat-input-toolbars > .chat-execute-toolbar .monaco-action-bar .action-item.chat-submit-button > .action-label {
+	background: none !important;
+	color: var(--vscode-icon-foreground) !important;
+	opacity: .4;
+	transition: opacity 120ms ease, transform 120ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.chat-input-window .interactive-session .chat-input-toolbars > .chat-execute-toolbar .monaco-action-bar .action-item.chat-submit-button:not(.disabled) > .action-label {
+	background: none !important;
+	color: var(--vscode-foreground) !important;
+	opacity: 1;
+	font-weight: 700;
+	transform: scale(1.08);
+}
+
+.chat-input-window .interactive-session .chat-input-toolbars > .chat-execute-toolbar .monaco-action-bar .action-item.chat-submit-button:not(.disabled) > .action-label:hover {
+	background: var(--vscode-toolbar-hoverBackground) !important;
+}
+
+/*
+ * While either party is speaking there is no turn for you to submit, so the
+ * arrow recedes instead of inviting a press it would not honour.
+ */
+.chat-input-window[data-voice='active'] .interactive-session .chat-input-toolbars > .chat-execute-toolbar .monaco-action-bar .action-item.chat-submit-button > .action-label {
+	opacity: .25;
+	font-weight: inherit;
+	transform: none;
+}
+
+/* The routing badge sits above the input, separated by a hairline. */
+.chat-input-window .chat-routing-badge {
+	background-color: transparent;
+	border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, .25));
+}
+
+/*
+ * Intent result: what the line was taken to mean, after it has already been
+ * carried out. A guess you can see is a guess you can correct.
+ */
+.chat-input-window .chat-intent-badge {
+	gap: var(--omni-row-gap);
+	padding: 5px var(--omni-rail);
+}
+
+.chat-input-window .chat-intent-badge-mark {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	color: var(--vscode-icon-foreground);
+}
+
+.chat-input-window .chat-intent-badge-mark .codicon[class*='codicon-'] {
+	font-size: var(--vscode-codiconFontSize-compact, 12px);
+}
+
+/*
+ * Sessions strip: whether the work you already sent is still running, or
+ * waiting on you. One line until you open it — a floating bar that grew a list
+ * every time an agent started thinking would be pinned open permanently.
+ */
+.chat-input-window .omni-sessions-strip {
+	display: none;
+	flex-direction: column;
+	flex-shrink: 0;
+	border-top: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, .25));
+}
+
+.chat-input-window .omni-sessions-strip.shown {
+	display: flex;
+}
+
+.chat-input-window .omni-sessions-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px var(--omni-rail);
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	/* Frameless-window drag regions swallow clicks; keep the control live. */
+	-webkit-app-region: no-drag;
+}
+
+.chat-input-window .omni-sessions-summary:hover {
+	color: var(--vscode-foreground);
+}
+
+.chat-input-window .omni-sessions-summary:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/*
+ * Blocked work is the only kind that will not finish without you, so it is the
+ * only kind that earns a colour.
+ */
+.chat-input-window .omni-sessions-strip.needs-input .omni-sessions-summary-label {
+	color: var(--vscode-list-warningForeground);
+}
+
+.chat-input-window .omni-sessions-chevron {
+	display: flex;
+	align-items: center;
+	opacity: .7;
+}
+
+.chat-input-window .omni-sessions-chevron .codicon[class*='codicon-'] {
+	font-size: var(--vscode-codiconFontSize-compact, 12px);
+}
+
+.chat-input-window .omni-sessions-list {
+	display: none;
+	flex-direction: column;
+	/* Row padding makes up the rest of the rail, so icons land on it. */
+	padding: 0 calc(var(--omni-rail) - 8px) 4px;
+}
+
+.chat-input-window .omni-sessions-list.expanded {
+	display: flex;
+}
+
+.chat-input-window .omni-sessions-row {
+	display: flex;
+	align-items: center;
+	gap: var(--omni-row-gap);
+	padding: 4px 8px;
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+
+.chat-input-window .omni-sessions-row:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.chat-input-window .omni-sessions-row:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.chat-input-window .omni-sessions-row-icon {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--omni-icon-column);
+	height: var(--omni-icon-column);
+}
+
+.chat-input-window .omni-sessions-row-icon .codicon[class*='codicon-'] {
+	font-size: var(--vscode-codiconFontSize-compact, 12px);
+}
+
+.chat-input-window .omni-sessions-row-label {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chat-input-window .omni-sessions-row-detail {
+	flex: 0 0 auto;
+	font-variant-numeric: tabular-nums;
+	color: var(--vscode-descriptionForeground);
+}
