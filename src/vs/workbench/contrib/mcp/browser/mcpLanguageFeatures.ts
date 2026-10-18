@@ -46,6 +46,8 @@ type ConfigDescriptor = Pick<IMcpConfigPath, 'section' | 'scope' | 'target' | 's
 
 type AgentHostMcpServer = ReturnType<IAgentHostCustomizationService['getMcpServers']>[number];
 
+type AgentHostMcpServer = ReturnType<IAgentHostCustomizationService['getMcpServers']>[number];
+
 export class McpLanguageFeatures extends Disposable implements IWorkbenchContribution {
 	private readonly _cachedMcpSection = this._register(new MutableDisposable<{ model: ITextModel; inConfig: ConfigDescriptor; tree: Node } & IDisposable>());
 

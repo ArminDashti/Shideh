@@ -5288,6 +5288,29 @@ export class CopilotAgentSession extends Disposable {
 		}
 	}
 
+	async startMcpServer(id: string): Promise<void> {
+		const serverName = this._mcpCustomizations.serverNameForCustomizationId(id);
+		if (!serverName) {
+			this._logService.warn(`[Copilot:${this.sessionId}] Cannot start unknown MCP server customization ${id}`);
+			return;
+		}
+		// stopServer leaves inline session MCP servers not_configured; disable->enable is the validated restart path.
+		await this._wrapper.session.rpc.mcp.disable({ serverName });
+		await this._wrapper.session.rpc.mcp.enable({ serverName });
+		await this._wrapper.session.rpc.mcp.listTools({ serverName });
+		this._seedMcpServersFromRpc();
+	}
+
+	async stopMcpServer(id: string): Promise<void> {
+		const serverName = this._mcpCustomizations.serverNameForCustomizationId(id);
+		if (!serverName) {
+			this._logService.warn(`[Copilot:${this.sessionId}] Cannot stop unknown MCP server customization ${id}`);
+			return;
+		}
+		await this._wrapper.session.rpc.mcp.stopServer({ serverName });
+		this._mcpCustomizations.applyOne({ name: serverName, state: { kind: McpServerStatus.Stopped } });
+	}
+
 	/**
 	 * Starts a server or renews exhausted authentication callbacks via the SDK's OAuth reset.
 	 * An existing callback needs only a token response; SDK lifecycle updates determine connection progress.

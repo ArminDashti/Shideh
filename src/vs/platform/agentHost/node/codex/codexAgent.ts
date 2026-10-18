@@ -722,6 +722,35 @@ export class CodexAgent extends Disposable implements IAgent {
 		return candidates;
 	}
 
+	async startMcpServer(sessionUri: URI, id: string): Promise<void> {
+		const session = this._sessions.get(AgentSession.id(sessionUri));
+		const serverName = session ? this._resolveMcpServerName(session, id) : undefined;
+		if (!session || !serverName) {
+			this._logService.warn(`[Codex] Cannot start unknown MCP server customization ${id}`);
+			return;
+		}
+		const conn = await this._ensureConnection();
+		await conn.client.request<'config/mcpServer/reload'>('config/mcpServer/reload', undefined);
+		await this._refreshMcpInventory(conn.client);
+	}
+
+	async stopMcpServer(sessionUri: URI, id: string): Promise<void> {
+		const session = this._sessions.get(AgentSession.id(sessionUri));
+		const serverName = session ? this._resolveMcpServerName(session, id) : undefined;
+		if (!session || !serverName) {
+			this._logService.warn(`[Codex] Cannot stop unknown MCP server customization ${id}`);
+			return;
+		}
+		// TODO: Wire this when Codex exposes a typed MCP server stop request.
+	}
+
+	private _resolveMcpServerName(session: ICodexSession, id: string): string | undefined {
+		const controller = this._getOrCreateMcpController(session);
+		controller.applyAll(inventoryToSdkServers(this._mcpInventory));
+		this._refreshMcpCustomizationIds(session, controller);
+		return controller.serverNameForCustomizationId(id);
+	}
+
 	/**
 	 * Read the head `session_meta` record from a rollout file and project
 	/**

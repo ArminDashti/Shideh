@@ -1704,6 +1704,37 @@ export class ClaudeAgentSession extends Disposable {
 		return findMcpServerName(this._lastCustomizations, id) ?? findMcpServerName(await this.getSessionCustomizations(), id);
 	}
 
+	async startMcpServer(id: string): Promise<void> {
+		const serverName = await this._resolveMcpServerName(id);
+		if (!serverName) {
+			this._logService.warn(`[Claude:${this.sessionId}] Cannot start unknown MCP server customization ${id}`);
+			return;
+		}
+		const handled = await this._requirePipeline().startMcpServer(serverName);
+		if (!handled) {
+			await this._rebindForSyncedState();
+		}
+		this._onDidCustomizationsChange.fire();
+	}
+
+	async stopMcpServer(id: string): Promise<void> {
+		const serverName = await this._resolveMcpServerName(id);
+		if (!serverName) {
+			this._logService.warn(`[Claude:${this.sessionId}] Cannot stop unknown MCP server customization ${id}`);
+			return;
+		}
+		const handled = await this._requirePipeline().stopMcpServer(serverName);
+		if (!handled) {
+			this._logService.warn(`[Claude:${this.sessionId}] MCP server stop is not supported by the current SDK`);
+			return;
+		}
+		this._onDidCustomizationsChange.fire();
+	}
+
+	private async _resolveMcpServerName(id: string): Promise<string | undefined> {
+		return findMcpServerName(this._lastCustomizations, id) ?? findMcpServerName(await this.getSessionCustomizations(), id);
+	}
+
 	// #endregion
 
 	override dispose(): void {

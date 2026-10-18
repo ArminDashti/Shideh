@@ -106,6 +106,67 @@ export interface PaginatedResult {
 	nextCursor?: string;
 }
 
+// ─── Pagination ──────────────────────────────────────────────────────────────
+
+/**
+ * Cursor-based pagination inputs, mixed into the params of any list command
+ * that can page a large result set (e.g. {@link ListSessionsParams |
+ * `listSessions`}). The paired output is {@link PaginatedResult}.
+ *
+ * Pagination is **opaque and cursor-based**, mirroring the shape `fetchTurns`
+ * already uses for chat history: the server owns the ordering and keyset, and
+ * the client walks pages by echoing the cursor from the previous
+ * {@link PaginatedResult.nextCursor} back on the next request.
+ *
+ * The contract every paginated command shares:
+ *
+ * - To fetch the first page, omit `cursor`. Supply `limit` to bound the page.
+ * - If the result carries a {@link PaginatedResult.nextCursor}, more entries
+ *   exist — pass it back as `cursor` to fetch the following page. A missing
+ *   `nextCursor` signals the end of the collection.
+ * - Cursors are **server-defined and opaque**: clients MUST NOT parse, modify,
+ *   or persist them across connections. An unrecognised cursor SHOULD be
+ *   rejected with an `InvalidParams` error.
+ * - Pagination is **fully additive**: a client that omits `limit`/`cursor` and
+ *   ignores `nextCursor` sees the pre-pagination behaviour (subject to any
+ *   server-imposed cap), and a server that does not paginate ignores the inputs
+ *   and returns everything in a single page.
+ *
+ * @category Commands
+ */
+export interface PaginatedParams {
+	/**
+	 * Maximum number of entries to return in this page. The server SHOULD respect
+	 * this bound but MAY return fewer entries and MAY impose its own upper cap.
+	 * Omit to let the server choose the page size.
+	 */
+	limit?: number;
+	/**
+	 * Opaque pagination cursor from a previous {@link PaginatedResult.nextCursor}.
+	 * Omit to fetch the first page. Cursors are server-defined and MUST be treated
+	 * as opaque — do not parse, modify, or persist them across connections. An
+	 * unrecognised cursor SHOULD be rejected with an `InvalidParams` error.
+	 */
+	cursor?: string;
+}
+
+/**
+ * Cursor-based pagination output, extended by the result of any list command
+ * that can page a large result set (e.g. {@link ListSessionsResult |
+ * `listSessions`}). See {@link PaginatedParams} for the full pagination
+ * contract shared by every paginated command.
+ *
+ * @category Commands
+ */
+export interface PaginatedResult {
+	/**
+	 * Opaque cursor for the next page. Present when more entries exist beyond the
+	 * returned page; absent signals the end of the collection. Pass it back as
+	 * {@link PaginatedParams.cursor} to fetch the following page.
+	 */
+	nextCursor?: string;
+}
+
 // ─── initialize ──────────────────────────────────────────────────────────────
 
 /**

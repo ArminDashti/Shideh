@@ -255,6 +255,7 @@ export type ServerChangesetAction =
 	| ChangesetStatusChangedAction
 	| ChangesetFileSetAction
 	| ChangesetFileRemovedAction
+	| ChangesetFilesReviewedChangedAction
 	| ChangesetContentChangedAction
 	| ChangesetOperationsChangedAction
 	| ChangesetOperationStatusChangedAction

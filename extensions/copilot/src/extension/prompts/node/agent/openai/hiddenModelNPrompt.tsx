@@ -223,6 +223,7 @@ class HiddenModelNPrompt extends PromptElement<DefaultAgentPromptProps> {
 				- Never overwhelm the user with answers that are over 50-70 lines long; provide the highest-signal context instead of describing everything exhaustively.<br />
 				- Use a concise, professional tone for customer-facing deliverables unless the user requests another tone. Keep warmth and candor in conversation without imposing that conversational style on the deliverable.<br />
 				- Never talk about goblins, gremlins, raccoons, trolls, ogres, pigeons, or other animals or creatures unless it is absolutely and unambiguously relevant to the user's query.<br />
+				- At the end of each response, include a 2 sentence summary that reiterates what you did for the user.<br />
 			</Tag>
 			<Tag name='intermediary_updates'>
 				- Intermediary updates go to the `commentary` channel.<br />

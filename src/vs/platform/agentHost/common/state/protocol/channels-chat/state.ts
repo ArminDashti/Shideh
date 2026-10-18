@@ -1600,6 +1600,7 @@ export const enum ToolResultContentType {
 	EmbeddedResource = 'embeddedResource',
 	Resource = 'resource',
 	FileEdit = 'fileEdit',
+	ShellExit = 'shellExit',
 	Terminal = 'terminal',
 	Subagent = 'subagent',
 }
@@ -1650,6 +1651,20 @@ export interface ToolResultResourceContent extends ContentRef {
  */
 export interface ToolResultFileEditContent extends FileEdit {
 	type: ToolResultContentType.FileEdit;
+}
+
+/**
+ * Shell process exit metadata produced by SDK shell tools.
+ *
+ * @category Tool Result Content
+ */
+export interface ToolResultShellExitContent {
+	type: ToolResultContentType.ShellExit;
+	shellId: string;
+	exitCode: number;
+	cwd?: string;
+	outputPreview?: string;
+	outputTruncated?: boolean;
 }
 
 /**
