@@ -146,6 +146,10 @@ const configuration: IConfigurationNode = {
 	...accessibilityConfigurationNodeBase,
 	scope: ConfigurationScope.RESOURCE,
 	properties: {
+		[AccessibilityVerbositySettingId.SemanticDiff]: {
+			description: localize('verbosity.semanticDiff.description', "Provide information about how to access accessibility help for the semantic group diff editor."),
+			...baseVerbosityProperty
+		},
 		[AccessibilityVerbositySettingId.Terminal]: {
 			description: localize('verbosity.terminal.description', 'Provide information about how to access the terminal accessibility help menu when the terminal is focused.'),
 			...baseVerbosityProperty

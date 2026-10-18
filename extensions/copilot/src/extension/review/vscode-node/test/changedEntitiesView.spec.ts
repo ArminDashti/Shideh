@@ -1,0 +1,694 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+import assert from 'node:assert';
+
+import * as vscode from 'vscode';
+import { suite, test, vi } from 'vitest';
+
+const openTextDocument = vi.hoisted(() => vi.fn());
+
+vi.mock('vscode', async importOriginal => {
+	const actual = await importOriginal<typeof import('vscode')>();
+	class TreeItem {
+		id?: string;
+		resourceUri?: vscode.Uri;
+		description?: string;
+		tooltip?: vscode.TreeItem['tooltip'];
+		iconPath?: vscode.ThemeIcon;
+		contextValue?: string;
+		accessibilityInformation?: vscode.AccessibilityInformation;
+		command?: vscode.Command;
+
+		constructor(
+			readonly label: string,
+			readonly collapsibleState: vscode.TreeItemCollapsibleState,
+		) { }
+	}
+	class ThemeIcon extends actual.ThemeIcon {
+		static override readonly File = new ThemeIcon('file');
+	}
+	class ThemeColor {
+		constructor(readonly id: string) { }
+	}
+	class FileDecoration {
+		constructor(
+			readonly badge?: string,
+			readonly tooltip?: string,
+			readonly color?: vscode.ThemeColor,
+		) { }
+	}
+	return {
+		...actual,
+		FileDecoration,
+		ThemeColor,
+		ThemeIcon,
+		TreeItem,
+		TreeItemCollapsibleState: {
+			None: 0,
+			Collapsed: 1,
+			Expanded: 2,
+		},
+		workspace: {
+			onDidSaveTextDocument: () => ({ dispose: () => { } }),
+			openTextDocument,
+		},
+	};
+});
+
+import type { IGitExtensionService } from '../../../../platform/git/common/gitExtensionService';
+import type { API, Change, Repository } from '../../../../platform/git/vscode/git';
+import { TypeScriptChangeClassification, type ICodeReviewService, type TypeScriptChangeClassificationCoverage, type TypeScriptChangeClassificationInput, type TypeScriptChangeClassificationResult, type TypeScriptChangeExplanation, type TypeScriptChangeExplanationInput, type TypeScriptChangeTag, type TypeScriptMetricsResult, type TypeScriptReviewLineChange } from '../../../../platform/languageContextProvider/common/codeReviewService';
+import type { ILogService } from '../../../../platform/log/common/logService';
+import { CancellationToken } from '../../../../util/vs/base/common/cancellation';
+import { Event } from '../../../../util/vs/base/common/event';
+import { ChangedEntitiesDecorationProvider, ChangedEntitiesTreeDataProvider } from '../changedEntitiesView';
+
+suite('Changed entities view', () => {
+	test('classifies one aggregate Git file lazily and renders nested entity paths', async () => {
+		const original = [
+			'class Reader {',
+			'\tlisten(): void {',
+			'\t\tstart();',
+			'\t}',
+			'}',
+		].join('\n');
+		const modified = [
+			'class Reader {',
+			'\tlisten(options?: object): void {',
+			'\t\tstart();',
+			'\t\tlog();',
+			'\t}',
+			'}',
+		].join('\n');
+		openTextDocument.mockReset();
+		openTextDocument.mockResolvedValue({ getText: () => modified });
+
+		const uri = vscode.Uri.file('C:\\workspace\\src\\reader.ts');
+		const change = {
+			uri,
+			originalUri: uri,
+			renameUri: undefined,
+			status: 5 /* Status.MODIFIED */,
+		} satisfies Change;
+		const repository = {
+			rootUri: vscode.Uri.file('C:\\workspace'),
+			state: {
+				indexChanges: [change],
+				workingTreeChanges: [change],
+				untrackedChanges: [],
+				mergeChanges: [],
+				onDidChange: Event.None,
+			},
+			show: vi.fn(async () => original),
+		} as unknown as Repository;
+		const api = {
+			repositories: [repository],
+			onDidOpenRepository: Event.None,
+			onDidCloseRepository: Event.None,
+		} as unknown as API;
+		const gitExtensionService = {
+			_serviceBrand: undefined,
+			onDidChange: Event.None,
+			extensionAvailable: true,
+			getExtensionApi: () => api,
+		} satisfies IGitExtensionService;
+		const entityLink = vscode.Uri.parse('vscode-insiders://GitHub.copilot-chat/openCodeReviewDiff?id=review');
+		const closeEntityLink = vscode.Uri.parse('vscode-insiders://GitHub.copilot-chat/openCodeReviewDiff?id=close');
+		const namespaceEntityLink = vscode.Uri.parse('vscode-insiders://GitHub.copilot-chat/openCodeReviewDiff?id=namespace');
+		const readEntityLink = vscode.Uri.parse('vscode-insiders://GitHub.copilot-chat/openCodeReviewDiff?id=read');
+		const codeReviewService = new TestCodeReviewService({
+			modified: [
+				{
+					kind: 'method',
+					path: ['Reader', 'listen'],
+					pathKinds: ['class', 'method'],
+					range: { start: 1, end: 5 },
+					entityLink,
+					changes: [
+						{ changeType: 'changed', range: { start: 1, end: 2 }, classifications: [coverage(TypeScriptChangeClassification.Signature, { start: 1, end: 2 })] },
+						{ changeType: 'added', range: { start: 2, end: 3 }, classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 2, end: 3 })] },
+					],
+				},
+				{
+					kind: 'method',
+					path: ['Reader', 'close'],
+					pathKinds: ['class', 'method'],
+					range: { start: 5, end: 8 },
+					entityLink: closeEntityLink,
+					changes: [
+						{ changeType: 'added', range: { start: 3, end: 4 }, classifications: [coverage(TypeScriptChangeClassification.Declaration, { start: 3, end: 4 })] },
+					],
+				},
+			],
+			original: [
+				{
+					kind: 'function',
+					path: ['ReaderOptions', 'fromOptions'],
+					pathKinds: ['module', 'function'],
+					range: { start: 0, end: 1 },
+					entityLink: namespaceEntityLink,
+					changes: [
+						{ changeType: 'deleted', range: { start: 0, end: 1 }, classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 0, end: 1 }, ['test'])] },
+					],
+				},
+				{
+					kind: 'method',
+					path: ['Reader', 'read'],
+					pathKinds: ['class', 'method'],
+					range: { start: 8, end: 10 },
+					entityLink: readEntityLink,
+					changes: [
+						{ changeType: 'deleted', range: { start: 8, end: 10 }, classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 8, end: 10 })] },
+					],
+				},
+			],
+		}, new Map([
+			[modified, {
+				entities: [
+					{
+						kind: 'method',
+						path: ['Reader', 'listen'],
+						range: new vscode.Range(1, 0, 5, 0),
+						metrics: { cognitiveComplexity: 5, cyclomaticComplexity: 7, runtimeComplexity: 'O(n)' },
+					},
+					{
+						kind: 'method',
+						path: ['Reader', 'close'],
+						range: new vscode.Range(5, 0, 8, 0),
+						metrics: { cognitiveComplexity: 99, cyclomaticComplexity: 99, runtimeComplexity: 'O(n^2)' },
+					},
+					{
+						kind: 'method',
+						path: ['Reader', 'read'],
+						range: new vscode.Range(8, 0, 10, 0),
+						metrics: { cognitiveComplexity: 2, cyclomaticComplexity: 3, runtimeComplexity: 'O(1)' },
+					},
+				],
+			}],
+			[original, {
+				entities: [
+					{
+						kind: 'function',
+						path: ['ReaderOptions', 'fromOptions'],
+						range: new vscode.Range(0, 0, 1, 0),
+						metrics: { cognitiveComplexity: 0, cyclomaticComplexity: 5, runtimeComplexity: 'O(n log n)' },
+					},
+					{
+						kind: 'method',
+						path: ['Reader', 'listen'],
+						range: new vscode.Range(1, 0, 5, 0),
+						metrics: { cognitiveComplexity: 3, cyclomaticComplexity: 4, runtimeComplexity: 'O(1)' },
+					},
+					{
+						kind: 'method',
+						path: ['Reader', 'read'],
+						range: new vscode.Range(8, 0, 10, 0),
+						metrics: { cognitiveComplexity: 4, cyclomaticComplexity: 6, runtimeComplexity: 'O(1)' },
+					},
+				],
+			}],
+		]), new Map([
+			['change-0', 'Removed the decoder registration logic.'],
+			['change-1', 'Added an optional options parameter.'],
+			['change-2', 'Added logging when listening starts.'],
+			['change-3', 'Added a close method.'],
+			['change-4', 'Removed the read logic.'],
+		]));
+		const logService = { error: vi.fn() } as unknown as ILogService;
+		const provider = new ChangedEntitiesTreeDataProvider(gitExtensionService, codeReviewService, logService);
+		const decorationProvider = new ChangedEntitiesDecorationProvider();
+		const refreshEvents: unknown[] = [];
+		const refreshListener = provider.onDidChangeTreeData(element => refreshEvents.push(element));
+		try {
+			const [group] = await provider.getChildren();
+			const files = await provider.getChildren(group);
+			assert.strictEqual(codeReviewService.inputs.length, 0);
+			const entities = await provider.getChildren(files[0]);
+			const namespaceMembers = await provider.getChildren(entities[0]);
+			const members = await provider.getChildren(entities[1]);
+			const initialEntityState = [...namespaceMembers, ...members].map(member => ({
+				label: member.treeItem.label,
+				tooltip: serializeTooltip(member.treeItem.tooltip),
+				accessibilityLabel: member.treeItem.accessibilityInformation?.label,
+			}));
+			const pendingContextValues = {
+				file: files[0].treeItem.contextValue,
+				parent: entities[1].treeItem.contextValue,
+				child: members[0].treeItem.contextValue,
+			};
+			await provider.setReviewed(members[0], true);
+			const acceptedReviewState = {
+				file: {
+					contextValue: files[0].treeItem.contextValue,
+					description: files[0].treeItem.description,
+					decoration: serializeDecoration(decorationProvider.provideFileDecoration(files[0].treeItem.resourceUri!)),
+				},
+				parent: {
+					contextValue: entities[1].treeItem.contextValue,
+					description: entities[1].treeItem.description,
+					decoration: serializeDecoration(decorationProvider.provideFileDecoration(entities[1].treeItem.resourceUri!)),
+				},
+				child: {
+					contextValue: members[0].treeItem.contextValue,
+					description: members[0].treeItem.description,
+					accessibilityLabel: members[0].treeItem.accessibilityInformation?.label,
+					decoration: serializeDecoration(decorationProvider.provideFileDecoration(members[0].treeItem.resourceUri!)),
+				},
+			};
+			await provider.setReviewed(members[0], false);
+			await provider.setReviewed(entities[1], true);
+			const acceptedParentState = {
+				contextValue: entities[1].treeItem.contextValue,
+				description: entities[1].treeItem.description,
+				accessibilityLabel: entities[1].treeItem.accessibilityInformation?.label,
+				decoration: serializeDecoration(decorationProvider.provideFileDecoration(entities[1].treeItem.resourceUri!)),
+			};
+			await provider.setReviewed(entities[1], false);
+			await provider.setReviewed(files[0], true);
+			const acceptedFileState = {
+				contextValue: files[0].treeItem.contextValue,
+				description: files[0].treeItem.description,
+				accessibilityLabel: files[0].treeItem.accessibilityInformation?.label,
+				decoration: serializeDecoration(decorationProvider.provideFileDecoration(files[0].treeItem.resourceUri!)),
+			};
+			await provider.setReviewed(files[0], false);
+			const explanationInputsBeforeHover = [...codeReviewService.explanationInputs];
+			await provider.resolveTreeItem(namespaceMembers[0].treeItem, namespaceMembers[0], CancellationToken.None);
+			for (const member of members) {
+				await provider.resolveTreeItem(member.treeItem, member, CancellationToken.None);
+			}
+
+			assert.deepStrictEqual({
+				fileCount: files.length,
+				fileLabel: files[0].treeItem.label,
+				fileDescription: files[0].treeItem.description,
+				fileTooltip: serializeTooltip(files[0].treeItem.tooltip),
+				fileAccessibilityLabel: files[0].treeItem.accessibilityInformation?.label,
+				fileIcon: files[0].treeItem.iconPath instanceof vscode.ThemeIcon ? files[0].treeItem.iconPath.id : undefined,
+				refreshCounts: {
+					file: refreshEvents.filter(element => element === files[0]).length,
+					entity: refreshEvents.filter(element => element !== files[0]).length,
+				},
+				inputs: codeReviewService.inputs,
+				metricInputs: codeReviewService.metricInputs,
+				review: {
+					pendingContextValues,
+					acceptedReviewState,
+					acceptedParentState,
+					acceptedFileState,
+					calls: codeReviewService.reviewedChanges.map(call => ({
+						entityLink: call.entityLink.toString(),
+						changeIds: call.changes.map(change => change.id),
+						reviewed: call.reviewed,
+					})),
+				},
+				explanationInputsBeforeHover,
+				initialEntityState,
+				explanationInputs: codeReviewService.explanationInputs.map(input => ({
+					filePath: input.filePath,
+					changes: input.changes.map(change => ({
+						id: change.id,
+						path: change.path,
+						changeType: change.changeType,
+						classifications: change.classifications,
+						original: change.original,
+						modified: change.modified,
+					})),
+				})),
+				entityGroups: entities.map(entity => ({
+					label: entity.treeItem.label,
+					icon: entity.treeItem.iconPath instanceof vscode.ThemeIcon ? entity.treeItem.iconPath.id : undefined,
+					description: entity.treeItem.description,
+					tooltip: serializeTooltip(entity.treeItem.tooltip),
+					accessibilityLabel: entity.treeItem.accessibilityInformation?.label,
+					collapsibleState: entity.treeItem.collapsibleState,
+					command: entity.treeItem.command,
+				})),
+				namespaceMembers: namespaceMembers.map(member => ({
+					label: member.treeItem.label,
+					icon: member.treeItem.iconPath instanceof vscode.ThemeIcon ? member.treeItem.iconPath.id : undefined,
+					description: member.treeItem.description,
+					tooltip: serializeTooltip(member.treeItem.tooltip),
+					accessibilityLabel: member.treeItem.accessibilityInformation?.label,
+				})),
+				members: members.map(member => ({
+					label: member.treeItem.label,
+					icon: member.treeItem.iconPath instanceof vscode.ThemeIcon ? member.treeItem.iconPath.id : undefined,
+					description: member.treeItem.description,
+					tooltip: serializeTooltip(member.treeItem.tooltip),
+					accessibilityLabel: member.treeItem.accessibilityInformation?.label,
+					command: member.treeItem.command,
+				})),
+			}, {
+				fileCount: 1,
+				fileLabel: 'reader.ts',
+				fileDescription: 'src — CC: [0/-5]',
+				fileTooltip: 'src\\reader.ts — CC: [0/-5]',
+				fileAccessibilityLabel: 'Changed file src\\reader.ts, cognitive complexity unchanged, cyclomatic complexity decreased by 5',
+				fileIcon: 'file',
+				refreshCounts: {
+					file: 7,
+					entity: 36,
+				},
+				inputs: [{
+					filePath: uri.fsPath,
+					modified: {
+						content: modified,
+						added: [{ start: 3, end: 4 }],
+						changed: [{ start: 1, end: 2 }],
+					},
+					original: {
+						content: original,
+						deleted: [],
+					},
+				}],
+				metricInputs: [
+					{ filePath: uri.fsPath, content: modified },
+					{ filePath: uri.fsPath, content: original },
+				],
+				review: {
+					pendingContextValues: {
+						file: 'copilotChangedEntityPending',
+						parent: 'copilotChangedEntityPending',
+						child: 'copilotChangedEntityPending',
+					},
+					acceptedReviewState: {
+						file: {
+							contextValue: 'copilotChangedEntityPending',
+							description: 'src — CC: [0/-5]',
+							decoration: undefined,
+						},
+						parent: {
+							contextValue: 'copilotChangedEntityPending',
+							description: undefined,
+							decoration: undefined,
+						},
+						child: {
+							contextValue: 'copilotChangedEntityAccepted',
+							description: 'Signature change, Statement addition — CC: [+2/+3], Runtime: O(1) -> O(n) ✓',
+							accessibilityLabel: 'Reader.listen, method, Signature change, Statement addition, cognitive complexity increased by 2, cyclomatic complexity increased by 3, runtime complexity changed from O(1) to O(n). Open diff. Accepted and hidden from diff.',
+							decoration: {
+								tooltip: 'Accepted and hidden from diff',
+								color: 'list.deemphasizedForeground',
+							},
+						},
+					},
+					acceptedParentState: {
+						contextValue: 'copilotChangedEntityAccepted',
+						description: '✓',
+						accessibilityLabel: 'Reader, class changed entity group. Accepted and hidden from diff.',
+						decoration: {
+							tooltip: 'Accepted and hidden from diff',
+							color: 'list.deemphasizedForeground',
+						},
+					},
+					acceptedFileState: {
+						contextValue: 'copilotChangedEntityAccepted',
+						description: 'src — CC: [0/-5] ✓',
+						accessibilityLabel: 'Changed file src\\reader.ts, cognitive complexity unchanged, cyclomatic complexity decreased by 5. Accepted and hidden from diff.',
+						decoration: {
+							tooltip: 'Accepted and hidden from diff',
+							color: 'list.deemphasizedForeground',
+						},
+					},
+					calls: [
+						{
+							entityLink: entityLink.toString(),
+							changeIds: ['changed:1:2:1:2'],
+							reviewed: true,
+						},
+						{
+							entityLink: entityLink.toString(),
+							changeIds: ['changed:1:2:1:2'],
+							reviewed: false,
+						},
+						...[
+							{ reviewed: true },
+							{ reviewed: false },
+							{ reviewed: true },
+							{ reviewed: false },
+						].map(({ reviewed }) => ({
+							entityLink: entityLink.toString(),
+							changeIds: ['changed:1:2:1:2', 'added:3:3:3:4'],
+							reviewed,
+						})),
+					],
+				},
+				explanationInputsBeforeHover: [],
+				initialEntityState: [
+					{
+						label: 'fromOptions',
+						tooltip: undefined,
+						accessibilityLabel: 'ReaderOptions.fromOptions, function, Statement deletion (Test), cognitive complexity unchanged, cyclomatic complexity decreased by 5, runtime complexity O(n log n). Open diff',
+					},
+					{
+						label: 'listen',
+						tooltip: undefined,
+						accessibilityLabel: 'Reader.listen, method, Signature change, Statement addition, cognitive complexity increased by 2, cyclomatic complexity increased by 3, runtime complexity changed from O(1) to O(n). Open diff',
+					},
+					{
+						label: 'close',
+						tooltip: undefined,
+						accessibilityLabel: 'Reader.close, method, Declaration addition, runtime complexity O(n^2). Open diff',
+					},
+					{
+						label: 'read',
+						tooltip: undefined,
+						accessibilityLabel: 'Reader.read, method, Statement deletion, cognitive complexity decreased by 2, cyclomatic complexity decreased by 3. Open diff',
+					},
+				],
+				explanationInputs: [
+					{
+						filePath: uri.fsPath,
+						changes: [{
+							id: 'change-0',
+							path: ['ReaderOptions', 'fromOptions'],
+							changeType: 'deleted',
+							classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 0, end: 1 }, ['test'])],
+							original: 'class Reader {',
+							modified: undefined,
+						}],
+					},
+					{
+						filePath: uri.fsPath,
+						changes: [
+							{
+							id: 'change-1',
+							path: ['Reader', 'listen'],
+							changeType: 'changed',
+							classifications: [coverage(TypeScriptChangeClassification.Signature, { start: 1, end: 2 })],
+							original: '\tlisten(): void {',
+							modified: '\tlisten(options?: object): void {',
+							},
+							{
+							id: 'change-2',
+							path: ['Reader', 'listen'],
+							changeType: 'added',
+							classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 2, end: 3 })],
+							original: undefined,
+							modified: '\t\tstart();',
+							},
+						],
+					},
+					{
+						filePath: uri.fsPath,
+						changes: [{
+							id: 'change-3',
+							path: ['Reader', 'close'],
+							changeType: 'added',
+							classifications: [coverage(TypeScriptChangeClassification.Declaration, { start: 3, end: 4 })],
+							original: undefined,
+							modified: '\t\tlog();',
+						}],
+					},
+					{
+						filePath: uri.fsPath,
+						changes: [{
+							id: 'change-4',
+							path: ['Reader', 'read'],
+							changeType: 'deleted',
+							classifications: [coverage(TypeScriptChangeClassification.Statement, { start: 8, end: 10 })],
+							original: '',
+							modified: undefined,
+						}],
+					},
+				],
+				entityGroups: [
+					{
+						label: 'ReaderOptions',
+						icon: 'symbol-namespace',
+						description: 'CC: [0/-5]',
+						tooltip: 'ReaderOptions — CC: [0/-5]',
+						accessibilityLabel: 'ReaderOptions, namespace changed entity group, cognitive complexity unchanged, cyclomatic complexity decreased by 5',
+						collapsibleState: 2,
+						command: undefined,
+					},
+					{
+						label: 'Reader',
+						icon: 'symbol-class',
+						description: undefined,
+						tooltip: 'Reader',
+						accessibilityLabel: 'Reader, class changed entity group',
+						collapsibleState: 2,
+						command: undefined,
+					},
+				],
+				namespaceMembers: [{
+					label: 'fromOptions',
+					icon: 'symbol-function',
+					description: 'Statement deletion (Test) — CC: [0/-5], Runtime: O(n log n)',
+					tooltip: {
+						markdown: '**ReaderOptions.fromOptions — Statement deletion (Test) — CC: [0/-5], Runtime: O(n log n)**\n\nRemoved the decoder registration logic.',
+						isTrusted: false,
+						supportHtml: false,
+						supportThemeIcons: false,
+					},
+					accessibilityLabel: 'ReaderOptions.fromOptions, function, Statement deletion (Test), cognitive complexity unchanged, cyclomatic complexity decreased by 5, runtime complexity O(n log n). Open diff',
+				}],
+				members: [
+					{
+						label: 'listen',
+						icon: 'symbol-method',
+						description: 'Signature change, Statement addition — CC: [+2/+3], Runtime: O(1) -> O(n)',
+						tooltip: {
+							markdown: '**Reader.listen — Signature change, Statement addition — CC: [+2/+3], Runtime: O(1) -> O(n)**\n\nAdded an optional options parameter.\n\nAdded logging when listening starts.',
+							isTrusted: false,
+							supportHtml: false,
+							supportThemeIcons: false,
+						},
+						accessibilityLabel: 'Reader.listen, method, Signature change, Statement addition, cognitive complexity increased by 2, cyclomatic complexity increased by 3, runtime complexity changed from O(1) to O(n). Open diff',
+						command: {
+							command: 'github.copilot.openChangedEntityDiff',
+							title: 'Open Entity Diff',
+							arguments: [entityLink],
+						},
+					},
+					{
+						label: 'close',
+						icon: 'symbol-method',
+						description: 'Declaration addition — Runtime: O(n^2)',
+						tooltip: {
+							markdown: '**Reader.close — Declaration addition — Runtime: O(n^2)**\n\nAdded a close method.',
+							isTrusted: false,
+							supportHtml: false,
+							supportThemeIcons: false,
+						},
+						accessibilityLabel: 'Reader.close, method, Declaration addition, runtime complexity O(n^2). Open diff',
+						command: {
+							command: 'github.copilot.openChangedEntityDiff',
+							title: 'Open Entity Diff',
+							arguments: [closeEntityLink],
+						},
+					},
+					{
+						label: 'read',
+						icon: 'symbol-method',
+						description: 'Statement deletion — CC: [-2/-3]',
+						tooltip: {
+							markdown: '**Reader.read — Statement deletion — CC: [-2/-3]**\n\nRemoved the read logic.',
+							isTrusted: false,
+							supportHtml: false,
+							supportThemeIcons: false,
+						},
+						accessibilityLabel: 'Reader.read, method, Statement deletion, cognitive complexity decreased by 2, cyclomatic complexity decreased by 3. Open diff',
+						command: {
+							command: 'github.copilot.openChangedEntityDiff',
+							title: 'Open Entity Diff',
+							arguments: [readEntityLink],
+						},
+					},
+				],
+			});
+		} finally {
+			refreshListener.dispose();
+			provider.dispose();
+		}
+	});
+});
+
+class TestCodeReviewService implements ICodeReviewService {
+	readonly _serviceBrand: undefined;
+	readonly onDidInvalidateReview = Event.None;
+	readonly inputs: TypeScriptChangeClassificationInput[] = [];
+	readonly metricInputs: { readonly filePath: string; readonly content?: string }[] = [];
+	readonly explanationInputs: TypeScriptChangeExplanationInput[] = [];
+	readonly reviewedChanges: { readonly entityLink: vscode.Uri; readonly changes: readonly TypeScriptReviewLineChange[]; readonly reviewed: boolean }[] = [];
+
+	constructor(
+		private readonly result: TypeScriptChangeClassificationResult,
+		private readonly metricsByContent: ReadonlyMap<string, TypeScriptMetricsResult> = new Map(),
+		private readonly explanations: ReadonlyMap<string, string> = new Map(),
+	) { }
+
+	async computeMetrics(filePath: string, content?: string): Promise<TypeScriptMetricsResult | undefined> {
+		this.metricInputs.push({ filePath, content });
+		return content === undefined ? undefined : this.metricsByContent.get(content);
+	}
+
+	async explainChanges(input: TypeScriptChangeExplanationInput): Promise<readonly TypeScriptChangeExplanation[]> {
+		this.explanationInputs.push(input);
+		return input.changes.map(change => {
+			const explanation = this.explanations.get(change.id);
+			assert.ok(explanation !== undefined);
+			return { id: change.id, explanation };
+		});
+	}
+
+	async classifyChanges(input: TypeScriptChangeClassificationInput): Promise<TypeScriptChangeClassificationResult> {
+		this.inputs.push(input);
+		return this.result;
+	}
+
+	setChangesReviewed(entityLink: vscode.Uri, changes: readonly TypeScriptReviewLineChange[], reviewed: boolean): boolean {
+		this.reviewedChanges.push({ entityLink, changes, reviewed });
+		return true;
+	}
+
+	getCommentingRanges(): readonly vscode.Range[] {
+		return [];
+	}
+
+	resolveCommentLocation(): undefined {
+		return undefined;
+	}
+
+	async openDiff(): Promise<void> { }
+
+	dispose(): void { }
+}
+
+function coverage(classification: TypeScriptChangeClassification, range: { readonly start: number; readonly end: number }, tags: readonly TypeScriptChangeTag[] = []): TypeScriptChangeClassificationCoverage {
+	return {
+		classification,
+		ranges: [range],
+		tags,
+	};
+}
+
+function serializeTooltip(tooltip: vscode.TreeItem['tooltip']): string | { markdown: string; isTrusted: vscode.MarkdownString['isTrusted']; supportHtml: boolean | undefined; supportThemeIcons: boolean | undefined } | undefined {
+	if (!(tooltip instanceof vscode.MarkdownString)) {
+		return tooltip;
+	}
+	return {
+		markdown: tooltip.value
+			.replaceAll('&nbsp;', ' ')
+			.replaceAll('\\-', '-')
+			.replaceAll('\\>', '>')
+			.replace(/\\([\\`*_{}[\]()#+!~])/g, '$1'),
+		isTrusted: tooltip.isTrusted,
+		supportHtml: tooltip.supportHtml,
+		supportThemeIcons: tooltip.supportThemeIcons,
+	};
+}
+
+function serializeDecoration(decoration: vscode.FileDecoration | undefined): { tooltip: string | undefined; color: string | undefined } | undefined {
+	if (decoration === undefined) {
+		return undefined;
+	}
+	return {
+		tooltip: decoration.tooltip,
+		color: decoration.color?.id,
+	};
+}

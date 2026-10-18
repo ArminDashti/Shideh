@@ -1,0 +1,521 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import assert from 'assert';
+import * as dom from '../../../../../../../base/browser/dom.js';
+import { DeferredPromise } from '../../../../../../../base/common/async.js';
+import { Codicon } from '../../../../../../../base/common/codicons.js';
+import { Event as CommonEvent } from '../../../../../../../base/common/event.js';
+import { toDisposable } from '../../../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../../../base/common/uri.js';
+import { constObservable } from '../../../../../../../base/common/observable.js';
+import { mock, upcastPartial } from '../../../../../../../base/test/common/mock.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
+import { buildSemanticDiffReport, formatSemanticDiffReport, ISemanticDiffAnalysis, ISemanticDiffReport, validateSemanticDiffReport } from '../../../../../../../platform/agentHost/common/semanticDiff.js';
+import { createSemanticDiffExample } from '../../../../../../../platform/agentHost/test/common/semanticDiffFixtures.js';
+import { IMenuService, MenuRegistry } from '../../../../../../../platform/actions/common/actions.js';
+import { MenuService } from '../../../../../../../platform/actions/common/menuService.js';
+import { ICommandService } from '../../../../../../../platform/commands/common/commands.js';
+import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { getToolSpecificDataDescription } from '../../../../browser/accessibility/chatResponseAccessibleView.js';
+import { ChatSemanticDiffResultSubPart, projectSemanticDiffGroups } from '../../../../browser/widget/chatContentParts/toolInvocationParts/chatSemanticDiffResultSubPart.js';
+import { shouldRenderSemanticDiffResult } from '../../../../browser/widget/chatContentParts/toolInvocationParts/chatToolInvocationPart.js';
+import { IChatSemanticDiffData, IChatToolInvocation, IChatToolInvocationSerialized } from '../../../../common/chatService/chatService.js';
+import { ISemanticDiffCardSource, SemanticDiffCardMenu } from '../../../../common/semanticDiffEditor.js';
+import { workbenchInstantiationService } from '../../../../../../test/browser/workbenchTestServices.js';
+
+suite('ChatSemanticDiffResultSubPart', () => {
+	const store = ensureNoDisposablesAreLeakedInTestSuite();
+
+	function reportFor(analysis: ISemanticDiffAnalysis): ISemanticDiffReport {
+		const result = buildSemanticDiffReport({ schemaVersion: 1, analysis });
+		assert.ok(result.ok, JSON.stringify(result));
+		return result.report;
+	}
+
+	function render(report = createSemanticDiffExample(), owner: object = {}, toolCallId = 'classification'): ChatSemanticDiffResultSubPart {
+		const data: IChatSemanticDiffData = { kind: 'semanticDiff', result: { ok: true, report } };
+		const invocation = upcastPartial<IChatToolInvocationSerialized>({ kind: 'toolInvocationSerialized', toolCallId, isComplete: true, toolSpecificData: data });
+		const part = store.add(workbenchInstantiationService(undefined, store).createInstance(ChatSemanticDiffResultSubPart, invocation, data, owner, false, undefined));
+		dom.append(document.body, part.domNode);
+		store.add(toDisposable(() => part.domNode.remove()));
+		return part;
+	}
+
+	function button(parent: HTMLElement, selector: string): HTMLElement {
+		const element = parent.querySelector<HTMLElement>(selector);
+		assert.ok(element, selector);
+		return element;
+	}
+
+	function panel(control: HTMLElement): HTMLElement {
+		const element = document.getElementById(control.getAttribute('aria-controls')!);
+		assert.ok(element);
+		return element;
+	}
+
+	function activate(parent: HTMLElement, selector: string): HTMLElement {
+		const control = button(parent, selector);
+		control.click();
+		return panel(control);
+	}
+
+	teardown(() => {
+		document.getSelection()?.removeAllRanges();
+	});
+
+	test('Open Group Diff icon follows statistics and opens the owning group by mouse or keyboard without toggling the card', async () => {
+		const commandId = 'semanticDiff.test.open';
+		const title = 'Test Group Diff Action';
+		store.add(MenuRegistry.appendMenuItem(SemanticDiffCardMenu, { command: { id: commandId, title, icon: Codicon.diffMultiple }, group: 'navigation' }));
+		const instantiationService = workbenchInstantiationService({
+			contextKeyService: () => store.add(new class extends MockContextKeyService {
+				override contextMatchesRules() { return true; }
+			}()),
+		}, store);
+		let called = new DeferredPromise<unknown>();
+		instantiationService.stub(ICommandService, new class extends mock<ICommandService>() {
+			override readonly onWillExecuteCommand = CommonEvent.None;
+			override readonly onDidExecuteCommand = CommonEvent.None;
+			override async executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
+				assert.strictEqual(id, commandId);
+				await called.complete(args[0]);
+				return undefined as T;
+			}
+		}());
+		instantiationService.stub(IMenuService, store.add(instantiationService.createInstance(MenuService)));
+		const report = createSemanticDiffExample();
+		const data: IChatSemanticDiffData = { kind: 'semanticDiff', result: { ok: true, report } };
+		const invocation = upcastPartial<IChatToolInvocationSerialized>({ kind: 'toolInvocationSerialized', toolCallId: 'tool', isComplete: true, toolSpecificData: data });
+		const source: ISemanticDiffCardSource = { sessionResource: URI.parse('agent-host-copilot:/owner'), responseId: 'response', toolCallId: 'tool' };
+		const part = store.add(instantiationService.createInstance(ChatSemanticDiffResultSubPart, invocation, data, {}, false, source));
+		dom.append(document.body, part.domNode);
+		store.add(toDisposable(() => part.domNode.remove()));
+		const card = part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-card')[1];
+		const action = [...card.querySelectorAll<HTMLElement>('.semantic-diff-card-actions .action-label')].find(element => element.getAttribute('aria-label') === title);
+		assert.ok(action);
+		action.click();
+		assert.deepStrictEqual({
+			request: await called.p,
+			expanded: button(card, '.semantic-diff-group-toggle').getAttribute('aria-expanded'),
+			headerControls: [...card.querySelector('.semantic-diff-card-controls')!.children].map(element => element.className),
+			iconOnly: action.classList.contains('codicon-diff-multiple') && action.textContent === '',
+			heading: card.querySelector('h3')?.textContent,
+			footerActions: card.querySelectorAll(':scope > .semantic-diff-card-actions').length,
+		}, {
+			request: { ...source, groupId: report.analysis.groups[1].id, report }, expanded: 'false',
+			headerControls: ['monaco-button semantic-diff-disclosure semantic-diff-group-toggle', 'semantic-diff-card-actions'],
+			iconOnly: true, heading: report.analysis.groups[1].title, footerActions: 0,
+		});
+		button(card, '.semantic-diff-group-toggle').click();
+		for (const keyCode of [13, 32]) {
+			called = new DeferredPromise<unknown>();
+			action.focus();
+			action.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab', code: 'Tab', keyCode: 9, bubbles: true }));
+			const key = keyCode === 13 ? 'Enter' : ' ';
+			const code = keyCode === 13 ? 'Enter' : 'Space';
+			action.dispatchEvent(new KeyboardEvent('keydown', { key, code, keyCode, bubbles: true }));
+			action.dispatchEvent(new KeyboardEvent('keyup', { key, code, keyCode, bubbles: true }));
+			assert.deepStrictEqual({
+				request: await called.p,
+				expanded: button(card, '.semantic-diff-group-toggle').getAttribute('aria-expanded'),
+			}, { request: { ...source, groupId: report.analysis.groups[1].id, report }, expanded: 'true' });
+		}
+	});
+
+	test('projects the exact example by intent, preserving order and per-group counts', () => {
+		const report = createSemanticDiffExample();
+		const projections = projectSemanticDiffGroups(report.analysis);
+		assert.deepStrictEqual({
+			groups: projections.map(({ group, files, hunks }) => ({
+				title: group.title,
+				files: files.map(file => file.file.path),
+				hunks: hunks.length,
+				additions: hunks.reduce((sum, hunk) => sum + hunk.additions, 0),
+				deletions: hunks.reduce((sum, hunk) => sum + hunk.deletions, 0),
+			})),
+			uniqueFiles: report.summary.files,
+		}, {
+			groups: [
+				{ title: 'Prevent negative billing totals', files: ['src/billing/calculateTotal.js', 'src/billing/discountEngine.js', 'src/billing/calculateTotal.test.js'], hunks: 4, additions: 12, deletions: 5 },
+				{ title: 'Standardize the internal quantity field', files: ['src/billing/calculateTotal.js', 'src/billing/invoice.js'], hunks: 2, additions: 2, deletions: 2 },
+				{ title: 'Upgrade lodash to 4.17.21', files: ['package.json', 'package-lock.json'], hunks: 2, additions: 3, deletions: 3 },
+			],
+			uniqueFiles: 6,
+		});
+	});
+
+	test('starts collapsed and lazily renders file and hunk detail DOM', () => {
+		const part = render();
+		const initial = {
+			cards: part.domNode.querySelectorAll('.semantic-diff-card').length,
+			files: part.domNode.querySelectorAll('.semantic-diff-file').length,
+			hunks: part.domNode.querySelectorAll('.semantic-diff-hunk').length,
+		};
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		const billing = activate(files, '.semantic-diff-file-toggle');
+		assert.deepStrictEqual({
+			initial,
+			files: files.querySelectorAll('.semantic-diff-file').length,
+			hunks: billing.querySelectorAll('.semantic-diff-hunk').length,
+			ranges: [...billing.querySelectorAll('.semantic-diff-ranges')].map(range => range.textContent),
+			typeLabels: [...billing.querySelectorAll('.semantic-diff-hunk')].map(hunk => [...hunk.querySelectorAll('.semantic-diff-type')].map(label => label.textContent)),
+			nestedButtons: part.domNode.querySelectorAll('[role="button"] [role="button"], button button').length,
+		}, {
+			initial: { cards: 3, files: 0, hunks: 0 },
+			files: 3,
+			hunks: 2,
+			ranges: ['Old: lines 1-5; New: lines 1-5', 'Old: lines 10-12; New: lines 10-13'],
+			typeLabels: [['Supporting'], ['Logic']],
+			nestedButtons: 0,
+		});
+	});
+
+	test('classification details and accessible text expose block attention and reasons', () => {
+		const report = createSemanticDiffExample();
+		report.analysis.hunks[0].attentionBlocks = [
+			{ attention: 'cold', oldRanges: [{ start: 1, count: 1 }], newRanges: [{ start: 1, count: 1 }], reason: 'Accompanying spacing.' },
+			{ attention: 'warm', oldRanges: [{ start: 2, count: 1 }], newRanges: [{ start: 2, count: 1 }], reason: 'Read the surrounding loop.' },
+			{ attention: 'hot', oldRanges: [{ start: 3, count: 1 }], newRanges: [{ start: 3, count: 1 }], reason: 'Begin with the changed expression.' },
+		];
+		const validated = reportFor(report.analysis);
+		const part = render(validated);
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		const hunks = activate(files, '.semantic-diff-file-toggle');
+		const details = activate(hunks, '.semantic-diff-rationale-toggle');
+		const expected = ['Cold attention: Accompanying spacing.', 'Warm attention: Read the surrounding loop.', 'Hot attention: Begin with the changed expression.'];
+		assert.deepStrictEqual({
+			visible: expected.map(text => details.textContent?.includes(text)),
+			accessible: expected.map(text => formatSemanticDiffReport(validated).includes(text)),
+			primary: [...hunks.querySelectorAll('.semantic-diff-hunk')][0].querySelector('.semantic-diff-type')?.textContent,
+		}, { visible: [true, true, true], accessible: [true, true, true], primary: 'Supporting' });
+	});
+
+	test('renders the submitted review sequence without sorting by title or change type', () => {
+		const report = createSemanticDiffExample();
+		report.analysis.groups = [report.analysis.groups[2], report.analysis.groups[0], report.analysis.groups[1]];
+		const part = render(report);
+		assert.deepStrictEqual(
+			[...part.domNode.querySelectorAll('.semantic-diff-title')].map(title => title.textContent),
+			['Upgrade lodash to 4.17.21', 'Prevent negative billing totals', 'Standardize the internal quantity field'],
+		);
+	});
+
+	test('shows per-group file and line counts in the header', () => {
+		const part = render();
+		const cards = [...part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-card')];
+		assert.deepStrictEqual(cards.map(card => {
+			const toggle = button(card, '.semantic-diff-group-toggle');
+			return {
+				header: !!toggle.closest('.semantic-diff-card-heading'),
+				label: button(toggle, '.semantic-diff-disclosure-label').textContent,
+				accessibleLabel: toggle.getAttribute('aria-label'),
+				duplicateCounts: card.querySelector(':scope > .semantic-diff-counts') !== null,
+			};
+		}), [
+			{ header: true, label: '3 files +12 -5', accessibleLabel: 'Prevent negative billing totals, 3 files +12 -5, 4 hunks', duplicateCounts: false },
+			{ header: true, label: '2 files +2 -2', accessibleLabel: 'Standardize the internal quantity field, 2 files +2 -2, 2 hunks', duplicateCounts: false },
+			{ header: true, label: '2 files +3 -3', accessibleLabel: 'Upgrade lodash to 4.17.21, 2 files +3 -3, 2 hunks', duplicateCounts: false },
+		]);
+	});
+
+	test('uses singular file wording and counts a file only once across multiple hunks', () => {
+		const { analysis } = createSemanticDiffExample();
+		const group = analysis.groups[0];
+		const file = analysis.files[0];
+		const part = render(reportFor({
+			...analysis,
+			groups: [group],
+			files: [file],
+			hunks: analysis.hunks.filter(hunk => hunk.fileId === file.id && hunk.classification.groupId === group.id),
+		}));
+		assert.strictEqual(button(part.domNode, '.semantic-diff-group-toggle .semantic-diff-disclosure-label').textContent, '1 file +5 -4');
+	});
+
+	test('labels the old insertion anchor and new source range unambiguously', () => {
+		const part = render();
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		const testsFile = files.querySelectorAll<HTMLElement>('.semantic-diff-file-toggle')[2];
+		testsFile.click();
+		assert.strictEqual(button(panel(testsFile), '.semantic-diff-ranges').textContent, 'Old: insertion after line 40; New: lines 41-45');
+	});
+
+	test('renders compact file rows with icon labels, directories and counts instead of classification badges', () => {
+		const part = render();
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		assert.deepStrictEqual(
+			[...files.querySelectorAll<HTMLElement>('.semantic-diff-file-toggle')].map(row => ({
+				name: button(row, '.label-name').textContent,
+				directory: button(row, '.label-description').textContent,
+				icon: button(row, '.semantic-diff-resource-label').classList.contains('file-icon'),
+				counts: button(row, '.semantic-diff-line-counts').textContent,
+				typeBadges: row.querySelectorAll('.semantic-diff-type').length,
+				ariaLabel: row.getAttribute('aria-label'),
+			})),
+			[
+				{ name: 'calculateTotal.js', directory: 'src/billing', icon: true, counts: '+5 -4', typeBadges: 0, ariaLabel: 'src/billing/calculateTotal.js, Modified, 2 hunks, +5 -4' },
+				{ name: 'discountEngine.js', directory: 'src/billing', icon: true, counts: '+2 -1', typeBadges: 0, ariaLabel: 'src/billing/discountEngine.js, Modified, 1 hunk, +2 -1' },
+				{ name: 'calculateTotal.test.js', directory: 'src/billing', icon: true, counts: '+5 -0', typeBadges: 0, ariaLabel: 'src/billing/calculateTotal.test.js, Modified, 1 hunk, +5 -0' },
+			],
+		);
+	});
+
+	test('root files have no artificial directory and renamed files retain both paths in their accessible label', () => {
+		const report = createSemanticDiffExample();
+		const renamed = report.analysis.files[0];
+		renamed.status = 'renamed';
+		renamed.oldPath = 'src/old/calculateTotal.js';
+		const part = render(report);
+		activate(part.domNode, '.semantic-diff-group-toggle');
+		const dependencyToggle = part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-group-toggle')[2];
+		dependencyToggle.click();
+		const dependencyFiles = panel(dependencyToggle);
+		assert.deepStrictEqual({
+			rootNames: [...dependencyFiles.querySelectorAll('.label-name')].map(element => element.textContent),
+			rootDirectories: [...dependencyFiles.querySelectorAll('.label-description')].map(element => element.textContent).filter(Boolean),
+			renameLabel: button(part.domNode, '.semantic-diff-file-toggle').getAttribute('aria-label'),
+		}, {
+			rootNames: ['package.json', 'package-lock.json'],
+			rootDirectories: [],
+			renameLabel: 'src/old/calculateTotal.js \u2192 src/billing/calculateTotal.js, Renamed, 2 hunks, +5 -4',
+		});
+	});
+
+	test('omits card and file chevrons while retaining classification-detail chevrons', () => {
+		const part = render();
+		const header = button(part.domNode, '.semantic-diff-group-toggle');
+		const collapsedChevronCount = header.querySelectorAll('.codicon').length;
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		const hunks = activate(files, '.semantic-diff-file-toggle');
+		assert.deepStrictEqual({
+			collapsedChevronCount,
+			expandedChevronCount: header.querySelectorAll('.codicon').length,
+			expanded: header.getAttribute('aria-expanded'),
+			fileChevronCount: button(files, '.semantic-diff-file-toggle').querySelectorAll('.codicon').length,
+			detailChevronCount: button(hunks, '.semantic-diff-rationale-toggle').querySelectorAll('.codicon').length,
+		}, { collapsedChevronCount: 0, expandedChevronCount: 0, expanded: 'true', fileChevronCount: 0, detailChevronCount: 1 });
+	});
+
+	test('renders separate addition and deletion spans in card, file and hunk summaries', () => {
+		const part = render();
+		const files = activate(part.domNode, '.semantic-diff-group-toggle');
+		const hunks = activate(files, '.semantic-diff-file-toggle');
+		const summaries = [
+			button(part.domNode, '.semantic-diff-group-toggle'),
+			button(files, '.semantic-diff-file-toggle'),
+			button(hunks, '.semantic-diff-counts'),
+		];
+		assert.deepStrictEqual(summaries.map(summary => ({
+			added: button(summary, '.semantic-diff-lines-added').textContent,
+			removed: button(summary, '.semantic-diff-lines-removed').textContent,
+			text: button(summary, '.semantic-diff-line-counts').textContent,
+		})), [
+			{ added: '+12', removed: '-5', text: '+12 -5' },
+			{ added: '+5', removed: '-4', text: '+5 -4' },
+			{ added: '+3', removed: '-3', text: '+3 -3' },
+		]);
+	});
+
+	test('only card statistics toggle the card, and independent cards retain state', () => {
+		const part = render();
+		const card = button(part.domNode, '.semantic-diff-card');
+		const control = button(card, '.semantic-diff-group-toggle');
+		const nonControls = [card, button(card, '.semantic-diff-title'), button(card, '.semantic-diff-description')];
+		for (const element of nonControls) {
+			element.click();
+		}
+		const afterBodyClicks = control.getAttribute('aria-expanded');
+		control.click();
+		for (const element of nonControls) {
+			element.click();
+		}
+		const afterExpandedBodyClicks = control.getAttribute('aria-expanded');
+		const filePanel = activate(card, '.semantic-diff-file-toggle');
+		activate(filePanel, '.semantic-diff-rationale-toggle');
+		control.click();
+		const hidden = panel(control).hidden;
+		control.click();
+		const second = part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-group-toggle')[1];
+		second.click();
+		assert.deepStrictEqual({
+			afterBodyClicks,
+			afterExpandedBodyClicks,
+			hidden,
+			firstExpanded: control.getAttribute('aria-expanded'),
+			fileExpanded: button(card, '.semantic-diff-file-toggle').getAttribute('aria-expanded'),
+			rationaleExpanded: button(card, '.semantic-diff-rationale-toggle').getAttribute('aria-expanded'),
+			secondExpanded: second.getAttribute('aria-expanded'),
+		}, { afterBodyClicks: 'false', afterExpandedBodyClicks: 'true', hidden: true, firstExpanded: 'true', fileExpanded: 'true', rationaleExpanded: 'true', secondExpanded: 'true' });
+	});
+
+	test('supports Enter and Space, reports height changes, and restores focus before hiding descendants', () => {
+		const part = render();
+		let heightChanges = 0;
+		store.add(part.onDidChangeHeight(() => heightChanges++));
+		const control = button(part.domNode, '.semantic-diff-group-toggle');
+		control.focus();
+		control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+		const child = button(part.domNode, '.semantic-diff-file-toggle');
+		child.focus();
+		child.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', keyCode: 32, bubbles: true }));
+		control.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', keyCode: 32, bubbles: true }));
+		assert.deepStrictEqual({
+			expanded: control.getAttribute('aria-expanded'),
+			hidden: panel(control).hidden,
+			focusRestored: document.activeElement === control,
+			heightChanges,
+		}, { expanded: 'false', hidden: true, focusRestored: true, heightChanges: 3 });
+	});
+
+	test('selecting and copying card text causes no disclosure action', () => {
+		const part = render();
+		const title = button(part.domNode, '.semantic-diff-title');
+		const selection = document.getSelection()!;
+		const range = document.createRange();
+		range.selectNodeContents(title);
+		selection.addRange(range);
+		title.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+		title.click();
+		const selectedText = selection.toString();
+		const control = button(part.domNode, '.semantic-diff-group-toggle');
+		control.click();
+		title.dispatchEvent(new Event('copy', { bubbles: true }));
+		assert.deepStrictEqual({ selectedText, expanded: control.getAttribute('aria-expanded') }, { selectedText: 'Prevent negative billing totals', expanded: 'false' });
+	});
+
+	test('retains nested state in recreated instances but scopes it to result identity', () => {
+		const owner = {};
+		const first = render(createSemanticDiffExample(), owner);
+		const files = activate(first.domNode, '.semantic-diff-group-toggle');
+		const hunks = activate(files, '.semantic-diff-file-toggle');
+		activate(hunks, '.semantic-diff-rationale-toggle');
+		first.dispose();
+		first.domNode.remove();
+		const recreated = render(createSemanticDiffExample(), owner);
+		const otherResult = render(createSemanticDiffExample(), owner, 'other-call');
+		const otherResponse = render(createSemanticDiffExample(), {});
+		assert.deepStrictEqual({
+			recreated: [...recreated.domNode.querySelectorAll('.semantic-diff-group-toggle, .semantic-diff-file-toggle, .semantic-diff-rationale-toggle')].slice(0, 3).map(control => control.getAttribute('aria-expanded')),
+			otherResult: button(otherResult.domNode, '.semantic-diff-group-toggle').getAttribute('aria-expanded'),
+			otherResponse: button(otherResponse.domNode, '.semantic-diff-group-toggle').getAttribute('aria-expanded'),
+			idsUnique: new Set([...document.querySelectorAll('.chat-semantic-diff [id]')].map(element => element.id)).size === document.querySelectorAll('.chat-semantic-diff [id]').length,
+		}, { recreated: ['true', 'true', 'true'], otherResult: 'false', otherResponse: 'false', idsUnique: true });
+	});
+
+	test('renders HTML and command-looking text as inert selectable text', () => {
+		const example = createSemanticDiffExample();
+		const text = '<img src="https://invalid.example/image" onerror="alert(1)"> command:workbench.action.closeWindow $(check)';
+		const analysis = {
+			...example.analysis,
+			groups: example.analysis.groups.map((group, index) => index ? group : { ...group, title: '<script>alert(1)</script>', description: text }),
+			files: example.analysis.files.map((file, index) => index ? file : { ...file, path: '<img onerror=alert(1)>.js' }),
+		};
+		const part = render(reportFor(analysis));
+		activate(part.domNode, '.semantic-diff-group-toggle');
+		assert.deepStrictEqual({
+			title: button(part.domNode, '.semantic-diff-title').textContent,
+			description: button(part.domNode, '.semantic-diff-description').textContent,
+			activeContent: part.domNode.querySelectorAll('img, script, a[href], iframe').length,
+			pathIncluded: button(part.domNode, '.semantic-diff-file-toggle').textContent?.includes('<img onerror=alert(1)>.js'),
+		}, { title: '<script>alert(1)</script>', description: text, activeContent: 0, pathIncluded: true });
+	});
+
+	test('discloses partial, stale, uncertain, and unsupported file evidence without losing hunks', () => {
+		const example = createSemanticDiffExample();
+		const report = reportFor({
+			...example.analysis,
+			source: { ...example.analysis.source, inventoryComplete: false },
+			files: [...example.analysis.files, { id: 'binary', path: 'image.png', oldPath: null, status: 'added', contentKind: 'binary' }],
+			hunks: example.analysis.hunks.map((hunk, index) => index > 1 ? hunk : {
+				...hunk,
+				classification: {
+					...hunk.classification,
+					groupConfidence: index === 0 ? 'low' : hunk.classification.groupConfidence,
+					typeConfidence: 'low',
+					uncertainty: 'The input lacks surrounding context.',
+				},
+			}),
+			limitations: [
+				{ code: 'incompleteInventory', message: 'The submitted inventory is incomplete.', fileId: null, hunkId: null },
+				{ code: 'truncatedDiff', message: 'The diff was truncated.', fileId: null, hunkId: null },
+				{ code: 'staleSource', message: 'Source changed after capture.', fileId: null, hunkId: null },
+				{ code: 'nonTextChange', message: 'Binary image has no text hunks.', fileId: 'binary', hunkId: null },
+			],
+		});
+		const part = render(report);
+		for (const group of part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-group-toggle')) {
+			group.click();
+		}
+		for (const file of part.domNode.querySelectorAll<HTMLElement>('.semantic-diff-file-toggle')) {
+			file.click();
+		}
+		assert.deepStrictEqual({
+			notice: button(part.domNode, '.semantic-diff-notice > p').textContent,
+			stale: button(part.domNode, '.semantic-diff-stale').textContent,
+			hunks: part.domNode.querySelectorAll('.semantic-diff-hunk').length,
+			binary: button(part.domNode, '.semantic-diff-nontext').textContent?.includes('Binary image has no text hunks.'),
+			changeSummary: button(part.domNode, '.semantic-diff-group-toggle .semantic-diff-disclosure-label').textContent,
+			compactHunkTotals: [...part.domNode.querySelectorAll('.semantic-diff-hunk .semantic-diff-counts')].every(element => /^\+\d+ -\d+$/.test(element.textContent ?? '')),
+		}, { notice: 'The submitted inventory is incomplete. Classified hunks: 8; uncertain hunks: 2.', stale: 'Stale analysis: Source changed after capture.', hunks: 8, binary: true, changeSummary: '3 files +12 -5', compactHunkTotals: true });
+	});
+
+	test('distinguishes complete empty and partial empty reports', () => {
+		const example = createSemanticDiffExample();
+		const empty = { ...example.analysis, groups: [], files: [], hunks: [] };
+		const complete = render(reportFor(empty));
+		const partial = render(reportFor({
+			...empty,
+			source: { ...empty.source, inventoryComplete: false },
+			limitations: [{ code: 'incompleteInventory', message: 'No inventory was captured.', fileId: null, hunkId: null }],
+		}));
+		assert.deepStrictEqual({
+			complete: button(complete.domNode, '.semantic-diff-empty').textContent,
+			partial: button(partial.domNode, '.semantic-diff-empty').textContent,
+			partialNotice: partial.domNode.textContent?.includes('No inventory was captured.'),
+		}, {
+			complete: 'No changes reported for this comparison.',
+			partial: 'No text changes are available in the submitted evidence. The comparison may contain changes that were not included.',
+			partialNotice: true,
+		});
+	});
+
+	test('rejects forged summaries at the rendering and accessible-view seams', () => {
+		const example = createSemanticDiffExample();
+		const forged = { ...example, summary: { ...example.summary, files: 100 } };
+		const part = render(forged);
+		assert.deepStrictEqual({
+			cards: part.domNode.querySelectorAll('.semantic-diff-card').length,
+			error: part.domNode.textContent?.startsWith('Cannot display this classification result:'),
+			accessibleError: getToolSpecificDataDescription({ kind: 'semanticDiff', result: { ok: true, report: forged } }).startsWith('Cannot display this classification result:'),
+			fallback: getToolSpecificDataDescription({ kind: 'semanticDiff', result: { ok: true, report: example } }),
+		}, { cards: 0, error: true, accessibleError: true, fallback: formatSemanticDiffReport(example) });
+	});
+
+	test('renders completed tools without waiting for the whole response, never pending or cancelled tools', () => {
+		const data: IChatSemanticDiffData = { kind: 'semanticDiff', result: { ok: true, report: createSemanticDiffExample() } };
+		const states = [IChatToolInvocation.StateKind.Streaming, IChatToolInvocation.StateKind.Executing, IChatToolInvocation.StateKind.Completed, IChatToolInvocation.StateKind.Cancelled];
+		assert.deepStrictEqual(states.map(type => shouldRenderSemanticDiffResult(upcastPartial<IChatToolInvocation>({
+			kind: 'toolInvocation',
+			toolSpecificData: data,
+			state: constObservable(upcastPartial<IChatToolInvocation.State>({ type })),
+		}))), [false, false, true, false]);
+	});
+
+	test('shows explicit validation errors but never treats failed tool output as a successful report', () => {
+		const errorData: IChatSemanticDiffData = { kind: 'semanticDiff', result: validateSemanticDiffReport({ schemaVersion: 2 }) };
+		const invocation = upcastPartial<IChatToolInvocationSerialized>({
+			kind: 'toolInvocationSerialized', toolCallId: 'invalid', isComplete: true,
+			toolSpecificData: errorData,
+			resultDetails: { input: '', output: [], isError: true },
+		});
+		const part = store.add(workbenchInstantiationService(undefined, store).createInstance(ChatSemanticDiffResultSubPart, invocation, errorData, {}, false, undefined));
+		assert.deepStrictEqual({
+			showError: shouldRenderSemanticDiffResult(invocation),
+			showSuccess: shouldRenderSemanticDiffResult({ ...invocation, toolSpecificData: { kind: 'semanticDiff', result: { ok: true, report: createSemanticDiffExample() } } }),
+			cards: part.domNode.querySelectorAll('.semantic-diff-card').length,
+			message: part.domNode.textContent?.includes('not supported'),
+		}, { showError: true, showSuccess: false, cards: 0, message: true });
+	});
+});

@@ -765,6 +765,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/semanticDiff",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/sideChat",
 			"project": "vscode-sessions"
 		},

@@ -26,6 +26,7 @@ import { AgentHostElementAttachmentDisplayKind, getElementAttachmentCorrelationI
 import { AgentHostAutoReplyAnswer } from '../../../../../../platform/agentHost/common/agentHostSchema.js';
 import { CodexImageGenerationToolName, isImageGenerationTool } from '../../../../../../platform/agentHost/common/imageGenerationConstants.js';
 import { SessionServerToolName } from '../../../../../../platform/agentHost/common/serverToolNames.js';
+import { parseSemanticDiffToolResult, SEMANTIC_DIFF_TOOL_NAME } from '../../../../../../platform/agentHost/common/semanticDiff.js';
 import { getAgentFeedbackAttachmentMetadata, isAgentFeedbackAnnotationsAttachment, isAgentFeedbackAttachment } from '../../../../../../platform/agentHost/common/meta/agentFeedbackAttachments.js';
 import { getBrowserViewAttachmentMetadata, isBrowserViewAttachment } from '../../../../../../platform/agentHost/common/meta/browserViewAttachments.js';
 import { readAgentMessageDelegationMeta } from '../../../../../../platform/agentHost/common/meta/agentMessageDelegationMeta.js';
@@ -1971,6 +1972,14 @@ function buildImageGenerationInputData(tc: ToolCallState): IChatToolInputInvocat
 	};
 }
 
+function buildSemanticDiffToolData(tc: ToolCallState): IChatSemanticDiffData | undefined {
+	if (tc.status !== ToolCallStatus.Completed || !tc.success || tc.contributor
+		|| (tc.toolName !== SEMANTIC_DIFF_TOOL_NAME && !tc.toolName.endsWith(`__${SEMANTIC_DIFF_TOOL_NAME}`))) {
+		return undefined;
+	}
+	return { kind: 'semanticDiff', result: parseSemanticDiffToolResult(getToolOutputText(tc), getInlineToolInput(tc.toolInput)) };
+}
+
 function buildAutomationConfiguredToolData(tc: ToolCallState): IChatAutomationConfiguredData | undefined {
 	if (tc.status !== ToolCallStatus.Completed || !tc.success || tc.toolName !== ConfigureAutomationToolReferenceName) {
 		return undefined;
@@ -2096,7 +2105,7 @@ export function completedToolCallToSerialized(tc: ICompletedToolCall, subAgentIn
 		};
 	}
 
-	let toolSpecificData: IChatTerminalToolInvocationData | IChatSearchToolInvocationData | IChatToolInputInvocationData | IChatSessionCreatedData | IChatGeneratedImageData | IChatAutomationConfiguredData | undefined;
+	let toolSpecificData: IChatTerminalToolInvocationData | IChatSearchToolInvocationData | IChatToolInputInvocationData | IChatSessionCreatedData | IChatGeneratedImageData | IChatAutomationConfiguredData | IChatSemanticDiffData | undefined;
 	if (isTerminal) {
 		const terminalCommandState = getTerminalCommandState(tc, isSuccess);
 		toolSpecificData = {
@@ -2106,7 +2115,7 @@ export function completedToolCallToSerialized(tc: ICompletedToolCall, subAgentIn
 	} else if (getToolKind(tc) === 'search') {
 		toolSpecificData = { kind: 'search' };
 	} else {
-		toolSpecificData = buildSessionCreatedToolData(tc) ?? buildGeneratedImageToolData(tc) ?? buildAutomationConfiguredToolData(tc);
+		toolSpecificData = buildSessionCreatedToolData(tc) ?? buildGeneratedImageToolData(tc) ?? buildAutomationConfiguredToolData(tc) ?? buildSemanticDiffToolData(tc);
 		if (!toolSpecificData) {
 			toolSpecificData = buildMcpAppToolInputData(tc, connectionAuthority);
 		}
@@ -3101,7 +3110,7 @@ export function finalizeToolInvocation(invocation: ChatToolInvocation, tc: ToolC
 	}
 
 	if (isCompleted) {
-		const resultToolSpecificData = buildSessionCreatedToolData(tc) ?? buildGeneratedImageToolData(tc) ?? buildAutomationConfiguredToolData(tc);
+		const resultToolSpecificData = buildSessionCreatedToolData(tc) ?? buildGeneratedImageToolData(tc) ?? buildAutomationConfiguredToolData(tc) ?? buildSemanticDiffToolData(tc);
 		if (resultToolSpecificData) {
 			// The tool required confirmation, so it was created with
 			// `HiddenAfterComplete`; clear it so the result pill stays visible.
@@ -3152,6 +3161,7 @@ export function finalizeToolInvocation(invocation: ChatToolInvocation, tc: ToolC
 	const resultDetails = !isTerminal
 		&& invocation.toolSpecificData?.kind !== 'subagent'
 		&& invocation.toolSpecificData?.kind !== 'sessionCreated'
+		&& invocation.toolSpecificData?.kind !== 'semanticDiff'
 		&& getToolKind(tc) !== 'search'
 		&& fileEdits.length === 0
 		? getToolInputOutputDetails(tc, isFailure, errorString, hasMcpAppData, connectionAuthority)

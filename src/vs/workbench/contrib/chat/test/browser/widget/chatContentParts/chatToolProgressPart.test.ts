@@ -14,6 +14,7 @@ import { URI } from '../../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { mock } from '../../../../../../../base/test/common/mock.js';
 import { mainWindow } from '../../../../../../../base/browser/window.js';
+import { TestAccessibilityService } from '../../../../../../../platform/accessibility/test/common/testAccessibilityService.js';
 import { ILinkPresentation, ILinkPresentationService } from '../../../../../../../platform/dataChannel/common/dataChannel.js';
 import { IHoverService } from '../../../../../../../platform/hover/browser/hover.js';
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';

@@ -12,6 +12,8 @@ import { ThemeIcon } from '../../../../../../../base/common/themables.js';
 import { localize } from '../../../../../../../nls.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js';
+import { IAccessibilityService } from '../../../../../../../platform/accessibility/common/accessibility.js';
+import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IChatToolInvocation, IChatToolInvocationSerialized, isLegacyChatTerminalToolInvocationData, ToolConfirmKind } from '../../../../common/chatService/chatService.js';
 import { ChatConfiguration } from '../../../../common/constants.js';
@@ -30,6 +32,8 @@ import { ChatResultListSubPart } from './chatResultListSubPart.js';
 import { ChatAutomationConfiguredResultSubPart } from './chatAutomationConfiguredResultSubPart.js';
 import { ChatGeneratedImageResultSubPart, hasGeneratedImageResult } from './chatGeneratedImageResultSubPart.js';
 import { ChatSessionCreatedResultSubPart } from './chatSessionCreatedResultSubPart.js';
+import { ChatSemanticDiffResultSubPart } from './chatSemanticDiffResultSubPart.js';
+import { AccessibilityWorkbenchSettingId } from '../../../../../accessibility/browser/accessibilityConfiguration.js';
 import { ChatSimpleToolProgressPart } from './chatSimpleToolProgressPart.js';
 import { ChatSandboxPrerequisiteConfirmationSubPart } from './chatSandboxPrerequisiteConfirmationSubPart.js';
 import { ChatModifiedFilesConfirmationSubPart } from './chatModifiedFilesConfirmationSubPart.js';
@@ -78,6 +82,19 @@ export function shouldRenderSessionCreatedResult(toolSpecificDataKind: string | 
 
 export function shouldRenderGeneratedImageResult(toolSpecificDataKind: string | undefined, isResponseComplete: boolean, hasImages: boolean): boolean {
 	return toolSpecificDataKind === 'generatedImage' && isResponseComplete && hasImages;
+}
+
+export function shouldRenderSemanticDiffResult(invocation: IChatToolInvocation | IChatToolInvocationSerialized): boolean {
+	if (invocation.toolSpecificData?.kind !== 'semanticDiff') {
+		return false;
+	}
+	const resultDetails = IChatToolInvocation.resultDetails(invocation);
+	if (isToolResultInputOutputDetails(resultDetails) && resultDetails.isError && invocation.toolSpecificData.result.ok) {
+		return false;
+	}
+	return invocation.kind === 'toolInvocation'
+		? invocation.state.get().type === IChatToolInvocation.StateKind.Completed
+		: invocation.isComplete;
 }
 
 export class ChatToolInvocationPart extends Disposable implements IChatContentPart {
@@ -267,6 +284,12 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 				dom.hide(this.domNode);
 				return;
 			}
+			if (this.subPart instanceof ChatSemanticDiffResultSubPart
+				&& this.subPart.data === toolInvocation.toolSpecificData
+				&& shouldRenderSemanticDiffResult(toolInvocation)) {
+				return;
+			}
+			partStore.clear();
 
 			dom.show(this.domNode);
 			this.subPart = partStore.add(this.createToolInvocationSubPart());
@@ -344,6 +367,7 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 			if (wasGeneratingImage !== isGeneratingImage) {
 				this._onDidChangeHeight.fire();
 			}
+			this._onDidChangeHeight.fire();
 		};
 
 		let appDomNode: HTMLElement = document.createElement('div');
@@ -447,6 +471,22 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 
 		if (this.renderedSessionCreatedResult && this.toolInvocation.toolSpecificData?.kind === 'sessionCreated') {
 			return this.instantiationService.createInstance(ChatSessionCreatedResultSubPart, this.toolInvocation, this.toolInvocation.toolSpecificData, this.context, this.renderer);
+		}
+
+		if (shouldRenderSemanticDiffResult(this.toolInvocation) && this.toolInvocation.toolSpecificData?.kind === 'semanticDiff') {
+			return this.instantiationService.createInstance(ChatSemanticDiffResultSubPart,
+				this.toolInvocation,
+				this.toolInvocation.toolSpecificData,
+				isResponseVM(this.context.element) ? this.context.element.model : this.context.element,
+				this.toolInvocation.kind === 'toolInvocation'
+				&& this.accessibilityService.isScreenReaderOptimized()
+				&& this.configurationService.getValue(AccessibilityWorkbenchSettingId.VerboseChatProgressUpdates),
+				isResponseVM(this.context.element) ? {
+					sessionResource: this.context.element.sessionResource,
+					responseId: this.context.element.id,
+					toolCallId: this.toolInvocation.toolCallId,
+				} : undefined,
+			);
 		}
 
 		if (this.renderedGeneratedImageResult && this.toolInvocation.toolSpecificData?.kind === 'generatedImage') {

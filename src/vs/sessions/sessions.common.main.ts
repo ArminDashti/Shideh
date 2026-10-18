@@ -496,6 +496,7 @@ import './services/agentHostFilter/browser/agentHostFilterService.js';
 import './contrib/sessions/browser/customizationsToolbar.contribution.js';
 import './contrib/workflows/browser/workflows.contribution.js';
 import './contrib/changes/browser/changes.contribution.js';
+import './contrib/semanticDiff/browser/semanticDiff.contribution.js';
 import './contrib/codeReview/browser/codeReview.contributions.js';
 import './contrib/agentFeedback/browser/agentFeedback.contribution.js';
 import './contrib/files/browser/files.contribution.js';
