@@ -8,9 +8,11 @@ import { timeout } from '../../../../../base/common/async.js';
 import { cancelOnDispose } from '../../../../../base/common/cancellation.js';
 import { createHotClass } from '../../../../../base/common/hotReloadHelpers.js';
 import { Disposable, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../../base/common/network.js';
 import { ITransaction, autorun, derived, derivedDisposable, derivedObservableWithCache, observableFromEvent, observableSignal, observableValue, runOnChange, runOnChangeWithStore, transaction, waitForState } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { isUndefined } from '../../../../../base/common/types.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -190,12 +192,14 @@ export class InlineCompletionsController extends Disposable {
 		this._register(runOnChange(this._editorObs.onDidType, (_value, _changes) => {
 			if (this._enabledInConfig.get() && !this._isEditorDictationInProgress()) {
 				this.model.get()?.trigger();
+				InlineCompletionsController._lastEditedModelUri = this.editor.getModel()?.uri;
 			}
 		}));
 
 		this._register(runOnChange(this._editorObs.onDidPaste, (_value, _changes) => {
 			if (this._enabledInConfig.get() && !this._isEditorDictationInProgress()) {
 				this.model.get()?.trigger();
+				InlineCompletionsController._lastEditedModelUri = this.editor.getModel()?.uri;
 			}
 		}));
 
@@ -224,9 +228,25 @@ export class InlineCompletionsController extends Disposable {
 				this._editorObs.forceUpdate(tx => {
 					/** @description onDidExecuteCommand */
 					this.model.get()?.trigger(tx, { noDelay });
+					InlineCompletionsController._lastEditedModelUri = this.editor.getModel()?.uri;
 				});
 			}
 		}));
+
+		this._register(runOnChange(this._editorObs.isTextFocused, (focused, _changes) => {
+			// Setting focus on an editor should NOT trigger completions (too much noise).
+			// Except if the previously edited document was another cell in the same notebook.
+			const currentUri = this.editor.getModel()?.uri;
+			const currentIsNotebookCell = currentUri?.scheme === Schemas.vscodeNotebookCell;
+			const previousUri = InlineCompletionsController._lastEditedModelUri;
+			const previousWasNotebookCell = previousUri?.scheme === Schemas.vscodeNotebookCell;
+			const isFocusedInDifferentCellOfSameNotebook = previousWasNotebookCell && currentIsNotebookCell && !isEqual(currentUri, previousUri) ? previousUri?.path === currentUri?.path : false;
+
+			if (this._enabled.get() && focused && isFocusedInDifferentCellOfSameNotebook) {
+				this.model.get()?.trigger();
+			}
+		}));
+
 
 		this._register(runOnChange(this._editorObs.selections, (_value, _, changes) => {
 			if (changes.some(e => e.reason === CursorChangeReason.Explicit || e.source === 'api')) {
