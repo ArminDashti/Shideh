@@ -242,11 +242,11 @@ class FoldedAreaTextProperty implements TextProperty {
 		const foldingController = FoldingController.get(editor);
 		if (!foldingController) { return TextPropertySource.notPresent; }
 
-		const foldingModel = observableFromPromise(foldingController.getFoldingModel() ?? Promise.resolve(undefined));
+		const foldingModel = new ObservablePromise(foldingController.getFoldingModel() ?? Promise.resolve(undefined));
 		return new TextPropertySource({
 			isPresentOnLine(lineNumber, reader): boolean {
-				const m = foldingModel.read(reader);
-				const regionAtLine = m.value?.getRegionAtLine(lineNumber);
+				const m = foldingModel.promiseResult.read(reader)?.data;
+				const regionAtLine = m?.getRegionAtLine(lineNumber);
 				const hasFolding = !regionAtLine
 					? false
 					: regionAtLine.isCollapsed &&
