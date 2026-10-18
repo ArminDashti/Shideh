@@ -157,7 +157,7 @@ export interface ITerminalChatService {
 	 * Fired when a terminal instance is registered for a tool session id. This can happen after
 	 * the chat UI first renders, enabling late binding of the focus action.
 	 */
-	readonly onDidRegisterTerminalInstanceWithToolSession: Event<ITerminalInstance>;
+	readonly onDidRegisterTerminalInstanceWithToolSession: Event<{ toolSessionId: string; instance: ITerminalInstance }>;
 
 	/**
 	 * Associate a tool session id with a terminal instance. The association is automatically

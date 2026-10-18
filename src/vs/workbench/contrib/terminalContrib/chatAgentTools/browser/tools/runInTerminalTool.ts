@@ -1061,6 +1061,18 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 
 		// Restore terminal associations from storage
 		this._restoreTerminalAssociations();
+
+		// Re-associate any tool session terminals already registered (eg. restored background terminals)
+		for (const instance of this._terminalChatService.getToolSessionTerminalInstances()) {
+			this._restoreAssociationForInstance(instance);
+		}
+
+		// Listen for future registrations (including restored mappings) so we can rebuild
+		// session associations if they weren't present when _restoreTerminalAssociations ran.
+		// This ensures when a session is cleared, the terminal is disposed of
+		this._register(this._terminalChatService.onDidRegisterTerminalInstanceWithToolSession(e => {
+			this._restoreAssociationForInstance(e.instance);
+		}));
 		this._register(this._terminalService.onDidDisposeInstance(e => {
 			this._removeTerminalAssociations(e);
 		}));
