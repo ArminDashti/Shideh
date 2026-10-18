@@ -2,6 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+import '../media/chatEditorController.css';
+
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
@@ -12,6 +14,7 @@ import { EditorContextKeys } from '../../../../../editor/common/editorContextKey
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, IAction2Options, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -392,6 +395,34 @@ class ToggleAccessibleDiffViewAction extends ChatEditingEditorAction {
 	}
 }
 
+class ExplainHunkAction extends ChatEditingEditorAction {
+	constructor() {
+		super({
+			id: 'chatEditor.action.explainHunk',
+			title: localize2('explainHunk', 'Explain this Change'),
+			precondition: ContextKeyExpr.and(ctxHasEditorModification, ctxHasRequestInProgress.negate()),
+			icon: Codicon.sparkle,
+			f1: false,
+			menu: {
+				id: MenuId.ChatEditingEditorHunk,
+				order: 5
+			}
+		});
+	}
+
+	override async runChatEditingCommand(accessor: ServicesAccessor, _session: IChatEditingSession, entry: IModifiedFileEntry, _integration: IModifiedFileEntryEditorIntegration, ...args: unknown[]): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+
+		const hunkWidget = args[0] as DiffHunkWidget;
+		const diffRange = hunkWidget?.getChangeRange();
+
+		await commandService.executeCommand('workbench.action.chat.open', {
+			query: '/explain this change',
+			attachFiles: [{ uri: entry.modifiedURI, range: diffRange }]
+		});
+	}
+}
+
 export class ReviewChangesAction extends ChatEditingEditorAction {
 
 	constructor() {
@@ -658,6 +689,7 @@ export function registerChatEditorActions() {
 	registerAction2(ToggleDiffAction);
 	registerAction2(AddHunkToChatAction);
 	registerAction2(ToggleAccessibleDiffViewAction);
+	registerAction2(ExplainHunkAction);
 
 	registerAction2(ExplainMultiDiffAction);
 
