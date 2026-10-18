@@ -789,6 +789,9 @@ export class ShellIntegrationAddon extends Disposable implements IShellIntegrati
 		if (!commandDetection) {
 			commandDetection = this._register(new CommandDetectionCapability(terminal, this._logService));
 			this.capabilities.add(TerminalCapability.CommandDetection, commandDetection);
+			if (!this.capabilities.has(TerminalCapability.CwdDetection) && this._initialCwd) {
+				this._updateCwd(this._initialCwd);
+			}
 		}
 		return commandDetection;
 	}
