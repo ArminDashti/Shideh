@@ -6142,6 +6142,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	}
 
 	private _getOrCreateActiveClient(session: URI, directory: URI | undefined): ActiveClient {
+		const directories = directory ? [directory] : [];
 		let client = this._activeClients.get(session);
 		if (!client) {
 			// Read the retained host snapshot lazily so projected enablement stays current.
@@ -6149,7 +6150,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			client = this._instantiationService.createInstance(ActiveClient, session, pluginController, this._onDidChatProgress);
 			this._activeClients.set(session, client);
 		} else if (directory) {
-			client.pluginController.setDirectory(directory);
+			client.pluginController.setDirectories(directories);
 		}
 		return client;
 	}
@@ -6900,7 +6901,7 @@ export const REFRESH_DEBOUNCE_MS = 100;
 class SessionDiscoveredEntry extends Disposable {
 
 
-	private readonly _discovery: SessionCustomizationDiscovery;
+	private readonly _discoveries: SessionCustomizationDiscovery[];
 	private readonly _refreshDelayer = this._register(new Delayer<void>(REFRESH_DEBOUNCE_MS));
 	private _refreshPromise: CancelablePromise<void> | null = null;
 	private _pendingRefreshNotify = false;
@@ -6919,9 +6920,11 @@ class SessionDiscoveredEntry extends Disposable {
 		super();
 		this._discovery = this._register(instantiationService.createInstance(SessionCustomizationDiscovery, workingDirectories, userHome, URI.file));
 		this._settled = this._queueRefresh(false, 0);
-		this._register(this._discovery.onDidChange(() => {
-			this._settled = this._queueRefresh(true);
-		}));
+		this._discoveries.forEach(discovery => {
+			this._register(discovery.onDidChange(() => {
+				this._settled = this._queueRefresh(true);
+			}));
+		});
 	}
 
 	override dispose(): void {
@@ -7379,8 +7382,8 @@ class SessionPluginController extends Disposable {
 		this._register(this._parent.mcpDiscovery.onDidChange(() => this._invalidateRuntimeMcp('userConfigChanged')));
 	}
 
-	public get directory(): URI | undefined {
-		return this._directory;
+	public get directories(): URI[] {
+		return this._directories;
 	}
 
 	/** The additional (non-primary) roots attached to customization discovery. */
@@ -7389,13 +7392,13 @@ class SessionPluginController extends Disposable {
 	}
 
 	/**
-	 * Anchor (or re-anchor) the session's customization directory.
-	 * Only ever transitions from `undefined` → set; once a directory has
+	 * Anchor (or re-anchor) the session's customization directories.
+	 * Only ever transitions from `[]` → set; once a directory (or multiple directories) has
 	 * been bound the discovered entry is pinned to it for the remainder
 	 * of the session.
 	 */
-	public setDirectory(directory: URI | undefined): void {
-		if (this._directory || !directory) {
+	public setDirectories(directory: URI[]): void {
+		if (this._directories.length || !directory.length) {
 			return;
 		}
 		this._directory = directory;
@@ -7420,16 +7423,16 @@ class SessionPluginController extends Disposable {
 	}
 
 	/**
-	 * Move the session's customization anchor to a new directory (e.g. from the
+	 * Move the session's customization anchor to a new directory(s) (e.g. from the
 	 * user-picked folder to the worktree at materialization). Recreates the
 	 * discovered entry so discovery/watchers re-scan the new directory.
 	 */
-	public reanchor(directory: URI): void {
-		if (this._directory && isEqual(this._directory, directory)) {
+	public reanchor(directories: URI[]): void {
+		if (this._directories && this._directories.length === directories.length && this._directories.every((dir, index) => isEqual(dir, directories[index]))) {
 			return;
 		}
-		const previous = this._directory;
-		this._directory = directory;
+		const previous = this._directories;
+		this._directories = directories;
 		this._sessionDiscovered.clear();
 		this._sessionMcpDiscovery.clear();
 		this._runtimeMcp = [];
@@ -7816,7 +7819,7 @@ class SessionPluginController extends Disposable {
 	}
 
 	private _discoveredEntry(): SessionDiscoveredEntry | undefined {
-		if (!this._directory) {
+		if (!this._directories.length) {
 			return undefined;
 		}
 
@@ -8034,7 +8037,7 @@ class SessionPluginController extends Disposable {
 				? isCustomizationEnabled(exact)
 				: exact.enabled;
 		}
-		if (!this._directory) {
+		if (!this._directories.length) {
 			return undefined;
 		}
 		for (const previousDirectory of this._previousDirectories) {
