@@ -961,6 +961,12 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			})),
 		};
 	}
+
+	$resolveChatVariable(requestId: string): Promise<any> {
+		// Save all the request data- need full parsed prompt
+		// Identify a ChatRequestPart based on the VariableIdentifier, somehow
+		return this._chatVariablesService.resolveVariables();
+	}
 }
 
 
