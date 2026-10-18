@@ -1039,6 +1039,7 @@ export class AgentSideEffects extends Disposable {
 		) {
 			action = { ...action, _meta: { ...action._meta, subagentChatUri: buildSubagentChatUri(sessionUri, action.toolCallId) } };
 		}
+		action = this._stampClientToolAutoApprove(action, sessionKey);
 
 		// When a parent tool call has an associated subagent session,
 		// preserve the subagent content metadata in the completion result.
