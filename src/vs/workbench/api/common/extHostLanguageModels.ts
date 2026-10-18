@@ -191,11 +191,25 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		return firstSlash === -1 ? undefined : modelIdentifier.substring(0, firstSlash);
 	}
 
+	private _modelIdentifierMatchesVendorAndGroup(identifier: string, vendor: string, group: string | undefined): boolean {
+		const vendorPrefix = `${vendor}/`;
+		if (!identifier.startsWith(vendorPrefix)) {
+			return false;
+		}
+		if (!group) {
+			// Ungrouped identifiers have the form: vendor/id
+			return identifier.indexOf('/', vendorPrefix.length) === -1;
+		}
+		// Grouped identifiers have the form: vendor/group/id
+		return identifier.startsWith(`${vendor}/${group}/`);
+	}
+
 	async $provideLanguageModelChatInfo(vendor: string, options: ILanguageModelChatInfoOptions, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]> {
 		const data = this._languageModelProviders.get(vendor);
 		if (!data) {
 			return [];
 		}
+
 		const modelInformation: vscode.LanguageModelChatInformation[] = await data.provider.provideLanguageModelChatInformation({ silent: options.silent, configuration: options.configuration }, token) ?? [];
 		const modelMetadataAndIdentifier: ILanguageModelChatMetadataAndIdentifier[] = modelInformation.map((m): ILanguageModelChatMetadataAndIdentifier => {
 			let auth;
