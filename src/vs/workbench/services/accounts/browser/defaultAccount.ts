@@ -710,6 +710,11 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 			|| this.authenticationService.isAuthenticationProviderRegistered(accountProvider.id);
 	}
 
+	private isAccountProviderAvailable(accountProvider: IDefaultAccountAuthenticationProvider): boolean {
+		return this.authenticationService.declaredProviders.some(p => p.id === accountProvider.id)
+			|| this.authenticationService.isAuthenticationProviderRegistered(accountProvider.id);
+	}
+
 	private setDefaultAccount(account: IDefaultAccountData | null): void {
 		if (equals(this._defaultAccount, account)) {
 			return;

@@ -259,6 +259,14 @@ export class NewChatWidget extends Disposable {
 		return index;
 	}
 
+	/**
+	 * Whether to render the session type ("harness") picker below the input
+	 * (in the controls) instead of next to the workspace picker. Read once from
+	 * the view options at construction time; the widget does not react to later
+	 * changes of the source observable.
+	 */
+	private readonly _renderHarnessPickerInControls: boolean;
+
 	constructor(
 		private readonly options: IChatViewOptions & {
 			readonly inputVisible?: IObservable<boolean>;

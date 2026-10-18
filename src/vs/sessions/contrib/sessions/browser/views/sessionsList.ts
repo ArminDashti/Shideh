@@ -5059,6 +5059,17 @@ export class SessionsList extends Disposable implements ISessionsList {
 			this.updateSessionGroupLimit();
 		}));
 
+		// Resolve the per-workspace session limit from the experiment service and
+		// keep it current when treatments are refetched. The async fetch is
+		// confined to `updateWorkspaceGroupLimit`; the rest of the list reads the
+		// resolved value synchronously off `workspaceGroupLimit`. The autorun runs
+		// immediately for the initial fetch and again whenever treatments refetch.
+		const assignmentRefetchSignal = observableSignalFromEvent(this, this.assignmentService.onDidRefetchAssignments);
+		this._register(autorun(reader => {
+			assignmentRefetchSignal.read(reader);
+			this.updateWorkspaceGroupLimit();
+		}));
+
 		this.refresh();
 		this.syncActiveChatSelection(this._sessionsService.activeSession.get());
 		this._register(autorun(reader => {
@@ -5082,6 +5093,19 @@ export class SessionsList extends Disposable implements ISessionsList {
 					this.update();
 				}
 			}
+		});
+	}
+
+	/**
+	 * Fetches the workspace group limit treatment and updates the backing
+	 * observable. Invalid or unset treatments fall back to the default limit.
+	 */
+	private updateWorkspaceGroupLimit(): void {
+		this.assignmentService.getTreatment<number>(SessionsList.WORKSPACE_GROUP_LIMIT_TREATMENT).then(value => {
+			const limit = typeof value === 'number' && Number.isInteger(value) && value > 0
+				? value
+				: SessionsList.DEFAULT_WORKSPACE_GROUP_LIMIT;
+			this.workspaceGroupLimit.set(limit, undefined);
 		});
 	}
 

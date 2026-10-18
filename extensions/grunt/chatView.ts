@@ -55,6 +55,20 @@ export interface ISelectNoWorkspaceOptions {
 export type WorkspaceSelectionResult = 'applied' | 'notReady' | 'preserved';
 
 /**
+ * Options passed to a chat view when it is created.
+ */
+export interface IChatViewOptions {
+
+	/**
+	 * Whether to render the session type ("harness") picker below the input
+	 * (in the controls) instead of next to the workspace picker. The view
+	 * reads the value once when it is created and does not react to later
+	 * changes, so the placement stays stable for the view's lifetime.
+	 */
+	readonly renderSessionTypePickerInControls: IObservable<boolean>;
+}
+
+/**
  * Base class for a view that lives inside the {@link SessionsPart} internal grid.
  * Each instance occupies a single grid leaf. Subclasses populate {@link element}
  * with their content and forward sizing to whatever widget they host by
