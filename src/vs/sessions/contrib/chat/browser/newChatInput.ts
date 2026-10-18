@@ -571,6 +571,10 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		return !this.hasInput && (this.options.canApplyWorkspaceDefault?.() ?? false);
 	}
 
+	get workspacePreselectionSource(): NewSessionWorkspacePreselectionSource | undefined {
+		return this.options.getWorkspacePreselectionSource?.();
+	}
+
 	/** Opens the model picker dropdown. */
 	openModelPicker(): void { this._newChatModelPickerService.openModelPicker(); }
 

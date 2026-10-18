@@ -1199,6 +1199,10 @@ function createFixtureProvider(workspace: ISessionWorkspace, sessionTypes: reado
 			return [];
 		}
 
+		override getSessions(): ISession[] {
+			return [];
+		}
+
 		override resolveWorkspace(folderUri: URI): ISessionWorkspace | undefined {
 			if (folderUri.toString() === workspace.folders[0].root.toString()) {
 				return workspace;

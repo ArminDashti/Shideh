@@ -477,6 +477,17 @@ export class WorkspacePicker extends Disposable {
 			this._register(this._sessionWorkspaceFallback.onDidChange(() => this._restoreAutomaticSelection()));
 		}
 
+		this._sessionWorkspaceFallback = this.options.restoreFromSessions === false
+			? undefined
+			: this._register(this.instantiationService.createInstance(SessionWorkspaceFallback, {
+				canUseProvider: providerId => this._canRestoreProviderWorkspace(providerId),
+				isProviderUnavailable: providerId => this._isProviderUnavailable(providerId),
+				resolveWorkspace: (folderUri, preferredProviderId) => this._resolveFolder(folderUri, preferredProviderId),
+			}));
+		if (this._sessionWorkspaceFallback) {
+			this._register(this._sessionWorkspaceFallback.onDidChange(() => this._restoreAutomaticSelection()));
+		}
+
 		// Restore selected workspace from storage
 		const restored = this._restoreSelectedWorkspace();
 		this._applySelection(restored?.resolved, restored?.source, restored?.origin);
@@ -2301,7 +2312,13 @@ export class WorkspacePicker extends Disposable {
 		if ((!folderUri && !this._selectedFolderUri) || this._isSelectedFolder(folderUri)) {
 			return;
 		}
-		this._applySelection(restored);
+		this._sessionRestoreGeneration++;
+		if (this._isSelectedFolder(restored.resolved.workspace.folders[0]?.root)) {
+			this._selectedResolved = restored.resolved;
+			this._preselectionSource = restored.source;
+			return false;
+		}
+		this._applySelection(restored.resolved, restored.source);
 		this._updateTriggerLabel();
 		this._onDidChangeSelection.fire();
 		this._onDidSelectWorkspace.fire(this._selectedFolderUri);

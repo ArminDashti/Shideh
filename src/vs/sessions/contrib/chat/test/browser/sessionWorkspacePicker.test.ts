@@ -2335,6 +2335,193 @@ suite('WorkspacePicker - Connection Status', () => {
 		});
 	});
 
+	test('restore chooses the most frequent workspace among the 15 most recent sessions', async () => {
+		let sessions: ISession[] = [];
+		const provider = createMockProvider('local-1', { getSessions: () => sessions });
+		providersService.setProviders([provider]);
+
+		const mostFrequentRecent = URI.file('/local/recent-a');
+		const mostFrequentOverall = URI.file('/local/older-b');
+		const recentFolders = [
+			mostFrequentRecent,
+			mostFrequentOverall,
+			mostFrequentRecent,
+			URI.file('/local/recent-c'),
+			mostFrequentRecent,
+			mostFrequentOverall,
+			URI.file('/local/recent-d'),
+			URI.file('/local/recent-e'),
+			URI.file('/local/recent-f'),
+			URI.file('/local/recent-g'),
+			URI.file('/local/recent-h'),
+			URI.file('/local/recent-i'),
+			URI.file('/local/recent-j'),
+			URI.file('/local/recent-k'),
+			URI.file('/local/recent-l'),
+		];
+		const recentSessions = recentFolders.map((folderUri, index) => createMockSession(provider, folderUri, 100 - index));
+		const olderSessions = Array.from({ length: 10 }, (_, index) => createMockSession(provider, mostFrequentOverall, 50 - index));
+		sessions = [...olderSessions, ...recentSessions];
+
+		const picker = createTestPicker(disposables, providersService);
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			folderUri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		}, {
+			folderUri: mostFrequentRecent.toString(),
+			source: NewSessionWorkspacePreselectionSource.ExistingSessions,
+		});
+	});
+
+	test('restore skips missing session workspaces in frequency order', async () => {
+		let sessions: ISession[] = [];
+		const provider = createMockProvider('local-1', { getSessions: () => sessions });
+		providersService.setProviders([provider]);
+		const missing = URI.file('/local/missing');
+		const existing = URI.file('/local/existing');
+		sessions = [
+			createMockSession(provider, missing, 5),
+			createMockSession(provider, existing, 4),
+			createMockSession(provider, missing, 3),
+			createMockSession(provider, existing, 2),
+			createMockSession(provider, missing, 1),
+		];
+		const checked: string[] = [];
+		const fileService = upcastPartial<IFileService>({
+			onDidChangeFileSystemProviderRegistrations: Event.None,
+			hasProvider: () => true,
+			exists: async resource => {
+				checked.push(resource.toString());
+				return extUri.isEqual(resource, existing);
+			},
+		});
+
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			fileService,
+		);
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			checked: [...new Set(checked)],
+			folderUri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		}, {
+			checked: [missing.toString(), existing.toString()],
+			folderUri: existing.toString(),
+			source: NewSessionWorkspacePreselectionSource.ExistingSessions,
+		});
+	});
+
+	test('restore excludes pending and resolved worktree sessions using session metadata', async () => {
+		let sessions: ISession[] = [];
+		const provider = createMockProvider('local-1', { getSessions: () => sessions });
+		providersService.setProviders([provider]);
+		const pendingCheckout = URI.file('/local/pending-checkout');
+		const resolvedWorktree = URI.file('/local/feature-checkout');
+		const regularWorkspace = URI.file('/local/regular');
+		sessions = [
+			createMockSession(provider, pendingCheckout, 7, { worktreePending: true }),
+			createMockSession(provider, pendingCheckout, 6, { worktreePending: true }),
+			createMockSession(provider, pendingCheckout, 5, { worktreePending: true }),
+			createMockSession(provider, resolvedWorktree, 4, { workTreeUri: resolvedWorktree }),
+			createMockSession(provider, resolvedWorktree, 3, { workTreeUri: resolvedWorktree }),
+			createMockSession(provider, resolvedWorktree, 2, { workTreeUri: resolvedWorktree }),
+			createMockSession(provider, regularWorkspace, 1),
+		];
+
+		const picker = createTestPicker(disposables, providersService);
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			folderUri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		}, {
+			folderUri: regularWorkspace.toString(),
+			source: NewSessionWorkspacePreselectionSource.ExistingSessions,
+		});
+	});
+
+	test('restore discards a session fallback that completes while restoration is disabled', async () => {
+		let sessions: ISession[] = [];
+		const provider = createMockProvider('local-1', { getSessions: () => sessions });
+		providersService.setProviders([provider]);
+		const folderUri = URI.file('/local/project');
+		sessions = [createMockSession(provider, folderUri, 1)];
+		const firstExists = new DeferredPromise<boolean>();
+		let existsCallCount = 0;
+		const fileService = upcastPartial<IFileService>({
+			hasProvider: () => true,
+			exists: async () => ++existsCallCount === 1 ? firstExists.p : true,
+		});
+		let canRestoreWorkspace = true;
+		const picker = createTestPicker(
+			disposables,
+			providersService,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			{ canRestoreWorkspace: () => canRestoreWorkspace },
+			fileService,
+		);
+		canRestoreWorkspace = false;
+		await firstExists.complete(true);
+		await timeout(0);
+		const disabledSelection = picker.selectedFolderUri;
+
+		canRestoreWorkspace = true;
+		picker.refreshAutomaticSelection();
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			disabledSelection,
+			folderUri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		}, {
+			disabledSelection: undefined,
+			folderUri: folderUri.toString(),
+			source: NewSessionWorkspacePreselectionSource.ExistingSessions,
+		});
+	});
+
+	test('restore retries when a provider reports sessions after picker creation', async () => {
+		const sessionsChanged = disposables.add(new Emitter<ISessionChangeEvent>());
+		let sessions: ISession[] = [];
+		const provider = createMockProvider('local-1', {
+			getSessions: () => sessions,
+			onDidChangeSessions: sessionsChanged.event,
+		});
+		providersService.setProviders([provider]);
+		const folderUri = URI.file('/local/late-session');
+		const picker = createTestPicker(disposables, providersService);
+		await timeout(0);
+
+		sessions = [createMockSession(provider, folderUri, 1)];
+		sessionsChanged.fire({ added: sessions, removed: [], changed: [] });
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			folderUri: picker.selectedFolderUri?.toString(),
+			source: picker.preselectionSource,
+		}, {
+			folderUri: folderUri.toString(),
+			source: NewSessionWorkspacePreselectionSource.ExistingSessions,
+		});
+	});
+
 	test('shows manually picked worktree folders but filters them from VS Code recents', async () => {
 		const provider = createMockProvider('provider');
 		providersService.setProviders([provider]);

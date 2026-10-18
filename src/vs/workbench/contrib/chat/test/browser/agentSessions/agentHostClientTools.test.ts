@@ -2581,6 +2581,8 @@ suite('AgentHostClientTools', () => {
 				state: IChatToolInvocation.StateKind.Cancelled,
 				humanResponses: 0,
 			});
+			invokeResult.complete({ content: [{ kind: 'text', value: 'done' }] });
+			await timeout(0);
 		});
 
 		test('does not execute a client tool skipped from another client while confirming', async () => {

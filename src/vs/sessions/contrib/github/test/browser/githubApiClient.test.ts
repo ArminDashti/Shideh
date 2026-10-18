@@ -98,6 +98,23 @@ class FakeDefaultAccountService extends mock<IDefaultAccountService>() {
 	}
 }
 
+class FakeDefaultAccountService extends mock<IDefaultAccountService>() {
+	authenticationProvider: IDefaultAccountAuthenticationProvider = {
+		id: 'github',
+		name: 'GitHub',
+		enterprise: false,
+	};
+	gitHubBaseUrl = 'https://github.com';
+
+	override getDefaultAccountAuthenticationProvider(): IDefaultAccountAuthenticationProvider {
+		return this.authenticationProvider;
+	}
+
+	override resolveGitHubUrl(path: string): string {
+		return `${this.gitHubBaseUrl.replace(/\/+$/, '')}/${path}`;
+	}
+}
+
 suite('GitHubApiClient', () => {
 
 	const store = ensureNoDisposablesAreLeakedInTestSuite();

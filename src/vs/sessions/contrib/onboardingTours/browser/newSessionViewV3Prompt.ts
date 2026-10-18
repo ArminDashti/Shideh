@@ -1235,6 +1235,26 @@ export class NewSessionViewV3PromptRunner {
 			optionKindsShown: this._renderedPromptOptions.map(getPromptOptionTelemetryKind).join(','),
 		});
 	}
+
+	private _reportPromptOptionInteraction(interaction: 'selected' | 'closed', option?: INewSessionPromptOption): void {
+		type OnboardingPromptOptionInteractionEvent = {
+			scenarioId: string;
+			interaction: string;
+			option: string;
+		};
+		type OnboardingPromptOptionInteractionClassification = {
+			owner: 'benibenj';
+			comment: 'Reports privacy-safe interactions with V3 onboarding prompt options without collecting prompt or repository content.';
+			scenarioId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The id of the onboarding scenario that showed the prompt options.' };
+			interaction: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether an option was selected or the prompt-option widget was closed.' };
+			option: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The categorical prompt option selected, or none when the widget was closed.' };
+		};
+		this._telemetryService.publicLog2<OnboardingPromptOptionInteractionEvent, OnboardingPromptOptionInteractionClassification>('onboarding.promptOptionInteraction', {
+			scenarioId: NEW_SESSION_VIEW_V3_TOUR_ID,
+			interaction,
+			option: option ? getPromptOptionTelemetryKind(option) : 'none',
+		});
+	}
 }
 
 export function selectNewSessionViewV3GitHubCandidate(recentWork: IGitHubRecentUserWork): INewSessionViewV3GitHubCandidate | undefined {
