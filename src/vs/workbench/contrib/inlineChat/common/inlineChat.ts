@@ -63,6 +63,7 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			type: 'boolean',
 		},
 	}
+
 });
 
 
