@@ -472,6 +472,8 @@ export class NativeEditContext extends AbstractEditContext {
 
 		let replaceNextCharCnt = 0;
 		let replacePrevCharCnt = 0;
+		console.log('e.updateRangeStart : ', e.updateRangeStart);
+		console.log('e.updateRangeEnd : ', e.updateRangeEnd);
 		if (e.updateRangeEnd > selectionEndOffset) {
 			replaceNextCharCnt = e.updateRangeEnd - selectionEndOffset;
 		}
@@ -490,6 +492,10 @@ export class NativeEditContext extends AbstractEditContext {
 		if (e.selectionStart === e.selectionEnd && selectionStartOffset === selectionEndOffset) {
 			positionDelta = e.selectionStart - (e.updateRangeStart + e.text.length);
 		}
+		console.log('text : ', text);
+		console.log('replacePrevCharCnt : ', replacePrevCharCnt);
+		console.log('replaceNextCharCnt : ', replaceNextCharCnt);
+		console.log('positionDelta : ', positionDelta);
 		const typeInput: ITypeData = {
 			text,
 			replacePrevCharCnt,
