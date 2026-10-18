@@ -68,6 +68,12 @@ export function parseMultiplier(multiplier: string | undefined): number {
 	return isNaN(value) ? 1 : value;
 }
 
+function hashAgentName(agentName: string): string {
+	const sha1 = new StringSHA1();
+	sha1.update(agentName);
+	return sha1.digest();
+}
+
 const BaseModelDescription = `Launch a new agent to handle complex, multi-step tasks autonomously. This tool is good at researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries, use this agent to perform the search for you.
 
 - Agents do not run async or in the background, you will wait for the agent\'s result.
@@ -209,6 +215,15 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 		const args = invocation.parameters as IRunSubagentToolInputParams;
 
 		this.logService.debug(`RunSubagentTool: Invoking with prompt: ${args.prompt.substring(0, 100)}...`);
+
+		this.telemetryService.publicLog2<ChatSubagentInvokedEvent, ChatSubagentInvokedClassification>('chatSubagentInvoked', {
+			hashedAgentName: args.agentName ? hashAgentName(args.agentName) : undefined,
+			usingCustomAgent: !!args.agentName,
+			modelId: invocation.modelId,
+			requestId: invocation.chatRequestId,
+			chatSessionId: invocation.context?.sessionId,
+			fromSubAgent: invocation.fromSubAgent
+		});
 
 		if (!invocation.context) {
 			throw new Error('toolInvocationToken is required for this tool');
