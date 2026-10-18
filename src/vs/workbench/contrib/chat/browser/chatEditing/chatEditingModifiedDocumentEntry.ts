@@ -219,6 +219,7 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 		return {
 			resource: this.modifiedURI,
+			notebookType: undefined,
 			languageId: this.modifiedModel.getLanguageId(),
 			snapshotUri: ChatEditingSnapshotTextModelContentProvider.getSnapshotFileURI(chatSessionResource, requestId, undoStop, this.modifiedURI.path, this.modifiedURI.scheme, this.modifiedURI.authority),
 			original: this.originalModel.getValue(),
