@@ -691,6 +691,34 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 
 		templateData.actionDisposables.clear();
 		DOM.clearNode(templateData.actions);
+		DOM.clearNode(templateData.status);
+		templateData.status.className = 'mcp-server-status';
+
+		this.renderEnablementSwitch(templateData, enablementTarget, switchChecked, label);
+		this.renderMetaLine(templateData, rowState);
+
+		if (rowState.toolCount !== undefined && rowState.toolCount > 0) {
+			const toolsElement = DOM.append(templateData.actions, $('.mcp-server-tools'));
+			toolsElement.classList.toggle('is-cached', !!rowState.toolsFromCache);
+			DOM.append(toolsElement, $('span')).classList.add(...ThemeIcon.asClassNameArray(mcpToolsIcon));
+			DOM.append(toolsElement, $('span')).textContent = String(rowState.toolCount);
+			templateData.actionDisposables.add(this.hoverService.setupManagedHover(
+				getDefaultHoverDelegate('element'),
+				toolsElement,
+				rowState.toolsFromCache
+					? localize('mcpToolsCached', "{0} tools, from the last time this server ran", rowState.toolCount)
+					: localize('mcpTools', "{0} tools", rowState.toolCount)));
+		}
+
+		// Status reads as a word beside the name, including the states that used to resolve to an
+		// icon-less presentation and therefore drew nothing at all -- which was every idle server,
+		// the most common row in the list.
+		if (presentation && shouldShowStatusOnRow(state, rowState.disabledReason, switchChecked !== undefined)) {
+			templateData.status.classList.add(presentation.className);
+			// A dot as well as the word: colour alone is not a distinction everyone can make.
+			DOM.append(templateData.status, $('.mcp-server-status-dot'));
+			DOM.append(templateData.status, $('.mcp-server-status-label')).textContent = presentation.label;
+		}
 
 		if (!currentEntry) {
 			return;
@@ -2966,7 +2994,8 @@ export class McpListWidget extends Disposable {
 			connector.mcpServers?.some(server => server.name.toLowerCase().includes(query))
 		);
 		const activeSessionResource = this.customizationHarnessService.activeSessionResource.get();
-		const activeSessionMatcher = new ActiveSessionMcpServerMatcher(this.agentHostCustomizationService.getMcpServers(activeSessionResource));
+		const allSessionServers = this.agentHostCustomizationService.getMcpServers(activeSessionResource);
+		const activeSessionMatcher = new ActiveSessionMcpServerMatcher(allSessionServers);
 		const localServerMatcher = new LocalMcpServerMatcher(this.mcpService.servers.get());
 		const marketplaceInstallations = this.marketplaceInstallService.installations.get();
 

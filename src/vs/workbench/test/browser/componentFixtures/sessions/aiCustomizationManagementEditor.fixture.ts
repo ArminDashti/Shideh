@@ -85,7 +85,7 @@ import { AICustomizationItemsModel, IAICustomizationItemsModel, ItemsModelSectio
 import { createWorkbenchMcpServerDetailInput, EmbeddedMcpServerDetail, IMcpServerDetailInput } from '../../../../contrib/chat/browser/aiCustomization/embeddedMcpServerDetail.js';
 import { EmbeddedAgentPluginDetail } from '../../../../contrib/chat/browser/aiCustomization/embeddedAgentPluginDetail.js';
 import { AgentPluginItemKind, IAgentPluginItem } from '../../../../contrib/chat/browser/agentPluginEditor/agentPluginItems.js';
-import { ContributionEnablementState } from '../../../../contrib/chat/common/enablement.js';
+import { ContributionEnablementState, IEnablementModel, isContributionEnabled } from '../../../../contrib/chat/common/enablement.js';
 import { AICustomizationManagementEditorInput } from '../../../../contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
 import { IConfigurationChangeEvent, IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -3864,6 +3864,19 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 		render: ctx => renderEditor(ctx, {
 			sessionResource: localSessionResource,
 			selectedSection: AICustomizationManagementSection.McpServers,
+			scrollToBottom: true,
+		}),
+	}),
+
+	// The Built-in section holds the agent's own servers as well as VS Code's, and it is the only
+	// place a row names which product it came with -- so it needs a scrolled variant to be seen.
+	McpServersTabActiveSessionScrolled: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			isSessionsWindow: true,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			activeSessionMcpServers,
 			scrollToBottom: true,
 		}),
 	}),

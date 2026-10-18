@@ -193,6 +193,16 @@ export class EmbeddedMcpServerDetail extends Disposable {
 		this.toolsListEl = DOM.append(this.toolsEl, $('.embedded-detail-tools-list'));
 		this.toolsListEl.setAttribute('role', 'list');
 
+		this.configEl = DOM.append(this.root, $('.embedded-detail-section.mcp-detail-config'));
+		DOM.append(this.configEl, $('h3.embedded-detail-tools-heading')).textContent = localize('mcpDetailConfiguration', "Configuration");
+		this.configListEl = DOM.append(this.configEl, $('dl.mcp-detail-facts'));
+
+		this.toolsEl = DOM.append(this.root, $('.embedded-detail-tools'));
+		this.toolsHeadingEl = DOM.append(this.toolsEl, $('h3.embedded-detail-tools-heading'));
+		this.toolsMessageEl = DOM.append(this.toolsEl, $('.embedded-detail-tools-message'));
+		this.toolsListEl = DOM.append(this.toolsEl, $('.embedded-detail-tools-list'));
+		this.toolsListEl.setAttribute('role', 'list');
+
 		this.emptyEl = DOM.append(this.root, $('.embedded-detail-empty'));
 		this.emptyEl.textContent = localize('mcpDetailEmpty', "No MCP server selected.");
 
