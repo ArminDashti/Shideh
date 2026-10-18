@@ -246,12 +246,12 @@ export class WorkbenchButtonBar extends ButtonBar {
 				if (this._options?.disableWhileRunning) {
 					btn.enabled = false;
 					try {
-						await this._actionRunner.run(action);
+						await this._actionRunner.run(action, this.context);
 					} finally {
 						btn.enabled = action.enabled;
 					}
 				} else {
-					this._actionRunner.run(action);
+					this._actionRunner.run(action, this.context);
 				}
 			}));
 		}
@@ -273,6 +273,7 @@ export class WorkbenchButtonBar extends ButtonBar {
 				this._contextMenuService.showContextMenu({
 					getAnchor: () => btn.element,
 					getActions: () => secondary,
+					getActionsContext: () => this.context,
 					actionRunner: this._actionRunner,
 					onHide: () => btn.element.setAttribute('aria-expanded', 'false')
 				});

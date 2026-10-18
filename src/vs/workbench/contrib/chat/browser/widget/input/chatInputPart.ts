@@ -5733,7 +5733,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		store.add(autorun(reader => {
 			const isSessionMenu = topLevelIsSessionMenu.read(reader);
-			reader.store.add(scopedInstantiationService.createInstance(MenuWorkbenchButtonBar, actionsContainer, isSessionMenu ? MenuId.ChatEditingSessionChangesToolbar : MenuId.ChatEditingWidgetToolbar, {
+
+			const menuId = isSessionMenu ? MenuId.ChatEditingSessionChangesToolbar : MenuId.ChatEditingWidgetToolbar;
+			const buttonBar = scopedInstantiationService.createInstance(MenuWorkbenchButtonBar, actionsContainer, menuId, {
 				telemetrySource: this.options.menus.telemetrySource,
 				small: true,
 				menuOptions: {
@@ -5742,6 +5744,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						sessionResource,
 						inputUri: this.inputUri,
 					} satisfies IChatViewTitleActionContext,
+					shouldForwardArgs: true
 				}) : undefined,
 				disableWhileRunning: isSessionMenu,
 				buttonConfigProvider: (action) => {
@@ -5755,7 +5758,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					}
 					return undefined;
 				}
-			}));
+			});
+
+			buttonBar.context = sessionResource
+				? this.agentSessionsService.getSession(sessionResource)?.metadata
+				: undefined;
+
+			reader.store.add(buttonBar);
 		}));
 
 		store.add(autorun(reader => {
