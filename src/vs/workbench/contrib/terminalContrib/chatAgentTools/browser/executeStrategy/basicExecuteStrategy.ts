@@ -262,6 +262,10 @@ export class BasicExecuteStrategy extends Disposable implements ITerminalExecute
 					this._log('onDone via terminal disposal');
 					return { type: 'disposal' } as const;
 				}),
+				Event.toPromise(this._instance.onExit, store).then((exitCodeOrError) => {
+					this._log(`onDone via process exit (code=${exitCodeOrError})`);
+					return { type: 'processExit', exitCodeOrError } as const;
+				}),
 				// A longer idle prompt event is used here as a catch all for unexpected cases where
 				// the end event doesn't fire for some reason.
 				trackIdleOnPrompt(this._instance, 3000, store).then(() => {
