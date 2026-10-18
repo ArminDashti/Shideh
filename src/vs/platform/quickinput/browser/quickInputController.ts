@@ -65,7 +65,10 @@ type QuickInputOverlayLayoutCorrection = {
 };
 
 export class QuickInputController extends Disposable {
-	private static readonly MAX_WIDTH = 600; // Max total width of quick input widget
+	private static readonly MIN_WIDTH = 400;
+	private static readonly MIN_HEIGHT = 200;
+	private static readonly MAX_WIDTH = 600;
+	private static readonly MAX_HEIGHT = 600;
 
 	private idPrefix: string;
 	private ui: QuickInputUI | undefined;
@@ -166,7 +169,8 @@ export class QuickInputController extends Disposable {
 			return this.ui;
 		}
 
-		const container = dom.append(this._container, $('.quick-input-widget.show-file-icons'));
+		this.resizableContainer.domNode.classList.add('quick-input-widget', 'show-file-icons');
+		const container = dom.append(this._container, this.resizableContainer.domNode);
 		container.tabIndex = -1;
 		container.style.display = 'none';
 
@@ -442,6 +446,36 @@ export class QuickInputController extends Disposable {
 		// Mirror DnD alignment into the stable observable
 		this._register(autorun(reader => {
 			this._alignment.set(this.dndController!.alignment.read(reader), undefined);
+		}));
+
+		// Drag and Drop support
+		this.dndController = this._register(this.instantiationService.createInstance(
+			QuickInputDragAndDropController, this._container, container, headerContainer));
+
+		// DnD update layout
+		this._register(autorun(reader => {
+			const dndViewState = this.dndController?.dndViewState.read(reader);
+			if (!dndViewState) {
+				return;
+			}
+
+			if (dndViewState.top !== undefined && dndViewState.left !== undefined) {
+				this.viewState = {
+					...this.viewState,
+					top: dndViewState.top,
+					left: dndViewState.left
+				};
+			} else {
+				// Reset position/size
+				this.viewState = undefined;
+			}
+
+			this.updateLayout();
+
+			// Save position
+			if (dndViewState.done) {
+				this.saveViewState(this.viewState);
+			}
 		}));
 
 		this.ui = {
@@ -815,6 +849,8 @@ export class QuickInputController extends Disposable {
 	}
 
 	private setVisibilities(visibilities: Visibilities) {
+		this.visibilities = visibilities;
+
 		const ui = this.getUI();
 		ui.titleBar.style.display = visibilities.title ? '' : 'none';
 		ui.title.style.display = visibilities.title ? '' : 'none';
