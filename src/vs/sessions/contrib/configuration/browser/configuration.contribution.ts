@@ -5,6 +5,7 @@
 
 import { Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { ThemeSettingDefaults } from '../../../../workbench/services/themes/common/workbenchThemeService.js';
 
 // ⚠️  WARNING — DO NOT ADD SETTINGS HERE ⚠️
 //
