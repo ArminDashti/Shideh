@@ -16,6 +16,7 @@ import { ChatResponseResource } from '../../../../common/model/chatModel.js';
 import { IChatRendererContent } from '../../../../common/model/chatViewModel.js';
 import { isToolResultInputOutputDetails, type IToolResultInputOutputDetails } from '../../../../common/tools/languageModelToolsService.js';
 import { type IChatCodeBlockInfo } from '../../../chat.js';
+import { IChatImageRevealOrigin } from '../../../attachments/chatImageReveal.js';
 import { type IChatContentPartRenderContext } from '../chatContentParts.js';
 import { ChatErrorWidget } from '../chatErrorContentPart.js';
 import { ChatResourceGroupWidget } from '../chatResourceGroupWidget.js';
@@ -99,7 +100,7 @@ export function getGeneratedImageResults(
 /** Renders generated images as response outcomes using the shared image preview affordances. */
 export class ChatGeneratedImageResultSubPart extends BaseChatToolInvocationSubPart {
 	public readonly domNode: HTMLElement;
-	public override readonly codeblocks: IChatCodeBlockInfo[] = [];
+	public readonly codeblocks: IChatCodeBlockInfo[] = [];
 	private readonly _onDidChangeHeight = this._register(new Emitter<void>());
 	public readonly onDidChangeHeight = this._onDidChangeHeight.event;
 

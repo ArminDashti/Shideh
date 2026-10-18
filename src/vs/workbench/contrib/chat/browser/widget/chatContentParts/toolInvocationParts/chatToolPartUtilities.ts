@@ -10,6 +10,21 @@ import { localize } from '../../../../../../../nls.js';
 import { ConfirmedReason, IChatToolInvocation, IChatToolInvocationSerialized, isLegacyChatTerminalToolInvocationData, ToolConfirmKind } from '../../../../common/chatService/chatService.js';
 import { isToolResultInputOutputDetails, ToolDataSource } from '../../../../common/tools/languageModelToolsService.js';
 
+export function isImageGenerationToolInvocation(toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized): boolean {
+	return toolInvocation.toolSpecificData?.kind === 'generatedImage'
+		|| toolInvocation.toolId === 'image_gen.imagegen'
+		|| toolInvocation.toolId === 'image_generation'
+		|| toolInvocation.toolId === 'generate_image_mock';
+}
+
+export function isImageGenerationToolInProgress(toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized, state?: IChatToolInvocation.State): boolean {
+	if (toolInvocation.kind !== 'toolInvocation' || !isImageGenerationToolInvocation(toolInvocation) || IChatToolInvocation.isEffectivelyHidden(toolInvocation)) {
+		return false;
+	}
+	const current = state ?? toolInvocation.state.get();
+	return current.type === IChatToolInvocation.StateKind.Streaming || current.type === IChatToolInvocation.StateKind.Executing;
+}
+
 export function hasToolInvocationError(toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized): boolean {
 	const resultDetails = IChatToolInvocation.resultDetails(toolInvocation);
 	if (IChatToolInvocation.resultError(toolInvocation) || (isToolResultInputOutputDetails(resultDetails) && resultDetails.isError)) {
@@ -32,6 +47,7 @@ export function isActiveBackgroundTerminalToolInvocation(toolInvocation: IChatTo
 		&& terminal.terminalCommandState?.exitCode === undefined
 		&& (terminal.isBackground === true || terminal.didContinueInBackground === true);
 }
+
 export function isMcpToolInvocation(toolInvocation: Pick<IChatToolInvocation | IChatToolInvocationSerialized, 'toolId' | 'source'>): boolean {
 	return toolInvocation.source?.type === 'mcp' || toolInvocation.toolId.toLowerCase().includes('mcp');
 }

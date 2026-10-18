@@ -48,7 +48,7 @@ import { readMcpServerSource } from '../../common/meta/mcpCustomizationMeta.js';
 import { agentModelCallMetaKey, readAgentModelCallDiagnostics } from '../../common/meta/agentModelCallMeta.js';
 import { AgentSystemNotificationKind, readAgentSystemNotificationMeta } from '../../common/meta/agentSystemNotificationMeta.js';
 import { readAgentSandboxDiagnostics } from '../../common/meta/agentSandboxDiagnostics.js';
-import { toSessionEvents } from './copilotTestEvents.js';
+import { createHostedImageMessage, toSessionEvents } from './copilotTestEvents.js';
 import { fusionTestData } from './copilotFusionTestEvents.js';
 import { IDiffComputeService } from '../../common/diffComputeService.js';
 import { IAgentEditAttributionService, NullAgentEditAttributionService } from '../../common/fileEditAttribution.js';
@@ -1103,6 +1103,7 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 	clientSnapshot?: IActiveClientSnapshot;
 	activeClientToolSet?: ActiveClientToolSet;
 	environmentServiceRegistration?: 'native' | 'none';
+	isBuilt?: boolean;
 	logService?: ILogService;
 	telemetryService?: ITelemetryService;
 	captureRuntime?: { current?: ICopilotSessionRuntime };
@@ -1486,6 +1487,7 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 	services.set(IAgentHostPromptCache, new AgentHostPromptCache(stateManager));
 	const environmentService = {
 		_serviceBrand: undefined,
+		isBuilt: options?.isBuilt ?? true,
 		userHome: URI.file('/mock-home'),
 		tmpDir: URI.file('/mock-tmp'),
 		userDataPath: '/mock-userdata',
@@ -11485,7 +11487,7 @@ Use the attached image as context.
 	suite('failed turn resume', () => {
 
 		test('the development $error path uses raw sendMessages even with attachments', async () => {
-			const { session, mockSession } = await createAgentSession(disposables);
+			const { session, mockSession } = await createAgentSession(disposables, { isBuilt: false });
 
 			await session.send('$error', [{
 				type: MessageAttachmentKind.Simple,
@@ -13120,6 +13122,90 @@ Use the attached image as context.
 				kind: ResponsePartKind.Markdown,
 				content: 'I will inspect the file.',
 			}]);
+		});
+
+		for (const format of ['normalized', 'native'] as const) {
+			for (const withProgress of [false, true]) {
+				test(`hosted images precede the final answer (${format}, progress=${withProgress})`, async () => {
+					const { session, mockSession, signals } = await createAgentSession(disposables);
+					session.resetTurnState('turn-hosted-image');
+					if (withProgress) {
+						for (const [outputIndex, callId] of ['image-1', 'image-2'].entries()) {
+							const progress = { kind: 'image_generation', status: 'in_progress', callId, outputIndex };
+							mockSession.fire('assistant.server_tool_progress', progress);
+						}
+					}
+					mockSession.fire('assistant.message', createHostedImageMessage(format));
+
+					const actions = getActions(signals);
+					assert.deepStrictEqual({
+						starts: actions.filter(action => action.type === ActionType.ChatToolCallStart).map(action => action.toolCallId),
+						parts: actions.flatMap((action): { kind: string; content: string; success?: boolean }[] => {
+							if (action.type === ActionType.ChatToolCallComplete) {
+								return [{ kind: 'image', content: action.toolCallId, success: action.result.success }];
+							}
+							if (action.type === ActionType.ChatResponsePart && action.part.kind === ResponsePartKind.Markdown) {
+								return [{ kind: 'markdown', content: action.part.content, success: undefined }];
+							}
+							return [];
+						}),
+					}, {
+						starts: ['hosted-image-image-1', 'hosted-image-image-2'],
+						parts: [
+							{ kind: 'image', content: 'hosted-image-image-1', success: true },
+							{ kind: 'image', content: 'hosted-image-image-2', success: false },
+							{ kind: 'markdown', content: 'Here is your image.', success: undefined },
+						],
+					});
+				});
+			}
+		}
+
+		test('hosted image completion does not repeat markdown streamed before image progress', async () => {
+			const { session, mockSession, signals } = await createAgentSession(disposables);
+			session.resetTurnState('turn-hosted-image-dedup');
+			const message = createHostedImageMessage('normalized');
+			mockSession.fire('assistant.message_delta', {
+				messageId: message.messageId,
+				deltaContent: message.content,
+			});
+			const progress = { kind: 'image_generation', status: 'in_progress', callId: 'image-1', outputIndex: 0 };
+			mockSession.fire('assistant.server_tool_progress', progress);
+			mockSession.fire('assistant.message', message);
+			mockSession.fire('assistant.message', { messageId: 'after-image', content: 'The image is ready.' });
+
+			assert.deepStrictEqual(getActions(signals).flatMap(action =>
+				action.type === ActionType.ChatResponsePart && action.part.kind === ResponsePartKind.Markdown
+					? [action.part.content] : []), [message.content, 'The image is ready.']);
+		});
+
+		test('tool completion preserves generated image bytes and resource links', async () => {
+			const { session, mockSession, signals, waitForSignal } = await createAgentSession(disposables);
+			session.resetTurnState('turn-image');
+			const uri = 'generated-images:/session/generated-image.png?version=1';
+			mockSession.fire('tool.execution_start', {
+				toolCallId: 'tc-image',
+				toolName: 'image_generation',
+			});
+			mockSession.fire('tool.execution_complete', {
+				toolCallId: 'tc-image',
+				success: true,
+				result: {
+					content: 'Generated images.',
+					contents: [
+						{ type: 'image', data: 'aW1hZ2U=', mimeType: 'image/png' },
+						{ type: 'resource_link', uri, name: 'generated-image.png', mimeType: 'image/png', size: 128 },
+					],
+				},
+			});
+			await waitForSignal(signal => isAction(signal, ActionType.ChatToolCallComplete));
+
+			const completed = getActions(signals).find(action => action.type === ActionType.ChatToolCallComplete);
+			assert.deepStrictEqual(completed?.result.content, [
+				{ type: ToolResultContentType.Text, text: 'Generated images.' },
+				{ type: ToolResultContentType.EmbeddedResource, data: 'aW1hZ2U=', contentType: 'image/png' },
+				{ type: ToolResultContentType.Resource, uri, contentType: 'image/png', sizeHint: 128 },
+			]);
 		});
 
 		test('tool_start carries MCP App UI metadata from the SDK', async () => {
@@ -20449,6 +20535,35 @@ Use the attached image as context.
 	// ---- Server tools -------------------------------------------------------
 
 	suite('server tools', () => {
+
+		for (const isBuilt of [false, true]) {
+			for (const isEphemeral of [false, true]) {
+				for (const resume of [false, true]) {
+					test(`registers the image mock only in development chats (built=${isBuilt}, ephemeral=${isEphemeral}, resume=${resume})`, async () => {
+						const { runtime } = await createAgentSession(disposables, { isBuilt, isEphemeral, resume });
+						assert.deepStrictEqual(runtime.createServerSdkTools().map(tool => ({
+							name: tool.name, defer: tool.defer, skipPermission: tool.skipPermission, overridesBuiltInTool: tool.overridesBuiltInTool,
+						})), !isBuilt && !isEphemeral ? [{
+							name: 'generate_image_mock', defer: 'never', skipPermission: true, overridesBuiltInTool: undefined,
+						}] : []);
+					});
+				}
+			}
+		}
+
+		test('cancels a running image mock when its Agent Host turn aborts', async () => {
+			const { session, runtime } = await createAgentSession(disposables, { isBuilt: false });
+			session.resetTurnState('mock-image-turn');
+			const tool = runtime.createServerSdkTools().find(tool => tool.name === 'generate_image_mock');
+			assert.ok(tool);
+			const result = invokeClientToolHandler(tool, 'mock-image-call', { prompt: 'Draw a puppy' });
+			await session.abort();
+			assert.deepStrictEqual(await result, {
+				resultType: 'failure',
+				textResultForLlm: 'Mock image generation was cancelled.',
+				error: 'Mock image generation was cancelled.',
+			});
+		});
 
 		const fakeToolDefinitions: readonly IAgentServerToolDefinition[] = [
 			{ name: 'serverToolA', description: 'A', inputSchema: { type: 'object', properties: {} } },

@@ -57,6 +57,7 @@ export type ChatCollapsibleIOPart = IChatCollapsibleIOCodePart | IChatCollapsibl
 export interface IChatCollapsibleInputData extends IChatCollapsibleIOCodePart { }
 export interface IChatCollapsibleOutputData {
 	parts: ChatCollapsibleIOPart[];
+	showCollapsedResources?: boolean;
 }
 
 export class ChatCollapsibleInputOutputContentPart extends Disposable {
@@ -99,6 +100,7 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 		isError: boolean,
 		initiallyExpanded: boolean,
 		shimmer: boolean,
+		icon: ThemeIcon | undefined,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IHoverService hoverService: IHoverService,
@@ -163,9 +165,9 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 			if (isError) {
 				btn.icon = Codicon.errorCompact;
 			} else {
-				btn.icon = output
+				btn.icon = icon ?? (output
 					? Codicon.checkCompact
-					: ThemeIcon.modify(Codicon.loadingCompact, 'spin');
+					: ThemeIcon.modify(Codicon.loadingCompact, 'spin'));
 			}
 			elements.root.classList.toggle('shimmer-progress', shimmer && isInProgress);
 
@@ -209,7 +211,7 @@ export class ChatCollapsibleInputOutputContentPart extends Disposable {
 
 		this._register(btn.onDidClick(toggle));
 
-		const topLevelResources = this.output?.parts
+		const topLevelResources = this.output?.showCollapsedResources === false ? undefined : this.output?.parts
 			.filter(p => p.kind === 'data')
 			.filter(p => !p.audience || p.audience.includes(LanguageModelPartAudience.User));
 		if (topLevelResources?.length) {
