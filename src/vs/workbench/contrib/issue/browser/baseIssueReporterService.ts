@@ -242,7 +242,6 @@ export class BaseIssueReporterService extends Disposable {
 			return;
 		}
 
-
 		// public elements section
 		// eslint-disable-next-line no-restricted-syntax
 		let publicElements = this.getElementById('public-elements');
@@ -299,49 +298,64 @@ export class BaseIssueReporterService extends Disposable {
 			return;
 		}
 
-		// Dispose of the existing button
-		if (this.publicGithubButton) {
-			this.publicGithubButton.dispose();
-		}
+		// Desired logical variant
+		const needsAck = !this.acknowledged && this.needsUpdate;
+		const wantDropdown = !!this.data.githubAccessToken && this.isPreviewEnabled();
+		const wanted: 'ack' | 'dropdown' | 'create' | 'preview' = needsAck ? 'ack' : (wantDropdown ? 'dropdown' : (this.data.githubAccessToken ? 'create' : 'preview'));
 
-		// setup button + dropdown if applicable
-		if (!this.acknowledged && this.needsUpdate) { // * old version and hasn't ack'd
-			this.publicGithubButton = this._register(new Button(container, unthemedButtonStyles));
-			this.publicGithubButton.label = localize('acknowledge', "Confirm Version Acknowledgement");
-			this.publicGithubButton.enabled = false;
-		} else if (this.data.githubAccessToken && this.isPreviewEnabled()) { // * has access token, create by default, preview dropdown
-			this.publicGithubButton = this._register(new ButtonWithDropdown(container, {
+		// Lazy instantiate both physical controls once and reuse
+		if (!this.publicGithubSingle) {
+			this.publicGithubSingle = this._register(new Button(container, unthemedButtonStyles));
+		}
+		if (!this.publicGithubDropdown) {
+			this.publicGithubDropdown = this._register(new ButtonWithDropdown(container, {
 				contextMenuProvider: this.contextMenuService,
 				actions: [this.previewAction],
 				addPrimaryActionToDropdown: false,
 				...unthemedButtonStyles
 			}));
-			this._register(this.publicGithubButton.onDidClick(() => {
-				this.createAction.run();
-			}));
-			this.publicGithubButton.label = localize('createOnGitHub', "Create on GitHub");
-			this.publicGithubButton.enabled = true;
-		} else if (this.data.githubAccessToken && !this.isPreviewEnabled()) { // * Access token but invalid preview state: simple Button (create only)
-			this.publicGithubButton = this._register(new Button(container, unthemedButtonStyles));
-			this._register(this.publicGithubButton.onDidClick(() => {
-				this.createAction.run();
-			}));
-			this.publicGithubButton.label = localize('createOnGitHub', "Create on GitHub");
-			this.publicGithubButton.enabled = true;
-		} else { // * No access token: simple Button (preview only)
-			this.publicGithubButton = this._register(new Button(container, unthemedButtonStyles));
-			this._register(this.publicGithubButton.onDidClick(() => {
-				this.previewAction.run();
-			}));
-			this.publicGithubButton.label = localize('previewOnGitHub', "Preview on GitHub");
-			this.publicGithubButton.enabled = true;
+			this._register(this.publicGithubDropdown.onDidClick(() => this.createAction.run()));
 		}
 
 		// make sure that the repo link is after the button
 		// eslint-disable-next-line no-restricted-syntax
 		const repoLink = this.getElementById('show-repo-name');
 		if (repoLink) {
-			container.insertBefore(this.publicGithubButton.element, repoLink);
+			if (this.publicGithubDropdown.element.compareDocumentPosition(repoLink) & Node.DOCUMENT_POSITION_FOLLOWING) {
+				container.insertBefore(this.publicGithubDropdown.element, repoLink);
+			}
+			if (this.publicGithubSingle.element.compareDocumentPosition(repoLink) & Node.DOCUMENT_POSITION_FOLLOWING) {
+				container.insertBefore(this.publicGithubSingle.element, repoLink);
+			}
+		}
+
+		// Show/hide buttons based on desired state
+		if (wanted === 'dropdown') {
+			this.publicGithubSingle.element.style.display = 'none';
+
+			this.publicGithubDropdown.label = localize('createOnGitHub', "Create on GitHub");
+			this.publicGithubDropdown.enabled = true;
+			this.publicGithubDropdown.element.style.display = '';
+			this.publicGithubButton = this.publicGithubDropdown;
+			this.publicGithubSingleClickDisposable.clear();
+		} else {
+			this.publicGithubDropdown.element.style.display = 'none';
+
+			if (wanted === 'ack') {
+				this.publicGithubSingle.label = localize('acknowledge', "Confirm Version Acknowledgement");
+				this.publicGithubSingle.enabled = false;
+				this.publicGithubSingleClickDisposable.clear();
+			} else if (wanted === 'create') {
+				this.publicGithubSingle.label = localize('createOnGitHub', "Create on GitHub");
+				this.publicGithubSingle.enabled = true;
+				this.publicGithubSingleClickDisposable.value = this.publicGithubSingle.onDidClick(() => this.createAction.run());
+			} else { // preview
+				this.publicGithubSingle.label = localize('previewOnGitHub', "Preview on GitHub");
+				this.publicGithubSingle.enabled = true;
+				this.publicGithubSingleClickDisposable.value = this.publicGithubSingle.onDidClick(() => this.previewAction.run());
+			}
+			this.publicGithubSingle.element.style.display = '';
+			this.publicGithubButton = this.publicGithubSingle;
 		}
 	}
 
@@ -387,12 +401,8 @@ export class BaseIssueReporterService extends Disposable {
 			return;
 		}
 
-		// Dispose of the existing button
-		if (this.internalGithubButton) {
-			this.internalGithubButton.dispose();
-		}
-
-		if (this.data.githubAccessToken && this.data.privateUri) {
+		// create button if not already created.
+		if (!this.internalGithubButton) {
 			this.internalGithubButton = this._register(new Button(container, unthemedButtonStyles));
 			this._register(this.internalGithubButton.onDidClick(() => {
 				this.privateAction.run();
@@ -401,6 +411,9 @@ export class BaseIssueReporterService extends Disposable {
 			this.internalGithubButton.element.id = 'internal-create-btn';
 			this.internalGithubButton.element.classList.add('internal-create-subtle');
 			this.internalGithubButton.label = localize('createInternally', "Create Internally");
+		}
+
+		if (this.data.githubAccessToken && this.data.privateUri) {
 			this.internalGithubButton.enabled = true;
 			this.internalGithubButton.setTitle(this.data.privateUri.path!.slice(1));
 		}
