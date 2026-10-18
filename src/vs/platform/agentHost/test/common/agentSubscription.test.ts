@@ -552,6 +552,33 @@ suite('SessionStateSubscription', () => {
 		assert.deepStrictEqual(sub.value, state);
 	});
 
+	test('server terminal turn action drops stale optimistic turn start', () => {
+		const sub = createSub();
+		sub.handleSnapshot(makeSessionState(sessionUri), 0);
+
+		sub.applyOptimistic({
+			type: ActionType.SessionTurnStarted,
+			turnId: 'turn-1',
+			userMessage: { text: 'hello' },
+		});
+
+		assert.strictEqual((sub.value as SessionState).activeTurn?.id, 'turn-1');
+
+		sub.receiveEnvelope(makeEnvelope(
+			{ type: ActionType.SessionTurnComplete, turnId: 'turn-1' },
+			1,
+			undefined,
+		));
+
+		assert.deepStrictEqual({
+			activeTurn: (sub.value as SessionState).activeTurn,
+			turns: (sub.value as SessionState).turns.map(turn => ({ id: turn.id, state: turn.state })),
+		}, {
+			activeTurn: undefined,
+			turns: [{ id: 'turn-1', state: TurnState.Complete }],
+		});
+	});
+
 	test('after all pending cleared, value falls through to verifiedValue', () => {
 		const sub = createSub();
 		sub.handleSnapshot(makeSessionState(sessionUri), 0);

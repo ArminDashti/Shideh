@@ -7,6 +7,7 @@ import './media/agentHostSessionConfigPicker.css';
 import * as dom from '../../../../../base/browser/dom.js';
 import { Gesture, EventType as TouchEventType } from '../../../../../base/browser/touch.js';
 import { renderIcon } from '../../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { IAction, SubmenuAction, toAction } from '../../../../../base/common/actions.js';
 import { ActionListItemKind, IActionListDelegate, IActionListItem } from '../../../../../platform/actionWidget/browser/actionList.js';
 import { IActionWidgetService } from '../../../../../platform/actionWidget/browser/actionWidget.js';
 import { AnchorPosition } from '../../../../../base/common/layout.js';
@@ -474,6 +475,7 @@ export class AgentHostSessionConfigPicker extends Disposable {
 		@IActionWidgetService protected readonly _actionWidgetService: IActionWidgetService,
 		@IConfigurationService protected readonly _configurationService: IConfigurationService,
 		@IContextKeyService protected readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService protected readonly _contextMenuService: IContextMenuService,
 		@IDialogService protected readonly _dialogService: IDialogService,
 		@IHoverService protected readonly _hoverService: IHoverService,
 		@ISessionsProvidersService protected readonly _sessionsProvidersService: ISessionsProvidersService,
@@ -537,6 +539,13 @@ export class AgentHostSessionConfigPicker extends Disposable {
 		container.classList.add('sessions-chat-agent-host-config-host');
 		this._hostMarker.value = toDisposable(() => container.classList.remove('sessions-chat-agent-host-config-host'));
 		this._container = dom.append(container, dom.$('.sessions-chat-agent-host-config'));
+		this._resizeObserverDisposables.clear();
+		const observer = new ResizeObserver(() => this._scheduleOverflowLayout());
+		observer.observe(this._container);
+		if (this._container.parentElement) {
+			observer.observe(this._container.parentElement);
+		}
+		this._resizeObserverDisposables.add({ dispose: () => observer.disconnect() });
 		this._renderConfigPickers();
 		return this._focusableElement;
 	}
@@ -670,6 +679,214 @@ export class AgentHostSessionConfigPicker extends Disposable {
 		if (restoreFocus && focusTarget?.isConnected) {
 			focusTarget.focus();
 		}
+		this._ensureOverflowButton();
+		this._scheduleOverflowLayout();
+	}
+
+	private _ensureOverflowButton(): void {
+		if (!this._container || this._slotByProperty.size === 0) {
+			return;
+		}
+		const slot = dom.append(this._container, dom.$('.sessions-chat-picker-slot.sessions-chat-config-overflow-slot'));
+		const trigger = dom.append(slot, dom.$('a.action-label'));
+		trigger.role = 'button';
+		trigger.tabIndex = 0;
+		trigger.setAttribute('aria-haspopup', 'menu');
+		trigger.setAttribute('aria-expanded', 'false');
+		trigger.setAttribute('aria-label', localize('agentHostSessionConfig.more', "More Session Configuration..."));
+		dom.append(trigger, renderIcon(Codicon.toolBarMore));
+
+		this._renderDisposables.add(Gesture.addTarget(trigger));
+		for (const eventType of [dom.EventType.CLICK, TouchEventType.Tap]) {
+			this._renderDisposables.add(dom.addDisposableListener(trigger, eventType, e => {
+				dom.EventHelper.stop(e, true);
+				void this._showOverflowMenu(trigger);
+			}));
+		}
+		this._renderDisposables.add(dom.addDisposableListener(trigger, dom.EventType.KEY_DOWN, e => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				dom.EventHelper.stop(e, true);
+				void this._showOverflowMenu(trigger);
+			}
+		}));
+		this._overflowButton = slot;
+	}
+
+	private _scheduleOverflowLayout(): void {
+		if (!this._container) {
+			return;
+		}
+		this._overflowLayoutHandle.value = dom.scheduleAtNextAnimationFrame(dom.getWindow(this._container), () => {
+			this._overflowLayoutHandle.clear();
+			this._layoutOverflow();
+		});
+	}
+
+	private _layoutOverflow(): void {
+		const container = this._container;
+		const overflowButton = this._overflowButton;
+		if (!container || !overflowButton) {
+			return;
+		}
+
+		const visibleSlots = [...this._slotByProperty.entries()]
+			.filter(([, slot]) => slot.parentElement === container && slot.style.display !== 'none');
+		for (const [, slot] of visibleSlots) {
+			slot.classList.remove('sessions-chat-config-chip-overflow-hidden');
+			slot.classList.remove('sessions-chat-config-chip-overflow-shrunk');
+			slot.style.maxWidth = '';
+		}
+		overflowButton.classList.remove('visible');
+		container.classList.remove('has-overflow');
+
+		const availableWidth = container.clientWidth;
+		if (visibleSlots.length === 0) {
+			this._overflowProperties = [];
+			return;
+		}
+		if (availableWidth <= 0) {
+			this._overflowProperties = visibleSlots.map(([property]) => property);
+			for (const [, slot] of visibleSlots) {
+				slot.classList.add('sessions-chat-config-chip-overflow-hidden');
+			}
+			overflowButton.classList.add('visible');
+			container.classList.add('has-overflow');
+			return;
+		}
+
+		const gap = parseFloat(dom.getWindow(container).getComputedStyle(container).columnGap) || 0;
+		const slotWidths = visibleSlots.map(([property, slot]) => ({ property, slot, width: slot.getBoundingClientRect().width }));
+		const widthFor = (entries: readonly { readonly width: number }[]) => entries.reduce((sum, entry, index) => sum + entry.width + (index === 0 ? 0 : gap), 0);
+		const shrinkEntry = (entry: { readonly slot: HTMLElement; readonly width: number }, width: number) => {
+			entry.slot.classList.add('sessions-chat-config-chip-overflow-shrunk');
+			entry.slot.style.maxWidth = `${Math.max(0, width)}px`;
+		};
+
+		const totalWidth = widthFor(slotWidths);
+		if (totalWidth <= availableWidth) {
+			this._overflowProperties = [];
+			return;
+		}
+
+		const rightmost = slotWidths[slotWidths.length - 1];
+		const rightmostMinWidth = Math.min(rightmost.width, MIN_SHRUNK_CHIP_WIDTH);
+		const rightmostShrinkCapacity = rightmost.width - rightmostMinWidth;
+		const initialOverflow = totalWidth - availableWidth;
+		if (rightmostShrinkCapacity >= initialOverflow) {
+			shrinkEntry(rightmost, rightmost.width - initialOverflow);
+			this._overflowProperties = [];
+			return;
+		}
+
+		overflowButton.classList.add('visible');
+		container.classList.add('has-overflow');
+		const overflowWidth = overflowButton.getBoundingClientRect().width || OVERFLOW_BUTTON_FALLBACK_WIDTH;
+		const visibleEntries = slotWidths.slice();
+		let visibleWidth = widthFor(visibleEntries) + (visibleEntries.length > 0 ? gap : 0) + overflowWidth;
+		const hidden: string[] = [];
+		while (visibleEntries.length > 0 && visibleWidth > availableWidth) {
+			const entry = visibleEntries[visibleEntries.length - 1];
+			const minWidth = Math.min(entry.width, MIN_SHRUNK_CHIP_WIDTH);
+			const shrinkCapacity = entry.width - minWidth;
+			const overflow = visibleWidth - availableWidth;
+			if (shrinkCapacity >= overflow) {
+				shrinkEntry(entry, entry.width - overflow);
+				break;
+			}
+			entry.slot.classList.add('sessions-chat-config-chip-overflow-hidden');
+			hidden.unshift(entry.property);
+			visibleEntries.pop();
+			visibleWidth = widthFor(visibleEntries) + (visibleEntries.length > 0 ? gap : 0) + overflowWidth;
+		}
+		this._overflowProperties = hidden;
+	}
+
+	private async _showOverflowMenu(trigger: HTMLElement): Promise<void> {
+		if (this._overflowProperties.length === 0) {
+			return;
+		}
+		const session = this._sessionsManagementService.activeSession.get();
+		const provider = session ? this._getProvider(session.providerId) : undefined;
+		const config = session && provider?.getSessionConfig(session.sessionId);
+		if (!session || !provider || !config || provider.isSessionConfigResolving(session.sessionId).get()) {
+			return;
+		}
+
+		const actions: IAction[] = [];
+		for (const property of this._overflowProperties) {
+			const schema = config.schema.properties[property];
+			if (!schema || schema.readOnly) {
+				continue;
+			}
+			const currentValue = config.values[property] ?? schema.default;
+			const rawItems = await this._getItems(provider, session.sessionId, property, schema);
+			const { items, policyRestricted } = applyAutoApproveFiltering(rawItems, property, this._configurationService);
+			if (items.length === 0) {
+				continue;
+			}
+			const currentItem = items.find(item => item.value === currentValue);
+			const submenuActions = items.map(item => toAction({
+				id: `sessions.agentHost.sessionConfigPicker.overflow.${property}.${item.value}`,
+				label: item.label,
+				enabled: !(policyRestricted && (item.value === 'autoApprove' || item.value === 'autopilot')),
+				checked: this._isSelected(schema, currentValue, item.value),
+				run: async () => {
+					if (property === SessionConfigKey.AutoApprove && (item.value === 'autoApprove' || item.value === 'autopilot')) {
+						const confirmed = await confirmAutoApproveLevel(item.value, this._dialogService);
+						if (!confirmed) {
+							return;
+						}
+					}
+
+					reportNewChatPickerClosed(this._telemetryService, {
+						id: 'NewChatAgentHostSessionConfigPicker',
+						name: `NewChatAgentHostSessionConfigPicker.${property}`,
+						optionIdBefore: typeof currentValue === 'string' ? currentValue : undefined,
+						optionIdAfter: item.value,
+						optionLabelBefore: currentItem?.label,
+						optionLabelAfter: item.label,
+						isPII: !!schema.enumDynamic,
+					});
+
+					const nextValue: unknown = schema.type === 'boolean'
+						? item.value === 'true'
+						: schema.type === 'array'
+							? [...(Array.isArray(currentValue) ? currentValue.filter((entry): entry is string => typeof entry === 'string') : []), item.value]
+							: item.value;
+					provider.setSessionConfigValue(session.sessionId, property, nextValue).catch(() => { /* best-effort */ });
+				},
+			}));
+			actions.push(new SubmenuAction(
+				`sessions.agentHost.sessionConfigPicker.overflow.${property}`,
+				schema.title,
+				submenuActions,
+			));
+		}
+
+		if (actions.length === 0) {
+			return;
+		}
+
+		trigger.setAttribute('aria-expanded', 'true');
+		this._contextMenuService.showContextMenu({
+			getAnchor: () => trigger,
+			getActions: () => actions,
+			getCheckedActionsRepresentation: () => 'radio',
+			onHide: () => {
+				trigger.setAttribute('aria-expanded', 'false');
+				trigger.focus();
+			},
+		});
+	}
+
+	private _isSelected(schema: SessionConfigPropertySchema, currentValue: unknown | undefined, itemValue: string): boolean {
+		if (schema.type === 'boolean') {
+			return (currentValue === true) === (itemValue === 'true');
+		}
+		if (schema.type === 'array') {
+			return Array.isArray(currentValue) && currentValue.includes(itemValue);
+		}
+		return currentValue === itemValue;
 	}
 
 	/**
@@ -682,6 +899,27 @@ export class AgentHostSessionConfigPicker extends Disposable {
 	 */
 	protected _orderProperties(properties: ReadonlyArray<[string, SessionConfigPropertySchema]>): ReadonlyArray<[string, SessionConfigPropertySchema]> {
 		return orderSessionConfigProperties(properties, false);
+	}
+
+	private _isPickable(schema: SessionConfigPropertySchema): boolean {
+		if (schema.type === 'boolean') {
+			return true;
+		}
+		if (schema.type === 'array') {
+			return !!schema.enumDynamic && schema.items?.type === 'string';
+		}
+		if (schema.type !== 'string') {
+			return false;
+		}
+		return !!schema.enumDynamic || (Array.isArray(schema.enum) && schema.enum.length > 0);
+	}
+
+	private _isHiddenByDependency(values: Record<string, unknown>, property: string): boolean {
+		if (property !== 'codex.additionalDirectories' && property !== 'codex.networkAccessEnabled') {
+			return false;
+		}
+		const sandbox = values['codex.sandboxMode'];
+		return sandbox !== undefined && sandbox !== 'workspace-write';
 	}
 
 	private _isPickable(schema: SessionConfigPropertySchema): boolean {

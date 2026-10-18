@@ -6382,6 +6382,27 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return session;
 	}
 
+	private async _waitForSessionState(sessionKey: string, sub: IAgentSubscription<SessionState>, reason: string): Promise<boolean> {
+		if (this._getSessionState(sessionKey)) {
+			return true;
+		}
+
+		const hydrated = await raceTimeout(new Promise<boolean>(resolve => {
+			const disposable = sub.onDidChange(() => {
+				disposable.dispose();
+				resolve(!!this._getSessionState(sessionKey));
+			});
+			if (this._getSessionState(sessionKey)) {
+				disposable.dispose();
+				resolve(true);
+			}
+		}), 5000);
+		if (!hydrated) {
+			this._logService.warn(`[AgentHost] Timed out waiting for session state hydration (${reason}): ${sessionKey}`);
+		}
+		return hydrated === true;
+	}
+
 	/**
 	 * Keeps chat model and protocol pending messages synchronized in both directions.
 	 * No-ops if already subscribed.

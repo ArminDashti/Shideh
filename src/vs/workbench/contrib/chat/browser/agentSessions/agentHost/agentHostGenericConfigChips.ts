@@ -125,6 +125,18 @@ const CHIP_ORDER = new Map<string, number>([
 	['codex.networkAccessEnabled', 5],
 ]);
 
+const CHIP_ORDER = new Map<string, number>([
+	['codex.sandboxMode', 0],
+	['codex.approvalPolicy', 1],
+	['codex.webSearchMode', 2],
+	['codex.additionalDirectories', 4],
+	['codex.networkAccessEnabled', 5],
+]);
+
+const MODEL_PICKER_CONFIG_PROPERTIES = new Set<string>([
+	'codex.modelReasoningEffort',
+]);
+
 /**
  * Direct-render chip lane for agent-host session-config properties that are
  * advertised by the agent's schema but are NOT handled by a dedicated

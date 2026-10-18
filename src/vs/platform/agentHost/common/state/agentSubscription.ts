@@ -380,6 +380,23 @@ export class SessionStateSubscription extends BaseAgentSubscription<SessionState
 		this._recomputeOptimistic();
 	}
 
+	private _promotePendingTurnStartIfTerminal(action: StateAction): void {
+		if (!isSessionAction(action)) {
+			return;
+		}
+		if (action.type !== ActionType.SessionTurnComplete && action.type !== ActionType.SessionTurnCancelled && action.type !== ActionType.SessionError) {
+			return;
+		}
+		const index = this._pendingActions.findIndex(p => p.action.type === ActionType.SessionTurnStarted && p.action.turnId === action.turnId);
+		if (index === -1) {
+			return;
+		}
+		const [{ action: pendingAction }] = this._pendingActions.splice(index, 1);
+		if (this._confirmedState && (!this._confirmedState.activeTurn || this._confirmedState.activeTurn.id !== action.turnId)) {
+			this._confirmedState = this._applyReducer(this._confirmedState, pendingAction);
+		}
+	}
+
 	private _confirmedApply(action: StateAction): void {
 		if (this._confirmedState) {
 			this._confirmedState = this._applyReducer(this._confirmedState, action);

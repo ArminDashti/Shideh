@@ -2569,6 +2569,11 @@ export class NewChatWidget extends Disposable {
 		const selection = this._workspacePicker.selectionSnapshot;
 		return selection.state === 'selected' && this.uriIdentityService.extUri.isEqual(selection.folderUri, folderUri) ? 'applied' : 'notReady';
 	}
+
+	override dispose(): void {
+		this._isDisposed = true;
+		super.dispose();
+	}
 }
 
 // #endregion
