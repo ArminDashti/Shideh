@@ -75,9 +75,14 @@ parts:
       patchelf --print-rpath $SNAPCRAFT_PRIME/usr/share/@@NAME@@/chrome_crashpad_handler
 
 
+plugs:
+  browser-sandbox:
+    interface: browser-support
+    allow-sandbox: true
+
 apps:
   @@NAME@@:
-    command: electron-launch $SNAP/usr/share/@@NAME@@/bin/@@NAME@@ --no-sandbox
+    command: electron-launch $SNAP/usr/share/@@NAME@@/bin/@@NAME@@
     common-id: @@NAME@@.desktop
 
   url-handler:
