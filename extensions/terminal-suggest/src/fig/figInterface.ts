@@ -44,6 +44,7 @@ export async function getFigSuggestions(
 		showFiles: false,
 		showDirectories: false,
 		hasCurrentArg: false,
+		fileExtensions: undefined,
 		items: [],
 	};
 	const currentCommand = currentCommandAndArgString.split(' ')[0];

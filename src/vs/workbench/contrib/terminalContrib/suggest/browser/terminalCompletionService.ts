@@ -729,6 +729,13 @@ export class TerminalCompletionService extends Disposable implements ITerminalCo
 				}
 			}
 
+			if (child.isFile && fileExtensions) {
+				const extension = child.name.split('.').length > 1 ? child.name.split('.').at(-1) : undefined;
+				if (extension && !fileExtensions.includes(extension)) {
+					continue;
+				}
+			}
+
 			resourceCompletions.push({
 				label,
 				provider,
