@@ -13,6 +13,14 @@ import { MarkupAbbreviation } from 'emmet';
 const trimRegex = /[\u00a0]*[\d#\-\*\u2022]+\.?/;
 const hexColorRegex = /^#[\da-fA-F]{0,6}$/;
 
+
+/**
+ * Stores previous expansion attempts for Wrap with Abbreviation commands.
+ * Both successful (accepted) and non-successful (cancelled) expansion attempts are stored.
+ * The expansion attempts are stored per extension reload.
+ */
+const wrapWithAbbreviationHistory: Set<string> = new Set();
+
 interface ExpandAbbreviationInput {
 	syntax: string;
 	abbreviation: string;
@@ -137,13 +145,18 @@ export async function wrapWithAbbreviation(args: any): Promise<boolean> {
 	const { tabSize, insertSpaces } = editor.options;
 	const indent = insertSpaces ? ' '.repeat(tabSize as number) : '\t';
 
-	function revertPreview(): Thenable<boolean> {
+	function revertPreview(definitive: boolean): Thenable<boolean> {
 		return editor.edit(builder => {
 			for (const rangeToReplace of rangesToReplace) {
 				builder.replace(rangeToReplace.previewRange, rangeToReplace.originalContent);
 				rangeToReplace.previewRange = rangeToReplace.originalRange;
 			}
-		}, { undoStopBefore: false, undoStopAfter: false });
+		}, { undoStopBefore: false, undoStopAfter: false }).then(res => {
+			if (definitive) {
+				editor.selections = oldSelections;
+			}
+			return res;
+		});
 	}
 
 	function applyPreview(expandAbbrList: ExpandAbbreviationInput[]): Thenable<boolean> {
