@@ -2689,6 +2689,10 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 		return this._withAdapter(handle, InlineCompletionAdapter, adapter => adapter.provideInlineCompletions(URI.revive(resource), position, context, token), undefined, undefined);
 	}
 
+	$provideInlineEdits(handle: number, resource: UriComponents, range: IRange, context: languages.InlineCompletionContext, token: CancellationToken): Promise<extHostProtocol.IdentifiableInlineCompletions | undefined> {
+		return this._withAdapter(handle, InlineCompletionAdapterBase, adapter => adapter.provideInlineEdits(URI.revive(resource), range, context, token), undefined, token);
+	}
+
 	$handleInlineCompletionDidShow(handle: number, pid: number, idx: number, updatedInsertText: string): void {
 		this._withAdapter(handle, InlineCompletionAdapter, async adapter => {
 			adapter.handleDidShowCompletionItem(pid, idx, updatedInsertText);

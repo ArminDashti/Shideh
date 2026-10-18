@@ -18,7 +18,7 @@ import { ViewLineRenderingData } from '../../../../../common/viewModel.js';
 import { InlineDecoration } from '../../../../../common/viewModel/inlineDecorations.js';
 import { getColumnOfNodeOffset } from '../../../../viewParts/viewLines/viewLine.js';
 
-const ttPolicy = createTrustedTypesPolicy('diffEditorWidget', { createHTML: value => value });
+export const ttPolicy = createTrustedTypesPolicy('diffEditorWidget', { createHTML: value => value });
 
 export function renderLines(source: LineSource, options: RenderOptions, decorations: InlineDecoration[], domNode: HTMLElement, noExtra = false): RenderLinesResult {
 	applyFontInfo(domNode, options.fontInfo);
