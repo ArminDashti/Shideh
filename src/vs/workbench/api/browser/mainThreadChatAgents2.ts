@@ -427,6 +427,9 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			provideChatSummary: (history, token) => {
 				return this._proxy.$provideChatSummary(handle, history.map(chatAgentHistoryEntryToDto), token);
 			},
+			provideChatSummary: (history, token) => {
+				return this._proxy.$provideChatSummary(handle, history, token);
+			},
 		};
 
 		// Do not attempt to register migrated chatSession providers

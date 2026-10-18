@@ -1346,6 +1346,16 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		const sessionResource = context[0]?.request.sessionResource ? URI.revive(context[0].request.sessionResource) : undefined;
 		return await agent.provideSummary({ history, sessionResource, yieldRequested: false }, token);
 	}
+
+	async $provideChatSummary(handle: number, context: IChatAgentHistoryEntryDto[], token: CancellationToken): Promise<string | undefined> {
+		const agent = this._agents.get(handle);
+		if (!agent) {
+			return;
+		}
+
+		const history = await this.prepareHistoryTurns(agent.extension, agent.id, { history: context });
+		return await agent.provideSummary({ history }, token);
+	}
 }
 
 class ExtHostParticipantDetector {
