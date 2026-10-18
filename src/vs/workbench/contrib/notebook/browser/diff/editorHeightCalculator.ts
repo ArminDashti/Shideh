@@ -5,11 +5,16 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { UnchangedRegion } from '../../../../../editor/browser/widget/diffEditor/diffEditorViewModel.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { ITextModel } from '../../../../../editor/common/model.js';
 import { IEditorWorkerService } from '../../../../../editor/common/services/editorWorker.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { DEFAULT_HORIZONTAL_SCROLLBAR_HEIGHT, getEditorPadding } from './diffCellEditorOptions.js';
 import { HeightOfHiddenLinesRegionInDiffEditor } from './diffElementViewModel.js';
+
+const HorizontalScrollbarHeight = 12;
 
 export interface IDiffEditorHeightCalculatorService {
 	diffAndComputeHeight(original: URI, modified: URI): Promise<number>;
@@ -18,7 +23,8 @@ export interface IDiffEditorHeightCalculatorService {
 
 export class DiffEditorHeightCalculatorService {
 	constructor(
-		private readonly lineHeight: number,
+		private readonly fontInfo: FontInfo,
+		private readonly editorWidth: number | undefined,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 		@IEditorWorkerService private readonly editorWorkerService: IEditorWorkerService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
@@ -58,6 +64,8 @@ export class DiffEditorHeightCalculatorService {
 			const numberOfHiddenSections = unchanged.length;
 			const unchangeRegionsHeight = numberOfHiddenSections * HeightOfHiddenLinesRegionInDiffEditor;
 			const visibleLineCount = orginalNumberOfLines + numberOfNewLines - numberOfHiddenLines;
+			const requiresScrollbar = this.requiresScrollbar(originalModel.object.textEditorModel, originalModel.object.getLanguageId()) || this.requiresScrollbar(modifiedModel.object.textEditorModel, modifiedModel.object.getLanguageId());
+			const scrollbarHeight = requiresScrollbar ? HorizontalScrollbarHeight : 0;
 
 			return (visibleLineCount * this.lineHeight) + getEditorPadding(visibleLineCount).top + getEditorPadding(visibleLineCount).bottom + unchangeRegionsHeight + this._getHorizontalScrollbarHeight();
 		} finally {
@@ -79,4 +87,25 @@ export class DiffEditorHeightCalculatorService {
 		const scrollbarSize = this.configurationService.getValue<number>('editor.scrollbar.horizontalScrollbarSize');
 		return scrollbarSize ?? DEFAULT_HORIZONTAL_SCROLLBAR_HEIGHT;
 	}
+
+	private requiresScrollbar(textModel: ITextModel, language?: string) {
+		if (!this.editorWidth) {
+			return false;
+		}
+		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor', { overrideIdentifier: language });
+		if (editorOptions.wordWrap !== 'off') {
+			return false;
+		}
+
+		for (let i = 0; i < textModel.getLineCount(); i++) {
+			const max = textModel.getLineLastNonWhitespaceColumn(i + 1);
+			const estimatedWidth = max * (this.fontInfo.typicalHalfwidthCharacterWidth + this.fontInfo.letterSpacing);
+			if (estimatedWidth > this.editorWidth) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 }

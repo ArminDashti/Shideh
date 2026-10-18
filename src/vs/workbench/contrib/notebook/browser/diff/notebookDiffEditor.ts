@@ -122,7 +122,6 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD
 	// here
 	protected _scopeContextKeyService!: IContextKeyService;
 	private _model: INotebookDiffEditorModel | null = null;
-	private readonly diffEditorCalcuator: IDiffEditorHeightCalculatorService;
 	private readonly _modifiedResourceDisposableStore = this._register(new DisposableStore());
 	private inlineDiffWidget: NotebookInlineDiffWidget | undefined;
 
@@ -177,7 +176,6 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD
 		@IEditorService private readonly editorService: IEditorService,
 	) {
 		super(NotebookTextDiffEditor.ID, group, telemetryService, themeService, storageService);
-		this.diffEditorCalcuator = this.instantiationService.createInstance(DiffEditorHeightCalculatorService, this.fontInfo.lineHeight);
 		this._notebookOptions = instantiationService.createInstance(NotebookOptions, this.window, false, undefined);
 		this._register(this._notebookOptions);
 		this._revealFirst = true;
