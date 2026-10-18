@@ -18,6 +18,7 @@
 			"address": "127.0.0.1",
 			"port": 5870,
 			"outFiles": [
+				"/Users/roblou/code/vscode-copilot/dist/extension.js",
 				"${workspaceFolder}/out/**/*.js",
 				"${workspaceFolder}/extensions/*/out/**/*.js",
 				"${workspaceFolder}/extensions/copilot/dist/**/*.js"
@@ -242,6 +243,7 @@
 			"type": "chrome",
 			"request": "launch",
 			"name": "Launch VS Code Internal",
+			"trace": true,
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
@@ -277,9 +279,9 @@
 				"Attach to Extension Host"
 			],
 			"pauseForSourceMap": false,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			// "outFiles": [
+			// 	"${workspaceFolder}/out/**/*.js"
+			// ],
 			"browserLaunchLocation": "workspace",
 			"presentation": {
 				"hidden": true,
@@ -749,7 +751,7 @@
 				"Attach to Extension Host",
 				"Attach to Shared Process",
 			],
-			"preLaunchTask": "Ensure Prelaunch Dependencies",
+			// "preLaunchTask": "Ensure Prelaunch Dependencies",
 			"presentation": {
 				"group": "0_vscode",
 				"order": 1

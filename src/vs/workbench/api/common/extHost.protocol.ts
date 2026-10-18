@@ -1933,6 +1933,13 @@ export interface MainThreadChatCustomInstructionsShape extends IDisposable {
 	$unregisterProvider(handle: number): void;
 }
 
+export interface MainThreadChatSkillsShape extends IDisposable {
+	$getSkills(): Promise<IChatSkillData[]>;
+	$invokeSkill(name: string, parameters: any, token: CancellationToken): Promise<string | undefined>;
+	$registerSkill(data: IChatSkillData): void;
+	$unregisterSkill(name: string): void;
+}
+
 export type IChatRequestVariableValueDto = Dto<IChatRequestVariableValue>;
 
 export interface ExtHostLanguageModelToolsShape {
