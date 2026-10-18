@@ -2374,6 +2374,8 @@ export interface IChatService {
 	/** Fires on model unload (`disposed`) or explicit session deletion (`cleared`). Unload does not delete persisted history. */
 	readonly onDidDisposeSession: Event<{ readonly sessionResources: readonly URI[]; readonly reason: 'cleared' | 'disposed' }>;
 
+	readonly onDidChangeSessionTitle: Event<{ readonly sessionResource: URI; readonly title: string }>;
+
 	transferChatSession(transferredSessionResource: URI, toWorkspace: URI): Promise<void>;
 
 	activateDefaultAgent(location: ChatAgentLocation): Promise<void>;

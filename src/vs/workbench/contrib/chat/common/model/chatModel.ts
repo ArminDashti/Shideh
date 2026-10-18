@@ -2013,6 +2013,7 @@ export interface IChatModel extends IDisposable {
 	readonly sessionTypeSelectionTelemetry: ISessionTypeSelectionTelemetry | undefined;
 	readonly title: string;
 	readonly hasCustomTitle: boolean;
+	setCustomTitle(title: string): void;
 	readonly responderUsername: string;
 	/** True whenever a request is currently running */
 	readonly requestInProgress: IObservable<boolean>;
