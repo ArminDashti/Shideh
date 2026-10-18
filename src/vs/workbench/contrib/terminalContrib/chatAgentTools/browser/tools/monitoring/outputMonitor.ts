@@ -216,6 +216,7 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		token: CancellationToken
 	): Promise<void> {
 		const pollStartTime = Date.now();
+		let extended = false;
 
 		let resources;
 		let output;
