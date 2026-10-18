@@ -173,6 +173,10 @@ suite('AgentHostClientTools', () => {
 				override readProfileEnabled() { return true; }
 			}(),
 		});
+		instantiationService.stub(IAllowedMcpServersService, {
+			onDidChangeAllowedMcpServers: Event.None,
+			isServerAllowed: () => true,
+		} as Partial<IAllowedMcpServersService> as IAllowedMcpServersService);
 		instantiationService.stub(IMcpWorkbenchService, {
 			local: [],
 			onChange: Event.None,
@@ -1089,6 +1093,10 @@ suite('AgentHostClientTools', () => {
 			instantiationService.stub(IMcpService, {
 				servers: observableValue('mcpServers', []),
 			});
+			instantiationService.stub(IAllowedMcpServersService, {
+				onDidChangeAllowedMcpServers: Event.None,
+				isServerAllowed: () => true,
+			} as Partial<IAllowedMcpServersService> as IAllowedMcpServersService);
 			instantiationService.stub(IConfigurationResolverService, {} as Partial<IConfigurationResolverService>);
 			instantiationService.stub(IWorkbenchEnvironmentService, {} as Partial<IWorkbenchEnvironmentService>);
 			instantiationService.stub(IPromptsService, new class extends mock<IPromptsService>() {

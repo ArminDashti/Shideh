@@ -31,6 +31,7 @@ import { IPromptsService } from '../../../common/promptSyntax/service/promptsSer
 import { ILanguageModelToolsService, IToolData, IToolSet } from '../../../common/tools/languageModelToolsService.js';
 import { RenameToolId } from '../../tools/renameTool.js';
 import { IMcpService } from '../../../../mcp/common/mcpTypes.js';
+import { IAllowedMcpServersService } from '../../../../../../platform/mcp/common/mcpManagement.js';
 import { IConfigurationResolverService } from '../../../../../services/configurationResolver/common/configurationResolver.js';
 import { IWorkbenchEnvironmentService } from '../../../../../services/environment/common/environmentService.js';
 import { AgentCustomizationSyncProvider } from './agentCustomizationSyncProvider.js';
@@ -137,6 +138,7 @@ class AgentCustomizationScope extends Disposable {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IMcpService private readonly _mcpService: IMcpService,
 		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
+		@IAllowedMcpServersService private readonly _allowedMcpServersService: IAllowedMcpServersService,
 	) {
 		super();
 		this._bundler = this._register(instantiationService.createInstance(SyncedCustomizationBundler, createScopeAuthority(_sessionType, scopeKey)));
@@ -153,6 +155,7 @@ class AgentCustomizationScope extends Disposable {
 						this._agentPluginService,
 						this._mcpService,
 						this._configurationResolverService,
+						this._allowedMcpServersService,
 						this._bundler,
 						this._sessionType,
 						this._options,
@@ -229,6 +232,8 @@ class AgentCustomizationScope extends Disposable {
 			}
 			scheduleUpdate();
 		}));
+		// Republish so a newly blocked server is withdrawn rather than lingering for the session.
+		this._register(this._allowedMcpServersService.onDidChangeAllowedMcpServers(() => scheduleUpdate()));
 	}
 
 	acquire(): IAgentCustomizationScope {

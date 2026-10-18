@@ -17,12 +17,13 @@ import { IPromptsService, isUserToggleableCustomization, matchesSessionType, Pro
 import { type ICustomizationSyncProvider } from '../../../common/customizationHarnessService.js';
 import { IAgentPlugin, IAgentPluginService } from '../../../common/plugins/agentPluginService.js';
 import { IMcpService } from '../../../../mcp/common/mcpTypes.js';
+import { IAllowedMcpServersService } from '../../../../../../platform/mcp/common/mcpManagement.js';
 import { IConfigurationResolverService } from '../../../../../services/configurationResolver/common/configurationResolver.js';
 import type { ISyncableFile, ISyncableMcpServer, SyncedCustomizationBundler } from './syncedCustomizationBundler.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { isDefined } from '../../../../../../base/common/types.js';
 import { PromptFileParser } from '../../../common/promptSyntax/promptFileParser.js';
-import { AgentHostMcpServerDelivery, resolveMcpServersForAgentHostDelivery } from './agentHostMcpServerSupport.js';
+import { AgentHostMcpServerDelivery, isMcpServerConfigurationBlockedByPolicy, resolveMcpServersForAgentHostDelivery } from './agentHostMcpServerSupport.js';
 
 /**
  * Prompt types that participate in auto-sync to an agent host harness.
@@ -232,6 +233,7 @@ export async function resolveCustomizationRefs(
 	agentPluginService: IAgentPluginService,
 	mcpService: IMcpService,
 	configurationResolverService: IConfigurationResolverService,
+	allowedMcpServersService: IAllowedMcpServersService,
 	bundler: SyncedCustomizationBundler,
 	sessionType: string,
 	options: ILocalCustomizationSyncOptions | undefined,
@@ -278,6 +280,20 @@ export async function resolveCustomizationRefs(
 				};
 				if (nonce !== undefined) {
 					ref.nonce = nonce.toString(16);
+				}
+				// A plugin syncs as a directory, so a policy-blocked server it contributes can only be
+				// withheld by disabling it as a child; the host maps this to `disabledMcpServers`.
+				const blockedChildren: Record<string, CustomizationEnablement[]> = {};
+				for (const definition of plugin.mcpServerDefinitions.get()) {
+					if (isMcpServerConfigurationBlockedByPolicy(allowedMcpServersService, definition.name, definition.configuration)) {
+						blockedChildren[definition.name] = withCustomizationEnablement(undefined, CustomizationEnablementKind.Global, {
+							kind: CustomizationEnablementKind.Global,
+							enabled: false,
+						});
+					}
+				}
+				if (Object.keys(blockedChildren).length > 0) {
+					ref.childEnablement = { ...ref.childEnablement, ...blockedChildren };
 				}
 				return ref;
 			})();
