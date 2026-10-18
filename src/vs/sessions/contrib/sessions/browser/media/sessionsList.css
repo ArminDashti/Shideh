@@ -598,6 +598,10 @@
 		color: var(--vscode-strongForeground);
 	}
 
+	.session-title {
+		color: var(--vscode-strongForeground);
+	}
+
 	.session-time {
 		display: flex;
 		align-items: center;
