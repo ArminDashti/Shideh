@@ -1038,7 +1038,7 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 		if (hint instanceof Uri) {
 			let resourcePath: string;
 
-			if (hint.scheme === 'git') {
+			if (hint.scheme === 'git' || hint.scheme === 'gitfs') {
 				resourcePath = fromGitUri(hint).path;
 			} else {
 				resourcePath = hint.fsPath;
