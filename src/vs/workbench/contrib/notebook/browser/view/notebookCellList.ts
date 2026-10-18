@@ -77,6 +77,13 @@ function validateWebviewBoundary(element: HTMLElement) {
 	return webviewTop >= 0 && webviewTop <= NOTEBOOK_WEBVIEW_BOUNDARY * 2;
 }
 
+export const NOTEBOOK_WEBVIEW_BOUNDARY = 5000;
+
+function validateWebviewBoundary(element: HTMLElement) {
+	const webviewTop = 0 - (parseInt(element.style.top, 10) || 0);
+	return webviewTop >= 0 && webviewTop <= NOTEBOOK_WEBVIEW_BOUNDARY * 2;
+}
+
 export class NotebookCellList extends WorkbenchList<CellViewModel> implements IDisposable, IStyleController, INotebookCellList {
 	declare protected readonly view: NotebookCellListView<CellViewModel>;
 	// here
@@ -148,6 +155,12 @@ export class NotebookCellList extends WorkbenchList<CellViewModel> implements ID
 
 	get inRenderingTransaction() {
 		return this.view.inRenderingTransaction;
+	}
+
+	private _webviewElement: FastDomNode<HTMLElement> | null = null;
+
+	get webviewElement() {
+		return this._webviewElement;
 	}
 
 	constructor(
