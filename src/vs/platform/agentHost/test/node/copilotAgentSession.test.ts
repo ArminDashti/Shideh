@@ -10113,7 +10113,7 @@ suite('CopilotAgentSession', () => {
 
 		test('defers an idle session approval change until the next turn', async () => {
 			const { session, mockSession, setConfigValue, fireSessionConfigChange } = await createAgentSession(disposables, {
-				configValues: { [SessionConfigKey.AutoApprove]: 'assisted' },
+				configValues: { [SessionConfigKey.AutoApprove]: 'autoApprove' },
 			});
 			await session.syncPermissionMode('turn-start');
 			setConfigValue(SessionConfigKey.AutoApprove, 'default');

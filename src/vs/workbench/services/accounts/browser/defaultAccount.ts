@@ -40,7 +40,7 @@ import { IHostService } from '../../host/browser/host.js';
 import { getGitHubEnterpriseUri } from '../common/githubEnterprise.js';
 import { adaptManagedSettings, appendManagedSettingsClientIdentity, IManagedSettingsResponse, parseManagedSettingsCompatibilityError } from './managedSettings.js';
 
-interface IDefaultAccountConfig {
+export interface IDefaultAccountConfig {
 	readonly preferredExtensions: string[];
 	readonly authenticationProvider: {
 		readonly default: {

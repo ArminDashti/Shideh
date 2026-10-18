@@ -2795,6 +2795,8 @@ class NewSession extends Disposable {
 
 	/** Backend session URI, set immediately before the eager `createSession` call. */
 	private _backendUri: URI | undefined;
+	private _backendCreated = false;
+	private _autoApprovePolicyReconciliationPending = false;
 	/** Connection used to create the backend session, captured for `disposeSession` on tear-down. */
 	private _connection: IAgentConnection | undefined;
 	/** Held state subscription. Set after the wire `createSession` resolves. */
@@ -3339,6 +3341,8 @@ class NewSession extends Disposable {
 					...(this._selectedAgent ? { agent: { uri: this._selectedAgent.uri } } : {}),
 					activeClient,
 				});
+				this._backendCreated = true;
+				this._dispatchPendingAutoApprovePolicyReconciliation();
 			} catch (err) {
 				this._logService.warn(`[${this._providerId}] Eager createSession failed for ${backendUri.toString()}: ${err}`);
 				// Clear backend bookkeeping so a later `dispose()` doesn't
@@ -3348,6 +3352,7 @@ class NewSession extends Disposable {
 				// disposing this NewSession and constructing a new one).
 				if (this._backendUri?.toString() === backendUri.toString()) {
 					this._backendUri = undefined;
+					this._backendCreated = false;
 					this._connection = undefined;
 				}
 				return;
@@ -3974,6 +3979,11 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			if (this._sessionCacheStorageKey && this._cacheDirty) {
 				this._persistCache();
 				this._cacheDirty = false;
+			}
+		}));
+		this._register(this._baseConfigurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ChatConfiguration.GlobalAutoApprove) && isAutoApprovePolicyRestricted(this._baseConfigurationService)) {
+				this._reconcileSessionAutoApprovePolicy();
 			}
 		}));
 	}
@@ -4807,6 +4817,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			}
 			return;
 		}
+		session.reconcileAutoApprovePolicy(isAutoApprovePolicyRestricted(this._baseConfigurationService));
 		const config = session.getConfig();
 		this._cacheSeededConfigSchemas(config);
 		session.setLoading(config !== undefined && !isSessionConfigComplete(config));
@@ -5480,6 +5491,69 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			this._logService.warn(`[${this.id}] Failed to re-resolve session config for ${sessionId}: ${err}`);
 			return undefined;
 		}
+	}
+
+	private _reconcileSessionAutoApprovePolicy(): void {
+		for (const newSession of this._newSessions.values()) {
+			if (newSession.reconcileAutoApprovePolicy(true)) {
+				this._onDidChangeSessionConfig.fire(newSession.sessionId);
+			}
+		}
+
+		for (const [sessionId, config] of this._runningSessionConfigs) {
+			this._setRunningSessionConfig(sessionId, config, true);
+		}
+
+		const connection = this.connection;
+		if (!connection) {
+			return;
+		}
+		for (const cached of this._sessionCache.values()) {
+			if (this._runningSessionConfigs.has(cached.sessionId)) {
+				continue;
+			}
+			connection.dispatch(cached.backendUri.toString(), {
+				type: ActionType.SessionConfigChanged,
+				config: { [SessionConfigKey.AutoApprove]: ChatPermissionLevel.Default },
+			});
+		}
+	}
+
+	private _setRunningSessionConfig(sessionId: string, config: ResolveSessionConfigResult, reconcileBackend: boolean): void {
+		const existing = this._runningSessionConfigs.get(sessionId);
+		const autoApprove = config.values[SessionConfigKey.AutoApprove];
+		const normalizedAutoApprove = normalizeSessionConfigValue(
+			SessionConfigKey.AutoApprove,
+			autoApprove,
+			isAutoApprovePolicyRestricted(this._baseConfigurationService),
+		);
+		const didClampAutoApprove = normalizedAutoApprove !== autoApprove;
+		const normalized = didClampAutoApprove
+			? { ...config, values: { ...config.values, [SessionConfigKey.AutoApprove]: normalizedAutoApprove } }
+			: config;
+
+		if (!existing || !resolvedConfigsEqual(existing, normalized)) {
+			this._runningSessionConfigs.set(sessionId, normalized);
+			this._onDidChangeSessionConfig.fire(sessionId);
+		}
+
+		if (!didClampAutoApprove || !reconcileBackend) {
+			return;
+		}
+
+		const schema = normalized.schema.properties[SessionConfigKey.AutoApprove];
+		const connection = this.connection;
+		const rawId = this._rawIdFromChatId(sessionId);
+		const cached = rawId ? this._sessionCache.get(rawId) : undefined;
+		if (schema?.sessionMutable !== true || schema.readOnly === true || !connection || !cached) {
+			return;
+		}
+
+		connection.dispatch(cached.backendUri.toString(), {
+			type: ActionType.SessionConfigChanged,
+			config: { [SessionConfigKey.AutoApprove]: ChatPermissionLevel.Default },
+		});
+		void this._resolveRunningSessionConfig(sessionId, cached, normalized.values);
 	}
 
 	async getSessionConfigCompletions(sessionId: string, property: string, query?: string) {
@@ -7834,12 +7908,8 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				},
 			};
 		}
-		if (existing && resolvedConfigsEqual(existing, seeded)) {
-			return;
-		}
-		this._runningSessionConfigs.set(sessionId, seeded);
+		this._setRunningSessionConfig(sessionId, seeded, true);
 		this._applyWorktreeIsolation(sessionId, seeded.values);
-		this._onDidChangeSessionConfig.fire(sessionId);
 	}
 
 	/** Mirrors a session's `isolation` pick onto its adapter. See {@link ISession.worktreePending}. */
@@ -8235,6 +8305,10 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				this._handleSessionMetaChanged(e.channel, e.action._meta);
 			}
 		}));
+
+		if (isAutoApprovePolicyRestricted(this._baseConfigurationService)) {
+			this._reconcileSessionAutoApprovePolicy();
+		}
 	}
 
 	private _handleSessionAdded(summary: SessionSummary): void {
@@ -8541,21 +8615,22 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 		const sessionId = cached.sessionId;
 		const existing = this._runningSessionConfigs.get(sessionId);
+		let updated: ResolveSessionConfigResult;
 		if (existing) {
-			this._runningSessionConfigs.set(sessionId, {
+			updated = {
 				...existing,
 				values: replace ? { ...config } : { ...existing.values, ...config },
-			});
+			};
 		} else {
 			// Session was restored (e.g. after reload) — create a minimal
 			// config entry from the changed values so the picker can render.
 			// `replace` vs merge is moot here (no existing values to merge with).
-			this._runningSessionConfigs.set(sessionId, {
+			updated = {
 				schema: { type: 'object', properties: buildMutableConfigSchema(config) },
 				values: config,
-			});
+			};
 		}
-		this._onDidChangeSessionConfig.fire(sessionId);
+		this._setRunningSessionConfig(sessionId, updated, true);
 	}
 
 	private _handleSessionMetaChanged(session: string, meta: Record<string, unknown> | undefined): void {
