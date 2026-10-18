@@ -63,7 +63,7 @@ function _findHexColorInformation(range: IRange | undefined, hexValue: string) {
 	};
 }
 
-function _findRGBColorInformation(range: IRange | undefined, matches: RegExpMatchArray[], isAlpha: boolean) {
+function _findRGBColorInformation(range: IRange | undefined, matches: RegExpMatchArray[]) {
 	if (!range || matches.length !== 1) {
 		return;
 	}
@@ -72,18 +72,18 @@ function _findRGBColorInformation(range: IRange | undefined, matches: RegExpMatc
 	const parsedRegex = _parseCaptureGroups(captureGroups);
 	return {
 		range: range,
-		color: _toIColor(parsedRegex[0], parsedRegex[1], parsedRegex[2], isAlpha ? parsedRegex[3] : 1)
+		color: _toIColor(parsedRegex[0], parsedRegex[1], parsedRegex[2], parsedRegex[3] !== undefined ? parsedRegex[3] : 1)
 	};
 }
 
-function _findHSLColorInformation(range: IRange | undefined, matches: RegExpMatchArray[], isAlpha: boolean) {
+function _findHSLColorInformation(range: IRange | undefined, matches: RegExpMatchArray[]) {
 	if (!range || matches.length !== 1) {
 		return;
 	}
 	const match = matches[0];
 	const captureGroups = match.values();
 	const parsedRegex = _parseCaptureGroups(captureGroups);
-	const colorEquivalent = new Color(new HSLA(parsedRegex[0], parsedRegex[1] / 100, parsedRegex[2] / 100, isAlpha ? parsedRegex[3] : 1));
+	const colorEquivalent = new Color(new HSLA(parsedRegex[0], parsedRegex[1] / 100, parsedRegex[2] / 100, parsedRegex[3] !== undefined ? parsedRegex[3] : 1));
 	return {
 		range: range,
 		color: _toIColor(colorEquivalent.rgba.r, colorEquivalent.rgba.g, colorEquivalent.rgba.b, colorEquivalent.rgba.a)
