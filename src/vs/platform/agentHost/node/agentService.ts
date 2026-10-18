@@ -10513,6 +10513,12 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 }
 
+class SubagentTranscriptUnavailableError extends Error {
+	constructor(chatUri: string) {
+		super(`Subagent transcript is not available yet: ${chatUri}`);
+	}
+}
+
 function isErrorWithCode(error: unknown, code: string): boolean {
 	return error instanceof Error && hasErrorCode(error, code);
 }
