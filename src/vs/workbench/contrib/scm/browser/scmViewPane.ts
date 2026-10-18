@@ -2617,7 +2617,8 @@ class SCMTreeDataSource extends Disposable implements IAsyncDataSource<ISCMViewS
 	constructor(
 		private readonly viewMode: () => ViewMode,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@ISCMViewService private readonly scmViewService: ISCMViewService
+		@ISCMViewService private readonly scmViewService: ISCMViewService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
 		super();
 	}
@@ -2644,10 +2645,11 @@ class SCMTreeDataSource extends Disposable implements IAsyncDataSource<ISCMViewS
 
 			// Action Button
 			if (showActionButton && actionButton) {
+				const button = this.addReviewChangesSecondaryCommand(actionButton);
 				children.push({
 					type: 'actionButton',
 					repository: inputOrElement,
-					button: actionButton
+					button
 				} satisfies ISCMActionButton);
 			}
 
@@ -2682,6 +2684,24 @@ class SCMTreeDataSource extends Disposable implements IAsyncDataSource<ISCMViewS
 		}
 
 		return [];
+	}
+
+	private addReviewChangesSecondaryCommand(button: ISCMActionButtonDescriptor): ISCMActionButtonDescriptor {
+		if (!this.contextKeyService.contextMatchesRules(ChatContextKeys.enabled)) {
+			return button;
+		}
+
+		const reviewCommand = {
+			id: 'workbench.scm.action.reviewChanges',
+			title: localize('reviewChanges', "Review Changes"),
+		};
+
+		const secondaryCommands = [
+			...(button.secondaryCommands ?? []),
+			[reviewCommand]
+		];
+
+		return { ...button, secondaryCommands };
 	}
 
 	getParent(element: TreeElement): ISCMViewService | TreeElement {

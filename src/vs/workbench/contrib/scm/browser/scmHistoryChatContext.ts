@@ -350,3 +350,23 @@ registerAction2(class extends Action2 {
 		} satisfies ISCMHistoryItemChangeVariableEntry);
 	}
 });
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.scm.action.reviewChanges',
+			title: localize('chat.action.scmReviewChanges', 'Review Changes'),
+			f1: false,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const chatWidgetService = accessor.get(IChatWidgetService);
+		const widget = await chatWidgetService.revealWidget();
+		if (!widget) {
+			return;
+		}
+
+		await widget.acceptInput(localize('reviewChangesPrompt', 'Review my changes'));
+	}
+});
