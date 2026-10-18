@@ -2750,6 +2750,10 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return;
 		}
 
+		if (element.isComplete && this.configService.getValue<boolean>(ChatConfiguration.ChatPersistentProgressEnabled) !== false) {
+			return;
+		}
+
 		const pendingConfirmationCount = this.getPendingToolConfirmationCount(element.response.value, false);
 		if (pendingConfirmationCount === 0) {
 			this.removeWorkingProgressContentPart(templateData);

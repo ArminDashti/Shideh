@@ -1625,6 +1625,10 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 		return this.isActive;
 	}
 
+	public get isFixedScrollingMode(): boolean {
+		return this.fixedScrollingMode;
+	}
+
 	/**
 	 * Returns true when this thinking part has no meaningful content to display:
 	 * no tool invocations, no lazy items, no hooks, and no thinking text.

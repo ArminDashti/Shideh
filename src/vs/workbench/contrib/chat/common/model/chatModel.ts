@@ -1871,6 +1871,9 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 		// Compute elapsed generation time before setting terminal state
 		this._elapsedMs ??= Math.max(0, completedAt - this.confirmationAdjustedTimestamp.get());
 
+		// Compute elapsed generation time before setting terminal state
+		this._elapsedMs = Math.max(0, Date.now() - this.confirmationAdjustedTimestamp.get());
+
 		// Canceled sessions can be considered 'Complete'
 		const state = !!this._result?.errorDetails && this._result.errorDetails.code !== 'canceled' ? ResponseModelState.Failed : ResponseModelState.Complete;
 		this._completionTimestamp = completionTimestamp;

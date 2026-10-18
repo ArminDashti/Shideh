@@ -18,7 +18,11 @@ import { IInstantiationService } from '../../../../../../platform/instantiation/
 import { IProductService } from '../../../../../../platform/product/common/productService.js';
 import { localize } from '../../../../../../nls.js';
 import { IChatProgressMessage, IChatTask, IChatTaskSerialized, IChatToolInvocation, IChatToolInvocationSerialized } from '../../../common/chatService/chatService.js';
-import { IChatRendererContent, IChatWorkingProgress, isResponseVM } from '../../../common/model/chatViewModel.js';
+import { IChatRendererContent, IChatWorkingProgress, IChatWorkingProgressState, isResponseVM } from '../../../common/model/chatViewModel.js';
+// NOTE: `formatElapsedTime` / `formatTokenCount` from '../../../common/chatProgressFormatting.js'
+// and `WindowIntervalTimer` / `autorun` are intentionally not imported — the live timer and
+// token-count UI is currently disabled (see `startLiveProgress` / `renderCompletedProgress`).
+// Re-add those imports when re-enabling progress details.
 import { ChatTreeItem } from '../../chat.js';
 import { renderFileWidgets } from './chatInlineAnchorWidget.js';
 import { IChatContentPart, IChatContentPartRenderContext } from './chatContentParts.js';
@@ -26,6 +30,7 @@ import { getToolApprovalMessage, isAskQuestionsToolInvocation } from './toolInvo
 import { IChatMarkdownAnchorService } from './chatMarkdownAnchorService.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { AccessibilityWorkbenchSettingId } from '../../../../accessibility/browser/accessibilityConfiguration.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
 import { HoverStyle } from '../../../../../../base/browser/ui/hover/hover.js';
 import { ILanguageModelToolsService } from '../../../common/tools/languageModelToolsService.js';
