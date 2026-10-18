@@ -48,7 +48,7 @@ export class PartialCommandDetectionCapability extends DisposableStore implement
 	}
 
 	private _onData(data: string): void {
-		if (data === '\x0d') {
+		if (data.includes('\x0d')) {
 			this._onEnter();
 		}
 	}
