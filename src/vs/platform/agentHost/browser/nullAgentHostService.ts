@@ -35,6 +35,8 @@ export class NullAgentHostService implements IAgentHostService {
 	readonly resourceUris = identityAgentHostResourceUriMapper;
 	readonly onAgentHostExit = Event.None;
 	readonly onAgentHostStart = Event.None;
+	readonly onWillReinitialize = Event.None;
+	readonly onDidReinitialize = Event.None;
 	readonly onDidNotification: Event<INotification> = Event.None;
 	readonly onDidAction: Event<ActionEnvelope> = Event.None;
 	readonly onMcpNotification = Event.None;

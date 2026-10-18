@@ -1025,6 +1025,7 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 			}));
 		}
 
+		this._attachConnectionReinitializationListeners(connection, this._connectionListeners);
 		this._attachConnectionListeners(connection, this._connectionListeners);
 		this._reacquireObservedAgentMergeSessionStates();
 

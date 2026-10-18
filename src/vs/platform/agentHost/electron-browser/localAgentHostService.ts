@@ -190,6 +190,10 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 	readonly onAgentHostExit = this._onAgentHostExit.event;
 	private readonly _onAgentHostStart = this._register(new Emitter<void>());
 	readonly onAgentHostStart = this._onAgentHostStart.event;
+	private readonly _onWillReinitialize = this._register(new Emitter<void>());
+	readonly onWillReinitialize = this._onWillReinitialize.event;
+	private readonly _onDidReinitialize = this._register(new Emitter<void>());
+	readonly onDidReinitialize = this._onDidReinitialize.event;
 
 	// Consumers can subscribe before prewarming creates the protocol client.
 	private readonly _onDidAction = this._register(new Relay<ActionEnvelope>());
@@ -264,6 +268,8 @@ export class LocalAgentHostServiceClient extends Disposable implements IAgentHos
 			this._artifactIntegrationUpdates.input = this._protocolClient.onDidArtifactIntegrationUpdate;
 			this._artifactIntegrationReset.input = this._protocolClient.onDidArtifactIntegrationReset;
 			this._register(this._protocolClient.onDidChangeConnectionState(state => this._handleConnectionState(state)));
+			this._register(this._protocolClient.onWillReinitialize(() => this._onWillReinitialize.fire()));
+			this._register(this._protocolClient.onDidReinitialize(() => this._onDidReinitialize.fire()));
 			this._register(this._protocolClient.onDidFatalClose(() => {
 				if (!this._didConnectInitially) {
 					notifyOnFatalAgentHostStartError(this._notificationService);

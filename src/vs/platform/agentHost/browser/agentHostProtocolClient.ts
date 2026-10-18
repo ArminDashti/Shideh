@@ -405,6 +405,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 * re-snapshotted would keep serving pre-restart state forever.
 	 */
 	private readonly _subscriptionsAwaitingRestore = new Set<string>();
+	private _reinitializePending = false;
 
 	/**
 	 * Set while an authentication-restore pass is in flight, cleared only once
@@ -1002,11 +1003,6 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			this._lastReadTime = Date.now();
 			this._resetLivenessTimers();
 
-			const subscriptions = this._subscriptionManager.currentSubscriptionUris().map(u => u.toString());
-			// Always include the always-live root state alongside getSubscription-managed entries.
-			if (!subscriptions.includes(ROOT_STATE_URI)) {
-				subscriptions.unshift(ROOT_STATE_URI);
-			}
 			const lastSeenServerSeq = this._serverSeq;
 			const { result, freshInitialize } = await this._traceConnection('protocol.reconnect', () => this._reconnectOrInitialize(lastSeenServerSeq, subscriptions));
 			this._diagnostic('protocol.reconnect.result', `mode=${freshInitialize ? 'freshInitialize' : result.type}`);
@@ -1132,6 +1128,14 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			result: { type: ReconnectResultType.Snapshot, snapshots: initializeResult.wire.snapshots ?? [] },
 			freshInitialize: true,
 		};
+	}
+
+	private _currentReconnectSubscriptions(): string[] {
+		const subscriptions = this._subscriptionManager.currentSubscriptionUris().map(uri => uri.toString());
+		if (!subscriptions.includes(ROOT_STATE_URI)) {
+			subscriptions.unshift(ROOT_STATE_URI);
+		}
+		return subscriptions;
 	}
 
 	/**

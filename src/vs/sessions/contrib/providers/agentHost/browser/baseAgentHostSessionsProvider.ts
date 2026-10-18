@@ -3406,6 +3406,8 @@ class NewSession extends Disposable {
 			return;
 		}
 
+		const cancellation = new CancellationTokenSource(this.cancellationToken);
+		this._eagerCreateCancellation.value = cancellation;
 		this._eagerCreateTask = (async () => {
 			if (canCreate) {
 				try {
@@ -3417,7 +3419,7 @@ class NewSession extends Disposable {
 					return;
 				}
 			}
-			if (this.cancellationToken.isCancellationRequested) {
+			if (cancellation.token.isCancellationRequested) {
 				return;
 			}
 
@@ -3435,7 +3437,7 @@ class NewSession extends Disposable {
 					config: this._config?.values,
 				}, this.repositories !== undefined ? getRepositoryPreparationCapability(connection) : undefined);
 				await this._activeClientScope.whenResolved();
-				if (this._backendUri?.toString() !== backendUri.toString()) {
+				if (cancellation.token.isCancellationRequested || this._backendUri?.toString() !== backendUri.toString()) {
 					return;
 				}
 				const activeClient = this._activeClientScope.activeClient(connection.clientId).get();
@@ -3465,7 +3467,7 @@ class NewSession extends Disposable {
 				// created. Only do this if we're still the current attempt
 				// (the caller may have already overwritten these fields by
 				// disposing this NewSession and constructing a new one).
-				if (this._backendUri?.toString() === backendUri.toString()) {
+				if (!cancellation.token.isCancellationRequested && this._backendUri?.toString() === backendUri.toString()) {
 					this._backendUri = undefined;
 					this._backendCreated = false;
 					this._connection = undefined;
@@ -3475,7 +3477,7 @@ class NewSession extends Disposable {
 
 			// Bail if the user switched workspaces, graduated this session,
 			// or otherwise disposed it while the round-trip was in flight.
-			if (this._backendUri?.toString() !== backendUri.toString()) {
+			if (cancellation.token.isCancellationRequested || this._backendUri?.toString() !== backendUri.toString()) {
 				return;
 			}
 
@@ -3535,6 +3537,26 @@ class NewSession extends Disposable {
 				});
 			});
 		})();
+	}
+
+	/** Releases process-owned draft state so the next Agent Host connection recreates this provisional session. */
+	prepareForAgentHostReinitialize(): void {
+		this._eagerCreateCancellation.value?.cancel();
+		this._eagerCreateCancellation.clear();
+		this._configRequestSeq++;
+		const hadListener = !!this._stateListener.value;
+		this._stateListener.clear();
+		this._activeClientPublisher.clear();
+		this._subscription?.dispose();
+		this._subscription = undefined;
+		this._backendUri = undefined;
+		this._connection = undefined;
+		this._eagerCreateTask = undefined;
+		this._changesets.set(undefined, undefined);
+		this._loading.set(true, undefined);
+		if (hadListener) {
+			this._onSessionState?.(this.sessionId, undefined);
+		}
 	}
 
 	async waitForEagerCreate(): Promise<void> {
@@ -4887,6 +4909,13 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 		for (const newSession of this._newSessions.values()) {
 			this._startNewSessionBackend(newSession, connection);
+		}
+	}
+
+	/** Detaches provisional sessions before a local Agent Host reconnect snapshots active subscriptions. */
+	protected _prepareNewSessionsForAgentHostReinitialize(): void {
+		for (const newSession of this._newSessions.values()) {
+			newSession.prepareForAgentHostReinitialize();
 		}
 	}
 
