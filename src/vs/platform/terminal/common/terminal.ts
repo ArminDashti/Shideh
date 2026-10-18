@@ -1068,6 +1068,7 @@ export interface IShellIntegration {
 	readonly capabilities: ITerminalCapabilityStore;
 	readonly seenSequences: ReadonlySet<string>;
 	readonly status: ShellIntegrationStatus;
+	updateCwd(newCwd: string): void;
 
 	readonly onDidChangeStatus: Event<ShellIntegrationStatus>;
 	readonly onDidChangeSeenSequences: Event<ReadonlySet<string>>;

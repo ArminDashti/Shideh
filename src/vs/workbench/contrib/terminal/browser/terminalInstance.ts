@@ -1067,6 +1067,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			]);
 			store.dispose();
 		}
+		this._setCwdForShellIntegration();
 
 		// If a command ID was provided and we have command detection, set it as the next command ID
 		// so it will be used when the shell sends the command start sequence
@@ -1172,6 +1173,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		}
 
 		this._register(xterm.shellIntegration.onDidChangeStatus(() => {
+			this._setCwdForShellIntegration();
 			if (this.hasFocus) {
 				this._setShellIntegrationContextKey();
 			} else {
