@@ -125,6 +125,18 @@ export class GutterIndicatorMenuContent {
 			},
 		})) ?? [] : [];
 
+		const modelOptions = this._data.modelInfo?.models.map((m: { id: string; name: string }) => option({
+			title: m.name,
+			icon: m.id === this._data.modelInfo?.currentModelId ? Codicon.check : Codicon.circle,
+			keybinding: constObservable(undefined),
+			isActive: activeElement.map(v => v === 'model_' + m.id),
+			onHoverChange: v => activeElement.set(v ? 'model_' + m.id : undefined, undefined),
+			onAction: () => {
+				this._close(true);
+				this._data.setModelId?.(m.id);
+			},
+		})) ?? [];
+
 		const toggleCollapsedMode = this._inlineEditsShowCollapsed.map(showCollapsed => showCollapsed ?
 			option(createOptionArgs({
 				id: 'showExpanded',

@@ -830,6 +830,16 @@ export interface IInlineCompletionProviderOptionValue {
 	readonly label: string;
 }
 
+export interface IInlineCompletionModelInfo {
+	models: IInlineCompletionModel[];
+	currentModelId: string;
+}
+
+export interface IInlineCompletionModel {
+	name: string;
+	id: string;
+}
+
 export class SelectedSuggestionInfo {
 	constructor(
 		public readonly range: IRange,

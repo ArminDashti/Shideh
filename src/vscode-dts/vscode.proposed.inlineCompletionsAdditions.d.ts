@@ -153,6 +153,11 @@ declare module 'vscode' {
 		setProviderOptionValue?(optionId: string, valueId: string): Thenable<void>;
 
 
+		readonly modelInfo?: InlineCompletionModelInfo;
+		readonly onDidChangeModelInfo?: Event<void>;
+		setCurrentModelId?(modelId: string): Promise<void>;
+
+
 		// #region Deprecated methods
 
 		/**
