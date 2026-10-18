@@ -1058,7 +1058,7 @@ export class ChatSubmitWithCodebaseAction extends Action2 {
 			title: localize2('actions.chat.submitWithCodebase', "Send with {0}", `${chatVariableLeader}codebase`),
 			precondition,
 			keybinding: {
-				when: ChatContextKeys.inChatInput,
+				when: ContextKeyExpr.and(ChatContextKeys.inChatInput, ContextKeyExpr.equals('config.chat.input.mode', 'singleLine')),
 				primary: KeyMod.CtrlCmd | KeyCode.Enter,
 				weight: KeybindingWeight.EditorContrib
 			},
@@ -1105,7 +1105,7 @@ class SendToChatAndCreateNewChatAction extends Action2 {
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter,
-				when: ChatContextKeys.inChatInput,
+				when: ContextKeyExpr.and(ChatContextKeys.inChatInput, ContextKeyExpr.equals('config.chat.input.mode', 'singleLine')),
 			}
 		});
 	}

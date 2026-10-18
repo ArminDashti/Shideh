@@ -106,6 +106,7 @@ suite('ChatModeService', () => {
 			uri: URI.parse('file:///test/custom-mode.md'),
 			name: 'Test Mode',
 			description: 'A test custom mode',
+			prompt: 'Starter prompt line 1\nLine 2',
 			tools: ['tool1', 'tool2'],
 			agentInstructions: { content: 'Custom mode body', toolReferences: [] },
 			source: workspaceSource,
@@ -195,6 +196,7 @@ suite('ChatModeService', () => {
 			uri,
 			name: 'Initial Mode',
 			description: 'Initial description',
+			prompt: 'Initial prompt',
 			tools: ['tool1'],
 			agentInstructions: { content: 'Initial body', toolReferences: [] },
 			model: ['gpt-4'],
@@ -217,6 +219,7 @@ suite('ChatModeService', () => {
 		const updatedMode: ICustomAgent = {
 			...initialMode,
 			description: 'Updated description',
+			prompt: 'Updated prompt',
 			tools: ['tool1', 'tool2'],
 			agentInstructions: { content: 'Updated body', toolReferences: [] },
 			model: ['Updated model']

@@ -323,6 +323,11 @@ export interface ICustomAgent {
 	readonly description?: string;
 
 	/**
+	 * Optional starter prompt text to auto-populate the chat input when switching to this mode.
+	 */
+	readonly prompt?: string;
+
+	/**
 	 * Tools metadata in the prompt header.
 	 */
 	readonly tools?: readonly string[];

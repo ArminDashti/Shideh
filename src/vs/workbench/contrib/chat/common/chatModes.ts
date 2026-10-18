@@ -183,6 +183,7 @@ class ChatModes extends Disposable implements IChatModes {
 						uri,
 						name: cachedMode.name,
 						description: cachedMode.description,
+						prompt: cachedMode.prompt,
 						tools: cachedMode.customTools,
 						model: isString(cachedMode.model) ? [cachedMode.model] : cachedMode.model,
 						argumentHint: cachedMode.argumentHint,
@@ -384,6 +385,7 @@ export interface IChatModeData {
 	readonly id: string;
 	readonly name: string;
 	readonly description?: string;
+	readonly prompt?: string;
 	readonly kind: ChatModeKind;
 	readonly customTools?: readonly string[];
 	readonly model?: readonly string[] | string;
@@ -406,6 +408,7 @@ export interface IChatMode {
 	readonly label: IObservable<string>;
 	readonly icon: IObservable<ThemeIcon | undefined>;
 	readonly description: IObservable<string | undefined>;
+	readonly prompt?: IObservable<string | undefined>;
 	readonly isBuiltin: boolean;
 	readonly kind: ChatModeKind;
 	readonly customTools?: IObservable<readonly string[] | undefined>;
@@ -472,6 +475,7 @@ function isCachedChatModeData(data: unknown): data is IChatModeData {
 		typeof mode.name === 'string' &&
 		typeof mode.kind === 'string' &&
 		(mode.description === undefined || typeof mode.description === 'string') &&
+		(mode.prompt === undefined || typeof mode.prompt === 'string') &&
 		(mode.customTools === undefined || Array.isArray(mode.customTools)) &&
 		(mode.modeInstructions === undefined || (typeof mode.modeInstructions === 'object' && mode.modeInstructions !== null)) &&
 		(mode.model === undefined || typeof mode.model === 'string' || Array.isArray(mode.model)) &&
@@ -510,6 +514,7 @@ function agentToCustomizationItem(agent: ICustomAgent): IAgentCustomizationItem 
 export class CustomChatMode implements IChatMode {
 	private readonly _nameObservable: ISettableObservable<string>;
 	private readonly _descriptionObservable: ISettableObservable<string | undefined>;
+	private readonly _promptObservable: ISettableObservable<string | undefined>;
 	private readonly _customToolsObservable: ISettableObservable<readonly string[] | undefined>;
 	private readonly _modeInstructions: ISettableObservable<IChatModeInstructions | undefined>;
 	private readonly _uriObservable: ISettableObservable<URI>;
@@ -603,6 +608,7 @@ export class CustomChatMode implements IChatMode {
 		this.contentHash = customChatMode.contentHash;
 		this._nameObservable = observableValue('name', customChatMode.name);
 		this._descriptionObservable = observableValue('description', customChatMode.description);
+		this._promptObservable = observableValue('prompt', (customChatMode as any).prompt);
 		this._customToolsObservable = observableValue('customTools', customChatMode.tools);
 		this._modelObservable = observableValue('model', customChatMode.model);
 		this._argumentHintObservable = observableValue('argumentHint', customChatMode.argumentHint);
@@ -659,6 +665,7 @@ export class CustomChatMode implements IChatMode {
 			id: this.id,
 			name: this.name.get(),
 			description: this.description.get(),
+			prompt: this.prompt?.get(),
 			kind: this.kind,
 			customTools: this.customTools.get(),
 			model: this.model.get(),

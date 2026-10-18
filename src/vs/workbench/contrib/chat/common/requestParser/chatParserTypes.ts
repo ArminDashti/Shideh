@@ -38,6 +38,7 @@ export interface IParsedChatRequestPart {
 	readonly range: IOffsetRange;
 	readonly editorRange: IRange;
 	readonly text: string;
+	readonly description?: string;
 	/** How this part is represented in the prompt going to the agent */
 	readonly promptText: string;
 }
@@ -168,6 +169,10 @@ export class ChatRequestSlashCommandPart implements IParsedChatRequestPart {
 	readonly kind = ChatRequestSlashCommandPart.Kind;
 	constructor(readonly range: OffsetRange, readonly editorRange: IRange, readonly slashCommand: IChatSlashData) { }
 
+	get description(): string | undefined {
+		return (this.slashCommand as any).description || this.slashCommand.detail;
+	}
+
 	get text(): string {
 		return `${chatSubcommandLeader}${this.slashCommand.command}`;
 	}
@@ -195,6 +200,10 @@ export class ChatRequestSlashPromptPart implements IParsedChatRequestPart {
 
 	get text(): string {
 		return this.displayText ?? `${chatSubcommandLeader}${this.name}`;
+	}
+
+	get description(): string | undefined {
+		return (this.slashPromptCommand as any).description || this.slashPromptCommand.detail;
 	}
 
 	get promptText(): string {
