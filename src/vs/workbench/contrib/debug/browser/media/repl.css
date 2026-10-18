@@ -19,6 +19,8 @@
 
 .monaco-workbench .repl .repl-tree .monaco-tl-contents {
 	white-space: pre;
+	cursor: text;
+	margin-left: 6px;
 }
 
 .monaco-workbench .repl .repl-tree .monaco-tl-contents .expression {
