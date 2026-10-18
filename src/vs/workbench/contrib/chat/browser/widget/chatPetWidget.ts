@@ -1313,6 +1313,7 @@ export class ChatPetWidget extends Disposable {
 	private readonly _facingController = new ChatPetFacingController();
 	private readonly _directionChangeController = new ChatPetDirectionChangeController();
 	private readonly _gazeScheduler: dom.AnimationFrameScheduler;
+	private readonly _dragBoundsReflowScheduler: dom.AnimationFrameScheduler;
 	private readonly _dragMonitor = this._register(new GlobalPointerMoveMonitor());
 	private readonly _idleExpired = observableValue(this, false);
 	private readonly _confirmationAttentionExpired = observableValue(this, false);
