@@ -810,6 +810,27 @@ export class AgentHostSessionConfigPicker extends Disposable {
 		return sandbox !== undefined && sandbox !== 'workspace-write';
 	}
 
+	private _isPickable(schema: SessionConfigPropertySchema): boolean {
+		if (schema.type === 'boolean') {
+			return true;
+		}
+		if (schema.type === 'array') {
+			return !!schema.enumDynamic && schema.items?.type === 'string';
+		}
+		if (schema.type !== 'string') {
+			return false;
+		}
+		return !!schema.enumDynamic || (Array.isArray(schema.enum) && schema.enum.length > 0);
+	}
+
+	private _isHiddenByDependency(values: Record<string, unknown>, property: string): boolean {
+		if (property !== 'codex.additionalDirectories' && property !== 'codex.networkAccessEnabled') {
+			return false;
+		}
+		const sandbox = values['codex.sandboxMode'];
+		return sandbox !== undefined && sandbox !== 'workspace-write';
+	}
+
 	/**
 	 * Decide whether a property's chip should be rendered for the current
 	 * session. The base implementation hides non-mutable properties in
