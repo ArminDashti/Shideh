@@ -59,7 +59,7 @@ import { NotebookEditor } from '../../notebook/browser/notebookEditor.js';
 import { ExcludePatternInputWidget, IncludePatternInputWidget } from './patternInputWidget.js';
 import { IFindInFilesArgs } from './searchActionsBase.js';
 import { searchDetailsIcon } from './searchIcons.js';
-import { renderSearchMessage } from './searchMessage.js';
+import { renderLinkMessage, renderSearchMessage } from './searchMessage.js';
 import { FileMatchRenderer, FolderMatchRenderer, MatchRenderer, SearchAccessibilityProvider, SearchDelegate, TextSearchResultRenderer } from './searchResultsView.js';
 import { SearchWidget } from './searchWidget.js';
 import * as Constants from '../common/constants.js';
@@ -2052,23 +2052,23 @@ export class SearchView extends ViewPane {
 				message = SEARCH_CANCELLED_MESSAGE;
 			} else if (this.inputPatternIncludes.onlySearchInOpenEditors()) {
 				if (hasIncludes && hasExcludes) {
-					message = nls.localize('noOpenEditorResultsIncludesExcludes', "No results found in open editors matching '{0}' excluding '{1}' - ", includePatternText, excludePatternText);
+					message = nls.localize('noOpenEditorResultsIncludesExcludes', "No results found in open editors matching '{0}' excluding '{1}'.", includePatternText, excludePatternText);
 				} else if (hasIncludes) {
-					message = nls.localize('noOpenEditorResultsIncludes', "No results found in open editors matching '{0}' - ", includePatternText);
+					message = nls.localize('noOpenEditorResultsIncludes', "No results found in open editors matching '{0}'.", includePatternText);
 				} else if (hasExcludes) {
-					message = nls.localize('noOpenEditorResultsExcludes', "No results found in open editors excluding '{0}' - ", excludePatternText);
+					message = nls.localize('noOpenEditorResultsExcludes', "No results found in open editors excluding '{0}'.", excludePatternText);
 				} else {
-					message = nls.localize('noOpenEditorResultsFound', "No results found in open editors. Review your configured exclusions and check your gitignore files - ");
+					message = nls.localize('noOpenEditorResultsFound', "No results found in open editors. Review your configured exclusions and check your gitignore files.");
 				}
 			} else {
 				if (hasIncludes && hasExcludes) {
-					message = nls.localize('noResultsIncludesExcludes', "No results found in '{0}' excluding '{1}' - ", includePatternText, excludePatternText);
+					message = nls.localize('noResultsIncludesExcludes', "No results found in '{0}' excluding '{1}'.", includePatternText, excludePatternText);
 				} else if (hasIncludes) {
-					message = nls.localize('noResultsIncludes', "No results found in '{0}' - ", includePatternText);
+					message = nls.localize('noResultsIncludes', "No results found in '{0}'.", includePatternText);
 				} else if (hasExcludes) {
-					message = nls.localize('noResultsExcludes', "No results found excluding '{0}' - ", excludePatternText);
+					message = nls.localize('noResultsExcludes', "No results found excluding '{0}'.", excludePatternText);
 				} else {
-					message = nls.localize('noResultsFound', "No results found. Review your configured exclusions and check your gitignore files - ");
+					message = nls.localize('noResultsFound', "No results found. Review your configured exclusions and check your gitignore files.");
 				}
 			}
 
@@ -2077,6 +2077,41 @@ export class SearchView extends ViewPane {
 
 			const messageEl = this.clearMessage();
 			dom.append(messageEl, message);
+			const searchLinkMessage = renderLinkMessage(
+				nls.localize('search.searchWithAIMessage', "Search with AI"),
+				Codicon.searchSparkle,
+				this.instantiationService,
+				this.messageDisposables,
+				() => {
+					console.log('AI search');
+				}
+			);
+			const openSettingsLinkMessage = renderLinkMessage(
+				nls.localize('search.openSettingsMessage', "Open Settings"),
+				Codicon.gear,
+				this.instantiationService,
+				this.messageDisposables,
+				() => this.onOpenSettings(),
+			);
+			const learMoreLinkMessage = renderLinkMessage(
+				nls.localize('search.learnMoreMessage', "Learn More"),
+				Codicon.info,
+				this.instantiationService,
+				this.messageDisposables,
+				() => this.onLearnMore()
+			);
+			const searchAgainMessage = renderLinkMessage(
+				nls.localize('rerunSearch.message', "Search again"),
+				Codicon.search,
+				this.instantiationService,
+				this.messageDisposables,
+				() => this.triggerQueryChange({ preserveFocus: false }));
+			const searchAgainAllFilesMessage = renderLinkMessage(
+				nls.localize('rerunSearchInAll.message', "Search again in all files"),
+				Codicon.search,
+				this.instantiationService,
+				this.messageDisposables,
+				() => this.onSearchAgain());
 
 			if (this.shouldShowAIResults()) {
 				this.appendSearchWithAIButton(messageEl);
@@ -2084,16 +2119,11 @@ export class SearchView extends ViewPane {
 			}
 
 			if (!completed) {
-				const searchAgainButton = this.messageDisposables.add(new SearchLinkButton(
-					nls.localize('rerunSearch.message', "Search again"),
-					() => this.triggerQueryChange({ preserveFocus: false }), this.hoverService));
-				dom.append(messageEl, searchAgainButton.element);
+				dom.append(messageEl, searchAgainMessage);
 			} else if (hasIncludes || hasExcludes) {
-				const searchAgainButton = this.messageDisposables.add(new SearchLinkButton(nls.localize('rerunSearchInAll.message', "Search again in all files"), this.onSearchAgain.bind(this), this.hoverService));
-				dom.append(messageEl, searchAgainButton.element);
+				dom.append(messageEl, searchAgainAllFilesMessage);
 			} else {
-				const openSettingsButton = this.messageDisposables.add(new SearchLinkButton(nls.localize('openSettings.message', "Open Settings"), this.onOpenSettings.bind(this), this.hoverService));
-				dom.append(messageEl, openSettingsButton.element);
+				dom.append(messageEl, openSettingsLinkMessage);
 			}
 
 			if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY) {
@@ -2254,8 +2284,7 @@ export class SearchView extends ViewPane {
 		});
 	}
 
-	private onOpenSettings(e: dom.EventLike): void {
-		dom.EventHelper.stop(e, false);
+	private onOpenSettings(): void {
 		this.openSettings('@id:files.exclude,search.exclude,search.useParentIgnoreFiles,search.useGlobalIgnoreFiles,search.useIgnoreFiles');
 	}
 
