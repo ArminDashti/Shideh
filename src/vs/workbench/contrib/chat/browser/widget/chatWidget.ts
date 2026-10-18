@@ -3315,7 +3315,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return;
 		}
 
-		// Clear all state related to locking
+		// Clear all state related to locking unconditionally so the widget cannot
+		// remain stuck in a locked state if this is called before the input part renders.
 		this._lockedAgent = undefined;
 		this._lockedToCodingAgentContextKey.set(false);
 		this._lockedCodingAgentIdContextKey.set('');
