@@ -17,6 +17,7 @@ import { IGroupModelChangeEvent } from '../../../common/editor/editorGroupModel.
 import { IRectangle } from '../../../../platform/window/common/window.js';
 import { IMenuChangeEvent, MenuId } from '../../../../platform/actions/common/actions.js';
 import { DeepPartial } from '../../../../base/common/types.js';
+import { IAuxiliaryWindow } from '../../auxiliaryWindow/browser/auxiliaryWindowService.js';
 
 export const IEditorGroupsService = createDecorator<IEditorGroupsService>('editorGroupsService');
 

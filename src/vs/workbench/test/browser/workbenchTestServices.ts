@@ -1718,7 +1718,7 @@ export class TestEditorPart extends MainEditorPart implements IEditorGroupsServi
 		return Disposable.None;
 	}
 
-	createAuxiliaryEditorPart(): Promise<IAuxiliaryEditorPart> {
+	createAuxiliaryEditorPart(): Promise<{ part: IAuxiliaryEditorPart; auxiliaryWindow: IAuxiliaryWindow }> {
 		throw new Error('Method not implemented.');
 	}
 

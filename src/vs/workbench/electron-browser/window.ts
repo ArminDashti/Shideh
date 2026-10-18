@@ -451,6 +451,7 @@ export class NativeWindow extends BaseWindow {
 	}
 
 	private handleRepresentedFilename(part: IEditorPart): void {
+		console.log('handleRepresentedFilename');
 		const disposables = new DisposableStore();
 		Event.once(part.onWillDispose)(() => disposables.dispose());
 
