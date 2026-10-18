@@ -475,6 +475,7 @@ import './contrib/aiCustomizationTreeView/browser/aiCustomizationTreeView.contri
 import './contrib/automations/browser/automations.contribution.js';
 import './contrib/chat/browser/chat.contribution.js';
 import './contrib/chat/browser/btwSlashCommand.contribution.js';
+import './contrib/chat/browser/petPlaySlashCommand.contribution.js';
 import './contrib/chat/browser/requestOriginProvider.contribution.js';
 import './contrib/chat/browser/sideChatProvider.contribution.js';
 import './contrib/sessionComparison/browser/sessionComparison.contribution.js';

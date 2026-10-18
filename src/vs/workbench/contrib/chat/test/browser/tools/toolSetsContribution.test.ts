@@ -11,9 +11,12 @@ import { GenerateImageToolReferenceName } from '../../../../../../platform/agent
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyService } from '../../../../../../platform/contextkey/browser/contextKeyService.js';
 import { workbenchInstantiationService } from '../../../../../test/browser/workbenchTestServices.js';
+import { ChatPetContextKeys } from '../../../browser/chatPetService.js';
+import { ChatPetToolsContribution } from '../../../browser/tools/chatPetTools.js';
 import { ClientToolSetsContribution } from '../../../browser/tools/clientToolSetsContribution.js';
 import { LanguageModelToolsService } from '../../../browser/tools/languageModelToolsService.js';
 import { createToolSetFileContents, deleteToolSetFromFileContents, getEnabledSelectionReferences } from '../../../browser/tools/toolSetsContribution.js';
+import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { IAICustomizationWorkspaceService } from '../../../common/aiCustomizationWorkspaceService.js';
 import { IToolData, ToolDataSource, ToolAndToolSetEnablementMap } from '../../../common/tools/languageModelToolsService.js';
 
