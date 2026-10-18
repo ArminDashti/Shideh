@@ -5733,7 +5733,13 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				if (responsePart.kind === ResponsePartKind.ToolCall) {
 					parentToolCalls.set(responsePart.toolCall.toolCallId, responsePart.toolCall);
 				}
+				return innerParts;
+			} finally {
+				this._releaseSessionSubscription(childSessionUri);
 			}
+		} catch (err) {
+			this._logService.warn(`[AgentHost] Failed to enrich history with subagent calls: ${childSessionUri}`, err);
+			return [];
 		}
 		const subagentChats = new Map(sessionState.chats.flatMap(chat =>
 			chat.origin?.kind === ChatOriginKind.Tool && chat.origin.chat === parentChatUri ? [[chat.origin.toolCallId, chat] as const] : []

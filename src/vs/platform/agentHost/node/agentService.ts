@@ -9203,6 +9203,7 @@ export class AgentService extends Disposable implements IAgentService {
 		if (adoptionListVisible?.isRead !== undefined) {
 			isRead = adoptionListVisible.isRead;
 		}
+		const metadataMs = sw.elapsed();
 
 		let turns: readonly Turn[];
 		try {
@@ -9214,6 +9215,7 @@ export class AgentService extends Disposable implements IAgentService {
 			const message = err instanceof Error ? err.message : String(err);
 			throw new ProtocolError(JSON_RPC_INTERNAL_ERROR, `Failed to restore session ${sessionStr}: ${message}`);
 		}
+		const messagesMs = sw.elapsed() - metadataMs;
 
 		let turns: readonly Turn[];
 		try {
@@ -9396,8 +9398,9 @@ export class AgentService extends Disposable implements IAgentService {
 		if (restoredCustomizations && restoredCustomizations.length > 0) {
 			this._stateManager.setSessionCustomizations(sessionStr, restoredCustomizations);
 		}
+		const configMs = sw.elapsed() - configStart;
 
-		this._logService.info(`[AgentService] Restored session ${sessionStr} with ${turns.length} turns`);
+		this._logService.info(`[AgentService] Restored session ${sessionStr} with ${turns.length} turns in ${Math.round(sw.elapsed())}ms (metadata ${Math.round(metadataMs)}ms, messages ${Math.round(messagesMs)}ms, resolveConfig ${Math.round(configMs)}ms)`);
 
 		void this._gitStateService.attachSessionGitHubPullRequest(sessionStr, meta.workingDirectories?.[0]);
 		void this._gitStateService.reconcilePendingRecordedPullRequests?.(sessionStr, true).catch(error =>
@@ -10933,6 +10936,7 @@ export class AgentService extends Disposable implements IAgentService {
 		let childTurns: readonly Turn[] = [];
 		const agent = this._providerService.getProviderForSession(parentSession);
 		if (agent) {
+			const sw = StopWatch.create();
 			try {
 				const parsedSubagent = parseSubagentSessionUri(URI.parse(subagentUri));
 				const origin = parentState.chats.find(chat => chat.resource === subagentUri)?.origin
@@ -10945,6 +10949,7 @@ export class AgentService extends Disposable implements IAgentService {
 			} catch (err) {
 				this._logService.warn(`[AgentService] Failed to load subagent turns for ${subagentUri}`, err);
 			}
+			this._logService.info(`[AgentService] Loaded subagent turns for ${subagentUri} in ${Math.round(sw.elapsed())}ms`);
 		}
 
 		// Use metadata from subagent content if available, otherwise synthesize
