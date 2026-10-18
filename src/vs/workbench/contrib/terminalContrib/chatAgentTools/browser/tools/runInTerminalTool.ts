@@ -95,6 +95,18 @@ import { IChatSessionsService } from '../../../../chat/common/chatSessionsServic
 const TOOL_REFERENCE_NAME = 'runInTerminal';
 const LEGACY_TOOL_REFERENCE_FULL_NAMES = ['runCommands/runInTerminal'];
 const INPUT_NEEDED_NOTIFICATION_THROTTLE_MS = 5000;
+/**
+ * Time to wait for additional completions before flushing a batched
+ * steering notification. When multiple async terminals finish around
+ * the same time, this window lets them coalesce into a single message.
+ */
+const COMPLETION_BATCH_DELAY_MS = 500;
+/**
+ * Maximum time to wait before force-flushing a batch, even if new
+ * completions keep arriving. Prevents indefinite deferral when
+ * terminals trickle in faster than the debounce window.
+ */
+const COMPLETION_BATCH_MAX_DELAY_MS = 2000;
 
 export interface ISandboxingOnNetworkRestrictedOptions {
 	sandboxMode: 'on-network-restricted';
@@ -1057,8 +1069,23 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		this._register(this._chatService.onDidDisposeSession(e => {
 			for (const resource of e.sessionResource) {
 				this._cleanupSessionTerminals(resource);
+				// Cancel any pending batched notifications for this session
+				const key = resource.toString();
+				const batch = this._completionBatches.get(key);
+				if (batch) {
+					batch.scheduler.dispose();
+					this._completionBatches.delete(key);
+				}
 			}
 			this._largeOutputFileWriter.cleanup();
+		}));
+
+		// Dispose all pending batch schedulers when the tool is disposed
+		this._register(toDisposable(() => {
+			for (const batch of this._completionBatches.values()) {
+				batch.scheduler.dispose();
+			}
+			this._completionBatches.clear();
 		}));
 
 	}
@@ -3681,6 +3708,98 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		}));
 
 		this._backgroundNotifications.set(notificationKey, store);
+	}
+
+	/**
+	 * Enqueues a completion notification for batching. If multiple terminals
+	 * in the same session complete within {@link COMPLETION_BATCH_DELAY_MS},
+	 * they are flushed as a single combined steering message.
+	 */
+	private _enqueueCompletionNotification(
+		chatSessionResource: URI,
+		termId: string,
+		commandName: string,
+		exitCode: number | undefined,
+		output: string,
+		sendOptions: { userSelectedModelId?: string; modeInfo?: IChatRequestModeInfo; userSelectedTools?: IObservable<UserSelectedTools> },
+	): void {
+		const key = chatSessionResource.toString();
+		let batch = this._completionBatches.get(key);
+		if (!batch) {
+			batch = {
+				scheduler: new RunOnceScheduler(() => this._flushCompletionBatch(key), COMPLETION_BATCH_DELAY_MS),
+				items: [],
+				sendOptions,
+				chatSessionResource,
+				firstEnqueueTime: Date.now(),
+			};
+			this._completionBatches.set(key, batch);
+		}
+		// Always use the most recent sendOptions so the steering message
+		// inherits the latest model/mode/tools from the conversation.
+		batch.sendOptions = sendOptions;
+		batch.items.push({ termId, commandName, exitCode, output });
+
+		// Force-flush if the batch has been accumulating longer than the
+		// max window to prevent indefinite deferral when terminals trickle
+		// in faster than the debounce interval.
+		const elapsed = Date.now() - batch.firstEnqueueTime;
+		if (elapsed >= COMPLETION_BATCH_MAX_DELAY_MS) {
+			batch.scheduler.cancel();
+			this._flushCompletionBatch(key);
+		} else {
+			batch.scheduler.schedule();
+		}
+	}
+
+	/**
+	 * Flushes all queued completion notifications for a session into a
+	 * single steering message.
+	 */
+	private _flushCompletionBatch(key: string): void {
+		const batch = this._completionBatches.get(key);
+		if (!batch || batch.items.length === 0) {
+			return;
+		}
+		this._completionBatches.delete(key);
+
+		const { items, sendOptions, chatSessionResource } = batch;
+
+		let message: string;
+		let systemInitiatedLabel: string;
+
+		if (items.length === 1) {
+			const item = items[0];
+			const exitCodeText = item.exitCode !== undefined ? ` with exit code ${item.exitCode}` : '';
+			message = `[Terminal ${item.termId} notification: command completed${exitCodeText}. Use send_to_terminal to send another command or kill_terminal to stop it.]\nTerminal output:\n${item.output}`;
+			systemInitiatedLabel = localize('terminalCommandCompleted', "`{0}` completed", item.commandName);
+		} else {
+			// This branch is only reached when items.length >= 2 (the length === 1
+			// case is handled above), so the plural "commands" is always correct.
+			const summary = items.map(item => {
+				const exitCodeText = item.exitCode !== undefined ? ` (exit code ${item.exitCode})` : '';
+				return `- Terminal ${item.termId} (\`${item.commandName}\`)${exitCodeText}`;
+			}).join('\n');
+			const outputs = items.map(item =>
+				`Terminal ${item.termId} output:\n${item.output}`
+			).join('\n\n');
+			message = `[Terminal notification: ${items.length} commands completed. Use send_to_terminal to send another command or kill_terminal to stop it.]\n${summary}\n\n${outputs}`;
+			systemInitiatedLabel = localize('terminalCommandsCompleted', "{0} terminal commands completed", items.length);
+		}
+
+		this._logService.debug(`RunInTerminalTool: Flushing ${items.length} completion notification(s) for session`);
+
+		this._chatService.sendRequest(chatSessionResource, message, {
+			...sendOptions,
+			queue: ChatRequestQueueKind.Steering,
+			isSystemInitiated: true,
+			systemInitiatedLabel,
+			terminalExecutionId: items.length === 1 ? items[0].termId : undefined,
+		}).catch(e => {
+			this._logService.warn(`RunInTerminalTool: Failed to send batched completion notification`, e);
+		});
+
+		batch.scheduler.dispose();
 	}
 
 	/**
