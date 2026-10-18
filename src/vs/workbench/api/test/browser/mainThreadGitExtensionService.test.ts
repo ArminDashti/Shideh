@@ -7,7 +7,7 @@ import assert from 'assert';
 import { URI } from '../../../../base/common/uri.js';
 import { mock } from '../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import type { IGitService } from '../../../contrib/git/common/gitService.js';
+import { GitRefType, type IGitService } from '../../../contrib/git/common/gitService.js';
 import { MainThreadGitExtensionService } from '../../browser/mainThreadGitExtensionService.js';
 import { GitRefTypeDto, type ExtHostGitExtensionShape, type GitRepositoryStateDto } from '../../common/extHost.protocol.js';
 import { SingleProxyRPCProtocol } from '../common/testRPCProtocol.js';
@@ -15,7 +15,7 @@ import { SingleProxyRPCProtocol } from '../common/testRPCProtocol.js';
 suite('MainThreadGitExtensionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('owns repository wrappers across reopen and disposal', async () => {
+	test('reuses and refreshes the repository wrapper when reopening', async () => {
 		const rootUri = URI.file('/workspace');
 		let state: GitRepositoryStateDto = {
 			HEAD: { type: GitRefTypeDto.Head, name: 'main', commit: 'abc123' },
@@ -24,13 +24,18 @@ suite('MainThreadGitExtensionService', () => {
 			indexChanges: [],
 			workingTreeChanges: [],
 			untrackedChanges: [],
-		};
+		});
+		let openRepositoryCalls = 0;
 		const proxy = new class extends mock<ExtHostGitExtensionShape>() {
 			override async $isGitExtensionAvailable(): Promise<boolean> {
 				return false;
 			}
 
 			override async $openRepository() {
+				openRepositoryCalls++;
+				const state = openRepositoryCalls === 1
+					? createState('main', 'abc123')
+					: createState('feature', 'def456');
 				return { handle: 1, rootUri, state };
 			}
 		};
@@ -47,13 +52,21 @@ suite('MainThreadGitExtensionService', () => {
 			createdNewWrapper: firstRepository !== secondRepository,
 			updatedExistingState: firstRepository?.state.get().HEAD?.name,
 			trackedRepositories: Array.from(service.repositories).length,
+			head: firstRepository?.state.get().HEAD,
 		}, {
 			createdNewWrapper: false,
 			updatedExistingState: 'updated-branch',
 			trackedRepositories: 1,
+			head: {
+				type: GitRefType.Head,
+				name: 'feature',
+				commit: 'def456',
+				remote: undefined,
+				upstream: undefined,
+				ahead: undefined,
+				behind: undefined,
+			},
 		});
-
-		service.dispose();
 	});
 
 	test('warm repository reopen work counts remain bounded', async () => {

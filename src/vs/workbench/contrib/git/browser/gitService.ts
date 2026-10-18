@@ -99,8 +99,6 @@ export class GitRepository extends Disposable implements IGitRepository {
 		initialState: GitRepositoryState,
 		private readonly delegate: IGitExtensionDelegate
 	) {
-		super();
-
 		this.rootUri = rootUri;
 		this.state = observableValueOpts({ owner: this, equalsFn: gitRepositoryStateEquals }, initialState);
 	}
