@@ -450,6 +450,7 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IMenuService private readonly menuService: IMenuService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
+		@ICommandService private readonly commandService: ICommandService,
 	) {
 		super(location,
 			{
@@ -479,6 +480,14 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 				}
 			}
 		}));
+	}
+
+	protected override async openPaneComposite(id?: string, focus?: boolean): Promise<IPaneComposite | undefined> {
+		if (id === 'workbench.panel.chatShortcut') {
+			await this.commandService.executeCommand('workbench.action.chat.toggle');
+			return undefined;
+		}
+		return super.openPaneComposite(id, focus);
 	}
 
 	private fillContextMenuActions(actions: IAction[], e?: MouseEvent | GestureEvent) {

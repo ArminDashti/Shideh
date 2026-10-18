@@ -38,7 +38,7 @@ import { IChatAgentData, IChatAgentService } from '../common/participants/chatAg
 import { ChatContextKeys } from '../common/actions/chatContextKeys.js';
 import { IRawChatParticipantContribution } from '../common/participants/chatParticipantContribTypes.js';
 import { ChatAgentLocation, ChatModeKind } from '../common/constants.js';
-import { ChatViewId, ChatViewContainerId } from './chat.js';
+import { ChatViewId, ChatViewContainerId, ChatShortcutViewContainerId } from './chat.js';
 import { ChatViewPane } from './widgetHosts/viewPane/chatViewPane.js';
 import { ChatPolicyBlockedView } from './viewsWelcome/chatPolicyBlockedView.js';
 import { MANAGED_PLUGINS_VIEW_ID, ManagedPluginsUnavailableContext } from '../common/plugins/managedPluginAvailability.js';
