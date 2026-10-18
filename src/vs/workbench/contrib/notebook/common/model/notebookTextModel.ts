@@ -69,7 +69,6 @@ class StackOperation implements IWorkspaceUndoRedoElement {
 	get isEmpty(): boolean {
 		return this._operations.length === 0;
 	}
-
 	pushEndState(alternativeVersionId: string, selectionState: ISelectionState | undefined) {
 		// https://github.com/microsoft/vscode/issues/207523
 		this._resultAlternativeVersionId = alternativeVersionId;
