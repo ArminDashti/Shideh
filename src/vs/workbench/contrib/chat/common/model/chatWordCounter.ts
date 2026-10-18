@@ -42,6 +42,9 @@ const linkPattern =
 	/**/r`\s*(?:"[^"]*"|'[^']*'|\([^\(\)]*\))?\s*` +
 	r`\)`;
 
+const backtick = '`';
+const wordRegExp = new RegExp('(?:' + linkPattern + ')|(?:' + markedKatexExtension.mathInlineRegExp.source + r`)|\p{sc=Han}|=+|\++|-+|[^\s\|\p{sc=Han}|=|\+|\-|${backtick}]+`, 'gu');
+
 export function getNWords(str: string, numWordsToCount: number): IWordCountResult {
 	// This regex matches each word and skips over whitespace and separators. A word is:
 	// A markdown link
