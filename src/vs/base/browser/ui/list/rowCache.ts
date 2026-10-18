@@ -43,6 +43,7 @@ export class RowCache<T> implements IDisposable {
 			isStale = this.transactionNodesPendingRemoval.delete(result.domNode);
 		} else {
 			const domNode = $('.monaco-list-row');
+			domNode.style.top = '0px';
 			const renderer = this.getRenderer(templateId);
 			const templateData = renderer.renderTemplate(domNode);
 			result = { domNode, templateId, templateData };

@@ -32,6 +32,7 @@ interface IItem<T> {
 	readonly templateId: string;
 	row: IRow | null;
 	size: number;
+	initTop: number | null;
 	width: number | undefined;
 	hasDynamicHeight: boolean;
 	lastDynamicHeightWidth: number | undefined;
@@ -432,6 +433,7 @@ export class ListView<T> implements IListView<T> {
 
 		this.rowsContainer = document.createElement('div');
 		this.rowsContainer.className = 'monaco-list-rows';
+		this.rowsContainer.style.top = '0px';
 
 		this._useNativeOverflowScroll = options.useNativeOverflowScroll ?? false;
 		this.domNode.classList.toggle('native-overflow-scroll', this._useNativeOverflowScroll);
@@ -756,6 +758,7 @@ export class ListView<T> implements IListView<T> {
 			hasDynamicHeight: !!this.virtualDelegate.hasDynamicHeight && this.virtualDelegate.hasDynamicHeight(element),
 			lastDynamicHeightWidth: undefined,
 			row: null,
+			initTop: null,
 			uri: undefined,
 			dropTarget: false,
 			dragStartDisposable: Disposable.None,
@@ -1180,7 +1183,15 @@ export class ListView<T> implements IListView<T> {
 	}
 
 	private updateItemInDOM(item: IItem<T>, index: number): void {
-		item.row!.domNode.style.top = `${this.elementTop(index)}px`;
+		// if (item.initTop === null) {
+		// 	const initTop = this.elementTop(index);
+		// 	item.initTop = initTop;
+		// 	item.row!.domNode.style.top = `${initTop}px`;
+		// } else {
+		// const initTop = item.initTop;
+		const newTop = this.elementTop(index);
+		item.row!.domNode.style.transform = `translateY(${newTop}px)`;
+		// }
 
 		if (this.setRowHeight) {
 			item.row!.domNode.style.height = `${item.size}px`;
@@ -1209,6 +1220,7 @@ export class ListView<T> implements IListView<T> {
 		item.dragStartDisposable.dispose();
 		item.checkedDisposable.dispose();
 
+		item.initTop = null;
 		if (item.row) {
 			const renderer = this.renderers.get(item.templateId);
 
