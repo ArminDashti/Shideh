@@ -998,9 +998,49 @@ suite('WorktreeIsolation', () => {
 		assert.deepStrictEqual({
 			worktree: worktree?.toString(),
 			metaRepositoryRoot: meta?.repositoryRoot?.toString(),
+			// The fallback is the linked checkout itself — the very value the
+			// listing repair exists to correct — so it must never be stamped.
+			// Certifying it would make the repair skip this session forever.
+			metaRepositoryRootStamp: await db.getMetadata(WORKTREE_META_REPOSITORY_ROOT_STAMP),
 		}, {
 			worktree: URI.joinPath(fallbackWorktreesRoot, getWorktreeName(branchName)).toString(),
 			metaRepositoryRoot: checkoutRoot.toString(),
+			metaRepositoryRootStamp: undefined,
+		});
+	});
+
+	test('resolveWorkingDirectory leaves the root unstamped when storing it fails', async () => {
+		// A stamp that survived a failed root write would certify whatever value
+		// was already there, and listing skips stamped sessions, so the repair
+		// could never correct it.
+		const failingDb = new class extends TestSessionDatabase {
+			override async setMetadata(key: string, value: string): Promise<void> {
+				if (key === 'copilot.worktree.repositoryRoot') {
+					throw new Error('disk full');
+				}
+				return super.setMetadata(key, value);
+			}
+		}();
+		db = failingDb;
+		const checkoutRoot = URI.joinPath(repoRoot, 'linked-checkout');
+		const gitService = createGitService();
+		gitService.getRepositoryRoot = async () => checkoutRoot;
+		gitService.getWorktreeRoots = async () => [repoRoot, checkoutRoot];
+		const isolation = createIsolation(disposables, { gitService });
+
+		await isolation.resolveWorkingDirectory({
+			sessionUri,
+			sessionId,
+			workingDirectory: checkoutRoot,
+			config: { [SessionConfigKey.Isolation]: 'worktree', [SessionConfigKey.Branch]: 'main' },
+		});
+
+		assert.deepStrictEqual({
+			metaRepositoryRoot: await failingDb.getMetadata('copilot.worktree.repositoryRoot'),
+			metaRepositoryRootStamp: await failingDb.getMetadata(WORKTREE_META_REPOSITORY_ROOT_STAMP),
+		}, {
+			metaRepositoryRoot: undefined,
+			metaRepositoryRootStamp: undefined,
 		});
 	});
 

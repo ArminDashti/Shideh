@@ -193,6 +193,14 @@ class PrimaryWorktreeRootResolver {
 		if (cached) {
 			return cached;
 		}
+		// Git's own layout answers this for ordinary checkouts, so ask the disk
+		// before paying for a process. These are plain reads, so they neither
+		// need nor deserve the sequencer that exists to collapse Git launches.
+		const fromDisk = await this._gitService.getPrimaryWorktreeRoot?.(checkoutRoot);
+		if (fromDisk) {
+			this._roots.set(key, fromDisk);
+			return fromDisk;
+		}
 		return this._sequencer.queue(async () => {
 			// Re-check: a concurrent probe of a sibling checkout may have
 			// recorded this repository's membership while this one queued.

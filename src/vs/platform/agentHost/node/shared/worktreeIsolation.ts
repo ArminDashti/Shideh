@@ -1724,6 +1724,15 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				}
 			}
 			await Promise.all(work);
+			// Stamped last, and only once the root it vouches for is stored.
+			// Issued alongside the root it would survive a failed root write and
+			// certify whatever value was there before, permanently closing the
+			// listing repair. Only a root the repository actually confirmed may
+			// be stamped at all: certifying a fallback would freeze the
+			// unresolved checkout the repair exists to correct.
+			if (metadata.repositoryRootResolved) {
+				await dbRef.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT_STAMP, WORKTREE_REPOSITORY_ROOT_STAMP);
+			}
 		} finally {
 			dbRef.dispose();
 		}
@@ -1799,6 +1808,7 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 					} catch (error) {
 						this._logService.warn(`[${this._logLabel}] Failed to normalize worktree repository metadata for '${sessionUri.toString()}': ${errorMessage(error)}`);
 					}
+					repositoryRoot = primaryRoot;
 				}
 			}
 			let symlinkPatterns: readonly string[] | undefined;

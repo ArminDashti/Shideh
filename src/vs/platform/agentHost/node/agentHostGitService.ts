@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as cp from 'child_process';
+import type { Stats } from 'fs';
 import * as fsPromises from 'fs/promises';
 import { cp as copyFile } from '@vscode/fs-copyfile';
 import * as path from '../../../base/common/path.js';
@@ -35,6 +36,16 @@ const WORKTREE_REMOVAL_RETRY_MAX_DELAY_MS = 500;
 
 /** Budget for reading one blob; a timeout here drops a diff's original side. */
 const SHOW_BLOB_TIMEOUT_MS = 15_000;
+
+/**
+ * Distinguishes a path that is genuinely absent from one the filesystem merely
+ * refused to describe (permissions, an unmounted volume, an I/O error). Only the
+ * former licenses a caller to keep searching; the latter means "unknown".
+ */
+function isFileNotFound(error: unknown): boolean {
+	const code = (error as NodeJS.ErrnoException | undefined)?.code;
+	return code === 'ENOENT' || code === 'ENOTDIR';
+}
 
 export class AgentHostGitService implements IAgentHostGitService {
 	declare readonly _serviceBrand: undefined;
