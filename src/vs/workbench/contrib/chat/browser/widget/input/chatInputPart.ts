@@ -188,6 +188,7 @@ import { WorkspacePickerInputActionItem } from './workspacePickerInputActionItem
 import { ChatContextUsageWidget } from '../../widgetHosts/viewPane/chatContextUsageWidget.js';
 import { ChatInputStatusActionViewItem } from './chatInputStatusActionViewItem.js';
 import { Target } from '../../../common/promptSyntax/promptTypes.js';
+import { PromptsStorage } from '../../../common/promptSyntax/service/promptsService.js';
 import { ConfigureToolsAction } from '../../actions/chatToolActions.js';
 import { InlineCompletionsController } from '../../../../../../editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController.js';
 import { PlaceholderTextContribution } from '../../../../../../editor/contrib/placeholderText/browser/placeholderTextContribution.js';
@@ -359,6 +360,19 @@ export interface IChatInputPartOptions {
 	 */
 	inputPartHorizontalPadding?: number;
 	onDidChangeInputOnboardingVisible?: (visible: boolean) => void;
+}
+
+export function isWorkspaceCustomChatMode(mode: IChatMode): boolean {
+	return !mode.isBuiltin && mode.source?.storage === PromptsStorage.local;
+}
+
+export function resolveChatInputCustomAgentTarget(
+	sessionResource: URI | undefined,
+	delegatedSessionType: string | undefined,
+	chatSessionsService: Pick<IChatSessionsService, 'getCustomAgentTargetForSessionType'>,
+): Target {
+	const sessionType = sessionResource ? getChatSessionType(sessionResource) : delegatedSessionType;
+	return sessionType ? chatSessionsService.getCustomAgentTargetForSessionType(sessionType) : Target.Undefined;
 }
 
 export interface IWorkingSetEntry {
@@ -1663,29 +1677,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	private _createModePickerDelegate(): IModePickerDelegate {
-		// When `hideCustomChatModes` is set (e.g. the automations dialog),
-		// strip genuinely user-defined custom agents from the picker
-		// while preserving extension-contributed modes (Plan / new-Ask /
-		// new-Edit) that the picker categorises as built-in via
-		// `isModeConsideredBuiltIn`. Those live in `IChatModes.custom` but
-		// are part of the built-in product surface, not the
-		// folder-scoped agent files we want to hide. The underlying
-		// observable is untouched so mode validation, model picking and
-		// persistence continue to see the real list.
-		const productService = this.productService;
-		const currentChatModes: IObservable<IChatModes> = this.options.hideCustomChatModes
+		const currentChatModes: IObservable<IChatModes> = this.options.hideWorkspaceChatModes
 			? derived(reader => {
 				const inner = this._currentChatModesObservable.read(reader);
-				const filteredCustom = inner.custom.filter(m => isModeConsideredBuiltIn(m, productService));
-				const wrapped: IChatModes = {
+				const filteredCustom = inner.custom.filter(mode => !isWorkspaceCustomChatMode(mode));
+				return {
 					onDidChange: inner.onDidChange,
 					builtin: inner.builtin,
 					custom: filteredCustom,
-					findModeById: (id: string) => inner.builtin.find(m => m.id === id) ?? filteredCustom.find(m => m.id === id),
-					findModeByName: (name: string) => inner.builtin.find(m => m.name.read(undefined) === name) ?? filteredCustom.find(m => m.name.read(undefined) === name),
+					findModeById: (id: string) => inner.builtin.find(mode => mode.id === id) ?? filteredCustom.find(mode => mode.id === id),
+					findModeByName: (name: string) => inner.builtin.find(mode => mode.name.read(undefined) === name) ?? filteredCustom.find(mode => mode.name.read(undefined) === name),
 					waitForPendingUpdates: () => inner.waitForPendingUpdates(),
 				};
-				return wrapped;
 			})
 			: this._currentChatModesObservable;
 
@@ -1700,7 +1703,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			setMode: (mode: IChatMode) => this.setChatMode2(mode, true),
 			customAgentTarget: () => {
 				const sessionResource = this._widget?.viewModel?.model.sessionResource;
-				return (sessionResource && this.chatSessionsService.getCustomAgentTargetForSessionType(getChatSessionType(sessionResource))) ?? Target.Undefined;
+				return resolveChatInputCustomAgentTarget(
+					sessionResource,
+					this.options.sessionTypePickerDelegate?.getActiveSessionProvider?.(),
+					this.chatSessionsService,
+				);
 			},
 		};
 	}

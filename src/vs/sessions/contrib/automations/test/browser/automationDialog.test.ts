@@ -618,6 +618,40 @@ function createFormState(overrides?: Partial<IFormState>): IFormState {
 	};
 }
 
+suite('Automation chat modes', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('shows user agents but hides workspace agents', () => {
+		const userAgent = upcastPartial<IChatMode>({ isBuiltin: false, source: { storage: PromptsStorage.user } });
+		const workspaceAgent = upcastPartial<IChatMode>({ isBuiltin: false, source: { storage: PromptsStorage.local } });
+
+		assert.deepStrictEqual({
+			builtin: !isWorkspaceCustomChatMode(ChatMode.Agent),
+			user: !isWorkspaceCustomChatMode(userAgent),
+			workspace: !isWorkspaceCustomChatMode(workspaceAgent),
+		}, {
+			builtin: true,
+			user: true,
+			workspace: false,
+		});
+	});
+
+	test('uses the delegated session type to filter agents without a session resource', () => {
+		const requestedSessionTypes: string[] = [];
+		const target = resolveChatInputCustomAgentTarget(undefined, 'copilotcli', {
+			getCustomAgentTargetForSessionType: sessionType => {
+				requestedSessionTypes.push(sessionType);
+				return Target.GitHubCopilot;
+			},
+		});
+
+		assert.deepStrictEqual({ target, requestedSessionTypes }, {
+			target: Target.GitHubCopilot,
+			requestedSessionTypes: ['copilotcli'],
+		});
+	});
+});
+
 function createWorkspace(requiresWorkspaceTrust: boolean): ISessionWorkspace {
 	return {
 		uri: FOLDER,

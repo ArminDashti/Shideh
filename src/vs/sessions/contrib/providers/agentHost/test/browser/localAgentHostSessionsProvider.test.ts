@@ -3615,6 +3615,7 @@ suite('LocalAgentHostSessionsProvider', () => {
 		// committed session's `mode`. Otherwise the picker — which mirrors
 		// `session.mode` — resets to the default the moment the active session is
 		// swapped for the freshly committed one.
+		let sentModeUri: string | undefined;
 		const provider = createProvider(disposables, agentHost, undefined, {
 			openSession: true,
 			sendRequest: async resource => {
@@ -3624,12 +3625,18 @@ suite('LocalAgentHostSessionsProvider', () => {
 		});
 
 		const session = provider.createNewSession(URI.parse('file:///home/user/project'), provider.sessionTypes[0].id);
-		provider.setAgent?.(session.sessionId, { uri: 'agent://picked', name: 'picked' });
+		provider.setMode(session.sessionId, 'agent://picked');
 
 		const chat = await provider.createNewChat(session.sessionId);
 		const committed = await provider.sendRequest(session.sessionId, chat.resource, { query: 'hello' });
 
-		assert.deepStrictEqual(committed.mode.get(), { id: 'agent://picked', kind: 'agent' });
+		assert.deepStrictEqual({
+			sentModeUri,
+			committedMode: committed.mode.get(),
+		}, {
+			sentModeUri: 'agent://picked',
+			committedMode: { id: 'agent://picked', kind: 'agent' },
+		});
 	});
 
 	test('carries the picked model and configuration onto the committed session when a new session graduates', async () => {
