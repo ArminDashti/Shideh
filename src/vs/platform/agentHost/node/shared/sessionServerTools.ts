@@ -1903,7 +1903,7 @@ function getSessionToolDisplay(toolName: string, args: unknown, _result?: IServe
 export function createSessionServerToolGroup(accessor?: ISessionServerToolAccessor, areAgentOrchestrationLimitsEnabled: () => boolean = () => true): IServerToolGroup {
 	let createdSessionCount = 0;
 	let createdChatCount = 0;
-	let sentMessageCount = 0;
+	const sentMessageCountsBySourceChat = new Map<ProtocolURI, { readonly turnId: string | undefined; count: number }>();
 	const group: IServerToolGroup = {
 		get definitions() {
 			return isCreateSessionRelationshipEnabled() ? sessionServerToolDefinitions : sessionServerToolDefinitionsWithoutCreateSessionRelationship;
@@ -1993,9 +1993,6 @@ export function createSessionServerToolGroup(accessor?: ISessionServerToolAccess
 					if (enforceAgentOrchestrationLimits && sentMessageCount >= maxSentMessages) {
 						throw new Error(`Refusing to send more than ${maxSentMessages} messages from server tools in this process.`);
 					}
-					const result = await applySendMessageTool(accessor, rawArgs, currentChannel, context.turnId, stateManager);
-					sentMessageCount++;
-					return result;
 				}
 				case SessionServerToolName.GetSessionContext:
 					return applyGetSessionContextTool(accessor, rawArgs);
