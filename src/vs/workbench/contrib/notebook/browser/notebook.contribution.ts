@@ -447,6 +447,9 @@ class CellInfoContentProvider {
 		this._disposables.push(textModelService.registerTextModelContentProvider(Schemas.vscodeNotebookCellMetadata, {
 			provideTextContent: this.provideMetadataTextContent.bind(this)
 		}));
+		this._disposables.push(textModelService.registerTextModelContentProvider(Schemas.vscodeNotebookCellMetadataDiff, {
+			provideTextContent: this.provideMetadataTextContent.bind(this)
+		}));
 
 		this._disposables.push(textModelService.registerTextModelContentProvider(Schemas.vscodeNotebookCellOutput, {
 			provideTextContent: this.provideOutputTextContent.bind(this)
@@ -479,7 +482,7 @@ class CellInfoContentProvider {
 			return existing;
 		}
 
-		const data = CellUri.parseCellPropertyUri(resource, Schemas.vscodeNotebookCellMetadata);
+		const data = CellUri.parseCellPropertyUri(resource, Schemas.vscodeNotebookCellMetadata) || CellUri.parseCellPropertyUri(resource, Schemas.vscodeNotebookCellMetadataDiff);
 		if (!data) {
 			return null;
 		}
@@ -910,6 +913,7 @@ AccessibleViewRegistry.register(new NotebookAccessibilityHelp());
 
 registerSingleton(INotebookService, NotebookService, InstantiationType.Delayed);
 registerSingleton(INotebookEditorWorkerService, NotebookEditorWorkerServiceImpl, InstantiationType.Delayed);
+registerSingleton(INotebookDiffSourceResolverService, NotebookDiffSourceResolverService, InstantiationType.Delayed);
 registerSingleton(INotebookEditorModelResolverService, NotebookModelResolverServiceImpl, InstantiationType.Delayed);
 registerSingleton(INotebookCellStatusBarService, NotebookCellStatusBarService, InstantiationType.Delayed);
 registerSingleton(INotebookEditorService, NotebookEditorWidgetService, InstantiationType.Delayed);

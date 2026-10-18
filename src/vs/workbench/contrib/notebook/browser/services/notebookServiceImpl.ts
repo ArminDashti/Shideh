@@ -75,6 +75,7 @@ export class NotebookProviderInfoStore extends Disposable {
 		@IFileService private readonly _fileService: IFileService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelResolverService: INotebookEditorModelResolverService,
 		@IUriIdentityService private readonly uriIdentService: IUriIdentityService,
+		@INotebookDiffSourceResolverService private readonly notebookDiffSourceResolver: INotebookDiffSourceResolverService,
 	) {
 		super();
 

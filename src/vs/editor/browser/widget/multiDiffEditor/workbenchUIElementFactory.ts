@@ -48,4 +48,6 @@ export interface IResourceLabel extends IDisposable {
 
 export interface IResourceLabelOptions {
 	strikethrough?: boolean;
+	hideIcon?: boolean;
+	hideLabel?: boolean;
 }
