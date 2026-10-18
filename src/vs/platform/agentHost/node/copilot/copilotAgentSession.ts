@@ -4291,6 +4291,53 @@ export class CopilotAgentSession extends Disposable {
 					return;
 				}
 			}
+		} else if (slashCommand) {
+			const runtimeSlashCommand = await this._resolveRuntimeSlashCommand(slashCommand.command);
+			if (runtimeSlashCommand) {
+				let result: CopilotCommandInvocationResult;
+				try {
+					result = await this._wrapper.session.rpc.commands.invoke({
+						name: runtimeSlashCommand.name,
+						...(slashCommand.rawRest.length > 0 ? { input: slashCommand.rawRest } : {}),
+					});
+				} catch (err) {
+					this._logService.error(err, `[Copilot:${this.sessionId}] rpc.commands.invoke(${slashCommand.command}) failed`);
+					throw err;
+				}
+				switch (result.kind) {
+					case 'text':
+						this._emitMarkdownDelta(result.markdown === true ? result.text : escapeMarkdownSyntaxTokens(result.text));
+						break;
+					case 'completed':
+						if (result.message) {
+							this._emitMarkdownDelta(result.message);
+						}
+						break;
+					case 'agent-prompt': {
+						const runtimeMode = toCopilotSdkMode(result.mode);
+						if (runtimeMode) {
+							mode = runtimeMode;
+						}
+						prompt = result.prompt;
+						break;
+					}
+					case 'select-subcommand':
+						this._emitMarkdownDelta(localize(
+							'copilotSlashCommand.selectSubcommandResult',
+							"The /{0} command requires selecting a subcommand. Available options: {1}",
+							result.command,
+							result.options.map(option => option.name).join(', '),
+						));
+						break;
+				}
+				if (result.runtimeSettingsChanged === true) {
+					this._invalidateRuntimeSlashCommandCache();
+				}
+				if (result.kind !== 'agent-prompt') {
+					this._completeActiveTurn();
+					return;
+				}
+			}
 		}
 
 		const sdkAttachments = await this._toSdkAttachments(attachments);

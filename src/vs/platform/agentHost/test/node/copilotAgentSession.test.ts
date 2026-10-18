@@ -5997,6 +5997,82 @@ suite('CopilotAgentSession', () => {
 		assert.deepStrictEqual(mockSession.sendRequests, []);
 	});
 
+	test('`/env` forwards trailing text as runtime command input', async () => {
+		const { session, mockSession, signals } = await createAgentSession(disposables);
+		mockSession.commandListResult = {
+			commands: [{
+				name: 'env',
+				kind: 'builtin',
+				description: 'Show loaded environment details',
+				allowDuringAgentExecution: true,
+			}],
+		};
+		mockSession.commandInvokeResult = { kind: 'completed', message: 'done' };
+
+		await session.send('/env details please', undefined, 'turn-env-input');
+
+		const actions = getActions(signals);
+		assert.deepStrictEqual({
+			commandListCalls: mockSession.commandListCalls,
+			commandInvokeCalls: mockSession.commandInvokeCalls,
+			sendRequests: mockSession.sendRequests,
+			responseParts: actions
+				.filter(a => a.type === ActionType.ChatResponsePart)
+				.map(a => {
+					const part = (a as ChatResponsePartAction).part;
+					return part.kind === ResponsePartKind.Markdown ? { kind: part.kind, content: part.content } : { kind: part.kind };
+				}),
+			turnComplete: actions
+				.filter(a => a.type === ActionType.ChatTurnComplete)
+				.map(a => (a as ChatTurnCompleteAction).turnId),
+		}, {
+			commandListCalls: [{ includeBuiltins: true, includeSkills: false, includeClientCommands: true }],
+			commandInvokeCalls: [{ name: 'env', input: 'details please' }],
+			sendRequests: [],
+			responseParts: [{ kind: ResponsePartKind.Markdown, content: 'done' }],
+			turnComplete: ['turn-env-input'],
+		});
+	});
+
+	test('invokes non-local runtime slash commands via commands API', async () => {
+		const { session, mockSession, signals } = await createAgentSession(disposables);
+		mockSession.commandListResult = {
+			commands: [{
+				name: 'focus',
+				aliases: ['f'],
+				kind: 'builtin',
+				description: 'Focus on a scope',
+				allowDuringAgentExecution: true,
+				input: { hint: 'scope' },
+			}],
+		};
+		mockSession.commandInvokeResult = { kind: 'completed', message: 'Focus done' };
+
+		await session.send('/f src/vs/platform', undefined, 'turn-focus');
+
+		const actions = getActions(signals);
+		assert.deepStrictEqual({
+			commandListCalls: mockSession.commandListCalls,
+			commandInvokeCalls: mockSession.commandInvokeCalls,
+			sendRequests: mockSession.sendRequests,
+			responseParts: actions
+				.filter(a => a.type === ActionType.ChatResponsePart)
+				.map(a => {
+					const part = (a as ChatResponsePartAction).part;
+					return part.kind === ResponsePartKind.Markdown ? { kind: part.kind, content: part.content } : { kind: part.kind };
+				}),
+			turnComplete: actions
+				.filter(a => a.type === ActionType.ChatTurnComplete)
+				.map(a => (a as ChatTurnCompleteAction).turnId),
+		}, {
+			commandListCalls: [{ includeBuiltins: true, includeSkills: false, includeClientCommands: true }],
+			commandInvokeCalls: [{ name: 'focus', input: 'src/vs/platform' }],
+			sendRequests: [],
+			responseParts: [{ kind: ResponsePartKind.Markdown, content: 'Focus done' }],
+			turnComplete: ['turn-focus'],
+		});
+	});
+
 	test('caches runtime slash command availability across checks', async () => {
 		const { session, mockSession } = await createAgentSession(disposables);
 		mockSession.commandListResult = {

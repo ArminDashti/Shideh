@@ -542,7 +542,7 @@ suite('CopilotSlashCommandCompletionProvider', () => {
 
 		test('filters to /plan when "/p" typed', async () => {
 			const items = await run('/p');
-			assert.deepStrictEqual(items.map(i => i.insertText), ['/plan ']);
+			assert.deepStrictEqual(items.map(i => i.insertText), ['/plan ', '/plan task ']);
 		});
 
 		test('filters to /compact when "/c" typed', async () => {
@@ -571,7 +571,8 @@ suite('CopilotSlashCommandCompletionProvider', () => {
 
 		test('filters to /security-review when "/s" typed', async () => {
 			const items = await run('/s');
-			assert.deepStrictEqual(items.map(i => i.insertText), ['/security-review ']);
+			assert.deepStrictEqual(items.map(i => i.insertText), ['/security-review ',
+				'/security-review scope ']);
 		});
 
 		test('returns nothing when /word does not match any command prefix', async () => {
@@ -592,7 +593,7 @@ suite('CopilotSlashCommandCompletionProvider', () => {
 
 		test('range covers only the leading slash word', async () => {
 			const items = await run('/p extra text', 2);
-			assert.strictEqual(items.length, 1);
+			assert.strictEqual(items.length, 2);
 			assert.strictEqual(items[0].rangeStart, 0);
 			assert.strictEqual(items[0].rangeEnd, 2);
 		});
@@ -646,6 +647,27 @@ suite('CopilotSlashCommandCompletionProvider', () => {
 				{
 					insertText: '/security-review ',
 					type: MessageAttachmentKind.Simple,
+					meta: {
+						command: 'review',
+						description: 'Runtime review',
+					},
+				},
+				{
+					type: 'simple',
+					meta: {
+						command: 'rubber-duck',
+						description: 'Runtime rubber-duck'
+					}
+				},
+				{
+					type: 'simple',
+					meta: {
+						command: 'rubber-duck',
+						description: 'Runtime rubber-duck'
+					}
+				},
+				{
+					type: 'simple',
 					meta: {
 						command: 'security-review',
 						description: 'Runtime security review',
