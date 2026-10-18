@@ -48,6 +48,8 @@ export class MainThreadEditorTabs implements MainThreadEditorTabsShape {
 	// Tracks resource-change listeners for currently open multi-diff tabs
 	private readonly _multiDiffEditorInputListeners: DisposableMap<string> = new DisposableMap();
 
+	private readonly _editorIdPool = new WeakMap<EditorInput, Map<number, string>>();
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
@@ -83,6 +85,20 @@ export class MainThreadEditorTabs implements MainThreadEditorTabsShape {
 		this._groupLookup.clear();
 		this._tabInfoLookup.clear();
 		this._dispoables.dispose();
+	}
+
+	private _getIdForEditorInput(group: IEditorGroup, input: EditorInput): string {
+		let groupToId = this._editorIdPool.get(input);
+		if (!groupToId) {
+			groupToId = new Map();
+			this._editorIdPool.set(input, groupToId);
+		}
+		let result = groupToId.get(group.id);
+		if (result === undefined) {
+			result = generateUuid();
+			groupToId.set(group.id, result);
+		}
+		return result;
 	}
 
 	/**
@@ -708,5 +724,20 @@ export class MainThreadEditorTabs implements MainThreadEditorTabsShape {
 		}
 		return groupCloseResults.every(result => result);
 	}
+
+
+	async $closeTab2(id: string, preserveFocus: boolean): Promise<void> {
+		const { group, input } = this._findEditorInputById(id);
+		group.closeEditor(input, { preserveFocus });
+	}
+
+	private _findEditorInputById(id: string): { input: EditorInput; group: IEditorGroup } {
+		const result = this._editorInput.get(id);
+		if (!result) {
+			throw Error(`Unknown editor ${id}`);
+		}
+		return result;
+	}
+
 	//#endregion
 }

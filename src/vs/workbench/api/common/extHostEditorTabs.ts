@@ -19,6 +19,37 @@ export interface IExtHostEditorTabs extends IExtHostEditorTabsShape {
 	tabGroups: vscode.TabGroups;
 }
 
+class ExtHostTab {
+
+	private _apiObject: vscode.Tab | undefined;
+
+	private _dto: IEditorTabDto;
+
+
+	constructor(dto: IEditorTabDto) {
+		this._dto = dto;
+	}
+
+	get apiObject(): vscode.Tab {
+		const that = this;
+		if (!this._apiObject) {
+			this._apiObject = {
+				get isActive() {
+					return that._dto.isActive;
+				},
+				get label() {
+					return that._dto.label;
+				}
+			};
+		}
+		return this._apiObject;
+	}
+
+	acceptUpdate(dto: IEditorTabDto) {
+		this._dto = dto;
+	}
+}
+
 export const IExtHostEditorTabs = createDecorator<IExtHostEditorTabs>('IExtHostEditorTabs');
 
 type AnyTabInput = TextTabInput | TextDiffTabInput | TextMultiDiffTabInput | CustomEditorTabInput | NotebookEditorTabInput | NotebookDiffEditorTabInput | WebviewEditorTabInput | TerminalEditorTabInput | InteractiveWindowInput | ChatEditorTabInput;
@@ -261,6 +292,8 @@ export class ExtHostEditorTabs implements IExtHostEditorTabs {
 
 	private _apiObject: vscode.TabGroups | undefined;
 
+	private readonly _tab = new Map<string, ExtHostTab>();
+
 	constructor(@IExtHostRpcService extHostRpc: IExtHostRpcService) {
 		this._proxy = extHostRpc.getProxy(MainContext.MainThreadEditorTabs);
 	}
@@ -306,6 +339,15 @@ export class ExtHostEditorTabs implements IExtHostEditorTabs {
 			this._apiObject = Object.freeze(obj);
 		}
 		return this._apiObject;
+	}
+
+	$acceptTabUpdate(dto: IEditorTabDto): void {
+		const tab = this._tab.get(dto.id);
+		if (!tab) {
+			throw new Error('unknown tab');
+		}
+		tab.acceptUpdate(dto);
+		// this._onDidChangeTab.fire(tab.apiObject)
 	}
 
 	$acceptEditorTabModel(tabGroups: IEditorTabGroupDto[]): void {
