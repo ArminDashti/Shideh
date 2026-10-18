@@ -1080,6 +1080,7 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo
 
 		this.distributeEmptySpace();
 		this.layoutViews();
+		this.state = State.Idle;
 	}
 
 	private saveProportions(): void {
@@ -1239,6 +1240,12 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo
 	 * @param size The {@link IView view} size.
 	 */
 	resizeView(index: number, size: number): void {
+		if (this.state !== State.Idle) {
+			throw new Error('Cant modify splitview');
+		}
+
+		this.state = State.Busy;
+
 		if (index < 0 || index >= this.viewItems.length) {
 			return;
 		}
@@ -1263,6 +1270,8 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo
 		} finally {
 			this.state = State.Idle;
 		}
+
+		this.state = State.Idle;
 	}
 
 	/**
