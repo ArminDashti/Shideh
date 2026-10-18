@@ -1003,6 +1003,12 @@ export interface IAgentHostSessionHandlerConfig {
 	/** Called after a locally-created session has been accepted by the backend. */
 	readonly onSessionMaterialized?: (sessionResource: URI) => void;
 	/**
+	 * Optional callback to resolve a live connection on demand, reconnecting
+	 * if necessary. When provided, the handler calls this before creating
+	 * sessions or dispatching turn actions.
+	 */
+	readonly resolveConnection?: () => Promise<IAgentConnection>;
+	/**
 	 * Optional callback invoked when the server rejects an operation because
 	 * authentication is required. Should trigger interactive authentication
 	 * and return true if the user authenticated successfully.
@@ -1296,6 +1302,11 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	private _knownBackendSessionsProbe?: { promise: Promise<ResourceSet>; expiresAt: number };
 
 
+	/** Current live connection - swapped on reconnect. */
+	private _connection: IAgentConnection;
+	/** Disposables scoped to the current connection (re-wired on reconnect). */
+	private readonly _connectionSubscriptions = this._register(new MutableDisposable<DisposableStore>());
+
 	constructor(
 		config: IAgentHostSessionHandlerConfig,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
@@ -1449,8 +1460,28 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				}
 			}
 		}));
+	}
 
-		this._registerAgent();
+	/**
+	 * Re-subscribe to all backend sessions that were active before the
+	 * connection dropped, so the server resumes sending actions for them.
+	 */
+	private _resubscribeActiveSessions(): void {
+		const connectionAtCallTime = this._connection;
+		for (const [resourceKey, sessionUri] of this._sessionToBackend) {
+			this._connection.subscribe(sessionUri).then(snapshot => {
+				// Guard: skip if the session was closed or the connection
+				// was swapped again while the subscribe was in-flight.
+				if (this._connection !== connectionAtCallTime || !this._sessionToBackend.has(resourceKey)) {
+					return;
+				}
+				if (snapshot?.state) {
+					this._clientState.handleSnapshot(sessionUri.toString(), snapshot.state, snapshot.fromSeq);
+				}
+			}).catch(err => {
+				this._logService.error(`[AgentHost] Failed to re-subscribe to session ${sessionUri}`, err);
+			});
+		}
 	}
 
 	/**
@@ -3734,7 +3765,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				}
 			}
 
-		// Dispatch session/turnStarted — the server will call sendMessage on
+		// Dispatch session/turnStarted - the server will call sendMessage on
 		// the provider as a side effect.
 		const turnAction: ChatTurnStartedAction = {
 			type: ActionType.ChatTurnStarted,
@@ -6591,6 +6622,9 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				throw err;
 			}
 		};
+
+		// Ensure a live connection before creating the session
+		const connection = await this._ensureConnection();
 
 		let session: URI;
 		try {

@@ -53,7 +53,7 @@ class MockTransport extends Disposable {
 
 class MockProtocolClient extends Disposable {
 	private static _nextId = 1;
-	readonly clientId = `mock-client-${MockProtocolClient._nextId++}`;
+	readonly clientId: string;
 
 	private readonly _onDidClose = this._register(new Emitter<AgentHostTransportFailureReason | undefined>());
 	readonly onDidClose = this._onDidClose.event;
@@ -78,9 +78,19 @@ class MockProtocolClient extends Disposable {
 	reconnectNowResult = false;
 
 	public connectDeferred = new DeferredPromise<void>();
+	public reconnectDeferred: DeferredPromise<{ type: string }> | undefined;
 
-	constructor(public readonly mockAddress: string) {
+	/** Tracks the last serverSeq seen during connect/reconnect. */
+	private _serverSeq = 0;
+	get serverSeq(): number { return this._serverSeq; }
+
+	constructor(
+		public readonly mockAddress: string,
+		public readonly connectionToken: string | undefined,
+		clientId: string | undefined,
+	) {
 		super();
+		this.clientId = clientId ?? `mock-client-${MockProtocolClient._nextId++}`;
 	}
 
 	async connect(): Promise<void> {
@@ -544,7 +554,7 @@ suite('RemoteAgentHostService', () => {
 		// Simulate connection close — entry transitions to Disconnected
 		const closedEvent = Event.toPromise(service.onDidChangeConnections);
 		createdClients[0].fireClose();
-		await closedEvent;
+		const stateChange = await closedEvent;
 
 		// Connection is still tracked (for reconnect) but getConnection returns undefined
 		assert.strictEqual(service.getConnection('ws://host1:8080'), undefined);
@@ -2166,5 +2176,73 @@ suite('RemoteAgentHostService', () => {
 
 			assert.strictEqual(formatterFor('host1:8080'), undefined);
 		});
+	});
+
+	test('ensureConnected reconnects a disconnected entry', async () => {
+		configService.setEntries([{ address: 'ws://host1:8080', name: 'Host 1' }]);
+		createdClients[0].connectDeferred.complete();
+		await Event.toPromise(service.onDidChangeConnectionState);
+
+		const firstClientId = createdClients[0].clientId;
+
+		// Disconnect
+		const disconnectEvent = Event.toPromise(service.onDidChangeConnectionState);
+		createdClients[0].fireClose();
+		await disconnectEvent;
+		assert.strictEqual(service.connections[0].connected, false);
+
+		// Reconnect via ensureConnected - the mock's reconnect() creates its own
+		// deferred, so we need to resolve it after the method call starts.
+		const reconnectPromise = service.ensureConnected('ws://host1:8080');
+
+		// A new client should have been created with the same clientId
+		assert.strictEqual(createdClients.length, 2);
+		assert.strictEqual(createdClients[1].clientId, firstClientId);
+
+		// Complete the reconnect deferred that the mock already created
+		createdClients[1].reconnectDeferred!.complete({ type: 'replayed' });
+
+		const conn = await reconnectPromise;
+		assert.ok(conn);
+		assert.strictEqual(service.connections[0].connected, true);
+	});
+
+	test('ensureConnected returns existing connection if already connected', async () => {
+		configService.setEntries([{ address: 'ws://host1:8080', name: 'Host 1' }]);
+		createdClients[0].connectDeferred.complete();
+		await Event.toPromise(service.onDidChangeConnectionState);
+
+		const conn = await service.ensureConnected('ws://host1:8080');
+		assert.ok(conn);
+		// Should not have created a second client
+		assert.strictEqual(createdClients.length, 1);
+	});
+
+	test('ensureConnected throws for unknown address', async () => {
+		await assert.rejects(
+			() => service.ensureConnected('ws://unknown:9999'),
+			/No configured connection/,
+		);
+	});
+
+	test('removing address from settings clears disconnected entry', async () => {
+		configService.setEntries([{ address: 'ws://host1:8080', name: 'Host 1' }]);
+		createdClients[0].connectDeferred.complete();
+		await Event.toPromise(service.onDidChangeConnectionState);
+
+		// Disconnect
+		const disconnectEvent = Event.toPromise(service.onDidChangeConnectionState);
+		createdClients[0].fireClose();
+		await disconnectEvent;
+
+		// Entry still present (disconnected)
+		assert.strictEqual(service.connections.length, 1);
+
+		// Remove from settings
+		const removedEvent = Event.toPromise(service.onDidChangeConnections);
+		configService.setEntries([]);
+		await removedEvent;
+
+		assert.strictEqual(service.connections.length, 0);
 	});
 });

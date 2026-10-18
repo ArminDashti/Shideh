@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
 import type { IObservable } from '../../../base/common/observable.js';
@@ -695,6 +696,12 @@ export type RemoteAgentHostInputParseResult =
 	| { readonly parsed?: undefined; readonly error: RemoteAgentHostInputValidationError };
 
 export const IRemoteAgentHostService = createDecorator<IRemoteAgentHostService>('remoteAgentHostService');
+
+/** Payload for {@link IRemoteAgentHostService.onDidChangeConnectionState}. */
+export interface IConnectionStateChange {
+	readonly address: string;
+	readonly connected: boolean;
+}
 
 /**
  * Owns factory-built remote agent host connections, including handshake, status,
