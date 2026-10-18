@@ -480,16 +480,25 @@ suite('ChatWidget', () => {
 		const modelConfiguration = { reasoningEffort: 'xhigh' };
 		const configurationService = new TestConfigurationService();
 		await configurationService.setUserConfiguration('chat.editRequests', 'input');
+		await configurationService.setUserConfiguration(ChatConfiguration.SaveBeforeSend, false);
+		let inputValue = 'original request';
 		const input = mockObject<ChatInputPart>()({
 			element: mainWindow.document.createElement('div'),
+			currentModeKind: ChatModeKind.Agent,
+			generating: undefined,
+			hasPendingProgrammaticModelSelection: false,
 			inputEditor: upcastPartial<ChatInputPart['inputEditor']>({
-				getValue: () => 'original request', getModel: () => null, focus: () => { },
+				getValue: () => inputValue, getModel: () => null, focus: () => { },
 			}),
 			attachmentModel: upcastPartial<ChatInputPart['attachmentModel']>({ getAttachmentIDs: () => new Set() }),
 			dnd: upcastPartial<ChatInputPart['dnd']>({ setDisabledOverlay: () => { } }),
 			onDidClickOverlay: Event.None,
 		});
 		input.requestModelByIdentifier.resolves(true);
+		input.setValue.callsFake(value => { inputValue = value; });
+		const attachedContext = new ChatRequestVariableSet();
+		input.getAttachedContext.returns(attachedContext);
+		input.getAttachedAndImplicitContext.returns(attachedContext);
 		const request = upcastPartial<IChatRequestViewModel>({
 			id: 'request',
 			message: { text: 'original request', parts: [] },
@@ -497,13 +506,85 @@ suite('ChatWidget', () => {
 			variables: [],
 			modelId,
 			modelConfiguration,
-			pendingKind: ChatRequestQueueKind.Steering,
+			pendingKind: ChatRequestQueueKind.Queued,
 		});
 		const widget = createStartEditingWidget(input, request, configurationService);
 
+		return {
+			widget, input, request, chatService, notificationService, submitRequestHandlerService,
+			setPendingKind: (kind: ChatRequestQueueKind | undefined) => {
+				pendingRequests = kind === undefined ? [] : [{ ...pendingRequest, kind }];
+			},
+		};
+	}
+
+	test('editing a queued request passes its model and configuration to the input', async () => {
+		const { widget, input, request } = await createQueuedRequestEditWidget();
 		widget.startEditing(request.id);
 
-		assert.deepStrictEqual(input.requestModelByIdentifier.firstCall.args, [modelId, modelConfiguration]);
+		assert.deepStrictEqual(input.requestModelByIdentifier.firstCall.args, [request.modelId, request.modelConfiguration]);
+	});
+
+	for (const duringSubmission of [false, true]) {
+		for (const kind of [ChatRequestQueueKind.Steering, undefined]) {
+			test(`preserves edits when the queued request is ${kind === undefined ? 'removed' : 'changed to steering'} ${duringSubmission ? 'during' : 'before'} submission`, async () => {
+				const { widget, input, request, chatService, notificationService, submitRequestHandlerService, setPendingKind } = await createQueuedRequestEditWidget();
+				widget.startEditing(request.id);
+				input.setValue('edited request', false);
+				chatService.removePendingRequest.callsFake(() => assert.fail('Must not remove a request that is no longer queued'));
+				if (duringSubmission) {
+					submitRequestHandlerService.tryHandle.callsFake(async () => {
+						setPendingKind(kind);
+						return false;
+					});
+				} else {
+					setPendingKind(kind);
+				}
+
+				await widget.acceptInput();
+
+				assert.deepStrictEqual({
+					pendingKinds: widget.viewModel?.model.getPendingRequests().map(pending => pending.kind),
+					editingRequest: widget.viewModel?.editing?.id,
+					input: widget.getInput(),
+					removed: chatService.removePendingRequest.callCount,
+					sent: chatService.sendRequest.callCount,
+					prepared: submitRequestHandlerService.tryHandle.callCount,
+					warnings: notificationService.warn.args,
+				}, {
+					pendingKinds: kind === undefined ? [] : [kind],
+					editingRequest: request.id,
+					input: 'edited request',
+					removed: 0,
+					sent: 0,
+					prepared: duringSubmission ? 1 : 0,
+					warnings: [['This message is no longer queued and cannot be edited. Your edits have been kept in the input.']],
+				});
+			});
+		}
+	}
+
+	test('does not start editing a pending steering request', () => {
+		const request = upcastPartial<IChatRequestViewModel>({
+			id: 'steering-request',
+			message: { text: 'original steering', parts: [] },
+			pendingKind: ChatRequestQueueKind.Steering,
+		});
+		const widget = Object.create(ChatWidget.prototype) as ChatWidget;
+		Object.defineProperties(widget, {
+			viewModel: {
+				value: {
+					model: { getRequests: () => assert.fail('Editing pending steering must not touch the model') },
+				},
+			},
+			listWidget: {
+				value: { getTemplateDataForRequestId: () => ({ currentElement: request }) },
+			},
+		});
+
+		widget.startEditing(request.id);
+
+		assert.strictEqual(widget.viewModel?.editing, undefined);
 	});
 
 	function createFakeInputPart(name: string) {

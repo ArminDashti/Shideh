@@ -285,7 +285,7 @@ export class ChatEditPendingRequestAction extends Action2 {
 				group: 'navigation',
 				order: 2,
 				when: ContextKeyExpr.and(
-					ChatContextKeys.isRequest,
+					ChatContextKeys.isEditableRequest,
 					ChatContextKeys.isPendingRequest,
 					ContextKeyExpr.notEquals(`config.${ChatConfiguration.EditRequests}`, 'hover'),
 					ContextKeyExpr.notEquals(`config.${ChatConfiguration.EditRequests}`, 'input')
@@ -298,7 +298,7 @@ export class ChatEditPendingRequestAction extends Action2 {
 		const widgetService = accessor.get(IChatWidgetService);
 		const [context] = args;
 
-		if (!isRequestVM(context) || !context.pendingKind) {
+		if (!isEditableRequestVM(context) || !context.pendingKind) {
 			return;
 		}
 

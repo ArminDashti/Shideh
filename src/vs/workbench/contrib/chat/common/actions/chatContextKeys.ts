@@ -41,6 +41,7 @@ export namespace ChatContextKeys {
 	export const contextMenuHasAvailableEditors = new RawContextKey<boolean>('chatContextMenuHasAvailableEditors', false, { type: 'boolean', description: localize('chatContextMenuHasAvailableEditors', "Whether the chat context menu link can be opened with an alternate editor.") });
 	export const isFirstRequest = new RawContextKey<boolean>('chatFirstRequest', false, { type: 'boolean', description: localize('chatFirstRequest', "The chat item is the first request in the session.") });
 	export const isPendingRequest = new RawContextKey<boolean>('chatRequestIsPending', false, { type: 'boolean', description: localize('chatRequestIsPending', "True when the chat request item is pending in the queue.") });
+	export const isEditableRequest = new RawContextKey<boolean>('chatRequestIsEditable', false, { type: 'boolean', description: localize('chatRequestIsEditable', "True when the chat request item can be edited.") });
 	export const itemId = new RawContextKey<string>('chatItemId', '', { type: 'string', description: localize('chatItemId', "The id of the chat item.") });
 	export const lastItemId = new RawContextKey<string[]>('chatLastItemId', [], { type: 'string', description: localize('chatLastItemId', "The id of the last chat item.") });
 	export const itemSynthesisInProgress = new RawContextKey<boolean>('chatItemSynthesisInProgress', false, { type: 'boolean', description: localize('chatItemSynthesisInProgress', "True when this specific chat response is being read aloud.") });

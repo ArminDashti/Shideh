@@ -47,6 +47,7 @@ import { ITextResourceEditorInput } from '../../../../../platform/editor/common/
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { bindContextKey } from '../../../../../platform/observable/common/platformObservableUtils.js';
 import { Link } from '../../../../../platform/opener/browser/link.js';
 import product from '../../../../../platform/product/common/product.js';
@@ -77,7 +78,7 @@ import { IChatSlashCommandService } from '../../common/participants/chatSlashCom
 import { IChatArtifactsService } from '../../common/tools/chatArtifactsService.js';
 import { IChatTodoListService } from '../../common/tools/chatTodoListService.js';
 import { ChatRequestVariableSet, IChatRequestTranscriptContextVariableEntry, IChatRequestVariableEntry, isPastedTextArtifact, isPromptFileVariableEntry, isPromptTextVariableEntry, isWorkspaceVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
-import { ChatViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
+import { ChatViewModel, IChatResponseViewModel, isEditableRequestVM, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatMessageRole, IChatMessage } from '../../common/languageModels.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind, ChatPermissionLevel, IResolvedNewChatSessionType, ThinkingDisplayMode } from '../../common/constants.js';
 import { IChatGoalSummaryService } from '../chatGoalSummaryService.js';
@@ -676,6 +677,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IChatPasteTargetService private readonly chatPasteTargetService: IChatPasteTargetService,
 		@IChatAccessibilityService private readonly chatAccessibilityService: IChatAccessibilityService,
 		@ILogService private readonly logService: ILogService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IThemeService private readonly themeService: IThemeService,
 		@IChatSlashCommandService private readonly chatSlashCommandService: IChatSlashCommandService,
 		@IChatEditingService chatEditingService: IChatEditingService,
@@ -2404,7 +2406,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private clickedRequest(item: IChatListItemTemplate) {
 
 		const currentElement = item.currentElement;
-		if (isRequestVM(currentElement) && !this.viewModel?.editing) {
+		if (!isEditableRequestVM(currentElement)) {
+			return;
+		}
+
+		if (!this.viewModel?.editing) {
 
 			const requests = this.viewModel?.model.getRequests();
 			if (!requests || !this.viewModel?.sessionResource) {
@@ -3672,6 +3678,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		const attachedContext = this._getAttachedContextForConcurrentSlashCommand(options.preserveInput);
 		if (await this._executeSlashCommandDuringRequest(requestInputs.input, { attachedContext }, isUserQuery, options.preserveFocus)) {
+			return;
+		}
+		if (!this._validateRequestEdit()) {
 			return;
 		}
 		const isEditing = this.viewModel?.editing;

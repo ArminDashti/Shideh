@@ -572,6 +572,58 @@ suite('ChatListWidget', () => {
 		disposables.dispose();
 	});
 
+	test('refreshes editing affordances when a queued request becomes steering', async () => {
+		const { disposables, model, widget } = createWidget({
+			rendererOptions: { editable: true },
+		}, configurationService => {
+			configurationService.setUserConfiguration(ChatConfiguration.EditRequests, 'inline');
+		});
+		const text = 'pending request';
+		const request = new ChatRequestModel({
+			session: model,
+			message: {
+				text,
+				parts: [new ChatRequestTextPart(new OffsetRange(0, text.length), new Range(1, 1, 1, text.length + 1), text)],
+			},
+			variableData: { variables: [] },
+			timestamp: 0,
+		});
+		model.addPendingRequest(request, ChatRequestQueueKind.Queued, {});
+		widget.refresh();
+		widget.layout(300, 500);
+		await waitForStableLayout(widget);
+
+		let editEvents = 0;
+		disposables.add(widget.onDidClickRequest(() => editEvents++));
+		const states = [];
+		for (const kind of [ChatRequestQueueKind.Queued, ChatRequestQueueKind.Steering, ChatRequestQueueKind.Queued]) {
+			model.setPendingRequests([{ requestId: request.id, kind }]);
+			widget.refresh();
+			const template = widget.getTemplateDataForRequestId(request.id);
+			assert.ok(template && isRequestVM(template.currentElement));
+			const markdown = template.value.querySelector<HTMLElement>('.rendered-markdown');
+			assert.ok(markdown);
+			editEvents = 0;
+			markdown.click();
+			for (const keyCode of [13, 32]) {
+				markdown.dispatchEvent(new mainWindow.KeyboardEvent('keydown', { keyCode, bubbles: true, cancelable: true }));
+			}
+			states.push({
+				pendingKind: template.currentElement.pendingKind,
+				clickable: markdown.classList.contains('clickable'),
+				editEvents,
+			});
+		}
+
+		assert.deepStrictEqual(states, [
+			{ pendingKind: ChatRequestQueueKind.Queued, clickable: true, editEvents: 3 },
+			{ pendingKind: ChatRequestQueueKind.Steering, clickable: false, editEvents: 0 },
+			{ pendingKind: ChatRequestQueueKind.Queued, clickable: true, editEvents: 3 },
+		]);
+
+		disposables.dispose();
+	});
+
 	test('keeps tree sticky scroll disabled when the legacy prompt header is selected', () => {
 		const { disposables, container } = createWidget({}, configurationService => {
 			configurationService.setUserConfiguration(PROMPT_TIMELINE_STICKY_SCROLL_SETTING, true);

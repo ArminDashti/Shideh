@@ -585,7 +585,7 @@ registerAction2(class EditAction extends Action2 {
 					id: MenuId.ChatMessageTitle,
 					group: 'navigation',
 					order: 2,
-					when: ContextKeyExpr.and(ContextKeyExpr.or(ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'hover'), ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'input')), ChatContextKeys.readOnly.negate())
+					when: ContextKeyExpr.and(ContextKeyExpr.or(ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'hover'), ContextKeyExpr.equals(`config.${ChatConfiguration.EditRequests}`, 'input')), ChatContextKeys.readOnly.negate(), ChatContextKeys.isEditableRequest)
 				}
 			]
 		});
@@ -603,7 +603,7 @@ registerAction2(class EditAction extends Action2 {
 			return;
 		}
 
-		if (isRequestVM(item)) {
+		if (isEditableRequestVM(item)) {
 			widget?.startEditing(item.id);
 		}
 	}

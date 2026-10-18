@@ -1946,6 +1946,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 
 		templateData.currentElement = element;
+		ChatContextKeys.isEditableRequest.bindTo(templateData.contextKeyService).set(isEditableRequestVM(element));
 		templateData.renderedReadOnly = readOnly;
 		templateData.renderedPersistentProgress = persistentProgress;
 		templateData.renderedCollapsedToolChains = collapsedToolChains;
@@ -2913,7 +2914,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			this._onDidRerender.fire(templateData);
 		}
 
-		if (this.configService.getValue<string>('chat.editRequests') !== 'none' && this.rendererOptions.editable) {
+		if (this.configService.getValue<string>('chat.editRequests') !== 'none' && this.rendererOptions.editable && isEditableRequestVM(element)) {
 			templateData.elementDisposables.add(dom.addDisposableListener(templateData.rowContainer, dom.EventType.KEY_DOWN, e => {
 				const ev = new StandardKeyboardEvent(e);
 				if (ev.equals(KeyCode.Space) || ev.equals(KeyCode.Enter)) {
@@ -3004,7 +3005,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 
 			container.tabIndex = 0;
-			if (this.configService.getValue<string>('chat.editRequests') === 'inline' && this.rendererOptions.editable) {
+			if (this.configService.getValue<string>('chat.editRequests') === 'inline' && this.rendererOptions.editable && isEditableRequestVM(element)) {
 				container.classList.add('clickable');
 				store.add(dom.addDisposableListener(container, dom.EventType.CLICK, (e: MouseEvent) => {
 					if (this.viewModel?.editing?.id === element.id) {
@@ -5883,7 +5884,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		markdownPart.addDisposable(markdownPart.onDidChangeHeight(() => this.fireItemHeightChange(templateData)));
 		if (isRequestVM(element)) {
 			markdownPart.domNode.tabIndex = 0;
-			if (this.configService.getValue<string>('chat.editRequests') === 'inline' && this.rendererOptions.editable) {
+			if (this.configService.getValue<string>('chat.editRequests') === 'inline' && this.rendererOptions.editable && isEditableRequestVM(element)) {
 				markdownPart.domNode.classList.add('clickable');
 				markdownPart.addDisposable(dom.addDisposableListener(markdownPart.domNode, dom.EventType.CLICK, (e: MouseEvent) => {
 					if (this.viewModel?.editing?.id === element.id) {
