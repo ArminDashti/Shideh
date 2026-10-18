@@ -127,6 +127,10 @@ export class TextDiffEditor extends AbstractTextEditor<IDiffEditorViewState> imp
 			const control = assertReturnsDefined(this.diffEditorControl);
 			const resolvedDiffEditorModel = resolvedModel;
 
+			if (resolvedDiffEditorModel) {
+				// Update the settings before creating the view model, as `waitForDiff` depends on the configuration
+				this.updateEditorConfiguration(resolvedDiffEditorModel.textDiffEditorModel!.modified.uri);
+			}
 			const vm = resolvedDiffEditorModel.textDiffEditorModel ? control.createViewModel(resolvedDiffEditorModel.textDiffEditorModel) : null;
 			this._previousViewModel = vm;
 			await vm?.waitForDiff();
@@ -291,7 +295,11 @@ export class TextDiffEditor extends AbstractTextEditor<IDiffEditorViewState> imp
 		return e.affectsConfiguration(resource, 'diffEditor') || e.affectsConfiguration(resource, 'accessibility.verbosity.diffEditor');
 	}
 
+	/**
+	 * @param configuration the entire VS Code configuration, resolved for the current resource.
+	 */
 	protected override computeConfiguration(configuration: IEditorConfiguration): ICodeEditorOptions {
+		/** represents configuration.editor + some overrides */
 		const editorConfiguration = super.computeConfiguration(configuration);
 
 		// Handle diff editor specially by merging in diffEditor configuration
