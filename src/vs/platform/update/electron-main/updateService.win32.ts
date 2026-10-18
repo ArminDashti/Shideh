@@ -192,6 +192,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return;
 		}
 
+		// Remove old installation
+		if (this.productService.target === 'user') {
+			await this.gc();
+		}
+
 		await super.initialize();
 	}
 
@@ -928,6 +933,97 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					this.logService.warn(`update#unlink: failed to unlink ${basename(path)}`, err);
 				}
 			}
+		}
+	}
+
+	private async gc(): Promise<void> {
+		try {
+			// 1) Use app.getPath('exe') to get the path to current executable file and store the basename of the exe file
+			const exePath = app.getPath('exe');
+			const exeBasename = path.basename(exePath);
+			const exeBasenameWithoutExt = path.basename(exePath, '.exe');
+			const appInstallPath = path.dirname(exePath);
+			this.logService.trace(`update#gc - exe path: ${exePath}, basename: ${exeBasename}, app install path: ${appInstallPath}`);
+
+			// 2) Get current commit via this.productService.commit and store only first 10char in a variable
+			const commitShort = this.productService.commit?.substring(0, 10);
+			if (!commitShort) {
+				this.logService.trace('update#gc - no commit hash available, skipping gc');
+				return;
+			}
+			this.logService.trace('update#gc - commit short:', commitShort);
+
+			// 3) If there is a file called `old_{exe basename}` in the app install folder then perform the following
+			const oldExeFile = path.join(appInstallPath, `old_${exeBasename}`);
+			const oldExeExists = await pfs.Promises.exists(oldExeFile);
+
+			if (!oldExeExists) {
+				this.logService.trace('update#gc - old exe file does not exist, skipping gc');
+				return;
+			}
+
+			this.logService.trace('update#gc - old exe file found, performing cleanup');
+
+			// 4) Delete all files and folders except for the following
+			const entries = await pfs.Promises.readdir(appInstallPath, { withFileTypes: true });
+			const entriesToRemove = new Set<string>();
+
+			for (const entry of entries) {
+				const entryPath = path.join(appInstallPath, entry.name);
+				let shouldKeep = false;
+
+				// a) current exe file
+				if (entry.isFile() && entry.name === exeBasename) {
+					shouldKeep = true;
+				}
+				// b) bin folder under app install directory (but clean old_ files inside it)
+				else if (entry.isDirectory() && entry.name === 'bin') {
+					shouldKeep = true;
+					// Clean old_ files from bin folder
+					try {
+						const binEntries = await pfs.Promises.readdir(entryPath, { withFileTypes: true });
+						for (const binEntry of binEntries) {
+							if (binEntry.isFile() && binEntry.name.startsWith('old_')) {
+								const binEntryPath = path.join(entryPath, binEntry.name);
+								entriesToRemove.add(binEntryPath);
+							}
+						}
+					} catch (err) {
+						this.logService.warn('update#gc - failed to read bin directory:', err);
+					}
+				}
+				// c) {Exe basename}.VisualElementsManifest.xml
+				else if (entry.isFile() && entry.name === `${exeBasenameWithoutExt}.VisualElementsManifest.xml`) {
+					shouldKeep = true;
+				}
+				// d) unins*.* files
+				else if (entry.isFile() && entry.name.startsWith('unins')) {
+					shouldKeep = true;
+				}
+				// e) directory whose name matches the commit value from 4)
+				else if (entry.isDirectory() && entry.name === commitShort) {
+					shouldKeep = true;
+				}
+
+				if (!shouldKeep) {
+					entriesToRemove.add(entryPath);
+				}
+			}
+
+			// Remove collected entries
+			for (const entryPath of entriesToRemove) {
+				this.logService.trace('update#gc - removing:', entryPath);
+				try {
+					await pfs.Promises.rm(entryPath, pfs.RimRafMode.MOVE);
+					this.logService.trace('update#gc - removed:', entryPath);
+				} catch (err) {
+					this.logService.warn('update#gc - failed to remove:', entryPath, err);
+				}
+			}
+
+			this.logService.info('update#gc - garbage collection completed successfully');
+		} catch (error) {
+			this.logService.error('update#gc - garbage collection failed:', error);
 		}
 	}
 }

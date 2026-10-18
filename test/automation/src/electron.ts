@@ -163,6 +163,28 @@ export function getDevElectronPath(): string {
 	}
 }
 
+function findFilePath(root: string, path: string): string {
+	// First check if the path exists directly in the root
+	const directPath = join(root, path);
+	if (fs.existsSync(directPath)) {
+		return directPath;
+	}
+
+	// If not found directly, search through subdirectories
+	const entries = fs.readdirSync(root, { withFileTypes: true });
+
+	for (const entry of entries) {
+		if (entry.isDirectory()) {
+			const found = join(root, entry.name, path);
+			if (fs.existsSync(found)) {
+				return found;
+			}
+		}
+	}
+
+	throw new Error(`Could not find ${path} in any subdirectory`);
+}
+
 export function getBuildElectronPath(root: string): string {
 	switch (process.platform) {
 		case 'darwin': {
