@@ -204,6 +204,11 @@
 			}
 		},
 		{
+			"label": "test long task",
+			"type": "shell",
+			"command": "for i in {1..30}; do echo $i; sleep 1; done",
+		},
+		{
 			"label": "VS Code - Build",
 			"dependsOn": [
 				"Core - Transpile",

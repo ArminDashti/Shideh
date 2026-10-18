@@ -320,7 +320,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 				return undefined;
 			}
 
-			if (result.pastTenseMessage || result.presentation) {
+			if (result.pastTenseMessage || result.presentation || result.renderStopButton) {
 				checkProposedApiEnabled(item.extension, 'chatParticipantPrivate');
 			}
 
