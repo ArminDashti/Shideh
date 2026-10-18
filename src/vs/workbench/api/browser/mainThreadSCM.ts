@@ -78,6 +78,33 @@ class SCMInputBoxContentProvider extends Disposable implements ITextModelContent
 	}
 }
 
+class SCMResourceGroupActionReferenceCollection extends ReferenceCollection<IDisposable> {
+	protected override createReferencedObject(key: string, ...args: any[]): IDisposable {
+		return registerAction2(class extends Action2 {
+			constructor() {
+				super({
+					id: `workbench.scm.action.resourceGroup.focus.${key}`,
+					title: { ...localize2('focusResourceGroup', "Focus on {0} Source Control Resource Group", args[0] as string) },
+					category: localize2('source control', "Source Control"),
+					f1: true
+				});
+			}
+
+			override async run(accessor: ServicesAccessor) {
+				const viewsService = accessor.get(IViewsService);
+				const scmView = await viewsService.openView<SCMViewPane>(VIEW_PANE_ID);
+				if (scmView) {
+					scmView.focusResourceGroup(key);
+				}
+			}
+		});
+	}
+
+	protected override destroyReferencedObject(key: string, object: IDisposable): void {
+		object.dispose();
+	}
+}
+
 class MainThreadSCMResourceGroup implements ISCMResourceGroup {
 
 	readonly resources: ISCMResource[] = [];
@@ -618,6 +645,8 @@ export class MainThreadSCM implements MainThreadSCMShape {
 	private _repositories = new Map<number, ISCMRepository>();
 	private _repositoryBarriers = new Map<number, Barrier>();
 	private _repositoryDisposables = new Map<number, IDisposable>();
+	private _resourceGroupActions = new SCMResourceGroupActionReferenceCollection();
+	private _resourceGroupDisposables = new Map<number, DisposableMap<number>>();
 	private readonly _disposables = new DisposableStore();
 
 	constructor(
@@ -692,6 +721,9 @@ export class MainThreadSCM implements MainThreadSCMShape {
 			return;
 		}
 
+		this._resourceGroupDisposables.get(handle)!.dispose();
+		this._resourceGroupDisposables.delete(handle);
+
 		this._repositoryDisposables.get(handle)!.dispose();
 		this._repositoryDisposables.delete(handle);
 
@@ -710,6 +742,16 @@ export class MainThreadSCM implements MainThreadSCMShape {
 		const provider = repository.provider as MainThreadSCMProvider;
 		provider.$registerGroups(groups);
 		provider.$spliceGroupResourceStates(splices);
+
+		const resourceGroupDisposables = this._resourceGroupDisposables.get(sourceControlHandle);
+		if (!resourceGroupDisposables) {
+			return;
+		}
+
+		for (const group of groups) {
+			const ref = this._resourceGroupActions.acquire(group[1], group[2]);
+			resourceGroupDisposables.set(group[0], toDisposable(ref.dispose));
+		}
 	}
 
 	async $updateGroup(sourceControlHandle: number, groupHandle: number, features: SCMGroupFeatures): Promise<void> {
@@ -758,6 +800,13 @@ export class MainThreadSCM implements MainThreadSCMShape {
 
 		const provider = repository.provider as MainThreadSCMProvider;
 		provider.$unregisterGroup(handle);
+
+		const resourceGroupDisposables = this._resourceGroupDisposables.get(sourceControlHandle);
+		if (!resourceGroupDisposables) {
+			return;
+		}
+
+		resourceGroupDisposables.deleteAndDispose(handle);
 	}
 
 	async $setInputBoxValue(sourceControlHandle: number, value: string): Promise<void> {

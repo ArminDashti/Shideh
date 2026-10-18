@@ -2371,6 +2371,25 @@ export class SCMViewPane extends ViewPane {
 		}
 	}
 
+	focusResourceGroup(id: string): void {
+		this.treeOperationSequencer.queue(() => {
+			return new Promise<void>(resolve => {
+				if (this.scmViewService.focusedRepository) {
+					const resourceGroup = this.scmViewService.focusedRepository.provider.groups.find(g => g.id === id);
+					if (resourceGroup && this.tree.hasElement(resourceGroup)) {
+						this.tree.reveal(resourceGroup, 0.5);
+
+						this.tree.setSelection([resourceGroup]);
+						this.tree.setFocus([resourceGroup]);
+						this.tree.domFocus();
+					}
+				}
+
+				resolve();
+			});
+		});
+	}
+
 	override shouldShowWelcome(): boolean {
 		return this.scmService.repositoryCount === 0;
 	}
