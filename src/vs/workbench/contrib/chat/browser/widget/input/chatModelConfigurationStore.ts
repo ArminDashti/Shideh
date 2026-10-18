@@ -28,6 +28,9 @@ import { IModelConfigurationAccess } from './modelPicker/modelPickerModelConfig.
  * same scope inherit the latest value. Untouched defaults follow schema updates
  * only while the conversation is empty; selected and restored values stay pinned.
  *
+ * The experimental managed Auto tier is a transient default overlay, not an
+ * override or a persisted user preference. Explicit/scoped values still win.
+ *
  * Implements {@link IModelConfigurationAccess} so the model picker can route
  * reads/writes through this editor-scoped layer instead of the global
  * {@link ILanguageModelsService}. See issue #320393.
@@ -107,6 +110,13 @@ export class ChatModelConfigurationStore extends Disposable implements IModelCon
 	 * The merged result is cached so subsequent reads are O(1).
 	 */
 	getModelConfiguration(modelId: string): IStringDictionary<unknown> | undefined {
+		const configuration = this.getModelConfigurationForPersistence(modelId);
+		const tier = this._managedAutoTier(modelId);
+		return tier === undefined ? configuration : { ...configuration, tier };
+	}
+
+	/** Keep enterprise defaults out of user preferences and persisted input drafts. */
+	getModelConfigurationForPersistence(modelId: string): IStringDictionary<unknown> | undefined {
 		let override = this._overrides.get(modelId);
 		if (!override) {
 			const bucketEntry = this._readBucket()[modelId];
@@ -116,7 +126,42 @@ export class ChatModelConfigurationStore extends Disposable implements IModelCon
 			override = this._resolveConfiguration(modelId, schemaDefaults, bucketEntry ?? globalConfig);
 			this._overrides.set(modelId, override);
 		}
+		if (this._managedAutoTier(modelId) !== undefined) {
+			const { tier: _tier, ...rest } = override;
+			return rest;
+		}
 		return Object.keys(override).length > 0 ? override : undefined;
+	}
+
+	isModelConfigurationDefaultManaged(modelId: string, key: string): boolean {
+		this.getModelConfiguration(modelId);
+		return key === 'tier' && this._managedAutoTier(modelId) !== undefined;
+	}
+
+	private _managedAutoTier(modelId: string): string | undefined {
+		const metadata = this.languageModelsService.lookupLanguageModel(modelId);
+		if (metadata?.id !== 'auto' || this._autoTierDefaultsBlocked.has(modelId)) {
+			return undefined;
+		}
+		const tierSchema = metadata.configurationSchema?.properties?.tier;
+		const capturedTier = this._overrides.get(modelId)?.tier;
+		// Global access materializes schema defaults. Defer comparison until the
+		// catalog is available; only a non-default global tier is distinguishable.
+		if (capturedTier !== undefined && capturedTier !== tierSchema?.default) {
+			return undefined;
+		}
+		const value = this.configurationService?.inspect<string>(COPILOT_AUTO_TIER_CONFIG).policyValue;
+		if (value === undefined || value === '') {
+			return undefined;
+		}
+		if (!isAutoModeTier(value) || !tierSchema?.enum?.includes(value)) {
+			if (!this._autoTierWarnings.has(modelId)) {
+				this._autoTierWarnings.add(modelId);
+				this.logService?.warn(`[ChatModelConfigurationStore] Ignoring unsupported managed Auto tier for '${modelId}'; expected a supported efficiency, balance, or intelligence tier.`);
+			}
+			return undefined;
+		}
+		return value;
 	}
 
 	async setModelConfiguration(modelId: string, values: IStringDictionary<unknown>): Promise<void> {

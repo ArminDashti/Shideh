@@ -803,6 +803,28 @@ configurationRegistry.registerConfiguration({
 			default: { mode: 'interactive', approvals: ChatDefaultPermissionLevel.Manual },
 			markdownDescription: nls.localize('chat.defaultConfiguration.settingDescription', "Controls the default configuration for new agent sessions (such as Copilot). You can still change the mode and approval behavior per session, and each session remembers what was used."),
 		},
+		[COPILOT_AUTO_TIER_CONFIG]: {
+			type: 'string',
+			default: '',
+			scope: ConfigurationScope.APPLICATION,
+			included: false,
+			description: nls.localize('chat.defaultAutoTier', "Experimental enterprise default for Auto's Optimize for preference. Users can still select a different preference."),
+			policy: {
+				name: 'ChatDefaultAutoTier',
+				category: PolicyCategory.InteractiveSession,
+				minimumVersion: '1.139',
+				value: managedSettingValue(COPILOT_AUTO_TIER_KEY),
+				managedSettings: {
+					[COPILOT_AUTO_TIER_KEY]: { type: 'string' },
+				},
+				localization: {
+					description: {
+						key: 'chat.defaultAutoTier.policy',
+						value: nls.localize('chat.defaultAutoTier.policy', "Experimental default for Auto routing: efficiency, balance, or intelligence. Explicit model and tier choices take precedence. Does not restrict model availability.")
+					}
+				},
+			},
+		},
 		[ChatConfiguration.DefaultModel]: {
 			type: 'string',
 			default: '',

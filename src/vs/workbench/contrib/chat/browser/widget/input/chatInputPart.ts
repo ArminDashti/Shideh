@@ -2520,7 +2520,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				kind: mode.kind
 			},
 			selectedModel,
-			modelConfiguration: selectedModel ? this._modelConfigStore.getModelConfiguration(selectedModel.identifier) : undefined,
+			modelConfiguration: selectedModel ? this._modelConfigStore.getModelConfigurationForPersistence(selectedModel.identifier) : undefined,
 			selectedModelReason: selectedModel ? this._modelSelectionController.selectionReason : undefined,
 			selections: this._inputEditor?.getSelections() || [],
 			contrib: {},

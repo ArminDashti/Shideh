@@ -29,6 +29,22 @@ suite('Copilot managed settings projection', () => {
 		},
 	};
 
+	test('provisional Auto tier projects independently of the default model and reports type errors', () => {
+		const definitions = { [COPILOT_AUTO_TIER_KEY]: { type: 'string' as const } };
+		const warnings: string[] = [];
+		const values = projectManagedSettings(normalizeManagedSettings({ model: 'auto', autoTier: 'intelligence' }), definitions);
+		const invalid = projectManagedSettings(normalizeManagedSettings({ autoTier: 42 }), definitions, warning => warnings.push(warning));
+		assert.deepStrictEqual({
+			defaultTier: managedSettingValue(COPILOT_AUTO_TIER_KEY)({ managedSettings: values }),
+			invalid,
+			warnings,
+		}, {
+			defaultTier: 'intelligence',
+			invalid: {},
+			warnings: ['Ignoring managed setting "autoTier": expected string, got number'],
+		});
+	});
+
 	test('collectManagedSettingsDefinitions aggregates declarations across all policies', () => {
 		assert.deepStrictEqual(collectManagedSettingsDefinitions(definitions), {
 			'permissions.disableBypassPermissionsMode': { type: 'string' },
