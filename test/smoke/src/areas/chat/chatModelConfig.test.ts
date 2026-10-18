@@ -143,7 +143,12 @@ async function sendWarmUpUntilReady(chat: Chat, logger: Logger): Promise<void> {
 
 export function setup(logger: Logger) {
 
-	describe('Chat Model Configuration', function () {
+	// FLAKE-BUST: run the whole suite (fresh editor launch + teardown) this many
+	// times so each iteration exercises the slow cold-start path that triggered
+	// the model-selection flake. Revert to a single `describe` before merging.
+	const FLAKE_BUST_ITERATIONS = 10;
+
+	describeRepeat(FLAKE_BUST_ITERATIONS, 'Chat Model Configuration', function () {
 		this.timeout(5 * 60 * 1000);
 		this.retries(0);
 
