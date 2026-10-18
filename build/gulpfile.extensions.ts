@@ -22,6 +22,7 @@ import * as tsb from './lib/tsb/index.ts';
 import { createTsgoStream, spawnTsgo } from './lib/tsgo.ts';
 import * as util from './lib/util.ts';
 import watcher from './lib/watch/index.ts';
+import { paths } from './folders.ts';
 
 const root = path.dirname(import.meta.dirname);
 const commit = getVersion(root);
@@ -252,7 +253,7 @@ task.task(compileExtensionMediaTask);
 export const watchExtensionMedia = task.define('watch-extension-media', () => ext.buildExtensionMedia(true));
 task.task(watchExtensionMedia);
 
-export const compileExtensionMediaBuildTask = task.define('compile-extension-media-build', () => ext.buildExtensionMedia(false, '.build/extensions'));
+export const compileExtensionMediaBuildTask = task.define('compile-extension-media-build', () => ext.buildExtensionMedia(false, paths.dotBuild.extensions.rootRelPath));
 task.task(compileExtensionMediaBuildTask);
 
 //#endregion
@@ -262,12 +263,12 @@ task.task(compileExtensionMediaBuildTask);
 /**
  * Cleans the build directory for extensions
  */
-export const cleanExtensionsBuildTask = task.define('clean-extensions-build', util.rimraf('.build/extensions'));
+export const cleanExtensionsBuildTask = task.define('clean-extensions-build', util.rimraf(paths.dotBuild.extensions.rootRelPath));
 
 /**
  * brings in the marketplace extensions for the build
  */
-const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build')));
+const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest(paths.dotBuild.rootRelPath)));
 
 /**
  * Compiles the non-native extensions for the build

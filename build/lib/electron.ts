@@ -13,6 +13,7 @@ import { getElectronVersion } from './electronVersion.ts';
 import { getVersion } from './getVersion.ts';
 import { downloadFeedPackage } from './azureFeed.ts';
 import electron from '@vscode/gulp-electron';
+import { paths } from '../folders.ts';
 
 type DarwinDocumentSuffix = 'document' | 'script' | 'file' | 'source code';
 type DarwinDocumentType = {
@@ -36,7 +37,7 @@ function isDocumentSuffix(str?: string): str is DarwinDocumentSuffix {
 }
 
 const root = path.dirname(path.dirname(import.meta.dirname));
-const product = JSON.parse(fs.readFileSync(path.join(root, 'product.json'), 'utf8'));
+const product = JSON.parse(fs.readFileSync(paths.productJson.absPath, 'utf8'));
 const commit = getVersion(root);
 const useVersionedUpdate = process.platform === 'win32' && (product as typeof product & { win32VersionedUpdate?: boolean })?.win32VersionedUpdate;
 const versionedResourcesFolder = useVersionedUpdate ? commit!.substring(0, 10) : '';
@@ -81,7 +82,7 @@ function darwinBundleDocumentType(extensions: string[], icon: string, nameOrSuff
 		role: 'Editor',
 		ostypes: ['TEXT', 'utxt', 'TUTX', '****'],
 		extensions,
-		iconFile: 'resources/darwin/' + icon.toLowerCase() + '.icns',
+		iconFile: paths.resources.darwin.rootRelPath + '/' + icon.toLowerCase() + '.icns',
 		utis
 	};
 }
@@ -154,7 +155,7 @@ export const config = {
 	companyName: 'Shideh',
 	copyright: 'Copyright (C) 2026 The Shideh Authors',
 	darwinExecutable: product.nameShort,
-	darwinIcon: 'resources/darwin/code.icns',
+	darwinIcon: paths.resources.darwin.codeIcns.rootRelPath,
 	darwinBundleIdentifier: product.darwinBundleIdentifier,
 	darwinApplicationCategoryType: 'public.app-category.developer-tools',
 	darwinHelpBookFolder: 'VS Code HelpBook',
@@ -355,7 +356,7 @@ export const config = {
 	token: process.env['GITHUB_TOKEN'],
 	repo: electronAssetResolver,
 	validateChecksum: true,
-	checksumFile: path.join(root, 'build', 'checksums', 'electron.txt'),
+	checksumFile: paths.build.checksums.electronTxt.absPath,
 	createVersionedResources: useVersionedUpdate,
 	productVersionString: versionedResourcesFolder,
 };
@@ -374,12 +375,12 @@ function getElectron(arch: string): () => NodeJS.ReadWriteStream {
 			.pipe(jsonEditor({ name: product.nameShort }))
 			.pipe(electron(electronOpts))
 			.pipe(filter(['**', '!**/app/package.json']))
-			.pipe(vfs.dest('.build/electron'));
+			.pipe(vfs.dest(paths.dotBuild.electron.rootRelPath));
 	};
 }
 
 async function main(arch: string = process.arch): Promise<void> {
-	const electronPath = path.join(root, '.build', 'electron');
+	const electronPath = paths.dotBuild.electron.absPath;
 	await util.rimraf(electronPath)();
 	await util.streamToPromise(getElectron(arch)());
 }

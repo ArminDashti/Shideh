@@ -6,6 +6,7 @@
 import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { paths } from '../folders.ts';
 
 const root = path.join(import.meta.dirname, '..', '..');
 

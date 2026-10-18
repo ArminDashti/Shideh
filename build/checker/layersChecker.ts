@@ -7,6 +7,7 @@ import { API, SymbolFlags, type Checker, type Program, type Project, type Symbol
 import { isExportSpecifier, isIdentifier, isImportSpecifier, isPropertyAccessExpression, type Identifier, type Node, type SourceFile } from '@typescript/native/unstable/ast';
 import { dirname, join, relative, resolve } from 'path';
 import minimatch from 'minimatch';
+import { paths } from '../folders.ts';
 
 //
 // #############################################################################################
@@ -98,7 +99,7 @@ export const RULES: IRule[] = [
 	}
 ];
 
-const TS_CONFIG_PATH = join(import.meta.dirname, '../../', 'src', 'tsconfig.json');
+const TS_CONFIG_PATH = paths.src.tsconfig.absPath;
 
 /**
  * Upper bound on how many nodes are sent to the checker in a single request.

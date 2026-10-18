@@ -39,7 +39,7 @@ const rcedit = promisify(rceditCallback);
 const REPO_ROOT = path.dirname(import.meta.dirname);
 const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
-const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
+const REMOTE_FOLDER = paths.remote.absPath;
 
 // Targets
 
@@ -57,14 +57,14 @@ const BUILD_TARGETS = [
 ];
 
 function getNodeVersion() {
-	const npmrc = fs.readFileSync(path.join(REPO_ROOT, 'remote', '.npmrc'), 'utf8');
+	const npmrc = fs.readFileSync(path.join(paths.remote.absPath, '.npmrc'), 'utf8');
 	const nodeVersion = /^target="(.*)"$/m.exec(npmrc)![1];
 	const internalNodeVersion = /^ms_build_id="(.*)"$/m.exec(npmrc)![1];
 	return { nodeVersion, internalNodeVersion };
 }
 
 function getNodeChecksum(expectedName: string): string | undefined {
-	const nodeJsChecksums = fs.readFileSync(path.join(REPO_ROOT, 'build', 'checksums', 'nodejs.txt'), 'utf8');
+	const nodeJsChecksums = fs.readFileSync(paths.build.checksums.nodejsTxt.absPath, 'utf8');
 	for (const line of nodeJsChecksums.split('\n')) {
 		const [checksum, name] = line.split(/\s+/);
 		if (name === expectedName) {
@@ -166,7 +166,7 @@ function fetchNodejsFromInternalFeed(feed: string, assetName: string, version: s
 
 BUILD_TARGETS.forEach(({ platform, arch }) => {
 	task.task(task.define(`node-${platform}-${arch}`, () => {
-		const nodePath = path.join('.build', 'node', `v${nodeVersion}`, `${platform}-${arch}`);
+		const nodePath = path.join(paths.dotBuild.node.absPath, `v${nodeVersion}`, `${platform}-${arch}`);
 
 		if (!fs.existsSync(nodePath)) {
 			util.rimraf(nodePath);
@@ -300,10 +300,10 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			.filter(entry => !entry.clientOnly)
 			.map(entry => entry.name);
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
-			.map(name => `.build/extensions/${name}/**`);
+			.map(name => `${paths.dotBuild.extensions.rootRelPath}/${name}/**`);
 
-		const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
-		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
+		const extensions = gulp.src(extensionPaths, { base: paths.dotBuild.rootRelPath, dot: true });
+		const extensionsCommonDependencies = gulp.src(`${paths.dotBuild.extensions.rootRelPath}/node_modules/**`, { base: paths.dotBuild.rootRelPath, dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
 
@@ -372,7 +372,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			.pipe(util.stripSourceMappingURL())
 			.pipe(jsFilter.restore);
 
-		const nodePath = `.build/node/v${nodeVersion}/${platform}-${arch}`;
+		const nodePath = `${paths.dotBuild.node.rootRelPath}/v${nodeVersion}/${platform}-${arch}`;
 		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web: NodeJS.ReadWriteStream[] = [];

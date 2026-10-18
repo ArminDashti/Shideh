@@ -475,7 +475,7 @@ export function createXlfFilesForCoreBundle(): eventStream.ThroughStream {
 }
 
 function createL10nBundleForExtension(extensionFolderName: string, prefixWithBuildFolder: boolean): NodeJS.ReadWriteStream {
-	const prefix = prefixWithBuildFolder ? '.build/' : '';
+	const prefix = prefixWithBuildFolder ? `${paths.dotBuild.rootRelPath}/` : '';
 	return gulp
 		.src([
 			// For source code of extensions

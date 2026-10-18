@@ -20,7 +20,7 @@ import { runEsbuildBundle } from './lib/esbuild.ts';
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
-const WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'web');
+const WEB_FOLDER = paths.remote.web.absPath;
 
 const commit = getVersion(REPO_ROOT);
 const quality = (product as { quality?: string }).quality;
@@ -44,29 +44,29 @@ function packageTask(sourceFolderName: string, destinationFolderName: string) {
 		const src = gulp.src(sourceFolderName + '/**', { base: '.' })
 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + sourceFolderName), 'out'); }));
 
-		const extensions = gulp.src('.build/web/extensions/**', { base: '.build/web', dot: true });
+		const extensions = gulp.src(`${paths.dotBuild.web.extensions.rootRelPath}/**`, { base: paths.dotBuild.web.rootRelPath, dot: true });
 
 		const sources = es.merge(src, extensions)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
 
 		const name = product.nameShort;
-		const packageJsonStream = gulp.src(['remote/web/package.json'], { base: 'remote/web' })
+		const packageJsonStream = gulp.src([paths.remote.web.packageJson.rootRelPath], { base: paths.remote.web.rootRelPath })
 			.pipe(jsonEditor({ name, version, type: 'module' }));
 
-		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
+		const license = gulp.src([paths.remote.license.rootRelPath], { base: paths.remote.rootRelPath, allowEmpty: true });
 
 		const productionDependencies = getProductionDependencies(WEB_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 
-		const deps = gulp.src(dependenciesSrc, { base: 'remote/web', dot: true })
+		const deps = gulp.src(dependenciesSrc, { base: paths.remote.web.rootRelPath, dot: true })
 			.pipe(filter(['**', '!**/package-lock.json']))
-			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.webignore')));
+			.pipe(util.cleanNodeModules(paths.build.webignore.absPath));
 
-		const favicon = gulp.src('resources/server/favicon.ico', { base: 'resources/server' });
-		const manifest = gulp.src('resources/server/manifest.json', { base: 'resources/server' });
+		const favicon = gulp.src(paths.resources.server.favicon.rootRelPath, { base: paths.resources.server.rootRelPath });
+		const manifest = gulp.src(paths.resources.server.manifest.rootRelPath, { base: paths.resources.server.rootRelPath });
 		const pwaicons = es.merge(
-			gulp.src('resources/server/code-192.png', { base: 'resources/server' }),
-			gulp.src('resources/server/code-512.png', { base: 'resources/server' })
+			gulp.src(paths.resources.server.code192Png.rootRelPath, { base: paths.resources.server.rootRelPath }),
+			gulp.src(paths.resources.server.code512Png.rootRelPath, { base: paths.resources.server.rootRelPath })
 		);
 
 		const all = es.merge(

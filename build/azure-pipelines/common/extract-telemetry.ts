@@ -7,6 +7,7 @@ import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { paths } from '../../folders.ts';
 
 const BUILD_STAGINGDIRECTORY = process.env.BUILD_STAGINGDIRECTORY ?? fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-telemetry-'));
 const BUILD_SOURCESDIRECTORY = process.env.BUILD_SOURCESDIRECTORY ?? path.resolve(import.meta.dirname, '..', '..', '..');

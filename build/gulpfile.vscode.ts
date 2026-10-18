@@ -55,9 +55,9 @@ task.task(task.define('core-ci', task.series(
 	copyCodiconsTask,
 	compileNonNativeExtensionsBuildTask,
 	compileExtensionMediaBuildTask,
-	writeISODate('out-build'),
+	writeISODate(paths.outBuild.rootRelPath),
 	// Type-check with tsgo (no emit)
-	task.define('tsgo-typecheck', () => spawnTsgo(path.join(root, 'src', 'tsconfig.json'), { taskName: 'tsgo-typecheck', noEmit: true })),
+	task.define('tsgo-typecheck', () => spawnTsgo(paths.src.tsconfig.absPath, { taskName: 'tsgo-typecheck', noEmit: true })),
 	// Transpile individual files to out-build first (for unit tests)
 	task.define('esbuild-out-build', () => runEsbuildTranspile('out-build', false)),
 	task.define('nls-catalog', () => runEsbuildNLS('out-build')),
@@ -145,9 +145,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 			const set = new Set((ext as { platforms?: string[] }).platforms);
 			return !set.has(platform);
-		}).map(ext => `!.build/extensions/${ext.name}/**`);
+		}).map(ext => `!${paths.dotBuild.extensions.rootRelPath}/${ext.name}/**`);
 
-		const extensions = gulp.src(['.build/extensions/**', ...platformSpecificBuiltInExtensionsExclusions], { base: '.build', dot: true });
+		const extensions = gulp.src([`${paths.dotBuild.extensions.rootRelPath}/**`, ...platformSpecificBuiltInExtensionsExclusions], { base: paths.dotBuild.rootRelPath, dot: true });
 
 		const sourceFilterPattern = stripSourceMapsInPackagingTasks
 			? ['**', '!**/*.{js,css}.map']
@@ -211,7 +211,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		// TODO the API should be copied to `out` during compile, not here
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
-		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
+		const telemetry = gulp.src(`${paths.dotBuild.telemetry.rootRelPath}/**`, { base: paths.dotBuild.telemetry.rootRelPath, dot: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
@@ -325,7 +325,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'resources/win32/shideh_150x150.png'
 			], { base: '.' }));
 		} else if (platform === 'linux') {
-			const policyDest = gulp.src('.build/policies/linux/**', { base: '.build/policies/linux' })
+			const policyDest = gulp.src(`${paths.dotBuild.policies.linux.rootRelPath}/**`, { base: paths.dotBuild.policies.linux.rootRelPath })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`));
 			all = es.merge(all, gulp.src('resources/linux/code.png', { base: '.' }), policyDest);
 		} else if (platform === 'darwin') {
@@ -333,7 +333,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(replace('@@APPNAME@@', product.applicationName))
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(rename('bin/code'));
-			const policyDest = gulp.src('.build/policies/darwin/**', { base: '.build/policies/darwin' })
+			const policyDest = gulp.src(`${paths.dotBuild.policies.darwin.rootRelPath}/**`, { base: paths.dotBuild.policies.darwin.rootRelPath })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`));
 			all = es.merge(all, shortcut, policyDest);
 		}
@@ -408,11 +408,11 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(replace('@@NAME_SHORT@@', product.nameShort))
 				.pipe(rename(product.nameShort + '.VisualElementsManifest.xml')));
 
-			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
+			result = es.merge(result, gulp.src(`${paths.dotBuild.policies.win32.rootRelPath}/**`, { base: paths.dotBuild.policies.win32.rootRelPath })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
 			if (quality === 'stable' || quality === 'insider') {
-				result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
+				result = es.merge(result, gulp.src(`${paths.dotBuild.win32.rootRelPath}/appx/**`, { base: paths.dotBuild.win32.rootRelPath }));
 				const rawVersion = version.replace(/-\w+$/, '').split('.');
 				const appxVersion = `${rawVersion[0]}.0.${rawVersion[1]}.${rawVersion[2]}`;
 				result = es.merge(result, gulp.src('resources/win32/appx/AppxManifest.xml', { base: '.' })
@@ -559,7 +559,8 @@ BUILD_TARGETS.forEach(buildTarget => {
 	const opts = buildTarget.opts;
 
 	const [vscode, vscodeMin] = ['', 'min'].map(minified => {
-		const sourceFolderName = `out-vscode${dashed(minified)}`;
+		const sourceFolderName = `${paths.outVscode.rootRelPath}${dashed(minified)}`;
+		const sourceFolder = dirStr(sourceFolderName, minified ? paths.outVscodeMin : paths.outVscode);
 		const destinationFolderName = `VSCode${dashed(platform)}${dashed(arch)}`;
 
 		const packageTasks: task.Task[] = [
@@ -672,8 +673,8 @@ task.task(task.define(
 		task.task('core-ci') as task.Task,
 		compileAllExtensionsBuildTask,
 		function () {
-			const pathToMetadata = './out-build/nls.metadata.json';
-			const pathToExtensions = '.build/extensions/*';
+			const pathToMetadata = `./${paths.outBuild.rootRelPath}/nls.metadata.json`;
+			const pathToExtensions = `${paths.dotBuild.extensions.rootRelPath}/*`;
 			const pathToSetup = 'build/win32/i18n/messages.en.isl';
 
 			return es.merge(

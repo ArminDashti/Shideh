@@ -321,7 +321,7 @@ function inlineMinimistPlugin(): esbuild.Plugin {
 		name: 'inline-minimist',
 		setup(build) {
 			build.onResolve({ filter: /^minimist$/ }, () => ({
-				path: path.join(REPO_ROOT, 'node_modules/minimist/index.js'),
+				path: paths.nodeModules.minimist.absPath,
 				external: false,
 			}));
 		},
@@ -471,7 +471,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 	await fs.promises.mkdir(outDirPath, { recursive: true });
 	let buildDate: string;
 	try {
-		buildDate = await fs.promises.readFile(path.join(REPO_ROOT, 'out-build', 'date'), 'utf8');
+		buildDate = await fs.promises.readFile(paths.outBuild.date.absPath, 'utf8');
 	} catch {
 		buildDate = getGitCommitDate();
 	}

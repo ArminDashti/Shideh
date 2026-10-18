@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 
@@ -37,7 +36,7 @@ function getDistroBranchHead(branch: string): string {
 
 async function checkDistroCommit(): Promise<void> {
 	// Get the distro commit from package.json
-	const packageJsonPath = path.join(root, 'package.json');
+	const packageJsonPath = paths.packageJson.absPath;
 	const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 	const distroCommit: string = packageJson.distro;
 
