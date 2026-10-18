@@ -448,6 +448,14 @@ export class InlineEditsGutterIndicator extends Disposable {
 				this._editorObs.editor.applyFontInfo(indicator.element);
 			}
 		}));
+
+		this._register(autorunWithStore((reader, store) => {
+			const host = this._host.read(reader);
+			if (!host) { return; }
+			store.add(host.onDidAccept(() => {
+				this._storageService.store('inlineEditsGutterIndicatorUserKind', UserKind.Active, StorageScope.APPLICATION, StorageTarget.USER);
+			}));
+		}));
 	}
 
 	private readonly _isHoveredOverInlineEditDebounced: IObservable<boolean>;

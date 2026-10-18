@@ -1351,6 +1351,8 @@ export class McpTool implements IMcpTool {
 	public get definition(): MCP.Tool { return this._definition; }
 	public get uiResourceUri(): string | undefined { return this._definition.uiResourceUri; }
 
+	public get definition(): MCP.Tool { return this._definition; }
+
 	constructor(
 		private readonly _server: McpServer,
 		idPrefix: string,
