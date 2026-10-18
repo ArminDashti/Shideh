@@ -368,6 +368,15 @@ export class InternalTerminalShellIntegration extends Disposable {
 		this._fireChangeEvent();
 	}
 
+	setEnv(keys: string[], values: string[]): void {
+		const env: { [key: string]: string | undefined } = {};
+		for (let i = 0; i < keys.length; i++) {
+			env[keys[i]] = values[i];
+		}
+		this._env = env;
+		this._fireChangeEvent();
+	}
+
 	setCwd(cwd: URI | undefined): void {
 		let wasChanged = false;
 		if (URI.isUri(this._cwd)) {

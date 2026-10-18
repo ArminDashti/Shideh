@@ -67,6 +67,14 @@ export class MainThreadTerminalShellIntegration extends Disposable implements Ma
 			}
 		}));
 
+		// onDidChangeTerminalShellIntegration via env
+		const envChangeEvent = this._store.add(this._terminalService.createOnInstanceCapabilityEvent(TerminalCapability.ShellEnvDetection, e => e.onDidChangeEnv));
+		this._store.add(envChangeEvent.event(e => {
+			const keysArr = Array.from(e.data.keys());
+			const valuesArr = Array.from(e.data.values());
+			this._proxy.$shellEnvChange(e.instance.instanceId, keysArr, valuesArr);
+		}));
+
 		// onDidStartTerminalShellExecution
 		const commandDetectionStartEvent = this._store.add(this._terminalService.createOnInstanceCapabilityEvent(TerminalCapability.CommandDetection, e => e.onCommandExecuted));
 		let currentCommand: ITerminalCommand | undefined;

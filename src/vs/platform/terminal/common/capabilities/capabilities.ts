@@ -193,6 +193,13 @@ export interface TerminalShellIntegration {
 	readonly env: TerminalShellIntegrationEnvironment;
 }
 
+export interface IShellEnvDetectionCapability {
+	readonly type: TerminalCapability.ShellEnvDetection;
+	readonly onDidChangeEnv: Event<Map<string, string>>;
+	get env(): Map<string, string>;
+	setEnvironment(envs: { [key: string]: string | undefined } | undefined, isTrusted: boolean): void;
+}
+
 export const enum CommandInvalidationReason {
 	Windows = 'windows',
 	NoProblemsReported = 'noProblemsReported'
