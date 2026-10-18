@@ -846,6 +846,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 		const syntheticPluginDir = URI.file('/tmp/vscode-synced-customizations');
 		const skillUri = URI.joinPath(pluginDir, 'skills', 'user-skill', 'SKILL.md');
 		const instructionUri = URI.joinPath(pluginDir, 'rules', 'user.instructions.md');
+		const agentUri = URI.joinPath(pluginDir, 'agents', 'asparagus.md');
 		const plugin: ICopilotPluginInfo = {
 			format: PluginFormat.Copilot,
 			hooks: [],
@@ -864,7 +865,18 @@ suite('CopilotSessionLauncher shared session config', () => {
 				},
 			}],
 			disabledMcpServers: ['azure', 'azure', 'disabled-workspace-server'],
-			agents: [],
+			agents: [{
+				uri: agentUri,
+				name: 'asparagus',
+				hooks: [{
+					type: 'SessionStart',
+					commands: [{ command: 'echo agent-start' }],
+					uri: agentUri,
+					originalId: 'SessionStart',
+					customization: { type: CustomizationType.Hook, id: `${agentUri.toString()}#hooks`, uri: agentUri.toString(), name: 'asparagus.md' },
+				}],
+				customization: { type: CustomizationType.Agent, id: agentUri.toString(), uri: agentUri.toString(), name: 'asparagus' },
+			}],
 			skills: [{
 				uri: skillUri,
 				name: 'user-skill',
@@ -938,6 +950,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 				createInstructionDirectories: createConfigs[0].instructionDirectories,
 				createDisabledMcpServers: createConfigs[0].disabledMcpServers,
 				createHasExitPlanHandler: typeof createConfigs[0].onExitPlanModeRequest === 'function',
+				createHasAgentSessionStartHook: typeof createConfigs[0].hooks?.onSessionStart === 'function',
 				createLargeOutput: createConfigs[0].largeOutput,
 				createManagedSettings: createConfigs[0].managedSettings,
 				createStreaming: createConfigs[0].streaming,
@@ -1000,6 +1013,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 				createInstructionDirectories: [URI.joinPath(pluginDir, 'rules').fsPath],
 				createDisabledMcpServers: ['azure', 'disabled-workspace-server', 'github'],
 				createHasExitPlanHandler: true,
+				createHasAgentSessionStartHook: true,
 				createLargeOutput: { maxSizeBytes: 8192 },
 				createManagedSettings: { permissions: managedSettingsPermissions },
 				createStreaming: true,

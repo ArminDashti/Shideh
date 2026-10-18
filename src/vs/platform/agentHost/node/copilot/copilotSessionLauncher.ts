@@ -254,6 +254,32 @@ export interface ICopilotSessionRuntime {
 	reloadExtensions(): Promise<void>;
 }
 
+function createScopedAgentHookGroups(plugins: readonly ICopilotPluginInfo[], runtime: ICopilotSessionRuntime): IScopedAgentHookGroups | undefined {
+	const hooksByAgentName = new Map<string, NonNullable<ICopilotPluginInfo['agents'][number]['hooks']>>();
+	const seenAgentNames = new Set<string>();
+	for (const plugin of plugins) {
+		for (const agent of plugin.agents) {
+			if (seenAgentNames.has(agent.name)) {
+				continue;
+			}
+			seenAgentNames.add(agent.name);
+			if (agent.hooks?.length) {
+				hooksByAgentName.set(agent.name, agent.hooks);
+			}
+		}
+	}
+	if (hooksByAgentName.size === 0) {
+		return undefined;
+	}
+	return {
+		all: [...hooksByAgentName.values()].flat(),
+		get: (inputSessionId, rootSessionId) => {
+			const agentName = runtime.getActiveAgentName(inputSessionId, rootSessionId);
+			return agentName ? hooksByAgentName.get(agentName) ?? [] : [];
+		},
+	};
+}
+
 export interface ICopilotSessionLauncher {
 	/**
 	 * Creates an unowned SDK session wrapper. The caller is responsible for

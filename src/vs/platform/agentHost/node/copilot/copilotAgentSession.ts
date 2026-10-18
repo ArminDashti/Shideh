@@ -996,6 +996,7 @@ export class CopilotAgentSession extends Disposable {
 	private readonly _parentToolCallIdsByAgentId = new Map<string, string>();
 	/** Display names for coordination tools, retained across turns and refreshed from lifecycle and task metadata. */
 	private readonly _subagentDisplayNamesByAgentId = new Map<string, string>();
+	private readonly _subagentNamesByAgentId = new Map<string, string>();
 	private readonly _resolveAgentName = (agentId: string) => this._subagentDisplayNamesByAgentId.get(agentId);
 	private readonly _rootTurnIdBySubagentToolCallId = new Map<string, string>();
 	readonly modelCallTurnCorrelation = new ModelCallTurnCorrelation();
@@ -1533,6 +1534,7 @@ export class CopilotAgentSession extends Disposable {
 		this._onDidChangeCanvases = options.onDidChangeCanvases;
 		this._sessionLauncher = options.sessionLauncher;
 		this._launchPlan = options.launchPlan;
+		this._selectedAgentName = options.launchPlan.resolvedAgentName;
 		this._sandboxDiagnostics = this._register(this._instantiationService.createInstance(CopilotSandboxDiagnostics, this._ownerSessionUri.toString(), () => this._launchPlan.client.rpc.sandbox.getHostSupport()));
 		this._detectInterruptedTurnOnRestore = options.launchPlan.kind === 'resume';
 		this._onTurnEnded = options.onTurnEnded ?? (() => { });
@@ -5205,6 +5207,7 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.info(`[Copilot:${this.sessionId}] Selecting custom agent: ${name}`);
 			try {
 				await this._awaitControlPlaneRpc('rpc.agent.select', this._wrapper.session.rpc.agent.select({ name }));
+				this._selectedAgentName = name;
 			} catch (err) {
 				this._logService.error(err, `[Copilot:${this.sessionId}] rpc.agent.select failed: name=${name}`);
 				throw err;
@@ -5213,6 +5216,7 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.info(`[Copilot:${this.sessionId}] Clearing custom agent selection`);
 			try {
 				await this._awaitControlPlaneRpc('rpc.agent.deselect', this._wrapper.session.rpc.agent.deselect());
+				this._selectedAgentName = undefined;
 			} catch (err) {
 				this._logService.error(err, `[Copilot:${this.sessionId}] rpc.agent.deselect failed`);
 				throw err;
