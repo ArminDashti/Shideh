@@ -67,7 +67,7 @@ export class NewSessionTourContribution extends Disposable implements IWorkbench
 
 		this._register(onboardingScenarioRegistry.register(createNewSessionTour(this._trigger)));
 
-		this._register(sessionsManagementService.onWillSendRequest(session => this._onWillSendRequest(session)));
+		this._register(sessionsManagementService.onWillSendRequest(({ session }) => this._onWillSendRequest(session)));
 	}
 
 	private _onWillSendRequest(session: ISession): void {

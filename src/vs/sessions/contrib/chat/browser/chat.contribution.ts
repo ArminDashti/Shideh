@@ -502,6 +502,7 @@ registerAction2(class DisableSessionStorageCleanupSuggestionsAction extends Acti
 
 // register actions
 registerAction2(BranchChatSessionAction);
+registerAction2(CloseTransientSideChatAction);
 
 // register workbench contributions
 registerWorkbenchContribution2(RunScriptContribution.ID, RunScriptContribution, WorkbenchPhase.AfterRestored);
@@ -853,6 +854,14 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: localize('chat.agentSessions.preferredLightBackgroundImageLayout', "Controls how the chat background image is laid out in the Agents Window when using a light color theme."),
 			tags: ['experimental'],
 			ignoreSync: true,
+		},
+		[AGENT_SESSIONS_TRANSIENT_SIDE_CHAT_SETTING]: {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			tags: ['experimental', 'advanced'],
+			description: localize('chat.agentSessions.transientSideChat', "Controls whether new side questions appear in a transient answer card above the source chat input. When disabled, side questions open as full chats beside the source chat."),
+			experiment: { mode: 'auto' },
 		},
 	},
 });

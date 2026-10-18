@@ -175,8 +175,7 @@ export class ResponseSelectionSideChatController extends Disposable {
 	constructor(
 		private readonly _widget: IChatWidget,
 		@ISessionsManagementService private readonly _sessionsManagementService: ISessionsManagementService,
-		@ISessionsService private readonly _sessionsService: ISessionsService,
-		@ISessionsPartService private readonly _sessionsPartService: ISessionsPartService,
+		@ISideChatOrchestrationService private readonly _sideChatOrchestrationService: ISideChatOrchestrationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
@@ -611,7 +610,7 @@ export class ResponseSelectionSideChatController extends Disposable {
 	 * it — outside interactions like Escape or selection invalidation must not
 	 * race the in-flight create/open/send.
 	 */
-	private _dismiss(force = false): void {
+	private _dismiss(force = false, preserveFocus = false): void {
 		if (!force && this._input.isBusy) {
 			return;
 		}
@@ -662,22 +661,23 @@ export class ResponseSelectionSideChatController extends Disposable {
 			return;
 		}
 
-		// Keep the overlay visible with a busy state instead of eagerly
-		// dismissing: opening the created side chat naturally dismisses it via
-		// `setChat`; on failure the question and normal controls are restored
-		// below so the user can retry.
 		this._input.setBusy(true, localize('sessions.selectionSideChat.busy', "Asking question…"));
 		this._reposition(true, false);
 		const generation = this._generation;
-		createAndSendSideChat(this._sessionsManagementService, this._sessionsService, this._sessionsPartService, session, chat.resource, resolved.response.requestId, { query }, { text: resolved.text })
-			.then(() => {
-				// A stale completion after a genuine navigation force-dismissed this overlay must no-op.
-				if (this._generation !== generation) {
-					return;
-				}
-				// `setChat` (fired by the view change from opening the side
-				// chat) normally dismisses this overlay already; clear busy
-				// defensively in case that doesn't happen.
+		void this._createAndSendSideChat(session, chat, resolved.response.requestId, resolved.text, query, generation);
+	}
+
+	private async _createAndSendSideChat(session: ISession, sourceChat: IChat, turnId: string, selectedText: string, query: string, generation: number): Promise<void> {
+		let presentation: SideChatPresentation | undefined;
+		try {
+			const prepared = await this._sideChatOrchestrationService.createAndPresent(session, sourceChat, turnId, query, { text: selectedText });
+			presentation = prepared.presentation;
+			if (presentation !== SideChatPresentation.Full && this._generation === generation) {
+				this._dismissAfterBackgroundPresentation(presentation === SideChatPresentation.Superseded);
+			}
+
+			await prepared.send({ query });
+			if (presentation === SideChatPresentation.Full && this._generation === generation) {
 				this._input.setBusy(false);
 				this._reposition(true, false);
 			})

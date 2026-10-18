@@ -550,6 +550,9 @@ export class AgentHostSessionTitleController extends Disposable implements IAgen
 			return undefined;
 		}
 		const independentChat = this._independentChatChannel(channel, chatChannel);
+		if (independentChat && this._stateManager.getChatOrigin(independentChat)?.kind === ChatOriginKind.SideChat) {
+			return undefined;
+		}
 		const key = independentChat ?? channel;
 		if (this._renamedTitles.has(key)) {
 			return undefined;

@@ -2206,6 +2206,7 @@ export class TestChatWidgetService implements IChatWidgetService {
 	_serviceBrand: undefined;
 
 	lastFocusedWidget: IChatWidget | undefined;
+	get lastFocusedChatSurface(): IChatWidget | undefined { return this.lastFocusedWidget; }
 
 	onDidAddWidget = Event.None;
 	onDidRemoveWidget = Event.None;

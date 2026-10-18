@@ -56,6 +56,8 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	readonly onDidFinishSendRequest = this._onDidFinishSendRequest.event;
 	private readonly _onDidSendRequest = this._register(new Emitter<ISendRequestSentEvent>());
 	readonly onDidSendRequest: Event<ISendRequestSentEvent> = this._onDidSendRequest.event;
+	private readonly _onDidEndSendRequest = this._register(new Emitter<ISendRequestEndEvent>());
+	readonly onDidEndSendRequest: Event<ISendRequestEndEvent> = this._onDidEndSendRequest.event;
 
 	private readonly _onDidArchiveSession = this._register(new Emitter<ISession>());
 	readonly onDidArchiveSession: Event<ISession> = this._onDidArchiveSession.event;
@@ -63,8 +65,8 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	readonly onDidUnarchiveSession: Event<ISession> = this._onDidUnarchiveSession.event;
 	private readonly _onDidDeleteSession = this._register(new Emitter<ISession>());
 	readonly onDidDeleteSession: Event<ISession> = this._onDidDeleteSession.event;
-	private readonly _onDidDeleteChat = this._register(new Emitter<ISession>());
-	readonly onDidDeleteChat: Event<ISession> = this._onDidDeleteChat.event;
+	private readonly _onDidDeleteChat = this._register(new Emitter<IChatDeletedEvent>());
+	readonly onDidDeleteChat: Event<IChatDeletedEvent> = this._onDidDeleteChat.event;
 	private readonly _onDidRenameChat = this._register(new Emitter<ISession>());
 	readonly onDidRenameChat: Event<ISession> = this._onDidRenameChat.event;
 	private readonly _onDidRenameSession = this._register(new Emitter<ISession>());
@@ -117,6 +119,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	 * which fires synchronously inside the same provider call.
 	 */
 	private readonly _pendingSendChatResources = new Set<string>();
+	private _sendRequestIdPool = 0;
 
 	constructor(
 		@ILogService private readonly logService: ILogService,
@@ -1020,12 +1023,19 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	}
 
 	/**
-	 * For a `/troubleshoot` request, strip any `#session` marker attachments and
-	 * append a `Session log:` line with the resolved host-local `events.jsonl`
-	 * path(s) — the referenced sessions if present, otherwise the current one.
-	 * Returns `options` unchanged when there is nothing to do.
+	 * Removes management-only fields before crossing the provider boundary. For
+	 * `/troubleshoot`, also resolves `#session` references into host-local logs.
 	 */
-	private _augmentOptionsForTroubleshoot(session: ISession, options: ISendRequestOptions): ISendRequestOptions {
+	private _toProviderSendOptions(session: ISession, options: ISendRequestOptions): ISessionsProviderSendRequestOptions {
+		const providerOptions = {
+			query: options.query,
+			...(options.attachedContext !== undefined ? { attachedContext: options.attachedContext } : {}),
+			...(options.title !== undefined ? { title: options.title } : {}),
+			...(options.hideFromTranscript !== undefined ? { hideFromTranscript: options.hideFromTranscript } : {}),
+		} satisfies ISessionsProviderSendRequestOptions;
+		// Adding a provider option must also add it to this explicit boundary.
+		const allProviderOptionsHandled: Exclude<keyof ISessionsProviderSendRequestOptions, keyof typeof providerOptions> extends never ? true : never = true;
+		void allProviderOptionsHandled;
 		// Separate any `#session` reference attachments from the real context.
 		const referencedResources: URI[] = [];
 		let remainingAttachments: IChatRequestVariableEntry[] | undefined;
@@ -1046,11 +1056,11 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 
 		const isTroubleshoot = /^\s*\/troubleshoot\b/.test(options.query);
 		if (!isTroubleshoot && referencedResources.length === 0) {
-			return options;
+			return providerOptions;
 		}
 
 		// Drop the reference attachments (only meaningful to us, not the model).
-		let result = options;
+		let result = providerOptions;
 		if (remainingAttachments) {
 			result = { ...result, attachedContext: remainingAttachments.length ? remainingAttachments : undefined };
 		}
@@ -1127,14 +1137,14 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			// Foreground send: notify listeners that a send is starting. Listeners
 			// (e.g., telemetry) can use this to prewarm caches whose result is
 			// consumed when `onDidSendRequest` fires below. The view service
-			// observes the will/did send pair to keep the newest chat active in
+			// observes the will/end send pair to keep the newest chat active in
 			// the visible slot while the send materialises.
 			sendAttempt = this.beginSendRequest(session);
 
 			// Ask the provider to create the new chat, then send the request.
 			const chat = await provider.createNewChat(session.sessionId, options.query);
 
-			const sendOptions = this._augmentOptionsForTroubleshoot(session, options);
+			const sendOptions = this._toProviderSendOptions(session, options);
 			const chatResourceKey = chat.resource.toString();
 			this._pendingSendChatResources.add(chatResourceKey);
 			let updatedSession: ISession;
@@ -1585,7 +1595,7 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 	 * visible slot into the sent chat. Errors are propagated to the caller.
 	 */
 	private async _sendRequestInBackground(provider: ISessionsProvider, session: ISession, chat: IChat, options: ISendRequestOptions): Promise<void> {
-		const sendOptions = this._augmentOptionsForTroubleshoot(session, options);
+		const sendOptions = this._toProviderSendOptions(session, options);
 		const chatResourceKey = chat.resource.toString();
 		this._pendingSendChatResources.add(chatResourceKey);
 		let updatedSession: ISession;

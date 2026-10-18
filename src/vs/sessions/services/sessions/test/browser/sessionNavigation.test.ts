@@ -112,6 +112,7 @@ class MockSessionStore implements ISessionsManagementService {
 	readonly onWillSendRequest = Event.None;
 	readonly onDidFinishSendRequest = Event.None;
 	readonly onDidSendRequest = Event.None;
+	readonly onDidEndSendRequest = Event.None;
 	readonly onDidArchiveSession = Event.None;
 	readonly onDidUnarchiveSession = Event.None;
 	readonly onDidDeleteSession = Event.None;

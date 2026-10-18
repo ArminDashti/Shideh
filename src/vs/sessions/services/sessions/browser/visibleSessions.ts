@@ -188,7 +188,7 @@ export class VisibleSession extends Disposable implements IActiveSession {
 		this._activeChat.set(chat, undefined);
 	}
 
-	closeChat(chat: IChat): void {
+	closeChat(chat: IChat, skipHistory = false): void {
 		const chatUri = chat.resource.toString();
 		// A session always keeps at least one visible tab, so the last one cannot
 		// be closed regardless of which chat it is. The main chat is otherwise
@@ -976,11 +976,11 @@ export class VisibleSessions extends Disposable {
 	}
 
 	/**
-	 * Close (hide from the tab strip) the given chat in the session's wrapper.
+	 * Close the chat; `skipHistory` keeps it out of the reopen-last-closed order.
 	 * No-op if the session is not currently tracked in the visibility model.
 	 */
-	closeChat(session: ISession, chat: IChat): void {
-		this._wrappers.get(session.sessionId)?.closeChat(chat);
+	closeChat(session: ISession, chat: IChat, skipHistory = false): void {
+		this._wrappers.get(session.sessionId)?.closeChat(chat, skipHistory);
 	}
 
 	/**

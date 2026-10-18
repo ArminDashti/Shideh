@@ -28,7 +28,7 @@ import { IChatWidget, IChatWidgetService } from '../../../browser/chat.js';
 import { ChatAskInSideChatAction, ChatEditPendingRequestAction, ChatQueueMessageAction, ChatRemovePendingRequestAction, ChatSendPendingImmediatelyAction, ChatSteerWithMessageAction, registerChatQueueActions } from '../../../browser/actions/chatQueueActions.js';
 import '../../../browser/chatEditing/chatEditingActions.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
-import { IChatSideChatService } from '../../../common/chatSideChatService.js';
+import { ChatSideChatSendResultKind, IChatSideChatService } from '../../../common/chatSideChatService.js';
 import { ChatConfiguration } from '../../../common/constants.js';
 import { IChatModel, IChatRequestModel } from '../../../common/model/chatModel.js';
 import { IChatRequestViewModel, IChatViewModel } from '../../../common/model/chatViewModel.js';
@@ -251,7 +251,12 @@ suite('ChatAskInSideChatAction', () => {
 					asked.push('failed');
 					throw new Error('nope');
 				}
+				if (options.askFailurePresented) {
+					asked.push('failedAndPresented');
+					return { kind: ChatSideChatSendResultKind.FailedAndPresented, error: new Error('nope') };
+				}
 				asked.push(`${resource.toString()}:${query}`);
+				return { kind: ChatSideChatSendResultKind.Sent };
 			},
 		}));
 		instantiationService.stub(INotificationService, new TestNotificationService());
@@ -291,6 +296,17 @@ suite('ChatAskInSideChatAction', () => {
 		assert.deepStrictEqual({ asked, input: getInput() }, {
 			asked: ['failed'],
 			input: 'what about this?',
+		});
+	});
+
+	test('keeps the composer cleared when the side chat presents its own failure', async () => {
+		const { run, asked, getInput } = setup({ askFailurePresented: true });
+
+		await run();
+
+		assert.deepStrictEqual({ asked, input: getInput() }, {
+			asked: ['failedAndPresented'],
+			input: '',
 		});
 	});
 

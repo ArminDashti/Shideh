@@ -2249,6 +2249,88 @@ suite('SessionsManagementService', () => {
 		});
 	});
 
+	test('an already-cancelled chat open preserves the active chat and custom view', async () => {
+		const sideChat = { ...stubChat, resource: URI.parse('test:///side-chat') };
+		const session = stubSession({ sessionId: 'active', providerId: 'test', chats: constObservable([stubChat, sideChat]) });
+		const { customViewService, view } = createSessionsManagementService(session, disposables);
+		await view.openSession(session.resource);
+		await view.closeChat(session, sideChat, { skipHistory: true });
+		showTestCustomView(customViewService, disposables);
+
+		await view.openChat(session, sideChat.resource, { token: CancellationToken.Cancelled });
+
+		assert.deepStrictEqual({
+			activeChat: view.activeSession.get()?.activeChat.get().resource.toString(),
+			openChats: view.activeSession.get()?.openChats.get().map(chat => chat.resource.toString()),
+			customView: customViewService.activeCustomView.get()?.id,
+		}, {
+			activeChat: stubChat.resource.toString(),
+			openChats: [stubChat.resource.toString()],
+			customView: 'test.customView',
+		});
+	});
+
+	test('cancelling a chat open during resource resolution prevents stale navigation', async () => {
+		const sideChat = { ...stubChat, resource: URI.parse('test:///side-chat') };
+		const session = stubSession({ sessionId: 'active', providerId: 'test', chats: constObservable([stubChat, sideChat]) });
+		const resolutionStarted = new DeferredPromise<void>();
+		const resolution = new DeferredPromise<URI | undefined>();
+		let deferResolution = false;
+		const provider = new class extends TestSessionsProvider {
+			override resolveSessionResource(): Promise<URI | undefined> {
+				if (deferResolution) {
+					void resolutionStarted.complete();
+					return resolution.p;
+				}
+				return Promise.resolve(undefined);
+			}
+		}(session);
+		const { view } = createSessionsManagementService(session, disposables, provider);
+		await view.openSession(session.resource);
+		await view.closeChat(session, sideChat, { skipHistory: true });
+		const cancellation = disposables.add(new CancellationTokenSource());
+		deferResolution = true;
+
+		const opening = view.openChat(session, sideChat.resource, { token: cancellation.token });
+		await resolutionStarted.p;
+		cancellation.cancel();
+		await resolution.complete(undefined);
+		await opening;
+
+		assert.deepStrictEqual({
+			activeChat: view.activeSession.get()?.activeChat.get().resource.toString(),
+			openChats: view.activeSession.get()?.openChats.get().map(chat => chat.resource.toString()),
+		}, {
+			activeChat: stubChat.resource.toString(),
+			openChats: [stubChat.resource.toString()],
+		});
+	});
+
+	test('cancelling a chat open while the session loads prevents stale navigation', async () => {
+		const sideChat = { ...stubChat, resource: URI.parse('test:///side-chat') };
+		const loading = observableValue('loading', false);
+		const session = stubSession({ sessionId: 'active', providerId: 'test', loading, chats: constObservable([stubChat, sideChat]) });
+		const { view } = createSessionsManagementService(session, disposables);
+		await view.openSession(session.resource);
+		await view.closeChat(session, sideChat, { skipHistory: true });
+		const cancellation = disposables.add(new CancellationTokenSource());
+		loading.set(true, undefined);
+
+		const opening = view.openChat(session, sideChat.resource, { token: cancellation.token });
+		await timeout(0);
+		cancellation.cancel();
+		await opening;
+		loading.set(false, undefined);
+
+		assert.deepStrictEqual({
+			activeChat: view.activeSession.get()?.activeChat.get().resource.toString(),
+			openChats: view.activeSession.get()?.openChats.get().map(chat => chat.resource.toString()),
+		}, {
+			activeChat: stubChat.resource.toString(),
+			openChats: [stubChat.resource.toString()],
+		});
+	});
+
 	test('explicit session navigation dismisses the custom view', async () => {
 		const isArchived = observableValue('isArchived', false);
 		const session = stubSession({ sessionId: 'active', providerId: 'test', isArchived });
@@ -4129,6 +4211,42 @@ suite('SessionsManagementService', () => {
 		});
 
 		completeSendRequest?.();
+	});
+
+	test('sendRequest with preserveActiveChat remains awaited and fires the send lifecycle', async () => {
+		const chat: IChat = { ...stubChat, resource: URI.parse('test:///chat') };
+		const session = stubSession({
+			sessionId: 's1',
+			providerId: 'test',
+			chats: constObservable([chat]),
+			mainChat: constObservable(chat),
+		});
+		let providerCompleted = false;
+		let providerOptions: ISendRequestOptions | undefined;
+		const provider = new class extends TestSessionsProvider {
+			override async sendRequest(_sessionId: string, _chatResource: URI, options: ISendRequestOptions): Promise<ISession> {
+				providerOptions = options;
+				await Promise.resolve();
+				providerCompleted = true;
+				return session;
+			}
+		}(session);
+		const { service } = createSessionsManagementService(session, disposables, provider);
+		let willSendOptions: IManagementSendRequestOptions | undefined;
+		disposables.add(service.onWillSendRequest(event => willSendOptions = event.options));
+
+		const options: IManagementSendRequestOptions = { query: 'hi', preserveActiveChat: true };
+		await service.sendRequest(session, chat, options);
+
+		assert.deepStrictEqual({
+			providerCompleted,
+			sameOptions: willSendOptions === options,
+			providerOptions,
+		}, {
+			providerCompleted: true,
+			sameOptions: true,
+			providerOptions: { query: 'hi' },
+		});
 	});
 
 	test('mirrored follow-up requests preserve submitted attachments', () => {

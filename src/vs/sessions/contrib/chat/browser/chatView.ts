@@ -510,6 +510,11 @@ export class ChatView extends AbstractChatView {
 			}
 		));
 		this.element.insertBefore(this._externalSessionBanner.domNode, this._widgetContainer);
+		this._transientSideChat = this._register(scopedInstantiationService.createInstance(
+			TransientSideChatWidget,
+			this._widget.inputPart.element,
+			this._widget,
+		));
 		this._register(autorun(reader => {
 			const sessionStatus = this._currentSessionObs.read(reader)?.status.read(reader);
 			if (!shouldShowSessionChatTip(sessionStatus)) {
@@ -567,6 +572,7 @@ export class ChatView extends AbstractChatView {
 		}));
 		const updateChatPillsVisibility = (visible: boolean) => {
 			this._widget.inputPart.persistentContentContainerElement.classList.toggle(chatPersistentContentVisibleClass, visible);
+			this._widget.inputPart.setPersistentContentVisible(visible);
 		};
 		this._register(this._chatPills.onDidChangeVisibility(updateChatPillsVisibility));
 		updateChatPillsVisibility(this._chatPills.visible);
@@ -726,6 +732,7 @@ export class ChatView extends AbstractChatView {
 		// Reflect this chat's last-turn changes, status, and background activity.
 		this._chatPills.setChat(chat);
 		this._selectionSideChatController.setChat(chat);
+		this._transientSideChat.setSource(chat, session);
 		this._banners.setDebugData(undefined);
 
 		// Reflect read-only (non-interactive) chats: hide the composer and gate
@@ -1017,6 +1024,7 @@ export class ChatView extends AbstractChatView {
 		}
 		this._comparisonResult.layout(width);
 		size(this._widgetContainer, width, widgetHeight);
+		this._transientSideChat.layout(widgetHeight, width);
 		this._widget.layout(widgetHeight, width);
 		this._layoutStickyScrollBackground();
 	}
@@ -1071,14 +1079,18 @@ export class ChatView extends AbstractChatView {
 	private _ensureBannersMounted(): void {
 		const inputPartElement = this._widget.inputPart.element;
 		const persistentContentContainer = this._widget.inputPart.persistentContentContainerElement;
+		const transientNode = this._transientSideChat.element;
 		const pillsNode = this._chatPills.element;
 		const bannersNode = this._banners.domNode;
 		const comparisonResultNode = this._comparisonResult.domNode;
 		if (persistentContentContainer.firstChild !== pillsNode) {
 			persistentContentContainer.insertBefore(pillsNode, persistentContentContainer.firstChild);
 		}
-		if (persistentContentContainer.nextSibling !== bannersNode) {
-			inputPartElement.insertBefore(bannersNode, persistentContentContainer.nextSibling);
+		if (persistentContentContainer.nextSibling !== transientNode) {
+			inputPartElement.insertBefore(transientNode, persistentContentContainer.nextSibling);
+		}
+		if (transientNode.nextSibling !== bannersNode) {
+			inputPartElement.insertBefore(bannersNode, transientNode.nextSibling);
 		}
 		if (bannersNode.nextSibling !== comparisonResultNode) {
 			inputPartElement.insertBefore(comparisonResultNode, bannersNode.nextSibling);
@@ -1154,6 +1166,7 @@ export class ChatView extends AbstractChatView {
 		this._nextUserMessageSuggestionController.setViewState(active, this._isVisible !== false);
 		this._banners.setActive(active);
 		this._widget.setStyles(this._buildStyles(active));
+		this._transientSideChat.setActive(active);
 	}
 
 	override setVisible(visible: boolean): void {

@@ -179,11 +179,11 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			this._proxy.$handleQuestionCarouselAnswer(e.requestId, e.resolveId, e.answers);
 		}));
 		this._register(this._chatWidgetService.onDidChangeFocusedSession(() => {
-			this._acceptActiveChatSession(this._chatWidgetService.lastFocusedWidget);
+			this._acceptActiveChatSession(this._chatWidgetService.lastFocusedChatSurface);
 		}));
 
 		// Push the initial active session if there is already a focused widget
-		this._acceptActiveChatSession(this._chatWidgetService.lastFocusedWidget);
+		this._acceptActiveChatSession(this._chatWidgetService.lastFocusedChatSurface);
 
 		this._register(this._promptsService.onDidChangeCustomAgents(() => {
 			this._proxy.$onDidChangeCustomAgents();
@@ -339,7 +339,7 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 	}
 
 	async $transferActiveChatSession(toWorkspace: UriComponents): Promise<void> {
-		const widget = this._chatWidgetService.lastFocusedWidget;
+		const widget = this._chatWidgetService.lastFocusedChatSurface;
 		const model = widget?.viewModel?.model;
 		if (!model) {
 			this._logService.error(`MainThreadChat#$transferActiveChatSession: No active chat session found`);
