@@ -711,6 +711,38 @@ export class AgentSideEffects extends Disposable {
 		return this._permissionManager.initialize();
 	}
 
+	// ---- Edit auto-approve --------------------------------------------------
+
+	/**
+	 * Default edit auto-approve patterns applied by the agent host.
+	 * Matches the VS Code `chat.tools.edits.autoApprove` setting defaults.
+	 */
+	private static readonly _DEFAULT_EDIT_AUTO_APPROVE_PATTERNS: Readonly<Record<string, boolean>> = {
+		'**/*': true,
+		'**/.vscode/*.json': false,
+		'**/.git/**': false,
+		'**/{package.json,server.xml,build.rs,web.config,.gitattributes,.env}': false,
+		'**/*.{code-workspace,csproj,fsproj,vbproj,vcxproj,proj,targets,props}': false,
+		'**/*.lock': false,
+		'**/*-lock.{yaml,json}': false,
+	};
+
+	/**
+	 * Returns whether a write to `filePath` should be auto-approved based on
+	 * the built-in default patterns.
+	 */
+	private _shouldAutoApproveEdit(filePath: string): boolean {
+		const patterns = AgentSideEffects._DEFAULT_EDIT_AUTO_APPROVE_PATTERNS;
+
+		let approved = true;
+		for (const [pattern, isApproved] of Object.entries(patterns)) {
+			if (isApproved !== approved && globMatch(pattern, filePath)) {
+				approved = isApproved;
+			}
+		}
+		return approved;
+	}
+
 	// ---- Agent registration -------------------------------------------------
 
 	/**
