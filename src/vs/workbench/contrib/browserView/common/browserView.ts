@@ -1094,6 +1094,18 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 		return this.browserViewService.setDeviceEmulation(this.id, device);
 	}
 
+	get deviceEmulation(): IBrowserDeviceEmulation | undefined {
+		return this._deviceEmulation;
+	}
+
+	get onDidChangeDeviceEmulation(): Event<IBrowserDeviceEmulation | undefined> {
+		return this.browserViewService.onDynamicDidChangeDeviceEmulation(this.id);
+	}
+
+	async setDeviceEmulation(device: IBrowserDeviceEmulation | undefined): Promise<void> {
+		return this.browserViewService.setDeviceEmulation(this.id, device);
+	}
+
 	private static readonly SHARE_DONT_ASK_KEY = 'browserView.shareWithAgent.dontAskAgain';
 
 	async setSharedWithAgent(shared: boolean): Promise<IBrowserViewModel | undefined> {

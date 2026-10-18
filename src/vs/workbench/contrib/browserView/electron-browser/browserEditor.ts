@@ -811,6 +811,19 @@ export class BrowserEditor extends EditorPane {
 				height: containerRect.height,
 				zoomFactor: getZoomFactor(this.window)
 			});
+
+			// Clip the placeholder screenshot to match the area the WebContentsView occupies.
+			// During device emulation the live view is clamped to the device width and centered,
+			// so the placeholder must follow to avoid bleeding an outdated screenshot on the sides.
+			const device = this._model.deviceEmulation;
+			if (device && containerRect.width > device.width) {
+				const offset = Math.floor((containerRect.width - device.width) / 2);
+				this._placeholderScreenshot.style.left = `${offset}px`;
+				this._placeholderScreenshot.style.right = `${offset}px`;
+			} else {
+				this._placeholderScreenshot.style.left = '';
+				this._placeholderScreenshot.style.right = '';
+			}
 		}
 	}
 

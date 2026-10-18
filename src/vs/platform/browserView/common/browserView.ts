@@ -818,6 +818,13 @@ export interface IBrowserViewService {
 	setDeviceEmulation(id: string, device: IBrowserDeviceProfile | undefined): Promise<void>;
 
 	/**
+	 * Set or clear a device emulation profile for a browser view. Passing
+	 * `undefined` returns the view to the default "Responsive" behavior where
+	 * the page mirrors the container size.
+	 */
+	setDeviceEmulation(id: string, device: IBrowserDeviceEmulation | undefined): Promise<void>;
+
+	/**
 	 * Trust a certificate for a given host in the browser view's session.
 	 * The page will be automatically reloaded after trusting.
 	 * @param id The browser view identifier

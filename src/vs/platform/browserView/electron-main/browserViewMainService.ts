@@ -221,6 +221,10 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		}
 	}
 
+	onDynamicDidChangeDeviceEmulation(id: string) {
+		return this._getBrowserView(id).onDidChangeDeviceEmulation;
+	}
+
 	async getState(id: string): Promise<IBrowserViewState> {
 		return this._getBrowserView(id).getState();
 	}

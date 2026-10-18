@@ -416,6 +416,7 @@ export class BrowserView extends Disposable {
 		// Loading state events
 		webContents.on('did-start-loading', () => {
 			this._lastError = undefined;
+			this.traceDeviceEmulation('did-start-loading', this.getSafeTraceLocation(webContents.getURL()));
 
 			// Don't fire loading events for e.g. same-document navigations
 			if (webContents.isLoadingMainFrame()) {
@@ -454,7 +455,10 @@ export class BrowserView extends Disposable {
 				this._onDidChangeFavicon.fire({ favicon: this._favicon.favicon });
 			}
 		});
-		webContents.on('did-finish-load', () => fireLoadingEvent(false));
+		webContents.on('did-finish-load', () => {
+			this.traceDeviceEmulation('did-finish-load', this.getSafeTraceLocation(webContents.getURL()));
+			fireLoadingEvent(false);
+		});
 
 		this.session.trust.installCertErrorHandler(webContents);
 
@@ -494,11 +498,33 @@ export class BrowserView extends Disposable {
 			}
 		});
 
+		webContents.on('did-start-navigation', (_e, url, isInPlace, isMainFrame) => {
+			if (isMainFrame) {
+				this.traceDeviceEmulation('did-start-navigation', `${isInPlace ? 'in-page' : 'document'} ${this.getSafeTraceLocation(url)}`);
+			}
+		});
+		webContents.on('did-redirect-navigation', (_e, url, _isInPlace, isMainFrame) => {
+			if (isMainFrame) {
+				this.traceDeviceEmulation('did-redirect-navigation', this.getSafeTraceLocation(url));
+			}
+		});
+		webContents.on('did-navigate', (_e, url) => this.traceDeviceEmulation('did-navigate', this.getSafeTraceLocation(url)));
+		webContents.on('did-navigate-in-page', (_e, url, isMainFrame) => {
+			if (isMainFrame) {
+				this.traceDeviceEmulation('did-navigate-in-page', this.getSafeTraceLocation(url));
+			}
+		});
+
 		webContents.on('did-navigate', () => {
 			// Chromium resets the zoom factor to its per-origin default (100%) when
 			// navigating to a new document. Re-apply our stored zoom to override it.
 			this._consoleLogs.length = 0; // Clear console logs on navigation since they are per-page
 			this._view.webContents.setZoomFactor(browserZoomFactors[this._browserZoomIndex]);
+
+			// CDP overrides can be reset by Chromium on cross-process navigation.
+			if (this._deviceEmulation) {
+				void this.applyDeviceEmulation();
+			}
 
 			// Enable pinch-to-zoom
 			void this._view.webContents.setVisualZoomLevelLimits(1, 3).catch(error => {
