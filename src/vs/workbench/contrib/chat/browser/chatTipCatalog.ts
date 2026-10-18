@@ -127,9 +127,21 @@ export interface ITipDefinition extends ITipExclusionConfig {
 	 */
 	readonly excludeWhenSettingsChanged?: readonly string[];
 	/**
-	 * Command IDs that dismiss this tip when clicked from the tip markdown.
+	 * Command IDs that dismiss this tip when clicked from the tip markdown or action button.
 	 */
 	readonly dismissWhenCommandsClicked?: readonly string[];
+	/**
+	 * Optional action button rendered alongside the tip text.
+	 * Renders as a proper button widget instead of a markdown link.
+	 */
+	readonly actionButton?: {
+		readonly label: string;
+		readonly commandId: string;
+	};
+	/**
+	 * When true, the "Tip:" prefix is not prepended to the message.
+	 */
+	readonly noPrefix?: boolean;
 }
 
 

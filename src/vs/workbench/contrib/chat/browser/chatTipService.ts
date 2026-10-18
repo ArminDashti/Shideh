@@ -65,6 +65,13 @@ export interface IChatTip {
 	readonly id: string;
 	readonly content: MarkdownString;
 	readonly enabledCommands?: readonly string[];
+	/**
+	 * Optional action button rendered as a proper button widget alongside the tip text.
+	 */
+	readonly actionButton?: {
+		readonly label: string;
+		readonly commandId: string;
+	};
 }
 
 export interface IChatTipService {
@@ -450,6 +457,19 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		this._onDidHideTip.fire();
 	}
 
+	/**
+	 * Removes a specific tip from the dismissed set so it can be shown again.
+	 * Used for tips like tryNewModel that should resurface for each new model.
+	 */
+	private _undismissTip(tipId: string): void {
+		const dismissed = new Set(this._getDismissedTipIds());
+		if (!dismissed.has(tipId)) {
+			return;
+		}
+		dismissed.delete(tipId);
+		this._storageService.store(ChatTipStorageKeys.DismissedTips, JSON.stringify([...dismissed]), StorageScope.APPLICATION, StorageTarget.MACHINE);
+	}
+
 	hideTipsForSession(): void {
 		if (this._tipsHiddenForSession) {
 			return;
@@ -634,6 +654,12 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		this._hasShownRequestTip = sourceId !== 'welcome';
 		this._tipRequestId = sourceId;
 		this._shownTip = selectedTip;
+
+		// Snapshot the new model ID so the "Try It" action can use it
+		// even after the model picker marks all models as seen.
+		if (selectedTip.id === 'tip.tryNewModel') {
+			this._tryNewModelId = this._languageModelsService.getNewModelIds()[0];
+		}
 
 		this._logTipTelemetry(selectedTip.id, 'shown');
 		this._trackTipCommandClicks(selectedTip);
@@ -918,8 +944,10 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		const ctx: ITipBuildContext = { keybindingService: this._keybindingService, experimentalTipMessages: this._experimentalTipMessages };
 		const rawMessage = tipDef.buildMessage(ctx);
 
-		// Add "Tip:" prefix once here, avoiding duplication in individual tip definitions
-		const prefixedMessage = localize('tipPrefix', "**Tip:** {0}", rawMessage.value);
+		// Add "Tip:" prefix unless the tip opts out
+		const prefixedMessage = tipDef.noPrefix
+			? rawMessage.value
+			: localize('tipPrefix', "**Tip:** {0}", rawMessage.value);
 
 		// Auto-extract enabled commands from the built message
 		const enabledCommands = extractCommandIds(prefixedMessage);
@@ -931,6 +959,7 @@ export class ChatTipService extends Disposable implements IChatTipService {
 			id: tipDef.id,
 			content: markdown,
 			enabledCommands,
+			actionButton: tipDef.actionButton,
 		};
 	}
 
@@ -948,9 +977,11 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		// Build message to extract enabled commands dynamically
 		const ctx: ITipBuildContext = { keybindingService: this._keybindingService, experimentalTipMessages: this._experimentalTipMessages };
 		const rawMessage = tip.buildMessage(ctx);
-		const enabledCommands = extractCommandIds(rawMessage.value);
+		const extractedCommands = extractCommandIds(rawMessage.value);
+		const dismissCommands = tip.dismissWhenCommandsClicked ?? [];
+		const allCommands = [...new Set([...extractedCommands, ...dismissCommands])];
 
-		if (!enabledCommands.length) {
+		if (!allCommands.length) {
 			return;
 		}
 		const enabledCommandSet = new Set(enabledCommands);

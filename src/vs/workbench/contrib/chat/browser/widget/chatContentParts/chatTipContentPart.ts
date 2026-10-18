@@ -6,10 +6,11 @@
 import './media/chatTipContent.css';
 import * as dom from '../../../../../../base/browser/dom.js';
 import { StandardMouseEvent } from '../../../../../../base/browser/mouseEvent.js';
+import { Button } from '../../../../../../base/browser/ui/button/button.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { onUnexpectedError } from '../../../../../../base/common/errors.js';
-import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { IMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { localize, localize2 } from '../../../../../../nls.js';
 import { getFlatContextMenuActions } from '../../../../../../platform/actions/browser/menuEntryActionViewItem.js';
@@ -20,6 +21,7 @@ import { ICommandService } from '../../../../../../platform/commands/common/comm
 import { IInstantiationService, ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IMarkdownRenderer, openLinkFromMarkdown } from '../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IOpenerService } from '../../../../../../platform/opener/common/opener.js';
+import { defaultButtonStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { CHAT_SETUP_ACTION_ID } from '../../actions/chatActions.js';
 import { IChatTip, IChatTipService } from '../../chatTipService.js';

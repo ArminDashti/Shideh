@@ -34,7 +34,7 @@ import { reportChatModeChange } from '../../common/chatModeTelemetry.js';
 import { chatVariableLeader } from '../../common/requestParser/chatParserTypes.js';
 import { ChatStopCancellationNoopClassification, ChatStopCancellationNoopEvent, ChatStopCancellationNoopEventName, IChatService } from '../../common/chatService/chatService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
-import { ILanguageModelChatMetadata } from '../../common/languageModels.js';
+import { ILanguageModelChatMetadata, ILanguageModelsService } from '../../common/languageModels.js';
 import { ILanguageModelToolsService } from '../../common/tools/languageModelToolsService.js';
 import { IChatSessionsService, localChatSessionType } from '../../common/chatSessionsService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';

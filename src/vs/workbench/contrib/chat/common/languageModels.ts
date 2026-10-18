@@ -1014,6 +1014,7 @@ export function canHideModel(identifier: string, metadata: ILanguageModelChatMet
 
 const CHAT_PARTICIPANT_NAME_REGISTRY_STORAGE_KEY = 'chat.participantNameRegistry';
 const CHAT_MODELS_CONTROL_STORAGE_KEY = 'chat.modelsControl';
+const CHAT_MODEL_SEEN_IDS_STORAGE_KEY = 'chat.seenModelIds';
 
 interface IChatControlResponse {
 	readonly version: number;
@@ -2686,6 +2687,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return this._modelsControlManifest;
 	}
 
+	getModelNameFromManifest(modelId: string): string | undefined {
+		const metadataId = modelId.startsWith('copilot/') ? modelId.slice('copilot/'.length) : modelId;
+		const entry = this._modelsControlManifest.free[metadataId] ?? this._modelsControlManifest.paid[metadataId];
+		return entry?.label;
+	}
+
 	private _setModelsControlManifest(response: IChatControlResponse['models']): void {
 		this._modelsControlRawResponse = response;
 		this._refreshModelsControlManifest();
@@ -2717,6 +2724,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 
 		this._modelsControlManifest = { free, paid };
+		this._updateNewModelIds();
 		this._onDidChangeModelsControlManifest.fire(this._modelsControlManifest);
 	}
 
