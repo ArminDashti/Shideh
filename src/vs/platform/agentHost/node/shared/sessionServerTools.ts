@@ -657,6 +657,9 @@ export function getCreateSessionArgs(rawArgs: unknown, sessions: readonly IAgent
 		if (worktree !== undefined) {
 			throw new Error(`Invalid ${SessionServerToolName.CreateSession} input: worktree requires workspace.`);
 		}
+		if (worktree !== undefined) {
+			throw new Error(`Invalid ${SessionServerToolName.CreateSession} input: worktree is only valid when relationship is "independent"; chats in the current session share its workspace.`);
+		}
 		return {
 			relationship,
 			prompt,

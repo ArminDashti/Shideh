@@ -1226,6 +1226,24 @@ export class AgentHostE2EServerLease {
 	 * Pass `forceRestart` after a failed test to isolate the next test without obscuring the original failure.
 	 */
 	async release(createdSessions: string[], forceRestart = false): Promise<void> {
+		const diagnosticRoot = process.env['VSCODE_CANCELLATION_DIAGNOSTICS'];
+		if (diagnosticRoot) {
+			const destination = mkdtempSync(join(diagnosticRoot, 'test-'));
+			writeFileSync(join(destination, 'state.json'), JSON.stringify({
+				createdSessions,
+				forceRestart,
+				notifications: this._client?.receivedNotifications(() => true),
+				capturedAt: new Date().toISOString(),
+			}, null, 2));
+			for (const [name, source] of [
+				['host', join(this._startOptions.userDataDir, 'logs')],
+				['runtime', join(this._startOptions.homeDir, '.copilot', 'logs')],
+			]) {
+				if (existsSync(source)) {
+					cpSync(source, join(destination, name), { recursive: true });
+				}
+			}
+		}
 		const client = this._client;
 		const cleanupErrors: Error[] = [];
 		const recordCleanupError = (error: unknown) => {

@@ -976,6 +976,10 @@
             "type": "boolean",
             "description": "Override isolation for the new independent session. Set true only when the user explicitly asks to create a worktree, or false only when the user explicitly asks to work without one. Omit to preserve the existing isolation behavior: inherit the creating session's isolation for the same project, otherwise use worktree isolation. Only valid with relationship `independent`; omit for `currentSession`."
           },
+          "worktree": {
+            "type": "boolean",
+            "description": "Override isolation for the new independent session. Set true only when the user explicitly asks to create a worktree, or false only when the user explicitly asks to work without one. Omit to preserve the existing isolation behavior: inherit the creating session's isolation for the same project, otherwise use worktree isolation. Only valid with relationship `independent`; omit for `currentSession`."
+          },
           "title": {
             "type": "string",
             "description": "Short title for the new chat or independent session.\n\n{maxLength: 200}"

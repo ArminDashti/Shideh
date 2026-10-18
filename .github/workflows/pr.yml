@@ -1,4 +1,4 @@
-name: Code OSS
+name: Cancellation A-B diagnostics (DO NOT MERGE)
 
 on:
   pull_request:
@@ -13,28 +13,33 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
-
-env:
-  VSCODE_QUALITY: 'oss'
 
 jobs:
-  compile:
-    name: Compile & Hygiene
-    runs-on: [ self-hosted, 1ES.Pool=1es-vscode-oss-ubuntu-22.04-x64, "JobId=compile-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" ]
+  compare:
+    if: github.head_ref == 'diagnostics/335076-cancellation-ab'
+    runs-on: macos-26-xlarge
+    timeout-minutes: 60
+    env:
+      VSCODE_QUALITY: oss
+      VSCODE_ARCH: arm64
+      NPM_ARCH: arm64
+      VSCODE_SKIP_PRELAUNCH: '1'
     steps:
-      - name: Checkout microsoft/vscode
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           lfs: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
-
-      - name: Restore node_modules cache
-        id: cache-node-modules
+      - name: Save identical diagnostic instrumentation
+        run: |
+          git diff 6acb3aafa40acf016d00efd5230a97e446ecfa7e HEAD -- src/vs/platform/agentHost/test/node/e2e/harness/agentHostE2ETestHarness.ts > "$RUNNER_TEMP/cancellation.patch"
+          git show HEAD:.github/cancellation-ab.sh > "$RUNNER_TEMP/cancellation-ab.sh"
+          git diff --exit-code e341a3c1515af84f5f679761d76a05a02af182cd 6acb3aafa40acf016d00efd5230a97e446ecfa7e -- package.json package-lock.json .npmrc .nvmrc
+      - name: Restore dependencies
+        id: cache
         uses: ./.github/actions/restore-node-modules
         with:
           key-prefix: node_modules-compile
@@ -51,16 +56,8 @@ jobs:
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: |
-          set -e
-
-          for i in {1..5}; do # try 5 times
-            npm ci && break
-            if [ $i -eq 5 ]; then
-              echo "Npm install failed too many times" >&2
-              exit 1
-            fi
-            echo "Npm install failed $i, trying again..."
-          done
+          python3 -m pip install --break-system-packages setuptools
+          npm ci
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
