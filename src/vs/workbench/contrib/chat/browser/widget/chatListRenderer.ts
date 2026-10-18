@@ -65,6 +65,7 @@ import { checkModeOption } from '../../common/chat.js';
 import { IChatAgentMetadata } from '../../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatProgressResponseContent, IChatTextEditGroup } from '../../common/model/chatModel.js';
+import { ILanguageModelsService } from '../../common/languageModels.js';
 import { chatSubcommandLeader } from '../../common/requestParser/chatParserTypes.js';
 import { TerminalToolId } from '../../common/tools/terminalToolIds.js';
 import { ChatAgentVoteDirection, ChatErrorLevel, ChatRequestQueueKind, ElicitationState, IChatConfirmation, IChatContentReference, IChatDisabledClaudeHooksPart, IChatElicitationRequest, IChatElicitationRequestSerialized, IChatExtensionsContent, IChatExternalEdit, IChatFollowup, IChatHookPart, IChatMarkdownContent, IChatMcpServersStarting, IChatMcpServersStartingSerialized, IChatMultiDiffData, IChatMultiDiffDataSerialized, IChatPlanReview, IChatPlanReviewResult, IChatPullRequestContent, IChatQuestionAnswerValue, IChatQuestionCarousel, IChatService, IChatTask, IChatTaskSerialized, IChatThinkingPart, IChatToolInvocation, IChatToolInvocationSerialized, IChatTreeData, IChatUndoStop, IChatUsageModelTotal, isChatFollowup } from '../../common/chatService/chatService.js';
@@ -92,6 +93,7 @@ import { RestoreCheckpointActionId, StartOverActionId } from '../chatEditing/cha
 import { ChatForkActionViewItem } from './chatForkActionViewItem.js';
 import { ChatRestoreCheckpointActionViewItem } from './chatRestoreCheckpointActionViewItem.js';
 import { ChatAgentHover, getChatAgentHoverOptions } from './chatAgentHover.js';
+import { ChatHelpfulnessBanner, ChatHelpfulnessVote, IChatHelpfulnessFeedback } from './chatHelpfulnessBanner.js';
 import { ChatContentMarkdownRenderer } from './chatContentMarkdownRenderer.js';
 import { shouldAnnounceChatInputRequest } from '../accessibility/chatInputRequestAnnouncement.js';
 import { ChatAgentCommandContentPart } from './chatContentParts/chatAgentCommandContentPart.js';
@@ -159,6 +161,11 @@ const $ = dom.$;
 const COPILOT_USERNAME = 'GitHub Copilot';
 const WORKING_CAUGHT_UP_DEBOUNCE_MS = 750;
 const DEFAULT_CHAT_ITEM_HORIZONTAL_PADDING = 40;
+
+/**
+ * The id of the synthetic "Auto" model, which dynamically routes to a backend model.
+ */
+const AUTO_MODEL_ID = 'auto';
 
 export interface IChatListItemTemplate {
 	currentElement?: ChatTreeItem;
@@ -1119,6 +1126,13 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	private readonly _announcedToolProgressKeys = new Set<string>();
 	private readonly persistentBackgroundActivityTracker = this._register(new MutableDisposable<PersistentBackgroundActivityTracker>());
 
+	/**
+	 * Ids of responses in the helpfulness feedback prototype cohort whose
+	 * detail feedback has already been submitted, so the banner shows the
+	 * acknowledgement instead of the detail box when the row is re-rendered.
+	 */
+	private readonly _submittedHelpfulnessFeedback = new Set<string>();
+
 	constructor(
 		editorOptions: ChatEditorOptions,
 		private rendererOptions: IChatListItemRendererOptions,
@@ -1134,6 +1148,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		@IHoverService private readonly hoverService: IHoverService,
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IChatService private readonly chatService: IChatService,
 		@IChatOutputRendererService private readonly chatOutputRendererService: IChatOutputRendererService,
 		@IAccessibilitySignalService private readonly accessibilitySignalService: IAccessibilitySignalService,
@@ -1359,6 +1374,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		this.persistentBackgroundActivityTracker.value = viewModel ? new PersistentBackgroundActivityTracker(viewModel, () => this.updateWorkingProgressForBackgroundActivity()) : undefined;
 		this._announcedToolProgressKeys.clear();
 		this._notifiedQuestionCarousels.clear();
+		this._submittedHelpfulnessFeedback.clear();
 		this.codeBlocksByEditorUri.clear();
 		this.codeBlocksByResponseId.clear();
 		this.fileTreesByResponseId.clear();
@@ -1780,7 +1796,11 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 		}));
 
-		// Insert the details container into the toolbar's internal element structure
+		const helpfulnessBanner = templateDisposables.add(new ChatHelpfulnessBanner(footerToolbar.getElement(), footerToolbarContainer));
+
+		// Insert the details container into the toolbar's internal element structure.
+		// Created after the helpfulness prompt so the prompt sits inline to the left
+		// (right after the action icons) while the details are pushed to the right.
 		const footerDetailsContainer = dom.append(footerToolbar.getElement(), $('.chat-footer-details'));
 		footerDetailsContainer.tabIndex = 0;
 
@@ -2169,6 +2189,26 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 		}
 
+		// Helpfulness feedback prototype: for Microsoft-internal users on the
+		// Auto model, the thumbs in the footer toolbar are replaced by inline
+		// "Helpful"/"Unhelpful" buttons. Once the user rates the response, a
+		// full-width detail box is revealed below the toolbar; after submitting,
+		// the buttons are replaced inline by a short acknowledgement.
+		const inFeedbackCohort = this.isInHelpfulnessCohort(element);
+		ChatContextKeys.responseInFeedbackCohort.bindTo(templateData.contextKeyService).set(inFeedbackCohort);
+		templateData.rowContainer.classList.toggle('cohort-feedback', inFeedbackCohort);
+		templateData.helpfulnessBanner.reset();
+		if (inFeedbackCohort && isResponseVM(element) && element.isComplete) {
+			if (this._submittedHelpfulnessFeedback.has(element.id)) {
+				templateData.helpfulnessBanner.showThanks();
+			} else if (element.vote === ChatAgentVoteDirection.Up || element.vote === ChatAgentVoteDirection.Down) {
+				templateData.helpfulnessBanner.showForVote(element.vote === ChatAgentVoteDirection.Up ? ChatHelpfulnessVote.Yes : ChatHelpfulnessVote.No);
+			}
+			templateData.helpfulnessBanner.setVisible(true);
+		} else {
+			templateData.helpfulnessBanner.setVisible(false);
+		}
+
 		ChatContextKeys.responseHasError.bindTo(templateData.contextKeyService).set(isResponseVM(element) && !!element.errorDetails);
 		const isFiltered = !!(isResponseVM(element) && element.errorDetails?.responseIsFiltered);
 		ChatContextKeys.responseIsFiltered.bindTo(templateData.contextKeyService).set(isFiltered);
@@ -2386,6 +2426,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		templateData.checkpointContainer.classList.add('hidden');
 		templateData.checkpointRestoreContainer.classList.add('hidden');
 		templateData.footerToolbar.getElement().classList.add('hidden');
+		templateData.rowContainer.classList.remove('cohort-feedback');
+		templateData.helpfulnessBanner.reset();
+		templateData.helpfulnessBanner.setVisible(false);
 		if (templateData.titleToolbar) {
 			templateData.titleToolbar.getElement().classList.add('hidden');
 		}
@@ -3579,6 +3622,32 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				part.updateStreamRate(rate, isComplete);
 			}
 		}
+	}
+
+	private logHelpfulnessFeedbackTelemetry(element: ChatTreeItem | undefined, feedback: IChatHelpfulnessFeedback): void {
+		const requestId = isResponseVM(element) ? element.requestId : isRequestVM(element) ? element.id : '';
+		const harness = element ? getChatSessionType(element.sessionResource) : '';
+
+		type ChatHelpfulnessFeedbackEvent = {
+			vote: string;
+			detail: string;
+			requestId: string;
+			harness: string;
+		};
+		type ChatHelpfulnessFeedbackClassification = {
+			vote: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The initial positive or negative selection the user made on the response.' };
+			detail: { classification: 'CustomerContent'; purpose: 'FeatureInsight'; comment: 'The free-form feedback text the user provided.' };
+			requestId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The identifier of the chat request the feedback is about.' };
+			harness: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The chat session type/harness the feedback was submitted from.' };
+			owner: 'cwebster-99';
+			comment: 'Tracks user feedback submitted through the chat helpfulness banner.';
+		};
+		this.telemetryService.publicLog2<ChatHelpfulnessFeedbackEvent, ChatHelpfulnessFeedbackClassification>('chatHelpfulnessFeedback', {
+			vote: feedback.vote,
+			detail: feedback.detail,
+			requestId,
+			harness,
+		});
 	}
 
 	private logIncrementalRenderingTelemetry(): void {
