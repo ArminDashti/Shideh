@@ -818,7 +818,8 @@ export class QuickInputList extends Disposable {
 				findWidgetEnabled: false,
 				horizontalScrolling: false,
 				allowNonCollapsibleParents: true,
-				alwaysConsumeMouseWheel: true
+				alwaysConsumeMouseWheel: true,
+				redirectFocusOnRemove: true
 			}
 		));
 		this._tree.getHTMLElement().id = id;
