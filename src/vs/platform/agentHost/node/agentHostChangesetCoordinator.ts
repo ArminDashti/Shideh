@@ -211,6 +211,40 @@ export class AgentHostChangesetCoordinator extends Disposable {
 		}
 	}
 
+	/** Refreshes subscribed Turn/Compare operations when Copilot crosses the single-/multi-root boundary. */
+	onWorkingDirectoriesChanged(
+		session: string,
+		previousWorkingDirectories: readonly string[] | undefined,
+		currentWorkingDirectories: readonly string[] | undefined,
+	): void {
+		if (AgentSession.provider(session) !== 'copilotcli') {
+			return;
+		}
+
+		const wasMultiRoot = (previousWorkingDirectories?.length ?? 0) > 1;
+		const isMultiRoot = (currentWorkingDirectories?.length ?? 0) > 1;
+		if (wasMultiRoot === isMultiRoot) {
+			return;
+		}
+
+		this._refreshSubscribedTurnAndCompareOperations(session);
+
+		if (wasMultiRoot && !isMultiRoot && !readSessionGitState(this._stateManager.getSessionState(session)?._meta)) {
+			// Compare is compute-once, so the Git refresh hook must restore its operations.
+			void this._gitStateService.refreshSessionGitState(session);
+		}
+	}
+
+	/** Refreshes operation lists only for subscribed Turn and Compare changesets. */
+	private _refreshSubscribedTurnAndCompareOperations(session: string): void {
+		for (const changeset of this._changesetSubscriptions.getSessionSubscriptions(session)) {
+			const parsed = parseChangesetUri(changeset);
+			if (parsed?.kind === ChangesetKind.Turn || parsed?.kind === ChangesetKind.Compare) {
+				this._changesetOperationService.updateOperations(session, changeset);
+			}
+		}
+	}
+
 	// ---- Subscription hooks -------------------------------------------------
 
 	/**
@@ -272,6 +306,12 @@ export class AgentHostChangesetCoordinator extends Disposable {
 			if (this._stateManager.getSessionState(parsed.sessionUri)) {
 				void this._changesets.computeTurnChangeset(parsed.ownerUri, parsed.turnId, 'fileEditTracker');
 			}
+			return;
+		}
+
+		if (parsed?.kind === ChangesetKind.Compare && parsed.originalTurnId !== undefined && parsed.modifiedTurnId !== undefined) {
+			// Compare data remains compute-once; tracking is only for operation refresh.
+			this._addSubscription(parsed.sessionUri, resourceStr);
 			return;
 		}
 	}
@@ -421,6 +461,10 @@ export class AgentHostChangesetCoordinator extends Disposable {
 		}
 		if (parsed?.kind === ChangesetKind.Turn && parsed.turnId !== undefined) {
 			this._removeSubscription(parsed.ownerUri, resourceStr);
+			return;
+		}
+		if (parsed?.kind === ChangesetKind.Compare && parsed.originalTurnId !== undefined && parsed.modifiedTurnId !== undefined) {
+			this._removeSubscription(parsed.sessionUri, resourceStr);
 			return;
 		}
 		if (!parsed) {
@@ -594,6 +638,9 @@ export class AgentHostChangesetCoordinator extends Disposable {
 		// changeset currently subscribed for the session (the service reads
 		// the exposed subscription list).
 		this._changesets.recomputeSubscribedChangesets(sessionStr);
+
+		// Compare is not recomputed above, so refresh its operations explicitly.
+		this._refreshSubscribedTurnAndCompareOperations(sessionStr);
 	}
 
 	/**

@@ -125,6 +125,24 @@ type BranchDiffResult =
 	| { readonly kind: 'failed' };
 
 /**
+ * Computes session diffs against a repository's default branch, or returns `undefined` when no default branch is available.
+ */
+export async function computeSessionFileDiffsAgainstDefaultBranch(
+	gitService: Pick<IAgentHostGitService, 'getDefaultBranch' | 'computeSessionFileDiffs'>,
+	repositoryRoot: URI,
+	session: ProtocolURI,
+): Promise<readonly ISessionFileDiff[] | undefined> {
+	const defaultBranch = await gitService.getDefaultBranch(repositoryRoot);
+	if (!defaultBranch) {
+		return undefined;
+	}
+	return gitService.computeSessionFileDiffs(repositoryRoot, {
+		sessionUri: session,
+		baseBranch: defaultBranch.name,
+	});
+}
+
+/**
  * Sums the per-file diff counts into the {@link ChangesSummary} shape
  * that lives on `summary.changes`. Returns `undefined` for an undefined
  * input so callers can distinguish "no data yet" from "data, zero changes".
@@ -238,6 +256,27 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 	private _hasWorkingDirectory(session: ProtocolURI): boolean {
 		return !this._worktree.isWorkingDirectoryPending(AgentSession.id(containingSessionUri(session)))
 			&& !!this._getEffectiveWorkingDirectories(session)?.[0];
+	}
+
+	/** Returns effective working-directory URIs for multi-folder Copilot sessions. */
+	private _multiFolderWorkingDirectories(session: ProtocolURI): URI[] | undefined {
+		if (AgentSession.provider(session) !== 'copilotcli') {
+			return undefined;
+		}
+		const dirs = this._configurationService.getEffectiveWorkingDirectories(session);
+		if (!dirs || dirs.length <= 1) {
+			return undefined;
+		}
+		const uris: URI[] = [];
+		for (const dir of dirs) {
+			try {
+				uris.push(URI.parse(dir));
+			} catch {
+				// Skip unparseable entries — a malformed dir must not fail the
+				// whole compute.
+			}
+		}
+		return uris.length > 1 ? uris : undefined;
 	}
 
 	registerStaticChangesets(session: ProtocolURI): void {
@@ -1328,6 +1367,33 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 		return diffs;
 	}
 
+	/** Computes a turn diff across every effective working directory of a multi-folder Copilot session. */
+	private async _computeMultiFolderTurnDiffs(session: ProtocolURI, db: ISessionDatabase, turnId: string, dirs: readonly URI[]): Promise<readonly ISessionFileDiff[]> {
+		const sessionUri = URI.parse(session);
+		const ctx: IMultiRootDiffContext = {
+			session,
+			logService: this._logService,
+			getRepositoryRoot: dir => this._gitService.getRepositoryRoot(dir),
+			computeGitDiff: async repoRoot => {
+				const pair = await this._checkpointService.getTurnCheckpointPair(sessionUri, turnId, repoRoot);
+				if (!pair) {
+					return undefined; // no checkpoint pair for this repo → DB fallback
+				}
+				if (pair.parent === pair.current) {
+					return []; // no-op turn in this repo
+				}
+				return this._gitService.computeFileDiffsBetweenRefs(repoRoot, {
+					sessionUri: session,
+					fromRef: pair.parent,
+					toRef: pair.current,
+				});
+			},
+			computeFallbackDiff: roots => computeTurnDiffs(session, db, this._diffComputeService, turnId, { includeUnder: roots }),
+		};
+		const result = await computeDiffsAcrossWorkingDirectories(dirs, ctx);
+		return result.diffs;
+	}
+
 	private async _resolveWorkingDirectory(session: ProtocolURI): Promise<URI | undefined> {
 		// For the time being we default to the first working directory in the list, if any.
 		// In the future we may want to support multiple working directories per session,
@@ -1489,6 +1555,44 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 			statusBeforeRefresh = this._markChangesetComputing(changesetUri);
 		}
 		return this._diffComputationSequencer.queue(`${session}\u0000uncommitted`, () => this._computeUncommittedChangeset(session, turnId, reportTelemetry, clientContext, statusBeforeRefresh));
+	}
+
+	/** Computes the primary-only branch changeset and all-folder summary in parallel while sharing the primary repository diff. */
+	private async _computeMultiFolderBranchAndSummary(session: ProtocolURI, db: ISessionDatabase, changesetUri: ProtocolURI, statusBeforeCompute: ChangesetStatus | undefined, dirs: readonly URI[]): Promise<void> {
+		const primaryRepoRoot = await this._gitService.getRepositoryRoot(dirs[0]);
+		const primaryDiffsPromise = this._tryComputeGitDiffs(session, db, ChangesetKind.Branch);
+		const ctx: IMultiRootDiffContext = {
+			session,
+			logService: this._logService,
+			getRepositoryRoot: dir => this._gitService.getRepositoryRoot(dir),
+			computeGitDiff: repoRoot => primaryRepoRoot && extUriBiasedIgnorePathCase.isEqual(repoRoot, primaryRepoRoot)
+				? primaryDiffsPromise
+				: computeSessionFileDiffsAgainstDefaultBranch(this._gitService, repoRoot, session),
+			computeFallbackDiff: roots => computeUnionedDiffs([{ sessionUri: session, db }], this._diffComputeService, { includeUnder: roots }),
+		};
+		const [primaryDiffs, aggregateResult, reviewed] = await Promise.all([
+			primaryDiffsPromise,
+			computeDiffsAcrossWorkingDirectories(dirs, ctx),
+			this._computeReviewedInfo(session, db),
+		]);
+
+		if (primaryDiffs) {
+			this._publishChangesetDiffs(session, changesetUri, primaryDiffs, reviewed);
+			this._persistSessionFlag(session, META_CHANGESET_BRANCH, JSON.stringify(primaryDiffs));
+			this._persistSessionFlag(session, META_LEGACY_DIFFS, JSON.stringify(primaryDiffs));
+		} else {
+			this._logService.debug(`[AgentHostChangesetService] Branch git diff unavailable for ${session}; preserving cached changeset. previousStatus=${statusBeforeCompute ?? 'unknown'} cachedFiles=${this._stateManager.getChangesetState(changesetUri)?.files.length ?? 0}`);
+			this._restoreStaticChangesetStatus(changesetUri, statusBeforeCompute);
+		}
+
+		if (aggregateResult.outcome === 'failed') {
+			this._logService.debug(`[AgentHostChangesetService] Multi-folder summary computation failed for ${session}; preserving cached summary data.`);
+			return;
+		}
+
+		const changesSummary = summariseDiffs(aggregateResult.diffs) ?? { additions: 0, deletions: 0, files: 0 };
+		this.persistChangesSummary(session, changesSummary);
+		this._stateManager.setSessionSummaryChanges(session, changesSummary);
 	}
 
 	/**

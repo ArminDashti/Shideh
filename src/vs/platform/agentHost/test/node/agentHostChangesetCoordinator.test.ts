@@ -74,6 +74,7 @@ suite('ChangesetSessionCoordinator', () => {
 		monitor: TestFileMonitorService;
 		gitService: IAgentHostGitService & { readonly rootLookupCalls: string[]; waitForRootLookups(count: number): Promise<void> };
 		gitStateService: TestGitStateService;
+		operationService: IAgentHostChangesetOperationService;
 		coordinator: AgentHostChangesetCoordinator;
 		operationService: IAgentHostChangesetOperationService;
 		updateOperationsCalls: string[];
@@ -1294,6 +1295,15 @@ class TestGitStateService extends Disposable implements IAgentHostGitStateServic
 	fireGitHubStateChanged(sessionKey: string): void {
 		this._onDidChangeSessionGitHubState.fire(sessionKey);
 	}
+}
+
+/** Contribution that advertises one always-idle changeset-scoped operation regardless of context. */
+class AlwaysIdleOperationContribution implements IChangesetOperationContribution {
+	registerHandlers(): IDisposable { return { dispose() { } }; }
+	getOperations(_context: IChangesetOperationContext): readonly ChangesetOperation[] {
+		return [{ id: 'op', label: 'Op', scopes: [ChangesetOperationScope.Changeset], status: ChangesetOperationStatus.Idle }];
+	}
+	dispose(): void { }
 }
 
 class TestFileMonitorService extends Disposable implements IAgentHostFileMonitorService {

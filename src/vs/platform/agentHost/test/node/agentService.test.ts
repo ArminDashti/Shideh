@@ -4620,6 +4620,79 @@ suite('AgentService (node dispatcher)', () => {
 			});
 		});
 
+		test('refreshes subscribed Turn/Compare operations for a copilotcli session only after the root-set mutation is applied to state', async () => {
+			const primary = URI.file('/workspace/primary');
+			const { svc, session } = await createCopilotDynamicWorkingDirectorySession([primary]);
+
+			const turnUri = buildTurnChangesetUri(session.toString(), 'turn-1');
+			const compareUri = buildCompareTurnsChangesetUri(session.toString(), 'turn-1', 'turn-2');
+			svc.stateManager.registerChangeset(turnUri);
+			svc.stateManager.registerChangeset(compareUri);
+			const idleOp = { id: 'op', label: 'Op', scopes: [ChangesetOperationScope.Changeset], status: ChangesetOperationStatus.Idle };
+			svc.stateManager.dispatchServerAction(turnUri, { type: ActionType.ChangesetOperationsChanged, operations: [idleOp] });
+			svc.stateManager.dispatchServerAction(compareUri, { type: ActionType.ChangesetOperationsChanged, operations: [idleOp] });
+			// Establishes the subscription the same way a real client does, via
+			// the public `subscribe` -> `addSubscriber` -> `onFirstSubscriber` path.
+			await svc.subscribe(URI.parse(turnUri), 'test-client');
+			await svc.subscribe(URI.parse(compareUri), 'test-client');
+
+			const added = URI.file('/workspace/added');
+			svc.dispatchAction(session.toString(), {
+				type: ActionType.SessionWorkingDirectorySet,
+				directory: added.toString(),
+			}, 'test-client', 1, AgentHostClientType.EditorWindow);
+
+			assert.deepStrictEqual({
+				workingDirectories: svc.stateManager.getSessionState(session.toString())?.workingDirectories,
+				turnOperations: svc.stateManager.getChangesetState(turnUri)?.operations,
+				compareOperations: svc.stateManager.getChangesetState(compareUri)?.operations,
+			}, {
+				workingDirectories: [primary.toString(), added.toString()],
+				turnOperations: [],
+				compareOperations: [],
+			});
+		});
+
+		test('does not refresh Turn operations for a rejected or an idempotent accepted working-directory action', async () => {
+			const primary = URI.file('/workspace/primary');
+			const secondary = URI.file('/workspace/secondary');
+			const { svc, session } = await createCopilotDynamicWorkingDirectorySession([primary, secondary]);
+
+			const turnUri = buildTurnChangesetUri(session.toString(), 'turn-1');
+			svc.stateManager.registerChangeset(turnUri);
+			const idleOp = { id: 'op', label: 'Op', scopes: [ChangesetOperationScope.Changeset], status: ChangesetOperationStatus.Idle };
+			// Seed a stale Idle operation, exactly as it would still read if
+			// this (already two-root) session had never triggered a refresh:
+			// neither mutation below actually crosses the boundary, so a
+			// correct implementation never touches it.
+			svc.stateManager.dispatchServerAction(turnUri, { type: ActionType.ChangesetOperationsChanged, operations: [idleOp] });
+			await svc.subscribe(URI.parse(turnUri), 'test-client');
+
+			// Rejected: working-directory actions require an Editor Window client.
+			const rejectedEnvelopePromise = Event.toPromise(Event.filter(svc.onDidAction, envelope => envelope.origin?.clientSeq === 1));
+			svc.dispatchAction(session.toString(), {
+				type: ActionType.SessionWorkingDirectorySet,
+				directory: URI.file('/workspace/added').toString(),
+			}, 'agents-window-client', 1, AgentHostClientType.AgentsWindow);
+			const rejectedEnvelope = await rejectedEnvelopePromise;
+
+			// Accepted but idempotent: `primary` is already the first entry.
+			svc.dispatchAction(session.toString(), {
+				type: ActionType.SessionWorkingDirectorySet,
+				directory: primary.toString(),
+			}, 'test-client', 2, AgentHostClientType.EditorWindow);
+
+			assert.deepStrictEqual({
+				rejected: !!rejectedEnvelope.rejectionReason,
+				workingDirectories: svc.stateManager.getSessionState(session.toString())?.workingDirectories,
+				turnOperations: svc.stateManager.getChangesetState(turnUri)?.operations,
+			}, {
+				rejected: true,
+				workingDirectories: [primary.toString(), secondary.toString()],
+				turnOperations: [idleOp],
+			});
+		});
+
 		test('applies and persists root config changes from clients', async () => {
 			const tempDir = URI.file(mkdtempSync(`${tmpdir()}/agent-host-config-`));
 			// Use a local DisposableStore so that svc can be explicitly disposed

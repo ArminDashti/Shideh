@@ -174,7 +174,7 @@ export function createChangesets(
 		} else if (changeset.changeKind === AGENT_MERGE_CHANGESET_ID) {
 			sessionChangesets.push(options.instantiationService.createInstance(AgentHostAgentMergeChangeset, sessionUri, chatUri, options, isActiveSessionObs, {
 				...changeset, isDefault
-			}));
+			}, workspaceObs));
 		}
 	}
 
@@ -687,6 +687,7 @@ class AgentHostLastTurnChangeset extends AbstractAgentHostChangeset {
 	) {
 		super(changesetSummary, options, dialogService);
 
+		this._workspaceObs = workspaceObs;
 		this.id = changesetSummary.changeKind;
 
 		const sessionStateObs = chatUri

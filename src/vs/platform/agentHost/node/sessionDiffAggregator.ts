@@ -11,6 +11,43 @@ import type { IDiffComputeService } from '../common/diffComputeService.js';
 import { FileEditKind, type ISessionFileDiff } from '../common/state/sessionState.js';
 import { buildSessionDbUri } from '../common/sessionDbUri.js';
 
+/**
+ * Options controlling which file edits an aggregator considers.
+ */
+export interface IDiffFilterOptions {
+	/**
+	 * When present, keep only edits whose file path (or, for renames, either the
+	 * current or original path) is equal to or under one of these roots. Used to
+	 * partition the global, path-based `file_edits` table by working directory so
+	 * a multi-root session's git repositories and non-git folders don't
+	 * double-count (git folders use the git diff; non-git folders use this DB
+	 * fallback restricted to their paths). Omitted means no filtering (unchanged).
+	 */
+	readonly includeUnder?: readonly URI[];
+}
+
+/**
+ * Keeps only edits under one of {@link includeUnder} (case-insensitive,
+ * path-biased). A rename survives when EITHER its current `filePath` or its
+ * `originalPath` is under a root, so its identity stays reconstructable. When
+ * `includeUnder` is absent or empty the input is returned unchanged.
+ */
+function filterEditsByRoots(edits: readonly IFileEditRecord[], includeUnder: readonly URI[] | undefined): readonly IFileEditRecord[] {
+	if (!includeUnder || includeUnder.length === 0) {
+		return edits;
+	}
+	const isUnderARoot = (path: string): boolean => {
+		const uri = URI.file(path);
+		return includeUnder.some(root => extUriBiasedIgnorePathCase.isEqualOrParent(uri, root));
+	};
+	return edits.filter(edit => {
+		if (edit.kind === FileEditKind.Rename && edit.originalPath) {
+			return isUnderARoot(edit.filePath) || isUnderARoot(edit.originalPath);
+		}
+		return isUnderARoot(edit.filePath);
+	});
+}
+
 function getFileEditUri(diff: ISessionFileDiff): string | undefined {
 	return diff.after?.uri ?? diff.before?.uri;
 }
@@ -97,8 +134,8 @@ export interface IIncrementalDiffOptions {
  *
  * When {@link incremental} is provided, only identities that were touched
  * by edits in the given turn are recomputed; all other identities reuse
- * the previous diff results. This avoids expensive content fetches and
- * diff computations for unchanged files.
+ * the previous diff results. Incremental computation does not support
+ * {@link IDiffFilterOptions}.
  *
  * Returns an {@link ISessionFileDiff} array with the "last known URI" for each
  * file and the total lines added/removed across the session.
@@ -114,6 +151,10 @@ export async function computeSessionDiffs(
 	incremental?: IIncrementalDiffOptions,
 	folderScope?: readonly URI[],
 ): Promise<ISessionFileDiff[]> {
+	if (incremental && options) {
+		throw new Error('Incremental session diff computation does not support filtering.');
+	}
+
 	// Full mode (no incremental) is the single-source case of the unioned
 	// computation — delegate so the identity-graph + diff logic lives in one
 	// place and multi-chat sessions reuse the exact same code path.

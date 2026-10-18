@@ -5,6 +5,7 @@
 
 import { StringSHA1 } from '../../../base/common/hash.js';
 import { extUriBiasedIgnorePathCase } from '../../../base/common/resources.js';
+import { Schemas } from '../../../base/common/network.js';
 import { URI } from '../../../base/common/uri.js';
 import { WorkingDirectory, WorkingDirectoryOriginKind } from './state/protocol/channels-session/state.js';
 
@@ -71,4 +72,10 @@ export function findDeepestContainingWorkingDirectory(resource: URI, workingDire
 		}
 	}
 	return deepestMatch;
+}
+
+/** Selects the deepest repository root containing the absolute URI path from a `git-blob:` resource. */
+export function selectRepositoryRootForBlobPath(absolutePath: string, repositoryRoots: readonly URI[]): URI | undefined {
+	const fileUri = URI.from({ scheme: Schemas.file, path: absolutePath });
+	return findDeepestContainingWorkingDirectory(fileUri, repositoryRoots);
 }

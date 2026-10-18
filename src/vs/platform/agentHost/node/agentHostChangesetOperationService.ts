@@ -121,6 +121,11 @@ export class AgentHostChangesetOperationService extends Disposable implements IA
 			return [];
 		}
 
+		// Turn spans repositories; Compare stays primary-only but intentionally also exposes no operations in multi-root sessions.
+		if (this._shouldSuppressOperations(sessionKey, parsed.kind)) {
+			return [];
+		}
+
 		return this._getOperations({
 			sessionKey,
 			ownerKey,

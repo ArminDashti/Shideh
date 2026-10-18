@@ -7827,7 +7827,9 @@ export class AgentService extends Disposable implements IAgentService {
 				return;
 			}
 			try {
+				previousWorkingDirectories = this._stateManager.getSessionState(sessionChannel)?.workingDirectories;
 				action = this._prepareWorkingDirectoryAction(sessionChannel, action);
+				didAcceptWorkingDirectoryAction = true;
 			} catch (error) {
 				this._stateManager.rejectClientAction(channel, action, origin, toErrorMessage(error));
 				return;
@@ -10231,6 +10233,38 @@ export class AgentService extends Disposable implements IAgentService {
 		// own scheme/authority so it lines up with the repository roots.
 		const blobResource = gitRepositories[0].with({ path: fields.absolutePath });
 		return findDeepestContainingWorkingDirectory(blobResource, gitRepositories);
+	}
+
+	/** Resolves the server-trusted repository root used to read a `git-blob:` resource. */
+	private async _resolveGitBlobWorkingDirectory(fields: IGitBlobUriFields): Promise<URI | undefined> {
+		const dirs = this._configurationService.getEffectiveWorkingDirectories(fields.sessionUri);
+		const isMultiFolderCopilot = AgentSession.provider(fields.sessionUri) === 'copilotcli' && !!dirs && dirs.length > 1;
+
+		if (!isMultiFolderCopilot) {
+			const primary = this._stateManager.getSessionState(fields.sessionUri)?.workingDirectories?.[0];
+			return primary ? URI.parse(primary) : undefined;
+		}
+
+		const repoRoots: URI[] = [];
+		const seen = new Set<string>();
+		await Promise.all(dirs!.map(async dir => {
+			try {
+				const root = await this._gitService!.getRepositoryRoot(URI.parse(dir));
+				if (root) {
+					const key = extUriBiasedIgnorePathCase.getComparisonKey(root);
+					if (!seen.has(key)) {
+						seen.add(key);
+						repoRoots.push(root);
+					}
+				}
+			} catch {
+				// Another repository root may still own the blob.
+			}
+		}));
+		if (repoRoots.length === 0) {
+			return undefined;
+		}
+		return selectRepositoryRootForBlobPath(fields.absolutePath, repoRoots);
 	}
 
 	/**
