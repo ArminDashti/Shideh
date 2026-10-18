@@ -51,6 +51,25 @@ export class GlobalKeybindingsMainService extends Disposable implements IGlobalK
 	/** Accelerators that were desired but failed to register (e.g. already taken). */
 	private readonly failedAccelerators = new Set<string>();
 
+	/**
+	 * The window elected to show the one-time first-run notice in this app run, or `undefined` if no
+	 * window has been elected yet. The renderer contribution runs per window and would otherwise show
+	 * the notice in every window that registers a system-wide keybinding on startup; electing a single
+	 * window here (the first to register one) keeps it to a single dialog.
+	 *
+	 * This is app-run scoped and NOT persisted - the renderer persists whether the user has actually
+	 * acknowledged the notice and always gates on that, so a re-election can never show the notice
+	 * twice. Two invariants keep the single-election correct and must be preserved:
+	 * 1. `updateKeybindings` (which reads and sets this) must stay synchronous - no `await` between
+	 *    the read and the set - so concurrent renderer syncs can't both observe "not elected".
+	 * 2. `showFirstRunNotice` means "you were elected", not "you must show it"; the renderer still
+	 *    gates on its persisted acknowledgement before showing.
+	 *
+	 * If the elected window is destroyed before it acknowledges, the election is cleared so another
+	 * window can be elected this run (see {@link onDidDestroyWindow}).
+	 */
+	private electedFirstRunNoticeWindowId: number | undefined = undefined;
+
 	constructor(
 		private readonly globalShortcut: IGlobalShortcutRegistry,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
@@ -201,6 +220,12 @@ export class GlobalKeybindingsMainService extends Disposable implements IGlobalK
 	}
 
 	private onDidDestroyWindow(window: ICodeWindow): void {
+		// If the window elected to show the first-run notice is gone before it acknowledged, release
+		// the election so another window can be elected this run. The renderer still gates on the
+		// persisted acknowledgement, so this can never show the notice more than once.
+		if (this.electedFirstRunNoticeWindowId === window.id) {
+			this.electedFirstRunNoticeWindowId = undefined;
+		}
 		if (this.registry.delete(window.id)) {
 			this.reconcile();
 		}

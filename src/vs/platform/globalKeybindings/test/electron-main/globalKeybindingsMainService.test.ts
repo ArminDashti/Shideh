@@ -260,4 +260,65 @@ suite('GlobalKeybindingsMainService', () => {
 		lifecycle.shutdown();
 		assert.strictEqual(shortcut.registered.size, 0);
 	});
+
+	test('elects only the first window that registers a keybinding to show the first-run notice', () => {
+		const { service } = createService();
+
+		// First non-empty registration is elected; every subsequent one (same or other window) is not.
+		const first = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a')]);
+		const secondSameWindow = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a'), binding('Control+Cmd+B', 'b')]);
+		const otherWindow = service.updateKeybindings(2, [binding('Control+Cmd+C', 'c')]);
+
+		assert.deepStrictEqual(
+			[first.showFirstRunNotice, secondSameWindow.showFirstRunNotice, otherWindow.showFirstRunNotice],
+			[true, false, false]
+		);
+	});
+
+	test('does not elect a window when the payload has no valid keybindings', () => {
+		const { service } = createService();
+
+		// An empty payload must not consume the election, so a later real registration still shows the notice.
+		const empty = service.updateKeybindings(1, []);
+		const firstReal = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a')]);
+
+		assert.deepStrictEqual(
+			[empty.showFirstRunNotice, firstReal.showFirstRunNotice],
+			[false, true]
+		);
+	});
+
+	test('re-elects another window when the elected window is destroyed before acknowledging', () => {
+		const { service, windows } = createService();
+		const window1 = windows.addWindow(1);
+		windows.addWindow(2);
+
+		// Window 1 is elected. Before it can acknowledge, it is closed - window 2 should then be
+		// eligible to show the notice on its next sync (the renderer still gates on persisted ack).
+		const elected = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a')]);
+		windows.destroyWindow(window1);
+		const reElected = service.updateKeybindings(2, [binding('Control+Cmd+B', 'b')]);
+
+		assert.deepStrictEqual(
+			[elected.showFirstRunNotice, reElected.showFirstRunNotice],
+			[true, true]
+		);
+	});
+
+	test('does not re-elect when a non-elected window is destroyed', () => {
+		const { service, windows } = createService();
+		windows.addWindow(1);
+		const window2 = windows.addWindow(2);
+
+		// Window 1 is elected; closing the unrelated window 2 must not release the election.
+		const elected = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a')]);
+		service.updateKeybindings(2, [binding('Control+Cmd+B', 'b')]);
+		windows.destroyWindow(window2);
+		const afterOtherClosed = service.updateKeybindings(1, [binding('Control+Cmd+A', 'a'), binding('Control+Cmd+C', 'c')]);
+
+		assert.deepStrictEqual(
+			[elected.showFirstRunNotice, afterOtherClosed.showFirstRunNotice],
+			[true, false]
+		);
+	});
 });
