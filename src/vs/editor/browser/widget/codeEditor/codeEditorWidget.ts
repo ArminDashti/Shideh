@@ -476,7 +476,11 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 	}
 
 	public getId(): string {
-		return this.getEditorType() + ':' + this._id;
+		return this.getEditorType() + ':' + this.getNumberId();
+	}
+
+	public getNumberId(): number {
+		return this._id;
 	}
 
 	public getEditorType(): string {

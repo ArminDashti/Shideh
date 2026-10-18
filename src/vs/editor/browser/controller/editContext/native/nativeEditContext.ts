@@ -75,7 +75,7 @@ export class NativeEditContext extends AbstractEditContext {
 	private readonly _focusTracker: FocusTracker;
 
 	constructor(
-		ownerID: string,
+		owner: number,
 		context: ViewContext,
 		overflowGuardContainer: FastDomNode<HTMLElement>,
 		private readonly _viewController: ViewController,

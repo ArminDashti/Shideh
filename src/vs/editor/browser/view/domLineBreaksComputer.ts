@@ -23,6 +23,8 @@ export class DOMLineBreaksComputerFactory implements ILineBreaksComputerFactory 
 		return new DOMLineBreaksComputerFactory(new WeakRef(targetWindow));
 	}
 
+	private _containerDomNode: HTMLDivElement | null = null;
+
 	constructor(private targetWindow: WeakRef<Window>) {
 	}
 
@@ -62,7 +64,7 @@ function createLineBreaks(targetWindow: Window, context: ILineBreaksComputerCont
 		for (let i = 0, len = lineNumbers.length; i < len; i++) {
 			result[i] = createEmptyLineBreakWithPossiblyInjectedText(lineNumbers[i]);
 		}
-		return result;
+		return { data: result, domNode: null };
 	}
 
 	const overallWidth = Math.round(firstLineBreakColumn * fontInfo.typicalHalfwidthCharacterWidth);
@@ -402,9 +404,10 @@ function readLineBreaks(range: Range, lineDomNode: HTMLDivElement, lineContent: 
 		return null;
 	}
 
-	if (breakOffsets.length === 0) {
-		return null;
-	}
+	// if (breakOffsets.length === 0) {
+	// 	console.log('return 3');
+	// 	return null;
+	// }
 
 	breakOffsets.push(lineContent.length);
 	return breakOffsets;

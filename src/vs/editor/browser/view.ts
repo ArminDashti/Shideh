@@ -92,6 +92,7 @@ export class View extends ViewEventHandler {
 
 	private _widgetFocusTracker: CodeEditorWidgetFocusTracker;
 
+	private readonly _owner: number;
 	private readonly _scrollbar: EditorScrollbar;
 	private readonly _context: ViewContext;
 	private readonly _viewGpuContext?: ViewGpuContext;
@@ -400,7 +401,7 @@ export class View extends ViewEventHandler {
 	private _instantiateEditContext(): AbstractEditContext {
 		const usingExperimentalEditContext = this._context.configuration.options.get(EditorOption.effectiveEditContext);
 		if (usingExperimentalEditContext) {
-			return this._instantiationService.createInstance(NativeEditContext, this._ownerID, this._context, this._overflowGuardContainer, this._viewController, this._createTextAreaHandlerHelper());
+			return this._instantiationService.createInstance(NativeEditContext, this._owner, this._context, this._overflowGuardContainer, this._viewController, this._createTextAreaHandlerHelper());
 		} else {
 			return this._instantiationService.createInstance(TextAreaEditContext, this._ownerID, this._context, this._overflowGuardContainer, this._viewController, this._createTextAreaHandlerHelper());
 		}
