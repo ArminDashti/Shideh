@@ -82,6 +82,18 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 					result.push([matches[1], matches[2]]);
 				}
 			}
+		} else {
+			// TODO@Ben remove me once environment is adopted
+			if (document && document.location && document.location.search) {
+				const map = new Map<string, string>();
+				const query = document.location.search.substring(1);
+				const vars = query.split('&');
+				for (let p of vars) {
+					const pair = p.split('=');
+					if (pair.length >= 2) {
+						map.set(pair[0], decodeURIComponent(pair[1]));
+					}
+				}
 
 			return result.length ? result : undefined;
 		}

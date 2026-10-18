@@ -100,6 +100,8 @@ const USE_SLOW_PICKER = 'task.quickOpen.showAll';
 
 const TaskTerminalType = 'Task';
 
+const QUICKOPEN_HISTORY_LIMIT_CONFIG = 'task.quickOpen.history';
+
 export namespace ConfigureTaskAction {
 	export const ID = 'workbench.action.tasks.configureTaskRunner';
 	export const TEXT = nls.localize2('ConfigureTaskRunnerAction.label', "Configure Task");

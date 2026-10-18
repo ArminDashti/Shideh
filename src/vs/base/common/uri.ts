@@ -543,27 +543,27 @@ const encodeTable: { [ch: number]: string } = {
 	[CharCode.CloseSquareBracket]: '%5D',
 	[CharCode.AtSign]: '%40',
 
-	[CharCode.ExclamationMark]: '%21', // sub-delims
-	[CharCode.DollarSign]: '%24',
-	[CharCode.Ampersand]: '%26',
-	[CharCode.SingleQuote]: '%27',
-	[CharCode.OpenParen]: '%28',
-	[CharCode.CloseParen]: '%29',
-	[CharCode.Asterisk]: '%2A',
-	[CharCode.Plus]: '%2B',
-	[CharCode.Comma]: '%2C',
-	[CharCode.Semicolon]: '%3B',
-	[CharCode.Equals]: '%3D',
+// 	[CharCode.ExclamationMark]: '%21', // sub-delims
+// 	[CharCode.DollarSign]: '%24',
+// 	[CharCode.Ampersand]: '%26',
+// 	[CharCode.SingleQuote]: '%27',
+// 	[CharCode.OpenParen]: '%28',
+// 	[CharCode.CloseParen]: '%29',
+// 	[CharCode.Asterisk]: '%2A',
+// 	[CharCode.Plus]: '%2B',
+// 	[CharCode.Comma]: '%2C',
+// 	[CharCode.Semicolon]: '%3B',
+// 	[CharCode.Equals]: '%3D',
 
-	[CharCode.Space]: '%20',
-};
+// 	[CharCode.Space]: '%20',
+// };
 
 function encodeURIComponentFast(uriComponent: string, isPath: boolean, isAuthority: boolean): string {
 	let res: string | undefined = undefined;
 	let nativeEncodePos = -1;
 
-	for (let pos = 0; pos < uriComponent.length; pos++) {
-		const code = uriComponent.charCodeAt(pos);
+// 	for (let pos = 0; pos < uriComponent.length; pos++) {
+// 		const code = uriComponent.charCodeAt(pos);
 
 		// unreserved characters: https://tools.ietf.org/html/rfc3986#section-2.3
 		if (
@@ -589,11 +589,11 @@ function encodeURIComponentFast(uriComponent: string, isPath: boolean, isAuthori
 				res += uriComponent.charAt(pos);
 			}
 
-		} else {
-			// encoding needed, we need to allocate a new string
-			if (res === undefined) {
-				res = uriComponent.substr(0, pos);
-			}
+// 		} else {
+// 			// encoding needed, we need to allocate a new string
+// 			if (res === undefined) {
+// 				res = uriComponent.substr(0, pos);
+// 			}
 
 		} else if (nativeEncodePos === -1) {
 			// use native encode only when needed
@@ -601,11 +601,53 @@ function encodeURIComponentFast(uriComponent: string, isPath: boolean, isAuthori
 		}
 	}
 
-	if (nativeEncodePos !== -1) {
-		res += encodeURIComponent(uriComponent.substring(nativeEncodePos));
-	}
+// 	if (nativeEncodePos !== -1) {
+// 		res += encodeURIComponent(uriComponent.substring(nativeEncodePos));
+// 	}
 
-	return res !== undefined ? res : uriComponent;
+// 	return res !== undefined ? res : uriComponent;
+// }
+
+// function encodeURIComponentMinimal(path: string): string {
+// 	let res: string | undefined = undefined;
+// 	for (let pos = 0; pos < path.length; pos++) {
+// 		const code = path.charCodeAt(pos);
+// 		if (code === CharCode.Hash || code === CharCode.QuestionMark) {
+// 			if (res === undefined) {
+// 				res = path.substr(0, pos);
+// 			}
+// 			res += encodeTable[code];
+// 		} else {
+// 			if (res !== undefined) {
+// 				res += path[pos];
+// 			}
+// 		}
+// 	}
+// 	return res !== undefined ? res : path;
+// }
+
+
+// https://url.spec.whatwg.org/#percent-encoded-bytes
+// "The C0 control percent-encode set are the C0 controls and all code points greater than U+007E (~)."
+
+function isC0ControlPercentEncodeSet(code: number): boolean {
+	return code <= 0x1F || code > 0x7E;
+}
+// "The fragment percent-encode set is the C0 control percent-encode set and U+0020 SPACE, U+0022 ("), U+003C (<), U+003E (>), and U+0060 (`)."
+function isFragmentPercentEncodeSet(code: number): boolean {
+	return isC0ControlPercentEncodeSet(code)
+		|| code === 0x20 || code === 0x22 || code === 0x3C || code === 0x3E || code === 0x60;
+}
+// "The path percent-encode set is the fragment percent-encode set and U+0023 (#), U+003F (?), U+007B ({), and U+007D (})."
+function isPathPercentEncodeSet(code: number): boolean {
+	return isFragmentPercentEncodeSet(code)
+		|| code === 0x23 || code === 0x3F || code === 0x7B || code === 0x7D;
+}
+// "The userinfo percent-encode set is the path percent-encode set and U+002F (/), U+003A (:), U+003B (;), U+003D (=), U+0040 (@), U+005B ([), U+005C (\), U+005D (]), U+005E (^), and U+007C (|)."
+function isUserInfoPercentEncodeSet(code: number): boolean {
+	return isPathPercentEncodeSet(code)
+		|| code === 0x2F || code === 0x3A || code === 0x3B || code === 0x3D || code === 0x40
+		|| code === 0x5B || code === 0x5C || code === 0x5D || code === 0x5E || code === 0x7C;
 }
 
 function encodeURIComponentMinimal(path: string): string {
@@ -671,9 +713,9 @@ export function uriToFsPath(uri: URI, keepDriveLetterCasing: boolean): string {
  */
 function _asFormatted(uri: URI, skipEncoding: boolean): string {
 
-	const encoder = !skipEncoding
-		? encodeURIComponentFast
-		: encodeURIComponentMinimal;
+	// const encoder = !skipEncoding
+	// 	? encodeURIComponentFast
+	// 	: encodeURIComponentMinimal;
 
 	let res = '';
 	let { scheme, authority, path, query, fragment } = uri;
@@ -711,6 +753,7 @@ function _asFormatted(uri: URI, skipEncoding: boolean): string {
 			res += encoder(authority.substr(0, idx), false, true);
 			res += authority.substr(idx);
 		}
+		res += percentEncode(authority.substr(idxPort + 1), isC0ControlPercentEncodeSet);
 	}
 	if (path) {
 		// HTTP paths are case-sensitive, even when their first segment resembles a drive letter.
@@ -738,6 +781,7 @@ function _asFormatted(uri: URI, skipEncoding: boolean): string {
 		res += !skipEncoding ? encodeURIComponentFast(fragment, false, false) : fragment;
 	}
 	return res;
+
 }
 
 // --- decode

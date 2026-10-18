@@ -926,6 +926,10 @@ class ReplOptions extends Disposable implements IReplOptions {
 		};
 		this._onDidChange.fire();
 	}
+
+	setDynamicHeight(element: IReplElement, height: number): void {
+		this.heightCache.set(element, height);
+	}
 }
 
 // Repl actions and commands
