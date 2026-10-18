@@ -146,6 +146,7 @@ suite('ChatToolProgressSubPart', () => {
 			invocationMessage: options.invocationMessage ?? 'Running tool...',
 			pastTenseMessage: undefined,
 			source,
+			toolData: { id: toolId, source, displayName: toolId, modelDescription: toolId },
 			toolId,
 			toolCallId: 'live-tool-call-id',
 			state: observableValue('state', {

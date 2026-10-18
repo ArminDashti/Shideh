@@ -2546,6 +2546,7 @@ export function toolCallStateToInvocation(tc: ToolCallState, subAgentInvocationI
 		// mapper auto-emits `tool_ready` with `confirmed: NotNeeded` paired
 		// with `tool_start`. So no special-case for subagents is needed here.)
 		const confirmationMessages = toolCallConfirmationMessages(tc, connectionAuthority);
+		const parameters = toolCallStateToParameters(tc);
 
 		let toolSpecificData: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatModifiedFilesConfirmationData | IChatAgentFeedbackReviewConfirmationData | undefined;
 		const pendingEdits = tc.edits?.items;
@@ -2606,7 +2607,7 @@ export function toolCallStateToInvocation(tc: ToolCallState, subAgentInvocationI
 			toolData,
 			tc.toolCallId,
 			subAgentInvocationId,
-			undefined,
+			parameters,
 		);
 	}
 

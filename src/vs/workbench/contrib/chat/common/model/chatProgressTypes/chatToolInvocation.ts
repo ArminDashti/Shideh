@@ -95,7 +95,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 
 	constructor(
 		preparedInvocation: IPreparedToolInvocation | undefined,
-		toolData: IToolData,
+		public readonly toolData: IToolData,
 		public readonly toolCallId: string,
 		subAgentInvocationId: string | undefined,
 		parameters: unknown,
@@ -368,7 +368,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 	public requestConfirmation(preparedInvocation: IPreparedToolInvocation, newConfirmation = false): void {
 		const currentType = this._state.get().type;
 		if (currentType === IChatToolInvocation.StateKind.Streaming) {
-			this.transitionFromStreaming(preparedInvocation, this.parameters, undefined);
+			this.transitionFromStreaming(preparedInvocation, parameters, undefined);
 			return;
 		}
 		if (!newConfirmation && (currentType === IChatToolInvocation.StateKind.Completed

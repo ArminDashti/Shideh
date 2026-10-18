@@ -983,6 +983,7 @@ export interface IChatToolInvocation {
 	readonly originMessage: string | IMarkdownString | undefined;
 	readonly invocationMessage: string | IMarkdownString;
 	readonly pastTenseMessage: string | IMarkdownString | undefined;
+	readonly toolData: IToolData;
 	readonly source: ToolDataSource;
 	readonly toolId: string;
 	readonly toolCallId: string;
