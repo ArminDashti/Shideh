@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as eslint from 'eslint';
+import type * as ESTree from 'estree';
 import { TSESTree } from '@typescript-eslint/utils';
 
 /**
@@ -35,9 +36,14 @@ export default new class NoUntypedMetaAccess implements eslint.Rule.RuleModule {
 	};
 
 	create(context: eslint.Rule.RuleContext): eslint.Rule.RuleListener {
+		const metaAliases = new Set<eslint.Scope.Variable>();
+		const metaPropertyAliases = new Set<eslint.Scope.Variable>();
 
 		function unwrap(node: TSESTree.Node | null | undefined): TSESTree.Node | null | undefined {
-			return node?.type === 'ChainExpression' ? node.expression : node;
+			while (node?.type === 'ChainExpression' || node?.type === 'TSNonNullExpression') {
+				node = node.expression;
+			}
+			return node;
 		}
 
 		function isMetaAccess(node: TSESTree.Node | null | undefined): boolean {
@@ -51,17 +57,117 @@ export default new class NoUntypedMetaAccess implements eslint.Rule.RuleModule {
 			if (n.computed && n.property.type === 'Literal') {
 				return n.property.value === '_meta';
 			}
+			if (n.computed && n.property.type === 'Identifier') {
+				const variable = resolveVariable(n.property);
+				return variable !== undefined && metaPropertyAliases.has(variable);
+			}
 			return false;
 		}
 
+		function resolveVariable(identifier: TSESTree.Identifier): eslint.Scope.Variable | undefined {
+			let scope: eslint.Scope.Scope | null = context.sourceCode.getScope(identifier as ESTree.Node);
+			while (scope) {
+				const variable = scope.set.get(identifier.name);
+				if (variable) {
+					return variable;
+				}
+				scope = scope.upper;
+			}
+			return undefined;
+		}
+
+		function isMetaAlias(node: TSESTree.Node | null | undefined): boolean {
+			const n = unwrap(node);
+			if (!n || n.type !== 'Identifier') {
+				return false;
+			}
+			const variable = resolveVariable(n);
+			return variable !== undefined && metaAliases.has(variable);
+		}
+
+		function isMetaBag(node: TSESTree.Node | null | undefined): boolean {
+			return isMetaAccess(node) || isMetaAlias(node);
+		}
+
+		function isMetaBagCopy(node: TSESTree.Node | null | undefined): boolean {
+			const n = unwrap(node);
+			return !!n && n.type === 'ObjectExpression' && n.properties.some(property =>
+				property.type === 'SpreadElement' && isMetaBag(property.argument)
+			);
+		}
+
+		function isMetaDerivedValue(node: TSESTree.Node | null | undefined): boolean {
+			const n = unwrap(node);
+			if (isMetaBag(n) || isMetaBagCopy(n)) {
+				return true;
+			}
+			return (!!n && n.type === 'LogicalExpression'
+				&& (isMetaDerivedValue(n.left) || isMetaDerivedValue(n.right)))
+				|| (!!n && n.type === 'ConditionalExpression'
+					&& (isMetaDerivedValue(n.consequent) || isMetaDerivedValue(n.alternate)));
+		}
+
+		function trackAlias(identifier: TSESTree.Identifier): void {
+			const variable = resolveVariable(identifier);
+			if (variable) {
+				metaAliases.add(variable);
+			}
+		}
+
 		return {
+			'VariableDeclarator': (node: TSESTree.VariableDeclarator) => {
+				if (node.id.type === 'Identifier' && node.init?.type === 'Literal' && node.init.value === '_meta') {
+					const declaration = context.sourceCode.getAncestors(node as ESTree.Node).at(-1);
+					if (declaration?.type === 'VariableDeclaration' && declaration.kind === 'const') {
+						const variable = resolveVariable(node.id);
+						if (variable) {
+							metaPropertyAliases.add(variable);
+						}
+					}
+				}
+				if (node.id.type === 'Identifier' && isMetaDerivedValue(node.init)) {
+					trackAlias(node.id);
+					return;
+				}
+				if (node.id.type === 'ObjectPattern' && isMetaDerivedValue(node.init)) {
+					context.report({ node, messageId: 'noMetaFieldAccess' });
+					return;
+				}
+				if (node.id.type !== 'ObjectPattern') {
+					return;
+				}
+				for (const property of node.id.properties) {
+					if (property.type !== 'Property') {
+						continue;
+					}
+					const isMetaProperty = (!property.computed && property.key.type === 'Identifier' && property.key.name === '_meta')
+						|| (property.key.type === 'Literal' && property.key.value === '_meta');
+					const identifier = property.value.type === 'Identifier'
+						? property.value
+						: property.value.type === 'AssignmentPattern' && property.value.left.type === 'Identifier'
+							? property.value.left
+							: undefined;
+					if (isMetaProperty && identifier) {
+						trackAlias(identifier);
+					} else if (isMetaProperty) {
+						context.report({ node: property.value, messageId: 'noMetaFieldAccess' });
+					}
+				}
+			},
+			'AssignmentExpression': (node: TSESTree.AssignmentExpression) => {
+				if (node.operator === '=' && node.left.type === 'Identifier' && isMetaDerivedValue(node.right)) {
+					trackAlias(node.left);
+				} else if (node.left.type === 'ObjectPattern' && isMetaDerivedValue(node.right)) {
+					context.report({ node, messageId: 'noMetaFieldAccess' });
+				}
+			},
 			'MemberExpression': (node: TSESTree.MemberExpression) => {
-				if (isMetaAccess(node.object)) {
+				if (isMetaBag(node.object)) {
 					context.report({ node, messageId: 'noMetaFieldAccess' });
 				}
 			},
 			'TSAsExpression, TSTypeAssertion': (node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion) => {
-				if (isMetaAccess(node.expression)) {
+				if (isMetaBag(node.expression)) {
 					context.report({ node, messageId: 'noMetaCast' });
 				}
 			},

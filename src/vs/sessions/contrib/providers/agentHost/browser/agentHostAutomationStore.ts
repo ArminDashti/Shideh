@@ -554,7 +554,7 @@ export class AgentHostAutomationStore extends Disposable implements ISessionsPro
 			},
 			enabled: descriptor.enabled,
 			triggers: scheduleTrigger(descriptor.schedule),
-			_meta: Object.keys(meta).length > 0 ? meta : undefined,
+			_meta: meta,
 		};
 	}
 

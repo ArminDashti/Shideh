@@ -26,6 +26,7 @@ import { FusionReplayState } from './copilotFusionReplay.js';
 import { isSyntheticUserMessage } from './copilotFusionEventIdentity.js';
 import { CopilotFusionMessageChunks } from './copilotFusionMessageChunks.js';
 import { buildChatErrorInfoFromCopilotSdkFields } from './copilotSdkChatError.js';
+import { readCopilotSdkToolResourceUri } from './copilotSdkMeta.js';
 import { buildMcpChannel, buildMcpTopLevelCustomizationId } from '../shared/mcpCustomizationController.js';
 import { readSimpleAttachmentDisplayKindFromMimeType } from './copilotAttachmentUtils.js';
 import { buildNonPtyShellTerminalUri } from '../../common/nonPtyShellTerminalUri.js';
@@ -1138,7 +1139,7 @@ function makeCompletedToolCallPart(
 
 	const mcpServerName = info.mcpServerName ?? readStringProperty(d, 'mcpServerName');
 	const mcpToolName = info.mcpToolName ?? readStringProperty(d, 'mcpToolName');
-	const mcpUiResourceUri = info.mcpUiResourceUri ?? readMcpUiResourceUri(d);
+	const mcpUiResourceUri = info.mcpUiResourceUri ?? readCopilotSdkToolResourceUri(d);
 	const mcpUi: IToolCallUiMeta | undefined = mcpUiResourceUri
 		? {
 			resourceUri: mcpUiResourceUri,
