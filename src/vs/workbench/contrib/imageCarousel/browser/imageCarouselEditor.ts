@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { addDisposableListener, clearNode, Dimension, EventType, h } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, clearNode, Dimension, EventType, h } from '../../../../base/browser/dom.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
@@ -15,7 +15,7 @@ import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
-import { IEditorOpenContext } from '../../../common/editor.js';
+import { IEditorCommandsContext, IEditorOpenContext } from '../../../common/editor.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
@@ -81,6 +81,7 @@ export class ImageCarouselEditor extends EditorPane {
 	protected override createEditor(parent: HTMLElement): void {
 		this._container = h('div.image-carousel-editor').root;
 		parent.appendChild(this._container);
+		this._scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._container));
 	}
 
 	override async setInput(input: ImageCarouselEditorInput, options: IEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
@@ -118,6 +119,9 @@ export class ImageCarouselEditor extends EditorPane {
 			return;
 		}
 
+		this._contentVersion++;
+		this._navigationId++;
+		this.setCurrentImage(undefined);
 		this._contentDisposables.clear();
 		this._imageDisposables.clear();
 		this._revokeCachedBlobUrls();
@@ -197,7 +201,11 @@ export class ImageCarouselEditor extends EditorPane {
 		// Keyboard navigation
 		this._contentDisposables.add(addDisposableListener(elements.root, EventType.KEY_DOWN, e => {
 			const event = new StandardKeyboardEvent(e);
-			if (event.keyCode === KeyCode.LeftArrow) {
+			if (event.keyCode === KeyCode.ContextMenu || (event.shiftKey && event.keyCode === KeyCode.F10)) {
+				this.showContextMenu(elements.mainImageContainer);
+				event.stopPropagation();
+				event.preventDefault();
+			} else if (event.keyCode === KeyCode.LeftArrow) {
 				this.previous();
 				event.stopPropagation();
 				event.preventDefault();
@@ -206,6 +214,11 @@ export class ImageCarouselEditor extends EditorPane {
 				event.stopPropagation();
 				event.preventDefault();
 			}
+		}));
+		this._contentDisposables.add(addDisposableListener(elements.imageArea, EventType.CONTEXT_MENU, e => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.showContextMenu({ x: e.clientX, y: e.clientY });
 		}));
 		elements.root.tabIndex = 0;
 
@@ -386,6 +399,7 @@ export class ImageCarouselEditor extends EditorPane {
 			this._elements.mainImageContainer.style.cursor = 'default';
 
 			// Load raw data to send via postMessage
+			await this._loadBlobUrl(currentImage);
 			const rawData = await this._loadRawData(currentImage);
 			if (this._currentIndex !== navigationIndex || this._blobUrlCacheGeneration !== blobUrlCacheGeneration) {
 				return;
@@ -454,6 +468,7 @@ window.addEventListener("message",function(e){var m=e.data;if(m.type==="loadVide
 				}
 			});
 		}
+		this.setCurrentImage(currentImage);
 
 		const tmp = new Image();
 		tmp.src = url;
@@ -534,7 +549,7 @@ window.addEventListener("message",function(e){var m=e.data;if(m.type==="loadVide
 	private async _loadBlobUrl(image: ICarouselImage): Promise<string> {
 		const cached = this._blobUrlCache.get(image.id);
 		if (cached) {
-			return cached;
+			return cached.url;
 		}
 		const blobUrlCacheGeneration = this._blobUrlCacheGeneration;
 
@@ -552,6 +567,13 @@ window.addEventListener("message",function(e){var m=e.data;if(m.type==="loadVide
 			return '';
 		}
 
+		if (contentVersion !== this._contentVersion) {
+			return '';
+		}
+		const existing = this._blobUrlCache.get(image.id);
+		if (existing) {
+			return existing.url;
+		}
 		const blob = new Blob([buffer as Uint8Array<ArrayBuffer>], { type: image.mimeType });
 		const url = this._blobUrlCache.get(image.id) ?? URL.createObjectURL(blob);
 		this._blobUrlCache.set(image.id, url);
