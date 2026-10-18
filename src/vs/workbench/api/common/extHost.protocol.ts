@@ -1848,6 +1848,25 @@ export interface IChatSessionCustomizationSourceFolderDto {
 	readonly source: IChatResourceSourceDto;
 	readonly destinationGroupId?: string;
 }
+
+export interface IChatSessionCustomizationSkippedFileDto {
+	readonly uri: UriComponents;
+	readonly reason: string;
+}
+
+export interface IChatSessionCustomizationDiagnosticsDto {
+	readonly scannedPaths?: readonly UriComponents[];
+	readonly skippedFiles?: readonly IChatSessionCustomizationSkippedFileDto[];
+}
+
+export interface IChatSessionCustomizationResultDto {
+	readonly items: IChatSessionCustomizationItemDto[];
+	readonly diagnostics?: IChatSessionCustomizationDiagnosticsDto;
+}
+
+export interface IChatSessionCustomizationChangeEventDto {
+	readonly changedTypes?: readonly string[];
+}
 export interface IChatParticipantMetadata {
 	participant: string;
 	command?: string;

@@ -874,8 +874,10 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		const disposables = new DisposableStore();
 
 		if (provider.onDidChange) {
-			disposables.add(provider.onDidChange(() => {
-				this._proxy.$onDidChangeCustomizations(handle);
+			disposables.add(provider.onDidChange((event) => {
+				this._proxy.$onDidChangeCustomizations(handle, {
+					changedTypes: event.changedTypes?.map(t => typeConvert.ChatSessionCustomizationType.from(t)),
+				});
 			}));
 		}
 
@@ -906,7 +908,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 				return undefined;
 			}
 
-			return items.map(item => ({
+			const items = result.items.map(item => ({
 				uri: item.uri,
 				type: typeConvert.ChatSessionCustomizationType.from(item.type),
 				name: item.name,

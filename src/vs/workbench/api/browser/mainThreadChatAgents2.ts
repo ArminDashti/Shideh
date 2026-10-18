@@ -116,7 +116,9 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 	private readonly _promptFileContentRegistrations = this._register(new DisposableMap<number, DisposableMap<string, IDisposable>>());
 
 	private readonly _customizationProviders = this._register(new DisposableMap<number, IDisposable>());
-	private readonly _customizationProviderEmitters = this._register(new DisposableMap<number, Emitter<void>>());
+	private readonly _customizationProviderEmitters = this._register(new DisposableMap<number, Emitter<IExternalCustomizationChangeEvent>>());
+	private readonly _customizationDebugDetails = new Map<string, IExternalCustomizationResult>();
+	private readonly _lastChangedTypes = new Map<number, readonly string[] | undefined>();
 
 	private readonly _pendingProgress = new Map<string, { progress: (parts: IChatProgress[]) => void; chatSession: IChatModel | undefined; isSubagent: boolean }>();
 	private readonly _proxy: ExtHostChatAgentsShape2;
@@ -795,7 +797,7 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			return;
 		}
 
-		const emitter = new Emitter<void>();
+		const emitter = new Emitter<IExternalCustomizationChangeEvent>();
 		this._customizationProviderEmitters.set(handle, emitter);
 
 		// Build the item provider that calls back to the ExtHost
@@ -820,6 +822,18 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					pluginLabel: item.pluginLabel,
 					userInvocable: item.userInvocable,
 				}));
+				const mapped: IExternalCustomizationResult = {
+					items,
+					diagnostics: result.diagnostics ? {
+						scannedPaths: result.diagnostics.scannedPaths?.map(p => URI.revive(p)),
+						skippedFiles: result.diagnostics.skippedFiles?.map(f => ({
+							uri: URI.revive(f.uri),
+							reason: f.reason,
+						})),
+					} : undefined,
+				};
+				this._logCustomizationResult(handle, metadata.label, mapped);
+				return mapped;
 			},
 			provideSourceFolders: async (sessionResource, type, token) => {
 				const folders = await this._proxy.$provideSourceFolders(handle, sessionResource, type, token);
@@ -865,6 +879,8 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			label: metadata.label,
 			icon: metadata.iconId ? ThemeIcon.fromId(metadata.iconId) : ThemeIcon.fromId(Codicon.extensions.id),
 			hiddenSections,
+			hideGenerateButton: metadata.hideGenerateButton,
+			workspaceSubpaths: metadata.workspaceSubpaths ? [...metadata.workspaceSubpaths] : undefined,
 			getStorageSourceFilter: () => ({
 				// Extension-provided harnesses manage their own items via the provider,
 				// so we show all sources for storage-filter-based flows.
@@ -880,12 +896,14 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 	$unregisterChatSessionCustomizationProvider(handle: number): void {
 		this._customizationProviders.deleteAndDispose(handle);
 		this._customizationProviderEmitters.deleteAndDispose(handle);
+		this._lastChangedTypes.delete(handle);
 	}
 
-	$onDidChangeCustomizations(handle: number): void {
+	$onDidChangeCustomizations(handle: number, event: IChatSessionCustomizationChangeEventDto): void {
+		this._lastChangedTypes.set(handle, event.changedTypes);
 		const emitter = this._customizationProviderEmitters.get(handle);
 		if (emitter) {
-			emitter.fire();
+			emitter.fire({ changedTypes: event.changedTypes });
 		}
 	}
 
