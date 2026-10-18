@@ -3720,8 +3720,6 @@ export namespace ChatResponsePart {
 			return ChatResponseInfoPart.from(part);
 		} else if (part instanceof types.ChatResponseConfirmationPart) {
 			return ChatResponseConfirmationPart.from(part);
-		} else if (part instanceof types.ChatResponseQuestionCarouselPart) {
-			return ChatResponseQuestionCarouselPart.from(part);
 		} else if (part instanceof types.ChatResponseCodeCitationPart) {
 			return ChatResponseCodeCitationPart.from(part);
 		} else if (part instanceof types.LanguageModelDataPart) {
