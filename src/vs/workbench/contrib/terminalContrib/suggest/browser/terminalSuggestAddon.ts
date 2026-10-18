@@ -354,6 +354,10 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 			if (this._pathSeparator) {
 				normalizedLeadingLineContent = normalizePathSeparator(normalizedLeadingLineContent, this._pathSeparator);
 			}
+			if (completion.kind !== undefined) {
+				completion.isFile = completion.kind === TerminalCompletionItemKind.File;
+				completion.isDirectory = completion.kind === TerminalCompletionItemKind.Folder;
+			}
 		}
 
 		// Add any "ghost text" suggestion suggested by the shell. This aligns with behavior of the
