@@ -752,6 +752,15 @@ declare module 'vscode' {
 		 */
 		updateToolInvocation(toolCallId: string, streamData: ChatToolInvocationStreamData): void;
 
+		/**
+		 * Complete a tool invocation that was started with {@link beginToolInvocation}.
+		 * This transitions the tool from its streaming/executing state to completed,
+		 * updating the UI with the final result data.
+		 * @param toolCallId The tool call ID that was passed to {@link beginToolInvocation}.
+		 * @param result The result data for the completed tool invocation.
+		 */
+		completeToolInvocation(toolCallId: string, result: ChatToolInvocationResult): void;
+
 		push(part: ExtendedChatResponsePart): void;
 
 		clearToPreviousToolInvocation(reason: ChatResponseClearToPreviousToolInvocationReason): void;

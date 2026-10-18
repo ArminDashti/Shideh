@@ -3867,13 +3867,15 @@ suite('LanguageModelToolsService', () => {
 		assert.strictEqual(invocation.toolId, tool.id);
 	});
 
-	test('beginToolCall returns undefined for unknown tool', () => {
+	test('beginToolCall creates synthetic invocation for unknown tool', () => {
 		const invocation = service.beginToolCall({
 			toolCallId: 'call-unknown',
 			toolId: 'nonExistentTool',
 		});
 
-		assert.strictEqual(invocation, undefined, 'beginToolCall should return undefined for unknown tools');
+		// Unknown tools are treated as external/synthetic tools (e.g., for background, cloud tools)
+		assert.ok(invocation, 'beginToolCall should create an invocation for unknown tools');
+		assert.strictEqual(invocation.toolId, 'nonExistentTool');
 	});
 
 	test('beginToolCall returns undefined for tool without handleToolStream', () => {

@@ -626,6 +626,16 @@ export interface IBeginToolCallOptions {
 	force?: boolean;
 }
 
+export interface ICompleteToolStreamResult {
+	invocationMessage?: string | IMarkdownString;
+	pastTenseMessage?: string | IMarkdownString;
+	isError?: boolean;
+	isConfirmed?: boolean;
+	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData;
+	presentation?: ToolInvocationPresentation;
+	resultDetails?: IToolResult['toolResultDetails'];
+}
+
 export interface IToolInvokedEvent {
 	readonly toolId: string;
 	readonly sessionResource: URI | undefined;
@@ -699,6 +709,12 @@ export interface ILanguageModelToolsService {
 	 * Calls the tool's handleToolStream method to get a custom invocation message.
 	 */
 	updateToolStream(toolCallId: string, partialInput: unknown, token: CancellationToken): Promise<void>;
+
+	/**
+	 * Complete a streaming tool invocation directly, bypassing the normal execution flow.
+	 * Used for externally-managed tool invocations (e.g., Copilot CLI tools).
+	 */
+	completeToolStream(toolCallId: string, result: ICompleteToolStreamResult): void;
 
 	invokeTool(invocation: IToolInvocation, countTokens: CountTokensCallback, token: CancellationToken): Promise<IToolResult>;
 	cancelToolCallsForRequest(requestId: string): void;

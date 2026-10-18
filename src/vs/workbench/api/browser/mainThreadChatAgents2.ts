@@ -522,6 +522,21 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 				continue;
 			}
 
+			if (progress.kind === 'completeToolInvocation') {
+				// Complete a streaming tool invocation with result data
+				const revived = revive(progress);
+				this._languageModelToolsService.completeToolStream(revived.toolCallId, {
+					invocationMessage: revived.invocationMessage as string | IMarkdownString | undefined,
+					pastTenseMessage: revived.pastTenseMessage as string | IMarkdownString | undefined,
+					isError: revived.isError,
+					isConfirmed: revived.isConfirmed,
+					toolSpecificData: revived.toolSpecificData,
+					presentation: revived.presentation,
+					resultDetails: revived.resultDetails,
+				});
+				continue;
+			}
+
 			if (progress.kind === 'usage') {
 				if (isSubagent) {
 					// A subagent invoked via RunSubagentTool reuses the parent request and

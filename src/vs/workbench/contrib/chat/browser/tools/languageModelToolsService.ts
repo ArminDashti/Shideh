@@ -1219,7 +1219,10 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		// First try to look up by tool ID (the package.json "name" field),
 		// then fall back to looking up by toolReferenceName
 		const toolEntry = this._tools.get(options.toolId);
-		if (!toolEntry) {
+
+		// For registered tools, require handleToolStream implementation.
+		// These tools will have their invocation created directly in invokeToolInternal.
+		if (toolEntry && !toolEntry.impl?.handleToolStream) {
 			return undefined;
 		}
 
@@ -1234,7 +1237,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		const invocation = ChatToolInvocation.createStreaming({
 			toolCallId: options.toolCallId,
 			toolId: options.toolId,
-			toolData: toolEntry.data,
+			toolData,
 			subagentInvocationId: options.subagentInvocationId,
 			chatRequestId: options.chatRequestId,
 		});
@@ -1256,8 +1259,10 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 			}
 		}
 
-		// Call handleToolStream to get initial streaming message
-		this._callHandleToolStream(toolEntry, invocation, options.toolCallId, undefined, CancellationToken.None);
+		// Call handleToolStream to get initial streaming message (only for registered tools)
+		if (toolEntry) {
+			this._callHandleToolStream(toolEntry, invocation, options.toolCallId, undefined, CancellationToken.None);
+		}
 
 		return invocation;
 	}
