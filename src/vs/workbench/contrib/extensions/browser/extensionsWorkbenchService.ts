@@ -81,6 +81,8 @@ interface IExtensionStateProvider<T> {
 	(extension: Extension): T;
 }
 
+const DELAYED_AUTO_UPDATE_PERIOD = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+
 interface InstalledExtensionsEvent {
 	readonly extensionIds: TelemetryTrustedValue<string>;
 	readonly count: number;
@@ -1315,6 +1317,33 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		const publisher = extension.publisher.toLowerCase();
 		return trustedPublishers.includes(publisher)
 			|| trustedPublishers.includes(extension.publisherDisplayName.toLowerCase());
+	}
+
+	isAutoUpdateDelayed(extension: IExtension): boolean {
+		if (!extension.outdated) {
+			return false;
+		}
+		if (!this.shouldAutoUpdateExtension(extension)) {
+			return false;
+		}
+		return this.getAutoUpdateDelayRemaining(extension) > 0;
+	}
+
+	getAutoUpdateDelayRemaining(extension: IExtension): number {
+		// Signed versions are auto updated immediately; only unsigned versions are delayed.
+		if (extension.gallery?.isSigned) {
+			return 0;
+		}
+		const lastUpdated = extension.gallery?.lastUpdated;
+		if (!Number.isFinite(lastUpdated) || !lastUpdated) {
+			return 0;
+		}
+		const elapsed = Date.now() - lastUpdated;
+		if (elapsed < 0) {
+			// Future timestamp (clock skew) — treat as not delayed
+			return 0;
+		}
+		return Math.max(0, DELAYED_AUTO_UPDATE_PERIOD - elapsed);
 	}
 
 	async updateAutoUpdateForAllExtensions(isAutoUpdateEnabled: boolean): Promise<void> {
