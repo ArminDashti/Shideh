@@ -22,6 +22,9 @@ import * as tsb from './tsb/index.ts';
 import { createTsgoStream, spawnTsgo } from './tsgo.ts';
 import { apiProposalNamesSource, checkApiProposalNames, generateApiProposalNames } from './apiProposalNames.ts';
 
+console.log(`Constrained memory for ${process.pid} : ${process.constrainedMemory()} and ${process.availableMemory()}`);
+console.log(`Total OS memory: ${os.totalmem()}`);
+console.log(`Free OS memory: ${os.freemem()}`);
 
 // --- gulp-tsb: compile and transpile --------------------------------
 

@@ -6,6 +6,8 @@
 import es from 'event-stream';
 import fs from 'fs';
 import cp from 'child_process';
+import os from 'os';
+import v8 from 'v8';
 import glob from 'glob';
 import { gulp, filter, rename, buffer, vinylZip, jsonEditor } from './gulp/facade.ts';
 import path from 'path';
