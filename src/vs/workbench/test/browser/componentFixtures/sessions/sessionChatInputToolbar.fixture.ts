@@ -19,6 +19,7 @@ import { chatPersistentContentVisibleClass } from '../../../../contrib/chat/brow
 import { ISessionChatPillVisibilityService, SESSION_CHAT_PILL_KINDS } from '../../../../contrib/chat/common/sessionChatPills.js';
 import { BrowserEditorInput } from '../../../../contrib/browserView/common/browserEditorInput.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../../contrib/browserView/common/browserView.js';
+import { ISessionChatPillVisibilityService, SessionChatPillKind } from '../../../../contrib/chat/common/sessionChatPills.js';
 // eslint-disable-next-line local/code-import-patterns
 import { IAgentFeedbackService } from '../../../../../sessions/contrib/agentFeedback/browser/agentFeedbackService.js';
 // eslint-disable-next-line local/code-import-patterns
@@ -199,7 +200,7 @@ async function createImageReferenceContent(resource: URI): Promise<IFileContent>
 	};
 }
 
-function renderPills(ctx: ComponentFixtureContext, sessionMock: IMockSessionAndChat, options?: { readonly compact?: boolean | 'auto'; readonly debugData?: ISessionChatPillsDebugData; readonly height?: string; readonly width?: string }): void {
+async function renderPills(ctx: ComponentFixtureContext, sessionMock: IMockSessionAndChat, options?: { readonly compact?: boolean | 'auto'; readonly debugData?: ISessionChatPillsDebugData; readonly height?: string; readonly width?: string; readonly openPill?: string; readonly showCustomizations?: boolean }): Promise<void> {
 	const { container, disposableStore } = ctx;
 
 	const instantiationService = createEditorServices(disposableStore, {
@@ -259,6 +260,19 @@ function renderPills(ctx: ComponentFixtureContext, sessionMock: IMockSessionAndC
 	container.style.height = options?.height ?? 'auto';
 	container.style.width = options?.width ?? 'auto';
 	container.style.backgroundColor = 'var(--vscode-sideBar-background)';
+	if (options?.openPill) {
+		const openPill = options.openPill;
+		for (let attempt = 0; attempt < 100; attempt++) {
+			const button = [...container.querySelectorAll<HTMLButtonElement>('.chat-dropdown-pill-button')]
+				.find(candidate => candidate.textContent?.includes(openPill));
+			if (button) {
+				button.click();
+				return;
+			}
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
+		throw new Error(`Could not find the ${openPill} pill.`);
+	}
 }
 
 async function renderChatViewWithPills(ctx: ComponentFixtureContext, mock: IMockSessionAndChat, messages: IFixtureMessage[], options?: { readonly height?: number; readonly scrollOffsetFromBottom?: number }): Promise<void> {
@@ -514,6 +528,16 @@ export default defineThemedFixtureGroup({ path: 'sessions/' }, {
 				{ id: 'c6', kind: SessionCustomizationKind.Plugin, name: 'component-explorer' },
 			],
 		})),
+	}),
+
+	SessionChatPills_CustomizationsDropdown: defineComponentFixture({
+		render: ctx => renderPills(ctx, createMockSession({
+			customizations: [
+				{ id: 'c1', kind: SessionCustomizationKind.Skill, name: 'sessions', uri: URI.file('/repo/.github/skills/sessions/SKILL.md') },
+				{ id: 'c2', kind: SessionCustomizationKind.Instruction, name: 'writing-tests', uri: URI.file('/repo/.github/instructions/writing-tests.instructions.md') },
+				{ id: 'c3', kind: SessionCustomizationKind.Agent, name: 'rubber-duck', uri: URI.file('/repo/.github/agents/rubber-duck.md') },
+			],
+		}), { height: '420px', width: '520px', openPill: 'Customizations', showCustomizations: true }),
 	}),
 
 	// --- Browser and background activity pills ------------------------------

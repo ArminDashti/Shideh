@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../base/common/codicons.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { isMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -109,6 +110,7 @@ function getCustomizationPath(uri: URI, sessionFolders: readonly ICustomizationF
 /** Publishes the active chat's customization sections for the chat input pill. */
 export class SessionCustomizations extends Disposable {
 	readonly sections: IObservable<readonly IChatPillSection[]>;
+	readonly dropdownActions: readonly IChatPillEntry[];
 
 	constructor(
 		customizations: IObservable<readonly ISessionChatCustomization[]>,
@@ -120,6 +122,16 @@ export class SessionCustomizations extends Disposable {
 		this.sections = derivedOpts({ owner: this, equalsFn: sectionsEqual }, reader => {
 			return buildSessionCustomizationSections(customizations.read(reader), sessionFolders.read(reader), customization => this._reveal(customization));
 		});
+		this.dropdownActions = [{
+			id: AICustomizationManagementCommands.OpenEditor,
+			label: localize('sessionCustomizations.openCustomizations', "Open Customizations"),
+			icon: Codicon.extensions,
+			open: () => {
+				void this._commandService.executeCommand(AICustomizationManagementCommands.OpenEditor, {
+					sessionResource: session.get()?.resource,
+				}).catch(onUnexpectedError);
+			},
+		}];
 	}
 
 	private _reveal(customization: ISessionChatCustomization): void {

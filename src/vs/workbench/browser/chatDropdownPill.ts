@@ -351,7 +351,29 @@ export class ChatDropdownPillActionViewItem extends ChatPillActionViewItem {
 				});
 			}
 		}
+		const dropdownActions = this._pillOptions.dropdownActions ?? [];
+		if (dropdownActions.length > 0) {
+			if (items.length > 0) {
+				items.push({ kind: ActionListItemKind.Separator, label: '' });
+			}
+			items.push(...dropdownActions.map(entry => this._getDropdownItem(entry)));
+		}
 		return items;
+	}
+
+	private _getDropdownItem(entry: IChatPillEntry): IActionListItem<IChatPillEntry> {
+		return {
+			kind: ActionListItemKind.Action,
+			label: entry.label,
+			...(entry.badge ? { badge: entry.badge } : {}),
+			...(entry.className ? { className: entry.className } : {}),
+			group: { title: '', ...(entry.icon ? { icon: entry.icon } : {}) },
+			...(entry.resource ? { iconClasses: getIconClasses(this._modelService, this._languageService, entry.resource, FileKind.FILE) } : {}),
+			...((entry.toolbarActions?.length || entry.promotedAction) ? { toolbarActions: [...getChatPillEntryToolbarActions(entry)] } : {}),
+			ariaDescription: entry.ariaDescription,
+			hover: this._getDropdownHover(entry),
+			item: entry,
+		};
 	}
 
 	private _getDropdownHover(entry: IChatPillEntry): IActionListItemHover | undefined {
