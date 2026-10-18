@@ -178,9 +178,13 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 	private readonly toolbar: MenuWorkbenchToolBar;
 	private readonly contextKeyService: IContextKeyService;
 
+	private readonly vulnsButton: Button;
+	private readonly vulnsListElement: HTMLElement;
+
 	public readonly textModel: ITextModel;
 	public readonly element: HTMLElement;
 
+	private currentCodeBlockData: ICodeBlockData | undefined;
 	private currentScrollWidth = 0;
 
 	constructor(
@@ -253,7 +257,7 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 		}));
 		this._register(this.editor.onDidContentSizeChange(e => {
 			if (e.contentHeightChanged) {
-				this._onDidChangeContentHeight.fire(e.contentHeight);
+				this._onDidChangeContentHeight.fire();
 			}
 		}));
 		this._register(this.editor.onDidBlurEditorWidget(() => {
@@ -345,6 +349,28 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 		} else {
 			dom.show(this.toolbar.getElement());
 		}
+
+		if (data.vulns?.length && isResponseVM(data.element)) {
+			dom.clearNode(this.vulnsListElement);
+			this.element.classList.remove('no-vulns');
+			this.element.classList.toggle('chat-vulnerabilities-collapsed', !data.element.vulnerabilitiesListExpanded);
+			dom.append(this.vulnsListElement, ...data.vulns.map(v => $('li', undefined, $('span.chat-vuln-title', undefined, v.title), ' ' + v.description)));
+			this.vulnsButton.label = this.getVulnerabilitiesLabel();
+		} else {
+			this.element.classList.add('no-vulns');
+		}
+	}
+
+	private getVulnerabilitiesLabel(): string {
+		if (!this.currentCodeBlockData || !this.currentCodeBlockData.vulns) {
+			return '';
+		}
+
+		const referencesLabel = this.currentCodeBlockData.vulns.length > 1 ?
+			localize('vulnerabilitiesPlural', "{0} vulnerabilities", this.currentCodeBlockData.vulns.length) :
+			localize('vulnerabilitiesSingular', "{0} vulnerability", 1);
+		const icon = (element: IChatResponseViewModel) => element.vulnerabilitiesListExpanded ? Codicon.chevronDown : Codicon.chevronRight;
+		return `${referencesLabel} $(${icon(this.currentCodeBlockData.element as IChatResponseViewModel).id})`;
 	}
 
 	private fixCodeText(text: string, languageId: string): string {
