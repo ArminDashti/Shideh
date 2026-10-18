@@ -246,6 +246,8 @@ jobs:
           TARGET=$([ "$VSCODE_ARCH" == "x64" ] && echo "linux-alpine" || echo "alpine-arm64") # TODO@joaomoreno
           npm run gulp vscode-reh-$TARGET-min-ci
           (cd .. && mv vscode-reh-$TARGET vscode-server-$TARGET) # TODO@joaomoreno
+          tar -xzf $(Build.ArtifactStagingDirectory)/copilot-shim/*.tar.gz -C $(Build.ArtifactStagingDirectory)/copilot-shim
+          install -D -m 755 $(Build.ArtifactStagingDirectory)/copilot-shim/copilot ../vscode-server-$TARGET/bin/copilot-shim/copilot
           ARCHIVE_PATH="$(Build.ArtifactStagingDirectory)/out/server/vscode-server-$TARGET.tar.gz"
           DIR_PATH="$(realpath ../vscode-server-$TARGET)"
           mkdir -p $(dirname $ARCHIVE_PATH)
