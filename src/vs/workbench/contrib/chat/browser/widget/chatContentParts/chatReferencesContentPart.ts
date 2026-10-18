@@ -501,6 +501,9 @@ class CollapsibleListRenderer implements IListRenderer<IChatCollapsibleListItem,
 				if (data.state !== undefined) {
 					chatEditingWidgetFileStateContextKey.bindTo(templateData.contextKeyService).set(data.state);
 				}
+				if (data.readonly !== undefined) {
+					chatEditingWidgetReadonlyContextKey.bindTo(templateData.contextKeyService).set(data.readonly);
+				}
 			}
 		}));
 
