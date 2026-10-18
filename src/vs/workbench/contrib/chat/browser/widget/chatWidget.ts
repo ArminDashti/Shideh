@@ -3052,7 +3052,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return;
 		}
 
-		if (isEqual(model.sessionResource, this.viewModel?.sessionResource)) {
+		if (!shouldRebindChatWidgetModel(this.viewModel?.model, model)) {
 			return;
 		}
 

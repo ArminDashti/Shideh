@@ -3629,12 +3629,11 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		}
 		this._clientDispatchedTurnIds.add(turnId);
 
-		// Model and agent selection now travel on the turn message itself rather
-		// than via the removed `session/modelChanged` / `session/agentChanged`
-		// actions. The host applies the selection carried by the message before
-		// sending the turn to the agent backend.
-		const selectedModel = this._createModelSelection(request.userSelectedModelId, request.modelConfiguration);
-		const requestedAgentUri = request.modeInstructions?.uri?.toString();
+			// Add this connection as an active client for the session before the
+			// turn goes out. We only do this on turn start (not on session open)
+			// so that opening a session doesn't eagerly register this client while
+			// another client is in the middle of a turn.
+			this._ensureActiveClient(request.sessionResource, session);
 
 		// Same dance for the custom-agent selection: derive from the request's
 		// `modeInstructions` (which the chat layer plumbs from the chat widget's
@@ -3689,9 +3688,17 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 						turnId: previousTurnId,
 					};
 					this._config.connection.dispatch(turnChannel, truncateAction);
+				} else {
+					const seenAtIndex = protocolState.turns.findIndex(t => t.id === previousRequest!.id);
+					if (seenAtIndex !== -1 && seenAtIndex < protocolState.turns.length - 1) {
+						const truncateAction: ChatTruncatedAction = {
+							type: ActionType.ChatTruncated,
+							turnId: previousRequest!.id,
+						};
+						this._config.connection.dispatch(turnChannel, truncateAction);
+					}
 				}
 			}
-		}
 
 		// Dispatch session/turnStarted — the server will call sendMessage on
 		// the provider as a side effect.
@@ -3709,11 +3716,8 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		onFailureStage('dispatchTurn');
 		this._config.connection.dispatch(turnChannel, turnAction);
 
-		// Ensure the snapshot controller records a sentinel checkpoint for this
-		// request so it appears in requestDisablement even if the turn
-		// produces no file edits.
-		this._ensureSnapshotController(request.sessionResource)
-			?.ensureRequestCheckpoint(request.requestId);
+			this._ensureSnapshotController(request.sessionResource)
+				?.ensureRequestCheckpoint(request.requestId);
 
 		// Wait for the turn to reach a terminal state. The observable graph
 		// installed below drives all progress emission via the `progress`
@@ -3923,7 +3927,14 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					}
 				},
 			}));
-		});
+			return completion.p;
+		} catch (error) {
+			if (turnStore.isDisposed) {
+				return completion.p;
+			}
+			this._inFlightTurns.delete(turnStore);
+			throw error;
+		}
 	}
 
 	// ---- Tool confirmation --------------------------------------------------
@@ -8186,6 +8197,10 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	override dispose(): void {
 		this._lifetime.dispose(true);
 		for (const [, session] of this._activeSessions) {
+			if (!session.isCompleteObs.get()) {
+				session.complete();
+			}
+			this._chatService.invalidateSessionModel(session.sessionResource);
 			session.dispose();
 		}
 		this._activeSessions.clear();

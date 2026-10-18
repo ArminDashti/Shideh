@@ -579,6 +579,7 @@ export class ChatView extends AbstractChatView {
 				updateExperimentalComposerLayout();
 			}
 		}));
+		this._register(this.chatService.onDidInvalidateSessionModel(resource => this._reloadInvalidatedChatModel(resource)));
 
 		// Voice transcript overlay + input glow.
 		this._setupVoiceOverlay();
@@ -792,6 +793,24 @@ export class ChatView extends AbstractChatView {
 		if (previousChatResource) {
 			this._clearCurrentChat(previousSession, previousChatResource);
 		}
+		this._loadChatModel(resource, false);
+	}
+
+	private _reloadInvalidatedChatModel(resource: URI): void {
+		if (!isEqual(this._currentChatResource, resource)) {
+			return;
+		}
+		this._saveCurrentViewState();
+		queueMicrotask(() => {
+			if (isEqual(this._currentChatResource, resource)) {
+				void this._loadChatModel(resource, true);
+			}
+		});
+	}
+
+	private _loadChatModel(resource: URI, preserveCurrentModelOnFailure: boolean): Promise<void> {
+		// Cancel any in-flight load for the previous model and start a fresh one.
+		this._loadCts.value?.cancel();
 		const cts = new CancellationTokenSource();
 		this._loadCts.value = cts;
 		const token = cts.token;
