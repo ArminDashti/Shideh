@@ -120,7 +120,7 @@ export class ChatViewWelcomeController extends Disposable {
 }
 
 export interface IChatViewWelcomeContent {
-	readonly icon?: ThemeIcon;
+	readonly icon?: ThemeIcon | URI;
 	readonly title: string;
 	readonly message: string | IMarkdownString;
 	readonly primaryAction?: { readonly label: string; readonly href: string };
@@ -154,11 +154,28 @@ export class ChatViewWelcomePart extends Disposable {
 
 			// Icon
 			const icon = dom.append(this.element, $('.chat-welcome-view-icon'));
-			if (content.icon) {
-				icon.appendChild(renderIcon(content.icon));
+			if (content.useLargeIcon) {
+				icon.classList.add('large-icon');
 			}
+			if (content.icon) {
+				if (ThemeIcon.isThemeIcon(content.icon)) {
+					const iconElement = renderIcon(content.icon);
+					icon.appendChild(iconElement);
+				} else if (URI.isUri(content.icon)) {
+					const cssUrl = asCSSUrl(content.icon);
+					const hash = new StringSHA1();
+					hash.update(cssUrl);
+					const iconId = `chat-welcome-icon-${hash.digest()}`;
+					const iconClass = `.chat-welcome-view-icon.${iconId}`;
 
-			// Title
+					createCSSRule(iconClass, `
+					mask: ${cssUrl} no-repeat 50% 50%;
+					-webkit-mask: ${cssUrl} no-repeat 50% 50%;
+					background-color: var(--vscode-icon-foreground);
+				`);
+					icon.classList.add(iconId, 'custom-icon');
+				}
+			}
 			const title = dom.append(this.element, $('.chat-welcome-view-title'));
 			title.textContent = content.title;
 

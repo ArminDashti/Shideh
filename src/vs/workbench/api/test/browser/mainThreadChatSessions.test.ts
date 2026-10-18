@@ -566,6 +566,7 @@ suite('MainThreadChatSessions', function () {
 		instantiationService.stub(ILogService, logService);
 		instantiationService.stub(IEditorService, new class extends mock<IEditorService>() { });
 		instantiationService.stub(IExtensionService, new TestExtensionService());
+		instantiationService.stub(IWorkbenchAssignmentService, new NullWorkbenchAssignmentService());
 		instantiationService.stub(IViewsService, new class extends mock<IViewsService>() {
 			override async openView() { return null; }
 		});
