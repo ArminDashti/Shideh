@@ -142,7 +142,7 @@ export class SimpleCompletionModel<T extends SimpleCompletionItem> {
 			const wordLen = overwriteBefore + characterCountDelta;
 			const oldWord = word;
 			if (word.length !== wordLen) {
-				word = wordLen === 0 ? '' : leadingLineContent.slice(-wordLen);
+				word = wordLen === 0 ? '' : leadingLineContent.slice(-wordLen).replaceAll('\n', '');
 				wordLow = word.toLowerCase();
 				debugLog('_createCachedState word calculation for item', {
 					itemLabel: item.textLabel,
