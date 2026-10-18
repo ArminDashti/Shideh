@@ -82,6 +82,11 @@ export const AgentHostAgentDebugLogMaxEventsSettingId = 'chat.agentHost.agentDeb
 export const TROUBLESHOOT_COMMAND_NAME = 'troubleshoot';
 
 /**
+ * Command ID for the extension-provided troubleshoot session picker.
+ */
+export const TROUBLESHOOT_PICK_SESSION_COMMAND = 'github.copilot.troubleshoot.pickSession';
+
+/**
  * URI scheme used by the Copilot extension for built-in skills.
  */
 export const COPILOT_SKILL_URI_SCHEME = 'copilot-skill';

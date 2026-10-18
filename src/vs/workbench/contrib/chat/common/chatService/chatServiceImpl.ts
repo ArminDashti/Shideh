@@ -37,6 +37,7 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { IChatEntitlementService, validateQuotaSnapshotFromMetadata } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IChatDebugService } from '../chatDebugService.js';
 import { IMcpService } from '../../../mcp/common/mcpTypes.js';
+import { IChatRequestVariableEntry } from '../attachments/chatVariableEntries.js';
 import { awaitStatsForSession } from '../chat.js';
 import { ChatPerfMark, clearChatMarks, markChat } from '../chatPerf.js';
 import { IChatAgentAttachmentCapabilities, IChatAgentCommand, IChatAgentData, IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult, IChatAgentService } from '../participants/chatAgents.js';
@@ -49,7 +50,6 @@ import { ChatMcpServersStarting, ChatPendingRequestChangeClassification, ChatPen
 import { ChatRequestTelemetry, ChatServiceTelemetry } from './chatServiceTelemetry.js';
 import { IChatSessionsService, IChatSessionHistoryItem, isAgentHostTarget, isTerminalCommandPrompt, localChatSessionType } from '../chatSessionsService.js';
 import { ChatSessionStore, IChatSessionEntryMetadata } from '../model/chatSessionStore.js';
-import { IChatSlashCommandService } from '../participants/chatSlashCommands.js';
 import { IChatTransferService } from '../model/chatTransferService.js';
 import { chatSessionResourceToId, getChatSessionType, isUntitledChatSession, LocalChatSessionUri } from '../model/chatUri.js';
 import { ChatRequestVariableSet, IChatRequestVariableEntry, isExplicitFileOrImageVariableEntry, isPromptTextVariableEntry } from '../attachments/chatVariableEntries.js';

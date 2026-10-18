@@ -13,6 +13,7 @@ import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { basename } from '../../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorAction2 } from '../../../../../editor/browser/editorExtensions.js';
 import { IRange } from '../../../../../editor/common/core/range.js';
@@ -37,7 +38,6 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { SCMHistoryItemChangeRangeContentProvider, ScmHistoryItemChangeRangeUriFields } from '../../../scm/browser/scmHistoryChatContext.js';
 import { ISCMService } from '../../../scm/common/scm.js';
-import { IChatAgentResult, IChatAgentService } from '../../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatInputNoticeHubService } from '../widget/input/chatInputNoticeHub.js';
 import { ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
@@ -1335,10 +1335,62 @@ Update \`.github/copilot-instructions.md\` for the user, then ask for feedback o
 
 		async run(accessor: ServicesAccessor): Promise<void> {
 			const commandService = accessor.get(ICommandService);
-			await commandService.executeCommand('workbench.action.chat.open', {
-				query: '/troubleshoot ',
-				isPartialQuery: true,
+			const logService = accessor.get(ILogService);
+			// Delegate to extension session-picker; falls back to inline /troubleshoot
+			// if the extension command is not registered.
+			try {
+				await commandService.executeCommand(TROUBLESHOOT_PICK_SESSION_COMMAND);
+			} catch (e) {
+				logService.trace('Troubleshoot session picker unavailable, falling back to /troubleshoot', e);
+				await commandService.executeCommand('workbench.action.chat.open', {
+					query: '/troubleshoot ',
+					isPartialQuery: true,
+				});
+			}
+		}
+	});
+
+	registerAction2(class TroubleshootInNewChatAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.chat.troubleshootInNewChat',
+				title: localize2('chat.troubleshootInNewChat', "Troubleshoot in New Chat"),
+				category: CHAT_CATEGORY,
+				f1: false,
+				precondition: ChatContextKeys.enabled,
+				menu: {
+					id: MenuId.ChatContext,
+					group: 'z_clear',
+					order: 10,
+				}
 			});
+		}
+
+		async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+			const commandService = accessor.get(ICommandService);
+			const logService = accessor.get(ILogService);
+			const chatWidgetService = accessor.get(IChatWidgetService);
+
+			let item = args[0] as ChatTreeItem | undefined;
+			if (!isRequestVM(item) && !isResponseVM(item)) {
+				item = chatWidgetService.lastFocusedWidget?.getFocus();
+			}
+
+			const sessionResource = (isRequestVM(item) || isResponseVM(item))
+				? item.sessionResource
+				: chatWidgetService.lastFocusedWidget?.viewModel?.sessionResource;
+
+			const sessionId = sessionResource ? chatSessionResourceToId(sessionResource) : undefined;
+
+			try {
+				await commandService.executeCommand(TROUBLESHOOT_PICK_SESSION_COMMAND, { sessionId, skipPicker: true });
+			} catch (e) {
+				logService.trace('Troubleshoot session picker unavailable, falling back to /troubleshoot', e);
+				await commandService.executeCommand('workbench.action.chat.open', {
+					query: '/troubleshoot ',
+					isPartialQuery: true,
+				});
+			}
 		}
 	});
 
