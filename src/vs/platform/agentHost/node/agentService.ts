@@ -273,6 +273,23 @@ function parsePersistedSourceControlState(value: string): ISessionSourceControlS
 	return state;
 }
 
+type PersistedSessionCatalogFlags = Partial<Record<
+	typeof AH_META_IS_READ_DB_KEY | typeof AH_META_IS_ARCHIVED_DB_KEY | typeof AH_META_IS_DONE_DB_KEY,
+	string | undefined
+>>;
+
+function applyPersistedSessionCatalogFlags(status: SessionStatus | undefined, metadata: PersistedSessionCatalogFlags = {}): SessionStatus {
+	let updated = status ?? SessionStatus.Idle;
+	if (metadata[AH_META_IS_READ_DB_KEY] !== undefined) {
+		updated = withSessionStatusFlag(updated, SessionStatus.IsRead, metadata[AH_META_IS_READ_DB_KEY] === 'true');
+	}
+	const persistedArchived = metadata[AH_META_IS_ARCHIVED_DB_KEY] ?? metadata[AH_META_IS_DONE_DB_KEY];
+	if (persistedArchived !== undefined) {
+		updated = withSessionStatusFlag(updated, SessionStatus.IsArchived, persistedArchived === 'true');
+	}
+	return updated;
+}
+
 /**
  * Returns `meta` with the GitHub state of each session folder persisted in the
  * session database, migrating the original single-folder state (persisted, or
@@ -2104,6 +2121,31 @@ export class AgentService extends Disposable implements IAgentService {
 			...(metadata.workingDirectories !== undefined ? { workingDirectoryInfo: await this._resolveWorkingDirectoryInfo(session, metadata.workingDirectories) } : {}),
 			_meta: withSessionExternal(sessionMetadata._meta, external),
 		};
+	}
+
+	private async _unloadedSessionCatalogStatus(session: URI): Promise<SessionStatus> {
+		const provider = this._findProviderForSession(session);
+		if (!provider) {
+			throw new Error(`No provider found for session: ${session}`);
+		}
+		const metadata = await this._registeredSessionMetadata(provider, session, await this._isExternalProviderChat(session));
+		if (!metadata) {
+			throw new Error(`No metadata found for session: ${session}`);
+		}
+		const ref = await this._sessionDataService.tryOpenDatabase(session);
+		if (!ref) {
+			return applyPersistedSessionCatalogFlags(metadata.status);
+		}
+		try {
+			const persisted = await ref.object.getMetadataObject({
+				[AH_META_IS_READ_DB_KEY]: true,
+				[AH_META_IS_ARCHIVED_DB_KEY]: true,
+				[AH_META_IS_DONE_DB_KEY]: true,
+			});
+			return applyPersistedSessionCatalogFlags(metadata.status, persisted);
+		} finally {
+			ref.dispose();
+		}
 	}
 
 	/**
@@ -7709,7 +7751,13 @@ export class AgentService extends Disposable implements IAgentService {
 				}
 				this._changesets.refreshBranchChangeset(changeset.ownerUri);
 			}
-			this._dispatchActionNow(channel, sessionChannel, rewritten, clientId, clientSeq, clientContext);
+			const accepted = this._dispatchActionNow(channel, sessionChannel, rewritten, clientId, clientSeq, clientContext);
+			if (accepted && catalogStatus !== undefined && isSessionCatalogFlagAction(rewritten)) {
+				const status = rewritten.type === ActionType.SessionIsArchivedChanged
+					? withSessionStatusFlag(catalogStatus, SessionStatus.IsArchived, rewritten.isArchived)
+					: withSessionStatusFlag(catalogStatus, SessionStatus.IsRead, rewritten.isRead);
+				this._stateManager.emitSessionSummaryChanged(sessionChannel, { status });
+			}
 		}).catch(err => {
 			this._logService.error(`[AgentService] async dispatchAction failed: ${toErrorMessage(err)}`);
 			this._stateManager.rejectClientAction(channel, action, { clientId, clientSeq }, toErrorMessage(err));
@@ -8061,7 +8109,7 @@ export class AgentService extends Disposable implements IAgentService {
 		return { ...action, config: { ...action.config, [SessionConfigKey.AgentMergeFolders]: folders } };
 	}
 
-	private _dispatchActionNow(channel: string, sessionChannel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | IRootConfigChangedAction, clientId: string, clientSeq: number, clientContext: IAgentHostClientTelemetryContext): void {
+	private _dispatchActionNow(channel: string, sessionChannel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | IRootConfigChangedAction, clientId: string, clientSeq: number, clientContext: IAgentHostClientTelemetryContext): boolean {
 		const origin = { clientId, clientSeq };
 		const chatState = action.type === ActionType.ChatIsArchivedChanged ? this._stateManager.getChatState(channel) : undefined;
 		if (action.type === ActionType.ChatIsArchivedChanged
@@ -8117,7 +8165,7 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		if (action.type === ActionType.ChatTurnStarted && this._isTurnIdUsedByAnotherChat(sessionChannel, channel, action.turnId)) {
 			this._stateManager.rejectClientAction(channel, action, origin, 'Turn id is already used by another chat in this session.');
-			return;
+			return false;
 		}
 		// Host-owned session config carries merge authorization (bound pull request,
 		// watermark, attempt budgets), so a client must never be able to write it, and
@@ -8148,11 +8196,11 @@ export class AgentService extends Disposable implements IAgentService {
 			|| action.type === ActionType.SessionWorkingDirectoryRemoved) {
 			if (clientContext.clientType !== AgentHostClientType.EditorWindow) {
 				this._stateManager.rejectClientAction(channel, action, origin, 'Session working-directory actions require an Editor Window client.');
-				return;
+				return false;
 			}
 			if (channel !== sessionChannel) {
 				this._stateManager.rejectClientAction(channel, action, origin, 'Session working-directory actions require a session channel.');
-				return;
+				return false;
 			}
 			try {
 				previousWorkingDirectories = this._stateManager.getSessionState(sessionChannel)?.workingDirectories;
@@ -8160,7 +8208,7 @@ export class AgentService extends Disposable implements IAgentService {
 				didAcceptWorkingDirectoryAction = true;
 			} catch (error) {
 				this._stateManager.rejectClientAction(channel, action, origin, toErrorMessage(error));
-				return;
+				return false;
 			}
 		}
 		this._stateManager.dispatchClientAction(channel, action, origin, clientContext);

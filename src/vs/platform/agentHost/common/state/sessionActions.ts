@@ -240,6 +240,11 @@ export function isSessionAction(action: StateAction): action is SessionAction {
 	return action.type.startsWith('session/');
 }
 
+/** Whether an action sets a host-owned durable session-catalog flag. */
+export function isSessionCatalogFlagAction(action: StateAction): action is IIsArchivedChangedAction | IIsReadChangedAction {
+	return action.type === ActionType.SessionIsArchivedChanged || action.type === ActionType.SessionIsReadChanged;
+}
+
 export function isChatAction(action: StateAction): action is ChatAction {
 	return action.type.startsWith('chat/');
 }

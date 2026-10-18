@@ -4444,6 +4444,39 @@ suite('AgentService (node dispatcher)', () => {
 			listener.dispose();
 		});
 
+		test('applies an archive flag to an unloaded session without restoring it', async () => {
+			const db = new TestSessionDatabase();
+			const svc = disposables.add(new AgentService(new NullLogService(), fileService, createSessionDataService(db), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			const agent = new MockAgent('copilot');
+			disposables.add(toDisposable(() => agent.dispose()));
+			svc.registerProvider(agent);
+			const session = await svc.createSession({ provider: agent.id, workingDirectories: [URI.file('/workspace')] });
+			svc.stateManager.removeSession(session.toString());
+			await db.setMetadata(AH_META_IS_READ_DB_KEY, 'true');
+			const envelopePromise = Event.toPromise(Event.filter(svc.onDidAction, envelope => envelope.origin?.clientSeq === 1));
+			const notificationPromise = Event.toPromise(Event.filter(svc.onDidNotification, notification => notification.type === NotificationType.SessionSummaryChanged && notification.session === session.toString()));
+
+			svc.dispatchAction(session.toString(), { type: ActionType.SessionIsArchivedChanged, isArchived: true }, 'test-client', 1);
+			const [envelope, notification] = await Promise.all([envelopePromise, notificationPromise]);
+
+			assert.deepStrictEqual({
+				rejectionReason: envelope.rejectionReason,
+				restored: svc.stateManager.getSessionState(session.toString()) !== undefined,
+				persistedArchived: await db.getMetadata(AH_META_IS_ARCHIVED_DB_KEY),
+				notification,
+			}, {
+				rejectionReason: undefined,
+				restored: false,
+				persistedArchived: 'true',
+				notification: {
+					type: NotificationType.SessionSummaryChanged,
+					channel: ROOT_STATE_URI,
+					session: session.toString(),
+					changes: { status: SessionStatus.Idle | SessionStatus.IsRead | SessionStatus.IsArchived },
+				},
+			});
+		});
+
 		test('queues a working-directory mutation behind an earlier attachment rewrite from the same client', async () => {
 			const { svc, session, primary, secondary } = await createDynamicWorkingDirectorySession();
 			const source = URI.from({ scheme: Schemas.inMemory, path: '/workspace/source.txt' });
