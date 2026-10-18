@@ -13,7 +13,7 @@ import { IAgentHostConnectionsService } from '../../../../../platform/agentHost/
 import { openSessionByResource } from '../../../../../workbench/contrib/chat/browser/agentSessions/agentSessionsOpener.js';
 import { SessionsOpenerParticipantContribution } from '../../browser/sessionsOpenerParticipant.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
-import { ISession } from '../../../../services/sessions/common/session.js';
+import { IChat, ISession } from '../../../../services/sessions/common/session.js';
 import { ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 
 suite('SessionsOpenerParticipant', () => {
@@ -44,5 +44,33 @@ suite('SessionsOpenerParticipant', () => {
 		}
 
 		assert.deepStrictEqual(opened, { resource, preserveFocus: true });
+	});
+
+	test('opens a fragment-addressed peer chat in its owning session', async () => {
+		const instantiationService = disposables.add(new TestInstantiationService());
+		instantiationService.stub(ILogService, new NullLogService());
+		const sessionResource = URI.parse('agent-host-copilotcli:/session');
+		const chatResource = sessionResource.with({ fragment: 'subagent/tool-call' });
+		const session = upcastPartial<ISession>({ resource: sessionResource });
+		const chat = upcastPartial<IChat>({ resource: chatResource });
+		instantiationService.stub(ISessionsManagementService, upcastPartial<ISessionsManagementService>({
+			getSessionForChatResource: candidate => candidate.toString() === chatResource.toString() ? { session, chat } : undefined,
+			getSession: () => undefined,
+		}));
+		let opened: { session: ISession; resource: URI } | undefined;
+		instantiationService.stub(ISessionsService, upcastPartial<ISessionsService>({
+			openChat: async (candidateSession, candidateResource) => {
+				opened = { session: candidateSession, resource: candidateResource };
+			},
+		}));
+		const contribution = new SessionsOpenerParticipantContribution();
+
+		try {
+			await instantiationService.invokeFunction(openSessionByResource, chatResource);
+		} finally {
+			contribution.dispose();
+		}
+
+		assert.deepStrictEqual(opened, { session, resource: chatResource });
 	});
 });

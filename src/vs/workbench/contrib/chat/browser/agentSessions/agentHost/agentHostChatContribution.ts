@@ -47,6 +47,7 @@ import { IAgentHostActiveClientService } from './agentHostActiveClientService.js
 import { IAgentHostCustomizationService } from './agentHostCustomizationService.js';
 import { IAgentHostProtectedResourcesService } from './agentHostProtectedResourcesService.js';
 import { AICustomizationManagementSection } from '../../../common/aiCustomizationWorkspaceService.js';
+import './openSubagentChat.js';
 
 const LOCAL_AGENT_HOST_SESSION_TYPE_PREFIX = 'agent-host-';
 
