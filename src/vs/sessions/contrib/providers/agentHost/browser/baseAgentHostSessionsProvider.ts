@@ -5928,6 +5928,46 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		};
 	}
 
+	async getWorktreeOptions(folderUri: URI, sessionTypeId: string, token: CancellationToken): Promise<ISessionWorktreeOptions | undefined> {
+		const connection = this.connection;
+		if (!connection) {
+			throw new Error(`[${this.id}] Cannot resolve worktree options without an agent host connection`);
+		}
+		const resolved = await raceCancellationError(connection.resolveSessionConfig({
+			provider: sessionTypeId,
+			workingDirectory: folderUri,
+			config: { [SessionConfigKey.Isolation]: 'folder' },
+		}), token);
+		const branchSchema = resolved.schema.properties[SessionConfigKey.Branch];
+		if (!branchSchema) {
+			return undefined;
+		}
+		const isolationSchema = resolved.schema.properties[SessionConfigKey.Isolation];
+		const currentBranch = resolved.values[SessionConfigKey.Branch];
+		const loadBranches = branchSchema.enumDynamic ? async (query: string, token: CancellationToken): Promise<readonly string[]> => {
+			if (this.connection !== connection) {
+				throw new Error(`[${this.id}] The agent host connection changed while loading branches`);
+			}
+			const result = await raceCancellationError(connection.sessionConfigCompletions({
+				provider: sessionTypeId,
+				workingDirectory: folderUri,
+				config: resolved.values,
+				property: SessionConfigKey.Branch,
+				query: query || undefined,
+			}), token);
+			return result.items.map(item => item.value);
+		} : undefined;
+		const branches = loadBranches
+			? await loadBranches('', token)
+			: (branchSchema.enum ?? []).filter((branch): branch is string => typeof branch === 'string');
+		return {
+			supportsWorktree: isolationSchema?.enum?.includes('worktree') === true && !isolationSchema.readOnly,
+			currentBranch: typeof currentBranch === 'string' ? currentBranch : undefined,
+			branches,
+			...(loadBranches ? { loadBranches } : {}),
+		};
+	}
+
 	async setIsolationMode(sessionId: string, mode: string): Promise<void> {
 		const config = await this.whenSessionConfigResolved(sessionId, CancellationToken.None);
 		const workspace = getSessionWorkspaceBinding(config.schema);

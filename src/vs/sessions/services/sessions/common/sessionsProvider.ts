@@ -528,6 +528,9 @@ export interface ISessionsProvider {
 	 */
 	setWorktreeConfiguration?(sessionId: string, configuration: ISessionWorktreeConfiguration): Promise<void>;
 
+	/** Resolves worktree choices without creating a session; undefined means no repository was found. */
+	getWorktreeOptions?(folderUri: URI, sessionTypeId: string, token: CancellationToken): Promise<ISessionWorktreeOptions | undefined>;
+
 	/**
 	 * Set whether the worktree branch tracks its upstream for a session.
 	 * @param sessionId The ID of the session.

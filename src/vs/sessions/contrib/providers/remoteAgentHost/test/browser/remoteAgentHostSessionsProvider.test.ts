@@ -153,7 +153,7 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 		return this.resolveSessionConfigResult;
 	}
 
-	override async sessionConfigCompletions() {
+	override async sessionConfigCompletions(_request: Parameters<IAgentConnection['sessionConfigCompletions']>[0]): Promise<SessionConfigCompletionsResult> {
 		return { items: [] };
 	}
 

@@ -5825,12 +5825,12 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	private async _createProviderSession(provider: IAgent, config: IAgentCreateSessionConfig | undefined, deferWorktreeCreation: boolean): Promise<IAgentCreateSessionResult> {
-		const requestedSessionId = deferWorktreeCreation && config?.session ? AgentSession.id(config.session) : undefined;
-		if (requestedSessionId) {
-			this._worktree.notePending(requestedSessionId);
+		const session = config?.session ?? this._mintSessionUri(provider);
+		const pendingSessionId = deferWorktreeCreation ? AgentSession.id(session) : undefined;
+		if (pendingSessionId) {
+			this._worktree.notePending(pendingSessionId);
 		}
 
-		const session = config?.session ?? this._mintSessionUri(provider);
 		let created: IAgentCreateSessionResult | undefined;
 		try {
 			const providerConfig = config ? this._toProviderConfig(config) : undefined;
@@ -5858,9 +5858,8 @@ export class AgentService extends Disposable implements IAgentService {
 			}
 			throw err;
 		} finally {
-			const returnedPendingSessionId = created?.provisional ? AgentSession.id(created.session) : undefined;
-			if (requestedSessionId && requestedSessionId !== returnedPendingSessionId) {
-				this._worktree.clearPending(requestedSessionId);
+			if (pendingSessionId && !created?.provisional) {
+				this._worktree.clearPending(pendingSessionId);
 			}
 		}
 	}
@@ -5878,6 +5877,7 @@ export class AgentService extends Disposable implements IAgentService {
 			this._logService.error(disposeError, `[AgentService] Failed to roll back default chat of provider session ${session.toString()}`);
 		} finally {
 			this._titleController.clearSession(session.toString(), []);
+			this._worktree.clearPending(AgentSession.id(session));
 		}
 	}
 
