@@ -29,8 +29,10 @@ function resolveBaseOptions(config: ExtensionRunConfig): esbuild.BuildOptions {
 	};
 
 	if (config.platform === 'node') {
+		options.format = 'cjs';
 		options.mainFields = ['module', 'main'];
 	} else if (config.platform === 'browser') {
+		options.format = 'cjs';
 		options.mainFields = ['browser', 'module', 'main'];
 		options.alias = {
 			'path': 'path-browserify',
