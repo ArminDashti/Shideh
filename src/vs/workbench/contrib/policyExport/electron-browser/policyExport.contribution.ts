@@ -24,6 +24,18 @@ import { hasKey } from '../../../../base/common/types.js';
 import { arePolicyReferenceTypesCompatible } from '../common/policyReference.js';
 import { agentHostPolicySupport } from '../../../../platform/agentHost/common/agentHostPolicySupport.js';
 
+/**
+ * `policyReference`s for settings registered ONLY in another window (e.g. the Agents window,
+ * `vs/sessions`). This export runs in the workbench window and never loads those registrations,
+ * so the references are listed here to keep each policy's `referencedSettings` complete.
+ * Keep in sync with the `policyReference` declared by the setting in its own window.
+ */
+const EXTERNAL_POLICY_REFERENCES: ReadonlyArray<{ readonly policyName: string; readonly settingKey: string }> = [
+	// `sessions.chat.claudeAgent.enabled` (Agents window) references `Claude3PIntegration`,
+	// owned by `github.copilot.chat.claudeAgent.enabled`.
+	{ policyName: 'Claude3PIntegration', settingKey: 'sessions.chat.claudeAgent.enabled' },
+];
+
 interface ExtensionConfigurationPolicyEntry {
 	readonly name: string;
 	readonly category: string;
@@ -193,8 +205,19 @@ export class PolicyExportContribution extends Disposable implements IWorkbenchCo
 								throw new Error(`Policy '${policy.name}': setting '${referenceKey}' (type '${referenceType}') declares a 'policyReference' to a policy of type '${policy.type}'. A 'policyReference' must match the owning setting's type.`);
 							}
 						}
-						policy.referencedSettings = [...references].sort();
-						linkedReferences += references.size;
+						referenceKeys.add(referenceKey);
+					}
+
+					// Settings registered only in other windows are invisible to this export; add them statically.
+					for (const reference of EXTERNAL_POLICY_REFERENCES) {
+						if (reference.policyName === policy.name) {
+							referenceKeys.add(reference.settingKey);
+						}
+					}
+
+					if (referenceKeys.size > 0) {
+						policy.referencedSettings = [...referenceKeys].sort();
+						linkedReferences += referenceKeys.size;
 					}
 				}
 				// A reference must point at an owner. An unmatched product reference means the

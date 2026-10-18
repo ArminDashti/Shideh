@@ -101,7 +101,7 @@ export class PolicyChannelClient extends AbstractPolicyService implements IPolic
 			}
 
 			this._onDidChange.fire(Object.keys(policies));
-		});
+		}));
 	}
 
 	public override getPolicySource(name: PolicyName): { short: string; long: string } | undefined {
