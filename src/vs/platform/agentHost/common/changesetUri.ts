@@ -64,7 +64,7 @@ const COMPARE_MODIFIED_TEMPLATE_VARIABLE = '{modifiedTurnId}';
 export const branchChangesetLabel = (): string => localize('branchChangeset.label', "Branch Changes");
 
 /** Localized human-readable label for the session-wide changeset entry. */
-export const sessionChangesetLabel = (): string => localize('sessionChangeset.label', "Session Changes");
+export const sessionChangesetLabel = (): string => localize('branchChangeset.label', "Branch Changes");
 
 /** Localized human-readable description for the session-wide changeset entry. */
 export const sessionChangesetDescription = (): string => localize('sessionChangeset.description', "Show all changes made in this session");

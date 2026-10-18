@@ -6135,17 +6135,24 @@ export class AgentService extends Disposable implements IAgentService {
 	 * working directory (if any) and merges it into `state._meta.git` via
 	 * the state manager. Failures are logged; sessions simply remain without
 	 * git state.
+	 *
+	 * Also gates the two git-only default catalogue entries
+	 * (`Branch Changes`, `Uncommitted Changes`): when the working
+	 * directory is absent or not a git repo, those entries are stripped
+	 * from `summary.changesets`, leaving only `This Turn`.
 	 */
 	private _attachGitState(session: URI, workingDirectory: URI | undefined): void {
+		const sessionKey = session.toString();
 		if (!workingDirectory) {
+			this._stripGitOnlyChangesetEntries(sessionKey);
 			return;
 		}
 		this._gitService.getSessionGitState(workingDirectory).then(
 			gitState => {
 				if (!gitState) {
+					this._stripGitOnlyChangesetEntries(sessionKey);
 					return;
 				}
-				const sessionKey = session.toString();
 				const current = this._stateManager.getSessionState(sessionKey)?._meta;
 				// Skip the action if the computed git state hasn't changed; this is
 				// called after every turn, so deduping avoids needless action churn.
@@ -6159,6 +6166,28 @@ export class AgentService extends Disposable implements IAgentService {
 				this._logService.warn(`[AgentService] Failed to compute git state for ${session}`, e);
 			},
 		);
+	}
+
+	/**
+	 * Drops the `Branch Changes` and `Uncommitted Changes` entries from
+	 * the session's catalogue. Called when the git probe determines the
+	 * working directory is absent or not a git repo. Backing per-changeset
+	 * states (registered unconditionally) are left in place — only the
+	 * catalogue advertisements are stripped.
+	 */
+	private _stripGitOnlyChangesetEntries(sessionKey: string): void {
+		const state = this._stateManager.getSessionState(sessionKey);
+		const current = state?.summary.changesets;
+		if (!current || current.length === 0) {
+			return;
+		}
+		const branchUri = buildSessionChangesetUri(sessionKey);
+		const uncommittedUri = buildUncommittedChangesetUri(sessionKey);
+		const filtered = current.filter(c => c.uriTemplate !== branchUri && c.uriTemplate !== uncommittedUri);
+		if (filtered.length === current.length) {
+			return;
+		}
+		this._stateManager.setSessionChangesets(sessionKey, filtered);
 	}
 
 	private _persistConfigValues(session: URI, values: Record<string, unknown>): void {
