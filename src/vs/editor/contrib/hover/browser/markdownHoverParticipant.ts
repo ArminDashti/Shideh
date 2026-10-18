@@ -91,6 +91,8 @@ class HoverSource implements IDisposable {
 
 class HoverSource {
 
+	public isComputing: boolean = false;
+
 	constructor(
 		readonly hover: Hover,
 		readonly hoverProvider: HoverProvider,
@@ -261,6 +263,11 @@ export class MarkdownHoverParticipant implements IEditorHoverParticipant<Markdow
 
 class RenderedMarkdownHoverPart implements IRenderedHoverPart<MarkdownHover> {
 
+	private static ACTION_VISIBLE_CLASS = 'action-visible';
+	private static ACTION_HIDDEN_CLASS = 'action-hidden';
+	private static ACTION_ENABLED_CLASS = 'action-enabled';
+	private static ACTION_DISABLED_CLASS = 'action-disabled';
+
 	constructor(
 		public readonly hoverPart: MarkdownHover,
 		public readonly hoverElement: HTMLElement,
@@ -374,8 +381,8 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		const hoverDelegate = store.add(new WorkbenchHoverDelegate('mouse', undefined, { target: container, position: { hoverPosition: HoverPosition.LEFT } }, this._configurationService, this._hoverService));
 		store.add(this._hoverService.setupManagedHover(hoverDelegate, actionElement, labelForHoverVerbosityAction(this._keybindingService, action)));
 		if (!actionEnabled) {
-			actionElement.classList.add('disabled');
-			return store;
+			actionElement.classList.add(MarkdownRenderedHoverParts.ACTION_DISABLED_CLASS);
+			return { actionElement, disposables };
 		}
 		actionElement.classList.add('enabled');
 		const actionFunction = () => this._commandService.executeCommand(action === HoverVerbosityAction.Increase ? INCREASE_HOVER_VERBOSITY_ACTION_ID : DECREASE_HOVER_VERBOSITY_ACTION_ID, { focus: true });
