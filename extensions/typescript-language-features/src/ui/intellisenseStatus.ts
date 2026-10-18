@@ -11,7 +11,6 @@ import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService
 import { Disposable } from '../utils/dispose';
 import { ActiveJsTsEditorTracker } from './activeJsTsEditorTracker';
 
-
 namespace IntellisenseState {
 	export const enum Type { None, Pending, Resolved, SyntaxOnly }
 

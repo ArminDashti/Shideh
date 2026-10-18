@@ -1267,6 +1267,37 @@ class WorkspaceExtensionsManagementService extends Disposable {
 				this.invalidExtensionWatchers.add(this.fileService.watch(extension.location));
 			}
 		}
+
+		const limitedSupportMessage = localize('limited support', "'{0}' has limited functionality in {1}.", extension.displayName || extension.identifier.id, productName);
+		let message: string, buttons: string[], detail: string | undefined;
+
+		if (nonWebExtensions.length && hasLimitedSupport) {
+			message = limitedSupportMessage;
+			detail = `${virtualWorkspaceSupportReason ? `${virtualWorkspaceSupportReason}\n` : ''}${localize('non web extensions detail', "Contains extensions which are not supported.")}`;
+			buttons = [localize('install anyways', "Install Anyway"), localize('showExtensions', "Show Extensions"), localize('cancel', "Cancel")];
+		}
+
+		else if (hasLimitedSupport) {
+			message = limitedSupportMessage;
+			detail = virtualWorkspaceSupportReason || undefined;
+			buttons = [localize('install anyways', "Install Anyway"), localize('cancel', "Cancel")];
+		}
+
+		else {
+			message = localize('non web extensions', "'{0}' contains extensions which are not supported in {1}.", extension.displayName || extension.identifier.id, productName);
+			buttons = [localize('install anyways', "Install Anyway"), localize('showExtensions', "Show Extensions"), localize('cancel', "Cancel")];
+		}
+
+		const { choice } = await this.dialogService.show(Severity.Info, message, buttons, { cancelId: buttons.length - 1, detail });
+		if (choice === 0) {
+			return;
+		}
+		if (choice === buttons.length - 2) {
+			// Unfortunately ICommandService cannot be used directly due to cyclic dependencies
+			this.instantiationService.invokeFunction(accessor => accessor.get(ICommandService).executeCommand('extension.open', extension.identifier.id, 'extensionPack'));
+		}
+		throw canceled();
+
 	}
 
 	private async checkExtensionsValidity(extensions: ILocalExtension[]): Promise<void> {
