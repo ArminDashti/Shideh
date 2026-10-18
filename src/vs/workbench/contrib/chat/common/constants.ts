@@ -109,6 +109,7 @@ export enum ChatConfiguration {
 	RestoreLastPanelSession = 'chat.restoreLastPanelSession',
 	ExitAfterDelegation = 'chat.exitAfterDelegation',
 	ExplainChangesEnabled = 'chat.editing.explainChanges.enabled',
+	AutoAccept = 'chat.agent.autoAccept',
 	RevealNextChangeOnResolve = 'chat.editing.revealNextChangeOnResolve',
 	OpenChangedFileInDiffEditor = 'chat.editing.openChangedFileInDiffEditor',
 	GrowthNotificationEnabled = 'chat.growthNotification.enabled',

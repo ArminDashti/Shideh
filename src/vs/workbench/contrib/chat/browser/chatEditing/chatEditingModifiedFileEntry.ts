@@ -102,6 +102,11 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 	protected readonly _rewriteRatioObs = observableValue<number>(this, 0);
 	readonly rewriteRatio: IObservable<number> = this._rewriteRatioObs;
 
+	private readonly _snapshotLinesAdded = observableValue<number | undefined>(this, undefined);
+	private readonly _snapshotLinesRemoved = observableValue<number | undefined>(this, undefined);
+	readonly snapshotLinesAdded: IObservable<number | undefined> = this._snapshotLinesAdded;
+	readonly snapshotLinesRemoved: IObservable<number | undefined> = this._snapshotLinesRemoved;
+
 	private readonly _reviewModeTempObs = observableValue<true | undefined>(this, undefined);
 	readonly reviewMode: IObservable<boolean>;
 
@@ -156,11 +161,13 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 		// review mode depends on setting and temporary override
 		const autoAcceptRaw = observableConfigValue('chat.editing.autoAcceptDelay', -1, configService);
 		this._autoAcceptTimeout = derived(r => {
+			if (autoAcceptEnabled.read(r)) {
+				return 0;
+			}
 			const value = autoAcceptRaw.read(r);
 			return clamp(value, -1, 100);
 		});
 		this.reviewMode = derived(r => {
-			const configuredValue = this._autoAcceptTimeout.read(r);
 			const tempValue = this._reviewModeTempObs.read(r);
 			return tempValue ?? configuredValue === -1;
 		});
@@ -253,6 +260,11 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 			// already accepted or rejected
 			return;
 		}
+
+		// Snapshot line counts before accept resets the diff
+		const self = this as IModifiedFileEntry;
+		this._snapshotLinesAdded.set(self.linesAdded?.get() ?? 0, undefined);
+		this._snapshotLinesRemoved.set(self.linesRemoved?.get() ?? 0, undefined);
 
 		await this._doAccept();
 
