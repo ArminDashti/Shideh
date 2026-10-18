@@ -5,6 +5,7 @@
 
 import * as nls from '../../nls.js';
 import { RawContextKey } from '../../platform/contextkey/common/contextkey.js';
+import { historyNavigationVisible } from '../../platform/history/common/contextScopedHistoryWidgetUtils.js';
 
 export namespace EditorContextKeys {
 

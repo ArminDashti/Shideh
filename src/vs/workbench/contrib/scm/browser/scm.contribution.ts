@@ -557,14 +557,14 @@ const viewPreviousCommitCommand = {
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	...viewNextCommitCommand,
 	id: 'scm.viewNextCommit',
-	when: ContextKeyExpr.and(ContextKeyExpr.has('scmRepository'), ContextKeyExpr.has('scmInputIsInLastPosition'), SuggestContext.Visible.toNegated()),
+	when: ContextKeyExpr.and(ContextKeyExpr.has('scmRepository'), ContextKeyExpr.has('scmInputIsInLastPosition'), EditorContextKeys.suggestWidgetIsVisible.toNegated()),
 	primary: KeyCode.DownArrow
 });
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	...viewPreviousCommitCommand,
 	id: 'scm.viewPreviousCommit',
-	when: ContextKeyExpr.and(ContextKeyExpr.has('scmRepository'), ContextKeyExpr.has('scmInputIsInFirstPosition'), SuggestContext.Visible.toNegated()),
+	when: ContextKeyExpr.and(ContextKeyExpr.has('scmRepository'), ContextKeyExpr.has('scmInputIsInFirstPosition'), EditorContextKeys.suggestWidgetIsVisible.toNegated()),
 	primary: KeyCode.UpArrow
 });
 
