@@ -1546,6 +1546,7 @@ suite('ChatTipService', () => {
 	test('shows all create slash command tips in local chat sessions', () => {
 		const service = createService();
 		contextKeyService.createKey(ChatContextKeys.chatSessionType.key, localChatSessionType);
+		contextKeyService.createKey(ChatContextKeys.chatModeKind.key, ChatModeKind.Agent);
 
 		const expectedCreateTips = new Set(['tip.init', 'tip.createPrompt', 'tip.createAgent', 'tip.createSkill']);
 		const seenCreateTips = new Set<string>();
@@ -1571,6 +1572,7 @@ suite('ChatTipService', () => {
 		contextKeyService.createKey(ChatContextKeys.chatSessionType.key, 'cloud');
 		const createTipIds = new Set(['tip.init', 'tip.createPrompt', 'tip.createAgent', 'tip.createSkill']);
 
+		let found = false;
 		for (let i = 0; i < 100; i++) {
 			const tip = service.getWelcomeTip(contextKeyService);
 			if (!tip) {
@@ -1579,6 +1581,8 @@ suite('ChatTipService', () => {
 			assert.ok(!createTipIds.has(tip.id), 'Should not show create slash command tips in non-local sessions');
 			service.dismissTip();
 		}
+
+		assert.ok(found, 'Should eventually show tip.createPrompt in a local session');
 	});
 
 	test('does not show create prompt tip when create prompt was already used', () => {
