@@ -263,6 +263,35 @@ export namespace PromptsConfig {
 		return Object.keys(suggestions).length > 0 ? suggestions : undefined;
 	}
 
+	/**
+	 * Get list of additional agent skills folder locations from configuration.
+	 * Returns an array of folder paths where skills should be loaded from.
+	 * Paths starting with `~/` are expanded using the provided user home path.
+	 * @param configService Configuration service instance
+	 * @param userHomePath The user's home directory path for expanding `~/` prefixes
+	 * @see {@link AGENT_SKILLS_LOCATIONS_KEY}.
+	 */
+	export function getAgentSkillsLocations(configService: IConfigurationService, userHomePath: string): string[] {
+		const configValue = configService.getValue<string[]>(AGENT_SKILLS_LOCATIONS_KEY);
+
+		if (!Array.isArray(configValue)) {
+			return [];
+		}
+
+		const result: string[] = [];
+		for (const path of configValue) {
+			if (typeof path === 'string') {
+				const cleanPath = path.trim();
+				if (cleanPath) {
+					// Expand ~/... paths to use the user's home directory
+					result.push(untildify(cleanPath, userHomePath));
+				}
+			}
+		}
+
+		return result;
+	}
+
 }
 
 export function getPromptFileLocationsConfigKey(type: PromptsType): string {
