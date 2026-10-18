@@ -14,6 +14,7 @@ export function setup(logger: Logger) {
 
 		it('starts with "DE" locale and verifies title and viewlets text is in German', async function () {
 			const app = this.app as Application;
+			await app.restart({ extraArgs: ['--verbose'] });
 
 			await app.restart({ extraArgs: ['--locale=DE'] });
 
