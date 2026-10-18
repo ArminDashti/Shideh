@@ -561,7 +561,7 @@ export class ExtensionManagementError extends Error {
 }
 
 export interface InstallExtensionSummary {
-	failed: {
+	installLocally: {
 		id: string;
 		installOptions: InstallOptions;
 	}[];

@@ -39,7 +39,7 @@ const parsedArgs = minimist(process.argv.slice(2), {
 });
 
 const extensionLookupArgs = ['list-extensions', 'locate-extension'];
-const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions'];
+const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions', 'download-extensions-locally'];
 
 const shouldSpawnCli = parsedArgs.help || parsedArgs.version || extensionLookupArgs.some(a => !!parsedArgs[a]) || (extensionInstallArgs.some(a => !!parsedArgs[a]) && !parsedArgs['start-server']);
 
