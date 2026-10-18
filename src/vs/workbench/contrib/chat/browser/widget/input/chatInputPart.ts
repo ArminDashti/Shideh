@@ -4772,8 +4772,42 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			hasImplicitContext = implicitContextWidget.hasRenderedContexts;
 		}
 
-		dom.setVisibility(Boolean(this.options.renderInputToolbarBelowInput || hasAttachments || hasImplicitContext), this.attachmentsContainer);
-		dom.setVisibility(hasAttachments || hasImplicitContext, this.attachedContextContainer);
+		// Render background task chips from the background task service
+		const sessionResource = this._widget?.viewModel?.model.sessionResource;
+		if (sessionResource) {
+			const bgTaskStore = new DisposableStore();
+			const bgTaskContainer = dom.append(container, dom.$('.chat-background-tasks'));
+			store.add(bgTaskStore);
+			store.add(toDisposable(() => bgTaskContainer.remove()));
+			store.add(autorun(reader => {
+				const tasks = this._chatBackgroundTaskService.getTasksForSession(sessionResource).read(reader);
+				bgTaskStore.clear();
+				dom.clearNode(bgTaskContainer);
+				for (const task of tasks) {
+					const attachment: IChatBackgroundTaskVariableEntry = {
+						kind: 'backgroundTask',
+						id: `backgroundTask:${task.taskId}`,
+						name: task.name,
+						icon: Codicon.sessionInProgress,
+						value: '',
+						modelDescription: '',
+						taskId: task.taskId,
+						source: task.source,
+					};
+					const widget = this.instantiationService.createInstance(BackgroundTaskAttachmentWidget, attachment, this._currentLanguageModel.read(reader), { shouldFocusClearButton: false, supportsDeletion: true }, bgTaskContainer, this._contextResourceLabels);
+					bgTaskStore.add(widget);
+					bgTaskStore.add(widget.onDidDelete(() => {
+						this._chatBackgroundTaskService.evictTask(task.taskId);
+					}));
+				}
+				const hasBackgroundTasks = tasks.length > 0;
+				dom.setVisibility(Boolean(this.options.renderInputToolbarBelowInput || hasAttachments || hasImplicitContext || hasBackgroundTasks), this.attachmentsContainer);
+				dom.setVisibility(hasAttachments || hasImplicitContext || hasBackgroundTasks, this.attachedContextContainer);
+			}));
+		} else {
+			dom.setVisibility(Boolean(this.options.renderInputToolbarBelowInput || hasAttachments || hasImplicitContext), this.attachmentsContainer);
+			dom.setVisibility(hasAttachments || hasImplicitContext, this.attachedContextContainer);
+		}
 		if (!attachments.length) {
 			this._indexOfLastAttachedContextDeletedWithKeyboard = -1;
 			this._indexOfLastOpenedContext = -1;

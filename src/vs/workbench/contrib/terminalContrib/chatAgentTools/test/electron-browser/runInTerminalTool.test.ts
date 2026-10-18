@@ -319,6 +319,23 @@ suite('RunInTerminalTool', () => {
 		instantiationService.stub(ITerminalProfileResolverService, {
 			getDefaultProfile: async () => ({ path: 'bash' } as ITerminalProfile)
 		});
+		instantiationService.stub(IChatBackgroundTaskService, {
+			createTask: () => ({
+				taskId: 'test-task',
+				name: 'test',
+				source: { kind: 'terminal', termId: '', commandName: '' },
+				status: constObservable(BackgroundTaskStatus.Working),
+				statusMessage: constObservable(undefined),
+				result: constObservable(undefined),
+				cancel: () => { },
+				complete: () => { },
+				fail: () => { },
+				updateStatusMessage: () => { },
+			}),
+			getTasksForSession: () => constObservable([]),
+			getTask: () => undefined,
+			evictTask: () => { },
+		});
 
 		storageService = instantiationService.get(IStorageService);
 		storageService.store(TerminalToolConfirmationStorageKeys.TerminalAutoApproveWarningAccepted, true, StorageScope.APPLICATION, StorageTarget.USER);
@@ -3954,6 +3971,23 @@ suite('ChatAgentToolsContribution - tool registration refresh', () => {
 
 		instantiationService.stub(ITerminalProfileResolverService, {
 			getDefaultProfile: async () => ({ path: 'bash' } as ITerminalProfile)
+		});
+		instantiationService.stub(IChatBackgroundTaskService, {
+			createTask: () => ({
+				taskId: 'test-task',
+				name: 'test',
+				source: { kind: 'terminal', termId: '', commandName: '' },
+				status: constObservable(BackgroundTaskStatus.Working),
+				statusMessage: constObservable(undefined),
+				result: constObservable(undefined),
+				cancel: () => { },
+				complete: () => { },
+				fail: () => { },
+				updateStatusMessage: () => { },
+			}),
+			getTasksForSession: () => constObservable([]),
+			getTask: () => undefined,
+			evictTask: () => { },
 		});
 
 		const contextKeyService = instantiationService.get(IContextKeyService);

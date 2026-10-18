@@ -3552,7 +3552,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			disposeNotification();
 
 			const exitCode = command.exitCode;
-			const exitCodeText = exitCode !== undefined ? ` with exit code ${exitCode}` : '';
 			const currentOutput = execution.getOutput();
 			// Only dispose if the terminal is still hidden from the user. Once the
 			// user reveals it (via the "Show" link), it joins `foregroundInstances`
@@ -3562,7 +3561,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				? `[Terminal ${termId} notification: command completed${exitCodeText}. Use send_to_terminal to send another command or kill_terminal to stop it.]\nTerminal output:\n${currentOutput}`
 				: `[Terminal ${termId} notification: command completed${exitCodeText}. The terminal has been cleaned up.]\nTerminal output:\n${currentOutput}`;
 
-			this._logService.debug(`RunInTerminalTool: Command completed in background terminal ${termId}, notifying chat session`);
+			this._logService.debug(`RunInTerminalTool: Command completed in background terminal ${termId}, updating background task`);
 
 			this._chatService.sendRequest(chatSessionResource, message, {
 				...sendOptions,
@@ -3597,6 +3596,28 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				terminalInstance.dispose();
 			});
 		}));
+
+		// Handle the case where the command already completed before the listener
+		// was registered (e.g. fast commands like `ls`).
+		const execution = RunInTerminalTool._activeExecutions.get(termId);
+		if (execution) {
+			execution.completionPromise.then(result => {
+				// Only act if the background task is still in working state
+				// (the onCommandFinished listener may have already handled it)
+				if (backgroundTask.status.get() === BackgroundTaskStatus.Working) {
+					const currentOutput = execution.getOutput();
+					this._logService.debug(`RunInTerminalTool: Command already completed in background terminal ${termId}, updating background task via completionPromise`);
+					if (result.exitCode !== undefined && result.exitCode !== 0) {
+						backgroundTask.fail(`Exited with code ${result.exitCode}\n${currentOutput ?? ''}`);
+					} else {
+						backgroundTask.complete(currentOutput ?? '');
+					}
+					disposeNotification();
+				}
+			}).catch(() => {
+				// Execution errored - already handled elsewhere
+			});
+		}
 
 		// Clean up all background resources when the terminal is disposed
 		// (e.g. user closes the terminal). Send a completion notification so

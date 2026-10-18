@@ -21,6 +21,7 @@ import { Iterable } from '../../../../../base/common/iterator.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../../base/common/network.js';
+import { autorun } from '../../../../../base/common/observable.js';
 import { basename, dirname } from '../../../../../base/common/path.js';
 import { isEqual, joinPath } from '../../../../../base/common/resources.js';
 import { ScrollbarVisibility } from '../../../../../base/common/scrollable.js';
@@ -109,7 +110,7 @@ abstract class AbstractChatAttachmentWidget extends Disposable {
 	public readonly element: HTMLElement;
 	public readonly label: IResourceLabel;
 
-	private readonly _onDidDelete: event.Emitter<Event> = this._register(new event.Emitter<Event>());
+	protected readonly _onDidDelete: event.Emitter<Event> = this._register(new event.Emitter<Event>());
 	get onDidDelete(): event.Event<Event> {
 		return this._onDidDelete.event;
 	}

@@ -108,6 +108,7 @@ import { IChatTipService } from '../chatTipService.js';
 import { ChatInputTipPresenter } from './input/chatInputTipPresenter.js';
 import { ChatProgressSubPart } from './chatContentParts/chatProgressContentPart.js';
 import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js';
+import { BackgroundTaskStatus, IChatBackgroundTaskService } from '../../common/chatBackgroundTask.js';
 import { IChatDebugService } from '../../common/chatDebugService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ICustomizationHarnessService } from '../../common/customizationHarnessService.js';
@@ -3053,6 +3054,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (hasCheckpointHandler && this._lockedAgent) {
 			this.listWidget?.updateRendererOptions({ restorable: true });
 		}
+
+		// Re-render attached context now that the session resource is available
+		// so the background task autorun is set up.
+		this.input.renderAttachedContext();
 
 		if (this._lockedAgent) {
 			let placeholder = this.chatSessionsService.getChatSessionContribution(this._lockedAgent.id)?.inputPlaceholder;
