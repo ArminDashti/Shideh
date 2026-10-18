@@ -83,6 +83,7 @@ import { IKeywordRecognitionEvent, ISpeechProviderMetadata, ISpeechToTextEvent, 
 import { CoverageDetails, ExtensionRunTestsRequest, ICallProfileRunHandler, IFileCoverage, ISerializedTestResults, IStartControllerTests, ITestItem, ITestMessage, ITestRunProfile, ITestRunTask, ResolvedTestRunRequest, TestControllerCapability, TestMessageFollowupRequest, TestMessageFollowupResponse, TestResultState, TestsDiffOp } from '../../contrib/testing/common/testTypes.js';
 import { Timeline, TimelineChangeEvent, TimelineOptions, TimelineProviderDescriptor } from '../../contrib/timeline/common/timeline.js';
 import { TypeHierarchyItem } from '../../contrib/typeHierarchy/common/typeHierarchy.js';
+import { AiSessionInfo, AiTask } from '../../services/aiCodingAgentInformation/common/aiCodingAgentInformation.js';
 import { RelatedInformationResult, RelatedInformationType } from '../../services/aiRelatedInformation/common/aiRelatedInformation.js';
 import { AiSettingsSearchProviderOptions, AiSettingsSearchResult } from '../../services/aiSettingsSearch/common/aiSettingsSearch.js';
 import { AuthenticationSession, AuthenticationSessionAccount, AuthenticationSessionsChangeEvent, IAuthenticationConstraint, IAuthenticationCreateSessionOptions, IAuthenticationGetSessionsOptions, IAuthenticationProviderSessionOptions, IAuthenticationWwwAuthenticateRequest } from '../../services/authentication/common/authentication.js';
@@ -2661,10 +2662,20 @@ export interface ExtHostAiSettingsSearchShape {
 	$startSearch(handle: number, query: string, option: AiSettingsSearchProviderOptions, token: CancellationToken): Promise<void>;
 }
 
+export interface ExtHostAiCodingAgentInformationShape {
+	$getAllSessions(token: CancellationToken): Promise<AiTask[]>;
+	$getSessionDetails(id: string, token: CancellationToken): Promise<AiSessionInfo | undefined>;
+}
+
 export interface MainThreadAiSettingsSearchShape {
 	$registerAiSettingsSearchProvider(handle: number): void;
 	$unregisterAiSettingsSearchProvider(handle: number): void;
 	$handleSearchResult(handle: number, result: AiSettingsSearchResult): void;
+}
+
+export interface MainThreadAiCodingAgentInformationShape {
+	$registerCodingAgentInfoProvider(handle: number): void;
+	$unregisterCodingAgentInfoProvider(handle: number): void;
 }
 
 export interface ExtHostAiEmbeddingVectorShape {
@@ -4341,6 +4352,7 @@ export const ExtHostContext = {
 	ExtHostAiRelatedInformation: createProxyIdentifier<ExtHostAiRelatedInformationShape>('ExtHostAiRelatedInformation'),
 	ExtHostAiEmbeddingVector: createProxyIdentifier<ExtHostAiEmbeddingVectorShape>('ExtHostAiEmbeddingVector'),
 	ExtHostAiSettingsSearch: createProxyIdentifier<ExtHostAiSettingsSearchShape>('ExtHostAiSettingsSearch'),
+	ExtHostAiCodingAgentInformation: createProxyIdentifier<ExtHostAiCodingAgentInformationShape>('ExtHostAiCodingAgentInformation'),
 	ExtHostTheming: createProxyIdentifier<ExtHostThemingShape>('ExtHostTheming'),
 	ExtHostTunnelService: createProxyIdentifier<ExtHostTunnelServiceShape>('ExtHostTunnelService'),
 	ExtHostManagedSockets: createProxyIdentifier<ExtHostManagedSocketsShape>('ExtHostManagedSockets'),
