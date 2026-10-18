@@ -12,7 +12,11 @@ test.use({ trace: { mode: 'retain-on-failure', snapshots: false } });
 
 // Supplied by the Component Explorer headless page.
 declare const __componentExplorer__: {
-	renderFixture(fixtureId: string): Promise<{ hasError: boolean; previousDispose?: { hasError: boolean } }>;
+	renderFixture(fixtureId: string): Promise<{
+		hasError: boolean;
+		error?: { message: string; stack?: string };
+		previousDispose?: { hasError: boolean };
+	}>;
 	disposeCurrentFixture(): Promise<{ hasError: boolean }>;
 };
 
