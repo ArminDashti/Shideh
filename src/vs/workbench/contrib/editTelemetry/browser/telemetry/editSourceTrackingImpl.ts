@@ -50,7 +50,7 @@ export function getEditTelemetryCategory(source: EditSource): EditTelemetryCateg
 	return 'unknown';
 }
 
-type EditTelemetryMode = 'longterm' | '5minWindow' | '20minFocusWindow';
+type EditTelemetryMode = 'longterm' | '10minFocusWindow' | '20minFocusWindow';
 type EditTelemetryTrigger = '10hours' | 'hashChange' | 'branchChange' | 'closed' | 'time';
 
 export class EditSourceTrackingImpl extends Disposable {
