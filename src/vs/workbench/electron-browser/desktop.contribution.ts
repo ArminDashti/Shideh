@@ -37,6 +37,7 @@ import product from '../../platform/product/common/product.js';
 	registerAction2(ZoomInAction);
 	registerAction2(ZoomOutAction);
 	registerAction2(ZoomResetAction);
+	registerAction2(ZoomToAction);
 
 	// Actions: Window
 	registerAction2(SwitchWindowAction);
