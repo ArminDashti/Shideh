@@ -9146,7 +9146,10 @@ suite('CopilotAgent', () => {
 		const sessionDataService = disposables.add(new TestSessionDataService());
 		const legacySession = AgentSession.uri('copilotcli', 'legacy');
 		const legacyDb = sessionDataService.openDatabase(legacySession);
-		await legacyDb.object.setMetadata('copilot.workingDirectory', URI.file('/workspace').toString());
+		const repoA = URI.file('/repo-a');
+		const repoB = URI.file('/repo-b');
+		await legacyDb.object.setMetadata('copilot.workingDirectory', repoA.toString());
+		await legacyDb.object.setMetadata('copilot.workingDirectories', JSON.stringify([repoA.toString(), repoB.toString()]));
 		legacyDb.dispose();
 
 		const agent = createTestAgent(disposables, { sessionDataService, copilotClient: new TestCopilotClient([sdkSession('legacy')]) });
@@ -9159,7 +9162,7 @@ suite('CopilotAgent', () => {
 				startTime: 1000,
 				modifiedTime: 2000,
 				summary: 'SDK legacy',
-				workingDirectories: [URI.file('/workspace')],
+				workingDirectories: [repoA, repoB].map(directory => directory.toString()),
 			}]);
 		} finally {
 			await disposeAgent(agent);
@@ -9199,7 +9202,10 @@ suite('CopilotAgent', () => {
 		const sessionDataService = disposables.add(new TestSessionDataService());
 		const session = AgentSession.uri('copilotcli', 'target');
 		const db = sessionDataService.openDatabase(session);
-		await db.object.setMetadata('copilot.workingDirectory', URI.file('/workspace').toString());
+		const repoA = URI.file('/repo-a');
+		const repoB = URI.file('/repo-b');
+		await db.object.setMetadata('copilot.workingDirectory', repoA.toString());
+		await db.object.setMetadata('copilot.workingDirectories', JSON.stringify([repoA.toString(), repoB.toString()]));
 		db.dispose();
 
 		const client = new TestCopilotClient([sdkSession('target')]);
@@ -9215,7 +9221,7 @@ suite('CopilotAgent', () => {
 				startTime: 1000,
 				modifiedTime: 2000,
 				summary: 'SDK target',
-				workingDirectories: [URI.file('/workspace')],
+				workingDirectories: [repoA, repoB].map(directory => directory.toString()),
 			});
 			assert.deepStrictEqual(client.getSessionMetadataCalls, ['target']);
 			assert.strictEqual(client.listSessionCallCount, 0);

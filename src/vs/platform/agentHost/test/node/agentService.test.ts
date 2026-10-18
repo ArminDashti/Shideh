@@ -26305,8 +26305,17 @@ suite('AgentService (node dispatcher)', () => {
 			getStateManager(service).deleteSession(session.toString());
 			assert.strictEqual(getStateManager(service).getSessionState(session.toString()), undefined);
 
-			// Restore the session (simulates a client subscribing after restart)
-			await service.restoreSession(session);
+			service.dispatchAction(
+				buildDefaultChatUri(session.toString()),
+				{
+					type: ActionType.ChatTurnStarted,
+					turnId: 'turn-after-resume',
+					startedAt: '2025-01-01T00:00:00.000Z',
+					message: { text: 'continue', origin: { kind: MessageKind.User } },
+				},
+				'resuming-client', 1,
+			);
+			await sent.p;
 
 			const state = getStateManager(service).getSessionState(session.toString());
 			assert.strictEqual(state?.workingDirectories?.[0], worktreeDir.toString());

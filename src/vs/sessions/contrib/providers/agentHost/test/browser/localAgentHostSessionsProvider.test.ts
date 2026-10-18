@@ -1267,6 +1267,52 @@ suite('LocalAgentHostSessionsProvider', () => {
 		assert.strictEqual(ws.requiresWorkspaceTrust, true);
 	});
 
+	test('opening a listed multi-root session retains persisted roots in workspace and subscription state', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const repoA = URI.file('/repo-a');
+		const repoB = URI.file('/repo-b');
+		agentHost.addSession(createSession('multi-root-resume', {
+			summary: 'Multi-root Session',
+			workingDirectories: [repoA, repoB],
+		}));
+
+		const provider = createProvider(disposables, agentHost);
+		provider.getSessions();
+		await timeout(0);
+
+		const session = provider.getSessions().find(session => session.title.get() === 'Multi-root Session');
+		assert.ok(session);
+		// Opening session-backed features keeps the session subscription alive.
+		// The real host answers this subscription by restoring persisted state.
+		provider.getSessionConfig(session.sessionId);
+		agentHost.setSessionState('multi-root-resume', 'copilotcli', {
+			provider: 'copilotcli',
+			title: 'Multi-root Session',
+			status: ProtocolSessionStatus.Idle,
+			lifecycle: SessionLifecycle.Ready,
+			activeClients: [],
+			chats: [],
+			workingDirectories: [repoA, repoB].map(directory => directory.toString()),
+		});
+		const backendUri = AgentSession.uri('copilotcli', 'multi-root-resume').toString();
+		assert.deepStrictEqual(
+			{
+				workspace: session.workspace.get()?.folders.map(folder => ({
+					root: folder.root.toString(),
+					workingDirectory: folder.workingDirectory.toString(),
+				})),
+				subscriptionCount: agentHost.sessionSubscribeCounts.get(backendUri),
+				subscriptionState: provider.getWorkingDirectories(session.sessionId),
+			},
+			{
+				workspace: [repoA, repoB].map(folder => ({
+					root: folder.toString(),
+					workingDirectory: folder.toString(),
+				})),
+				subscriptionCount: 1,
+				subscriptionState: [repoA, repoB].map(directory => directory.toString()),
+			});
+	}));
+
 	// ---- Browse actions -------
 
 	test('has no browse actions', () => {
