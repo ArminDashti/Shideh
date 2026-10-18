@@ -232,6 +232,16 @@ export class NotebookDeletedCellWidget extends Disposable {
 				telemetrySource: this._toolbarOptions.telemetrySource,
 				hiddenItemStrategy: HiddenItemStrategy.NoHide,
 				toolbarOptions: { primaryGroup: () => true },
+				actionViewItemProvider: (action, options) => {
+					if (action.id === 'chatEditor.action.acceptHunk' || action.id === 'chatEditor.action.undoHunk') {
+						return new class extends ActionViewItem {
+							constructor() {
+								super(undefined, action, { ...options, keybindingNotRenderedWithLabel: true, icon: false, label: true });
+							}
+						};
+					}
+					return undefined;
+				},
 				menuOptions: {
 					renderShortTitle: true,
 					arg: this._toolbarOptions.argFactory(this._originalIndex),

@@ -461,13 +461,8 @@ export function getOnTypeFormattingEdits(
 	});
 }
 
-function isFormattingOptions(obj: unknown): obj is FormattingOptions {
-	const candidate = obj as FormattingOptions | undefined;
-
-	return !!candidate && typeof candidate === 'object' && typeof candidate.tabSize === 'number' && typeof candidate.insertSpaces === 'boolean';
-}
-
-CommandsRegistry.registerCommand('_executeFormatRangeProvider', async function (accessor, ...args) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+CommandsRegistry.registerCommand('_executeFormatRangeProvider', async function (accessor, ...args: any[]) {
 	const [resource, range, options] = args;
 	assertType(URI.isUri(resource));
 	assertType(Range.isIRange(range));
@@ -483,7 +478,8 @@ CommandsRegistry.registerCommand('_executeFormatRangeProvider', async function (
 	}
 });
 
-CommandsRegistry.registerCommand('_executeFormatDocumentProvider', async function (accessor, ...args) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+CommandsRegistry.registerCommand('_executeFormatDocumentProvider', async function (accessor, ...args: any[]) {
 	const [resource, options] = args;
 	assertType(URI.isUri(resource));
 
@@ -498,7 +494,8 @@ CommandsRegistry.registerCommand('_executeFormatDocumentProvider', async functio
 	}
 });
 
-CommandsRegistry.registerCommand('_executeFormatOnTypeProvider', async function (accessor, ...args) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+CommandsRegistry.registerCommand('_executeFormatOnTypeProvider', async function (accessor, ...args: any[]) {
 	const [resource, position, ch, options] = args;
 	assertType(URI.isUri(resource));
 	assertType(Position.isIPosition(position));
