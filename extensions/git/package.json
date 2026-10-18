@@ -3328,6 +3328,28 @@
           "command": "git.deleteWorktree2",
           "group": "worktrees@2"
         }
+      ],
+      "timeline/item/context": [
+        {
+          "command": "git.timeline.openDiff",
+          "group": "inline",
+          "when": "timelineItem =~ /git:file\\b/"
+        },
+        {
+          "command": "git.timeline.openDiff",
+          "group": "1_timeline",
+          "when": "timelineItem =~ /git:file\\b/"
+        },
+        {
+          "command": "git.timeline.copyCommitId",
+          "group": "2_timeline@1",
+          "when": "timelineItem =~ /git:file:commit\\b/"
+        },
+        {
+          "command": "git.timeline.copyCommitMessage",
+          "group": "2_timeline@2",
+          "when": "timelineItem =~ /git:file:commit\\b/"
+        }
       ]
     },
     "submenus": [

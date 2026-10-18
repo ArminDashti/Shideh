@@ -95,6 +95,20 @@ export interface Timeline {
 	};
 }
 
+export interface TimelineCursor {
+	cursor?: any;
+	before?: boolean;
+	limit?: number;
+}
+
+export interface Timeline {
+	source: string;
+	items: TimelineItem[];
+
+	cursor?: any;
+	more?: boolean;
+}
+
 export interface TimelineProvider extends TimelineProviderDescriptor, IDisposable {
 	readonly onDidChange?: Event<TimelineChangeEvent>;
 

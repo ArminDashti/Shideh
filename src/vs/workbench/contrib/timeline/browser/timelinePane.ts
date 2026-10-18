@@ -1139,7 +1139,6 @@ class TimelineActionRunner extends ActionRunner {
 			item.source,
 		);
 	}
-}
 
 export class TimelineKeyboardNavigationLabelProvider implements IKeyboardNavigationLabelProvider<TreeElement> {
 	getKeyboardNavigationLabel(element: TreeElement): { toString(): string } {
@@ -1376,5 +1375,42 @@ class TimelinePaneCommands extends Disposable {
 				}
 			}));
 		}
+	}
+}
+
+class TimelineMenus extends Disposable {
+
+	constructor(
+		private id: string,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IMenuService private readonly menuService: IMenuService,
+		@IContextMenuService private readonly contextMenuService: IContextMenuService
+	) {
+		super();
+	}
+
+	getResourceActions(element: TreeElement): IAction[] {
+		return this.getActions(MenuId.TimelineItemContext, { key: 'timelineItem', value: element.contextValue }).primary;
+	}
+
+	getResourceContextActions(element: TreeElement): IAction[] {
+		return this.getActions(MenuId.TimelineItemContext, { key: 'timelineItem', value: element.contextValue }).secondary;
+	}
+
+	private getActions(menuId: MenuId, context: { key: string, value?: string }): { primary: IAction[]; secondary: IAction[]; } {
+		const contextKeyService = this.contextKeyService.createScoped();
+		contextKeyService.createKey('view', this.id);
+		contextKeyService.createKey(context.key, context.value);
+
+		const menu = this.menuService.createMenu(menuId, contextKeyService);
+		const primary: IAction[] = [];
+		const secondary: IAction[] = [];
+		const result = { primary, secondary };
+		createAndFillInContextMenuActions(menu, { shouldForwardArgs: true }, result, this.contextMenuService, g => /^inline/.test(g));
+
+		menu.dispose();
+		contextKeyService.dispose();
+
+		return result;
 	}
 }

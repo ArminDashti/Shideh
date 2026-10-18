@@ -60,6 +60,51 @@ export class GitTimelineItem extends TimelineItem {
 	}
 }
 
+export class GitTimelineItem extends TimelineItem {
+	static is(item: TimelineItem): item is GitTimelineItem {
+		return item instanceof GitTimelineItem;
+	}
+
+	readonly ref: string;
+	readonly previousRef: string;
+	readonly message: string;
+
+	constructor(
+		ref: string,
+		previousRef: string,
+		message: string,
+		timestamp: number,
+		id: string,
+		contextValue: string
+	) {
+		const index = message.indexOf('\n');
+		const label = index !== -1 ? `${message.substring(0, index)} \u2026` : message;
+
+		super(label, timestamp);
+
+		this.ref = ref;
+		this.previousRef = previousRef;
+		this.message = message;
+		this.id = id;
+		this.contextValue = contextValue;
+	}
+
+	get shortRef() {
+		return this.shortenRef(this.ref);
+	}
+
+	get shortPreviousRef() {
+		return this.shortenRef(this.previousRef);
+	}
+
+	private shortenRef(ref: string): string {
+		if (ref === '' || ref === '~' || ref === 'HEAD') {
+			return ref;
+		}
+		return ref.endsWith('^') ? `${ref.substr(0, 8)}^` : ref.substr(0, 8);
+	}
+}
+
 export class GitTimelineProvider implements TimelineProvider {
 	private _onDidChange = new EventEmitter<TimelineChangeEvent | undefined>();
 	get onDidChange(): Event<TimelineChangeEvent | undefined> {

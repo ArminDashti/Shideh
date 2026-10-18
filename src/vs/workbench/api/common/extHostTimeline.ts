@@ -34,6 +34,8 @@ export class ExtHostTimeline implements IExtHostTimeline {
 
 	private _itemsBySourceAndUriMap = new Map<string, Map<string | undefined, Map<string, vscode.TimelineItem>>>();
 
+	private _itemsBySourceByUriMap = new Map<string | undefined, Map<string, Map<string, vscode.TimelineItem>>>();
+
 	constructor(
 		mainContext: IMainContext,
 		commands: ExtHostCommands,
@@ -60,7 +62,7 @@ export class ExtHostTimeline implements IExtHostTimeline {
 		return item?.provider.provideTimeline(URI.revive(uri), options, token);
 	}
 
-	registerTimelineProvider(scheme: string | string[], provider: vscode.TimelineProvider, extensionId: ExtensionIdentifier, commandConverter: CommandsConverter): IDisposable {
+	registerTimelineProvider(scheme: string | string[], provider: vscode.TimelineProvider, _extensionId: ExtensionIdentifier, commandConverter: CommandsConverter): IDisposable {
 		const timelineDisposables = new DisposableStore();
 
 		const convertTimelineItem = this.convertTimelineItem(provider.id, commandConverter, timelineDisposables).bind(this);
