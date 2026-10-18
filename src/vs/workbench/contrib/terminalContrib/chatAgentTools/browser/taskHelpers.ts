@@ -9,7 +9,6 @@ import { IStringDictionary } from '../../../../../base/common/collections.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { Range } from '../../../../../editor/common/core/range.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IMarkerData } from '../../../../../platform/markers/common/markers.js';

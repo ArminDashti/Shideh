@@ -54,7 +54,7 @@ export abstract class AbstractProblemCollector extends Disposable implements IDi
 	// [owner] -> [resource] -> URI
 	private resourcesToClean: Map<string, Map<string, URI>>;
 	// [owner] -> [resource] -> [markerkey] -> markerData
-	private markers: Map<string, Map<string, Map<string, IMarkerData>>>;
+	public readonly markers: Map<string, Map<string, Map<string, IMarkerData>>>;
 	// [owner] -> [resource] -> number;
 	private deliveredMarkers: Map<string, Map<string, number>>;
 	// [owner] -> [resource] -> Set<markerkey> of the markers this collector last delivered.

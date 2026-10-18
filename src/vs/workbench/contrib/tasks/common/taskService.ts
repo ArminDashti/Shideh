@@ -111,6 +111,8 @@ export interface ITaskService {
 	registerSupportedExecutions(custom?: boolean, shell?: boolean, process?: boolean): void;
 
 	extensionCallbackTaskComplete(task: Task, result: number | undefined): Promise<void>;
+
+	getTaskProblems(instanceId: number): Map<string, { resources: URI[]; markers: IMarkerData[] }> | undefined;
 }
 
 export interface ITaskTerminalStatus {

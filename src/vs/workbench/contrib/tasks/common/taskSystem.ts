@@ -157,6 +157,7 @@ export interface ITaskSystem {
 	getTerminalsForTasks(tasks: SingleOrMany<Task>): URI[] | undefined;
 	getTaskProblems(instanceId: number): Map<string, { resources: URI[]; markers: IMarkerData[] }> | undefined;
 	getFirstInstance(task: Task): Task | undefined;
+	getTaskProblems(instanceId: number): Map<string, { resources: URI[]; markers: IMarkerData[] }> | undefined;
 	get lastTask(): VerifiedTask | undefined;
 	set lastTask(task: VerifiedTask);
 }

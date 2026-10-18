@@ -882,6 +882,10 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 		return infosCount > 0;
 	}
 
+	public getTaskProblems(instanceId: number): Map<string, { resources: URI[]; markers: IMarkerData[] }> | undefined {
+		return this._taskSystem?.getTaskProblems(instanceId);
+	}
+
 	public registerTaskSystem(key: string, info: ITaskSystemInfo): void {
 		// Ideally the Web caller of registerRegisterTaskSystem would use the correct key.
 		// However, the caller doesn't know about the workspace folders at the time of the call, even though we know about them here.

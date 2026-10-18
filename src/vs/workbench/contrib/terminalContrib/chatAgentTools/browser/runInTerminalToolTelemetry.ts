@@ -107,6 +107,7 @@ export class RunInTerminalToolTelemetry {
 		pollDurationMs: number | undefined;
 		terminalExecutionIdleBeforeTimeout: boolean | undefined;
 		exitCode: number | undefined;
+		autoReplyCount?: number;
 		inputUserChars: number;
 		inputUserSigint: boolean;
 		inputToolManualAcceptCount: number | undefined;
@@ -137,6 +138,8 @@ export class RunInTerminalToolTelemetry {
 			pollDurationMs: number;
 			timingExecuteMs: number;
 			terminalExecutionIdleBeforeTimeout: boolean;
+
+			autoReplyCount: number;
 
 			inputUserChars: number;
 			inputUserSigint: boolean;
@@ -202,6 +205,7 @@ export class RunInTerminalToolTelemetry {
 			timingExecuteMs: state.timingExecuteMs,
 			pollDurationMs: state.pollDurationMs ?? 0,
 			terminalExecutionIdleBeforeTimeout: state.terminalExecutionIdleBeforeTimeout ?? false,
+			autoReplyCount: state.autoReplyCount ?? 0,
 
 			inputUserChars: state.inputUserChars,
 			inputUserSigint: state.inputUserSigint,

@@ -35,7 +35,6 @@ export class TaskService extends AbstractTaskService {
 	protected _computeLegacyConfiguration(workspaceFolder: IWorkspaceFolder): Promise<IWorkspaceFolderConfigurationResult> {
 		throw new Error(TaskService.ProcessTaskSystemSupportMessage);
 	}
-
 	protected _versionAndEngineCompatible(filter?: ITaskFilter): boolean {
 		return this.executionEngine === ExecutionEngine.Terminal;
 	}

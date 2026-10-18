@@ -13,7 +13,6 @@ import { TaskRunSource } from '../../../../../tasks/common/tasks.js';
 import { ITerminalInstance, ITerminalService } from '../../../../../terminal/browser/terminal.js';
 import { collectTerminalResults, IConfiguredTask, resolveDependencyTasks, tasksMatch } from '../../taskHelpers.js';
 import { MarkdownString } from '../../../../../../../base/common/htmlContent.js';
-import { URI } from '../../../../../../../base/common/uri.js';
 import { IFileService } from '../../../../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../../../../base/common/buffer.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
