@@ -513,7 +513,7 @@ class Editor extends Disposable {
 			createHostTransport: runtimeKey => this.#createCodeBlockEditorHostTransport(definition.id, runtimeKey),
 			resolve: definition.source.kind === 'static'
 				? async () => definition.source.kind === 'static' ? definition.source.descriptor : undefined
-				: language => this.#resolveCodeBlockEditor(definition.id, language),
+				: infoString => this.#resolveCodeBlockEditor(definition.id, infoString),
 		}));
 	}
 
@@ -552,7 +552,7 @@ class Editor extends Disposable {
 				type: 'resolveCodeBlockEditor',
 				requestId,
 				providerId,
-				language,
+				infoString,
 			});
 		});
 	}
@@ -668,7 +668,6 @@ function readResolvedCodeBlockEditor(value: unknown): ResolvedIframeEmbeddedEdit
 		|| (descriptor.resourceBaseUrl !== undefined && typeof descriptor.resourceBaseUrl !== 'string')
 		|| (descriptor.hostTransport !== undefined && typeof descriptor.hostTransport !== 'boolean')
 		|| (descriptor.contentType !== 'text' && descriptor.contentType !== 'json')
-		|| (descriptor.cacheKey !== undefined && typeof descriptor.cacheKey !== 'string')
 		|| (descriptor.initialHeight !== undefined && (typeof descriptor.initialHeight !== 'number' || !Number.isFinite(descriptor.initialHeight) || descriptor.initialHeight <= 0))
 		|| !isResolvedSandbox(descriptor.sandbox)
 	) {
