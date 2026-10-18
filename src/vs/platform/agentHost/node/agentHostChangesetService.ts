@@ -221,6 +221,8 @@ export class AgentHostChangesetService extends Disposable implements IAgentHostC
 
 	private readonly _worktree: IAgentHostWorktreePendingState;
 
+	private readonly _worktree: IAgentHostWorktreePendingState;
+
 	constructor(
 		@IAgentHostStateManager private readonly _stateManager: AgentHostStateManager,
 		@ILogService private readonly _logService: ILogService,

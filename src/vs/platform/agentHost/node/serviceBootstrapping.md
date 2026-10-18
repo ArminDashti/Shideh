@@ -109,11 +109,18 @@ The experimental editor setting `chat.workflows.enabled` is mirrored to the host
 
 A descriptor that is never resolved is never constructed and therefore never disposed. `InstantiationService` disposes only instances it creates.
 
+A descriptor that is never resolved is never constructed and therefore never
+disposed. `InstantiationService` disposes only instances it creates.
+
 ## Test overrides
 
 `createTestAgentService` builds the shared foundation and core graph with typed overrides applied explicitly after the core defaults. Its returned `AgentService` disposes the whole test graph.
 
 The test graph does not force construction of unused descriptors. Whole-graph dependency completeness and cycle freedom are checked statically in `agentHostServices.test.ts`.
+
+The test graph does not force construction of unused descriptors. Whole-graph
+dependency completeness and cycle freedom are checked statically in
+`agentHostServices.test.ts`.
 
 The compatibility graph intentionally defaults to:
 
