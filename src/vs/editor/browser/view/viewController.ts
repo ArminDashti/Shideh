@@ -396,6 +396,7 @@ export class ViewController {
 	}
 
 	public emitKeyDown(e: IKeyboardEvent): void {
+		console.log('emitKeyDown e:', e);
 		this.userInputEvents.emitKeyDown(e);
 	}
 

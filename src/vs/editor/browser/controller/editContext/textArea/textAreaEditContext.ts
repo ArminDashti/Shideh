@@ -299,6 +299,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		this._register(this._textAreaInput.onWillPaste(e => this._onWillPaste.fire(e)));
 
 		this._register(this._textAreaInput.onKeyDown((e: IKeyboardEvent) => {
+			console.log('on key down of TextAreaEditContext : ', e);
 			this._viewController.emitKeyDown(e);
 		}));
 

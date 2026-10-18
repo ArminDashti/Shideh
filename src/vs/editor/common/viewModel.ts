@@ -36,6 +36,8 @@ export interface IViewModel extends ICursorSimpleModel, ISimpleModel {
 
 	readonly glyphLanes: IGlyphMarginLanesModel;
 
+	isInComposition: boolean;
+
 	addViewEventHandler(eventHandler: ViewEventHandler): void;
 	removeViewEventHandler(eventHandler: ViewEventHandler): void;
 
