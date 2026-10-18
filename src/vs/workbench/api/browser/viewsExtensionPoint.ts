@@ -538,7 +538,6 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 						accessibilityHelpContent
 					};
 
-
 					viewIds.add(viewDescriptor.id);
 					viewDescriptors.push(viewDescriptor);
 				}
