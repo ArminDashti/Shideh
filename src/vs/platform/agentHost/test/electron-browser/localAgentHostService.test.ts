@@ -19,6 +19,7 @@ import { TestInstantiationService } from '../../../instantiation/test/common/ins
 import { ILogService, NullLogService } from '../../../log/common/log.js';
 import { INotificationService } from '../../../notification/common/notification.js';
 import { TestNotificationService } from '../../../notification/test/common/testNotificationService.js';
+import { IRemoteTunnelService, TunnelStates, type TunnelStatus } from '../../../remoteTunnel/common/remoteTunnel.js';
 import { ITelemetryData } from '../../../telemetry/common/telemetry.js';
 import { NullTelemetryServiceShape } from '../../../telemetry/common/telemetryUtils.js';
 import { AgentHostClientState, AgentHostProtocolClient } from '../../browser/agentHostProtocolClient.js';
@@ -372,6 +373,10 @@ suite('registerAgentHostClientChannels', () => {
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 		instantiationService.stub(IEnvironmentService, { logsHome: URI.file('/logs') } as Partial<IEnvironmentService>);
 		instantiationService.stub(INotificationService, notifications);
+		instantiationService.stub(IRemoteTunnelService, {
+			onDidChangeTunnelStatus: Event.None,
+			getTunnelStatus: async () => TunnelStates.disconnected(),
+		} as Partial<IRemoteTunnelService>);
 		instantiationService.stubInstance(AgentHostProtocolClient, protocolClient);
 		instantiationService.stubInstance(AgentHostStartupTelemetry, startupTelemetry);
 		instantiationService.set(IInstantiationService, instantiationService);

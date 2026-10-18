@@ -72,6 +72,7 @@ import { createNoopGitStateService, createNullSessionDataService } from '../comm
 import { createNoopWorktreeIsolation } from './worktreeTestHelpers.js';
 import { ISessionDataService } from '../../common/sessionDataService.js';
 import { MockAgent } from './mockAgent.js';
+import { registerNoopRemoteSessionDelegationServices } from './remoteSessionDelegationTestUtils.js';
 import { TestAgentHostTerminalManager } from './testAgentHostTerminalManager.js';
 import type { ICodexAccountState } from '../../node/codex/codexAccountState.js';
 import { getCodexAccountTelemetryContext } from '../../node/codex/codexAccountTelemetry.js';

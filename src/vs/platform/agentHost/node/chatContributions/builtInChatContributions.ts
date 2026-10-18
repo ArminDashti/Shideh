@@ -47,6 +47,7 @@ export function registerBuiltInChatContributions(
 	registrations.add(contributions.registerContribution(ChatInputContribution));
 	registrations.add(contributions.registerContribution(PullRequestChatContribution));
 	registrations.add(contributions.registerContribution(TurnDelegationContribution));
+	registrations.add(contributions.registerContribution(RemoteSessionDelegationContribution));
 	registrations.add(contributions.registerContribution(PersistedTurnUsageContribution));
 	registrations.add(contributions.registerContribution(PersistedFailedTurnsContribution));
 	registrations.add(contributions.registerContribution(WorktreeAnnouncementContribution));

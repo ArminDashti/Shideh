@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os';
 import { join } from '../../../../base/common/path.js';
 import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { IObservable, observableValue } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { mock } from '../../../../base/test/common/mock.js';
@@ -49,7 +50,7 @@ suite('agentHostBootstrap', () => {
 			}
 		};
 
-		const runtime = await createAgentHostRuntime({
+		const runtimeOptions = {
 			environmentService,
 			productService,
 			logService,
@@ -59,7 +60,9 @@ suite('agentHostBootstrap', () => {
 			hostLaunchKind: AgentHostLaunchKind.Unknown,
 			providerConfigurations: [],
 			byok: { kind: 'renderer', bridgeRegistry: new NullByokLmBridgeRegistry() },
-		});
+			hostedTunnel,
+		} as const;
+		const runtime = await createAgentHostRuntime(runtimeOptions);
 		testDisposables.add(runtime);
 		const database = runtime.instantiationService.invokeFunction(accessor => accessor.get(IAgentHostDatabase));
 		try {

@@ -184,7 +184,7 @@ export class QueueDrainContribution extends Disposable implements IAgentHostChat
 		if (!started) {
 			return;
 		}
-		host.sendTurnMessage({
+		void host.sendTurnMessage({
 			agent: started.agent,
 			sessionChannel,
 			turnChannel: channel,

@@ -10,6 +10,7 @@ import { Server as UtilityProcessServer } from '../../../base/parts/ipc/node/ipc
 import { isUtilityProcess } from '../../../base/parts/sandbox/node/electronTypes.js';
 import { Emitter, type Event } from '../../../base/common/event.js';
 import { DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+import { observableValue } from '../../../base/common/observable.js';
 import { isWindows } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
@@ -116,6 +117,12 @@ async function startAgentHost(): Promise<void> {
 	let byokLmBridgeRegistry: ByokLmBridgeRegistry;
 	let proxyResolver!: IAgentHostProxyResolver;
 	const hostLaunchKind = readAgentHostLaunchKind(process.env[AgentHostLaunchKindEnvVar]);
+	const initialHostedTunnel = readAgentHostTunnelInfo(process.env);
+	const hostedTunnel = observableValue<HostedTunnelIdentity>(
+		process,
+		initialHostedTunnel ? { kind: 'hosted', tunnel: initialHostedTunnel } : { kind: 'unknown' },
+	);
+	const updateHostedTunnel = (tunnel: ITunnelHostInfo | undefined) => hostedTunnel.set(toKnownHostedTunnelIdentity(tunnel), undefined);
 	try {
 		byokLmBridgeRegistry = new ByokLmBridgeRegistry();
 		runtime = await createAgentHostRuntime({
@@ -454,6 +461,7 @@ async function startAgentHost(): Promise<void> {
 		otlpLogEmitter,
 		protocolIngressDisposables,
 		hostLaunchKind,
+		updateHostedTunnel,
 		count => connectionCountEmitter.fire(count),
 		handler => protocolHandlers.push(handler),
 	);
@@ -555,6 +563,7 @@ async function startWebSocketServer(
 	voiceWsUrl: string | undefined,
 	disposables: DisposableStore,
 	hostLaunchKind: AgentHostLaunchKind,
+	updateHostedTunnel: (tunnel: ITunnelHostInfo | undefined) => void,
 	onConnectionCountChanged: (count: number) => void,
 	onProtocolHandlerCreated: (handler: ProtocolServerHandler) => void,
 ): Promise<void> {

@@ -34,7 +34,7 @@ import { isActionEnvelopeRelevantToSubscriptionUris } from '../common/state/agen
 import { IS_CLIENT_DISPATCHABLE } from '../common/state/protocol/action-origin.generated.js';
 import { ChatSourceKind } from '../common/state/protocol/channels-chat/commands.js';
 import type { CommandMap } from '../common/state/protocol/messages.js';
-import { ActionEnvelope, ActionType, INotification, isAnnotationsAction, isAutomationAction, isAutomationRunAction, isChangesetAction, isChatAction, isSessionAction, isTerminalAction, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../common/state/sessionActions.js';
+import { ActionEnvelope, ActionType, INotification, isAnnotationsAction, isAutomationAction, isAutomationRunAction, isChangesetAction, isChatAction, isSessionAction, isTerminalAction, type AuthRequiredParams, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../common/state/sessionActions.js';
 import { PROTOCOL_VERSION } from '../common/state/protocol/version/registry.js';
 import { negotiateProtocolVersion } from '../common/state/protocol/version/negotiation.js';
 import { VSCODE_UPGRADE_METHOD, type UnsupportedProtocolVersionErrorDataEx } from '../common/state/protocolUpgrade.js';
@@ -58,7 +58,7 @@ import {
 	type IStateSnapshot,
 	type ListSessionsResult,
 } from '../common/state/sessionProtocol.js';
-import { isAhpAutomationCatalogChannel, isAhpResourceWatchChannel, ResponsePartKind, SessionStatus, ToolCallConfirmationReason, ToolCallContributorKind, ToolCallStatus, ToolResultContentType, buildDefaultChatUri, isAhpChatChannel, parseChatUri, parseRequiredSessionUriFromChatUri, type ISessionWithDefaultChat, type SessionState } from '../common/state/sessionState.js';
+import { isAhpAutomationCatalogChannel, isAhpResourceWatchChannel, ResponsePartKind, ROOT_STATE_URI, SessionStatus, ToolCallConfirmationReason, ToolCallContributorKind, ToolCallStatus, ToolResultContentType, buildDefaultChatUri, isAhpChatChannel, parseChatUri, parseRequiredSessionUriFromChatUri, type ISessionWithDefaultChat, type SessionState } from '../common/state/sessionState.js';
 import type { IProtocolServer, IProtocolTransport } from '../common/state/sessionTransport.js';
 import { IAgentHostManagedSettingsService } from './agentHostManagedSettingsService.js';
 import { AgentHostStateManager } from './agentHostStateManager.js';
@@ -473,6 +473,9 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		this._register(this._stateManager.onDidEmitNotification(notification => {
 			this._broadcastNotification(notification);
 		}));
+		this._register(this._stateManager.onDidChangeActiveAuthenticationRequirements(requirements => {
+			this._broadcastAuthenticationRequirementsSnapshot(requirements);
+		}));
 
 		this._register(this._agentService.onMcpNotification(notification => {
 			this._broadcastMcpNotification(notification);
@@ -530,6 +533,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				}
 				if (!client && msg.method === 'reconnect') {
 					let responsePromise: Promise<unknown>;
+					let reconnectedClient: IConnectedClient;
 					try {
 						const result = this._handleReconnect(msg.params, transport, disposables);
 						const reconnectClient = result.client;
@@ -571,6 +575,54 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 							this._managedSettingsService.setClientPermissions(this._managedSettingsContributionId(client.clientId), permissions);
 						} else {
 							this._logService.warn('[ProtocolServer] Ignoring invalid managed settings permissions contribution.');
+						}
+					}
+					return;
+				}
+				if ((msg as { method: string }).method === SetClientRemoteAgentHostsPolicyExtensionMethod) {
+					if (client) {
+						const enabled = ((msg as { params?: { enabled?: unknown } }).params)?.enabled;
+						if (typeof enabled === 'boolean') {
+							this._managedSettingsService.setClientRemoteAgentHostsEnabled(this._managedSettingsContributionId(client.clientId), enabled);
+						} else {
+							this._logService.warn('[ProtocolServer] Ignoring invalid remote Agent Host managed setting contribution.');
+						}
+					}
+					return;
+				}
+				if ((msg as { method: string }).method === SetClientHostedTunnelExtensionMethod) {
+					if (client && this._config.updateHostedTunnel) {
+						const result = setClientHostedTunnelParamsValidator.validate((msg as { params?: unknown }).params);
+						if (result.error) {
+							this._logService.warn('[ProtocolServer] Ignoring invalid hosted tunnel synchronization.');
+						} else if (!result.content.hosting) {
+							this._config.updateHostedTunnel(undefined);
+						} else {
+							const tunnelName = result.content.tunnelName;
+							if (!tunnelName) {
+								this._logService.warn('[ProtocolServer] Ignoring hosted tunnel synchronization without a tunnel name.');
+							} else {
+								this._config.updateHostedTunnel({
+									tunnelName,
+									tunnelId: result.content.tunnelId,
+									viaRemoteTunnelAccess: result.content.viaRemoteTunnelAccess,
+								});
+							}
+						}
+					}
+					return;
+				}
+				if ((msg as { method: string }).method === SetClientTunnelDismissalsExtensionMethod) {
+					if (client) {
+						const result = setClientTunnelDismissalsParamsValidator.validate((msg as { params?: unknown }).params);
+						if (result.error) {
+							this._logService.warn('[ProtocolServer] Ignoring invalid tunnel dismissal synchronization.');
+						} else {
+							try {
+								this._storageService.set(TUNNEL_AGENT_HOST_DISMISSALS_STORAGE_KEY, [...new Set(result.content.tunnelIds)]);
+							} catch (error) {
+								this._logService.error('[ProtocolServer] Failed to synchronize tunnel dismissals.', error);
+							}
 						}
 					}
 					return;
@@ -1193,7 +1245,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		if (record?.state === 'grace') {
 			record.disconnectTimeouts.set('managed-settings', disposableTimeout(() => {
 				record.disconnectTimeouts.deleteAndDispose('managed-settings');
-				this._managedSettingsService.removeClientPermissions(this._managedSettingsContributionId(clientId));
+				this._removeManagedSettingsContributions(clientId);
 			}, CLIENT_TOOL_CALL_DISCONNECT_TIMEOUT));
 		}
 		for (const session of this._stateManager.getSessionUris()) {
@@ -2752,6 +2804,40 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		}
 	}
 
+	private _sendActiveAuthenticationRequirements(client: IConnectedClient): void {
+		const requirements = this._stateManager.getActiveAuthenticationRequirements();
+		for (const requirement of requirements) {
+			const msg: AhpServerNotification<'auth/required'> = {
+				jsonrpc: '2.0',
+				method: 'auth/required',
+				params: {
+					channel: ROOT_STATE_URI,
+					...requirement,
+				},
+			};
+			client.transport.send(msg);
+		}
+		this._sendAuthenticationRequirementsSnapshot(client, requirements);
+	}
+
+	private _broadcastAuthenticationRequirementsSnapshot(requirements: readonly Omit<AuthRequiredParams, 'channel'>[]): void {
+		for (const record of this._clients.values()) {
+			const client = this._getActiveClientFromRecord(record);
+			if (client) {
+				this._sendAuthenticationRequirementsSnapshot(client, requirements);
+			}
+		}
+	}
+
+	private _sendAuthenticationRequirementsSnapshot(client: IConnectedClient, requirements: readonly Omit<AuthRequiredParams, 'channel'>[]): void {
+		const params: IAgentHostAuthenticationRequirementsSnapshot = {
+			requirements: requirements.map(requirement => ({ channel: ROOT_STATE_URI, ...requirement })),
+		};
+		// VS Code-private notifications intentionally extend the public AHP protocol union.
+		// eslint-disable-next-line local/code-no-dangerous-type-assertions
+		client.transport.send({ jsonrpc: '2.0', method: AgentHostAuthenticationRequirementsExtensionMethod, params } as unknown as ProtocolMessage);
+	}
+
 	/**
 	 * Forward an MCP server-originated notification (e.g.
 	 * `notifications/tools/list_changed`) over the AHP transport. The
@@ -2874,7 +2960,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 
 	override dispose(): void {
 		for (const [clientId, record] of this._clients) {
-			this._managedSettingsService.removeClientPermissions(this._managedSettingsContributionId(clientId));
+			this._removeManagedSettingsContributions(clientId);
 			if (record.state === 'active') {
 				for (const connection of [...record.connections]) {
 					const subscriptionCount = connection.subscriptions.size;

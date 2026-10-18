@@ -32,7 +32,7 @@ import type { IAgentHostWorkflowStartOptions } from './agentHostWorkflow.js';
 import type { IAgentWorkflowRunChange } from './meta/agentWorkflowMeta.js';
 import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from './state/protocol/channels-changeset/commands.js';
 import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomationTriggerDefinitionsParams, ListAutomationTriggerDefinitionsResult, RunAutomationParams, RunAutomationResult } from './state/protocol/channels-automation/commands.js';
-import type { ActionEnvelope, ClientAutomationAction, ClientAutomationRunAction, INotification, IRootConfigChangedAction, SessionAction, ChatAction, TerminalAction, ClientAnnotationsAction, ClientChangesetAction } from './state/sessionActions.js';
+import type { ActionEnvelope, AuthRequiredParams, ClientAutomationAction, ClientAutomationRunAction, INotification, IRootConfigChangedAction, SessionAction, ChatAction, TerminalAction, ClientAnnotationsAction, ClientChangesetAction } from './state/sessionActions.js';
 import type { ContentEncoding, ResourceCopyParams, ResourceCopyResult, ResourceDeleteParams, ResourceDeleteResult, ResourceListResult, ResourceMkdirParams, ResourceMkdirResult, ResourceMoveParams, ResourceMoveResult, ResourceReadResult, ResourceResolveParams, ResourceResolveResult, ResourceWatchState, ResourceWriteParams, ResourceWriteResult, CreateResourceWatchParams, CreateResourceWatchResult, IStateSnapshot } from './state/sessionProtocol.js';
 import { ComponentToState, StateComponents, type RootState } from './state/sessionState.js';
 import { type AgentProvider, CLAUDE_AGENT_PROVIDER_ID, type AuthenticateParams, type AuthenticateResult, type IAgentCanvasSnapshot, type IAgentCreateChatRequestOptions, type IAgentCreateSessionConfig, type IAgentPluginUninstallRequest, type IAgentSessionMetadata, type IAgentResolveSessionConfigParams, type IAgentSessionConfigCompletionsParams, type IMcpNotification, type IAgentHostNetworkEndpoint, type IAgentHostManagedSettingsSnapshot } from './agent.js';
@@ -1598,6 +1598,8 @@ export interface IAgentConnection {
 	readonly onDidReinitialize: Event<void>;
 	readonly onDidNotification: Event<INotification>;
 	readonly onDidAction: Event<ActionEnvelope>;
+	/** Authentication requirements retained so consumers attaching after initialize can observe them. */
+	readonly authenticationRequirements?: IObservable<readonly AuthRequiredParams[]>;
 	/**
 	 * Fires when the host forwards an MCP server notification (e.g.
 	 * `notifications/tools/list_changed`) over the `mcp://` side channel.

@@ -314,6 +314,8 @@ suite('AgentConfigurationService', () => {
 		firstService.updateRootConfig({
 			[AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.Last30Days,
 			[AgentHostMcpServersConfigKey]: { operatorServer: { command: 'node' } },
+			[AgentHostRemoteAgentsEnabledConfigKey]: true,
+			[AgentHostRemoteAgentsTunnelDiscoveryEnabledConfigKey]: true,
 		});
 		await firstService.whenIdle();
 
@@ -323,9 +325,13 @@ suite('AgentConfigurationService', () => {
 		assert.deepStrictEqual({
 			showExternalSessions: restartedService.getRootValue(platformRootSchema, AgentHostShowExternalSessionsConfigKey),
 			mcpServers: restartedService.getRootValue(platformRootSchema, AgentHostMcpServersConfigKey),
+			remoteAgentsEnabled: restartedService.getRootValue(platformRootSchema, AgentHostRemoteAgentsEnabledConfigKey),
+			tunnelDiscoveryEnabled: restartedService.getRootValue(platformRootSchema, AgentHostRemoteAgentsTunnelDiscoveryEnabledConfigKey),
 		}, {
 			showExternalSessions: AgentHostExternalSessionsMode.Last30Days,
 			mcpServers: { operatorServer: { command: 'node' } },
+			remoteAgentsEnabled: true,
+			tunnelDiscoveryEnabled: true,
 		});
 		fs.rmSync(directory, { recursive: true, force: true });
 	});

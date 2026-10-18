@@ -65,6 +65,7 @@ import { createNoopGitStateService, createNullSessionDataService } from '../comm
 import { createNoopWorktreeIsolation } from './worktreeTestHelpers.js';
 import { ISessionDataService } from '../../common/sessionDataService.js';
 import { MockAgent } from './mockAgent.js';
+import { registerNoopRemoteSessionDelegationServices } from './remoteSessionDelegationTestUtils.js';
 import { TestAgentHostTerminalManager } from './testAgentHostTerminalManager.js';
 
 class FakeChangesetService implements IAgentHostChangesetService {

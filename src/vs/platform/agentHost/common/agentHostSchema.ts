@@ -14,6 +14,7 @@ import { SessionConfigKey, type SessionSandboxEnabled } from './sessionConfigKey
 import type { IShellInitScript } from './shellInitScript.js';
 import type { SessionConfigPropertySchema, SessionConfigSchema } from './state/protocol/commands.js';
 import { JsonRpcErrorCodes, ProtocolError } from './state/sessionProtocol.js';
+import { TunnelAgentHostsSettingId } from './tunnelAgentHost.js';
 
 // ---- Schema builder --------------------------------------------------------
 
@@ -455,6 +456,12 @@ export const DISABLE_REPO_INFO_TELEMETRY_SETTING_ID = 'chat.advanced.debug.disab
  */
 export const AgentHostSessionSyncEnabledConfigKey = 'sessionSyncEnabled';
 
+/** Whether this Agent Host may connect to and use agents from other Agent Hosts. */
+export const AgentHostRemoteAgentsEnabledConfigKey = 'remoteAgents.enabled';
+
+/** Whether this Agent Host discovers eligible remote Agent Hosts through tunnels. */
+export const AgentHostRemoteAgentsTunnelDiscoveryEnabledConfigKey = 'remoteAgents.tunnelDiscovery.enabled';
+
 /** Whether extension-provided BYOK models are enabled. */
 export const AgentHostByokModelsEnabledConfigKey = 'byokModelsEnabled';
 
@@ -828,6 +835,25 @@ export const platformRootSchema = createSchema({
 		title: localize('agentHost.config.sessionSyncEnabled.title', "Session Sync"),
 		description: localize('agentHost.config.sessionSyncEnabled.description', "Whether remote session sync is enabled for the copilot-sdk CLI."),
 		default: false,
+	}),
+	[AgentHostRemoteAgentsEnabledConfigKey]: schemaProperty<boolean>({
+		type: 'boolean',
+		title: localize('agentHost.config.remoteAgentsEnabled.title', "Remote Agents"),
+		description: localize('agentHost.config.remoteAgentsEnabled.description', "Whether this Agent Host can connect to and use agents from other Agent Hosts."),
+		default: false,
+	}),
+	[AgentHostRemoteAgentsTunnelDiscoveryEnabledConfigKey]: schemaProperty<boolean>({
+		type: 'boolean',
+		title: localize('agentHost.config.remoteAgentsTunnelDiscoveryEnabled.title', "Remote Agent Tunnel Discovery"),
+		description: localize('agentHost.config.remoteAgentsTunnelDiscoveryEnabled.description', "Whether this Agent Host discovers and connects to eligible remote Agent Hosts through tunnels when remote agents are enabled."),
+		default: false,
+	}),
+	[TunnelAgentHostsSettingId]: schemaProperty<readonly string[]>({
+		type: 'array',
+		title: localize('agentHost.config.remoteAgentTunnels.title', "Remote Agent Tunnels"),
+		description: localize('agentHost.config.remoteAgentTunnels.description', "Additional dev tunnel names to include when discovering remote Agent Hosts."),
+		items: { type: 'string', title: localize('agentHost.config.remoteAgentTunnels.item.title', "Tunnel Name") },
+		default: [],
 	}),
 	[AgentHostByokModelsEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',

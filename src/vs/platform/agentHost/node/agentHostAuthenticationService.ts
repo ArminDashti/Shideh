@@ -62,9 +62,12 @@ export class AgentHostAuthenticationService extends Disposable implements IAgent
 	private readonly _authenticationRequests = new Map<string, IAuthenticationRequest>();
 	private readonly _onDidChangeAuthToken = this._register(new Emitter<IAgentHostAuthTokenChangeEvent>());
 	readonly onDidChangeAuthToken = this._onDidChangeAuthToken.event;
+	private readonly _emptyHostFeatureAuthenticationRequirements = observableValue<readonly Omit<AuthRequiredParams, 'channel'>[]>(this, []);
+	readonly hostFeatureAuthenticationRequirements: IObservable<readonly Omit<AuthRequiredParams, 'channel'>[]>;
 
 	constructor(
 		private readonly _logService: ILogService,
+		private readonly _hostFeatureAuthenticationRegistry?: IAgentHostFeatureAuthenticationRegistry,
 	) {
 		super();
 		this._register(toDisposable(() => {
@@ -98,6 +101,16 @@ export class AgentHostAuthenticationService extends Disposable implements IAgent
 		this._logService.trace(`[AgentHostAuthenticationService] authenticate called: resource=${params.resource}`);
 		const expiresAt = getExpirationTime(params.expiresIn);
 		const providerList = [...providers];
+		return this._authenticationOperations.queue(key, () => this._authenticate(params, providerList, scopes, key));
+	}
+
+	private async _authenticate(params: AuthenticateParams, providerList: readonly IAgent[], scopes: readonly string[], key: string): Promise<AuthenticateResult> {
+		this._logService.trace(`[AgentHostAuthenticationService] authenticate called: resource=${params.resource}`);
+		const hostFeatureResult = this._hostFeatureAuthenticationRegistry?.authenticate(params);
+		if (hostFeatureResult?.handled) {
+			return { authenticated: hostFeatureResult.authenticated };
+		}
+		const expiresAt = getExpirationTime(params.expiresIn);
 		// Multiple providers may share the same protected resource (e.g.
 		// both Copilot CLI and Claude consume the Copilot-scoped OAuth credential).
 		// Fan out to every matching provider in parallel; the request is

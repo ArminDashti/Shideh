@@ -21,7 +21,7 @@ import { IInstantiationService } from '../../instantiation/common/instantiation.
 import { ILogService } from '../../log/common/log.js';
 import { IAgentHostChangesetService } from '../common/agentHostChangesetService.js';
 import { IAgentHostCheckpointService } from '../common/agentHostCheckpointService.js';
-import { IAgentHostChatContributions, type ISendTurnMessageOptions } from '../common/agentHostChatContributionsService.js';
+import { IAgentHostChatContributions, type ISendTurnMessageOptions, type SendTurnMessageOutcome } from '../common/agentHostChatContributionsService.js';
 import { AgentHostClientType } from '../common/agentHostClientInfo.js';
 import { isRenameChatTool } from '../common/serverToolNames.js';
 import { AgentHostLaunchKind, createUnknownAgentHostClientTelemetryContext, type IAgentHostClientTelemetryContext } from '../common/agentHostTelemetry.js';
@@ -309,7 +309,7 @@ export class AgentSideEffects extends Disposable {
 		this._register(this._stateManager.onDidSnapshotDefaultChatTitle(event => this._persistDefaultChatTitleSnapshot(event.session, event.chat, event.title)));
 		this._register(this._chatContributions.registerHost({
 			hostLaunchKind: this._options.hostLaunchKind ?? AgentHostLaunchKind.Unknown,
-			sendTurnMessage: options => void this._sendTurnMessage(options),
+			sendTurnMessage: options => this._sendTurnMessage(options),
 		}));
 		this._register(this._stateManager.onDidChangeSessionConfig(e => {
 			const previousMode = getConfiguredSessionMode(e.previous);
@@ -1837,7 +1837,7 @@ export class AgentSideEffects extends Disposable {
 				if (!chatChannel) {
 					throw new Error(`ChatTurnStarted must be handled on an AHP chat channel: ${channel}`);
 				}
-				this._turnService.handleTurnStarted(channel, action, clientId, clientContext);
+				void this._turnService.handleTurnStarted(channel, action, clientId, clientContext);
 				break;
 			}
 			case ActionType.ChatTurnResume: {
@@ -1957,6 +1957,13 @@ export class AgentSideEffects extends Disposable {
 				if (action.approved && !managedApprovalRequired) {
 					this._permissionManager.handleToolCallConfirmed(channel, action.toolCallId, action.selectedOptionId);
 				}
+				break;
+			}
+			case ActionType.ChatToolCallResultConfirmed: {
+				if (!chatChannel) {
+					throw new Error(`ChatToolCallResultConfirmed must be handled on an AHP chat channel: ${channel}`);
+				}
+				this._options.getAgent(sessionChannel)?.respondToToolResultConfirmation?.(action.toolCallId, action.approved);
 				break;
 			}
 			case ActionType.ChatInputCompleted: {
@@ -2390,6 +2397,9 @@ export class AgentSideEffects extends Disposable {
 			// still have started work, so the checkpoint must survive it.
 			dispatchedToProvider = true;
 			await agent.chats.sendMessage(chatUri, contribution.message.text, resolvedWorkingDirectories, resolvedAttachments, turnId, senderClientId, clientContext.clientType, sendContext);
+			return this._cancelledTurnIds.get(turnChannel)?.has(turnId)
+				? { kind: 'cancelled' }
+				: { kind: 'accepted' };
 		} catch (err) {
 			// The provider never saw the prompt, so the turn-start checkpoint
 			// describes work that will never happen. Drop it — otherwise the

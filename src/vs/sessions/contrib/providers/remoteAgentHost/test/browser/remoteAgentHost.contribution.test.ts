@@ -241,6 +241,7 @@ suite('RemoteAgentHost auth notifications', () => {
 			getSessions: async () => [{ id: 'session-id', account: { id: 'account-id', label: 'Test Account' }, scopes: ['session:read'], accessToken: 'session-token' }],
 		});
 		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(ICommandService, { executeCommand: async () => undefined });
 		const calls: string[] = [];
 		const contribution = Object.create(RemoteAgentHostContribution.prototype) as IRemoteAuthNotificationHarness;
 		contribution._connections = new Map([

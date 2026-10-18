@@ -27,6 +27,12 @@ export const MAX_TERMINAL_OUTPUT_BYTES = getLargeFileConfirmationLimit('agent-ho
  */
 export const SESSION_ATTACHMENTS_DIRNAME = 'attachments';
 
+/** Opaque provider data for a session's default chat. */
+export const DEFAULT_CHAT_PROVIDER_DATA_METADATA_KEY = 'defaultChatProviderData';
+
+/** Persisted `create_session` depth used to restore session delegation limits. */
+export const REMOTE_SESSION_DELEGATION_SPAWN_DEPTH_METADATA_KEY = 'remoteSessionDelegation.spawnDepth';
+
 export function isSessionAttachmentPath(sessionDataService: ISessionDataService, session: URI, filePath: string): boolean {
 	const attachmentsDir = normalizePath(URI.joinPath(sessionDataService.getSessionDataDir(session), SESSION_ATTACHMENTS_DIRNAME));
 	const fileUri = normalizePath(URI.file(filePath));

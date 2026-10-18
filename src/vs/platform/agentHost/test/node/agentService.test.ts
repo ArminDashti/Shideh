@@ -18488,6 +18488,82 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual(readSessionCreationReference(getStateManager(localService).getSessionState(sessionResource.toString())?._meta), creationReference);
 		});
 
+		test('restores ordinary child spawn depth across restart and enforces the descendant limit', async () => {
+			class ServerToolAgent extends MockAgent {
+				serverToolHost: IAgentServerToolHost | undefined;
+
+				setServerToolHost(host: IAgentServerToolHost): void {
+					this.serverToolHost = host;
+				}
+			}
+
+			const database = new TestSessionDatabase();
+			const backendAgent = disposables.add(new MockAgent('copilot'));
+			const { session } = await createAgentSession(backendAgent);
+			await database.setMetadata(REMOTE_SESSION_DELEGATION_SPAWN_DEPTH_METADATA_KEY, String(MAX_SESSION_SPAWN_DEPTH - 1));
+
+			const restoredService = disposables.add(createTestAgentService(
+				new NullLogService(),
+				fileService,
+				createSessionDataService(database),
+				{ _serviceBrand: undefined } as IProductService,
+				createNoopGitService(),
+			));
+			const restoredAgent = disposables.add(new ServerToolAgent('copilot'));
+			await createAgentSession(restoredAgent, { session });
+			registerTestAgentProvider(restoredService, restoredAgent);
+			await restoredService.restoreSession(session);
+
+			const sessionsBeforeDescendant = new Set(getStateManager(restoredService).getSessionUris());
+			await restoredAgent.serverToolHost!.executeTool(buildDefaultChatUri(session), SessionServerToolName.CreateSession, {
+				relationship: 'independent',
+				workspace: URI.file('/workspace').toString(),
+				prompt: 'create the final allowed descendant',
+				title: 'Final Descendant',
+			});
+			const descendant = getStateManager(restoredService).getSessionUris().find(uri => !sessionsBeforeDescendant.has(uri));
+			assert.ok(descendant);
+			await assert.rejects(
+				async () => {
+					await restoredAgent.serverToolHost!.executeTool(buildDefaultChatUri(descendant), SessionServerToolName.CreateSession, {
+						relationship: 'independent',
+						workspace: URI.file('/workspace').toString(),
+						prompt: 'create one descendant too many',
+						title: 'Too Deep',
+					});
+				},
+				/recursion limit/,
+			);
+
+			assert.deepStrictEqual({
+				restoredDepth: readSessionSpawnDepth(getStateManager(restoredService).getSessionSummary(session.toString())?._meta),
+				descendantDepth: readSessionSpawnDepth(getStateManager(restoredService).getSessionSummary(descendant)?._meta),
+			}, {
+				restoredDepth: MAX_SESSION_SPAWN_DEPTH - 1,
+				descendantDepth: MAX_SESSION_SPAWN_DEPTH,
+			});
+		});
+
+		test('rejects invalid persisted ordinary child spawn depth', async () => {
+			const database = new TestSessionDatabase();
+			const backendAgent = disposables.add(new MockAgent('copilot'));
+			const { session } = await createAgentSession(backendAgent);
+			await database.setMetadata(REMOTE_SESSION_DELEGATION_SPAWN_DEPTH_METADATA_KEY, 'not-a-depth');
+			const localService = disposables.add(createTestAgentService(
+				new NullLogService(),
+				fileService,
+				createSessionDataService(database),
+				{ _serviceBrand: undefined } as IProductService,
+				createNoopGitService(),
+			));
+			const restoredAgent = disposables.add(new MockAgent('copilot'));
+			await createAgentSession(restoredAgent, { session });
+			registerTestAgentProvider(localService, restoredAgent);
+
+			await assert.rejects(localService.restoreSession(session), /Invalid persisted session spawn depth/);
+			assert.strictEqual(getStateManager(localService).getSessionState(session.toString()), undefined);
+		});
+
 		test('restores persisted source-control provenance', async () => {
 			const db = new TestSessionDatabase();
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(db), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
@@ -23781,9 +23857,10 @@ suite('AgentService (node dispatcher)', () => {
 				title: 'New Session',
 			});
 			const createdSessionUri = getStateManager(localService).getSessionUris().find(uri => !sessionUrisBeforeCreation.has(uri));
-			const delegatedMessage = createdSessionUri
-				? getStateManager(localService).getChatState(buildDefaultChatUri(createdSessionUri))?.activeTurn?.message
+			const delegatedChat = createdSessionUri
+				? getStateManager(localService).getChatState(buildDefaultChatUri(createdSessionUri))
 				: undefined;
+			const delegatedMessage = delegatedChat?.activeTurn?.message ?? delegatedChat?.turns.at(-1)?.message;
 			const createdIsolation = createdSessionUri
 				? getStateManager(localService).getSessionState(createdSessionUri)?.config?.values[SessionConfigKey.Isolation]
 				: undefined;

@@ -28,7 +28,7 @@ import { AgentHostCanvasesChangedNotification, DevContainerConnectExtensionMetho
 import { ChatSourceKind, CompletionsParams, CompletionsResult, ContentEncoding, CreateTerminalParams, ListSessionsResult, ResourceReadResult, ResolveSessionConfigResult, SessionConfigCompletionsResult, ResourceMkdirParams, ResourceMkdirResult, ResourceResolveParams, ResourceResolveResult, ResourceCopyParams, ResourceCopyResult } from '../../common/state/protocol/commands.js';
 import type { AutomationCapabilities, Implementation } from '../../common/state/protocol/common/commands.js';
 import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomationTriggerDefinitionsParams, ListAutomationTriggerDefinitionsResult, RunAutomationParams, RunAutomationResult } from '../../common/state/protocol/channels-automation/commands.js';
-import { ActionType, type ActionEnvelope, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type IRootConfigChangedAction, type ProgressParams, type SessionAction, type TerminalAction } from '../../common/state/sessionActions.js';
+import { ActionType, AuthRequiredReason, type ActionEnvelope, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type IRootConfigChangedAction, type ProgressParams, type SessionAction, type TerminalAction } from '../../common/state/sessionActions.js';
 import { PROTOCOL_VERSION } from '../../common/state/protocol/version/registry.js';
 import { isJsonRpcNotification, isJsonRpcRequest, isJsonRpcResponse, JSON_RPC_INTERNAL_ERROR, JsonRpcErrorCodes, ProtocolError, AhpErrorCodes, AHP_UNSUPPORTED_PROTOCOL_VERSION, AHP_SESSION_NOT_FOUND, type AhpNotification, type InitializeResult, type ProtocolMessage, type ReconnectResult, type ResourceListResult, type ResourceWriteParams, type ResourceWriteResult, type IStateSnapshot, type SubscribeResult } from '../../common/state/sessionProtocol.js';
 import { AUTOMATION_CATALOG_URI, ChatInteractivity, ChatOriginKind, MessageKind, ResponsePartKind, SessionStatus, ChangesetStatus, ToolCallConfirmationReason, ToolCallContributorKind, ToolCallStatus, ToolResultContentType, buildChatUri, buildDefaultChatUri, readSessionExternal, readSessionWorkspaceless, withSessionExternal, withSessionWorkspaceless, type ChangesetState, type ChatState, type SessionState, type SessionSummary } from '../../common/state/sessionState.js';
@@ -45,6 +45,7 @@ import { iterateOtlpLogRecords, OtlpLogEmitter } from '../../common/otlp/otlpLog
 import { MessagePortProtocolServer } from '../../node/messagePortProtocolServer.js';
 import { AGENT_HOST_CLIENT_CONNECTION_HISTORY_RETENTION, AgentHostClientConnectionService } from '../../node/agentHostClientConnectionService.js';
 import { AgentHostManagedSettingsService } from '../../node/agentHostManagedSettingsService.js';
+import { AgentHostStorageService } from '../../node/agentHostStorageService.js';
 import { AgentHostTelemetryService } from '../../node/agentHostTelemetryService.js';
 import { buildAnnotationsUri } from '../../common/annotationsUri.js';
 import { buildSessionChangesetUri } from '../../common/changesetUri.js';
@@ -489,7 +490,7 @@ function request(id: number, method: string, params?: unknown): ProtocolMessage 
 }
 
 function findNotifications(sent: ProtocolMessage[], method: string): AhpNotification[] {
-	return sent.filter(isJsonRpcNotification) as AhpNotification[];
+	return sent.filter(message => isJsonRpcNotification(message) && String(message.method) === method) as AhpNotification[];
 }
 
 function findResponse(sent: ProtocolMessage[], id: number): ProtocolMessage | undefined {
@@ -528,6 +529,7 @@ suite('ProtocolServerHandler', () => {
 	let server: MockProtocolServer;
 	let agentService: MockAgentService;
 	let managedSettingsService: AgentHostManagedSettingsService;
+	let storageService: AgentHostStorageService;
 	let handler: ProtocolServerHandler;
 	let fileSystemProvider: AgentHostFileSystemProvider;
 	let logService: CountingLogService;
@@ -575,17 +577,23 @@ suite('ProtocolServerHandler', () => {
 		agentService = new MockAgentService();
 		agentService.setStateManager(stateManager);
 		managedSettingsService = disposables.add(new AgentHostManagedSettingsService());
+		storageService = disposables.add(new AgentHostStorageService(undefined, new NullLogService()));
 		logService = new CountingLogService();
 		telemetryService = new TestTelemetryService();
 		agentHostTelemetryService = disposables.add(new AgentHostTelemetryService(telemetryService));
 		clientConnections = disposables.add(new AgentHostClientConnectionService());
+		hostedTunnelUpdates = [];
 		disposables.add(agentService);
 		recordingMcpHostService = new RecordingMcpHostService();
 		disposables.add(handler = new ProtocolServerHandler(
 			agentService,
 			stateManager,
 			server,
-			{ hostLaunchKind: AgentHostLaunchKind.VSCodeMainProcess, defaultDirectory: URI.file('/home/testuser').toString() },
+			{
+				hostLaunchKind: AgentHostLaunchKind.VSCodeMainProcess,
+				defaultDirectory: URI.file('/home/testuser').toString(),
+				updateHostedTunnel: tunnel => hostedTunnelUpdates.push(tunnel),
+			},
 			disposables.add(fileSystemProvider = new AgentHostFileSystemProvider()),
 			logService,
 			agentHostTelemetryService,
@@ -5672,6 +5680,17 @@ suite('ProtocolServerHandler', () => {
 		});
 	});
 
+	test('setClientRemoteAgentHostsPolicy validates and restrictively combines client contributions', () => {
+		const allowingTransport = connectClient('client-remote-agents-allowed');
+		const restrictingTransport = connectClient('client-remote-agents-restricted');
+
+		allowingTransport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: true }));
+		restrictingTransport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: false }));
+		restrictingTransport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: 'invalid' }));
+
+		assert.strictEqual(managedSettingsService.remoteAgentHostsEnabled, false);
+	});
+
 	test('scopes managed settings contributions to each protocol handler', () => {
 		const firstTransport = connectClient('shared-client-id');
 		firstTransport.simulateMessage(notification('setClientManagedSettingsPermissions', {
@@ -5719,20 +5738,65 @@ suite('ProtocolServerHandler', () => {
 		activeTransport.simulateMessage(notification('setClientManagedSettingsPermissions', {
 			permissions: { ask: ['Shell'] },
 		}));
+		activeTransport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: true }));
 		const graceTransport = connectClient('client-managed-settings-grace');
 		graceTransport.simulateMessage(notification('setClientManagedSettingsPermissions', {
 			permissions: { disableBypassPermissionsMode: 'disable' },
 		}));
+		graceTransport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: false }));
 		graceTransport.simulateClose();
 
-		assert.deepStrictEqual(managedSettingsService.permissions, {
-			disableBypassPermissionsMode: 'disable',
-			ask: ['Shell'],
+		assert.deepStrictEqual({
+			permissions: managedSettingsService.permissions,
+			remoteAgentHostsEnabled: managedSettingsService.remoteAgentHostsEnabled,
+		}, {
+			permissions: {
+				disableBypassPermissionsMode: 'disable',
+				ask: ['Shell'],
+			},
+			remoteAgentHostsEnabled: false,
 		});
 
 		handler.dispose();
 
-		assert.deepStrictEqual(managedSettingsService.permissions, {});
+		assert.deepStrictEqual({
+			permissions: managedSettingsService.permissions,
+			remoteAgentHostsEnabled: managedSettingsService.remoteAgentHostsEnabled,
+		}, {
+			permissions: {},
+			remoteAgentHostsEnabled: undefined,
+		});
+	});
+
+	test('stores synchronized tunnel dismissals before discovery admission', () => {
+		const transport = connectClient('client-tunnel-dismissals');
+
+		transport.simulateMessage(notification(SetClientTunnelDismissalsExtensionMethod, {
+			tunnelIds: ['dismissed-before-connect'],
+		}));
+
+		assert.deepStrictEqual(
+			storageService.get<readonly string[]>(TUNNEL_AGENT_HOST_DISMISSALS_STORAGE_KEY),
+			['dismissed-before-connect'],
+		);
+	});
+
+	test('updates the live hosted tunnel bootstrap input', () => {
+		const transport = connectClient('client-hosted-tunnel');
+
+		transport.simulateMessage(notification(SetClientHostedTunnelExtensionMethod, {
+			hosting: true,
+			tunnelName: 'hosted-name',
+			tunnelId: 'hosted-id',
+			viaRemoteTunnelAccess: true,
+		}));
+		transport.simulateMessage(notification(SetClientHostedTunnelExtensionMethod, { hosting: false }));
+
+		assert.deepStrictEqual(hostedTunnelUpdates, [{
+			tunnelName: 'hosted-name',
+			tunnelId: 'hosted-id',
+			viaRemoteTunnelAccess: true,
+		}, undefined]);
 	});
 
 	test('removes a managed settings contribution after disconnect grace expires', () => {
@@ -5741,11 +5805,18 @@ suite('ProtocolServerHandler', () => {
 			transport.simulateMessage(notification('setClientManagedSettingsPermissions', {
 				permissions: { ask: ['Shell'] },
 			}));
+			transport.simulateMessage(notification(SetClientRemoteAgentHostsPolicyExtensionMethod, { enabled: false }));
 			transport.simulateClose();
 
 			await new Promise(resolve => setTimeout(resolve, 30_001));
 
-			assert.deepStrictEqual(managedSettingsService.permissions, {});
+			assert.deepStrictEqual({
+				permissions: managedSettingsService.permissions,
+				remoteAgentHostsEnabled: managedSettingsService.remoteAgentHostsEnabled,
+			}, {
+				permissions: {},
+				remoteAgentHostsEnabled: undefined,
+			});
 		});
 	});
 

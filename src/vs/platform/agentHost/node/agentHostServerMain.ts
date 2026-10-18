@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import type { Event } from '../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../base/common/lifecycle.js';
+import { observableValue } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { localize } from '../../../nls.js';

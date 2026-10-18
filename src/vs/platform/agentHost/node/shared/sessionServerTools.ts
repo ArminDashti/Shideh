@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Mutable } from '../../../../base/common/types.js';
+import type { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { Schemas } from '../../../../base/common/network.js';
+import type { Mutable } from '../../../../base/common/types.js';
+import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import { toAgentMessageDelegationMeta, type IAgentMessageDelegationMeta } from '../../common/meta/agentMessageDelegationMeta.js';
 import { readAgentHostPersistentTeamState } from '../../common/meta/agentHostPersistentTeamMeta.js';
 import { localize } from '../../../../nls.js';
@@ -30,7 +32,7 @@ import type { IServerToolDisplay, IServerToolDisplayResult, IServerToolGroup } f
  * sessions — this bounds recursive spawn *chains* (A→B→C→…). Breadth is bounded
  * separately by {@link maxCreatedSessions} plus the per-call user confirmation.
  */
-const maxSessionSpawnDepth = 3;
+export const MAX_SESSION_SPAWN_DEPTH = 3;
 
 /** Process-wide backstop against runaway spawning (breadth), independent of depth. */
 const maxCreatedSessions = 50;
@@ -38,6 +40,51 @@ const maxCreatedChats = 50;
 
 /** Process-wide backstop against runaway `send_message` fan-out. */
 const maxSentMessages = 100;
+
+export interface ISessionCreationClaim extends IDisposable {
+	commit(): void;
+}
+
+/** Process-wide reservation counter shared by every session-creation tool path. */
+export class SessionCreationBudget {
+	private readonly _entries = new Map<ProtocolURI | symbol, { state: 'reserved' | 'created'; claims: number }>();
+
+	constructor(private readonly _limit = maxCreatedSessions) { }
+
+	claim(plannedSession?: ProtocolURI): ISessionCreationClaim {
+		const key = plannedSession ?? Symbol();
+		let entry = this._entries.get(key);
+		if (!entry) {
+			if (this._entries.size >= this._limit) {
+				throw new Error(`Refusing to create more than ${this._limit} sessions from server tools in this process.`);
+			}
+			entry = { state: 'reserved', claims: 0 };
+			this._entries.set(key, entry);
+		}
+		entry.claims++;
+		let settled = false;
+		return {
+			commit: () => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				entry.state = 'created';
+				entry.claims--;
+			},
+			dispose: () => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				entry.claims--;
+				if (entry.state === 'reserved' && entry.claims === 0) {
+					this._entries.delete(key);
+				}
+			},
+		};
+	}
+}
 
 const sessionConfirmationToolNames: ReadonlySet<string> = new Set([SessionServerToolName.SetWorkspace, SessionServerToolName.CreateSession, SessionServerToolName.CreateChat, SessionServerToolName.SendMessage, SessionServerToolName.DeleteSession]);
 const createSessionRelationshipValues = ['currentSession', 'independent'] as const;
@@ -353,6 +400,7 @@ export interface IAgentServiceSessionServerToolAccessor {
 	readonly supportsChatWorkingDirectories: (session: URI) => boolean;
 	readonly listSessions: () => Promise<readonly IAgentSessionMetadata[]>;
 	readonly getSession: (session: URI) => Promise<IAgentSessionMetadata | undefined>;
+	readonly restoreSession: (session: URI) => Promise<void>;
 	readonly getWorktreeRoots: (workspace: URI) => Promise<readonly URI[]>;
 	readonly createSession: (config: IAgentCreateSessionConfig) => Promise<URI>;
 	readonly getModels: () => readonly IAgentModelInfo[];
@@ -365,15 +413,25 @@ export interface IAgentServiceSessionServerToolAccessor {
 	readonly deleteSession: (session: URI) => Promise<void>;
 	/** Reads a point-in-time snapshot of a session's chat conversation (default chat, or a specific chat by id). */
 	readonly getChatContext: (session: URI, chatId?: string) => Promise<IChatContextSnapshot | undefined>;
-	/** The spawn depth of a session (0 for a user/top-level session, N for one created N levels deep by `create_session`). */
-	readonly getSessionSpawnDepth: (session: URI) => number;
+	/** The spawn depth of a session, or undefined when delegated ancestry makes a missing value ambiguous. */
+	readonly getSessionSpawnDepth: (session: URI) => number | undefined;
 	/** Records the spawn depth of a freshly-created session so its own `create_session` calls can enforce the recursion limit. */
 	readonly setSessionSpawnDepth: (session: URI, depth: number) => void;
+}
+
+export const IAgentHostSessionToolCallbacks = createDecorator<IAgentHostSessionToolCallbacks>('agentHostSessionToolCallbacks');
+
+/** AgentService callbacks and shared admission state used by session-creation tool paths. */
+export interface IAgentHostSessionToolCallbacks {
+	readonly _serviceBrand: undefined;
+	readonly accessor: IAgentServiceSessionServerToolAccessor;
+	readonly sessionCreationBudget: SessionCreationBudget;
 }
 
 /** Complete dependency surface needed by the session server-tool group. */
 export interface ISessionServerToolAccessor extends IAgentServiceSessionServerToolAccessor {
 	readonly requestSessionWorkspaceUpdate: (chat: URI, turnId: string, workspaceFolder: URI, isolation: boolean) => void;
+	readonly sessionCreationBudget?: SessionCreationBudget;
 }
 
 export interface IRenameTitleResult {
@@ -1010,18 +1068,19 @@ export async function applyCreateSessionTool(accessor: ISessionServerToolAccesso
 			...inheritedProviderConfig,
 			...(isolation !== undefined ? { [SessionConfigKey.Isolation]: isolation } : {}),
 		};
+	const creationMeta = currentSession !== undefined && source !== undefined
+		? withSessionCreationReference(undefined, {
+			session: currentSession.toString(),
+			chat: source.toString(),
+			...(sourceTurnId !== undefined ? { turnId: sourceTurnId } : {}),
+		})
+		: undefined;
 	const config: IAgentCreateSessionConfig = {
 		...(workspace !== undefined ? { workingDirectories: [workspace] } : {}),
 		...(provider !== undefined ? { provider } : {}),
 		...(args.model !== undefined ? { model: { id: args.model.id } } : defaults?.model !== undefined ? { model: defaults.model } : {}),
 		...(configValues !== undefined ? { config: configValues } : {}),
-		...(currentSession !== undefined && source !== undefined ? {
-			_meta: withSessionCreationReference(undefined, {
-				session: currentSession.toString(),
-				chat: source.toString(),
-				...(sourceTurnId !== undefined ? { turnId: sourceTurnId } : {}),
-			})
-		} : {}),
+		_meta: withSessionSpawnDepth(creationMeta, parentDepth + 1),
 	};
 	const session = await accessor.createSession(config);
 	accessor.setSessionSpawnDepth(session, parentDepth + 1);

@@ -18,17 +18,18 @@ import { AgentHostProxyConfigKey, AgentHostTelemetryLevelConfigKey, agentHostCon
 import type { IAgentServiceCallbacks, IAgentServiceCallbackBinder } from './agentService.js';
 import { AgentConfigurationService, IAgentConfigurationService } from './agentConfigurationService.js';
 import { AgentHostAuthenticationService, IAgentHostAuthenticationController, IAgentHostAuthenticationService } from './agentHostAuthenticationService.js';
+import { AgentHostFeatureAuthenticationRegistry, IAgentHostFeatureAuthenticationRegistry } from './agentHostFeatureAuthentication.js';
 import { AgentHostGitHubEndpointService, IAgentHostGitHubEndpointService } from './agentHostGitHubEndpointService.js';
 import { AgentHostProxyResolver, IAgentHostProxyResolver } from './agentHostProxyResolver.js';
 import { AgentHostRequestService } from './agentHostRequestService.js';
 import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
 import type { IArtifactServerToolAccessor } from './shared/artifactServerTools.js';
-import type { IAgentServiceSessionServerToolAccessor } from './shared/sessionServerTools.js';
+import { IAgentHostSessionToolCallbacks, SessionCreationBudget, type IAgentServiceSessionServerToolAccessor } from './shared/sessionServerTools.js';
 import { hostBuildInfoFromProduct } from '../common/state/sessionState.js';
 import { AgentHostDatabase, IAgentHostDatabase } from './agentHostDatabase.js';
 
-export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder {
-	private callbacks: IAgentServiceCallbacks | undefined;
+export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder, IAgentHostSessionToolCallbacks {
+	declare readonly _serviceBrand: undefined;
 
 	readonly sessionServerToolAccessor: IAgentServiceSessionServerToolAccessor = {
 		getAutomaticTitleGenerationStrategy: session => this.value.sessionServerToolAccessor.getAutomaticTitleGenerationStrategy(session),
@@ -36,6 +37,7 @@ export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder 
 		supportsChatWorkingDirectories: session => this.value.sessionServerToolAccessor.supportsChatWorkingDirectories(session),
 		listSessions: () => this.value.sessionServerToolAccessor.listSessions(),
 		getSession: session => this.value.sessionServerToolAccessor.getSession(session),
+		restoreSession: session => this.value.sessionServerToolAccessor.restoreSession(session),
 		getWorktreeRoots: workspace => this.value.sessionServerToolAccessor.getWorktreeRoots(workspace),
 		createSession: config => this.value.sessionServerToolAccessor.createSession(config),
 		getModels: () => this.value.sessionServerToolAccessor.getModels(),
@@ -59,6 +61,8 @@ export class AgentServiceCallbackAdapter implements IAgentServiceCallbackBinder 
 		removePendingPullRequest: (session, chat, url) => this.value.artifactServerToolAccessor.removePendingPullRequest?.(session, chat, url) ?? Promise.resolve(),
 		reportAssociationError: error => this.value.artifactServerToolAccessor.reportAssociationError?.(error),
 	};
+
+	readonly accessor = this.sessionServerToolAccessor;
 
 	bind(callbacks: IAgentServiceCallbacks): void {
 		if (this.callbacks) {
@@ -85,6 +89,7 @@ export interface IAgentServiceFoundation {
 	readonly stateManager: AgentHostStateManager;
 	readonly configurationService: AgentConfigurationService;
 	readonly authenticationService: AgentHostAuthenticationService;
+	readonly featureAuthenticationRegistry: AgentHostFeatureAuthenticationRegistry;
 	readonly gitHubEndpointService: AgentHostGitHubEndpointService;
 	readonly proxyResolver: IAgentHostProxyResolver;
 	readonly requestService: IRequestService;
@@ -126,7 +131,10 @@ export function createAgentServiceFoundation(options: ICreateAgentServiceFoundat
 			Object.values(AgentHostProxyConfigKey).map(key => [key, undefined])
 		));
 	}
-	const authenticationService = options.owned.add(new AgentHostAuthenticationService(options.logService));
+	const featureAuthenticationRegistry = options.owned.add(new AgentHostFeatureAuthenticationRegistry(
+		options.productService.tunnelApplicationConfig?.authenticationProviders,
+	));
+	const authenticationService = options.owned.add(new AgentHostAuthenticationService(options.logService, featureAuthenticationRegistry));
 	const gitHubEndpointService = options.owned.add(new AgentHostGitHubEndpointService(configurationService, options.logService));
 	const proxyResolver = options.proxyResolver ?? options.owned.add(new AgentHostProxyResolver(configurationService, options.logService));
 	const requestService = options.owned.add(new AgentHostRequestService(options.logService, proxyResolver));
@@ -137,6 +145,8 @@ export function createAgentServiceFoundation(options: ICreateAgentServiceFoundat
 	options.services.set(IAgentConfigurationService, configurationService);
 	options.services.set(IAgentHostAuthenticationService, authenticationService);
 	options.services.set(IAgentHostAuthenticationController, authenticationService);
+	options.services.set(IAgentHostFeatureAuthenticationRegistry, featureAuthenticationRegistry);
+	options.services.set(IAgentHostSessionToolCallbacks, callbackAdapter);
 	options.services.set(IAgentHostGitHubEndpointService, gitHubEndpointService);
 	options.services.set(IAgentHostProxyResolver, proxyResolver);
 	options.services.set(IRequestService, requestService);
@@ -147,6 +157,7 @@ export function createAgentServiceFoundation(options: ICreateAgentServiceFoundat
 		stateManager,
 		configurationService,
 		authenticationService,
+		featureAuthenticationRegistry,
 		gitHubEndpointService,
 		proxyResolver,
 		requestService,

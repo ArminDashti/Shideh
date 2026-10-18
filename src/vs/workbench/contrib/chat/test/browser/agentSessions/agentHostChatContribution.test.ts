@@ -213,6 +213,8 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 	override readonly onDidAction = this._onDidAction.event;
 	private readonly _onDidNotification = new Emitter<INotification>();
 	override readonly onDidNotification = this._onDidNotification.event;
+	private readonly _authenticationRequirements = observableValue<readonly AuthRequiredParams[]>('authenticationRequirements', []);
+	override readonly authenticationRequirements: IObservable<readonly AuthRequiredParams[]> = this._authenticationRequirements;
 	override readonly onAgentHostExit = Event.None;
 	private readonly _onAgentHostStart = new Emitter<void>();
 	override readonly onAgentHostStart = this._onAgentHostStart.event;
@@ -221,11 +223,21 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 		this._onAgentHostStart.fire();
 	}
 
-	private readonly _authenticationPending: ISettableObservable<boolean> = observableValue('authenticationPending', false);
+	setAuthenticationRequirements(requirements: readonly AuthRequiredParams[]): void {
+		this._authenticationRequirements.set(requirements, undefined);
+	}
+
+	private readonly _authenticationPending: ISettableObservable<boolean> = observableValue('authenticationPending', true);
 	override readonly authenticationPending: IObservable<boolean> = this._authenticationPending;
 	private readonly _onDidCompleteAuthentication = new Emitter<void>();
 	override readonly onDidCompleteAuthentication = this._onDidCompleteAuthentication.event;
 	override setAuthenticationPending(pending: boolean): void {
+		if (this._authenticationSettled) {
+			return;
+		}
+		if (!pending) {
+			this._authenticationSettled = true;
+		}
 		this._authenticationPending.set(pending, undefined);
 		if (!pending) {
 			this._onDidCompleteAuthentication.fire();
@@ -18651,6 +18663,380 @@ suite('AgentHostChatContribution', () => {
 			agentHostService.setRootState({ agents: protectedAgents(), activeSessions: 1 });
 			await timeout(0);
 			assert.deepStrictEqual(agentHostService.authenticateCalls, [{ resource: 'https://api.github.com', scopes: ['read:user'], token: 'tok-1' }]);
+		});
+
+		test('authenticates an optional requirement retained before contribution initialization', async () => {
+			const tokenRef = { current: 'tunnel-token' };
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, tokenAuthService(tokenRef));
+			const resource: ProtectedResourceMetadata = {
+				resource: 'https://vscode.dev/agent-host/tunnels/github',
+				authorization_servers: ['https://github.com/login/oauth'],
+				scopes_supported: ['tunnel:manage'],
+				required: false,
+			};
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource,
+				reason: AuthRequiredReason.Required,
+			}]);
+
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await timeout(0);
+
+			assert.deepStrictEqual(agentHostService.authenticateCalls, [{
+				resource: resource.resource,
+				scopes: ['tunnel:manage'],
+				token: 'tunnel-token',
+			}]);
+		});
+
+		test('does not settle sticky initial authentication while required provider authentication is pending', async () => {
+			const requiredSessions = new DeferredPromise<readonly AuthenticationSession[]>();
+			const requiredLookupStarted = new DeferredPromise<void>();
+			const authService: Partial<IAuthenticationService> = {
+				getOrActivateProviderIdForServer: () => Promise.resolve('provider-1'),
+				getSessions: (async (providerId: string, scopes?: ReadonlyArray<string>) => {
+					if (!scopes) {
+						return [];
+					}
+					if (providerId === 'provider-1') {
+						requiredLookupStarted.complete();
+						return requiredSessions.p;
+					}
+					if (providerId === AgentHostTunnelAuthenticationIssuer.Microsoft) {
+						return [{
+							id: 'microsoft-session',
+							account: { id: 'microsoft-account', label: 'Microsoft Account' },
+							scopes,
+							accessToken: 'microsoft-token',
+						}];
+					}
+					return [];
+				}) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const [, microsoft] = createAgentHostTunnelProtectedResources({
+				github: { scopes: ['github-scope'] },
+				microsoft: { scopes: ['microsoft-scope'] },
+			});
+			agentHostService.setRootState({ agents: protectedAgents(), activeSessions: 0 });
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource: microsoft,
+				reason: AuthRequiredReason.Required,
+			}]);
+
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await requiredLookupStarted.p;
+			await timeout(0);
+			const pendingAfterOptionalAuthentication = agentHostService.authenticationPending.get();
+
+			requiredSessions.complete([{
+				id: 'provider-session',
+				account: { id: 'provider-account', label: 'Provider Account' },
+				scopes: ['read:user'],
+				accessToken: 'provider-token',
+			}]);
+			await timeout(0);
+
+			assert.deepStrictEqual({
+				pendingAfterOptionalAuthentication,
+				pendingAfterRequiredAuthentication: agentHostService.authenticationPending.get(),
+				authenticateCalls: agentHostService.authenticateCalls,
+			}, {
+				pendingAfterOptionalAuthentication: true,
+				pendingAfterRequiredAuthentication: false,
+				authenticateCalls: [
+					{
+						resource: microsoft.resource,
+						scopes: ['microsoft-scope'],
+						token: 'microsoft-token',
+					},
+					{
+						resource: 'https://api.github.com',
+						scopes: ['read:user'],
+						token: 'provider-token',
+					},
+				],
+			});
+		});
+
+		test('keeps retained provider authentication current when a tunnel requirement is removed', async () => {
+			const providerSessions = new DeferredPromise<readonly AuthenticationSession[]>();
+			const providerLookupStarted = new DeferredPromise<void>();
+			let providerLookups = 0;
+			let tunnelLookups = 0;
+			const authService: Partial<IAuthenticationService> = {
+				getOrActivateProviderIdForServer: () => Promise.resolve('provider-1'),
+				getSessions: (async (providerId: string, scopes?: ReadonlyArray<string>) => {
+					if (!scopes) {
+						return [];
+					}
+					if (providerId === 'provider-1') {
+						providerLookups++;
+						providerLookupStarted.complete();
+						return providerSessions.p;
+					}
+					if (providerId === AgentHostTunnelAuthenticationIssuer.GitHub) {
+						tunnelLookups++;
+					}
+					return [];
+				}) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const providerRequirement: AuthRequiredParams = {
+				channel: 'ahp-root://',
+				resource: protectedResource(),
+				reason: AuthRequiredReason.Required,
+			};
+			const [tunnelResource] = createAgentHostTunnelProtectedResources({ github: { scopes: ['tunnel:manage'] } });
+			const tunnelRequirement: AuthRequiredParams = {
+				channel: 'ahp-root://',
+				resource: tunnelResource,
+				reason: AuthRequiredReason.Required,
+			};
+			agentHostService.setAuthenticationRequirements([providerRequirement, tunnelRequirement]);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await providerLookupStarted.p;
+
+			agentHostService.setAuthenticationRequirements([providerRequirement]);
+			await timeout(0);
+			const pendingBeforeProviderResolution = agentHostService.authenticationPending.get();
+			const authenticateCallsBeforeProviderResolution = [...agentHostService.authenticateCalls];
+
+			providerSessions.complete([{
+				id: 'provider-session',
+				account: { id: 'provider-account', label: 'Provider Account' },
+				scopes: ['read:user'],
+				accessToken: 'provider-token',
+			}]);
+			await timeout(0);
+
+			assert.deepStrictEqual({
+				pendingBeforeProviderResolution,
+				pendingAfterProviderResolution: agentHostService.authenticationPending.get(),
+				providerLookups,
+				tunnelLookups,
+				authenticateCallsBeforeProviderResolution,
+				authenticateCallsAfterProviderResolution: agentHostService.authenticateCalls,
+			}, {
+				pendingBeforeProviderResolution: true,
+				pendingAfterProviderResolution: false,
+				providerLookups: 1,
+				tunnelLookups: 0,
+				authenticateCallsBeforeProviderResolution: [],
+				authenticateCallsAfterProviderResolution: [{
+					resource: providerRequirement.resource.resource,
+					scopes: ['read:user'],
+					token: 'provider-token',
+				}],
+			});
+		});
+
+		test('retries a retained optional requirement when an authentication session is added', async () => {
+			const sessionChanges = disposables.add(new Emitter<{
+				providerId: string;
+				label: string;
+				event: { added: AuthenticationSession[]; removed: AuthenticationSession[]; changed: AuthenticationSession[] };
+			}>());
+			const token = { value: undefined as string | undefined };
+			const authService: Partial<IAuthenticationService> = {
+				onDidChangeSessions: sessionChanges.event,
+				getSessions: (async (_providerId: string, scopes?: ReadonlyArray<string>) => token.value && scopes ? [{
+					id: 'session',
+					account: { id: 'account', label: 'Account' },
+					scopes,
+					accessToken: token.value,
+				}] : []) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const resource: ProtectedResourceMetadata = {
+				resource: 'https://vscode.dev/agent-host/tunnels/github',
+				authorization_servers: ['https://github.com/login/oauth'],
+				scopes_supported: ['tunnel:manage'],
+				required: false,
+			};
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource,
+				reason: AuthRequiredReason.Required,
+			}]);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await timeout(0);
+			const beforeSignIn = [...agentHostService.authenticateCalls];
+			token.value = 'signed-in-token';
+
+			sessionChanges.fire({
+				providerId: 'github',
+				label: 'GitHub',
+				event: {
+					added: [{
+						id: 'session',
+						account: { id: 'account', label: 'Account' },
+						scopes: ['tunnel:manage'],
+						accessToken: token.value,
+					}],
+					removed: [],
+					changed: [],
+				},
+			});
+			await timeout(0);
+
+			assert.deepStrictEqual({
+				beforeSignIn,
+				afterSignIn: agentHostService.authenticateCalls,
+			}, {
+				beforeSignIn: [],
+				afterSignIn: [{
+					resource: resource.resource,
+					scopes: ['tunnel:manage'],
+					token: 'signed-in-token',
+				}],
+			});
+		});
+
+		test('does not forward a retained credential after its authoritative requirement is removed', async () => {
+			const sessions = new DeferredPromise<readonly AuthenticationSession[]>();
+			const lookupStarted = new DeferredPromise<void>();
+			const authService: Partial<IAuthenticationService> = {
+				getSessions: (async (_providerId: string, scopes?: ReadonlyArray<string>) => {
+					if (scopes) {
+						lookupStarted.complete();
+						return sessions.p;
+					}
+					return [];
+				}) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const resource: ProtectedResourceMetadata = {
+				resource: 'https://vscode.dev/agent-host/tunnels/github',
+				authorization_servers: ['https://github.com/login/oauth'],
+				scopes_supported: ['tunnel:manage'],
+				required: false,
+			};
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource,
+				reason: AuthRequiredReason.Required,
+			}]);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await lookupStarted.p;
+
+			agentHostService.setAuthenticationRequirements([]);
+			sessions.complete([{
+				id: 'session',
+				account: { id: 'account', label: 'Account' },
+				scopes: ['tunnel:manage'],
+				accessToken: 'stale-token',
+			}]);
+			await timeout(0);
+
+			assert.deepStrictEqual(agentHostService.authenticateCalls, []);
+		});
+
+		test('requirement withdrawal cancels notification-started credential recovery', async () => {
+			const pendingSessions = new DeferredPromise<readonly AuthenticationSession[]>();
+			let usePendingSessions = false;
+			const lookupStarted = new DeferredPromise<void>();
+			const authService: Partial<IAuthenticationService> = {
+				getSessions: (async (_providerId: string, scopes?: ReadonlyArray<string>) => {
+					if (!scopes) {
+						return [];
+					}
+					if (usePendingSessions) {
+						lookupStarted.complete();
+						return pendingSessions.p;
+					}
+					return [];
+				}) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const resource: ProtectedResourceMetadata = {
+				resource: 'https://vscode.dev/agent-host/tunnels/github',
+				authorization_servers: ['https://github.com/login/oauth'],
+				scopes_supported: ['tunnel:manage'],
+				required: false,
+			};
+			const requirement = {
+				channel: 'ahp-root://' as const,
+				resource,
+				reason: AuthRequiredReason.Required,
+			};
+			agentHostService.setAuthenticationRequirements([requirement]);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await timeout(0);
+			usePendingSessions = true;
+
+			agentHostService.fireNotification(authRequiredNotification(resource));
+			await lookupStarted.p;
+			agentHostService.setAuthenticationRequirements([]);
+			pendingSessions.complete([{
+				id: 'session',
+				account: { id: 'account', label: 'Account' },
+				scopes: ['tunnel:manage'],
+				accessToken: 'withdrawn-token',
+			}]);
+			await timeout(0);
+
+			assert.deepStrictEqual(agentHostService.authenticateCalls, []);
+		});
+
+		test('semantically equivalent requirement replacement does not cancel retained recovery', async () => {
+			const pendingSessions = new DeferredPromise<readonly AuthenticationSession[]>();
+			const lookupStarted = new DeferredPromise<void>();
+			let usePendingSessions = false;
+			const authService: Partial<IAuthenticationService> = {
+				getSessions: (async (_providerId: string, scopes?: ReadonlyArray<string>) => {
+					if (!scopes) {
+						return [];
+					}
+					if (usePendingSessions) {
+						lookupStarted.complete();
+						return pendingSessions.p;
+					}
+					return [];
+				}) as IAuthenticationService['getSessions'],
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService);
+			const resource: ProtectedResourceMetadata = {
+				resource: 'https://vscode.dev/agent-host/tunnels/github',
+				authorization_servers: ['https://github.com/login/oauth'],
+				scopes_supported: ['scope-a', 'scope-b'],
+				required: false,
+			};
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource,
+				reason: AuthRequiredReason.Required,
+			}]);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			await timeout(0);
+			usePendingSessions = true;
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource: { ...resource },
+				reason: AuthRequiredReason.Required,
+			}]);
+			await lookupStarted.p;
+
+			agentHostService.setAuthenticationRequirements([{
+				channel: 'ahp-root://',
+				resource: { ...resource, scopes_supported: ['scope-b', 'scope-a'] },
+				reason: AuthRequiredReason.Required,
+			}]);
+			pendingSessions.complete([{
+				id: 'session',
+				account: { id: 'account', label: 'Account' },
+				scopes: ['scope-a', 'scope-b'],
+				accessToken: 'token',
+			}]);
+			await timeout(0);
+
+			assert.deepStrictEqual(agentHostService.authenticateCalls, [{
+				resource: resource.resource,
+				scopes: ['scope-a', 'scope-b'],
+				token: 'token',
+			}]);
 		});
 
 		test('re-authenticates when token rotates, then dedupes again', async () => {

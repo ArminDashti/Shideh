@@ -3,9 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Protocol client for communicating with an agent host process.
-
-import { DeferredPromise, TimeoutTimer } from '../../../base/common/async.js';
+import { encodeBase64 } from '../../../base/common/buffer.js';
 import { CancellationError } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { ArtifactIntegrationRequest, ArtifactIntegrationResponse, ArtifactIntegrationUpdate, isArtifactIntegrationResponse, isArtifactIntegrationUpdate } from '../../artifactIntegrations/common/artifactIntegrationProtocol.js';
@@ -13,14 +11,12 @@ import { ArtifactChatAction } from '../common/artifactIntegrationChat.js';
 import { Disposable, DisposableStore, MutableDisposable, IReference } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { Schemas } from '../../../base/common/network.js';
-import { hasKey } from '../../../base/common/types.js';
+import { autorun } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
 import { supportsAgentHostCanvasClose, supportsAgentHostCanvasOpen, type AgentCanvasInput, type IAgentCanvas, type IAgentCanvasType } from '../common/meta/agentCanvasMeta.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { vArray, vEnum, vObj, vOptionalProp, vString } from '../../../base/common/validation.js';
 import { localize } from '../../../nls.js';
-import { ILogService } from '../../log/common/log.js';
-import { FileSystemProviderErrorCode, toFileSystemProviderErrorCode } from '../../files/common/files.js';
 import { ConfigurationTarget, ConfigurationTargetToString, IConfigurationService } from '../../configuration/common/configuration.js';
 import { AgentCanvasAvailability, AgentSession, IAgentCreateChatRequestOptions, IAgentCreateSessionConfig, IAgentResolveSessionConfigParams, IAgentSessionConfigCompletionsParams, IAgentSessionMetadata, AuthenticateParams, AuthenticateResult, IMcpNotification, type IAgentCanvas, type IAgentCanvasSnapshot } from '../common/agent.js';
 import { AGENT_HOST_DEBUG_LOGS_CHUNK_BYTES, AGENT_HOST_DEBUG_LOGS_MAX_ENTRIES, IAgentConnection, IAgentHostManagedSettingsDiagnostics, IAgentHostNetworkDiagnosticsInfo, IAgentHostNetworkFetchResult, type AgentHostDebugLogsArtifactKind, type IAgentHostCanvases, type IAgentHostDebugLogsArtifact, type IAgentHostDebugLogsChunk } from '../common/agentService.js';
@@ -67,6 +63,25 @@ import { ResourceSet } from '../../../base/common/map.js';
 import { computeReconnectDelay, DEFAULT_RECONNECT_POLICY, hasExhaustedReconnectAttempts, type IRemoteAgentHostReconnectPolicy } from '../common/reconnectPolicy.js';
 import type { IRemoteAgentHostProtocolClient } from '../common/remoteAgentHostService.js';
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../workspace/common/workspaceTrust.js';
+import type { IAgentCreateSessionConfig } from '../common/agent.js';
+import { formatAgentHostConfigurationSyncValueForLog, getAgentHostConfigurationSyncEntries, getAgentHostConfigurationSyncTarget, resolveAgentHostConfigurationSyncPatch, resolveAgentHostConfigurationSyncValue } from '../common/agentHostConfigurationSync.js';
+import { AMBIENT_AGENT_HOST_AUTHORITY } from '../common/agentHostConnectionsService.js';
+import { RequestAgentHostWorkspaceTrustExtensionMethod, SetClientHostedTunnelExtensionMethod, SetClientRemoteAgentHostsPolicyExtensionMethod, SetClientTunnelDismissalsExtensionMethod, type IAgentHostExtensionServerCommandMap } from '../common/agentHostExtensionProtocol.js';
+import { managedPermissionsConfigurationIds, resolveManagedSettingsPermissions, type IAgentHostManagedSettingsPermissions } from '../common/agentHostManagedSettings.js';
+import { AgentHostProtocolClientCore, AgentHostClientState, InitialAuthenticationError, type IAgentHostProtocolClientOptions } from '../common/agentHostProtocolClient.js';
+import { AgentHostAutoApprovePolicyRestrictedConfigKey, AgentHostTelemetryLevelConfigKey, AgentHostTerminalAutoApproveEnabledConfigKey, AgentHostTerminalAutoApproveRulesConfigKey, AgentHostDisableRepoInfoTelemetryConfigKey, AgentHostWorkspaceTrustConfigKey, getAgentHostTerminalAutoApproveRulesConfig, GLOBAL_AUTO_APPROVE_SETTING_ID, TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID, TERMINAL_AUTO_APPROVE_SETTING_ID, TERMINAL_IGNORE_DEFAULT_AUTO_APPROVE_RULES_SETTING_ID, DISABLE_REPO_INFO_TELEMETRY_SETTING_ID, telemetryLevelToAgentHostConfigValue } from '../common/agentHostSchema.js';
+import { toAgentHostClientMeta } from '../common/agentHostTelemetry.js';
+import { AGENT_HOST_SCHEME, agentHostAuthority, createAgentHostResourceUriMapper, identityAgentHostResourceUriMapper } from '../common/agentHostUri.js';
+import { AgentHostResourceIdentity, AgentHostResourcePermissionError, IAgentHostResourceService, LOCAL_AGENT_HOST_RESOURCE_IDENTITY } from '../common/agentHostResourceService.js';
+import { parseTunnelIds, TUNNEL_AGENT_HOST_DISMISSALS_STORAGE_KEY } from '../common/tunnelAgentHostDiscovery.js';
+import { equalsHostedTunnelIdentity, type HostedTunnelIdentity, type ITunnelHostInfo } from '../common/tunnelAgentHost.js';
+import type { IRemoteAgentHostProtocolClient } from '../common/remoteAgentHostService.js';
+import { ActionType, type ChatAction, type ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, type ClientChangesetAction, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../common/state/sessionActions.js';
+import { MessageAttachmentKind, type ClientPluginCustomization, type Message } from '../common/state/sessionState.js';
+import { ContentEncoding, type ResourceRequestParams } from '../common/state/protocol/commands.js';
+import { AhpErrorCodes } from '../common/state/protocol/errors.js';
+import type { JsonRpcErrorResponse } from '../common/state/protocol/messages.js';
+import type { IProtocolTransport } from '../common/state/sessionTransport.js';
 import { isWorktreeUnderRepository } from '../common/worktreePaths.js';
 import { getConnectionDiagnosticError, sanitizeConnectionDiagnosticText, traceConnectionOperation, type IConnectionDiagnosticEvent } from '../common/connectionDiagnostics.js';
 import { DevContainerAgentHostProtocolClient } from '../common/devContainerAgentHostProtocolClient.js';
@@ -146,22 +161,9 @@ interface IPendingRequest {
 }
 
 /**
- * High-level connection state of an {@link AgentHostProtocolClient}.
- * Exposed via {@link AgentHostProtocolClient.onDidChangeConnectionState}
- * so consumers can surface transient reconnect activity in the UI.
+ * Workbench adapter for the browser-independent AHP client core.
  */
-export const enum AgentHostClientState {
-	/** Initial handshake in progress. */
-	Connecting = 'connecting',
-	/** The host rejected the initial protocol version; upgrade remains available. */
-	Incompatible = 'incompatible',
-	/** Transport is open and handshake/reconnect has completed. */
-	Connected = 'connected',
-	/** Transport closed unexpectedly; an automatic reconnect is in flight or scheduled. */
-	Reconnecting = 'reconnecting',
-	/** Client has been disposed or has given up reconnecting. Terminal state. */
-	Closed = 'closed',
-}
+export class AgentHostProtocolClient extends AgentHostProtocolClientCore implements IRemoteAgentHostProtocolClient {
 
 /**
  * Reconnect-only bookkeeping. Lives exclusively inside the `Reconnecting`
@@ -268,10 +270,6 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	private readonly _clientId: string;
 	private readonly _address: string;
 	private readonly _resourceIdentity: AgentHostResourceIdentity;
-	private readonly _transportFactory: (() => IProtocolTransport) | undefined;
-	private _transport!: IProtocolTransport;
-	/** Disposable holding the listeners attached to the current transport. */
-	private readonly _transportListeners = this._register(new MutableDisposable<DisposableStore>());
 	private readonly _connectionAuthority: string;
 	readonly resourceUris: IAgentHostResourceUriMapper;
 	private readonly _uriProjection: AgentHostUriProjection;
@@ -473,39 +471,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 */
 	private readonly _grantedImplicitReadUris = new ResourceSet();
 	private readonly _implicitReadGrants = this._register(new DisposableStore());
-
-	get clientId(): string {
-		return this._clientId;
-	}
-
-	get address(): string {
-		return this._address;
-	}
-
-	get defaultDirectory(): string | undefined {
-		return this._defaultDirectory;
-	}
-
-	get connectionState(): AgentHostClientState {
-		return this._state.kind;
-	}
-
-	/** Deadline for the next scheduled reconnect attempt, if one is pending. */
-	get nextReconnectAt(): number | undefined {
-		return this._state.kind === AgentHostClientState.Reconnecting
-			? this._state.reconnect.nextAttemptAt
-			: undefined;
-	}
-
-	/**
-	 * The latest `initialize` response from the host, or `undefined` if
-	 * the handshake has not completed yet. Exposed observably so callers can
-	 * react as advertised capabilities (telemetry, `completionTriggerCharacters`,
-	 * `terminalCommandPrefix`, ...) arrive.
-	 */
-	get initializeResult(): IObservable<InitializeResult | undefined> {
-		return this._initializeResult;
-	}
+	private _hostedTunnelIdentity: HostedTunnelIdentity = { kind: 'unknown' };
 
 	get projectedInitializeResult(): IObservable<NativeInitializeResult | undefined> {
 		return this._projectedInitializeResult;
@@ -515,20 +481,19 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		identity: AgentHostResourceIdentity,
 		transportOrFactory: IProtocolTransport | (() => IProtocolTransport),
 		options: IAgentHostProtocolClientOptions | undefined,
-		@ILogService private readonly _logService: ILogService,
+		@ILogService logService: ILogService,
 		@IAgentHostResourceService private readonly _resourceService: IAgentHostResourceService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 		@IWorkspaceTrustEnablementService private readonly _workspaceTrustEnablementService: IWorkspaceTrustEnablementService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IWorkspaceTrustRequestService private readonly _workspaceTrustRequestService: IWorkspaceTrustRequestService,
+		@IManagedSettingsService private readonly _managedSettingsService: IManagedSettingsService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
-		super();
-		this._resourceIdentity = identity;
-		this._address = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? AMBIENT_AGENT_HOST_AUTHORITY : identity;
-		this._clientId = options?.clientId ?? generateUuid();
-		this._connectionAuthority = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? AMBIENT_AGENT_HOST_AUTHORITY : agentHostAuthority(identity);
-		this.resourceUris = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY
+		const address = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? AMBIENT_AGENT_HOST_AUTHORITY : identity;
+		const connectionAuthority = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? AMBIENT_AGENT_HOST_AUTHORITY : agentHostAuthority(identity);
+		const resourceUris = identity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY
 			? identityAgentHostResourceUriMapper
 			: createAgentHostResourceUriMapper(this._connectionAuthority);
 		this._loadEstimator = options?.loadEstimator ?? LoadEstimator.getInstance();
@@ -561,13 +526,11 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		}));
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (this._state.kind !== AgentHostClientState.Connected) {
+			if (this.connectionState !== AgentHostClientState.Connected) {
 				return;
 			}
 			const patch: Record<string, unknown> = {};
-			// These keys are host-level and last-writer-wins across windows.
 			const mirrored: string[] = [];
-			// Mirrored values exclude workspace, folder, and memory layers, so changes from those layers cannot affect them.
 			if (e.source !== ConfigurationTarget.WORKSPACE && e.source !== ConfigurationTarget.WORKSPACE_FOLDER && e.source !== ConfigurationTarget.MEMORY) {
 				for (const entry of getAgentHostConfigurationSyncEntries(getAgentHostConfigurationSyncTarget(this._resourceIdentity))) {
 					if (!e.affectsConfiguration(entry.settingId)) {
@@ -600,12 +563,12 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 				this._updateDisableRepoInfoTelemetry();
 			}
 			if (managedPermissionsConfigurationIds.some(settingId => e.affectsConfiguration(settingId))) {
-				void this._updateManagedSettingsPermissions();
+				this._updateManagedSettingsPermissions();
 			}
 		}));
 
 		this._register(Event.any(this._workspaceTrustManagementService.onDidChangeTrustedFolders, this._workspaceTrustManagementService.onDidChangeTrust)(() => {
-			if (this._state.kind === AgentHostClientState.Connected) {
+			if (this.connectionState === AgentHostClientState.Connected) {
 				this._updateWorkspaceTrust();
 			}
 		}));
@@ -1291,46 +1254,46 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 				this._logService.warn(`[AgentHostProtocolClient] Failed to restore authentication for ${params.resource} after host restart: ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}));
-		this._authenticationRestorePending = false;
+		const storageListeners = this._register(new DisposableStore());
+		storageListeners.add(this._storageService.onDidChangeValue(
+			StorageScope.APPLICATION,
+			TUNNEL_AGENT_HOST_DISMISSALS_STORAGE_KEY,
+			storageListeners,
+		)(() => {
+			if (this.connectionState === AgentHostClientState.Connected) {
+				this._updateTunnelDismissals();
+			}
+		}));
+		if (options?.hostedTunnel) {
+			const hostedTunnel = options.hostedTunnel;
+			this._register(autorun(reader => {
+				const identity = hostedTunnel.read(reader);
+				if (equalsHostedTunnelIdentity(this._hostedTunnelIdentity, identity)) {
+					return;
+				}
+				this._hostedTunnelIdentity = identity;
+				if (identity.kind !== 'unknown' && this.connectionState === AgentHostClientState.Connected) {
+					this._updateHostedTunnel();
+				}
+			}));
+		}
 	}
 
-	private _clientMeta(): Record<string, unknown> {
+	protected override _clientMeta(): Record<string, unknown> {
 		const telemetryLevel = this._effectiveTelemetryLevel();
 		const sendIdentity = telemetryLevel >= TelemetryLevel.USAGE;
 		return toAgentHostClientMeta(
-			this._transport.clientConnectionKind,
+			this._clientConnectionKind,
 			telemetryLevel,
 			sendIdentity ? this._telemetryService.machineId : undefined,
 			sendIdentity ? this._telemetryService.devDeviceId : undefined,
 		);
 	}
 
-	private _applyInitializeResult(result: IAgentHostExtensionInitializeResult, forwardClientConfig = true): void {
-		this._initializeResult.set(result, undefined);
-		this._serverSeq = result.serverSeq;
-		if (result.defaultDirectory) {
-			const directory = result.defaultDirectory;
-			this._defaultDirectory = typeof directory === 'string' ? URI.parse(directory).path : URI.revive(directory).path;
-		}
-		if (forwardClientConfig) {
-			this._forwardClientConfig();
-		}
-	}
-
-	/**
-	 * Push the renderer-owned config values the host mirrors (telemetry level,
-	 * proxy discovery, migrate flag, …) as `RootConfigChanged` actions. Called on
-	 * initial connect AND on reconnect: a reconnected host may be a freshly
-	 * restarted process (or one that lost these values), and re-pushing is a cheap
-	 * no-op when nothing changed. Without this, a value read early — like the
-	 * migrate flag in `listSessions` — can be missing after a window reload.
-	 *
-	 * Most settings arrive here declaratively, via `agentHost` on their
-	 * configuration schema. The explicit calls below cover the cases a single
-	 * key-plus-transform can't express: values derived from several settings, and
-	 * settings contributed by an extension rather than by core.
-	 */
-	private _forwardClientConfig(includeManagedSettings = true): void {
+	protected override _forwardClientConfig(includeManagedSettings = true): void {
+		this._updateHostedTunnel(!includeManagedSettings);
+		this._updateTunnelDismissals(!includeManagedSettings);
+		this._updateRemoteAgentHostsPolicy(!includeManagedSettings);
 		this._dispatchRootConfig(resolveAgentHostConfigurationSyncPatch(this._configurationService, getAgentHostConfigurationSyncTarget(this._resourceIdentity)));
 		this._updateTelemetryLevel();
 		this._updateTerminalAutoApproveEnabled();
@@ -1339,7 +1302,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		this._updateWorkspaceTrust();
 		this._updateDisableRepoInfoTelemetry();
 		if (includeManagedSettings) {
-			void this._updateManagedSettingsPermissions();
+			this._updateManagedSettingsPermissions();
 		}
 	}
 
@@ -1387,106 +1350,15 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		});
 	}
 
-	/**
-	 * Apply a `reconnect` RPC result to the subscription manager. On `replay`
-	 * we feed each missed envelope through the normal action path; on
-	 * `snapshot` we reseat each named subscription with the fresh state and
-	 * advance the server seq cursor accordingly.
-	 */
-	private _applyReconnectResult(result: CommandMap['reconnect']['result'], preservePending = false): void {
-		if (result.type === ReconnectResultType.Replay) {
-			let maxSeq = this._serverSeq;
-			for (const envelope of result.actions) {
-				// For own non-rejected actions, drop the matching pending entry up
-				// front so we don't resend it via {@link _replayPendingActions}.
-				// For rejected actions we MUST leave the entry in place so the
-				// subscription's reconcile path sees `idx !== -1` and discards
-				// the action instead of applying it to confirmed state.
-				if (envelope.origin?.clientId === this._clientId
-					&& envelope.origin.clientSeq !== undefined
-					&& !envelope.rejectionReason) {
-					this._subscriptionManager.dropPendingAction(envelope.channel, envelope.origin.clientSeq);
-				}
-				if (envelope.serverSeq > maxSeq) {
-					maxSeq = envelope.serverSeq;
-				}
-				this._onDidAction.fire(normalizeLegacyActionEnvelope(envelope));
-			}
-			this._serverSeq = maxSeq;
-			if (result.missing.length > 0) {
-				this._logService.info(`[RemoteAgentHostProtocol] Server cannot resume ${result.missing.length} subscription(s) after reconnect.`);
-				this._subscriptionManager.markSubscriptionsMissing(result.missing.map(u => URI.parse(u)));
-				// A channel the server cannot resume can never be reseated.
-				for (const resource of result.missing) {
-					this._subscriptionsAwaitingRestore.delete(resource);
-				}
-			}
-		} else {
-			let maxSeq = this._serverSeq;
-			for (const snapshot of result.snapshots) {
-				this._subscriptionManager.applyReconnectSnapshot(snapshot.resource, snapshot.state, snapshot.fromSeq, preservePending);
-				// This snapshot came from the current host, so it settles any
-				// restore still owed for the channel.
-				this._subscriptionsAwaitingRestore.delete(snapshot.resource);
-				if (snapshot.fromSeq > maxSeq) {
-					maxSeq = snapshot.fromSeq;
-				}
-			}
-			this._serverSeq = maxSeq;
-		}
+	private _updateDisableRepoInfoTelemetry(): void {
+		const disabled = this._configurationService.getValue<boolean>(DISABLE_REPO_INFO_TELEMETRY_SETTING_ID) === true;
+		this._dispatchRootConfig({ [AgentHostDisableRepoInfoTelemetryConfigKey]: disabled });
 	}
 
-	/**
-	 * Drain queued outgoing wire traffic after a successful soft reconnect:
-	 *
-	 * 1. Resend pending optimistic session actions that the server did NOT
-	 *    echo back in the replay buffer (i.e. anything still on
-	 *    {@link AgentSubscriptionManager.getPendingActions}).
-	 * 2. Flush every message that {@link _sendNotification} queued onto the
-	 *    outbox while the gate was engaged.
-	 *
-	 * Replays are deduped against the outbox by `clientSeq` so a session
-	 * action that was both optimistic-tracked AND queued during the
-	 * reconnect window only goes out once.
-	 */
-	private _drainAfterReconnect(outbox: readonly ProtocolMessage[]): void {
-		// Build the set of clientSeqs already represented in the outbox so we
-		// don't replay a duplicate. Only `dispatchAction` notifications carry
-		// a clientSeq; nothing else is independently re-emitted by the replay
-		// path, so other queued message kinds need no dedup.
-		const queuedSeqs = new Set<number>();
-		for (const msg of outbox) {
-			if (hasKey(msg, { method: true }) && msg.method === 'dispatchAction') {
-				queuedSeqs.add(msg.params.clientSeq);
-			}
-		}
-
-		const replays: ProtocolMessage[] = [];
-		for (const entry of this._subscriptionManager.getPendingActions()) {
-			if (queuedSeqs.has(entry.clientSeq)) {
-				continue;
-			}
-			this._grantImplicitReadsForOutgoingAction(entry.action);
-			replays.push({
-				jsonrpc: '2.0',
-				method: 'dispatchAction',
-				params: { channel: entry.channel, clientSeq: entry.clientSeq, action: entry.action },
-			});
-		}
-
-		if (replays.length > 0) {
-			this._logService.info(`[RemoteAgentHostProtocol] Replaying ${replays.length} pending action(s) after reconnect to ${this._address}.`);
-		}
-
-		// Replays first (dispatched before the reconnect window), then the
-		// outbox (dispatched during it) so wire order roughly tracks
-		// dispatch order.
-		for (const msg of replays) {
-			this._transport.send(msg);
-		}
-		for (const msg of outbox) {
-			this._transport.send(msg);
-		}
+	private _updateTerminalAutoApproveEnabled(): void {
+		// Keep this workspace-aware: resolving only the global restricted setting could re-enable auto-approval for a workspace that disabled it.
+		const enabled = this._configurationService.getValue<boolean>(TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID) !== false;
+		this._dispatchRootConfig({ [AgentHostTerminalAutoApproveEnabledConfigKey]: enabled });
 	}
 
 	// ---- IAgentConnection subscription API ----------------------------------
@@ -2079,21 +1951,13 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		}
 	}
 
-	/**
-	 * Register implicit read grants for each customization URI that we are
-	 * about to send to the host. The host needs to read these to materialize
-	 * the customization, but should not need to write them. Grants are
-	 * deduped per connection and revoked when the connection closes.
-	 */
 	private _grantImplicitReadsForCustomizations(refs: readonly ClientPluginCustomization[]): void {
 		for (const ref of refs) {
-			let uri: URI;
 			try {
-				uri = URI.parse(ref.uri);
+				this._grantImplicitRead(URI.parse(ref.uri));
 			} catch {
 				continue;
 			}
-			this._grantImplicitRead(uri);
 		}
 	}
 

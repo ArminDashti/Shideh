@@ -90,6 +90,9 @@ export const COPILOT_ALLOW_MANAGED_HOOKS_ONLY_KEY = 'allowManagedHooksOnly';
 /** Managed-settings transport control that requires a fresh server fetch on startup. */
 export const COPILOT_FORCE_REMOTE_SETTINGS_REFRESH_KEY = 'forceRemoteSettingsRefresh';
 
+/** Managed-settings control that can prevent Agent Hosts from connecting to other Agent Hosts. */
+export const COPILOT_REMOTE_AGENT_HOSTS_ENABLED_KEY = 'remoteAgents.enabled';
+
 /**
  * Enterprise-mandated sandbox floor (`sandbox.enabled` in the runtime's managed-settings schema).
  * The runtime owns composing and enforcing this floor — it is `force-on-wins`, so a managed `true`
@@ -126,6 +129,7 @@ export const COPILOT_AUTO_TIER_KEY = 'autoTier';
  */
 export const MANAGED_SETTINGS_CONTROL_DEFINITIONS: IManagedSettingsPolicyDefinitions = {
 	[COPILOT_FORCE_REMOTE_SETTINGS_REFRESH_KEY]: { type: 'boolean' },
+	[COPILOT_REMOTE_AGENT_HOSTS_ENABLED_KEY]: { type: 'boolean' },
 	[COPILOT_SANDBOX_ENABLED_KEY]: { type: 'boolean' },
 	[COPILOT_SANDBOX_MCP_SERVERS_KEY]: { type: 'boolean' },
 	[COPILOT_SANDBOX_LSP_SERVERS_KEY]: { type: 'boolean' },
@@ -282,12 +286,15 @@ export const IManagedSettingsService = createDecorator<IManagedSettingsService>(
 export interface IManagedSettingsService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChangeManagedSettings: Event<void>;
+	/** Whether the initial account, native, and file-backed managed-settings snapshot has resolved. */
+	readonly isManagedSettingsResolved: boolean;
 	getManagedSettingValue(key: string): ManagedSettingValue | undefined;
 }
 
 export class NullManagedSettingsService implements IManagedSettingsService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChangeManagedSettings = Event.None;
+	readonly isManagedSettingsResolved = true;
 
 	getManagedSettingValue(): ManagedSettingValue | undefined {
 		return undefined;
@@ -523,7 +530,7 @@ export interface IManagedSettingsPick {
 export function pickManagedSettings(nativeMdm: ManagedSettingsData | undefined, server: ManagedSettingsData | undefined, file: ManagedSettingsData | undefined): IManagedSettingsPick {
 	const bags: Record<ManagedSettingsChannel, ManagedSettingsData | undefined> = { nativeMdm, server, file };
 
-	// Preserve delivery order for provenance even when a sandbox requirement wins from a later channel.
+	// Preserve delivery order for provenance even when a restrictive value wins from a later channel.
 	const resolutions = new Map<string, { value: ManagedSettingValue; source: ManagedSettingsChannel; contributions: IManagedSettingsContribution[] }>();
 	const suppressedTelemetry = new Map<string, IManagedSettingsContribution[]>();
 	let telemetrySource: ManagedSettingsChannel | undefined;

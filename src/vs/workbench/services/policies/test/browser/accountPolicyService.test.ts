@@ -340,6 +340,30 @@ suite('AccountPolicyService', () => {
 		});
 	});
 
+	test('marks an empty initial managed-settings snapshot as resolved', async () => {
+		defaultAccountService.setDefaultAccountProvider(new DefaultAccountProvider(BASE_DEFAULT_ACCOUNT, {}));
+		await defaultAccountService.refresh();
+		const nativeManagedSettingsService = disposables.add(new DeferredNativeManagedSettingsService());
+		const service = disposables.add(new AccountPolicyService(logService, defaultAccountService, undefined, nativeManagedSettingsService));
+		let changes = 0;
+		disposables.add(service.onDidChangeManagedSettings(() => changes++));
+
+		assert.strictEqual(service.isManagedSettingsResolved, false);
+		const didResolve = Event.toPromise(service.onDidChangeManagedSettings);
+		nativeManagedSettingsService.resolve({});
+		await didResolve;
+
+		assert.deepStrictEqual({
+			resolved: service.isManagedSettingsResolved,
+			value: service.getManagedSettingValue(COPILOT_REMOTE_AGENT_HOSTS_ENABLED_KEY),
+			changes,
+		}, {
+			resolved: true,
+			value: undefined,
+			changes: 1,
+		});
+	});
+
 	test('managed settings: native MDM value wins over server for the same declared key', async () => {
 		// Server says 'enable', native MDM says 'disable'. Native MDM is the authoritative
 		// source when present, so the server value is ignored entirely and the gated policy IS
@@ -835,6 +859,19 @@ suite('AccountPolicyService', () => {
 
 		dispose(): void {
 			this._onDidChangeManagedSettings.dispose();
+		}
+	}
+
+	class DeferredNativeManagedSettingsService extends FakeNativeManagedSettingsService {
+		private readonly _result = new DeferredPromise<ManagedSettingsData>();
+
+		override updatePolicyDefinitions(): Promise<ManagedSettingsData> {
+			return this._result.p;
+		}
+
+		resolve(managedSettings: ManagedSettingsData): void {
+			this.managedSettings = managedSettings;
+			this._result.complete(managedSettings);
 		}
 	}
 

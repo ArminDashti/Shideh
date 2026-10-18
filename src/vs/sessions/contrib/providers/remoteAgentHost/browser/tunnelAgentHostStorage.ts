@@ -10,10 +10,6 @@ import { type ICachedTunnel, type ITunnelVisibility } from '../../../../../platf
 import { observableMemento, ObservableMemento } from '../../../../../platform/observable/common/observableMemento.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 
-const CACHED_TUNNELS_KEY = 'tunnelAgentHost.recentTunnels';
-const DISMISSED_TUNNELS_KEY = 'tunnelAgentHost.dismissedTunnels';
-const AUTO_CONNECT_SUPPRESSED_TUNNELS_KEY = 'tunnelAgentHost.autoConnectSuppressedTunnels';
-
 const cachedTunnelMemento = observableMemento<readonly ICachedTunnel[]>({
 	defaultValue: [],
 	key: CACHED_TUNNELS_KEY,

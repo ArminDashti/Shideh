@@ -86,6 +86,7 @@ import { customChatTitleMetadataKey, customChatTitleSourceMetadataKey, SESSION_C
 import { IAgentHostWorktreeIsolation, NullAgentHostWorktreeIsolation } from '../../node/shared/worktreeIsolation.js';
 import { createNoopGitService, createNullSessionDataService, createSessionDataService, TestSessionDatabase } from '../common/sessionTestHelpers.js';
 import { MockAgent } from './mockAgent.js';
+import { registerNoopRemoteSessionDelegationServices } from './remoteSessionDelegationTestUtils.js';
 import { TestAgentHostTerminalManager } from './testAgentHostTerminalManager.js';
 import { createTestAgentService, getTestAgentStateManager, registerTestAgentProvider } from './agentServiceTestUtils.js';
 
@@ -216,6 +217,7 @@ function createTestSideEffects(
 	changesets: IAgentHostChangesetService = new FakeChangesetService(),
 	terminalManager: IAgentHostTerminalManager = disposables.add(new TestAgentHostTerminalManager()),
 	checkpointService: IAgentHostCheckpointService = NULL_CHECKPOINT_SERVICE,
+	onDidCreateTurnService?: (turnService: IAgentHostTurnService) => void,
 ): AgentSideEffects {
 	const logService = new NullLogService();
 	const contributionFileService = disposables.add(new FileService(logService));
@@ -2551,7 +2553,7 @@ suite('AgentSideEffects', () => {
 			const resolvingSideEffects = createTestSideEffects(disposables, stateManager, {
 				getAgent: () => agent,
 				agents: agentList,
-				sessionDataService: {} as ISessionDataService,
+				sessionDataService: createNullSessionDataService(),
 				resolveWorkingDirectoryBeforeSend: async () => { throw resolutionError; },
 			});
 			const turnStarted = {
@@ -5652,11 +5654,94 @@ suite('AgentSideEffects', () => {
 				toolCallId: 'tc-conf-1',
 				approved: true,
 				confirmed: 'user-action' as const,
+				editedToolInput: '{"path":"updated.txt"}',
+				selectedOptionId: 'allow-session',
 			} as ChatAction);
 
-			assert.deepStrictEqual(agent.respondToPermissionCalls, [
-				{ requestId: 'tc-conf-1', approved: true },
-			]);
+			assert.deepStrictEqual({
+				calls: agent.respondToPermissionCalls,
+				metadata: agent.respondToPermissionMetadata,
+			}, {
+				calls: [{ requestId: 'tc-conf-1', approved: true }],
+				metadata: [{
+					confirmed: ToolCallConfirmationReason.UserAction,
+					editedToolInput: '{"path":"updated.txt"}',
+					selectedOptionId: 'allow-session',
+					_meta: undefined,
+				}],
+			});
+		});
+
+		test('routes a restored confirmation through the current session agent', () => {
+			setupSession();
+			startTurn('turn-restored', defaultChatUri);
+			stateManager.dispatchServerAction(defaultChatUri, {
+				type: ActionType.ChatToolCallStart,
+				turnId: 'turn-restored',
+				toolCallId: 'tc-restored',
+				toolName: 'read',
+				displayName: 'Read File',
+			});
+			stateManager.dispatchServerAction(defaultChatUri, {
+				type: ActionType.ChatToolCallReady,
+				turnId: 'turn-restored',
+				toolCallId: 'tc-restored',
+				invocationMessage: 'Read restored file',
+			});
+
+			sideEffects.handleAction(defaultChatUri, {
+				type: ActionType.ChatToolCallConfirmed,
+				turnId: 'turn-restored',
+				toolCallId: 'tc-restored',
+				approved: true,
+				confirmed: ToolCallConfirmationReason.UserAction,
+			});
+
+			assert.deepStrictEqual(agent.respondToPermissionCalls, [{
+				requestId: 'tc-restored',
+				approved: true,
+			}]);
+		});
+
+		test('routes a tool-result confirmation through the current session agent', () => {
+			setupSession();
+			startTurn('turn-result', defaultChatUri);
+			stateManager.dispatchServerAction(defaultChatUri, {
+				type: ActionType.ChatToolCallStart,
+				turnId: 'turn-result',
+				toolCallId: 'tc-result',
+				toolName: 'read',
+				displayName: 'Read File',
+			});
+			stateManager.dispatchServerAction(defaultChatUri, {
+				type: ActionType.ChatToolCallReady,
+				turnId: 'turn-result',
+				toolCallId: 'tc-result',
+				invocationMessage: 'Read file',
+				confirmed: ToolCallConfirmationReason.NotNeeded,
+			});
+			stateManager.dispatchServerAction(defaultChatUri, {
+				type: ActionType.ChatToolCallComplete,
+				turnId: 'turn-result',
+				toolCallId: 'tc-result',
+				result: {
+					success: true,
+					pastTenseMessage: 'Read file',
+				},
+				requiresResultConfirmation: true,
+			});
+
+			sideEffects.handleAction(defaultChatUri, {
+				type: ActionType.ChatToolCallResultConfirmed,
+				turnId: 'turn-result',
+				toolCallId: 'tc-result',
+				approved: false,
+			});
+
+			assert.deepStrictEqual(agent.respondToToolResultConfirmationCalls, [{
+				requestId: 'tc-result',
+				approved: false,
+			}]);
 		});
 
 		test('handles denial of tool call', () => {
@@ -9898,6 +9983,101 @@ suite('AgentSideEffects', () => {
 				chat: defaultChatUri,
 				turnId: 'turn-1',
 			}]);
+		});
+
+		test('host-authored accepted send resolves as accepted', async () => {
+			setupSession();
+			let turnService: IAgentHostTurnService | undefined;
+			createTestSideEffects(
+				disposables,
+				stateManager,
+				{
+					getAgent: () => agent,
+					agents: agentList,
+					sessionDataService: createNullSessionDataService(),
+				},
+				undefined,
+				NullTelemetryService,
+				new FakeChangesetService(),
+				undefined,
+				NULL_CHECKPOINT_SERVICE,
+				value => turnService = value,
+			);
+
+			const outcome = await turnService?.startTurnMessage(URI.parse(defaultChatUri), {
+				text: 'hello',
+				origin: { kind: MessageKind.Agent },
+			});
+
+			assert.deepStrictEqual(outcome, { kind: 'accepted' });
+		});
+
+		test('host-authored cancellation during send resolves as cancelled', async () => {
+			setupSession();
+			const sendGate = new DeferredPromise<void>();
+			const originalSendMessage = agent.chats.sendMessage;
+			agent.chats.sendMessage = async (...args) => {
+				await originalSendMessage(...args);
+				await sendGate.p;
+			};
+			let turnService: IAgentHostTurnService | undefined;
+			const localSideEffects = createTestSideEffects(
+				disposables,
+				stateManager,
+				{
+					getAgent: () => agent,
+					agents: agentList,
+					sessionDataService: createNullSessionDataService(),
+				},
+				undefined,
+				NullTelemetryService,
+				new FakeChangesetService(),
+				undefined,
+				NULL_CHECKPOINT_SERVICE,
+				value => turnService = value,
+			);
+
+			const outcome = turnService!.startTurnMessage(URI.parse(defaultChatUri), {
+				text: 'hello',
+				origin: { kind: MessageKind.Agent },
+			});
+			await waitForSendMessageCalls(1);
+			const turnId = stateManager.getActiveTurnId(defaultChatUri);
+			assert.ok(turnId);
+			const cancellation = { type: ActionType.ChatTurnCancelled, turnId, duration: 0 } as const;
+			stateManager.dispatchServerAction(defaultChatUri, cancellation);
+			localSideEffects.handleAction(defaultChatUri, cancellation);
+			sendGate.complete();
+
+			assert.deepStrictEqual(await outcome, { kind: 'cancelled' });
+		});
+
+		test('host-authored send rejection resolves as not dispatched', async () => {
+			setupSession();
+			agent.sendMessageError = new Error('send failed');
+			let turnService: IAgentHostTurnService | undefined;
+			createTestSideEffects(
+				disposables,
+				stateManager,
+				{
+					getAgent: () => agent,
+					agents: agentList,
+					sessionDataService: createNullSessionDataService(),
+				},
+				undefined,
+				NullTelemetryService,
+				new FakeChangesetService(),
+				undefined,
+				NULL_CHECKPOINT_SERVICE,
+				value => turnService = value,
+			);
+
+			const outcome = await turnService?.startTurnMessage(URI.parse(defaultChatUri), {
+				text: 'hello',
+				origin: { kind: MessageKind.Agent },
+			});
+
+			assert.deepStrictEqual(outcome, { kind: 'not-dispatched' });
 		});
 
 		test('chat truncation discards pending turn starts for that chat', async () => {

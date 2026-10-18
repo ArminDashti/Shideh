@@ -41,6 +41,7 @@ import { AgentHostCreateSessionRelationshipConfigKey, platformRootSchema } from 
 import type { ISessionServerToolAccessor } from './shared/sessionServerTools.js';
 import { type IAgentServiceFoundation } from './agentServiceFoundation.js';
 import { IAgentHostProviderService } from './agentHostProviderService.js';
+import { IAgentHostRemoteAgentsService } from './agentHostRemoteAgentsService.js';
 import { ISessionWorkspaceConversionService, SessionWorkspaceConversionService } from './chatContributions/sessionWorkspaceConversion/sessionWorkspaceConversionService.js';
 import { IAgentHostTurnTracker } from './agentHostTurnTracker.js';
 import { AgentHostSessionLifecycle } from './agentHostSessionLifecycle.js';
@@ -85,6 +86,7 @@ export function createAgentServiceComposition(
 	foundation: IAgentServiceFoundation,
 	localTurns: AgentHostLocalTurns,
 	additionalDisposables: readonly IDisposable[] = [],
+	hostedTunnel: IObservable<HostedTunnelIdentity> = constObservable<HostedTunnelIdentity>({ kind: 'unknown' }),
 ): IAgentServiceComposition {
 	const owned = new DisposableStore();
 	const contributions = owned.add(new MutableDisposable<IDisposable>());
@@ -99,7 +101,7 @@ export function createAgentServiceComposition(
 		const debugLogsCollector = options.debugLogsEnvironment
 			? owned.add(new AgentHostDebugLogsCollector(options.debugLogsEnvironment, logService))
 			: undefined;
-		const { callbackAdapter, stateManager, configurationService, authenticationService, gitHubEndpointService } = foundation;
+		const { callbackAdapter, stateManager, configurationService, authenticationService, featureAuthenticationRegistry, gitHubEndpointService } = foundation;
 		const providerService = accessor.get(IAgentHostProviderService);
 		const sessionRegistry = accessor.get(IAgentSessionRegistry);
 		const core: IAgentServiceCore = {

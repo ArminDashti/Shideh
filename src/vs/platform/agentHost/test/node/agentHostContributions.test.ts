@@ -49,6 +49,24 @@ class FailingChangesetOperationService extends Disposable implements IAgentHostC
 	async invokeChangesetOperation(): Promise<never> { throw new Error('Not implemented'); }
 }
 
+class TestRemoteAgentsService implements IAgentHostRemoteAgentsService {
+	declare readonly _serviceBrand: undefined;
+	readonly enabled = constObservable(false);
+	readonly tunnelDiscoveryEnabled = constObservable(false);
+	readonly targets = constObservable([]);
+	activationCount = 0;
+	disposalCount = 0;
+
+	activate() {
+		this.activationCount++;
+		return toDisposable(() => this.disposalCount++);
+	}
+
+	registerContribution(_contribution: IAgentHostRemoteAgentsContribution) {
+		return Disposable.None;
+	}
+}
+
 const nullGitStateService: IAgentHostGitStateService = {
 	_serviceBrand: undefined,
 	onDidRefreshSessionGitState: Event.None,
@@ -77,6 +95,7 @@ suite('AgentHostContributions', () => {
 
 	test('disposes earlier registrations when activation fails', () => {
 		const changesetOperationService = disposables.add(new FailingChangesetOperationService());
+		const remoteAgentsService = new TestRemoteAgentsService();
 		const logService = new NullLogService();
 		const stateManager = disposables.add(new AgentHostStateManager(logService));
 		const artifacts = disposables.add(new ArtifactIntegrationRegistry());

@@ -50,6 +50,7 @@ import { AgentHostLocalTurns, IAgentHostLocalTurns } from '../../node/agentHostL
 import { AgentHostTelemetryReporter, IAgentHostTelemetryReporter } from '../../node/agentHostTelemetryReporter.js';
 import { AgentHostToolCallTracker, IAgentHostToolCallTracker } from '../../node/agentHostToolCallTracker.js';
 import { AgentHostTurnTracker, IAgentHostTurnTracker } from '../../node/agentHostTurnTracker.js';
+import { IAgentHostTurnService } from '../../node/agentHostTurnService.js';
 import { AgentHostLocalCommands, IAgentHostLocalCommands } from '../../node/localCommands/localChatCommand.js';
 import { registerBuiltInChatContributions } from '../../node/chatContributions/builtInChatContributions.js';
 import { AgentHostChatInputService, IAgentHostChatInputService } from '../../node/agentHostChatInputService.js';
@@ -73,6 +74,7 @@ import { buildWorktreeAnnouncementText, detachedWorktreeRecordUri, IAgentHostWor
 import { createSessionDataService, TestSessionDatabase } from '../common/sessionTestHelpers.js';
 import { MockAgent } from './mockAgent.js';
 import { TestAgentHostTerminalManager } from './testAgentHostTerminalManager.js';
+import { registerNoopRemoteSessionDelegationServices } from './remoteSessionDelegationTestUtils.js';
 import '../../node/localCommands/localChatCommands.contribution.js';
 
 let calls: string[] = [];
@@ -706,6 +708,33 @@ class FollowingChatHydrationContribution extends TestContribution {
 	}
 }
 
+class DidHydrateChatContribution extends TestContribution {
+	static readonly id = 'didHydrateChat';
+	readonly order = 10;
+
+	onDidHydrateChat(context: IHydrationContext): void {
+		calls.push(`didHydrate:${context.chat}`);
+	}
+}
+
+class ThrowingDidHydrateChatContribution extends TestContribution {
+	static readonly id = 'throwingDidHydrateChat';
+	readonly order = 20;
+
+	onDidHydrateChat(): void {
+		throw new Error('expected');
+	}
+}
+
+class FollowingDidHydrateChatContribution extends TestContribution {
+	static readonly id = 'followingDidHydrateChat';
+	readonly order = 30;
+
+	onDidHydrateChat(): void {
+		calls.push('followingDidHydrate');
+	}
+}
+
 class BeforeSideChatHydrationContribution extends TestContribution {
 	static readonly id = 'beforeSideChatHydration';
 	readonly order = 450;
@@ -908,6 +937,7 @@ function createBuiltInContributions(disposables: ReturnType<typeof ensureNoDispo
 			setArchived: async () => { },
 		}],
 	);
+	registerNoopRemoteSessionDelegationServices(services);
 	services.set(ISessionWorkspaceConversionService, {
 		_serviceBrand: undefined,
 		requestSessionWorkspaceUpdate: () => { },
@@ -936,7 +966,10 @@ function createBuiltInContributions(disposables: ReturnType<typeof ensureNoDispo
 	services.set(IAgentHostLocalCommands, localCommands);
 	const host: IAgentHostChatContributionHost = {
 		hostLaunchKind: AgentHostLaunchKind.Unknown,
-		sendTurnMessage: () => observed?.push('queueDrain'),
+		sendTurnMessage: () => {
+			observed?.push('queueDrain');
+			return Promise.resolve({ kind: 'accepted' });
+		},
 	};
 	disposables.add(service.registerHost(host));
 	const workflows = createTestWorkflowService({ onTurnEnd: () => observed?.push('workflow') });
@@ -1020,7 +1053,10 @@ function createQueueDrainContributions(disposables: ReturnType<typeof ensureNoDi
 	const admitted: { channel: string; message: Message; clientId: string | undefined; hostLaunchKind: AgentHostLaunchKind }[] = [];
 	disposables.add(service.registerHost({
 		hostLaunchKind: AgentHostLaunchKind.VSCodeMainProcess,
-		sendTurnMessage: options => admitted.push({ channel: options.turnChannel, message: options.message, clientId: options.senderClientId, hostLaunchKind: options.clientContext.hostLaunchKind }),
+		sendTurnMessage: options => {
+			admitted.push({ channel: options.turnChannel, message: options.message, clientId: options.senderClientId, hostLaunchKind: options.clientContext.hostLaunchKind });
+			return Promise.resolve({ kind: 'accepted' });
+		},
 	}));
 	disposables.add(service.registerContribution(LocalCommandContribution as unknown as IConstructorSignature<IAgentHostChatContribution, [IAgentHostChatContributionContext]> & { readonly id: string }));
 	disposables.add(service.registerContribution(SessionWorkspaceConversionContribution as unknown as IConstructorSignature<IAgentHostChatContribution, [IAgentHostChatContributionContext]> & { readonly id: string }));
@@ -3320,6 +3356,20 @@ suite('AgentHostChatContributions', () => {
 		const restored = { title: 'initial' };
 
 		assert.strictEqual(await contributions.hydrateChat(hydrationContext(), restored), restored);
+	});
+
+	test('runs post-hydration contributions in order and isolates failures', async () => {
+		const context = hydrationContext();
+		const contributions = disposables.add(createContributions(
+			disposables,
+			FollowingDidHydrateChatContribution,
+			ThrowingDidHydrateChatContribution,
+			DidHydrateChatContribution,
+		));
+
+		await contributions.didHydrateChat(context);
+
+		assert.deepStrictEqual(calls, [`didHydrate:${context.chat}`, 'followingDidHydrate']);
 	});
 
 	test('runs built-in chat hydration contributions in the original sequence', async () => {

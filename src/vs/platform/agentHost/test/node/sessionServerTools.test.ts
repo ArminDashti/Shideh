@@ -45,6 +45,7 @@ import {
 	getListSessionsArgs,
 	sessionServerToolDefinitions,
 	sessionToolRequiresConfirmation,
+	SessionCreationBudget,
 	serializeSessions,
 	type IChatContextSnapshot,
 	type IPreparedChatWorkingDirectory,
@@ -79,11 +80,12 @@ suite('SessionServerTools', () => {
 			supportsChatWorkingDirectories: overrides?.supportsChatWorkingDirectories ?? (() => true),
 			listSessions: overrides?.listSessions ?? (async () => [sessionMeta('s1', SessionStatus.InProgress, workspace)]),
 			getSession: overrides?.getSession ?? (async session => session.toString() === 'copilot:/s1' ? sessionMeta('s1', SessionStatus.InProgress, workspace) : undefined),
+			restoreSession: overrides?.restoreSession ?? (async () => { }),
 			getWorktreeRoots: overrides?.getWorktreeRoots ?? (async () => []),
 			createSession: overrides?.createSession ?? (async config => { overrides?.onCreate?.(config); return URI.parse('copilot:/new'); }),
 			getModels: overrides?.getModels ?? (() => [model]),
 			getCreationDefaults: overrides?.getCreationDefaults ?? (() => undefined),
-			startPrompt: overrides?.startPrompt ?? (async (session, chat, prompt, delegation) => { overrides?.onPrompt?.(session, chat, prompt, delegation); }),
+			startPrompt: overrides?.startPrompt ?? (async (session, chat, prompt, delegation) => { overrides?.onPrompt?.(session, chat, prompt, delegation); return true; }),
 			createChat: overrides?.createChat ?? (async (session, chat, options) => { overrides?.onCreateChat?.(session, chat, options); }),
 			prepareChatWorkingDirectory: overrides?.prepareChatWorkingDirectory ?? (async (_session, directory) => prepared(directory)),
 			renameChat: overrides?.renameChat ?? (async (session, chat, title) => { overrides?.onRenameChat?.(session, chat, title); return { title }; }),
@@ -93,6 +95,7 @@ suite('SessionServerTools', () => {
 			getSessionSpawnDepth: overrides?.getSessionSpawnDepth ?? (session => depths.get(session.toString()) ?? 0),
 			setSessionSpawnDepth: overrides?.setSessionSpawnDepth ?? ((session, depth) => { depths.set(session.toString(), depth); }),
 			requestSessionWorkspaceUpdate: overrides?.requestSessionWorkspaceUpdate ?? (() => { }),
+			sessionCreationBudget: overrides?.sessionCreationBudget ?? new SessionCreationBudget(),
 		};
 	}
 
@@ -1502,12 +1505,22 @@ suite('SessionServerTools', () => {
 		const store = new DisposableStore();
 		const stateManager = store.add(new AgentHostStateManager(new NullLogService()));
 		const depths = new Map<string, number>();
-		const group = createSessionServerToolGroup(createAccessor({ depths }));
+		let created: IAgentCreateSessionConfig | undefined;
+		const group = createSessionServerToolGroup(createAccessor({
+			depths,
+			onCreate: config => created = config,
+		}));
 		const args = { relationship: 'independent', workspace: workspace.toString(), prompt: 'go', title: 'Spawned Task' };
 
 		// From a top-level (depth 0) session, the created session is stamped depth 1.
 		await group.execute(stateManager, executionContext('copilot:/caller'), SessionServerToolName.CreateSession, args);
-		assert.strictEqual(depths.get('copilot:/new'), 1);
+		assert.deepStrictEqual({
+			creationDepth: readSessionSpawnDepth(created?._meta),
+			liveDepth: depths.get('copilot:/new'),
+		}, {
+			creationDepth: 1,
+			liveDepth: 1,
+		});
 
 		// A session already at the max spawn depth may not create further sessions.
 		depths.set('copilot:/deep', 3);
@@ -1607,6 +1620,39 @@ suite('SessionServerTools', () => {
 			createdChats: 51,
 			sentMessages: 101,
 			spawnedDepth: 4,
+		});
+		store.dispose();
+	});
+
+	test('create_session reserves the breadth budget atomically', async () => {
+		const store = new DisposableStore();
+		const stateManager = store.add(new AgentHostStateManager(new NullLogService()));
+		const creationGate = new DeferredPromise<void>();
+		let started = 0;
+		const group = createSessionServerToolGroup(createAccessor({
+			createSession: async () => {
+				const id = started++;
+				await creationGate.p;
+				return URI.parse(`copilot:/concurrent-${id}`);
+			},
+		}));
+		const args = { relationship: 'independent', workspace: workspace.toString(), prompt: 'go', title: 'Spawned Task' };
+		const executions = Array.from({ length: 26 }, () => Promise.resolve(
+			group.execute(stateManager, executionContext('copilot:/caller'), SessionServerToolName.CreateSession, args),
+		));
+		await new Promise(resolve => setTimeout(resolve, 0));
+		const startedBeforeRelease = started;
+		creationGate.complete();
+		const settled = await Promise.allSettled(executions);
+
+		assert.deepStrictEqual({
+			startedBeforeRelease,
+			fulfilled: settled.filter(result => result.status === 'fulfilled').length,
+			rejected: settled.filter(result => result.status === 'rejected').length,
+		}, {
+			startedBeforeRelease: 25,
+			fulfilled: 25,
+			rejected: 1,
 		});
 		store.dispose();
 	});

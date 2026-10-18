@@ -891,6 +891,9 @@ export class AgentService extends Disposable implements IAgentService {
 		this._sessionRegistry = core.sessionRegistry;
 		void this._whenProvisionalSessionKeysLoaded();
 		this._stateManager = core.stateManager;
+		this._register(autorun(reader => {
+			this._stateManager.setActiveAuthenticationRequirements(this._authService.hostFeatureAuthenticationRequirements.read(reader));
+		}));
 		this._configurationService = core.configurationService;
 		this._recentLocalSessionUpdateSnapshot = this._readRecentLocalSessionUpdates();
 		this._recentLocalSessionUpdates = this._recentLocalSessionUpdateSnapshot;
@@ -1594,7 +1597,7 @@ export class AgentService extends Disposable implements IAgentService {
 	// ---- auth ---------------------------------------------------------------
 
 	async authenticate(params: AuthenticateParams): Promise<AuthenticateResult> {
-		const result = await this._providerService.authenticate(params);
+		const result = await this._authService.authenticate(params, this._providerService.getProviders());
 		if (result.authenticated) {
 			this._agentMergeController.refresh();
 		}
@@ -1650,6 +1653,7 @@ export class AgentService extends Disposable implements IAgentService {
 			supportsChatWorkingDirectories: session => !!this._providerService.getProviderForSession(session)?.getDescriptor().capabilities?.multipleWorkingDirectories,
 			listSessions: () => this.listSessions(),
 			getSession: session => this._getSessionMetadata(session),
+			restoreSession: session => this.restoreSession(session),
 			getWorktreeRoots: workspace => this._gitService.getWorktreeRoots(workspace),
 			createSession: config => this.createSession(config),
 			getModels: () => {
@@ -1673,8 +1677,14 @@ export class AgentService extends Disposable implements IAgentService {
 			reportToolError: (toolName, error) => this._logService.error(`[AgentService] ${toolName} failed after the tool returned: ${toErrorMessage(error)}`),
 			deleteSession: session => this.disposeSession(session),
 			getChatContext: (session, chatId) => this._getChatContext(session, chatId),
-			// Reads the `create_session` spawn depth from a session's `_meta` (0 when absent).
-			getSessionSpawnDepth: session => readSessionSpawnDepth(this._stateManager.getSessionSummary(session.toString())?._meta),
+			getSessionSpawnDepth: session => {
+				const meta = this._stateManager.getSessionSummary(session.toString())?._meta;
+				const value = meta?.[SESSION_META_SPAWN_DEPTH_KEY];
+				if (value === undefined) {
+					return readSessionCreationReference(meta) ? undefined : 0;
+				}
+				return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+			},
 			// Stamps a session's `create_session` spawn depth into its `_meta` (merging existing keys).
 			setSessionSpawnDepth: (session, depth) => this._stateManager.dispatchServerAction(session.toString(), {
 				type: ActionType.SessionMetaChanged,
@@ -1889,22 +1899,23 @@ export class AgentService extends Disposable implements IAgentService {
 	 * `ChatTurnStarted` and routing it through the same side-effects path a
 	 * client-initiated turn takes (which sends the message to the provider).
 	 */
-	private async _startSessionPrompt(session: URI, chat: URI, prompt: string, delegation?: IAgentMessageDelegationMeta): Promise<void> {
+	private async _startSessionPrompt(session: URI, chat: URI, prompt: string, delegation?: IAgentMessageDelegationMeta): Promise<boolean> {
 		// The calling agent authored this prompt, not the user.
 		const message: Message = {
 			text: prompt,
 			origin: { kind: MessageKind.Agent },
 			...(delegation ? { _meta: toAgentMessageDelegationMeta(delegation) } : {}),
 		};
-		await this._startSessionMessage(chat, message);
+		return this._startSessionMessage(chat, message);
 	}
 
 	private async _startAutomationMessage(session: URI, message: Message): Promise<void> {
 		await this._startSessionMessage(URI.parse(buildDefaultChatUri(session)), message);
 	}
 
-	private async _startSessionMessage(chat: URI, message: Message): Promise<void> {
-		this._turnService.startTurnMessage(chat, message);
+	private async _startSessionMessage(chat: URI, message: Message): Promise<boolean> {
+		const outcome = await this._turnService.startTurnMessage(chat, message);
+		return outcome.kind === 'accepted';
 	}
 
 	private async _cancelAutomationSession(session: URI): Promise<boolean> {
@@ -9367,7 +9378,10 @@ export class AgentService extends Disposable implements IAgentService {
 						}
 					}
 				}
-			} catch {
+			} catch (error) {
+				if (error instanceof InvalidPersistedSessionSpawnDepthError) {
+					throw error;
+				}
 				// Best-effort: fall back to agent-provided metadata
 			}
 		}
@@ -9782,6 +9796,7 @@ export class AgentService extends Disposable implements IAgentService {
 				archived,
 				resolver: currentProviderData => this._materializeRestoredPeerChat(session, chatUri, currentProviderData),
 			});
+			await this._chatContributions.didHydrateChat({ session: session.toString(), chat: chatUri.toString() });
 		}
 	}
 
@@ -11240,6 +11255,7 @@ export class AgentService extends Disposable implements IAgentService {
 					turns: [...await this._resolveRestoredSubagentTurns(agent, parentSession, chatUri, origin)],
 				}),
 			});
+			await this._chatContributions.didHydrateChat({ session: parentSessionStr, chat: chatUri });
 			if (existing && (!existing.title || existing.title === subagentChatTitle(undefined, undefined))) {
 				this._stateManager.updateChatTitle(parentSessionStr, chatUri, title);
 			}
