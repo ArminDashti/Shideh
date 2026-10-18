@@ -1002,6 +1002,10 @@ export class Repository implements Disposable {
 		this._sourceControl.quickDiffProvider = new GitQuickDiffProvider(this, this.repositoryResolver, logger);
 		this._sourceControl.secondaryQuickDiffProvider = new StagedResourceQuickDiffProvider(this, logger);
 
+		this._artifactProvider = new GitArtifactProvider(this, logger);
+		this._sourceControl.artifactProvider = this._artifactProvider;
+		this.disposables.push(this._artifactProvider);
+
 		this._historyProvider = new GitHistoryProvider(historyItemDetailProviderRegistry, this, logger);
 		this._sourceControl.historyProvider = this._historyProvider;
 		this.disposables.push(this._historyProvider);
@@ -2709,6 +2713,10 @@ export class Repository implements Disposable {
 
 	async getStashes(): Promise<Stash[]> {
 		return this.run(Operation.Stash(true), () => this.repository.getStashes());
+	}
+
+	async getWorktrees(): Promise<Worktree[]> {
+		return this.run(Operation.Worktree, () => this.repository.getWorktrees());
 	}
 
 	async createStash(message?: string, includeUntracked?: boolean, staged?: boolean): Promise<void> {

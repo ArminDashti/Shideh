@@ -74,7 +74,9 @@ function getArtifactContextMenuActions(actions: IAction[], artifactGroupId: stri
 	return actions.map(action => action instanceof Separator || allowedCommands.has(action.id) ? action : disableAction(action));
 }
 
-class ListDelegate implements IListVirtualDelegate<ISCMRepository> {
+type TreeElement = ISCMRepository | SCMArtifactGroupTreeElement | SCMArtifactTreeElement;
+
+class ListDelegate implements IListVirtualDelegate<TreeElement> {
 
 	getHeight(): number {
 		return 22;
@@ -506,22 +508,160 @@ class SCMRepositoriesViewModel extends Disposable {
 	}
 }
 
-class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<SCMRepositoriesViewModel, ISCMRepository> {
-	async getChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): Promise<Iterable<ISCMRepository>> {
-		if (inputOrElement instanceof SCMRepositoriesViewModel) {
-			return inputOrElement.repositories;
-		}
-		return [];
+interface ArtifactGroupTemplate {
+	readonly label: IconLabel;
+	readonly actionBar: WorkbenchToolBar;
+	readonly templateDisposable: IDisposable;
+}
+
+class ArtifactGroupRenderer implements ITreeRenderer<SCMArtifactGroupTreeElement, FuzzyScore, ArtifactGroupTemplate> {
+
+	static readonly TEMPLATE_ID = 'artifactGroup';
+	get templateId(): string { return ArtifactGroupRenderer.TEMPLATE_ID; }
+
+	constructor(
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IMenuService private readonly _menuService: IMenuService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@ITelemetryService private readonly _telemetryService: ITelemetryService
+	) { }
+
+	renderTemplate(container: HTMLElement): ArtifactGroupTemplate {
+		const element = append(container, $('.scm-artifact-group'));
+		const label = new IconLabel(element, { supportIcons: true });
+
+		const actionsContainer = append(element, $('.actions'));
+		const actionBar = new WorkbenchToolBar(actionsContainer, undefined, this._menuService, this._contextKeyService, this._contextMenuService, this._keybindingService, this._commandService, this._telemetryService);
+
+		return { label, actionBar, templateDisposable: combinedDisposable(label, actionBar) };
 	}
 
-	hasChildren(inputOrElement: SCMRepositoriesViewModel | ISCMRepository): boolean {
-		return inputOrElement instanceof SCMRepositoriesViewModel;
+	renderElement(node: ITreeNode<SCMArtifactGroupTreeElement, FuzzyScore>, index: number, templateData: ArtifactGroupTemplate): void {
+		const provider = node.element.repository.provider;
+		const artifactGroup = node.element.artifactGroup;
+		const artifactGroupIcon = ThemeIcon.isThemeIcon(artifactGroup.icon)
+			? `$(${artifactGroup.icon.id}) ` : '';
+
+		templateData.label.setLabel(`${artifactGroupIcon}${artifactGroup.name}`);
+
+		const actions = this._menuService.getMenuActions(
+			MenuId.SCMArtifactGroupContext,
+			this._contextKeyService.createOverlay([['scmArtifactGroup', artifactGroup.id]]),
+			{ arg: provider, shouldForwardArgs: true });
+
+		templateData.actionBar.context = node.element.artifactGroup;
+		templateData.actionBar.setActions(getActionBarActions(actions, 'inline').primary);
+	}
+
+	disposeTemplate(templateData: ArtifactGroupTemplate): void {
+		templateData.templateDisposable.dispose();
 	}
 }
 
-class RepositoryTreeIdentityProvider implements IIdentityProvider<ISCMRepository> {
-	getId(element: ISCMRepository): string {
-		return element.provider.id;
+interface ArtifactTemplate {
+	readonly label: IconLabel;
+	readonly actionBar: WorkbenchToolBar;
+	readonly templateDisposable: IDisposable;
+}
+
+class ArtifactRenderer implements ITreeRenderer<SCMArtifactTreeElement, FuzzyScore, ArtifactTemplate> {
+
+	static readonly TEMPLATE_ID = 'artifact';
+	get templateId(): string { return ArtifactRenderer.TEMPLATE_ID; }
+
+	constructor(
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IMenuService private readonly _menuService: IMenuService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@ITelemetryService private readonly _telemetryService: ITelemetryService
+	) { }
+
+	renderTemplate(container: HTMLElement): ArtifactTemplate {
+		const element = append(container, $('.scm-artifact'));
+		const label = new IconLabel(element, { supportIcons: true });
+
+		const actionsContainer = append(element, $('.actions'));
+		const actionBar = new WorkbenchToolBar(actionsContainer, undefined, this._menuService, this._contextKeyService, this._contextMenuService, this._keybindingService, this._commandService, this._telemetryService);
+
+		return { label, actionBar, templateDisposable: combinedDisposable(label, actionBar) };
+	}
+
+	renderElement(node: ITreeNode<SCMArtifactTreeElement, FuzzyScore>, index: number, templateData: ArtifactTemplate): void {
+		const provider = node.element.repository.provider;
+		const artifact = node.element.artifact;
+
+		const artifactGroup = node.element.group;
+		const artifactGroupIcon = ThemeIcon.isThemeIcon(artifactGroup.icon)
+			? `$(${artifactGroup.icon.id}) ` : '';
+
+		templateData.label.setLabel(`${artifactGroupIcon}${artifact.name}`, artifact.description);
+
+		const actions = this._menuService.getMenuActions(
+			MenuId.SCMArtifactContext,
+			this._contextKeyService.createOverlay([['scmArtifactGroup', artifactGroup.id]]),
+			{ arg: provider, shouldForwardArgs: true });
+
+		templateData.actionBar.context = node.element.artifact;
+		templateData.actionBar.setActions(getActionBarActions(actions, 'inline').primary);
+	}
+
+	disposeTemplate(templateData: ArtifactTemplate): void {
+		templateData.templateDisposable.dispose();
+	}
+}
+
+class RepositoryTreeDataSource extends Disposable implements IAsyncDataSource<SCMRepositoriesViewModel, TreeElement> {
+	async getChildren(inputOrElement: SCMRepositoriesViewModel | TreeElement): Promise<TreeElement[]> {
+		if (inputOrElement instanceof SCMRepositoriesViewModel) {
+			return inputOrElement.repositories;
+		}
+
+		if (isSCMRepository(inputOrElement)) {
+			const artifactGroups = await inputOrElement.provider.artifactProvider.get()?.provideArtifactGroups() ?? [];
+			return artifactGroups.map(group => ({
+				repository: inputOrElement,
+				artifactGroup: group,
+				type: 'artifactGroup'
+			}));
+		}
+
+		if (isSCMArtifactGroupTreeElement(inputOrElement)) {
+			const repository = inputOrElement.repository;
+			const artifacts = await repository.provider.artifactProvider.get()?.provideArtifacts(inputOrElement.artifactGroup.id) ?? [];
+
+			return artifacts.map(artifact => ({
+				repository,
+				group: inputOrElement.artifactGroup,
+				artifact,
+				type: 'artifact'
+			}));
+		}
+
+		return [];
+	}
+
+	hasChildren(inputOrElement: SCMRepositoriesViewModel | TreeElement): boolean {
+		return inputOrElement instanceof SCMRepositoriesViewModel ||
+			isSCMRepository(inputOrElement) ||
+			isSCMArtifactGroupTreeElement(inputOrElement);
+	}
+}
+
+class RepositoryTreeIdentityProvider implements IIdentityProvider<TreeElement> {
+	getId(element: TreeElement): string {
+		if (isSCMRepository(element)) {
+			return `repo:${element.provider.id}`;
+		} else if (isSCMArtifactGroupTreeElement(element)) {
+			return `artifactGroup:${element.repository.provider.id}/${element.artifactGroup.id}`;
+		} else if (isSCMArtifactTreeElement(element)) {
+			return `artifact:${element.repository.provider.id}/${element.group.id}/${element.artifact.id}`;
+		} else {
+			throw new Error('Invalid tree element');
+		}
 	}
 }
 
@@ -558,6 +698,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 
 	private readonly visibleCountObs: IObservable<number>;
 	private readonly providerCountBadgeObs: IObservable<'hidden' | 'auto' | 'visible'>;
+	private readonly repositoryExplorerEnabledObs: IObservable<boolean>;
 
 	private readonly visibilityDisposables = new DisposableStore();
 	private readonly repositoryDisposables = new DisposableMap<ISCMRepository>();
@@ -581,6 +722,7 @@ export class SCMRepositoriesViewPane extends ViewPane {
 		super({ ...options, titleMenuId: MenuId.SCMSourceControlTitle }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this.visibleCountObs = observableConfigValue('scm.repositories.visible', 10, this.configurationService);
+		this.repositoryExplorerEnabledObs = observableConfigValue('scm.repositoryExplorer.enabled', false, this.configurationService);
 		this.providerCountBadgeObs = observableConfigValue<'hidden' | 'auto' | 'visible'>('scm.providerCountBadge', 'hidden', this.configurationService);
 
 		this.storageService.onWillSaveState(() => {
