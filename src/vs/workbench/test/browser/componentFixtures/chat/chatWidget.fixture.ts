@@ -167,6 +167,7 @@ export interface IFixtureMessage {
 		| { kind: 'terminal'; command: string; output?: string; intention?: string; complete?: boolean; exitCode?: number; background?: boolean }
 		| { kind: 'subagent'; id: string; description: string; complete?: boolean }
 		| { kind: 'terminalConfirmation'; command: string; title?: string; disclaimer?: string; requestUnsandboxedExecution?: boolean; requestUnsandboxedExecutionReason?: string; riskAssessment?: { risk: ToolRiskLevel; explanation: string }; riskLoading?: boolean; confirmation?: { commandLine: string; cwdLabel?: string; cdPrefix?: string } }
+		| { kind: 'toolConfirmation'; title: string; message: string; subtitle?: string; riskAssessment?: { risk: ToolRiskLevel; explanation: string }; riskLoading?: boolean }
 		| { kind: 'elicitation'; title: string; message: string; confirmation?: { commandLine: string; cwdLabel?: string; cdPrefix?: string }; riskAssessment?: { risk: ToolRiskLevel; explanation: string }; riskLoading?: boolean }
 	>;
 	readonly details?: string;
@@ -183,6 +184,9 @@ export interface IFixtureMessage {
 	 */
 	readonly fileChanges?: ReadonlyArray<IFixtureFileChange>;
 }
+
+type FixtureAssistantPart = NonNullable<IFixtureMessage['assistant']>[number];
+type RiskBearingPart = Extract<FixtureAssistantPart, { kind: 'terminalConfirmation' | 'toolConfirmation' | 'elicitation' }>;
 
 export interface IChatWidgetFixtureOptions {
 	readonly messages: ReadonlyArray<IFixtureMessage>;
@@ -291,8 +295,8 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 		[...(message.initialAssistant ?? []), ...(message.assistant ?? [])].some(part => part.kind === 'subagent'));
 	// Collect risk assessments from messages so the risk badge service can
 	// return them synchronously via getCached().
-	const hasRiskAssessment = options.messages.some(m => m.assistant?.some(p => (p.kind === 'terminalConfirmation' || p.kind === 'elicitation') && p.riskAssessment));
-	const hasRiskLoading = options.messages.some(m => m.assistant?.some(p => (p.kind === 'terminalConfirmation' || p.kind === 'elicitation') && p.riskLoading));
+	const hasRiskAssessment = options.messages.some(m => m.assistant?.some(p => isRiskBearingPart(p) && !!p.riskAssessment));
+	const hasRiskLoading = options.messages.some(m => m.assistant?.some(p => isRiskBearingPart(p) && !!p.riskLoading));
 	const riskFeatureExplicitlyDisabled = options.riskAssessmentEnabled === false;
 	const needsRiskService = hasRiskAssessment || hasRiskLoading || riskFeatureExplicitlyDisabled;
 
@@ -427,8 +431,8 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 				reg.defineInstance(ILanguageModelToolsService, new class extends mock<ILanguageModelToolsService>() {
 					override onDidChangeTools = Event.None;
 					override onDidPrepareToolCallBecomeUnresponsive = Event.None;
-					override getTools() { return [fixtureToolData]; }
-					override getTool(id: string) { return id === fixtureToolData.id ? fixtureToolData : undefined; }
+					override getTools() { return fixtureTools; }
+					override getTool(id: string) { return fixtureTools.find(t => t.id === id); }
 				}());
 				reg.defineInstance(IChatToolRiskAssessmentService, new class extends mock<IChatToolRiskAssessmentService>() {
 					override isEnabled() { return !riskFeatureExplicitlyDisabled; }
@@ -436,7 +440,7 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 						// Return the first risk assessment found in the fixture messages.
 						for (const m of options.messages) {
 							for (const p of m.assistant ?? []) {
-								if ((p.kind === 'terminalConfirmation' || p.kind === 'elicitation') && p.riskAssessment) {
+								if (isRiskBearingPart(p) && p.riskAssessment) {
 									return p.riskAssessment;
 								}
 							}

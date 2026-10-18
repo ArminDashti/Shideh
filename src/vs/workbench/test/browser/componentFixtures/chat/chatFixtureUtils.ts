@@ -10,6 +10,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IMarkerService } from '../../../../../platform/markers/common/markers.js';
 import { IMenu, IMenuItem, IMenuService, MenuId, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
@@ -89,6 +90,7 @@ import { ILanguageModelsService } from '../../../../contrib/chat/common/language
 import { ChatAgentService, IChatAgent, IChatAgentNameService, IChatAgentService } from '../../../../contrib/chat/common/participants/chatAgents.js';
 import { MockChatService } from '../../../../contrib/chat/test/common/chatService/mockChatService.js';
 import { ILanguageModelToolsService } from '../../../../contrib/chat/common/tools/languageModelToolsService.js';
+import { ILanguageModelToolsConfirmationService } from '../../../../contrib/chat/common/tools/languageModelToolsConfirmationService.js';
 import { IArtifactSourceGroup, IChatArtifacts, IChatArtifactsService } from '../../../../contrib/chat/common/tools/chatArtifactsService.js';
 import { IChatTodo, IChatTodoListService } from '../../../../contrib/chat/common/tools/chatTodoListService.js';
 import { IChatToolRiskAssessmentService } from '../../../../contrib/chat/browser/tools/chatToolRiskAssessmentService.js';
@@ -360,6 +362,13 @@ export function registerChatFixtureServices(reg: ServiceRegistration, options: I
 		override getModelConfigurationActions() { return []; }
 	}());
 	reg.defineInstance(ILanguageModelToolsService, new class extends mock<ILanguageModelToolsService>() { override onDidChangeTools = Event.None; override onDidPrepareToolCallBecomeUnresponsive = Event.None; override getTools() { return []; } }());
+	reg.defineInstance(ILanguageModelToolsConfirmationService, new class extends mock<ILanguageModelToolsConfirmationService>() {
+		override getPreConfirmAction() { return undefined; }
+		override getPostConfirmAction() { return undefined; }
+		override getPreConfirmActions() { return []; }
+		override getPostConfirmActions() { return []; }
+		override toolCanManageConfirmation() { return false; }
+	}());
 	reg.defineInstance(IChatToolRiskAssessmentService, new class extends mock<IChatToolRiskAssessmentService>() {
 		override isEnabled() { return false; }
 		override getCached() { return undefined; }
