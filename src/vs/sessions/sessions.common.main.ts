@@ -469,6 +469,7 @@ import './services/mcp/browser/mcpWorkspaceInstallTargetService.js';
 import './services/customView/browser/customViewService.js';
 import './browser/parts/menubar.contribution.js';
 import './browser/layoutActions.js';
+import './browser/sidebarToggleWidget.js';
 
 import './contrib/accountMenu/browser/account.contribution.js';
 import './contrib/issueWizard/browser/issueWizard.contribution.js';

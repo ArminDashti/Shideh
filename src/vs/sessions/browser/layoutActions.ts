@@ -25,7 +25,7 @@ const panelCloseIcon = registerIcon('agent-panel-close', Codicon.close, localize
 const sidebarToggleClosedIcon = registerIcon('agent-sidebar-toggle-closed', Codicon.layoutSidebarLeftOff, localize('agentSidebarToggleClosedIcon', "Icon for the sessions sidebar when closed."));
 const sidebarToggleOpenIcon = registerIcon('agent-sidebar-toggle-open', Codicon.layoutSidebarLeft, localize('agentSidebarToggleOpenIcon', "Icon for the sessions sidebar when open."));
 
-class ToggleSidebarVisibilityAction extends Action2 {
+export class ToggleSidebarVisibilityAction extends Action2 {
 
 	static readonly ID = 'workbench.action.agentToggleSidebarVisibility';
 
