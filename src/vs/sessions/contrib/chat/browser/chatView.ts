@@ -45,6 +45,7 @@ import { OffsetRange } from '../../../../editor/common/core/ranges/offsetRange.j
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISendRequestOptions } from '../../../services/sessions/common/sessionsProvider.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../../workbench/contrib/chat/common/constants.js';
+import { ILanguageModelsService } from '../../../../workbench/contrib/chat/common/languageModels.js';
 import { getChatSessionType } from '../../../../workbench/contrib/chat/common/model/chatUri.js';
 import { IChatSessionsService, localChatSessionType } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { isPhoneLayout } from '../../../browser/parts/mobile/mobileLayout.js';
@@ -886,6 +887,31 @@ export class ChatView extends AbstractChatView {
 	private _applyHistoryKey(): void {
 		const scopedHistory = this.configurationService.getValue<boolean>(AGENT_SESSIONS_SCOPED_INPUT_HISTORY_SETTING) !== false;
 		this._widget.inputPart.setHistoryKey(scopedHistory ? this._historyKey : undefined);
+	}
+
+	private _syncAuthoritativeChatModel(chat: IChat, ref: IChatModelReference, resource: URI, sessionType: string, phase: 'beforeWidgetModel' | 'afterWidgetModel'): void {
+		const authoritativeModelId = chat.modelId.get();
+		if (!authoritativeModelId) {
+			return;
+		}
+
+		const currentInputModelId = ref.object.inputModel.state.get()?.selectedModel?.identifier;
+		const currentWidgetModelId = phase === 'afterWidgetModel' ? this._widget.input.currentLanguageModel : undefined;
+		if (currentInputModelId === authoritativeModelId && (!currentWidgetModelId || currentWidgetModelId === authoritativeModelId)) {
+			return;
+		}
+
+		const languageModel = this.languageModelsService.lookupLanguageModel(authoritativeModelId);
+		if (!languageModel) {
+			return;
+		}
+
+		if (phase === 'afterWidgetModel') {
+			this._widget.input.setCurrentLanguageModel({ identifier: authoritativeModelId, metadata: languageModel });
+			return;
+		}
+
+		ref.object.inputModel.setState({ selectedModel: { identifier: authoritativeModelId, metadata: languageModel } });
 	}
 
 	private _updateWidgetLockState(sessionType: string): void {
