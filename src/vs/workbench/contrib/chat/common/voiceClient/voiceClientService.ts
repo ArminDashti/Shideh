@@ -759,6 +759,13 @@ export interface IVoiceClientService {
 	/** Fired on a recoverable close so the UI can explain what it is waiting on. */
 	readonly onConnectionIssue: Event<IVoiceConnectionIssue>;
 	/**
+	 * Fired on a terminal, non-recoverable close (e.g. code 4008 when another
+	 * window takes over the single voice session). Distinct from a transient
+	 * disconnect: consumers should tear down to a clean, restartable state
+	 * rather than entering a reconnect loop.
+	 */
+	readonly onFatalDisconnect: Event<IVoiceFatalDisconnect>;
+	/**
 	 * Fired when the backend ends a held turn on its own (server VAD silence or
 	 * a matched stop phrase). Consumers stop capturing for that turn and clear
 	 * the recording UI without sending their own ``ptt_end``.

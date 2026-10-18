@@ -352,6 +352,16 @@ export interface IVoiceSessionController {
 	activateSession(resource: URI): void;
 
 	/**
+	 * Deterministically route audio to and narrate a session in response to an
+	 * explicit UI action (e.g. clicking a session's pending-voice indicator).
+	 * Unlike the shown/focus heuristics, this activates even when the session is
+	 * already the active/shown one - so a completed background reply the user
+	 * clicks to hear is played rather than silently ignored because no focus or
+	 * view-model change event fired.
+	 */
+	activateSession(resource: URI): void;
+
+	/**
 	 * Submit user feedback along with full diagnostic data (transcript history,
 	 * client state, environment info). Returns success/failure.
 	 */
@@ -6452,6 +6462,12 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 				this._sessionsAwaitingResponseSummary.add(sessionId);
 			}
 
+			// Arm the awaiting-summary marker on a genuine new turn so this run's
+			// completion is later recognized as new (see autorun for rationale).
+			if (isStateChange && currentState === 'thinking' && !this._eagerModelLoading.has(sessionId)) {
+				this._sessionsAwaitingResponseSummary.add(sessionId);
+			}
+
 			// Summary-less idle transitions for remote/Copilot sessions: narrate
 			// from the cached summary if we have one, otherwise defer until the
 			// model loads (see _deferIdleNarrationUntilModelLoaded).
@@ -6551,6 +6567,14 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 		// arrive on sessions detected here (e.g. remote/unloaded sessions surfaced
 		// via onDidChangeSessions or the periodic poll rather than the autorun).
 		this._reconcileConfirmationIndicators(waitingSessionIds);
+
+		// Speak the settled item for the shown session; completions surfaced ONLY
+		// here (e.g. remote/unloaded sessions) are covered too. Background sessions
+		// are spoken on focus.
+		const shownNow = this._shownSessionId();
+		for (const change of stateChanges) {
+			this._handleNarratableStateChange(change.sessionId, change.currentState, change.detail, change.lastResponseSummary, shownNow);
+		}
 
 		if (stateChanges.length > 0) {
 			this.logService.trace(`[voice] onDidChangeSessions detected ${stateChanges.length} state change(s): ${stateChanges.map(c => `${c.label}: ${c.currentState}`).join(', ')}`);

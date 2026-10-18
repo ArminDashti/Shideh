@@ -179,6 +179,10 @@ export class VoiceClientService extends Disposable implements IVoiceClientServic
 	private _sessionStartedOnSocket = false;
 	private _window: (Window & typeof globalThis) | undefined;
 	private _lastSessionId: string | undefined;
+	// Set once start_session/resume_session (which carries session_context) has
+	// been sent on the current connection; reset per connection. Gates
+	// requestNarration so the backend has the session before a narration request.
+	private _sessionContextSent = false;
 
 	// --- Keep-alive ping/pong ---
 	private _pingTimer: ReturnType<Window['setInterval']> | undefined;
