@@ -130,7 +130,7 @@ export class AccountPolicyService extends AbstractPolicyService implements IPoli
 		}));
 		if (this.managedPolicyReader) {
 			this._register(this.managedPolicyReader.onDidChange(names => {
-				if (names.includes(APPROVED_ACCOUNT_ORGANIZATIONS_POLICY_NAME)) {
+				if (names.includes(APPROVED_ACCOUNT_ORGANIZATIONS_POLICY_NAME) || names.includes(MANAGED_SETTINGS_RAW_POLICY_NAME)) {
 					this._updatePolicyDefinitions(this.policyDefinitions);
 				}
 			}));

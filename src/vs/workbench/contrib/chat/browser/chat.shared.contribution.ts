@@ -862,7 +862,7 @@ configurationRegistry.registerConfiguration({
 				name: 'CopilotSessionSync',
 				category: PolicyCategory.InteractiveSession,
 				minimumVersion: '1.121',
-				value: (policyData) => policyData.cloud_session_storage_enabled === false ? false : undefined,
+				value: ({ accountPolicy }) => accountPolicy?.cloud_session_storage_enabled === false ? false : undefined,
 				localization: {
 					description: {
 						key: 'chat.sessionSync.enabled.policy',
@@ -1126,11 +1126,11 @@ configurationRegistry.registerConfiguration({
 				name: 'ChatMCP',
 				category: PolicyCategory.InteractiveSession,
 				minimumVersion: '1.99',
-				value: (policyData) => {
-					if (policyData.mcp === false) {
+				value: ({ accountPolicy }) => {
+					if (accountPolicy?.mcp === false) {
 						return McpAccessValue.None;
 					}
-					if (policyData.mcpAccess === 'registry_only') {
+					if (accountPolicy?.mcpAccess === 'registry_only') {
 						return McpAccessValue.Registry;
 					}
 					return undefined;
@@ -1564,7 +1564,7 @@ configurationRegistry.registerConfiguration({
 				name: 'ChatAgentMode',
 				category: PolicyCategory.InteractiveSession,
 				minimumVersion: '1.99',
-				value: (policyData) => policyData.chat_agent_enabled === false ? false : undefined,
+				value: ({ accountPolicy }) => accountPolicy?.chat_agent_enabled === false ? false : undefined,
 				localization: {
 					description: {
 						key: 'chat.agent.enabled.description',
@@ -2011,7 +2011,7 @@ configurationRegistry.registerConfiguration({
 				name: 'McpGalleryServiceUrl',
 				category: PolicyCategory.InteractiveSession,
 				minimumVersion: '1.101',
-				value: (policyData) => policyData.mcpRegistryUrl,
+				value: ({ accountPolicy }) => accountPolicy?.mcpRegistryUrl,
 				localization: {
 					description: {
 						key: 'mcp.gallery.serviceUrl',
@@ -2307,7 +2307,7 @@ configurationRegistry.registerConfiguration({
 				name: 'ChatHooks',
 				category: PolicyCategory.InteractiveSession,
 				minimumVersion: '1.109',
-				value: (policyData) => policyData.chat_preview_features_enabled === false ? false : undefined,
+				value: ({ accountPolicy }) => accountPolicy?.chat_preview_features_enabled === false ? false : undefined,
 				localization: {
 					description: {
 						key: 'chat.useHooks.description',

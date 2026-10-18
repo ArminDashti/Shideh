@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IStringDictionary } from '../../../base/common/collections.js';
-import { IPolicyData } from '../../../base/common/defaultAccount.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Iterable } from '../../../base/common/iterator.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
@@ -28,6 +27,14 @@ export type PolicyDefinition = {
 	value?: (policyData: IPolicyData) => string | number | boolean | undefined;
 	managedSettings?: IManagedSettingsPolicyDefinitions;
 	restrictedValue?: PolicyValue;
+	/**
+	 * When set, this value is treated as a security-critical "deny" signal.
+	 * If **any** policy source provides this value, it takes effect regardless
+	 * of source priority — no lower-priority source can override it.
+	 * Used for settings like `disableBypassPermissionsMode` where "disable"
+	 * from any enterprise source must stick.
+	 */
+	denyValue?: PolicyValue;
 };
 
 /** Returns a structured-clone-safe copy of `definition`, dropping the non-cloneable `value` callback. */

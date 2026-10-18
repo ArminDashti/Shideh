@@ -84,6 +84,9 @@ import { FileUserDataProvider } from '../../platform/userData/common/fileUserDat
 import { addUNCHostToAllowlist, getUNCHost } from '../../base/node/unc.js';
 import { ThemeMainService } from '../../platform/theme/electron-main/themeMainServiceImpl.js';
 import { LINUX_SYSTEM_POLICY_FILE_PATH } from '../../base/common/policy.js';
+import { GITHUB_COPILOT_WIN32_POLICY_NAME, GITHUB_COPILOT_WIN32_REGISTRY_PATH, GITHUB_COPILOT_MACOS_BUNDLE_ID } from '../../base/common/copilotPolicy.js';
+import { ManagedSettingsNativePolicyService } from '../../platform/policy/node/managedSettingsNativePolicyService.js';
+import { MultiplexPolicyService } from '../../platform/policy/common/multiplexPolicyService.js';
 
 /**
  * The main VS Code entry point.
