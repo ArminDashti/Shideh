@@ -39,6 +39,10 @@ export const webviewGenericCspSource = `'self' https://*.${webviewResourceBaseHo
  */
 export function asWebviewUri(resource: URI, remoteInfo?: WebviewRemoteInfo): URI {
 	if (resource.scheme === Schemas.http || resource.scheme === Schemas.https) {
+		const token = RemoteAuthorities.getConnectionToken(resource.authority);
+		if (token && !resource.query) {
+			resource = resource.with({ query: `${connectionTokenQueryName}=${token}` });
+		}
 		return resource;
 	}
 
