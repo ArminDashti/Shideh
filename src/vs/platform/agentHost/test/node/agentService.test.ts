@@ -1825,6 +1825,40 @@ suite('AgentService (node dispatcher)', () => {
 		}]);
 	});
 
+	test('publishes a newly discovered skill before returning its completion', async () => {
+		registerTestAgentProvider(service, copilotAgent);
+		const session = await service.createSession({ provider: 'copilot' });
+		const customization: PluginCustomization = {
+			type: CustomizationType.Plugin,
+			id: customizationId('file:///dummy'),
+			uri: 'file:///dummy',
+			name: 'dummy',
+			children: [{
+				type: CustomizationType.Skill,
+				id: customizationId('file:///dummy/skills/print-hello-world/SKILL.md'),
+				uri: 'file:///dummy/skills/print-hello-world/SKILL.md',
+				name: 'print-hello-world',
+				description: 'Calculate the sum of 3+3 and output it.',
+			}],
+		};
+		copilotAgent.customizations = [customization];
+
+		const result = await service.completions({
+			kind: CompletionItemKind.UserMessage,
+			channel: buildDefaultChatUri(session),
+			text: '/print',
+			offset: '/print'.length,
+		});
+
+		assert.deepStrictEqual({
+			items: result.items.map(item => item.insertText),
+			published: getStateManager(service).getSessionState(session.toString())?.customizations,
+		}, {
+			items: ['/dummy:print-hello-world '],
+			published: [customization],
+		});
+	});
+
 	// ---- Provider registration ------------------------------------------
 
 	suite('registerProvider', () => {
