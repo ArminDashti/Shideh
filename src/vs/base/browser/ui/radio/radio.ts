@@ -32,6 +32,7 @@ export interface IRadioOptionItem {
 	readonly ariaLabel?: string;
 	readonly isActive?: boolean;
 	readonly disabled?: boolean;
+	readonly labelElement?: HTMLElement;
 }
 
 export interface IRadioOptions {

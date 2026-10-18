@@ -44,6 +44,7 @@ import { ctxHasEditorModification, ctxHasRequestInProgress, ctxIsGlobalEditingSe
 import { ChatEntitlement, IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { ACTION_ID_NEW_CHAT, CHAT_CATEGORY, CHAT_SETUP_ACTION_ID, clearChatSessionPreservingType, handleCurrentEditingSession, handleModeSwitch } from './chatActions.js';
 import { CreateRemoteAgentJobAction } from './chatContinueInAction.js';
+import { queuingActionsPresent } from './chatQueueActions.js';
 
 export interface IVoiceChatExecuteActionContext {
 	readonly disableTimeout?: boolean;
@@ -1230,6 +1231,7 @@ export class CancelAction extends Action2 {
 					ContextKeyExpr.or(ChatContextKeys.hasActiveRequest, ChatContextKeys.transcriptProgressActive),
 					ChatContextKeys.remoteJobCreating.negate(),
 					ChatContextKeys.currentlyEditing.negate(),
+					queuingActionsPresent?.negate(),
 				),
 				order: 4,
 				group: 'navigation',

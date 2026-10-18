@@ -1920,8 +1920,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 
 .interactive-session .interactive-input-part .chat-todo-list-widget-container .chat-todo-list-widget .todo-list-container {
 	margin-top: 2px;
-	max-height: calc(6.5 * 21px);
-	/* 6.5 items to show half-line affordance */
+	max-height: calc(3 * 22px);
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	scroll-behavior: smooth;
@@ -5071,9 +5070,6 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	color: var(--vscode-descriptionForeground);
 }
 
-/* Pending request styles */
-.interactive-item-container.pending-request {
-	opacity: 0.7;
 
 	.request-hover {
 		top: -17px !important;

@@ -20,7 +20,6 @@ import { DeferredPromise, RunOnceScheduler } from '../../../../../../base/common
 import { IStringDictionary } from '../../../../../../base/common/collections.js';
 import { isDefined } from '../../../../../../base/common/types.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
-import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { Iterable } from '../../../../../../base/common/iterator.js';
@@ -4899,6 +4898,20 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}
 
 		this._chatInputTodoListWidget.value.render(chatSessionResource);
+
+		// Initialize queued prompts widget for this session
+		const model = this._widget?.viewModel?.model;
+		if (model) {
+			if (!this._chatQueuedPromptsWidget.value) {
+				this._chatQueuedPromptsWidget.value = this.instantiationService.createInstance(ChatQueuedPromptsWidget);
+				dom.append(this.chatWorkingSetMessages, this._chatQueuedPromptsWidget.value.domNode);
+				this._chatEditingTodosDisposables.add(this._chatQueuedPromptsWidget.value.onDidChangeHeight(() => {
+					this._updateWorkingSetTabs();
+				}));
+			}
+			this._chatQueuedPromptsWidget.value.render(model);
+		}
+		this._updateWorkingSetTabs();
 	}
 
 	clearTodoListWidget(sessionResource: URI | undefined, force: boolean): void {
@@ -5223,6 +5236,150 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	renderChatEditingSessionState(chatEditingSession: IChatEditingSession | null) {
 		this.setChatEditingSessionVisible(Boolean(chatEditingSession));
 
+		// Show content when switching to a new tab
+		this.chatWorkingSetContent.style.display = '';
+		this._workingSetCollapsed.set(false, undefined);
+		this._chatWorkingSetTabs.value?.setContentVisible(true);
+	}
+
+	/**
+	 * Switches the active panel child without changing content visibility.
+	 * Used internally by _updateWorkingSetTabs to avoid forcing content open.
+	 */
+	private _switchWorkingSetPanel(kind: ChatWorkingSetTabKind): void {
+		this.chatWorkingSetMessages.style.display = kind === ChatWorkingSetTabKind.Messages ? 'block' : 'none';
+		this.chatWorkingSetFiles.style.display = kind === ChatWorkingSetTabKind.Files ? 'block' : 'none';
+		this.chatWorkingSetTodos.style.display = kind === ChatWorkingSetTabKind.Todos ? 'block' : 'none';
+		this.chatWorkingSetQuestions.style.display = kind === ChatWorkingSetTabKind.Questions ? 'block' : 'none';
+	}
+
+	private _toggleWorkingSetContent(): void {
+		const isVisible = this.chatWorkingSetContent.style.display !== 'none';
+		this.chatWorkingSetContent.style.display = isVisible ? 'none' : '';
+		this._workingSetCollapsed.set(isVisible, undefined);
+		this._chatWorkingSetTabs.value?.setContentVisible(!isVisible);
+	}
+
+	private _updateWorkingSetTabs(): void {
+		const tabs: IChatWorkingSetTabData[] = [];
+
+		// Messages tab -- count of pending requests
+		const model = this._widget?.viewModel?.model;
+		const pendingCount = model?.getPendingRequests().length ?? 0;
+		if (pendingCount > 0) {
+			tabs.push({ kind: ChatWorkingSetTabKind.Messages, count: pendingCount });
+		}
+
+		// Files tab -- count and diff stats from editing session entries and session file changes
+		let fileCount = 0;
+		let totalAdded = 0;
+		let totalRemoved = 0;
+
+		const editingSession = model?.editingSession;
+		if (editingSession) {
+			for (const entry of editingSession.entries.get()) {
+				if (entry.state.get() === ModifiedFileEntryState.Modified) {
+					fileCount++;
+					totalAdded += entry.linesAdded?.get() ?? 0;
+					totalRemoved += entry.linesRemoved?.get() ?? 0;
+				}
+			}
+		}
+
+		// Also include session file changes from agentSessionsService (cloud/background sessions)
+		const sessionResource = model?.sessionResource;
+		if (sessionResource) {
+			const sessionModel = this.agentSessionsService.getSession(sessionResource);
+			if (sessionModel?.changes instanceof Array) {
+				for (const entry of sessionModel.changes) {
+					fileCount++;
+					totalAdded += entry.insertions;
+					totalRemoved += entry.deletions;
+				}
+			}
+		}
+
+		if (fileCount > 0) {
+			const diffStats = (totalAdded > 0 || totalRemoved > 0) ? { added: totalAdded, removed: totalRemoved } : undefined;
+			tabs.push({ kind: ChatWorkingSetTabKind.Files, count: fileCount, diffStats });
+		}
+
+		// Todos tab -- show completed/total progress
+		const todoWidget = this._chatInputTodoListWidget.value;
+		const todoStats = todoWidget?.getTodoStats();
+		if (todoStats) {
+			const allComplete = todoStats.completed >= todoStats.total;
+			if (allComplete && !this._todoDismissTimeout) {
+				// Auto-dismiss todos tab after a delay when all steps are complete
+				this._todoDismissTimeout = setTimeout(() => {
+					this._todoDismissTimeout = undefined;
+					todoWidget?.clear(this._widget?.viewModel?.model.sessionResource, false);
+					this._updateWorkingSetTabs();
+				}, 3000);
+			} else if (!allComplete && this._todoDismissTimeout) {
+				clearTimeout(this._todoDismissTimeout);
+				this._todoDismissTimeout = undefined;
+			}
+			tabs.push({ kind: ChatWorkingSetTabKind.Todos, count: todoStats.total, diffStats: { added: todoStats.completed, removed: 0 } });
+		} else if (this._todoDismissTimeout) {
+			clearTimeout(this._todoDismissTimeout);
+			this._todoDismissTimeout = undefined;
+		}
+
+		// Questions tab -- show when a question carousel is active
+		const questionCarousel = this._chatQuestionCarouselWidget.value;
+		if (questionCarousel) {
+			const questionCount = questionCarousel.carousel.questions.length;
+			tabs.push({ kind: ChatWorkingSetTabKind.Questions, count: questionCount });
+		}
+
+		this._chatWorkingSetTabs.value?.setTabData(tabs);
+
+		// Only auto-switch tabs when the Messages tab newly appears (queue just got items)
+		// or when the current active tab is no longer available
+		const currentActiveTab = this._chatWorkingSetTabs.value?.activeTab;
+		const currentTabStillAvailable = currentActiveTab !== undefined && tabs.some(t => t.kind === currentActiveTab && t.count > 0);
+
+		if (!currentTabStillAvailable) {
+			// Current tab gone -- pick best available
+			if (questionCarousel) {
+				this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Questions);
+			} else if (pendingCount > 0) {
+				this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Messages);
+			} else if (tabs.some(t => t.kind === ChatWorkingSetTabKind.Files && t.count > 0)) {
+				this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Files);
+			}
+		} else if (questionCarousel && currentActiveTab !== ChatWorkingSetTabKind.Questions && !this._lastHadQuestionCarousel) {
+			// Questions tab just appeared -- switch to it
+			this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Questions);
+		} else if (pendingCount > 0 && this._lastPendingCount === 0) {
+			// Messages tab just appeared -- switch to it
+			this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Messages);
+		} else if (pendingCount === 0 && this._lastPendingCount > 0) {
+			// Messages tab just disappeared -- switch away
+			if (tabs.some(t => t.kind === ChatWorkingSetTabKind.Files && t.count > 0)) {
+				this._chatWorkingSetTabs.value?.setActiveTab(ChatWorkingSetTabKind.Files);
+			}
+		}
+		this._lastPendingCount = pendingCount;
+		this._lastHadQuestionCarousel = !!questionCarousel;
+
+		// Show/hide the whole container
+		const activeTabs = tabs.filter(t => t.count > 0);
+		const hasVisibleTabs = activeTabs.length > 0;
+		this.chatWorkingSetContainer.style.display = hasVisibleTabs ? '' : 'none';
+
+		// Always show the tab bar (no hiding for single tab)
+		this.chatWorkingSetTabBar.style.display = '';
+
+		// Switch the active panel content (without forcing content open)
+		const activeTab = this._chatWorkingSetTabs.value?.activeTab;
+		if (activeTab !== undefined) {
+			this._switchWorkingSetPanel(activeTab);
+		}
+	}
+
+	renderChatEditingSessionState(chatEditingSession: IChatEditingSession | null) {
 		if (chatEditingSession) {
 			if (!isEqual(chatEditingSession.chatSessionResource, this._lastEditingSessionResource)) {
 				this._workingSetCollapsed.set(true, undefined);
@@ -5320,12 +5477,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					sessionFiles
 				);
 			} else {
-				dom.clearNode(this.chatEditingSessionWidgetContainer);
+				dom.clearNode(this.chatWorkingSetFiles);
 				this._chatEditsDisposables.clear();
 				this._chatEditList = undefined;
 				this.setChatEditingSessionVisible(false);
 			}
 		});
+
+		this._updateWorkingSetTabs();
 	}
 
 	/** Show or hide the working set, and report the same to the stack. */
@@ -5342,7 +5501,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	) {
 		// Summary of number of files changed
 		// eslint-disable-next-line no-restricted-syntax
-		const innerContainer = this.chatEditingSessionWidgetContainer.querySelector('.chat-editing-session-container.show-file-icons') as HTMLElement ?? dom.append(this.chatEditingSessionWidgetContainer, $('.chat-editing-session-container.show-file-icons'));
+		const innerContainer = this.chatWorkingSetFiles.querySelector('.chat-editing-session-container.show-file-icons') as HTMLElement ?? dom.append(this.chatWorkingSetFiles, $('.chat-editing-session-container.show-file-icons'));
 
 		// eslint-disable-next-line no-restricted-syntax
 		const overviewRegion = innerContainer.querySelector('.chat-editing-session-overview') as HTMLElement ?? dom.append(innerContainer, $('.chat-editing-session-overview'));
@@ -5480,27 +5639,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		countsContainer.appendChild(this._workingSetLinesAddedSpan.value);
 		countsContainer.appendChild(this._workingSetLinesRemovedSpan.value);
 
-		const toggleWorkingSet = () => {
-			this._workingSetCollapsed.set(!this._workingSetCollapsed.get(), undefined);
-		};
-
-		this._chatEditsActionsDisposables.add(button.onDidClick(toggleWorkingSet));
-		this._chatEditsActionsDisposables.add(addDisposableListener(overviewRegion, 'click', e => {
-			if (e.defaultPrevented) {
-				return;
-			}
-			const target = e.target as HTMLElement;
-			if (target.closest('.monaco-button')) {
-				return;
-			}
-			toggleWorkingSet();
-		}));
-
-		this._chatEditsActionsDisposables.add(autorun(reader => {
-			const collapsed = this._workingSetCollapsed.read(reader);
-			button.icon = collapsed ? Codicon.chevronRight : Codicon.chevronDown;
-			workingSetContainer.classList.toggle('collapsed', collapsed);
-		}));
+		// allow-any-unicode-next-line
+		// No chevron toggle — collapse is now handled by the tab bar toggle
+		button.element.style.display = 'none';
+		overviewRegion.style.display = 'none';
 
 		if (!this._chatEditList) {
 			this._chatEditList = this._chatEditsListPool.get();
@@ -5564,7 +5706,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			// entries, while background chat sessions use session file changes.
 			const allEntries = editEntries.concat(sessionFileEntries);
 
-			const maxItemsShown = 6;
+			const maxItemsShown = 4;
 			const itemsShown = Math.min(allEntries.length, maxItemsShown);
 			const height = itemsShown * 22;
 			const list = this._chatEditList!.object;

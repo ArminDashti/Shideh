@@ -44,7 +44,6 @@ import { ChatCollapsibleContentPart } from './chatContentParts/chatCollapsibleCo
 import { ChatListDelegate, ChatListItemRenderer, IChatListItemTemplate, IChatRendererDelegate } from './chatListRenderer.js';
 import { getLinkTarget, removeUnrenderedChatClipboardContent, sanitizeChatClipboardFragment } from './chatClipboard.js';
 import { ChatEditorOptions } from './chatOptions.js';
-import { ChatPendingDragController } from './chatPendingDragAndDrop.js';
 
 const CHAT_STICKY_SCROLL_TOP_PADDING = 8;
 const CHAT_COLLAPSE_ANCHOR_PADDING = 16;
@@ -588,11 +587,6 @@ export class ChatListWidget extends Disposable {
 				this.chatService.resendRequest(request, sendOptions).catch(e => this.logService.error('FAILED to rerun request', e));
 			}
 		}));
-
-		// Create drag-and-drop controller for reordering pending requests
-		this._renderer.pendingDragController = this._register(
-			scopedInstantiationService.createInstance(ChatPendingDragController, this._container, () => this._viewModel)
-		);
 
 		// Create tree
 		const styles = options.styles ?? {};

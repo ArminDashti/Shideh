@@ -1130,12 +1130,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		this._pendingDragController = controller;
 	}
 
-	private _pendingDragController: ChatPendingDragController | undefined;
-
-	set pendingDragController(controller: ChatPendingDragController) {
-		this._pendingDragController = controller;
-	}
-
 	public updateOptions(options: IChatListItemRendererOptions): void {
 		const wasReadOnly = this.rendererOptions.readOnly;
 		this.rendererOptions = { ...this.rendererOptions, ...options };
@@ -1944,16 +1938,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		delete templateData.rowContainer.dataset.pendingRequestId;
 		delete templateData.rowContainer.dataset.pendingKind;
 
-		// Handle pending divider with simplified rendering
-		if (isPendingDividerVM(element)) {
-			this.renderPendingDivider(element, templateData);
-			return;
-		}
-
 		const kind = isRequestVM(element) ? 'request' :
 			isResponseVM(element) ? 'response' :
-				isPendingDividerVM(element) ? 'pendingDivider' :
-					'welcome';
+				'welcome';
 		this.traceLayout('renderElement', `${kind}, index=${index}`);
 
 		ChatContextKeys.isResponse.bindTo(templateData.contextKeyService).set(isResponseVM(element));
@@ -2376,9 +2363,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	}
 
 	private renderAvatar(element: ChatTreeItem, templateData: IChatListItemTemplate): void {
-		if (isPendingDividerVM(element)) {
-			return;
-		}
 		let icon: URI | ThemeIcon;
 		if (isResponseVM(element)) {
 			icon = this.getAgentIcon(element.agent?.metadata);

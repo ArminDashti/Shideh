@@ -9,20 +9,13 @@ import { ActionViewItem, BaseActionViewItem, IActionViewItemOptions } from '../.
 import { Action, IAction } from '../../../../../../base/common/actions.js';
 import { coalesce } from '../../../../../../base/common/arrays.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { KeyCode } from '../../../../../../base/common/keyCodes.js';
-import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { localize } from '../../../../../../nls.js';
 import { IActionViewItemService } from '../../../../../../platform/actions/browser/actionViewItemService.js';
-import { ActionWidgetDropdownActionViewItem } from '../../../../../../platform/actions/browser/actionWidgetDropdownActionViewItem.js';
 import { MenuId, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
-import { IActionWidgetService } from '../../../../../../platform/actionWidget/browser/actionWidget.js';
-import { IActionWidgetDropdownAction } from '../../../../../../platform/actionWidget/browser/actionWidgetDropdown.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
-import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { IWorkbenchContribution } from '../../../../../common/contributions.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { IChatSideChatService } from '../../../common/chatSideChatService.js';
@@ -32,13 +25,9 @@ import { ChatSubmitAction, type IChatExecuteActionContext } from '../../actions/
 import { ChatAskInSideChatAction, ChatQueueMessageAction, ChatSteerWithMessageAction } from '../../actions/chatQueueActions.js';
 
 /**
- * Split-button action view item for the queue/steer picker in the chat execute toolbar.
- * The primary button runs the current default action (queue or steer).
- * The dropdown arrow opens a custom action widget with hover descriptions.
- *
- * Follows the same split-button pattern as {@link DropdownWithDefaultActionViewItem},
- * but uses {@link ActionWidgetDropdownActionViewItem} for the dropdown to show
- * an action widget with hover descriptions instead of a standard context menu.
+ * Expanding toolbar action view item for the queue/steer picker in the chat execute toolbar.
+ * Shows a primary Queue button that, on hover, expands to reveal Cancel, Stop and Send,
+ * and Steer buttons sliding in from the left with animation.
  */
 export class ChatQueuePickerActionItem extends BaseActionViewItem {
 
@@ -61,7 +50,7 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 	) {
 		super(undefined, action);
 
-		const isSteerDefault = this._isSteerDefault();
+		const hasText = !!contextKeyService.getContextKeyValue(ChatContextKeys.inputHasText.key);
 
 		// Primary action - runs the current default (queue or steer)
 		this._primaryActionAction = this._register(new Action(
@@ -71,7 +60,7 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 			!!this.contextKeyService.getContextKeyValue(ChatContextKeys.inputHasText.key),
 			() => this._runDefaultAction()
 		));
-		this._primaryAction = this._register(new ActionViewItem(undefined, this._primaryActionAction, { icon: true, label: false }));
+		this._steerViewItem = this._register(new ActionViewItem(undefined, this._steerAction, { icon: true, label: false }));
 
 		this._register(this.contextKeyService.onDidChangeContext(e => {
 			this._primaryActionAction.enabled = !!this.contextKeyService.getContextKeyValue(ChatContextKeys.inputHasText.key);
@@ -90,12 +79,14 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 			this.contextKeyService,
 			telemetryService,
 		));
+		this._queueViewItem = this._register(new ActionViewItem(undefined, this._queueAction, { icon: true, label: false }));
 
-		// React to config changes
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(ChatConfiguration.RequestQueueingDefaultAction)) {
-				this._updatePrimaryAction();
-			}
+		// Track input text changes
+		this._register(contextKeyService.onDidChangeContext(() => {
+			const hasTextNow = !!contextKeyService.getContextKeyValue(ChatContextKeys.inputHasText.key);
+			this._sendAction.enabled = hasTextNow;
+			this._steerAction.enabled = hasTextNow;
+			this._queueAction.enabled = hasTextNow;
 		}));
 
 		// Toggle icon when Alt key is pressed/released
@@ -175,16 +166,14 @@ export class ChatQueuePickerActionItem extends BaseActionViewItem {
 	}
 
 	override focus(fromRight?: boolean): void {
-		if (fromRight) {
-			this._dropdown.focus();
-		} else {
-			this._primaryAction.focus();
-		}
+		this._steerViewItem.focus();
 	}
 
 	override blur(): void {
-		this._primaryAction.blur();
-		this._dropdown.blur();
+		this._cancelViewItem.blur();
+		this._sendViewItem.blur();
+		this._steerViewItem.blur();
+		this._queueViewItem.blur();
 	}
 
 	override setFocusable(focusable: boolean): void {
