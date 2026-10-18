@@ -113,6 +113,8 @@ interface ICachedPromptFileResource {
 	readonly isEditable?: boolean;
 }
 
+const CHAT_PARTICIPANT_PRIVATE_API = 'chatParticipantPrivate';
+
 /**
  * Provides prompt services.
  * This includes working with prompt files, instruction files, and agent files.
