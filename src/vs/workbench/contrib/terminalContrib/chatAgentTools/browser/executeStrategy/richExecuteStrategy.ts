@@ -163,6 +163,13 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 						this._log('onDone via idle prompt');
 					}),
 				] : []),
+				// Detect shell continuation prompts (e.g. dquote>, quote>) that
+				// indicate unmatched quotes or brackets. Without this, the terminal
+				// hangs indefinitely because no command-finished event fires.
+				waitForContinuationPrompt(this._instance.onData, this._instance, idlePollInterval, store, this._logService).then(prompt => {
+					this._log(`onDone via continuation prompt: ${prompt}`);
+					return { type: 'continuationPrompt', prompt } as const;
+				}),
 			]);
 
 			// Ensure xterm is available
@@ -200,6 +207,16 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS
 					exitCode: undefined,
 					error: 'alternateBuffer',
 					didEnterAltBuffer: true
+				};
+			}
+			if (onDoneResult && onDoneResult.type === 'continuationPrompt') {
+				this._log(`Aborting command due to continuation prompt: ${onDoneResult.prompt}`);
+				await this._instance.sendText('\x03', false);
+				await waitForIdle(this._instance.onData, 200);
+				return {
+					output: undefined,
+					exitCode: undefined,
+					error: `The command has a syntax error — the shell showed a "${onDoneResult.prompt}" continuation prompt, indicating unmatched quotes or brackets. Fix the quoting and retry.`,
 				};
 			}
 			const finishedCommand = onDoneResult && onDoneResult.type === 'success' ? onDoneResult.command : undefined;

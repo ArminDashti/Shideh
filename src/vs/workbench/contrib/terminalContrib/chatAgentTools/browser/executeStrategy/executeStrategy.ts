@@ -61,11 +61,99 @@ export interface IPromptDetectionResult {
 }
 
 /**
+ * Known shell continuation prompt patterns that indicate a command has
+ * unmatched quotes, brackets, or other syntax issues. These prompts appear
+ * when the shell is waiting for additional input to complete a construct.
+ */
+const continuationPromptPatterns: RegExp[] = [
+	/^dquote>\s*$/,    // zsh: unmatched double quote
+	/^quote>\s*$/,     // zsh: unmatched single quote
+	/^bquote>\s*$/,    // zsh: unmatched backtick
+	/^pipe>\s*$/,      // zsh: pipe continuation
+	/^cmdsubst>\s*$/,  // zsh: command substitution
+	/^heredoc>\s*$/,   // zsh: heredoc
+];
+
+/**
+ * Detects if the given text looks like a shell continuation prompt, indicating
+ * that a command has unmatched quotes or other syntax issues.
+ */
+export function isContinuationPrompt(cursorLine: string): boolean {
+	const trimmed = cursorLine.trim();
+	return continuationPromptPatterns.some(p => p.test(trimmed));
+}
+
+/**
+ * Monitors the terminal for shell continuation prompts (e.g. `dquote>`, `quote>`)
+ * which indicate that a command has unmatched quotes or brackets. Returns a promise
+ * that resolves with the prompt text when a continuation prompt is detected.
+ *
+ * Uses a longer idle window (2x the normal interval) and verifies the cursor is
+ * positioned right after the prompt text to reduce false positives from commands
+ * that happen to print continuation-prompt-like text in their output.
+ */
+export function waitForContinuationPrompt(
+	onData: Event<unknown>,
+	instance: ITerminalInstance,
+	idleDurationMs: number,
+	store: DisposableStore,
+	logService?: ITerminalLogService,
+): Promise<string> {
+	const deferred = new DeferredPromise<string>();
+	// Require a longer idle period than normal prompt detection to reduce
+	// false positives from commands that briefly print prompt-like text.
+	const conservativeIdleMs = idleDurationMs * 2;
+
+	const checkForContinuationPrompt = async () => {
+		try {
+			const xterm = await instance.xtermReadyPromise;
+			if (!xterm) {
+				return;
+			}
+			const buffer = xterm.raw.buffer.active;
+			const cursorY = buffer.baseY + buffer.cursorY;
+			const line = buffer.getLine?.(cursorY);
+			if (line) {
+				const content = line.translateToString(true);
+				if (isContinuationPrompt(content)) {
+					// Verify the cursor is positioned at the end of the prompt
+					// (i.e. the shell is awaiting input), not mid-line in command output.
+					const trimmedLen = content.trimEnd().length;
+					if (buffer.cursorX <= trimmedLen) {
+						logService?.debug(`waitForContinuationPrompt: Detected continuation prompt "${content.trim()}"`);
+						deferred.complete(content.trim());
+					} else {
+						logService?.debug(`waitForContinuationPrompt: Cursor at column ${buffer.cursorX} beyond prompt end ${trimmedLen}, ignoring`);
+					}
+				}
+			}
+		} catch {
+			// Ignore errors reading terminal content
+		}
+	};
+
+	const scheduler = store.add(new RunOnceScheduler(() => {
+		void checkForContinuationPrompt();
+	}, conservativeIdleMs));
+
+	store.add(onData(() => scheduler.schedule()));
+	scheduler.schedule();
+
+	return deferred.p;
+}
+
+/**
  * Detects if the given text content appears to end with a common prompt pattern.
  */
 export function detectsCommonPromptPattern(cursorLine: string): IPromptDetectionResult {
 	if (cursorLine.trim().length === 0) {
 		return { detected: false, reason: 'Content is empty or contains only whitespace' };
+	}
+
+	// Exclude shell continuation prompts (e.g. dquote>, quote>) — these
+	// indicate unmatched quotes, not a ready prompt.
+	if (isContinuationPrompt(cursorLine)) {
+		return { detected: false, reason: `Shell continuation prompt detected (not a ready prompt): "${cursorLine}"` };
 	}
 
 	// PowerShell prompt: PS C:\> or similar patterns
