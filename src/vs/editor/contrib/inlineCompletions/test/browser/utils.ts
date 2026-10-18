@@ -308,7 +308,6 @@ export async function withAsyncTestCodeEditorAndInlineCompletionsModel<T>(
 					resolveGitHubUrl: (path: string) => `https://github.com/${path}`,
 					refresh: async () => { return null; },
 					signIn: async () => { return null; },
-					signOut: async () => { },
 				});
 				options.serviceCollection.set(IRenameSymbolTrackerService, new NullRenameSymbolTrackerService());
 

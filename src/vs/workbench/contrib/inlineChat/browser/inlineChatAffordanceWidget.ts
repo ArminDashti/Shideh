@@ -7,11 +7,9 @@ import './media/inlineChatEditorAffordance.css';
 import { IDimension } from '../../../../base/browser/dom.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { Emitter, Event } from '../../../../base/common/event.js';
 import { ContentWidgetPositionPreference, ICodeEditor, IContentWidget, IContentWidgetPosition } from '../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Selection, SelectionDirection } from '../../../../editor/common/core/selection.js';
-import { computeIndentLevel } from '../../../../editor/common/model/utils.js';
 import { autorun, IObservable } from '../../../../base/common/observable.js';
 import { MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
@@ -45,8 +43,7 @@ class QuickFixActionViewItem extends MenuEntryActionViewItem {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IThemeService themeService: IThemeService,
 		@IContextMenuService contextMenuService: IContextMenuService,
-		@IAccessibilityService accessibilityService: IAccessibilityService,
-		@ICommandService commandService: ICommandService
+		@IAccessibilityService accessibilityService: IAccessibilityService
 	) {
 		const wrappedAction = new class extends MenuItemAction {
 			constructor() {
@@ -97,7 +94,7 @@ class QuickFixActionViewItem extends MenuEntryActionViewItem {
 				const icon = info?.icon ?? Codicon.lightBulb;
 				const iconClasses = ThemeIcon.asClassNameArray(icon);
 				this.label.className = '';
-				this.label.classList.add('codicon', 'action-label', ...iconClasses);
+				this.label.classList.add('codicon', ...iconClasses);
 			}
 
 			// Update tooltip
@@ -174,7 +171,7 @@ export class InlineChatAffordanceWidget extends Disposable implements IContentWi
 			telemetrySource: 'inlineChatEditorAffordance',
 			hiddenItemStrategy: HiddenItemStrategy.Ignore,
 			menuOptions: { renderShortTitle: true },
-			toolbarOptions: { primaryGroup: () => true, useSeparatorsInPrimaryActions: true },
+			toolbarOptions: { primaryGroup: () => true },
 			actionViewItemProvider: (action: IAction) => {
 				if (action instanceof MenuItemAction && action.id === quickFixCommandId) {
 					return instantiationService.createInstance(QuickFixActionViewItem, action, this.#editor);
@@ -233,6 +230,7 @@ export class InlineChatAffordanceWidget extends Disposable implements IContentWi
 		const cursorPosition = selection.getPosition();
 		const direction = selection.getDirection();
 
+		// Show above for RTL (selection going up), below for LTR (selection going down)
 		const preference = direction === SelectionDirection.RTL
 			? ContentWidgetPositionPreference.ABOVE
 			: ContentWidgetPositionPreference.BELOW;
@@ -241,7 +239,6 @@ export class InlineChatAffordanceWidget extends Disposable implements IContentWi
 			position: cursorPosition,
 			preference: [preference],
 		};
-	}
 
 	#showAtLineStart(lineNumber: number): void {
 		const model = this.#editor.getModel();

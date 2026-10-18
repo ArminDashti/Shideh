@@ -83,7 +83,7 @@ impl SimpleResponse {
 	pub fn url_path_basename(&self) -> Option<String> {
 		self.url.as_ref().and_then(|u| {
 			u.path_segments()
-				.and_then(|mut s| s.next_back().map(|s| s.to_owned()))
+				.and_then(|s| s.last().map(|s| s.to_owned()))
 		})
 	}
 }

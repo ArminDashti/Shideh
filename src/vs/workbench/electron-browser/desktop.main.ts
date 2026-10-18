@@ -340,6 +340,16 @@ export class DesktopMain extends Disposable {
 			})
 		]);
 
+		// Workbench Mode
+		const workbenchModeService: WorkbenchModeService = this._register(new WorkbenchModeService(configurationService, fileService, environmentService, uriIdentityService, logService, storageService));
+		serviceCollection.set(IWorkbenchModeService, workbenchModeService);
+
+		try {
+			await workbenchModeService.initialize();
+		} catch (error) {
+			logService.error('Error while initializing workbench mode service', error);
+		}
+
 		// Workspace Trust Service
 		const workspaceTrustEnablementService = new WorkspaceTrustEnablementService(configurationService, environmentService);
 		serviceCollection.set(IWorkspaceTrustEnablementService, workspaceTrustEnablementService);

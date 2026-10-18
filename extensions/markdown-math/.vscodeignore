@@ -5,4 +5,6 @@ tsconfig*.json
 esbuild*
 cgmanifest.json
 package-lock.json
+webpack.config.js
+tsconfig.json
 .gitignore

@@ -10,7 +10,7 @@ import { IListRenderer, IListVirtualDelegate } from '../../../../../../base/brow
 import { IAction } from '../../../../../../base/common/actions.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Iterable } from '../../../../../../base/common/iterator.js';
-import { combinedDisposable, Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable } from '../../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
@@ -267,7 +267,7 @@ export class ChatCheckpointFileChangesSummaryContentPart extends Disposable impl
 		button.classList.add(...ThemeIcon.asClassNameArray(Codicon.diffMultiple));
 		button.setAttribute('aria-label', localize('chat.viewFileChangesSummary', 'View All File Changes'));
 
-		return combinedDisposable(hoverDisposable, dom.addDisposableListener(button, 'click', (e) => {
+		return dom.addDisposableListener(button, 'click', (e) => {
 			const resources: { originalUri: URI; modifiedUri?: URI }[] = this.fileChangesDiffsObservable.get().map(diff => ({
 				originalUri: diff.originalURI,
 				modifiedUri: diff.modifiedURI
@@ -289,7 +289,7 @@ export class ChatCheckpointFileChangesSummaryContentPart extends Disposable impl
 			);
 			this.editorService.openEditor(input);
 			dom.EventHelper.stop(e, true);
-		}));
+		});
 	}
 
 	private renderFilesList(container: HTMLElement): IDisposable {

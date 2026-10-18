@@ -193,7 +193,6 @@
 	0% {
 		background-position: 120% 0;
 	}
-
 	100% {
 		background-position: -120% 0;
 	}
@@ -1369,7 +1368,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	--chat-input-radius: var(--vscode-cornerRadius-small);
 }
 
-.monaco-workbench .interactive-session .chat-input-container {
+.interactive-session .chat-input-container {
 	box-sizing: border-box;
 	cursor: text;
 	background-color: var(--vscode-input-background);
@@ -1753,7 +1752,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 		border-radius: var(--vscode-cornerRadius-xSmall);
 		border: none;
 		background-color: unset;
-		color: var(--vscode-descriptionForeground);
+		color: var(--vscode-foreground)
 	}
 
 	.monaco-button:focus-visible {
@@ -2169,10 +2168,6 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 
 
 .interactive-session .chat-editor-container .monaco-editor .cursors-layer {
-	padding-left: 4px;
-}
-
-.interactive-session .chat-editor-container .monaco-editor .view-lines {
 	padding-left: 4px;
 }
 
@@ -3604,6 +3599,12 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 
 .interactive-session .chat-editing-session-list.collapsed {
 	margin-top: 0;
+}
+
+/* Tree view: remove twistie indent for leaf (non-collapsible) file rows */
+.interactive-session .chat-editing-session-list .monaco-tl-twistie:not(.collapsible) {
+	width: 0;
+	padding-right: 0;
 }
 
 .interactive-session .chat-summary-list .monaco-list .monaco-list-row {

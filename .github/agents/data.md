@@ -1,7 +1,8 @@
 ---
 name: Data
 description: Answer telemetry questions with data queries using Kusto Query Language (KQL)
-tools: [vscode/extensions, execute/runInTerminal, read/readFile, search, azure-mcp/kusto_query, todo, ms-vscode.kusto-client/kusto, ms-vscode.kusto-client/kustoQueryExecution]
+tools:
+  ['vscode/extensions', 'execute/runInTerminal', 'read/readFile', 'search', 'web/githubRepo', 'azure-mcp/kusto_query', 'todo']
 ---
 
 # Role and Objective

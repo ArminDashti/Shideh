@@ -48,7 +48,7 @@ import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier } f
 import { IIntendedModelSelection, ModelSelectionReason } from '../modelSelection.js';
 import { IChatAgentCommand, IChatAgentData, IChatAgentResult, IChatAgentService, UserSelectedTools, reviveSerializedAgent } from '../participants/chatAgents.js';
 import { ChatRequestTextPart, IParsedChatRequest, reviveParsedChatRequest } from '../requestParser/chatParserTypes.js';
-import { chatSessionResourceToId, LocalChatSessionUri } from './chatUri.js';
+import { LocalChatSessionUri } from './chatUri.js';
 import { ObjectMutationLog } from './objectMutationLog.js';
 
 
@@ -3037,23 +3037,8 @@ export class ChatModel extends Disposable implements IChatModel {
 		}
 
 		this._isImported = !!initialData && isValidExportedData && !isValidFullData;
-
-		// Set the session resource and id
-		if (initialModelProps.resource) {
-			// prefer using the provided resource if provided
-			this._sessionId = chatSessionResourceToId(initialModelProps.resource);
-			this._sessionResource = initialModelProps.resource;
-		} else if (isValidFullData) {
-			// Otherwise use the serialized id. This is only valid for local chat sessions
-			this._sessionId = initialData.sessionId;
-			this._sessionResource = LocalChatSessionUri.forSession(initialData.sessionId);
-		} else {
-			// Finally fall back to generating a new id for a local session. This is used in the case where a
-			// chat has been exported (but not serialized)
-			this._sessionId = generateUuid();
-			this._sessionResource = LocalChatSessionUri.forSession(this._sessionId);
-		}
-
+		this._sessionId = (isValidFullData && initialData.sessionId) || initialModelProps.sessionId || generateUuid();
+		this._sessionResource = initialModelProps.resource ?? LocalChatSessionUri.forSession(this._sessionId);
 		this._disableBackgroundKeepAlive = initialModelProps.disableBackgroundKeepAlive ?? false;
 
 		this._timestamp = (isValidFullData && initialData.creationDate) || Date.now();

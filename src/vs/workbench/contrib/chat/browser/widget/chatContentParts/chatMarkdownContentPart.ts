@@ -153,6 +153,11 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 		this._responseWasTerminal = !isResponseVM(element) || element.isComplete || element.isCanceled;
 		const inUndoStop = (findLast(context.content, e => e.kind === 'undoStop', context.contentIndex) as IChatUndoStop | undefined)?.id;
 
+		// We release editors in order so that it's more likely that the same editor will
+		// be assigned if this element is re-rendered right away, like it often is during
+		// progressive rendering
+		const orderedDisposablesList: IDisposable[] = [];
+
 		// Need to track the index of the codeblock within the response so it can have a unique ID,
 		// and within this part to find it within the codeblocks array
 		let globalCodeBlockIndexStart = codeBlockStartIndex;
@@ -291,7 +296,7 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 						}
 					}
 					if (languageId === 'vscode-extensions') {
-						const chatExtensions = store.add(instantiationService.createInstance(ChatExtensionsContentPart, { kind: 'extensions', extensions: text.split(',') }));
+						const chatExtensions = this._register(instantiationService.createInstance(ChatExtensionsContentPart, { kind: 'extensions', extensions: text.split(',') }));
 						return chatExtensions.domNode;
 					}
 					const globalIndex = globalCodeBlockIndexStart++;
@@ -447,14 +452,18 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 		this._incrementalMorpher?.seed(markdown.content.value, /* animateInitial */ true);
 
 		if (enableMath && !MarkedKatexSupport.getExtension(dom.getWindow(context.container))) {
-			// KaTeX not yet loaded - load it and re-render when ready
+			// Need to load async
 			MarkedKatexSupport.loadExtension(dom.getWindow(context.container))
 				.then(() => {
 					this.renderMarkdown();
 				})
 				.catch(e => {
 					console.error('Failed to load MarkedKatexSupport extension:', e);
+				}).finally(() => {
+					doRenderMarkdown();
 				});
+		} else {
+			doRenderMarkdown();
 		}
 	}
 

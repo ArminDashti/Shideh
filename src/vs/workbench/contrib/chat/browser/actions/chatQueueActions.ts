@@ -246,6 +246,7 @@ export class ChatRemovePendingRequestAction extends Action2 {
 				group: 'navigation',
 				order: 4,
 				when: ContextKeyExpr.and(
+					queueingEnabledCondition,
 					ChatContextKeys.isRequest,
 					ChatContextKeys.isPendingRequest
 				)
@@ -322,6 +323,7 @@ export class ChatSendPendingImmediatelyAction extends Action2 {
 				group: 'navigation',
 				order: 3,
 				when: ContextKeyExpr.and(
+					queueingEnabledCondition,
 					ChatContextKeys.isRequest,
 					ChatContextKeys.isPendingRequest
 				)
@@ -355,8 +357,11 @@ export class ChatRemoveAllPendingRequestsAction extends Action2 {
 				id: MenuId.ChatContext,
 				group: 'navigation',
 				order: 3,
-				when: ChatContextKeys.hasPendingRequests,
-			}],
+				when: ContextKeyExpr.and(
+					queueingEnabledCondition,
+					ChatContextKeys.hasPendingRequests
+				)
+			}]
 		});
 	}
 

@@ -34,7 +34,6 @@ const BASE_DEFAULT_ACCOUNT: IDefaultAccount = {
 		name: 'GitHub',
 		enterprise: false,
 	},
-	accountName: 'testuser',
 	sessionId: 'abc123',
 	enterprise: false,
 };
@@ -73,8 +72,6 @@ class DefaultAccountProvider implements IDefaultAccountProvider {
 	async signIn(): Promise<IDefaultAccount | null> {
 		return null;
 	}
-
-	async signOut(): Promise<void> { }
 }
 
 suite('AccountPolicyService', () => {

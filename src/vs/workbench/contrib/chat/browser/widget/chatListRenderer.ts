@@ -132,6 +132,7 @@ import { ChatTextEditContentPart } from './chatContentParts/chatTextEditContentP
 import { ChatThinkingContentPart, getEffectiveThinkingDisplayMode } from './chatContentParts/chatThinkingContentPart.js';
 import { aggregateChatEditDiffs, ChatEditStatsButton } from './chatContentParts/chatEditStatsButton.js';
 import { ChatSubagentContentPart } from './chatContentParts/chatSubagentContentPart.js';
+import { ChatTipContentPart } from './chatContentParts/chatTipContentPart.js';
 import { ChatTreeContentPart, TreePool } from './chatContentParts/chatTreeContentPart.js';
 import { ChatWorkspaceEditContentPart } from './chatContentParts/chatWorkspaceEditContentPart.js';
 import { ChatExternalEditContentPart } from './chatContentParts/chatExternalEditContentPart.js';
@@ -1208,7 +1209,17 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		return Iterable.concat(this._editorPool.inUse(), this._toolEditorPool.inUse());
 	}
 
+	hasTipFocus(): boolean {
+		return this._activeTipPart?.hasFocus() ?? false;
+	}
 
+	focusTip(): boolean {
+		if (!this._activeTipPart) {
+			return false;
+		}
+		this._activeTipPart.focus();
+		return true;
+	}
 
 	private traceLayout(method: string, message: string) {
 		if (forceVerboseLayoutTracing) {
@@ -3124,6 +3135,32 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				addDisposable: disposable => store.add(disposable),
 			};
 			parts.push(editingTextPart);
+		}
+
+		// Render tip above the request message (if available)
+		const tip = this.chatTipService.getNextTip(element.id, element.timestamp, this.contextKeyService);
+		if (tip) {
+			const tipPart = this.instantiationService.createInstance(ChatTipContentPart,
+				tip,
+				this.chatContentMarkdownRenderer,
+				() => this.chatTipService.getNextTip(element.id, element.timestamp, this.contextKeyService),
+			);
+			templateData.value.appendChild(tipPart.domNode);
+			this._activeTipPart = tipPart;
+			templateData.elementDisposables.add(tipPart);
+			templateData.elementDisposables.add(tipPart.onDidHide(() => {
+				tipPart.domNode.remove();
+				if (this._activeTipPart === tipPart) {
+					this._activeTipPart = undefined;
+				}
+			}));
+			templateData.elementDisposables.add({
+				dispose: () => {
+					if (this._activeTipPart === tipPart) {
+						this._activeTipPart = undefined;
+					}
+				}
+			});
 		}
 
 		let inlineSlashCommandRendered = false;
@@ -5794,14 +5831,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		});
 	}
 
-	private _getCarouselStableKey(context: IChatContentPartRenderContext, carousel: IChatQuestionCarousel): string | undefined {
-		const requestId = isResponseVM(context.element) ? context.element.requestId : undefined;
-		if (!requestId || !carousel.resolveId) {
-			return undefined;
-		}
-		return `${requestId}::${carousel.resolveId}`;
-	}
-
 	private _notifyOnQuestionCarousel(context: IChatContentPartRenderContext, carousel: IChatQuestionCarousel): void {
 		if (carousel.isUsed) {
 			return;
@@ -5821,9 +5850,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			? localize('chat.questionCarouselAlertOne', "Chat input required (1 question): {0}", stringQuestion)
 			: localize('chat.questionCarouselAlertMany', "Chat input required ({0} questions): {1}", questionCount, stringQuestion);
 		this.accessibilityService.alert(alertMessage);
-		if (stableKey) {
-			this._notifiedQuestionCarousels.add(stableKey);
-		}
+		this._notifiedQuestionCarousels.add(carousel);
 
 		// Play accessibility signal regardless of notification setting
 		const signalMessage = questionCount === 1
@@ -6305,10 +6332,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 	private renderMcpServersInteractionRequired(content: IChatMcpServersStarting | IChatMcpServersStartingSerialized, context: IChatContentPartRenderContext, templateData: IChatListItemTemplate): IChatContentPart {
 		return this.instantiationService.createInstance(ChatMcpServersInteractionContentPart, content, context);
-	}
-
-	private renderDisabledClaudeHooks(content: IChatDisabledClaudeHooksPart, context: IChatContentPartRenderContext): IChatContentPart {
-		return this.instantiationService.createInstance(ChatDisabledClaudeHooksContentPart, context);
 	}
 
 	disposeTemplate(templateData: IChatListItemTemplate): void {

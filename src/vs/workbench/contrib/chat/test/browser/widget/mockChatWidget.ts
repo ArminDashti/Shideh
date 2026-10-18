@@ -14,8 +14,6 @@ export class MockChatWidgetService implements IChatWidgetService {
 	readonly onDidRemoveWidget: Event<IChatWidget> = Event.None;
 	readonly onDidChangeWidgetVisibility: Event<IChatWidget> = Event.None;
 	readonly onDidBackgroundSession: Event<URI> = Event.None;
-	readonly onDidChangeFocusedWidget: Event<IChatWidget | undefined> = Event.None;
-	readonly onDidChangeFocusedSession: Event<void> = Event.None;
 
 	readonly _serviceBrand: undefined;
 

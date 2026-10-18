@@ -789,7 +789,7 @@ export class PromptFilesLocator {
 
 		const disregardIgnoreFiles = this.configService.getValue<boolean>('explorer.excludeGitIgnore');
 
-		const workspaceRoot = this.getWorkspaceFolder(folder);
+		const workspaceRoot = this.workspaceService.getWorkspaceFolder(folder);
 
 		const getExcludePattern = (folder: URI) => getExcludes(this.configService.getValue<ISearchConfiguration>({ resource: folder })) || {};
 		const searchOptions: IFileQuery = {
@@ -952,7 +952,7 @@ export class PromptFilesLocator {
 	public getAgentFileURIFromModeFile(oldURI: URI): URI | undefined {
 		if (oldURI.path.endsWith(LEGACY_MODE_FILE_EXTENSION)) {
 			let newLocation;
-			const workspaceFolder = this.getWorkspaceFolder(oldURI);
+			const workspaceFolder = this.workspaceService.getWorkspaceFolder(oldURI);
 			if (workspaceFolder) {
 				newLocation = joinPath(workspaceFolder.uri, AGENTS_SOURCE_FOLDER, getCleanPromptName(oldURI) + AGENT_FILE_EXTENSION);
 			} else if (isEqualOrParent(oldURI, this.userDataService.currentProfile.promptsHome)) {

@@ -70,7 +70,6 @@ export interface IDefaultAccountProvider {
 
 	refresh(options?: IDefaultAccountRefreshOptions): Promise<IDefaultAccount | null>;
 	signIn(options?: { additionalScopes?: readonly string[];[key: string]: unknown }): Promise<IDefaultAccount | null>;
-	signOut(): Promise<void>;
 }
 
 export const IDefaultAccountService = createDecorator<IDefaultAccountService>('defaultAccountService');

@@ -160,7 +160,7 @@ export class BrowserView extends Disposable {
 			nodeIntegrationInSubFrames: true,
 
 			webviewTag: false,
-			session: this.session.electronSession,
+			session: viewSession,
 			preload: FileAccess.asFileUri('vs/platform/browserView/electron-browser/preload-browserView.js').fsPath,
 
 			focusOnNavigation: false

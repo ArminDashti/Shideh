@@ -219,7 +219,6 @@ interface ILazyToolItem {
 	toolInvocationId?: string;
 	toolInvocationOrMarkdown?: ChatThinkingItemMetadata;
 	originalParent?: HTMLElement;
-	isHook?: boolean;
 }
 
 interface ILazyThinkingItem {
@@ -247,17 +246,17 @@ export const defaultThinkingMessages = [
 ];
 
 const terminalMessages = [
-	localize('chat.thinking.terminal.1', 'Executing'),
-	localize('chat.thinking.terminal.2', 'Running'),
-	localize('chat.thinking.terminal.3', 'Processing'),
+	localize('chat.thinking.terminal.1', 'Executing...'),
+	localize('chat.thinking.terminal.2', 'Running...'),
+	localize('chat.thinking.terminal.3', 'Processing...'),
 ];
 
 const toolMessages = [
-	localize('chat.thinking.tool.1', 'Processing'),
-	localize('chat.thinking.tool.2', 'Preparing'),
-	localize('chat.thinking.tool.3', 'Loading'),
-	localize('chat.thinking.tool.4', 'Analyzing'),
-	localize('chat.thinking.tool.5', 'Evaluating'),
+	localize('chat.thinking.tool.1', 'Processing...'),
+	localize('chat.thinking.tool.2', 'Preparing...'),
+	localize('chat.thinking.tool.3', 'Loading...'),
+	localize('chat.thinking.tool.4', 'Analyzing...'),
+	localize('chat.thinking.tool.5', 'Evaluating...'),
 ];
 
 /** Easter-egg loading messages, used ~1 in {@link FUN_WORKING_MESSAGE_RATE} picks. */
@@ -606,9 +605,8 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 		}));
 
 		this._register(autorun(r => {
-			const isExpanded = this._isExpanded.read(r);
 			// Materialize lazy items when first expanded
-			if (isExpanded && !this.hasExpandedOnce && this.lazyItems.length > 0) {
+			if (this._isExpanded.read(r) && !this.hasExpandedOnce && this.lazyItems.length > 0) {
 				this.hasExpandedOnce = true;
 				// Flush pending removals so that completed hidden tools are removed from lazyItems before materialization
 				this.processPendingRemovals();
@@ -1936,13 +1934,13 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 			- For reasoning/thinking: "Considered", "Planned", "Analyzed", "Reviewed", "Evaluated"
 			- Choose the synonym that best fits the context
 
-${this.hookCount > 0 ? `BLOCKED/DENIED CONTENT (hooks detected):
-			- Only mention "blocked" if the content explicitly includes hook results that blocked or warned about a tool (e.g. "Blocked terminal" or "Warning for read_file")
-			- If blocked items are present alongside normal tool calls, briefly note the block but do NOT let it dominate the summary: e.g. "Updated file.ts, blocked terminal"
+			PRIORITY RULE - BLOCKED/DENIED CONTENT:
+			- If any item mentions being "blocked" (e.g. "Tried to use X, but was blocked"), it MUST be reflected in the title
+			- Blocked content takes priority over all other tool calls
+			- Use natural phrasing like "Tried to <action>, but was blocked" or "Attempted <tool> but was denied"
+			- If there are both blocked items AND normal tool calls, mention both: e.g. "Tried to run terminal but was blocked, edited file.ts"
 
-			` : `IMPORTANT: Do NOT use words like "blocked", "denied", or "tried" in the summary - there are no hooks or blocked items in this content. Just summarize normally.
-
-			`}RULES FOR TOOL CALLS:
+			RULES FOR TOOL CALLS:
 			1. If the SAME file was both edited AND read: Use a combined phrase like "Reviewed and updated <filename>"
 			2. If exactly ONE file was edited: Start with an edit synonym + "<filename>" (include actual filename)
 			3. If exactly ONE file was read: Start with a read synonym + "<filename>" (include actual filename)
@@ -1981,12 +1979,13 @@ ${this.hookCount > 0 ? `BLOCKED/DENIED CONTENT (hooks detected):
 			- "Edited Button.tsx, Edited Button.css, Edited index.ts" → "Modified 3 files"
 			- "Searched codebase for error handling" → "Looked up error handling"
 
-${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
-			- "Blocked terminal, Edited config.ts" → "Edited config.ts, terminal was blocked"
-			- "Blocked terminal, Blocked read_file" → "Two tools were blocked by hooks"
-			- "Warning for read_file, Edited utils.ts" → "Edited utils.ts with a hook warning"
+			EXAMPLES WITH BLOCKED CONTENT:
+			- "Tried to use Run in Terminal, but was blocked" → "Tried to run command, but was blocked"
+			- "Tried to use Run in Terminal, but was blocked, Edited config.ts" → "Tried to run command but was blocked, edited config.ts"
+			- "Tried to use Edit File, but was blocked, Tried to use Run in Terminal, but was blocked" → "Tried to use 2 tools, but was blocked"
+			- "Used Read File, but received a warning, Edited utils.ts" → "Read file with a warning, edited utils.ts"
 
-			` : ''}EXAMPLES WITH REASONING HEADERS (no tools):
+			EXAMPLES WITH REASONING HEADERS (no tools):
 			- "Analyzing component architecture" → "Considered component architecture"
 			- "Planning refactor strategy" → "Planned refactor strategy"
 			- "Reviewing error handling approach, Considering edge cases" → "Analyzed error handling approach"
@@ -2161,7 +2160,6 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 		if (this.wrapper) {
 			this.wrapper.classList.remove('chat-thinking-streaming');
 		}
-		this.domNode.classList.remove('chat-thinking-active');
 		this.streamingCompleted = true;
 
 		// Render any aggregated images that were deferred during fixed scrolling streaming.
@@ -2335,14 +2333,9 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 			return false;
 		}
 
-		const removedItem = this.lazyItems[index];
 		this.lazyItems.splice(index, 1);
 		this.appendedItemCount--;
-		if (removedItem.kind === 'tool' && removedItem.isHook) {
-			this.hookCount = Math.max(0, this.hookCount - 1);
-		} else {
-			this.toolInvocationCount--;
-		}
+		this.toolInvocationCount--;
 
 		// Clear the attached-to-thinking flag on the removed tool invocation
 		if (removedItem.kind === 'tool' && removedItem.toolInvocationOrMarkdown && (removedItem.toolInvocationOrMarkdown.kind === 'toolInvocation' || removedItem.toolInvocationOrMarkdown.kind === 'toolInvocationSerialized')) {

@@ -876,10 +876,6 @@ export function isDebugVariableEntry(obj: IChatRequestVariableEntry): obj is IDe
 	return obj.kind === 'debugVariable';
 }
 
-export function isAgentFeedbackVariableEntry(obj: IChatRequestVariableEntry): obj is IAgentFeedbackVariableEntry {
-	return obj.kind === 'agentFeedback';
-}
-
 export function isPasteVariableEntry(obj: IChatRequestVariableEntry): obj is IChatRequestPasteVariableEntry {
 	return obj.kind === 'paste';
 }

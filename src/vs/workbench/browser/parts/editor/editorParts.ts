@@ -206,8 +206,6 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 
 		// Reuse existing modal editor part if it exists
 		if (this.modalEditorPart) {
-			this.modalEditorPart.updateOptions(options);
-
 			return this.modalEditorPart;
 		}
 
@@ -700,7 +698,7 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 	private readonly _onDidMoveGroup = this._register(new Emitter<IEditorGroupView>());
 	readonly onDidMoveGroup = this._onDidMoveGroup.event;
 
-	private readonly _onDidActivateGroup = this._register(new Emitter<IEditorGroupActivationEvent>());
+	private readonly _onDidActivateGroup = this._register(new Emitter<IEditorGroupView>());
 	readonly onDidActivateGroup = this._onDidActivateGroup.event;
 
 	private readonly _onDidChangeGroupIndex = this._register(new Emitter<IEditorGroupView>());

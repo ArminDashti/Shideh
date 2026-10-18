@@ -362,8 +362,8 @@ const MAKE_VISIBLE_BUTTON: IQuickInputButton = {
  * Button that sets a prompt file to be invisible.
  */
 const MAKE_INVISIBLE_BUTTON: IQuickInputButton = {
-	tooltip: localize('makeInvisible', "Shown in chat view agent picker. Click to hide."),
-	iconClass: ThemeIcon.asClassName(Codicon.eye),
+	tooltip: localize('makeInvisible', "Hide from agent picker"),
+	iconClass: ThemeIcon.asClassName(Codicon.eyeClosed),
 };
 
 const RUN_IN_CHAT_BUTTON: IQuickInputButton = {
@@ -590,13 +590,13 @@ export class PromptFilePickers {
 	private _getNewItems(type: PromptsType): IPromptPickerQuickPickItem[] {
 		switch (type) {
 			case PromptsType.prompt:
-				return [NEW_PROMPT_FILE_OPTION, GENERATE_PROMPT_OPTION];
+				return [NEW_PROMPT_FILE_OPTION];
 			case PromptsType.instructions:
 				return [NEW_INSTRUCTIONS_FILE_OPTION, GENERATE_ON_DEMAND_INSTRUCTIONS_OPTION, GENERATE_AGENT_INSTRUCTIONS_OPTION];
 			case PromptsType.agent:
-				return [NEW_AGENT_FILE_OPTION, GENERATE_AGENT_OPTION];
+				return [NEW_AGENT_FILE_OPTION];
 			case PromptsType.skill:
-				return [NEW_SKILL_FILE_OPTION, GENERATE_SKILL_OPTION];
+				return [NEW_SKILL_FILE_OPTION];
 			default:
 				throw new Error(`Unknown prompt type '${type}'.`);
 		}

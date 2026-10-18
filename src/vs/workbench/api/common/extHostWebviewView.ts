@@ -15,6 +15,8 @@ import * as extHostTypes from './extHostTypes.js';
 import { isNumber } from '../../../base/common/types.js';
 import { checkProposedApiEnabled } from '../../services/extensions/common/extensions.js';
 
+/* eslint-disable local/code-no-native-private */
+
 class ExtHostWebviewView extends Disposable implements vscode.WebviewView {
 
 	readonly #handle: extHostProtocol.WebviewHandle;

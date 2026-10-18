@@ -10,7 +10,7 @@ import { coalesce } from '../../../../../../base/common/arrays.js';
 import { Codicon, getCompactCodicon } from '../../../../../../base/common/codicons.js';
 import { groupBy } from '../../../../../../base/common/collections.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
-import { autorun, IObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { autorun, IObservable } from '../../../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { localize } from '../../../../../../nls.js';
@@ -126,8 +126,7 @@ export class ModePickerActionItem extends ChatInputPickerActionViewItem {
 		@ICommandService commandService: ICommandService,
 		@IProductService private readonly _productService: IProductService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@IOpenerService openerService: IOpenerService,
-		@IWorkbenchAssignmentService assignmentService: IWorkbenchAssignmentService,
+		@IOpenerService openerService: IOpenerService
 	) {
 		const assignments = observableValue<{ showOldAskMode: boolean }>('modePickerAssignments', { showOldAskMode: false });
 
@@ -256,6 +255,8 @@ export class ModePickerActionItem extends ChatInputPickerActionViewItem {
 				const currentMode = delegate.currentMode.get();
 				const agentMode = modes.builtin.find(mode => mode.id === ChatMode.Agent.id);
 
+				const shouldHideEditMode = configurationService.getValue<boolean>(ChatConfiguration.EditModeHidden) && chatAgentService.hasToolsAgent && currentMode.id !== ChatMode.Edit.id;
+
 				const otherBuiltinModes = modes.builtin.filter(mode => {
 					return mode.id !== ChatMode.Agent.id && shouldShowBuiltInMode(mode, assignments.get(), agentModeDisabledViaPolicy);
 				});
@@ -268,7 +269,7 @@ export class ModePickerActionItem extends ChatInputPickerActionViewItem {
 				// Filter out 'implement' mode from the dropdown - it's available for handoffs but not user-selectable
 				// Also filter based on infer value - only show agents with 'all' or 'user'
 				const customModes = groupBy(
-					filteredCustomModes,
+					modes.custom,
 					mode => isModeConsideredBuiltIn(mode, this._productService) ? 'builtin' : 'custom');
 
 				const customBuiltinModeActions = customModes.builtin?.map(mode => {
@@ -318,13 +319,6 @@ export class ModePickerActionItem extends ChatInputPickerActionViewItem {
 			if (this.element) {
 				this.renderLabel(this.element);
 			}
-		}));
-
-		assignmentService.getTreatment('chat.showOldAskMode').then(showOldAskMode => {
-			assignments.set({ showOldAskMode: showOldAskMode === 'enabled' }, undefined);
-		});
-		this._register(assignmentService.onDidRefetchAssignments(async () => {
-			assignments.set({ showOldAskMode: await assignmentService.getTreatment('chat.showOldAskMode') === 'enabled' }, undefined);
 		}));
 	}
 

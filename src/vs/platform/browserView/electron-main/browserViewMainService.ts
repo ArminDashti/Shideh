@@ -49,15 +49,23 @@ export interface IBrowserViewMainService extends IBrowserViewService {
 	validateAgentStorageScope(storageScope: BrowserViewStorageScope): void;
 }
 
+// Same as webviews
+const allowedPermissions = new Set([
+	'pointerLock',
+	'notifications',
+	'clipboard-read',
+	'clipboard-sanitized-write'
+]);
+
 export class BrowserViewMainService extends Disposable implements IBrowserViewMainService {
 	declare readonly _serviceBrand: undefined;
 
 	/**
-	 * Check if a webContents belongs to an integrated browser view.
-	 * Delegates to {@link BrowserSession.isBrowserViewWebContents}.
-	 */
+	 * Check if a webContents belongs to an integrated browser view
+	*/
+	private static readonly knownSessions = new WeakSet<Electron.Session>();
 	static isBrowserViewWebContents(contents: Electron.WebContents): boolean {
-		return BrowserSession.isBrowserViewWebContents(contents);
+		return BrowserViewMainService.knownSessions.has(contents.session);
 	}
 
 	private readonly browserViews = this._register(new DisposableMap<string, BrowserView>());
@@ -218,7 +226,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	}
 
 	async destroyBrowserView(id: string): Promise<void> {
-		return this.browserViews.deleteAndDispose(id);
+		this.browserViews.deleteAndDispose(id);
 	}
 
 	async setOwner(id: string, owner: IBrowserViewOwner): Promise<void> {

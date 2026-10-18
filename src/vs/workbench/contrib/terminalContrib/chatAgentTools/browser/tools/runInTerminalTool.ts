@@ -1942,10 +1942,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		if (!toolSpecificData) {
 			throw new Error('toolSpecificData must be provided for this tool');
 		}
-		if (!invocation.context) {
-			throw new Error('Invocation context must be provided for this tool');
-		}
-
 		const commandId = toolSpecificData.terminalCommandId;
 		const shouldSendBackgroundNotifications = this._configurationService.getValue(TerminalChatAgentToolsSettingId.BackgroundNotifications) === true && !invocation.subAgentInvocationId;
 		if (toolSpecificData.alternativeRecommendation) {
@@ -2298,7 +2294,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			// Create unified ActiveTerminalExecution (creates and owns the strategy)
 			const execution = this._instantiationService.createInstance(
 				ActiveTerminalExecution,
-				chatSessionResource,
+				chatSessionId,
 				termId,
 				toolTerminal,
 				commandDetection!,
@@ -3890,7 +3886,7 @@ class ActiveTerminalExecution extends Disposable implements IActiveTerminalExecu
 	}
 
 	constructor(
-		readonly sessionResource: URI,
+		readonly sessionId: string,
 		readonly termId: string,
 		toolTerminal: IToolTerminal,
 		commandDetection: ICommandDetectionCapability,

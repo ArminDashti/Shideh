@@ -23,9 +23,6 @@ import { createTsgoStream, spawnTsgo } from './tsgo.ts';
 import { apiProposalNamesSource, checkApiProposalNames, generateApiProposalNames } from './apiProposalNames.ts';
 
 
-import { extractExtensionPointNamesFromFile } from './extractExtensionPoints.ts';
-
-
 // --- gulp-tsb: compile and transpile --------------------------------
 
 const reporter = createReporter();

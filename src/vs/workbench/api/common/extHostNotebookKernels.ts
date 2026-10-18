@@ -586,7 +586,7 @@ class NotebookCellExecutionTask extends Disposable {
 	private static HANDLE = 0;
 	private _handle = NotebookCellExecutionTask.HANDLE++;
 
-	private _onDidChangeState = this._register(new Emitter<void>());
+	private _onDidChangeState = new Emitter<void>();
 	readonly onDidChangeState = this._onDidChangeState.event;
 
 	private _state = NotebookCellExecutionTaskState.Init;
@@ -796,7 +796,7 @@ class NotebookExecutionTask extends Disposable {
 	private static HANDLE = 0;
 	private _handle = NotebookExecutionTask.HANDLE++;
 
-	private _onDidChangeState = this._register(new Emitter<void>());
+	private _onDidChangeState = new Emitter<void>();
 	readonly onDidChangeState = this._onDidChangeState.event;
 
 	private _state = NotebookExecutionTaskState.Init;

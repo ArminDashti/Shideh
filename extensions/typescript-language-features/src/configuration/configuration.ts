@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as Proto from '../tsServer/protocol/protocol';
-import { readUnifiedConfig } from '../utils/configuration';
 import * as objects from '../utils/objects';
 
 export enum TsServerLogLevel {

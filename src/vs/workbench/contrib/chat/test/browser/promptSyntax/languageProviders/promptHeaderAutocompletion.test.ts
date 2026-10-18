@@ -148,7 +148,7 @@ suite('PromptHeaderAutocompletion', () => {
 				{ label: 'reasoning-effort', result: 'reasoning-effort: ${0:low}' },
 				{ label: 'target', result: 'target: ${0:vscode}' },
 				{ label: 'tools', result: 'tools: ${0:[]}' },
-				{ label: 'user-invocable', result: 'user-invocable: ${0:true}' },
+				{ label: 'user-invokable', result: 'user-invokable: ${0:true}' },
 			].sort(sortByLabel));
 		});
 
@@ -366,18 +366,18 @@ suite('PromptHeaderAutocompletion', () => {
 			].sort(sortByLabel));
 		});
 
-		test('complete user-invocable attribute value', async () => {
+		test('complete user-invokable attribute value', async () => {
 			const content = [
 				'---',
 				'description: "Test"',
-				'user-invocable: |',
+				'user-invokable: |',
 				'---',
 			].join('\n');
 
 			const actual = await getCompletions(content, PromptsType.agent);
 			assert.deepStrictEqual(actual.sort(sortByLabel), [
-				{ label: 'false', result: 'user-invocable: false' },
-				{ label: 'true', result: 'user-invocable: true' },
+				{ label: 'false', result: 'user-invokable: false' },
+				{ label: 'true', result: 'user-invokable: true' },
 			].sort(sortByLabel));
 		});
 
@@ -1296,19 +1296,6 @@ suite('PromptHeaderAutocompletion', () => {
 				{ label: 'MAE 4.1 (copilot)', result: 'model: MAE 4.1 (copilot)' },
 				{ label: 'GPT 4 (openai)', result: 'model: GPT 4 (openai)' },
 			].sort(sortByLabel));
-		});
-
-		test('exclude models with targetChatSessionType from prompt model completions', async () => {
-			const content = [
-				'---',
-				'description: "Test"',
-				'model: |',
-				'---',
-			].join('\n');
-
-			const actual = await getCompletions(content, PromptsType.prompt);
-			const labels = actual.map(a => a.label);
-			assert.ok(!labels.includes('BG Agent Model (copilot)'), 'Models with targetChatSessionType should be excluded from prompt model completions');
 		});
 	});
 });

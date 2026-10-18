@@ -328,7 +328,8 @@ export class WebWorkerExtensionHost extends Disposable implements IExtensionHost
 				configuration: workspace.configuration || undefined,
 				id: workspace.id,
 				name: this._labelService.getWorkspaceLabel(workspace),
-				transient: workspace.transient
+				transient: workspace.transient,
+				isAgentSessionsWorkspace: workspace.isAgentSessionsWorkspace
 			},
 			consoleForward: {
 				includeStack: false,

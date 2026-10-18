@@ -33,7 +33,7 @@ class AnnounceChatConfirmationAction extends Action2 {
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.KeyA | KeyMod.Shift,
-				when: ContextKeyExpr.and(CONTEXT_ACCESSIBILITY_MODE_ENABLED, ChatContextKeys.Editing.hasQuestionCarousel.negate())
+				when: CONTEXT_ACCESSIBILITY_MODE_ENABLED
 			}
 		});
 	}

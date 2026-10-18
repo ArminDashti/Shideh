@@ -3,9 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { parse as parseJSONC } from '../../../../../base/common/jsonc.js';
-import { setProperty, applyEdits } from '../../../../../base/common/jsonEdit.js';
-import { FormattingOptions } from '../../../../../base/common/jsonFormatter.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
@@ -96,8 +93,7 @@ async function addHookToFile(
 	fileService: IFileService,
 	editorService: IEditorService,
 	notificationService: INotificationService,
-	bulkEditService: IBulkEditService,
-	openEditorOverride?: (resource: URI, options?: { selection?: ITextEditorSelection }) => Promise<void>,
+	bulkEditService: IBulkEditService
 ): Promise<void> {
 	// Parse existing file
 	let hooksContent: { hooks: Record<string, unknown[]> };
@@ -106,7 +102,7 @@ async function addHookToFile(
 	if (fileExists) {
 		const existingContent = await fileService.readFile(hookFileUri);
 		try {
-			hooksContent = parseJSONC(existingContent.value.toString());
+			hooksContent = JSON.parse(existingContent.value.toString());
 			// Ensure hooks object exists
 			if (!hooksContent.hooks) {
 				hooksContent.hooks = {};
@@ -148,25 +144,19 @@ async function addHookToFile(
 	// Use existing key if found, otherwise use the detected naming convention
 	const keyToUse = existingKeyForType ?? hookTypeKeyName;
 
-	// Determine the new hook index (append if hook type already exists)
+	// Add the new hook entry (append if hook type already exists)
 	const newHookEntry = buildNewHookEntry(sourceFormat);
-	const existingHooks = hooksContent.hooks[keyToUse];
-	const newHookIndex = Array.isArray(existingHooks) ? existingHooks.length : 0;
-
-	// Generate the new JSON content using setProperty to preserve comments
-	let jsonContent: string;
-	if (fileExists) {
-		// Use setProperty to make targeted edits that preserve comments
-		const originalText = (await fileService.readFile(hookFileUri)).value.toString();
-		const detectedEol = originalText.includes('\r\n') ? '\r\n' : '\n';
-		const formattingOptions: FormattingOptions = { tabSize: 1, insertSpaces: false, eol: detectedEol };
-		const edits = setProperty(originalText, ['hooks', keyToUse, newHookIndex], newHookEntry, formattingOptions);
-		jsonContent = applyEdits(originalText, edits);
+	let newHookIndex: number;
+	if (!hooksContent.hooks[keyToUse]) {
+		hooksContent.hooks[keyToUse] = [newHookEntry];
+		newHookIndex = 0;
 	} else {
-		// New file - use JSON.stringify since there are no comments to preserve
-		const newContent = { hooks: { [keyToUse]: [newHookEntry] } };
-		jsonContent = JSON.stringify(newContent, null, '\t');
+		hooksContent.hooks[keyToUse].push(newHookEntry);
+		newHookIndex = hooksContent.hooks[keyToUse].length - 1;
 	}
+
+	// Write the file
+	const jsonContent = JSON.stringify(hooksContent, null, '\t');
 
 	// Check if the file is already open in an editor
 	const existingEditor = editorService.editors.find(e => isEqual(e.resource, hookFileUri));
@@ -241,17 +231,13 @@ async function addHookToFile(
 		const selection = findHookCommandSelection(jsonContent, keyToUse, newHookIndex, 'command');
 
 		// Open editor with selection (or re-focus if already open)
-		if (openEditorOverride) {
-			await openEditorOverride(hookFileUri, { selection });
-		} else {
-			await editorService.openEditor({
-				resource: hookFileUri,
-				options: {
-					selection,
-					pinned: false
-				}
-			});
-		}
+		await editorService.openEditor({
+			resource: hookFileUri,
+			options: {
+				selection,
+				pinned: false
+			}
+		});
 	}
 }
 

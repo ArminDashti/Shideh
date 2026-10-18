@@ -147,6 +147,7 @@ class StandaloneEnvironmentService implements IEnvironmentService {
 	readonly keyboardLayoutResource: URI = URI.from({ scheme: 'monaco', authority: 'keyboardLayoutResource' });
 	readonly argvResource: URI = URI.from({ scheme: 'monaco', authority: 'argvResource' });
 	readonly untitledWorkspacesHome: URI = URI.from({ scheme: 'monaco', authority: 'untitledWorkspacesHome' });
+	readonly builtinWorkbenchModesHome: URI = URI.from({ scheme: 'monaco', authority: 'builtinWorkbenchModesHome' });
 	readonly workspaceStorageHome: URI = URI.from({ scheme: 'monaco', authority: 'workspaceStorageHome' });
 	readonly appSharedDataHome: URI = URI.from({ scheme: 'monaco', authority: 'appSharedDataHome' });
 	readonly localHistoryHome: URI = URI.from({ scheme: 'monaco', authority: 'localHistoryHome' });
@@ -1096,10 +1097,6 @@ class StandaloneDefaultAccountService implements IDefaultAccountService {
 
 	async signIn(): Promise<IDefaultAccount | null> {
 		return null;
-	}
-
-	async signOut(): Promise<void> {
-		// no-op
 	}
 }
 

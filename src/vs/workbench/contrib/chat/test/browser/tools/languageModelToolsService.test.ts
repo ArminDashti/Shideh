@@ -150,6 +150,7 @@ function registerToolForTest(service: LanguageModelToolsService, store: any, id:
 			tokenBudget: 100,
 			parameters,
 			context: context ? {
+				sessionId: context.sessionId,
 				sessionResource: LocalChatSessionUri.forSession(context.sessionId),
 			} : undefined,
 		}),
@@ -867,40 +868,6 @@ suite('LanguageModelToolsService', () => {
 		await assert.rejects(toolPromise, err => {
 			return isCancellationError(err);
 		}, 'Expected tool call to be cancelled');
-	});
-
-	test('rejects tool invocation for cancelled request id', async () => {
-		let invoked = false;
-		const tool = registerToolForTest(service, store, 'testTool', {
-			invoke: async () => {
-				invoked = true;
-				return { content: [{ kind: 'text', value: 'done' }] };
-			}
-		});
-
-		const sessionId = 'sessionId-cancelled-request';
-		const requestId = 'requestId-cancelled-request';
-		const fakeModel = {
-			sessionId,
-			sessionResource: LocalChatSessionUri.forSession(sessionId),
-			getRequests: () => [{
-				id: requestId,
-				modelId: 'test-model',
-				response: { isCanceled: true },
-			}],
-		} as ChatModel;
-		chatService.addSession(fakeModel);
-
-		const dto: IToolInvocation = {
-			...tool.makeDto({ a: 1 }, { sessionId }),
-			chatRequestId: requestId,
-		};
-
-		await assert.rejects(service.invokeTool(dto, async () => 0, CancellationToken.None), err => {
-			return isCancellationError(err);
-		}, 'Expected tool invocation to be rejected for cancelled request id');
-
-		assert.strictEqual(invoked, false, 'Tool implementation should not run after request cancellation');
 	});
 
 	test('toFullReferenceNames', () => {
@@ -4108,6 +4075,7 @@ suite('LanguageModelToolsService', () => {
 			tokenBudget: 100,
 			parameters: { test: 1 },
 			context: {
+				sessionId,
 				sessionResource: LocalChatSessionUri.forSession(sessionId),
 			},
 			chatStreamToolCallId: 'stream-call-id', // This should correlate

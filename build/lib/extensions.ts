@@ -112,17 +112,6 @@ function fromLocal(extensionPath: string, forWeb: boolean): Stream {
 	return input;
 }
 
-export function typeCheckExtension(extensionPath: string, forWeb: boolean): Promise<void> {
-	const tsconfigFileName = forWeb ? 'tsconfig.browser.json' : 'tsconfig.json';
-	const tsconfigPath = path.join(extensionPath, tsconfigFileName);
-	return spawnTsgo(tsconfigPath, { taskName: 'typechecking extension (tsgo)', noEmit: true });
-}
-
-export function typeCheckExtensionStream(extensionPath: string, forWeb: boolean): Stream {
-	const tsconfigFileName = forWeb ? 'tsconfig.browser.json' : 'tsconfig.json';
-	const tsconfigPath = path.join(extensionPath, tsconfigFileName);
-	return createTsgoStream(tsconfigPath, { taskName: 'typechecking extension (tsgo)', noEmit: true });
-}
 
 
 function fromLocalNormal(extensionPath: string): Stream {
@@ -187,7 +176,6 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			if (error) {
 				return reject(error);
 			}
-
 			const matches = (stderr || '').match(/\> (.+): error: (.+)?/g);
 			fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(path.basename(extensionPath), esbuildConfigFileName))} with ${matches ? matches.length : 0} errors.`);
 			for (const match of matches || []) {
@@ -396,7 +384,7 @@ interface IExtensionManifest {
 /**
  * Loosely based on `getExtensionKind` from `src/vs/workbench/services/extensions/common/extensionManifestPropertiesService.ts`
  */
-export function isWebExtension(manifest: IExtensionManifest): boolean {
+function isWebExtension(manifest: IExtensionManifest): boolean {
 	if (Boolean(manifest.browser)) {
 		return true;
 	}
@@ -534,11 +522,11 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 }
 
 export interface IScannedBuiltinExtension {
-	readonly extensionPath: string;
-	readonly packageJSON: unknown;
-	readonly packageNLS: unknown | undefined;
-	readonly readmePath: string | undefined;
-	readonly changelogPath: string | undefined;
+	extensionPath: string;
+	packageJSON: any;
+	packageNLS?: any;
+	readmePath?: string;
+	changelogPath?: string;
 }
 
 export function scanBuiltinExtensions(extensionsRoot: string, exclude: string[] = []): IScannedBuiltinExtension[] {

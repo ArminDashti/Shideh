@@ -79,6 +79,18 @@ export class ConfirmTerminalCommandTool extends RunInTerminalTool {
 	}
 
 	override async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+		// Safe-guard: If session is the chat provider specific id
+		// then convert it to the session id understood by chat service
+		try {
+			const sessionUri = context.chatSessionId ? URI.parse(context.chatSessionId) : undefined;
+			const sessionId = sessionUri ? this._chatService.getSession(sessionUri)?.sessionId : undefined;
+			if (sessionId) {
+				context.chatSessionId = sessionId;
+			}
+		}
+		catch {
+			// Ignore parse errors or session lookup failures; fallback to using the original chatSessionId.
+		}
 		const preparedInvocation = await super.prepareToolInvocation(context, token);
 		if (preparedInvocation) {
 			preparedInvocation.presentation = ToolInvocationPresentation.HiddenAfterComplete;

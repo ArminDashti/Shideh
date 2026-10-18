@@ -124,7 +124,7 @@ class SkipToolConfirmation extends ToolConfirmationAction {
 	}
 }
 
-export class ConfigureToolsAction extends Action2 {
+class ConfigureToolsAction extends Action2 {
 	public static ID = 'workbench.action.chat.configureTools';
 
 	constructor() {

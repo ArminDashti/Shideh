@@ -67,7 +67,6 @@ type AgentSessionResourceContext = {
 		this._store.add({ dispose: () => ctxAffordanceVisible.reset() });
 
 		let explicitSelection = false;
-		let affordanceId: string | undefined;
 
 		this._store.add(runOnChange(editorObs.selections, (value, _prev, events) => {
 			explicitSelection = events.every(e => e.reason === CursorChangeReason.Explicit);
@@ -78,9 +77,8 @@ type AgentSessionResourceContext = {
 
 		this._store.add(autorun(r => {
 			const value = debouncedSelection.read(r);
-			if (!value || value.isEmpty() || !explicitSelection || this.#editor.getModel()?.getValueInRange(value).match(/^\s+$/)) {
+			if (!value || value.isEmpty() || !explicitSelection || _editor.getModel()?.getValueInRange(value).match(/^\s+$/)) {
 				selectionData.set(undefined, undefined);
-				affordanceId = undefined;
 				return;
 			}
 			affordanceId = generateUuid();

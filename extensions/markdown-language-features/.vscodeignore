@@ -8,8 +8,12 @@ tsconfig*.json
 esbuild*
 out/test/**
 out/**
+extension.webpack.config.js
+extension-browser.webpack.config.js
 cgmanifest.json
 package-lock.json
 preview-src/**
+webpack.config.js
+esbuild-*
 .gitignore
 **/*.d.ts

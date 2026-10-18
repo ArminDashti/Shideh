@@ -305,11 +305,6 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 		this.contextFilter = this._register(new AssignmentContextFilter(storageService));
 		this.telemetry = this._register(new WorkbenchAssignmentServiceTelemetry(telemetryService, productService, this.contextFilter));
 		this._register(this.telemetry.onDidUpdateAssignmentContext(() => this._onDidRefetchAssignments.fire()));
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('experiments.override')) {
-				this._onDidRefetchAssignments.fire();
-			}
-		}));
 
 		this.keyValueStorage = new MementoKeyValueStorage(new Memento<Record<string, unknown>>('experiment.service.memento', storageService));
 

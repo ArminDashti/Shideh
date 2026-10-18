@@ -38,29 +38,8 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 		const terminalService = accessor.get(IExternalTerminalService);
 		const configurationService = accessor.get(IConfigurationService);
 		const remoteAuthorityResolverService = accessor.get(IRemoteAuthorityResolverService);
-		const workspaceContextService = accessor.get(IWorkspaceContextService);
-		const quickInputService = accessor.get(IQuickInputService);
-		const labelService = accessor.get(ILabelService);
+		const root = historyService.getLastActiveWorkspaceRoot();
 		const config = configurationService.getValue<IExternalTerminalSettings>('terminal.external');
-
-		// When there are multiple workspace folders, let the user pick one
-		const folders = workspaceContextService.getWorkspace().folders;
-		let root: URI | undefined;
-		if (folders.length > 1) {
-			const folderPicks: IQuickPickItem[] = folders.map(folder => ({
-				label: folder.name,
-				description: labelService.getUriLabel(folder.uri, { relative: true })
-			}));
-			const pick = await quickInputService.pick(folderPicks, {
-				placeHolder: nls.localize('selectWorkspace', "Select workspace folder")
-			});
-			if (!pick) {
-				return;
-			}
-			root = folders[folderPicks.indexOf(pick)].uri;
-		} else {
-			root = historyService.getLastActiveWorkspaceRoot();
-		}
 
 		// It's a local workspace, open the root
 		if (root?.scheme === Schemas.file) {

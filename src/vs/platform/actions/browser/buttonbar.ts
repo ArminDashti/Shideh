@@ -218,7 +218,7 @@ export class WorkbenchButtonBar extends ButtonBar {
 			};
 
 			if (showLabel) {
-				btn.label = customLabel ?? action.label;
+				btn.label = action.label;
 			} else {
 				btn.element.classList.add('monaco-text-button');
 			}

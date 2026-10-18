@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SequencerByKey, timeout } from '../../../../base/common/async.js';
+import { SequencerByKey } from '../../../../base/common/async.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IStringDictionary } from '../../../../base/common/collections.js';
@@ -13,7 +13,6 @@ import { hash } from '../../../../base/common/hash.js';
 import { Iterable } from '../../../../base/common/iterator.js';
 import { IJSONSchema, TypeFromJsonSchema } from '../../../../base/common/jsonSchema.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
-import { IObservable, observableValue } from '../../../../base/common/observable.js';
 import { equals } from '../../../../base/common/objects.js';
 import Severity from '../../../../base/common/severity.js';
 import { format, isFalsyOrWhitespace } from '../../../../base/common/strings.js';
@@ -488,36 +487,6 @@ export interface ILanguageModelChatResponse {
 	stream: AsyncIterable<IChatResponsePart | IChatResponsePart[]>;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	result: Promise<any>;
-}
-
-export async function getTextResponseFromStream(response: ILanguageModelChatResponse): Promise<string> {
-	let responseText = '';
-	const streaming = (async () => {
-		if (!response?.stream) {
-			return;
-		}
-		for await (const part of response.stream) {
-			if (Array.isArray(part)) {
-				for (const item of part) {
-					if (item.type === 'text') {
-						responseText += item.value;
-					}
-				}
-			} else if (part.type === 'text') {
-				responseText += part.value;
-			}
-		}
-	})();
-
-	try {
-		await Promise.all([response.result, streaming]);
-		return responseText;
-	} catch (err) {
-		if (responseText) {
-			return responseText;
-		}
-		throw err;
-	}
 }
 
 export interface ILanguageModelChatProvider {
@@ -2838,7 +2807,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 	//#endregion
 
 	dispose() {
-		this._chatControlDisposed = true;
 		this._store.dispose();
 		this._providers.clear();
 	}

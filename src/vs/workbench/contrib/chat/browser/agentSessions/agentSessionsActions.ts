@@ -19,6 +19,7 @@ import { IChatEditorOptions } from '../widgetHosts/editor/chatEditor.js';
 import { ChatViewId, IChatWidgetService } from '../chat.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, PreferredGroup, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../../common/views.js';
+import { getPartByLocation } from '../../../../services/views/browser/viewsService.js';
 import { IWorkbenchLayoutService, Position } from '../../../../services/layout/browser/layoutService.js';
 import { IAgentSessionsService } from './agentSessionsService.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -1198,7 +1199,6 @@ abstract class UpdateChatViewWidthAction extends Action2 {
 		const viewDescriptorService = accessor.get(IViewDescriptorService);
 		const configurationService = accessor.get(IConfigurationService);
 		const viewsService = accessor.get(IViewsService);
-		const paneCompositeService = accessor.get(IPaneCompositePartService);
 
 		const chatLocation = viewDescriptorService.getViewLocationById(ChatViewId);
 		if (typeof chatLocation !== 'number') {

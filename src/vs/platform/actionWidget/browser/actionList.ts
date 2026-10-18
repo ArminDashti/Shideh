@@ -2377,6 +2377,7 @@ export class ActionListWidget<T> extends Disposable {
 			}
 			this._list.reveal(focused[0]);
 		}
+		this._list.domFocus();
 	}
 
 	focusNext() {
@@ -2415,6 +2416,7 @@ export class ActionListWidget<T> extends Disposable {
 			}
 			this._list.reveal(focused[0]);
 		}
+		this._list.domFocus();
 	}
 
 	private _focusFilterResult(direction: 'previous' | 'next'): boolean {
@@ -2536,6 +2538,7 @@ export class ActionListWidget<T> extends Disposable {
 	}
 
 	private onFocus() {
+		this._list.domFocus();
 		const focused = this._list.getFocus();
 		if (focused.length === 0) {
 			return;
@@ -3408,11 +3411,6 @@ export class ActionListWidget<T> extends Disposable {
 	}
 
 	private onListClick(e: IListMouseEvent<IActionListItem<T>>): void {
-		if (e.element && e.element.isSectionToggle && e.element.section) {
-			const section = e.element.section;
-			queueMicrotask(() => this._toggleSection(section));
-			return;
-		}
 		if (e.element && this.focusCondition(e.element)) {
 			this._list.setFocus([]);
 		}

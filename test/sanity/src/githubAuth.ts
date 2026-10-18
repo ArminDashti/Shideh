@@ -3,15 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Page } from 'playwright';
+import { Browser, Page } from 'playwright';
 import { TestContext } from './context.js';
 
 /**
  * Handles GitHub authentication flows in the browser.
  */
 export class GitHubAuth {
-	private readonly username = process.env.GITHUB_ACCOUNT;
-	private readonly password = process.env.GITHUB_PASSWORD;
+	// private readonly username = process.env.GITHUB_ACCOUNT;
+	// private readonly password = process.env.GITHUB_PASSWORD;
 
 	public constructor(private readonly context: TestContext) { }
 

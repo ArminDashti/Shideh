@@ -98,9 +98,10 @@ export function parseCopilotHooks(
 		const commands: IHookCommand[] = [];
 
 		for (const item of hookArray) {
-			// Use helper that handles both direct commands and Claude-style nested matcher structures
-			const extracted = extractHookCommandsFromItem(item, workspaceRootUri, userHome);
-			commands.push(...extracted);
+			const resolved = resolveHookCommand(item as Record<string, unknown>, workspaceRootUri, userHome);
+			if (resolved) {
+				commands.push(resolved);
+			}
 		}
 
 		if (commands.length > 0) {

@@ -2,5 +2,5 @@ src/**
 tsconfig*.json
 **/*.tsbuildinfo
 out/**
-esbuild*
+extension.webpack.config.js
 package-lock.json

@@ -947,8 +947,12 @@ suite('ComputeAutomaticInstructions', () => {
 						'---',
 						'applyTo: "**/*.ts"',
 						'---',
-						'TS instructions',
+						'TS instructions [](./referenced.instructions.md)',
 					]
+				},
+				{
+					path: `${rootFolder}/.github/instructions/referenced.instructions.md`,
+					contents: ['Referenced content'],
 				},
 				{
 					path: `${rootFolder}/.github/copilot-instructions.md`,
@@ -1719,7 +1723,7 @@ suite('ComputeAutomaticInstructions', () => {
 					contents: [
 						'---',
 						'description: \'Test agent 1\'',
-						'user-invocable: true',
+						'user-invokable: true',
 						'disable-model-invocation: false',
 						'---',
 						'Test agent content',
@@ -1730,7 +1734,7 @@ suite('ComputeAutomaticInstructions', () => {
 					contents: [
 						'---',
 						'description: \'Test agent 2\'',
-						'user-invocable: true',
+						'user-invokable: true',
 						'disable-model-invocation: true',
 						'---',
 						'Test agent content',
@@ -1741,7 +1745,7 @@ suite('ComputeAutomaticInstructions', () => {
 					contents: [
 						'---',
 						'description: \'Test agent 3\'',
-						'user-invocable: false',
+						'user-invokable: false',
 						'disable-model-invocation: false',
 						'---',
 						'Test agent content',
@@ -1752,7 +1756,7 @@ suite('ComputeAutomaticInstructions', () => {
 					contents: [
 						'---',
 						'description: \'Test agent 4\'',
-						'user-invocable: false',
+						'user-invokable: false',
 						'disable-model-invocation: true',
 						'---',
 						'Test agent content',

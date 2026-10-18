@@ -72,14 +72,14 @@ class PromptToolsCodeLensProvider extends Disposable implements CodeLensProvider
 			return undefined;
 		}
 		let value = toolsAttr.value;
-		if (value.type === 'scalar') {
+		if (value.type === 'string') {
 			value = parseCommaSeparatedList(value);
 		}
-		if (value.type !== 'sequence') {
+		if (value.type !== 'array') {
 			return undefined;
 		}
 		const items = value.items;
-		const selectedTools = items.filter(item => item.type === 'scalar').map(item => item.value);
+		const selectedTools = items.filter(item => item.type === 'string').map(item => item.value);
 
 		const codeLens: CodeLens = {
 			range: toolsAttr.range.collapseToStart(),

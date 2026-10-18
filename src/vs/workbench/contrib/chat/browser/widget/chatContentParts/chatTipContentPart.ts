@@ -13,7 +13,6 @@ import { Disposable, MutableDisposable } from '../../../../../../base/common/lif
 import { IMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { localize, localize2 } from '../../../../../../nls.js';
 import { getFlatContextMenuActions } from '../../../../../../platform/actions/browser/menuEntryActionViewItem.js';
-import { MenuWorkbenchToolBar } from '../../../../../../platform/actions/browser/toolbar.js';
 import { Action2, IMenuService, MenuId, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKey, IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../../platform/contextview/browser/contextView.js';
@@ -41,7 +40,6 @@ export class ChatTipContentPart extends Disposable {
 	public readonly onDidHide = this._onDidHide.event;
 
 	private readonly _renderedContent = this._register(new MutableDisposable());
-	private readonly _toolbar = this._register(new MutableDisposable<MenuWorkbenchToolBar>());
 
 	private readonly _inChatTipContextKey: IContextKey<boolean>;
 	private readonly _multipleChatTipsContextKey: IContextKey<boolean>;
@@ -138,20 +136,10 @@ export class ChatTipContentPart extends Disposable {
 		});
 		this._renderedContent.value = markdownContent;
 		this.domNode.appendChild(markdownContent.element);
-
-		// Toolbar with previous, next, and dismiss actions via MenuWorkbenchToolBar
-		const toolbarContainer = $('.chat-tip-toolbar');
-		this._toolbar.value = this._instantiationService.createInstance(MenuWorkbenchToolBar, toolbarContainer, MenuId.ChatTipToolbar, {
-			menuOptions: {
-				shouldForwardArgs: true,
-			},
-		});
-		this.domNode.appendChild(toolbarContainer);
-
 		const textContent = markdownContent.element.textContent ?? localize('chatTip', "Chat tip");
 		const hasLink = /\[.*?\]\(.*?\)/.test(tip.content.value);
 		const ariaLabel = hasLink
-			? localize('chatTipWithAction', "{0} Tab to reach the action.", textContent)
+			? localize('chatTipWithAction', "{0} Tab to the action.", textContent)
 			: textContent;
 		this._notice.setAriaLabel(ariaLabel);
 	}
@@ -275,16 +263,11 @@ registerAction2(class DisableTipsAction extends Action2 {
 		super({
 			id: 'workbench.action.chat.disableTips',
 			title: localize2('chatTip.disableTips', "Disable tips"),
-			icon: Codicon.bellSlash,
 			f1: false,
 			menu: [{
 				id: MenuId.ChatTipContext,
 				group: 'chatTip',
 				order: 2,
-			}, {
-				id: MenuId.ChatTipToolbar,
-				group: 'navigation',
-				order: 5,
 			}]
 		});
 	}

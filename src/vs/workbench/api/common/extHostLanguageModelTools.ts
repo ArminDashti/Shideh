@@ -198,6 +198,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 		if (isProposedApiEnabled(item.extension, 'chatParticipantPrivate')) {
 			options.chatRequestId = dto.chatRequestId;
 			options.chatInteractionId = dto.chatInteractionId;
+			options.chatSessionId = dto.context?.sessionId;
 			options.chatSessionResource = URI.revive(dto.context?.sessionResource);
 			options.workingDirectory = URI.revive(dto.context?.workingDirectory);
 			options.subAgentInvocationId = dto.subAgentInvocationId;
@@ -306,6 +307,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 		const options: vscode.LanguageModelToolInvocationPrepareOptions<any> = {
 			input: context.parameters,
 			chatRequestId: context.chatRequestId,
+			chatSessionId: context.chatSessionId,
 			chatSessionResource: context.chatSessionResource,
 			chatInteractionId: context.chatInteractionId,
 			workingDirectory: URI.revive(context.workingDirectory),

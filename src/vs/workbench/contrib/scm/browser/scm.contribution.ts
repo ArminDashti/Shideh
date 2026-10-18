@@ -490,7 +490,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib,
 	when: ContextKeyExpr.and(
 		ContextKeyExpr.has('scmRepository'),
-		SCMInputContextKeys.SCMInputHasValidationMessage),
+		ContextKeys.SCMInputHasValidationMessage),
 	primary: KeyCode.Escape,
 	handler: async (accessor) => {
 		const scmViewService = accessor.get(ISCMViewService);
@@ -505,7 +505,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 		ContextKeyExpr.has('scmRepository'),
 		SuggestContext.Visible.toNegated(),
 		InlineCompletionContextKeys.inlineSuggestionVisible.toNegated(),
-		SCMInputContextKeys.SCMInputHasValidationMessage.toNegated(),
+		ContextKeys.SCMInputHasValidationMessage.toNegated(),
 		EditorContextKeys.hasNonEmptySelection.toNegated()),
 	primary: KeyCode.Escape,
 	handler: async (accessor) => {

@@ -3,16 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import ansiColors from 'ansi-colors';
 import * as cp from 'child_process';
 import es from 'event-stream';
 import fancyLog from 'fancy-log';
 import { createRequire } from 'module';
 import * as path from 'path';
+import { createReporter } from './reporter.ts';
 
 const root = path.dirname(path.dirname(import.meta.dirname));
 const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
-const timestampRegex = /^\[\d{2}:\d{2}:\d{2}\]\s*/;
 
 /**
  * Absolute path to the TypeScript 7 (native) compiler entrypoint. TS7 is
@@ -61,28 +60,51 @@ export function spawnTsgo(projectPath: string, config: { taskName: string; noEmi
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 
-	let stdoutData = '';
-	let stderrData = '';
+	let buffer = '';
+	const handleLine = (line: string) => {
+		const trimmed = line.replace(ansiRegex, '').trim();
+		if (!trimmed) {
+			return;
+		}
+		if (/Starting compilation|File change detected/i.test(trimmed)) {
+			beginReport(false);
+			return;
+		}
+		if (/Compilation complete/i.test(trimmed)) {
+			endReport();
+			return;
+		}
 
-	child.stdout?.on('data', (data: Buffer) => {
-		stdoutData += data.toString();
-	});
-	child.stderr?.on('data', (data: Buffer) => {
-		stderrData += data.toString();
-	});
+		const match = /(.*\(\d+,\d+\): )(.*: )(.*)/.exec(trimmed);
+
+		if (match) {
+			const fullpath = path.isAbsolute(match[1]) ? match[1] : path.join(root, match[1]);
+			const message = match[3];
+			reporter(fullpath + message);
+		} else {
+			reporter(trimmed);
+		}
+	};
+
+	const handleData = (data: Buffer) => {
+		buffer += data.toString('utf8');
+		const lines = buffer.split(/\r?\n/);
+		buffer = lines.pop() ?? '';
+		for (const line of lines) {
+			handleLine(line);
+		}
+	};
+
+	child.stdout?.on('data', handleData);
+	child.stderr?.on('data', handleData);
 
 	return new Promise<void>((resolve, reject) => {
 		child.on('exit', code => {
-			const allOutput = stdoutData + '\n' + stderrData;
-			const lines = allOutput
-				.split(/\r?\n/)
-				.map(line => line.replace(ansiRegex, '').trim())
-				.map(line => line.replace(timestampRegex, ''))
-				.filter(line => line.length > 0)
-				.filter(line => !/Starting compilation|File change detected|Compilation complete/i.test(line));
-
-			runReporter(lines.join('\n'));
-
+			if (buffer.trim()) {
+				handleLine(buffer);
+				buffer = '';
+			}
+			endReport();
 			if (code === 0) {
 				Promise.resolve(onComplete?.()).then(() => resolve(), reject);
 			} else {
@@ -91,6 +113,7 @@ export function spawnTsgo(projectPath: string, config: { taskName: string; noEmi
 		});
 
 		child.on('error', err => {
+			endReport();
 			reject(err);
 		});
 	});
@@ -101,8 +124,10 @@ export function createTsgoStream(projectPath: string, config: ITsgoConfig, onCom
 
 	spawnTsgo(projectPath, config, onComplete).then(() => {
 		stream.emit('end');
-	}).catch(err => {
-		stream.emit('error', err);
+	}).catch(() => {
+		// Errors are already reported by spawnTsgo via the reporter.
+		// Don't emit 'error' on the stream as that would exit the watch process.
+		stream.emit('end');
 	});
 
 	return stream;

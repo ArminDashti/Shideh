@@ -62,10 +62,8 @@ export interface IAgentSessionsControlOptions {
 	createNewChat(): void;
 	getHoverPosition(): HoverPosition;
 	trackActiveEditorSession(): boolean;
-	collapseOlderSections?(): boolean;
 
 	overrideSessionOpenOptions?(openEvent: IOpenEvent<AgentSessionListItem | undefined>): ISessionOpenOptions;
-	overrideSessionOpen?(resource: URI, openOptions?: ISessionOpenOptions): Promise<void>;
 	notifySessionOpened?(resource: URI, widget: IChatWidget): void;
 }
 
@@ -102,9 +100,6 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	private readonly collapsedSessionResources: Set<string>;
 
 	private readonly updateSessionsListThrottler = this._register(new Throttler());
-
-	private readonly _onDidUpdate = this._register(new Emitter<void>());
-	readonly onDidUpdate: Event<void> = this._onDidUpdate.event;
 
 	private visible: boolean = true;
 
@@ -682,13 +677,9 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 		});
 
 		const options = this.options.overrideSessionOpenOptions?.(e) ?? e;
-		if (this.options.overrideSessionOpen) {
-			await this.options.overrideSessionOpen(element.resource, options);
-		} else {
-			const widget = await this.instantiationService.invokeFunction(openSession, element, options);
-			if (widget) {
-				this.options.notifySessionOpened?.(element.resource, widget);
-			}
+		const widget = await this.instantiationService.invokeFunction(openSession, element, options);
+		if (widget) {
+			this.options.notifySessionOpened?.(element.resource, widget);
 		}
 	}
 

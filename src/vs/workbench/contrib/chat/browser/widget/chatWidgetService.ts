@@ -41,12 +41,6 @@ export class ChatWidgetService extends Disposable implements IChatWidgetService 
 	private readonly _onDidBackgroundSession = this._register(new Emitter<URI>());
 	readonly onDidBackgroundSession = this._onDidBackgroundSession.event;
 
-	private readonly _onDidChangeFocusedWidget = this._register(new Emitter<IChatWidget | undefined>());
-	readonly onDidChangeFocusedWidget = this._onDidChangeFocusedWidget.event;
-
-	private readonly _onDidChangeFocusedSession = this._register(new Emitter<void>());
-	readonly onDidChangeFocusedSession = this._onDidChangeFocusedSession.event;
-
 	constructor(
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 		@IViewsService private readonly viewsService: IViewsService,
@@ -268,8 +262,6 @@ export class ChatWidgetService extends Disposable implements IChatWidgetService 
 		}
 
 		this._lastFocusedWidget = widget;
-		this._onDidChangeFocusedWidget.fire(widget);
-		this._onDidChangeFocusedSession.fire();
 	}
 
 	register(newWidget: IChatWidget): IDisposable {
@@ -289,10 +281,6 @@ export class ChatWidgetService extends Disposable implements IChatWidgetService 
 			newWidget.onDidShow(() => this._onDidChangeWidgetVisibility.fire(newWidget)),
 			newWidget.onDidHide(() => this._onDidChangeWidgetVisibility.fire(newWidget)),
 			newWidget.onDidChangeViewModel(({ previousSessionResource, currentSessionResource }) => {
-				if (this._lastFocusedWidget === newWidget && !isEqual(previousSessionResource, currentSessionResource)) {
-					this._onDidChangeFocusedSession.fire();
-				}
-
 				if (!previousSessionResource || (currentSessionResource && isEqual(previousSessionResource, currentSessionResource))) {
 					return;
 				}

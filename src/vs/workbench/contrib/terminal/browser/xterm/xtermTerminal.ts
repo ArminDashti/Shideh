@@ -288,7 +288,6 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 				kittyKeyboard: config.enableKittyKeyboardProtocol,
 				win32InputMode: config.enableWin32InputMode,
 			},
-			allowTransparency: config.enableImages,
 			windowOptions: {
 				getWinSizePixels: true,
 				getCellSizePixels: true,

@@ -25,7 +25,6 @@ import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/com
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { isHTMLElement } from '../../../../base/browser/dom.js';
 
 /**
  * Tracks the id of the actively focused webview.

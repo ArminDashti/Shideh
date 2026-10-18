@@ -86,7 +86,7 @@ export class McpElicitationService implements IMcpElicitationService {
 	private async _elicitForm(server: IMcpServer, context: IMcpToolCallContext | undefined, elicitation: MCP.ElicitRequestFormParams | Pre20251125ElicitationParams, token: CancellationToken): Promise<IFormModeElicitResult> {
 		const store = new DisposableStore();
 		const value = await new Promise<MCP.ElicitResult>(resolve => {
-			const chatModel = context?.chatSessionResource && this._chatService.getSession(context.chatSessionResource);
+			const chatModel = context?.chatSessionId && this._chatService.getSession(LocalChatSessionUri.forSession(context.chatSessionId));
 			if (chatModel instanceof ChatModel) {
 				const request = chatModel.getRequests().at(-1);
 				if (request) {
@@ -164,7 +164,7 @@ export class McpElicitationService implements IMcpElicitationService {
 
 		const store = new DisposableStore();
 		const value = await new Promise<MCP.ElicitResult>(resolve => {
-			const chatModel = context?.chatSessionResource && this._chatService.getSession(context.chatSessionResource);
+			const chatModel = context?.chatSessionId && this._chatService.getSession(LocalChatSessionUri.forSession(context.chatSessionId));
 			if (chatModel instanceof ChatModel) {
 				const request = chatModel.getRequests().at(-1);
 				if (request) {

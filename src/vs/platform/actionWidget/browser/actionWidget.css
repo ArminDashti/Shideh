@@ -179,7 +179,7 @@
 
 .action-widget .monaco-list-row.action {
 	display: flex;
-	gap: 6px;
+	gap: 4px;
 	align-items: center;
 }
 
@@ -293,13 +293,13 @@
 }
 
 .action-widget .action-widget-action-bar .actions-container {
-	padding: 2px 8px 0px 26px;
+	padding: 4px 8px 2px 24px;
 	width: auto;
 }
 
 .action-widget-action-bar .action-label {
 	color: var(--vscode-textLink-activeForeground);
-	font-size: 12px;
+	font-size: 13px;
 	line-height: 22px;
 	padding: 0;
 	pointer-events: all;

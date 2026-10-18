@@ -3,7 +3,8 @@ src/**
 tsconfig*.json
 **/*.tsbuildinfo
 out/**
-esbuild*
+extension.webpack.config.js
+extension-browser.webpack.config.js
 package-lock.json
 build/**
 schemas/devContainer.codespaces.schema.json

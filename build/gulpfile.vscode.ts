@@ -127,11 +127,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			'vs/workbench/workbench.desktop.main.css',
 			'vs/workbench/api/node/extensionHostProcess.js',
 			'vs/code/electron-browser/workbench/workbench.html',
-			'vs/code/electron-browser/workbench/workbench.js',
-			'vs/sessions/sessions.desktop.main.js',
-			'vs/sessions/sessions.desktop.main.css',
-			'vs/sessions/electron-browser/sessions.html',
-			'vs/sessions/electron-browser/sessions.js'
+			'vs/code/electron-browser/workbench/workbench.js'
 		]);
 
 		const src = gulp.src(out + '/**', { base: '.' })
@@ -235,6 +231,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const telemetry = gulp.src(`${paths.dotBuild.telemetry.rootRelPath}/**`, { base: paths.dotBuild.telemetry.rootRelPath, dot: true });
 
+		const workbenchModes = gulp.src('resources/workbenchModes/**', { base: '.', dot: true });
+
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
 		// Must precede any node_modules globbing: this replaces the platform package,
@@ -306,7 +304,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'node_modules/zod/**'
 			], 'node_modules.asar'));
 
-		const mergeStreams = [
+		let all = es.merge(
 			packageJsonStream,
 			productJsonStream,
 			packageSubJsonStream,
@@ -314,6 +312,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			license,
 			api,
 			telemetry,
+			workbenchModes,
 			sources,
 			deps
 		];

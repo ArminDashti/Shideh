@@ -221,7 +221,6 @@ abstract class OpenChatGlobalAction extends Action2 {
 		const languageModelService = accessor.get(ILanguageModelsService);
 		const scmService = accessor.get(ISCMService);
 		const logService = accessor.get(ILogService);
-		const configurationService = accessor.get(IConfigurationService);
 
 		let chatWidget = widgetService.lastFocusedWidget;
 		// When this was invoked to switch to a mode via keybinding, and some chat widget is focused, use that one.
@@ -436,38 +435,16 @@ abstract class OpenChatGlobalAction extends Action2 {
 		if (opts?.blockOnResponse) {
 			const response = await resp;
 			if (response) {
-				const autoReplyEnabled = configurationService.getValue<boolean>(ChatConfiguration.AutoReply);
 				await new Promise<void>(resolve => {
 					const d = response.onDidChange(async () => {
-						if (response.isComplete) {
-							d.dispose();
-							resolve();
-							return;
-						}
-
-						const pendingConfirmation = response.isPendingConfirmation.get();
-						if (pendingConfirmation) {
-							// Check if the pending confirmation is a question carousel that will be auto-replied.
-							// Only question carousels are auto-replied; other confirmation types (tool approvals,
-							// elicitations, etc.) should cause us to resolve immediately.
-							const hasPendingQuestionCarousel = response.response.value.some(
-								part => part.kind === 'questionCarousel' && !part.isUsed
-							);
-							if (autoReplyEnabled && hasPendingQuestionCarousel) {
-								// Auto-reply will handle this question carousel, keep waiting
-								return;
-							}
+						if (response.isComplete || response.isPendingConfirmation.get()) {
 							d.dispose();
 							resolve();
 						}
 					});
 				});
 
-				const confirmationInfo = getPendingConfirmationInfo(response);
-				if (confirmationInfo) {
-					return { ...response.result, ...confirmationInfo };
-				}
-				return { ...response.result };
+				return { ...response.result, type: response.isPendingConfirmation.get() ? 'confirmation' : undefined };
 			}
 		}
 
@@ -505,66 +482,6 @@ async function waitForDefaultAgent(chatAgentService: IChatAgentService, mode: Ch
 		})),
 		timeout(60_000).then(() => { throw new Error('Timed out waiting for default agent'); })
 	]);
-}
-
-/**
- * Information about a pending confirmation in a chat response.
- */
-export type IChatPendingConfirmationInfo =
-	| { type: 'confirmation'; kind: 'toolInvocation'; toolId: string }
-	| { type: 'confirmation'; kind: 'toolPostApproval'; toolId: string }
-	| { type: 'confirmation'; kind: 'confirmation'; title: string; data: unknown }
-	| { type: 'confirmation'; kind: 'questionCarousel'; questions: unknown[] }
-	| { type: 'confirmation'; kind: 'elicitation'; title: string };
-
-/**
- * Extracts detailed information about the pending confirmation from a chat response.
- * Returns undefined if there is no pending confirmation.
- */
-function getPendingConfirmationInfo(response: IChatResponseModel): IChatPendingConfirmationInfo | undefined {
-	for (const part of response.response.value) {
-		if (part.kind === 'toolInvocation') {
-			const state = part.state.get();
-			if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
-				return {
-					type: 'confirmation',
-					kind: 'toolInvocation',
-					toolId: part.toolId,
-				};
-			}
-			if (state.type === IChatToolInvocation.StateKind.WaitingForPostApproval) {
-				return {
-					type: 'confirmation',
-					kind: 'toolPostApproval',
-					toolId: part.toolId,
-				};
-			}
-		}
-		if (part.kind === 'confirmation' && !part.isUsed) {
-			return {
-				type: 'confirmation',
-				kind: 'confirmation',
-				title: part.title,
-				data: part.data,
-			};
-		}
-		if (part.kind === 'questionCarousel' && !part.isUsed) {
-			return {
-				type: 'confirmation',
-				kind: 'questionCarousel',
-				questions: part.questions,
-			};
-		}
-		if (part.kind === 'elicitation2' && part.state.get() === ElicitationState.Pending) {
-			const title = part.title;
-			return {
-				type: 'confirmation',
-				kind: 'elicitation',
-				title: typeof title === 'string' ? title : title.value,
-			};
-		}
-	}
-	return undefined;
 }
 
 class PrimaryOpenChatGlobalAction extends OpenChatGlobalAction {
@@ -977,12 +894,12 @@ export function registerChatActions() {
 		constructor() {
 			super({
 				id: FocusTodosViewAction.ID,
-				title: localize2('interactiveSession.focusTodosView.label', "Toggle Focus Between TODOs and Input"),
+				title: localize2('interactiveSession.focusTodosView.label', "Agent TODOs: Toggle Focus Between TODOs and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
 				precondition: ContextKeyExpr.or(ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent), ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Debug)),
 				keybinding: [{
-					weight: KeybindingWeight.WorkbenchContrib + 1,
+					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT,
 					when: ContextKeyExpr.or(
 						ContextKeyExpr.and(ChatContextKeys.inChatInput, ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent)),
@@ -1016,8 +933,8 @@ export function registerChatActions() {
 				precondition: ChatContextKeys.inChatSession,
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyA,
-					when: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel),
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
+					when: ChatContextKeys.inChatSession,
 				}]
 			});
 		}
@@ -1219,7 +1136,7 @@ export function registerChatActions() {
 		}
 	});
 
-	registerAction2(class GenerateInstructionsAction extends Action2 {
+	registerAction2(class UpdateInstructionsAction extends Action2 {
 		constructor() {
 			super({
 				id: GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID,
@@ -1233,6 +1150,28 @@ export function registerChatActions() {
 
 		async run(accessor: ServicesAccessor): Promise<void> {
 			const commandService = accessor.get(ICommandService);
+
+			// Use chat command to open and send the query
+			const query = `Analyze this codebase to generate or update \`.github/copilot-instructions.md\` for guiding AI coding agents.
+
+Focus on discovering the essential knowledge that would help an AI agents be immediately productive in this codebase. Consider aspects like:
+- The "big picture" architecture that requires reading multiple files to understand - major components, service boundaries, data flows, and the "why" behind structural decisions
+- Critical developer workflows (builds, tests, debugging) especially commands that aren't obvious from file inspection alone
+- Project-specific conventions and patterns that differ from common practices
+- Integration points, external dependencies, and cross-component communication patterns
+
+Source existing AI conventions from \`**/{.github/copilot-instructions.md,AGENT.md,AGENTS.md,CLAUDE.md,.cursorrules,.windsurfrules,.clinerules,.cursor/rules/**,.windsurf/rules/**,.clinerules/**,README.md}\` (do one glob search).
+
+Guidelines (read more at https://aka.ms/vscode-instructions-docs):
+- If \`.github/copilot-instructions.md\` exists, merge intelligently - preserve valuable content while updating outdated sections
+- Write concise, actionable instructions (~20-50 lines) using markdown structure
+- Include specific examples from the codebase when describing patterns
+- Avoid generic advice ("write tests", "handle errors") - focus on THIS project's specific approaches
+- Document only discoverable patterns, not aspirational practices
+- Reference key files/directories that exemplify important patterns
+
+Update \`.github/copilot-instructions.md\` for the user, then ask for feedback on any unclear or incomplete sections to iterate.`;
+
 			await commandService.executeCommand('workbench.action.chat.open', {
 				mode: 'agent',
 				query: '/init',

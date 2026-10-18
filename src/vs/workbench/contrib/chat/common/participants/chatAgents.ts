@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { findLast } from '../../../../../base/common/arraysFind.js';
+import { timeout } from '../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { IStringDictionary } from '../../../../../base/common/collections.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
@@ -11,7 +12,7 @@ import { IMarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { revive, Revived } from '../../../../../base/common/marshalling.js';
-import { IObservable } from '../../../../../base/common/observable.js';
+import { IObservable, observableValue } from '../../../../../base/common/observable.js';
 import { equalsIgnoreCase } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -715,6 +716,13 @@ export class MergedChatAgent implements IChatAgent {
 
 export const IChatAgentNameService = createDecorator<IChatAgentNameService>('chatAgentNameService');
 
+type IChatParticipantRegistry = { [name: string]: string[] };
+
+interface IChatParticipantRegistryResponse {
+	readonly version: number;
+	readonly restrictedChatParticipants: IChatParticipantRegistry;
+}
+
 export interface IChatAgentNameService {
 	_serviceBrand: undefined;
 	getAgentNameRestriction(chatAgentData: IChatAgentData): boolean;
@@ -722,11 +730,64 @@ export interface IChatAgentNameService {
 
 export class ChatAgentNameService implements IChatAgentNameService {
 
+	private static readonly StorageKey = 'chat.participantNameRegistry';
+
 	declare _serviceBrand: undefined;
 
+	private readonly url!: string;
+	private registry = observableValue<IChatParticipantRegistry>(this, Object.create(null));
+	private disposed = false;
+
 	constructor(
-		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IProductService productService: IProductService,
+		@IRequestService private readonly requestService: IRequestService,
+		@ILogService private readonly logService: ILogService,
+		@IStorageService private readonly storageService: IStorageService
 	) {
+		if (!productService.chatParticipantRegistry) {
+			return;
+		}
+
+		this.url = productService.chatParticipantRegistry;
+
+		const raw = storageService.get(ChatAgentNameService.StorageKey, StorageScope.APPLICATION);
+
+		try {
+			this.registry.set(JSON.parse(raw ?? '{}'), undefined);
+		} catch (err) {
+			storageService.remove(ChatAgentNameService.StorageKey, StorageScope.APPLICATION);
+		}
+
+		this.refresh();
+	}
+
+	private refresh(): void {
+		if (this.disposed) {
+			return;
+		}
+
+		this.update()
+			.catch(err => this.logService.warn('Failed to fetch chat participant registry', err))
+			.then(() => timeout(5 * 60 * 1000)) // every 5 minutes
+			.then(() => this.refresh());
+	}
+
+	private async update(): Promise<void> {
+		const context = await this.requestService.request({ type: 'GET', url: this.url }, CancellationToken.None);
+
+		if (context.res.statusCode !== 200) {
+			throw new Error('Could not get extensions report.');
+		}
+
+		const result = await asJson<IChatParticipantRegistryResponse>(context);
+
+		if (!result || result.version !== 1) {
+			throw new Error('Unexpected chat participant registry response.');
+		}
+
+		const registry = result.restrictedChatParticipants;
+		this.registry.set(registry, undefined);
+		this.storageService.store(ChatAgentNameService.StorageKey, JSON.stringify(registry), StorageScope.APPLICATION, StorageTarget.MACHINE);
 	}
 
 	/**
@@ -746,7 +807,7 @@ export class ChatAgentNameService implements IChatAgentNameService {
 	private checkAgentNameRestriction(name: string, chatAgentData: IChatAgentData): IObservable<boolean> {
 		// Registry is a map of name to an array of extension publisher IDs or extension IDs that are allowed to use it.
 		// Look up the list of extensions that are allowed to use this name
-		const allowList = this.languageModelsService.restrictedChatParticipants.map<string[] | undefined>(registry => registry[name.toLowerCase()]);
+		const allowList = this.registry.map<string[] | undefined>(registry => registry[name.toLowerCase()]);
 		return allowList.map(allowList => {
 			if (!allowList) {
 				return true;
@@ -754,6 +815,10 @@ export class ChatAgentNameService implements IChatAgentNameService {
 
 			return allowList.some(id => equalsIgnoreCase(id, id.includes('.') ? chatAgentData.extensionId.value : chatAgentData.extensionPublisherId));
 		});
+	}
+
+	dispose() {
+		this.disposed = true;
 	}
 }
 

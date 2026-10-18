@@ -199,7 +199,7 @@ export async function getChromiumSysroot(arch: DebianArchString): Promise<string
 	}
 	const sha = getSha(tarball);
 	if (sha !== tarballSha) {
-		throw new Error(`Tarball checksum is wrong. Expected ${tarballSha}, actual ${sha}`);
+		throw new Error(`Tarball sha1sum is wrong. Expected ${tarballSha}, actual ${sha}`);
 	}
 
 	const proc = spawnSync('tar', ['xf', tarball, '-C', sysroot]);

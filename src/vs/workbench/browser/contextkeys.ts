@@ -22,6 +22,7 @@ import { getTitleBarStyle } from '../../platform/window/common/window.js';
 import { mainWindow } from '../../base/browser/window.js';
 import { isFullscreen, onDidChangeFullscreen } from '../../base/browser/browser.js';
 import { IEditorService } from '../services/editor/common/editorService.js';
+import { IWorkbenchModeService } from '../services/layout/common/workbenchModeService.js';
 
 export class WorkbenchContextKeysHandler extends Disposable {
 
@@ -46,7 +47,8 @@ export class WorkbenchContextKeysHandler extends Disposable {
 
 	private virtualWorkspaceContext: IContextKey<string>;
 	private temporaryWorkspaceContext: IContextKey<boolean>;
-	private isSessionsWindowContext: IContextKey<boolean>;
+	private isAgentSessionsWorkspaceContext: IContextKey<boolean>;
+	private workbenchModeContext: IContextKey<string>;
 	private inAutomationContext: IContextKey<boolean>;
 
 	private inZenModeContext: IContextKey<boolean>;
@@ -77,6 +79,7 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		@IEditorService private readonly editorService: IEditorService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService,
+		@IWorkbenchModeService private readonly workbenchModeService: IWorkbenchModeService,
 	) {
 		super();
 
@@ -95,8 +98,10 @@ export class WorkbenchContextKeysHandler extends Disposable {
 
 		this.virtualWorkspaceContext = VirtualWorkspaceContext.bindTo(this.contextKeyService);
 		this.temporaryWorkspaceContext = TemporaryWorkspaceContext.bindTo(this.contextKeyService);
-		this.isSessionsWindowContext = IsSessionsWindowContext.bindTo(this.contextKeyService);
-		this.isSessionsWindowContext.set(this.environmentService.isSessionsWindow);
+		this.isAgentSessionsWorkspaceContext = IsAgentSessionsWorkspaceContext.bindTo(this.contextKeyService);
+		this.isAgentSessionsWorkspaceContext.set(!!this.contextService.getWorkspace().isAgentSessionsWorkspace);
+		this.workbenchModeContext = WorkbenchModeContext.bindTo(this.contextKeyService);
+		this.workbenchModeContext.set(this.workbenchModeService.workbenchMode ?? '');
 		this.updateWorkspaceContextKeys();
 
 		// Capabilities
@@ -235,6 +240,8 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			this.updateWorkspaceFolderCountContextKey();
 			this.updateWorkspaceContextKeys();
 		}));
+
+		this._register(this.workbenchModeService.onDidChangeWorkbenchMode(mode => this.workbenchModeContext.set(mode ?? '')));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('workbench.editor.openSideBySideDirection')) {

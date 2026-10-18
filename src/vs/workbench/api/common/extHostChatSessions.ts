@@ -2,6 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+/* eslint-disable local/code-no-native-private */
 
 import type * as vscode from 'vscode';
 import { coalesce } from '../../../base/common/arrays.js';
@@ -9,7 +10,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../base/common
 import { CancellationError } from '../../../base/common/errors.js';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
-import { ResourceMap, ResourceSet } from '../../../base/common/map.js';
+import { ResourceMap } from '../../../base/common/map.js';
 import { MarshalledId } from '../../../base/common/marshallingIds.js';
 import * as objects from '../../../base/common/objects.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
@@ -235,70 +236,28 @@ class ChatSessionItemImpl implements vscode.ChatSessionItem {
 	}
 }
 
-interface ChatSessionDelta {
-	readonly addedOrUpdated?: ResourceMap<vscode.ChatSessionItem>;
-	readonly removed?: ResourceSet;
-}
-
-function computeItemsDelta(oldItems: ResourceMap<vscode.ChatSessionItem>, newItems: ResourceMap<vscode.ChatSessionItem>): ChatSessionDelta {
-	const delta = {
-		addedOrUpdated: new ResourceMap<vscode.ChatSessionItem>(),
-		removed: new ResourceSet(),
-	} satisfies ChatSessionDelta;
-
-	for (const [newResource, newItem] of newItems) {
-		const oldItem = oldItems.get(newResource);
-		if (oldItem !== newItem) {
-			delta.addedOrUpdated.set(newResource, newItem);
-		}
-	}
-
-	for (const oldResource of oldItems.keys()) {
-		if (!newItems.has(oldResource)) {
-			delta.removed.add(oldResource);
-		}
-	}
-
-	return delta;
-}
-
-function convertChatSessionDeltaToDto(delta: ChatSessionDelta): { addedOrUpdated: ReturnType<typeof typeConvert.ChatSessionItem.from>[]; removed: URI[] } {
-	return {
-		addedOrUpdated: delta.addedOrUpdated ? Array.from(delta.addedOrUpdated.values(), typeConvert.ChatSessionItem.from) : [],
-		removed: delta.removed ? Array.from(delta.removed.keys()) : []
-	};
-}
-
 class ChatSessionItemCollectionImpl implements vscode.ChatSessionItemCollection {
-	#items = new ResourceMap<vscode.ChatSessionItem>();
-	readonly #proxy: Proxied<MainThreadChatSessionsShape>;
-	readonly #controllerHandle: number;
+	readonly #items = new ResourceMap<vscode.ChatSessionItem>();
+	#onItemsChanged: () => void;
 
-	constructor(controllerHandle: number, proxy: Proxied<MainThreadChatSessionsShape>) {
-		this.#proxy = proxy;
-		this.#controllerHandle = controllerHandle;
+	constructor(onItemsChanged: () => void) {
+		this.#onItemsChanged = onItemsChanged;
 	}
 
 	get size(): number {
 		return this.#items.size;
 	}
 
-	replace(newItems: readonly vscode.ChatSessionItem[]): void {
-		if (!newItems.length && !this.#items.size) {
-			// No change
+	replace(items: readonly vscode.ChatSessionItem[]): void {
+		if (items.length === 0 && this.#items.size === 0) {
 			return;
 		}
 
-		const newItemsMap = new ResourceMap(newItems.map(item => [item.resource, item] as const));
-
-		const delta = computeItemsDelta(this.#items, newItemsMap);
-		if (!delta.addedOrUpdated?.size && !delta.removed?.size) {
-			// No change
-			return;
+		this.#items.clear();
+		for (const item of items) {
+			this.#items.set(item.resource, item);
 		}
-
-		this.#items = newItemsMap;
-		void this.#proxy.$updateChatSessionItems(this.#controllerHandle, convertChatSessionDeltaToDto(delta));
+		this.#onItemsChanged();
 	}
 
 	forEach(callback: (item: vscode.ChatSessionItem, collection: vscode.ChatSessionItemCollection) => unknown, thisArg?: any): void {
@@ -308,23 +267,13 @@ class ChatSessionItemCollectionImpl implements vscode.ChatSessionItemCollection 
 	}
 
 	add(item: vscode.ChatSessionItem): void {
-		const existing = this.#items.get(item.resource);
-		if (existing && existing === item) {
-			// We're adding the same item again
-			return;
-		}
-
 		this.#items.set(item.resource, item);
-		void this.#proxy.$addOrUpdateChatSessionItem(this.#controllerHandle, typeConvert.ChatSessionItem.from(item));
+		this.#onItemsChanged();
 	}
 
 	delete(resource: vscode.Uri): void {
-		if (this.#items.delete(resource)) {
-			void this.#proxy.$updateChatSessionItems(this.#controllerHandle, {
-				addedOrUpdated: [],
-				removed: [resource]
-			});
-		}
+		this.#items.delete(resource);
+		this.#onItemsChanged();
 	}
 
 	get(resource: vscode.Uri): vscode.ChatSessionItem | undefined {
@@ -385,6 +334,13 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 	}>();
 
 	/**
+	 * Map of uri -> chat session items
+	 *
+	 * TODO: this isn't cleared/updated properly
+	 */
+	private readonly _sessionItems = new ResourceMap<vscode.ChatSessionItem>();
+
+	/**
 	 * Map of uri -> chat sessions infos
 	 */
 	private readonly _extHostChatSessions = new ResourceMap<{ readonly sessionObj: ExtHostChatSession; readonly disposeCts: CancellationTokenSource }>();
@@ -410,16 +366,14 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 		commands.registerArgumentProcessor({
 			processArgument: (arg) => {
 				if (arg && arg.$mid === MarshalledId.AgentSessionContext) {
-					const resource = arg.session.resource;
-					for (const { controller } of this._chatSessionItemControllers.values()) {
-						const item = controller.items.get(resource);
-						if (item) {
-							return item;
-						}
+					const id = arg.session.resource || arg.sessionId;
+					const sessionContent = this._sessionItems.get(id);
+					if (sessionContent) {
+						return sessionContent;
+					} else {
+						this._logService.warn(`No chat session found for ID: ${id}`);
+						return arg;
 					}
-
-					this._logService.warn(`No chat session found with uri: ${resource}`);
-					return arg;
 				}
 
 				return arg;
@@ -429,12 +383,25 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 
 	registerChatSessionItemProvider(extension: IExtensionDescription, chatSessionType: string, provider: vscode.ChatSessionItemProvider): vscode.Disposable {
 		// The legacy provider api is implemented using the new controller API on the backend
-		const controllerHandle = this._itemControllerHandlePool++;
+		const handle = this._itemControllerHandlePool++;
 		const disposables = new DisposableStore();
 
 		const onDidChangeChatSessionItemStateEmitter = disposables.add(new Emitter<vscode.ChatSessionItem>());
 
-		const collection = new ChatSessionItemCollectionImpl(controllerHandle, this._proxy);
+		const collection = new ChatSessionItemCollectionImpl(() => {
+			// Noop for providers
+		});
+
+		// Helper to push items to main thread
+		const updateItems = async (items: readonly vscode.ChatSessionItem[]) => {
+			collection.replace(items);
+			const convertedItems: Array<Dto<IChatSessionItem>> = [];
+			for (const sessionContent of items) {
+				this._sessionItems.set(sessionContent.resource, sessionContent);
+				convertedItems.push(typeConvert.ChatSessionItem.from(sessionContent));
+			}
+			void this._proxy.$setChatSessionItems(handle, convertedItems);
+		};
 
 		const controller: vscode.ChatSessionItemController = {
 			id: chatSessionType,
@@ -464,7 +431,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 			},
 			refreshHandler: async (token: vscode.CancellationToken) => {
 				const items = await provider.provideChatSessionItems(token) ?? [];
-				collection.replace(items);
+				updateItems(items);
 			},
 		};
 
@@ -484,7 +451,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 		if (provider.onDidCommitChatSessionItem) {
 			disposables.add(provider.onDidCommitChatSessionItem((e) => {
 				const { original, modified } = e;
-				this._proxy.$onDidCommitChatSessionItem(controllerHandle, original.resource, modified.resource);
+				this._proxy.$onDidCommitChatSessionItem(handle, original.resource, modified.resource);
 			}));
 		}
 
@@ -497,7 +464,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 				}
 				legacyInputStates.clear();
 				disposables.dispose();
-				this._proxy.$unregisterChatSessionItemController(controllerHandle);
+				this._proxy.$unregisterChatSessionItemController(handle);
 			}
 		};
 
@@ -539,10 +506,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 				}
 
 				const item = new ChatSessionItemImpl(resource, label, () => {
-					// Make sure the item really is in the collection. If not we don't need to transmit it to the main thread yet
-					if (collection.get(resource) === item) {
-						void this._proxy.$addOrUpdateChatSessionItem(controllerHandle, typeConvert.ChatSessionItem.from(item));
-					}
+					void this._proxy.$updateChatSessionItem(controllerHandle, typeConvert.ChatSessionItem.from(item));
 				});
 				return item;
 			},

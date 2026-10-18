@@ -29,7 +29,6 @@ import { IEnvironmentMainService } from '../../environment/electron-main/environ
 import { IFileService } from '../../files/common/files.js';
 import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
-import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
@@ -570,7 +569,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				'/verysilent',
 				'/log',
 				`/update="${this.availableUpdate.updateFilePath}"`,
-				`/progress="${progressFilePath}"`,
 				`/sessionend="${sessionEndFlagPath}"`,
 				`/cancel="${cancelFilePath}"`,
 				'/nocloseapplications',

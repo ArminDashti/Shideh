@@ -352,7 +352,7 @@ export const activate: ActivationFunction<void> = (ctx) => {
 };
 
 
-function addNamedHeaderRendering(md: MarkdownIt): void {
+function addNamedHeaderRendering(md: InstanceType<typeof MarkdownIt>): void {
 	const slugCounter = new Map<string, number>();
 
 	const originalHeaderOpen = md.renderer.rules.heading_open;
@@ -378,9 +378,10 @@ function addNamedHeaderRendering(md: MarkdownIt): void {
 	};
 
 	const originalRender = md.render;
-	md.render = function (str: string, env?: unknown) {
+	md.render = function () {
 		slugCounter.clear();
-		return originalRender.call(this, str, env);
+		// eslint-disable-next-line local/code-no-any-casts
+		return originalRender.apply(this, arguments as any);
 	};
 }
 

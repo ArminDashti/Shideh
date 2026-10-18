@@ -143,6 +143,8 @@ export class InlineAnchorWidget extends Disposable {
 
 	public static readonly className = 'chat-inline-anchor-widget';
 
+	private readonly _chatResourceContext: IContextKey<string>;
+
 	readonly data: ContentRefData;
 
 	constructor(
@@ -177,6 +179,9 @@ export class InlineAnchorWidget extends Disposable {
 				? { kind: 'symbol', symbol: inlineReference.inlineReference }
 				: { uri: inlineReference.inlineReference };
 
+		const contextKeyService = this._register(originalContextKeyService.createScoped(element));
+		this._chatResourceContext = chatAttachmentResourceContextKey.bindTo(contextKeyService);
+
 		element.classList.add(InlineAnchorWidget.className, 'show-file-icons');
 		element.classList.toggle('chat-markdown-preview-link', metadata?.vscodeLinkType === 'markdown-preview');
 
@@ -185,6 +190,7 @@ export class InlineAnchorWidget extends Disposable {
 
 		let location: { readonly uri: URI; readonly range?: IRange };
 
+		let updateContextKeys: (() => Promise<void>) | undefined;
 		if (this.data.kind === 'symbol') {
 			const symbol = this.data.symbol;
 
@@ -192,7 +198,7 @@ export class InlineAnchorWidget extends Disposable {
 			iconText = [this.data.symbol.name];
 			iconClasses = ['codicon', ...getIconClasses(modelService, languageService, undefined, undefined, SymbolKinds.toIcon(symbol.kind))];
 
-			this._store.add(instantiationService.invokeFunction(accessor => hookUpSymbolAttachmentDragAndContextMenu(accessor, element, originalContextKeyService, { value: symbol.location, name: symbol.name, kind: symbol.kind }, MenuId.ChatInlineSymbolAnchorContext)));
+			this._store.add(instantiationService.invokeFunction(accessor => hookUpSymbolAttachmentDragAndContextMenu(accessor, element, contextKeyService, { value: symbol.location, name: symbol.name, kind: symbol.kind }, MenuId.ChatInlineSymbolAnchorContext)));
 		} else {
 			location = this.data;
 
@@ -229,7 +235,7 @@ export class InlineAnchorWidget extends Disposable {
 			let isDirectory = false;
 			fileService.stat(location.uri)
 				.then(stat => {
-					isDirectory = stat.isDirectory;
+					isFolderContext.set(stat.isDirectory);
 					if (stat.isDirectory) {
 						fileKind = FileKind.FOLDER;
 						refreshIconClasses();
@@ -287,6 +293,10 @@ export class InlineAnchorWidget extends Disposable {
 				}
 			}
 		}
+
+		const resourceContextKey = new StaticResourceContextKey(contextKeyService, fileService, languageService, modelService);
+		resourceContextKey.set(location.uri);
+		this._chatResourceContext.set(location.uri.toString());
 
 		const iconEl = dom.$('span.icon');
 		iconEl.classList.add(...iconClasses);

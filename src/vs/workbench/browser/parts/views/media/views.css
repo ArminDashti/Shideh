@@ -63,7 +63,6 @@
 .monaco-workbench .tree-explorer-viewlet-tree-view .message .button-container:not(:last-child) {
 	padding-bottom: 8px;
 }
-
 .monaco-workbench .tree-explorer-viewlet-tree-view .message.hide {
 	display: none;
 }
@@ -180,7 +179,6 @@
 	font-size: var(--vscode-codiconFontSize-compact);
 	line-height: 15px;
 }
-
 .customview-tree .monaco-list .monaco-list-row .custom-view-tree-node-item .monaco-inputbox {
 	line-height: normal;
 	flex: 1;
@@ -219,7 +217,6 @@
 .customview-tree .monaco-list .monaco-list-row .custom-view-tree-node-item > .custom-view-tree-node-item-resourceLabel > .custom-view-tree-node-item-icon.disabled {
 	opacity: 0.6;
 }
-
 /* makes spinning icons square */
 .customview-tree .monaco-list .monaco-list-row .custom-view-tree-node-item > .custom-view-tree-node-item-resourceLabel > .custom-view-tree-node-item-icon.codicon.codicon-modifier-spin {
 	padding-left: 6px;

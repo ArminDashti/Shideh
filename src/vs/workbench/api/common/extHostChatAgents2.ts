@@ -1547,8 +1547,6 @@ class ExtHostChatAgent {
 				}
 				that._followupProvider = undefined;
 				that._onDidReceiveFeedback.dispose();
-				that._onDidPerformAction.dispose();
-				that._pauseStateEmitter.dispose();
 				that._proxy.$unregisterAgent(that._handle);
 			},
 		} satisfies vscode.ChatParticipant;

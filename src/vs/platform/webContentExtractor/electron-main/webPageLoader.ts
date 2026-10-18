@@ -101,11 +101,6 @@ export class WebPageLoader extends Disposable {
 
 		this._window.webContents.session.webRequest.onBeforeSendHeaders(
 			this.onBeforeSendHeaders.bind(this));
-
-		this._window.webContents.session.webRequest.onHeadersReceived(
-			this.onHeadersReceived.bind(this));
-
-		this._window.webContents.session.on('will-download', this.onDownload.bind(this));
 	}
 
 	private trace(message: string) {
@@ -320,9 +315,6 @@ export class WebPageLoader extends Disposable {
 		if (statusCode === -3) {
 			this.trace(`Ignoring ERR_ABORTED (-3) as it may be caused by CSP or other measures`);
 			void this._queue.queue(() => this.extractContent());
-		} else if (statusCode === -27) {
-			this.trace(`Ignoring ERR_BLOCKED_BY_CLIENT (-27) as it may be caused by ad-blockers or similar extensions`);
-			void this._queue.queue(() => this.extractContent());
 		} else {
 			void this._queue.queue(() => this.extractContent({ status: 'error', statusCode, error }));
 		}
@@ -355,13 +347,6 @@ export class WebPageLoader extends Disposable {
 
 			// Allow redirect if target is a trusted domain
 			if (this._isTrustedDomain(toURI)) {
-				return;
-			}
-
-			// Ignore script-initiated navigation (ads/trackers etc)
-			if (this._didFinishLoad) {
-				this.trace(`Blocking post-load navigation to ${url} (likely ad/tracker script)`);
-				event.preventDefault();
 				return;
 			}
 

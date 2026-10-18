@@ -6952,10 +6952,6 @@ export const EditorOptions = {
 	domReadOnly: register(new EditorBooleanOption(
 		EditorOption.domReadOnly, 'domReadOnly', false,
 	)),
-	doubleClickSelectsBlock: register(new EditorBooleanOption(
-		EditorOption.doubleClickSelectsBlock, 'doubleClickSelectsBlock', true,
-		{ description: nls.localize('doubleClickSelectsBlock', "Controls whether double-clicking next to a bracket or quote selects the content inside.") }
-	)),
 	dragAndDrop: register(new EditorBooleanOption(
 		EditorOption.dragAndDrop, 'dragAndDrop', true,
 		{ description: nls.localize('dragAndDrop', "Controls whether the editor should allow moving selections via drag and drop.") }

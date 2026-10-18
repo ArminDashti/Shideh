@@ -102,7 +102,6 @@ const desktopWorkerEntryPoints = [
 // Desktop workbench and code entry points
 const desktopEntryPoints = [
 	'vs/workbench/workbench.desktop.main',
-	'vs/sessions/sessions.desktop.main',
 	'vs/workbench/contrib/debug/node/telemetryApp',
 	'vs/platform/files/node/watcher/watcherMain',
 	'vs/platform/localTranscription/node/localTranscriptionMain',
@@ -190,8 +189,6 @@ function getCssBundleEntryPointsForTarget(target: BuildTarget): Set<string> {
 			return new Set([
 				'vs/workbench/workbench.desktop.main',
 				'vs/code/electron-browser/workbench/workbench',
-				'vs/sessions/sessions.desktop.main',
-				'vs/sessions/electron-browser/sessions',
 			]);
 		case 'server':
 			return new Set(); // Server has no UI
@@ -224,43 +221,33 @@ async function cleanDir(dir: string): Promise<void> {
  * Scan for built-in extensions in the given directory.
  * Returns an array of extension entries for the builtinExtensionsScannerService.
  */
-function scanBuiltinExtensions(extensionsRoot: string): Array<IScannedBuiltinExtension> {
-	const scannedExtensions: Array<IScannedBuiltinExtension> = [];
+function scanBuiltinExtensions(extensionsRoot: string): Array<{ extensionPath: string; packageJSON: unknown }> {
+	const result: Array<{ extensionPath: string; packageJSON: unknown }> = [];
 	const extensionsPath = path.join(REPO_ROOT, extensionsRoot);
 
 	if (!fs.existsSync(extensionsPath)) {
-		return scannedExtensions;
+		return result;
 	}
 
-	for (const extensionFolder of fs.readdirSync(extensionsPath)) {
-		const packageJSONPath = path.join(extensionsPath, extensionFolder, 'package.json');
-		if (!fs.existsSync(packageJSONPath)) {
+	for (const entry of fs.readdirSync(extensionsPath, { withFileTypes: true })) {
+		if (!entry.isDirectory()) {
 			continue;
 		}
-		try {
-			const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, 'utf8'));
-			if (!isWebExtension(packageJSON)) {
-				continue;
+		const packageJsonPath = path.join(extensionsPath, entry.name, 'package.json');
+		if (fs.existsSync(packageJsonPath)) {
+			try {
+				const packageJSON = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+				result.push({
+					extensionPath: entry.name,
+					packageJSON
+				});
+			} catch (e) {
+				// Skip invalid extensions
 			}
-			const children = fs.readdirSync(path.join(extensionsPath, extensionFolder));
-			const packageNLSPath = children.filter(child => child === 'package.nls.json')[0];
-			const packageNLS = packageNLSPath ? JSON.parse(fs.readFileSync(path.join(extensionsPath, extensionFolder, packageNLSPath), 'utf8')) : undefined;
-			const readme = children.filter(child => /^readme(\.txt|\.md|)$/i.test(child))[0];
-			const changelog = children.filter(child => /^changelog(\.txt|\.md|)$/i.test(child))[0];
-
-			scannedExtensions.push({
-				extensionPath: extensionFolder,
-				packageJSON,
-				packageNLS,
-				readmePath: readme ? path.join(extensionFolder, readme) : undefined,
-				changelogPath: changelog ? path.join(extensionFolder, changelog) : undefined,
-			});
-		} catch (e) {
-			// Skip invalid extensions
 		}
 	}
 
-	return scannedExtensions;
+	return result;
 }
 
 /**
@@ -312,7 +299,10 @@ async function copyAllNonTsFiles(outDir: string, excludeTests: boolean): Promise
 		return copyFile(srcPath, destPath);
 	});
 
-	console.log(`[resources] Copied ${allFiles.length} files`);
+		await copyFile(srcPath, destPath);
+	}
+
+	return cssFiles.length;
 }
 
 // ============================================================================
@@ -480,7 +470,7 @@ async function bundle(outDir: string, doMinify: boolean, doNls: boolean, doMangl
 	}
 	await fs.promises.writeFile(path.join(outDirPath, 'date'), buildDate, 'utf8');
 
-	console.log(`[bundle] ${SRC_DIR} → ${outDir} (target: ${target})${doMinify ? ' (minify)' : ''}${doNls ? ' (nls)' : ''}${doManglePrivates ? ' (mangle-privates)' : ''}`);
+	console.log(`[bundle] ${SRC_DIR} → ${outDir} (target: ${target})${doMinify ? ' (minify)' : ''}${doNls ? ' (nls)' : ''}`);
 	const t1 = Date.now();
 
 	const indexMap = nlsCatalog?.indexMap ?? new Map<string, number>();
@@ -858,6 +848,9 @@ async function watch(): Promise<void> {
 		publish(errors.length > 0 ? 'error' : 'idle');
 	};
 
+	// Extensions to watch and copy (non-TypeScript resources)
+	const copyExtensions = ['.css', '.html', '.js', '.json', '.ttf', '.svg', '.png', '.mp3', '.scm', '.sh', '.ps1', '.psm1', '.fish', '.zsh', '.scpt'];
+
 	// Watch src directory using existing gulp-watch based watcher
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	const srcDir = path.join(REPO_ROOT, SRC_DIR);
@@ -866,8 +859,7 @@ async function watch(): Promise<void> {
 	watchStream.on('data', (file: { path: string }) => {
 		if (file.path.endsWith('.ts') && !file.path.endsWith('.d.ts')) {
 			pendingTsFiles.add(file.path);
-		} else {
-			// Copy any non-TS file (matches old gulp build's `src/**` behavior)
+		} else if (copyExtensions.some(ext => file.path.endsWith(ext))) {
 			pendingCopyFiles.add(file.path);
 		}
 
@@ -961,7 +953,7 @@ async function main(): Promise<void> {
 					console.log(`[transpile] ${SRC_DIR} → ${outDir}${options.excludeTests ? ' (excluding tests)' : ''}`);
 					const t1 = Date.now();
 					await transpile(outDir, options.excludeTests);
-					await copyAllNonTsFiles(outDir, options.excludeTests);
+					await copyResources(outDir, 'desktop', false, options.excludeTests);
 					console.log(`[transpile] Done in ${Date.now() - t1}ms`);
 				}
 				break;

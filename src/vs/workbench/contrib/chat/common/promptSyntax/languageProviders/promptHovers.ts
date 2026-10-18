@@ -92,7 +92,7 @@ export class PromptHoverProvider implements HoverProvider {
 						case PromptHeaderAttributes.hooks:
 							return this.getHooksHover(attribute, position, description, target);
 						case PromptHeaderAttributes.infer:
-							return this.createHover(description + '\n\n' + localize('promptHeader.attribute.infer.hover', 'Deprecated: Use `user-invocable` and `disable-model-invocation` instead.'), attribute.range);
+							return this.createHover(description + '\n\n' + localize('promptHeader.attribute.infer.hover', 'Deprecated: Use `user-invokable` and `disable-model-invocation` instead.'), attribute.range);
 						default:
 							return this.createHover(description, attribute.range);
 					}
@@ -104,12 +104,12 @@ export class PromptHoverProvider implements HoverProvider {
 
 	private getToolHover(node: IHeaderAttribute, position: Position, baseMessage: string, target: Target): Hover | undefined {
 		let value = node.value;
-		if (value.type === 'scalar') {
+		if (value.type === 'string') {
 			value = parseCommaSeparatedList(value);
 		}
-		if (value.type === 'sequence') {
+		if (value.type === 'array') {
 			for (const toolName of value.items) {
-				if (toolName.type === 'scalar' && toolName.range.containsPosition(position)) {
+				if (toolName.type === 'string' && toolName.range.containsPosition(position)) {
 					const description = this.getToolHoverByName(toolName.value, toolName.range, target);
 					if (description) {
 						return description;
@@ -183,14 +183,14 @@ export class PromptHoverProvider implements HoverProvider {
 			}
 			return undefined;
 		};
-		if (node.value.type === 'scalar') {
+		if (node.value.type === 'string') {
 			const hover = modelHoverContent(node.value.value);
 			if (hover) {
 				return hover;
 			}
-		} else if (node.value.type === 'sequence') {
+		} else if (node.value.type === 'array') {
 			for (const item of node.value.items) {
-				if (item.type === 'scalar' && item.range.containsPosition(position)) {
+				if (item.type === 'string' && item.range.containsPosition(position)) {
 					const hover = modelHoverContent(item.value);
 					if (hover) {
 						return hover;

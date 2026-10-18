@@ -119,7 +119,7 @@ export class UITest {
 		await page.getByText(/Start typing/).focus();
 
 		this.context.log('Typing some content into the file');
-		await page.keyboard.type('Hello, World!', { delay: 100 });
+		await page.keyboard.type('Hello, World!');
 
 		await this.runCommand(page, 'File: Save');
 	}

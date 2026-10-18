@@ -15,6 +15,7 @@ import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contex
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { ActiveEditorContext } from '../../../../common/contextkeys.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { ChatContextKeyExprs, ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatEditingSession } from '../../common/editing/chatEditingService.js';
@@ -24,7 +25,9 @@ import { ChatViewId, IChatWidgetService, unwrapChatContextMenuActionContext } fr
 import { IVoiceSessionController } from '../voiceClient/voiceSessionController.js';
 import { ChatViewPane } from '../widgetHosts/viewPane/chatViewPane.js';
 import { EditingSessionAction, EditingSessionActionContext, getEditingSessionContext } from '../chatEditing/chatEditingActions.js';
-import { ACTION_ID_NEW_CHAT, ACTION_ID_NEW_EDIT_SESSION, CHAT_CATEGORY, clearChatSessionPreservingType, handleCurrentEditingSession } from './chatActions.js';
+import { ChatEditorInput } from '../widgetHosts/editor/chatEditorInput.js';
+import { ChatViewPane } from '../widgetHosts/viewPane/chatViewPane.js';
+import { ACTION_ID_NEW_CHAT, ACTION_ID_NEW_EDIT_SESSION, CHAT_CATEGORY, handleCurrentEditingSession } from './chatActions.js';
 import { clearChatEditor } from './chatClear.js';
 import { AgentSessionProviders, AgentSessionsViewerOrientation } from '../agentSessions/agentSessions.js';
 
@@ -317,6 +320,23 @@ export function registerNewChatActions() {
 			currentWidget?.focusInput();
 		}
 	});
+}
+
+/**
+ * Creates a new session resource URI with the specified session type.
+ * For remote sessions, creates a URI with the session type as the scheme.
+ * For local sessions, creates a LocalChatSessionUri.
+ */
+function getResourceForNewChatSession(sessionType: string): URI {
+	const isRemoteSession = sessionType !== localChatSessionType;
+	if (isRemoteSession) {
+		return URI.from({
+			scheme: sessionType,
+			path: `/untitled-${generateUuid()}`,
+		});
+	}
+
+	return LocalChatSessionUri.forSession(generateUuid());
 }
 
 async function runNewChatAction(

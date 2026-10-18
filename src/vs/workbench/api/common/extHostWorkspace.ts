@@ -107,7 +107,7 @@ class ExtHostWorkspaceImpl extends Workspace {
 			return { workspace: null, added: [], removed: [] };
 		}
 
-		const { id, name, folders, configuration, transient, isUntitled } = data;
+		const { id, name, folders, configuration, transient, isUntitled, isAgentSessionsWorkspace } = data;
 		const newWorkspaceFolders: vscode.WorkspaceFolder[] = [];
 
 		// If we have an existing workspace, we try to find the folders that match our
@@ -135,7 +135,7 @@ class ExtHostWorkspaceImpl extends Workspace {
 		// make sure to restore sort order based on index
 		newWorkspaceFolders.sort((f1, f2) => f1.index < f2.index ? -1 : 1);
 
-		const workspace = new ExtHostWorkspaceImpl(id, name, newWorkspaceFolders, !!transient, configuration ? URI.revive(configuration) : null, !!isUntitled, uri => ignorePathCasing(uri, extHostFileSystemInfo));
+		const workspace = new ExtHostWorkspaceImpl(id, name, newWorkspaceFolders, !!transient, configuration ? URI.revive(configuration) : null, !!isUntitled, !!isAgentSessionsWorkspace, uri => ignorePathCasing(uri, extHostFileSystemInfo));
 		const { added, removed } = delta(oldWorkspace ? oldWorkspace.workspaceFolders : [], workspace.workspaceFolders, compareWorkspaceFolderByUri, extHostFileSystemInfo);
 
 		return { workspace, added, removed };
@@ -155,8 +155,8 @@ class ExtHostWorkspaceImpl extends Workspace {
 	private readonly _workspaceFolders: vscode.WorkspaceFolder[] = [];
 	private readonly _structure: TernarySearchTree<URI, vscode.WorkspaceFolder>;
 
-	constructor(id: string, private _name: string, folders: vscode.WorkspaceFolder[], transient: boolean, configuration: URI | null, private _isUntitled: boolean, ignorePathCasing: (key: URI) => boolean) {
-		super(id, folders.map(f => new WorkspaceFolder(f)), transient, configuration, ignorePathCasing);
+	constructor(id: string, private _name: string, folders: vscode.WorkspaceFolder[], transient: boolean, configuration: URI | null, private _isUntitled: boolean, isAgentSessionsWorkspace: boolean, ignorePathCasing: (key: URI) => boolean) {
+		super(id, folders.map(f => new WorkspaceFolder(f)), transient, configuration, ignorePathCasing, isAgentSessionsWorkspace);
 		this._structure = TernarySearchTree.forUris<vscode.WorkspaceFolder>(ignorePathCasing, () => true);
 
 		// setup the workspace folder data structure
@@ -243,7 +243,7 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 		this._messageService = extHostRpc.getProxy(MainContext.MainThreadMessageService);
 		this._telemetryProxy = extHostRpc.getProxy(MainContext.MainThreadTelemetry);
 		const data = initData.workspace;
-		this._confirmedWorkspace = data ? new ExtHostWorkspaceImpl(data.id, data.name, [], !!data.transient, data.configuration ? URI.revive(data.configuration) : null, !!data.isUntitled, uri => ignorePathCasing(uri, extHostFileSystemInfo)) : undefined;
+		this._confirmedWorkspace = data ? new ExtHostWorkspaceImpl(data.id, data.name, [], !!data.transient, data.configuration ? URI.revive(data.configuration) : null, !!data.isUntitled, !!data.isAgentSessionsWorkspace, uri => ignorePathCasing(uri, extHostFileSystemInfo)) : undefined;
 	}
 
 	/**
@@ -283,6 +283,10 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 
 	get name(): string | undefined {
 		return this._actualWorkspace ? this._actualWorkspace.name : undefined;
+	}
+
+	get isAgentSessionsWorkspace(): boolean {
+		return this._actualWorkspace?.isAgentSessionsWorkspace ?? false;
 	}
 
 	get workspaceFile(): vscode.Uri | undefined {

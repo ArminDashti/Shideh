@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type MarkdownIt from 'markdown-it';
+import type MarkdownIt = require('markdown-it');
+import type Token = require('markdown-it/lib/token');
 import * as vscode from 'vscode';
 import { extendMarkdownIt as extendMarkdownItWithFrontMatter } from './extensions/yamlPreamble/yamlPreamble';
 import { ILogger } from './logging';
@@ -94,7 +95,7 @@ interface RenderEnv {
 export interface IMdParser {
 	readonly slugifier: ISlugifier;
 
-	tokenize(document: ITextDocument): Promise<MarkdownIt.Token[]>;
+	tokenize(document: ITextDocument): Promise<Token[]>;
 }
 
 export class MarkdownItEngine implements IMdParser {
@@ -240,7 +241,7 @@ export class MarkdownItEngine implements IMdParser {
 
 	#addImageRenderer(md: MarkdownIt): void {
 		const original = md.renderer.rules.image;
-		md.renderer.rules.image = (tokens: MarkdownIt.Token[], idx: number, options, env: RenderEnv, self) => {
+		md.renderer.rules.image = (tokens: Token[], idx: number, options, env: RenderEnv, self) => {
 			const token = tokens[idx];
 			const src = token.attrGet('src');
 			if (src) {
@@ -335,7 +336,7 @@ export class MarkdownItEngine implements IMdParser {
 	#addLinkRenderer(md: MarkdownIt): void {
 		const original = md.renderer.rules.link_open;
 
-		md.renderer.rules.link_open = (tokens: MarkdownIt.Token[], idx: number, options, env, self) => {
+		md.renderer.rules.link_open = (tokens: Token[], idx: number, options, env, self) => {
 			const token = tokens[idx];
 			const href = token.attrGet('href');
 			// A string, including empty string, may be `href`.

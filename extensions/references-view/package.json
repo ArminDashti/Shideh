@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "icon": "media/icon.png",
-  "version": "10.0.0",
+  "version": "1.0.0",
   "publisher": "vscode",
   "license": "MIT",
   "engines": {
@@ -27,7 +27,7 @@
     "onCommand:editor.action.showReferences"
   ],
   "main": "./out/extension",
-  "browser": "./dist/browser/extension",
+  "browser": "./dist/extension.js",
   "contributes": {
     "configuration": {
       "properties": {

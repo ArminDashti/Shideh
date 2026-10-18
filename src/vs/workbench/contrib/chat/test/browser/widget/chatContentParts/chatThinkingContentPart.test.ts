@@ -678,7 +678,7 @@ suite('ChatThinkingContentPart', () => {
 		});
 
 		test('should start expanded when streaming (not complete)', () => {
-			const content = createThinkingPart('**Analyzing**\nSome detailed reasoning about the code structure');
+			const content = createThinkingPart('**Analyzing**');
 			const context = createMockRenderContext(false);
 
 			const part = store.add(instantiationService.createInstance(
@@ -2192,7 +2192,7 @@ suite('ChatThinkingContentPart', () => {
 		});
 
 		test('appendItem should render immediately when expanded', () => {
-			const content = createThinkingPart('**Working**\nSome detailed analysis of the problem');
+			const content = createThinkingPart('**Working**');
 			const context = createMockRenderContext(false);
 
 			const part = store.add(instantiationService.createInstance(
@@ -2781,7 +2781,7 @@ suite('ChatThinkingContentPart', () => {
 		});
 
 		test('collapseContent should collapse the part', () => {
-			const content = createThinkingPart('**Content**\nSome detailed reasoning that differs from the title');
+			const content = createThinkingPart('**Content**');
 			const context = createMockRenderContext(false);
 
 			// Use CollapsedPreview to start expanded
@@ -3246,7 +3246,7 @@ suite('ChatThinkingContentPart', () => {
 		});
 
 		test('should have proper aria-expanded attribute', () => {
-			const content = createThinkingPart('**Content**\nSome detailed reasoning that differs from the title');
+			const content = createThinkingPart('**Content**');
 			const context = createMockRenderContext(false);
 
 			const part = store.add(instantiationService.createInstance(

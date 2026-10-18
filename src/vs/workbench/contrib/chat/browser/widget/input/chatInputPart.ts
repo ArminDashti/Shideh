@@ -156,7 +156,7 @@ import { ChatToolInvocationPart } from '../chatContentParts/toolInvocationParts/
 import { ChatSessionInputRequestsPart } from './chatSessionInputRequestsPart.js';
 import { IChatSessionInputRequest } from '../../../common/chatSessionInputRequests.js';
 import { IChatContentPartRenderContext } from '../chatContentParts/chatContentParts.js';
-import { CollapsibleListPool, IChatCollapsibleListItem } from '../chatContentParts/chatReferencesContentPart.js';
+import { IChatCollapsibleListItem } from '../chatContentParts/chatReferencesContentPart.js';
 import { ChatTodoListWidget } from '../chatContentParts/chatTodoListWidget.js';
 import { ChatArtifactsWidget } from '../chatArtifactsWidget.js';
 import { handleTerminalCommandPaste, isTerminalCommandInput, isTerminalCommandPaste as isTerminalCommandPasteContent } from '../../chatTerminalCommandPaste.js';
@@ -805,7 +805,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private editingSentRequestKey!: IContextKey<ChatContextKeys.EditingRequestType | undefined>;
 	private chatModeKindKey: IContextKey<ChatModeKind>;
 	private chatModeNameKey: IContextKey<string>;
-	private chatModelIdKey: IContextKey<string>;
 	private withinEditSessionKey: IContextKey<boolean>;
 	private filePartOfEditSessionKey: IContextKey<boolean>;
 	private chatSessionHasOptions: IContextKey<boolean>;
@@ -814,7 +813,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatSessionSupportsDelegationKey: IContextKey<boolean>;
 	private chatHasPendingDelegationTargetKey: IContextKey<boolean>;
 	private chatSessionHasCustomAgentTarget: IContextKey<boolean>;
-	private chatSessionHasTargetedModels: IContextKey<boolean>;
 	private modelWidget: ModelPickerActionItem | undefined;
 	private modeWidget: ModePickerActionItem | undefined;
 	private attachContextActionViewItem: MenuEntryActionViewItem | undefined;
@@ -941,21 +939,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private _workingSetLinesRemovedSpan = new Lazy(() => dom.$('.working-set-lines-removed'));
 
 	private readonly _chatEditsActionsDisposables: DisposableStore = this._register(new DisposableStore());
-	private readonly _chatEditsDisposables: DisposableStore = this._register(new DisposableStore());
 	private readonly _renderingChatEdits = this._register(new MutableDisposable());
 
-	private _chatEditsListPool: CollapsibleListPool;
-	private _chatEditList: IDisposableReference<WorkbenchList<IChatCollapsibleListItem>> | undefined;
+	private readonly _chatEditsListWidget = this._register(new MutableDisposable<ChatEditsListWidget>());
 	get selectedElements(): URI[] {
-		const edits = [];
-		const editsList = this._chatEditList?.object;
-		const selectedElements = editsList?.getSelectedElements() ?? [];
-		for (const element of selectedElements) {
-			if (element.kind === 'reference' && URI.isUri(element.reference)) {
-				edits.push(element.reference);
-			}
-		}
-		return edits;
+		return this._chatEditsListWidget.value?.selectedElements ?? [];
 	}
 
 	private _attemptedWorkingSetEntriesCount: number = 0;
@@ -1243,7 +1231,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._register(Event.fromObservableLight(this.managedPluginAvailabilityService.state)(() => this._updateInputContentContextKeys()));
 		this.chatCursorAtTop = ChatContextKeys.inputCursorAtTop.bindTo(contextKeyService);
 		this.inputEditorHasFocus = ChatContextKeys.inputHasFocus.bindTo(contextKeyService);
-		this._hasQuestionCarouselContextKey = ChatContextKeys.Editing.hasQuestionCarousel.bindTo(contextKeyService);
 		this.chatModeKindKey = ChatContextKeys.chatModeKind.bindTo(contextKeyService);
 		this.chatModeNameKey = ChatContextKeys.chatModeName.bindTo(contextKeyService);
 		this.chatModelIdKey = ChatContextKeys.chatModelId.bindTo(contextKeyService);
@@ -1266,7 +1253,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			}
 		}
 		this.chatSessionHasCustomAgentTarget = ChatContextKeys.chatSessionHasCustomAgentTarget.bindTo(contextKeyService);
-		this.chatSessionHasTargetedModels = ChatContextKeys.chatSessionHasTargetedModels.bindTo(contextKeyService);
 
 		this.history = this._register(this.instantiationService.createInstance(ChatHistoryNavigator, this.location));
 
@@ -1306,8 +1292,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 			this._inputEditor?.updateOptions(newOptions);
 		}));
-
-		this._chatEditsListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event, MenuId.ChatEditingWidgetModifiedFilesToolbar, { verticalScrollMode: ScrollbarVisibility.Visible }));
 
 		this._hasFileAttachmentContextKey = ChatContextKeys.hasFileAttachments.bindTo(contextKeyService);
 
@@ -2079,7 +2063,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				}
 			}
 
-			// Sync selected model - validate it belongs to the current session's model pool
+			// Sync selected model
 			if (state?.selectedModel) {
 				const sessionType = getChatSessionType(forSessionResource);
 				this._modelSelectionController.syncFromConversationState(state.selectedModel, state.modelConfiguration, sessionType, forSessionResource.toString(), state.origin === ChatInputStateOrigin.Remote, this._restoreReasonFor(state.selectedModel));
@@ -5891,25 +5875,19 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		button.element.style.display = 'none';
 		overviewRegion.style.display = 'none';
 
-		if (!this._chatEditList) {
-			this._chatEditList = this._chatEditsListPool.get();
-			const list = this._chatEditList.object;
-			this._chatEditsDisposables.add(this._chatEditList);
-			this._chatEditsDisposables.add(list.onDidFocus(() => {
-				this._onDidFocus.fire();
-			}));
-			this._chatEditsDisposables.add(list.onDidOpen(async (e) => {
-				if (e.element?.kind === 'reference' && URI.isUri(e.element.reference)) {
-					const modifiedFileUri = e.element.reference;
-					const originalUri = e.element.options?.originalUri;
-
-					if (e.element.options?.isDeletion && originalUri) {
-						await this.editorService.openEditor({
-							resource: originalUri, // instead of modified, because modified will not exist
-							options: e.editorOptions
-						}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
+		if (!this._chatEditsListWidget.value || this._chatEditsListWidget.value.needsRebuild) {
+			if (!this._chatEditsListWidget.value) {
+				const widget = this.instantiationService.createInstance(ChatEditsListWidget, this._onDidChangeVisibility.event);
+				this._chatEditsListWidget.value = widget;
+				this._register(widget.onDidFocus(() => this._onDidFocus.fire()));
+				this._register(widget.onDidOpen(async (e) => {
+					const element = e.element;
+					if (!element || element.kind === 'folder' || element.kind === 'warning') {
 						return;
 					}
+					if (element.kind === 'reference' && URI.isUri(element.reference)) {
+						const modifiedFileUri = element.reference;
+						const originalUri = element.options?.originalUri;
 
 					// If there's a originalUri, open as diff editor. The exception is a
 					// pure creation (only additions into an empty/non-existing original),
@@ -5920,27 +5898,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 							modified: { resource: modifiedFileUri },
 							options: e.editorOptions
 						}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
-						return;
+
+						if (pane) {
+							entry?.getEditorIntegration(pane).reveal(true, e.editorOptions.preserveFocus);
+						}
 					}
-
-					const entry = chatEditingSession?.getEntry(modifiedFileUri);
-
-					const pane = await this.editorService.openEditor({
-						resource: modifiedFileUri,
-						options: e.editorOptions
-					}, e.sideBySide ? SIDE_GROUP : ACTIVE_GROUP);
-
-					if (pane) {
-						entry?.getEditorIntegration(pane).reveal(true, e.editorOptions.preserveFocus);
-					}
-				}
-			}));
-			this._chatEditsDisposables.add(addDisposableListener(list.getHTMLElement(), 'click', e => {
-				if (!this.hasFocus()) {
-					this._onDidFocus.fire();
-				}
-			}, true));
-			dom.append(workingSetContainer, list.getHTMLElement());
+				}));
+			}
+			this._chatEditsListWidget.value.rebuild(workingSetContainer, chatEditingSession);
 			dom.append(innerContainer, workingSetContainer);
 		}
 

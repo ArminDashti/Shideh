@@ -36,7 +36,7 @@ import { EditorResourceAccessor, IEditorCommandsContext, SideBySideEditor, Verbo
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { ResourceLabel } from '../../labels.js';
 import { IHostService } from '../../../services/host/browser/host.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { localize } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -182,8 +182,9 @@ export class ModalEditorPart {
 		}
 		const disposables = new DisposableStore();
 
-		// Modal container
-		const modalElement = $('.monaco-modal-editor-block');
+		// Create modal container
+		const modalElement = $('.monaco-modal-editor-block.dimmed');
+		modalElement.tabIndex = -1;
 		this.layoutService.mainContainer.appendChild(modalElement);
 		disposables.add(toDisposable(() => modalElement.remove()));
 
@@ -244,7 +245,7 @@ export class ModalEditorPart {
 
 		const shadowElement = resizableElement.domNode.appendChild($('.modal-editor-shadow'));
 
-		// Editor part container
+		// Create editor part container
 		const titleId = 'modal-editor-title';
 		const editorPartContainer = $('.part.editor.modal-editor-part', {
 			role: 'dialog',
@@ -253,7 +254,7 @@ export class ModalEditorPart {
 		});
 		shadowElement.appendChild(editorPartContainer);
 
-		// Header
+		// Create header with title and close button
 		const headerElement = editorPartContainer.appendChild($('.modal-editor-header'));
 
 		// Sidebar toggle button (only when sidebar is configured)
@@ -271,35 +272,7 @@ export class ModalEditorPart {
 		titleElement.id = titleId;
 		titleElement.textContent = '';
 
-		// Navigation widget
-		const navigationContainer = append(headerElement, $('div.modal-editor-navigation'));
-		hide(navigationContainer);
-		disposables.add(addDisposableListener(navigationContainer, EventType.DBLCLICK, e => EventHelper.stop(e, true)));
-
-		const previousButton = disposables.add(new Button(navigationContainer, { title: localize('previousItem', "Previous") }));
-		previousButton.icon = Codicon.chevronLeft;
-		previousButton.element.classList.add('modal-editor-nav-button');
-		disposables.add(previousButton.onDidClick(() => {
-			const navigation = editorPart.navigation;
-			if (navigation && navigation.current > 0) {
-				navigation.navigate(navigation.current - 1);
-			}
-		}));
-
-		const navigationLabel = append(navigationContainer, $('span.modal-editor-nav-label'));
-		navigationLabel.setAttribute('aria-live', 'polite');
-
-		const nextButton = disposables.add(new Button(navigationContainer, { title: localize('nextItem', "Next") }));
-		nextButton.icon = Codicon.chevronRight;
-		nextButton.element.classList.add('modal-editor-nav-button');
-		disposables.add(nextButton.onDidClick(() => {
-			const navigation = editorPart.navigation;
-			if (navigation && navigation.current < navigation.total - 1) {
-				navigation.navigate(navigation.current + 1);
-			}
-		}));
-
-		// Toolbar
+		// Action buttons
 		const actionBarContainer = append(headerElement, $('div.modal-editor-action-container'));
 
 		// Bottom-capable sidebars follow the editor in focus order without reparenting rendered content.
@@ -318,8 +291,7 @@ export class ModalEditorPart {
 			ModalEditorPartImpl,
 			mainWindow.vscodeWindowId,
 			this.editorPartsView,
-			modalElement,
-			options,
+			localize('modalEditorPart', "Modal Editor Area")
 		));
 		disposables.add(this.editorPartsView.registerPart(editorPart));
 		editorPart.create(editorPartContainer);
@@ -421,7 +393,6 @@ export class ModalEditorPart {
 		// Create global toolbar
 		disposables.add(scopedInstantiationService.createInstance(MenuWorkbenchToolBar, actionBarContainer, MenuId.ModalEditorTitle, {
 			hiddenItemStrategy: HiddenItemStrategy.NoHide,
-			highlightToggledItems: true,
 			menuOptions: { shouldForwardArgs: true }
 		}));
 
@@ -1121,13 +1092,10 @@ class ModalEditorPartImpl extends EditorPart implements IModalEditorPart {
 
 	private readonly optionsDisposable = this._register(new MutableDisposable());
 
-	private previousMainWindowActiveElement: Element | null = null;
-
 	constructor(
 		windowId: number,
 		editorPartsView: IEditorPartsView,
-		public readonly modalElement: HTMLElement,
-		options: IModalEditorPartOptions | undefined,
+		groupsLabel: string,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IThemeService themeService: IThemeService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -1181,8 +1149,7 @@ class ModalEditorPartImpl extends EditorPart implements IModalEditorPart {
 			tabActionCloseVisibility: showTabs !== 'none',
 			editorActionsLocation: 'hidden',
 			tabHeight: 'default',
-			wrapTabs: false,
-			allowDropIntoGroup: false
+			wrapTabs: false
 		});
 	}
 
@@ -1267,7 +1234,7 @@ class ModalEditorPartImpl extends EditorPart implements IModalEditorPart {
 		// Close modal when last group removed
 		const groupView = this.assertGroupView(group);
 		if (this.count === 1 && this.activeGroup === groupView) {
-			this.doRemoveLastGroup();
+			this.doRemoveLastGroup(preserveFocus);
 		}
 
 		// Otherwise delegate to parent implementation
@@ -1276,26 +1243,18 @@ class ModalEditorPartImpl extends EditorPart implements IModalEditorPart {
 		}
 	}
 
-	private doRemoveLastGroup(): void {
+	private doRemoveLastGroup(preserveFocus?: boolean): void {
+		const restoreFocus = !preserveFocus && this.shouldRestoreFocus(this.container);
 
-		// Activate main editor group when closing
-		const activeMainGroup = this.editorPartsView.mainPart.activeGroup;
-		this.editorPartsView.mainPart.activateGroup(activeMainGroup, undefined, GroupActivationReason.PART_CLOSE);
+		// Activate next group
+		const mostRecentlyActiveGroups = this.editorPartsView.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE);
+		const nextActiveGroup = mostRecentlyActiveGroups[1]; // [0] will be the current group we are about to dispose
+		if (nextActiveGroup) {
+			nextActiveGroup.groupsView.activateGroup(nextActiveGroup);
 
-		// Deal with focus: removing the last modal group
-		// means we return back to the main editor part.
-		// But we only want to focus that if it was focused
-		// before to prevent revealing the editor part if
-		// it was maybe hidden before.
-		const mainEditorPartContainer = this.layoutService.getContainer(mainWindow, Parts.EDITOR_PART);
-		if (
-			!isHTMLElement(this.previousMainWindowActiveElement) ||					// invalid previous element
-			!this.previousMainWindowActiveElement.isConnected ||					// previous element no longer in the DOM
-			mainEditorPartContainer?.contains(this.previousMainWindowActiveElement)	// previous element is inside main editor part
-		) {
-			activeMainGroup.focus();
-		} else {
-			this.previousMainWindowActiveElement.focus();
+			if (restoreFocus) {
+				nextActiveGroup.focus();
+			}
 		}
 
 		this._onWillClose.fire();
@@ -1358,11 +1317,5 @@ class ModalEditorPartImpl extends EditorPart implements IModalEditorPart {
 		targetGroup.focus();
 
 		return result;
-	}
-
-	override dispose(): void {
-		this._navigation = undefined; // ensure to free the reference to the navigation closure
-
-		super.dispose();
 	}
 }

@@ -114,7 +114,6 @@ export class ManagementConnection {
 		this.protocol.dispose();
 		socket.end();
 		this._onClose.fire(undefined);
-		this._onClose.dispose();
 	}
 
 	public acceptReconnection(remoteAddress: string, socket: ISocket, initialDataChunk: VSBuffer): void {

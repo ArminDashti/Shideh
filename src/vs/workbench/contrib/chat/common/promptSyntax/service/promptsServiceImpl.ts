@@ -276,7 +276,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		@ILogService public readonly logger: ILogService,
 		@ILabelService private readonly labelService: ILabelService,
 		@IModelService private readonly modelService: IModelService,
-		@IInstantiationService protected readonly instantiationService: IInstantiationService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IUserDataProfileService private readonly userDataService: IUserDataProfileService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFileService protected readonly fileService: IFileService,
@@ -1891,11 +1891,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 					};
 				}
 
-				// Resolve the workspace folder that contains this hook file for cwd resolution,
-				// falling back to the first workspace folder for user-level hooks outside the workspace
-				const hookWorkspaceFolder = this.workspaceService.getWorkspaceFolder(hookFile.uri) ?? defaultFolder;
-				const workspaceRootUri = hookWorkspaceFolder?.uri;
-
 				// Use format-aware parsing that handles Copilot and Claude formats
 				const { format, hooks: parsedHooks, disabledAllHooks } = parseHooksFromFile(hookFile.uri, json, workspaceRootUri, userHome);
 
@@ -2297,19 +2292,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 			const storage = promptPath.storage;
 			const extensionId = promptPath.extension?.identifier?.value;
 			const name = basename(uri);
-
-			// Skip Claude hooks when the setting is disabled
-			if (getHookSourceFormat(uri) === HookSourceFormat.Claude && useClaudeHooks === false) {
-				files.push({
-					uri,
-					storage,
-					status: 'skipped',
-					skipReason: 'claude-hooks-disabled',
-					name,
-					extensionId
-				});
-				continue;
-			}
 
 			try {
 				// Try to parse the JSON to validate it (supports JSONC with comments)

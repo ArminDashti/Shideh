@@ -98,7 +98,7 @@ export default defineConfig(
 			'no-var': 'warn',
 			'semi': 'warn',
 			'local/code-translation-remind': 'warn',
-			'local/code-no-declare-const-enum': 'warn',
+			'local/code-no-native-private': 'warn',
 			'local/code-parameter-properties-must-have-explicit-accessibility': 'warn',
 			'local/code-no-nls-in-standalone-editor': 'warn',
 			'local/code-no-potentially-unsafe-disposables': 'warn',
@@ -1913,7 +1913,6 @@ export default defineConfig(
 						'vs/workbench/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
-						'vs/sessions/~',
 						'vs/workbench/contrib/terminal/terminalContribChatExports*',
 						'vs/workbench/contrib/terminal/terminalContribExports*',
 						'vscode-notebook-renderer', // Type only import
@@ -1988,17 +1987,6 @@ export default defineConfig(
 							'when': 'hasBrowser',
 							'pattern': 'vs/workbench/services/*/~'
 						}
-					]
-				},
-				{
-					'target': 'src/vs/sessions/electron-browser/sessions.ts',
-					'layer': 'electron-browser',
-					'restrictions': [
-						'vs/base/~',
-						'vs/base/parts/*/~',
-						'vs/platform/*/~',
-						'vs/sessions/~',
-						'vs/sessions/sessions.desktop.main.js'
 					]
 				},
 				{

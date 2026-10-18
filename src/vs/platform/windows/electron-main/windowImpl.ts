@@ -495,10 +495,7 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 	private static readonly windowControlHeightStateStorageKey = 'windowControlHeight';
 
-	private windowControlsDimmed = false;
-	private lastWindowControlColors: { backgroundColor?: string; foregroundColor?: string } | undefined;
-
-	updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string; dimmed?: boolean }): void {
+	updateWindowControls(options: { height?: number; backgroundColor?: string; foregroundColor?: string }): void {
 		const win = this.win;
 		if (!win) {
 			return;
@@ -528,8 +525,8 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 			const effectiveForegroundColor = this.windowControlsDimmed && foregroundColor ? this.dimColor(foregroundColor) : foregroundColor;
 
 			win.setTitleBarOverlay({
-				color: effectiveBackgroundColor?.trim() === '' ? undefined : effectiveBackgroundColor,
-				symbolColor: effectiveForegroundColor?.trim() === '' ? undefined : effectiveForegroundColor,
+				color: options.backgroundColor?.trim() === '' ? undefined : options.backgroundColor,
+				symbolColor: options.foregroundColor?.trim() === '' ? undefined : options.foregroundColor,
 				height: options.height ? options.height - 1 : undefined // account for window border
 			});
 		}
@@ -1367,8 +1364,6 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		let windowUrl: string;
 		if (process.env.VSCODE_DEV && process.env.VSCODE_DEV_SERVER_URL) {
 			windowUrl = process.env.VSCODE_DEV_SERVER_URL; // support URL override for development
-		} else if (configuration.isSessionsWindow) {
-			windowUrl = FileAccess.asBrowserUri(`vs/sessions/electron-browser/sessions${this.environmentMainService.isBuilt ? '' : '-dev'}.html`).toString(true);
 		} else {
 			windowUrl = FileAccess.asBrowserUri(`vs/code/electron-browser/workbench/workbench${this.environmentMainService.isBuilt ? '' : '-dev'}.html`).toString(true);
 		}

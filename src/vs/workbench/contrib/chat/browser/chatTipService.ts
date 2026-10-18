@@ -76,22 +76,24 @@ export interface IChatTipService {
 	readonly onDidDismissTip: Event<void>;
 
 	/**
-	 * Fired when the user navigates to a different tip (previous/next).
-	 */
-	readonly onDidNavigateTip: Event<IChatTip>;
-
-	/**
-	 * Fired when the tip widget is hidden without dismissing the tip.
-	 */
-	readonly onDidHideTip: Event<void>;
-
-	/**
 	 * Fired when tips are disabled.
 	 */
 	readonly onDidDisableTips: Event<void>;
 
 	/**
+	 * Gets a tip to show for a request, or undefined if a tip has already been shown this session.
+	 * Only one tip is shown per conversation session (resets when switching conversations).
+	 * Tips are suppressed if a welcome tip was already shown in this session.
+	 * Tips are only shown for requests created after the current session started.
+	 * @param requestId The unique ID of the request (used for stable rerenders).
+	 * @param requestTimestamp The timestamp when the request was created.
+	 * @param contextKeyService The context key service to evaluate tip eligibility.
+	 */
+	getNextTip(requestId: string, requestTimestamp: number, contextKeyService: IContextKeyService): IChatTip | undefined;
+
+	/**
 	 * Gets a tip to show on the welcome/getting-started view.
+	 * Unlike {@link getNextTip}, this does not require a request and skips request-timestamp checks.
 	 * Returns the same tip on repeated calls for stable rerenders.
 	 */
 	getWelcomeTip(contextKeyService: IContextKeyService): IChatTip | undefined;
@@ -172,14 +174,21 @@ export class ChatTipService extends Disposable implements IChatTipService {
 	private readonly _onDidDismissTip = this._register(new Emitter<void>());
 	readonly onDidDismissTip = this._onDidDismissTip.event;
 
-	private readonly _onDidNavigateTip = this._register(new Emitter<IChatTip>());
-	readonly onDidNavigateTip = this._onDidNavigateTip.event;
-
-	private readonly _onDidHideTip = this._register(new Emitter<void>());
-	readonly onDidHideTip = this._onDidHideTip.event;
-
 	private readonly _onDidDisableTips = this._register(new Emitter<void>());
 	readonly onDidDisableTips = this._onDidDisableTips.event;
+
+	/**
+	 * Timestamp when the current session started.
+	 * Used to only show tips for requests created after this time.
+	 * Resets on each {@link resetSession} call.
+	 */
+	private _sessionStartedAt = Date.now();
+
+	/**
+	 * Whether a chatResponse tip has already been shown in this conversation
+	 * session. Only one response tip is shown per session.
+	 */
+	private _hasShownRequestTip = false;
 
 	/**
 	 * The request ID that was assigned a tip (for stable rerenders).
@@ -339,6 +348,7 @@ export class ChatTipService extends Disposable implements IChatTipService {
 	}
 
 	resetSession(): void {
+		this._hasShownRequestTip = false;
 		this._shownTip = undefined;
 		this._tipRequestId = undefined;
 		this._contextKeyService = undefined;
@@ -415,7 +425,8 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		this._tipsHiddenForSession = true;
 		this._shownTip = undefined;
 		this._tipRequestId = undefined;
-		this._onDidHideTip.fire();
+		await this._configurationService.updateValue('chat.tips.enabled', false);
+		this._onDidDisableTips.fire();
 	}
 
 	async disableTips(): Promise<void> {
@@ -586,6 +597,7 @@ export class ChatTipService extends Disposable implements IChatTipService {
 		this._storageService.store(ChatTipStorageKeys.LastTipId, selectedTip.id, StorageScope.APPLICATION, StorageTarget.USER);
 
 		// Record that we've shown a tip this session
+		this._hasShownRequestTip = sourceId !== 'welcome';
 		this._tipRequestId = sourceId;
 		this._shownTip = selectedTip;
 

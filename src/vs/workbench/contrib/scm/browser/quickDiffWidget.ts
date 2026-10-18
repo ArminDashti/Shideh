@@ -941,7 +941,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 });
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
-	id: 'toggleQuickDiffWidgetFocus',
+	id: 'togglePeekWidgetFocus',
 	weight: KeybindingWeight.EditorContrib,
 	primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.F2),
 	when: isQuickDiffVisible,

@@ -62,9 +62,9 @@ export abstract class AbstractMeteredConnectionService extends Disposable implem
 
 		this._register(configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(METERED_CONNECTION_SETTING_KEY)) {
-				const value = configurationService.getValue<MeteredConnectionSettingValue>(METERED_CONNECTION_SETTING_KEY);
-				if (value !== this._meteredConnectionSetting) {
-					this._meteredConnectionSetting = value;
+				const value = configurationService.getValue<boolean>(METERED_CONNECTION_SETTING_KEY);
+				if (value !== this._respectMeteredConnections) {
+					this._respectMeteredConnections = value;
 					this.onUpdated();
 				}
 			}

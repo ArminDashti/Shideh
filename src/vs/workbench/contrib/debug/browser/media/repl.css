@@ -11,13 +11,9 @@
 	overflow: hidden;
 }
 
-.monaco-workbench .repl .repl-tree .monaco-tl-contents,
-.monaco-workbench .repl .repl-tree .monaco-tl-twistie {
+.monaco-workbench .repl .repl-tree .monaco-tl-contents {
 	user-select: text;
 	-webkit-user-select: text;
-}
-
-.monaco-workbench .repl .repl-tree .monaco-tl-contents {
 	white-space: pre;
 	cursor: text;
 	margin-left: 6px;
@@ -50,7 +46,7 @@
 }
 
 .monaco-workbench .repl .repl-tree .monaco-tl-twistie.collapsible + .monaco-tl-contents,
-.monaco-workbench .repl .repl-tree .monaco-tl-twistie.collapsible {
+.monaco-workbench .repl .repl-tree .monaco-tl-twistie {
 	cursor: pointer;
 }
 
@@ -75,7 +71,6 @@
 .monaco-workbench .repl .repl-tree .monaco-tl-contents .arrow {
 	position:absolute;
 	left: 2px;
-	pointer-events: none;
 }
 
 .monaco-workbench .repl .repl-tree .output.expression.value-and-source .source,

@@ -611,6 +611,7 @@ export class ChatService extends Disposable implements IChatService {
 			initialData: undefined,
 			location,
 			sessionResource,
+			sessionId,
 			canUseTools: options?.canUseTools ?? true,
 			disableBackgroundKeepAlive: options?.disableBackgroundKeepAlive,
 			sessionTypeSelectionTelemetry: this.completeSessionTypeSelectionTelemetry(options?.sessionTypeSelectionTelemetry),
@@ -695,6 +696,11 @@ export class ChatService extends Disposable implements IChatService {
 			return existingRef;
 		}
 
+		const sessionId = LocalChatSessionUri.parseLocalSessionId(sessionResource);
+		if (!sessionId) {
+			throw new Error(`Cannot restore non-local session ${sessionResource}`);
+		}
+
 		let sessionData: ISerializedChatDataReference | undefined;
 		if (isEqual(this.transferredSessionResource, sessionResource)) {
 			this._transferredSessionResource = undefined;
@@ -714,6 +720,7 @@ export class ChatService extends Disposable implements IChatService {
 			initialData: sessionData,
 			location: sessionData.value.initialLocation ?? ChatAgentLocation.Chat,
 			sessionResource,
+			sessionId,
 			canUseTools: true,
 		}, debugOwner ?? 'ChatService#acquireOrRestoreLocalSession');
 
@@ -739,6 +746,7 @@ export class ChatService extends Disposable implements IChatService {
 			initialData: { value: data, serializer: new ChatSessionOperationLog() },
 			location: data.initialLocation ?? ChatAgentLocation.Chat,
 			sessionResource,
+			sessionId,
 			canUseTools: true,
 			sessionTypeSelectionTelemetry: this.completeSessionTypeSelectionTelemetry(sessionTypeSelectionTelemetry),
 		}, debugOwner ?? 'ChatService#loadSessionFromData');
@@ -2094,15 +2102,6 @@ export class ChatService extends Disposable implements IChatService {
 					if (hasDisabledClaudeHooks && !this.storageService.getBoolean(disabledClaudeHooksDismissedKey, StorageScope.WORKSPACE)) {
 						this.storageService.store(disabledClaudeHooksDismissedKey, true, StorageScope.WORKSPACE, StorageTarget.USER);
 						progressCallback([{ kind: 'disabledClaudeHooks' }]);
-					}
-
-					// Check for disabled Claude Code hooks and notify the user once per workspace
-					const disabledClaudeHooksDismissedKey = 'chat.disabledClaudeHooks.notification';
-					if (!this.storageService.getBoolean(disabledClaudeHooksDismissedKey, StorageScope.WORKSPACE)) {
-						this.storageService.store(disabledClaudeHooksDismissedKey, true, StorageScope.WORKSPACE, StorageTarget.USER);
-						if (hasDisabledClaudeHooks) {
-							progressCallback([{ kind: 'disabledClaudeHooks' }]);
-						}
 					}
 
 					// MCP autostart: only run for native VS Code sessions (sidebar, new editors) but not for extension contributed sessions that have inputType set.

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type * as http from 'http';
+import * as http from 'http';
 import { AddressInfo } from 'net';
 import assert from 'assert';
 import { CancellationToken, CancellationTokenSource } from '../../../../common/cancellation.js';

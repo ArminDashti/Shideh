@@ -1008,7 +1008,6 @@ export class DefaultAccountProvider extends Disposable implements IDefaultAccoun
 
 			const defaultAccount: IDefaultAccount = {
 				authenticationProvider,
-				accountName: sessions[0].account.label,
 				sessionId: sessions[0].id,
 				enterprise: authenticationProvider.enterprise || sessions[0].account.label.includes('_'),
 				entitlementsData,

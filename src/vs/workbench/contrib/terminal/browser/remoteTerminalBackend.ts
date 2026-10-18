@@ -28,7 +28,6 @@ import { ICompleteTerminalConfiguration, ITerminalConfiguration, TERMINAL_CONFIG
 import { TerminalStorageKeys } from '../common/terminalStorageKeys.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { IHistoryService } from '../../../services/history/common/history.js';
-import { getWorkspaceForTerminal } from '../common/terminalEnvironment.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 import { IStatusbarService } from '../../../services/statusbar/browser/statusbar.js';
 

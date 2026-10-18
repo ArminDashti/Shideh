@@ -116,9 +116,28 @@ export function parseClaudeHooks(
 		const commands: IHookCommand[] = [];
 
 		for (const item of hookArray) {
-			// Use shared helper that handles both direct commands and nested matcher structures
-			const extracted = extractHookCommandsFromItem(item, workspaceRootUri, userHome);
-			commands.push(...extracted);
+			if (!item || typeof item !== 'object') {
+				continue;
+			}
+
+			const itemObj = item as Record<string, unknown>;
+
+			// Claude can have nested hooks with matchers: { matcher: "Bash", hooks: [...] }
+			const nestedHooks = (itemObj as { hooks?: unknown }).hooks;
+			if (nestedHooks !== undefined && Array.isArray(nestedHooks)) {
+				for (const nestedHook of nestedHooks) {
+					const resolved = resolveClaudeCommand(nestedHook as Record<string, unknown>, workspaceRootUri, userHome);
+					if (resolved) {
+						commands.push(resolved);
+					}
+				}
+			} else {
+				// Direct hook command
+				const resolved = resolveClaudeCommand(itemObj, workspaceRootUri, userHome);
+				if (resolved) {
+					commands.push(resolved);
+				}
+			}
 		}
 
 		if (commands.length > 0) {

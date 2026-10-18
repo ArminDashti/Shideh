@@ -14,7 +14,6 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
-import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_ENABLED, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_VISIBLE, WebviewContentOptions, WebviewExtensionDescription, WebviewInitInfo, WebviewMessageReceivedEvent, WebviewOptions } from './webview.js';
 
 /**
@@ -39,7 +38,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	private static readonly _supportsAnchorPositioning = new Lazy(() => CSS.supports('(top: anchor(top))'));
 
 	private _isFirstLoad = true;
-	private readonly _firstLoadPendingMessages = new Set<{ readonly message: unknown; readonly transfer?: readonly ArrayBuffer[]; readonly resolve: (value: boolean) => void }>();
+	private readonly _firstLoadPendingMessages = new Set<{ readonly message: any; readonly transfer?: readonly ArrayBuffer[]; readonly resolve: (value: boolean) => void }>();
 	private readonly _webview = this._register(new MutableDisposable<IWebviewElement>());
 	private readonly _webviewEvents = this._register(new DisposableStore());
 
@@ -52,7 +51,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	private _contentOptions: WebviewContentOptions;
 	private _options: WebviewOptions;
 
-	private _owner: unknown = undefined;
+	private _owner: any = undefined;
 
 	private _windowId: number | undefined = undefined;
 	private get window() { return getWindowById(this._windowId, true).window; }
@@ -80,8 +79,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		initInfo: WebviewInitInfo,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
-		@IContextKeyService private readonly _baseContextKeyService: IContextKeyService,
-		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
+		@IContextKeyService private readonly _baseContextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -147,7 +145,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		return this._overlayLayout;
 	}
 
-	public claim(owner: unknown, targetWindow: CodeWindow, scopedContextKeyService: IContextKeyService | undefined) {
+	public claim(owner: any, targetWindow: CodeWindow, scopedContextKeyService: IContextKeyService | undefined) {
 		if (this._isDisposed) {
 			return;
 		}
@@ -195,7 +193,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		}
 	}
 
-	public release(owner: unknown) {
+	public release(owner: any) {
 		if (this._owner !== owner) {
 			return;
 		}
@@ -406,7 +404,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 
 	public readonly intrinsicContentSize = observableValue<{ readonly width: number; readonly height: number } | undefined>('WebviewIntrinsicContentSize', undefined);
 
-	public async postMessage(message: unknown, transfer?: readonly ArrayBuffer[]): Promise<boolean> {
+	public async postMessage(message: any, transfer?: readonly ArrayBuffer[]): Promise<boolean> {
 		if (this._webview.value) {
 			return this._webview.value.postMessage(message, transfer);
 		}

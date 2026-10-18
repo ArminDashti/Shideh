@@ -5,7 +5,7 @@
 
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { getCodeEditor, ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { getCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { SnippetController2 } from '../../../../../editor/contrib/snippet/browser/snippetController2.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
@@ -65,7 +65,7 @@ class AbstractNewPromptFileAction extends Action2 {
 		});
 	}
 
-	public override async run(accessor: ServicesAccessor, options?: INewPromptOptions) {
+	public override async run(accessor: ServicesAccessor) {
 		const logService = accessor.get(ILogService);
 		const openerService = accessor.get(IOpenerService);
 		const commandService = accessor.get(ICommandService);
@@ -75,18 +75,9 @@ class AbstractNewPromptFileAction extends Action2 {
 		const fileService = accessor.get(IFileService);
 		const instaService = accessor.get(IInstantiationService);
 
-		let folderUri: URI;
-		let storage: string;
-		if (options?.targetFolder) {
-			folderUri = options.targetFolder;
-			storage = options.targetStorage ?? PromptsStorage.local;
-		} else {
-			const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, this.type);
-			if (!selectedFolder) {
-				return;
-			}
-			folderUri = selectedFolder.uri;
-			storage = selectedFolder.storage;
+		const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, this.type);
+		if (!selectedFolder) {
+			return;
 		}
 
 		const fileName = await instaService.invokeFunction(askForPromptFileName, this.type, folderUri, undefined, options?.fileExtension);
@@ -95,20 +86,16 @@ class AbstractNewPromptFileAction extends Action2 {
 		}
 		// create the prompt file
 
-		await fileService.createFolder(folderUri);
+		await fileService.createFolder(selectedFolder.uri);
 
-		const promptUri = URI.joinPath(folderUri, fileName);
+		const promptUri = URI.joinPath(selectedFolder.uri, fileName);
 		await fileService.createFile(promptUri);
+
+		await openerService.open(promptUri);
 
 		const cleanName = getCleanPromptName(promptUri);
 
-		let editor: ICodeEditor | null | undefined;
-		if (options?.openFile) {
-			editor = await options.openFile(promptUri);
-		} else {
-			await openerService.open(promptUri);
-			editor = getCodeEditor(editorService.activeTextEditorControl);
-		}
+		const editor = getCodeEditor(editorService.activeTextEditorControl);
 		if (editor && editor.hasModel() && isEqual(editor.getModel().uri, promptUri)) {
 			SnippetController2.get(editor)?.apply([{
 				range: editor.getModel().getFullModelRange(),
@@ -116,7 +103,7 @@ class AbstractNewPromptFileAction extends Action2 {
 			}]);
 		}
 
-		if (storage !== 'user') {
+		if (selectedFolder.storage !== 'user') {
 			return;
 		}
 
@@ -178,9 +165,6 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 				`name: ${name ?? '${1:prompt-name}'}`,
 				`description: \${2:Describe when to use this prompt}`,
 				`---`,
-				``,
-				`<!-- Tip: Use /create-prompt in chat to generate content with agent assistance -->`,
-				``,
 				`\${3:Define the prompt content here. You can include instructions, examples, and any other relevant information to guide the AI's responses.}`,
 			].join('\n');
 		case PromptsType.instructions:
@@ -199,7 +183,7 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 			} else {
 				return [
 					`---`,
-					`description: \${1:Describe when these instructions should be loaded by the agent based on task context}`,
+					`description: \${1:Describe when these instructions should be loaded}`,
 					`# applyTo: '\${1|**,**/*.ts|}' # when provided, instructions will automatically be added to the request context when the pattern matches an attached file`,
 					`---`,
 					``,
@@ -216,9 +200,6 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 					`description: \${2:Describe what this custom agent does and when to use it.}`,
 					`tools: Read, Grep, Glob, Bash # specify the tools this agent can use. If not set, all enabled tools are allowed.`,
 					`---`,
-					``,
-					`<!-- Tip: Use /create-agent in chat to generate content with agent assistance -->`,
-					``,
 					`\${4:Define what this custom agent does, including its behavior, capabilities, and any specific instructions for its operation.}`,
 				].join('\n');
 			} else {
@@ -229,9 +210,6 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 					`argument-hint: \${3:The inputs this agent expects, e.g., "a task to implement" or "a question to answer".}`,
 					`# tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo'] # specify the tools this agent can use. If not set, all enabled tools are allowed.`,
 					`---`,
-					``,
-					`<!-- Tip: Use /create-agent in chat to generate content with agent assistance -->`,
-					``,
 					`\${4:Define what this custom agent does, including its behavior, capabilities, and any specific instructions for its operation.}`,
 				].join('\n');
 			}
@@ -241,9 +219,6 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 				`name: ${name ?? '${1:skill-name}'}`,
 				`description: \${2:Describe what this skill does and when to use it. Include keywords that help agents identify relevant tasks.}`,
 				`---`,
-				``,
-				`<!-- Tip: Use /create-skill in chat to generate content with agent assistance -->`,
-				``,
 				`\${3:Define the functionality provided by this skill, including detailed instructions and examples}`,
 			].join('\n');
 		case PromptsType.hook:
@@ -300,22 +275,16 @@ class NewSkillFileAction extends Action2 {
 		});
 	}
 
-	public override async run(accessor: ServicesAccessor, options?: INewPromptOptions) {
+	public override async run(accessor: ServicesAccessor) {
 		const openerService = accessor.get(IOpenerService);
 		const editorService = accessor.get(IEditorService);
 		const fileService = accessor.get(IFileService);
 		const instaService = accessor.get(IInstantiationService);
 		const quickInputService = accessor.get(IQuickInputService);
 
-		let folderUri: URI;
-		if (options?.targetFolder) {
-			folderUri = options.targetFolder;
-		} else {
-			const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, PromptsType.skill);
-			if (!selectedFolder) {
-				return;
-			}
-			folderUri = selectedFolder.uri;
+		const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, PromptsType.skill);
+		if (!selectedFolder) {
+			return;
 		}
 
 		// Ask for skill name (will be the folder name)
@@ -353,19 +322,15 @@ class NewSkillFileAction extends Action2 {
 		const trimmedName = skillName.trim();
 
 		// Create the skill folder and SKILL.md file
-		const skillFolder = URI.joinPath(folderUri, trimmedName);
+		const skillFolder = URI.joinPath(selectedFolder.uri, trimmedName);
 		await fileService.createFolder(skillFolder);
 
 		const skillFileUri = URI.joinPath(skillFolder, SKILL_FILENAME);
 		await fileService.createFile(skillFileUri);
 
-		let editor: ICodeEditor | null | undefined;
-		if (options?.openFile) {
-			editor = await options.openFile(skillFileUri);
-		} else {
-			await openerService.open(skillFileUri);
-			editor = getCodeEditor(editorService.activeTextEditorControl);
-		}
+		await openerService.open(skillFileUri);
+
+		const editor = getCodeEditor(editorService.activeTextEditorControl);
 		if (editor && editor.hasModel() && isEqual(editor.getModel().uri, skillFileUri)) {
 			SnippetController2.get(editor)?.apply([{
 				range: editor.getModel().getFullModelRange(),

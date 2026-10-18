@@ -346,7 +346,58 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			return this.state;
 		});
 
-		appendUpdateMenuItems(MenuId.GlobalActivity, '7_update');
+		CommandsRegistry.registerCommand('update.checking', () => { });
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			command: {
+				id: 'update.checking',
+				title: nls.localize('checkingForUpdates2', "Checking for Updates..."),
+				precondition: ContextKeyExpr.false()
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.CheckingForUpdates)
+		});
+
+		CommandsRegistry.registerCommand('update.downloadNow', () => this.updateService.downloadUpdate(true));
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			command: {
+				id: 'update.downloadNow',
+				title: nls.localize('download update_1', "Download Update (1)")
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.AvailableForDownload)
+		});
+
+		CommandsRegistry.registerCommand('update.downloading', () => { });
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			command: {
+				id: 'update.downloading',
+				title: nls.localize('DownloadingUpdate', "Downloading Update..."),
+				precondition: ContextKeyExpr.false()
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Downloading)
+		});
+
+		CommandsRegistry.registerCommand('update.install', () => this.updateService.applyUpdate());
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			command: {
+				id: 'update.install',
+				title: nls.localize('installUpdate...', "Install Update... (1)")
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Downloaded)
+		});
+
+		CommandsRegistry.registerCommand('update.updating', () => { });
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			command: {
+				id: 'update.updating',
+				title: nls.localize('installingUpdate', "Installing Update..."),
+				precondition: ContextKeyExpr.false()
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Updating)
+		});
 
 		if (this.productService.quality === 'stable') {
 			CommandsRegistry.registerCommand('update.showUpdateReleaseNotes', () => {
@@ -370,6 +421,21 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				when: ContextKeyExpr.and(CONTEXT_UPDATE_STATE.isEqualTo(StateType.Ready), MAJOR_MINOR_UPDATE_AVAILABLE)
 			});
 		}
+
+		CommandsRegistry.registerCommand('update.restart', () => this.updateService.quitAndInstall());
+		MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
+			group: '7_update',
+			order: 2,
+			command: {
+				id: 'update.restart',
+				title: nls.localize('restartToUpdate', "Restart to Update (1)")
+			},
+			when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Ready)
+		});
+
+		CommandsRegistry.registerCommand('_update.state', () => {
+			return this.state;
+		});
 	}
 }
 

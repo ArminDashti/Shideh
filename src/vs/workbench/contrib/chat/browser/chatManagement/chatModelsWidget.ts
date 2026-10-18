@@ -141,9 +141,18 @@ export function getModelHoverContent(model: ILanguageModel): MarkdownString {
 	}
 
 	if (model.metadata.maxInputTokens || model.metadata.maxOutputTokens) {
-		const totalTokens = (model.metadata.maxInputTokens ?? 0) + (model.metadata.maxOutputTokens ?? 0);
 		markdown.appendMarkdown(`${localize('models.contextSize', 'Context Size')}: `);
-		markdown.appendMarkdown(`${formatTokenCount(totalTokens)}`);
+		let addSeparator = false;
+		if (model.metadata.maxInputTokens) {
+			markdown.appendMarkdown(`$(arrow-down) ${formatTokenCount(model.metadata.maxInputTokens)} (${localize('models.input', 'Input')})`);
+			addSeparator = true;
+		}
+		if (model.metadata.maxOutputTokens) {
+			if (addSeparator) {
+				markdown.appendText(`  |  `);
+			}
+			markdown.appendMarkdown(`$(arrow-up) ${formatTokenCount(model.metadata.maxOutputTokens)} (${localize('models.output', 'Output')})`);
+		}
 		markdown.appendText(`\n`);
 	}
 
@@ -875,17 +884,13 @@ interface ICapabilitiesColumnTemplateData extends IModelTableColumnTemplateData 
 	readonly metadataRow: HTMLElement;
 }
 
-class CapabilitiesColumnRenderer extends ModelsTableColumnRenderer<ICapabilitiesColumnTemplateData> implements IDisposable {
+class CapabilitiesColumnRenderer extends ModelsTableColumnRenderer<ICapabilitiesColumnTemplateData> {
 	static readonly TEMPLATE_ID = 'capabilities';
 
 	readonly templateId: string = CapabilitiesColumnRenderer.TEMPLATE_ID;
 
 	private readonly _onDidClickCapability = new Emitter<string>();
 	readonly onDidClickCapability = this._onDidClickCapability.event;
-
-	dispose(): void {
-		this._onDidClickCapability.dispose();
-	}
 
 	renderTemplate(container: HTMLElement): ICapabilitiesColumnTemplateData {
 		const disposables = new DisposableStore();
@@ -1389,7 +1394,6 @@ export class ChatModelsWidget extends Disposable {
 		const actionsColumnRenderer = this.instantiationService.createInstance(ActionsColumnRenderer, this.viewModel);
 		const providerColumnRenderer = this.instantiationService.createInstance(ProviderColumnRenderer);
 
-		this.tableDisposables.add(capabilitiesColumnRenderer);
 		this.tableDisposables.add(capabilitiesColumnRenderer.onDidClickCapability(capability => {
 			const currentQuery = this.searchWidget.getValue();
 			const query = `@capability:${capability}`;

@@ -15,7 +15,6 @@ export interface IConfirmationPrompt {
 	options: string[];
 	descriptions?: string[];
 	detectedRequestForFreeFormInput: boolean;
-	suggestedInput?: string;
 }
 
 export interface IExecution {

@@ -368,6 +368,7 @@ export class Workspace implements IWorkspace {
 		this._transient = workspace.transient;
 		this._workspaceName = workspace.name;
 		this.ignorePathCasing = workspace.ignorePathCasing;
+		this._isAgentSessionsWorkspace = workspace.isAgentSessionsWorkspace;
 		this.folders = workspace.folders;
 	}
 

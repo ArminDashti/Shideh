@@ -17,7 +17,6 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { hash } from '../../../../../base/common/hash.js';
 import { IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, thenIfNotDisposed, toDisposable } from '../../../../../base/common/lifecycle.js';
@@ -2751,6 +2750,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 					this._layoutListForInputHeight();
 				}
 
+				// Keep getting-started tip aligned with the top of the input
+				this.layoutGettingStartedTipPosition();
+
 				this._onDidChangeContentHeight.fire();
 			}));
 		}
@@ -3131,8 +3133,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 			lastSteeringCount = steeringCount;
 		};
-		updatePendingRequestKeys(false);
-		this.viewModelDisposables.add(model.onDidChangePendingRequests(() => updatePendingRequestKeys(true)));
+		updatePendingRequestKeys();
+		this.viewModelDisposables.add(model.onDidChangePendingRequests(() => updatePendingRequestKeys()));
 
 		// Update placeholder based on request-in-progress state
 		this.viewModelDisposables.add(autorun(reader => {

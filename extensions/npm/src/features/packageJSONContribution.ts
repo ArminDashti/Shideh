@@ -8,7 +8,7 @@ import { IJSONContribution, ISuggestionsCollector } from './jsonContributions';
 import { XHRRequest } from '../fetch';
 import { Location } from 'jsonc-parser';
 
-import type * as cp from 'child_process';
+import * as cp from 'child_process';
 import { dirname } from 'path';
 import { fromNow } from './date';
 import { parseNpmViewOutput, ViewPackageInfo } from './npmViewParser';

@@ -72,7 +72,7 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 			return '<empty>';
 		}
 		// Avoid logging potentially sensitive values from common secret prompts.
-		if (this._isSensitivePrompt(lastLine)) {
+		if (/(password|passphrase|token|api\s*key|secret)/i.test(lastLine)) {
 			return '<redacted>';
 		}
 		// Keep logs bounded.

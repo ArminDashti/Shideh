@@ -2,7 +2,7 @@
   "name": "typescript-language-features",
   "description": "%description%",
   "displayName": "%displayName%",
-  "version": "10.0.0",
+  "version": "1.0.0",
   "author": "vscode",
   "publisher": "vscode",
   "license": "MIT",
@@ -341,7 +341,6 @@
               "%typescript.preferences.quoteStyle.single%",
               "%typescript.preferences.quoteStyle.double%"
             ],
-            "markdownDeprecationMessage": "%configuration.preferences.quoteStyle.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.quoteStyle": {
@@ -358,7 +357,6 @@
               "%typescript.preferences.quoteStyle.single%",
               "%typescript.preferences.quoteStyle.double%"
             ],
-            "markdownDeprecationMessage": "%configuration.preferences.quoteStyle.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.importModuleSpecifier": {
@@ -399,7 +397,6 @@
             ],
             "default": "shortest",
             "description": "%typescript.preferences.importModuleSpecifier%",
-            "markdownDeprecationMessage": "%configuration.preferences.importModuleSpecifier.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.importModuleSpecifier": {
@@ -418,7 +415,6 @@
             ],
             "default": "shortest",
             "description": "%typescript.preferences.importModuleSpecifier%",
-            "markdownDeprecationMessage": "%configuration.preferences.importModuleSpecifier.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.importModuleSpecifierEnding": {
@@ -471,7 +467,6 @@
             ],
             "default": "auto",
             "description": "%typescript.preferences.importModuleSpecifierEnding%",
-            "markdownDeprecationMessage": "%configuration.preferences.importModuleSpecifierEnding.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.importModuleSpecifierEnding": {
@@ -496,7 +491,6 @@
             ],
             "default": "auto",
             "description": "%typescript.preferences.importModuleSpecifierEnding%",
-            "markdownDeprecationMessage": "%configuration.preferences.importModuleSpecifierEnding.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.jsxAttributeCompletionStyle": {
@@ -533,7 +527,6 @@
             ],
             "default": "auto",
             "description": "%typescript.preferences.jsxAttributeCompletionStyle%",
-            "markdownDeprecationMessage": "%configuration.preferences.jsxAttributeCompletionStyle.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.jsxAttributeCompletionStyle": {
@@ -550,7 +543,6 @@
             ],
             "default": "auto",
             "description": "%typescript.preferences.jsxAttributeCompletionStyle%",
-            "markdownDeprecationMessage": "%configuration.preferences.jsxAttributeCompletionStyle.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.includePackageJsonAutoImports": {
@@ -586,7 +578,6 @@
             ],
             "default": "auto",
             "markdownDescription": "%typescript.preferences.includePackageJsonAutoImports%",
-            "markdownDeprecationMessage": "%configuration.preferences.includePackageJsonAutoImports.unifiedDeprecationMessage%",
             "scope": "window"
           },
           "js/ts.preferences.autoImportFileExcludePatterns": {
@@ -607,7 +598,6 @@
               "type": "string"
             },
             "markdownDescription": "%typescript.preferences.autoImportFileExcludePatterns%",
-            "markdownDeprecationMessage": "%configuration.preferences.autoImportFileExcludePatterns.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.preferences.autoImportFileExcludePatterns": {
@@ -616,7 +606,6 @@
               "type": "string"
             },
             "markdownDescription": "%typescript.preferences.autoImportFileExcludePatterns%",
-            "markdownDeprecationMessage": "%configuration.preferences.autoImportFileExcludePatterns.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "js/ts.preferences.autoImportSpecifierExcludeRegexes": {
@@ -637,7 +626,6 @@
               "type": "string"
             },
             "markdownDescription": "%typescript.preferences.autoImportSpecifierExcludeRegexes%",
-            "markdownDeprecationMessage": "%configuration.preferences.autoImportSpecifierExcludeRegexes.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.preferences.autoImportSpecifierExcludeRegexes": {
@@ -646,7 +634,6 @@
               "type": "string"
             },
             "markdownDescription": "%typescript.preferences.autoImportSpecifierExcludeRegexes%",
-            "markdownDeprecationMessage": "%configuration.preferences.autoImportSpecifierExcludeRegexes.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "js/ts.preferences.preferTypeOnlyAutoImports": {
@@ -662,7 +649,6 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%typescript.preferences.preferTypeOnlyAutoImports%",
-            "markdownDeprecationMessage": "%configuration.preferences.preferTypeOnlyAutoImports.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "js/ts.preferences.useAliasesForRenames": {
@@ -679,14 +665,12 @@
             "type": "boolean",
             "default": true,
             "description": "%typescript.preferences.useAliasesForRenames%",
-            "markdownDeprecationMessage": "%configuration.preferences.useAliasesForRenames.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.useAliasesForRenames": {
             "type": "boolean",
             "default": true,
             "description": "%typescript.preferences.useAliasesForRenames%",
-            "markdownDeprecationMessage": "%configuration.preferences.useAliasesForRenames.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.renameMatchingJsxTags": {
@@ -703,14 +687,12 @@
             "type": "boolean",
             "default": true,
             "description": "%typescript.preferences.renameMatchingJsxTags%",
-            "markdownDeprecationMessage": "%configuration.preferences.renameMatchingJsxTags.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "typescript.preferences.renameMatchingJsxTags": {
             "type": "boolean",
             "default": true,
             "description": "%typescript.preferences.renameMatchingJsxTags%",
-            "markdownDeprecationMessage": "%configuration.preferences.renameMatchingJsxTags.unifiedDeprecationMessage%",
             "scope": "language-overridable"
           },
           "js/ts.preferences.organizeImports": {
@@ -798,7 +780,6 @@
           "javascript.preferences.organizeImports": {
             "type": "object",
             "markdownDescription": "%typescript.preferences.organizeImports%",
-            "markdownDeprecationMessage": "%configuration.preferences.organizeImports.unifiedDeprecationMessage%",
             "properties": {
               "caseSensitivity": {
                 "type": "string",
@@ -877,7 +858,6 @@
           "typescript.preferences.organizeImports": {
             "type": "object",
             "markdownDescription": "%typescript.preferences.organizeImports%",
-            "markdownDeprecationMessage": "%configuration.preferences.organizeImports.unifiedDeprecationMessage%",
             "properties": {
               "caseSensitivity": {
                 "type": "string",
@@ -2154,7 +2134,7 @@
         "type": "object",
         "title": "%configuration.inlayHints%",
         "properties": {
-          "js/ts.inlayHints.parameterNames.enabled": {
+          "typescript.inlayHints.parameterNames.enabled": {
             "type": "string",
             "enum": [
               "none",
@@ -2188,7 +2168,6 @@
             ],
             "default": "none",
             "markdownDescription": "%configuration.inlayHints.parameterNames.enabled%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.parameterNames.enabled.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.parameterNames.enabled": {
@@ -2222,7 +2201,6 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%configuration.inlayHints.parameterNames.suppressWhenArgumentMatchesName%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.parameterNames.suppressWhenArgumentMatchesName.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": {
@@ -2246,7 +2224,6 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.inlayHints.parameterTypes.enabled%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.parameterTypes.enabled.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.parameterTypes.enabled": {
@@ -2270,7 +2247,6 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.inlayHints.variableTypes.enabled%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.variableTypes.enabled.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.variableTypes.enabled": {
@@ -2294,7 +2270,6 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%configuration.inlayHints.variableTypes.suppressWhenTypeMatchesName%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.variableTypes.suppressWhenTypeMatchesName.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.variableTypes.suppressWhenTypeMatchesName": {
@@ -2318,7 +2293,6 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.inlayHints.propertyDeclarationTypes.enabled%",
-            "markdownDeprecationMessage": "%configuration.inlayHints.propertyDeclarationTypes.enabled.unifiedDeprecationMessage%",
             "scope": "resource"
           },
           "typescript.inlayHints.propertyDeclarationTypes.enabled": {

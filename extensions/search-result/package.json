@@ -2,7 +2,7 @@
   "name": "search-result",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "10.0.0",
+  "version": "1.0.0",
   "publisher": "vscode",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -10,7 +10,7 @@
     "vscode": "^1.39.0"
   },
   "main": "./out/extension.js",
-  "browser": "./dist/browser/extension",
+  "browser": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:search-result"
   ],

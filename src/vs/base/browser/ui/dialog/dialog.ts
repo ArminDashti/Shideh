@@ -575,10 +575,6 @@ export class Dialog extends Disposable {
 			this.element.setAttribute('aria-describedby', 'monaco-dialog-icon monaco-dialog-message-text monaco-dialog-message-detail monaco-dialog-message-body monaco-dialog-footer');
 			show(this.element);
 
-			// Notify visibility change
-			this.options.onVisibilityChange?.(window, true);
-			this._register(toDisposable(() => this.options.onVisibilityChange?.(window, false)));
-
 			// Focus first element (input or button)
 			if (this.inputs.length > 0) {
 				this.inputs[0].focus();

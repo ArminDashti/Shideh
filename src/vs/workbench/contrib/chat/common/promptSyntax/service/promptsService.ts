@@ -301,16 +301,16 @@ export namespace IAgentSource {
  * - 'hidden': neither in picker nor usable as subagent
  */
 export type ICustomAgentVisibility = {
-	readonly userInvocable: boolean;
-	readonly agentInvocable: boolean;
+	readonly userInvokable: boolean;
+	readonly agentInvokable: boolean;
 };
 
 export function isCustomAgentVisibility(obj: unknown): obj is ICustomAgentVisibility {
 	if (typeof obj !== 'object' || obj === null) {
 		return false;
 	}
-	const v = obj as { userInvocable?: unknown; agentInvocable?: unknown };
-	return typeof v.userInvocable === 'boolean' && typeof v.agentInvocable === 'boolean';
+	const v = obj as { userInvokable?: unknown; agentInvokable?: unknown };
+	return typeof v.userInvokable === 'boolean' && typeof v.agentInvokable === 'boolean';
 }
 
 export enum Target {
@@ -383,7 +383,7 @@ export interface ICustomAgent {
 	readonly target: Target;
 
 	/**
-	 * What visibility the agent has (user invocable, subagent invocable).
+	 * What visibility the agent has (user invokable, subagent invokable).
 	 */
 	readonly visibility: ICustomAgentVisibility;
 
@@ -722,11 +722,6 @@ export interface IConfiguredHooksInfo {
  */
 export interface IHookDiscoveryInfo extends IPromptDiscoveryInfo {
 	readonly hooksInfo: IConfiguredHooksInfo | undefined;
-}
-
-export interface IConfiguredHooksInfo {
-	readonly hooks: IChatRequestHooks;
-	readonly hasDisabledClaudeHooks: boolean;
 }
 
 /**

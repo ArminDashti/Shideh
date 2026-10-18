@@ -3,5 +3,6 @@ out/**
 tsconfig*.json
 **/*.tsbuildinfo
 .vscode/**
-esbuild*
+extension.webpack.config.js
+extension-browser.webpack.config.js
 package-lock.json
