@@ -42,6 +42,8 @@ function getRepositoryName(workspaceContextService: IWorkspaceContextService, re
 }
 
 export const RepositoryContextKeys = {
+	ActiveRepositoryName: new RawContextKey<string>('scmActiveRepositoryName', ''),
+	ActiveRepositoryBranchName: new RawContextKey<string>('scmActiveRepositoryBranchName', ''),
 	RepositorySortKey: new RawContextKey<ISCMRepositorySortKey>('scmRepositorySortKey', ISCMRepositorySortKey.DiscoveryTime),
 	RepositorySelectionMode: new RawContextKey<ISCMRepositorySelectionMode>('scmRepositorySelectionMode', ISCMRepositorySelectionMode.Single),
 };
@@ -510,6 +512,9 @@ export class SCMViewService implements ISCMViewService {
 		this._repositories.forEach(r => r.focused = r.repository === repository);
 
 		if (this._repositories.find(r => r.focused)) {
+			this._activeRepositoryNameContextKey.set(repository?.provider.name ?? '');
+			this._activeRepositoryBranchNameContextKey.set(repository?.provider.historyProvider?.currentHistoryItemGroup?.label ?? '');
+
 			this._onDidFocusRepository.fire(repository);
 		}
 	}

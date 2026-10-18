@@ -313,6 +313,8 @@ export class WindowTitle extends Disposable {
 	 * {remoteName}: e.g. SSH
 	 * {dirty}: indicator
 	 * {focusedView}: e.g. Terminal
+	 * {activeRepositoryName}: e.g. vscode
+	 * {activeRepositoryBranchName}: e.g. main
 	 * {separator}: conditional separator
 	 * {activeEditorState}: e.g. Modified
 	 */
