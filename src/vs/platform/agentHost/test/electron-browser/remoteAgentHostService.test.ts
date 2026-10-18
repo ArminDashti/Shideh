@@ -254,6 +254,10 @@ class TestConfigurationService {
 		return this._entries;
 	}
 
+	get updateCallCount(): number {
+		return this._updateCallCount;
+	}
+
 	setEntries(entries: IRemoteAgentHostEntry[]): void {
 		this._entries = entries.flatMap(entry => {
 			const config = getEntryTypeConfig(entry.connection.type);
