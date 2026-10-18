@@ -14,6 +14,7 @@ export const enum TerminalSuggestSettingId {
 	QuickSuggestions = 'terminal.integrated.suggest.quickSuggestions',
 	SuggestOnTriggerCharacters = 'terminal.integrated.suggest.suggestOnTriggerCharacters',
 	RunOnEnter = 'terminal.integrated.suggest.runOnEnter',
+	SelectionMode = 'terminal.integrated.suggest.selectionMode',
 	WindowsExecutableExtensions = 'terminal.integrated.suggest.windowsExecutableExtensions',
 	Providers = 'terminal.integrated.suggest.providers',
 	ShowStatusBar = 'terminal.integrated.suggest.showStatusBar',

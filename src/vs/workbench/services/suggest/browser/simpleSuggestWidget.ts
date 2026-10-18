@@ -120,6 +120,28 @@ function isResolvableCompletionItem(item: SimpleCompletionItem): item is SimpleC
 	return typeof candidate.resolve === 'function';
 }
 
+const partialClassName = 'partial-selection';
+
+/**
+ * Controls how suggest selection works
+ */
+export const enum SuggestSelectionMode {
+	/**
+	 * Default. Will show a border and only accept via Tab until navigation has occurred. After that, it will show selection and accept via Enter or Tab.
+	 */
+	Partial = 'partial',
+	/**
+	 * Always select, what enter does depends on runOnEnter.
+	 */
+	Always = 'always',
+	/**
+	 * User needs to press down to select.
+	 */
+	Never = 'never'
+}
+
+
+
 export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TItem extends SimpleCompletionItem> extends Disposable {
 
 	private static LOADING_MESSAGE: string = localize('suggestWidget.loading', "Loading...");
@@ -165,6 +187,8 @@ export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TI
 	private readonly _ctxSuggestWidgetHasBeenNavigated: IContextKey<boolean>;
 	private readonly _ctxFirstSuggestionFocused: IContextKey<boolean>;
 	private readonly _ctxSuggestWidgetExplicitlyInvoked: IContextKey<boolean>;
+
+	private _hasNavigated: boolean = false;
 
 	constructor(
 		private readonly _container: HTMLElement,
@@ -717,6 +741,7 @@ export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TI
 	}
 
 	hide(): void {
+		this._hasNavigated = false;
 		this._pendingLayout.clear();
 		this._pendingShowDetails.clear();
 		this._loadingTimeout?.dispose();
