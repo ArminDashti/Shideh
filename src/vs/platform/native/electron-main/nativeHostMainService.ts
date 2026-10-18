@@ -218,6 +218,9 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	readonly onDidChangeDisplay: Event<void>;
 	readonly onDidChangeGPUCompositing: Event<boolean>;
 
+	private readonly _onDidChangePassword = new Emitter<void>();
+	readonly onDidChangePassword = this._onDidChangePassword.event;
+
 	//#endregion
 
 

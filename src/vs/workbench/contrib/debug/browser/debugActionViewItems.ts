@@ -368,7 +368,6 @@ export class StartDebugActionViewItem extends BaseActionViewItem {
 export class FocusSessionActionViewItem extends SelectActionViewItem<IDebugSession> {
 	constructor(
 		action: IAction,
-		session: IDebugSession | undefined,
 		@IDebugService protected readonly debugService: IDebugService,
 		@IContextViewService contextViewService: IContextViewService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
@@ -405,10 +404,8 @@ export class FocusSessionActionViewItem extends SelectActionViewItem<IDebugSessi
 		return this.getSessions()[index];
 	}
 
-	private update(session?: IDebugSession) {
-		if (!session) {
-			session = this.getSelectedSession();
-		}
+	private update() {
+		const session = this.getSelectedSession();
 		const sessions = this.getSessions();
 		const names = sessions.map(s => {
 			const label = s.getLabel();

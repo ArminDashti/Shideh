@@ -1175,4 +1175,8 @@ export class TokenStore implements Disposable {
 			idToken: token.id_token
 		};
 	}
+
+	async $onDidChangePassword(): Promise<void> {
+		this._onDidChangePassword.fire();
+	}
 }

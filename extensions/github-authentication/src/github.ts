@@ -148,6 +148,7 @@ export class UriEventHandler extends vscode.EventEmitter<vscode.Uri> implements 
 				reject(new Error('No nonce'));
 				return;
 			}
+		});
 
 			const acceptedNonces = this._pendingNonces.get(scopes) || [];
 			if (!acceptedNonces.includes(nonce)) {
@@ -159,6 +160,7 @@ export class UriEventHandler extends vscode.EventEmitter<vscode.Uri> implements 
 				logger.info('Nonce not found in accepted nonces. Skipping this execution...');
 				return;
 			}
+		});
 
 			resolve(code);
 		};

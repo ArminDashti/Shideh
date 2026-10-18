@@ -239,6 +239,10 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 				);
 			}
 		}));
+
+		this._register(this.credentialsService.onDidChangePassword(_ => {
+			this._proxy.$onDidChangePassword();
+		}));
 	}
 
 	async $registerAuthenticationProvider({ id, label, supportsMultipleAccounts, resourceServer, supportedAuthorizationServers, supportsChallenges }: IRegisterAuthenticationProviderDetails): Promise<void> {
