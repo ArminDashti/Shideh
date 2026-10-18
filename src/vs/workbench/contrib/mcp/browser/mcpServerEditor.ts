@@ -410,6 +410,17 @@ export class McpServerEditor extends EditorPane {
 			}
 		}));
 
+		this.transientDisposables.add(this.mcpWorkbenchService.onChange(e => {
+			if (e === extension) {
+				if (e.config && !template.navbar.has(McpServerEditorTab.Configuration)) {
+					template.navbar.push(McpServerEditorTab.Configuration, localize('configuration', "Configuration"), localize('configurationtooltip', "Server configuration details"), extension.readmeUrl ? 1 : 0);
+				}
+				if (!e.config && template.navbar.has(McpServerEditorTab.Configuration)) {
+					template.navbar.remove(McpServerEditorTab.Configuration);
+				}
+			}
+		}));
+
 		if ((<IMcpServerEditorOptions | undefined>this.options)?.tab) {
 			template.navbar.switch((<IMcpServerEditorOptions>this.options).tab!);
 		}
