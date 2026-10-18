@@ -4391,6 +4391,7 @@ export namespace LanguageModelToolResult {
 			}),
 			toolResultMessage: MarkdownString.fromStrict(result.toolResultMessage),
 			toolResultDetails: detailsDto,
+			toolResultError: result.toolResultError,
 			toolMetadata: result.toolMetadata,
 			toolResultError: result.hasError,
 		};
