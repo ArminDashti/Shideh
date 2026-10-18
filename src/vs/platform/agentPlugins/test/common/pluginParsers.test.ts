@@ -36,6 +36,8 @@ import {
 	parsePlugin,
 	readSkills,
 	PluginFormat,
+	detectPluginFormat,
+	readPluginMcpServersWithOutcome,
 } from '../../common/pluginParsers.js';
 import { AGENT_PLUGIN_MCP_SCHEMA, AGENT_PLUGIN_SCHEMA } from '../../common/agentPluginParser.js';
 
@@ -802,6 +804,30 @@ suite('pluginParsers', () => {
 				const literalCommand = servers.get('literalCommand')?.configuration;
 				assert.ok(literalCommand?.type === McpServerType.LOCAL);
 				assert.strictEqual(literalCommand.command, '${PLUGIN_ROOT}/bin/literal');
+			});
+
+			test('reports empty and invalid MCP candidates without changing parsed definitions', async () => {
+				const root = URI.from({ scheme: Schemas.inMemory, path: '/plugins/example' });
+				const mcpUri = URI.from({ scheme: Schemas.inMemory, path: '/plugins/example/mcp.json' });
+				await write('/plugins/example/plugin.json', JSON.stringify({ $schema: AGENT_PLUGIN_SCHEMA, name: 'example' }));
+				const format = await detectPluginFormat(root, fileService);
+				await write('/plugins/example/mcp.json', '');
+				const empty = await readPluginMcpServersWithOutcome(root, [mcpUri], format, fileService);
+				await write('/plugins/example/mcp.json', JSON.stringify({
+					mcpServers: {
+						valid: { type: 'stdio', command: 'server' },
+						invalid: { type: 'stdio' },
+					},
+				}));
+				const partial = await readPluginMcpServersWithOutcome(root, [mcpUri], format, fileService);
+
+				assert.deepStrictEqual({
+					empty: { definitions: empty.definitions.length, configurationPresent: empty.configurationPresent, parseErrorCount: empty.parseErrorCount, unreadableCount: empty.unreadableCount },
+					partial: { definitions: partial.definitions.map(definition => definition.name), configurationPresent: partial.configurationPresent, parseErrorCount: partial.parseErrorCount, unreadableCount: partial.unreadableCount },
+				}, {
+					empty: { definitions: 0, configurationPresent: 1, parseErrorCount: 1, unreadableCount: 0 },
+					partial: { definitions: ['valid'], configurationPresent: 1, parseErrorCount: 1, unreadableCount: 0 },
+				});
 			});
 
 			test('rejects filesystem-resolved component escapes', async () => {

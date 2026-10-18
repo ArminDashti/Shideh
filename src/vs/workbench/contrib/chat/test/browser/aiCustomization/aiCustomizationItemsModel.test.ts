@@ -186,6 +186,7 @@ suite('AICustomizationItemsModel', () => {
 			return {
 				uri: URI.parse(`plugin-test://${name}`),
 				format: PluginFormat.Copilot,
+				discoveryOrigin: AgentPluginDiscoveryOrigin.ConfiguredPath,
 				label: name,
 				enablement: observableValue('pluginEnablement', ContributionEnablementState.EnabledProfile),
 				remove: async () => true,
@@ -795,6 +796,7 @@ suite('AICustomizationItemsModel', () => {
 			return {
 				uri: URI.parse(`plugin-test://${name}`),
 				format: PluginFormat.Copilot,
+				discoveryOrigin: AgentPluginDiscoveryOrigin.ConfiguredPath,
 				label: name,
 				enablement: observableValue('pluginEnablement', ContributionEnablementState.EnabledProfile),
 				remove: async () => true,

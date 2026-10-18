@@ -1440,7 +1440,7 @@ suite('McpResourceManagementService', () => {
 		fileService = disposables.add(new FileService(new NullLogService()));
 		disposables.add(fileService.registerProvider(Schemas.inMemory, disposables.add(new InMemoryFileSystemProvider())));
 		uriIdentityService = disposables.add(new UriIdentityService(fileService));
-		scannerService = disposables.add(new McpResourceScannerService(fileService, uriIdentityService));
+		scannerService = disposables.add(new McpResourceScannerService(fileService, uriIdentityService, NullTelemetryService));
 		service = disposables.add(new TestMcpResourceManagementService(mcpResource, fileService, uriIdentityService, scannerService));
 
 		await fileService.writeFile(mcpResource, VSBuffer.fromString(JSON.stringify({
@@ -1645,7 +1645,7 @@ suite('McpResourceManagementService - install policy enforcement', () => {
 		fileService = disposables.add(new FileService(new NullLogService()));
 		disposables.add(fileService.registerProvider(Schemas.inMemory, disposables.add(new InMemoryFileSystemProvider())));
 		uriIdentityService = disposables.add(new UriIdentityService(fileService));
-		scannerService = disposables.add(new McpResourceScannerService(fileService, uriIdentityService));
+		scannerService = disposables.add(new McpResourceScannerService(fileService, uriIdentityService, NullTelemetryService));
 	});
 
 	teardown(() => {

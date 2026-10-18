@@ -24,6 +24,10 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 	readonly fromGallery = false;
 
 	private readonly _collections = this._register(new DisposableMap<string, IDisposable>());
+	private readonly _telemetryByFolder = new Map<string, IMcpDiscoveryTelemetrySnapshot | undefined>();
+	private readonly _folderGenerations = new Map<string, number>();
+	private readonly _telemetrySnapshot = observableValue<IMcpDiscoveryTelemetrySnapshot | undefined>(this, undefined);
+	readonly telemetrySnapshot = this._telemetrySnapshot;
 
 	constructor(
 		@IFileService private readonly _fileService: IFileService,
@@ -53,6 +57,9 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 		for (const folder of this._workspaceContextService.getWorkspace().folders) {
 			this._watchFolder(folder);
 		}
+		if (this._workspaceContextService.getWorkspace().folders.length === 0) {
+			this._telemetrySnapshot.set({ candidates: [], configurations: [] }, undefined);
+		}
 	}
 
 	private _watchFolder(folder: IWorkspaceFolder) {
@@ -70,6 +77,12 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 			serverDefinitions,
 			configTarget: ConfigurationTarget.WORKSPACE_FOLDER,
 			order: McpCollectionSortOrder.WorkspaceFolder + 1,
+			discovery: {
+				source: McpDiscoverySource.WorkspaceDotMcp,
+				format: McpDiscoveryFormat.ClaudeMcpServers,
+				scope: McpDiscoveryScope.WorkspaceFolder,
+				host: mcpHost(this._remoteAgentService.getConnection()?.remoteAuthority),
+			},
 			presentation: {
 				origin: configFile,
 			},
@@ -83,6 +96,9 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 		const updateFile = async () => {
 			const sequence = updateSequence;
 			let definitions: McpServerDefinition[] = [];
+			let configurationPresent = 0;
+			let parseErrorCount = 0;
+			let unreadableCount = 0;
 			try {
 				const contents = await this._fileService.readFile(configFile);
 				const { servers } = parseWorkspaceRootMcpConfiguration(contents.value.toString());
@@ -93,9 +109,28 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 					}
 					definitions = defs;
 				}
-			} catch {
-				// file doesn't exist or is malformed
 			}
+			if (!isCurrent()) {
+				return;
+			}
+			const host = mcpHost(this._remoteAgentService.getConnection()?.remoteAuthority);
+			this._telemetryByFolder.set(telemetryKey, {
+				candidates: definitions.map(() => mcpCandidate(McpDiscoverySource.WorkspaceDotMcp, McpDiscoveryFormat.ClaudeMcpServers, McpDiscoveryScope.WorkspaceFolder, host, 'loaded')).concat(
+					parseErrorCount ? [mcpCandidate(McpDiscoverySource.WorkspaceDotMcp, McpDiscoveryFormat.ClaudeMcpServers, McpDiscoveryScope.WorkspaceFolder, host, 'parseError')] : [],
+					unreadableCount ? [mcpCandidate(McpDiscoverySource.WorkspaceDotMcp, McpDiscoveryFormat.ClaudeMcpServers, McpDiscoveryScope.WorkspaceFolder, host, 'unreadable')] : [],
+				),
+				configurations: [{
+					source: McpDiscoverySource.WorkspaceDotMcp,
+					format: McpDiscoveryFormat.ClaudeMcpServers,
+					scope: McpDiscoveryScope.WorkspaceFolder,
+					host,
+					configurationPresent,
+					configuredEntryCount: definitions.length,
+					parseErrorCount,
+					unreadableCount,
+				}],
+			});
+			this._publishTelemetry();
 
 			if (sequence !== updateSequence || store.isDisposed) {
 				return;
@@ -129,5 +164,16 @@ export class WorkspaceDotMcpDiscovery extends Disposable implements IMcpDiscover
 		void loadInitial();
 
 		this._collections.set(folder.uri.toString(), store);
+	}
+
+	private _publishTelemetry(): void {
+		const snapshots = [...this._telemetryByFolder.values()];
+		if (snapshots.some(snapshot => snapshot === undefined)) {
+			return;
+		}
+		this._telemetrySnapshot.set({
+			candidates: snapshots.flatMap(snapshot => snapshot?.candidates ?? []),
+			configurations: snapshots.flatMap(snapshot => snapshot?.configurations ?? []),
+		}, undefined);
 	}
 }

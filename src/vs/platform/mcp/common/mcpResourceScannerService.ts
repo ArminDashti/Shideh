@@ -67,10 +67,16 @@ export class McpResourceScannerService extends Disposable implements IMcpResourc
 	readonly _serviceBrand: undefined;
 
 	private readonly resourcesAccessQueueMap = new ResourceMap<Queue<IScannedMcpServers>>();
+	private readonly configurationTelemetryByResource = new ResourceMap<IMcpConfigurationTelemetryState>();
+	private readonly activeProfileResources = new Map<'local' | 'remote', URI>();
+	private readonly activeWorkspaceResources = new ResourceSet();
+	private readonly lastTelemetryRows = new Map<string, IMcpConfigurationFoundEvent>();
+	private hasTelemetrySnapshot = false;
 
 	constructor(
 		@IFileService private readonly fileService: IFileService,
 		@IUriIdentityService protected readonly uriIdentityService: IUriIdentityService,
+		@ITelemetryService private readonly telemetryService: ITelemetryService,
 	) {
 		super();
 	}
@@ -246,11 +252,16 @@ export class McpResourceScannerService extends Disposable implements IMcpResourc
 				target = target ?? ConfigurationTarget.USER;
 				const usesMcpServersProperty = isMcpServersConfigurationResource(mcpResource);
 				let scannedMcpServers: IScannedMcpServers = {};
+				let configurationPresent = 0;
+				let parseErrorCount = 0;
+				let unreadableCount = 0;
 				try {
 					const content = await this.fileService.readFile(mcpResource);
+					configurationPresent = 1;
 					const errors: ParseError[] = [];
 					const result = parse(content.value.toString(), errors, { allowTrailingComma: true, allowEmptyContent: true }) || {};
 					if (errors.length > 0) {
+						parseErrorCount = 1;
 						throw new Error('Failed to parse scanned MCP servers: ' + errors.map(e => `[${e.offset}, ${e.length}] ${getParseErrorMessage(e.error)}`).join(', '));
 					}
 
@@ -262,12 +273,22 @@ export class McpResourceScannerService extends Disposable implements IMcpResourc
 						scannedMcpServers = this.fromWorkspaceFolderMcpServers(result);
 					} else if (target === ConfigurationTarget.WORKSPACE) {
 						const workspaceScannedMcpServers: IScannedWorkspaceMcpServers = result;
-						if (workspaceScannedMcpServers.settings?.mcp) {
-							scannedMcpServers = this.fromWorkspaceFolderMcpServers(workspaceScannedMcpServers.settings?.mcp);
+						const workspaceMcp = workspaceScannedMcpServers.settings?.mcp;
+						if (workspaceMcp && typeof workspaceMcp === 'object') {
+							scannedMcpServers = this.fromWorkspaceFolderMcpServers(workspaceMcp);
+						} else if (workspaceMcp !== undefined) {
+							parseErrorCount = 1;
+						} else {
+							configurationPresent = 0;
 						}
 					}
 				} catch (error) {
 					if (toFileOperationResult(error) !== FileOperationResult.FILE_NOT_FOUND) {
+						if (!parseErrorCount) {
+							configurationPresent = 1;
+							unreadableCount = 1;
+						}
+						this.logConfigurationTelemetry(mcpResource, target, telemetryGeneration, configurationPresent, 0, parseErrorCount, unreadableCount);
 						throw error;
 					}
 				}
@@ -286,6 +307,10 @@ export class McpResourceScannerService extends Disposable implements IMcpResourc
 						assertNever(target, `Invalid Target: ${ConfigurationTargetToString(target)}`);
 					}
 				}
+				const updatedConfigurationPresent = updateFn && target === ConfigurationTarget.USER
+					? (Object.keys(scannedMcpServers.servers ?? {}).length > 0 || (scannedMcpServers.inputs?.length ?? 0) > 0 || scannedMcpServers.sandbox !== undefined ? 1 : 0)
+					: updateFn ? 1 : configurationPresent;
+				this.logConfigurationTelemetry(mcpResource, target, telemetryGeneration, updatedConfigurationPresent, Object.keys(scannedMcpServers.servers ?? {}).length, parseErrorCount, unreadableCount);
 				return scannedMcpServers;
 			});
 	}

@@ -77,6 +77,54 @@ export function getMcpCollectionProvenance(target: ConfigurationTarget | undefin
 	}
 }
 
+export const enum McpDiscoverySource {
+	VSCodeUserConfig = 'vscodeUserConfig',
+	VSCodeRemoteUserConfig = 'vscodeRemoteUserConfig',
+	VSCodeWorkspaceConfig = 'vscodeWorkspaceConfig',
+	VSCodeWorkspaceFolderConfig = 'vscodeWorkspaceFolderConfig',
+	WorkspaceDotMcp = 'workspaceDotMcp',
+	ClaudeDesktop = 'claudeDesktop',
+	CursorGlobal = 'cursorGlobal',
+	CursorWorkspace = 'cursorWorkspace',
+	Windsurf = 'windsurf',
+	Extension = 'extension',
+	Plugin = 'plugin',
+}
+
+export const enum McpDiscoveryFormat {
+	VSCodeServers = 'vscodeServers',
+	ClaudeMcpServers = 'claudeMcpServers',
+	ExtensionProvider = 'extensionProvider',
+	PluginMap = 'pluginMap',
+}
+
+export const enum McpDiscoveryHost {
+	Local = 'local',
+	Remote = 'remote',
+	Unknown = 'unknown',
+}
+
+export const enum McpDiscoveryScope {
+	Profile = 'profile',
+	Workspace = 'workspace',
+	WorkspaceFolder = 'workspaceFolder',
+	Extension = 'extension',
+	Plugin = 'plugin',
+}
+
+export const enum McpInstallProvenance {
+	Gallery = 'gallery',
+	Local = 'local',
+	NotApplicable = 'notApplicable',
+}
+
+export interface IMcpCollectionDiscoveryMetadata {
+	readonly source: McpDiscoverySource;
+	readonly format: McpDiscoveryFormat;
+	readonly host: McpDiscoveryHost;
+	readonly scope: McpDiscoveryScope;
+}
+
 /**
  * Prefix of the collection id used for MCP servers discovered from folder-root
  * `.mcp.json` files (Claude-style `{ "mcpServers": { ... } }`). The suffix is
@@ -1039,6 +1087,14 @@ export interface IWorkbenchMcpServer {
 }
 
 export const IMcpWorkbenchService = createDecorator<IMcpWorkbenchService>('IMcpWorkbenchService');
+export const enum McpLocalDiscoveryState {
+	Pending = 'pending',
+	Complete = 'complete',
+	Failed = 'failed',
+}
+
+export type McpLocalServerDiscoveryOutcome = 'loaded' | 'disabled' | 'blocked' | 'rejected';
+
 export interface IMcpWorkbenchService {
 	readonly _serviceBrand: undefined;
 	readonly onChange: Event<IWorkbenchMcpServer | undefined>;
@@ -1048,6 +1104,7 @@ export interface IMcpWorkbenchService {
 	readonly whenInitialLocalMcpServersLoaded: Promise<void>;
 	/** Returns enabled VS Code-format servers after name precedence; root files are discovered independently. */
 	getEnabledLocalMcpServers(): IWorkbenchLocalMcpServer[];
+	getLocalMcpServerDiscoveryOutcome?(server: IWorkbenchLocalMcpServer): McpLocalServerDiscoveryOutcome;
 	queryLocal(): Promise<IWorkbenchMcpServer[]>;
 	queryGallery(options?: IQueryOptions, token?: CancellationToken, manifest?: IMcpGalleryManifest): Promise<IIterativePager<IWorkbenchMcpServer>>;
 	getMcpServerFromGallery(name: string, manifest?: IMcpGalleryManifest): Promise<IWorkbenchMcpServer | undefined>;

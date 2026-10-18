@@ -449,6 +449,7 @@ export abstract class AbstractMcpResourceManagementService extends AbstractCommo
 	}
 
 	async getInstalled(): Promise<ILocalMcpServer[]> {
+		this.mcpResourceScannerService.activateTelemetry(this.mcpResource, this.target);
 		await this.initialize();
 		return Array.from(this.local.values());
 	}

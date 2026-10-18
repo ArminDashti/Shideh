@@ -479,6 +479,40 @@ suite('McpWorkbenchService', () => {
 			enabled: ['found'],
 			verified: [['failed', false], ['found', true], ['missing', false]],
 		});
+
+	});
+
+	test('settles local discovery as failed when the initial scan rejects', async () => {
+		const { service, manifestService } = await createFixture([], McpAccessValue.All, Promise.reject(new Error('scan failed')));
+		manifestService.fireChange();
+		await timeout(0);
+
+		assert.deepStrictEqual({
+			state: service.localDiscoveryState.get(),
+			local: service.local,
+		}, {
+			state: McpLocalDiscoveryState.Failed,
+			local: [],
+		});
+	});
+
+	test('continues registry reconciliation for installs after an initial scan failure', async () => {
+		const { service, galleryService, managementService } = await createFixture([], McpAccessValue.All, Promise.reject(new Error('scan failed')));
+		const added = createLocal('post-failure');
+
+		managementService.fireInstall([{ name: added.name, local: added, mcpResource: added.mcpResource }]);
+		const request = await galleryService.nextRequest();
+		await complete(request, new Map([[added.name, found(createGallery(added.name))]]));
+
+		assert.deepStrictEqual({
+			state: service.localDiscoveryState.get(),
+			requested: request.infos.map(info => info.name),
+			local: service.local.map(server => server.name),
+		}, {
+			state: McpLocalDiscoveryState.Failed,
+			requested: ['post-failure'],
+			local: ['post-failure'],
+		});
 	});
 
 	test('preserves verified membership on transient failure and clears it on not found', async () => {

@@ -23,7 +23,7 @@ import { IFileMatch, IFileQuery, ISearchService } from '../../../../../../servic
 import { IUserDataProfileService } from '../../../../../../services/userDataProfile/common/userDataProfile.js';
 import { IPathService } from '../../../../../../services/path/common/pathService.js';
 import { PromptsConfig } from '../../../../common/promptSyntax/config/config.js';
-import { getSourceDescription, PromptFileSource, PromptsType } from '../../../../common/promptSyntax/promptTypes.js';
+import { getSourceDescription, PromptFileSource, PromptRootKind, PromptsType } from '../../../../common/promptSyntax/promptTypes.js';
 import { hasGlobPattern, isValidGlob, isValidPromptFolderPath, PromptFilesLocator } from '../../../../common/promptSyntax/utils/promptFilesLocator.js';
 import { mockFiles } from '../testUtils/mockFilesystem.js';
 import { mockService } from './mock.js';
@@ -2768,14 +2768,14 @@ suite('PromptFilesLocator', () => {
 
 			workspaceTrustService.setTrustedUris([URI.file('/repos/monorepo')]);
 
-			const roots = await locator.getWorkspaceFolderRoots(true);
+			const roots = await locator.getWorkspaceFolderRootsWithKind(true);
 			assert.deepStrictEqual(
-				roots.map(r => r.path).sort(),
+				roots.map(root => [root.uri.path, root.rootKind]).sort((a, b) => a[0].localeCompare(b[0])),
 				[
-					'/repos/monorepo',
-					'/repos/monorepo/packages',
-					'/repos/monorepo/packages/my-app',
-				].sort(),
+					['/repos/monorepo', PromptRootKind.ParentRepository],
+					['/repos/monorepo/packages', PromptRootKind.ParentRepository],
+					['/repos/monorepo/packages/my-app', PromptRootKind.Workspace],
+				],
 				'Should include workspace folder and all parents up to the one with .git',
 			);
 		});

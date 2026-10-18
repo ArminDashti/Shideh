@@ -17,7 +17,7 @@ import { createPolicyManagedEnablementAction, createUninstallPluginAction, getAg
 import { IAgentHostCustomizationService } from '../../browser/agentSessions/agentHost/agentHostCustomizationService.js';
 import { createCustomizationMarketplaceInstallationSnapshot, emptyCustomizationMarketplaceInstallationSnapshot, ICustomizationMarketplaceInstallService } from '../../common/customizationMarketplaceInstallService.js';
 import { ContributionEnablementState } from '../../common/enablement.js';
-import { IAgentPlugin, IAgentPluginService } from '../../common/plugins/agentPluginService.js';
+import { AgentPluginDiscoveryOrigin, IAgentPlugin, IAgentPluginService } from '../../common/plugins/agentPluginService.js';
 
 suite('AgentPluginActions', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
@@ -26,6 +26,7 @@ suite('AgentPluginActions', () => {
 		return {
 			uri: URI.file('/plugins/local-plugin'),
 			format: PluginFormat.Copilot,
+			discoveryOrigin: AgentPluginDiscoveryOrigin.ConfiguredPath,
 			label: 'Local Plugin',
 			enablement: observableValue('enablement', ContributionEnablementState.EnabledProfile),
 			policyEnablement: observableValue('policyEnablement', policyEnablement),

@@ -182,6 +182,12 @@ export class MainThreadMcp extends Disposable implements MainThreadMcpShape {
 					provenance: McpCollectionProvenance.Extension,
 					source: extensionId,
 					order: McpCollectionSortOrder.Extension,
+					discovery: {
+						source: McpDiscoverySource.Extension,
+						format: McpDiscoveryFormat.ExtensionProvider,
+						scope: McpDiscoveryScope.Extension,
+						host: this._extHostContext.remoteAuthority ? McpDiscoveryHost.Remote : McpDiscoveryHost.Local,
+					},
 					resolveServerLanch: collection.canResolveLaunch ? (async def => {
 						const r = await this._proxy.$resolveMcpLaunch(collection.id, def.label);
 						return r ? McpServerLaunch.fromSerialized(r) : undefined;

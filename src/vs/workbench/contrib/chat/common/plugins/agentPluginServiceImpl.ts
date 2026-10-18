@@ -27,7 +27,8 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { COPILOT_CLI_AGENT_PROVIDER_ID } from '../../../../../platform/agentHost/common/agent.js';
 import { IAgentHostService } from '../../../../../platform/agentHost/common/agentService.js';
 import { observableConfigValue } from '../../../../../platform/observable/common/platformObservableUtils.js';
-import { IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
+import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { localize } from '../../../../../nls.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -39,8 +40,8 @@ import {
 	getPluginManifestComponent,
 	readPluginSkills,
 	readMarkdownComponents,
-	readPluginManifest,
-	readPluginMcpServers,
+	readPluginMcpServersWithOutcome,
+	resolveMcpServersMap,
 	parseMcpServerDefinitionMap,
 	detectPluginFormat,
 	type PluginComponent,
@@ -96,6 +97,9 @@ export class AgentPluginService extends Disposable implements IAgentPluginServic
 	declare readonly _serviceBrand: undefined;
 
 	public readonly plugins: IObservable<readonly IAgentPlugin[]>;
+	public readonly discoveredPlugins: IObservable<readonly IAgentPlugin[]>;
+	public readonly discoveryComplete: IObservable<boolean>;
+	public readonly telemetryComplete: IObservable<boolean>;
 	public readonly enablementModel: IEnablementModel;
 
 	constructor(
@@ -103,10 +107,16 @@ export class AgentPluginService extends Disposable implements IAgentPluginServic
 		@IConfigurationService configurationService: IConfigurationService,
 		@IStorageService storageService: IStorageService,
 		@ILogService logService: ILogService,
+		@ITelemetryService telemetryService: ITelemetryService,
 	) {
 		super();
 
 		const baseEnablementModel = this._register(new EnablementModel('agentPlugins.enablement', storageService));
+		const telemetry = new AgentPluginTelemetry(telemetryService, configurationService, storageService);
+		telemetry.logConfiguration();
+		this._register(configurationService.onDidChangeConfiguration(() => telemetry.logConfiguration()));
+		this._register(storageService.onDidChangeValue(StorageScope.PROFILE, 'agentPlugins.enablement', this._store)(() => telemetry.logConfiguration()));
+		this._register(storageService.onDidChangeValue(StorageScope.WORKSPACE, 'agentPlugins.enablement', this._store)(() => telemetry.logConfiguration()));
 
 		const pluginsEnabled = observableConfigValue(ChatConfiguration.PluginsEnabled, true, configurationService);
 
@@ -116,6 +126,8 @@ export class AgentPluginService extends Disposable implements IAgentPluginServic
 			this._register(discovery);
 			discoveries.push({ discovery, priority: registration.priority, order: registration.order });
 		}
+		this.discoveryComplete = derived(reader => readDiscoveredAgentPlugins(discoveries, reader) !== undefined);
+		this.telemetryComplete = derived(reader => readAgentPluginTelemetrySnapshots(discoveries, reader) !== undefined);
 
 		// Policy-driven enforcement, applied after discovery so that enterprise
 		// policy is honored regardless of which discovery source surfaces a
@@ -164,16 +176,14 @@ export class AgentPluginService extends Disposable implements IAgentPluginServic
 			discovery.start(this.enablementModel);
 		}
 
-		this.plugins = derived(read => {
-			if (!pluginsEnabled.read(read)) {
-				return [];
-			}
+		this.discoveredPlugins = derived(read => {
 			const discoveredPlugins = readDiscoveredAgentPlugins(discoveries, read);
 			if (!discoveredPlugins) {
 				return [];
 			}
 			return getSortedAgentPlugins(discoveredPlugins);
 		});
+		this.plugins = derived(read => pluginsEnabled.read(read) ? this.discoveredPlugins.read(read) : []);
 
 		this._register(autorun(reader => {
 			const plugins = this.plugins.read(reader);
@@ -186,6 +196,14 @@ export class AgentPluginService extends Disposable implements IAgentPluginServic
 					}
 				}
 			});
+		}));
+
+		this._register(autorun(reader => {
+			const snapshots = readAgentPluginTelemetrySnapshots(discoveries, reader);
+			if (!snapshots) {
+				return;
+			}
+			telemetry.logDiscovery(snapshots, this.plugins.read(reader), collisionGroups.read(reader), pluginsEnabled.read(reader), reader);
 		}));
 	}
 }
@@ -203,6 +221,7 @@ function readDiscoveredAgentPlugins(discoveries: readonly IAgentPluginDiscoveryW
 		if (!plugins) {
 			return undefined;
 		}
+
 		result.push({ plugins, priority, order });
 	}
 	return result;
@@ -243,12 +262,32 @@ interface IPluginManifest {
 	readonly [key: string]: unknown;
 }
 
+async function readPluginManifestWithOutcome(uri: URI, format: IPluginFormatConfig, fileService: IFileService): Promise<{ manifest: IPluginManifest | undefined; parseError: boolean; unreadable: boolean }> {
+	try {
+		const contents = await fileService.readFile(joinPath(uri, format.manifestPath));
+		const errors: ParseError[] = [];
+		const parsed = parseJSONC(contents.value.toString(), errors);
+		if (errors.length > 0 || !parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			return { manifest: undefined, parseError: true, unreadable: false };
+		}
+		return { manifest: parsed as IPluginManifest, parseError: false, unreadable: false };
+	} catch (error) {
+		return {
+			manifest: undefined,
+			parseError: false,
+			unreadable: toFileOperationResult(error) !== FileOperationResult.FILE_NOT_FOUND,
+		};
+	}
+}
+
 /**
  * Describes a single discovered plugin source, before the shared
  * infrastructure builds the full {@link IAgentPlugin} from it.
  */
 interface IPluginSource {
 	readonly uri: URI;
+	readonly origin?: AgentPluginDiscoveryOrigin;
+	readonly enabled?: boolean;
 	readonly fromMarketplace: IMarketplacePlugin | undefined;
 	/** Repository root that serves as the boundary for component path resolution. */
 	readonly repositoryUri?: URI;
@@ -272,6 +311,11 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 
 	private readonly _plugins = observableValue<readonly IAgentPlugin[] | undefined>('discoveredAgentPlugins', undefined);
 	public readonly plugins: IObservable<readonly IAgentPlugin[] | undefined> = this._plugins;
+	private readonly _telemetrySnapshot = observableValue<IAgentPluginDiscoverySnapshot | undefined>(this, undefined);
+	public readonly telemetrySnapshot: IObservable<IAgentPluginDiscoverySnapshot | undefined> = this._telemetrySnapshot;
+	private readonly _telemetryReady = observableValue(this, false);
+	public readonly telemetryReady: IObservable<boolean> = this._telemetryReady;
+	private readonly _telemetryReconciler = this._register(new MutableDisposable());
 
 	private _discoverVersion = 0;
 	protected _enablementModel!: IEnablementModel;
@@ -289,24 +333,49 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 
 	protected async _refreshPlugins(): Promise<void> {
 		const version = ++this._discoverVersion;
-		const plugins = await this._discoverAndBuildPlugins(version);
+		this._telemetryReady.set(false, undefined);
+		const { plugins, candidates } = await this._discoverAndBuildPlugins(version);
 		if (!this._isCurrentRefresh(version)) {
 			return;
 		}
 
 		this._plugins.set(plugins, undefined);
+		this._telemetryReconciler.value = autorun(reader => {
+			const settledCandidates: IAgentPluginDiscoveryCandidate[] = [];
+			for (const candidate of candidates) {
+				if (!candidate.plugin) {
+					settledCandidates.push(candidate);
+					continue;
+				}
+				const entry = this._pluginEntries.get(candidate.plugin.uri.toString())?.plugin;
+				const components = entry?.componentTelemetry.read(reader);
+				if (!components) {
+					this._telemetryReady.set(false, undefined);
+					return;
+				}
+				settledCandidates.push({ ...candidate, components });
+			}
+			if (!this._isCurrentRefresh(version)) {
+				return;
+			}
+			transaction(tx => {
+				this._telemetrySnapshot.set({ candidates: settledCandidates }, tx);
+				this._telemetryReady.set(true, tx);
+			});
+		});
 	}
 
 	/** Subclasses return plugin sources to discover. */
 	protected abstract _discoverPluginSources(): Promise<readonly IPluginSource[]>;
 
-	private async _discoverAndBuildPlugins(version: number): Promise<readonly IAgentPlugin[]> {
+	private async _discoverAndBuildPlugins(version: number): Promise<{ readonly plugins: readonly IAgentPlugin[]; readonly candidates: readonly IAgentPluginDiscoveryCandidate[] }> {
 		const sources = await this._discoverPluginSources();
 		if (!this._isCurrentRefresh(version)) {
-			return [];
+			return { plugins: [], candidates: [] };
 		}
 
 		const plugins: IAgentPlugin[] = [];
+		const candidates: IAgentPluginDiscoveryCandidate[] = [];
 		const seenPluginUris = new Set<string>();
 		const attemptedPluginUris = new Set<string>();
 
@@ -325,6 +394,23 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 				} catch (error) {
 					this._logService.warn(`[AgentPluginDiscovery] Rejected plugin '${source.uri.toString()}': ${error instanceof Error ? error.message : String(error)}`);
 				}
+				resolvedUri = stat.resource;
+			} catch {
+				candidates.push({ origin, format: undefined, outcome: AgentPluginDiscoveryOutcome.Unreadable });
+				continue;
+			}
+			try {
+				const format = await detectPluginFormat(resolvedUri, this._fileService);
+				if (!this._isCurrentRefresh(version)) {
+					return { plugins: [], candidates: [] };
+				}
+				const plugin = await this._toPlugin(resolvedUri, origin, format, source.fromMarketplace, source.repositoryUri, source.remove, version);
+				seenPluginUris.add(resolvedUri.toString());
+				plugins.push(plugin);
+				candidates.push({ origin, format: format.format, outcome: AgentPluginDiscoveryOutcome.Loaded, plugin });
+			} catch (error) {
+				candidates.push({ origin, format: undefined, outcome: AgentPluginDiscoveryOutcome.ParseError });
+				this._logService.warn(`[AgentPluginDiscovery] Rejected plugin '${source.uri.toString()}': ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}
 
@@ -333,7 +419,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 		}
 
 		plugins.sort((a, b) => a.uri.toString().localeCompare(b.uri.toString()));
-		return plugins;
+		return { plugins, candidates };
 	}
 
 	private _isCurrentRefresh(version: number): boolean {
@@ -352,6 +438,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 				this._pluginEntries.delete(key);
 			} else {
 				existing.plugin.remove = removeCallback;
+				existing.plugin.discoveryOrigin = discoveryOrigin;
 				return existing.plugin;
 			}
 		}
@@ -375,12 +462,15 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 			return fromMarketplace?.version || undefined;
 		}).recomputeInitiallyAndOnChange(store);
 
-		const observeComponent = <T>(
+		type ComponentRead<T> = { readonly value: T; readonly settled: boolean };
+		type ObservedComponent<T> = { readonly value: IObservable<T>; readonly read: IObservable<ComponentRead<T>> };
+		const observeComponentData = <T>(
 			prop: PluginComponent,
-			doRead: (uris: readonly URI[]) => Promise<readonly T[]>,
-			tryReadEmbedded?: (section: unknown) => Promise<T[] | undefined>,
+			doRead: (uris: readonly URI[]) => Promise<T>,
+			tryReadEmbedded: ((section: unknown) => Promise<T | undefined>) | undefined,
+			emptyValue: T,
 			defaultPath: string = prop,
-		): IObservable<readonly T[]> => {
+		): ObservedComponent<T> => {
 			const secondObs = derivedOpts({ equalsFn: equals }, reader => getPluginManifestComponent(format, prop, manifest.read(reader)));
 
 			const wrapped = derived(reader => {
@@ -419,10 +509,18 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 				}
 			});
 
-			const result = promised.map((w, r) => w.read(r)?.data ?? Iterable.empty());
-
-			return result.recomputeInitiallyAndOnChange(store);
+			const result = promised.map((w, reader) => {
+				const promiseResult = w.read(reader);
+				return { value: promiseResult?.data ?? emptyValue, settled: promiseResult !== undefined };
+			}).recomputeInitiallyAndOnChange(store);
+			return { value: result.map(value => value.value), read: result };
 		};
+		const observeComponent = <T>(
+			prop: PluginComponent,
+			doRead: (uris: readonly URI[]) => Promise<readonly T[]>,
+			tryReadEmbedded?: (section: unknown) => Promise<T[] | undefined>,
+			defaultPath: string = prop,
+		): ObservedComponent<readonly T[]> => observeComponentData(prop, doRead, tryReadEmbedded, Iterable.empty(), defaultPath);
 
 		const manifestUri = joinPath(uri, format.manifestPath);
 		const commands = observeComponent('commands', d => readMarkdownComponents(d, this._fileService));
@@ -441,12 +539,61 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 			format.hookConfigPath,
 		);
 
-		const mcpServerDefinitions = observeComponent(
+		const mcpComponent = observeComponentData<IAgentPluginMcpDiscoveryResult>(
 			'mcpServers',
-			paths => readPluginMcpServers(uri, paths, format, this._fileService),
-			async section => parseMcpServerDefinitionMap(manifestUri, { mcpServers: section }, uri, format),
+			async paths => {
+				const result = await readPluginMcpServersWithOutcome(uri, paths, format, this._fileService);
+				return {
+					serverDefinitions: result.definitions,
+					configurationPresent: result.configurationPresent,
+					parseErrorCount: result.parseErrorCount,
+					unreadableCount: result.unreadableCount,
+				};
+			},
+			async section => {
+				const raw = { mcpServers: section };
+				const definitions = parseMcpServerDefinitionMap(manifestUri, raw, uri, format);
+				const configuredServers = resolveMcpServersMap(raw);
+				return {
+					serverDefinitions: definitions,
+					configurationPresent: 1,
+					parseErrorCount: configuredServers ? Object.keys(configuredServers).length - definitions.length : 1,
+					unreadableCount: 0,
+				};
+			},
+			{ serverDefinitions: [], configurationPresent: 0, parseErrorCount: 0, unreadableCount: 0 },
 			'.mcp.json',
 		);
+		const commands = commandsComponent.value;
+		const skills = skillsComponent.value;
+		const agents = agentsComponent.value;
+		const instructions = instructionsComponent.value;
+		const hooks = hooksComponent.value;
+		const mcpDiscoveryResult = mcpComponent.value;
+		const mcpDiscoveryReady = mcpComponent.read.map(result => result.settled);
+		const mcpServerDefinitions = mcpDiscoveryResult.map(result => result.serverDefinitions);
+		const mcpConfigurationState = mcpDiscoveryResult.map(({ configurationPresent, parseErrorCount, unreadableCount }) => ({ configurationPresent, parseErrorCount, unreadableCount }));
+		const componentTelemetry = derived(reader => {
+			const commandsResult = commandsComponent.read.read(reader);
+			const skillsResult = skillsComponent.read.read(reader);
+			const agentsResult = agentsComponent.read.read(reader);
+			const instructionsResult = instructionsComponent.read.read(reader);
+			const hooksResult = hooksComponent.read.read(reader);
+			const mcpResult = mcpComponent.read.read(reader);
+			if (!commandsResult.settled || !skillsResult.settled || !agentsResult.settled || !instructionsResult.settled || !hooksResult.settled || !mcpResult.settled) {
+				return undefined;
+			}
+			return {
+				commandCount: commandsResult.value.length,
+				skillCount: skillsResult.value.length,
+				agentCount: agentsResult.value.length,
+				instructionCount: instructionsResult.value.length,
+				hookCount: hooksResult.value.length,
+				mcpServerCount: mcpResult.value.serverDefinitions.length,
+				manifestParseError: manifestParseError.read(reader),
+				manifestUnreadable: manifestUnreadable.read(reader),
+			};
+		}).recomputeInitiallyAndOnChange(store);
 
 		// Re-read the manifest whenever it changes on disk. The initial value
 		// was already populated above before constructing the observable.
@@ -462,7 +609,12 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 					await this._refreshPlugins();
 					return;
 				}
-				manifest.set(await readPluginManifest(uri, format, this._fileService), undefined);
+				const result = await readPluginManifestWithOutcome(uri, format, this._fileService);
+				transaction(tx => {
+					manifest.set(result.manifest, tx);
+					manifestParseError.set(result.parseError, tx);
+					manifestUnreadable.set(result.unreadable, tx);
+				});
 			} catch (error) {
 				if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
 					await this._refreshPlugins();
@@ -494,18 +646,21 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 			store.add(manifestWatcher.onDidChange(() => readManifest()));
 		}
 
-		const manifestName = typeof initialManifest?.name === 'string' && initialManifest.name.trim()
-			? initialManifest.name.trim()
+		const manifestName = typeof initialManifestResult.manifest?.name === 'string' && initialManifestResult.manifest.name.trim()
+			? initialManifestResult.manifest.name.trim()
 			: undefined;
 
 		const plugin: PluginEntry = {
 			uri,
 			format: format.format,
+			discoveryOrigin,
 			label: fromMarketplace?.name ?? manifestName ?? basename(uri),
 			version: pluginVersion,
 			enablement,
 			policyEnablement,
 			policyBlocked,
+			manifestParseError,
+			manifestUnreadable,
 			remove: removeCallback,
 			hooks,
 			commands,
@@ -688,7 +843,7 @@ export class ConfiguredAgentPluginDiscovery extends AbstractAgentPluginDiscovery
 		// to look like `name@marketplace` is treated as a relative path, not an ID.
 		for (const [key, enabled] of Object.entries(this._pluginLocationsConfig.get())) {
 			const trimmed = key.trim();
-			if (!trimmed || enabled === false) {
+			if (!trimmed) {
 				continue;
 			}
 			for (const resource of await this._resolvePluginPath(trimmed, userHome)) {
@@ -828,23 +983,12 @@ export class MarketplaceAgentPluginDiscovery extends AbstractAgentPluginDiscover
 		const sources: IPluginSource[] = [];
 
 		for (const entry of installed) {
-			let stat;
-			try {
-				stat = await this._fileService.resolve(entry.pluginUri);
-			} catch {
-				this._logService.debug(`[MarketplaceAgentPluginDiscovery] Could not resolve installed plugin: ${entry.pluginUri.toString()}`);
-				continue;
-			}
-
-			if (!stat.isDirectory) {
-				this._logService.debug(`[MarketplaceAgentPluginDiscovery] Installed plugin path is not a directory: ${entry.pluginUri.toString()}`);
-				continue;
-			}
-
 			const repositoryUri = this._pluginRepositoryService.getRepositoryUri(entry.plugin.marketplaceReference, entry.plugin.marketplaceType);
 
 			sources.push({
-				uri: stat.resource,
+				uri: entry.pluginUri,
+				origin: AgentPluginDiscoveryOrigin.VSCodeInstalled,
+				enabled: true,
 				fromMarketplace: entry.plugin,
 				repositoryUri,
 				remove: async () => {
@@ -1286,22 +1430,10 @@ export class ExtensionAgentPluginDiscovery extends AbstractAgentPluginDiscovery 
 	protected override async _discoverPluginSources(): Promise<readonly IPluginSource[]> {
 		const sources: IPluginSource[] = [];
 		for (const [, entry] of this._extensionPlugins) {
-			if (entry.when && !this._contextKeyService.contextMatchesRules(entry.when)) {
-				continue;
-			}
-			let stat;
-			try {
-				stat = await this._fileService.resolve(entry.uri);
-			} catch {
-				this._logService.debug(`[ExtensionAgentPluginDiscovery] Could not resolve extension plugin path: ${entry.uri.toString()}`);
-				continue;
-			}
-			if (!stat.isDirectory) {
-				this._logService.debug(`[ExtensionAgentPluginDiscovery] Extension plugin path is not a directory: ${entry.uri.toString()}`);
-				continue;
-			}
 			sources.push({
-				uri: stat.resource,
+				uri: entry.uri,
+				origin: AgentPluginDiscoveryOrigin.ExtensionContribution,
+				enabled: !entry.when || this._contextKeyService.contextMatchesRules(entry.when),
 				fromMarketplace: undefined,
 				remove: () => this._promptUninstallExtension(entry.extensionId),
 			});
