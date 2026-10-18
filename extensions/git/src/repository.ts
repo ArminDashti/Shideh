@@ -105,6 +105,7 @@ export class Resource implements SourceControlResourceState {
 			case Status.INDEX_COPIED: return l10n.t('Index Copied');
 			case Status.UNTRACKED: return l10n.t('Untracked');
 			case Status.IGNORED: return l10n.t('Ignored');
+			case Status.RENAMED: return l10n.t('Intent to Add');
 			case Status.INTENT_TO_ADD: return l10n.t('Intent to Add');
 			case Status.INTENT_TO_RENAME: return l10n.t('Intent to Rename');
 			case Status.TYPE_CHANGED: return l10n.t('Type Changed');
@@ -227,6 +228,7 @@ export class Resource implements SourceControlResourceState {
 			case Status.INDEX_ADDED: return Resource.Icons[theme].Added;
 			case Status.INDEX_DELETED: return Resource.Icons[theme].Deleted;
 			case Status.DELETED: return Resource.Icons[theme].Deleted;
+			case Status.RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.INDEX_RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.INDEX_COPIED: return Resource.Icons[theme].Copied;
 			case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
