@@ -79,6 +79,12 @@ interface IPendingConnectionAttempt {
 	readonly observer?: RemoteAgentHostConnectionObserver;
 }
 
+interface IPendingConnectionAttempt {
+	readonly promise: Promise<void>;
+	readonly info: IRemoteAgentHostPendingConnection;
+	readonly observer?: RemoteAgentHostConnectionObserver;
+}
+
 function disposeEntry(entry: IConnectionEntry): void {
 	entry.store.dispose();
 	entry.transportDisposable?.dispose();
