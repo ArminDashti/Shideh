@@ -1071,7 +1071,12 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 			} finally {
 				this._updateCheckRunning = false;
 				if (!this._updateCheckDelayer.isTriggered()) {
-					this._scheduleUpdateCheck(PLUGIN_UPDATE_CHECK_INTERVAL_MS);
+					// Retry now if entries hydrated during a check that found none.
+					this._scheduleUpdateCheck(
+						this._lastCheckFoundNoInstalledPlugins && this.installedPlugins.get().length > 0
+							? 0
+							: PLUGIN_UPDATE_CHECK_INTERVAL_MS
+					);
 				}
 			}
 		}, delay).catch(error => {
