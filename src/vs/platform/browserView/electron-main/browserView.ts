@@ -39,6 +39,7 @@ enum NewPageLocation {
  */
 export class BrowserView extends Disposable {
 	private readonly _view: WebContentsView;
+	private readonly _interactionBlocker = new View();
 	private readonly _faviconRequestCache = new Map<string, Promise<string>>();
 	presentation = BrowserViewPresentation.Listed;
 
@@ -68,6 +69,7 @@ export class BrowserView extends Disposable {
 
 	private _wantsVisibility = false;
 	private _hasBeenLaidOut = false;
+	private _isInteractive = true;
 
 	private static readonly MAX_CONSOLE_LOG_ENTRIES = 1000;
 	private readonly _consoleLogs: string[] = [];
@@ -91,6 +93,9 @@ export class BrowserView extends Disposable {
 
 	private readonly _onDidChangeVisibility = this._register(new Emitter<IBrowserViewVisibilityEvent>());
 	readonly onDidChangeVisibility: Event<IBrowserViewVisibilityEvent> = this._onDidChangeVisibility.event;
+
+	private readonly _onDidChangeInteractivity = this._register(new Emitter<IBrowserViewInteractivityEvent>());
+	readonly onDidChangeInteractivity: Event<IBrowserViewInteractivityEvent> = this._onDidChangeInteractivity.event;
 
 	private readonly _onDidChangeDevToolsState = this._register(new Emitter<IBrowserViewDevToolsStateEvent>());
 	readonly onDidChangeDevToolsState: Event<IBrowserViewDevToolsStateEvent> = this._onDidChangeDevToolsState.event;
@@ -173,6 +178,8 @@ export class BrowserView extends Disposable {
 		//            We just have to be careful to not show the view until a layout has happened in the correct location.
 		this._view.setBounds({ x: 0, y: 0, width: 1024, height: 768 });
 		this._view.setBackgroundColor('#FFFFFF');
+		this._interactionBlocker.setBackgroundColor('#00000000');
+		this._interactionBlocker.setVisible(false);
 
 		this._ownerWindow = this.windowsMainService.getWindowById(host.windowId)!;
 		if (!this._ownerWindow) {
@@ -188,7 +195,12 @@ export class BrowserView extends Disposable {
 		}));
 
 		this._view.setVisible(false);
-		this._ownerWindow.win?.contentView.addChildView(this._view);
+		const ownerWindow = this._ownerWindow.win;
+		if (ownerWindow) {
+			this._currentWindow = this._ownerWindow;
+			ownerWindow.contentView.addChildView(this._view);
+			ownerWindow.contentView.addChildView(this._interactionBlocker);
+		}
 
 		this._view.webContents.setWindowOpenHandler((details) => {
 			if (this.presentation === BrowserViewPresentation.Unlisted) {
@@ -254,6 +266,8 @@ export class BrowserView extends Disposable {
 		this.debugger = new BrowserViewDebugger(this);
 		this.emulator = this._register(new BrowserViewEmulator(this, this.logService));
 		this.inspector = this._register(new BrowserViewInspector(this));
+		this._register(this.inspector.onDidChangeElementSelectionState(() => this._refreshInteractionBlocker()));
+		this._register(this.inspector.onDidChangeAreaSelectionActive(() => this._refreshInteractionBlocker()));
 
 		const fireRemoteStatus = () => this._onDidChangeRemoteStatus.fire(this.session.remote.isRemote);
 		this._register(this.session.remote.onDidStart(fireRemoteStatus));
@@ -760,6 +774,7 @@ export class BrowserView extends Disposable {
 			...this.getNavigationState(),
 			focused: webContents.isFocused(),
 			visible: this._view.getVisible(),
+			isInteractive: this._isInteractive,
 			isDevToolsOpen: webContents.isDevToolsOpened(),
 			lastScreenshot: this._lastScreenshot,
 			storageScope: this.session.storageScope,
@@ -817,28 +832,35 @@ export class BrowserView extends Disposable {
 			const newWindow = this._windowById(bounds.windowId);
 			if (newWindow) {
 				this._currentWindow?.win?.contentView.removeChildView(this._view);
+				this._currentWindow?.win?.contentView.removeChildView(this._interactionBlocker);
 				this._currentWindow = newWindow;
 				newWindow.win?.contentView.addChildView(this._view);
+				newWindow.win?.contentView.addChildView(this._interactionBlocker);
 			}
 		}
 
-		this._view.setBorderRadius(Math.round(bounds.cornerRadius * bounds.zoomFactor));
+		const borderRadius = Math.round(bounds.cornerRadius * bounds.zoomFactor);
+		this._view.setBorderRadius(borderRadius);
+		this._interactionBlocker.setBorderRadius(borderRadius);
 
 		if (bounds.emulation) {
 			this.emulator.applyScreenEmulation(bounds.width, bounds.height, bounds.emulation.scale, bounds.zoomFactor);
 		}
 
-		this._view.setBounds({
+		const viewBounds = {
 			x: Math.round(bounds.x * bounds.zoomFactor),
 			y: Math.round(bounds.y * bounds.zoomFactor),
 			width: Math.round(bounds.width * bounds.zoomFactor),
 			height: Math.round(bounds.height * bounds.zoomFactor)
-		});
+		};
+		this._view.setBounds(viewBounds);
+		this._interactionBlocker.setBounds(viewBounds);
 
 		this._hasBeenLaidOut = true;
 		if (this._wantsVisibility && !this._view.getVisible()) {
 			this._view.setVisible(true);
 		}
+		this._refreshInteractionBlocker();
 	}
 
 	setBrowserZoomIndex(zoomIndex: number): void {
@@ -865,7 +887,32 @@ export class BrowserView extends Disposable {
 		}
 
 		this._wantsVisibility = visible;
+		this._refreshInteractionBlocker();
 		this._onDidChangeVisibility.fire({ visible });
+	}
+
+	setInteractive(isInteractive: boolean): void {
+		if (this._isInteractive === isInteractive) {
+			return;
+		}
+
+		this._isInteractive = isInteractive;
+		this._refreshInteractionBlocker();
+		this._onDidChangeInteractivity.fire({ isInteractive });
+	}
+
+	private _isInteractionAllowed(): boolean {
+		return this._isInteractive
+			|| this.inspector.elementSelectionState.active
+			|| this.inspector.isAreaSelectionActive;
+	}
+
+	private _refreshInteractionBlocker(): void {
+		const shouldBlockInteraction = !this._isInteractionAllowed();
+		this._interactionBlocker.setVisible(shouldBlockInteraction && this._view.getVisible());
+		if (shouldBlockInteraction && this._view.webContents.isFocused()) {
+			this._currentWindow?.win?.webContents.focus();
+		}
 	}
 
 	/**
@@ -1120,6 +1167,9 @@ export class BrowserView extends Disposable {
 	 * Focus this view
 	 */
 	async focus(force?: boolean): Promise<void> {
+		if (!this._isInteractionAllowed()) {
+			return;
+		}
 		// By default, only focus the view if its window is already focused.
 		if (!force && !this._currentWindow?.win?.isFocused()) {
 			return;
@@ -1282,6 +1332,7 @@ export class BrowserView extends Disposable {
 		// Remove from parent window (guard against already-destroyed window)
 		const currentWin = this._currentWindow?.win;
 		if (currentWin && !currentWin.isDestroyed()) {
+			currentWin.contentView.removeChildView(this._interactionBlocker);
 			currentWin.contentView.removeChildView(this._view);
 		}
 

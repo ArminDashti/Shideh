@@ -242,6 +242,10 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		return this._getBrowserView(id).setVisible(visible);
 	}
 
+	async setInteractive(id: string, isInteractive: boolean): Promise<void> {
+		return this._getBrowserView(id).setInteractive(isInteractive);
+	}
+
 	async loadURL(id: string, url: string): Promise<void> {
 		return this._getBrowserView(id).loadURL(url);
 	}

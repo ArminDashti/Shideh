@@ -43,6 +43,7 @@ import {
 	IBrowserViewFindInPageOptions,
 	IBrowserViewFindInPageResult,
 	IBrowserViewVisibilityEvent,
+	IBrowserViewInteractivityEvent,
 	IBrowserViewCertificateError,
 	IElementData,
 	IBrowserElementCommentsUpdate,
@@ -465,6 +466,7 @@ export interface IBrowserViewModel extends IDisposable {
 	readonly loading: boolean;
 	readonly focused: boolean;
 	readonly visible: boolean;
+	readonly isInteractive: boolean;
 	readonly canGoBack: boolean;
 	readonly isDevToolsOpen: boolean;
 	readonly canGoForward: boolean;
@@ -496,6 +498,7 @@ export interface IBrowserViewModel extends IDisposable {
 	readonly onDidChangeOwner: Event<IBrowserViewOwner>;
 	readonly onDidFindInPage: Event<IBrowserViewFindInPageResult>;
 	readonly onDidChangeVisibility: Event<IBrowserViewVisibilityEvent>;
+	readonly onDidChangeInteractivity: Event<IBrowserViewInteractivityEvent>;
 	readonly onDidClose: Event<void>;
 	readonly onWillDispose: Event<void>;
 	readonly onDidSelectElement: Event<IElementData>;
@@ -509,6 +512,7 @@ export interface IBrowserViewModel extends IDisposable {
 
 	layout(bounds: IBrowserViewBounds): Promise<void>;
 	setVisible(visible: boolean): Promise<void>;
+	setInteractive(isInteractive: boolean): Promise<void>;
 	loadURL(url: string, options?: INavigateOptions): Promise<void>;
 	goBack(): Promise<void>;
 	goForward(): Promise<void>;
@@ -576,6 +580,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	private _loading: boolean = false;
 	private _focused: boolean = false;
 	private _visible: boolean = false;
+	private _isInteractive: boolean = true;
 	private _isDevToolsOpen: boolean = false;
 	private _canGoBack: boolean = false;
 	private _canGoForward: boolean = false;
@@ -673,6 +678,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 		this._loading = initialState.loading;
 		this._focused = initialState.focused;
 		this._visible = initialState.visible;
+		this._isInteractive = initialState.isInteractive;
 		this._isDevToolsOpen = initialState.isDevToolsOpen;
 		this._canGoBack = initialState.canGoBack;
 		this._canGoForward = initialState.canGoForward;
@@ -863,6 +869,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	get loading(): boolean { return this._loading; }
 	get focused(): boolean { return this._focused; }
 	get visible(): boolean { return this._visible; }
+	get isInteractive(): boolean { return this._isInteractive; }
 	get isDevToolsOpen(): boolean { return this._isDevToolsOpen; }
 	get canGoBack(): boolean { return this._canGoBack; }
 	get canGoForward(): boolean { return this._canGoForward; }
@@ -904,6 +911,10 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 			return;
 		}
 		return this.browserViewService.setVisible(this.id, visible);
+	}
+
+	async setInteractive(isInteractive: boolean): Promise<void> {
+		return this.browserViewService.setInteractive(this.id, isInteractive);
 	}
 
 	async loadURL(url: string, options?: INavigateOptions): Promise<void> {

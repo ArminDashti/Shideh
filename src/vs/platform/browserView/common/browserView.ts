@@ -355,6 +355,7 @@ export interface IBrowserViewNavigationState {
 export interface IBrowserViewState extends IBrowserViewNavigationState {
 	focused: boolean;
 	visible: boolean;
+	isInteractive: boolean;
 	isDevToolsOpen: boolean;
 	lastScreenshot: VSBuffer | undefined;
 	storageScope: BrowserViewStorageScope;
@@ -408,6 +409,10 @@ export interface IBrowserViewFocusEvent {
 
 export interface IBrowserViewVisibilityEvent {
 	visible: boolean;
+}
+
+export interface IBrowserViewInteractivityEvent {
+	isInteractive: boolean;
 }
 
 export interface IBrowserViewDevToolsStateEvent {
@@ -643,6 +648,11 @@ export interface IBrowserViewService {
 	 * @param visible Whether the view should be visible
 	 */
 	setVisible(id: string, visible: boolean): Promise<void>;
+
+	/**
+	 * Enable or disable browser page interactivity.
+	 */
+	setInteractive(id: string, isInteractive: boolean): Promise<void>;
 
 	/**
 	 * Navigate the browser view to a URL
