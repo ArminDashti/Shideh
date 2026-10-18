@@ -960,6 +960,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 			{ skipTelemetry: true, menuClassName: WORKBENCH_MENU_MOTION_CLASS, closeAnimation: workbenchMenuCloseAnimation }
 		);
 		sparkleDropdown.render(sparkleContainer);
+		sparkleDropdown.setFocusable(true);
 		disposables.add(sparkleDropdown);
 
 		// Capture-phase listener for ArrowLeft/ArrowRight/Home/End to prevent DropdownWithPrimaryActionViewItem
