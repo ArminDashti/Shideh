@@ -114,3 +114,37 @@ suite('BrowserToolHelpers', () => {
 		);
 	});
 });
+
+suite('BrowserToolHelpers', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('masks reported parser-differential authorities blocked by network policy', () => {
+		const configService = new TestConfigurationService();
+		configService.setUserConfiguration(AgentNetworkDomainSettingId.NetworkFilter, true);
+		configService.setUserConfiguration(AgentNetworkDomainSettingId.AllowedNetworkDomains, []);
+		configService.setUserConfiguration(AgentNetworkDomainSettingId.DeniedNetworkDomains, []);
+		const networkFilterService = disposables.add(new AgentNetworkFilterService(configService));
+		const urls = [
+			'http://a@b@127.0.0.1:3000/private',
+			'http://a%40b@127.0.0.1:3000/private',
+			'http://[::1]:3000/private',
+			'http://[::ffff:127.0.0.1]:3000/private',
+			'https://evil.com%2fx/',
+			'https://evil.com%5c/',
+		];
+		const editors = urls.map((url, index) => upcastPartial<BrowserEditorInput>({
+			id: `page-${index}`,
+			title: 'Private page',
+			url,
+		}));
+		const editorService = upcastPartial<IEditorService>({
+			activeEditor: undefined,
+			visibleEditors: [],
+		});
+
+		assert.strictEqual(
+			formatBrowserEditorList(editorService, editors, { agentNetworkFilterService: networkFilterService }),
+			urls.map((_, index) => `- [page-${index}] Blocked by network domain policy (not visible)`).join('\n')
+		);
+	});
+});
