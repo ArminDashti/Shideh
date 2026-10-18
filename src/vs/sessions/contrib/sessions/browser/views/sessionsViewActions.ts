@@ -1446,6 +1446,11 @@ registerAction2(class RenameSessionAction extends Action2 {
 				group: '1_edit',
 				order: 1,
 				when: SessionSupportsRenameContext,
+			}, {
+				id: Menus.SessionBarToolbar,
+				group: 'secondary/1_session',
+				order: 20,
+				when: ContextKeyExpr.and(SessionIsCreatedContext, SessionSupportsRenameContext, SessionIsArchivedContext.negate()),
 			}]
 		});
 	}

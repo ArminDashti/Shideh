@@ -903,6 +903,22 @@ suite('Sessions - ChatCompositeBar', () => {
 		});
 	});
 
+	test('hides New Chat for workspace-less sessions', () => {
+		const { bar } = createHarness(disposables, { isQuickChat: true });
+
+		assert.strictEqual(bar.element.querySelector('.chat-composite-bar-new-chat')?.classList.contains('hidden'), true);
+	});
+
+	test('hides header metadata pills when they are configured in the chat input', () => {
+		disposables.add(MenuRegistry.appendMenuItem(Menus.SessionHeaderMeta, {
+			command: { id: 'test.sessionMetadata', title: 'Changes' },
+			group: 'navigation',
+		}));
+		const { bar } = createHarness(disposables, { showMetadataInInput: true });
+
+		assert.strictEqual(bar.element.querySelector<HTMLElement>('.chat-composite-bar-meta-row')?.style.display, 'none');
+	});
+
 	test('middle-click closes the targeted inactive non-main chat', () => {
 		const { store, commandService, sessionsService, bar, session, tabs } = createHarness(disposables);
 		let bubbled = 0;

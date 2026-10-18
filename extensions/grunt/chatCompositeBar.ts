@@ -167,6 +167,7 @@ export class ChatCompositeBar extends Disposable {
 	) {
 		super();
 
+		this._showMetadataInChatInput = observableConfigValue(SHOW_SESSION_METADATA_IN_CHAT_INPUT_SETTING, false, configurationService);
 		this._container = $('.chat-composite-bar.session-chat-tabs-bar');
 		const updateTabOptions = () => {
 			const options = this._editorGroupsService.partOptions;
@@ -212,6 +213,43 @@ export class ChatCompositeBar extends Disposable {
 			menuOptions: { shouldForwardArgs: true },
 			highlightToggledItems: true,
 		}));
+
+		this._newChatAction = this._register(new Action(
+			'sessions.chatCompositeBar.addChat',
+			localize('chatCompositeBar.addChat', "New Chat in This Session"),
+			ThemeIcon.asClassName(Codicon.add),
+			true,
+			async () => this._delegate?.newChat(),
+		));
+		const newChatActionBar = this._register(new ActionBar(this._tabsRow));
+		newChatActionBar.push(this._newChatAction, { icon: true, label: false });
+		this._newChatContainer = newChatActionBar.getContainer();
+		this._newChatContainer.classList.add('chat-composite-bar-new-chat');
+
+		this._sessionActionsContainer = $('.session-chat-tabs-actions');
+		this._tabsRow.appendChild(this._sessionActionsContainer);
+		const sessionToolbarContainer = $('.chat-composite-bar-toolbar');
+		this._sessionActionsContainer.appendChild(sessionToolbarContainer);
+		this._sessionToolbar = this._register(this._instantiationService.createInstance(MenuWorkbenchToolBar, sessionToolbarContainer, Menus.SessionBarToolbar, {
+			hiddenItemStrategy: HiddenItemStrategy.Ignore,
+			menuOptions: { shouldForwardArgs: true },
+			highlightToggledItems: true,
+		}));
+
+		this._metaRow = $('.chat-composite-bar-meta-row');
+		this._container.appendChild(this._metaRow);
+		const metaToolbarContainer = $('.chat-composite-bar-meta-toolbar');
+		this._metaRow.appendChild(metaToolbarContainer);
+		const metaActionRunner = this._register(new SessionActivatingActionRunner(() => this._delegate?.session, sessionsService));
+		this._metaToolbar = this._register(this._instantiationService.createInstance(MenuWorkbenchToolBar, metaToolbarContainer, Menus.SessionHeaderMeta, {
+			hiddenItemStrategy: HiddenItemStrategy.Ignore,
+			menuOptions: { shouldForwardArgs: true },
+			actionRunner: metaActionRunner,
+			actionViewItemProvider: (action, options) => action instanceof MenuItemAction
+				? this._instantiationService.createInstance(ChatPillActionViewItem, undefined, action, options)
+				: undefined,
+		}));
+		this._register(this._metaToolbar.onDidChangeMenuItems(() => this._updateMetaRowVisibility()));
 
 		const preventMiddleButtonDefault = (e: MouseEvent) => {
 			if (e.button === 1 && !this._isInTabInput(e)) {
@@ -309,6 +347,10 @@ export class ChatCompositeBar extends Disposable {
 		store.add(autorun(reader => {
 			this._setVisible(delegate.visible.read(reader));
 		}));
+	}
+
+	private _updateMetaRowVisibility(): void {
+		this._metaRow.style.display = this._showSessionActions && !this._metadataInInput && !this._metaToolbar.isEmpty() ? '' : 'none';
 	}
 
 	setAriaLabel(label: string): void {
