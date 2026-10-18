@@ -76,6 +76,12 @@ steps:
       GITHUB_TOKEN: "$(github-token-code-oss)"
     displayName: Compile
 
+  - script: |
+      set -e
+      echo "Disk usage after Compile:"
+      df -h
+    displayName: Check disk space (after Compile)
+
   - ${{ if eq(parameters.VSCODE_ARCH, 'x64') }}:
     - script: node build/azure-pipelines/common/extract-telemetry.ts
       displayName: Generate lists of telemetry events
@@ -184,6 +190,12 @@ steps:
           archiveWebSteps:
             - script: tar -czf $(Build.ArtifactStagingDirectory)/product-tests/web.tar.gz -C $(Agent.BuildDirectory) vscode-server-linux-$(VSCODE_ARCH)-web
               displayName: Archive packaged web server for tests
+
+  - script: |
+      set -e
+      echo "Disk usage after web server build:"
+      df -h
+    displayName: Check disk space (after build server web)
 
   - ${{ if or(eq(parameters.VSCODE_ARCH, 'x64'), eq(parameters.VSCODE_ARCH, 'arm64')) }}:
     - script: |
