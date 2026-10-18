@@ -61,7 +61,19 @@ const filesViewContainer = viewContainerRegistry.registerViewContainer({
 
 export class RegisterFilesViewContribution implements IWorkbenchContribution {
 
-	static readonly ID = 'sessions.registerFilesView';
+// Register a new Files view container in the auxiliary bar for the sessions window.
+// Registered eagerly (module load) so the container exists when the workbench
+// restores parts and can be opened as the default auxiliary bar view.
+const filesViewContainer = viewContainerRegistry.registerViewContainer({
+	id: SESSIONS_FILES_CONTAINER_ID,
+	title: localize2('files', "Files"),
+	icon: filesViewIcon,
+	order: 10,
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [SESSIONS_FILES_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	storageId: SESSIONS_FILES_CONTAINER_ID,
+	hideIfEmpty: true,
+	windowVisibility: WindowVisibility.Sessions,
+}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: true, isDefault: true });
 
 	constructor() {
 		const viewsRegistry = Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry);
