@@ -159,24 +159,52 @@ export class NativeTitlebarPart extends TitlebarPart {
 		isWindowAlwaysOnTopContext.set(await this.nativeHostService.isWindowAlwaysOnTop({ targetWindowId }));
 	}
 
+	private getWindowControlsBackgroundColor(color: Color, theme: IColorTheme): Color {
+		const backgroundColor = color.isOpaque() ? color : color.makeOpaque(WORKBENCH_BACKGROUND(theme));
+		if ((!isWindows && !isLinux) || isHighContrast(theme.type)) {
+			return backgroundColor;
+		}
+
+		const tintColor = theme.getColor(agentsGradientTintColor);
+		if (!tintColor) {
+			return backgroundColor;
+		}
+
+		if (theme.type === ColorScheme.DARK) {
+			return backgroundColor.mix(tintColor, 0.13).makeOpaque(backgroundColor);
+		}
+
+		return tintColor.transparent(0.12).makeOpaque(backgroundColor);
+	}
+
 	override updateStyles(): void {
 		super.updateStyles();
 
 		if (this.element) {
 			if (useWindowControlsOverlay(this.configurationService)) {
+				// The sessions titlebar background is transparent (it inherits the
+				// shell gradient via CSS), so `this.element.style.backgroundColor` is empty.
+				// The Window Controls Overlay needs an opaque solid color that matches the
+				// visible titlebar corner: the shell base on macOS, and the gradient end
+				// color on Windows/Linux.
+				const bgColor = this.getColor(agentsBackground, (color, theme) => {
+					return this.getWindowControlsBackgroundColor(color, theme);
+				}) || '';
+				const fgColor = this.element.style.color;
+
 				if (
 					!this.cachedWindowControlStyles ||
-					this.cachedWindowControlStyles.bgColor !== this.element.style.backgroundColor ||
-					this.cachedWindowControlStyles.fgColor !== this.element.style.color
+					this.cachedWindowControlStyles.bgColor !== bgColor ||
+					this.cachedWindowControlStyles.fgColor !== fgColor
 				) {
 					this.cachedWindowControlStyles = {
-						bgColor: this.element.style.backgroundColor,
-						fgColor: this.element.style.color
+						bgColor,
+						fgColor
 					};
 					this.nativeHostService.updateWindowControls({
 						targetWindowId: getWindowId(getWindow(this.element)),
-						backgroundColor: this.element.style.backgroundColor,
-						foregroundColor: this.element.style.color
+						backgroundColor: bgColor,
+						foregroundColor: fgColor
 					});
 				}
 			}
