@@ -27,7 +27,7 @@ export function isURLDomainTrusted(url: URI, trustedDomains: string[]): boolean 
 		return false;
 	}
 
-	if (isLocalhostAuthority(url.authority)) {
+	if (isLocalhostAuthority(url.authority) || isAllInterfacesAuthority(url.authority)) {
 		return true;
 	}
 
