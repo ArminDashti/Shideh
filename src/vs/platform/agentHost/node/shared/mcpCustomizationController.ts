@@ -399,12 +399,9 @@ export class McpCustomizationController extends Disposable {
 					return;
 				}
 				this._options.emit({
-					type: ActionType.SessionMcpServerStateChanged,
-					id: childId,
-					state,
-					channel: this._buildChannel(server.name, state),
+					type: ActionType.SessionCustomizationRemoved,
+					id: previous.topLevelId,
 				});
-				return;
 			}
 			topLevelId = published?.topLevelId ?? this._mintTopLevelId(server.name);
 		}
