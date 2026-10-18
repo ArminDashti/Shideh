@@ -5,7 +5,7 @@
 
 import * as resources from '../../../../../base/common/resources.js';
 import assert from 'assert';
-import { TestEnvironmentService, TestLifecycleService, TestPathService, TestRemoteAgentService } from '../../../../test/browser/workbenchTestServices.js';
+import { TestEnvironmentService, TestLifecycleService, TestNotebookDocumentService, TestPathService, TestRemoteAgentService } from '../../../../test/browser/workbenchTestServices.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { LabelService } from '../../common/labelService.js';
 import { TestContextService, TestStorageService } from '../../../../test/common/workbenchTestServices.js';
@@ -972,3 +972,63 @@ suite('workspace at FSP root', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 });
+
+suite('Notebooks URI Label', () => {
+	let labelService: LabelService;
+	let storageService: TestStorageService;
+	setup(() => {
+		const workspace = TestWorkspace;
+		const notebooks: INotebookDocument[] = [
+			{
+				uri: URI.joinPath(workspace.folders[0].uri, 'test.ipynb'),
+				getCellIndex(cellUri) {
+					const cells = [
+						URI.joinPath(workspace.folders[0].uri, 'test.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=1' }),
+						URI.joinPath(workspace.folders[0].uri, 'test.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=2' }),
+						URI.joinPath(workspace.folders[0].uri, 'test.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=3' }),
+					];
+					return cells.findIndex(cell => cell.toString() === cellUri.toString());
+				},
+			},
+			{
+				uri: URI.joinPath(workspace.folders[0].uri, 'two.ipynb'),
+				getCellIndex(cellUri) {
+					const cells = [
+						URI.joinPath(workspace.folders[0].uri, 'two.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=1' }),
+						URI.joinPath(workspace.folders[0].uri, 'two.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=2' })
+					];
+					return cells.findIndex(cell => cell.toString() === cellUri.toString());
+				},
+			}
+		];
+
+		storageService = new TestStorageService();
+		labelService = new LabelService(TestEnvironmentService, new TestContextService(workspace), new TestPathService(URI.file('/foobar')), new TestRemoteAgentService(), storageService, new TestLifecycleService(), createTestNotebookService(notebooks));
+	});
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+
+	test('Notebook Uri instead of Cell Uri', function () {
+		const uri1 = URI.joinPath(TestWorkspace.folders[0].uri, 'test.ipynb');
+		assert.strictEqual(labelService.getUriLabel(uri1, { relative: true, noPrefix: true, appendCellNumber: true }), 'test.ipynb');
+	});
+
+	test('Notebook Uri instead of Cell Uri', function () {
+		const uri1 = URI.joinPath(TestWorkspace.folders[0].uri, 'test.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=2' });
+		assert.strictEqual(labelService.getUriLabel(uri1, { relative: true, noPrefix: true, appendCellNumber: true }), 'test.ipynb • Cell 2');
+
+		const uri2 = URI.joinPath(TestWorkspace.folders[0].uri, 'two.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=1' });
+		assert.strictEqual(labelService.getUriLabel(uri2, { relative: true, noPrefix: true, appendCellNumber: true }), 'two.ipynb • Cell 1');
+	});
+
+	test('Invalid Cell Uri', function () {
+		const uri1 = URI.joinPath(TestWorkspace.folders[0].uri, 'test.ipynb').with({ scheme: Schemas.vscodeNotebookCell, fragment: 'cell=4' });
+		assert.strictEqual(labelService.getUriLabel(uri1, { relative: true, noPrefix: true, appendCellNumber: true }), 'test.ipynb');
+	});
+});
+
+function createTestNotebookService(notebooks: INotebookDocument[] = []) {
+	return new TestNotebookDocumentService(notebooks);
+}
+

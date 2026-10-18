@@ -14,7 +14,7 @@ import { IWorkingCopyHistoryEntry, IWorkingCopyHistoryEntryDescriptor, IWorkingC
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { UriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentityService.js';
 import { LabelService } from '../../../label/common/labelService.js';
-import { TestEnvironmentService, TestLifecycleService, TestPathService, TestRemoteAgentService, TestWillShutdownEvent } from '../../../../test/browser/workbenchTestServices.js';
+import { TestEnvironmentService, TestLifecycleService, TestNotebookDocumentService, TestPathService, TestRemoteAgentService, TestWillShutdownEvent } from '../../../../test/browser/workbenchTestServices.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NativeWorkingCopyHistoryService } from '../../common/workingCopyHistoryService.js';
 import { joinPath, dirname, basename } from '../../../../../base/common/resources.js';

@@ -322,6 +322,22 @@ export class LabelService extends Disposable implements ILabelService {
 			label = this.appendWorkspaceSuffix(label, resource);
 		}
 
+		if (options.appendCellNumber) {
+			label = this.appendCellNumber(label, resource);
+		}
+
+		return label;
+	}
+
+	private appendCellNumber(label: string, resource: URI): string {
+		if (resource.scheme !== Schemas.vscodeNotebookCell) {
+			return label;
+		}
+		const notebookDocument = this.notebookDocumentService.getNotebook(resource);
+		const cellIndex = notebookDocument?.getCellIndex(resource);
+		if (notebookDocument && cellIndex !== undefined) {
+			return localize('notebookCellLabel', "{0} • Cell {1}", label, `${cellIndex + 1}`);
+		}
 		return label;
 	}
 
