@@ -11,6 +11,7 @@ import type { URI } from '../../../../../../../base/common/uri.js';
 
 export interface IConfirmationPrompt {
 	prompt: string;
+	freeFormInput?: boolean;
 	options: string[];
 	descriptions?: string[];
 	detectedRequestForFreeFormInput: boolean;

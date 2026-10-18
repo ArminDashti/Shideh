@@ -428,6 +428,17 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 			if (isActive === true) {
 				shouldFireInputNeeded = true;
 			}
+		} else if (confirmationPrompt?.freeFormInput) {
+			const ranUserInput = await this._requestAndRunUserInput(this._execution, confirmationPrompt);
+			if (ranUserInput) {
+				// Give terminal a moment to process
+				await timeout(200);
+				// Continue polling as we sent the input
+				return { shouldContinuePollling: true };
+			} else {
+				// User declined
+				return { shouldContinuePollling: false };
+			}
 		}
 
 		// Re-check the user-input guard after any awaits above. The earlier check at
@@ -638,6 +649,90 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		}
 
 		return detectsSensitiveInputPrompt(prompt);
+	}
+
+	private async _requestAndRunUserInput(execution: IExecution, confirmationPrompt: IConfirmationPrompt): Promise<boolean> {
+		const chatModel = this._chatService.getSession(execution.sessionId);
+		if (!(chatModel instanceof ChatModel)) {
+			return false;
+		}
+		const request = chatModel.getRequests().at(-1);
+		if (!request) {
+			return false;
+		}
+		const userPrompt = new Promise<string | undefined>(resolve => {
+			const thePart = this._register(new ChatElicitationRequestPart(
+				new MarkdownString(localize('poll.terminal.inputRequest', "The terminal is awaiting input.")),
+				new MarkdownString(localize('poll.terminal.requireInput', "{0}\nPlease provide the required input to the terminal via the action below or by typing directly into the terminal.\n\n", confirmationPrompt.prompt)),
+				'',
+				localize('poll.terminal.enterInput', 'Enter Input'),
+				localize('poll.terminal.focusTerminal', 'Focus Terminal'),
+				async () => {
+					thePart.state = 'accepted';
+					thePart.hide();
+					thePart.dispose();
+					let option: string | undefined;
+					const input = this._quickInputService.createInputBox();
+					input.prompt = localize('poll.terminal.inputPrompt', 'Enter the input to send to the terminal');
+					let acceptDisposable: { dispose(): void } | undefined;
+					let hideDisposable: { dispose(): void } | undefined;
+					const acceptPromise = new Promise<string | undefined>(acceptResolve => {
+						acceptDisposable = input.onDidAccept(() => {
+							// Prevent the hide handler from resolving due to the hide() call below
+							hideDisposable?.dispose();
+							option = input.value;
+							input.hide();
+							input.dispose();
+							acceptResolve(option);
+							// Clean up our own subscription
+							acceptDisposable?.dispose();
+						});
+						this._register(acceptDisposable!);
+					});
+					const hidePromise = new Promise<string | undefined>(hideResolve => {
+						hideDisposable = input.onDidHide(() => {
+							// If hide happens first, ensure we clean up the accept handler and resolve undefined
+							acceptDisposable?.dispose();
+							hideResolve(undefined);
+							// Clean up our own subscription
+							hideDisposable?.dispose();
+						});
+						this._register(hideDisposable!);
+					});
+					input.show();
+					const result = await Promise.race([acceptPromise, hidePromise]);
+					this._outputMonitorTelemetryCounters.inputToolManualFreeFormInputCount++;
+					this._outputMonitorTelemetryCounters.inputToolManualFreeFormInputChars += option?.length || 0;
+					resolve(result);
+				},
+				async () => {
+					thePart.state = 'rejected';
+					thePart.hide();
+					this._state = OutputMonitorState.Cancelled;
+					this._outputMonitorTelemetryCounters.inputToolManualRejectCount++;
+					inputDataDisposable.dispose();
+					resolve(undefined);
+				},
+				undefined
+			));
+			this._register(thePart.onDidRequestHide(() => {
+				this._outputMonitorTelemetryCounters.inputToolManualShownCount++;
+			}));
+			const inputDataDisposable = this._register(execution.instance.onDidInputData(() => {
+				thePart.hide();
+				thePart.dispose();
+				inputDataDisposable.dispose();
+				this._state = OutputMonitorState.PollingForIdle;
+				resolve(undefined);
+			}));
+			chatModel.acceptResponseProgress(request, thePart);
+		});
+		const option = await userPrompt;
+		if (option) {
+			await execution.instance.sendText(option, true);
+			return true;
+		}
+		return false;
 	}
 }
 
