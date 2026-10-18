@@ -7,14 +7,15 @@ import assert from 'assert';
 import { createRequire } from 'module';
 import * as net from 'net';
 import * as os from 'os';
+import * as cp from 'child_process';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { Event } from '../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { NullLogService } from '../../../log/common/log.js';
+import { ILogService, NullLogService } from '../../../log/common/log.js';
 import { IProductService } from '../../../product/common/productService.js';
-import { TelemetryConfiguration } from '../../../telemetry/common/telemetry.js';
+import { ITelemetryService, TelemetryConfiguration } from '../../../telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
 import { AGENT_HOST_ENDPOINT_REGISTRY_SCHEMA_VERSION, type AgentHostEndpointAddress, type IAgentHostEndpointMetadata } from '../../common/agentHostEndpointRegistry.js';
 import { SSHAuthMethod, type ISSHAgentHostConfig, type ISSHConnectProgress, type ISSHEndpointSelection, type ISSHEndpointSelectionRequest, type ISSHKeyboardInteractivePrompt, type ISSHKeyboardInteractiveRequest, type ISSHResolvedConfig } from '../../common/sshRemoteAgentHost.js';
@@ -287,6 +288,44 @@ function makeConfig(overrides?: Partial<ISSHAgentHostConfig>): ISSHAgentHostConf
 	};
 }
 
+class TestSSHProxyHost implements ISSHProxyHost {
+	proxyTransport: SSHProxyTransport | undefined;
+
+	async resolveSSHConfig() {
+		return {
+			hostname: '10.0.0.1',
+			port: 22,
+			user: 'testuser',
+			identityFile: [],
+			identityAgent: undefined,
+			forwardAgent: false,
+			userKnownHostsFiles: [],
+			globalKnownHostsFiles: [],
+			strictHostKeyChecking: undefined,
+		};
+	}
+
+	async resolveConnectionConfig(config: ISSHAgentHostConfig) {
+		if (!config.sshConfigHost) {
+			return config;
+		}
+		const resolved = await this.resolveSSHConfig();
+		return {
+			...config,
+			host: resolved.hostname,
+			port: undefined,
+			username: resolved.user ?? config.username,
+			privateKeyPath: undefined,
+			identityAgent: resolved.identityAgent,
+			agentForward: undefined,
+		};
+	}
+
+	async createProxyProcess(): Promise<undefined> {
+		return undefined;
+	}
+}
+
 /**
  * Testable subclass of SSHRemoteAgentHostMainService.
  * Overrides the SSH/WebSocket layer so the entire connect flow runs in-process
@@ -294,7 +333,25 @@ function makeConfig(overrides?: Partial<ISSHAgentHostConfig>): ISSHAgentHostConf
  */
 class TestableSSHRemoteAgentHostMainService extends SSHRemoteAgentHostMainService {
 
+	private readonly _testProxyHost: TestSSHProxyHost;
 	readonly mockClients: MockSSHClient[] = [];
+	readonly connectConfigs: ISSHAgentHostConfig[] = [];
+	readonly proxyTransports: Array<SSHProxyTransport | undefined> = [];
+	proxyDisposeCount = 0;
+
+	constructor(logService: ILogService, productService: IProductService, telemetryService: ITelemetryService) {
+		const proxyHost = new TestSSHProxyHost();
+		super(logService, productService, telemetryService, proxyHost);
+		this._testProxyHost = proxyHost;
+	}
+
+	get proxyTransport(): SSHProxyTransport | undefined {
+		return this._testProxyHost.proxyTransport;
+	}
+
+	set proxyTransport(value: SSHProxyTransport | undefined) {
+		this._testProxyHost.proxyTransport = value;
+	}
 
 	/**
 	 * Responses that `_connectSSH`'s MockSSHClient hands out for its exec
@@ -343,11 +400,18 @@ class TestableSSHRemoteAgentHostMainService extends SSHRemoteAgentHostMainServic
 	private readonly _relayResults: Array<{ send: (data: string) => void; close: () => void }> = [];
 
 	protected override async _connectSSH(
-		_config: ISSHAgentHostConfig,
+		config: ISSHAgentHostConfig,
+		_connectionKey?: string,
 	) {
+		const proxyTransport = this.proxyTransport;
+		this.connectConfigs.push(config);
+		this.proxyTransports.push(proxyTransport);
 		const client = new MockSSHClient(this.execResponses);
 		this.mockClients.push(client);
-		return client as never;
+		return {
+			client: client as never,
+			proxyProcess: proxyTransport ? toDisposable(() => this.proxyDisposeCount++) : undefined,
+		};
 	}
 
 	protected override async _startRemoteAgentHost(
@@ -396,20 +460,6 @@ class TestableSSHRemoteAgentHostMainService extends SSHRemoteAgentHostMainServic
 		const relayObj = { send: result.send, close: result.close };
 		this._relayResults.push(relayObj);
 		return relayObj;
-	}
-
-	override async resolveSSHConfig(_host: string): ReturnType<SSHRemoteAgentHostMainService['resolveSSHConfig']> {
-		return {
-			hostname: '10.0.0.1',
-			port: 22,
-			user: 'testuser',
-			identityFile: [],
-			identityAgent: undefined,
-			forwardAgent: false,
-			userKnownHostsFiles: [],
-			globalKnownHostsFiles: [],
-			strictHostKeyChecking: undefined,
-		};
 	}
 
 	/**
@@ -566,6 +616,99 @@ class ReconnectConfigTestService extends SSHRemoteAgentHostMainService {
 	}
 }
 
+class ProxyConnectTestService extends SSHRemoteAgentHostMainService {
+	readonly client = new ReadyMockSSHClient();
+	readonly spawnSpecs: ISSHProxySpawnSpec[];
+	readonly spawnShells: Array<string | false>;
+	readonly terminatedPids: number[];
+	private readonly _proxyHost: ISSHProxyHost;
+	private readonly _state: { childScript: string; config: ISSHAgentHostConfig | undefined; proxyTransport: SSHProxyTransport | undefined };
+
+	constructor(logService: ILogService, productService: IProductService, telemetryService: ITelemetryService) {
+		const spawnSpecs: ISSHProxySpawnSpec[] = [];
+		const spawnShells: Array<string | false> = [];
+		const terminatedPids: number[] = [];
+		const children: cp.ChildProcessWithoutNullStreams[] = [];
+		const state = {
+			childScript: 'process.stdin.pipe(process.stdout); process.stdin.resume();',
+			config: undefined as ISSHAgentHostConfig | undefined,
+			proxyTransport: undefined as SSHProxyTransport | undefined,
+		};
+		const childDisposables = new DisposableStore();
+		const proxyHost = createSSHProxyHost(logService, {
+			executeSSHConfig: async () => {
+				if (!state.config) {
+					throw new Error('Missing test SSH config');
+				}
+				const proxyLine = state.proxyTransport?.type === 'command'
+					? `proxycommand ${state.proxyTransport.command}`
+					: state.proxyTransport?.type === 'jump'
+						? `proxyjump ${state.proxyTransport.proxyJump}`
+						: '';
+				return [
+					`hostname ${state.config.host}`,
+					`port ${state.config.port ?? 22}`,
+					`user ${state.config.username}`,
+					proxyLine,
+				].join('\n');
+			},
+			spawn: (spec, shell) => {
+				spawnSpecs.push(spec);
+				spawnShells.push(shell);
+				const child = cp.spawn(process.execPath, ['-e', state.childScript], {
+					shell: false,
+					stdio: ['pipe', 'pipe', 'pipe'],
+					env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+				});
+				children.push(child);
+				childDisposables.add(toDisposable(() => child.kill('SIGKILL')));
+				return child;
+			},
+			terminate: async pid => {
+				terminatedPids.push(pid);
+				children.find(child => child.pid === pid)?.kill('SIGKILL');
+			},
+			resolveSSHExecutable: async () => '/absolute/ssh',
+		});
+		super(logService, productService, telemetryService, proxyHost);
+		this.spawnSpecs = spawnSpecs;
+		this.spawnShells = spawnShells;
+		this.terminatedPids = terminatedPids;
+		this._proxyHost = proxyHost;
+		this._state = state;
+		this._register(childDisposables);
+	}
+
+	get childScript(): string {
+		return this._state.childScript;
+	}
+
+	set childScript(value: string) {
+		this._state.childScript = value;
+	}
+
+	protected override async _createSSHClient() {
+		return this.client as never;
+	}
+
+	protected override async _buildAuthAttempts(): Promise<SSHAuthAttempt[]> {
+		return [];
+	}
+
+	async connectSSHForTest(config: ISSHAgentHostConfig, proxyTransport?: SSHProxyTransport) {
+		if (!proxyTransport) {
+			return this._connectSSH(config, 'ssh:test-host');
+		}
+		this._state.config = config;
+		this._state.proxyTransport = proxyTransport;
+		const resolvedConfig = await this._proxyHost.resolveConnectionConfig({
+			...config,
+			sshConfigHost: config.sshConfigHost ?? 'test-host',
+		});
+		return this._connectSSH(resolvedConfig, 'ssh:test-host');
+	}
+}
+
 suite('SSHRemoteAgentHostMainService - connect flow', () => {
 
 	const disposables = new DisposableStore();
@@ -696,6 +839,61 @@ suite('SSHRemoteAgentHostMainService - connect flow', () => {
 		const result = await service.connect(makeConfig({ sshConfigHost: 'myhost' }));
 		assert.strictEqual(result.address, 'ssh:myhost');
 		assert.strictEqual(result.sshConfigHost, 'myhost');
+	});
+
+	test('re-resolves configured hosts in the node service without exposing proxy configuration', async () => {
+		service.proxyTransport = { type: 'command', command: 'gh codespace ssh --stdio' };
+
+		const publicResolved = await service.resolveSSHConfig('myalias');
+		const result = await service.connect(makeConfig({
+			host: 'renderer.invalid',
+			username: 'renderer-user',
+			sshConfigHost: 'myalias',
+			remoteAgentHostCommand: '/agent',
+		}));
+
+		assert.deepStrictEqual({
+			publicResolved,
+			connectConfig: service.connectConfigs[0],
+			internalProxyTransport: service.proxyTransports[0],
+			resultConfig: result.config,
+		}, {
+			publicResolved: {
+				hostname: '10.0.0.1',
+				port: 22,
+				user: 'testuser',
+				identityFile: [],
+				identityAgent: undefined,
+				forwardAgent: false,
+				userKnownHostsFiles: [],
+				globalKnownHostsFiles: [],
+				strictHostKeyChecking: undefined,
+			},
+			connectConfig: {
+				host: '10.0.0.1',
+				port: undefined,
+				username: 'testuser',
+				authMethod: SSHAuthMethod.Agent,
+				privateKeyPath: undefined,
+				identityAgent: undefined,
+				agentForward: undefined,
+				name: 'test-host',
+				sshConfigHost: 'myalias',
+				remoteAgentHostCommand: '/agent',
+			},
+			internalProxyTransport: { type: 'command', command: 'gh codespace ssh --stdio' },
+			resultConfig: {
+				host: '10.0.0.1',
+				port: undefined,
+				username: 'testuser',
+				authMethod: SSHAuthMethod.Agent,
+				identityAgent: undefined,
+				agentForward: undefined,
+				name: 'test-host',
+				sshConfigHost: 'myalias',
+				remoteAgentHostCommand: '/agent',
+			},
+		});
 	});
 
 	// --- remoteAgentHostCommand override skips discovery entirely ---
