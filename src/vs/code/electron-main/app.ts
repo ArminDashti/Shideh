@@ -1920,6 +1920,13 @@ export class CodeApplication extends Disposable {
 			this.windowsMainService?.sendToFocused('vscode:showTranslatedBuildWarning');
 		}
 
+		// macOS: register native Finder "Open with {app}" service provider.
+		// The NSServices entry in Info.plist declares the service; this native
+		// module handles the callback when the user selects it in Finder.
+		if (isMacintosh) {
+			this.initFinderService();
+		}
+
 		// Power telemetry
 		instantiationService.invokeFunction(accessor => {
 			const telemetryService = accessor.get(ITelemetryService);
@@ -2153,6 +2160,37 @@ export class CodeApplication extends Disposable {
 				durationMs: Date.now() - startTime,
 			});
 		}
+	}
+
+	/**
+	 * Registers the native macOS Services provider so "Open with {app}" appears
+	 * in Finder's right-click context menu. The native module self-registers
+	 * with NSApp on load; we wire the callback and enable the menu item.
+	 */
+	private async initFinderService(): Promise<void> {
+		const addon = await loadFinderService(this.logService);
+		if (!addon) {
+			return;
+		}
+
+		addon.onOpenFiles(paths => {
+			this.logService.trace('finderService#openFiles: ', paths);
+
+			const urisToOpen: IWindowOpenable[] = paths.map(p => {
+				p = normalizeNFC(p);
+				return hasWorkspaceFileExtension(p) ? { workspaceUri: URI.file(p) } : { fileUri: URI.file(p) };
+			});
+
+			this.windowsMainService?.open({
+				context: OpenContext.DOCK,
+				cli: this.environmentMainService.args,
+				urisToOpen,
+				gotoLineMode: false,
+				preferNewWindow: true
+			});
+		});
+
+		addon.setEnabled(true);
 	}
 }
 
