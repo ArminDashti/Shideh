@@ -55,6 +55,7 @@ export class TestSessionsManagementService extends mock<ISessionsManagementServi
 	readonly archived: ISession[] = [];
 	readonly cancelled: ISession[] = [];
 	readonly imported: ISession[] = [];
+	readonly deleted: ISession[] = [];
 	readonly renamedChats: { readonly session: ISession; readonly chatResource: URI; readonly title: string }[] = [];
 	readonly deletedChats: { readonly session: ISession; readonly chatResource: URI }[] = [];
 	readonly deleteChatOptions: (IDeleteChatOptions | undefined)[] = [];
