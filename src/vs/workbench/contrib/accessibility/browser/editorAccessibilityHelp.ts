@@ -96,6 +96,11 @@ class EditorAccessibilityHelpProvider extends Disposable implements IAccessibleV
 		content.push(AccessibilityHelpNLS.focusNotifications);
 
 
+		const chatEditInfo = getChatEditInfo(this._keybindingService, this._contextKeyService, this._editor);
+		if (chatEditInfo) {
+			content.push(chatEditInfo);
+		}
+
 		const chatCommandInfo = getChatCommandInfo(this._keybindingService, this._contextKeyService);
 		if (chatCommandInfo) {
 			content.push(chatCommandInfo);
