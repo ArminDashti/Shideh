@@ -407,8 +407,7 @@ export function isSupportedChatFileScheme(accessor: ServicesAccessor, scheme: st
  * Returns the effective default session type for a new chat in the VS Code
  * editor window.
  *
- * Virtual workspaces always default to {@link localChatSessionType}. Otherwise,
- * when the agent host is enabled and either `chat.defaultToCopilotHarness` is opted in or the
+ * When the agent host is enabled and either `chat.defaultToCopilotHarness` is opted in or the
  * agent sandbox is enforced by policy, Agent Host Copilot CLI is the default. It falls back to
  * the local harness when enabled, or to the first visible non-local provider.
  */
@@ -419,10 +418,6 @@ export function getDefaultNewChatSessionType(
 	agentHostEnabled: boolean,
 	managedSandboxEnforced = false
 ): string {
-	if (isVirtualWorkspace(workspace)) {
-		return localChatSessionType;
-	}
-
 	if (agentHostEnabled && isCopilotHarnessDefault(configurationService, managedSandboxEnforced)) {
 		return SessionType.AgentHostCopilot;
 	}
