@@ -1019,6 +1019,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 	private readonly _onChange = this._register(new Emitter<IExtension | undefined>());
 	get onChange(): Event<IExtension | undefined> { return this._onChange.event; }
 
+	private autoTrustedPublishersNotification: IExtensionsNotification | undefined;
 	private extensionsNotification: IExtensionsNotification & { readonly key: string } | undefined;
 	private readonly _onDidChangeExtensionsNotification = this._register(new Emitter<IExtensionsNotification | undefined>());
 	readonly onDidChangeExtensionsNotification = this._onDidChangeExtensionsNotification.event;
@@ -1539,6 +1540,25 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 			?? this.instantiationService.createInstance(Extension, ext => this.getExtensionState(ext), ext => this.getRuntimeState(ext), undefined, undefined, undefined, { resourceExtension, isWorkspaceScoped }));
 	}
 
+	showAutoTrustedPublishersNotification(): void {
+		if (!this.autoTrustedPublishersNotification) {
+			this.autoTrustedPublishersNotification = {
+				message: nls.localize('autoTrustedPublishers', "{0} now supports extension publisher trust verification. Publishers of your existing installed extensions are automatically trusted. Please ensure you trust each publisher by running the command \"Manage Trusted Publishers\".", this.productService.nameShort),
+				severity: Severity.Warning,
+				dismiss: () => {
+					this.autoTrustedPublishersNotification = undefined;
+					this.updateExtensionsNotificaiton();
+				},
+				extensions: [],
+			};
+			this.extensionsNotification = {
+				...this.autoTrustedPublishersNotification,
+				key: 'autoTrustedPublishers',
+			};
+			this._onDidChangeExtensionsNotification.fire(this.extensionsNotification);
+		}
+	}
+
 	private onDidDismissedNotificationsValueChange(): void {
 		if (
 			this.dismissedNotificationsValue !== this.getDismissedNotificationsValue() /* This checks if current window changed the value or not */
@@ -1549,6 +1569,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 	}
 
 	private updateExtensionsNotificaiton(): void {
+		if (this.autoTrustedPublishersNotification) {
+			return;
+		}
+
 		const computedNotificiations = this.computeExtensionsNotifications();
 		const dismissedNotifications: string[] = [];
 
