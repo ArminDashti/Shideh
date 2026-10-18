@@ -212,6 +212,7 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 		const editorElement = dom.append(this.element, $('.interactive-result-editor'));
 		this.editor = this._register(scopedInstantiationService.createInstance(CodeEditorWidget, editorElement, {
 			...getSimpleEditorOptions(this.configurationService),
+			fixedOverflowWidgets: false,
 			readOnly: true,
 			lineNumbers: 'off',
 			selectOnLineNumbers: true,
@@ -224,6 +225,7 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 				alwaysConsumeMouseWheel: false
 			},
 			ariaLabel: localize('chat.codeBlockHelp', 'Code block'),
+			renderValidationDecorations: 'on',
 			...this.getEditorOptionsFromConfig()
 		}, {
 			isSimpleWidget: true,
@@ -236,6 +238,9 @@ class CodeBlockPart extends Disposable implements IChatResultCodeBlockPart {
 				ViewportSemanticTokensContribution.ID,
 				BracketMatchingController.ID,
 				SmartSelectController.ID,
+				MarkerController.ID,
+				MarkerDecorationsContribution.ID,
+				ModesHoverController.ID
 			])
 		}));
 
