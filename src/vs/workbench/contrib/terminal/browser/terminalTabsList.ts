@@ -353,7 +353,6 @@ class TerminalTabsRenderer implements ITreeRenderer<ITerminalInstance, void, ITe
 		private readonly _getSelection: () => ITerminalInstance[],
 		private readonly _getVisibilityState: ITerminalTabsRendererOptions,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ITerminalConfigurationService private readonly _terminalConfigurationService: ITerminalConfigurationService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@ITerminalGroupService private readonly _terminalGroupService: ITerminalGroupService,
 		@ITerminalEditingService private readonly _terminalEditingService: ITerminalEditingService,
