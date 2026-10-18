@@ -45,7 +45,7 @@ module.exports = async function (source, sourceMap, meta) {
 	const options = this.getOptions();
 	const callback = this.async();
 
-	const fileContentsMap = getMangledFileContents(options.configFile);
+	const fileContentsMap = await getMangledFileContents(options.configFile);
 
 	const newContents = fileContentsMap.get(this.resourcePath);
 	callback(null, newContents ?? source, sourceMap, meta);

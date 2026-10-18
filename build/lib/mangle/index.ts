@@ -3,9 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as ts from 'typescript';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
 import { argv } from 'process';
 
 class ShortIdent {
@@ -212,11 +211,12 @@ class ClassData {
 			}
 
 			return false;
-		});
+		};
+		const identPool = new ShortIdent('');
 
 		for (const [name, info] of data.fields) {
 			if (ClassData._shouldMangle(info.type)) {
-				const shortName = identPool.next();
+				const shortName = identPool.next(isNameTaken);
 				data.replacements.set(name, shortName);
 			}
 		}
@@ -386,57 +386,127 @@ class ConstData {
 
 class StaticLanguageServiceHost implements ts.LanguageServiceHost {
 
-	private readonly _cmdLine: ts.ParsedCommandLine;
-	private readonly _scriptSnapshots: Map<string, ts.IScriptSnapshot> = new Map();
+const fileIdents = new class {
+	private readonly idents = new ShortIdent('$');
 
-	constructor(readonly projectPath: string) {
-		const existingOptions: Partial<ts.CompilerOptions> = {};
-		const parsed = ts.readConfigFile(projectPath, ts.sys.readFile);
-		if (parsed.error) {
-			throw parsed.error;
+	next(file: ts.SourceFile) {
+		return this.idents.next(name => isNameTakenInFile(file, name));
+	}
+};
+
+const skippedExportMangledFiles = [
+	// Build
+	'css.build',
+	'nls.build',
+
+	// Monaco
+	'editorCommon',
+	'editorOptions',
+	'editorZoom',
+	'standaloneEditor',
+	'standaloneLanguages',
+
+	// Generated
+	'extensionsApiProposals',
+
+	// Module passed around as type
+	'pfs',
+
+	// entry points
+	...[
+		buildfile.entrypoint('vs/workbench/workbench.desktop.main', []),
+		buildfile.base,
+		buildfile.workerExtensionHost,
+		buildfile.workerNotebook,
+		buildfile.workerLanguageDetection,
+		buildfile.workerLocalFileSearch,
+		buildfile.workerProfileAnalysis,
+		buildfile.workbenchDesktop,
+		buildfile.workbenchWeb,
+		buildfile.code
+	].flat().map(x => x.name),
+];
+
+const skippedExportMangledProjects = [
+	// Test projects
+	'vscode-api-tests',
+
+	// These projects use webpack to dynamically rewrite imports, which messes up our mangling
+	'configuration-editing',
+	'microsoft-authentication',
+	'github-authentication',
+	'html-language-features/server',
+];
+
+class DeclarationData {
+
+	readonly replacementName: string;
+
+	constructor(
+		readonly fileName: string,
+		readonly node: ts.FunctionDeclaration | ts.ClassDeclaration
+	) {
+		this.replacementName = fileIdents.next(node.getSourceFile());
+	}
+
+	get locations(): Iterable<{ fileName: string; offset: number }> {
+		return [{
+			fileName: this.fileName,
+			offset: this.node.name!.getStart()
+		}];
+	}
+
+	shouldMangle(newName: string): boolean {
+		// New name is longer the existing one :'(
+		if (newName.length >= this.node.name!.getText().length) {
+			return false;
 		}
-		this._cmdLine = ts.parseJsonConfigFileContent(parsed.config, ts.sys, path.dirname(projectPath), existingOptions);
-		if (this._cmdLine.errors.length > 0) {
-			throw parsed.error;
+
+		// Don't mangle functions we've explicitly opted out
+		if (this.node.getFullText().includes('@skipMangle')) {
+			return false;
 		}
+
+		return true;
 	}
-	getCompilationSettings(): ts.CompilerOptions {
-		return this._cmdLine.options;
+}
+
+class ConstData {
+
+	readonly replacementName: string;
+
+	constructor(
+		readonly fileName: string,
+		readonly statement: ts.VariableStatement,
+		readonly decl: ts.VariableDeclaration,
+		private readonly service: ts.LanguageService,
+	) {
+		this.replacementName = fileIdents.next(statement.getSourceFile());
 	}
-	getScriptFileNames(): string[] {
-		return this._cmdLine.fileNames;
-	}
-	getScriptVersion(_fileName: string): string {
-		return '1';
-	}
-	getProjectVersion(): string {
-		return '1';
-	}
-	getScriptSnapshot(fileName: string): ts.IScriptSnapshot | undefined {
-		let result: ts.IScriptSnapshot | undefined = this._scriptSnapshots.get(fileName);
-		if (result === undefined) {
-			const content = ts.sys.readFile(fileName);
-			if (content === undefined) {
-				return undefined;
-			}
-			result = ts.ScriptSnapshot.fromString(content);
-			this._scriptSnapshots.set(fileName, result);
+
+	get locations(): Iterable<{ fileName: string; offset: number }> {
+		// If the const aliases any types, we need to rename those too
+		const definitionResult = this.service.getDefinitionAndBoundSpan(this.decl.getSourceFile().fileName, this.decl.name.getStart());
+		if (definitionResult?.definitions && definitionResult.definitions.length > 1) {
+			return definitionResult.definitions.map(x => ({ fileName: x.fileName, offset: x.textSpan.start }));
 		}
-		return result;
+
+		return [{ fileName: this.fileName, offset: this.decl.name.getStart() }];
 	}
-	getCurrentDirectory(): string {
-		return path.dirname(this.projectPath);
+
+	shouldMangle(newName: string): boolean {
+		// New name is longer the existing one :'(
+		if (newName.length >= this.decl.name.getText().length) {
+			return false;
+		}
+
+		// Don't mangle functions we've explicitly opted out
+		if (this.statement.getFullText().includes('@skipMangle')) {
+			return false;
+		}
+
+		return true;
 	}
-	getDefaultLibFileName(options: ts.CompilerOptions): string {
-		return ts.getDefaultLibFilePath(options);
-	}
-	directoryExists = ts.sys.directoryExists;
-	getDirectories = ts.sys.getDirectories;
-	fileExists = ts.sys.fileExists;
-	readFile = ts.sys.readFile;
-	readDirectory = ts.sys.readDirectory;
-	// this is necessary to make source references work.
-	realpath = ts.sys.realpath;
 }
 
 /**
@@ -454,9 +524,18 @@ export class Mangler {
 	private readonly allExportedDeclarationsByKey = new Map<string, DeclarationData | ConstData>();
 
 	private readonly service: ts.LanguageService;
+	private readonly renameWorkerPool: workerpool.WorkerPool;
 
-	constructor(readonly projectPath: string, readonly log: typeof console.log = () => { }) {
+	constructor(
+		private readonly projectPath: string,
+		private readonly log: typeof console.log = () => { }
+	) {
 		this.service = ts.createLanguageService(new StaticLanguageServiceHost(projectPath));
+
+		this.renameWorkerPool = workerpool.pool(path.join(__dirname, 'renameWorker.js'), {
+			maxWorkers: 2,
+			minWorkers: 'max'
+		});
 	}
 
 	computeNewFileContents(): Map<string, string> {
@@ -578,6 +657,8 @@ export class Mangler {
 		this.log(`done creating REPLACEMENTS`);
 
 		// STEP: prepare rename edits
+		this.log(`Starting prepare rename edits`);
+
 		type Edit = { newText: string; offset: number; length: number };
 		const editsByFile = new Map<string, Edit[]>();
 
@@ -598,7 +679,6 @@ export class Mangler {
 		};
 
 		for (const data of this.allClassDataByKey.values()) {
-
 			if (hasModifier(data.node, ts.SyntaxKind.DeclareKeyword)) {
 				continue;
 			}
@@ -684,6 +764,8 @@ export class Mangler {
 
 		this.log(`DONE saved ${savedBytes / 1000}kb`);
 		return result;
+
+
 	}
 }
 
@@ -697,7 +779,7 @@ function hasModifier(node: ts.Node, kind: ts.SyntaxKind) {
 
 async function _run() {
 
-	const projectPath = path.join(__dirname, '../../src/tsconfig.json');
+	const projectPath = path.join(__dirname, '../../../src/tsconfig.json');
 	const projectBase = path.dirname(projectPath);
 	const newProjectBase = path.join(path.dirname(projectBase), path.basename(projectBase) + '-mangle');
 
