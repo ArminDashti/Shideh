@@ -311,6 +311,8 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 		}
 	}
 
+	private static readonly THEME_MIGRATION_KEY = 'workbench.colorThemeDefaultMigrated';
+
 	/**
 	 * Migrates legacy theme setting values to their current equivalents,
 	 * writing back the migrated value so settings sync distributes the correct ID.
