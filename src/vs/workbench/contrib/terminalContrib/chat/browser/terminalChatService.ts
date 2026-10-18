@@ -110,7 +110,7 @@ export class TerminalChatService extends Disposable implements ITerminalChatServ
 		this._register(this._terminalService.onDidChangeInstances(() => this._updateHasToolTerminalContextKeys()));
 	}
 
-	registerTerminalInstanceWithToolSession(terminalToolSessionId: string | undefined, instance: ITerminalInstance, terminalCommandId?: string): void {
+	registerTerminalInstanceWithToolSession(terminalToolSessionId: string | undefined, instance: ITerminalInstance): void {
 		if (!terminalToolSessionId) {
 			this._logService.warn('Attempted to register a terminal instance with an undefined tool session ID');
 			return;

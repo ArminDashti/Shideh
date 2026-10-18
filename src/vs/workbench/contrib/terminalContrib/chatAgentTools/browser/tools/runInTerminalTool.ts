@@ -2216,7 +2216,6 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		const timingStart = Date.now();
 		const termId = generateUuid();
 		const terminalToolSessionId = (toolSpecificData as IChatTerminalToolInvocationData).terminalToolSessionId;
-		const terminalCommandId = (toolSpecificData as IChatTerminalToolInvocationData).terminalCommandId;
 
 		const store = new DisposableStore();
 

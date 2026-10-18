@@ -103,6 +103,7 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 	private _dataFilter: SeamlessRelaunchDataFilter;
 	private _processListeners?: IDisposable[];
 	private _isDisconnected: boolean = false;
+	private _hasLoggedSetNextCommandIdFallback = false;
 
 	private _processTraits: IProcessReadyEvent | undefined;
 	private _shellLaunchConfig?: IShellLaunchConfig;
