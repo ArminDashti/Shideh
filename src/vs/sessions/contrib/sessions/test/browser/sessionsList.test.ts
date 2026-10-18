@@ -3821,7 +3821,7 @@ suite('Sessions - SessionsList', () => {
 			readonly sortChanges: readonly ISortChangeRecord[];
 		}
 
-		function renderGroupedList(sessions: ISession[], memberships: Map<string, string>): IDropHarness {
+		function renderGroupedList(sessions: ISession[], memberships: Map<string, string>, configuration = new TestConfigurationService({ [NESTED_SESSIONS_SETTING]: true })): IDropHarness {
 			const removedFromGroup: string[] = [];
 			const addedToGroup: string[] = [];
 			const onDidChange = disposables.add(new Emitter<ISessionGroupsChangeEvent>());
@@ -3851,7 +3851,7 @@ suite('Sessions - SessionsList', () => {
 						onDidChange.fire({ groupsChanged: false, membershipChanged: new Set([sessionId]) });
 					}
 				});
-			});
+			}, configuration);
 			const container = harness.createContainer();
 			const list = harness.store.add(harness.instantiationService.createInstance(SessionsList, container, {
 				grouping: () => SessionsGrouping.Workspace,

@@ -32,7 +32,7 @@ import { SessionView } from '../../../../browser/parts/sessionView.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
 import { IActiveSession, ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 import { ChatInteractivity, IChat, ISession, SessionStatus } from '../../../../services/sessions/common/session.js';
-import { ArchiveSessionAction } from '../../browser/views/sessionsViewActions.js';
+import { ArchiveSessionAction, MarkSessionAsDoneAction } from '../../browser/views/sessionsViewActions.js';
 import { ISessionChatItem, SessionsList, SessionsListFocusedChatItemContext } from '../../browser/views/sessionsList.js';
 import { SessionsView, SessionsViewId } from '../../browser/views/sessionsView.js';
 import { createTestSession, TestSessionsManagementService } from './sessionsListTestUtils.js';
@@ -219,6 +219,12 @@ suite('Sessions - Session management actions', () => {
 		instantiationService.stub(IQuickInputService, upcastPartial<IQuickInputService>({
 			input: async () => 'Renamed',
 		}));
+		instantiationService.stub(IDialogService, new class extends mock<IDialogService>() {
+			override async confirm(confirmation: IConfirmation): Promise<IConfirmationResult> {
+				confirmations.push(confirmation);
+				return confirmationResult;
+			}
+		}());
 
 		return { instantiationService, managementService, dialogService, inlineRenamedSessions, inlineRenamedChats, inlineRenamedTabs, inlineRenamedFocusedTabs: () => inlineRenamedFocusedTabs };
 	}

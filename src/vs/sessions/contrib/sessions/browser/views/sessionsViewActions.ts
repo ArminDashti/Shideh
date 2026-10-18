@@ -1224,7 +1224,7 @@ registerAction2(class ImportSessionAction extends Action2 {
 });
 
 abstract class BaseArchiveSessionAction extends Action2 {
-	constructor(wording: ChatSessionArchiveActionWording) {
+	constructor(private readonly wording: ChatSessionArchiveActionWording) {
 		const action = getChatSessionArchiveActionPresentation(wording).archive;
 		super({
 			id: 'sessionsViewPane.archiveSession',
@@ -1253,7 +1253,7 @@ abstract class BaseArchiveSessionAction extends Action2 {
 			}]
 		});
 	}
-	async run(accessor: ServicesAccessor, context?: ISession | ISession[]): Promise<void> {
+	async run(accessor: ServicesAccessor, context?: ISession | ISession[]): Promise<boolean> {
 		const targets = context
 			? (Array.isArray(context) ? context : [context])
 			: getFocusedSessionListTargets(accessor) ?? [];
@@ -1269,7 +1269,7 @@ export class ArchiveSessionAction extends BaseArchiveSessionAction {
 	}
 }
 
-class MarkSessionAsDoneAction extends BaseArchiveSessionAction {
+export class MarkSessionAsDoneAction extends BaseArchiveSessionAction {
 	constructor() {
 		super(ChatSessionArchiveActionWording.MarkAsDone);
 	}

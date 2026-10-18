@@ -5,6 +5,8 @@
 
 import type { SessionConfigState } from '../../platform/agentHost/common/state/protocol/state.js';
 
+export const NESTED_SESSIONS_SETTING = 'sessions.list.nestedSessions';
+
 export const USE_WORKTREE_SETTING = 'sessions.useWorktree';
 
 export const USE_WORKTREE_SETTING_TREATMENT = 'agentSessionsUseWorktree';

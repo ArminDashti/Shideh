@@ -7,15 +7,22 @@ import '../media/sessionsList.css';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { renderAsPlaintext } from '../../../../../base/browser/markdownRenderer.js';
 import { pauseCSSAnimationsWhenHidden, synchronizeCSSAnimations } from '../../../../../base/browser/animationSync.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { Gesture } from '../../../../../base/browser/touch.js';
+import { Button } from '../../../../../base/browser/ui/button/button.js';
+import { HighlightedLabel } from '../../../../../base/browser/ui/highlightedlabel/highlightedLabel.js';
+import { HoverStyle } from '../../../../../base/browser/ui/hover/hover.js';
+import { getDefaultHoverDelegate } from '../../../../../base/browser/ui/hover/hoverDelegateFactory.js';
+import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
+import { InputBox } from '../../../../../base/browser/ui/inputbox/inputBox.js';
 import { IListVirtualDelegate, ListDragOverEffectPosition, ListDragOverEffectType, NotSelectableGroupId } from '../../../../../base/browser/ui/list/list.js';
 import { IListStyles } from '../../../../../base/browser/ui/list/listWidget.js';
 import { IObjectTreeElement, ITreeNode, ITreeRenderer, ITreeContextMenuEvent, ObjectTreeElementCollapseState, ITreeDragAndDrop, ITreeDragOverReaction } from '../../../../../base/browser/ui/tree/tree.js';
 import { LabelFuzzyScore, RenderIndentGuides, TreeFindMode } from '../../../../../base/browser/ui/tree/abstractTree.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { fromNow } from '../../../../../base/common/date.js';
 import { onUnexpectedError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { HighlightedLabel } from '../../../../../base/browser/ui/highlightedlabel/highlightedLabel.js';
 import { createMatches, FuzzyScore, IMatch } from '../../../../../base/common/filters.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
@@ -28,6 +35,8 @@ import { fromNow } from '../../../../../base/common/date.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { OS } from '../../../../../base/common/platform.js';
 import { isEqual } from '../../../../../base/common/resources.js';
+import { themeColorFromId, ThemeIcon } from '../../../../../base/common/themables.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { MenuId, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { MenuWorkbenchToolBar } from '../../../../../platform/actions/browser/toolbar.js';
@@ -117,7 +126,15 @@ import { createSessionSummaryHover, getChatSummaryHoverData, getSessionDiffStats
 import { SessionStatusIcon } from '../../../../browser/sessionStatusIcon.js';
 import { ChatAutomationsEnabledContext } from '../../../../../workbench/contrib/chat/common/automations/automationsEnabled.js';
 import { IAutomationService } from '../../../../../workbench/contrib/chat/common/automations/automationService.js';
+import { DraggedSessionIdentifier, fillSessionChatDragData, SessionsDataTransfers } from '../../../../browser/dnd.js';
+import { Menus } from '../../../../browser/menus.js';
+import { getAgentMergeAwarePullRequestIcon, getSessionAgentMergeConfigurationObservable, isAgentMergePullRequestIcon, ISessionAgentMergeConfiguration } from '../../../../browser/sessionAgentMerge.js';
+import { getSessionConversationStatusAriaLabel } from '../../../../browser/sessionConversationGroups.js';
+import { SessionStatusIcon } from '../../../../browser/sessionStatusIcon.js';
+import { IAgentHostFilterService } from '../../../../services/agentHostFilter/common/agentHostFilter.js';
 import { ICustomViewService } from '../../../../services/customView/browser/customViewService.js';
+import { ISessionsProvidersService } from '../../../../services/sessions/browser/sessionsProvidersService.js';
+import { BlockedSessionReason, BlockedSessions } from '../../../blockedSessions/browser/blockedSessions.js';
 import { AUTOMATIONS_CUSTOM_VIEW_ID } from '../automationsConstants.js';
 import { AutomationsNewBadgeState, type AutomationsNewBadgeStyle } from '../automationsNewBadge.js';
 import { OPEN_AI_CUSTOMIZATIONS_COMMAND_ID } from '../customizationsConstants.js';
@@ -283,6 +300,39 @@ interface ISessionHierarchy {
 
 	/** If B and C are directly under A, A.sessionId maps to [B, C] in display order. Sessions without child sessions have no entry. */
 	readonly childrenByParentSessionId: ReadonlyMap<ISession['sessionId'], readonly ISession[]>;
+}
+
+/**
+ * Displayed parent/child links between full sessions, after filtering and placement rules.
+ * Chats and section headers are not included.
+ */
+interface ISessionHierarchy {
+	/** If session B is directly under session A, B.sessionId maps to the session object A. Top-level sessions have no entry. */
+	readonly parentByChildSessionId: ReadonlyMap<ISession['sessionId'], ISession>;
+
+	/** If B and C are directly under A, A.sessionId maps to [B, C] in display order. Sessions without child sessions have no entry. */
+	readonly childrenByParentSessionId: ReadonlyMap<ISession['sessionId'], readonly ISession[]>;
+}
+
+const EMPTY_SESSION_HIERARCHY: ISessionHierarchy = {
+	parentByChildSessionId: new Map(),
+	childrenByParentSessionId: new Map(),
+};
+
+function withSessionDescendants(sessions: readonly ISession[], hierarchy: ISessionHierarchy): ISession[] {
+	const result: ISession[] = [];
+	const append = (items: readonly ISession[]): void => {
+		for (const session of items) {
+			result.push(session);
+			const children = hierarchy.childrenByParentSessionId.get(session.sessionId);
+			if (children === undefined) {
+				continue;
+			}
+			append(children);
+		}
+	};
+	append(sessions);
+	return result;
 }
 
 function isSessionChatItem(item: SessionListItem): item is ISessionChatItem {
@@ -4222,6 +4272,8 @@ export interface ISessionsList {
 	 * Sessions hidden by section capping ("show more") are excluded.
 	 */
 	getVisibleSessions(): readonly ISession[];
+	/** Nested full sessions in the current hierarchy, including collapsed descendants but not peer chats. */
+	getNestedSessions(session: ISession): readonly ISession[];
 	clearFocus(): void;
 	hasFocusOrSelection(): boolean;
 	setVisible(visible: boolean): void;
@@ -6031,6 +6083,11 @@ export class SessionsList extends Disposable implements ISessionsList {
 		}
 		this.tree.setFocus([chatItem]);
 		this.tree.setSelection([chatItem]);
+	}
+
+	getNestedSessions(session: ISession): readonly ISession[] {
+		const hierarchy = this.hierarchy.get();
+		return withSessionDescendants(hierarchy.childrenByParentSessionId.get(session.sessionId) ?? [], hierarchy);
 	}
 
 	getVisibleSessions(): readonly ISession[] {
