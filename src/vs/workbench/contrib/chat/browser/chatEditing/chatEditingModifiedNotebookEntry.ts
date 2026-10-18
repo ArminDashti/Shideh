@@ -11,6 +11,7 @@ import { ResourceMap, ResourceSet, setsEqual } from '../../../../../base/common/
 import { Schemas } from '../../../../../base/common/network.js';
 import { autorun, IObservable, ITransaction, ObservablePromise, observableValue, transaction } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
+import { themeColorFromId } from '../../../../../base/common/themables.js';
 import { assertType } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
