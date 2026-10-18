@@ -26,6 +26,9 @@ export class TextMateTokenizationSupport extends Disposable implements ITokeniza
 		private readonly _reportSlowTokenization: boolean,
 	) {
 		super();
+		console.log('TextMateTokenizationSupport.constructor');
+		console.log('this._grammar: ', this._grammar);
+		console.log('this._initialState: ', this._initialState);
 	}
 
 	public get backgroundTokenizerShouldOnlyVerifyTokens(): boolean | undefined {
