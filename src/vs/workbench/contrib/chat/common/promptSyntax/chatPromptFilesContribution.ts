@@ -113,6 +113,9 @@ export class ChatPromptFilesExtensionPointHandler implements IWorkbenchContribut
 
 	constructor(
 		@IPromptsService private readonly promptsService: IPromptsService,
+		@IFileService private readonly fileService: IFileService,
+		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
+		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 	) {
 		this.handle(epPrompt, ChatContributionPoint.chatPromptFiles);
 		this.handle(epInstructions, ChatContributionPoint.chatInstructions);
@@ -151,6 +154,88 @@ export class ChatPromptFilesExtensionPointHandler implements IWorkbenchContribut
 				const type = pointToType(contributionPoint);
 				for (const raw of ext.value) {
 					this.registrations.deleteAndDispose(key(ext.description.identifier, type, raw.path));
+				}
+			}
+		});
+	}
+
+	private handleFolders(extensionPoint: extensionsRegistry.IExtensionPoint<IRawChatFolderContribution[]>, contributionPoint: ChatFolderContributionPoint) {
+		extensionPoint.setHandler((_extensions, delta) => {
+			for (const ext of delta.added) {
+				const type = folderPointToType(contributionPoint);
+				const fileExtension = getFileExtension(type);
+				for (const raw of ext.value) {
+					if (!raw.path) {
+						ext.collector.error(localize('extension.missing.folder.path', "Extension '{0}' cannot register {1} entry without path.", ext.description.identifier.value, contributionPoint));
+						continue;
+					}
+
+					// Handle pathType resolution and scan directory
+					const pathType = raw.pathType || 'extension';
+					const dirUri = this.resolvePathUri(raw.path, raw.pathType, ext.description);
+					const baseUri = pathType === 'storageUri' ? undefined : ext.description.extensionLocation;
+
+					// Only validate extension-relative paths
+					if (baseUri && !isEqualOrParent(dirUri, baseUri)) {
+						ext.collector.error(localize('extension.invalid.folder.path', "Extension '{0}' {1} entry path '{2}' resolves outside the extension.", ext.description.identifier.value, contributionPoint, raw.path));
+						continue;
+					}
+
+					// Scan directory asynchronously
+					(async () => {
+						try {
+							// Check if directory exists
+							const stat = await this.fileService.resolve(dirUri);
+							if (!stat.isDirectory) {
+								ext.collector.error(localize('extension.not.folder', "Extension '{0}' {1} entry path '{2}' is not a directory.", ext.description.identifier.value, contributionPoint, raw.path));
+								return;
+							}
+
+							// Check if the folder prefix still exists in registrations (extension not removed)
+							const folderPrefix = key(ext.description.identifier, type, raw.path, true);
+							const extensionStillActive = Array.from(this.registrations.keys()).some(k => k.startsWith(folderPrefix.slice(0, folderPrefix.lastIndexOf('/', folderPrefix.length - 2) + 1)));
+							if (!extensionStillActive) {
+								// Extension was removed while we were scanning
+								return;
+							}
+
+							// Scan directory for files with matching extension
+							if (stat.children) {
+								for (const child of stat.children) {
+									if (child.isFile && child.name.endsWith(fileExtension)) {
+										const fileName = child.name;
+										const name = fileName.slice(0, -fileExtension.length);
+
+										try {
+											const description = localize('extension.folder.file.description', "Contributed from folder: {0}", raw.path);
+											const uniqueName = `${raw.path}/${name}`;
+											const sourceType = raw.external === true ? ExtensionAgentSourceType.externalContribution : ExtensionAgentSourceType.contribution;
+											const d = this.promptsService.registerContributedFile(type, uniqueName, description, child.resource, ext.description, sourceType);
+											this.registrations.set(key(ext.description.identifier, type, uniqueName), d);
+										} catch (e) {
+											const msg = e instanceof Error ? e.message : String(e);
+											ext.collector.error(localize('extension.folder.file.registration.failed', "Failed to register file '{0}' from {1} folder '{2}': {3}", fileName, contributionPoint, raw.path, msg));
+										}
+									}
+								}
+							}
+						} catch (e) {
+							const msg = e instanceof Error ? e.message : String(e);
+							ext.collector.error(localize('extension.folder.scan.failed', "Failed to scan {0} folder '{1}': {2}", contributionPoint, raw.path, msg));
+						}
+					})();
+				}
+			}
+			for (const ext of delta.removed) {
+				const type = folderPointToType(contributionPoint);
+				for (const raw of ext.value) {
+					// Remove all files registered from this folder using exact prefix matching
+					const folderPrefix = key(ext.description.identifier, type, raw.path, true);
+					for (const [regKey,] of this.registrations) {
+						if (regKey.startsWith(folderPrefix)) {
+							this.registrations.deleteAndDispose(regKey);
+						}
+					}
 				}
 			}
 		});
