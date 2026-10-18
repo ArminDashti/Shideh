@@ -66,12 +66,13 @@ function createESMSourcesAndResources(options) {
                 if (importedFilepath === path.dirname(file)) {
                     relativePath = '../' + path.basename(path.dirname(file));
                 }
-                else if (importedFilepath === path.dirname(path.dirname(file))) {
+                else if (importedFilepath === path.dirname(path.dirname(file)).replace(/\\/g, '/')) {
                     relativePath = '../../' + path.basename(path.dirname(path.dirname(file)));
                 }
                 else {
                     relativePath = path.relative(path.dirname(file), importedFilepath);
                 }
+                relativePath = relativePath.replace(/\\/g, '/');
                 if (!/(^\.\/)|(^\.\.\/)/.test(relativePath)) {
                     relativePath = './' + relativePath;
                 }
