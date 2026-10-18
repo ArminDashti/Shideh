@@ -65,7 +65,7 @@ export class ExtHostSearch implements IExtHostSearch {
 		return this._uriTransformer.transformOutgoingScheme(scheme);
 	}
 
-	registerTextSearchProviderOld(scheme: string, provider: vscode.TextSearchProvider): IDisposable {
+	registerTextSearchProviderOld(scheme: string, provider: vscode.TextSearchProviderOld): IDisposable {
 		if (this._textSearchUsedSchemes.has(scheme)) {
 			throw new Error(`a text search provider for the scheme '${scheme}' is already registered`);
 		}
@@ -113,7 +113,7 @@ export class ExtHostSearch implements IExtHostSearch {
 		});
 	}
 
-	registerFileSearchProviderOld(scheme: string, provider: vscode.FileSearchProvider): IDisposable {
+	registerFileSearchProviderOld(scheme: string, provider: vscode.FileSearchProviderOld): IDisposable {
 		if (this._fileSearchUsedSchemes.has(scheme)) {
 			throw new Error(`a file search provider for the scheme '${scheme}' is already registered`);
 		}

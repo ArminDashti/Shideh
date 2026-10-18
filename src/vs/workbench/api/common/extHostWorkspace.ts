@@ -938,12 +938,19 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 				token) || {}
 			) ?? []);
 			delete this._activeSearchCallbacks[requestId];
-			return result.reduce((acc, val) => {
-				return {
+
+
+			let acc: vscode.TextSearchComplete = { limitHit: false };
+			for (const val of result) {
+				const message = val?.message ? (Array.isArray(val.message) ? val.message : [val.message]) : [];
+
+				acc = {
 					limitHit: acc?.limitHit || (val?.limitHit ?? false),
-					message: [acc?.message ?? [], val?.message ?? []].flat(),
+					message,
 				};
-			}, {}) ?? { limitHit: false };
+			}
+
+			return acc;
 
 		} catch (err) {
 			delete this._activeSearchCallbacks[requestId];
@@ -951,7 +958,7 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 		}
 	}
 
-	async findTextInFiles(query: vscode.TextSearchQuery, options: vscode.FindTextInFilesOptions & { useSearchExclude?: boolean }, callback: (result: vscode.TextSearchResult) => void, extensionId: ExtensionIdentifier, token: vscode.CancellationToken = CancellationToken.None): Promise<vscode.TextSearchComplete> {
+	async findTextInFiles(query: vscode.TextSearchQuery, options: vscode.FindTextInFilesOptionsOld & { useSearchExclude?: boolean }, callback: (result: vscode.TextSearchResultOld) => void, extensionId: ExtensionIdentifier, token: vscode.CancellationToken = CancellationToken.None): Promise<vscode.TextSearchComplete> {
 		this._logService.trace(`extHostWorkspace#findTextInFiles: textSearch, extension: ${extensionId.value}, entryPoint: findTextInFiles`);
 
 		const previewOptions: vscode.TextSearchPreviewOptions = typeof options.previewOptions === 'undefined' ?
@@ -994,13 +1001,13 @@ export class ExtHostWorkspace implements ExtHostWorkspaceShape, IExtHostWorkspac
 					ranges: mapArrayOrNot(
 						result.rangeLocations,
 						r => new Range(r.source.startLineNumber, r.source.startColumn, r.source.endLineNumber, r.source.endColumn))
-				} satisfies vscode.TextSearchMatch);
+				} satisfies vscode.TextSearchMatchOld);
 			} else {
 				callback({
 					uri,
 					text: result.text,
 					lineNumber: result.lineNumber
-				} satisfies vscode.TextSearchContext);
+				} satisfies vscode.TextSearchContextOld);
 			}
 		};
 

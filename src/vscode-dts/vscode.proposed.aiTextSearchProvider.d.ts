@@ -7,7 +7,7 @@ declare module 'vscode' {
 	/**
 	 * An AITextSearchProvider provides additional AI text search results in the workspace.
 	 */
-	export interface AITextSearchProvider {
+	export interface AITextSearchProviderOld {
 		/**
 		 * The name of the AI searcher. Will be displayed as `{name} Results` in the Search View.
 		 */
@@ -34,6 +34,6 @@ declare module 'vscode' {
 		 * @param provider The provider.
 		 * @return A {@link Disposable} that unregisters this provider when being disposed.
 		 */
-		export function registerAITextSearchProvider(scheme: string, provider: AITextSearchProvider): Disposable;
+		export function registerAITextSearchProvider(scheme: string, provider: AITextSearchProviderOld): Disposable;
 	}
 }
