@@ -521,6 +521,7 @@ export interface IBrowserViewModel extends IDisposable {
 	captureScreenshot(options?: IBrowserViewCaptureScreenshotOptions): Promise<VSBuffer>;
 	getAccessibilitySnapshot(): Promise<IBrowserViewAccessibilitySnapshot>;
 	focus(force?: boolean): Promise<void>;
+	getMediaSourceId(): Promise<string>;
 	findInPage(text: string, options?: IBrowserViewFindInPageOptions): Promise<void>;
 	stopFindInPage(keepSelection?: boolean): Promise<void>;
 	getSelectedText(): Promise<string>;
@@ -966,6 +967,10 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 
 	async focus(force?: boolean): Promise<void> {
 		return this.browserViewService.focus(this.id, force);
+	}
+
+	async getMediaSourceId(): Promise<string> {
+		return this.browserViewService.getMediaSourceId(this.id);
 	}
 
 	async findInPage(text: string, options?: IBrowserViewFindInPageOptions): Promise<void> {
