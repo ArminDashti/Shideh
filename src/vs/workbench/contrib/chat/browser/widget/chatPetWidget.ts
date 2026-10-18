@@ -335,6 +335,8 @@ export function getChatPetSpriteName(state: ChatPetState, quality: string | unde
 		case 'rendering':
 		case 'achievementUnlocked':
 			return `buddy-rendering-${variant}`;
+		case 'complete':
+			return `buddy-complete-${variant}`;
 		case 'yappingMouthOpen':
 			return `buddy-yapping-${variant}`;
 		case 'sing':
@@ -365,6 +367,8 @@ export function getChatPetFrameDurations(state: ChatPetState): readonly number[]
 		case 'rendering':
 		case 'achievementUnlocked':
 			return IDLE_FRAME_DURATIONS;
+		case 'complete':
+			return COMPLETE_FRAME_DURATIONS;
 		case 'clapping':
 			return CLAPPING_FRAME_DURATIONS;
 		case 'love':
