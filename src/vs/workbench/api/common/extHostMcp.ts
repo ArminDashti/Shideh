@@ -30,6 +30,10 @@ import * as Convert from './extHostTypeConverters.js';
 import { McpHttpServerDefinition, McpStdioServerDefinition, McpToolAvailability } from './extHostTypes.js';
 import { IExtHostVariableResolverProvider } from './extHostVariableResolverService.js';
 import { IExtHostWorkspace } from './extHostWorkspace.js';
+import { Schemas } from '../../../base/common/network.js';
+import { IExtHostFileSystemInfo } from './extHostFileSystemInfo.js';
+import { IExtHostConsumerFileSystem } from './extHostFileSystemConsumer.js';
+import { McpPackageKind } from './extHostTypes.js';
 
 export const IExtHostMpcService = createDecorator<IExtHostMpcService>('IExtHostMpcService');
 
@@ -69,6 +73,7 @@ export class ExtHostMcpService extends Disposable implements IExtHostMpcService 
 	private readonly _initialProviderPromises = new Set<Promise<void>>();
 	protected readonly _sseEventSources = this._register(new DisposableMap<number, McpHTTPHandle>());
 	private readonly _unresolvedMcpServers = new Map</* collectionId */ string, {
+		extension: IExtensionDescription;
 		provider: vscode.McpServerDefinitionProvider;
 		servers: vscode.McpServerDefinition[];
 	}>();
@@ -90,6 +95,8 @@ export class ExtHostMcpService extends Disposable implements IExtHostMpcService 
 		@IExtHostInitDataService private readonly _extHostInitData: IExtHostInitDataService,
 		@IExtHostWorkspace protected readonly _workspaceService: IExtHostWorkspace,
 		@IExtHostVariableResolverProvider private readonly _variableResolver: IExtHostVariableResolverProvider,
+		@IExtHostFileSystemInfo private readonly _extHostFileSystemInfo: IExtHostFileSystemInfo,
+		@IExtHostConsumerFileSystem private readonly _extHostConsumerFileSystem: IExtHostConsumerFileSystem,
 	) {
 		super();
 		this._proxy = extHostRpc.getProxy(MainContext.MainThreadMcp);
@@ -159,11 +166,11 @@ export class ExtHostMcpService extends Disposable implements IExtHostMpcService 
 			return;
 		}
 		if (!rec.provider.resolveMcpServerDefinition) {
-			return Convert.McpServerDefinition.from(server);
+			return this._resolveMcpServerLaunch(server, rec.extension);
 		}
 
 		const resolved = await rec.provider.resolveMcpServerDefinition(server, CancellationToken.None);
-		return resolved ? Convert.McpServerDefinition.from(resolved) : undefined;
+		return resolved ? this._resolveMcpServerLaunch(resolved, rec.extension) : undefined;
 	}
 
 	/** {@link vscode.lm.registerMcpServerDefinitionProvider} */
@@ -187,7 +194,7 @@ export class ExtHostMcpService extends Disposable implements IExtHostMpcService 
 
 		const update = async () => {
 			const list = await provider.provideMcpServerDefinitions(CancellationToken.None);
-			this._unresolvedMcpServers.set(mcp.id, { servers: list ?? [], provider });
+			this._unresolvedMcpServers.set(mcp.id, { servers: list ?? [], provider, extension });
 
 			const servers: McpServerDefinition.Serialized[] = [];
 			for (const item of list ?? []) {
