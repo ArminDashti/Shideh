@@ -3842,7 +3842,7 @@ function _logChangesToStateModel(newState: Partial<IChatModelInputState> | undef
 }
 
 export function logChangesToStateModel(model: IInputModel | undefined, message: string, newState: Partial<IChatModelInputState> | undefined, oldState: Partial<IChatModelInputState> | undefined, logger: ILogService) {
-	if (!canLog(logger.getLevel(), LogLevel.Debug)) {
+	if (!canLog(logger.getLevel(), LogLevel.Info)) {
 		return;
 	}
 	message = [message,
@@ -3852,5 +3852,5 @@ export function logChangesToStateModel(model: IInputModel | undefined, message: 
 		new Error().stack
 	].join(', ');
 
-	logger.debug(`[ChatModelChanged] Chat Model Changed,${message}`);
+	logger.info(`[ChatModelChanged] Chat Model Changed,${message}`);
 }
