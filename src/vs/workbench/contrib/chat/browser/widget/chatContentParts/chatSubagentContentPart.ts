@@ -1529,6 +1529,12 @@ export class ChatSubagentContentPart extends ChatThinkingStyleContentPart implem
 			if (result.disposable) {
 				this._register(result.disposable);
 			}
+		} else if (item.kind === 'hook') {
+			const result = item.lazy.value;
+			this.appendHookItemToDOM(result.domNode, item.hookPart);
+			if (result.disposable) {
+				this._register(result.disposable);
+			}
 		}
 	}
 

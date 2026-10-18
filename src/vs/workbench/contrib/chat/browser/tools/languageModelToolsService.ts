@@ -543,6 +543,23 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 			this._logService.debug(`[LanguageModelToolsService#invokeTool] PostToolUse hook blocked for tool ${dto.toolId}: ${hookReason}`);
 			const blockMessage = localize('postToolUseHookBlockedContext', "The PostToolUse hook blocked this tool result. Reason: {0}", hookReason);
 			toolResult.content.push({ kind: 'text', value: '\n<PostToolUse-context>\n' + blockMessage + '\n</PostToolUse-context>' });
+
+			// Emit a hook part for the UI to render the block details
+			if (dto.context?.sessionResource) {
+				const model = this._chatService.getSession(dto.context.sessionResource);
+				const request = model?.getRequests().at(-1);
+				if (request) {
+					const toolData = this._tools.get(dto.toolId)?.data;
+					const hookPart: IChatHookPart = {
+						kind: 'hook',
+						hookType: HookType.PostToolUse,
+						stopReason: hookReason,
+						toolDisplayName: toolData?.displayName,
+						subAgentInvocationId: dto.subAgentInvocationId,
+					};
+					this._chatService.appendProgress(request, hookPart);
+				}
+			}
 		}
 
 		if (hookResult?.additionalContext) {
