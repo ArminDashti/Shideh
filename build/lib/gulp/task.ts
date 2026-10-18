@@ -99,6 +99,10 @@ async function _execute(task: Task): Promise<void> {
 	await _doExecute(task);
 	const elapsedArr = process.hrtime(startTime);
 	const elapsedNanoseconds = (elapsedArr[0] * 1e9 + elapsedArr[1]);
+	if (task._options?.memoryTracking) {
+		util.printMemoryStats(name);
+	}
+
 	if (!task._tasks) {
 		fancyLog(`Finished`, ansiColors.cyan(name), 'after', ansiColors.magenta(_renderTime(elapsedNanoseconds / 1e6)));
 	}

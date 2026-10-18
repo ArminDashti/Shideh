@@ -8,6 +8,8 @@ import _debounce from 'debounce';
 import { filter as _filter, rename } from './gulp/facade.ts';
 import path from 'path';
 import fs from 'fs';
+import * as os from 'os';
+import * as v8 from 'v8';
 import _rimraf from 'rimraf';
 import VinylFile from 'vinyl';
 import through from 'through';

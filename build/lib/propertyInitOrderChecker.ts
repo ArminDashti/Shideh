@@ -64,6 +64,8 @@ for (const file of program.getSourceFiles()) {
 	visit(file);
 }
 
+util.printMemoryStats('propertyInitOrderChecker');
+
 if (seenFiles.size) {
 	console.log();
 	console.log(`Found ${errorCount} error${errorCount === 1 ? '' : 's'} in ${seenFiles.size} file${seenFiles.size === 1 ? '' : 's'}.`);

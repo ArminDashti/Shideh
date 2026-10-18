@@ -55,5 +55,8 @@ if (import.meta.main) {
 		console.error();
 		console.error(err);
 		process.exit(1);
+	}).on('end', async () => {
+		util.printMemoryStats('eslint');
+		process.exit(0);
 	});
 }
