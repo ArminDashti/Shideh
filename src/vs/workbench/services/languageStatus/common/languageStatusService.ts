@@ -41,9 +41,13 @@ export interface ILanguageStatusService {
 
 	readonly onDidChange: Event<void>;
 
+	onDidChangeBusy: Event<ILanguageStatus>;
+
 	addStatus(status: ILanguageStatus): IDisposable;
 
 	getLanguageStatus(model: ITextModel): ILanguageStatus[];
+
+	isBusy(status: ILanguageStatus): boolean;
 }
 
 
@@ -55,8 +59,45 @@ class LanguageStatusServiceImpl implements ILanguageStatusService {
 
 	readonly onDidChange = Event.map(this._provider.onDidChange, () => undefined);
 
+	private readonly _busyStatus = new Map<ILanguageStatus, number>();
+	private readonly _onDidChangeBusy = new Emitter<ILanguageStatus>();
+	readonly onDidChangeBusy: Event<ILanguageStatus> = this._onDidChangeBusy.event;
+
+	constructor(@IProgressService private readonly _progressService: IProgressService) { }
+
+
+	isBusy(status: ILanguageStatus): boolean {
+		return (this._busyStatus.get(status) ?? 0) > 0;
+	}
+
 	addStatus(status: ILanguageStatus): IDisposable {
-		return this._provider.register(status.selector, status);
+		const d1 = this._provider.register(status.selector, status);
+		const d2 = this._progressService.registerProgressLocation(status.id, {
+			startProgress: () => {
+				let value = this._busyStatus.get(status);
+				if (value === undefined) {
+					this._busyStatus.set(status, 1);
+					this._onDidChangeBusy.fire(status);
+				} else {
+					this._busyStatus.set(status, value + 1);
+				}
+				return {
+					progress: new Progress(_data => { }),
+					stop: () => {
+						let value = this._busyStatus.get(status);
+						if (value !== undefined) {
+							if (value === 1) {
+								this._busyStatus.delete(status);
+								this._onDidChangeBusy.fire(status);
+							} else {
+								this._busyStatus.set(status, value - 1);
+							}
+						}
+					}
+				};
+			}
+		});
+		return combinedDisposable(d1, d2);
 	}
 
 	getLanguageStatus(model: ITextModel): ILanguageStatus[] {

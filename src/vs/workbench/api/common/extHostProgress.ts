@@ -24,7 +24,6 @@ export class ExtHostProgress implements ExtHostProgressShape {
 
 	private _proxy: MainThreadProgressShape;
 	private _handles: number = 0;
-	private _mapHandleToCancellationSource: Map<number, CancellationTokenSource> = new Map();
 
 	constructor(@IExtHostRpcService extHostRpc: IExtHostRpcService) {
 		this._proxy = extHostRpc.getProxy(MainContext.MainThreadProgress);
@@ -69,7 +68,7 @@ export class ExtHostProgress implements ExtHostProgressShape {
 			throw err;
 		}
 
-		p.then(result => progressEnd(handle), err => progressEnd(handle));
+		Promise.resolve(p).finally(() => progressEnd(handle));
 		return p;
 	}
 

@@ -26,9 +26,11 @@ import { IUserActivityService } from '../../userActivity/common/userActivityServ
 import { createWorkbenchDialogOptions } from '../../../browser/parts/dialogs/dialog.js';
 import { IHostService } from '../../host/browser/host.js';
 
-export class ProgressService extends Disposable implements IProgressService {
+export class ProgressService implements IProgressService {
 
 	declare readonly _serviceBrand: undefined;
+
+	private readonly customProgessLocations = new Map<string, ICustomProgressLocation>();
 
 	constructor(
 		@IActivityService private readonly activityService: IActivityService,
@@ -42,7 +44,15 @@ export class ProgressService extends Disposable implements IProgressService {
 		@IUserActivityService private readonly userActivityService: IUserActivityService,
 		@IHostService private readonly hostService: IHostService,
 	) {
-		super();
+
+	}
+
+	registerProgressLocation(location: string, handle: ICustomProgressLocation): IDisposable {
+		if (this.customProgessLocations.has(location)) {
+			throw new Error(`${location} already used`);
+		}
+		this.customProgessLocations.set(location, handle);
+		return toDisposable(() => this.customProgessLocations.delete(location));
 	}
 
 	async withProgress<R = unknown>(options: IProgressOptions, originalTask: (progress: IProgress<IProgressStep>) => Promise<R>, onDidCancel?: (choice?: number) => void): Promise<R> {
@@ -68,6 +78,14 @@ export class ProgressService extends Disposable implements IProgressService {
 
 			if (this.viewDescriptorService.getViewDescriptorById(location) !== null) {
 				return this.withViewProgress(location, task, { ...options, location });
+			}
+
+			const customLocation = this.customProgessLocations.get(location);
+			if (customLocation) {
+				const obj = customLocation.startProgress();
+				const promise = task(obj.progress);
+				promise.finally(() => obj.stop());
+				return promise;
 			}
 
 			throw new Error(`Bad progress location: ${location}`);

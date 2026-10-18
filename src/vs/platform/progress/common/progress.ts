@@ -24,6 +24,12 @@ export interface IProgressService {
 		task: (progress: IProgress<IProgressStep>) => Promise<R>,
 		onDidCancel?: (choice?: number) => void
 	): Promise<R>;
+
+	registerProgressLocation(location: string, handle: ICustomProgressLocation): IDisposable;
+}
+
+export interface ICustomProgressLocation {
+	startProgress(): { progress: IProgress<IProgressStep>, token?: CancellationToken, stop(): void };
 }
 
 export interface IProgressIndicator {
