@@ -2408,6 +2408,15 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		if (!cells) {
 			cells = this.viewModel.viewCells;
 		}
+
+		const promptCells = Array.from(cells).filter(cell => cell.language === 'prompt-cell');
+
+		if (promptCells.length) {
+			const promptCell = promptCells[0];
+			NotebookPromptCellController.get(this)?.acceptInput(promptCell);
+			return;
+		}
+
 		return this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.model), this.scopedContextKeyService);
 	}
 

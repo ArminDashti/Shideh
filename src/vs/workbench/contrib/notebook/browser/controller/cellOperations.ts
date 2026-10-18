@@ -707,6 +707,16 @@ export function insertCell(
 			if (nearestCodeCellIndex > -1) {
 				language = viewModel.cellAt(nearestCodeCellIndex)!.language;
 			} else {
+				if (cell === undefined && direction === 'above') {
+					// insert cell at the very top
+					language = viewModel.viewCells.find(cell => cell.cellKind === CellKind.Code)?.language || defaultLanguage;
+				} else {
+					language = defaultLanguage;
+				}
+			}
+
+			if (!supportedLanguages.includes(language)) {
+				// the language no longer exists
 				language = defaultLanguage;
 			}
 		} else if (!cell && viewModel.length === 0) {
@@ -719,20 +729,8 @@ export function insertCell(
 				language = defaultLanguage;
 			}
 		} else {
-			if (cell === undefined && direction === 'above') {
-				// insert cell at the very top
-				language = viewModel.viewCells.find(cell => cell.cellKind === CellKind.Code)?.language || defaultLanguage;
-			} else {
-				language = defaultLanguage;
-			}
+			language = 'markdown';
 		}
-
-		if (!supportedLanguages.includes(language)) {
-			// the language no longer exists
-			language = defaultLanguage;
-		}
-	} else {
-		language = 'markdown';
 	}
 
 	const insertIndex = cell ?

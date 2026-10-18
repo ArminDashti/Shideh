@@ -479,7 +479,8 @@ registerAction2(class ChangeCellLanguageAction extends NotebookCellAction<ICellR
 
 		const providerLanguages = new Set([
 			...languages,
-			'markdown'
+			'markdown',
+			'prompt-cell'
 		]);
 
 		providerLanguages.forEach(languageId => {
