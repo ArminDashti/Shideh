@@ -270,24 +270,15 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 		// the agent host process. Any value already present on `process.env` wins
 		// for user settings, while enterprise policy values win over inherited env —
 		// see `buildAgentHostOTelEnv`.
-		const policyValue = <T>(key: string): T | undefined => this._configurationService.inspect<T>(key).policyValue;
 		const otelEnv = buildAgentHostOTelEnv({
 			enabled: this._configurationService.getValue<boolean>(AgentHostOTelEnabledSettingId),
 			exporterType: this._configurationService.getValue<string>(AgentHostOTelExporterTypeSettingId),
 			otlpEndpoint: this._configurationService.getValue<string>(AgentHostOTelOtlpEndpointSettingId),
 			captureContent: this._configurationService.getValue<boolean>(AgentHostOTelCaptureContentSettingId),
+			captureIdentity: this._configurationService.getValue<boolean>(AgentHostOTelCaptureIdentitySettingId),
 			outfile: this._configurationService.getValue<string>(AgentHostOTelOutfileSettingId),
 			dbSpanExporterEnabled: this._configurationService.getValue<boolean>(AgentHostOTelDbSpanExporterEnabledSettingId),
-		}, process.env, {
-			enabled: policyValue<boolean>(AgentHostOTelEnabledSettingId),
-			exporterType: policyValue<string>(AgentHostOTelExporterTypeSettingId),
-			otlpProtocol: policyValue<string>(AgentHostOTelOtlpProtocolSettingId),
-			otlpEndpoint: policyValue<string>(AgentHostOTelOtlpEndpointSettingId),
-			captureContent: policyValue<boolean>(AgentHostOTelCaptureContentSettingId),
-			outfile: policyValue<string>(AgentHostOTelOutfileSettingId),
-			serviceName: policyValue<string>(AgentHostOTelServiceNameSettingId),
-			resourceAttributes: policyValue<Record<string, string>>(AgentHostOTelResourceAttributesSettingId),
-		});
+		}, process.env, readAgentHostOTelPolicySettings(this._configurationService), shellEnv);
 		Object.assign(env, otelEnv);
 
 		// Forward WebSocket server configuration to the child process via env vars
