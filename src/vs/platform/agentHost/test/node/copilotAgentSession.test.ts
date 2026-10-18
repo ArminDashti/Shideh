@@ -331,7 +331,7 @@ class MockCopilotSession {
 
 	/** Push an event through to all registered handlers of the given type. */
 	fire<K extends SessionEventType>(type: K, data: SessionEventPayload<K>['data'], overrides?: Partial<Omit<SessionEventPayload<K>, 'type' | 'data'>>): void {
-		const event = { type, data, id: 'evt-1', timestamp: new Date().toISOString(), parentId: null, ...overrides } as SessionEventPayload<K>;
+		const event = { type, data, id: `evt-${++this._eventCount}`, timestamp: new Date().toISOString(), parentId: null, ...overrides } as SessionEventPayload<K>;
 		this._accumulateUsageMetrics(type, data);
 		const set = this._handlers.get(type);
 		if (set) {
