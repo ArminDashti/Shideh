@@ -19,6 +19,18 @@ import { getSemanticTokens, getSemanticTokenLegend } from './javascriptSemanticT
 
 const JS_WORD_REGEX = /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g;
 
+/** TypeScript does not handle schemes on file references, so normalize and remove the schemes when communicating with tsserver */
+function deschemeURI(uri: string) {
+	if (!uri.startsWith('file://')) {
+		return uri;
+	}
+	// This is replicating the logic in TypeScriptServiceClient.normalizedPath
+	const newPath = normalize(uri.replace('file://', ''));
+
+	// Both \ and / must be escaped in regular expressions
+	return newPath.replace(new RegExp('\\' + sep, 'g'), '/');
+}
+
 function getLanguageServiceHost(scriptKind: ts.ScriptKind) {
 	const compilerOptions: ts.CompilerOptions = { allowNonTsExtensions: true, allowJs: true, lib: ['lib.es2020.full.d.ts'], target: ts.ScriptTarget.Latest, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Classic, experimentalDecorators: false };
 
@@ -26,7 +38,7 @@ function getLanguageServiceHost(scriptKind: ts.ScriptKind) {
 	const jsLanguageService = import(/* webpackChunkName: "javascriptLibs" */ './javascriptLibs.js').then(libs => {
 		const host: ts.LanguageServiceHost = {
 			getCompilationSettings: () => compilerOptions,
-			getScriptFileNames: () => [currentTextDocument.uri, 'jquery'],
+			getScriptFileNames: () => [deschemeURI(currentTextDocument.uri), 'jquery'],
 			getScriptKind: (fileName) => {
 				if (fileName === currentTextDocument.uri) {
 					return scriptKind;
@@ -34,15 +46,26 @@ function getLanguageServiceHost(scriptKind: ts.ScriptKind) {
 				return fileName.substr(fileName.length - 2) === 'ts' ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 			},
 			getScriptVersion: (fileName: string) => {
-				if (fileName === currentTextDocument.uri) {
+				// Let the outer TextDocument give the version
+				if (fileName === deschemeURI(currentTextDocument.uri)) {
 					return String(currentTextDocument.version);
 				}
-				return '1'; // default lib an jquery.d.ts are static
+				// Default libs and jquery.d.ts are static.
+				// Include node_modules as a perf win
+				if (fileName.startsWith('lib.') || fileName === 'jquery' || fileName.includes('node_modules')) {
+					return '1'; 
+				}
+				// Unsure how this could occur, but better to not raise with statSync
+				if (!ts.sys.fileExists(fileName)) { return '1'; }
+				// Use mtime from the fs
+				return String(statSync(fileName).mtimeMs);
 			},
 			getScriptSnapshot: (fileName: string) => {
 				let text = '';
-				if (fileName === currentTextDocument.uri) {
+				if (fileName === deschemeURI(currentTextDocument.uri)) {
 					text = currentTextDocument.getText();
+				} else if (ts.sys.fileExists(fileName)) {
+					text = ts.sys.readFile(fileName, 'utf8')!;
 				} else {
 					text = libs.loadLibrary(fileName);
 				}
@@ -84,7 +107,7 @@ function getLanguageServiceHost(scriptKind: ts.ScriptKind) {
 		};
 	});
 	return {
-		async getLanguageService(jsDocument: TextDocument): Promise<ts.LanguageService> {
+		async getLanguageService(jsDocument: TextDocument, workspace: Workspace): Promise<ts.LanguageService> {
 			currentTextDocument = jsDocument;
 			return (await jsLanguageService).service;
 		},
@@ -253,13 +276,15 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume
 		},
 		async doRename(document: TextDocument, position: Position, newName: string) {
 			const jsDocument = jsDocuments.get(document);
-			const jsLanguageService = await host.getLanguageService(jsDocument);
+			const jsLanguageService = await host.getLanguageService(jsDocument, workspace);
 			const jsDocumentPosition = jsDocument.offsetAt(position);
-			const { canRename } = jsLanguageService.getRenameInfo(jsDocument.uri, jsDocumentPosition);
+			const filePath = deschemeURI(jsDocument.uri);
+
+			const { canRename } = jsLanguageService.getRenameInfo(filePath, jsDocumentPosition);
 			if (!canRename) {
 				return null;
 			}
-			const renameInfos = jsLanguageService.findRenameLocations(jsDocument.uri, jsDocumentPosition, false, false);
+			const renameInfos = jsLanguageService.findRenameLocations(filePath, jsDocumentPosition, false, false);
 
 			const edits: TextEdit[] = [];
 			renameInfos?.map(renameInfo => {
@@ -275,8 +300,10 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume
 		},
 		async findDocumentHighlight(document: TextDocument, position: Position): Promise<DocumentHighlight[]> {
 			const jsDocument = jsDocuments.get(document);
-			const jsLanguageService = await host.getLanguageService(jsDocument);
-			const highlights = jsLanguageService.getDocumentHighlights(jsDocument.uri, jsDocument.offsetAt(position), [jsDocument.uri]);
+			const jsLanguageService = await host.getLanguageService(jsDocument, workspace);
+			const filePath = deschemeURI(jsDocument.uri);
+
+			const highlights = jsLanguageService.getDocumentHighlights(filePath, jsDocument.offsetAt(position), [filePath]);
 			const out: DocumentHighlight[] = [];
 			for (const entry of highlights || []) {
 				for (const highlight of entry.highlightSpans) {
@@ -357,7 +384,7 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume
 			const jsLanguageService = await host.getLanguageService(jsDocument);
 			const references = jsLanguageService.getReferencesAtPosition(jsDocument.uri, jsDocument.offsetAt(position));
 			if (references) {
-				return references.filter(d => d.fileName === jsDocument.uri).map(d => {
+				return references.filter(d => d.fileName === filePath).map(d => {
 					return {
 						uri: document.uri,
 						range: convertRange(jsDocument, d.textSpan)
@@ -368,17 +395,20 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume
 		},
 		async getSelectionRange(document: TextDocument, position: Position): Promise<SelectionRange> {
 			const jsDocument = jsDocuments.get(document);
-			const jsLanguageService = await host.getLanguageService(jsDocument);
+			const jsLanguageService = await host.getLanguageService(jsDocument, workspace);
+			const filePath = deschemeURI(jsDocument.uri);
+
 			function convertSelectionRange(selectionRange: ts.SelectionRange): SelectionRange {
 				const parent = selectionRange.parent ? convertSelectionRange(selectionRange.parent) : undefined;
 				return SelectionRange.create(convertRange(jsDocument, selectionRange.textSpan), parent);
 			}
-			const range = jsLanguageService.getSmartSelectionRange(jsDocument.uri, jsDocument.offsetAt(position));
+			const range = jsLanguageService.getSmartSelectionRange(filePath, jsDocument.offsetAt(position));
 			return convertSelectionRange(range);
 		},
 		async format(document: TextDocument, range: Range, formatParams: FormattingOptions, settings: Settings = globalSettings): Promise<TextEdit[]> {
 			const jsDocument = documentRegions.get(document).getEmbeddedDocument('javascript', true);
-			const jsLanguageService = await host.getLanguageService(jsDocument);
+			const jsLanguageService = await host.getLanguageService(jsDocument, workspace);
+			const filePath = deschemeURI(jsDocument.uri);
 
 			const formatterSettings = settings && settings.javascript && settings.javascript.format;
 
