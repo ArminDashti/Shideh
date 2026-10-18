@@ -53,7 +53,6 @@ export interface IEntitlementsData extends ILegacyQuotaSnapshotData {
 		completions?: IQuotaSnapshotData;
 		premium_interactions?: IQuotaSnapshotData;
 	};
-	readonly endpoints?: Record<string, string>;
 }
 
 /**

@@ -124,10 +124,24 @@ export class AssignmentFilterProvider implements IExperimentationFilterProvider 
 		private windowKind: WindowKind
 	) { }
 
+	/**
+	 * Returns a version string that can be parsed by the TAS client.
+	 * The tas client cannot handle suffixes lke "-insider"
+	 * Ref: https://github.com/microsoft/tas-client/blob/30340d5e1da37c2789049fcf45928b954680606f/vscode-tas-client/src/vscode-tas-client/VSCodeFilterProvider.ts#L35
+	 *
+	 * @param version Version string to be trimmed.
+	*/
+	private static trimVersionSuffix(version: string): string {
+		const regex = /\-[a-zA-Z0-9]+$/;
+		const result = version.split(regex);
+
+		return result[0];
+	}
+
 	getFilterValue(filter: string): string | null {
 		switch (filter) {
 			case Filters.ApplicationVersion:
-				return trimVersionSuffix(this.version); // productService.version
+				return AssignmentFilterProvider.trimVersionSuffix(this.version); // productService.version
 			case Filters.Build:
 				return this.appName; // productService.nameLong
 			case Filters.ClientId:
@@ -145,12 +159,26 @@ export class AssignmentFilterProvider implements IExperimentationFilterProvider 
 			case Filters.Platform:
 				return platform.PlatformToString(platform.platform);
 			case Filters.ReleaseDate:
-				return formatReleaseDate(this.releaseDate);
+				return AssignmentFilterProvider.formatReleaseDate(this.releaseDate);
 			case Filters.WindowKind:
 				return this.windowKind;
 			default:
 				return '';
 		}
+	}
+
+	private static formatReleaseDate(iso: string): string {
+		// Expect ISO format, fall back to empty string if not provided
+		if (!iso) {
+			return '';
+		}
+		// Remove separators and milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ -> YYYYMMDDHH
+		// Trimmed to 10 digits to fit within int32 bounds (ExP requirement)
+		const match = /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})/.exec(iso);
+		if (!match) {
+			return '';
+		}
+		return match.slice(1, 5).join('');
 	}
 
 	getFilters(): Map<string, unknown> {
