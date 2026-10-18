@@ -143,6 +143,22 @@ function makeNoGitConfig(): ResolveSessionConfigResult {
 	} as ResolveSessionConfigResult;
 }
 
+function makeNoGitConfig(): ResolveSessionConfigResult {
+	return {
+		schema: {
+			type: 'object',
+			properties: {
+				[SessionConfigKey.Isolation]: {
+					title: 'Isolation', description: '', type: 'string',
+					enum: ['folder'], enumLabels: ['Folder'],
+					default: 'folder', readOnly: true,
+				},
+			},
+		},
+		values: { [SessionConfigKey.Isolation]: 'folder' },
+	} as ResolveSessionConfigResult;
+}
+
 /**
  * Fake provider whose `getSessionConfig` returns whatever config is set. The
  * provider (not the picker) owns the seeded schema, so a picker recreated by a
