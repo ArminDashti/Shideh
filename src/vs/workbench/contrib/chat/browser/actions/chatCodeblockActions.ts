@@ -179,7 +179,7 @@ export function registerChatCodeBlockActions() {
 
 			if (isResponseVM(context.element)) {
 				const requestId = context.element.requestId;
-				const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
+				const request = context.element.session.model.getRequests().find(r => r.id === requestId);
 				chatService.notifyUserAction({
 					agentId: context.element.agent?.id,
 					command: context.element.slashCommand?.name,
@@ -252,7 +252,7 @@ export function registerChatCodeBlockActions() {
 				return;
 			}
 			const requestId = element.requestId;
-			const request = element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
+			const request = element.session.model.getRequests().find(r => r.id === requestId);
 			chatService.notifyUserAction({
 				agentId: element.agent?.id,
 				command: element.slashCommand?.name,
@@ -419,7 +419,7 @@ export function registerChatCodeBlockActions() {
 
 			if (editor && isResponseVM(context.element)) {
 				const requestId = context.element.requestId;
-				const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
+				const request = context.element.session.model.getRequests().find(r => r.id === requestId);
 				chatService.notifyUserAction({
 					agentId: context.element.agent?.id,
 					command: context.element.slashCommand?.name,

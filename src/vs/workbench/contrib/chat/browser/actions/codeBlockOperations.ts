@@ -70,7 +70,7 @@ export class InsertCodeBlockOperation {
 
 		if (inserted && isResponseVM(context.element)) {
 			const requestId = context.element.requestId;
-			const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
+			const request = context.element.session.model.getRequests().find(r => r.id === requestId);
 			notifyUserAction(this.chatService, context, {
 				kind: 'insert',
 				codeBlockIndex: context.codeBlockIndex,
@@ -203,7 +203,7 @@ export class ApplyCodeBlockOperation {
 
 		if (isResponseVM(context.element)) {
 			const requestId = context.element.requestId;
-			const request = context.element.session.getItems().find(item => item.id === requestId && isRequestVM(item)) as IChatRequestViewModel | undefined;
+			const request = context.element.session.model.getRequests().find(r => r.id === requestId);
 			notifyUserAction(this.chatService, context, {
 				kind: 'apply',
 				codeBlockIndex: context.codeBlockIndex,

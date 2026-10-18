@@ -86,6 +86,7 @@ export class ForkConversationAction extends Action2 {
 			if (serializedData.requests.length === 0) {
 				return;
 			}
+			const targetIndex = isRequestItem ? Math.max(0, requestIndex - 1) : requestIndex;
 
 			const cleanData = revive(JSON.parse(JSON.stringify(serializedData))) as ISerializableChatData;
 			cleanData.sessionId = generateUuid();

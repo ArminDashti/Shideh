@@ -3117,10 +3117,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this._sessionHasDebugDataContextKey.set(this.chatDebugService.getEvents(model.sessionResource).length > 0);
 		let lastSteeringCount = 0;
 		const updatePendingRequestKeys = (announceSteering: boolean) => {
-			const pendingRequests = model.getPendingRequests();
-			const pendingCount = pendingRequests.length;
-			this._hasPendingRequestsContextKey.set(pendingCount > 0);
-			const steeringCount = pendingRequests.filter(pending => pending.kind === ChatRequestQueueKind.Steering).length;
+			const visiblePendingRequests = model.getVisiblePendingRequests();
+			this._hasPendingRequestsContextKey.set(visiblePendingRequests.length > 0);
+			const steeringCount = visiblePendingRequests.filter(pending => pending.kind === ChatRequestQueueKind.Steering).length;
 			if (announceSteering && steeringCount > 0 && lastSteeringCount === 0) {
 				status(localize('chat.pendingRequests.steeringQueued', "Steering"));
 			}
@@ -4075,7 +4074,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return true;
 		}
 
-		const hasPendingRequests = model.getPendingRequests().length > 0;
+		const hasPendingRequests = model.getVisiblePendingRequests().length > 0;
 		if (!hasPendingRequests) {
 			return true;
 		}
@@ -4102,7 +4101,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		if (promptResult.result === 'remove') {
-			for (const pendingRequest of [...model.getPendingRequests()]) {
+			for (const pendingRequest of [...model.getVisiblePendingRequests()]) {
 				this.chatService.removePendingRequest(model.sessionResource, pendingRequest.request.id);
 			}
 		}

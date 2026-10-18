@@ -2053,6 +2053,8 @@ export interface IChatModel extends IDisposable {
 
 	readonly onDidChangePendingRequests: Event<void>;
 	getPendingRequests(): readonly IChatPendingRequest[];
+	/** Returns only pending requests visible to the user (excludes system-initiated ones). */
+	getVisiblePendingRequests(): readonly IChatPendingRequest[];
 }
 
 export interface ISerializableChatsData {
@@ -2763,6 +2765,10 @@ export class ChatModel extends Disposable implements IChatModel {
 
 	getPendingRequests(): readonly IChatPendingRequest[] {
 		return this._pendingRequests;
+	}
+
+	getVisiblePendingRequests(): readonly IChatPendingRequest[] {
+		return this._pendingRequests.filter(p => !p.request.isSystemInitiated);
 	}
 
 	setPendingRequests(requests: readonly { requestId: string; kind: ChatRequestQueueKind }[]): void {

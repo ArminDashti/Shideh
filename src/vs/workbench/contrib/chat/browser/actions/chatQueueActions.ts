@@ -371,7 +371,7 @@ export class ChatRemoveAllPendingRequestsAction extends Action2 {
 			return;
 		}
 
-		for (const pendingRequest of [...model.getPendingRequests()]) {
+		for (const pendingRequest of [...model.getVisiblePendingRequests()]) {
 			chatService.removePendingRequest(model.sessionResource, pendingRequest.request.id);
 		}
 	}
