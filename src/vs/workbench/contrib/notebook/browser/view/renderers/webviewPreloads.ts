@@ -2422,6 +2422,12 @@ async function webviewPreloads(ctx: PreloadContext) {
 			cell?.unhide();
 		}
 
+		public rerenderMarkupCells() {
+			for (const cell of this._markupCells.values()) {
+				cell.rerender();
+			}
+		}
+
 		private getExpectedMarkupCell(id: string): MarkupCell | undefined {
 			const cell = this._markupCells.get(id);
 			if (!cell) {
@@ -2735,6 +2741,10 @@ async function webviewPreloads(ctx: PreloadContext) {
 			} else {
 				this.updateMarkupDimensions();
 			}
+		}
+
+		public rerender() {
+			this.updateContentAndRender(this._content);
 		}
 
 		public hide() {
