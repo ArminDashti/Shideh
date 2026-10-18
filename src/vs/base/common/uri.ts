@@ -419,6 +419,18 @@ export class URI implements UriComponents {
 		} else {
 			return undefined;
 		}
+		let ret: URI;
+		if (data instanceof URI) {
+			ret = data;
+		} else {
+			ret = new Uri(data);
+			(<Uri>ret)._formatted = (<UriState>data).external ?? null;
+			(<Uri>ret)._fsPath = (<UriState>data)._sep === _pathSepMarker ? (<UriState>data).fsPath ?? null : null;
+		}
+		if (strict) {
+			_validateUri(ret, true);
+		}
+		return ret;
 	}
 
 	[Symbol.for('debug.description')]() {
