@@ -1330,6 +1330,18 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (this._pendingClientRestartReasons.size === 0 || this._shutdownPromise || !this._client || this._updatingGitHubCredentials || this._chatsWithInFlightWork() > 0) {
 			return;
 		}
+		const client = this._client;
+		const sessions = this._allLiveSessions();
+		if (sessions.length > 0) {
+			const backgroundWork = await Promise.all(sessions.map(session => session.hasRunningBackgroundWork()));
+			if (backgroundWork.some(Boolean)) {
+				this._logService.info('[Copilot] Deferring CopilotClient restart while background work is running');
+				return;
+			}
+		}
+		if (this._pendingClientRestartReasons.size === 0 || this._shutdownPromise || this._client !== client || this._updatingGitHubCredentials || this._chatsWithActiveTurn() > 0) {
+			return;
+		}
 		const reason = [...this._pendingClientRestartReasons].join('; ');
 		this._logService.info(`[Copilot] Restarting CopilotClient (${reason})`);
 		this._chatEntriesBySdkId.clearAndDisposeAll();
@@ -5588,11 +5600,11 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (target.hasActiveTurn) {
 			return false;
 		}
-		if (await target.hasRunningDetachedShells()) {
-			this._logService.info(`[Copilot:${target.sessionId}] Deferring idle release while a detached shell is running`);
+		if (await target.hasRunningBackgroundWork()) {
+			this._logService.info(`[Copilot:${target.sessionId}] Deferring idle release while background work is running`);
 			return false;
 		}
-		return true;
+		return !target.hasActiveTurn;
 	}
 
 	private async _releaseChat(chat: URI, operationContext: URI | IAgentChatContext): Promise<void> {
@@ -5604,6 +5616,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 		await lifetime.release(async () => {
 			const target = this._resolveChatContext(chat, operationContext).target;
 			if (!target || target.hasActiveTurn) {
+				return;
+			}
+			if (await target.hasRunningBackgroundWork() || target.hasActiveTurn) {
 				return;
 			}
 			await this._destroyLiveSession(target, true);
