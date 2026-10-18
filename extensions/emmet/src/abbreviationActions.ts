@@ -661,6 +661,9 @@ async function expandAbbreviationInRange(editor: vscode.TextEditor, expandAbbrLi
 function expandAbbr(input: ExpandAbbreviationInput): string | undefined {
 	const helper = getEmmetHelper();
 	const expandOptions = helper.getExpandOptions(input.syntax, getEmmetConfiguration(input.syntax), input.filter);
+	if (expandOptions.options) {
+		expandOptions.options['inlineElements'] = inlineElements;
+	}
 
 	if (input.textToWrap) {
 		// escape ${ sections, fixes #122231
