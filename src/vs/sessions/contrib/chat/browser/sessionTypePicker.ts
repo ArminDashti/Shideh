@@ -61,6 +61,10 @@ export interface IPreferredSessionType {
 	readonly sessionTypeId: string;
 }
 
+export interface ISessionTypePickerEntry extends IProviderSessionType {
+	readonly disabledReason?: string;
+}
+
 function pickEquals(a: IPreferredSessionType | undefined, b: IPreferredSessionType | undefined): boolean {
 	return a?.providerId === b?.providerId && a?.sessionTypeId === b?.sessionTypeId;
 }
@@ -79,8 +83,11 @@ const DEFAULT_TELEMETRY_SOURCE = 'NewChatSessionTypePicker';
  * new-chat telemetry would be incorrect side effects.
  */
 export interface ISessionTypePickerOptions {
+	/** Optional caller-owned choices and availability, without changing the New Session catalogue. */
+	readonly sessionTypes?: IObservable<readonly ISessionTypePickerEntry[]>;
 	/** When present, only session types from these providers are offered. */
 	readonly allowedProviders?: IObservable<readonly string[]>;
+	readonly isSessionTypeAllowed?: (providerId: string, sessionTypeId: string) => boolean;
 	/** Retain a chosen provider/type if it becomes unavailable instead of selecting a replacement. */
 	readonly preserveUnavailableSelection?: boolean;
 	/**
@@ -216,6 +223,7 @@ export class SessionTypePicker extends Disposable {
 
 		this._register(autorun(reader => {
 			this._session.read(reader);
+			this._options?.sessionTypes?.read(reader);
 			this._options?.providerId?.read(reader);
 			this._options?.allowedProviders?.read(reader);
 			this._recompute();
@@ -235,7 +243,7 @@ export class SessionTypePicker extends Disposable {
 		const previous = this._picked;
 		this._picked = this._computeCurrentPick();
 		const pick = this._picked;
-		if (this._quickChatSource?.get() && pick && !pick.providerId) {
+		if ((this._quickChatSource?.get() || this._options?.sessionTypes) && pick && !pick.providerId) {
 			const concrete = this._folderSessionTypes.find(type => type.sessionType.id === pick.sessionTypeId);
 			if (concrete) {
 				this._picked = { providerId: concrete.providerId, sessionTypeId: concrete.sessionType.id };
@@ -256,15 +264,19 @@ export class SessionTypePicker extends Disposable {
 	 * is set (see {@link setFolderSource}), otherwise from the active session.
 	 */
 	protected _resolveFolderSessionTypes(): IProviderSessionType[] {
-		return this._resolveUnfilteredSessionTypes().filter(type => this._isProviderAllowed(type.providerId));
+		return this._resolveUnfilteredSessionTypes().filter(type => this._isProviderAllowed(type.providerId, type.sessionType.id));
 	}
 
-	private _isProviderAllowed(providerId: string): boolean {
+	private _isProviderAllowed(providerId: string, sessionTypeId: string): boolean {
 		const allowedProviders = this._options?.allowedProviders?.get();
-		return allowedProviders === undefined || allowedProviders.includes(providerId);
+		return (allowedProviders === undefined || allowedProviders.includes(providerId))
+			&& (this._options?.isSessionTypeAllowed?.(providerId, sessionTypeId) ?? true);
 	}
 
 	private _resolveUnfilteredSessionTypes(): IProviderSessionType[] {
+		if (this._options?.sessionTypes) {
+			return [...this._options.sessionTypes.get()];
+		}
 		const providerId = this._options?.providerId?.get();
 		if (providerId) {
 			const provider = this.sessionsProvidersService.getProvider(providerId);
@@ -351,14 +363,15 @@ export class SessionTypePicker extends Disposable {
 		if (this._pickServedByFolder(stored)) {
 			return stored;
 		}
-		const preferred = this._folderSessionTypes[0];
+		const preferred = this._folderSessionTypes.find(type => this._getDisabledReason(type.providerId, type.sessionType.id) === undefined);
 		return preferred ? { providerId: preferred.providerId, sessionTypeId: preferred.sessionType.id } : undefined;
 	}
 
 	protected _pickServedByFolder(pick: IPreferredSessionType | undefined): boolean {
 		return !!pick && this._folderSessionTypes.some(t =>
 			t.sessionType.id === pick.sessionTypeId &&
-			(pick.providerId === undefined || t.providerId === pick.providerId));
+			(pick.providerId === undefined || t.providerId === pick.providerId) &&
+			this._getDisabledReason(t.providerId, t.sessionType.id) === undefined);
 	}
 
 	/**
@@ -377,8 +390,8 @@ export class SessionTypePicker extends Disposable {
 		if (this._folderSessionTypes.length === 0 || this._pickServedByFolder(pick)) {
 			return pick;
 		}
-		const preferred = this._folderSessionTypes[0];
-		return { providerId: preferred.providerId, sessionTypeId: preferred.sessionType.id };
+		const preferred = this._folderSessionTypes.find(type => this._getDisabledReason(type.providerId, type.sessionType.id) === undefined);
+		return preferred ? { providerId: preferred.providerId, sessionTypeId: preferred.sessionType.id } : undefined;
 	}
 
 	/** Drive the picker from a folder instead of the active session, optionally seeding the initial pick. */
@@ -477,6 +490,10 @@ export class SessionTypePicker extends Disposable {
 				initialization?.canInitializeWithoutGitHub,
 			),
 		);
+	}
+
+	protected _getDisabledReason(providerId: string, sessionTypeId: string): string | undefined {
+		return this._options?.sessionTypes?.get().find(type => type.providerId === providerId && type.sessionType.id === sessionTypeId)?.disabledReason;
 	}
 
 	render(container: HTMLElement, options?: { className?: string }): void {
@@ -619,7 +636,8 @@ export class SessionTypePicker extends Disposable {
 			for (const { providerId, sessionType } of types) {
 				const isCurrent = this._picked?.providerId === providerId && this._picked?.sessionTypeId === sessionType.id;
 				const availability = this._getPickerAvailability(sessionType);
-				const unavailable = availability !== SessionTypeAvailability.Available;
+				const disabledReason = this._getDisabledReason(providerId, sessionType.id);
+				const unavailable = disabledReason !== undefined || availability !== SessionTypeAvailability.Available;
 				const item: ISessionTypePickerItem = {
 					kind: 'sessionType',
 					providerId,
@@ -708,7 +726,7 @@ export class SessionTypePicker extends Disposable {
 	}
 
 	protected async _selectSessionType(pick: IPickedSessionType): Promise<void> {
-		if (!this._isProviderAllowed(pick.providerId)) {
+		if (!this._isSelectionAllowed(pick)) {
 			this._recompute();
 			return;
 		}
@@ -717,11 +735,16 @@ export class SessionTypePicker extends Disposable {
 			if (!await this._options.prepareSessionTypeSelection(pick)) {
 				return;
 			}
-			if (this._isProviderAllowed(pick.providerId)) {
+			if (this._isSelectionAllowed(pick)) {
 				this._pendingExplicitPick = pick;
 			}
 		}
 		this._handleSelectedSessionType(pick, visiblePickChanged);
+	}
+
+	private _isSelectionAllowed(pick: IPickedSessionType): boolean {
+		return this._isProviderAllowed(pick.providerId, pick.sessionTypeId)
+			&& (this._options?.sessionTypes === undefined || this._pickServedByFolder(pick));
 	}
 
 	/**
@@ -739,7 +762,7 @@ export class SessionTypePicker extends Disposable {
 		pick: IPickedSessionType,
 		visiblePickChanged = pick.providerId !== this._picked?.providerId || pick.sessionTypeId !== this._picked?.sessionTypeId,
 	): void {
-		if (!this._isProviderAllowed(pick.providerId)) {
+		if (!this._isSelectionAllowed(pick)) {
 			this._recompute();
 			return;
 		}

@@ -199,6 +199,8 @@ export interface ISessionModelsSnapshot {
  * Unlike the aggregate IAutomationService, creation eligibility needs no provider ID because ownership is implicit.
  */
 export interface ISessionsProviderAutomations extends IAutomationStore {
+	/** Whether an optional automation integration participates in the catalogue; absent means enabled. */
+	readonly enabled?: IObservable<boolean>;
 	/** Whether this provider accepts new definitions; existing definitions may independently allow updates. */
 	readonly canCreateAutomation: IObservable<boolean>;
 	/** Explanation and recovery guidance for provider unavailability, when present. */

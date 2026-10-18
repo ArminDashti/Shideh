@@ -80,6 +80,7 @@ function createAutomation(overrides?: Partial<IAutomationDescriptor>): IAutomati
 }
 
 class FakeAutomationService extends mock<IAutomationService>() {
+	override readonly availableProviders = constObservable([]);
 	override readonly catalogueState = observableValue<AutomationCatalogueState>(this, 'ready');
 	override readonly automations = observableValue<readonly IAutomationDescriptor[]>(this, []);
 	override readonly runs = observableValue<readonly IAutomationRun[]>(this, []);
@@ -92,6 +93,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 	updatesAllowed = true;
 
 	override canCreateAutomation(): boolean { return this.available && this.creationAllowed; }
+	override getProviderConfiguration() { return undefined; }
 	override canRunAutomation(): boolean { return this.available; }
 	override canUpdateAutomation(): boolean { return this.available && this.updatesAllowed; }
 	override canDeleteAutomation(): boolean { return this.available; }

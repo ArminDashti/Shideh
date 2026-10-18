@@ -69,6 +69,7 @@ interface IAutomationToolOutput {
 	readonly updatedAt: string;
 	readonly lastRunAt: string | null;
 	readonly nextRunAt: string | null;
+	readonly readOnlyReason?: string;
 }
 
 interface IAutomationListToolOutput extends IAutomationToolOutput {
@@ -158,6 +159,7 @@ export class ListAutomationsTool implements IToolImpl {
 				providerLabel: provider.label,
 				state,
 				canCreateAutomation: store.canCreateAutomation.get(),
+				...(store.configuration ? { configuration: store.configuration } : {}),
 				...(unavailableReason !== undefined ? { unavailableReason } : {}),
 				automations: store.automations.get().map(automation => toAutomationListToolOutput(automation, this.automationService)),
 			}];
@@ -428,7 +430,7 @@ export class ConfigureAutomationTool implements IToolImpl {
 
 Create a new automation only when the user explicitly asks for an automation, or for a prompt to run on a recurring schedule. Do not infer that intent from requests merely to monitor, watch, follow, or keep something (such as a pull request) green.
 
-Omit "automationId" to create an automation; "name", "prompt", and "schedule.interval" are then required. If "target" is omitted, the automation targets the current Agents window session. The target must be a connected Agent Host that supports automations; there is no local execution fallback. Include "automationId" to update an existing automation, and only provide fields that should change. Call listAutomations first to obtain the stable ID and current values. An existing automation cannot move between hosts; create a separate definition on the new host and explicitly disable the original if it should stop scheduling.
+Omit "automationId" to create an automation; "name", "prompt", and "schedule.interval" are then required. If "target" is omitted, the automation targets the current Agents window session. The target must be an available automation provider; there is no local execution fallback. Call listAutomations first to discover providers and existing IDs. Cloud targets require a private GitHub repository, use UTC for daily/weekly schedules, and start disabled unless "enabled" is explicitly true. Enabled cloud schedules run without VS Code and may consume credits. Include "automationId" to update an existing automation, and only provide fields that should change. An existing automation cannot move between providers; create a separate definition and explicitly disable the original if it should stop scheduling.
 
 Use "sessionTemplate" for provider-owned Model, Agent, Mode, Approvals, and other configuration returned by listAutomations. Omit it on unrelated partial updates, or set it to null to reset provider configuration. Do not combine it with the legacy "modelId", "mode", or "permissionLevel" aliases.
 
@@ -468,19 +470,24 @@ The change uses the current tool-approval policy. When approval is required, the
 								type: 'integer',
 								minimum: 0,
 								maximum: 23,
-								description: 'Local hour, used for daily and weekly schedules.',
+								description: 'Hour used for daily and weekly schedules. UTC for cloud; the owning host time zone otherwise.',
 							},
 							scheduleMinute: {
 								type: 'integer',
 								minimum: 0,
 								maximum: 59,
-								description: 'Local minute, used for daily and weekly schedules.',
+								description: 'Minute used for daily and weekly schedules. Cloud schedules require 0, 15, 30, or 45.',
 							},
 							scheduleDay: {
 								type: 'integer',
 								minimum: 0,
 								maximum: 6,
 								description: 'Day of week for weekly schedules: 0 is Sunday and 6 is Saturday.',
+							},
+							timeZone: {
+								type: 'string',
+								enum: ['UTC'],
+								description: 'Required for daily/weekly cloud schedules. Omit for Agent Host schedules to preserve their time-zone semantics.',
 							},
 						},
 					},
@@ -561,7 +568,7 @@ The change uses the current tool-approval policy. When approval is required, the
 					},
 					enabled: {
 						type: 'boolean',
-						description: 'Whether scheduled runs are enabled. Defaults to true when creating.',
+						description: 'Whether scheduled runs are enabled. Cloud creates default to false; Agent Host creates retain their enabled default.',
 					},
 				},
 			},
@@ -736,9 +743,15 @@ The change uses the current tool-approval policy. When approval is required, the
 		const candidates = target.kind === 'quickChat'
 			? this.sessionsManagementService.getQuickChatSessionTypes()
 			: this.sessionsManagementService.getSessionTypesForFolder(target.folderUri);
-		const eligible = candidates.filter(candidate => existing === undefined
-			? this.automationService.canCreateAutomation(candidate.providerId)
-			: candidate.providerId === existing.target.providerId && this.automationService.canUpdateAutomation(existing.id));
+		const eligible = candidates.filter(candidate => {
+			const configuration = this.automationService.getProviderConfiguration(candidate.providerId);
+			if (configuration !== undefined && !configuration.sessionTypes.includes(candidate.sessionType.id)) {
+				return false;
+			}
+			return existing === undefined
+				? this.automationService.canCreateAutomation(candidate.providerId)
+				: candidate.providerId === existing.target.providerId && this.automationService.canUpdateAutomation(existing.id);
+		});
 		const candidate = findSessionType(eligible, target.providerId, target.sessionTypeId);
 		if (!candidate) {
 			throw new AutomationToolInputError(target.kind === 'quickChat'
@@ -904,7 +917,7 @@ function parseSchedule(input: Record<string, unknown>, existing: IAutomationSche
 		return undefined;
 	}
 
-	assertKnownProperties(value, ['interval', 'scheduleHour', 'scheduleMinute', 'scheduleDay'], '"schedule"');
+	assertKnownProperties(value, ['interval', 'scheduleHour', 'scheduleMinute', 'scheduleDay', 'timeZone'], '"schedule"');
 	const interval = readOptionalEnum(value, 'interval', automationIntervals) ?? existing?.interval;
 	if (!interval) {
 		throw new AutomationToolInputError('"schedule.interval" is required when creating an automation.');
@@ -913,7 +926,8 @@ function parseSchedule(input: Record<string, unknown>, existing: IAutomationSche
 	const scheduleMinute = readOptionalInteger(value, 'scheduleMinute', 0, 59) ?? existing?.scheduleMinute ?? 0;
 	const scheduleDay = readOptionalInteger(value, 'scheduleDay', 0, 6) ?? existing?.scheduleDay ?? 1;
 
-	return { interval, scheduleHour, scheduleMinute, scheduleDay };
+	const timeZone = readOptionalEnum(value, 'timeZone', ['UTC'] as const) ?? existing?.timeZone;
+	return { interval, scheduleHour, scheduleMinute, scheduleDay, ...(timeZone !== undefined ? { timeZone } : {}) };
 }
 
 function parseTarget(input: Record<string, unknown>, existing: IAutomationDescriptor | undefined, currentTarget: AutomationTarget | undefined): AutomationTarget | undefined {
@@ -1107,6 +1121,7 @@ function toAutomationToolOutput(automation: IAutomationDescriptor): IAutomationT
 		updatedAt: automation.updatedAt,
 		lastRunAt: automation.lastRunAt ?? null,
 		nextRunAt: automation.nextRunAt ?? null,
+		...(automation.readOnlyReason !== undefined ? { readOnlyReason: automation.readOnlyReason } : {}),
 	};
 }
 

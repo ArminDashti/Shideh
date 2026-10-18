@@ -10,7 +10,7 @@ import type { JsonPrimitive } from '../../../../../platform/agentHost/common/sta
  * How often an automation runs. `hourly` fires every hour from creation/update;
  * `daily`/`weekly` fire at the configured local-time hour/minute (and day-of-week).
  */
-export type AutomationInterval = 'manual' | 'hourly' | 'daily' | 'weekly';
+export type AutomationInterval = 'manual' | 'hourly' | 'daily' | 'weekly' | 'custom';
 
 /**
  * Describes the cadence at which an automation should fire.
@@ -21,6 +21,8 @@ export type AutomationInterval = 'manual' | 'hourly' | 'daily' | 'weekly';
  */
 export interface IAutomationSchedule {
 	readonly interval: AutomationInterval;
+	/** UTC for cloud schedules; absent for the owning Agent Host's existing time-zone semantics. */
+	readonly timeZone?: 'UTC';
 
 	/** Hour-of-day, 0-23. Ignored for `manual` and `hourly`. */
 	readonly scheduleHour: number;
@@ -156,4 +158,8 @@ export interface IAutomationRun {
 	readonly startedAt: string;
 	readonly completedAt?: string;
 	readonly errorMessage?: string;
+	/** Whether the authority reports that this non-terminal run is waiting for user input. */
+	readonly needsInput?: boolean;
+	/** Provider-specific detail for a non-terminal run, such as waiting for user input. */
+	readonly statusDescription?: string;
 }
