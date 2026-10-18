@@ -22,5 +22,6 @@ import { ExtHostExtensionService } from './extHostExtensionService.js';
 registerSingleton(ILogService, new SyncDescriptor(ExtHostLogService, [true], true));
 registerSingleton(IExtHostAuthentication, ExtHostAuthentication, InstantiationType.Eager);
 registerSingleton(IExtHostExtensionService, ExtHostExtensionService, InstantiationType.Eager);
+registerSingleton(IExtHostAuthentication, ExtHostAuthentication, InstantiationType.Eager);
 registerSingleton(IExtensionStoragePaths, ExtensionStoragePaths, InstantiationType.Eager);
 registerSingleton(IExtHostTelemetry, new SyncDescriptor(ExtHostTelemetry, [true], true));

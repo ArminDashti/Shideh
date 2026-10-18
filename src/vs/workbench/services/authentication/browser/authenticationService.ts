@@ -113,6 +113,8 @@ export class AuthenticationService extends Disposable implements IAuthentication
 
 	private _disposedSource = new CancellationTokenSource();
 
+	private readonly _delegates: IAuthenticationProviderHostDelegate[] = [];
+
 	constructor(
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IAuthenticationAccessService authenticationAccessService: IAuthenticationAccessService,
