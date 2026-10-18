@@ -203,7 +203,6 @@ export abstract class AbstractListSettingWidget<TDataItem extends object> extend
 		if (header) {
 			this.listElement.appendChild(header);
 		}
-
 		this.rowElements = this.model.items.map((item, i) => this.renderDataOrEditItem(item, i, focused));
 		this.rowElements.forEach(rowElement => this.listElement.appendChild(rowElement));
 
