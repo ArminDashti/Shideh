@@ -229,7 +229,7 @@ import { ChatRepoInfoContribution } from './chatRepoInfo.js';
 import { ChatSessionOptionSlashCommandsContribution, ChatSlashCommandsContribution } from './chatSlashCommands.js';
 import { ChatTipService, IChatTipService } from './chatTipService.js';
 import { ChatWindowNotifier } from './chatWindowNotifier.js';
-import { AgentPluginRecommendations } from './claudePluginRecommendations.js';
+import { WorkspaceAgentPluginActivation } from './workspaceAgentPluginActivation.js';
 import { ChatCodeBlockContextProviderService } from './codeBlockContextProviderService.js';
 import { ExploreAgentDefaultModel } from './exploreAgentDefaultModel.js';
 import { HasByokModelsContribution } from './hasByokModelsContribution.js';
@@ -3393,7 +3393,7 @@ registerWorkbenchContribution2(UserToolSetsContributions.ID, UserToolSetsContrib
 registerWorkbenchContribution2(PromptLanguageFeaturesProvider.ID, PromptLanguageFeaturesProvider, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(ChatWindowNotifier.ID, ChatWindowNotifier, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatRepoInfoContribution.ID, ChatRepoInfoContribution, WorkbenchPhase.Eventually);
-registerWorkbenchContribution2(AgentPluginRecommendations.ID, AgentPluginRecommendations, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(WorkspaceAgentPluginActivation.ID, WorkspaceAgentPluginActivation, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(AgentPluginCommandsContribution.ID, AgentPluginCommandsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ManagedPluginInstall.ID, ManagedPluginInstall, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(PluginAutoUpdate.ID, PluginAutoUpdate, WorkbenchPhase.Eventually);

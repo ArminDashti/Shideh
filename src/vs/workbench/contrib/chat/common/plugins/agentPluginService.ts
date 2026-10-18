@@ -86,6 +86,8 @@ export interface IAgentPluginService {
 	readonly discoveryComplete: IObservable<boolean>;
 	readonly telemetryComplete: IObservable<boolean>;
 	readonly enablementModel: IEnablementModel;
+	/** Returns the repository's workspace decision after enterprise-policy precedence. */
+	getWorkspaceConfiguredEnablement(plugin: IAgentPlugin): boolean | undefined;
 }
 
 export interface IAgentPluginDiscovery extends IDisposable {

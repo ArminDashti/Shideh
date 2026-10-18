@@ -14,6 +14,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { CLAUDE_CONFIG_FOLDER } from '../promptSyntax/config/promptFileLocations.js';
 import { IMarketplaceReference, parseMarketplaceObjectEntry } from './marketplaceReference.js';
 import { AgentPluginConfigurationEntryPoint, AgentPluginConfigurationTelemetryClassification, IAgentPluginConfigurationTelemetryEvent } from './agentPluginTelemetry.js';
@@ -38,15 +39,14 @@ export interface IWorkspacePluginSettingsService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Marketplace references parsed from `extraKnownMarketplaces` in workspace
-	 * settings files (`.claude/settings.json`, `.github/copilot/settings.json`).
+	 * Marketplace references parsed from `extraKnownMarketplaces` in trusted
+	 * workspace settings files (`.claude/settings.json`, `.github/copilot/settings.json`).
 	 */
 	readonly extraMarketplaces: IObservable<readonly IWorkspaceMarketplaceEntry[]>;
 
 	/**
-	 * Plugin recommendation map parsed from `enabledPlugins` in workspace
-	 * settings files.
-	 * Keys are `"pluginName@marketplaceName"`, values indicate recommendation.
+	 * Repository-scoped plugin activation map parsed from `enabledPlugins` in
+	 * trusted workspace settings files. Keys are `"pluginName@marketplaceName"`.
 	 */
 	readonly enabledPlugins: IObservable<ReadonlyMap<string, boolean>>;
 }
@@ -269,6 +269,8 @@ export class WorkspacePluginSettingsService extends Disposable implements IWorks
 			COPILOT_CONFIG_FOLDER, [WorkspacePluginSettingsFileKind.CopilotShared, WorkspacePluginSettingsFileKind.CopilotLocal], '[CopilotPluginSettings]',
 			fileService, workspaceContextService, logService,
 		));
+
+		const workspaceTrusted = observableFromEvent(this, workspaceTrustService.onDidChangeTrust, () => workspaceTrustService.isWorkspaceTrusted());
 
 		// Merge marketplaces from all readers, deduplicating by canonical ID.
 		this.extraMarketplaces = derived(reader => {

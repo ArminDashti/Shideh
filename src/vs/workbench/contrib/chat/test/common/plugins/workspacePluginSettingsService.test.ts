@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { Schemas } from '../../../../../../base/common/network.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
@@ -15,6 +16,7 @@ import { InMemoryFileSystemProvider } from '../../../../../../platform/files/com
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { NullTelemetryServiceShape } from '../../../../../../platform/telemetry/common/telemetryUtils.js';
 import { TestContextService } from '../../../../../test/common/workbenchTestServices.js';
+import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { testWorkspace } from '../../../../../../platform/workspace/test/common/testWorkspace.js';
 import { WorkspacePluginSettingsFileKind, WorkspacePluginSettingsService } from '../../../common/plugins/workspacePluginSettingsService.js';
 
@@ -53,6 +55,8 @@ suite('WorkspacePluginSettingsService', () => {
 
 	setup(() => {
 		workspaceContextService = new TestContextService(testWorkspace(workspaceRoot));
+		workspaceTrusted = true;
+		trustChanged = store.add(new Emitter<boolean>());
 		fileService = store.add(new FileService(logService));
 		store.add(fileService.registerProvider(Schemas.inMemory, store.add(new InMemoryFileSystemProvider())));
 		telemetryService = new TestTelemetryService();
@@ -88,6 +92,37 @@ suite('WorkspacePluginSettingsService', () => {
 	}
 
 	// --- enabledPlugins parsing ---
+
+	test('ignores workspace plugin settings until the workspace is trusted', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+		workspaceTrusted = false;
+		await writeCopilotSettings(JSON.stringify({
+			extraKnownMarketplaces: {
+				'my-marketplace': { source: 'github', repo: 'owner/repo' }
+			},
+			enabledPlugins: { 'my-plugin@my-marketplace': true }
+		}));
+
+		const service = createService();
+		assert.deepStrictEqual({
+			marketplaces: service.extraMarketplaces.get(),
+			enabledPlugins: [...service.enabledPlugins.get()],
+		}, {
+			marketplaces: [],
+			enabledPlugins: [],
+		});
+
+		workspaceTrusted = true;
+		trustChanged.fire(true);
+		await waitForState(service.enabledPlugins, value => value.size > 0);
+
+		assert.deepStrictEqual({
+			marketplaces: service.extraMarketplaces.get().map(entry => entry.name),
+			enabledPlugins: [...service.enabledPlugins.get()],
+		}, {
+			marketplaces: ['my-marketplace'],
+			enabledPlugins: [['my-plugin@my-marketplace', true]],
+		});
+	}));
 
 	test('parses enabledPlugins from Claude settings', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 		await writeClaudeSettings(JSON.stringify({

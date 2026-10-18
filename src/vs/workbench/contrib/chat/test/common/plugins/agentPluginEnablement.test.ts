@@ -136,9 +136,9 @@ suite('AgentPlugin enablement', () => {
 			setEnabled: (key, value) => stored.set(key, value),
 			remove: key => stored.delete(key),
 		};
-		const policy = observableValue<ReadonlyMap<string, boolean>>('managedPluginEnablement', new Map([
-			[required, true],
-			[blocked, false],
+		const policy = observableValue<ReadonlyMap<string, ContributionEnablementState>>('managedPluginEnablement', new Map([
+			[required, ContributionEnablementState.EnabledProfile],
+			[blocked, ContributionEnablementState.DisabledProfile],
 		]));
 		const enablementModel = new AgentPluginCollisionEnablementModel(base, observableValue('emptyCollisionGroups', new Map()), policy);
 
@@ -172,6 +172,51 @@ suite('AgentPlugin enablement', () => {
 		}, {
 			required: ContributionEnablementState.DisabledWorkspace,
 			blocked: ContributionEnablementState.EnabledProfile,
+		});
+	});
+
+	test('workspace configuration overlays effective state without replacing profile state', () => {
+		const enabledForWorkspace = URI.file('/plugins/workspace-enabled').toString();
+		const disabledForWorkspace = URI.file('/plugins/workspace-disabled').toString();
+		const stored = new Map<string, ContributionEnablementState>([
+			[enabledForWorkspace, ContributionEnablementState.DisabledProfile],
+			[disabledForWorkspace, ContributionEnablementState.EnabledProfile],
+		]);
+		const base: IEnablementModel = {
+			readEnabled: key => stored.get(key) ?? ContributionEnablementState.EnabledProfile,
+			readProfileEnabled: key => (stored.get(key) ?? ContributionEnablementState.EnabledProfile) === ContributionEnablementState.EnabledProfile,
+			setEnabled: (key, value) => stored.set(key, value),
+			remove: key => stored.delete(key),
+		};
+		const workspace = observableValue<ReadonlyMap<string, ContributionEnablementState>>('workspacePluginEnablement', new Map([
+			[enabledForWorkspace, ContributionEnablementState.EnabledWorkspace],
+			[disabledForWorkspace, ContributionEnablementState.DisabledWorkspace],
+		]));
+		const enablementModel = new AgentPluginCollisionEnablementModel(base, observableValue('emptyCollisionGroups', new Map()), workspace);
+
+		enablementModel.setEnabled(enabledForWorkspace, ContributionEnablementState.EnabledProfile);
+		enablementModel.setEnabled(disabledForWorkspace, ContributionEnablementState.DisabledProfile);
+
+		assert.deepStrictEqual({
+			enabled: enablementModel.readEnabled(enabledForWorkspace),
+			enabledProfile: enablementModel.readProfileEnabled(enabledForWorkspace),
+			disabled: enablementModel.readEnabled(disabledForWorkspace),
+			disabledProfile: enablementModel.readProfileEnabled(disabledForWorkspace),
+		}, {
+			enabled: ContributionEnablementState.EnabledWorkspace,
+			enabledProfile: true,
+			disabled: ContributionEnablementState.DisabledWorkspace,
+			disabledProfile: false,
+		});
+
+		workspace.set(new Map(), undefined);
+
+		assert.deepStrictEqual({
+			enabled: enablementModel.readEnabled(enabledForWorkspace),
+			disabled: enablementModel.readEnabled(disabledForWorkspace),
+		}, {
+			enabled: ContributionEnablementState.EnabledProfile,
+			disabled: ContributionEnablementState.DisabledProfile,
 		});
 	});
 
@@ -215,7 +260,7 @@ suite('AgentPlugin enablement', () => {
 			setEnabled: (key, value) => stored.set(key, value),
 			remove: key => stored.delete(key),
 		};
-		const policy = observableValue<ReadonlyMap<string, boolean>>('managedPluginEnablement', new Map([[required, true]]));
+		const policy = observableValue<ReadonlyMap<string, ContributionEnablementState>>('managedPluginEnablement', new Map([[required, ContributionEnablementState.EnabledProfile]]));
 		const groups = observableValue<ReadonlyMap<string, readonly string[]>>('collisionGroups', new Map([
 			[required, [required, unmanaged]],
 			[unmanaged, [required, unmanaged]],
@@ -266,6 +311,24 @@ suite('AgentPlugin enablement', () => {
 			const uri = URI.file('/Users/test/.vscode-insiders/agent-plugins/github.com/microsoft/vscode-team-kit/model-council');
 			return makePlugin(uri, 'model-council', makeMarketplacePlugin());
 		}
+
+		test('enterprise policy takes precedence over workspace configuration', () => {
+			const plugin = makeMarketplacePluginForPolicy();
+			const workspaceEnabled = new Map([[policyId, true]]);
+			const workspaceDisabled = new Map([[policyId, false]]);
+
+			assert.deepStrictEqual({
+				policyBlocked: getAgentPluginConfiguredEnablement(plugin, { [policyId]: false }, workspaceEnabled),
+				policyEnabled: getAgentPluginConfiguredEnablement(plugin, { [policyId]: true }, workspaceDisabled),
+				workspaceEnabled: getAgentPluginConfiguredEnablement(plugin, undefined, workspaceEnabled),
+				workspaceDisabled: getAgentPluginConfiguredEnablement(plugin, undefined, workspaceDisabled),
+			}, {
+				policyBlocked: ContributionEnablementState.DisabledProfile,
+				policyEnabled: ContributionEnablementState.EnabledProfile,
+				workspaceEnabled: ContributionEnablementState.EnabledWorkspace,
+				workspaceDisabled: ContributionEnablementState.DisabledWorkspace,
+			});
+		});
 
 		test('no policy set: nothing is blocked', () => {
 			const plugin = makeMarketplacePluginForPolicy();

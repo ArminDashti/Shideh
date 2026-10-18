@@ -84,6 +84,7 @@ export class FileBackedInstalledPluginsStore extends Disposable {
 	private _initialized = false;
 
 	readonly value: IObservable<readonly IStoredInstalledPlugin[]> = this._installed;
+	readonly whenInitialized: Promise<void>;
 
 	constructor(
 		private readonly _agentPluginsHome: URI,
