@@ -472,6 +472,9 @@ export class AgentHostChangesetCoordinator extends Disposable {
 			this._clearBranchSummaryResources(resourceStr);
 			this._changesetFileMonitor.untrackSessionChanges(resourceStr);
 		}
+		if (!parsed) {
+			this._changesetFileMonitor.untrackSessionChanges(resourceStr);
+		}
 	}
 
 	/**
