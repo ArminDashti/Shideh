@@ -19,7 +19,7 @@ import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { IRange, Range } from '../../../../editor/common/core/range.js';
-import { StringBuilder } from '../../../../editor/common/core/stringBuilder.js';
+import { StringBuilder } from '../../../../editor/common/core.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../nls.js';

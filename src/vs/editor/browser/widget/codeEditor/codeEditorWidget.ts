@@ -34,7 +34,6 @@ import { editorUnnecessaryCodeOpacity } from '../../../common/core/editorColorRe
 import { IPosition, Position } from '../../../common/core/position.js';
 import { IRange, Range } from '../../../common/core/range.js';
 import { ISelection, Selection } from '../../../common/core/selection.js';
-import { IWordAtPosition } from '../../../common/core/wordHelper.js';
 import { WordOperations } from '../../../common/cursor/cursorWordOperations.js';
 import { CursorChangeReason, ICursorPositionChangedEvent, ICursorSelectionChangedEvent } from '../../../common/cursorEvents.js';
 import { InternalEditorAction } from '../../../common/editorAction.js';

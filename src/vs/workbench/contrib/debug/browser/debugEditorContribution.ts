@@ -30,7 +30,6 @@ import { EditOperation } from '../../../../editor/common/core/editOperation.js';
 import { InsertSpaces } from '../../../../editor/common/core/misc/indentation.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { IRange, Range } from '../../../../editor/common/core/range.js';
-import { DEFAULT_WORD_REGEXP } from '../../../../editor/common/core/wordHelper.js';
 import { IEditorDecorationsCollection, ScrollType } from '../../../../editor/common/editorCommon.js';
 import { StandardTokenType } from '../../../../editor/common/encodedTokenAttributes.js';
 import { InlineValue, InlineValueContext } from '../../../../editor/common/languages.js';

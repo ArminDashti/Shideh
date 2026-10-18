@@ -10,7 +10,7 @@ import { getLeadingWhitespace } from '../../../../base/common/strings.js';
 import './snippetSession.css';
 import { IActiveCodeEditor } from '../../../browser/editorBrowser.js';
 import { EditorOption } from '../../../common/config/editorOptions.js';
-import { EditOperation, ISingleEditOperation } from '../../../common/core/editOperation.js';
+import { EditOperation, ISingleEditOperation, TextChange } from '../../../common/core.js';
 import { IPosition } from '../../../common/core/position.js';
 import { Range } from '../../../common/core/range.js';
 import { Selection, SelectionDirection } from '../../../common/core/selection.js';

@@ -10,7 +10,7 @@ import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../../../base/common/network.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
 import { Range } from '../../../../../../editor/common/core/range.js';
-import { IWordAtPosition } from '../../../../../../editor/common/core/wordHelper.js';
+import { IWordAtPosition } from '../../../../../../editor/common/core.js';
 import { CompletionContext, CompletionItemKind, CompletionList } from '../../../../../../editor/common/languages.js';
 import { ITextModel } from '../../../../../../editor/common/model.js';
 import { ILanguageFeaturesService } from '../../../../../../editor/common/services/languageFeatures.js';

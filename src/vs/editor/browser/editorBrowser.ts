@@ -16,7 +16,6 @@ import { TextEdit } from '../common/core/edits/textEdit.js';
 import { IPosition, Position } from '../common/core/position.js';
 import { IRange, Range } from '../common/core/range.js';
 import { Selection } from '../common/core/selection.js';
-import { IWordAtPosition } from '../common/core/wordHelper.js';
 import { ICursorPositionChangedEvent, ICursorSelectionChangedEvent } from '../common/cursorEvents.js';
 import { IDiffComputationResult, ILineChange } from '../common/diff/legacyLinesDiffComputer.js';
 import * as editorCommon from '../common/editorCommon.js';
