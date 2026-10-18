@@ -219,6 +219,67 @@ suite('Auto-Reindentation - TypeScript/JavaScript', () => {
 		console.log('\ngit diff --shortstat:\n', output);
 	});
 
+	/* Refine.
+	test('Find Cases of Incorrect Indentation with the onEnter Rules', () => {
+		function walkDirectoryAndReindent(directory: string, languageId: string) {
+			const files = fs.readdirSync(directory, { withFileTypes: true });
+			const directoriesFromWhichToContinue: string[] = [];
+			for (const file of files) {
+				if (file.isDirectory()) {
+					directoriesFromWhichToContinue.push(path.join(directory, file.name));
+				} else {
+					const pathName = path.join(directory, file.name);
+					const fileType = path.extname(pathName);
+					if (fileType !== '.ts') {
+						continue;
+					}
+					const fileContents = fs.readFileSync(pathName).toString();
+					const options: IRelaxedTextModelCreationOptions = {
+						tabSize: 4,
+						insertSpaces: false
+					};
+					const model = disposables.add(instantiateTextModel(instantiationService, fileContents, languageId, options));
+					withTestCodeEditor(model, { autoIndent: 'full' }, (editor, viewModel, instantiationService) => {
+						const languageConfigurationService = instantiationService.get(ILanguageConfigurationService);
+						disposables.add(registerLanguage(languageConfigurationService, languageId));
+
+						const lineCount = model.getLineCount();
+						const editOperations: ISingleEditOperation[] = [];
+						for (let line = 1; line <= lineCount - 1; line++) {
+							if (model.getLineContent(line).length === 0) {
+								continue;
+							}
+							const column = model.getLineMaxColumn(line);
+							const range = new Range(line, column, line, column);
+							const config = new CursorConfiguration(languageId, model.getOptions(), editor.getOptions(), languageConfigurationService);
+							const command: ICommand = TypeOperations.enter(config, model, false, range, file.name);
+							const editOperation = getEditOperation(model, command);
+
+							editOperation.forEach((op) => {
+								if (op.text) {
+									op.text = op.text?.substring(1);
+								}
+								const lineNumber = op.range.startLineNumber;
+								const nextLineNumber = lineNumber + 1;
+								const range = new Range(nextLineNumber, 1, nextLineNumber, model.getLineIndentColumn(nextLineNumber));
+								op.range = range;
+							})
+							editOperations.push(...editOperation);
+						}
+						model.applyEdits(editOperations);
+						model.applyEdits(trimTrailingWhitespace(model, [], true));
+						fs.writeFileSync(pathName, model.getValue());
+					});
+				}
+			}
+			for (const directory of directoriesFromWhichToContinue) {
+				walkDirectoryAndReindent(directory, languageId);
+			}
+		}
+		walkDirectoryAndReindent('/Users/aiday/Desktop/Test/vscode-test', 'ts-test');
+	});
+	*/
+
 	// Unit tests for increase and decrease indent patterns...
 
 	/**

@@ -111,12 +111,11 @@ export class CursorConfiguration {
 	constructor(
 		languageId: string,
 		modelOptions: TextModelResolvedOptions,
-		configuration: IEditorConfiguration,
+		options: IComputedEditorOptions,
 		public readonly languageConfigurationService: ILanguageConfigurationService
 	) {
 		this._languageId = languageId;
 
-		const options = configuration.options;
 		const layoutInfo = options.get(EditorOption.layoutInfo);
 		const fontInfo = options.get(EditorOption.fontInfo);
 
