@@ -34,6 +34,7 @@ export interface ICreateTerminalProcessArguments {
 	rows: number;
 	unicodeVersion: '6' | '11';
 	resolverEnv: { [key: string]: string | null } | undefined;
+	onDidInputData: Event<string>;
 }
 
 export interface ICreateTerminalProcessResult {

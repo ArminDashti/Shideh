@@ -32,6 +32,7 @@ import type { Terminal } from '@xterm/xterm';
 import { IAccessibilitySignalService } from '../../../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { ITerminalConfigurationService } from '../../../../terminal/browser/terminal.js';
 import { TerminalConfigurationService } from '../../../../terminal/browser/terminalConfigurationService.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 
 const defaultTerminalConfig: Partial<ITerminalConfiguration> = {
 	fontFamily: 'monospace',

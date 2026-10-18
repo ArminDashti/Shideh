@@ -359,7 +359,8 @@ export interface IPtyService {
 		options: ITerminalProcessOptions,
 		shouldPersist: boolean,
 		workspaceId: string,
-		workspaceName: string
+		workspaceName: string,
+		onDidInputData: Event<string>,
 	): Promise<number>;
 	attachToProcess(id: number): Promise<void>;
 	detachFromProcess(id: number, forcePersist?: boolean): Promise<void>;
@@ -475,6 +476,7 @@ export interface ISerializedTerminalState {
 	unicodeVersion: '6' | '11';
 	replayEvent: IPtyHostProcessReplayEvent;
 	timestamp: number;
+	onDidInputData: Event<string>;
 }
 
 export interface IPersistentTerminalProcessLaunchConfig {
@@ -1263,7 +1265,8 @@ export interface ITerminalBackend extends ITerminalBackendPtyServiceContribution
 		unicodeVersion: '6' | '11',
 		env: IProcessEnvironment,
 		options: ITerminalProcessOptions,
-		shouldPersist: boolean
+		shouldPersist: boolean,
+		onDidInputData: Event<string>,
 	): Promise<ITerminalChildProcess>;
 
 	restartPtyHost(): void;

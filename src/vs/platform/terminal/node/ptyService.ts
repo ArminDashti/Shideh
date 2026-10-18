@@ -267,7 +267,8 @@ export class PtyService extends Disposable implements IPtyService {
 						processLaunchConfig: persistentProcess.processLaunchOptions,
 						unicodeVersion: persistentProcess.unicodeVersion,
 						replayEvent: await persistentProcess.serializeNormalBuffer(),
-						timestamp: Date.now()
+						timestamp: Date.now(),
+						onDidInputData: persistentProcess.onDidInputData,
 					});
 				}));
 			}
@@ -341,6 +342,7 @@ export class PtyService extends Disposable implements IPtyService {
 			true,
 			terminal.processDetails.workspaceId,
 			terminal.processDetails.workspaceName,
+			terminal.onDidInputData,
 			true,
 			terminal.replayEvent.events[0].data
 		);
@@ -368,6 +370,7 @@ export class PtyService extends Disposable implements IPtyService {
 		shouldPersist: boolean,
 		workspaceId: string,
 		workspaceName: string,
+		onDidInputData: Event<string>,
 		isReviving?: boolean,
 		rawReviveBuffer?: string
 	): Promise<number> {
@@ -755,6 +758,7 @@ export class PersistentTerminalProcess extends Disposable {
 	readonly onProcessOrphanQuestion = this._onProcessOrphanQuestion.event;
 	private readonly _onDidChangeProperty = this._register(new Emitter<IProcessProperty>());
 	readonly onDidChangeProperty = this._onDidChangeProperty.event;
+	readonly onDidInputData: Event<string>;
 
 	// -----------------------------------------------------------------------------------
 	// Replay & revive input gating state
@@ -824,6 +828,7 @@ export class PersistentTerminalProcess extends Disposable {
 		private readonly _logService: ILogService,
 		reviveBuffer: string | undefined,
 		rawReviveBuffer: string | undefined,
+		onDidInputData: Event<string>,
 		private _icon?: TerminalIcon,
 		private _color?: string,
 		name?: string,
@@ -843,6 +848,7 @@ export class PersistentTerminalProcess extends Disposable {
 			shouldPersistTerminal ? rawReviveBuffer : undefined,
 			this._logService,
 		);
+		this.onDidInputData = onDidInputData;
 		if (name) {
 			this.setTitle(name, TitleEventSource.Api);
 		}

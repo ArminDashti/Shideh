@@ -116,7 +116,7 @@ suite('Workbench - TerminalProcessManager', () => {
 		instantiationService.stub(ITerminalService, { setNextCommandId: async () => { } } as Partial<ITerminalService>);
 		environmentVariableService = instantiationService.get(IEnvironmentVariableService);
 
-		manager = store.add(instantiationService.createInstance(TerminalProcessManager, 1, undefined, undefined, undefined));
+		manager = store.add(instantiationService.createInstance(TerminalProcessManager, 1, undefined, undefined, undefined, new Emitter<string>().event));
 	});
 
 	test('does not accumulate environment variable collection listeners when relaunching', async () => {
@@ -166,14 +166,14 @@ suite('Workbench - TerminalProcessManager', () => {
 		suite('local', () => {
 			test('regular terminal should persist', async () => {
 				const p = await manager.createProcess({
-				}, 1, 1, false);
+				}, 1, 1, new Emitter<string>().event, false);
 				strictEqual(p, undefined);
 				strictEqual(manager.shouldPersist, true);
 			});
 			test('task terminal should not persist', async () => {
 				const p = await manager.createProcess({
 					isFeatureTerminal: true
-				}, 1, 1, false);
+				}, 1, 1, new Emitter<string>().event, false);
 				strictEqual(p, undefined);
 				strictEqual(manager.shouldPersist, false);
 			});
@@ -187,7 +187,7 @@ suite('Workbench - TerminalProcessManager', () => {
 			test('regular terminal should persist', async () => {
 				const p = await manager.createProcess({
 					cwd: remoteCwd
-				}, 1, 1, false);
+				}, 1, 1, new Emitter<string>().event, false);
 				strictEqual(p, undefined);
 				strictEqual(manager.shouldPersist, true);
 			});
@@ -195,7 +195,7 @@ suite('Workbench - TerminalProcessManager', () => {
 				const p = await manager.createProcess({
 					isFeatureTerminal: true,
 					cwd: remoteCwd
-				}, 1, 1, false);
+				}, 1, 1, new Emitter<string>().event, false);
 				strictEqual(p, undefined);
 				strictEqual(manager.shouldPersist, false);
 			});
