@@ -2499,9 +2499,17 @@ class SyncControls extends Disposable {
 		if (this.userDataSyncEnablementService.isEnabled() || this.userDataSyncService.status !== SyncStatus.Idle) {
 			DOM.show(this.lastSyncedLabel);
 			DOM.hide(this.turnOnSyncButton.element);
-		} else {
+		} else if (CommandsRegistry.getCommand('workbench.userDataSync.actions.turnOn')) {
 			DOM.hide(this.lastSyncedLabel);
 			DOM.show(this.turnOnSyncButton.element);
+		} else {
+			// The command that turns on settings sync is contributed by the
+			// userDataSync workbench contribution, which is not present in every
+			// window (e.g. the Agents window). Keep the button hidden when the
+			// command is not registered so clicking it cannot fail with
+			// "command not found".
+			DOM.hide(this.lastSyncedLabel);
+			DOM.hide(this.turnOnSyncButton.element);
 		}
 	}
 }
