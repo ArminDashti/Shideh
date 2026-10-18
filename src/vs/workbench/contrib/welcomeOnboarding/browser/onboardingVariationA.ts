@@ -12,15 +12,18 @@ import { FileAccess } from '../../../../base/common/network.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
+import { InputBox } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { localize } from '../../../../nls.js';
 import { status } from '../../../../base/browser/ui/aria/aria.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { Action } from '../../../../base/common/actions.js';
 import { IWorkbenchThemeService } from '../../../services/themes/common/workbenchThemeService.js';
 import { EXTENSION_INSTALL_SKIP_WALKTHROUGH_CONTEXT, IExtensionGalleryService, IExtensionManagementService } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { defaultInputBoxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import product from '../../../../platform/product/common/product.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
@@ -34,6 +37,9 @@ import {
 	IOnboardingThemeOption,
 	getOnboardingStepTitle,
 	getOnboardingStepSubtitle,
+	GHE_FULL_URI_REGEX,
+	GheParseResultKind,
+	parseGheInstanceInput,
 } from '../common/onboardingTypes.js';
 import { IOnboardingService } from '../common/onboardingService.js';
 import { IExternalEditorImportPreview, IExternalEditorImportService, IExternalEditorSource } from '../../externalEditorImport/common/externalEditorImport.js';
@@ -109,6 +115,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 	private selectedKeymapId = 'vscode';
 	private _detectedEditorIds: Set<string> | undefined;
 	private selectedAiMode: AiCollaborationMode = AiCollaborationMode.Balanced;
+	private enterpriseSignInUiState: EnterpriseSignInUiState = 'options';
+	private enterpriseInstanceValue = '';
+	private enterpriseSignInWatch: StopWatch | undefined;
 
 	constructor(
 		@ILayoutService private readonly layoutService: ILayoutService,
@@ -257,6 +266,12 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 			this._dismiss('skip');
 		}));
 		this.disposables.add(addDisposableListener(this.backButton, EventType.CLICK, () => {
+			if (this.currentStepIndex === 0 && this.enterpriseSignInUiState === 'instance') {
+				this._logAction('cancelEnterpriseInstancePrompt');
+				this._setEnterpriseSignInUiState('options');
+				return;
+			}
+
 			this._logAction('back');
 			this._prevStep();
 		}));
@@ -452,7 +467,8 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 
 	private _updateButtonStates(): void {
 		if (this.backButton) {
-			this.backButton.style.display = this.currentStepIndex === 0 ? 'none' : '';
+			const showEnterpriseBack = this.currentStepIndex === 0 && this.enterpriseSignInUiState === 'instance';
+			this.backButton.style.display = (this.currentStepIndex === 0 && !showEnterpriseBack) ? 'none' : '';
 		}
 		if (this.nextButton) {
 			if (this._isLastStep()) {
@@ -1117,6 +1133,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 		this.closeButton = undefined;
 		this.footerFocusableElements.length = 0;
 		this.stepFocusableElements.length = 0;
+		this.enterpriseSignInUiState = 'options';
+		this.enterpriseInstanceValue = '';
+		this.enterpriseSignInWatch = undefined;
 		this._isShowing = false;
 		this.disposables.clear();
 		this.stepDisposables.clear();
