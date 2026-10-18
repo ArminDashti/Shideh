@@ -781,3 +781,7 @@ export function performBraceExpansionForRipgrep(pattern: string): string[] {
 		});
 	});
 }
+
+export function fixNewline(pattern: string): string {
+	return pattern.replace(/\n/g, '\\r?\\n');
+}
