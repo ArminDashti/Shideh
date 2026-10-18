@@ -2002,7 +2002,17 @@ export class PromptsService extends Disposable implements IPromptsService {
 			extensionIdByUri.set(extSkill.uri.toString(), extSkill.extension.identifier.value);
 		}
 
-		for (const skill of allSkills) {
+		// Parse all skill files in parallel, then apply deduplication in priority order
+		const parsedSkills = await Promise.all(allSkills.map(async (skill) => {
+			try {
+				const parsedFile = await this.parseNew(skill.uri, token);
+				return { skill, parsedFile, error: undefined };
+			} catch (e) {
+				return { skill, parsedFile: undefined, error: e instanceof Error ? e.message : String(e) };
+			}
+		}));
+
+		for (const { skill, parsedFile, error } of parsedSkills) {
 			const uri = skill.uri;
 			const promptPath = skill;
 
@@ -2050,11 +2060,40 @@ export class PromptsService extends Disposable implements IPromptsService {
 				files.push({
 					status: 'skipped',
 					skipReason: 'parse-error',
-					errorMessage: msg,
+					errorMessage: error,
 					promptPath,
 					contentHash: -1,
 				});
+				continue;
 			}
+
+			const folderName = getSkillFolderName(uri);
+
+			let name = parsedFile.header?.name;
+			const description = parsedFile.header?.description;
+
+			if (!name) {
+				this.logger.debug(`[computeSkillDiscoveryInfo] Agent skill file missing name attribute, using folder name "${folderName}": ${uri}`);
+				name = folderName;
+			}
+			let sanitizedName = this.truncateAgentSkillName(name, uri);
+			if (sanitizedName !== folderName) {
+				this.logger.debug(`[computeSkillDiscoveryInfo] Agent skill name "${sanitizedName}" does not match folder name "${folderName}", using folder name: ${uri}`);
+				sanitizedName = folderName;
+			}
+
+			if (seenNames.has(sanitizedName)) {
+				this.logger.debug(`[computeSkillDiscoveryInfo] Skipping duplicate agent skill name: ${sanitizedName} at ${uri}`);
+				files.push({ status: 'skipped', skipReason: 'duplicate-name', duplicateOf: nameToUri.get(sanitizedName), promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description) });
+				continue;
+			}
+
+			seenNames.add(sanitizedName);
+			nameToUri.set(sanitizedName, uri);
+			const disableModelInvocation = parsedFile.header?.disableModelInvocation === true;
+			const userInvocable = parsedFile.header?.userInvocable !== false;
+
+			files.push({ status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description), disableModelInvocation, userInvocable });
 		}
 
 		return { files, discoveryCancelled };
@@ -2086,9 +2125,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 		let discoveryCancelled = false;
 
 		const instructionsFiles = await this.listPromptFiles(PromptsType.instructions, token);
-		for (const promptPath of instructionsFiles) {
-			const uri = promptPath.uri;
 
+		// Parse all instruction files in parallel
+		const files = await Promise.all(instructionsFiles.map(async (promptPath): Promise<IInstructionDiscoveryResult> => {
+			const uri = promptPath.uri;
 			try {
 				const parsedPromptFile = await this.parseNew(uri, token);
 				const name = parsedPromptFile?.header?.name ?? promptPath.name ?? getCleanPromptName(uri);
@@ -2113,7 +2153,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 					contentHash: -1,
 				});
 			}
-		}
+		}));
 
 		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.instructions);
 		const result = { type: PromptsType.instructions, files, sourceFolders, durationInMillis: stopWatch.elapsed() } satisfies IInstructionDiscoveryInfo;

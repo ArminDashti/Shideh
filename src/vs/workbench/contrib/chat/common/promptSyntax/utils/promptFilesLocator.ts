@@ -965,28 +965,27 @@ export class PromptFilesLocator {
 
 	private async findAgentSkillsInFolder(uri: URI, token: CancellationToken): Promise<URI[]> {
 		try {
-			const result: URI[] = [];
 			const stat = await this.fileService.resolve(uri);
-			if (stat.isDirectory && stat.children) {
-				// Recursively traverse subdirectories
-				for (const child of stat.children) {
-					try {
-						if (token.isCancellationRequested) {
-							return [];
-						}
-						if (child.isDirectory) {
-							const skillFile = joinPath(child.resource, SKILL_FILENAME);
-							const skillStat = await this.fileService.resolve(skillFile);
-							if (skillStat.isFile) {
-								result.push(skillStat.resource);
-							}
-						}
-					} catch (error) {
-						// Ignore errors for individual files/folders (e.g., permission denied)
-					}
+			if (!stat.isDirectory || !stat.children) {
+				return [];
+			}
+			const childDirs = stat.children.filter(child => child.isDirectory);
+			if (childDirs.length === 0) {
+				return [];
+			}
+			// Check all child directories for SKILL.md in parallel
+			const skillFiles = childDirs.map(child => joinPath(child.resource, SKILL_FILENAME));
+			const results = await this.fileService.resolveAll(skillFiles.map(resource => ({ resource })));
+			const found: URI[] = [];
+			for (const result of results) {
+				if (token.isCancellationRequested) {
+					return [];
+				}
+				if (result.success && result.stat?.isFile) {
+					found.push(result.stat.resource);
 				}
 			}
-			return result;
+			return found;
 		} catch (e) {
 			if (!isCancellationError(e)) {
 				this.logService.trace(`[PromptFilesLocator] Error searching for skills in ${uri.toString()}: ${e}`);
@@ -1001,7 +1000,6 @@ export class PromptFilesLocator {
 	public async findAgentSkills(token: CancellationToken): Promise<IPromptPath[]> {
 		const configuredLocations = this.getPromptSourceFolders(PromptsType.skill);
 		const absoluteLocations = await this.toAbsoluteLocations(PromptsType.skill, configuredLocations);
-		const allResults: IPromptPath[] = [];
 
 		for (const { uri, source, storage, rootKind } of absoluteLocations) {
 			if (token.isCancellationRequested) {
@@ -1013,7 +1011,15 @@ export class PromptFilesLocator {
 			}
 		}
 
-		return allResults;
+		// Scan all configured locations in parallel
+		const perLocationResults = await Promise.all(
+			absoluteLocations.map(async ({ uri, source, storage }) => {
+				const results = await this.findAgentSkillsInFolder(uri, token);
+				return results.map(skillUri => ({ uri: skillUri, source, storage, type: PromptsType.skill } satisfies IPromptPath));
+			})
+		);
+
+		return perLocationResults.flat();
 	}
 
 	private getLocalParentFolders(type: PromptsType): readonly { parent: URI; filePattern?: string }[] {
