@@ -1298,7 +1298,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostFileSystemEvent.createFileSystemWatcher(extHostWorkspace, configProvider, extHostFileSystemInfo, extension, pattern, options);
 			},
 			get textDocuments() {
-				return extHostDocuments.getAllDocumentData().map(data => data.document);
+				return extHostDocumentsAndEditors.allDocuments().map(data => data.document).concat(extHostConcatDocuments.allConcatDocuments());
 			},
 			set textDocuments(value) {
 				throw new errors.ReadonlyError('textDocuments');
@@ -1536,9 +1536,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		// namespace: scm
 		const scm: typeof vscode.scm = {
 			get inputBox() {
-				extHostApiDeprecation.report('scm.inputBox', extension,
-					`Use 'SourceControl.inputBox' instead`);
-
+				extHostApiDeprecation.report('scm.inputBox', extension, `Use 'SourceControl.inputBox' instead`);
 				return extHostSCM.getLastInputBox(extension)!; // Strict null override - Deprecated api
 			},
 			createSourceControl(id: string, label: string, rootUri?: vscode.Uri, iconPath?: vscode.IconPath, isHidden?: boolean, parent?: vscode.SourceControl): vscode.SourceControl {
