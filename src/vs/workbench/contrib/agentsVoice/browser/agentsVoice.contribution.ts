@@ -847,6 +847,8 @@ configurationRegistry.registerConfiguration({
 			default: '',
 			scope: ConfigurationScope.APPLICATION,
 			ignoreSync: true,
+			included: false,
+			tags: ['advanced'],
 		},
 	}
 });
