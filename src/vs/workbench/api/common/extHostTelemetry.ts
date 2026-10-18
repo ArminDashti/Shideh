@@ -164,7 +164,7 @@ export class ExtHostTelemetry extends Disposable implements ExtHostTelemetryShap
 		if (this._oldTelemetryEnablement !== this.getTelemetryConfiguration()) {
 			this._onDidChangeTelemetryEnabled.fire(this.getTelemetryConfiguration());
 		}
-		this._onDidChangeTelemetryConfiguration.fire(this.getTelemetryDetails());
+		this._onDidChangeTelemetryConfiguration.fire(this.getTelemetryConfiguration());
 	}
 
 	onExtensionError(extension: ExtensionIdentifier, error: Error): boolean {
