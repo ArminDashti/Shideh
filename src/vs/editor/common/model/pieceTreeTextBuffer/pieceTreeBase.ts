@@ -1887,6 +1887,14 @@ export class PieceTreeBase {
 		return currentContent;
 	}
 
+	getPieceContent(piece: Piece) {
+		let buffer = this._buffers[piece.bufferIndex];
+		let startOffset = this.offsetInBuffer(piece.bufferIndex, piece.start);
+		let endOffset = this.offsetInBuffer(piece.bufferIndex, piece.end);
+		let currentContent = buffer.buffer.substring(startOffset, endOffset);
+		return currentContent;
+	}
+
 	/**
 	 *      node              node
 	 *     /  \              /  \
