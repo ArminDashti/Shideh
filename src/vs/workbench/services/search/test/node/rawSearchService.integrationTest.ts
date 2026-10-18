@@ -159,11 +159,19 @@ flakySuite('RawSearchService', () => {
 			return emitter.event;
 		}
 
-		const result = await collectResultsFromEvent(fileSearch(rawSearch, 10));
-		result.files.forEach(f => {
-			assert.strictEqual(f.path.replace(/\\/g, '/'), uriPath);
-		});
-		assert.strictEqual(result.files.length, 25, 'Result');
+		const progressResults: any[] = [];
+		const onProgress = (match: ISearchProgressItem) => {
+			if (!isFileMatch(match)) {
+				return;
+			}
+
+			assert.strictEqual(match.resource.path, uriPath);
+			progressResults.push(match);
+		};
+
+		const result_2 = await DiskSearch.collectResultsFromEvent(fileSearch(rawSearch, 10), onProgress);
+		assert.strictEqual(result_2.results.length, 25, 'Result');
+		assert.strictEqual(progressResults.length, 25, 'Progress');
 	});
 
 	test('Multi-root with include pattern and maxResults', async function () {
@@ -179,8 +187,8 @@ flakySuite('RawSearchService', () => {
 			},
 		};
 
-		const result = await collectResultsFromEvent(service.fileSearch(query));
-		assert.strictEqual(result.files.length, 1, 'Result');
+		const result = await DiskSearch.collectResultsFromEvent(service.fileSearch(query));
+		assert.strictEqual(result.results.length, 1, 'Result');
 	});
 
 	test('Handles maxResults=0 correctly', async function () {
@@ -197,8 +205,8 @@ flakySuite('RawSearchService', () => {
 			},
 		};
 
-		const result = await collectResultsFromEvent(service.fileSearch(query));
-		assert.strictEqual(result.files.length, 0, 'Result');
+		const result = await DiskSearch.collectResultsFromEvent(service.fileSearch(query));
+		assert.strictEqual(result.results.length, 0, 'Result');
 	});
 
 	test('Multi-root with include pattern and exists', async function () {
@@ -214,8 +222,8 @@ flakySuite('RawSearchService', () => {
 			},
 		};
 
-		const result = await collectResultsFromEvent(service.fileSearch(query));
-		assert.strictEqual(result.files.length, 0, 'Result');
+		const result = await DiskSearch.collectResultsFromEvent(service.fileSearch(query));
+		assert.strictEqual(result.results.length, 0, 'Result');
 		assert.ok(result.limitHit);
 	});
 
@@ -367,26 +375,3 @@ flakySuite('RawSearchService', () => {
 		});
 	});
 });
-
-function collectResultsFromEvent(event: Event<ISerializedSearchProgressItem | ISerializedSearchComplete>): Promise<{ files: ISerializedFileMatch[]; limitHit: boolean }> {
-	const files: ISerializedFileMatch[] = [];
-
-	let listener: IDisposable;
-	return new Promise((c, e) => {
-		listener = event(ev => {
-			if (isSerializedSearchComplete(ev)) {
-				if (isSerializedSearchSuccess(ev)) {
-					c({ files, limitHit: ev.limitHit });
-				} else {
-					e(ev.error);
-				}
-
-				listener.dispose();
-			} else if (Array.isArray(ev)) {
-				files.push(...ev);
-			} else if ((<ISerializedFileMatch>ev).path) {
-				files.push(ev as ISerializedFileMatch);
-			}
-		});
-	});
-}
