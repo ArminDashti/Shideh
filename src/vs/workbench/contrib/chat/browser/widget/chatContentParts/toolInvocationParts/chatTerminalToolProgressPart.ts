@@ -9,7 +9,7 @@ import { isMarkdownString, MarkdownString } from '../../../../../../../base/comm
 import { hash } from '../../../../../../../base/common/hash.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js';
-import { ChatConfiguration } from '../../../../common/constants.js';
+import { ChatConfiguration, TerminalOutputExpansionMode } from '../../../../common/constants.js';
 import { migrateLegacyTerminalToolSpecificData } from '../../../../common/chat.js';
 import { IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind, type IChatMarkdownContent, type IChatTerminalToolInvocationData, type ILegacyChatTerminalToolInvocationData } from '../../../../common/chatService/chatService.js';
 import { ChatTreeItem, IChatCodeBlockInfo, IChatWidgetService } from '../../../chat.js';
@@ -971,6 +971,8 @@ export class ChatTerminalToolProgressPart extends BaseChatToolInvocationSubPart 
 				// CommandExecuted), so we need a small threshold to filter those out
 				return receivedDataCount > MIN_DATA_EVENTS_FOR_REAL_OUTPUT;
 			};
+
+			const expansionMode = this._configurationService.getValue<TerminalOutputExpansionMode>(ChatConfiguration.TerminalOutputExpansion);
 
 			// Use the extracted auto-expand logic
 			const autoExpand = store.add(new TerminalToolAutoExpand({

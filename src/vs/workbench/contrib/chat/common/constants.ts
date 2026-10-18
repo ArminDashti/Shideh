@@ -194,6 +194,21 @@ export function getChatAutoModeExplainability(configurationService: IConfigurati
 	return configurationService.getValue(ChatConfiguration.AutoModeExplainability) === 'footer' ? 'footer' : 'inline';
 }
 
+export enum TerminalOutputExpansionMode {
+	/**
+	 * Auto-expand when command starts, collapse on success (default behavior).
+	 */
+	OnError = 'onError',
+	/**
+	 * Always keep terminal output expanded.
+	 */
+	Always = 'always',
+	/**
+	 * Never auto-expand terminal output.
+	 */
+	Never = 'never',
+}
+
 /**
  * The "kind" of agents for custom agents.
  */
