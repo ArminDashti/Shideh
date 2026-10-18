@@ -2037,6 +2037,29 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	/**
+	 * Wait for a restored session's own remembered model — which targets this session's pool but
+	 * has not been contributed yet — to load, then apply it. Reuses the single
+	 * `_waitForPersistedLanguageModel` slot (cleared on every session switch), and is
+	 * session-scoped: the listener only applies while the input is still showing
+	 * `forSessionResource`, so switching to another session cannot receive the wrong model. While
+	 * this wait is pending, {@link setCurrentLanguageModelToDefault} and the model-list-change
+	 * reset skip persistence, so no transient default is written over the remembered model.
+	 */
+	private _waitForSessionModel(desiredModel: ILanguageModelChatMetadataAndIdentifier, modelConfiguration: IStringDictionary<unknown> | undefined, forSessionResource: URI): void {
+		this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(() => {
+			if (this._inputModelSessionResource?.toString() !== forSessionResource.toString()) {
+				return;
+			}
+			const liveModel = this.getAllMergedModels().find(m => m.identifier === desiredModel.identifier);
+			if (liveModel) {
+				this._waitForPersistedLanguageModel.clear();
+				this.restoreModelConfiguration(desiredModel.identifier, modelConfiguration);
+				this.setCurrentLanguageModel(liveModel);
+			}
+		});
+	}
+
+	/**
 	 * Sync current input state to the input model
 	 */
 	private _syncInputStateToModel(): void {
@@ -2473,6 +2496,26 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (!validMode) {
 			this.setChatMode(ChatModeKind.Agent);
 			return;
+		}
+	}
+
+	/**
+	 * Re-apply the session's own persisted custom agent once its mode becomes available.
+	 *
+	 * A restored agent-host session persists its selected custom agent in `mode`, but the agent
+	 * host's custom modes only register after the backend connects. Until then `setChatMode` falls
+	 * back to the builtin Agent, so when the custom modes arrive (`modes.onDidChange`) re-apply the
+	 * persisted custom agent. Builtin/default modes are handled by {@link validateCurrentChatMode}.
+	 */
+	private _restorePersistedCustomModeIfAvailable(): void {
+		const persistedMode = this._inputModel?.state.get()?.mode;
+		if (!persistedMode) {
+			return;
+		}
+		const modes = this._currentChatModesObservable.get();
+		const found = modes.findModeById(persistedMode.id) ?? modes.findModeByName(persistedMode.id);
+		if (found && !found.isBuiltin && this._currentModeObservable.get().id !== found.id) {
+			this.setChatMode(found.id, false);
 		}
 	}
 
