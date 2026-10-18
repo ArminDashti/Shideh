@@ -1074,6 +1074,11 @@ export class ListView<T> implements IListView<T> {
 			}
 		}
 
+		// After renderElement, item.row may become null due to reentrant splice/dispose operations
+		if (!item.row) {
+			return;
+		}
+
 		const uri = this.dnd.getDragURI(item.element);
 		item.dragStartDisposable.dispose();
 		item.row.domNode.draggable = !!uri;
