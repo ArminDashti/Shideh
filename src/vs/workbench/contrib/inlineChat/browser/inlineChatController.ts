@@ -109,6 +109,9 @@ export function getAgentHostAttachmentRange(model: ITextModel, selection: Select
 /** Handles the required save before an Agent Host request can target an untitled editor. */
 export class InlineChatUntitledSaveHandler {
 
+	private _enabledProvider: Promise<IInlineChatSessionProvider | string | undefined> = Promise.resolve(undefined);
+	private _providerEnablementEvents: DisposableMap<IInlineChatSessionProvider> = this._store.add(new DisposableMap());
+
 	constructor(
 		private readonly _isEligible: (resource: URI) => boolean,
 		private readonly _editorService: IEditorService,
