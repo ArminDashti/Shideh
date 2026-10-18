@@ -158,8 +158,19 @@ suite('Markdown editor diff', () => {
 	});
 });
 
-suite('Markdown editor initial state', () => {
-	test('safely round-trips document content', () => {
+suite('Markdown editor history handshake', () => {
+	test('attributes a restore only to a command that changed the document version', () => {
+		assert.deepStrictEqual({
+			noOp: historyResultPayload(7, 7, 'unchanged text'),
+			restored: historyResultPayload(7, 8, 'restored text'),
+		}, {
+			noOp: { status: 'unchanged' },
+			restored: { status: 'restored', content: 'restored text', documentVersion: 8 },
+		});
+	});
+});
+
+suite('Markdown editor initial state', () => {	test('safely round-trips document content', () => {
 		const state = {
 			content: '</meta><script>globalThis.modified = true</script><!--\n# Heading "quoted"',
 			documentVersion: 17,

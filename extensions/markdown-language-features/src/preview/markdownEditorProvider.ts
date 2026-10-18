@@ -1405,6 +1405,18 @@ function toGutterMarkers(document: vscode.TextDocument, changes: readonly vscode
 	return markers;
 }
 
+/**
+ * The causally scoped reply for a forwarded history command: `restored` only
+ * when the command actually advanced the document's own version, so a chord
+ * that hit an empty undo stack cannot be attributed a restore.
+ */
+export function historyResultPayload(versionBefore: number, versionAfter: number, contentAfter: string): { status: 'restored'; content: string; documentVersion: number } | { status: 'unchanged' } {
+	if (versionAfter === versionBefore) {
+		return { status: 'unchanged' };
+	}
+	return { status: 'restored', content: contentAfter, documentVersion: versionAfter };
+}
+
 export function lineRangesToGutterMarkers(document: vscode.TextDocument, changes: readonly ChangedLineRange[]): GutterMarkerMessage[] {
 	return changes.map(change => {
 		if (change.modifiedRange.isEmpty) {

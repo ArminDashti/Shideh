@@ -162,6 +162,7 @@ class Editor extends Disposable {
 			))
 			: undefined;
 
+		this.#lastDocumentVersion = initialState.documentVersion;
 		this.model.sourceText.set(new StringValue(initialState.content), undefined);
 		this.model.readonlyMode.set(initialState.readonly, undefined);
 
@@ -290,6 +291,70 @@ class Editor extends Disposable {
 		this.#connection.close();
 	}
 
+	/**
+	 * Whether a host message describes the current or a newer document revision.
+	 * Messages without a version (older hosts) are always accepted.
+	 */
+	#acceptDocumentVersion(documentVersion: unknown): boolean {
+		if (typeof documentVersion !== 'number') {
+			return true;
+		}
+		if (documentVersion < this.#lastDocumentVersion) {
+			return false;
+		}
+		this.#lastDocumentVersion = documentVersion;
+		return true;
+	}
+
+	#applyHostContent(content: string): void {
+		this.isUpdatingFromExtension = true;
+		try {
+			this.model.replaceSourceText(new StringValue(content));
+		} finally {
+			this.isUpdatingFromExtension = false;
+		}
+	}
+
+	#handleHistoryResult(message: { requestId?: unknown; status?: unknown; content?: unknown; documentVersion?: unknown; message?: unknown }): void {
+		if (typeof message.requestId !== 'number') {
+			return;
+		}
+		const request = this.#historyRequests.get(message.requestId);
+		if (!request) {
+			return;
+		}
+		this.#historyRequests.delete(message.requestId);
+		if (message.status === 'failed') {
+			request.reject(new Error(typeof message.message === 'string' ? message.message : 'Markdown editor history command failed'));
+			return;
+		}
+		if (message.status !== 'restored' || typeof message.content !== 'string') {
+			request.resolve({ kind: 'unchanged' });
+			return;
+		}
+		if (!this.#acceptDocumentVersion(message.documentVersion)) {
+			// A newer update already superseded this restore; nothing to reveal.
+			request.resolve({ kind: 'unchanged' });
+			return;
+		}
+		this.#applyHostContent(message.content);
+		request.resolve({
+			kind: 'restored',
+			state: {
+				sourceText: this.model.sourceText.get(),
+				selection: this.model.selection.get(),
+			},
+		});
+	}
+
+	#requestHistory(command: 'undo' | 'redo'): Promise<HistoryOperationResult> {
+		const requestId = this.#nextHistoryRequestId++;
+		return new Promise<HistoryOperationResult>((resolve, reject) => {
+			this.#historyRequests.set(requestId, { resolve, reject });
+			this.#vscode.postMessage({ type: 'history', command, requestId });
+		});
+	}
+
 	#createView(host: HTMLElement, content: string): void {
 		const model = this.model;
 		const scriptNonce = document.querySelector<HTMLMetaElement>('meta[name="vscode-markdown-editor-script-nonce"]')?.content;
@@ -374,6 +439,22 @@ class Editor extends Disposable {
 		// backing TextDocument's own undo stack. `record` is deliberately omitted:
 		// the TextDocument owns the history, and a second local stack would drift
 		// from the Edit menu, dirty state and hot exit.
+		//
+		// The strategy is a variable rather than an inline literal on purpose: the
+		// extra `asynchronous`/`onError` members are recognized by newer package
+		// versions that correlate forwarded restores, while remaining assignable to
+		// the currently published synchronous `IHistoryStrategy` (which ignores them
+		// and tolerates the returned promise as a `void` result).
+		const historyStrategy = {
+			asynchronous: true as const,
+			undo: () => this.#requestHistory('undo'),
+			redo: () => this.#requestHistory('redo'),
+			onError: (error: unknown) => {
+				// Surface the failure without posting another history message, so a
+				// broken request cannot feed a protocol loop.
+				console.error('Markdown editor history command failed', error);
+			},
+		};
 		this.#controller = this._register(new EditorController(model, view, {
 			clipboardStrategy: new AsyncClipboardStrategy(),
 			keyboardProfile: vscodeLocalKeyboardProfile,
