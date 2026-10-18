@@ -40,6 +40,7 @@ import { ILanguageFeaturesService } from '../../../../../editor/common/services/
 import { getTerminalLspSupportedLanguageObj } from './lspTerminalUtil.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 
 registerSingleton(ITerminalCompletionService, TerminalCompletionService, InstantiationType.Delayed);
 
@@ -69,6 +70,7 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 		@ITerminalCompletionService private readonly _terminalCompletionService: ITerminalCompletionService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 	) {
 		super();
 		this.add(toDisposable(() => {
@@ -382,7 +384,8 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 			return xtermElement;
 		}
 
-		return dom.findParentWithClass(xtermElement, 'panel') ?? xtermElement;
+		// Use the workbench container to avoid stacking context issues with panels/sidebars
+		return this._layoutService.getContainer(dom.getWindow(xtermElement));
 	}
 }
 
