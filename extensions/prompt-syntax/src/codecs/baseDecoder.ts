@@ -60,6 +60,12 @@ export abstract class BaseDecoder<
 	protected abstract onStreamData(data: K): void;
 
 	/**
+	 * This method is called when a new incomming data
+	 * is received from the input stream.
+	 */
+	protected abstract onStreamData(data: K): void;
+
+	/**
 	 * @param stream The input stream to decode.
 	 */
 	constructor(
