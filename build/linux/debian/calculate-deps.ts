@@ -91,7 +91,9 @@ function calculatePackageDeps(binaryPath: string, arch: DebianArchString, chromi
 	// TODO(deepak1556): remove this workaround in favor of computing the
 	// versions from build container for native modules.
 	const filteredDeps = depsStr.split(', ').filter(dependency => {
-		return !dependency.startsWith('libgcc-s1');
+		return !dependency.startsWith('libgcc-s1') &&
+			!dependency.startsWith('libgssapi-krb5-2') &&
+			!dependency.startsWith('libkrb5-3');
 	}).sort();
 	const requires = new Set(filteredDeps);
 	return requires;
