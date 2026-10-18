@@ -1527,6 +1527,8 @@ export interface IAgentService {
  * Implementations wrap an {@link IAgentService} and layer subscription
  * management and optimistic write-ahead on top.
  */
+export type AgentConnectionAction = SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | NativeClientAnnotationsAction | IRootConfigChangedAction;
+
 export interface IAgentConnection {
 	readonly connectionAvailable?: IObservable<boolean>;
 	readonly onDidArtifactIntegrationUpdate?: Event<ArtifactIntegrationUpdate>;
@@ -1569,12 +1571,8 @@ export interface IAgentConnection {
 
 	// ---- Action dispatch ----------------------------------------------------
 	/**
-	 * Dispatch a client-originated action. `channel` is the protocol URI
-	 * string identifying the channel the action targets (a session URI for
-	 * session actions, terminal URI for terminal actions, or
-	 * `ROOT_STATE_URI` for root-config actions). Strings are used rather
-	 * than {@link URI} objects so authority-less scheme URIs like
-	 * `ahp-root://` survive the wire format without normalization.
+	 * Dispatch a client-originated native action. URI-bearing action fields are
+	 * encoded automatically before optimistic reduction and wire dispatch.
 	 */
 	dispatch(channel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | ClientAutomationAction | ClientAutomationRunAction | IRootConfigChangedAction): void;
 

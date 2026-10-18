@@ -26,6 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import * as ts from 'typescript';
+import { generateAgentHostUriProjections } from './generate-agent-host-uri-projections';
 
 const ROOT = path.resolve(__dirname, '..');
 const PROTOCOL_REPO = process.env['AHP_PROTOCOL_REPO'] ?? path.resolve(ROOT, '../agent-host-protocol');

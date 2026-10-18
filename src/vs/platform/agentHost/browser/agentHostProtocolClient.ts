@@ -274,6 +274,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	private readonly _transportListeners = this._register(new MutableDisposable<DisposableStore>());
 	private readonly _connectionAuthority: string;
 	readonly resourceUris: IAgentHostResourceUriMapper;
+	private readonly _uriProjection: AgentHostUriProjection;
 	private _serverSeq = 0;
 	private _nextClientSeq = 1;
 	private _defaultDirectory: string | undefined;
@@ -500,6 +501,10 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 */
 	get initializeResult(): IObservable<InitializeResult | undefined> {
 		return this._initializeResult;
+	}
+
+	get projectedInitializeResult(): IObservable<NativeInitializeResult | undefined> {
+		return this._projectedInitializeResult;
 	}
 
 	constructor(
@@ -1112,10 +1117,13 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			capabilities: { workingDirectoryInfo: {} },
 			_meta: this._clientMeta(),
 			initialSubscriptions: subscriptions,
-		}, { bypassReconnectGate: true });
-		this._applyInitializeResult(initializeResult, false);
+		}, { bypassReconnectGate: true }, raw => {
+			const wire = raw as CommandMap['initialize']['result'];
+			return { wire, native: this._uriProjection.decodeInitializeResult(wire) };
+		});
+		this._applyInitializeResult(initializeResult.wire, initializeResult.native, false);
 		return {
-			result: { type: ReconnectResultType.Snapshot, snapshots: initializeResult.snapshots ?? [] },
+			result: { type: ReconnectResultType.Snapshot, snapshots: initializeResult.wire.snapshots ?? [] },
 			freshInitialize: true,
 		};
 	}
@@ -1552,6 +1560,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 * response.
 	 */
 	async subscribe(resource: URI): Promise<IStateSnapshot> {
+		this._uriProjection.registerChannel(resource);
 		this._logService.trace(`[RemoteAgentHostProtocol] subscribe start: ${resource.toString()}`);
 		const result = await this._sendRequest('subscribe', { channel: resource.toString() });
 		if (!result.snapshot) {
@@ -1572,6 +1581,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 * dispatch event (e.g. {@link onDidReceiveOtlpLogs} for log records).
 	 */
 	async subscribeStateless(resource: URI): Promise<void> {
+		this._uriProjection.registerChannel(resource);
 		await this._sendRequest('subscribe', { channel: resource.toString() });
 	}
 
@@ -2188,7 +2198,11 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 					}
 					pending.deferred.error(this._toProtocolError(msg.error));
 				} else {
-					pending.deferred.complete(msg.result);
+					try {
+						pending.deferred.complete(pending.decodeResult(msg.result));
+					} catch (error) {
+						pending.deferred.error(error);
+					}
 				}
 			} else {
 				this._logService.warn(`[RemoteAgentHostProtocol] Received response for unknown request id ${msg.id}`);
@@ -2635,6 +2649,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		method: string,
 		params: unknown,
 		options: { readonly bypassInitializeQueue?: boolean; readonly allowIncompatibleUpgrade?: boolean; readonly bypassReconnectGate?: boolean } = {},
+		decodeResult: (result: unknown) => TResult = result => result as TResult,
 	): Promise<TResult> {
 		if (this._state.kind === AgentHostClientState.Closed) {
 			throw this._state.error;
@@ -2643,12 +2658,12 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			if (!options.allowIncompatibleUpgrade) {
 				throw this._state.error;
 			}
-			const { request, result } = this._createRequest<TResult>(method, params);
+			const { request, result } = this._createRequest(method, params, decodeResult);
 			this._transport.send(request);
 			return result;
 		}
 		if (!options.bypassInitializeQueue && isClientTransport(this._transport) && this._state.kind === AgentHostClientState.Connecting) {
-			const { request, result } = this._createRequest<TResult>(method, params);
+			const { request, result } = this._createRequest(method, params, decodeResult);
 			this._state.outbox.push(request as ProtocolMessage);
 			return result;
 		}
@@ -2691,7 +2706,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		return result;
 	}
 
-	private _createRequest<TResult>(method: string, params: unknown): { request: JsonRpcRequest; result: Promise<TResult> } {
+	private _createRequest<TResult>(method: string, params: unknown, decodeResult: (result: unknown) => TResult): { request: JsonRpcRequest; result: Promise<TResult> } {
 		const id = this._nextRequestId++;
 		const deferred = new DeferredPromise<unknown>();
 		this._pendingRequests.set(id, { deferred, method, suppressNotFoundWarning: isFileResourceRead(method, params), sentAt: Date.now() });

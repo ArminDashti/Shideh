@@ -41,6 +41,7 @@ import {
 	AgentHostAhpJsonlLoggingSettingId,
 	type AgentHostDebugLogsArtifactKind,
 	AgentHostIpcChannels,
+	type AgentConnectionAction,
 	AgentHostOTelPolicyIpcChannel,
 	AgentHostRestartIpcChannel,
 	AgentHostWillRestartIpcChannel,

@@ -9,7 +9,7 @@ import { IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { IAgentConnection } from '../../../../../platform/agentHost/common/agentService.js';
+import { type AgentConnectionAction, IAgentConnection } from '../../../../../platform/agentHost/common/agentService.js';
 import { createAgentHostResourceUriMapper } from '../../../../../platform/agentHost/common/agentHostUri.js';
 import { FEEDBACK_ANNOTATION_META_KEY } from '../../../../../platform/agentHost/common/meta/agentFeedbackAnnotations.js';
 import { IAgentSubscription } from '../../../../../platform/agentHost/common/state/agentSubscription.js';
@@ -28,7 +28,7 @@ import { AgentFeedbackKind, AgentFeedbackState } from '../../browser/agentFeedba
 suite('AnnotationsAgentFeedbackItemsBackend', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('maps annotation resources through the owning connection', () => {
+	test('decodes and dispatches native annotation resources', () => {
 		const sessionResource = URI.parse('remote-agent-host:///session');
 		const annotationsUri = URI.parse('copilot:///session/annotations');
 		const agentHostResource = URI.parse('file:///Q:/Source/repository/src/file.ts');
@@ -58,7 +58,7 @@ suite('AnnotationsAgentFeedbackItemsBackend', () => {
 			onWillApplyAction: Event.None,
 			onDidApplyAction: Event.None,
 		};
-		const dispatchedActions: ClientAnnotationsAction[] = [];
+		const dispatchedActions: AgentConnectionAction[] = [];
 		const connection = new class extends mock<IAgentConnection>() {
 			override readonly resourceUris = resourceUris;
 
@@ -70,7 +70,7 @@ suite('AnnotationsAgentFeedbackItemsBackend', () => {
 				};
 			}
 
-			override dispatch(_channel: string, action: ClientAnnotationsAction): void {
+			override dispatch(_channel: string, action: AgentConnectionAction): void {
 				dispatchedActions.push(action);
 			}
 		}();

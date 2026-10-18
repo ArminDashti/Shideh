@@ -76,7 +76,7 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 
 	private readonly _sessionStates = new Map<string, SessionState>();
 
-	readonly dispatchedActions: { channel: string; action: StateAction }[] = [];
+	readonly dispatchedActions: { channel: string; action: AgentConnectionAction }[] = [];
 
 	constructor() {
 		super();
@@ -94,7 +94,7 @@ class MockAgentConnection extends mock<IAgentConnection>() {
 		this._rootStateValue = rootState;
 	}
 
-	override dispatch(channel: string, action: StateAction): void {
+	override dispatch(channel: string, action: AgentConnectionAction): void {
 		this.dispatchedActions.push({ channel, action });
 	}
 

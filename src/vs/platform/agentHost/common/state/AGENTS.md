@@ -25,6 +25,9 @@ The generated protocol includes the Changesets model:
 3. If VS Code consumers need short aliases or type guards, update the wrapper files in this directory after the sync.
 4. Compile. The generated registry catches missing action/notification version map entries.
 
+Application code consumes native URI projections, not protocol URI strings.
+Do not add manual parsing or `resourceUris` mapping in feature code.
+
 ## Adding optional fields to existing types
 
 Optional protocol fields are usually backwards-compatible. Add the field in the source protocol repo, sync `protocol/**`, and add wrapper exports only when VS Code code needs them.
