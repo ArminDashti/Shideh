@@ -65,6 +65,9 @@ class StackOperation implements IWorkspaceUndoRedoElement {
 	get resources(): readonly URI[] {
 		return [this.textModel.uri];
 	}
+	get resources(): readonly URI[] {
+		return [this.resource];
+	}
 
 	get isEmpty(): boolean {
 		return this._operations.length === 0;
