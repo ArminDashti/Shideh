@@ -37,6 +37,7 @@ export interface IChatConfirmationButton<T> {
 	disabled?: boolean;
 	readonly onDidChangeDisablement?: Event<boolean>;
 	moreActions?: (IChatConfirmationButton<T> | Separator)[];
+	styles?: Partial<IButtonStyles>;
 }
 
 export interface IChatConfirmationButtonClickEvent<T> {
@@ -208,7 +209,7 @@ abstract class BaseSimpleChatConfirmationWidget<T> extends Disposable {
 
 		// Create buttons
 		buttons.forEach(buttonData => {
-			const buttonOptions: IButtonOptions = { ...defaultButtonStyles, small: true, secondary: buttonData.isSecondary, title: buttonData.tooltip, disabled: buttonData.disabled };
+			const buttonOptions: IButtonOptions = { ...defaultButtonStyles, ...buttonData.styles, small: true, secondary: buttonData.isSecondary, title: buttonData.tooltip, disabled: buttonData.disabled };
 
 			let button: IButton;
 			if (buttonData.moreActions?.some(action => !(action instanceof Separator))) {
@@ -481,7 +482,7 @@ abstract class BaseChatConfirmationWidget<T> extends Disposable {
 		}
 
 		for (const buttonData of buttons) {
-			const buttonOptions: IButtonOptions = { ...defaultButtonStyles, small: true, secondary: buttonData.isSecondary, title: buttonData.tooltip, disabled: buttonData.disabled };
+			const buttonOptions: IButtonOptions = { ...defaultButtonStyles, ...buttonData.styles, small: true, secondary: buttonData.isSecondary, title: buttonData.tooltip, disabled: buttonData.disabled };
 
 			let button: IButton;
 			if (buttonData.moreActions?.some(action => !(action instanceof Separator))) {
