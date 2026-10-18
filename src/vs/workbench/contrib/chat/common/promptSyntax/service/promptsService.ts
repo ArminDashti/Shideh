@@ -61,8 +61,9 @@ export function newInstructionsCollectionDebugInfo(): InstructionsCollectionDebu
 }
 
 /**
- * Entry emitted by the prompts service when discovery logging occurs.
- * A debug bridge (e.g. contribution) can listen and forward these to IChatDebugService.
+ * Entry emitted by the prompts service when the discovery result for a
+ * particular {@link PromptsType} changes (cache invalidation + recomputation).
+ * Consumers such as a debug bridge listen and broadcast to active sessions.
  */
 export interface IPromptDiscoveryLogEntry {
 	readonly sessionId: string;

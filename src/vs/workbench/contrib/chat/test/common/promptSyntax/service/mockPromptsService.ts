@@ -22,8 +22,8 @@ export class MockPromptsService implements IPromptsService {
 	private readonly _onDidChangeCustomAgents = new Emitter<void>();
 	readonly onDidChangeCustomAgents = this._onDidChangeCustomAgents.event;
 
-	private readonly _onDidLogDiscovery = new Emitter<IPromptDiscoveryLogEntry>();
-	readonly onDidLogDiscovery: Event<IPromptDiscoveryLogEntry> = this._onDidLogDiscovery.event;
+	private readonly _onDidDiscoveryChange = new Emitter<IPromptDiscoveryChangeEvent>();
+	readonly onDidDiscoveryChange: Event<IPromptDiscoveryChangeEvent> = this._onDidDiscoveryChange.event;
 
 	private _customModes: ICustomAgent[] = [];
 	private readonly _customModesObservable = observableValue<readonly ICustomAgent[]>(this, []);

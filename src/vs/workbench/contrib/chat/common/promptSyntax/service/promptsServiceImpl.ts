@@ -213,11 +213,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 	private readonly cachedParsedPromptFromModels = new ResourceMap<[number, ParsedPromptFile]>();
 
 	/**
-	 * Emitter for discovery log events. Listeners (e.g. a debug bridge
-	 * contribution) can forward these to IChatDebugService.
+	 * Emitter for discovery change events. Fired when cached discovery
+	 * data is invalidated and recomputed (not scoped to a session).
 	 */
-	private readonly _onDidLogDiscovery = this._register(new Emitter<IPromptDiscoveryLogEntry>());
-	public readonly onDidLogDiscovery: Event<IPromptDiscoveryLogEntry> = this._onDidLogDiscovery.event;
+	private readonly _onDidDiscoveryChange = this._register(new Emitter<IPromptDiscoveryChangeEvent>());
+	public readonly onDidDiscoveryChange: Event<IPromptDiscoveryChangeEvent> = this._onDidDiscoveryChange.event;
 
 	/**
 	 * Cached file locations commands. Caching only happens if the corresponding `fileLocatorEvents` event is used.
@@ -365,6 +365,29 @@ export class PromptsService extends Disposable implements IPromptsService {
 				onDidChangeCustomizationLockdown,
 			)
 		));
+
+		// Fire onDidDiscoveryChange when any discovery cache is invalidated.
+		// Each listener asynchronously recomputes discovery info and emits.
+		this._register(this.cachedSlashCommands.onDidChange(() => {
+			void this.getPromptSlashCommandDiscoveryInfo(CancellationToken.None).catch(() => undefined)
+				.then(discoveryInfo => { if (discoveryInfo) { this._onDidDiscoveryChange.fire({ type: PromptsType.prompt, discoveryInfo }); } });
+		}));
+		this._register(this.cachedCustomAgents.onDidChange(() => {
+			void this.getAgentDiscoveryInfo(CancellationToken.None).catch(() => undefined)
+				.then(discoveryInfo => { if (discoveryInfo) { this._onDidDiscoveryChange.fire({ type: PromptsType.agent, discoveryInfo }); } });
+		}));
+		this._register(this.cachedSkills.onDidChange(() => {
+			void this.getSkillDiscoveryInfo(CancellationToken.None).catch(() => undefined)
+				.then(discoveryInfo => { if (discoveryInfo) { this._onDidDiscoveryChange.fire({ type: PromptsType.skill, discoveryInfo }); } });
+		}));
+		this._register(this.cachedHooks.onDidChange(() => {
+			void this.getHookDiscoveryInfo(CancellationToken.None).catch(() => undefined)
+				.then(discoveryInfo => { if (discoveryInfo) { this._onDidDiscoveryChange.fire({ type: PromptsType.hook, discoveryInfo }); } });
+		}));
+		this._register(this.onDidChangeInstructions(() => {
+			void this.getInstructionsDiscoveryInfo(CancellationToken.None).catch(() => undefined)
+				.then(discoveryInfo => { if (discoveryInfo) { this._onDidDiscoveryChange.fire({ type: PromptsType.instructions, discoveryInfo }); } });
+		}));
 
 		this._register(this.watchPluginPromptFilesForType(
 			PromptsType.prompt,
