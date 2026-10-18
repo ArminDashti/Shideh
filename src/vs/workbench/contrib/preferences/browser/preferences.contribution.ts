@@ -810,6 +810,56 @@ class PreferencesActionsContribution extends Disposable implements IWorkbenchCon
 				if (activeElement?.classList.contains('monaco-list')) {
 					preferencesEditor.focusSettings(true);
 				}
+
+				if (document.activeElement?.classList.contains('monaco-list')) {
+					preferencesEditor.focusTOC();
+				} else {
+					preferencesEditor.focusSettings();
+				}
+			}
+		});
+
+		registerAction2(class extends Action2 {
+			constructor() {
+				super({
+					id: SETTINGS_EDITOR_COMMAND_FOCUS_CONTROL,
+					precondition: ContextKeyExpr.and(CONTEXT_SETTINGS_EDITOR, CONTEXT_TOC_ROW_FOCUS.negate()),
+					keybinding: {
+						primary: KeyCode.Enter,
+						weight: KeybindingWeight.WorkbenchContrib,
+					},
+					title: nls.localize('settings.focusSettingControl', "Focus setting control")
+				});
+			}
+
+			run(accessor: ServicesAccessor): void {
+				const preferencesEditor = getPreferencesEditor(accessor);
+				if (!(preferencesEditor instanceof SettingsEditor2)) {
+					return;
+				}
+
+				if (document.activeElement?.classList.contains('monaco-list')) {
+					preferencesEditor.focusSettings(true);
+				}
+			}
+		});
+
+		registerAction2(class extends Action2 {
+			constructor() {
+				super({
+					id: SETTINGS_EDITOR_COMMAND_FOCUS_TOC2,
+
+					title: nls.localize('settings.focusSettingsTOC', "Focus settings TOC tree")
+				});
+			}
+
+			run(accessor: ServicesAccessor): void {
+				const preferencesEditor = getPreferencesEditor(accessor);
+				if (!(preferencesEditor instanceof SettingsEditor2)) {
+					return;
+				}
+
+				preferencesEditor.focusTOC();
 			}
 		}));
 

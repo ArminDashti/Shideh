@@ -872,6 +872,45 @@ export interface HeightChangeParams {
 	height: number;
 }
 
+function removeChildrenFromTabOrder(node: Element): void {
+	const focusableElements = node.querySelectorAll(`
+		[tabindex="0"],
+		input:not([tabindex="-1"]),
+		select:not([tabindex="-1"]),
+		textarea:not([tabindex="-1"]),
+		a:not([tabindex="-1"]),
+		button:not([tabindex="-1"]),
+		area:not([tabindex="-1"])
+	`);
+
+	focusableElements.forEach(element => {
+		element.setAttribute(AbstractSettingRenderer.ELEMENT_FOCUSABLE_ATTR, 'true');
+		element.setAttribute('tabindex', '-1');
+	});
+}
+
+function addChildrenToTabOrder(node: Element): void {
+	const focusableElements = node.querySelectorAll(
+		`[${AbstractSettingRenderer.ELEMENT_FOCUSABLE_ATTR}="true"]`
+	);
+
+	focusableElements.forEach(element => {
+		element.removeAttribute(AbstractSettingRenderer.ELEMENT_FOCUSABLE_ATTR);
+		element.setAttribute('tabindex', '0');
+	});
+}
+
+export function updateSettingTreeTabOrder(container: Element): void {
+	const allRows = [...container.querySelectorAll(AbstractSettingRenderer.ALL_ROWS_SELECTOR)];
+	const focusedRow = allRows.find(row => row.classList.contains('focused'));
+
+	allRows.forEach(removeChildrenFromTabOrder);
+
+	if (isDefined(focusedRow)) {
+		addChildrenToTabOrder(focusedRow);
+	}
+}
+
 export abstract class AbstractSettingRenderer extends Disposable implements ITreeRenderer<SettingsTreeElement, never, any> {
 	/** To override */
 	abstract get templateId(): string;

@@ -1359,6 +1359,7 @@ export class SettingsEditor2 extends EditorPane {
 			}
 
 			this.settingsTreeScrollTop = this.settingsTree.scrollTop;
+			updateSettingTreeTabOrder(this.settingsTreeContainer);
 
 			// setTimeout because calling setChildren on the settingsTree can trigger onDidScroll, so it fires when
 			// setChildren has called on the settings tree but not the toc tree yet, so their rendered elements are out of sync
