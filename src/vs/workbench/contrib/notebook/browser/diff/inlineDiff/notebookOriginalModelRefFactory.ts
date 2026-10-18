@@ -16,7 +16,7 @@ export const INotebookOriginalModelReferenceFactory = createDecorator<INotebookO
 
 export interface INotebookOriginalModelReferenceFactory {
 	readonly _serviceBrand: undefined;
-	getOrCreate(fileEntry: IModifiedFileEntry, viewType: string): Promise<IReference<NotebookTextModel>>;
+	getOrCreate(fileEntry: IModifiedTextFileEntry, viewType: string): Promise<IReference<NotebookTextModel>>;
 }
 
 
@@ -28,7 +28,7 @@ export class OriginalNotebookModelReferenceCollection extends ReferenceCollectio
 		super();
 	}
 
-	protected override async createReferencedObject(key: string, fileEntry: IModifiedFileEntry, viewType: string): Promise<NotebookTextModel> {
+	protected override async createReferencedObject(key: string, fileEntry: IModifiedTextFileEntry, viewType: string): Promise<NotebookTextModel> {
 		this.modelsToDispose.delete(key);
 		const uri = fileEntry.originalURI;
 		const model = this.notebookService.getNotebookTextModel(uri);
@@ -88,7 +88,7 @@ export class NotebookOriginalModelReferenceFactory implements INotebookOriginalM
 	constructor(@IInstantiationService private readonly instantiationService: IInstantiationService) {
 	}
 
-	getOrCreate(fileEntry: IModifiedFileEntry, viewType: string): Promise<IReference<NotebookTextModel>> {
+	getOrCreate(fileEntry: IModifiedTextFileEntry, viewType: string): Promise<IReference<NotebookTextModel>> {
 		return this.asyncModelCollection.acquire(fileEntry.originalURI.toString(), fileEntry, viewType);
 	}
 }

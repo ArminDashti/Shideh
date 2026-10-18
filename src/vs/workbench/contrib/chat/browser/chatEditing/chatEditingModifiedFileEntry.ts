@@ -444,3 +444,8 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 	 */
 	abstract revertToDisk(): Promise<void>;
 }
+
+function getFileContent(hash: string, fileService: IFileService, storageLocation: URI) {
+	return fileService.readFile(joinPath(storageLocation, STORAGE_CONTENTS_FOLDER, hash)).then(content => content.value.toString());
+}
+
