@@ -139,7 +139,7 @@ export class TerminalProcessExtHostProxy extends Disposable implements ITerminal
 		// Flow control is disabled for extension terminals
 	}
 
-	async setUnicodeVersion(version: '6' | '11'): Promise<void> {
+	async setUnicodeVersion(version: '6' | '11' | 'graphemes'): Promise<void> {
 		// No-op
 	}
 

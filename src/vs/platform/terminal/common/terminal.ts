@@ -353,7 +353,7 @@ export interface IPtyService {
 		cwd: string,
 		cols: number,
 		rows: number,
-		unicodeVersion: '6' | '11',
+		unicodeVersion: '6' | '11' | 'graphemes',
 		env: IProcessEnvironment,
 		executableEnv: IProcessEnvironment,
 		options: ITerminalProcessOptions,
@@ -386,7 +386,7 @@ export interface IPtyService {
 	getCwd(id: number): Promise<string>;
 	acknowledgeDataEvent(id: number, charCount: number): Promise<void>;
 	setNextCommandId(id: number, commandLine: string, commandId: string): Promise<void>;
-	setUnicodeVersion(id: number, version: '6' | '11'): Promise<void>;
+	setUnicodeVersion(id: number, version: '6' | '11' | 'graphemes'): Promise<void>;
 	processBinary(id: number, data: string): Promise<void>;
 	/** Confirm the process is _not_ an orphan. */
 	orphanQuestionReply(id: number): Promise<void>;
@@ -473,7 +473,7 @@ export interface ISerializedTerminalState {
 	shellLaunchConfig: IShellLaunchConfig;
 	processDetails: IProcessDetails;
 	processLaunchConfig: IPersistentTerminalProcessLaunchConfig;
-	unicodeVersion: '6' | '11';
+	unicodeVersion: '6' | '11' | 'graphemes';
 	replayEvent: IPtyHostProcessReplayEvent;
 	timestamp: number;
 	onDidInputData: Event<string>;
@@ -911,7 +911,7 @@ export interface ITerminalChildProcess {
 	 * Sets the unicode version for the process, this drives the size of some characters in the
 	 * xterm-headless instance.
 	 */
-	setUnicodeVersion(version: '6' | '11'): Promise<void>;
+	setUnicodeVersion(version: '6' | '11' | 'graphemes'): Promise<void>;
 
 	getInitialCwd(): Promise<string>;
 	getCwd(): Promise<string>;
@@ -1263,7 +1263,7 @@ export interface ITerminalBackend extends ITerminalBackendPtyServiceContribution
 		cwd: string,
 		cols: number,
 		rows: number,
-		unicodeVersion: '6' | '11',
+		unicodeVersion: '6' | '11' | 'graphemes',
 		env: IProcessEnvironment,
 		options: ITerminalProcessOptions,
 		shouldPersist: boolean,

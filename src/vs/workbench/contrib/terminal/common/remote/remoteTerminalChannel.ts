@@ -51,7 +51,7 @@ export interface ICreateTerminalProcessArguments {
 	options: ITerminalProcessOptions;
 	cols: number;
 	rows: number;
-	unicodeVersion: '6' | '11';
+	unicodeVersion: '6' | '11' | 'graphemes';
 	resolverEnv: { [key: string]: string | null } | undefined;
 }
 
@@ -127,7 +127,7 @@ export class RemoteTerminalChannelClient implements IPtyHostController {
 		shouldPersistTerminal: boolean,
 		cols: number,
 		rows: number,
-		unicodeVersion: '6' | '11'
+		unicodeVersion: '6' | '11' | 'graphemes'
 	): Promise<ICreateTerminalProcessResult> {
 		// Be sure to first wait for the remote configuration
 		await this._configurationService.whenRemoteConfigurationLoaded();
@@ -230,7 +230,7 @@ export class RemoteTerminalChannelClient implements IPtyHostController {
 	acknowledgeDataEvent(id: number, charCount: number): Promise<void> {
 		return this._channel.call(RemoteTerminalChannelRequest.AcknowledgeDataEvent, [id, charCount]);
 	}
-	setUnicodeVersion(id: number, version: '6' | '11'): Promise<void> {
+	setUnicodeVersion(id: number, version: '6' | '11' | 'graphemes'): Promise<void> {
 		return this._channel.call(RemoteTerminalChannelRequest.SetUnicodeVersion, [id, version]);
 	}
 	setNextCommandId(id: number, commandLine: string, commandId: string): Promise<void> {

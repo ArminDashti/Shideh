@@ -76,7 +76,7 @@ class TestTerminalInstanceService implements Partial<ITerminalInstanceService> {
 				cwd: string,
 				cols: number,
 				rows: number,
-				unicodeVersion: '6' | '11',
+				unicodeVersion: '6' | '11' | 'graphemes',
 				env: any,
 				options: any,
 				shouldPersist: boolean

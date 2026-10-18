@@ -367,7 +367,7 @@ class ExtHostPseudoterminal extends Disposable implements ITerminalChildProcess 
 		// implemented it will need new pause and resume VS Code APIs.
 	}
 
-	async setUnicodeVersion(version: '6' | '11'): Promise<void> {
+	async setUnicodeVersion(version: '6' | '11' | 'graphemes'): Promise<void> {
 		// No-op, xterm-headless isn't used for extension owned terminals.
 	}
 
