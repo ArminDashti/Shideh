@@ -1065,6 +1065,16 @@ export abstract class Workbench extends Disposable implements IAgentWorkbenchLay
 			this.closeMobileSidebarDrawer();
 			this.sessionsPartService.focusSession(this.sessionsService.activeSession.get());
 		}));
+
+		// Left-edge swipe alternate-open for the sidebar drawer. The gesture
+		// listens on the main workbench container and only fires when the
+		// phone-layout class is present and the sidebar isn't already open,
+		// so it is safe to keep installed alongside the hamburger button.
+		this.mobileTopBarDisposables.add(installMobileEdgeSwipeToOpenSidebar(
+			this.mainContainer,
+			() => this.openMobileSidebarDrawer(),
+			this,
+		));
 	}
 
 	private toggleMobileSidebarDrawer(): void {
