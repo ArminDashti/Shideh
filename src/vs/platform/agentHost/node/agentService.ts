@@ -7166,6 +7166,38 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 	}
 
+	async getSessionImportedConversation(session: URI): Promise<string | undefined> {
+		const ref = await this._sessionDataService.tryOpenDatabase(session);
+		if (!ref) {
+			return undefined;
+		}
+		try {
+			return await ref.object.getMetadata(IMPORTED_CONVERSATION_DB_METADATA_KEY);
+		} catch (err) {
+			this._logService.warn(`[AgentService] Failed to read imported conversation for ${session.toString()}: ${toErrorMessage(err)}`);
+			return undefined;
+		} finally {
+			ref.dispose();
+		}
+	}
+
+	async setSessionImportedConversation(session: URI, data: string): Promise<void> {
+		let ref;
+		try {
+			ref = this._sessionDataService.openDatabase(session);
+		} catch (err) {
+			this._logService.warn(`[AgentService] Failed to open session database to persist imported conversation for ${session.toString()}: ${toErrorMessage(err)}`);
+			return;
+		}
+		try {
+			await ref.object.setMetadata(IMPORTED_CONVERSATION_DB_METADATA_KEY, data);
+		} catch (err) {
+			this._logService.warn(`[AgentService] Failed to persist imported conversation for ${session.toString()}: ${toErrorMessage(err)}`);
+		} finally {
+			ref.dispose();
+		}
+	}
+
 	// ---- Protocol methods ---------------------------------------------------
 
 	async createTerminal(params: CreateTerminalParams, clientType = AgentHostClientType.Unknown): Promise<void> {

@@ -32,7 +32,7 @@ import { ChatSendResult, IChatService } from '../../common/chatService/chatServi
 import { ResolvedChatSessionsExtensionPoint, IChatSessionsService, SessionType } from '../../common/chatSessionsService.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { PROMPT_LANGUAGE_ID } from '../../common/promptSyntax/promptTypes.js';
-import { AgentSessionProviders, AgentSessionTarget, CHAT_DELEGATE_TO_AGENT_HOST_SESSION_COMMAND_ID, getAgentSessionProvider, getAgentSessionProviderIcon, getAgentSessionProviderName, IAgentHostDelegationRequest, isAgentHostTarget } from '../agentSessions/agentSessions.js';
+import { AgentSessionProviders, AgentSessionTarget, CHAT_DELEGATE_TO_AGENT_HOST_SESSION_COMMAND_ID, buildDelegationTranscriptContent, getAgentSessionProvider, getAgentSessionProviderIcon, getAgentSessionProviderName, getDelegationTranscriptAttachmentName, IAgentHostDelegationRequest, isAgentHostTarget } from '../agentSessions/agentSessions.js';
 import { ISCMService } from '../../../scm/common/scm.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js';
@@ -40,7 +40,8 @@ import { IChatWidget, IChatWidgetService, isIChatViewViewContext } from '../chat
 import { ctxHasEditorModification } from '../chatEditing/chatEditingEditorContextKeys.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { CHAT_SETUP_ACTION_ID } from './chatActions.js';
-import { IChatRequestPasteVariableEntry, PromptFileVariableKind, toPasteVariableEntry, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
+import { IChatRequestPasteVariableEntry, PromptFileVariableKind, toPasteVariableEntry, toPromptFileVariableEntry, DELEGATION_TRANSCRIPT_ATTACHMENT_ID_PREFIX } from '../../common/attachments/chatVariableEntries.js';
+import { buildImportedConversation } from '../../common/importedConversation.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ChatSessionPosition, openChatSession } from '../chatSessions/chatSessions.contribution.js';
 import { importedTurnsFromChatModel } from '../agentSessions/agentHost/importLocalConversationToAgentSession.js';
@@ -331,10 +332,10 @@ export function createDelegationTranscriptAttachment(transcript: string, sourceN
 	if (!transcript) {
 		return undefined;
 	}
-	const transcriptName = localize('chat.delegation.transcriptName', "Previous conversation");
-	const transcriptContent = localize('chat.delegation.transcriptContent', "The following is the conversation history from a previous {0} session. Continue working on it.\n\n{1}", sourceName, transcript);
+	const transcriptName = getDelegationTranscriptAttachmentName();
+	const transcriptContent = buildDelegationTranscriptContent(sourceName, transcript);
 	return toPasteVariableEntry(transcriptName, transcriptContent, {
-		id: `chat-delegation-transcript-${generateUuid()}`,
+		id: `${DELEGATION_TRANSCRIPT_ATTACHMENT_ID_PREFIX}${generateUuid()}`,
 		icon: Codicon.history,
 		language: 'markdown',
 		pastedLines: transcriptName,
@@ -530,6 +531,10 @@ export class CreateRemoteAgentJobAction {
 				// prompt clean); other targets (e.g. the Cloud coding agent) don't
 				// process paste attachments, so for those we inline it into the prompt.
 				const transcript = buildDelegationTranscript(chatRequests);
+				// Also capture a per-turn snapshot so agent host targets can render
+				// the prior conversation inline (read-only, untruncated) in addition
+				// to the bounded transcript attachment handed to the agent.
+				const importedHistory = buildImportedConversation(chatRequests);
 				const sourceContribution = chatSessionsService.getAllChatSessionContributions().find(c => c.type === sourceSessionType || getAgentSessionProvider(c.type) === sourceSessionType);
 				const sourceName = sourceContribution?.displayName ?? getAgentSessionProviderName(sourceSessionType);
 				const continuationContext = attachedContext.asArray();
@@ -579,6 +584,7 @@ export class CreateRemoteAgentJobAction {
 							displayName: continuationTarget.displayName,
 							prompt: handoffPrompt,
 							attachedContext: continuationContext,
+							importedHistory: importedHistory.length > 0 ? importedHistory : undefined,
 						};
 						await commandService.executeCommand(CHAT_DELEGATE_TO_AGENT_HOST_SESSION_COMMAND_ID, delegationRequest);
 					} else {

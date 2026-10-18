@@ -25,6 +25,7 @@ import { buildHostLocalEventsPath, dedupeMigratedCopilotCliSessions, getCopilotC
 import { IChatRequestVariableEntry } from '../../../../workbench/contrib/chat/common/attachments/chatVariableEntries.js';
 import { IPathService } from '../../../../workbench/services/path/common/pathService.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
+import { IImportedConversationStore } from '../../../../workbench/contrib/chat/browser/importedConversationStore.js';
 import { getSessionReferenceResource } from './sessionReference.js';
 import { ICreateNewChatInSessionOptions, ICreateNewSessionOptions, IDeferredNewSessionRequestOptions, IMarkSessionReadOptions, IProviderSessionType, ISendRequestOptions, ISendRequestSentEvent, ISessionDraft, ISessionsChangeEvent, ISessionsManagementService, NewSessionRequestOptions, WorkspaceNotTrustedError } from '../common/sessionsManagement.js';
 import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from './sessionsProvidersService.js';
@@ -143,6 +144,16 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		}));
 		this._subscribeToProviders(this.sessionsProvidersService.getProviders());
 		this._sessionTypes = this._collectSessionTypes();
+
+		// Clean up any imported ("Continue in…") conversation snapshots when a
+		// session is deleted so we don't leave orphaned files under global
+		// storage. Deletions from the Agents window go through the provider,
+		// which bypasses the chat sessions view's own cleanup path.
+		this._register(this.onDidDeleteSession(session => {
+			for (const chat of session.chats.get()) {
+				void this._importedConversationStore.delete(chat.resource);
+			}
+		}));
 
 		// Mirror follow-up chat requests (sent from within an existing chat
 		// widget, not through our own send paths) onto `_onDidSendRequest` so

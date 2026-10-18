@@ -2006,6 +2006,12 @@ export async function openChatSession(accessor: ServicesAccessor, openOptions: N
 			if (promptFile) {
 				attachedContext = [promptFile, ...(attachedContext ?? [])];
 			}
+			// Persist any imported (prior) conversation snapshot keyed by the
+			// session resource so the agent host session handler can render it
+			// inline (read-only) when the chat opens, including after a reload.
+			if (chatSendOptions.importedHistory && chatSendOptions.importedHistory.length > 0) {
+				await importedConversationStore.store(sessionResource, chatSendOptions.importedHistory);
+			}
 			const result = await chatService.sendRequest(sessionResource, chatSendOptions.prompt, { agentIdSilent: openOptions.type, attachedContext });
 			const newSessionResource = result.kind === 'sent' || result.kind === 'rejected' ? result.newSessionResource : undefined;
 			if (newSessionResource && !resources.isEqual(newSessionResource, sessionResource)) {

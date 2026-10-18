@@ -450,6 +450,12 @@ export class ChatRequestModel implements IChatRequestModel {
 	public readonly id: string;
 	public response: ChatResponseModel | undefined;
 	public shouldBeRemovedOnSend: IChatRequestDisablement | undefined;
+	/**
+	 * Set for requests imported (read-only) from a prior conversation. Kept
+	 * mutable and off the constructor params since it is only assigned on the
+	 * contributed-history load path (see chatServiceImpl).
+	 */
+	public isReadonly?: boolean;
 	public readonly timestamp: number;
 	public readonly requestTimestamp: number | undefined;
 	public readonly message: IParsedChatRequest;

@@ -16,6 +16,7 @@ import { ChatOriginKind, isDefaultChatUri, parseChatUri, SessionStatus, readSess
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IChatService } from '../../../common/chatService/chatService.js';
 import { ChatSessionStatus, IChatNewSessionRequest, IChatSessionItem, IChatSessionItemController, IChatSessionItemsDelta } from '../../../common/chatSessionsService.js';
+import { IImportedConversationStore } from '../../importedConversationStore.js';
 import { getAgentSessionProviderIcon } from '../agentSessions.js';
 import { IAgentHostUntitledProvisionalSessionService } from './agentHostUntitledProvisionalSessionService.js';
 import { IAgentHostImportConversationStore } from './agentHostImportConversationStore.js';
@@ -190,6 +191,10 @@ export class AgentHostSessionListController extends Disposable implements IChatS
 		}
 
 		await this._sessionListStore.disposeSession(this._provider, rawId);
+
+		// Drop any imported ("Continue in…") conversation snapshot for this
+		// session so we don't leave orphaned files behind under global storage.
+		await this._importedConversationStore.delete(resource);
 
 		// `root/sessionRemoved` only fires for sessions the backend had previously announced, so remove the session from
 		// the store directly (this also clears any local pending marker). If the notification does fire as well, the
