@@ -8,6 +8,7 @@ import { HoverStyle } from '../../../../../../../base/browser/ui/hover/hover.js'
 import { HoverPosition } from '../../../../../../../base/browser/ui/hover/hoverWidget.js';
 import { Separator } from '../../../../../../../base/common/actions.js';
 import { asArray } from '../../../../../../../base/common/arrays.js';
+import { CancellationTokenSource } from '../../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../../base/common/codicons.js';
 import { ErrorNoTelemetry, onUnexpectedError } from '../../../../../../../base/common/errors.js';
 import { createCommandUri, escapeMarkdownSyntaxTokens, MarkdownString, type IMarkdownString } from '../../../../../../../base/common/htmlContent.js';
@@ -578,6 +579,40 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 			}
 		});
 		return promptResult.result === true;
+	}
+
+	private _createRiskBadge(parameters: unknown): HTMLElement | undefined {
+		if (!this.riskAssessmentService.isEnabled()) {
+			return undefined;
+		}
+		const tool = this.languageModelToolsService.getTool(this.toolInvocation.toolId);
+		if (!tool) {
+			return undefined;
+		}
+		const widget = this._register(this.instantiationService.createInstance(ToolRiskBadgeWidget));
+		const cached = this.riskAssessmentService.getCached(tool, parameters);
+		if (cached) {
+			widget.setAssessment(cached);
+		} else {
+			widget.setLoading();
+			const cts = this._register(new CancellationTokenSource());
+			(async () => {
+				try {
+					const result = await this.riskAssessmentService.assess(tool, parameters, cts.token);
+					if (cts.token.isCancellationRequested) {
+						return;
+					}
+					if (!result) {
+						widget.setHidden();
+						return;
+					}
+					widget.setAssessment(result);
+				} catch {
+					widget.setHidden();
+				}
+			})();
+		}
+		return widget.domNode;
 	}
 
 	private _appendMarkdownPart(container: HTMLElement, message: string | IMarkdownString, codeBlockRenderOptions: ICodeBlockRenderOptions) {
