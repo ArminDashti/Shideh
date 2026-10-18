@@ -111,6 +111,11 @@ export interface EditorGroupLayout {
 	readonly groups: GroupLayoutArgument[];
 }
 
+export interface IEditorWorkingSet {
+	readonly main: unknown;
+	readonly auxiliary: unknown;
+}
+
 export const enum MergeGroupMode {
 	COPY_EDITORS,
 	MOVE_EDITORS

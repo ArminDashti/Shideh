@@ -421,7 +421,53 @@ function registerEditorGroupsLayoutCommands(): void {
 		metadata: {
 			description: 'Get Editor Layout',
 			args: [],
-			returns: 'An editor layout object, in the same format as vscode.setEditorLayout'
+			returns: 'An editor layout object, in the same format as vscode.setEditorLayout() expects.'
+		}
+	});
+}
+
+function registerEditorWorkingSetCommands(): void {
+
+	function applyEditorWorkingSet(accessor: ServicesAccessor, workingSet: IEditorWorkingSet): Promise<boolean> {
+		if (!workingSet || typeof workingSet !== 'object') {
+			return Promise.resolve(false);
+		}
+
+		const editorGroupService = accessor.get(IEditorGroupsService);
+		return editorGroupService.applyWorkingSet(workingSet);
+	}
+
+	// API Commands
+	CommandsRegistry.registerCommand({
+		id: 'vscode.setEditorWorkingSet',
+		handler: (accessor: ServicesAccessor, args: IEditorWorkingSet) => applyEditorWorkingSet(accessor, args),
+		metadata: {
+			description: 'Set Editor Working Set',
+			args: [{
+				name: 'args',
+				schema: {
+					'type': 'object',
+					'required': ['main', 'auxiliary'],
+					'properties': {
+						'main': { 'type': 'object' },
+						'auxiliary': { 'type': 'object' }
+					}
+				}
+			}]
+		}
+	});
+
+	CommandsRegistry.registerCommand({
+		id: 'vscode.getEditorWorkingSet',
+		handler: (accessor: ServicesAccessor) => {
+			const editorGroupService = accessor.get(IEditorGroupsService);
+
+			return editorGroupService.getWorkingSet();
+		},
+		metadata: {
+			description: 'Get Editor Working Set',
+			args: [],
+			returns: 'An editor working set object, in the same format as vscode.setEditorWorkingSet() expects.'
 		}
 	});
 }
@@ -1766,6 +1812,7 @@ function isModalEditorPart(obj: unknown): obj is IModalEditorPart {
 export function setup(): void {
 	registerEditorMoveCopyCommand();
 	registerEditorGroupsLayoutCommands();
+	registerEditorWorkingSetCommands();
 	registerDiffEditorCommands();
 	registerOpenEditorAPICommands();
 	registerOpenEditorAtIndexCommands();
