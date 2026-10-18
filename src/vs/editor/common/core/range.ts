@@ -334,7 +334,7 @@ export class Range {
 	 * `[startLineNumber,startColumn -> endLineNumber,endColumn]`.
 	 */
 	public toString(): string {
-		return '[' + this.startLineNumber + ',' + this.startColumn + ' -> ' + this.endLineNumber + ',' + this.endColumn + ']';
+		return '[' + this.startLineNumber + ':' + this.startColumn + '..' + this.endLineNumber + ':' + this.endColumn + ')';
 	}
 
 	/**
