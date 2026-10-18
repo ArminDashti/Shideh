@@ -328,6 +328,7 @@ export class ChatView extends AbstractChatView {
 
 	/** Shows an "Ask Question" input when the user selects assistant markdown text. */
 	private readonly _selectionSideChatController: ResponseSelectionSideChatController;
+	private readonly _nextUserMessageSuggestionController: NextUserMessageSuggestionController;
 
 	/** Reference to the loaded chat model; disposing releases the model. */
 	private readonly _modelRef = this._register(new MutableDisposable<IChatModelReference>());
@@ -497,6 +498,7 @@ export class ChatView extends AbstractChatView {
 		this._setupInitialTranscriptContext(chatModel);
 
 		this._selectionSideChatController = this._register(scopedInstantiationService.createInstance(ResponseSelectionSideChatController, this._widget));
+		this._nextUserMessageSuggestionController = this._register(scopedInstantiationService.createInstance(NextUserMessageSuggestionController, this._widget));
 
 		// Mount the session banners directly above the chat input.
 		this._banners = this._register(instantiationService.createInstance(SessionInputBanners));
@@ -1057,6 +1059,7 @@ export class ChatView extends AbstractChatView {
 		}
 		this._isActive = active;
 		this._isActiveObs.set(active, undefined);
+		this._nextUserMessageSuggestionController.setViewState(active, this._isVisible !== false);
 		this._banners.setActive(active);
 		this._widget.setStyles(this._buildStyles(active));
 	}
@@ -1068,6 +1071,7 @@ export class ChatView extends AbstractChatView {
 		this._isVisible = visible;
 		this._widget.setVisible(visible);
 		this._isVisibleObs.set(visible, undefined);
+		this._nextUserMessageSuggestionController.setViewState(this._isActive, visible);
 	}
 }
 
