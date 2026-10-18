@@ -1258,6 +1258,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.container.appendChild(this.readOnlyBanner.domNode);
 			}
 			this.createInput(this.container, { renderFollowups, renderStyle, renderInputToolbarBelowInput });
+			this.gettingStartedTipContainer = this.inputPart.gettingStartedTipContainerElement;
 		}
 
 		if (this.location === ChatAgentLocation.Chat && !isInlineChat(this) && !this.contextKeyService.getContextKeyValue<boolean>(ChatContextKeys.inChatInputWindow.key)) {
@@ -2759,8 +2760,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 					this._layoutListForInputHeight();
 				}
 
-				// Keep getting-started tip aligned with the top of the input
-				this.layoutGettingStartedTipPosition();
 
 				this._onDidChangeContentHeight.fire();
 			}));
