@@ -6391,6 +6391,31 @@ export class AgentService extends Disposable implements IAgentService {
 		this._stateManager.setSessionChangesets(sessionKey, filtered);
 	}
 
+	/**
+	 * Fire-and-forget probe that resolves the session's git state for its
+	 * working directory (if any) and merges it into `state._meta.git` via
+	 * the state manager. Failures are logged; sessions simply remain without
+	 * git state.
+	 */
+	private _attachGitState(session: URI, workingDirectory: URI | undefined): void {
+		if (!this._gitService || !workingDirectory) {
+			return;
+		}
+		this._gitService.getSessionGitState(workingDirectory).then(
+			gitState => {
+				if (!gitState) {
+					return;
+				}
+				const sessionKey = session.toString();
+				const current = this._stateManager.getSessionState(sessionKey)?._meta;
+				this._stateManager.setSessionMeta(sessionKey, withSessionGitState(current, gitState));
+			},
+			e => {
+				this._logService.warn(`[AgentService] Failed to compute git state for ${session}`, e);
+			},
+		);
+	}
+
 	private _persistConfigValues(session: URI, values: Record<string, unknown>): void {
 		let ref;
 		try {
@@ -9211,6 +9236,12 @@ export class AgentService extends Disposable implements IAgentService {
 			this._stateManager.setSessionMeta(sessionStr, summary._meta);
 		}
 		await this._persistentTeams.restoreSessionIdentity(session);
+
+		// Restore persisted `_meta` (e.g. git state) onto the new session
+		// state. This dispatches a SessionMetaChanged action.
+		if (meta._meta) {
+			this._stateManager.setSessionMeta(sessionStr, meta._meta);
+		}
 
 		// Resolve the session config so clients (e.g. the running-session
 		// auto-approve picker) can render session-mutable properties for

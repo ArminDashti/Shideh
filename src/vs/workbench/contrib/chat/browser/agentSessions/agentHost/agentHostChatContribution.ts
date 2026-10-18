@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { CancellationError, isCancellationError } from '../../../../../../base/common/errors.js';
 import { Event } from '../../../../../../base/common/event.js';
@@ -644,4 +645,73 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 		}
 		return false;
 	}
+}
+
+/**
+ * Pure helper that turns a list of user-selected sync entries plus a list
+ * of always-on built-in skill files into a final set of {@link CustomizationRef}.
+ *
+ * Entries whose URI lives inside an installed plugin become a plugin ref
+ * (the plugin's root URI). Everything else is bundled into the agent host's
+ * synthetic Open Plugin via the supplied `bundler`.
+ *
+ * Exported for unit testing.
+ */
+/**
+ * Returns the always-on built-in skill files to include in the bundle.
+ * Filters {@link IPromptsService.findAgentSkills} to entries whose storage
+ * is `BUILTIN_STORAGE`, mapped to the shape the bundler expects.
+ *
+ * Used by every agent-host harness (local in-process and remote) so the
+ * built-in skills bundled under `vs/sessions/skills/` are always synced
+ * to the agent — that's what backs the toolbar buttons like
+ * `/create-pr` and `/merge`.
+ */
+export async function collectBuiltinSkillFiles(promptsService: IPromptsService): Promise<readonly { uri: URI; type: PromptsType }[]> {
+	const skills = await promptsService.findAgentSkills(CancellationToken.None);
+	if (!skills) {
+		return [];
+	}
+	const result: { uri: URI; type: PromptsType }[] = [];
+	for (const skill of skills) {
+		if ((skill.storage as PromptsStorage | typeof BUILTIN_STORAGE) === BUILTIN_STORAGE) {
+			result.push({ uri: skill.uri, type: PromptsType.skill });
+		}
+	}
+	return result;
+}
+
+export async function resolveCustomizationRefs(
+	entries: readonly { uri: URI; type?: PromptsType }[],
+	builtinSkillFiles: readonly { uri: URI; type: PromptsType }[],
+	plugins: readonly IAgentPlugin[],
+	bundler: { bundle(files: readonly { uri: URI; type: PromptsType }[]): Promise<{ ref: CustomizationRef } | undefined> },
+): Promise<CustomizationRef[]> {
+	const refs: CustomizationRef[] = [];
+	const individualFiles: { uri: URI; type: PromptsType }[] = [];
+
+	for (const entry of entries) {
+		const plugin = plugins.find(p => isEqualOrParent(entry.uri, p.uri));
+		if (plugin) {
+			refs.push({
+				uri: plugin.uri.toString() as ProtocolURI,
+				displayName: plugin.label,
+			});
+		} else if (entry.type) {
+			individualFiles.push({ uri: entry.uri, type: entry.type });
+		}
+	}
+
+	for (const file of builtinSkillFiles) {
+		individualFiles.push({ uri: file.uri, type: file.type });
+	}
+
+	if (individualFiles.length > 0) {
+		const result = await bundler.bundle(individualFiles);
+		if (result) {
+			refs.push(result.ref);
+		}
+	}
+
+	return refs;
 }

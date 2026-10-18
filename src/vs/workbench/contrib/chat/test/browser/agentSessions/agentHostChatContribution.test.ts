@@ -105,6 +105,7 @@ import { IChatInputNotificationService, type IChatInputNotification } from '../.
 import { ChatModelConfigurationStore } from '../../../browser/widget/input/chatModelConfigurationStore.js';
 import { ICustomizationHarnessService, type IHarnessDescriptor } from '../../../common/customizationHarnessService.js';
 import { IAgentPluginService } from '../../../common/plugins/agentPluginService.js';
+import { IPromptsService } from '../../../common/promptSyntax/service/promptsService.js';
 import { IStorageService, InMemoryStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { IAgentSubscription } from '../../../../../../platform/agentHost/common/state/agentSubscription.js';
 import { ITerminalChatService, type ITerminalInstance } from '../../../../terminal/browser/terminal.js';
