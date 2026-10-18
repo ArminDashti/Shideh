@@ -1185,6 +1185,10 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	}
 
 	override dispose(): void {
+		if (this._isDisposed) {
+			return;
+		}
+		this._isDisposed = true;
 		this._onWillDispose.fire();
 
 		// Clean up the browser view when the model is disposed
