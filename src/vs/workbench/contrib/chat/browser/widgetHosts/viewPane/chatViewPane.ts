@@ -621,7 +621,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 			if (animFrameId !== undefined) { return; }
 			const animate = () => {
 				animFrameId = win.requestAnimationFrame(animate);
-				const { connected, voiceState, simulating } = getEffectiveVoice();
+				const { connected, voiceState } = getEffectiveVoice();
 				// Only glow the input of the session voice is bound to. Mirrors the
 				// transcript overlay's ownership test (see below) so the glow and
 				// the "Listening..."/transcript overlay always render on the same
@@ -642,15 +642,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 				const analyser = this.ttsPlaybackService.analyserNode
 					?? (voiceState === 'listening' ? this.micCaptureService.analyserNode : null)
 					?? null;
-				let intensity: number;
-				if (!analyser && simulating) {
-					// No live audio (a simulation): synthesize a lively pulsing intensity
-					// so the walkthrough glow behaves like real speech instead of sitting flat.
-					const t = Date.now() / 1000;
-					intensity = Math.min(1, 0.28 + 0.34 * Math.abs(Math.sin(t * 6.1)) + 0.22 * Math.abs(Math.sin(t * 11.3 + 1)));
-				} else {
-					intensity = readVoiceGlowIntensity(analyser, glowDataArrayRef);
-				}
+				const intensity = readVoiceGlowIntensity(analyser, glowDataArrayRef);
 
 				glowController.render(voiceState, intensity, this.accessibilityService.isMotionReduced());
 			};

@@ -3400,7 +3400,6 @@ registerChatExecuteActions();
 registerChatFindActions();
 registerAction2(ChatVoiceInputModeAction);
 registerAction2(ChatVoiceInputModeToggleListenAction);
-registerVoiceInputModeSimulateActions();
 registerChatSpeechToTextActions();
 registerConfigureSpeechInstructionsActions();
 registerChatQueueActions();
