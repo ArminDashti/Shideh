@@ -88,8 +88,7 @@ export abstract class NotebookSerializerBase extends vscode.Disposable implement
 			return new Uint8Array(0);
 		}
 
-		const serialized = serializeNotebookToString(data);
-		return new TextEncoder().encode(serialized);
+		return serializeNotebookToBytes(data);
 	}
 
 }

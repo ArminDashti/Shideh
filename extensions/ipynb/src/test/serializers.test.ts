@@ -8,7 +8,7 @@ import type * as nbformat from '@jupyterlab/nbformat';
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { jupyterCellOutputToCellOutput, jupyterNotebookModelToNotebookData } from '../deserializers';
-import { createMarkdownCellFromNotebookCell, getCellMetadata } from '../serializers';
+import { createMarkdownCellFromNotebookCell, getCellMetadata, serializeNotebookToBytes, serializeNotebookToString } from '../serializers';
 
 function deepStripProperties(obj: any, props: string[]) {
 	for (const prop in obj) {
@@ -829,4 +829,5 @@ suite(`ipynb serializer`, () => {
 			});
 		});
 	});
+
 });
