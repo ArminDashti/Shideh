@@ -76,6 +76,11 @@ export class RemoteExtensionsScannerService implements IRemoteExtensionsScannerS
 			}
 
 			_logService.trace('Installing extensions passed via args...');
+			const installOptions: InstallOptions = {
+				isMachineScoped: !!environmentService.args['do-not-sync'],
+				installPreReleaseVersion: !!environmentService.args['pre-release'],
+				isApplicationScoped: true // extensions installed during server startup are available to all profiles
+			};
 			this._whenExtensionsReady = this._whenBuiltinExtensionsReady
 				.then(() => _extensionManagementCLI.installExtensions(this._asExtensionIdOrVSIX(extensionsToInstall), [], installOptions, !!environmentService.args.force))
 				.then(async () => {

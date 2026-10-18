@@ -74,6 +74,7 @@ workbenchRegistry.registerWorkbenchContribution(ExtensionsAutoProfiler, Lifecycl
 workbenchRegistry.registerWorkbenchContribution(RemoteExtensionsInitializerContribution, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(InstallRemoteExtensionsContribution, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(DebugExtensionsContribution, LifecyclePhase.Restored);
+workbenchRegistry.registerWorkbenchContribution(InstallFailedExtensions, LifecyclePhase.Restored);
 
 // Register Commands
 

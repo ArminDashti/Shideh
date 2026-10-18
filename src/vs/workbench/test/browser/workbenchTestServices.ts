@@ -2047,6 +2047,9 @@ export class TestRemoteAgentService implements IRemoteAgentService {
 }
 
 export class TestRemoteExtensionsScannerService implements IRemoteExtensionsScannerService {
+	failed(): Promise<string[]> {
+		throw new Error('Method not implemented.');
+	}
 	declare readonly _serviceBrand: undefined;
 	async whenExtensionsReady(): Promise<InstallExtensionSummary> { return { installLocally: [] }; }
 	scanExtensions(): Promise<IExtensionDescription[]> { throw new Error('Method not implemented.'); }
