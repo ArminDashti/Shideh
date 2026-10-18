@@ -78,6 +78,7 @@
 			"version": "1.140.0",
 			"sha256": "d535f02a47031671f8c988bb7e79d6fec1a881883d9c9fa15ff81f28eae98500",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
+			"vsix": "resources/common/ms-vscode.js-debug.1.97.1.universal.vsix",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
 				"publisherId": {

@@ -297,6 +297,33 @@ export function fromVsix(vsixPath: string, { name: extensionName, version, sha25
 		.pipe(packageJsonFilter.restore);
 }
 
+export function fromVsix(vsixPath: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition): Stream {
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+
+	fancyLog('Using local VSIX for extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
+
+	const packageJsonFilter = filter('package.json', { restore: true });
+
+	return gulp.src(vsixPath)
+		.pipe(buffer())
+		.pipe(es.mapSync((f: File) => {
+			const hash = crypto.createHash('sha256');
+			hash.update(f.contents as Buffer);
+			const checksum = hash.digest('hex');
+			if (checksum !== sha256) {
+				throw new Error(`Checksum mismatch for ${vsixPath} (expected ${sha256}, actual ${checksum}))`);
+			}
+			return f;
+		}))
+		.pipe(vzip.src())
+		.pipe(filter('extension/**'))
+		.pipe(rename(p => p.dirname = p.dirname!.replace(/^extension\/?/, '')))
+		.pipe(packageJsonFilter)
+		.pipe(buffer())
+		.pipe(json({ __metadata: metadata }))
+		.pipe(packageJsonFilter.restore);
+}
+
 
 export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition, options?: { asset?: { assetName: string; sha256: string }; latest?: boolean }): Stream {
 	const asset = options?.asset;
