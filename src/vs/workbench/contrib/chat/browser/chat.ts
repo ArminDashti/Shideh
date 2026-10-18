@@ -612,6 +612,9 @@ export interface IChatWidget {
 	 */
 	readonly shouldHidePlaceholder: boolean;
 
+	// TODO I don't like this
+	readonly isUnifiedPanelWidget: boolean;
+
 	getContrib<T extends IChatWidgetContrib>(id: string): T | undefined;
 	reveal(item: ChatListItem): void;
 	focus(item: ChatListItem): void;

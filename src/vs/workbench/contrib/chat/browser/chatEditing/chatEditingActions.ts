@@ -83,6 +83,37 @@ export function getEditingSessionContext(accessor: ServicesAccessor, args: any[]
 	return { editingSession, chatWidget };
 }
 
+export function getEditingSessionContext(accessor: ServicesAccessor, args: any[]): { editingSession?: IChatEditingSession; chatWidget: IChatWidget } | undefined {
+	const arg0 = args.at(0);
+	const context = isChatViewTitleActionContext(arg0) ? arg0 : undefined;
+
+	const chatService = accessor.get(IChatService);
+	const chatWidgetService = accessor.get(IChatWidgetService);
+	const chatEditingService = accessor.get(IChatEditingService);
+	let chatWidget = context ? chatWidgetService.getWidgetBySessionId(context.sessionId) : undefined;
+	if (!chatWidget) {
+		if (chatService.unifiedViewEnabled) {
+			// TODO ugly
+			chatWidget = chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel).find(w => w.isUnifiedPanelWidget);
+		} else {
+			chatWidget = chatWidgetService.getWidgetsByLocations(ChatAgentLocation.EditingSession).at(0);
+		}
+	}
+
+	if (!chatWidget?.viewModel) {
+		return;
+	}
+
+	const chatSessionId = chatWidget.viewModel.model.sessionId;
+	const editingSession = chatEditingService.getEditingSession(chatSessionId);
+
+	if (!editingSession) {
+		return;
+	}
+
+	return { editingSession, chatWidget };
+}
+
 
 abstract class WorkingSetAction extends EditingSessionAction {
 

@@ -17,6 +17,7 @@ import { IChatModel } from '../../common/model/chatModel.js';
 import { IChatFollowup, IChatProgress } from '../../common/chatService/chatService.js';
 import { ChatAgentLocation, ChatModeKind } from '../../common/constants.js';
 import { IVoiceChatSessionOptions, IVoiceChatTextEvent, VoiceChatService } from '../../common/voiceChatService.js';
+import { ChatAgentLocation } from '../../common/constants.js';
 
 suite('VoiceChat', () => {
 
