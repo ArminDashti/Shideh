@@ -474,6 +474,10 @@ class MenuRegistryChangeEvent {
 	}
 }
 
+export interface IMenuRegistryChangeEvent {
+	has(id: MenuId): boolean;
+}
+
 export interface IMenuRegistry {
 	readonly onDidChangeMenu: Event<IMenuRegistryChangeEvent>;
 	addCommand(userCommand: ICommandAction): IDisposable;
