@@ -923,7 +923,7 @@ export class DictationOnboardingService extends Disposable implements IDictation
 	}
 
 	showIfNeeded(): boolean {
-		return this.onboarding.showIfNeeded(context => this.createBanner(context.container, context.dismiss, 'automatic', false));
+		return this.onboarding.showIfNeeded(context => this.createBanner(context.container, context.dismiss, 'automatic', true));
 	}
 
 	show(): boolean {
