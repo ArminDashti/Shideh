@@ -1661,6 +1661,10 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable
 		return this.tree.hasElement(node);
 	}
 
+	hasNode(element: TInput | T): boolean {
+		return element === this.root.element || this.renderedNodes.has(element as T);
+	}
+
 	// View
 
 	rerender(element?: T): void {
