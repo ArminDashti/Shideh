@@ -560,8 +560,10 @@ export class DiagnosticsService implements IDiagnosticsService {
 		}
 	}
 
-	public async getWorkspaceFileExtensions(workspace: IWorkspace): Promise<{ extensions: string[] }> {
-		const items = new Set<string>();
+	public async getWorkspaceFilesInfo(workspace: IWorkspace): Promise<IWorkspaceFilesInfo> {
+		const extensions = new Set<string>();
+		const configFiles = new Set<string>();
+		const launchConfigFiles = new Set<string>();
 		for (const { uri } of workspace.folders) {
 			const folderUri = URI.revive(uri);
 			if (folderUri.scheme !== Schemas.file) {
@@ -577,7 +579,11 @@ export class DiagnosticsService implements IDiagnosticsService {
 				});
 			} catch { }
 		}
-		return { extensions: [...items] };
+		return {
+			extensions: [...extensions],
+			configFiles: [...configFiles],
+			launchConfigFiles: [...launchConfigFiles]
+		};
 	}
 
 	public async reportWorkspaceStats(workspace: IWorkspaceInformation): Promise<void> {

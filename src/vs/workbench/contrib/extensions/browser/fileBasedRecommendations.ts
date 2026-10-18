@@ -292,7 +292,7 @@ export class FileBasedRecommendations extends ExtensionRecommendations {
 			this.fileBasedRecommendations.set(recommendation, filedBasedRecommendation);
 		}
 
-		this.storeCachedRecommendations();
+		// this.storeCachedRecommendations();
 
 		if (this.extensionRecommendationNotificationService.hasToIgnoreRecommendationNotifications()) {
 			return;

@@ -153,6 +153,11 @@ export class ExtensionRecommendationsService extends Disposable implements IExte
 		};
 	}
 
+	async getDynamicRecommendations(): Promise<string[]> {
+		await this.dynamicWorkspaceRecommendations.activate();
+		return this.toExtensionRecommendations(this.dynamicWorkspaceRecommendations.recommendations);
+	}
+
 	async getOtherRecommendations(): Promise<string[]> {
 		await this.activationPromise;
 		await this.activateProactiveRecommendations();

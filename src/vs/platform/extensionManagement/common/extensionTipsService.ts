@@ -53,6 +53,10 @@ export class ExtensionTipsService extends Disposable implements IExtensionTipsSe
 		return [];
 	}
 
+	async getDynamicWrokspaceTips(workspace: IWorkspace, workspaceDependencies?: string[], openedFileTypes?: string[], activatedExtensions?: string[]): Promise<string[]> {
+		return [];
+	}
+
 	private async getValidConfigBasedTips(folder: URI): Promise<IConfigBasedExtensionTip[]> {
 		const result: IConfigBasedExtensionTip[] = [];
 		for (const [configPath, tip] of this.allConfigBasedTips) {
