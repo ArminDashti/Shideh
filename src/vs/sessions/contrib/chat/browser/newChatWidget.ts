@@ -315,6 +315,8 @@ export class NewChatWidget extends Disposable {
 
 		this._restoreSessionOptionsExpanded();
 
+		this._restoreAndPersistSessionOptionsExpanded();
+
 		// TODO: @sandy081 The session/chat should be passed down. There should not be sessionsService.activeSession read in the widget.
 		this._session = options.host?.session ?? derivedObservableWithCache<IActiveSession | undefined>(this, (reader, prev) => {
 			const activeSession = this.sessionsService.activeSession.read(reader);
@@ -830,6 +832,7 @@ export class NewChatWidget extends Disposable {
 			});
 		}));
 
+		dom.append(chatWidgetContent, dom.$('h1.new-session-heading', undefined, localize('newSessionHeading', "What should we build?")));
 		const workspacePickerContainer = dom.append(chatWidgetContent, dom.$('.new-session-workspace-picker-container'));
 		// On web (vscode.dev / insiders.vscode.dev) the workspace picker is
 		// scoped to the currently selected agent host. When no hosts are

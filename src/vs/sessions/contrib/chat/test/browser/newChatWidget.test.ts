@@ -284,6 +284,12 @@ interface ISessionOptionsPersistenceHarness {
 	readonly _sessionOptionsExpanded: ReturnType<typeof observableValue<boolean>>;
 }
 
+interface ISessionOptionsPersistenceHarness {
+	readonly storageService: IStorageService;
+	readonly _sessionOptionsExpanded: ReturnType<typeof observableValue<boolean>>;
+	_register<T extends IDisposable>(disposable: T): T;
+}
+
 interface ISendHarness {
 	readonly notificationService: { error(message: string): void };
 	readonly _pendingBackgroundSends: { set(key: object, value: IDisposable): void; deleteAndDispose(key: object): void };
