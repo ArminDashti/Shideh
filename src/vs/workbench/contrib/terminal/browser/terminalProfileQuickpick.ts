@@ -285,7 +285,7 @@ export class TerminalProfileQuickpick {
 			if (colorClass) {
 				iconClasses.push(colorClass);
 			}
-			contributedProfiles.push({
+			const item: IProfileQuickPickItem = {
 				label: `$(${icon.id}) ${contributed.title}`,
 				profile: {
 					extensionIdentifier: contributed.extensionIdentifier,
@@ -297,11 +297,28 @@ export class TerminalProfileQuickpick {
 				},
 				profileName: contributed.title,
 				iconClasses
-			});
+			};
+			if (contributed.group === 'ai') {
+				elevatedContributedProfiles.push(item);
+			} else {
+				regularContributedProfiles.push(item);
+			}
 		}
 
-		if (contributedProfiles.length > 0) {
-			quickPickItems.push(...this._sortProfileQuickPickItems(contributedProfiles, defaultProfileName!));
+		// Elevated AI profiles appear first
+		if (elevatedContributedProfiles.length > 0) {
+			quickPickItems.push({ type: 'separator', label: nls.localize('terminalProfiles.ai', "AI") });
+			quickPickItems.push(...this._sortProfileQuickPickItems(elevatedContributedProfiles, defaultProfileName!));
+		}
+
+		if (configProfiles.length > 0) {
+			quickPickItems.push({ type: 'separator', label: nls.localize('terminalProfiles', "profiles") });
+			quickPickItems.push(...this._sortProfileQuickPickItems(configProfiles.map(e => this._createProfileQuickPickItem(e)), defaultProfileName!));
+		}
+
+		if (regularContributedProfiles.length > 0) {
+			quickPickItems.push({ type: 'separator', label: nls.localize('ICreateContributedTerminalProfileOptions', "contributed") });
+			quickPickItems.push(...this._sortProfileQuickPickItems(regularContributedProfiles, defaultProfileName!));
 		}
 
 		if (autoDetectedProfiles.length > 0) {
