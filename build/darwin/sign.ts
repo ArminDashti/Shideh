@@ -15,7 +15,7 @@ function getElectronVersion(): string {
 	const npmrc = fs.readFileSync(paths.npmrc.absPath, 'utf8');
 	const target = /^target="(.*)"$/m.exec(npmrc)![1];
 	return target;
-}
+}*/
 
 function getEntitlementsForFile(filePath: string): string {
 	if (filePath.includes(' Helper (GPU).app')) {
@@ -62,7 +62,7 @@ async function retrySignOnKeychainError<T>(fn: () => Promise<T>, maxRetries: num
 async function main(buildDir?: string): Promise<void> {
 	const tempDir = process.env['AGENT_TEMPDIRECTORY'];
 	const arch = process.env['VSCODE_ARCH'];
-	const identity = process.env['CODESIGN_IDENTITY'];
+	//const identity = process.env['CODESIGN_IDENTITY'];
 
 	if (!buildDir) {
 		throw new Error('$AGENT_BUILDDIRECTORY not set');
@@ -74,9 +74,10 @@ async function main(buildDir?: string): Promise<void> {
 
 	const appRoot = path.join(buildDir, `VSCode-darwin-${arch}`);
 	const appName = product.nameLong + '.app';
-	const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
+	//const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
+	const noticePath = path.resolve(appRoot, appName, 'Contents', 'Resources', 'chrome_200_percent.pak');
 
-	const appOpts: SignOptions = {
+	/*const appOpts: SignOptions = {
 		app: path.join(appRoot, appName),
 		platform: 'darwin',
 		optionsForFile: (filePath) => ({
