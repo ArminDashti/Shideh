@@ -35,6 +35,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ConfigurationKeyValuePairs, IConfigurationMigrationRegistry, Extensions as WorkbenchConfigurationExtensions } from '../../../common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 import { AgentsVoiceSettingId, AgentsVoiceStorageKeys, AGENTS_VOICE_CONNECTED, AGENTS_VOICE_CONNECTING, AGENTS_VOICE_ENABLED, AGENTS_VOICE_ENTITLED, AGENTS_VOICE_LISTENING, AGENTS_VOICE_MUTED, AGENTS_VOICE_RECONNECTING, AGENTS_VOICE_TOGGLE_MUTE_COMMAND_ID, getAgentsVoicePolicyValue } from '../common/agentsVoice.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -610,6 +611,58 @@ registerAction2(class extends Action2 {
 	run(accessor: ServicesAccessor): void {
 		if (!accessor.get(IVoiceModeOnboardingService).show()) {
 			accessor.get(INotificationService).info(nls.localize('agentsVoice.onboardingNeedsChat', "Open a chat to see the Voice Mode introduction."));
+		}
+	}
+});
+
+// --- Voice Mode Settings ---
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'agentsVoice.openSettings',
+			title: nls.localize2('agentsVoice.openSettings', "Voice Mode Settings"),
+			icon: Codicon.settingsGear,
+			menu: {
+				id: MenuId.ChatExecute,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('config.agents.voice.enabled', true),
+					ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
+					AGENTS_VOICE_CONNECTED.isEqualTo(true),
+					AGENTS_VOICE_INITIATED_HERE.isEqualTo(true),
+				),
+				group: 'navigation',
+				order: -9
+			},
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const commandService = accessor.get(ICommandService);
+		const preferencesService = accessor.get(IPreferencesService);
+
+		const items = [
+			{
+				label: nls.localize('voiceSettings.selectMic', "$(mic) Select Microphone"),
+				id: 'selectMic',
+			},
+			{
+				label: nls.localize('voiceSettings.openSettings', "$(settings-gear) Voice Mode Settings"),
+				id: 'openSettings',
+			},
+		];
+
+		const picked = await quickInputService.pick(items, {
+			placeHolder: nls.localize('voiceSettings.placeholder', "Voice Mode"),
+		});
+
+		if (picked) {
+			const selection = picked as typeof items[number];
+			if (selection.id === 'selectMic') {
+				await commandService.executeCommand('agentsVoice.selectMicrophone');
+			} else if (selection.id === 'openSettings') {
+				await preferencesService.openSettings({ jsonEditor: false, query: '@id:agents.voice' });
+			}
 		}
 	}
 });
