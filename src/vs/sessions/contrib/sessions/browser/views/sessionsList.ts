@@ -5306,6 +5306,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 	refresh(): void {
 		this.sessions = this._sessionsManagementService.getSessions();
+		if (this.revealedSession && !this.sessions.includes(this.revealedSession)) {
+			this.revealedSession = undefined;
+		}
 		let initialized = false;
 		this.sessionChatsObserver.value = autorun(reader => {
 			for (const session of this.sessions) {
@@ -5396,6 +5399,13 @@ export class SessionsList extends Disposable implements ISessionsList {
 			const comparison = this.sessionComparisonService.getComparisonForSession(session.resource);
 			return !comparison || !isComparisonLaunchPending(comparison);
 		});
+
+		this.filteredSessionIds = new Set(filtered.map(session => session.sessionId));
+		if (this.revealedSession && !this.filteredSessionIds.has(this.revealedSession.sessionId)) {
+			this.revealedSession = undefined;
+		}
+		const revealSessionIds = [activeSession, archiveOnboardingSession, this.revealedSession]
+			.flatMap(session => session ? [session.sessionId] : []);
 
 		const grouping = this.options.grouping();
 		const sorting = this.options.sorting();
@@ -6140,7 +6150,22 @@ export class SessionsList extends Disposable implements ISessionsList {
 				}
 			}
 		}
-		return false;
+		if (!this.tree.hasElement(session)) {
+			if (!this.filteredSessionIds.has(session.sessionId)) {
+				return false;
+			}
+			this.revealedSession = session;
+			this.update();
+		}
+		if (!this.tree.hasElement(session)) {
+			return false;
+		}
+		if (this.tree.getRelativeTop(session) === null) {
+			this.tree.reveal(session, 0.5);
+		}
+		this.tree.setFocus([session]);
+		this.tree.setSelection([session]);
+		return true;
 	}
 
 	/** Reveals a session and keeps its archive action visible until the caller releases it. */
