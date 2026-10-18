@@ -1269,30 +1269,6 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 			.map(f => typeConvert.ChatFollowup.from(f, request));
 	}
 
-	$acceptFeedback(handle: number, result: IChatAgentResult, voteAction: IChatVoteAction): void {
-		const agent = this._agents.get(handle);
-		if (!agent) {
-			return;
-		}
-
-		const ehResult = typeConvert.ChatAgentResult.to(result);
-		let kind: extHostTypes.ChatResultFeedbackKind;
-		switch (voteAction.direction) {
-			case ChatAgentVoteDirection.Down:
-				kind = extHostTypes.ChatResultFeedbackKind.Unhelpful;
-				break;
-			case ChatAgentVoteDirection.Up:
-				kind = extHostTypes.ChatResultFeedbackKind.Helpful;
-				break;
-		}
-
-		const feedback: vscode.ChatResultFeedback = {
-			result: ehResult,
-			kind,
-			unhelpfulReason: isProposedApiEnabled(agent.extension, 'chatParticipantAdditions') ? voteAction.reason : undefined,
-		};
-		agent.acceptFeedback(Object.freeze(feedback));
-	}
 
 	$handleQuestionCarouselAnswer(requestId: string, resolveId: string, answers: Record<string, unknown> | undefined): void {
 		const requestResolvers = this._pendingCarouselResolvers.get(requestId);
@@ -1315,10 +1291,6 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 	$acceptAction(handle: number, result: IChatAgentResult, event: IChatUserActionEvent): void {
 		const agent = this._agents.get(handle);
 		if (!agent) {
-			return;
-		}
-		if (event.action.kind === 'vote') {
-			// handled by $acceptFeedback
 			return;
 		}
 

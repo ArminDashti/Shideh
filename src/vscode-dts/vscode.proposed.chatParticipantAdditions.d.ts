@@ -1108,10 +1108,6 @@ declare module 'vscode' {
 		readonly toolReferences?: readonly ChatLanguageModelToolReference[];
 	}
 
-	export interface ChatResultFeedback {
-		readonly unhelpfulReason?: string;
-	}
-
 	export namespace lm {
 		export function fileIsIgnored(uri: Uri, token?: CancellationToken): Thenable<boolean>;
 	}

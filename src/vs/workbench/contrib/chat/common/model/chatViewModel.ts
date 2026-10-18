@@ -25,7 +25,7 @@ export function isRequestVM(item: unknown): item is IChatRequestViewModel {
 }
 
 export function isResponseVM(item: unknown): item is IChatResponseViewModel {
-	return !!item && typeof (item as IChatResponseViewModel).setVote !== 'undefined';
+	return !!item && typeof (item as any).id === 'string' && 'response' in (item as any);
 }
 
 export function isPendingDividerVM(item: unknown): item is IChatPendingDividerViewModel {
@@ -236,8 +236,6 @@ export interface IChatResponseViewModel {
 	readonly isTerminalCommand: boolean;
 	renderData?: IChatResponseRenderData;
 	currentRenderedHeight: number | undefined;
-	setVote(vote: ChatAgentVoteDirection): void;
-	setVoteDownReason(reason: ChatAgentVoteDownReason | undefined): void;
 	usedReferencesExpanded?: boolean;
 	vulnerabilitiesListExpanded: boolean;
 	setEditApplied(edit: IChatTextEditGroup, editCount: number): void;
@@ -663,13 +661,6 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 		return this.result?.errorDetails;
 	}
 
-	get vote() {
-		return this._model.vote;
-	}
-
-	get voteDownReason() {
-		return this._model.voteDownReason;
-	}
 
 	get requestId() {
 		return this._model.requestId;

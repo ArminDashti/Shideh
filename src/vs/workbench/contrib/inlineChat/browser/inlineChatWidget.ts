@@ -20,9 +20,9 @@ import { localize } from '../../../../nls.js';
 import { IAccessibleViewService } from '../../../../platform/accessibility/browser/accessibleView.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { IWorkbenchButtonBarOptions, MenuWorkbenchButtonBar } from '../../../../platform/actions/browser/buttonbar.js';
-import { createActionViewItem, IMenuEntryActionViewItemOptions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
+import { createActionViewItem } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
-import { MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -37,7 +37,6 @@ import { EDITOR_DRAG_AND_DROP_BACKGROUND } from '../../../common/theme.js';
 import { IChatEntitlementService } from '../../../../platform/chatEntitlement/common/chatEntitlement.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { AccessibilityCommandId } from '../../accessibility/common/accessibilityCommands.js';
-import { MarkUnhelpfulActionId } from '../../chat/browser/actions/chatTitleActions.js';
 import { IChatWidgetViewOptions } from '../../chat/browser/chat.js';
 import { ChatVoteDownButton } from '../../chat/browser/widget/chatListRenderer.js';
 import { ChatWidget, IChatWidgetLocationOptions } from '../../chat/browser/widget/chatWidget.js';
@@ -193,7 +192,6 @@ export abstract class InlineChatWidget {
 		this._store.add(this.chatWidget);
 
 		const ctxResponse = ChatContextKeys.isResponse.bindTo(this.scopedContextKeyService);
-		const ctxResponseVote = ChatContextKeys.responseVote.bindTo(this.scopedContextKeyService);
 		const ctxResponseSupportIssues = ChatContextKeys.responseSupportsIssueReporting.bindTo(this.scopedContextKeyService);
 		const ctxResponseError = ChatContextKeys.responseHasError.bindTo(this.scopedContextKeyService);
 		const ctxResponseErrorFiltered = ChatContextKeys.responseIsFiltered.bindTo(this.scopedContextKeyService);
@@ -210,7 +208,6 @@ export abstract class InlineChatWidget {
 			viewModelStore.add(toDisposable(() => {
 				toolbar2.context = undefined;
 				ctxResponse.reset();
-				ctxResponseVote.reset();
 				ctxResponseError.reset();
 				ctxResponseErrorFiltered.reset();
 				ctxResponseSupportIssues.reset();
@@ -224,7 +221,6 @@ export abstract class InlineChatWidget {
 				toolbar2.context = last;
 
 				ctxResponse.set(isResponseVM(last));
-				ctxResponseVote.set(isResponseVM(last) ? last.vote === ChatAgentVoteDirection.Down ? 'down' : last.vote === ChatAgentVoteDirection.Up ? 'up' : '' : '');
 				ctxResponseError.set(isResponseVM(last) && last.errorDetails !== undefined);
 				ctxResponseErrorFiltered.set((!!(isResponseVM(last) && last.errorDetails?.responseIsFiltered)));
 				ctxResponseSupportIssues.set(isResponseVM(last) && (last.agent?.metadata.supportIssueReporting ?? false));
@@ -266,12 +262,7 @@ export abstract class InlineChatWidget {
 		const toolbar2 = scopedInstaService.createInstance(MenuWorkbenchToolBar, this._elements.toolbar2, options.secondaryMenuId ?? MenuId.for(''), {
 			telemetrySource: options.chatWidgetViewOptions?.menus?.telemetrySource,
 			menuOptions: { renderShortTitle: true, shouldForwardArgs: true },
-			actionViewItemProvider: (action: IAction, options: IActionViewItemOptions) => {
-				if (action instanceof MenuItemAction && action.item.id === MarkUnhelpfulActionId) {
-					return scopedInstaService.createInstance(ChatVoteDownButton, action, options as IMenuEntryActionViewItemOptions);
-				}
-				return createActionViewItem(scopedInstaService, action, options);
-			}
+			actionViewItemProvider: (action: IAction, options: IActionViewItemOptions) => createActionViewItem(scopedInstaService, action, options)
 		});
 		this._store.add(toolbar2.onDidChangeMenuItems(() => this._onDidChangeHeight.fire()));
 		this._store.add(toolbar2);
@@ -486,7 +477,6 @@ export class EditorBasedInlineChatWidget extends InlineChatWidget {
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAccessibleViewService accessibleViewService: IAccessibleViewService,
 		@ITextModelService textModelResolverService: ITextModelService,
-		@IChatService chatService: IChatService,
 		@IHoverService hoverService: IHoverService,
 		@ILayoutService layoutService: ILayoutService,
 		@IChatEntitlementService chatEntitlementService: IChatEntitlementService,
