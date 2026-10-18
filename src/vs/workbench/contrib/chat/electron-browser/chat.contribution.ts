@@ -281,9 +281,7 @@ registerAction2(InlineVoiceChatAction);
 registerAction2(StopListeningAction);
 registerAction2(StopListeningAndSubmitAction);
 
-registerAction2(ReadChatResponseAloud);
-registerAction2(StopReadChatItemAloud);
-registerAction2(StopReadAloud);
+registerReadAloudActions();
 
 registerChatDeveloperActions();
 registerChatExportZipAction();

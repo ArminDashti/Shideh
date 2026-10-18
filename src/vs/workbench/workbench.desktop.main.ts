@@ -120,6 +120,8 @@ import './contrib/onboarding/electron-browser/onboardingTryout.contribution.js';
 // Logs
 import './contrib/logs/electron-browser/logs.contribution.js';
 
+// Speech
+
 // Localizations
 import './contrib/localization/electron-browser/localization.contribution.js';
 import './contrib/externalEditorImport/electron-browser/externalEditorImportEnvironmentService.js';

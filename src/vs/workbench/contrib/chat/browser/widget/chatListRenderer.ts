@@ -1003,6 +1003,20 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	private readonly subagentDisclosureObservers = new WeakMap<ChatSubagentContentPart, DisposableMap<string>>();
 	private readonly toolConfirmationObservation = this._register(new MutableDisposable());
 
+	private static readonly synthesisInProgressKeys = new Set([ChatContextKeys.synthesisInProgressItemId.key]);
+
+	/**
+	 * Whether `element` is the response that is currently being read aloud, so
+	 * that only its footer offers to stop reading.
+	 */
+	private isSynthesisInProgressFor(element: ChatTreeItem | undefined): boolean {
+		if (!element || !isResponseVM(element)) {
+			return false;
+		}
+
+		return this.contextKeyService.getContextKeyValue<string>(ChatContextKeys.synthesisInProgressItemId.key) === element.id;
+	}
+
 	/** Track pending question carousels by session resource for auto-skip on chat submission */
 	private readonly pendingQuestionCarousels = new ResourceMap<Set<ChatQuestionCarouselPart>>();
 	private readonly _notifiedQuestionCarousels = new Set<string>();
@@ -1769,6 +1783,15 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const template: IChatListItemTemplate = { header, avatarContainer, requestHover, username, detail, value, requestTimestampContainer, rowContainer, elementDisposables, templateDisposables, contextKeyService, instantiationService: scopedInstantiationService, agentHover, titleToolbar, footerToolbar, footerToolbarContainer, footerDetailsContainer, disabledOverlay, checkpointToolbar, checkpointRestoreToolbar, checkpointContainer, checkpointRestoreContainer, completedResponseDisclosureDisposables, responseTokenStatsHover, feedbackSurveyWidget, mathLayoutParticipants: new Set() };
 		this.templateDataByRow.set(rowContainer, template);
 
+		// Only the response that is being read aloud shows a stop button, so keep
+		// this row in sync while it stays rendered.
+		const itemSynthesisInProgress = ChatContextKeys.itemSynthesisInProgress.bindTo(contextKeyService);
+		templateDisposables.add(this.contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(ChatListItemRenderer.synthesisInProgressKeys)) {
+				itemSynthesisInProgress.set(this.isSynthesisInProgressFor(template.currentElement));
+			}
+		}));
+
 		templateDisposables.add(this._onDidUpdateViewModel.event(() => {
 			if (!template.currentElement || !this.viewModel?.sessionResource || !isEqual(template.currentElement.sessionResource, this.viewModel.sessionResource)) {
 				this.clearRenderedParts(template);
@@ -1946,6 +1969,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		ChatContextKeys.isResponse.bindTo(templateData.contextKeyService).set(isResponseVM(element));
 		ChatContextKeys.itemId.bindTo(templateData.contextKeyService).set(element.id);
+		ChatContextKeys.itemSynthesisInProgress.bindTo(templateData.contextKeyService).set(this.isSynthesisInProgressFor(element));
 		ChatContextKeys.isRequest.bindTo(templateData.contextKeyService).set(isRequestVM(element));
 		ChatContextKeys.isFirstRequest.bindTo(templateData.contextKeyService).set(isRequestVM(element) && this.viewModel?.model.getRequests()[0]?.id === element.id);
 		ChatContextKeys.isPendingRequest.bindTo(templateData.contextKeyService).set(isRequestVM(element) && !!element.pendingKind);

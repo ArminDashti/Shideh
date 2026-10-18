@@ -13,6 +13,7 @@ import { IAccessibleViewImplementation } from '../../../../../platform/accessibi
 import { ChatSessionArchiveActionWording, getChatSessionArchiveActionWording } from '../../../../../platform/chat/common/sessionArchiveActions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { ISpeechService } from '../../../speech/common/speechService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { AccessibilityVerbositySettingId } from '../../../accessibility/browser/accessibilityConfiguration.js';
@@ -257,6 +258,9 @@ export function getAccessibilityHelpText(type: 'panelChat' | 'inlineChat' | 'qui
 	}
 	content.push(localize('chat.attachments.pastedText', "Long pasted text, including single-line text, is stored as an attached text item and replaced in the input with a numbered inline reference."));
 	content.push(localize('chat.paste.asText', "To paste the clipboard as plain text, without converting it to Markdown or storing it as an attachment, invoke Paste as Text{0}.", '<keybinding:editor.action.pasteAsText>'));
+	if (supportsReadAloud) {
+		content.push(localize('chat.readAloud', "A response can be read aloud with Read Aloud{0}, which is also the first button in the response toolbar. Reading stops with Stop Read Aloud{1}, or by starting to read another response.", '<keybinding:workbench.action.chat.readChatResponseAloud>', '<keybinding:workbench.action.chat.stopReadChatItemAloud>'));
+	}
 	content.push(localize('chat.signals', "Accessibility Signals can be changed via settings with a prefix of signals.chat. By default, if a request takes more than 4 seconds, you will hear a sound indicating that progress is still occurring."));
 	return content.join('\n');
 }

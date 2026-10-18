@@ -106,6 +106,7 @@ suite('VoiceChat', () => {
 		onDidChangeHasSpeechProvider = Event.None;
 
 		readonly hasSpeechProvider = true;
+		readonly hasTextToSpeechProvider = true;
 		readonly hasActiveSpeechToTextSession = false;
 		readonly hasActiveTextToSpeechSession = false;
 		readonly hasActiveKeywordRecognition = false;
