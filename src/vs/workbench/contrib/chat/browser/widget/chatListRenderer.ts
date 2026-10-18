@@ -39,7 +39,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IMenuEntryActionViewItemOptions, MenuEntryActionViewItem, createActionViewItem } from '../../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { MenuWorkbenchToolBar } from '../../../../../platform/actions/browser/toolbar.js';
-import { MenuId, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
+import { IMenuService, MenuId, MenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -1880,6 +1880,14 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		if (rowContainer.isConnected) {
 			connectionObserver.onDidConnect();
 		}
+
+		// Phone-only: hand the row to the agents-window long-press
+		// presenter so users get a bottom-sheet action list instead of
+		// the desktop hover toolbar (which is hidden via CSS on phone).
+		// `attachToRow` is a no-op on desktop; on phone it wires a
+		// long-press handler that lazily re-queries the row's menu
+		// each open via `getRowActions(template)`.
+		templateDisposables.add(this.chatRowActionsPhonePresenter.attachToRow(rowContainer, () => this.getRowActions(template)));
 
 		return template;
 	}
