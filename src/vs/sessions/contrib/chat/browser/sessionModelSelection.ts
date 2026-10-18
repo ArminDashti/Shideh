@@ -70,6 +70,14 @@ export interface ISessionModelSelection {
 	selectModel(modelIdentifier: string, isUserAction?: boolean): boolean;
 }
 
+interface ISessionModelSelectionOptions {
+	/**
+	 * Routes picker reads and writes through the active provider's session-scoped model configuration.
+	 * Leave disabled for generic model pickers, which use the global `ILanguageModelsService` preferences.
+	 */
+	readonly modelConfiguration?: boolean;
+}
+
 /**
  * Model selection for the Agents Window, on top of the shared
  * {@link ChatInputModelSelectionController}. Turns the active session and its provider into the
