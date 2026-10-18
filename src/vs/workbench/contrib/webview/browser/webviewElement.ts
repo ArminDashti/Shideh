@@ -736,17 +736,6 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		this.window?.dispatchEvent(emulatedKeyboardEvent);
 	}
 
-	private handleDragEvent(type: 'drag', event: WebViewDragEvent) {
-		// Create a fake DragEvent from the data provided
-		const emulatedDragEvent = new DragEvent(type, event);
-		// Force override the target
-		Object.defineProperty(emulatedDragEvent, 'target', {
-			get: () => this.element,
-		});
-		// And re-dispatch
-		this.window?.dispatchEvent(emulatedDragEvent);
-	}
-
 	windowDidDragStart(): void {
 		// Webview break drag and dropping around the main window (no events are generated when you are over them)
 		// Work around this by disabling pointer events during the drag.
