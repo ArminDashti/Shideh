@@ -6489,9 +6489,9 @@
 				"percentage": 94
 			},
 			"branches": {
-				"covered": 13,
-				"total": 18,
-				"percentage": 72.22
+				"covered": 12,
+				"total": 17,
+				"percentage": 70.58
 			},
 			"functions": {
 				"covered": 4,
@@ -10295,9 +10295,9 @@
 				"percentage": 83.46
 			},
 			"branches": {
-				"covered": 15,
-				"total": 23,
-				"percentage": 65.21
+				"covered": 14,
+				"total": 22,
+				"percentage": 63.63
 			},
 			"functions": {
 				"covered": 7,

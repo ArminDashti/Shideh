@@ -162,6 +162,8 @@ function defineSuite(config: IAgentHostE2EProviderConfig, options: IDefineOption
 		// Suites that contain only conformance-tier scenarios.
 		if (options.tier === 'conformance') {
 			defineHostFeaturesTests(context);
+			defineProtocolLifecycleTests(context);
+			defineProtocolContractTests(context);
 			defineStateOperationsTests(context);
 			defineClientFilesystemTests(context);
 			defineClientHostedFilesystemTests(context);
