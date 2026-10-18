@@ -94,6 +94,8 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { PromptInputState } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { hasKey, isNumber, isString } from '../../../../base/common/types.js';
 
+let migrationMessageShown = false;
+
 const enum Constants {
 	/**
 	 * The maximum amount of milliseconds to wait for a container before starting to create the

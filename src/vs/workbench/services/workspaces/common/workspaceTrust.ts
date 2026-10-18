@@ -324,6 +324,10 @@ export class WorkspaceTrustManagementService extends Disposable implements IWork
 			return !!this.configurationService.getValue(WORKSPACE_TRUST_EMPTY_WINDOW);
 		}
 
+		if (!this._initialized) {
+			return false;
+		}
+
 		return this.getUrisTrust(this.getWorkspaceUris());
 	}
 
@@ -341,6 +345,11 @@ export class WorkspaceTrustManagementService extends Disposable implements IWork
 
 		// Update workspace trust
 		this.isTrusted = trusted;
+
+		// Reset acceptsOutOfWorkspaceFiles
+		if (!trusted) {
+			this._trustState.acceptsOutOfWorkspaceFiles = false;
+		}
 
 		// Run workspace trust transition participants
 		await this._trustTransitionManager.participate(trusted);

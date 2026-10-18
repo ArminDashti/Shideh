@@ -9,6 +9,8 @@ import { ExtensionsRegistry } from '../../../services/extensions/common/extensio
 
 const titleTranslated = localize('title', "Title");
 
+const titleTranslated = localize('title', "Title");
+
 export const walkthroughsExtensionPoint = ExtensionsRegistry.registerExtensionPoint<IWalkthrough[]>({
 	extensionPoint: 'walkthroughs',
 	jsonSchema: {
