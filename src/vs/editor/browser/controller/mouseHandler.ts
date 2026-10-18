@@ -548,13 +548,20 @@ class MouseDownOperation extends Disposable {
 	}
 
 	private _getPositionOutsideEditor(e: EditorMouseEvent): IMouseTarget | null {
+		console.log('_getPositionOutsideEditor : ', e);
 		const editorContent = e.editorPos;
 		const model = this._context.viewModel;
 		const viewLayout = this._context.viewLayout;
 
 		const mouseColumn = this._getMouseColumn(e);
 
-		if (e.posy < editorContent.y) {
+		console.log('e.posy : ', e.posy);
+		console.log('editorContent.y : ', editorContent.y);
+
+		const visibleRange = this._context.viewModel.getCompletelyVisibleViewRange();
+		const paddingTop = Math.min(10, this._context.viewLayout.getLineHeightForLineNumber(visibleRange.startLineNumber) / 2);
+
+		if (e.posy < editorContent.y - paddingTop) {
 			const outsideDistance = editorContent.y - e.posy;
 			const verticalOffset = Math.max(viewLayout.getCurrentScrollTop() - outsideDistance, 0);
 			const viewZoneData = HitTestContext.getZoneAtCoord(this._context, verticalOffset);
@@ -569,7 +576,14 @@ class MouseDownOperation extends Disposable {
 			return MouseTarget.createOutsideEditor(mouseColumn, new Position(aboveLineNumber, 1), 'above', outsideDistance);
 		}
 
-		if (e.posy > editorContent.y + editorContent.height) {
+
+		const paddingBottom = Math.min(10, this._context.viewLayout.getLineHeightForLineNumber(visibleRange.endLineNumber) / 2);
+
+		console.log('editorContent.y + editorContent.height : ', editorContent.y + editorContent.height);
+		const bottom = editorContent.y + editorContent.height - paddingBottom;
+		console.log('bottom : ', bottom);
+
+		if (e.posy > bottom) {
 			const outsideDistance = e.posy - editorContent.y - editorContent.height;
 			const verticalOffset = viewLayout.getCurrentScrollTop() + e.relativePos.y;
 			const viewZoneData = HitTestContext.getZoneAtCoord(this._context, verticalOffset);
@@ -623,24 +637,30 @@ class MouseDownOperation extends Disposable {
 	}
 
 	private _findMousePosition(e: EditorMouseEvent, testEventTarget: boolean): IMouseTarget | null {
+		console.log('_findMousePosition : ', e);
 		const positionOutsideEditor = this._getPositionOutsideEditor(e);
+		console.log('positionOutsideEditor : ', positionOutsideEditor);
 		if (positionOutsideEditor) {
+			console.log('return 1');
 			return positionOutsideEditor;
 		}
 
 		const t = this._createMouseTarget(e, testEventTarget);
 		const hintedPosition = t.position;
 		if (!hintedPosition) {
+			console.log('return 2');
 			return null;
 		}
 
 		if (t.type === MouseTargetType.CONTENT_VIEW_ZONE || t.type === MouseTargetType.GUTTER_VIEW_ZONE) {
 			const newPosition = this._helpPositionJumpOverViewZone(t.detail);
 			if (newPosition) {
+				console.log('return 3');
 				return MouseTarget.createViewZone(t.type, t.element, t.mouseColumn, newPosition, t.detail);
 			}
 		}
 
+		console.log('return 4');
 		return t;
 	}
 
