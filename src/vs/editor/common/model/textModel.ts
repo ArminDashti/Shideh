@@ -755,6 +755,20 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 		return this._versionId;
 	}
 
+	public affectedBySpecialFontInfo(lineNumber: number): boolean {
+		return this._decorationsTree.hasSpecialFontInfo(this, this.getOffsetAt(new Position(lineNumber, 1)), this.getOffsetAt(new Position(lineNumber, this.getLineMaxColumn(lineNumber))), 0);
+	}
+
+	public getSpecialFontInfos(lineNumber: number): {
+		range: Range;
+		fontFamily: string | undefined;
+		fontSize: number | undefined;
+		fontWeight: string | undefined;
+		fontStyle: string | undefined;
+	}[] {
+		return this._decorationsTree.getSpecialFontInfos(this, this.getOffsetAt(new Position(lineNumber, 1)), this.getOffsetAt(new Position(lineNumber, this.getLineMaxColumn(lineNumber))), 0);
+	}
+
 	public mightContainRTL(): boolean {
 		return this._buffer.mightContainRTL();
 	}

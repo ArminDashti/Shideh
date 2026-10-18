@@ -746,7 +746,7 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 		return width;
 	}
 
-	linesVisibleRangesForRange(_range: Range, includeNewLines: boolean): LineVisibleRanges[] | null {
+	linesVisibleRangesForRange(_range: Range, includeNewLines: boolean, print?: boolean): LineVisibleRanges[] | null {
 		if (!this._lastViewportData) {
 			return null;
 		}

@@ -410,7 +410,6 @@ export class RenderLineOutput {
 
 export function renderViewLine(input: RenderLineInput, sb: StringBuilder, renderNewLine: boolean = false, renderOuterSpan: boolean = true): RenderLineOutput {
 	if (input.lineContent.length === 0) {
-
 		if (input.lineDecorations.length > 0) {
 			// This line is empty, but it contains inline decorations
 			sb.appendString(`<span>`);
@@ -1394,6 +1393,7 @@ function _renderLine(input: ResolvedRenderLineInput, sb: StringBuilder, renderOu
 		const part = parts[partIndex];
 		const partEndIndex = part.endIndex;
 		const partType = part.type;
+		console.log('partType : ', partType);
 		const partContainsRTL = part.containsRTL;
 		const partWidthInEm = part.widthInEm;
 		const partRendersWhitespace = (renderWhitespace !== RenderWhitespace.None && part.isWhitespace());

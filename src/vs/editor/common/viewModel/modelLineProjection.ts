@@ -51,6 +51,7 @@ export interface ISimpleModel {
 }
 
 export function createModelLineProjection(lineBreakData: ModelLineProjectionData | null, isVisible: boolean): IModelLineProjection {
+	// console.log('createModelLineProjection');
 	if (lineBreakData === null) {
 		// No mapping needed
 		if (isVisible) {
@@ -72,6 +73,7 @@ class ModelLineProjection implements IModelLineProjection {
 	private _isVisible: boolean;
 
 	constructor(lineBreakData: ModelLineProjectionData, isVisible: boolean) {
+		// console.log('constructor lineBreakData : ');
 		this._projectionData = lineBreakData;
 		this._isVisible = isVisible;
 	}
@@ -197,10 +199,14 @@ class ModelLineProjection implements IModelLineProjection {
 	private _getViewLineData(lineWithInjections: LineTokens, inlineDecorations: null | InlineDecoration[], fixedWidthInlineDecorations: null | FixedWidthInlineDecoration[], outputLineIndex: number): ViewLineData {
 		this._assertVisible();
 		const lineBreakData = this._projectionData;
+		// console.log('lineBreakData : ', lineBreakData);
 		const deltaStartIndex = (outputLineIndex > 0 ? lineBreakData.wrappedTextIndentLength : 0);
 
+		// console.log('deltaStartIndex : ', deltaStartIndex);
 		const lineStartOffsetInInputWithInjections = outputLineIndex > 0 ? lineBreakData.breakOffsets[outputLineIndex - 1] : 0;
+		// console.log('lineStartOffsetInInputWithInjections : ', lineStartOffsetInInputWithInjections);
 		const lineEndOffsetInInputWithInjections = lineBreakData.breakOffsets[outputLineIndex];
+		// console.log('lineEndOffsetInInputWithInjections ; ', lineEndOffsetInInputWithInjections);
 		const tokens = lineWithInjections.sliceAndInflate(lineStartOffsetInInputWithInjections, lineEndOffsetInInputWithInjections, deltaStartIndex);
 
 		let lineContent = tokens.getLineContent();

@@ -668,7 +668,7 @@ export interface IContentDecorationRenderOptions {
 	borderRadius?: string;
 	fontStyle?: string;
 	fontWeight?: string;
-	fontSize?: string;
+	fontSize?: number;
 	fontFamily?: string;
 	textDecoration?: string;
 	color?: string | ThemeColor;

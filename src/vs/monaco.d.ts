@@ -2205,6 +2205,20 @@ declare namespace monaco.editor {
 		 */
 		readonly id: string;
 		/**
+		 * If true, the corresponding line is affected by special font info
+		 */
+		affectedBySpecialFontInfo(lineNumber: number): boolean;
+		/**
+		 * Get special font infos on line number
+		 */
+		getSpecialFontInfos(lineNumber: number): {
+			range: Range;
+			fontFamily: string | undefined;
+			fontSize: number | undefined;
+			fontWeight: string | undefined;
+			fontStyle: string | undefined;
+		}[];
+		/**
 		 * Get the resolved options for this model.
 		 */
 		getOptions(): TextModelResolvedOptions;

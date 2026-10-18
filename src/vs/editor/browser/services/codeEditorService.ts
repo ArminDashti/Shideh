@@ -11,6 +11,7 @@ import { ITextResourceEditorInput } from '../../../platform/editor/common/editor
 import { createDecorator } from '../../../platform/instantiation/common/instantiation.js';
 import { URI } from '../../../base/common/uri.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
+import { GlobalStyleSheet, RefCountedStyleSheet } from './abstractCodeEditorService.js';
 
 export const ICodeEditorService = createDecorator<ICodeEditorService>('codeEditorService');
 

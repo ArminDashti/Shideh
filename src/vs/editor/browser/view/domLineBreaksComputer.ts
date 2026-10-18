@@ -400,6 +400,9 @@ function renderLine(lineContent: string, initialVisibleColumn: number, tabSize: 
 					}
 			}
 		}
+		// if (specialFontInfo) {
+		// 	sb.appendString('</span>');
+		// }
 
 		charOffset += producedCharacters;
 		if (startsFixedWidth) {

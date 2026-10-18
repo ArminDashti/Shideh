@@ -76,6 +76,7 @@ export class ViewLine implements IVisibleLine {
 	public setDomNode(domNode: HTMLElement): void {
 		if (this._renderedViewLine) {
 			this._renderedViewLine.domNode = createFastDomNode(domNode);
+			this._ensureMaxFontSize(this._renderedViewLine.input.lineHeight);
 		} else {
 			throw new Error('I have no rendered view line to set the dom node to...');
 		}
@@ -103,6 +104,10 @@ export class ViewLine implements IVisibleLine {
 	}
 
 	public renderLine(lineNumber: number, deltaTop: number, lineHeight: number, viewportData: ViewportData, sb: StringBuilder): boolean {
+
+		console.log('ViewLine#renderLine');
+		console.log('lineNumber : ', lineNumber);
+
 		if (this._options.useGpu && this._viewGpuContext?.canRender(this._options, viewportData, lineNumber)) {
 			this._renderedViewLine?.domNode?.domNode.remove();
 			this._renderedViewLine = null;
@@ -178,8 +183,16 @@ export class ViewLine implements IVisibleLine {
 			options.useTwoCellFullwidthCharacters
 		);
 
+		// console.log('lineData : ', lineData);
+		// console.log('lineData.content : ', lineData.content);
+		// console.log('lineData.continuesWithWrappedLine : ', lineData.continuesWithWrappedLine);
+		// console.log('lineHeight : ', lineHeight);
+		// console.log('deltaTop : ', deltaTop);
+
+
 		if (this._renderedViewLine && this._renderedViewLine.input.equals(renderLineInput)) {
 			// no need to do anything, we have the same render input
+			console.log('early return');
 			return false;
 		}
 
@@ -203,9 +216,9 @@ export class ViewLine implements IVisibleLine {
 		sb.appendString(ViewLine.CLASS_NAME);
 		sb.appendString('">');
 
-		const output = renderViewLine(renderLineInput, sb);
+		const output = renderViewLine(renderLineInput, newString);
 
-		sb.appendString('</div>');
+		newString.appendString('</div>');
 
 		let renderedViewLine: IRenderedViewLine | null = null;
 		if (
@@ -227,6 +240,7 @@ export class ViewLine implements IVisibleLine {
 
 		if (!renderedViewLine) {
 			renderedViewLine = createRenderedLine(
+				lineNumber,
 				this._renderedViewLine ? this._renderedViewLine.domNode : null,
 				renderLineInput,
 				output.characterMapping,
@@ -235,16 +249,27 @@ export class ViewLine implements IVisibleLine {
 		}
 
 		this._renderedViewLine = renderedViewLine;
-
+		this._ensureMaxFontSize(lineHeight);
+		sb.appendString(newString.build());
 		return true;
 	}
 
 	public layoutLine(lineNumber: number, deltaTop: number, lineHeight: number): void {
+		// console.log('ViewLine#layoutLine');
+		// console.log('lineNumber : ', lineNumber);
+		// console.log('this._renderedViewLine.domNode : ', this._renderedViewLine?.domNode);
 		if (this._renderedViewLine && this._renderedViewLine.domNode) {
 			this._renderedViewLine.domNode.setTop(deltaTop);
 			this._renderedViewLine.domNode.setHeight(lineHeight);
 			this._renderedViewLine.domNode.setLineHeight(lineHeight);
 		}
+	}
+
+	private _ensureMaxFontSize(height: number): void {
+		if (!this._renderedViewLine || !this._renderedViewLine.domNode) {
+			return;
+		}
+		this._renderedViewLine.domNode.domNode.style.setProperty('--vscode-max-font-size', `${height}px`);
 	}
 
 	// --- end IVisibleLineData
@@ -347,6 +372,7 @@ export class ViewLine implements IVisibleLine {
 }
 
 interface IRenderedViewLine {
+	lineNumber: number;
 	domNode: FastDomNode<HTMLElement> | null;
 	readonly input: RenderLineInput;
 	getWidth(context: DomReadingContext | null): number;
@@ -516,6 +542,7 @@ class RenderedViewLine implements IRenderedViewLine {
 	 * This is a map that is used only when the line is guaranteed to be rendered LTR and has no RTL text.
 	 */
 	private readonly _pixelOffsetCache: Float32Array | null;
+	public readonly lineNumber: number;
 
 	constructor(domNode: FastDomNode<HTMLElement> | null, renderLineInput: RenderLineInput, characterMapping: CharacterMapping, containsForeignElements: ForeignElementType) {
 		this.domNode = domNode;

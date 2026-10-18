@@ -14,6 +14,7 @@ import { applyFontInfo } from '../../../../../browser/config/domFontInfo.js';
 import { getFullwidthLetterSpacingProvider } from '../../../../../browser/config/fullwidthLetterSpacing.js';
 import { ContentWidgetPositionPreference, ICodeEditor, IContentWidgetPosition, IViewZoneChangeAccessor, MouseTargetType } from '../../../../../browser/editorBrowser.js';
 import { observableCodeEditor } from '../../../../../browser/observableCodeEditor.js';
+import { ICodeEditorService } from '../../../../../browser/services/codeEditorService.js';
 import { EditorFontLigatures, EditorOption, IComputedEditorOptions } from '../../../../../common/config/editorOptions.js';
 import { StringEdit, StringReplacement } from '../../../../../common/core/edits/stringEdit.js';
 import { Position } from '../../../../../common/core/position.js';

@@ -17,7 +17,7 @@ import { PartFingerprint, PartFingerprints } from '../../../view/viewPart.js';
 import { LineNumbersOverlay } from '../../../viewParts/lineNumbers/lineNumbers.js';
 import { Margin } from '../../../viewParts/margin/margin.js';
 import { RenderLineNumbersType, EditorOption, IComputedEditorOptions, EditorOptions } from '../../../../common/config/editorOptions.js';
-import { FontInfo } from '../../../../common/config/fontInfo.js';
+import { BareFontInfo, FontInfo } from '../../../../common/config/fontInfo.js';
 import { Position } from '../../../../common/core/position.js';
 import { Range } from '../../../../common/core/range.js';
 import { Selection } from '../../../../common/core/selection.js';
@@ -996,6 +996,7 @@ interface IRenderData {
 	strikethrough?: boolean;
 }
 
+// potential error with font info
 function measureText(targetDocument: Document, text: string, fontInfo: FontInfo, tabSize: number): number {
 	if (text.length === 0) {
 		return 0;

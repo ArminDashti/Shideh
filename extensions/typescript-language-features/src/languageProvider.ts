@@ -20,6 +20,7 @@ import TypingsStatus from './ui/typingsStatus';
 import { Disposable } from './utils/dispose';
 import { UnifiedConfigValue } from './utils/configuration';
 import { isWeb, isWebAndHasSharedArrayBuffers, supportsReadableByteStreams } from './utils/platform';
+import { typeScriptDocumentSymbolProvider } from './languageFeatures/documentSymbol';
 
 
 export default class LanguageProvider extends Disposable {
@@ -84,7 +85,99 @@ export default class LanguageProvider extends Disposable {
 		this.updateSuggestionDiagnostics(suggestionsConfig.getValue());
 		this._register(suggestionsConfig.onDidChange(value => this.updateSuggestionDiagnostics(value)));
 
-		client.onReady(() => this.registerProviders());
+		client.onReady(async () => {
+			await this.registerProviders();
+			vscode.window.onDidChangeVisibleTextEditors(e => {
+				e.forEach(async editor => {
+					this._registerDecorationsForEditor(editor);
+				});
+			});
+			vscode.window.visibleTextEditors.forEach(async editor => {
+				this._registerDecorationsForEditor(editor);
+			});
+			vscode.workspace.onDidChangeTextDocument(_ => {
+				const activeTextEditor = vscode.window.activeTextEditor;
+				if (!activeTextEditor) {
+					return;
+				}
+				this._registerDecorationsForEditor(activeTextEditor);
+			});
+		});
+	}
+
+
+	private async _registerDecorationsForEditor(editor: vscode.TextEditor): Promise<void> {
+
+		if (!typeScriptDocumentSymbolProvider) {
+			return;
+		}
+
+		const document = editor.document;
+		const token = new vscode.CancellationTokenSource().token;
+		const result = await typeScriptDocumentSymbolProvider.provideDocumentSymbols(document, token);
+		if (result === undefined) {
+			return;
+		}
+
+		const classRanges: vscode.Range[] = [];
+		const classRangesFonts1: vscode.Range[] = [];
+		const classRangesFonts2: vscode.Range[] = [];
+		this._getRanges(editor, result, vscode.SymbolKind.Class, classRanges, classRangesFonts1, classRangesFonts2);
+
+		const interfaceRanges: vscode.Range[] = [];
+		const interfaceRangesFonts1: vscode.Range[] = [];
+		const interfaceRangesFonts2: vscode.Range[] = [];
+		this._getRanges(editor, result, vscode.SymbolKind.Interface, interfaceRanges, interfaceRangesFonts1, interfaceRangesFonts2);
+
+		const functionRanges: vscode.Range[] = [];
+		const functionRangesFonts1: vscode.Range[] = [];
+		const functionRangesFonts2: vscode.Range[] = [];
+		this._getRanges(editor, result, vscode.SymbolKind.Function, functionRanges, functionRangesFonts1, functionRangesFonts2);
+
+		const methodRanges: vscode.Range[] = [];
+		const methodRangesFonts1: vscode.Range[] = [];
+		const methodRangesFonts2: vscode.Range[] = [];
+		this._getRanges(editor, result, vscode.SymbolKind.Method, methodRanges, methodRangesFonts1, methodRangesFonts2);
+
+		editor.setDecorations(this._classLineHeightDecorationType, classRanges);
+		editor.setDecorations(this._interfaceLineHeightDecorationType, interfaceRanges);
+		editor.setDecorations(this._functionLineHeightDecorationType, functionRanges);
+		editor.setDecorations(this._methodLineHeightDecorationType, methodRanges);
+
+		editor.setDecorations(this._classFontSizeDecorationType, classRangesFonts1);
+		editor.setDecorations(this._interfaceFontSizeDecorationType, interfaceRangesFonts1);
+		editor.setDecorations(this._functionFontSizeDecorationType, functionRangesFonts1);
+		editor.setDecorations(this._methodFontSizeDecorationType, methodRangesFonts1);
+
+		/* TEST CODE
+		editor.setDecorations(this._classFontSizeDecorationType1, classRangesFonts1);
+		editor.setDecorations(this._interfaceFontSizeDecorationType1, interfaceRangesFonts1);
+		editor.setDecorations(this._functionFontSizeDecorationType1, functionRangesFonts1);
+		editor.setDecorations(this._methodFontSizeDecorationType1, methodRangesFonts1);
+
+		editor.setDecorations(this._classFontSizeDecorationType2, classRangesFonts2);
+		editor.setDecorations(this._interfaceFontSizeDecorationType2, interfaceRangesFonts2);
+		editor.setDecorations(this._functionFontSizeDecorationType2, functionRangesFonts2);
+		editor.setDecorations(this._methodFontSizeDecorationType2, methodRangesFonts2);
+
+		editor.setDecorations(this._classFontSizeDecorationTypeInjectedText, classRangesFonts2);
+		editor.setDecorations(this._interfaceFontSizeDecorationTypeInjectedText, interfaceRangesFonts2);
+		editor.setDecorations(this._functionFontSizeDecorationTypeInjectedText, functionRangesFonts2);
+		editor.setDecorations(this._methodFontSizeDecorationTypeInjectedText, methodRangesFonts2);
+		*/
+	}
+
+	private _getRanges(activeTextEditor: vscode.TextEditor, symbols: vscode.DocumentSymbol[], kind: vscode.SymbolKind, rangesForLineHeight: vscode.Range[], rangesForFontSize1: vscode.Range[], rangesForFontSize2: vscode.Range[]) {
+		const border = Infinity; // Infinity in production
+		for (const symbol of symbols) {
+			if (symbol.kind === kind) {
+				const line = symbol.range.start.line;
+				rangesForLineHeight.push(new vscode.Range(line, 0, line, 0));
+				rangesForFontSize1.push(activeTextEditor.document.validateRange(new vscode.Range(line, 0, line, border)));
+				rangesForFontSize2.push(activeTextEditor.document.validateRange(new vscode.Range(line, border - 5, line, Infinity)));
+			}
+			this._getRanges(activeTextEditor, symbol.children, kind, rangesForLineHeight, rangesForFontSize1, rangesForFontSize2);
+		}
 	}
 
 	private get documentSelector(): DocumentSelector {

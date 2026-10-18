@@ -208,13 +208,52 @@ export class WhitespaceOverlay extends DynamicViewOverlay {
 				continue;
 			}
 
-			const visibleRange = ctx.visibleRangeForPosition(new Position(lineNumber, charIndex + 1));
+			const position = new Position(lineNumber, charIndex + 1);
+			const visibleRange = ctx.visibleRangeForPosition(position);
 			if (!visibleRange) {
 				continue;
 			}
 			const fontInfo = this._context.viewModel.getFontAtPosition(new Position(lineNumber, charIndex + 1));
 			// center_y = (H + (A_max - A_i) - (D_max - D_i)) / 2
 			const cy = (lineHeight + (maxAscent - fontInfo.fontAscent) - (maxDescent - fontInfo.fontDescent)) / 2;
+
+			let middotWidth: number;
+			let wsmiddotWidth: number;
+			let spaceWidth: number;
+
+			const specialFontInfo = ctx.getSpecialFontInfoForPosition(position);
+			const defaultFontInfo = this._context.configuration.options.get(EditorOption.fontInfo);
+
+			if (specialFontInfo && (
+				specialFontInfo.fontFamily !== defaultFontInfo.fontFamily
+				|| specialFontInfo.fontWeight !== defaultFontInfo.fontWeight
+				|| specialFontInfo.fontSize !== defaultFontInfo.fontSize
+			)) {
+				const targetWindow = getActiveWindow();
+				const bareFontInfo = BareFontInfo.createFromRawSettings({
+					fontFamily: specialFontInfo.fontFamily,
+					fontWeight: specialFontInfo.fontWeight,
+					fontSize: specialFontInfo.fontSize,
+					lineHeight
+				}, PixelRatio.getInstance(targetWindow).value);
+				const space = new CharWidthRequest(' ', CharWidthRequestType.Regular);
+				const middot = new CharWidthRequest('·', CharWidthRequestType.Regular);
+				const wsmiddot = new CharWidthRequest(String.fromCharCode(0x2E31), CharWidthRequestType.Regular);
+				readCharWidths(targetWindow, bareFontInfo, [space, middot, wsmiddot]);
+				middotWidth = middot.width;
+				wsmiddotWidth = wsmiddot.width;
+				spaceWidth = space.width;
+			} else {
+				middotWidth = this._options.middotWidth;
+				wsmiddotWidth = this._options.wsmiddotWidth;
+				spaceWidth = this._options.spaceWidth;
+			}
+
+			const wsmiddotDiff = Math.abs(wsmiddotWidth - spaceWidth);
+			const middotDiff = Math.abs(middotWidth - spaceWidth);
+			// U+2E31 - WORD SEPARATOR MIDDLE DOT
+			// U+00B7 - MIDDLE DOT
+			const renderSpaceCharCode = (wsmiddotDiff < middotDiff ? 0x2E31 : 0xB7);
 
 			if (USE_SVG) {
 				maxLeft = Math.max(maxLeft, visibleRange.left);
@@ -233,6 +272,7 @@ export class WhitespaceOverlay extends DynamicViewOverlay {
 		}
 
 		if (USE_SVG) {
+			const spaceWidth = this._options.spaceWidth;
 			maxLeft = Math.round(maxLeft + spaceWidth);
 			const lineHeight = ctx.getLineHeightForLineNumber(lineNumber);
 			return (
