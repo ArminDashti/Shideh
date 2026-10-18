@@ -1120,3 +1120,28 @@ export class CodeCellLayout {
 		}
 	}
 }
+
+
+// TODO @DonJayamanne
+/**
+ * Test scenarios:
+ * 1. Cell with 40 lines, scroll notebook to the bottom and ensure only top 10-15 lines of this cell are visible.
+ * Add a new line in line 8 or so.
+ * Things should be ok.
+ * Edit the text and scroll position moves when it shouldn't.
+ * If we can already see cursor, then don't change scroll position.
+ * 2. Same as 1, when cursor is on line 8, use up/down arrow keys.
+ * Watch how editor moves around and is resized.
+ * Similarly scroll position changes as well.
+ * Compare against stable version of notebook editor to figure out expected behaviour.
+ * 3. Same as 1, when cursor is on line 8, start selecting text downwards.
+ * I.e. use shift+down arrow keys.
+ * Watch how editor moves around and is resized.
+ * Similarly scroll position changes as well.
+ * Compare against stable version of notebook editor to figure out expected behaviour.
+ * 4. Same as 1, when cursor is on line 8, start selecting text upwards.
+ * I.e. use shift+up arrow keys.
+ * Watch how editor moves around and is resized.
+ * Similarly scroll position changes as well.
+ * Compare against stable version of notebook editor to figure out expected behaviour.
+ */
