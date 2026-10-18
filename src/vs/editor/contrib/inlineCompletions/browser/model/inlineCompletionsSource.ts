@@ -85,6 +85,21 @@ export class InlineCompletionsSource extends Disposable {
 
 	private _completionsEnabled: Record<string, boolean> | undefined = undefined;
 
+	public readonly state = reducer(this, {
+		createInitial: () => ({
+			inlineCompletions: undefined as InlineCompletionsState | undefined,
+			suggestWidgetInlineCompletions: undefined as InlineCompletionsState | undefined,
+		}),
+		dispose: (values) => {
+			values.inlineCompletions?.dispose();
+			values.suggestWidgetInlineCompletions?.dispose();
+		},
+		trackChanges: changes({ versionId: this._versionId }),
+		update: (reader, previousValue, changes) => {
+			return previousValue;
+		}
+	});
+
 	constructor(
 		private readonly _textModel: ITextModel,
 		private readonly _versionId: IObservableWithChange<number | null, IModelContentChangedEvent | undefined>,
@@ -634,6 +649,7 @@ export class InlineCompletionsState extends Disposable {
 		return new InlineCompletionsState([], undefined);
 	}
 
+class InlineCompletionsState extends Disposable {
 	constructor(
 		public readonly inlineCompletions: readonly InlineSuggestionItem[],
 		public readonly request: UpdateRequest | undefined,

@@ -56,6 +56,8 @@ import { IDefaultAccount } from '../../../../../base/common/defaultAccount.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { getInlineCompletionsController } from '../controller/common.js';
 
+() => { new InlineCompletionsSourceOld(); }
+
 export class InlineCompletionsModel extends Disposable {
 	private readonly _source;
 	private readonly _isActive = observableValue<boolean>(this, false);
