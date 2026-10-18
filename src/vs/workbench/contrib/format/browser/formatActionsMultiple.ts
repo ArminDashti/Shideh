@@ -159,7 +159,6 @@ export class DefaultFormatter extends Disposable implements IWorkbenchContributi
 					: nls.localize('miss.2', "Extension '{0}' is configured as formatter but it can only format '{1}'-files as a whole, not selections or parts of it.", extension.displayName || extension.name, langName);
 				return detail;
 			}
-
 		} else if (formatter.length === 1) {
 			// ok -> nothing configured but only one formatter available
 			return formatter[0];

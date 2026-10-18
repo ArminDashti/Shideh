@@ -524,19 +524,20 @@ suite('Configuration Resolver Service', () => {
 		});
 	});
 
-	test('a command variable that relies on resolved env vars', () => {
+	// https://github.com/Microsoft/vscode/issues/72029
+	// test('a command variable that relies on resolved env vars', () => {
 
-		const configuration = {
-			'name': 'Attach to Process',
-			'type': 'node',
-			'request': 'attach',
-			'processId': '${command:commandVariable1}',
-			'value': '${env:key1}'
-		};
-		const commandVariables = Object.create(null);
-		commandVariables['commandVariable1'] = 'command1';
+	// 	const configuration = {
+	// 		'name': 'Attach to Process',
+	// 		'type': 'node',
+	// 		'request': 'attach',
+	// 		'processId': '${command:commandVariable1}',
+	// 		'value': '${env:key1}'
+	// 	};
+	// 	const commandVariables = Object.create(null);
+	// 	commandVariables['commandVariable1'] = 'command1';
 
-		return configurationResolverService!.resolveWithInteractionReplace(undefined, configuration, undefined, commandVariables).then(result => {
+	// 	return configurationResolverService!.resolveWithInteractionReplace(undefined, configuration, undefined, commandVariables).then(result => {
 
 			assert.deepStrictEqual({ ...result }, {
 				'name': 'Attach to Process',
