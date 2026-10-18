@@ -293,7 +293,19 @@ steps:
           timeoutInMinutes: 30
 =======
     - powershell: |
-        npm run smoketest-no-compile -- --tracing --build "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+        $ErrorActionPreference = 'Stop'
+        $directory = "$env:ProgramFiles\GitHubCopilot"
+        New-Item -ItemType Directory -Path $directory | Out-Null
+        try {
+          npm run smoketest-no-compile -- --tracing --build "$(agent.builddirectory)\test\VSCode-win32-$(VSCODE_ARCH)"
+          exit $LASTEXITCODE
+        } finally {
+          $file = Join-Path $directory 'managed-settings.json'
+          if (Test-Path -LiteralPath $file) {
+            Remove-Item -LiteralPath $file
+          }
+          [System.IO.Directory]::Delete($directory)
+        }
       env:
         VSCODE_SMOKE_TEST_POLICY: '1'
         ${{ if eq(parameters.VSCODE_ARCH, 'x64') }}:
