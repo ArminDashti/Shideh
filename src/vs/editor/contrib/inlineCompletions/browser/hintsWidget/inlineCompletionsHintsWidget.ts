@@ -34,6 +34,7 @@ import { InlineCompletionCommand, InlineCompletionTriggerKind, InlineCompletionW
 import { PositionAffinity } from '../../../../common/model.js';
 import { showNextInlineSuggestionActionId, showPreviousInlineSuggestionActionId } from '../controller/commandIds.js';
 import { InlineCompletionsModel } from '../model/inlineCompletionsModel.js';
+import { n } from '../view/inlineEdits/utils.js';
 import './inlineCompletionsHintsWidget.css';
 
 export class InlineCompletionsHintsWidget extends Disposable {
@@ -218,6 +219,13 @@ export class InlineSuggestionHintsContentWidget extends Disposable implements IC
 		this.disableButtonsDebounced = this._register(new RunOnceScheduler(() => {
 			this.previousAction.enabled = this.nextAction.enabled = false;
 		}, 100));
+
+		this._register(autorun(reader => {
+			this._warningMessageContentNode.read(reader);
+			this._warningMessageNode.readEffect(reader);
+			// Only update after the warning message node has been rendered
+			this._relayout();
+		}));
 
 		this._register(autorun(reader => {
 			this._warningMessageContentNode.read(reader);

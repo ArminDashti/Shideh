@@ -6,7 +6,7 @@
 import * as dom from '../../../../../base/browser/dom.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
-import { autorun, constObservable } from '../../../../../base/common/observable.js';
+import { autorun, autorunWithStore, constObservable } from '../../../../../base/common/observable.js';
 import { ICodeEditor, IEditorMouseEvent, MouseTargetType } from '../../../../browser/editorBrowser.js';
 import { EditorOption } from '../../../../common/config/editorOptions.js';
 import { Range } from '../../../../common/core/range.js';
