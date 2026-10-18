@@ -508,6 +508,25 @@ function getSessionTitleMatches(session: ISession, filterData: FuzzyScore | Labe
 	return filterData.label === session.title.get() ? createMatches(filterData.score) : undefined;
 }
 
+function getSessionListItemId(element: SessionListItem): string {
+	if (isSessionGroupItem(element)) {
+		return `group:${element.group.id}`;
+	}
+	if (isSessionSection(element)) {
+		return `section:${element.id}`;
+	}
+	if (isSessionShowMore(element)) {
+		return `show-more:${element.kind}:${element.mode}:${element.sectionId}`;
+	}
+	if (isSessionPlaceholder(element)) {
+		return `placeholder:${element.sectionId}`;
+	}
+	if (isSessionChatItem(element)) {
+		return `chat:${element.session.sessionId}:${element.chat.resource.toString()}`;
+	}
+	return element.resource.toString();
+}
+
 const SHOW_MORE_FOLDERS_LABEL = '__more_folders__';
 const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 const INSET_ROW_GAP = 2;
@@ -5181,6 +5200,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 	}
 
 	update(expandAll?: boolean): void {
+		const scrollAnchor = this.captureScrollAnchor();
 		const activeSession = this._sessionsService.activeSession.get();
 		const onboardingSession = this.onboardingTarget.get()?.session;
 		const nextNestedSessionResources = new Set(
@@ -5722,6 +5742,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 		this.nestedSessionResources = nextNestedSessionResources;
 		this.syncCollapsedSessionIds();
 		this.reconcileChatRowHeights();
+		this.restoreScrollAnchor(scrollAnchor);
 		this._onDidUpdate.fire();
 	}
 
@@ -5737,6 +5758,61 @@ export class SessionsList extends Disposable implements ISessionsList {
 		};
 		updateAccessibilityLevels(children, 1);
 		this.tree.setChildren(null, children);
+	}
+
+	private captureScrollAnchor(): { readonly id: string; readonly offset: number } | undefined {
+		if (this.tree.scrollTop === 0) {
+			return undefined;
+		}
+
+		let firstAfterViewportTop: { readonly element: SessionListItem; readonly offset: number } | undefined;
+		let lastBeforeViewportTop: { readonly element: SessionListItem; readonly offset: number } | undefined;
+		const collect = (node: ITreeNode<SessionListItem | null, FuzzyScore | undefined>): void => {
+			if (node.element) {
+				const top = this.tree.getElementTop(node.element);
+				if (top !== undefined) {
+					const offset = top - this.tree.scrollTop;
+					if (offset >= 0 && (!firstAfterViewportTop || offset < firstAfterViewportTop.offset)) {
+						firstAfterViewportTop = { element: node.element, offset };
+					} else if (offset < 0 && (!lastBeforeViewportTop || offset > lastBeforeViewportTop.offset)) {
+						lastBeforeViewportTop = { element: node.element, offset };
+					}
+				}
+			}
+			for (const child of node.children) {
+				collect(child);
+			}
+		};
+		collect(this.tree.getNode());
+
+		const anchor = firstAfterViewportTop ?? lastBeforeViewportTop;
+		return anchor && { id: getSessionListItemId(anchor.element), offset: anchor.offset };
+	}
+
+	private restoreScrollAnchor(anchor: { readonly id: string; readonly offset: number } | undefined): void {
+		if (!anchor) {
+			return;
+		}
+
+		let anchorElement: SessionListItem | undefined;
+		const find = (node: ITreeNode<SessionListItem | null, FuzzyScore | undefined>): void => {
+			if (anchorElement) {
+				return;
+			}
+			if (node.element && getSessionListItemId(node.element) === anchor.id) {
+				anchorElement = node.element;
+				return;
+			}
+			for (const child of node.children) {
+				find(child);
+			}
+		};
+		find(this.tree.getNode());
+
+		const top = anchorElement && this.tree.getElementTop(anchorElement);
+		if (top !== undefined) {
+			this.tree.scrollTop = top - anchor.offset;
+		}
 	}
 
 	private syncCollapsedSessionIds(): void {
