@@ -5482,6 +5482,51 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return innerParts;
 	}
 
+	private async _loadSubagentState(childSessionUri: string): Promise<ISessionWithDefaultChat | undefined> {
+		const childSub = this._ensureSessionSubscription(childSessionUri);
+		try {
+			let childState = this._getSessionState(childSessionUri);
+			if (!childState) {
+				if (childSub.value instanceof Error) {
+					throw childSub.value;
+				}
+				await this._whenSubscriptionHydrated(childSub, CancellationToken.None);
+				if (childSub.value instanceof Error) {
+					throw childSub.value;
+				}
+				childState = this._getSessionState(childSessionUri);
+			}
+			if (!childState) {
+				return undefined;
+			}
+			return childState;
+		} finally {
+			this._releaseSessionSubscription(childSessionUri);
+		}
+	}
+
+	private _getSubagentInnerParts(childSessionUri: string, toolCallId: string, childState: ISessionWithDefaultChat): IChatProgress[] {
+		const innerParts: IChatProgress[] = [];
+		for (const turn of childState.turns) {
+			for (const rp of turn.responseParts) {
+				if (rp.kind === ResponsePartKind.ToolCall) {
+					const tc = rp.toolCall;
+					if (tc.status === ToolCallStatus.Completed || tc.status === ToolCallStatus.Cancelled) {
+						const completedTc = tc as ICompletedToolCall;
+						const fileEditParts = completedToolCallToEditParts(completedTc, this._config.connectionAuthority);
+						const serialized = completedToolCallToSerialized(completedTc, toolCallId, URI.parse(childSessionUri), this._config.connectionAuthority);
+						if (fileEditParts.length > 0) {
+							serialized.presentation = ToolInvocationPresentation.Hidden;
+						}
+						innerParts.push(serialized);
+						innerParts.push(...fileEditParts);
+					}
+				}
+			}
+		}
+		return innerParts;
+	}
+
 	/**
 	 * Subscribes to a child subagent session and forwards its tool calls
 	 * as progress parts into the parent session's response, with
