@@ -39,6 +39,17 @@ export interface NLSPostProcessResult {
 	readonly edits: readonly NLSTextEdit[];
 }
 
+export interface NLSTextEdit {
+	readonly start: number;
+	readonly end: number;
+	readonly newText: string;
+}
+
+export interface PostProcessNLSResult {
+	readonly code: string;
+	readonly edits: readonly NLSTextEdit[];
+}
+
 /**
  * Post-processes a JavaScript file to replace NLS placeholders with indices.
  * Also returns the text edits applied, so that source maps can be adjusted accordingly.
@@ -65,7 +76,7 @@ export function postProcessNLSTracked(
 			let placeholder = `%%NLS:${inner}%%`;
 			let index = indexMap.get(placeholder);
 			if (index === undefined) {
-				placeholder = `%%NLS2:${inner}%%`;
+				placeholder = `%%NLS2:${match[1]}%%`;
 				index = indexMap.get(placeholder);
 			}
 			if (index !== undefined) {
