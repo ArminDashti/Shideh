@@ -75,7 +75,6 @@ export const enum TerminalContribContextKeyStrings {
 export const terminalContribConfiguration: IConfigurationNode['properties'] = {
 	...terminalAccessibilityConfiguration,
 	...terminalAutoRepliesConfiguration,
-	...terminalChatAgentToolsConfiguration,
 	...terminalInitialHintConfiguration,
 	...terminalCommandGuideConfiguration,
 	...terminalHistoryConfiguration,

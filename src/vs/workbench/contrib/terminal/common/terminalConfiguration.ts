@@ -717,6 +717,20 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 	...terminalContribConfiguration,
 };
 
+
+export const enum TerminalChatAgentToolsSettingId {
+	CoreToolsEnabled = 'chat.agent.terminal.coreToolsEnabled',
+	AllowList = 'chat.agent.terminal.allowList',
+	DenyList = 'chat.agent.terminal.denyList',
+}
+
+export interface ITerminalChatAgentToolsConfiguration {
+	coreToolsEnabled: boolean;
+	allowList: { [key: string]: string };
+	denyList: { [key: string]: string };
+}
+
+
 export async function registerTerminalConfiguration(getFontSnippets: () => Promise<IJSONSchemaSnippet[]>) {
 	const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 	configurationRegistry.registerConfiguration({
