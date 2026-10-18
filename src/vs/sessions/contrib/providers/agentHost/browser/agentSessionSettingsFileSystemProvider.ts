@@ -110,7 +110,7 @@ export function serializeSessionSettings(provider: IAgentHostSessionsProvider, s
  * used by {@link serializeSessionSettings} so validation matches the file
  * contents produced by this provider.
  */
-export function buildSessionSettingsJsonSchema(config: ResolveSessionConfigResult): IJSONSchema {
+export function buildSessionSettingsJsonSchema(config: SessionConfigState): IJSONSchema {
 	return buildAgentHostConfigJsonSchema(config, sessionSettingsPropertyFilter);
 }
 

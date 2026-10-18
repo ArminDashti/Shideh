@@ -46,14 +46,14 @@ suite('AgentSessionSettingsFileSystemProvider', () => {
 	}
 
 	interface IMockAgentHostSessionsProvider extends IAgentHostSessionsProvider {
-		config: ResolveSessionConfigResult | undefined;
+		config: SessionConfigState | undefined;
 		readonly onDidChangeSessionConfigEmitter: Emitter<string>;
 		readonly onDidChangeSessionsEmitter: Emitter<{ added: readonly ISession[]; removed: readonly ISession[]; changed: readonly ISession[] }>;
 		readonly replaceCalls: Array<{ sessionId: string; values: Record<string, unknown> }>;
 	}
 
 	function createHarness(
-		initialConfig: ResolveSessionConfigResult | undefined,
+		initialConfig: SessionConfigState | undefined,
 		registerProvider = true,
 	): ITestHarness {
 		const session = createSession();

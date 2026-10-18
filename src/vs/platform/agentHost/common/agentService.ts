@@ -849,11 +849,17 @@ export interface IAgentService {
 	/** Resolve the current source of a live canvas owned by a chat. */
 	resolveCanvasSource(chat: URI, instanceId: string, revision: number): Promise<string>;
 
-	/** Resolve the dynamic configuration schema for creating a session. */
-	resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult>;
-
 	/** Return dynamic completions for a session configuration property. */
 	sessionConfigCompletions(params: IAgentSessionConfigCompletionsParams): Promise<SessionConfigCompletionsResult>;
+
+	/**
+	 * Start a new turn on an existing session. Replaces the legacy pattern of
+	 * dispatching a `session/turnStarted` action directly. The server may
+	 * reject (by throwing) when the session config is incomplete relative to
+	 * the latest schema; the rejection's `data` field is shaped as
+	 * {@link IAgentStartTurnInvalidConfigErrorData}.
+	 */
+	startTurn(params: IAgentStartTurnParams): Promise<void>;
 
 	/**
 	 * Return completion items for a partially-typed input (e.g. an `@`-mention
@@ -1176,6 +1182,12 @@ export interface IAgentConnection {
 	reconcileDetachedWorktrees?(scope: string, activeHandles: readonly string[]): Promise<void>;
 	resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult>;
 	sessionConfigCompletions(params: IAgentSessionConfigCompletionsParams): Promise<SessionConfigCompletionsResult>;
+	/**
+	 * Start a new turn on an existing session. Replaces the legacy pattern of
+	 * dispatching a `session/turnStarted` action directly. May reject when the
+	 * session's config is incomplete relative to the latest schema.
+	 */
+	startTurn(params: IAgentStartTurnParams): Promise<void>;
 	completions(params: CompletionsParams): Promise<CompletionsResult>;
 	listAutomationTriggerDefinitions(params: ListAutomationTriggerDefinitionsParams): Promise<ListAutomationTriggerDefinitionsResult>;
 	runAutomation(params: RunAutomationParams): Promise<RunAutomationResult>;

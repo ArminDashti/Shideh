@@ -420,7 +420,7 @@ export function isAgentHostProviderId(providerId: string): boolean {
  * are deep-compared via {@link equals} so non-string entries (e.g. permission
  * objects) compare correctly.
  */
-export function resolvedConfigsEqual(a: ResolveSessionConfigResult, b: ResolveSessionConfigResult): boolean {
+export function resolvedConfigsEqual(a: SessionConfigState, b: SessionConfigState): boolean {
 	const aValueKeys = Object.keys(a.values);
 	const bValueKeys = Object.keys(b.values);
 	if (aValueKeys.length !== bValueKeys.length) {

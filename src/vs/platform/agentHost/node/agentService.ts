@@ -6325,6 +6325,60 @@ export class AgentService extends Disposable implements IAgentService {
 		return provider.chatConfigCompletions(this._toProviderConfig(params));
 	}
 
+	async startTurn(params: IAgentStartTurnParams): Promise<void> {
+		const sessionKey = params.session.toString();
+		const provider = params.provider
+			? this._providers.get(params.provider)
+			: this._findProviderForSession(params.session);
+		const state = this._stateManager.getSessionState(sessionKey);
+		if (!provider || !state) {
+			throw new ProtocolError(AHP_SESSION_NOT_FOUND, `Session not found: ${sessionKey}`);
+		}
+
+		// Validate the session config against its current schema. Required
+		// properties that are missing/undefined block the turn and surface as
+		// a structured `InvalidParams` error so the picker UI can route the
+		// user back to the offending fields.
+		const schema = state.config?.schema;
+		const values = state.config?.values;
+		if (schema?.required && schema.required.length > 0) {
+			const missingRequired = schema.required.filter(key => values?.[key] === undefined);
+			if (missingRequired.length > 0) {
+				const data: IAgentStartTurnInvalidConfigErrorData = { missingRequired };
+				throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Session config is incomplete', data);
+			}
+		}
+
+		// Reject if a turn is already in flight on this session.
+		if (state.activeTurn !== undefined) {
+			throw new ProtocolError(AHP_TURN_IN_PROGRESS, 'A turn is already in progress');
+		}
+
+		// Prefer the provider's `startTurn` when implemented. The provider is
+		// responsible for emitting `SessionTurnStartedAction` exactly once
+		// (typically by dispatching it), so the service does not emit again
+		// on this path.
+		if (provider.startTurn) {
+			await provider.startTurn(params);
+			return;
+		}
+
+		// Legacy fallback: dispatch `SessionTurnStartedAction` directly. The
+		// `AgentSideEffects.handleAction` listener picks this up and forwards
+		// the user message to `agent.sendMessage`.
+		const attachments = params.userMessage.attachments?.map(a => ({
+			type: a.type,
+			uri: a.uri.toString(),
+			displayName: a.displayName,
+		}));
+		this._stateManager.dispatchServerAction({
+			type: ActionType.SessionTurnStarted,
+			session: sessionKey,
+			turnId: params.turnId,
+			userMessage: { text: params.userMessage.text, attachments } as SessionTurnStartedAction['userMessage'],
+		});
+	}
+
 	async completions(params: CompletionsParams): Promise<CompletionsResult> {
 		return this._completions.completions(params);
 	}

@@ -90,7 +90,7 @@ class MockAgentConnection implements IAgentConnection {
 	async readDebugLogsChunk(_resource: URI, _position: number): Promise<IAgentHostDebugLogsChunk> { throw new Error('Not implemented'); }
 	async listSessions(): Promise<IAgentSessionMetadata[]> { return []; }
 	async createSession(_config?: IAgentCreateSessionConfig): Promise<URI> { return URI.parse('copilot:///test'); }
-	async resolveSessionConfig(_params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult> { return { schema: { type: 'object', properties: {} }, values: {} }; }
+	async startTurn(_params: IAgentStartTurnParams): Promise<void> { }
 	async sessionConfigCompletions(_params: IAgentSessionConfigCompletionsParams): Promise<SessionConfigCompletionsResult> { return { items: [] }; }
 	async completions(_params: CompletionsParams): Promise<CompletionsResult> { return { items: [] }; }
 	async listAutomationTriggerDefinitions(_params: ListAutomationTriggerDefinitionsParams): Promise<ListAutomationTriggerDefinitionsResult> { return { items: [] }; }

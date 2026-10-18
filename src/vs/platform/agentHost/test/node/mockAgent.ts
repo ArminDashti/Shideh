@@ -682,7 +682,24 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 						enumDynamic: mode === 'managed',
 						readOnly: mode === 'direct',
 					},
+					requireApiKey: {
+						type: 'boolean',
+						title: 'Require API Key',
+						description: 'Test hook — when true, marks `apiKey` as required',
+					},
+					apiKey: {
+						type: 'string',
+						title: 'API Key',
+						description: 'Test-only credential; required when `requireApiKey` is true',
+					},
 				},
+				...(requireApiKey ? { required: ['apiKey'] } : {}),
+			},
+			values: {
+				isolation,
+				branch,
+				...(requireApiKey ? { requireApiKey: true } : {}),
+				...(apiKey !== undefined ? { apiKey } : {}),
 			},
 			values: { mockMode: mode, mockBranch: branch },
 		};

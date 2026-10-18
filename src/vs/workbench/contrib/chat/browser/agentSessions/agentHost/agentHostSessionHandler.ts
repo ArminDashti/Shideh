@@ -6341,6 +6341,33 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return false;
 	}
 
+	/**
+	 * Translate a `startTurn` rejection into a user-facing `Error` for the
+	 * chat agent invoke path. The localized message includes any
+	 * `missingRequired` config keys from {@link StartTurnInvalidConfigErrorData}
+	 * so the user can route back to the offending fields in the picker.
+	 * Non-protocol errors fall through to a generic message wrapping the
+	 * original cause.
+	 */
+	private _toStartTurnUserError(err: unknown): Error {
+		if (err instanceof ProtocolError) {
+			if (err.code === JsonRpcErrorCodes.InvalidParams) {
+				const data = err.data as StartTurnInvalidConfigErrorData | undefined;
+				const missing = data?.missingRequired;
+				if (missing && missing.length > 0) {
+					return new Error(localize(
+						'agentHost.startTurn.missingConfig',
+						"Cannot start turn: the session configuration is missing required fields: {0}. Please update the configuration and try again.",
+						missing.join(', '),
+					));
+				}
+				return new Error(localize('agentHost.startTurn.invalidConfig', "Cannot start turn: the session configuration is invalid. {0}", err.message));
+			}
+			return new Error(localize('agentHost.startTurn.protocolFailure', "Failed to start turn: {0}", err.message));
+		}
+		return new Error(localize('agentHost.startTurn.unknownFailure', "Failed to start turn: {0}", err instanceof Error ? err.message : String(err)));
+	}
+
 	private _createModelSelection(languageModelIdentifier: string | undefined, modelConfiguration: Record<string, unknown> | undefined): ModelSelection | undefined {
 		const rawModelId = this._extractRawModelId(languageModelIdentifier);
 		if (!rawModelId) {
