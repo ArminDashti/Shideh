@@ -86,6 +86,10 @@ function toolCallStateToPreparedInvocation(tc: Parameters<typeof rawToolCallStat
 	return rawToolCallStateToPreparedInvocation(tc, URI.file('/'), 'local');
 }
 
+function toolCallStateToPreparedInvocation(tc: Parameters<typeof rawToolCallStateToPreparedInvocation>[0]) {
+	return rawToolCallStateToPreparedInvocation(tc, URI.file('/'), 'local');
+}
+
 function finalizeToolInvocation(invocation: Parameters<typeof rawFinalizeToolInvocation>[0], tc: Parameters<typeof rawFinalizeToolInvocation>[1]) {
 	return rawFinalizeToolInvocation(invocation, tc, URI.file('/'), 'local');
 }
