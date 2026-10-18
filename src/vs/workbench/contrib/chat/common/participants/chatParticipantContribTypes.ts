@@ -23,6 +23,7 @@ export interface IRawChatParticipantContribution {
 	isDefault?: boolean;
 	isSticky?: boolean;
 	sampleRequest?: string;
+	isEngine?: boolean;
 	commands?: IRawChatCommandContribution[];
 	locations?: RawChatParticipantLocation[];
 	/**

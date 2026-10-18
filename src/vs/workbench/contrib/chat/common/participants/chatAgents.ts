@@ -281,8 +281,10 @@ export interface IChatAgentService {
 	getChatTitle(id: string, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<string | undefined>;
 	getChatSummary(id: string, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<string | undefined>;
 	getAgent(id: string, includeDisabled?: boolean): IChatAgentData | undefined;
+	getAgentImpl(id: string, includeDisabled?: boolean): IChatAgent | undefined;
 	getAgentByFullyQualifiedId(id: string): IChatAgentData | undefined;
 	getAgents(): IChatAgentData[];
+	getEngines(): IChatAgentData[];
 	getActivatedAgents(): Array<IChatAgent>;
 	getAgentsByName(name: string): IChatAgentData[];
 	agentHasDupeName(id: string): boolean;
@@ -498,6 +500,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		return this._agents.get(id)?.data;
 	}
 
+	getAgentImpl(id: string, includeDisabled?: boolean): IChatAgent | undefined {
+		return this._preferExtensionAgent(this.getActivatedAgents().filter(a => {
+			return a.id === id;
+		}));
+	}
+
 	private _agentIsEnabled(idOrAgent: string | IChatAgentEntry): boolean {
 		const entry = typeof idOrAgent === 'string' ? this._agents.get(idOrAgent) : idOrAgent;
 		return !entry?.data.when || this.contextKeyService.contextMatchesRules(ContextKeyExpr.deserialize(entry.data.when));
@@ -530,6 +538,10 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	getAgentsByName(name: string): IChatAgentData[] {
 		return this._preferExtensionAgents(this.getAgents().filter(a => a.name === name));
+	}
+
+	getEngines(): IChatAgentData[] {
+		return this.getAgents().filter(a => !!a.isEngine);
 	}
 
 	private _preferExtensionAgents<T extends IChatAgentData>(agents: T[]): T[] {
@@ -683,6 +695,7 @@ export class MergedChatAgent implements IChatAgent {
 	get extensionDisplayName(): string { return this.data.extensionDisplayName; }
 	get isDefault(): boolean | undefined { return this.data.isDefault; }
 	get isCore(): boolean | undefined { return this.data.isCore; }
+	get isEngine(): boolean | undefined { return this.data.isEngine; }
 	get metadata(): IChatAgentMetadata { return this.data.metadata; }
 	get slashCommands(): IChatAgentCommand[] { return this.data.slashCommands; }
 	get locations(): ChatAgentLocation[] { return this.data.locations; }
