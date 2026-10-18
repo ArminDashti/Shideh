@@ -96,6 +96,8 @@ export interface IFilesConfiguration extends PlatformIFilesConfiguration, IWorkb
 		enableDragAndDrop: boolean;
 		confirmDelete: boolean;
 		enableUndo: boolean;
+		compactFolders: boolean;
+		autoExpandSingleChildren: boolean;
 		confirmUndo: UndoConfirmLevel;
 		expandSingleFolderWorkspaces: boolean;
 		sortOrder: SortOrder;

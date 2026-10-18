@@ -1339,7 +1339,7 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable
 	private readonly refreshPromises = new Map<IAsyncDataTreeNode<TInput, T>, CancelablePromise<Iterable<T>>>();
 
 	protected readonly identityProvider?: IIdentityProvider<T>;
-	private readonly autoExpandSingleChildren: boolean;
+	private readonly autoExpandSingleChildren: boolean | { (e: T): boolean };
 
 	private readonly _onDidRender = new Emitter<void>();
 	protected readonly _onDidChangeNodeSlowState = new Emitter<IAsyncDataTreeNode<TInput, T>>();
