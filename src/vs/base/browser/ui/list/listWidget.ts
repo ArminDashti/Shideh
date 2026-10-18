@@ -757,6 +757,7 @@ export class MouseController<T> implements IDisposable {
 	}
 
 	protected onViewPointer(e: IListMouseEvent<T>): void {
+		e.browserEvent.stopPropagation();
 		if (!this.mouseSupport) {
 			return;
 		}
