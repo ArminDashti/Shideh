@@ -280,6 +280,11 @@ suite.skip('AgentHostChangesetService', () => {
 				changeKind: 'uncommitted',
 			},
 		]);
+		assert.deepStrictEqual(sessionState?.summary.changes, {
+			additions: 6,
+			deletions: 2,
+			files: 2,
+		});
 	});
 
 	test('restoreStaticChangeset catalogue counts only emitted unique files', () => {
@@ -312,7 +317,8 @@ suite.skip('AgentHostChangesetService', () => {
 		const catalogue = stateManager.getSessionState(sessionStr)?.changesets;
 		assert.deepStrictEqual({
 			files: state?.files.map(f => ({ id: f.id, diff: f.edit.diff })),
-			catalogue,
+			catalogue: sessionState?.changesets,
+			changes: sessionState?.summary.changes,
 		}, {
 			files: [
 				{ id: 'file:///wd/a.ts', diff: { added: 3, removed: 1 } },
@@ -331,6 +337,11 @@ suite.skip('AgentHostChangesetService', () => {
 					changeKind: 'uncommitted',
 				},
 			],
+			changes: {
+				additions: 4,
+				deletions: 1,
+				files: 2,
+			},
 		});
 	});
 
@@ -429,17 +440,20 @@ suite.skip('AgentHostChangesetService', () => {
 			assert.deepStrictEqual(sessionContent.at(-1)?.action.files.map(f => f.edit), gitDiffs);
 			assert.deepStrictEqual(uncommittedContent.at(-1)?.action.files.map(f => f.edit), gitDiffs);
 
-			// The compute pass also persists the file list under the
-			// legacy `'diffs'` slot so it survives restarts. The write
-			// is fire-and-forget through the metadata sequencer; poll
+			// The compute pass also persists a small `ChangesSummary`
+			// aggregate under the `META_CHANGES_SUMMARY` slot so a
+			// subsequent `listSessions` can render the chip without
+			// recomputing. Only the session-wide kind contributes;
+			// uncommitted recomputes never touch the DB. The write is
+			// fire-and-forget through the metadata sequencer; poll
 			// briefly until it lands.
 			let persisted: string | undefined;
 			for (let i = 0; i < 50 && !persisted; i++) {
 				await timeout(2);
-				persisted = await sessionDb.getMetadata('diffs');
+				persisted = await sessionDb.getMetadata('agentHost.changes');
 			}
-			assert.ok(persisted, 'expected the compute pass to persist diffs to the session DB');
-			assert.deepStrictEqual(JSON.parse(persisted), gitDiffs);
+			assert.ok(persisted, 'expected the session compute pass to persist a changes summary');
+			assert.deepStrictEqual(JSON.parse(persisted), { additions: 1, deletions: 0, files: 1 });
 		});
 
 		test('session changeset falls back to _meta.git base branch when persisted diff base is absent', async () => {

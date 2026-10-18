@@ -1743,13 +1743,14 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 					throw new ProtocolError(AHP_SESSION_NOT_FOUND, `Resource watch not found: ${params.channel}`);
 				}
 				client.subscriptions.set(classified.uri, classified);
-				return {
-					snapshot: {
-						resource: classified.uri,
-						state: descriptor,
-						fromSeq: this._stateManager.serverSeq,
-					},
+				// ResourceWatchState is not part of Snapshot.state in the upstream protocol yet.
+				const resourceWatchSnapshot = {
+					resource: classified.uri,
+					state: descriptor,
+					fromSeq: this._stateManager.serverSeq,
 				};
+				const snapshot = resourceWatchSnapshot as unknown as IStateSnapshot;
+				return { snapshot };
 			}
 			const existingSubscription = client.subscriptions.get(classified.uri);
 			const pendingSubscription = existingSubscription?.kind === ChannelKind.State && existingSubscription.active

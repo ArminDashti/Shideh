@@ -1004,7 +1004,7 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 			}
 
 			case 'client-tool-with-permission': {
-				// Fires tool_start with toolClientId followed by a permission request.
+				// Fires tool_start with contributor followed by a permission request.
 				(async () => {
 					await timeout(10);
 					this._onDidChatProgress.fire(_action(chat, {

@@ -1817,6 +1817,7 @@ export class AgentHostStateManager extends Disposable {
 		if (arrayEquals(state.changesets ?? [], changesets ?? [], structuralEquals)) {
 			return;
 		}
+
 		// Take a defensive copy so callers can't mutate the catalogue array
 		// after dispatch; the reducer otherwise stores the reference as-is.
 		const next = changesets ? changesets.slice() : undefined;
