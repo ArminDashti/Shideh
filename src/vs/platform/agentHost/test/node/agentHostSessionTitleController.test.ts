@@ -744,11 +744,10 @@ suite('AgentHostSessionTitleController', () => {
 
 	test('seedTitleFromFirstMessage applies fallback and persists generated title', async () => {
 		const copilotApiService = new TestCopilotApiService();
-		copilotApiService.response = '"Generated title."';
-		const { controller, session, db, titleActions } = setup(copilotApiService);
+		const { controller, stateManager, session, db, titleActions } = setup(copilotApiService);
 
 		controller.seedTitleFromFirstMessage(session.toString(), '  Please   explain title generation  ');
-		await waitForCondition(async () => await db.getMetadata('customTitle') === 'Generated title', 'generated title should be persisted');
+		await waitForCondition(async () => await db.getMetadata(AH_META_TITLE_SOURCE_DB_KEY) === 'auto', 'title source should be persisted');
 
 		assert.deepStrictEqual({
 			titles: titleActions,
@@ -1127,37 +1126,23 @@ suite('AgentHostSessionTitleController', () => {
 
 		assert.deepStrictEqual({
 			title: stateManager.getSessionState(session.toString())?.title,
+			utilityCalls: copilotApiService.utilityCalls.length,
 			persistedTitle: await db.getMetadata('customTitle'),
+			persistedSource: await db.getMetadata(AH_META_TITLE_SOURCE_DB_KEY),
+			titleSource: titleSourceOf(stateManager, session),
+			needsRename: controller.needsRename(session.toString()),
 		}, {
-			title: 'Manual title',
-			persistedTitle: undefined,
+			titles: ['Please explain title generation'],
+			title: 'Please explain title generation',
+			utilityCalls: 0,
+			persistedTitle: 'Please explain title generation',
+			persistedSource: 'auto',
+			titleSource: 'auto',
+			needsRename: true,
 		});
 	});
 
-	test('cancelTitleGeneration cancels delayed generated title application', async () => {
-		const copilotApiService = new TestCopilotApiService();
-		let resolveTitle!: (title: string) => void;
-		copilotApiService.responsePromise = new Promise(resolve => { resolveTitle = resolve; });
-		const { controller, stateManager, session, db } = setup(copilotApiService);
-
-		controller.seedTitleFromFirstMessage(session.toString(), 'Investigate title cancellation');
-		await waitForCondition(() => copilotApiService.utilityCalls.length === 1, 'title generation should start');
-		controller.cancelTitleGeneration(session.toString());
-		resolveTitle('Generated title');
-		await Promise.resolve();
-
-		assert.deepStrictEqual({
-			aborted: copilotApiService.utilityCalls[0].options?.signal?.aborted,
-			title: stateManager.getSessionState(session.toString())?.title,
-			persistedTitle: await db.getMetadata('customTitle'),
-		}, {
-			aborted: true,
-			title: 'Investigate title cancellation',
-			persistedTitle: undefined,
-		});
-	});
-
-	test('seedTitleFromFirstMessage skips sessions with an existing title', async () => {
+	test('seedTitleFromFirstMessage skips sessions with an existing title (e.g. forks)', async () => {
 		const copilotApiService = new TestCopilotApiService();
 		const { controller, stateManager, session, db, titleActions } = setup(copilotApiService, 'Forked: Source title');
 
@@ -1169,11 +1154,13 @@ suite('AgentHostSessionTitleController', () => {
 			title: stateManager.getSessionState(session.toString())?.title,
 			titles: titleActions,
 			persistedTitle: await db.getMetadata('customTitle'),
+			persistedSource: await db.getMetadata(AH_META_TITLE_SOURCE_DB_KEY),
 		}, {
 			calls: 0,
 			title: 'Forked: Source title',
 			titles: [],
 			persistedTitle: undefined,
+			persistedSource: undefined,
 		});
 	});
 
@@ -1529,6 +1516,8 @@ suite('AgentHostSessionTitleController', () => {
 		assert.deepStrictEqual({
 			titles: titleActions,
 			persistedTitle: await db.getMetadata('customTitle'),
+			titleSource: titleSourceOf(stateManager, session),
+			needsRename: controller.needsRename(session.toString()),
 			mentionsConversation: userMessage.includes('conversation'),
 			framesAsBranch: userMessage.includes('branched from an earlier chat titled "Source title"'),
 			includesFirstTurn: userMessage.includes('Add dark mode toggle') && userMessage.includes('Implemented the toggle in settings.'),
@@ -1536,6 +1525,8 @@ suite('AgentHostSessionTitleController', () => {
 		}, {
 			titles: ['Compaction strategy'],
 			persistedTitle: 'Compaction strategy',
+			titleSource: 'auto',
+			needsRename: true,
 			mentionsConversation: true,
 			framesAsBranch: true,
 			includesFirstTurn: true,

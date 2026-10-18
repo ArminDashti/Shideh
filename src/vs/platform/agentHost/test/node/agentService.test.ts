@@ -4879,7 +4879,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 		});
 
-		test('generates and persists an AI title after first-turn fallback title', async () => {
+		test('seeds the first-message fallback title with auto provenance and no utility call', async () => {
 			const copilotApiService = new TestCopilotApiService();
 			copilotApiService.response = '"Fix TypeScript compile errors."';
 			const { svc, agent, session, db } = await setupTitleGeneration(copilotApiService);
@@ -5068,6 +5068,7 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual({
 				title: getStateManager(svc).getSessionState(session.toString())?.title,
 				persistedTitle: await db.getMetadata('customTitle'),
+				persistedSource: await db.getMetadata(AH_META_TITLE_SOURCE_DB_KEY),
 			}, {
 				title: 'Explain workspace search indexing',
 				persistedTitle: 'Explain workspace search indexing',
@@ -18607,6 +18608,31 @@ suite('AgentService (node dispatcher)', () => {
 				state: migrated,
 				persisted: migrated,
 				persistedLegacy: undefined,
+			});
+		});
+
+		test('locks a legacy custom title with no provenance as user-set on restore', async () => {
+			// A session renamed before title provenance existed persists a
+			// `customTitle` but no title-source metadata. Its origin is
+			// unknowable, so restore treats it as user-set — the agent-rename
+			// nudge stays off and `rename_session` refuses to overwrite it.
+			const db = new TestSessionDatabase();
+			const localService = disposables.add(new AgentService(new NullLogService(), fileService, createSessionDataService(db), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			localService.registerProvider(copilotAgent);
+			await copilotAgent.createSession();
+			const sessionResource = (await copilotAgent.listSessions())[0].session;
+			copilotAgent.sessionMessages = [];
+			await db.setMetadata('customTitle', 'My Legacy Title');
+
+			await localService.restoreSession(sessionResource);
+
+			const state = localService.stateManager.getSessionState(sessionResource.toString());
+			assert.deepStrictEqual({
+				title: state?.title,
+				titleSource: readSessionTitleSource(state?._meta),
+			}, {
+				title: 'My Legacy Title',
+				titleSource: 'user',
 			});
 		});
 

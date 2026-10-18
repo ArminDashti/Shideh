@@ -9360,6 +9360,19 @@ export class AgentService extends Disposable implements IAgentService {
 						sessionMetadata = withSessionArtifacts(sessionMetadata, this._readPersistedArtifacts(m[SESSION_ARTIFACTS_KEY], sessionStr, '[AgentService]'));
 						sessionMetadata = withSessionFolderPickerDecision(sessionMetadata, parseSessionFolderPickerDecision(m[SESSION_META_FOLDER_PICKER_KEY]));
 
+						restoredTitleSource = asSessionTitleSource(m[AH_META_TITLE_SOURCE_DB_KEY]);
+						if (!restoredTitleSource && m.customTitle) {
+							// A persisted custom title with no recorded provenance
+							// predates the title-source metadata (or is a partially
+							// persisted rename). Its origin is unknowable, so lock it
+							// as user-set so the agent can never overwrite a title the
+							// user may have chosen.
+							restoredTitleSource = 'user';
+						}
+						if (restoredTitleSource) {
+							sessionMetadata = withSessionTitleSource(sessionMetadata, restoredTitleSource);
+						}
+
 						if (m.configValues) {
 							try {
 								const parsed: unknown = JSON.parse(m.configValues);
@@ -9548,6 +9561,16 @@ export class AgentService extends Disposable implements IAgentService {
 		// state. This dispatches a SessionMetaChanged action.
 		if (meta._meta) {
 			this._stateManager.setSessionMeta(sessionStr, meta._meta);
+		}
+
+		// Re-apply the AH-owned title provenance last (merged into whatever
+		// `_meta` is now live): it is persisted by the title controller under
+		// its own DB key, so the provider's `meta._meta` above never carries it
+		// and would otherwise drop it. Drives the agent-rename nudge across a
+		// restart.
+		if (restoredTitleSource) {
+			const currentMeta = this._stateManager.getSessionState(sessionStr)?._meta;
+			this._stateManager.setSessionMeta(sessionStr, withSessionTitleSource(currentMeta, restoredTitleSource));
 		}
 
 		// Resolve the session config so clients (e.g. the running-session

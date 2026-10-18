@@ -3923,6 +3923,92 @@ suite('AgentSideEffects', () => {
 		});
 	});
 
+	// ---- session-rename nudge + title provenance ---------------------------
+
+	suite('session rename nudge + provenance', () => {
+
+		function setupAutoTitledSession(): void {
+			stateManager.createSession({
+				resource: sessionUri.toString(),
+				provider: 'mock',
+				title: 'First message fallback',
+				status: SessionStatus.Idle,
+				createdAt: new Date().toISOString(),
+				modifiedAt: new Date().toISOString(),
+				project: { uri: 'file:///test-project', displayName: 'Test Project' },
+				_meta: withSessionTitleSource(undefined, 'auto'),
+			});
+			stateManager.dispatchServerAction(sessionUri.toString(), { type: ActionType.SessionReady, });
+		}
+
+		function titleSourceOf(): string | undefined {
+			return readSessionTitleSource(stateManager.getSessionState(sessionUri.toString())?._meta);
+		}
+
+		test('appends the rename nudge to the SDK prompt while the title is auto (default chat)', async () => {
+			setupAutoTitledSession();
+			sideEffects.handleAction(defaultChatUri, {
+				type: ActionType.ChatTurnStarted,
+				turnId: 'turn-1',
+				message: { text: 'implement feature X', origin: { kind: MessageKind.User } },
+			});
+			await waitForSendMessageCalls(1);
+
+			const prompt = agent.sendMessageCalls[0].prompt;
+			assert.ok(prompt.startsWith('implement feature X'), 'keeps the original user message');
+			assert.ok(prompt.includes('rename_session'), 'appends the rename nudge referencing the tool');
+		});
+
+		test('does not nudge a peer (non-default) chat', async () => {
+			setupAutoTitledSession();
+			const peerChat = buildChatUri(sessionUri.toString(), 'peer-1');
+			sideEffects.handleAction(peerChat, {
+				type: ActionType.ChatTurnStarted,
+				turnId: 'turn-1',
+				message: { text: 'peer message', origin: { kind: MessageKind.User } },
+			});
+			await waitForSendMessageCalls(1);
+
+			assert.strictEqual(agent.sendMessageCalls[0].prompt, 'peer message');
+		});
+
+		test('stops nudging once the agent has renamed the session', async () => {
+			setupAutoTitledSession();
+			const outcome = sideEffects.renameSessionFromAgent(sessionUri.toString(), 'Feature X work');
+			assert.strictEqual(outcome.status, 'renamed');
+			assert.strictEqual(titleSourceOf(), 'agent');
+
+			sideEffects.handleAction(defaultChatUri, {
+				type: ActionType.ChatTurnStarted,
+				turnId: 'turn-1',
+				message: { text: 'keep going', origin: { kind: MessageKind.User } },
+			});
+			await waitForSendMessageCalls(1);
+
+			assert.strictEqual(agent.sendMessageCalls[0].prompt, 'keep going');
+		});
+
+		test('a session-level (non-chat) rename marks the title user-set', () => {
+			setupAutoTitledSession();
+			sideEffects.handleAction(sessionUri.toString(), {
+				type: ActionType.SessionTitleChanged,
+				title: 'User picked this',
+			});
+
+			assert.strictEqual(titleSourceOf(), 'user');
+		});
+
+		test('a chat-scoped title rename does not mark the session title user-set', () => {
+			setupAutoTitledSession();
+			sideEffects.handleAction(defaultChatUri, {
+				type: ActionType.SessionTitleChanged,
+				title: 'Chat tab title',
+			});
+
+			assert.strictEqual(titleSourceOf(), 'auto');
+		});
+	});
+
 	// ---- handleAction: chat/turnStarted model selection --------------------
 
 	suite('handleAction — chat/turnStarted model selection', () => {

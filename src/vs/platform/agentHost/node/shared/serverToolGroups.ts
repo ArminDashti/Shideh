@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { createRenameSessionServerToolGroup, getRenameSessionToolDisplay, renameSessionServerToolDefinitions, type IRenameSessionHandler } from './agentRenameSessionServerTool.js';
 import { feedbackServerToolGroup } from './agentFeedbackServerTools.js';
 import { createSessionServerToolGroup, type ISessionServerToolAccessor } from './sessionServerTools.js';
 import type { IServerToolDisplay, IServerToolDisplayResult, IServerToolGroup } from './agentServerToolHost.js';

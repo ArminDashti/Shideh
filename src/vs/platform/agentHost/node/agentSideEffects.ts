@@ -97,6 +97,15 @@ import { targetForMcpServer, targetForPlugin } from './shared/customizationEnabl
 import { IAgentHostWorktreeIsolation } from './shared/worktreeIsolation.js';
 
 /**
+ * Suffix appended to a session-level SDK prompt while the session still has an
+ * auto/placeholder name, asking the agent to call the `rename_session` tool.
+ * Model-facing (not localized); mirrors github/github-app's nudge. Self-healing:
+ * repeats each turn until the agent (or the user) gives the session a real name.
+ */
+const RENAME_SESSION_NUDGE = '\n\n<system_notification>\nReminder: This session currently has an auto-generated or placeholder name. Please call the `rename_session` tool to give it a short, descriptive title based on the user\'s intent.\n</system_notification>';
+
+
+/**
  * Options for constructing an {@link AgentSideEffects} instance.
  */
 export interface IAgentSideEffectsOptions {
@@ -2628,6 +2637,32 @@ export class AgentSideEffects extends Disposable {
 			return text;
 		}
 		return `${context.join('\n\n')}\n\n${text}`;
+	}
+
+	/**
+	 * Applies an agent-requested session rename (from the `rename_session`
+	 * server tool). Delegates to the title controller, which cleans/validates
+	 * the title, refuses to overwrite a user-set title, and persists both the
+	 * title and its `agent` provenance.
+	 */
+	renameSessionFromAgent(sessionUri: ProtocolURI, rawTitle: string): IRenameSessionToolResult {
+		return this._titleController.applyAgentRename(sessionUri, rawTitle);
+	}
+
+	/**
+	 * Returns the session-rename nudge suffix for the SDK prompt, or `undefined`
+	 * when it should not fire: peer (non-default) chats are session-level-exempt
+	 * in v1, and the session already has an agent- or user-set title.
+	 */
+	private _maybeRenameNudge(sessionChannel: ProtocolURI, chat: ProtocolURI): string | undefined {
+		if (isAhpChatChannel(chat) && !isDefaultChatUri(chat)) {
+			return undefined;
+		}
+		const needsRename = this._titleController.needsRename(sessionChannel);
+		if (!needsRename) {
+			return undefined;
+		}
+		return RENAME_SESSION_NUDGE;
 	}
 
 

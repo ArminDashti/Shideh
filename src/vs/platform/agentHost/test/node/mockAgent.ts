@@ -755,7 +755,11 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 			return;
 		}
 		const { sessionStr, turnId: tid } = this._ctx(chat);
-		switch (prompt) {
+		// The host appends `<system_notification>` blocks (e.g. the rename-session
+		// nudge) to the SDK prompt while a session still has an auto/placeholder
+		// name. Match on the user's command only, ignoring any such suffix.
+		const command = prompt.split('\n\n<system_notification>')[0];
+		switch (command) {
 			case 'hello':
 				this._fireSequence([
 					_markdown(chat, sessionStr, tid, 'Hello, world!'),
@@ -1139,11 +1143,11 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 			}
 
 			default:
-				if (prompt.startsWith('terminal-edit:')) {
+				if (command.startsWith('terminal-edit:')) {
 					// Test prompt: simulate a terminal command that edits a file on disk
 					// without emitting any ToolResultFileEditContent. The test relies on the
 					// git-driven diff path to pick this up. Format: `terminal-edit:<absPath>`.
-					const filePath = prompt.slice('terminal-edit:'.length);
+					const filePath = command.slice('terminal-edit:'.length);
 					void (async () => {
 						for (const s of _toolStart(chat, sessionStr, tid, 'tc-term-edit-1', 'bash', 'Run Command', 'Edit file via shell')) {
 							this._onDidChatProgress.fire(s);
@@ -1165,7 +1169,7 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 					break;
 				}
 				this._fireSequence([
-					_markdown(chat, sessionStr, tid, 'Unknown prompt: ' + prompt),
+					_markdown(chat, sessionStr, tid, 'Unknown prompt: ' + command),
 					_idle(chat, sessionStr, tid),
 				]);
 				break;

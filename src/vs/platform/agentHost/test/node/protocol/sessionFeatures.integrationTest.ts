@@ -124,6 +124,18 @@ suite('Protocol WebSocket — Session Features', function () {
 		assert.strictEqual(session.title, 'Fix the login bug');
 	});
 
+	test('first turn records an auto title provenance so the rename nudge keeps firing', async function () {
+		this.timeout(10_000);
+
+		const sessionUri = await createAndSubscribeSession(client, 'test-title-provenance');
+		dispatchTurnStarted(client, sessionUri, 'turn-provenance', 'Fix the login bug', 1);
+		await client.waitForNotification(n => isActionNotification(n, 'chat/turnComplete'));
+
+		const snapshot = await client.call<SubscribeResult>('subscribe', { channel: sessionUri });
+		const state = snapshot.snapshot!.state as ISessionWithDefaultChat;
+		assert.strictEqual(readSessionTitleSource(state._meta), 'auto');
+	});
+
 	test('renamed session title persists across listSessions', async function () {
 		this.timeout(10_000);
 

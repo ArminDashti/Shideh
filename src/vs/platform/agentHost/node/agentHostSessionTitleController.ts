@@ -424,7 +424,6 @@ export class AgentHostSessionTitleController extends Disposable implements IAgen
 			return;
 		}
 
-		const isAdditionalChat = !!chatChannel && isAhpChatChannel(chatChannel) && !isDefaultChatUri(chatChannel);
 		if (isAdditionalChat) {
 			const key = chatChannel;
 			this._lastAppliedTitle.set(key, fallbackTitle);
