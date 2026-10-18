@@ -597,6 +597,19 @@ export interface ISessionAgentRef {
 	readonly name: string;
 }
 
+/**
+ * A custom agent reference used by session-level selection. Mirrors the Agent
+ * Host protocol's `AgentSelection` shape but lives in the sessions layer so the
+ * sessions service API does not leak the protocol type to non-Agent-Host
+ * consumers.
+ */
+export interface ISessionAgentRef {
+	/** Stable agent URI (matches the contributing customization's agent ref). */
+	readonly uri: string;
+	/** Agent name. */
+	readonly name: string;
+}
+
 export interface IChatCheckpoints {
 	/** Reference to the first checkpoint in the chat. */
 	readonly firstCheckpointRef: string;

@@ -2924,6 +2924,7 @@ class NewSession extends Disposable {
 			updatedAt,
 			status: this._status,
 			modelId: this._modelId,
+			agent: this._agent,
 			mode,
 			loading: derived(reader => loading.read(reader) || authPending.read(reader)),
 			isNewSessionRequestInProgress: this._isNewSessionRequestInProgress,
@@ -2999,6 +3000,17 @@ class NewSession extends Disposable {
 	}
 
 	get backendSessionUri(): URI { return this._backendSessionUri; }
+
+	setSelectedAgent(agent: ISessionAgentRef | undefined): void {
+		this._selectedAgent = agent;
+		this._agent.set(agent, undefined);
+	}
+
+	getSelectedAgent(): ISessionAgentRef | undefined { return this._selectedAgent; }
+	clearSelectedAgent(): void {
+		this._selectedAgent = undefined;
+		this._agent.set(undefined, undefined);
+	}
 
 	setStatus(status: SessionStatus): void { this._status.set(status, undefined); }
 	setArchived(isArchived: boolean): void { this._isArchived.set(isArchived, undefined); }

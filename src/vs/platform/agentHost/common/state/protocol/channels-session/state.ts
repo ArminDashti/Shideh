@@ -632,6 +632,26 @@ export interface AgentSelection {
 	uri: URI;
 }
 
+// ─── Agent Selection ─────────────────────────────────────────────────────────
+
+/**
+ * A selected custom agent for a session.
+ *
+ * The `uri` identifies a specific custom agent (matching a
+ * {@link CustomizationAgentRef.uri | `CustomizationAgentRef.uri`} exposed
+ * via the session's effective customizations). Consumers resolve the
+ * agent's display name by looking up `uri` in
+ * {@link SessionCustomization.agents | `SessionCustomization.agents`}.
+ *
+ * A session with no `agent` selected uses the provider's default behavior.
+ *
+ * @category Session State
+ */
+export interface AgentSelection {
+	/** Stable agent URI (matches a {@link CustomizationAgentRef.uri}) */
+	uri: URI;
+}
+
 // ─── Session Config Types ────────────────────────────────────────────────────
 
 /**

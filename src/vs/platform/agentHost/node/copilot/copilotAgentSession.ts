@@ -5141,6 +5141,31 @@ export class CopilotAgentSession extends Disposable {
 		}
 	}
 
+	/**
+	 * Selects (or clears) a custom agent on the live SDK session.
+	 * Mirrors the SDK's `rpc.agent.select` / `rpc.agent.deselect` pair.
+	 */
+	async setAgent(agent: AgentSelection | undefined, agentName?: string): Promise<void> {
+		if (agent) {
+			const name = agentName ?? agent.uri;
+			this._logService.info(`[Copilot:${this.sessionId}] Selecting custom agent: ${name}`);
+			try {
+				await this._wrapper.session.rpc.agent.select({ name });
+			} catch (err) {
+				this._logService.error(err, `[Copilot:${this.sessionId}] rpc.agent.select failed: name=${name}`);
+				throw err;
+			}
+		} else {
+			this._logService.info(`[Copilot:${this.sessionId}] Clearing custom agent selection`);
+			try {
+				await this._wrapper.session.rpc.agent.deselect();
+			} catch (err) {
+				this._logService.error(err, `[Copilot:${this.sessionId}] rpc.agent.deselect failed`);
+				throw err;
+			}
+		}
+	}
+
 	// ---- permission handling ------------------------------------------------
 
 	/**

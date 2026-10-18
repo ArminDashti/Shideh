@@ -5972,6 +5972,25 @@ export class CopilotAgent extends Disposable implements IAgent {
 		});
 	}
 
+	async changeAgent(session: URI, agent: AgentSelection | undefined): Promise<void> {
+		const sessionId = AgentSession.id(session);
+		const provisional = this._provisionalSessions.get(sessionId);
+		if (provisional) {
+			provisional.agent = agent;
+			return;
+		}
+		const entry = this._sessions.get(sessionId);
+		if (entry) {
+			// Resolve the URI → SDK name from the session's currently-applied
+			// plugin snapshot. If the agent is no longer present (plugin
+			// removed, never loaded), pass `undefined` so the SDK clears its
+			// selection rather than silently keeping the previous one.
+			const resolvedAgentName = agent ? this._resolveAgentName(entry.appliedSnapshot, agent) : undefined;
+			await entry.setAgent(agent, resolvedAgentName);
+		}
+		await this._storeSessionAgentMetadata(session, agent);
+	}
+
 	async shutdown(): Promise<void> {
 		if (!this._shutdownPromise) {
 			this._isShuttingDown = true;
