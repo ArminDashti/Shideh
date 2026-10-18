@@ -1278,6 +1278,29 @@ export class MainThreadChatSessions extends Disposable implements MainThreadChat
 			this._logService.error(`Error notifying extension about options change for handle ${handle}, sessionResource ${sessionResource}:`, error);
 		}
 	}
+
+
+	private _reviveIconPath(
+		iconPath: UriComponents | { light: UriComponents; dark: UriComponents } | { id: string; color?: { id: string } | undefined })
+		: IChatSessionContent['iconPath'] {
+		if (!iconPath) {
+			return undefined;
+		}
+
+		// Handle ThemeIcon (has id property)
+		if (typeof iconPath === 'object' && 'id' in iconPath) {
+			return iconPath; // ThemeIcon doesn't need conversion
+		}
+
+		// Handle light/dark theme icons
+		if (typeof iconPath === 'object' && ('light' in iconPath && 'dark' in iconPath)) {
+			return {
+				light: URI.revive(iconPath.light),
+				dark: URI.revive(iconPath.dark)
+			};
+		}
+		return undefined;
+	}
 }
 
 function reviveMarkdownString(value: string | IMarkdownString | undefined): string | MarkdownString | undefined {
