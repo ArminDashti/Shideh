@@ -12,6 +12,7 @@ import { ILanguageModelToolsService } from '../languageModelToolsService.js';
 import { AskQuestionsTool, AskQuestionsToolData } from './askQuestionsTool.js';
 import { ConfirmationTool, ConfirmationToolData, ConfirmationToolWithOptionsData, ModifiedFilesConfirmationTool, ModifiedFilesConfirmationToolData } from './confirmationTool.js';
 import { EditTool, EditToolData } from './editFileTool.js';
+import { InsertDebugLoggingTool, InsertDebugLoggingToolData } from './insertDebugLoggingTool.js';
 import { createManageTodoListToolData, ManageTodoListTool } from './manageTodoListTool.js';
 import { ReviewPlanTool, ReviewPlanToolData } from './reviewPlanTool.js';
 import { RunSubagentTool } from './runSubagentTool.js';

@@ -522,7 +522,7 @@ export class PromptValidator {
 		if (!attribute) {
 			return;
 		}
-		if (agentKind !== ChatModeKind.Agent) {
+		if (!isAgentLikeChatMode(agentKind)) {
 			report(toMarker(localize('promptValidator.toolsOnlyInAgent', "The 'tools' attribute is only supported when using agents. Attribute will be ignored."), attribute.range, MarkerSeverity.Warning));
 		}
 		let value = attribute.value;

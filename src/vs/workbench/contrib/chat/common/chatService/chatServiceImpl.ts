@@ -2008,6 +2008,7 @@ export class ChatService extends Disposable implements IChatService {
 						enableCommandDetection &&
 						location !== ChatAgentLocation.EditorInline &&
 						options?.modeInfo?.kind !== ChatModeKind.Agent &&
+						options?.modeInfo?.kind !== ChatModeKind.Debug &&
 						options?.modeInfo?.kind !== ChatModeKind.Edit &&
 						!options?.agentId &&
 						!options?.agentIdSilent

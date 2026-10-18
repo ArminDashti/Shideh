@@ -12,7 +12,7 @@ import { ObservableMemento, observableMemento } from '../../../../../../platform
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
 import { IWorkbenchEnvironmentService } from '../../../../../services/environment/common/environmentService.js';
 import { IChatMode } from '../../../common/chatModes.js';
-import { ChatModeKind } from '../../../common/constants.js';
+import { ChatModeKind, isAgentLikeChatMode } from '../../../common/constants.js';
 import { ILanguageModelChatMetadataAndIdentifier } from '../../../common/languageModels.js';
 import { UserSelectedTools } from '../../../common/participants/chatAgents.js';
 import { PromptsStorage } from '../../../common/promptSyntax/service/promptsService.js';
@@ -211,6 +211,9 @@ export class ChatSelectedTools extends Disposable {
 		}
 		if (mode.kind === ChatModeKind.Agent && mode.customTools?.get() && mode.uri) {
 			return mode.source?.storage !== PromptsStorage.extension ? ToolsScope.Agent : ToolsScope.Agent_ReadOnly;
+		}
+		if (mode.kind === ChatModeKind.Debug) {
+			return ToolsScope.Global;
 		}
 		return ToolsScope.Global;
 	}

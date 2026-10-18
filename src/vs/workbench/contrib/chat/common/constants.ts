@@ -320,6 +320,14 @@ export function isAutopilotLevel(level: ChatPermissionLevel | undefined): boolea
 	return level === ChatPermissionLevel.Autopilot;
 }
 
+/**
+ * Returns true if the mode kind has agent-like capabilities (tool access, terminal, etc.).
+ * Both Agent and Debug modes are agent-like.
+ */
+export function isAgentLikeChatMode(mode: ChatModeKind): boolean {
+	return mode === ChatModeKind.Agent || mode === ChatModeKind.Debug;
+}
+
 // Thinking display modes for pinned content
 export enum ThinkingDisplayMode {
 	Collapsed = 'collapsed',

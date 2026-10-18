@@ -24,7 +24,7 @@ import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { applyingChatEditsFailedContextKey, isChatEditingActionContext } from '../../common/editing/chatEditingService.js';
 import { ChatAgentVoteDirection, ChatAgentVoteDownReason, IChatService } from '../../common/chatService/chatService.js';
 import { isResponseVM } from '../../common/model/chatViewModel.js';
-import { ChatModeKind } from '../../common/constants.js';
+import { ChatModeKind, isAgentLikeChatMode } from '../../common/constants.js';
 import { IChatAccessibilityService, IChatWidgetService } from '../chat.js';
 import { ThumbsUpAnimationStyle, triggerThumbsUpAnimation } from '../widget/chatConfetti.js';
 import { CHAT_CATEGORY } from './chatActions.js';
@@ -242,7 +242,7 @@ export function registerChatTitleActions() {
 			const itemIndex = chatRequests?.findIndex(request => request.id === item.requestId);
 			const widget = chatWidgetService.getWidgetBySessionResource(item.sessionResource);
 			const mode = widget?.input.currentModeKind;
-			if (chatModel && (mode === ChatModeKind.Edit || mode === ChatModeKind.Agent)) {
+			if (chatModel && mode && (mode === ChatModeKind.Edit || isAgentLikeChatMode(mode))) {
 				const currentEditingSession = widget?.viewModel?.model.editingSession;
 				if (!currentEditingSession) {
 					return;

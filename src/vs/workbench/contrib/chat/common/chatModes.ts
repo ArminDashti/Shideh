@@ -359,6 +359,9 @@ export class ChatModeService extends Disposable implements IChatModeService {
 			if (e.affectsConfiguration(ChatConfiguration.AgentEnabled)) {
 				this.updateAgentModePolicyContextKey();
 			}
+			if (e.affectsConfiguration(ChatConfiguration.DebugModeEnabled)) {
+				this._onDidChangeChatModes.fire();
+			}
 		}));
 		this._register(this.storageService.onWillSaveState(() => this.saveCachedModes()));
 
@@ -806,18 +809,23 @@ export class BuiltinChatMode implements IChatMode {
 	public readonly description: IObservable<string>;
 	public readonly icon: IObservable<ThemeIcon>;
 	public readonly target: IObservable<Target>;
+	public readonly modeInstructions?: IObservable<IChatModeInstructions>;
 
 	constructor(
 		public readonly kind: ChatModeKind,
 		label: string,
 		description: string,
 		icon: ThemeIcon,
+		modeInstructions?: IChatModeInstructions,
 	) {
 		this.name = constObservable(kind);
 		this.label = constObservable(label);
 		this.description = observableValue('description', description);
 		this.icon = constObservable(icon);
 		this.target = constObservable(Target.Undefined);
+		if (modeInstructions) {
+			this.modeInstructions = constObservable(modeInstructions);
+		}
 	}
 
 	public get isBuiltin(): boolean {

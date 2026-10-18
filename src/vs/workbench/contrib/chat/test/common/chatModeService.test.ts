@@ -61,6 +61,7 @@ suite('ChatModeService', () => {
 	test('should return builtin modes', async () => {
 		const modes = await chatModeService.getLocalModes();
 
+		// Debug mode is off by default, so only 3 builtin modes
 		assert.strictEqual(modes.builtin.length, 3);
 		assert.strictEqual(modes.custom.length, 0);
 
@@ -83,6 +84,7 @@ suite('ChatModeService', () => {
 		chatAgentService.setHasToolsAgent(false);
 		agents = await chatModeService.getLocalModes();
 		assert.strictEqual(agents.builtin.find(agent => agent.id === ChatModeKind.Agent), undefined);
+		assert.strictEqual(agents.builtin.find(agent => agent.id === ChatModeKind.Debug), undefined);
 
 		// Ask and Edit modes should always be present
 		assert.ok(agents.builtin.find(agent => agent.id === ChatModeKind.Ask));

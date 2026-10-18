@@ -4440,7 +4440,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	 */
 	private async _applyPromptMetadata({ agent, tools, model }: PromptHeader, requestInput: IChatRequestInputOptions): Promise<boolean> {
 
-		if (tools !== undefined && !agent && this.input.currentModeKind !== ChatModeKind.Agent) {
+		if (tools !== undefined && !agent && !isAgentLikeChatMode(this.input.currentModeKind)) {
 			agent = ChatMode.Agent.name.get();
 		}
 		// switch to appropriate agent if needed
@@ -4452,7 +4452,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		// if not tools to enable are present, we are done
-		if (tools !== undefined && this.input.currentModeKind === ChatModeKind.Agent) {
+		if (tools !== undefined && isAgentLikeChatMode(this.input.currentModeKind)) {
 			const enablementMap = this.toolsService.toToolAndToolSetEnablementMap(tools, this.input.selectedLanguageModel.get()?.metadata);
 			this.input.selectedToolsModel.set(enablementMap, true);
 		}
