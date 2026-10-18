@@ -633,6 +633,13 @@ export function registerChatActions() {
 	registerAction2(class extends ModeOpenChatGlobalAction {
 		constructor() { super(ChatMode.Edit); }
 	});
+	// Register keybinding for the dynamically-registered Plan mode action
+	KeybindingsRegistry.registerKeybindingRule({
+		id: 'workbench.action.chat.openPlan',
+		weight: KeybindingWeight.WorkbenchContrib,
+		primary: KeyMod.Shift | KeyCode.Tab,
+		when: ChatContextKeys.inChatSession,
+	});
 
 	// Register keybinding for the dynamically-registered Plan mode action
 	KeybindingsRegistry.registerKeybindingRule({
