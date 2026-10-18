@@ -72,7 +72,7 @@ suite('ExtHostLanguageFeatures', function () {
 	let originalErrorHandler: (e: any) => any;
 	let instantiationService: TestInstantiationService;
 
-	setup(() => {
+	suiteSetup(() => {
 
 		disposables = new DisposableStore();
 
@@ -150,7 +150,10 @@ suite('ExtHostLanguageFeatures', function () {
 		model.dispose();
 		mainThread.dispose();
 		instantiationService.dispose();
+	});
 
+	teardown(() => {
+		disposables.clear();
 		return rpcProtocol.sync();
 	});
 

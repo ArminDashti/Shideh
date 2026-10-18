@@ -241,14 +241,15 @@ async function loadTests(opts) {
 
 	const _unexpectedErrors = [];
 
-	const _allowedTestsWithUnhandledRejections = new Set([
-		// Lifecycle tests
-		'onWillShutdown - join with error is handled',
-		'onBeforeShutdown - veto with error is treated as veto',
-		'onBeforeShutdown - final veto with error is treated as veto',
-		// Search tests
-		'Search Model: Search reports timed telemetry on search when error is called'
-	]);
+	const testsWithUnexpectedOutput = new Set();
+	for (const consoleFn of [console.log, console.error, console.info, console.warn]) {
+		console[consoleFn.name] = function (msg) {
+			if (!allowedTestOutput.has(msg) && !allowedTestsWithOutput.has(currentTestTitle) && !allowedSuitesWithOutput.has(currentSuiteTitle)) {
+				testsWithUnexpectedOutput.add(`${currentSuiteTitle} - ${currentTestTitle}`);
+			}
+			consoleFn.apply(console, arguments);
+		};
+	}
 
 	const errors = await loadFn('vs/base/common/errors');
 	const onUnexpectedError = function (err) {

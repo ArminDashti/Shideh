@@ -519,7 +519,7 @@ suite('No Leakage Utilities', () => {
 					eventEmitter.event(() => {
 						// noop
 					});
-				}, false);
+				});
 			}, e => e.message.indexOf('undisposed disposables') !== -1);
 		});
 
@@ -527,7 +527,7 @@ suite('No Leakage Utilities', () => {
 			assertThrows(() => {
 				throwIfDisposablesAreLeaked(() => {
 					new DisposableStore();
-				}, false);
+				});
 			}, e => e.message.indexOf('undisposed disposables') !== -1);
 		});
 

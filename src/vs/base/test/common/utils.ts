@@ -80,7 +80,7 @@ export function ensureNoDisposablesAreLeakedInTestSuite(): Pick<DisposableStore,
 	return testContext;
 }
 
-export function throwIfDisposablesAreLeaked(body: () => void, logToConsole = true): void {
+export function throwIfDisposablesAreLeaked(body: () => void): void {
 	const tracker = new DisposableTracker();
 	setDisposableTracker(tracker);
 	body();
