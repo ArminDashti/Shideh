@@ -2072,6 +2072,7 @@ if (isWeb) {
 }
 
 registerWorkbenchContribution2(ExtensionToolsContribution.ID, ExtensionToolsContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(ForceInstallExtensionsContribution.ID, ForceInstallExtensionsContribution, WorkbenchPhase.AfterRestored);
 
 registerAction2(class ExtensionsGallerySignInAction extends Action2 {
 	constructor() {

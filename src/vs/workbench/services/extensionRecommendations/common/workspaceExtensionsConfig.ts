@@ -26,6 +26,7 @@ export interface IExtensionsConfigContent {
 	recommendations?: string[];
 	stronglyRecommended?: string[];
 	unwantedRecommendations?: string[];
+	forceInstall?: string[];
 }
 
 export const IWorkspaceExtensionsConfigService = createDecorator<IWorkspaceExtensionsConfigService>('IWorkspaceExtensionsConfigService');
@@ -38,6 +39,7 @@ export interface IWorkspaceExtensionsConfigService {
 	getRecommendations(): Promise<string[]>;
 	getStronglyRecommended(): Promise<string[]>;
 	getUnwantedRecommendations(): Promise<string[]>;
+	getForceInstall(): Promise<string[]>;
 
 	toggleRecommendation(extensionId: string): Promise<void>;
 	toggleUnwantedRecommendation(extensionId: string): Promise<void>;
@@ -94,6 +96,11 @@ export class WorkspaceExtensionsConfigService extends Disposable implements IWor
 	async getUnwantedRecommendations(): Promise<string[]> {
 		const configs = await this.getExtensionsConfigs();
 		return distinct(configs.flatMap(c => c.unwantedRecommendations ? c.unwantedRecommendations.map(c => c.toLowerCase()) : []));
+	}
+
+	async getForceInstall(): Promise<string[]> {
+		const configs = await this.getExtensionsConfigs();
+		return distinct(configs.flatMap(c => c.forceInstall ? c.forceInstall.map(c => c.toLowerCase()) : []));
 	}
 
 	async toggleRecommendation(extensionId: string): Promise<void> {
