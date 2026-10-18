@@ -1420,22 +1420,94 @@ export class ChatService extends Disposable implements IChatService {
 			if (!options.pauseQueue) {
 				this.processPendingRequests(sessionResource);
 			}
-			return queued;
-		} else if (hasPendingRequest) {
-			this.trace('sendRequest', `Session ${sessionResource} already has a pending request`);
-			return { kind: 'rejected', reason: 'Request already in progress' };
-		}
 
-		const requests = model.getRequests();
-		for (let i = requests.length - 1; i >= 0; i -= 1) {
-			const request = requests[i];
-			if (request.shouldBeRemovedOnSend) {
-				if (request.shouldBeRemovedOnSend.afterUndoStop) {
-					request.response?.finalizeUndoState();
-				} else {
-					await this.removeRequest(sessionResource, request.id);
+			let newSessionResource: URI | undefined;
+
+			// Workaround for the contributed chat sessions
+			//
+			// Internally blank widgets uses special sessions with an untitled- path. We do not want these leaking out
+			// to the rest of code. Instead use `createNewChatSessionItem` to make sure the session gets properly initialized with a real resource before processing the first request.
+			if (!model.hasRequests && isUntitledChatSession(sessionResource) && getChatSessionType(sessionResource) !== localChatSessionType) {
+
+				const parsedRequest = this.parseChatRequest(sessionResource, request, options?.location ?? model.initialLocation, options);
+				const commandPart = parsedRequest.parts.find((r): r is ChatRequestSlashCommandPart => r instanceof ChatRequestSlashCommandPart);
+				const requestText = getPromptText(parsedRequest).message;
+
+				// Capture session options before loading the remote session,
+				// since the alias registration below may change the lookup.
+				const initialSessionOptions = this.chatSessionService.getSessionOptions(sessionResource);
+
+				const newItem = await this.chatSessionService.createNewChatSessionItem(getChatSessionType(sessionResource), { prompt: requestText, command: commandPart?.text, initialSessionOptions }, CancellationToken.None);
+				if (newItem) {
+					model = (await this.loadRemoteSession(newItem.resource, model.initialLocation, CancellationToken.None))?.object as ChatModel | undefined;
+					if (!model) {
+						throw new Error(`Failed to load session for resource: ${newItem.resource}`);
+					}
+
+					// Register alias so session-option lookups work with the new resource
+					this.chatSessionService.registerSessionResourceAlias(sessionResource, newItem.resource);
+
+					// Update the new model's contributed session with initialSessionOptions
+					// so that the agent receives them when invoked.
+					model.setContributedChatSession({
+						chatSessionResource: newItem.resource,
+						initialSessionOptions: initialSessionOptions,
+					});
+
+					sessionResource = newItem.resource;
+					newSessionResource = newItem.resource;
 				}
 			}
+
+			const hasPendingRequest = this._pendingRequests.has(sessionResource);
+
+			if (options?.queue) {
+				const queued = this.queuePendingRequest(model, sessionResource, request, options);
+				if (!options.pauseQueue) {
+					this.processPendingRequests(sessionResource);
+				}
+				return queued;
+			} else if (hasPendingRequest) {
+				this.trace('sendRequest', `Session ${sessionResource} already has a pending request`);
+				return { kind: 'rejected', reason: 'Request already in progress' };
+			}
+
+			const requests = model.getRequests();
+			for (let i = requests.length - 1; i >= 0; i -= 1) {
+				const request = requests[i];
+				if (request.shouldBeRemovedOnSend) {
+					if (request.shouldBeRemovedOnSend.afterUndoStop) {
+						request.response?.finalizeUndoState();
+					} else {
+						await this.removeRequest(sessionResource, request.id);
+					}
+				}
+			}
+
+			const location = options?.location ?? model.initialLocation;
+			const attempt = options?.attempt ?? 0;
+			const defaultAgent = this.chatAgentService.getDefaultAgent(location, options?.modeInfo?.kind)!;
+
+			const parsedRequest = this.parseChatRequest(sessionResource, request, location, options);
+			const silentAgent = options?.agentIdSilent ? this.chatAgentService.getAgent(options.agentIdSilent) : undefined;
+			const agent = silentAgent ?? parsedRequest.parts.find((r): r is ChatRequestAgentPart => r instanceof ChatRequestAgentPart)?.agent ?? defaultAgent;
+			const agentSlashCommandPart = parsedRequest.parts.find((r): r is ChatRequestAgentSubcommandPart => r instanceof ChatRequestAgentSubcommandPart);
+
+			// This method is only returning whether the request was accepted - don't block on the actual request
+			const result = {
+				kind: 'sent',
+				newSessionResource,
+				data: {
+					...this._sendRequestAsync(model, sessionResource, parsedRequest, attempt, !options?.noCommandDetection, silentAgent ?? defaultAgent, location, options, trace),
+					agent,
+					slashCommand: agentSlashCommandPart?.command,
+				},
+			} as const;
+
+			trace.mark('didSendRequest');
+			return result;
+		} finally {
+			trace.done();
 		}
 
 		const location = options?.location ?? model.initialLocation;
@@ -2178,6 +2250,8 @@ export class ChatService extends Disposable implements IChatService {
 		this._pendingRequests.set(model.sessionResource, cancellableRequest);
 		this.telemetryService.publicLog2<ChatPendingRequestChangeEvent, ChatPendingRequestChangeClassification>(ChatPendingRequestChangeEventName, { action: 'add', source: 'sendRequest', chatSessionId: chatSessionResourceToId(model.sessionResource) });
 		rawResponsePromise.finally(() => {
+			trace.mark('didCompleteRequest', { requestId: request?.id });
+			trace.done();
 			if (this._pendingRequests.get(model.sessionResource) === cancellableRequest) {
 				this._pendingRequests.deleteAndDispose(model.sessionResource);
 				this.telemetryService.publicLog2<ChatPendingRequestChangeEvent, ChatPendingRequestChangeClassification>(ChatPendingRequestChangeEventName, { action: 'remove', source: 'sendRequestComplete', requestId: cancellableRequest.requestId, chatSessionId: chatSessionResourceToId(model.sessionResource) });
@@ -2336,7 +2410,8 @@ export class ChatService extends Disposable implements IChatService {
 		const agent = silentAgent ?? parsedRequest.parts.find((r): r is ChatRequestAgentPart => r instanceof ChatRequestAgentPart)?.agent ?? defaultAgent;
 		const agentSlashCommandPart = parsedRequest.parts.find((r): r is ChatRequestAgentSubcommandPart => r instanceof ChatRequestAgentSubcommandPart);
 
-		const responseState = this._sendRequestAsync(model, model.sessionResource, parsedRequest, firstRequest.request.attempt, !sendOptions.noCommandDetection, silentAgent ?? defaultAgent, location, sendOptions);
+		const trace = this._perfTracer.start();
+		const responseState = this._sendRequestAsync(model, model.sessionResource, parsedRequest, firstRequest.request.attempt, !sendOptions.noCommandDetection, silentAgent ?? defaultAgent, location, sendOptions, trace);
 
 		const result: ChatSendResultSent = {
 			kind: 'sent',

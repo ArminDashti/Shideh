@@ -18,6 +18,7 @@ import { Iterable } from '../../../../../base/common/iterator.js';
 import { combinedDisposable, Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { getMediaMime } from '../../../../../base/common/mime.js';
 import { derived, derivedOpts, IObservable, IReader, observableFromEventOpts, ObservableSet, observableSignal, transaction } from '../../../../../base/common/observable.js';
+import { getPerfTracer } from '../../../../../base/common/performance.js';
 import Severity from '../../../../../base/common/severity.js';
 import { StopWatch } from '../../../../../base/common/stopwatch.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
@@ -857,6 +858,8 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 					toolInvocation?.acceptProgress(step);
 				}
 			}, token);
+
+			trace?.mark('didInvokeTool');
 			invocationTimeWatch.stop();
 			// Apply post-processing compression (e.g. for run_in_terminal output)
 			// before the result reaches the model. Returns undefined when no

@@ -526,6 +526,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private _inputVisible = true;
 	private _readOnly = false;
 
+	private readonly _perfTracer = this._register(createPerfTracer('code/chatWidget', { local: true }));
+
 	private _instructionFilesCheckPromise: Promise<boolean> | undefined;
 	private _instructionFilesExist: boolean | undefined;
 

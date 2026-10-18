@@ -213,6 +213,9 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 	}
 
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
+		const trace = getPerfTracer('code/chat')?.findTraceByCorrelation('requestId', invocation.chatRequestId);
+		trace?.mark('subagent/willInvoke');
+
 		const args = invocation.parameters as IRunSubagentToolInputParams;
 
 		this.logService.debug(`RunSubagentTool: Invoking with prompt: ${args.prompt.substring(0, 100)}...`);
