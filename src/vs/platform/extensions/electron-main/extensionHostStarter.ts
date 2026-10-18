@@ -98,6 +98,7 @@ export class ExtensionHostStarter extends Disposable implements IDisposable, IEx
 		}
 		extHost.start({
 			...opts,
+			payload: { nativeWindowHandle },
 			type: 'extensionHost',
 			name: 'extension-host',
 			entryPoint: 'vs/workbench/api/node/extensionHostProcess',

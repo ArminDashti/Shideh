@@ -276,4 +276,14 @@ class OpenNodeModuleFactory implements INodeModuleFactory {
 	}
 }
 
+// class MsalNodeExtensionsNodeModuleFactory implements INodeModuleFactory {
+// 	nodeModuleName = ['@azure/msal-node-extensions'];
+// 	load(request: string, parent: URI, original: LoadFunction) {
+// 		throw new Error('Method not implemented.');
+// 	}
+// 	alternativeModuleName?(name: string): string | undefined {
+// 		throw new Error('Method not implemented.');
+// 	}
+// }
+
 //#endregion

@@ -88,6 +88,7 @@ interface IOpenedWindow {
 	readonly id: number;
 	readonly title: string;
 	readonly filename?: string;
+	readonly handle?: string;
 }
 
 export interface IOpenedMainWindow extends IOpenedWindow {
