@@ -266,6 +266,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 	 */
 	private knownProviderUris: { [key in PromptsType]?: ResourceSet } = {};
 
+	/**
+	 * Cached skills keyed by URI for synchronous lookup.
+	 * Updated whenever findAgentSkills is called.
+	 */
+	private readonly cachedSkillsByUri = new ResourceMap<IAgentSkill>();
+
 	constructor(
 		@ILogService public readonly logger: ILogService,
 		@ILabelService private readonly labelService: ILabelService,
@@ -2366,6 +2372,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.hook, files.filter(f => f.status === 'loaded'));
 		return { type: PromptsType.hook, files, sourceFolders };
+	}
+
+	public getSkillByUri(uri: URI): IAgentSkill | undefined {
+		return this.cachedSkillsByUri.get(uri);
 	}
 }
 

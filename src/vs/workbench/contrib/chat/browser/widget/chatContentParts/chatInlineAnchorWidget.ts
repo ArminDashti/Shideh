@@ -42,6 +42,7 @@ import { INotebookDocumentService } from '../../../../../services/notebook/commo
 import { ExplorerFolderContext } from '../../../../files/common/files.js';
 import { IWorkspaceSymbol } from '../../../../search/common/search.js';
 import { IChatContentInlineReference } from '../../../common/chatService/chatService.js';
+import { IPromptsService } from '../../../common/promptSyntax/service/promptsService.js';
 import { IChatWidgetService } from '../../chat.js';
 import { IChatImageCarouselService } from '../../chatImageCarouselService.js';
 import { ChatPetAchievementIds } from '../../chatPetAchievements.js';
@@ -160,6 +161,7 @@ export class InlineAnchorWidget extends Disposable {
 		@ILanguageService languageService: ILanguageService,
 		@IMenuService menuService: IMenuService,
 		@IModelService modelService: IModelService,
+		@IPromptsService promptsService: IPromptsService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@INotebookDocumentService private readonly notebookDocumentService: INotebookDocumentService,
