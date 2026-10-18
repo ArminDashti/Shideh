@@ -217,6 +217,12 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		return this.raw.element;
 	}
 
+	private _target: TerminalLocation | undefined;
+	set target(location: TerminalLocation | undefined) {
+		this._target = location;
+	}
+	get target(): TerminalLocation | undefined { return this._target; }
+
 	/**
 	 * @param xtermCtor The xterm.js constructor, this is passed in so it can be fetched lazily
 	 * outside of this class such that {@link raw} is not nullable.
