@@ -563,6 +563,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatToolConfirmationCarouselContainer!: HTMLElement;
 	private sessionInputRequestsContainer!: HTMLElement;
 	private chatInputNotificationContainer!: HTMLElement;
+	/** Where a notification that asks to dock below the input is rendered. */
+	private chatInputNotificationBelowContainer!: HTMLElement;
 	private chatGoalBannerContainer!: HTMLElement;
 	private chatCustomizationMigrationNoticeContainer!: HTMLElement;
 	private persistentContentContainer!: HTMLElement;
@@ -3520,7 +3522,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				onDidChangeVisibility: (visible, focusTarget) => this.noticeHost.setOccupied(ChatInputNoticeLane.Notification, visible, focusTarget),
 				focusInput: () => this.focus(),
 			});
-			this._notificationWidget.value.attachTo(this.chatInputNotificationContainer);
+			this._notificationWidget.value.attachTo(this.chatInputNotificationContainer, this.chatInputNotificationBelowContainer);
 		}
 	}
 
@@ -3812,6 +3814,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 								dom.h('.chat-input-toolbars@inputToolbars'),
 							]),
 						]),
+						dom.h(`.chat-input-notification-below-container.${chatInputStackSlotClass}@chatInputNotificationBelowContainer`),
 					]),
 					dom.h('.chat-secondary-toolbar@secondaryToolbar', [
 						dom.h('.chat-responsive-picker-container@responsivePickerContainer'),
@@ -3854,6 +3857,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 							]),
 						]),
 					]),
+					dom.h(`.chat-input-notification-below-container.${chatInputStackSlotClass}@chatInputNotificationBelowContainer`),
 				]),
 				dom.h('.chat-secondary-toolbar@secondaryToolbar', [
 					dom.h('.chat-responsive-picker-container@responsivePickerContainer'),
@@ -3902,6 +3906,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		dom.hide(this.chatToolConfirmationCarouselContainer);
 		this._register(this.chatInputNoticeHubService.registerHost(this.noticeHost, this.container));
 		this.chatInputNotificationContainer = elements.chatInputNotificationContainer;
+		this.chatInputNotificationBelowContainer = elements.chatInputNotificationBelowContainer;
 		this._register(registerChatInputOnboardingHosts(
 			this.noticeHost,
 			{ voice: elements.voiceModeOnboardingContainer, dictation: elements.dictationOnboardingContainer },

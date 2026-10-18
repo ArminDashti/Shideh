@@ -185,6 +185,103 @@ suite('ChatInputNotificationWidget', () => {
 		assert.deepStrictEqual(visibilityChanges, [true, false]);
 	});
 
+	test('renders a below-placed notification in the slot under the input', () => {
+		const notificationService = createNotificationService();
+		const instantiationService = store.add(workbenchInstantiationService(undefined, store));
+		instantiationService.stub(IChatInputNotificationService, notificationService);
+		instantiationService.stub(ICommandService, new TestCommandService());
+		instantiationService.stub(ITelemetryService, NullTelemetryService);
+
+		const widget = store.add(instantiationService.createInstance(ChatInputNotificationWidget, undefined));
+		const aboveSlot = document.createElement('div');
+		const belowSlot = document.createElement('div');
+		widget.attachTo(aboveSlot, belowSlot);
+
+		notificationService.setNotification({
+			id: 'promo',
+			severity: ChatInputNotificationSeverity.Info,
+			placement: ChatInputNotificationPlacement.Below,
+			message: 'Try the new model',
+			description: undefined,
+			actions: [],
+			dismissible: false,
+			autoDismissOnMessage: false,
+		});
+
+		assert.strictEqual(widget.domNode.parentElement, belowSlot);
+		assert.strictEqual(widget.domNode.classList.contains('chat-input-notice-below'), true);
+		assert.strictEqual(isChatInputStackSlotShowing(belowSlot), true);
+		// Docked up, not standalone: it joins the input rather than floating clear of it.
+		assert.strictEqual(belowSlot.classList.contains('chat-input-stack-docked-up'), true);
+		assert.strictEqual(isChatInputStackSlotShowing(aboveSlot), false, 'the slot above the input must not hold space for a notice that is not in it');
+	});
+
+	test('moves a notification back above the input when placement changes', () => {
+		const notificationService = createNotificationService();
+		const instantiationService = store.add(workbenchInstantiationService(undefined, store));
+		instantiationService.stub(IChatInputNotificationService, notificationService);
+		instantiationService.stub(ICommandService, new TestCommandService());
+		instantiationService.stub(ITelemetryService, NullTelemetryService);
+
+		const widget = store.add(instantiationService.createInstance(ChatInputNotificationWidget, undefined));
+		const aboveSlot = document.createElement('div');
+		const belowSlot = document.createElement('div');
+		widget.attachTo(aboveSlot, belowSlot);
+
+		notificationService.setNotification({
+			id: 'promo',
+			severity: ChatInputNotificationSeverity.Info,
+			placement: ChatInputNotificationPlacement.Below,
+			message: 'Try the new model',
+			description: undefined,
+			actions: [],
+			dismissible: false,
+			autoDismissOnMessage: false,
+		});
+		notificationService.deleteNotification('promo');
+
+		notificationService.setNotification({
+			id: 'quota',
+			severity: ChatInputNotificationSeverity.Warning,
+			message: 'Out of requests',
+			description: undefined,
+			actions: [],
+			dismissible: false,
+			autoDismissOnMessage: false,
+		});
+
+		assert.strictEqual(widget.domNode.parentElement, aboveSlot);
+		assert.strictEqual(widget.domNode.classList.contains('chat-input-notice-below'), false);
+		assert.strictEqual(isChatInputStackSlotShowing(aboveSlot), true);
+		assert.strictEqual(isChatInputStackSlotShowing(belowSlot), false);
+	});
+
+	test('renders a below-placed notification above the input when the surface has no slot below', () => {
+		const notificationService = createNotificationService();
+		const instantiationService = store.add(workbenchInstantiationService(undefined, store));
+		instantiationService.stub(IChatInputNotificationService, notificationService);
+		instantiationService.stub(ICommandService, new TestCommandService());
+		instantiationService.stub(ITelemetryService, NullTelemetryService);
+
+		const widget = store.add(instantiationService.createInstance(ChatInputNotificationWidget, undefined));
+		const aboveSlot = document.createElement('div');
+		widget.attachTo(aboveSlot);
+
+		notificationService.setNotification({
+			id: 'promo',
+			severity: ChatInputNotificationSeverity.Info,
+			placement: ChatInputNotificationPlacement.Below,
+			message: 'Try the new model',
+			description: undefined,
+			actions: [],
+			dismissible: false,
+			autoDismissOnMessage: false,
+		});
+
+		assert.strictEqual(widget.domNode.parentElement, aboveSlot);
+		assert.strictEqual(isChatInputStackSlotShowing(aboveSlot), true);
+	});
+
 	test('reactively applies session resource filter when the session changes', () => {
 		const firstSession = URI.parse('vscode-chat-session://agent-host-copilotcli/session-1');
 		const secondSession = URI.parse('vscode-chat-session://agent-host-copilotcli/session-2');
