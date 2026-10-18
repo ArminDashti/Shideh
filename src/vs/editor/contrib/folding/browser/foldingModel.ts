@@ -33,6 +33,7 @@ export type CollapseMemento = ILineMemento[];
 export class FoldingModel implements IDisposable {
 	private readonly _textModel: ITextModel;
 	private readonly _decorationProvider: IDecorationProvider;
+	private readonly _triggerRecomputeRanges: (() => void) | undefined;
 
 	private _regions: FoldingRegions;
 	private _editorDecorationIds: string[];
@@ -44,9 +45,10 @@ export class FoldingModel implements IDisposable {
 	public get textModel() { return this._textModel; }
 	public get decorationProvider() { return this._decorationProvider; }
 
-	constructor(textModel: ITextModel, decorationProvider: IDecorationProvider) {
+	constructor(textModel: ITextModel, decorationProvider: IDecorationProvider, triggerRecomputeRanges?: () => void) {
 		this._textModel = textModel;
 		this._decorationProvider = decorationProvider;
+		this._triggerRecomputeRanges = triggerRecomputeRanges;
 		this._regions = new FoldingRegions(new Uint32Array(0), new Uint32Array(0));
 		this._editorDecorationIds = [];
 	}
@@ -59,6 +61,7 @@ export class FoldingModel implements IDisposable {
 		toggledRegions = toggledRegions.sort((r1, r2) => r1.regionIndex - r2.regionIndex);
 
 		const processed: { [key: string]: boolean | undefined } = {};
+		let anyExpanded = false;
 		this._decorationProvider.changeDecorations(accessor => {
 			let k = 0; // index from [0 ... this.regions.length]
 			let dirtyRegionEndLine = -1; // end of the range where decorations need to be updated
@@ -94,6 +97,11 @@ export class FoldingModel implements IDisposable {
 			updateDecorationsUntil(this._regions.length);
 		});
 		this._updateEventEmitter.fire({ model: this, collapseStateChanged: toggledRegions });
+		if (anyExpanded && this._triggerRecomputeRanges) {
+			// expanding a range which didn't originate from range provider might now enable ranges
+			// from the provider which were previously dropped due to the collapsed range
+			this._triggerRecomputeRanges();
+		}
 	}
 
 	public removeManualRanges(ranges: readonly IRange[]) {
