@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../../base/browser/dom.js';
-import { StandardKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
 import { StandardMouseEvent } from '../../../../../base/browser/mouseEvent.js';
 import { Button } from '../../../../../base/browser/ui/button/button.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
