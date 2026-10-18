@@ -547,7 +547,8 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'type': 'boolean',
 				tags: ['experimental'],
 				'description': localize('suggestCommands', "Controls whether the command palette should have a list of commonly used commands."),
-				'default': false
+				'default': false,
+				tags: ['experimental']
 			},
 			'workbench.commandPalette.experimental.askChatLocation': {
 				'type': 'string',
