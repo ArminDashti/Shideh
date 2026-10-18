@@ -6631,6 +6631,29 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return completedToolCallToEditParts(tc as ICompletedToolCall, this._config.connectionAuthority);
 	}
 
+	/**
+	 * Handles a yield request from the chat service's steering mechanism.
+	 * Since the AHP protocol does not yet have a dedicated yield/steering
+	 * action, we cancel the active turn so that the chat service's queue
+	 * can advance and dispatch the steering message as a new turn.
+	 */
+	private _handleYieldRequested(requestId: string): void {
+		const turnInfo = this._activeTurns.get(requestId);
+		if (!turnInfo) {
+			return;
+		}
+
+		this._logService.info(`[AgentHost] Yield requested for request ${requestId}, cancelling turn ${turnInfo.turnId}`);
+		const cancelAction = {
+			type: ActionType.SessionTurnCancelled as const,
+			session: turnInfo.session,
+			turnId: turnInfo.turnId,
+		};
+		const seq = this._clientState.applyOptimistic(cancelAction);
+		this._config.connection.dispatchAction(cancelAction, this._clientState.clientId, seq);
+		turnInfo.finish();
+	}
+
 	// ---- Session resolution -------------------------------------------------
 
 	/**
