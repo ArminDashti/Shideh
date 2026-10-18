@@ -15,6 +15,7 @@ export class NotificationsStatus extends Disposable {
 
 	private notificationsCenterStatusItem: IStatusbarEntryAccessor | undefined;
 	private newNotificationsCount = 0;
+	private newFeatureAnnouncementsCount = 0;
 
 	private currentStatusMessage: [IStatusMessageViewItem, IDisposable] | undefined;
 
@@ -81,11 +82,14 @@ export class NotificationsStatus extends Disposable {
 			}
 		}
 
+		// Total count includes both notifications and feature announcements
+		const totalNewCount = this.newNotificationsCount + this.newFeatureAnnouncementsCount;
+
 		// Show the status bar entry depending on do not disturb setting
 
 		let statusProperties: IStatusbarEntry = {
 			name: localize('status.notifications', "Notifications"),
-			text: `${notificationsInProgress > 0 || this.newNotificationsCount > 0 ? '$(bell-dot)' : '$(bell)'}`,
+			text: `${notificationsInProgress > 0 || totalNewCount > 0 ? '$(bell-dot)' : '$(bell)'}`,
 			ariaLabel: localize('status.notifications', "Notifications"),
 			command: this.isNotificationsCenterVisible ? HIDE_NOTIFICATIONS_CENTER : SHOW_NOTIFICATIONS_CENTER,
 			tooltip: this.getTooltip(notificationsInProgress),
@@ -95,7 +99,7 @@ export class NotificationsStatus extends Disposable {
 		if (this.notificationService.getFilter() === NotificationsFilter.ERROR) {
 			statusProperties = {
 				...statusProperties,
-				text: `${notificationsInProgress > 0 || this.newNotificationsCount > 0 ? '$(bell-slash-dot)' : '$(bell-slash)'}`,
+				text: `${notificationsInProgress > 0 || totalNewCount > 0 ? '$(bell-slash-dot)' : '$(bell-slash)'}`,
 				ariaLabel: localize('status.doNotDisturb', "Do Not Disturb"),
 				tooltip: localize('status.doNotDisturbTooltip', "Do Not Disturb Mode is Enabled")
 			};
@@ -151,35 +155,37 @@ export class NotificationsStatus extends Disposable {
 	}
 
 	private getTooltip(notificationsInProgress: number): string {
+		const totalNewCount = this.newNotificationsCount + this.newFeatureAnnouncementsCount;
+
 		if (this.isNotificationsCenterVisible) {
 			return localize('hideNotifications', "Hide Notifications");
 		}
 
-		if (this.model.notifications.length === 0) {
+		if (this.model.notifications.length === 0 && this.featureAnnouncementService.announcements.length === 0) {
 			return localize('zeroNotifications', "No Notifications");
 		}
 
 		if (notificationsInProgress === 0) {
-			if (this.newNotificationsCount === 0) {
+			if (totalNewCount === 0) {
 				return localize('noNotifications', "No New Notifications");
 			}
 
-			if (this.newNotificationsCount === 1) {
+			if (totalNewCount === 1) {
 				return localize('oneNotification', "1 New Notification");
 			}
 
-			return localize({ key: 'notifications', comment: ['{0} will be replaced by a number'] }, "{0} New Notifications", this.newNotificationsCount);
+			return localize({ key: 'notifications', comment: ['{0} will be replaced by a number'] }, "{0} New Notifications", totalNewCount);
 		}
 
-		if (this.newNotificationsCount === 0) {
+		if (totalNewCount === 0) {
 			return localize({ key: 'noNotificationsWithProgress', comment: ['{0} will be replaced by a number'] }, "No New Notifications ({0} in progress)", notificationsInProgress);
 		}
 
-		if (this.newNotificationsCount === 1) {
+		if (totalNewCount === 1) {
 			return localize({ key: 'oneNotificationWithProgress', comment: ['{0} will be replaced by a number'] }, "1 New Notification ({0} in progress)", notificationsInProgress);
 		}
 
-		return localize({ key: 'notificationsWithProgress', comment: ['{0} and {1} will be replaced by a number'] }, "{0} New Notifications ({1} in progress)", this.newNotificationsCount, notificationsInProgress);
+		return localize({ key: 'notificationsWithProgress', comment: ['{0} and {1} will be replaced by a number'] }, "{0} New Notifications ({1} in progress)", totalNewCount, notificationsInProgress);
 	}
 
 	update(isCenterVisible: boolean, isToastsVisible: boolean): void {

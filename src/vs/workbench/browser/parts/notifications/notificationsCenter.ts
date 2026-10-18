@@ -5,6 +5,7 @@
 
 import './media/notificationsCenter.css';
 import './media/notificationsActions.css';
+import './media/featureAnnouncement.css';
 import { NOTIFICATIONS_CENTER_HEADER_FOREGROUND, NOTIFICATIONS_CENTER_HEADER_BACKGROUND, NOTIFICATIONS_CENTER_BORDER } from '../../../common/theme.js';
 import { IThemeService, Themable } from '../../../../platform/theme/common/themeService.js';
 import { INotificationsModel, INotificationChangeEvent, NotificationChangeType, NotificationViewItemContentChangeKind, NotificationsSettings, NotificationsPosition, getNotificationsPosition } from '../../../common/notifications.js';
@@ -48,6 +49,7 @@ export class NotificationsCenter extends Themable implements INotificationsCente
 	private notificationsCenterContainer: HTMLElement | undefined;
 	private notificationsCenterHeader: HTMLElement | undefined;
 	private notificationsCenterTitle: HTMLSpanElement | undefined;
+	private featureAnnouncementsContainer: HTMLElement | undefined;
 	private notificationsList: NotificationsList | undefined;
 	private _isVisible: boolean | undefined;
 	private workbenchDimensions: Dimension | undefined;
@@ -171,6 +173,9 @@ export class NotificationsCenter extends Themable implements INotificationsCente
 		// Show all notifications that are present now
 		notificationsList.updateNotificationsList(0, 0, this.model.notifications);
 
+		// Render feature announcements
+		this.renderAllFeatureAnnouncements();
+
 		// Focus first
 		notificationsList.focusFirst();
 
@@ -190,7 +195,10 @@ export class NotificationsCenter extends Themable implements INotificationsCente
 	private updateTitle(): void {
 		const [notificationsCenterTitle, clearAllAction] = assertReturnsAllDefined(this.notificationsCenterTitle, this.clearAllAction);
 
-		if (this.model.notifications.length === 0) {
+		const featureAnnouncementCount = this.featureAnnouncementService.announcements.length;
+		const totalCount = this.model.notifications.length + featureAnnouncementCount;
+
+		if (totalCount === 0) {
 			notificationsCenterTitle.textContent = localize('notificationsEmpty', "No new notifications");
 			clearAllAction.enabled = false;
 		} else {
@@ -294,6 +302,10 @@ export class NotificationsCenter extends Themable implements INotificationsCente
 		this.hideAction = this._register(this.instantiationService.createInstance(HideNotificationsCenterAction, HideNotificationsCenterAction.ID, HideNotificationsCenterAction.LABEL));
 		this.updateHideActionIcon();
 		notificationsToolBar.push(this.hideAction, { icon: true, label: false, keybinding: this.getKeybindingLabel(this.hideAction) });
+
+		// Feature Announcements Container (above regular notifications)
+		this.featureAnnouncementsContainer = $('.feature-announcements-container');
+		this.notificationsCenterContainer.appendChild(this.featureAnnouncementsContainer);
 
 		// Notifications List
 		this.notificationsList = this._register(this.instantiationService.createInstance(NotificationsList, this.notificationsCenterContainer, {
