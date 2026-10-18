@@ -35,6 +35,7 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { INotebookTextDiffEditor } from './diff/notebookDiffEditorBrowser.js';
 
 
+
 //#region Shared commands
 export const EXPAND_CELL_INPUT_COMMAND_ID = 'notebook.cell.expandCellInput';
 export const EXECUTE_CELL_COMMAND_ID = 'notebook.cell.execute';

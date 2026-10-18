@@ -24,7 +24,6 @@ import { minimapGutterAddedBackground, minimapGutterDeletedBackground, minimapGu
 import { ChatEditingSessionState, IChatEditingService, IModifiedFileEntry, WorkingSetEntryState } from '../common/chatEditingService.js';
 import { Event } from '../../../../base/common/event.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
@@ -75,12 +74,15 @@ export class ChatEditorControllerBase extends Disposable implements IEditorContr
 		@IChatEditingService private readonly _chatEditingService: IChatEditingService,
 		@IEditorService private readonly _editorService: IEditorService
 	) {
-		super();
+		super(_editor, _instantiationService, _chatEditingService, _editorService, modelService);
 
 		const configSignal = observableFromEvent(
 			Event.filter(this._editor.onDidChangeConfiguration, e => e.hasChanged(EditorOption.fontInfo) || e.hasChanged(EditorOption.lineHeight)),
 			_ => undefined
 		);
+
+		const modelObs = observableFromEvent(this._editor.onDidChangeModel, _ => this._editor.getModel());
+
 
 		const modelObs = observableFromEvent(this._editor.onDidChangeModel, _ => this._editor.getModel());
 
@@ -317,16 +319,6 @@ export class ChatEditorControllerBase extends Disposable implements IEditorContr
 				});
 			}
 
-			this._diffVisualDecorations.set(modifiedVisualDecorations);
-			this._diffLineDecorations.set(modifiedLineDecorations);
-		});
-
-		const diffHunkDecoCollection = this._editor.createDecorationsCollection(diffHunkDecorations);
-
-		this._diffHunksRenderStore.add(toDisposable(() => {
-			dispose(this._diffHunkWidgets);
-			this._diffHunkWidgets.length = 0;
-			diffHunkDecoCollection.clear();
 		}));
 
 
