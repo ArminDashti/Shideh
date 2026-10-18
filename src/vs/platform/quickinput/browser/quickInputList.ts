@@ -846,7 +846,7 @@ export class QuickInputList extends Disposable {
 	@memoize
 	get onDidChangeSelection() {
 		return Event.map(
-			this._tree.onDidChangeSelection,
+			Event.any(this._tree.onDidChangeSelection, this._onTriggerEmptySelectionOrFocus.event),
 			e => ({
 				items: e.elements.filter((e): e is QuickPickItemElement => e instanceof QuickPickItemElement).map(e => e.item),
 				event: e.browserEvent
