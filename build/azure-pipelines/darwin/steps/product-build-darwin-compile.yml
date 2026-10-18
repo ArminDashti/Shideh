@@ -15,6 +15,8 @@ parameters:
   - name: VSCODE_RUN_TESTS_IN_PARALLEL
     type: boolean
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    type: boolean
 
 steps:
   - template: product-build-darwin-setup.yml@self

@@ -10,6 +10,8 @@ parameters:
   - name: VSCODE_RUN_TESTS
     type: boolean
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    type: boolean
 
 # The product is built by the following jobs, so that retrying a failed job
 # never repeats the work of the jobs that already succeeded:

@@ -119,6 +119,10 @@ parameters:
     displayName: "Skip tests"
     type: string
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    displayName: "Skip successful test tasks on retries"
+    type: boolean
+    default: true
   - name: VSCODE_USE_LEGACY_OSS_NOTICE
     displayName: "Use legacy OSS Notice"
     type: boolean

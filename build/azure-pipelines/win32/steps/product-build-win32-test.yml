@@ -72,11 +72,29 @@ steps:
       displayName: 🧪 Run unit tests (node.js)
       timeoutInMinutes: 30
 
+    - ${{ if eq(parameters.VSCODE_SKIP_SUCCESSFUL_TEST_TASKS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-node
+
   - ${{ if eq(parameters.VSCODE_RUN_BROWSER_TESTS, true) }}:
-    - powershell: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
+    - ${{ if eq(parameters.VSCODE_SKIP_SUCCESSFUL_TEST_TASKS, true) }}:
+        powershell: |
+          . build/azure-pipelines/win32/exec.ps1
+          $ErrorActionPreference = "Stop"
+          exec { npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests" }
+          exec { node build/azure-pipelines/common/testCheckpoint.ts record unit-browser-chromium }
+        condition: and(succeeded(), ne(variables['TEST_CHECKPOINT_UNIT_BROWSER_CHROMIUM_HIT'], 'true'))
+      ${{ else }}:
+        powershell: npm run test-browser-no-install -- --build --browser chromium --tfs "Browser Unit Tests"
       displayName: 🧪 Run unit tests (Browser, Chromium)
       timeoutInMinutes: 30
 >>>>>>> 07f806f9992 ([cherry-pick] build: Increase test task timeouts to 30 minutes (#338854))
+
+    - ${{ if eq(parameters.VSCODE_SKIP_SUCCESSFUL_TEST_TASKS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-browser-chromium
 
   - powershell: |
       . build/azure-pipelines/win32/exec.ps1

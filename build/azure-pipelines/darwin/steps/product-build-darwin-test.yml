@@ -84,6 +84,11 @@ steps:
           displayName: 🧪 Run unit tests (Browser, Webkit)
           timeoutInMinutes: 30
 
+    - ${{ if eq(parameters.VSCODE_SKIP_SUCCESSFUL_TEST_TASKS, true) }}:
+      - template: ../../common/publish-test-checkpoint.yml@self
+        parameters:
+          testId: unit-browser-webkit
+
   - script: |
       set -e
       npm run gulp \

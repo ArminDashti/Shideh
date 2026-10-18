@@ -10,6 +10,8 @@ parameters:
   - name: VSCODE_RUN_TESTS
     type: boolean
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    type: boolean
 
 # Compile mixes in the CLI, publishes the unsigned client for the universal
 # build and publishes unpacked builds for the test and Sign jobs. Sign

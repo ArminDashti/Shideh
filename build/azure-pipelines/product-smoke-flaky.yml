@@ -186,6 +186,7 @@ extends:
           jobs:
             - template: build/azure-pipelines/linux/product-smoke-flaky-linux.yml@self
               parameters:
+                VSCODE_SKIP_SUCCESSFUL_TEST_TASKS: false
                 VSCODE_QUALITY: $(VSCODE_QUALITY)
                 VSCODE_TEST_UNIT: ${{ parameters.VSCODE_TEST_UNIT }}
                 VSCODE_TEST_INTEGRATION: ${{ parameters.VSCODE_TEST_INTEGRATION }}
@@ -202,6 +203,7 @@ extends:
           jobs:
             - template: build/azure-pipelines/win32/product-smoke-flaky-win32.yml@self
               parameters:
+                VSCODE_SKIP_SUCCESSFUL_TEST_TASKS: false
                 VSCODE_QUALITY: $(VSCODE_QUALITY)
                 VSCODE_TEST_UNIT: ${{ parameters.VSCODE_TEST_UNIT }}
                 VSCODE_TEST_INTEGRATION: ${{ parameters.VSCODE_TEST_INTEGRATION }}
@@ -218,6 +220,7 @@ extends:
           jobs:
             - template: build/azure-pipelines/darwin/product-smoke-flaky-darwin.yml@self
               parameters:
+                VSCODE_SKIP_SUCCESSFUL_TEST_TASKS: false
                 VSCODE_TEST_UNIT: ${{ parameters.VSCODE_TEST_UNIT }}
                 VSCODE_TEST_INTEGRATION: ${{ parameters.VSCODE_TEST_INTEGRATION }}
                 VSCODE_TEST_SMOKE: ${{ parameters.VSCODE_TEST_SMOKE }}

@@ -23,6 +23,8 @@ parameters:
   - name: VSCODE_RUN_CHECKS
     type: boolean
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    type: boolean
 
 steps:
   - template: product-build-linux-setup.yml@self

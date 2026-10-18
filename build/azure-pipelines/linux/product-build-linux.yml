@@ -16,6 +16,8 @@ parameters:
   - name: VSCODE_RUN_CHECKS
     type: boolean
     default: false
+  - name: VSCODE_SKIP_SUCCESSFUL_TEST_TASKS
+    type: boolean
 
 # The product is built by Compile and Sign jobs in addition to the parallel CLI
 # job. The test jobs are declared next to this template (see
