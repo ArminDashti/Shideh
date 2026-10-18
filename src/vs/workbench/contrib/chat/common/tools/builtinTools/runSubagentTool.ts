@@ -316,7 +316,7 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 					modelSelectionSource = resolved.selectionSource;
 				}
 			} else {
-				// No subagent name - clean up any cached entry and resolve model name from main model
+				// General Purpose agent; inherit parent's model and tools
 				const cached = this._resolvedModels.get(invocation.callId);
 				if (cached) {
 					this._resolvedModels.delete(invocation.callId);
@@ -790,7 +790,9 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 		const resolved = await this.resolveSubagentModel(subagent, context.modelId, args.model, currentModeInstructions, requestedAgentName ? undefined : callingSubagent?.model);
 		this._resolvedModels.set(context.toolCallId, resolved);
 
-		const subagent = args.agentName ? await this.getSubAgentByName(args.agentName) : undefined;
+		// Defensive: model may omit agentName despite schema requiring it
+		const isGeneralPurpose = !args.agentName || args.agentName === GeneralPurposeAgentName;
+		const subagent = isGeneralPurpose ? undefined : await this.getSubAgentByName(args.agentName);
 
 		// Resolve the model early and cache it for invoke()
 		const resolved = this.resolveSubagentModel(subagent, context.modelId);

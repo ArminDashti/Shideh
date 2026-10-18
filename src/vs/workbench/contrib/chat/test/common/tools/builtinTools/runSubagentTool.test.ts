@@ -263,7 +263,6 @@ suite('RunSubagentTool', () => {
 				target: Target.Undefined,
 				visibility: { userInvokable: true, agentInvokable: true }
 			};
-			promptsService.setCustomModes([customMode]);
 
 			const tool = testDisposables.add(new RunSubagentTool(
 				{} as IChatAgentService,
@@ -416,6 +415,84 @@ suite('RunSubagentTool', () => {
 				agentName: 'NonExistentAgent',
 				prompt: 'Test prompt',
 				modelId: undefined,
+				modelName: undefined,
+			});
+		});
+
+		test('treats undefined agentName as General Purpose', async () => {
+			const tool = createTool();
+
+			const result = await tool.prepareToolInvocation(
+				{
+					parameters: {
+						prompt: 'Test prompt',
+						description: 'Test task',
+						agentName: undefined,
+					},
+					toolCallId: 'test-call-undef',
+					chatSessionResource: URI.parse('test://session'),
+				},
+				CancellationToken.None
+			);
+
+			assert.ok(result);
+			assert.deepStrictEqual(result.toolSpecificData, {
+				kind: 'subagent',
+				description: 'Test task',
+				agentName: GeneralPurposeAgentName,
+				prompt: 'Test prompt',
+				modelName: undefined,
+			});
+		});
+
+		test('treats empty string agentName as General Purpose', async () => {
+			const tool = createTool();
+
+			const result = await tool.prepareToolInvocation(
+				{
+					parameters: {
+						prompt: 'Test prompt',
+						description: 'Test task',
+						agentName: '',
+					},
+					toolCallId: 'test-call-empty',
+					chatSessionResource: URI.parse('test://session'),
+				},
+				CancellationToken.None
+			);
+
+			assert.ok(result);
+			assert.deepStrictEqual(result.toolSpecificData, {
+				kind: 'subagent',
+				description: 'Test task',
+				agentName: GeneralPurposeAgentName,
+				prompt: 'Test prompt',
+				modelName: undefined,
+			});
+		});
+
+		test('falls through to raw agentName when agent not found', async () => {
+			const tool = createTool();
+
+			const result = await tool.prepareToolInvocation(
+				{
+					parameters: {
+						prompt: 'Test prompt',
+						description: 'Test task',
+						agentName: 'NonExistentAgent',
+					},
+					toolCallId: 'test-call-unknown',
+					chatSessionResource: URI.parse('test://session'),
+				},
+				CancellationToken.None
+			);
+
+			assert.ok(result);
+			assert.deepStrictEqual(result.toolSpecificData, {
+				kind: 'subagent',
+				description: 'Test task',
+				agentName: 'NonExistentAgent',
+				prompt: 'Test prompt',
 				modelName: undefined,
 			});
 		});
@@ -745,14 +822,14 @@ suite('RunSubagentTool', () => {
 			});
 		});
 
-		test('uses main model when no subagent is specified', async () => {
+		test('uses main model when General Purpose agent is specified', async () => {
 			const mainMeta = createMetadata('GPT-4o', 1);
 			const models = new Map([['main-model-id', mainMeta]]);
 
 			const tool = createTool({ models });
 
 			const result = await tool.prepareToolInvocation({
-				parameters: { prompt: 'test', description: 'test task' },
+				parameters: { prompt: 'test', description: 'test task', agentName: GeneralPurposeAgentName },
 				toolCallId: 'call-6',
 				modelId: 'main-model-id',
 				chatSessionResource: URI.parse('test://session'),
@@ -762,7 +839,7 @@ suite('RunSubagentTool', () => {
 			assert.deepStrictEqual(result.toolSpecificData, {
 				kind: 'subagent',
 				description: 'test task',
-				agentName: undefined,
+				agentName: GeneralPurposeAgentName,
 				prompt: 'test',
 				modelId: 'main-model-id',
 				modelName: 'GPT-4o',
