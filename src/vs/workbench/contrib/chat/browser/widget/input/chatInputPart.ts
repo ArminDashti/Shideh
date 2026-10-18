@@ -3143,6 +3143,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			return [];
 		}
 
+		// // Early exit: if Local session type is excluded, also hide option groups
+		// // This supports scenarios like empty workspace where Local-related features should be hidden
+		// if (this.options.excludedTargets?.includes(AgentSessionProviders.Local)) {
+		// 	setNoOptions();
+		// 	return undefined;
+		// }
+
 		// Step 2: Get option groups for this session type
 		const allOptionGroups = this.chatSessionsService.getOptionGroupsForSessionType(effectiveSessionType);
 		return allOptionGroups ?? [];

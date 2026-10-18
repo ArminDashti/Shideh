@@ -338,6 +338,12 @@ export class AgentSessionsWelcomePage extends EditorPane {
 		const scopedContextKeyService = this.contentDisposables.add(this.contextService.createScoped(chatWidgetContainer));
 		const scopedInstantiationService = this.contentDisposables.add(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])));
 
+		// // If workspace is empty and we're currently on Local, switch to a different provider
+		const isEmptyWorkspace = this.workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY;
+		// if (isEmptyWorkspace && this._selectedSessionProvider === AgentSessionProviders.Local) {
+		// 	this._selectedSessionProvider = AgentSessionProviders.Cloud;
+		// }
+
 		// Create a delegate for the session target picker with independent local state
 		const onDidChangeActiveSessionProvider = this.contentDisposables.add(new Emitter<AgentSessionProviderType>());
 		const recreateSessionForProvider = async (provider: AgentSessionProviderType) => {
