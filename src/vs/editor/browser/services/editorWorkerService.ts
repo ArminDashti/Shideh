@@ -248,6 +248,8 @@ export class EditorWorkerService extends Disposable implements IEditorWorkerServ
 	}
 }
 
+registerSingleton(IEditorWorkerService, EditorWorkerService, InstantiationType.Eager /* registers link detection and word based suggestions for any document */);
+
 class WordBasedCompletionItemProvider implements languages.CompletionItemProvider {
 
 	private readonly _workerManager: WorkerManager;
