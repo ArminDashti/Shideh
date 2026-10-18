@@ -51,6 +51,8 @@ export class ExtHostCommands implements ExtHostCommandsShape {
 
 	private readonly _commands = new Map<string, CommandHandler>();
 	private readonly _apiCommands = new Map<string, ApiCommand>();
+	private readonly _activeCommandsByExtension = new Map<string, number>();
+
 	#telemetry: MainThreadTelemetryShape;
 
 	private readonly _logService: ILogService;
@@ -188,7 +190,7 @@ export class ExtHostCommands implements ExtHostCommandsShape {
 			// - We still emit the corresponding activation event
 			//   BUT we don't await that event
 			this.#proxy.$fireCommandActivationEvent(id);
-			return this._executeContributedCommand<T>(id, args, false);
+			return this._executeContributedCommand<T>(id, args, false, -1);
 
 		} else {
 			// automagically convert some argument types
@@ -249,6 +251,30 @@ export class ExtHostCommands implements ExtHostCommandsShape {
 			}
 		}
 
+		// mark the extension owning the command as running one more command, unmark when done or when time is up
+		let unmarkExtensionActive: ((didTimeout: boolean) => void) | undefined;
+		if (markExtensionActiveMS > 0 && extension) {
+			const key = ExtensionIdentifier.toKey(extension.identifier);
+			const count = this._activeCommandsByExtension.get(key) ?? 0;
+			this._activeCommandsByExtension.set(key, count + 1);
+
+			unmarkExtensionActive = (didTimeout: boolean) => {
+				if (!didTimeout) {
+					clearTimeout(handle);
+				}
+				const count = this._activeCommandsByExtension.get(key);
+				if (count === undefined) {
+					return; // already unmarked
+				} else if (count === 1) {
+					this._activeCommandsByExtension.delete(key);
+				} else {
+					this._activeCommandsByExtension.set(key, count - 1);
+				}
+			};
+
+			const handle = setTimeout(unmarkExtensionActive, markExtensionActiveMS, true);
+		}
+
 		const stopWatch = StopWatch.create();
 		try {
 			return await callback.apply(thisArg, args);
@@ -281,8 +307,8 @@ export class ExtHostCommands implements ExtHostCommandsShape {
 					super(toErrorMessage(err));
 				}
 			};
-		}
-		finally {
+		} finally {
+			unmarkExtensionActive?.(false);
 			this._reportTelemetry(command, id, stopWatch.elapsed());
 		}
 	}
