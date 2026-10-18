@@ -641,6 +641,12 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			scrollableContent.style.height = constrainedScrollableHeightPx;
 			scrollableContent.style.maxHeight = constrainedScrollableHeightPx;
 		}
+		inputScrollable.setScrollDimensions({
+			width: scrollableContent.clientWidth,
+			scrollWidth: scrollableContent.scrollWidth,
+			height: constrainedScrollableHeight,
+			scrollHeight: contentScrollableHeight
+		});
 		inputScrollable.scanDomNode();
 	}
 
@@ -878,7 +884,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this.renderInput(inputContainer, question);
 
 		const inputScrollable = questionRenderStore.add(new DomScrollableElement(inputContainer, {
-			vertical: ScrollbarVisibility.Visible,
+			vertical: ScrollbarVisibility.Auto,
 			horizontal: ScrollbarVisibility.Hidden,
 			consumeMouseWheelIfScrollbarIsNeeded: true,
 		}));
