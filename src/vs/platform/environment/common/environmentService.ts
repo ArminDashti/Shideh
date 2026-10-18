@@ -66,10 +66,10 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 	get stateResource(): URI { return joinPath(this.appSettingsHome, 'globalStorage', 'storage.json'); }
 
 	@memoize
-	get userRoamingDataHome(): URI { return this.appSettingsHome.with({ scheme: Schemas.vscodeUserData }); }
+	get userRoamingDataHome(): URI { return this.appSettingsHome; }
 
 	@memoize
-	get userDataSyncHome(): URI { return joinPath(this.appSettingsHome, 'sync'); }
+	get userDataSyncHome(): URI { return joinPath(this.userRoamingDataHome, 'sync'); }
 
 	get logsHome(): URI {
 		if (!this.args.logsPath) {
