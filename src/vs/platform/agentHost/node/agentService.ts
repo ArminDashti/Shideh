@@ -619,6 +619,34 @@ function findNonPtyTerminalContent(chat: ChatState, toolCallId: string, resource
 }
 
 /**
+ * Validate `value` against a single property's schema. Returns an error
+ * message when the value violates `type` or `enum`, otherwise undefined.
+ * Used by `startTurn` to surface invalid client config as `InvalidParams`
+ * (matching the spec at `state/protocol/commands.ts` startTurn). Required
+ * checks are handled separately so the typed `missingRequired` error can
+ * be returned.
+ */
+function validateAgainstPropertySchema(schema: ConfigPropertySchema, value: unknown): string | undefined {
+	const expected = schema.type;
+	const actual = Array.isArray(value) ? 'array' : typeof value;
+	if (expected === 'array') {
+		if (actual !== 'array') {
+			return `expected array, got ${actual}`;
+		}
+	} else if (expected === 'object') {
+		if (actual !== 'object' || value === null) {
+			return `expected object, got ${actual}`;
+		}
+	} else if (actual !== expected) {
+		return `expected ${expected}, got ${actual}`;
+	}
+	if (schema.enum && schema.enum.length > 0 && typeof value === 'string' && !schema.enum.includes(value)) {
+		return `value '${value}' is not one of [${schema.enum.join(', ')}]`;
+	}
+	return undefined;
+}
+
+/**
  * The agent service implementation that runs inside the agent-host utility
  * process. Dispatches to registered {@link IAgent} instances based
  * on the provider identifier in the session configuration.
@@ -7097,10 +7125,12 @@ export class AgentService extends Disposable implements IAgentService {
 		const subagentPrefix = buildSubagentSessionUriPrefix(evictionTarget);
 		for (const cachedKey of this._stateManager.getSessionUrisWithPrefix(subagentPrefix)) {
 			this._stateManager.removeSession(cachedKey);
+			this._sideEffects.removeSession(cachedKey);
 		}
 		this._sideEffects.clearSessionTitleState(evictionTargetKey, chats);
 		this._chatContributions.disposeSessionState(evictionTargetKey);
 		this._stateManager.removeSession(evictionTargetKey);
+		this._sideEffects.removeSession(evictionTargetKey);
 	}
 
 	/** Returns true when a changeset is safe to drop from the in-memory cache. */

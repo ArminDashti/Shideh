@@ -486,6 +486,60 @@ export class AgentSideEffects extends Disposable {
 	}
 
 	/**
+	 * Re-resolves the session-config schema for `session` against the current
+	 * values and, if anything changed, dispatches a server-originated
+	 * `SessionConfigChanged` carrying the refined schema (and any
+	 * server-resolved value updates). The reducer treats `schema` as a full
+	 * replacement; values are merged via `replace: true` only when they
+	 * actually differ.
+	 */
+	private async _reresolveAndPushSessionConfig(session: ProtocolURI): Promise<void> {
+		const agent = this._options.getAgent(session);
+		if (!agent) {
+			return;
+		}
+		const state = this._stateManager.getSessionState(session);
+		if (!state) {
+			return;
+		}
+		// Capture the seq for this resolve attempt. If another resolve fires
+		// before this one returns, the latest seq advances and our response
+		// is recognised as stale below.
+		const seq = (this._configResolveSeq.get(session) ?? 0) + 1;
+		this._configResolveSeq.set(session, seq);
+		try {
+			const workingDirectory = state.summary.workingDirectory ? URI.parse(state.summary.workingDirectory) : undefined;
+			const resolved = await agent._resolveSessionConfig({
+				provider: agent.id,
+				workingDirectory,
+				config: state.config?.values ?? {},
+			});
+			// Drop stale results: a newer resolve has been kicked off and
+			// already (or imminently will) reflect a more up-to-date input.
+			if (this._configResolveSeq.get(session) !== seq) {
+				return;
+			}
+			const latest = this._stateManager.getSessionState(session);
+			const currentSchema = latest?.config?.schema;
+			const currentValues = latest?.config?.values ?? {};
+			const schemaChanged = !equals(currentSchema, resolved.schema);
+			const valuesChanged = !equals(currentValues, resolved.values);
+			if (!schemaChanged && !valuesChanged) {
+				return;
+			}
+			this._stateManager.dispatchServerAction({
+				type: ActionType.SessionConfigChanged,
+				session,
+				schema: schemaChanged ? resolved.schema : undefined,
+				config: valuesChanged ? resolved.values : undefined,
+				replace: valuesChanged ? true : undefined,
+			});
+		} catch (err) {
+			this._logService.warn(`[AgentSideEffects] _resolveSessionConfig failed for ${session}: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
+
+	/**
 	 * Publishes agent descriptors using the last known model lists.
 	 */
 	private _publishAgentInfos(agents: readonly IAgent[], reader?: IReader): void {

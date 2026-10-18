@@ -129,6 +129,11 @@ suite('Protocol WebSocket - Session Config', function () {
 	test('session/configChanged merges config values into session state', async function () {
 		this.timeout(10_000);
 
+		// Use `worktree` isolation so the mock agent's `_resolveSessionConfig`
+		// honors the client-supplied `branch` value. With `folder` isolation
+		// the mock marks `branch` as read-only and resets it to `main`, which
+		// the side-effect re-resolve then dispatches back as a `replace: true`
+		// `SessionConfigChanged` — masking the merge we want to observe.
 		await client.call('createSession', {
 			channel: nextSessionUri(),
 			provider: 'mock',

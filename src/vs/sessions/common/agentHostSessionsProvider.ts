@@ -414,7 +414,9 @@ export function isAgentHostProviderId(providerId: string): boolean {
 /**
  * Structural equality for resolved session configs. Returns true when both
  * inputs have the same value-key set with deep-equal values and the same set
- * of schema property keys with identical (by-identity) property objects.
+ * of schema property keys with identical (by-identity) property objects, AND
+ * the same top-level schema fields (notably `required`) deep-equal.
+ *
  * Schema property objects are compared by identity since they originate from
  * the same protocol snapshot in the providers that use this helper. Values
  * are deep-compared via {@link equals} so non-string entries (e.g. permission
@@ -440,6 +442,15 @@ export function resolvedConfigsEqual(a: SessionConfigState, b: SessionConfigStat
 		if (a.schema.properties[key] !== b.schema.properties[key]) {
 			return false;
 		}
+	}
+	// Compare the top-level schema fields (other than `properties`, already
+	// compared above). Most importantly `required` — without this, a schema
+	// where only `required` changed would compare equal and the cache would
+	// keep stale completeness information.
+	const { properties: _aProps, ...aTop } = a.schema;
+	const { properties: _bProps, ...bTop } = b.schema;
+	if (!equals(aTop, bTop)) {
+		return false;
 	}
 	return true;
 }

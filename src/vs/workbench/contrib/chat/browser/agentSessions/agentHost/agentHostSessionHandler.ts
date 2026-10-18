@@ -3490,6 +3490,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				},
 			}));
 		});
+		return {};
 	}
 
 	private async _handleResumedTurn(

@@ -595,6 +595,16 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 							} catch (err) {
 								this._logService.warn(`[ProtocolServer] mcpNotification handler threw: ${err instanceof Error ? err.message : String(err)}`);
 							}
+							// Enforce action-origin: actions marked server-only
+							// (e.g. `SessionTurnStarted` post-Final-Phase) must
+							// not be acceptable from clients. A client that
+							// dispatches one would otherwise bypass the
+							// `startTurn` command's schema/turn validation.
+							if (!isClientDispatchable(action as Parameters<typeof isClientDispatchable>[0])) {
+								this._logService.warn(`[ProtocolServer] dispatchAction rejected: action ${action.type} is not client-dispatchable`);
+								break;
+							}
+							this._agentService.dispatchAction(action, client.clientId, msg.params.clientSeq);
 						}
 						break;
 				}
@@ -1895,6 +1905,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				...(params.repositories !== undefined ? { repositories: parseRepositorySources(params.repositories) } : {}),
 				config: params.config,
 			});
+			return {};
 		},
 		sessionConfigCompletions: async (_client, params) => {
 			validateRepositories(params, undefined);

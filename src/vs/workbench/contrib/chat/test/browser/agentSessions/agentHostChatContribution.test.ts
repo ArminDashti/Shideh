@@ -93,6 +93,7 @@ import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { TestFileService, TestWorkspaceTrustManagementService, TestWorkspaceTrustRequestService } from '../../../../../test/common/workbenchTestServices.js';
 import { ILabelService } from '../../../../../../platform/label/common/label.js';
 import { MockLabelService } from '../../../../../services/label/test/common/mockLabelService.js';
+import { IAgentHostActiveClientRegistry } from '../../../../../../platform/agentHost/common/agentHostActiveClientRegistry.js';
 import { IAgentHostFileSystemService } from '../../../../../services/agentHost/common/agentHostFileSystemService.js';
 import { IRemoteAgentHostService } from '../../../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { IWorkbenchEnvironmentService } from '../../../../../services/environment/common/environmentService.js';
@@ -348,6 +349,25 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 	override async disposeSession(session: URI): Promise<void> { this.disposedSessions.push(session); }
 	async shutdown(): Promise<void> { }
 
+
+	/**
+	 * Mock implementation of the `startTurn` RPC. The real server validates
+	 * session config, then dispatches a `session/turnStarted` action via its
+	 * state manager which is broadcast back to all clients. Here we mirror
+	 * that by recording the action into {@link dispatchedActions} so tests
+	 * which inspect dispatched actions (e.g. {@link turnActions}) continue to
+	 * work, while the test helper drives state propagation via
+	 * {@link fireAction}.
+	 */
+	override async startTurn(params: IAgentStartTurnParams): Promise<void> {
+		const turnAction: ITurnStartedAction = {
+			type: ActionType.SessionTurnStarted,
+			session: params.session.toString(),
+			turnId: params.turnId,
+			userMessage: params.userMessage,
+		};
+		this.dispatchedActions.push({ action: turnAction, clientId: this.clientId, clientSeq: this._nextSeq++ });
+	}
 
 	// Protocol methods
 	public override readonly clientId = 'test-window-1';
@@ -992,6 +1012,10 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 	instantiationService.stub(IAgentHostFileSystemService, {
 		registerAuthority: () => toDisposable(() => { }),
 		ensureSyncedCustomizationProvider: () => { },
+	});
+	instantiationService.stub(IAgentHostActiveClientRegistry, {
+		registerResolver: () => toDisposable(() => { }),
+		resolve: () => undefined,
 	});
 	instantiationService.stub(IStorageService, disposables.add(new InMemoryStorageService()));
 	const harnessDescriptors: IHarnessDescriptor[] = [];

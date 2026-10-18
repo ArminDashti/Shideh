@@ -52,6 +52,6 @@ export const enum SessionsChatTabsMode {
 
 export const SESSIONS_CHAT_TABS_DEFAULT = SessionsChatTabsMode.Multiple;
 
-export function isSessionConfigComplete(config: ResolveSessionConfigResult): boolean {
+export function isSessionConfigComplete(config: SessionConfigState): boolean {
 	return (config.schema.required ?? []).every(property => config.values[property] !== undefined);
 }

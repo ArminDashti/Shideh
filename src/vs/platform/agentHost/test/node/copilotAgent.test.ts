@@ -10824,6 +10824,7 @@ suite('CopilotAgent', () => {
 				});
 
 				assert.strictEqual(result.provisional, true);
+				await agent._waitForCustomizationSync();
 				assert.deepStrictEqual(pluginManager.calls, [{ clientId: 'client-1', customizations }]);
 			} finally {
 				await disposeAgent(agent);
