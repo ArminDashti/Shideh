@@ -210,8 +210,12 @@ function mcpLifecycleNoop(): Promise<void> {
 	return Promise.resolve();
 }
 
-function createMockAgentHostCustomizationService(mcpServers: readonly FixtureAgentHostMcpServer[] = []): IAgentHostCustomizationService {
+function createMockAgentHostCustomizationService(mcpServers: readonly FixtureAgentHostMcpServer[] = [], durableEnablement: ReadonlyMap<string, ContributionEnablementState> = new Map()): IAgentHostCustomizationService {
 	return new class extends mock<IAgentHostCustomizationService>() {
+		override getMcpServerEnablement(_sessionResource: URI, serverName: string) {
+			return durableEnablement.get(serverName) ?? ContributionEnablementState.EnabledProfile;
+		}
+		override setMcpServerEnablement() { }
 		override readonly onDidChangeCustomAgents = Event.None;
 		override readonly onDidChangeCustomizations = Event.None;
 		override getCustomAgents() { return []; }
@@ -488,7 +492,7 @@ function createMockPromptsService(files: IFixtureFile[], agentInstructions: IAge
 	}();
 }
 
-function createMockHarnessService(sessionResource: URI, descriptors: readonly IHarnessDescriptor[]): ICustomizationHarnessService {
+function createMockHarnessService(sessionResource: URI, descriptors: readonly IHarnessDescriptor[], activeHarnessId?: string): ICustomizationHarnessService {
 	const activeSessionResource = observableValue<URI>('activeSessionResource', sessionResource);
 	const activeHarness = derived(reader => getChatSessionType(activeSessionResource.read(reader)));
 	return new class extends mock<ICustomizationHarnessService>() {
@@ -499,7 +503,10 @@ function createMockHarnessService(sessionResource: URI, descriptors: readonly IH
 			return descriptors.find(h => h.id === id);
 		}
 		override getActiveDescriptor() {
-			return descriptors.find(h => h.id === activeHarness.get()) ?? descriptors[0];
+			// `activeHarnessId` lets a fixture pin the harness directly. The session URI can
+			// only express a VS Code session here, so without it an agent-host fixture would
+			// silently render the VS Code descriptor and never exercise agent-specific UI.
+			return descriptors.find(h => h.id === (activeHarnessId ?? activeHarness.get())) ?? descriptors[0];
 		}
 		override setActiveSession(sessionResource: URI) {
 			activeSessionResource.set(sessionResource, undefined);
@@ -508,7 +515,7 @@ function createMockHarnessService(sessionResource: URI, descriptors: readonly IH
 	}();
 }
 
-function makeLocalMcpServer(id: string, label: string, scope: LocalMcpServerScope, description?: string, config?: IWorkbenchMcpServer['config']): IWorkbenchMcpServer {
+function makeLocalMcpServer(id: string, label: string, scope: LocalMcpServerScope, description?: string, config?: IWorkbenchMcpServer['config'], version?: string): IWorkbenchMcpServer {
 	return new class extends mock<IWorkbenchMcpServer>() {
 		override readonly id = id;
 		override readonly name = id;
@@ -675,12 +682,81 @@ const mcpWorkspaceServers = [
 	makeLocalMcpServer('mcp-aws', 'AWS', LocalMcpServerScope.Workspace, 'Amazon Web Services'),
 	makeLocalMcpServer('mcp-graphql', 'GraphQL', LocalMcpServerScope.Workspace, 'GraphQL API gateway'),
 ];
+// Carries a real configuration so the end-to-end detail fixtures render the Configuration
+// section. Its URL is deliberately long and space-free: that is the string that decides whether
+// the facts grid wraps or overflows, and it only misbehaves at narrow widths.
+const webSearchConfig: IWorkbenchMcpServer['config'] = {
+	type: McpServerType.REMOTE,
+	url: 'https://mcp.example.com/v1/search/streamable-http-endpoint',
+	headers: { Authorization: '******' },
+};
+
 const mcpUserServers = [
-	makeLocalMcpServer('mcp-web-search', 'Web Search', LocalMcpServerScope.User, 'Search the web'),
+	makeLocalMcpServer('mcp-web-search', 'Web Search', LocalMcpServerScope.User, 'Search the web', webSearchConfig),
 	makeLocalMcpServer('mcp-filesystem', 'Filesystem', LocalMcpServerScope.User, 'Local file operations'),
 	makeLocalMcpServer('mcp-puppeteer', 'Puppeteer', LocalMcpServerScope.User, 'Browser automation'),
 	makeLocalMcpServer('a365copilotsearchmcp', 'a365copilotsearchmcp', LocalMcpServerScope.User, 'Search Microsoft 365 Copilot content'),
 ];
+/**
+ * Builds the observable surface of {@link IMcpServer} that the list row reads. Tools are
+ * exposed even for stopped servers, mirroring the real cache: a stopped server still knows
+ * what it offered last time it ran.
+ */
+function makeRuntimeServerFacts(toolCount: number, cacheState: McpServerCacheState, transport: McpServerTransportType, tools?: readonly (readonly [string, string])[]) {
+	const entries = Array.from({ length: toolCount }, (_, i) => tools?.[i] ?? [`tool_${i}`, ''] as const);
+	return {
+		cacheState: constObservable(cacheState),
+		tools: constObservable(entries.map(([referenceName, description], i) => ({
+			id: `tool-${i}`,
+			referenceName,
+			definition: { name: referenceName, description },
+		}))),
+		readDefinitions: () => constObservable({ server: { launch: { type: transport } }, collection: undefined }),
+	};
+}
+
+/**
+ * The list's on/off switch writes through this model; it reads from each server's own enablement
+ * observable, which in production is derived from the very same model.
+ */
+const mcpEnablementModel = {
+	readEnabled: () => ContributionEnablementState.EnabledProfile,
+	setEnabled: () => { },
+	remove: () => { },
+};
+
+/**
+ * In production every installed MCP server has a runtime counterpart, which is what supplies its
+ * enablement, connection state, and tool counts. Derive one per installed server so the rendered
+ * list matches production -- notably that every installed row carries an on/off switch -- and
+ * override only the few whose interesting states we want in the baselines.
+ */
+const componentExplorerTools = [
+	['render', 'Render component fixtures to PNG screenshots for the given fixture id pattern.'],
+	['list_fixtures', 'List every registered component fixture with its id and labels.'],
+	['compare', 'Compare the current screenshots against the committed baselines.'],
+	['accept', 'Promote the current screenshots to be the new baselines.'],
+] as const;
+
+const mcpRuntimeOverrides: Record<string, Partial<ReturnType<typeof makeRuntimeServer>>> = {
+	'component-explorer': { ...makeRuntimeServerFacts(componentExplorerTools.length, McpServerCacheState.Cached, McpServerTransportType.Stdio, componentExplorerTools) },
+	'mcp-postgres': { connectionState: constObservable({ state: McpConnectionState.Kind.Error, message: 'connect ECONNREFUSED 127.0.0.1:5432' }), ...makeRuntimeServerFacts(8, McpServerCacheState.Cached, McpServerTransportType.Stdio) },
+	'mcp-web-search': { enablement: constObservable(ContributionEnablementState.DisabledWorkspace) },
+	'mcp-filesystem': { ...makeRuntimeServerFacts(11, McpServerCacheState.Cached, McpServerTransportType.Stdio) },
+	'mcp-graphql': { enablement: constObservable(ContributionEnablementState.DisabledProfile) },
+};
+
+function makeRuntimeServer(server: IWorkbenchMcpServer) {
+	return {
+		definition: { id: server.id, label: server.label },
+		collection: { id: server.local?.scope === LocalMcpServerScope.Workspace ? 'workspace-mcp' : 'user-mcp', label: 'MCP' },
+		enablement: constObservable(ContributionEnablementState.EnabledProfile),
+		connectionState: constObservable({ state: McpConnectionState.Kind.Stopped }),
+		showOutput() { },
+		...makeRuntimeServerFacts(6, McpServerCacheState.Cached, McpServerTransportType.Stdio),
+	};
+}
+
 const mcpRuntimeServers = [
 	{ definition: { id: 'github-copilot-mcp', label: 'GitHub Copilot' }, collection: { id: 'ext.github.copilot/mcp', label: 'ext.github.copilot/mcp' }, enablement: constObservable(ContributionEnablementState.EnabledProfile), connectionState: constObservable({ state: McpConnectionState.Kind.Starting }), readDefinitions: () => constObservable({ server: undefined, collection: undefined }), showOutput() { } },
 	{ definition: { id: 'linear-mcp', label: 'Linear MCP' }, collection: { id: `${MCP_PLUGIN_COLLECTION_ID_PREFIX}${URI.file('/workspace/.copilot/plugins/linear').toString()}`, label: 'Linear plugin' }, enablement: constObservable(ContributionEnablementState.EnabledProfile), connectionState: constObservable({ state: McpConnectionState.Kind.Running }), readDefinitions: () => constObservable({ server: { presentation: { origin: { uri: URI.file('/workspace/.copilot/plugins/linear/.mcp.json') } } }, collection: undefined }), showOutput() { } },
@@ -902,6 +978,8 @@ interface IRenderEditorOptions {
 	readonly isSessionsWindow?: boolean;
 	readonly managementSections?: readonly AICustomizationManagementSection[];
 	readonly availableHarnesses?: readonly IHarnessDescriptor[];
+	/** Pins the active harness, for fixtures that render agent-host-backed UI. */
+	readonly activeHarnessId?: string;
 	readonly selectedSection?: AICustomizationManagementSection;
 	readonly agentFinderPublicFeedEnabled?: boolean;
 	readonly marketplaceVisibilityEnabled?: boolean;
@@ -1058,7 +1136,7 @@ async function renderEditor(ctx: ComponentFixtureContext, options: IRenderEditor
 	const instantiationService = createEditorServices(ctx.disposableStore, {
 		colorTheme: ctx.theme,
 		additionalServices: (reg) => {
-			const harnessService = createMockHarnessService(options.sessionResource, availableHarnesses);
+			const harnessService = createMockHarnessService(options.sessionResource, availableHarnesses, options.activeHarnessId);
 			const agentFeedbackService = createMockAgentFeedbackService();
 			const codeReviewService = createMockCodeReviewService();
 			const configurationService = marketplaceConfiguration = new TestConfigurationService({
@@ -2143,6 +2221,7 @@ async function renderMcpBrowseMode(ctx: ComponentFixtureContext): Promise<void> 
 			}());
 			reg.defineInstance(IMcpService, new class extends mock<IMcpService>() {
 				override readonly servers = constObservable([] as never[]);
+				override readonly enablementModel = mcpEnablementModel;
 			}());
 			reg.defineInstance(IMcpRegistry, new class extends mock<IMcpRegistry>() {
 				override readonly collections = constObservable([]);
@@ -2459,6 +2538,7 @@ function renderMcpDisabled(ctx: ComponentFixtureContext, byPolicy: boolean): voi
 			}());
 			reg.defineInstance(IMcpService, new class extends mock<IMcpService>() {
 				override readonly servers = constObservable([] as never[]);
+				override readonly enablementModel = mcpEnablementModel;
 			}());
 			reg.defineInstance(IMcpRegistry, new class extends mock<IMcpRegistry>() {
 				override readonly collections = constObservable([]);
@@ -2978,6 +3058,40 @@ export default defineThemedFixtureGroup({ path: 'chat/aiCustomizations/' }, {
 			isSessionsWindow: true,
 			selectedSection: AICustomizationManagementSection.McpServers,
 			activeSessionMcpServers,
+			activeHarnessId: 'agent-host-copilotcli',
+		}),
+	}),
+
+	// An agent-host server disabled outright from the context menu. It must read as a plain
+	// "Disabled", not "Disabled (Session)": the row used to report the session flag as the
+	// reason whatever the user had actually chosen.
+	McpServersTabAgentHostDisabled: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			isSessionsWindow: true,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			activeSessionMcpServers,
+			activeHarnessId: 'agent-host-copilotcli',
+			agentHostDurableEnablement: new Map([
+				['Remote Browser', ContributionEnablementState.DisabledProfile],
+				['Remote Search', ContributionEnablementState.DisabledWorkspace],
+			]),
+			scrollToBottom: true,
+		}),
+	}),
+
+	// Scrolled to the agent-host rows: servers the agent host defines sit with the user's own
+	// servers, because that is who configured them, and name their store like every other row.
+	McpServersTabActiveSessionScrolled: defineComponentFixture({
+		labels: { kind: 'screenshot' },
+		render: ctx => renderEditor(ctx, {
+			sessionResource: localSessionResource,
+			isSessionsWindow: true,
+			selectedSection: AICustomizationManagementSection.McpServers,
+			activeSessionMcpServers,
+			activeHarnessId: 'agent-host-copilotcli',
+			scrollToBottom: true,
 		}),
 	}),
 

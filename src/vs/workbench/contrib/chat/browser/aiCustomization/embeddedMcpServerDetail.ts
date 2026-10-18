@@ -183,6 +183,16 @@ export class EmbeddedMcpServerDetail extends Disposable {
 		this.definitionEmptyEl.tabIndex = -1;
 		this.definitionEmptyEl.textContent = localize('mcpDefinitionUnavailable', "No definition is available for this MCP server.");
 
+		this.configEl = DOM.append(this.root, $('.embedded-detail-section.mcp-detail-config'));
+		DOM.append(this.configEl, $('h3.embedded-detail-tools-heading')).textContent = localize('mcpDetailConfiguration', "Configuration");
+		this.configListEl = DOM.append(this.configEl, $('dl.mcp-detail-facts'));
+
+		this.toolsEl = DOM.append(this.root, $('.embedded-detail-tools'));
+		this.toolsHeadingEl = DOM.append(this.toolsEl, $('h3.embedded-detail-tools-heading'));
+		this.toolsMessageEl = DOM.append(this.toolsEl, $('.embedded-detail-tools-message'));
+		this.toolsListEl = DOM.append(this.toolsEl, $('.embedded-detail-tools-list'));
+		this.toolsListEl.setAttribute('role', 'list');
+
 		this.emptyEl = DOM.append(this.root, $('.embedded-detail-empty'));
 		this.emptyEl.textContent = localize('mcpDetailEmpty', "No MCP server selected.");
 
@@ -202,7 +212,23 @@ export class EmbeddedMcpServerDetail extends Disposable {
 		}));
 		this._register(this.themeService.onDidColorThemeChange(() => this.renderIcon()));
 
-		this.renderItem();
+		this._register(this.mcpWorkbenchService.onChange(server => {
+			if (!this.current) {
+				return;
+			}
+			if (server) {
+				if (server.id === this.current.id) {
+					this.current = server;
+					this.render();
+				}
+				return;
+			}
+			const id = this.current.id;
+			this.current = this.mcpWorkbenchService.local.find(s => s.id === id) ?? this.current;
+			this.render();
+		}));
+
+		this.render();
 	}
 
 	get element(): HTMLElement {
@@ -239,7 +265,8 @@ export class EmbeddedMcpServerDetail extends Disposable {
 		this.diagnosticDisposables.clear();
 		this.migrationLinkListener.clear();
 		this.current = undefined;
-		this.renderItem();
+		this.announcedToolCount = undefined;
+		this.render();
 	}
 
 	focus(): void {
@@ -259,6 +286,7 @@ export class EmbeddedMcpServerDetail extends Disposable {
 		this.root.classList.toggle('is-empty', !hasItem);
 		this.renderIcon();
 		if (!server) {
+			this.liveRender.clear();
 			this.nameEl.textContent = '';
 			this.pathEl.textContent = '';
 			this.pathEl.removeAttribute('href');

@@ -215,6 +215,8 @@ function createInstalledPluginItem(plugin: IAgentPlugin): IAgentPluginItem {
 interface IMcpServerItemEntry {
 	readonly type: 'server-item';
 	readonly server: IWorkbenchMcpServer;
+	/** Shown on the row only when the section header does not already say it. */
+	readonly origin?: string;
 	readonly activeSessionServer?: AgentHostMcpServer;
 	readonly localServer?: IMcpServer;
 	readonly sourceDescription?: string;
@@ -230,6 +232,20 @@ interface IMcpServerItemEntry {
 interface IMcpSessionServerItemEntry {
 	readonly type: 'session-server-item';
 	readonly server: AgentHostMcpServer;
+	/**
+	 * The durable choice for this agent-host server. It has one: the context menu's Disable
+	 * writes it. Treating `server.enabled` as the only layer made every disabled agent-host row
+	 * claim it had been turned off for the session, whatever the user had actually chosen.
+	 */
+	readonly enablement?: ContributionEnablementState;
+	/** Writes the durable layer. Paired with `server.setEnabled` for the session layer. */
+	readonly setDurableEnabled?: (enabled: boolean) => void;
+}
+
+/** Reads and writes the durable enablement of servers belonging to an agent-host session. */
+export interface IAgentHostDurableEnablement {
+	read(serverName: string): ContributionEnablementState;
+	write(serverName: string, state: ContributionEnablementState): void;
 }
 
 /**
@@ -437,6 +453,9 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		const details = DOM.append(container, $('.mcp-server-details'));
 		const nameRow = DOM.append(details, $('.mcp-server-name-row'));
 		const name = DOM.append(nameRow, $('.mcp-server-name'));
+		// Status sits next to the name, not in the far-right actions slot: it describes the
+		// server, so it belongs where the eye already is when reading which server this is.
+		const status = DOM.append(nameRow, $('.mcp-server-status'));
 
 		const secondaryLine = DOM.append(details, $('.mcp-server-secondary-line'));
 		const sourcePath = DOM.append(secondaryLine, $('a.mcp-server-source-path'));
@@ -448,7 +467,9 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		const issue = DOM.append(details, $('.mcp-server-issue'));
 		const issueHover = templateDisposables.add(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), issue, ''));
 
-		const actions = DOM.append(container, $('.mcp-server-actions'));
+		const actionsSlot = DOM.append(container, $('.mcp-server-actions'));
+		const actions = DOM.append(actionsSlot, $('.mcp-server-actions-transient'));
+		const enablementSwitch = new EnablementSwitch(actionsSlot);
 
 		const template: IMcpServerItemTemplateData = {
 			container,
@@ -468,6 +489,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 			templateDisposables,
 			elementDisposables: new DisposableStore(),
 			actionDisposables: new DisposableStore(),
+			context: {},
 		};
 		this._templates.add(template);
 		return template;
@@ -547,7 +569,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 
 		if (element.type === 'session-server-item') {
 			templateData.container.classList.remove('builtin');
-			templateData.container.classList.toggle('has-detail', false);
+			templateData.container.classList.remove('has-detail');
 			templateData.name.textContent = formatDisplayName(element.server.name);
 			this.updateActiveSessionStatus(templateData, element);
 			return;
@@ -673,6 +695,26 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		if (!currentEntry) {
 			return;
 		}
+		templateData.renderedSignature = signature;
+
+		templateData.actionDisposables.clear();
+		DOM.clearNode(templateData.actions);
+		DOM.clearNode(templateData.status);
+		templateData.status.className = 'mcp-server-status';
+
+		const { status: state, errorMessage } = rowState;
+
+		// Status reads as a word next to the name. Every state gets one, including the states that
+		// previously resolved to an icon-less presentation and therefore rendered nothing at all.
+		const presentation = shouldShowStatusOnRow(state, rowState.statusScope) ? getMcpStatusPresentation(state) : undefined;
+		if (presentation) {
+			templateData.status.classList.add(presentation.className);
+			DOM.append(templateData.status, $('.mcp-server-status-dot'));
+			DOM.append(templateData.status, $('.mcp-server-status-label')).textContent =
+				formatMcpStatusWithScope(presentation.label, rowState.statusScope);
+		}
+
+		this.renderMetaLine(templateData, rowState);
 
 		const getEntry = () => resolveMcpEntry(currentEntry, this.agentHostCustomizationService, activeSessionResource);
 		if (state === McpServerStatus.AuthRequired && activeSessionServer !== undefined) {
@@ -773,6 +815,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 		templateData.templateDisposables.dispose();
 		templateData.elementDisposables.dispose();
 		templateData.actionDisposables.dispose();
+		templateData.enablementSwitch.dispose();
 	}
 
 }
@@ -983,7 +1026,6 @@ export function getMcpServerOutputHandler(outputService: Pick<IOutputService, 's
 export interface IMcpStatusPresentation {
 	readonly label: string;
 	readonly className: string;
-	readonly icon?: ThemeIcon;
 }
 
 export interface IMcpCompatibilityPresentation {
@@ -1062,16 +1104,16 @@ export function getMcpStatusPresentation(state: McpStatusKind | undefined, disab
 			return { label: localize('running', "Running"), className: 'running' };
 		case McpConnectionState.Kind.Starting:
 		case McpServerStatus.Starting:
-			return { label: localize('starting', "Starting"), className: 'starting', icon: ThemeIcon.modify(Codicon.loading, 'spin') };
+			return { label: localize('starting', "Starting"), className: 'starting' };
 		case McpServerStatus.AuthRequired:
 			return { label: localize('authRequired', "Authentication required"), className: 'auth-required' };
 		case McpConnectionState.Kind.Error:
 		case McpServerStatus.Error:
-			return { label: localize('error', "Error"), className: 'error', icon: Codicon.error };
+			return { label: localize('error', "Failed"), className: 'error' };
 		case McpConnectionState.Kind.Stopped:
 		case McpServerStatus.Stopped:
 		default:
-			return { label: localize('stopped', "Stopped"), className: 'stopped' };
+			return { label: localize('stopped', "Idle"), className: 'stopped' };
 	}
 }
 
@@ -1546,7 +1588,7 @@ export function getLocalMcpServerEnablementActions(mcpService: IMcpService, serv
 		}));
 		if (includeWorkspace && !isEmptyWorkbench) {
 			actions.push(new Action('mcpServer.builtin.enableWorkspace', localize('builtinMcpServerEnableForWorkspace', "Enable (Workspace)"), undefined, true, () => {
-				mcpService.enablementModel.setEnabled(serverId, ContributionEnablementState.EnabledWorkspace);
+				settle(ContributionEnablementState.EnabledWorkspace, true);
 			}));
 		}
 	} else {
@@ -1740,6 +1782,12 @@ function getMcpServerConfiguration(definition: McpServerDefinition): IMcpServerC
 /**
  * Widget that displays a list of MCP servers with marketplace browsing.
  */
+/** A row the user opened, together with the session server that row had claimed. */
+export interface IMcpServerSelection {
+	readonly server: IWorkbenchMcpServer;
+	readonly activeSessionServer: AgentHostMcpServer | undefined;
+}
+
 export class McpListWidget extends Disposable {
 
 	readonly element: HTMLElement;
@@ -2962,18 +3010,16 @@ export class McpListWidget extends Disposable {
 					? this.mcpWorkbenchService.getMcpConfigPath(server.local)?.label
 					: undefined,
 			};
-			const scope = server.local?.scope;
-			if (scope === LocalMcpServerScope.Workspace) {
-				groups[0].entries.push(entry);
+			if (server.local?.scope === LocalMcpServerScope.Workspace) {
+				workspaceEntries.push(entry);
 			} else {
-				// User, RemoteUser, or unknown → group under User
-				groups[1].entries.push(entry);
+				userEntries.push(entry);
 			}
 		}
 
-		// Add plugin-provided, extension-provided, and built-in servers.
-		// Servers from the Copilot extension (github.copilot / github.copilot-chat)
-		// are treated as built-in; servers from other extensions go under "Extensions".
+		// Extensions and plugins share a section because they are one thing to the user: software
+		// they installed. The distinction still matters when acting on a row (a plugin is
+		// uninstalled as a whole), so it survives on the row, where the header cannot say it.
 		const collectionSources = new Map(this.mcpRegistry.collections.get().map(c => [c.id, c.source]));
 		const pluginServers: Array<{ server: IMcpServer; activeSessionServer?: AgentHostMcpServer }> = [];
 		const extensionServers: Array<{ server: IMcpServer; activeSessionServer?: AgentHostMcpServer; extensionId: ExtensionIdentifier }> = [];
@@ -2986,9 +3032,12 @@ export class McpListWidget extends Disposable {
 			} else if (source instanceof ExtensionIdentifier && !isCopilotExtension(source)) {
 				extensionServers.push({ ...entry, extensionId: source });
 			} else {
-				otherBuiltinServers.push(entry);
+				installedEntries.push(createBuiltinEntry(server, origin, sessionServer, origin));
 			}
 		}
+		// Servers only the agent knows about join Built-in rather than getting a section of
+		// their own. They arrive because you are using this agent, which is the same reason
+		// VS Code's own servers are there; the row names which product it was.
 		const activeSessionOnlyServers = activeSessionMatcher.unmatched(query);
 		const activeSessionBuiltinEntries = createBuiltinActiveSessionMcpEntries(activeSessionOnlyServers);
 		const installedEntries: IMcpInstalledPresentation[] = [

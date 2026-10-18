@@ -1542,8 +1542,8 @@ export class AICustomizationManagementEditor extends EditorPane {
 			// Embedded MCP server detail view
 			this.mcpDetailContainer = DOM.append(contentInner, $('.mcp-detail-container'));
 
-			this.editorDisposables.add(this.mcpListWidget.onDidSelectServer(server => {
-				this.showEmbeddedMcpDetail(server);
+			this.editorDisposables.add(this.mcpListWidget.onDidSelectServer(selection => {
+				this.showEmbeddedMcpDetail(selection.server, selection.activeSessionServer);
 			}));
 
 			this.editorDisposables.add(this.mcpListWidget.onDidRequestShowPlugin(item => {
