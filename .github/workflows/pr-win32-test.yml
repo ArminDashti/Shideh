@@ -213,7 +213,7 @@ jobs:
         run: |
           . build/azure-pipelines/win32/exec.ps1
           $ErrorActionPreference = "Stop"
-          exec { npm run gulp `
+          exec { pnpm run gulp `
             compile-extension:configuration-editing `
             compile-extension:css-language-features-server `
             compile-extension:emmet `
@@ -280,7 +280,7 @@ jobs:
         if: ${{ inputs.smoke_tests }}
         working-directory: test/smoke
         shell: pwsh
-        run: npm run compile
+        run: pnpm run compile
 
       - name: Diagnostics before smoke test run
         if: ${{ inputs.smoke_tests && always() }}
@@ -325,13 +325,13 @@ jobs:
         if: ${{ inputs.browser_tests && inputs.smoke_tests }}
         timeout-minutes: 20
         shell: pwsh
-        run: npm run smoketest-no-compile -- --web --tracing --headless
+        run: pnpm run smoketest-no-compile -- --web --tracing --headless
 
       - name: 🧪 Run smoke tests (Remote)
         if: ${{ inputs.remote_tests && inputs.smoke_tests }}
         timeout-minutes: 20
         shell: pwsh
-        run: npm run smoketest-no-compile -- --remote --tracing
+        run: pnpm run smoketest-no-compile -- --remote --tracing
 
       - name: Diagnostics after smoke test run
         if: ${{ inputs.smoke_tests && always() }}

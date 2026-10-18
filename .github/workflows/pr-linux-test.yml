@@ -54,6 +54,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+
+      - name: Setup pnpm
+        run: corepack enable
       - name: Setup system services
         run: |
           set -e
@@ -386,7 +389,7 @@ jobs:
         if: ${{ inputs.integration_tests || inputs.smoke_tests }}
         run: |
           set -e
-          npm run gulp \
+          pnpm run gulp \
             compile-extension:configuration-editing \
             compile-extension:css-language-features-server \
             compile-extension:emmet \
@@ -437,7 +440,7 @@ jobs:
       - name: Compile smoke tests
         if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         working-directory: test/smoke
-        run: npm run compile
+        run: pnpm run compile
 
       # Remove the musl-libc Claude Code native binary so the
       # @anthropic-ai/claude-agent-sdk falls through to the glibc variant (or
@@ -476,7 +479,7 @@ jobs:
       - name: 🧪 Run smoke tests (Electron)
         if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
-        run: npm run smoketest-no-compile -- --tracing
+        run: pnpm run smoketest-no-compile -- --tracing
         env:
           DISPLAY: ":10"
           VSCODE_SMOKE_TEST_POLICY: '1'
@@ -491,12 +494,12 @@ jobs:
       - name: 🧪 Run smoke tests (Browser, Chromium)
         if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
-        run: npm run smoketest-no-compile -- --web --tracing --headless
+        run: pnpm run smoketest-no-compile -- --web --tracing --headless
 
       - name: 🧪 Run smoke tests (Remote)
         if: false # TEMPORARY (flaky test smoke-out): disabled to focus on the Electron unit-test loop
         timeout-minutes: 20
-        run: npm run smoketest-no-compile -- --remote --tracing
+        run: pnpm run smoketest-no-compile -- --remote --tracing
         env:
           DISPLAY: ":10"
 

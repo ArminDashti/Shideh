@@ -56,13 +56,13 @@ const packageJsonRelevantKeys = new Set([
 	'peerDependencies',
 	'peerDependenciesMeta',
 	'overrides',
+	'pnpm',
+	'packageManager',
 	'engines',
 	'workspaces',
 	'bundledDependencies',
 	'bundleDependencies',
 ]);
-
-const packageLockJsonIgnoredKeys = new Set(['version']);
 
 function normalizeFileContent(filePath: string): string {
 	const raw = fs.readFileSync(filePath, 'utf8');
@@ -77,18 +77,6 @@ function normalizeFileContent(filePath: string): string {
 			}
 		}
 		return JSON.stringify(filtered, null, '\t') + '\n';
-	}
-	if (basename === 'package-lock.json') {
-		const json = JSON.parse(raw);
-		for (const key of packageLockJsonIgnoredKeys) {
-			delete json[key];
-		}
-		if (json.packages?.['']) {
-			for (const key of packageLockJsonIgnoredKeys) {
-				delete json.packages[''][key];
-			}
-		}
-		return JSON.stringify(json, null, '\t') + '\n';
 	}
 	return raw;
 }

@@ -140,13 +140,14 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          VSCODE_INSTALL_FROZEN: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare Electron types
         run: node build/npm/electronTypes.ts
 
       - name: Type check /build/ scripts
-        run: npm run typecheck
+        run: pnpm run typecheck
         working-directory: build
 
       - name: Prepare built-in extensions cache key

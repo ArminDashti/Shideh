@@ -169,7 +169,7 @@ jobs:
       - name: 🧪 Run unit tests (Browser, Webkit)
         if: ${{ inputs.browser_tests && inputs.unit_tests }}
         timeout-minutes: 30
-        run: npm run test-browser-no-install -- --browser webkit --tfs "Browser Unit Tests"
+        run: pnpm run test-browser-no-install -- --browser webkit --tfs "Browser Unit Tests"
         env:
           DEBUG: "*browser*"
 
@@ -177,7 +177,7 @@ jobs:
         if: ${{ inputs.integration_tests || inputs.smoke_tests }}
         run: |
           set -e
-          npm run gulp \
+          pnpm run gulp \
             compile-extension:configuration-editing \
             compile-extension:css-language-features-server \
             compile-extension:emmet \
@@ -226,7 +226,7 @@ jobs:
       - name: Compile smoke tests
         if: ${{ inputs.smoke_tests }}
         working-directory: test/smoke
-        run: npm run compile
+        run: pnpm run compile
 
       - name: Diagnostics before smoke test run
         if: ${{ inputs.smoke_tests && always() }}
@@ -257,12 +257,12 @@ jobs:
       - name: 🧪 Run smoke tests (Browser, Chromium)
         if: ${{ inputs.browser_tests && inputs.smoke_tests }}
         timeout-minutes: 20
-        run: npm run smoketest-no-compile -- --web --tracing --headless
+        run: pnpm run smoketest-no-compile -- --web --tracing --headless
 
       - name: 🧪 Run smoke tests (Remote)
         if: ${{ inputs.remote_tests && inputs.smoke_tests }}
         timeout-minutes: 20
-        run: npm run smoketest-no-compile -- --remote --tracing
+        run: pnpm run smoketest-no-compile -- --remote --tracing
 
       - name: Diagnostics after smoke test run
         if: ${{ inputs.smoke_tests && always() }}

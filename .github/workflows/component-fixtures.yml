@@ -110,7 +110,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -118,12 +118,12 @@ jobs:
 
       - name: Install build dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile --ignore-workspace
         working-directory: build
 
       - name: Install rspack dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         working-directory: build/rspack
 
       - name: Save node_modules cache
@@ -150,7 +150,7 @@ jobs:
         run: npx playwright@1.61.1 install chromium
 
       - name: Install Playwright test dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         working-directory: test/componentFixtures/playwright
 
       - name: Install Playwright Chromium (tests)

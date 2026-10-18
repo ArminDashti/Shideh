@@ -81,3 +81,22 @@ if (existsSync(paths.dotBuild.distro.npm.absPath)) {
 	dirs.push(paths.dotBuild.distro.npm.remote.rootRelPath);
 	dirs.push(paths.dotBuild.distro.npm.remote.web.rootRelPath);
 }
+
+/**
+ * Directories installed as standalone pnpm projects (NOT part of the root
+ * workspace). These build native modules against the Node runtime (rather than
+ * the Electron runtime used by the workspace) and therefore each get their own
+ * `.npmrc`, `node_modules` and `pnpm-lock.yaml`. Installed by
+ * `build/npm/postinstall.ts` after the root workspace install completes.
+ */
+export const standaloneDirs = [
+	'build',
+	'remote',
+	'remote/web',
+];
+
+if (existsSync(`${import.meta.dirname}/../../.build/distro/npm`)) {
+	standaloneDirs.push('.build/distro/npm');
+	standaloneDirs.push('.build/distro/npm/remote');
+	standaloneDirs.push('.build/distro/npm/remote/web');
+}

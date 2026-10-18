@@ -83,7 +83,7 @@ return result;
 }
 
 export function getProductionDependencies(folderPath: string): string[] {
-	const result = getNpmProductionDependencies(folderPath);
+	const result = getPnpmProductionDependencies(folderPath);
 	// Account for distro npm dependencies
 	const realFolderPath = fs.realpathSync(folderPath);
 	const relativeFolderPath = path.relative(root, realFolderPath);

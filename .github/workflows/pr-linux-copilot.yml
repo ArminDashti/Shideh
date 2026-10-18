@@ -25,6 +25,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+
+      - name: Setup pnpm
+        run: corepack enable
       - name: Setup system services
         run: |
           set -e
@@ -63,7 +66,7 @@ jobs:
           set -e
 
           for i in {1..5}; do # try 5 times
-            npm ci && break
+            pnpm install --frozen-lockfile --ignore-workspace && break
             if [ $i -eq 5 ]; then
               echo "Npm install failed too many times" >&2
               exit 1
@@ -81,7 +84,7 @@ jobs:
           source ./build/azure-pipelines/linux/setup-env.sh
 
           for i in {1..5}; do # try 5 times
-            npm ci && break
+            pnpm install --frozen-lockfile && break
             if [ $i -eq 5 ]; then
               echo "Npm install failed too many times" >&2
               exit 1
