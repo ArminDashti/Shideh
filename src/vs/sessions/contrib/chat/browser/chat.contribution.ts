@@ -515,9 +515,17 @@ registerWorkbenchContribution2(SessionArchiveNudgeContribution.ID, SessionArchiv
 registerWorkbenchContribution2(SessionsChatBackgroundTint.ID, SessionsChatBackgroundTint, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentHostSandboxNotifications.ID, AgentHostSandboxNotifications, WorkbenchPhase.AfterRestored);
 
-class CopilotSdkDebugContribution extends Disposable implements IWorkbenchContribution {
+// --- Debug feature registration helper ---
+// Eliminates duplication between the SDK and Cloud Task debug contributions.
 
-	static readonly ID = 'copilotSdk.debugContribution';
+function registerDebugFeature(options: {
+	contributionId: string;
+	actionId: string;
+	title: ReturnType<typeof localize2>;
+	LogCtor: new (...args: unknown[]) => Disposable;
+	getLog: () => { instance: BaseDebugLog<IBaseDebugLogEntry> | undefined };
+	createPanel: (instantiationService: IInstantiationService, el: HTMLElement, log: BaseDebugLog<IBaseDebugLogEntry>) => Disposable;
+}): void {
 
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
@@ -531,10 +539,59 @@ class CopilotSdkDebugContribution extends Disposable implements IWorkbenchContri
 
 		instantiationService.createInstance(CopilotSdkDebugLog);
 	}
+	registerWorkbenchContribution2(DebugLogContribution.ID, DebugLogContribution, WorkbenchPhase.AfterRestored);
+
+	// 2. Command palette action - toggles a debug modal with the debug panel
+	let activeModal: IDisposable | undefined;
+	registerAction2(class DebugPanelAction extends Action2 {
+		constructor() {
+			super({
+				id: options.actionId,
+				title: options.title,
+				f1: true,
+				icon: Codicon.beaker,
+				precondition: IsSessionsUtilityProcessContext,
+			});
+		}
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const environmentService = accessor.get(IWorkbenchEnvironmentService);
+			if (!environmentService.isSessionsUtilityProcess) {
+				return;
+			}
+
+			if (activeModal) {
+				activeModal.dispose();
+				activeModal = undefined;
+				return;
+			}
+
+			const log = options.getLog().instance;
+			if (!log) {
+				return;
+			}
+
+			const layoutService = accessor.get(IWorkbenchLayoutService);
+			const instantiationService = accessor.get(IInstantiationService);
+			activeModal = openDebugModal(
+				{ container: layoutService.mainContainer },
+				(contentEl) => {
+					const panel = options.createPanel(instantiationService, contentEl, log);
+					return { dispose: () => { panel.dispose(); activeModal = undefined; } };
+				},
+			);
+		}
+	});
 }
 
-// SDK debug log (only when using SDK - captures all events from startup)
-registerWorkbenchContribution2(CopilotSdkDebugContribution.ID, CopilotSdkDebugContribution, WorkbenchPhase.AfterRestored);
+// SDK debug feature
+registerDebugFeature({
+	contributionId: 'copilotSdk.debugContribution',
+	actionId: 'copilotSdk.openDebugPanel',
+	title: localize2('copilotSdkDebugPanel', 'Copilot SDK: Open Debug Panel'),
+	LogCtor: CopilotSdkDebugLog,
+	getLog: () => CopilotSdkDebugLog,
+	createPanel: (inst, el, log) => inst.createInstance(CopilotSdkDebugPanel, el, log),
+});
 
 // SDK debug panel (command palette action)
 let activeDebugBackdrop: HTMLElement | undefined;

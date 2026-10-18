@@ -65,9 +65,12 @@ export class AgenticSessionsViewPane extends ViewPane {
 	// SDK session list (used when --sessions-utility-process is active)
 	private readonly _useSdk: boolean;
 	private _sdkSessions: ICopilotSessionMetadata[] = [];
-	private _sdkSelectedSessionId: string | undefined;
-	private _sdkListContainer: HTMLElement | undefined;
-	private readonly _sdkListDisposables = this._register(new DisposableStore());
+	private _cloudTasks: ICloudTask[] = [];
+	private _selectedItemId: string | undefined;
+
+	// Unified list (combined SDK sessions + cloud tasks)
+	private _unifiedListContainer: HTMLElement | undefined;
+	private readonly _unifiedListDisposables = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewPaneOptions,

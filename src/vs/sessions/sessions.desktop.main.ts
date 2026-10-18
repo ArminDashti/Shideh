@@ -279,6 +279,9 @@ import './contrib/tunnelHost/electron-browser/tunnelHost.contribution.js';
 // Sessions (desktop only)
 import './contrib/sessions/electron-browser/sessions.contribution.js';
 
+// Cloud Task API service
+import './contrib/cloudTask/browser/cloudTask.contribution.js';
+
 //#endregion
 
 export { main } from './electron-browser/sessions.main.js';

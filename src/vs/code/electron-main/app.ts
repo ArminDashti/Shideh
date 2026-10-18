@@ -134,6 +134,8 @@ import { IInitialProtocolUrls, IProtocolUrl } from '../../platform/url/electron-
 import { IUtilityProcessWorkerMainService, UtilityProcessWorkerMainService } from '../../platform/utilityProcess/electron-main/utilityProcessWorkerMainService.js';
 import { CopilotSdkMainService } from '../../platform/copilotSdk/electron-main/copilotSdkStarter.js';
 import { ICopilotSdkMainService, CopilotSdkChannel } from '../../platform/copilotSdk/common/copilotSdkService.js';
+import { RequestChannel } from '../../platform/request/common/requestIpc.js';
+import { IRequestService } from '../../platform/request/common/request.js';
 import { ipcUtilityProcessWorkerChannelName } from '../../platform/utilityProcess/common/utilityProcessWorkerService.js';
 import { ILocalPtyService, LocalReconnectConstants, TerminalIpcChannels, TerminalSettingId } from '../../platform/terminal/common/terminal.js';
 import { createLocalPtyChannel } from '../../platform/terminal/common/localPtyChannel.js';
@@ -1715,6 +1717,10 @@ export class CodeApplication extends Disposable {
 			const copilotSdkMainService = accessor.get(ICopilotSdkMainService);
 			mainProcessElectronServer.registerChannel(CopilotSdkChannel, copilotSdkMainService.getServerChannel());
 		}
+
+		// Request (proxies HTTP requests through the main process to avoid CORS in renderer)
+		const requestChannel = new RequestChannel(accessor.get(IRequestService));
+		mainProcessElectronServer.registerChannel('request', requestChannel);
 	}
 
 	private async openFirstWindow(accessor: ServicesAccessor, initialProtocolUrls: IInitialProtocolUrls | undefined): Promise<ICodeWindow[]> {
