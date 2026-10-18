@@ -1920,6 +1920,16 @@
             "filenamePattern": "*.{md,mkd,mkdn,mdwn,mdown,markdown,markdn,mdtxt,mdtext,litcoffee,ron,ronn,workbook}"
           }
         ]
+      },
+      {
+        "viewType": "vscode.markdown.editor",
+        "displayName": "Markdown Editor (Experimental)",
+        "priority": "option",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ]
       }
     ]
   },
