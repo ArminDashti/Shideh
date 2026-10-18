@@ -5005,6 +5005,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				}
 			}
 
+			_perfTestDelay_chatMarkdownRender();
+
 			if (content.kind === 'treeData') {
 				return this.renderTreeData(content, templateData, context);
 			} else if (content.kind === 'multiDiffData') {
