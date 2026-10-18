@@ -83,6 +83,11 @@ function updateRelativeTime(item: TimelineItem, lastRelativeTime: string | undef
 	return lastRelativeTime;
 }
 
+function convertExcludedSourcesToSet(excludedSources: { [source: string]: boolean }) {
+	const excluded = Object.entries(excludedSources).filter(([_, excluded]) => excluded).map(([source]) => source);
+	return new Set(excluded);
+}
+
 interface TimelineActionContext {
 	uri: URI | undefined;
 	item: TreeElement;
