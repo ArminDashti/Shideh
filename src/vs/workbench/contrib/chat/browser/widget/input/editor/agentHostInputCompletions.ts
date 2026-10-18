@@ -323,6 +323,11 @@ class AgentHostReferenceArgument {
 		// dedupes re-accepting the same reference.
 		return new AgentHostReferenceArgument(widget, chatReferenceVariableEntryId(uri, endTurn), toChatReferenceDynamicVariableValue(uri, endTurn), displayName ?? title, false, false, range, _meta);
 	}
+
+	static forSessionReference(widget: IChatWidget, sessionResource: URI, displayName: string | undefined, range: Range, _meta: Record<string, unknown> | undefined): AgentHostReferenceArgument {
+		const entry = toAgentHostCompletionVariableEntry(AgentHostCompletionReferenceKind.SessionReference, displayName ?? sessionResource.toString(), sessionResource, _meta);
+		return new AgentHostReferenceArgument(widget, entry.id, entry.value, displayName, false, false, range, _meta);
+	}
 }
 
 /**

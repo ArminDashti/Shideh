@@ -130,6 +130,11 @@ export class AgentHostFileCompletionProvider implements IAgentHostCompletionItem
 		if (!at) {
 			return [];
 		}
+		// Cede `#session…` tokens to the session-reference provider so file
+		// matches don't get mixed into the session list.
+		if (at.triggerChar === CompletionTriggerCharacter.Hash && isSessionReferenceToken(at.token)) {
+			return [];
+		}
 
 		let filesByRoot: readonly (readonly URI[])[];
 		try {

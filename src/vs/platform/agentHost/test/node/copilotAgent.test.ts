@@ -19700,10 +19700,14 @@ suite('CopilotAgent', () => {
 			}
 
 			assert.ok(capturedConfig, 'the SDK createSession must run during materialization');
+			// The host-bundled built-in skills (e.g. `/troubleshoot`) are always
+			// appended and legitimately resolve outside the worktree; exclude them
+			// so this asserts only the worktree-anchoring of workspace skills.
+			const builtinSkillDirs = new Set(getBuiltinSkillDirectories());
 			assert.deepStrictEqual(
 				{
 					workingDirectory: capturedConfig.workingDirectory,
-					skillDirectories: capturedConfig.skillDirectories,
+					skillDirectories: capturedConfig.skillDirectories?.filter(dir => !builtinSkillDirs.has(dir)),
 					instructionDirectories: capturedConfig.instructionDirectories,
 					agentDiscoveryProjectPaths: client.agentDiscoveryRequests.at(-1)?.projectPaths,
 					instructionDiscoveryProjectPaths: client.instructionDiscoveryRequests.at(-1)?.projectPaths,

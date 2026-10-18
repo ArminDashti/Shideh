@@ -13,7 +13,8 @@ import { ITextModel } from '../../../../../../../editor/common/model.js';
 import { LanguageFilter } from '../../../../../../../editor/common/languageSelector.js';
 import { ILanguageFeaturesService } from '../../../../../../../editor/common/services/languageFeatures.js';
 import { IChatInputCompletionItem, IChatSessionsService } from '../../../../common/chatSessionsService.js';
-import { isAtTriggerCharacterToken } from './chatInputCompletionUtils.js';
+import { chatVariableLeader } from '../../../../common/requestParser/chatParserTypes.js';
+import { getTriggerCharacterAtToken } from './chatInputCompletionUtils.js';
 
 /**
  * Shared plumbing for Monaco completion providers that delegate to an

@@ -1110,6 +1110,14 @@ export class CopilotAgent extends Disposable implements IAgent {
 			RUNTIME_SLASH_COMMAND_COMPLETION_WAIT_MS,
 		)));
 
+		// `#session` reference completions: one item per other Copilot CLI session
+		// on this host, used to point the built-in `/troubleshoot` skill at another
+		// session. Driven by the harness so it works identically across clients and
+		// standalone/remote.
+		this._register(completions.registerProvider(new AgentHostSessionReferenceCompletionProvider(this.id,
+			() => this.listSessions(),
+		)));
+
 		// Restart the CLI client when a setting baked into the client/subprocess at
 		// startup changes, disposing any active sessions. These values are applied in
 		// `_ensureClient`, so they only take effect on the next client start.
