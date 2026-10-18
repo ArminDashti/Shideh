@@ -1282,7 +1282,7 @@ export class ViewModelLinesFromModelAsIs implements IViewModelLines {
 		return false;
 	}
 
-	public setWrappingSettings(_fontInfo: FontInfo, _wrappingStrategy: 'simple' | 'advanced', _wrappingColumn: number, _wrappingIndent: WrappingIndent): boolean {
+	public setWrappingSettings(_fontInfo: FontInfo, _wrappingStrategy: 'simple' | 'advanced', _wrappingColumn: number, _wrappingIndent: WrappingIndent, _wordBreak: 'normal' | 'keepAll', _forceFullwidthCharacterWidth: boolean): boolean {
 		return false;
 	}
 

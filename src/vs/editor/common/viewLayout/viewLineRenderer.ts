@@ -13,6 +13,7 @@ import { LinePart, LinePartMetadata } from './linePart.js';
 import { OffsetRange } from '../core/ranges/offsetRange.js';
 import { FixedWidthInlineDecoration, InlineDecorationType } from '../viewModel/inlineDecorations.js';
 import { TextDirection } from '../model.js';
+import { BugIndicatingError } from '../../../base/common/errors.js';
 
 export const enum RenderWhitespace {
 	None = 0,
@@ -20,6 +21,17 @@ export const enum RenderWhitespace {
 	Selection = 2,
 	Trailing = 3,
 	All = 4
+}
+
+export interface IFullwidthLetterSpacingRequest {
+	readonly grapheme: string;
+	readonly className: string;
+}
+
+export interface IFullwidthLetterSpacingProvider {
+	readonly generation: number;
+	prepare(requests: readonly IFullwidthLetterSpacingRequest[]): void;
+	getLetterSpacing(grapheme: string, className: string): number;
 }
 
 export interface IRenderLineInputOptions {
@@ -72,6 +84,8 @@ export class RenderLineInput {
 	public readonly fontLigatures: boolean;
 	public readonly textDirection: TextDirection | null;
 	public readonly verticalScrollbarSize: number;
+	public readonly fullwidthLetterSpacingProvider: IFullwidthLetterSpacingProvider | null;
+	private readonly _fullwidthLetterSpacingProviderGeneration: number;
 
 	/**
 	 * Defined only when renderWhitespace is 'selection'. Selections are non-overlapping,
@@ -149,6 +163,8 @@ export class RenderLineInput {
 		this.useTwoCellFullwidthCharacters = useTwoCellFullwidthCharacters;
 		this.textDirection = textDirection;
 		this.verticalScrollbarSize = verticalScrollbarSize;
+		this.fullwidthLetterSpacingProvider = fullwidthLetterSpacingProvider;
+		this._fullwidthLetterSpacingProviderGeneration = fullwidthLetterSpacingProvider?.generation ?? 0;
 
 		const wsmiddotDiff = Math.abs(wsmiddotWidth - spaceWidth);
 		const middotDiff = Math.abs(middotWidth - spaceWidth);
@@ -913,6 +929,91 @@ function extractControlCharacters(lineContent: string, tokens: LinePart[]): Line
 }
 
 /**
+ * Splits every token into runs of full-width and runs of half-width characters, so that the
+ * rendering phase can give the full-width ones a `letter-spacing` of their own.
+ */
+function splitFullWidthCharacters(lineContent: string, tokens: LinePart[], provider: IFullwidthLetterSpacingProvider): LinePart[] {
+	const requests: IFullwidthLetterSpacingRequest[] = [];
+	let tokenStartIndex = 0;
+	for (const token of tokens) {
+		const graphemeIterator = new strings.GraphemeIterator(lineContent, tokenStartIndex);
+		while (!graphemeIterator.eol()) {
+			const graphemeStartIndex = graphemeIterator.offset;
+			if (graphemeStartIndex >= token.endIndex) {
+				break;
+			}
+			graphemeIterator.nextGraphemeLength();
+			if (strings.isFullWidthCharacterAt(lineContent, graphemeStartIndex)) {
+				requests.push({
+					grapheme: lineContent.substring(graphemeStartIndex, graphemeIterator.offset),
+					className: token.type,
+				});
+			}
+		}
+		tokenStartIndex = token.endIndex;
+	}
+	provider.prepare(requests);
+
+	const result: LinePart[] = [];
+	tokenStartIndex = 0;
+	for (const token of tokens) {
+		if (tokenStartIndex === token.endIndex) {
+			result.push(token);
+			continue;
+		}
+		let partStartIndex = tokenStartIndex;
+		let partIsFullWidth = strings.isFullWidthCharacterAt(lineContent, partStartIndex);
+		let partLetterSpacing = partIsFullWidth
+			? provider.getLetterSpacing(getGraphemeAt(lineContent, partStartIndex), token.type)
+			: null;
+		const graphemeIterator = new strings.GraphemeIterator(lineContent, tokenStartIndex);
+		while (!graphemeIterator.eol()) {
+			const graphemeStartIndex = graphemeIterator.offset;
+			if (graphemeStartIndex >= token.endIndex) {
+				break;
+			}
+			graphemeIterator.nextGraphemeLength();
+			if (graphemeStartIndex === tokenStartIndex) {
+				continue;
+			}
+			const isFullWidth = strings.isFullWidthCharacterAt(lineContent, graphemeStartIndex);
+			const letterSpacing = isFullWidth
+				? provider.getLetterSpacing(lineContent.substring(graphemeStartIndex, graphemeIterator.offset), token.type)
+				: null;
+			if (isFullWidth !== partIsFullWidth || letterSpacing !== partLetterSpacing) {
+				result.push(new LinePart(
+					graphemeStartIndex,
+					token.type,
+					token.metadata | (partIsFullWidth ? LinePartMetadata.IS_FULL_WIDTH : 0),
+					token.containsRTL,
+					partLetterSpacing,
+				));
+				partStartIndex = graphemeStartIndex;
+				partIsFullWidth = isFullWidth;
+				partLetterSpacing = letterSpacing;
+			}
+		}
+		if (partStartIndex < token.endIndex) {
+			result.push(new LinePart(
+				token.endIndex,
+				token.type,
+				token.metadata | (partIsFullWidth ? LinePartMetadata.IS_FULL_WIDTH : 0),
+				token.containsRTL,
+				partLetterSpacing,
+			));
+		}
+		tokenStartIndex = token.endIndex;
+	}
+	return result;
+}
+
+function getGraphemeAt(lineContent: string, index: number): string {
+	const graphemeIterator = new strings.GraphemeIterator(lineContent, index);
+	graphemeIterator.nextGraphemeLength();
+	return lineContent.substring(index, graphemeIterator.offset);
+}
+
+/**
  * Whitespace is rendered by "replacing" tokens with a special-purpose `mtkw` type that is later recognized in the rendering phase.
  * Moreover, a token is created for every visual indent because on some fonts the glyphs used for rendering whitespace (&rarr; or &middot;) do not have the same width as &nbsp;.
  * The rendering phase will generate `style="width:..."` for these tokens.
@@ -1384,7 +1485,12 @@ function _renderLine(input: ResolvedRenderLineInput, sb: StringBuilder, renderOu
 						break;
 
 					default:
-						if (strings.isFullWidthCharacter(charCode)) {
+						if (partIsFullWidth) {
+							if (fullwidthCharacterWidths === null) {
+								throw new BugIndicatingError('Missing full-width character mapping');
+							}
+							charWidth = fullwidthCharacterWidths[charIndex];
+						} else if (strings.isFullWidthCharacter(charCode)) {
 							charWidth++;
 						}
 						// See https://unicode-table.com/en/blocks/control-pictures/

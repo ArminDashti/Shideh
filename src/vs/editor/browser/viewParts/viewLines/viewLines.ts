@@ -3,13 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { getWindow } from '../../../../base/browser/dom.js';
 import { FastDomNode } from '../../../../base/browser/fastDomNode.js';
 import { MOUSE_CURSOR_TEXT_CSS_CLASS_NAME } from '../../../../base/browser/ui/mouseCursor/mouseCursor.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import * as platform from '../../../../base/common/platform.js';
+import * as strings from '../../../../base/common/strings.js';
 import { Constants } from '../../../../base/common/uint.js';
 import './viewLines.css';
 import { applyFontInfo } from '../../config/domFontInfo.js';
+import { clearFullwidthLetterSpacingProviders } from '../../config/fullwidthLetterSpacing.js';
 import { HorizontalPosition, HorizontalRange, IViewLines, LineVisibleRanges, VisibleRanges } from '../../view/renderingContext.js';
 import { VisibleLinesCollection } from '../../view/viewLayer.js';
 import { PartFingerprint, PartFingerprints, ViewPart } from '../../view/viewPart.js';
@@ -158,7 +161,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 		this._cursorSurroundingLines = options.get(EditorOption.cursorSurroundingLines);
 		this._cursorSurroundingLinesStyle = options.get(EditorOption.cursorSurroundingLinesStyle);
 		this._canUseLayerHinting = !options.get(EditorOption.disableLayerHinting);
-		this._viewLineOptions = new ViewLineOptions(conf, this._context.theme.type);
+		this._viewLineOptions = new ViewLineOptions(conf, this._context.theme.type, getWindow(linesContent.domNode));
 
 		this._editorContext = editorContext;
 		this._linesContent = linesContent;
@@ -237,7 +240,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 	private _onOptionsMaybeChanged(): boolean {
 		const conf = this._context.configuration;
 
-		const newViewLineOptions = new ViewLineOptions(conf, this._context.theme.type);
+		const newViewLineOptions = new ViewLineOptions(conf, this._context.theme.type, getWindow(this._linesContent.domNode));
 		if (!this._viewLineOptions.equals(newViewLineOptions)) {
 			this._viewLineOptions = newViewLineOptions;
 
@@ -345,6 +348,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 		return this._visibleLines.onZonesChanged(e);
 	}
 	public override onThemeChanged(e: viewEvents.ViewThemeChangedEvent): boolean {
+		clearFullwidthLetterSpacingProviders(getWindow(this._linesContent.domNode));
 		return this._onOptionsMaybeChanged();
 	}
 
@@ -637,6 +641,8 @@ export class ViewLines extends ViewPart implements IViewLines {
 	}
 
 	public renderText(viewportData: ViewportData): void {
+		this._prepareFullwidthLetterSpacing(viewportData);
+
 		// (1) render lines - ensures lines are in the DOM
 		this._visibleLines.renderLines(viewportData);
 		this._lastRenderedData.setCurrentVisibleRange(viewportData.visibleRange);

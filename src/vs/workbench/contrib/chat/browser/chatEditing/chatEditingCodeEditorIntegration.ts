@@ -1022,11 +1022,15 @@ class AccessibleDiffViewContainer implements IOverlayWidget {
 }
 
 class AccessibleDiffViewerModel implements IAccessibleDiffViewerModel {
+	readonly onDidChangeOptions: ICodeEditor['onDidChangeConfiguration'];
+
 	constructor(
 		private readonly _originalModel: ITextModel,
 		private readonly _documentDiffInfo: IObservable<IDocumentDiff2 | undefined>,
 		private readonly _editor: ICodeEditor,
-	) { }
+	) {
+		this.onDidChangeOptions = _editor.onDidChangeConfiguration;
+	}
 
 	getOriginalModel() {
 		return this._originalModel;

@@ -11,6 +11,7 @@ import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '..
 import { IObservable, autorun, autorunWithStore, constObservable, derived, derivedOpts, observableSignalFromEvent, observableValue } from '../../../../../../base/common/observable.js';
 import * as strings from '../../../../../../base/common/strings.js';
 import { applyFontInfo } from '../../../../../browser/config/domFontInfo.js';
+import { getFullwidthLetterSpacingProvider } from '../../../../../browser/config/fullwidthLetterSpacing.js';
 import { ContentWidgetPositionPreference, ICodeEditor, IContentWidgetPosition, IViewZoneChangeAccessor, MouseTargetType } from '../../../../../browser/editorBrowser.js';
 import { observableCodeEditor } from '../../../../../browser/observableCodeEditor.js';
 import { EditorFontLigatures, EditorOption, IComputedEditorOptions } from '../../../../../common/config/editorOptions.js';
@@ -646,6 +647,7 @@ export class AdditionalLinesWidget extends Disposable {
 				|| e.hasChanged(EditorOption.renderControlCharacters)
 				|| e.hasChanged(EditorOption.fontLigatures)
 				|| e.hasChanged(EditorOption.fontInfo)
+				|| e.hasChanged(EditorOption.forceFullwidthCharacterWidth)
 				|| e.hasChanged(EditorOption.lineHeight)
 				|| e.hasChanged(EditorOption.effectiveFullwidthCharacterWidth)
 		));

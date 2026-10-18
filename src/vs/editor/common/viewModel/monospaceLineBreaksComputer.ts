@@ -7,7 +7,7 @@ import { CharCode } from '../../../base/common/charCode.js';
 import * as strings from '../../../base/common/strings.js';
 import { WrappingIndent, IComputedEditorOptions, EditorOption } from '../config/editorOptions.js';
 import { CharacterClassifier } from '../core/characterClassifier.js';
-import { FontInfo } from '../config/fontInfo.js';
+import { FontInfo, getFullwidthCharacterWidth } from '../config/fontInfo.js';
 import { FixedWidthInjectedTextRange, LineInjectedText } from '../textModelEvents.js';
 import { InjectedTextOptions } from '../model.js';
 import { FixedWidthInjectedTextRange, getFixedWidthInjectedTextRanges, ILineBreaksComputerFactory, ILineBreaksComputer, ModelLineProjectionData, ILineBreaksComputerContext } from '../modelLineProjectionData.js';
@@ -35,7 +35,6 @@ export class MonospaceLineBreaksComputerFactory implements ILineBreaksComputerFa
 				previousBreakingData.push(previousLineBreakData);
 			},
 			finalize: () => {
-				const columnsForFullWidthChar = fontInfo.typicalFullwidthCharacterWidth / fontInfo.typicalHalfwidthCharacterWidth;
 				const result: (ModelLineProjectionData | null)[] = [];
 				for (let i = 0, len = lineNumbers.length; i < len; i++) {
 					const lineNumber = lineNumbers[i];
@@ -169,11 +168,11 @@ function createLineBreaksFromPreviousLineBreaks(classifier: WrappingCharacterCla
 				let charCodeClass: number;
 				let charWidth: number;
 
-				if (strings.isHighSurrogate(charCode)) {
-					// A surrogate pair must always be considered as a single unit, so it is never to be broken
+				if (isHighSurrogateAt(lineText, i)) {
+					const codePoint = strings.getNextCodePoint(lineText, len, i);
 					i++;
 					charCodeClass = CharacterClass.NONE;
-					charWidth = 2;
+					charWidth = strings.isFullWidthCodePoint(codePoint) ? columnsForFullWidthChar : 2;
 				} else {
 					charCodeClass = classifier.get(charCode);
 					charWidth = computeCharWidth(charCode, visibleColumn, tabSize, columnsForFullWidthChar, useTwoCellFullwidthCharacters);
@@ -242,11 +241,11 @@ function createLineBreaksFromPreviousLineBreaks(classifier: WrappingCharacterCla
 				let prevCharCodeClass: number;
 				let prevCharWidth: number;
 
-				if (strings.isLowSurrogate(prevCharCode)) {
-					// A surrogate pair must always be considered as a single unit, so it is never to be broken
+				if (strings.isLowSurrogate(prevCharCode) && i > lastBreakingOffset && strings.isHighSurrogate(lineText.charCodeAt(i - 1))) {
 					i--;
 					prevCharCodeClass = CharacterClass.NONE;
-					prevCharWidth = 2;
+					const codePoint = strings.getNextCodePoint(lineText, len, i);
+					prevCharWidth = strings.isFullWidthCodePoint(codePoint) ? columnsForFullWidthChar : 2;
 				} else {
 					prevCharCodeClass = classifier.get(prevCharCode);
 					prevCharWidth = (strings.isFullWidthCharacter(prevCharCode) ? fullWidthCharacterColumns(columnsForFullWidthChar, useTwoCellFullwidthCharacters) : 1);
@@ -280,9 +279,9 @@ function createLineBreaksFromPreviousLineBreaks(classifier: WrappingCharacterCla
 				if (remainingWidthOfNextLine <= tabSize) {
 					const charCodeAtForcedBreakOffset = lineText.charCodeAt(forcedBreakOffset);
 					let charWidth: number;
-					if (strings.isHighSurrogate(charCodeAtForcedBreakOffset)) {
-						// A surrogate pair must always be considered as a single unit, so it is never to be broken
-						charWidth = 2;
+					if (isHighSurrogateAt(lineText, forcedBreakOffset)) {
+						const codePoint = strings.getNextCodePoint(lineText, len, forcedBreakOffset);
+						charWidth = strings.isFullWidthCodePoint(codePoint) ? columnsForFullWidthChar : 2;
 					} else {
 						charWidth = computeCharWidth(charCodeAtForcedBreakOffset, forcedBreakOffsetVisibleColumn, tabSize, columnsForFullWidthChar, useTwoCellFullwidthCharacters);
 					}
@@ -309,10 +308,10 @@ function createLineBreaksFromPreviousLineBreaks(classifier: WrappingCharacterCla
 		if (breakOffset <= lastBreakingOffset) {
 			// Make sure that we are advancing (at least one character)
 			const charCode = lineText.charCodeAt(lastBreakingOffset);
-			if (strings.isHighSurrogate(charCode)) {
-				// A surrogate pair must always be considered as a single unit, so it is never to be broken
+			if (isHighSurrogateAt(lineText, lastBreakingOffset)) {
+				const codePoint = strings.getNextCodePoint(lineText, len, lastBreakingOffset);
 				breakOffset = lastBreakingOffset + 2;
-				breakOffsetVisibleColumn = lastBreakingOffsetVisibleColumn + 2;
+				breakOffsetVisibleColumn = lastBreakingOffsetVisibleColumn + (strings.isFullWidthCodePoint(codePoint) ? columnsForFullWidthChar : 2);
 			} else {
 				breakOffset = lastBreakingOffset + 1;
 				breakOffsetVisibleColumn = lastBreakingOffsetVisibleColumn + computeCharWidth(charCode, lastBreakingOffsetVisibleColumn, tabSize, columnsForFullWidthChar, useTwoCellFullwidthCharacters);
@@ -379,6 +378,12 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 		return new ModelLineProjectionData(injectionOffsets, injectionOptions, [lineText.length], [], 0);
 	}
 
+	const forceFullwidthCharacterWidthForLine = forceFullwidthCharacterWidth && !strings.containsRTL(lineText);
+	const fullwidthCharacterPixelWidth = getFullwidthCharacterWidth(fontInfo, forceFullwidthCharacterWidthForLine);
+	const columnsForFullWidthChar = fullwidthCharacterPixelWidth / fontInfo.typicalHalfwidthCharacterWidth;
+	const columnsForControlChar = fontInfo.typicalFullwidthCharacterWidth / fontInfo.typicalHalfwidthCharacterWidth;
+	const fullwidthCharacterColumns = forceFullwidthCharacterWidthForLine ? strings.getFullwidthCharacterColumnWidths(lineText) : null;
+
 	const len = lineText.length;
 	if (len <= 1) {
 		if (!injectionOptions) {
@@ -431,7 +436,11 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 			visibleColumn += 1;
 			currentLinePixelWidth += typicalHalfwidthCharacterWidth;
 			prevCharCode = lineText.charCodeAt(1);
-			startOffset++;
+			startOffset = 2;
+		} else {
+			visibleColumn = computeCharWidth(prevCharCode, 0, tabSize, columnsForFullWidthChar, columnsForControlChar);
+			currentLinePixelWidth = computeCharPixelWidth(prevCharCode, 0, tabSize, fullwidthCharacterPixelWidth, fontInfo);
+			startOffset = 1;
 		}
 		prevCharCodeClass = classifier.get(prevCharCode);
 	}
@@ -453,8 +462,16 @@ function createLineBreaks(classifier: WrappingCharacterClassifier, _lineText: st
 			charPixelWidth = fixedWidthRange.widthInEm * fontInfo.fontSize;
 			i = fixedWidthRange.endOffset - 1;
 			fixedWidthRangeIndex++;
-		} else if (strings.isHighSurrogate(charCode)) {
-			// A surrogate pair must always be considered as a single unit, so it is never to be broken
+		} else if (fullwidthCharacterColumns?.[i] === 2) {
+			charCodeClass = classifier.get(charCode);
+			charWidth = columnsForFullWidthChar;
+			charPixelWidth = fullwidthCharacterPixelWidth;
+			while (i + 1 < len && fullwidthCharacterColumns[i + 1] === 0) {
+				i++;
+			}
+		} else if (isHighSurrogateAt(lineText, i)) {
+			const codePoint = strings.getNextCodePoint(lineText, len, i);
+			const isFullWidth = strings.isFullWidthCodePoint(codePoint);
 			i++;
 			charCodeClass = CharacterClass.NONE;
 			trailingCharCodeClass = charCodeClass;
@@ -529,7 +546,7 @@ function computeCharWidth(charCode: number, visibleColumn: number, tabSize: numb
 	}
 	if (charCode < 32) {
 		// when using `editor.renderControlCharacters`, the substitutions are often wide
-		return columnsForFullWidthChar;
+		return columnsForControlChar;
 	}
 	return 1;
 }
@@ -576,6 +593,12 @@ function computeFixedWidthRangeColumnWidth(lineText: string, range: FixedWidthIn
 		width += computeCharWidth(lineText.charCodeAt(i), visibleColumn + width, tabSize, columnsForFullWidthChar, useTwoCellFullwidthCharacters);
 	}
 	return width;
+}
+
+function isHighSurrogateAt(text: string, index: number): boolean {
+	return strings.isHighSurrogate(text.charCodeAt(index))
+		&& index + 1 < text.length
+		&& strings.isLowSurrogate(text.charCodeAt(index + 1));
 }
 
 /**

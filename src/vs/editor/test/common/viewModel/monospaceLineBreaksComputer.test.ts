@@ -157,6 +157,23 @@ suite('Editor ViewModel - MonospaceLineBreaksComputer', () => {
 			breakOffsets: [4, 7],
 			breakOffsetsVisibleColumn: [4, 7]
 		});
+
+	});
+
+	test('forces full-width characters to two columns when wrapping', () => {
+		const factory = new MonospaceLineBreaksComputerFactory('', '');
+		const text = '擦擦a';
+		const lineBreakData = getLineBreakData(factory, 4, 4, 1.5, WrappingIndent.None, 'normal', false, text, null, null, true);
+
+		assert.strictEqual(toAnnotatedText(text, lineBreakData), '擦擦|a');
+	});
+
+	test('does not wrap within a full-width grapheme', () => {
+		const factory = new MonospaceLineBreaksComputerFactory('', '');
+		const text = 'か\u3099a';
+		const lineBreakData = getLineBreakData(factory, 4, 1, 1.5, WrappingIndent.None, 'normal', false, text, null, null, true);
+
+		assert.strictEqual(toAnnotatedText(text, lineBreakData), 'か\u3099|a');
 	});
 
 	test('treats multi-character fixed-width injected text as an atomic span', () => {

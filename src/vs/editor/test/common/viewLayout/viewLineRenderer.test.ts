@@ -82,6 +82,25 @@ const defaultRenderLineInputOptions: IRenderLineInputOptions = {
 	useTwoCellFullwidthCharacters: false
 };
 
+function createFullwidthLetterSpacingProvider(letterSpacings: ReadonlyMap<string, number>): IFullwidthLetterSpacingProvider {
+	return {
+		generation: 0,
+		prepare: () => { },
+		getLetterSpacing: grapheme => {
+			const letterSpacing = letterSpacings.get(grapheme);
+			assert.notStrictEqual(letterSpacing, undefined);
+			return letterSpacing!;
+		},
+	};
+}
+
+const twoPixelFullwidthLetterSpacingProvider = createFullwidthLetterSpacingProvider(new Map([
+	['擦', 2],
+	['字', 2],
+	['𠀋', 2],
+	['🙂', 2],
+]));
+
 function createRenderLineInputOptions(opts: IRelaxedRenderLineInputOptions): IRenderLineInputOptions {
 	return {
 		...defaultRenderLineInputOptions,
@@ -554,7 +573,9 @@ suite('renderViewLine', () => {
 			false,
 			null,
 			null,
-			14
+			14,
+			false,
+			null
 		));
 
 		const inflated = inflateRenderLineOutput(_actual);

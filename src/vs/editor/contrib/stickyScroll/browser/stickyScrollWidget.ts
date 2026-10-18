@@ -10,6 +10,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import './stickyScroll.css';
 import { ICodeEditor, IOverlayWidget, IOverlayWidgetPosition, OverlayWidgetPositionPreference } from '../../../browser/editorBrowser.js';
+import { getFullwidthLetterSpacingProvider } from '../../../browser/config/fullwidthLetterSpacing.js';
 import { getColumnOfNodeOffset } from '../../../browser/viewParts/viewLines/viewLine.js';
 import { EmbeddedCodeEditorWidget } from '../../../browser/widget/codeEditor/embeddedCodeEditorWidget.js';
 import { EditorLayoutInfo, EditorOption, RenderLineNumbersType } from '../../../common/config/editorOptions.js';

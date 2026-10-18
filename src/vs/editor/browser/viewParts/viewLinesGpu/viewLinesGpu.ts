@@ -710,7 +710,7 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 		}
 
 		let width = 0;
-		let tabXOffset = 0;
+		let visualColumn = lineData.startVisibleColumn;
 
 		for (let x = 0; x < content.length; x++) {
 			let chars: string;
@@ -725,14 +725,21 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 			}
 
 			if (chars === '\t') {
-				const offsetBefore = x + tabXOffset;
-				tabXOffset = CursorColumns.nextRenderTabStop(x + tabXOffset, lineData.tabSize);
-				width += viewLineOptions.spaceWidth * (tabXOffset - offsetBefore);
-				tabXOffset -= x + 1;
+				const nextTabStop = CursorColumns.nextRenderTabStop(visualColumn, lineData.tabSize);
+				width += viewLineOptions.spaceWidth * (nextTabStop - visualColumn);
+				visualColumn = nextTabStop;
+			} else if (chars === ' ') {
+				width += viewLineOptions.spaceWidth;
+				visualColumn++;
+			} else if (viewLineOptions.forceFullwidthCharacterWidth && strings.isFullWidthCharacterAt(chars, 0)) {
+				width += viewLineOptions.fullwidthCharacterWidth;
+				visualColumn += CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
 			} else if (lineData.isBasicASCII && viewLineOptions.useMonospaceOptimizations) {
 				width += viewLineOptions.spaceWidth;
+				visualColumn++;
 			} else {
 				width += this._renderStrategy.value!.glyphRasterizer.getTextMetrics(chars).width / dpr;
+				visualColumn += CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
 			}
 		}
 
@@ -828,6 +835,7 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 		let resolvedStartColumn = 0;
 		let resolvedStartCssPixelOffset = 0;
 		for (let x = 0; x < startColumn - 1; x++) {
+			let characterColumnWidth = 1;
 			if (lineData.isBasicASCII && viewLineOptions.useMonospaceOptimizations) {
 				chars = content.charAt(x);
 			} else {
@@ -835,17 +843,26 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 				if (chars === undefined) {
 					continue;
 				}
-				resolvedStartCssPixelOffset += (this._renderStrategy.value!.glyphRasterizer.getTextMetrics(chars).width / getActiveWindow().devicePixelRatio) - viewLineOptions.spaceWidth;
+				if (chars !== '\t') {
+					characterColumnWidth = CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
+					const characterWidth = chars === ' '
+						? viewLineOptions.spaceWidth
+						: viewLineOptions.forceFullwidthCharacterWidth && strings.isFullWidthCharacterAt(chars, 0)
+							? viewLineOptions.fullwidthCharacterWidth
+							: this._renderStrategy.value!.glyphRasterizer.getTextMetrics(chars).width / getActiveWindow().devicePixelRatio;
+					resolvedStartCssPixelOffset += characterWidth - characterColumnWidth * viewLineOptions.spaceWidth;
+				}
 			}
 			if (chars === '\t') {
 				resolvedStartColumn = CursorColumns.nextRenderTabStop(resolvedStartColumn, lineData.tabSize);
 			} else {
-				resolvedStartColumn++;
+				resolvedStartColumn += characterColumnWidth;
 			}
 		}
 		let resolvedEndColumn = resolvedStartColumn;
 		let resolvedEndCssPixelOffset = 0;
 		for (let x = startColumn - 1; x < endColumn - 1; x++) {
+			let characterColumnWidth = 1;
 			if (lineData.isBasicASCII && viewLineOptions.useMonospaceOptimizations) {
 				chars = content.charAt(x);
 			} else {
@@ -853,12 +870,20 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 				if (chars === undefined) {
 					continue;
 				}
-				resolvedEndCssPixelOffset += (this._renderStrategy.value!.glyphRasterizer.getTextMetrics(chars).width / getActiveWindow().devicePixelRatio) - viewLineOptions.spaceWidth;
+				if (chars !== '\t') {
+					characterColumnWidth = CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
+					const characterWidth = chars === ' '
+						? viewLineOptions.spaceWidth
+						: viewLineOptions.forceFullwidthCharacterWidth && strings.isFullWidthCharacterAt(chars, 0)
+							? viewLineOptions.fullwidthCharacterWidth
+							: this._renderStrategy.value!.glyphRasterizer.getTextMetrics(chars).width / getActiveWindow().devicePixelRatio;
+					resolvedEndCssPixelOffset += characterWidth - characterColumnWidth * viewLineOptions.spaceWidth;
+				}
 			}
 			if (chars === '\t') {
 				resolvedEndColumn = CursorColumns.nextRenderTabStop(resolvedEndColumn, lineData.tabSize);
 			} else {
-				resolvedEndColumn++;
+				resolvedEndColumn += characterColumnWidth;
 			}
 		}
 
@@ -914,7 +939,7 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 
 		let widthSoFar = 0;
 		let charWidth = 0;
-		let tabXOffset = 0;
+		let visualColumn = lineData.startVisibleColumn;
 		let column = 0;
 		for (let x = 0; x < content.length; x++) {
 			const chars = contentSegmenter.getSegmentAtIndex(x);
@@ -927,12 +952,12 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 
 			// Get the width of the character
 			if (chars === '\t') {
-				// Find the pixel offset between the current position and the next tab stop
-				const offsetBefore = x + tabXOffset;
-				tabXOffset = CursorColumns.nextRenderTabStop(x + tabXOffset, lineData.tabSize);
-				charWidth = spaceWidthDevicePixels * (tabXOffset - offsetBefore);
-				// Convert back to offset excluding x and the current character
-				tabXOffset -= x + 1;
+				const nextTabStop = CursorColumns.nextRenderTabStop(visualColumn, lineData.tabSize);
+				charWidth = spaceWidthDevicePixels * (nextTabStop - visualColumn);
+			} else if (chars === ' ') {
+				charWidth = spaceWidthDevicePixels;
+			} else if (this._lastViewLineOptions.forceFullwidthCharacterWidth && strings.isFullWidthCharacterAt(chars, 0)) {
+				charWidth = this._lastViewLineOptions.fullwidthCharacterWidth * dpr;
 			} else if (lineData.isBasicASCII && this._lastViewLineOptions.useMonospaceOptimizations) {
 				charWidth = spaceWidthDevicePixels;
 			} else {
@@ -944,6 +969,11 @@ export class ViewLinesGpu extends ViewPart implements IViewLines, IViewLineHitTe
 			}
 
 			widthSoFar += charWidth;
+			if (chars === '\t') {
+				visualColumn = CursorColumns.nextRenderTabStop(visualColumn, lineData.tabSize);
+			} else {
+				visualColumn += CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
+			}
 			column++;
 		}
 

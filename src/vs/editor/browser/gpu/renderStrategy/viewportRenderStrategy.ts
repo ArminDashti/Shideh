@@ -206,7 +206,7 @@ export class ViewportRenderStrategy extends BaseRenderStrategy {
 		let x = 0;
 		let absoluteOffsetX = 0;
 		let absoluteOffsetY = 0;
-		let tabXOffset = 0;
+		let visualColumn = 0;
 		let glyph: Readonly<ITextureAtlasPageGlyph>;
 		let cellIndex = 0;
 
@@ -253,10 +253,11 @@ export class ViewportRenderStrategy extends BaseRenderStrategy {
 			}
 
 			lineData = viewportData.getViewLineRenderingData(y);
-			tabXOffset = 0;
+			visualColumn = lineData.startVisibleColumn;
 
 			contentSegmenter = createContentSegmenter(lineData, viewLineOptions);
-			charWidth = viewLineOptions.spaceWidth * dpr;
+			const cellWidth = viewLineOptions.spaceWidth * dpr;
+			charWidth = cellWidth;
 			absoluteOffsetX = (lineData.minColumn - 1) * charWidth;
 
 			tokens = lineData.tokens;
@@ -282,7 +283,9 @@ export class ViewportRenderStrategy extends BaseRenderStrategy {
 					}
 					chars = segment;
 
-					if (!(lineData.isBasicASCII && viewLineOptions.useMonospaceOptimizations)) {
+					if (viewLineOptions.forceFullwidthCharacterWidth && strings.isFullWidthCharacterAt(chars, 0)) {
+						charWidth = viewLineOptions.fullwidthCharacterWidth * dpr;
+					} else if (!(lineData.isBasicASCII && viewLineOptions.useMonospaceOptimizations)) {
 						charWidth = this.glyphRasterizer.getTextMetrics(chars).width;
 					}
 
@@ -378,14 +381,12 @@ export class ViewportRenderStrategy extends BaseRenderStrategy {
 						cellBuffer.fill(0, cellIndex, cellIndex + CellBufferInfo.FloatsPerEntry);
 						// Adjust xOffset for tab stops
 						if (chars === '\t') {
-							// Find the pixel offset between the current position and the next tab stop
-							const offsetBefore = x + tabXOffset;
-							tabXOffset = CursorColumns.nextRenderTabStop(x + tabXOffset, lineData.tabSize);
-							absoluteOffsetX += charWidth * (tabXOffset - offsetBefore);
-							// Convert back to offset excluding x and the current character
-							tabXOffset -= x + 1;
+							const nextTabStop = CursorColumns.nextRenderTabStop(visualColumn, lineData.tabSize);
+							absoluteOffsetX += cellWidth * (nextTabStop - visualColumn);
+							visualColumn = nextTabStop;
 						} else {
-							absoluteOffsetX += charWidth;
+							absoluteOffsetX += cellWidth;
+							visualColumn++;
 						}
 						continue;
 					}
@@ -414,6 +415,7 @@ export class ViewportRenderStrategy extends BaseRenderStrategy {
 
 					// Adjust the x pixel offset for the next character
 					absoluteOffsetX += charWidth;
+					visualColumn += CursorColumns.visibleColumnFromColumn(chars, chars.length + 1, lineData.tabSize);
 				}
 
 				tokenStartIndex = tokenEndIndex;

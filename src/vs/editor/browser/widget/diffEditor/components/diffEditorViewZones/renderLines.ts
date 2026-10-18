@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createTrustedTypesPolicy } from '../../../../../../base/browser/trustedTypes.js';
+import { getWindow } from '../../../../../../base/browser/dom.js';
+import { mainWindow } from '../../../../../../base/browser/window.js';
 import { applyFontInfo } from '../../../../config/domFontInfo.js';
+import { getFullwidthLetterSpacingProvider } from '../../../../config/fullwidthLetterSpacing.js';
 import { ICodeEditor } from '../../../../editorBrowser.js';
 import { EditorFontLigatures, EditorOption, FindComputedEditorOptionValueById } from '../../../../../common/config/editorOptions.js';
 import { FontInfo } from '../../../../../common/config/fontInfo.js';
@@ -13,7 +16,7 @@ import { StringBuilder } from '../../../../../common/core/stringBuilder.js';
 import { ModelLineProjectionData } from '../../../../../common/modelLineProjectionData.js';
 import { IViewLineTokens, LineTokens } from '../../../../../common/tokens/lineTokens.js';
 import { LineDecoration } from '../../../../../common/viewLayout/lineDecorations.js';
-import { CharacterMapping, ForeignElementType, RenderLineInput, RenderLineOutput, renderViewLine } from '../../../../../common/viewLayout/viewLineRenderer.js';
+import { CharacterMapping, ForeignElementType, type IFullwidthLetterSpacingProvider, RenderLineInput, RenderLineOutput, renderViewLine } from '../../../../../common/viewLayout/viewLineRenderer.js';
 import { ViewLineRenderingData } from '../../../../../common/viewModel.js';
 import { InlineDecoration } from '../../../../../common/viewModel/inlineDecorations.js';
 import { getColumnOfNodeOffset } from '../../../../viewParts/viewLines/viewLine.js';
@@ -141,6 +144,7 @@ export class RenderOptions {
 		public readonly verticalScrollbarSize: number,
 		public readonly useTwoCellFullwidthCharacters: boolean = false,
 		public readonly setWidth = true,
+		public readonly fullwidthLetterSpacingProvider: IFullwidthLetterSpacingProvider | null = null,
 	) { }
 
 	public withSetWidth(setWidth: boolean): RenderOptions {
@@ -159,6 +163,7 @@ export class RenderOptions {
 			this.verticalScrollbarSize,
 			this.useTwoCellFullwidthCharacters,
 			setWidth,
+			this.fullwidthLetterSpacingProvider,
 		);
 	}
 
@@ -178,6 +183,7 @@ export class RenderOptions {
 			this.verticalScrollbarSize,
 			this.useTwoCellFullwidthCharacters,
 			this.setWidth,
+			this.fullwidthLetterSpacingProvider,
 		);
 	}
 }

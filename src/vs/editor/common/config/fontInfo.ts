@@ -207,6 +207,24 @@ export class FontInfo extends BareFontInfo {
 		);
 	}
 }
+
+/**
+ * Returns the full-width character advance, optionally forced to exactly two half-width cells for monospace fonts.
+ */
+export function getFullwidthCharacterWidth(fontInfo: FontInfo, forceFullwidthCharacterWidth: boolean): number {
+	if (!forceFullwidthCharacterWidth || !fontInfo.isMonospace) {
+		return fontInfo.typicalFullwidthCharacterWidth;
+	}
+	return 2 * fontInfo.typicalHalfwidthCharacterWidth;
+}
+
+/**
+ * Returns the `letter-spacing` required to give a grapheme the target advance.
+ */
+export function computeFullwidthLetterSpacing(targetWidth: number, graphemeWidthWithoutLetterSpacing: number): number {
+	return targetWidth - graphemeWidthWithoutLetterSpacing;
+}
+
 /**
  * @internal
  */

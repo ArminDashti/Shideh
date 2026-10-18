@@ -3955,6 +3955,11 @@ declare namespace monaco.editor {
 		 */
 		fontVariations?: boolean | string;
 		/**
+		 * When using a monospace font, force full-width characters to occupy exactly two character cells.
+		 * Defaults to false.
+		 */
+		forceFullwidthCharacterWidth?: boolean;
+		/**
 		 * Controls whether to use default color decorations or not using the default document color provider
 		 */
 		defaultColorDecorators?: 'auto' | 'always' | 'never';
@@ -5900,6 +5905,7 @@ declare namespace monaco.editor {
 		fontSize: IEditorOption<EditorOption.fontSize, number>;
 		fontWeight: IEditorOption<EditorOption.fontWeight, string>;
 		fontVariations: IEditorOption<EditorOption.fontVariations, string>;
+		forceFullwidthCharacterWidth: IEditorOption<EditorOption.forceFullwidthCharacterWidth, boolean>;
 		formatOnPaste: IEditorOption<EditorOption.formatOnPaste, boolean>;
 		formatOnType: IEditorOption<EditorOption.formatOnType, boolean>;
 		fullwidthCharacterWidth: IEditorOption<EditorOption.fullwidthCharacterWidth, 'font' | 'twoCells'>;

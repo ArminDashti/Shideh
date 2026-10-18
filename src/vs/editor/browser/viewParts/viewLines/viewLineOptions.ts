@@ -6,6 +6,9 @@
 import type { ColorScheme } from '../../../../platform/theme/common/theme.js';
 import type { IEditorConfiguration } from '../../../common/config/editorConfiguration.js';
 import { EditorOption } from '../../../common/config/editorOptions.js';
+import { getFullwidthCharacterWidth } from '../../../common/config/fontInfo.js';
+import type { IFullwidthLetterSpacingProvider } from '../../../common/viewLayout/viewLineRenderer.js';
+import { getFullwidthLetterSpacingProvider } from '../../config/fullwidthLetterSpacing.js';
 
 export class ViewLineOptions {
 	public readonly themeType: ColorScheme;
@@ -17,6 +20,13 @@ export class ViewLineOptions {
 	public readonly wsmiddotWidth: number;
 	public readonly useMonospaceOptimizations: boolean;
 	public readonly canUseHalfwidthRightwardsArrow: boolean;
+	public readonly forceFullwidthCharacterWidth: boolean;
+	/**
+	 * The advance width of a full-width character, already corrected for
+	 * `editor.forceFullwidthCharacterWidth`.
+	 */
+	public readonly fullwidthCharacterWidth: number;
+	public readonly fullwidthLetterSpacingProvider: IFullwidthLetterSpacingProvider | null;
 	public readonly lineHeight: number;
 	public readonly stopRenderingLineAfter: number;
 	public readonly fontLigatures: string;
@@ -24,7 +34,7 @@ export class ViewLineOptions {
 	public readonly useGpu: boolean;
 	public readonly useTwoCellFullwidthCharacters: boolean;
 
-	constructor(config: IEditorConfiguration, themeType: ColorScheme) {
+	constructor(config: IEditorConfiguration, themeType: ColorScheme, targetWindow?: Window) {
 		this.themeType = themeType;
 		const options = config.options;
 		const fontInfo = options.get(EditorOption.fontInfo);
@@ -39,6 +49,11 @@ export class ViewLineOptions {
 			&& !options.get(EditorOption.disableMonospaceOptimizations)
 		);
 		this.canUseHalfwidthRightwardsArrow = fontInfo.canUseHalfwidthRightwardsArrow;
+		this.forceFullwidthCharacterWidth = options.get(EditorOption.forceFullwidthCharacterWidth) && fontInfo.isMonospace;
+		this.fullwidthCharacterWidth = getFullwidthCharacterWidth(fontInfo, this.forceFullwidthCharacterWidth);
+		this.fullwidthLetterSpacingProvider = targetWindow
+			? getFullwidthLetterSpacingProvider(targetWindow, fontInfo, this.forceFullwidthCharacterWidth)
+			: null;
 		this.lineHeight = options.get(EditorOption.lineHeight);
 		this.stopRenderingLineAfter = options.get(EditorOption.stopRenderingLineAfter);
 		this.fontLigatures = options.get(EditorOption.fontLigatures);
@@ -58,6 +73,9 @@ export class ViewLineOptions {
 			&& this.wsmiddotWidth === other.wsmiddotWidth
 			&& this.useMonospaceOptimizations === other.useMonospaceOptimizations
 			&& this.canUseHalfwidthRightwardsArrow === other.canUseHalfwidthRightwardsArrow
+			&& this.forceFullwidthCharacterWidth === other.forceFullwidthCharacterWidth
+			&& this.fullwidthCharacterWidth === other.fullwidthCharacterWidth
+			&& this.fullwidthLetterSpacingProvider === other.fullwidthLetterSpacingProvider
 			&& this.lineHeight === other.lineHeight
 			&& this.stopRenderingLineAfter === other.stopRenderingLineAfter
 			&& this.fontLigatures === other.fontLigatures
