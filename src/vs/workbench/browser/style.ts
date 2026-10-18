@@ -17,6 +17,12 @@ registerThemingParticipant((theme, collector) => {
 	const workbenchBackground = WORKBENCH_BACKGROUND(theme);
 	collector.addRule(`.monaco-workbench { background-color: ${workbenchBackground}; }`);
 
+	// When panel margins are enabled, use editor background for floating effect
+	const editorBg = theme.getColor(editorBackground);
+	if (editorBg) {
+		collector.addRule(`.monaco-workbench.panel-margins-enabled { background-color: ${editorBg}; }`);
+	}
+
 	// Selection (do NOT remove - https://github.com/microsoft/vscode/issues/169662)
 	const windowSelectionBackground = theme.getColor(selectionBackground);
 	if (windowSelectionBackground) {

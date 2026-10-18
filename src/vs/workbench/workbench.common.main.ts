@@ -298,6 +298,9 @@ import './contrib/searchEditor/browser/searchEditor.contribution.js';
 import './contrib/git/browser/git.contributions.js';
 import './contrib/github/browser/githubLinkPresentation.contribution.js';
 
+// Panel Margins
+import './contrib/panelMargins/browser/panelMargins.contribution.js';
+
 // SCM
 import './contrib/scm/browser/scm.contribution.js';
 import './contrib/scm/browser/quickDiff.contribution.js';
