@@ -1179,6 +1179,17 @@ menusExtensionPoint.setHandler(extensions => {
 	}
 });
 
+function ensureDebugViewletOnly(when: string | undefined): string {
+	if (!when) {
+		return 'viewContainer == workbench.view.debug';
+	}
+
+	// This is not perfect, but just communicates that this is intended for debug viewlet only for now as a proposal
+	return when.includes('viewContainer == workbench.view.debug') ?
+		when :
+		`${when} && viewContainer == workbench.view.debug`;
+}
+
 class CommandsTableRenderer extends Disposable implements IExtensionFeatureTableRenderer {
 
 	readonly type = 'table';
