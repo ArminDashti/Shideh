@@ -4167,6 +4167,12 @@ per-word capitalization does not survive translation. */
 	display: flex;
 	gap: 4px;
 	flex-shrink: 0;
+	/* Reserve space so focused button outlines do not clip against the widget's overflow:hidden */
+	padding: 1px;
+}
+
+.mcp-list-widget .list-button-group .monaco-button:focus-visible {
+	outline-offset: -1px;
 }
 
 /* Embedded Editor View */

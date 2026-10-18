@@ -582,6 +582,25 @@ class PluginMarketplaceItemRenderer implements IListRenderer<IPluginMarketplaceI
 			return;
 		}
 
+		// Check if the plugin is already installed by comparing install URIs
+		const installUri = this.pluginInstallService.getPluginInstallUri({
+			name: element.item.name,
+			description: element.item.description,
+			version: '',
+			sourceDescriptor: element.item.sourceDescriptor,
+			source: element.item.source,
+			marketplace: element.item.marketplace,
+			marketplaceReference: element.item.marketplaceReference,
+			marketplaceType: element.item.marketplaceType,
+		});
+		const isAlreadyInstalled = this.agentPluginService.plugins.get().some(p => isEqual(p.uri, installUri));
+
+		if (isAlreadyInstalled) {
+			templateData.installButton.label = localize('installed', "Installed");
+			templateData.installButton.enabled = false;
+			return;
+		}
+
 		templateData.installButton.label = localize('install', "Install");
 		templateData.installButton.enabled = true;
 		this.updateInstallButtonTabbability(templateData);
