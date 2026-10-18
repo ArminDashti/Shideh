@@ -7,6 +7,7 @@ import assert from 'assert';
 import { URI } from '../../../../../../base/common/uri.js';
 import { upcastPartial } from '../../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
+import { NullActionViewItemService } from '../../../../../../platform/actions/browser/actionViewItemService.js';
 import { CustomizationType, type AgentCustomization } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { agentHostAgentPickerStorageKey, resolveAgentHostAgent } from '../../../../../../platform/agentHost/common/customAgents.js';
 import { isIMenuItem, MenuId, MenuRegistry } from '../../../../../../platform/actions/common/actions.js';
@@ -28,6 +29,92 @@ suite('agentHostAgentPicker', () => {
 	const alpha: AgentCustomization = { type: CustomizationType.Agent, id: 'agent://a', uri: 'agent://a', name: 'alpha' };
 	const beta: AgentCustomization = { type: CustomizationType.Agent, id: 'agent://b', uri: 'agent://b', name: 'beta', description: 'b desc' };
 	const agents: readonly AgentCustomization[] = [alpha, beta];
+	type SessionMode = { readonly id: string; readonly kind: string };
+
+	interface ITestSession {
+		readonly session: IActiveSession;
+		readonly mode: ISettableObservable<SessionMode | undefined>;
+		readonly status: ISettableObservable<SessionStatus>;
+	}
+
+	function createSession(id: string, providerId: string, resourceScheme: string, selectedAgentUri: string | undefined, status: SessionStatus): ITestSession {
+		const mode = observableValue<SessionMode | undefined>(`mode-${id}`, selectedAgentUri ? { id: selectedAgentUri, kind: 'agent' } : undefined);
+		const sessionStatus = observableValue(`status-${id}`, status);
+		const session = new class extends mock<IActiveSession>() {
+			override readonly sessionId = `${providerId}:${id}`;
+			override readonly resource = URI.parse(`${resourceScheme}:/${id}`);
+			override readonly providerId = providerId;
+			override readonly mode = mode;
+			override readonly status = sessionStatus;
+		};
+		return { session, mode, status: sessionStatus };
+	}
+
+	function createContributionHarness(
+		providerId: string,
+		initialSession: ITestSession | undefined,
+		sessions: readonly ITestSession[],
+		customAgents: Map<string, readonly AgentCustomization[]>,
+		storedAgentUri?: string,
+	) {
+		const activeSession = observableValue<IActiveSession | undefined>('activeSession', initialSession?.session);
+		const sessionsService = new class extends mock<ISessionsService>() {
+			override readonly activeSession = activeSession;
+		};
+		const sessionById = new Map(sessions.map(state => [state.session.sessionId, state]));
+		const customAgentsChanged = store.add(new Emitter<void>());
+		const setAgentCalls: Array<{ readonly sessionId: string; readonly agentUri: string | undefined }> = [];
+		const provider = new class extends mock<IAgentHostSessionsProvider>() {
+			override readonly id = providerId;
+			override readonly onDidChangeCustomAgents = customAgentsChanged.event;
+			override getCustomAgents(sessionId: string): readonly AgentCustomization[] {
+				return customAgents.get(sessionId) ?? [];
+			}
+			override setAgent(sessionId: string, agent: ISessionAgentRef | undefined): void {
+				setAgentCalls.push({ sessionId, agentUri: agent?.uri });
+				sessionById.get(sessionId)?.mode.set(agent ? { id: agent.uri, kind: 'agent' } : undefined, undefined);
+			}
+		};
+		const sessionsProvidersService = new class extends mock<ISessionsProvidersService>() {
+			override getProvider<T extends ISessionsProvider>(candidateId: string): T | undefined {
+				return (candidateId === provider.id ? provider : undefined) as T | undefined;
+			}
+		};
+		const chatService = new class extends mock<IChatService>() {
+			override getSession() {
+				return undefined;
+			}
+		};
+		const chatWidgetService = new class extends mock<IChatWidgetService>() {
+			override readonly onDidAddWidget = Event.None;
+			override readonly onDidChangeFocusedSession = Event.None;
+			override getWidgetBySessionResource() {
+				return undefined;
+			}
+		};
+		const storageService = store.add(new TestStorageService());
+		if (storedAgentUri && initialSession) {
+			storageService.store(agentHostAgentPickerStorageKey(initialSession.session.resource.scheme), storedAgentUri, StorageScope.PROFILE, StorageTarget.MACHINE);
+		}
+
+		store.add(new AgentHostAgentPickerContribution(
+			new NullActionViewItemService(),
+			sessionsService,
+			sessionsProvidersService,
+			chatService,
+			chatWidgetService,
+			storageService,
+			new NullLogService(),
+		));
+
+		return {
+			activeSession,
+			customAgentsChanged,
+			registerSession: (state: ITestSession) => sessionById.set(state.session.sessionId, state),
+			setAgentCalls,
+			storageService,
+		};
+	}
 
 	test('places the new-session agent before mode without duplicating it in automations', () => {
 		const context = disposables.add(new ContextKeyService(new TestConfigurationService()));

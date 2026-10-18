@@ -388,7 +388,7 @@ export class AgentHostAgentPickerContribution extends Disposable implements IWor
 		endInternalSet: () => void,
 	): void {
 		const provider = this._getProvider(session, sessionsProvidersService);
-		if (!session || !provider) {
+		if (!session || !provider || selectedAgentUri || !isUntitled) {
 			return;
 		}
 
