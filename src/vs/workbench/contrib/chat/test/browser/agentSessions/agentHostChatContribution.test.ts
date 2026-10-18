@@ -273,8 +273,8 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 
 	/**
 	 * If set, the next {@link createSession} call seeds the session summary's
-	 * `workingDirectory` to this URI instead of echoing back
-	 * `config.workingDirectory`. Used to simulate the server resolving the
+	 * `workingDirectory` to this URI instead of echoing back the config's
+	 * primary working directory. Used to simulate the server resolving the
 	 * working directory to a worktree path that differs from the requested
 	 * directory.
 	 */

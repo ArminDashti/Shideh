@@ -12310,7 +12310,8 @@ suite('CopilotAgent', () => {
 				const session = AgentSession.uri('copilotcli', 'session-discovery-burst-watcher-change');
 				await agent.createSession({
 					session,
-					workingDirectory: workspace,
+					workingDirectories: workspace ? [workspace] : undefined,
+					primaryWorkingDirectory: workspace,
 				});
 
 				await agent.getSessionCustomizations(session);
@@ -19105,7 +19106,8 @@ suite('CopilotAgent', () => {
 				await agent.authenticate('https://api.github.com', 'token');
 				const result = await agent.createSession({
 					session: AgentSession.uri('copilotcli', 'agent-translate'),
-					workingDirectory: repoFolder,
+					workingDirectories: repoFolder ? [repoFolder] : undefined,
+					primaryWorkingDirectory: repoFolder,
 					agent: { uri: repoAgentFile.toString() },
 				});
 				assert.strictEqual(result.provisional, true);
