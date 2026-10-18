@@ -524,6 +524,7 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 		const maxInterval = PollingConsts.MaxPollingIntervalDuration;
 		let currentInterval = PollingConsts.MinPollingDuration;
 		let waited = 0;
+		const startTime = Date.now();
 		let consecutiveIdleEvents = 0;
 		let hasReceivedData = false;
 		const onDataDisposable = execution.instance.onData((_data) => {
