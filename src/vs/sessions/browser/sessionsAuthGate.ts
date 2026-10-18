@@ -28,6 +28,10 @@ export function shouldShowGitHubWorkspaceGroupSignIn(signedIn: boolean, allowSig
 	return !signedIn && allowSignedOutWhenUsable;
 }
 
+export function shouldForceGitHubSignIn(allowSignedOutWhenUsable: boolean): boolean {
+	return !allowSignedOutWhenUsable;
+}
+
 /**
  * Observe the setting that permits running without GitHub sign-in when a
  * session type can operate that way.

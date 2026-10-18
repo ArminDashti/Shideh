@@ -4489,6 +4489,10 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		this._onDidChangeSessionTypes.fire();
 	}
 
+	protected _resolveAgentAuthRequirement(agent: AgentInfo): SessionTypeAuthRequirement {
+		return resolveAgentAuthRequirement(agent);
+	}
+
 	/**
 	 * Returns the {@link ThemeIcon} associated with a known agent provider, or
 	 * `undefined` when the provider is not recognised.

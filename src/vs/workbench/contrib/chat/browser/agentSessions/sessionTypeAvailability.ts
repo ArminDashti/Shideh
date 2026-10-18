@@ -24,6 +24,12 @@ export enum SessionTypeAvailability {
 	NoModels,
 }
 
+export function getSessionTypePickerAvailability(type: string, availability: SessionTypeAvailability, allowSignedOutWhenUsable: boolean): SessionTypeAvailability {
+	return allowSignedOutWhenUsable && type === SessionType.AgentHostCopilot && availability === SessionTypeAvailability.SignInRequired
+		? SessionTypeAvailability.Available
+		: availability;
+}
+
 /**
  * The picker's view of {@link getSessionTypeAvailability}, which keeps a harness
  * selectable when the user can make it usable by selecting it. Agent SDK model

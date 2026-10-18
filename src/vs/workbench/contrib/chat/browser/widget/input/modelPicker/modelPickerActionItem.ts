@@ -29,6 +29,7 @@ export interface IModelPickerPresentationOptions {
 	readonly showFeatured: boolean;
 	readonly showAutoModel: boolean;
 	readonly showModelIcon: boolean;
+	readonly showSignInWhenNoModels: boolean;
 }
 
 export interface IModelPickerSelectionPresentation {
