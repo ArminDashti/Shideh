@@ -214,6 +214,8 @@ async function findPSCoreMsix({ findPreview }: { findPreview?: boolean } = {}): 
 			const pwshMsixPath = path.join(msixAppDir, subdir, 'pwsh.exe');
 			return new PossiblePowerShellExe(pwshMsixPath, pwshMsixName);
 		}
+	} catch (err) {
+		console.warn(`Unable to read MSIX directory (${msixAppDir}) because of the following error: ${err}`);
 	}
 
 	// If we find nothing, return null

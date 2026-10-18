@@ -312,6 +312,11 @@ class PrivacyColumn implements ITableColumn<ITunnelItem, ActionBarCell> {
 
 		const label = row.privacy?.label;
 		let tooltip: string = '';
+		if (row.tunnelType === TunnelType.Add) {
+			return { label, context, tunnel: row, icon: row.icon, editId: TunnelEditId.None, tooltip };
+		}
+
+		label = row.privacy === TunnelPrivacy.Public ? nls.localize('tunnel.privacyPublic', "Public") : nls.localize('tunnel.privacyPrivate', "Private");
 		if (row instanceof TunnelItem) {
 			tooltip = `${row.privacy.label} ${row.tooltipPostfix}`;
 		}

@@ -1051,6 +1051,11 @@ export interface ITerminalInstance extends IBaseTerminalInstance {
 	waitOnExit: WaitOnExitValue | undefined;
 
 	/**
+	 * Whether the process communication channel has been disconnected.
+	 */
+	readonly isDisconnected: boolean;
+
+	/**
 	 * An event that fires when the terminal instance's title changes.
 	 */
 	readonly onTitleChanged: Event<ITerminalInstance>;

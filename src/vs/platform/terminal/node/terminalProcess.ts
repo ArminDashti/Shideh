@@ -82,6 +82,25 @@ const generalShellTypeMap = new Map<string, GeneralShellType>([
 	['xonsh', GeneralShellType.Xonsh],
 ]);
 
+const enum ShutdownConstants {
+	/**
+	 * The amount of time that must pass between data events after exit is queued before the actual
+	 * kill call is triggered. This data flush mechanism works around an [issue in node-pty][1]
+	 * where not all data is flushed which causes problems for task problem matchers. Additionally
+	 * on Windows under conpty, killing a process while data is being output will cause the [conhost
+	 * flush to hang the pty host][2] because [conhost should be hosted on another thread][3].
+	 *
+	 * [1]: https://github.com/Tyriar/node-pty/issues/72
+	 * [2]: https://github.com/microsoft/vscode/issues/71966
+	 * [3]: https://github.com/microsoft/node-pty/pull/415
+	 */
+	DataFlushTimeout = 250,
+	/**
+	 * The maximum time to allow after dispose is called because forcefully killing the process.
+	 */
+	MaximumShutdownTime = 5000
+}
+
 export class TerminalProcess extends Disposable implements ITerminalChildProcess {
 	readonly id = 0;
 	readonly shouldPersist = false;
