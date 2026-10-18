@@ -29,6 +29,7 @@ import { MessageKind, TurnState, type AgentInfo, type RootState, type Turn } fro
 import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { IUriIdentityService } from '../../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IChatService } from '../../../common/chatService/chatService.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 import { AgentHostUntitledProvisionalSessionService, IAgentHostUntitledProvisionalSessionService } from '../../../browser/agentSessions/agentHost/agentHostUntitledProvisionalSessionService.js';
 import { AgentHostNewSessionFolderService, IAgentHostNewSessionFolderService } from '../../../browser/agentSessions/agentHost/agentHostNewSessionFolderService.js';
 import { AgentHostImportConversationStore, IAgentHostImportConversationStore } from '../../../browser/agentSessions/agentHost/agentHostImportConversationStore.js';
@@ -236,6 +237,7 @@ suite('AgentHostUntitledProvisionalSessionService', () => {
 		workbenchState = WorkbenchState.EMPTY;
 		isSessionsWindow = false;
 		acquiredScopeRoots = [];
+		autoApprovePolicyRestricted = false;
 		onDidChangeWorkspaceFolders = ds.add(new Emitter<IWorkspaceFoldersChangeEvent>());
 		const insta = ds.add(new TestInstantiationService());
 		insta.stub(IAgentHostService, agentHost);
@@ -401,6 +403,22 @@ suite('AgentHostUntitledProvisionalSessionService', () => {
 			reused: true,
 			createCount: 1,
 			config: { isolation: 'folder' },
+		});
+	});
+
+	test('getOrCreate preserves configured Autopilot mode when policy restricts approvals', async () => {
+		autoApprovePolicyRestricted = true;
+		await configurationService.setUserConfiguration(ChatConfiguration.DefaultConfiguration, {
+			mode: 'autopilot',
+			approvals: 'allowAll',
+		});
+
+		await provisional.getOrCreate(untitledChatUri('policy-restricted-autopilot'), 'copilot', undefined);
+
+		assert.deepStrictEqual(agentHost.createCalls[0].config, {
+			isolation: 'folder',
+			mode: 'autopilot',
+			autoApprove: 'default',
 		});
 	});
 
