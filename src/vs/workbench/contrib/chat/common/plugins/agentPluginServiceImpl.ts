@@ -272,6 +272,68 @@ function setPolicyEnablement(plugin: IAgentPlugin, policyValue: boolean | undefi
 }
 
 /**
+ * Determines whether a plugin is blocked by enterprise policy:
+ * - If `chat.plugins.enabledPlugins` (policy-managed via `ChatEnabledPlugins`)
+ *   is set, only plugins whose ID appears with value `true` are allowed.
+ * - If `chat.plugins.strictMarketplaces` is on, only plugins from a
+ *   marketplace listed in `chat.plugins.extraMarketplaces` are allowed.
+ *
+ * Plugins without a marketplace provenance (e.g. user-configured filesystem
+ * paths from `chat.pluginLocations`) are never blocked — they are user-side
+ * concerns outside the enterprise enforcement boundary. Copilot-CLI-installed
+ * plugins under `~/.copilot/installed-plugins/<marketplace>/<plugin>/` are
+ * gated using their install-path identity even when they lack rich
+ * marketplace metadata.
+ *
+ * Pure (no `this`) so the gating logic can be unit-tested directly.
+ */
+export function isBlockedByPolicy(
+	plugin: Pick<IAgentPlugin, 'uri' | 'fromMarketplace'>,
+	enabledPluginsPolicy: Record<string, boolean> | undefined,
+	strictMarketplaces: boolean,
+	trustedExtras: readonly IMarketplaceReference[],
+	pluginMarketplaceService: Pick<IPluginMarketplaceService, 'isMarketplaceTrusted'>,
+	logService: ILogService,
+): boolean {
+	const identity = getPolicyIdentity(plugin);
+	if (!identity) {
+		return false;
+	}
+	const pluginId = `${identity.name}@${identity.marketplace}`;
+	if (enabledPluginsPolicy && Object.keys(enabledPluginsPolicy).length > 0) {
+		if (enabledPluginsPolicy[pluginId] !== true) {
+			logService.debug(`[AgentPluginService] Plugin '${pluginId}' blocked — not enabled by ChatEnabledPlugins policy`);
+			return true;
+		}
+	}
+	if (strictMarketplaces) {
+		const trusted = identity.marketplaceReference
+			? pluginMarketplaceService.isMarketplaceTrusted(identity.marketplaceReference)
+			: isCliBucketTrusted(identity.marketplace, trustedExtras);
+		if (!trusted) {
+			logService.debug(`[AgentPluginService] Plugin '${pluginId}' blocked — marketplace not trusted under strict mode`);
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Resolves an enterprise plugin ID of the form `<plugin>@<marketplace>` to the
+ * Copilot CLI install convention `~/.copilot/installed-plugins/<marketplace>/<plugin>/`.
+ * Returns `undefined` for anything that doesn't match the ID shape. The inverse
+ * of the install-path parsing in `getPolicyIdentity`.
+ */
+export function resolveEnterprisePluginId(id: string, userHome: string): URI | undefined {
+	const idMatch = id.match(/^([^@/\\~]+)@([^@/\\~]+)$/);
+	if (!idMatch) {
+		return undefined;
+	}
+	const [, plugin, marketplace] = idMatch;
+	return URI.file(`${userHome}/.copilot/installed-plugins/${marketplace}/${plugin}`);
+}
+
+/**
  * Minimal shape of a parsed plugin manifest. Known fields are typed; unknown
  * keys (e.g. `commands`, `skills`, `hooks`, `mcpServers`) remain `unknown` and
  * are parsed by the component readers.

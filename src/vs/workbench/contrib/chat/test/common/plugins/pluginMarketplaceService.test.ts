@@ -30,6 +30,7 @@ import { AutoUpdateConfigurationValue, IExtensionsWorkbenchService } from '../..
 import { ChatConfiguration } from '../../../common/constants.js';
 import { IAgentPluginRepositoryService } from '../../../common/plugins/agentPluginRepositoryService.js';
 import { IMarketplacePlugin, IMarketplaceReference, IPluginSourceDescriptor, MarketplaceReferenceKind, MarketplaceType, PluginMarketplaceService, PluginSourceKind, extraKnownMarketplacesToConfigDict, getPluginSourceLabel, parseMarketplaceReference, parseMarketplaceReferences, parsePluginSource, readConfiguredMarketplaces } from '../../../common/plugins/pluginMarketplaceService.js';
+import { IExtraMarketplaceObjectEntry, parseMarketplaceObjectEntry } from '../../../common/plugins/marketplaceReference.js';
 import { IWorkspacePluginSettingsService } from '../../../common/plugins/workspacePluginSettingsService.js';
 
 class TestMeteredConnectionService extends Disposable implements IMeteredConnectionService {
