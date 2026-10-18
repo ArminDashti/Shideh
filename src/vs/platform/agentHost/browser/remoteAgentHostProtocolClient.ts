@@ -254,6 +254,46 @@ export class RemoteAgentHostProtocolClient extends Disposable implements IAgentC
 		return await this._sendRequest('invokeChangesetOperation', params);
 	}
 
+	listAutomations(params: Omit<ListAutomationsParams, 'channel'> = {}): Promise<ListAutomationsResult> {
+		return this._sendRequest('listAutomations', { channel: ROOT_STATE_URI, ...params });
+	}
+
+	listAutomationTriggerDefinitions(params: Omit<ListAutomationTriggerDefinitionsParams, 'channel'> = {}): Promise<ListAutomationTriggerDefinitionsResult> {
+		return this._sendRequest('listAutomationTriggerDefinitions', { channel: ROOT_STATE_URI, ...params });
+	}
+
+	async createAutomation(params: CreateAutomationParams): Promise<void> {
+		await this._sendRequest('createAutomation', {
+			...params,
+			definition: this._toRemoteAutomationDefinition(params.definition),
+		});
+	}
+
+	async updateAutomation(params: UpdateAutomationParams): Promise<void> {
+		await this._sendRequest('updateAutomation', {
+			...params,
+			changes: params.changes.session
+				? { ...params.changes, session: this._toRemoteAutomationSession(params.changes.session) }
+				: params.changes,
+		});
+	}
+
+	async disposeAutomation(params: DisposeAutomationParams): Promise<void> {
+		await this._sendRequest('disposeAutomation', params);
+	}
+
+	runAutomation(params: RunAutomationParams): Promise<RunAutomationResult> {
+		return this._sendRequest('runAutomation', params);
+	}
+
+	fetchAutomationRuns(params: FetchAutomationRunsParams): Promise<FetchAutomationRunsResult> {
+		return this._sendRequest('fetchAutomationRuns', params);
+	}
+
+	previewAutomationSchedule(params: Omit<PreviewAutomationScheduleParams, 'channel'>): Promise<PreviewAutomationScheduleResult> {
+		return this._sendRequest('previewAutomationSchedule', { channel: ROOT_STATE_URI, ...params });
+	}
+
 	/**
 	 * List all sessions from the remote agent host.
 	 */

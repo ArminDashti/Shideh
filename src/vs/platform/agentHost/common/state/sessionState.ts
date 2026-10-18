@@ -58,6 +58,8 @@ import {
 	type ToolResultTextContent,
 	type UsageInfo,
 	type Message,
+	type AutomationState,
+	type AutomationRunState,
 } from './protocol/state.js';
 
 // Re-export everything from the protocol state module
@@ -106,7 +108,8 @@ export {
 	type ToolResultTerminalContent,
 	type ToolResultTextContent,
 	type Turn, type URI, type UsageInfo,
-	type Message
+	type Message,
+	type AutomationDefinition, type AutomationRunState, type AutomationRunSummary, type AutomationState, type AutomationSummary, type AutomationTrigger,
 } from './protocol/state.js';
 
 export function getErrorResponsePart(turn: Turn | ActiveTurn | undefined): ErrorResponsePart | undefined {

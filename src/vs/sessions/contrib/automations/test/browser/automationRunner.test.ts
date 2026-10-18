@@ -8,7 +8,7 @@ import { DeferredPromise } from '../../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { mock, upcastPartial } from '../../../../../base/test/common/mock.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -195,3 +195,83 @@ suite('AutomationRunner', () => {
 		assert.match(errors[0], /Unavailable model/);
 	});
 });
+
+class TestAutomationService extends mock<IAutomationService>() {
+	override readonly automations;
+	override readonly runs = observableValue<readonly IAutomationRun[]>(this, []);
+	nextStartResult: IAutomationRunStartResult | undefined;
+	startCalls = 0;
+	readonly cancelledRuns: string[] = [];
+
+	constructor(private readonly automation: IAutomation, initialRun?: IAutomationRun) {
+		super();
+		this.automations = observableValue<readonly IAutomation[]>(this, [automation]);
+		if (initialRun) {
+			this.runs.set([initialRun], undefined);
+		}
+	}
+
+	override getAutomation(id: string): IAutomation | undefined {
+		return id === this.automation.id ? this.automation : undefined;
+	}
+
+	override runsFor(automationId: string) {
+		return derived(this, reader => this.runs.read(reader).filter(run => run.automationId === automationId));
+	}
+
+	override async startRun(): Promise<IAutomationRunStartResult> {
+		this.startCalls++;
+		if (this.nextStartResult) {
+			return this.nextStartResult;
+		}
+		const run = createRun('pending');
+		this.runs.set([run], undefined);
+		return { claimed: true, run };
+	}
+
+	override async cancelRun(runId: string): Promise<void> {
+		this.cancelledRuns.push(runId);
+		const current = this.runs.get().find(run => run.id === runId);
+		if (current) {
+			this.runs.set([{ ...current, status: 'cancelled', completedAt: new Date().toISOString() }], undefined);
+		}
+	}
+
+	setRun(run: IAutomationRun): void {
+		this.runs.set([run], undefined);
+	}
+}
+
+function createAutomation(migrationPending = false): IAutomation {
+	return {
+		id: 'local\0ahp-automation:/test',
+		name: 'Test',
+		prompt: 'Run tests',
+		schedule: { interval: 'manual', scheduleHour: 0, scheduleMinute: 0, scheduleDay: 0 },
+		target: { kind: 'quickChat', providerId: 'local-agent-host', sessionTypeId: 'copilotcli' },
+		enabled: true,
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z',
+		host: {
+			authority: 'local',
+			resource: 'ahp-automation:/test',
+			revision: migrationPending ? 0 : 1,
+			connected: !migrationPending,
+			hasUnsupportedTriggers: false,
+			canEdit: !migrationPending,
+			canRun: !migrationPending,
+			canDelete: !migrationPending,
+			migrationPending,
+		},
+	};
+}
+
+function createRun(status: IAutomationRun['status']): IAutomationRun {
+	return {
+		id: 'run-1',
+		automationId: 'local\0ahp-automation:/test',
+		status,
+		trigger: 'manual',
+		startedAt: '2026-01-01T00:00:00.000Z',
+	};
+}

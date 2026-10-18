@@ -91,6 +91,9 @@ export {
 	type SessionRemovedParams,
 	type ProgressParams,
 	type AuthRequiredParams,
+	type AutomationAddedParams,
+	type AutomationRemovedParams,
+	type AutomationSummaryChangedParams,
 } from './protocol/notifications.js';
 
 /**
@@ -105,6 +108,9 @@ export const NotificationType = {
 	SessionSummaryChanged: 'root/sessionSummaryChanged',
 	Progress: 'root/progress',
 	AuthRequired: 'auth/required',
+	AutomationAdded: 'root/automationAdded',
+	AutomationRemoved: 'root/automationRemoved',
+	AutomationSummaryChanged: 'root/automationSummaryChanged',
 } as const;
 export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
 
@@ -169,7 +175,10 @@ export type ProtocolNotification =
 	| ({ type: 'root/sessionRemoved' } & SessionRemovedParams)
 	| ({ type: 'root/sessionSummaryChanged' } & SessionSummaryChangedParams)
 	| ({ type: 'root/progress' } & ProgressParams)
-	| ({ type: 'auth/required' } & AuthRequiredParams);
+	| ({ type: 'auth/required' } & AuthRequiredParams)
+	| ({ type: 'root/automationAdded' } & AutomationAddedParams)
+	| ({ type: 'root/automationRemoved' } & AutomationRemovedParams)
+	| ({ type: 'root/automationSummaryChanged' } & AutomationSummaryChangedParams);
 
 export type RootAction = IRootAction_;
 export type SessionAction = ISessionAction_;

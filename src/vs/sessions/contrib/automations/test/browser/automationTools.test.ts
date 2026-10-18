@@ -95,12 +95,12 @@ class FakeAutomationService extends mock<IAutomationService>() {
 	override canUpdateAutomation(): boolean { return this.available && this.updatesAllowed; }
 	override canDeleteAutomation(): boolean { return this.available; }
 
-	constructor(automations: readonly IAutomationDescriptor[] = []) {
+	constructor(automations: readonly IAutomation[] = []) {
 		super();
 		this.automations.set(automations, undefined);
 	}
 
-	override getAutomation(id: string): IAutomationDescriptor | undefined {
+	override getAutomation(id: string): IAutomation | undefined {
 		return this.automations.get().find(automation => automation.id === id);
 	}
 
@@ -116,7 +116,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 		this.runs.set([run, ...this.runs.get()], undefined);
 	}
 
-	override async createAutomation(options: ICreateAutomationOptions): Promise<IAutomationDescriptor> {
+	override async createAutomation(options: ICreateAutomationOptions): Promise<IAutomation> {
 		this.created.push(options);
 		return {
 			...options,
@@ -127,7 +127,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 		};
 	}
 
-	override async updateAutomation(id: string, patch: IUpdateAutomationOptions): Promise<IAutomationDescriptor> {
+	override async updateAutomation(id: string, patch: IUpdateAutomationOptions): Promise<IAutomation> {
 		this.updated.push({ id, patch });
 		const existing = this.getAutomation(id);
 		assert.ok(existing);
@@ -146,7 +146,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 		};
 	}
 
-	override async updateAutomationIfUnchanged(id: string, patch: IUpdateAutomationOptions, expected: IAutomationDescriptor): Promise<IGuardedAutomationUpdateResult> {
+	override async updateAutomationIfUnchanged(id: string, patch: IUpdateAutomationOptions, expected: IAutomation): Promise<IGuardedAutomationUpdateResult> {
 		const current = this.getAutomation(id);
 		if (!current || editableAutomationKey(current) !== editableAutomationKey(expected)) {
 			return { kind: 'conflict', current };

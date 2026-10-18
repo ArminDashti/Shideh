@@ -3,10 +3,27 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { derived, IObservable, ISettableObservable, observableValue, transaction } from '../../../../base/common/observable.js';
-import { URI, UriComponents } from '../../../../base/common/uri.js';
+import { raceTimeout, Sequencer } from '../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
+import { Disposable, DisposableStore, IReference } from '../../../../base/common/lifecycle.js';
+import { equals } from '../../../../base/common/objects.js';
+import { derived, IObservable, ISettableObservable, observableSignalFromEvent, observableValue, autorun, transaction, waitForState } from '../../../../base/common/observable.js';
+import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { hasKey } from '../../../../base/common/types.js';
+import { IAgentHostConnectionInfo, IAgentHostConnectionsService, AMBIENT_AGENT_HOST_AUTHORITY } from '../../../../platform/agentHost/common/agentHostConnectionsService.js';
+import { CLAUDE_AGENT_PROVIDER_ID, IAgentConnection } from '../../../../platform/agentHost/common/agentService.js';
+import { SessionConfigKey } from '../../../../platform/agentHost/common/sessionConfigKeys.js';
+import { IAgentSubscription } from '../../../../platform/agentHost/common/state/agentSubscription.js';
+import { AhpErrorCodes } from '../../../../platform/agentHost/common/state/protocol/common/errors.js';
+import { ActionType } from '../../../../platform/agentHost/common/state/protocol/common/actions.js';
+import { AutomationDefinitionPatch } from '../../../../platform/agentHost/common/state/protocol/commands.js';
+import { AutomationDefinition, AutomationMisfirePolicy, AutomationOperation, AutomationScheduleKind, AutomationState, AutomationTrigger, AutomationTriggerKind, AutomationWeekday } from '../../../../platform/agentHost/common/state/protocol/channels-automation/state.js';
+import { AutomationRunCauseKind, AutomationRunLifecycle, AutomationRunOperation, AutomationRunState, AutomationRunStatus, AutomationRunSummary } from '../../../../platform/agentHost/common/state/protocol/channels-automation-run/state.js';
+import { MessageKind } from '../../../../platform/agentHost/common/state/protocol/channels-chat/state.js';
+import { ProtocolError } from '../../../../platform/agentHost/common/state/sessionProtocol.js';
+import { StateComponents } from '../../../../platform/agentHost/common/state/sessionState.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -30,7 +47,8 @@ const STORAGE_KEY = 'chat.automations.ledger';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
-const MAX_RUNS_PER_AUTOMATION = 50;
+/** How long a cancellation request waits for the owning host to report a terminal run. */
+const CANCEL_RUN_TIMEOUT = 30_000;
 
 interface ISerializedAutomation {
 	readonly id: string;
@@ -46,10 +64,9 @@ interface ISerializedAutomation {
 	readonly isolationMode?: string;
 	readonly branch?: string;
 	readonly enabled: boolean;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly lastRunAt?: string;
-	readonly nextRunAt?: string;
+	/** Absent on journals written before canonical definitions were persisted. */
+	readonly definition?: AutomationDefinition;
+	phase: MigrationPhase;
 }
 
 interface ISerializedLedger {
@@ -466,5 +483,98 @@ function trimRunsPerAutomation(runs: readonly IAutomationRun[], max: number): re
 		counts.set(run.automationId, count + 1);
 		out.push(run);
 	}
-	return out.length === runs.length ? runs : out;
+	const isolationValue = readString(definition.session.config?.[SessionConfigKey.Isolation]);
+	const branch = readString(definition.session.config?.[SessionConfigKey.Branch]);
+	const isolation = isolationValue === 'folder'
+		? { kind: 'folder' as const }
+		: isolationValue === 'worktree' && branch
+			? { kind: 'worktree' as const, branch }
+			: { kind: 'default' as const };
+	return { kind: 'workspace', folderUri: URI.parse(folder), providerId, sessionTypeId, isolation };
+}
+
+function scheduleFromTrigger(trigger: Extract<AutomationTrigger, { kind: AutomationTriggerKind.Schedule }>): IAutomationSchedule {
+	switch (trigger.schedule.kind) {
+		case AutomationScheduleKind.Hourly:
+			return { interval: 'hourly', scheduleHour: 0, scheduleMinute: 0, scheduleDay: 0 };
+		case AutomationScheduleKind.Daily:
+			return { interval: 'daily', scheduleHour: trigger.schedule.time.hour, scheduleMinute: trigger.schedule.time.minute, scheduleDay: 0 };
+		case AutomationScheduleKind.Weekly:
+			return {
+				interval: 'weekly',
+				scheduleHour: trigger.schedule.time.hour,
+				scheduleMinute: trigger.schedule.time.minute,
+				scheduleDay: weekdays.indexOf(trigger.schedule.weekday),
+			};
+		case AutomationScheduleKind.Cron:
+			return manualSchedule();
+	}
+}
+
+function manualSchedule(): IAutomationSchedule {
+	return { interval: 'manual', scheduleHour: 0, scheduleMinute: 0, scheduleDay: 0 };
+}
+
+function toRun(run: AutomationRunState | AutomationRunSummary, automationId: string, id: string): IAutomationRun {
+	const lifecycle = run.lifecycle;
+	const fullRun = isFullAutomationRun(run);
+	const sessions = fullRun ? run.sessions : run.primarySession ? [run.primarySession] : [];
+	return Object.freeze({
+		id,
+		automationId,
+		status: lifecycle.status,
+		trigger: triggerFromRun(run),
+		sessionResource: run.primarySession ? URI.parse(run.primarySession) : undefined,
+		sessionResources: sessions.map(session => URI.parse(session)),
+		artifactCount: fullRun ? run.artifacts.length : run.artifactCount,
+		blocker: lifecycle.status === AutomationRunStatus.Blocked ? lifecycle.blocker.kind : undefined,
+		canCancel: run.operations.includes(AutomationRunOperation.Cancel),
+		startedAt: lifecycleStartedAt(lifecycle),
+		completedAt: lifecycleCompletedAt(lifecycle),
+		errorMessage: lifecycle.status === AutomationRunStatus.Failed ? lifecycle.error.message : undefined,
+	});
+}
+
+function triggerFromRun(run: AutomationRunState | AutomationRunSummary): AutomationRunTrigger {
+	if (run.cause.kind === AutomationRunCauseKind.Manual) {
+		return 'manual';
+	}
+	if (run.cause.event) {
+		return 'event';
+	}
+	return run.cause.catchUp ? 'catch_up' : 'schedule';
+}
+
+function lifecycleStartedAt(lifecycle: AutomationRunLifecycle): string {
+	switch (lifecycle.status) {
+		case AutomationRunStatus.Pending:
+			return lifecycle.createdAt;
+		case AutomationRunStatus.Running:
+		case AutomationRunStatus.Blocked:
+		case AutomationRunStatus.Completed:
+		case AutomationRunStatus.Failed:
+		case AutomationRunStatus.Cancelled:
+			return lifecycle.startedAt ?? lifecycle.createdAt;
+	}
+}
+
+function lifecycleCompletedAt(lifecycle: AutomationRunLifecycle): string | undefined {
+	switch (lifecycle.status) {
+		case AutomationRunStatus.Pending:
+		case AutomationRunStatus.Running:
+		case AutomationRunStatus.Blocked:
+			return undefined;
+		case AutomationRunStatus.Completed:
+		case AutomationRunStatus.Failed:
+		case AutomationRunStatus.Cancelled:
+			return lifecycle.completedAt;
+	}
+}
+
+function isFullAutomationRun(run: AutomationRunState | AutomationRunSummary): run is AutomationRunState {
+	return hasKey(run, { sessions: true }) && hasKey(run, { artifacts: true });
+}
+
+function readString(value: unknown): string | undefined {
+	return typeof value === 'string' ? value : undefined;
 }

@@ -818,6 +818,68 @@ export class AgentHostStateManager extends Disposable {
 		return result;
 	}
 
+	restoreAutomation(state: AutomationState): void {
+		this._automations.set(state.resource, state);
+	}
+
+	addAutomation(state: AutomationState): void {
+		this._automations.set(state.resource, state);
+		this._onDidEmitNotification.fire({
+			type: 'root/automationAdded',
+			channel: ROOT_STATE_URI,
+			summary: this._toAutomationSummary(state),
+		});
+	}
+
+	removeAutomation(resource: URI): void {
+		if (!this._automations.delete(resource)) {
+			return;
+		}
+		this._onDidEmitNotification.fire({
+			type: 'root/automationRemoved',
+			channel: ROOT_STATE_URI,
+			automation: resource,
+		});
+	}
+
+	getAutomationState(resource: URI): AutomationState | undefined {
+		return this._automations.get(resource);
+	}
+
+	listAutomationSummaries(): AutomationSummary[] {
+		return [...this._automations.values()]
+			.map(state => this._toAutomationSummary(state))
+			.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+	}
+
+	restoreAutomationRun(state: AutomationRunState): void {
+		this._automationRuns.set(state.resource, state);
+	}
+
+	removeAutomationRun(resource: URI): void {
+		this._automationRuns.delete(resource);
+	}
+
+	getAutomationRunState(resource: URI): AutomationRunState | undefined {
+		return this._automationRuns.get(resource);
+	}
+
+	private _toAutomationSummary(state: AutomationState): AutomationSummary {
+		return {
+			resource: state.resource,
+			title: state.definition.title,
+			enabled: state.definition.enabled,
+			triggerCount: state.definition.triggers.length,
+			nextRunAt: state.nextRunAt,
+			lastRun: state.runs[0],
+			revision: state.revision,
+			operations: state.operations,
+			createdAt: state.createdAt,
+			modifiedAt: state.modifiedAt,
+			_meta: state._meta,
+		};
+	}
+
 	// ---- Snapshots ----------------------------------------------------------
 
 	/**
@@ -895,6 +957,15 @@ export class AgentHostStateManager extends Disposable {
 				state: this._annotations.get(resource) ?? { annotations: [] },
 				fromSeq: this._serverSeq,
 			};
+		}
+
+		const automation = this._automations.get(resource);
+		if (automation) {
+			return { resource, state: automation, fromSeq: this._serverSeq };
+		}
+		const automationRun = this._automationRuns.get(resource);
+		if (automationRun) {
+			return { resource, state: automationRun, fromSeq: this._serverSeq };
 		}
 
 		const entry = this._sessionStates.get(resource);

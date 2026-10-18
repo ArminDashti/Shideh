@@ -2006,6 +2006,33 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		fetchAutomationRuns: async (_client, params) => {
 			return this._agentService.fetchAutomationRuns(params);
 		},
+		listAutomations: async (_client, params) => {
+			return this._agentService.listAutomations(params);
+		},
+		listAutomationTriggerDefinitions: async (_client, params) => {
+			return this._agentService.listAutomationTriggerDefinitions(params);
+		},
+		createAutomation: async (_client, params) => {
+			await this._agentService.createAutomation(params);
+			return null;
+		},
+		updateAutomation: async (_client, params) => {
+			await this._agentService.updateAutomation(params);
+			return null;
+		},
+		disposeAutomation: async (_client, params) => {
+			await this._agentService.disposeAutomation(params);
+			return null;
+		},
+		runAutomation: async (_client, params) => {
+			return this._agentService.runAutomation(params);
+		},
+		fetchAutomationRuns: async (_client, params) => {
+			return this._agentService.fetchAutomationRuns(params);
+		},
+		previewAutomationSchedule: async (_client, params) => {
+			return this._agentService.previewAutomationSchedule(params);
+		},
 		resolveSessionConfig: async (_client, params) => {
 			validateRepositories(params, undefined);
 			return this._agentService.resolveSessionConfig({

@@ -122,13 +122,15 @@ function automation(overrides: Partial<IAutomationDescriptor> = {}): IAutomation
 }
 
 function run(overrides: Partial<IAutomationRun> = {}): IAutomationRun {
+	const status = overrides.status ?? 'completed';
 	return {
 		id: RUN_ID,
 		automationId: AUTOMATION_ID,
-		status: 'completed',
+		status,
 		trigger: 'manual',
 		startedAt: new Date().toISOString(),
 		sessionResource: SESSION_RESOURCE,
+		canCancel: overrides.canCancel ?? (status === 'pending' || status === 'running' || status === 'blocked'),
 		...overrides,
 	};
 }
@@ -152,7 +154,7 @@ async function waitForSessionActions(): Promise<void> {
 }
 
 class FakeAutomationService extends mock<IAutomationService>() {
-	private readonly automationValue = observableValue<readonly IAutomationDescriptor[]>(this, []);
+	private readonly automationValue = observableValue<readonly IAutomation[]>(this, []);
 	private readonly runValue = observableValue<readonly IAutomationRun[]>(this, []);
 	private readonly catalogueStateValue = observableValue<AutomationCatalogueState>(this, 'loading');
 	private readonly unavailableProvidersValue = observableValue<readonly IAutomationProviderDescriptor[]>(this, []);
@@ -175,7 +177,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 	readonly historyOwners = new Map<string, IAutomationDescriptor>();
 	readonly guardedUpdateCalls: { id: string; patch: IUpdateAutomationOptions; expected: IAutomationDescriptor }[] = [];
 
-	setAutomations(value: readonly IAutomationDescriptor[]): void {
+	setAutomations(value: readonly IAutomation[]): void {
 		this.automationValue.set(value, undefined);
 	}
 
@@ -199,7 +201,7 @@ class FakeAutomationService extends mock<IAutomationService>() {
 		return constObservable(this.runValue.get().filter(item => item.automationId === automationId));
 	}
 
-	override async createAutomation(options: ICreateAutomationOptions, mutationGuard?: AutomationMutationGuard): Promise<IAutomationDescriptor> {
+	override async createAutomation(options: ICreateAutomationOptions, mutationGuard?: AutomationMutationGuard): Promise<IAutomation> {
 		mutationGuard?.();
 		this.createCalls.push(options);
 		await this.beforeCreate?.();
@@ -225,12 +227,12 @@ class FakeAutomationService extends mock<IAutomationService>() {
 		return created;
 	}
 
-	override async updateAutomation(id: string, patch: IUpdateAutomationOptions): Promise<IAutomationDescriptor> {
+	override async updateAutomation(id: string, patch: IUpdateAutomationOptions): Promise<IAutomation> {
 		const current = this.getAutomation(id);
 		if (!current) {
 			throw new Error('missing automation');
 		}
-		const updated: IAutomationDescriptor = {
+		const updated: IAutomation = {
 			...current,
 			name: patch.name ?? current.name,
 			prompt: patch.prompt ?? current.prompt,
@@ -961,6 +963,37 @@ suite('AutomationsCardsWidget', () => {
 					label: 'Run now',
 				},
 			});
+		});
+	});
+
+	test('renders migration conflicts as read-only', () => {
+		const { automationService, widget } = setup();
+		const conflicted = automation({
+			host: {
+				authority: 'local',
+				resource: 'ahp-automation:/vscode-conflict',
+				revision: 0,
+				connected: false,
+				hasUnsupportedTriggers: false,
+				canEdit: false,
+				canRun: false,
+				canDelete: false,
+				migrationPending: true,
+				migrationConflict: true,
+			},
+		});
+		automationService.setAutomations([conflicted]);
+
+		assert.deepStrictEqual({
+			badge: widget.element.querySelector('.automations-card-disabled-badge')?.textContent,
+			editDisabled: widget.element.querySelector<HTMLButtonElement>('.automations-card-main')?.disabled,
+			actionStates: [...widget.element.querySelectorAll<HTMLButtonElement>('.automations-card-action-button')].map(button => button.getAttribute('aria-disabled')),
+			accessible: buildAutomationsAccessibleContent([conflicted], []),
+		}, {
+			badge: 'Migration conflict',
+			editDisabled: true,
+			actionStates: ['true', 'true'],
+			accessible: 'Automations\n\nDaily review, migration conflict, read-only\nSchedule: Hourly\nPrompt: Review the workspace\n\nRun history\nNo runs.',
 		});
 	});
 
@@ -2917,6 +2950,28 @@ suite('AutomationsCardsWidget', () => {
 			openCalls: 0,
 			deleteButtonVisible: false,
 		});
+	});
+
+	test('offers host cancellation before a session exists and while input is needed', () => {
+		const { automationService, widget } = setup();
+		automationService.setAutomations([automation()]);
+		automationService.setRuns([
+			run({ id: 'pending', status: 'pending', sessionResource: undefined }),
+			run({ id: 'blocked', status: 'blocked' }),
+		]);
+
+		assert.deepStrictEqual(
+			[...widget.element.querySelectorAll<HTMLButtonElement>('.automations-run-card-stop-button')].map(button => button.getAttribute('aria-label')),
+			['Stop automation run for Daily review', 'Stop automation run for Daily review'],
+		);
+	});
+
+	test('does not offer Stop when the authority omits cancellation', () => {
+		const { automationService, widget } = setup();
+		automationService.setAutomations([automation()]);
+		automationService.setRuns([run({ status: 'running', canCancel: false })]);
+
+		assert.strictEqual(widget.element.querySelector('.automations-run-card-stop-button'), null);
 	});
 
 	test('re-enables Stop when cancellation fails', async () => {

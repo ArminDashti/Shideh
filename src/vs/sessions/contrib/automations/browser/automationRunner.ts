@@ -120,3 +120,7 @@ export class AutomationRunner implements IAutomationRunner {
 		}
 	}
 }
+
+function isTerminalRun(run: IAutomationRun): boolean {
+	return run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled';
+}

@@ -287,6 +287,14 @@ class MockAgentService implements IAgentService {
 		});
 		return session;
 	}
+	async listAutomations(..._args: Parameters<IAgentService['listAutomations']>): ReturnType<IAgentService['listAutomations']> { return { items: [] }; }
+	async listAutomationTriggerDefinitions(..._args: Parameters<IAgentService['listAutomationTriggerDefinitions']>): ReturnType<IAgentService['listAutomationTriggerDefinitions']> { return { items: [] }; }
+	async createAutomation(..._args: Parameters<IAgentService['createAutomation']>): ReturnType<IAgentService['createAutomation']> { }
+	async updateAutomation(..._args: Parameters<IAgentService['updateAutomation']>): ReturnType<IAgentService['updateAutomation']> { }
+	async disposeAutomation(..._args: Parameters<IAgentService['disposeAutomation']>): ReturnType<IAgentService['disposeAutomation']> { }
+	async runAutomation(..._args: Parameters<IAgentService['runAutomation']>): ReturnType<IAgentService['runAutomation']> { return { run: 'ahp-automation-run:/mock' }; }
+	async fetchAutomationRuns(..._args: Parameters<IAgentService['fetchAutomationRuns']>): ReturnType<IAgentService['fetchAutomationRuns']> { return { items: [] }; }
+	async previewAutomationSchedule(..._args: Parameters<IAgentService['previewAutomationSchedule']>): ReturnType<IAgentService['previewAutomationSchedule']> { return { items: [] }; }
 
 	async resolveSessionConfig(params: IAgentResolveSessionConfigParams): Promise<ResolveSessionConfigResult> {
 		this.resolveSessionConfigCalls.push(params);

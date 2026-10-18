@@ -12,6 +12,7 @@ import type { AutomationRunCancelRequestedAction } from '../channels-automation-
 import type { AutomationCreateRequestedAction } from '../channels-automation/actions.js';
 import type { AutomationSchedule, AutomationScheduleTrigger, AutomationSessionTemplate, AutomationEntry, AutomationState } from '../channels-automation/state.js';
 import type { TelemetryCapabilities } from '../channels-otlp/state.js';
+import type { AutomationExecutionLifetime, AutomationScheduleKind } from '../channels-automation/state.js';
 
 // ─── BaseParams ──────────────────────────────────────────────────────────────
 

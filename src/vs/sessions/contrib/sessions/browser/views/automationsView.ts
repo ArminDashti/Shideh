@@ -566,6 +566,9 @@ class AutomationCardsSection extends Disposable {
 		const main = DOM.append(card, $<HTMLButtonElement>('button.automations-card-main', {
 			type: 'button',
 		}));
+		if (editDisabled) {
+			main.setAttribute('disabled', 'true');
+		}
 
 		const nameRow = DOM.append(main, $('.automations-card-name'));
 		const nameTextEl = DOM.append(nameRow, $('span.automations-card-name-text'));
@@ -726,7 +729,7 @@ class AutomationCardsSection extends Disposable {
 		return button;
 	}
 
-	private async runNow(automation: IAutomationDescriptor): Promise<void> {
+	private async runNow(automation: IAutomation): Promise<void> {
 		if (!await this.ensureEnabled()) {
 			return;
 		}
@@ -1517,13 +1520,13 @@ class AutomationHistorySection extends Disposable {
 
 	private async stopRunSession(session: ISession, automationName: string, action: IAction): Promise<void> {
 		try {
-			await this.sessionsManagementService.cancelCurrentRequest(session);
-			status(localize('automationRunSessionStoppedStatus', "Stopped the session for {0}", automationName));
+			await this.automationService.cancelRun(run.id);
+			status(localize('automationRunStoppedStatus', "Stopped the automation run for {0}", automationName));
 		} catch (error) {
 			action.enabled = true;
 			this.logService.error('[AutomationsCards] Failed to stop automation run session', error);
 			await this.dialogService.error(
-				localize('automationRunSessionStopFailed', "Failed to stop the automation run session."),
+				localize('automationRunStopFailed', "Failed to stop the automation run."),
 				getErrorMessage(error),
 			);
 		}
@@ -1864,7 +1867,6 @@ export class AutomationsCustomView extends AbstractCustomView {
 	}
 
 	render(container: HTMLElement): void {
-		container.classList.add('automations-cards-content');
 		this._widget = this._register(this.instantiationService.createInstance(AutomationsCardsWidget));
 		container.appendChild(this._widget.element);
 	}

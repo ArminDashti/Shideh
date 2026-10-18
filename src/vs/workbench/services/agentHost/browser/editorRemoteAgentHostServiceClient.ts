@@ -305,6 +305,38 @@ export class EditorRemoteAgentHostServiceClient extends Disposable implements IA
 		}));
 	}
 
+	listAutomations(params?: Omit<ListAutomationsParams, 'channel'>): Promise<ListAutomationsResult> {
+		return this._requireClient().listAutomations(params);
+	}
+
+	listAutomationTriggerDefinitions(params?: Omit<ListAutomationTriggerDefinitionsParams, 'channel'>): Promise<ListAutomationTriggerDefinitionsResult> {
+		return this._requireClient().listAutomationTriggerDefinitions(params);
+	}
+
+	createAutomation(params: CreateAutomationParams): Promise<void> {
+		return this._requireClient().createAutomation(params);
+	}
+
+	updateAutomation(params: UpdateAutomationParams): Promise<void> {
+		return this._requireClient().updateAutomation(params);
+	}
+
+	disposeAutomation(params: DisposeAutomationParams): Promise<void> {
+		return this._requireClient().disposeAutomation(params);
+	}
+
+	runAutomation(params: RunAutomationParams): Promise<RunAutomationResult> {
+		return this._requireClient().runAutomation(params);
+	}
+
+	fetchAutomationRuns(params: FetchAutomationRunsParams): Promise<FetchAutomationRunsResult> {
+		return this._requireClient().fetchAutomationRuns(params);
+	}
+
+	previewAutomationSchedule(params: Omit<PreviewAutomationScheduleParams, 'channel'>): Promise<PreviewAutomationScheduleResult> {
+		return this._requireClient().previewAutomationSchedule(params);
+	}
+
 	createSession(config?: IAgentCreateSessionConfig): Promise<URI> {
 		return this._requireClient().createSession(config);
 	}

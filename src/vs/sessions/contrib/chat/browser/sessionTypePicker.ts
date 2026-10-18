@@ -274,10 +274,14 @@ export class SessionTypePicker extends Disposable {
 		}
 		if (this._folderSource) {
 			if (this._quickChatSource?.get()) {
-				return this.sessionsManagementService.getQuickChatSessionTypes();
+				sessionTypes = this.sessionsManagementService.getQuickChatSessionTypes();
+			} else {
+				const folderUri = this._folderSource.get();
+				sessionTypes = folderUri ? this.sessionsManagementService.getSessionTypesForFolder(folderUri) : [];
 			}
-			const folderUri = this._folderSource.get();
-			return folderUri ? this.sessionsManagementService.getSessionTypesForFolder(folderUri) : [];
+		} else {
+			const session = this._session.get();
+			sessionTypes = session ? this._sessionTypesForSession(session) : [];
 		}
 		const selectedFolderUri = this._sessionWorkspaceFolderSource?.get();
 		if (selectedFolderUri) {

@@ -121,6 +121,9 @@ export interface IAutomationDescriptor {
 
 	/** ISO-8601 UTC timestamp; `undefined` when interval is `manual`. */
 	readonly nextRunAt?: string;
+
+	/** Present when the definition is owned by an Agent Host Protocol authority. */
+	readonly host?: IAutomationHost;
 }
 
 /**
@@ -128,13 +131,13 @@ export interface IAutomationDescriptor {
  * is active or needs input, and becomes terminal when the owning Agent Host
  * reports completion, failure, cancellation, or timeout.
  */
-export type AutomationRunStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type AutomationRunStatus = 'pending' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 
 /**
  * What kicked off a run. `catch_up` reflects the host's misfire policy for a
  * due-time that passed while the host was not running.
  */
-export type AutomationRunTrigger = 'schedule' | 'catch_up' | 'manual';
+export type AutomationRunTrigger = 'schedule' | 'catch_up' | 'event' | 'manual';
 
 export interface IAutomationRun {
 	/** Opaque identifier, unique across concrete providers and historical archives. */
@@ -145,6 +148,10 @@ export interface IAutomationRun {
 
 	/** Session resource URI, recorded as soon as the committed session is available. */
 	readonly sessionResource?: URI;
+	readonly sessionResources?: readonly URI[];
+	readonly artifactCount?: number;
+	readonly blocker?: string;
+	readonly canCancel?: boolean;
 
 	readonly startedAt: string;
 	readonly completedAt?: string;

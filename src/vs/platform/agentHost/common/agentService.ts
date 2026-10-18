@@ -1283,6 +1283,15 @@ export interface IAgentService {
 	/** List all available sessions from the Copilot CLI. */
 	listSessions(): Promise<IAgentSessionMetadata[]>;
 
+	listAutomations(params: ListAutomationsParams): Promise<ListAutomationsResult>;
+	listAutomationTriggerDefinitions(params: ListAutomationTriggerDefinitionsParams): Promise<ListAutomationTriggerDefinitionsResult>;
+	createAutomation(params: CreateAutomationParams): Promise<void>;
+	updateAutomation(params: UpdateAutomationParams): Promise<void>;
+	disposeAutomation(params: DisposeAutomationParams): Promise<void>;
+	runAutomation(params: RunAutomationParams): Promise<RunAutomationResult>;
+	fetchAutomationRuns(params: FetchAutomationRunsParams): Promise<FetchAutomationRunsResult>;
+	previewAutomationSchedule(params: PreviewAutomationScheduleParams): Promise<PreviewAutomationScheduleResult>;
+
 	createSession(config?: IAgentCreateSessionConfig): Promise<URI>;
 	/** Removes an Automation, optionally deleting its run sessions and history. */
 	deleteAutomation?(resource: string, deleteHistory: boolean, legacySessions?: readonly URI[]): Promise<void>;
@@ -1636,6 +1645,14 @@ export interface IAgentConnection {
 	registerMcpAuthenticationHandler?(handler: (request: IAgentHostMcpAuthenticationRequest) => Promise<boolean>): IDisposable;
 	authenticate(params: AuthenticateParams): Promise<AuthenticateResult>;
 	listSessions(): Promise<IAgentSessionMetadata[]>;
+	listAutomations(params?: Omit<ListAutomationsParams, 'channel'>): Promise<ListAutomationsResult>;
+	listAutomationTriggerDefinitions(params?: Omit<ListAutomationTriggerDefinitionsParams, 'channel'>): Promise<ListAutomationTriggerDefinitionsResult>;
+	createAutomation(params: CreateAutomationParams): Promise<void>;
+	updateAutomation(params: UpdateAutomationParams): Promise<void>;
+	disposeAutomation(params: DisposeAutomationParams): Promise<void>;
+	runAutomation(params: RunAutomationParams): Promise<RunAutomationResult>;
+	fetchAutomationRuns(params: FetchAutomationRunsParams): Promise<FetchAutomationRunsResult>;
+	previewAutomationSchedule(params: Omit<PreviewAutomationScheduleParams, 'channel'>): Promise<PreviewAutomationScheduleResult>;
 	createSession(config?: IAgentCreateSessionConfig): Promise<URI>;
 	/** Requires the VS Code Automation history capability advertised by initialize. */
 	deleteAutomation?(resource: string, deleteHistory: boolean, legacySessions?: readonly URI[]): Promise<void>;

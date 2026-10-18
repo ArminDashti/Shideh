@@ -2057,6 +2057,19 @@ export class AgentService extends Disposable implements IAgentService {
 		this._sideEffects.handleAction(chat, action);
 	}
 
+	private async _startAutomationSession(chat: string, definition: AutomationDefinition, turnId: string): Promise<void> {
+		const action = { type: ActionType.ChatTurnStarted, turnId, startedAt: new Date().toISOString(), message: definition.message } as const;
+		this._stateManager.dispatchServerAction(chat, action);
+		this._sideEffects.handleAction(chat, action);
+	}
+
+	private async _cancelAutomationSession(session: string, turnId: string): Promise<void> {
+		const chat = buildDefaultChatUri(session);
+		const action = { type: ActionType.ChatTurnCancelled, turnId, duration: 0 } as const;
+		this._stateManager.dispatchServerAction(chat, action);
+		this._sideEffects.handleAction(chat, action);
+	}
+
 	/**
 	 * Reads a point-in-time snapshot of a session's chat conversation for the
 	 * `get_session_context` server tool. Targets the session's default chat, or a
@@ -6181,6 +6194,7 @@ export class AgentService extends Disposable implements IAgentService {
 			status: SessionStatus.Idle,
 			createdAt: now,
 			modifiedAt: now,
+			origin: config?.origin,
 			...(created.project ? { project: { uri: created.project.uri.toString(), displayName: created.project.displayName } } : {}),
 			workingDirectories,
 			// Workspace-less is inferred at create from an absent input

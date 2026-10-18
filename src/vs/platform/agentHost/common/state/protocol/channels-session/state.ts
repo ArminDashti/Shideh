@@ -53,6 +53,21 @@ export const enum SessionStatus {
 	IsArchived = 1 << 6,
 }
 
+/** @category Session State */
+export const enum SessionOriginKind {
+	Automation = 'automation',
+}
+
+/** @category Session State */
+export interface AutomationSessionOrigin {
+	kind: SessionOriginKind.Automation;
+	automation: URI;
+	run: URI;
+}
+
+/** @category Session State */
+export type SessionOrigin = AutomationSessionOrigin;
+
 /**
  * Discriminant describing the durable provenance of a session.
  *
