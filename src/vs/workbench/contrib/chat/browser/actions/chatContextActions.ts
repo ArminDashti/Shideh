@@ -866,3 +866,8 @@ export class AttachContextAction extends Action2 {
 		}
 	}
 }
+
+/**
+ * Register all actions related to reusable prompt files.
+ */
+registerPromptActions();

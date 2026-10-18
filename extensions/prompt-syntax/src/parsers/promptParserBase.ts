@@ -42,7 +42,6 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 	 * The event is fired when lines or their content change.
 	 */
 	private readonly _onUpdate = this._register(new Emitter<void>());
-
 	/**
 	 * Subscribe to the `onUpdate` event that is fired when prompt tokens are updated.
 	 * @param callback The callback function to be called on updates.
@@ -198,6 +197,9 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 
 		// dispose all currently existing references
 		this.disposeReferences();
+
+		// TODO: @legomushroom
+		this._onUpdateStart.fire();
 
 		// if an error received, set up the error condition and stop
 		if (streamOrError instanceof ResolveError) {
