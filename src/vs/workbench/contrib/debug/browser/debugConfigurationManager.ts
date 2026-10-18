@@ -13,6 +13,7 @@ import { DisposableStore, IDisposable, dispose } from '../../../../base/common/l
 import * as resources from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI as uri } from '../../../../base/common/uri.js';
+import { deepMerge } from '../../../../editor/browser/widget/diffEditor/utils.js';
 import * as nls from '../../../../nls.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -560,13 +561,13 @@ abstract class AbstractLaunch implements ILaunch {
 		}
 	}
 
-	getConfiguration(name: string): IConfig | undefined {
+	getConfiguration(name: string, extendingConfigurations: Set<string> | undefined = undefined): IConfig | undefined {
 		// We need to clone the configuration in order to be able to make changes to it #42198
 		const config = this.getDeduplicatedConfig();
 		if (!config || !config.configurations) {
 			return undefined;
 		}
-		const configuration = config.configurations.find(config => config && config.name === name);
+		let configuration = config.configurations.find(config => config && config.name === name);
 		if (!configuration) {
 			return;
 		}
