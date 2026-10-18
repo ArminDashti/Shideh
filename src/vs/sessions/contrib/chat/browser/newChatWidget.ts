@@ -1143,6 +1143,19 @@ export class NewChatWidget extends Disposable {
 		return this._usage.createdSessionCount >= MIN_SESSIONS_FOR_FIRST_RUN_NOTICES;
 	}
 
+	private isInputOnboardingVisible(): boolean {
+		return this._isInputOnboardingVisible;
+	}
+
+	private setInputOnboardingVisible(visible: boolean): void {
+		this._isInputOnboardingVisible = visible;
+		if (visible) {
+			this._clearChatTip();
+		} else {
+			this._renderChatTip();
+		}
+	}
+
 	/**
 	 * Seed the new-session draft from the workspace picker's restored folder,
 	 * unless an active session already exists (then just sync the picker to it).

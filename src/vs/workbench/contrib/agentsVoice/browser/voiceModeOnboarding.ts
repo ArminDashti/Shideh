@@ -989,6 +989,12 @@ export class VoiceModeOnboardingBanner extends ChatInputNoticeWidget implements 
 
 	// --- Shared behaviour ---
 
+	private voiceAriaLabel(voice: IVoiceModeVoice, playing: boolean): string {
+		return playing
+			? localize('voiceMode.onboarding.voice.stopPreview', "Stop {0} preview.", voice.label)
+			: localize('voiceMode.onboarding.voice.ariaLabel', "{0}. Hear this voice and use it for every conversation.", voice.label);
+	}
+
 	private handleOptionKey(event: KeyboardEvent, voice: IVoiceModeVoice): void {
 		const keyboardEvent = new StandardKeyboardEvent(event);
 		if (keyboardEvent.equals(KeyCode.Enter) || keyboardEvent.equals(KeyCode.Space)) {

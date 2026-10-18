@@ -56,6 +56,16 @@ suite('SessionsVoiceNewComposerContribution', () => {
 		return new NewChatVoiceTargetService(sessionsService, chatWidgetService);
 	}
 
+	function createTarget(): NewChatVoiceTargetService {
+		const sessionsService = new class extends mock<ISessionsService>() {
+			override readonly activeSession = observableValue<IActiveSession | undefined>('activeSession', undefined);
+		}();
+		const chatWidgetService = new class extends mock<IChatWidgetService>() {
+			override readonly onDidChangeFocusedSession = Event.None;
+		}();
+		return new NewChatVoiceTargetService(sessionsService, chatWidgetService);
+	}
+
 	test('disconnects when a fresh welcome composer takes over a connected voice session', () => {
 		const target = disposables.add(createTarget());
 		const isConnected = observableValue<boolean>('isConnected', false);

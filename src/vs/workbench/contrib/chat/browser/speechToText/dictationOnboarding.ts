@@ -903,6 +903,10 @@ export class DictationOnboardingService extends Disposable implements IDictation
 		return this.onboarding.isVisible;
 	}
 
+	get isVisible(): boolean {
+		return this.onboarding.isVisible;
+	}
+
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IStorageService private readonly storageService: IStorageService,

@@ -21,6 +21,7 @@ suite('Chat input onboarding', () => {
 	function createHost(store: Pick<DisposableStore, 'add'>): { root: HTMLElement; container: HTMLElement; addContainer(): HTMLElement } {
 		const root = dom.$('div');
 		root.tabIndex = 0;
+		dom.append(root, dom.$('.chat-getting-started-tip-container'));
 		const container = dom.append(root, dom.$('.chat-input-onboarding-container'));
 		document.body.appendChild(root);
 		store.add(toDisposable(() => root.remove()));

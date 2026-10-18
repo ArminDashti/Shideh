@@ -358,6 +358,7 @@ export interface IChatInputPartOptions {
 	 * can pass `0` so the editor fills the box and its scrollbar sits at the edge.
 	 */
 	inputPartHorizontalPadding?: number;
+	onDidChangeInputOnboardingVisible?: (visible: boolean) => void;
 }
 
 export interface IWorkingSetEntry {

@@ -81,6 +81,10 @@ export class ChatInputOnboarding extends Disposable {
 		return !!this.currentOnboarding.value && this.leading;
 	}
 
+	get isVisible(): boolean {
+		return !!this.currentOnboarding.value;
+	}
+
 	constructor(
 		private readonly options: IChatInputOnboardingOptions,
 		@IStorageService private readonly storageService: IStorageService,
@@ -289,6 +293,12 @@ export class ChatInputOnboarding extends Disposable {
 		}
 		if (wasVisible && restoreFocus) {
 			host?.focus?.();
+		}
+	}
+
+	private setTipsVisible(host: IChatInputOnboardingHost | undefined, visible: boolean): void {
+		if (host?.tipContainer) {
+			setVisibility(visible, host.tipContainer);
 		}
 	}
 }
