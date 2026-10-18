@@ -4116,6 +4116,8 @@ export class AgentService extends Disposable implements IAgentService {
 				summary: summary.title,
 				origin: summary.origin,
 				status: summary.status,
+				isRead: !!(summary.status & SessionStatus.IsRead),
+				isArchived: !!(summary.status & SessionStatus.IsArchived),
 				activity: summary.activity,
 				workingDirectories: summaryWorkingDirs?.map(d => URI.parse(getWorkingDirectoryUri(d))),
 				workingDirectoryInfo: getWorkingDirectoryInfo(summaryWorkingDirs),

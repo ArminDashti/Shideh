@@ -279,10 +279,8 @@ export interface IChatSessionItem {
 	readonly isRead?: boolean;
 	readonly metadata?: IChatSessionItemMetadata;
 	/**
-	 * Resource identifier the item was previously known by. When set, host-stored
-	 * per-resource state (archive, pin, read) recorded under that URI is adopted
-	 * forward onto {@link resource} on first state read, and the legacy entry is
-	 * removed. Scheme must match {@link resource}'s scheme; otherwise ignored.
+	 * Resource identifier the item was previously known by. Locally owned per-resource state is adopted forward onto
+	 * {@link resource}; controller-owned state remains provider-supplied, and cross-scheme mappings are ignored.
 	 */
 	readonly legacyResource?: URI;
 }

@@ -533,6 +533,7 @@ class AgentSessionsLogger extends Disposable {
 			lines.push(`    Archived (stored): ${state?.archived ?? 'N/A'}`);
 			lines.push(`    Pinned: ${session.isPinned()}`);
 			lines.push(`    Pinned (stored): ${state?.pinned ?? 'N/A'}`);
+			lines.push(`    Read (provider): ${session.providerRead ?? 'N/A'}`);
 			lines.push(`    Read: ${session.isRead()}`);
 			lines.push(`    Read date (stored workspace): ${state?.workspace?.read ? new Date(state.workspace.read).toISOString() : 'N/A'}`);
 			lines.push(`    Read date (stored profile): ${state?.profile?.read ? new Date(state.profile.read).toISOString() : 'N/A'}`);
@@ -958,6 +959,11 @@ export class AgentSessionsModel extends Disposable implements IAgentSessionsMode
 		}
 		if (preservedViaRegistration > 0) {
 			this.logger.logIfTrace(`doResolveProvider(${provider}): preserved ${preservedViaRegistration} live-registered session(s) across a sibling refresh (would have dropped before the preservation fix)`);
+		}
+		for (const resource of this.explicitlyMarkedUnreadSessions) {
+			if (!sessions.has(resource)) {
+				this.explicitlyMarkedUnreadSessions.delete(resource);
+			}
 		}
 		for (const resource of this.explicitlyMarkedUnreadSessions) {
 			if (!sessions.has(resource)) {
@@ -1409,6 +1415,7 @@ interface ISerializedAgentSession {
 	readonly icon: string;
 
 	readonly archived: boolean | undefined;
+	readonly providerRead: boolean | undefined;
 
 	readonly isRead?: boolean;
 
