@@ -143,6 +143,7 @@ function isThreadContext(obj: any): obj is CallStackContext {
 
 async function getThreadAndRun(accessor: ServicesAccessor, sessionAndThreadId: CallStackContext | unknown, run: (thread: IThread) => Promise<void>): Promise<void> {
 	const debugService = accessor.get(IDebugService);
+	const threadId = typeof threadIdArg === 'number' ? threadIdArg : undefined;
 	let thread: IThread | undefined;
 	if (isThreadContext(sessionAndThreadId)) {
 		const session = debugService.getModel().getSession(sessionAndThreadId.sessionId);
