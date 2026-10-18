@@ -292,6 +292,7 @@ export async function showToolsPicker(
 		// Build tree structure
 		const treeItems: AnyTreeItem[] = [];
 		const bucketMap = new Map<string, IBucketTreeItem>();
+		const toolIdsAddedViaToolSet = new Set<string>();
 
 		const getKey = (source: ToolDataSource): string => {
 			switch (source.type) {
@@ -478,6 +479,9 @@ export async function showToolsPicker(
 		// getting potentially disabled tools is fine here because we filter `toolsEntries.has`
 		for (const tool of toolsService.getAllToolsIncludingDisabled()) {
 			if (!tool.canBeReferencedInPrompt || !toolsEntries.has(tool.id) || excludeTool?.(tool)) {
+				continue;
+			}
+			if (toolIdsAddedViaToolSet.has(tool.id)) {
 				continue;
 			}
 			const bucket = getBucket(tool.source);
