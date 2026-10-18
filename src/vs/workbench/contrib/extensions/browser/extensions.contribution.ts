@@ -308,6 +308,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				markdownDescription: localize('extensions.workerIsolatedSeparateProcess', "When enabled, worker-isolated extensions run in a separate extension host process instead of as worker threads within the main extension host process."),
 				default: false,
 			},
+			'extensions.experimental.dedicatedNotebookProcess': {
+				type: 'boolean',
+				description: localize('extensionsExperimentalDedicatedNotebookProcess', "Experimental. When enabled, notebook extensions would run in dedicated extension host."),
+				default: false,
+				scope: ConfigurationScope.APPLICATION,
+				ignoreSync: true
+			},
 			[WORKSPACE_TRUST_EXTENSION_SUPPORT]: {
 				type: 'object',
 				scope: ConfigurationScope.APPLICATION,

@@ -420,3 +420,21 @@ registerAction2(class extends Action2 {
 		notebookService.clearEditorCache();
 	}
 });
+
+registerAction2(class DedicatedExtensionHostAction extends Action2 {
+	constructor() {
+		super({
+			id: 'notebook.experiment.runInDedicatedExtensionHost',
+			title: localize('notebook.experiment.runInDedicatedExtensionHost', 'Run Notebook Extensions In Dedicated Extension Host'),
+			f1: true,
+			category: CATEGORIES.Developer
+		});
+	}
+
+	async run(accessor: ServicesAccessor) {
+		const service = accessor.get(IConfigurationService);
+		const commandService = accessor.get(ICommandService);
+		await service.updateValue('extensions.experimental.dedicatedNotebookProcess', true);
+		await commandService.executeCommand(ReloadWindowAction.ID);
+	}
+});
