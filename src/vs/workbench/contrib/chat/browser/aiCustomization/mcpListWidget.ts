@@ -189,6 +189,12 @@ function isCopilotExtension(id: ExtensionIdentifier): boolean {
 	return COPILOT_EXTENSION_IDS.some(copilotId => ExtensionIdentifier.equals(id, copilotId));
 }
 
+const COPILOT_EXTENSION_IDS = ['github.copilot', 'github.copilot-chat'];
+
+function isCopilotExtension(id: ExtensionIdentifier): boolean {
+	return COPILOT_EXTENSION_IDS.some(copilotId => ExtensionIdentifier.equals(id, copilotId));
+}
+
 function getPluginUriFromCollectionId(collectionId: string | undefined): string | undefined {
 	return collectionId?.startsWith(PLUGIN_COLLECTION_PREFIX) ? collectionId.slice(PLUGIN_COLLECTION_PREFIX.length) : undefined;
 }
