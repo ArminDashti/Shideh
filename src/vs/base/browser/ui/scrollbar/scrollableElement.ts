@@ -473,8 +473,15 @@ export abstract class AbstractScrollableElement extends Widget {
 		let didScroll = false;
 
 		if (e.deltaY || e.deltaX) {
-			let deltaY = e.deltaY * this._options.mouseWheelScrollSensitivity;
-			let deltaX = e.deltaX * this._options.mouseWheelScrollSensitivity;
+			let deltaY = e.deltaY;
+			let deltaX = e.deltaX;
+			if (platform.isWindows) {
+				const dpr = getPixelRatio();
+				deltaY /= dpr;
+				deltaX /= dpr;
+			}
+			deltaY *= this._options.mouseWheelScrollSensitivity;
+			deltaX *= this._options.mouseWheelScrollSensitivity;
 
 			if (this._options.scrollPredominantAxis) {
 				if (this._options.scrollYToX && deltaX + deltaY === 0) {
