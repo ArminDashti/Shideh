@@ -1189,21 +1189,29 @@ class InnerMinimap extends Disposable {
 		this._buffers = null;
 		this._selectionColor = this._theme.getColor(minimapSelection);
 
-		this._domNode = createFastDomNode(document.createElement('div'));
-		PartFingerprints.write(this._domNode, PartFingerprint.Minimap);
-		this._domNode.setClassName(this._getMinimapDomNodeClassName());
-		this._domNode.setPosition('absolute');
-		this._domNode.setAttribute('role', 'presentation');
-		this._domNode.setAttribute('aria-hidden', 'true');
+		this._rootNode = createFastDomNode(document.createElement('div'));
+		PartFingerprints.write(this._rootNode, PartFingerprint.Minimap);
+		this._rootNode.setClassName(this._getMinimapDomNodeClassName());
+		this._rootNode.setPosition('absolute');
+		this._rootNode.setAttribute('role', 'presentation');
+		this._rootNode.setAttribute('aria-hidden', 'true');
+
+		this._preview = createFastDomNode(document.createElement('div'));
+		this._preview.setPosition('absolute');
+		this._preview.setClassName('preview');
+		this._rootNode.appendChild(this._preview);
+
+		this._viewNode = createFastDomNode(document.createElement('div'));
+		this._rootNode.appendChild(this._viewNode);
 
 		this._shadow = createFastDomNode(document.createElement('div'));
 		this._shadow.setClassName('minimap-shadow-hidden');
-		this._domNode.appendChild(this._shadow);
+		this._viewNode.appendChild(this._shadow);
 
 		this._canvas = createFastDomNode(document.createElement('canvas'));
 		this._canvas.setPosition('absolute');
 		this._canvas.setLeft(0);
-		this._domNode.appendChild(this._canvas);
+		this._viewNode.appendChild(this._canvas);
 
 		this._decorationsCanvas = createFastDomNode(document.createElement('canvas'));
 		this._decorationsCanvas.setPosition('absolute');
@@ -1236,6 +1244,7 @@ class InnerMinimap extends Disposable {
 
 		this._pointerDownListener = dom.addStandardDisposableListener(this._domNode.domNode, dom.EventType.POINTER_DOWN, (e) => {
 			e.preventDefault();
+			dismissPreview();
 
 			const isMouse = (e.pointerType === 'mouse');
 			const isLeftClick = (e.button === 0);
@@ -1395,7 +1404,7 @@ class InnerMinimap extends Disposable {
 	}
 
 	public getDomNode(): FastDomNode<HTMLElement> {
-		return this._domNode;
+		return this._rootNode;
 	}
 
 	private _applyLayout(): void {
