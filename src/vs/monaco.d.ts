@@ -6984,6 +6984,11 @@ declare namespace monaco.editor {
 		 */
 		readonly onDidAttemptReadOnlyEdit: IEvent<void>;
 		/**
+		 * An event emitted when editing failed because the editor is read-only.
+		 * @event
+		 */
+		onDidAttemptReadOnlyEdit(listener: () => void): IDisposable;
+		/**
 		 * An event emitted when users paste text in the editor.
 		 * @event
 		 */
