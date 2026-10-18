@@ -1107,6 +1107,8 @@ export class Repository implements Disposable {
 		actionButton.onDidChange(() => this._sourceControl.actionButton = actionButton.button, this, this.disposables);
 		this._sourceControl.actionButton = actionButton.button;
 
+		this._sourceControl.notification = { message: 'Git is not working properly because the "GitPlayground" repository has been detected as potentially unsafe. Learn More', severity: SourceControlNotificationSeverity.Warning };
+
 		const progressManager = new ProgressManager(this);
 		this.disposables.push(progressManager);
 

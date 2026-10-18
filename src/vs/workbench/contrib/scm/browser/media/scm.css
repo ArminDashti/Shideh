@@ -431,6 +431,24 @@
 	white-space: normal;
 }
 
+.scm-view .notification-container {
+	padding-top: 5px;
+	padding-bottom: 5px;
+	padding-left: 11px;
+}
+
+.scm-view .notification-container > .notification-message {
+	font-size: 11px;
+	line-height: 18px;
+	padding: 0 4px;
+	white-space: normal;
+}
+
+.scm-view .notification-container > .notification-message > div > p {
+	margin-block-start: 0;
+	margin-block-end: 0;
+}
+
 .scm-view .button-container {
 	display: flex;
 	height: 100%;

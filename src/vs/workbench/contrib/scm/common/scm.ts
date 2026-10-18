@@ -176,6 +176,23 @@ export interface ISCMNotificationDescriptor {
 	readonly severity: ISCMNotificationSeverity;
 }
 
+export enum ISCMNotificationSeverity {
+	Error = 0,
+	Warning = 1,
+	Information = 2
+}
+
+export interface ISCMNotification {
+	readonly type: 'notification';
+	readonly repository: ISCMRepository;
+	readonly notification: ISCMNotificationDescriptor;
+}
+
+export interface ISCMNotificationDescriptor {
+	readonly message: string | IMarkdownString;
+	readonly severity: ISCMNotificationSeverity;
+}
+
 export interface ISCMInput {
 	readonly repository: ISCMRepository;
 
