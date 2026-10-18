@@ -30,6 +30,7 @@ suite('Sessions - Agents Part Card', () => {
 		store.add(toDisposable(() => container.remove()));
 		container.style.width = '800px';
 		container.style.setProperty('--vscode-agents-layout-floatingPanelGap', '4px');
+		container.style.setProperty('--vscode-cornerRadius-large', '8px');
 		container.classList.toggle('nosidebar', !sidebarVisible);
 		container.classList.toggle('noeditorpane', !editorPaneVisible);
 		container.classList.toggle('phone-layout', phone);
@@ -74,11 +75,13 @@ suite('Sessions - Agents Part Card', () => {
 			leftGap: cardBounds.left - containerBounds.left,
 			rightGap: containerBounds.right - cardBounds.right,
 			contentWidth: card.clientWidth,
+			cornerRadius: mainWindow.getComputedStyle(card).borderRadius,
 			contentSize: getAgentsPartCardContentSize(800, 600, false, false, true),
 		}, {
 			leftGap: 0,
 			rightGap: 0,
 			contentWidth: 800,
+			cornerRadius: '0px',
 			contentSize: { width: 800, height: 600 },
 		});
 	});
