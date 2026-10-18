@@ -5,8 +5,10 @@
 
 import { derived, observableFromEvent } from '../../../../../base/common/observable.js';
 import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
+import { StorageScope } from '../../../../../platform/storage/common/storage.js';
 import {
 	CustomizationHarnessServiceBase,
+	ICustomizationEnablementHandler,
 	ICustomizationHarnessService,
 	IExternalCustomizationItemProvider,
 	createVSCodeHarnessDescriptor,
@@ -15,6 +17,34 @@ import {
 import { IPromptsService } from '../../common/promptSyntax/service/promptsService.js';
 import { SessionType } from '../../common/chatSessionsService.js';
 import { URI } from '../../../../../base/common/uri.js';
+
+/**
+ * Enablement provider backed by promptsService (StorageService).
+ * Used by the VS Code (Local) harness to manage disabled customizations.
+ */
+function createPromptsServiceEnablementHandler(promptsService: IPromptsService): ICustomizationEnablementHandler {
+	return {
+		handleCustomizationEnablement(uri: URI, type: PromptsType, enabled: boolean, scope: 'global' | 'workspace'): void {
+			const storageScope = scope === 'workspace' ? StorageScope.WORKSPACE : StorageScope.PROFILE;
+			const disabled = promptsService.getDisabledPromptFilesForScope(type, storageScope);
+			if (enabled) {
+				disabled.delete(uri);
+			} else {
+				disabled.add(uri);
+			}
+			promptsService.setDisabledPromptFiles(type, disabled, storageScope);
+
+			// When enabling, also remove from the other scope to fully re-enable
+			if (enabled) {
+				const otherScope = scope === 'workspace' ? StorageScope.PROFILE : StorageScope.WORKSPACE;
+				const otherDisabled = promptsService.getDisabledPromptFilesForScope(type, otherScope);
+				if (otherDisabled.delete(uri)) {
+					promptsService.setDisabledPromptFiles(type, otherDisabled, otherScope);
+				}
+			}
+		},
+	};
+}
 
 /**
  * Core implementation of the customization harness service.

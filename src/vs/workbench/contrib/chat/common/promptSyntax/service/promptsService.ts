@@ -882,8 +882,14 @@ export interface IPromptsService extends IDisposable {
 
 	/**
 	 * Persists the set of disabled prompt file URIs for the given type.
+	 * @param scope Storage scope — defaults to profile. Use WORKSPACE to disable for the current workspace only.
 	 */
-	setDisabledPromptFiles(type: PromptsType, uris: ResourceSet): void;
+	setDisabledPromptFiles(type: PromptsType, uris: ResourceSet, scope?: StorageScope): void;
+
+	/**
+	 * Returns the disabled prompt file URIs for a specific scope.
+	 */
+	getDisabledPromptFilesForScope(type: PromptsType, scope: StorageScope): ResourceSet;
 
 	/**
 	 * Registers a prompt file provider that can provide prompt files for repositories.

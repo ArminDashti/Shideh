@@ -31,6 +31,7 @@ import { IChatAgentRequest, IChatAgentResult, IChatAgentService, UserSelectedToo
 import { ComputeAutomaticInstructions } from '../../promptSyntax/computeAutomaticInstructions.js';
 import { ChatRequestHooks, mergeHooks } from '../../promptSyntax/hookSchema.js';
 import { HookType } from '../../promptSyntax/hookTypes.js';
+import { PromptsType } from '../../promptSyntax/promptTypes.js';
 import { ICustomAgent, IPromptsService } from '../../promptSyntax/service/promptsService.js';
 import { isBuiltinAgent } from '../../promptSyntax/utils/promptsServiceUtils.js';
 import {
@@ -433,13 +434,17 @@ export class RunSubagentTool extends Disposable implements IToolImpl {
 			// Remap Stop hooks to SubagentStop since the agent is running as a subagent.
 			let agentHooks = subagent ? undefined : callingSubagent?.hooks;
 			if (subagent?.hooks) {
-				const remapped: ChatRequestHooks = { ...subagent.hooks };
-				if (remapped[HookType.Stop]) {
-					const stopHooks = remapped[HookType.Stop];
-					(remapped as Record<string, unknown>)[HookType.SubagentStop] = remapped[HookType.SubagentStop]
-						? [...remapped[HookType.SubagentStop], ...stopHooks]
-						: stopHooks;
-					(remapped as Record<string, unknown>)[HookType.Stop] = undefined;
+				const disabledHooks = this.promptsService.getDisabledPromptFiles(PromptsType.hook);
+				if (!disabledHooks.has(subagent.uri)) {
+					const remapped: ChatRequestHooks = { ...subagent.hooks };
+					if (remapped[HookType.Stop]) {
+						const stopHooks = remapped[HookType.Stop];
+						(remapped as Record<string, unknown>)[HookType.SubagentStop] = remapped[HookType.SubagentStop]
+							? [...remapped[HookType.SubagentStop], ...stopHooks]
+							: stopHooks;
+						(remapped as Record<string, unknown>)[HookType.Stop] = undefined;
+					}
+					collectedHooks = mergeHooks(collectedHooks, remapped);
 				}
 				agentHooks = remapped;
 			}

@@ -27,7 +27,7 @@ import { isPromptFileTildePath, ParsedPromptFile } from './promptFileParser.js';
 import { AgentInstructionFileType, IAgentSkill, ICustomAgent, IInstructionFile, IPromptsService, matchesSessionType, newInstructionsCollectionEvent, newInstructionsCollectionDebugInfo, type InstructionsCollectionEvent, type InstructionsCollectionDebugInfo } from './service/promptsService.js';
 export type { InstructionsCollectionEvent, InstructionsCollectionDebugInfo } from './service/promptsService.js';
 export { newInstructionsCollectionEvent, newInstructionsCollectionDebugInfo } from './service/promptsService.js';
-import { AGENT_DEBUG_LOG_FILE_LOGGING_ENABLED_SETTING, TROUBLESHOOT_SKILL_PATH } from './promptTypes.js';
+import { AGENT_DEBUG_LOG_FILE_LOGGING_ENABLED_SETTING, PromptsType, TROUBLESHOOT_SKILL_PATH } from './promptTypes.js';
 import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { ChatConfiguration, ChatModeKind, GeneralPurposeAgentName } from '../constants.js';
 import { UserSelectedTools } from '../participants/chatAgents.js';
@@ -105,7 +105,11 @@ export class ComputeAutomaticInstructions {
 		}
 
 		const startTime = performance.now();
-		const instructionFiles = await this._promptsService.getInstructionFiles(token);
+		const allInstructionFiles = await this._promptsService.getInstructionFiles(token);
+		const disabledInstructions = this._promptsService.getDisabledPromptFiles(PromptsType.instructions);
+		const instructionFiles = disabledInstructions.size > 0
+			? allInstructionFiles.filter(f => !disabledInstructions.has(f.uri))
+			: allInstructionFiles;
 
 		this._logService.trace(`[InstructionsContextComputer] ${instructionFiles.length} instruction files available.`);
 
@@ -286,11 +290,18 @@ export class ComputeAutomaticInstructions {
 			logInfo: (message: string) => this._logService.trace(`[InstructionsContextComputer] ${message}`)
 		};
 		const allCandidates = await this._promptsService.listAgentInstructions(token, logger);
+		const disabledInstructions = this._promptsService.getDisabledPromptFiles(PromptsType.instructions);
 
 		const entries: ChatRequestVariableSet = new ChatRequestVariableSet();
 		const copilotEntries: ChatRequestVariableSet = new ChatRequestVariableSet();
 
 		for (const { uri, type } of allCandidates) {
+			if (disabledInstructions.has(uri)) {
+				logger.logInfo(`Agent instruction file skipped (disabled): ${uri.toString()}`);
+				debugInfo.debugDetails.push({ category: 'skipped', name: basename(uri).toString(), uri, reason: localize('debugDetail.disabled', 'disabled by user') });
+				continue;
+			}
+
 			const varEntry = toPromptFileVariableEntry(uri, PromptFileVariableKind.Instruction, undefined, true);
 			entries.add(varEntry);
 			if (type === AgentInstructionFileType.copilotInstructionsMd) {
@@ -430,6 +441,9 @@ export class ComputeAutomaticInstructions {
 			}
 
 			for (const { uri } of agentsMdFiles) {
+				if (disabledIdx.has(uri)) {
+					continue;
+				}
 				const folderName = this._labelService.getUriLabel(dirname(uri), { relative: true });
 				const description = folderName.trim().length === 0 ? localize('instruction.file.description.agentsmd.root', 'Instructions for the workspace') : localize('instruction.file.description.agentsmd.folder', 'Instructions for folder \'{0}\'', folderName);
 				entries.push('<instruction>');

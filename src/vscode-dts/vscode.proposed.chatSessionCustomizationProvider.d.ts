@@ -42,6 +42,18 @@ declare module 'vscode' {
 	}
 
 	/**
+	 * Describes the scope of disablement actions available for a customization provider.
+	 */
+	export enum ChatSessionCustomizationEnablementScope {
+		/** No disable/enable actions are shown. Items cannot be toggled. */
+		None = 0,
+		/** A single "Disable" / "Enable" action is shown. The provider decides how to persist the state. */
+		Global = 1,
+		/** Both "Disable" and "Disable (Workspace)" actions are shown, allowing per-workspace overrides. */
+		Workspace = 2,
+	}
+
+	/**
 	 * Metadata describing a customization provider and its capabilities.
 	 * This drives UI presentation (label, icon) and filtering (unsupported types,
 	 * workspace sub-paths).
@@ -299,7 +311,11 @@ declare module 'vscode' {
 		 * @param provider The customization provider implementation.
 		 * @returns A disposable that unregisters the provider when disposed.
 		 */
-		export function registerChatSessionCustomizationProvider(chatSessionType: string, metadata: ChatSessionCustomizationProviderMetadata, provider: ChatSessionCustomizationProvider): Disposable;
+		export function registerChatSessionCustomizationProvider(
+			chatSessionType: string,
+			metadata: ChatSessionCustomizationProviderMetadata,
+			provider: ChatSessionCustomizationProvider,
+		): Disposable;
 	}
 
 	// #endregion

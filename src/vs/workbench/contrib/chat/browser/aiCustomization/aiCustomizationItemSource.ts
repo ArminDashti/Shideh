@@ -8,7 +8,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IMatch } from '../../../../../base/common/filters.js';
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { parse as parseJSONC } from '../../../../../base/common/json.js';
-import { ResourceMap } from '../../../../../base/common/map.js';
+import { ResourceMap, ResourceSet } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { OS } from '../../../../../base/common/platform.js';
 import { basename } from '../../../../../base/common/resources.js';
@@ -25,7 +25,7 @@ import { AICustomizationSources, IAICustomizationWorkspaceService } from '../../
 import { RecordedCustomizationMarketplaceInstallState } from '../../common/customizationMarketplaceInstallService.js';
 import { ICustomizationItem, ICustomizationItemProvider, ICustomizationSourceFolder } from '../../common/customizationHarnessService.js';
 import { parseHooksFromFile } from '../../common/promptSyntax/hookCompatibility.js';
-import { formatHookCommandLabel } from '../../common/promptSyntax/hookSchema.js';
+import { formatHookCommandLabel, getEffectiveCommandFieldKey } from '../../common/promptSyntax/hookSchema.js';
 import { HOOK_METADATA } from '../../common/promptSyntax/hookTypes.js';
 import { PromptsType, isValidPromptType } from '../../common/promptSyntax/promptTypes.js';
 import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
@@ -57,8 +57,7 @@ export interface IAICustomizationListItem {
 	/** URI of the parent plugin, when this item comes from an installed plugin. */
 	readonly pluginUri?: URI;
 	/** When set, overrides the formatted name for display. */
-	readonly displayName?: string;
-	/** When set, shows a small inline badge next to the item name. */
+	readonly displayName?: string;	/** When set, shows a small inline badge next to the item name. */
 	readonly badge?: string;
 	/** Tooltip shown when hovering the badge. */
 	readonly badgeTooltip?: string;
@@ -76,6 +75,22 @@ export interface IAICustomizationListItem {
 	readonly statusMessage?: string;
 	nameMatches?: IMatch[];
 	descriptionMatches?: IMatch[];
+}
+
+/**
+ * Describes a single hook within a hook file, used for nested rendering.
+ */
+export interface IHookChildInfo {
+	/** Lifecycle event label (e.g. "Session Start"). */
+	readonly label: string;
+	/** Shell command description. */
+	readonly description: string;
+	/** Original hook type ID as it appears in the JSON file. */
+	readonly originalHookTypeId: string;
+	/** Index within the hook type array in the file. */
+	readonly index: number;
+	/** JSON field key for the effective command (e.g. 'command', 'bash'). */
+	readonly commandFieldKey: string;
 }
 
 /**
@@ -124,8 +139,68 @@ export function getFriendlyName(filename: string): string {
 }
 
 /**
- * Expands hook file items into individual hook entries by parsing hook
- * definitions from the file content. Falls back to the original item
+ * Derives a friendly display name for a hook settings file based on its path.
+ *
+ * Recognizes well-known tool directories (`.claude`, `.copilot`, `.vscode-insiders`, etc.)
+ * combined with well-known file stems (`settings`) and produces contextual names:
+ * - `~/.claude/settings.json`       → "Claude User Settings"
+ * - `.claude/settings.json`         → "Claude Settings"
+ * - `.claude/settings.local.json`   → "Claude Settings (Local)"
+ * - `.github/hooks/hooks.json`      → "hooks"
+ */
+export function getHookFileFriendlyName(uriPath: string, storage?: PromptsStorage): string {
+	const segments = uriPath.split('/');
+	const filename = segments[segments.length - 1] || '';
+
+	// Strip the .json extension to get the base stem
+	const stem = filename.replace(/\.json$/i, '') || filename;
+
+	// Check for .local suffix (e.g. settings.local.json → "settings")
+	const localMatch = stem.match(/^(.+)\.local$/i);
+	const coreStem = localMatch ? localMatch[1] : stem;
+
+	// Only apply tool-directory naming for well-known file stems
+	const wellKnownStems = new Set(['settings']);
+	if (wellKnownStems.has(coreStem.toLowerCase())) {
+		// Look for a known tool directory in the path (e.g. .claude, .copilot)
+		const toolDirMap: Record<string, string> = {
+			'.claude': 'Claude',
+			'.copilot': 'Copilot',
+			'.github': 'Copilot',
+		};
+
+		for (let i = segments.length - 2; i >= 0; i--) {
+			const toolLabel = toolDirMap[segments[i]];
+			if (!toolLabel) {
+				continue;
+			}
+
+			// Detect user-level vs workspace-level from storage
+			const isUserLevel = storage === PromptsStorage.user;
+
+			const titleCased = coreStem
+				.replace(/[-_]/g, ' ')
+				.replace(/\b\w/g, c => c.toUpperCase());
+
+			let name = isUserLevel
+				? `${toolLabel} User ${titleCased}`
+				: `${toolLabel} ${titleCased}`;
+
+			if (localMatch) {
+				name += ' (Local)';
+			}
+			return name;
+		}
+	}
+
+	// Default: just return the stem as-is
+	return stem;
+}
+
+/**
+ * Expands hook file items into file-level entries with parsed child hooks.
+ * Each file becomes a single item with `hookChildren` describing the
+ * individual hooks within. Falls back to the original item (no children)
  * when parsing fails.
  */
 export async function expandHookFileItems(
@@ -133,8 +208,8 @@ export async function expandHookFileItems(
 	workspaceService: IAICustomizationWorkspaceService,
 	fileService: IFileService,
 	pathService: IPathService,
-): Promise<ICustomizationItem[]> {
-	const items: ICustomizationItem[] = [];
+): Promise<(ICustomizationItem & { hookChildren?: IHookChildInfo[] })[]> {
+	const items: (ICustomizationItem & { hookChildren?: IHookChildInfo[] })[] = [];
 	const activeRoot = workspaceService.getActiveProjectRoot();
 	const userHomeUri = await pathService.userHome();
 	const userHome = userHomeUri.scheme === Schemas.file ? userHomeUri.fsPath : userHomeUri.path;
@@ -148,16 +223,15 @@ export async function expandHookFileItems(
 
 			if (hooks.size > 0) {
 				parsedHooks = true;
+				const children: IHookChildInfo[] = [];
 				for (const [hookType, entry] of hooks) {
 					const hookMeta = HOOK_METADATA[hookType];
 					for (let i = 0; i < entry.hooks.length; i++) {
 						const hook = entry.hooks[i];
 						const cmdLabel = formatHookCommandLabel(hook, OS);
 						const truncatedCmd = cmdLabel.length > 60 ? cmdLabel.substring(0, 57) + '...' : cmdLabel;
-						items.push({
-							uri: item.uri,
-							type: PromptsType.hook,
-							name: hookMeta?.label ?? entry.originalId,
+						children.push({
+							label: hookMeta?.label ?? entry.originalId,
 							description: truncatedCmd || localize('hookUnset', "(unset)"),
 							enabled: item.enabled,
 							groupKey: item.groupKey,
@@ -168,6 +242,12 @@ export async function expandHookFileItems(
 						});
 					}
 				}
+				items.push({
+					...item,
+					type: PromptsType.hook,
+					name: item.name,
+					hookChildren: children,
+				});
 			}
 		} catch {
 			// Parse failed — fall through to show raw file.
@@ -194,7 +274,7 @@ export class AICustomizationItemNormalizer {
 		private readonly productService: IProductService,
 	) { }
 
-	normalizeItems(items: readonly ICustomizationItem[], promptType: PromptsType): IAICustomizationListItem[] {
+	normalizeItems(items: readonly (ICustomizationItem & { hookChildren?: IHookChildInfo[] })[], promptType: PromptsType): IAICustomizationListItem[] {
 		const uriUseCounts = new ResourceMap<number>();
 		return items
 			.filter(item => item.type === promptType || !isValidPromptType(item.type))
@@ -230,6 +310,10 @@ export class AICustomizationItemNormalizer {
 			extensionId,
 			status: item.status,
 			statusMessage: item.statusMessage,
+			enablementScope: item.enablementScope,
+			enablementCommand: item.enablementCommand,
+			enablementMessage: item.enablementMessage,
+			hookChildren: item.hookChildren,
 		};
 	}
 
@@ -275,6 +359,13 @@ export class ItemProviderItemSource extends Disposable implements IAICustomizati
 		private readonly fileService: IFileService,
 		private readonly pathService: IPathService,
 		private readonly itemNormalizer: AICustomizationItemNormalizer,
+		/**
+		 * When true, the harness has an externally-provided item provider
+		 * (from an extension). promptsService disabled lookups will be
+		 * namespaced by harness ID. When false (VS Code harness), the item
+		 * provider was auto-assigned and no namespace is used.
+		 */
+		private readonly hasNativeItemProvider: boolean = !!itemProvider,
 	) {
 		super();
 		this.onDidAICustomizationItemsChange = Event.any(
@@ -313,7 +404,7 @@ export class ItemProviderItemSource extends Disposable implements IAICustomizati
 		// are visible in every section rather than silently dropped.
 		const untypedItems = allItems.filter(item => !isValidPromptType(item.type));
 
-		let providerItems: readonly ICustomizationItem[];
+		let providerItems: readonly (ICustomizationItem & { hookChildren?: IHookChildInfo[] })[];
 		if (promptType === PromptsType.hook) {
 			const hookItems = allItems.filter(item => item.type === PromptsType.hook);
 			// Plugin hooks are pre-expanded by plugin manifests — skip re-expansion.
@@ -332,6 +423,36 @@ export class ItemProviderItemSource extends Disposable implements IAICustomizati
 		}
 
 		const normalized = this.itemNormalizer.normalizeItems(providerItems, promptType);
+
+		// Overlay disabled state for VS Code harness items.
+		// External harnesses report disabled state via the provider's `enabled` field.
+		if (!this.hasNativeItemProvider) {
+			const disabledUris = this.promptsService.getDisabledPromptFiles(promptType);
+			if (disabledUris.size > 0) {
+				const existingUris = new ResourceSet(normalized.map(i => i.uri));
+				for (let i = 0; i < normalized.length; i++) {
+					if (!normalized[i].disabled && disabledUris.has(normalized[i].uri)) {
+						normalized[i] = { ...normalized[i], disabled: true };
+					}
+				}
+				// Ghost entries for disabled items not in the provider's results
+				for (const disabledUri of disabledUris) {
+					if (!existingUris.has(disabledUri)) {
+						const name = basename(disabledUri);
+						normalized.push({
+							id: disabledUri.toString(),
+							uri: disabledUri,
+							name,
+							filename: name,
+							promptType,
+							disabled: true,
+							enablementScope: 'workspace',
+						});
+					}
+				}
+			}
+		}
+
 		if (promptType === PromptsType.skill) {
 			return this.mergeBuiltinSkills(normalized, promptType);
 		}
@@ -390,7 +511,11 @@ export class ItemProviderItemSource extends Disposable implements IAICustomizati
 			uriUseCounts.set(item.uri, (uriUseCounts.get(item.uri) ?? 0) + 1);
 		}
 		const appended: IAICustomizationListItem[] = [];
-		const disabledPromptFiles = this.promptsService.getDisabledPromptFiles(PromptsType.skill);
+		// Built-in skills are VS Code items — use promptsService disabled set
+		// only for the VS Code harness. External harnesses handle disablement via the provider.
+		const disabledPromptFiles = this.hasNativeItemProvider
+			? new ResourceSet()  // External harness — provider reports disabled state directly
+			: this.promptsService.getDisabledPromptFiles(PromptsType.skill);
 		for (const p of builtinPaths) {
 			const name = p.name ?? basename(p.uri);
 			if (overriddenNames.has(name)) {

@@ -1140,6 +1140,7 @@ suite('AgentHostClientTools', () => {
 			} as Partial<IAgentHostImportConversationStore> as IAgentHostImportConversationStore);
 			instantiationService.stub(ICustomizationHarnessService, {
 				registerExternalHarness: () => toDisposable(() => { }),
+				getActiveEnablementHandler: () => undefined,
 			});
 			instantiationService.stub(IAgentPluginService, {
 				plugins: observableValue('plugins', []),

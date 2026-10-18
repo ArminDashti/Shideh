@@ -352,6 +352,22 @@ export interface IExternalCustomizationChangeEvent {
 }
 
 /**
+ * Handler interface for per-harness enablement state.
+ *
+ * Each harness can supply its own enablement handler to control where
+ * disabled state is stored (e.g. StorageService for VS Code, settings.json
+ * for CLI). When a harness does not supply an enablement handler, the
+ * management UI falls back to the core promptsService storage.
+ */
+export interface ICustomizationEnablementHandler {
+	/**
+	 * Enables or disables a single customization item.
+	 * The handler is expected to persist the change and fire {@link ICustomizationItemProvider.onDidChange}.
+	 */
+	handleCustomizationEnablement(uri: URI, type: PromptsType, enabled: boolean, scope: 'global' | 'workspace'): void;
+}
+
+/**
  * Provider interface for extension-contributed harnesses that supply
  * customization items directly from their SDK.
  */
@@ -483,6 +499,12 @@ export interface ICustomizationHarnessService {
 	 */
 	registerExternalHarness(descriptor: IHarnessDescriptor): IDisposable;
 
+	/**
+	 * Returns the enablement handler of the currently active harness, or
+	 * `undefined` when the harness has no custom enablement handler
+	 * (in which case the caller should fall back to promptsService).
+	 */
+	getActiveEnablementHandler(): ICustomizationEnablementHandler | undefined;
 
 	/**
 	 * Fires when one of the provided slash commands changes.

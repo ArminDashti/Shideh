@@ -41,6 +41,7 @@ import { ICustomizationHarnessService } from '../../common/customizationHarnessS
 import { ICustomizationMarketplaceInstallService } from '../../common/customizationMarketplaceInstallService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { IAgentPluginService } from '../../common/plugins/agentPluginService.js';
+import { ContributionEnablementState, isContributionDisabled, isContributionEnabled } from '../../common/enablement.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
 import { ICustomizationMigrationHint } from '../../common/promptSyntax/service/customizationMigrationService.js';
@@ -549,7 +550,10 @@ MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
 	command: { id: RUN_PROMPT_MGMT_ID, title: localize('runPrompt', "Run Prompt"), icon: Codicon.play },
 	group: '2_run',
 	order: 1,
-	when: ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_TYPE_KEY, PromptsType.prompt),
+	when: ContextKeyExpr.and(
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_TYPE_KEY, PromptsType.prompt),
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_DISABLED_KEY, false),
+	),
 });
 
 MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
@@ -661,6 +665,98 @@ MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
 	when: WHEN_ITEM_IS_PLUGIN,
 });
 
+// Disable plugin action (for plugin sub-items — disables the entire parent plugin)
+const DISABLE_PLUGIN_AI_CUSTOMIZATION_ID = 'aiCustomizationManagement.disablePlugin';
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: DISABLE_PLUGIN_AI_CUSTOMIZATION_ID,
+			title: localize2('disablePlugin', "Disable Plugin"),
+			icon: Codicon.eyeClosed,
+		});
+	}
+	async run(accessor: ServicesAccessor, context: AICustomizationContext): Promise<void> {
+		const agentPluginService = accessor.get(IAgentPluginService);
+		const pluginUri = extractPluginUri(context);
+		if (!pluginUri) {
+			return;
+		}
+		const plugin = agentPluginService.plugins.get().find(p => p.uri.toString() === pluginUri.toString());
+		if (!plugin || isContributionDisabled(plugin.enablement.get())) {
+			return;
+		}
+		agentPluginService.enablementModel.setEnabled(pluginUri.toString(), ContributionEnablementState.DisabledProfile);
+	}
+});
+
+// Enable plugin action (for plugin sub-items — enables the entire parent plugin)
+const ENABLE_PLUGIN_AI_CUSTOMIZATION_ID = 'aiCustomizationManagement.enablePlugin';
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: ENABLE_PLUGIN_AI_CUSTOMIZATION_ID,
+			title: localize2('enablePlugin', "Enable Plugin"),
+			icon: Codicon.eye,
+		});
+	}
+	async run(accessor: ServicesAccessor, context: AICustomizationContext): Promise<void> {
+		const agentPluginService = accessor.get(IAgentPluginService);
+		const pluginUri = extractPluginUri(context);
+		if (!pluginUri) {
+			return;
+		}
+		const plugin = agentPluginService.plugins.get().find(p => p.uri.toString() === pluginUri.toString());
+		if (!plugin || isContributionEnabled(plugin.enablement.get())) {
+			return;
+		}
+		agentPluginService.enablementModel.setEnabled(pluginUri.toString(), ContributionEnablementState.EnabledProfile);
+	}
+});
+
+// Context menu: Disable Plugin (shown for plugin items when plugin is enabled)
+MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
+	command: { id: DISABLE_PLUGIN_AI_CUSTOMIZATION_ID, title: localize('disablePlugin', "Disable Plugin") },
+	group: '5_toggle',
+	order: 1,
+	when: ContextKeyExpr.and(
+		WHEN_ITEM_IS_PLUGIN,
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_DISABLED_KEY, false),
+	),
+});
+
+// Inline hover: Disable Plugin
+MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
+	command: { id: DISABLE_PLUGIN_AI_CUSTOMIZATION_ID, title: localize('disablePlugin', "Disable Plugin"), icon: Codicon.eyeClosed },
+	group: 'inline',
+	order: 5,
+	when: ContextKeyExpr.and(
+		WHEN_ITEM_IS_PLUGIN,
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_DISABLED_KEY, false),
+	),
+});
+
+// Context menu: Enable Plugin (shown for plugin items when plugin is disabled)
+MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
+	command: { id: ENABLE_PLUGIN_AI_CUSTOMIZATION_ID, title: localize('enablePlugin', "Enable Plugin") },
+	group: '5_toggle',
+	order: 1,
+	when: ContextKeyExpr.and(
+		WHEN_ITEM_IS_PLUGIN,
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_DISABLED_KEY, true),
+	),
+});
+
+// Inline hover: Enable Plugin
+MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
+	command: { id: ENABLE_PLUGIN_AI_CUSTOMIZATION_ID, title: localize('enablePlugin', "Enable Plugin"), icon: Codicon.eye },
+	group: 'inline',
+	order: 5,
+	when: ContextKeyExpr.and(
+		WHEN_ITEM_IS_PLUGIN,
+		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_DISABLED_KEY, true),
+	),
+});
+
 // Disable item action
 const DISABLE_AI_CUSTOMIZATION_MGMT_ITEM_ID = 'aiCustomizationManagement.disableItem';
 registerAction2(class extends Action2 {
@@ -672,16 +768,69 @@ registerAction2(class extends Action2 {
 		});
 	}
 	async run(accessor: ServicesAccessor, context: AICustomizationContext): Promise<void> {
-		const promptsService = accessor.get(IPromptsService);
+		const harnessService = accessor.get(ICustomizationHarnessService);
 		const uri = extractURI(context);
 		const promptType = extractPromptType(context);
 		if (!promptType) {
 			return;
 		}
 
-		const disabled = promptsService.getDisabledPromptFiles(promptType);
-		disabled.add(uri);
-		promptsService.setDisabledPromptFiles(promptType, disabled);
+		// When this item has a parent plugin, disable the plugin instead
+		const plugin = extractPlugin(context);
+		if (plugin) {
+			const enablementHandler = harnessService.getActiveEnablementHandler();
+			if (enablementHandler) {
+				enablementHandler.handleCustomizationEnablement(plugin, 'plugins' as PromptsType, false, 'global');
+			}
+			return;
+		}
+
+		// Extension-provided items with a command: execute the command
+		const command = extractEnablementCommand(context);
+		if (command) {
+			const commandService = accessor.get(ICommandService);
+			await commandService.executeCommand(command, uri, promptType, false, 'global');
+			return;
+		}
+
+		// Provider-managed items: delegate to the harness's enablement provider.
+		// All harnesses now own their disablement through enablementHandler.
+		const enablementHandler = harnessService.getActiveEnablementHandler();
+		if (enablementHandler) {
+			enablementHandler.handleCustomizationEnablement(uri, promptType, false, 'global');
+		}
+	}
+});
+
+// Disable item for workspace action
+const DISABLE_WORKSPACE_AI_CUSTOMIZATION_MGMT_ITEM_ID = 'aiCustomizationManagement.disableItemForWorkspace';
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: DISABLE_WORKSPACE_AI_CUSTOMIZATION_MGMT_ITEM_ID,
+			title: localize2('disableForWorkspace', "Disable (Workspace)"),
+		});
+	}
+	async run(accessor: ServicesAccessor, context: AICustomizationContext): Promise<void> {
+		const harnessService = accessor.get(ICustomizationHarnessService);
+		const uri = extractURI(context);
+		const promptType = extractPromptType(context);
+		if (!promptType) {
+			return;
+		}
+
+		// Extension-provided items with a command: execute the command
+		const command = extractEnablementCommand(context);
+		if (command) {
+			const commandService = accessor.get(ICommandService);
+			await commandService.executeCommand(command, uri, promptType, false, 'workspace');
+			return;
+		}
+
+		const enablementHandler = harnessService.getActiveEnablementHandler();
+		if (enablementHandler) {
+			enablementHandler.handleCustomizationEnablement(uri, promptType, false, 'workspace');
+		}
 	}
 });
 
@@ -696,16 +845,37 @@ registerAction2(class extends Action2 {
 		});
 	}
 	async run(accessor: ServicesAccessor, context: AICustomizationContext): Promise<void> {
-		const promptsService = accessor.get(IPromptsService);
+		const harnessService = accessor.get(ICustomizationHarnessService);
 		const uri = extractURI(context);
 		const promptType = extractPromptType(context);
 		if (!promptType) {
 			return;
 		}
 
-		const disabled = promptsService.getDisabledPromptFiles(promptType);
-		disabled.delete(uri);
-		promptsService.setDisabledPromptFiles(promptType, disabled);
+		// When this item has a parent plugin, enable the plugin instead
+		const plugin = extractPlugin(context);
+		if (plugin) {
+			const enablementHandler = harnessService.getActiveEnablementHandler();
+			if (enablementHandler) {
+				enablementHandler.handleCustomizationEnablement(plugin, 'plugins' as PromptsType, true, 'global');
+			}
+			return;
+		}
+
+		// Extension-provided items with a command: execute the command
+		const command = extractEnablementCommand(context);
+		if (command) {
+			const commandService = accessor.get(ICommandService);
+			await commandService.executeCommand(command, uri, promptType, true, 'global');
+			return;
+		}
+
+		// Provider-managed items: delegate to the harness's enablement provider.
+		// All harnesses now own their disablement through enablementHandler.
+		const enablementHandler = harnessService.getActiveEnablementHandler();
+		if (enablementHandler) {
+			enablementHandler.handleCustomizationEnablement(uri, promptType, true, 'global');
+		}
 	}
 });
 

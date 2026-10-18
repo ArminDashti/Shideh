@@ -63,3 +63,17 @@ export function extractExtensionIdFromPath(uriPath: string): string | undefined 
 	const versionMatch = folderName.match(/^(.+)-\d+\./);
 	return versionMatch ? versionMatch[1] : undefined;
 }
+
+/**
+ * Computes enablement-related context keys for a customization list item.
+ * Used by the list widget renderer, context menu, and inline actions to
+ * determine Enable/Disable button visibility.
+ */
+export function computeItemEnablementKeys(item: { disabled: boolean; enablementScope?: string; pluginUri?: unknown }): {
+	readonly enablementScope: string;
+	readonly isDisableable: boolean;
+} {
+	const enablementScope = item.pluginUri ? 'global' : (item.enablementScope ?? 'none');
+	const isDisableable = !!item.pluginUri || enablementScope !== 'none';
+	return { enablementScope, isDisableable };
+}

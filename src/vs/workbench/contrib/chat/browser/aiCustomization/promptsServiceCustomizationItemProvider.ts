@@ -86,7 +86,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 
 	private async provideCustomizations(promptType: PromptsType, token: CancellationToken = CancellationToken.None): Promise<readonly ICustomizationItem[]> {
 		const items: ICustomizationItem[] = [];
-		const disabledUris = this.promptsService.getDisabledPromptFiles(promptType);
 		const extensionInfoByUri = new ResourceMap<{ id: ExtensionIdentifier; displayName?: string }>();
 
 		if (promptType === PromptsType.agent) {
@@ -180,15 +179,15 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 				}
 			}
 		} else if (promptType === PromptsType.hook) {
-			await this.fetchPromptServiceHooks(items, disabledUris, promptType);
+			await this.fetchPromptServiceHooks(items, promptType);
 		} else {
-			await this.fetchPromptServiceInstructions(items, extensionInfoByUri, disabledUris, promptType);
+			await this.fetchPromptServiceInstructions(items, extensionInfoByUri, promptType);
 		}
 
 		return this.applyLocalFilters(this.applyBuiltinGroupKeys(items, extensionInfoByUri), promptType);
 	}
 
-	private async fetchPromptServiceHooks(items: ICustomizationItem[], disabledUris: ResourceSet, promptType: PromptsType): Promise<void> {
+	private async fetchPromptServiceHooks(items: ICustomizationItem[], promptType: PromptsType): Promise<void> {
 		const hookFiles = await this.promptsService.listPromptFiles(PromptsType.hook, CancellationToken.None);
 
 		// Non-plugin hooks: return raw file items — expansion into individual
@@ -231,7 +230,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 						description: `${agent.name}: ${truncatedCmd || localize('hookUnset', "(unset)")}`,
 						source: agent.source.storage,
 						groupKey: 'agents',
-						enabled: !disabledUris.has(agent.uri),
 						extensionId: agent.source.storage === PromptsStorage.extension ? agent.source.extensionId.value : undefined,
 						pluginUri: agent.source.storage === PromptsStorage.plugin ? agent.source.pluginUri : undefined,
 						userInvocable: undefined
@@ -241,7 +239,7 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 		}
 	}
 
-	private async fetchPromptServiceInstructions(items: ICustomizationItem[], extensionInfoByUri: ResourceMap<{ id: ExtensionIdentifier; displayName?: string }>, disabledUris: ResourceSet, promptType: PromptsType): Promise<void> {
+	private async fetchPromptServiceInstructions(items: ICustomizationItem[], extensionInfoByUri: ResourceMap<{ id: ExtensionIdentifier; displayName?: string }>, promptType: PromptsType): Promise<void> {
 		const instructionFiles = await this.promptsService.getInstructionFiles(CancellationToken.None);
 		for (const file of instructionFiles) {
 			if (file.extension) {
@@ -260,14 +258,13 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 				name: filename,
 				source: storage,
 				groupKey: 'agent-instructions',
-				enabled: !disabledUris.has(file.uri),
 				extensionId: undefined,
 				pluginUri: undefined,
 				userInvocable: undefined
 			});
 		}
 
-		for (const { uri, pattern, name, description, storage, extension, pluginUri } of instructionFiles) {
+		for (const { uri, pattern, name, description, storage, extension } of instructionFiles) {
 			if (agentInstructionUris.has(uri)) {
 				continue;
 			}
@@ -290,7 +287,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 					description,
 					source: storage,
 					groupKey: 'context-instructions',
-					enabled: !disabledUris.has(uri),
 					extensionId: extension?.identifier.value,
 					pluginUri,
 					userInvocable: undefined
@@ -303,7 +299,6 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 					description,
 					source: storage,
 					groupKey: 'on-demand-instructions',
-					enabled: !disabledUris.has(uri),
 					extensionId: extension?.identifier.value,
 					pluginUri,
 					userInvocable: undefined
@@ -339,7 +334,9 @@ export class PromptsServiceCustomizationItemProvider implements ICustomizationIt
 		const filter = descriptor.getStorageSourceFilter(promptType);
 		const items = applySourceFilter(groupedItems, filter);
 
-		return items;
+		// All items from PromptsServiceCustomizationItemProvider are VS Code items
+		// and should be disableable at workspace scope.
+		return items.map(item => ({ ...item, enablementScope: 'workspace' as const }));
 	}
 
 }
