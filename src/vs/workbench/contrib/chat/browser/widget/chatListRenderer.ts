@@ -3567,6 +3567,18 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return true;
 		}
 
+		// Quick check: if the stream hasn't delivered any new words since we last
+		// rendered, skip the expensive getNextProgressiveRenderContent call entirely.
+		// This keeps the keep-alive timer cheap during idle periods.
+		const renderData = element.renderData;
+		if (renderData && !element.isComplete) {
+			const lastWordCount = element.contentUpdateTimings?.lastWordCount ?? 0;
+			if (lastWordCount > 0 && renderData.renderedWordCount >= lastWordCount) {
+				this.traceLayout('doNextProgressiveRender', 'no new words from stream, skipping');
+				return false;
+			}
+		}
+
 		templateData.rowContainer.classList.toggle('chat-response-loading', true);
 		this.traceLayout('doNextProgressiveRender', `START progressive render, index=${index}`);
 		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData, index);
@@ -4402,12 +4414,40 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		const renderData = element.renderData ?? { lastRenderTime: 0, renderedWordCount: 0 };
 
-		const rate = this.getProgressiveRenderRate(element);
-		const numWordsToRender = renderData.lastRenderTime === 0 ?
+		let rate = this.getProgressiveRenderRate(element);
+
+		// When the response is still streaming, slow down the render rate as the buffer of
+		// unrendered words shrinks. This avoids the jarring effect of rendering at full speed
+		// and then completely freezing when the buffer empties and the renderer catches up to
+		// the stream. Instead, the text smoothly decelerates, keeping a trickle of words visible.
+		if (!element.isComplete) {
+			const lastWordCount = element.contentUpdateTimings?.lastWordCount ?? 0;
+			const bufferWords = Math.max(0, lastWordCount - renderData.renderedWordCount);
+			const targetBuffer = Math.max(rate * 0.8, 12); // aim for ~0.8s worth of buffered words
+			if (bufferWords < targetBuffer) {
+				// Scale quadratically so we decelerate faster as the buffer shrinks
+				const t = bufferWords / targetBuffer;
+				const scale = Math.max(t * t, 0.05);
+				rate = Math.max(rate * scale, 2);
+			}
+		}
+
+		let numWordsToRender = renderData.lastRenderTime === 0 ?
 			1 :
 			renderData.renderedWordCount +
-			// Additional words to render beyond what's already rendered
-			Math.floor((Date.now() - renderData.lastRenderTime) / 1000 * rate);
+			// Cap the time delta to prevent burst rendering after the buffer was
+			// temporarily empty and lastRenderTime went stale. Normal tick interval
+			// is ~50ms, so 200ms is generous without allowing multi-second bursts.
+			Math.max(Math.floor(Math.min(Date.now() - renderData.lastRenderTime, 200) / 1000 * rate), 1);
+
+		// When still streaming, hold back a reserve of words so that the buffer never
+		// fully empties. This ensures there's always something to trickle during gaps
+		// between token bursts instead of rendering everything and then freezing.
+		if (!element.isComplete) {
+			const lastWordCount = element.contentUpdateTimings?.lastWordCount ?? 0;
+			const reserve = Math.min(Math.ceil(lastWordCount * 0.15), 8);
+			numWordsToRender = Math.min(numWordsToRender, Math.max(lastWordCount - reserve, renderData.renderedWordCount));
+		}
 
 		return {
 			numWordsToRender,
