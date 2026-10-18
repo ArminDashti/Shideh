@@ -28,7 +28,7 @@ import { ExtensionHostExitReason, IExtensionDescriptionDelta } from './extension
 import { IExtensionHostProxy, IResolveAuthorityResult } from './extensionHostProxy.js';
 import { ExtensionRunningLocation } from './extensionRunningLocation.js';
 import { ActivationKind, ExtensionActivationReason, ExtensionHostStartup, IExtensionHost, IExtensionInspectInfo, IInternalExtensionService } from './extensions.js';
-import { Proxied, ProxyIdentifier } from './proxyIdentifier.js';
+import { Proxied, ProxyIdentifier, getStringIdentifierForProxy } from './proxyIdentifier.js';
 import { IRPCProtocolLogger, RPCProtocol, RequestInitiator, ResponsiveState } from './rpcProtocol.js';
 
 // Enable to see detailed message communication between window and extension host
