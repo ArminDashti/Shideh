@@ -81,6 +81,7 @@ class AuthenticationContribution extends Disposable implements IWorkbenchContrib
 
 	constructor() {
 		super();
+		this._register(extensionFeature);
 		this._register(codeExchangeProxyCommand);
 		this._register(extensionFeature);
 
