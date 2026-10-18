@@ -826,11 +826,11 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * Represents a group of related provider options (e.g., models, sub-agents).
+	 * Represents a group of related provider options (e.g., models, sub-agents, repositories).
 	 */
 	export interface ChatSessionProviderOptionGroup {
 		/**
-		 * Unique identifier for the option group (e.g., "models", "subagents").
+		 * Unique identifier for the option group (e.g., "models", "subagents", "repository").
 		 */
 		readonly id: string;
 

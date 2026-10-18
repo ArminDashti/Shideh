@@ -884,6 +884,39 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 		}
 	}
 
+	async $invokeOptionGroupSearch(providerHandle: number, optionGroupId: string, token: CancellationToken): Promise<IChatSessionProviderOptionItem[]> {
+		const optionGroups = this._providerOptionGroups.get(providerHandle);
+		if (!optionGroups) {
+			this._logService.warn(`No option groups found for provider handle ${providerHandle}`);
+			return [];
+		}
+
+		const group = optionGroups.find((g: vscode.ChatSessionProviderOptionGroup) => g.id === optionGroupId);
+		if (!group || !group.onSearch) {
+			this._logService.warn(`No onSearch callback found for option group ${optionGroupId}`);
+			return [];
+		}
+
+		try {
+			const results = await group.onSearch(token);
+			if (!results) {
+				return [];
+			}
+			// Convert to internal types
+			return results.map((item: vscode.ChatSessionProviderOptionItem) => ({
+				id: item.id,
+				name: item.name,
+				description: item.description,
+				locked: item.locked,
+				icon: item.icon,
+				default: item.default,
+			}));
+		} catch (error) {
+			this._logService.error(`Error calling onSearch for option group ${optionGroupId}:`, error);
+			return [];
+		}
+	}
+
 	async $interruptChatSessionActiveResponse(providerHandle: number, sessionResource: UriComponents, requestId: string): Promise<void> {
 		const entry = this._extHostChatSessions.get(URI.revive(sessionResource));
 		entry?.disposeCts.cancel();
