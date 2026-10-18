@@ -41,6 +41,10 @@ class MockWSLChild extends EventEmitter {
 class MockWebSocket extends EventEmitter {
 	closeCalls = 0;
 
+	send(_data: string, callback: (error?: Error) => void): void {
+		queueMicrotask(() => callback(this._sendError));
+	}
+
 	close(): void {
 		this.closeCalls++;
 		this.emit('close');

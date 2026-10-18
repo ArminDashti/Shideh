@@ -127,7 +127,7 @@ suite('connectWebSocketOverDuplex', () => {
 		const socketPromise = connect(stream);
 		stream.push(await createUpgradeResponse(stream.request));
 		const socket = store.add(await socketPromise);
-		socket.send('outbound');
+		await socket.send('outbound');
 
 		const [frame] = clientFrames(stream);
 		assert.deepStrictEqual({
@@ -241,6 +241,16 @@ suite('connectWebSocketOverDuplex', () => {
 			endCalls: 1,
 			destroyCalls: 1,
 			closeCode: 1000,
+		});
+
+		test('rejects sends after the close handshake starts', async () => {
+			const stream = new FakeDuplexStream();
+			const socketPromise = connect(stream);
+			stream.push(await createUpgradeResponse(stream.request));
+			const socket = store.add(await socketPromise);
+			socket.close();
+
+			await assert.rejects(() => socket.send('outbound'), /WebSocket is not open/);
 		});
 	});
 

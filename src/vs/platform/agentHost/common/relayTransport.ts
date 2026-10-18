@@ -33,6 +33,7 @@ export interface IRelayChannel {
 	/** Fires with a connection ID while that relay receives part of a message. Local relays use {@link Event.None}. */
 	readonly onDidRelayActivity: Event<string /* connectionId */>;
 	readonly onDidRelayClose: Event<string /* connectionId */>;
+	/** Rejects when the relay is unavailable so the transport can surface closure. */
 	relaySend(connectionId: string, message: string): Promise<void>;
 }
 
@@ -133,6 +134,7 @@ export class RelayTransport extends Disposable implements IProtocolTransport {
 		this._ahpLogger?.log(message, 'c2s', getAhpLogByteLength(text));
 		this._channel.relaySend(connectionId, text).catch((err) => {
 			this._logService.error(`${this._logPrefix} relaySend failed`, err);
+			this._fireClose();
 		});
 	}
 

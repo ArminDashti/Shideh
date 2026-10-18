@@ -36,7 +36,7 @@ class FakeGatewaySocket implements ITunnelMessageSocket {
 	readonly sent: string[] = [];
 	closeCalls = 0;
 
-	send(data: string): void {
+	async send(data: string): Promise<void> {
 		this.sent.push(data);
 	}
 

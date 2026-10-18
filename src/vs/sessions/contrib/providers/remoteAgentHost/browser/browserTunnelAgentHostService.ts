@@ -13,8 +13,8 @@ import { AgentHostClientConnectionKind } from '../../../../../platform/agentHost
 import { IRemoteAgentHostLocationPreferenceService } from '../../../../../platform/agentHost/common/remoteAgentHostLocationPreference.js';
 import { IRemoteAgentHostService, RemoteAgentHostEntryType, RemoteAgentHostsEnabledSettingId, getEntryAddress, type IRemoteAgentHostConnectOptions, type IRemoteAgentHostConnectionFactory, type IRemoteAgentHostCreatedConnection, type IRemoteAgentHostEntry } from '../../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { ReconnectingTransport, type IEstablishedTransport } from '../../../../../platform/agentHost/common/reconnectingTransport.js';
-import type { AhpServerNotification, JsonRpcResponse, ProtocolMessage } from '../../../../../platform/agentHost/common/state/sessionProtocol.js';
-import { NonReconnectableTransportError, type IProtocolTransport } from '../../../../../platform/agentHost/common/state/sessionTransport.js';
+import { RelayTransport } from '../../../../../platform/agentHost/common/relayTransport.js';
+import { NonReconnectableTransportError } from '../../../../../platform/agentHost/common/state/sessionTransport.js';
 import {
 	TunnelAgentHostConnector,
 	parseTunnelInfo,
@@ -52,7 +52,6 @@ import { IAuthenticationService } from '../../../../../workbench/services/authen
 import { resolveGatewaySelection, selectGatewayFallbackAfterRejection } from '../../../../../platform/agentHost/common/tunnelGatewaySelection.js';
 import { type IDevTunnelsWeb, type IDevTunnelsWebManagementClient, type IDevTunnelsWebRelayClient, type IDevTunnelsWebTunnel, loadDevTunnelsWeb } from './devTunnelsWebLoader.js';
 import { TunnelAgentHostStorage } from './tunnelAgentHostStorage.js';
-import { MALFORMED_FRAMES_FORCE_CLOSE_THRESHOLD, MALFORMED_FRAMES_LOG_CAP } from '../../../../../platform/agentHost/common/transportConstants.js';
 import { traceConnectionOperation, type ConnectionDiagnosticObserver } from '../../../../../platform/agentHost/common/connectionDiagnostics.js';
 
 const LOG_PREFIX = '[BrowserTunnelAgentHost]';
@@ -655,9 +654,9 @@ export class BrowserTunnelConnectionTransport extends Disposable implements IPro
 	private _malformedFrames = 0;
 
 	constructor(
-		private readonly _connectionId: string,
+		private readonly _relayConnectionId: string,
 		private readonly _connector: ITunnelAgentHostConnector,
-		private readonly _logService: ILogService,
+		logService: ILogService,
 	) {
 		super();
 		this._register(this._connector.onDidRelayMessage(message => {
@@ -693,7 +692,7 @@ export class BrowserTunnelConnectionTransport extends Disposable implements IPro
 	}
 
 	override dispose(): void {
-		void this._connector.disconnect(this._connectionId);
+		void this._connector.disconnect(this._relayConnectionId);
 		super.dispose();
 	}
 }

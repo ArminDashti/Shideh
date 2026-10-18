@@ -97,12 +97,16 @@ class FakeSocket implements ITunnelMessageSocket {
 	readonly onDidClose = this._onDidClose.event;
 	closeCalls = 0;
 	disposeCalls = 0;
+	sendError: Error | undefined;
 
 	constructor(messages: string[] = [], private readonly _replaySynchronously = false) {
 		this._queuedMessages = messages;
 	}
 
-	send(_data: string): void {
+	async send(_data: string): Promise<void> {
+		if (this.sendError) {
+			throw this.sendError;
+		}
 	}
 
 	close(): void {

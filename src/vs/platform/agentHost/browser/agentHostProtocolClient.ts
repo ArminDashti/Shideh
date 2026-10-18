@@ -445,6 +445,9 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	 */
 	private readonly _pingTimer = this._register(new TimeoutTimer());
 	private readonly _closeTimer = this._register(new TimeoutTimer());
+	/** Bounds inbound silence after a replacement transport connects. */
+	private readonly _reconnectLivenessTimer = this._register(new TimeoutTimer());
+	private _reconnectLivenessActive = false;
 
 	/**
 	 * Used to suppress watchdog-triggered closes when our own JS event loop
@@ -992,6 +995,8 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			if (!this._checkReconnectState(reconnect)) {
 				return;
 			}
+			this._lastReadTime = Date.now();
+			this._armReconnectLivenessTimer();
 
 			reconnect.transportConnected = true;
 			this._lastReadTime = Date.now();
@@ -1048,9 +1053,10 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			const { gate } = reconnect;
 			this._drainAfterReconnect(reconnect.outbox);
 
+			this._cancelReconnectLivenessTimer();
+			this._transitionTo({ kind: AgentHostClientState.Connected });
 			this._lastReadTime = Date.now();
 			this._resetLivenessTimers();
-			this._transitionTo({ kind: AgentHostClientState.Connected });
 			gate.complete();
 			this._artifactIntegrationReset.fire();
 			this._onDidReconnect.fire();
@@ -2782,6 +2788,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 	private _cancelLivenessTimers(): void {
 		this._pingTimer.cancel();
 		this._closeTimer.cancel();
+		this._cancelReconnectLivenessTimer();
 		this._livenessDeferred = false;
 		this._livenessDeferredSince = undefined;
 	}

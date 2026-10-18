@@ -778,10 +778,13 @@ function createWebSocketOverChannel(
 			channel.on('data', onChannelData);
 			ws.once('close', stopReportingActivity);
 			resolve({
-				send: (data: string) => {
-					if (ws.readyState === ws.OPEN) {
-						ws.send(data);
+				send: async (data: string) => {
+					if (ws.readyState !== ws.OPEN) {
+						throw new Error(`WebSocket is not open (readyState ${ws.readyState})`);
 					}
+					await new Promise<void>((resolve, reject) => {
+						ws.send(data, error => error ? reject(error) : resolve());
+					});
 				},
 				close: () => {
 					// Stop now: bytes arrive until the close handshake ends, and a replacement relay reuses this connection ID.
@@ -945,8 +948,8 @@ class SSHRelayLease extends Disposable {
 		this._register(this._onDidClose);
 	}
 
-	relaySend(data: string): void {
-		this._relay.send(data);
+	relaySend(data: string): Promise<void> {
+		return this._relay.send(data);
 	}
 
 	notifyPhysicalClose(): boolean {
@@ -1373,7 +1376,7 @@ export class SSHRemoteAgentHostMainService extends Disposable implements ISSHRem
 			reportProgress(localize('sshProgressForwarding', "Connecting to remote agent host..."));
 			const connectionId = generateUuid();
 			let conn: SSHConnection | undefined; // eslint-disable-line prefer-const
-			let relay: { send: (data: string) => void; close: () => void };
+			let relay: { send: (data: string) => Promise<void>; close: () => void };
 			try {
 				relay = await this._createWebSocketRelay(
 					sshClient, endpoint, cliBin, cliDataDir, instanceId, userDataPath, connectionToken,
@@ -1561,6 +1564,7 @@ export class SSHRemoteAgentHostMainService extends Disposable implements ISSHRem
 				this._replacements.delete(connectionId);
 			}
 		}
+		throw new Error(`${LOG_PREFIX} connection '${connectionId}' is not available`);
 	}
 
 	async reconnect(sshConfigHost: string, name: string, mode: SSHConnectionMode = SSHConnectionMode.ReplaceConnection, remoteAgentHostCommand?: string, agentForward?: boolean, userInitiated?: boolean, preferredAgentLocation?: RemoteAgentHostLocationPreference): Promise<ISSHConnectResult> {
