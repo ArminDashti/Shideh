@@ -243,6 +243,7 @@ export class ContextMenuController implements IEditorContribution {
 			},
 
 			onHide: (wasCancelled: boolean) => {
+				console.log('ContextMenuController onHide');
 				this._contextMenuIsBeingShownCount--;
 			}
 		});
