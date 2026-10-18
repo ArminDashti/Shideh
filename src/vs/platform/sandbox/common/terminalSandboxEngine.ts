@@ -13,6 +13,7 @@ import { arch } from '../../../base/common/process.js';
 import { ExtUri } from '../../../base/common/resources.js';
 import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
+import { localize } from '../../../nls.js';
 import { IFileService } from '../../files/common/files.js';
 import { ILogService } from '../../log/common/log.js';
 import { extractDomainFromUri, matchesDomainPattern, normalizeDomain, normalizeDomainPattern } from '../../networkFilter/common/domainMatcher.js';
