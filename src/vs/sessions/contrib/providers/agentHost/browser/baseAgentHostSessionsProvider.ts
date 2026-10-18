@@ -4061,6 +4061,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			mapDiffUri: this._diffUriMapper(),
 			mapWorkingDirectoryUri: uri => this.mapWorkingDirectoryUri(uri),
 			gitHubService: this._gitHubService,
+			getConnection: () => this.connection,
 			instantiationService: this._instantiationService,
 			getConnection: reader => {
 				this._connectionChanged.read(reader);
