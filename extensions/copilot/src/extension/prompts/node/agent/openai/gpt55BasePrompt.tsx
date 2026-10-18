@@ -4,13 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { PromptElement, PromptSizing } from '@vscode/prompt-tsx';
+import { isGpt55 } from '../../../../../platform/endpoint/common/chatModelCapabilities';
+import { IChatEndpoint } from '../../../../../platform/networking/common/networking';
 import { ToolName } from '../../../../tools/common/toolNames';
+import { Gpt55CopilotIdentityRule } from '../../base/copilotIdentity';
 import { InstructionMessage } from '../../base/instructionMessage';
 import { ResponseTranslationRules } from '../../base/responseTranslationRules';
+import { Gpt5SafetyRule } from '../../base/safetyRules';
 import { Tag } from '../../base/tag';
 import { MathIntegrationRules } from '../../panel/editorIntegrationRules';
 import { ApplyPatchInstructions, DefaultAgentPromptProps, detectToolCapabilities, getEditingReminder, McpToolInstructions, ReminderInstructionsProps } from '../defaultAgentInstructions';
 import { FileLinkificationInstructionsOptimized } from '../fileLinkificationInstructions';
+import { CopilotIdentityRulesConstructor, IAgentPrompt, PromptRegistry, ReminderInstructionsConstructor, SafetyRulesConstructor, SystemPrompt } from '../promptRegistry';
 import { CUSTOM_TOOL_SEARCH_NAME, ToolSearchToolPromptOptimized } from '../toolSearchInstructions';
 
 export abstract class Gpt55PromptBase extends PromptElement<DefaultAgentPromptProps> {
@@ -132,7 +137,7 @@ export abstract class Gpt55PromptBase extends PromptElement<DefaultAgentPromptPr
 				- If the user makes a simple request that can be answered directly by a terminal command, such as asking for the time via `date`, you go ahead and do that.<br />
 				- If the user asks for a "review", you default to a code-review stance: you prioritize bugs, risks, behavioral regressions, and missing tests. Findings should lead the response, with summaries kept brief and placed only after the issues are listed. Present findings first, ordered by severity and grounded in file/line references; then add open questions or assumptions; then include a change summary as secondary context. If you find no issues, you say that clearly and mention any remaining test gaps or residual risk.<br />
 			</Tag>
-			{largePromptSectionsEnabled && <>
+			<>
 				<Tag name='special_formatting'>
 					<MathIntegrationRules />
 				</Tag>
@@ -150,7 +155,7 @@ export abstract class Gpt55PromptBase extends PromptElement<DefaultAgentPromptPr
 					- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.<br />
 					Exception: If working within an existing website or design system, preserve the established patterns, structure, and visual language<br />
 				</Tag>
-			</>}
+			</>
 			<Tag name='autonomy_and_persistence'>
 				You stay with the work until the task is handled end to end within the current turn whenever that is feasible. Do not stop at analysis or half-finished fixes. Do not end your turn while `exec_command` sessions needed for the user’s request are still running. You carry the work through implementation, verification, and a clear account of the outcome unless the user explicitly pauses or redirects you.<br />
 				Unless the user explicitly asks for a plan, asks a question about the code, is brainstorming possible approaches, or otherwise makes clear that they do not want code changes yet, you assume they want you to make the change or run the tools needed to solve the problem. In those cases, do not stop at a proposal; implement the fix. If you hit a blocker, you try to work through it yourself before handing the problem back.<br />
@@ -244,6 +249,30 @@ export abstract class Gpt55PromptBase extends PromptElement<DefaultAgentPromptPr
 	}
 }
 
+class Gpt55PromptResolver implements IAgentPrompt {
+	static async matchesModel(endpoint: IChatEndpoint): Promise<boolean> {
+		return isGpt55(endpoint);
+	}
+
+	static readonly familyPrefixes = [];
+
+	resolveSystemPrompt(endpoint: IChatEndpoint): SystemPrompt | undefined {
+		return Gpt55Prompt;
+	}
+
+	resolveReminderInstructions(endpoint: IChatEndpoint): ReminderInstructionsConstructor | undefined {
+		return Gpt55ReminderInstructions;
+	}
+
+	resolveCopilotIdentityRules(endpoint: IChatEndpoint): CopilotIdentityRulesConstructor | undefined {
+		return Gpt55CopilotIdentityRule;
+	}
+
+	resolveSafetyRules(endpoint: IChatEndpoint): SafetyRulesConstructor | undefined {
+		return Gpt5SafetyRule;
+	}
+}
+
 export class Gpt55ReminderInstructions extends PromptElement<ReminderInstructionsProps> {
 	async render(state: void, sizing: PromptSizing) {
 		const toolSearchEnabled = !!this.props.endpoint.supportsToolSearch;
@@ -263,3 +292,5 @@ export class Gpt55ReminderInstructions extends PromptElement<ReminderInstruction
 		</>;
 	}
 }
+
+PromptRegistry.registerPrompt(Gpt55PromptResolver);
