@@ -826,6 +826,17 @@ class TestTelemetryService extends NullTelemetryServiceShape {
 	}
 }
 
+class RecordingVoiceToolDispatchService extends mock<IVoiceToolDispatchService>() {
+	readonly calls: IVoiceToolCall[] = [];
+
+	override setDelegate(): void { }
+
+	override async dispatchToolCall(toolCall: IVoiceToolCall): Promise<string> {
+		this.calls.push(toolCall);
+		return 'ok';
+	}
+}
+
 suite('VoiceSessionController', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 	let clock: sinon.SinonFakeTimers;
