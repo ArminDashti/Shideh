@@ -127,6 +127,76 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 
 	private readonly mapTextToType = new Map<string, string>(); // unsupported in web (only in-memory)
 
+	constructor(
+		@ILayoutService private readonly layoutService: ILayoutService,
+		@ILogService private readonly logService: ILogService) {
+		super();
+		if (isWebKit) {
+			this.installWebKitWriteTextWorkaround();
+		}
+	}
+
+	private webKitPendingClipboardWritePromise: DeferredPromise<string> | undefined;
+	private webKitPendingClipboardReadTask: (() => Promise<string>) | undefined;
+
+	// In Safari, it has the following note:
+	//
+	// "The request to write to the clipboard must be triggered during a user gesture.
+	// A call to clipboard.write or clipboard.writeText outside the scope of a user
+	// gesture(such as "click" or "touch" event handlers) will result in the immediate
+	// rejection of the promise returned by the API call."
+	// From: https://webkit.org/blog/10855/async-clipboard-api/
+	//
+	// Since extensions run in a web worker, and handle gestures in an asynchronous way,
+	// they are not classified by Safari as "in response to a user gesture" and will reject.
+	//
+	// This function sets up some handlers to work around that behavior.
+	private installWebKitWriteTextWorkaround(): void {
+		const handler = () => {
+			const currentWritePromise = new DeferredPromise<string>();
+
+			// Cancel the previous promise since we just created a new one in response to this new event
+			if (this.webKitPendingClipboardWritePromise && !this.webKitPendingClipboardWritePromise.isSettled) {
+				this.webKitPendingClipboardWritePromise.cancel();
+			}
+			this.webKitPendingClipboardWritePromise = currentWritePromise;
+
+			// The ctor of ClipboardItem allows you to pass in a promise that will resolve to a string.
+			// This allows us to pass in a Promise that will either be cancelled by another event or
+			// resolved with the contents of the first call to this.writeText.
+			// see https://developer.mozilla.org/en-US/docs/Web/API/ClipboardItem/ClipboardItem#parameters
+			navigator.clipboard.write([new ClipboardItem({
+				'text/plain': currentWritePromise.p,
+			})]).catch(async err => {
+				if (!(err instanceof Error) || err.name !== 'NotAllowedError' || !currentWritePromise.isRejected) {
+					this.logService.error(err);
+				}
+			});
+
+			// ClipboardItem#getType is a function and we utilize that to read the text clipboard
+			// at a later point by wrapping a function around all of that.
+			this.webKitPendingClipboardReadTask = undefined;
+			navigator.clipboard.read().then(items => {
+				for (const item of items) {
+					if (item.types.includes('text/plain')) {
+						this.webKitPendingClipboardReadTask = async () => {
+							const blob = await item.getType('text/plain');
+							const value = blob.text();
+							return value;
+						};
+						break;
+					}
+				}
+			}).catch(err => {
+				this.webKitPendingClipboardReadTask = undefined;
+				this.logService.error(err);
+			});
+		};
+
+		this._register(addDisposableListener(this.layoutService.container, 'click', handler));
+		this._register(addDisposableListener(this.layoutService.container, 'keydown', handler));
+	}
+
 	async writeText(text: string, type?: string): Promise<void> {
 		this.logService.trace('BrowserClipboardService#writeText called with type:', type, ' text.length:', text.length);
 		// Clear resources given we are writing text
