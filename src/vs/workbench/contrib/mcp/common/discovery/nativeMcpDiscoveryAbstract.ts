@@ -14,6 +14,7 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../../platf
 import { FileOperationResult, IFileService, toFileOperationResult } from '../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { McpDiscoveryFormat, McpDiscoveryScope, McpDiscoverySource } from '../../../../../platform/mcp/common/mcpDiscoveryMetadata.js';
 import { INativeMcpDiscoveryData } from '../../../../../platform/mcp/common/nativeMcpDiscoveryHelper.js';
 import { observableConfigValue } from '../../../../../platform/observable/common/platformObservableUtils.js';
 import { StorageScope } from '../../../../../platform/storage/common/storage.js';

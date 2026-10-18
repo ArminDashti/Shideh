@@ -513,9 +513,10 @@ export function resolveMcpServersMap(raw: unknown): Record<string, unknown> | un
 		return undefined;
 	}
 	const obj = raw as Record<string, unknown>;
-	return Object.hasOwn(obj, 'mcpServers')
-		? (obj.mcpServers as Record<string, unknown>)
-		: obj;
+	const servers = Object.hasOwn(obj, 'mcpServers') ? obj.mcpServers : obj;
+	return servers !== null && typeof servers === 'object' && !Array.isArray(servers)
+		? servers as Record<string, unknown>
+		: undefined;
 }
 
 /**

@@ -9,6 +9,7 @@ import { joinPath } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { McpDiscoveryFormat, McpDiscoveryScope, McpDiscoverySource } from '../../../../../platform/mcp/common/mcpDiscoveryMetadata.js';
 import { StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
 import { IRemoteAgentService } from '../../../../services/remote/common/remoteAgentService.js';

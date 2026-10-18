@@ -13,6 +13,7 @@ import { Location } from '../../../../../editor/common/languages.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { ConfigurationTarget } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { McpDiscoveryFormat, McpDiscoveryHost, McpDiscoveryScope, McpDiscoverySource, McpInstallProvenance } from '../../../../../platform/mcp/common/mcpDiscoveryMetadata.js';
 import { StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { getMcpServerMapping } from '../mcpConfigFileUtils.js';
 import { mcpConfigurationSection } from '../mcpConfiguration.js';

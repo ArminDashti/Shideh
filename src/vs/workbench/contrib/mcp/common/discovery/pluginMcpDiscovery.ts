@@ -142,7 +142,7 @@ export class PluginMcpDiscovery extends Disposable implements IMcpDiscovery {
 			id: collectionId,
 			provenance: McpCollectionProvenance.Plugin,
 			label: `${plugin.label} (Agent Plugin)`,
-			remoteAuthority: plugin.uri.scheme === Schemas.vscodeRemote ? plugin.uri.authority : null,
+			remoteAuthority: plugin.remoteAuthority ?? null,
 			configTarget: ConfigurationTarget.USER,
 			scope: StorageScope.PROFILE,
 			trustBehavior: McpServerTrust.Kind.Trusted,

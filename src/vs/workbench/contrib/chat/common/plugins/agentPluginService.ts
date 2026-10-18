@@ -45,10 +45,18 @@ export interface IAgentPluginMcpDiscoveryResult extends IAgentPluginMcpConfigura
 	readonly serverDefinitions: readonly IAgentPluginMcpServerDefinition[];
 }
 
+export interface IAgentPluginMcpConfigurationOutcome {
+	readonly configurationPresent: number;
+	readonly configuredEntryCount: number;
+	readonly parseErrorCount: number;
+	readonly unreadableCount: number;
+}
+
 export interface IAgentPlugin {
 	readonly uri: URI;
 	readonly format: PluginFormat;
 	readonly discoveryOrigin: AgentPluginDiscoveryOrigin;
+	readonly remoteAuthority?: string | null;
 	/** Human-readable display name for the plugin. */
 	readonly label: string;
 	/** Version declared by the plugin manifest, falling back to marketplace metadata. */

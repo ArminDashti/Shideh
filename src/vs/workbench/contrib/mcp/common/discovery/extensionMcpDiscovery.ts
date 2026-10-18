@@ -11,8 +11,10 @@ import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { ConfigurationTarget } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IMcpCollectionContribution } from '../../../../../platform/extensions/common/extensions.js';
+import { ExtensionIdentifier, IMcpCollectionContribution } from '../../../../../platform/extensions/common/extensions.js';
+import { McpDiscoveryFormat, McpDiscoveryHost, McpDiscoveryScope, McpDiscoverySource } from '../../../../../platform/mcp/common/mcpDiscoveryMetadata.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
+import { ExtensionHostKind } from '../../../../services/extensions/common/extensionHostKind.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import * as extensionsRegistry from '../../../../services/extensions/common/extensionsRegistry.js';
 import { mcpActivationEvent, mcpContributionPoint } from '../mcpConfiguration.js';
@@ -165,10 +167,10 @@ export class ExtensionMcpDiscovery extends Disposable implements IMcpDiscovery {
 
 					// Handle conditional collections with 'when' clause
 					if (coll.when) {
-						this._registerConditionalCollection(id, coll, collections, extensionCollections);
+						this._registerConditionalCollection(id, coll, collections, host, extensionCollections);
 					} else {
 						// Register collection immediately if no 'when' clause
-						this._registerCollection(id, coll, collections, extensionCollections);
+						this._registerCollection(id, coll, collections, host, extensionCollections);
 					}
 				}
 			}
@@ -180,6 +182,7 @@ export class ExtensionMcpDiscovery extends Disposable implements IMcpDiscovery {
 		id: string,
 		coll: IMcpCollectionContribution,
 		collections: extensionsRegistry.IExtensionPointUser<IMcpCollectionContribution[]>,
+		host: McpDiscoveryHost,
 		extensionCollections: DisposableMap<string>
 	) {
 		const serverDefs = this.cachedServers.hasOwnProperty(id) ? this.cachedServers[id].servers : undefined;
@@ -220,6 +223,7 @@ export class ExtensionMcpDiscovery extends Disposable implements IMcpDiscovery {
 		id: string,
 		coll: IMcpCollectionContribution,
 		collections: extensionsRegistry.IExtensionPointUser<IMcpCollectionContribution[]>,
+		host: McpDiscoveryHost,
 		extensionCollections: DisposableMap<string>
 	) {
 		const whenClause = ContextKeyExpr.deserialize(coll.when!);
@@ -232,7 +236,7 @@ export class ExtensionMcpDiscovery extends Disposable implements IMcpDiscovery {
 			const nowSatisfied = this._contextKeyService.contextMatchesRules(whenClause);
 			const isRegistered = extensionCollections.has(id);
 			if (nowSatisfied && !isRegistered) {
-				this._registerCollection(id, coll, collections, extensionCollections);
+				this._registerCollection(id, coll, collections, host, extensionCollections);
 			} else if (!nowSatisfied && isRegistered) {
 				extensionCollections.deleteAndDispose(id);
 			}

@@ -41,6 +41,23 @@ export interface IMcpDiscovery extends IDisposable {
 	start(): void;
 }
 
+export const emptyMcpDiscoverySnapshot: IMcpDiscoverySnapshot = { candidates: [], configurationOutcomes: [] };
+
+export function mcpHost(remoteAuthority: string | null | undefined): McpDiscoveryHost {
+	return remoteAuthority ? McpDiscoveryHost.Remote : McpDiscoveryHost.Local;
+}
+
+export function mcpCandidate(
+	source: McpDiscoverySource,
+	format: McpDiscoveryFormat,
+	scope: McpDiscoveryScope,
+	host: McpDiscoveryHost,
+	outcome: McpDiscoveryCandidateOutcome,
+	installProvenance = McpInstallProvenance.NotApplicable,
+): IMcpDiscoveryCandidate {
+	return { source, format, scope, host, outcome, installProvenance };
+}
+
 class McpDiscoveryRegistry {
 	private readonly _discovery: SyncDescriptor0<IMcpDiscovery>[] = [];
 

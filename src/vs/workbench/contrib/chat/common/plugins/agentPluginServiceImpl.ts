@@ -49,6 +49,7 @@ import {
 	type IParsedHookGroup,
 } from '../../../../../platform/agentPlugins/common/pluginParsers.js';
 import { Extensions, IExtensionFeaturesRegistry, IExtensionFeatureTableRenderer, IRenderedData, IRowData, ITableData } from '../../../../services/extensionManagement/common/extensionFeatures.js';
+import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import * as extensionsRegistry from '../../../../services/extensions/common/extensionsRegistry.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { ChatConfiguration } from '../constants.js';
@@ -288,6 +289,7 @@ interface IPluginSource {
 	readonly uri: URI;
 	readonly origin?: AgentPluginDiscoveryOrigin;
 	readonly enabled?: boolean;
+	readonly remoteAuthority?: string | null;
 	readonly fromMarketplace: IMarketplacePlugin | undefined;
 	/** Repository root that serves as the boundary for component path resolution. */
 	readonly repositoryUri?: URI;
@@ -325,6 +327,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 		protected readonly _pathService: IPathService,
 		protected readonly _logService: ILogService,
 		protected readonly _workspaceContextService: IWorkspaceContextService,
+		protected readonly _remoteAuthority: string | null = null,
 	) {
 		super();
 	}
@@ -404,7 +407,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 				if (!this._isCurrentRefresh(version)) {
 					return { plugins: [], candidates: [] };
 				}
-				const plugin = await this._toPlugin(resolvedUri, origin, format, source.fromMarketplace, source.repositoryUri, source.remove, version);
+				const plugin = await this._toPlugin(resolvedUri, origin, source.remoteAuthority ?? this._remoteAuthority, format, source.fromMarketplace, source.repositoryUri, source.remove, version);
 				seenPluginUris.add(resolvedUri.toString());
 				plugins.push(plugin);
 				candidates.push({ origin, format: format.format, outcome: AgentPluginDiscoveryOutcome.Loaded, plugin });
@@ -439,6 +442,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 			} else {
 				existing.plugin.remove = removeCallback;
 				existing.plugin.discoveryOrigin = discoveryOrigin;
+				existing.plugin.remoteAuthority = remoteAuthority;
 				return existing.plugin;
 			}
 		}
@@ -654,6 +658,7 @@ export abstract class AbstractAgentPluginDiscovery extends Disposable implements
 			uri,
 			format: format.format,
 			discoveryOrigin,
+			remoteAuthority,
 			label: fromMarketplace?.name ?? manifestName ?? basename(uri),
 			version: pluginVersion,
 			enablement,
@@ -818,8 +823,9 @@ export class ConfiguredAgentPluginDiscovery extends AbstractAgentPluginDiscovery
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 		@IPathService pathService: IPathService,
 		@ILogService logService: ILogService,
+		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 	) {
-		super(fileService, pathService, logService, workspaceContextService);
+		super(fileService, pathService, logService, workspaceContextService, environmentService.remoteAuthority ?? null);
 		this._pluginLocationsConfig = observableConfigValue<Record<string, boolean>>(ChatConfiguration.PluginLocations, {}, _configurationService);
 	}
 
@@ -950,8 +956,9 @@ export class MarketplaceAgentPluginDiscovery extends AbstractAgentPluginDiscover
 		@IPathService pathService: IPathService,
 		@ILogService logService: ILogService,
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
+		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 	) {
-		super(fileService, pathService, logService, workspaceContextService);
+		super(fileService, pathService, logService, workspaceContextService, environmentService.remoteAuthority ?? null);
 	}
 
 	public override start(enablementModel: IEnablementModel): void {
@@ -1369,8 +1376,9 @@ export class ExtensionAgentPluginDiscovery extends AbstractAgentPluginDiscovery 
 		@IPathService pathService: IPathService,
 		@ILogService logService: ILogService,
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
+		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 	) {
-		super(fileService, pathService, logService, workspaceContextService);
+		super(fileService, pathService, logService, workspaceContextService, environmentService.remoteAuthority ?? null);
 	}
 
 	public override start(enablementModel: IEnablementModel): void {
