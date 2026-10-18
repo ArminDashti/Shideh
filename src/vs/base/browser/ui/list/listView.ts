@@ -677,7 +677,14 @@ export class ListView<T> implements IListView<T> {
 		this.render(lastRenderRange, Math.max(0, scrollTop), this.lastRenderHeight, undefined, undefined, true);
 		this.setScrollTop(this.lastRenderTop);
 
-		this.eventuallyUpdateScrollDimensions();
+		if (heightDiff > 0) {
+			// update scroll dimension first to otherwise the new scroll top might be invalid
+			this.eventuallyUpdateScrollDimensions();
+			this.setScrollTop(this.lastRenderTop);
+		} else {
+			this.setScrollTop(this.lastRenderTop);
+			this.eventuallyUpdateScrollDimensions();
+		}
 
 		if (this.supportDynamicHeights) {
 			this._rerender(this.lastRenderTop, this.lastRenderHeight);

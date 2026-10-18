@@ -61,6 +61,7 @@ export interface NotebookDisplayOptions { // TODO @Yoyokrazy rename to a more ge
 }
 
 export interface NotebookLayoutConfiguration {
+	scrollableElementTop: number;
 	cellRightMargin: number;
 	cellRunGutter: number;
 	cellTopMargin: number;
@@ -685,13 +686,13 @@ export class NotebookOptions extends Disposable {
 
 	computeTopInsertToolbarHeight(viewType?: string): number {
 		if (this._layoutConfiguration.insertToolbarPosition === 'betweenCells' || this._layoutConfiguration.insertToolbarPosition === 'both') {
-			return SCROLLABLE_ELEMENT_PADDING_TOP;
+			return this._layoutConfiguration.scrollableElementTop;
 		}
 
 		const cellToolbarLocation = this.computeCellToolbarLocation(viewType);
 
 		if (cellToolbarLocation === 'left' || cellToolbarLocation === 'right') {
-			return SCROLLABLE_ELEMENT_PADDING_TOP;
+			return this._layoutConfiguration.scrollableElementTop;
 		}
 
 		return 0;
