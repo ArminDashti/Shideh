@@ -54,6 +54,7 @@ export interface NativeParsedArgs {
 	goto?: boolean;
 	'new-window'?: boolean;
 	'reuse-window'?: boolean;
+	'background'?: boolean;
 	'agents'?: boolean;
 	'session-title-base64'?: string;
 	locale?: string;

@@ -646,6 +646,12 @@ pub struct EditorOptions {
 	#[clap(short, long)]
 	pub wait: bool,
 
+	/// Open without bringing the window to the foreground or stealing
+	/// focus. Useful for scripts, agents and integration tests. Behavior
+	/// depends on the OS window manager.
+	#[clap(long, hide = true)]
+	pub background: bool,
+
 	/// The locale to use (e.g. en-US or zh-TW).
 	#[clap(long, value_name = "locale")]
 	pub locale: Option<String>,
@@ -683,6 +689,9 @@ impl EditorOptions {
 		}
 		if self.wait {
 			target.push("--wait".to_string());
+		}
+		if self.background {
+			target.push("--background".to_string());
 		}
 		if let Some(locale) = &self.locale {
 			target.push(format!("--locale={locale}"));

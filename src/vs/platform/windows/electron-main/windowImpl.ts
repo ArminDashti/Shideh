@@ -173,6 +173,13 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 
 	abstract readonly id: number;
 
+	/**
+	 * Set by subclasses when the window was launched with `--background`.
+	 * Used by `applyState`, `focus()` and other code paths to suppress
+	 * activation and focus stealing.
+	 */
+	protected background = false;
+
 	protected _lastFocusTime = Date.now(); // window is shown on creation so take current time
 	get lastFocusTime(): number { return this._lastFocusTime; }
 
@@ -803,6 +810,12 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			if (config.isSessionsWindow) {
 				webPreferences.backgroundThrottling = false; // keep agents window responsive when in background
 			}
+			if (this.background) {
+				// Keep the renderer running at full speed even though the window
+				// will be unfocused; otherwise tests/agents driving an unfocused
+				// background window get noticeably throttled.
+				webPreferences.backgroundThrottling = false;
+			}
 
 			const options = instantiationService.invokeFunction(defaultBrowserWindowOptions, this.windowState, undefined, webPreferences);
 			const iconPath = config.isSessionsWindow && isWindows ? join(this.environmentMainService.appRoot, 'resources/win32/sessions.ico') : undefined;
@@ -822,7 +835,9 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			// Apply some state after window creation
 			this.applyState(this.windowState, hasMultipleDisplays);
 
-			this._lastFocusTime = Date.now(); // since we show directly, we need to set the last focus time too
+			if (!this.background) {
+				this._lastFocusTime = Date.now(); // since we show directly, we need to set the last focus time too
+			}
 		}
 		//#endregion
 
@@ -1378,8 +1393,15 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI) {
 			this._register(new RunOnceScheduler(() => {
 				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
-					this._win.show();
-					this.focus({ mode: FocusMode.Force });
+					if (this.background) {
+						// Honor --background even on the dev "did not open in N seconds"
+						// fallback: still surface the window (with devtools) so the
+						// developer can diagnose, but don't steal focus.
+						this._win.showInactive();
+					} else {
+						this._win.show();
+						this.focus({ mode: FocusMode.Force });
+					}
 					this._win.webContents.openDevTools();
 				}
 			}, 10000)).schedule();

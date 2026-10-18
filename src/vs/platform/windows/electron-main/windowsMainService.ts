@@ -435,8 +435,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 		this.logService.trace(`windowsManager#open used window count ${usedWindows.length} (workspacesToOpen: ${workspacesToOpen.length}, foldersToOpen: ${foldersToOpen.length}, emptyToRestore: ${emptyWindowsWithBackupsToRestore.length}, maybeOpenEmptyWindow: ${maybeOpenEmptyWindow})`);
 
-		// Make sure to pass focus to the most relevant of the windows if we open multiple
-		if (usedWindows.length > 1) {
+		// Make sure to pass focus to the most relevant of the windows if we open multiple.
+		// When launched with --background we never bring any window to the foreground.
+		if (usedWindows.length > 1 && !openConfig.cli.background) {
 
 			// 1.) focus window we opened files in always with highest priority
 			if (filesOpenedInWindow && !openConfig.cli?.background) {
@@ -549,7 +550,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 		if (windowHandlingChatRequest) {
 			windowHandlingChatRequest.sendWhenReady('vscode:handleChatRequest', CancellationToken.None, openConfig.cli.chat);
-			windowHandlingChatRequest.focus();
+			if (!openConfig.cli.background) {
+				windowHandlingChatRequest.focus();
+			}
 		}
 	}
 
