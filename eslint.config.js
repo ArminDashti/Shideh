@@ -2445,6 +2445,13 @@ export default defineConfig(
 						'@playwright/*',
 						'*' // node modules
 					]
+				},
+				{
+					'target': 'test/quota-tester/**',
+					'restrictions': [
+						'test/quota-tester/**',
+						'*' // node modules
+					]
 				}
 			]
 		}
