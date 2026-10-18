@@ -262,6 +262,7 @@ export class MarkupCellRenderer extends AbstractCellRenderer implements IListRen
 
 export class CodeCellRenderer extends AbstractCellRenderer implements IListRenderer<CodeCellViewModel, CodeCellRenderTemplate> {
 	static readonly TEMPLATE_ID = 'code_cell';
+	readonly _editorPool: NotebookCellEditorPool;
 
 	constructor(
 		notebookEditor: INotebookEditorDelegate,
@@ -277,6 +278,8 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 		@INotificationService notificationService: INotificationService,
 	) {
 		super(instantiationService, notebookEditor, contextMenuService, menuService, configurationService, keybindingService, notificationService, contextKeyServiceProvider, PLAINTEXT_LANGUAGE_ID, dndController);
+
+		this._editorPool = instantiationService.createInstance(NotebookCellEditorPool, this.editorOptions, this.notebookEditor.creationOptions, contextKeyServiceProvider);
 	}
 
 	get templateId() {
@@ -301,8 +304,12 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 		cellInputCollapsedContainer.style.display = 'none';
 		const executionOrderLabel = DOM.append(focusIndicatorLeft.domNode, $('div.execution-count-label'));
 		executionOrderLabel.title = localize('cellExecutionOrderCountLabel', 'Execution Order');
-		const editorPart = DOM.append(cellContainer, $('.cell-editor-part'));
-		const editorContainer = DOM.append(editorPart, $('.cell-editor-container'));
+
+		const editorRef = this._editorPool.get();
+		templateDisposables.add(editorRef);
+		DOM.append(cellContainer, editorRef.object.element);
+		const editorPart = editorRef.object.element;
+
 		const cellCommentPartContainer = DOM.append(container, $('.cell-comment-container'));
 
 		// create a special context key service that set the inCompositeEditor-contextkey
@@ -354,7 +361,7 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 		const contentParts = [
 			focusIndicatorPart,
 			templateDisposables.add(scopedInstaService.createInstance(CellChatPart, this.notebookEditor, cellChatPart)),
-			templateDisposables.add(scopedInstaService.createInstance(CellEditorStatusBar, this.notebookEditor, container, editorPart, editor)),
+			templateDisposables.add(scopedInstaService.createInstance(CellEditorStatusBar, this.notebookEditor, container, editorPart, editorRef.object.editor)),
 			templateDisposables.add(scopedInstaService.createInstance(CellProgressBar, editorPart, cellInputCollapsedContainer)),
 			templateDisposables.add(new CellDecorations(this.notebookEditor, rootContainer, decorationContainer)),
 			templateDisposables.add(scopedInstaService.createInstance(CellComments, this.notebookEditor, cellCommentPartContainer)),
@@ -391,7 +398,7 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 			focusSinkElement,
 			outputContainer,
 			outputShowMoreContainer,
-			editor,
+			editor: editorRef.object.editor,
 			templateDisposables,
 			elementDisposables: templateDisposables.add(new DisposableStore()),
 			cellParts,
