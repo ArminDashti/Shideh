@@ -49,10 +49,11 @@ import { IEditorService } from '../../../../../services/editor/common/editorServ
 import { renderAsPlaintext } from '../../../../../../base/browser/markdownRenderer.js';
 import { stripIcons } from '../../../../../../base/common/iconLabels.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { IMenuService, MenuId, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { InEditorZenModeContext } from '../../../../../common/contextkeys.js';
 import { HiddenItemStrategy, WorkbenchToolBar } from '../../../../../../platform/actions/browser/toolbar.js';
+import { DropdownWithPrimaryActionViewItem } from '../../../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { createActionViewItem } from '../../../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
 import { FocusAgentSessionsAction } from '../agentSessionsActions.js';
@@ -191,6 +192,9 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 	/** Reusable menu for CommandCenterCenter items (e.g., debug toolbar) */
 	private readonly _commandCenterMenu;
 
+	/** Menu for ChatTitleBarMenu items (same as chat controls dropdown) */
+	private readonly _chatTitleBarMenu;
+
 	constructor(
 		action: IAction,
 		private readonly _windowTitle: WindowTitle,
@@ -216,6 +220,9 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 
 		// Create menu for CommandCenterCenter to get items like debug toolbar
 		this._commandCenterMenu = this._register(this.menuService.createMenu(MenuId.CommandCenterCenter, this.contextKeyService));
+
+		// Create menu for ChatTitleBarMenu to show in sparkle section dropdown
+		this._chatTitleBarMenu = this._register(this.menuService.createMenu(MenuId.ChatTitleBarMenu, this.contextKeyService));
 
 		// Re-render when control mode or session info changes
 		this._register(this.agentTitleBarStatusService.onDidChangeMode(() => {
@@ -777,6 +784,21 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 
 		// Status badge (separate rectangle on right)
 		this._renderStatusBadge(disposables, activeSessions, unreadSessions, attentionNeededSessions);
+	}
+
+	/**
+	 * Render badge-only mode - just the status badge without the full pill.
+	 * Used when Agent Status is enabled but Enhanced Agent Status is not.
+	 */
+	private _renderBadgeOnlyMode(disposables: DisposableStore): void {
+		if (!this._container) {
+			return;
+		}
+
+		const { activeSessions, unreadSessions } = this._getSessionStats();
+
+		// Status badge only - no pill, no command center toolbar
+		this._renderStatusBadge(disposables, activeSessions, unreadSessions);
 	}
 
 	// #endregion

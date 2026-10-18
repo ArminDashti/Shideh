@@ -20,6 +20,7 @@ import { IAgentSessionProjectionService, AgentSessionProjectionService, AGENT_SE
 import { EnterAgentSessionProjectionAction, ExitAgentSessionProjectionAction, ToggleAgentStatusAction } from './agentSessionProjectionActions.js';
 import { AgentTitleBarStatusRendering } from './agentTitleBarStatusWidget.js';
 import { AgentTitleBarStatusService, IAgentTitleBarStatusService } from './agentTitleBarStatusService.js';
+import { AgentsQuickChatService, IAgentsQuickChatService } from './agentsQuickChatService.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize, localize2 } from '../../../../../../nls.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -259,6 +260,7 @@ registerAction2(ToggleUnifiedAgentsBarAction);
 
 registerSingleton(IAgentSessionProjectionService, AgentSessionProjectionService, InstantiationType.Delayed);
 registerSingleton(IAgentTitleBarStatusService, AgentTitleBarStatusService, InstantiationType.Delayed);
+registerSingleton(IAgentsQuickChatService, AgentsQuickChatService, InstantiationType.Delayed);
 
 registerWorkbenchContribution2(AgentTitleBarStatusRendering.ID, AgentTitleBarStatusRendering, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentSessionReadyContribution.ID, AgentSessionReadyContribution, WorkbenchPhase.AfterRestored);

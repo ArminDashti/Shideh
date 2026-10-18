@@ -17,6 +17,21 @@
 	overflow: visible;
 }
 
+/*
+ * Badge-only mode layout - compact badge next to command center.
+ */
+.agent-status-enabled:not(.unified-agents-bar) .command-center .action-item.agent-status-container {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
+	overflow: visible;
+}
+
+/*
+ * Container - holds pill and/or badge.
+ * Right padding reserves space for badge chevron expansion.
+ */
 .agent-status-container {
 	display: flex;
 	flex-direction: row;
@@ -24,6 +39,7 @@
 	align-items: center;
 	justify-content: flex-start;
 	gap: 4px;
+	padding-right: 22px;
 	-webkit-app-region: no-drag;
 	overflow: visible;
 	color: var(--vscode-commandCenter-foreground);
