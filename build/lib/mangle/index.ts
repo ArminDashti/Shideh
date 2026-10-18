@@ -55,7 +55,7 @@ const enum FieldType {
 
 class ClassData {
 
-	fields = new Map<string, { type: FieldType; pos: number }>();
+	fields = new Map<string, { type: FieldType; pos: number; lineColumn: ts.LineAndCharacter }>();
 
 	private replacements: Map<string, string> | undefined;
 
@@ -106,7 +106,9 @@ class ClassData {
 				continue;
 			}
 			const type = ClassData._getFieldType(member);
-			this.fields.set(ident, { type, pos: member.name!.getStart() });
+			const pos = member.name!.getStart();
+			const lineColumn = node.getSourceFile().getLineAndCharacterOfPosition(pos);
+			this.fields.set(ident, { type, pos, lineColumn });
 		}
 	}
 
@@ -536,6 +538,7 @@ export class Mangler {
 			maxWorkers: 2,
 			minWorkers: 'max'
 		});
+		this.log(`Mangler using worker: ${workerScript}`);
 	}
 
 	computeNewFileContents(): Map<string, string> {
