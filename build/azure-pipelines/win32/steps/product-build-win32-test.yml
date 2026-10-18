@@ -120,6 +120,7 @@ steps:
         compile-extension:vscode-test-resolver `
       }
     displayName: Build integration tests
+    condition: and(succeeded(), ne(variables['VSCODE_ARCH'], 'x64'))
 
   - ${{ if or(eq(parameters.VSCODE_TEST_TYPE, 'All'), eq(parameters.VSCODE_TEST_TYPE, 'Integration')) }}:
     - powershell: .\build\azure-pipelines\win32\listprocesses.bat
