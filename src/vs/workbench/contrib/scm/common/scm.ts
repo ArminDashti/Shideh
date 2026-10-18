@@ -42,6 +42,26 @@ export interface ISCMResourceDecorations {
 	faded?: boolean;
 }
 
+export interface ISCMCommit {
+	readonly id: string;
+	readonly shortId?: string;
+	readonly timestamp?: number;
+	readonly message: string;
+	readonly author?: string;
+	readonly iconPath?: URI | { light: URI; dark: URI; } | ThemeIcon;
+	readonly status?: string;
+}
+
+export interface ISCMResourceRevision {
+	readonly commit?: ISCMCommit;
+	readonly resourceGroup: ISCMResourceGroup;
+	readonly sourceUri: URI;
+	readonly decorations: ISCMResourceDecorations;
+	readonly contextValue?: string;
+	readonly command: Command | undefined;
+	open(preserveFocus: boolean): Promise<void>;
+}
+
 export interface ISCMResource {
 	readonly resourceGroup: ISCMResourceGroup;
 	readonly sourceUri: URI;
@@ -203,7 +223,7 @@ export interface ISCMRepositoryMenus {
 	getRepositoryMenu(repository: ISCMRepository): IMenu;
 	getRepositoryContextMenu(repository: ISCMRepository): IMenu;
 	getResourceGroupMenu(group: ISCMResourceGroup): IMenu;
-	getResourceMenu(resource: ISCMResource): IMenu;
+	getResourceMenu(resource: ISCMResource | ISCMResourceRevision): IMenu;
 	getResourceFolderMenu(group: ISCMResourceGroup): IMenu;
 	getArtifactGroupMenu(artifactGroup: ISCMArtifactGroup): IMenu;
 	getArtifactMenu(artifactGroup: ISCMArtifactGroup, artifact: ISCMArtifact): IMenu;

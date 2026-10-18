@@ -53,7 +53,8 @@ export const enum ResourceGroupType {
 	Merge,
 	Index,
 	WorkingTree,
-	Untracked
+	Untracked,
+	Unpublished
 }
 
 export class Resource implements SourceControlResourceState {
@@ -657,6 +658,10 @@ class ResourceCommandResolver {
 	private getTitle(resource: Resource): string {
 		const basename = path.basename(resource.resourceUri.fsPath);
 
+		if (resource.unpublished) {
+			return localize('git.title.unpublished', '{0} (Unpublished)', basename);
+		}
+
 		switch (resource.type) {
 			case Status.INDEX_MODIFIED:
 			case Status.INDEX_RENAMED:
@@ -867,6 +872,7 @@ export class Repository implements Disposable {
 		this.indexGroup.resourceStates = [];
 		this.workingTreeGroup.resourceStates = [];
 		this.untrackedGroup.resourceStates = [];
+		this.unpublishedGroup.resourceStates = [];
 		this._sourceControl.count = 0;
 	}
 
@@ -1050,11 +1056,13 @@ export class Repository implements Disposable {
 
 		this.mergeGroup.hideWhenEmpty = true;
 		this.untrackedGroup.hideWhenEmpty = true;
+		this.unpublishedGroup.hideWhenEmpty = true;
 
 		this.disposables.push(this.mergeGroup);
 		this.disposables.push(this.indexGroup);
 		this.disposables.push(this.workingTreeGroup);
 		this.disposables.push(this.untrackedGroup);
+		this.disposables.push(this.unpublishedGroup);
 
 		// Don't allow auto-fetch in untrusted workspaces
 		if (workspace.isTrusted) {

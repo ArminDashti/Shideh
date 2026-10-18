@@ -669,6 +669,166 @@ class ResourceRenderer implements ICompressibleTreeRenderer<ISCMResource | IReso
 	}
 }
 
+interface RevisionTemplate {
+	icon: HTMLElement;
+	iconLabel: IconLabel;
+	actionBar: ActionBar;
+	elementDisposables: IDisposable;
+	disposables: IDisposable;
+}
+
+class RevisionRenderer implements ICompressibleTreeRenderer<ISCMResourceRevision, FuzzyScore | LabelFuzzyScore, RevisionTemplate> {
+
+	static readonly TEMPLATE_ID = 'revision';
+	get templateId(): string { return RevisionRenderer.TEMPLATE_ID; }
+
+	constructor(
+		private actionViewItemProvider: IActionViewItemProvider,
+		private actionRunner: ActionRunner,
+		@ISCMViewService private scmViewService: ISCMViewService,
+	) { }
+
+	renderTemplate(container: HTMLElement): RevisionTemplate {
+		const element = append(container, $('.resource.revision'));
+		const name = append(element, $('.name'));
+		const iconLabel = new IconLabel(name, { supportDescriptionHighlights: true, supportHighlights: true, supportIcons: true });
+		const icon = prepend(iconLabel.element, $('span.icon'));
+		const actionsContainer = append(iconLabel.element, $('.actions'));
+		const actionBar = new ActionBar(actionsContainer, {
+			actionViewItemProvider: this.actionViewItemProvider,
+			actionRunner: this.actionRunner
+		});
+
+		const disposables = combinedDisposable(actionBar, iconLabel);
+
+		return { icon, iconLabel, actionBar, elementDisposables: Disposable.None, disposables };
+	}
+
+	renderElement(node: ITreeNode<ISCMResourceRevision, FuzzyScore | LabelFuzzyScore> | ITreeNode<ISCMResourceRevision, FuzzyScore | LabelFuzzyScore>, index: number, template: RevisionTemplate): void {
+		template.elementDisposables.dispose();
+
+		const elementDisposables = new DisposableStore();
+
+		const { element: item } = node;
+
+		const revision = item.commit ?? getSCMCommitFromUri(item);
+
+		template.actionBar.clear();
+		template.actionBar.context = item;
+
+		const menus = this.scmViewService.menus.getRepositoryMenus(item.resourceGroup.provider);
+		elementDisposables.add(connectPrimaryMenuToInlineActionBar(menus.getResourceMenu(item), template.actionBar));
+
+		const icon = revision.iconPath;
+		if (icon) {
+			if (ThemeIcon.isThemeIcon(icon)) {
+				template.icon.className = `icon ${ThemeIcon.asClassName(icon)}`;
+				// if (icon.color) {
+				// 	const theme = this.themeService.getColorTheme();
+				// 	template.icon.style.color = theme.getColor(icon.color.id)?.toString() ?? '';
+				// }
+				// template.icon.style.display = '';
+				// template.icon.style.backgroundImage = '';
+			} else {
+				template.icon.className = 'icon';
+				// template.icon.style.color = '';
+				// template.icon.style.display = '';
+				// template.icon.style.backgroundImage = asCSSUrl(icon);
+			}
+			// template.icon.title = tooltip;
+		} else {
+			template.icon.className = 'icon';
+			// template.icon.style.color = '';
+			// template.icon.style.display = 'none';
+			// template.icon.style.backgroundImage = '';
+			// template.icon.title = '';
+		}
+
+		let relativeTime;
+		if (revision.timestamp) {
+			relativeTime = fromNow(new Date(revision.timestamp), true);
+		}
+
+		const newlineIndex = revision.message.indexOf('\n');
+		const message = newlineIndex !== -1 ? `${revision.message.substring(0, newlineIndex)} \u2026` : revision.message;
+
+		// const [matches, descriptionMatches] = this._processFilterData(revision.message, node.filterData);
+		template.iconLabel.setLabel(message, relativeTime, {
+			title: `${revision.author ? `${revision.author} — ` : ''}${revision.shortId ?? revision.id}${revision.status ? ` (${revision.status})` : ''}${relativeTime ? `\n${relativeTime}` : ''}\n\n${revision.message}`,
+			matches: createMatches(node.filterData as FuzzyScore | undefined),
+			// descriptionMatches
+		});
+
+		template.elementDisposables = elementDisposables;
+	}
+
+	disposeElement(resource: ITreeNode<ISCMResourceRevision, FuzzyScore | LabelFuzzyScore>, index: number, template: RevisionTemplate): void {
+		template.elementDisposables.dispose();
+	}
+
+	disposeCompressedElements(node: ITreeNode<ICompressedTreeNode<ISCMResourceRevision>, FuzzyScore | LabelFuzzyScore>, index: number, template: RevisionTemplate, height: number | undefined): void {
+		template.elementDisposables.dispose();
+	}
+
+	renderCompressedElements(node: ITreeNode<ICompressedTreeNode<ISCMResourceRevision>, FuzzyScore | LabelFuzzyScore>, index: number, templateData: RevisionTemplate, height: number | undefined): void {
+		throw new Error('Should never happen since node is incompressible');
+	}
+
+	disposeTemplate(template: RevisionTemplate): void {
+		template.elementDisposables.dispose();
+		template.disposables.dispose();
+	}
+
+	// private _processFilterData(message: string, filterData: FuzzyScore | LabelFuzzyScore | undefined): [IMatch[] | undefined, IMatch[] | undefined] {
+	// 	if (!filterData) {
+	// 		return [undefined, undefined];
+	// 	}
+
+	// 	if (!(filterData as LabelFuzzyScore).label) {
+	// 		const matches = createMatches(filterData as FuzzyScore);
+	// 		return [matches, undefined];
+	// 	}
+
+	// 	const label = (filterData as LabelFuzzyScore).label;
+	// 	const pathLength = label.length - message.length;
+	// 	const matches = createMatches((filterData as LabelFuzzyScore).score);
+
+	// 	// FileName match
+	// 	if (label === message) {
+	// 		return [matches, undefined];
+	// 	}
+
+	// 	// FilePath match
+	// 	let labelMatches: IMatch[] = [];
+	// 	let descriptionMatches: IMatch[] = [];
+
+	// 	for (const match of matches) {
+	// 		if (match.start > pathLength) {
+	// 			// Label match
+	// 			labelMatches.push({
+	// 				start: match.start - pathLength,
+	// 				end: match.end - pathLength
+	// 			});
+	// 		} else if (match.end < pathLength) {
+	// 			// Description match
+	// 			descriptionMatches.push(match);
+	// 		} else {
+	// 			// Spanning match
+	// 			labelMatches.push({
+	// 				start: 0,
+	// 				end: match.end - pathLength
+	// 			});
+	// 			descriptionMatches.push({
+	// 				start: match.start,
+	// 				end: pathLength
+	// 			});
+	// 		}
+	// 	}
+
+	// 	return [labelMatches, descriptionMatches];
+	// }
+}
+
 class ListDelegate implements IListVirtualDelegate<TreeElement> {
 
 	constructor(private readonly inputRenderer: InputRenderer) { }
@@ -769,9 +929,17 @@ export class SCMTreeSorter implements ITreeSorter<TreeElement> {
 		}
 
 		if (isSCMInput(one)) {
+			// if (isSCMResourceGroup(other) && other.id === 'unpublished') {
 			return -1;
+			// } else {
+			// 	return 1;
+			// }
 		} else if (isSCMInput(other)) {
+			// if (isSCMResourceGroup(one) && one.id === 'unpublished') {
 			return 1;
+			// }
+
+			// return -1;
 		}
 
 		if (isSCMActionButton(one)) {

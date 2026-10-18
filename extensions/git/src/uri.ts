@@ -86,3 +86,25 @@ export function toMultiFileDiffEditorUris(change: Change, originalRef: string, m
 			};
 	}
 }
+
+export function isRevisionUri(uri: Uri): boolean {
+	return /^revision$/.test(uri.scheme);
+}
+
+export function fromRevisionUri(uri: Uri): SourceControlRevisionState {
+	return JSON.parse(uri.query);
+}
+
+export function toRevisionUri(commit: Commit): Uri {
+	const shortId = commit.hash.substr(0, 8);
+	const revision: SourceControlRevisionState = {
+		id: commit.hash,
+		shortId: shortId,
+		message: commit.message,
+		author: commit.authorName,
+		timestamp: commit.commitDate?.getTime() ?? commit.authorDate?.getTime(),
+		status: 'unpublished',
+		iconPath: new (ThemeIcon as any)('git-commit')
+	};
+	return Uri.parse(`revision://${shortId}/?${encodeURIComponent(JSON.stringify(revision))}`);
+}

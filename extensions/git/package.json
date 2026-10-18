@@ -893,13 +893,13 @@
         "category": "Git"
       },
       {
-        "command": "git.timeline.copyCommitId",
-        "title": "%command.timelineCopyCommitId%",
+        "command": "git.copyCommitId",
+        "title": "%command.copyCommitId%",
         "category": "Git"
       },
       {
-        "command": "git.timeline.copyCommitMessage",
-        "title": "%command.timelineCopyCommitMessage%",
+        "command": "git.copyCommitMessage",
+        "title": "%command.copyCommitMessage%",
         "category": "Git"
       },
       {
@@ -1712,14 +1712,6 @@
           "when": "false"
         },
         {
-          "command": "git.timeline.copyCommitId",
-          "when": "false"
-        },
-        {
-          "command": "git.timeline.copyCommitMessage",
-          "when": "false"
-        },
-        {
           "command": "git.timeline.selectForCompare",
           "when": "false"
         },
@@ -2409,6 +2401,26 @@
           "command": "git.stageAllUntracked",
           "when": "scmProvider == git && scmResourceGroup == untracked",
           "group": "inline@2"
+        },
+        {
+          "command": "git.push",
+          "when": "scmProvider == git && scmResourceGroup == unpublished",
+          "group": "inline@0"
+        },
+        {
+          "command": "git.sync",
+          "when": "scmProvider == git && scmResourceGroup == unpublished",
+          "group": "inline@1"
+        },
+        {
+          "command": "git.setUnpublishedViewToCommits",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && config.git.unpublishedChanges == files",
+          "group": "inline@10"
+        },
+        {
+          "command": "git.setUnpublishedViewToFiles",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && config.git.unpublishedChanges == commits",
+          "group": "inline@10"
         }
       ],
       "scm/resourceFolder/context": [
@@ -2753,6 +2765,26 @@
           "command": "git.ignore",
           "when": "scmProvider == git && scmResourceGroup == untracked",
           "group": "1_modification@3"
+        },
+        {
+          "command": "git.undoCommit",
+          "group": "inline",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && scmResourceState =~ /commit\\b(?=.*?\\b\\+tip\\b)/"
+        },
+        {
+          "command": "git.undoCommit",
+          "group": "2_git",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && scmResourceState =~ /commit\\b(?=.*?\\b\\+tip\\b)/"
+        },
+        {
+          "command": "git.copyCommitId",
+          "group": "5_copy@1",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && scmResourceState =~ /commit\\b/"
+        },
+        {
+          "command": "git.copyCommitMessage",
+          "group": "5_copy@2",
+          "when": "scmProvider == git && scmResourceGroup == unpublished && scmResourceState =~ /commit\\b/"
         }
       ],
       "scm/history/title": [
@@ -3019,12 +3051,12 @@
           "when": "config.git.enabled && !git.missing && timelineItem =~ /git:file\\b/ && !listMultiSelection"
         },
         {
-          "command": "git.timeline.copyCommitId",
+          "command": "git.copyCommitId",
           "group": "5_copy@1",
           "when": "config.git.enabled && !git.missing && timelineItem =~ /git:file:commit\\b/ && !listMultiSelection"
         },
         {
-          "command": "git.timeline.copyCommitMessage",
+          "command": "git.copyCommitMessage",
           "group": "5_copy@2",
           "when": "config.git.enabled && !git.missing && timelineItem =~ /git:file:commit\\b/ && !listMultiSelection"
         }
@@ -4498,7 +4530,17 @@
         "when": "config.git.enabled && git.state == initialized && scm.providerCount == 0",
         "group": "5_scm@10"
       }
-    ]
+    ],
+    "resourceLabelFormatters": [
+			{
+        "scheme": "git-commit",
+				"authority": "*",
+				"formatting": {
+					"label": "${query.message} (${query.sha})",
+					"separator": "/"
+				}
+			}
+		]
   },
   "dependencies": {
     "@joaomoreno/unique-names-generator": "^5.2.0",

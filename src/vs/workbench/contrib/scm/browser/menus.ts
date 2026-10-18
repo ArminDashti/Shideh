@@ -346,7 +346,7 @@ export class SCMRepositoryMenus implements ISCMRepositoryMenus, IDisposable {
 		return this.getOrCreateResourceGroupMenusItem(group).getResourceGroupMenu(group);
 	}
 
-	getResourceMenu(resource: ISCMResource): IMenu {
+	getResourceMenu(resource: ISCMResource | ISCMResourceRevision): IMenu {
 		return this.getOrCreateResourceGroupMenusItem(resource.resourceGroup).getResourceMenu(resource);
 	}
 

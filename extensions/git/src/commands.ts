@@ -5344,15 +5344,25 @@ export class CommandCenter {
 	@command('git.timeline.copyCommitId', { repository: false })
 	async timelineCopyCommitId(item: TimelineItem, _uri: Uri | undefined, _source: string) {
 		if (!GitTimelineItem.is(item)) {
+			if (isRevisionUri(item.resourceUri)) {
+				const revision = fromRevisionUri(item.resourceUri);
+				env.clipboard.writeText(revision.id);
+			}
+
 			return;
 		}
 
 		env.clipboard.writeText(item.ref);
 	}
 
-	@command('git.timeline.copyCommitMessage', { repository: false })
-	async timelineCopyCommitMessage(item: TimelineItem, _uri: Uri | undefined, _source: string) {
+	@command('git.copyCommitMessage', { repository: false })
+	async copyCommitMessage(item: GitTimelineItem | SourceControlResourceState, _uri: Uri | undefined, _source: string) {
 		if (!GitTimelineItem.is(item)) {
+			if (isRevisionUri(item.resourceUri)) {
+				const revision = fromRevisionUri(item.resourceUri);
+				env.clipboard.writeText(revision.message);
+			}
+
 			return;
 		}
 

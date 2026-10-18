@@ -61,7 +61,7 @@ export class GitTimelineItem extends TimelineItem {
 }
 
 export class GitTimelineItem extends TimelineItem {
-	static is(item: TimelineItem): item is GitTimelineItem {
+	static is(item: any): item is GitTimelineItem {
 		return item instanceof GitTimelineItem;
 	}
 
