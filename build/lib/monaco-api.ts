@@ -562,6 +562,8 @@ export interface IMonacoDeclarationResult {
 	enums: string;
 	filePath: string;
 	isTheSame: boolean;
+	one: string;
+	other: string
 }
 
 function _run(ts: Typescript, sourceFileGetter: SourceFileGetter): IMonacoDeclarationResult | null {
@@ -585,7 +587,9 @@ function _run(ts: Typescript, sourceFileGetter: SourceFileGetter): IMonacoDeclar
 		usageContent: usageContent,
 		enums: enums,
 		filePath: DECLARATION_PATH,
-		isTheSame
+		isTheSame,
+		one,
+		other
 	};
 }
 
