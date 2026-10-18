@@ -972,7 +972,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 
 		// Empty workbench configured to open untitled file if empty
-		else if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY && this.configurationService.getValue('workbench.startupEditor') === 'newUntitledFile') {
+		else if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY) {
+			const startupEditor = this.configurationService.getValue<string>('workbench.startupEditor');
+
+			if (startupEditor !== 'newUntitledFile' && startupEditor !== 'terminal') {
+				return [];
+			}
 			if (this.editorGroupService.hasRestorableState) {
 				return []; // do not open any empty untitled file if we restored groups/editors from previous session
 			}
