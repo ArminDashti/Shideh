@@ -498,6 +498,7 @@ export const enum EndOfLineSequence {
 
 /**
  * An identifier for a single edit operation.
+ * @internal
  */
 export interface ISingleEditOperationIdentifier {
 	/**

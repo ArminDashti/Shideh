@@ -1372,7 +1372,7 @@ declare namespace monaco.editor {
 		tabSize?: number;
 		/**
 		 * Insert spaces when pressing `Tab`.
-		 * This setting is overridden based on the file contents when detectIndentation` is on.
+		 * This setting is overridden based on the file contents when `detectIndentation` is on.
 		 * Defaults to true.
 		 */
 		insertSpaces?: boolean;
@@ -7835,6 +7835,16 @@ declare namespace monaco.languages {
 	 * Register an inlay hints provider.
 	 */
 	export function registerInlayHintsProvider(languageSelector: LanguageSelector, provider: InlayHintsProvider): IDisposable;
+
+	/**
+	 * Register a document semantic tokens provider
+	 */
+	export function registerDocumentSemanticTokensProvider(languageId: string, provider: DocumentSemanticTokensProvider): IDisposable;
+
+	/**
+	 * Register a document range semantic tokens provider
+	 */
+	export function registerDocumentRangeSemanticTokensProvider(languageId: string, provider: DocumentRangeSemanticTokensProvider): IDisposable;
 
 	/**
 	 * Contains additional diagnostic information about the context in which
