@@ -19,13 +19,19 @@ export interface ISubagentData {
 	childEvents: readonly IChatDebugEvent[];
 }
 
+export interface IDeriveSubagentResult {
+	subagents: ISubagentData[];
+	/** Set of event IDs that belong to a subagent (invocation IDs + child event IDs). */
+	subagentEventIds: Set<string>;
+}
+
 /**
  * Derive subagent info from events:
  * - Explicit `subagentInvocation` events
  * - `toolCall` events where toolName is 'runSubagent'
  * - `toolCall` events that have a parentEventId matching a subagent
  */
-export function deriveSubagentData(events: readonly IChatDebugEvent[]): ISubagentData[] {
+export function deriveSubagentData(events: readonly IChatDebugEvent[]): IDeriveSubagentResult {
 	const subagents: Map<string, { name: string; description?: string; status?: string; toolCalls: number; modelTurns: number; durationMs?: number; childEvents: IChatDebugEvent[] }> = new Map();
 
 	// Collect from explicit subagentInvocation events
@@ -41,6 +47,11 @@ export function deriveSubagentData(events: readonly IChatDebugEvent[]): ISubagen
 				durationMs: event.durationInMillis,
 				childEvents: [],
 			});
+			if (event.status === 'running' || !event.status) {
+				const running = runningEntries.get(event.agentName) ?? [];
+				running.push(key);
+				runningEntries.set(event.agentName, running);
+			}
 		}
 	}
 
@@ -52,22 +63,22 @@ export function deriveSubagentData(events: readonly IChatDebugEvent[]): ISubagen
 				// Try to extract agent name from input JSON
 				let agentName = localize('chatDebug.subagent', "Subagent");
 				let description: string | undefined;
-				if (event.input) {
+				if (parentEvent.input) {
 					try {
-						const parsed: { agentName?: string; description?: string } = JSON.parse(event.input);
-						agentName = parsed.agentName ?? 'Subagent';
+						const parsed: { agentName?: string; description?: string } = JSON.parse(parentEvent.input);
 						description = parsed.description;
+						agentName = parsed.agentName ?? 'Subagent';
 					} catch {
 						// best effort
 					}
 				}
-				subagents.set(key, {
+				subagents.set(event.parentEventId, {
 					name: agentName,
 					description,
-					status: event.result,
+					status: undefined,
 					toolCalls: 0,
 					modelTurns: 0,
-					durationMs: event.durationInMillis,
+					durationMs: parentEvent.durationInMillis,
 					childEvents: [],
 				});
 			}
@@ -100,15 +111,33 @@ export function deriveSubagentData(events: readonly IChatDebugEvent[]): ISubagen
 		}
 	}
 
-	// Attach child events (by parentEventId)
+	// Now attach all owned events as children, and enrich descriptions
+	// from runSubagent toolCall inputs where available.
 	for (const event of events) {
-		if (event.parentEventId && subagents.has(event.parentEventId)) {
-			const sub = subagents.get(event.parentEventId)!;
-			(sub.childEvents as IChatDebugEvent[]).push(event);
-			if (event.kind === 'toolCall') {
-				sub.toolCalls++;
-			} else if (event.kind === 'modelTurn') {
-				sub.modelTurns++;
+		const ownerKey = event.id ? eventOwner.get(event.id) : undefined;
+		const parentOwnerKey = event.parentEventId ? eventOwner.get(event.parentEventId) : undefined;
+		const resolvedKey = ownerKey ?? parentOwnerKey;
+		if (resolvedKey && subagents.has(resolvedKey)) {
+			const sub = subagents.get(resolvedKey)!;
+			// Enrich description from runSubagent toolCall input
+			if (event.kind === 'toolCall' && event.toolName === 'runSubagent' && !sub.description && event.input) {
+				try {
+					const parsed: { description?: string } = JSON.parse(event.input);
+					if (parsed.description) {
+						sub.description = parsed.description;
+					}
+				} catch {
+					// best effort
+				}
+			}
+			// Avoid adding the subagent invocation event itself
+			if (event.kind !== 'subagentInvocation') {
+				(sub.childEvents as IChatDebugEvent[]).push(event);
+				if (event.kind === 'toolCall') {
+					sub.toolCalls++;
+				} else if (event.kind === 'modelTurn') {
+					sub.modelTurns++;
+				}
 			}
 		}
 	}
@@ -117,13 +146,24 @@ export function deriveSubagentData(events: readonly IChatDebugEvent[]): ISubagen
 }
 
 /**
- * Generate a Mermaid flowchart from events, showing main agent flow
- * with subagent invocations as subgraphs.
+ * Generate a Mermaid flowchart from events, showing the agent flow
+ * with tool call breakdown and subagent invocations as subgraphs.
  */
 export function generateSubagentFlowchart(events: readonly IChatDebugEvent[]): string {
-	const subagents = deriveSubagentData(events);
-	const modelTurns = events.filter(e => e.kind === 'modelTurn');
-	const mainToolCalls = events.filter(e => e.kind === 'toolCall' && e.toolName !== 'runSubagent' && !e.parentEventId);
+	const { subagents, subagentEventIds } = deriveSubagentData(events);
+	const isSubagentOwned = (e: IChatDebugEvent) =>
+		(e.id !== undefined && subagentEventIds.has(e.id)) ||
+		(e.parentEventId !== undefined && subagentEventIds.has(e.parentEventId));
+	const modelTurns = events.filter(e => e.kind === 'modelTurn' && !isSubagentOwned(e));
+	const mainToolCalls = events.filter(e => e.kind === 'toolCall' && e.toolName !== 'runSubagent' && !isSubagentOwned(e));
+
+	// Summarize top tool calls for the main agent
+	const mainToolNames = new Map<string, number>();
+	for (const tc of mainToolCalls) {
+		if (tc.kind === 'toolCall') {
+			mainToolNames.set(tc.toolName, (mainToolNames.get(tc.toolName) ?? 0) + 1);
+		}
+	}
 
 	const lines: string[] = [];
 	lines.push('flowchart TD');
@@ -132,8 +172,22 @@ export function generateSubagentFlowchart(events: readonly IChatDebugEvent[]): s
 	lines.push('    start([Start]) --> mainAgent');
 	lines.push(`    mainAgent["Main Agent<br/>${modelTurns.length} model turns<br/>${mainToolCalls.length} tool calls"]`);
 
+	// Main agent tool breakdown
+	if (mainToolNames.size > 0) {
+		const toolSummary = [...mainToolNames.entries()]
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 8)
+			.map(([name, count]) => `${name} x${count}`)
+			.join('<br/>');
+		lines.push(`    mainAgent --> mainTools["Tools:<br/>${toolSummary}"]`);
+	}
+
 	if (subagents.length === 0) {
-		lines.push('    mainAgent --> finish([End])');
+		if (mainToolNames.size > 0) {
+			lines.push('    mainTools --> finish([End])');
+		} else {
+			lines.push('    mainAgent --> finish([End])');
+		}
 	} else {
 		// Connect main agent to each subagent
 		for (let i = 0; i < subagents.length; i++) {
@@ -185,6 +239,9 @@ export function generateSubagentFlowchart(events: readonly IChatDebugEvent[]): s
 	lines.push('    classDef toolNode fill:#455a64,stroke:#37474f,color:#cfd8dc');
 	lines.push('    classDef returnNode fill:#66bb6a,stroke:#43a047,color:#fff');
 	lines.push('    class mainAgent mainNode');
+	if (mainToolNames.size > 0) {
+		lines.push('    class mainTools toolNode');
+	}
 
 	for (let i = 0; i < subagents.length; i++) {
 		lines.push(`    class sub${i} subNode`);
@@ -196,7 +253,8 @@ export function generateSubagentFlowchart(events: readonly IChatDebugEvent[]): s
 }
 
 /**
- * Render a simple visual HTML/CSS flow representation of the subagent invocations.
+ * Render a visual HTML/CSS flow representation of the agent execution,
+ * showing main agent activity and subagent invocations when present.
  */
 export function renderVisualFlow(container: HTMLElement, events: readonly IChatDebugEvent[]): void {
 	const subagents = deriveSubagentData(events);
@@ -243,4 +301,46 @@ export function renderVisualFlow(container: HTMLElement, events: readonly IChatD
 
 	// End node
 	DOM.append(container, $('div.chat-debug-flow-node.chat-debug-flow-end', undefined, localize('chatDebug.end', "End")));
+}
+
+/**
+ * Append tool call chips to a flow node, grouped by tool name with counts.
+ */
+function appendToolChips(parent: HTMLElement, toolCalls: readonly IChatDebugEvent[]): void {
+	if (toolCalls.length === 0) {
+		return;
+	}
+
+	const toolNames = new Map<string, number>();
+	for (const tc of toolCalls) {
+		if (tc.kind === 'toolCall') {
+			toolNames.set(tc.toolName, (toolNames.get(tc.toolName) ?? 0) + 1);
+		}
+	}
+
+	const chipsContainer = document.createElement('div');
+	chipsContainer.className = 'chat-debug-flow-tool-chips';
+
+	const sorted = [...toolNames.entries()].sort((a, b) => b[1] - a[1]);
+	const maxVisible = 6;
+	const visible = sorted.slice(0, maxVisible);
+
+	for (const [name, count] of visible) {
+		const chip = document.createElement('span');
+		chip.className = 'chat-debug-flow-tool-chip';
+		chip.textContent = count > 1 ? `${name} \u00D7${count}` : name;
+		chip.title = `${name}: ${count} call${count > 1 ? 's' : ''}`;
+		chipsContainer.appendChild(chip);
+	}
+
+	if (sorted.length > maxVisible) {
+		const moreChip = document.createElement('span');
+		moreChip.className = 'chat-debug-flow-tool-chip chat-debug-flow-tool-chip-more';
+		const remaining = sorted.length - maxVisible;
+		moreChip.textContent = localize('chatDebug.moreTools', "+{0} more", remaining);
+		moreChip.title = sorted.slice(maxVisible).map(([n, c]) => `${n} \u00D7${c}`).join(', ');
+		chipsContainer.appendChild(moreChip);
+	}
+
+	parent.appendChild(chipsContainer);
 }
