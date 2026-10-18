@@ -27,7 +27,7 @@ class SurroundWithSnippetCodeActionProvider implements CodeActionProvider {
 		kind: CodeActionKind.SurroundWith.value,
 		title: localize('more', "More..."),
 		command: {
-			id: SurroundWithSnippetEditorAction.options.id,
+			id: localize('more', "More..."),
 			title: SurroundWithSnippetEditorAction.options.title.value,
 		},
 	};
