@@ -58,13 +58,17 @@ export function getRestrictedPolicyValue(definition: PolicyDefinition): PolicyVa
 	}
 }
 
+export type IPolicyParseError = [policyName: string, error: string];
+
 export const IPolicyService = createDecorator<IPolicyService>('policy');
 
 export interface IPolicyService {
 	readonly _serviceBrand: undefined;
 
 	readonly onDidChange: Event<readonly PolicyName[]>;
+	readonly onDidParseErrors: Event<readonly IPolicyParseError[] | undefined>;
 	updatePolicyDefinitions(policyDefinitions: IStringDictionary<PolicyDefinition>): Promise<IStringDictionary<PolicyValue>>;
+	updatePolicyErrors(policyErrors: IPolicyParseError[]): Promise<void>;
 	getPolicyValue(name: PolicyName): PolicyValue | undefined;
 	/** Returns the source of the effective value, or `undefined` when no value is set. */
 	getPolicyValueSource(name: PolicyName): PolicyValueSource | undefined;
@@ -82,6 +86,9 @@ export abstract class AbstractPolicyService extends Disposable implements IPolic
 	protected readonly _onDidChange = this._register(new Emitter<readonly PolicyName[]>());
 	readonly onDidChange = this._onDidChange.event;
 
+	protected readonly _onDidParseErrors = this._register(new Emitter<IPolicyParseError[] | undefined>());
+	readonly onDidParseErrors = this._onDidParseErrors.event;
+
 	async updatePolicyDefinitions(policyDefinitions: IStringDictionary<PolicyDefinition>): Promise<IStringDictionary<PolicyValue>> {
 		// Replace existing definitions; identity comparison avoids redundant watcher churn.
 		let changed = false;
@@ -97,6 +104,17 @@ export abstract class AbstractPolicyService extends Disposable implements IPolic
 		}
 
 		return this.getPolicyValues();
+	}
+
+	async updatePolicyErrors(policyErrors: IPolicyParseError[]): Promise<void> {
+		if (policyErrors.length === 0) {
+			this.parseErrors = [];
+			this._onDidParseErrors.fire(undefined);
+			return;
+		}
+
+		this.parseErrors = policyErrors;
+		this._onDidParseErrors.fire(policyErrors);
 	}
 
 	getPolicyValue(name: PolicyName): PolicyValue | undefined {
@@ -151,7 +169,9 @@ export abstract class AbstractPolicyService extends Disposable implements IPolic
 export class NullPolicyService implements IPolicyService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChange = Event.None;
+	readonly onDidParseErrors = Event.None;
 	async updatePolicyDefinitions() { return {}; }
+	async updatePolicyErrors(_policyErrors: IPolicyParseError[]) { }
 	getPolicyValue() { return undefined; }
 	getPolicyValueSource() { return undefined; }
 	serialize() { return undefined; }
