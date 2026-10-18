@@ -325,6 +325,17 @@ class ChatEditingOverlayController {
 			return undefined;
 		});
 
+
+		const isLocalChat = derived(r => {
+
+			const session = sessionAndEntry.read(r)?.session;
+			if (!session) {
+				return false;
+			}
+			const chatModel = chatService.getSession(session.chatSessionResource)!;
+			return LocalChatSessionUri.parseLocalSessionId(chatModel.sessionResource);
+		});
+
 		this._store.add(autorun(r => {
 
 			const data = sessionAndEntry.read(r);
