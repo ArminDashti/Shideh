@@ -1045,6 +1045,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 			this._disposeOfWebglRenderer();
 			await this._enableWebglRenderer();
 		}
+		this._refreshImageAddon();
 	}
 
 	@debounce(100)
