@@ -3831,7 +3831,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 								dom.h('.chat-attached-context@attachedContextContainer'),
 							]),
 							dom.h('.chat-editor-container@editorContainer'),
-							dom.h('.chat-input-toolbars@inputToolbars'),
+							dom.h('.chat-input-toolbars@inputToolbars', [
+								dom.h('.chat-context-usage-container@contextUsageWidgetContainer'),
+							]),
 						]),
 					]),
 				]),
