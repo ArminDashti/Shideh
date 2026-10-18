@@ -172,6 +172,13 @@ export const CanGoForwardContext = new RawContextKey<boolean>('sessionsCanGoForw
 
 //#endregion
 
+//#region < --- Character --- >
+
+export const SessionsCharacterActiveContext = new RawContextKey<boolean>('sessionsCharacterActive', false, localize('sessionsCharacterActive', "Whether the sessions character easter egg is active"));
+export const SessionsCharacterCustomizingContext = new RawContextKey<boolean>('sessionsCharacterCustomizing', false, localize('sessionsCharacterCustomizing', "Whether the sessions character customization panel is open"));
+
+//#endregion
+
 //#region < --- Editor --- >
 
 export const EditorMaximizedContext = new RawContextKey<boolean>('editorMaximized', false, localize('editorMaximized', "Whether the editor area is maximized"));

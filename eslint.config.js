@@ -2315,6 +2315,10 @@ export default defineConfig(
 						'vs/sessions/~',
 						'vs/sessions/contrib/*/~',
 						'vs/sessions/services/*/~',
+						{
+							'when': 'hasBrowser',
+							'pattern': 'pixi.js'
+						} // node module allowed even in /browser/
 					]
 				},
 				{
