@@ -100,6 +100,7 @@ export class TestContext {
 
 	private readonly tempDirs = new Set<string>();
 	private readonly wslTempDirs = new Set<string>();
+	private readonly patchedWslNodePaths = new Set<string>();
 	private nextPort = 3010;
 	private currentTestName: string | undefined;
 	private screenshotCounter = 0;

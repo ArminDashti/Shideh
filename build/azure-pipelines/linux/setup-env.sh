@@ -48,6 +48,20 @@ cat > "$HOME/.gyp/include.gypi" << 'EOF'
 }
 EOF
 
+mkdir -p "$HOME/.gyp"
+cat > "$HOME/.gyp/include.gypi" << 'EOF'
+{
+  "target_defaults": {
+    "conditions": [
+      ["OS=='linux'", {
+        'cflags_cc!': [ '-std=gnu++20' ],
+        'cflags_cc': [ '-std=gnu++2a' ],
+      }]
+    ]
+  }
+}
+EOF
+
 if [ "$npm_config_arch" == "x64" ]; then
   # Download clang based on chromium revision used by vscode
   curl -s https://raw.githubusercontent.com/chromium/chromium/150.0.7871.250/tools/clang/scripts/update.py | python - --output-dir=$PWD/.build/CR_Clang --host-os=linux
