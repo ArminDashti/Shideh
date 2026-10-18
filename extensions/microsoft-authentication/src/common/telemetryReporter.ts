@@ -48,12 +48,12 @@ export class MicrosoftAuthenticationTelemetryReporter implements IExperimentatio
 			"login" : {
 				"owner": "TylerLeonhardt",
 				"comment": "Used to determine the usage of the Microsoft Auth Provider.",
-				"scopes": { "classification": "PublicNonPersonalData", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." }
+				"scopes": { "classification": "OrgIdentifiableInformation", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." }
 			}
 		*/
 		this._telemetryReporter.sendTelemetryEvent('login', {
 			// Get rid of guids from telemetry.
-			scopes: JSON.stringify(this._scrubGuids(scopes)),
+			scopes: JSON.stringify(scopes),
 		});
 	}
 	sendLoginFailedEvent(): void {
@@ -156,19 +156,15 @@ export class MicrosoftAuthenticationTelemetryReporter implements IExperimentatio
 			"account" : {
 				"owner": "TylerLeonhardt",
 				"comment": "Used to determine the usage of the Microsoft Auth Provider.",
-				"scopes": { "classification": "PublicNonPersonalData", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." },
+				"scopes": { "classification": "OrgIdentifiableInformation", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." },
 				"accountType": { "classification": "PublicNonPersonalData", "purpose": "FeatureInsight", "comment": "Used to determine what account types are being used." }
 			}
 		*/
 		this._telemetryReporter.sendTelemetryEvent('account', {
 			// Get rid of guids from telemetry.
-			scopes: JSON.stringify(this._scrubGuids(scopes)),
+			scopes: JSON.stringify(scopes),
 			accountType
 		});
-	}
-
-	protected _scrubGuids(scopes: readonly string[]): string[] {
-		return scopes.map(s => s.replace(/[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/i, '{guid}'));
 	}
 }
 
@@ -178,12 +174,12 @@ export class MicrosoftSovereignCloudAuthenticationTelemetryReporter extends Micr
 			"loginMicrosoftSovereignCloud" : {
 				"owner": "TylerLeonhardt",
 				"comment": "Used to determine the usage of the Microsoft Auth Provider.",
-				"scopes": { "classification": "PublicNonPersonalData", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." }
+				"scopes": { "classification": "OrgIdentifiableInformation", "purpose": "FeatureInsight", "comment": "Used to determine what scope combinations are being requested." }
 			}
 		*/
 		this._telemetryReporter.sendTelemetryEvent('loginMicrosoftSovereignCloud', {
 			// Get rid of guids from telemetry.
-			scopes: JSON.stringify(this._scrubGuids(scopes)),
+			scopes: JSON.stringify(scopes),
 		});
 	}
 	override sendLoginFailedEvent(): void {
