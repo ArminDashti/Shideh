@@ -843,6 +843,7 @@ export class ChangesViewPane extends ViewPane {
 	// Actions container is positioned outside the card for this layout experiment
 	private actionsContainer: HTMLElement | undefined;
 
+	private changesProgressBar!: ProgressBar;
 	private tree: WorkbenchCompressibleObjectTree<ChangesTreeElement> | undefined;
 	private renderedTreeState: { readonly sessionResource: URI; readonly viewMode: ChangesViewMode } | undefined;
 	/** Folder the rendered rows' relative paths were computed against. */
@@ -1008,6 +1009,11 @@ export class ChangesViewPane extends ViewPane {
 		// redesign these live in the custom Changes editor instead, so the panel
 		// omits its header; otherwise (original layout) the header is shown here.
 		this.createFilesHeader(this.contentContainer);
+
+		// Changes card progress bar
+		const progressContainer = dom.append(this.contentContainer, $('.changes-progress'));
+		this.changesProgressBar = this._register(new ProgressBar(progressContainer, defaultProgressBarStyles));
+		this.changesProgressBar.stop().hide();
 
 		// List container
 		this.listContainer = dom.append(this.contentContainer, $('.changes-file-list'));
@@ -2310,7 +2316,7 @@ registerAction2(SetChangesTreeViewModeAction);
 MenuRegistry.appendMenuItem(MenuId.ChatEditingSessionTitleToolbar, {
 	submenu: MenuId.ChatEditingSessionChangesVersionsSubmenu,
 	title: localize2('versionsActions', 'Versions'),
-	icon: Codicon.versions,
+	icon: Codicon.listFilter,
 	group: 'navigation',
 	order: 9,
 	when: ContextKeyExpr.and(ContextKeyExpr.equals('view', CHANGES_VIEW_ID), IsSessionsWindowContext),
