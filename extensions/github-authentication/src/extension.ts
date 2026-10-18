@@ -56,6 +56,23 @@ export async function activate(context: vscode.ExtensionContext) {
 		void vscode.window.showErrorMessage(vscode.l10n.t('Could not initialize GitHub Enterprise authentication: {0}', error instanceof Error ? error.message : String(error)));
 	}
 
+	// Allow other workbench code (e.g. the agent host tunnel layer, which
+	// can detect a 401 on a long-lived WebSocket but cannot cleanly observe
+	// expiry without a probe) to ask us to re-validate every stored session
+	// on demand. Returning a promise lets callers await and then re-check
+	// `getSessions` instead of polling.
+	context.subscriptions.push(vscode.commands.registerCommand(
+		'_github.authentication.validateSessions',
+		async () => {
+			await Promise.all([
+				githubProvider.validateSessions(),
+				githubEnterpriseAuthProvider instanceof GitHubAuthenticationProvider
+					? githubEnterpriseAuthProvider.validateSessions()
+					: Promise.resolve(),
+			]);
+		}
+	));
+
 	// Listener to prompt for reload when the fetch implementation setting changes
 	const beforeFetchSetting = vscode.workspace.getConfiguration().get<boolean>('github-authentication.useElectronFetch', true);
 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async e => {

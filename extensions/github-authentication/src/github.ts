@@ -179,6 +179,19 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 	private readonly _accountLinks: AccountLinks;
 	private readonly _accountLabelSuffix: string | undefined;
 	private readonly _accountsSeen = new Set<string>();
+	/**
+	 * Per-session timestamp of the last successful token validation. Used to
+	 * throttle live `/user` probes during {@link readSessions} so we don't
+	 * hammer GitHub on every keychain mutation.
+	 */
+	private readonly _lastValidatedAt = new Map<string /* session.id */, number>();
+	/**
+	 * Single in-flight promise for {@link validateSessions} so that concurrent
+	 * triggers (10-min timer, tunnel auth probe, listTunnels error handler,
+	 * sibling-window keychain change) coalesce into one full re-probe pass
+	 * rather than racing on `_sessionsPromise`.
+	 */
+	private _validateSessionsInFlight: Promise<void> | undefined;
 	private readonly _disposable: vscode.Disposable | undefined;
 
 	/** The sessions backed by the Keychain, and therefore shared with other windows. */
@@ -258,6 +271,15 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 		const supportedAuthorizationServers = ghesUri
 			? [vscode.Uri.joinPath(ghesUri, '/login/oauth')]
 			: [vscode.Uri.parse('https://github.com/login/oauth')];
+
+		// Periodically re-validate stored sessions so server-side revocations
+		// (token revoked from github.com, organisation removed the user, etc.)
+		// surface even when nothing else writes to the keychain. Without this,
+		// long-lived web tabs can keep retrying with a dead token forever.
+		const periodicTimer = setInterval(() => {
+			this.validateSessions().catch(err => this._logger.error(`Periodic session validation failed: ${err}`));
+		}, GitHubAuthenticationProvider._PERIODIC_VALIDATION_INTERVAL_MS);
+
 		this._disposable = vscode.Disposable.from(
 			this._telemetryReporter,
 			this._sessionChangeEmitter,
@@ -735,17 +757,42 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 		let seenNumberAccountId: boolean = false;
 		// TODO: eventually remove this Set because we should only have one session per set of scopes.
 		const scopesSeen = new Set<string>();
+		const now = Date.now();
 		const sessionPromises = sessionData.map(async (session: SessionData): Promise<vscode.AuthenticationSession | undefined> => {
 			// For GitHub scope list, order doesn't matter so we immediately sort the scopes
 			const scopesStr = [...session.scopes].sort().join(' ');
 			let userInfo: IGitHubUserInfo | undefined;
 			if (!session.account) {
+				// Legacy session without account info — we have to fetch it
+				// anyway to populate the modern shape, so use the result to
+				// drop the session if the token is no longer accepted.
 				try {
 					userInfo = await this._githubServer.getUserInfo(session.accessToken);
+					this._lastValidatedAt.set(session.id, now);
 					this._logger.info(`Verified session with the following scopes: ${scopesStr}`);
 				} catch (e) {
 					if (e.message === 'Unauthorized') {
 						return undefined;
+					}
+				}
+			} else {
+				// Modern session with account info — proactively validate the
+				// token against `/user`, but only when the cached probe is
+				// stale, so we don't spam GitHub on every keychain change.
+				// On `invalid` we drop the session (the keychain will be
+				// rewritten below, which fires `removed` to listeners). On
+				// `unknown` (network error / unexpected status) we keep the
+				// session so a transient outage doesn't sign the user out.
+				const lastValidated = this._lastValidatedAt.get(session.id) ?? 0;
+				if (now - lastValidated >= GitHubAuthenticationProvider._VALIDATION_THROTTLE_MS) {
+					const status = await this._githubServer.validateToken(session.accessToken);
+					if (status === 'invalid') {
+						this._logger.info(`Dropping session ${session.id}: server rejected token.`);
+						this._lastValidatedAt.delete(session.id);
+						return undefined;
+					}
+					if (status === 'valid') {
+						this._lastValidatedAt.set(session.id, now);
 					}
 				}
 			}
@@ -797,6 +844,15 @@ export class GitHubSessionEngine implements vscode.AuthenticationProvider, vscod
 			.filter(p => p.status === 'fulfilled')
 			.map(p => (p as PromiseFulfilledResult<vscode.AuthenticationSession | undefined>).value)
 			.filter(<T>(p?: T): p is T => Boolean(p));
+
+		// Drop validation timestamps for sessions that no longer exist so the
+		// throttle map doesn't grow unbounded as users sign in and out.
+		const verifiedIds = new Set(verifiedSessions.map(s => s.id));
+		for (const id of [...this._lastValidatedAt.keys()]) {
+			if (!verifiedIds.has(id)) {
+				this._lastValidatedAt.delete(id);
+			}
+		}
 
 		this._logger.info(`Got ${verifiedSessions.length} verified sessions.`);
 		// Account data discovered during reads must not trigger a secret write because web embedders can re-expose accountless sessions.

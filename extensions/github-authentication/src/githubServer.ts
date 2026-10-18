@@ -344,6 +344,41 @@ export class GitHubServer implements IGitHubServer {
 		}
 	}
 
+	public async validateToken(token: string): Promise<TokenValidationResult> {
+		let result;
+		try {
+			this._logger.info('Validating token...');
+			result = await fetching(this.getServerUri('/user').toString(), {
+				logger: this._logger,
+				retryFallbacks: true,
+				expectJSON: true,
+				headers: {
+					Authorization: `token ${token}`,
+					'User-Agent': `${vscode.env.appName} (${vscode.env.appHost})`
+				}
+			});
+		} catch (ex) {
+			this._logger.error(`Token validation network error: ${ex.message ?? ex}`);
+			return 'unknown';
+		}
+		if (result.ok) {
+			return 'valid';
+		}
+		// Only an explicit 401 means the credential itself was rejected. 403 is
+		// returned for non-credential reasons too: primary/secondary/abuse rate
+		// limits, organisation SAML SSO enforcement, IP allowlist denials and
+		// scope-policy tightening. Treating those as `invalid` would silently
+		// sign the user out — exactly the regression this validation path is
+		// meant to prevent — so map them to `unknown` and let the caller keep
+		// the session.
+		if (result.status === 401) {
+			this._logger.info('Token validation: server rejected token (401).');
+			return 'invalid';
+		}
+		this._logger.warn(`Token validation: non-OK status ${result.status}; treating as unknown.`);
+		return 'unknown';
+	}
+
 	public async sendAdditionalTelemetryInfo(session: vscode.AuthenticationSession): Promise<void> {
 		if (!vscode.env.isTelemetryEnabled) {
 			return;
