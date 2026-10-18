@@ -83,7 +83,6 @@ export class NotebookModelSynchronizer extends Disposable {
 		@INotebookService private readonly notebookService: INotebookService,
 		@IChatService chatService: IChatService,
 		@INotebookLoggingService private readonly logService: INotebookLoggingService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@INotebookEditorWorkerService private readonly notebookEditorWorkerService: INotebookEditorWorkerService,
 		@INotebookEditorModelResolverService private readonly notebookModelResolverService: INotebookEditorModelResolverService,
 	) {
@@ -140,41 +139,8 @@ export class NotebookModelSynchronizer extends Disposable {
 		]);
 
 		try {
-			const data: NotebookData = {
-				metadata: filter(this.model.metadata, key => !serializer.options.transientDocumentMetadata[key]),
-				cells: [],
-			};
-
-			let outputSize = 0;
-			for (const cell of this.model.cells) {
-				const cellData: ICellDto2 = {
-					cellKind: cell.cellKind,
-					language: cell.language,
-					mime: cell.mime,
-					source: cell.getValue(),
-					outputs: [],
-					internalMetadata: cell.internalMetadata
-				};
-
-				const outputSizeLimit = this.configurationService.getValue<number>(NotebookSetting.outputBackupSizeLimit) * 1024;
-				if (outputSizeLimit > 0) {
-					cell.outputs.forEach(output => {
-						output.outputs.forEach(item => {
-							outputSize += item.data.byteLength;
-						});
-					});
-					if (outputSize > outputSizeLimit) {
-						return;
-					}
-				}
-
-				cellData.outputs = !serializer.options.transientOutputs ? cell.outputs : [];
-				cellData.metadata = filter(cell.metadata, key => !serializer.options.transientCellMetadata[key]);
-
-				data.cells.push(cellData);
-			}
-
-			const bytes = await serializer.notebookToData(data);
+			const buffer = await this.notebookService.createNotebookTextDocumentSnapshot(this.model.uri, SnapshotContext.Backup, CancellationToken.None);
+			const bytes = await streamToBuffer(buffer);
 			this.snapshot = { bytes, dirty: ref.object.isDirty() };
 		} finally {
 			ref.dispose();
