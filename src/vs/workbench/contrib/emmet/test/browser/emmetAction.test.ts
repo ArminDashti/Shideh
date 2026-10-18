@@ -55,6 +55,11 @@ suite('Emmet', () => {
 			testIsEnabled('nunjucks', 'text.html.nunjucks', 'nunjucks', 'html');
 			testIsEnabled('laravel-blade', 'text.html.php.laravel-blade', 'laravel-blade', 'html');
 
+			// jsx, tsx, jsx-tags
+			// testIsEnabled('typescriptreact', '', 'typescriptreact', 'tsx');
+			// testIsEnabled('javascriptreact', '', 'javascriptreact', 'jsx');
+			// testIsEnabled('jsx-tags', '', 'javascriptreact', 'jsx-tags');
+
 			// languages that have different Language Id and scopeName
 			// testIsEnabled('razor', 'text.html.cshtml', 'razor', 'html');
 			// testIsEnabled('HTML (Eex)', 'text.html.elixir', 'boo', 'html');

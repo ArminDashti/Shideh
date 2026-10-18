@@ -55,8 +55,9 @@ export abstract class EmmetEditorAction extends EditorAction {
 		this.emmetActionName = opts.actionName;
 	}
 
-	private static readonly emmetSupportedModes = ['html', 'css', 'xml', 'xsl', 'haml', 'jade', 'jsx', 'slim', 'scss', 'sass', 'less', 'stylus', 'styl', 'svg'];
-
+	// These supported modes are given by the TextMate grammars and will be mapped to the actual supported modes
+	// in the Emmet code in extensions/src/emmet.
+	private static readonly emmetSupportedModes = ['html', 'css', 'xml', 'xsl', 'haml', 'jade', 'jsx', 'slim', 'scss', 'sass', 'less', 'stylus', 'sss', 'styl', 'svg', 'jsx-tags', 'javascriptreact', 'typescriptreact'];
 	private _lastGrammarContributions: Promise<GrammarContributions> | null = null;
 	private _lastExtensionService: IExtensionService | null = null;
 	private _withGrammarContributions(extensionService: IExtensionService): Promise<GrammarContributions | null> {
@@ -112,7 +113,7 @@ export abstract class EmmetEditorAction extends EditorAction {
 			}
 			for (let i = 1; i < languages.length; i++) {
 				const language = languages[languages.length - i];
-				if (this.emmetSupportedModes.indexOf(language) !== -1) {
+				if (this.emmetSupportedModes.includes(language)) {
 					return language;
 				}
 			}
