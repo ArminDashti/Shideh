@@ -345,6 +345,73 @@ export class McpDiscoveryTelemetry {
 		}
 	}
 
+	logConfiguration(): void {
+		const rows: IMcpDiscoveryConfiguredEvent[] = [];
+		const access = this.configurationService.inspect(mcpAccessConfig);
+		rows.push(
+			configurationRow(access, 'userValue', 'user', 'access'),
+			configurationRow(access, 'workspaceValue', 'workspace', 'access'),
+			configurationRow(access, 'policyValue', 'policy', 'access'),
+		);
+
+		const discovery = this.configurationService.inspect<Record<string, boolean> | boolean>(mcpDiscoverySection);
+		for (const [scope, value] of [['user', discovery.userValue], ['workspace', discovery.workspaceValue], ['policy', discovery.policyValue]] as const) {
+			let hasExplicitAdapter = false;
+			for (const adapter of allDiscoverySources) {
+				const explicitValue = typeof value === 'boolean'
+					? value
+					: value && Object.prototype.hasOwnProperty.call(value, adapter) ? value[adapter] : undefined;
+				hasExplicitAdapter ||= explicitValue !== undefined;
+				rows.push(configuredValueRow(scope, 'nativeDiscovery', explicitValue, adapter));
+			}
+			if (value !== undefined && !hasExplicitAdapter) {
+				rows.push(configuredValueRow(scope, 'nativeDiscovery', value, 'all'));
+			}
+		}
+
+		for (const [entryPoint, key] of [['allowedServers', mcpAllowedServersConfig], ['deniedServers', mcpDeniedServersConfig]] as const) {
+			const inspection = this.configurationService.inspect(key);
+			rows.push(configurationRow(inspection, 'applicationValue', 'application', entryPoint), configurationRow(inspection, 'policyValue', 'policy', entryPoint));
+		}
+		for (const [entryPoint, key] of [
+			['managedServersOnly', COPILOT_ALLOW_MANAGED_MCP_SERVERS_ONLY_CONFIG],
+			['strictPluginOnly', COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_CONFIG],
+		] as const) {
+			const inspection = this.configurationService.inspect(key);
+			rows.push(
+				configurationRow(inspection, 'applicationValue', 'application', entryPoint),
+				configurationRow(inspection, 'policyValue', 'policy', entryPoint),
+			);
+		}
+		const galleryEnabled = this.configurationService.inspect(mcpGalleryServiceEnablementConfig);
+		rows.push(
+			configurationRow(galleryEnabled, 'userValue', 'user', 'galleryEnabled'),
+			configurationRow(galleryEnabled, 'workspaceValue', 'workspace', 'galleryEnabled'),
+			configurationRow(galleryEnabled, 'policyValue', 'policy', 'galleryEnabled'),
+		);
+		rows.push(storageRow(this.storageService, StorageScope.PROFILE, 'profile'), storageRow(this.storageService, StorageScope.WORKSPACE, 'workspace'));
+
+		const current = new Map<string, IMcpDiscoveryConfiguredEvent>(rows
+			.filter(row => row.configurationPresent > 0)
+			.map(row => [`${row.entryPoint}\0${row.adapter}\0${row.scope}`, row] as const));
+		const changes = getKeyedChanges(this.lastConfiguredRows, current);
+		const changed = [
+			...changes.changed,
+			...changes.removed.map(row => ({ ...row, configurationPresent: 0, configuredEntryCount: 0, enabledEntryCount: 0, disabledEntryCount: 0 })),
+		];
+		if (current.size === 0 && (!this.hasConfiguredSnapshot || this.lastConfiguredRows.size > 0)) {
+			changed.push({ scope: 'all', entryPoint: 'all', adapter: 'all', configurationPresent: 0, configuredEntryCount: 0, enabledEntryCount: 0, disabledEntryCount: 0 });
+		}
+		this.hasConfiguredSnapshot = true;
+		this.lastConfiguredRows.clear();
+		for (const [key, row] of current) {
+			this.lastConfiguredRows.set(key, row);
+		}
+		for (const row of changed.sort((a, b) => a.entryPoint.localeCompare(b.entryPoint) || a.adapter.localeCompare(b.adapter) || a.scope.localeCompare(b.scope))) {
+			this.telemetryService.publicLog2<IMcpDiscoveryConfiguredEvent, McpDiscoveryConfiguredClassification>('mcp/discoveryConfigured', row);
+		}
+	}
+
 }
 
 export const emptyMcpDiscoveryTelemetrySnapshot: IMcpDiscoveryTelemetrySnapshot = { candidates: [], configurations: [] };
