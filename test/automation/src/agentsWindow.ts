@@ -498,15 +498,10 @@ export class AgentsWindow {
 				if (findMatchingActionIndex(items ?? []) >= 0 || (!providerNeedle && (items ?? []).some(item => !isActionRow(item) && rowText(item) === needle))) {
 					break outer;
 				}
-				await new Promise(r => setTimeout(r, 250));
-			}
-			if (attempt === maxAttempts) {
-				throw new Error(`Session type "${label}" not found in picker. Available: ${lastSeen.join(', ')}`);
-			}
-			await new Promise(r => setTimeout(r, 2000));
-		}
 
-		const items = await this.code.waitForElements(itemSel, /* recursive */ true);
+				if (!clicked) {
+					throw new Error(`Session type "${label}" not found in picker. Available: ${lastSeen.join(', ')}`);
+				}
 
 		// Prefer an enabled actionable row whose label matches exactly (e.g. a
 		// session type label like "Claude" or "Copilot CLI").
@@ -520,11 +515,7 @@ export class AgentsWindow {
 				matchIndex = items.findIndex((el, index) => index > headerIndex && isEnabledActionRow(el));
 			}
 		}
-		if (matchIndex < 0) {
-			throw new Error(`Session type "${label}" not found in picker. Available: ${items.map(i => (i.textContent ?? '').trim()).join(', ')}`);
-		}
-		const dataIndex = items[matchIndex].attributes['data-index'] ?? String(matchIndex);
-		await this.code.waitAndClick(`.action-widget .monaco-list-row[data-index="${dataIndex}"]`);
+		throw new Error(`Timed out selecting session type "${label}". Available: ${lastSeen.join(', ')}. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 	}
 
 	/**
