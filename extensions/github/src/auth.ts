@@ -36,7 +36,7 @@ function getAgent(url: string | undefined = process.env.HTTPS_PROXY): Agent {
 const scopes = ['repo', 'workflow', 'user:email', 'read:user', 'read:org'];
 
 export async function getSession(): Promise<AuthenticationSession> {
-	return await authentication.getSession('github', scopes, { createIfNone: true });
+	return await authentication.getSession('github', scopes, { silent: true }) ?? await authentication.getSession('github', scopes, { createIfNone: true });
 }
 
 export async function getOctokitFromToken(token: string): Promise<Octokit> {
