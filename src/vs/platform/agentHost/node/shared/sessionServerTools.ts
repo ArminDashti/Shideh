@@ -289,6 +289,7 @@ interface ICreateSessionArgs {
 	readonly prompt?: unknown;
 	readonly title?: unknown;
 	readonly model?: unknown;
+	readonly baseBranch?: unknown;
 }
 
 export type IResolvedCreateSessionArgs = {
@@ -306,6 +307,7 @@ export type IResolvedCreateSessionArgs = {
 	readonly prompt: string;
 	readonly title: string;
 	readonly model?: IAgentModelInfo;
+	readonly baseBranch?: string;
 };
 
 /** Selects how a repository is attached to a chat's aggregate session. */
@@ -661,6 +663,9 @@ export function getCreateSessionArgs(rawArgs: unknown, sessions: readonly IAgent
 		if (worktree !== undefined) {
 			throw new Error(`Invalid ${SessionServerToolName.CreateSession} input: worktree is only valid when relationship is "independent"; chats in the current session share its workspace.`);
 		}
+		if (baseBranch !== undefined) {
+			throw new Error(`Invalid ${SessionServerToolName.CreateSession} input: baseBranch is only valid when relationship is "independent".`);
+		}
 		return {
 			relationship,
 			prompt,
@@ -675,6 +680,7 @@ export function getCreateSessionArgs(rawArgs: unknown, sessions: readonly IAgent
 		prompt,
 		title,
 		...(model !== undefined ? { model } : {}),
+		...(baseBranch !== undefined ? { baseBranch } : {}),
 	};
 }
 
