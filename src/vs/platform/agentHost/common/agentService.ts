@@ -814,6 +814,15 @@ export interface IAgentService {
 	 */
 	authenticate(params: AuthenticateParams): Promise<AuthenticateResult>;
 
+	/**
+	 * Returns the most recently pushed token for {@link resource}, or
+	 * `undefined` when no token has been pushed (or after the entry was
+	 * cleared). Used by service-level consumers (e.g. changeset operation
+	 * handlers) that need bearer tokens for resources not tied to a
+	 * specific agent — typically {@link GITHUB_REPO_PROTECTED_RESOURCE}.
+	 */
+	getAuthToken(resource: string): string | undefined;
+
 	/** List all available sessions from the Copilot CLI. */
 	listSessions(): Promise<IAgentSessionMetadata[]>;
 

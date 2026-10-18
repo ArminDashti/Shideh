@@ -183,6 +183,10 @@ export class RemoteAgentHostProtocolClient extends Disposable implements IAgentC
 		await this._sendRequest('disposeSession', { session: session.toString() });
 	}
 
+	async invokeChangesetOperation(params: InvokeChangesetOperationParams): Promise<InvokeChangesetOperationResult> {
+		return await this._sendRequest('invokeChangesetOperation', params);
+	}
+
 	/**
 	 * List all sessions from the remote agent host.
 	 */

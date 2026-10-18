@@ -1560,6 +1560,16 @@ export class AgentService extends Disposable implements IAgentService {
 		return this._providerService.handleMcpRequest(channel, method, params);
 	}
 
+	getAuthToken(resource: string): string | undefined {
+		return this._authTokens.get(resource);
+	}
+
+	// ---- Changeset operation handlers --------------------------------------
+
+	async invokeChangesetOperation(params: InvokeChangesetOperationParams): Promise<InvokeChangesetOperationResult> {
+		return this._changesetOperationContributionService.invokeChangesetOperation(params);
+	}
+
 	// ---- session management -------------------------------------------------
 
 	/**
@@ -6149,9 +6159,8 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		this._gitService.getSessionGitState(workingDirectory).then(
 			gitState => {
-				if (!gitState) {
-					this._stripGitOnlyChangesetEntries(sessionKey);
-					return;
+				if (gitState) {
+					this._changesetOperationContributionService.updateOperations(sessionKey, gitState);
 				}
 				const current = this._stateManager.getSessionState(sessionKey)?._meta;
 				// Skip the action if the computed git state hasn't changed; this is
