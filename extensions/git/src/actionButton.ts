@@ -89,7 +89,8 @@ export class ActionButton {
 				this.onDidChangeSmartCommitSettings();
 			}
 
-			if (e.affectsConfiguration('git.branchProtectionPrompt', root) ||
+			if (e.affectsConfiguration('scm.experimental.showHistoryView') ||
+				e.affectsConfiguration('git.branchProtectionPrompt', root) ||
 				e.affectsConfiguration('git.postCommitCommand', root) ||
 				e.affectsConfiguration('git.rememberPostCommitCommand', root) ||
 				e.affectsConfiguration('git.showActionButton', root)) {
@@ -203,6 +204,11 @@ export class ActionButton {
 	}
 
 	private getPublishBranchActionButton(): SourceControlActionButton | undefined {
+		const scmConfig = workspace.getConfiguration('scm');
+		if (scmConfig.get<boolean>('experimental.showHistoryView', false)) {
+			return undefined;
+		}
+
 		const config = workspace.getConfiguration('git', Uri.file(this.repository.root));
 		const showActionButton = config.get<{ publish: boolean }>('showActionButton', { publish: true });
 
@@ -230,6 +236,11 @@ export class ActionButton {
 	}
 
 	private getSyncChangesActionButton(): SourceControlActionButton | undefined {
+		const scmConfig = workspace.getConfiguration('scm');
+		if (scmConfig.get<boolean>('experimental.showHistoryView', false)) {
+			return undefined;
+		}
+
 		const config = workspace.getConfiguration('git', Uri.file(this.repository.root));
 		const showActionButton = config.get<{ sync: boolean }>('showActionButton', { sync: true });
 		const branchIsAheadOrBehind = this.state.HEAD?.type === RefType.Head && ((this.state.HEAD?.behind ?? 0) > 0 || (this.state.HEAD?.ahead ?? 0) > 0);

@@ -268,6 +268,10 @@ function commandListEquals(a: readonly vscode.Command[], b: readonly vscode.Comm
 	return equals(a, b, commandEquals);
 }
 
+function historyItemGroupEquals(a: vscode.SourceControlHistoryItemGroup | undefined, b: vscode.SourceControlHistoryItemGroup | undefined): boolean {
+	return a?.id === b?.id && a?.label === b?.label && a?.remote === b?.remote && a?.ahead === b?.ahead && a?.behind === b?.behind;
+}
+
 export interface IValidateInput {
 	(value: string, cursorPosition: number): vscode.ProviderResult<vscode.SourceControlInputBoxValidation | undefined | null>;
 }

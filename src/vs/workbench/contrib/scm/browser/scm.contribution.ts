@@ -161,6 +161,17 @@ viewsRegistry.registerViews([{
 	containerIcon: sourceControlViewIcon
 }], viewContainer);
 
+viewsRegistry.registerViews([{
+	id: SYNC_VIEW_PANE_ID,
+	name: localize('source control sync', "Source Control ..."),
+	ctorDescriptor: new SyncDescriptor(SCMSyncViewPane),
+	canToggleVisibility: false,
+	canMoveView: true,
+	weight: 20,
+	order: -998,
+	when: ContextKeyExpr.equals('config.scm.experimental.showHistoryView', true),
+}], viewContainer);
+
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(SCMActiveRepositoryController, LifecyclePhase.Restored);
 

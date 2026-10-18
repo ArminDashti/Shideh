@@ -3086,6 +3086,14 @@ export class Repository implements Disposable {
 			this.mergeInProgress = mergeInProgress;
 			this.cherryPickInProgress = cherryPickInProgress;
 
+			this._sourceControl.historyItemGroup = HEAD ? {
+				id: HEAD.commit!,
+				label: HEAD.name!,
+				ahead: HEAD.ahead,
+				behind: HEAD.behind,
+				remote: HEAD.upstream ? `${HEAD.upstream.remote}/${HEAD.upstream.name}` : undefined
+			} : undefined;
+
 			this._sourceControl.commitTemplate = commitTemplate;
 
 			// Execute cancellable long-running operation

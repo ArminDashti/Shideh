@@ -2147,6 +2147,7 @@ export interface SCMProviderFeatures {
 	secondaryQuickDiffLabel?: string;
 	count?: number;
 	commitTemplate?: string;
+	historyItemGroup?: any;
 	acceptInputCommand?: languages.Command;
 	actionButton?: SCMActionButtonDto | null;
 	statusBarCommands?: ICommandDto[];
