@@ -78,6 +78,9 @@ export class ChatRequestParser {
 					newPart = this.tryToParseAgent(message.slice(i), message, i, new Position(lineNumber, column), parts, location, context);
 				} else if (char === chatSubcommandLeader) {
 					newPart = this.tryToParseSlashCommand(message.slice(i), message, i, new Position(lineNumber, column), parts, location, context);
+				} else if (char === '!' && i === 0) {
+					// Terminal commands starting with ! must be at the beginning of the message
+					newPart = this.tryToParseTerminalCommand(message.slice(i), i, new Position(lineNumber, column));
 				}
 
 				if (!newPart) {
@@ -293,5 +296,19 @@ export class ChatRequestParser {
 		}
 
 		return;
+	}
+
+	private tryToParseTerminalCommand(message: string, offset: number, position: IPosition): ChatRequestTerminalCommandPart | undefined {
+		const terminalCommandMatch = message.match(terminalCommandReg);
+		if (!terminalCommandMatch) {
+			return;
+		}
+
+		const full = terminalCommandMatch[0];
+		const command = terminalCommandMatch[1] || '';
+		const terminalCommandRange = new OffsetRange(offset, offset + full.length);
+		const terminalCommandEditorRange = new Range(position.lineNumber, position.column, position.lineNumber, position.column + full.length);
+
+		return new ChatRequestTerminalCommandPart(terminalCommandRange, terminalCommandEditorRange, command);
 	}
 }
