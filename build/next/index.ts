@@ -117,6 +117,7 @@ const codeEntryPoints = [
 	'vs/code/electron-utility/sharedProcess/sharedProcessMain',
 	'vs/code/electron-browser/workbench/workbench',
 	'vs/sessions/electron-browser/sessions',
+	'vs/sessions/services/copilotSdk/node/copilotSdkHost',
 ];
 
 // Additional web-only entry points (CDN build only, not in server-web)

@@ -358,12 +358,6 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		return CompositeBarPosition.TITLE;
 	}
 
-	async focusActivityBar(): Promise<void> {
-		if (this.shouldShowCompositeBar()) {
-			this.focusCompositeBar();
-		}
-	}
-
 	toJSON(): object {
 		return {
 			type: Parts.SIDEBAR_PART

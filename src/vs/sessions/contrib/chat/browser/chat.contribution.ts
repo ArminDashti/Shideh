@@ -515,6 +515,81 @@ registerWorkbenchContribution2(SessionArchiveNudgeContribution.ID, SessionArchiv
 registerWorkbenchContribution2(SessionsChatBackgroundTint.ID, SessionsChatBackgroundTint, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentHostSandboxNotifications.ID, AgentHostSandboxNotifications, WorkbenchPhase.AfterRestored);
 
+class CopilotSdkDebugContribution extends Disposable implements IWorkbenchContribution {
+
+	static readonly ID = 'copilotSdk.debugContribution';
+
+	constructor(
+		@IConfigurationService configurationService: IConfigurationService,
+		@IInstantiationService instantiationService: IInstantiationService,
+	) {
+		super();
+		// Only initialize debug logging when the SDK utility process is enabled
+		if (!configurationService.getValue('application.useSessionsUtilityProcess')) {
+			return;
+		}
+
+		instantiationService.createInstance(CopilotSdkDebugLog);
+	}
+}
+
+// SDK debug log (only when using SDK - captures all events from startup)
+registerWorkbenchContribution2(CopilotSdkDebugContribution.ID, CopilotSdkDebugContribution, WorkbenchPhase.AfterRestored);
+
+// SDK debug panel (command palette action)
+let activeDebugBackdrop: HTMLElement | undefined;
+let activeDebugClose: (() => void) | undefined;
+registerAction2(class CopilotSdkDebugPanelAction extends Action2 {
+	constructor() {
+		super({
+			id: 'copilotSdk.openDebugPanel',
+			title: localize2('copilotSdkDebugPanel', 'Copilot SDK: Open Debug Panel'),
+			f1: true,
+			icon: Codicon.beaker,
+			precondition: ContextKeyExpr.equals('config.application.useSessionsUtilityProcess', true),
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const configurationService = accessor.get(IConfigurationService);
+		if (!configurationService.getValue('application.useSessionsUtilityProcess')) {
+			return;
+		}
+
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const instantiationService = accessor.get(IInstantiationService);
+		const container = layoutService.mainContainer;
+		const targetWindow = dom.getWindow(container);
+		if (activeDebugBackdrop) {
+			// Fire the stored close function to properly dispose panel + listeners
+			activeDebugClose?.();
+			return;
+		}
+		const log = CopilotSdkDebugLog.instance;
+		if (!log) {
+			return;
+		}
+		const backdrop = dom.$('.copilot-sdk-debug-backdrop');
+		activeDebugBackdrop = backdrop;
+		backdrop.style.cssText = 'position:absolute;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
+		container.appendChild(backdrop);
+		const modal = dom.$('div');
+		modal.style.cssText = 'width:560px;height:80%;max-height:700px;border-radius:8px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4);';
+		backdrop.appendChild(modal);
+		const panel = instantiationService.createInstance(CopilotSdkDebugPanel, modal, log);
+		const close = () => {
+			panel.dispose();
+			backdrop.remove();
+			activeDebugBackdrop = undefined;
+			activeDebugClose = undefined;
+			targetWindow.document.removeEventListener('keydown', onKeyDown);
+		};
+		activeDebugClose = close;
+		const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); } };
+		backdrop.addEventListener('click', (e) => { if (e.target === backdrop) { close(); } });
+		targetWindow.document.addEventListener('keydown', onKeyDown);
+	}
+});
+
 // register services
 registerSingleton(IPromptsService, AgenticPromptsService, InstantiationType.Delayed);
 registerSingleton(ISessionTaskRunnerRegistry, SessionTaskRunnerRegistry, InstantiationType.Delayed);

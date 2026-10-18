@@ -62,6 +62,13 @@ export class AgenticSessionsViewPane extends ViewPane {
 	private sortingContextKey: IContextKey | undefined;
 	private isRepositoryGroupCappedContextKey: IContextKey<boolean> | undefined;
 
+	// SDK session list (used when --sessions-utility-process is active)
+	private readonly _useSdk: boolean;
+	private _sdkSessions: ICopilotSessionMetadata[] = [];
+	private _sdkSelectedSessionId: string | undefined;
+	private _sdkListContainer: HTMLElement | undefined;
+	private readonly _sdkListDisposables = this._register(new DisposableStore());
+
 	constructor(
 		options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
