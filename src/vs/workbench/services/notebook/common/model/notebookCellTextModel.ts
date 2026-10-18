@@ -239,6 +239,10 @@ export class NotebookCellTextModel extends Disposable implements ICell {
 			return;
 		}
 
+		if (!this._configurationService?.getValue<boolean>('workbench.editor.languageDetection')) {
+			return;
+		}
+
 		const newLanguage = await this._languageDetectionService?.detectLanguage(this.uri);
 		if (!newLanguage) {
 			return;

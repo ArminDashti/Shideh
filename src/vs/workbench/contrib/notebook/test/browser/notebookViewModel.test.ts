@@ -60,7 +60,7 @@ suite('NotebookViewModel', () => {
 		notebookExecutionStateService = instantiationService.get(INotebookExecutionStateService);
 		notebookLogger = instantiationService.get(INotebookLoggingService);
 
-		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		configurationService = instantiationService.stub(IConfigurationService, new TestConfigurationService());
 		instantiationService.stub(IThemeService, new TestThemeService());
 	});
 
