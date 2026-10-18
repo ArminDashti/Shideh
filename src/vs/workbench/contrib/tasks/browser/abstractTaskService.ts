@@ -2136,6 +2136,7 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
 				throw new TaskError(Severity.Warning, nls.localize('TaskSystem.active', 'There is already a task running. Terminate it first before executing another task.'), TaskErrors.RunningTask);
 			}
 		}
+
 		this._setRecentlyUsedTask(executeResult.task);
 		return executeResult.promise;
 	}

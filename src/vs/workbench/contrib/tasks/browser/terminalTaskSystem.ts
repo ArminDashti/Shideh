@@ -496,8 +496,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 
 	private _getInstances(task: Task): IActiveTerminalData[] {
 		const recentKey = task.getKey();
-		return Object.values(this._activeTasks).filter(
-			(value) => recentKey && recentKey === value.task.getKey());
+		return Object.values(this._activeTasks).filter((value) => recentKey && recentKey === value.task.getKey());
 	}
 
 	private _removeFromActiveTasks(task: Task | string): void {
@@ -676,6 +675,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 		this._activeTasks[mapKey] = activeTask;
 		return promise;
 	}
+
 
 	private _createInactiveDependencyPromise(task: Task): Promise<ITaskSummary> {
 		return new Promise<ITaskSummary>(resolve => {
