@@ -435,6 +435,10 @@ export class NativeEditContext extends AbstractEditContext {
 	}
 
 	private _updateEditContext(): void {
+		if (this._isComposing) {
+			// need to also update the offset range
+			return;
+		}
 		const editContextState = this._getNewEditContextState();
 		if (!editContextState) {
 			return;
@@ -453,6 +457,10 @@ export class NativeEditContext extends AbstractEditContext {
 	}
 
 	private _emitTypeEvent(viewController: ViewController, e: ITextUpdateEvent): void {
+		console.log('emitTypeEvent', e);
+		console.log('this._editContext.text : ', this._editContext.text);
+		console.log('this._editContext.selectionStart : ', this._editContext.selectionStart);
+		console.log('this._editContext.selectionEnd : ', this._editContext.selectionEnd);
 		if (!this._editContext) {
 			return;
 		}

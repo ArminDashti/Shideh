@@ -437,6 +437,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			// need to signal that the composition has started to the view controller and the context view model
 			this._viewController.compositionStart();
 			this._context.viewModel.onCompositionStart();
+			console.log('on composition start');
 		}));
 
 		this._register(this._textAreaInput.onCompositionUpdate((e: ICompositionData) => {
@@ -446,6 +447,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 
 			this._visibleTextArea.prepareRender(this._visibleRangeProvider);
 			this._render();
+			console.log('on composition update');
 		}));
 
 		this._register(this._textAreaInput.onCompositionEnd(() => {
@@ -460,6 +462,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 			this.textArea.setClassName(`inputarea ${MOUSE_CURSOR_TEXT_CSS_CLASS_NAME}`);
 			this._viewController.compositionEnd();
 			this._context.viewModel.onCompositionEnd();
+			console.log('on composition end');
 		}));
 
 		this._register(this._textAreaInput.onFocus(() => {

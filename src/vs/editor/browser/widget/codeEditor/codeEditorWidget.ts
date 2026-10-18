@@ -1217,11 +1217,13 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 					return;
 				case editorCommon.Handler.Type: {
 					const args = <Partial<editorCommon.TypePayload>>payload;
+					console.log('type : ', args);
 					this._type(source, args.text || '');
 					return;
 				}
 				case editorCommon.Handler.ReplacePreviousChar: {
 					const args = <Partial<editorCommon.ReplacePreviousCharPayload>>payload;
+					console.log('replacePreviousChar : ', args);
 					this._compositionType(source, args.text || '', args.replaceCharCnt || 0, 0, 0);
 					return;
 				}
@@ -2071,6 +2073,7 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 				},
 				type: (text: string) => {
 					const payload: editorCommon.TypePayload = { text };
+					console.log('type payload :', payload);
 					this._commandService.executeCommand(editorCommon.Handler.Type, payload);
 				},
 				compositionType: (text: string, replacePrevCharCnt: number, replaceNextCharCnt: number, positionDelta: number) => {
