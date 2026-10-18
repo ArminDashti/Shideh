@@ -132,15 +132,15 @@ export class ChatInputModelSelectionController extends Disposable {
 		this._remember({ modelId: model.identifier, model, reason: ModelSelectionReason.UserSelection });
 		this._diagnostics.report('explicit-selection', { model: model.identifier }, 'info');
 		try {
-			apply();
-			this._diagnostics.report('explicit-selection-applied', { model: model.identifier }, 'info');
+			this._choose(model, reason, request.authority === 'user' ? request.effect : undefined);
+			this._diagnostics.report('select-applied', { model: model.identifier, authority: request.authority }, 'info');
 		} catch (error) {
 			if (rollbackOnError) {
 				this._currentModel.set(previousModel, undefined);
 				this._selectionReason = previousReason;
 				this._remember(previousRememberedSelection);
 			}
-			this._diagnostics.report('explicit-selection-failed', { model: model.identifier, error: String(error) }, 'error');
+			this._diagnostics.report('select-failed', { model: model.identifier, authority: request.authority, error: String(error) }, 'error');
 			throw error;
 		}
 		if (previousModel && previousModel.identifier !== model.identifier) {
@@ -212,6 +212,11 @@ export class ChatInputModelSelectionController extends Disposable {
 			if (fallbackModel) {
 				this._applyModel(fallbackModel, ModelSelectionReason.FirstAvailable);
 			}
+			this.ensureCurrentModelSupported();
+		} else if (selection.kind === 'pending' && fallbackModel) {
+			// The remembered model isn't in the catalog yet. Show the default meanwhile;
+			// `_restoreRememberedModel` claims the real one as soon as it is published.
+			this._standIn(fallbackModel, ModelSelectionReason.FirstAvailable);
 		}
 	}
 
@@ -233,8 +238,38 @@ export class ChatInputModelSelectionController extends Disposable {
 			willReset,
 		}, willReset ? 'info' : 'debug');
 		if (willReset) {
-			this.selectDefault(sessionType);
+			this._replaceInvalidSelection(currentModel, sessionType);
 		}
+	}
+
+	/**
+	 * {@link filterModelsForSession} only mode-filters the general pool, so a targeted pool can offer
+	 * models this mode cannot use — including one being replaced *because* it is unusable. Falls back
+	 * to the raw pool rather than selecting nothing when a provider declares no capabilities.
+	 */
+	private _selectablePool(sessionType: string | undefined): ILanguageModelChatMetadataAndIdentifier[] {
+		const models = this._runtime.getModels(sessionType);
+		const selectable = models.filter(model =>
+			isModelSupportedForMode(model, this._runtime.getCurrentModeKind())
+			&& isModelSupportedForInlineChat(model, this._runtime.location));
+		return selectable.length > 0 ? selectable : models;
+	}
+
+	/** Callers differ only in *why* the model became invalid; sharing this keeps that from changing what replaces it. */
+	private _replaceInvalidSelection(
+		displaced: ILanguageModelChatMetadataAndIdentifier | undefined,
+		sessionType: string | undefined,
+	): void {
+		if (this._restoreRememberedModel()) {
+			return;
+		}
+		const candidates = this._selectablePool(sessionType).filter(model => model.identifier !== displaced?.identifier);
+		const match = findBestMatchingModel(displaced, candidates);
+		if (match) {
+			this._standIn(match, ModelSelectionReason.FirstAvailable);
+			return;
+		}
+		this.selectDefault(sessionType);
 	}
 
 	selectDefault(sessionType = this._runtime.getCurrentSessionType()): void {
@@ -326,6 +361,18 @@ export class ChatInputModelSelectionController extends Disposable {
 		} else {
 			this.selectDefault();
 		}
+		if (this._selectionReason === ModelSelectionReason.ConfiguredDefault && !isInConversationModelChoice(remembered.reason)) {
+			return false;
+		}
+		// Selectability is the validity test: a model that is not offered here — because the
+		// catalog dropped it, or because this mode cannot use it — is not restorable right now.
+		const model = this._selectablePool(this._runtime.getCurrentSessionType()).find(model => model.identifier === remembered.modelId);
+		if (!model) {
+			return false;
+		}
+		this._diagnostics.report('restore-remembered-model', { model: remembered.modelId, reason: remembered.reason }, 'info');
+		this._choose(model, remembered.reason);
+		return true;
 	}
 
 	/**
@@ -421,6 +468,8 @@ export class ChatInputModelSelectionController extends Disposable {
 		} else {
 			this.selectDefault(sessionType);
 		}
+		this._clearIntent();
+		this._substituteForConversationModel(desiredModel, currentModel, sessionType);
 	}
 
 	/**
@@ -508,9 +557,9 @@ export class ChatInputModelSelectionController extends Disposable {
 			this._applyModel(match, ModelSelectionReason.SessionRestore);
 		} else if (models.length === 0) {
 			this._currentModel.set(undefined, undefined);
-		} else {
-			this.selectDefault(sessionType);
+			return;
 		}
+		this._replaceInvalidSelection(previousModel, sessionType);
 	}
 
 	private _applySessionRestore(
@@ -531,6 +580,7 @@ export class ChatInputModelSelectionController extends Disposable {
 		if (applyModel) {
 			this._applyModel(model, restoredAs);
 		}
+		this._rememberChoice(model, ModelSelectionReason.SessionRestore);
 	}
 
 	private _reconcilePendingProgrammaticSelection(): boolean {

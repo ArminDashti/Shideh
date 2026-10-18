@@ -1492,7 +1492,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			if (isUserAction) {
 				this.setCurrentLanguageModel(model, true, storeSelection);
 			} else {
-				this._applyProgrammaticLanguageModel(model);
+				this._modelSelectionController.select(model, { authority: 'programmatic' });
 			}
 			return true;
 		}
@@ -1504,7 +1504,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		for (const qualifiedModelName of qualifiedModelNames) {
 			const model = models.find(m => ILanguageModelChatMetadata.matchesQualifiedName(qualifiedModelName, m.metadata));
 			if (model) {
-				this._applyProgrammaticLanguageModel(model);
+				this._modelSelectionController.select(model, { authority: 'programmatic' });
 				return true;
 			}
 		}
@@ -2198,10 +2198,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this._syncInputStateToModel();
 		};
 		this._modelSelectionController.applySelection(model, apply, isUserAction);
-	}
-
-	private _applyProgrammaticLanguageModel(model: ILanguageModelChatMetadataAndIdentifier): void {
-		this._modelSelectionController.applyProgrammaticSelection(model);
 	}
 
 	private _requestProgrammaticLanguageModel(resolveModel: () => ILanguageModelChatMetadataAndIdentifier | undefined): Promise<boolean> {

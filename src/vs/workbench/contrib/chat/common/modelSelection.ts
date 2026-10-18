@@ -215,6 +215,16 @@ export function isInConversationModelChoice(reason: ModelSelectionReason | undef
 		|| reason === ModelSelectionReason.RestoredChoice;
 }
 
+/**
+ * Whether a reason represents a choice made inside the current conversation. `chat.defaultModel`
+ * seeds every new conversation but must never override one of these. `SessionRestore` is excluded
+ * deliberately: on an empty session it is spillover from the previous one, not a choice.
+ */
+export function isInConversationModelChoice(reason: ModelSelectionApplyReason | undefined): boolean {
+	return reason === ModelSelectionReason.UserSelection
+		|| reason === ModelSelectionReason.ProgrammaticSelection;
+}
+
 export interface IPendingModelSelection {
 	readonly reference: string;
 }
