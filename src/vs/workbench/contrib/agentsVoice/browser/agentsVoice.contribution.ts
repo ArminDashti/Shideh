@@ -841,6 +841,13 @@ configurationRegistry.registerConfiguration({
 			default: ['send it'],
 			scope: ConfigurationScope.APPLICATION,
 		},
+		'agents.voice.microphoneDevice': {
+			type: 'string',
+			description: nls.localize('agents.voice.microphoneDevice', "The device ID of the microphone to use for voice mode. Use the 'Voice: Select Microphone' command to pick a device."),
+			default: '',
+			scope: ConfigurationScope.APPLICATION,
+			ignoreSync: true,
+		},
 	}
 });
 
