@@ -520,4 +520,21 @@ suite('OpenerService', function () {
 			href // good
 		]);
 	});
+
+	test('Symbols in URL fragment should not be encoded #76635', function () {
+
+		const openerService = new OpenerService(editorService, commandService);
+
+		const oldOpen = window.open;
+		const values: string[] = [];
+		window.open = function (url: string) {
+			values.push(url);
+			return null;
+		};
+
+		openerService.open(URI.parse('http://source.roslyn.io/#Microsoft.CodeAnalysis.CSharp/CSharpCompilationOptions.cs,20'));
+		window.open = oldOpen;
+
+		assert.deepEqual(values, ['http://source.roslyn.io/#Microsoft.CodeAnalysis.CSharp/CSharpCompilationOptions.cs,20']);
+	});
 });
