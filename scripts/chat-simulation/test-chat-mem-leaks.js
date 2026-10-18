@@ -437,6 +437,13 @@ async function main() {
 		console.log(`[chat-simulation] CI summary written to ${summaryPath}`);
 	}
 
+	if (opts.ci) {
+		const summary = generateLeakCISummary(result, opts);
+		const summaryPath = path.join(DATA_DIR, 'ci-summary-leak.md');
+		fs.writeFileSync(summaryPath, summary);
+		console.log(`[chat-simulation] CI summary written to ${summaryPath}`);
+	}
+
 	await mockServer.close();
 	process.exit(leaked ? 1 : 0);
 }
