@@ -136,6 +136,11 @@ interface IPromptReferenceBase extends Disposable {
 	references: readonly IPromptReference[];
 
 	/**
+	 * TODO: @legomushroom
+	 */
+	readonly children: readonly TPromptReference[];
+
+	/**
 	 * All references that the current reference may have,
 	 * including all possible nested child references.
 	 */
