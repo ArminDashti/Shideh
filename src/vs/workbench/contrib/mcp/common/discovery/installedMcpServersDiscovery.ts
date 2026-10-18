@@ -95,7 +95,7 @@ export class InstalledMcpServersDiscovery extends Disposable implements IMcpDisc
 
 				let definitions = collections.get(collectionId);
 				if (!definitions) {
-					definitions = [mcpConfigPath, []];
+					definitions = [mcpConfigPath, [], server];
 					collections.set(collectionId, definitions);
 				}
 
