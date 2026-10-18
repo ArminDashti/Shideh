@@ -20,6 +20,7 @@ import { ApiRepository } from './api/api1';
 import { getRemoteSourceActions, pickRemoteSource } from './remoteSource';
 import { RemoteSourceAction } from './typings/git-base';
 import { CloneManager } from './cloneManager';
+import { buildChangeSummary, buildBranchNamePrompt, cleanBranchNameResponse, truncateDiff, deduplicateChanges } from './branchNameGenerator';
 
 abstract class CheckoutCommandItem implements QuickPickItem {
 	abstract get label(): string;
@@ -3185,6 +3186,7 @@ export class CommandCenter {
 		const branchWhitespaceChar = config.get<string>('branchWhitespaceChar')!;
 		const branchValidationRegex = config.get<string>('branchValidationRegex')!;
 		const branchRandomNameEnabled = config.get<boolean>('branchRandomName.enable', false);
+		const branchAINameEnabled = config.get<boolean>('branchAIName.enable', false);
 		const refs = await repository.getRefs({ pattern: 'refs/heads' });
 
 		if (defaultName) {
@@ -3210,15 +3212,7 @@ export class CommandCenter {
 			}
 
 			if (validateName.test(sanitizedName)) {
-				// If the sanitized name that we will use is different than what is
-				// in the input box, show an info message to the user informing them
-				// the branch name that will be used.
-				return name === sanitizedName
-					? undefined
-					: {
-						message: l10n.t('The new branch will be "{0}"', sanitizedName),
-						severity: InputBoxValidationSeverity.Info
-					};
+				return undefined;
 			}
 
 			return l10n.t('Branch name needs to match regex: {0}', branchValidationRegex);
@@ -3230,13 +3224,27 @@ export class CommandCenter {
 		inputBox.placeholder = l10n.t('Branch name');
 		inputBox.prompt = l10n.t('Please provide a new branch name');
 
-		inputBox.buttons = branchRandomNameEnabled ? [
-			{
-				iconPath: new ThemeIcon('refresh'),
-				tooltip: l10n.t('Regenerate Branch Name'),
-				location: QuickInputButtonLocation.Inline
-			}
-		] : [];
+		const regenerateButton: QuickInputButton & { location: QuickInputButtonLocation } = {
+			iconPath: new ThemeIcon('refresh'),
+			tooltip: l10n.t('Regenerate Branch Name'),
+			location: QuickInputButtonLocation.Inline
+		};
+
+		const aiGenerateButton: QuickInputButton & { location: QuickInputButtonLocation } = {
+			iconPath: new ThemeIcon('sparkle'),
+			tooltip: l10n.t('Generate Branch Name'),
+			location: QuickInputButtonLocation.Inline
+		};
+
+		const buttons: QuickInputButton[] = [];
+		if (branchRandomNameEnabled) {
+			buttons.push(regenerateButton);
+		}
+		if (branchAINameEnabled) {
+			buttons.push(aiGenerateButton);
+		}
+
+		inputBox.buttons = buttons;
 
 		inputBox.value = initialValue ?? await getBranchName();
 		inputBox.valueSelection = getValueSelection(inputBox.value);
@@ -3245,15 +3253,36 @@ export class CommandCenter {
 
 		inputBox.show();
 
+		const aiCts = new CancellationTokenSource();
+		disposables.push(aiCts);
+
 		const branchName = await new Promise<string | undefined>((resolve) => {
-			disposables.push(inputBox.onDidHide(() => resolve(undefined)));
+			disposables.push(inputBox.onDidHide(() => {
+				aiCts.cancel();
+				resolve(undefined);
+			}));
 			disposables.push(inputBox.onDidAccept(() => resolve(inputBox.value)));
 			disposables.push(inputBox.onDidChangeValue(value => {
 				inputBox.validationMessage = getValidationMessage(value);
 			}));
-			disposables.push(inputBox.onDidTriggerButton(async () => {
-				inputBox.value = await getBranchName();
-				inputBox.valueSelection = getValueSelection(inputBox.value);
+			disposables.push(inputBox.onDidTriggerButton(async (button) => {
+				if (button === aiGenerateButton) {
+					inputBox.busy = true;
+					inputBox.enabled = false;
+					try {
+						const aiName = await this.generateAIBranchName(repository, branchWhitespaceChar, branchPrefix, aiCts.token);
+						if (aiName) {
+							inputBox.value = `${branchPrefix}${aiName}`;
+							inputBox.valueSelection = getValueSelection(inputBox.value);
+						}
+					} finally {
+						inputBox.busy = false;
+						inputBox.enabled = true;
+					}
+				} else {
+					inputBox.value = await getBranchName();
+					inputBox.valueSelection = getValueSelection(inputBox.value);
+				}
 			}));
 		});
 
