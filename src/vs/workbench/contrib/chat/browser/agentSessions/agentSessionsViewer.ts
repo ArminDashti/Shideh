@@ -517,6 +517,26 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 		return MarkdownString.lift({ ...content, value: stripped });
 	}
 
+	private getBadge(session: IAgentSession): string | IMarkdownString | undefined {
+		// Display badge for background sessions in empty window and multi-root workspace
+		if (session.providerType === AgentSessionProviders.Background && (
+			this.workspaceService.getWorkbenchState() === WorkbenchState.EMPTY ||
+			this.workspaceService.getWorkbenchState() === WorkbenchState.WORKSPACE)
+		) {
+			if (isBackgroundChatSessionMetadata(session.metadata)) {
+				const repositoryUri = session.metadata?.repositoryPath
+					? URI.file(session.metadata.repositoryPath)
+					: undefined;
+
+				return repositoryUri
+					? new MarkdownString(`$(repo) ${basename(repositoryUri)}`, { supportThemeIcons: true })
+					: undefined;
+			}
+		}
+
+		return SESSION_BADGE_ENABLED ? session.badge : undefined;
+	}
+
 	private renderMarkdownOrText(content: string | IMarkdownString, container: HTMLElement, disposables: DisposableStore): void {
 		if (typeof content === 'string') {
 			container.textContent = content;
