@@ -6,6 +6,7 @@
 import assert from 'assert';
 import * as sinon from 'sinon';
 import * as dom from '../../../../../../base/browser/dom.js';
+import { maxMarkdownRenderLength } from '../../../../../../base/browser/markdownRenderer.js';
 import { mainWindow } from '../../../../../../base/browser/window.js';
 import { IAction, Separator } from '../../../../../../base/common/actions.js';
 import { DeferredPromise, retry, timeout } from '../../../../../../base/common/async.js';

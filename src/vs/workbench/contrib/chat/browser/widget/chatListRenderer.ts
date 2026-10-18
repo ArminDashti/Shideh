@@ -7,6 +7,7 @@ import * as dom from '../../../../../base/browser/dom.js';
 import { postProcessCodeBlockLanguageId } from '../../../../../base/browser/markdownRenderer.js';
 import { renderFormattedText } from '../../../../../base/browser/formattedTextRenderer.js';
 import { StandardKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
+import { maxMarkdownRenderLength, postProcessCodeBlockLanguageId } from '../../../../../base/browser/markdownRenderer.js';
 import { IActionViewItemOptions } from '../../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { alert } from '../../../../../base/browser/ui/aria/aria.js';
 import { DropdownMenuActionViewItem, IDropdownMenuActionViewItemOptions } from '../../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
@@ -57,7 +58,7 @@ import { isCreateChatTool, isCreateSessionTool, isSendMessageTool } from '../../
 import { IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IWorkbenchIssueService } from '../../../issue/common/issue.js';
 import { CodiconActionViewItem } from '../../../notebook/browser/view/cellParts/cellActionView.js';
-import { annotateSpecialMarkdownContent, extractSubAgentInvocationIdFromText, hasCodeblockUriTag, hasEditCodeblockUriTag } from '../../common/widget/annotations.js';
+import { annotateSpecialMarkdownContent, contentRefUrl, extractSubAgentInvocationIdFromText, hasCodeblockUriTag, hasEditCodeblockUriTag } from '../../common/widget/annotations.js';
 import { checkModeOption } from '../../common/chat.js';
 import { IChatAgentMetadata } from '../../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
