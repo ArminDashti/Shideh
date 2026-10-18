@@ -213,6 +213,13 @@ export class PromptsService extends Disposable implements IPromptsService {
 	private readonly cachedParsedPromptFromModels = new ResourceMap<[number, ParsedPromptFile]>();
 
 	/**
+	 * Emitter for discovery log events. Listeners (e.g. a debug bridge
+	 * contribution) can forward these to IChatDebugService.
+	 */
+	private readonly _onDidLogDiscovery = this._register(new Emitter<IPromptDiscoveryLogEntry>());
+	public readonly onDidLogDiscovery: Event<IPromptDiscoveryLogEntry> = this._onDidLogDiscovery.event;
+
+	/**
 	 * Cached file locations commands. Caching only happens if the corresponding `fileLocatorEvents` event is used.
 	 */
 	private readonly cachedFileLocations: { [key in PromptsType]?: Promise<readonly IPromptPath[]> } = {};
@@ -1619,7 +1626,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cachedHooks.onDidChangePromise;
 	}
 
-	public async findAgentSkills(token: CancellationToken): Promise<IAgentSkill[] | undefined> {
+	public async findAgentSkills(token: CancellationToken, sessionId?: string): Promise<IAgentSkill[] | undefined> {
 		const useAgentSkills = this.configurationService.getValue(PromptsConfig.USE_AGENT_SKILLS);
 		if (!useAgentSkills) {
 			this.discoveryTelemetry.logEmptyDiscovery('agentSkillsFound', 'reusable');
@@ -2246,7 +2253,8 @@ export class PromptsService extends Disposable implements IPromptsService {
 			}
 		}
 
-		return { type: PromptsType.hook, files };
+		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.hook, files.filter(f => f.status === 'loaded'));
+		return { type: PromptsType.hook, files, sourceFolders };
 	}
 }
 

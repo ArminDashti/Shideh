@@ -61,6 +61,19 @@ export function newInstructionsCollectionDebugInfo(): InstructionsCollectionDebu
 }
 
 /**
+ * Entry emitted by the prompts service when discovery logging occurs.
+ * A debug bridge (e.g. contribution) can listen and forward these to IChatDebugService.
+ */
+export interface IPromptDiscoveryLogEntry {
+	readonly sessionId: string;
+	readonly name: string;
+	readonly details?: string;
+	readonly category?: string;
+	/** When present, the bridge should store this for later event resolution. */
+	readonly discoveryInfo?: IPromptDiscoveryInfo;
+}
+
+/**
  * Activation events for prompt file providers.
  */
 export const CUSTOM_AGENT_PROVIDER_ACTIVATION_EVENT = 'onCustomAgentProvider';
@@ -630,6 +643,20 @@ export interface IPromptSourceFolderResult {
 }
 
 /**
+ * Diagnostic information about a source folder that was searched during discovery.
+ */
+export interface IPromptSourceFolderResult {
+	readonly uri: URI;
+	readonly storage: PromptsStorage;
+	/** Whether the folder exists on disk */
+	readonly exists: boolean;
+	/** Number of matching files found in this folder */
+	readonly fileCount: number;
+	/** Error message if resolution failed */
+	readonly errorMessage?: string;
+}
+
+/**
  * Summary of prompt file discovery for a specific type.
  */
 export interface IPromptDiscoveryInfo {
@@ -762,8 +789,9 @@ export interface IPromptsService extends IDisposable {
 
 	/**
 	 * Returns a prompt command if the command name is valid.
+	 * @param sessionId Optional session ID to scope debug logging to a specific session.
 	 */
-	getPromptSlashCommands(token: CancellationToken): Promise<readonly IChatPromptSlashCommand[]>;
+	getPromptSlashCommands(token: CancellationToken, sessionId?: string): Promise<readonly IChatPromptSlashCommand[]>;
 
 	/**
 	 * Gets a reference-counted observable of the resolved prompt slash commands.
@@ -793,8 +821,9 @@ export interface IPromptsService extends IDisposable {
 
 	/**
 	 * Finds all available custom agents
+	 * @param sessionId Optional session ID to scope debug logging to a specific session.
 	 */
-	getCustomAgents(token: CancellationToken): Promise<readonly ICustomAgent[]>;
+	getCustomAgents(token: CancellationToken, sessionId?: string): Promise<readonly ICustomAgent[]>;
 
 	/**
 	 * Gets a reference-counted observable of the resolved custom agents.
@@ -870,8 +899,9 @@ export interface IPromptsService extends IDisposable {
 
 	/**
 	 * Gets list of agent skills files.
+	 * @param sessionId Optional session ID to scope debug logging to a specific session.
 	 */
-	findAgentSkills(token: CancellationToken): Promise<IAgentSkill[] | undefined>;
+	findAgentSkills(token: CancellationToken, sessionId?: string): Promise<IAgentSkill[] | undefined>;
 
 	/**
 	 * Gets a reference-counted observable of the resolved skills.

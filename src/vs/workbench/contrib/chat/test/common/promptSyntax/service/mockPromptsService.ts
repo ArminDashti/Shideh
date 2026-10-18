@@ -22,6 +22,9 @@ export class MockPromptsService implements IPromptsService {
 	private readonly _onDidChangeCustomAgents = new Emitter<void>();
 	readonly onDidChangeCustomAgents = this._onDidChangeCustomAgents.event;
 
+	private readonly _onDidLogDiscovery = new Emitter<IPromptDiscoveryLogEntry>();
+	readonly onDidLogDiscovery: Event<IPromptDiscoveryLogEntry> = this._onDidLogDiscovery.event;
+
 	private _customModes: ICustomAgent[] = [];
 	private readonly _customModesObservable = observableValue<readonly ICustomAgent[]>(this, []);
 	private readonly _slashCommandsObservable = observableValue<readonly IChatPromptSlashCommand[]>(this, []);
@@ -34,7 +37,7 @@ export class MockPromptsService implements IPromptsService {
 		this._onDidChangeCustomAgents.fire();
 	}
 
-	async getCustomAgents(token: CancellationToken): Promise<readonly ICustomAgent[]> {
+	async getCustomAgents(token: CancellationToken, sessionId?: string): Promise<readonly ICustomAgent[]> {
 		return this._customModes;
 	}
 
