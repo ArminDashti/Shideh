@@ -356,14 +356,14 @@ function executeHookCommand(hook: IParsedHookCommand, stdin?: string): Promise<s
 
 /**
  * Runs a list of hook commands sequentially, passing `input` as JSON stdin.
- * Returns the parsed output of the first command that emits a valid JSON object,
- * or `undefined` if no command produces parseable JSON output.
+ * Returns every parsed object so the caller can reduce all hook outputs.
  * Command failures are swallowed — hooks are non-fatal.
  */
 async function runHookCommands(commands: readonly IHookCommandRegistration[] | undefined, input: unknown, onDidExecute?: (execution: IConfiguredHookExecution) => void): Promise<object | undefined> {
 	if (!commands) {
-		return undefined;
+		return [];
 	}
+	const results: object[] = [];
 	const stdin = JSON.stringify(input);
 	for (const command of commands) {
 		try {
@@ -372,7 +372,7 @@ async function runHookCommands(commands: readonly IHookCommandRegistration[] | u
 				try {
 					const parsed = JSON.parse(output);
 					if (parsed && typeof parsed === 'object') {
-						return parsed;
+						results.push(parsed);
 					}
 				} catch {
 					// Non-JSON output is fine — no modification
@@ -382,7 +382,63 @@ async function runHookCommands(commands: readonly IHookCommandRegistration[] | u
 			// Hook failures are non-fatal
 		}
 	}
-	return undefined;
+	return results;
+}
+
+function mergeHookOutputs(outputs: readonly object[]): Record<string, unknown> | undefined {
+	if (outputs.length === 0) {
+		return undefined;
+	}
+	const merged: Record<string, unknown> = {};
+	const additionalContext: string[] = [];
+	for (const output of outputs) {
+		Object.assign(merged, output);
+		const context = (output as { additionalContext?: unknown }).additionalContext;
+		if (typeof context === 'string' && context.length > 0) {
+			additionalContext.push(context);
+		}
+	}
+	if (additionalContext.length > 0) {
+		merged.additionalContext = additionalContext.join('\n\n');
+	}
+	return merged;
+}
+
+const permissionDecisionPriority = { allow: 0, ask: 1, deny: 2 } as const;
+
+function mergePreToolUseOutputs(outputs: readonly object[]): Exclude<PreToolUseHookOutput, void> | undefined {
+	const merged = mergeHookOutputs(outputs);
+	if (!merged) {
+		return undefined;
+	}
+	let decision: keyof typeof permissionDecisionPriority | undefined;
+	const denyReasons: string[] = [];
+	let decisionReason: string | undefined;
+	for (const output of outputs) {
+		const candidate = output as { permissionDecision?: unknown; permissionDecisionReason?: unknown };
+		const candidateDecision = candidate.permissionDecision;
+		if (candidateDecision !== 'allow' && candidateDecision !== 'ask' && candidateDecision !== 'deny') {
+			continue;
+		}
+		const candidateReason = typeof candidate.permissionDecisionReason === 'string' ? candidate.permissionDecisionReason : undefined;
+		if (candidateDecision === 'deny' && candidateReason) {
+			denyReasons.push(candidateReason);
+		}
+		if (!decision || permissionDecisionPriority[candidateDecision] > permissionDecisionPriority[decision]) {
+			decision = candidateDecision;
+			decisionReason = candidateReason;
+		}
+	}
+	if (decision) {
+		merged.permissionDecision = decision;
+		const reason = decision === 'deny' && denyReasons.length > 0 ? denyReasons.join('\n') : decisionReason;
+		if (reason !== undefined) {
+			merged.permissionDecisionReason = reason;
+		} else {
+			delete merged.permissionDecisionReason;
+		}
+	}
+	return merged;
 }
 
 async function executeConfiguredHook(command: IHookCommandRegistration, input: string, onDidExecute?: (execution: IConfiguredHookExecution) => void): Promise<string> {

@@ -563,10 +563,12 @@ suite('copilotPluginConverters', () => {
 
 	suite('toSdkHooks', () => {
 
-		function makeHookGroup(type: string, command: string): IParsedHookGroup {
+		let hookScriptId = 0;
+
+		function makeHookGroup(type: string, ...commands: string[]): IParsedHookGroup {
 			return {
 				type,
-				commands: [{ command }],
+				commands: commands.map(command => ({ command })),
 				uri: URI.file('/plugin/hooks.json'),
 				originalId: type,
 				customization: stubHookCustomization(type),
@@ -585,13 +587,48 @@ suite('copilotPluginConverters', () => {
 			// fileURLToPath(new URL('.', import.meta.url)) is the Node ESM equivalent
 			// of __dirname and works on Node 12+, unlike import.meta.dirname (Node 21.2+).
 			const dir = fileURLToPath(new URL('.', import.meta.url)).replace(/[\\/]$/, '');
-			const filePath = `${dir}/vscode-test-hook-${Date.now()}.js`;
+			const filePath = `${dir}/vscode-test-hook-${Date.now()}-${hookScriptId++}.js`;
 			writeFileSync(filePath, `process.stdout.write(${JSON.stringify(json)});\n`);
 			// Do NOT quote the path: cmd.exe /c "node path" strips the outer quotes,
 			// leaving "node path" without inner quoting which cmd.exe handles cleanly.
 			const command = `node ${filePath}`;
 			return { command, cleanup: () => { try { unlinkSync(filePath); } catch { /* ignore */ } } };
 		}
+
+		test('onPreToolUse runs commands after an empty output and preserves the most restrictive decision', async () => {
+			const first = echoJsonCmd({});
+			const second = echoJsonCmd({ permissionDecision: 'deny', permissionDecisionReason: 'second hook denied' });
+			const third = echoJsonCmd({ permissionDecision: 'allow', additionalContext: 'third hook ran' });
+			try {
+				const hooks = toSdkHooks([makeHookGroup('PreToolUse', first.command, second.command, third.command)]);
+				const result = await hooks.onPreToolUse!({ toolName: 'bash', toolArgs: {}, timestamp: new Date(0), workingDirectory: '/', sessionId: 'test' }, { sessionId: 'test' });
+
+				assert.deepStrictEqual(result, {
+					permissionDecision: 'deny',
+					permissionDecisionReason: 'second hook denied',
+					additionalContext: 'third hook ran',
+				});
+			} finally {
+				first.cleanup();
+				second.cleanup();
+				third.cleanup();
+			}
+		});
+
+		test('onPostToolUse runs every command and accumulates additional context', async () => {
+			const first = echoJsonCmd({ additionalContext: 'first' });
+			const second = echoJsonCmd({ additionalContext: 'second' });
+			try {
+				const hooks = toSdkHooks([makeHookGroup('PostToolUse', first.command, second.command)]);
+				const toolResult = { textResultForLlm: 'ok', resultType: 'success' as const };
+				const result = await hooks.onPostToolUse!({ toolName: 'memory', toolArgs: {}, toolResult, timestamp: new Date(0), workingDirectory: '/', sessionId: 'test' }, { sessionId: 'test' });
+
+				assert.deepStrictEqual(result, { additionalContext: 'first\n\nsecond' });
+			} finally {
+				first.cleanup();
+				second.cleanup();
+			}
+		});
 
 		test('onPostToolUse returns parsed JSON output as hook result', async () => {
 			const expectedOutput = { additionalContext: 'Before presenting the plan, run review-plan skill' };
