@@ -165,50 +165,7 @@ interface IWriter {
 	write(buffer: VSBuffer): void;
 }
 
-
-/**
- * @see https://en.wikipedia.org/wiki/Variable-length_quantity
- */
-function readIntVQL(reader: IReader) {
-	let value = 0;
-	for (let n = 0; ; n += 7) {
-		const next = reader.read(1);
-		value |= (next.buffer[0] & 0b01111111) << n;
-		if (!(next.buffer[0] & 0b10000000)) {
-			return value;
-		}
-	}
-}
-
-const vqlZero = createOneByteBuffer(0);
-
-/**
- * @see https://en.wikipedia.org/wiki/Variable-length_quantity
- */
-function writeInt32VQL(writer: IWriter, value: number) {
-	if (value === 0) {
-		writer.write(vqlZero);
-		return;
-	}
-
-	let len = 0;
-	for (let v2 = value; v2 !== 0; v2 = v2 >>> 7) {
-		len++;
-	}
-
-	const scratch = VSBuffer.alloc(len);
-	for (let i = 0; value !== 0; i++) {
-		scratch.buffer[i] = value & 0b01111111;
-		value = value >>> 7;
-		if (value > 0) {
-			scratch.buffer[i] |= 0b10000000;
-		}
-	}
-
-	writer.write(scratch);
-}
-
-export class BufferReader implements IReader {
+class BufferReader implements IReader {
 
 	private pos = 0;
 
@@ -245,8 +202,17 @@ enum DataType {
 	Buffer = 2,
 	VSBuffer = 3,
 	Array = 4,
-	Object = 5,
-	Int = 6
+	Object = 5
+}
+
+function createSizeBuffer(size: number): VSBuffer {
+	const result = VSBuffer.alloc(4);
+	result.writeUInt32BE(size, 0);
+	return result;
+}
+
+function readSizeBuffer(reader: IReader): number {
+	return reader.read(4).readUInt32BE(0);
 }
 
 function createOneByteBuffer(value: number): VSBuffer {
@@ -262,7 +228,6 @@ const BufferPresets = {
 	VSBuffer: createOneByteBuffer(DataType.VSBuffer),
 	Array: createOneByteBuffer(DataType.Array),
 	Object: createOneByteBuffer(DataType.Object),
-	Uint: createOneByteBuffer(DataType.Int),
 };
 
 export function serialize(writer: IWriter, data: any): void {
@@ -271,46 +236,42 @@ export function serialize(writer: IWriter, data: any): void {
 	} else if (typeof data === 'string') {
 		const buffer = VSBuffer.fromString(data);
 		writer.write(BufferPresets.String);
-		writeInt32VQL(writer, buffer.byteLength);
+		writer.write(createSizeBuffer(buffer.byteLength));
 		writer.write(buffer);
 	} else if (VSBuffer.isNativeBuffer(data)) {
 		const buffer = VSBuffer.wrap(data);
 		writer.write(BufferPresets.Buffer);
-		writeInt32VQL(writer, buffer.byteLength);
+		writer.write(createSizeBuffer(buffer.byteLength));
 		writer.write(buffer);
 	} else if (data instanceof VSBuffer) {
 		writer.write(BufferPresets.VSBuffer);
-		writeInt32VQL(writer, data.byteLength);
+		writer.write(createSizeBuffer(data.byteLength));
 		writer.write(data);
 	} else if (Array.isArray(data)) {
 		writer.write(BufferPresets.Array);
-		writeInt32VQL(writer, data.length);
+		writer.write(createSizeBuffer(data.length));
 
 		for (const el of data) {
 			serialize(writer, el);
 		}
-	} else if (typeof data === 'number' && (data | 0) === data) {
-		// write a vql if it's a number that we can do bitwise operations on
-		writer.write(BufferPresets.Uint);
-		writeInt32VQL(writer, data);
 	} else {
 		const buffer = VSBuffer.fromString(JSON.stringify(data));
 		writer.write(BufferPresets.Object);
-		writeInt32VQL(writer, buffer.byteLength);
+		writer.write(createSizeBuffer(buffer.byteLength));
 		writer.write(buffer);
 	}
 }
 
-export function deserialize(reader: IReader): any {
+function deserialize(reader: IReader): any {
 	const type = reader.read(1).readUInt8(0);
 
 	switch (type) {
 		case DataType.Undefined: return undefined;
-		case DataType.String: return reader.read(readIntVQL(reader)).toString();
-		case DataType.Buffer: return reader.read(readIntVQL(reader)).buffer;
-		case DataType.VSBuffer: return reader.read(readIntVQL(reader));
+		case DataType.String: return reader.read(readSizeBuffer(reader)).toString();
+		case DataType.Buffer: return reader.read(readSizeBuffer(reader)).buffer;
+		case DataType.VSBuffer: return reader.read(readSizeBuffer(reader));
 		case DataType.Array: {
-			const length = readIntVQL(reader);
+			const length = readSizeBuffer(reader);
 			const result: any[] = [];
 
 			for (let i = 0; i < length; i++) {
@@ -319,8 +280,7 @@ export function deserialize(reader: IReader): any {
 
 			return result;
 		}
-		case DataType.Object: return JSON.parse(reader.read(readIntVQL(reader)).toString());
-		case DataType.Int: return readIntVQL(reader);
+		case DataType.Object: return JSON.parse(reader.read(readSizeBuffer(reader)).toString());
 	}
 }
 
