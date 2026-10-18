@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Overall */
+/* Tooltip popup */
 
-.ai-stats-status-bar {
+.ai-stats-tooltip {
 	margin-top: 4px;
 	margin-bottom: 4px;
 
