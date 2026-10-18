@@ -2954,7 +2954,7 @@ export class TerminalLabelComputer extends Disposable {
 			case 0: return '';
 			case 1: return `${Math.round(progressState.value)}%`;
 			case 2: return '$(error)';
-			case 3: return '$(loading~spin)';
+			case 3: return '$(sync~spin)';
 			case 4: return '$(alert)';
 		}
 	}
