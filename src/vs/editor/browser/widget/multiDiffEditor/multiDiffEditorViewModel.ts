@@ -169,6 +169,10 @@ export class DocumentDiffItemViewModel extends Disposable {
 		this._editorViewModel.activeDiffItem.setCache(this, tx);
 	}
 
+	public setActive(tx: ITransaction | undefined): void {
+		this._editorViewModel.activeDiffItem.setCache(this, tx);
+	}
+
 	private readonly _isFocusedSource = observableValue<IObservable<boolean>>(this, constObservable(false));
 	public readonly isFocused = derived(this, reader => this._isFocusedSource.read(reader).read(reader));
 

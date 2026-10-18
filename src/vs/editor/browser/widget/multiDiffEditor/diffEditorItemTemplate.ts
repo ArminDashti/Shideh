@@ -215,6 +215,7 @@ export class DiffEditorItemTemplate extends VirtualizedItemTemplate<DocumentDiff
 			}));
 			this._register(headerFocus.onDidBlur(() => this._elements.root.classList.remove('header-focused')));
 
+			this._register(addDisposableListener(this._elements.header, EventType.FOCUS_IN, activateItem));
 			this._register(addDisposableListener(this._elements.header, EventType.CLICK, (e) => {
 				activateItem();
 				// Don't toggle if clicking on actions or the collapse button itself (already handled)

@@ -213,6 +213,11 @@ export class MultiDiffEditorWidget extends Disposable {
 		this._paddingBottomPx.set(px, undefined);
 	}
 
+	/** Reserves empty space below the last diff entry. */
+	public setPaddingBottom(px: number): void {
+		this._paddingBottomPx.set(px, undefined);
+	}
+
 	private readonly _activeControl = derived(this, (reader) => this._widgetImpl.read(reader).activeControl.read(reader));
 
 	public getActiveControl(): DiffEditorWidget | undefined {
