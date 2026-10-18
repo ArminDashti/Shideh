@@ -73,6 +73,11 @@ suite('richEditBrackets', () => {
 		assert.strictEqual(result, null);
 	});
 
+	test('findNextBracketInToken with emoty result', () => {
+		let result = findNextBracketInToken(/(\{)|(\})/i, '', 0, 0);
+		assert.equal(result, null);
+	});
+
 	test('issue #3894: [Handlebars] Curly braces edit issues', () => {
 		const result = findPrevBracketInRange(/(\-\-!<)|(>\-\-)|(\{\{)|(\}\})/i, '{{asd}}', 0, 2);
 		assert.strictEqual(result!.startColumn, 1);
