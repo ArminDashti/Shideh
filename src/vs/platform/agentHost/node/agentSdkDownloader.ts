@@ -370,6 +370,25 @@ export class AgentSdkDownloader extends Disposable implements IAgentSdkDownloade
 		}
 	}
 
+	/**
+	 * Returns the dev appRoot iff `!isBuilt` AND the package's `npmModule` is
+	 * installed under `appRoot/node_modules/`. Used as a startup-time gate by
+	 * `isAvailable` and as a resolution step by `loadSdkRoot`.
+	 *
+	 * Uses sync `fs.existsSync` because `isAvailable` is a cheap synchronous
+	 * gate by contract. A built VS Code never has its source `node_modules/`
+	 * shipped alongside, so the probe always returns `undefined` in built
+	 * environments — there's no production-mode I/O hit.
+	 */
+	private _resolveDevAppRoot(pkg: IAgentSdkPackage): string | undefined {
+		if (this._environmentService.isBuilt) {
+			return undefined;
+		}
+		const appRoot = this._environmentService.appRoot;
+		const probe = path.join(appRoot, 'node_modules', pkg.npmModule, 'package.json');
+		return fs.existsSync(probe) ? appRoot : undefined;
+	}
+
 	private async _resolveOrDownload(pkg: IAgentSdkPackage, token: CancellationToken): Promise<string> {
 		const config = this._productService.agentSdks?.[pkg.id];
 		if (!config) {
