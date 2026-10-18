@@ -256,6 +256,38 @@ export class RunInTerminalToolTelemetry {
 	}
 }
 
+const compactionHintKeywords: readonly string[] = [
+	'apt',
+	'npm',
+	'npm-pack',
+	'yarn-berry',
+	'pnpm',
+	'composer',
+	'poetry',
+	'pip',
+	'uv',
+	'maven',
+	'dotnet',
+	'python-build',
+	'go',
+	'unittest',
+	'js-test',
+	'cargo',
+	'node',
+	'pytest',
+	'git',
+	'git-clean',
+	'nx',
+	'python-build-ext',
+	'django-test',
+	'golangci-lint',
+	'clang-format-linter',
+	'gradle',
+	'cmake',
+	'make',
+	'shell-grep',
+	'python-script',
+];
 
 const commandAllowList: ReadonlySet<string> = new Set([
 	// Special chars/scripting
