@@ -1269,7 +1269,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 		this.storageService.store(this.disabledPromptsStorageKeyPrefix + type, JSON.stringify(disabled), StorageScope.PROFILE, StorageTarget.USER);
 		this.discoveryTelemetry.logConfiguration();
 		if (type === PromptsType.agent) {
-			this.discoveryTelemetry.logConfiguration();
 			this.cachedCustomAgents.refresh();
 		} else if (type === PromptsType.skill) {
 			this.cachedSkills.refresh();
@@ -1376,11 +1375,8 @@ export class PromptsService extends Disposable implements IPromptsService {
 	 */
 	private async computeSkillDiscovery(token: CancellationToken): Promise<IPromptDiscoveryInfo> {
 		const stopWatch = StopWatch.create(true);
-		const files = await this.computeSkillDiscoveryInfo(token);
+		const { files, discoveryCancelled } = await this.computeSkillDiscoveryInfo(token);
 		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.skill);
-		if (token.isCancellationRequested) {
-			throw new CancellationError();
-		}
 
 		const result = { type: PromptsType.skill, files, sourceFolders, durationInMillis: stopWatch.elapsed() } satisfies IPromptDiscoveryInfo;
 		const disabledSkills = this.getDisabledPromptFiles(PromptsType.skill);
@@ -1689,6 +1685,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			return [];
 		}
 		const files: IPromptFileDiscoveryResult[] = [];
+		let discoveryCancelled = false;
 		const seenNames = new Set<string>();
 		const seenUris = new ResourceSet();
 		const nameToUri = new Map<string, URI>();
@@ -1761,7 +1758,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				files.push({ status: 'loaded', promptPath: this.withPromptPathMetadata(promptPath, sanitizedName, description), disableModelInvocation, userInvocable, contentHash });
 			} catch (e) {
 				if (isCancellationError(e)) {
-					throw e;
+					discoveryCancelled = true;
 				}
 				const msg = e instanceof Error ? e.message : String(e);
 				this.logger.error(`[computeSkillDiscoveryInfo] Failed to validate Agent skill file: ${uri}`, msg);
@@ -1775,7 +1772,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			}
 		}
 
-		return files;
+		return { files, discoveryCancelled };
 	}
 
 	// Instructions
@@ -1801,6 +1798,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 	private async computeInstructionFiles(token: CancellationToken): Promise<IInstructionDiscoveryInfo> {
 		const stopWatch = StopWatch.create(true);
 		const files: IInstructionDiscoveryResult[] = [];
+		let discoveryCancelled = false;
 
 		const instructionsFiles = await this.listPromptFiles(PromptsType.instructions, token);
 		for (const promptPath of instructionsFiles) {
@@ -1820,7 +1818,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 				});
 			} catch (e) {
 				if (isCancellationError(e)) {
-					throw e;
+					discoveryCancelled = true;
 				}
 				files.push({
 					status: 'skipped',
@@ -1833,8 +1831,9 @@ export class PromptsService extends Disposable implements IPromptsService {
 		}
 
 		const sourceFolders = await this._collectSourceFolderDiagnostics(PromptsType.instructions);
-		if (token.isCancellationRequested) {
-			throw new CancellationError();
+		const result = { type: PromptsType.instructions, files, sourceFolders, durationInMillis: stopWatch.elapsed() } satisfies IInstructionDiscoveryInfo;
+		if (!discoveryCancelled && !token.isCancellationRequested) {
+			this.discoveryTelemetry.logDiscovery('instructionsFound', 'reusable', result, PromptsType.instructions, 'agent');
 		}
 		const result = { type: PromptsType.instructions, files, sourceFolders, durationInMillis: stopWatch.elapsed() } satisfies IInstructionDiscoveryInfo;
 		this.discoveryTelemetry.logDiscovery('instructionsFound', 'reusable', result, PromptsType.instructions, 'agent');
