@@ -324,6 +324,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	private scheduleAccordingToMode(updateMode: UpdateMode, startup: boolean): void {
 		this.cancelScheduledCheck();
 
+		await this.postInitialize();
+
 		if (updateMode === 'manual') {
 			this.logService.info('update#ctor - manual checks only; automatic updates are disabled by user preference');
 			return;
