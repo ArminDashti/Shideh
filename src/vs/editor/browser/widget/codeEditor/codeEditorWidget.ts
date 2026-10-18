@@ -2115,8 +2115,18 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		viewUserInputEvents.onKeyDown = (e) => this._onKeyDown.fire(e);
 		viewUserInputEvents.onKeyUp = (e) => this._onKeyUp.fire(e);
 		viewUserInputEvents.onContextMenu = (e) => this._onContextMenu.fire(e);
-		viewUserInputEvents.onMouseMove = (e) => this._onMouseMove.fire(e);
-		viewUserInputEvents.onMouseLeave = (e) => this._onMouseLeave.fire(e);
+		viewUserInputEvents.onMouseMove = (e) => {
+			if (!view.mouseOnOverflowingWidgetsDomNode) {
+				this._onMouseMove.fire(e);
+			}
+		};
+		viewUserInputEvents.onMouseLeave = (e) => {
+			setTimeout(() => {
+				if (!view.mouseOnOverflowingWidgetsDomNode) {
+					this._onMouseLeave.fire(e);
+				}
+			}, 100);
+		};
 		viewUserInputEvents.onMouseDown = (e) => this._onMouseDown.fire(e);
 		viewUserInputEvents.onMouseUp = (e) => this._onMouseUp.fire(e);
 		viewUserInputEvents.onMouseDrag = (e) => this._onMouseDrag.fire(e);
