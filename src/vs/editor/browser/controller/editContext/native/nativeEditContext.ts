@@ -501,19 +501,35 @@ export class NativeEditContext extends AbstractEditContext {
 		}
 	}
 
+	private static readonly _MAX_EDIT_CONTEXT_LINES = 100;
+
 	private _getNewEditContextState(): { text: string; selectionStartOffset: number; selectionEndOffset: number; editContextPrimarySelection: Selection } | undefined {
 		const editContextPrimarySelection = this._primarySelection;
 		const model = this._context.viewModel.model;
 		if (!model.isValidRange(editContextPrimarySelection)) {
 			return;
 		}
-		const primarySelectionStartLine = editContextPrimarySelection.startLineNumber;
-		const primarySelectionEndLine = editContextPrimarySelection.endLineNumber;
-		const endColumnOfEndLineNumber = model.getLineMaxColumn(primarySelectionEndLine);
-		const rangeOfText = new Range(primarySelectionStartLine, 1, primarySelectionEndLine, endColumnOfEndLineNumber);
-		const text = model.getValueInRange(rangeOfText, EndOfLinePreference.TextDefined);
+		const startLine = editContextPrimarySelection.startLineNumber;
+		const endLine = editContextPrimarySelection.endLineNumber;
+		const endColumnOfEndLine = model.getLineMaxColumn(endLine);
+
+		let text: string;
+
+		// Cap the range for very large selections.
+		// The EditContext API only needs text around the selection for IME composition.
+		if (endLine - startLine >= NativeEditContext._MAX_EDIT_CONTEXT_LINES) {
+			const lineCount = model.getLineCount();
+			const startChunkEnd = Math.min(startLine + 10, lineCount);
+			const endChunkStart = Math.max(endLine - 10, 1);
+			const startChunkText = model.getValueInRange(new Range(startLine, 1, startChunkEnd, model.getLineMaxColumn(startChunkEnd)), EndOfLinePreference.TextDefined);
+			const endChunkText = model.getValueInRange(new Range(endChunkStart, 1, endLine, endColumnOfEndLine), EndOfLinePreference.TextDefined);
+			text = startChunkText + '\n...\n' + endChunkText;
+		} else {
+			text = model.getValueInRange(new Range(startLine, 1, endLine, endColumnOfEndLine), EndOfLinePreference.TextDefined);
+		}
+
 		const selectionStartOffset = editContextPrimarySelection.startColumn - 1;
-		const selectionEndOffset = text.length + editContextPrimarySelection.endColumn - endColumnOfEndLineNumber;
+		const selectionEndOffset = text.length + editContextPrimarySelection.endColumn - endColumnOfEndLine;
 		return {
 			text,
 			selectionStartOffset,
