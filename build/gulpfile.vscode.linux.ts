@@ -217,6 +217,8 @@ function prepareRpmPackage(arch: string) {
 
 		return all.pipe(vfs.dest(getRpmBuildPath(rpmArch)));
 	};
+
+	return measurePerformance(`prepareRpmPackage-${rpmArch}`, fn);
 }
 
 function buildRpmPackage(arch: string) {
