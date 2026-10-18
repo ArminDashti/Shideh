@@ -22,7 +22,7 @@ export class InstallExtensionQuickAccessProvider extends PickerQuickAccessProvid
 		@IExtensionGalleryService private readonly galleryService: IExtensionGalleryService,
 		@IExtensionManagementService private readonly extensionsService: IExtensionManagementService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@ILogService private readonly logService: ILogService
+		@ILogService logService: ILogService
 	) {
 		super(InstallExtensionQuickAccessProvider.PREFIX);
 	}
@@ -70,7 +70,7 @@ export class InstallExtensionQuickAccessProvider extends PickerQuickAccessProvid
 				return []; // expected error
 			}
 
-			this.logService.error(error);
+			this.logService?.error(error);
 
 			return [fallback];
 		}

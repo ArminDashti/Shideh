@@ -86,7 +86,7 @@ export class CommandsQuickAccessProvider extends AbstractEditorCommandsQuickAcce
 				label: localize('noCommandResults', "No matching commands"),
 				commandId: ''
 			}),
-		}, instantiationService, keybindingService, commandService, telemetryService, dialogService);
+		}, instantiationService, keybindingService, commandService, telemetryService, dialogService, logService);
 
 		this.extensionRegistrationRace = raceTimeout(extensionService.whenInstalledExtensionsRegistered(), 800);
 		this._register(configurationService.onDidChangeConfiguration((e) => this.updateOptions(e)));
@@ -231,6 +231,9 @@ export class CommandsQuickAccessProvider extends AbstractEditorCommandsQuickAcce
 			.reduce((r, [, actions]) => [...r, ...actions], <Array<MenuItemAction | SubmenuItemAction | string>>[])
 			.filter(action => action instanceof MenuItemAction && action.enabled) as MenuItemAction[];
 
+		if (globalCommandsMenuActions.every(a => a.item.id !== 'workbench.extensions.action.focusExtensionsView')) {
+			this.logService?.info('GLOBAL COMMAND PICKS: workbench.extensions.action.focusExtensionsView not found');
+		}
 		for (const action of globalCommandsMenuActions) {
 
 			// Label

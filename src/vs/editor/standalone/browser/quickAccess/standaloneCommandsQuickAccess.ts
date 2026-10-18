@@ -31,9 +31,10 @@ export class StandaloneCommandsQuickAccessProvider extends AbstractEditorCommand
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ICommandService commandService: ICommandService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@IDialogService dialogService: IDialogService
+		@IDialogService dialogService: IDialogService,
+		@ILogService logService: ILogService,
 	) {
-		super({ showAlias: false }, instantiationService, keybindingService, commandService, telemetryService, dialogService);
+		super({ showAlias: false }, instantiationService, keybindingService, commandService, telemetryService, dialogService, logService);
 	}
 
 	protected async getCommandPicks(): Promise<Array<ICommandQuickPick>> {

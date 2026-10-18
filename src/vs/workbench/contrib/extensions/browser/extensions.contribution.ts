@@ -649,6 +649,7 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 			order: 3
 		}));
 
+		this.logService.info('workbench.extensions.action.focusExtensionsView is registereddddddddddddddddd');
 		this.registerExtensionAction({
 			id: 'workbench.extensions.action.focusExtensionsView',
 			title: localize2('focusExtensions', 'Focus on Extensions View'),
@@ -2078,7 +2079,7 @@ class ExtensionToolsContribution extends Disposable implements IWorkbenchContrib
 }
 
 const workbenchRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
-workbenchRegistry.registerWorkbenchContribution(ExtensionsContributions, LifecyclePhase.Restored);
+workbenchRegistry.registerWorkbenchContribution(ExtensionsContributions, LifecyclePhase.Ready);
 workbenchRegistry.registerWorkbenchContribution(StatusUpdater, LifecyclePhase.Eventually);
 workbenchRegistry.registerWorkbenchContribution(MaliciousExtensionChecker, LifecyclePhase.Eventually);
 workbenchRegistry.registerWorkbenchContribution(KeymapExtensions, LifecyclePhase.Restored);

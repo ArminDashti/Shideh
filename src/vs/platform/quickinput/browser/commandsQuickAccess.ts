@@ -65,9 +65,10 @@ export abstract class AbstractCommandsQuickAccessProvider extends PickerQuickAcc
 		@IKeybindingService protected readonly keybindingService: IKeybindingService,
 		@ICommandService private readonly commandService: ICommandService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
-		@IDialogService private readonly dialogService: IDialogService
+		@IDialogService private readonly dialogService: IDialogService,
+		logService: ILogService,
 	) {
-		super(AbstractCommandsQuickAccessProvider.PREFIX, options);
+		super(AbstractCommandsQuickAccessProvider.PREFIX, options, logService);
 
 		this.commandsHistory = this._register(instantiationService.createInstance(CommandsHistory));
 
@@ -101,8 +102,14 @@ export abstract class AbstractCommandsQuickAccessProvider extends PickerQuickAcc
 				.slice(0, AbstractCommandsQuickAccessProvider.TFIDF_MAX_RESULTS);
 		});
 
+		this.logService?.info(`THE FILTER IS ${filter}`);
+		this.logService?.info(`Received ${allCommandPicks.length} command picks`);
+		if (allCommandPicks.every(pick => pick.commandId !== 'workbench.extensions.action.focusExtensionsView')) {
+			this.logService?.info('BEFORE NO workbench.extensions.action.focusExtensionsView FOUND!!');
+		}
+
 		// Filter
-		const filteredCommandPicks: ICommandQuickPick[] = [];
+		let filteredCommandPicks: ICommandQuickPick[] = [];
 		for (const commandPick of allCommandPicks) {
 			const labelHighlights = AbstractCommandsQuickAccessProvider.WORD_FILTER(filter, commandPick.label) ?? undefined;
 
@@ -125,7 +132,9 @@ export abstract class AbstractCommandsQuickAccessProvider extends PickerQuickAcc
 			// Note: The exact match is added here, and hasExactIdMatch (checked upfront)
 			// prevents TF-IDF scoring for all commands when any exact match exists
 			else if (filter === commandPick.commandId) {
-				filteredCommandPicks.push(commandPick);
+				this.logService?.info(`100% match on command '${commandPick.commandId}'`);
+				filteredCommandPicks = [commandPick];
+				break;
 			}
 
 			// Handle tf-idf scoring for the rest if there's a filter, but only if there's no exact command ID match
@@ -142,6 +151,10 @@ export abstract class AbstractCommandsQuickAccessProvider extends PickerQuickAcc
 					filteredCommandPicks.push(commandPick);
 				}
 			}
+		}
+
+		if (filteredCommandPicks.every(pick => pick.commandId !== 'workbench.extensions.action.focusExtensionsView')) {
+			this.logService?.info('AFTER NO workbench.extensions.action.focusExtensionsView FOUND!!');
 		}
 
 		// Add description to commands that have duplicate labels
