@@ -58,6 +58,7 @@ export interface DeleteWordContext {
 	autoClosingQuotes: EditorAutoClosingStrategy;
 	autoClosingPairs: AutoClosingPairs;
 	autoClosedCharacters: Range[];
+	deleteBracketPair: boolean;
 }
 
 export class WordOperations {

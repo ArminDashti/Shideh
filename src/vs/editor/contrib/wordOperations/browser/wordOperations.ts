@@ -344,8 +344,8 @@ export abstract class DeleteWordCommand extends EditorCommand {
 		const autoClosingPairs = languageConfigurationService.getLanguageConfiguration(model.getLanguageId()).getAutoClosingPairs();
 		const viewModel = editor._getViewModel();
 
-		const commands = selections.map((sel) => {
-			const deleteRange = this._delete({
+		const commands = flatten(selections.map((sel) => {
+			const deleteRanges = this._delete({
 				wordSeparators,
 				model,
 				selection: sel,
@@ -356,24 +356,24 @@ export abstract class DeleteWordCommand extends EditorCommand {
 				autoClosingPairs,
 				autoClosedCharacters: viewModel.getCursorAutoClosedCharacters(),
 			}, this._wordNavigationType);
-			return new ReplaceCommand(deleteRange, '');
-		});
+			return deleteRanges.map(range => new ReplaceCommand(range, ''));
+		}));
 
 		editor.pushUndoStop();
 		editor.executeCommands(this.id, commands);
 		editor.pushUndoStop();
 	}
 
-	protected abstract _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range;
+	protected abstract _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range[];
 }
 
 export class DeleteWordLeftCommand extends DeleteWordCommand {
 	protected _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range {
 		const r = WordOperations.deleteWordLeft(ctx, wordNavigationType);
 		if (r) {
-			return r;
+			return [r];
 		}
-		return new Range(1, 1, 1, 1);
+		return [new Range(1, 1, 1, 1)];
 	}
 }
 
@@ -381,11 +381,11 @@ export class DeleteWordRightCommand extends DeleteWordCommand {
 	protected _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range {
 		const r = WordOperations.deleteWordRight(ctx, wordNavigationType);
 		if (r) {
-			return r;
+			return [r];
 		}
 		const lineCount = ctx.model.getLineCount();
 		const maxColumn = ctx.model.getLineMaxColumn(lineCount);
-		return new Range(lineCount, maxColumn, lineCount, maxColumn);
+		return [new Range(lineCount, maxColumn, lineCount, maxColumn)];
 	}
 }
 

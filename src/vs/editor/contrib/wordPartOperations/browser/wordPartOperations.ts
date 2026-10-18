@@ -34,9 +34,9 @@ export class DeleteWordPartLeft extends DeleteWordCommand {
 	protected _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range {
 		const r = WordPartOperations.deleteWordPartLeft(ctx);
 		if (r) {
-			return r;
+			return [r];
 		}
-		return new Range(1, 1, 1, 1);
+		return [new Range(1, 1, 1, 1)];
 	}
 }
 
@@ -59,11 +59,11 @@ export class DeleteWordPartRight extends DeleteWordCommand {
 	protected _delete(ctx: DeleteWordContext, wordNavigationType: WordNavigationType): Range {
 		const r = WordPartOperations.deleteWordPartRight(ctx);
 		if (r) {
-			return r;
+			return [r];
 		}
 		const lineCount = ctx.model.getLineCount();
 		const maxColumn = ctx.model.getLineMaxColumn(lineCount);
-		return new Range(lineCount, maxColumn, lineCount, maxColumn);
+		return [new Range(lineCount, maxColumn, lineCount, maxColumn)];
 	}
 }
 
