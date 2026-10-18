@@ -1555,6 +1555,14 @@
 		}
 	},
 	"file": "_default",
+	"nest": "_mustache",
+	"nestExpanded": "_default",
+	"nestExtensions": {
+		"ts": "_webpack"
+	},
+	"nestExtensionsExpanded": {
+		"ts": "_typescript"
+	},
 	"fileExtensions": {
 		"bsl": "_bsl",
 		"mdo": "_mdo",

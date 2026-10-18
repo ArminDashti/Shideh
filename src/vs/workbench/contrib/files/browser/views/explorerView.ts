@@ -1148,6 +1148,7 @@ export function createFileIconThemableTreeContainerScope(container: HTMLElement,
 	const onDidChangeFileIconTheme = (theme: IFileIconTheme) => {
 		container.classList.toggle('align-icons-and-twisties', theme.hasFileIcons && !theme.hasFolderIcons);
 		container.classList.toggle('hide-arrows', theme.hidesExplorerArrows === true);
+		container.classList.toggle('show-nests-as-file-icons', !theme.hasNestingIcons);
 	};
 
 	onDidChangeFileIconTheme(themeService.getFileIconTheme());

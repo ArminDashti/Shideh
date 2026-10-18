@@ -27,6 +27,7 @@ export class FileIconThemeData implements IWorkbenchFileIconTheme {
 	description?: string;
 	hasFileIcons: boolean;
 	hasFolderIcons: boolean;
+	hasNestingIcons: boolean;
 	hidesExplorerArrows: boolean;
 	isLoaded: boolean;
 	location?: URI;
@@ -42,6 +43,7 @@ export class FileIconThemeData implements IWorkbenchFileIconTheme {
 		this.isLoaded = false;
 		this.hasFileIcons = false;
 		this.hasFolderIcons = false;
+		this.hasNestingIcons = false;
 		this.hidesExplorerArrows = false;
 	}
 
@@ -80,6 +82,7 @@ export class FileIconThemeData implements IWorkbenchFileIconTheme {
 			themeData = FileIconThemeData._noIconTheme = new FileIconThemeData('', '', null);
 			themeData.hasFileIcons = false;
 			themeData.hasFolderIcons = false;
+			themeData.hasNestingIcons = false;
 			themeData.hidesExplorerArrows = false;
 			themeData.isLoaded = true;
 			themeData.extensionData = undefined;
@@ -93,6 +96,7 @@ export class FileIconThemeData implements IWorkbenchFileIconTheme {
 		themeData.isLoaded = false;
 		themeData.hasFileIcons = false;
 		themeData.hasFolderIcons = false;
+		themeData.hasNestingIcons = false;
 		themeData.hidesExplorerArrows = false;
 		themeData.extensionData = undefined;
 		themeData.watch = false;
@@ -145,6 +149,7 @@ export class FileIconThemeData implements IWorkbenchFileIconTheme {
 			styleSheetContent: this.styleSheetContent,
 			hasFileIcons: this.hasFileIcons,
 			hasFolderIcons: this.hasFolderIcons,
+			hasNestingIcons: this.hasNestingIcons,
 			hidesExplorerArrows: this.hidesExplorerArrows,
 			extensionData: ExtensionData.toJSONObject(this.extensionData),
 			watch: this.watch
@@ -208,9 +213,11 @@ export class FileIconThemeLoader {
 		}
 		return this.loadIconThemeDocument(data.location).then(iconThemeDocument => {
 			const result = this.processIconThemeDocument(data.id, data.location!, iconThemeDocument);
+			console.log(result);
 			data.styleSheetContent = result.content;
 			data.hasFileIcons = result.hasFileIcons;
 			data.hasFolderIcons = result.hasFolderIcons;
+			data.hasNestingIcons = result.hasNestingIcons;
 			data.hidesExplorerArrows = result.hidesExplorerArrows;
 			data.isLoaded = true;
 			return data.styleSheetContent;
@@ -230,9 +237,9 @@ export class FileIconThemeLoader {
 		});
 	}
 
-	private processIconThemeDocument(id: string, iconThemeDocumentLocation: URI, iconThemeDocument: IconThemeDocument): { content: string; hasFileIcons: boolean; hasFolderIcons: boolean; hidesExplorerArrows: boolean } {
+	private processIconThemeDocument(id: string, iconThemeDocumentLocation: URI, iconThemeDocument: IconThemeDocument): { content: string; hasFileIcons: boolean; hasFolderIcons: boolean; hasNestingIcons: boolean; hidesExplorerArrows: boolean } {
 
-		const result = { content: '', hasFileIcons: false, hasFolderIcons: false, hidesExplorerArrows: !!iconThemeDocument.hidesExplorerArrows };
+		const result = { content: '', hasFileIcons: false, hasFolderIcons: false, hasNestingIcons: false, hidesExplorerArrows: !!iconThemeDocument.hidesExplorerArrows };
 
 		let hasSpecificFileIcons = false;
 
@@ -378,6 +385,38 @@ export class FileIconThemeLoader {
 						addSelector(css.inline`${qualifier} ${selectors.join('')}.file-icon::before`, fileNames[key]);
 						result.hasFileIcons = true;
 						hasSpecificFileIcons = true;
+					}
+				}
+
+				const nestParentSelector = '.nest-parent-icon';
+				if (associations.nest) {
+					addSelector(`${qualifier} ${nestParentSelector}::before`, associations.nest);
+					result.hasNestingIcons = true;
+				}
+				if (associations.nestExpanded) {
+					addSelector(`${qualifier} ${expanded} ${nestParentSelector}::before`, associations.nestExpanded);
+					result.hasNestingIcons = true;
+				}
+				const nestExtensions = associations.nestExtensions;
+				if (nestExtensions) {
+					for (const key in nestExtensions) {
+						const selectors: string[] = [];
+						const name = handleParentFolder(key.toLowerCase(), selectors);
+						selectors.push(`.${escapeCSS(name)}-ext-nest-parent-icon`);
+						selectors.push('.ext-nest-parent-icon');
+						addSelector(`${qualifier} ${selectors.join('')}${nestParentSelector}::before`, nestExtensions[key]);
+						result.hasNestingIcons = true;
+					}
+				}
+				const nestExtensionsExpanded = associations.nestExtensionsExpanded;
+				if (nestExtensionsExpanded) {
+					for (const key in nestExtensionsExpanded) {
+						const selectors: string[] = [];
+						const name = handleParentFolder(key.toLowerCase(), selectors);
+						selectors.push(`.${escapeCSS(name)}-ext-nest-parent-icon`);
+						selectors.push('.ext-nest-parent-icon');
+						addSelector(`${qualifier} ${expanded} ${selectors.join('')}${nestParentSelector}::before`, nestExtensionsExpanded[key]);
+						result.hasNestingIcons = true;
 					}
 				}
 			}

@@ -577,6 +577,13 @@ class ResourceLabelWidget extends IconLabel {
 		return newFileKind !== oldFileKind; // same resource but different kind (file, folder)
 	}
 
+	private hasNestParentChanged(newOptions?: IResourceLabelOptions): boolean {
+		const newNestParent = newOptions?.nestParent;
+		const oldNestParent = this.options?.nestParent;
+
+		return newNestParent !== oldNestParent; // singular child was added/removed
+	}
+
 	private hasResourceChanged(newLabel: IResourceLabelProps): boolean {
 		const newResource = toResource(newLabel);
 		const oldResource = toResource(this.label);

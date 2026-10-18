@@ -25,6 +25,10 @@ export function getIconClasses(modelService: IModelService, languageService: ILa
 
 	// we always set these base classes even if we do not have a path
 	const classes = fileKind === FileKind.ROOT_FOLDER ? ['rootfolder-icon'] : fileKind === FileKind.FOLDER ? ['folder-icon'] : ['file-icon'];
+	if (isNestParent) {
+		classes.push('nest-parent-icon', 'specificity-token-1', 'specificity-token-2', 'specificity-token-3');
+	}
+
 	if (resource) {
 
 		// Get the path and name of the resource. For data-URIs, we need to parse specially
