@@ -1697,6 +1697,10 @@ export class List<T> implements ISpliceable<T>, IDisposable {
 		this.view.setScrollTop(scrollTop);
 	}
 
+	get targetScrollTop(): number {
+		return this.view.getTargetScrollTop();
+	}
+
 	get scrollLeft(): number {
 		return this.view.getScrollLeft();
 	}

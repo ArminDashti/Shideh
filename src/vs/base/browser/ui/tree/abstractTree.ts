@@ -3166,6 +3166,10 @@ export abstract class AbstractTree<T, TFilterData, TRef> implements IDisposable 
 		this.view.scrollTop = scrollTop;
 	}
 
+	get targetScrollTop(): number {
+		return this.view.targetScrollTop;
+	}
+
 	get scrollLeft(): number {
 		return this.view.scrollLeft;
 	}

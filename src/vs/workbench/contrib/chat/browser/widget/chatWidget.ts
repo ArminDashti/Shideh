@@ -4249,6 +4249,27 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.maximumWidth = maximumWidth;
 	}
 
+	private previousLastItemMinHeight: number = 0;
+
+	private updateLastItemMinHeight(): void {
+		const contentHeight = this.bodyDimension ? Math.max(0, this.bodyDimension.height - this.inputPart.inputPartHeight.get() - this.chatSuggestNextWidget.height) : 0;
+		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
+			this.listContainer.style.removeProperty('--chat-current-response-min-height');
+		} else {
+			const secondToLastItem = this.viewModel?.getItems().at(-2);
+			const secondToLastItemHeight = Math.min(secondToLastItem?.currentRenderedHeight ?? 150, 150);
+			const lastItemMinHeight = Math.max(contentHeight - (secondToLastItemHeight + 10), 0);
+			this.listContainer.style.setProperty('--chat-current-response-min-height', lastItemMinHeight + 'px');
+			if (lastItemMinHeight !== this.previousLastItemMinHeight) {
+				this.previousLastItemMinHeight = lastItemMinHeight;
+				const lastItem = this.viewModel?.getItems().at(-1);
+				if (lastItem && this.visible && this.tree.hasElement(lastItem)) {
+					this.tree.updateElementHeight(lastItem, undefined);
+				}
+			}
+		}
+	}
+
 	layout(height: number, width: number): void {
 		width = Math.min(width, this.viewOptions.renderStyle === 'minimal' ? width : this.maximumWidth); // no min width of inline chat
 
