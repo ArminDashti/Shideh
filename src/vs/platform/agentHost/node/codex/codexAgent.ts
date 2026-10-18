@@ -362,7 +362,7 @@ export class CodexAgent extends Disposable implements IAgent {
 		});
 		return {
 			session: sessionUri,
-			workingDirectory: config.workingDirectory,
+			workingDirectory: primaryWorkingDirectory,
 			provisional: true,
 		};
 	}

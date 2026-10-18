@@ -1771,6 +1771,8 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 			if (params.activeClient && params.activeClient.clientId !== _client.clientId) {
 				throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, `createSession.activeClient.clientId must match the connection's clientId`);
 			}
+			const workingDirectories = params.workingDirectories?.map(d => URI.parse(d));
+			const primaryWorkingDirectory = params.primaryWorkingDirectory ? URI.parse(params.primaryWorkingDirectory) : undefined;
 			try {
 				createdSession = await this._agentService.createSession({
 					provider: params.provider,
