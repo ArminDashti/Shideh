@@ -46,6 +46,8 @@ export type SessionGridRequest = ({ readonly type: 'arrange' } | { readonly type
 
 export const ISessionsPartService = createDecorator<ISessionsPartService>('sessionsPartService');
 
+export type SessionGridLayout = 'columns' | 'grid';
+
 /**
  * Payload for {@link ISessionsPartService.onDidToggleMaximizeSession}.
  */

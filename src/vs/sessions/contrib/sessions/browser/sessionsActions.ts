@@ -1903,6 +1903,15 @@ registerAction2(class CloseSessionAction extends Action2 {
 				group: 'secondary/4_pin',
 				order: 30,
 			}, {
+				id: Menus.SessionBarToolbar,
+				when: ContextKeyExpr.and(
+					MultipleSessionsVisibleContext,
+					IsPhoneLayoutContext.negate(),
+					SessionHeaderShowsChatContext.negate(),
+				),
+				group: 'navigation',
+				order: 20,
+			}, {
 				id: Menus.SessionHeaderContext,
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.or(SessionIsCreatedContext, MultipleSessionsVisibleContext),

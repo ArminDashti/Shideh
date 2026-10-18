@@ -417,6 +417,92 @@ interface IComparisonActionVisibilityHarness extends IGetComparisonBranchHarness
 	_getComparisonBranch(session?: ISession): string | undefined;
 }
 
+interface IConfigureComparisonHarness {
+	readonly _workspacePicker: {
+		readonly selectedFolderUri: URI | undefined;
+		readonly selectedResolved: { readonly workspace: { readonly label: string } } | undefined;
+		showPicker(): void;
+	};
+	readonly _session: IObservable<ISession | undefined>;
+	readonly _newChatInput: {
+		readonly attachments: readonly IChatRequestVariableEntry[];
+		readonly selectedModelState: IObservable<{ readonly currentModel: undefined }>;
+		getInputValue(): string;
+		setInputValue(value: string): void;
+		submit(): Promise<boolean>;
+		focus(): void;
+	};
+	readonly _comparisonAttempts: {
+		get(): readonly ISessionComparisonAttemptConfiguration[];
+		set(value: readonly ISessionComparisonAttemptConfiguration[], transaction: undefined): void;
+	};
+	_comparisonSubmitArmed?: boolean;
+	readonly _comparisonJudgeHarness: {
+		get(): ISessionComparisonAttemptConfiguration['harness'] | undefined;
+		set(value: ISessionComparisonAttemptConfiguration['harness'] | undefined, transaction: undefined): void;
+	};
+	readonly _comparisonSynthesisHarness: {
+		get(): ISessionComparisonAttemptConfiguration['harness'] | undefined;
+		set(value: ISessionComparisonAttemptConfiguration['harness'] | undefined, transaction: undefined): void;
+	};
+	readonly _comparisonBranch: {
+		get(): string | undefined;
+		set(value: string | undefined, transaction: undefined): void;
+	};
+	readonly _comparisonSetupDialog: {
+		value: IDisposable | undefined;
+		clear(): void;
+	};
+	readonly _onDidChangeComparisonWorkspace: {
+		readonly event: Event<ISessionComparisonWorkspaceChange>;
+	};
+	readonly sessionsManagementService: {
+		getSessionTypesForFolder(workspace: URI): readonly {
+			readonly providerId: string;
+			readonly sessionType: {
+				readonly id: string;
+				readonly label: string;
+				readonly supportsWorktreeConfiguration: boolean;
+			};
+		}[];
+	};
+	readonly instantiationService: {
+		createInstance(ctor: typeof SessionComparisonSetupDialog): {
+			show(
+				context: ISessionComparisonSetupContext,
+				initialAttempts: readonly ISessionComparisonAttemptConfiguration[],
+				initialJudgeHarness: ISessionComparisonAttemptConfiguration['harness'],
+				initialSynthesisHarness?: ISessionComparisonAttemptConfiguration['harness'],
+			): Promise<ISessionComparisonSetupResult>;
+			dispose(): void;
+		};
+	};
+	_getComparisonBranch(session: ISession | undefined): string | undefined;
+	_getComparisonBranches(session: ISession, selectedBranch: string): Promise<readonly string[]>;
+	_getComparisonWorkspace(preferredBranch?: string): Promise<ISessionComparisonWorkspaceChange | undefined>;
+}
+
+interface IGetComparisonBranchHarness {
+	readonly _session: IObservable<ISession | undefined>;
+	readonly _workspacePicker: {
+		readonly selectedFolderUri?: URI;
+		readonly selectedResolved: { readonly workspace: ISessionWorkspace } | undefined;
+	};
+	readonly sessionsProvidersService: {
+		getProvider(providerId: string): {
+			readonly id: string;
+			getCreateSessionConfig(sessionId: string): Record<string, unknown> | undefined;
+		} | undefined;
+	};
+}
+
+interface IComparisonActionVisibilityHarness extends IGetComparisonBranchHarness {
+	readonly _compareAgentsEnabled: IObservable<boolean>;
+	readonly _pendingPreferredUpgrade: { readonly value: IDisposable | undefined };
+	readonly _newSessionCreation: { readonly value: IDisposable | undefined };
+	_getComparisonBranch(session?: ISession): string | undefined;
+}
+
 interface IRenderSessionTypePickerHarness {
 	readonly _newChatInput: {
 		readonly sessionTypePicker: {

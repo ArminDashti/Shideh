@@ -796,7 +796,12 @@ export class VisibleSessions extends Disposable {
 				this._setActiveSession(activeWrapper, false, tsx);
 			}
 			this._refresh(tsx);
-		});
+		};
+		if (tx) {
+			updateObservables(tx);
+		} else {
+			transaction(updateObservables);
+		}
 	}
 
 	/**

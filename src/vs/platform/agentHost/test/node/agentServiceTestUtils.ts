@@ -224,6 +224,19 @@ export function createTestAgentService(
 		services.set(IAgentHostStartupPerformance, startupPerformance);
 	}
 	services.set(IAgentHostWorktreeIsolation, worktreeIsolation.service);
+	services.set(IAgentHostOTelService, {
+		_serviceBrand: undefined,
+		getSdkTelemetryConfig: async () => undefined,
+		getNativeSdkTelemetryConfig: async () => undefined,
+		getSessionTraceContext: () => undefined,
+		setSessionComparisonMetadata: () => { },
+		releaseSessionTraceContext: () => { },
+		withTraceContext: <T>(_context: IAgentHostTraceContext | undefined, fn: () => T): T => fn(),
+		getCurrentTraceContext: () => undefined,
+		getSpansDbPath: () => undefined,
+		emitSessionTitleChanged: () => { },
+		flush: async () => { },
+	});
 	const instantiationService = new InstantiationService(services, /*strict*/ true);
 	const gitHubService = instantiationService.invokeFunction(accessor => accessor.get(IAgentHostGitHubService));
 	const effectiveCopilotApiService = instantiationService.invokeFunction(accessor => accessor.get(ICopilotApiService));

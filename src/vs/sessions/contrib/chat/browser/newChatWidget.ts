@@ -126,6 +126,28 @@ function getComparisonHasGitRemote(session: ISession | undefined, selectedWorksp
 	return getComparisonSessionFolder(session, selectedFolderUri)?.gitRepository?.hasGitRemote;
 }
 
+function getComparisonSelectedWorkspaceFolder(selectedWorkspace: ISessionWorkspace | undefined, selectedFolderUri: URI | undefined): ISessionWorkspace['folders'][number] | undefined {
+	if (!selectedFolderUri) {
+		return selectedWorkspace?.folders[0];
+	}
+	return selectedWorkspace?.folders.find(folder => isEqual(folder.root, selectedFolderUri));
+}
+
+function getComparisonSessionFolder(session: ISession | undefined, selectedFolderUri: URI | undefined): ISessionWorkspace['folders'][number] | undefined {
+	if (!selectedFolderUri) {
+		return session?.workspace.get()?.folders[0];
+	}
+	return session?.workspace.get()?.folders.find(folder => isEqual(folder.root, selectedFolderUri));
+}
+
+function getComparisonHasGitRemote(session: ISession | undefined, selectedWorkspace: ISessionWorkspace | undefined, selectedFolderUri: URI | undefined): boolean | undefined {
+	const selectedWorkspaceHasGitRemote = getComparisonSelectedWorkspaceFolder(selectedWorkspace, selectedFolderUri)?.gitRepository?.hasGitRemote;
+	if (selectedWorkspaceHasGitRemote !== undefined) {
+		return selectedWorkspaceHasGitRemote;
+	}
+	return getComparisonSessionFolder(session, selectedFolderUri)?.gitRepository?.hasGitRemote;
+}
+
 export function isExperimentalSessionComposerLayoutEnabled(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(UNIFIED_WORKSPACE_PICKER_SETTING)
 		&& configurationService.getValue<boolean>(EXPERIMENTAL_NEW_SESSION_COMPOSER_LAYOUT_SETTING);
@@ -1605,6 +1627,123 @@ export class NewChatWidget extends Disposable {
 			}
 		}));
 		return store;
+	}
+
+	private _getComparisonBranch(session = this._session.get()): string | undefined {
+		const selectedFolderUri = this._workspacePicker.selectedFolderUri;
+		const provider = session ? this.sessionsProvidersService.getProvider(session.providerId) : undefined;
+		const matchesSelectedFolder = !selectedFolderUri || !!session?.workspace.get()?.folders.some(folder => isEqual(folder.root, selectedFolderUri));
+		if (session && provider && isAgentHostProvider(provider) && matchesSelectedFolder) {
+			const branch = provider.getCreateSessionConfig(session.sessionId)?.[SessionConfigKey.Branch];
+			if (typeof branch === 'string' && branch.trim()) {
+				return branch;
+			}
+		}
+		const selectedWorkspaceRepository = getComparisonSelectedWorkspaceFolder(this._workspacePicker.selectedResolved?.workspace, selectedFolderUri)?.gitRepository;
+		const selectedWorkspaceBranch = selectedWorkspaceRepository?.branchName?.trim() || selectedWorkspaceRepository?.baseBranchName?.trim();
+		if (selectedWorkspaceBranch) {
+			return selectedWorkspaceBranch;
+		}
+		const sessionRepository = getComparisonSessionFolder(session, selectedFolderUri)?.gitRepository;
+		const workspaceBranch = sessionRepository?.branchName?.trim() || sessionRepository?.baseBranchName?.trim();
+		if (workspaceBranch) {
+			return workspaceBranch;
+		}
+		return undefined;
+	}
+
+	private _shouldShowComparisonAction(): boolean {
+		const session = this._session.get();
+		const provider = session ? this.sessionsProvidersService.getProvider(session.providerId) : undefined;
+		const selectedFolderUri = this._workspacePicker.selectedFolderUri;
+		const providerTransitionPending = !!this._pendingPreferredUpgrade.value || !!this._newSessionCreation.value;
+		const providerIsAgentHost = !!provider && isAgentHostProvider(provider);
+		const resolvingConfig = session && providerIsAgentHost ? provider.isSessionConfigResolving(session.sessionId).get() : false;
+		const sessionMatchesSelectedFolder = !!selectedFolderUri && !!session?.workspace.get()?.folders.some(folder => isEqual(folder.root, selectedFolderUri));
+		if (!sessionMatchesSelectedFolder) {
+			return false;
+		}
+		const hasGitRemote = getComparisonHasGitRemote(session, this._workspacePicker.selectedResolved?.workspace, selectedFolderUri);
+		if (hasGitRemote !== true) {
+			return false;
+		}
+		return this._compareAgentsEnabled.get()
+			&& selectedFolderUri !== undefined
+			&& !!session
+			&& hasGitRemote
+			&& (providerTransitionPending
+				|| (providerIsAgentHost
+					&& (resolvingConfig || this._getComparisonBranch(session) !== undefined)));
+	}
+
+	private async _getComparisonBranches(session: IActiveSession, selectedBranch: string): Promise<readonly string[]> {
+		const provider = this.sessionsProvidersService.getProvider(session.providerId);
+		if (!provider || !isAgentHostProvider(provider)) {
+			return [selectedBranch];
+		}
+		const branchSchema = provider.getSessionConfig(session.sessionId)?.schema.properties[SessionConfigKey.Branch];
+		const branches = branchSchema?.enumDynamic
+			? (await provider.getSessionConfigCompletions(session.sessionId, SessionConfigKey.Branch)).map(item => item.value)
+			: (branchSchema?.enum ?? []).map(String);
+		return [...new Set([selectedBranch, ...branches].filter(branch => branch.trim().length > 0))];
+	}
+
+	private _getComparisonDefaultHarness(workspace: URI, session: IActiveSession): ISessionComparisonHarness | undefined {
+		const currentType = this.sessionsManagementService.getSessionTypesForFolder(workspace).find(({ providerId, sessionType }) =>
+			providerId === session.providerId && sessionType.id === session.sessionType);
+		const defaultPermission = currentType
+			? this.sessionsProvidersService.getProvider(currentType.providerId)?.getPermissionOptionsForCreation?.(currentType.sessionType.id).find(option => option.isDefault && !option.locked)
+			: undefined;
+		return currentType ? {
+			providerId: currentType.providerId,
+			sessionTypeId: currentType.sessionType.id,
+			label: currentType.sessionType.label,
+			modelId: this._newChatInput.selectedModelState.get().currentModel?.identifier,
+			modelLabel: this._newChatInput.selectedModelState.get().currentModel?.metadata.name,
+			permissionId: defaultPermission?.id,
+			permissionLabel: defaultPermission?.label,
+		} : undefined;
+	}
+
+	private async _getComparisonSession(workspace: URI): Promise<IActiveSession | undefined> {
+		const isMatchingAgentHostSession = (session: IActiveSession | undefined): session is IActiveSession => {
+			const provider = session ? this.sessionsProvidersService.getProvider(session.providerId) : undefined;
+			return !!session
+				&& !!provider
+				&& isAgentHostProvider(provider)
+				&& !!session.workspace.get()?.folders.some(folder => this.uriIdentityService.extUri.isEqual(folder.root, workspace));
+		};
+		const session = this._session.get();
+		if (isMatchingAgentHostSession(session)) {
+			return session;
+		}
+		if (!this._pendingPreferredUpgrade.value && !this._newSessionCreation.value) {
+			return undefined;
+		}
+		return waitForState(this._session, candidate => isMatchingAgentHostSession(candidate));
+	}
+
+	private async _getComparisonWorkspace(preferredBranch?: string): Promise<ISessionComparisonWorkspaceChange | undefined> {
+		const workspace = this._workspacePicker.selectedFolderUri;
+		if (!workspace) {
+			return undefined;
+		}
+		const session = await this._getComparisonSession(workspace);
+		if (!session) {
+			return undefined;
+		}
+		const provider = this.sessionsProvidersService.getProvider(session.providerId);
+		if (!preferredBranch && provider && isAgentHostProvider(provider)) {
+			await waitForState(provider.isSessionConfigResolving(session.sessionId), resolving => !resolving);
+		}
+		const branch = preferredBranch ?? this._getComparisonBranch(session);
+		return {
+			workspace,
+			branch,
+			branches: branch ? await this._getComparisonBranches(session, branch) : [],
+			hasGitRemote: getComparisonHasGitRemote(session, this._workspacePicker.selectedResolved?.workspace, workspace),
+			defaultHarness: this._getComparisonDefaultHarness(workspace, session),
+		};
 	}
 
 	private _getComparisonBranch(session = this._session.get()): string | undefined {

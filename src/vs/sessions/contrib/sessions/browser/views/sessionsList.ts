@@ -405,6 +405,20 @@ function getComparisonSessions(comparison: ISessionComparison, sessionsManagemen
 	});
 }
 
+function isSessionActive(session: ISession, reader: IReader | undefined): boolean {
+	return isActiveSessionStatus(session.status.read(reader));
+}
+
+function getComparisonSessions(comparison: ISessionComparison, sessionsManagementService: ISessionsManagementService): ISession[] {
+	return comparison.participants.flatMap(participant => {
+		if (!participant.sessionResource) {
+			return [];
+		}
+		const session = sessionsManagementService.getSession(participant.sessionResource);
+		return session ? [session] : [];
+	});
+}
+
 function isSessionGroupItem(item: SessionListItem): item is ISessionGroupItem {
 	return 'group' in item;
 }

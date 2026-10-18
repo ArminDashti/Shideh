@@ -104,6 +104,10 @@ export class TestSessionsManagementService extends mock<ISessionsManagementServi
 		this.imported.push(session);
 	}
 
+	override async cancelCurrentRequest(session: ISession): Promise<void> {
+		this.cancelled.push(session);
+	}
+
 	override async deleteChat(session: ISession, chatResource: URI, options?: IDeleteChatOptions): Promise<boolean> {
 		this.deletedChats.push({ session, chatResource });
 		this.deleteChatOptions.push(options);

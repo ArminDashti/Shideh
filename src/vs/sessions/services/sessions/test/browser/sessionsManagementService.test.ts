@@ -272,6 +272,7 @@ function createSessionsManagementService(
 	const providersService = provider instanceof TestSessionsProvidersService ? provider : new TestSessionsProvidersService(Array.isArray(provider) ? provider : [provider]);
 	const contextKeyService = disposables.add(new MockContextKeyService());
 	const customViewService = disposables.add(new CustomViewService(new NullLogService(), disposables.add(new InMemoryStorageService())));
+	const storage = disposables.add(new InMemoryStorageService());
 
 	instantiationService.stub(IStorageService, storageOverride ?? disposables.add(new InMemoryStorageService()));
 	instantiationService.stub(ILogService, new NullLogService());
@@ -299,6 +300,7 @@ function createSessionsManagementService(
 
 /** Sessions part stub that records focus requests without rendering views. */
 class TestSessionsPartService extends mock<ISessionsPartService>() {
+	readonly updates: { ids: (string | undefined)[]; layout: SessionGridLayout | undefined }[] = [];
 	readonly sessionViews = new Map<string | undefined, SessionView>();
 	readonly focusedSessions: (string | undefined)[] = [];
 	focusedSessionView: SessionView | undefined;
@@ -7387,6 +7389,27 @@ suite('SessionsManagementService', () => {
 			assert.deepStrictEqual({ afterClose, afterReopen: grid(view) }, {
 				afterClose: { visible: ['B'], sticky: [false], active: 'B' },
 				afterReopen: { visible: ['A', 'B'], sticky: [true, false], active: 'A' },
+			});
+		});
+
+		test('showOnlySession replaces visible slots without recording them as closed', async () => {
+			const sessionA = multiChatSession('A', [chat('mainA')]);
+			const sessionB = multiChatSession('B', [chat('mainB')]);
+			const { view, canReopen } = setup([sessionA, sessionB]);
+
+			await view.openSession(sessionA.resource);
+			view.toggleSessionStickiness(sessionA);
+			await view.openSession(sessionB.resource);
+			view.showOnlySession(sessionB);
+
+			assert.deepStrictEqual({
+				grid: grid(view),
+				layout: view.sessionGridLayout.get(),
+				canReopen: canReopen(),
+			}, {
+				grid: { visible: ['B'], sticky: [false], active: 'B' },
+				layout: 'columns',
+				canReopen: false,
 			});
 		});
 

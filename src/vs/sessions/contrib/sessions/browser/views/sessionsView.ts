@@ -274,6 +274,16 @@ export class SessionsView extends ViewPane {
 		}
 	}
 
+	private _handleSessionOpened(session: ISession): void {
+		const comparison = this.sessionComparisonService.getComparisonForSession(session.resource);
+		if (comparison) {
+			this.layoutService.hideSidePane();
+		}
+		if (isWeb && isPhoneLayout(this.layoutService)) {
+			this.layoutService.setPartHidden(true, Parts.SIDEBAR_PART);
+		}
+	}
+
 	protected override renderBody(parent: HTMLElement): void {
 		super.renderBody(parent);
 

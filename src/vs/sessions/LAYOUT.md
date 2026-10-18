@@ -106,6 +106,8 @@ Review uses the native modal editor part's sidebar and content-footer extension 
 
 The board remains mounted behind the modal, and its controls are retained so native modal closing can restore the initiating focus. Its native conversation renderers and model references are suspended while covered by review. The normal session grid and other workbench parts remain under the existing custom-view visibility contract. Opening, changing, or closing review does not archive, delete, or stop a session.
 
+`ISessionsService.openSessionsInGrid` opens a set of existing sessions in a tiled arrangement without creating sessions or sending requests. The view service owns and restores the arrangement mode with the visible-session snapshot; the Sessions Part derives a roughly square row-and-column shape from the session count while retaining the live session views. Phone layouts stack the sessions in one column. Ordinary session opens retain the horizontal presentation, and opening a session outside the tiled set returns to that presentation.
+
 ## Editor presentation
 
 All non-phone Agents windows use the desktop detail layout. Phone viewports use the dedicated mobile presentation.
