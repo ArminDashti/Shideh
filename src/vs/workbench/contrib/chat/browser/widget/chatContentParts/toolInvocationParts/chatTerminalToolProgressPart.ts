@@ -1745,6 +1745,20 @@ export class ChatTerminalToolOutputSection extends Disposable {
 			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Hidden });
 		}));
 
+		// Show horizontal scrollbar on hover/focus, hide otherwise to prevent flickering during streaming
+		this._register(dom.addDisposableListener(this.domNode, dom.EventType.MOUSE_OVER, () => {
+			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+		}));
+		this._register(dom.addDisposableListener(this.domNode, dom.EventType.MOUSE_LEAVE, () => {
+			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Hidden });
+		}));
+		this._register(dom.addDisposableListener(this.domNode, dom.EventType.FOCUS_IN, () => {
+			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Auto });
+		}));
+		this._register(dom.addDisposableListener(this.domNode, dom.EventType.FOCUS_OUT, () => {
+			this._scrollableContainer?.updateOptions({ horizontal: ScrollbarVisibility.Hidden });
+		}));
+
 		// Track scroll state to enable scroll lock behavior (only for user scrolls)
 		this._register(this._scrollableContainer.onScroll(() => {
 			if (this._isProgrammaticScroll) {
