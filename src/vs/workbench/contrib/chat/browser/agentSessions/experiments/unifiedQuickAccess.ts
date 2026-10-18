@@ -44,8 +44,6 @@ export interface IUnifiedQuickAccessTab {
 	readonly placeholder: string;
 	/** Tooltip for the tab */
 	readonly tooltip?: string;
-	/** Whether this is the special Send tab (no provider, just sends query) */
-	readonly isSendTab?: boolean;
 }
 
 /**
@@ -220,11 +218,10 @@ export class UnifiedQuickAccess extends Disposable {
 	}
 
 	/**
-	 * Check if the widget is currently visible.
+	 * Set up the Radio tab bar using the picker's {@link IQuickPick.headerWidget} slot.
 	 */
-	get isVisible(): boolean {
-		return !!this._currentPicker;
-	}
+	private _setupTabBar(picker: IQuickPick<IQuickPickItem, { useSeparators: true }>): void {
+		const tabBarContainer = $('div.unified-quick-access-tabs');
 
 	/**
 	 * Set up the Radio tab bar using the picker's {@link IQuickPick.headerWidget} slot.
@@ -416,8 +413,7 @@ export class UnifiedQuickAccess extends Disposable {
 		if (value === '<' || value.startsWith('<')) {
 			const sessionsTab = this._tabs.find(t => t.id === 'agentSessions');
 			if (sessionsTab && this._currentTab?.id !== 'agentSessions') {
-				this._arrivedViaShortcut = '<';
-				return sessionsTab;
+				return { tab: sessionsTab, shortcut: '<' };
 			}
 		}
 
@@ -425,14 +421,13 @@ export class UnifiedQuickAccess extends Disposable {
 		if (value === '>' || value.startsWith('>')) {
 			const commandsTab = this._tabs.find(t => t.id === 'commands');
 			if (commandsTab && this._currentTab?.id !== 'commands') {
-				this._arrivedViaShortcut = '>';
-				return commandsTab;
+				return { tab: commandsTab, shortcut: '>' };
 			}
 		}
 
 		// Don't auto-switch if current tab matches (user is just typing)
 		if (this._currentTab && value.startsWith(this._currentTab.prefix)) {
-			return this._currentTab;
+			return { tab: this._currentTab };
 		}
 
 		// Sort by prefix length descending to match most specific first
@@ -441,7 +436,8 @@ export class UnifiedQuickAccess extends Disposable {
 			.filter(tab => tab.prefix.length > 0)
 			.sort((a, b) => b.prefix.length - a.prefix.length);
 
-		return sortedTabs.find(tab => value.startsWith(tab.prefix));
+		const matched = sortedTabs.find(tab => value.startsWith(tab.prefix));
+		return matched ? { tab: matched } : undefined;
 	}
 
 	/**
@@ -453,16 +449,6 @@ export class UnifiedQuickAccess extends Disposable {
 		this._providerCts?.cancel();
 		this._providerCts = new CancellationTokenSource();
 		this._providerDisposables.add(this._providerCts);
-
-		// Special handling for Send tab - no provider needed
-		if (tab.isSendTab) {
-			picker.busy = false;
-			picker.items = [{
-				label: localize('pressSendOrEnter', "Press Enter or click Send to create a new agent session"),
-				alwaysShow: true,
-			}];
-			return;
-		}
 
 		// Clear items while loading
 		picker.items = [];

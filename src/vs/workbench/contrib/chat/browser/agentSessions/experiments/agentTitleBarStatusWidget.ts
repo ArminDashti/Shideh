@@ -406,7 +406,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 
 			if (this.agentTitleBarStatusService.mode === AgentStatusMode.Session) {
 				// Agent Session Projection mode - show session title + close button
-				this._renderSessionMode(this._dynamicDisposables);
+				this._renderSessionPill(this._dynamicDisposables, 'session');
 			} else if (this.agentTitleBarStatusService.mode === AgentStatusMode.SessionReady) {
 				// Session ready mode - show session title + enter projection button
 				this._renderSessionReadyMode(this._dynamicDisposables);
@@ -706,49 +706,74 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 	}
 
 	/**
-	 * Render session ready mode - shows session title + enter projection button.
-	 * Used when a projection-capable session is available but not yet entered.
+	 * Render a session pill for either active projection ('session') or
+	 * ready-to-review ('sessionReady') mode. Both modes share the same
+	 * structure: pill container + title + action button + optional badge.
 	 */
-	private _renderSessionReadyMode(disposables: DisposableStore): void {
+	private _renderSessionPill(disposables: DisposableStore, mode: 'session' | 'sessionReady'): void {
 		if (!this._container) {
 			return;
 		}
 
 		const { activeSessions, unreadSessions, attentionNeededSessions } = this._getSessionStats();
+		const sessionInfo = this.agentTitleBarStatusService.sessionInfo;
+		const isSession = mode === 'session';
 
-		const pill = $('div.agent-status-pill.session-ready-mode');
+		// In active-session mode, render command center items (like debug toolbar) first
+		if (isSession) {
+			this._renderCommandCenterToolbar(disposables);
+		}
+
+		const pill = $(`div.agent-status-pill.${isSession ? 'session-mode' : 'session-ready-mode'}`);
 		this._container.appendChild(pill);
 
-		// Session title (left side)
+		// Search button (left side, inside pill) - only in active session mode
+		if (isSession) {
+			this._renderSearchButton(disposables, pill);
+		}
+
+		// Session title
 		const titleLabel = $('span.agent-status-title');
-		const sessionInfo = this.agentTitleBarStatusService.sessionInfo;
-		titleLabel.textContent = sessionInfo?.title ?? localize('agentSessionReady', "Review Changes");
+		titleLabel.textContent = sessionInfo?.title
+			?? (isSession
+				? localize('agentSessionProjection', "Agent Session Projection")
+				: localize('agentSessionReady', "Review Changes"));
 		pill.appendChild(titleLabel);
 
-		// Enter button (right side)
-		this._renderEnterButton(disposables, pill);
+		// Action button (right side)
+		if (isSession) {
+			this._renderEscapeButton(disposables, pill);
+		} else {
+			this._renderEnterButton(disposables, pill);
+		}
 
 		// Setup pill hover
 		const hoverDelegate = getDefaultHoverDelegate('mouse');
 		disposables.add(this.hoverService.setupManagedHover(hoverDelegate, pill, () => {
-			const sessionInfo = this.agentTitleBarStatusService.sessionInfo;
-			return sessionInfo ? localize('agentSessionReadyTooltip', "Review changes from: {0}", sessionInfo.title) : localize('agentSessionReadyGeneric', "Review agent session changes");
+			const info = this.agentTitleBarStatusService.sessionInfo;
+			if (isSession) {
+				return info ? localize('agentSessionProjectionTooltip', "Agent Session Projection: {0}", info.title) : localize('agentSessionProjection', "Agent Session Projection");
+			}
+			return info ? localize('agentSessionReadyTooltip', "Review changes from: {0}", info.title) : localize('agentSessionReadyGeneric', "Review agent session changes");
 		}));
 
-		// Click handler - clicking anywhere on pill enters projection
-		const enterHandler = (e: Event) => {
-			e.preventDefault();
-			e.stopPropagation();
-			const sessionInfo = this.agentTitleBarStatusService.sessionInfo;
-			if (sessionInfo) {
-				const session = this.agentSessionsService.getSession(sessionInfo.sessionResource);
-				if (session) {
-					this.commandService.executeCommand(EnterAgentSessionProjectionAction.ID, session);
+		// Pill click handler
+		if (isSession) {
+			// Clicking anywhere on the pill exits projection
+			registerActivationHandler(disposables, pill, () => {
+				this.commandService.executeCommand(ExitAgentSessionProjectionAction.ID);
+			});
+		} else {
+			// Clicking anywhere on the pill enters projection
+			registerActivationHandler(disposables, pill, () => {
+				if (sessionInfo) {
+					const session = this.agentSessionsService.getSession(sessionInfo.sessionResource);
+					if (session) {
+						this.commandService.executeCommand(EnterAgentSessionProjectionAction.ID, session);
+					}
 				}
-			}
-		};
-		disposables.add(addDisposableListener(pill, EventType.CLICK, enterHandler));
-		disposables.add(addDisposableListener(pill, EventType.MOUSE_DOWN, enterHandler));
+			});
+		}
 
 		// Status badge (separate rectangle on right)
 		this._renderStatusBadge(disposables, activeSessions, unreadSessions, attentionNeededSessions);
