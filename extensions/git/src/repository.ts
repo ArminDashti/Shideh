@@ -2176,6 +2176,16 @@ export class Repository implements Disposable {
 		const tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'vscode-git-worktree-include-'));
 		const includePatternsFile = path.join(tempDir, 'patterns');
 
+		// On macOS, we can use the native copyfile syscall with the COPYFILE_FICLONE flag to
+		// perform a copy-on-write clone of the files. This is much faster and more efficient
+		// than copying the file contents, especially for large files.
+		let nativeCopyFile: ((src: string, dst: string, mode?: number) => Promise<void>) | undefined;
+		if (isMacintosh) {
+			try {
+				nativeCopyFile = (await import('@vscode/fs-copyfile')).copyFile;
+			} catch { } // Package not available, fall back to fsPromises.cp
+		}
+
 		try {
 			await fsPromises.writeFile(includePatternsFile, includePatterns.join('\n') + '\n', 'utf8');
 
