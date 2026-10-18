@@ -174,6 +174,8 @@ export namespace ChatContextKeys {
 		hasCustomChatModes: new RawContextKey<boolean>('chatHasCustomAgents', false, { type: 'boolean', description: localize('chatHasAgents', "True when the chat has custom agents available.") }),
 	};
 
+	export const githubOrgPolicySatisfied = ChatEntitlementContextKeys.githubOrgPolicySatisfied;
+
 	export const panelLocation = new RawContextKey<ViewContainerLocation>('chatPanelLocation', undefined, { type: 'number', description: localize('chatPanelLocation', "The location of the chat panel.") });
 
 	export const agentSessionsViewerFocused = new RawContextKey<boolean>('agentSessionsViewerFocused', true, { type: 'boolean', description: localize('agentSessionsViewerFocused', "If the agent sessions view in the chat view is focused.") });

@@ -40,6 +40,7 @@ import { McpServerInstallData, McpServerInstallClassification } from '../common/
 import { HasInstalledMcpServersContext, IMcpConfigPath, IMcpService, IMcpWorkbenchService, IWorkbenchMcpServer, McpCollectionProvenance, McpCollectionSortOrder, McpServerEnablementState, McpServerInstallState, McpServerEnablementStatus, McpServersGalleryStatusContext } from '../common/mcpTypes.js';
 import { McpResourceFormat, WORKSPACE_ROOT_MCP_COLLECTION_ID_PREFIX, WORKSPACE_ROOT_MCP_CONFIG_FILE } from '../../../../platform/mcp/common/mcpWorkspaceConfiguration.js';
 import { ContributionEnablementState } from '../../chat/common/enablement.js';
+import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { McpServerEditorInput } from './mcpServerEditorInput.js';
 import { IMcpGalleryManifest, IMcpGalleryManifestService } from '../../../../platform/mcp/common/mcpGalleryManifest.js';
 import { IIterativePager, IIterativePage } from '../../../../base/common/paging.js';
@@ -354,6 +355,7 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 		@IAllowedMcpServersService private readonly allowedMcpServersService: IAllowedMcpServersService,
 		@IMcpService private readonly mcpService: IMcpService,
 		@IURLService urlService: IURLService,
+		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 	) {
 		super();
 		this._register(this.mcpManagementService.onDidInstallMcpServersInCurrentProfile(e => this.onDidInstallMcpServers(e)));
@@ -1192,6 +1194,16 @@ export class McpWorkbenchService extends Disposable implements IMcpWorkbenchServ
 	private getEnablementStatus(mcpServer: McpWorkbenchServer): McpServerEnablementStatus | undefined {
 		if (!mcpServer.local) {
 			return undefined;
+		}
+
+		if (!this.chatEntitlementService.orgPolicySatisfied) {
+			return {
+				state: McpServerEnablementState.DisabledByAccess,
+				message: {
+					severity: Severity.Warning,
+					text: new MarkdownString(localize('disabled - org policy', "This MCP server is disabled because the signed-in GitHub account is not a member of an allowed organization."))
+				}
+			};
 		}
 
 		const settingsCommandLink = createCommandUri('workbench.action.openSettings', { query: `@id:${mcpAccessConfig}` }).toString();

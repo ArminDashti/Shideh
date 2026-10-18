@@ -12,7 +12,7 @@ import { IMarkdownString, MarkdownString } from '../../../../base/common/htmlCon
 import { Iterable } from '../../../../base/common/iterator.js';
 import { Lazy } from '../../../../base/common/lazy.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
-import { derived, IObservable, observableValue, autorunSelfDisposable } from '../../../../base/common/observable.js';
+import { derived, IObservable, observableValue, autorunSelfDisposable, observableFromEvent } from '../../../../base/common/observable.js';
 import { isDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -30,6 +30,7 @@ import { IQuickInputButton, IQuickInputService, IQuickPickItem } from '../../../
 import { StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceFolderData } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { ConfigurationResolverExpression, IResolvedValue } from '../../../services/configurationResolver/common/configurationResolverExpression.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';

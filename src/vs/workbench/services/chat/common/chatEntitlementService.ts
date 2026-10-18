@@ -213,6 +213,18 @@ export interface IChatEntitlementService {
 	readonly sku: string | undefined;
 	readonly copilotTrackingId: string | undefined;
 
+	/**
+	 * Whether the GitHub organization policy gate is satisfied.
+	 *
+	 * When `chat.allowedGitHubOrganizations` is not configured (empty),
+	 * this is always `true`. When configured, this is `true` only if
+	 * the signed-in user belongs to one of the allowed organizations.
+	 *
+	 * Features that should be gated behind this policy can check this
+	 * property or use the `chatGitHubOrgPolicySatisfied` context key.
+	 */
+	readonly orgPolicySatisfied: boolean;
+
 	readonly onDidChangeQuotaExceeded: Event<void>;
 	readonly onDidChangeQuotaRemaining: Event<void>;
 	readonly onDidChangeUsageBasedBilling: Event<void>;
@@ -431,7 +443,8 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 					ChatEntitlementContextKeys.Entitlement.signedOut.key,
 					ChatEntitlementContextKeys.Entitlement.organisations.key,
 					ChatEntitlementContextKeys.Entitlement.internal.key,
-					ChatEntitlementContextKeys.Entitlement.sku.key
+					ChatEntitlementContextKeys.Entitlement.sku.key,
+					ChatEntitlementContextKeys.githubOrgPolicySatisfied.key
 				])), this._store
 			), () => { }, this._store
 		);
@@ -525,6 +538,10 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 
 	get hasByokModels(): boolean {
 		return this.contextKeyService.getContextKeyValue<boolean>('github.copilot.hasByokModels') === true;
+	}
+
+	get orgPolicySatisfied(): boolean {
+		return this.contextKeyService.getContextKeyValue<boolean>(ChatEntitlementContextKeys.githubOrgPolicySatisfied.key) !== false;
 	}
 
 	//#endregion
@@ -1502,6 +1519,9 @@ export class ChatEntitlementContext extends Disposable {
 			if (e.affectsConfiguration(ChatAIDisabledSettingId)) {
 				this.updateContext();
 			}
+			if (e.affectsConfiguration(ChatEntitlementContext.ALLOWED_GITHUB_ORGANIZATIONS_KEY)) {
+				this.updateContext();
+			}
 		}));
 	}
 
@@ -1624,6 +1644,33 @@ export class ChatEntitlementContext extends Disposable {
 		logChatEntitlements(state, this.configurationService, this.telemetryService);
 
 		this._onDidChange.fire();
+	}
+
+	/**
+	 * Computes whether the GitHub organization policy gate is satisfied.
+	 *
+	 * - If `chat.allowedGitHubOrganizations` is not configured (empty): always satisfied.
+	 * - If configured: satisfied only when the user's resolved orgs overlap.
+	 * - If configured but orgs are not yet resolved (user not signed in or
+	 *   entitlements pending): not satisfied (block by default).
+	 */
+	private computeOrgPolicySatisfied(state: IChatEntitlementContextState): boolean {
+		const allowedOrgsRaw = this.configurationService.getValue<string>(ChatEntitlementContext.ALLOWED_GITHUB_ORGANIZATIONS_KEY);
+		if (!allowedOrgsRaw) {
+			return true; // no restriction configured
+		}
+
+		const allowedOrgs = allowedOrgsRaw.split(',').map(o => o.trim().toLowerCase()).filter(o => o.length > 0);
+		if (allowedOrgs.length === 0) {
+			return true; // empty after parsing
+		}
+
+		const userOrgs = state.organisations;
+		if (!userOrgs || userOrgs.length === 0) {
+			return false; // policy set but user orgs not resolved or user not signed in
+		}
+
+		return userOrgs.some(org => allowedOrgs.includes(org.toLowerCase()));
 	}
 
 	suspend(): void {

@@ -99,6 +99,7 @@ class MockChatEntitlementService implements IChatEntitlementService {
 	readonly isInternal = false;
 	readonly sku = 'free';
 	readonly copilotTrackingId = 'mock-tracking-id';
+	readonly orgPolicySatisfied = true;
 
 	readonly quotas = {};
 
