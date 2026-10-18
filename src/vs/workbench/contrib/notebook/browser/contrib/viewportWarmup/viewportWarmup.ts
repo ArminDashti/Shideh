@@ -60,7 +60,7 @@ class NotebookViewportContribution extends Disposable implements INotebookEditor
 	}
 
 	private _warmupViewportNow() {
-		if (this._notebookEditor.isDisposed) {
+		if (!this._notebookEditor.isDisposed) {
 			return;
 		}
 
