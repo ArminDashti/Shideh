@@ -66,6 +66,7 @@ export function registerLanguageConfiguration(languageConfigurationService: ILan
 				},
 				autoClosingPairs: javascriptAutoClosingPairsRules,
 				indentationRules: javascriptIndentationRules,
+				autoClosingPairs: javascriptAutoClosingPairsRules,
 				onEnterRules: javascriptOnEnterRules
 			});
 		case Language.Ruby:
