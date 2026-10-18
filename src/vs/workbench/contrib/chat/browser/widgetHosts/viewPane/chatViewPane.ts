@@ -138,6 +138,9 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 	private _selectedSessionProvider: AgentSessionProviders = AgentSessionProviders.Local;
 	private readonly _onDidChangeActiveSessionProvider = this._register(new Emitter<AgentSessionProviders>());
 
+	private _selectedSessionProvider: AgentSessionProviders = AgentSessionProviders.Local;
+	private readonly _onDidChangeActiveSessionProvider = this._register(new Emitter<AgentSessionProviders>());
+
 	private readonly activityBadge = this._register(new MutableDisposable());
 	private readonly _currentSessionResource = observableValue<URI | undefined>(this, undefined);
 	private readonly customizationMigrationsAvailable = observableValue(this, false);
@@ -165,6 +168,12 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 	override get singleViewPaneContainerDescription(): string | undefined {
 		return this._currentSessionDescription;
 	}
+
+	// Track the current showFullWelcome state for recreation on maximize state change
+	private _currentShowFullWelcome: boolean | undefined;
+	private _chatControlsParent: HTMLElement | undefined;
+	private _chatControlsContainer: HTMLElement | undefined;
+	private readonly _chatWidgetDisposables = this._register(new DisposableStore());
 
 	constructor(
 		options: IViewPaneOptions,

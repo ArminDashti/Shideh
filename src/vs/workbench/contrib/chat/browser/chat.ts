@@ -356,6 +356,38 @@ export interface IChatFullWelcomeOptions {
 	readonly onViewAllSessions?: () => void;
 }
 
+/**
+ * Configuration options for the full welcome view in ChatWidget.
+ * When showFullWelcome is enabled, these options customize the welcome experience.
+ */
+export interface IChatFullWelcomeOptions {
+	/**
+	 * Maximum number of sessions to display in the grid.
+	 */
+	readonly maxSessions?: number;
+
+	/**
+	 * Whether to show the "Show on startup" checkbox.
+	 */
+	readonly showStartupCheckbox?: boolean;
+
+	/**
+	 * Whether to hide the input placeholder text.
+	 * When true, the input will not show any placeholder text.
+	 */
+	readonly hidePlaceholder?: boolean;
+
+	/**
+	 * Callback when a session is opened from the welcome view.
+	 */
+	readonly onSessionOpened?: () => void;
+
+	/**
+	 * Callback when "View All Sessions" is clicked.
+	 */
+	readonly onViewAllSessions?: () => void;
+}
+
 export interface IChatWidgetViewOptions {
 	readonly inputEditorState?: ChatInputEditorState;
 	autoScroll?: boolean | ((mode: ChatModeKind) => boolean);
@@ -584,6 +616,12 @@ export interface IChatWidget {
 	 * Call with undefined to clear the prefix.
 	 */
 	setInputPrefixContent(content: string | undefined): void;
+
+	/**
+	 * Whether the input placeholder should be hidden.
+	 * Used in full welcome mode where description is shown separately.
+	 */
+	readonly shouldHidePlaceholder: boolean;
 
 	getContrib<T extends IChatWidgetContrib>(id: string): T | undefined;
 	reveal(item: ChatTreeItem): void;

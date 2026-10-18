@@ -507,6 +507,7 @@ export class OpenModePickerAction extends Action2 {
 					id: MenuId.ChatInput,
 					order: 1,
 					when: ContextKeyExpr.and(
+						ChatContextKeys.showFullWelcome.negate(),
 						ChatContextKeys.enabled,
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
@@ -551,6 +552,7 @@ export class OpenSessionTargetPickerAction extends Action2 {
 					id: MenuId.ChatInput,
 					order: 0,
 					when: ContextKeyExpr.and(
+						ChatContextKeys.showFullWelcome.negate(),
 						ChatContextKeys.enabled,
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
@@ -593,6 +595,7 @@ export class OpenDelegationPickerAction extends Action2 {
 					id: MenuId.ChatInputSecondary,
 					order: 0.5,
 					when: ContextKeyExpr.and(
+						ChatContextKeys.showFullWelcome.negate(),
 						ChatContextKeys.enabled,
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
@@ -640,6 +643,7 @@ export class OpenWorkspacePickerAction extends Action2 {
 					id: MenuId.ChatInputSecondary,
 					order: 0.6,
 					when: ContextKeyExpr.and(
+						ChatContextKeys.showFullWelcome.negate(),
 						ChatContextKeys.inAgentSessionsWelcome,
 						ChatContextKeys.chatSessionType.isEqualTo(SessionType.Local)
 					),

@@ -504,6 +504,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+	private readonly fullWelcomePart: MutableDisposable<ChatFullWelcomePart> = this._register(new MutableDisposable());
+	private fullWelcomeContainer: HTMLElement | undefined;
 
 	private readonly _gettingStartedTip = this._register(new MutableDisposable<ChatInputTipPresenter>());
 
@@ -1742,24 +1744,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 					const providers = product.defaultChatAgent.provider;
 					additionalMessage = new MarkdownString(localize({ key: 'settings', comment: ['{Locked="]({2})"}', '{Locked="]({3})"}'] }, "By continuing with {0} Copilot, you agree to {1}'s [Terms]({2}) and [Privacy Statement]({3}).", providers.default.name, providers.default.name, product.defaultChatAgent.termsStatementUrl, product.defaultChatAgent.privacyStatementUrl), { isTrusted: true });
 				} else {
-					additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
-				}
-				if (!additionalMessage && !this._lockedAgent) {
-					additionalMessage = this._getGenerateInstructionsMessage();
-				}
-				const welcomeContent = this.getWelcomeViewContent(additionalMessage);
-				if (!this.welcomePart.value || this.welcomePart.value.needsRerender(welcomeContent)) {
-					dom.clearNode(this.welcomeMessageContainer);
-
-					this.welcomePart.value = this.instantiationService.createInstance(
-						ChatViewWelcomePart,
-						welcomeContent,
-						{
-							location: this.location,
-							isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
-						}
-					);
-					dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+					this.renderStandardWelcomeView();
 				}
 			}
 
@@ -2071,6 +2056,24 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.acceptInput().catch(e => this.logService.error(`[Handoff] Failed to submit handoff to '${handoff.agent}'`, e));
 			}
 		}
+	}
+
+	private handleQuickStartSelection(e: IQuickStartSelectionEvent): void {
+		// Update context keys
+		this._quickStartTypeContextKey.set(e.option.type);
+		this._isExploreModeContextKey.set(e.option.type === 'explore');
+
+		// Update the session type picker delegate if available
+		if (this.viewOptions.sessionTypePickerDelegate?.setActiveSessionProvider) {
+			this.viewOptions.sessionTypePickerDelegate.setActiveSessionProvider(e.sessionProvider);
+		}
+
+		// Switch the mode based on the quick-start selection
+		const targetModeId = e.modeKind === ChatModeKind.Ask ? ChatMode.Ask.id : ChatMode.Agent.id;
+		this.input.setChatMode(targetModeId, false);
+
+		// Focus the input for immediate typing
+		this.input.focus();
 	}
 
 	async handleDelegationExitIfNeeded(sourceAgent: Pick<IChatAgentData, 'id' | 'name'> | undefined, targetAgent: IChatAgentData | undefined): Promise<void> {
@@ -4270,6 +4273,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.listWidget.layout(contentHeight, width);
 
 		this.welcomeMessageContainer.style.height = `${contentHeight}px`;
+
+		// Layout full welcome part if active
+		if (this.fullWelcomePart.value && this.fullWelcomeContainer) {
+			this.fullWelcomeContainer.style.height = `${contentHeight}px`;
+			this.fullWelcomePart.value.layout(width);
+		}
 
 		const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
 		if (lastElementVisible && !this.listWidget.isAutoScrollHeld && (!lastResponseIsRendering || checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll))) {
