@@ -949,6 +949,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 			this.getDiagnosticsWhenEnabled(detector.extension),
 			tools,
 			detector.extension,
+			toolInvocationToken,
 			this._logService);
 
 		return detector.provider.provideParticipantDetection(
@@ -1057,6 +1058,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 				this.getDiagnosticsWhenEnabled(agent.extension),
 				tools,
 				agent.extension,
+				toolInvocationToken,
 				this._logService
 			);
 			inFlightRequest = { requestId: requestDto.requestId, extRequest, extension: agent.extension, hooks: request.hooks, yieldRequested: false };

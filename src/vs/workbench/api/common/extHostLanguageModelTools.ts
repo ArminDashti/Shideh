@@ -97,6 +97,8 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 	/** A map of all known tools, from other EHs or registered in vscode core */
 	private readonly _allTools = new Map<string, Tool>();
 
+	private readonly _sessionToolInvocationTokens = new Map<string, vscode.ChatParticipantToolToken>();
+
 	constructor(
 		mainContext: IMainContext,
 		private readonly _languageModels: ExtHostLanguageModels,
@@ -109,6 +111,30 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 				this._allTools.set(tool.id, new Tool(revive(tool)));
 			}
 		});
+	}
+
+	releaseSession(sessionId: string): void {
+		this._sessionToolInvocationTokens.delete(sessionId);
+	}
+
+	getToolInvocationToken(sessionId: string): vscode.ChatParticipantToolToken {
+		if (!this._sessionToolInvocationTokens.has(sessionId)) {
+			const token: vscode.ChatParticipantToolToken = Object.freeze({
+				value: Symbol('ChatParticipantToolToken') as any
+			});
+			this._sessionToolInvocationTokens.set(sessionId, token);
+		}
+
+		return this._sessionToolInvocationTokens.get(sessionId)!;
+	}
+
+	private getContextForToken(token: vscode.ChatParticipantToolToken): IToolInvocationContext {
+		for (const [sessionId, sessionToken] of this._sessionToolInvocationTokens.entries()) {
+			if (token === sessionToken) {
+				return { sessionId };
+			}
+		}
+		throw new Error(`Invalid tool invocation token`);
 	}
 
 	async $countTokensForInvocation(callId: string, input: string, token: CancellationToken): Promise<number> {
@@ -128,9 +154,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 		}
 
 		try {
-			if (options.toolInvocationToken && !isToolInvocationContext(options.toolInvocationToken)) {
-				throw new Error(`Invalid tool invocation token`);
-			}
+			const invocationContext = options.toolInvocationToken && this.getContextForToken(options.toolInvocationToken);
 
 			if ((toolId === InternalEditToolId || toolId === ExtensionEditToolId) && !isProposedApiEnabled(extension, 'chatParticipantPrivate')) {
 				throw new Error(`Invalid tool: ${toolId}`);
@@ -142,7 +166,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 				callId,
 				parameters: options.input,
 				tokenBudget: options.tokenizationOptions?.tokenBudget,
-				context: options.toolInvocationToken as IToolInvocationContext | undefined,
+				context: invocationContext,
 				chatRequestId: isProposedApiEnabled(extension, 'chatParticipantPrivate') ? options.chatRequestId : undefined,
 				chatInteractionId: isProposedApiEnabled(extension, 'chatParticipantPrivate') ? options.chatInteractionId : undefined,
 				subAgentInvocationId: isProposedApiEnabled(extension, 'chatParticipantPrivate') ? options.subAgentInvocationId : undefined,

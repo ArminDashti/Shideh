@@ -21176,7 +21176,12 @@ declare module 'vscode' {
 	/**
 	 * A token that can be passed to {@link lm.invokeTool} when invoking a tool inside the context of handling a chat request.
 	 */
-	export type ChatParticipantToolToken = never;
+	export interface ChatParticipantToolToken {
+		/**
+		 * A unique symbol to prevent accidental construction of this type (see note on {@link LanguageModelToolInvocationOptions.toolInvocationToken}).
+		 */
+		readonly value: unique symbol;
+	}
 
 	/**
 	 * Options provided for tool invocation.

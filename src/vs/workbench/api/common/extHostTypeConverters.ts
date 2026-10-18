@@ -3861,7 +3861,6 @@ export namespace ChatAgentRequest {
 			delete (requestWithAllProps as any).tools;
 		}
 
-
 		return requestWithAllProps;
 	}
 }
