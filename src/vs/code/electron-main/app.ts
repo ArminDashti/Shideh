@@ -1467,6 +1467,9 @@ export class CodeApplication extends Disposable {
 		);
 		services.set(ILocalPtyService, ptyHostService);
 
+		// Copilot SDK (utility process host for sessions window)
+		services.set(ICopilotSdkMainService, new SyncDescriptor(CopilotSdkMainService, undefined, true));
+
 		// External terminal
 		if (isWindows) {
 			services.set(IExternalTerminalMainService, new SyncDescriptor(WindowsExternalTerminalService));
@@ -1679,6 +1682,9 @@ export class CodeApplication extends Disposable {
 		mainProcessElectronServer.registerChannel(NativeMcpDiscoveryHelperChannelName, mcpDiscoveryChannel);
 		const mcpGatewayChannel = this._register(new McpGatewayChannel(mainProcessElectronServer, accessor.get(IMcpGatewayService), accessor.get(ILoggerMainService)));
 		mainProcessElectronServer.registerChannel(McpGatewayChannelName, mcpGatewayChannel);
+
+		// Copilot SDK (for sessions window)
+		mainProcessElectronServer.registerChannel(CopilotSdkChannel, accessor.get(ICopilotSdkMainService).getServerChannel());
 
 		// Logger
 		const loggerChannel = this._register(new LoggerChannel(accessor.get(ILoggerMainService)));

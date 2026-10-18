@@ -248,6 +248,5 @@ registerWorkbenchContribution2(LocalAgentsSessionsController.ID, LocalAgentsSess
 registerWorkbenchContribution2(AgentHostPermissionUiContribution.ID, AgentHostPermissionUiContribution, WorkbenchPhase.BlockRestore);
 
 registerSingleton(IAgentSessionsService, AgentSessionsService, InstantiationType.Delayed);
-registerSingleton(IActiveAgentSessionService, ActiveAgentSessionService, InstantiationType.Delayed);
 
 //#endregion

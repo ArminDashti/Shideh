@@ -17,6 +17,7 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { ViewContainerLocation, IViewDescriptorService } from '../../../common/views.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IPaneCompositePartService } from '../../../services/panecomposite/browser/panecomposite.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandActionTitle } from '../../../../platform/action/common/action.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { SwitchCompositeViewAction } from '../compositeBarActions.js';

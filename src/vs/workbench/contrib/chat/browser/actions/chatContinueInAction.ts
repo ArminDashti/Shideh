@@ -207,7 +207,7 @@ export class ChatContinueInSessionActionItem extends ActionWidgetDropdownActionV
 				// Continue in Background
 				const backgroundContrib = contributions.find(contrib => contrib.type === AgentSessionProviders.Background);
 				if (backgroundContrib && backgroundContrib.canDelegate) {
-					actions.push(this.toAction(AgentSessionProviders.Background, backgroundContrib, instantiationService, location));
+					actions.push(this.toAction(AgentSessionProviders.Background, backgroundContrib, chatSessionsService, instantiationService, location));
 				}
 
 				// Continue in Cloud (disabled when no git repository)
@@ -226,8 +226,8 @@ export class ChatContinueInSessionActionItem extends ActionWidgetDropdownActionV
 
 				// Offer actions to enter setup if we have no contributions
 				if (actions.length === 0) {
-					actions.push(this.toSetupAction(AgentSessionProviders.Background, instantiationService));
-					actions.push(this.toSetupAction(AgentSessionProviders.Cloud, instantiationService));
+					actions.push(this.toSetupAction(AgentSessionProviders.Background, chatSessionsService, instantiationService));
+					actions.push(this.toSetupAction(AgentSessionProviders.Cloud, chatSessionsService, instantiationService));
 				}
 
 				return actions;
@@ -258,14 +258,14 @@ export class ChatContinueInSessionActionItem extends ActionWidgetDropdownActionV
 		};
 	}
 
-	private static toSetupAction(provider: AgentSessionProviders, instantiationService: IInstantiationService): IActionWidgetDropdownAction {
+	private static toSetupAction(provider: AgentSessionProviders, chatSessionsService: IChatSessionsService, instantiationService: IInstantiationService): IActionWidgetDropdownAction {
 		return {
 			id: provider,
 			enabled: true,
 			icon: getAgentSessionProviderIcon(provider),
 			class: undefined,
-			label: getAgentSessionProviderName(provider),
-			tooltip: localize('continueSessionIn', "Continue in {0}", getAgentSessionProviderName(provider)),
+			label: resolveAgentSessionProviderName(chatSessionsService, provider),
+			tooltip: localize('continueSessionIn', "Continue in {0}", resolveAgentSessionProviderName(chatSessionsService, provider)),
 			category: { label: localize('continueIn', "Continue In"), order: 0, showHeader: true },
 			run: () => instantiationService.invokeFunction(accessor => {
 				const commandService = accessor.get(ICommandService);

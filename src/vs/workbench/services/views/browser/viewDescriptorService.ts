@@ -315,7 +315,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	private getEffectiveViewContainerLocation(location: ViewContainerLocation): ViewContainerLocation {
 		// When not in agent sessions workspace, view containers contributed to ChatBar
 		// should be registered at the AuxiliaryBar location instead
-		if (!this.isAgentSessionsWorkspace && location === ViewContainerLocation.ChatBar) {
+		if (!this.isSessionsWindow && location === ViewContainerLocation.ChatBar) {
 			return ViewContainerLocation.AuxiliaryBar;
 		}
 		return location;
@@ -338,19 +338,19 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	private isViewContainerVisible(viewContainer: ViewContainer): boolean {
-		const layoutVisibility = viewContainer.layoutVisibility;
-		if (this.isAgentSessionsWorkspace) {
-			return layoutVisibility === LayoutVisibility.AgentSessions || layoutVisibility === LayoutVisibility.Both;
+		const layoutVisibility = viewContainer.windowVisibility;
+		if (this.isSessionsWindow) {
+			return layoutVisibility === WindowVisibility.Sessions || layoutVisibility === WindowVisibility.Both;
 		}
-		return !layoutVisibility || layoutVisibility === LayoutVisibility.Workbench || layoutVisibility === LayoutVisibility.Both;
+		return !layoutVisibility || layoutVisibility === WindowVisibility.Editor || layoutVisibility === WindowVisibility.Both;
 	}
 
 	private isViewVisible(view: IViewDescriptor): boolean {
-		const layoutVisibility = view.layoutVisibility;
-		if (this.isAgentSessionsWorkspace) {
-			return layoutVisibility === LayoutVisibility.AgentSessions || layoutVisibility === LayoutVisibility.Both;
+		const layoutVisibility = view.windowVisibility;
+		if (this.isSessionsWindow) {
+			return layoutVisibility === WindowVisibility.Sessions || layoutVisibility === WindowVisibility.Both;
 		}
-		return !layoutVisibility || layoutVisibility === LayoutVisibility.Workbench || layoutVisibility === LayoutVisibility.Both;
+		return !layoutVisibility || layoutVisibility === WindowVisibility.Editor || layoutVisibility === WindowVisibility.Both;
 	}
 
 	private isViewContainerEnabled(viewContainer: ViewContainer): boolean {

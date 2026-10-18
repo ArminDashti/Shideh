@@ -185,7 +185,6 @@ export class MenuId {
 	static readonly TitleBarUpdate = new MenuId('TitleBarUpdate');
 	static readonly TitleBarContext = new MenuId('TitleBarContext');
 	static readonly TitleBarTitleContext = new MenuId('TitleBarTitleContext');
-	static readonly TitleBarLeft = new MenuId('TitleBarLeft');
 	static readonly TunnelContext = new MenuId('TunnelContext');
 	static readonly TunnelPrivacy = new MenuId('TunnelPrivacy');
 	static readonly TunnelProtocol = new MenuId('TunnelProtocol');
@@ -249,7 +248,6 @@ export class MenuId {
 	static readonly SidebarTitle = new MenuId('SidebarTitle');
 	static readonly PanelTitle = new MenuId('PanelTitle');
 	static readonly AuxiliaryBarTitle = new MenuId('AuxiliaryBarTitle');
-	static readonly ChatBarTitle = new MenuId('ChatBarTitle');
 	static readonly TerminalInstanceContext = new MenuId('TerminalInstanceContext');
 	static readonly TerminalEditorInstanceContext = new MenuId('TerminalEditorInstanceContext');
 	static readonly TerminalNewDropdownContext = new MenuId('TerminalNewDropdownContext');
@@ -266,6 +264,7 @@ export class MenuId {
 	static readonly MergeInputResultToolbar = new MenuId('MergeToolbarResultToolbar');
 	static readonly InlineSuggestionToolbar = new MenuId('InlineSuggestionToolbar');
 	static readonly InlineEditToolbar = new MenuId('InlineEditToolbar');
+	static readonly AgentFeedbackEditorContent = new MenuId('AgentFeedbackEditorContent');
 	static readonly ChatContext = new MenuId('ChatContext');
 	static readonly ChatCodeBlock = new MenuId('ChatCodeblock');
 	static readonly ChatMathBlock = new MenuId('ChatMathBlock');
@@ -332,7 +331,6 @@ export class MenuId {
 	static readonly AgentSessionSectionContext = new MenuId('AgentSessionSectionContext');
 	static readonly AgentSessionsCreateSubMenu = new MenuId('AgentSessionsCreateSubMenu');
 	static readonly AgentSessionsToolbar = new MenuId('AgentSessionsToolbar');
-	static readonly AgentSessionsViewFilterSubMenu = new MenuId('AgentSessionsViewFilterSubMenu');
 	static readonly AgentSessionItemToolbar = new MenuId('AgentSessionItemToolbar');
 	static readonly AgentSessionSectionToolbar = new MenuId('AgentSessionSectionToolbar');
 	static readonly SessionItemContextMenu = new MenuId('SessionItemContextMenu');

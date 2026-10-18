@@ -206,6 +206,28 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				this.emit('data', file);
 			}));
 
+
+		const packageSubJsonStream = gulp.src(['package.json'], { base: '.' })
+			.pipe(jsonEditor((json: Record<string, unknown>) => {
+				json.name = `sessions-${quality || 'oss-dev'}`;
+				return json;
+			}))
+			.pipe(rename('package.sub.json'));
+
+		const embedded = (product as typeof product & { embedded?: { nameShort: string; nameLong: string; applicationName: string; dataFolderName: string; darwinBundleIdentifier: string } }).embedded;
+		const productSubJsonStream = embedded
+			? gulp.src(['product.json'], { base: '.' })
+				.pipe(jsonEditor((json: Record<string, unknown>) => {
+					json.nameShort = embedded.nameShort;
+					json.nameLong = embedded.nameLong;
+					json.applicationName = embedded.applicationName;
+					json.dataFolderName = embedded.dataFolderName;
+					json.darwinBundleIdentifier = embedded.darwinBundleIdentifier;
+					return json;
+				}))
+				.pipe(rename('product.sub.json'))
+			: gulp.src(['product.sub.json'], { base: '.', allowEmpty: true });
+
 		const license = gulp.src([product.licenseFileName, 'ThirdPartyNotices.txt', 'licenses/**'], { base: '.', allowEmpty: true });
 
 		// TODO the API should be copied to `out` during compile, not here
@@ -266,6 +288,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'**/node-pty/package.json',
 				'**/*.wasm',
 				'**/@vscode/vsce-sign/bin/*',
+				'**/@github/copilot-*/**',
 			], [
 				'**/*.mk',
 			], [
@@ -282,6 +305,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		const mergeStreams = [
 			packageJsonStream,
 			productJsonStream,
+			packageSubJsonStream,
+			productSubJsonStream,
 			license,
 			api,
 			telemetry,

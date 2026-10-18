@@ -500,11 +500,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
-	private readonly fullWelcomePart: MutableDisposable<ChatFullWelcomePart> = this._register(new MutableDisposable());
-	private fullWelcomeContainer: HTMLElement | undefined;
-	private mainInputContainer: HTMLElement | undefined; // Container for input when not in welcome view (full welcome mode)
 
 	private readonly _gettingStartedTip = this._register(new MutableDisposable<ChatInputTipPresenter>());
+
+	private fullWelcomeContainer: HTMLElement | undefined;
 
 	private readonly chatSuggestNextWidget: ChatSuggestNextWidget;
 
@@ -3308,6 +3307,17 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (this.visible) {
 			this.listWidget?.rerender();
 		}
+
+		// Set placeholder on the editor when no viewModel exists yet
+		// (e.g., deferred session creation in agent sessions workspace).
+		// When a viewModel exists, setModel() handles the placeholder.
+		if (!this.viewModel) {
+			let placeholder = this.chatSessionsService.getInputPlaceholderForSessionType(agentId);
+			if (!placeholder) {
+				placeholder = ChatMode.Agent.description.get();
+			}
+			this.inputEditor?.updateOptions({ placeholder });
+		}
 	}
 
 	unlockFromCodingAgent(): void {
@@ -4243,12 +4253,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.listWidget.layout(contentHeight, width);
 
 		this.welcomeMessageContainer.style.height = `${contentHeight}px`;
-
-		// Layout full welcome part if active
-		if (this.fullWelcomePart.value && this.fullWelcomeContainer) {
-			this.fullWelcomeContainer.style.height = `${contentHeight}px`;
-			this.fullWelcomePart.value.layout(width);
-		}
 
 		const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
 		if (lastElementVisible && !this.listWidget.isAutoScrollHeld && (!lastResponseIsRendering || checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll))) {

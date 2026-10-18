@@ -346,6 +346,19 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	private readonly _onDidChangeCustomizations = this._register(new Emitter<{ readonly chatSessionType: string }>());
 	readonly onDidChangeCustomizations = this._onDidChangeCustomizations.event;
 
+	/**
+	 * Lightweight options store for session resources that don't have full
+	 * `ContributedChatSessionData` yet (deferred session creation). Options
+	 * stored here are consumed by picker widgets and the welcome part. Once
+	 * a real session is created via `getOrCreateChatSession`, options are
+	 * migrated to the `ContributedChatSessionData`.
+	 */
+	private readonly _pendingSessionOptions = new ResourceMap<Map<string, string | IChatSessionProviderOptionItem>>();
+
+	private readonly _providerNameOverrides = new Map<string, string>();
+	private readonly _onDidChangeProviderNameOverride = this._register(new Emitter<string>());
+	readonly onDidChangeProviderNameOverride = this._onDidChangeProviderNameOverride.event;
+
 	private readonly _hasCanDelegateProvidersKey: IContextKey<boolean>;
 
 	constructor(
@@ -1769,6 +1782,24 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 
 	public getContentProviderSchemes(): string[] {
 		return Array.from(this._contentProviders.keys());
+	}
+
+	public getProviderNameOverride(providerType: string): string | undefined {
+		return this._providerNameOverrides.get(providerType);
+	}
+
+	public setProviderNameOverride(providerType: string, name: string | undefined): void {
+		if (name === undefined) {
+			if (this._providerNameOverrides.delete(providerType)) {
+				this._onDidChangeProviderNameOverride.fire(providerType);
+			}
+		} else {
+			const previous = this._providerNameOverrides.get(providerType);
+			if (previous !== name) {
+				this._providerNameOverrides.set(providerType, name);
+				this._onDidChangeProviderNameOverride.fire(providerType);
+			}
+		}
 	}
 }
 

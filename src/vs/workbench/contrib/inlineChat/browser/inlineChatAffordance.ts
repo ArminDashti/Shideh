@@ -35,7 +35,10 @@ type InlineChatAffordanceClassification = {
 	comment: 'Tracks when the inline chat affordance is shown or selected.';
 };
 
-export class InlineChatAffordance extends Disposable {
+type AgentSessionResourceContext = {
+	readonly sessionResource: URI;
+	readonly resourceUri: URI;
+};
 
 	readonly #editor: ICodeEditor;
 	readonly #instantiationService: IInstantiationService;
@@ -100,7 +103,53 @@ export class InlineChatAffordance extends Disposable {
 			return model ? inlineChatSessionService.getSessionByTextModel(model.uri) !== undefined : false;
 		});
 
-		const isDiffModifiedEditorObs = derived(r => !!diffInfoObs.read(r));
+		this.isDiffModifiedEditorObs = derived(r => !!this.diffInfoObs.read(r));
+
+		this.agentSessionResourceContextObs = derived(r => {
+			const model = this._editorObs.model.read(r);
+			if (!model) {
+				return undefined;
+			}
+
+			const resourceUri = model.uri;
+
+			const editingSessions = chatEditingService.editingSessionsObs.read(r);
+			for (const editingSession of editingSessions) {
+				const entries = editingSession.entries.read(r);
+				if (editingEntriesContainResource(entries, resourceUri)) {
+					return { sessionResource: editingSession.chatSessionResource, resourceUri };
+				}
+			}
+
+			observableSignalFromEvent(this, agentSessionsService.model.onDidChangeSessions).read(r);
+			for (const session of agentSessionsService.model.sessions) {
+				if (agentSessionContainsResource(session, resourceUri)) {
+					return { sessionResource: session.resource, resourceUri };
+				}
+			}
+
+			return undefined;
+		});
+	}
+}
+
+export class InlineChatAffordance extends Disposable {
+
+	private readonly _menuData = observableValue<{ rect: DOMRect; above: boolean; lineNumber: number } | undefined>(this, undefined);
+
+	constructor(
+		private readonly _editor: ICodeEditor,
+		private readonly _inputWidget: InlineChatInputWidget,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IConfigurationService configurationService: IConfigurationService,
+	) {
+		super();
+
+		const editorObs = observableCodeEditor(this._editor);
+		const context = this._store.add(this._instantiationService.createInstance(InlineChatEditorContext, this._editor, editorObs));
+
+		const configuredAffordance = observableConfigValue<'off' | 'gutter' | 'editor'>(InlineChatConfigKeys.Affordance, 'off', configurationService);
+		const affordanceModeObs = derived<AffordanceMode>(r => context.agentSessionResourceContextObs.read(r) ? 'feedback' : configuredAffordance.read(r));
 
 		// Hide when the editor context menu shows
 		this._store.add(this.#editor.onContextMenu(() => {
@@ -163,8 +212,8 @@ class SelectionTracker extends Disposable {
 		editorObs: ObservableCodeEditor,
 		editor: ICodeEditor,
 		diffMappings: IObservable<readonly DetailedLineRangeMapping[] | undefined>,
-		chatEntitlementService: IChatEntitlementService,
-		inlineChatSessionService: IInlineChatSessionService,
+		@IChatEntitlementService chatEntitlementService: IChatEntitlementService,
+		@IInlineChatSessionService inlineChatSessionService: IInlineChatSessionService,
 	) {
 		super();
 
@@ -221,229 +270,4 @@ class SelectionTracker extends Disposable {
 			}
 		}));
 	}
-}
-
-// --- Normal Editor Affordance -------------------------------------------------
-
-/**
- * Manages gutter and editor affordances for non-diff editors.
- * These are suppressed when the editor becomes the modified side of a diff editor.
- */
-class NormalEditorAffordance extends Disposable {
-
-	constructor(
-		instantiationService: IInstantiationService,
-		editorObs: ObservableCodeEditor,
-		editor: ICodeEditor,
-		configurationService: IConfigurationService,
-		selectionData: IObservable<Selection | undefined>,
-		isDiffModifiedEditorObs: IObservable<boolean>,
-		menuData: ISettableObservable<{ rect: DOMRect; above: boolean; lineNumber: number } | undefined>,
-	) {
-		super();
-
-		const affordance = observableConfigValue<'off' | 'gutter' | 'editor'>(InlineChatConfigKeys.Affordance, 'off', configurationService);
-
-		this._store.add(instantiationService.createInstance(
-			InlineChatGutterAffordance,
-			editorObs,
-			derived(r => !isDiffModifiedEditorObs.read(r) && affordance.read(r) === 'gutter' ? selectionData.read(r) : undefined),
-			menuData
-		));
-
-		this._store.add(instantiationService.createInstance(
-			InlineChatEditorAffordance,
-			editor,
-			derived(r => !isDiffModifiedEditorObs.read(r) && affordance.read(r) === 'editor' ? selectionData.read(r) : undefined)
-		));
-	}
-}
-
-// --- Diff Editor Affordance ---------------------------------------------------
-
-type MenuData = { rect: DOMRect; above: boolean; lineNumber: number };
-
-/**
- * Manages the diff-editor-specific affordance:
- * - Auto-shows the input widget on selections/cursor on diff lines
- * - Intercepts keyboard input to redirect typing into the input widget
- * - Submits prompts to the chat widget with the diff hunk as attachment
- */
-class DiffEditorAffordance extends Disposable {
-
-	private readonly _diffDisposables = this._store.add(new DisposableStore());
-
-	constructor(
-		private readonly _editor: ICodeEditor,
-		private readonly _inputWidget: InlineChatInputWidget,
-		private readonly _selectionData: IObservable<Selection | undefined>,
-		diffInfoObs: IObservable<{ diffEditor: IDiffEditor } | undefined>,
-		private readonly _diffMappings: IObservable<readonly DetailedLineRangeMapping[] | undefined>,
-		isDiffModifiedEditorObs: IObservable<boolean>,
-		private readonly _menuData: ISettableObservable<MenuData | undefined>,
-		private readonly _chatWidgetService: IChatWidgetService,
-		private readonly _diffCommentsService: IDiffCommentsService,
-	) {
-		super();
-
-		// React to diff editor appearing/disappearing
-		this._store.add(autorun(r => {
-			const info = diffInfoObs.read(r);
-			this._diffDisposables.clear();
-			this._inputWidget.setCustomSubmitHandler(undefined);
-
-			if (!info) {
-				return;
-			}
-
-			this._setupSubmitHandler();
-			this._setupKeyboardInterception();
-		}));
-
-		// Auto-show the input widget when in diff editor mode
-		this._store.add(autorun(r => {
-			if (!isDiffModifiedEditorObs.read(r)) {
-				return;
-			}
-
-			const sel = this._selectionData.read(r);
-			if (!sel) {
-				this._menuData.set(undefined, undefined);
-				return;
-			}
-
-			this._showInputForSelection(sel, r);
-		}));
-	}
-
-	private _setupSubmitHandler(): void {
-		this._inputWidget.setCustomSubmitHandler(async (text) => {
-			const model = this._editor.getModel();
-			if (!model) {
-				return;
-			}
-
-			// Determine the session resource from the last focused chat widget
-			const widget = this._chatWidgetService.lastFocusedWidget;
-			const sessionResource = widget?.viewModel?.sessionResource;
-			if (!sessionResource) {
-				return;
-			}
-
-			// Determine the range for this comment
-			let range: IRange | undefined;
-			const sel = this._selectionData.read(undefined);
-			if (sel && !sel.isEmpty()) {
-				range = Range.lift(sel);
-			} else if (sel) {
-				const cursorLine = sel.getPosition().lineNumber;
-				const mappings = this._diffMappings.read(undefined);
-				const mapping = mappings?.find(m => m.modified.contains(cursorLine));
-				if (mapping) {
-					range = mapping.modified.toInclusiveRange() ?? undefined;
-				}
-			}
-
-			if (!range) {
-				return;
-			}
-
-			// Create a comment via the service (this also updates the chat attachment)
-			this._diffCommentsService.addComment(sessionResource, model.uri, range, text);
-		});
-	}
-
-	private _setupKeyboardInterception(): void {
-		this._diffDisposables.add(this._editor.onKeyDown(e => {
-			if (this._inputWidget.position.read(undefined) === null || this._inputWidget.isFocused) {
-				return;
-			}
-
-			if (e.keyCode === KeyCode.Tab && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-				e.preventDefault();
-				e.stopPropagation();
-				this._inputWidget.focusInput();
-				return;
-			}
-
-			if (!e.ctrlKey && !e.altKey && !e.metaKey && e.browserEvent.key.length === 1) {
-				e.preventDefault();
-				e.stopPropagation();
-				this._inputWidget.focusInput(e.browserEvent.key);
-				return;
-			}
-		}));
-	}
-
-	private _showInputForSelection(sel: Selection, r: IReader): void {
-		let lineNumber: number;
-		let above: boolean;
-
-		if (!sel.isEmpty()) {
-			above = sel.getDirection() === SelectionDirection.RTL;
-			lineNumber = sel.getPosition().lineNumber;
-		} else {
-			const cursorLine = sel.getPosition().lineNumber;
-			const mappings = this._diffMappings.read(r);
-			const mapping = mappings?.find(m => m.modified.contains(cursorLine));
-			if (!mapping) {
-				return;
-			}
-			({ lineNumber, above } = computeDiffHunkPosition(mapping, cursorLine, this._editor));
-		}
-
-		const scrolledPos = this._editor.getScrolledVisiblePosition(sel.getPosition());
-		if (!scrolledPos) {
-			return;
-		}
-		const editorDomNode = this._editor.getDomNode()!;
-		const editorRect = editorDomNode.getBoundingClientRect();
-
-		this._menuData.set({
-			rect: new DOMRect(editorRect.left + scrolledPos.left, editorRect.top + scrolledPos.top, 0, scrolledPos.height),
-			above,
-			lineNumber,
-		}, undefined);
-	}
-}
-
-// --- Utilities ----------------------------------------------------------------
-
-/**
- * For empty selections on diff lines, compute where the input should render.
- */
-function computeDiffHunkPosition(
-	mapping: DetailedLineRangeMapping,
-	cursorLine: number,
-	editor: ICodeEditor
-): { lineNumber: number; above: boolean } {
-	const diffLength = mapping.modified.length;
-
-	let candidateAboveLine: number;
-	let candidateBelowLine: number;
-
-	if (diffLength <= 6) {
-		candidateAboveLine = mapping.modified.startLineNumber - 1;
-		candidateBelowLine = mapping.modified.endLineNumberExclusive;
-	} else {
-		candidateAboveLine = cursorLine - 2;
-		candidateBelowLine = cursorLine + 2;
-	}
-
-	const visibleRanges = editor.getVisibleRanges();
-	const isLineVisible = (line: number) =>
-		line >= 1 && visibleRanges.some(range =>
-			line >= range.startLineNumber && line <= range.endLineNumber
-		);
-
-	const aboveVisible = isLineVisible(candidateAboveLine);
-	const belowVisible = isLineVisible(candidateBelowLine);
-
-	if (aboveVisible && !belowVisible) {
-		return { lineNumber: candidateAboveLine, above: true };
-	}
-	if (!aboveVisible && belowVisible) {
-		return { lineNumber: candidateBelowLine, above: false };
-	}
-	return { lineNumber: candidateAboveLine, above: true };
 }

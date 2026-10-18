@@ -251,6 +251,14 @@ export function getAgentSessionProviderDescription(provider: AgentSessionProvide
 	}
 }
 
+/**
+ * Resolve the display name for a provider, checking for overrides in the service first.
+ * This is the preferred entry point for all UI code that needs provider names.
+ */
+export function resolveAgentSessionProviderName(chatSessionsService: IChatSessionsService, provider: AgentSessionProviders, agentSessionsDedicatedWindow = false): string {
+	return chatSessionsService.getProviderNameOverride(provider) ?? getAgentSessionProviderName(provider, agentSessionsDedicatedWindow);
+}
+
 export enum AgentSessionsViewerOrientation {
 	Stacked = 1,
 	SideBySide,

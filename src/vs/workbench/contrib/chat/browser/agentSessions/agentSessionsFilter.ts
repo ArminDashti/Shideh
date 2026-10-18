@@ -56,6 +56,9 @@ export interface IAgentSessionsFilterOptions extends Partial<IAgentSessionsFilte
 	readonly sortResults?: () => AgentSessionsSorting | undefined;
 
 	overrideExclude?(session: IAgentSession): boolean | undefined;
+
+	/** When set, only these provider types appear in the filter menu. */
+	readonly showProviders?: readonly string[];
 }
 
 const DEFAULT_EXCLUDES: IAgentSessionsFilterExcludes = Object.freeze({

@@ -67,6 +67,7 @@ export const enum DisablementReason {
 	MissingConfiguration,
 	InvalidConfiguration,
 	RunningAsAdmin,
+	EmbeddedApp,
 }
 
 export type Uninitialized = { type: StateType.Uninitialized };

@@ -5,6 +5,7 @@
 
 import { Event } from '../../../base/common/event.js';
 import { assertReturnsDefined } from '../../../base/common/types.js';
+import { InstantiationType, registerSingleton } from '../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IProgressIndicator } from '../../../platform/progress/common/progress.js';
 import { PaneCompositeDescriptor } from '../panecomposite.js';
@@ -42,7 +43,6 @@ export class PaneCompositePartService extends Disposable implements IPaneComposi
 		const panelPart = instantiationService.createInstance(PanelPart);
 		const sideBarPart = instantiationService.createInstance(SidebarPart);
 		const auxiliaryBarPart = instantiationService.createInstance(AuxiliaryBarPart);
-		const chatBarPart = instantiationService.createInstance(ChatBarPart);
 
 		this.paneCompositeParts.set(ViewContainerLocation.Panel, panelPart);
 		this.paneCompositeParts.set(ViewContainerLocation.Sidebar, sideBarPart);
@@ -109,3 +109,5 @@ export class PaneCompositePartService extends Disposable implements IPaneComposi
 	}
 
 }
+
+registerSingleton(IPaneCompositePartService, PaneCompositePartService, InstantiationType.Delayed);

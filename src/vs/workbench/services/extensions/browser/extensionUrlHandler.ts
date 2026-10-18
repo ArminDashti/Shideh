@@ -365,7 +365,7 @@ class ExtensionUrlBootstrapHandler implements IWorkbenchContribution, IURLHandle
 	private static disposable: IDisposable;
 
 	static get cache(): [URI, IOpenURLOptions | undefined][] {
-		ExtensionUrlBootstrapHandler.disposable?.dispose();
+		ExtensionUrlBootstrapHandler.disposable.dispose();
 
 		const result = ExtensionUrlBootstrapHandler._cache;
 		ExtensionUrlBootstrapHandler._cache = [];

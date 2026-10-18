@@ -345,6 +345,10 @@ export class SessionTypePickerActionItem extends ChatInputPickerActionViewItem {
 		};
 	}
 
+	private _resolveProviderName(provider: AgentSessionProviders): string {
+		return resolveAgentSessionProviderName(this.chatSessionsService, provider);
+	}
+
 	private _updateAgentSessionItems(): void {
 		const localSessionItem: ISessionTypeItem = {
 			type: localSessionProvider.type,

@@ -592,7 +592,6 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 	partsSplash?: IPartsSplash;
 
 	workspace?: IWorkspaceIdentifier | ISingleFolderWorkspaceIdentifier;
-	isAgentSessionsWindow?: boolean;
 
 	isInitialStartup?: boolean;
 	logLevel: LogLevel;

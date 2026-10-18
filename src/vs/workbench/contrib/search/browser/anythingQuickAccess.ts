@@ -11,7 +11,7 @@ import { IFileQueryBuilderOptions, QueryBuilder } from '../../../services/search
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { getOutOfWorkspaceEditorResources, extractRangeFromFilter, IWorkbenchSearchConfiguration } from '../common/search.js';
 import { ISearchService, ISearchComplete } from '../../../services/search/common/search.js';
-import { IWorkspaceContextService, IWorkspaceFolder, toWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { untildify } from '../../../../base/common/labels.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -58,7 +58,6 @@ import { ASK_QUICK_QUESTION_ACTION_ID } from '../../chat/browser/actions/chatQui
 import { IChatWidgetService, IQuickChatService } from '../../chat/browser/chat.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
-import { IActiveAgentSessionService } from '../../chat/browser/agentSessions/agentSessionsService.js';
 
 export interface IAnythingQuickPickItem extends IPickerQuickAccessItem, IQuickPickItemWithResource {
 	readonly editor?: EditorInput | IResourceEditorInput;
@@ -556,29 +555,9 @@ export class AnythingQuickAccessProvider extends PickerQuickAccessProvider<IAnyt
 
 	private readonly fileQueryBuilder: QueryBuilder;
 
-	/**
-	 * Returns the workspace folders to search in. When no workspace folders
-	 * are available, falls back to the active agent session's worktree or repository.
-	 */
-	private getSearchFolders(): IWorkspaceFolder[] {
-		const folders = this.contextService.getWorkspace().folders;
-		if (folders.length > 0) {
-			return [...folders];
-		}
-
-		// Fall back to the active agent session's worktree or repository
-		const activeSession = this.activeAgentSessionService.getActiveSession();
-		const activePath = activeSession?.worktree ?? activeSession?.repository;
-		if (activePath) {
-			return [toWorkspaceFolder(activePath)];
-		}
-
-		return [];
-	}
-
 	private createFileQueryCache(): FileQueryCacheState {
 		return new FileQueryCacheState(
-			cacheKey => this.fileQueryBuilder.file(this.getSearchFolders(), this.getFileQueryOptions({ cacheKey })),
+			cacheKey => this.fileQueryBuilder.file(this.contextService.getWorkspace().folders, this.getFileQueryOptions({ cacheKey })),
 			query => this.searchService.fileSearch(query),
 			cacheKey => this.searchService.clearCache(cacheKey),
 			this.pickState.fileQueryCache
@@ -727,7 +706,7 @@ export class AnythingQuickAccessProvider extends PickerQuickAccessProvider<IAnyt
 		const start = Date.now();
 		return this.searchService.fileSearch(
 			this.fileQueryBuilder.file(
-				this.getSearchFolders(),
+				this.contextService.getWorkspace().folders,
 				this.getFileQueryOptions({
 					filePattern,
 					cacheKey: this.pickState.fileQueryCache?.cacheKey,
@@ -799,7 +778,7 @@ export class AnythingQuickAccessProvider extends PickerQuickAccessProvider<IAnyt
 		const isAbsolutePathQuery = (await this.pathService.path).isAbsolute(query.original);
 		if (!isAbsolutePathQuery) {
 			const resources: URI[] = [];
-			for (const folder of this.getSearchFolders()) {
+			for (const folder of this.contextService.getWorkspace().folders) {
 				if (token.isCancellationRequested) {
 					break;
 				}

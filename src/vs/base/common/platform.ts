@@ -45,6 +45,7 @@ export interface INodeProcess {
 		chrome?: string;
 	};
 	type?: string;
+	isEmbeddedApp?: boolean;
 	cwd: () => string;
 }
 

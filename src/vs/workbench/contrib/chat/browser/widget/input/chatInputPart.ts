@@ -54,6 +54,7 @@ import { DropIntoEditorController } from '../../../../../../editor/contrib/dropO
 import { ContentHoverController } from '../../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { GlyphHoverController } from '../../../../../../editor/contrib/hover/browser/glyphHoverController.js';
 import { LinkDetector } from '../../../../../../editor/contrib/links/browser/links.js';
+import { PlaceholderTextContribution } from '../../../../../../editor/contrib/placeholderText/browser/placeholderTextContribution.js';
 import { SuggestController } from '../../../../../../editor/contrib/suggest/browser/suggestController.js';
 import { localize } from '../../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../../platform/accessibility/common/accessibility.js';
@@ -1150,6 +1151,17 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			if (sessionResource && isEqual(sessionResource, e.sessionResource)) {
 				// Options changed for our current session - refresh pickers
 				this.refreshChatSessionPickers();
+				return;
+			}
+
+			// In the deferred session creation case there is no view model yet,
+			// but a pending session resource exists. Match against it so that
+			// extension-fired option changes are picked up by _pendingOptionSelections
+			// and the pickers stay in sync.
+			const pendingResource = this.options.sessionTypePickerDelegate?.getPendingSessionResource?.();
+			if (pendingResource && isEqual(pendingResource, e)) {
+				this.syncPendingOptionsFromResource(pendingResource);
+				this.refreshChatSessionPickers();
 			}
 		}));
 
@@ -1166,6 +1178,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// Re-render spread target buttons when session contributions become available
 		this._register(this.chatSessionsService.onDidChangeAvailability(() => {
 			this.renderSpreadTargetButtons();
+			// Re-evaluate lock state now that contributions may be available.
+			// On initial render, updateWidgetLockStateFromSessionType may have failed
+			// because the contribution wasn't available yet (extension not activated).
+			const delegate = this.options.sessionTypePickerDelegate;
+			if (delegate?.getActiveSessionProvider) {
+				const currentSessionType = delegate.getActiveSessionProvider();
+				if (currentSessionType) {
+					this.updateWidgetLockStateFromSessionType(currentSessionType);
+				}
+			}
 		}));
 
 		// Listen for session type changes from the welcome page delegate
@@ -1721,6 +1743,61 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this.delegationWidget?.show();
 	}
 
+	/**
+	 * Returns all current option selections (explicit user picks + defaults),
+	 * then clears the pending cache. Used by `AgentSessionsChatWidget` to include
+	 * in the session context so the extension receives them with the first request.
+	 */
+	public takePendingOptionSelections(): ReadonlyArray<{ optionId: string; value: string | IChatSessionProviderOptionItem }> | undefined {
+		if (!this._pendingOptionSelections || this._pendingOptionSelections.size === 0) {
+			return undefined;
+		}
+		const result = [...this._pendingOptionSelections.entries()].map(
+			([optionId, value]) => ({ optionId, value })
+		);
+		this._pendingOptionSelections.clear();
+		return result;
+	}
+
+	/**
+	 * Sync option values from the pending session resource into
+	 * `_pendingOptionSelections`. Called when the extension fires
+	 * `notifySessionOptionsChange` before a chat model exists.
+	 */
+	private syncPendingOptionsFromResource(pendingResource: URI): void {
+		const delegateSessionType = this.options.sessionTypePickerDelegate?.getActiveSessionProvider?.();
+		if (!delegateSessionType) {
+			return;
+		}
+
+		const optionGroups = this.chatSessionsService.getOptionGroupsForSessionType(delegateSessionType);
+		if (!optionGroups) {
+			return;
+		}
+
+		if (!this._pendingOptionSelections) {
+			this._pendingOptionSelections = new Map();
+		}
+
+		for (const optionGroup of optionGroups) {
+			const currentOption = this.chatSessionsService.getSessionOption(pendingResource, optionGroup.id);
+			if (!currentOption) {
+				continue;
+			}
+
+			let item: IChatSessionProviderOptionItem | undefined;
+			if (typeof currentOption === 'string') {
+				item = optionGroup.items.find(m => m.id === currentOption.trim());
+			} else {
+				item = currentOption;
+			}
+
+			if (item) {
+				this._pendingOptionSelections.set(optionGroup.id, item);
+			}
+		}
+	}
+
 	public openChatSessionPicker(): void {
 		// Open the first available picker widget
 		const firstWidget = this.chatSessionPickerWidgets?.values()?.next().value;
@@ -1760,6 +1837,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					// Update context key for this option group
 					this.updateOptionContextKey(optionGroup.id, option.id);
 					this.getOrCreateOptionEmitter(optionGroup.id).fire(option);
+
+					// Cache selection locally for when no session exists yet
+					if (!this._pendingOptionSelections) {
+						this._pendingOptionSelections = new Map();
+					}
+					this._pendingOptionSelections.set(optionGroup.id, option);
 
 					// Notify session if we have one (not in welcome view before session creation)
 					const sessionResource = this._widget?.viewModel?.model.sessionResource;
@@ -3227,7 +3310,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// Create buttons for each session type
 		for (const sessionType of sessionTypes) {
 			const button = dom.$('.chat-target-button');
-			const name = getAgentSessionProviderName(sessionType);
+			const name = resolveAgentSessionProviderName(this.chatSessionsService, sessionType);
 
 			// Create button content with label only (no icon)
 			const labelEl = dom.$('span.chat-target-button-label', undefined, name);
@@ -3266,8 +3349,20 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Returns undefined if the session doesn't have this option configured.
 	 */
 	private getCurrentOptionForGroup(optionGroupId: string): IChatSessionProviderOptionItem | undefined {
-		const sessionResource = this._widget?.viewModel?.model.sessionResource;
+		const sessionResource = this._widget?.viewModel?.model?.sessionResource;
 		if (!sessionResource) {
+			// No session yet (e.g., deferred creation in agent sessions workspace).
+			// Return the locally cached pending selection, or the default item.
+			const pending = this._pendingOptionSelections?.get(optionGroupId);
+			if (pending) {
+				return pending;
+			}
+			const delegateSessionType = this.options.sessionTypePickerDelegate?.getActiveSessionProvider?.();
+			if (delegateSessionType) {
+				const groups = this.chatSessionsService.getOptionGroupsForSessionType(delegateSessionType);
+				const group = groups?.find(g => g.id === optionGroupId);
+				return group?.items.find(item => item.default);
+			}
 			return;
 		}
 

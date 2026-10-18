@@ -1855,32 +1855,11 @@ export default defineConfig(
 						'vs/editor/contrib/*/~',
 						'vs/workbench/~',
 						'vs/workbench/services/*/~',
-						'vs/workbench/agentSessions/~',
 						'assert',
 						{
 							'when': 'test',
 							'pattern': 'vs/workbench/contrib/*/~'
 						} // TODO@layers
-					]
-				},
-				{
-					'target': 'src/vs/workbench/agentSessions/~',
-					'restrictions': [
-						'vs/base/~',
-						'vs/base/parts/*/~',
-						'vs/platform/*/~',
-						'vs/editor/~',
-						'vs/editor/contrib/*/~',
-						'vs/workbench/~',
-						'vs/workbench/browser/**',
-						'vs/workbench/services/*/~',
-						'vs/workbench/agentSessions/~',
-						'vs/workbench/contrib/chat/~',
-						'vs/workbench/contrib/codeEditor/~',
-						'vs/workbench/contrib/files/~',
-						'vs/workbench/contrib/mcp/~',
-						'vs/workbench/contrib/preferences/~',
-						'vs/workbench/contrib/scm/~'
 					]
 				},
 				{

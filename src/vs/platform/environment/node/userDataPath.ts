@@ -26,6 +26,7 @@ import { resolve, isAbsolute, join } from 'path';
 // the built-in `path` lib for the time being.
 // eslint-disable-next-line local/code-import-patterns
 import { resolve, isAbsolute, join } from 'path';
+import { INodeProcess } from '../../../base/common/platform.js';
 
 const cwd = process.env['VSCODE_CWD'] || process.cwd();
 
