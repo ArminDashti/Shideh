@@ -192,6 +192,30 @@ export class ChatAgentToolsContribution extends Disposable implements IWorkbench
 			this._runInTerminalToolRegistration.value = store;
 		});
 	}
+
+	@debounce(200)
+	private async _registerRunInTerminalTool(instantiationService: IInstantiationService, toolsService: ILanguageModelToolsService): Promise<void> {
+		const store = new DisposableStore();
+		this._runInTerminalToolRegistration.value = store;
+		const runInTerminalTool = store.add(instantiationService.createInstance(RunInTerminalTool));
+		const runInTerminalToolData = await instantiationService.invokeFunction(createRunInTerminalToolData);
+		store.add(toolsService.registerTool(runInTerminalToolData, runInTerminalTool));
+		store.add(this._runCommandsToolSet.addTool(runInTerminalToolData));
+	}
+
+	private _isTerminalProfileSettingChange(e: IConfigurationChangeEvent): boolean {
+		return [
+			TerminalSettingId.ProfilesLinux,
+			TerminalSettingId.ProfilesMacOs,
+			TerminalSettingId.ProfilesWindows,
+			TerminalSettingId.DefaultProfileLinux,
+			TerminalSettingId.DefaultProfileMacOs,
+			TerminalSettingId.DefaultProfileWindows,
+			TerminalChatAgentToolsSettingId.TerminalProfileLinux,
+			TerminalChatAgentToolsSettingId.TerminalProfileMacOs,
+			TerminalChatAgentToolsSettingId.TerminalProfileWindows,
+		].some(config => e.affectsConfiguration(config));
+	}
 }
 registerWorkbenchContribution2(ChatAgentToolsContribution.ID, ChatAgentToolsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(AgentHostSandboxForwarder.ID, AgentHostSandboxForwarder, WorkbenchPhase.AfterRestored);
