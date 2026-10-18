@@ -138,7 +138,9 @@ suite('PolicyConfiguration', () => {
 				'default': {},
 				policy: {
 					name: 'PolicyObjectSetting',
+					category: PolicyCategory.Extensions,
 					minimumVersion: '1.0.0',
+					localization: { description: '' },
 				}
 			},
 			'policy.arraySetting': {
@@ -146,7 +148,9 @@ suite('PolicyConfiguration', () => {
 				'default': [],
 				policy: {
 					name: 'PolicyArraySetting',
+					category: PolicyCategory.Extensions,
 					minimumVersion: '1.0.0',
+					localization: { description: '' },
 				}
 			},
 			'nonPolicy.setting': {

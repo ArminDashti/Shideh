@@ -1539,6 +1539,9 @@ export class CodeApplication extends Disposable {
 		// Dev Only: CSS service (for ESM)
 		services.set(ICSSDevelopmentService, new SyncDescriptor(CSSDevelopmentService, undefined, true));
 
+		// Dev Only: generate policy file
+		services.set(IPolicyWriterService, new SyncDescriptor(PolicyWriterService, undefined, true));
+
 		// Init services that require it
 		await Promises.settled([
 			backupMainService.initialize(),
