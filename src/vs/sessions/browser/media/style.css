@@ -386,3 +386,25 @@
 .agent-sessions-workbench.compact .part.chatbar {
 	transition: none;
 }
+
+/* ---- Scrollbar Size ---- */
+
+.agent-sessions-workbench {
+	--sessions-scrollbar-size: 8px;
+}
+
+.agent-sessions-workbench .monaco-scrollable-element > .scrollbar.vertical {
+	width: var(--sessions-scrollbar-size) !important;
+}
+
+.agent-sessions-workbench .monaco-scrollable-element > .scrollbar.vertical > .slider {
+	width: 100% !important;
+}
+
+.agent-sessions-workbench .monaco-scrollable-element > .scrollbar.horizontal {
+	height: var(--sessions-scrollbar-size) !important;
+}
+
+.agent-sessions-workbench .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+	height: 100% !important;
+}
