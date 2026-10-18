@@ -40,7 +40,7 @@ import { ToolProgress } from '../../chat/common/tools/languageModelToolsService.
 import { mcpActivationEvent } from './mcpConfiguration.js';
 import { McpDevModeServerAttache } from './mcpDevMode.js';
 import { McpIcons, parseAndValidateMcpIcon, StoredMcpIcons } from './mcpIcons.js';
-import { IMcpRegistry } from './mcpRegistryTypes.js';
+import { IMcpRegistry, IMcpResolvedServerDefinition } from './mcpRegistryTypes.js';
 import { IMcpSandboxService } from './mcpSandboxService.js';
 import { McpServerRequestHandler } from './mcpServerRequestHandler.js';
 import { McpTaskManager } from './mcpTaskManager.js';
@@ -472,10 +472,7 @@ export class McpServer extends Disposable implements IMcpServer {
 		this._primitiveCache.store(this.definition.id, { trustedAtNonce: nonce });
 	}
 
-	private readonly _fullDefinitions: IObservable<{
-		server: McpServerDefinition | undefined;
-		collection: McpCollectionDefinition | undefined;
-	}>;
+	private readonly _fullDefinitions: IObservable<IMcpResolvedServerDefinition>;
 
 	public readonly cacheState = derived(reader => {
 		const currentNonce = () => this._fullDefinitions.read(reader)?.server?.cacheNonce;
@@ -560,6 +557,10 @@ export class McpServer extends Disposable implements IMcpServer {
 		this._policyEpoch = observableSignalFromEvent(this, this._allowedMcpServersService.onDidChangeAllowedMcpServers);
 		this._policyBlock = derived<McpConnectionState.Error | undefined>(this, reader => {
 			this._policyEpoch.read(reader);
+			const fullDefinitions = this._fullDefinitions.read(reader);
+			if (fullDefinitions.blockedByPolicy) {
+				return { state: McpConnectionState.Kind.Error, message: localize('mcp.customizationPolicyBlocked', "Blocked by enterprise customization policy") };
+			}
 			const connection = this._connection.read(reader);
 			if (connection) {
 				// Authoritative: the connection carries the fully resolved launch.
@@ -705,7 +706,7 @@ export class McpServer extends Disposable implements IMcpServer {
 		prefixRef.recomputeInitiallyAndOnChange(this._store);
 	}
 
-	public readDefinitions(): IObservable<{ server: McpServerDefinition | undefined; collection: McpCollectionDefinition | undefined }> {
+	public readDefinitions(): IObservable<IMcpResolvedServerDefinition> {
 		return this._fullDefinitions;
 	}
 

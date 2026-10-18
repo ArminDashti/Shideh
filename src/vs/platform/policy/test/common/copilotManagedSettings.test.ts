@@ -186,6 +186,45 @@ suite('Copilot managed settings projection', () => {
 		);
 	});
 
+	test('projectManagedSettings accepts any declared scalar type', () => {
+		assert.deepStrictEqual({
+			boolean: projectManagedSettings(
+				{ [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: true },
+				{ [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: { type: ['boolean', 'string'] } },
+			),
+			string: projectManagedSettings(
+				{ [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: '["mcp"]' },
+				{ [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: { type: ['boolean', 'string'] } },
+			),
+		}, {
+			boolean: { [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: true },
+			string: { [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: '["mcp"]' },
+		});
+	});
+
+	test('strictPluginOnlyCustomizationValue validates structured policy values', () => {
+		const read = (value: string | boolean | undefined) => strictPluginOnlyCustomizationValue({
+			managedSettings: value === undefined ? {} : { [COPILOT_STRICT_PLUGIN_ONLY_CUSTOMIZATION_KEY]: value },
+		} as IPolicyData);
+		assert.deepStrictEqual([
+			read(undefined),
+			read(false),
+			read(true),
+			read('false'),
+			read('["skills","mcp"]'),
+			read('["skills","unknown"]'),
+			read('{'),
+		], [
+			undefined,
+			false,
+			true,
+			false,
+			'["skills","mcp"]',
+			true,
+			true,
+		]);
+	});
+
 	test('projectManagedSettings warns once per type mismatch', () => {
 		const warnings: string[] = [];
 		projectManagedSettings(
