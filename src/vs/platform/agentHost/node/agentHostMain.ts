@@ -367,6 +367,7 @@ async function startAgentHost(): Promise<void> {
 					completionTriggerCharacters,
 					terminalCommandPrefix: BANG_COMMAND_PREFIX,
 					otlpLogEmitter,
+					voiceWsUrl: productService.voiceWsUrl,
 				},
 				clientFileSystemProvider,
 			));
@@ -551,6 +552,7 @@ async function startWebSocketServer(
 	logsHome: URI,
 	logService: ILogService,
 	otlpLogEmitter: OtlpLogEmitter,
+	voiceWsUrl: string | undefined,
 	disposables: DisposableStore,
 	hostLaunchKind: AgentHostLaunchKind,
 	onConnectionCountChanged: (count: number) => void,
@@ -601,6 +603,7 @@ async function startWebSocketServer(
 			completionTriggerCharacters,
 			terminalCommandPrefix: BANG_COMMAND_PREFIX,
 			otlpLogEmitter,
+			voiceWsUrl,
 		},
 		clientFileSystemProvider,
 	));

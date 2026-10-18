@@ -374,6 +374,10 @@ export interface IProtocolServerConfig {
 	 * rejected.
 	 */
 	readonly otlpLogEmitter?: OtlpLogEmitter;
+	/** Product-configured Voice backend endpoint used by the VS Code voice relay. */
+	readonly voiceWsUrl?: string;
+	/** Test seam for the host-side Voice WebSocket. */
+	readonly voiceWebSocketFactory?: VoiceWebSocketFactory;
 }
 
 function isAhpRequest(msg: AhpIncomingMessage): msg is IAhpRequest {
@@ -652,6 +656,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 					this._releaseClientSubscriptions(client, record);
 					this._rejectPendingReverseRequestsForConnection(client);
 					if (record.connections.length === 0) {
+						this._disposeVoiceRelay(client.clientId);
 						this._logService.info(`[ProtocolServer] Client disconnected: ${client.clientId}, subscriptions=${subscriptionCount}`);
 						this._clients.set(client.clientId, {
 							state: 'grace',

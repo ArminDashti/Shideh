@@ -222,6 +222,7 @@ suite('VoiceClientService', () => {
 	function createService(configuration: Record<string, unknown> = {}): { service: VoiceClientService; configurationService: TestConfigurationService } {
 		const configurationService = new TestConfigurationService(configuration);
 		const service = store.add(new VoiceClientService(
+			false,
 			configurationService,
 			new NullLogService(),
 			productService,
@@ -467,6 +468,7 @@ suite('VoiceClientService', () => {
 			voiceWsUrl: 'ws://voice.test/realtime/voice',
 		};
 		const service = store.add(new VoiceClientService(
+			false,
 			new TestConfigurationService(),
 			new NullLogService(),
 			productService,
@@ -508,6 +510,7 @@ suite('VoiceClientService', () => {
 			voiceWsUrl: 'ws://voice.test/realtime/voice',
 		};
 		const service = store.add(new VoiceClientService(
+			false,
 			new TestConfigurationService(),
 			new NullLogService(),
 			productService,

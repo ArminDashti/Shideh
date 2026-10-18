@@ -103,9 +103,59 @@ class MockProtocolServer implements IProtocolServer {
 
 class CountingLogService extends NullLogService {
 	errorCount = 0;
+	readonly warnings: string[] = [];
 
 	override error(_message: string, ..._args: unknown[]): void {
 		this.errorCount++;
+	}
+
+	override warn(message: string, ..._args: unknown[]): void {
+		this.warnings.push(message);
+	}
+}
+
+class MockVoiceWebSocket implements IAgentHostVoiceWebSocket {
+	readyState = 0;
+	readonly sent: string[] = [];
+
+	private _onOpen: (() => void) | undefined;
+	private _onMessage: ((data: wsTypes.RawData) => void) | undefined;
+	private _onClose: ((code: number, reason: Buffer) => void) | undefined;
+
+	onOpen(listener: () => void) {
+		this._onOpen = listener;
+		return toDisposable(() => this._onOpen = undefined);
+	}
+
+	onMessage(listener: (data: wsTypes.RawData) => void) {
+		this._onMessage = listener;
+		return toDisposable(() => this._onMessage = undefined);
+	}
+
+	onClose(listener: (code: number, reason: Buffer) => void) {
+		this._onClose = listener;
+		return toDisposable(() => this._onClose = undefined);
+	}
+
+	onError(_listener: (error: Error) => void) {
+		return toDisposable(() => { });
+	}
+
+	send(data: string): void {
+		this.sent.push(data);
+	}
+
+	close(): void {
+		this.readyState = 3;
+	}
+
+	fireOpen(): void {
+		this.readyState = 1;
+		this._onOpen?.();
+	}
+
+	fireMessage(message: string): void {
+		this._onMessage?.(Buffer.from(message));
 	}
 }
 

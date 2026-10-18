@@ -30,7 +30,7 @@ import { WebSocketClientTransport } from './webSocketClientTransport.js';
  * Implements {@link IAgentConnection} so consumers can program against
  * a single interface regardless of whether the agent host is local or remote.
  */
-export class RemoteAgentHostProtocolClient extends Disposable implements IAgentConnection {
+export class RemoteAgentHostProtocolClient extends Disposable implements IAgentConnection, IAgentHostVoiceRelay {
 
 	declare readonly _serviceBrand: undefined;
 
@@ -232,6 +232,31 @@ export class RemoteAgentHostProtocolClient extends Disposable implements IAgentC
 				this._logService.warn(`[RemoteAgentHostProtocol] Received response for unknown request id ${msg.id}`);
 			}
 		} else if (isJsonRpcNotification(msg)) {
+			const extensionMethod = msg.method as string;
+			if (extensionMethod === '_vscodeVoiceMessage') {
+				const params = msg.params && typeof msg.params === 'object'
+					? msg.params as { connectionId?: unknown; message?: unknown }
+					: undefined;
+				if (params?.connectionId === this._voiceConnectionId && typeof params.message === 'string') {
+					this._onDidReceiveVoiceMessage.fire(params.message);
+				}
+				return;
+			}
+			if (extensionMethod === '_vscodeVoiceClose') {
+				const params = msg.params && typeof msg.params === 'object'
+					? msg.params as { connectionId?: unknown; code?: unknown; reason?: unknown }
+					: undefined;
+				if (params?.connectionId !== this._voiceConnectionId) {
+					return;
+				}
+				this._voiceConnectionId = undefined;
+				this._voiceConnected = false;
+				this._onDidCloseVoiceConnection.fire({
+					code: typeof params?.code === 'number' ? params.code : 1006,
+					reason: typeof params?.reason === 'string' ? params.reason : '',
+				});
+				return;
+			}
 			switch (msg.method) {
 				case 'action': {
 					// Protocol envelope → VS Code envelope (superset of action types)

@@ -316,6 +316,7 @@ async function main(): Promise<void> {
 			completionTriggerCharacters: completions.triggerCharacters,
 			terminalCommandPrefix: BANG_COMMAND_PREFIX,
 			otlpLogEmitter,
+			voiceWsUrl: productService.voiceWsUrl,
 		},
 		clientFileSystemProvider,
 	));
