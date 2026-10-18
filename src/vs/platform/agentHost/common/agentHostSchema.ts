@@ -574,6 +574,14 @@ export const AgentHostGitHubArtifactIgnoredChecksConfigKey = 'githubArtifactMark
 /** Root config key controlling automatic pull request association for the checked-out branch. */
 export const AgentHostAutoAttachPullRequestsConfigKey = 'autoAttachPullRequests';
 
+/**
+ * Root config key forwarded from the renderer's
+ * `chat.agentHost.experimental.overlapProviderPreparation` setting. When
+ * `true`, a provider that implements `IAgentChats.prepareTurn` prepares its
+ * session while the turn-start checkpoint is captured, instead of after it.
+ */
+export const AgentHostOverlapProviderPreparationConfigKey = 'overlapProviderPreparation';
+
 // Root config key forwarded from the renderer when the `chat.agentSessions.migrateLegacyCopilotCli`
 // setting changes. When `true`, `listSessions` surfaces un-adopted extension-host Copilot CLI
 // sessions as adoptable agent-host sessions, and opening one adopts it in place. Experimental; off.

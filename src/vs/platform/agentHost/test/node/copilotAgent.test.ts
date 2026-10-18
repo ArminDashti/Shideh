@@ -11475,6 +11475,49 @@ suite('CopilotAgent', () => {
 			}
 		});
 
+		test('prepareTurn materializes a deferred chat once, and only that turn\'s send skips re-checking its configuration', async () => {
+			const client = new TestCopilotClient([], [{ id: 'claude-sonnet', name: 'Claude Sonnet' }]);
+			const sessionDataService = disposables.add(new TestSessionDataService());
+			let creates = 0;
+			client.createSession = async () => {
+				creates++;
+				return new MockCopilotSession() as unknown as CopilotSession;
+			};
+			const { agent } = createTestAgentContext(disposables, { copilotClient: client, sessionDataService });
+			try {
+				await agent.authenticate('https://api.github.com', 'token');
+				const session = AgentSession.uri('copilotcli', 'prepare-turn');
+				const chat = defaultChatUri(session);
+				const workingDirectory = URI.file('/workspace');
+				const result = await provisionSession(agent, { session, workingDirectories: [workingDirectory] });
+				const context = exactChatContext(result.session, chat, result.session);
+
+				await agent.chats.prepareTurn!(chat, 'turn-1', [workingDirectory], context);
+				const afterPrepare = { creates, live: hasLiveChat(agent, chat) };
+				await agent.chats.prepareTurn!(chat, 'turn-1', [workingDirectory], context);
+				// Count configuration re-checks: the refresh path re-derives the client snapshot.
+				const activeClient = (agent as unknown as { _activeClients: { get(session: URI): { snapshot(chatKey?: string): Promise<unknown> } | undefined } })._activeClients.get(result.session)!;
+				const snapshot = activeClient.snapshot;
+				let snapshots = 0;
+				activeClient.snapshot = chatKey => {
+					snapshots++;
+					return snapshot.call(activeClient, chatKey);
+				};
+				await agent.chats.sendMessage(chat, 'hello', [workingDirectory], undefined, 'turn-1', undefined, context);
+				const preparedTurnSnapshots = snapshots;
+				await agent.chats.sendMessage(chat, 'again', [workingDirectory], undefined, 'turn-2', undefined, context);
+
+				assert.deepStrictEqual({ afterPrepare, creates, preparedTurnSnapshots, laterTurnSnapshots: snapshots - preparedTurnSnapshots }, {
+					afterPrepare: { creates: 1, live: true },
+					creates: 1,
+					preparedTurnSnapshots: 0,
+					laterTurnSnapshots: 1,
+				});
+			} finally {
+				await disposeAgent(agent);
+			}
+		});
+
 		test('restores a preflight-failed deferred chat and retries only its known-empty SDK backing', async () => {
 			const client = new TestCopilotClient([], [{ id: 'claude-sonnet', name: 'Claude Sonnet' }]);
 			const sessionDataService = disposables.add(new TestSessionDataService());

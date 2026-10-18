@@ -21,6 +21,7 @@ import {
 	AgentHostCopilotMultiRootEnabledSettingId,
 	AgentHostGitHubMcpServerEnabledSettingId,
 	AgentHostMarkdownPlanRichLinksEnabledSettingId,
+	AgentHostOverlapProviderPreparationSettingId,
 	AgentHostOTelCaptureContentSettingId,
 	AgentHostOTelCaptureIdentitySettingId,
 	AgentHostOTelDbSpanExporterEnabledSettingId,
@@ -42,6 +43,7 @@ import {
 	AgentHostCopilotMultiRootEnabledConfigKey,
 	AgentHostGitHubMcpServerEnabledConfigKey,
 	AgentHostMarkdownPlanRichLinksEnabledConfigKey,
+	AgentHostOverlapProviderPreparationConfigKey,
 	AgentHostSystemProxyEnabledConfigKey,
 	AgentHostWorkspaceSnapshotEnabledConfigKey,
 } from './agentHostSchema.js';
