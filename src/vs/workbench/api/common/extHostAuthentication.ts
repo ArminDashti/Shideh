@@ -329,6 +329,7 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 	}
 
 	async $registerDynamicAuthProvider(
+		providerId: string,
 		authorizationServerComponents: UriComponents,
 		serverMetadata: IAuthorizationServerMetadata,
 		resourceMetadata: IAuthorizationProtectedResourceMetadata | undefined,
@@ -375,6 +376,7 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			this._extHostProgress,
 			this._extHostLoggerService,
 			this._proxy,
+			providerId,
 			URI.revive(authorizationServerComponents),
 			serverMetadata,
 			resourceMetadata,
@@ -449,6 +451,7 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			this._extHostProgress,
 			this._extHostLoggerService,
 			this._proxy,
+			`xaa:${issuer.toString(true)}`,
 			issuer,
 			serverMetadata,
 			/* resourceMetadata */ undefined,
@@ -522,6 +525,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 	readonly onDidChangeClientId = this._onDidChangeClientId.event;
 
 	private readonly _tokenStore: TokenStore;
+	protected readonly _hasConfiguredClientId: boolean;
 
 	protected readonly _createFlows: Array<{
 		label: string;
@@ -538,6 +542,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		@IExtHostProgress private readonly _extHostProgress: IExtHostProgress,
 		@ILoggerService loggerService: ILoggerService,
 		protected readonly _proxy: Proxied<MainThreadAuthenticationShape>,
+		providerId: string,
 		readonly authorizationServer: URI,
 		protected readonly _serverMetadata: IAuthorizationServerMetadata,
 		protected readonly _resourceMetadata: IAuthorizationProtectedResourceMetadata | undefined,
@@ -548,11 +553,8 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		initialTokens: IAuthorizationToken[],
 		private readonly _fetch: typeof fetch = fetch,
 	) {
-		const stringifiedServer = authorizationServer.toString(true);
-		// Auth Provider Id is a combination of the authorization server and the resource, if provided.
-		this.id = _resourceMetadata?.resource
-			? stringifiedServer + ' ' + _resourceMetadata?.resource
-			: stringifiedServer;
+		this.id = providerId;
+		this._hasConfiguredClientId = getLegacyDynamicAuthenticationProviderId(providerId) !== undefined;
 		// Auth Provider label is just the resource name if provided, otherwise the authority of the authorization server.
 		this.label = _resourceMetadata?.resource_name ?? this.authorizationServer.authority;
 
@@ -560,7 +562,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		this._disposable = new DisposableStore();
 		this._disposable.add(this._onDidChangeSessions);
 		const scopedEvent = Event.chain(onDidDynamicAuthProviderTokensChange.event, $ => $
-			.filter(e => e.authProviderId === this.id && e.clientId === _clientId)
+			.filter(e => e.authProviderId === this.id && e.clientId === this._clientId)
 			.map(e => e.tokens)
 		);
 		this._tokenStore = this._disposable.add(new TokenStore(
@@ -928,6 +930,9 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			this._logger.info(`Successfully exchanged authorization code for token.`);
 			return result;
 		} else if (isAuthorizationErrorResponse(result) && result.error === AuthorizationErrorType.InvalidClient) {
+			if (this._hasConfiguredClientId) {
+				throw new Error(`Configured client ID (${this._clientId}) was rejected by the authorization server.`);
+			}
 			this._logger.warn(`Client ID (${this._clientId}) was invalid, generated a new one.`);
 			await this._generateNewClientId();
 			throw new Error(`Client ID was invalid, generated a new one. Please try again.`);
@@ -970,6 +975,9 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			if (!allowClientRegistration) {
 				this._logger.warn(`Client ID (${this._clientId}) was invalid while silently refreshing the token.`);
 				throw new Error(`Client ID was invalid while silently refreshing the token.`);
+			}
+			if (this._hasConfiguredClientId) {
+				throw new Error(`Configured client ID (${this._clientId}) was rejected by the authorization server.`);
 			}
 			this._logger.warn(`Client ID (${this._clientId}) was invalid, generated a new one.`);
 			await this._generateNewClientId();

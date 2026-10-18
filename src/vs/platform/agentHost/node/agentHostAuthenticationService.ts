@@ -15,6 +15,7 @@ import { authenticationAccountId, authenticationAccountMeta, IAgentAuthenticatio
 export interface IAgentHostAuthTokenChangeEvent {
 	readonly resource: string;
 	readonly scopes: readonly string[];
+	readonly serverName?: string;
 	readonly token: string | undefined;
 }
 
@@ -37,6 +38,7 @@ export interface IAgentHostAuthenticationController {
 interface IStoredAuthToken {
 	readonly resource: string;
 	readonly scopes: readonly string[];
+	readonly serverName?: string;
 	readonly token: string;
 	readonly expiresAt: number | undefined;
 	readonly account?: IAgentAuthenticationAccount;
@@ -97,9 +99,9 @@ export class AgentHostAuthenticationService extends Disposable implements IAgent
 		// failures are isolated -- one provider rejecting (e.g. proxy
 		// server bind failure) MUST NOT prevent another provider from
 		// accepting the same token.
-		const matching = providerList.filter(
-			p => p.getProtectedResources().some(r => r.resource === params.resource),
-		);
+		const matching = params.serverName === undefined
+			? providerList.filter(p => p.getProtectedResources().some(r => r.resource === params.resource))
+			: [];
 		const settled = await Promise.allSettled(
 			matching.map(p => p.authenticate(params.resource, params.token, params.expiresIn)),
 		);
@@ -247,8 +249,8 @@ export class AgentHostAuthenticationService extends Disposable implements IAgent
 		return true;
 	}
 
-	private _key(resource: string, scopes: readonly string[]): string {
-		return `${resource}\x00${scopes.join('\x00')}`;
+	private _key(resource: string, scopes: readonly string[], serverName?: string): string {
+		return `${serverName === undefined ? '0' : `1${serverName}`}\x00${resource}\x00${scopes.join('\x00')}`;
 	}
 
 	private _normalizeScopes(scopes: readonly string[] | undefined): readonly string[] {

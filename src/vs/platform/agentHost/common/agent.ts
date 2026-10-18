@@ -351,6 +351,12 @@ export interface AuthenticateParams {
 	 */
 	readonly scopes?: readonly string[];
 
+	/**
+	 * Exact, case-sensitive MCP server configuration name when the token resolves
+	 * a server-owned authentication request. Omitted for provider-level resources.
+	 */
+	readonly serverName?: string;
+
 	/** The bearer token value (RFC 6750). */
 	readonly token: string;
 	/** The access token's remaining lifetime in seconds, when known. */
@@ -365,6 +371,8 @@ export interface IAgentHostAuthTokenRequest {
 	readonly resource: string;
 	/** Required token scopes, when the caller needs a scope-specific token. */
 	readonly scopes?: readonly string[];
+	/** MCP server name for a server-scoped token. */
+	readonly serverName?: string;
 }
 
 /**
