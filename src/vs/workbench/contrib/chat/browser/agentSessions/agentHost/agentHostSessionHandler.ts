@@ -1938,6 +1938,8 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		progress: (parts: IChatProgress[]) => void,
 		cancellationToken: CancellationToken,
 	): Promise<IChatAgentResult> {
+		const traceStartup = (stage: string) => this._logService.trace('[StartupProbe]', { component: 'invokeHandler', stage, session: request.sessionResource.toString(), epochMs: performance.timeOrigin + performance.now() });
+		traceStartup('handler_begin');
 		const firstResponse = new AgentHostFirstResponseTiming();
 		let outcome: AgentHostFirstResponseOutcome = 'notDispatched';
 		let sessionId: string | undefined;
@@ -1969,6 +1971,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			// scratch dir, not a user workspace. If the user declines, abort without
 			// starting a session.
 			const trustFolders = await this._resolveSessionTrustFolders(request.sessionResource, cancellationToken);
+			traceStartup('trust_folders_end');
 			if (this._isInvocationAbandoned(cancellationToken)) {
 				return {};
 			}
@@ -1982,12 +1985,14 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			this._agentSdkSetupService.requestDownload(this._config.provider, this._config.connection, { source: 'turn' });
 
 			failureStage = 'provisionalSession';
+			traceStartup('trust_end');
 			// The chat-input picker may have pre-created a provisional session
 			// against this resource (`IAgentHostUntitledProvisionalSessionService.getOrCreate`).
 			// In that case the agent already has the session + the user's chip
 			// selections in `state.config.values`; ensure we hold a refcounted
 			// subscription on it so the rest of the handler observes those.
 			await raceCancellation(this._provisionalService.waitForPending(request.sessionResource), cancellationToken);
+			traceStartup('pending_end');
 			if (this._isInvocationAbandoned(cancellationToken)) {
 				return {};
 			}
@@ -2006,6 +2011,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			// without taking a fresh subscription, which would trigger a
 			// duplicate snapshot fetch and (in tests) unrelated mock behaviour.
 			const existingState = await this._readEagerlyCreatedSessionState(resolvedSession, cancellationToken);
+			traceStartup('state_end');
 			if (this._isInvocationAbandoned(cancellationToken)) {
 				return {};
 			}
@@ -2089,6 +2095,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 			// Measure turn timings so the core `interactiveSessionProviderInvoked`
 			// telemetry event is populated for agent-host providers.
+			traceStartup('create_or_subscribe_end');
 			chatId = this._getChatURI(request.sessionResource);
 			const state = this._getSessionState(sessionKey, chatId);
 			sessionTurnKind = state && isDefaultChatUri(chatId) ? (state.turns.length > 0 ? 'later' : 'first') : 'unknown';
@@ -6696,24 +6703,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	private _createModelSelection(languageModelIdentifier: string | undefined, modelConfiguration: Record<string, unknown> | undefined): ModelSelection | undefined {
-		const rawModelId = this._extractRawModelId(languageModelIdentifier);
-		if (!rawModelId) {
-			return undefined;
-		}
-
-		// Forward model-specific config values as-is. Most pickers produce strings,
-		// but a synthesized numeric picker (e.g. the context-size picker, whose enum
-		// values are token counts) hands back a number; the protocol `config` bag
-		// carries JSON primitives, so the selection survives into it (and is mapped
-		// to the SDK context tier by the agent's `getCopilotContextTier`).
-		const config: Record<string, JsonPrimitive> = {};
-		for (const [key, value] of Object.entries(modelConfiguration ?? {})) {
-			if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
-				config[key] = value;
-			}
-		}
-
-		return Object.keys(config).length > 0 ? { id: rawModelId, config } : { id: rawModelId };
+		return createAgentHostModelSelection(languageModelIdentifier, modelConfiguration, this._config.sessionType, this._logService);
 	}
 
 	private _draftToInputState(sessionResource: URI, draft: Message | undefined): ISerializableChatModelInputState | undefined {

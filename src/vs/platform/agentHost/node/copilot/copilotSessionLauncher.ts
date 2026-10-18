@@ -746,6 +746,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 	) { }
 
 	async launch(plan: CopilotSessionLaunchPlan, runtime: ICopilotSessionRuntime): Promise<CopilotSessionWrapper> {
+		this._logService.trace('[StartupProbe]', { component: 'launcher', stage: 'config_begin', sessionId: plan.sessionId, epochMs: performance.timeOrigin + performance.now() });
 		this._logService.info(`[Copilot:${plan.sessionId}] Preparing SDK session: kind=${plan.kind}, configuration=${runtime.configurationResource.toString()}, chat=${runtime.chatUri.toString()}`);
 		let managedSettingsResolved = false;
 		plan.stageRecorder?.mark('config');
@@ -833,6 +834,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 	}
 
 	private async _createSession(plan: ICopilotCreateSessionLaunchPlan, config: ResumeSessionConfig, sandboxConfig: (session: CopilotSessionWrapper['session']) => Promise<void>): Promise<CopilotSessionWrapper> {
+		this._logService.trace('[StartupProbe]', { component: 'launcher', stage: 'sdk_begin', sessionId: plan.sessionId, epochMs: performance.timeOrigin + performance.now() });
 		const raw = await this._withTraceContext(plan.sessionId, () => plan.client.createSession({
 			...config,
 			sessionId: plan.sessionId,
@@ -843,6 +845,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 			...(plan.resolvedAgentName ? { agent: plan.resolvedAgentName } : {}),
 			workingDirectory: plan.workingDirectory?.fsPath,
 		}));
+		this._logService.trace('[StartupProbe]', { component: 'launcher', stage: 'sdk_end', sessionId: plan.sessionId, epochMs: performance.timeOrigin + performance.now() });
 		return this._finalizeSession(raw, sandboxConfig, plan, plan.model?.id, config);
 	}
 
@@ -862,6 +865,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 		if (isGpt56Model(modelId)) {
 			await this._applyVerbosity(raw, 'medium', plan.sessionId);
 		}
+		this._logService.trace('[StartupProbe]', { component: 'launcher', stage: 'finalize_end', sessionId: plan.sessionId, epochMs: performance.timeOrigin + performance.now() });
 		return new CopilotSessionWrapper(raw, config.requestCanvasRenderer === true, { providers: config.providers, models: config.models }, this._logService);
 	}
 

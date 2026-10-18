@@ -44,6 +44,7 @@ export interface IAgentHostTurnTimingDiagnostic {
 	sendStageModelSelectionMs?: number;
 	sendStageAttachmentsMs?: number;
 	sendStageContributionsMs?: number;
+	sendStageProviderPreparationMs?: number;
 	sendStageCheckpointMs?: number;
 	providerStageQueueMs?: number;
 	providerStageClientMs?: number;

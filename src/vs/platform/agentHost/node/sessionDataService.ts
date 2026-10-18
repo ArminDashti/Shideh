@@ -130,6 +130,8 @@ export class SessionDataService implements ISessionDataService {
 	}
 
 	async deleteSessionData(session: URI, workingDirectories?: readonly string[]): Promise<void> {
+		const traceStartup = (stage: string) => this._logService.trace('[StartupProbe]', { component: 'deleteData', stage, session: session.toString(), epochMs: performance.timeOrigin + performance.now() });
+		traceStartup('delete_begin');
 		const dir = this.getSessionDataDir(session);
 		// Fire the will-delete event first so subscribers (notably the
 		// checkpoint service) can perform async cleanup that needs the
@@ -153,8 +155,10 @@ export class SessionDataService implements ISessionDataService {
 				}
 			}
 		}
+		traceStartup('listeners_end');
 		try {
 			if (await this._fileService.exists(dir)) {
+				traceStartup('filesystem_begin');
 				await this._fileService.del(dir, { recursive: true });
 				this._onDidChangeSessionMetadata.fire(session);
 				this._logService.trace(`[SessionDataService] Deleted session data: ${dir.toString()}`);
