@@ -77,6 +77,7 @@ export class AutomationService extends Disposable implements IAutomationService 
 
 	private readonly _automations: ISettableObservable<readonly IAutomation[]>;
 	private readonly _runs: ISettableObservable<readonly IAutomationRun[]>;
+	private readonly _catalogueState: ISettableObservable<AutomationCatalogueState>;
 	private _now: () => Date;
 	private readonly _runsForCache = new Map<string, IObservable<readonly IAutomationRun[]>>();
 
@@ -87,6 +88,7 @@ export class AutomationService extends Disposable implements IAutomationService 
 
 	readonly automations: IObservable<readonly IAutomation[]>;
 	readonly runs: IObservable<readonly IAutomationRun[]>;
+	readonly catalogueState: IObservable<AutomationCatalogueState>;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -104,8 +106,10 @@ export class AutomationService extends Disposable implements IAutomationService 
 		}
 		this._automations = observableValue<readonly IAutomation[]>(this, initial.automations);
 		this._runs = observableValue<readonly IAutomationRun[]>(this, initial.runs);
+		this._catalogueState = observableValue(this, result.kind === 'ledger' ? 'ready' : 'error');
 		this.automations = this._automations;
 		this.runs = this._runs;
+		this.catalogueState = this._catalogueState;
 
 		this._register(this.storageService.onDidChangeValue(StorageScope.APPLICATION, STORAGE_KEY, this._store)(() => {
 			this.refreshFromStorage();

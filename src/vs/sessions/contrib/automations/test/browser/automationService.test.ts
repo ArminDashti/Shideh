@@ -31,8 +31,15 @@ suite('AutomationService', () => {
 
 	test('starts with an empty ledger when nothing is persisted', () => {
 		const { service } = createService();
-		assert.deepStrictEqual(service.automations.get(), []);
-		assert.deepStrictEqual(service.runs.get(), []);
+		assert.deepStrictEqual({
+			automations: service.automations.get(),
+			runs: service.runs.get(),
+			catalogueState: service.catalogueState.get(),
+		}, {
+			automations: [],
+			runs: [],
+			catalogueState: 'ready',
+		});
 	});
 
 	test('createAutomation appends an entry and computes nextRunAt for non-manual schedules', async () => {
@@ -237,6 +244,7 @@ suite('AutomationService', () => {
 		// but the service is now in read-only mode.
 		assert.deepStrictEqual(service.automations.get(), []);
 		assert.deepStrictEqual(service.runs.get(), []);
+		assert.strictEqual(service.catalogueState.get(), 'error');
 
 		// A subsequent mutation must be rejected (read-only mode) and must not
 		// destroy the on-disk newer ledger.

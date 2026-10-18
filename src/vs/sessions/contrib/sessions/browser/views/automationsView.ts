@@ -768,6 +768,19 @@ class AutomationCardsSection extends Disposable {
 		createButton.label = localize('createAutomation', "Create Automation");
 		createButton.element.classList.add('automations-cards-create-button');
 		this.emptyStateDisposables.add(createButton.onDidClick(() => this.openCreateDialog()));
+
+		const templates = DOM.append(this.emptyContainer, $('.automations-templates'));
+		const templatesTitle = DOM.append(templates, $('h3.automations-templates-title'));
+		templatesTitle.id = 'automations-templates-title';
+		templatesTitle.textContent = localize('automationTemplatesTitle', "Start with a template");
+		const templatesDescription = DOM.append(templates, $('p.automations-templates-description'));
+		templatesDescription.textContent = localize('automationTemplatesDescription', "Choose a starting point, then review and customize it before creating.");
+		const templatesGrid = DOM.append(templates, $('.automations-templates-grid'));
+		templatesGrid.setAttribute('role', 'group');
+		templatesGrid.setAttribute('aria-labelledby', templatesTitle.id);
+		for (const template of AUTOMATION_TEMPLATES) {
+			this.renderTemplateCard(templatesGrid, template);
+		}
 	}
 
 	private renderTemplates(templates: readonly IAutomationTemplate[]): void {
