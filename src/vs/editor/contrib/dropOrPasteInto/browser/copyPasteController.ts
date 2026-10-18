@@ -203,6 +203,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			.ordered(model)
 			.filter(x => !!x.prepareDocumentPaste);
 		if (!providers.length) {
+			console.log('e.clipboardData : ', e.clipboardData);
 			this.setCopyMetadata(e.clipboardData, { defaultPastePayload });
 			performance.mark('code/CopyPasteController/handleCopy/earlyReturn5');
 			return;

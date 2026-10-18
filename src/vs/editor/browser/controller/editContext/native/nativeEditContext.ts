@@ -114,6 +114,9 @@ export class NativeEditContext extends AbstractEditContext {
 			this._screenReaderSupport.handleFocusChange(newFocusValue);
 			this._context.viewModel.setHasFocus(newFocusValue);
 		}));
+		this._register(addDisposableListener(this.domNode.domNode, 'paste', () => {
+			console.log('paste of nativeEditContext');
+		}));
 
 		const window = getWindow(this.domNode.domNode);
 		this._editContext = new DebugEditContext(window);

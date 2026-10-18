@@ -198,8 +198,13 @@ export class TestNativeHostService implements INativeHostService {
 	async loadCertificates(): Promise<string[]> { return []; }
 	async isPortFree() { return Promise.resolve(true); }
 	async findFreePort(startPort: number, giveUpAfter: number, timeout: number, stride?: number): Promise<number> { return -1; }
-	async readClipboardText(type?: 'selection' | 'clipboard' | undefined): Promise<string> { return ''; }
-	async writeClipboardText(text: string, type?: 'selection' | 'clipboard' | undefined): Promise<void> { }
+	async readClipboardText(type?: 'selection' | 'clipboard' | undefined): Promise<string> {
+		console.log('readClipboardText of TestNativeHostService');
+		return '';
+	}
+	async writeClipboardText(text: string, type?: 'selection' | 'clipboard' | undefined): Promise<void> {
+		console.log('writeClipboardText of TestNativeHostService');
+	}
 	async readClipboardFindText(): Promise<string> { return ''; }
 	async writeClipboardFindText(text: string): Promise<void> { }
 	async writeClipboardBuffer(format: string, buffer: VSBuffer, type?: 'selection' | 'clipboard' | undefined): Promise<void> { }
