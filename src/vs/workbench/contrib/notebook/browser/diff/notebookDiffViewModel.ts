@@ -83,6 +83,7 @@ export class NotebookDiffViewModel extends Disposable implements INotebookDiffVi
 		private readonly diffEditorHeightCalculator: IDiffEditorHeightCalculatorService,
 		private readonly fontInfo?: FontInfo,
 		private readonly excludeUnchangedPlaceholder?: boolean,
+		private readonly viewportHeight?: number
 	) {
 		super();
 		this.hideOutput = this.model.modified.notebook.transientOptions.transientOutputs || this.configurationService.getValue<boolean>('notebook.diff.ignoreOutputs');
