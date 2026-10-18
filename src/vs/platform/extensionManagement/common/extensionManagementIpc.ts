@@ -179,6 +179,10 @@ export class ExtensionManagementChannel<TContext = RemoteAgentConnectionContext 
 
 		throw new Error('Invalid call');
 	}
+
+	private _transform(extension: ILocalExtension): ILocalExtension {
+		return extension ? { ...extension, ...{ location: URI.revive(this.uriTransformer.transformIncoming(extension.location)) } } : extension;
+	}
 }
 
 export interface ExtensionEventResult {
