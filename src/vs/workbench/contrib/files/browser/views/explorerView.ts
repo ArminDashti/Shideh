@@ -688,6 +688,7 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 		const folders = this.contextService.getWorkspace().folders;
 		const resource = stat ? stat.resource : folders[folders.length - 1].uri;
 		stat = stat || this.explorerService.findClosest(resource);
+		await stat?.resolveMetadata();
 		this.resourceContext.set(resource);
 		this.folderContext.set(!!stat && stat.isDirectory);
 		this.readonlyContext.set(!!stat && !!stat.isReadonly);
@@ -775,7 +776,9 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 
 		// update dynamic contexts
 		this.fileCopiedContextKey.set(await this.clipboardService.hasResources());
-		this.setContextKeys(stat);
+
+		// not awaited, context updates async when stat resolves but menu shows ASAP
+		this.setContextKeys(stat).catch(e => onUnexpectedError(e));
 
 		const selection = this.tree.getSelection();
 
