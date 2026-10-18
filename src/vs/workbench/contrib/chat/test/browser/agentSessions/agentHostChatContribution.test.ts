@@ -3502,6 +3502,70 @@ suite('AgentHostChatContribution', () => {
 		});
 	});
 
+	// ---- Untitled provisional sessions -----------------------------------
+
+	suite('untitled provisional service', () => {
+
+		test('does not recreate old untitled provisional when rebind notifies old resource', async () => {
+			const { service, agentHostService } = createRealProvisionalService(disposables);
+			const untitledResource = URI.from({ scheme: 'agent-host-copilot', path: '/untitled-rebind' });
+			const realResource = URI.from({ scheme: 'agent-host-copilot', path: '/real-rebind' });
+			const untitledBackend = AgentSession.uri('copilot', 'untitled-rebind');
+			const realBackend = AgentSession.uri('copilot', 'real-rebind');
+
+			const created = await service.applyConfigChange(untitledResource, 'copilot', undefined, { isolation: 'worktree' });
+			const reentrantCreates: Promise<URI | undefined>[] = [];
+			disposables.add(service.onDidChange(resource => {
+				if (resource.toString() === untitledResource.toString()) {
+					reentrantCreates.push(service.getOrCreate(untitledResource, 'copilot', undefined));
+				}
+			}));
+
+			const rebound = await service.tryRebind(untitledResource, realResource, 'copilot', undefined);
+			const reentrantResults = await Promise.all(reentrantCreates);
+			const recreated = await service.getOrCreate(untitledResource, 'copilot', undefined);
+
+			assert.deepStrictEqual({
+				created: created?.toString(),
+				rebound: rebound?.toString(),
+				reentrantResults: reentrantResults.map(uri => uri?.toString()),
+				recreated: recreated?.toString(),
+				createSessions: agentHostService.createSessionCalls.map(call => call.session?.toString()),
+				disposedSessions: agentHostService.disposedSessions.map(uri => uri.toString()),
+			}, {
+				created: untitledBackend.toString(),
+				rebound: realBackend.toString(),
+				reentrantResults: [undefined],
+				recreated: undefined,
+				createSessions: [untitledBackend.toString(), realBackend.toString()],
+				disposedSessions: [untitledBackend.toString()],
+			});
+		});
+
+		test('disposed untitled provisional cannot be recreated by late picker work', async () => {
+			const { service, agentHostService, fireDidDisposeSession } = createRealProvisionalService(disposables);
+			const untitledResource = URI.from({ scheme: 'agent-host-copilot', path: '/untitled-disposed' });
+			const untitledBackend = AgentSession.uri('copilot', 'untitled-disposed');
+
+			const created = await service.getOrCreate(untitledResource, 'copilot', undefined);
+			fireDidDisposeSession([untitledResource]);
+			await timeout(0);
+			const recreated = await service.getOrCreate(untitledResource, 'copilot', undefined);
+
+			assert.deepStrictEqual({
+				created: created?.toString(),
+				recreated: recreated?.toString(),
+				createSessions: agentHostService.createSessionCalls.map(call => call.session?.toString()),
+				disposedSessions: agentHostService.disposedSessions.map(uri => uri.toString()),
+			}, {
+				created: untitledBackend.toString(),
+				recreated: undefined,
+				createSessions: [untitledBackend.toString()],
+				disposedSessions: [untitledBackend.toString()],
+			});
+		});
+	});
+
 	// ---- Session list (IChatSessionItemController) ----------------------
 
 	suite('session list', () => {
