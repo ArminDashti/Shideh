@@ -742,8 +742,9 @@
 		]
 	},
 	{
-		// Reason: npm package declares MIT but no public repository found for
-		// @github/blackbird-external-ingest-utils. Needs manual resolution.
+		// Reason: npm package declares MIT but has no public repository. Package is published
+		// under the @github npm scope, owned by GitHub, Inc. Full MIT license text provided
+		// inline with GitHub, Inc. as copyright holder since no source repo is accessible.
 		"name": "@github/blackbird-external-ingest-utils",
 		"licenseDetail": [
 			"MIT License",
