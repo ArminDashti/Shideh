@@ -77,6 +77,26 @@ suite('codexReplayMapper', () => {
 		assert.deepStrictEqual(turns, []);
 	});
 
+	test('orphan turn without a user message is dropped', () => {
+		const turns = replayThreadToTurns({
+			id: 'thr',
+			turns: [{
+				id: 'turn_a',
+				items: [
+					{ type: 'agentMessage', id: 'a1', text: 'orphan', phase: null, memoryCitation: null },
+				],
+				itemsView: { type: 'full' } as never,
+				status: 'completed' as never,
+				error: null,
+				startedAt: null,
+				completedAt: null,
+				durationMs: null,
+			}],
+		} as never);
+
+		assert.deepStrictEqual(turns, []);
+	});
+
 	test('multi-turn thread preserves order', () => {
 		const turns = replayThreadToTurns({
 			id: 'thr',

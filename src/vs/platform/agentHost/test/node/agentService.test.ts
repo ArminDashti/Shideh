@@ -21679,6 +21679,7 @@ suite('AgentService (node dispatcher)', () => {
 					this.chatCalls.push({ op: 'releaseChat', args: [chat.toString()] });
 				},
 				sendMessage: async () => { },
+				resumeTurn: async () => { },
 				abort: async () => { },
 				changeModel: async () => { },
 				changeAgent: async () => { },

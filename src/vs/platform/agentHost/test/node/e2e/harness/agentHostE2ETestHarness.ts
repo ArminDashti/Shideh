@@ -404,6 +404,8 @@ export interface IAgentHostE2EProviderConfig {
 	readonly supportsChatFork: boolean;
 	/** Whether provider-backed fork context can be tested end-to-end. */
 	readonly supportsChatForkE2E: boolean;
+	/** Whether the provider supports resuming a failed turn without a new message. */
+	readonly supportsFailedTurnResumeE2E?: boolean;
 
 	/**
 	 * The github token to use. If not provided, the test will attempt to resolve it from the environment or `gh auth token`.

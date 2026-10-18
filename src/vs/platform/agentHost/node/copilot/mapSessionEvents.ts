@@ -28,6 +28,7 @@ import { CopilotFusionMessageChunks } from './copilotFusionMessageChunks.js';
 import { buildChatErrorInfoFromCopilotSdkFields } from './copilotSdkChatError.js';
 import { readCopilotSdkToolResourceUri } from './copilotSdkMeta.js';
 import { buildMcpChannel, buildMcpTopLevelCustomizationId } from '../shared/mcpCustomizationController.js';
+import { stripProxyErrorMarker, tryBuildChatErrorMeta, tryBuildChatErrorMetaFromFields } from '../shared/forwardedChatError.js';
 import { readSimpleAttachmentDisplayKindFromMimeType } from './copilotAttachmentUtils.js';
 import { buildNonPtyShellTerminalUri } from '../../common/nonPtyShellTerminalUri.js';
 
@@ -189,6 +190,8 @@ interface ITurnBuilder {
 	waitingDuration: number;
 	readonly responseParts: ResponsePart[];
 	usage: UsageInfo | undefined;
+	error: ErrorInfo | undefined;
+	resumable: boolean;
 	/** Tool starts seen but not yet completed in this turn, keyed by toolCallId. */
 	readonly pendingTools: Map<string, IToolStartInfo>;
 }
@@ -295,6 +298,8 @@ function finalizeTurn(builder: ITurnBuilder, state: TurnState): Turn {
 		responseParts: builder.responseParts,
 		usage: builder.usage,
 		state,
+		...(state === TurnState.Error && builder.error ? { error: builder.error } : {}),
+		...(state === TurnState.Error && builder.resumable ? { resumable: true } : {}),
 	};
 }
 
@@ -593,6 +598,12 @@ export async function mapSessionEvents(
 					rootAssistantTurnActive = true;
 					rootRequestActive = true;
 					touch(parentBuilder);
+				} else {
+					const parentToolCallId = resolveParentToolCallId(e.agentId, undefined);
+					if (parentToolCallId) {
+						activeSubagentTurns.add(parentToolCallId);
+						finishedSubagentTurns.delete(parentToolCallId);
+					}
 				}
 				break;
 			case 'assistant.turn_end':
@@ -602,6 +613,12 @@ export async function mapSessionEvents(
 						&& parentTurnState !== TurnState.Error
 						&& !parentTurnTerminated;
 					touch(parentBuilder);
+				} else {
+					const parentToolCallId = resolveParentToolCallId(e.agentId, undefined);
+					if (parentToolCallId) {
+						activeSubagentTurns.delete(parentToolCallId);
+						finishedSubagentTurns.add(parentToolCallId);
+					}
 				}
 				break;
 			case 'session.start': {
@@ -641,6 +658,40 @@ export async function mapSessionEvents(
 				}
 				break;
 			}
+			case 'session.error': {
+				const parentToolCallId = e.agentId ? resolveParentToolCallId(e.agentId, undefined) : undefined;
+				if (parentToolCallId && finishedSubagentTurns.has(parentToolCallId)) {
+					break;
+				}
+				if (!e.agentId && !rootRequestActive) {
+					break;
+				}
+				const builder = targetBuilderFor(parentToolCallId);
+				if (!builder) {
+					break;
+				}
+				const meta = tryBuildChatErrorMetaFromFields(e.data) ?? tryBuildChatErrorMeta(e.data.message);
+				builder.error = {
+					errorType: e.data.errorType,
+					message: stripProxyErrorMarker(e.data.message),
+					stack: e.data.stack,
+					...(meta ? { _meta: meta } : {}),
+				};
+				builder.resumable = !parentToolCallId && rootAssistantTurnActive;
+				if (parentToolCallId) {
+					subagentTurnStates.set(parentToolCallId, TurnState.Error);
+					activeSubagentTurns.delete(parentToolCallId);
+					finishedSubagentTurns.add(parentToolCallId);
+				} else {
+					parentTurnState = TurnState.Error;
+					rootAssistantTurnActive = false;
+					rootRequestActive = false;
+				}
+				break;
+			}
+			case 'session.idle':
+				rootRequestActive = false;
+				break;
 			case 'subagent.deselected': {
 				if (!e.agentId) {
 					currentAgent = undefined;

@@ -17222,6 +17222,67 @@ Use the attached image as context.
 			}]);
 		});
 
+		test('active turn errors are marked resumable and remain terminal after idle', async () => {
+			const { session, mockSession, signals } = await createAgentSession(disposables);
+			session.resetTurnState('turn-1');
+			mockSession.fire('session.error', {
+				errorType: 'TestError',
+				message: 'something went wrong',
+				stack: 'Error: something went wrong',
+			} as SessionEventPayload<'session.error'>['data']);
+
+			const action = getActions(signals)[0] as ChatErrorAction;
+			assert.deepStrictEqual({
+				error: action.error,
+				resumable: action.resumable,
+			}, {
+				error: {
+					errorType: 'TestError',
+					message: 'something went wrong',
+					stack: 'Error: something went wrong',
+				},
+				resumable: true,
+			});
+			mockSession.fire('session.idle', {} as SessionEventPayload<'session.idle'>['data']);
+			assert.deepStrictEqual({
+				hasActiveTurn: session.hasActiveTurn,
+				completions: getActions(signals).filter(action => action.type === ActionType.ChatTurnComplete),
+			}, {
+				hasActiveTurn: false,
+				completions: [],
+			});
+		});
+
+		test('subagent errors are routed without advertising root-turn resume', async () => {
+			const { session, mockSession, signals } = await createAgentSession(disposables);
+			session.resetTurnState('turn-1');
+			mockSession.fire('subagent.started', {
+				toolCallId: 'task-1',
+				agentName: 'explore',
+				agentDisplayName: 'Explore',
+				agentDescription: 'Explores',
+			}, { agentId: 'subagent-1' });
+			mockSession.fire('session.error', {
+				errorType: 'TestError',
+				message: 'subagent failed',
+				stack: 'Error: subagent failed',
+			} as SessionEventPayload<'session.error'>['data'], { agentId: 'subagent-1' });
+
+			const errorSignal = signals.find(signal => signal.kind === 'action' && signal.action.type === ActionType.ChatError);
+			assert.ok(errorSignal?.kind === 'action' && errorSignal.action.type === ActionType.ChatError);
+			assert.deepStrictEqual({
+				parentToolCallId: errorSignal.parentToolCallId,
+				error: errorSignal.action.error,
+			}, {
+				parentToolCallId: 'task-1',
+				error: {
+					errorType: 'TestError',
+					message: 'subagent failed',
+					stack: 'Error: subagent failed',
+				},
+			});
+		});
+
 		test('message delta is forwarded', async () => {
 			const { session, mockSession, signals } = await createAgentSession(disposables);
 			session.resetTurnState('turn-1');

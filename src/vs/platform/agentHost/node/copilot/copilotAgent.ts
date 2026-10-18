@@ -5222,6 +5222,38 @@ export class CopilotAgent extends Disposable implements IAgent {
 		});
 	}
 
+	private async _resumeTurn(chat: URI, turnId: string, senderClientId?: string): Promise<void> {
+		const context = this._getChatContext(chat);
+		if (context.isPeerChat) {
+			const existing = await this._ensureChatSession(context.session, chat);
+			if (!existing) {
+				throw new Error(`[Copilot] resumeTurn for unknown chat: ${chat.toString()}`);
+			}
+			const entry = this._findPeerChat(context.session, chat);
+			if (!entry) {
+				throw new Error(`[Copilot] resumeTurn for unavailable chat: ${chat.toString()}`);
+			}
+			await entry.resume(turnId, this._resolveSdkMode(context.session), senderClientId);
+			return;
+		}
+
+		await this._queueSession(context.sessionId, async () => {
+			await this._activeClients.get(context.session)?.pluginController.retryFailedClientSyncIfNeeded();
+			if (this._provisionalSessions.has(context.sessionId)) {
+				throw new Error(`[Copilot] Cannot resume an unmaterialized session: ${context.sessionId}`);
+			}
+
+			let entry = this._getChatContext(chat).target;
+			const activeClient = this._activeClients.get(context.session);
+			if (entry && activeClient && await activeClient.requiresRestart(entry.appliedSnapshot)) {
+				this._sessions.get(context.sessionId)?.clearDefaultChat();
+				entry = undefined;
+			}
+			entry ??= await this._resumeSession(context.sessionId);
+			await entry.resume(turnId, this._resolveSdkMode(context.session), senderClientId);
+		});
+	}
+
 	/**
 	 * Translates the AHP-side `mode` to the Copilot SDK's three-mode space
 	 * (`interactive` / `plan` / `autopilot`). With Autopilot living on the

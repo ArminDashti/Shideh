@@ -29,9 +29,9 @@ import { turnStateFromStatus } from './codexMapAppServerEvents.js';
 export function replayThreadToTurns(thread: Thread): Turn[] {
 	const turns: Turn[] = [];
 	for (const codexTurn of thread.turns ?? []) {
-		const turn = replayTurnToTurn(codexTurn);
-		if (turn) {
-			turns.push(turn);
+		const replayed = replayTurnToTurn(codexTurn);
+		if (replayed?.hasUserMessage) {
+			turns.push(replayed.turn);
 		}
 	}
 	return turns;
@@ -39,9 +39,11 @@ export function replayThreadToTurns(thread: Thread): Turn[] {
 
 function replayTurnToTurn(codexTurn: CodexTurn): Turn | undefined {
 	let userText = '';
+	let hasUserMessage = false;
 	const parts: ResponsePart[] = [];
 	for (const item of codexTurn.items ?? []) {
 		if (item.type === 'userMessage') {
+			hasUserMessage = true;
 			const collected: string[] = [];
 			for (const c of item.content) {
 				if (c.type === 'text') {

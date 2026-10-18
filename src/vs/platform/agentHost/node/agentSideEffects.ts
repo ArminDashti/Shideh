@@ -1812,6 +1812,32 @@ export class AgentSideEffects extends Disposable {
 				});
 				break;
 			}
+			case ActionType.ChatTurnResumed: {
+				if (!chatChannel) {
+					throw new Error(`ChatTurnResumed must be handled on an AHP chat channel: ${channel}`);
+				}
+				const chatState = this._stateManager.getChatState(channel);
+				if (chatState?.activeTurn?.id !== action.turnId) {
+					this._logService.warn(`[AgentSideEffects] Ignoring invalid turn resume for chat=${channel}, turnId=${action.turnId}`);
+					return;
+				}
+				const turnStopWatch = StopWatch.create(false);
+				const agent = this._options.getAgent(sessionChannel);
+				if (!agent) {
+					this._stateManager.dispatchServerAction(channel, {
+						type: ActionType.ChatError,
+						turnId: action.turnId,
+						duration: this._turnDuration(turnStopWatch),
+						error: { errorType: 'noAgent', message: 'No agent found for session' },
+					});
+					return;
+				}
+				const state = this._stateManager.getSessionState(channel);
+				const { model, modelTelemetryKind, permissionLevel } = this._getTurnTelemetryContext(agent, state, chatState.activeTurn.message.model?.id);
+				this._turnTracker.turnStarted(agent.id, channel, action.turnId, model, modelTelemetryKind, permissionLevel);
+				void this._resumeTurn(agent, sessionChannel, channel, action.turnId, clientId, turnStopWatch);
+				break;
+			}
 			case ActionType.ChatToolCallConfirmed: {
 				if (!chatChannel) {
 					throw new Error(`ChatToolCallConfirmed must be handled on an AHP chat channel: ${channel}`);
@@ -2182,7 +2208,7 @@ export class AgentSideEffects extends Disposable {
 				type: ActionType.ChatError,
 				turnId,
 				duration: this._turnDuration(turnStopWatch),
-				error,
+				error: readOnlyError,
 			});
 			this._completeTurn(turnChannel, turnId, 'error', { stage: 'validation', error });
 			this._toolCallTracker.clearSession(turnChannel);
@@ -2337,6 +2363,53 @@ export class AgentSideEffects extends Disposable {
 			return;
 		}
 		await this._checkpointService.discardTurnStartCheckpoint(URI.parse(sessionChannel), chatUri, turnId);
+	}
+
+	private async _resumeTurn(agent: IAgent, sessionChannel: ProtocolURI, turnChannel: ProtocolURI, turnId: string, senderClientId: string | undefined, turnStopWatch: StopWatch): Promise<void> {
+		const readOnlyError = this._getReadOnlyTurnError(sessionChannel, turnChannel);
+		if (readOnlyError) {
+			this._logService.warn(`[AgentSideEffects] Rejecting resumed turn on read-only chat=${turnChannel}, turnId=${turnId}`);
+			this._stateManager.dispatchServerAction(turnChannel, {
+				type: ActionType.ChatError,
+				turnId,
+				duration: this._turnDuration(turnStopWatch),
+				error: readOnlyError,
+			});
+			this._turnTracker.turnCompleted(turnChannel, turnId, 'error');
+			this._toolCallTracker.clearSession(turnChannel);
+			return;
+		}
+
+		try {
+			if (!agent.chats.resumeTurn) {
+				throw new Error('The selected agent does not support resuming failed turns.');
+			}
+			await agent.chats.resumeTurn(URI.parse(turnChannel), turnId, senderClientId);
+		} catch (err) {
+			const failure = buildTurnFailure('sendMessage', err);
+			const errCode = (err as { code?: number })?.code;
+			this._logService.error(`[AgentSideEffects] resumeTurn failed for session=${turnChannel}: code=${errCode}, message=${err instanceof Error ? err.message : String(err)}, type=${err?.constructor?.name}`, err);
+			this._stateManager.dispatchServerAction(turnChannel, {
+				type: ActionType.ChatError,
+				turnId,
+				duration: this._turnDuration(turnStopWatch),
+				error: failure.error,
+			});
+			this._turnTracker.turnCompleted(turnChannel, turnId, 'error', failure);
+			this._toolCallTracker.clearSession(turnChannel);
+		}
+	}
+
+	private _getReadOnlyTurnError(sessionChannel: ProtocolURI, chat: ProtocolURI): ErrorInfo | undefined {
+		const chatState = this._stateManager.getChatState(chat);
+		const sessionStatus = this._stateManager.getSessionSummary(sessionChannel)?.status ?? 0;
+		const sessionArchived = (sessionStatus & SessionStatus.IsArchived) === SessionStatus.IsArchived;
+		if (!isChatReadOnly(chatState?.interactivity, sessionArchived)) {
+			return undefined;
+		}
+		return sessionArchived
+			? { errorType: 'archived', message: 'This session is archived and read-only. Restore the session to continue the conversation.' }
+			: { errorType: 'readOnly', message: 'This chat is read-only.' };
 	}
 
 	private async _resolveChatAttachments(attachments: readonly MessageAttachment[] | undefined): Promise<readonly MessageAttachment[] | undefined> {

@@ -161,10 +161,10 @@ interface ITurnExchange {
 }
 
 /**
- * A raw ancillary exchange served verbatim on replay. Carries its own
- * `(method, path)` since it is not tied to the fixture dialect. Not produced by
- * the current recorder — model turns cover every captured exchange — but the
- * loader still honours it if a fixture contains one.
+ * A raw exchange served verbatim on replay. Carries its own `(method, path)`
+ * since it is not tied to the fixture dialect. Recording normally produces
+ * readable model turns, except for injected model failures whose non-SSE
+ * response must remain raw.
  */
 interface IRawFixtureExchange {
 	readonly method: string;
@@ -263,6 +263,7 @@ export class CapiReplayProxy {
 	private readonly _replayPlaceholderValues = new Map<string, string>();
 	private readonly _replayPluginDirectories = new Set<string>();
 	private _modelTurnCount = 0;
+	private _recordingModelFailureConsumed = false;
 	private _workingDirectory: string | undefined;
 	private _recordingModelResponse: { readonly response: ICapiReplayResponse; readonly path?: string } | undefined;
 
@@ -616,6 +617,25 @@ export class CapiReplayProxy {
 		}
 		if (MODEL_ENDPOINTS.has(path)) {
 			this._observedModelRequestBodies.push(this._normalize(body));
+			const failure = this._options.recordingModelFailure;
+			if (failure && !this._recordingModelFailureConsumed) {
+				this._recordingModelFailureConsumed = true;
+				const headers = { 'content-type': 'application/json', ...failure.headers };
+				const response = {
+					status: failure.status,
+					headers,
+					body: this._normalize(failure.body),
+				};
+				this._recorded.push({
+					method,
+					path,
+					requestBody: this._normalize(body),
+					response,
+				});
+				res.writeHead(response.status, response.headers);
+				res.end(response.body);
+				return;
+			}
 		}
 		if (MODEL_ENDPOINTS.has(path) && this._recordingModelResponse && (!this._recordingModelResponse.path || this._recordingModelResponse.path === path)) {
 			const response = this._recordingModelResponse.response;

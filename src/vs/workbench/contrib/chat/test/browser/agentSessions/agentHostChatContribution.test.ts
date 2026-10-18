@@ -588,7 +588,12 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 	}
 
 	override dispatch(channel: string, action: SessionAction | AgentHostChatAction | TerminalAction | ClientAnnotationsAction | IRootConfigChangedAction): void {
-		this.dispatchedActions.push({ channel, action, clientId: this.clientId, clientSeq: this._nextSeq++ });
+		this.dispatchWithSequence(channel, action);
+	}
+
+	override dispatchWithSequence(channel: string, action: SessionAction | AgentHostChatAction | TerminalAction | ClientAnnotationsAction | IRootConfigChangedAction): number {
+		const clientSeq = this._nextSeq++;
+		this.dispatchedActions.push({ channel, action, clientId: this.clientId, clientSeq });
 		// Apply state-management actions optimistically so state-dependent
 		// logic (e.g. customization re-dispatch) sees the correct activeClient.
 		// Turn lifecycle actions (turnStarted, toolCallConfirmed, etc.) are applied
@@ -604,6 +609,7 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 				entry.emitter.fire(entry.state);
 			}
 		}
+		return clientSeq;
 	}
 
 	// Test helpers
@@ -622,7 +628,9 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 			const entry = this._liveSubscriptions.get(chatUri);
 			if (entry) {
 				entry.onWillApply.fire(normalized);
-				entry.state = chatReducer(entry.state as ChatState, normalized.action as Parameters<typeof chatReducer>[1], noop);
+				if (!normalized.rejectionReason) {
+					entry.state = chatReducer(entry.state as ChatState, normalized.action as Parameters<typeof chatReducer>[1], noop);
+				}
 				entry.emitter.fire(entry.state);
 				entry.onDidApply.fire(normalized);
 			}
@@ -630,7 +638,9 @@ class MockAgentHostService extends mock<IAgentHostService>() {
 			const entry = this._liveSubscriptions.get(normalized.channel);
 			if (entry) {
 				entry.onWillApply.fire(normalized);
-				entry.state = sessionReducer(entry.state as SessionState, normalized.action as Parameters<typeof sessionReducer>[1], noop);
+				if (!normalized.rejectionReason) {
+					entry.state = sessionReducer(entry.state as SessionState, normalized.action as Parameters<typeof sessionReducer>[1], noop);
+				}
 				entry.emitter.fire(entry.state);
 				entry.onDidApply.fire(normalized);
 			}

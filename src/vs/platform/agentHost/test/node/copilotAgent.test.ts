@@ -16999,6 +16999,7 @@ suite('CopilotAgent', () => {
 
 		interface IFakeConvRecorder {
 			readonly sends: { prompt: string; turnId: string | undefined; senderClientId: string | undefined }[];
+			readonly resumes: { turnId: string; senderClientId: string | undefined }[];
 			readonly resets: { turnId: string; senderClientId: string | undefined }[];
 			readonly modelCalls: string[];
 			readonly agentCalls: (string | undefined)[];
@@ -17013,13 +17014,16 @@ suite('CopilotAgent', () => {
 		 * legacy methods.
 		 */
 		function installFake(agent: CopilotAgent, key: string, target: 'chat' | 'session', sessionUri: URI): IFakeConvRecorder {
-			const rec: IFakeConvRecorder = { sends: [], resets: [], modelCalls: [], agentCalls: [], aborted: 0, disposed: false };
+			const rec: IFakeConvRecorder = { sends: [], resumes: [], resets: [], modelCalls: [], agentCalls: [], aborted: 0, disposed: false };
 			const fake = {
 				sessionUri,
 				sessionId: `sdk-${key}`,
 				appliedSnapshot: { tools: [], plugins: [], mcpServers: {} } satisfies IActiveClientSnapshot,
 				async send(prompt: string, _attachments: unknown, turnId: string | undefined, _mode: unknown, senderClientId: string | undefined): Promise<void> {
 					rec.sends.push({ prompt, turnId, senderClientId });
+				},
+				async resume(turnId: string, _mode: unknown, senderClientId: string | undefined): Promise<void> {
+					rec.resumes.push({ turnId, senderClientId });
 				},
 				resetTurnState(turnId: string, senderClientId: string | undefined): void { rec.resets.push({ turnId, senderClientId }); },
 				async setModel(id: string): Promise<void> { rec.modelCalls.push(id); },

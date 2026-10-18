@@ -183,6 +183,7 @@ function defineSuite(config: IAgentHostE2EProviderConfig, options: IDefineOption
 			defineTurnLifecycleTests(context);
 			defineWorkspaceTests(context);
 			defineSubagentTests(context);
+			defineFailedTurnResumeTests(context);
 		}
 
 		// Mixed: peer-catalog semantics are host-owned (conformance) while

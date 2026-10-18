@@ -160,6 +160,11 @@ class MockAgentConnection implements IAgentConnection {
 	dispatch(channel: string, action: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | ClientAutomationAction | ClientAutomationRunAction | IRootConfigChangedAction): void {
 		this.dispatchedActions.push({ channel, action });
 	}
+	dispatchWithSequence(channel: string, action: SessionAction | TerminalAction | ClientAnnotationsAction | IRootConfigChangedAction): number {
+		const seq = this.nextClientSeq();
+		this.dispatch(channel, action);
+		return seq;
+	}
 
 	dispose(): void {
 		this._onDidAction.dispose();

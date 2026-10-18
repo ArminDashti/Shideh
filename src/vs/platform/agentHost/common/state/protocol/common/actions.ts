@@ -43,6 +43,7 @@ export const enum ActionType {
 	SessionChatsReordered = 'session/chatsReordered',
 	SessionDefaultChatChanged = 'session/defaultChatChanged',
 	ChatTurnStarted = 'chat/turnStarted',
+	ChatTurnResumed = 'chat/turnResumed',
 	ChatDelta = 'chat/delta',
 	ChatResponsePart = 'chat/responsePart',
 	ChatToolCallStart = 'chat/toolCallStart',
@@ -207,6 +208,7 @@ export type StateAction =
 	| SessionConfigChangedAction
 	| SessionMetaChangedAction
 	| ChatTurnStartedAction
+	| ChatTurnResumedAction
 	| ChatDeltaAction
 	| ChatResponsePartAction
 	| ChatToolCallStartAction

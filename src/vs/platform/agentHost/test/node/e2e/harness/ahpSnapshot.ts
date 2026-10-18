@@ -437,10 +437,12 @@ function projectAction(
 					},
 					...(action.part.resumable ? { resumable: true } : {}),
 				},
+				...(action.resumable === true ? { resumable: true } : {}),
 			} : { type: action.type };
 		case ActionType.ChatUsage:
 		case ActionType.ChatTurnResume:
 		case ActionType.ChatTurnComplete:
+		case ActionType.ChatTurnResumed:
 			return { type: action.type, turnId: normalizeIdentifier(action.turnId, 'turn', turns) };
 		default:
 			return { type: action.type };
