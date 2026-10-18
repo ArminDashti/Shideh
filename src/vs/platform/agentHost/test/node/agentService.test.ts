@@ -25225,6 +25225,9 @@ suite('AgentService (node dispatcher)', () => {
 				chatTitle: await db.getMetadata(`customChatTitle:${peerChat}`),
 				chatSource: await db.getMetadata(`customChatTitleSource:${peerChat}`),
 			}, {
+				sessionResult: 'Renaming chat.',
+				defaultChatResult: 'Renaming chat.',
+				peerChatResult: 'Renaming chat.',
 				liveSession: 'Original session',
 				sessionTitle: 'Original session',
 				sessionSource: 'user',

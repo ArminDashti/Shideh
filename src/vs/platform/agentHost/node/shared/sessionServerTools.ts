@@ -372,6 +372,8 @@ export interface IRenameTitleResult {
 	readonly title: string;
 }
 
+const renameChatSequencers = new WeakMap<ISessionServerToolAccessor, Sequencer>();
+
 export interface ISessionCreationDefaults {
 	readonly provider?: AgentProvider;
 	readonly model?: ModelSelection;
@@ -1386,10 +1388,17 @@ export function getRenameChatArgs(rawArgs: unknown, sessions: readonly IAgentSes
 }
 
 export async function applyRenameChatTool(accessor: ISessionServerToolAccessor, rawArgs: unknown, currentChannel?: ProtocolURI): Promise<string> {
-	const sessions = await accessor.listSessions();
-	const { session, chat, title } = getRenameChatArgs(rawArgs, sessions, currentChannel);
-	const result = await accessor.renameChat(session, chat, title);
-	return `Renamed chat to "${result.title}".`;
+	let sequencer = renameChatSequencers.get(accessor);
+	if (!sequencer) {
+		sequencer = new Sequencer();
+		renameChatSequencers.set(accessor, sequencer);
+	}
+	void sequencer.queue(async () => {
+		const sessions = await accessor.listSessions();
+		const { session, chat, title } = getRenameChatArgs(rawArgs, sessions, currentChannel);
+		await accessor.renameChat(session, chat, title);
+	}).catch(error => accessor.reportToolError(SessionServerToolName.RenameChat, error));
+	return 'Renaming chat.';
 }
 
 interface ISendMessageArgs {

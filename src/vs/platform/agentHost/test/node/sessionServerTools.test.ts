@@ -291,7 +291,7 @@ suite('SessionServerTools', () => {
 		);
 		assert.strictEqual(
 			await host.executeTool(buildDefaultChatUri(enabledSession), SessionServerToolName.RenameChat, { title: 'Enabled' }),
-			'Renamed chat to "Enabled".',
+			'Renaming chat.',
 		);
 		assert.deepStrictEqual({
 			disabledTools: stateManager.getSessionState(disabledSession)?.serverTools?.map(tool => tool.name),
@@ -332,7 +332,7 @@ suite('SessionServerTools', () => {
 
 		assert.strictEqual(
 			await host.executeTool(buildDefaultChatUri(session), SessionServerToolName.RenameChat, { title: 'Still enabled' }),
-			'Renamed chat to "Still enabled".',
+			'Renaming chat.',
 		);
 		assert.ok(host.getDefinitionsForSession(session).some(tool => tool.name === SessionServerToolName.RenameChat));
 		assert.ok(host.toolNames.includes(SessionServerToolName.RenameChat));
@@ -2257,7 +2257,41 @@ suite('SessionServerTools', () => {
 		let renamed: { session: URI; chat: URI; title: string } | undefined;
 		const accessor = createAccessor({
 			listSessions: async () => [sessionMeta('s1', SessionStatus.Idle, workspace)],
-			onRenameChat: (session, chat, title) => { renamed = { session, chat, title }; },
+			renameChat: async (session, chat, title) => {
+				await renameStarted.complete({ session, chat, title });
+				await releaseRename.p;
+				await renameCompleted.complete();
+				return { title };
+			},
+		});
+		const peer = buildChatUri('copilot:/s1', 'peer');
+		const result = await applyRenameChatTool(accessor, { title: 'Peer Focus' }, peer);
+		const renamed = await renameStarted.p;
+		assert.deepStrictEqual({
+			result,
+			renamed: { session: renamed.session.toString(), chat: renamed.chat.toString(), title: renamed.title },
+			completedBeforeRelease: renameCompleted.isSettled,
+		}, {
+			result: 'Renaming chat.',
+			renamed: { session: 'copilot:/s1', chat: peer, title: 'Peer Focus' },
+			completedBeforeRelease: false,
+		});
+		await releaseRename.complete();
+		await renameCompleted.p;
+	});
+
+	test('rename_chat forwards default and peer chat addresses', async () => {
+		const renames: { session: string; chat: string; title: string }[] = [];
+		const allRenamesCompleted = new DeferredPromise<void>();
+		const accessor = createAccessor({
+			listSessions: async () => [sessionMeta('s1', SessionStatus.Idle, workspace)],
+			renameChat: async (session, chat, title) => {
+				renames.push({ session: session.toString(), chat: chat.toString(), title });
+				if (renames.length === 3) {
+					await allRenamesCompleted.complete();
+				}
+				return { title };
+			},
 		});
 		const peer = buildChatUri('copilot:/s1', 'peer');
 		assert.strictEqual(await applyRenameChatTool(accessor, { title: 'Peer Focus' }, peer), 'Renamed chat to "Peer Focus".');
@@ -2267,11 +2301,25 @@ suite('SessionServerTools', () => {
 		await assert.rejects(() => applyRenameChatTool(createAccessor({
 			listSessions: async () => [sessionMeta('s1', SessionStatus.Idle, workspace)],
 			renameChat: async () => { throw new Error('Invalid rename_chat input: chat must match a known non-default chat.'); },
-		}), { chat: 'agent-host-session://copilot/s1?chat=missing', title: 'Ignored' }), /known non-default chat/);
+			reportToolError: (toolName, error) => { void reportedError.complete({ toolName, error }); },
+		}), { chat: 'agent-host-session://copilot/s1?chat=missing', title: 'Ignored' });
+		const failure = await reportedError.p;
+		assert.deepStrictEqual({
+			result,
+			toolName: failure.toolName,
+			error: failure.error instanceof Error ? failure.error.message : failure.error,
+		}, {
+			result: 'Renaming chat.',
+			toolName: SessionServerToolName.RenameChat,
+			error: 'Invalid rename_chat input: chat must match a known non-default chat.',
+		});
 	});
 
 	test('repeated rename tool calls each apply their requested title', async () => {
-		let renameCalls = 0;
+		const firstRenameStarted = new DeferredPromise<void>();
+		const releaseFirstRename = new DeferredPromise<void>();
+		const secondRenameCompleted = new DeferredPromise<void>();
+		const titles: string[] = [];
 		const accessor = createAccessor({
 			listSessions: async () => [sessionMeta('s1', SessionStatus.Idle, workspace)],
 			renameSession: async (_session, title) => {
@@ -2286,6 +2334,30 @@ suite('SessionServerTools', () => {
 			second: 'Renamed session to "Renamed Again".',
 			renameCalls: 2,
 		});
+		await releaseFirstRename.complete();
+		await secondRenameCompleted.p;
+		assert.deepStrictEqual(titles, [
+			'Named Once',
+			'Renamed Again',
+		]);
+	});
+
+	test('a failed rename does not block the next queued rename', async () => {
+		const successfulRename = new DeferredPromise<string>();
+		let renameCalls = 0;
+		const accessor = createAccessor({
+			listSessions: async () => [sessionMeta('s1', SessionStatus.Idle, workspace)],
+			renameChat: async (_session, _chat, title) => {
+				if (++renameCalls === 1) {
+					throw new Error('first rename failed');
+				}
+				await successfulRename.complete(title);
+				return { title };
+			},
+		});
+		await applyRenameChatTool(accessor, { chat: 'agent-host-session://copilot/s1', title: 'First Rename' });
+		await applyRenameChatTool(accessor, { chat: 'agent-host-session://copilot/s1', title: 'Second Rename' });
+		assert.strictEqual(await successfulRename.p, 'Second Rename');
 	});
 
 	test('create_chat inherits the calling chat model when no override is provided', async () => {
