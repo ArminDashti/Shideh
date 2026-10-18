@@ -548,7 +548,7 @@ export function createMonacoEditorAPI(): typeof monaco.editor {
 
 
 		// eslint-disable-next-line local/code-no-any-casts
-		createWebWorker: <any>createWebWorker,
+		createWebWorkerInternal: <any>createWebWorkerInternal,
 		// eslint-disable-next-line local/code-no-any-casts
 		colorizeElement: <any>colorizeElement,
 		// eslint-disable-next-line local/code-no-any-casts
