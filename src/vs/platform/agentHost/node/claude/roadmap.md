@@ -390,6 +390,11 @@ Landed in [#313780](https://github.com/microsoft/vscode/pull/313780)
 > sites, full test list, acceptance checklist, and live-system smoke. The
 > summary below stays high-level for roadmap continuity.
 
+> **Implementation contract: [phase4-plan.md](./phase4-plan.md).** That file
+> is the source of truth for the Phase 4 PR — code skeleton, registration
+> sites, full test list, acceptance checklist, and live-system smoke. The
+> summary below stays high-level for roadmap continuity.
+
 A registered `IAgent` whose lifecycle methods are wired but minimal. Mirror
 the pattern in `node/copilot/copilotAgent.ts`.
 
