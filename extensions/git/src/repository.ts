@@ -359,6 +359,7 @@ interface GitResourceGroups {
 	indexGroup?: Resource[];
 	mergeGroup?: Resource[];
 	untrackedGroup?: Resource[];
+	untrackedFoldersGroup?: Resource[];
 	workingTreeGroup?: Resource[];
 }
 
@@ -519,6 +520,15 @@ class ResourceCommandResolver {
 	resolveDefaultCommand(resource: Resource): Command {
 		const config = workspace.getConfiguration('git', Uri.file(this.repository.root));
 		const openDiffOnClick = config.get<boolean>('openDiffOnClick', true);
+
+		// Untracked Folders Group
+		if (resource.resourceGroupType === ResourceGroupType.UntrackedFolder) {
+			return {
+				command: 'git.manageUntrackedFolders',
+				title: l10n.t('Manage Untracked Folder')
+			};
+		}
+
 		return openDiffOnClick ? this.resolveChangeCommand(resource) : this.resolveFileCommand(resource);
 	}
 
@@ -759,6 +769,9 @@ export class Repository implements Disposable {
 	private _workingTreeGroup: SourceControlResourceGroup;
 	get workingTreeGroup(): GitResourceGroup { return this._workingTreeGroup as GitResourceGroup; }
 
+	private _untrackedFoldersGroup: SourceControlResourceGroup;
+	get untrackedFoldersGroup(): GitResourceGroup { return this._untrackedFoldersGroup as GitResourceGroup; }
+
 	private _untrackedGroup: SourceControlResourceGroup;
 	get untrackedGroup(): GitResourceGroup { return this._untrackedGroup as GitResourceGroup; }
 
@@ -860,6 +873,9 @@ export class Repository implements Disposable {
 
 	private readonly _operations: OperationManager;
 	get operations(): OperationManager { return this._operations; }
+
+	private _untrackedFolders: Map<string, boolean> = new Map<string, boolean>();
+	get untrackedFolders(): Map<string, boolean> { return this._untrackedFolders; }
 
 	private _state = RepositoryState.Idle;
 	get state(): RepositoryState { return this._state; }
@@ -3130,6 +3146,7 @@ export class Repository implements Disposable {
 		// set resource groups
 		if (resourcesGroups.indexGroup) { this.indexGroup.resourceStates = resourcesGroups.indexGroup; }
 		if (resourcesGroups.mergeGroup) { this.mergeGroup.resourceStates = resourcesGroups.mergeGroup; }
+		if (resourcesGroups.untrackedFoldersGroup) { this.untrackedFoldersGroup.resourceStates = resourcesGroups.untrackedFoldersGroup; }
 		if (resourcesGroups.untrackedGroup) { this.untrackedGroup.resourceStates = resourcesGroups.untrackedGroup; }
 		if (resourcesGroups.workingTreeGroup) { this.workingTreeGroup.resourceStates = resourcesGroups.workingTreeGroup; }
 
@@ -3154,9 +3171,25 @@ export class Repository implements Disposable {
 		const limit = scopedConfig.get<number>('statusLimit', 10000);
 		const similarityThreshold = scopedConfig.get<number>('similarityThreshold', 50);
 
+		const trackedFolders: string[] = [];
+		this.untrackedFolders.forEach((value, key) => {
+			if (value) {
+				trackedFolders.push(key);
+			}
+		});
+
 		const start = new Date().getTime();
 		const { status, statusLength, didHitLimit } = await this.repository.getStatus({ limit, ignoreSubmodules, similarityThreshold, untrackedChanges, cancellationToken });
 		const totalTime = new Date().getTime() - start;
+
+		// Remove untracked resources that are already tracked. Resources can appear
+		// as tracked and untracked when a file from an untracked folder is added to
+		// the index.
+		const trackedPaths = new Set(statusResult.status.map(s => s.path));
+		statusUntrackedResult.status = statusUntrackedResult.status.filter(r => !trackedPaths.has(r.path));
+
+		const didHitLimit = statusResult.didHitLimit || statusUntrackedResult.didHitLimit;
+		const statusLength = statusResult.statusLength + statusUntrackedResult.statusLength;
 
 		this.isRepositoryHuge = didHitLimit ? { limit } : false;
 
@@ -3235,13 +3268,27 @@ export class Repository implements Disposable {
 		const indexGroup: Resource[] = [],
 			mergeGroup: Resource[] = [],
 			untrackedGroup: Resource[] = [],
+			untrackedFoldersGroup: Resource[] = [],
 			workingTreeGroup: Resource[] = [];
 
-		status.forEach(raw => {
-			const uri = Uri.file(path.join(this.repository.root, raw.path));
-			const renameUri = raw.rename
-				? Uri.file(path.join(this.repository.root, raw.rename))
-				: undefined;
+		[...statusResult.status, ...statusUntrackedResult.status].forEach(raw => {
+			// TODO@lszomoru - Find a better way to do this
+			const isFolder = raw.path.endsWith('/');
+			const isUntrackedFolder = (raw.x.concat(raw.y) === '??' || raw.x.concat(raw.y) === '!!') && isFolder;
+
+			const uri = Uri.file(path.join(this.repository.root, isFolder ? raw.path.substring(0, raw.path.length - 1) : raw.path));
+			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
+
+			// This is a folder that is marked to be tracked
+			// so we ignore it as its contents are listed explicitly.
+			if (isFolder && this.untrackedFolders.get(uri.fsPath)) {
+				return;
+			}
+
+			// This is a folder that is untracked
+			if (isUntrackedFolder && !this.untrackedFolders.has(uri.fsPath)) {
+				this.untrackedFolders.set(uri.fsPath, false);
+			}
 
 			switch (raw.x + raw.y) {
 				case '??': switch (untrackedChanges) {
@@ -3282,7 +3329,15 @@ export class Repository implements Disposable {
 			return undefined;
 		});
 
-		return { indexGroup, mergeGroup, untrackedGroup, workingTreeGroup };
+		// Untracked folder clean-up
+		const resources = [...indexGroup, ...mergeGroup, ...untrackedFoldersGroup, ...untrackedGroup, ...workingTreeGroup];
+		for (const key of this.untrackedFolders.keys()) {
+			if (!resources.some(r => isDescendant(key, r.resourceUri.fsPath))) {
+				this.untrackedFolders.delete(key);
+			}
+		}
+
+		return { indexGroup, mergeGroup, untrackedFoldersGroup, untrackedGroup, workingTreeGroup };
 	}
 
 	private getNotification(): SourceControlNotification | undefined {

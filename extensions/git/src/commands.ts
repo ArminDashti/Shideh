@@ -1808,6 +1808,13 @@ export class CommandCenter {
 		await repository.add(uris);
 	}
 
+	@command('git.stageAllUntrackedFolders', { repository: true })
+	async stageAllUntrackedFolders(repository: Repository): Promise<void> {
+		const uris = repository.untrackedFoldersGroup.resourceStates.map(r => r.resourceUri);
+
+		await repository.add(uris);
+	}
+
 	@command('git.stageAllMerge', { repository: true })
 	async stageAllMerge(repository: Repository): Promise<void> {
 		const resources = repository.mergeGroup.resourceStates.filter(s => s instanceof Resource) as Resource[];

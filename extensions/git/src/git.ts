@@ -930,10 +930,11 @@ export class GitStatusParser {
 
 		entry.path = raw.substring(i, lastIndex);
 
+		// HACK
 		// If path ends with slash, it must be a nested git repo
-		if (entry.path[entry.path.length - 1] !== '/') {
-			this.result.push(entry);
-		}
+		// if (entry.path[entry.path.length - 1] !== '/') {
+		this.result.push(entry);
+		// }
 
 		return lastIndex + 1;
 	}
@@ -2870,8 +2871,10 @@ export class Repository {
 
 		if (opts?.untrackedChanges === 'hidden') {
 			args.push('-uno');
-		} else {
+		} else if (opts?.trackedFolders?.length) {
 			args.push('-uall');
+		} else {
+			args.push('-unormal');
 		}
 
 		if (opts?.ignoreSubmodules) {

@@ -218,8 +218,22 @@
         "enablement": "!operationInProgress"
       },
       {
+        "command": "git.stageAllUntrackedFolders",
+        "title": "%command.stageAllUntrackedFolders%",
+        "category": "Git",
+        "icon": "$(add)",
+        "enablement": "!operationInProgress"
+      },
+      {
         "command": "git.stageAllMerge",
         "title": "%command.stageAllMerge%",
+        "category": "Git",
+        "icon": "$(add)",
+        "enablement": "!operationInProgress"
+      },
+      {
+        "command": "git.stageUntrackedFolder",
+        "title": "%command.stageUntrackedFolder%",
         "category": "Git",
         "icon": "$(add)",
         "enablement": "!operationInProgress"
@@ -1319,6 +1333,10 @@
         },
         {
           "command": "git.stageAllUntracked",
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "git.stageAllUntrackedFolders",
           "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0"
         },
         {
