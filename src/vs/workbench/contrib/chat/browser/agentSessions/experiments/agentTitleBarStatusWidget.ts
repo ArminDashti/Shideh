@@ -517,7 +517,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 		const activeSessions = filteredSessions.filter(s => isSessionInProgressStatus(s.status) && !s.isArchived());
 		const unreadSessions = filteredSessions.filter(s => !s.isRead());
 		// Sessions that need user input/attention (subset of active)
-		const attentionNeededSessions = filteredSessions.filter(s => s.status === AgentSessionStatus.NeedsInput && !this.chatWidgetService.getWidgetBySessionResource(s.resource));
+		const attentionNeededSessions = filteredSessions.filter(s => s.status === AgentSessionStatus.NeedsInput);
 
 		return {
 			activeSessions,
