@@ -175,6 +175,12 @@ const stdioLaunch: McpServerLaunch = {
 	sandbox: undefined,
 };
 
+const workspaceFolder: IWorkspaceFolderData = {
+	uri: URI.file('/workspace'),
+	name: 'workspace',
+	index: 0,
+};
+
 function makeCopilotChatGitHubMcpServer(): IMcpServer {
 	return makeMcpServer({
 		id: 'github.copilot-chat/GitHub',
@@ -889,7 +895,7 @@ suite('resolveCustomizationRefs - built-in skills', () => {
 		assert.strictEqual(bundler.received.length, 0);
 	});
 
-	test('syncs `.vscode/mcp.json` servers that resolve without user interaction', async () => {
+	test('defaults cwd-less `.vscode/mcp.json` stdio servers to the workspace folder', async () => {
 		const bundler = new FakeBundler();
 		const defaultCwd = URI.parse('vscode-remote://ssh-remote+linux/home/test/workspace');
 		const mcpService = makeMcpService([
@@ -897,6 +903,53 @@ suite('resolveCustomizationRefs - built-in skills', () => {
 		]);
 
 		const refs = await resolveCustomizationRefs(
+			makeFileService(),
+			makePromptsService(new Map()),
+			new FakeSyncProvider(),
+			makeAgentPluginService(),
+			mcpService,
+			makeConfigurationResolverService({ '${workspaceFolder}': '/workspace' }),
+			bundler as unknown as SyncedCustomizationBundler,
+			SessionType.CopilotCLI,
+		);
+
+		assert.strictEqual(bundler.received.length, 1);
+		assert.deepStrictEqual(bundler.receivedMcp[0], [
+			{ name: 'my-server', configuration: { type: McpServerType.LOCAL, command: 'my-server', args: ['--flag'], env: undefined, envFile: undefined, cwd: '/workspace' } },
+		]);
+		assert.strictEqual(refs.length, 1);
+		assert.strictEqual(refs[0].name, 'Open Plugin');
+	});
+
+	test('preserves an explicit `.vscode/mcp.json` stdio server cwd', async () => {
+		const bundler = new FakeBundler();
+		const mcpService = makeMcpService([
+			makeMcpServer({ id: 'mcp.config.ws0.my-server', collectionId: 'mcp.config.ws0', label: 'my-server', launch: { ...stdioLaunch, cwd: '/explicit' }, configTarget: ConfigurationTarget.WORKSPACE_FOLDER, workspaceFolder }),
+		]);
+
+		await resolveCustomizationRefs(
+			makeFileService(),
+			makePromptsService(new Map()),
+			new FakeSyncProvider(),
+			makeAgentPluginService(),
+			mcpService,
+			makeConfigurationResolverService(),
+			bundler as unknown as SyncedCustomizationBundler,
+			SessionType.CopilotCLI,
+		);
+
+		assert.deepStrictEqual(bundler.receivedMcp[0], [
+			{ name: 'my-server', configuration: { type: McpServerType.LOCAL, command: 'my-server', args: ['--flag'], env: undefined, envFile: undefined, cwd: '/explicit' } },
+		]);
+	});
+
+	test('preserves a missing `.vscode/mcp.json` cwd when no workspace folder is available', async () => {
+		const bundler = new FakeBundler();
+		const mcpService = makeMcpService([
+			makeMcpServer({ id: 'mcp.config.ws0.my-server', collectionId: 'mcp.config.ws0', label: 'my-server', launch: stdioLaunch, configTarget: ConfigurationTarget.WORKSPACE_FOLDER }),
+		]);
+
+		await resolveCustomizationRefs(
 			makeFileService(),
 			makePromptsService(new Map()),
 			new FakeSyncProvider(),
@@ -910,12 +963,9 @@ suite('resolveCustomizationRefs - built-in skills', () => {
 			[defaultCwd]
 		);
 
-		assert.strictEqual(bundler.received.length, 1);
 		assert.deepStrictEqual(bundler.receivedMcp[0], [
 			{ name: 'my-server', configuration: { type: McpServerType.LOCAL, command: 'my-server', args: ['--flag'], env: undefined }, defaultCwd, enablement: globalEnablement(true) },
 		]);
-		assert.strictEqual(refs.length, 1);
-		assert.strictEqual(refs[0].name, 'Open Plugin');
 	});
 
 	test('excludes `.vscode/mcp.json` servers from another working-directory scope', async () => {
