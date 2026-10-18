@@ -245,7 +245,7 @@ fi
 
 if should_run_suite api-folder; then
 echo
-echo "### API tests (folder)"
+echo "### API tests"
 echo
 "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testWorkspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS
 kill_app
