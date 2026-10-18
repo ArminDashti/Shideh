@@ -191,7 +191,8 @@ export class StandardWheelEvent {
 					// Refs https://github.com/microsoft/vscode/issues/146403#issuecomment-1854538928
 					this.deltaX = e1.wheelDeltaX / (120 * devicePixelRatio);
 				} else {
-					this.deltaX = e1.wheelDeltaX / 120;
+					this.deltaY = -e.deltaY / 40;
+					this.deltaX = -e.deltaX / 40;
 				}
 			} else if (typeof e2.HORIZONTAL_AXIS !== 'undefined' && e2.axis === e2.HORIZONTAL_AXIS) {
 				this.deltaX = -e.detail / 3;
