@@ -922,8 +922,8 @@ export class CreateRemoteAgentJobAction extends Action2 {
 			if (!widget) {
 				return;
 			}
-			const session = widget.viewModel?.sessionId;
-			if (!session) {
+			const sessionId = widget.viewModel?.sessionId;
+			if (!sessionId) {
 				return;
 			}
 
@@ -987,7 +987,7 @@ export class CreateRemoteAgentJobAction extends Action2 {
 				const historyEntries: IChatAgentHistoryEntry[] = chatRequests
 					.map(req => ({
 						request: {
-							sessionId: session,
+							sessionId: sessionId,
 							requestId: req.id,
 							agentId: req.response?.agent?.id ?? '',
 							message: req.message.text,
