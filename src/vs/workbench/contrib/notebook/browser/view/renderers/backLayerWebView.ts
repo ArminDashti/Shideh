@@ -598,6 +598,7 @@ export class BackLayerWebView<T extends ICommonCellInfo> extends Themable {
 			throw new Error('Element is already detached from the DOM tree');
 		}
 
+		await this.extensionService.whenInstalledExtensionsRegistered();
 		this.webview = this._createInset(this.webviewService, content);
 		this.webview.mountTo(this.element, targetWindow);
 		this._register(this.webview);
