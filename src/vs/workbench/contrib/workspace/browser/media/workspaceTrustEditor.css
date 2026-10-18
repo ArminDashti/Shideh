@@ -36,7 +36,7 @@
 	font-size: 24px;
 	font-weight: 600;
 	line-height: 32px;
-	padding: 10px 0px;
+	padding: 10px 0;
 	display: flex;
 }
 
@@ -177,7 +177,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 5px 0 10px 0;
+	padding: 5px 0 10px;
 	overflow: hidden; /* buttons row should never overflow */
 	white-space: nowrap;
 	margin-top: auto;

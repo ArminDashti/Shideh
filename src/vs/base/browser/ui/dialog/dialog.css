@@ -229,7 +229,7 @@
 
 /** Dialog: Checkbox */
 .monaco-dialog-box .dialog-message-row .dialog-message-container .dialog-checkbox-row {
-	padding: 15px 0px 0px;
+	padding: 15px 0 0;
 	display: flex;
 }
 
@@ -242,7 +242,7 @@
 
 /** Dialog: Input */
 .monaco-dialog-box .dialog-message-row .dialog-message-container .dialog-message-input {
-	padding: 15px 0px 0px;
+	padding: 15px 0 0;
 	display: flex;
 }
 

@@ -132,7 +132,7 @@
 	text-overflow: ellipsis;
 	overflow: hidden;
 	white-space: nowrap;
-	margin: 0px 10px;
+	margin: 0 10px;
 }
 
 .debug-pane .call-stack-state-message > .label {
@@ -293,7 +293,7 @@
 }
 
 .debug-pane .monaco-inputbox > .ibwrapper > .input {
-	padding: 0px;
+	padding: 0;
 	color: initial;
 }
 

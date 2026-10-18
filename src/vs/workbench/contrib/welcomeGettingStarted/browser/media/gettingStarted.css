@@ -714,7 +714,7 @@
 	justify-content: center;
 	width: 66%;
 	min-height: 300px;
-	padding: 0px 0 20px 44px;
+	padding: 0 0 20px 44px;
 	min-width: 400px;
 	max-width: 800px;
 }
@@ -830,7 +830,7 @@
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideDetails h2 {
 	font-size: 26px;
 	font-weight: normal;
-	margin: 0 0 8px 0;
+	margin: 0 0 8px;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideDetails h2 .codicon {

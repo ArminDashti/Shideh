@@ -270,7 +270,7 @@
 	position: absolute;
 	left: -22px;
 	top: 8px;
-	bottom: 0px;
+	bottom: 0;
 	width: 22px;
 	height: 22px;
 }
@@ -353,11 +353,11 @@
 
 /* Set padding for these two to zero for now, otherwise the ends of the lists get cut off. */
 .settings-editor > .settings-body .settings-tree-container .monaco-scrollable-element {
-	padding-top: 0px;
+	padding-top: 0;
 }
 
 .settings-editor > .settings-body .settings-toc-container .monaco-scrollable-element {
-	padding-top: 0px;
+	padding-top: 0;
 }
 
 .settings-editor > .settings-body .settings-toc-wrapper {
@@ -372,7 +372,7 @@
 }
 
 .settings-editor.narrow-width > .settings-body .settings-tree-container {
-	margin-left: 0px;
+	margin-left: 0;
 }
 
 .settings-editor > .settings-body .settings-tree-container .monaco-list-row {
@@ -580,7 +580,7 @@
 }
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-contents .setting-item-markdown * {
-	margin: 0px;
+	margin: 0;
 }
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-contents .setting-item-markdown *:not(:last-child) {
@@ -680,8 +680,8 @@
 	border: 1px solid transparent;
 	border-radius: 3px;
 	margin-right: 9px;
-	margin-left: 0px;
-	padding: 0px;
+	margin-left: 0;
+	padding: 0;
 }
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-bool .setting-value-checkbox.codicon:not(.checked)::before {
@@ -755,7 +755,7 @@
 
 .settings-editor > .settings-body .settings-tree-container .settings-group-title-label {
 	display: inline-block;
-	margin: 0px;
+	margin: 0;
 	font-weight: 600;
 	height: 100%;
 	box-sizing: border-box;

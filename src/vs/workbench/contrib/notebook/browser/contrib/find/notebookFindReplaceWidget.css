@@ -33,7 +33,7 @@
 	/* visibility: hidden;		Use visibility to maintain flex layout while hidden otherwise interferes with transition */
 	z-index: 10;
 	position: relative;
-	top: 0px;
+	top: 0;
 	display: flex;
 	padding: 4px;
 	align-items: center;
@@ -45,7 +45,7 @@
 	/* visibility: hidden;		Use visibility to maintain flex layout while hidden otherwise interferes with transition */
 	z-index: 10;
 	position: relative;
-	top: 0px;
+	top: 0;
 	display: flex;
 	padding: 4px;
 	align-items: center;
@@ -94,7 +94,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-left: 0px;
+	margin-left: 0;
 	pointer-events: all;
 }
 
