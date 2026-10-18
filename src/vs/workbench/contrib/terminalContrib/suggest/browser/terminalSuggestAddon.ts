@@ -1059,6 +1059,7 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 			this._cancellationTokenSource?.dispose(true);
 			this._cancellationTokenSource = undefined;
 		}
+		this._mostRecentPromptInputState = undefined;
 		this._currentPromptInputState = undefined;
 		this._leadingLineContent = undefined;
 		this._suggestWidget?.hide();
