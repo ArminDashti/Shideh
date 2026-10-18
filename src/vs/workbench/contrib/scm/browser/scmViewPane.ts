@@ -1644,6 +1644,7 @@ export class SCMViewPane extends ViewPane {
 	readonly onDidChangeViewSortKey = this._onDidChangeViewSortKey.event;
 
 	private readonly items = new DisposableMap<ISCMRepository, IDisposable>();
+	private visibilityBarrier: Barrier | undefined;
 	private readonly visibilityDisposables = new DisposableStore();
 
 	private readonly treeOperationSequencer = new Sequencer();
@@ -2399,7 +2400,7 @@ export class SCMViewPane extends ViewPane {
 		return this.scmViewService.visibleRepositories.length === 1 ? this.scmViewService.visibleRepositories[0].provider : undefined;
 	}
 
-	override focus(): void {
+	override async focus(): Promise<void> {
 		super.focus();
 
 		this.treeOperationSequencer.queue(() => {
