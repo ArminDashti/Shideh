@@ -208,6 +208,11 @@ export class BrowserView extends Disposable {
 				return { action: 'deny' };
 			}
 
+			// Check for external URLs first. If handled externally, cancel the popup.
+			if (this.maybeHandleExternalURL(details.url)) {
+				return { action: 'deny' };
+			}
+
 			return {
 				action: 'allow',
 				createWindow: (options) => {
@@ -578,6 +583,27 @@ export class BrowserView extends Disposable {
 				finalUpdate: result.finalUpdate
 			});
 		});
+
+		// Handle opening external URLs
+		webContents.on('will-navigate', (event, url) => {
+			if (this.maybeHandleExternalURL(url)) {
+				event.preventDefault();
+			}
+		});
+	}
+
+	/**
+	 * Check if the URL should be handled externally (and handle it).
+	 * Returns true if the URL is external and navigation should be prevented.
+	 */
+	private maybeHandleExternalURL(url: string): boolean {
+		const uri = URI.parse(url);
+		if (!(builtInSchemes.has(uri.scheme) || this.viewSession.protocol.isProtocolHandled(uri.scheme))) {
+			// Pass to URL service with trusted=false to trigger confirmation dialogs
+			this.urlService.open(uri, { trusted: false });
+			return true;
+		}
+		return false;
 	}
 
 	private async _readFaviconUrls(): Promise<readonly string[] | undefined> {
