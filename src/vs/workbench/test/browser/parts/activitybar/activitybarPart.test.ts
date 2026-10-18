@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import sinon from 'sinon';
+import { ActionsOrientation } from '../../../../../base/browser/ui/actionbar/actionbar.js';
+import { EventType, ModifierKeyEmitter } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { isMacintosh, isNative } from '../../../../../base/common/platform.js';
+import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestColorTheme, TestThemeService } from '../../../../../platform/theme/test/common/testThemeService.js';
@@ -78,6 +83,40 @@ class TestFloatingPanelsLayoutService extends TestLayoutService {
 	override getSideBarPosition(): Position { return this.sideBarPosition; }
 }
 
+class TestViewDescriptorService extends mock<IViewDescriptorService>() {
+	override readonly viewContainers: readonly ViewContainer[] = [];
+	override readonly onDidChangeViewContainers = Event.None;
+	override readonly onDidChangeContainerLocation = Event.None;
+	override readonly onDidChangeContainer = Event.None;
+	override readonly onDidChangeLocation = Event.None;
+
+	override getViewContainersByLocation(): ViewContainer[] {
+		return [];
+	}
+}
+
+class TestCompactMenubarControl {
+	private button: HTMLElement | undefined;
+
+	create(parent: HTMLElement): HTMLElement {
+		this.dispose();
+		this.button = document.createElement('div');
+		this.button.setAttribute('aria-label', 'Application Menu');
+		this.button.tabIndex = 0;
+		parent.appendChild(this.button);
+		return parent;
+	}
+
+	toggleFocus(): void {
+		this.button?.focus();
+	}
+
+	dispose(): void {
+		this.button?.remove();
+		this.button = undefined;
+	}
+}
+
 suite('ActivitybarPart', () => {
 
 	const disposables = new DisposableStore();
@@ -94,6 +133,8 @@ suite('ActivitybarPart', () => {
 	teardown(() => {
 		fixture.remove();
 		disposables.clear();
+		ModifierKeyEmitter.disposeInstance();
+		sinon.restore();
 	});
 
 	function createActivitybarPart(compact: boolean, floatingPanelsEnabled = false, sideBarPosition = Position.LEFT, colors: { [id: string]: string | undefined } = {}, modernUICompact = false, instantiationService?: IInstantiationService): { part: ActivitybarPart; configService: TestConfigurationService; layoutService: TestFloatingPanelsLayoutService; hostService: TestHostService } {
@@ -136,6 +177,48 @@ suite('ActivitybarPart', () => {
 		configService.onDidChangeConfigurationEmitter.fire({
 			affectsConfiguration: (k: string) => k === key,
 		} satisfies Partial<IConfigurationChangeEvent> as unknown as IConfigurationChangeEvent);
+	}
+
+	function dispatchKeyboardEvent(element: HTMLElement, type: string, keyCode: number): void {
+		const event = new KeyboardEvent(type, { bubbles: true });
+		Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+		element.dispatchEvent(event);
+	}
+
+	function createActivityBarCompositeBar(configService: TestConfigurationService): ActivityBarCompositeBar {
+		const instantiationService = workbenchInstantiationService({ configurationService: () => configService }, disposables);
+		instantiationService.stubInstance(CustomMenubarControl, new TestCompactMenubarControl());
+		instantiationService.stub(IViewDescriptorService, new TestViewDescriptorService());
+		instantiationService.stub(IViewsService, new TestViewsService());
+
+		const options: IPaneCompositeBarOptions = {
+			partContainerClass: 'activitybar',
+			pinnedViewContainersKey: 'activitybar.test.pinned',
+			placeholderViewContainersKey: 'activitybar.test.placeholder',
+			viewContainersWorkspaceStateKey: 'activitybar.test.workspace',
+			orientation: ActionsOrientation.VERTICAL,
+			icon: true,
+			iconSize: 16,
+			recomputeSizes: false,
+			activityHoverOptions: { position: () => HoverPosition.RIGHT },
+			fillExtraContextMenuActions: () => { },
+			compositeSize: 52,
+			overflowActionSize: 48,
+			colors: () => ({
+				activeForegroundColor: undefined,
+				inactiveForegroundColor: undefined,
+				activeBorderColor: undefined,
+				activeBackground: undefined,
+				badgeBackground: undefined,
+				badgeForeground: undefined,
+				dragAndDropBorder: undefined,
+				activeBackgroundColor: undefined,
+				inactiveBackgroundColor: undefined,
+				activeBorderBottomColor: undefined,
+			})
+		};
+
+		return disposables.add(instantiationService.createInstance(ActivityBarCompositeBar, ViewContainerLocation.Sidebar, options, Parts.ACTIVITYBAR_PART, new StubPaneCompositePart(), false));
 	}
 
 	// --- Static constants ---------------------------------------------------
@@ -273,6 +356,37 @@ suite('ActivitybarPart', () => {
 			{ min: part.minimumWidth, max: part.maximumWidth },
 			{ min: ActivitybarPart.ACTIVITYBAR_WIDTH, max: ActivitybarPart.ACTIVITYBAR_WIDTH }
 		);
+	});
+
+	(isMacintosh && isNative ? test.skip : test)('Modern UI menu bar visibility preserves compact menu keyboard navigation', async () => {
+		const configService = new TestConfigurationService({
+			[LayoutSettings.MODERN_UI]: true,
+			[MenuSettings.MenuBarVisibility]: 'compact'
+		});
+		const compositeBar = createActivityBarCompositeBar(configService);
+		const focusSpy = sinon.spy(compositeBar, 'focus');
+		compositeBar.create(fixture);
+		const menuCounts = [fixture.querySelectorAll('.menubar').length];
+
+		for (const visibility of ['visible', 'hidden', 'compact', 'compact']) {
+			await configService.setUserConfiguration(MenuSettings.MenuBarVisibility, visibility);
+			fireConfigChange(configService, MenuSettings.MenuBarVisibility);
+			menuCounts.push(fixture.querySelectorAll('.menubar').length);
+		}
+
+		focusSpy.resetHistory();
+		const applicationMenu = fixture.querySelector<HTMLElement>('[aria-label="Application Menu"]')!;
+		dispatchKeyboardEvent(applicationMenu, EventType.KEY_DOWN, 39);
+		dispatchKeyboardEvent(applicationMenu, EventType.KEY_UP, 39);
+		dispatchKeyboardEvent(applicationMenu, EventType.KEY_DOWN, 40);
+
+		assert.deepStrictEqual({
+			menuCounts,
+			focusCount: focusSpy.callCount
+		}, {
+			menuCounts: [1, 0, 0, 1, 1],
+			focusCount: 1
+		});
 	});
 
 	// --- onDidChange fires for grid ----------------------------------------
