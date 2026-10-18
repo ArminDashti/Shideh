@@ -49,6 +49,8 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 
 	private _contentWidget: ContentHoverWidgetWrapper | undefined;
 
+	private _hoverQuickFixVisibleContextKey: IContextKey<boolean>;
+
 	private _mouseMoveEvent: IEditorMouseEvent | undefined;
 	private _reactToEditorMouseMoveRunner: RunOnceScheduler;
 
@@ -62,7 +64,8 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 		private readonly _editor: ICodeEditor,
 		@IContextMenuService _contextMenuService: IContextMenuService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IContextKeyService _contextKeyService: IContextKeyService
 	) {
 		super();
 		this._reactToEditorMouseMoveRunner = this._register(new RunOnceScheduler(
@@ -86,6 +89,7 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 				this._hookListeners();
 			}
 		}));
+		this._hoverQuickFixVisibleContextKey = CodeActionWidgetContextKeys.VisibleFromHoverQuickFix.bindTo(_contextKeyService);
 	}
 
 	static get(editor: ICodeEditor): ContentHoverController | null {
@@ -117,6 +121,7 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 	}
 
 	private _cancelSchedulerAndHide(): void {
+		console.log('_cancelSchedulerAndHide');
 		this._cancelScheduler();
 		this.hideContentHover();
 	}
@@ -149,7 +154,7 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 	}
 
 	private _shouldKeepHoverWidgetVisible(mouseEvent: IPartialEditorMouseEvent): boolean {
-		return this._isMouseOnContentHoverWidget(mouseEvent) || this._isContentWidgetResizing() || isOnColorDecorator(mouseEvent);
+		return this._isMouseOnContentHoverWidget(mouseEvent) || this._isContentWidgetResizing() || isOnColorDecorator(mouseEvent) || (this._hoverQuickFixVisibleContextKey.get() ?? false);
 	}
 
 	private _isMouseOnContentHoverWidget(mouseEvent: IPartialEditorMouseEvent): boolean {
@@ -356,6 +361,7 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 	}
 
 	public hideContentHover(): void {
+		console.log('hideContentHover');
 		if (_sticky) {
 			return;
 		}
