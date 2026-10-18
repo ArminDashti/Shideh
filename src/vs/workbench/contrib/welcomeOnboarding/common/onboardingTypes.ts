@@ -11,6 +11,7 @@ import { IProductOnboardingTheme } from '../../../../base/common/product.js';
  */
 export const enum OnboardingStepId {
 	Personalize = 'onboarding.personalize',
+	ImportFromEditor = 'onboarding.importFromEditor',
 	AiPreference = 'onboarding.aiPreference',
 }
 
@@ -21,6 +22,8 @@ export function getOnboardingStepTitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
 		case OnboardingStepId.Personalize:
 			return localize('onboarding.step.personalize', "Make It Yours");
+		case OnboardingStepId.ImportFromEditor:
+			return localize('onboarding.step.importFromEditor', "Bring Your Setup Along");
 		case OnboardingStepId.AiPreference:
 			return localize('onboarding.step.aiPreference', "Your AI Style");
 	}
@@ -32,7 +35,9 @@ export function getOnboardingStepTitle(stepId: OnboardingStepId): string {
 export function getOnboardingStepSubtitle(stepId: OnboardingStepId): string {
 	switch (stepId) {
 		case OnboardingStepId.Personalize:
-			return localize('onboarding.step.personalize.subtitle', "Choose your theme and keyboard mapping");
+			return localize('onboarding.step.personalize.subtitle', "Pick a theme and keyboard shortcuts that feel like home");
+		case OnboardingStepId.ImportFromEditor:
+			return localize('onboarding.step.importFromEditor.subtitle', "Already use another editor? Bring your settings, keybindings, and extensions with you");
 		case OnboardingStepId.AiPreference:
 			return localize('onboarding.step.aiPreference.subtitle', "Choose how much AI collaboration fits your workflow");
 	}

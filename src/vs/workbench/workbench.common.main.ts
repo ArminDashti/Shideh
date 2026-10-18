@@ -349,6 +349,9 @@ import './contrib/output/browser/outputView.js';
 import './contrib/terminal/terminal.all.js';
 
 // External terminal
+// Import from other editors (e.g. Cursor)
+import './contrib/externalEditorImport/browser/externalEditorImport.contribution.js';
+
 import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
 
 // Relauncher

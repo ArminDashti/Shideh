@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/chatWidget.css';
+import '../../../../workbench/contrib/chat/browser/viewsWelcome/media/chatProviderSetup.css';
 import * as dom from '../../../../base/browser/dom.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
 import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';

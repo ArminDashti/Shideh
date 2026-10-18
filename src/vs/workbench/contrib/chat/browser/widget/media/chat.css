@@ -5272,3 +5272,11 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 		transform: translate(-50%, -50%) rotate(270deg);
 	}
 }
+
+/*
+ * While the signed-out provider list stands in for the input, the hidden input
+ * part would still reserve its own padding and leave a sliver under the list.
+ */
+.interactive-session.chat-provider-setup-active > .interactive-input-part {
+	padding: 0;
+}

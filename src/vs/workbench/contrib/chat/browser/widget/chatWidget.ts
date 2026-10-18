@@ -6,6 +6,7 @@
 import './media/chat.css';
 import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
+import '../viewsWelcome/media/chatProviderSetup.css';
 import * as dom from '../../../../../base/browser/dom.js';
 import { status } from '../../../../../base/browser/ui/aria/aria.js';
 import { IMouseWheelEvent } from '../../../../../base/browser/mouseEvent.js';
@@ -782,6 +783,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.transcriptProgressActiveContext = ChatContextKeys.transcriptProgressActive.bindTo(contextKeyService);
 
 		this._register(this.chatEntitlementService.onDidChangeAnonymous(() => this.renderWelcomeViewContentIfNeeded()));
+		this._register(this.chatEntitlementService.onDidChangeEntitlement(() => this.renderWelcomeViewContentIfNeeded()));
+		this._register(this.chatEntitlementService.onDidChangeSentiment(() => this.renderWelcomeViewContentIfNeeded()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('chat.tips.enabled')) {
@@ -1680,6 +1683,16 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	/**
+	 * True while the user has no way to run a model yet: signed out, with no
+	 * bring-your-own-key models configured, and with AI features still visible.
+	 */
+	private shouldShowProviderSetup(): boolean {
+		return this.chatEntitlementService.entitlement === ChatEntitlement.Unknown
+			&& !this.chatEntitlementService.hasByokModels
+			&& !this.chatEntitlementService.sentiment.hidden;
+	}
+
+	/**
 	 * Renders the welcome view content when needed.
 	 */
 	private renderWelcomeViewContentIfNeeded() {
@@ -1702,6 +1715,31 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 			const numItems = this.viewModel?.getItems().length ?? 0;
 			if (!numItems) {
+				// Before any provider exists, the panel's job is to help the user
+				// get models — not to introduce chat they cannot use yet.
+				if (this.shouldShowProviderSetup()) {
+					// An input you cannot send from is a lie: with no model
+					// configured, the list is the only useful thing here, so it
+					// takes the input's place rather than sitting above it.
+					this.setInputVisible(false);
+					this.container.classList.add('chat-provider-setup-active');
+					if (!this.providerSetupPart.value) {
+						dom.clearNode(this.welcomeMessageContainer);
+						this.welcomePart.clear();
+						const part = this.providerSetupPart.value = this.instantiationService.createInstance(ChatProviderSetupPart);
+						dom.append(this.welcomeMessageContainer, part.element);
+					}
+					this.updateChatViewVisibility();
+					return;
+				}
+
+				if (this.providerSetupPart.value) {
+					this.providerSetupPart.clear();
+					dom.clearNode(this.welcomeMessageContainer);
+					this.container.classList.remove('chat-provider-setup-active');
+					this.setInputVisible(true);
+				}
+
 				const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
 				let additionalMessage: string | IMarkdownString | undefined;
 				if (product.defaultChatAgent && this.chatEntitlementService.anonymous && !this.chatEntitlementService.sentiment.completed) {

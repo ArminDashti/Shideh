@@ -13,6 +13,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { localize } from '../../../../nls.js';
+import { status } from '../../../../base/browser/ui/aria/aria.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { IWorkbenchThemeService } from '../../../services/themes/common/workbenchThemeService.js';
@@ -265,7 +266,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 				this._logAction('complete');
 				this._dismiss('complete');
 			} else if (this.currentStepIndex === 0) {
-				this._logAction('continueWithoutSignIn');
+				// Sign-in is now a direct action on the card, so the footer is
+				// only ever a way past this step.
+				this._logAction(this._userSignedIn ? 'next' : 'continueWithoutSignIn');
 				this._nextStep();
 			} else {
 				this._logAction('next');
@@ -313,6 +316,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 		this._importCancellation.value?.cancel();
 
 		this._logAction('dismiss', undefined, reason);
+
+		// An import in flight has no UI to report into once the modal is gone.
+		this._importCancellation.value?.cancel();
 
 		this.overlay.classList.remove('visible');
 		this.overlay.classList.add('exiting');
@@ -419,6 +425,9 @@ export class OnboardingVariationA extends Disposable implements IOnboardingServi
 		switch (stepId) {
 			case OnboardingStepId.Personalize:
 				this._renderPersonalizeStep(this.contentEl);
+				break;
+			case OnboardingStepId.ImportFromEditor:
+				this._renderImportFromEditorStep(this.contentEl);
 				break;
 			case OnboardingStepId.AiPreference:
 				this._renderAiPreferenceStep(this.contentEl);
