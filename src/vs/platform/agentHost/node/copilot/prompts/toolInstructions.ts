@@ -82,6 +82,15 @@ const passwordPromptToolInstructions: ToolInstructionLine = ({ getSetting }) =>
 	getSetting(CopilotCliConfigKey.EnableCustomTerminalTool) === true ? undefined : COPILOT_AGENT_HOST_PASSWORD_PROMPT_TOOL_INSTRUCTION;
 
 /**
+ * Coordinates work across sessions that may use different worktrees for the
+ * same repository. Session-management server tools are contributed to every
+ * Agent Host session; `hasTool` only reflects client tools, so this is
+ * intentionally unconditional.
+ */
+export const COPILOT_AGENT_HOST_SESSION_COORDINATION_TOOL_INSTRUCTION = 'Before beginning code changes or creating a session, use `get_current_session` to identify the current session, then use `list_sessions` to check other active sessions across the same project or repository—not only the same working directory—and exclude the current session URI. Compare each session\'s title, activity, branch, pull request, and changed files to identify plausible overlap. For plausible overlaps, use `get_session_context` to confirm the scope and `send_message` to agree on ownership or sequencing before editing shared files; otherwise continue independently without waiting. Prefer dividing work to avoid duplicate effort, conflicting edits, and unnecessary merge conflicts.';
+const sessionCoordinationToolInstructions: ToolInstructionLine = () => COPILOT_AGENT_HOST_SESSION_COORDINATION_TOOL_INSTRUCTION;
+
+/**
  * Front-end guidance for the integrated browser tools, ported from the Copilot
  * extension's `defaultAgentInstructions`/per-model prompts. Emitted only when the
  * page-opening tool AND at least one agentic browser tool are available, naming
