@@ -67,6 +67,7 @@ const otherEntries: WatermarkEntry[] = [
 	startDebugging,
 	toggleTerminal,
 	openSettings,
+	gotoFile,
 ];
 
 export class EditorGroupWatermark extends Disposable {
@@ -222,13 +223,18 @@ export class EditorGroupWatermark extends Disposable {
 			clearNode(box);
 			this.keybindingLabels.clear();
 
-			for (const entry of entries) {
+			for (let i = 0; i < entries.length; i++) {
+				const entry = entries[i];
 				const keys = this.keybindingService.lookupKeybinding(entry.id);
 				if (!keys) {
 					continue;
 				}
 
 				const dl = append(box, $('dl'));
+				if (i < fixedEntries.length) {
+					dl.classList.add('watermark-fixed-entry');
+				}
+
 				const dt = append(dl, $('dt'));
 				dt.textContent = entry.text;
 
