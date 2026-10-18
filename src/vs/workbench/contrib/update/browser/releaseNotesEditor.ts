@@ -97,7 +97,6 @@ export class ReleaseNotesManager extends Disposable {
 
 		this._register(_configurationService.onDidChangeConfiguration((e) => this.onDidChangeConfiguration(e)));
 		this._register(_webviewWorkbenchService.onDidChangeActiveWebviewEditor((e) => this.onDidChangeActiveWebviewEditor(e)));
-		this._register(this._updateService.onStateChange(() => this.postUpdateAction()));
 		this._simpleSettingRenderer = this._instantiationService.createInstance(SimpleSettingRenderer);
 	}
 
@@ -237,10 +236,6 @@ export class ReleaseNotesManager extends Disposable {
 					this.updateTokenization().catch(onUnexpectedError);
 				} else if (e.message.type === 'showReleaseNotes') {
 					this._configurationService.updateValue('update.showReleaseNotes', e.message.value);
-				} else if (e.message.type === 'updateAction') {
-					if (e.message.commandId) {
-						this._commandService.executeCommand(e.message.commandId);
-					}
 				} else if (e.message.type === 'clickSetting') {
 					const x = input.webview.container.offsetLeft + e.message.value.x;
 					const y = input.webview.container.offsetTop + e.message.value.y;
@@ -401,7 +396,6 @@ export class ReleaseNotesManager extends Disposable {
 		const colorMap = TokenizationRegistry.getColorMap();
 		const css = colorMap ? generateTokensCSSForColorMap(colorMap) : '';
 		const showReleaseNotes = Boolean(this._configurationService.getValue<boolean>('update.showReleaseNotes'));
-		const updateAction = this.getUpdateAction();
 
 		return `<!DOCTYPE html>
 		<html>
@@ -772,31 +766,6 @@ export class ReleaseNotesManager extends Disposable {
 				</script>
 			</body>
 		</html>`;
-	}
-
-	private getUpdateAction(): { label: string; commandId: string } | undefined {
-		const state = this._updateService.state;
-		switch (state.type) {
-			case StateType.AvailableForDownload:
-				return { label: nls.localize('releaseNotes.downloadUpdate', "Download Update"), commandId: 'update.downloadNow' };
-			case StateType.Downloaded:
-				return { label: nls.localize('releaseNotes.installUpdate', "Install Update"), commandId: 'update.install' };
-			case StateType.Ready:
-				return { label: nls.localize('releaseNotes.restartToUpdate', "Restart to Update"), commandId: 'update.restart' };
-			default:
-				return undefined;
-		}
-	}
-
-	private postUpdateAction(): void {
-		if (this._currentReleaseNotes) {
-			const action = this.getUpdateAction();
-			this._currentReleaseNotes.webview.postMessage({
-				type: 'updateAction',
-				label: action?.label ?? '',
-				commandId: action?.commandId ?? ''
-			});
-		}
 	}
 
 	private onDidChangeConfiguration(e: IConfigurationChangeEvent): void {

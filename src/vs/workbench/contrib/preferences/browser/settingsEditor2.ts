@@ -1037,7 +1037,7 @@ export class SettingsEditor2 extends EditorPane {
 			// If the target display category is different than the source's, unfocus the category
 			// so that we can render all found settings again.
 			// Then, the reveal call will correctly find the target setting.
-			if (this.viewState.categoryFilter && evt.source.displayCategory !== targetElement.displayCategory) {
+			if (this.viewState.filterToCategory && evt.source.displayCategory !== targetElement.displayCategory) {
 				this.tocTree.setFocus([]);
 			}
 			try {
@@ -2079,7 +2079,7 @@ export class SettingsEditor2 extends EditorPane {
 
 			if (expandResults) {
 				this.tocTree.setFocus([]);
-				this.viewState.categoryFilter = undefined;
+				this.viewState.filterToCategory = undefined;
 			}
 			this.tocTreeModel.currentSearchModel = this.searchResultModel;
 			this.renderedSearchQuery = this.viewState.query;
@@ -2203,7 +2203,7 @@ export class SettingsEditor2 extends EditorPane {
 		this.renderedSearchQuery = this.viewState.query;
 		if (expandResults) {
 			this.tocTree.setFocus([]);
-			this.viewState.categoryFilter = undefined;
+			this.viewState.filterToCategory = undefined;
 			this.tocTree.expandAll();
 			this.settingsTree.scrollTop = 0;
 		}

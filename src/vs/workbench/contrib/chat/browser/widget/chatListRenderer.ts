@@ -5867,8 +5867,13 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const isEditing = !!this.viewModel?.editing;
 		const part: ChatQuestionCarouselPart | undefined = isEditing ? undefined : widget?.input.renderQuestionCarousel(carousel, context, {
 			shouldAutoFocus,
-			onSubmit: async (answers) => handleSubmit(answers, part!)
-		});
+			onSubmit: async (answers) => {
+				// Mark the carousel as used and store the answers
+				const answersRecord = answers ? Object.fromEntries(answers) : undefined;
+				if (answersRecord) {
+					carousel.data = answersRecord;
+				}
+				carousel.isUsed = true;
 
 		// If we couldn't render in the input part, fall back to inline rendering
 		if (!part) {
@@ -5880,40 +5885,19 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 
 		// Track the carousel for auto-skip when user submits a new message
-		// Only add tracking if not already tracked (prevents duplicate tracking on re-render)
 		if (isResponseVM(context.element) && carousel.allowSkip && !carousel.isUsed) {
 			let carousels = this.pendingQuestionCarousels.get(context.element.sessionResource);
 			if (!carousels) {
 				carousels = new Set();
 				this.pendingQuestionCarousels.set(context.element.sessionResource, carousels);
 			}
-			if (!carousels.has(part)) {
-				carousels.add(part);
+			carousels.add(part);
 
-				// Clean up when the part is disposed
-				part.addDisposable({ dispose: () => this.removeCarouselFromTracking(context, part) });
-			}
+			// Clean up when the part is disposed
+			part.addDisposable({ dispose: () => this.removeCarouselFromTracking(context, part) });
 		}
 
-		// Return a placeholder that will re-render as a summary when the carousel is used or response is complete/stopped
-		return this.renderNoContent((other, _followingContent, element) => {
-			// Re-render (return false) if:
-			// - carousel was used/submitted
-			// - response is complete (stopped)
-			if (carousel.isUsed || (isResponseVM(element) && element.isComplete)) {
-				return false;
-			}
-			// Use resolveId for comparison instead of object identity to handle re-rendering during scrolling
-			if (other.kind === 'questionCarousel') {
-				const otherCarousel = other as IChatQuestionCarousel;
-				// Compare by resolveId if available, otherwise fall back to object identity
-				if (carousel.resolveId && otherCarousel.resolveId) {
-					return carousel.resolveId === otherCarousel.resolveId;
-				}
-				return other === carousel;
-			}
-			return false;
-		});
+		return part;
 	}
 
 	private _notifyOnQuestionCarousel(context: IChatContentPartRenderContext, carousel: IChatQuestionCarousel): void {

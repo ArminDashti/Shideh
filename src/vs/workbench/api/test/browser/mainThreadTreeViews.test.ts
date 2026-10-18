@@ -14,7 +14,7 @@ import { TestNotificationService } from '../../../../platform/notification/test/
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { NullTelemetryService } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { MainThreadTreeViews } from '../../browser/mainThreadTreeViews.js';
-import { DataTransferDTO, ExtHostTreeViewsShape } from '../../common/extHost.protocol.js';
+import { ExtHostTreeViewsShape } from '../../common/extHost.protocol.js';
 import { CustomTreeView } from '../../../browser/parts/views/treeView.js';
 import { Extensions, ITreeItem, ITreeView, ITreeViewDescriptor, IViewContainersRegistry, IViewDescriptorService, IViewsRegistry, TreeItemCollapsibleState, ViewContainer, ViewContainerLocation } from '../../../common/views.js';
 import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
@@ -22,9 +22,6 @@ import { ExtensionHostKind } from '../../../services/extensions/common/extension
 import { ViewDescriptorService } from '../../../services/views/browser/viewDescriptorService.js';
 import { TestViewsService, workbenchInstantiationService } from '../../../test/browser/workbenchTestServices.js';
 import { TestExtensionService } from '../../../test/common/workbenchTestServices.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Mimes } from '../../../../base/common/mime.js';
-import { URI } from '../../../../base/common/uri.js';
 
 suite('MainThreadHostTreeView', function () {
 	const testTreeViewId = 'testTreeView';
@@ -50,7 +47,6 @@ suite('MainThreadHostTreeView', function () {
 	let container: ViewContainer;
 	let mainThreadTreeViews: MainThreadTreeViews;
 	let extHostTreeViewsShape: MockExtHostTreeViewsShape;
-	let instantiationService: TestInstantiationService;
 
 	teardown(() => {
 		ViewsRegistry.deregisterViews(ViewsRegistry.getViews(container), container);
@@ -59,7 +55,7 @@ suite('MainThreadHostTreeView', function () {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	setup(async () => {
-		instantiationService = workbenchInstantiationService(undefined, disposables);
+		const instantiationService: TestInstantiationService = workbenchInstantiationService(undefined, disposables);
 		const viewDescriptorService = disposables.add(instantiationService.createInstance(ViewDescriptorService));
 		instantiationService.stub(IViewDescriptorService, viewDescriptorService);
 		// eslint-disable-next-line local/code-no-any-casts

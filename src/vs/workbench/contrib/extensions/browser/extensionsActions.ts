@@ -1794,7 +1794,7 @@ export class DisableDropDownAction extends ButtonWithDropDownExtensionAction {
 
 export class ExtensionRuntimeStateAction extends ExtensionAction {
 
-	private static readonly EnabledClass = `${ExtensionAction.LABEL_ACTION_CLASS} prominent reload`;
+	private static readonly EnabledClass = `${ExtensionAction.LABEL_ACTION_CLASS} reload`;
 	private static readonly DisabledClass = `${this.EnabledClass} disabled`;
 
 	updateWhenCounterExtensionChanges: boolean = true;

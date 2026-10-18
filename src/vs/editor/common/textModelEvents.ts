@@ -484,11 +484,13 @@ export class ModelRawLinesDeleted {
 	/**
 	 * At what line the deletion stopped (inclusive).
 	 */
-	public readonly toLineNumber: number;
+	public get toLineNumber(): number {
+		return this.fromLineNumber + this.count - 1;
+	}
 
-	constructor(fromLineNumber: number, toLineNumber: number) {
+	constructor(fromLineNumber: number, count: number) {
 		this.fromLineNumber = fromLineNumber;
-		this.toLineNumber = toLineNumber;
+		this.count = count;
 	}
 }
 

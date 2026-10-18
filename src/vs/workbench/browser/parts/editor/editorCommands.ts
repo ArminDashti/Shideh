@@ -9,11 +9,10 @@ import { Schemas, matchesScheme } from '../../../../base/common/network.js';
 import { extname, isEqual } from '../../../../base/common/resources.js';
 import { isNumber, isObject, isString, isUndefined } from '../../../../base/common/types.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
-import { Codicon } from '../../../../base/common/codicons.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { CommandsRegistry, ICommandHandler, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -33,8 +32,7 @@ import { IMultiDiffEditorOptions } from '../../../../editor/common/multiDiffEdit
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { SideBySideEditorInput } from '../../../common/editor/sideBySideEditorInput.js';
 import { EditorGroupColumn, columnToEditorGroup } from '../../../services/editor/common/editorGroupColumn.js';
-import { EditorGroupLayout, GroupDirection, GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, IEditorReplacement, IModalEditorPart, preferredSideBySideGroupDirection } from '../../../services/editor/common/editorGroupsService.js';
-import { mainWindow } from '../../../../base/browser/window.js';
+import { EditorGroupLayout, GroupDirection, GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, IEditorReplacement, preferredSideBySideGroupDirection } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorResolverService } from '../../../services/editor/common/editorResolverService.js';
 import { IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
@@ -1807,5 +1805,4 @@ export function setup(): void {
 	registerSplitEditorCommands();
 	registerMoveEditorCommands();
 	registerFocusEditorGroupWihoutWrapCommands();
-	registerModalEditorCommands();
 }

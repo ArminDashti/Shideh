@@ -15,7 +15,7 @@ import { Mimes } from '../../../base/common/mime.js';
 import { Schemas } from '../../../base/common/network.js';
 import { nextCharLength } from '../../../base/common/strings.js';
 import { isNumber, isObject, isString, isStringArray } from '../../../base/common/types.js';
-import { isUriComponents, URI } from '../../../base/common/uri.js';
+import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { stringify as yamlStringify } from '../../../base/common/yaml.js';
 import { TextEditorSelectionSource } from '../../../platform/editor/common/editor.js';
@@ -3499,26 +3499,13 @@ export class ChatResponseExtensionsPart {
 }
 
 export class ChatResponsePullRequestPart {
-	public readonly uri?: vscode.Uri;
-	public readonly command: vscode.Command;
-
 	constructor(
-		uriOrCommand: vscode.Uri | vscode.Command,
+		public readonly uri: vscode.Uri,
 		public readonly title: string,
 		public readonly description: string,
 		public readonly author: string,
 		public readonly linkTag: string
 	) {
-		if (isUriComponents(uriOrCommand)) {
-			this.uri = uriOrCommand as vscode.Uri;
-			this.command = {
-				title: 'Open Pull Request',
-				command: 'vscode.open',
-				arguments: [uriOrCommand]
-			};
-		} else {
-			this.command = uriOrCommand;
-		}
 	}
 
 	toJSON() {

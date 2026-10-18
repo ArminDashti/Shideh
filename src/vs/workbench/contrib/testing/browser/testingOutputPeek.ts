@@ -527,7 +527,7 @@ export class TestingOutputPeekController extends Disposable implements IEditorCo
 		if (!this.peek.get()) {
 			const peek = this.instantiationService.createInstance(TestResultsPeek, this.editor);
 			this.peek.set(peek, undefined);
-			Event.once(peek.onDidClose)(() => {
+			peek.onDidClose(() => {
 				this.visible.set(false);
 				this.peek.set(undefined, undefined);
 			});

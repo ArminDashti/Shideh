@@ -146,6 +146,8 @@ suite('Editor Model - Injected Text Events', () => {
 			},
 			{
 				kind: 'linesDeleted',
+				fromLineNumber: 3,
+				count: 14,
 			}
 		]);
 
@@ -169,6 +171,8 @@ function mapChange(change: ModelRawChange): unknown {
 	} else if (change.changeType === RawContentChangedType.LinesDeleted) {
 		return {
 			kind: 'linesDeleted',
+			fromLineNumber: change.fromLineNumber,
+			count: change.count,
 		};
 	} else if (change.changeType === RawContentChangedType.EOLChanged) {
 		return {

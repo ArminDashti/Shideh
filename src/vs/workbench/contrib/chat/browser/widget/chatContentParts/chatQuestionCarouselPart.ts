@@ -1202,7 +1202,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		options.forEach((option, index) => {
 			if (previousSelectedValue !== undefined && option.value === previousSelectedValue) {
 				selectedIndex = index;
-			} else if (selectedIndex === -1 && !previousFreeform && defaultOptionId !== undefined && option.id === defaultOptionId) {
+			} else if (selectedIndex === -1 && defaultOptionId !== undefined && option.id === defaultOptionId) {
 				selectedIndex = index;
 			}
 		});
@@ -1427,7 +1427,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			let isChecked = false;
 			if (previousSelectedValues && previousSelectedValues.length > 0) {
 				isChecked = previousSelectedValues.includes(option.value);
-			} else if (!previousFreeform && defaultOptionIds.includes(option.id)) {
+			} else if (defaultOptionIds.includes(option.id)) {
 				isChecked = true;
 			}
 
@@ -1476,11 +1476,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 				}
 			}));
 
-			this._inputBoxes.add(this._hoverService.setupDelayedHover(listItem, {
-				content: option.label,
-				position: { hoverPosition: HoverPosition.BELOW },
-				appearance: { showPointer: true }
-			}));
+			this._inputBoxes.add(getBaseLayerHoverDelegate().setupManagedHover(getDefaultHoverDelegate('mouse'), listItem, option.label));
 
 			selectContainer.appendChild(listItem);
 			checkboxes.push(checkbox);

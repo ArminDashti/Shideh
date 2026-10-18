@@ -37,16 +37,12 @@ import './search.common.contribution.js';
 import { TEXT_SEARCH_QUICK_ACCESS_PREFIX, TextSearchQuickAccess } from './quickTextSearch/textSearchQuickAccess.js';
 import { Extensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
-import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
-import { SearchAccessibilityHelp } from './searchAccessibilityHelp.js';
 
 registerSingleton(ISearchViewModelWorkbenchService, SearchViewModelWorkbenchService, InstantiationType.Delayed);
 
 searchWidgetContributions();
 
 registerWorkbenchContribution2(SearchChatContextContribution.ID, SearchChatContextContribution, WorkbenchPhase.AfterRestored);
-
-AccessibleViewRegistry.register(new SearchAccessibilityHelp());
 
 const SEARCH_MODE_CONFIG = 'search.mode';
 

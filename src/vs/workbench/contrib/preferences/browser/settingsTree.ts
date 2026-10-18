@@ -530,6 +530,14 @@ export async function createTocTreeForExtensionSettings(extensionService: IExten
 	return Promise.all(processPromises).then(() => {
 		const extGroups: ITOCEntry<ISetting>[] = [];
 		for (const extensionRootEntry of extGroupTree.values()) {
+			for (const child of extensionRootEntry.children!) {
+				// Sort the individual settings of the child by order.
+				// Leave the undefined order settings untouched.
+				child.settings?.sort((a, b) => {
+					return compareTwoNullableNumbers(a.order, b.order);
+				});
+			}
+
 			if (extensionRootEntry.children!.length === 1) {
 				// There is a single category for this extension.
 				// Push a flattened setting.
@@ -2646,14 +2654,14 @@ function escapeInvisibleChars(enumValue: string): string {
 export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 	constructor(
 		private viewState: ISettingsEditorViewState,
-		private isFilteringGroups: boolean,
+		private filterGroups: boolean,
 		@IWorkbenchEnvironmentService private environmentService: IWorkbenchEnvironmentService,
 	) { }
 
 	filter(element: SettingsTreeElement, parentVisibility: TreeVisibility): TreeFilterResult<void> {
 		// Filter during search
-		if (this.viewState.categoryFilter && element instanceof SettingsTreeSettingElement) {
-			if (!this.settingContainedInGroup(element.setting, this.viewState.categoryFilter)) {
+		if (this.viewState.filterToCategory && element instanceof SettingsTreeSettingElement) {
+			if (!this.settingBelongsToCategory(element, this.viewState.filterToCategory)) {
 				return false;
 			}
 		}
@@ -2669,8 +2677,8 @@ export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 		// Group with no visible children
 		if (element instanceof SettingsTreeGroupElement) {
 			// When filtering to a specific category, only show that category and its descendants
-			if (this.isFilteringGroups && this.viewState.categoryFilter) {
-				if (!this.groupIsRelatedToCategory(element, this.viewState.categoryFilter)) {
+			if (this.filterGroups && this.viewState.filterToCategory) {
+				if (!this.groupIsRelatedToCategory(element, this.viewState.filterToCategory)) {
 					return false;
 				}
 				// For groups related to the category, skip the count check and recurse
@@ -2687,7 +2695,7 @@ export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 
 		// Filtered "new extensions" button
 		if (element instanceof SettingsTreeNewExtensionsElement) {
-			if (this.viewState.tagFilters?.size || this.viewState.categoryFilter) {
+			if (this.viewState.tagFilters?.size || this.viewState.filterToCategory) {
 				return false;
 			}
 		}
@@ -2695,16 +2703,19 @@ export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 		return true;
 	}
 
-	private settingContainedInGroup(setting: ISetting, group: SettingsTreeGroupElement): boolean {
-		return group.children.some(child => {
-			if (child instanceof SettingsTreeGroupElement) {
-				return this.settingContainedInGroup(setting, child);
-			} else if (child instanceof SettingsTreeSettingElement) {
-				return child.setting.key === setting.key;
-			} else {
-				return false;
+	/**
+	 * Checks if a setting element belongs to the category or any of its subcategories
+	 * by traversing up the setting's parent chain using IDs.
+	 */
+	private settingBelongsToCategory(element: SettingsTreeSettingElement, category: SettingsTreeGroupElement): boolean {
+		let parent = element.parent;
+		while (parent) {
+			if (parent.id === category.id) {
+				return true;
 			}
-		});
+			parent = parent.parent;
+		}
+		return false;
 	}
 
 	/**

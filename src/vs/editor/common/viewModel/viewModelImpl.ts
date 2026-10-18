@@ -441,6 +441,10 @@ export class ViewModel extends Disposable implements IViewModel {
 				this._lines.acceptVersionId(versionId);
 			}
 			this.viewLayout.onHeightMaybeChanged();
+			if (versionId !== null) {
+				this._lines.acceptVersionId(versionId);
+			}
+			this.viewLayout.onHeightMaybeChanged();
 
 			if (!hadOtherModelChange && hadModelLineChangeThatChangedLineMapping) {
 				eventsCollector.emitViewEvent(new viewEvents.ViewLineMappingChangedEvent());

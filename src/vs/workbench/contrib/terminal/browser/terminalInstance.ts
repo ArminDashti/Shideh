@@ -506,14 +506,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				}
 				case TerminalCapability.CommandDetection: {
 					e.capability.promptInputModel.setShellType(this.shellType);
-					// Use DisposableStore to track multiple listeners for this capability
-					const store = new DisposableStore();
-					store.add(Event.any(
+					capabilityListeners.set(e.id, Event.any(
 						e.capability.promptInputModel.onDidStartInput,
 						e.capability.promptInputModel.onDidChangeInput,
 						e.capability.promptInputModel.onDidFinishInput
 					)(refreshInfo));
-					store.add(e.capability.onCommandExecuted(async (command) => {
+					this._register(e.capability.onCommandExecuted(async (command) => {
 						// Only generate ID if command doesn't already have one (i.e., it's a manual command, not Copilot-initiated)
 						// The tool terminal sets the command ID before command start, so this won't override it
 						if (!command.id && command.command) {
@@ -522,7 +520,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 							await this._processManager.setNextCommandId(command.command, commandId);
 						}
 					}));
-					capabilityListeners.set(e.id, store);
 					break;
 				}
 				case TerminalCapability.PromptTypeDetection: {
@@ -1670,7 +1667,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			// Skip this check for remote terminals as the cwd and userHome may be from different filesystems
 			// (e.g., WSL path vs Windows path)
 			this._onProcessExit({
-				message: nls.localize('workspaceEmptyCreateTerminalCwd', "Cannot launch a terminal process in an empty workspace with cwd {0} different from userHome {1}", this._cwd, this._userHome)
+				message: nls.localize('workspaceNotTrustedCreateTerminalCwd', "Cannot launch a terminal process in an untrusted workspace with cwd {0} and userHome {1}", this._cwd, this._userHome)
 			});
 			return;
 		}

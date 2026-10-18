@@ -254,7 +254,6 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 	protected readonly _codeEditorService: ICodeEditorService;
 	private readonly _commandService: ICommandService;
 	private readonly _themeService: IThemeService;
-	private readonly _userInteractionService: IUserInteractionService;
 
 	private _contentWidgets: { [key: string]: IContentWidgetData };
 	private _overlayWidgets: { [key: string]: IOverlayWidgetData };
@@ -288,7 +287,6 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		@IAccessibilityService accessibilityService: IAccessibilityService,
 		@ILanguageConfigurationService private readonly languageConfigurationService: ILanguageConfigurationService,
 		@ILanguageFeaturesService languageFeaturesService: ILanguageFeaturesService,
-		@IUserInteractionService userInteractionService: IUserInteractionService,
 	) {
 		super();
 		codeEditorService.willCreateCodeEditor();
@@ -296,7 +294,6 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 		const options = { ..._options };
 
 		this._domElement = domElement;
-		this._userInteractionService = userInteractionService;
 		this._overflowWidgetsDomNode = options.overflowWidgetsDomNode;
 		delete options.overflowWidgetsDomNode;
 		this._id = (++EDITOR_ID);
@@ -2137,8 +2134,7 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 			viewModel,
 			viewUserInputEvents,
 			this._overflowWidgetsDomNode,
-			this._instantiationService,
-			this._userInteractionService,
+			this._instantiationService
 		);
 
 		return [view, true];

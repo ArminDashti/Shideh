@@ -1144,7 +1144,6 @@ registerSingleton(ILoggerService, NullLoggerService, InstantiationType.Eager);
 registerSingleton(IDataChannelService, NullDataChannelService, InstantiationType.Eager);
 registerSingleton(IDefaultAccountService, StandaloneDefaultAccountService, InstantiationType.Eager);
 registerSingleton(IRenameSymbolTrackerService, NullRenameSymbolTrackerService, InstantiationType.Eager);
-registerSingleton(IUserInteractionService, UserInteractionService, InstantiationType.Eager);
 
 /**
  * We don't want to eagerly instantiate services because embedders get a one time chance

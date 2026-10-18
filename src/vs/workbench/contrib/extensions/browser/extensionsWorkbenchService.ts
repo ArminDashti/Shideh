@@ -1794,7 +1794,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		if (!extension) {
 			throw new Error(`Extension not found. ${extension}`);
 		}
-		await this.editorService.openEditor(this.instantiationService.createInstance(ExtensionsInput, extension), options, options?.sideByside ? SIDE_GROUP : ACTIVE_GROUP);
+		await this.editorService.openEditor(this.instantiationService.createInstance(ExtensionsInput, extension), options, MODAL_GROUP);
 	}
 
 	async openSearch(searchValue: string, preserveFocus?: boolean): Promise<void> {

@@ -61,7 +61,6 @@ src/vs/sessions/contrib/browserView/** @kycutler @jruales
 
 # Build
 build/azure-pipelines/** @lszomoru
-build/azure-pipelines/common/sanity-tests.yml @dmitrivMS
 build/lib/i18n.ts @TylerLeonhardt
 resources/linux/debian/** @rzhao271
 resources/linux/rpm/** @rzhao271

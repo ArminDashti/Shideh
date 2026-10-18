@@ -104,7 +104,7 @@ class TrackedDocumentInfo extends Disposable {
 
 		const longtermResetSignal = observableSignal('resetSignal');
 
-		let longtermReason: EditTelemetryTrigger = 'closed';
+		let longtermReason: '10hours' | 'hashChange' | 'branchChange' | 'closed' = 'closed';
 		this.longtermTracker = derived((reader) => {
 			if (!this._statsEnabled.read(reader)) { return undefined; }
 			longtermResetSignal.read(reader);

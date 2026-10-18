@@ -1763,7 +1763,7 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 				if (editingLinesCnt < deletingLinesCnt) {
 					// Must delete some lines
 					const spliceStartLineNumber = startLineNumber + editingLinesCnt;
-					rawContentChanges.push(new ModelRawLinesDeleted(spliceStartLineNumber + 1, endLineNumber));
+					rawContentChanges.push(new ModelRawLinesDeleted(spliceStartLineNumber + 1, endLineNumber - spliceStartLineNumber));
 				}
 
 				if (editingLinesCnt < insertingLinesCnt) {
@@ -1838,6 +1838,14 @@ export class TextModel extends Disposable implements model.ITextModel, IDecorati
 		}
 		this._fireOnDidChangeLineHeight(affectedLineHeights);
 		this._fireOnDidChangeFont(affectedFontLines);
+	}
+
+	private _onDidChangeInjectedText(affectedInjectedTextLines: Set<number> | null): void {
+		if (affectedInjectedTextLines && affectedInjectedTextLines.size > 0) {
+			const affectedLines = Array.from(affectedInjectedTextLines);
+			const lineChangeEvents = affectedLines.map(lineNumber => new ModelRawLineChanged(lineNumber, lineNumber));
+			this._onDidChangeContentOrInjectedText(new ModelInjectedTextChangedEvent(lineChangeEvents));
+		}
 	}
 
 	private _fireOnDidChangeLineHeight(affectedLineHeights: Set<LineHeightChangingDecoration> | null): void {

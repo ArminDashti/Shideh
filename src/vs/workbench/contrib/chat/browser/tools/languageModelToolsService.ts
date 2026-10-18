@@ -714,7 +714,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				dto.userSelectedTools = request.userSelectedTools && { ...request.userSelectedTools };
 
 				prepareTimeWatch = StopWatch.create(true);
-				preparedInvocation = await this.prepareToolInvocationWithHookResult(tool, dto, preToolUseHookResult, token);
+				preparedInvocation = await this.prepareToolInvocation(tool, dto, token);
 				prepareTimeWatch.stop();
 
 				const totalDecisionTimeWatch = StopWatch.create(true);
@@ -820,7 +820,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 				}
 			} else {
 				prepareTimeWatch = StopWatch.create(true);
-				preparedInvocation = await this.prepareToolInvocationWithHookResult(tool, dto, preToolUseHookResult, token);
+				preparedInvocation = await this.prepareToolInvocation(tool, dto, token);
 				prepareTimeWatch.stop();
 
 				const { autoConfirmed: fallbackAutoConfirmed, preparedInvocation: updatedPreparedInvocation } = await this.resolveAutoConfirmFromHook(preToolUseHookResult, tool, dto, preparedInvocation, undefined);

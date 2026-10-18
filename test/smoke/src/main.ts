@@ -21,7 +21,6 @@ import { setup as setupNotebookTests } from './areas/notebook/notebook.test';
 import { setup as setupLanguagesTests } from './areas/languages/languages.test';
 import { setup as setupStatusbarTests } from './areas/statusbar/statusbar.test';
 import { setup as setupExtensionTests } from './areas/extensions/extensions.test';
-import { setup as setupExtensionHostRestartTests } from './areas/extensions/extension-host-restart.test';
 import { setup as setupMultirootTests } from './areas/multiroot/multiroot.test';
 import { setup as setupLocalizationTests } from './areas/workbench/localization.test';
 import { setup as setupLaunchTests } from './areas/workbench/launch.test';

@@ -226,13 +226,10 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 			while (!token.isCancellationRequested) {
 				switch (this._state) {
 					case OutputMonitorState.PollingForIdle: {
-						this._logService.trace(`OutputMonitor: Entering PollingForIdle (extended=${extended})`);
 						this._state = await this._waitForIdle(this._execution, extended, token);
-						this._logService.trace(`OutputMonitor: PollingForIdle completed -> state=${OutputMonitorState[this._state]}`);
 						continue;
 					}
 					case OutputMonitorState.Timeout: {
-						this._logService.trace(`OutputMonitor: Entering Timeout state (extended=${extended})`);
 						const shouldContinuePolling = await this._handleTimeoutState(command, invocationContext, extended, token);
 						if (shouldContinuePolling) {
 							extended = true;
@@ -256,7 +253,6 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 					case OutputMonitorState.ConvertedToBackground:
 						break;
 					case OutputMonitorState.Idle: {
-						this._logService.trace('OutputMonitor: Entering Idle handler');
 						const idleResult = await this._handleIdleState(token);
 						if (idleResult.shouldContinuePolling) {
 							this._logService.trace('OutputMonitor: Idle handler -> continue polling');
@@ -289,7 +285,6 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 				this._state = OutputMonitorState.Cancelled;
 			}
 		} finally {
-			this._logService.trace(`OutputMonitor: Monitoring finished (state=${OutputMonitorState[this._state]}, duration=${Date.now() - pollStartTime}ms)`);
 			this._pollingResult = {
 				state: this._state,
 				output: output ?? this._execution.getOutput(),
@@ -418,7 +413,6 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 
 		// Check if user already inputted since idle was detected (before we even got here)
 		if (this._userInputtedSinceIdleDetected) {
-			this._logService.trace('OutputMonitor: User input detected since idle; skipping prompt and continuing polling');
 			this._cleanupIdleInputListener();
 			return { shouldContinuePolling: true };
 		}
@@ -502,7 +496,6 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 
 		// Let custom poller override if provided
 		const custom = await this._pollFn?.(this._execution, token, this._taskService);
-		this._logService.trace(`OutputMonitor: Custom poller result: ${custom ? 'provided' : 'none'}`);
 		const resources = custom?.resources;
 		return { resources, shouldContinuePolling: false, output: custom?.output ?? output };
 	}
@@ -640,12 +633,10 @@ export class OutputMonitor extends Disposable implements IOutputMonitor {
 			return;
 		}
 		this._userInputtedSinceIdleDetected = false;
-		this._logService.trace('OutputMonitor: Setting up idle input listener');
 
 		// Set up new listener (MutableDisposable auto-disposes previous)
 		this._userInputListener.value = this._execution.instance.onDidInputData(() => {
 			this._userInputtedSinceIdleDetected = true;
-			this._logService.trace('OutputMonitor: Detected user terminal input while idle');
 		});
 	}
 

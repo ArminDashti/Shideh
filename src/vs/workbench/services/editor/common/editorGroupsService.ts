@@ -517,8 +517,7 @@ export interface IAuxiliaryEditorPart extends IEditorPart {
 
 	/**
 	 * Close this auxiliary editor part after moving all
-	 * dirty editors of all groups back to the main editor
-	 * part.
+	 * editors of all groups back to the main editor part.
 	 *
 	 * @returns `false` if an editor could not be moved back.
 	 */

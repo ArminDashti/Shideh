@@ -216,7 +216,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 	}
 
 	async openPreferences(): Promise<void> {
-		await this.editorService.openEditor(this.instantiationService.createInstance(PreferencesEditorInput), undefined, MODAL_GROUP);
+		await this.editorService.openEditor(this.instantiationService.createInstance(PreferencesEditorInput));
 	}
 
 	openSettings(options: IOpenSettingsOptions = {}): Promise<IEditorPane | undefined> {
@@ -275,7 +275,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 			...options,
 			focusSearch: true
 		};
-		const group = this.getEditorGroupFromOptions(false, options);
+		const group = this.getEditorGroupFromOptions(options);
 		return this.editorService.openEditor(input, validateSettingsEditorOptions(options), group);
 	}
 
@@ -400,6 +400,9 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 		if (options.openToSide) {
 			return SIDE_GROUP;
 		}
+		if (options.openInModal) {
+			return MODAL_GROUP;
+		}
 		if (options?.groupId !== undefined) {
 			return this.editorGroupService.getGroup(options.groupId) ?? this.editorGroupService.activeGroup;
 		}
@@ -407,7 +410,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 	}
 
 	private async openSettingsJson(resource: URI, options: IOpenSettingsOptions): Promise<IEditorPane | undefined> {
-		const group = this.getEditorGroupFromOptions(true, options);
+		const group = this.getEditorGroupFromOptions(options);
 		const editor = await this.doOpenSettingsJson(resource, options, group);
 		if (editor && options?.revealSetting) {
 			await this.revealSetting(options.revealSetting.key, !!options.revealSetting.edit, editor, resource);

@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { createDecorator } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IEditorGroupsService, IEditorWorkingSet } from '../../../../../services/editor/common/editorGroupsService.js';
-import { IEditorService, MODAL_GROUP } from '../../../../../services/editor/common/editorService.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { createAgentSessionChangesEditorInput, IAgentSession, isSessionInProgressStatus } from '../agentSessionsModel.js';
 import { IChatWidgetService } from '../../chat.js';
@@ -220,7 +220,14 @@ export class AgentSessionProjectionService extends Disposable implements IAgentS
 				// Open multi-diff editor showing all changes in a modal editor
 				await this.editorService.openEditor(editorInput, MODAL_GROUP);
 
-				this.logService.trace(`[AgentSessionProjection] Multi-diff editor opened successfully in modal view`);
+				// Open multi-diff editor showing all changes
+				await this.commandService.executeCommand('_workbench.openMultiDiffEditor', {
+					multiDiffSourceUri: session.resource.with({ scheme: session.resource.scheme + '-agent-session-projection' }),
+					title: localize('agentSessionProjection.changes.title', '{0} - All Changes', session.label),
+					resources: diffResources,
+				});
+
+				this.logService.trace(`[AgentSessionProjection] Multi-diff editor opened successfully`);
 
 				// Save this as the session's working set
 				const sessionKey = session.resource.toString();
@@ -336,6 +343,8 @@ export class AgentSessionProjectionService extends Disposable implements IAgentS
 				let filesOpened = false;
 				if (isLocalSessionProvider(session.providerType)) {
 					// Local sessions use editing session for changes - we already verified hasUndecidedChanges above
+					// Clear editors to prepare for the changes view
+					await this.editorGroupsService.applyWorkingSet('empty', { preserveFocus: true });
 					filesOpened = true;
 				} else {
 					// Try to open session files - only continue with projection if files were displayed

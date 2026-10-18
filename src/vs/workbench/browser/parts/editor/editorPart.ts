@@ -162,7 +162,7 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	protected readonly container = $('.content');
 
 	readonly scopedInstantiationService: IInstantiationService;
-	protected readonly scopedContextKeyService: IContextKeyService;
+	private readonly scopedContextKeyService: IContextKeyService;
 
 	// here
 	private centeredLayoutWidget!: CenteredViewLayout;

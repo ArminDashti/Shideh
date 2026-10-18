@@ -68,7 +68,6 @@ import { TestTreeSitterLibraryService } from '../common/services/testTreeSitterL
 import { IInlineCompletionsService, InlineCompletionsService } from '../../browser/services/inlineCompletionsService.js';
 import { EditorCommand } from '../../browser/editorExtensions.js';
 import { IDataChannelService, NullDataChannelService } from '../../../platform/dataChannel/common/dataChannel.js';
-import { IUserInteractionService, MockUserInteractionService } from '../../../platform/userInteraction/browser/userInteractionService.js';
 
 export interface ITestCodeEditor extends IActiveCodeEditor {
 	getViewModel(): ViewModel | undefined;

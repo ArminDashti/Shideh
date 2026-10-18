@@ -6,7 +6,6 @@
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -419,5 +418,6 @@ export function registerChatQueueActions(): void {
 		),
 		group: 'navigation',
 		order: 4,
+		isSplitButton: { togglePrimaryAction: true }
 	});
 }

@@ -942,6 +942,7 @@ export class ChatListWidget extends Disposable {
 			: items.map(item => ({ element: item, collapsed: false, collapsible: false }));
 
 		const editing = this._viewModel.editing;
+		const checkpoint = this._viewModel.model?.checkpoint;
 
 		this._withPersistedAutoScroll(() => {
 			this._tree.setChildren(null, treeItems, {

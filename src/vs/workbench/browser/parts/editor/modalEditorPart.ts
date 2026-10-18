@@ -38,6 +38,8 @@ import { ResourceLabel } from '../../labels.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { mainWindow } from '../../../../base/browser/window.js';
+import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
+import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { localize } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { CLOSE_MODAL_EDITOR_COMMAND_ID, MOVE_MODAL_EDITOR_TO_MAIN_COMMAND_ID, MOVE_MODAL_EDITOR_TO_WINDOW_COMMAND_ID, NAVIGATE_MODAL_EDITOR_NEXT_COMMAND_ID, NAVIGATE_MODAL_EDITOR_PREVIOUS_COMMAND_ID, TOGGLE_MODAL_EDITOR_MAXIMIZED_COMMAND_ID, TOGGLE_MODAL_EDITOR_SIDEBAR_COMMAND_ID } from './editorCommands.js';
@@ -272,8 +274,35 @@ export class ModalEditorPart {
 		titleElement.id = titleId;
 		titleElement.textContent = '';
 
-		// Action buttons
+		// Action buttons using ActionBar for proper accessibility
 		const actionBarContainer = append(headerElement, $('div.modal-editor-action-container'));
+		const actionBar = disposables.add(new ActionBar(actionBarContainer));
+
+		// Open as Editor
+		const openAsEditorAction = disposables.add(new Action(
+			'modalEditorPart.openAsEditor',
+			localize('openAsEditor', "Open as Editor"),
+			ThemeIcon.asClassName(Codicon.openInProduct),
+			true,
+			async () => {
+				const activeEditor = editorPart.activeGroup.activeEditor;
+				if (activeEditor) {
+					await this.editorService.openEditor(activeEditor, { pinned: true, preserveFocus: false }, this.editorPartsView.mainPart.activeGroup.id);
+					editorPart.close();
+				}
+			}
+		));
+		actionBar.push(openAsEditorAction, { icon: true, label: false });
+
+		// Close action
+		const closeAction = disposables.add(new Action(
+			'modalEditorPart.close',
+			localize('close', "Close"),
+			ThemeIcon.asClassName(widgetClose),
+			true,
+			async () => editorPart.close()
+		));
+		actionBar.push(closeAction, { icon: true, label: false, keybinding: localize('escape', "Escape") });
 
 		// Bottom-capable sidebars follow the editor in focus order without reparenting rendered content.
 		const sidebarAfterEditor = options?.sidebar?.placement === 'bottom' || options?.sidebar?.placement === 'auto';

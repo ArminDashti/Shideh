@@ -64,7 +64,6 @@ registerSingleton(IMcpWorkbenchService, McpWorkbenchService, InstantiationType.E
 registerSingleton(IMcpDevModeDebugging, McpDevModeDebugging, InstantiationType.Delayed);
 registerSingleton(IMcpSamplingService, McpSamplingService, InstantiationType.Delayed);
 registerSingleton(IMcpElicitationService, McpElicitationService, InstantiationType.Delayed);
-registerSingleton(IWorkbenchMcpGatewayService, BrowserMcpGatewayService, InstantiationType.Delayed);
 
 mcpDiscoveryRegistry.register(new SyncDescriptor(RemoteNativeMpcDiscovery));
 mcpDiscoveryRegistry.register(new SyncDescriptor(InstalledMcpServersDiscovery));

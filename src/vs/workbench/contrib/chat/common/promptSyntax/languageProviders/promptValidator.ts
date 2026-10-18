@@ -292,8 +292,7 @@ export class PromptValidator {
 			}
 
 			case PromptsType.skill:
-				this.validateUserInvokable(attributes, report);
-				this.validateDisableModelInvocation(attributes, report);
+				// Skill-specific validations (currently none beyond name/description)
 				break;
 		}
 	}
@@ -1155,12 +1154,6 @@ export function getAttributeDescription(attributeName: string, promptType: Promp
 					return localize('promptHeader.skill.name', 'The name of the skill.');
 				case PromptHeaderAttributes.description:
 					return localize('promptHeader.skill.description', 'The description of the skill. The description is added to every request and will be used by the agent to decide when to load the skill.');
-				case PromptHeaderAttributes.argumentHint:
-					return localize('promptHeader.skill.argumentHint', 'Hint shown during autocomplete to indicate expected arguments. Example: [issue-number] or [filename] [format]');
-				case PromptHeaderAttributes.userInvokable:
-					return localize('promptHeader.skill.userInvokable', 'Set to false to hide from the / menu. Use for background knowledge users should not invoke directly. Default: true.');
-				case PromptHeaderAttributes.disableModelInvocation:
-					return localize('promptHeader.skill.disableModelInvocation', 'Set to true to prevent the agent from automatically loading this skill. Use for workflows you want to trigger manually with /name. Default: false.');
 			}
 			break;
 		case PromptsType.agent:

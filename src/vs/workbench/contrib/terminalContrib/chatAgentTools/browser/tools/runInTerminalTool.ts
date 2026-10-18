@@ -754,7 +754,7 @@ const telemetryIgnoredSequences = [
 	'\x1b[O', // Focus out
 ];
 
-const altBufferMessage = '\n' + localize('runInTerminalTool.altBufferMessage', "The command opened the alternate buffer.");
+const altBufferMessage = localize('runInTerminalTool.altBufferMessage', "The command opened the alternate buffer.");
 
 /**
  * Builds the short, single-line command string used in the SYSTEM NOTIFICATION
@@ -1482,7 +1482,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			disclaimer,
 			allowAutoConfirm: undefined,
 			terminalCustomActions: customActions,
-		} : undefined;
+		};
 
 		const rawDisplayCommand = toolSpecificData.commandLine.forDisplay ?? toolSpecificData.commandLine.toolEdited ?? toolSpecificData.commandLine.original;
 		const displayCommand = rawDisplayCommand.length > 80

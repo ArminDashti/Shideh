@@ -127,7 +127,6 @@ import './services/authentication/browser/dynamicAuthenticationProviderStorageSe
 import './services/authentication/browser/authenticationQueryService.js';
 import './services/accounts/common/accountProfileImageService.js';
 import '../platform/hover/browser/hoverService.js';
-import '../platform/userInteraction/browser/userInteractionServiceImpl.js';
 import './services/assignment/common/assignmentService.js';
 import './services/outline/browser/outlineService.js';
 import './services/languageDetection/browser/languageDetectionWorkerServiceImpl.js';
