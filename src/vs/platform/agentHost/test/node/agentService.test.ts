@@ -17542,13 +17542,15 @@ suite('AgentService (node dispatcher)', () => {
 				await releaseBlocker.p;
 			});
 			await blockerStarted.p;
-			const changed = Event.toPromise(Event.filter(svc.onDidNotification, notification => notification.type === 'root/sessionSummaryChanged'));
-			svc.dispatchAction(sessionKey, { type: ActionType.SessionIsArchivedChanged, isArchived: true }, 'test-client', 1, AgentHostClientType.EditorWindow);
-			await changed;
 			const isRead = (stateManager.getSurfacedSessionSummary(sessionKey)!.status & SessionStatus.IsRead) === 0;
-			const readChanged = Event.toPromise(Event.filter(svc.onDidNotification, notification => notification.type === 'root/sessionSummaryChanged'));
+			const readChanged = Event.toPromise(Event.filter(svc.onDidNotification, notification =>
+				notification.type === 'root/sessionSummaryChanged'
+				&& notification.session === sessionKey
+				&& notification.changes.status !== undefined
+				&& (((notification.changes.status & SessionStatus.IsRead) !== 0) === isRead),
+			));
+			svc.dispatchAction(sessionKey, { type: ActionType.SessionIsArchivedChanged, isArchived: true }, 'test-client', 1, AgentHostClientType.EditorWindow);
 			svc.dispatchAction(sessionKey, { type: ActionType.SessionIsReadChanged, isRead }, 'test-client', 2, AgentHostClientType.EditorWindow);
-			await readChanged;
 
 			let closed: AgentHostCatalogData | undefined;
 			catalogDatabase.close = async () => {
@@ -17559,7 +17561,7 @@ suite('AgentService (node dispatcher)', () => {
 			await timeout(0);
 			const shutdownBeforeRelease = shutdownComplete;
 			releaseBlocker.complete();
-			await Promise.all([blocker, shutdown]);
+			await Promise.all([blocker, readChanged, shutdown]);
 			await svc.whenCatalogReconciliationIdle();
 
 			assert.deepStrictEqual({
@@ -19170,18 +19172,12 @@ suite('AgentService (node dispatcher)', () => {
 				const agent = disposables.add(new MockAgent('copilot'));
 				registerTestAgentProvider(localService, agent);
 
-				const session = AgentSession.uri('copilot', `passive-${action.type}`);
+				const session = await localService.createSession({ provider: 'copilot' });
+				await localService.whenCatalogReconciliationIdle();
 				const sessionStr = session.toString();
-				const summary = {
-					resource: sessionStr,
-					provider: 'copilot',
-					title: 'Idle',
-					status: SessionStatus.Idle,
-					createdAt: new Date().toISOString(),
-					modifiedAt: new Date().toISOString(),
-				};
-				getStateManager(localService).announceSurfacedSession(summary);
-				getStateManager(localService).prepareSessionSummariesForListing([summary]);
+				const stateManager = getStateManager(localService);
+				stateManager.prepareSessionSummariesForListing([stateManager.getSessionSummary(sessionStr)!]);
+				stateManager.removeSession(sessionStr);
 
 				const notifications: INotification[] = [];
 				const listener = localService.onDidNotification(n => notifications.push(n));
@@ -19207,7 +19203,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 		});
 
-		test('passive metadata publishes before central catalog synchronization completes', async () => {
+		test('passive metadata waits for central catalog synchronization before publishing', async () => {
 			const db = new TestSessionDatabase();
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(db), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
 			registerTestAgentProvider(localService, copilotAgent);
@@ -19232,16 +19228,22 @@ suite('AgentService (node dispatcher)', () => {
 			await blockerStarted.p;
 			const notifications: INotification[] = [];
 			const listener = localService.onDidNotification(notification => notifications.push(notification));
+			const published = Event.toPromise(Event.filter(localService.onDidNotification, notification =>
+				notification.type === 'root/sessionSummaryChanged'
+				&& notification.session === sessionKey
+				&& notification.changes.status !== undefined
+				&& (notification.changes.status & SessionStatus.IsArchived) !== 0,
+			));
 
 			localService.dispatchAction(sessionKey, { type: ActionType.SessionIsArchivedChanged, isArchived: true }, 'test-client', 1, AgentHostClientType.EditorWindow);
-			for (let attempt = 0; attempt < 20 && !notifications.some(notification => notification.type === 'root/sessionSummaryChanged'); attempt++) {
+			for (let attempt = 0; attempt < 20 && await db.getMetadata(AH_META_IS_ARCHIVED_DB_KEY) !== 'true'; attempt++) {
 				await timeout(0);
 			}
 			const publishedBeforeRelease = notifications.some(notification => notification.type === 'root/sessionSummaryChanged');
 			const persistedBeforeRelease = await db.getMetadata(AH_META_IS_ARCHIVED_DB_KEY);
 			releaseBlocker.complete();
 			await blocker;
-			await localService.whenCatalogReconciliationIdle();
+			await published;
 			listener.dispose();
 			const catalog = await internals._orchestratorDatabase.getSessionV2(sessionKey);
 
@@ -19250,7 +19252,7 @@ suite('AgentService (node dispatcher)', () => {
 				persistedBeforeRelease,
 				catalogArchived: catalogDataOf(catalog)?.isArchived,
 			}, {
-				publishedBeforeRelease: true,
+				publishedBeforeRelease: false,
 				persistedBeforeRelease: 'true',
 				catalogArchived: true,
 			});
