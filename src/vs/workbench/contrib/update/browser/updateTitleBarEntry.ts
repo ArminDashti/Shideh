@@ -271,6 +271,7 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		private readonly onDidShowTooltip: (focus: boolean) => void,
 		private readonly onUserDismissedTooltip: () => void,
 		@ICommandService private readonly commandService: ICommandService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IHoverService private readonly hoverService: IHoverService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@IUpdateService private readonly updateService: IUpdateService,
@@ -311,14 +312,16 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		const hover = this.hoverService.showInstantHover({
 			content: this.tooltip.domNode,
 			target: {
-				targetElements: [this.element],
+				targetElements: [this.content],
 				dispose: () => {
-					if (!!this.element?.isConnected) {
+					this.hoverVisible = false;
+					if (!!this.content?.isConnected) {
+						this.content.classList.remove('hint-visible');
 						this.onUserDismissedTooltip();
 					}
 				}
 			},
-			persistence: { sticky: true },
+			persistence: { sticky: false, hideOnHover: false },
 			appearance: { showPointer: true, compact: true },
 			position: { anchorAlignment: this.anchorAlignment },
 			trapFocus: focus,
@@ -333,6 +336,13 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 	private focusTooltip(): void {
 		this.visibleTooltip.clear();
 		this.showTooltip(true);
+	}
+
+	protected override updateTooltip(): void {
+		// Tooltip is handled by showTooltip/showInstantHover which track
+		// hint-visible to keep the button expanded while the tooltip is open.
+		// Still update aria-label so the element is accessible to screen readers.
+		this.updateAriaLabel();
 	}
 
 	protected override getHoverContents(): IManagedHoverContent {
@@ -411,7 +421,23 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 					label.textContent = localize('updateIndicator.update', "Update");
 				}
 				this.content.classList.add('prominent');
+				if (this.configurationService.getValue<string>('update.mode') === 'manual') {
+					const hint = dom.append(this.content, dom.$('.indicator-hint'));
+					switch (state.type) {
+						case StateType.AvailableForDownload:
+							hint.textContent = localize('updateIndicator.availableHint', "Available. Download?");
+							break;
+						case StateType.Downloaded:
+							hint.textContent = localize('updateIndicator.downloadedHint', "Downloaded. Install?");
+							break;
+						case StateType.Ready:
+							hint.textContent = localize('updateIndicator.readyHint', "Ready. Restart?");
+							break;
+					}
+					this.flashHintOnce();
+				}
 				break;
+			}
 
 			case StateType.AvailableForDownload: {
 				label.textContent = localize('updateIndicator.update', "Update");
@@ -512,6 +538,26 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 			this.content?.classList.remove('hint-visible');
 			this.hintTimer = undefined;
 		}, 3000);
+	}
+
+	/**
+	 * Flash hint text open briefly, then collapse it so hover can re-expand.
+	 */
+	private flashHintOnce() {
+		if (!this.content) {
+			return;
+		}
+
+		this.hintTimer = setTimeout(() => {
+			dom.getWindow(this.content!).requestAnimationFrame(() => {
+				this.content?.classList.add('hint-visible');
+			});
+
+			this.hintTimer = setTimeout(() => {
+				this.content?.classList.remove('hint-visible');
+				this.hintTimer = undefined;
+			}, 3000);
+		}, 500);
 	}
 
 	private renderProgressState(content: HTMLElement, percentage?: number) {
