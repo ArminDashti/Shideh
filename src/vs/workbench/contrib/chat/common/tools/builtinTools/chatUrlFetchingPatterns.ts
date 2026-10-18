@@ -78,7 +78,7 @@ export function extractUrlPatterns(url: URI): string[] {
 	}
 
 	// Path patterns (if there's a non-trivial path)
-	const pathSegments = normalized.path.split('/').filter((s: string) => s.length > 0);
+	const pathSegments = patternPath.split('/').filter((s: string) => s.length > 0);
 	if (pathSegments.length > 0) {
 		// Add patterns for each path level with wildcard
 		for (let i = pathSegments.length - 1; i >= 0; i--) {
