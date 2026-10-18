@@ -200,6 +200,11 @@ export class AgentHostCustomizationEnablementService extends Disposable implemen
 				this._notifyWorkingDirectoryChanged(session);
 			}
 		}));
+		this._register(this._sessionState.onDidChangeSessionWorkingDirectories(({ session }) => {
+			const affectedSessions = this._applyPendingReplacements(session);
+			affectedSessions.add(session);
+			this._notifyDecisionChanged(affectedSessions);
+		}));
 		this._register(this._worktree.onDidChangeWorkingDirectoryPending(sessionId => {
 			const session = this._sessionsById.get(sessionId);
 			if (session === undefined) {

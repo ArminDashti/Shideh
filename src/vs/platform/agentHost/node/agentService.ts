@@ -6274,6 +6274,11 @@ export class AgentService extends Disposable implements IAgentService {
 		// `markSessionPersisted` writes the summary into state and fires
 		// the deferred `SessionAdded` notification atomically so subscribers
 		// see consistent state through both paths.
+		const previousWorkingDirectory = currentSummary.workingDirectories?.[0];
+		const materializedWorkingDirectory = summary.workingDirectories?.[0];
+		const workingDirectoryReplacement = previousWorkingDirectory && materializedWorkingDirectory && previousWorkingDirectory !== materializedWorkingDirectory
+			? { directory: previousWorkingDirectory, replacement: materializedWorkingDirectory }
+			: undefined;
 		this._stateManager.markSessionPersisted(sessionKey, summary);
 		this._stateManager.dispatchServerAction(sessionKey, { type: ActionType.SessionReady });
 		if (workingDirectoryReplacement) {

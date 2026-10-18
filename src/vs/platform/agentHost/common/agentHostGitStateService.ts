@@ -67,6 +67,9 @@ export interface IAgentHostGitStateService {
 	/** Merges the branch identity known when an isolated worktree materializes into session metadata. */
 	getMaterializedWorktreeMeta(sessionKey: string, branchName: string): SessionSummaryMeta | undefined;
 
+	/** Merges the branch identity known when an isolated worktree materializes into session metadata. */
+	getMaterializedWorktreeMeta(sessionKey: string, branchName: string): SessionSummaryMeta | undefined;
+
 	/** Resolves the canonical base branch selected for a session. */
 	resolveSessionBaseBranchName(sessionKey: string): Promise<string | undefined>;
 
