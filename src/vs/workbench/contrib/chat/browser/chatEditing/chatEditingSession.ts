@@ -389,6 +389,18 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return this._timeline.hasEditsInRequest(requestId, reader);
 	}
 
+	public getModifiedFileResourcesForRequests(requestIds: ReadonlySet<string>): readonly URI[] {
+		const seen = new ResourceSet();
+		const result: URI[] = [];
+		for (const entry of this._entriesObs.get()) {
+			if (requestIds.has(entry.lastModifyingRequestId) && !seen.has(entry.modifiedURI)) {
+				seen.add(entry.modifiedURI);
+				result.push(entry.modifiedURI);
+			}
+		}
+		return result;
+	}
+
 	public createSnapshot(requestId: string, undoStop: string | undefined): void {
 		const label = undoStop ? `Request ${requestId} - Stop ${undoStop}` : `Request ${requestId}`;
 		this._timeline.createCheckpoint(requestId, undoStop, label);
