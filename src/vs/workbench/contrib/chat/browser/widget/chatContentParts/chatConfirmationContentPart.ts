@@ -13,19 +13,18 @@ import { IChatWidgetService } from '../../chat.js';
 import { SimpleChatConfirmationWidget } from './chatConfirmationWidget.js';
 import { IChatContentPart, IChatContentPartRenderContext } from './chatContentParts.js';
 
-export class ChatConfirmationContentPart extends Disposable implements IChatContentPart {
+abstract class BaseChatConfirmationContentPart extends Disposable implements IChatContentPart {
 	public readonly domNode: HTMLElement;
 
 	constructor(
-		confirmation: IChatConfirmation,
-		context: IChatContentPartRenderContext,
+		confirmation: IChatConfirmation | IChatConfirmationAwaitable,
+		onDidClick: (e: IChatConfirmationButton) => void,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IChatService private readonly chatService: IChatService,
 		@IChatWidgetService chatWidgetService: IChatWidgetService,
 	) {
 		super();
 
-		const element = context.element;
 		const buttons = confirmation.buttons
 			? confirmation.buttons.map(button => ({
 				label: button,
@@ -33,8 +32,8 @@ export class ChatConfirmationContentPart extends Disposable implements IChatCont
 				isSecondary: button !== confirmation.buttons?.[0],
 			}))
 			: [
-				{ label: localize('accept', "Accept"), data: confirmation.data },
-				{ label: localize('dismiss', "Dismiss"), data: confirmation.data, isSecondary: true },
+				{ label: localize('accept', "Accept"), data: 'data' in confirmation && confirmation.data },
+				{ label: localize('dismiss', "Dismiss"), data: 'data' in confirmation && confirmation.data, isSecondary: true },
 			];
 		const confirmationWidget = this._register(this.instantiationService.createInstance(SimpleChatConfirmationWidget, context, { title: confirmation.title, buttons, message: confirmation.message }));
 		confirmationWidget.setShowButtons(!confirmation.isUsed);
@@ -59,18 +58,35 @@ export class ChatConfirmationContentPart extends Disposable implements IChatCont
 					confirmation.isUsed = true;
 					confirmationWidget.setShowButtons(false);
 				}
-			}
-		}));
-
-		this.domNode = confirmationWidget.domNode;
+			},
+			instantiationService);
 	}
 
 	hasSameContent(other: IChatProgressRenderableResponseContent): boolean {
 		// No other change allowed for this content type
 		return other.kind === 'confirmation';
 	}
+}
 
-	addDisposable(disposable: IDisposable): void {
-		this._register(disposable);
+export class ChatAwaitableConfirmationContentPart extends BaseChatConfirmationContentPart {
+	constructor(
+		confirmation: IChatConfirmationAwaitable,
+		context: IChatContentPartRenderContext,
+		@IInstantiationService instantiationService: IInstantiationService,
+	) {
+		super(
+			confirmation,
+			e => {
+				this.confirmationWidget.setShowButtons(false);
+				this._onDidChangeHeight.fire();
+				confirmation.isUsed = true;
+				confirmation.confirmed.complete(e.label);
+			},
+			instantiationService);
+	}
+
+	hasSameContent(other: IChatProgressRenderableResponseContent): boolean {
+		// No other change allowed for this content type
+		return other.kind === 'confirmationAwaitable';
 	}
 }

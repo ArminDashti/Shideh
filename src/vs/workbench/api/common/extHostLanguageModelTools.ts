@@ -88,6 +88,11 @@ type CompatLanguageModelToolInvocationOptions<T = any> = vscode.LanguageModelToo
  */
 type CompactLanguageModelToolInvocationPrepareOptions<T> = vscode.LanguageModelToolInvocationPrepareOptions<T> & { parameters: any };
 
+export interface IToolInvocationContext {
+	sessionId: string;
+	participantId: string;
+}
+
 export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape {
 	/** A map of tools that were registered in this EH */
 	private readonly _registeredTools = new Map<string, { extension: IExtensionDescription; tool: vscode.LanguageModelTool<Object> }>();

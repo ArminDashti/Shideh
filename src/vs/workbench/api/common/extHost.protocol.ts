@@ -1904,6 +1904,11 @@ export interface IToolDefinitionDto extends IToolDataDto {
 	toolSet?: string;
 }
 
+export interface ILanguageModelToolInvocationContext {
+	participantId: string;
+	sessionId: string;
+}
+
 export interface MainThreadLanguageModelToolsShape extends IDisposable {
 	$getTools(): Promise<Dto<IToolDataDto>[]>;
 	$acceptToolProgress(callId: string, progress: IToolProgressStep): void;
