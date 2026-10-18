@@ -667,11 +667,6 @@ export interface ICodeEditor extends editorCommon.IEditor {
 	 */
 	readonly onDidChangeModelDecorations: Event<IModelDecorationsChangedEvent>;
 	/**
-	 * An event emitted when the tokens of the current model have changed.
-	 * @internal
-	 */
-	readonly onDidChangeModelTokens: Event<IModelTokensChangedEvent>;
-	/**
 	 * An event emitted when the text inside this editor gained focus (i.e. cursor starts blinking).
 	 * @event
 	 */

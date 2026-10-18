@@ -562,13 +562,11 @@ export class ViewModel extends Disposable implements IViewModel {
 			this._eventDispatcher.emitSingleViewEvent(new viewEvents.ViewLanguageConfigurationEvent());
 			this.cursorConfig = new CursorConfiguration(this.model.getLanguageId(), this.model.getOptions(), this._configuration.options, this.languageConfigurationService);
 			this._cursor.updateConfiguration(this.cursorConfig);
-			this._eventDispatcher.emitOutgoingEvent(new ModelLanguageConfigurationChangedEvent(e));
 		}));
 
 		this._register(this.model.onDidChangeLanguage((e) => {
 			this.cursorConfig = new CursorConfiguration(this.model.getLanguageId(), this.model.getOptions(), this._configuration.options, this.languageConfigurationService);
 			this._cursor.updateConfiguration(this.cursorConfig);
-			this._eventDispatcher.emitOutgoingEvent(new ModelLanguageChangedEvent(e));
 		}));
 
 		this._register(this.model.onDidChangeOptions((e) => {
@@ -590,8 +588,6 @@ export class ViewModel extends Disposable implements IViewModel {
 
 			this.cursorConfig = new CursorConfiguration(this.model.getLanguageId(), this.model.getOptions(), this._configuration.options, this.languageConfigurationService);
 			this._cursor.updateConfiguration(this.cursorConfig);
-
-			this._eventDispatcher.emitOutgoingEvent(new ModelOptionsChangedEvent(e));
 		}));
 
 		this._register(this.model.onDidChangeDecorations((e) => {
@@ -610,7 +606,6 @@ export class ViewModel extends Disposable implements IViewModel {
 			this._configuration.setGlyphMarginDecorationsCount(maxDecorations);
 
 			this._eventDispatcher.emitSingleViewEvent(new viewEvents.ViewDecorationsChangedEvent(e));
-			this._eventDispatcher.emitOutgoingEvent(new ModelDecorationsChangedEvent(e));
 		}));
 	}
 

@@ -1889,6 +1889,14 @@ export class CodeEditorWidget extends Disposable implements editorBrowser.ICodeE
 			}
 		);
 
+		listenersToRemove.push(model.onDidChangeDecorations((e) => this._onDidChangeModelDecorations.fire(e)));
+		listenersToRemove.push(model.onDidChangeLanguage((e) => {
+			this._domElement.setAttribute('data-mode-id', model.getLanguageId());
+			this._onDidChangeModelLanguage.fire(e);
+		}));
+		listenersToRemove.push(model.onDidChangeLanguageConfiguration((e) => this._onDidChangeModelLanguageConfiguration.fire(e)));
+		listenersToRemove.push(model.onDidChangeContent((e) => this._onDidChangeModelContent.fire(e)));
+		listenersToRemove.push(model.onDidChangeOptions((e) => this._onDidChangeModelOptions.fire(e)));
 		// Someone might destroy the model from under the editor, so prevent any exceptions by setting a null model
 		listenersToRemove.push(model.onWillDispose(() => this.setModel(null)));
 

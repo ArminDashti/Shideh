@@ -231,8 +231,8 @@ export class CursorsController extends Disposable {
 		this.revealAll(eventsCollector, 'restoreState', false, VerticalRevealType.Simple, true, editorCommon.ScrollType.Immediate);
 	}
 
-	public onModelContentChanged(eventsCollector: ViewModelEventsCollector, event: InternalModelContentChangeEvent | ModelInjectedTextChangedEvent): void {
-		if (event instanceof ModelInjectedTextChangedEvent) {
+	public onModelContentChanged(eventsCollector: ViewModelEventsCollector, e: ModelRawContentChangedEvent | ModelInjectedTextChangedEvent): void {
+		if (e instanceof ModelInjectedTextChangedEvent) {
 			// If injected texts change, the view positions of all cursors need to be updated.
 			if (this._isHandling) {
 				// The view positions will be updated when handling finishes
@@ -249,7 +249,6 @@ export class CursorsController extends Disposable {
 				this._isHandling = false;
 			}
 		} else {
-			const e = event.rawContentChangedEvent;
 			this._knownModelVersionId = e.versionId;
 			if (this._isHandling) {
 				return;
