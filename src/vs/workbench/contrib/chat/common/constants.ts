@@ -152,6 +152,8 @@ export enum ChatConfiguration {
 	ExperimentalStickyScrollEnabled = 'chat.experimental.stickyScroll.enabled',
 	RichLinks = 'chat.experimental.richLinks.enabled',
 
+	AutoModeExplainability = 'chat.experimental.autoModeExplainability',
+
 	CollectInstructionsInExtension = 'chat.experimental.collectInstructionsInExtension',
 	ImplicitContextActiveEditor = 'chat.implicitContext.includeActiveEditor',
 }
@@ -178,6 +180,17 @@ export const enum ChatClosedPromoNotification {
 
 export const AGENT_SESSION_CLEANUP_SETTINGS_TAG = 'agentSessionCleanup';
 export const DEFAULT_AGENTS_HANDOFF_TIP_DELAY_SECONDS = 5;
+
+/**
+ * How a response routed by Auto explains itself: `inline` names the picked model
+ * in the footer and repeats the decision as a part in the response, `footer`
+ * reports `Auto` and explains the decision only on the footer's hover.
+ */
+export type ChatAutoModeExplainability = 'inline' | 'footer';
+
+export function getChatAutoModeExplainability(configurationService: IConfigurationService): ChatAutoModeExplainability {
+	return configurationService.getValue(ChatConfiguration.AutoModeExplainability) === 'footer' ? 'footer' : 'inline';
+}
 
 /**
  * The "kind" of agents for custom agents.
