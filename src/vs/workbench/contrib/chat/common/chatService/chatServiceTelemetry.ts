@@ -11,7 +11,7 @@ import { ChatRequestModel, IChatRequestVariableData } from '../model/chatModel.j
 import { ChatRequestAgentSubcommandPart, ChatRequestSlashCommandPart } from '../requestParser/chatParserTypes.js';
 import { ChatAgentVoteDirection, ChatCopyKind, IChatSendRequestOptions, IChatUserActionEvent } from './chatService.js';
 import { isImageVariableEntry } from '../attachments/chatVariableEntries.js';
-import { ChatAgentLocation, ChatModeKind, ChatPermissionLevel } from '../constants.js';
+import { ChatAgentLocation, ChatModeKind, ChatPermissionLevel, ISessionTypeSelectionTelemetry } from '../constants.js';
 import { ILanguageModelsService } from '../languageModels.js';
 import { chatSessionResourceToId, getChatSessionType } from '../model/chatUri.js';
 import { getAgentHostProviderForTelemetry, isAgentHostSessionResource } from '../chatSessionsService.js';
@@ -194,6 +194,10 @@ export type ChatProviderInvokedEvent = ChatSessionModeEvent & {
 	sessionType: string | undefined;
 	harness: string | undefined;
 	sessionTypeSelectionReason: string | undefined;
+	selectionTimeSettingDefaultToCopilotHarness: boolean | undefined;
+	selectionTimeSettingPreferCopilotHarness: boolean | undefined;
+	selectionTimeSettingLocalAgentEnabled: boolean | undefined;
+	selectionTimeManagedSandboxEnforced: boolean | undefined;
 	isVirtualWorkspace: boolean;
 	settingDefaultToCopilotHarness: boolean;
 	settingPreferCopilotHarness: boolean;
@@ -392,7 +396,7 @@ export class ChatRequestTelemetry {
 		agentSlashCommandPart: ChatRequestAgentSubcommandPart | undefined;
 		commandPart: ChatRequestSlashCommandPart | undefined;
 		requestIndex: number;
-		sessionTypeSelectionReason: string | undefined;
+		sessionTypeSelectionTelemetry: ISessionTypeSelectionTelemetry | undefined;
 		sessionResource: URI;
 		location: ChatAgentLocation;
 		options: IChatSendRequestOptions | undefined;
@@ -425,7 +429,11 @@ export class ChatRequestTelemetry {
 		this.telemetryService.publicLog2<ChatProviderInvokedEvent, ChatProviderInvokedClassification>('interactiveSessionProviderInvoked', {
 			provider: getAgentHostProviderForTelemetry(getChatSessionType(this.opts.sessionResource)),
 			requestIndex: this.opts.requestIndex,
-			sessionTypeSelectionReason: this.opts.sessionTypeSelectionReason,
+			sessionTypeSelectionReason: this.opts.sessionTypeSelectionTelemetry?.reason,
+			selectionTimeSettingDefaultToCopilotHarness: this.opts.sessionTypeSelectionTelemetry?.settingDefaultToCopilotHarness,
+			selectionTimeSettingPreferCopilotHarness: this.opts.sessionTypeSelectionTelemetry?.settingPreferCopilotHarness,
+			selectionTimeSettingLocalAgentEnabled: this.opts.sessionTypeSelectionTelemetry?.settingLocalAgentEnabled,
+			selectionTimeManagedSandboxEnforced: this.opts.sessionTypeSelectionTelemetry?.managedSandboxEnforced,
 			timeToFirstProgress,
 			totalTime,
 			result,

@@ -19,6 +19,10 @@ import { ChatAgentLocation, SessionTypeSelectionReason } from '../../../common/c
 import { IChatModel, IChatRequestModel, ISerializableChatData } from '../../../common/model/chatModel.js';
 import { IChatRequestViewModel, IChatViewModel } from '../../../common/model/chatViewModel.js';
 
+function selectionReasonOf(input: SessionTypeSelectionTelemetryInput | undefined): SessionTypeSelectionReason | undefined {
+	return typeof input === 'string' ? input : input?.reason;
+}
+
 class TestForkConversationAction extends ForkConversationAction {
 	openForkedSession(instantiationService: TestInstantiationService, parentSessionResource: URI, forkedSessionResource: URI, options?: IForkConversationOptions): Promise<void> {
 		return this._openForkedSession(instantiationService, parentSessionResource, forkedSessionResource, options);
@@ -28,14 +32,14 @@ class TestForkConversationAction extends ForkConversationAction {
 suite('ForkConversationAction', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('opens a fork with the current session selection reason', async () => {
+	test('opens the forked session in the chat view pane', async () => {
 		const instantiationService = disposables.add(new TestInstantiationService());
 		const parentSessionResource = URI.parse('vscode-chat-session://parent');
 		const forkedSessionResource = URI.parse('vscode-chat-session://fork');
-		let openCall: { resource: URI; usesViewTarget: boolean; options: IChatEditorOptions | undefined } | undefined;
+		let openCall: { resource: URI; usesViewTarget: boolean } | undefined;
 		instantiationService.stub(IChatWidgetService, upcastPartial<IChatWidgetService>({
-			openSession: async (resource, target, options) => {
-				openCall = { resource, usesViewTarget: target === ChatViewPaneTarget, options };
+			openSession: async (resource, target) => {
+				openCall = { resource, usesViewTarget: target === ChatViewPaneTarget };
 				return undefined;
 			},
 		}));
@@ -45,7 +49,6 @@ suite('ForkConversationAction', () => {
 		assert.deepStrictEqual(openCall, {
 			resource: forkedSessionResource,
 			usesViewTarget: true,
-			options: { sessionTypeSelectionReason: 'currentSession' },
 		});
 	});
 
@@ -202,8 +205,8 @@ suite('ForkConversationAction', () => {
 		});
 		instantiationService.stub(IChatService, upcastPartial<IChatService>({
 			getSession: resource => resource.toString() === sourceSessionResource.toString() ? sourceModel : undefined,
-			loadSessionFromData: (_data, debugOwner, selectionReason) => {
-				loadCall = { debugOwner, selectionReason };
+			loadSessionFromData: (_data, debugOwner, selectionTelemetry) => {
+				loadCall = { debugOwner, selectionReason: selectionReasonOf(selectionTelemetry) };
 				return modelRef;
 			},
 		}));

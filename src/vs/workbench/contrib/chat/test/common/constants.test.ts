@@ -89,7 +89,8 @@ suite('ChatConfiguration defaults', () => {
 		accessor.set(IStorageService, storageService);
 		accessor.set(IWorkspaceContextService, new TestContextService(workspace));
 		accessor.set(IAgentHostEnablementService, { _serviceBrand: undefined, enabled: constObservable(agentHostEnabled), managedSandboxEnforced: constObservable(false), managedSandboxAllowsBypass: constObservable(false) });
-		return getDefaultNewChatSessionTypeAndReason(accessor, options);
+		const resolved = getDefaultNewChatSessionTypeAndReason(accessor, options);
+		return { sessionType: resolved.sessionType, selectionReason: resolved.selectionTelemetry.reason };
 	}
 
 	test('default permission configuration maps setting values to Agent Host values', () => {
@@ -783,6 +784,34 @@ suite('ChatConfiguration defaults', () => {
 			current: { sessionType: SessionType.AgentHostClaude, selectionReason: 'currentSession' },
 			copilotPreference: { sessionType: SessionType.AgentHostCopilot, selectionReason: 'copilotPreference' },
 			computed: { sessionType: localChatSessionType, selectionReason: 'computedDefault' },
+		});
+	});
+
+	test('new chat default resolver captures selection telemetry with the reason', () => {
+		const configurationService = new TestConfigurationService({
+			[ChatConfiguration.DefaultToCopilotHarness]: true,
+			[ChatConfiguration.EditorPreferCopilotHarness]: false,
+			[ChatConfiguration.EditorLocalAgentEnabled]: false,
+		});
+		const chatSessionsService = createChatSessionsService(SessionType.AgentHostCopilot);
+		const storageService = disposables.add(new TestStorageService());
+
+		const resolved = getDefaultNewChatSessionTypeAndReasonFromServices(
+			configurationService,
+			chatSessionsService,
+			storageService,
+			localWorkspace,
+			true,
+			{ explicitOverride: SessionType.AgentHostCopilot },
+			true
+		);
+
+		assert.deepStrictEqual(resolved.selectionTelemetry, {
+			reason: 'explicitOverride',
+			settingDefaultToCopilotHarness: true,
+			settingPreferCopilotHarness: false,
+			settingLocalAgentEnabled: false,
+			managedSandboxEnforced: true,
 		});
 	});
 

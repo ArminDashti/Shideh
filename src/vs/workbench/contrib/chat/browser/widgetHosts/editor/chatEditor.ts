@@ -55,8 +55,8 @@ export interface IChatEditorOptions extends IEditorOptions {
 	 * provider resolution would otherwise apply.
 	 */
 	explicitSessionType?: string;
-	/** Creation-only metadata describing why the new session type was selected. */
-	sessionTypeSelectionReason?: SessionTypeSelectionReason;
+	/** Creation-only telemetry describing why and how the new session type was selected. */
+	sessionTypeSelectionTelemetry?: ISessionTypeSelectionTelemetry;
 	target?: { data: IExportableChatData | ISerializableChatData };
 	title?: {
 		preferred?: string;

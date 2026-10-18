@@ -40,9 +40,20 @@ import { getChatSessionType, isUntitledChatSession, LocalChatSessionUri } from '
 import { MockChatSessionsService } from '../../../common/mockChatSessionsService.js';
 import { TestContextService, TestStorageService } from '../../../../../../test/common/workbenchTestServices.js';
 
+function selectionReasonOf(input: SessionTypeSelectionTelemetryInput | undefined): SessionTypeSelectionReason | undefined {
+	return typeof input === 'string' ? input : input?.reason;
+}
+
 suite('ChatEditorInput', () => {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const selectionTelemetry = (reason: SessionTypeSelectionReason): ISessionTypeSelectionTelemetry => ({
+		reason,
+		settingDefaultToCopilotHarness: false,
+		settingPreferCopilotHarness: false,
+		settingLocalAgentEnabled: true,
+		managedSandboxEnforced: false,
+	});
 
 	function createInputWithPendingEdits(willKeepAlive: boolean) {
 		const sessionResource = LocalChatSessionUri.forSession('pending-edits');
@@ -153,7 +164,7 @@ suite('ChatEditorInput', () => {
 			{ explicitSessionType: localChatSessionType },
 			chatService,
 			{} as IDialogService,
-			{} as IConfigurationService,
+			new TestConfigurationService(),
 			{} as IChatSessionsService,
 			{} as IInstantiationService,
 <<<<<<< HEAD
@@ -174,7 +185,7 @@ suite('ChatEditorInput', () => {
 				sessionResource: input.sessionResource,
 				startLocation: startCall?.location,
 				debugOwner: startCall?.options?.debugOwner,
-				selectionReason: startCall?.options?.sessionTypeSelectionReason,
+				selectionReason: selectionReasonOf(startCall?.options?.sessionTypeSelectionTelemetry),
 				didTryDefaultLoad,
 			}, {
 				model,
@@ -200,19 +211,19 @@ suite('ChatEditorInput', () => {
 		let acquiredReason: SessionTypeSelectionReason | undefined;
 		let startedReason: SessionTypeSelectionReason | undefined;
 		const chatService = {
-			async acquireOrLoadSession(_resource: URI, _location: ChatAgentLocation, _token: CancellationToken, _debugOwner?: string, sessionTypeSelectionReason?: SessionTypeSelectionReason) {
-				acquiredReason = sessionTypeSelectionReason;
+			async acquireOrLoadSession(_resource: URI, _location: ChatAgentLocation, _token: CancellationToken, _debugOwner?: string, sessionTypeSelectionTelemetry?: ISessionTypeSelectionTelemetry) {
+				acquiredReason = sessionTypeSelectionTelemetry?.reason;
 				return undefined;
 			},
 			startNewLocalSession(_location: ChatAgentLocation, options?: IChatSessionStartOptions) {
-				startedReason = options?.sessionTypeSelectionReason;
+				startedReason = selectionReasonOf(options?.sessionTypeSelectionTelemetry);
 				return { object: model, dispose: () => { } };
 			},
 		} as Partial<IChatService> as IChatService;
 
 		const input = new ChatEditorInput(
 			sessionResource,
-			{ sessionTypeSelectionReason: 'currentSession' },
+			{ sessionTypeSelectionTelemetry: selectionTelemetry('currentSession') },
 			chatService,
 			{} as IDialogService,
 			{} as IConfigurationService,
@@ -259,15 +270,15 @@ suite('ChatEditorInput', () => {
 
 		let acquiredReason: SessionTypeSelectionReason | undefined;
 		const chatService = {
-			async acquireOrLoadSession(_resource: URI, _location: ChatAgentLocation, _token: CancellationToken, _debugOwner?: string, sessionTypeSelectionReason?: SessionTypeSelectionReason) {
-				acquiredReason = sessionTypeSelectionReason;
+			async acquireOrLoadSession(_resource: URI, _location: ChatAgentLocation, _token: CancellationToken, _debugOwner?: string, sessionTypeSelectionTelemetry?: ISessionTypeSelectionTelemetry) {
+				acquiredReason = sessionTypeSelectionTelemetry?.reason;
 				return { object: model, dispose: () => { } };
 			},
 		} as Partial<IChatService> as IChatService;
 
 		const input = new ChatEditorInput(
 			sessionResource,
-			{ sessionTypeSelectionReason: 'copilotPreference' },
+			{ sessionTypeSelectionTelemetry: selectionTelemetry('copilotPreference') },
 			chatService,
 			{} as IDialogService,
 			{} as IConfigurationService,
@@ -313,7 +324,7 @@ suite('ChatEditorInput', () => {
 
 		const input = new ChatEditorInput(
 			unavailableResource,
-			{ sessionTypeSelectionReason: 'explicitOverride' },
+			{ sessionTypeSelectionTelemetry: selectionTelemetry('explicitOverride') },
 			chatService,
 			{} as IDialogService,
 			{} as IConfigurationService,
@@ -336,7 +347,7 @@ suite('ChatEditorInput', () => {
 				sessionResource: input.sessionResource,
 				startLocation: startCall?.location,
 				debugOwner: startCall?.options?.debugOwner,
-				selectionReason: startCall?.options?.sessionTypeSelectionReason,
+				selectionReason: selectionReasonOf(startCall?.options?.sessionTypeSelectionTelemetry),
 			}, {
 				model,
 				sessionResource: localResource,
@@ -441,7 +452,7 @@ suite('ChatEditorInput', () => {
 				const replacement = replacements[0].replacement;
 				if (isResourceEditorInput(replacement)) {
 					replacementResource = replacement.resource;
-					replacementSelectionReason = (replacement.options as IChatEditorOptions | undefined)?.sessionTypeSelectionReason;
+					replacementSelectionReason = (replacement.options as IChatEditorOptions | undefined)?.sessionTypeSelectionTelemetry?.reason;
 				}
 			},
 		});
@@ -488,7 +499,7 @@ suite('ChatEditorInput', () => {
 			copiedUntitled: isUntitledChatSession(copied.resource),
 			distinctFromSource: !isEqual(copied.resource, source),
 			sourceUnchanged: isEqual(input.resource, source),
-			selectionReason: copied.options.sessionTypeSelectionReason,
+			selectionReason: copied.options.sessionTypeSelectionTelemetry?.reason,
 		}, {
 			copiedType: SessionType.AgentHostCopilot,
 			copiedUntitled: true,

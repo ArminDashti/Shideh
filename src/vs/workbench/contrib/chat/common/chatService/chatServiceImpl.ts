@@ -23,6 +23,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { localize } from '../../../../../nls.js';
+import { IAgentHostEnablementService } from '../../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -605,8 +606,19 @@ export class ChatService extends Disposable implements IChatService {
 			sessionResource,
 			canUseTools: options?.canUseTools ?? true,
 			disableBackgroundKeepAlive: options?.disableBackgroundKeepAlive,
-			sessionTypeSelectionReason: options?.sessionTypeSelectionReason
+			sessionTypeSelectionTelemetry: this.completeSessionTypeSelectionTelemetry(options?.sessionTypeSelectionTelemetry),
 		}, options?.debugOwner ?? 'ChatService#startNewLocalSession');
+	}
+
+	/**
+	 * Completes a bare selection reason with the settings that drove it. Only safe for callers that
+	 * create the model synchronously, where sampling here is equivalent to sampling at the call site.
+	 */
+	private completeSessionTypeSelectionTelemetry(input: SessionTypeSelectionTelemetryInput | undefined): ISessionTypeSelectionTelemetry | undefined {
+		if (typeof input !== 'string') {
+			return input;
+		}
+		return getSessionTypeSelectionTelemetry(this.configurationService, input, this.agentHostEnablementService.managedSandboxEnforced.get());
 	}
 
 	private _startSession(props: IStartSessionProps): ChatModel {
@@ -713,7 +725,7 @@ export class ChatService extends Disposable implements IChatService {
 			this._chatSessionStore.getMetadataForSessionSync(sessionResource)?.title;
 	}
 
-	loadSessionFromData(data: IExportableChatData | ISerializableChatData, debugOwner?: string, sessionTypeSelectionReason?: SessionTypeSelectionReason): IChatModelReference {
+	loadSessionFromData(data: IExportableChatData | ISerializableChatData, debugOwner?: string, sessionTypeSelectionTelemetry?: SessionTypeSelectionTelemetryInput): IChatModelReference {
 		const sessionId = (data as ISerializableChatData).sessionId ?? generateUuid();
 		const sessionResource = LocalChatSessionUri.forSession(sessionId);
 		return this._sessionModels.acquireOrCreate({
@@ -721,19 +733,19 @@ export class ChatService extends Disposable implements IChatService {
 			location: data.initialLocation ?? ChatAgentLocation.Chat,
 			sessionResource,
 			canUseTools: true,
-			sessionTypeSelectionReason,
+			sessionTypeSelectionTelemetry: this.completeSessionTypeSelectionTelemetry(sessionTypeSelectionTelemetry),
 		}, debugOwner ?? 'ChatService#loadSessionFromData');
 	}
 
-	async acquireOrLoadSession(sessionResource: URI, location: ChatAgentLocation, token: CancellationToken, debugOwner?: string, sessionTypeSelectionReason?: SessionTypeSelectionReason): Promise<IChatModelReference | undefined> {
+	async acquireOrLoadSession(sessionResource: URI, location: ChatAgentLocation, token: CancellationToken, debugOwner?: string, sessionTypeSelectionTelemetry?: ISessionTypeSelectionTelemetry): Promise<IChatModelReference | undefined> {
 		if (LocalChatSessionUri.isLocalSession(sessionResource)) {
 			return this.acquireOrRestoreLocalSession(sessionResource, debugOwner);
 		} else {
-			return this.loadRemoteSession(sessionResource, location, token, debugOwner, sessionTypeSelectionReason);
+			return this.loadRemoteSession(sessionResource, location, token, debugOwner, sessionTypeSelectionTelemetry);
 		}
 	}
 
-	private async loadRemoteSession(sessionResource: URI, location: ChatAgentLocation, token: CancellationToken, debugOwner?: string, sessionTypeSelectionReason?: SessionTypeSelectionReason): Promise<IChatModelReference | undefined> {
+	private async loadRemoteSession(sessionResource: URI, location: ChatAgentLocation, token: CancellationToken, debugOwner?: string, sessionTypeSelectionTelemetry?: ISessionTypeSelectionTelemetry): Promise<IChatModelReference | undefined> {
 		this.trace('loadRemoteSession', `start ${sessionResource.toString()}`);
 		// Check if session already exists before resolving the provider,
 		// so we can return a cached model even if the provider was unregistered.
@@ -1506,7 +1518,7 @@ export class ChatService extends Disposable implements IChatService {
 			this.chatSessionService.registerSessionResourceAlias(untitledResource, newItem.resource);
 
 			// Do not dispose tempRef as per 6bc5ae80de9caffb21e9eb58e18b5ca24fa2d6e8
-			const tempRef = await this.loadRemoteSession(newItem.resource, untitledModel.initialLocation, CancellationToken.None, undefined, untitledModel.sessionTypeSelectionReason);
+			const tempRef = await this.loadRemoteSession(newItem.resource, untitledModel.initialLocation, CancellationToken.None, undefined, untitledModel.sessionTypeSelectionTelemetry);
 			const realModel = tempRef?.object as ChatModel | undefined;
 			if (!realModel) {
 				throw new Error(`Failed to load session for resource: ${newItem.resource}`);
@@ -1603,7 +1615,7 @@ export class ChatService extends Disposable implements IChatService {
 			commandPart,
 			sessionResource: model.sessionResource,
 			requestIndex: requests.length,
-			sessionTypeSelectionReason: model.sessionTypeSelectionReason,
+			sessionTypeSelectionTelemetry: model.sessionTypeSelectionTelemetry,
 			location: model.initialLocation,
 			options,
 			enableCommandDetection,

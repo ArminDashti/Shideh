@@ -19,6 +19,7 @@ import { runWithFakedTimers } from '../../../../../../base/test/common/timeTrave
 import { Range } from '../../../../../../editor/common/core/range.js';
 import { MessageKind } from '../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { IAgentHostEnablementService } from '../../../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEnvironmentService } from '../../../../../../platform/environment/common/environment.js';
@@ -77,6 +78,17 @@ import { ChatRequestSlashPromptPart } from '../../../common/requestParser/chatPa
 import { NullLanguageModelsService } from '../languageModels.js';
 
 const chatAgentWithUsedContextId = 'ChatProviderWithUsedContext';
+
+function sessionTypeSelectionTelemetry(reason: SessionTypeSelectionReason, values?: Partial<Omit<ISessionTypeSelectionTelemetry, 'reason'>>): ISessionTypeSelectionTelemetry {
+	return {
+		reason,
+		settingDefaultToCopilotHarness: false,
+		settingPreferCopilotHarness: false,
+		settingLocalAgentEnabled: true,
+		managedSandboxEnforced: false,
+		...values,
+	};
+}
 const chatAgentWithUsedContext: IChatAgent = {
 	id: chatAgentWithUsedContextId,
 	name: chatAgentWithUsedContextId,
@@ -210,6 +222,7 @@ suite('ChatService', () => {
 		instantiationService.stub(ILifecycleService, { onWillShutdown: Event.None });
 		instantiationService.stub(IWorkspaceEditingService, { onDidEnterWorkspace: Event.None });
 		instantiationService.stub(IChatDebugService, testDisposables.add(new ChatDebugServiceImpl(new TestConfigurationService(), contextKeyService)));
+		instantiationService.stub(IAgentHostEnablementService, { _serviceBrand: undefined, enabled: constObservable(true), managedSandboxEnforced: constObservable(false), managedSandboxAllowsBypass: constObservable(false) } satisfies IAgentHostEnablementService);
 		editingSessionEntries = observableValue('editingSessionEntries', []);
 		instantiationService.stub(IChatEditingService, new class extends mock<IChatEditingService>() {
 			override startOrContinueGlobalEditingSession(): IChatEditingSession {
@@ -744,7 +757,7 @@ suite('ChatService', () => {
 		const forkedData = sourceRef.object.toJSON();
 		forkedData.sessionId = 'forked-session';
 
-		const forkedRef = testDisposables.add(testService.loadSessionFromData(forkedData, 'ChatServiceTest#forkedSession', 'currentSession'));
+		const forkedRef = testDisposables.add(testService.loadSessionFromData(forkedData, 'ChatServiceTest#forkedSession', sessionTypeSelectionTelemetry('currentSession')));
 		const response = await testService.sendRequest(forkedRef.object.sessionResource, 'hello');
 		ChatSendResult.assertSent(response);
 		await response.data.responseCompletePromise;
@@ -2339,7 +2352,7 @@ suite('ChatService', () => {
 		const testService = createChatService();
 
 		// Load the untitled session to create the initial model
-		const untitledRef = await testService.acquireOrLoadSession(untitledResource, ChatAgentLocation.Chat, CancellationToken.None, undefined, 'rememberedSelection');
+		const untitledRef = await testService.acquireOrLoadSession(untitledResource, ChatAgentLocation.Chat, CancellationToken.None, undefined, sessionTypeSelectionTelemetry('rememberedSelection'));
 		assert.ok(untitledRef, 'Should load untitled session');
 		testDisposables.add(untitledRef);
 
@@ -3120,6 +3133,7 @@ suite('ChatService', () => {
 		instantiationService.stub(IChatSessionsService, mockSessionsService);
 
 		instantiationService.stub(IWorkspaceContextService, new TestContextService(testWorkspace(URI.from({ scheme: 'vscode-vfs', authority: 'test', path: '/workspace' }))));
+		instantiationService.stub(IAgentHostEnablementService, { _serviceBrand: undefined, enabled: constObservable(true), managedSandboxEnforced: constObservable(true), managedSandboxAllowsBypass: constObservable(false) } satisfies IAgentHostEnablementService);
 		instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			'chat.defaultToCopilotHarness': true,
 			'chat.editor.preferCopilotHarness': true,
@@ -3131,7 +3145,7 @@ suite('ChatService', () => {
 		testDisposables.add(chatAgentService.registerAgentImplementation(sessionType, { async invoke() { return {}; } }));
 
 		const testService = createChatService();
-		const ref = await testService.acquireOrLoadSession(sessionResource, ChatAgentLocation.Chat, CancellationToken.None, undefined, 'computedDefault');
+		const ref = await testService.acquireOrLoadSession(sessionResource, ChatAgentLocation.Chat, CancellationToken.None, undefined, sessionTypeSelectionTelemetry('computedDefault'));
 		assert.ok(ref);
 		testDisposables.add(ref);
 
@@ -3148,6 +3162,10 @@ suite('ChatService', () => {
 			isAgentHostSession: event.isAgentHostSession,
 			requestIndex: event.requestIndex,
 			sessionTypeSelectionReason: event.sessionTypeSelectionReason,
+			selectionTimeSettingDefaultToCopilotHarness: event.selectionTimeSettingDefaultToCopilotHarness,
+			selectionTimeSettingPreferCopilotHarness: event.selectionTimeSettingPreferCopilotHarness,
+			selectionTimeSettingLocalAgentEnabled: event.selectionTimeSettingLocalAgentEnabled,
+			selectionTimeManagedSandboxEnforced: event.selectionTimeManagedSandboxEnforced,
 			isVirtualWorkspace: event.isVirtualWorkspace,
 			settingDefaultToCopilotHarness: event.settingDefaultToCopilotHarness,
 			settingPreferCopilotHarness: event.settingPreferCopilotHarness,
