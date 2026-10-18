@@ -157,7 +157,7 @@ export abstract class QuickInput extends Disposable implements IQuickInput {
 
 	protected _visible = observableValue('visible', false);
 	private _title: string | undefined;
-	private _description: string | undefined;
+	private _description: string | HTMLElement | undefined;
 	private _steps: number | undefined;
 	private _totalSteps: number | undefined;
 	private _enabled = true;
@@ -208,7 +208,7 @@ export abstract class QuickInput extends Disposable implements IQuickInput {
 		return this._description;
 	}
 
-	set description(description: string | undefined) {
+	set description(description: string | HTMLElement | undefined) {
 		this._description = description;
 		this.update();
 	}
@@ -397,10 +397,18 @@ export abstract class QuickInput extends Disposable implements IQuickInput {
 		}
 		const description = this.getDescription();
 		if (this.ui.description1.textContent !== description) {
-			this.ui.description1.textContent = description;
+			if (description instanceof HTMLElement) {
+				dom.reset(this.ui.description1, description);
+			} else {
+				this.ui.description1.textContent = description;
+			}
 		}
 		if (this.ui.description2.textContent !== description) {
-			this.ui.description2.textContent = description;
+			if (description instanceof HTMLElement) {
+				dom.reset(this.ui.description2, description.cloneNode(true));
+			} else {
+				this.ui.description2.textContent = description;
+			}
 		}
 		if (this.busy && !this.busyDelay) {
 			this.busyDelay = new TimeoutTimer();
