@@ -289,6 +289,12 @@ export class BrowserMain extends Disposable {
 		const productService: IProductService = mixin({ _serviceBrand: undefined, ...product }, this.configuration.productConfiguration);
 		serviceCollection.set(IProductService, productService);
 
+		// Product Configuration Defaults
+		if (productService.configurationDefaults) {
+			const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+			configurationRegistry.registerDefaultConfigurations([{ overrides: productService.configurationDefaults as IStringDictionary<IStringDictionary<unknown>> }]);
+		}
+
 		// Environment
 		const logsPath = URI.file(toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '')).with({ scheme: 'vscode-log' });
 		const environmentService = new BrowserWorkbenchEnvironmentService(workspace.id, logsPath, this.configuration, productService);
