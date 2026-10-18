@@ -486,7 +486,7 @@ function getArgvConfigPath(): string {
 
 function configureCrashReporter(): void {
 	let crashReporterDirectory = args['crash-reporter-directory'];
-	let submitURL = '';
+	let submitURL = 'about:blank';
 	if (crashReporterDirectory) {
 		crashReporterDirectory = path.normalize(crashReporterDirectory);
 
@@ -511,7 +511,7 @@ function configureCrashReporter(): void {
 	}
 
 	// Otherwise we configure the crash reporter from product.json
-	else {
+	else if (!useWatsonUploader) {
 		const appCenter = product.appCenter;
 		if (appCenter) {
 			const isWindows = (process.platform === 'win32');
