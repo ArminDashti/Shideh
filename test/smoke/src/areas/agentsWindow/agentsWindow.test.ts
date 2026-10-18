@@ -207,7 +207,7 @@ export function setup(logger: Logger, quality: Quality) {
 		});
 	});
 
-	describe('Agents Window (local AgentHost)', () => {
+	describe.skip('Agents Window (local AgentHost)' /* #321072: flaky .agent-sessions-workbench timeout */, () => {
 
 		const agentHost = setupAgentHostSuite(logger, {
 			serverLabel: 'AgentHost',

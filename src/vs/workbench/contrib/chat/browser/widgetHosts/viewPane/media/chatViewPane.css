@@ -106,6 +106,15 @@
 	}
 }
 
+/* Bottom area: tab bar + voice panel, pinned to bottom of viewpane */
+.chat-viewpane > .voice-bottom-area {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	flex-grow: 0;
+	overflow: hidden;
+}
+
 /* Sessions control: either sidebar or stacked */
 .chat-viewpane.has-sessions-control .agent-sessions-container {
 	display: flex;
