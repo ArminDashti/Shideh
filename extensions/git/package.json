@@ -1353,7 +1353,11 @@
         },
         {
           "command": "git.unstageSelectedRanges",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme == git"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && (resourceScheme == file || resourceScheme == git)"
+        },
+        {
+          "command": "git.unstageChange",
+          "when": "false"
         },
         {
           "command": "git.unstageChange",

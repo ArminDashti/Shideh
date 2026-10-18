@@ -2223,6 +2223,16 @@ export class CommandCenter {
 		await repository.revert([]);
 	}
 
+	@command('git.unstageChange')
+	async unstageChange(uri: Uri, changes: LineChange[], index: number): Promise<void> {
+		if (!uri) {
+			return;
+		}
+
+		console.log('changes: ', changes);
+		console.log('index: ', index);
+	}
+
 	@command('git.unstageSelectedRanges')
 	async unstageSelectedRanges(): Promise<void> {
 		const textEditor = window.activeTextEditor;
