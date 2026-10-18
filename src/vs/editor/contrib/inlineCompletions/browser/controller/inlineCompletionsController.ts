@@ -192,6 +192,7 @@ export class InlineCompletionsController extends Disposable {
 		this._register(runOnChange(this._editorObs.onDidType, (_value, _changes) => {
 			if (this._enabledInConfig.get() && !this._isEditorDictationInProgress()) {
 				this.model.get()?.trigger();
+				this.model.get()!.isFirstCell = true;
 				InlineCompletionsController._lastEditedModelUri = this.editor.getModel()?.uri;
 			}
 		}));
@@ -297,6 +298,8 @@ export class InlineCompletionsController extends Disposable {
 			transaction(tx => {
 				/** @description InlineCompletionsController.onDidBlurEditorWidget */
 				model.stop('automatic', tx);
+
+				this.stopOtherControllers();
 			});
 		}));
 
@@ -449,6 +452,17 @@ export class InlineCompletionsController extends Disposable {
 		alert(hint ? content + ', ' + hint : content);
 	}
 
+	private stopOtherControllers(){
+		// Reject others as well
+		const activeEditor = this._codeEditorService.getFocusedCodeEditor() || this._codeEditorService.getActiveCodeEditor();
+		if (activeEditor === this.editor) {
+			for (const ctrl of InlineCompletionsController._instances) {
+				if (ctrl !== this) {
+					ctrl.model.get()?.stop('automatic');
+				}
+			}
+		}
+	}
 	public shouldShowHoverAt(range: Range) {
 		const ghostText = this.model.get()?.primaryGhostText.get();
 		if (!ghostText) {

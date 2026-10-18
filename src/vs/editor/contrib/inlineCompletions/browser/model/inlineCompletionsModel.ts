@@ -59,6 +59,7 @@ import { getInlineCompletionsController } from '../controller/common.js';
 export class InlineCompletionsModel extends Disposable {
 	private readonly _source;
 	private readonly _isActive = observableValue<boolean>(this, false);
+	private readonly _evenIfNotActiveEditor = observableValue<boolean>(this, false);
 	private readonly _onlyRequestInlineEditsSignal = observableSignal(this);
 	private readonly _forceUpdateExplicitlySignal = observableSignal(this);
 	private readonly _noDelaySignal = observableSignal(this);
@@ -223,9 +224,9 @@ export class InlineCompletionsModel extends Disposable {
 					return;
 				}
 
-				// Only update the active editor
+				// // Only update the active editor
 				const activeEditor = this._codeEditorService.getFocusedCodeEditor() || this._codeEditorService.getActiveCodeEditor();
-				if (activeEditor !== this._editor) {
+				if (!this._evenIfNotActiveEditor.get() && activeEditor !== this._editor) {
 					return;
 				}
 
@@ -517,6 +518,7 @@ export class InlineCompletionsModel extends Disposable {
 			}
 
 			this._isActive.set(false, tx);
+			this._evenIfNotActiveEditor.set(false, tx);
 			this._source.clear(tx);
 		});
 	}

@@ -11,6 +11,7 @@ import { InlineSuggestHint } from '../../model/inlineSuggestionItem.js';
 import { InlineCompletionEditorType } from '../../model/provideInlineCompletions.js';
 import { InlineCompletionViewData, InlineCompletionViewKind, InlineEditTabAction } from './inlineEditsViewInterface.js';
 import { InlineEditWithChanges } from './inlineEditWithChanges.js';
+import { URI } from '../../../../../../base/common/uri.js';
 
 /**
  * Warning: This is not per inline edit id and gets created often.
