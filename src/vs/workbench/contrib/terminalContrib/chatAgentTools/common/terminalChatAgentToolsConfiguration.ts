@@ -543,9 +543,6 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		],
 		default: 'chat',
 		tags: ['experimental'],
-		experiment: {
-			mode: 'auto'
-		}
 	},
 	[AgentSandboxSettingId.AgentSandboxEnabled]: {
 		managedSettingsPresentation: read => SandboxSettingsResolutionHelper.resolveEnabled(undefined, read(COPILOT_SANDBOX_ENABLED_KEY) === true),
@@ -958,9 +955,6 @@ export const terminalChatAgentToolsConfiguration: IStringDictionary<IConfigurati
 		type: 'boolean',
 		default: true,
 		tags: ['experimental'],
-		experiment: {
-			mode: 'auto'
-		},
 		markdownDescription: localize('enforceTimeoutFromModel.description', "Whether to enforce the timeout value provided by the model in the run in terminal tool. When enabled, if the model provides a timeout parameter, the tool will stop tracking the command after that duration and return the output collected so far."),
 	},
 	[TerminalChatAgentToolsSettingId.IdleSilenceTimeoutMs]: {

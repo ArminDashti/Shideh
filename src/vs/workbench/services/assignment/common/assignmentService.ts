@@ -83,6 +83,7 @@ export function toExperimentTelemetryData(props: Map<string, string>): ITelemetr
 
 export interface IWorkbenchAssignmentService extends IAssignmentService {
 	getCurrentExperiments(): Promise<string[] | undefined>;
+	getTreatmentWithoutTelemetry<T extends string | number | boolean>(name: string): Promise<T | undefined>;
 	addTelemetryAssignmentFilter(filter: IAssignmentFilter): void;
 	/** Resolves the effective value without delaying developer overrides; assignment metadata always comes from TAS. */
 	getTreatmentWithAssignment<T extends string | number | boolean>(name: string): Promise<ITreatmentWithAssignment<T>>;
@@ -304,6 +305,10 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 		const result = await resolveTreatmentWithAssignment(override, () => this.getAssignedTreatment<T>(name, true));
 		this.telemetry.logTreatment(name, result.value);
 		return result;
+	}
+
+	async getTreatmentWithoutTelemetry<T extends string | number | boolean>(name: string): Promise<T | undefined> {
+		return this.doGetTreatment<T>(name);
 	}
 
 	private async doGetTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {

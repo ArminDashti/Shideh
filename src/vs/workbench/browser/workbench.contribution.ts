@@ -683,9 +683,6 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('workbench.notifications.position.top-right', "Show notifications in the top right corner, similar to OS-level notifications.")
 				],
 				'tags': ['experimental'],
-				'experiment': {
-					'mode': 'auto'
-				}
 			},
 			[NotificationsSettings.NOTIFICATIONS_BUTTON]: {
 				'type': 'boolean',

@@ -29,9 +29,7 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			default: false,
 			type: 'boolean',
 			tags: ['experimental'],
-			experiment: {
-				mode: 'startup'
-			}
+			experimentMode: 'startup'
 		},
 		[InlineChatConfigKeys.Affordance]: {
 			description: localize('affordance', "Controls whether an inline chat affordance is shown when text is selected."),
@@ -52,9 +50,6 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			description: localize('fixDiagnostics', "Controls whether the Fix action is shown for diagnostics in the editor."),
 			default: true,
 			type: 'boolean',
-			experiment: {
-				mode: 'auto'
-			},
 			tags: ['experimental']
 		},
 		[InlineChatConfigKeys.AskInChat]: {

@@ -619,9 +619,6 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		type: 'boolean',
 		default: false,
 		tags: ['experimental', 'advanced'],
-		experiment: {
-			mode: 'auto'
-		}
 	},
 	[TerminalSettingId.ShellIntegrationEnabled]: {
 		restricted: true,
