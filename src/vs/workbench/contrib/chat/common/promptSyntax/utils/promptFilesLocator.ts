@@ -1090,7 +1090,7 @@ export class PromptFilesLocator {
 		const searchOptions: IFileQuery = {
 			folderQueries: [{ folder, disregardIgnoreFiles }],
 			type: QueryType.File,
-			shouldGlobMatchFilePattern: true,
+			filePatternType: 'glob',
 			excludePattern: workspaceRoot ? getExcludePattern(workspaceRoot.uri) : undefined,
 			sortByScore: true,
 			filePattern

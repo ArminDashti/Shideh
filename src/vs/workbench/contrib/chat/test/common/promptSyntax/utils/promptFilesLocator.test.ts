@@ -3035,6 +3035,57 @@ suite('PromptFilesLocator', () => {
 			assert.strictEqual(getSourceDescription(PromptFileSource.Plugin), undefined);
 		});
 	});
+
+	suite('findAgentMDsInWorkspace', () => {
+		testT('finds AGENTS.md files with different casings', async () => {
+			const locator = await createPromptsLocator(
+				undefined,
+				['/Users/legomushroom/repos/vscode'],
+				[
+					{
+						name: '/Users/legomushroom/repos/vscode',
+						children: [
+							{
+								name: 'agents.md',
+								contents: 'lowercase agents file',
+							},
+							{
+								name: 'subfolder',
+								children: [
+									{
+										name: 'Agents.md',
+										contents: 'capitalized agents file',
+									},
+									{
+										name: 'nested',
+										children: [
+											{
+												name: 'AGENTS.MD',
+												contents: 'uppercase agents file',
+											},
+										],
+									},
+								],
+							},
+						],
+					},
+				],
+			);
+
+			const result = await locator.findAgentMDsInWorkspace(CancellationToken.None);
+
+			assertOutcome(
+				result,
+				[
+					'/Users/legomushroom/repos/vscode/agents.md',
+					'/Users/legomushroom/repos/vscode/subfolder/Agents.md',
+					'/Users/legomushroom/repos/vscode/subfolder/nested/AGENTS.MD',
+				],
+				'Must find AGENTS.md files with different casings.',
+			);
+			await locator.disposeAsync();
+		});
+	});
 });
 
 function assertOutcome(actual: readonly URI[], expected: string[], message: string) {

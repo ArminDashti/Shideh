@@ -79,7 +79,7 @@ export class FileWalker {
 		this.errors = [];
 
 		if (this.filePattern) {
-			this.normalizedFilePatternLowercase = config.shouldGlobMatchFilePattern ? null : prepareQuery(this.filePattern).normalizedLowercase;
+			this.normalizedFilePatternLowercase = (config.filePatternType ?? 'fuzzy') === 'fuzzy' ? prepareQuery(this.filePattern).normalizedLowercase : null;
 		}
 
 		this.globalExcludePattern = config.excludePattern && glob.parse(config.excludePattern, globOptions);

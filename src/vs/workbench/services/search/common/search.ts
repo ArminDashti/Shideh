@@ -113,13 +113,19 @@ export interface ICommonQueryProps<U extends UriComponents> {
 	onlyFileScheme?: boolean;
 }
 
+export type FileQueryFilePatternType = 'fuzzy' | 'glob' | 'globCaseInsensitive';
+
 export interface IFileQueryProps<U extends UriComponents> extends ICommonQueryProps<U> {
 	type: QueryType.File;
 	filePattern?: string;
 
-	// when walking through the tree to find the result, don't use the filePattern to fuzzy match.
-	// Instead, should use glob matching.
-	shouldGlobMatchFilePattern?: boolean;
+	/**
+	 * Determines how the file pattern should be matched when walking through the tree to find the result:
+	 * - 'fuzzy': Use fuzzy matching (default)
+	 * - 'glob': Use glob pattern matching (case-sensitive)
+	 * - 'globCaseInsensitive': Use glob pattern matching (case-insensitive)
+	 */
+	filePatternType?: FileQueryFilePatternType;
 
 	/**
 	 * If true no results will be returned. Instead `limitHit` will indicate if at least one result exists or not.
