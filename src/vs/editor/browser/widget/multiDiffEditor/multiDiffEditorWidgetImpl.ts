@@ -229,13 +229,13 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 
 		this._lastDocStates = {};
 
-		this._register(autorunWithStore((reader, store) => {
+		this._register(autorun((reader) => {
 			const viewModel = this._viewModel.read(reader);
 			if (viewModel && viewModel.contextKeys) {
 				for (const [key, value] of Object.entries(viewModel.contextKeys)) {
 					const contextKey = this._contextKeyService.createKey<ContextKeyValue>(key, undefined);
 					contextKey.set(value);
-					store.add(toDisposable(() => contextKey.reset()));
+					reader.store.add(toDisposable(() => contextKey.reset()));
 				}
 			}
 		}));

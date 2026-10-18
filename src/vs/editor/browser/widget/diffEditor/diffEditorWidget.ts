@@ -461,23 +461,23 @@ export class DiffEditorWidget extends DelegatingEditor implements IDiffEditor {
 			if (!m) { return undefined; }
 			return m.diff.read(reader) === undefined && !m.isDiffUpToDate.read(reader);
 		});
-		this._register(autorunWithStore((reader, store) => {
+		this._register(autorun((reader) => {
 			/** @description DiffEditorWidgetHelper.ShowProgress */
 			if (isInitializingDiff.read(reader) === true) {
 				const r = this._editorProgressService.show(true, 1000);
-				store.add(toDisposable(() => r.done()));
+				reader.store.add(toDisposable(() => r.done()));
 			}
 		}));
 
-		this._register(autorunWithStore((reader, store) => {
-			store.add(new (readHotReloadableExport(RevertButtonsFeature, reader))(this._editors, this._diffModel, this._options, this));
+		this._register(autorun((reader) => {
+			reader.store.add(new (readHotReloadableExport(RevertButtonsFeature, reader))(this._editors, this._diffModel, this._options, this));
 		}));
 
-		this._register(autorunWithStore((reader, store) => {
+		this._register(autorun((reader) => {
 			const model = this._diffModel.read(reader);
 			if (!model) { return; }
 			for (const m of [model.model.original, model.model.modified]) {
-				store.add(m.onWillDispose(e => {
+				reader.store.add(m.onWillDispose(e => {
 					onUnexpectedError(new BugIndicatingError('TextModel got disposed before DiffEditorWidget model got reset'));
 					this.setModel(null);
 				}));

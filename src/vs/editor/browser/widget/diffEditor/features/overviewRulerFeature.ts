@@ -66,20 +66,20 @@ export class OverviewRulerFeature extends Disposable {
 		}, { passive: false }));
 		this._register(appendRemoveOnDispose(this._rootElement, diffOverviewRoot));
 
-		this._register(autorunWithStore((reader, store) => {
+		this._register(autorun((reader) => {
 			/** @description recreate overview rules when model changes */
 			const m = this._diffModel.read(reader);
 
 			const originalOverviewRuler = this._editors.original.createOverviewRuler('original diffOverviewRuler');
 			if (originalOverviewRuler) {
-				store.add(originalOverviewRuler);
-				store.add(appendRemoveOnDispose(diffOverviewRoot, originalOverviewRuler.getDomNode()));
+				reader.store.add(originalOverviewRuler);
+				reader.store.add(appendRemoveOnDispose(diffOverviewRoot, originalOverviewRuler.getDomNode()));
 			}
 
 			const modifiedOverviewRuler = this._editors.modified.createOverviewRuler('modified diffOverviewRuler');
 			if (modifiedOverviewRuler) {
-				store.add(modifiedOverviewRuler);
-				store.add(appendRemoveOnDispose(diffOverviewRoot, modifiedOverviewRuler.getDomNode()));
+				reader.store.add(modifiedOverviewRuler);
+				reader.store.add(appendRemoveOnDispose(diffOverviewRoot, modifiedOverviewRuler.getDomNode()));
 			}
 
 			if (!originalOverviewRuler || !modifiedOverviewRuler) {
@@ -92,7 +92,7 @@ export class OverviewRulerFeature extends Disposable {
 			const origHiddenRangesChanged = observableSignalFromEvent('hiddenRangesChanged', this._editors.original.onDidChangeHiddenAreas);
 			const modHiddenRangesChanged = observableSignalFromEvent('hiddenRangesChanged', this._editors.modified.onDidChangeHiddenAreas);
 
-			store.add(autorun(reader => {
+			reader.store.add(autorun(reader => {
 				/** @description set overview ruler zones */
 				origViewZonesChanged.read(reader);
 				modViewZonesChanged.read(reader);
@@ -126,7 +126,7 @@ export class OverviewRulerFeature extends Disposable {
 				modifiedOverviewRuler?.setZones(modifiedZones);
 			}));
 
-			store.add(autorun(reader => {
+			reader.store.add(autorun(reader => {
 				/** @description layout overview ruler */
 				const height = this._rootHeight.read(reader);
 				const width = this._rootWidth.read(reader);

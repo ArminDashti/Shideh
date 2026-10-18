@@ -314,7 +314,7 @@ export class GhostTextView extends Disposable {
 			}
 
 			const lineHeight = this._editorObs.getOption(EditorOption.lineHeight);
-			store.add(this._editorObs.createContentWidget({
+			reader.store.add(this._editorObs.createContentWidget({
 				position: constObservable<IContentWidgetPosition>({
 					position: new Position(state.lineNumber, Number.MAX_SAFE_INTEGER),
 					preference: [ContentWidgetPositionPreference.EXACT],
