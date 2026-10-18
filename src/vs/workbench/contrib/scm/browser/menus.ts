@@ -174,8 +174,6 @@ class SCMMenusItem implements IDisposable {
 
 export class SCMRepositoryMenus implements ISCMRepositoryMenus, IDisposable {
 
-	private contextKeyService: IContextKeyService;
-
 	readonly titleMenu: SCMTitleMenu;
 
 	private genericRepositoryMenu: IMenu | undefined;

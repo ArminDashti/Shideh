@@ -25,6 +25,7 @@
     "contribSourceControlInputBoxMenu",
     "contribSourceControlTitleMenu",
     "contribViewsWelcome",
+    "diffCommand",
     "editSessionIdentityProvider",
     "envIsConnectionMetered",
     "quickDiffProvider",
