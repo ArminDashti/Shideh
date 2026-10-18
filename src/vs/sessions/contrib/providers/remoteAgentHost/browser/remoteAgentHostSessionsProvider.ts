@@ -726,6 +726,22 @@ export class RemoteAgentHostSessionsProvider extends DevContainerAgentHostSessio
 
 	// -- BaseAgentHostSessionsProvider hooks ---------------------------------
 
+	protected override _prepareActiveClientPublication(cached: AgentHostSessionAdapter, token: CancellationToken): Promise<boolean> | undefined {
+		const identity = { connectionAuthority: this._connectionAuthority, backendSession: cached.backendUri };
+		const readiness = this._evaluationSessionAttachmentService.waitForActiveClientPublicationReady(identity, token);
+		if (readiness === undefined) {
+			return undefined;
+		}
+		return readiness.then(ready => {
+			if (!ready || token.isCancellationRequested
+				|| this._evaluationSessionAttachmentService.getActiveClientPublicationState(identity) !== EvaluationSessionActiveClientPublicationState.Ready) {
+				return false;
+			}
+			this._languageModelToolsService.flushToolUpdates();
+			return true;
+		});
+	}
+
 	protected get connection(): IAgentConnection | undefined { return this._connection; }
 
 	protected override supportsDevContainerWorkspace(workspaceUri: URI): boolean {

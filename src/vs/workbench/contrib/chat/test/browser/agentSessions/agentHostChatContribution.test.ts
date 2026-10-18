@@ -1126,6 +1126,8 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		reconcile: async () => { },
 	});
 	instantiationService.stub(IWorkbenchEnvironmentService, { isSessionsWindow } as Partial<IWorkbenchEnvironmentService>);
+	const evaluationSessionAttachmentService = new EvaluationSessionAttachmentService();
+	instantiationService.stub(IEvaluationSessionAttachmentService, evaluationSessionAttachmentService);
 	instantiationService.stub(IWorkbenchAssignmentService, new NullWorkbenchAssignmentService());
 	instantiationService.stub(IChatInputNotificationService, {
 		_serviceBrand: undefined,

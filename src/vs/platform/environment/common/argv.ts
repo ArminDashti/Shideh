@@ -187,3 +187,7 @@ export interface NativeParsedArgs {
 	'trace-startup-duration'?: string;
 	'xdg-portal-required-version'?: string;
 }
+
+export function shouldOpenAgentsWindow(args: NativeParsedArgs): boolean {
+	return !!(args.agents || args['attach-to-evaluation-session']);
+}
