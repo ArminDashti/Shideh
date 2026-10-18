@@ -278,7 +278,7 @@ class Label {
 	private singleLabel: HTMLElement | undefined = undefined;
 	private options: IIconLabelValueOptions | undefined;
 
-	constructor(private container: HTMLElement) { }
+	constructor(private readonly container: HTMLElement, private readonly supportCodicons = false) { }
 
 	setLabel(label: string | string[], options?: IIconLabelValueOptions): void {
 		if (this.label === label && equals(this.options, options)) {
@@ -294,8 +294,7 @@ class Label {
 				this.container.classList.remove('multiple');
 				this.singleLabel = dom.append(this.container, dom.$('a.label-name', { id: options?.domId }));
 			}
-
-			this.singleLabel.textContent = label;
+			this.singleLabel.innerHTML = this.supportCodicons ? renderCodicons(escape(label)) : escape(label);
 		} else {
 			this.container.textContent = '';
 			this.container.classList.add('multiple');
