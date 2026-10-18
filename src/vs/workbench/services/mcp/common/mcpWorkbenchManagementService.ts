@@ -19,6 +19,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { McpManagementChannelClient } from '../../../../platform/mcp/common/mcpManagementIpc.js';
+import { McpDiscoveryHost } from '../../../../platform/mcp/common/mcpDiscoveryMetadata.js';
 import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
 import { IRemoteUserDataProfilesService } from '../../userDataProfile/common/remoteUserDataProfiles.js';
 import { AbstractMcpManagementService, AbstractMcpResourceManagementService, ILocalMcpServerInfo } from '../../../../platform/mcp/common/mcpManagementService.js';
@@ -612,6 +613,7 @@ class WorkspaceMcpManagementService extends AbstractMcpManagementService impleme
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
 		@ILogService logService: ILogService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+		@IRemoteAgentService remoteAgentService: IRemoteAgentService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 	) {
 		super(allowedMcpServersService, logService);

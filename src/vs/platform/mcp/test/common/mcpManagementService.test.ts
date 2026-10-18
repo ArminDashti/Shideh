@@ -20,6 +20,7 @@ import { FileService } from '../../../files/common/fileService.js';
 import { InMemoryFileSystemProvider } from '../../../files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { McpResourceScannerService } from '../../common/mcpResourceScannerService.js';
+import { McpDiscoveryHost } from '../../common/mcpDiscoveryMetadata.js';
 import { UriIdentityService } from '../../../uriIdentity/common/uriIdentityService.js';
 import { IEnvironmentService } from '../../../environment/common/environment.js';
 import { McpResourceFormat } from '../../common/mcpWorkspaceConfiguration.js';
@@ -1524,6 +1525,7 @@ suite('McpResourceManagementService', () => {
 		const gallery = createGallery();
 		const galleryService = disposables.add(new McpUserResourceManagementService(
 			galleryResource,
+			McpDiscoveryHost.Local,
 			upcastPartial<IMcpGalleryService>({}),
 			fileService,
 			uriIdentityService,
@@ -1605,6 +1607,7 @@ suite('McpResourceManagementService', () => {
 		const logService = new TestLogService();
 		const galleryService = disposables.add(new McpUserResourceManagementService(
 			galleryResource,
+			McpDiscoveryHost.Local,
 			upcastPartial<IMcpGalleryService>({}),
 			fileService,
 			uriIdentityService,

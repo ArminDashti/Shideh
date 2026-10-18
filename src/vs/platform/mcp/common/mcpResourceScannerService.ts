@@ -259,10 +259,15 @@ export class McpResourceScannerService extends Disposable implements IMcpResourc
 					const content = await this.fileService.readFile(mcpResource);
 					configurationPresent = 1;
 					const errors: ParseError[] = [];
-					const result = parse(content.value.toString(), errors, { allowTrailingComma: true, allowEmptyContent: true }) || {};
+					const parsed = parse(content.value.toString(), errors, { allowTrailingComma: true, allowEmptyContent: true });
 					if (errors.length > 0) {
 						parseErrorCount = 1;
 						throw new Error('Failed to parse scanned MCP servers: ' + errors.map(e => `[${e.offset}, ${e.length}] ${getParseErrorMessage(e.error)}`).join(', '));
+					}
+					const result = parsed === undefined ? {} : parsed;
+					if (result === null || typeof result !== 'object' || Array.isArray(result)) {
+						parseErrorCount = 1;
+						throw new Error('Failed to parse scanned MCP servers: expected an object at the configuration root');
 					}
 
 					if (usesMcpServersProperty) {
