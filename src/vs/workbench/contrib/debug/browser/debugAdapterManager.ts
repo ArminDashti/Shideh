@@ -62,6 +62,9 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 
 	private usedDebugTypes = new Set<string>();
 
+	/** Extensions that were already active before any debugger activation events */
+	private earlyActivatedExtensions: Set<string> | undefined;
+
 	constructor(
 		private readonly delegate: IAdapterManagerDelegate,
 		@IEditorService private readonly editorService: IEditorService,
@@ -480,6 +483,19 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 
 			return undefined;
 		});
+	}
+
+	private initExtensionActivationsIfNeeded(): void {
+		if (!this.earlyActivatedExtensions) {
+			this.earlyActivatedExtensions = new Set<string>();
+
+			const status = this.extensionService.getExtensionsStatus();
+			for (const id in status) {
+				if (!!status[id].activationTimes) {
+					this.earlyActivatedExtensions.add(id);
+				}
+			}
+		}
 	}
 
 	private initExtensionActivationsIfNeeded(): void {
