@@ -1570,6 +1570,15 @@ class InlineCompletionAdapter {
 			}
 		}
 	}
+
+	override handlePartialAccept(pid: number, idx: number, acceptedCharacters: number): void {
+		const completionItem = this._references.get(pid)?.items[idx];
+		if (completionItem) {
+			if (this._provider.handleDidPartiallyAcceptCompletionItem && this._isAdditionsProposedApiEnabled) {
+				this._provider.handleDidPartiallyAcceptCompletionItem(completionItem, acceptedCharacters);
+			}
+		}
+	}
 }
 
 class ReferenceMap<T> {

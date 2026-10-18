@@ -79,6 +79,7 @@ export class CodeCell extends Disposable {
 		this._cellLayout = new CodeCellLayout(this._useNewApproachForEditorLayout, notebookEditor, viewCell, templateData, { debug }, initialEditorDimension);
 		this.initializeEditor(initialEditorDimension);
 		this._renderedInputCollapseState = false; // editor is always expanded initially
+		DOM.show(this.templateData.editorPart); // however the editor part display might not be cleared on template
 
 		this.registerNotebookEditorListeners();
 		this.registerViewCellLayoutChange();
