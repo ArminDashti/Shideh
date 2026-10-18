@@ -240,14 +240,23 @@ suite('RunInTerminalTool', () => {
 				capturedSteeringRequests.push({ sessionResource, message, options });
 				return { kind: 'rejected', reason: 'test' };
 			},
-			acquireExistingSession: () => ({
-				object: {
-					lastRequest: undefined,
-					lastRequestObs: constObservable(undefined),
-					onDidChange: Event.None,
-				},
-				dispose: () => { },
-			}) as unknown as NonNullable<ReturnType<IChatService['acquireExistingSession']>>,
+			acquireExistingSession: () => {
+				acquiredSessionReferenceCount++;
+				let isDisposed = false;
+				return {
+					object: {
+						lastRequest: undefined,
+						lastRequestObs: constObservable(undefined),
+						onDidChange: Event.None,
+					},
+					dispose: () => {
+						if (!isDisposed) {
+							isDisposed = true;
+							disposedSessionReferenceCount++;
+						}
+					},
+				} as unknown as NonNullable<ReturnType<IChatService['acquireExistingSession']>>;
+			},
 		} as unknown as IChatService;
 		instantiationService.stub(IChatService, chatServiceStub);
 		instantiationService.stub(IAgentSessionsService, {
@@ -3315,9 +3324,7 @@ suite('RunInTerminalTool', () => {
 
 		const toolSpecificData = { kind: 'terminal', commandLine: { original: 'npm init' }, language: 'bash' } as IChatTerminalToolInvocationData;
 
-		(runInTerminalTool.constructor as unknown as { _activeExecutions: Map<string, { getOutput(): string }> })._activeExecutions.set(termId, {
-			getOutput: () => output,
-		});
+		setActiveExecution(termId, createPendingActiveExecution(() => output));
 
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		(runInTerminalTool as unknown as { _registerCompletionNotification: (terminal: ITerminalInstance, termId: string, session: URI, commandName: string, toolSpecificData: IChatTerminalToolInvocationData, outputMonitor: { onDidDetectInputNeeded: Event<void>; onDidDetectSensitiveInputNeeded: Event<void>; continueMonitoringAsync: () => void; dispose: () => void }) => void })

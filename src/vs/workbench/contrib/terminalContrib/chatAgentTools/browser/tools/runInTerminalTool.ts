@@ -3437,13 +3437,18 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		// The monitor wakes only on new terminal data (not on a fixed interval), so
 		// resource cost is proportional to actual terminal activity.
 		const store = new DisposableStore();
+		store.add(sessionRef);
+		let didHandleCompletion = false;
 
 		// Track whether the user has started replying to terminal prompts directly.
 		// Once set, all future input-needed notifications are suppressed so the agent
 		// stops asking questions and lets the user finish interacting with the terminal.
 		let userIsReplyingDirectly = false;
 
-		const disposeNotification = () => this._backgroundNotifications.deleteAndDispose(notificationKey);
+		const disposeNotification = () => {
+			this._backgroundNotifications.deleteAndDispose(notificationKey);
+			store.dispose();
+		};
 
 		// If the user manually stopped the agent, suppress background
 		// steering requests and tear down the notification listeners.
@@ -3572,9 +3577,12 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			this._dismissPendingCarouselsForTerminal(chatSessionResource, termId);
 		}));
 
-		store.add(sessionRef);
+		const sendCompletionNotification = (exitCode: number | undefined): void => {
+			if (store.isDisposed || didHandleCompletion) {
+				return;
+			}
+			didHandleCompletion = true;
 
-		store.add(commandDetection.onCommandFinished(command => {
 			const execution = RunInTerminalTool._activeExecutions.get(termId);
 			if (!execution) {
 				disposeNotification();
@@ -3722,7 +3730,9 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 			}
 		}));
 
-		this._backgroundNotifications.set(notificationKey, store);
+		if (!store.isDisposed) {
+			this._backgroundNotifications.set(notificationKey, store);
+		}
 	}
 
 	/**
