@@ -44,6 +44,11 @@ import { IOutputService } from '../../../../../services/output/common/output.js'
 import { IMcpService } from '../../../../../contrib/mcp/common/mcpTypes.js';
 import { ContributionEnablementState } from '../../../common/enablement.js';
 
+interface IMcpServerCustomizationEntry {
+	readonly server: McpServerCustomization;
+	readonly container?: Exclude<Customization, McpServerCustomization>;
+}
+
 export const IAgentHostCustomizationService = createDecorator<IAgentHostCustomizationService>('agentHostCustomizationService');
 
 export interface IAgentHostCustomizationService {

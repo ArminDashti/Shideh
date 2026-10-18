@@ -217,6 +217,7 @@ interface IMcpServerItemEntry {
 	readonly server: IWorkbenchMcpServer;
 	readonly activeSessionServer?: AgentHostMcpServer;
 	readonly localServer?: IMcpServer;
+	readonly sourceDescription?: string;
 	/**
 	 * Whether this entry originates from a marketplace browse result. Marketplace rows always use
 	 * the gallery row presentation (with an Install/Installed button), even when the server is
@@ -554,7 +555,7 @@ export class McpServerItemRenderer extends Disposable implements IListRenderer<I
 
 		templateData.container.classList.remove('extension-provided');
 		templateData.name.textContent = formatDisplayName(element.server.label);
-		const description = element.server.description?.trim();
+		const description = getMcpServerItemDescription(element);
 		// Marketplace (gallery) entries are always clickable so users can install/inspect them,
 		// even when no description is returned by the gallery. Installed rows only opt-in to the
 		// detail view when there is something extra to show.
@@ -2922,12 +2923,12 @@ export class McpListWidget extends Disposable {
 		const marketplaceInstallations = this.marketplaceInstallService.installations.get();
 
 		if (query) {
-			this.filteredServers = this.mcpWorkbenchService.local.filter(server =>
+			this.filteredServers = allWorkbenchServers.filter(server =>
 				server.label.toLowerCase().includes(query) ||
 				(server.description?.toLowerCase().includes(query))
 			);
 		} else {
-			this.filteredServers = [...this.mcpWorkbenchService.local];
+			this.filteredServers = [...allWorkbenchServers];
 		}
 
 		// Find extension-provided servers not in the local list (e.g. GitHub MCP)
@@ -2943,13 +2944,23 @@ export class McpListWidget extends Disposable {
 			{ entries: [] },
 		];
 
+		const workbenchServerNameCounts = new Map<string, number>();
+		for (const server of allWorkbenchServers) {
+			const key = server.label.toLowerCase();
+			workbenchServerNameCounts.set(key, (workbenchServerNameCounts.get(key) ?? 0) + 1);
+		}
+
 		for (const server of this.filteredServers) {
+			const hasNameCollision = (workbenchServerNameCounts.get(server.label.toLowerCase()) ?? 0) > 1;
 			const entry: IMcpServerItemEntry = {
 				type: 'server-item',
 				server,
 				marketplaceRecord: marketplaceInstallations.findByTarget({ kind: 'mcp', id: server.id }),
 				activeSessionServer: activeSessionMatcher.take(getWorkbenchServerMatchKeys(server)),
 				localServer: localServerMatcher.find(getWorkbenchServerMatchKeys(server)),
+				sourceDescription: hasNameCollision && server.local
+					? this.mcpWorkbenchService.getMcpConfigPath(server.local)?.label
+					: undefined,
 			};
 			const scope = server.local?.scope;
 			if (scope === LocalMcpServerScope.Workspace) {
