@@ -38,6 +38,8 @@ export class ScreenReaderSupport extends Disposable {
 	private _primaryCursorVisibleRange: HorizontalPosition | null = null;
 	private readonly _state: MutableDisposable<IScreenReaderContent>;
 
+	private _screenReaderContentRange: globalThis.Range | undefined;
+
 	constructor(
 		private readonly _domNode: FastDomNode<HTMLElement>,
 		private readonly _context: ViewContext,
@@ -198,5 +200,45 @@ export class ScreenReaderSupport extends Disposable {
 
 	public writeScreenReaderContent(): void {
 		this._state.value?.updateScreenReaderContent(this._primarySelection);
+	}
+
+	public removeRanges(): void {
+		console.log('removeRanges');
+		const activeDocument = getActiveWindow().document;
+		const activeDocumentSelection = activeDocument.getSelection();
+		if (!activeDocumentSelection) {
+			return;
+		}
+		const rangeCount = activeDocumentSelection.rangeCount;
+		for (let i = 0; i < rangeCount; i++) {
+			const range = activeDocumentSelection.getRangeAt(i);
+			console.log('i');
+			console.log('this._screenReaderContentRange : ', this._screenReaderContentRange);
+			console.log('range : ', range);
+			console.log('range.startContainer : ', range.startContainer);
+			console.log('range.endContainer : ', range.endContainer);
+			const isSameRange = this._screenReaderContentRange === range;
+			console.log('isSameRange : ', isSameRange);
+			if (isSameRange) {
+				console.log('removeRange');
+				activeDocumentSelection.removeRange(range);
+			}
+			const rangeStartContainer = range.startContainer;
+			const rangeEndContainer = range.endContainer;
+			console.log('rangeStartContainer : ', rangeStartContainer);
+			console.log('rangeEndContainer : ', rangeEndContainer);
+			if (isHTMLElement(rangeStartContainer) && rangeStartContainer.classList.contains(NATIVE_EDIT_CONTEXT_CLASSNAME)
+				&& isHTMLElement(rangeEndContainer) && rangeEndContainer.classList.contains(NATIVE_EDIT_CONTEXT_CLASSNAME)) {
+				console.log('removeRange');
+				activeDocumentSelection.removeRange(range);
+			}
+		}
+
+		console.log('after removal');
+		const rangeCount2 = activeDocumentSelection.rangeCount;
+		for (let i = 0; i < rangeCount2; i++) {
+			const range = activeDocumentSelection.getRangeAt(i);
+			console.log('range : ', range);
+		}
 	}
 }

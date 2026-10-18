@@ -101,6 +101,7 @@ export const unthemedInboxStyles: IInputBoxStyles = {
 export class InputBox extends Widget {
 	private contextViewProvider?: IContextViewProvider;
 	element: HTMLElement;
+	// protected input: HTMLDivElement;
 	protected input: HTMLInputElement;
 	private actionbar?: ActionBar;
 	private readonly options: IInputOptions;
@@ -145,6 +146,7 @@ export class InputBox extends Widget {
 		const tagName = this.options.flexibleHeight ? 'textarea' : 'input';
 
 		const wrapper = dom.append(this.element, $('.ibwrapper'));
+		// this.input = dom.append(wrapper, document.createElement('div'));
 		this.input = dom.append(wrapper, $(tagName + '.input.empty'));
 		this.input.setAttribute('autocorrect', 'off');
 		this.input.setAttribute('autocapitalize', 'off');
@@ -199,6 +201,11 @@ export class InputBox extends Widget {
 			this.setTooltip(this.tooltip);
 		}
 
+		// const editContext = new EditContext();
+		// this.input.editContext = editContext;
+		// this._register(editContextAddDisposableListener(editContext, 'textupdate', (e) => {
+		// 	console.log('text update e : ', e);
+		// }));
 		this.oninput(this.input, () => this.onValueChange());
 		this.onblur(this.input, () => this.onBlur());
 		this.onfocus(this.input, () => this.onFocus());
@@ -237,6 +244,7 @@ export class InputBox extends Widget {
 	}
 
 	protected onBlur(): void {
+		console.log('onBlur of InputBox');
 		this._hideMessage();
 		if (this.options.showPlaceholderOnFocus) {
 			this.input.setAttribute('placeholder', '');
@@ -244,6 +252,8 @@ export class InputBox extends Widget {
 	}
 
 	protected onFocus(): void {
+		console.log('onFocus of InputBox');
+		// console.log(document.activeElement);
 		this._showMessage();
 		if (this.options.showPlaceholderOnFocus) {
 			this.input.setAttribute('placeholder', this.placeholder || '');
@@ -285,23 +295,27 @@ export class InputBox extends Widget {
 		return this.mirror;
 	}
 
+	// public get inputElement(): HTMLDivElement {
+	// 	return this.input;
+	// }
+
 	public get inputElement(): HTMLInputElement {
 		return this.input;
 	}
 
 	public get value(): string {
-		return this.input.value;
+		return this.input.value;  // textContent ?? '';
 	}
 
 	public set value(newValue: string) {
-		if (this.input.value !== newValue) {
-			this.input.value = newValue;
+		if (this.input.value !== newValue) { // textContent
+			this.input.value = newValue; // textContent
 			this.onValueChange();
 		}
 	}
 
 	public get step(): string {
-		return this.input.step;
+		return this.input.step; // '';
 	}
 
 	public set step(newValue: string) {
@@ -337,6 +351,7 @@ export class InputBox extends Widget {
 
 	public isSelectionAtEnd(): boolean {
 		return this.input.selectionEnd === this.input.value.length && this.input.selectionStart === this.input.selectionEnd;
+		// return false;
 	}
 
 	public getSelection(): IRange | null {
@@ -349,6 +364,7 @@ export class InputBox extends Widget {
 			start: selectionStart,
 			end: selectionEnd,
 		};
+		// return null
 	}
 
 	public enable(): void {
@@ -588,6 +604,7 @@ export class InputBox extends Widget {
 	}
 
 	private onValueChange(): void {
+		console.log('onValueChange');
 		this._onDidChange.fire(this.value);
 
 		this.validate();
@@ -758,6 +775,7 @@ export class HistoryInputBox extends InputBox implements IHistoryNavigationWidge
 	}
 
 	override dispose() {
+		console.log('dispose');
 		super.dispose();
 		if (this.observer) {
 			this.observer.disconnect();
@@ -847,11 +865,13 @@ export class HistoryInputBox extends InputBox implements IHistoryNavigationWidge
 	}
 
 	protected override onBlur(): void {
+		console.log('onBlur of HistoryInputBox: ');
 		super.onBlur();
 		this._onDidBlur.fire();
 	}
 
 	protected override onFocus(): void {
+		console.log('onFocus');
 		super.onFocus();
 		this._onDidFocus.fire();
 	}

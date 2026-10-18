@@ -151,6 +151,7 @@ export class View extends ViewEventHandler {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IUserInteractionService private readonly _userInteractionService: IUserInteractionService,
 	) {
+		console.log('view constructor');
 		super();
 		this._ownerID = ownerID;
 
@@ -613,9 +614,11 @@ export class View extends ViewEventHandler {
 
 		this._viewLines.dispose();
 		this._viewLinesGpu?.dispose();
+		this._editContext?.dispose();
 
 		// Destroy view parts
 		for (const viewPart of this._viewParts) {
+			console.log('before dispose of viewpart');
 			viewPart.dispose();
 		}
 

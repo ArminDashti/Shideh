@@ -83,6 +83,8 @@ export class NativeEditContext extends AbstractEditContext {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ILogService private readonly logService: ILogService
 	) {
+
+		console.log('native edit context constructor');
 		super(context);
 
 		this.domNode = new FastDomNode(document.createElement('div'));

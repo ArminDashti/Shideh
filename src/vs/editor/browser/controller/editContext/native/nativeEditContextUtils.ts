@@ -7,6 +7,8 @@ import { addDisposableListener, getShadowRoot } from '../../../../../base/browse
 import { IDisposable, Disposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 
+export const NATIVE_EDIT_CONTEXT_CLASSNAME = `native-edit-context`;
+
 export interface ITypeData {
 	text: string;
 	replacePrevCharCnt: number;
@@ -53,6 +55,7 @@ export class FocusTracker extends Disposable {
 	}
 
 	private _handleFocusedChanged(focused: boolean): void {
+		console.log('_handleFocusedChanged, focused : ', focused);
 		if (this._isFocused === focused) {
 			return;
 		}
@@ -60,7 +63,24 @@ export class FocusTracker extends Disposable {
 		this._onFocusChange(this._isFocused);
 	}
 
+	public refreshFocusState(): void {
+		// console.log('refreshFocusState');
+		// const shadowRoot = getShadowRoot(this._domNode);
+		// console.log('shadowRoot : ', shadowRoot);
+		// let hasFocus: boolean;
+		// if (shadowRoot) {
+		// 	hasFocus = shadowRoot.activeElement === this._domNode;
+		// } else if (this._domNode.isConnected) {
+		// 	hasFocus = getActiveElement() === this._domNode;
+		// } else {
+		// 	hasFocus = false;
+		// }
+		// console.log('hasFocus : ', hasFocus);
+		// this._onFocusChange(hasFocus);
+
+	}
 	public focus(): void {
+		console.log('focus inside of FocusTracker');
 		this._domNode.focus();
 		this.refreshFocusState();
 	}

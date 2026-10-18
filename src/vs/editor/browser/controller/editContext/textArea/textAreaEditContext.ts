@@ -161,6 +161,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
+		console.log('text area edit context constructor');
 		super(context);
 
 		this._viewController = viewController;
@@ -322,6 +323,7 @@ export class TextAreaEditContext extends AbstractEditContext {
 		}));
 
 		this._register(this._textAreaInput.onType((e: ITypeData) => {
+			console.log('on type e : ', e);
 			if (e.replacePrevCharCnt || e.replaceNextCharCnt || e.positionDelta) {
 				// must be handled through the new command
 				if (_debugComposition) {
@@ -460,10 +462,12 @@ export class TextAreaEditContext extends AbstractEditContext {
 		}));
 
 		this._register(this._textAreaInput.onFocus(() => {
+			console.log('onfocus of text area edit context');
 			this._context.viewModel.setHasFocus(true);
 		}));
 
 		this._register(this._textAreaInput.onBlur(() => {
+			console.log('onblur of text area edit context');
 			this._context.viewModel.setHasFocus(false);
 		}));
 
@@ -678,10 +682,12 @@ export class TextAreaEditContext extends AbstractEditContext {
 	}
 
 	public focus(): void {
+		console.log('focus of text area edit context');
 		this._textAreaInput.focusTextArea();
 	}
 
 	public refreshFocusState() {
+		console.log('refresh focus state');
 		this._textAreaInput.refreshFocusState();
 	}
 
