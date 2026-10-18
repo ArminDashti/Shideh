@@ -141,7 +141,8 @@ interface IDisallowedSymbols {
 }
 
 export function getRule(fileName: string, rootPath: string, rules: readonly IRule[]): IRule | undefined {
-	const relativeFileName = relative(rootPath, fileName).replaceAll('\\', '/');
+	const absoluteFileName = isAbsolute(fileName) ? fileName : resolve(rootPath, fileName);
+	const relativeFileName = relative(rootPath, absoluteFileName).replaceAll('\\', '/');
 	return rules.find(rule => minimatch(relativeFileName, rule.target));
 }
 

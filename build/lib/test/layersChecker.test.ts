@@ -15,7 +15,7 @@ suite('layersChecker', () => {
 	let tsconfigPath: string;
 
 	const rules: IRule[] = [
-		{ target: '**/test/**', skip: true },
+		{ target: '**/skipped/**', skip: true },
 		{ target: '**/browser/**', disallowedTypes: ['ForbiddenService'] },
 	];
 
@@ -30,6 +30,7 @@ suite('layersChecker', () => {
 				skipLibCheck: true,
 			},
 			include: ['**/*.ts'],
+			exclude: ['**/test/**'],
 		}));
 	});
 
@@ -40,7 +41,10 @@ suite('layersChecker', () => {
 	test('matches rules relative to a hidden parent path', () => {
 		const fileName = join(rootPath, 'vs', 'feature', 'browser', 'feature.ts');
 
-		assert.strictEqual(getRule(fileName, rootPath, rules), rules[1]);
+		assert.deepStrictEqual([
+			getRule(fileName, rootPath, rules),
+			getRule('vs/feature/browser/feature.ts', rootPath, rules),
+		], [rules[1], rules[1]]);
 	});
 
 	test('ignores skipped files', async () => {
