@@ -55,7 +55,7 @@ async function getClient(instrumentationKey: string, addInternalFlag?: boolean, 
 	// Configure the app insights core to send to collector++ and disable logging of debug info
 	const coreConfig: IExtendedConfiguration = {
 		instrumentationKey,
-		endpointUrl,
+		endpointUrl: telemetryEndpointUrl,
 		loggingLevelTelemetry: 0,
 		loggingLevelConsole: 0,
 		disableCookiesUsage: true,

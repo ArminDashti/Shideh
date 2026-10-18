@@ -1067,6 +1067,17 @@ export class Repository implements Disposable {
 			|| e.affectsConfiguration('git.similarityThreshold', root)
 		)(() => this.updateModelState(), this, this.disposables);
 
+		const updateInputBoxAcceptInputCommand = () => {
+			const config = workspace.getConfiguration('git', root);
+			const postCommitCommand = config.get<string>('postCommitCommand');
+			const postCommitCommandArg = postCommitCommand === 'push' || postCommitCommand === 'sync' ? `git.${postCommitCommand}` : '';
+			this._sourceControl.acceptInputCommand = { command: 'git.commit', title: localize('commit', "Commit"), arguments: [this._sourceControl, postCommitCommandArg] };
+		};
+
+		const onConfigListenerForPostCommitCommand = filterEvent(workspace.onDidChangeConfiguration, e => e.affectsConfiguration('git.postCommitCommand', root));
+		onConfigListenerForPostCommitCommand(updateInputBoxAcceptInputCommand, this, this.disposables);
+		updateInputBoxAcceptInputCommand();
+
 		const updateInputBoxVisibility = () => {
 			const config = workspace.getConfiguration('git', root);
 			this._sourceControl.inputBox.visible = config.get<boolean>('showCommitInput', true);

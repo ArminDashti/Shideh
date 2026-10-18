@@ -257,6 +257,13 @@ export class BaseActionViewItem extends Disposable implements IActionViewItem {
 		}
 	}
 
+	protected updateAriaLabel(): void {
+		if (this.element) {
+			const title = this.getTooltip() ?? '';
+			this.element.setAttribute('aria-label', title);
+		}
+	}
+
 	protected updateClass(): void {
 		// implement in subclass
 	}
