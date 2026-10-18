@@ -511,3 +511,15 @@ class NotebookMultiDiffEditorOutputItem extends NotebookMultiDiffEditorItem {
 		});
 	}
 }
+
+
+class NotebookMultiDiffEditorItem extends MultiDiffEditorItem {
+	constructor(
+		originalUri: URI | undefined,
+		modifiedUri: URI | undefined,
+		goToFileUri: URI | undefined,
+		public readonly type: IDiffElementViewModelBase['type'],
+	) {
+		super(originalUri, modifiedUri, goToFileUri);
+	}
+}
