@@ -4134,7 +4134,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	/**
 	 * Subclass-specific portion of the adapter options. Base fills in
 	 * the bits that are uniform across hosts (`icon`, `loading`,
-	 * `mapDiffUri`) from the corresponding hooks.
+	 * `mapResourceUri`) from the corresponding hooks.
 	 */
 	protected abstract _adapterOptions(): Pick<IAgentHostAdapterOptions, 'buildWorkspace' | 'readOnly' | 'defaultChangesetKind' | 'preserveStatusWhenDisconnected' | 'externalSessionState' | 'useSessionTitleForDefaultChat'>;
 
@@ -8889,8 +8889,8 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	}
 
 	/**
-	 * Optional URI mapper used when applying diff changes. Subclasses
-	 * override to translate remote diff URIs into agent-host URIs.
+	 * Optional URI mapper for host-owned resources. Subclasses override to
+	 * translate remote resources into agent-host URIs.
 	 */
 	protected _diffUriMapper(): AgentHostUriMapper | undefined { return undefined; }
 }

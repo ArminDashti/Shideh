@@ -7616,7 +7616,7 @@ suite('AgentHostChatContribution', () => {
 					content: '## Plan summary',
 					canProvideFeedback: true,
 					answerQuestionId: 'action',
-					planUri: URI.file('/sessions/abc/plan.md').toString(),
+					planUri: 'file:///C:/Users/test/.copilot/session-state/session/plan.md',
 					actions: [
 						{ id: 'interactive', label: 'Implement Plan', default: true },
 						{ id: 'autopilot', label: 'Implement with Autopilot', permissionLevel: 'autopilot' },

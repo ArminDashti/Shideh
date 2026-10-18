@@ -2221,6 +2221,41 @@ suite('stateToProgressAdapter', () => {
 			assert.strictEqual(carousel.answerPresentation, 'conversation');
 		});
 
+		test('maps restored plan review URIs to the owning Agent Host', () => {
+			const originalPlanUri = 'file:///C:/Users/test/.copilot/session-state/session/plan.md';
+			const request: ChatInputRequestWithPlanReview = {
+				id: 'plan-1',
+				planReview: {
+					title: 'Review Plan',
+					content: 'Plan summary',
+					canProvideFeedback: true,
+					answerQuestionId: 'action',
+					planUri: originalPlanUri,
+					actions: [{ id: 'implement', label: 'Implement Plan' }],
+				},
+				questions: [],
+			};
+			const progress = inputRequestResponsePartToProgress({
+				kind: ResponsePartKind.InputRequest,
+				request,
+				response: ChatInputResponseKind.Accept,
+			}, 'windows-host');
+
+			assert.strictEqual(progress.kind, 'planReview');
+			const planUri = URI.revive(progress.planUri!);
+			assert.deepStrictEqual({
+				scheme: planUri.scheme,
+				authority: planUri.authority,
+				path: planUri.path,
+				originalPath: fromAgentHostUri(planUri).path,
+			}, {
+				scheme: 'vscode-agent-host',
+				authority: 'windows-host',
+				path: '/C:/Users/test/.copilot/session-state/session/plan.md',
+				originalPath: '/C:/Users/test/.copilot/session-state/session/plan.md',
+			});
+		});
+
 		test('attaches automation result data to live and restored configureAutomation calls', () => {
 			const content: ToolResultContent[] = [{
 				type: ToolResultContentType.Text,

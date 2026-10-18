@@ -1368,6 +1368,39 @@ suite('RemoteAgentHostSessionsProvider', () => {
 		]);
 	});
 
+	test('maps file and resource artifact URIs to the remote Agent Host', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		connection.addSession(createSession('artifacts', { summary: 'Artifact Session' }));
+		const provider = createProvider(disposables, connection);
+		provider.getSessions();
+		await timeout(0);
+		const session = provider.getSessions().find(candidate => candidate.title.get() === 'Artifact Session');
+		assert.ok(session);
+
+		provider.getSessionConfig(session.sessionId);
+		connection.setSessionState('artifacts', 'copilotcli', {
+			provider: 'copilotcli',
+			title: 'Artifact Session',
+			status: ProtocolSessionStatus.Idle,
+			lifecycle: SessionLifecycle.Ready,
+			activeClients: [],
+			chats: [],
+			_meta: withSessionArtifacts(undefined, [
+				{ id: 'plan', type: SessionArtifactType.File, label: 'Plan', uri: 'file:///C:/Users/test/.copilot/session-state/session/plan.md' },
+				{ id: 'notes', type: SessionArtifactType.Resource, label: 'Notes', uri: 'file:///C:/Users/test/.copilot/session-state/session/notes.md' },
+			]),
+		});
+
+		assert.deepStrictEqual(session.artifacts?.get().map(artifact => ({
+			id: artifact.id,
+			scheme: artifact.uri?.scheme,
+			authority: artifact.uri?.authority,
+			originalPath: artifact.uri ? fromAgentHostUri(artifact.uri).path : undefined,
+		})), [
+			{ id: 'plan', scheme: 'vscode-agent-host', authority: 'localhost__4321', originalPath: '/C:/Users/test/.copilot/session-state/session/plan.md' },
+			{ id: 'notes', scheme: 'vscode-agent-host', authority: 'localhost__4321', originalPath: '/C:/Users/test/.copilot/session-state/session/notes.md' },
+		]);
+	}));
+
 	test('removing non-existent session is no-op', () => {
 		const provider = createProvider(disposables, connection);
 		const changes: ISessionChangeEvent[] = [];
