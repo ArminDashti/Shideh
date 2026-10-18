@@ -159,7 +159,7 @@ export class MoveLinesCommand implements ICommand {
 							this._autoIndent,
 							virtualModel,
 							model.getLanguageIdAtPosition(movingLineNumber, 1),
-							s.startLineNumber,
+							startPosition,
 							indentConverter,
 							this._languageConfigurationService
 						);
@@ -209,7 +209,7 @@ export class MoveLinesCommand implements ICommand {
 							this._autoIndent,
 							virtualModel,
 							model.getLanguageIdAtPosition(movingLineNumber, 1),
-							s.startLineNumber + 1,
+							position,
 							indentConverter,
 							this._languageConfigurationService
 						);
@@ -258,11 +258,12 @@ export class MoveLinesCommand implements ICommand {
 						}
 					} else {
 						// it doesn't match any onEnter rule, let's check indentation rules then.
+						const position = new Position(movingLineNumber + 1, 1)
 						const indentOfFirstLine = getGoodIndentForLine(
 							this._autoIndent,
 							virtualModel,
 							model.getLanguageIdAtPosition(s.startLineNumber, 1),
-							movingLineNumber,
+							position,
 							indentConverter,
 							this._languageConfigurationService
 						);

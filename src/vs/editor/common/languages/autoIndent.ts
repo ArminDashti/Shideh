@@ -238,7 +238,6 @@ function getPrecedingValidLine(model: IVirtualModel, lineNumber: number, process
 				resultLineNumber = lastLineNumber;
 				continue;
 			}
-
 			return lastLineNumber;
 		}
 	}
@@ -406,8 +405,9 @@ export function getInheritIndentForLine(
 						break;
 					}
 
+					const lineContent = processLines.getStrippedLine(stopLine + 1);
 					return {
-						indentation: strings.getLeadingWhitespace(model.getLineContent(stopLine + 1)),
+						indentation: strings.getLeadingWhitespace(lineContent),
 						action: null,
 						line: stopLine + 1
 					};
@@ -420,8 +420,9 @@ export function getInheritIndentForLine(
 				}
 			}
 
+			const lineContent = processLines.getStrippedLine(1);
 			return {
-				indentation: strings.getLeadingWhitespace(model.getLineContent(1)),
+				indentation: strings.getLeadingWhitespace(lineContent),
 				action: null,
 				line: 1
 			};
@@ -437,7 +438,7 @@ export function getGoodIndentForLine(
 	autoIndent: EditorAutoIndentStrategy,
 	virtualModel: IVirtualModel,
 	languageId: string,
-	lineNumber: number,
+	position: Position,
 	indentConverter: IIndentConverter,
 	languageConfigurationService: ILanguageConfigurationService
 ): string | null {
@@ -469,7 +470,8 @@ export function getGoodIndentForLine(
 			// For each such intermediary line, we test if there are only whitespace characters. If this is the case, then we want to apply the enter rules
 			// Otherwise if there is at least one line where there characters other than whitespace in between then we do not want to apply the enter rules
 			for (let inBetweenLine = inheritLine; inBetweenLine < lineNumber - 1; inBetweenLine++) {
-				if (!/^\s*$/.test(virtualModel.getLineContent(inBetweenLine))) {
+				const lineContent = processLines.getStrippedLine(inBetweenLine);
+				if (!/^\s*$/.test(lineContent)) {
 					shouldApplyEnterRules = false;
 					break;
 				}
@@ -733,7 +735,7 @@ export function getIndentActionForType(
 	if (shouldTriggerDecreaseIndentation(indentRulesSupport, textAroundRange, textAroundRangeWithCharacter)) {
 		// after typing `ch`, the content matches decreaseIndentPattern, we should adjust the indent to a good manner.
 		// 1. Get inherited indent action
-		const r = getInheritIndentForLine(autoIndent, model, range.startLineNumber, false, languageConfigurationService);
+		const r = getInheritIndentForLine(autoIndent, model, range.getStartPosition(), false, languageConfigurationService);
 		if (!r) {
 			return null;
 		}

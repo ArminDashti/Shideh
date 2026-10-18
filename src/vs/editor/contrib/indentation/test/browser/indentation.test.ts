@@ -639,7 +639,7 @@ suite('Auto Indent On Paste - TypeScript/JavaScript', () => {
 
 	// Failing tests found in issues...
 
-	test.skip('issue #181065: Incorrect paste of object within comment', () => {
+	test('issue #181065: Incorrect paste of object within comment', () => {
 
 		// https://github.com/microsoft/vscode/issues/181065
 
@@ -795,7 +795,7 @@ suite('Auto Indent On Paste - TypeScript/JavaScript', () => {
 
 		const model = createTextModel([
 			'function bar() {',
-			'',
+			'    ',
 			'}',
 		].join('\n'), languageId, {});
 		disposables.add(model);
@@ -833,14 +833,14 @@ suite('Auto Indent On Paste - TypeScript/JavaScript', () => {
 			];
 			disposables.add(registerTokenizationSupport(instantiationService, tokens, languageId));
 
-			editor.setSelection(new Selection(2, 1, 2, 1));
+			editor.setSelection(new Selection(2, 5, 2, 5));
 			const text = [
 				'// comment',
 				'const foo = 42',
 			].join('\n');
 			const autoIndentOnPasteController = editor.registerAndInstantiateContribution(AutoIndentOnPaste.ID, AutoIndentOnPaste);
 			viewModel.paste(text, true, undefined, 'keyboard');
-			autoIndentOnPasteController.trigger(new Range(2, 1, 3, 15));
+			autoIndentOnPasteController.trigger(new Range(2, 5, 3, 15));
 			assert.strictEqual(model.getValue(), [
 				'function bar() {',
 				'    // comment',
@@ -1414,7 +1414,7 @@ suite('Auto Indent On Type - TypeScript/JavaScript', () => {
 		});
 	});
 
-	test.skip('issue #125261: typing closing brace does not keep the current indentation', () => {
+	test.skip('issue #125261: typing closing brace does not keep the current indentation when autoindent setting is keep', () => {
 
 		// https://github.com/microsoft/vscode/issues/125261
 
@@ -1485,7 +1485,7 @@ suite('Auto Indent On Type - Ruby', () => {
 
 	// Failing tests...
 
-	test.skip('issue #199846: in or when incorrectly match non keywords for Ruby', () => {
+	test('issue #199846: in or when incorrectly match non keywords for Ruby', () => {
 
 		// https://github.com/microsoft/vscode/issues/199846
 		// explanation: happening because the # is detected probably as a comment

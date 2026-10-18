@@ -31,6 +31,8 @@ export class IndentRulesSupport {
 	}
 
 	public shouldIncrease(text: string): boolean {
+		console.log('shouldIncrease')
+		console.log('text : ', text);
 		if (this._indentationRules) {
 			// Take the increase indent pattern and tests it against the passed in text
 			if (this._indentationRules.increaseIndentPattern && resetGlobalRegex(this._indentationRules.increaseIndentPattern) && this._indentationRules.increaseIndentPattern.test(text)) {
@@ -44,6 +46,8 @@ export class IndentRulesSupport {
 	}
 
 	public shouldDecrease(text: string): boolean {
+		console.log('shouldDecrease');
+		console.log('text : ', text);
 		if (this._indentationRules && this._indentationRules.decreaseIndentPattern && resetGlobalRegex(this._indentationRules.decreaseIndentPattern) && this._indentationRules.decreaseIndentPattern.test(text)) {
 			return true;
 		}
@@ -51,6 +55,8 @@ export class IndentRulesSupport {
 	}
 
 	public shouldIndentNextLine(text: string): boolean {
+		console.log('shouldIndentNextLine');
+		console.log('text : ', text);
 		if (this._indentationRules && this._indentationRules.indentNextLinePattern && resetGlobalRegex(this._indentationRules.indentNextLinePattern) && this._indentationRules.indentNextLinePattern.test(text)) {
 			return true;
 		}
@@ -59,6 +65,8 @@ export class IndentRulesSupport {
 	}
 
 	public shouldIgnore(text: string): boolean {
+		console.log('shouldIgnore');
+		console.log('text : ', text);
 		// the text matches `unIndentedLinePattern`
 		if (this._indentationRules && this._indentationRules.unIndentedLinePattern && resetGlobalRegex(this._indentationRules.unIndentedLinePattern) && this._indentationRules.unIndentedLinePattern.test(text)) {
 			return true;
