@@ -289,6 +289,28 @@ jobs:
           path: node_modules
           if-no-files-found: ignore
 
+      - name: Find Playwright Trace
+        id: find-trace
+        if: failure()
+        continue-on-error: true
+        run: |
+          trace=$(find .build/logs -name 'playwright-trace-*.zip' -print -quit 2>/dev/null || true)
+          if [ -n "$trace" ]; then
+            echo "trace=$trace" >> $GITHUB_OUTPUT
+            echo "Found trace: $trace"
+          else
+            echo "No trace found"
+          fi
+
+      - name: Publish Playwright Trace
+        if: failure() && steps.find-trace.outputs.trace
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-trace-1-verifies_that_application_launches_when_user_data_directory_has_non-ascii_characters.zip
+          path: ${{ steps.find-trace.outputs.trace }}
+          if-no-files-found: ignore
+
       - name: Publish Log Files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
