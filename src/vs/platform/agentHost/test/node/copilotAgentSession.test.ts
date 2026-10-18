@@ -12655,6 +12655,17 @@ Use the attached image as context.
 			const detachedShellNotification = buildCopilotSystemNotification({
 				...base,
 				data: {
+					content: '<system_notification>Background agent explore-ghost-text completed.</system_notification>\n\n<system_notification>Background agent explore-nes-streaming completed.</system_notification>',
+					kind: { type: 'agent_completed', agentId: 'agent-a', agentType: 'task', status: 'completed' },
+				},
+			}), {
+				content: 'Background agent explore-ghost-text completed.\n\nBackground agent explore-nes-streaming completed.',
+				messageText: 'Background agent completed',
+			});
+
+			assert.deepStrictEqual(buildCopilotSystemNotification({
+				...base,
+				data: {
 					content: 'Detached done',
 					kind: { type: 'shell_detached_completed', shellId: 'detached-a' },
 				},

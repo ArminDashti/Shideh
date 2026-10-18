@@ -2039,7 +2039,7 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 			}
 		}));
 
-		// Tool calls → dispatch the binary-router tools from the voice LLM.
+		// Tool calls → dispatch the router tools from the voice LLM.
 		// send_to_chat is the LLM's signal that the utterance is a task for the
 		// active coding session; the backend has already overwritten args.text
 		// with the user's verbatim final transcript, so we just forward it.
@@ -7236,6 +7236,18 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 				...(confirmation?.detail ? { detail: confirmation.detail } : !confirmation ? { detail: this._formatToolNarrationFallback() } : {}),
 				confirmation_type: confirmation?.type ?? 'generic',
 			};
+		}
+
+		// A questionCarousel / elicitation can be pending without setting
+		// ``confirmationMessages`` (so ``isPendingConfirmation`` is undefined and
+		// the toolInvocation fallback above finds nothing). If we built a
+		// structured pending payload, surface it as a confirmation-wait so the
+		// backend narrates and the user can answer by voice.
+		if (pending) {
+			const detail = pending.questions && pending.questions.length > 0
+				? `questions: ${pending.questions.map(q => q.title).filter(Boolean).join(', ')}`
+				: (pending.title ?? pending.message ?? 'needs input');
+			return { state: 'waiting_for_confirmation', detail, pending };
 		}
 
 		const incomplete = lastRequest?.response?.isIncomplete.get() ?? false;

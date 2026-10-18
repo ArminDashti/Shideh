@@ -10,6 +10,9 @@ import { localize } from '../../../../nls.js';
 import { subagentChatTitle } from '../../common/agent.js';
 import { getSubagentMetadata, getToolKind, type ToolAgentNameResolver } from './copilotToolDisplay.js';
 
+const systemNotificationTagPattern = /<\/?system_notification>/g;
+const systemNotificationBlockPattern = /<system_notification>[\s\S]*?<\/system_notification>/g;
+
 export interface ICopilotSystemNotification {
 	/** Text for a new system-origin AHP turn; derived from SDK `data.kind` metadata, e.g. shell completion `description`. */
 	readonly messageText: string;
@@ -158,10 +161,4 @@ export function buildCopilotSystemNotification(event: SessionEventPayload<'syste
 			softAssertNever(kind);
 			return undefined;
 	}
-}
-
-function cleanSystemNotificationContent(content: string): string {
-	const trimmed = content.trim();
-	const match = /^<system_notification>\s*([\s\S]*?)\s*<\/system_notification>$/.exec(trimmed);
-	return (match?.[1] ?? trimmed).trim();
 }

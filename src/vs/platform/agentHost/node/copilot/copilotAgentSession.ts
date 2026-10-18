@@ -2777,8 +2777,60 @@ export class CopilotAgentSession extends Disposable {
 			session,
 			turnId: this._turnId,
 			partId,
-			content,
+			content: visibleContent,
 		}, parentToolCallId);
+	}
+
+	private _stripStreamingSystemNotifications(content: string, markdownScope: string, notificationStateMap: Map<string, { pending: string; inNotification: boolean }>): string {
+		const startTag = '<system_notification>';
+		const endTag = '</system_notification>';
+		let state = notificationStateMap.get(markdownScope);
+		if (!state) {
+			state = { pending: '', inNotification: false };
+			notificationStateMap.set(markdownScope, state);
+		}
+		let remaining = state.pending + content;
+		state.pending = '';
+		let visibleContent = '';
+
+		while (remaining) {
+			if (state.inNotification) {
+				const endIndex = remaining.indexOf(endTag);
+				if (endIndex === -1) {
+					for (let i = Math.min(endTag.length - 1, remaining.length); i > 0; i--) {
+						const suffix = remaining.slice(remaining.length - i);
+						if (endTag.startsWith(suffix)) {
+							state.pending = suffix;
+							break;
+						}
+					}
+					return visibleContent;
+				}
+				remaining = remaining.slice(endIndex + endTag.length);
+				state.inNotification = false;
+				continue;
+			}
+
+			const startIndex = remaining.indexOf(startTag);
+			if (startIndex !== -1) {
+				visibleContent += remaining.slice(0, startIndex);
+				remaining = remaining.slice(startIndex + startTag.length);
+				state.inNotification = true;
+				continue;
+			}
+
+			for (let i = Math.min(startTag.length - 1, remaining.length); i > 0; i--) {
+				const suffix = remaining.slice(remaining.length - i);
+				if (startTag.startsWith(suffix)) {
+					state.pending = suffix;
+					return visibleContent + remaining.slice(0, remaining.length - i);
+				}
+			}
+
+			return visibleContent + remaining;
+		}
+
+		return visibleContent;
 	}
 
 	/** Emits a reasoning delta, similar to {@link _emitMarkdownDelta} but for reasoning parts. */
