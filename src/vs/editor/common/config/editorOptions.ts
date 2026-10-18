@@ -6322,6 +6322,52 @@ class EditorDropIntoEditor extends BaseEditorOption<EditorOption.dropIntoEditor,
 	}
 }
 
+export interface IEditContextOptions {
+	/**
+	 * Controls the type of edit context that is used
+	 */
+	type?: 'native' | 'textarea';
+}
+
+/**
+ * @internal
+ */
+export type EditContextOptions = Readonly<Required<IEditContextOptions>>;
+
+class EditContextOption extends BaseEditorOption<EditorOption.editContext, IEditContextOptions, EditContextOptions> {
+	constructor() {
+		const defaults: EditContextOptions = { type: 'textarea' };
+		super(
+			EditorOption.editContext, 'editContext', defaults,
+			{
+				'editor.editContext.type': {
+					type: 'string',
+					markdownDescription: nls.localize('editContext.type', "Controls the type of the edit context that is used."),
+					enum: [
+						'native',
+						'textarea'
+					],
+					enumDescriptions: [
+						nls.localize('editContext.type.native', "Use the native edit context."),
+						nls.localize('editContext.type.textarea', "Use the text area approach."),
+					],
+					default: 'textarea',
+				},
+			}
+		);
+	}
+
+	public validate(_input: any): EditContextOptions {
+		if (!_input || typeof _input !== 'object') {
+			return this.defaultValue;
+		}
+		const input = _input as IEditContextOptions;
+		return {
+			type: input.type ?? 'textarea'
+		};
+	}
+}
+
 //#endregion
 
 
