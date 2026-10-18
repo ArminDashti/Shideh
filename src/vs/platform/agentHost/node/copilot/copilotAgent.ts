@@ -769,6 +769,15 @@ class BackgroundWorkWatch extends Disposable {
 	}
 }
 
+function initializeIntegrationId(isCodeOSS: boolean) {
+	// Initialize integration id
+	if (isCodeOSS) {
+		process.env.GITHUB_COPILOT_INTEGRATION_ID = 'code-oss';
+	} else {
+		process.env.GITHUB_COPILOT_INTEGRATION_ID = 'vsode-chat';
+	}
+}
+
 /**
  * Agent provider backed by the Copilot SDK {@link CopilotClient}.
  */
