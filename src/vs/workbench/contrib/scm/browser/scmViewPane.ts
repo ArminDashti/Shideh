@@ -2131,7 +2131,11 @@ export class SCMViewPane extends ViewPane {
 						preserveFocus: true,
 					});
 				} else {
-					await this.commandService.executeCommand(e.element.command.id, ...(e.element.command.arguments || []), e);
+					if (e.element.command.id === API_OPEN_DIFF_EDITOR_COMMAND_ID && this.configurationService.getValue<boolean>('scm.allowOpenInModalEditor')) {
+						await this.commandService.executeCommand(API_OPEN_DIFF_EDITOR_IN_MODAL_COMMAND_ID, ...(e.element.command.arguments || []), e);
+					} else {
+						await this.commandService.executeCommand(e.element.command.id, ...(e.element.command.arguments || []), e);
+					}
 				}
 			} else {
 				await e.element.open(!!e.editorOptions.preserveFocus);

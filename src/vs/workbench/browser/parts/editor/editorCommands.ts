@@ -119,6 +119,7 @@ export const TOGGLE_MODAL_EDITOR_SIDEBAR_COMMAND_ID = 'workbench.action.toggleMo
 
 export const API_OPEN_EDITOR_COMMAND_ID = '_workbench.open';
 export const API_OPEN_DIFF_EDITOR_COMMAND_ID = '_workbench.diff';
+export const API_OPEN_DIFF_EDITOR_IN_MODAL_COMMAND_ID = '_workbench.diffInModal';
 export const API_OPEN_WITH_EDITOR_COMMAND_ID = '_workbench.openWith';
 
 export const EDITOR_CORE_NAVIGATION_COMMANDS = [
@@ -474,15 +475,41 @@ function registerEditorWorkingSetCommands(): void {
 
 function registerOpenEditorAPICommands(): void {
 
-	function mixinContext(context: IOpenEvent<unknown> | undefined, options: ITextEditorOptions | undefined, column: EditorGroupColumn | undefined): [ITextEditorOptions | undefined, EditorGroupColumn | undefined] {
+	function mixinContext(context: IOpenEvent<unknown> | undefined, options: ITextEditorOptions | undefined, column: EditorGroupColumn | undefined, columnOverride?: EditorGroupColumn): [ITextEditorOptions | undefined, EditorGroupColumn | undefined] {
 		if (!context) {
-			return [options, column];
+			return [options, columnOverride ?? column];
 		}
 
 		return [
 			{ ...context.editorOptions, ...(options ?? Object.create(null)) },
-			context.sideBySide ? SIDE_GROUP : column
+			columnOverride ?? (context.sideBySide ? SIDE_GROUP : column)
 		];
+	}
+
+	async function openDiffEditor(accessor: ServicesAccessor, originalResource: UriComponents, modifiedResource: UriComponents, labelAndOrDescription?: string | { label: string; description: string }, columnAndOptions?: [EditorGroupColumn?, ITextEditorOptions?], context?: IOpenEvent<unknown>, columnOverride?: EditorGroupColumn): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const editorGroupsService = accessor.get(IEditorGroupsService);
+		const configurationService = accessor.get(IConfigurationService);
+
+		const [columnArg, optionsArg] = columnAndOptions ?? [];
+		const [options, column] = mixinContext(context, optionsArg, columnArg, columnOverride);
+
+		let label: string | undefined = undefined;
+		let description: string | undefined = undefined;
+		if (typeof labelAndOrDescription === 'string') {
+			label = labelAndOrDescription;
+		} else if (labelAndOrDescription) {
+			label = labelAndOrDescription.label;
+			description = labelAndOrDescription.description;
+		}
+
+		await editorService.openEditor({
+			original: { resource: URI.from(originalResource, true) },
+			modified: { resource: URI.from(modifiedResource, true) },
+			label,
+			description,
+			options
+		}, columnToEditorGroup(editorGroupsService, configurationService, column));
 	}
 
 	// partial, renderer-side API command to open editor only supporting
@@ -567,29 +594,11 @@ function registerOpenEditorAPICommands(): void {
 	});
 
 	CommandsRegistry.registerCommand(API_OPEN_DIFF_EDITOR_COMMAND_ID, async function (accessor: ServicesAccessor, originalResource: UriComponents, modifiedResource: UriComponents, labelAndOrDescription?: string | { label: string; description: string }, columnAndOptions?: [EditorGroupColumn?, ITextEditorOptions?], context?: IOpenEvent<unknown>) {
-		const editorService = accessor.get(IEditorService);
-		const editorGroupsService = accessor.get(IEditorGroupsService);
-		const configurationService = accessor.get(IConfigurationService);
+		await openDiffEditor(accessor, originalResource, modifiedResource, labelAndOrDescription, columnAndOptions, context);
+	});
 
-		const [columnArg, optionsArg] = columnAndOptions ?? [];
-		const [options, column] = mixinContext(context, optionsArg, columnArg);
-
-		let label: string | undefined = undefined;
-		let description: string | undefined = undefined;
-		if (typeof labelAndOrDescription === 'string') {
-			label = labelAndOrDescription;
-		} else if (labelAndOrDescription) {
-			label = labelAndOrDescription.label;
-			description = labelAndOrDescription.description;
-		}
-
-		await editorService.openEditor({
-			original: { resource: URI.from(originalResource, true) },
-			modified: { resource: URI.from(modifiedResource, true) },
-			label,
-			description,
-			options
-		}, columnToEditorGroup(editorGroupsService, configurationService, column));
+	CommandsRegistry.registerCommand(API_OPEN_DIFF_EDITOR_IN_MODAL_COMMAND_ID, async function (accessor: ServicesAccessor, originalResource: UriComponents, modifiedResource: UriComponents, labelAndOrDescription?: string | { label: string; description: string }, columnAndOptions?: [EditorGroupColumn?, ITextEditorOptions?], context?: IOpenEvent<unknown>) {
+		await openDiffEditor(accessor, originalResource, modifiedResource, labelAndOrDescription, columnAndOptions, context, MODAL_GROUP);
 	});
 
 	CommandsRegistry.registerCommand(API_OPEN_WITH_EDITOR_COMMAND_ID, async (accessor: ServicesAccessor, resource: UriComponents, id: string, columnAndOptions?: [EditorGroupColumn?, ITextEditorOptions?]) => {
