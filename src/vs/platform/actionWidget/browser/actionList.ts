@@ -56,6 +56,7 @@ export interface IActionListDelegate<T> {
 	onFilter?(filter: string, cancellationToken: CancellationToken): Promise<readonly IActionListItem<T>[]>;
 	onHover?(action: T, cancellationToken: CancellationToken): Promise<{ canPreview: boolean } | void>;
 	onFocus?(action: T | undefined): void;
+	renderDetails?(action: T, node: HTMLElement): Promise<boolean>;
 }
 
 /**
@@ -872,6 +873,8 @@ export interface IActionListOptions {
 export class ActionListWidget<T> extends Disposable {
 
 	public readonly domNode: HTMLElement;
+
+	public readonly detailsNode: HTMLElement;
 
 	private readonly _list: List<IActionListItem<T>>;
 	private _initialFocusItemId: string | undefined;

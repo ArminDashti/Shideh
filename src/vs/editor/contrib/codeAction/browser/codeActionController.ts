@@ -136,7 +136,7 @@ export class CodeActionController extends Disposable implements IEditorContribut
 
 		this._resolver = instantiationService.createInstance(CodeActionKeybindingResolver);
 
-		this._register(this._editor.onDidLayoutChange(() => this._actionWidgetService.hide()));
+		//this._register(this._editor.onDidLayoutChange(() => this._actionWidgetService.hide()));
 	}
 
 	override dispose() {
@@ -319,6 +319,9 @@ export class CodeActionController extends Disposable implements IEditorContribut
 		className: DECORATION_CLASS_NAME
 	});
 
+	private readonly _domElement = document.createElement('div');
+	private readonly _multiDiffEditorWidget = new Lazy(() => this._instantiationService.createInstance(MultiDiffEditorWidget, this._domElement, new WorkbenchUIElementFactory(this._instantiationService)));
+
 	public async showCodeActionList(actions: CodeActionSet, at: IAnchor | IPosition, options: IActionShowOptions): Promise<void> {
 
 		console.log('Inside of showCodeActionsList');
@@ -335,7 +338,7 @@ export class CodeActionController extends Disposable implements IEditorContribut
 		}
 
 		const anchor = Position.isIPosition(at) ? this.toCoords(at) : at;
-
+		const self = this;
 		const delegate: IActionListDelegate<CodeActionItem> = {
 			onSelect: async (action: CodeActionItem, preview?: boolean) => {
 				this.applyCodeAction(action, /* retrigger */ true, !!preview, options.fromLightbulb ? ApplyCodeActionReason.FromAILightbulb : ApplyCodeActionReason.FromCodeActions);
@@ -392,7 +395,85 @@ export class CodeActionController extends Disposable implements IEditorContribut
 				} else {
 					currentDecorations.clear();
 				}
-			}
+			},
+			async renderDetails(item, node) {
+				node.appendChild(self._domElement);
+				node.style.width = '550px';
+
+				node.onscroll = e => {
+					e.preventDefault();
+					e.stopPropagation();
+				};
+				node.onwheel = e => {
+					e.preventDefault();
+					e.stopPropagation();
+				};
+
+				self._multiDiffEditorWidget.value.layout(new Dimension(600, 300));
+
+				await item.resolve(CancellationToken.None);
+
+				const e = item.action.edit;
+				if (!e) {
+					node.style.display = 'none';
+					return false;
+				}
+
+				node.style.display = 'block';
+				//self._multiDiffEditorWidget
+				const resources = new Map<string, { original: ITextModel, modified: ITextModel }>();
+
+				const documents: LazyPromise<IDocumentDiffItem>[] = [];
+				for (const ed of e.edits) {
+					if ('resource' in ed) {
+						const key = ed.resource.toString();
+						let original: ITextModel;
+						let modified: ITextModel;
+
+						if (resources.has(key)) {
+							original = resources.get(key)!.original;
+							modified = resources.get(key)!.modified;
+						} else {
+							let modifiedValue = '';
+							try {
+								const ref = await self._textModelService.createModelReference(ed.resource);
+								original = ref.object.textEditorModel;
+								modifiedValue = original.getValue();
+							} catch (e) {
+								original = self._modelService.createModel('', self._languageService.createByFilepathOrFirstLine(ed.resource));
+							}
+							modified = self._modelService.createModel(modifiedValue, self._languageService.createByFilepathOrFirstLine(ed.resource));
+							resources.set(key, { original, modified });
+
+							documents.push(new ConstLazyPromise({
+								original: original,
+								modified: modified,
+								title: 'foobar',
+								options: {
+									glyphMargin: false,
+									fontSize: 12,
+								},
+								displayUri: ed.resource,
+							}));
+						}
+
+						modified.applyEdits([ed.textEdit]);
+					} else {
+
+					}
+				}
+				const vm = new MultiDiffEditorViewModel({
+					onDidChange: Event.None,
+					documents: documents,
+				}, self._instantiationService);
+				await vm.waitForDiffs();
+				self._multiDiffEditorWidget.value.setViewModel(vm);
+				const height = self._multiDiffEditorWidget.value.getContentHeight();
+				node.style.height = Math.min(300, height) + 'px';
+
+
+				return true;
+			},
 		};
 
 		this._actionWidgetService.show(

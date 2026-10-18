@@ -1386,7 +1386,7 @@ class FocusTracker extends Disposable implements IFocusTracker {
 			const currentNodeHasFocus = FocusTracker.hasFocusWithin(<HTMLElement>element);
 			if (currentNodeHasFocus !== hasFocus) {
 				if (hasFocus) {
-					onBlur();
+					//onBlur();
 				} else {
 					onFocus();
 				}
