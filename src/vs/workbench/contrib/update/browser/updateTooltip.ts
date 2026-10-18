@@ -13,9 +13,12 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { AvailableForDownload, Disabled, DisablementReason, Downloaded, Downloading, Idle, IUpdate, Overwriting, Ready, Restarting, State, StateType, Updating } from '../../../../platform/update/common/update.js';
+import { IUpdateInfoButton, parseUpdateInfoInput, UpdateInfoButtonStyle } from '../common/updateInfoParser.js';
 import { ShowCurrentReleaseNotesActionId } from '../common/update.js';
 import { computeDownloadSpeed, computeDownloadTimeRemaining, computeProgressPercent, formatBytes, formatDate, formatTimeRemaining, tryParseDate } from '../common/updateUtils.js';
 import './media/updateTooltip.css';
+
+const UPDATE_INFO_TELEMETRY_SOURCE = 'updateinfo';
 
 /**
  * A stateful tooltip control for the update status.
@@ -68,8 +71,11 @@ export class UpdateTooltip extends Disposable {
 	private readonly buttonBar: HTMLElement;
 	private readonly releaseNotesButton: HTMLButtonElement;
 	private readonly actionButton: HTMLButtonElement;
+	private readonly customButtonListeners = this._register(new DisposableStore());
+	private customButtons: HTMLButtonElement[] = [];
 
 	private releaseNotesVersion: string | undefined;
+	private commandTelemetrySource: string | undefined;
 
 	constructor(
 		@IClipboardService private readonly clipboardService: IClipboardService,
@@ -136,7 +142,7 @@ export class UpdateTooltip extends Disposable {
 		// Button bar
 		this.buttonBar = dom.append(this.domNode, dom.$('.button-bar'));
 
-		this.releaseNotesButton = dom.append(this.buttonBar, dom.$('button.release-notes-button')) as HTMLButtonElement;
+		this.releaseNotesButton = dom.append(this.buttonBar, dom.$('button.update-button-secondary')) as HTMLButtonElement;
 		this.releaseNotesButton.textContent = localize('updateTooltip.viewReleaseNotes', "Release Notes");
 		this._register(dom.addDisposableListener(this.releaseNotesButton, 'click', () => {
 			if (this.releaseNotesVersion) {
@@ -144,7 +150,7 @@ export class UpdateTooltip extends Disposable {
 			}
 		}));
 
-		this.actionButton = dom.append(this.buttonBar, dom.$('button.action-button')) as HTMLButtonElement;
+		this.actionButton = dom.append(this.buttonBar, dom.$('button.update-button-primary')) as HTMLButtonElement;
 		this._register(dom.addDisposableListener(this.actionButton, 'click', () => {
 			const commandId = this.actionButton.dataset.commandId;
 			if (commandId) {
@@ -187,7 +193,14 @@ export class UpdateTooltip extends Disposable {
 		this.actionButton.style.display = 'none';
 		this.actionButton.tabIndex = -1;
 		this.actionButton.dataset.commandId = '';
+		this.releaseNotesButton.style.display = '';
 		this.releaseNotesButton.style.marginRight = '';
+		this.commandTelemetrySource = undefined;
+		this.customButtonListeners.clear();
+		for (const btn of this.customButtons) {
+			btn.remove();
+		}
+		this.customButtons = [];
 	}
 
 	/**
@@ -504,6 +517,37 @@ export class UpdateTooltip extends Disposable {
 		this.renderMessage(localize('updateTooltip.cancellingPleaseWait', "Cancelling update, please wait..."));
 	}
 
+	private renderCustomButtons(buttons: IUpdateInfoButton[]) {
+		this.customButtonListeners.clear();
+		for (const btn of this.customButtons) {
+			btn.remove();
+		}
+		this.customButtons = [];
+
+		// Hide both default buttons when custom buttons are provided
+		this.actionButton.style.display = 'none';
+		this.releaseNotesButton.style.display = 'none';
+
+		for (const button of buttons) {
+			const btn = dom.append(this.buttonBar, dom.$('button')) as HTMLButtonElement;
+			btn.textContent = button.label;
+			btn.classList.add(this.getButtonClass(button.style));
+			if (button.style === 'secondary' && buttons.length > 1) {
+				btn.classList.add('update-button-leading-secondary');
+			}
+			this.customButtons.push(btn);
+			this.customButtonListeners.add(dom.addDisposableListener(btn, 'click', () => {
+				this.runCommandAndClose(button.commandId, ...(button.args ?? []));
+			}));
+		}
+
+		this.buttonBar.style.display = '';
+	}
+
+	private getButtonClass(style: UpdateInfoButtonStyle | undefined): string {
+		return style === 'secondary' ? 'update-button-secondary' : 'update-button-primary';
+	}
+
 	private renderTitleAndInfo(title: string, update?: IUpdate) {
 		this.titleNode.textContent = title;
 
@@ -575,6 +619,10 @@ export class UpdateTooltip extends Disposable {
 	}
 
 	private runCommandAndClose(command: string, ...args: unknown[]) {
+		if (this.commandTelemetrySource) {
+			this.telemetryService.publicLog2<WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification>('workbenchActionExecuted', { id: command, from: this.commandTelemetrySource });
+		}
+
 		this.commandService.executeCommand(command, ...args);
 		this.hoverService.hideHover(true);
 	}

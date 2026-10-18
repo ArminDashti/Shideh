@@ -31,6 +31,7 @@ import { IChatService } from '../../chat/common/chatService/chatService.js';
 import { UpdateTitleBarChatInProgressContext, UpdateTitleBarContext, UpdateTitleBarEditorVisibleContext } from '../common/update.js';
 import { computeProgressPercent } from '../common/updateUtils.js';
 import './media/updateTitleBarEntry.css';
+import { IUpdateInfoButton } from '../common/updateInfoParser.js';
 import { UpdateTooltip } from './updateTooltip.js';
 
 const UPDATE_TITLE_BAR_ACTION_ID = 'workbench.actions.updateIndicator';
@@ -114,6 +115,7 @@ export class UpdateTitleBarContribution extends Disposable implements IWorkbench
 		@IChatService chatService: IChatService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
+		@IHoverService private readonly hoverService: IHoverService,
 		@IHostService private readonly hostService: IHostService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IStorageService private readonly storageService: IStorageService,
@@ -303,7 +305,7 @@ export class UpdateTitleBarEntry extends BaseActionViewItem {
 		}
 	}
 
-	public showTooltip(focus = false) {
+	public showTooltip(focus = false, options?: { showPointer?: boolean; hideLabel?: boolean }) {
 		if (!this.element?.isConnected) {
 			this.tooltipFocusOnRender = focus;
 			return;
