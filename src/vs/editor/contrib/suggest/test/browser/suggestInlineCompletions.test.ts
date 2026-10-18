@@ -26,7 +26,7 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 
 suite('Suggest Inline Completions', function () {
 
-	const disposables = new DisposableStore();
+	let disposables: DisposableStore;
 	const services = new ServiceCollection([ISuggestMemoryService, new class extends mock<ISuggestMemoryService>() {
 		override select(): number {
 			return 0;
@@ -38,7 +38,7 @@ suite('Suggest Inline Completions', function () {
 	let editor: ITestCodeEditor;
 
 	setup(function () {
-
+		disposables = new DisposableStore();
 		insta = createCodeEditorServices(disposables, services);
 		model = createTextModel('he', undefined, undefined, URI.from({ scheme: 'foo', path: 'foo.bar' }));
 		editor = instantiateTestCodeEditor(insta, model);
@@ -67,7 +67,7 @@ suite('Suggest Inline Completions', function () {
 	});
 
 	teardown(function () {
-		disposables.clear();
+		disposables.dispose();
 		model.dispose();
 		editor.dispose();
 	});

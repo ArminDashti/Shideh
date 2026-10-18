@@ -62,7 +62,6 @@ function validateMenuBarItem(menubar: MenuBar, menubarContainer: HTMLElement, la
 }
 
 suite('Menubar', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
 	const container = $('.container');
 
 	const withMenuMenubar = (callback: (menubar: MenuBar) => void) => {

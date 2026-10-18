@@ -23,11 +23,25 @@ import { BugIndicatingError, onUnexpectedError } from './errors.js';
 const TRACK_DISPOSABLES = false;
 let disposableTracker: IDisposableTracker | null = null;
 
+export enum LeakType {
+
+	/**
+	 * A leak
+	 */
+	StrongLeak,
+
+	/**
+	 * A potential leak, like a leaked disposable store which is empty. Not a problem today and one as soon as
+	 * something get registered with it.
+	 */
+	WeakLeak
+}
+
 export interface IDisposableTracker {
 	/**
 	 * Is called on construction of a disposable.
 	*/
-	trackDisposable(disposable: IDisposable): void;
+	trackDisposable(disposable: IDisposable, leakType: LeakType): void;
 
 	/**
 	 * Is called when a disposable is registered as child of another disposable (e.g. {@link DisposableStore}).
@@ -52,8 +66,9 @@ export class GCBasedDisposableTracker implements IDisposableTracker {
 		console.warn(`[LEAKED DISPOSABLE] ${heldValue}`);
 	});
 
-	trackDisposable(disposable: IDisposable): void {
-		const stack = new Error('CREATED via:').stack!;
+	trackDisposable(disposable: IDisposable, leakType: LeakType): void {
+		const stack = new Error(`${leakType === LeakType.WeakLeak ? '(weak leak) ' : ''}CREATED via:`).stack!;
+		this._registry.unregister(disposable);
 		this._registry.register(disposable, stack, disposable);
 	}
 
@@ -61,7 +76,7 @@ export class GCBasedDisposableTracker implements IDisposableTracker {
 		if (parent) {
 			this._registry.unregister(child);
 		} else {
-			this.trackDisposable(child);
+			this.trackDisposable(child, LeakType.StrongLeak);
 		}
 	}
 
@@ -268,8 +283,8 @@ if (TRACK_DISPOSABLES) {
 	});
 }
 
-export function trackDisposable<T extends IDisposable>(x: T): T {
-	disposableTracker?.trackDisposable(x);
+export function trackDisposable<T extends IDisposable>(x: T, leakType: LeakType = LeakType.StrongLeak): T {
+	disposableTracker?.trackDisposable(x, leakType);
 	return x;
 }
 
@@ -434,7 +449,7 @@ export class DisposableStore implements IDisposable {
 	private _isDisposed = false;
 
 	constructor() {
-		trackDisposable(this);
+		trackDisposable(this, LeakType.WeakLeak);
 	}
 
 	/**
@@ -492,6 +507,10 @@ export class DisposableStore implements IDisposable {
 			}
 		} else {
 			this._toDispose.add(o);
+
+			if (this._toDispose.size === 1) {
+				trackDisposable(this, LeakType.StrongLeak);
+			}
 		}
 
 		return o;
@@ -548,7 +567,7 @@ export abstract class Disposable implements IDisposable {
 	protected readonly _store = new DisposableStore();
 
 	constructor() {
-		trackDisposable(this);
+		trackDisposable(this, LeakType.WeakLeak);
 		setParentOfDisposable(this._store, this);
 	}
 
@@ -565,6 +584,7 @@ export abstract class Disposable implements IDisposable {
 		if ((o as unknown as Disposable) === this) {
 			throw new Error('Cannot register a disposable on itself!');
 		}
+		trackDisposable(this, LeakType.StrongLeak);
 		return this._store.add(o);
 	}
 }

@@ -31,7 +31,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 suite('StorageMainService', function () {
 
-	const disposables = new DisposableStore();
+	let disposables: DisposableStore;
 
 	const productService: IProductService = { _serviceBrand: undefined, ...product };
 
@@ -113,8 +113,12 @@ suite('StorageMainService', function () {
 		strictEqual(storageDidClose, true);
 	}
 
+	setup(() => {
+		disposables = new DisposableStore();
+	});
+
 	teardown(() => {
-		disposables.clear();
+		disposables.dispose();
 	});
 
 	function createStorageService(lifecycleMainService: ILifecycleMainService = new TestLifecycleMainService()): TestStorageMainService {

@@ -148,6 +148,7 @@ suite('MainThreadDocumentsAndEditors', () => {
 	});
 
 	teardown(() => {
+		modelService.dispose();
 		disposables.dispose();
 	});
 

@@ -10,14 +10,14 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../common/utils.js';
 import { $ } from '../../browser/dom.js';
 
 suite('FormattedTextRenderer', () => {
-	const store = new DisposableStore();
+	let store: DisposableStore;
 
 	setup(() => {
-		store.clear();
+		store = new DisposableStore();
 	});
 
 	teardown(() => {
-		store.clear();
+		store.dispose();
 	});
 
 	test('render simple element', () => {

@@ -27,10 +27,14 @@ class BufferedWriteFileSystemProvider extends InMemoryFileSystemProvider {
 
 suite('File Service', () => {
 
-	const disposables = new DisposableStore();
+	let disposables: DisposableStore;
+
+	setup(() => {
+		disposables = new DisposableStore();
+	});
 
 	teardown(() => {
-		disposables.clear();
+		disposables.dispose();
 	});
 
 	test('resolveAll does not trace missing resources', async () => {
