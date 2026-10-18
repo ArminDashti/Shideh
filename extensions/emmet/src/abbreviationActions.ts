@@ -468,13 +468,13 @@ export function isValidLocationForEmmetAbbreviation(document: vscode.TextDocumen
 				&& propertyNode.separator
 				&& offset >= propertyNode.separatorToken.end
 				&& offset <= propertyNode.terminatorToken.start
-				&& !abbreviation.includes(':')) {
+				&& abbreviation.indexOf(':') === -1) {
 				return hexColorRegex.test(abbreviation) || abbreviation === '!';
 			}
 			if (!propertyNode.terminatorToken
 				&& propertyNode.separator
 				&& offset >= propertyNode.separatorToken.end
-				&& !abbreviation.includes(':')) {
+				&& abbreviation.indexOf(':') === -1) {
 				return hexColorRegex.test(abbreviation) || abbreviation === '!';
 			}
 			if (hexColorRegex.test(abbreviation) || abbreviation === '!') {
@@ -527,7 +527,7 @@ export function isValidLocationForEmmetAbbreviation(document: vscode.TextDocumen
 			const typeAttribute = (currentHtmlNode.attributes || []).filter(x => x.name.toString() === 'type')[0];
 			const typeValue = typeAttribute ? typeAttribute.value.toString() : '';
 
-			if (allowedMimeTypesInScriptTag.includes(typeValue)) {
+			if (allowedMimeTypesInScriptTag.indexOf(typeValue) > -1) {
 				return true;
 			}
 
