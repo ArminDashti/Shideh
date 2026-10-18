@@ -1319,11 +1319,6 @@ export interface IEditorOptions {
 	editContext?: boolean;
 
 	/**
-	 * Controls whether to render rich HTML screen reader content when the EditContext is enabled
-	 */
-	renderRichScreenReaderContent?: boolean;
-
-	/**
 	 * Controls support for changing how content is pasted into the editor.
 	 */
 	pasteAs?: IPasteAsOptions;
@@ -6584,7 +6579,6 @@ export const enum EditorOption {
 	readOnly,
 	readOnlyMessage,
 	renameOnType,
-	renderRichScreenReaderContent,
 	renderControlCharacters,
 	renderFinalNewline,
 	renderLineHighlight,

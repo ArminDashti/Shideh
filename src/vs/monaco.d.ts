@@ -4543,10 +4543,6 @@ declare namespace monaco.editor {
 		 */
 		editContext?: boolean;
 		/**
-		 * Controls whether to render rich HTML screen reader content when the EditContext is enabled
-		 */
-		renderRichScreenReaderContent?: boolean;
-		/**
 		 * Controls support for changing how content is pasted into the editor.
 		 */
 		pasteAs?: IPasteAsOptions;
@@ -5886,7 +5882,6 @@ declare namespace monaco.editor {
 		emptySelectionClipboard: IEditorOption<EditorOption.emptySelectionClipboard, boolean>;
 		dropIntoEditor: IEditorOption<EditorOption.dropIntoEditor, Readonly<Required<IDropIntoEditorOptions>>>;
 		editContext: IEditorOption<EditorOption.editContext, boolean>;
-		renderRichScreenReaderContent: IEditorOption<EditorOption.renderRichScreenReaderContent, boolean>;
 		stickyScroll: IEditorOption<EditorOption.stickyScroll, Readonly<Required<IEditorStickyScrollOptions>>>;
 		experimentalGpuAcceleration: IEditorOption<EditorOption.experimentalGpuAcceleration, 'off' | 'on' | 'editorView'>;
 		experimentalWhitespaceRendering: IEditorOption<EditorOption.experimentalWhitespaceRendering, 'off' | 'font' | 'svg'>;

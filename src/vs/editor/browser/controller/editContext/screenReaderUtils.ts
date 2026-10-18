@@ -11,13 +11,16 @@ import { EditorOption, IComputedEditorOptions } from '../../../common/config/edi
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { AccessibilitySupport } from '../../../../platform/accessibility/common/accessibility.js';
 import * as nls from '../../../../nls.js';
-import { ISimpleModel } from '../../../common/viewModel/screenReaderSimpleModel.js';
 
-export interface IPagedScreenReaderStrategy<T> {
-	fromEditorSelection(model: ISimpleModel, selection: Selection, linesPerPage: number, trimLongText: boolean): T;
+export interface ISimpleModel {
+	getLineCount(): number;
+	getLineMaxColumn(lineNumber: number): number;
+	getValueInRange(range: Range, eol: EndOfLinePreference): string;
+	getValueLengthInRange(range: Range, eol: EndOfLinePreference): number;
+	modifyPosition(position: Position, offset: number): Position;
 }
 
-export interface ISimpleScreenReaderContentState {
+export interface ScreenReaderContentState {
 	value: string;
 
 	/** the offset where selection starts inside `value` */
@@ -36,12 +39,12 @@ export interface ISimpleScreenReaderContentState {
 	newlineCountBeforeSelection: number;
 }
 
-export class SimplePagedScreenReaderStrategy implements IPagedScreenReaderStrategy<ISimpleScreenReaderContentState> {
-	private _getPageOfLine(lineNumber: number, linesPerPage: number): number {
+export class PagedScreenReaderStrategy {
+	private static _getPageOfLine(lineNumber: number, linesPerPage: number): number {
 		return Math.floor((lineNumber - 1) / linesPerPage);
 	}
 
-	private _getRangeForPage(page: number, linesPerPage: number): Range {
+	private static _getRangeForPage(page: number, linesPerPage: number): Range {
 		const offset = page * linesPerPage;
 		const startLineNumber = offset + 1;
 		const endLineNumber = offset + linesPerPage;
@@ -53,11 +56,11 @@ export class SimplePagedScreenReaderStrategy implements IPagedScreenReaderStrate
 		// Cut text to avoid stalling the entire UI
 		const LIMIT_CHARS = 500;
 
-		const selectionStartPage = this._getPageOfLine(selection.startLineNumber, linesPerPage);
-		const selectionStartPageRange = this._getRangeForPage(selectionStartPage, linesPerPage);
+		const selectionStartPage = PagedScreenReaderStrategy._getPageOfLine(selection.startLineNumber, linesPerPage);
+		const selectionStartPageRange = PagedScreenReaderStrategy._getRangeForPage(selectionStartPage, linesPerPage);
 
-		const selectionEndPage = this._getPageOfLine(selection.endLineNumber, linesPerPage);
-		const selectionEndPageRange = this._getRangeForPage(selectionEndPage, linesPerPage);
+		const selectionEndPage = PagedScreenReaderStrategy._getPageOfLine(selection.endLineNumber, linesPerPage);
+		const selectionEndPageRange = PagedScreenReaderStrategy._getRangeForPage(selectionEndPage, linesPerPage);
 
 		// We want to limit the amount of rewrites to the screen reader content state
 		// We have two ways of determine the screen reader content:

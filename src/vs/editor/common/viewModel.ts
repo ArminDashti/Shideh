@@ -6,7 +6,6 @@
 import * as arrays from '../../base/common/arrays.js';
 import { IScrollPosition, Scrollable } from '../../base/common/scrollable.js';
 import * as strings from '../../base/common/strings.js';
-import { ISimpleModel } from './viewModel/screenReaderSimpleModel.js';
 import { ICoordinatesConverter } from './coordinatesConverter.js';
 import { IPosition, Position } from './core/position.js';
 import { Range } from './core/range.js';
@@ -29,7 +28,7 @@ export interface IFontInfoReader {
 	readFontInfo(bareFontInfo: BareFontInfo): FontInfo;
 }
 
-export interface IViewModel extends ICursorSimpleModel, ISimpleModel {
+export interface IViewModel extends ICursorSimpleModel {
 
 	readonly model: ITextModel;
 

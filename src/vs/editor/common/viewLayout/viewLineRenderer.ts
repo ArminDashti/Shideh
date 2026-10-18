@@ -448,11 +448,7 @@ export function renderViewLine(input: RenderLineInput, sb: StringBuilder, render
 		}
 
 		// completely empty line
-		if (input.renderNewLineWhenEmpty) {
-			sb.appendString('<span><span>\n</span></span>');
-		} else {
-			sb.appendString('<span><span></span></span>');
-		}
+		sb.appendString('<span><span></span></span>');
 		return new RenderLineOutput(
 			new CharacterMapping(0, 0),
 			ForeignElementType.None
