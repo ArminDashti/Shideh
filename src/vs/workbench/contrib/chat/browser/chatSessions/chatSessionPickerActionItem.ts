@@ -19,6 +19,7 @@ import { IOpenerService } from '../../../../../platform/opener/common/opener.js'
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { renderIcon } from '../../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { getCompactCodicon } from '../../../../../base/common/codicons.js';
 import { localize } from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IChatInputPickerOptions, withChatInputPickerMotion } from '../widget/input/chatInputPickerActionItem.js';
@@ -122,7 +123,7 @@ export class ChatSessionPickerActionItem extends ActionWidgetDropdownActionViewI
 			return {
 				id: optionItem.id,
 				enabled: !optionItem.locked,
-				icon: optionItem.icon,
+				icon: optionItem.icon ? getCompactCodicon(optionItem.icon) : undefined,
 				checked: isCurrent,
 				class: undefined,
 				description: optionItem.description,
@@ -231,7 +232,7 @@ export class ChatSessionPickerActionItem extends ActionWidgetDropdownActionViewI
 		return {
 			id: option.id,
 			enabled: false,
-			icon: option.icon,
+			icon: option.icon ? getCompactCodicon(option.icon) : undefined,
 			checked: true,
 			class: undefined,
 			description: option.description,

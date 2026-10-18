@@ -19,6 +19,7 @@ import { ITelemetryService } from '../../../../../../platform/telemetry/common/t
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
 import { IWorkspacePickerDelegate } from '../../chat.js';
 import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/dropdown.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 /**
  * Action view item for selecting a target workspace in the chat interface.

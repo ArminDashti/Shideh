@@ -5,7 +5,7 @@
 
 import * as dom from '../../../../../../base/browser/dom.js';
 import { renderLabelWithIcons } from '../../../../../../base/browser/ui/iconLabel/iconLabels.js';
-import { Codicon } from '../../../../../../base/common/codicons.js';
+import { Codicon, getCompactCodicon } from '../../../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { IDisposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable } from '../../../../../../base/common/observable.js';
@@ -186,7 +186,7 @@ export class PermissionPickerActionItem extends ChatInputPickerActionViewItem {
 						id: `chat.permissions.ext.${sessionTypeSeg}.${groupSeg}.${sanitizeIdSegment(item.id)}`,
 						label: item.name,
 						detail: item.description,
-						icon: item.icon,
+						icon: item.icon ? getCompactCodicon(item.icon) : undefined,
 						checked: ext.selectedId === item.id,
 						enabled: !item.locked,
 						tooltip: item.locked ? localize('permissions.ext.locked', "This option is locked") : '',
