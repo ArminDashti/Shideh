@@ -272,7 +272,7 @@ export class StandaloneThemeService extends Disposable implements IStandaloneThe
 			this._onOSSchemeChanged();
 		});
 
-		window.matchMedia('(forced-colors: active)').addEventListener('change', () => {
+		dom.addMatchMediaChangeListener('(forced-colors: active)', () => {
 			this._updateActualTheme();
 		});
 	}

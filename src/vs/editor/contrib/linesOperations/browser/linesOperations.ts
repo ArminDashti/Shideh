@@ -1238,6 +1238,36 @@ export class TitleCaseAction extends AbstractCaseAction {
 	}
 }
 
+class BackwardsCompatibleRegExp {
+
+	private _actual: RegExp | null;
+	private _evaluated: boolean;
+
+	constructor(
+		private readonly _pattern: string,
+		private readonly _flags: string
+	) {
+		this._actual = null;
+		this._evaluated = false;
+	}
+
+	public get(): RegExp | null {
+		if (!this._evaluated) {
+			this._evaluated = true;
+			try {
+				this._actual = new RegExp(this._pattern, this._flags);
+			} catch (err) {
+				// this browser does not support this regular expression
+			}
+		}
+		return this._actual;
+	}
+
+	public isSupported(): boolean {
+		return (this.get() !== null);
+	}
+}
+
 export class SnakeCaseAction extends AbstractCaseAction {
 
 	public static caseBoundary = new BackwardsCompatibleRegExp('(\\p{Ll})(\\p{Lu})', 'gmu');

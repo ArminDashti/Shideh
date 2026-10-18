@@ -1690,6 +1690,7 @@ export function reserveWindowForExternalOpen(targetWindow: Window = mainWindow, 
 	if (placeholder) {
 		showMessageInWindow(reservedExternalWindow, placeholder);
 	}
+	return false;
 }
 
 /** Uses `textContent` so the message cannot inject markup. */
