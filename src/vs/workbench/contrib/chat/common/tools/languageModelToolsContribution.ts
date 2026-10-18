@@ -252,6 +252,11 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 						continue;
 					}
 
+					if (!rawTool.supportedResultMimeTypes?.length) {
+						logService.error(`Extension '${extension.description.identifier.value}' CANNOT register tool '${rawTool.name}' without 'supportedResultMimeTypes'`);
+						continue;
+					}
+
 					const rawIcon = rawTool.icon;
 					let icon: IToolData['icon'] | undefined;
 					if (typeof rawIcon === 'string') {
