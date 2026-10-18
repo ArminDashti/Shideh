@@ -1455,6 +1455,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			|| hasModelsTargetingSession(this.getAllMergedModels(), sessionType);
 	}
 
+	/**
+	 * True when the session type owns its own model pool (either declared via `requiresCustomModels`,
+	 * or some registered model already targets it). Keeps storage keys stable before targeted models are published.
+	 */
+	private sessionTypeHasOwnModelPool(sessionType: string): boolean {
+		return this.chatSessionsService.requiresCustomModelsForSessionType(sessionType)
+			|| hasModelsTargetingSession(this.getAllMergedModels(), sessionType);
+	}
+
 	private initSelectedModel() {
 		// Drop the per-editor configuration snapshot so the next read re-seeds
 		// from the new (location, sessionType)-scoped storage bucket.
@@ -2329,6 +2338,27 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			return getChatSessionType(sessionResource);
 		}
 		return this.options.sessionTypePickerDelegate?.getActiveSessionProvider?.();
+	}
+
+	/**
+	 * Reconcile the current model after an explicit session-type pick: restore persisted → best-match previous → default.
+	 */
+	private revalidateModelForSessionType(): void {
+		const previousModel = this._currentLanguageModel.get();
+
+		this.initSelectedModel();
+		const restored = this._currentLanguageModel.get();
+		if (restored && this.isModelValidForCurrentSession(restored)) {
+			return;
+		}
+
+		const match = findBestMatchingModel(previousModel, this.getModels());
+		if (match) {
+			this.setCurrentLanguageModel(match);
+			return;
+		}
+
+		this.setCurrentLanguageModelToDefault();
 	}
 
 	/**
