@@ -68,6 +68,15 @@ export interface MarkdownSanitizerConfig {
 	readonly allowedLinkSchemes?: {
 		readonly augment: readonly string[];
 	};
+
+	/**
+	 * Optional validator for link `href` values.
+	 *
+	 * Runs after both {@link allowedLinkSchemes} and other built-in link checks.
+	 * Return `true` to keep the link, `false` to remove the `href` attribute.
+	 * Defaults to keeping links.
+	 */
+	readonly linkValidator?: (link: string) => boolean;
 	readonly remoteImageIsAllowed?: (uri: URI) => boolean;
 }
 
@@ -837,6 +846,7 @@ function getDomSanitizerConfig(mdStrConfig: MdStrConfig, options: MarkdownSaniti
 		allowRelativeMediaPaths: !!mdStrConfig.baseUri,
 		mediaSourceIsAllowed: remoteImageIsAllowed ? source => isMediaSourceAllowed(mdStrConfig, source, remoteImageIsAllowed) : undefined,
 		replaceWithPlaintext: options.replaceWithPlaintext,
+		linkValidator: options.linkValidator,
 	};
 }
 

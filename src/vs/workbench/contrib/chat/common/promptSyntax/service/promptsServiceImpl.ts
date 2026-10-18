@@ -254,6 +254,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 	 */
 	private readonly cachedProviderExtensionsStorageKey = 'chat.cachedProviderExtensions';
 
+	/**
+	 * Known URIs from extension providers, keyed by prompt type.
+	 */
+	private knownProviderUris: { [key in PromptsType]?: ResourceSet } = {};
+
 	constructor(
 		@ILogService public readonly logger: ILogService,
 		@ILabelService private readonly labelService: ILabelService,
@@ -2236,6 +2241,29 @@ export class PromptsService extends Disposable implements IPromptsService {
 		const result = { type: PromptsType.instructions, files, sourceFolders, durationInMillis: stopWatch.elapsed() } satisfies IInstructionDiscoveryInfo;
 		this.discoveryTelemetry.logDiscovery('instructionsFound', 'reusable', result, PromptsType.instructions, 'agent');
 		return result;
+	}
+
+	public isKnownResourceUri(uri: URI): boolean {
+		// Check if the URI is registered as a contributed file or provider resource in any prompt type
+		for (const type of [PromptsType.prompt, PromptsType.instructions, PromptsType.agent, PromptsType.skill]) {
+			if (this.contributedFiles[type].has(uri)) {
+				return true;
+			}
+			const knownUris = this.knownProviderUris[type];
+			if (knownUris) {
+				// For skills, allow any file under the skill folder (<path>/<skillName>/**)
+				if (type === PromptsType.skill) {
+					for (const skillUri of knownUris) {
+						if (extUriBiasedIgnorePathCase.isEqualOrParent(uri, dirname(skillUri))) {
+							return true;
+						}
+					}
+				} else if (knownUris.has(uri)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private async getHookDiscoveryInfo(token: CancellationToken): Promise<IPromptDiscoveryInfo> {

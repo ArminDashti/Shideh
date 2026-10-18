@@ -927,6 +927,13 @@ export interface IPromptsService extends IDisposable {
 	readonly onDidChangeHooks: Event<void>;
 
 	/**
+	 * Checks if the given URI is a known prompt resource (skill, prompt file, instruction, or agent).
+	 * This is used to allow these resources to be rendered as links in markdown
+	 * regardless of their URI scheme.
+	 */
+	isKnownResourceUri(uri: URI): boolean;
+
+	/**
 	 * Gets all hooks collected from hooks.json files.
 	 * The result is cached and invalidated when the effective hook availability or configuration changes.
 	 */
