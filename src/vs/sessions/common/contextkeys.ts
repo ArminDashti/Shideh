@@ -189,6 +189,13 @@ export const SessionsCharacterCustomizingContext = new RawContextKey<boolean>('s
 
 //#endregion
 
+//#region < --- Session Navigation --- >
+
+export const CanGoBackContext = new RawContextKey<boolean>('sessionsCanGoBack', false, localize('sessionsCanGoBack', "Whether there is a previous session in the navigation history"));
+export const CanGoForwardContext = new RawContextKey<boolean>('sessionsCanGoForward', false, localize('sessionsCanGoForward', "Whether there is a next session in the navigation history"));
+
+//#endregion
+
 //#region < --- Editor --- >
 
 export const EditorMaximizedContext = new RawContextKey<boolean>('editorMaximized', false, localize('editorMaximized', "Whether the editor area is maximized"));

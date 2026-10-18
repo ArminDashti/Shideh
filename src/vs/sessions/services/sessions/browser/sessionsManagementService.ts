@@ -1687,6 +1687,16 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		await restorePromise;
 	}
 
+	// -- Session Navigation --
+
+	async openPreviousSession(): Promise<void> {
+		await this._navigation.goBack();
+	}
+
+	async openNextSession(): Promise<void> {
+		await this._navigation.goForward();
+	}
+
 	// -- Session Actions --
 
 	private _getProvider(session: ISession): ISessionsProvider | undefined {
