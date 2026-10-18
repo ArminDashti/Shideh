@@ -494,6 +494,11 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 		const disposable: vscode.Disposable = {
 			dispose: () => {
 				this._chatSessionItemControllers.delete(controllerHandle);
+				this._clearInputStateCacheForScheme(chatSessionType);
+				for (const state of legacyInputStates) {
+					state.dispose();
+				}
+				legacyInputStates.clear();
 				disposables.dispose();
 				this._proxy.$unregisterChatSessionItemController(controllerHandle);
 			}
@@ -570,6 +575,12 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 					if (entry) {
 						entry.optionGroups = inputState.groups;
 					}
+					// Invalidate only the cache entries that hold this specific inputState object
+					for (const [uri, cached] of this._inputStateCache) {
+						if (cached === inputState) {
+							this._inputStateCache.delete(uri);
+						}
+					}
 					const wrappedGroups = this._wrapOptionGroupCommands(controllerHandle, inputState.groups);
 					const serializableGroups = wrappedGroups.map(g => ({
 						id: g.id,
@@ -610,6 +621,11 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 
 		disposables.add(toDisposable(() => {
 			this._chatSessionItemControllers.delete(controllerHandle);
+			this._clearInputStateCacheForScheme(id);
+			for (const state of inputStates) {
+				state.dispose();
+			}
+			inputStates.clear();
 			this._proxy.$unregisterChatSessionItemController(controllerHandle);
 		}));
 
@@ -855,6 +871,8 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 				if (controllerData) {
 					controllerData.optionGroups = optionGroups;
 				}
+				// Invalidate cached input states since option groups changed
+				this._clearInputStateCacheForScheme(entry.chatSessionScheme);
 			}
 			return {
 				optionGroups,
@@ -989,8 +1007,66 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 	}
 
 	/**
-	 * Gets the input state for a session. This calls the controller's `getChatSessionInputState` handler if available,
-	 * otherwise falls back to creating an input state from the session options.
+	 * Clears the cached input state for a specific session resource.
+	 * Called from ExtHostChatAgents2 when a session is released.
+	 */
+	clearInputStateCache(resource: URI): void {
+		this._disposeAndRemoveCachedInputState(resource);
+	}
+
+	/**
+	 * Clears all cached input states for sessions whose URI scheme matches the given scheme.
+	 * Used when controller-wide changes occur (e.g., controller unregistered, option groups changed).
+	 */
+	private _clearInputStateCacheForScheme(scheme: string): void {
+		for (const [uri] of this._inputStateCache) {
+			if (uri.scheme === scheme) {
+				this._disposeAndRemoveCachedInputState(uri);
+			}
+		}
+	}
+
+	/**
+	 * Disposes the cached input state for a session resource.
+	 * If the cached value is a `ChatSessionInputStateImpl`, disposes it and removes it
+	 * from the controller's `inputStates` set.
+	 */
+	private _disposeAndRemoveCachedInputState(resource: URI): void {
+		const old = this._inputStateCache.get(resource);
+		this._inputStateCache.delete(resource);
+		if (old instanceof ChatSessionInputStateImpl) {
+			this._removeInputStateFromController(old);
+			old.dispose();
+		}
+	}
+
+	/**
+	 * Replaces the cached input state for a session, disposing the previous one if present.
+	 */
+	private _setCachedInputState(resource: URI, inputState: vscode.ChatSessionInputState): void {
+		const old = this._inputStateCache.get(resource);
+		if (old !== inputState && old instanceof ChatSessionInputStateImpl) {
+			this._removeInputStateFromController(old);
+			old.dispose();
+		}
+		this._inputStateCache.set(resource, inputState);
+	}
+
+	/**
+	 * Removes an input state from its controller's `inputStates` set.
+	 */
+	private _removeInputStateFromController(inputState: ChatSessionInputStateImpl): void {
+		for (const controllerData of this._chatSessionItemControllers.values()) {
+			if (controllerData.inputStates.delete(inputState)) {
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Gets the input state for a session. Returns a cached result if available,
+	 * otherwise calls the controller's `getChatSessionInputState` handler and caches the result.
+	 * Falls back to creating an input state from the session options.
 	 */
 	async getInputStateForSession(
 		sessionResource: URI | undefined,
