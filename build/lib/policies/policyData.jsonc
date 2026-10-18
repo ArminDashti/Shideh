@@ -1216,7 +1216,7 @@
             "localization": {
                 "description": {
                     "key": "telemetry.telemetryLevel.policyDescription",
-                    "value": "Controls the level of telemetry."
+                    "value": "Controls the level of telemetry. The supported values are 'all', 'error', 'crash', and 'off'."
                 },
                 "enumDescriptions": [
                     {

@@ -406,7 +406,7 @@ configurationRegistry.registerConfiguration({
 				localization: {
 					description: {
 						key: 'telemetry.telemetryLevel.policyDescription',
-						value: localize('telemetry.telemetryLevel.policyDescription', "Controls the level of telemetry."),
+						value: localize('telemetry.telemetryLevel.policyDescription', "Controls the level of telemetry. The supported values are 'all', 'error', 'crash', and 'off'."),
 					},
 					enumDescriptions: [
 						{
