@@ -180,6 +180,7 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 	private readonly _entries = new Map<string, IConnectionEntry>();
 	private readonly _connectionFactories = new Map<RemoteAgentHostEntryType, IRemoteAgentHostConnectionFactory>();
 	private readonly _connectionFactoriesObservable = observableValue(this, [] as readonly IRemoteAgentHostConnectionFactory[]);
+	private readonly _transientEntries = observableValue(this, [] as readonly IRemoteAgentHostEntry[]);
 	private readonly _remoteAgentHostsEnabled: IObservable<boolean>;
 	private readonly _remoteAgentHostsAutoConnect: IObservable<boolean>;
 	private readonly _configuredEntries = derived(this, reader => {
@@ -188,6 +189,9 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 			for (const entry of factory.entries.read(reader)) {
 				entries = this._upsertEntry(entries, entry);
 			}
+		}
+		for (const entry of this._transientEntries.read(reader)) {
+			entries = this._upsertEntry(entries, entry);
 		}
 		return entries;
 	});
@@ -307,6 +311,25 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 			return entry;
 		}
 		return { ...entry, connection: { ...entry.connection, address: normalizeRemoteAgentHostAddress(entry.connection.address) } };
+	}
+
+	addTransientRemoteAgentHost(entry: IRemoteAgentHostEntry): IDisposable {
+		const normalized = this._normalizeEntry(entry);
+		const address = this._entryAddress(normalized);
+		this._transientEntries.set([
+			...this._transientEntries.get().filter(candidate => this._entryAddress(candidate) !== address),
+			normalized,
+		], undefined);
+		return toDisposable(() => {
+			this._transientEntries.set(
+				this._transientEntries.get().filter(candidate => candidate !== normalized),
+				undefined,
+			);
+		});
+	}
+
+	private _isTransientAddress(address: string): boolean {
+		return this._transientEntries.get().some(entry => this._entryAddress(entry) === address);
 	}
 
 	get connections(): readonly IRemoteAgentHostConnectionInfo[] {
@@ -693,7 +716,9 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 			return;
 		}
 
-		const configuredEntries = this._configuredEntries.get();
+		const configuredEntries = this._remoteAgentHostsEnabled.get()
+			? this._configuredEntries.get()
+			: this._transientEntries.get();
 		const entriesWithAddress = configuredEntries.map(entry => ({ entry, address: this._entryAddress(entry) }));
 		const desired = new Set(entriesWithAddress.map(e => e.address));
 		for (const address of this._pendingConnects.keys()) {
@@ -741,7 +766,7 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 		// Add entry-driven connection kinds.
 		for (const { entry, address } of entriesWithAddress) {
 			// This gate becomes redundant once every entry type has a registered factory.
-			if (!this._entries.has(address) && !this._pendingConnects.has(address) && this._shouldAutoConnect(entry)) {
+			if (!this._entries.has(address) && !this._pendingConnects.has(address) && (this._isTransientAddress(address) || this._shouldAutoConnect(entry))) {
 				void this._connectTo(entry, { userInitiated: false });
 			}
 		}
@@ -868,7 +893,7 @@ export class RemoteAgentHostService extends Disposable implements IRemoteAgentHo
 
 		if (
 			this._store.isDisposed
-			|| !this._remoteAgentHostsEnabled.get()
+			|| (!this._remoteAgentHostsEnabled.get() && !this._isTransientAddress(address))
 			|| !this._configuredEntries.get().some(entry => this._entryAddress(entry) === address)
 			|| this._entries.has(address)
 		) {

@@ -121,6 +121,7 @@ import './contrib/onboarding/electron-browser/onboardingTryout.contribution.js';
 
 // Logs
 import './contrib/logs/electron-browser/logs.contribution.js';
+import './contrib/chat/electron-browser/evaluationSessionEditor.contribution.js';
 
 // Speech
 

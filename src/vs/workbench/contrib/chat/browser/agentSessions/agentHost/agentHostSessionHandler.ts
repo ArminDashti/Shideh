@@ -1000,6 +1000,8 @@ export interface IAgentHostSessionHandlerConfig {
 	readonly prepareSession?: (sessionResource: URI, token: CancellationToken) => Promise<void>;
 	/** Whether a final-looking chat resource is still a client-side draft. */
 	readonly isNewSession?: (sessionResource: URI) => boolean;
+	/** Whether this handler accepts an untitled resource supplied by its caller. */
+	readonly allowUntitledSessionContent?: boolean;
 	/** Called after a locally-created session has been accepted by the backend. */
 	readonly onSessionMaterialized?: (sessionResource: URI) => void;
 	/**
@@ -1633,7 +1635,10 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	async provideChatSessionContent(sessionResource: URI, token: CancellationToken): Promise<IChatSession> {
-		if (sessionResource.path.substring(1).startsWith('untitled-')) {
+		if (
+			sessionResource.path.substring(1).startsWith('untitled-')
+			&& (!this._config.allowUntitledSessionContent || !this._isNewSessionResource(sessionResource))
+		) {
 			throw new Error(`Agent host chat sessions must be created by the sessions provider: ${sessionResource.toString()}`);
 		}
 
