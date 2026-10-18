@@ -105,6 +105,7 @@ class CodeMain {
 			this.startup();
 		} catch (error) {
 			console.error(error.message);
+			this.unlinkSockets();
 			app.exit(1);
 		}
 	}
@@ -779,6 +780,37 @@ class CodeMain {
 	}
 
 	//#region Command line arguments utilities
+
+	private linkSockets() {
+		if (platform() !== 'darwin') {
+			return;
+		}
+
+		const args = parseMainProcessArgv(process.argv);
+		if (args['stdout-socket']) {
+			this._stdoutSocket = createConnection({ path: args['stdout-socket'] });
+			process.stdout.pipe(this._stdoutSocket);
+			this._stdoutSocket.on('connect', () => {
+				console.log('Connected');
+			});
+		}
+		if (args['stderr-socket']) {
+			this._stderrSocket = createConnection({ path: args['stderr-socket'] });
+			process.stderr.pipe(this._stderrSocket);
+			this._stderrSocket.on('connect', () => {
+				console.log('Connected');
+			});
+		}
+	}
+
+	private unlinkSockets() {
+		if (platform() !== 'darwin') {
+			return;
+		}
+
+		this._stdoutSocket?.destroy();
+		this._stderrSocket?.destroy();
+	}
 
 	private resolveArgs(): NativeParsedArgs {
 
