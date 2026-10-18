@@ -261,6 +261,7 @@ export class NativeEditContext extends AbstractEditContext {
 				this._updateEditContext();
 			}
 		}));
+		this._register(NativeEditContextRegistry.register(ownerID, this));
 	}
 
 	// --- Public methods ---
