@@ -48,6 +48,7 @@ export type OpenExternalOptions = {
 	 * which validate the resolved URI only when falling back to the default external opener.
 	 */
 	readonly allowContributedOpeners?: boolean | string;
+	readonly allowIntegratedBrowserOpener?: boolean;
 	readonly fromWorkspace?: boolean;
 	readonly skipValidation?: boolean;
 };
