@@ -1306,7 +1306,7 @@ export class FileService extends Disposable implements IFileService {
 		});
 	}
 
-	async resolveSymlinkTarget(resource: URI): Promise<IStat | undefined> {
+	async resolveSymlinkRealpath(resource: URI): Promise<string | undefined> {
 		// Get the file system provider for this resource
 		try {
 			const provider = this.getProvider(resource.scheme);
@@ -1314,8 +1314,8 @@ export class FileService extends Disposable implements IFileService {
 				return;
 			}
 			// Check if the provider supports symlink resolution
-			if (this.hasCapability(resource, FileSystemProviderCapabilities.FileSymlinkResolution)) {
-				return (provider as any).resolveSymlinkTarget(resource);
+			if ('resolveSymlinkRealpath' in provider && typeof provider.resolveSymlinkRealpath === 'function' && this.hasCapability(resource, FileSystemProviderCapabilities.FileSymlinkResolution)) {
+				return provider.resolveSymlinkRealpath(resource);
 			}
 
 			// Provider doesn't support symlink resolution

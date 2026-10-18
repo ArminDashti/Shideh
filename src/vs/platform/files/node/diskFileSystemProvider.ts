@@ -10,7 +10,6 @@ import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Event } from '../../../base/common/event.js';
 import { isEqual } from '../../../base/common/extpath.js';
-import { realpath } from '../../../base/node/extpath.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { basename, dirname, join } from '../../../base/common/path.js';
 import { isLinux, isWindows } from '../../../base/common/platform.js';
