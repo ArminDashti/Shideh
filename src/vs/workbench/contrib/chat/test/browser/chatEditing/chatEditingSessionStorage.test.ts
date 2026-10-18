@@ -65,7 +65,6 @@ suite('ChatEditingSessionStorage', () => {
 
 		return {
 			initialFileContents,
-			recentSnapshot: makeStop(undefined, 'd', 'e'),
 			timeline: undefined,
 		};
 	}

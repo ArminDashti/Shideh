@@ -352,16 +352,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return storage.storeState(storedState);
 	}
 
-	private _getStoredState(sessionResource = this.chatSessionResource): StoredSessionState {
-		const entries = new ResourceMap<ISnapshotEntry>();
-		for (const entry of this._readSessionEntries(undefined)) {
-			entries.set(entry.modifiedURI, entry.createSnapshot(sessionResource, undefined, undefined));
-		}
-
+	private _getStoredState(): StoredSessionState {
 		const state: StoredSessionState = {
 			initialFileContents: this._initialFileContents,
 			timeline: this._timeline.getStateForPersistence(),
-			recentSnapshot: { entries, stopId: undefined },
 		};
 
 		return state;

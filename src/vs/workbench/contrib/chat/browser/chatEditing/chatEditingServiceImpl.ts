@@ -72,7 +72,7 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		@IFileService private readonly _fileService: IFileService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IStorageService storageService: IStorageService,
-		@ILogService logService: ILogService,
+		@ILogService private readonly _logService: ILogService,
 		@IExtensionService extensionService: IExtensionService,
 		@IProductService productService: IProductService,
 		@INotebookService private readonly notebookService: INotebookService,
@@ -134,6 +134,9 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 				label: localize('join.chatEditingSession', "Saving chat edits history")
 			});
 		}));
+
+		// Restore global entries on startup
+		this._restoreGlobalEntries();
 	}
 
 	override dispose(): void {
@@ -202,6 +205,81 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		const entries = Array.from(this._entries.values());
 		this._entriesObs.set(entries, undefined);
 	}
+
+	//#region Global entries storage
+
+	private async _storeGlobalEntries(): Promise<void> {
+		const storage = this._instantiationService.createInstance(ChatEditingEntriesStorage);
+
+		// Only store entries that have pending changes (Modified state)
+		const entriesToStore = new ResourceMap<ISnapshotEntry>();
+		for (const entry of this._entries.values()) {
+			if (entry.state.get() === ModifiedFileEntryState.Modified) {
+				const snapshot = entry.createSnapshot();
+				entriesToStore.set(entry.modifiedURI, snapshot);
+			}
+		}
+
+		if (entriesToStore.size === 0) {
+			// No entries to store, clear the storage
+			await storage.clearState();
+			return;
+		}
+
+		await storage.storeState({
+			initialFileContents: this._initialFileContents,
+			entries: entriesToStore,
+		});
+	}
+
+	private async _restoreGlobalEntries(): Promise<void> {
+		const storage = this._instantiationService.createInstance(ChatEditingEntriesStorage);
+		const state = await storage.restoreState().catch(err => {
+			this._logService.error('Error restoring global chat editing entries', err);
+		});
+
+		if (!state) {
+			return;
+		}
+
+		// Restore initial file contents
+		for (const [uri, content] of state.initialFileContents) {
+			this._initialFileContents.set(uri, content);
+		}
+
+		// Restore entries
+		for (const snapshotEntry of state.entries.values()) {
+			// Only restore entries that were in Modified state
+			if (snapshotEntry.state !== ModifiedFileEntryState.Modified) {
+				continue;
+			}
+
+			try {
+				const entry = await this._createModifiedFileEntry(snapshotEntry.resource, snapshotEntry.original);
+				if (entry) {
+					// Restore the entry state from the snapshot
+					await entry.restoreFromSnapshot(snapshotEntry, true);
+
+					// Store the entry globally
+					this._entries.set(snapshotEntry.resource, entry);
+
+					// Handle entry deletion
+					this._register(entry.onDidDelete(() => {
+						this._entries.delete(snapshotEntry.resource);
+						this._entrySessionMap.delete(snapshotEntry.resource);
+						this._editorService.closeEditors(this._editorService.findEditors(entry.modifiedURI));
+						this._updateEntriesObs();
+					}));
+				}
+			} catch (err) {
+				this._logService.error(`Error restoring entry for ${snapshotEntry.resource.toString()}`, err);
+			}
+		}
+
+		this._updateEntriesObs();
+	}
+
+	//#endregion
 
 	private async _createModifiedFileEntry(resource: URI, initialContent: string | undefined): Promise<AbstractChatEditingModifiedFileEntry | undefined> {
 		const notebookUri = CellUri.parse(resource)?.notebook || resource;

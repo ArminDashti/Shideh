@@ -38,10 +38,9 @@ import { IChatService } from '../../common/chatService/chatService.js';
 import { ChatEditKind, IModifiedEntryTelemetryInfo, IModifiedFileEntry, IModifiedFileEntryEditorIntegration, ISnapshotEntry, ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
 import { IChatEditMetadata, IChatResponseModel } from '../../common/model/chatModel.js';
 import { ChatEditingCodeEditorIntegration } from './chatEditingCodeEditorIntegration.js';
-import { filterRangesBySession, generateConflictMarkers, IRebaseConflict, IRebaseResult, rebaseAttributedRanges } from './chatEditingAttribution.js';
+import { generateConflictMarkers, IRebaseConflict, IRebaseResult, rebaseAttributedRanges } from './chatEditingAttribution.js';
 import { AbstractChatEditingModifiedFileEntry, getTelemetryInfoForModel } from './chatEditingModifiedFileEntry.js';
 import { ChatEditingTextModelChangeService } from './chatEditingTextModelChangeService.js';
-import { ChatEditingSnapshotTextModelContentProvider } from './chatEditingTextModelContentProviders.js';
 
 /**
  * Delegate interface for multi-diff entry operations.
@@ -212,11 +211,7 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			this.state.get() === snapshot.state;
 	}
 
-	createSnapshot(chatSessionResource: URI, requestId: string | undefined, undoStop: string | undefined): ISnapshotEntry {
-		// Filter attributed ranges to only include those from this session
-		const allRanges = this._textModelChangeService.getAttributedRangesDTO();
-		const sessionRanges = filterRangesBySession(allRanges, chatSessionResource);
-
+	createSnapshot(): ISnapshotEntry {
 		return {
 			resource: this.modifiedURI,
 			notebookType: undefined,
@@ -227,7 +222,7 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			wasJustCreated: this._wasJustCreated.get() ? true : undefined,
 			deleted: this._willBeDeleted.get() ? true : undefined,
 			state: this.state.get(),
-			attributedRanges: sessionRanges,
+			attributedRanges: this._textModelChangeService.getAttributedRangesDTO(),
 		};
 	}
 
