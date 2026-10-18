@@ -63,6 +63,22 @@ export function filterAgentHostModelsAvailableWithoutCopilotAccount(
 export type IAgentHostModelCatalogue = Pick<ILanguageModelsService, 'getLanguageModelIds' | 'lookupLanguageModel' | 'onDidChangeLanguageModels'>;
 
 /**
+ * Returns whether an agent host provider has no synthetic "Auto" model to fall
+ * back to.
+ *
+ * Most harnesses (e.g. the Copilot CLI agent host) expose an Auto selection
+ * and can run without an explicit model, so they should show "Auto" rather
+ * than a "No models available" state when no models are listed. The Claude
+ * harness has no Auto model.
+ *
+ * `provider` is the underlying agent provider id (e.g. `'copilotcli'`,
+ * `'claude'`), not the `agent-host-<provider>` session type.
+ */
+export function agentHostProviderAutoModelUnavailable(provider: string): boolean {
+	return provider.includes('claude');
+}
+
+/**
  * Exposes models available from the agent host process as selectable
  * language models in the chat model picker. Models are provided from
  * root state (via {@link AgentInfo.models}) rather than via RPC.

@@ -8241,7 +8241,7 @@ suite('AgentHostChatContribution', () => {
 		test('error event renders error message and finishes the request', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
 			const { sessionHandler, agentHostService, chatAgentService } = createContribution(disposables);
 
-			const { turnPromise, collected, session, turnId } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables);
+			const { turnPromise, session, turnId } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables);
 
 			agentHostService.fireAction({
 				channel: session,

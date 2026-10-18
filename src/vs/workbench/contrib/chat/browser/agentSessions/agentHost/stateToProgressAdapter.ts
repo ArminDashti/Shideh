@@ -1082,6 +1082,94 @@ export function errorInfoToChatErrorDetails(error: ErrorInfo): IChatResponseErro
 }
 
 /**
+ * Well-known agent host error categories ({@link ErrorInfo.errorType}). These
+ * mirror the upstream Copilot SDK `session.error` `errorType` categories that
+ * survive into the protocol's {@link ErrorInfo} (e.g. `authentication`,
+ * `authorization`, `quota`, `rate_limit`, `context_limit`, `query`). Only the
+ * ones we map to structured chat error flags are enumerated here.
+ */
+const enum AgentHostErrorType {
+	Quota = 'quota',
+	RateLimit = 'rate_limit',
+}
+
+/**
+ * Context used to build a user-friendly quota error message that mirrors the
+ * default chat experience (plan- and reset-date-aware), rather than surfacing
+ * the raw server error string (e.g. `402 {"error":...}`).
+ */
+export interface IQuotaErrorContext {
+	readonly entitlement: ChatEntitlement;
+	readonly quotaResetDate?: string;
+	readonly quotaResetDateHasTime?: boolean;
+}
+
+/**
+ * Maps a protocol {@link ErrorInfo} from a failed turn into structured chat
+ * {@link IChatResponseErrorDetails}, so the chat UI can render the rich quota
+ * widget (`ChatQuotaExceededPart`) for `quota` errors (e.g. an upstream 402)
+ * instead of a plain "Error: (...)" markdown line. The same applies to
+ * rate-limit errors via {@link IChatResponseErrorDetails.isRateLimited}.
+ *
+ * When `quotaContext` is provided, `quota` errors get a friendly, localized,
+ * plan-aware message instead of the raw server error string.
+ */
+export function errorInfoToChatErrorDetails(error: ErrorInfo, quotaContext?: IQuotaErrorContext): IChatResponseErrorDetails {
+	const isQuota = error.errorType === AgentHostErrorType.Quota;
+	return {
+		message: isQuota && quotaContext ? buildQuotaExceededMessage(quotaContext) : error.message,
+		...(isQuota ? { isQuotaExceeded: true } : {}),
+		...(error.errorType === AgentHostErrorType.RateLimit ? { isRateLimited: true } : {}),
+	};
+}
+
+/**
+ * Builds a user-friendly, localized quota-exceeded message keyed on the user's
+ * entitlement and (when known) quota reset date. The accompanying upgrade /
+ * manage-budget button is rendered separately by `ChatQuotaExceededPart` based
+ * on entitlement, so this text intentionally avoids duplicating that action.
+ */
+export function buildQuotaExceededMessage(context: IQuotaErrorContext): string {
+	const reset = context.quotaResetDate ? formatQuotaResetDate(context.quotaResetDate, context.quotaResetDateHasTime) : undefined;
+	switch (context.entitlement) {
+		case ChatEntitlement.Unknown:
+			return reset
+				? localize('agentHost.quota.anonymous.reset', "You've reached your monthly credit limit. Sign in to keep going, or wait until your credits reset on {0}.", reset)
+				: localize('agentHost.quota.anonymous', "You've reached your monthly credit limit. Sign in to keep going.");
+		case ChatEntitlement.Free:
+			return reset
+				? localize('agentHost.quota.free.reset', "You've reached your monthly credit limit. Upgrade to Copilot Pro or wait until your credits reset on {0}.", reset)
+				: localize('agentHost.quota.free', "You've reached your monthly credit limit. Upgrade to Copilot Pro or wait for your credits to reset.");
+		case ChatEntitlement.Business:
+		case ChatEntitlement.Enterprise:
+			return reset
+				? localize('agentHost.quota.managed.reset', "You've reached your credit limit. Contact your organization's Copilot admin or wait until your credits reset on {0}.", reset)
+				: localize('agentHost.quota.managed', "You've reached your credit limit. Contact your organization's Copilot admin to continue.");
+		default:
+			return reset
+				? localize('agentHost.quota.default.reset', "You've reached your monthly credit limit. Manage your budget or wait until your credits reset on {0}.", reset)
+				: localize('agentHost.quota.default', "You've reached your monthly credit limit. Manage your budget to keep building.");
+	}
+}
+
+/**
+ * Formats a quota reset date for display, matching the style used elsewhere in
+ * chat quota UI. Includes the time component only when the source carried one,
+ * and the year only when it differs from the current year.
+ */
+function formatQuotaResetDate(isoDate: string, hasTime: boolean | undefined): string {
+	const resetDate = new Date(isoDate);
+	const includeYear = resetDate.getFullYear() !== new Date().getFullYear();
+	const dateParts: Intl.DateTimeFormatOptions = includeYear
+		? { month: 'long', day: 'numeric', year: 'numeric' }
+		: { month: 'long', day: 'numeric' };
+	const options: Intl.DateTimeFormatOptions = hasTime
+		? { ...dateParts, hour: 'numeric', minute: '2-digit' }
+		: dateParts;
+	return safeIntl.DateTimeFormat(undefined, options).value.format(resetDate);
+}
+
+/**
  * Converts completed turns from the protocol state into session history items.
  *
  * Requests preserve the selected model. Response details use the actual model, except for Fusion's workflow label.

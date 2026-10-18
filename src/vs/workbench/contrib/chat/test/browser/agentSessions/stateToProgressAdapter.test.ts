@@ -4924,4 +4924,74 @@ suite('stateToProgressAdapter', () => {
 			assert.deepStrictEqual(details, { message: 'Something went wrong' });
 		});
 	});
+
+	suite('errorInfoToChatErrorDetails', () => {
+
+		test('quota error maps to isQuotaExceeded', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'quota', message: 'Credit limit reached' });
+			assert.deepStrictEqual(details, { message: 'Credit limit reached', isQuotaExceeded: true });
+		});
+
+		test('rate_limit error maps to isRateLimited', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'rate_limit', message: 'Slow down' });
+			assert.deepStrictEqual(details, { message: 'Slow down', isRateLimited: true });
+		});
+
+		test('generic error carries only the message', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'query', message: 'Something went wrong' });
+			assert.deepStrictEqual(details, { message: 'Something went wrong' });
+		});
+
+		test('quota error with context replaces the raw message with a friendly one', () => {
+			const details = errorInfoToChatErrorDetails(
+				{ errorType: 'quota', message: '402 {"error":{"code":"quota_exceeded"}}' },
+				{ entitlement: ChatEntitlement.Free },
+			);
+			assert.deepStrictEqual(details, {
+				message: 'You\'ve reached your monthly credit limit. Upgrade to Copilot Pro or wait for your credits to reset.',
+				isQuotaExceeded: true,
+			});
+		});
+
+		test('non-quota error ignores the quota context', () => {
+			const details = errorInfoToChatErrorDetails(
+				{ errorType: 'query', message: 'Something went wrong' },
+				{ entitlement: ChatEntitlement.Free },
+			);
+			assert.deepStrictEqual(details, { message: 'Something went wrong' });
+		});
+	});
+
+	suite('buildQuotaExceededMessage', () => {
+
+		test('free plan without reset date', () => {
+			assert.strictEqual(
+				buildQuotaExceededMessage({ entitlement: ChatEntitlement.Free }),
+				'You\'ve reached your monthly credit limit. Upgrade to Copilot Pro or wait for your credits to reset.',
+			);
+		});
+
+		test('managed plan points at the admin', () => {
+			assert.strictEqual(
+				buildQuotaExceededMessage({ entitlement: ChatEntitlement.Business }),
+				'You\'ve reached your credit limit. Contact your organization\'s Copilot admin to continue.',
+			);
+		});
+
+		test('anonymous user is prompted to sign in', () => {
+			assert.strictEqual(
+				buildQuotaExceededMessage({ entitlement: ChatEntitlement.Unknown }),
+				'You\'ve reached your monthly credit limit. Sign in to keep going.',
+			);
+		});
+
+		test('reset date is appended when provided', () => {
+			const message = buildQuotaExceededMessage({
+				entitlement: ChatEntitlement.Free,
+				quotaResetDate: '2026-06-30T17:00:00.000Z',
+				quotaResetDateHasTime: true,
+			});
+			assert.ok(message.startsWith('You\'ve reached your monthly credit limit. Upgrade to Copilot Pro or wait until your credits reset on '));
+		});
+	});
 });
