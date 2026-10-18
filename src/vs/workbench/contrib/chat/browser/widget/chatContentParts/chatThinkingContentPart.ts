@@ -2354,6 +2354,7 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 			this.toolInvocations.splice(toolInvocationsIndex, 1);
 		}
 
+		this.refreshDisplayedTitle();
 		this.updateDropdownClickability();
 		this.updateWorkingSpinnerVisibility();
 		return true;
@@ -2438,6 +2439,47 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 		this.updateWorkingSpinnerVisibility();
 		this.updateDropdownClickability();
 		this._onDidChangeHeight.fire();
+	}
+
+	private refreshDisplayedTitle(): void {
+		const extractedThinkingTitle = extractTitleFromThinkingContent(this.currentThinkingValue);
+		const nextTitle = this.extractedTitles[this.extractedTitles.length - 1]
+			?? (extractedThinkingTitle && extractedThinkingTitle !== this.defaultTitle ? extractedThinkingTitle : undefined);
+
+		this.lastExtractedTitle = nextTitle;
+
+		if (this.fixedScrollingMode || this._isExpanded.get() || this.element.isComplete || this.streamingCompleted) {
+			return;
+		}
+
+		if (nextTitle) {
+			this.setTitle(nextTitle);
+		} else {
+			this.setTitle(this.defaultTitle, true);
+			this.currentTitle = this.defaultTitle;
+		}
+	}
+
+	private registerToolDisposable(
+		disposable: IDisposable,
+		toolInvocationOrMarkdown?: IChatToolInvocation | IChatToolInvocationSerialized | IChatMarkdownContent
+	): void {
+		const toolCallId = toolInvocationOrMarkdown && (toolInvocationOrMarkdown.kind === 'toolInvocation' || toolInvocationOrMarkdown.kind === 'toolInvocationSerialized')
+			? toolInvocationOrMarkdown.toolCallId
+			: undefined;
+
+		if (!toolCallId) {
+			this._register(disposable);
+			return;
+		}
+
+		let toolStore = this.toolDisposables.get(toolCallId);
+		if (!toolStore) {
+			toolStore = new DisposableStore();
+			this.toolDisposables.set(toolCallId, toolStore);
+		}
+
+		toolStore.add(disposable);
 	}
 
 	private trackToolMetadata(
@@ -2563,7 +2605,7 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 					if (currentState.type === IChatToolInvocation.StateKind.Completed ||
 						currentState.type === IChatToolInvocation.StateKind.Cancelled) {
 						// Remove tools that should be hidden now or after completion.
-						if (toolInvocationOrMarkdown.presentation === 'hidden' || toolInvocationOrMarkdown.presentation === 'hiddenAfterComplete') {
+						if (toolInvocationOrMarkdown.presentation === 'hidden' || shouldHideToolInvocationAfterCompletion(toolInvocationOrMarkdown)) {
 							this.pendingRemovals.push({ toolCallId: toolInvocationOrMarkdown.toolCallId, toolLabel: currentToolLabel });
 							this.schedulePendingRemovalsFlush();
 						}
