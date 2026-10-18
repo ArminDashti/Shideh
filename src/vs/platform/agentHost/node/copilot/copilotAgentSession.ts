@@ -823,6 +823,8 @@ class CopilotTurn extends Disposable {
 	messageCharLen: number | undefined;
 	/** Model of the most recent round, reported as the turn's model. */
 	lastModel: string | undefined;
+	/** Whether the restricted `request.repoInfo` event has been emitted for this turn (once-per-turn guard). */
+	repoInfoReported = false;
 
 	private readonly _eventId = new DeferredPromise<string>();
 
