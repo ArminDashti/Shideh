@@ -135,7 +135,6 @@ export interface IModelDecorationsChangedEvent {
 
 /**
  * An event describing that some ranges of lines have been tokenized (their tokens have changed).
- * @internal
  */
 export interface IModelTokensChangedEvent {
 	readonly semanticTokensApplied: boolean;
@@ -215,9 +214,6 @@ export interface IModelOptionsChangedEvent {
 	readonly trimAutoWhitespace: boolean;
 }
 
-/**
- * @internal
- */
 export const enum RawContentChangedType {
 	Flush = 1,
 	LineChanged = 2,
@@ -228,7 +224,6 @@ export const enum RawContentChangedType {
 
 /**
  * An event describing that a model has been reset to a new value.
- * @internal
  */
 export class ModelRawFlush {
 	public readonly changeType = RawContentChangedType.Flush;
@@ -254,7 +249,6 @@ function occupiesHorizontalSpace(options: InjectedTextOptions): boolean {
 
 /**
  * Represents text injected on a line
- * @internal
  */
 export class LineInjectedText {
 	public static applyInjectedText(lineText: string, injectedTexts: LineInjectedText[] | null): string {
@@ -619,7 +613,6 @@ export class ModelInjectedTextChangedEvent {
 
 /**
  * An event describing a change of a line height.
- * @internal
  */
 export class ModelLineHeightChangedEvent {
 
@@ -650,7 +643,6 @@ export class ModelLineHeightChangedEvent {
 
 /**
  * An event describing a change in fonts.
- * @internal
  */
 export class ModelFontChangedEvent {
 
@@ -661,9 +653,6 @@ export class ModelFontChangedEvent {
 	}
 }
 
-/**
- * @internal
- */
 export class InternalModelContentChangeEvent {
 	constructor(
 		public readonly rawContentChangedEvent: ModelRawContentChangedEvent,

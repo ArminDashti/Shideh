@@ -412,7 +412,6 @@ export interface IModelDecoration {
 
 /**
  * An accessor that can add, change or remove model decorations.
- * @internal
  */
 export interface IModelDecorationsChangeAccessor {
 	/**
@@ -499,7 +498,6 @@ export const enum EndOfLineSequence {
 
 /**
  * An identifier for a single edit operation.
- * @internal
  */
 export interface ISingleEditOperationIdentifier {
 	/**
@@ -636,9 +634,6 @@ export class TextModelResolvedOptions {
 	}
 }
 
-/**
- * @internal
- */
 export interface ITextModelCreationOptions {
 	tabSize: number;
 	indentSize: number | 'tabSize';
@@ -1465,9 +1460,6 @@ export function isITextModel(obj: IEditorModel): obj is ITextModel {
 	return Boolean(obj && (obj as ITextModel).uri);
 }
 
-/**
- * @internal
- */
 export interface IAttachedView {
 	/**
 	 * @param stabilized Indicates if the visible lines are probably going to change soon or can be considered stable.
@@ -1503,33 +1495,19 @@ export const enum PositionAffinity {
 	*/
 	RightOfInjectedText = 4,
 }
-
-/**
- * @internal
- */
 export interface ITextBufferBuilder {
 	acceptChunk(chunk: string): void;
 	finish(): ITextBufferFactory;
 }
-
-/**
- * @internal
- */
 export interface ITextBufferFactory {
 	create(defaultEOL: DefaultEndOfLine): { textBuffer: ITextBuffer; disposable: IDisposable };
 	getFirstLineText(lengthLimit: number): string;
 }
 
-/**
- * @internal
- */
 export const enum ModelConstants {
 	FIRST_LINE_DETECTION_LENGTH_LIMIT = 1000
 }
 
-/**
- * @internal
- */
 export class ValidAnnotatedEditOperation implements IIdentifiedSingleEditOperation {
 	constructor(
 		public readonly identifier: ISingleEditOperationIdentifier | null,
