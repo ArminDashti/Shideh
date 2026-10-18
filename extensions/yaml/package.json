@@ -80,13 +80,7 @@
       {
         "language": "yaml",
         "scopeName": "source.yaml",
-        "path": "./syntaxes/yaml.tmLanguage.json",
-        "unbalancedBracketScopes": [
-          "invalid.illegal",
-          "meta.scalar.yaml",
-          "storage.type.tag.shorthand.yaml",
-          "keyword.control.flow"
-        ]
+        "path": "./syntaxes/yaml.tmLanguage.json"
       }
     ],
     "configurationDefaults": {
