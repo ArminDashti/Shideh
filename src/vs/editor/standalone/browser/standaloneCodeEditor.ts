@@ -166,6 +166,54 @@ export interface IGlobalEditorOptions {
 }
 
 /**
+ * Options which apply for all editors.
+ */
+export interface IGlobalEditorOptions {
+	/**
+	 * The number of spaces a tab is equal to.
+	 * This setting is overridden based on the file contents when `detectIndentation` is on.
+	 * Defaults to 4.
+	 */
+	tabSize?: number;
+	/**
+	 * Insert spaces when pressing `Tab`.
+	 * This setting is overridden based on the file contents when detectIndentation` is on.
+	 * Defaults to true.
+	 */
+	insertSpaces?: boolean;
+	/**
+	 * Controls whether `tabSize` and `insertSpaces` will be automatically detected when a file is opened based on the file contents.
+	 * Defaults to true.
+	 */
+	detectIndentation?: boolean;
+	/**
+	 * Remove trailing auto inserted whitespace.
+	 * Defaults to true.
+	 */
+	trimAutoWhitespace?: boolean;
+	/**
+	 * Special handling for large files to disable certain memory intensive features.
+	 * Defaults to true.
+	 */
+	largeFileOptimizations?: boolean;
+	/**
+	 * Controls whether completions should be computed based on words in the document.
+	 * Defaults to true.
+	 */
+	wordBasedSuggestions?: boolean;
+	/**
+	 * Keep peek editors open even when double clicking their content or when hitting `Escape`.
+	 * Defaults to false.
+	 */
+	stablePeek?: boolean;
+	/**
+	 * Lines above this length will not be tokenized for performance reasons.
+	 * Defaults to 20000.
+	 */
+	maxTokenizationLineLength?: number;
+}
+
+/**
  * The options to create an editor.
  */
 export interface IStandaloneEditorConstructionOptions extends IEditorConstructionOptions, IGlobalEditorOptions {
