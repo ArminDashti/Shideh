@@ -949,6 +949,8 @@ export class WorkspacePicker extends Disposable {
 			this._buildListOptions(items, undefined),
 			this._triggerOptions.get(triggerElement)?.contextViewLayer,
 		);
+
+		this._onDidShowPicker.fire();
 	}
 
 	/**

@@ -669,6 +669,14 @@ export class SessionsView extends ViewPane {
 		}
 	}
 
+	private _showNewSessionCalloutIfEligible(): void {
+		if (this._newSessionCalloutShown || !this._newSessionCallout?.shouldShow) {
+			return;
+		}
+		this._newSessionCalloutShown = true;
+		this._newSessionCallout.show();
+	}
+
 	private readonly registeredFilterTypeIds = new Set<string>();
 
 	private readonly archivedFilterRegistration = this._register(new DisposableStore());

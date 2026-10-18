@@ -1,0 +1,247 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Callout container */
+.workspace-picker-callout {
+	position: absolute;
+	top: 0;
+	left: calc(100% + 10px);
+	width: 280px;
+	z-index: 100;
+
+	background-color: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+
+	white-space: normal;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+
+	animation: workspace-callout-fade-in 0.2s ease both;
+}
+
+/* Left-side variant (branch picker) */
+.workspace-picker-callout.callout-left {
+	left: auto;
+	right: calc(100% + 10px);
+	top: auto;
+	bottom: -4px;
+	animation: workspace-callout-fade-in-left 0.2s ease both;
+}
+
+/* Fixed-position variant (new session button) — positioned via JS */
+.workspace-picker-callout.callout-new-session {
+	position: fixed;
+	top: auto;
+	left: auto;
+	animation: workspace-callout-fade-in 0.2s ease both;
+}
+
+.workspace-picker-callout.callout-new-session.hiding {
+	animation: workspace-callout-fade-out 0.15s ease both;
+}
+
+.workspace-picker-callout.callout-left.hiding {
+	animation: workspace-callout-fade-out-left 0.15s ease both;
+}
+
+.workspace-picker-callout.hiding {
+	animation: workspace-callout-fade-out 0.15s ease both;
+}
+
+@keyframes workspace-callout-fade-in {
+	from {
+		opacity: 0;
+		transform: translateX(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes workspace-callout-fade-out {
+	from {
+		opacity: 1;
+		transform: translateX(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateX(4px);
+	}
+}
+
+@keyframes workspace-callout-fade-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes workspace-callout-fade-out-left {
+	from {
+		opacity: 1;
+		transform: translateX(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateX(-4px);
+	}
+}
+
+/* Pointer arrow (left-pointing, for right-side callout) */
+.workspace-picker-callout-pointer {
+	position: absolute;
+	left: -6px;
+	top: 24px;
+	transform: rotate(45deg);
+	width: 10px;
+	height: 10px;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+	border-left: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+}
+
+/* Pointer arrow (right-pointing, for left-side callout) */
+.workspace-picker-callout.callout-left .workspace-picker-callout-pointer {
+	left: auto;
+	right: -6px;
+	top: auto;
+	bottom: 12px;
+	border-bottom: none;
+	border-left: none;
+	border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+	border-right: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+}
+
+/* Header bar (dismiss + snooze) — floating pill, hidden until callout is hovered */
+.workspace-picker-callout-header {
+	position: absolute;
+	top: -20px;
+	right: 10px;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	height: 26px;
+	line-height: 26px;
+	background-color: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+	border-radius: 6px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.1s ease-in-out;
+}
+
+.workspace-picker-callout:hover .workspace-picker-callout-header,
+.workspace-picker-callout:focus-within .workspace-picker-callout-header {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.workspace-picker-callout-header button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin: 1px 2px;
+	border: none;
+	border-radius: 4px;
+	background-color: transparent;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	padding: 4px;
+}
+
+.workspace-picker-callout-header button:first-child {
+	margin-left: 1px;
+}
+
+.workspace-picker-callout-header button:last-child {
+	margin-right: 1px;
+}
+
+.workspace-picker-callout-header button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+}
+
+.workspace-picker-callout-header button .codicon {
+	font-size: 14px;
+}
+
+/* Body */
+.workspace-picker-callout-body {
+	padding: 10px 14px 12px 14px;
+}
+
+/* Description */
+.workspace-picker-callout-description {
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--vscode-foreground);
+}
+
+/* FAQ */
+.workspace-picker-callout-faq {
+	margin-top: 12px;
+	border-top: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+	padding-top: 8px;
+}
+
+.workspace-picker-callout-faq-item {
+	margin: 0;
+}
+
+.workspace-picker-callout-faq-item + .workspace-picker-callout-faq-item {
+	margin-top: 2px;
+}
+
+.workspace-picker-callout-faq-question {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	list-style: none;
+	padding: 4px 4px;
+	border-radius: 4px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.workspace-picker-callout-faq-question::-webkit-details-marker {
+	display: none;
+}
+
+.workspace-picker-callout-faq-question::before {
+	font-family: codicon;
+	content: '\eab6'; /* chevron-right */
+	display: inline-block;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	margin-right: 4px;
+	vertical-align: middle;
+	transition: transform 0.15s ease;
+}
+
+details[open].workspace-picker-callout-faq-item > .workspace-picker-callout-faq-question::before {
+	transform: rotate(90deg);
+}
+
+.workspace-picker-callout-faq-question:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.workspace-picker-callout-faq-answer {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--vscode-descriptionForeground);
+	padding: 4px 4px 8px 16px;
+}
