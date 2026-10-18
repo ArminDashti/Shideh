@@ -50,6 +50,17 @@ export interface PostProcessNLSResult {
 	readonly edits: readonly NLSTextEdit[];
 }
 
+export interface NLSPostProcessEdit {
+	readonly start: number;
+	readonly end: number;
+	readonly newText: string;
+}
+
+export interface NLSPostProcessResult {
+	readonly code: string;
+	readonly edits: readonly NLSPostProcessEdit[];
+}
+
 /**
  * Post-processes a JavaScript file to replace NLS placeholders with indices.
  * Also returns the text edits applied, so that source maps can be adjusted accordingly.
