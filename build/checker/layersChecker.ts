@@ -239,6 +239,8 @@ async function addDisallowedSymbols(checker: Checker, symbols: readonly Symbol[]
 			}
 		}
 	}
+
+	return violations;
 }
 
 function toViolation(candidate: ICandidate, type: string): ILayerViolation {
