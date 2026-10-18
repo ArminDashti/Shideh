@@ -497,6 +497,21 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			scope: ConfigurationScope.APPLICATION,
 			tags: ['experimental', 'advanced'],
+			policy: {
+				name: 'CopilotOtelDbSpanExporter',
+				category: PolicyCategory.InteractiveSession,
+				minimumVersion: '1.127',
+				value: managedSettingValue(COPILOT_OTEL_DB_SPAN_EXPORTER_ENABLED_KEY),
+				managedSettings: {
+					[COPILOT_OTEL_DB_SPAN_EXPORTER_ENABLED_KEY]: { type: 'boolean' },
+				},
+				localization: {
+					description: {
+						key: 'chat.agentHost.otel.dbSpanExporter.enabled.policy',
+						value: nls.localize('chat.agentHost.otel.dbSpanExporter.enabled.policy', "Controls whether Copilot OpenTelemetry spans are persisted to a local SQLite database."),
+					}
+				},
+			},
 		},
 		[AgentHostOTelServiceNameSettingId]: {
 			type: 'string',
