@@ -187,3 +187,51 @@ export class EditorScrollbar extends ViewPart {
 		this.scrollbar.renderNow();
 	}
 }
+
+registerThemingParticipant((theme, collector) => {
+
+	// Scrollbars
+	const scrollbarShadowColor = theme.getColor(scrollbarShadow);
+	if (scrollbarShadowColor) {
+		collector.addRule(`
+			.monaco-scrollable-element > .shadow.top {
+				box-shadow: ${scrollbarShadowColor} 0 6px 6px -6px inset;
+			}
+
+			.monaco-scrollable-element > .shadow.left {
+				box-shadow: ${scrollbarShadowColor} 6px 0 6px -6px inset;
+			}
+
+			.monaco-scrollable-element > .shadow.top.left {
+				box-shadow: ${scrollbarShadowColor} 6px 6px 6px -6px inset;
+			}
+		`);
+	}
+
+	const scrollbarSliderBackgroundColor = theme.getColor(scrollbarSliderBackground);
+	if (scrollbarSliderBackgroundColor) {
+		collector.addRule(`
+			.monaco-scrollable-element > .scrollbar > .slider {
+				background: ${scrollbarSliderBackgroundColor};
+			}
+		`);
+	}
+
+	const scrollbarSliderHoverBackgroundColor = theme.getColor(scrollbarSliderHoverBackground);
+	if (scrollbarSliderHoverBackgroundColor) {
+		collector.addRule(`
+			.monaco-scrollable-element > .scrollbar > .slider:hover {
+				background: ${scrollbarSliderHoverBackgroundColor};
+			}
+		`);
+	}
+
+	const scrollbarSliderActiveBackgroundColor = theme.getColor(scrollbarSliderActiveBackground);
+	if (scrollbarSliderActiveBackgroundColor) {
+		collector.addRule(`
+			.monaco-scrollable-element > .scrollbar > .slider.active {
+				background: ${scrollbarSliderActiveBackgroundColor};
+			}
+		`);
+	}
+});
