@@ -55,6 +55,11 @@ export class AutoFetcher {
 			return;
 		}
 
+		if (result === readMore) {
+			commands.executeCommand('vscode.open', Uri.parse('https://go.microsoft.com/fwlink/?linkid=865294'));
+			return this.onFirstGoodRemoteOperation();
+		}
+
 		if (result === yes) {
 			const gitConfig = workspace.getConfiguration('git', Uri.file(this.repository.root));
 			gitConfig.update('autofetch', true, ConfigurationTarget.Global);
