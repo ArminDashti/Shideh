@@ -102,9 +102,13 @@ export class ModelPickerWidget extends Disposable {
 	readonly onDidChangeSelection: Event<ILanguageModelChatMetadataAndIdentifier> = this._onDidChangeSelection.event;
 	private readonly _onDidChangeMinimumWidth = this._register(new Emitter<number>());
 	readonly onDidChangeMinimumWidth: Event<number> = this._onDidChangeMinimumWidth.event;
+	private readonly _onDidClose = this._register(new Emitter<void>());
+	/** Fires after the entire selection/configuration flow closes and selection handlers have run. */
+	readonly onDidClose: Event<void> = this._onDidClose.event;
 
 	private _selectedModel: ILanguageModelChatMetadataAndIdentifier | undefined;
 	private _badge: ModelPickerBadge | undefined;
+	private _enabled = true;
 	private _compact: IObservable<boolean> | undefined;
 	private _minimal: IObservable<boolean> | undefined;
 	private _contextViewLayer: number | undefined;
@@ -119,11 +123,30 @@ export class ModelPickerWidget extends Disposable {
 	private _configButton: HTMLElement | undefined;
 	private _minimumWidth = MODEL_PICKER_MINIMUM_NAME_WIDTH;
 	private readonly _configuration: ModelPickerConfiguration;
+	private readonly _renderDisposables = this._register(new DisposableStore());
+	private readonly _classicPickerDisposables = this._register(new MutableDisposable<DisposableStore>());
 	private readonly _tabbedPicker = this._register(new MutableDisposable<TabbedModelPicker>());
 	private readonly _tabbedPickerHideListener = this._register(new MutableDisposable());
+	private _classicPickerVisible = false;
+	private _flowOpen = false;
+	private _flowAnchor: HTMLElement | undefined;
+	private _previouslyFocusedElement: HTMLElement | undefined;
+	private readonly _closeScheduler = this._register(new RunOnceScheduler(() => {
+		if (this._flowOpen && !this._isPopupVisible()) {
+			this._flowOpen = false;
+			this._flowAnchor = undefined;
+			this._previouslyFocusedElement = undefined;
+			this._onDidClose.fire();
+		}
+	}, 0));
 
 	get selectedModel(): ILanguageModelChatMetadataAndIdentifier | undefined {
 		return this._selectedModel;
+	}
+
+	get selectionPresentation(): IModelPickerSelectionPresentation | undefined {
+		const presentation = this._delegate.selectionPresentation?.get();
+		return presentation && !this._availability().noModels ? presentation : undefined;
 	}
 
 	get domNode(): HTMLElement | undefined {
@@ -165,6 +188,7 @@ export class ModelPickerWidget extends Disposable {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
+		this._selectedModel = this._delegate.currentModel.get();
 		this._configuration = this._instantiationService.createInstance(ModelPickerConfiguration, {
 			getSelectedModel: () => this._selectedModel,
 			getConfigurationAccess: () => this._delegate.modelConfiguration ?? this._languageModelsService,
@@ -244,6 +268,14 @@ export class ModelPickerWidget extends Disposable {
 				this._renderLabel();
 			}
 		}));
+
+		const selectionPresentation = this._delegate.selectionPresentation;
+		if (selectionPresentation) {
+			this._register(autorun(reader => {
+				selectionPresentation.read(reader);
+				this._renderLabel();
+			}));
+		}
 	}
 
 	setCompact(compact: IObservable<boolean>): void {
@@ -299,6 +331,7 @@ export class ModelPickerWidget extends Disposable {
 	}
 
 	setEnabled(enabled: boolean): void {
+		this._enabled = enabled;
 		if (this._domNode) {
 			this._domNode.classList.toggle('disabled', !enabled);
 			this._domNode.setAttribute('aria-disabled', String(!enabled));
@@ -375,7 +408,12 @@ export class ModelPickerWidget extends Disposable {
 	}
 
 	render(container: HTMLElement): void {
+		this._renderDisposables.clear();
+		this._domNode?.remove();
 		this._domNode = dom.append(container, dom.$('div.action-label.model-picker-split'));
+		if (!this._enabled) {
+			this.setEnabled(false);
+		}
 		this._domNode.setAttribute('role', 'group');
 		// The container groups the individual buttons; only the buttons should be
 		// tab stops, not the container itself.
@@ -423,7 +461,7 @@ export class ModelPickerWidget extends Disposable {
 		});
 
 		// Managed hover for the combined configuration button
-		this._register(getBaseLayerHoverDelegate().setupManagedHover(
+		this._renderDisposables.add(getBaseLayerHoverDelegate().setupManagedHover(
 			getDefaultHoverDelegate('mouse'),
 			this._configButton,
 			() => this.isTabbedPickerEnabled()
@@ -443,7 +481,7 @@ export class ModelPickerWidget extends Disposable {
 			dom.EventHelper.stop(e, true);
 			action(false);
 		}));
-		this._register(dom.addDisposableListener(element, dom.EventType.KEY_DOWN, (e) => {
+		this._renderDisposables.add(dom.addDisposableListener(element, dom.EventType.KEY_DOWN, (e) => {
 			const event = new StandardKeyboardEvent(e);
 			if (event.equals(KeyCode.Enter) || event.equals(KeyCode.Space)) {
 				dom.EventHelper.stop(e, true);
@@ -548,7 +586,7 @@ export class ModelPickerWidget extends Disposable {
 	 */
 	private _show(anchor: HTMLElement | undefined, showDetails: boolean, focusConfiguration: boolean, telemetry: IModelPickerOpenTrigger | ModelPickerTelemetrySession): void {
 		const anchorElement = anchor ?? this._domNode;
-		if (!anchorElement || this._domNode?.classList.contains('disabled')) {
+		if (!anchorElement || !this._enabled || this._store.isDisposed) {
 			return;
 		}
 		if (this._tabbedPicker.value?.isVisible) {
@@ -559,6 +597,8 @@ export class ModelPickerWidget extends Disposable {
 			this._actionWidgetService.hide(true);
 			return;
 		}
+		this._configuration.hide();
+		this._beginFlow(anchorElement);
 
 		const telemetrySession = telemetry instanceof ModelPickerTelemetrySession
 			? telemetry
@@ -582,6 +622,9 @@ export class ModelPickerWidget extends Disposable {
 
 		const models = this._delegate.getModels();
 		const presentation = this._delegate.getPresentationOptions();
+		const additionalContent = this._workspaceTrustInitialized && this._unavailableReason() === undefined && !this._entitlementService.sentiment.hidden
+			? this._delegate.getAdditionalContent?.()
+			: undefined;
 		const manifest = this._languageModelsService.getModelsControlManifest();
 		const controlModelsForTier: IStringDictionary<IModelControlEntry> = getModelPickerControlModels(manifest, this._entitlementService.entitlement, models);
 		const canShowManageModelsAction = presentation.showManageModelsAction && shouldShowManageModelsAction(this._entitlementService);
@@ -615,12 +658,14 @@ export class ModelPickerWidget extends Disposable {
 		};
 
 		const placeholders = this._providerPlaceholders();
-		if (this.isTabbedPickerEnabled() && !this.isRestrictedMode() && (models.length > 0 || placeholders.length > 0)) {
+		if (additionalContent?.replaceModelList || (this.isTabbedPickerEnabled() && !this.isRestrictedMode() && (models.length > 0 || placeholders.length > 0))) {
 			const showCacheBreakHint = this.shouldShowCacheBreakHint(/* excludeAutoModel */ true);
 			const showConfigurationCacheBreakHint = this.shouldShowCacheBreakHint(/* excludeAutoModel */ false);
 			this._showTabbedPicker(anchorElement, {
 				models,
 				selectedModelId: this._selectedModel?.identifier,
+				additionalContent,
+				reopen: () => this.show(anchorElement),
 				recentModelIds: this._languageModelsService.getRecentlyUsedModelIds().filter(id => !this._languageModelsService.isModelHidden(id)),
 				pinnedModelIds: this._languageModelsService.getPinnedModelIds().filter(id => !this._languageModelsService.isModelHidden(id)),
 				controlModels: controlModelsForTier,
@@ -699,15 +744,29 @@ export class ModelPickerWidget extends Disposable {
 			},
 		});
 
-		// Collect all hover disposables so they are properly cleaned up when the
-		// picker is hidden. The ActionListWidget only tracks the disposable for the
-		// currently-shown hover; all other items' hover disposables would leak.
-		const hoverDisposables = new DisposableStore();
-		for (const item of items) {
-			if (item.hover?.disposable) {
-				hoverDisposables.add(item.hover.disposable);
+		const items = createItems();
+		const pickerDisposables = new DisposableStore();
+		this._classicPickerDisposables.value = pickerDisposables;
+		const hoverDisposables = pickerDisposables.add(new DisposableMap<IDisposable>());
+		const trackHovers = (items: readonly IActionListItem<IActionWidgetDropdownAction>[]) => {
+			const currentHovers = new Set<IDisposable>();
+			for (const item of items) {
+				if (item.hover?.disposable) {
+					currentHovers.add(item.hover.disposable);
+				}
 			}
-		}
+			for (const hover of hoverDisposables.keys()) {
+				if (!currentHovers.has(hover)) {
+					hoverDisposables.deleteAndDispose(hover);
+				}
+			}
+			for (const hover of currentHovers) {
+				if (!hoverDisposables.has(hover)) {
+					hoverDisposables.set(hover, hover);
+				}
+			}
+		};
+		trackHovers(items);
 
 		// Hide the filter in the unavailable states (Restricted Mode / setup
 		// required): the only entries are the explanatory header and the Trust /
@@ -718,6 +777,7 @@ export class ModelPickerWidget extends Disposable {
 		const showCacheBreakHint = this.shouldShowCacheBreakHint(/* excludeAutoModel */ true);
 		const baseListOptions: IActionListOptions = {
 			className: 'chat-model-picker-dropdown',
+			renderHeader: additionalContent?.renderHeader ? container => additionalContent.renderHeader!(container, additionalContentContext) : undefined,
 			headerText: showCacheBreakHint ? localize('chat.modelPicker.cacheBreakHint', "Switching models mid-session resets the prompt cache and may increase cost.") : undefined,
 			headerIcon: showCacheBreakHint ? Codicon.info : undefined,
 			headerLink: showCacheBreakHint ? this.getCacheBreakLearnMoreLink() : undefined,
@@ -765,6 +825,7 @@ export class ModelPickerWidget extends Disposable {
 		};
 
 		this._nameButton?.setAttribute('aria-expanded', 'true');
+		this._classicPickerVisible = true;
 
 		this._actionWidgetService.show(
 			'ChatModelPicker',
@@ -807,10 +868,12 @@ export class ModelPickerWidget extends Disposable {
 		const restrictedMode = reason === ModelPickerUnavailableReason.Restricted;
 		const setupRequired = reason === ModelPickerUnavailableReason.SetupRequired;
 		const unavailable = reason !== undefined;
+		const selectionPresentation = noModelsAvailable ? undefined : this._delegate.selectionPresentation?.get();
+		this._domNode.classList.toggle('multiple-models', !!selectionPresentation?.segments?.length);
 
 		// --- Name section ---
 		const nameChildren: (HTMLElement | string)[] = [];
-		const modelIcon = this._selectedModel
+		const modelIcon = this._selectedModel && !selectionPresentation
 			? (this._delegate.getPresentationOptions().showModelIcon
 				? getCompactModelPickerIcon(this._selectedModel)
 				: this._selectedModel.metadata.statusIcon ? getCompactCodicon(this._selectedModel.metadata.statusIcon) : undefined)
@@ -834,7 +897,22 @@ export class ModelPickerWidget extends Disposable {
 		const showModelLabel = !compact || !modelIcon || noModelsAvailable;
 		const showingAuto = !unavailable && !activating && !genericNoModels && (!this._selectedModel || isAutoModel(this._selectedModel));
 		if (showModelLabel) {
-			nameChildren.push(dom.$('span.chat-input-picker-label', undefined, modelLabel));
+			if (selectionPresentation?.segments?.length) {
+				const segments = dom.$('span.model-picker-selection-segments');
+				for (const [index, segment] of selectionPresentation.segments.entries()) {
+					if (index > 0) {
+						const separator = dom.append(segments, dom.$('span.model-picker-selection-separator', undefined, '+'));
+						separator.setAttribute('aria-hidden', 'true');
+					}
+					const item = dom.append(segments, dom.$('span.model-picker-selection-segment'));
+					const icon = renderIcon(segment.icon);
+					icon.setAttribute('aria-hidden', 'true');
+					item.append(icon, dom.$('span.chat-input-picker-label', undefined, segment.label));
+				}
+				nameChildren.push(segments);
+			} else {
+				nameChildren.push(dom.$('span.chat-input-picker-label', undefined, modelLabel));
+			}
 		}
 		if (this._badgeIcon) {
 			nameChildren.push(this._badgeIcon);

@@ -23,6 +23,7 @@ import { IDialogService } from '../../../../../../../platform/dialogs/common/dia
 import { IHoverService } from '../../../../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../../platform/keybinding/common/keybinding.js';
+import { ConfirmationOption } from '../../../../../../../platform/agentHost/common/state/protocol/state.js';
 import { IMarkdownRenderer } from '../../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../../../platform/storage/common/storage.js';
 import { IPreferencesService } from '../../../../../../services/preferences/common/preferences.js';
@@ -45,6 +46,7 @@ import { CodeBlockPart, ICodeBlockRenderOptions } from '../codeBlockPart.js';
 import { BaseChatToolInvocationSubPart } from './chatToolInvocationSubPart.js';
 import { buildCustomOptionButtons } from './abstractToolConfirmationSubPart.js';
 import { createApprovalReasonBadge, createToolRiskBadge } from './toolRiskBadgeHelper.js';
+import { getToolConfirmationOptionButtons } from './abstractToolConfirmationSubPart.js';
 
 export const enum TerminalToolConfirmationStorageKeys {
 	TerminalAutoApproveWarningAccepted = 'chat.tools.terminal.autoApprove.warningAccepted'
@@ -338,6 +340,9 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 		this._register(toDisposable(() => hasToolConfirmationKey.reset()));
 
 		this._register(confirmWidget.onDidClick(async ({ button, isTouchClick }) => {
+			if (this._store.isDisposed || this.context.isRequestActive?.() === false) {
+				return;
+			}
 			let doComplete = true;
 			const data = button.data;
 			let toolConfirmKind: ToolConfirmKind = ToolConfirmKind.Denied;
@@ -511,7 +516,11 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 					...(selectedOption ? { selectedButton: selectedOption.id, selectedButtonKind: selectedOption.kind } : {}),
 				});
 				if (!isTouchClick) {
-					this.chatWidgetService.getWidgetBySessionResource(this.context.element.sessionResource)?.focusInput();
+					if (this.context.focusAfterAction) {
+						this.context.focusAfterAction();
+					} else {
+						this.chatWidgetService.getWidgetBySessionResource(this.context.element.sessionResource)?.focusInput();
+					}
 				}
 			}
 		}));

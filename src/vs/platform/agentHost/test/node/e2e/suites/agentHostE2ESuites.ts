@@ -25,6 +25,7 @@ import { defineProviderErrorTests } from './providerErrorSuite.js';
 import { defineCopilotRuntimeMcpTests } from './copilotRuntimeMcpSuite.js';
 import { defineStateOperationsTests } from './stateOperationsSuite.js';
 import { defineSubagentTests } from './subagentSuite.js';
+import { defineModelTeamTests } from './modelTeamSuite.js';
 import { defineTurnLifecycleTests } from './turnLifecycleSuite.js';
 import { defineWorkspaceTests } from './workspaceSuite.js';
 import { defineWorkingDirectoriesTests } from './workingDirectoriesSuite.js';

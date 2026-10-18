@@ -32,7 +32,7 @@ import { IChatMarkdownAnchorService } from '../chatMarkdownAnchorService.js';
 import { CollapsibleListPool, IChatCollapsibleListItem } from '../chatReferencesContentPart.js';
 import { IUntypedEditorInput } from '../../../../../../common/editor.js';
 import { IEditorService } from '../../../../../../services/editor/common/editorService.js';
-import { AbstractToolConfirmationSubPart } from './abstractToolConfirmationSubPart.js';
+import { AbstractToolConfirmationSubPart, getToolConfirmationOptionButtons } from './abstractToolConfirmationSubPart.js';
 import { createApprovalReasonBadge } from './toolRiskBadgeHelper.js';
 
 type ModifiedFileConfirmationEntry = IChatModifiedFilesConfirmationData['modifiedFiles'][number];
@@ -134,9 +134,16 @@ export class ChatModifiedFilesConfirmationSubPart extends AbstractToolConfirmati
 		this.primaryAction = () => confirmWidget.runPrimaryAction();
 
 		this._register(confirmWidget.onDidClick(({ button, isTouchClick }) => {
+			if (this._store.isDisposed || this.context.isRequestActive?.() === false) {
+				return;
+			}
 			button.data();
 			if (!isTouchClick) {
-				this.chatWidgetService.getWidgetBySessionResource(this.context.element.sessionResource)?.focusInput();
+				if (this.context.focusAfterAction) {
+					this.context.focusAfterAction();
+				} else {
+					this.chatWidgetService.getWidgetBySessionResource(this.context.element.sessionResource)?.focusInput();
+				}
 			}
 		}));
 
@@ -145,6 +152,13 @@ export class ChatModifiedFilesConfirmationSubPart extends AbstractToolConfirmati
 	}
 
 	private createButtons(options: readonly string[]): IChatConfirmationButton<() => void>[] {
+		const state = this.toolInvocation.state.get();
+		const customOptions = state.type === IChatToolInvocation.StateKind.WaitingForConfirmation ? state.confirmationMessages?.customOptions : undefined;
+		if (customOptions?.length) {
+			return getToolConfirmationOptionButtons(customOptions, option => () => this.confirmWith(this.toolInvocation, {
+				type: ToolConfirmKind.UserAction, selectedButton: option.id, selectedButtonKind: option.kind,
+			}));
+		}
 		const [primaryOption, ...secondaryOptions] = options;
 		return [
 			{

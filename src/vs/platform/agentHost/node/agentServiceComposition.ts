@@ -132,6 +132,7 @@ export function createAgentServiceComposition(
 		owned.add(stateManager.onDidChangeSessionActiveTurn(event => changesetCoordinator.onSessionTurnActiveChanged(event.session, event.active)));
 
 		const completions = accessor.get(IAgentHostCompletions);
+		const persistentTeams = accessor.get(IAgentHostPersistentTeamService);
 
 		const terminalManager = accessor.get(IAgentHostTerminalManager);
 		const sideEffects = owned.add(instantiationService.createInstance(
@@ -235,6 +236,10 @@ export function createAgentServiceComposition(
 			serverToolHost,
 		};
 		agentService = instantiationService.createInstance(AgentService, core, collaborators, options);
+		const catalogHost = agentService;
+		owned.add(persistentTeams.registerHost({
+			createChat: (session, chat, options) => catalogHost.createChat(session, chat, options),
+		}));
 		owned.add(new AgentHostSessionLifecycle(
 			{
 				listCandidates: (archiveCutoff, deleteCutoff) => agentService!.listSessionLifecycleCandidates(archiveCutoff, deleteCutoff),

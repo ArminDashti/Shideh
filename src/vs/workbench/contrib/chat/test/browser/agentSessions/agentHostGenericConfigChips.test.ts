@@ -66,6 +66,12 @@ function createSubscription<T>(): IAgentSubscription<T> {
 suite('AgentHostGenericConfigChips', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	test('team configuration is kept in its dedicated picker', () => {
+		assert.deepStrictEqual([
+			CopilotModelTeamConfigKey, CopilotModelTeamRememberedConfigKey,
+		].map(property => isClaimedByDedicatedPicker(property, { type: 'object', title: property })), [true, true]);
+	});
+
 	test('moves its subscription when the provisional generation changes', () => {
 		const sessionResource = URI.parse('agent-host-copilot:/untitled-test');
 		const firstBackend = URI.parse('copilot:/first-generation');

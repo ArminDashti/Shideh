@@ -505,6 +505,9 @@ export interface IChatSession extends IDisposable {
 	/** Claims this client's tools before an approved background request is queued directly on the host. */
 	prepareForClientTools?: (token: CancellationToken) => Promise<void>;
 
+	/** Presents authoritative input requests from these chats without opening their widgets. */
+	observeInputRequests?(sources: IObservable<readonly IChatSessionInputSource[]>): IChatSessionInputRequests;
+
 	/**
 	 * Event fired when the server initiates a new request (e.g. from a consumed
 	 * queued message). The consumer should create a new request+response pair in

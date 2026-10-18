@@ -49,6 +49,9 @@ const AUTO_TIER_ACTION_PREFIX = 'autoTier:';
 
 /** Everything the picker needs for one showing, gathered by the owning widget. */
 export interface ITabbedModelPickerContext {
+	readonly additionalContent?: IModelPickerAdditionalContent;
+	/** Rebuilds the picker from its owning delegate after custom content changes. */
+	readonly reopen?: () => void;
 	readonly models: readonly ILanguageModelChatMetadataAndIdentifier[];
 	readonly selectedModelId: string | undefined;
 	readonly recentModelIds: readonly string[];
@@ -92,6 +95,7 @@ export class TabbedModelPicker extends Disposable {
 	readonly onDidHide = this._onDidHide.event;
 
 	private readonly _widget: TabbedActionListWidget;
+	private readonly _contentWidget: ModelPickerContentWidget;
 	private readonly _cards = this._register(new DisposableMap<string, ModelCard>());
 	private readonly _configurationListener = this._register(new MutableDisposable());
 	private _detailsModelId: string | undefined;
@@ -123,7 +127,7 @@ export class TabbedModelPicker extends Disposable {
 	private _autoMode = false;
 
 	get isVisible(): boolean {
-		return this._widget.isVisible;
+		return this._widget.isVisible || this._contentWidget.isVisible;
 	}
 
 	constructor(
@@ -136,6 +140,7 @@ export class TabbedModelPicker extends Disposable {
 	) {
 		super();
 		this._widget = this._register(instantiationService.createInstance(TabbedActionListWidget));
+		this._contentWidget = this._register(instantiationService.createInstance(ModelPickerContentWidget));
 		this._register(this._widget.onDidChangeTab(id => { this._activeDestination = id; }));
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(ChatConfiguration.DefaultModel)) {
@@ -165,11 +170,14 @@ export class TabbedModelPicker extends Disposable {
 			this._configurationListener.clear();
 			this._cards.clearAndDisposeAll();
 			this._onDidHide.fire();
-		}));
+		};
+		this._register(this._widget.onDidHide(onDidHide));
+		this._register(this._contentWidget.onDidHide(onDidHide));
 	}
 
 	hide(): void {
 		this._widget.hide();
+		this._contentWidget.hide();
 	}
 
 	override dispose(): void {

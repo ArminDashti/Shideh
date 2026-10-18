@@ -26060,6 +26060,11 @@ suite('AgentService (node dispatcher)', () => {
 			const sessionDb = disposables.add(await SessionDatabase.open(':memory:'));
 			const sessionDataService = createSessionDataService(sessionDb);
 			const localAgent = new MockAgent('copilot');
+			const reasons: ('restore' | undefined)[] = [];
+			localAgent.resolveChatConfig = async (params, reason?: 'restore') => {
+				reasons.push(reason);
+				return { schema: { type: 'object', properties: {} }, values: params.config ?? {} };
+			};
 			disposables.add(toDisposable(() => localAgent.dispose()));
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, sessionDataService, { _serviceBrand: undefined } as IProductService, createNoopGitService()));
 			registerTestAgentProvider(localService, localAgent);

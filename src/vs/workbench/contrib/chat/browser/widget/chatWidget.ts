@@ -1434,18 +1434,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	focusQuestionCarousel(): boolean {
-		if (!this.input.questionCarousel) {
-			return false;
-		}
-
 		return this.input.focusQuestionCarousel();
 	}
 
 	toggleQuestionCarouselFocus(): boolean {
-		if (!this.input.questionCarousel) {
-			return false;
-		}
-
 		if (this.input.isQuestionCarouselFocused()) {
 			this.focusInput();
 			return true;

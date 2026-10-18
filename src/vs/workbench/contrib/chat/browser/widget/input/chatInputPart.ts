@@ -152,6 +152,8 @@ import { ChatPlanReviewPart, IChatPlanReviewPartOptions } from '../chatContentPa
 import { ChatQuestionCarouselPart, IChatQuestionCarouselOptions } from '../chatContentParts/chatQuestionCarouselPart.js';
 import { ChatToolConfirmationCarouselPart, RevealSubagentCallback, ToolInvocationPartFactory } from '../chatContentParts/toolInvocationParts/chatToolConfirmationCarouselPart.js';
 import { ChatToolInvocationPart } from '../chatContentParts/toolInvocationParts/chatToolInvocationPart.js';
+import { ChatSessionInputRequestsPart } from './chatSessionInputRequestsPart.js';
+import { IChatSessionInputRequest } from '../../../common/chatSessionInputRequests.js';
 import { IChatContentPartRenderContext } from '../chatContentParts/chatContentParts.js';
 import { CollapsibleListPool, IChatCollapsibleListItem } from '../chatContentParts/chatReferencesContentPart.js';
 import { ChatTodoListWidget } from '../chatContentParts/chatTodoListWidget.js';
@@ -557,6 +559,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatQuestionCarouselContainer!: HTMLElement;
 	private chatPlanReviewContainer!: HTMLElement;
 	private chatToolConfirmationCarouselContainer!: HTMLElement;
+	private sessionInputRequestsContainer!: HTMLElement;
 	private chatInputNotificationContainer!: HTMLElement;
 	private chatGoalBannerContainer!: HTMLElement;
 	private chatCustomizationMigrationNoticeContainer!: HTMLElement;
@@ -1562,7 +1565,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	private _createModelPickerDelegate(): IModelPickerDelegate {
-		return {
+		const delegate: IModelPickerDelegate = {
 			currentModel: this._currentLanguageModel,
 			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
 				const previousModelIdentifier = this._currentLanguageModel.get()?.identifier;
@@ -1585,6 +1588,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			getPresentationOptions: () => this._getModelPickerPresentationOptions(),
 			modelConfiguration: this._modelConfigStore,
 		};
+		return this.options.modelPickerDelegate?.(delegate) ?? delegate;
 	}
 
 	private _getModelPickerPresentationOptions(): IModelPickerPresentationOptions {
@@ -3678,6 +3682,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					dom.h(`.chat-plan-review-widget-container.${chatInputSurfaceStackSlotClass}@chatPlanReviewContainer`),
 					dom.h(`.chat-question-carousel-widget-container.${chatInputSurfaceStackSlotClass}@chatQuestionCarouselContainer`),
 					dom.h(`.chat-tool-confirmation-carousel-container.${chatInputSurfaceStackSlotClass}@chatToolConfirmationCarouselContainer`),
+					dom.h(`.chat-tool-confirmation-carousel-container.${chatInputSurfaceStackSlotClass}@sessionInputRequestsContainer`),
 					dom.h(`.${chatInputStackClass}`, [
 						dom.h(`.chat-customization-migration-notice-container.${chatInputStackSlotClass}@chatCustomizationMigrationNoticeContainer`),
 						dom.h(`.chat-input-notification-container.${chatInputStackSlotClass}@chatInputNotificationContainer`),
@@ -3713,6 +3718,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				dom.h(`.chat-plan-review-widget-container.${chatInputSurfaceStackSlotClass}@chatPlanReviewContainer`),
 				dom.h(`.chat-question-carousel-widget-container.${chatInputSurfaceStackSlotClass}@chatQuestionCarouselContainer`),
 				dom.h(`.chat-tool-confirmation-carousel-container.${chatInputSurfaceStackSlotClass}@chatToolConfirmationCarouselContainer`),
+				dom.h(`.chat-tool-confirmation-carousel-container.${chatInputSurfaceStackSlotClass}@sessionInputRequestsContainer`),
 				dom.h(`.interactive-input-followups.${chatInputSurfaceStackSlotClass}@followupsContainer`),
 				dom.h(`.${chatInputStackClass}`, [
 					dom.h(`.chat-customization-migration-notice-container.${chatInputStackSlotClass}@chatCustomizationMigrationNoticeContainer`),
@@ -3777,6 +3783,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this.chatQuestionCarouselContainer = elements.chatQuestionCarouselContainer;
 		this.chatPlanReviewContainer = elements.chatPlanReviewContainer;
 		this.chatToolConfirmationCarouselContainer = elements.chatToolConfirmationCarouselContainer;
+		this.sessionInputRequestsContainer = elements.sessionInputRequestsContainer;
 		dom.hide(this.chatToolConfirmationCarouselContainer);
 		this._register(this.chatInputNoticeHubService.registerHost(this.noticeHost, this.container));
 		this.chatInputNotificationContainer = elements.chatInputNotificationContainer;
@@ -5015,13 +5022,17 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	get questionCarousel(): ChatQuestionCarouselPart | undefined {
+		const projected = this._sessionInputRequests.value?.questionCarousel;
+		if (projected?.hasFocus()) {
+			return projected;
+		}
 		// Return the focused carousel, or the first one
 		for (const part of this._chatQuestionCarouselWidgets.values()) {
 			if (part.hasFocus()) {
 				return part;
 			}
 		}
-		return this._chatQuestionCarouselWidgets.size > 0 ? this._chatQuestionCarouselWidgets.values().next().value : undefined;
+		return this._chatQuestionCarouselWidgets.size > 0 ? this._chatQuestionCarouselWidgets.values().next().value : projected;
 	}
 
 	focusQuestionCarousel(): boolean {
@@ -5030,10 +5041,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			carousel.focus();
 			return true;
 		}
-		return false;
+		return this._sessionInputRequests.value?.focusQuestionCarousel() ?? false;
 	}
 
 	isQuestionCarouselFocused(): boolean {
+		if (this._sessionInputRequests.value?.questionCarousel?.hasFocus()) {
+			return true;
+		}
 		for (const part of this._chatQuestionCarouselWidgets.values()) {
 			if (part.hasFocus()) {
 				return true;
@@ -5113,6 +5127,35 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	// --- Tool Confirmation Carousel ---
+
+	renderSessionInputRequests(requests: IObservable<readonly IChatSessionInputRequest[]>): IDisposable {
+		const store = new DisposableStore();
+		const part = this.instantiationService.createInstance(ChatSessionInputRequestsPart, requests, this._sessionInputRequestsWidth, () => this._widget?.focusInput());
+		this._sessionInputRequests.value = part;
+		dom.append(this.sessionInputRequestsContainer, part.domNode);
+		store.add(autorun(reader => {
+			const pending = requests.read(reader);
+			this._hasQuestionCarouselContextKey?.set(this._chatQuestionCarouselWidgets.size > 0 || pending.some(request => request.content.kind === 'questionCarousel'));
+			this._onDidChangeSessionInputRequests.fire();
+		}));
+		store.add(toDisposable(() => {
+			if (this._sessionInputRequests.value === part) {
+				part.domNode.remove();
+				this._sessionInputRequests.clear();
+				this._hasQuestionCarouselContextKey?.set(this._chatQuestionCarouselWidgets.size > 0);
+				this._onDidChangeSessionInputRequests.fire();
+			}
+		}));
+		return store;
+	}
+
+	get projectedToolConfirmation(): IChatToolInvocation | undefined {
+		return this._sessionInputRequests.value?.toolConfirmation;
+	}
+
+	getSessionInputRequestsAccessibleContent(): string {
+		return this._sessionInputRequests.value?.getAccessibleContent() ?? '';
+	}
 
 	private get _currentSessionKey(): string | undefined {
 		return this._widget?.viewModel?.model.sessionResource.toString();
@@ -5757,6 +5800,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	private updateToolConfirmationCarouselMaxHeight(): void {
+		if (this._sessionInputRequests.value) {
+			const otherHeight = Math.max(0, this.container.offsetHeight - this.sessionInputRequestsContainer.offsetHeight);
+			this._sessionInputRequests.value.setMaxHeight(this._maxHeight === undefined ? undefined : this._maxHeight - otherHeight);
+		}
 		const carousel = this._currentToolConfirmationCarousel;
 		if (!carousel) {
 			return;
@@ -5824,6 +5871,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 */
 	layout(width: number) {
 		this.cachedWidth = width;
+		this._sessionInputRequestsWidth.set(width, undefined);
 		this._updateWorkingProgressAnimationDuration(width);
 
 		const result = this._layout(width);

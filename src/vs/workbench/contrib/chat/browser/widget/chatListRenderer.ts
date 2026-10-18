@@ -90,6 +90,7 @@ import { ChatForkActionViewItem } from './chatForkActionViewItem.js';
 import { ChatRestoreCheckpointActionViewItem } from './chatRestoreCheckpointActionViewItem.js';
 import { ChatAgentHover, getChatAgentHoverOptions } from './chatAgentHover.js';
 import { ChatContentMarkdownRenderer } from './chatContentMarkdownRenderer.js';
+import { shouldAnnounceChatInputRequest } from '../accessibility/chatInputRequestAnnouncement.js';
 import { ChatAgentCommandContentPart } from './chatContentParts/chatAgentCommandContentPart.js';
 import { ChatAgentMergeContentPart, getAgentMergeRequestSummary } from './chatContentParts/chatAgentMergeContentPart.js';
 import { ChatWorkflowContentPart, getWorkflowRequestPresentation } from './chatContentParts/chatWorkflowContentPart.js';
@@ -5591,7 +5592,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		// Only notify once per carousel to avoid duplicate toasts on rerender.
 		// Use a stable key based on requestId + resolveId instead of object identity.
 		const stableKey = this._getCarouselStableKey(context, carousel);
-		if (stableKey ? this._notifiedQuestionCarousels.has(stableKey) : false) {
+		if ((stableKey ? this._notifiedQuestionCarousels.has(stableKey) : false) || !shouldAnnounceChatInputRequest(carousel, carousel.kind)) {
 			return;
 		}
 		// Alert screen readers with the question

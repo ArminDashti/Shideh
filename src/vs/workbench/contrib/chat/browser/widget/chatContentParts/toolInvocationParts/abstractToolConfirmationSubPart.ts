@@ -140,6 +140,27 @@ export function buildCustomOptionButtons<T>(options: readonly ConfirmationOption
 	return buttons;
 }
 
+export function getToolConfirmationOptionButtons<T>(options: readonly ConfirmationOption[], data: (option: ConfirmationOption) => T): IChatConfirmationButton<T>[] {
+	const approve = options.filter(option => option.kind === ConfirmationOptionKind.Approve);
+	const deny = options.filter(option => option.kind === ConfirmationOptionKind.Deny);
+	const makeAction = (option: ConfirmationOption): IChatConfirmationButton<T> => ({ label: option.label, data: data(option) });
+	const makeGroup = (group: ConfirmationOption[], isSecondary: boolean): IChatConfirmationButton<T> => {
+		const [primary, ...rest] = group;
+		const button = { ...makeAction(primary), isSecondary };
+		const moreActions: (IChatConfirmationButton<T> | Separator)[] = [];
+		let previousGroup = primary.group;
+		for (const option of rest) {
+			if (option.group !== previousGroup) {
+				moreActions.push(new Separator());
+			}
+			moreActions.push(makeAction(option));
+			previousGroup = option.group;
+		}
+		return moreActions.length ? { ...button, moreActions } : button;
+	};
+	return [...(approve.length ? [makeGroup(approve, false)] : []), ...(deny.length ? [makeGroup(deny, approve.length > 0)] : [])];
+}
+
 /**
  * Base class for a tool confirmation.
  *

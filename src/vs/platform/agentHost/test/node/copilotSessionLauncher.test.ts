@@ -57,6 +57,7 @@ const testRuntime: ICopilotSessionRuntime = {
 	handlePreToolUse: async () => { },
 	handlePostToolUse: async () => { },
 	handleUserPromptSubmitted: () => undefined,
+	handleAgentStop: () => undefined,
 	createClientSdkTools: () => [],
 	createServerSdkTools: () => [],
 	reloadExtensions: async () => { },
@@ -1299,6 +1300,28 @@ suite('CopilotSessionLauncher resume fallback', () => {
 		}
 	});
 
+	test('an exact saved backing never falls back to an empty conversation', async () => {
+		const failures = [
+			'Request session.resume failed with message: Session not found: session-1',
+			`Request session.resume failed with message: LocalRpcSession: 'session.getMessages' returned no events for session session-1`,
+		];
+		const creates: number[] = [];
+		for (const message of failures) {
+			const { launcher, plan, getCreateSessionCalls } = createResumeFailingLaunch(message);
+			assert.strictEqual(plan.kind, 'resume');
+			if (plan.kind !== 'resume') {
+				throw new Error('Expected a resume plan');
+			}
+			try {
+				await assert.rejects(launcher.launch({ ...plan, requireHistory: true }, testRuntime), /Session not found|returned no events/);
+				creates.push(getCreateSessionCalls());
+			} finally {
+				await launcher.disposeByokProxyHandle();
+			}
+		}
+		assert.deepStrictEqual(creates, [0, 0]);
+	});
+
 	test('reports SDK resume failure and fallback creation milestones', async () => {
 		const milestones: string[] = [];
 		const sessionOpenTelemetry: IAgentHostSessionOpenTelemetry = {
@@ -1821,6 +1844,45 @@ suite('filterClientToolNames', () => {
  * A resumed session keeps the effort the runtime journaled unless an override is
  * configured; `_createSession` resolves the full effort for a create.
  */
+suite('Copilot Team tool availability', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('manager has inspection and coordination, not engineering or replacement agents', () => {
+		const tools = getCopilotTeamToolFilters({}, 'manager').availableTools!;
+		assert.deepStrictEqual({
+			read: tools.includes('builtin:view'),
+			manage: tools.includes('custom:manage_team'),
+			send: tools.includes('custom:send_message'),
+			mutation: tools.filter(tool => /apply_patch|bash|create_session|builtin:task$|tool_search|mcp:/.test(tool)),
+		}, { read: true, manage: true, send: true, mutation: [] });
+	});
+
+	test('integration offers edits but no concurrent engineering dispatch or arbitrary shell', () => {
+		const tools = getCopilotTeamToolFilters({}, 'integration').availableTools!;
+		assert.deepStrictEqual({
+			edit: tools.includes('builtin:apply_patch'),
+			manage: tools.includes('custom:manage_team'),
+			send: tools.includes('custom:send_message'),
+			shell: tools.includes('builtin:bash'),
+		}, { edit: true, manage: true, send: false, shell: false });
+	});
+
+	test('Team restrictions intersect configured sources and preserve exclusions and empty allowlists', () => {
+		assert.deepStrictEqual({
+			restricted: getCopilotTeamToolFilters({ availableTools: ['view', 'custom:*'], excludedTools: ['custom:send_message'] }, 'manager'),
+			empty: getCopilotTeamToolFilters({ availableTools: [] }, 'integration'),
+			off: getCopilotTeamToolFilters({ availableTools: ['builtin:*'], excludedTools: ['builtin:bash'] }, undefined),
+		}, {
+			restricted: {
+				availableTools: ['builtin:view', 'custom:manage_team', 'custom:get_current_session', 'custom:get_session_context', 'custom:list_sessions', 'custom:list_artifacts_and_references', `custom:${SEMANTIC_SEARCH_TOOL_NAME}`, 'custom:send_message'],
+				excludedTools: ['custom:send_message'],
+			},
+			empty: { availableTools: [], excludedTools: undefined },
+			off: { availableTools: ['builtin:*'], excludedTools: ['builtin:bash'] },
+		});
+	});
+});
+
 suite('normalizeToolFilterPatterns', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();

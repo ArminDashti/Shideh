@@ -275,6 +275,7 @@ suite('AgentSideEffects — turn hang telemetry', () => {
 		services.set(IAgentHostToolCallTracker, disposables.add(instantiationService.createInstance(AgentHostToolCallTracker)));
 		const localCommands = disposables.add(instantiationService.createInstance(AgentHostLocalCommands));
 		services.set(IAgentHostLocalCommands, localCommands);
+		services.set(IAgentHostPersistentTeamService, disposables.add(instantiationService.createInstance(AgentHostPersistentTeamService)));
 		// Blocked-turn hang telemetry is reported by `SessionInputNeededContribution`,
 		// so the built-in contributions must be registered for this graph to mirror
 		// production wiring.

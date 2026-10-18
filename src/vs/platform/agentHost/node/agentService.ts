@@ -1715,6 +1715,16 @@ export class AgentService extends Disposable implements IAgentService {
 		return { pluginMarketplaces: provider.pluginMarketplaces, chat, context: this._chatContext(session, chat) };
 	}
 
+	async getPersistentTeamState(session: URI, leadChat: URI): Promise<IAgentHostPersistentTeamState | undefined> {
+		await this.restoreSession(session);
+		return this._persistentTeams.getState(session, leadChat);
+	}
+
+	async resetPersistentTeamMember(request: IAgentHostPersistentTeamReset): Promise<IAgentHostPersistentTeamState> {
+		await this.restoreSession(URI.parse(request.session));
+		return this._persistentTeams.resetMember(request);
+	}
+
 	private _isArtifactToolsEnabled(): boolean {
 		return this._configurationService.getRootValue(platformRootSchema, AgentHostArtifactToolsConfigKey) === true;
 	}
@@ -6274,7 +6284,7 @@ export class AgentService extends Disposable implements IAgentService {
 			: { session, key: ANNOTATIONS_METADATA_KEY };
 	}
 
-	private async _resolveCreatedSessionConfig(provider: IAgent, config: IAgentCreateSessionConfig | undefined): Promise<SessionConfigState | undefined> {
+	private async _resolveCreatedSessionConfig(provider: IAgent, config: IAgentCreateSessionConfig | undefined, reason?: 'restore'): Promise<SessionConfigState | undefined> {
 		if (!config?.config && config?.workingDirectories === undefined) {
 			return undefined;
 		}
@@ -6286,7 +6296,7 @@ export class AgentService extends Disposable implements IAgentService {
 			config: config.config,
 		};
 		try {
-			const resolved = await this._withHostSessionConfigContributions(await provider.resolveChatConfig(this._toProviderConfig(params)), params);
+			const resolved = await this._withHostSessionConfigContributions(await provider.resolveChatConfig(this._toProviderConfig(params), reason), params);
 			return { schema: resolved.schema, values: resolved.values };
 		} catch (err) {
 			this._logService.error(`[AgentService] Failed to resolve created session config for provider ${provider.id}`, err);
@@ -8704,6 +8714,7 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		const providerData = defaultChatProviderData ?? recoveredDefaultChat?.providerData;
 		const materializedDefaultChat = await agent.materializeChat(defaultChatUri, chatContext, providerData);
+		await this._persistentTeams.validateRestoredChat(session, defaultChatUri, materializedDefaultChat);
 		if (providerData === undefined && materializedDefaultChat?.providerData !== undefined) {
 			await this._persistDefaultChatBacking({ session, chat: materializedDefaultChat });
 		}
@@ -9019,6 +9030,7 @@ export class AgentService extends Disposable implements IAgentService {
 		if (summary._meta) {
 			this._stateManager.setSessionMeta(sessionStr, summary._meta);
 		}
+		await this._persistentTeams.restoreSessionIdentity(session);
 
 		// Resolve the session config so clients (e.g. the running-session
 		// auto-approve picker) can render session-mutable properties for

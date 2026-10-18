@@ -1774,10 +1774,7 @@ function buildTerminalToolSpecificData(
 		...existing,
 		kind: 'terminal',
 		commandLine,
-		// Read-only for the same reason as a generic confirmation input: this
-		// adapter never returns an edited command to the host, so an editable
-		// field would collect a change and then run what the agent proposed.
-		editable: false,
+		editable: tc.status === ToolCallStatus.PendingConfirmation && tc.editable === true,
 		intention: tc.intention ?? existing?.intention,
 		language: existing?.language ?? getTerminalLanguage(tc),
 		autoApproveRuleResolvable: readToolCallMeta(tc).autoApproveRuleResolvable ?? existing?.autoApproveRuleResolvable,
@@ -2594,11 +2591,7 @@ export function toolCallStateToInvocation(tc: ToolCallState, subAgentInvocationI
 			if (toolInput) {
 				let rawInput: unknown;
 				try { rawInput = JSON.parse(toolInput); } catch { rawInput = { input: toolInput }; }
-				// Read-only regardless of `tc.editable`: approving with an edited input means
-				// sending it back as `chat/toolCallConfirmed.editedToolInput`, which this adapter
-				// does not do, so an editable field would collect a change and then run the
-				// command the agent originally proposed.
-				toolSpecificData = { kind: 'input', rawInput, editable: false };
+				toolSpecificData = { kind: 'input', rawInput, editable: tc.editable === true };
 			}
 		}
 
@@ -3135,7 +3128,7 @@ export function finalizeToolInvocation(invocation: ChatToolInvocation, tc: ToolC
 		tc.reasonMessage ? stringOrMarkdownToString(tc.reasonMessage, connectionAuthority) : undefined,
 	);
 	if (!cancelledFromStreaming) {
-		invocation.didExecuteTool(result);
+		invocation.didExecuteTool(result, true);
 	}
 
 	return fileEdits;

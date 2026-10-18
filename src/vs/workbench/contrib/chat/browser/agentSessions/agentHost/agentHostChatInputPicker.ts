@@ -311,6 +311,8 @@ function renderPickerTrigger(slot: HTMLElement, disabled: boolean, disposables: 
  * suppress the generic chip.
  */
 export const WELL_KNOWN_PICKER_PROPERTIES: ReadonlySet<string> = new Set<string>([
+	CopilotModelTeamConfigKey,
+	CopilotModelTeamRememberedConfigKey,
 	SessionConfigKey.Mode,
 	SessionConfigKey.AutoApprove,
 	SessionConfigKey.Isolation,

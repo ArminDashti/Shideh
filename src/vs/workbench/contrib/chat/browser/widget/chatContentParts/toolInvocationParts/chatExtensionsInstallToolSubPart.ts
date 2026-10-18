@@ -92,9 +92,16 @@ export class ExtensionsInstallConfirmationWidgetSubPart extends BaseChatToolInvo
 			this.primaryAction = () => confirmWidget.runPrimaryAction();
 			dom.append(this.domNode, confirmWidget.domNode);
 			this._register(confirmWidget.onDidClick(({ button, isTouchClick }) => {
+				if (this._store.isDisposed || context.isRequestActive?.() === false) {
+					return;
+				}
 				IChatToolInvocation.confirmWith(toolInvocation, button.data);
 				if (!isTouchClick) {
-					chatWidgetService.getWidgetBySessionResource(context.element.sessionResource)?.focusInput();
+					if (context.focusAfterAction) {
+						context.focusAfterAction();
+					} else {
+						chatWidgetService.getWidgetBySessionResource(context.element.sessionResource)?.focusInput();
+					}
 				}
 			}));
 			const hasToolConfirmationKey = ChatContextKeys.Editing.hasToolConfirmation.bindTo(contextKeyService);

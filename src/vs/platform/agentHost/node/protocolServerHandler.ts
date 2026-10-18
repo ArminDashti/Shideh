@@ -29,6 +29,7 @@ import { IAgentHostOTelService } from '../common/otel/agentHostOTelService.js';
 import { agentHostFirstResponseValidator } from '../common/otel/agentHostTiming.js';
 import { chatUserInteractionAttributes, chatUserInteractionValidator } from '../../otel/common/chatUserInteraction.js';
 import { isAgentDevContainerWorktreeHandle } from '../common/meta/agentDevContainerWorktreeMeta.js';
+import type { IAgentHostPersistentTeamAddress } from '../common/agentHostPersistentTeam.js';
 import { isActionEnvelopeRelevantToSubscriptionUris } from '../common/state/agentSubscription.js';
 import { IS_CLIENT_DISPATCHABLE } from '../common/state/protocol/action-origin.generated.js';
 import { ChatSourceKind } from '../common/state/protocol/channels-chat/commands.js';
@@ -128,6 +129,22 @@ function shouldLogFailedRequest(method: string, params: unknown, err: unknown): 
 /** True when `value` is a non-null params object (as opposed to an array or primitive). */
 function isParamsObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parsePersistentTeamAddress(params: IAgentHostPersistentTeamAddress, expectedChat?: string): { session: URI; leadChat: URI } {
+	let session: URI;
+	let leadChat: URI;
+	try {
+		session = URI.parse(params.session, true);
+		leadChat = URI.parse(params.leadChat, true);
+	} catch {
+		throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'Persistent team addresses must be valid URIs');
+	}
+	if (!AgentSession.provider(session) || !session.path.startsWith('/') || session.path.length < 2 || session.authority || session.query || session.fragment || parseChatUri(session)
+		|| parseChatUri(leadChat)?.session !== session.toString() || (expectedChat !== undefined && parseChatUri(expectedChat)?.session !== session.toString())) {
+		throw new ProtocolError(JsonRpcErrorCodes.InvalidParams, 'The Lead and teammate chat must belong to the requested Agent Session');
+	}
+	return { session, leadChat };
 }
 
 /**

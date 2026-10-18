@@ -552,8 +552,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 		this._register(this.sessionsManagementService.onDidReplaceSession(({ from, to }) => this._onDidReplaceSession(from, to)));
 		this._register(this.sessionsManagementService.onDidReplaceNewDraftSession(({ from, to }) => this._onDidReplaceSession(from, to)));
 
-		// While a foreground send materialises new chats, keep the newest chat
-		// active in the visible slot so the user sees the chat being sent.
+		// Follow new foreground chat drafts, not unrelated peers added by the host.
 		this._register(this.sessionsManagementService.onWillSendRequest(session => this._startSendFollow(session)));
 		this._register(this.sessionsManagementService.onDidFinishSendRequest(session => {
 			const follow = this._sendFollow.get(session);
@@ -999,9 +998,14 @@ export class SessionsService extends Disposable implements ISessionsService {
 			const active = this.visibleSessions.read(reader).find(candidate => candidate?.sessionId === follow.sessionId);
 			if (active && this._visibility.getSelectedSession(this.getSessionPartId(active)) === active) {
 				const chats = active.visibleChatTabs.read(reader);
-				const lastChat = chats[chats.length - 1];
-				if (lastChat) {
-					this._visibility.setActiveChat(active, lastChat);
+				const newDraft = chats.findLast(chat =>
+					!knownChats.has(this.uriIdentityService.extUri.getComparisonKey(chat.resource))
+					&& chat.status.read(reader) === SessionStatus.Untitled);
+				for (const chat of chats) {
+					knownChats.add(this.uriIdentityService.extUri.getComparisonKey(chat.resource));
+				}
+				if (newDraft) {
+					this._visibility.setActiveChat(active, newDraft);
 				}
 			}
 		}));

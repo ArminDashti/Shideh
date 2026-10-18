@@ -188,6 +188,8 @@ export interface IExternalPreToolUseHookResult {
 
 export interface IToolInvocation {
 	callId: string;
+	/** Source-qualified pending invocation key; does not change the tool's call ID. */
+	invocationKey?: string;
 	toolId: string;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	parameters: Record<string, any>;
@@ -220,6 +222,8 @@ export interface IToolInvocation {
 	 * anyway.
 	 */
 	preApproved?: ConfirmedReason;
+	/** An authoritative provider ask must remain a one-time human decision. */
+	requiresUserConfirmation?: boolean;
 	/**
 	 * Optional W3C trace context `traceparent` value identifying the parent distributed
 	 * tracing span for this tool invocation. Forwarded to MCP tool implementations as
@@ -232,6 +236,8 @@ export interface IToolInvocation {
 
 export interface IToolInvocationContext {
 	readonly sessionResource: URI;
+	/** If supplied, the tool belongs to this exact request, not the session's latest turn. */
+	readonly requestId?: string;
 	/**
 	 * The id of the chat request that the tool is invoked for. For a subagent
 	 * started by the run subagent tool, this is the id of the subagent's request.
@@ -613,6 +619,8 @@ export class ToolSetForModel {
 
 export interface IBeginToolCallOptions {
 	toolCallId: string;
+	/** Optional source-qualified lookup key when tool call IDs are only unique within a chat. */
+	invocationKey?: string;
 	toolId: string;
 	chatRequestId?: string;
 	sessionResource?: URI;

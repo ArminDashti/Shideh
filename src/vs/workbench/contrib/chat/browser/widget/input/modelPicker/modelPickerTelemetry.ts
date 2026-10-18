@@ -90,6 +90,28 @@ type ChatModelChangeEvent = {
 	pickerSessionId: string;
 };
 
+type ChatModelChangeClassification = {
+	owner: 'lramos15';
+	comment: 'Reporting when the model picker is switched';
+	fromModel?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The previous chat model' };
+	toModel: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The new chat model' };
+	chatSessionId?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The id of the current chat session, used to correlate the model switch with the session.' };
+};
+
+type ChatModelChangeEvent = {
+	fromModel: string | TelemetryTrustedValue<string> | undefined;
+	toModel: string | TelemetryTrustedValue<string>;
+	chatSessionId?: string;
+};
+
+export function logModelChange(telemetryService: ITelemetryService, previousModel: ILanguageModelChatMetadataAndIdentifier | undefined, model: ILanguageModelChatMetadataAndIdentifier, chatSessionId: string | undefined): void {
+	telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
+		fromModel: previousModel?.metadata.vendor === COPILOT_VENDOR_ID ? new TelemetryTrustedValue(previousModel.identifier) : 'unknown',
+		toModel: model.metadata.vendor === COPILOT_VENDOR_ID ? new TelemetryTrustedValue(model.identifier) : 'unknown',
+		chatSessionId,
+	});
+}
+
 type ChatThinkingEffortChangeClassification = {
 	provider: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The Agent Host provider at picker open, or unknown when unavailable. Omitted for non-Agent Host sessions.' };
 	owner: 'lramos15';

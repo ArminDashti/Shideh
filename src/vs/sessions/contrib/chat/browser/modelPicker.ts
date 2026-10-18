@@ -25,6 +25,7 @@ import { IsPhoneLayoutContext, SessionUsesCombinedConfigPickerContext } from '..
 import { ISessionContext } from '../../../services/sessions/browser/sessionContext.js';
 import { SessionStatus } from '../../../services/sessions/common/session.js';
 import { ISessionModelSelection } from './sessionModelSelection.js';
+import { SessionModelTeamPicker } from './sessionModelTeamPicker.js';
 import { INewChatModelPickerService } from './newChatModelPicker.js';
 import { reportNewChatPickerClosed } from './newChatPickerTelemetry.js';
 
@@ -56,8 +57,18 @@ export class ModelPicker extends Disposable {
 	) {
 		super();
 		const currentModel = derived(this, reader => this._selectionModel.state.read(reader).currentModel);
+		const teamContext = derived(this, reader => {
+			const session = this._sessionContext.session.read(reader);
+			return session ? {
+				sessionId: session.sessionId,
+				providerId: session.providerId,
+				chatResource: session.activeChat.read(reader).resource,
+				modelId: currentModel.read(reader)?.identifier ?? session.modelId.read(reader),
+			} : undefined;
+		});
+		this._teamPicker = this._register(instantiationService.createInstance(SessionModelTeamPicker, teamContext, undefined));
 
-		this._delegate = {
+		this._delegate = this._teamPicker.decorate({
 			currentModel,
 			modelConfiguration: this._selectionModel.modelConfiguration,
 			setModel: model => {
@@ -92,7 +103,7 @@ export class ModelPicker extends Disposable {
 				// picker which warms as soon as the first request is added.
 				return session ? session.status.get() !== SessionStatus.Untitled : false;
 			},
-		};
+		});
 
 		const pickerOptions: IChatInputPickerOptions = {
 			compact,
@@ -108,6 +119,7 @@ export class ModelPicker extends Disposable {
 
 		this._register(autorun(reader => {
 			this._selectionModel.state.read(reader);
+			this._teamPicker.canSelectModel.read(reader);
 			this._updatePickerState();
 		}));
 
@@ -166,7 +178,7 @@ export class ModelPicker extends Disposable {
 
 	private _updatePickerState(): void {
 		const visible = this._shouldShowPicker();
-		this._modelPicker.setEnabled(visible);
+		this._modelPicker.setEnabled(visible && this._teamPicker.canSelectModel.get());
 		this._updateVisibility(visible);
 	}
 

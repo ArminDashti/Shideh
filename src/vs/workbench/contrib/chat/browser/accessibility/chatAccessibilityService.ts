@@ -21,6 +21,7 @@ import { ElicitationState, IChatElicitationRequest, IChatService } from '../../c
 import { IChatModel } from '../../common/model/chatModel.js';
 import { IChatResponseViewModel } from '../../common/model/chatViewModel.js';
 import { IChatAccessibilityService, IChatWidgetService } from '../chat.js';
+import { shouldAnnounceChatInputRequest } from './chatInputRequestAnnouncement.js';
 
 const CHAT_RESPONSE_PENDING_ALLOWANCE_MS = 4000;
 export class ChatAccessibilityService extends Disposable implements IChatAccessibilityService {
@@ -91,7 +92,7 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 		}
 	}
 	acceptElicitation(elicitation: IChatElicitationRequest): void {
-		if (elicitation.state.get() !== ElicitationState.Pending) {
+		if (elicitation.state.get() !== ElicitationState.Pending || !shouldAnnounceChatInputRequest(elicitation, elicitation.kind)) {
 			return;
 		}
 		const title = typeof elicitation.title === 'string' ? elicitation.title : elicitation.title.value;

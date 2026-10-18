@@ -56,6 +56,7 @@ import { IToolResultCompressor } from '../../common/tools/toolResultCompressor.j
 import { getToolConfirmationAlert } from '../accessibility/chatAccessibilityProvider.js';
 import { IChatWidgetService } from '../chat.js';
 import { IChatToolRiskAssessmentService, ToolRiskLevel } from './chatToolRiskAssessmentService.js';
+import { shouldAnnounceChatInputRequest } from '../accessibility/chatInputRequestAnnouncement.js';
 
 const jsonSchemaRegistry = Registry.as<JSONContributionRegistry.IJSONContributionRegistry>(JSONContributionRegistry.Extensions.JSONContribution);
 
@@ -560,7 +561,9 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		let request: IChatRequestModel | undefined;
 		if (dto.context?.sessionResource) {
 			model = this._chatService.getSession(dto.context.sessionResource);
-			request = model?.getRequests().at(-1);
+			request = dto.context.requestId
+				? model?.getRequests().find(request => request.id === dto.context?.requestId)
+				: model?.getRequests().at(-1);
 			if (request?.response?.isCanceled || request?.response?.isComplete) {
 				this._logService.debug(`[LanguageModelToolsService#invokeTool] Ignoring tool ${dto.toolId} for cancelled/complete request ${request.id}`);
 				throw new CancellationError();
@@ -575,10 +578,11 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		// Check if there's an existing pending tool call from streaming phase BEFORE hook check
 		let pendingToolCallKey: string | undefined;
 		let toolInvocation: ChatToolInvocation | undefined;
-		if (this._pendingToolCalls.has(dto.callId)) {
-			pendingToolCallKey = dto.callId;
-			toolInvocation = this._pendingToolCalls.get(dto.callId);
-		} else if (dto.chatStreamToolCallId && this._pendingToolCalls.has(dto.chatStreamToolCallId)) {
+		const invocationKey = dto.invocationKey ?? dto.callId;
+		if (this._pendingToolCalls.has(invocationKey)) {
+			pendingToolCallKey = invocationKey;
+			toolInvocation = this._pendingToolCalls.get(invocationKey);
+		} else if (!dto.invocationKey && dto.chatStreamToolCallId && this._pendingToolCalls.has(dto.chatStreamToolCallId)) {
 			pendingToolCallKey = dto.chatStreamToolCallId;
 			toolInvocation = this._pendingToolCalls.get(dto.chatStreamToolCallId);
 		}
@@ -913,7 +917,9 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 
 	private async prepareToolInvocationWithHookResult(tool: IToolEntry, dto: IToolInvocation, hookResult: IExternalPreToolUseHookResult | undefined, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
 		let forceConfirmationReason: string | undefined;
-		if (hookResult?.permissionDecision === 'ask') {
+		if (dto.requiresUserConfirmation) {
+			forceConfirmationReason = localize('providerRequiredConfirmation', "The agent requires your confirmation");
+		} else if (hookResult?.permissionDecision === 'ask') {
 			const hookMessage = localize('preToolUseHookRequiredConfirmation', "{0} required confirmation", HookType.PreToolUse);
 			forceConfirmationReason = hookResult.permissionDecisionReason
 				? `${hookMessage}: ${hookResult.permissionDecisionReason}`
@@ -974,6 +980,17 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		preparedInvocation: IPreparedToolInvocation | undefined,
 		sessionResource: URI | undefined,
 	): Promise<{ autoConfirmed: ConfirmedReason | undefined; preparedInvocation: IPreparedToolInvocation | undefined }> {
+		if (dto.requiresUserConfirmation) {
+			preparedInvocation ??= {};
+			preparedInvocation.confirmationMessages = {
+				...preparedInvocation.confirmationMessages,
+				title: preparedInvocation.confirmationMessages?.title ?? localize('providerConfirmation.title', "Use the '{0}' tool?", getToolFullReferenceName(tool.data)),
+				message: preparedInvocation.confirmationMessages?.message ?? localize('providerConfirmation.message', "The agent requires your confirmation for this action."),
+				allowAutoConfirm: false,
+			};
+			preparedInvocation.toolSpecificData ??= { kind: 'input', rawInput: dto.parameters };
+			return { autoConfirmed: undefined, preparedInvocation };
+		}
 		if (hookResult?.permissionDecision === 'allow') {
 			this._logService.debug(`[LanguageModelToolsService#invokeTool] Tool ${dto.toolId} auto-approved by preToolUse hook`);
 			return { autoConfirmed: { type: ToolConfirmKind.ConfirmationNotNeeded, reason: localize('hookAllowed', "Allowed by hook") }, preparedInvocation };
@@ -1243,7 +1260,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		});
 
 		// Track the pending tool call
-		this._pendingToolCalls.set(options.toolCallId, invocation);
+		this._pendingToolCalls.set(options.invocationKey ?? options.toolCallId, invocation);
 
 		// If we have a session, append the invocation to the chat as progress
 		if (options.sessionResource) {
@@ -1333,7 +1350,10 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		const soundEnabled = setting.sound === 'on' || (setting.sound === 'auto' && (this._accessibilityService.isScreenReaderOptimized()));
 		const announcementEnabled = this._accessibilityService.isScreenReaderOptimized() && setting.announcement === 'auto';
 		if (soundEnabled || announcementEnabled) {
-			this._accessibilitySignalService.playSignal(AccessibilitySignal.chatUserActionRequired, { customAlertMessage: this._instantiationService.invokeFunction(getToolConfirmationAlert, pendingInvocations), userGesture: true, modality: !soundEnabled ? 'announcement' : undefined });
+			const unannouncedInvocations = pendingInvocations.filter(invocation => shouldAnnounceChatInputRequest(invocation, invocation.state.get().type));
+			if (unannouncedInvocations.length) {
+				this._accessibilitySignalService.playSignal(AccessibilitySignal.chatUserActionRequired, { customAlertMessage: this._instantiationService.invokeFunction(getToolConfirmationAlert, unannouncedInvocations), userGesture: true, modality: !soundEnabled ? 'announcement' : undefined });
+			}
 		}
 	}
 

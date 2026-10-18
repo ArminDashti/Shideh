@@ -458,6 +458,17 @@ export interface ISessionsProvider {
 	 */
 	setModel(sessionId: string, chatResource: URI, modelId: string, source: ChatModelSource): void;
 
+	/** Returns team selection for the exact chat, or undefined when teams do not apply. */
+	getModelTeam?(sessionId: string, chatResource: URI): ISessionModelTeamState | undefined;
+
+	/** Stages the lead and helper selections together without starting a request. */
+	setModelTeam?(sessionId: string, chatResource: URI, leadModelId: string, team: ISessionModelTeam | undefined, leadModelConfiguration?: Readonly<Record<string, unknown>>): Promise<void>;
+
+	/** Resets one idle teammate only if its backing is still the one the user confirmed. */
+	resetModelTeamMember?(sessionId: string, chatResource: URI, role: SessionModelTeamRole, expectedMember: URI): Promise<void>;
+
+	readonly onDidChangeModelTeam?: Event<void>;
+
 	/**
 	 * Set the chat mode for a session.
 	 * @param sessionId The ID of the session.

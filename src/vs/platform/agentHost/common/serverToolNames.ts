@@ -44,6 +44,8 @@ export function isRenameChatTool(toolName: string): boolean {
 	ListArtifactsAndReferences = 'list_artifacts_and_references',
 }
 
+export const PersistentTeamToolName = 'manage_team';
+
 /**
  * The names these tools were advertised under before they also recorded
  * references, mapped to their replacement. Restored history and prompts written
