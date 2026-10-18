@@ -8,8 +8,8 @@
 	float: left;
 	cursor: pointer;
 	overflow: hidden;
-	width: 20px;
-	height: 20px;
+	width: 24px;
+	height: 24px;
 	border-radius: 3px;
 	border: var(--vscode-strokeThickness, 1px) solid var(--monaco-custom-toggle-border-color, transparent);
 	padding: 1px;
