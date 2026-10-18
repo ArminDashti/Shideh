@@ -6746,7 +6746,7 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 				...(s.label ? { label: s.label } : {}),
 				session_type: 'agent' as const,
 				is_active: isActive,
-				agent_state: scoped.state,
+				agent_state: this._wireAgentState(scoped.state, stateInfo.pendingKind),
 				...(!scoped.hideConfirmationDetail && stateInfo.detail ? { agent_state_detail: stateInfo.detail } : {}),
 				...(!scoped.hideConfirmationDetail && stateInfo.confirmation_type ? { confirmation_type: stateInfo.confirmation_type } : {}),
 				...(shipSummary ? { last_response_summary: shipSummary } : {}),
@@ -6776,7 +6776,7 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 				...(chatModel.title ? { label: chatModel.title } : {}),
 				session_type: 'chat',
 				is_active: isActive,
-				agent_state: scoped.state,
+				agent_state: this._wireAgentState(scoped.state, stateInfo.pendingKind),
 				...(!scoped.hideConfirmationDetail && stateInfo.detail ? { agent_state_detail: stateInfo.detail } : {}),
 				...(!scoped.hideConfirmationDetail && stateInfo.confirmation_type ? { confirmation_type: stateInfo.confirmation_type } : {}),
 				...(stateInfo.last_response_summary ? { last_response_summary: stateInfo.last_response_summary } : {}),
@@ -7422,14 +7422,19 @@ export class VoiceSessionController extends Disposable implements IVoiceSessionC
 	}
 
 	private _classifyPendingType(response: { response: { value: readonly { kind: string }[] } }): 'approval' | 'input' {
-		// Return the type of the LAST pending part (most recently added)
+		// Classify the LAST pending part (most recently added). Items needing a
+		// spoken/typed answer are 'input' (questions, plan review, elicitation,
+		// askQuestions-style tools); yes/no gates are 'approval'.
 		let result: 'approval' | 'input' = 'input';
 		for (const part of response.response.value) {
 			if (part.kind === 'toolInvocation') {
 				const invocation = part as IChatToolInvocation;
 				const state = invocation.state.get();
-				if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation ||
-					state.type === IChatToolInvocation.StateKind.WaitingForPostApproval) {
+				if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+					// askQuestions-style tools carry a `questions` param and need an answer.
+					const questions = (state.parameters as Record<string, unknown> | undefined)?.['questions'];
+					result = Array.isArray(questions) && questions.length > 0 ? 'input' : 'approval';
+				} else if (state.type === IChatToolInvocation.StateKind.WaitingForPostApproval) {
 					result = 'approval';
 				}
 			}
