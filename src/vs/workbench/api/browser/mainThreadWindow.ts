@@ -53,7 +53,8 @@ export class MainThreadWindow implements MainThreadWindowShape {
 		return Promise.resolve({
 			isFocused: this.hostService.hasFocus,
 			isActive: this.userActivityService.isActive,
-		});
+			nativeHandle
+		};
 	}
 
 	async $openUri(uriComponents: UriComponents, uriString: string | undefined, options: IOpenUriOptions): Promise<boolean> {

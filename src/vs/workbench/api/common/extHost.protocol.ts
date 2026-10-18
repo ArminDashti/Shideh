@@ -2397,7 +2397,7 @@ export interface IOpenUriOptions {
 }
 
 export interface MainThreadWindowShape extends IDisposable {
-	$getInitialState(): Promise<{ isFocused: boolean; isActive: boolean }>;
+	$getInitialState(): Promise<{ isFocused: boolean; isActive: boolean; nativeHandle?: string }>;
 	$openUri(uri: UriComponents, uriString: string | undefined, options: IOpenUriOptions): Promise<boolean>;
 	$asExternalUri(uri: UriComponents, options: IOpenUriOptions): Promise<UriComponents>;
 	$getNativeWindowHandle(): Promise<string | undefined>;

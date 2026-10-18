@@ -53,9 +53,10 @@ export class ExtHostWindow implements ExtHostWindowShape {
 			this._nativeHandle = decodeBase64(initData.handle).buffer;
 		}
 		this._proxy = extHostRpc.getProxy(MainContext.MainThreadWindow);
-		this._proxy.$getInitialState().then(({ isFocused, isActive }) => {
+		this._proxy.$getInitialState().then(({ isFocused, isActive, nativeHandle }) => {
 			this.onDidChangeWindowProperty('focused', isFocused);
 			this.onDidChangeWindowProperty('active', isActive);
+			this.$onDidChangeActiveWindowHandle(nativeHandle);
 		});
 	}
 
