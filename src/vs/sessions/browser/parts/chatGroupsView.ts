@@ -122,6 +122,7 @@ export class ChatGroupsView extends Themable {
 	private _session: IActiveSession | undefined;
 	private _options: IChatViewOptions | undefined;
 	private _mainChatResource: IObservable<string> | undefined;
+	private _canCloseChats: IObservable<boolean> | undefined;
 	private _sessionActive = true;
 	private _sessionVisible = true;
 	private readonly _singleGroupTabsReplaceHeader = observableValue(this, false);
@@ -364,6 +365,7 @@ export class ChatGroupsView extends Themable {
 			chats,
 			activeChatResource: activeResourceId,
 			mainChatResource: this._mainChatResource!,
+			canCloseChats: this._canCloseChats!,
 			tabsVisible,
 			chatHeaderVisible: this._showGroupChatHeaders,
 			activeChatIsPinned,

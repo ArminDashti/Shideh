@@ -444,6 +444,7 @@ suite('setSessionContextKeys - side chat', () => {
 			sticky: constObservable(false),
 			activeChat: constObservable(mainChat),
 			visibleChatTabs: constObservable([mainChat, sideChat]),
+			closedChats: constObservable([]),
 			shouldShowChatTabs: constObservable(true),
 		});
 		setActiveSessionContextKeys(withSideChat, contextKeyService, undefined);
@@ -466,6 +467,7 @@ suite('setSessionContextKeys - side chat', () => {
 			sticky: constObservable(false),
 			activeChat: constObservable(mainChat),
 			visibleChatTabs: constObservable([mainChat]),
+			closedChats: constObservable([]),
 			shouldShowChatTabs: constObservable(false),
 		});
 		setActiveSessionContextKeys(withToolChat, contextKeyService, undefined);

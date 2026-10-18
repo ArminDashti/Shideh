@@ -1194,7 +1194,7 @@ export class SessionsService extends Disposable implements ISessionsService {
 	 * it survives switching the session out of the grid (which disposes its
 	 * wrapper) and reloads. Done synchronously on the close/open action rather
 	 * than reactively from `closedChats`, which would depend on the session's
-	 * chats being loaded. The main chat can never be closed and is ignored.
+	 * chats being loaded.
 	 */
 	private _setChatVisibilityState(session: ISession, chat: IChat, visible: boolean): void {
 		if (this.uriIdentityService.extUri.isEqual(chat.resource, session.mainChat.get().resource)) {
