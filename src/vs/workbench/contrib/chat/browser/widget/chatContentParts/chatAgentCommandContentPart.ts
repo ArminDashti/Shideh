@@ -53,7 +53,7 @@ export class ChatAgentCommandContentPart extends Disposable implements IChatCont
 		}, { groupId }));
 	}
 
-	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatTreeItem): boolean {
+	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatListItem): boolean {
 		return false;
 	}
 }

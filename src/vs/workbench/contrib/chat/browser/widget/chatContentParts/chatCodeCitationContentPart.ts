@@ -55,7 +55,7 @@ export class ChatCodeCitationContentPart extends Disposable implements IChatCont
 		this.domNode = elements.root;
 	}
 
-	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatTreeItem): boolean {
+	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatListItem): boolean {
 		return other.kind === 'codeCitations';
 	}
 }

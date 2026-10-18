@@ -225,10 +225,10 @@ class QuickChat extends Disposable {
 		// so we should not update the layout.
 		if (this._deferUpdatingDynamicLayout) {
 			this._deferUpdatingDynamicLayout = false;
-			this.widget.updateDynamicChatTreeItemLayout(2, this.maxHeight);
+			this.widget.updateDynamicChatListItemLayout(2, this.maxHeight);
 		}
 		if (!this.maintainScrollTimer.value) {
-			this.widget.layoutDynamicChatTreeItemMode();
+			this.widget.layoutDynamicChatListItemMode();
 		}
 	}
 
@@ -315,7 +315,7 @@ class QuickChat extends Disposable {
 	private registerListeners(parent: HTMLElement): void {
 		this._register(this.layoutService.onDidLayoutMainContainer(() => {
 			if (this.widget.visible) {
-				this.widget.updateDynamicChatTreeItemLayout(2, this.maxHeight);
+				this.widget.updateDynamicChatListItemLayout(2, this.maxHeight);
 			} else {
 				// If the chat is not visible, then we should defer updating the layout
 				// because it relies on offsetHeight which only works correctly
@@ -326,7 +326,7 @@ class QuickChat extends Disposable {
 		this._register(this.widget.onDidChangeHeight((e) => this.sash.layout()));
 		const width = parent.offsetWidth;
 		this._register(this.sash.onDidStart(() => {
-			this.widget.isDynamicChatTreeItemLayoutEnabled = false;
+			this.widget.isDynamicChatListItemLayoutEnabled = false;
 		}));
 		this._register(this.sash.onDidChange((e) => {
 			if (e.currentY < QuickChat.DEFAULT_MIN_HEIGHT || e.currentY > this.maxHeight) {
@@ -336,8 +336,8 @@ class QuickChat extends Disposable {
 			this.sash.layout();
 		}));
 		this._register(this.sash.onDidReset(() => {
-			this.widget.isDynamicChatTreeItemLayoutEnabled = true;
-			this.widget.layoutDynamicChatTreeItemMode();
+			this.widget.isDynamicChatListItemLayoutEnabled = true;
+			this.widget.layoutDynamicChatListItemMode();
 		}));
 	}
 

@@ -795,7 +795,7 @@ export interface ICodeCompareBlockDiffData {
 }
 
 export interface ICodeCompareBlockData {
-	readonly element: ChatTreeItem;
+	readonly element: ChatListItem;
 
 	readonly edit: IChatTextEditGroup;
 

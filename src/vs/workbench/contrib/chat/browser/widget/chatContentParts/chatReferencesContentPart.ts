@@ -162,7 +162,7 @@ export class ChatCollapsibleListContentPart extends ChatCollapsibleContentPart {
 		return list.getHTMLElement().parentElement!;
 	}
 
-	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatTreeItem): boolean {
+	hasSameContent(other: IChatRendererContent, followingContent: IChatRendererContent[], element: ChatListItem): boolean {
 		return other.kind === 'references' && other.references.length === this.data.length && (!!followingContent.length === this.hasFollowingContent);
 	}
 }

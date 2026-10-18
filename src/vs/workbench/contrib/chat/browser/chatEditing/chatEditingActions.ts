@@ -399,7 +399,7 @@ registerAction2(class EditAction extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor, ...args: any[]) {
-		let item: ChatTreeItem | undefined = args[0];
+		let item: ChatListItem | undefined = args[0];
 		const chatWidgetService = accessor.get(IChatWidgetService);
 		const widget = chatWidgetService.lastFocusedWidget;
 		if (!isResponseVM(item) && !isRequestVM(item)) {
