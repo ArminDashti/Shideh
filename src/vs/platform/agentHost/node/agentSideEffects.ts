@@ -639,8 +639,11 @@ export class AgentSideEffects extends Disposable {
 	 * Initializes async resources (tree-sitter WASM) used for command
 	 * auto-approval. Await this before any session events can arrive to
 	 * guarantee that auto-approval checks are fully synchronous.
+	 *
+	 * Resolves with which shells can actually be analyzed; an unavailable shell
+	 * fails closed (commands require confirmation) rather than blocking startup.
 	 */
-	initialize(): Promise<void> {
+	initialize(): Promise<ITreeSitterReadiness> {
 		return this._permissionManager.initialize();
 	}
 

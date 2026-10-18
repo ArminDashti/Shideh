@@ -8,6 +8,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/c
 import { NullLogService } from '../../../log/common/log.js';
 import { gitAutoApproveRules } from '../../../terminal/common/autoApprove/gitAutoApproveRules.js';
 import { CommandAutoApprover, type ICommandApprovalEvaluation } from '../../node/commandAutoApprover.js';
+import { assertTreeSitterReady } from './treeSitterReadinessTestUtils.js';
 
 suite('CommandAutoApprover initialization', () => {
 
@@ -36,7 +37,7 @@ suite('CommandAutoApprover', () => {
 
 	setup(async () => {
 		approver = disposables.add(new CommandAutoApprover(new NullLogService()));
-		await approver.initialize();
+		assertTreeSitterReady(await approver.initialize());
 	});
 
 	suite('shouldAutoApprove', () => {
@@ -720,6 +721,15 @@ suite('CommandAutoApprover', () => {
 		test('is not rule-resolvable while the parser is unavailable', () => {
 			const uninitialized = disposables.add(new CommandAutoApprover(new NullLogService()));
 			assert.deepStrictEqual(uninitialized.evaluate('ls'), { result: 'noMatch', autoApproveRuleResolvable: false });
+		});
+
+		test('initialize reports per-shell readiness by analyzing a probe command', async () => {
+			// Readiness must reflect whether a shell can actually be analyzed,
+			// not merely that the grammar file loaded: a wrong or incompatible
+			// grammar loads cleanly yet silently degrades everything to
+			// `noMatch`.
+			const probe = disposables.add(new CommandAutoApprover(new NullLogService()));
+			assert.deepStrictEqual(await probe.initialize(), { parser: true, bash: true, powershell: true });
 		});
 	});
 
