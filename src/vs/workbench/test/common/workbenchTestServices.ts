@@ -902,3 +902,33 @@ export class TestLifecycleService extends Disposable implements ILifecycleServic
 		this.fireShutdown();
 	}
 }
+
+export class TestChatEntitlementService implements IChatEntitlementService {
+
+	_serviceBrand: undefined;
+
+	readonly organisations: undefined;
+	readonly isInternal = false;
+	readonly sku = undefined;
+
+	readonly onDidChangeQuotaExceeded = Event.None;
+	readonly onDidChangeQuotaRemaining = Event.None;
+	readonly quotas = {};
+
+	update(token: CancellationToken): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	readonly onDidChangeSentiment = Event.None;
+	readonly sentimentObs = observableValue({}, {});
+	readonly sentiment = {};
+
+	readonly onDidChangeEntitlement = Event.None;
+	entitlement: ChatEntitlement = ChatEntitlement.Unknown;
+	readonly entitlementObs = observableValue({}, ChatEntitlement.Unknown);
+
+	readonly anonymous = false;
+	onDidChangeAnonymous = Event.None;
+	readonly anonymousObs = observableValue({}, false);
+}
+

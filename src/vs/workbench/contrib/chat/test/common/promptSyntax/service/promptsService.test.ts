@@ -2387,6 +2387,25 @@ suite('PromptsService', () => {
 				['workspace-prompt.prompt.md'],
 			);
 		});
+
+		test('Contributed prompt file', async () => {
+			const uri = URI.parse('file://extensions/my-extension/textMate.instructions.md');
+			const extension = {} as IExtensionDescription;
+			const registered = service.registerContributedFile(PromptsType.instructions,
+				"TextMate Instructions",
+				"Instructions to follow when authoring TextMate grammars",
+				uri,
+				extension
+			);
+
+			const actual = await service.listPromptFiles(PromptsType.instructions, CancellationToken.None);
+			assert.strictEqual(actual.length, 1);
+			assert.strictEqual(actual[0].uri.toString(), uri.toString());
+			assert.strictEqual(actual[0].name, "TextMate Instructions");
+			assert.strictEqual(actual[0].storage, PromptsStorage.extension);
+			assert.strictEqual(actual[0].type, PromptsType.instructions);
+			registered.dispose();
+		});
 	});
 
 	suite('listPromptFiles - instructions', () => {
