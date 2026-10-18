@@ -278,6 +278,7 @@ export class PromptValidator {
 				this.validateDisableModelInvocation(attributes, report);
 				this.validateTools(attributes, ChatModeKind.Agent, target, report);
 				this.validateHooks(attributes, target, report);
+				this.validateMcpServers(attributes, report);
 				if (isVSCodeOrDefaultTarget(target)) {
 					this.validateModel(attributes, ChatModeKind.Agent, report);
 					this.validateHandoffs(attributes, report);
@@ -1055,7 +1056,35 @@ export class PromptValidator {
 			}
 		}
 	}
+
+	private validateMcpServers(attributes: IHeaderAttribute[], report: (markers: IMarkerData) => void): void {
+		const attribute = attributes.find(attr => attr.key === GithubPromptHeaderAttributes.mcpServers);
+		if (!attribute) {
+			return;
+		}
+		if (attribute.value.type !== 'map') {
+			report(toMarker(localize('promptValidator.mcpServersMustBeMap', "The 'mcp-servers' attribute must be a map of server names to configurations."), attribute.value.range, MarkerSeverity.Error));
+			return;
+		}
+		for (const serverEntry of attribute.value.properties) {
+			if (serverEntry.value.type !== 'map') {
+				continue;
+			}
+			for (const prop of serverEntry.value.properties) {
+				if (!validMcpServerProperties.has(prop.key.value)) {
+					const validNames = Array.from(validMcpServerProperties).sort().join(', ');
+					report(toMarker(localize('promptValidator.unknownMcpServerProperty', "Unknown property '{0}' in MCP server '{1}'. Supported: {2}.", prop.key.value, serverEntry.key.value, validNames), prop.key.range, MarkerSeverity.Warning));
+				}
+			}
+		}
+	}
 }
+
+const validMcpServerProperties = new Set([
+	'type', 'url', 'command', 'args', 'env', 'envFile', 'cwd', 'headers',
+	'tools', 'dev', 'sandboxEnabled', 'oauth', 'version', 'gallery',
+	'auth', 'oidc',
+]);
 
 export const githubPermissionScopes: Record<string, { allowedValues: string[]; description: string }> = {
 	'actions': { allowedValues: ['read', 'write', 'none'], description: localize('githubPermission.actions', "Access to GitHub Actions workflows and runs") },
