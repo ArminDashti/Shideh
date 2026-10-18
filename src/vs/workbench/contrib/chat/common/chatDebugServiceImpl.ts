@@ -217,7 +217,7 @@ export class ChatDebugServiceImpl extends Disposable implements IChatDebugServic
 			return;
 		}
 		this.addEvent({
-			kind: 'generic',
+			kind: 'chatCustomization',
 			id: options?.id,
 			sessionResource,
 			created: new Date(),

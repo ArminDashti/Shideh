@@ -744,7 +744,7 @@ function formatDuration(ms: number): string {
 
 function isErrorEvent(event: IChatDebugEvent): boolean {
 	return (event.kind === 'toolCall' && event.result === 'error') ||
-		(event.kind === 'generic' && event.level === 3 /* ChatDebugLogLevel.Error */) ||
+		(event.kind === 'chatCustomization' && event.level === 3 /* ChatDebugLogLevel.Error */) ||
 		(event.kind === 'subagentInvocation' && event.status === 'failed');
 }
 
@@ -790,7 +790,7 @@ function getEventTooltip(event: IChatDebugEvent): string | undefined {
 			}
 			return parts.join('\n');
 		}
-		case 'generic': {
+		case 'chatCustomization': {
 			if (event.details) {
 				const details = event.details.trim();
 				return details.length > TOOLTIP_MAX_LENGTH ? details.substring(0, TOOLTIP_MAX_LENGTH) + '\u2026' : details;

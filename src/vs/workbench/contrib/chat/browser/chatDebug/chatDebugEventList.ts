@@ -104,10 +104,10 @@ function renderEventToTemplate(element: IChatDebugEvent, templateData: IChatDebu
 	templateData.name.textContent = getEventNameText(element);
 	templateData.details.textContent = getEventDetailsText(element);
 
-	const isError = element.kind === 'generic' && element.level === ChatDebugLogLevel.Error
+	const isError = element.kind === 'chatCustomization' && element.level === ChatDebugLogLevel.Error
 		|| element.kind === 'toolCall' && element.result === 'error';
-	const isWarning = element.kind === 'generic' && element.level === ChatDebugLogLevel.Warning;
-	const isTrace = element.kind === 'generic' && element.level === ChatDebugLogLevel.Trace;
+	const isWarning = element.kind === 'chatCustomization' && element.level === ChatDebugLogLevel.Warning;
+	const isTrace = element.kind === 'chatCustomization' && element.level === ChatDebugLogLevel.Trace;
 
 	templateData.container.classList.toggle('chat-debug-log-error', isError);
 	templateData.container.classList.toggle('chat-debug-log-warning', isWarning);

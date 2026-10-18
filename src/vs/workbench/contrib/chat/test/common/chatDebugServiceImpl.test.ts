@@ -75,8 +75,8 @@ suite('ChatDebugServiceImpl', () => {
 
 	suite('addEvent and getEvents', () => {
 		test('should add and retrieve events', () => {
-			const event: IChatDebugGenericEvent = {
-				kind: 'generic',
+			const event: IChatDebugChatCustomizationEvent = {
+				kind: 'chatCustomization',
 				sessionResource: session1,
 				created: new Date(),
 				name: 'test-event',
@@ -89,15 +89,15 @@ suite('ChatDebugServiceImpl', () => {
 		});
 
 		test('should filter events by sessionResource', () => {
-			const event1: IChatDebugGenericEvent = {
-				kind: 'generic',
+			const event1: IChatDebugChatCustomizationEvent = {
+				kind: 'chatCustomization',
 				sessionResource: session1,
 				created: new Date(),
 				name: 'event-1',
 				level: ChatDebugLogLevel.Info,
 			};
-			const event2: IChatDebugGenericEvent = {
-				kind: 'generic',
+			const event2: IChatDebugChatCustomizationEvent = {
+				kind: 'chatCustomization',
 				sessionResource: session2,
 				created: new Date(),
 				name: 'event-2',
@@ -116,8 +116,8 @@ suite('ChatDebugServiceImpl', () => {
 			const firedEvents: IChatDebugEvent[] = [];
 			disposables.add(service.onDidAddEvent(e => firedEvents.push(e)));
 
-			const event: IChatDebugGenericEvent = {
-				kind: 'generic',
+			const event: IChatDebugChatCustomizationEvent = {
+				kind: 'chatCustomization',
 				sessionResource: session1,
 				created: new Date(),
 				name: 'test',
@@ -172,11 +172,11 @@ suite('ChatDebugServiceImpl', () => {
 
 			assert.strictEqual(firedEvents.length, 1);
 			const event = firedEvents[0];
-			assert.strictEqual(event.kind, 'generic');
+			assert.strictEqual(event.kind, 'chatCustomization');
 			assert.strictEqual(event.sessionResource.toString(), session1.toString());
-			assert.strictEqual((event as IChatDebugGenericEvent).name, 'Some name');
-			assert.strictEqual((event as IChatDebugGenericEvent).details, 'Some details');
-			assert.strictEqual((event as IChatDebugGenericEvent).level, ChatDebugLogLevel.Info);
+			assert.strictEqual((event as IChatDebugChatCustomizationEvent).name, 'Some name');
+			assert.strictEqual((event as IChatDebugChatCustomizationEvent).details, 'Some details');
+			assert.strictEqual((event as IChatDebugChatCustomizationEvent).level, ChatDebugLogLevel.Info);
 		});
 
 		test('should accept custom level and options', () => {
@@ -189,7 +189,7 @@ suite('ChatDebugServiceImpl', () => {
 				parentEventId: 'parent-1',
 			});
 
-			const event = firedEvents[0] as IChatDebugGenericEvent;
+			const event = firedEvents[0] as IChatDebugChatCustomizationEvent;
 			assert.strictEqual(event.level, ChatDebugLogLevel.Warning);
 			assert.strictEqual(event.id, 'my-id');
 			assert.strictEqual(event.category, 'testing');
@@ -220,9 +220,9 @@ suite('ChatDebugServiceImpl', () => {
 
 	suite('getSessionResources', () => {
 		test('should return unique session resources', () => {
-			service.addEvent({ kind: 'generic', sessionResource: sessionA, created: new Date(), name: 'e1', level: ChatDebugLogLevel.Info });
-			service.addEvent({ kind: 'generic', sessionResource: sessionB, created: new Date(), name: 'e2', level: ChatDebugLogLevel.Info });
-			service.addEvent({ kind: 'generic', sessionResource: sessionA, created: new Date(), name: 'e3', level: ChatDebugLogLevel.Info });
+			service.addEvent({ kind: 'chatCustomization', sessionResource: sessionA, created: new Date(), name: 'e1', level: ChatDebugLogLevel.Info });
+			service.addEvent({ kind: 'chatCustomization', sessionResource: sessionB, created: new Date(), name: 'e2', level: ChatDebugLogLevel.Info });
+			service.addEvent({ kind: 'chatCustomization', sessionResource: sessionA, created: new Date(), name: 'e3', level: ChatDebugLogLevel.Info });
 
 			const resources = service.getSessionResources();
 			assert.strictEqual(resources.length, 2);
@@ -248,15 +248,15 @@ suite('ChatDebugServiceImpl', () => {
 		test('should evict oldest events when exceeding per-session cap', () => {
 			// The max per session is 10_000. Add more than that to a single session.
 			for (let i = 0; i < 10_001; i++) {
-				service.addEvent({ kind: 'generic', sessionResource: sessionGeneric, created: new Date(), name: `event-${i}`, level: ChatDebugLogLevel.Info });
+				service.addEvent({ kind: 'chatCustomization', sessionResource: sessionGeneric, created: new Date(), name: `event-${i}`, level: ChatDebugLogLevel.Info });
 			}
 
 			const events = service.getEvents();
 			assert.ok(events.length <= 10_000, 'Should not exceed MAX_EVENTS_PER_SESSION');
 			// The first event should have been evicted
-			assert.ok(!(events as IChatDebugGenericEvent[]).find(e => e.name === 'event-0'), 'Event-0 should have been evicted');
+			assert.ok(!(events as IChatDebugChatCustomizationEvent[]).find(e => e.name === 'event-0'), 'Event-0 should have been evicted');
 			// The last event should be present
-			assert.ok((events as IChatDebugGenericEvent[]).find(e => e.name === 'event-10000'), 'Last event should be present');
+			assert.ok((events as IChatDebugChatCustomizationEvent[]).find(e => e.name === 'event-10000'), 'Last event should be present');
 		});
 
 		test('should evict oldest session when exceeding MAX_SESSIONS', () => {
@@ -318,7 +318,7 @@ suite('ChatDebugServiceImpl', () => {
 			const extSession = URI.parse('vscode-chat-session://local/ext-session');
 			const provider: IChatDebugLogProvider = {
 				provideChatDebugLog: async () => [{
-					kind: 'generic',
+					kind: 'chatCustomization',
 					sessionResource: extSession,
 					created: new Date(),
 					name: 'from-provider',
@@ -330,7 +330,7 @@ suite('ChatDebugServiceImpl', () => {
 			await service.invokeProviders(extSession);
 
 			const events = service.getEvents(extSession);
-			assert.ok(events.some(e => e.kind === 'generic' && (e as IChatDebugGenericEvent).name === 'from-provider'));
+			assert.ok(events.some(e => e.kind === 'chatCustomization' && (e as IChatDebugChatCustomizationEvent).name === 'from-provider'));
 
 			reg.dispose();
 		});
@@ -417,7 +417,7 @@ suite('ChatDebugServiceImpl', () => {
 			disposables.add(service.registerProvider(providerB));
 			await service.invokeProviders(sessionGeneric);
 
-			const names = (service.getEvents(sessionGeneric) as IChatDebugGenericEvent[]).map(e => e.name);
+			const names = (service.getEvents(sessionGeneric) as IChatDebugChatCustomizationEvent[]).map(e => e.name);
 			assert.ok(names.includes('from-A'));
 			assert.ok(names.includes('from-B'));
 		});
