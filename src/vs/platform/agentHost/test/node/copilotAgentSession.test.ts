@@ -3517,6 +3517,53 @@ suite('CopilotAgentSession', () => {
 		}]);
 	});
 
+	test('appends a resolved github.com issue reference as a <github_references> block on the prompt', async () => {
+		const { session, mockSession } = await createAgentSession(disposables, {
+			githubToken: 'gh-token',
+			requestHandler: url => url === 'https://api.github.com/repos/microsoft/vscode/issues/313987'
+				? { status: 200, body: { title: 'Dragging a pinned editor tab', state: 'open' } }
+				: { status: 404 },
+		});
+
+		await session.send('fix https://github.com/microsoft/vscode/issues/313987');
+
+		assert.deepStrictEqual(mockSession.sendRequests, [{
+			prompt: [
+				'fix https://github.com/microsoft/vscode/issues/313987',
+				'',
+				'<github_references>',
+				'#313987 - Dragging a pinned editor tab [issue] [OPEN] (https://github.com/microsoft/vscode/issues/313987)',
+				'</github_references>',
+			].join('\n'),
+			attachments: undefined,
+		}]);
+	});
+
+	test('leaves the prompt unchanged when no github token is available', async () => {
+		const { session, mockSession } = await createAgentSession(disposables);
+
+		await session.send('fix https://github.com/microsoft/vscode/issues/313987');
+
+		assert.deepStrictEqual(mockSession.sendRequests, [{
+			prompt: 'fix https://github.com/microsoft/vscode/issues/313987',
+			attachments: undefined,
+		}]);
+	});
+
+	test('leaves the prompt unchanged when GitHub reference resolution fails', async () => {
+		const { session, mockSession } = await createAgentSession(disposables, {
+			githubToken: 'gh-token',
+			requestHandler: () => ({ status: 404 }),
+		});
+
+		await session.send('fix https://github.com/microsoft/vscode/issues/313987');
+
+		assert.deepStrictEqual(mockSession.sendRequests, [{
+			prompt: 'fix https://github.com/microsoft/vscode/issues/313987',
+			attachments: undefined,
+		}]);
+	});
+
 	test('maps symbol Resource attachments to SDK selection so the range survives (#315193)', async () => {
 		// Symbols arrive as a Resource with displayKind 'symbol' AND a populated selection.range. Keying the selection
 		// branch off the `selection` field (not displayKind === 'selection') keeps the range instead of degrading the

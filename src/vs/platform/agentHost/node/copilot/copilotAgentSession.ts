@@ -12,7 +12,7 @@ import { DeferredPromise, firstParallel, raceCancellation, raceCancellationError
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { CancellationError, getErrorMessage } from '../../../../base/common/errors.js';
+import { CancellationError, getErrorMessage, isCancellationError } from '../../../../base/common/errors.js';
 import { escapeMarkdownSyntaxTokens } from '../../../../base/common/htmlContent.js';
 import { Disposable, DisposableMap, IReference, type IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { LRUCache } from '../../../../base/common/map.js';
@@ -1490,6 +1490,9 @@ export class CopilotAgentSession extends Disposable {
 		cancelled: boolean;
 		begin: Promise<{ readonly context: IAgentHostRestrictedTelemetryContext; readonly baseBranch: string | undefined } | undefined>;
 	} | undefined;
+
+	/** Resolves github.com issue/PR references in outgoing prompts (per-session cache). */
+	private readonly _githubReferenceResolver: GitHubReferenceResolver;
 
 	constructor(
 		options: ICopilotAgentSessionOptions,
