@@ -197,19 +197,19 @@ export class TypeScriptServerSpawner {
 		let tsServerLog: TsServerLog | undefined;
 		let tsServerTraceDirectory: vscode.Uri | undefined;
 
-		if (kind === TsServerProcessKind.Syntax) {
-			if (apiVersion.gte(API.v401)) {
-				args.push('--serverMode', 'partialSemantic');
-			} else {
-				args.push('--syntaxOnly');
-			}
-		}
+		// if (kind === TsServerProcessKind.Syntax) {
+		// 	if (apiVersion.gte(API.v401)) {
+		// 		args.push('--serverMode', 'partialSemantic');
+		// 	} else {
+		// 		args.push('--syntaxOnly');
+		// 	}
+		// }
 
 		args.push('--useInferredProjectPerProjectRoot');
 
-		if (configuration.disableAutomaticTypeAcquisition || kind === TsServerProcessKind.Syntax || kind === TsServerProcessKind.Diagnostics) {
-			args.push('--disableAutomaticTypingAcquisition');
-		}
+		// if (configuration.disableAutomaticTypeAcquisition || kind === TsServerProcessKind.Syntax || kind === TsServerProcessKind.Diagnostics) {
+		// 	args.push('--disableAutomaticTypingAcquisition');
+		// }
 
 		if (kind === TsServerProcessKind.Semantic || kind === TsServerProcessKind.Main) {
 			args.push('--enableTelemetry');

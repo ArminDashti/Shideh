@@ -362,6 +362,9 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 	private readonly _onSurveyReady = this._register(new vscode.EventEmitter<Proto.SurveyReadyEventBody>());
 	public readonly onSurveyReady = this._onSurveyReady.event;
 
+	private readonly _onInstallTypings = this._register(new vscode.EventEmitter<{ unresolvedImports: string[] }>());
+	public readonly onInstallTypings = this._onInstallTypings.event;
+
 	public get apiVersion(): API {
 		if (this.serverState.type === ServerState.Type.Running) {
 			return this.serverState.apiVersion;
@@ -1171,6 +1174,16 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 
 			case EventName.closeFileWatcher:
 				this.closeFileSystemWatcher(event.body.id);
+				break;
+
+			case 'installTypings': {
+				this._onInstallTypings.fire({
+					unresolvedImports: event.body.unresolvedImports,
+				});
+				break;
+			}
+			default:
+				console.log('xxx', event);
 				break;
 		}
 	}
