@@ -623,7 +623,7 @@ export class AgentHostChatInputPicker extends Disposable {
 		// adjust creation-time-only properties (e.g. isolation, branch).
 		const sessionResource = this._widget.viewModel?.sessionResource;
 		const isStartedSession = !!sessionResource && !isUntitledChatSession(sessionResource);
-		if (!ctx || (isStartedSession && ctx.schema.sessionMutable === false)) {
+		if (!ctx || !this._isPickable(ctx.schema) || this._isHiddenByDependency() || (isStartedSession && ctx.schema.sessionMutable === false)) {
 			this._container.style.display = 'none';
 			this._container.classList.add('agent-host-chat-input-picker-host-hidden');
 			return;

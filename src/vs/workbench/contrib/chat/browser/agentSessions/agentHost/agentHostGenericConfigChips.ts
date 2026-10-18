@@ -44,6 +44,15 @@ const CHIP_ORDER = new Map<string, number>([
 	['codex.networkAccessEnabled', 4],
 ]);
 
+const CHIP_ORDER = new Map<string, number>([
+	['codex.sandboxMode', 0],
+	['codex.approvalPolicy', 1],
+	['codex.webSearchMode', 2],
+	['codex.modelReasoningEffort', 3],
+	['codex.additionalDirectories', 4],
+	['codex.networkAccessEnabled', 5],
+]);
+
 /**
  * Direct-render chip lane for agent-host session-config properties that are
  * advertised by the agent's schema but are NOT handled by a dedicated
@@ -195,6 +204,14 @@ export class AgentHostGenericConfigChips extends Disposable {
 			return Object.entries(this._initialResolved.result.schema.properties);
 		}
 		return undefined;
+	}
+
+	private _orderedEntries(entries: readonly [string, SessionConfigPropertySchema][]): readonly [string, SessionConfigPropertySchema][] {
+		return [...entries].sort(([a], [b]) => {
+			const aRank = CHIP_ORDER.get(a) ?? Number.MAX_SAFE_INTEGER;
+			const bRank = CHIP_ORDER.get(b) ?? Number.MAX_SAFE_INTEGER;
+			return aRank === bRank ? 0 : aRank - bRank;
+		});
 	}
 
 	private _sync(): void {

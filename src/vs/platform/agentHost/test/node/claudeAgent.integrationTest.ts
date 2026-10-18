@@ -224,6 +224,10 @@ class StubCopilotApiService implements ICopilotApiService {
 		return this.availableModels;
 	}
 
+	async responses(): Promise<Response> {
+		throw new Error('responses not used in Claude integration tests');
+	}
+
 	async utilityChatCompletion(): Promise<never> {
 		throw new Error('utilityChatCompletion not used in Claude integration tests');
 	}
