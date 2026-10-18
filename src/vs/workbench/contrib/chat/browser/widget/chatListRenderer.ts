@@ -3042,6 +3042,18 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return;
 		}
 
+		const isHiddenCompleteAddedRequest = element.isCompleteAddedRequest && !element.messageText.trim();
+		templateData.rowContainer.classList.toggle('hidden-complete-added-request', isHiddenCompleteAddedRequest);
+		if (isHiddenCompleteAddedRequest) {
+			dom.clearNode(templateData.value);
+			dom.clearNode(templateData.detail);
+			if (templateData.renderedParts) {
+				dispose(templateData.renderedParts);
+				templateData.renderedParts = undefined;
+			}
+			return;
+		}
+
 		if (element.pendingKind && this._pendingDragController) {
 			templateData.rowContainer.dataset.pendingRequestId = element.id;
 			templateData.rowContainer.dataset.pendingKind = element.pendingKind;
@@ -5837,10 +5849,19 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		// If carousel is already used or response is complete/canceled, render summary inline in the list
 		const responseIsComplete = isResponseVM(context.element) && context.element.isComplete;
+		const isPlanningMiddlewareCarousel = isPlanningMiddlewareQuestionCarousel(carousel.resolveId);
 		const inputPartHasCarousel = widget?.input.questionCarousel !== undefined;
 
-		if (carousel.isUsed || responseIsComplete) {
-			if (responseIsComplete && !carousel.isUsed && isResponseVM(context.element) && carousel.resolveId) {
+		if (isPlanningMiddlewareCarousel && responseIsComplete && !carousel.isUsed) {
+			const inlinePart = this.instantiationService.createInstance(ChatQuestionCarouselPart, carousel, context, {
+				shouldAutoFocus: shouldAutoFocus,
+				onSubmit: async (answers) => handleSubmit(answers, inlinePart)
+			});
+			return inlinePart;
+		}
+
+		if (carousel.isUsed || (responseIsComplete && !isPlanningMiddlewareCarousel)) {
+			if (responseIsComplete && !isPlanningMiddlewareCarousel && !carousel.isUsed && isResponseVM(context.element) && carousel.resolveId) {
 				carousel.data = {};
 				carousel.isUsed = true;
 				if (carousel instanceof ChatQuestionCarouselData) {

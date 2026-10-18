@@ -33,6 +33,8 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { Range } from '../../../../../editor/common/core/range.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
+import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
@@ -44,6 +46,7 @@ import { IAgentHostService } from '../../../../../platform/agentHost/common/agen
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 
 import { ITextResourceEditorInput } from '../../../../../platform/editor/common/editor.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -61,7 +64,7 @@ import { IWorkbenchLayoutService } from '../../../../services/layout/browser/lay
 import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';
 import { checkModeOption } from '../../common/chat.js';
-import { IChatAgentAttachmentCapabilities, IChatAgentCommand, IChatAgentData, IChatAgentService } from '../../common/participants/chatAgents.js';
+import { IChatAgentAttachmentCapabilities, IChatAgentCommand, IChatAgentData, IChatAgentService, UserSelectedTools } from '../../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { applyingChatEditsFailedContextKey, hasAppliedChatEditsContextKey, IChatEditingService, IChatEditingSession, inChatEditingSessionContextKey } from '../../common/editing/chatEditingService.js';
 import { IChatLayoutService } from '../../common/widget/chatLayoutService.js';
@@ -84,7 +87,11 @@ import { ChatMessageRole, IChatMessage } from '../../common/languageModels.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind, ChatPermissionLevel, IResolvedNewChatSessionType, ThinkingDisplayMode } from '../../common/constants.js';
 import { IChatGoalSummaryService } from '../chatGoalSummaryService.js';
 import { ILanguageModelToolsService, isToolSet } from '../../common/tools/languageModelToolsService.js';
+import { ILanguageModelsService } from '../../common/languageModels.js';
 import { IHandOff, PromptHeader } from '../../common/promptSyntax/promptFileParser.js';
+import { assessPlanningReadiness } from '../../common/planning/chatPlanningReadiness.js';
+import { shouldRegeneratePlanningQuestions } from '../../common/planning/chatPlanningQuestionHeuristics.js';
+import { augmentPromptWithPlanningContext, buildPlanningTransitionContext, getNextPlanningPhase, getPreviousPlanningPhase, IPlanningTransitionContext, isConcretePlanningArtifactReference, isPlanningMiddlewareQuestionCarousel, isPlanningModeName, mergePlanningTransitionContexts, PlanningPhase, PlanningQuestionStage, planningMiddlewareQuestionCarouselResolveIdPrefix } from '../../common/planning/chatPlanningTransition.js';
 import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
 import { GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID, handleModeSwitch } from '../actions/chatActions.js';
 import { ChatTreeItem, IChatAcceptInputOptions, IChatAccessibilityService, IChatCodeBlockInfo, IChatFileTreeInfo, IChatFindController, IChatListItemRendererOptions, IChatPasteTargetService, IChatWidget, IChatWidgetService, IChatWidgetViewContext, IChatWidgetViewModelChangeEvent, IChatWidgetViewOptions, IChatWidgetViewState, isIChatResourceViewContext, isIChatViewViewContext } from '../chat.js';
@@ -594,6 +601,19 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		const previousSessionResource = this._viewModel?.sessionResource;
+		if (!isEqual(previousSessionResource, viewModel?.sessionResource)) {
+			this._planningPhase = 'broad-scan';
+			this._planningTransitionContext = undefined;
+			this._lastPlanningQuestionSourceInput = undefined;
+			this._pendingPlanningQuestionResolveId = undefined;
+			this._pendingPlanningPlaceholderRequestId = undefined;
+			this._currentPlanningPlanRequestId = undefined;
+			this._previousPlanningPlanRequestId = undefined;
+			this._planFocusSlicesByResolveId.clear();
+			this._pendingPlanningQuestionAnswersListener.clear();
+			this._pendingPlanningResponseListener.clear();
+			this._skipDynamicPlanningQuestionsOnce = false;
+		}
 		this.viewModelDisposables.clear();
 
 		this._viewModel = viewModel;
@@ -2039,7 +2059,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	async executeHandoff(handoff: IHandOff, agentId?: string): Promise<void> {
 		this.chatSuggestNextWidget.hide();
 
-		const promptToUse = handoff.prompt;
+		const promptToUse = this.getHandoffPrompt(handoff.prompt);
 
 		// If agentId is provided (from chevron dropdown), delegate to that chat session
 		// Otherwise, switch to the handoff agent
@@ -3723,6 +3743,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				? new ChatRequestVariableSet()
 				: options?.enableImplicitContext === false ? this.input.getAttachedContext() : this.input.getAttachedAndImplicitContext(),
 		};
+		if (options.extraAttachedContext?.length) {
+			requestInputs.attachedContext.add(...options.extraAttachedContext);
+		}
 
 		const attachedContext = this._getAttachedContextForConcurrentSlashCommand(options.preserveInput);
 		if (await this._executeSlashCommandDuringRequest(requestInputs.input, { attachedContext }, isUserQuery, options.preserveFocus)) {
@@ -4546,6 +4569,15 @@ export class ChatWidget extends Disposable implements IChatWidget {
 export function layoutChatWidgetForInputHeight(widget: Pick<ChatWidget, 'setInputPartMaxHeightOverride' | 'layoutForInputHeight'>, inputMaxHeight: number | undefined, height: number, width: number): void {
 	widget.setInputPartMaxHeightOverride(inputMaxHeight);
 	widget.layoutForInputHeight(height, width);
+}
+
+function isUsedQuestionCarousel(content: unknown): content is IChatQuestionCarousel {
+	if (!content || typeof content !== 'object' || !('kind' in content) || content.kind !== 'questionCarousel') {
+		return false;
+	}
+
+	const carousel = content as IChatQuestionCarousel;
+	return Boolean(carousel.isUsed && carousel.data && Object.keys(carousel.data).length > 0);
 }
 
 const MIN_LIST_HEIGHT = 50;

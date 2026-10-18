@@ -529,6 +529,8 @@ export interface IChatAcceptInputOptions {
 	isVoiceInput?: boolean;
 	isVoiceModeInput?: boolean;
 	enableImplicitContext?: boolean; // defaults to true
+	extraAttachedContext?: readonly IChatRequestVariableEntry[];
+	userSelectedToolsOverride?: UserSelectedTools;
 	// Whether to store the input to history. This defaults to 'true' if the input
 	// box's current content is being accepted, or 'false' if a specific input
 	// is being submitted to the widget.

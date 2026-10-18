@@ -30,6 +30,7 @@ import { KeybindingWeight, KeybindingsRegistry } from '../../../../../platform/k
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ActiveEditorContext } from '../../../../common/contextkeys.js';
+import { IResourceDiffEditorInput, IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../../common/views.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
@@ -84,6 +85,15 @@ export const GENERATE_AGENT_COMMAND_ID = 'workbench.action.chat.generateAgent';
 export const GENERATE_HOOK_COMMAND_ID = 'workbench.action.chat.generateHook';
 export const INSERT_FORK_CONVERSATION_COMMAND_ID = 'workbench.action.chat.insertForkConversationCommand';
 export const INSERT_TROUBLESHOOT_COMMAND_ID = 'workbench.action.chat.insertTroubleshootCommand';
+export const OPEN_PLANNING_PLAN_ACTION_ID = 'workbench.action.chat.openPlanningPlan';
+export const OPEN_PLANNING_PLAN_TO_SIDE_ACTION_ID = 'workbench.action.chat.openPlanningPlanToSide';
+export const OPEN_PLANNING_PLAN_DIFF_ACTION_ID = 'workbench.action.chat.openPlanningPlanDiff';
+
+interface IPlanningPlanCommandArgs {
+	readonly sessionResource: URI | string;
+	readonly requestId: string;
+	readonly previousRequestId?: string;
+}
 
 export interface IChatViewOpenOptions {
 	/**
@@ -1442,6 +1452,129 @@ Update \`.github/copilot-instructions.md\` for the user, then ask for feedback o
 		override async run(accessor: ServicesAccessor): Promise<void> {
 			const preferencesService = accessor.get(IPreferencesService);
 			preferencesService.openSettings({ query: '@feature:chat ' });
+		}
+	});
+
+	function revivePlanningSessionResource(sessionResource: URI | string): URI {
+		return typeof sessionResource === 'string'
+			? URI.parse(sessionResource)
+			: URI.revive(sessionResource);
+	}
+
+	function getPlanningPlanText(chatService: IChatService, sessionResource: URI, requestId: string): string | undefined {
+		const request = chatService.getSession(sessionResource)?.getRequests().find(candidate => candidate.id === requestId);
+		const planText = request?.response?.response.toString().trim();
+		return planText ? planText : undefined;
+	}
+
+	function createPlanningPlanEditorInput(title: string, requestId: string, contents: string): IUntitledTextResourceEditorInput {
+		return {
+			resource: URI.from({
+				scheme: Schemas.untitled,
+				path: `/${title.replace(/[\\/:*?"<>|]+/g, '-')}-${requestId.slice(-6)}.md`,
+			}),
+			contents,
+			languageId: 'markdown',
+		};
+	}
+
+	registerAction2(class OpenPlanningPlanAction extends Action2 {
+		constructor() {
+			super({
+				id: OPEN_PLANNING_PLAN_ACTION_ID,
+				title: localize2('openPlanningPlan', 'Open Plan'),
+				category: CHAT_CATEGORY,
+				f1: false,
+			});
+		}
+
+		override async run(accessor: ServicesAccessor, args?: IPlanningPlanCommandArgs): Promise<void> {
+			if (!args?.requestId || !args.sessionResource) {
+				return;
+			}
+
+			const chatService = accessor.get(IChatService);
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+			const sessionResource = revivePlanningSessionResource(args.sessionResource);
+			const planText = getPlanningPlanText(chatService, sessionResource, args.requestId);
+			if (!planText) {
+				notificationService.warn(localize('openPlanningPlan.missing', 'The selected plan is no longer available in this chat session.'));
+				return;
+			}
+
+			await editorService.openEditor({
+				...createPlanningPlanEditorInput(localize('openPlanningPlan.editorTitle', 'Planning Plan'), args.requestId, planText),
+				options: { pinned: true },
+			}, ACTIVE_GROUP);
+		}
+	});
+
+	registerAction2(class OpenPlanningPlanToSideAction extends Action2 {
+		constructor() {
+			super({
+				id: OPEN_PLANNING_PLAN_TO_SIDE_ACTION_ID,
+				title: localize2('openPlanningPlanToSide', 'Open Plan to Side'),
+				category: CHAT_CATEGORY,
+				f1: false,
+			});
+		}
+
+		override async run(accessor: ServicesAccessor, args?: IPlanningPlanCommandArgs): Promise<void> {
+			if (!args?.requestId || !args.sessionResource) {
+				return;
+			}
+
+			const chatService = accessor.get(IChatService);
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+			const sessionResource = revivePlanningSessionResource(args.sessionResource);
+			const planText = getPlanningPlanText(chatService, sessionResource, args.requestId);
+			if (!planText) {
+				notificationService.warn(localize('openPlanningPlanToSide.missing', 'The selected plan is no longer available in this chat session.'));
+				return;
+			}
+
+			await editorService.openEditor({
+				...createPlanningPlanEditorInput(localize('openPlanningPlanToSide.editorTitle', 'Planning Plan'), args.requestId, planText),
+				options: { pinned: true },
+			}, SIDE_GROUP);
+		}
+	});
+
+	registerAction2(class OpenPlanningPlanDiffAction extends Action2 {
+		constructor() {
+			super({
+				id: OPEN_PLANNING_PLAN_DIFF_ACTION_ID,
+				title: localize2('openPlanningPlanDiff', 'View Plan Changes'),
+				category: CHAT_CATEGORY,
+				f1: false,
+			});
+		}
+
+		override async run(accessor: ServicesAccessor, args?: IPlanningPlanCommandArgs): Promise<void> {
+			if (!args?.requestId || !args?.previousRequestId || !args.sessionResource) {
+				return;
+			}
+
+			const chatService = accessor.get(IChatService);
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+			const sessionResource = revivePlanningSessionResource(args.sessionResource);
+			const previousPlanText = getPlanningPlanText(chatService, sessionResource, args.previousRequestId);
+			const currentPlanText = getPlanningPlanText(chatService, sessionResource, args.requestId);
+			if (!previousPlanText || !currentPlanText) {
+				notificationService.warn(localize('openPlanningPlanDiff.missing', 'The previous or current plan is no longer available in this chat session.'));
+				return;
+			}
+
+			const diffInput: IResourceDiffEditorInput = {
+				original: createPlanningPlanEditorInput(localize('openPlanningPlanDiff.previousTitle', 'Previous Plan'), args.previousRequestId, previousPlanText),
+				modified: createPlanningPlanEditorInput(localize('openPlanningPlanDiff.currentTitle', 'Current Plan'), args.requestId, currentPlanText),
+				label: localize('openPlanningPlanDiff.diffLabel', 'Plan Changes'),
+				options: { pinned: true },
+			};
+			await editorService.openEditor(diffInput);
 		}
 	});
 

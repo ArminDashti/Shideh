@@ -25,6 +25,7 @@ import { Checkbox } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { IChatQuestion, IChatQuestionCarousel, IChatQuestionAnswerValue, IChatQuestionAnswers, IChatQuestionValidation, IChatSingleSelectAnswer, IChatMultiSelectAnswer } from '../../../common/chatService/chatService.js';
 import { findQuestionValidationFailure, getDisplayedQuestionText, getOptionsWithDefaultsFirst } from '../../../common/chatService/chatQuestionCarouselHelpers.js';
 import { ChatQuestionCarouselData } from '../../../common/model/chatProgressTypes/chatQuestionCarouselData.js';
+import { getPlanningMiddlewareQuestionStage, isPlanningMiddlewareQuestionCarousel } from '../../../common/planning/chatPlanningTransition.js';
 import { IChatContentPart, IChatContentPartRenderContext } from './chatContentParts.js';
 import { IChatRendererContent, isResponseVM } from '../../../common/model/chatViewModel.js';
 import { ChatTreeItem } from '../../chat.js';
@@ -190,6 +191,13 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this.domNode = dom.$(`.chat-question-carousel-container.${CHAT_CARD_LARGE_CLASS}`);
 		this.domNode.classList.toggle('chat-question-carousel-conversation', carousel.answerPresentation === 'conversation');
 		this.domNode.id = generateUuid();
+		const planningMiddlewareStage = getPlanningMiddlewareQuestionStage(carousel.resolveId);
+		if (planningMiddlewareStage) {
+			this.domNode.dataset.planningMiddlewareStage = planningMiddlewareStage;
+			if (planningMiddlewareStage !== 'goal-clarity') {
+				this.domNode.classList.add('chat-question-carousel-middleware', `chat-question-carousel-middleware-${planningMiddlewareStage}`);
+			}
+		}
 		this._inChatQuestionCarouselContextKey = ChatContextKeys.inChatQuestionCarousel.bindTo(this._contextKeyService);
 		this._chatQuestionCarouselHasTerminalContextKey = ChatContextKeys.chatQuestionCarouselHasTerminal.bindTo(this._contextKeyService);
 		const focusTracker = this._register(dom.trackFocus(this.domNode));
@@ -764,6 +772,10 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		return !this._accessibilityService.isScreenReaderOptimized();
 	}
 
+	private shouldAutoAdvanceSingleSelect(): boolean {
+		return !isPlanningMiddlewareQuestionCarousel(this.carousel.resolveId);
+	}
+
 	/**
 	 * Updates the aria-label of the carousel container based on the current question.
 	 */
@@ -1254,7 +1266,9 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 				if (freeform) {
 					freeform.value = '';
 				}
-				this.handleNextOrSubmit();
+				if (this.shouldAutoAdvanceSingleSelect()) {
+					this.handleNextOrSubmit();
+				}
 			}));
 
 			this._inputBoxes.add(this._hoverService.setupDelayedHover(listItem, {
