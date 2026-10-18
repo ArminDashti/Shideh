@@ -984,6 +984,24 @@ class StopElementSelectionAction extends Action2 {
 		if (browserEditor instanceof BrowserEditor) {
 			void browserEditor.model?.toggleElementSelection(false);
 		}
+
+		// Use the annotation toggle
+		const feature = browserEditor.getContribution(BrowserAnnotationFeature);
+		if (feature) {
+			const annotations = feature.getAnnotations();
+			if (feature.isAnnotationModeActive() || annotations.length > 0) {
+				// Active or has annotations → stop and clear
+				feature.stopAnnotationMode();
+				feature.clearAnnotations();
+			} else {
+				// Start annotation mode
+				await feature.toggleAnnotationMode();
+			}
+			return;
+		}
+
+		// Fallback: original add-element-to-chat behavior
+		await browserEditor.getContribution(BrowserEditorChatIntegration)?.addElementToChat();
 	}
 }
 

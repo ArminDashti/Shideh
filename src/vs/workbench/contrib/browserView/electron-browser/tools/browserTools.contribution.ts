@@ -28,6 +28,7 @@ import { ReadBrowserTool, ReadBrowserToolData } from './readBrowserTool.js';
 import { RunPlaywrightCodeTool, RunPlaywrightCodeToolData } from './runPlaywrightCodeTool.js';
 import { ScreenshotBrowserTool, ScreenshotBrowserToolData } from './screenshotBrowserTool.js';
 import { TypeBrowserTool, TypeBrowserToolData } from './typeBrowserTool.js';
+import { AnnotateBrowserTool, AnnotateBrowserToolData } from './annotateBrowserTool.js';
 
 
 class BrowserChatAgentToolsContribution extends Disposable implements IWorkbenchContribution {
@@ -99,6 +100,7 @@ class BrowserChatAgentToolsContribution extends Disposable implements IWorkbench
 		this._toolsStore.add(this.toolsService.registerTool(TypeBrowserToolData, this.instantiationService.createInstance(TypeBrowserTool)));
 		this._toolsStore.add(this.toolsService.registerTool(RunPlaywrightCodeToolData, this.instantiationService.createInstance(RunPlaywrightCodeTool)));
 		this._toolsStore.add(this.toolsService.registerTool(HandleDialogBrowserToolData, this.instantiationService.createInstance(HandleDialogBrowserTool)));
+		this._toolsStore.add(this.toolsService.registerTool(AnnotateBrowserToolData, this.instantiationService.createInstance(AnnotateBrowserTool)));
 
 		// Note: this is not currently exposed directly to models. It is mostly exposed so extensions can use it to provide model context via the API.
 		this._toolsStore.add(this.toolsService.registerTool(ListBrowserPagesToolData, this.instantiationService.createInstance(ListBrowserPagesTool)));
@@ -113,6 +115,7 @@ class BrowserChatAgentToolsContribution extends Disposable implements IWorkbench
 		this._toolsStore.add(this._browserToolSet.addTool(TypeBrowserToolData));
 		this._toolsStore.add(this._browserToolSet.addTool(RunPlaywrightCodeToolData));
 		this._toolsStore.add(this._browserToolSet.addTool(HandleDialogBrowserToolData));
+		this._toolsStore.add(this._browserToolSet.addTool(AnnotateBrowserToolData));
 
 		// Subscribe to browser view changes and model sharing state changes
 		this._syncModelListeners();
