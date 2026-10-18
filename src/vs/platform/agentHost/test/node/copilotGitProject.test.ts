@@ -15,6 +15,8 @@ class TestAgentHostGitService implements IAgentHostGitService {
 	repositoryRoot: URI | undefined;
 	worktreeRoots: URI[] = [];
 	worktreeRootCalls = 0;
+	/** Canonical spelling per path; a path absent from the map does not exist. */
+	canonicalPaths: Map<string, string> | undefined;
 
 	async getCurrentBranch(): Promise<string | undefined> { return undefined; }
 	async getDefaultBranch(): Promise<IDefaultBranch | undefined> { return undefined; }
@@ -25,6 +27,13 @@ class TestAgentHostGitService implements IAgentHostGitService {
 	async getWorktreeRoots(): Promise<URI[]> {
 		this.worktreeRootCalls++;
 		return this.worktreeRoots;
+	}
+	async canonicalizeExistingPath(path: URI): Promise<URI | undefined> {
+		if (!this.canonicalPaths) {
+			return path;
+		}
+		const canonical = this.canonicalPaths.get(path.fsPath);
+		return canonical ? URI.file(canonical) : undefined;
 	}
 	async addWorktree(): Promise<void> { }
 	async copyWorktreeIncludeFiles(): Promise<void> { }
@@ -105,9 +114,10 @@ suite('Copilot Git Project', () => {
 		const checkoutB = URI.file('/workspace/source-repo.worktrees/b');
 		gitService.worktreeRoots = [primaryRoot, checkoutA, checkoutB];
 
+		const pass = new PrimaryWorktreeResolutionPass();
 		const roots = await Promise.all([
-			tryResolvePrimaryWorktreeRoot(gitService, checkoutA),
-			tryResolvePrimaryWorktreeRoot(gitService, checkoutB),
+			tryResolvePrimaryWorktreeRoot(gitService, checkoutA, pass),
+			tryResolvePrimaryWorktreeRoot(gitService, checkoutB, pass),
 		]);
 
 		assert.deepStrictEqual({
@@ -139,6 +149,87 @@ suite('Copilot Git Project', () => {
 
 	test('returns undefined outside a git working tree', async () => {
 		assert.strictEqual(await resolveGitProject(URI.file('/workspace/plain-folder'), gitService), undefined);
+	});
+
+	test('shares one resolution across the spellings of a worktree path', async () => {
+		// Git reports resolved paths while a session persists the path it was
+		// created with, so both must key the same cache entry.
+		const primaryRoot = URI.file('/private/workspace/source-repo');
+		const canonicalCheckout = URI.file('/private/workspace/source-repo.worktrees/a');
+		gitService.worktreeRoots = [primaryRoot, canonicalCheckout];
+		gitService.canonicalPaths = new Map([
+			['/workspace/source-repo.worktrees/a', canonicalCheckout.fsPath],
+			[canonicalCheckout.fsPath, canonicalCheckout.fsPath],
+			[primaryRoot.fsPath, primaryRoot.fsPath],
+		]);
+
+		const pass = new PrimaryWorktreeResolutionPass();
+		const viaSymlink = await tryResolvePrimaryWorktreeRoot(gitService, URI.file('/workspace/source-repo.worktrees/a'), pass);
+		const viaCanonical = await tryResolvePrimaryWorktreeRoot(gitService, canonicalCheckout, pass);
+
+		assert.deepStrictEqual({
+			worktreeRootCalls: gitService.worktreeRootCalls,
+			roots: [viaSymlink?.toString(), viaCanonical?.toString()],
+		}, {
+			worktreeRootCalls: 1,
+			roots: [primaryRoot.toString(), primaryRoot.toString()],
+		});
+	});
+
+	test('never launches git for a checkout that no longer exists', async () => {
+		gitService.canonicalPaths = new Map();
+
+		const root = await tryResolvePrimaryWorktreeRoot(gitService, URI.file('/workspace/deleted-repo'));
+
+		assert.deepStrictEqual({ root, worktreeRootCalls: gitService.worktreeRootCalls }, { root: undefined, worktreeRootCalls: 0 });
+	});
+
+	test('still asks git when the filesystem cannot say whether a checkout exists', async () => {
+		// An unreadable parent or a volume that is briefly away is not absence.
+		// Treating it as such would skip Git for a checkout that is really there.
+		const primaryRoot = URI.file('/workspace/source-repo');
+		const checkout = URI.file('/workspace/source-repo.worktrees/a');
+		gitService.worktreeRoots = [primaryRoot, checkout];
+		gitService.canonicalizeExistingPath = async () => { throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); };
+
+		const root = await tryResolvePrimaryWorktreeRoot(gitService, checkout);
+
+		assert.deepStrictEqual({
+			root: root?.toString(),
+			worktreeRootCalls: gitService.worktreeRootCalls,
+		}, {
+			root: primaryRoot.toString(),
+			worktreeRootCalls: 1,
+		});
+	});
+
+	test('probes a checkout git could not describe once per pass, and again in the next one', async () => {
+		// Git reports "not a worktree" and "git could not run" identically, so a
+		// failure must never outlive the pass that saw it -- otherwise a repo
+		// repaired between listings stays mis-grouped with no way to retry.
+		const orphaned = URI.file('/workspace/orphaned-worktree');
+		gitService.worktreeRoots = [];
+		const pass = new PrimaryWorktreeResolutionPass();
+
+		const first = await tryResolvePrimaryWorktreeRoot(gitService, orphaned, pass);
+		const again = await tryResolvePrimaryWorktreeRoot(gitService, orphaned, pass);
+		const callsWithinPass = gitService.worktreeRootCalls;
+
+		const primaryRoot = URI.file('/workspace/source-repo');
+		gitService.worktreeRoots = [primaryRoot];
+		const nextPass = await tryResolvePrimaryWorktreeRoot(gitService, orphaned, new PrimaryWorktreeResolutionPass());
+
+		assert.deepStrictEqual({
+			withinPass: [first, again],
+			callsWithinPass,
+			nextPass: nextPass?.toString(),
+			totalCalls: gitService.worktreeRootCalls,
+		}, {
+			withinPass: [undefined, undefined],
+			callsWithinPass: 1,
+			nextPass: primaryRoot.toString(),
+			totalCalls: 2,
+		});
 	});
 
 	test('falls back to repository context when no git project is available', async () => {

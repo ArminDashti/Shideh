@@ -5,7 +5,6 @@
 
 import { Sequencer } from '../../../base/common/async.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
-import { LRUCache } from '../../../base/common/map.js';
 import { URI } from '../../../base/common/uri.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import { ISessionFileDiff, ISessionGitState } from './state/sessionState.js';
@@ -108,11 +107,76 @@ export class CheckoutBlockedByLocalChangesError extends Error {
 }
 
 /**
- * Resolves linked checkouts to their primary worktree and caches successful mappings for every worktree reported by Git.
- * Resolution is serialized so concurrent requests across linked checkouts share one probe, while empty results remain retryable.
+ * Per-pass state for repairing many checkouts at once: what Git has already
+ * answered, what it could not answer, and how much longer the pass may spend
+ * asking.
+ *
+ * All of it is scoped to the pass rather than kept in the resolver, because
+ * none of it is durable knowledge. Git reports "this is not a worktree" and
+ * "Git could not run just now" identically, so remembering a failure would
+ * freeze a wrong repository root for every window until the Agent Host process
+ * restarts. A success is only true until the filesystem moves underneath it,
+ * and a listing now *certifies* what it resolves — so a mapping that outlived
+ * the pass that observed it could get a stale root stamped as canonical.
+ */
+export class PrimaryWorktreeResolutionPass {
+	private _deadline: number | undefined;
+	private readonly _roots = new Map<string, URI>();
+	private readonly _unresolvable = new Set<string>();
+
+	/** Omit `_budgetMs` for a pass that may take as long as it needs. */
+	constructor(private readonly _budgetMs?: number) { }
+
+	/**
+	 * Whether the pass has spent its budget. The clock starts at the first call
+	 * rather than at construction, so enumerating sessions and reading their
+	 * metadata cannot consume time meant for Git. The first probe is therefore
+	 * always allowed, which guarantees a pass makes progress however tight the
+	 * budget is.
+	 */
+	isExpired(): boolean {
+		if (this._budgetMs === undefined) {
+			return false;
+		}
+		if (this._deadline === undefined) {
+			this._deadline = Date.now() + this._budgetMs;
+			return false;
+		}
+		return Date.now() > this._deadline;
+	}
+
+	getRoot(key: string): URI | undefined {
+		return this._roots.get(key);
+	}
+
+	setRoot(key: string, primaryRoot: URI): void {
+		this._roots.set(key, primaryRoot);
+	}
+
+	isUnresolvable(key: string): boolean {
+		return this._unresolvable.has(key);
+	}
+
+	markUnresolvable(key: string): void {
+		this._unresolvable.add(key);
+	}
+}
+
+/**
+ * Resolves linked checkouts to their primary worktree, sharing one Git listing across every worktree it reports.
+ *
+ * One `git worktree list` teaches a pass a whole repository's membership, so a
+ * session catalogue collapses to roughly one Git launch per repository. That
+ * only holds if the recorded siblings match later lookups, so keys are
+ * canonical paths: Git reports resolved paths while a session persists the path
+ * it was created with, and `/tmp/x` and `/private/tmp/x` would otherwise be
+ * different keys for one worktree — every lookup a miss.
+ *
+ * Launches stay serialized, because that is what lets the first checkout of a
+ * repository answer every later one instead of each racing its own Git. Only
+ * lookups the pass cannot already answer reach the queue.
  */
 class PrimaryWorktreeRootResolver {
-	private readonly _roots = new LRUCache<string, URI>(100);
 	private readonly _sequencer = new Sequencer();
 
 	constructor(private readonly _gitService: IAgentHostGitService) { }
@@ -130,21 +194,55 @@ class PrimaryWorktreeRootResolver {
 			return cached;
 		}
 		return this._sequencer.queue(async () => {
-			const cached = this._roots.get(key);
-			if (cached) {
-				return cached;
+			// Re-check: a concurrent probe of a sibling checkout may have
+			// recorded this repository's membership while this one queued.
+			const known = pass.getRoot(key);
+			if (known) {
+				return known;
 			}
-			const roots = await this._gitService.getWorktreeRoots(checkoutRoot);
-			const primaryRoot = roots[0];
-			if (!primaryRoot) {
+			if (pass.isUnresolvable(key)) {
 				return undefined;
 			}
-			this._roots.set(key, primaryRoot);
-			for (const root of roots) {
-				this._roots.set(root.toString(), primaryRoot);
+			// Checked here rather than before queueing: callers arrive
+			// together, so they would all pass a check taken on arrival and
+			// then queue anyway, capping nothing. Anything the pass can
+			// already answer is served above regardless, because it costs
+			// nothing.
+			if (pass.isExpired()) {
+				return undefined;
 			}
+			const roots = await this._gitService.getWorktreeRoots(canonical);
+			const primaryRoot = roots[0];
+			if (!primaryRoot) {
+				pass.markUnresolvable(key);
+				return undefined;
+			}
+			pass.setRoot(key, primaryRoot);
+			await Promise.all(roots.map(async root => {
+				pass.setRoot(root.toString(), primaryRoot);
+				// Git usually reports resolved paths already, but Windows only
+				// settles on-disk casing through a real lookup.
+				const canonicalRoot = await this._canonicalize(root);
+				if (canonicalRoot) {
+					pass.setRoot(canonicalRoot.toString(), primaryRoot);
+				}
+			}));
 			return primaryRoot;
 		});
+	}
+
+	private async _canonicalize(path: URI): Promise<URI | undefined> {
+		const canonicalize = this._gitService.canonicalizeExistingPath;
+		if (!canonicalize) {
+			return path;
+		}
+		try {
+			return await canonicalize.call(this._gitService, path);
+		} catch {
+			// A thrown error is not an answer either, so it must not read as
+			// absence: fall back to the path as given and let Git decide.
+			return path;
+		}
 	}
 }
 

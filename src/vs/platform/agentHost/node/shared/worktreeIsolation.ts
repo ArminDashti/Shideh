@@ -1703,6 +1703,13 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				dbRef.object.setMetadata(WORKTREE_META_PATH, metadata.worktreePath.toString()),
 				dbRef.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT, metadata.repositoryRoot.toString()),
 			];
+			// Certify only a root Git actually answered for, so listing never
+			// re-derives it. A fallback is the raw checkout root, which is the
+			// value the migration exists to replace, and must stay repairable.
+			const stamp = metadata.repositoryRootResolved ? buildRepositoryRootStamp(metadata.repositoryRoot) : undefined;
+			if (stamp) {
+				work.push(dbRef.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT_STAMP, stamp));
+			}
 			if (metadata.baseBranch) {
 				work.push(dbRef.object.setMetadata(META_DIFF_BASE_BRANCH, metadata.baseBranch));
 			}
@@ -1785,7 +1792,10 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				if (resolved && primaryRoot.toString() !== repositoryRoot.toString()) {
 					repositoryRoot = primaryRoot;
 					try {
-						await ref.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT, primaryRoot.toString());
+						await Promise.all([
+							...(changed ? [ref.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT, primaryRoot.toString())] : []),
+							ref.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT_STAMP, nextStamp),
+						]);
 					} catch (error) {
 						this._logService.warn(`[${this._logLabel}] Failed to normalize worktree repository metadata for '${sessionUri.toString()}': ${errorMessage(error)}`);
 					}

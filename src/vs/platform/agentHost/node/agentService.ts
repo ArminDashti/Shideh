@@ -339,6 +339,18 @@ function withPersistedGitHubData(meta: SessionSummaryMeta | undefined, persisted
  */
 const RESOURCE_WATCH_GRACE_MS = 30_000;
 
+/**
+ * Wall-clock time one {@link AgentService.listSessions} call may spend launching
+ * Git to repair repository roots persisted by builds that predate
+ * worktree-identity canonicalization. Repair is stamped and therefore one-shot
+ * per session, but a first listing over a catalogue spanning many repositories
+ * still has to launch Git once per repository. Sessions reached after the budget
+ * keep their persisted root, stay unstamped, and are repaired by a later
+ * listing. The budget gates *starting* a launch, so one already in flight can
+ * still run to `_runGit`'s timeout.
+ */
+const LISTED_WORKTREE_ROOT_MIGRATION_BUDGET_MS = 2_000;
+
 /** Bound on how long {@link AgentService.subscribe} waits for a pending subagent chat to register before giving up. */
 const SUBAGENT_CHAT_PENDING_TIMEOUT_MS = 15_000;
 
