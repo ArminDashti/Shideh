@@ -210,6 +210,11 @@ export class ActionWidgetService extends Disposable implements IActionWidgetServ
 			if (this._list.value.footerContainer) {
 				widget.appendChild(this._list.value.footerContainer);
 			}
+			// Info banner is rendered at the very bottom of the widget, below
+			// the list (and footer), so it reads as a closing hint.
+			if (this._list.value.bannerContainer) {
+				widget.appendChild(this._list.value.bannerContainer);
+			}
 		} else {
 			throw new Error('List has no value');
 		}

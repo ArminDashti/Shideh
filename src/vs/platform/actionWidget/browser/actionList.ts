@@ -558,17 +558,18 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 		const actionTitle = this._keybindingService.lookupKeybinding(acceptSelectedActionCommand)?.getLabel();
 		const previewTitle = this._keybindingService.lookupKeybinding(previewSelectedActionCommand)?.getLabel();
 		data.container.classList.toggle('option-disabled', !!element.disabled);
+		let resolvedTitle = '';
 		if (element.hover !== undefined) {
 			// Don't show tooltip when hover content is configured - the rich hover will show instead
-			data.container.title = '';
+			resolvedTitle = '';
 		} else if (element.tooltip) {
-			data.container.title = element.tooltip;
+			resolvedTitle = element.tooltip;
 		} else if (element.disabled) {
 			data.container.title = element.label;
 		} else if (element.standaloneToggle) {
 			data.container.title = '';
 		} else if (this._hideDefaultKeybindingTooltip) {
-			data.container.title = '';
+			resolvedTitle = '';
 		} else if (actionTitle && previewTitle) {
 			if (this._supportsPreview && element.canPreview) {
 				tooltipText = localize({ key: 'label-preview', comment: ['placeholders are keybindings, e.g "F2 to Apply, Shift+F2 to Preview"'] }, "{0} to Apply, {1} to Preview", actionTitle, previewTitle);
@@ -653,6 +654,7 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 	disposeTemplate(templateData: IActionMenuTemplateData): void {
 		templateData.keybinding.dispose();
 		templateData.elementDisposables.dispose();
+		templateData.managedHover?.dispose();
 	}
 }
 
@@ -932,6 +934,7 @@ export class ActionListWidget<T> extends Disposable {
 		protected readonly _options: IActionListOptions | undefined,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		@IHoverService private readonly _hoverService: IHoverService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IHoverService private readonly _hoverService: IHoverService,
 	) {
@@ -1045,6 +1048,21 @@ export class ActionListWidget<T> extends Disposable {
 			const reserve = this._options?.reserveSubmenuSpace ?? true;
 			return reserve === 'always' || (reserve && this._allMenuItems.some(hasSubmenuIndicator));
 		};
+
+		// Opt-in themed hovers: when a position is configured, route item
+		// tooltips through a side-positioned VS Code hover instead of native
+		// `title` tooltips. Other callers keep native tooltips untouched.
+		let managedHoverService: IHoverService | undefined;
+		let managedHoverDelegate: IHoverDelegate | undefined;
+		if (this._options?.managedHoverPosition !== undefined) {
+			managedHoverService = this._hoverService;
+			managedHoverDelegate = this._register(this._instantiationService.createInstance(
+				WorkbenchHoverDelegate,
+				'element',
+				undefined,
+				{ position: { hoverPosition: this._options.managedHoverPosition } }
+			));
+		}
 
 		this._list = this._register(new List(user, this.domNode, virtualDelegate, [
 			new ActionItemRenderer<T>(this._supportsPreview, (item) => this._removeItem(item), (item) => this._showSubmenuForItem(item), reservesSubmenuSpace, this._groupTitleByIndex, this._options?.linkHandler, this._options?.hideDefaultKeybindingTooltip ?? false, this._options?.stopToolbarPointerPropagation ?? false, (item, toggle) => {
