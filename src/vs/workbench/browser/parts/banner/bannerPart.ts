@@ -91,6 +91,13 @@ export class BannerPart extends Part implements IBannerService {
 		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(this.element));
 		BannerFocused.bindTo(scopedContextKeyService).set(true);
 
+		// Render any item that was queued before the content area was created
+		if (this.pendingItem) {
+			const item = this.pendingItem;
+			this.pendingItem = undefined;
+			this.show(item);
+		}
+
 		return this.element;
 	}
 
