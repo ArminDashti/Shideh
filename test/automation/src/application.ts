@@ -122,13 +122,15 @@ export class Application {
 	}
 
 	async stop(): Promise<void> {
-		if (this._code) {
-			try {
-				await this._code.exit();
-			} finally {
-				this._code = undefined;
+		await measureAndLog(() => (async () => {
+			if (this._code) {
+				try {
+					await this._code.exit();
+				} finally {
+					this._code = undefined;
+				}
 			}
-		}
+		})(), 'Application#stop()', this.logger);
 	}
 
 	async startTracing(name?: string): Promise<void> {
