@@ -117,7 +117,7 @@ import { ChatMcpAuthenticationContentPart } from './chatContentParts/chatMcpAuth
 import { ChatMcpServersStartingContentPart } from './chatContentParts/chatMcpServersStartingContentPart.js';
 import { ChatDisabledClaudeHooksContentPart } from './chatContentParts/chatDisabledClaudeHooksContentPart.js';
 import { ChatMultiDiffContentPart } from './chatContentParts/chatMultiDiffContentPart.js';
-import { ChatProgressContentPart, ChatWorkingProgressContentPart } from './chatContentParts/chatProgressContentPart.js';
+import { ChatPersistentProgressPart, ChatProgressContentPart, ChatWorkingProgressContentPart } from './chatContentParts/chatProgressContentPart.js';
 import { ChatPullRequestContentPart } from './chatContentParts/chatPullRequestContentPart.js';
 import { ChatQuotaExceededPart } from './chatContentParts/chatQuotaExceededPart.js';
 import { ChatCollapsibleListContentPart, ChatUsedReferencesListContentPart, CollapsibleListPool } from './chatContentParts/chatReferencesContentPart.js';
@@ -165,6 +165,7 @@ export interface IChatListItemTemplate {
 	 * they are disposed in a separate cycle after diffing with the next content to render.
 	 */
 	renderedParts?: IChatContentPart[];
+	persistentProgressPart?: ChatPersistentProgressPart;
 	/**
 	 * Tool parts that have been moved out of a thinking part into the row's value
 	 * container. Their lifecycle matches `renderedParts` (cleared by
@@ -1913,6 +1914,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		templateData.movedOutToolParts?.dispose();
 		templateData.movedOutToolParts = undefined;
+		this.clearPersistentProgress(templateData);
 
 		// This template item is no longer in use, or having another element rendered into it,
 		// clear the context on toolbars so it doesn't retain the viewmodel.
@@ -1929,6 +1931,13 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		templateData.completedResponseDisclosureOpen = undefined;
 		templateData.completedResponseCollapseEndIndex = undefined;
 		templateData.wasResponseComplete = undefined;
+	}
+
+	private clearPersistentProgress(templateData: IChatListItemTemplate): void {
+		templateData.persistentProgressPart?.dispose();
+		templateData.persistentProgressPart = undefined;
+		dom.clearNode(templateData.persistentProgressContainer);
+		dom.hide(templateData.persistentProgressContainer);
 	}
 
 	private renderChatTreeItem(element: ChatTreeItem, index: number, templateData: IChatListItemTemplate): void {
@@ -2485,6 +2494,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		if (this.rendererOptions.renderStyle === 'minimal' || element.isComplete) {
 			return undefined;
 		}
+		if (this.configService.getValue<boolean>(ChatConfiguration.ChatPersistentProgressEnabled)) {
+			return undefined;
+		}
 
 		if (this.isPersistentProgressEnabled()) {
 			return element.isCanceled ? undefined : this.getPersistentWorkingProgress(element, partsToRender);
@@ -2708,6 +2720,10 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	private doUpdateWorkingProgress(templateData: IChatListItemTemplate): void {
 		const element = templateData.currentElement;
 		if (!isResponseVM(element)) {
+			return;
+		}
+		if (this.configService.getValue<boolean>(ChatConfiguration.ChatPersistentProgressEnabled)) {
+			this.updatePersistentProgress(element, templateData);
 			return;
 		}
 

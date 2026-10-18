@@ -597,3 +597,37 @@ export class ChatWorkingProgressContentPart extends ChatProgressContentPart impl
 			&& (other.showDelayedProgressMessage ?? false) === this.showDelayedProgressMessage;
 	}
 }
+
+export class ChatPersistentProgressPart extends Disposable {
+	readonly domNode: HTMLElement;
+
+	private readonly labelElement: HTMLElement;
+	private readonly elapsedElement: HTMLElement;
+
+	constructor(
+		readonly responseId: string,
+		private readonly startedAt: number,
+		initialLabel: string,
+	) {
+		super();
+
+		this.domNode = $('.chat-persistent-progress');
+		this.labelElement = append(this.domNode, $('span.chat-persistent-progress-label'));
+		append(this.domNode, $('span.chat-persistent-progress-separator', { 'aria-hidden': 'true' }, '\u00B7'));
+		this.elapsedElement = append(this.domNode, $('span.chat-persistent-progress-elapsed'));
+
+		this.updateLabel(initialLabel);
+		this.updateElapsedTime();
+
+		const timer = this._register(new WindowIntervalTimer());
+		timer.cancelAndSet(() => this.updateElapsedTime(), 1000, getWindow(this.domNode));
+	}
+
+	updateLabel(label: string): void {
+		this.labelElement.textContent = label;
+	}
+
+	private updateElapsedTime(): void {
+		this.elapsedElement.textContent = formatElapsedTime(Math.max(0, Date.now() - this.startedAt));
+	}
+}

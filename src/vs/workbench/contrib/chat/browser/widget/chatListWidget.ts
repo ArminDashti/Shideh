@@ -748,6 +748,8 @@ export class ChatListWidget extends Disposable {
 				|| e.affectsConfiguration(ChatConfiguration.PersistentProgressVerbosity)) {
 				this._settingChangeCounter++;
 				this.refresh();
+			} else if (e.affectsConfiguration(ChatConfiguration.ChatPersistentProgressEnabled)) {
+				this.rerender();
 			}
 		}));
 	}

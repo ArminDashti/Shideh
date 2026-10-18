@@ -487,6 +487,11 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 		this.allThinkingParts.push(content);
 		const configuredMode = context.suppressProgressShimmer ? ThinkingDisplayMode.CollapsedPreview : getEffectiveThinkingDisplayMode(this.configurationService, contextKeyService, context.readOnly);
 		this.thinkingDisplayMode = configuredMode;
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ChatConfiguration.ChatPersistentProgressEnabled)) {
+				this.updateWorkingSpinnerVisibility();
+			}
+		}));
 
 		this.fixedScrollingMode = configuredMode === ThinkingDisplayMode.FixedScrolling
 			|| configuredMode === ThinkingDisplayMode.FixedScrollingCollapsible
@@ -1438,6 +1443,7 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 
 			return !IChatToolInvocation.isComplete(toolInvocation, reader);
 		});
+		const persistentProgressEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.ChatPersistentProgressEnabled);
 
 		const isAttached = this.workingSpinnerElement.parentNode === this.wrapper;
 		const hideSpinner = this.context.suppressProgressShimmer || hasRunningTerminalTool;
