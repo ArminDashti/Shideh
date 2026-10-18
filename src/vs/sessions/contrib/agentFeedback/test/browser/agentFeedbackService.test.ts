@@ -862,6 +862,40 @@ suite('AgentFeedbackService - getSessionForFile', () => {
 		assert.deepStrictEqual({ computations, releasedSubscriptions }, { computations: 1, releasedSubscriptions: 1 });
 	});
 
+	test('computes the session external changes once for repeated scope checks', () => {
+		const external = URI.file('/home/user/.config/settings.json');
+		let computations = 0;
+		let releasedSubscriptions = 0;
+		// Mirrors the agent host provider, which holds a state subscription per
+		// chat for as long as its external changes are observed and releases
+		// them again once they are not.
+		const externalChanges = derived<readonly ISessionFile[]>(reader => {
+			computations++;
+			reader.store.add(toDisposable(() => releasedSubscriptions++));
+			return [{ uri: external, operation: SessionFileOperation.Modified }];
+		});
+		const wsSession: ISession = { ...makeSession(sessionS1, SessionStatus.InProgress, { folders: [URI.file('/workspace')] }), externalChanges };
+		sessions.set(sessionS1.toString(), wsSession);
+		setActiveSession(wsSession);
+
+		const scopes = [
+			service.getSessionForFile(external)?.resource.toString(),
+			service.getSessionForFile(URI.file('/elsewhere/other.ts'))?.resource.toString(),
+			service.getSessionForFile(external)?.resource.toString(),
+		];
+
+		assert.deepStrictEqual({ scopes, computations, releasedSubscriptions }, {
+			scopes: [sessionS1.toString(), undefined, sessionS1.toString()],
+			computations: 1,
+			releasedSubscriptions: 0,
+		});
+
+		// Activating another session releases the previous session's subscriptions.
+		setActiveSession(sessions.get(sessionS2.toString())!);
+
+		assert.deepStrictEqual({ computations, releasedSubscriptions }, { computations: 1, releasedSubscriptions: 1 });
+	});
+
 	test('does not return a session for output view resources', () => {
 		const wsSession = makeSession(sessionS1, SessionStatus.InProgress, { folders: [URI.file('/workspace')] });
 		sessions.set(sessionS1.toString(), wsSession);
