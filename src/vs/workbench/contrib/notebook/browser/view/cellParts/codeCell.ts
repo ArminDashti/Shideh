@@ -160,6 +160,22 @@ export class CodeCell extends Disposable {
 
 		this._cellEditorOptions.setLineNumbers(this.viewCell.lineNumbers);
 		templateData.editor.updateOptions(this._cellEditorOptions.getUpdatedValue(this.viewCell.internalMetadata, this.viewCell.uri));
+
+		this._register(this.notebookEditor.onDidScroll(() => {
+			const extraOffset = -18; // height of a line
+			const min = 0;
+
+			const scrollTop = notebookEditor.scrollTop;
+			const elementTop = notebookEditor.getAbsoluteTopOfElement(viewCell);
+			const diff = scrollTop - elementTop + extraOffset;
+			const maxTop = viewCell.layoutInfo.editorHeight + viewCell.layoutInfo.statusBarHeight - 45 - this.notebookEditor.getLayoutInfo().height;
+			const top = maxTop > 20 ? // Don't move the run button if it can only move a very short distance
+				clamp(min, diff, maxTop) :
+				min;
+			templateData.editorPart.style.top = `${top}px`;
+			// scroll the editor with top
+			templateData.editor?.setScrollTop(top);
+		}));
 	}
 
 	private updateCodeCellOptions(templateData: CodeCellRenderTemplate) {
@@ -403,6 +419,7 @@ export class CodeCell extends Disposable {
 
 			const selections = this.templateData.editor.getSelections();
 
+			// TODO: this will not work properly when the cell editor is virtualized
 			if (selections?.length) {
 				const contentHeight = this.templateData.editor.getContentHeight();
 				const layoutContentHeight = this.viewCell.layoutInfo.editorHeight;
