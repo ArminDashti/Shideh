@@ -14,10 +14,20 @@ import { OpeningBracketId, Tokenizer, TokenKind } from './tokenizer.js';
 /**
  * Non incrementally built ASTs are immutable.
 */
-export function parseDocument(tokenizer: Tokenizer, edits: TextEditInfo[], oldNode: AstNode | undefined, createImmutableLists: boolean): AstNode {
+export function parseDocument(tokenizer: Tokenizer, edits: TextEditInfo[], oldNode: AstNode | undefined, createImmutableLists: boolean): AstNode | undefined {
 	const parser = new Parser(tokenizer, edits, oldNode, createImmutableLists);
-	return parser.parseDocument();
+	try {
+		return parser.parseDocument();
+	} catch (e) {
+		if (e instanceof TooDeepError) {
+			// We don't support documents that are too deep.
+			return undefined;
+		}
+		throw e;
+	}
 }
+
+class TooDeepError { }
 
 /**
  * Non incrementally built ASTs are immutable.
