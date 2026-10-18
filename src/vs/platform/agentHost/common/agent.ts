@@ -1510,6 +1510,9 @@ export interface IAgent {
 	/** Lets discovery drop registered candidates before per-session I/O. */
 	setKnownSessionsFilter?(filter: IAgentKnownSessionsFilter): void;
 
+	/** Lets discovery drop registered candidates before per-session I/O. */
+	setKnownSessionsFilter?(filter: IAgentKnownSessionsFilter): void;
+
 	// ---- Legacy migration ---------------------------------------------------
 
 	/** Optional adoption hook for providers with a predecessor-owned on-disk format. */
