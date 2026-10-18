@@ -1280,6 +1280,12 @@ export class ChangeLanguageAction extends Action2 {
 							}
 						}
 					}
+				} else if (notebookActions.indexOf(pick as (IQuickPickItem & { viewType: string; }))) {
+					const name = basename(resource!);
+					const input = this.instantiationService.createInstance(NotebookEditorInput, resource!, name, (pick as (IQuickPickItem & { viewType: string; })).viewType);
+					await this.editorService.replaceEditors([{ replacement: input, editor: activeEditor }], this.editorService.activeEditorPane!.group);
+					await this.editorService.openEditor(input);
+					return;
 				} else {
 					languageSelection = languageService.createById(pick.id);
 
