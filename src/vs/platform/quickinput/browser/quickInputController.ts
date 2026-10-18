@@ -71,6 +71,8 @@ export class QuickInputController extends Disposable {
 	private static readonly MAX_WIDTH = 600;
 	private static readonly MAX_HEIGHT = 600;
 
+	private readonly inQuickInputContext = InQuickInputContextKey.bindTo(this.contextKeyService);
+
 	private idPrefix: string;
 	private ui: QuickInputUI | undefined;
 	private dimension?: dom.IDimension;
