@@ -638,6 +638,9 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 
 		this._body = document.createElement('div');
 		DOM.append(parent, this._body);
+		this._body.classList.add('cell-list-container');
+		this._createLayoutStyles();
+		this._createCellList();
 
 		this._body.classList.add('cell-list-container');
 		this._createLayoutStyles();
