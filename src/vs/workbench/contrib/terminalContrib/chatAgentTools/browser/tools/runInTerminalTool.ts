@@ -128,7 +128,7 @@ function createPowerShellModelDescription(shell: string, sandboxingOptions: ISan
 		'',
 		'Directory Management:',
 		'- Prefer relative paths when navigating directories, only use absolute when the path is far away or the current cwd is not expected',
-		'- By default (mode=sync), shell and cwd are reused by subsequent sync commands',
+		'- Shell and cwd are reused by subsequent commands in the same session',
 		'- Use $PWD or Get-Location for current directory',
 		'- Use Push-Location/Pop-Location for directory stack',
 		'',
@@ -284,7 +284,7 @@ Command Execution:
 
 Directory Management:
 - Prefer relative paths when navigating directories, only use absolute when the path is far away or the current cwd is not expected
-- By default (mode=sync), shell and cwd are reused by subsequent sync commands
+- Shell and cwd are reused by subsequent commands in the same session
 - Use $PWD for current directory references
 - Consider using pushd/popd for directory stack management
 - Supports directory shortcuts like ~ and -
@@ -489,7 +489,7 @@ export async function createRunInTerminalToolData(
 					description: 'Optional. Usually omit entirely for sync commands — the tool waits for completion automatically. Only set a timeout (in milliseconds) as a safety net if you suspect the command might hang. If the timeout elapses, the command continues in the background and you get a terminal ID to check output later. Use 0 to explicitly indicate no timeout.',
 				},
 			},
-			required: ['command', 'explanation', 'goal', 'mode']
+			required: ['command', 'explanation', 'goal']
 		}
 	};
 }
@@ -600,9 +600,10 @@ export interface IRunInTerminalInputParams {
 	command: string;
 	explanation: string;
 	goal: string;
-	mode?: 'sync' | 'async';
 	/**
-	 * @deprecated Use `mode` instead.
+	 * Advisory hint: set to true for processes that should keep running
+	 * indefinitely (servers, watchers, daemons). The backend decides
+	 * execution strategy.
 	 */
 	isBackground?: boolean;
 	detach?: boolean;
@@ -887,14 +888,12 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 	}
 
 	private _resolveExecutionOptions(args: IRunInTerminalInputParams): IResolvedExecutionOptions {
-		const mode = args.mode ?? (args.isBackground ? 'async' : 'sync');
-		switch (mode) {
-			case 'async':
-				return { mode: 'async', persistentSession: true, waitStrategy: 'idle' };
-			case 'sync':
-			default:
-				return { mode: 'sync', persistentSession: false, waitStrategy: 'completion' };
+		// isBackground is the only advertised signal. The backend decides
+		// everything else. Legacy `mode` is silently ignored.
+		if (args.isBackground) {
+			return { mode: 'async', persistentSession: true, waitStrategy: 'idle' };
 		}
+		return { mode: 'sync', persistentSession: false, waitStrategy: 'completion' };
 	}
 
 	private get _allowUnsandboxedCommands(): boolean {
@@ -2113,22 +2112,11 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 
 		this._logService.debug(`RunInTerminalTool: Invoking with options ${JSON.stringify(args)}`);
 		let toolResultMessage: string | IMarkdownString | undefined;
-		if (args.timeout !== undefined && (Number.isNaN(args.timeout) || args.timeout < 0)) {
-			return {
-				content: [{
-					kind: 'text',
-					value: 'Error: timeout must be a non-negative number of milliseconds (use 0 for no timeout).'
-				}]
-			};
-		}
-		if (executionOptions.mode === 'sync' && args.timeout === undefined) {
-			// Timeout is optional for mode=sync: when omitted, the tool waits for
-			// the command to complete with no hard cap. Models frequently pick
-			// timeouts that are too short for package installs, builds, and
-			// long-running scripts, which causes the command to be moved to the
-			// background unnecessarily.
-			args.timeout = 0;
-		}
+
+		// Backend owns timeout decisions unconditionally. Any model-supplied
+		// timeout is silently ignored — the tool waits for completion with
+		// idle-silence as the only safety net.
+		args.timeout = 0;
 
 		const chatSessionResource = invocation.context.sessionResource;
 		// Subagent-initiated terminals cannot receive steering messages; the subagent
@@ -2373,6 +2361,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 						id: termId,
 						terminalId: toolTerminal.instance.instanceId,
 						cwd: endCwd?.toString(),
+						state: idleTimedOut ? 'timed_out' : 'running',
 					},
 					content: [{
 						kind: 'text',
@@ -2511,6 +2500,8 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 								id: termId,
 								terminalId: toolTerminal.instance.instanceId,
 								cwd: altBufferCwd?.toString(),
+								state: 'input_needed',
+								inputNeeded: true,
 							},
 							content: [{
 								kind: 'text',
@@ -2712,7 +2703,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				// Tell the model so it does not try to drive interactive programs through it.
 				const wasDetachedToBackground = /(^|\s)nohup\s|Start-Process\b/.test(command);
 				const stdinHint = wasDetachedToBackground
-					? ' Note that stdin is closed for detached background processes; do not try to send input via send_to_terminal — re-run with mode="sync" instead if interactive input is required.'
+					? ' Note that stdin is closed for detached background processes; do not try to send input via send_to_terminal — re-run without isBackground instead if interactive input is required.'
 					: '';
 				resultText.push(`Note: The tool simplified the command to \`${command}\` (terminal ID=${termId}).${stdinHint} This is the output of running that command instead:\n`);
 			}
@@ -2761,6 +2752,11 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 				id: termId,
 				terminalId: toolTerminal.instance.instanceId,
 				cwd: endCwd?.toString(),
+				state: didInputNeeded ? 'input_needed'
+					: didTimeout ? 'timed_out'
+						: didIdleSilence ? 'idle_silent'
+							: isBackgroundExecution ? 'running'
+								: 'completed',
 				timedOut: didTimeout || undefined,
 				timeoutMs: didTimeout ? timeoutValue : undefined,
 				inputNeeded: didInputNeeded || undefined,

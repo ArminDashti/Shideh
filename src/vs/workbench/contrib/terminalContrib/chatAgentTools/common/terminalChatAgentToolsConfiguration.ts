@@ -23,6 +23,12 @@ import { terminalProfileBaseProperties } from '../../../../../platform/terminal/
  */
 export const DEFAULT_IDLE_SILENCE_TIMEOUT_MS = 300_000; // 5 minutes
 
+/**
+ * Default idle silence timeout in milliseconds. Used as both the configuration
+ * default and the runtime fallback when the setting is unavailable.
+ */
+export const DEFAULT_IDLE_SILENCE_TIMEOUT_MS = 300_000; // 5 minutes
+
 export const enum TerminalChatAgentToolsSettingId {
 	EnableAutoApprove = 'chat.tools.terminal.enableAutoApprove',
 	AutoApprove = 'chat.tools.terminal.autoApprove',
