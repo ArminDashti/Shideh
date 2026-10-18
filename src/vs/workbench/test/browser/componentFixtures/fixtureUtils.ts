@@ -739,6 +739,13 @@ export function createEditorServices(disposables: DisposableStore, options?: Cre
 		get isVisible() { return false; },
 	});
 
+	definePartialInstance(IActionWidgetService, {
+		_serviceBrand: undefined,
+		show: () => { },
+		hide: () => { },
+		get isVisible() { return false; },
+	});
+
 	defineInstance(IAccessibilitySignalService, {
 		_serviceBrand: undefined,
 		playSignal: async () => { },
