@@ -52,9 +52,9 @@ export class CreateAndRunTaskTool implements IToolImpl {
 	) { }
 
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
-		const args = invocation.parameters as ICreateAndRunTaskToolInput;
+		const args = invocation.input.parameters as ICreateAndRunTaskToolInput;
 
-		if (!invocation.context) {
+		if (!invocation.input.context) {
 			return { content: [{ kind: 'text', value: `No invocation context` }], toolResultMessage: `No invocation context` };
 		}
 
@@ -220,7 +220,7 @@ export class CreateAndRunTaskTool implements IToolImpl {
 		return { content: [{ kind: 'text', value: message }], toolResultMessage: message };
 	}
 
-	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation> {
 		const args = context.parameters as ICreateAndRunTaskToolInput;
 		const task = args.task;
 

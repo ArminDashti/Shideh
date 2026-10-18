@@ -305,7 +305,7 @@ export class RunTestTool implements IToolImpl {
 		return tests;
 	}
 
-	prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation> {
 		const params: IRunTestToolParams = context.parameters;
 		const title = localize('runTestTool.confirm.title', 'Allow test run?');
 		const inFiles = params.files?.map((f: string) => '`' + basename(f) + '`');

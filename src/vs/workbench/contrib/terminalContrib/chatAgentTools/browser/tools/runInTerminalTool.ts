@@ -1119,7 +1119,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		return { invocationMessage: localize('runInTerminal.streaming.default', "Running command") };
 	}
 
-	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation> {
 		const args = context.parameters as IRunInTerminalInputParams;
 		const executionOptions = this._resolveExecutionOptions(args);
 

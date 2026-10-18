@@ -37,9 +37,9 @@ export class RunTaskTool implements IToolImpl {
 	) { }
 
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
-		const args = invocation.parameters as IRunTaskToolInput;
+		const args = invocation.input.parameters as IRunTaskToolInput;
 
-		if (!invocation.context) {
+		if (!invocation.input.context) {
 			return { content: [{ kind: 'text', value: `No invocation context` }], toolResultMessage: `No invocation context` };
 		}
 
@@ -130,7 +130,7 @@ export class RunTaskTool implements IToolImpl {
 		return busyTasks?.some(t => tasksMatch(t, task)) ?? false;
 	}
 
-	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation> {
 		const args = context.parameters as IRunTaskToolInput;
 		const taskDefinition = getTaskDefinition(args.id);
 

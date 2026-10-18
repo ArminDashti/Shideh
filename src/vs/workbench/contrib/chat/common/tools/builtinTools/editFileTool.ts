@@ -41,11 +41,11 @@ export class EditTool implements IToolImpl {
 	) { }
 
 	async invoke(invocation: IToolInvocation, countTokens: CountTokensCallback, _progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
-		if (!invocation.context) {
+		if (!invocation.input.context) {
 			throw new Error('toolInvocationToken is required for this tool');
 		}
 
-		const parameters = invocation.parameters as EditToolParams;
+		const parameters = invocation.input.parameters as EditToolParams;
 		const fileUri = URI.revive(parameters.uri);
 		const uri = CellUri.parse(fileUri)?.notebook || fileUri;
 
@@ -88,7 +88,7 @@ export class EditTool implements IToolImpl {
 		const result = await this.codeMapperService.mapCode({
 			codeBlocks: [{ code: parameters.code, resource: uri, markdownBeforeBlock: parameters.explanation }],
 			location: 'tool',
-			chatRequestId: invocation.chatRequestId,
+			chatRequestId: invocation.input.chatRequestId,
 			chatRequestModel: invocation.modelId,
 			chatSessionResource: invocation.context.sessionResource,
 		}, {

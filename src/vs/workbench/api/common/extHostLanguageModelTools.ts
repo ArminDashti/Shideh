@@ -7,6 +7,7 @@ import type * as vscode from 'vscode';
 import { raceCancellation } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { CancellationError } from '../../../base/common/errors.js';
+import { Lazy } from '../../../base/common/lazy.js';
 import { IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { revive } from '../../../base/common/marshalling.js';
 import { isAsyncIterable } from '../../../base/common/types.js';
@@ -227,7 +228,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 	async $invokeTool(dto: Dto<IToolInvocation>, token: CancellationToken): Promise<Dto<IToolResult> | SerializableObjectWithBuffers<Dto<IToolResult>>> {
 		const item = this._registeredTools.get(dto.toolId);
 		if (!item) {
-			throw new Error(`Unknown tool ${dto.toolId}`);
+			throw new Error(`Unknown tool ${dto.input.toolId}`);
 		}
 
 		const options: vscode.LanguageModelToolInvocationOptions<Object> = {
@@ -256,11 +257,11 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 			options.chatStreamToolCallId = dto.chatStreamToolCallId;
 		}
 
-		if (dto.tokenBudget !== undefined) {
+		if (dto.input.tokenBudget !== undefined) {
 			options.tokenizationOptions = {
-				tokenBudget: dto.tokenBudget,
-				countTokens: this._tokenCountFuncs.get(dto.callId) || ((value, token = CancellationToken.None) =>
-					this._proxy.$countTokensForInvocation(dto.callId, value, token))
+				tokenBudget: dto.input.tokenBudget,
+				countTokens: this._tokenCountFuncs.get(dto.input.callId) || ((value, token = CancellationToken.None) =>
+					this._proxy.$countTokensForInvocation(dto.input.callId, value, token))
 			};
 		}
 

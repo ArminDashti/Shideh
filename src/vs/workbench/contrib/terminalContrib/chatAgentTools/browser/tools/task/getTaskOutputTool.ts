@@ -60,7 +60,7 @@ export class GetTaskOutputTool extends Disposable implements IToolImpl {
 	) {
 		super();
 	}
-	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	async prepareToolInvocation(context: IToolInvocationPreparationContext, token: CancellationToken): Promise<IPreparedToolInvocation> {
 		const args = context.parameters as IGetTaskOutputInputParams;
 
 		const taskDefinition = getTaskDefinition(args.id);
@@ -81,7 +81,7 @@ export class GetTaskOutputTool extends Disposable implements IToolImpl {
 	}
 
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, token: CancellationToken): Promise<IToolResult> {
-		const args = invocation.parameters as IGetTaskOutputInputParams;
+		const args = invocation.input.parameters as IGetTaskOutputInputParams;
 		const taskDefinition = getTaskDefinition(args.id);
 		const task = await getTaskForTool(args.id, taskDefinition, args.workspaceFolder, this._configurationService, this._tasksService, true);
 		if (!task) {

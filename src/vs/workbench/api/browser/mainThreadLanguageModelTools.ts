@@ -93,12 +93,12 @@ export class MainThreadLanguageModelTools extends Disposable implements MainThre
 			{
 				invoke: async (dto, countTokens, progress, token) => {
 					try {
-						this._runningToolCalls.set(dto.callId, { countTokens, progress });
+						this._runningToolCalls.set(dto.input.callId, { countTokens, progress });
 						const resultSerialized = await this._proxy.$invokeTool(dto, token);
 						const resultDto: Dto<IToolResult> = resultSerialized instanceof SerializableObjectWithBuffers ? resultSerialized.value : resultSerialized;
 						return revive<IToolResult>(resultDto);
 					} finally {
-						this._runningToolCalls.delete(dto.callId);
+						this._runningToolCalls.delete(dto.input.callId);
 					}
 				},
 				prepareToolInvocation: (context, token) => this._proxy.$prepareToolInvocation(id, context, token),

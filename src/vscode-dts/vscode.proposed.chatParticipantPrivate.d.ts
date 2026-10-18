@@ -419,7 +419,6 @@ declare module 'vscode' {
 		input: T;
 		chatRequestId?: string;
 		chatSessionId?: string;
-		chatInteractionId?: string;
 	}
 
 	export interface PreparedToolInvocation {
