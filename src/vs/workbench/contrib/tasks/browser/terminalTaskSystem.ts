@@ -507,6 +507,14 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 			return;
 		}
 		delete this._activeTasks[key];
+		console.log('removing ', this._lastTask?.task._label);
+		console.log('active tasks currently', Object.keys(this._activeTasks));
+		if (Object.values(this._activeTasks).length === 1) {
+			if (this._lastTask?.task.configurationProperties.dependsOn) {
+				console.log('removing task from active tasks', this._lastTask.task._label);
+				this._removeFromActiveTasks(this._lastTask.task);
+			}
+		}
 	}
 
 	private _fireTaskEvent(event: ITaskEvent) {
