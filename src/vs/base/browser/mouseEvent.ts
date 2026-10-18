@@ -112,13 +112,6 @@ interface IWebKitMouseWheelEvent {
 	wheelDeltaX: number;
 }
 
-interface IGeckoMouseWheelEvent {
-	HORIZONTAL_AXIS: number;
-	VERTICAL_AXIS: number;
-	axis: number;
-	detail: number;
-}
-
 export class StandardWheelEvent {
 
 	public readonly browserEvent: IMouseWheelEvent | null;
