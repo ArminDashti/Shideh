@@ -138,6 +138,16 @@ export class StandardWheelEvent {
 		}
 
 		if (e) {
+			const logData = {
+				wheelDeltaY: e.wheelDeltaY,
+				wheelDeltaX: e.wheelDeltaX,
+				wheelDelta: e.wheelDelta,
+				type: e.type,
+				deltaY: e.deltaY,
+				deltaX: e.deltaX,
+				deltaMode: e.deltaMode
+			};
+			console.log(JSON.stringify(logData));
 			// Old (deprecated) wheel events
 			// eslint-disable-next-line local/code-no-any-casts
 			const e1 = <IWebKitMouseWheelEvent><any>e;
@@ -159,7 +169,7 @@ export class StandardWheelEvent {
 				// Modern wheel event
 				// https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent
 				const ev = <WheelEvent><unknown>e;
-
+				console.log(`Using modern wheel events`);
 				if (ev.deltaMode === ev.DOM_DELTA_LINE) {
 					// the deltas are expressed in lines
 					if (browser.isFirefox && !platform.isMacintosh) {
@@ -171,6 +181,7 @@ export class StandardWheelEvent {
 					this.deltaY = -e.deltaY / 40;
 				}
 			}
+			console.log(`deltaY: ${this.deltaY}`);
 
 			// horizontal delta scroll
 			if (typeof e1.wheelDeltaX !== 'undefined') {
