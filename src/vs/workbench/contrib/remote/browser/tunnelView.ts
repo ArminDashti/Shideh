@@ -1130,6 +1130,10 @@ namespace LabelTunnelAction {
 	export const LABEL = nls.localize('remote.tunnel.label', "Set Port Label");
 	export const COMMAND_ID_KEYWORD = 'label';
 
+	function isITunnelItem(item: any): item is ITunnelItem {
+		return item && item.tunnelType && item.remoteHost && item.source;
+	}
+
 	export function handler(): ICommandHandler {
 		return async (accessor, arg): Promise<{ port: number; label: string } | undefined> => {
 			const remoteExplorerService = accessor.get(IRemoteExplorerService);
