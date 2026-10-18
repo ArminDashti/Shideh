@@ -539,6 +539,24 @@ suite('AgentHostLanguageModelProvider', () => {
 		]);
 	});
 
+	test('marks the model the host reports as default as the chat default', async () => {
+		const provider = createProvider();
+		provider.updateModels([
+			makeModel('gpt-5'),
+			makeModel('claude-sonnet', { isDefault: true }),
+			// Only a boolean `true` counts; other values in the open `_meta` bag are ignored.
+			makeModel('auto', { isDefault: 'yes' }),
+		]);
+
+		const infos = await provider.provideLanguageModelChatInfo(undefined, CancellationToken.None);
+
+		assert.deepStrictEqual(infos.map(info => [info.metadata.id, info.metadata.isDefaultForLocation]), [
+			['gpt-5', {}],
+			['claude-sonnet', { [ChatAgentLocation.Chat]: true }],
+			['auto', {}],
+		]);
+	});
+
 	test('carries the BYOK model identifier from _meta so the Manage Models toggle can be honoured', async () => {
 		const provider = createProvider();
 		// A grouped BYOK copy: the node agent host carried the original LM service identifier

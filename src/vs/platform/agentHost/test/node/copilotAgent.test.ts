@@ -98,6 +98,7 @@ import { ModelCallTurnCorrelation, type IModelCallTurnCorrelationResult } from '
 import { createCopilotCliEnvironment } from '../../node/copilot/copilotCliEnvironment.js';
 import { AgentBranchNameGenerator, getAgentBranchNameHintFromMessage, normalizeAgentBranchName } from '../../node/shared/agentBranchNameGenerator.js';
 import type { CopilotSessionLaunchPlan, IActiveClientSnapshot } from '../../node/copilot/copilotSessionLauncher.js';
+import { readAgentModelIsDefault } from '../../common/meta/agentModelDefaultMeta.js';
 import { ShellManager } from '../../node/copilot/copilotShellTools.js';
 import { registerPendingEditContentProvider } from '../../node/copilot/pendingEditContentStore.js';
 import { SessionDatabase } from '../../node/sessionDatabase.js';
@@ -769,6 +770,11 @@ class TestCopilotClient implements ITestCopilotClient {
 			},
 		},
 	};
+	/** Result of `managedSettings.get`; `undefined` models a runtime that reports no managed model defaults. */
+	managedSettingsResult: unknown;
+	managedSettingsError: Error | undefined;
+	readonly managedSettingsRequests: { readonly gitHubToken: string }[] = [];
+	readonly managedSettingsRequested = new DeferredPromise<void>();
 	startCallCount = 0;
 	stopCallCount = 0;
 	readonly startCalled = new DeferredPromise<void>();

@@ -53,6 +53,7 @@ import { AgentChatOperationContext, AgentSession, AgentSignal, AuthenticateParam
 import { getReasoningEffortDescription, getReasoningEffortLabel, resolveDefaultReasoningEffort } from '../../common/reasoningEffort.js';
 import { autoModeTiers, defaultAutoModeTier, getAutoModeTierDescription, getAutoModeTierLabel } from '../../common/autoModeTiers.js';
 import { isAutoModel } from './modelIdentifiers.js';
+import { applyCopilotManagedModelPolicy, fetchCopilotManagedModelPolicy, type ICopilotManagedModelPolicy } from './copilotManagedModelDefaults.js';
 import type { IAgentServerToolHost } from '../../common/agentServerTools.js';
 import { IAgentHostOTelService } from '../../common/otel/agentHostOTelService.js';
 import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
@@ -854,6 +855,13 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 */
 	private _capiModels: readonly IAgentModelInfo[] = [];
 	private _byokModels: readonly IAgentModelInfo[] = [];
+
+	/**
+	 * Managed model defaults from the runtime's `managedSettings.get`, and the token they were
+	 * resolved for. Fetched after each model refresh, off the startup path, and applied when models
+	 * are published, so the picker never waits on managed policy.
+	 */
+	private _managedModelPolicy: { readonly token: string; readonly policy: ICopilotManagedModelPolicy | undefined } | undefined;
 
 	/** Model IDs whose long-context tier costs the same as the default tier (free long context). */
 	private readonly _freeLongContextModels = new Set<string>();
@@ -2428,6 +2436,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			if (this._githubCredentials.token === tokenAtRefreshStart && this._modelCatalogGeneration === generation) {
 				this._capiModels = models;
 				this._publishModels();
+				void this._refreshManagedModelPolicy(tokenAtRefreshStart, generation);
 			}
 		} catch (err) {
 			// Token rotated mid-flight — a newer refresh owns the result — or
@@ -2453,6 +2462,34 @@ export class CopilotAgent extends Disposable implements IAgent {
 			// model list. Republish so a concurrently-updated BYOK list still
 			// shows through.
 			this._logService.error(err, '[Copilot] Failed to refresh models');
+			this._publishModels();
+		}
+	}
+
+	/**
+	 * Fetches the managed model defaults after the model list has been published and republishes
+	 * the list when they change. Runs off the startup path: the picker shows the catalog first and
+	 * picks up the managed defaults when this resolves. Runtimes without `managedSettings.get` keep
+	 * the built-in defaults.
+	 */
+	private async _refreshManagedModelPolicy(gitHubToken: string, generation: number): Promise<void> {
+		if (this._shutdownPromise) {
+			return;
+		}
+		let policy: ICopilotManagedModelPolicy | undefined;
+		try {
+			const client = await this._ensureClient();
+			policy = await fetchCopilotManagedModelPolicy(client.rpc, gitHubToken);
+		} catch (err) {
+			this._logService.trace('[Copilot] Managed model defaults unavailable', err);
+			return;
+		}
+		if (this._githubCredentials.token !== gitHubToken || this._modelCatalogGeneration !== generation || this._shutdownPromise) {
+			return;
+		}
+		const previous = this._managedModelPolicy?.token === gitHubToken ? this._managedModelPolicy.policy : undefined;
+		this._managedModelPolicy = { token: gitHubToken, policy };
+		if (!structuralEquals(previous, policy)) {
 			this._publishModels();
 		}
 	}

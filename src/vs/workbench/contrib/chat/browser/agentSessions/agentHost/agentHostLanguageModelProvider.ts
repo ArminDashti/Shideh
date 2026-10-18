@@ -15,10 +15,12 @@ import { type JsonPrimitive } from '../../../../../../platform/agentHost/common/
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { readAgentModelPricingMeta } from '../../../../../../platform/agentHost/common/agentModelPricing.js';
 import { readAgentModelByokIdentifier } from '../../../../../../platform/agentHost/common/agentModelByokMeta.js';
+import { readAgentModelIsDefault } from '../../../../../../platform/agentHost/common/meta/agentModelDefaultMeta.js';
 import { readAgentModelGroupId, readAgentModelSourceId } from '../../../../../../platform/agentHost/common/agentModelSource.js';
 import { getReasoningEffortDescription, getReasoningEffortLabel } from '../../../../../../platform/agentHost/common/reasoningEffort.js';
 import { nullExtensionDescription } from '../../../../../services/extensions/common/extensions.js';
 import { AUTO_RAW_MODEL_ID, COPILOT_VENDOR_ID, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelConfigurationSchema, ILanguageModelsService } from '../../../common/languageModels.js';
+import { ChatAgentLocation } from '../../../common/constants.js';
 
 /** Uses the same model identifier and primitive configuration mapping for draft preparation and send. */
 export function createAgentHostModelSelection(languageModelIdentifier: string | undefined, modelConfiguration: Record<string, unknown> | undefined, sessionType: string, logService: ILogService): ModelSelection | undefined {
@@ -185,7 +187,8 @@ export class AgentHostLanguageModelProvider extends Disposable implements ILangu
 						maxInputTokens,
 						maxOutputTokens,
 						maxContextWindowTokens: m.maxContextWindow ?? known?.maxContextWindowTokens,
-						isDefaultForLocation: {},
+						// A host marks its runtime-reported default (for example an organization-managed default model).
+						isDefaultForLocation: readAgentModelIsDefault(m) ? { [ChatAgentLocation.Chat]: true } : {},
 						isUserSelectable: true,
 						statusIcon: notices?.rowWarning ? Codicon.warning : undefined,
 						warningText: notices?.warningText,
