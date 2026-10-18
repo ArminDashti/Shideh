@@ -1232,7 +1232,7 @@ class UnifiedEnvironmentVariableCollection extends Disposable {
 				// Only take the description before the first `\n\n`, so that the description doesn't mess up the UI
 				descriptionStr = description?.value.split('\n\n')[0];
 			}
-			const value: IEnvironmentVariableCollectionDescription = { description: descriptionStr, scope };
+			const value: IEnvironmentVariableCollectionDescription = { description: descriptionStr, promptPrefix: current?.promptPrefix, scope };
 			this.descriptionMap.set(key, value);
 			this._onDidChangeCollection.fire();
 		}
@@ -1246,6 +1246,21 @@ class UnifiedEnvironmentVariableCollection extends Disposable {
 	private clearDescription(scope: vscode.EnvironmentVariableScope | undefined): void {
 		const key = this.getScopeKey(scope);
 		this.descriptionMap.delete(key);
+	}
+
+	setPromptPrefix(promptPrefix: string | undefined, scope: vscode.EnvironmentVariableScope | undefined): void {
+		const key = this.getScopeKey(scope);
+		const current = this.descriptionMap.get(key);
+		if (!current || current.promptPrefix !== promptPrefix) {
+			const value: IEnvironmentVariableCollectionDescription = { description: current?.description, promptPrefix, scope };
+			this.descriptionMap.set(key, value);
+			this._onDidChangeCollection.fire();
+		}
+	}
+
+	public getPromptPrefix(scope: vscode.EnvironmentVariableScope | undefined): string | vscode.MarkdownString | undefined {
+		const key = this.getScopeKey(scope);
+		return this.descriptionMap.get(key)?.promptPrefix;
 	}
 }
 
@@ -1307,6 +1322,14 @@ class ScopedEnvironmentVariableCollection implements IEnvironmentVariableCollect
 
 	get description(): string | vscode.MarkdownString | undefined {
 		return this.collection.getDescription(this.scope);
+	}
+
+	set promptPrefix(prefix: string | undefined) {
+		this.collection.setPromptPrefix(prefix, this.scope);
+	}
+
+	get promptPrefix(): string | vscode.MarkdownString | undefined {
+		return this.collection.getPromptPrefix(this.scope);
 	}
 }
 
