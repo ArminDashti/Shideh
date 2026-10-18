@@ -2029,9 +2029,42 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			invoke: async (request, progress, _history, cancellationToken) => {
 				return this._invokeAgent(request, progress, cancellationToken);
 			},
+			setYieldRequested: (requestId: string, value: boolean) => {
+				this._handleYieldRequested(requestId, value);
+			},
 		};
 
 		this._register(this._chatAgentService.registerDynamicAgent(agentData, agentImpl));
+	}
+
+	/**
+	 * Handles the yield signal from the chat framework. When a steering
+	 * message arrives while an AHP turn is active, the framework calls
+	 * this to ask the agent to yield. Since the AHP protocol doesn't
+	 * support native steering yet, we cancel the active turn so the
+	 * steering message can be processed as the next turn.
+	 */
+	private _handleYieldRequested(requestId: string, value: boolean): void {
+		if (!value) {
+			return;
+		}
+
+		const activeTurn = this._activeTurnsByRequestId.get(requestId);
+		if (!activeTurn) {
+			return;
+		}
+
+		this._logService.info(`[AgentHost] Yield requested for requestId=${requestId}, dispatching turnCancelled for turnId=${activeTurn.turnId}`);
+
+		const cancelAction = {
+			type: ActionType.SessionTurnCancelled as const,
+			session: activeTurn.session,
+			turnId: activeTurn.turnId,
+		};
+		const seq = this._clientState.applyOptimistic(cancelAction);
+		this._config.connection.dispatchAction(cancelAction, this._clientState.clientId, seq);
+
+		activeTurn.finish();
 	}
 
 	private async _invokeAgent(
