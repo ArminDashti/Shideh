@@ -396,6 +396,21 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 
 		this._anyTerminalFocusContextKey = TerminalContextKeys.focusInAny.bindTo(contextKeyService);
 		this._anyFocusedTerminalHasSelection = TerminalContextKeys.textSelectedInFocused.bindTo(contextKeyService);
+
+
+
+
+		this.raw.onKey(() => {
+			this._requestGhostText();
+		});
+
+		// this.raw.onCursorMove(() => {
+		// 	if (this._ghostDecoration) {
+		// 		this.refreshGhostTextNow();
+		// 	} else {
+		// 		this.refreshGhostText();
+		// 	}
+		// });
 	}
 
 	*getBufferReverseIterator(): IterableIterator<string> {
