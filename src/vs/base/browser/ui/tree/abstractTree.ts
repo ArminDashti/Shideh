@@ -3138,6 +3138,10 @@ export abstract class AbstractTree<T, TFilterData, TRef> implements IDisposable 
 		return this.view.getHTMLElement();
 	}
 
+	setUseNativeOverflowScroll(enabled: boolean): void {
+		this.view.setUseNativeOverflowScroll(enabled);
+	}
+
 	get contentHeight(): number {
 		return this.view.contentHeight;
 	}

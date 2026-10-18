@@ -178,6 +178,11 @@ export interface IChatWidgetService {
 	readonly onDidChangeWidgetVisibility: Event<IChatWidget>;
 
 	/**
+	 * Fires when a chat widget is unregistered (i.e. its host editor/view has been disposed).
+	 */
+	readonly onDidRemoveWidget: Event<IChatWidget>;
+
+	/**
 	 * Fires when a chat session is no longer open in any chat widget.
 	 */
 	readonly onDidBackgroundSession: Event<URI>;

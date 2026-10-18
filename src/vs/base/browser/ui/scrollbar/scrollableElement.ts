@@ -14,7 +14,7 @@ import { VerticalScrollbar } from './verticalScrollbar.js';
 import { Widget } from '../widget.js';
 import { TimeoutTimer } from '../../../common/async.js';
 import { Emitter, Event } from '../../../common/event.js';
-import { IDisposable, dispose } from '../../../common/lifecycle.js';
+import { DisposableStore, IDisposable, dispose } from '../../../common/lifecycle.js';
 import * as platform from '../../../common/platform.js';
 import { INewScrollDimensions, INewScrollPosition, IScrollDimensions, IScrollPosition, ScrollEvent, Scrollable, ScrollbarVisibility } from '../../../common/scrollable.js';
 import './media/scrollbars.css';
@@ -216,6 +216,10 @@ export abstract class AbstractScrollableElement extends Widget {
 	private _inertialTimeout: TimeoutTimer | null = null;
 	private _inertialSpeed: { X: number; Y: number } = { X: 0, Y: 0 };
 
+	private readonly _contentNode: HTMLElement;
+	private _isApplyingNativeScroll: boolean = false;
+	private _nativeScrollDisposables: DisposableStore | null = null;
+
 	private readonly _onScroll = this._register(new Emitter<ScrollEvent>());
 	public get onScroll(): Event<ScrollEvent> { return this._onScroll.event; }
 
@@ -228,8 +232,8 @@ export abstract class AbstractScrollableElement extends Widget {
 
 	protected constructor(element: HTMLElement, options: ScrollableElementCreationOptions, scrollable: Scrollable) {
 		super();
-		element.style.overflow = 'hidden';
 		this._options = resolveOptions(options);
+		this._contentNode = element;
 		this._scrollable = scrollable;
 
 		this._register(this._scrollable.onScroll((e) => {
@@ -310,6 +314,8 @@ export abstract class AbstractScrollableElement extends Widget {
 			this._inertialTimeout.dispose();
 			this._inertialTimeout = null;
 		}
+		this._nativeScrollDisposables?.dispose();
+		this._nativeScrollDisposables = null;
 		super.dispose();
 	}
 
@@ -341,6 +347,14 @@ export abstract class AbstractScrollableElement extends Widget {
 
 	public setScrollDimensions(dimensions: INewScrollDimensions): void {
 		this._scrollable.setScrollDimensions(dimensions, false);
+		if (this._options.useNativeOverflowScroll) {
+			// Size the content node to match scrollHeight/scrollWidth so the host can natively scroll.
+			const dims = this._scrollable.getScrollDimensions();
+			this._contentNode.style.height = `${dims.scrollHeight}px`;
+			if (dims.scrollWidth > dims.width) {
+				this._contentNode.style.width = `${dims.scrollWidth}px`;
+			}
+		}
 	}
 
 	/**
@@ -795,7 +809,8 @@ function resolveOptions(opts: ScrollableElementCreationOptions): ScrollableEleme
 		verticalHasArrows: (typeof opts.verticalHasArrows !== 'undefined' ? opts.verticalHasArrows : false),
 		verticalSliderSize: (typeof opts.verticalSliderSize !== 'undefined' ? opts.verticalSliderSize : 0),
 
-		scrollByPage: (typeof opts.scrollByPage !== 'undefined' ? opts.scrollByPage : false)
+		scrollByPage: (typeof opts.scrollByPage !== 'undefined' ? opts.scrollByPage : false),
+		useNativeOverflowScroll: (typeof opts.useNativeOverflowScroll !== 'undefined' ? opts.useNativeOverflowScroll : false)
 	};
 
 	result.horizontalSliderSize = (typeof opts.horizontalSliderSize !== 'undefined' ? opts.horizontalSliderSize : result.horizontalScrollbarSize);
