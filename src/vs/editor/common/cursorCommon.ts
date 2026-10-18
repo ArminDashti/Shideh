@@ -82,6 +82,7 @@ export class CursorConfiguration {
 	public readonly shouldAutoCloseBefore: { quote: (ch: string) => boolean; bracket: (ch: string) => boolean; comment: (ch: string) => boolean };
 	public readonly wordSegmenterLocales: string[];
 	public readonly overtypeOnPaste: boolean;
+	public readonly useOnEnterRulesForInheritedIndent: boolean;
 
 	public readonly cursorStyle: TextEditorCursorStyle;
 
@@ -149,6 +150,7 @@ export class CursorConfiguration {
 		this.autoIndent = options.get(EditorOption.autoIndent);
 		this.wordSegmenterLocales = options.get(EditorOption.wordSegmenterLocales);
 		this.overtypeOnPaste = options.get(EditorOption.overtypeOnPaste);
+		this.useOnEnterRulesForInheritedIndent = options.get(EditorOption.useOnEnterRulesForInheritedIndent);
 
 		this.cursorStyle = options.get(EditorOption.cursorStyle);
 

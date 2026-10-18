@@ -436,6 +436,7 @@ export function getInheritIndentForLine(
 // TODO: do a search for EditorAutoIndentStrategy in order to find the usages and understand better its impact
 export function getGoodIndentForLine(
 	autoIndent: EditorAutoIndentStrategy,
+	useOnEnterRulesForInheritedIndent: boolean,
 	virtualModel: IVirtualModel,
 	languageId: string,
 	position: Position,
@@ -541,7 +542,7 @@ export function getGoodIndentForLine(
 }
 
 export function getIndentForEnter(
-	autoIndent: EditorAutoIndentStrategy,
+	cursorConfig: CursorConfiguration,
 	model: ITextModel,
 	range: Range,
 	indentConverter: IIndentConverter,
@@ -587,7 +588,7 @@ export function getIndentForEnter(
 		afterEnterIndent = indentConverter.shiftIndent(afterEnterIndent);
 	}
 
-	if (indentRulesSupport.shouldDecrease(afterEnterProcessedTokens.getLineContent())) {
+	if (indentRulesSupport.shouldDecrease(cursorConfig.autoIndent, cursorConfig.useOnEnterRulesForInheritedIndent, afterEnterProcessedTokens.getLineContent())) {
 		afterEnterIndent = indentConverter.unshiftIndent(afterEnterIndent);
 	}
 
@@ -752,8 +753,8 @@ export function getIndentActionForType(
 	const previousLineNumber = range.startLineNumber - 1;
 	if (range.isEmpty() && previousLineNumber > 0) {
 		const previousLine = model.getLineContent(previousLineNumber);
-		if (indentRulesSupport.shouldIndentNextLine(previousLine) && indentRulesSupport.shouldIncrease(textAroundRangeWithCharacter)) {
-			const inheritedIndentationData = getInheritIndentForLine(autoIndent, model, range.startLineNumber, false, languageConfigurationService);
+		if (indentRulesSupport.shouldIndentNextLine(cursorConfig.autoIndent, cursorConfig.useOnEnterRulesForInheritedIndent, previousLine) && indentRulesSupport.shouldIncrease(cursorConfig.autoIndent, cursorConfig.useOnEnterRulesForInheritedIndent, textAroundRangeWithCharacter)) {
+			const inheritedIndentationData = getInheritIndentForLine(cursorConfig.autoIndent, cursorConfig.useOnEnterRulesForInheritedIndent, model, range.startLineNumber, false, languageConfigurationService);
 			const inheritedIndentation = inheritedIndentationData?.indentation;
 			if (inheritedIndentation !== undefined) {
 				const currentLine = model.getLineContent(range.startLineNumber);
@@ -777,6 +778,8 @@ export function getIndentActionForType(
 
 export function getIndentMetadata(
 	model: ITextModel,
+	autoIndent: EditorAutoIndentStrategy,
+	useOnEnterRulesForInheritedIndent: boolean,
 	lineNumber: number,
 	languageConfigurationService: ILanguageConfigurationService
 ): number | null {

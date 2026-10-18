@@ -383,7 +383,8 @@ export class ResolvedLanguageConfiguration {
 		this.indentationRules = this.underlyingConfig.indentationRules;
 		if (this.underlyingConfig.indentationRules) {
 			this.indentRulesSupport = new IndentRulesSupport(
-				this.underlyingConfig.indentationRules
+				this.underlyingConfig.indentationRules,
+				this._onEnterSupport
 			);
 		} else {
 			this.indentRulesSupport = null;

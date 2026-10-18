@@ -331,7 +331,8 @@ export class ReindentLinesAction extends EditorAction {
 		if (!model) {
 			return;
 		}
-		const edits = getReindentEditOperations(model, languageConfigurationService, 1, model.getLineCount());
+		const options = editor.getOptions();
+		const edits = getReindentEditOperations(model, options.get(EditorOption.autoIndent), options.get(EditorOption.useOnEnterRulesForInheritedIndent), languageConfigurationService, 1, model.getLineCount());
 		if (edits.length > 0) {
 			editor.pushUndoStop();
 			editor.executeEdits(this.id, edits);
@@ -386,7 +387,8 @@ export class ReindentSelectedLinesAction extends EditorAction {
 				startLineNumber--;
 			}
 
-			const editOperations = getReindentEditOperations(model, languageConfigurationService, startLineNumber, endLineNumber);
+			const options = editor.getOptions();
+			const editOperations = getReindentEditOperations(model, options.get(EditorOption.autoIndent), options.get(EditorOption.useOnEnterRulesForInheritedIndent), languageConfigurationService, startLineNumber, endLineNumber);
 			edits.push(...editOperations);
 		}
 
@@ -526,6 +528,7 @@ export class AutoIndentOnPaste implements IEditorContribution {
 		}
 
 		const autoIndent = this.editor.getOption(EditorOption.autoIndent);
+		const useOnEnterRulesForInheritedIndent = this.editor.getOption(EditorOption.useOnEnterRulesForInheritedIndent);
 		const { tabSize, indentSize, insertSpaces } = model.getOptions();
 		const textEdits: TextEdit[] = [];
 
@@ -576,7 +579,8 @@ export class AutoIndentOnPaste implements IEditorContribution {
 					});
 					firstLineText = newIndent + firstLineText.substring(oldIndentation.length);
 				} else {
-					const indentMetadata = getIndentMetadata(model, startLineNumber, this._languageConfigurationService);
+					const options = this.editor.getOptions();
+					const indentMetadata = getIndentMetadata(model, options.get(EditorOption.autoIndent), options.get(EditorOption.useOnEnterRulesForInheritedIndent), startLineNumber, this._languageConfigurationService);
 
 					if (indentMetadata === 0 || indentMetadata === IndentConsts.UNINDENT_MASK) {
 						// we paste content into a line which only contains whitespaces

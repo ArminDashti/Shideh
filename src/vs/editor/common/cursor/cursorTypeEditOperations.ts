@@ -592,7 +592,7 @@ export class EnterOperation {
 		const indentation = strings.getLeadingWhitespace(lineText).substring(0, range.startColumn - 1);
 
 		if (config.autoIndent >= EditorAutoIndentStrategy.Full) {
-			const ir = getIndentForEnter(config.autoIndent, model, range, {
+			const ir = getIndentForEnter(config, model, range, {
 				unshiftIndent: (indent) => {
 					return unshiftIndent(config, indent);
 				},
@@ -839,7 +839,7 @@ export class TabOperation {
 	private static _goodIndentForLine(config: CursorConfiguration, model: ITextModel, lineNumber: number): string | null {
 		let action: IndentAction | EnterAction | null = null;
 		let indentation: string = '';
-		const expectedIndentAction = getInheritIndentForLine(config.autoIndent, model, lineNumber, false, config.languageConfigurationService);
+		const expectedIndentAction = getInheritIndentForLine(config.autoIndent, config.useOnEnterRulesForInheritedIndent, model, lineNumber, false, config.languageConfigurationService);
 		if (expectedIndentAction) {
 			action = expectedIndentAction.action;
 			indentation = expectedIndentAction.indentation;
