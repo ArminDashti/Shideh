@@ -441,6 +441,7 @@ export class McpResourcePickHelper extends Disposable {
 				rec.templates.complete([]);
 				rec.resources.complete([]);
 			}
+			publish();
 		})).finally(() => {
 			isBusyLoadingPicks = false;
 			publish();

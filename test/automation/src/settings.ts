@@ -7,7 +7,6 @@ import { Editor } from './editor';
 import { Editors } from './editors';
 import { Code } from './code';
 import { QuickAccess } from './quickaccess';
-import { Quality } from './application';
 
 const SEARCH_BOX_NATIVE_EDIT_CONTEXT = '.settings-editor .suggest-input-container .monaco-editor .native-edit-context';
 const SEARCH_BOX_TEXTAREA = '.settings-editor .suggest-input-container .monaco-editor textarea';
@@ -92,6 +91,6 @@ export class SettingsEditor {
 	}
 
 	private _editContextSelector() {
-		return this.code.quality === Quality.Stable ? SEARCH_BOX_TEXTAREA : SEARCH_BOX_NATIVE_EDIT_CONTEXT;
+		return !this.code.editContextEnabled ? SEARCH_BOX_TEXTAREA : SEARCH_BOX_NATIVE_EDIT_CONTEXT;
 	}
 }
