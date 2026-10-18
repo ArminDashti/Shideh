@@ -231,6 +231,53 @@ export interface IMobileContentSheetOptions {
 }
 
 /**
+ * Renderer API passed into the {@link showMobileContentSheet} body
+ * callback. The renderer fills {@link bodyContainer} with arbitrary DOM
+ * and may call {@link close} to dismiss the sheet (e.g. after a confirm
+ * button is tapped, or after a sub-view navigation completes).
+ */
+export interface IMobileContentSheetApi {
+	/**
+	 * The same element passed as the first argument to the body
+	 * renderer; exposed here for convenience so callbacks can capture
+	 * the API object without also closing over the body element.
+	 */
+	readonly bodyContainer: HTMLElement;
+
+	/** Dismiss the sheet (plays the close animation). Idempotent. */
+	close(): void;
+}
+
+/**
+ * Options for {@link showMobileContentSheet}.
+ */
+export interface IMobileContentSheetOptions {
+	/**
+	 * Optional caption shown beneath the title (single-line, muted).
+	 * Mirrors {@link IMobilePickerSheetOptions.caption}.
+	 */
+	readonly caption?: string;
+
+	/**
+	 * Optional set of icon buttons rendered in the sheet's title row
+	 * to the left of the Done button. Tapping a header action resolves
+	 * the promise (the same dismissal semantics as the Done button).
+	 */
+	readonly headerActions?: readonly IMobilePickerSheetHeaderAction[];
+
+	/** Optional override for the Done button label (defaults to "Done"). */
+	readonly doneLabel?: string;
+
+	/**
+	 * When true, the Done button is hidden. Use this for sheets where
+	 * the body itself provides primary dismissal (e.g. a confirm widget
+	 * with explicit Approve / Reject buttons that call `api.close()`).
+	 * The user can still dismiss via the backdrop or Escape.
+	 */
+	readonly hideDoneButton?: boolean;
+}
+
+/**
  * Prefix used on the resolved id when a header action is invoked from a
  * mobile picker sheet, so callers can disambiguate header taps from
  * regular row selections.
@@ -264,6 +311,7 @@ export function showMobilePickerSheet(
 ): Promise<string | undefined> {
 	return new Promise<string | undefined>(resolve => {
 		let resolved = false;
+		let shell!: IMobileSheetShell;
 
 		const finish = (id: string | undefined) => {
 			if (resolved) {
