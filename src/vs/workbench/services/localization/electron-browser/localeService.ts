@@ -85,7 +85,7 @@ class NativeLocaleService implements ILocaleService {
 		return true;
 	}
 
-	async setLocale(languagePackItem: ILanguagePackItem, skipDialog = false): Promise<void> {
+	async setLocale(languagePackItem: ILanguagePackItem): Promise<void> {
 		const locale = languagePackItem.id;
 		if (locale === Language.value() || (!locale && Language.isDefaultVariant())) {
 			return;
@@ -143,10 +143,10 @@ class NativeLocaleService implements ILocaleService {
 		const { confirmed } = await this.dialogService.confirm({
 			message: localize('restartDisplayLanguageMessage1', "Restart {0} to switch to {1}?", this.productService.nameLong, languageName),
 			detail: localize(
-				'restartDisplayLanguageDetail1',
-				"To change the display language to {0}, {1} needs to restart.",
-				languageName,
-				this.productService.nameLong
+				'restartDisplayLanguageDetail',
+				"Press the restart button to restart {0} and set the display language to {1}.",
+				this.productService.nameLong,
+				languageName
 			),
 			primaryButton: localize({ key: 'restart', comment: ['&& denotes a mnemonic character'] }, "&&Restart"),
 		});
