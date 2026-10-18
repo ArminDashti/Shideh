@@ -106,7 +106,8 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		@IExtensionManagementServerService private readonly extensionManagementServerService: IExtensionManagementServerService,
 		@ILabelService private readonly labelService: ILabelService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
 
@@ -212,8 +213,8 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 				},
 				weight: 100,
 				order: 1,
-				when: ContextKeyExpr.and(DefaultViewsContext),
-				ctorDescriptor: new SyncDescriptor(ServerInstalledExtensionsView, [{ server, flexibleHeight: true, onDidChangeTitle }]),
+				when: ContextKeyExpr.and(DefaultViewsContext, ContextKeyExpr.has(`config.${EnableGroupingConfigurationKey}`).negate()),
+				ctorDescriptor: new SyncDescriptor(ServerInstalledExtensionsView, [{ server, compact: true, flexibleHeight: true, onDidChangeTitle }]),
 				/* Installed extensions views shall not be allowed to hidden when there are more than one server */
 				canToggleVisibility: servers.length === 1
 			});
@@ -298,7 +299,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			viewDescriptors.push({
 				id: 'workbench.views.extensions.enabled',
 				name: localize2('enabledExtensions', "Enabled"),
-				ctorDescriptor: new SyncDescriptor(EnabledExtensionsView, [{}]),
+				ctorDescriptor: new SyncDescriptor(EnabledExtensionsView, [{ compact: true }]),
 				when: ContextKeyExpr.and(DefaultViewsContext, ContextKeyExpr.has('hasInstalledExtensions')),
 				hideByDefault: true,
 				weight: 40,
@@ -313,7 +314,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			viewDescriptors.push({
 				id: 'workbench.views.extensions.disabled',
 				name: localize2('disabledExtensions', "Disabled"),
-				ctorDescriptor: new SyncDescriptor(DisabledExtensionsView, [{}]),
+				ctorDescriptor: new SyncDescriptor(DisabledExtensionsView, [{ compact: true }]),
 				when: ContextKeyExpr.and(DefaultViewsContext, ContextKeyExpr.has('hasInstalledExtensions')),
 				hideByDefault: true,
 				weight: 10,
@@ -345,7 +346,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchInstalled',
 			name: localize2('installed', "Installed"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
+			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{ compact: true }]),
 			when: ContextKeyExpr.or(ContextKeyExpr.has('searchInstalledExtensions'), ContextKeyExpr.has('installedExtensions')),
 		});
 
@@ -355,7 +356,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchRecentlyUpdated',
 			name: localize2('recently updated', "Recently Updated"),
-			ctorDescriptor: new SyncDescriptor(RecentlyUpdatedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(RecentlyUpdatedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.or(SearchExtensionUpdatesContext, ContextKeyExpr.has('searchRecentlyUpdatedExtensions')),
 			order: 2,
 		});
@@ -366,7 +367,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchEnabled',
 			name: localize2('enabled', "Enabled"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
+			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{ compact: true }]),
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchEnabledExtensions')),
 		});
 
@@ -376,7 +377,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchDisabled',
 			name: localize2('disabled', "Disabled"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
+			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{ compact: true }]),
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchDisabledExtensions')),
 		});
 
@@ -386,7 +387,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: OUTDATED_EXTENSIONS_VIEW_ID,
 			name: localize2('availableUpdates', "Available Updates"),
-			ctorDescriptor: new SyncDescriptor(OutdatedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(OutdatedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.or(SearchExtensionUpdatesContext, ContextKeyExpr.has('searchOutdatedExtensions')),
 			order: 1,
 		});
@@ -397,7 +398,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchBuiltin',
 			name: localize2('builtin', "Builtin"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
+			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{ compact: true }]),
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchBuiltInExtensions')),
 		});
 
@@ -407,7 +408,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchWorkspaceUnsupported',
 			name: localize2('workspaceUnsupported', "Workspace Unsupported"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
+			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{ compact: true }]),
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchWorkspaceUnsupportedExtensions')),
 		});
 
@@ -446,24 +447,57 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.builtinFeatureExtensions',
 			name: localize2('builtinFeatureExtensions', "Features"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin ${otherCategoriesQuery}` }]),
+			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ compact: true, query: `@builtin ${otherCategoriesQuery}` }]),
 			when: ContextKeyExpr.has('builtInExtensions'),
 		});
 
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.builtinThemeExtensions',
 			name: localize2('builtInThemesExtensions', "Themes"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:themes` }]),
+			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ compact: true, query: `@builtin category:themes` }]),
 			when: ContextKeyExpr.has('builtInExtensions'),
 		});
 
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.builtinProgrammingLanguageExtensions',
 			name: localize2('builtinProgrammingLanguageExtensions', "Programming Languages"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:"programming languages"` }]),
+			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ compact: true, query: `@builtin category:"programming languages"` }]),
 			when: ContextKeyExpr.has('builtInExtensions'),
 		});
 
+		return viewDescriptors;
+	}
+
+	private createGroupedExtensionsViewDescriptors(): IViewDescriptor[] {
+		const viewDescriptors: IViewDescriptor[] = [];
+		const groups: IStringDictionary<string[]> = this.configurationService.getValue(ExtensionsGroupsConfigurationKey);
+		const configuredCategories: string[] = [];
+		const installedWhenContext = ContextKeyExpr.and(ContextKeyExpr.has(`config.${EnableGroupingConfigurationKey}`), ContextKeyExpr.or(ContextKeyExpr.and(DefaultViewsContext), ContextKeyExpr.has('installedExtensions')));
+		for (const group of Object.keys(groups)) {
+			const categories = groups[group].map(c => c.toLowerCase());
+			if (categories.length) {
+				viewDescriptors.push({
+					id: `workbench.views.extensions.installed-group-${group}`,
+					name: { value: group, original: group },
+					ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ compact: true, query: `@installed ${categories.map(c => `category:"${c}"`).join(' ')}` }]),
+					when: installedWhenContext,
+					order: 1,
+				});
+				configuredCategories.push(...categories);
+			}
+		}
+
+		const notConfiguredCategories = EXTENSION_CATEGORIES.filter(c => !configuredCategories.includes(c.toLowerCase()));
+		notConfiguredCategories.push(NONE_CATEGORY);
+
+		const otherCategoriesQuery = `${notConfiguredCategories.map(c => `category:"${c}"`).join(' ')} ${configuredCategories.map(c => `category:"-${c}"`).join(' ')}`;
+		viewDescriptors.push({
+			id: 'workbench.views.extensions.other-installed-group',
+			name: localize2('other', "Others"),
+			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ compact: true, query: `@installed ${otherCategoriesQuery}` }]),
+			when: installedWhenContext,
+			order: 1,
+		});
 		return viewDescriptors;
 	}
 
@@ -473,28 +507,28 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.untrustedUnsupportedExtensions',
 			name: localize2('untrustedUnsupportedExtensions', "Disabled in Restricted Mode"),
-			ctorDescriptor: new SyncDescriptor(UntrustedWorkspaceUnsupportedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(UntrustedWorkspaceUnsupportedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.and(SearchUnsupportedWorkspaceExtensionsContext),
 		});
 
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.untrustedPartiallySupportedExtensions',
 			name: localize2('untrustedPartiallySupportedExtensions', "Limited in Restricted Mode"),
-			ctorDescriptor: new SyncDescriptor(UntrustedWorkspacePartiallySupportedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(UntrustedWorkspacePartiallySupportedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.and(SearchUnsupportedWorkspaceExtensionsContext),
 		});
 
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.virtualUnsupportedExtensions',
 			name: localize2('virtualUnsupportedExtensions', "Disabled in Virtual Workspaces"),
-			ctorDescriptor: new SyncDescriptor(VirtualWorkspaceUnsupportedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(VirtualWorkspaceUnsupportedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.and(VirtualWorkspaceContext, SearchUnsupportedWorkspaceExtensionsContext),
 		});
 
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.virtualPartiallySupportedExtensions',
 			name: localize2('virtualPartiallySupportedExtensions', "Limited in Virtual Workspaces"),
-			ctorDescriptor: new SyncDescriptor(VirtualWorkspacePartiallySupportedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(VirtualWorkspacePartiallySupportedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.and(VirtualWorkspaceContext, SearchUnsupportedWorkspaceExtensionsContext),
 		});
 
@@ -507,7 +541,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.deprecatedExtensions',
 			name: localize2('deprecated', "Deprecated"),
-			ctorDescriptor: new SyncDescriptor(DeprecatedExtensionsView, [{}]),
+			ctorDescriptor: new SyncDescriptor(DeprecatedExtensionsView, [{ compact: true }]),
 			when: ContextKeyExpr.and(SearchDeprecatedExtensionsContext),
 		});
 

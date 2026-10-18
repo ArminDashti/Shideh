@@ -42,12 +42,16 @@ export interface ITemplateData {
 }
 
 export class Delegate implements IListVirtualDelegate<IExtension> {
-	getHeight() { return EXTENSION_LIST_ELEMENT_HEIGHT; }
+
+	constructor(private readonly compact?: boolean) { }
+
+	getHeight() { return this.compact ? 54 : 72; }
 	getTemplateId() { return 'extension'; }
 }
 
-export type ExtensionListRendererOptions = {
-	hoverOptions: {
+export interface ExtensionListRendererOptions {
+	readonly compact?: boolean;
+	readonly hoverOptions: {
 		position: () => HoverPosition;
 	};
 	showPublisherInName?: boolean;
@@ -72,6 +76,9 @@ export class Renderer implements IPagedRenderer<IExtension, ITemplateData> {
 		const recommendationWidget = this.instantiationService.createInstance(RecommendationWidget, append(root, $('.extension-bookmark-container')));
 		const preReleaseWidget = this.instantiationService.createInstance(PreReleaseBookmarkWidget, append(root, $('.extension-bookmark-container')));
 		const element = append(root, $('.extension-list-item'));
+		if (this.options.compact) {
+			element.classList.add('compact');
+		}
 		const iconContainer = append(element, $('.icon-container'));
 		const iconWidget = this.instantiationService.createInstance(ExtensionIconWidget, iconContainer);
 		const iconRemoteBadgeWidget = this.instantiationService.createInstance(RemoteBadgeWidget, iconContainer, false);
@@ -126,7 +133,6 @@ export class Renderer implements IPagedRenderer<IExtension, ITemplateData> {
 			this.instantiationService.createInstance(LocalInstallAction),
 			this.instantiationService.createInstance(WebInstallAction),
 			extensionStatusIconAction,
-			this.instantiationService.createInstance(ManageExtensionAction)
 		];
 		const extensionHoverWidget = this.instantiationService.createInstance(ExtensionHoverWidget, { target: root, position: this.options.hoverOptions.position }, extensionStatusIconAction);
 
@@ -138,6 +144,8 @@ export class Renderer implements IPagedRenderer<IExtension, ITemplateData> {
 			extensionPackBadgeWidget,
 			publisherWidget,
 			extensionHoverWidget,
+			updatedLabelWidget,
+			this.instantiationService.createInstance(ExtensionRuntimeStatusWidget, runtimeStatus),
 			this.instantiationService.createInstance(SyncIgnoredWidget, syncIgnore),
 			this.instantiationService.createInstance(ExtensionRestartRequiredWidget, restartRequired),
 			this.instantiationService.createInstance(ExtensionRuntimeStatusWidget, this.extensionViewState, activationStatus),

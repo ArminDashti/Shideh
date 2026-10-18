@@ -175,10 +175,6 @@ export class InstallCountWidget extends ExtensionWidget {
 			return;
 		}
 
-		if (this.small && this.extension.state !== ExtensionState.Uninstalled) {
-			return;
-		}
-
 		const installLabel = InstallCountWidget.getInstallLabel(this.extension, this.small);
 		if (!installLabel) {
 			return;
@@ -251,10 +247,6 @@ export class RatingsWidget extends ExtensionWidget {
 		this.clear();
 
 		if (!this.extension) {
-			return;
-		}
-
-		if (this.small && this.extension.state !== ExtensionState.Uninstalled) {
 			return;
 		}
 
@@ -472,7 +464,7 @@ export class PreReleaseBookmarkWidget extends ExtensionWidget {
 
 	render(): void {
 		this.clear();
-		if (this.extension?.state === ExtensionState.Installed ? this.extension.preRelease : this.extension?.hasPreReleaseVersion) {
+		if (this.extension?.state === ExtensionState.Uninstalled && this.extension.hasPreReleaseVersion) {
 			this.element = append(this.parent, $('div.extension-bookmark'));
 			const preRelease = append(this.element, $('.pre-release'));
 			append(preRelease, $('span' + ThemeIcon.asCSSSelector(preReleaseIcon)));
@@ -888,9 +880,7 @@ export class ExtensionHoverWidget extends ExtensionWidget {
 		if (this.extension.state === ExtensionState.Installed) {
 			const installLabel = InstallCountWidget.getInstallLabel(this.extension, true);
 			if (installLabel) {
-				if (addSeparator) {
-					markdown.appendText(`  |  `);
-				}
+				markdown.appendText(`  |  `);
 				markdown.appendMarkdown(`$(${installCountIcon.id}) ${installLabel}`);
 				addSeparator = true;
 			}
@@ -926,13 +916,6 @@ export class ExtensionHoverWidget extends ExtensionWidget {
 
 		if (this.extension.description) {
 			markdown.appendText(this.extension.description);
-			markdown.appendText(`\n`);
-		}
-
-		if (this.extension.publisherDomain?.verified) {
-			const bgColor = this.themeService.getColorTheme().getColor(extensionVerifiedPublisherIconColor);
-			const publisherVerifiedTooltip = localize('publisher verified tooltip', "This publisher has verified ownership of {0}", `[${URI.parse(this.extension.publisherDomain.link).authority}](${this.extension.publisherDomain.link})`);
-			markdown.appendMarkdown(`<span style="color:${bgColor ? Color.Format.CSS.formatHex(bgColor) : '#ffffff'};">$(${verifiedPublisherIcon.id})</span>&nbsp;${publisherVerifiedTooltip}`);
 			markdown.appendText(`\n`);
 		}
 
@@ -1003,6 +986,11 @@ export class ExtensionHoverWidget extends ExtensionWidget {
 				markdown.appendText(`\n`);
 			}
 
+			if (lastUpdateMessaage) {
+				markdown.appendMarkdown(lastUpdateMessaage);
+				markdown.appendText(`\n`);
+			}
+
 			if (preReleaseMessage) {
 				const extensionPreReleaseIcon = this.themeService.getColorTheme().getColor(extensionPreReleaseIconColor);
 				markdown.appendMarkdown(`<span style="color:${extensionPreReleaseIcon ? Color.Format.CSS.formatHex(extensionPreReleaseIcon) : '#ffffff'};">$(${preReleaseIcon.id})</span>&nbsp;${preReleaseMessage}`);
@@ -1031,6 +1019,14 @@ export class ExtensionHoverWidget extends ExtensionWidget {
 		}
 		const bgColor = this.themeService.getColorTheme().getColor(extensionButtonProminentBackground);
 		return `<span style="color:${bgColor ? Color.Format.CSS.formatHex(bgColor) : '#ffffff'};">$(${starEmptyIcon.id})</span>&nbsp;${recommendation.reasonText}`;
+	}
+
+	private getLastUpdatedMessage(extension: IExtension): string | undefined {
+		if (!extension.gallery?.lastUpdated) {
+			return undefined;
+		}
+		return localize('lastUpdated', "This extension was last updated {0} ago.", fromNow(extension.gallery?.lastUpdated, false, true));
+
 	}
 
 	static getPreReleaseMessage(extension: IExtension): string | undefined {

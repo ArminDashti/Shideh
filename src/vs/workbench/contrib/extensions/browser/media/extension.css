@@ -96,11 +96,16 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.extension-list-item.compact > .details > .header-container > .header > .name {
+	font-weight: normal;
+}
+
 .extension-list-item.deprecated > .details > .header-container > .header > .name {
 	text-decoration: line-through;
 }
 
-.extension-list-item > .details > .header-container > .header > .activation-status,
+.extension-list-item > .details > .header-container > .header > .runtime-status,
+.extension-list-item > .details > .header-container > .header > .pre-release,
 .extension-list-item > .details > .header-container > .header > .install-count,
 .extension-list-item > .details > .header-container > .header .extension-kind-indicator,
 .extension-list-item > .details > .header-container > .header > .ratings {
@@ -164,13 +169,20 @@
 	font-size: 100%;
 }
 
+.extension-list-item:not(.compact) > .details > .header-container > .header > .runtime-status,
+.extension-list-item.compact > .details > .header-container > .header > .extension-install-count,
+.extension-list-item.compact > .details > .header-container > .header > .extension-ratings,
+.extension-list-item.compact > .details > .description {
+	display: none;
+}
+
 .extension-list-item > .details > .description {
 	padding-right: 8px;
 	line-height: normal;
 	color: var(--vscode-descriptionForeground);
 }
 
-.monaco-list-row.selected .extension-list-item > .details > .description{
+.monaco-list-row.selected .extension-list-item > .details > .description {
 	color: unset;
 }
 
@@ -211,6 +223,16 @@
 
 .extension-list-item > .details > .footer .publisher > .publisher-name:not(:first-child) {
 	padding-left: 1px;
+}
+
+.extension-list-item > .details > .footer > .updated-label {
+	flex: 1;
+	font-size: 90%;
+	opacity: 0.8;
+}
+
+.extension-list-item:not(.compact) > .details > .footer > .updated-label {
+	display: none;
 }
 
 .extension-list-item .ellipsis {
@@ -290,6 +312,7 @@
 .extension-list-item .monaco-action-bar > .actions-container > .action-item.action-dropdown-item:not(.empty) > .extension-action.label:not(.dropdown) {
 	border-radius: var(--vscode-cornerRadius-small) 0 0 var(--vscode-cornerRadius-small);
 }
+
 .extension-list-item .monaco-action-bar > .actions-container > .action-item.action-dropdown-item > .monaco-dropdown .extension-action {
 	border-radius: 0 var(--vscode-cornerRadius-small) var(--vscode-cornerRadius-small) 0;
 }
