@@ -200,6 +200,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private _explanationHandle: IExplanationGenerationHandle | undefined;
 
 	private _editorPane: MultiDiffEditor | undefined;
+	private readonly _editorPaneDisposables: MutableDisposable<DisposableStore>;
 
 	get state(): IObservable<ChatEditingSessionState> {
 		return this._state;
@@ -237,6 +238,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
+		this._editorPaneDisposables = this._register(new MutableDisposable<DisposableStore>());
 		this._timeline = this._instantiationService.createInstance(
 			ChatEditingCheckpointTimelineImpl,
 			chatSessionResource,
