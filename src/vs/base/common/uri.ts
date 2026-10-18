@@ -578,23 +578,9 @@ function encodeURIComponentFast(uriComponent: string, isPath: boolean, isAuthori
 				res = uriComponent.substr(0, pos);
 			}
 
-			// check with default table first
-			const escaped = encodeTable[code];
-			if (escaped !== undefined) {
-
-				// check if we are delaying native encode
-				if (nativeEncodePos !== -1) {
-					res += encodeURIComponent(uriComponent.substring(nativeEncodePos, pos));
-					nativeEncodePos = -1;
-				}
-
-				// append escaped variant to result
-				res += escaped;
-
-			} else if (nativeEncodePos === -1) {
-				// use native encode only when needed
-				nativeEncodePos = pos;
-			}
+		} else if (nativeEncodePos === -1) {
+			// use native encode only when needed
+			nativeEncodePos = pos;
 		}
 	}
 
