@@ -12,6 +12,7 @@ import { StandardMouseEvent } from '../../../../../base/browser/mouseEvent.js';
 import { triggerConfettiAnimation } from '../../../../../base/browser/ui/animations/animations.js';
 import { Button } from '../../../../../base/browser/ui/button/button.js';
 import { status } from '../../../../../base/browser/ui/aria/aria.js';
+import { Button } from '../../../../../base/browser/ui/button/button.js';
 import { Action, IAction, Separator } from '../../../../../base/common/actions.js';
 import { RunOnceScheduler } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -264,6 +265,25 @@ interface ChatPetThrowStep extends ChatPetThrowMotion {
 	readonly wall: ChatPetWall | undefined;
 }
 
+interface ActiveChatPetSpriteAnimation {
+	readonly source: ChatPetSpriteSource;
+	readonly sprite: ChatPetSpriteElement;
+	readonly onComplete: (() => void) | undefined;
+	completionReported: boolean;
+}
+
+export interface IChatPetViewOptions {
+	readonly ariaLabel: string;
+	readonly animationTime?: IObservable<number | undefined>;
+	readonly onDidCompleteAnimation?: (state: ChatPetState) => void;
+	readonly resourceBaseUrl?: string;
+	readonly loopAnimations?: boolean;
+	readonly trackDocumentCursor?: boolean;
+}
+
+const spriteSources = new Map<string, Record<ChatPetState, ChatPetSpriteSources>>();
+const speechSpriteSources = new Map<string, ChatPetSpriteSources>();
+
 export function getChatPetBuddyName(quality: string | undefined): 'buddy-idle-stable' | 'buddy-idle-insiders' {
 	return quality === 'stable' ? 'buddy-idle-stable' : 'buddy-idle-insiders';
 }
@@ -415,7 +435,7 @@ export function getChatPetRespawnFrameDurations(): readonly number[] {
 function getSpriteSources(variant: ChatPetVariant): Record<ChatPetState, ChatPetSpriteSources> {
 	let sources = spriteSources.get(variant);
 	if (!sources) {
-		const createStateSpriteSources = (state: ChatPetState) => createSpriteSources(getChatPetSpriteName(state, variant), state, doesChatPetStateTrackCursor(state));
+		const createStateSpriteSources = (state: ChatPetState) => createSpriteSources(getChatPetSpriteName(state, variant), state, doesChatPetStateTrackCursor(state), resourceBaseUrl);
 		sources = {
 			idle: createStateSpriteSources('idle'),
 			sleep: createSpriteSources(getChatPetSpriteName('sleep', variant), 'sleep', false, CHAT_PET_SLEEP_SOURCE_WIDTH),
@@ -444,16 +464,16 @@ function getSpriteSources(variant: ChatPetVariant): Record<ChatPetState, ChatPet
 			// Taught moves are drawn at runtime (see `_getCustomMoveSources`); this entry is never shown.
 			custom: createStateSpriteSources('idle'),
 		};
-		spriteSources.set(variant, sources);
+		spriteSources.set(key, sources);
 	}
 
 	return sources;
 }
 
-function getSpeechSpriteSources(variant: ChatPetVariant): ChatPetSpriteSources {
-	let sources = speechSpriteSources.get(variant);
+function getSpeechSpriteSources(variant: ChatPetVariant, resourceBaseUrl: string | undefined): ChatPetSpriteSources {
+	const key = `${resourceBaseUrl ?? ''}:${variant}`;
+	let sources = speechSpriteSources.get(key);
 	if (!sources) {
-		const root = 'vs/workbench/contrib/chat/browser/widget/media/chatPet';
 		const name = `buddy-speech-${variant}-96`;
 		sources = {
 			animated: {
@@ -469,7 +489,7 @@ function getSpeechSpriteSources(variant: ChatPetVariant): ChatPetSpriteSources {
 				iterations: 1,
 			},
 		};
-		speechSpriteSources.set(variant, sources);
+		speechSpriteSources.set(key, sources);
 	}
 	return sources;
 }
@@ -1281,7 +1301,7 @@ export class ChatPetHopController extends Disposable {
 	}
 }
 
-export class ChatPetWidget extends Disposable {
+export class ChatPetView extends Disposable {
 
 	private parent: HTMLElement;
 	private dragBounds: HTMLElement;
@@ -1516,6 +1536,13 @@ export class ChatPetWidget extends Disposable {
 				this._gazeScheduler.schedule();
 			}
 		}));
+		this._register(dom.addDisposableListener(speechBubbleImage, 'error', () => this._onImageError(speechBubbleImage)));
+		this._gazeScheduler = this._register(new dom.AnimationFrameScheduler(this._button.element, () => this._updateGaze()));
+		if (this._options.trackDocumentCursor ?? true) {
+			this._register(dom.addDisposableListener(dom.getWindow(this._button.element).document, dom.EventType.POINTER_MOVE, (event: PointerEvent) => {
+				this.setCursorPosition(event.clientX, event.clientY);
+			}));
+		}
 		const onAnimationComplete = (event: AnimationEvent) => {
 			if (event.animationName === 'chat-pet-enter') {
 				this._button.element.classList.remove('entering');
@@ -2654,7 +2681,7 @@ export class ChatPetWidget extends Disposable {
 				: localize('chatPet.interact', "Interact with the VS Code pet. Drag it around the chat, or flick it toward either side to throw it. While it is falling, catch it with the pointer to bounce it; while it is airborne, press Enter or Space to bounce it. Use the left and right arrow keys to make it hop, or hold Shift to throw it toward a wall. Use the context menu to put it on the run.");
 	}
 
-	private _getCurrentLeft(): number {
+	get currentLeft(): number {
 		return this._button.element.offsetLeft;
 	}
 
@@ -3673,6 +3700,7 @@ export class ChatPetWidget extends Disposable {
 		if (!isDragging && doesChatPetStateTrackCursor(state)) {
 			this._gazeScheduler.schedule();
 		}
+		this._onDidRender.fire();
 	}
 
 	private _updateEyes(state: ChatPetState | undefined, frameIndex?: number): void {
@@ -3760,9 +3788,8 @@ export class ChatPetWidget extends Disposable {
 			return;
 		}
 
-		const targetWindow = dom.getWindow(canvas);
+		const targetWindow = dom.getWindow(sprite.canvas);
 		const startTime = targetWindow.performance.now();
-		let currentFrame = 0;
 		let frameTimer: number | undefined;
 		const animationDisposables = new DisposableStore();
 		const clearFrameTimer = () => {
@@ -3781,17 +3808,13 @@ export class ChatPetWidget extends Disposable {
 			frameTimer = undefined;
 			const frame = getChatPetAnimationFrame(frameDurations, targetWindow.performance.now() - startTime, source.iterations, reverse);
 			if (frame.complete) {
-				drawFrame(frame.frameIndex);
 				animationDisposables.dispose();
 				onComplete?.();
 				return;
 			}
-			if (frame.frameIndex !== currentFrame) {
-				currentFrame = frame.frameIndex;
-				drawFrame(frame.frameIndex);
-			}
 			scheduleFrame(frame.nextFrameDelay);
 		};
+		updateFrame();
 		animationDisposables.add(dom.addDisposableListener(targetWindow.document, 'visibilitychange', () => {
 			clearFrameTimer();
 			if (!targetWindow.document.hidden) {
@@ -3860,10 +3883,11 @@ export class ChatPetWidget extends Disposable {
 		this._speechBubble.container.classList.toggle('hidden', !visible);
 		if (!visible) {
 			this._speechAnimation.clear();
+			this._activeSpeechAnimation = undefined;
 			return;
 		}
 
-		const sources = getSpeechSpriteSources(this._variant);
+		const sources = getSpeechSpriteSources(this._variant, this._options.resourceBaseUrl);
 		const source = this._motionReduced ? sources.reducedMotion : sources.animated;
 		if (!isChatPetImageSource(this._speechBubble.image, source.url)) {
 			this._speechAnimation.clear();
@@ -3894,6 +3918,17 @@ export class ChatPetWidget extends Disposable {
 		this._eyes.getBoundingClientRect();
 		if (!this._motionReduced) {
 			this._eyes.classList.add('animated');
+		}
+	}
+
+	private _updateCssAnimationTime(animationTime: number | undefined): void {
+		if (animationTime === undefined) {
+			return;
+		}
+		this._button.element.getBoundingClientRect();
+		for (const animation of this._button.element.getAnimations({ subtree: true })) {
+			animation.pause();
+			animation.currentTime = animationTime;
 		}
 	}
 }

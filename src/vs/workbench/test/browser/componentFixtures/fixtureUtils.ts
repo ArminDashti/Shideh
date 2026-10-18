@@ -9,6 +9,7 @@ import { defineFixture, defineFixtureGroup, defineFixtureVariants, FixtureInputC
 // eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
 import { z } from 'zod';
 import { DisposableStore, DisposableTracker, IDisposable, IReference, MutableDisposable, setDisposableTracker, toDisposable } from '../../../../base/common/lifecycle.js';
+import { constObservable, IObservable, observableValue } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { $, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
 // eslint-disable-next-line local/code-import-patterns
