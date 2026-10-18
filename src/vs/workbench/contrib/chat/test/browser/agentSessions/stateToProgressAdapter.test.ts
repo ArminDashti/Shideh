@@ -4901,4 +4901,27 @@ suite('stateToProgressAdapter', () => {
 			assert.strictEqual(terminalCommandLineMatchesToolInput(' cat .vscode/tasks.json', 'npm run compile'), false);
 		});
 	});
+
+	suite('errorInfoToChatErrorDetails', () => {
+
+		test('quota error maps to isQuotaExceeded', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'quota', message: 'Credit limit reached' });
+			assert.deepStrictEqual(details, { message: 'Credit limit reached', isQuotaExceeded: true });
+		});
+
+		test('quota error forwards the backend code', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'quota', message: 'Credit limit reached', code: 'overage_limit_reached' });
+			assert.deepStrictEqual(details, { message: 'Credit limit reached', isQuotaExceeded: true, quotaExceededCode: 'overage_limit_reached' });
+		});
+
+		test('rate_limit error maps to isRateLimited', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'rate_limit', message: 'Slow down' });
+			assert.deepStrictEqual(details, { message: 'Slow down', isRateLimited: true });
+		});
+
+		test('generic error carries only the message', () => {
+			const details = errorInfoToChatErrorDetails({ errorType: 'query', message: 'Something went wrong' });
+			assert.deepStrictEqual(details, { message: 'Something went wrong' });
+		});
+	});
 });

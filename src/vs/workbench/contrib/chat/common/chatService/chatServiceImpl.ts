@@ -2092,6 +2092,28 @@ export class ChatService extends Disposable implements IChatService {
 						request,
 					});
 
+					// Centralize quota-exceeded messaging: any provider may flag a
+					// result as quota-exceeded (e.g. an upstream 402), but the
+					// user-facing text is built here so it is friendly, localized,
+					// and plan-/reset-date-aware regardless of which provider (agent
+					// host, Copilot CLI, Claude CLI, ...) produced it.
+					if (rawResult.errorDetails?.isQuotaExceeded) {
+						rawResult = {
+							...rawResult,
+							errorDetails: {
+								...rawResult.errorDetails,
+								message: buildQuotaExceededMessage({
+									entitlement: this.chatEntitlementService.entitlement,
+									usageBasedBilling: this.chatEntitlementService.quotas.usageBasedBilling,
+									quotaResetDate: this.chatEntitlementService.quotas.resetDate,
+									quotaResetDateHasTime: this.chatEntitlementService.quotas.resetDateHasTime,
+									code: rawResult.errorDetails.quotaExceededCode,
+									serverMessage: rawResult.errorDetails.message,
+								}),
+							},
+						};
+					}
+
 					model.setResponse(request, rawResult);
 					completeResponseCreated();
 					this.trace('sendRequest', `Provider returned response for session ${model.sessionResource}`);

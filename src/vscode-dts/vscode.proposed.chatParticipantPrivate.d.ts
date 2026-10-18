@@ -302,6 +302,13 @@ declare module 'vscode' {
 
 		isQuotaExceeded?: boolean;
 
+		/**
+		 * Backend (CAPI) quota error code (e.g. `overage_limit_reached`), forwarded
+		 * verbatim so the editor can render the exact, plan-aware quota message in
+		 * one central place. Only meaningful when {@link isQuotaExceeded} is set.
+		 */
+		quotaExceededCode?: string;
+
 		isRateLimited?: boolean;
 
 		/**

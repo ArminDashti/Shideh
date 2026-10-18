@@ -1050,6 +1050,38 @@ export function usageInfoToQuotas(usage: UsageInfo | undefined): IAgentHostQuota
 }
 
 /**
+ * Well-known agent host error categories ({@link ErrorInfo.errorType}). These
+ * mirror the upstream Copilot SDK `session.error` `errorType` categories that
+ * survive into the protocol's {@link ErrorInfo} (e.g. `authentication`,
+ * `authorization`, `quota`, `rate_limit`, `context_limit`, `query`). Only the
+ * ones we map to structured chat error flags are enumerated here.
+ */
+const enum AgentHostErrorType {
+	Quota = 'quota',
+	RateLimit = 'rate_limit',
+}
+
+/**
+ * Maps a protocol {@link ErrorInfo} from a failed turn into structured chat
+ * {@link IChatResponseErrorDetails}, so the chat UI can render the rich quota
+ * widget (`ChatQuotaExceededPart`) for `quota` errors (e.g. an upstream 402)
+ * instead of a plain "Error: (...)" markdown line. The same applies to
+ * rate-limit errors via {@link IChatResponseErrorDetails.isRateLimited}.
+ *
+ * The user-facing quota message is intentionally NOT built here: core
+ * substitutes a friendly, plan-aware message for any result flagged
+ * {@link IChatResponseErrorDetails.isQuotaExceeded} (see `chatServiceImpl`),
+ * so every provider's 402 renders identically.
+ */
+export function errorInfoToChatErrorDetails(error: ErrorInfo): IChatResponseErrorDetails {
+	return {
+		message: error.message,
+		...(error.errorType === AgentHostErrorType.Quota ? { isQuotaExceeded: true, ...(error.code ? { quotaExceededCode: error.code } : {}) } : {}),
+		...(error.errorType === AgentHostErrorType.RateLimit ? { isRateLimited: true } : {}),
+	};
+}
+
+/**
  * Converts completed turns from the protocol state into session history items.
  *
  * Requests preserve the selected model. Response details use the actual model, except for Fusion's workflow label.
