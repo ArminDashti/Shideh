@@ -3035,14 +3035,28 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				content = [{ content: new MarkdownString(requestMarkdown), kind: 'markdownContent' }];
 			}
 
+		if (!element.confirmation) {
+			const store = new DisposableStore();
+			templateData.elementDisposables.add(store);
+
+			const message = element.message;
+			const plainTextContent = isChatFollowup(message)
+				? dom.$('span', undefined, message.message)
+				: this.markdownDecorationsRenderer.renderParsedRequestToPlainText(message, store);
+
+			const container = dom.$('.rendered-markdown');
+			const innerContent = dom.$('.chat-request-text');
+			innerContent.appendChild(plainTextContent);
+			container.appendChild(innerContent);
+
+			// In minimal mode, show inline progress ellipsis
 			if (this.rendererOptions.renderStyle === 'minimal' && !element.isComplete) {
 				templateData.value.classList.add('inline-progress');
 				templateData.elementDisposables.add(toDisposable(() => templateData.value.classList.remove('inline-progress')));
-				content.push({ content: new MarkdownString('<span></span>', { supportHtml: true }), kind: 'markdownContent' });
+				container.appendChild(dom.$('span'));
 			} else {
 				templateData.value.classList.remove('inline-progress');
 			}
-		}
 
 		dom.clearNode(templateData.value);
 		const isFirstRequest = this.viewModel?.model.getRequests()[0]?.id === element.id;
