@@ -39,6 +39,26 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 	private readonly _references: PromptFileReference[] = [];
 
 	/**
+	 * TODO: @legomushroom
+	 */
+	public get languageId(): string {
+		return this.contentsProvider.languageId;
+	}
+
+	// /**
+	//  * TODO: @legomushroom
+	//  */
+	// public get promptType(): TPromptsType | 'other' {
+	// 	// const { languageId } = this.contentsProvider;
+
+	// 	// if (languageId === PROMPT_LANGUAGE_ID) {
+	// 	// 	return
+	// 	// }
+
+	// 	// return this.promptContentsProvider.languageId;
+	// }
+
+	/**
 	 * The event is fired when lines or their content change.
 	 */
 	private readonly _onUpdate = this._register(new Emitter<void>());
@@ -160,7 +180,7 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 		seenReferences.push(this.uri.path);
 
 		this._register(
-			this.promptContentsProvider.onContentChanged((streamOrError) => {
+			this.contentsProvider.onContentChanged((streamOrError) => {
 				// process the received message
 				this.onContentsChanged(streamOrError, seenReferences);
 
@@ -326,7 +346,7 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 			return this;
 		}
 
-		this.promptContentsProvider.start();
+		this.contentsProvider.start();
 		return this;
 	}
 
@@ -334,7 +354,7 @@ export abstract class PromptParserBase<T extends IContentsProvider> extends Obse
 	 * Associated URI of the prompt.
 	 */
 	public get uri(): URI {
-		return this.promptContentsProvider.uri;
+		return this.contentsProvider.uri;
 	}
 
 	/**
