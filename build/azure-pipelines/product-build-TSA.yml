@@ -17,7 +17,7 @@ parameters:
     default: true
 
 variables:
-  - template: product-build-variables.yml@self
+  - template: build/azure-pipelines/product-build-variables.yml@self
     parameters:
       VSCODE_PUBLISH: false
 
@@ -96,7 +96,7 @@ extends:
     settings:
       networkIsolationPolicy: Permissive,CFSClean,CFSClean2,CFSClean3
     stages:
-      - template: product-build-template.yml@self
+      - template: build/azure-pipelines/product-build-template.yml@self
         parameters:
           VSCODE_SKIP_SUCCESSFUL_TEST_TASKS: false
           VSCODE_RUN_APISCAN: ${{ parameters.VSCODE_RUN_TSA }}
