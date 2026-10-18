@@ -118,6 +118,9 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 		return this._isSharingAvailable;
 	}
 
+	private readonly _onDidChangeRecentUrls = this._register(new Emitter<void>());
+	readonly onDidChangeRecentUrls: Event<void> = this._onDidChangeRecentUrls.event;
+
 	constructor(
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,

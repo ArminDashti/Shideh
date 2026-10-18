@@ -265,6 +265,20 @@ export interface IBrowserViewWorkbenchCreateOptions {
 }
 
 /**
+ * Represents a recently visited URL entry
+ */
+export interface IRecentUrl {
+	/**
+	 * The URL that was visited
+	 */
+	url: string;
+	/**
+	 * Timestamp when the URL was last visited (in milliseconds since epoch)
+	 */
+	timestamp: number;
+}
+
+/**
  * Workbench-level service for browser views that provides model-based access to browser views.
  * This service manages browser view models that proxy to the main process browser view service.
  */
@@ -369,6 +383,35 @@ export interface IBrowserViewWorkbenchService {
 	 * Clear all storage data for the current workspace browser session
 	 */
 	clearWorkspaceStorage(): Promise<void>;
+
+	/**
+	 * Check if recent URL remembering is enabled
+	 * @returns Whether remembering is enabled
+	 */
+	isRecentUrlHistoryEnabled(): boolean;
+
+	/**
+	 * Add a URL to the recent URLs list (for URLs entered directly in the address bar)
+	 * @param url The URL to add
+	 */
+	addRecentUrl(url: string): void;
+
+	/**
+	 * Get the list of recent URLs for the current workspace
+	 * @returns Array of recent URL entries, sorted by most recent first
+	 */
+	getRecentUrls(): IRecentUrl[];
+
+	/**
+	 * Remove a URL from the recent URLs list
+	 * @param url The URL to remove
+	 */
+	removeRecentUrl(url: string): void;
+
+	/**
+	 * Clear all recent URLs for the current workspace
+	 */
+	clearRecentUrls(): void;
 }
 
 export const IBrowserViewCDPService = createDecorator<IBrowserViewCDPService>('browserViewCDPService');

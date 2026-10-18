@@ -446,6 +446,10 @@ export class BrowserEditor extends EditorPane {
 
 	override get input(): BrowserEditorInput | undefined { return super.input as BrowserEditorInput | undefined; }
 
+	private static readonly RECENT_URLS_COLLAPSED_LIMIT = 3;
+	private static readonly RECENT_URL_ITEM_HEIGHT = 44;
+	private static readonly MAX_RECENT_URLS_LIST_HEIGHT = 300;
+
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
