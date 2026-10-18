@@ -266,6 +266,19 @@ suite('RunSubagentTool', () => {
 				visibility: { userInvokable: true, agentInvokable: true }
 			};
 
+			const mockChatModeService = {
+				findModeByName: (name: string) => {
+					if (name === 'CustomAgent') {
+						return {
+							name: {
+								get: () => 'CustomAgent'
+							}
+						};
+					}
+					return undefined;
+				}
+			} as unknown as IChatModeService;
+
 			const tool = testDisposables.add(new RunSubagentTool(
 				{} as IChatAgentService,
 				{} as IChatService,
