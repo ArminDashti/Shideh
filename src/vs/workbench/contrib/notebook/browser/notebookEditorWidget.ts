@@ -1446,6 +1446,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 			this._localStore.add(this._webview.webview.onDidBlur(() => {
 				this._outputFocus.set(false);
 				this._webviewFocused = false;
+				this._webviewHasFocus.set(false);
 
 				this.updateEditorFocus();
 				this.updateCellFocusMode();
@@ -1453,6 +1454,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 
 			this._localStore.add(this._webview.webview.onDidFocus(() => {
 				this._outputFocus.set(true);
+				this._webviewHasFocus.set(true);
 				this.updateEditorFocus();
 				this._webviewFocused = true;
 			}));
