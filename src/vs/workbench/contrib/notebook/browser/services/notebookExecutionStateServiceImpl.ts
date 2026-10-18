@@ -312,6 +312,51 @@ export class NotebookExecutionStateService extends Disposable implements INotebo
 		return combinedDisposable(onWillAddRemoveCells, cellMetadataListener);
 	}
 
+	private readonly _textbufferEditingMapping = new ResourceMap<Map<number, IDisposable>>();
+
+	trackNotebookCellLastRunTextBuffer(notebook: NotebookTextModel, cell: NotebookCellTextModel, session: Session) {
+		const notebookMapping = this._textbufferEditingMapping.get(notebook.uri);
+		if (notebookMapping) {
+			const existing = notebookMapping.get(cell.handle);
+			if (existing) {
+				existing.dispose();
+			}
+			notebookMapping.set(cell.handle, this._trackCellLastRunTextBuffer(cell, session));
+		} else {
+			const newMap = new Map<number, IDisposable>();
+			newMap.set(cell.handle, this._trackCellLastRunTextBuffer(cell, session));
+			this._textbufferEditingMapping.set(notebook.uri, newMap);
+		}
+	}
+
+	private _trackCellLastRunTextBuffer(cell: NotebookCellTextModel, session: Session): IDisposable {
+		const sessionDisposables = new DisposableStore();
+		if (session.lastExchange && session.lastExchange.response instanceof EditResponse) {
+
+			let textBufferFactory0: ITextBufferFactory | null = createTextBufferFactoryFromSnapshot(cell.textBuffer.createSnapshot(false));
+
+			sessionDisposables.add(this._interactiveEditorService.onDidReleaseSession(async s => {
+				if (s === session && textBufferFactory0) {
+					const { modelN } = session;
+					const originalModel = this._modelService.createModel(textBufferFactory0, null);
+					const edits = await this._editorWorkerService.computeMoreMinimalEdits(modelN.uri, [{ range: modelN.getFullModelRange(), text: originalModel.getValue() }]);
+
+					if (edits) {
+						const operations = edits.map(e => EditOperation.replace(Range.lift(e.range), e.text));
+						modelN.pushEditOperations(null, operations, () => null);
+					}
+				}
+			}));
+
+
+			sessionDisposables.add(toDisposable(() => {
+				textBufferFactory0 = null;
+			}));
+		}
+
+		return sessionDisposables;
+	}
+
 	override dispose(): void {
 		super.dispose();
 		this._executions.forEach(executionMap => {
