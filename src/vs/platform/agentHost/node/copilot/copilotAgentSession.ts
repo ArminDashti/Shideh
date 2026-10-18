@@ -1800,6 +1800,37 @@ export class CopilotAgentSession extends Disposable {
 	}
 
 	/**
+	 * Projects a root request started directly through the provider SDK into the
+	 * owning chat. Extensions can call the public `session.send()` API without a
+	 * preceding AHP `ChatTurnStarted`; without this bridge their tool calls and
+	 * response execute, but the interaction remains invisible to the user.
+	 */
+	private _beginProviderInitiatedTurn(event: SessionEventPayload<'user.message'>): void {
+		const { messageId, turnId: sdkTurnId } = event.data;
+		if (!messageId || !sdkTurnId) {
+			this._logService.warn(`[Copilot:${this.sessionId}] Ignoring provider-initiated user.message without messageId and turnId`);
+			return;
+		}
+
+		const turnId = generateUuid();
+		this._emitAction({
+			type: ActionType.ChatTurnStarted,
+			turnId,
+			startedAt: event.timestamp,
+			message: {
+				text: event.data.content,
+				origin: { kind: MessageKind.User },
+			},
+		});
+		this.resetTurnState(turnId, undefined, AgentHostClientType.Unknown, undefined, true);
+		const turn = this._currentTurn.value;
+		if (turn) {
+			turn.messageCharLen = event.data.content.length;
+			turn.markRunning();
+		}
+	}
+
+	/**
 	 * Drains any steering messages we acknowledged to the SDK but never
 	 * promoted to their own turn (e.g. on abort or session dispose). Fires
 	 * `steering_consumed` so the chat UI removes the lingering pending

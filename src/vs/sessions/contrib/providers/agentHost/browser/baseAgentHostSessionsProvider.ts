@@ -2675,6 +2675,24 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 		});
 	}
 
+	private _createChatCanvasesObservable(chatUriOrObservable: URI | IObservable<URI | undefined>): IObservable<readonly ISessionCanvas[]> {
+		const chatUriObs = URI.isUri(chatUriOrObservable) ? constObservable(chatUriOrObservable) : chatUriOrObservable;
+		const chatStateObs = createActiveSessionSubscriptionObs<ChatState>(
+			this._options,
+			this.isActiveSessionObs,
+			StateComponents.Chat,
+			chatUriObs,
+		);
+		const canvases = derivedOpts<readonly CanvasInstance[]>({ equalsFn: structuralEquals }, reader => {
+			const chatState = chatStateObs.read(reader).read(reader);
+			return !chatState || chatState instanceof Error ? [] : chatState.canvases ?? [];
+		});
+		return derived(reader => {
+			const chatUri = chatUriObs.read(reader);
+			return chatUri ? canvases.read(reader).map(canvas => new AgentHostSessionCanvas(chatUri, canvas, this._options.getConnection)) : [];
+		});
+	}
+
 }
 
 /**

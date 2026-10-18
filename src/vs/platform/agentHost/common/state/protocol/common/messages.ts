@@ -92,6 +92,7 @@ export interface CommandMap {
 	'createChat': { params: CreateChatParams; result: null };
 	'moveChat': { params: MoveChatParams; result: MoveChatResult };
 	'disposeChat': { params: DisposeChatParams; result: null };
+	'resolveCanvasSource': { params: ResolveCanvasSourceParams; result: ResolveCanvasSourceResult };
 	'createTerminal': { params: CreateTerminalParams; result: null };
 	'disposeTerminal': { params: DisposeTerminalParams; result: null };
 	'createResourceWatch': { params: CreateResourceWatchParams; result: CreateResourceWatchResult };

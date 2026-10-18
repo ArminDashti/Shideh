@@ -65,6 +65,7 @@ export const enum ActionType {
 	ChatBackgroundWorkRemoved = 'chat/backgroundWorkRemoved',
 	ChatMovableChanged = 'chat/movableChanged',
 	ChatChangesetsChanged = 'chat/changesetsChanged',
+	ChatCanvasesChanged = 'chat/canvasesChanged',
 	ChatWorkingDirectorySet = 'chat/workingDirectorySet',
 	ChatWorkingDirectoryRemoved = 'chat/workingDirectoryRemoved',
 	SessionTitleChanged = 'session/titleChanged',
@@ -238,6 +239,7 @@ export type StateAction =
 	| ChatBackgroundWorkRemovedAction
 	| ChatMovableChangedAction
 	| ChatChangesetsChangedAction
+	| ChatCanvasesChangedAction
 	| ChatWorkingDirectorySetAction
 	| ChatWorkingDirectoryRemovedAction
 	| ChatUsageAction

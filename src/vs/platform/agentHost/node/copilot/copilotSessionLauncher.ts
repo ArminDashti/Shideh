@@ -37,6 +37,8 @@ import { IAgentHostManagedSettingsService } from '../agentHostManagedSettingsSer
 import { IAgentHostTerminalManager } from '../agentHostTerminalManager.js';
 import { IAgentHostSessionOpenTelemetry } from '../agentHostSessionOpenTelemetry.js';
 import { IByokLmBridgeRegistry } from '../byokLmBridgeRegistry.js';
+import { getAppNodeModulesUri } from '../appNodeModules.js';
+import { resolveCopilotRuntimePaths } from './copilotRuntimePaths.js';
 import { IByokLmProxyService, type IByokLmProxyHandle } from './byokLmProxyService.js';
 import type { ICopilotMcpServerInfo, ICopilotPluginInfo } from './copilotAgent.js';
 import { CopilotGitHubSessionCredentials } from './copilotGitHubCredentials.js';

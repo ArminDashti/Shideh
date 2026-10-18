@@ -137,6 +137,7 @@ export type ChatAction =
 	| ChatBackgroundWorkRemovedAction
 	| ChatMovableChangedAction
 	| ChatChangesetsChangedAction
+	| ChatCanvasesChangedAction
 	| ChatWorkingDirectorySetAction
 	| ChatWorkingDirectoryRemovedAction
 	| ChatUsageAction
@@ -191,6 +192,7 @@ export type ServerChatAction =
 	| ChatBackgroundWorkRemovedAction
 	| ChatMovableChangedAction
 	| ChatChangesetsChangedAction
+	| ChatCanvasesChangedAction
 	| ChatUsageAction
 	| ChatReasoningAction
 	| ChatInputRequestedAction
@@ -425,6 +427,7 @@ export const IS_CLIENT_DISPATCHABLE: { readonly [K in StateAction['type']]: bool
 	[ActionType.ChatBackgroundWorkRemoved]: false,
 	[ActionType.ChatMovableChanged]: false,
 	[ActionType.ChatChangesetsChanged]: false,
+	[ActionType.ChatCanvasesChanged]: false,
 	[ActionType.ChatWorkingDirectorySet]: true,
 	[ActionType.ChatWorkingDirectoryRemoved]: true,
 	[ActionType.ChatUsage]: false,

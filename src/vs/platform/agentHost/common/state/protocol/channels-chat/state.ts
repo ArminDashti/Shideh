@@ -144,6 +144,37 @@ export interface ChatState {
 }
 
 /**
+ * Availability of a live canvas instance.
+ * @nonexhaustive
+ */
+export const enum CanvasAvailability {
+	/** The provider currently has a source that can be resolved. */
+	Ready = 'ready',
+	/** The provider is temporarily unavailable. */
+	Unavailable = 'unavailable',
+}
+
+/** A canvas instance opened by the model for this chat. */
+export interface CanvasInstance {
+	/** Stable caller-supplied instance identifier. */
+	instanceId: string;
+	/** Owning extension/provider identifier. */
+	extensionId: string;
+	/** Owning extension display name, when available. */
+	extensionName?: string;
+	/** Provider-local canvas type identifier. */
+	canvasId: string;
+	/** Provider-supplied title, when available. */
+	title?: string;
+	/** Provider-supplied status text, when available. */
+	status?: string;
+	/** Monotonic instance revision used to fence source resolution. */
+	revision: number;
+	/** Whether the live provider can currently resolve a source. */
+	availability: CanvasAvailability;
+}
+
+/**
  * Lightweight catalog entry for a chat, carried in
  * {@link SessionState.chats | `SessionState.chats`}. The full conversation
  * lives in {@link ChatState}, which inlines (denormalizes) every field below.

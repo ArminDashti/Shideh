@@ -1292,6 +1292,25 @@ suite('AgentSideEffects', () => {
 
 			assert.deepStrictEqual(serverState(), { kind: McpServerStatus.Starting, blocking: false });
 		});
+
+		test('does not restore blocking after provider state advances', async () => {
+			const background = new DeferredPromise<void>();
+			Object.assign(agent, {
+				backgroundMcpServerStartup: async () => background.p,
+			});
+
+			requestBackground();
+			stateManager.dispatchServerAction(sessionUri.toString(), {
+				type: ActionType.SessionMcpServerStateChanged,
+				id: 'server',
+				state: { kind: McpServerStatus.Ready },
+				channel: 'mcp://server',
+			});
+			background.error(new Error('late rejection'));
+			await timeout(0);
+
+			assert.deepStrictEqual(serverState(), { kind: McpServerStatus.Ready });
+		});
 	});
 
 	suite('customization enablement refresh', () => {

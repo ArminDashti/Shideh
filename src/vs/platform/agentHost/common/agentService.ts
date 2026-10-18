@@ -1743,6 +1743,8 @@ export interface IAgentConnection {
 	createChat(session: URI, chat: URI, options?: IAgentCreateChatRequestOptions): Promise<void>;
 	/** Dispose an additional chat created via {@link createChat}. */
 	disposeChat(chat: URI): Promise<void>;
+	/** Resolve the current source of a live canvas owned by a chat. */
+	resolveCanvasSource(chat: URI, instanceId: string, revision: number): Promise<ResolveCanvasSourceResult>;
 
 	// ---- Terminal lifecycle -------------------------------------------------
 	createTerminal(params: CreateTerminalParams): Promise<void>;

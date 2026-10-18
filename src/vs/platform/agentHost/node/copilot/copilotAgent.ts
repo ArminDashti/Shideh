@@ -1604,6 +1604,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			description: localize('copilotAgent.description', "Copilot SDK agent running in the local agent host process"),
 			_meta: toAgentWorkflowCapabilityMeta(this.agentHostCapabilities.workflows),
 			capabilities: {
+				canvases: {},
 				multipleChats: { fork: true, sideChat: true },
 				...(this._isMultiRootEnabled() ? { multipleWorkingDirectories: { immutablePrimary: true } } : {}),
 			},
