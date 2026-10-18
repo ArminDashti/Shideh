@@ -2378,6 +2378,29 @@ declare module 'vscode' {
 	export type GlobPattern = string | RelativePattern;
 
 	/**
+	 * A notebook filter denotes a notebook by its {@link NotebookDocument.type type}, the {@link Uri.scheme scheme} of
+	 * its resource, or a glob-pattern that is applied to the {@link NotebookDocument.uri uri-path}.
+	 */
+	export interface NotebookFilter {
+
+		/**
+		 * The {@link NotebookDocument.notebookType type} of a notebook, like `jupyter`.
+		 */
+		readonly notebookType?: string;
+
+		/**
+		 * A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
+		 */
+		readonly scheme?: string;
+
+		/**
+		 * A {@link GlobPattern glob pattern} that is matched on the absolute path of the document. Use a {@link RelativePattern relative pattern}
+		 * to filter documents to a {@link WorkspaceFolder workspace folder}.
+		 */
+		readonly pattern?: GlobPattern;
+	}
+
+	/**
 	 * A document filter denotes a document by different properties like
 	 * the {@link TextDocument.languageId language}, the {@link Uri.scheme scheme} of
 	 * its resource, or a glob-pattern that is applied to the {@link TextDocument.fileName path}.
@@ -2387,6 +2410,9 @@ declare module 'vscode' {
 	 *
 	 * @example <caption>A language filter that applies to all package.json paths</caption>
 	 * { language: 'json', pattern: '**​/package.json' }
+	 *
+	 * @example <caption>A language filter that applies to all python files on jupyter notebooks</caption>
+	 * { language: 'python', notebook: 'jupyter-notebook' }
 	 */
 	export interface DocumentFilter {
 
@@ -2405,7 +2431,7 @@ declare module 'vscode' {
 		 * @example <caption>Match python document inside jupyter notebook that aren't stored yet (`untitled`)</caption>
 		 * { language: 'python', notebookType: 'jupyter-notebook', scheme: 'untitled' }
 		 */
-		readonly notebookType?: string;
+		readonly notebook?: string | NotebookFilter;
 
 		/**
 		 * A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
