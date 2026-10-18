@@ -3056,6 +3056,33 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		const allOptionsValid = sessionResource ? this.areAllOptionsValid(sessionResource, visibleOptionGroups) : true;
 
+		// First update all context keys with current values (before evaluating visibility)
+		for (const optionGroup of optionGroups) {
+			const currentOption = this.chatSessionsService.getSessionOption(ctx.chatSessionResource, optionGroup.id);
+			if (currentOption) {
+				const optionId = typeof currentOption === 'string' ? currentOption : currentOption.id;
+				this.updateOptionContextKey(optionGroup.id, optionId);
+			} else {
+				this.logService.trace(`[ChatInputPart] No session option set for group '${optionGroup.id}'`);
+			}
+		}
+
+		// Compute which option groups should be visible based on when expressions
+		const visibleGroupIds = new Set<string>();
+		for (const optionGroup of optionGroups) {
+			if (!this.chatSessionsService.getSessionOption(ctx.chatSessionResource, optionGroup.id)) {
+				continue;
+			}
+			if (this.evaluateOptionGroupVisibility(optionGroup)) {
+				visibleGroupIds.add(optionGroup.id);
+			}
+		}
+
+		// Only show the picker if there are visible option groups
+		if (visibleGroupIds.size === 0) {
+			return hideAll();
+		}
+
 		this.chatSessionHasOptions.set(true);
 		this.chatSessionOptionsValid.set(allOptionsValid);
 
