@@ -39,6 +39,7 @@ import { CONFIGURE_SKILLS_ACTION_ID } from './promptSyntax/skillActions.js';
 import { IChatWidgetService } from './chat.js';
 import { agentSlashCommandToMarkdown, agentToMarkdown } from './widget/chatContentParts/chatMarkdownDecorationsRenderer.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { AgentSessionProviders } from './agentSessions/agentSessions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { AICustomizationManagementCommands, AICustomizationManagementSection } from './aiCustomization/aiCustomizationManagement.js';
 import { IChatPetService } from './chatPetService.js';
