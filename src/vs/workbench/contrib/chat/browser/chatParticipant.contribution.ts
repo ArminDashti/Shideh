@@ -720,9 +720,9 @@ export class ChatCompatibilityNotifier extends Disposable implements IWorkbenchC
 			() => {
 				const notification = extensionsWorkbenchService.getExtensionsNotification();
 				const chatExtension = notification?.extensions.find(ext => ExtensionIdentifier.equals(ext.identifier.id, this.productService.defaultChatAgent?.chatExtensionId));
+				isInvalid.set(true);
+				this.registerWelcomeView(chatExtension);
 				if (chatExtension) {
-					isInvalid.set(true);
-					this.registerWelcomeView(chatExtension);
 				} else {
 					isInvalid.set(false);
 				}
@@ -730,7 +730,7 @@ export class ChatCompatibilityNotifier extends Disposable implements IWorkbenchC
 		));
 	}
 
-	private registerWelcomeView(chatExtension: IExtension) {
+	private registerWelcomeView(chatExtension: IExtension | undefined) {
 		if (this.registeredWelcomeView) {
 			return;
 		}
