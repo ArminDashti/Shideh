@@ -59,6 +59,7 @@ import { getChatSessionType, getNewChatSessionResource } from '../../common/mode
 import { localChatSessionType } from '../../common/chatSessionsService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ChatViewPane } from '../widgetHosts/viewPane/chatViewPane.js';
+import { AICustomizationManagementCommands } from '../aiCustomization/aiCustomizationManagement.js';
 
 export const CHAT_CATEGORY = localize2('chat.category', 'Chat');
 
