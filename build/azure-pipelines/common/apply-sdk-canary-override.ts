@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { readCopilotBuildOverrides, RUNTIME_NPM_NAME, SDK_NPM_NAME, type CopilotBuildOverrides, type VscodeSourceMetadata } from './copilotSource.ts';
 
 /**
  * Stage 3 of the Copilot SDK -> VS Code integration pipeline.
@@ -31,6 +32,7 @@ const ROOT = path.join(import.meta.dirname, '../../../');
  */
 const IS_WINDOWS = process.platform === 'win32';
 const NPM = IS_WINDOWS ? 'npm.cmd' : 'npm';
+const COPILOT_SOURCE_PIPELINE_URL = 'https://dev.azure.com/monacotools/Monaco/_build?definitionId=704';
 
 /**
  * Allowlist for npm versions and dist-tags before they are interpolated into
@@ -49,7 +51,7 @@ function assertSafeSpec(label: string, value: string): void {
 /** Manifests that declare the Copilot dependencies. */
 const TARGET_DIRS = ['', 'remote'];
 
-interface Override {
+export interface Override {
 	readonly name: string;
 	readonly version: string;
 }
@@ -221,4 +223,6 @@ function main(): void {
 	}
 }
 
-main();
+if (import.meta.main) {
+	main();
+}
