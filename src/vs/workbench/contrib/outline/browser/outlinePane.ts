@@ -282,10 +282,14 @@ export class OutlinePane extends ViewPane implements IOutlinePane {
 		ctxFocused.bindTo(tree.contextKeyService);
 
 		// update tree, listen to changes
+		const delayedNoSymbolMessage = this._editorControlDisposables.add(new Delayer<void>(200));
 		const updateTree = () => {
+			delayedNoSymbolMessage.cancel();
 			if (newOutline.isEmpty) {
 				// no more elements
-				this._showMessage(localize('no-symbols', "No symbols found in document '{0}'", basename(resource)));
+				delayedNoSymbolMessage.trigger(() =>
+					this._showMessage(localize('no-symbols', "No symbols found in document '{0}'", basename(resource)))
+				);
 				this._captureViewState(resource);
 				tree.setInput(undefined);
 
