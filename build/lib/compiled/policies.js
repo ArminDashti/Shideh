@@ -10,21 +10,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
-const byline_1 = __importDefault(require("byline"));
-const ripgrep_1 = require("@vscode/ripgrep");
-const tree_sitter_1 = __importDefault(require("tree-sitter"));
-const { typescript } = require('tree-sitter-typescript');
 const product = require('../../product.json');
 const packageJson = require('../../package.json');
-function isNlsString(value) {
-    return value ? typeof value !== 'string' : false;
-}
-function isStringArray(value) {
-    return !value.some(s => isNlsString(s));
-}
-function isNlsStringArray(value) {
-    return value.every(s => isNlsString(s));
-}
 var PolicyType;
 (function (PolicyType) {
     PolicyType["Boolean"] = "boolean";
@@ -101,11 +88,7 @@ ${this.renderProfileManifestValue(translations)}
     }
 }
 class BooleanPolicy extends BasePolicy {
-    static from(name, category, minimumVersion, description, moduleName, settingNode) {
-        const type = getStringProperty(moduleName, settingNode, 'type');
-        if (type !== 'boolean') {
-            return undefined;
-        }
+    static from(name, category, minimumVersion, description, moduleName) {
         return new BooleanPolicy(name, category, minimumVersion, description, moduleName);
     }
     constructor(name, category, minimumVersion, description, moduleName) {
@@ -137,11 +120,6 @@ class BooleanPolicy extends BasePolicy {
 <string>boolean</string>`;
     }
 }
-class ParseError extends Error {
-    constructor(message, moduleName, node) {
-        super(`${message}. ${moduleName}.ts:${node.startPosition.row + 1}`);
-    }
-}
 class NumberPolicy extends BasePolicy {
     static from(name, category, minimumVersion, description, moduleName, settingNode) {
         const type = getStringProperty(moduleName, settingNode, 'type');
@@ -155,7 +133,7 @@ class NumberPolicy extends BasePolicy {
         return new NumberPolicy(name, category, minimumVersion, description, moduleName, defaultValue);
     }
     constructor(name, category, minimumVersion, description, moduleName, defaultValue) {
-        super(PolicyType.StringEnum, name, category, minimumVersion, description, moduleName);
+        super(PolicyType.Number, name, category, minimumVersion, description, moduleName);
         this.defaultValue = defaultValue;
     }
     renderADMXElements() {
@@ -184,11 +162,7 @@ class NumberPolicy extends BasePolicy {
     }
 }
 class StringPolicy extends BasePolicy {
-    static from(name, category, minimumVersion, description, moduleName, settingNode) {
-        const type = getStringProperty(moduleName, settingNode, 'type');
-        if (type !== 'string') {
-            return undefined;
-        }
+    static from(name, category, minimumVersion, description, moduleName) {
         return new StringPolicy(name, category, minimumVersion, description, moduleName);
     }
     constructor(name, category, minimumVersion, description, moduleName) {
@@ -217,11 +191,7 @@ class StringPolicy extends BasePolicy {
     }
 }
 class ObjectPolicy extends BasePolicy {
-    static from(name, category, minimumVersion, description, moduleName, settingNode) {
-        const type = getStringProperty(moduleName, settingNode, 'type');
-        if (type !== 'object' && type !== 'array') {
-            return undefined;
-        }
+    static from(name, category, minimumVersion, description, moduleName) {
         return new ObjectPolicy(name, category, minimumVersion, description, moduleName);
     }
     constructor(name, category, minimumVersion, description, moduleName) {
@@ -863,18 +833,51 @@ async function getNLS(extensionGalleryServiceUrl, resourceUrlTemplate, languageI
     return await getSpecificNLS(resourceUrlTemplate, languageId, latestCompatibleVersion);
 }
 async function parsePolicies() {
-    const parser = new tree_sitter_1.default();
-    parser.setLanguage(typescript);
-    const files = await getFiles(process.cwd());
-    const base = path_1.default.join(process.cwd(), 'src');
-    const policies = [];
-    for (const file of files) {
-        const moduleName = path_1.default.relative(base, file).replace(/\.ts$/i, '').replace(/\\/g, '/');
-        const contents = await fs_1.promises.readFile(file, { encoding: 'utf8' });
-        const tree = parser.parse(contents);
-        policies.push(...getPolicies(moduleName, tree.rootNode));
+    const policiesJsonPath = path_1.default.resolve('.build/policies.json');
+    try {
+        const jsonContent = await fs_1.promises.readFile(policiesJsonPath, 'utf8');
+        const policyData = JSON.parse(jsonContent);
+        const policies = [];
+        for (const [settingId, setting] of Object.entries(policyData)) {
+            const { type, description, default: defaultValue, policy } = setting;
+            const { name, minimumVersion } = policy;
+            if (!name || !minimumVersion) {
+                throw new Error(`Malformed policy object for '${settingId}': Missing required 'name' or 'minimumVersion'.`);
+            }
+            if (!description || typeof description !== 'string') {
+                throw new Error(`Malformed policy object for '${settingId}': Missing or invalid 'description'.`);
+            }
+            const category = {
+                moduleName: 'workbench',
+                name: { value: 'Workbench', nlsKey: 'workbench.title' }
+            };
+            const descriptionNls = {
+                value: description,
+                nlsKey: `${name}.description`
+            };
+            if (type === 'boolean') {
+                policies.push(BooleanPolicy.from(name, category, minimumVersion, descriptionNls, 'workbench'));
+            }
+            else if (type === 'number') {
+                const numDefault = typeof defaultValue === 'number' ? defaultValue : 0;
+                policies.push(NumberPolicy.from(name, category, minimumVersion, descriptionNls, 'workbench', numDefault));
+            }
+            else if (type === 'string' && setting.enum) {
+                policies.push(StringEnumPolicy.from(name, category, minimumVersion, descriptionNls, 'workbench', setting.enum, setting.enumDescriptions));
+            }
+            else if (type === 'string') {
+                policies.push(StringPolicy.from(name, category, minimumVersion, descriptionNls, 'workbench'));
+            }
+            else if (type === 'object' || type === 'array') {
+                policies.push(ObjectPolicy.from(name, category, minimumVersion, descriptionNls, 'workbench'));
+            }
+        }
+        return policies;
     }
-    return policies;
+    catch (error) {
+        console.error('Failed to load policies from JSON:', error);
+        return [];
+    }
 }
 async function getTranslations() {
     const extensionGalleryServiceUrl = product.extensionsGallery?.serviceUrl;
@@ -936,12 +939,7 @@ async function main() {
 }
 if (require.main === module) {
     main().catch(err => {
-        if (err instanceof ParseError) {
-            console.error(`Parse Error:`, err.message);
-        }
-        else {
-            console.error(err);
-        }
+        console.error(err);
         process.exit(1);
     });
 }

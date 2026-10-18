@@ -153,6 +153,8 @@ export interface INativeEnvironmentService extends IEnvironmentService {
 	exportPolicyData?: string;
 	exportDefaultKeybindings?: string;
 
+	exportPolicyConfiguration?: string;
+
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	//
 	// NOTE: KEEP THIS INTERFACE AS SMALL AS POSSIBLE.
