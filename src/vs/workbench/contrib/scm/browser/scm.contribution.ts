@@ -100,6 +100,26 @@ viewsRegistry.registerViews([{
 	containerIcon: sourceControlViewIcon
 }], viewContainer);
 
+CommandsRegistry.registerCommand('_workbench.scm.revealHistoryItem', async (
+	accessor,
+	repositoryUri: URI,
+	historyItemId: string,
+): Promise<boolean> => {
+	if (!URI.isUri(repositoryUri) || typeof historyItemId !== 'string') {
+		return false;
+	}
+
+	const scmService = accessor.get(ISCMService);
+	const repository = [...scmService.repositories]
+		.find(candidate => candidate.provider.rootUri && isEqual(candidate.provider.rootUri, repositoryUri));
+	if (!repository) {
+		return false;
+	}
+
+	const view = await accessor.get(IViewsService).openView<SCMHistoryViewPane>(HISTORY_VIEW_PANE_ID, true);
+	return view?.revealHistoryItem(repository, historyItemId) ?? false;
+});
+
 viewsRegistry.registerViews([{
 	id: VIEW_PANE_ID,
 	containerTitle,
