@@ -507,6 +507,23 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		return result;
 	}
 
+	async getRangeAsVT(startMarker: IXtermMarker, endMarker?: IXtermMarker): Promise<string> {
+		if (!this._serializeAddon) {
+			const Addon = await this._xtermAddonLoader.importAddon('serialize');
+			this._serializeAddon = new Addon();
+			this.raw.loadAddon(this._serializeAddon);
+		}
+
+		assert(startMarker.line !== -1);
+
+		return this._serializeAddon.serialize({
+			range: {
+				start: startMarker?.line,
+				end: endMarker?.line ?? this.raw.buffer.active.length - 1
+			}
+		});
+	}
+
 	attachToElement(container: HTMLElement, partialOptions?: Partial<IXtermAttachToElementOptions>): HTMLElement {
 		const options: IXtermAttachToElementOptions = { enableGpu: true, ...partialOptions };
 		if (!this._attached) {

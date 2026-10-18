@@ -676,6 +676,33 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	 */
 	openResource(resource: URI): void;
 }
+export interface ITerminalChatService {
+	readonly _serviceBrand: undefined;
+	serialize(): string;
+	deserialize(serialized: string): void;
+	registerExecution(registration: ITerminalChatExecutionRegistration): void;
+	registerProgressPart(registration: ITerminalChatProgressPartRegistration): ITerminalChatProgressPartHandle;
+}
+
+export interface ITerminalChatExecutionRegistration {
+	readonly chatSessionId: string;
+	readonly toolCallId: string;
+	readonly terminalSessionId: string;
+	readonly instance: ITerminalInstance;
+	readonly executeStrategy: ITerminalExecuteStrategy;
+}
+
+export interface ITerminalChatProgressPartRegistration {
+	readonly chatSessionId: string;
+	readonly toolCallId: string;
+	readonly terminalSessionId: string;
+	readonly onDidChangeHeight: () => void;
+}
+
+export interface ITerminalChatProgressPartHandle extends IDisposable {
+	attachToElement(element: HTMLElement): Promise<void>;
+}
+
 
 /**
  * A service that provides convenient access to the terminal configuration and derived values.
@@ -1607,6 +1634,8 @@ export interface IXtermTerminal extends IDisposable {
 	 * Gets the buffer contents as HTML.
 	 */
 	getContentsAsHtml(): Promise<string>;
+
+	getRangeAsVT(startMarker: IXtermMarker, endMarker?: IXtermMarker): Promise<string>;
 
 	/**
 	 * Refreshes the terminal after it has been moved.
