@@ -86,6 +86,10 @@ steps:
       # deemon --attach can exit non-zero if the background daemon died; never fail for that.
       continueOnError: true
 
+  - template: ../../copilot/download-runtime-artifact.yml@self
+    parameters:
+      VSCODE_COPILOT_TARGET: win32-${{ parameters.VSCODE_ARCH }}
+
   - powershell: |
       . build/azure-pipelines/win32/exec.ps1
       $ErrorActionPreference = "Stop"

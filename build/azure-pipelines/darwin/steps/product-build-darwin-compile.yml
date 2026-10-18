@@ -102,6 +102,10 @@ steps:
       # deemon --attach can exit non-zero if the background daemon died; never fail for that.
       continueOnError: true
 
+  - template: ../../copilot/download-runtime-artifact.yml@self
+    parameters:
+      VSCODE_COPILOT_TARGET: darwin-${{ parameters.VSCODE_ARCH }}
+
   - script: |
       set -e
       npm run gulp vscode-darwin-$(VSCODE_ARCH)-min-ci

@@ -1511,6 +1511,20 @@ async function disposeAgent(agent: CopilotAgent): Promise<void> {
 	await Promise.resolve();
 }
 
+suite('resolveCopilotCliPathOverride', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('is unset for a normal build', () => {
+		assert.strictEqual(resolveCopilotCliPathOverride({}, {}), undefined);
+		assert.strictEqual(resolveCopilotCliPathOverride({ VSCODE_COPILOT_CLI_PATH: '   ' }, {}), undefined);
+	});
+
+	test('prefers the environment variable over the product override', () => {
+		assert.strictEqual(resolveCopilotCliPathOverride({ VSCODE_COPILOT_CLI_PATH: '/env/index.js' }, { copilotCliPath: '/product/index.js' }), '/env/index.js');
+		assert.strictEqual(resolveCopilotCliPathOverride({}, { copilotCliPath: '/product/index.js' }), '/product/index.js');
+	});
+});
+
 suite('CopilotAgent', () => {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

@@ -104,6 +104,12 @@ steps:
       # deemon --attach can exit non-zero if the background daemon died; never fail for that.
       continueOnError: true
 
+  # armhf has no @github/copilot platform package, so nothing is built for it.
+  - ${{ if ne(parameters.VSCODE_ARCH, 'armhf') }}:
+      - template: ../../copilot/download-runtime-artifact.yml@self
+        parameters:
+          VSCODE_COPILOT_TARGET: linux-${{ parameters.VSCODE_ARCH }}
+
   - script: |
       set -e
       npm run gulp vscode-linux-$(VSCODE_ARCH)-min-ci

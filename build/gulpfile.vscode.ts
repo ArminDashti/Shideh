@@ -237,6 +237,10 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
+		// Must precede any node_modules globbing: this replaces the platform package,
+		// and a source build does not produce every file the published one has, so a
+		// stream that already enumerated it would later fail to stat the difference.
+		ensureCopilotPlatformPackage(platform, arch);
 		const productionDependencies = getProductionDependencies(root);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
 
