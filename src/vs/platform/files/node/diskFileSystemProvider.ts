@@ -87,6 +87,13 @@ export class DiskFileSystemProvider extends AbstractDiskFileSystemProvider imple
 				permissions = (permissions ?? 0) | FilePermission.Executable;
 			}
 
+			let type: number;
+			if (isSymbolicLink) {
+				type = FileType.SymbolicLink | (stat.isDirectory() ? FileType.Directory : FileType.File);
+			} else {
+				type = stat.isFile() ? FileType.File : stat.isDirectory() ? FileType.Directory : FileType.Unknown;
+			}
+
 			return {
 				type: this.toType(stat, symbolicLink),
 				ctime: stat.birthtime.getTime(), // intentionally not using ctime here, we want the creation time
@@ -120,14 +127,8 @@ export class DiskFileSystemProvider extends AbstractDiskFileSystemProvider imple
 			const result: [string, FileType][] = [];
 			await Promise.all(children.map(async child => {
 				try {
-					let type: FileType;
-					if (child.isSymbolicLink()) {
-						type = (await this.stat(joinPath(resource, child.name))).type; // always resolve target the link points to if any
-					} else {
-						type = this.toType(child);
-					}
-
-					result.push([child.name, type]);
+					const stat = await this.stat(joinPath(resource, child));
+					result.push([child, stat.type]);
 				} catch (error) {
 					this.logService.trace(error); // ignore errors for individual entries that can arise from permission denied
 				}

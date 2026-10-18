@@ -2362,9 +2362,9 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.if-branch.c",
 							"begin": "\\n",
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.if-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2459,9 +2459,9 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.if-branch.in-block.c",
 							"begin": "\\n",
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.if-branch.in-block.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2504,9 +2504,9 @@
 					"include": "#comments"
 				},
 				{
+					"contentName": "comment.block.preprocessor.elif-branch.c",
 					"begin": "\\n",
 					"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-					"contentName": "comment.block.preprocessor.elif-branch.c",
 					"patterns": [
 						{
 							"include": "#disabled"
@@ -2563,6 +2563,7 @@
 							"include": "#comments"
 						},
 						{
+							"contentName": "comment.block.preprocessor.else-branch.c",
 							"begin": "^\\s*((#)\\s*else\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2576,7 +2577,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*endif\\b))",
-							"contentName": "comment.block.preprocessor.else-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2587,6 +2587,7 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.if-branch.c",
 							"begin": "^\\s*((#)\\s*elif\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2600,7 +2601,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.if-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2665,6 +2665,7 @@
 							"include": "#comments"
 						},
 						{
+							"contentName": "comment.block.preprocessor.else-branch.in-block.c",
 							"begin": "^\\s*((#)\\s*else\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2678,7 +2679,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*endif\\b))",
-							"contentName": "comment.block.preprocessor.else-branch.in-block.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2689,6 +2689,7 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.if-branch.in-block.c",
 							"begin": "^\\s*((#)\\s*elif\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2702,7 +2703,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.if-branch.in-block.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2758,6 +2758,7 @@
 					"end": "(?=^\\s*((#)\\s*(?:endif)\\b))",
 					"patterns": [
 						{
+							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"begin": "^\\s*((#)\\s*(else)\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2771,7 +2772,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*endif\\b))",
-							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2782,6 +2782,7 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"begin": "^\\s*((#)\\s*(elif)\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2795,7 +2796,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2845,6 +2845,7 @@
 					"end": "(?=^\\s*((#)\\s*(?:endif)\\b))",
 					"patterns": [
 						{
+							"contentName": "comment.block.preprocessor.elif-branch.in-block.c",
 							"begin": "^\\s*((#)\\s*(else)\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2858,7 +2859,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*endif\\b))",
-							"contentName": "comment.block.preprocessor.elif-branch.in-block.c",
 							"patterns": [
 								{
 									"include": "#disabled"
@@ -2869,6 +2869,7 @@
 							]
 						},
 						{
+							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"begin": "^\\s*((#)\\s*(elif)\\b)",
 							"beginCaptures": {
 								"0": {
@@ -2882,7 +2883,6 @@
 								}
 							},
 							"end": "(?=^\\s*((#)\\s*(?:else|elif|endif)\\b))",
-							"contentName": "comment.block.preprocessor.elif-branch.c",
 							"patterns": [
 								{
 									"include": "#disabled"
