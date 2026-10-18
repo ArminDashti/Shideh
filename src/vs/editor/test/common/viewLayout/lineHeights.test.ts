@@ -146,7 +146,7 @@ suite('Editor ViewLayout - LineHeightsManager', () => {
 		manager.insertOrChangeCustomLineHeight('dec1', 10, 12, 20);
 		manager.commit();
 
-		manager.onLinesDeleted(5, 7); // Delete lines 5-7
+		manager.onLinesDeleted(5, 7, []); // Delete lines 5-7
 
 		assert.strictEqual(manager.heightForLineNumber(7), 20); // Was line 10
 		assert.strictEqual(manager.heightForLineNumber(8), 20); // Was line 11
@@ -159,7 +159,7 @@ suite('Editor ViewLayout - LineHeightsManager', () => {
 		manager.insertOrChangeCustomLineHeight('dec1', 5, 10, 20);
 		manager.commit();
 
-		manager.onLinesDeleted(7, 12); // Delete lines 7-12, including part of decoration
+		manager.onLinesDeleted(7, 12, []); // Delete lines 7-12, including part of decoration
 
 		assert.strictEqual(manager.heightForLineNumber(5), 20);
 		assert.strictEqual(manager.heightForLineNumber(6), 20);
@@ -171,7 +171,7 @@ suite('Editor ViewLayout - LineHeightsManager', () => {
 		manager.insertOrChangeCustomLineHeight('dec1', 5, 7, 20);
 		manager.commit();
 
-		manager.onLinesDeleted(4, 8); // Delete lines 4-8, completely contains decoration
+		manager.onLinesDeleted(4, 8, []); // Delete lines 4-8, completely contains decoration
 
 		// The decoration collapses to a single line which matches the behavior in the text buffer
 		assert.strictEqual(manager.heightForLineNumber(3), 10);
@@ -184,7 +184,7 @@ suite('Editor ViewLayout - LineHeightsManager', () => {
 		manager.insertOrChangeCustomLineHeight('decA', 1, 1, 40);
 		manager.commit();
 
-		manager.onLinesDeleted(2, 4); // Delete lines 2-4 after the variable line height
+		manager.onLinesDeleted(2, 4, []); // Delete lines 2-4 after the variable line height
 
 		// Check individual line heights
 		assert.strictEqual(manager.heightForLineNumber(1), 40);
@@ -257,7 +257,7 @@ suite('Editor ViewLayout - LineHeightsManager', () => {
 		manager.commit();
 
 		// Delete one line that partially intersects the same decoration
-		manager.onLinesDeleted(6, 6);
+		manager.onLinesDeleted(6, 6, []);
 
 		// Check individual line heights
 		assert.strictEqual(manager.heightForLineNumber(5), 20);
@@ -383,7 +383,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		manager.insertOrChangeCustomLineHeight('decA', 3, 3, 20);
 		manager.insertOrChangeCustomLineHeight('decB', 5, 5, 30);
 		manager.removeCustomLineHeight('decA');
-		manager.onLinesDeleted(1, 1);
+		manager.onLinesDeleted(1, 1, []);
 
 		// After deleting line 1, decB shifts from line 5 to line 4.
 		// decA must remain removed even though its insert was queued before the remove.
@@ -403,7 +403,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		// Step 3: insert 2 lines at line 3 (shifts dec2 from line 5 → 7)
 		manager.onLinesInserted(3, 4, []);
 		// Step 4: delete line 1 (shifts dec1 from line 2 → 1, dec2 from line 7 → 6)
-		manager.onLinesDeleted(1, 1);
+		manager.onLinesDeleted(1, 1, []);
 		// Step 5-6: remove the two decorations
 		manager.removeCustomLineHeight('dec1');
 		manager.removeCustomLineHeight('dec2');
@@ -433,7 +433,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		const manager = new LineHeightsManager(10, []);
 		manager.insertOrChangeCustomLineHeight('dec1', 5, 5, 20);
 		// Delete lines 1-2 → dec1 shifts from 5 → 3
-		manager.onLinesDeleted(1, 2);
+		manager.onLinesDeleted(1, 2, []);
 		// Insert a new decoration
 		manager.insertOrChangeCustomLineHeight('dec2', 1, 1, 30);
 		// Read — no explicit commit
@@ -446,7 +446,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		const manager = new LineHeightsManager(10, []);
 		manager.insertOrChangeCustomLineHeight('dec1', 3, 3, 20);
 		// Delete line 1 → dec1 should shift from 3 → 2
-		manager.onLinesDeleted(1, 1);
+		manager.onLinesDeleted(1, 1, []);
 		// Add another decoration
 		manager.insertOrChangeCustomLineHeight('dec2', 5, 5, 30);
 		// Read — no explicit commit
@@ -464,7 +464,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		// Insert 2 lines at line 1 → dec1 moves from 3 → 5
 		manager.onLinesInserted(1, 2, []);
 		// Delete line 1 → dec1 moves from 5 → 4
-		manager.onLinesDeleted(1, 1);
+		manager.onLinesDeleted(1, 1, []);
 		// Read
 		assert.strictEqual(manager.heightForLineNumber(4), 20);
 		assert.strictEqual(manager.heightForLineNumber(3), 10);
@@ -488,9 +488,9 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		const manager = new LineHeightsManager(10, []);
 		manager.insertOrChangeCustomLineHeight('dec1', 10, 10, 20);
 		// Delete lines 1-2 → dec1 at 10 → 8
-		manager.onLinesDeleted(1, 2);
+		manager.onLinesDeleted(1, 2, []);
 		// Delete lines 1-2 → dec1 at 8 → 6
-		manager.onLinesDeleted(1, 2);
+		manager.onLinesDeleted(1, 2, []);
 		// Read
 		assert.strictEqual(manager.heightForLineNumber(6), 20);
 		assert.strictEqual(manager.heightForLineNumber(7), 10);
@@ -501,7 +501,7 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		// Insert a decoration at line 3 (pending, not committed)
 		manager.insertOrChangeCustomLineHeight('dec1', 3, 3, 20);
 		// Delete line 3 — should remove/collapse the pending decoration
-		manager.onLinesDeleted(3, 3);
+		manager.onLinesDeleted(3, 3, []);
 		// Read — the decoration was on the deleted line
 		// The decoration collapses to line 3 (fromLineNumber) per onLinesDeleted behavior
 		assert.strictEqual(manager.heightForLineNumber(3), 20);
@@ -543,5 +543,13 @@ suite('Editor ViewLayout - LineHeightsManager (auto-commit on read)', () => {
 		assert.strictEqual(manager.heightForLineNumber(5), 10);
 		assert.strictEqual(manager.heightForLineNumber(6), 30);
 		assert.strictEqual(manager.getAccumulatedLineHeightsIncludingLineNumber(6), 110);
+	});
+
+	test('deleting line 2 with lineHeightsRemoved re-adding at line 1 moves special line to line 1', () => {
+		const manager = new LineHeightsManager(10, []);
+		manager.insertOrChangeCustomLineHeight('dec1', 2, 2, 20);
+		assert.strictEqual(manager.heightForLineNumber(2), 20);
+		manager.onLinesDeleted(2, 2, [{ decorationId: 'dec1', startLineNumber: 1, endLineNumber: 1, lineHeight: 20 }]);
+		assert.strictEqual(manager.heightForLineNumber(1), 20);
 	});
 });

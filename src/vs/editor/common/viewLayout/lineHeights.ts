@@ -20,7 +20,7 @@ const enum PendingChangeKind {
 type PendingChange =
 	| { readonly kind: PendingChangeKind.InsertOrChange; readonly decorationId: string; readonly startLineNumber: number; readonly endLineNumber: number; readonly lineHeight: number }
 	| { readonly kind: PendingChangeKind.Remove; readonly decorationId: string }
-	| { readonly kind: PendingChangeKind.LinesDeleted; readonly fromLineNumber: number; readonly toLineNumber: number }
+	| { readonly kind: PendingChangeKind.LinesDeleted; readonly fromLineNumber: number; readonly toLineNumber: number; readonly lineHeightsRemoved: CustomLineHeightData[] }
 	| { readonly kind: PendingChangeKind.LinesInserted; readonly fromLineNumber: number; readonly toLineNumber: number; readonly lineHeightsAdded: CustomLineHeightData[] };
 
 export class CustomLine {
@@ -142,8 +142,8 @@ export class LineHeightsManager {
 		return previousSpecialLine.prefixSum + previousSpecialLine.maximumSpecialHeight + this._defaultLineHeight * (lineNumber - previousSpecialLine.lineNumber);
 	}
 
-	public onLinesDeleted(fromLineNumber: number, toLineNumber: number): void {
-		this._pendingChanges.push({ kind: PendingChangeKind.LinesDeleted, fromLineNumber, toLineNumber });
+	public onLinesDeleted(fromLineNumber: number, toLineNumber: number, lineHeightsRemoved: CustomLineHeightData[]): void {
+		this._pendingChanges.push({ kind: PendingChangeKind.LinesDeleted, fromLineNumber, toLineNumber, lineHeightsRemoved });
 		this._hasPending = true;
 	}
 
@@ -280,7 +280,7 @@ export class LineHeightsManager {
 		this._invalidIndex = Infinity;
 	}
 
-	private _doLinesDeleted(fromLineNumber: number, toLineNumber: number): void {
+	private _doLinesDeleted(fromLineNumber: number, toLineNumber: number, lineHeightsRemoved: CustomLineHeightData[], stagedInserts: CustomLine[]): void {
 		const deleteCount = toLineNumber - fromLineNumber + 1;
 		const numberOfCustomLines = this._orderedCustomLines.length;
 		const candidateStartIndexOfDeletion = this._binarySearchOverOrderedCustomLinesArray(fromLineNumber);
@@ -381,6 +381,15 @@ export class LineHeightsManager {
 					customLine.prefixSum -= totalHeightDeleted;
 				}
 			}
+		}
+		for (const lineHeightRemoved of lineHeightsRemoved) {
+			this._doInsertOrChangeCustomLineHeight(
+				lineHeightRemoved.decorationId,
+				lineHeightRemoved.startLineNumber,
+				lineHeightRemoved.endLineNumber,
+				lineHeightRemoved.lineHeight,
+				stagedInserts
+			);
 		}
 	}
 
