@@ -13,7 +13,7 @@
 }
 
 .extension-editor .clickable {
-	cursor: pointer;
+
 }
 
 .extension-editor > .header {
@@ -619,7 +619,7 @@
 }
 
 .extension-editor > .body > .content details > summary {
-	cursor: pointer;
+
 	margin-bottom: 10px;
 	font-weight: bold;
 	font-size: 120%;
@@ -776,7 +776,7 @@
 }
 
 .extension-editor .extensions-grid-view .extension-list-item > .details .header > .name {
-	cursor: pointer;
+
 }
 
 .extension-editor .extensions-grid-view .extension-list-item > .details > .header-container > .header > .version,

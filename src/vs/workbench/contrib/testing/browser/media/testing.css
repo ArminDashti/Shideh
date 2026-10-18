@@ -378,7 +378,7 @@
 /** -- decorations  */
 
 .monaco-editor .testing-run-glyph {
-	cursor: pointer;
+
 }
 
 .testing-diff-title-widget {
@@ -398,7 +398,7 @@
 }
 
 .test-message-inline-content-clickable {
-	cursor: pointer;
+
 }
 
 .test-label-description {

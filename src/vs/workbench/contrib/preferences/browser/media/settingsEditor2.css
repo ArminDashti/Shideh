@@ -667,7 +667,7 @@
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-bool .setting-item-description {
 	display: flex;
-	cursor: pointer;
+
 }
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-bool .setting-item-description.disabled {

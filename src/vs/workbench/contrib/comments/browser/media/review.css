@@ -503,7 +503,7 @@
 .monaco-editor .comment-range-glyph {
 	margin-left: 10px;
 	width: 4px !important;
-	cursor: pointer;
+
 	z-index: 10;
 }
 

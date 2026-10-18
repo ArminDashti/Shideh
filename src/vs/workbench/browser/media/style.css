@@ -116,7 +116,7 @@ body {
 }
 
 .monaco-workbench label {
-	cursor: pointer;
+
 }
 
 .monaco-workbench a {
@@ -178,7 +178,7 @@ body {
 .monaco-workbench textarea::-moz-placeholder { color: var(--vscode-input-placeholderForeground); }
 
 .monaco-workbench .pointer {
-	cursor: pointer;
+
 }
 
 .monaco-workbench.mac.monaco-font-aliasing-antialiased {

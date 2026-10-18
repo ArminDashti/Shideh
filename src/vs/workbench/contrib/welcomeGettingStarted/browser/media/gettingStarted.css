@@ -872,7 +872,7 @@
 	padding: 0;
 	background: transparent;
 	margin: 2px;
-	cursor: pointer;
+
 	overflow: hidden;
 	text-overflow: ellipsis;
 	max-width: 100%;
