@@ -1566,6 +1566,15 @@ export class CopilotAgent extends Disposable implements IAgent {
 		};
 	}
 
+	/**
+	 * Sets custom tools that will be injected into every SDK session
+	 * created or resumed by this agent (e.g. peer communication tools).
+	 * Must be called before any sessions are created.
+	 */
+	setCustomTools(tools: Tool<unknown>[]): void {
+		this._customTools = tools;
+	}
+
 	// ---- auth ---------------------------------------------------------------
 
 	getDescriptor(): IAgentDescriptor {
