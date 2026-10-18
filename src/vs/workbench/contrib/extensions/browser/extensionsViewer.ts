@@ -456,14 +456,6 @@ export async function getExtensions(extensions: string[], extensionsWorkbenchSer
 }
 
 registerThemingParticipant((theme: IColorTheme, collector: ICssStyleCollector) => {
-	const focusBackground = theme.getColor(listFocusBackground);
-	if (focusBackground) {
-		collector.addRule(`.extensions-grid-view .extension-container:focus { background-color: ${focusBackground}; outline: none; }`);
-	}
-	const focusForeground = theme.getColor(listFocusForeground);
-	if (focusForeground) {
-		collector.addRule(`.extensions-grid-view .extension-container:focus { color: ${focusForeground}; }`);
-	}
 	const foregroundColor = theme.getColor(foreground);
 	const editorBackgroundColor = theme.getColor(editorBackground);
 	if (foregroundColor && editorBackgroundColor) {

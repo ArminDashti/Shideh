@@ -16,7 +16,7 @@
 
 }
 
-.extension-editor > .header {
+.extension-editor>.header {
 	display: flex;
 	padding-top: 20px;
 	padding-bottom: 12px;
@@ -25,7 +25,7 @@
 	font-size: 14px;
 }
 
-.extension-editor > .header > .icon-container {
+.extension-editor>.header>.icon-container {
 	position: relative;
 }
 
@@ -64,12 +64,12 @@
 	-webkit-user-select: text;
 }
 
-.extension-editor > .header > .details > .title {
+.extension-editor>.header>.details>.title {
 	display: flex;
 	align-items: center;
 }
 
-.extension-editor > .header > .details > .title > .name {
+.extension-editor>.header>.details>.title>.name {
 	flex: 0;
 	font-size: 26px;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI Variable Display", "Segoe UI", "HelveticaNeue-Light", system-ui, "Ubuntu", "Droid Sans", sans-serif;
@@ -78,24 +78,24 @@
 	white-space: nowrap;
 }
 
-.extension-editor > .header > .details > .title > .name.deprecated {
+.extension-editor>.header>.details>.title>.name.deprecated {
 	text-decoration: line-through;
 }
 
-.extension-editor > .header > .details > .title > .version {
+.extension-editor>.header>.details>.title>.version {
 	margin-left: 10px;
 	user-select: text;
 	-webkit-user-select: text;
 	white-space: nowrap;
 }
 
-.extension-editor > .header > .details > .title > .builtin {
+.extension-editor>.header>.details>.title>.builtin {
 	font-size: 10px;
 	font-style: italic;
 	margin-left: 10px;
 }
 
-.extension-editor > .header > .details > .title > .pre-release {
+.extension-editor>.header>.details>.title>.pre-release {
 	margin-left: 10px;
 	padding: 0 4px;
 	border-radius: 4px;
@@ -105,21 +105,21 @@
 	align-items: center;
 }
 
-.extension-editor > .header > .details > .title > .pre-release > .codicon.codicon-extensions-pre-release {
+.extension-editor>.header>.details>.title>.pre-release>.codicon.codicon-extensions-pre-release {
 	color: #ffffff;
 	font-size: var(--vscode-codiconFontSize-compact);
 }
 
-.extension-editor > .header > .details > .title > .pre-release > .pre-release-text {
+.extension-editor>.header>.details>.title>.pre-release>.pre-release-text {
 	font-size: 10px;
 	padding-left: 3px;
 }
 
-.monaco-workbench.vs .extension-editor > .header > .details > .title > .preview {
+.monaco-workbench.vs .extension-editor>.header>.details>.title>.preview {
 	color: white;
 }
 
-.extension-editor > .header > .details > .title > .preview {
+.extension-editor>.header>.details>.title>.preview {
 	background: rgb(214, 63, 38);
 	font-size: 10px;
 	font-style: italic;
@@ -130,17 +130,17 @@
 	-webkit-user-select: none;
 }
 
-.extension-editor > .header > .details > .subtitle {
+.extension-editor>.header>.details>.subtitle {
 	padding-top: 6px;
 	line-height: 20px;
 	flex-wrap: wrap;
 }
 
-.extension-editor > .header > .details > .subtitle .hide {
+.extension-editor>.header>.details>.subtitle .hide {
 	display: none;
 }
 
-.extension-editor > .header > .details > .subtitle .publisher {
+.extension-editor>.header>.details>.subtitle .publisher {
 	display: flex;
 	align-items: center;
 }
@@ -159,11 +159,11 @@
 	align-items: center;
 }
 
-.extension-editor > .header > .details > .subtitle .sponsor .codicon {
+.extension-editor>.header>.details>.subtitle .sponsor .codicon {
 	padding-right: 3px;
 }
 
-.extension-editor > .header > .details > .subtitle .install > .count {
+.extension-editor>.header>.details>.subtitle .install>.count {
 	margin-left: 6px;
 }
 
@@ -177,20 +177,20 @@
 	padding-right: 14px;
 }
 
-.extension-editor > .header > .details > .description {
+.extension-editor>.header>.details>.description {
 	margin-top: 10px;
 }
 
-.extension-editor > .header > .details > .actions-status-container {
+.extension-editor>.header>.details>.actions-status-container {
 	margin-top: 10px;
 	display: flex;
 }
 
-.extension-editor > .header > .details > .actions-status-container.list-layout {
+.extension-editor>.header>.details>.actions-status-container.list-layout {
 	display: inherit;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar {
 	text-align: initial;
 }
 
@@ -204,7 +204,7 @@
 	flex-shrink: 0;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item.disabled {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item.disabled {
 	min-width: 0;
 }
 
@@ -228,8 +228,8 @@
 	padding-bottom: 1px;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item > .extension-action,
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item.action-dropdown-item > .monaco-dropdown .extension-action.action-dropdown {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item>.extension-action,
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item.action-dropdown-item>.monaco-dropdown .extension-action.action-dropdown {
 	line-height: 22px;
 }
 
@@ -255,16 +255,16 @@
 	height: 24px;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item.action-dropdown-item > .action-dropdown-item-separator > div {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item.action-dropdown-item>.action-dropdown-item-separator>div {
 	height: 16px;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item.action-dropdown-item.empty > .extension-action.label {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item.action-dropdown-item.empty>.extension-action.label {
 	margin-right: 2px;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI Variable Small", "Segoe UI", "HelveticaNeue-Light", system-ui, "Ubuntu", "Droid Sans", sans-serif;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item.action-dropdown-item.empty > .action-dropdown-item-separator {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item.action-dropdown-item.empty>.action-dropdown-item-separator {
 	display: none;
 }
 
@@ -285,32 +285,32 @@
 	padding: 0 2px;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar > .actions-container > .action-item > .action-label.extension-status {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar>.actions-container>.action-item>.action-label.extension-status {
 	margin-right: 0;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar .action-item .action-label.extension-status-label,
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar .action-item .action-label.disable-status {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar .action-item .action-label.extension-status-label,
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar .action-item .action-label.disable-status {
 	font-weight: normal;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar .action-item .action-label.extension-status-label:hover,
-.extension-editor > .header > .details > .actions-status-container > .monaco-action-bar .action-item .action-label.disable-status:hover {
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar .action-item .action-label.extension-status-label:hover,
+.extension-editor>.header>.details>.actions-status-container>.monaco-action-bar .action-item .action-label.disable-status:hover {
 	opacity: 0.9;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .status {
+.extension-editor>.header>.details>.actions-status-container>.status {
 	line-height: 22px;
 	font-size: 90%;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI Variable Small", "Segoe UI", "HelveticaNeue-Light", system-ui, "Ubuntu", "Droid Sans", sans-serif;
 	margin-top: 3px;
 }
 
-.extension-editor > .header > .details > .actions-status-container.list-layout > .status {
+.extension-editor>.header>.details>.actions-status-container.list-layout>.status {
 	margin-top: 5px;
 }
 
-.extension-editor > .header > .details > .actions-status-container > .status .codicon {
+.extension-editor>.header>.details>.actions-status-container>.status .codicon {
 	vertical-align: text-bottom;
 }
 
@@ -342,8 +342,8 @@
 	color: var(--vscode-textLink-activeForeground)
 }
 
-.extension-editor > .header > .details > .pre-release-text a:active,
-.extension-editor > .header > .details > .actions-status-container > .status a:active {
+.extension-editor>.header>.details>.pre-release-text a:active,
+.extension-editor>.header>.details>.actions-status-container>.status a:active {
 	color: var(--vscode-textLink-activeForeground)
 }
 
@@ -353,28 +353,28 @@
 	font-size: 90%;
 }
 
-.extension-editor > .header > .details > .recommendation {
+.extension-editor>.header>.details>.recommendation {
 	display: flex;
 	margin-top: 5px;
 }
 
-.extension-editor > .header > .details > .recommendation .codicon {
+.extension-editor>.header>.details>.recommendation .codicon {
 	font-size: inherit;
 	margin-right: 5px;
 }
 
-.extension-editor > .header > .details > .recommendation .recommendation-text {
+.extension-editor>.header>.details>.recommendation .recommendation-text {
 	vertical-align: text-bottom;
 	font-size: 90%;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI Variable Small", "Segoe UI", "HelveticaNeue-Light", system-ui, "Ubuntu", "Droid Sans", sans-serif;
 }
 
-.extension-editor > .body {
+.extension-editor>.body {
 	flex: 1;
 	overflow: hidden;
 }
 
-.extension-editor > .body > .navbar {
+.extension-editor>.body>.navbar {
 	height: 36px;
 	font-weight: bold;
 	font-size: 14px;
@@ -383,7 +383,7 @@
 	border-bottom: 1px solid var(--vscode-panelSection-border);
 }
 
-.extension-editor > .body > .navbar > .monaco-action-bar > .actions-container {
+.extension-editor>.body>.navbar>.monaco-action-bar>.actions-container {
 	justify-content: initial;
 }
 
@@ -419,7 +419,7 @@
 	-webkit-user-select: text;
 }
 
-.extension-editor > .body > .content.loading {
+.extension-editor>.body>.content.loading {
 	background: url('loading.svg') center center no-repeat;
 }
 
@@ -428,11 +428,11 @@
 	height: 100%;
 }
 
-.extension-editor > .body > .content > .nocontent {
+.extension-editor>.body>.content>.nocontent {
 	margin-left: 20px;
 }
 
-.extension-editor > .body > .content > .details {
+.extension-editor>.body>.content>.details {
 	height: 100%;
 	display: flex;
 }
@@ -450,21 +450,21 @@
 	min-width: 0;
 }
 
-.extension-editor > .body > .content > .details > .additional-details-container {
+.extension-editor>.body>.content>.details>.additional-details-container {
 	width: 25%;
 	min-width: 175px;
 	height: 100%;
 }
 
-.extension-editor > .body > .content > .details.narrow > .additional-details-container {
+.extension-editor>.body>.content>.details.narrow>.additional-details-container {
 	display: none;
 }
 
-.extension-editor > .body > .content > .details > .additional-details-container > .monaco-scrollable-element {
+.extension-editor>.body>.content>.details>.additional-details-container>.monaco-scrollable-element {
 	height: 100%;
 }
 
-.extension-editor > .body > .content > .details > .additional-details-container > .monaco-scrollable-element > .additional-details-content {
+.extension-editor>.body>.content>.details>.additional-details-container>.monaco-scrollable-element>.additional-details-content {
 	height: 100%;
 	overflow-y: scroll;
 	padding: 12px;
@@ -479,11 +479,11 @@
 	padding-bottom: 16px;
 }
 
-.extension-editor > .body > .content > .details > .additional-details-container .additional-details-element:not(:last-child) {
+.extension-editor>.body>.content>.details>.additional-details-container .additional-details-element:not(:last-child) {
 	border-bottom: 1px solid rgba(128, 128, 128, 0.22);
 }
 
-.extension-editor > .body > .content > .details > .additional-details-container .additional-details-element > .additional-details-title {
+.extension-editor>.body>.content>.details>.additional-details-container .additional-details-element>.additional-details-title {
 	font-size: 120%;
 	padding-bottom: 12px;
 }
@@ -608,13 +608,13 @@
 	box-sizing: border-box;
 }
 
-.extension-editor > .body > .content table {
+.extension-editor>.body>.content table {
 	width: 100%;
 	border-spacing: 0;
 	border-collapse: separate;
 }
 
-.extension-editor > .body > .content details:not(:first-child) {
+.extension-editor>.body>.content details:not(:first-child) {
 	margin-top: 20px;
 }
 
@@ -628,16 +628,16 @@
 	line-height: 22px;
 }
 
-.extension-editor > .body > .content table tr:nth-child(odd) {
+.extension-editor>.body>.content table tr:nth-child(odd) {
 	background-color: rgba(130, 130, 130, 0.04);
 }
 
-.extension-editor > .body > .content table tr:not(:first-child):hover {
+.extension-editor>.body>.content table tr:not(:first-child):hover {
 	background-color: rgba(128, 128, 128, 0.15);
 }
 
-.extension-editor > .body > .content table th,
-.extension-editor > .body > .content table td {
+.extension-editor>.body>.content table th,
+.extension-editor>.body>.content table td {
 	padding: 2px 16px 2px 4px;
 }
 
@@ -650,7 +650,7 @@
 	padding: 2px 4px;
 }
 
-.extension-editor > .body > .content table th {
+.extension-editor>.body>.content table th {
 	text-align: left;
 	word-break: keep-all;
 }
@@ -669,7 +669,7 @@
 	padding: 1px 4px;
 }
 
-.extension-editor > .body > .content table .colorBox {
+.extension-editor>.body>.content table .colorBox {
 	box-sizing: border-box;
 	width: 0.8em;
 	height: 0.8em;
@@ -681,8 +681,8 @@
 	vertical-align: middle;
 }
 
-.monaco-workbench.vs-dark .extension-editor > .body > .content table .colorBox,
-.monaco-workbench.hc-black .extension-editor > .body > .content table .colorBox {
+.monaco-workbench.vs-dark .extension-editor>.body>.content table .colorBox,
+.monaco-workbench.hc-black .extension-editor>.body>.content table .colorBox {
 	border-color: rgb(238, 238, 238);
 }
 
@@ -690,7 +690,7 @@
 	line-height: 62px;
 }
 
-.extension-editor .subcontent .monaco-list-row .content .unknown-extension > .error-marker {
+.extension-editor .subcontent .monaco-list-row .content .unknown-extension>.error-marker {
 	background-color: #BE1100;
 	padding: 2px 4px;
 	font-weight: bold;
@@ -698,7 +698,7 @@
 	color: #CCC;
 }
 
-.extension-editor .subcontent .monaco-list-row .unknown-extension > .message {
+.extension-editor .subcontent .monaco-list-row .unknown-extension>.message {
 	padding-left: 10px;
 	font-weight: bold;
 	font-size: 14px;
@@ -709,35 +709,35 @@
 	align-items: center;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details {
+.extension-editor .subcontent .monaco-list-row .extension>.details {
 	flex: 1;
 	overflow: hidden;
 	padding-left: 10px;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details > .header {
+.extension-editor .subcontent .monaco-list-row .extension>.details>.header {
 	display: flex;
 	align-items: center;
 	line-height: 19px;
 	overflow: hidden;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .icon {
+.extension-editor .subcontent .monaco-list-row .extension>.icon {
 	height: 40px;
 	width: 40px;
 	object-fit: contain;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details > .header > .name {
+.extension-editor .subcontent .monaco-list-row .extension>.details>.header>.name {
 	font-weight: bold;
 	font-size: 16px;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details > .header > .name:hover {
+.extension-editor .subcontent .monaco-list-row .extension>.details>.header>.name:hover {
 	text-decoration: underline;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details > .header > .identifier {
+.extension-editor .subcontent .monaco-list-row .extension>.details>.header>.identifier {
 	font-size: 90%;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI Variable Small", "Segoe UI", "HelveticaNeue-Light", system-ui, "Ubuntu", "Droid Sans", sans-serif;
 	opacity: 0.6;
@@ -747,7 +747,7 @@
 	border-radius: 4px;
 }
 
-.extension-editor .subcontent .monaco-list-row .extension > .details > .footer {
+.extension-editor .subcontent .monaco-list-row .extension>.details>.footer {
 	display: flex;
 	line-height: 19px;
 	overflow: hidden;
@@ -766,7 +766,7 @@
 	flex-wrap: wrap;
 }
 
-.extension-editor .extensions-grid-view > .extension-container {
+.extension-editor .extensions-grid-view>.extension-container {
 	width: 350px;
 	margin: 5px 10px;
 }
@@ -779,14 +779,14 @@
 
 }
 
-.extension-editor .extensions-grid-view .extension-list-item > .details > .header-container > .header > .version,
-.extension-editor .extensions-grid-view .extension-list-item > .details > .header-container > .header > .ratings,
-.extension-editor .extensions-grid-view .extension-list-item > .details > .header-container > .header > .install-count {
+.extension-editor .extensions-grid-view .extension-list-item>.details>.header-container>.header>.version,
+.extension-editor .extensions-grid-view .extension-list-item>.details>.header-container>.header>.ratings,
+.extension-editor .extensions-grid-view .extension-list-item>.details>.header-container>.header>.install-count {
 	display: none;
 }
 
-.extension-editor .extensions-grid-view > .extension-container:focus > .extension-list-item > .details .header > .name,
-.extension-editor .extensions-grid-view > .extension-container:hover > .extension-list-item > .details .header > .name {
+.extension-editor .extensions-grid-view>.extension-container:focus>.extension-list-item>.details .header>.name,
+.extension-editor .extensions-grid-view>.extension-container:hover>.extension-list-item>.details .header>.name {
 	text-decoration: underline;
 }
 
@@ -797,21 +797,21 @@
 	opacity: 0.5;
 }
 
-.extension-editor > .body > .content .runtime-status .activation-details > .activation-element-entry > .activation-message-title {
+.extension-editor>.body>.content .runtime-status .activation-details>.activation-element-entry>.activation-message-title {
 	padding-right: 10px;
 }
 
-.extension-editor > .body > .content .runtime-status .message-entry {
+.extension-editor>.body>.content .runtime-status .message-entry {
 	display: flex;
 	align-items: center;
 	margin: 5px;
 }
 
-.extension-editor > .body > .content .runtime-status .message-entry .codicon {
+.extension-editor>.body>.content .runtime-status .message-entry .codicon {
 	padding-right: 2px;
 }
 
-.monaco-workbench .extension-editor > .header > .details > .recommendation .codicon {
+.monaco-workbench .extension-editor>.header>.details>.recommendation .codicon {
 	color: var(--vscode-extensionButton-prominentBackground);
 }
 
