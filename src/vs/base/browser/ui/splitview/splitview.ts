@@ -1658,7 +1658,7 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo
 			position += this.viewItems[i].size;
 
 			if (this.sashItems[i].sash === sash) {
-				return position;
+				return Math.min(position, this.contentSize - 2);
 			}
 		}
 
