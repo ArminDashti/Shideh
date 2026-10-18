@@ -514,6 +514,11 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 */
 	readonly onDidChangePanelPosition: Event<string>;
 
+	/*
+	 * Emit when panel position changes.
+	 */
+	readonly onDidChangePanelPosition: Event<string>;
+
 	/**
 	 * Emit when panel alignment changes.
 	 */

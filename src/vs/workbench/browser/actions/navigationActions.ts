@@ -61,6 +61,10 @@ abstract class BaseNavigationAction extends Action2 {
 			neighborPart = neighborPart = layoutService.getVisibleNeighborPart(Parts.AUXILIARYBAR_PART, this.direction);
 		}
 
+		if (isAuxiliaryBarFocus) {
+			neighborPart = neighborPart = this.layoutService.getVisibleNeighborPart(Parts.AUXILIARYBAR_PART, this.direction);
+		}
+
 		if (neighborPart === Parts.EDITOR_PART) {
 			if (!this.navigateBackToEditorGroup(this.toGroupDirection(this.direction), editorGroupService)) {
 				this.navigateToEditorGroup(this.direction === Direction.Right ? GroupLocation.FIRST : GroupLocation.LAST, editorGroupService);

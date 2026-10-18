@@ -2122,6 +2122,16 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			});
 		}
 
+		// We moved all the side parts based on the editor and ignored the panel
+		// Now, we need to put the panel back in the right position when it is next to the editor
+		if (panelPosition !== Position.BOTTOM) {
+			this.workbenchGrid.moveView(this.panelPartView, preMovePanelWidth, this.editorPartView, panelPosition === Position.LEFT ? Direction.Left : Direction.Right);
+			this.workbenchGrid.resizeView(this.panelPartView, {
+				height: preMovePanelHeight as number,
+				width: preMovePanelWidth as number
+			});
+		}
+
 		// Moving views in the grid can cause them to re-distribute sizing unnecessarily
 		// Resize visible parts to the width they were before the operation
 		if (this.isVisible(Parts.SIDEBAR_PART)) {
@@ -2812,7 +2822,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				result.splice(0, 0, nodes.chatSessions);
 				result.push(nodes.activityBar);
 			}
-		}
 
 		return result;
 	}
