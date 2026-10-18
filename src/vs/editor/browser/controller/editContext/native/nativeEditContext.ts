@@ -112,7 +112,7 @@ export class NativeEditContext extends AbstractEditContext {
 		}));
 
 		const window = getWindow(this.domNode.domNode);
-		this._editContext = EditContext.create(window);
+		this._editContext = new DebugEditContext(window);
 		this.setEditContextOnDomNode();
 
 		this._screenReaderSupport = this._register(instantiationService.createInstance(ScreenReaderSupport, this.domNode, context, this._viewController));
@@ -321,8 +321,13 @@ export class NativeEditContext extends AbstractEditContext {
 	}
 
 	public override onConfigurationChanged(e: ViewConfigurationChangedEvent): boolean {
+		console.log('e : ', e);
 		this._screenReaderSupport.onConfigurationChanged(e);
 		this._updateDomAttributes();
+
+		const parentBounds = this._parent.getBoundingClientRect();
+		const controlBounds = new DOMRect(parentBounds.left, parentBounds.top, parentBounds.width - 10, parentBounds.height);
+		this._editContext.updateControlBounds(controlBounds);
 		return true;
 	}
 
@@ -396,7 +401,7 @@ export class NativeEditContext extends AbstractEditContext {
 		const targetWindow = getWindow(this.domNode.domNode);
 		const targetWindowId = getWindowId(targetWindow);
 		if (this._targetWindowId !== targetWindowId) {
-			this.domNode.domNode.editContext = this._editContext;
+			this.domNode.domNode.editContext = this._editContext.editContext;
 			this._targetWindowId = targetWindowId;
 		}
 	}
@@ -516,9 +521,6 @@ export class NativeEditContext extends AbstractEditContext {
 	}
 
 	private _handleTextFormatUpdate(e: TextFormatUpdateEvent): void {
-		if (!this._editContext) {
-			return;
-		}
 		const formats = e.getTextFormats();
 		const editContextStartPosition = this._editContextStartPosition();
 		const decorations: IModelDeltaDecoration[] = [];
