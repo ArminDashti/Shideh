@@ -183,11 +183,6 @@ export abstract class Pane extends Disposable implements IView {
 		this.updateHeader();
 
 		if (expanded) {
-			if (!this._bodyRendered) {
-				this.renderBody(this.body);
-				this._bodyRendered = true;
-			}
-
 			if (typeof this.animationTimer === 'number') {
 				getWindow(this.element).clearTimeout(this.animationTimer);
 			}
@@ -295,13 +290,7 @@ export abstract class Pane extends Disposable implements IView {
 		});
 
 		this.body = append(this.element, $('.pane-body'));
-
-		// Only render the body if it will be visible
-		// Otherwise, render it when the pane is expanded
-		if (!this._bodyRendered && this.isExpanded()) {
-			this.renderBody(this.body);
-			this._bodyRendered = true;
-		}
+		this.renderBody(this.body);
 
 		if (!this.isExpanded()) {
 			this.body.remove();

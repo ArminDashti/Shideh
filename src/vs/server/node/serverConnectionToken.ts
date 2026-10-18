@@ -80,7 +80,7 @@ export async function parseServerConnectionToken(args: ServerParsedArgs, default
 
 	if (typeof connectionToken !== 'undefined') {
 		if (!connectionTokenRegex.test(connectionToken)) {
-			return new ServerConnectionTokenParseError(`The connection token '${connectionToken} does not adhere to the characters 0-9, a-z, A-Z or -.`);
+			return new ServerConnectionTokenParseError(`The connection token '${connectionToken} does not adhere to the characters 0-9, a-z, A-Z, _, or -.`);
 		}
 
 		return new MandatoryServerConnectionToken(connectionToken);
