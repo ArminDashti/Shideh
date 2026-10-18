@@ -68,6 +68,10 @@ export interface IActionWidgetDropdownAction extends IAction {
 	 */
 	hover?: IActionListItemHover;
 	/**
+	 * Optional badge text shown next to the label.
+	 */
+	badge?: string;
+	/**
 	 * Optional toolbar actions shown when the item is focused or hovered.
 	 */
 	toolbarActions?: IAction[];

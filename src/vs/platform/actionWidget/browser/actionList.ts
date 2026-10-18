@@ -191,6 +191,10 @@ export interface IActionListItem<T> {
 	readonly iconClasses?: readonly string[];
 	readonly tooltip?: string;
 	/**
+	 * Optional badge text shown next to the label.
+	 */
+	readonly badge?: string;
+	/**
 	 * Optional toolbar actions shown when the item is focused or hovered.
 	 */
 	readonly toolbarActions?: IAction[];

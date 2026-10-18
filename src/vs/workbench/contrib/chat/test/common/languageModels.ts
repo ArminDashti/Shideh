@@ -29,6 +29,13 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	onDidChangePinnedModels = Event.None;
 	onDidChangeModelVisibility = Event.None;
 
+	isNewModel(_modelIdentifier: string): boolean {
+		return false;
+	}
+
+	markModelsAsSeen(): void {
+	}
+
 	getVendors(): ILanguageModelProviderDescriptor[] {
 		return [];
 	}
