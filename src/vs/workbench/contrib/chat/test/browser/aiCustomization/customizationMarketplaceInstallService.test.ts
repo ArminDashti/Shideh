@@ -2281,6 +2281,7 @@ suite('CustomizationMarketplaceInstallService', () => {
 			await fixture.fileService.del(joinPath(skillDestination, 'scripts', 'run.sh'));
 			await reconciled;
 			const stateBeforeRepair = fixture.service.getInstallState(candidate).kind;
+			fixture.provider.writes.length = 0;
 
 			await fixture.service.repair(candidate);
 
@@ -2288,6 +2289,7 @@ suite('CustomizationMarketplaceInstallService', () => {
 				stateBeforeRepair,
 				stateAfterRepair: fixture.service.getInstallState(candidate).kind,
 				files: await readTree(fixture.fileService, skillDestination),
+				stagingWritesOutsideDestination: fixture.provider.writes.filter(isStaging).map(uri => !isEqualOrParent(uri, destinationDirectory)),
 				repositoryCalls: fixture.repositoryService.calls.length,
 				confirmations: fixture.dialogService.confirmations.map(confirmation => confirmation.primaryButton),
 			}, {
@@ -2299,6 +2301,7 @@ suite('CustomizationMarketplaceInstallService', () => {
 					['scripts/run.sh', 'original script'],
 					[SKILL_FILENAME, '# Locally edited skill'],
 				],
+				stagingWritesOutsideDestination: [true, true],
 				repositoryCalls: 2,
 				confirmations: ['Install', 'Repair'],
 			});
