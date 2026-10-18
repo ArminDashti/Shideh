@@ -256,6 +256,7 @@
 /* Session Item */
 
 .session-item {
+	--session-hierarchy-connector-top: var(--vscode-spacing-size160);
 	display: flex;
 	flex-direction: row;
 	height: 100%;
@@ -264,7 +265,7 @@
 	min-width: 0;
 	overflow: visible;
 	min-width: 0;
-	padding: 8px 6px 8px 12px;
+	padding: 8px 6px 8px calc(var(--vscode-spacing-size120) + var(--session-depth, 0) * var(--vscode-spacing-size240));
 
 	&.archived {
 		color: var(--vscode-descriptionForeground);
@@ -875,7 +876,8 @@
 
 .sessions-list-control.compact {
 	.session-item:not(.quick-chat) {
-		padding: var(--vscode-spacing-size60) var(--vscode-spacing-size60) var(--vscode-spacing-size60) var(--vscode-spacing-size120);
+		--session-hierarchy-connector-top: calc(var(--vscode-spacing-size60) + var(--vscode-spacing-size80));
+		padding: var(--vscode-spacing-size60) var(--vscode-spacing-size60) var(--vscode-spacing-size60) calc(var(--vscode-spacing-size120) + var(--session-depth, 0) * var(--vscode-spacing-size240));
 
 		.session-main {
 			display: grid;
@@ -1014,10 +1016,50 @@
 	opacity: 1;
 }
 
+.session-hierarchy-guides {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.session-hierarchy-guide {
+	position: absolute;
+	top: 0;
+	bottom: calc(-1 * var(--vscode-spacing-size20));
+	left: calc(var(--vscode-spacing-size200) + var(--session-guide-depth) * var(--vscode-spacing-size240));
+	width: var(--vscode-spacing-size120);
+	border-left: var(--vscode-strokeThickness) solid var(--vscode-tree-inactiveIndentGuidesStroke);
+	opacity: 0;
+
+	&.visible {
+		opacity: 1;
+	}
+
+	&.direct::after {
+		content: '';
+		position: absolute;
+		top: var(--session-hierarchy-connector-top);
+		width: 100%;
+		border-top: var(--vscode-strokeThickness) solid var(--vscode-tree-inactiveIndentGuidesStroke);
+	}
+
+	&.last-child {
+		bottom: auto;
+		height: var(--session-hierarchy-connector-top);
+		border-bottom: var(--vscode-strokeThickness) solid var(--vscode-tree-inactiveIndentGuidesStroke);
+		border-bottom-left-radius: var(--vscode-cornerRadius-small);
+
+		&::after {
+			display: none;
+		}
+	}
+}
+
 .session-chat-item {
 	/* Base title-row height, matching SessionsTreeDelegate.CHAT_ITEM_HEIGHT.
 		Folder and approval rows stack beneath it without changing this value. */
 	--session-chat-base-height: 28px;
+	--session-hierarchy-connector-top: calc(var(--session-chat-base-height) / 2);
 	display: flex;
 	flex-direction: column;
 	box-sizing: border-box;
@@ -1025,7 +1067,7 @@
 	min-width: 0;
 	overflow: visible;
 	min-width: 0;
-	padding: 0 var(--vscode-spacing-size120) 0 var(--vscode-spacing-size360);
+	padding: 0 var(--vscode-spacing-size120) 0 calc(var(--vscode-spacing-size120) + var(--session-depth, 1) * var(--vscode-spacing-size240));
 	color: var(--vscode-foreground);
 	font-size: var(--vscode-fontSize-body1);
 	font-weight: var(--vscode-fontWeight-regular);
@@ -2061,7 +2103,8 @@
 =======
 >>>>>>> aca2ff4f104 (sessions: align list row hover feedback (#336953))
 	.session-item {
-		padding: 10px 10px;
+		--session-hierarchy-connector-top: var(--vscode-spacing-size200);
+		padding: 10px 10px 10px calc(var(--vscode-spacing-size100) + var(--session-depth, 0) * var(--vscode-spacing-size240));
 		/* Vertically center the icon + main column inside the fixed phone row height. */
 		align-items: center;
 		/* Anchor for the absolutely positioned title toolbar (kept out
@@ -2093,7 +2136,6 @@
 
 	.session-chat-item {
 		--session-chat-base-height: 44px;
-		padding: 0 var(--vscode-spacing-size120) 0 var(--vscode-spacing-size360);
 		font-size: var(--vscode-fontSize-body1);
 	}
 

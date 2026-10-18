@@ -25,6 +25,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock, upcastPartial } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { runWithFakedTimers } from '../../../../../base/test/common/virtualScheduling/index.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { TestAccessibilityService } from '../../../../../platform/accessibility/test/common/testAccessibilityService.js';
 import { MenuWorkbenchToolBar } from '../../../../../platform/actions/browser/toolbar.js';
@@ -158,6 +159,56 @@ suite('Sessions - SessionsList', () => {
 
 	suite('SessionSectionRenderer', () => {
 
+		test('keeps workspace action availability scoped to roots while counting descendants', () => {
+			const instantiationService = disposables.add(new TestInstantiationService());
+			instantiationService.stubInstance(MenuWorkbenchToolBar, new class extends mock<MenuWorkbenchToolBar>() {
+				override set context(_context: unknown) { }
+				override dispose(): void { }
+			});
+			const contextKeyService = disposables.add(new ContextKeyService(new TestConfigurationService()));
+			const renderer = new SessionSectionRenderer(
+				false, () => { }, constObservable(false), constObservable(new Set<string>()),
+				instantiationService, contextKeyService,
+				new class extends mock<IAutomationService>() { override readonly runs = constObservable([]); },
+				constObservable([]), constObservable(undefined),
+				new class extends mock<IUriIdentityService>() { override readonly extUri = new ExtUri(() => true); },
+				new class extends mock<ICustomViewService>() { }, new class extends mock<IMenuService>() { },
+			);
+			const rootInfo = observableValue<IGitHubInfo | undefined>('root GitHub info', undefined);
+			const withRepository = (title: string, gitHubInfo: IObservable<IGitHubInfo | undefined>): ISession => {
+				const base = createTestSession(title).session;
+				const workspace = base.workspace.get();
+				assert.ok(workspace);
+				const root = URI.file(`/repos/${title}`);
+				return {
+					...base,
+					workspace: constObservable({
+						...workspace,
+						uri: root,
+						folders: [{ root, workingDirectory: root, name: title, description: undefined, gitRepository: { uri: root, workTreeUri: root, baseBranchName: 'main', gitHubInfo } }],
+					}),
+				};
+			};
+			const root = withRepository('A', rootInfo);
+			const child = withRepository('B', constObservable({ owner: 'owner', repo: 'B' }));
+			const template = renderer.renderTemplate(document.createElement('div'));
+			disposables.add(template.disposables);
+			renderer.renderElement(upcastPartial<Parameters<SessionSectionRenderer['renderElement']>[0]>({
+				element: { id: 'workspace:A', label: 'A', rootSessions: [root], sessions: [root, child] },
+				collapsible: true,
+				collapsed: false,
+			}), 0, template);
+			const before = SessionSectionHasGitHubRepositoryContext.getValue(template.contextKeyService);
+			rootInfo.set({ owner: 'owner', repo: 'A' }, undefined);
+
+			assert.deepStrictEqual({
+				before,
+				after: SessionSectionHasGitHubRepositoryContext.getValue(template.contextKeyService),
+				local: SessionSectionHasNonCloudRepositoryContext.getValue(template.contextKeyService),
+				count: template.count.textContent,
+			}, { before: false, after: true, local: true, count: '2' });
+		});
+
 		test('selects the rendered section before the toolbar handles its context menu', () => {
 			const instantiationService = disposables.add(new TestInstantiationService());
 			instantiationService.stubInstance(MenuWorkbenchToolBar, new class extends mock<MenuWorkbenchToolBar>() {
@@ -191,7 +242,7 @@ suite('Sessions - SessionsList', () => {
 			const container = document.createElement('div');
 			const template = renderer.renderTemplate(container);
 			disposables.add(template.disposables);
-			const section: ISessionSection = { id: 'workspace:test', label: 'Test', sessions: [] };
+			const section: ISessionSection = { id: 'workspace:test', label: 'Test', rootSessions: [], sessions: [] };
 			renderer.renderElement(upcastPartial<Parameters<SessionSectionRenderer['renderElement']>[0]>({
 				element: section,
 				collapsible: true,
@@ -252,7 +303,7 @@ suite('Sessions - SessionsList', () => {
 			disposables.add(template.disposables);
 
 			renderer.renderElement(upcastPartial<Parameters<SessionSectionRenderer['renderElement']>[0]>({
-				element: { id: 'automations', label: 'Automations', sessions: [] },
+				element: { id: 'automations', label: 'Automations', rootSessions: [], sessions: [] },
 				collapsible: false,
 				collapsed: false,
 			}), 0, template);
@@ -394,7 +445,7 @@ suite('Sessions - SessionsList', () => {
 			disposables.add(template.disposables);
 
 			renderer.renderElement(upcastPartial<Parameters<SessionSectionRenderer['renderElement']>[0]>({
-				element: { id: 'automations', label: 'Automations', sessions: [] },
+				element: { id: 'automations', label: 'Automations', rootSessions: [], sessions: [] },
 				collapsible: false,
 				collapsed: false,
 			}), 0, template);
@@ -423,7 +474,7 @@ suite('Sessions - SessionsList', () => {
 			const dismissed = getPresentationSnapshot();
 
 			renderer.renderElement(upcastPartial<Parameters<SessionSectionRenderer['renderElement']>[0]>({
-				element: { id: 'workspace:test', label: 'Test', sessions: [] },
+				element: { id: 'workspace:test', label: 'Test', rootSessions: [], sessions: [] },
 				collapsible: true,
 				collapsed: false,
 			}), 0, template);
@@ -2379,7 +2430,7 @@ suite('Sessions - SessionsList', () => {
 				expanded: true,
 				sectionId: 'group:alpha',
 				sectionLabel: 'Alpha',
-				revealSessionId: '3',
+				revealSessionIds: ['3'],
 			});
 
 			assert.deepStrictEqual({
@@ -2405,7 +2456,7 @@ suite('Sessions - SessionsList', () => {
 				expanded: false,
 				sectionId: 'group:alpha',
 				sectionLabel: 'Alpha',
-				revealSessionId: '3',
+				revealSessionIds: ['3'],
 			});
 
 			assert.deepStrictEqual({
@@ -2425,7 +2476,7 @@ suite('Sessions - SessionsList', () => {
 					expanded: false,
 					sectionId: 'group:alpha',
 					sectionLabel: 'Alpha',
-					revealSessionId,
+					revealSessionIds: [revealSessionId],
 				});
 				const addsSession = revealSessionId === '3' || revealSessionId === '5';
 
@@ -2453,7 +2504,7 @@ suite('Sessions - SessionsList', () => {
 				expanded: false,
 				sectionId: 'group:alpha',
 				sectionLabel: 'Alpha',
-				revealSessionId: '3',
+				revealSessionIds: ['3'],
 			});
 
 			assert.deepStrictEqual({
@@ -3763,6 +3814,8 @@ suite('Sessions - SessionsList', () => {
 
 		interface IDropHarness {
 			readonly container: HTMLElement;
+			readonly list: SessionsList;
+			readonly addedToGroup: string[];
 			/** Session ids passed to `removeFromGroup`, in call order. */
 			readonly removedFromGroup: string[];
 			readonly sortChanges: readonly ISortChangeRecord[];
@@ -3770,8 +3823,10 @@ suite('Sessions - SessionsList', () => {
 
 		function renderGroupedList(sessions: ISession[], memberships: Map<string, string>): IDropHarness {
 			const removedFromGroup: string[] = [];
+			const addedToGroup: string[] = [];
 			const onDidChange = disposables.add(new Emitter<ISessionGroupsChangeEvent>());
 			const harness = createListHarness(disposables, sessions, instantiationService => {
+				instantiationService.stub(ISessionsListModelService, 'unpinSessions', () => { });
 				instantiationService.stub(ISessionGroupsService, new class extends mock<ISessionGroupsService>() {
 					override readonly onDidChange = onDidChange.event;
 					override getGroups() { return [group]; }
@@ -3779,6 +3834,14 @@ suite('Sessions - SessionsList', () => {
 					override getGroupOfSession(sessionId: string) { return memberships.get(sessionId); }
 					override getSessionIdsInGroup(groupId: string) {
 						return [...memberships].filter(([, memberGroupId]) => memberGroupId === groupId).map(([sessionId]) => sessionId);
+					}
+					override addToGroup(sessionIdOrIds: string | Iterable<string>, groupId: string) {
+						const sessionIds = typeof sessionIdOrIds === 'string' ? [sessionIdOrIds] : [...sessionIdOrIds];
+						for (const sessionId of sessionIds) {
+							memberships.set(sessionId, groupId);
+							addedToGroup.push(sessionId);
+						}
+						onDidChange.fire({ groupsChanged: false, membershipChanged: new Set(sessionIds) });
 					}
 					override removeFromGroup(sessionId: string) {
 						if (!memberships.delete(sessionId)) {
@@ -3796,7 +3859,7 @@ suite('Sessions - SessionsList', () => {
 				onSessionOpen: () => { },
 			}));
 			list.layout(300, 400);
-			return { container, removedFromGroup, sortChanges: harness.sortChanges };
+			return { container, list, addedToGroup, removedFromGroup, sortChanges: harness.sortChanges };
 		}
 
 		function sessionRow(container: HTMLElement, title: string): HTMLElement {
@@ -3832,6 +3895,89 @@ suite('Sessions - SessionsList', () => {
 			return highlighted;
 		}
 
+		function dropBefore(source: HTMLElement, target: HTMLElement, container: HTMLElement) {
+			const dataTransfer = new DataTransfer();
+			const clientY = target.getBoundingClientRect().top + 1;
+			source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
+			target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer, clientY }));
+			const feedback = {
+				headers: highlightedHeaders(container),
+				before: target.classList.contains('drop-target-before'),
+			};
+			target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer, clientY }));
+			source.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
+			return feedback;
+		}
+
+		for (const relationship of ['unrelated', 'siblings', 'parent'] as const) {
+			test(`uses prospective ${relationship} relationships for group-drop positioning`, () => {
+				const parent = createTestSession('Parent').session;
+				const target: ISession = {
+					...createTestSession('Target').session,
+					createdBySession: constObservable({ session: parent.resource }),
+				};
+				const dragged: ISession = relationship === 'parent' ? parent : {
+					...createTestSession('Dragged').session,
+					createdAt: new Date(2020, 0, 1),
+					createdBySession: constObservable(relationship === 'siblings' ? { session: parent.resource } : undefined),
+				};
+				const memberships = new Map([[target.sessionId, group.id]]);
+				if (relationship !== 'parent') {
+					memberships.set(parent.sessionId, group.id);
+				}
+				const sessions = relationship === 'parent' ? [parent, target] : [parent, target, dragged];
+				const { container, list, addedToGroup, sortChanges } = renderGroupedList(sessions, memberships);
+				list.setWorkspaceGroupCapped(false);
+				list.layout(1000, 400);
+				const feedback = dropBefore(sessionRow(container, dragged.title.get()), sessionRow(container, 'Target'), container);
+
+				assert.deepStrictEqual({
+					feedback,
+					addedToGroup,
+					reordered: sortChanges.map(change => [...change.set.keys(), ...change.clear]),
+					targetLevel: sessionRow(container, 'Target').getAttribute('aria-level'),
+					draggedLevel: sessionRow(container, dragged.title.get()).getAttribute('aria-level'),
+				}, {
+					feedback: { headers: [group.name], before: relationship === 'siblings' },
+					addedToGroup: [dragged.sessionId],
+					reordered: relationship === 'siblings' ? [[dragged.sessionId]] : [],
+					targetLevel: '3',
+					draggedLevel: relationship === 'siblings' ? '3' : '2',
+				});
+			});
+		}
+
+		test('positions an incoming root even when its old sort key places it beyond the destination cap', () => {
+			const roots = Array.from({ length: 6 }, (_, index) => ({
+				...createTestSession(`Root ${index}`).session,
+				createdAt: new Date(Date.now() - index * 1000),
+			}));
+			const dragged = { ...createTestSession('Dragged').session, createdAt: new Date(2020, 0, 1) };
+			const memberships = new Map(roots.map(session => [session.sessionId, group.id]));
+			const { container, list, addedToGroup, sortChanges } = renderGroupedList([...roots, dragged], memberships);
+			list.layout(1000, 400);
+			const feedback = dropBefore(sessionRow(container, 'Dragged'), sessionRow(container, 'Root 0'), container);
+
+			assert.deepStrictEqual({
+				feedback,
+				addedToGroup,
+				reordered: sortChanges.map(change => [...change.set.keys(), ...change.clear]),
+			}, { feedback: { headers: [group.name], before: true }, addedToGroup: ['Dragged'], reordered: [['Dragged']] });
+		});
+
+		test('offers only workspace membership when ungrouping a root onto a nested session', () => {
+			const parent = createTestSession('Parent').session;
+			const target = { ...createTestSession('Target').session, createdBySession: constObservable({ session: parent.resource }) };
+			const dragged = createTestSession('Dragged').session;
+			const { container, list, removedFromGroup, sortChanges } = renderGroupedList([parent, target, dragged], new Map([[dragged.sessionId, group.id]]));
+			list.layout(1000, 400);
+			const feedback = dropBefore(sessionRow(container, 'Dragged'), sessionRow(container, 'Target'), container);
+
+			assert.deepStrictEqual({ feedback, removedFromGroup, reordered: sortChanges.length }, {
+				feedback: { headers: ['Workspace'], before: false }, removedFromGroup: ['Dragged'], reordered: 0,
+			});
+		});
+
 		test('drops onto its own workspace section header and leaves the group', () => {
 			const grouped = createTestSession('Grouped', { workspaceLabel: 'vscode' }).session;
 			const ordinary = createTestSession('Ordinary', { workspaceLabel: 'vscode' }).session;
@@ -3844,6 +3990,26 @@ suite('Sessions - SessionsList', () => {
 				highlighted: ['vscode'],
 				removedFromGroup: [grouped.sessionId],
 				reordered: 0,
+			});
+		});
+
+		test('ungroups a nested cross-repository child into its own workspace, not its creator workspace', () => {
+			const parent = createTestSession('Parent', { workspaceLabel: 'vscode' }).session;
+			const child = {
+				...createTestSession('Child', { workspaceLabel: 'extension' }).session,
+				createdBySession: constObservable({ session: parent.resource }),
+			};
+			const ordinary = createTestSession('Ordinary', { workspaceLabel: 'extension' }).session;
+			const memberships = new Map([[parent.sessionId, group.id], [child.sessionId, group.id]]);
+			const { container, removedFromGroup, sortChanges } = renderGroupedList([parent, child, ordinary], memberships);
+
+			const highlighted = drag(sessionRow(container, 'Child'), sectionRow(container, 'extension'), container);
+
+			assert.deepStrictEqual({ highlighted, removedFromGroup, reordered: sortChanges.length, parentGroup: memberships.get(parent.sessionId) }, {
+				highlighted: ['extension'],
+				removedFromGroup: ['Child'],
+				reordered: 0,
+				parentGroup: group.id,
 			});
 		});
 
@@ -7450,6 +7616,44 @@ suite('Sessions - SessionsList', () => {
 	});
 
 	suite('compact presentation', () => {
+
+		test('preserves nested-session indentation and repository hints in compact rows', () => {
+			const parent = createTestSession('Parent', { workspaceLabel: 'Repo A' }).session;
+			const child: ISession = {
+				...createTestSession('Child', { workspaceLabel: 'Repo B', status: SessionStatus.InProgress }).session,
+				createdBySession: constObservable({ session: parent.resource }),
+			};
+			const grandchild: ISession = {
+				...createTestSession('Grandchild', { workspaceLabel: 'Repo C', status: SessionStatus.NeedsInput }).session,
+				createdBySession: constObservable({ session: child.resource }),
+			};
+			const harness = createListHarness(disposables, [parent, child, grandchild]);
+			const container = harness.createContainer();
+			for (const size of [6, 8, 12, 16, 24]) {
+				container.style.setProperty(`--vscode-spacing-size${size * 10}`, `${size}px`);
+			}
+			const list = harness.store.add(harness.instantiationService.createInstance(SessionsList, container, {
+				grouping: () => SessionsGrouping.Workspace,
+				sorting: () => SessionsSorting.Created,
+				compact: () => true,
+				onSessionOpen: () => { },
+			}));
+			list.layout(500, 400);
+
+			assert.deepStrictEqual([...container.querySelectorAll<HTMLElement>('.session-item')].map(item => {
+				const guide = item.querySelector('.session-hierarchy-guide.direct');
+				return {
+					title: item.querySelector('.session-title')?.textContent,
+					padding: mainWindow.getComputedStyle(item).paddingLeft,
+					badge: item.querySelector('.session-compact-hover-description .session-badge')?.textContent,
+					connectorHeight: guide ? mainWindow.getComputedStyle(guide).height : undefined,
+				};
+			}), [
+				{ title: 'Parent', padding: '12px', badge: undefined, connectorHeight: undefined },
+				{ title: 'Child', padding: '36px', badge: 'Repo B', connectorHeight: '14px' },
+				{ title: 'Grandchild', padding: '60px', badge: 'Repo C', connectorHeight: '14px' },
+			]);
+		});
 
 		test('uses a title-only row with workspace context on hover and preserves the accessible label', () => {
 			const session = createTestSession('Implement compact view', {
