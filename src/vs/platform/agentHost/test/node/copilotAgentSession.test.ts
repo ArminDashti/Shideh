@@ -1409,6 +1409,7 @@ async function createAgentSession(disposables: DisposableStore, options?: {
 	} as unknown as IFileService);
 	services.set(ISessionDataService, createSessionDataService(options?.sessionDatabase));
 	services.set(IDiffComputeService, createZeroDiffComputeService());
+	services.set(IAgentHostOTelService, options?.otelService ?? NoopAgentHostOTelService.INSTANCE);
 	const sessionConfigUpdates: Array<{ session: string; patch: Record<string, unknown> }> = [];
 	const sandboxResults: Array<boolean | string> = [];
 	let sandboxEnabled: boolean | undefined;

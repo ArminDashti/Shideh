@@ -189,6 +189,21 @@ export const AgentHostAllowSignedOutWhenUsableSettingId = 'chat.agentHost.allowS
  */
 export const AgentHostClaudeAgentEnabledSettingId = 'chat.agentHost.claudeAgent.enabled';
 
+/** Enables OpenTelemetry export from the agent host process. Requires an agent host restart. */
+export const AgentHostOTelEnabledSettingId = 'chat.agentHost.otel.enabled';
+
+/** Enables verbose frontend-to-agent trace spans. Requires an agent host restart for provider-side changes. */
+export const AgentHostOTelVerboseTracingSettingId = 'chat.agentHost.otel.verboseTracing';
+
+/** Includes prompt/tool content in Agent Host OTel attributes. Requires an agent host restart. */
+export const AgentHostOTelCaptureContentSettingId = 'chat.agentHost.otel.captureContent';
+
+/** OTLP/HTTP traces endpoint used by the agent host process. Requires an agent host restart. */
+export const AgentHostOTelEndpointSettingId = 'chat.agentHost.otel.otlpEndpoint';
+
+/** Maximum length for Agent Host OTel string attributes. Requires an agent host restart. */
+export const AgentHostOTelMaxAttributeSizeSettingId = 'chat.agentHost.otel.maxAttributeSizeChars';
+
 /**
  * Configuration key controlling whether extension-provided BYOK ("bring your
  * own key") models are published and included in new agent-host sessions.
@@ -1162,6 +1177,10 @@ export interface IConnectionTrackerService {
 	 * uses for its own traffic, rather than the renderer's HTTP client.
 	 */
 	runtimeDiagnosticsHttpFetch(request: IAgentHostHttpFetchRequest): Promise<IAgentHostHttpFetchResult>;
+}
+
+export interface IAgentDispatchOptions {
+	readonly traceContext?: AgentHostTraceContext;
 }
 
 /**

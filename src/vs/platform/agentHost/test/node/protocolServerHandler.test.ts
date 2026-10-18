@@ -269,7 +269,8 @@ class MockAgentService implements IAgentService {
 		const origin = { clientId, clientSeq };
 		this._stateManager.dispatchClientAction(channel, action, origin);
 	}
-	async createSession(config?: IAgentCreateSessionConfig): Promise<URI> {
+	emitOTelSpan(): void { }
+	async createSession(config?: IAgentCreateSessionConfig, options?: IAgentDispatchOptions): Promise<URI> {
 		this.createSessionConfigs.push(config);
 		await this.createSessionBarrier?.p;
 		const session = config?.session ?? URI.parse('copilot:///new-session');

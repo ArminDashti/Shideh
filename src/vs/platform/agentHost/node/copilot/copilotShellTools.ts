@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Tool, ToolResultObject } from '@github/copilot-sdk';
+import type { Tool, ToolInvocation, ToolResultObject } from '@github/copilot-sdk';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Disposable, DisposableStore, type IReference, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -554,7 +554,7 @@ export async function createShellTools(
 					ref.dispose();
 				}
 			}
-		},
+		}),
 	};
 
 	const readTool: Tool<IReadShellArgs> = {
@@ -581,7 +581,7 @@ export async function createShellTools(
 				return makeSuccessResult('(no output)');
 			}
 			return makeSuccessResult(prepareOutputForModel(content));
-		},
+		}),
 	};
 
 	const writeTool: Tool<IWriteShellArgs> = {
@@ -604,7 +604,7 @@ export async function createShellTools(
 			}
 			await terminalManager.sendText(shell.terminalUri, args.command, { shouldExecute: false });
 			return makeSuccessResult('Input sent to shell.');
-		},
+		}),
 	};
 
 	const shutdownTool: Tool<IShutdownShellArgs> = {
@@ -618,7 +618,7 @@ export async function createShellTools(
 		},
 		overridesBuiltInTool: true,
 		skipPermission: true,
-		handler: (args) => {
+		handler: (args, invocation) => withToolHandlerSpan(agentHostOTelService, shellType === 'bash' ? 'bash_shutdown' : `${shellType}_shutdown`, invocation, () => {
 			if (args.shell_id) {
 				const success = shellManager.shutdownShell(args.shell_id);
 				return success
@@ -632,7 +632,7 @@ export async function createShellTools(
 			}
 			shellManager.shutdownShell(shell.id);
 			return makeSuccessResult('Shell stopped.');
-		},
+		}),
 	};
 
 	const listTool: Tool<Record<string, never>> = {
@@ -641,7 +641,7 @@ export async function createShellTools(
 		parameters: { type: 'object', properties: {} },
 		overridesBuiltInTool: true,
 		skipPermission: true,
-		handler: () => {
+		handler: (_args, invocation) => withToolHandlerSpan(agentHostOTelService, `list_${shellType}`, invocation, () => {
 			const shells = shellManager.listShells();
 			if (shells.length === 0) {
 				return makeSuccessResult('No active shells.');
@@ -654,7 +654,7 @@ export async function createShellTools(
 				return `- ${s.id}: ${s.shellType} [${status}]`;
 			});
 			return makeSuccessResult(descriptions.join('\n'));
-		},
+		}),
 	};
 
 	// Stub the *other* SDK built-in so the model can't bypass our override

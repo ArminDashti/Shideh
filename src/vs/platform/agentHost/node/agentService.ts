@@ -4301,6 +4301,13 @@ export class AgentService extends Disposable implements IAgentService {
 		if (!Number.isFinite(modifiedTime)) {
 			return;
 		}
+		const span = this._otelTracer.startVerbose(AgentHostVerboseTrace.CreateSession, {
+			[AgentHostOTelAttr.PROVIDER]: provider.id,
+			[AgentHostOTelAttr.FORK]: config?.fork !== undefined,
+			[AgentHostOTelAttr.ACTIVE_CLIENT]: config?.activeClient !== undefined,
+			[AgentHostOTelAttr.HAS_MODEL]: config?.model !== undefined,
+			[AgentHostOTelAttr.HAS_WORKING_DIRECTORY]: config?.workingDirectory !== undefined,
+		});
 
 		const sessionKey = session.toString();
 		const existing = this._recentLocalSessionUpdates.find(entry => entry.session === sessionKey);
@@ -6388,11 +6395,18 @@ export class AgentService extends Disposable implements IAgentService {
 			ref = this._sessionDataService.openDatabase(session);
 		} catch (err) {
 			this._logService.warn(`[AgentService] Failed to open session database to persist configValues for ${session.toString()}: ${toErrorMessage(err)}`);
+			span?.recordException(err);
+			span?.end();
 			return;
 		}
 		ref.object.setMetadata('configValues', JSON.stringify(omitTransientSessionConfigValues(values))).catch(err => {
 			this._logService.warn(`[AgentService] Failed to persist configValues for ${session.toString()}: ${toErrorMessage(err)}`);
+			span?.recordException(err);
 		}).finally(() => {
+			if (!failed) {
+				span?.setStatus(AgentHostSpanStatusCode.OK);
+			}
+			span?.end();
 			ref.dispose();
 		});
 	}

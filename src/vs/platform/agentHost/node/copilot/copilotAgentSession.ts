@@ -4591,7 +4591,9 @@ export class CopilotAgentSession extends Disposable {
 			return;
 		}
 		try {
-			await this._wrapper.session.rpc.mode.set({ mode });
+			await this._otelTracer.traceSdkCall(AgentHostSdkTrace.SessionApplyMode, () => this._wrapper.session.rpc.mode.set({ mode }), {
+				[AgentHostOTelAttr.MODE]: mode,
+			});
 			this._lastAppliedMode = mode;
 			this._logService.info(`[Copilot:${this.sessionId}] rpc.mode.set succeeded: mode=${mode}`);
 		} catch (err) {
@@ -4652,6 +4654,65 @@ export class CopilotAgentSession extends Disposable {
 			this._logService.error(`[Copilot:${this.sessionId}] Steering message failed`, err);
 		} finally {
 			this._steeringMessagesInFlight.delete(steeringMessage.id);
+		}
+	}
+
+	private _startAgentSpan(prompt: string, attachments: readonly IAgentAttachment[] | undefined, turnId: string | undefined, mode: CopilotSdkMode | undefined): IAgentHostSpanHandle {
+		this._endAgentSpan();
+		const span = this._agentHostOTelService.startSpan('invoke_agent copilotcli', {
+			attributes: {
+				[AgentHostGenAiAttr.OPERATION_NAME]: AgentHostGenAiOperationName.INVOKE_AGENT,
+				[AgentHostGenAiAttr.PROVIDER_NAME]: AgentHostGenAiProviderName.GITHUB,
+				[AgentHostGenAiAttr.AGENT_NAME]: 'copilotcli',
+				[AgentHostGenAiAttr.AGENT_ID]: 'copilotcli',
+				[AgentHostOTelAttr.PROVIDER]: 'copilotcli',
+				[AgentHostOTelAttr.SESSION_ID]: this.sessionId,
+				[AgentHostOTelAttr.TURN_ID]: turnId ?? '',
+				[AgentHostOTelAttr.MODE]: mode ?? '',
+				[AgentHostOTelAttr.ATTACHMENT_COUNT]: attachments?.length ?? 0,
+				[AgentHostOTelAttr.PROMPT_LENGTH]: prompt.length,
+			},
+		});
+		if (this._agentHostOTelService.config.captureContent) {
+			span.setAttribute(AgentHostGenAiAttr.INPUT_MESSAGES, truncateForAgentHostOTel(JSON.stringify([{ role: 'user', content: prompt }]), this._agentHostOTelService.config.maxAttributeSizeChars));
+		}
+		this._activeAgentSpan = span;
+		return span;
+	}
+
+	private _endAgentSpan(status: AgentHostSpanStatusCode = AgentHostSpanStatusCode.OK, message?: string): void {
+		this._clearAgentSpanEndTimer();
+		for (const toolSpan of this._activeToolSpans.values()) {
+			toolSpan.setStatus(status, message);
+			toolSpan.end();
+		}
+		this._activeToolSpans.clear();
+		for (const hookSpan of this._activeHookSpans.values()) {
+			hookSpan.setStatus(status, message);
+			hookSpan.end();
+		}
+		this._activeHookSpans.clear();
+		const span = this._activeAgentSpan;
+		if (!span) {
+			return;
+		}
+		this._activeAgentSpan = undefined;
+		span.setStatus(status, message);
+		span.end();
+	}
+
+	private _scheduleAgentSpanEnd(delayMs: number, status: AgentHostSpanStatusCode = AgentHostSpanStatusCode.OK, message?: string): void {
+		this._clearAgentSpanEndTimer();
+		this._agentSpanEndTimer = setTimeout(() => {
+			this._agentSpanEndTimer = undefined;
+			this._endAgentSpan(status, message);
+		}, delayMs);
+	}
+
+	private _clearAgentSpanEndTimer(): void {
+		if (this._agentSpanEndTimer !== undefined) {
+			clearTimeout(this._agentSpanEndTimer);
+			this._agentSpanEndTimer = undefined;
 		}
 	}
 
@@ -8607,7 +8668,7 @@ export class CopilotAgentSession extends Disposable {
 
 		let planPath: string | null = null;
 		try {
-			const planRead = await this._wrapper.session.rpc.plan.read();
+			const planRead = await this._otelTracer.traceSdkCall(AgentHostSdkTrace.SessionReadPlan, () => this._wrapper.session.rpc.plan.read());
 			planPath = planRead.path ?? null;
 		} catch (err) {
 			this._logService.warn(`[Copilot:${this.sessionId}] rpc.plan.read failed for exit_plan_mode: ${err instanceof Error ? err.message : String(err)}`);
@@ -9527,16 +9588,25 @@ export class CopilotAgentSession extends Disposable {
 
 		this._register(wrapper.onSubagentStarted(e => {
 			this._logService.trace(`[Copilot:${sessionId}] Subagent started: ${e.data.agentName} (${e.data.agentDisplayName})`);
+			this._activeAgentSpan?.addEvent('subagent.started', {
+				[AgentHostGenAiAttr.AGENT_NAME]: e.data.agentName,
+			});
 		}));
 
 		this._register(wrapper.onSubagentCompleted(e => {
 			this._seedSubagentDisplayNames([e]);
 			this._logService.trace(`[Copilot:${sessionId}] Subagent completed: ${e.data.agentName}`);
+			this._activeAgentSpan?.addEvent('subagent.completed', {
+				[AgentHostGenAiAttr.AGENT_NAME]: e.data.agentName,
+			});
 		}));
 
 		this._register(wrapper.onSubagentFailed(e => {
 			this._seedSubagentDisplayNames([e]);
 			this._logService.error(`[Copilot:${sessionId}] Subagent failed: ${e.data.agentName} - ${e.data.error}`);
+			this._activeAgentSpan?.addEvent('subagent.failed', {
+				[AgentHostGenAiAttr.AGENT_NAME]: e.data.agentName,
+			});
 		}));
 
 		this._register(wrapper.onSubagentSelected(e => {
@@ -9559,6 +9629,17 @@ export class CopilotAgentSession extends Disposable {
 
 		this._register(wrapper.onHookEnd(e => {
 			this._logService.trace(`[Copilot:${sessionId}] Hook ended: ${e.data.hookType} (${e.data.hookInvocationId}), success=${e.data.success}`);
+			const hookSpan = this._activeHookSpans.get(e.data.hookInvocationId);
+			if (hookSpan) {
+				this._activeHookSpans.delete(e.data.hookInvocationId);
+				hookSpan.setStatus(e.data.success ? AgentHostSpanStatusCode.OK : AgentHostSpanStatusCode.ERROR);
+				hookSpan.end();
+			}
+			if (e.data.hookType === 'sessionEnd') {
+				this._endAgentSpan(e.data.success ? AgentHostSpanStatusCode.OK : AgentHostSpanStatusCode.ERROR);
+			} else if (e.data.hookType === 'agentStop') {
+				this._scheduleAgentSpanEnd(1000, e.data.success ? AgentHostSpanStatusCode.OK : AgentHostSpanStatusCode.ERROR);
+			}
 		}));
 
 		this._register(wrapper.onSystemMessage(e => {

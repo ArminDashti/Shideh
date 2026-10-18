@@ -2875,6 +2875,33 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return clientStarting;
 	}
 
+	private _getActiveSessionTraceContext(): AgentHostTraceContext | undefined {
+		let result: AgentHostTraceContext | undefined;
+		for (const session of this._sessions.values()) {
+			const traceContext = session.getActiveTraceContext();
+			if (traceContext) {
+				if (result) {
+					return undefined;
+				}
+				result = traceContext;
+			}
+		}
+		return result;
+	}
+
+	private _getCopilotSdkTelemetryConfig(): CopilotClientOptions['telemetry'] {
+		const config = this._agentHostOTelService.config;
+		if (!config.enabled) {
+			return undefined;
+		}
+		return {
+			otlpEndpoint: toCopilotSdkOtlpEndpoint(config.otlpEndpoint),
+			exporterType: 'otlp-http',
+			sourceName: 'vscode-agent-host-copilot-sdk',
+			captureContent: config.captureContent,
+		};
+	}
+
 	// ---- session management -------------------------------------------------
 
 	private _createThinkingLevelConfigSchemaProperty(reasoningEfforts: readonly string[] | undefined, defaultReasoningEffort: string | undefined, modelId: string | undefined): ConfigPropertySchema | undefined {
@@ -6801,8 +6828,13 @@ export class CopilotAgent extends Disposable implements IAgent {
 				work.push(db.setMetadata('configValues', JSON.stringify(configValues)));
 			}
 			await Promise.all(work);
+			span?.setStatus(AgentHostSpanStatusCode.OK);
+		} catch (error) {
+			span?.recordException(error);
+			throw error;
 		} finally {
 			dbRef.dispose();
+			span?.end();
 		}
 	}
 
@@ -6884,7 +6916,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	private async _readSessionMetadata(session: URI): Promise<{ model?: ModelSelection; agent?: AgentSelection; workingDirectory?: URI; workingDirectories?: readonly URI[]; customizationDirectory?: URI; workspaceless?: boolean }> {
 		const ref = await this._sessionDataService.tryOpenDatabase(session);
+		span?.setAttribute(AgentHostOTelAttr.DB_HIT, ref !== undefined);
 		if (!ref) {
+			span?.setStatus(AgentHostSpanStatusCode.OK);
+			span?.end();
 			return {};
 		}
 		try {
@@ -6907,14 +6942,23 @@ export class CopilotAgent extends Disposable implements IAgent {
 				customizationDirectory: customizationDirectory ? URI.parse(customizationDirectory) : undefined,
 				workspaceless: m[AH_META_WORKSPACELESS_DB_KEY] === 'true',
 			};
+			span?.setStatus(AgentHostSpanStatusCode.OK);
+			return result;
+		} catch (error) {
+			span?.recordException(error);
+			throw error;
 		} finally {
 			ref.dispose();
+			span?.end();
 		}
 	}
 
 	private async _readStoredSessionMetadata(session: URI): Promise<{ model?: ModelSelection; agent?: AgentSelection; workingDirectory?: URI; workingDirectories?: readonly URI[]; customizationDirectory?: URI; project?: IAgentSessionProjectInfo; summary?: string; resolved: boolean; workspaceless?: boolean } | undefined> {
 		const ref = await this._sessionDataService.tryOpenDatabase(session);
+		span?.setAttribute(AgentHostOTelAttr.DB_HIT, ref !== undefined);
 		if (!ref) {
+			span?.setStatus(AgentHostSpanStatusCode.OK);
+			span?.end();
 			return undefined;
 		}
 		try {
@@ -6952,8 +6996,14 @@ export class CopilotAgent extends Disposable implements IAgent {
 				resolved: resolved === 'true' || project !== undefined,
 				workspaceless: workspaceless === undefined ? undefined : workspaceless === 'true',
 			};
+			span?.setStatus(AgentHostSpanStatusCode.OK);
+			return result;
+		} catch (error) {
+			span?.recordException(error);
+			throw error;
 		} finally {
 			ref.dispose();
+			span?.end();
 		}
 	}
 
