@@ -94,6 +94,7 @@ import { IHostService } from '../../../services/host/browser/host.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { FocusMode } from '../../../../platform/native/common/native.js';
 
+
 const QUICKOPEN_HISTORY_LIMIT_CONFIG = 'task.quickOpen.history';
 const PROBLEM_MATCHER_NEVER_CONFIG = 'task.problemMatchers.neverPrompt';
 const USE_SLOW_PICKER = 'task.quickOpen.showAll';
