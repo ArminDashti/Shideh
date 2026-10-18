@@ -672,6 +672,430 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 	}
 }
 
+class TitleBarTBBWidget extends BaseActionViewItem {
+
+	private container: HTMLElement | undefined;
+	private readonly clickPanelDisposable = this._register(new MutableDisposable<DisposableStore>());
+	private isMenuVisible = false;
+
+	constructor(
+		action: IAction,
+		options: IBaseActionViewItemOptions | undefined,
+		@IHoverService private readonly hoverService: IHoverService,
+	) {
+		super(undefined, action, options);
+	}
+
+	override render(container: HTMLElement): void {
+		super.render(container);
+
+		this.container = container;
+		container.classList.add('sessions-tbb-titlebar-widget');
+		container.setAttribute('aria-label', localize('tbbSimulator', "Token Based Billing Simulator"));
+		container.title = localize('tbbSimulator', "Token Based Billing Simulator");
+
+		const icon = append(container, $('span.sessions-tbb-titlebar-widget-icon'));
+		icon.append(...renderLabelWithIcons(`$(${Codicon.dashboard.id})`));
+	}
+
+	override onClick(): void {
+		if (!this.container) {
+			return;
+		}
+
+		if (this.isMenuVisible) {
+			this.hoverService.hideHover(true);
+			this.clickPanelDisposable.clear();
+			return;
+		}
+
+		this.hoverService.hideHover(true);
+		this.clickPanelDisposable.clear();
+
+		const panelStore = new DisposableStore();
+		this.clickPanelDisposable.value = panelStore;
+
+		this.isMenuVisible = true;
+		this.container.classList.add('menu-visible');
+
+		panelStore.add({
+			dispose: () => {
+				this.isMenuVisible = false;
+				this.container?.classList.remove('menu-visible');
+			}
+		});
+
+		const panelContent = this.createTBBPanelContent(panelStore);
+		const { left, width } = getDomNodePagePosition(this.container);
+		const hoverWidget = this.hoverService.showInstantHover({
+			content: panelContent,
+			target: {
+				targetElements: [this.container],
+				x: left + width - 320,
+			},
+			additionalClasses: ['sessions-account-titlebar-panel-hover'],
+			position: { hoverPosition: HoverPosition.BELOW },
+			persistence: { sticky: true, hideOnHover: false },
+			appearance: { showPointer: false, skipFadeInAnimation: true, maxHeightRatio: 0.8 },
+		}, true);
+
+		if (hoverWidget) {
+			panelStore.add(hoverWidget);
+		}
+
+		panelStore.add(disposableWindowInterval(mainWindow, () => {
+			if (!panelContent.isConnected || hoverWidget?.isDisposed) {
+				this.clickPanelDisposable.clear();
+			}
+		}, 500));
+	}
+
+	private createTBBPanelContent(panelStore: DisposableStore): HTMLElement {
+		const panel = $('div.copilot-prototype-coin-view');
+		panel.style.padding = '8px';
+		panel.style.minWidth = '300px';
+
+		const tbb3Instance = CopilotTBB3StatusBarContribution.instance;
+
+		if (!tbb3Instance) {
+			const msg = $('div');
+			msg.style.padding = '12px';
+			msg.style.color = 'var(--vscode-descriptionForeground)';
+			msg.textContent = localize('tbbLoading', "Waiting for prototype controller...");
+			panel.appendChild(msg);
+			return panel;
+		}
+
+		tbb3Instance.renderController(panel, panelStore);
+		CopilotPrototypeShellCoinStatusBarContribution.instance?.setBillingMode('tbb-3.0');
+
+		return panel;
+	}
+}
+
+class TitleBarUBBWidget extends BaseActionViewItem {
+
+	private container: HTMLElement | undefined;
+	private readonly clickPanelDisposable = this._register(new MutableDisposable<DisposableStore>());
+	private isMenuVisible = false;
+	private _pooledBannerDismissed = false;
+
+	constructor(
+		action: IAction,
+		options: IBaseActionViewItemOptions | undefined,
+		@IHoverService private readonly hoverService: IHoverService,
+		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
+	) {
+		super(undefined, action, options);
+	}
+
+	override render(container: HTMLElement): void {
+		super.render(container);
+
+		this.container = container;
+		container.classList.add('sessions-ubb-titlebar-widget');
+		container.setAttribute('aria-label', localize('ubbDashboard', "Usage Based Billing"));
+		container.title = localize('ubbDashboard', "Usage Based Billing");
+
+		// Show user avatar or fallback icon
+		const account = this.defaultAccountService.currentDefaultAccount;
+		const avatarUrl = getAccountProfileImageUrl(account?.authenticationProvider.id, account?.accountName);
+		if (avatarUrl) {
+			const avatar = append(container, $('img.sessions-ubb-titlebar-widget-avatar', {
+				alt: localize('accountAvatarAltFallback', "Account profile image"),
+				draggable: 'false',
+				src: avatarUrl,
+			})) as HTMLImageElement;
+			avatar.decoding = 'async';
+			avatar.referrerPolicy = 'no-referrer';
+		} else {
+			const icon = append(container, $('span.sessions-ubb-titlebar-widget-icon'));
+			icon.append(...renderLabelWithIcons(`$(${Codicon.account.id})`));
+		}
+	}
+
+	override onClick(): void {
+		if (!this.container) {
+			return;
+		}
+
+		if (this.isMenuVisible) {
+			this.hoverService.hideHover(true);
+			this.clickPanelDisposable.clear();
+			return;
+		}
+
+		this.hoverService.hideHover(true);
+		this.clickPanelDisposable.clear();
+
+		const panelStore = new DisposableStore();
+		this.clickPanelDisposable.value = panelStore;
+
+		this.isMenuVisible = true;
+		this.container.classList.add('menu-visible');
+
+		panelStore.add({
+			dispose: () => {
+				this.isMenuVisible = false;
+				this.container?.classList.remove('menu-visible');
+			}
+		});
+
+		const panelContent = this.createUBBPanelContent(panelStore);
+		const { left, width } = getDomNodePagePosition(this.container);
+		const hoverWidget = this.hoverService.showInstantHover({
+			content: panelContent,
+			target: {
+				targetElements: [this.container],
+				x: left + width - SESSIONS_ACCOUNT_TITLEBAR_PANEL_WIDTH,
+			},
+			additionalClasses: ['sessions-account-titlebar-panel-hover'],
+			position: { hoverPosition: HoverPosition.BELOW },
+			persistence: { sticky: true, hideOnHover: false },
+			appearance: { showPointer: false, skipFadeInAnimation: true, maxHeightRatio: 0.8 },
+		}, true);
+
+		if (hoverWidget) {
+			panelStore.add(hoverWidget);
+		}
+
+		panelStore.add(disposableWindowInterval(mainWindow, () => {
+			if (!panelContent.isConnected || hoverWidget?.isDisposed) {
+				this.clickPanelDisposable.clear();
+			}
+		}, 500));
+	}
+
+	private createUBBPanelContent(_panelStore: DisposableStore): HTMLElement {
+		const panel = $('div.sessions-account-titlebar-panel');
+		panel.style.minWidth = '340px';
+
+		const account = this.defaultAccountService.currentDefaultAccount;
+		const accountName = account?.accountName;
+		const providerId = account?.authenticationProvider.id;
+		const avatarUrl = getAccountProfileImageUrl(providerId, accountName);
+
+		// Read state from the UBB controller
+		const tbb3 = CopilotTBB3StatusBarContribution.instance;
+		const sku = tbb3?.activeSku ?? 'Edu/Free';
+		const state = tbb3?.activeState ?? 'Default';
+
+		const isFree = sku === 'Edu/Free';
+		const isProNoO = sku === 'Pro/Pro+ No O';
+		const hasOverage = sku === 'Pro/Pro+' || sku === 'Max';
+		const isEnterprise = sku === 'Ent/Bus' || sku === 'Ent/Bus ULB';
+		const isUnlimitedEnt = sku === 'Ent/Bus';
+		const isEntULB = sku === 'Ent/Bus ULB';
+		const hasApproached = state === 'Monthly Approached';
+		const hasExhausted = state === 'Monthly Exhausted';
+		const isOverageApproached = state === 'Overage Approached';
+		const isOverageExhausted = state === 'Overage Exhausted';
+		const showCallout = hasApproached || hasExhausted || isOverageApproached || isOverageExhausted;
+
+		// Plan title
+		let planName: string;
+		switch (sku) {
+			case 'Edu/Free': planName = localize('ubbPlanFree', "Copilot Free"); break;
+			case 'Pro/Pro+ No O': planName = localize('ubbPlanPro', "Copilot Pro"); break;
+			case 'Pro/Pro+': planName = localize('ubbPlanProPlus', "Copilot Pro+"); break;
+			case 'Max': planName = localize('ubbPlanMax', "Copilot Max"); break;
+			case 'Ent/Bus ULB': planName = localize('ubbPlanEntULB', "Copilot Enterprise ULB"); break;
+			case 'Ent/Bus': planName = localize('ubbPlanEnt', "Copilot Enterprise"); break;
+			default: planName = localize('ubbPlanDefault', "Copilot Pro"); break;
+		}
+
+		// Mock percentage based on state
+		let pctUsed: number;
+		switch (state) {
+			case 'Monthly Approached': pctUsed = 75; break;
+			case 'Monthly Exhausted': case 'Overage Approached': case 'Overage Exhausted': pctUsed = 100; break;
+			case 'Monthly Reset': case 'Overage Reset': pctUsed = 0; break;
+			default: pctUsed = 50; break;
+		}
+
+		// === Header ===
+		const header = append(panel, $('div.sessions-account-titlebar-panel-header'));
+		if (avatarUrl) {
+			const avatar = append(header, $('img.sessions-account-titlebar-panel-avatar', {
+				alt: localize('accountAvatarAltFallback', "Account profile image"),
+				draggable: 'false', src: avatarUrl,
+			})) as HTMLImageElement;
+			avatar.decoding = 'async';
+			avatar.referrerPolicy = 'no-referrer';
+		}
+		append(header, $('div.sessions-account-titlebar-panel-title')).textContent =
+			accountName ?? localize('accountMenuHeaderFallback', "Account");
+
+		const actions = append(header, $('div.sessions-account-titlebar-panel-header-actions'));
+
+		// CTA in header — one button max.
+		if (isEntULB && (hasApproached || hasExhausted)) {
+			// Enterprise ULB: admin-managed budget — surface a primary "Request More Usage" CTA.
+			const ctaBtn = append(actions, $('button.sessions-ubb-header-cta.primary'));
+			ctaBtn.textContent = localize('requestMoreUsage', "Request More Usage");
+		} else if (showCallout && !isEnterprise) {
+			let ctaLabel: string | undefined;
+			if (isOverageApproached || isOverageExhausted) {
+				ctaLabel = localize('increaseBudget', "Increase Budget");
+			} else if (isFree) {
+				ctaLabel = localize('upgrade', "Upgrade");
+			}
+			// Pro/Pro+ No O has no header CTA — its "Configure" action lives inline on the
+			// Additional Budget row (see below), next to the "Not configured" state.
+			if (ctaLabel) {
+				const ctaBtn = append(actions, $('button.sessions-ubb-header-cta'));
+				ctaBtn.textContent = ctaLabel;
+			}
+		}
+
+		const settingsBtn = append(actions, $('button.sessions-account-titlebar-panel-header-action'));
+		settingsBtn.classList.add(...ThemeIcon.asClassNameArray(Codicon.settingsGear));
+		settingsBtn.title = localize('settings', "Settings");
+		const signOutBtn = append(actions, $('button.sessions-account-titlebar-panel-header-action'));
+		signOutBtn.classList.add(...ThemeIcon.asClassNameArray(Codicon.signOut));
+		signOutBtn.title = localize('signOut', "Sign Out");
+
+		// Non-ULB pooled enterprise: explain the shared-pool context in a dismissable banner at the top.
+		// The Agents window has no inline code suggestions, so that detail is intentionally omitted here.
+		if (isUnlimitedEnt && !this._pooledBannerDismissed) {
+			const banner = append(panel, $('div.sessions-ubb-callout.dismissable'));
+			const bannerBody = append(banner, $('div.sessions-ubb-callout-body'));
+			append(bannerBody, $('span.sessions-ubb-callout-icon')).classList.add(...ThemeIcon.asClassNameArray(Codicon.info));
+			append(bannerBody, $('span.sessions-ubb-callout-text')).textContent =
+				localize('ubbEntPooledLine', "Your usage draws from your organization's shared credit pool.");
+			const dismiss = append(bannerBody, $('span.sessions-ubb-callout-dismiss'));
+			dismiss.classList.add(...ThemeIcon.asClassNameArray(Codicon.close));
+			dismiss.tabIndex = 0;
+			dismiss.title = localize('dismiss', "Dismiss");
+			dismiss.addEventListener('click', () => { this._pooledBannerDismissed = true; banner.remove(); });
+		}
+
+		// === Callout (text only, no buttons or links) ===
+		if (showCallout && !isUnlimitedEnt) {
+			const callout = append(panel, $('div.sessions-ubb-callout'));
+			const calloutBody = append(callout, $('div.sessions-ubb-callout-body'));
+			const calloutIconEl = append(calloutBody, $('span.sessions-ubb-callout-icon'));
+			calloutIconEl.classList.add(...ThemeIcon.asClassNameArray(Codicon.info));
+			const textContainer = append(calloutBody, $('span.sessions-ubb-callout-text'));
+
+			if (isEntULB) {
+				// Enterprise ULB — match the main dashboard "limit" language (no admin sentence).
+				if (hasExhausted) {
+					append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+						localize('ubbCreditsReachedTitle', "Credits Reached.");
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbEntExhaustedMsg', "Copilot is paused until the limit resets.");
+				} else {
+					append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+						localize('ubbCreditsApproachingTitle', "Credits at {0}%.", pctUsed);
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbEntApproachingMsg', "Copilot will pause when the limit is reached.");
+				}
+			} else if (isOverageApproached) {
+				append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+					localize('ubbOverageApproachingTitle', "Additional Budget at {0}%.", 75);
+				append(textContainer, $('span')).textContent =
+					' ' + localize('ubbOverageApproachingMsg', "Increase your budget to keep going.");
+			} else if (isOverageExhausted) {
+				append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+					localize('ubbOverageReachedTitle', "Additional Budget Reached.");
+				append(textContainer, $('span')).textContent =
+					' ' + localize('ubbOverageExhaustedMsg', "Increase your budget to keep building.");
+			} else if (hasExhausted) {
+				append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+					localize('ubbCreditsReachedTitle', "Credits Reached.");
+				if (isFree) {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbFreeExhaustedMsg', "You're getting the most out of Copilot. Upgrade to keep going.");
+				} else if (hasOverage) {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbPaidOverageActiveMsg', "Your additional budget will keep Copilot going.");
+				} else {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbPaidExhaustedMsg', "Configure additional budget to keep building.");
+				}
+			} else {
+				append(textContainer, $('span.sessions-ubb-callout-title')).textContent =
+					localize('ubbCreditsApproachingTitle', "Credits at {0}%.", pctUsed);
+				if (isFree) {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbFreeApproachingMsg', "You're getting the most out of Copilot. Upgrade to keep going.");
+				} else if (hasOverage) {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbPaidOverageApproachMsg', "Your additional budget will keep Copilot going.");
+				} else {
+					append(textContainer, $('span')).textContent =
+						' ' + localize('ubbPaidApproachingMsg', "Configure additional budget to keep going.");
+				}
+			}
+		}
+
+		// === Quota ===
+		const quota = append(panel, $('div.sessions-ubb-quota'));
+
+		if (isUnlimitedEnt) {
+			// Non-ULB pooled enterprise (#319589): there is no per-user denominator, so surface the
+			// aggregate monthly credits consumed as a single value. The shared-pool context is
+			// explained in the dismissable banner at the top of the panel.
+			const creditsUsed = 1284;
+			const titleRow = append(quota, $('div.sessions-ubb-quota-row'));
+			append(titleRow, $('span.sessions-ubb-quota-title')).textContent = planName;
+			append(titleRow, $('span.sessions-ubb-quota-pct')).textContent = creditsUsed.toLocaleString();
+			const detailRow = append(quota, $('div.sessions-ubb-quota-row'));
+			append(detailRow, $('span.sessions-ubb-quota-reset')).textContent =
+				localize('ubbResetDate', "Resets May 31 at 5:00 PM");
+			append(detailRow, $('span.sessions-ubb-quota-credits-label')).textContent =
+				localize('creditsUsed', "Credits used");
+		} else {
+			// Row 1: plan title + percentage
+			const titleRow = append(quota, $('div.sessions-ubb-quota-row'));
+			append(titleRow, $('span.sessions-ubb-quota-title')).textContent = planName;
+			append(titleRow, $('span.sessions-ubb-quota-pct')).textContent = `${pctUsed}%`;
+
+			// Row 2: reset date + "Credits used"
+			const detailRow = append(quota, $('div.sessions-ubb-quota-row'));
+			append(detailRow, $('span.sessions-ubb-quota-reset')).textContent =
+				localize('ubbResetDate', "Resets May 31 at 5:00 PM");
+			append(detailRow, $('span.sessions-ubb-quota-credits-label')).textContent =
+				localize('creditsUsed', "Credits used");
+		}
+
+		// === Additional Budget (overage) ===
+		// Always shown for individual SKUs that have (or can configure) an additional budget; dimmed when not in use.
+		// Enterprise SKUs never show this — their budget is admin-managed.
+		// No reset line — it shares the monthly reset already shown under Credits above.
+		if (!isFree && !isEnterprise && (hasOverage || isProNoO)) {
+			const overageActive = hasExhausted || isOverageApproached || isOverageExhausted;
+			const overagePct = isOverageExhausted ? 100 : isOverageApproached ? 75 : hasExhausted ? 10 : 0;
+			const additional = append(panel, $('div.sessions-ubb-quota'));
+			if (!overageActive) { additional.classList.add('dimmed'); }
+			const addRow = append(additional, $('div.sessions-ubb-quota-row'));
+			append(addRow, $('span.sessions-ubb-quota-title')).textContent =
+				localize('ubbAdditionalBudget', "Additional Budget");
+			if (isProNoO) {
+				// No additional budget configured — offer an inline tertiary "Configure" action
+				// in place of the value (the header CTA is intentionally omitted for this state).
+				const configureBtn = append(addRow, $('button.sessions-ubb-quota-configure'));
+				configureBtn.textContent = localize('configure', "Configure");
+			} else {
+				append(addRow, $('span.sessions-ubb-quota-pct')).textContent = `${overagePct}%`;
+			}
+		}
+
+		// === Codebase Semantic Index ===
+		const idx = append(panel, $('div.sessions-ubb-index'));
+		const idxHeader = append(idx, $('button.sessions-ubb-index-header'));
+		append(idxHeader, $('span.sessions-ubb-index-label')).textContent =
+			localize('codebaseSemanticIndex', "Codebase Semantic Index");
+		append(idxHeader, $('span.sessions-ubb-index-chevron')).classList.add(
+			...ThemeIcon.asClassNameArray(Codicon.chevronRight));
+		append(idxHeader, $('span.sessions-ubb-index-status')).textContent =
+			localize('ready', "Ready");
+
+		return panel;
+	}
+}
+
 // --- Register custom view item --- //
 
 // Actions registered at module level so Menus.TitleBarRightLayout is non-empty when the
@@ -703,6 +1127,16 @@ export class AccountWidgetContribution extends Disposable implements IWorkbenchC
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
+
+		// TBB Simulator widget (dashboard icon, left of update and account)
+		this._register(actionViewItemService.register(Menus.TitleBarRightLayout, SessionsTitleBarTBBWidgetAction, (action, options) => {
+			return instantiationService.createInstance(TitleBarTBBWidget, action, options);
+		}, undefined));
+
+		// UBB Dashboard widget (credit card icon, shows simplified quota dashboard)
+		this._register(actionViewItemService.register(Menus.TitleBarRightLayout, SessionsTitleBarUBBWidgetAction, (action, options) => {
+			return instantiationService.createInstance(TitleBarUBBWidget, action, options);
+		}, undefined));
 
 		this._register(actionViewItemService.register(Menus.TitleBarRightLayout, SessionsTitleBarAccountWidgetAction, (action, options) => {
 			return instantiationService.createInstance(TitleBarAccountWidget, action, options);

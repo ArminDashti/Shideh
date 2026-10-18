@@ -212,6 +212,32 @@
 	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-menu-separatorBackground);
 }
 
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard {
+	width: auto;
+	padding: 4px 8px;
+}
+
+/* Hide tabs and Quick Settings content in the Agents app dashboard */
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard-tabs {
+	display: none !important;
+}
+
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard-section-title {
+	display: none !important;
+}
+
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard-settings-grid {
+	display: none !important;
+}
+
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard-snooze {
+	display: none !important;
+}
+
+.agent-sessions-workbench .sessions-account-titlebar-panel-content .copilot-prototype-dashboard-header-actions {
+	display: none !important;
+}
+
 .agent-sessions-workbench .sessions-account-titlebar-panel-summary {
 	padding: 12px 16px;
 	font-size: var(--vscode-fontSize-label1);
@@ -649,4 +675,278 @@
 .agent-sessions-workbench.monaco-reduce-motion .sessions-account-titlebar-widget-label,
 .agent-sessions-workbench.monaco-reduce-motion .sessions-account-titlebar-widget-badge {
 	transition-duration: 0ms !important;
+}
+
+/* TBB Simulator widget in titlebar */
+
+.agent-sessions-workbench .sessions-tbb-titlebar-widget {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 22px;
+	width: 22px;
+	min-width: 22px;
+	background: transparent;
+	border-radius: var(--vscode-cornerRadius-medium);
+	color: inherit;
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+
+.agent-sessions-workbench .sessions-tbb-titlebar-widget:hover,
+.agent-sessions-workbench .action-item:focus-within .sessions-tbb-titlebar-widget {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.agent-sessions-workbench .sessions-tbb-titlebar-widget:active,
+.agent-sessions-workbench .sessions-tbb-titlebar-widget.menu-visible {
+	background: var(--vscode-toolbar-activeBackground);
+}
+
+.agent-sessions-workbench .sessions-tbb-titlebar-widget-icon {
+	font-size: 16px;
+	color: inherit;
+}
+
+/* --- UBB Dashboard Widget --- */
+
+.agent-sessions-workbench .sessions-ubb-titlebar-widget {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	border-radius: 4px;
+	padding: 2px 4px;
+}
+
+.agent-sessions-workbench .sessions-ubb-titlebar-widget:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.agent-sessions-workbench .sessions-ubb-titlebar-widget:active,
+.agent-sessions-workbench .sessions-ubb-titlebar-widget.menu-visible {
+	background: var(--vscode-toolbar-activeBackground);
+}
+
+.agent-sessions-workbench .sessions-ubb-titlebar-widget-icon {
+	font-size: 16px;
+	color: inherit;
+}
+
+.agent-sessions-workbench .sessions-ubb-titlebar-widget-avatar {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+/* UBB Header CTA Button */
+.sessions-ubb-header-cta {
+	padding: 4px 12px;
+	border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-contrastBorder, rgba(127,127,127,0.3)));
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font-size: 12px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.sessions-ubb-header-cta:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.sessions-ubb-header-cta.primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-border, transparent);
+}
+
+.sessions-ubb-header-cta.primary:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* UBB Callout Banner */
+.sessions-ubb-callout {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 10px;
+	background: color-mix(in srgb, var(--vscode-focusBorder) 8%, var(--vscode-editorWidget-background));
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--vscode-foreground);
+}
+
+.sessions-ubb-callout-body {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+}
+
+.sessions-ubb-callout-icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	height: 1.4em;
+	color: var(--vscode-focusBorder);
+}
+
+.sessions-ubb-callout-text {
+	flex: 1;
+}
+
+.sessions-ubb-callout-title {
+	font-weight: 600;
+}
+
+.sessions-ubb-callout-link {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.sessions-ubb-callout-link:hover {
+	text-decoration: underline;
+}
+
+.sessions-ubb-callout-dismiss {
+	flex-shrink: 0;
+	align-self: flex-start;
+	cursor: pointer;
+	opacity: 0.7;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.sessions-ubb-callout-dismiss:hover {
+	opacity: 1;
+}
+
+/* UBB Callout Actions Row */
+.sessions-ubb-callout-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+}
+
+/* UBB Secondary Upgrade Button (inside callout) */
+.sessions-ubb-callout-upgrade {
+	padding: 4px 12px;
+	border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-contrastBorder, rgba(127,127,127,0.3)));
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font-size: 12px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.sessions-ubb-callout-upgrade:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* UBB Quota Section */
+.sessions-ubb-quota {
+	padding: 8px 10px;
+}
+
+.sessions-ubb-quota.dimmed {
+	opacity: 0.55;
+}
+
+.sessions-ubb-quota-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.sessions-ubb-quota-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+}
+
+.sessions-ubb-quota-reset {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.sessions-ubb-quota-pct {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.sessions-ubb-quota-credits-label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.sessions-ubb-quota-configure {
+	padding: 0;
+	border: none;
+	background: none;
+	font-size: 12px;
+	font-family: inherit;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.sessions-ubb-quota-configure:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+.sessions-ubb-quota-desc {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+/* UBB Codebase Semantic Index */
+.sessions-ubb-index {
+	padding-top: 4px;
+}
+
+.sessions-ubb-index-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 10px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 400;
+	font-family: inherit;
+	color: var(--vscode-foreground);
+}
+
+.sessions-ubb-index-header:focus {
+	outline: none;
+}
+
+.sessions-ubb-index-header:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.sessions-ubb-index-label {
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.sessions-ubb-index-chevron {
+	font-size: 12px;
+	opacity: 0.7;
+	flex-shrink: 0;
+}
+
+.sessions-ubb-index-status {
+	margin-left: auto;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
 }

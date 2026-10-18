@@ -294,7 +294,8 @@
 				"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
-				"--disable-extension=vscode.vscode-api-tests"
+				"--disable-extension=vscode.vscode-api-tests",
+				"--remote-debugging-port=9222"
 			],
 			"userDataDir": "${userHome}/.vscode-oss-dev",
 			"webRoot": "${workspaceFolder}",
@@ -340,6 +341,7 @@
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
 				"--disable-extension=vscode.vscode-api-tests",
+				"--remote-debugging-port=9222",
 				"--agents"
 			],
 			"userDataDir": "${userHome}/.vscode-oss-dev",
@@ -388,7 +390,8 @@
 				"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
 				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
 				"--disable-features=CalculateNativeWinOcclusion",
-				"--disable-extension=vscode.vscode-api-tests"
+				"--disable-extension=vscode.vscode-api-tests",
+				"--remote-debugging-port=9222"
 			],
 			"userDataDir": "${userHome}/.vscode-oss-dev",
 			"webRoot": "${workspaceFolder}",

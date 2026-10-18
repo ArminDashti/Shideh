@@ -817,6 +817,8 @@ export interface IQuotaSnapshot {
 	/** When this quota resets, as a Unix timestamp in *seconds*. */
 	readonly resetAt?: number;
 	readonly usageBasedBilling?: boolean;
+	readonly used?: number;
+	readonly limit?: number;
 	readonly entitlement?: number;
 	readonly quotaRemaining?: number;
 	/**

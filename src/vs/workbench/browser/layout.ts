@@ -1691,6 +1691,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.workbenchGrid.setViewVisible(this.statusBarPartView, !hidden);
 	}
 
+	private setTitleBarHidden(hidden: boolean): void {
+		this.workbenchGrid.setViewVisible(this.titleBarPartView, !hidden);
+	}
+
 	protected createWorkbenchLayout(): void {
 		const titleBar = this.getPart(Parts.TITLEBAR_PART);
 		const bannerPart = this.getPart(Parts.BANNER_PART);
@@ -2477,6 +2481,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	setPartHidden(hidden: boolean, part: Parts): void {
 		switch (part) {
+			case Parts.TITLEBAR_PART:
+				return this.setTitleBarHidden(hidden);
 			case Parts.ACTIVITYBAR_PART:
 				return this.setActivityBarHidden(hidden);
 			case Parts.SIDEBAR_PART:

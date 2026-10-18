@@ -3,12 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { getZoomFactor } from '../../../../base/browser/browser.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { timeout } from '../../../../base/common/async.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { resolve } from '../../../../base/common/path.js';
-import { isMacintosh } from '../../../../base/common/platform.js';
+import { isMacintosh, isTahoeOrNewer } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ipcRenderer } from '../../../../base/parts/sandbox/electron-browser/globals.js';
 import { localize } from '../../../../nls.js';
@@ -29,7 +31,7 @@ import { ViewContainerLocation } from '../../../common/views.js';
 import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { INativeWorkbenchEnvironmentService } from '../../../services/environment/electron-browser/environmentService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { ILifecycleService, ShutdownReason } from '../../../services/lifecycle/common/lifecycle.js';
 import { ACTION_ID_NEW_CHAT, CHAT_OPEN_ACTION_ID, IChatViewOpenOptions } from '../browser/actions/chatActions.js';
 import { AgentSessionProviders, getAgentSessionProviderName } from '../browser/agentSessions/agentSessions.js';
@@ -158,6 +160,48 @@ class ChatSuspendThrottlingHandler extends Disposable {
 	}
 }
 
+class CopilotPrototypeShellNativeWindowControlsContribution extends Disposable {
+
+	static readonly ID = 'workbench.contrib.copilotPrototypeShellNativeWindowControls';
+
+	constructor(
+		@INativeHostService private readonly nativeHostService: INativeHostService,
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
+		@INativeWorkbenchEnvironmentService private readonly environmentService: INativeWorkbenchEnvironmentService,
+	) {
+		super();
+
+		if (!isMacintosh) {
+			return;
+		}
+
+		this._register(this.layoutService.onDidChangePartVisibility(e => {
+			if (e.partId === Parts.TITLEBAR_PART) {
+				void this.updateWindowControlsHeight();
+			}
+		}));
+
+		void this.updateWindowControlsHeight();
+	}
+
+	private async updateWindowControlsHeight(): Promise<void> {
+		if (this.layoutService.isVisible(Parts.TITLEBAR_PART, mainWindow)) {
+			return;
+		}
+
+		const workbenchContainer = this.layoutService.getContainer(mainWindow);
+		if (!workbenchContainer.classList.contains('copilot-prototype-shell')) {
+			return;
+		}
+
+		const height = Math.round((isTahoeOrNewer(this.environmentService.os.release) ? 32 : 28) * getZoomFactor(mainWindow));
+		await this.nativeHostService.updateWindowControls({
+			targetWindowId: this.nativeHostService.windowId,
+			height,
+		});
+	}
+}
+
 class ChatLifecycleHandler extends Disposable {
 
 	static readonly ID = 'workbench.contrib.chatLifecycleHandler';
@@ -251,6 +295,7 @@ registerWorkbenchContribution2(NativeBuiltinToolsContribution.ID, NativeBuiltinT
 registerWorkbenchContribution2(AgentSessionNativeStatusContribution.ID, AgentSessionNativeStatusContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatCommandLineHandler.ID, ChatCommandLineHandler, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(ChatSuspendThrottlingHandler.ID, ChatSuspendThrottlingHandler, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CopilotPrototypeShellNativeWindowControlsContribution.ID, CopilotPrototypeShellNativeWindowControlsContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatLifecycleHandler.ID, ChatLifecycleHandler, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(OpenWorkspaceInAgentsContribution.ID, OpenWorkspaceInAgentsContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(AgentsHandoffInputTipContribution.ID, AgentsHandoffInputTipContribution, WorkbenchPhase.Eventually);
