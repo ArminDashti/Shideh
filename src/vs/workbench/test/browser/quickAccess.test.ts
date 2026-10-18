@@ -49,7 +49,7 @@ suite('QuickAccess', () => {
 
 	class TestProviderDefault implements IQuickAccessProvider {
 
-		constructor(@IQuickInputService private readonly quickInputService: IQuickInputService, disposables: DisposableStore) { }
+		constructor(@IQuickInputService private readonly quickInputService: IQuickInputService) { }
 
 		provide(picker: IQuickPick<IQuickPickItem, { useSeparators: true }>, token: CancellationToken): IDisposable {
 			assert.ok(picker);
