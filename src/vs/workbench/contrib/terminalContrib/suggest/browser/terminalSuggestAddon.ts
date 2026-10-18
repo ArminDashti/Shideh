@@ -1119,3 +1119,7 @@ export function normalizePathSeparator(path: string, sep: string): string {
 	}
 	return path.replaceAll('/', '\\');
 }
+
+function sleep(ms: number): Promise<void> {
+	return new Promise(r => setTimeout(r, ms));
+}

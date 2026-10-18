@@ -157,6 +157,7 @@ export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TI
 	readonly onDidFocus: Event<ISimpleSelectedSuggestion<TItem>> = this._onDidFocus.event;
 	private readonly _onDidBlurDetails = this._register(new Emitter<FocusEvent>());
 	readonly onDidBlurDetails = this._onDidBlurDetails.event;
+	private _loadingTimeout: IDisposable | undefined;
 
 	get list(): List<TItem> { return this._list; }
 
@@ -635,6 +636,14 @@ export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TI
 		}, 100);
 	}
 
+	showTriggered(auto: boolean, delay: number) {
+		if (this._state !== State.Hidden) {
+			return;
+		}
+
+		this._loadingTimeout = disposableTimeout(() => this._setState(State.Loading), delay);
+	}
+
 
 	toggleDetailsFocus(): void {
 		if (this._state === State.Details) {
@@ -811,13 +820,7 @@ export class SimpleSuggestWidget<TModel extends SimpleCompletionModel<TItem>, TI
 			this.element.enableSashes(true, true, false, false);
 			maxHeight = maxHeightAbove;
 		} else {
-			this._preference = WidgetPositionPreference.Below;
-			this.element.enableSashes(false, true, true, false);
-			maxHeight = maxHeightBelow;
-		}
-		this.element.preferredSize = new dom.Dimension(preferredWidth, info.defaultSize.height);
-		this.element.maxSize = new dom.Dimension(maxWidth, maxHeight);
-		this.element.minSize = new dom.Dimension(220, minHeight);
+			// showing items
 
 		// Know when the height was capped to fit and remember
 		// the wanted height for later. This is required when going
