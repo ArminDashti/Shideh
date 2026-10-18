@@ -137,7 +137,8 @@ export class MainThreadNotebookKernels implements MainThreadNotebookKernelsShape
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@INotebookEditorService notebookEditorService: INotebookEditorService
+		@INotebookEditorService notebookEditorService: INotebookEditorService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebookKernels);
 
