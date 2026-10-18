@@ -6,12 +6,15 @@
 import './media/agenttitlebarstatuswidget.css';
 import { $, addDisposableListener, EventType, getWindow, isHTMLElement, reset } from '../../../../../../base/browser/dom.js';
 import { renderIcon } from '../../../../../../base/browser/ui/iconLabel/iconLabels.js';
-import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Event as EventUtils } from '../../../../../../base/common/event.js';
 import { localize } from '../../../../../../nls.js';
 import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../../../base/browser/ui/hover/hoverDelegateFactory.js';
+import { HoverPosition } from '../../../../../../base/browser/ui/hover/hoverWidget.js';
+import { HoverStyle } from '../../../../../../base/browser/ui/hover/hover.js';
+import { AgentSessionHoverWidget } from '../agentSessionHoverWidget.js';
 import { AgentStatusMode, IAgentTitleBarStatusService } from './agentTitleBarStatusService.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
@@ -27,11 +30,10 @@ import { IEditorService } from '../../../../../services/editor/common/editorServ
 import { renderAsPlaintext } from '../../../../../../base/browser/markdownRenderer.js';
 import { stripIcons } from '../../../../../../base/common/iconLabels.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { IMenuService, MenuId, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { InEditorZenModeContext } from '../../../../../common/contextkeys.js';
 import { HiddenItemStrategy, WorkbenchToolBar } from '../../../../../../platform/actions/browser/toolbar.js';
-import { DropdownWithPrimaryActionViewItem } from '../../../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { createActionViewItem } from '../../../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
 import { FocusAgentSessionsAction } from '../agentSessionsActions.js';
@@ -157,11 +159,14 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 	// TODO: This is imperfect. Targetted fix for vscode#290863. We should revisit storing filter state per-window to avoid this
 	private _badgeFilterAppliedByThisWindow: 'unread' | 'inProgress' | null = null;
 
+	/** Tracks sessions whose attention animation has already been shown */
+	private readonly _animatedSessionIds = new Set<string>();
+
+	/** Reusable hover widget for session preview - kept alive across hovers on the same session */
+	private readonly _sessionHover = this._register(new MutableDisposable<AgentSessionHoverWidget>());
+
 	/** Reusable menu for CommandCenterCenter items (e.g., debug toolbar) */
 	private readonly _commandCenterMenu;
-
-	/** Menu for ChatTitleBarMenu items (same as chat controls dropdown) */
-	private readonly _chatTitleBarMenu;
 
 	constructor(
 		action: IAction,
@@ -188,9 +193,6 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 
 		// Create menu for CommandCenterCenter to get items like debug toolbar
 		this._commandCenterMenu = this._register(this.menuService.createMenu(MenuId.CommandCenterCenter, this.contextKeyService));
-
-		// Create menu for ChatTitleBarMenu to show in sparkle section dropdown
-		this._chatTitleBarMenu = this._register(this.menuService.createMenu(MenuId.ChatTitleBarMenu, this.contextKeyService));
 
 		// Re-render when control mode or session info changes
 		this._register(this.agentTitleBarStatusService.onDidChangeMode(() => {
@@ -865,7 +867,7 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 			this._container.appendChild(badge);
 		}
 
-		// Sparkle dropdown button section (always visible on left) - proper button with dropdown menu
+		// Sparkle dropdown button section (chat entrypoint) - proper button with dropdown menu
 		const sparkleContainer = $('span.agent-status-badge-section.sparkle');
 		sparkleContainer.tabIndex = 0;
 
@@ -876,19 +878,20 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 		const primaryActionTitle = localize('toggleChat', "Toggle Chat");
 		const primaryActionIcon = Codicon.chatSparkle;
 
-		// Create primary action
-		const primaryAction = this.instantiationService.createInstance(MenuItemAction, {
-			id: primaryActionId,
-			title: primaryActionTitle,
-			icon: primaryActionIcon,
-		}, undefined, undefined, undefined, undefined);
+		// Create primary action button (no dropdown)
+		const sparkleButton = $('span.agent-status-sparkle-button');
+		sparkleButton.setAttribute('role', 'button');
+		sparkleButton.setAttribute('aria-label', primaryActionTitle);
+		sparkleButton.tabIndex = 0;
+		reset(sparkleButton, renderIcon(primaryActionIcon));
+		sparkleContainer.appendChild(sparkleButton);
 
-		// Create dropdown action (empty label prevents default tooltip - we have our own hover)
-		const dropdownAction = toAction({
-			id: 'agentStatus.sparkle.dropdown',
-			label: localize('agentStatus.sparkle.dropdown', "More Actions"),
-			run() { }
-		});
+		// Click handler
+		disposables.add(addDisposableListener(sparkleButton, EventType.CLICK, (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.commandService.executeCommand(primaryActionId);
+		}));
 
 		// Create the dropdown with primary action button
 		const sparkleDropdown = this.instantiationService.createInstance(
@@ -925,11 +928,6 @@ export class AgentTitleBarStatusWidget extends BaseActionViewItem {
 				e.preventDefault();
 				e.stopPropagation();
 				this.commandService.executeCommand(primaryActionId);
-			} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-				// Open dropdown menu with arrow keys
-				e.preventDefault();
-				e.stopPropagation();
-				sparkleDropdown.showDropdown();
 			}
 		}));
 
