@@ -12,7 +12,7 @@ import { IRange } from '../../../../common/range.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../common/utils.js';
 
 suite('ListView', function () {
-	ensureNoDisposablesAreLeakedInTestSuite();
+	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('insertItemInDOM does not throw when renderElement causes reentrant splice that nulls item.row', function () {
 		const element = document.createElement('div');

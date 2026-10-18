@@ -2574,6 +2574,7 @@ export interface IAbstractTreeOptionsUpdate<T> extends ITreeRendererOptions<T> {
 	readonly stickyScrollMaxItemCount?: number;
 	readonly stickyScrollMaxNodeHeight?: number;
 	readonly paddingTop?: number;
+	readonly autoscroll?: boolean;
 }
 
 export interface IAbstractTreeOptions<T, TFilterData = void> extends IAbstractTreeOptionsUpdate<T>, IListOptions<T> {

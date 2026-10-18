@@ -84,6 +84,7 @@ export interface IListViewOptionsUpdate {
 	readonly fastScrollSensitivity?: number;
 	readonly paddingTop?: number;
 	readonly paddingBottom?: number;
+	readonly autoscroll?: boolean;
 }
 
 export interface IListViewOptions<T> extends IListViewOptionsUpdate {
@@ -341,6 +342,7 @@ export class ListView<T> implements IListView<T> {
 	private paddingBottom: number;
 	private accessibilityProvider: ListViewAccessibilityProvider<T>;
 	private scrollWidth: number | undefined;
+	private autoscroll: boolean = false;
 
 	private readonly disposables = new DisposableStore();
 	private dnd: IListViewDragAndDrop<T>;
@@ -494,6 +496,7 @@ export class ListView<T> implements IListView<T> {
 		this.setRowHeight = options.setRowHeight ?? DefaultOptions.setRowHeight;
 		this.supportDynamicHeights = options.supportDynamicHeights ?? DefaultOptions.supportDynamicHeights;
 		this.dnd = options.dnd ?? this.disposables.add(DefaultOptions.dnd);
+		this.autoscroll = options.autoscroll ?? false;
 
 		this.layout(options.initialSize?.height, options.initialSize?.width);
 		if (options.scrollToActiveElement) {
@@ -589,6 +592,10 @@ export class ListView<T> implements IListView<T> {
 			this.horizontalScrolling = options.horizontalScrolling;
 		}
 
+		if (options.autoscroll !== undefined) {
+			this.autoscroll = options.autoscroll;
+		}
+
 		let scrollableOptions: ScrollableElementChangeOptions | undefined;
 
 		if (options.scrollByPage !== undefined) {
@@ -654,6 +661,8 @@ export class ListView<T> implements IListView<T> {
 			return;
 		}
 
+		const wasScrolledToBottom = this.autoscroll && this.isScrolledToBottom();
+
 		const lastRenderRange = this.getRenderRange(this.lastRenderTop, this.lastRenderHeight);
 
 		let scrollTop: number;
@@ -691,6 +700,10 @@ export class ListView<T> implements IListView<T> {
 		} else {
 			this._onDidChangeContentHeight.fire(this.contentHeight); // otherwise fired in _rerender()
 		}
+
+		if (wasScrolledToBottom) {
+			this.setScrollTop(this.scrollHeight - this.renderHeight);
+		}
 	}
 
 	protected createRangeMap(paddingTop: number): IRangeMap {
@@ -714,6 +727,8 @@ export class ListView<T> implements IListView<T> {
 	}
 
 	private _splice(start: number, deleteCount: number, elements: readonly T[] = []): T[] {
+		const wasScrolledToBottom = this.autoscroll && this.isScrolledToBottom();
+
 		const previousRenderRange = this.getRenderRange(this.lastRenderTop, this.lastRenderHeight);
 		const deleteRange = { start, end: start + deleteCount };
 		const removeRange = Range.intersect(previousRenderRange, deleteRange);
@@ -835,6 +850,10 @@ export class ListView<T> implements IListView<T> {
 
 		if (this.supportDynamicHeights) {
 			this._rerender(this.scrollTop, this.renderHeight);
+		}
+
+		if (wasScrolledToBottom) {
+			this.setScrollTop(this.scrollHeight - this.renderHeight);
 		}
 
 		return deleted.map(i => i.element);
