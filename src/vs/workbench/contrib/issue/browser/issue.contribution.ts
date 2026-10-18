@@ -117,3 +117,14 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 CommandsRegistry.registerCommand('_issues.getSystemStatus', (accessor) => {
 	return nls.localize('statusUnsupported', "The --status argument is not yet supported in browsers.");
 });
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		properties: {
+			'issueReporter.experimental.webReporter': {
+				type: 'boolean',
+				default: true,
+				description: 'Enable experimental issue reporter for web.',
+			},
+		}
+	});
