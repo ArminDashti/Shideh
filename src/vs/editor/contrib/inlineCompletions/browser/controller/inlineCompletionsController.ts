@@ -379,6 +379,12 @@ export class InlineCompletionsController extends Disposable {
 		}));
 		this.editor.updateOptions({ inlineCompletionsAccessibilityVerbose: this._configurationService.getValue('accessibility.verbosity.inlineCompletions') });
 
+		this._register(this.editor.onDidCompositionStart(() => {
+			this._isInCompositionMode = true;
+		}));
+		this._register(this.editor.onDidCompositionEnd(() => {
+			this._isInCompositionMode = false;
+		}));
 		const contextKeySvcObs = new ObservableContextKeyService(this._contextKeyService);
 
 		this._register(contextKeySvcObs.bind(InlineCompletionContextKeys.cursorInIndentation, this._cursorIsInIndentation));
