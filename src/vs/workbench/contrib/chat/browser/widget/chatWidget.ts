@@ -3885,6 +3885,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this.logThinkingStyleUsage('submit');
 
+		this.logThinkingStyleUsage('submit');
+
 		// visibility sync before firing events to hide the welcome view
 		this.updateChatViewVisibility();
 		this.input.acceptInput(options?.storeToHistory ?? isUserQuery, options?.preserveFocus, options?.preserveInput);
