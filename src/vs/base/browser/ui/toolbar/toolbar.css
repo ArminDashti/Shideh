@@ -9,7 +9,7 @@
 
 .monaco-toolbar .toolbar-toggle-more {
 	display: inline-block;
-	padding: 0;
+	padding: var(--vscode-static-spacing-none);
 }
 
 .monaco-toolbar.responsive.responsive-all {

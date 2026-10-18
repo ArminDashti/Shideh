@@ -9,8 +9,8 @@
 	animation: dialog-modal-fade-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 	height: 100%;
 	width: 100%;
-	left: 0;
-	top: 0;
+	left: var(--vscode-static-spacing-none);
+	top: var(--vscode-static-spacing-none);
 	z-index: 2575; /* Above Context Views, Below Workbench Hover */
 	display: flex;
 	justify-content: center;
@@ -102,7 +102,7 @@
 }
 
 .monaco-dialog-box.align-vertical {
-	min-width: 350px; /* more narrow when aligned vertically */
+	min-width: var(--vscode-dialog-verticalorientation-min-width); /* more narrow when aligned vertically */
 }
 
 /** Dialog: Title Actions Row */
@@ -178,7 +178,7 @@
 }
 
 .monaco-dialog-box .dialog-footer-row {
-	margin-top: 20px;
+	margin-top: var(--vscode-dialog-spacing-xl);
 }
 
 .monaco-dialog-box:not(.align-vertical) .dialog-message-row .dialog-message-container,
@@ -259,7 +259,7 @@
 .monaco-dialog-box > .dialog-buttons-row {
 	display: flex;
 	align-items: center;
-	padding-right: 1px;
+	padding-right: var(--vscode-dialog-spacing-xxxs);
 	overflow: hidden; /* buttons row should never overflow */
 	white-space: nowrap;
 	padding: 20px 0px 0px;
@@ -278,8 +278,8 @@
 }
 
 .monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons {
-	margin-left: 5px;
-	margin-right: 5px;
+	margin-left: var(--vscode-dialog-spacing-s);
+	margin-right: var(--vscode-dialog-spacing-s);
 	flex-direction: column;
 }
 
@@ -299,7 +299,7 @@
 }
 
 .monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons > .monaco-button {
-	margin: 4px 0; /* allows button focus outline to be visible */
+	margin: var(--vscode-dialog-spacing-xs) var(--vscode-static-spacing-none); /* allows button focus outline to be visible */
 }
 
 .monaco-dialog-box:not(.align-vertical) > .dialog-buttons-row > .dialog-buttons > .monaco-button {
@@ -308,7 +308,7 @@
 
 /** Dialog: Dropdown */
 .monaco-dialog-box:not(.align-vertical) > .dialog-buttons-row > .dialog-buttons > .monaco-button-dropdown {
-	margin: 4px 5px;
+	margin: var(--vscode-dialog-spacing-xs) var(--vscode-dialog-spacing-s);
 }
 
 .monaco-dialog-box.align-vertical > .dialog-buttons-row > .dialog-buttons > .monaco-button-dropdown {
@@ -321,8 +321,8 @@
 	 * container of the dropdown button to ensure the dialog box looks
 	 * consistent to dialogs without dropdown buttons.
 	 */
-	outline-offset: 2px !important;
-	outline-width: 1px;
+	outline-offset: var(--vscode-dialog-spacing-xxs) !important;
+	outline-width: var(--vscode-dialog-line-width);
 	outline-style: solid;
 	outline-color: var(--vscode-focusBorder);
 	border-radius: 4px;

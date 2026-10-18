@@ -6,7 +6,7 @@
 .monaco-keybinding {
 	display: flex;
 	align-items: center;
-	line-height: 10px;
+	line-height: var(--vscode-keybinding-key-line-height);
 }
 
 .monaco-keybinding > .monaco-keybinding-key {
@@ -23,11 +23,11 @@
 }
 
 .monaco-keybinding > .monaco-keybinding-key:first-child {
-	margin-left: 0;
+	margin-left: var(--vscode-static-spacing-none);
 }
 
 .monaco-keybinding > .monaco-keybinding-key:last-child {
-	margin-right: 0;
+	margin-right: var(--vscode-static-spacing-none);
 }
 
 .monaco-keybinding > .monaco-keybinding-key-separator {
@@ -35,5 +35,5 @@
 }
 
 .monaco-keybinding > .monaco-keybinding-key-chord-separator {
-	width: 6px;
+	width: var(--vscode-keybinding-chord-gap);
 }

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .monaco-custom-toggle {
-	margin-left: 2px;
+	margin-left: var(--vscode-toggle-horizontal-spacing-nudge);
 	float: left;
 
 	overflow: hidden;
@@ -38,7 +38,7 @@ div.monaco-custom-toggle:not(.monaco-checkbox):focus-visible {
 
 .hc-black .monaco-custom-toggle:hover,
 .hc-light .monaco-custom-toggle:hover {
-	border: 1px dashed var(--vscode-focusBorder);
+	border: var(--vscode-toggle-line-width) dashed var(--vscode-focusBorder);
 }
 
 .hc-black .monaco-custom-toggle,
@@ -60,14 +60,14 @@ div.monaco-custom-toggle:not(.monaco-checkbox):focus-visible {
 	margin-left: 0;
 	padding: 0;
 	opacity: 1;
-	background-size: 16px !important;
+	background-size: calc(var(--vscode-checkbox-height) - calc(var(--vscode-checkbox-line-width) * 2)) !important;
 }
 
 .monaco-action-bar .checkbox-action-item {
 	display: flex;
 	align-items: center;
-	border-radius: 2px;
-	padding-right: 2px;
+	border-radius: var(--vscode-checkbox-corner-radius);
+	padding-right: var(--vscode-actionbar-actionitem-checkbox-horizontal-spacing);
 }
 
 .monaco-action-bar .checkbox-action-item:hover {
@@ -75,9 +75,9 @@ div.monaco-custom-toggle:not(.monaco-checkbox):focus-visible {
 }
 
 .monaco-action-bar .checkbox-action-item > .monaco-custom-toggle.monaco-checkbox {
-	margin-right: 4px;
+	margin-right: var(--vscode-actionbar-actionitem-customtoggle-horizontal-spacing);
 }
 
 .monaco-action-bar .checkbox-action-item > .checkbox-label {
-	font-size: 12px;
+	font-size: var(--vscode-checkbox-font-size);
 }

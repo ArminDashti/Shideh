@@ -14,7 +14,7 @@
 }
 
 .menubar.overflow-menu-only {
-	width: 38px;
+	width: var(--vscode-menubar-overflow-width);
 }
 
 .fullscreen .menubar:not(.compact) {
@@ -30,13 +30,13 @@
 	-webkit-app-region: no-drag;
 	zoom: 1;
 	white-space: nowrap;
-	outline: 0 !important;
+	outline: var(--vscode-static-line-width-none) !important;
 }
 
 .menubar:not(.compact) > .menubar-menu-button:focus .menubar-menu-title {
 	outline-width: 1px;
 	outline-style: solid;
-	outline-offset: -1px;
+	outline-offset: calc(var(--vscode-menubar-line-width) * -1);
 	outline-color: var(--vscode-focusBorder);
 }
 
@@ -68,18 +68,18 @@
 }
 
 .menubar .menubar-menu-items-holder.monaco-menu-container {
-	outline: 0;
+	outline: var(--vscode-static-line-width-none);
 	border: none;
 }
 
 .menubar .menubar-menu-items-holder.monaco-menu-container :focus {
-	outline: 0;
+	outline: var(--vscode-static-line-width-none);
 }
 
 .menubar .toolbar-toggle-more {
-	width: 22px;
-	height: 22px;
-	padding: 0 8px;
+	width: var(--vscode-menubar-toggle-width);
+	height: var(--vscode-menubar-toggle-height);
+	padding: var(--vscode-static-spacing-none) var(--vscode-menubar-toggle-horizontal-spacing);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -107,6 +107,6 @@
 .menubar.compact > .menubar-menu-button.open .menubar-menu-title,
 .menubar.compact > .menubar-menu-button:focus .menubar-menu-title,
 .menubar.compact > .menubar-menu-button:hover .menubar-menu-title{
-	outline-width: 1px !important;
-	outline-offset: -8px !important;
+	outline-width: var(--vscode-menubar-line-width) !important;
+	outline-offset: calc(var(--vscode-menubar-line-width) * -1) !important;
 }

@@ -69,7 +69,7 @@
 .monaco-list.element-focused,
 .monaco-list.selection-single,
 .monaco-list.selection-multiple {
-	outline: 0 !important;
+	outline: var(--vscode-static-line-width-none) !important;
 }
 
 /* Filter */

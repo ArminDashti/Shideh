@@ -27,11 +27,11 @@
 }
 
 .monaco-hover .hover-contents:not(.html-hover-contents) {
-	padding: 4px 8px;
+	padding: var(--vscode-hover-tooltip-vertical-spacing) var(--vscode-hover-tooltip-horizontal-spacing);
 }
 
 .monaco-hover .markdown-hover > .hover-contents:not(.code-hover-contents) {
-	max-width: var(--vscode-hover-maxWidth, 500px);
+	max-width: var(--vscode-hover-max-width);
 	word-wrap: break-word;
 }
 
@@ -77,7 +77,7 @@
 
 .monaco-hover .code:first-child,
 .monaco-hover ul:first-child {
-	margin-top: 0;
+	margin-top: var(--vscode-static-spacing-none);
 }
 
 .monaco-hover p:first-child {
@@ -97,28 +97,28 @@
 
 .monaco-hover .code:last-child,
 .monaco-hover ul:last-child {
-	margin-bottom: 0;
+	margin-bottom: var(--vscode-static-spacing-none);
 }
 
 /* MarkupContent Layout */
 .monaco-hover ul {
-	padding-left: 20px;
+	padding-left: var(--vscode-hover-markupcontent-horiztonal-spacing);
 }
 .monaco-hover ol {
-	padding-left: 20px;
+	padding-left: var(--vscode-hover-markupcontent-horiztonal-spacing);
 }
 
 .monaco-hover li > p {
-	margin-bottom: 0;
+	margin-bottom: var(--vscode-static-spacing-none);
 }
 
 .monaco-hover li > ul {
-	margin-top: 0;
+	margin-top: var(--vscode-static-spacing-none);
 }
 
 .monaco-hover code {
-	border-radius: 3px;
-	padding: 0 0.4em;
+	border-radius: var(--vscode-hover-content-corner-radius);
+	padding: var(--vscode-static-spacing-none) 0.4em;
 }
 
 .monaco-hover .monaco-tokenized-source {
@@ -132,12 +132,12 @@
 
 .hover-row.status-bar .info {
 	font-style: italic;
-	padding: 0px 8px;
+	padding: var(--vscode-static-spacing-none) var(--vscode-hover-statusbar-horizontal-spacing);
 }
 
 .hover-row.status-bar .actions {
 	display: flex;
-	padding: 0px 8px;
+	padding: var(--vscode-static-spacing-none) var(--vscode-hover-statusbar-horizontal-spacing);
 	width: 100%;
 	box-sizing: border-box;
 	background: var(--vscode-editorHoverWidget-statusBarBackground);
@@ -195,7 +195,7 @@
 .monaco-hover .hover-contents a.code-link > span {
 	text-decoration: underline;
 	/** Hack to force underline to show **/
-	border-bottom: 1px solid transparent;
+	border-bottom: var(--vscode-hover-line-width) solid transparent;
 	text-underline-position: under;
 	color: var(--vscode-textLink-foreground);
 }

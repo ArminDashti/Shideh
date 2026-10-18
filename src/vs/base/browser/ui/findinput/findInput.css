@@ -9,7 +9,7 @@
 }
 
 .monaco-findInput .monaco-inputbox {
-	font-size: 13px;
+	font-size: var(--vscode-findinput-font-size);
 	width: 100%;
 }
 
