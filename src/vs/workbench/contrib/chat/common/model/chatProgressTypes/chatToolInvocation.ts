@@ -139,10 +139,11 @@ export class ChatToolInvocation implements IChatToolInvocation {
 				partialInput: this._partialInput,
 				streamingMessage: this._streamingMessage,
 			});
-		} else if (!this.confirmationMessages?.title) {
+		} else if (!this.confirmationMessages?.title || autoConfirmed) {
+			// No confirmation needed, or auto-confirmed - go directly to Executing state
 			this._state = observableValue(this, {
 				type: IChatToolInvocation.StateKind.Executing,
-				confirmed: { type: ToolConfirmKind.ConfirmationNotNeeded, reason: this.confirmationMessages?.confirmationNotNeededReason },
+				confirmed: autoConfirmed ?? { type: ToolConfirmKind.ConfirmationNotNeeded, reason: this.confirmationMessages?.confirmationNotNeededReason },
 				progress: this._progress,
 				parameters: this.parameters,
 				confirmationMessages: this.confirmationMessages,
@@ -288,6 +289,9 @@ export class ChatToolInvocation implements IChatToolInvocation {
 	/**
 	 * Transition from streaming state to prepared/executing state.
 	 * Called when the full tool call is ready.
+	 * @param preparedInvocation The prepared invocation data
+	 * @param parameters The tool parameters
+	 * @param autoConfirmed If provided, the tool was auto-confirmed and should skip WaitingForConfirmation state
 	 */
 	public transitionFromStreaming(preparedInvocation: IPreparedToolInvocation | undefined, parameters: unknown, autoConfirmed: ConfirmedReason | undefined): void {
 		const currentState = this._state.get();
@@ -309,7 +313,7 @@ export class ChatToolInvocation implements IChatToolInvocation {
 		} else if (!this.confirmationMessages?.title) {
 			this._state.set({
 				type: IChatToolInvocation.StateKind.Executing,
-				confirmed: { type: ToolConfirmKind.ConfirmationNotNeeded, reason: this.confirmationMessages?.confirmationNotNeededReason },
+				confirmed: autoConfirmed ?? { type: ToolConfirmKind.ConfirmationNotNeeded, reason: this.confirmationMessages?.confirmationNotNeededReason },
 				progress: this._progress,
 				parameters: this.parameters,
 				confirmationMessages: this.confirmationMessages,
