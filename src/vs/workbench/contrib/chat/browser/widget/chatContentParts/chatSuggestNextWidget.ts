@@ -5,6 +5,7 @@
 
 import * as dom from '../../../../../../base/browser/dom.js';
 import { Action } from '../../../../../../base/common/actions.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
@@ -16,6 +17,7 @@ import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { ChatConfiguration } from '../../../common/constants.js';
 import { IChatMode } from '../../../common/chatModes.js';
 import { IChatSessionsService } from '../../../common/chatSessionsService.js';
+import { ChatConfiguration } from '../../../common/constants.js';
 import { IHandOff } from '../../../common/promptSyntax/promptFileParser.js';
 import { getAgentCanContinueIn, getAgentSessionProvider, getAgentSessionProviderIcon, resolveAgentSessionProviderName } from '../../agentSessions/agentSessions.js';
 
@@ -110,6 +112,16 @@ export class ChatSuggestNextWidget extends Disposable {
 				const autopilotButton = this.createAutopilotButton(handoff);
 				this.promptsContainer.appendChild(autopilotButton);
 			}
+		}
+
+		// Add an "with Autopilot" button for the first send-able handoff when autopilot is enabled
+		// and enterprise policy hasn't disabled auto-approve
+		const isAutopilotEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.AutopilotEnabled) !== false;
+		const isAutoApprovePolicyRestricted = this.configurationService.inspect<boolean>(ChatConfiguration.GlobalAutoApprove).policyValue === false;
+		const sendableHandoff = handoffs.find(h => h.send);
+		if (isAutopilotEnabled && !isAutoApprovePolicyRestricted && sendableHandoff) {
+			const autopilotButton = this.createAutopilotButton(sendableHandoff);
+			this.promptsContainer.appendChild(autopilotButton);
 		}
 
 		this.domNode.style.display = 'flex';
