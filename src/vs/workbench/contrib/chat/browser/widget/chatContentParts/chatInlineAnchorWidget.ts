@@ -47,6 +47,7 @@ import { IChatImageCarouselService } from '../../chatImageCarouselService.js';
 import { ChatPetAchievementIds } from '../../chatPetAchievements.js';
 import { IChatPetService } from '../../chatPetService.js';
 import { chatAttachmentResourceContextKey, hookUpSymbolAttachmentDragAndContextMenu } from '../../attachments/chatAttachmentWidgets.js';
+import { IChatInlineAnchorPhonePresenter } from './chatInlineAnchorPhonePresenter.js';
 import { IChatMarkdownAnchorService } from './chatMarkdownAnchorService.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ChatConfiguration } from '../../../common/constants.js';
