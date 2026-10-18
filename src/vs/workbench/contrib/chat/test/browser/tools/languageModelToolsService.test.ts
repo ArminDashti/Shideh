@@ -127,6 +127,10 @@ class TestChatToolRiskAssessmentService implements IChatToolRiskAssessmentServic
 		this.lastPostToolUseInput = input;
 		return this.postToolUseHookResult;
 	}
+	async executeStopHook(_sessionResource: URI, input: IStopHookCallerInput, _token?: CancellationToken): Promise<IStopHookOutput | undefined> {
+		this.lastStopInput = input;
+		return this.stopHookResult;
+	}
 }
 
 function registerToolForTest(service: LanguageModelToolsService, store: any, id: string, impl: IToolImpl, data?: Partial<IToolData>) {
