@@ -32,9 +32,9 @@ export function setup(ensureStableCode: () => { stableCodePath: string | undefin
 
 			// Open 3 editors
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'bin', 'www'));
-			await app.workbench.quickaccess.runCommand('View: Keep Editor', { match: 'exactLabel' });
+			await app.workbench.quickaccess.runCommand('View: Keep Editor');
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'app.js'));
-			await app.workbench.quickaccess.runCommand('View: Keep Editor', { match: 'exactLabel' });
+			await app.workbench.quickaccess.runCommand('View: Keep Editor');
 			await app.workbench.editors.newUntitledFile();
 
 			logger.log('Restarting app...');
@@ -188,9 +188,9 @@ export function setup(ensureStableCode: () => { stableCodePath: string | undefin
 
 			// Open 3 editors
 			await stableApp.workbench.quickaccess.openFile(join(stableApp.workspacePathOrFolder, 'bin', 'www'));
-			await stableApp.workbench.quickaccess.runCommand('View: Keep Editor', { match: 'exactLabel' });
+			await stableApp.workbench.quickaccess.runCommand('View: Keep Editor');
 			await stableApp.workbench.quickaccess.openFile(join(stableApp.workspacePathOrFolder, 'app.js'));
-			await stableApp.workbench.quickaccess.runCommand('View: Keep Editor', { match: 'exactLabel' });
+			await stableApp.workbench.quickaccess.runCommand('View: Keep Editor');
 			await stableApp.workbench.editors.newUntitledFile();
 
 			await stableApp.stop();
