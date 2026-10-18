@@ -3407,6 +3407,21 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			});
 		}
 
+		// Same dance for the custom-agent selection: derive from the request's
+		// `modeInstructions` (which the chat layer plumbs from the chat widget's
+		// current mode) and dispatch a `SessionAgentChanged` if it differs from
+		// the persisted summary. Built-in modes (Ask/Edit/Agent) clear the
+		// selection.
+		const selectedAgent = this._createAgentSelection(request.modeInstructions);
+		const currentAgent = this._getSessionState(session.toString())?.summary.agent;
+		if (!this._agentSelectionsEqual(currentAgent, selectedAgent)) {
+			this._config.connection.dispatch({
+				type: ActionType.SessionAgentChanged,
+				session: session.toString(),
+				agent: selectedAgent,
+			});
+		}
+
 		// If the chat model has fewer previous requests than the protocol has
 		// turns, a checkpoint was restored or a message was edited. Dispatch
 		// session/truncated so the server drops the stale tail.
@@ -6441,6 +6456,24 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	 * absent or `isBuiltin: true`) or when no URI is available.
 	 */
 	private _createAgentSelection(modeInstructions: { readonly uri?: URI; readonly isBuiltin?: boolean } | undefined): AgentSelection | undefined {
+		if (!modeInstructions || modeInstructions.isBuiltin || !modeInstructions.uri) {
+			return undefined;
+		}
+		return { id: modeInstructions.uri.toString() };
+	}
+
+	private _agentSelectionsEqual(a: AgentSelection | undefined, b: AgentSelection | undefined): boolean {
+		return a?.id === b?.id;
+	}
+
+	/**
+	 * Derives the active custom-agent selection from a chat request's
+	 * `modeInstructions`. Returns `{ id }` (the agent's source URI) when the
+	 * user picked a customization-derived custom agent that carries a URI, or
+	 * `undefined` for built-in modes (Ask/Edit/Agent — `modeInstructions` is
+	 * absent or `isBuiltin: true`) or when no URI is available.
+	 */
+	private _createAgentSelection(modeInstructions: { readonly uri?: URI; isBuiltin?: boolean } | undefined): AgentSelection | undefined {
 		if (!modeInstructions || modeInstructions.isBuiltin || !modeInstructions.uri) {
 			return undefined;
 		}

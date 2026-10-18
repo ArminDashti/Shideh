@@ -2929,6 +2929,30 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return undefined;
 	}
 
+	/**
+	 * Resolves a persisted custom-agent selection to an SDK-acceptable name.
+	 *
+	 * Returns the name only if the named agent is present in the snapshot's
+	 * customizations — otherwise `undefined` so we don't pass a stale name
+	 * to the SDK (it would throw or no-op). The persisted value is *not*
+	 * cleared from disk: if the customization comes back, selection auto-restores.
+	 */
+	private _resolveSelectedAgentName(selection: AgentSelection | undefined, snapshot: IActiveClientSnapshot | undefined): string | undefined {
+		if (!selection) {
+			return undefined;
+		}
+		const plugins = snapshot?.plugins ?? [];
+		const selectionUri = URI.parse(selection.id);
+		for (const plugin of plugins) {
+			for (const candidate of plugin.agents) {
+				if (isEqual(candidate.uri, selectionUri)) {
+					return candidate.name;
+				}
+			}
+		}
+		return undefined;
+	}
+
 	private _serializeModelSelection(model: ModelSelection): string {
 		return JSON.stringify(model);
 	}
