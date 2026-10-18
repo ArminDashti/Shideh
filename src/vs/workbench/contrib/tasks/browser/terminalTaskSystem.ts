@@ -650,6 +650,7 @@ export class TerminalTaskSystem extends Disposable implements ITaskSystem {
 			return Promise.all(promises).then((summaries): Async.MaybePromise<ITaskSummary> => {
 				for (const summary of summaries) {
 					if (summary.exitCode !== 0) {
+						this.removeInstances(task);
 						return { exitCode: summary.exitCode };
 					}
 				}
