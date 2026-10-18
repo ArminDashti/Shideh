@@ -2020,10 +2020,10 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 
 		if (!this.visible) {
 			height = 0;
-		} else if (this.groupsView.partOptions.wrapTabs && this.tabsAndActionsContainer?.classList.contains('wrapping')) {
-			// Wrap: we need to ask `offsetHeight` to get
-			// the real height of the title area with wrapping.
-			height = this.tabsAndActionsContainer.offsetHeight;
+		} else if (this.tabsAndActionsContainer) {
+			// Use the rendered height to account for wrapping and CSS overrides.
+			const renderedHeight = this.tabsAndActionsContainer.offsetHeight;
+			height = renderedHeight || this.tabHeight;
 		} else {
 			height = this.tabHeight;
 		}
