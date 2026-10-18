@@ -954,7 +954,7 @@ export class ContextKeyInExpr implements IContextKeyExpression {
 	public evaluate(context: IContext): boolean {
 		const source = context.getValue(this.valueKey);
 
-		const item = context.getValue(this.key);
+		const item = context.getValue<any>(this.key);
 
 		if (Array.isArray(source)) {
 			// eslint-disable-next-line local/code-no-any-casts

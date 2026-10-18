@@ -133,7 +133,7 @@ export class CellContextKeyManager extends Disposable {
 			this.updateForOutputs();
 
 			this.cellLineNumbers.set(this.element!.lineNumbers);
-			this.cellResource.set(this.element!.uri.toString());
+			this.cellResource.set(this.element!.uri);
 		});
 	}
 
