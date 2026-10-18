@@ -14,7 +14,7 @@ import { IMenuService, MenuId, MenuItemAction } from '../../../../platform/actio
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ICodeEditor, OverlayWidgetPositionPreference } from '../../../browser/editorBrowser.js';
+import { ICodeEditor, IOverlayWidgetPosition, OverlayWidgetPositionPreference } from '../../../browser/editorBrowser.js';
 import { observableCodeEditor } from '../../../browser/observableCodeEditor.js';
 import { IEditorContribution } from '../../../common/editorCommon.js';
 

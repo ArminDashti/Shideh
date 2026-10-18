@@ -263,26 +263,53 @@ class ChatEditingOverlayController {
 	) {
 
 		this._domNode.classList.add('chat-editing-editor-overlay');
-		this._domNode.style.position = 'absolute';
-		this._domNode.style.bottom = `24px`;
-		this._domNode.style.right = `24px`;
-		this._domNode.style.zIndex = `100`;
 
 		const widget = instaService.createInstance(ChatEditorOverlayWidget, group);
 		this._domNode.appendChild(widget.getDomNode());
 		this._store.add(toDisposable(() => this._domNode.remove()));
 		this._store.add(widget);
 
-		const show = () => {
-			if (!container.contains(this._domNode)) {
-				container.appendChild(this._domNode);
-			}
-		};
+		let overlayWidget: IDisposable | undefined = undefined;
 
-		const hide = () => {
-			if (container.contains(this._domNode)) {
-				widget.hide();
-				this._domNode.remove();
+		let hide = () => { };
+
+		const show = (editor: IEditorPane) => {
+			const ctrl = editor.getControl();
+
+			if (isCodeEditor(ctrl)) {
+				// code editor special case
+				if (!overlayWidget) {
+					const editorObs = observableCodeEditor(ctrl);
+					overlayWidget = editorObs.createOverlayWidget({
+						allowEditorOverflow: false,
+						domNode: this._domNode,
+						minContentWidthInPx: constObservable(0),
+						position: constObservable({
+							preference: OverlayWidgetPositionPreference.BOTTOM_RIGHT_CORNER,
+							stackOrdinal: 1
+						} satisfies IOverlayWidgetPosition)
+					});
+
+					hide = () => {
+						if (overlayWidget) {
+							widget.hide();
+							overlayWidget.dispose();
+							overlayWidget = undefined;
+						}
+					};
+				}
+			} else {
+				// generic positioning
+				if (!container.contains(this._domNode)) {
+					container.appendChild(this._domNode);
+				}
+
+				hide = () => {
+					if (container.contains(this._domNode)) {
+						widget.hide();
+						this._domNode.remove();
+					}
+				};
 			}
 		};
 
@@ -362,7 +389,7 @@ class ChatEditingOverlayController {
 				);
 
 				widget.show(session, entry, { entryIndex, changeIndex });
-				show();
+				show(editorPane);
 
 			} else {
 				// nothing
