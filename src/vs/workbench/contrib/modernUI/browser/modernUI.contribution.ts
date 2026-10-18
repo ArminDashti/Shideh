@@ -59,6 +59,7 @@ interface IModernUIModule {
 const MODERN_UI_CLASS = 'modern-ui';
 const MODERN_UI_COMPACT_CLASS = 'modern-ui-compact';
 const MODERN_UI_TABS_CLASS = 'modern-ui-tabs';
+const MODERN_UI_CONNECTED_EDITOR_TABS_CLASS = 'modern-ui-connected-editor-tabs';
 const MODERN_UI_NOTIFICATIONS_DIALOGS_CLASS = 'modern-ui-notifications-dialogs';
 const MODERN_UI_UPPERCASE_VIEW_HEADERS_CLASS = 'modern-ui-uppercase-view-headers';
 

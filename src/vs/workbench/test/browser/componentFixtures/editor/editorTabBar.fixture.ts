@@ -641,6 +641,23 @@ export function renderEditorTabBarFixture(ctx: ComponentFixtureContext, options:
 		editor.layout(new Dimension(width, 240));
 	}
 
+	if (options.editorContents !== undefined && model.activeEditor instanceof FixtureEditorInput) {
+		editorContainer.style.height = '240px';
+		const editorServices = createEditorServices(disposableStore, { colorTheme: theme });
+		const textModel = disposableStore.add(createTextModel(editorServices, options.editorContents, model.activeEditor.resource, 'typescript'));
+		const editor = disposableStore.add(editorServices.createInstance(CodeEditorWidget, editorContainer, {
+			readOnly: true,
+			minimap: { enabled: false },
+			scrollBeyondLastLine: false,
+			lineNumbers: 'on',
+			folding: false,
+			renderLineHighlight: 'none',
+			padding: { top: 16 },
+		}, { contributions: [] }));
+		editor.setModel(textModel);
+		editor.layout(new Dimension(width, 240));
+	}
+
 	container.style.width = `${width}px`;
 	groupContainer.style.width = `${width}px`;
 

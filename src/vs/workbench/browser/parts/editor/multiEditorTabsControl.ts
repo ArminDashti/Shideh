@@ -2441,6 +2441,34 @@ export class MultiEditorTabsControl extends EditorTabsControl {
 			this.updateConnectedTabOverflowHover();
 		}
 
+		this.clearConnectedTabClipping();
+		const activeTabFill = activeTab?.firstElementChild;
+		const overflowEdge = this.connectedTabOverflowEdge;
+		if (activeTab && isHTMLElement(activeTabFill) && overflowEdge && !activeTab.classList.contains('multi-selected') && !activeTabPositionStatic && this.parent.closest('.modern-ui.modern-ui-connected-editor-tabs:not(.hc-black):not(.hc-light)')) {
+			const scrollLeft = tabsScrollbar.getScrollPosition().scrollLeft;
+			const tabsBounds = tabsContainer.getBoundingClientRect();
+			const fillBounds = activeTabFill.getBoundingClientRect();
+			const scrollableBounds = tabsScrollbar.getDomNode().getBoundingClientRect();
+			const targetWindow = getWindow(activeTabFill);
+			const fillStyle = targetWindow.getComputedStyle(activeTabFill);
+			const fillLeft = fillBounds.left - tabsBounds.left + scrollLeft;
+			const viewportRight = visibleTabsWidth - (this.addTabContainer?.offsetWidth ?? 0);
+			overflowEdge.style.top = `${fillBounds.top - scrollableBounds.top}px`;
+			overflowEdge.style.right = `${visibleTabsWidth - viewportRight}px`;
+			overflowEdge.style.bottom = `${scrollableBounds.bottom - fillBounds.bottom}px`;
+			overflowEdge.style.left = `${stickyTabsWidth}px`;
+			this.connectedTabBounds = {
+				tab: activeTab,
+				overflowEdge,
+				fillLeft,
+				fillRight: fillBounds.right - tabsBounds.left + scrollLeft,
+				viewportLeft: stickyTabsWidth,
+				viewportRight,
+				clippingEdgeExtent: Number.parseFloat(fillStyle.borderTopLeftRadius),
+				shoulderExtent: Number.parseFloat(targetWindow.getComputedStyle(activeTabFill, '::after').width),
+			};
+		}
+
 		let activeTabPosX: number | undefined;
 		let activeTabWidth: number | undefined;
 
