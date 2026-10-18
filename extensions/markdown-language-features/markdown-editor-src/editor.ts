@@ -281,6 +281,8 @@ class Editor extends Disposable {
 				}
 			},
 		});
+
+		this.#vscode.postMessage({ type: 'ready' });
 	}
 
 	#createView(host: HTMLElement, content: string): void {
