@@ -144,10 +144,9 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	/**
 	 * Manually check the update feed URL without triggering Electron's auto-download.
-	 * Used when connection is metered or in the embedded app.
-	 * @param canInstall When false, signals that the update cannot be installed from this app.
+	 * Used when connection is metered.
 	 */
-	private async checkForUpdateNoDownload(url: string, canInstall?: boolean): Promise<void> {
+	private async checkForUpdateNoDownload(url: string): Promise<void> {
 		const headers = getUpdateRequestHeaders(this.productService.version);
 		this.logService.trace('update#checkForUpdateNoDownload - checking update server', { url, headers });
 
@@ -163,7 +162,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 				this.setState(State.Idle(UpdateType.Archive, undefined, notAvailable || undefined));
 			} else {
 				this.logService.trace('update#checkForUpdateNoDownload - update available', { version: update.version, productVersion: update.productVersion });
-				this.setState(State.AvailableForDownload(update, canInstall));
+				this.setState(State.AvailableForDownload(update));
 			}
 		} catch (err) {
 			this.logService.error('update#checkForUpdateNoDownload - failed to check for update', err);

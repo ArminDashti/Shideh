@@ -114,6 +114,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	private _hasCheckedForOverwriteOnQuit: boolean = false;
 	private readonly overwriteUpdatesCheckInterval = this._register(new IntervalTimer());
 	private _internalOrg: string | undefined = undefined;
+	private _suspended = false;
 
 	/** Disabled for a non-reversible reason (e.g. not built, missing config); ignores `update.mode` changes. */
 	private _disabledPermanently: boolean = false;
@@ -485,6 +486,11 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	async checkForUpdates(explicit: boolean): Promise<void> {
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
+		if (this._suspended) {
+			this.logService.trace('update#checkForUpdates - suspended, skipping');
+			return;
+		}
+
 		if (this.state.type !== StateType.Idle) {
 			return;
 		}
@@ -497,6 +503,19 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		this.setDeferred(false);
 		this.doCheckForUpdates(explicit);
+	}
+
+	/**
+	 * Prevents all update checks (automatic and manual) from running.
+	 * Used by the cross-app update coordinator when another app owns
+	 * the update client.
+	 */
+	suspend(): void {
+		this._suspended = true;
+	}
+
+	resume(): void {
+		this._suspended = false;
 	}
 
 	async downloadUpdate(explicit: boolean): Promise<void> {
