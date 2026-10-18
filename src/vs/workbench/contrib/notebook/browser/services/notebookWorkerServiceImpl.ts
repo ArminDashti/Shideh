@@ -256,6 +256,7 @@ class NotebookWorkerClient extends Disposable {
 
 	computeDiff(original: URI, modified: URI) {
 		const proxy = this._ensureSyncedResources([original, modified]);
+		console.error('Hello World');
 		return proxy.$computeDiff(original.toString(), modified.toString());
 	}
 
