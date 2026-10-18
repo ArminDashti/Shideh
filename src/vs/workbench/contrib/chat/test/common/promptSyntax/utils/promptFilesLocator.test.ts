@@ -2814,6 +2814,33 @@ suite('PromptFilesLocator', () => {
 			);
 		});
 
+		for (const [label, folders] of [
+			['parent-first', ['/repos/monorepo', '/repos/monorepo/packages/my-app']],
+			['child-first', ['/repos/monorepo/packages/my-app', '/repos/monorepo']],
+		] as const) {
+			testT(`classifies explicit nested workspace roots independently of ${label} order`, async () => {
+				setWorkspaceFoldersForRoots([...folders]);
+				await mockFiles(fileService, [
+					{ path: '/repos/monorepo/.git/HEAD', contents: ['ref: refs/heads/main'] },
+					{ path: '/repos/monorepo/packages/my-app/src/index.ts', contents: ['export {};'] },
+				]);
+				workspaceTrustService.setTrustedUris([URI.file('/repos/monorepo')]);
+
+				const roots = await locator.getWorkspaceFolderRootsWithKind(true);
+
+				assert.deepStrictEqual(
+					roots
+						.filter(root => root.uri.path === '/repos/monorepo' || root.uri.path === '/repos/monorepo/packages/my-app')
+						.map(root => [root.uri.path, root.rootKind])
+						.sort((a, b) => a[0].localeCompare(b[0])),
+					[
+						['/repos/monorepo', PromptRootKind.Workspace],
+						['/repos/monorepo/packages/my-app', PromptRootKind.Workspace],
+					],
+				);
+			});
+		}
+
 		testT('does not walk up when includeParents is false', async () => {
 			setWorkspaceFoldersForRoots(['/repos/monorepo/packages/my-app']);
 			await mockFiles(fileService, [

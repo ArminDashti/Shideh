@@ -690,6 +690,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			...promptFiles,
 			...enabledSkills,
 		];
+		let discoveryCancelled = false;
 
 		const parseResults = await Promise.all(slashCommandFiles.map(promptPath => this.queueDiscoveryRead(async () => {
 			try {
@@ -910,6 +911,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		const userHomeUri = await this.pathService.userHome();
 		const userHome = userHomeUri.scheme === Schemas.file ? userHomeUri.fsPath : userHomeUri.path;
 		const defaultFolder = this.workspaceService.getWorkspace().folders[0];
+		let discoveryCancelled = false;
 
 		// Order agents by precedence before parsing so that the duplicate-name
 		// dedup below keeps a deterministic winner (e.g. workspace over plugin).
@@ -1267,6 +1269,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 		this.storageService.store(this.disabledPromptsStorageKeyPrefix + type, JSON.stringify(disabled), StorageScope.PROFILE, StorageTarget.USER);
 		this.discoveryTelemetry.logConfiguration();
 		if (type === PromptsType.agent) {
+			this.discoveryTelemetry.logConfiguration();
 			this.cachedCustomAgents.refresh();
 		} else if (type === PromptsType.skill) {
 			this.cachedSkills.refresh();
