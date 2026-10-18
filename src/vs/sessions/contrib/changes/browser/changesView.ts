@@ -400,9 +400,24 @@ class ChangesWorkbenchButtonBarWidget extends Disposable implements IChangesButt
 		}));
 		this.onDidChangeActions = Event.signal(buttonBar.onDidChange);
 
-		const menuActionsObs = observableFromEvent(menu.onDidChange, () => {
-			return getActionBarActions(menu.getActions({ shouldForwardArgs: true }));
-		});
+		const menuActionsEquals = (a: PrimaryAndSecondaryActions, b: PrimaryAndSecondaryActions) => {
+			const actionEquals = (a: IAction, b: IAction) => {
+				return a.id === b.id &&
+					a.label === b.label &&
+					a.tooltip === b.tooltip &&
+					a.class === b.class &&
+					a.enabled === b.enabled &&
+					a.checked === b.checked;
+			};
+
+			return arrayEqualsC(actionEquals)(a.primary, b.primary) &&
+				arrayEqualsC(actionEquals)(a.secondary, b.secondary);
+		};
+
+		const menuActionsObs = observableFromEventOpts({ equalsFn: menuActionsEquals },
+			menu.onDidChange, () => {
+				return getActionBarActions(menu.getActions({ shouldForwardArgs: true }));
+			});
 
 		const agentMergeEnabledObs = observableFromEvent(contextKeyService.onDidChangeContext, () =>
 			contextKeyService.getContextKeyValue<boolean>(SessionAgentMergeEnabledContext.key) === true);
