@@ -473,6 +473,18 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 		});
 	}
 
+	private renderToolbar(template: IAgentSessionItemTemplate): void {
+		const itemsCountObs = observableFromEvent(
+			this,
+			template.titleToolbar.onDidChangeMenuItems,
+			() => template.titleToolbar.getItemsLength());
+
+		template.elementDisposable.add(autorun(reader => {
+			const itemsCount = itemsCountObs.read(reader);
+			template.titleToolbarContainer.style.width = `${itemsCount * 22}px`;
+		}));
+	}
+
 	private renderBadge(session: ITreeNode<IAgentSession, FuzzyScore>, template: IAgentSessionItemTemplate): boolean {
 		const badge = session.element.badge;
 		if (!badge) {
