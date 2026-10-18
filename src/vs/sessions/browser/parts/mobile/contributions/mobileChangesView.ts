@@ -180,6 +180,11 @@ export class MobileChangesView extends Disposable {
 		// zone are claimed by the gesture.
 		this.viewStore.add(installPulldownDismiss(overlay, header, () => this.dispose()));
 
+		// Pull-down dismiss on the header drag handle. Back-button taps
+		// still work normally — only downward drags past a small dead
+		// zone are claimed by the gesture.
+		this.viewStore.add(installPulldownDismiss(overlay, header, () => this.dispose()));
+
 		// -- Subscribe to live changes -----------------------------
 		this.viewStore.add(autorun(reader => {
 			const session = this.sessionsService.activeSession.read(reader);
