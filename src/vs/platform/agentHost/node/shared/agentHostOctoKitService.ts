@@ -60,6 +60,7 @@ export interface IAgentHostOctoKitService {
 		draft: boolean,
 		token: string,
 		signal: AbortSignal,
+		apiBaseUri?: string,
 	): Promise<CreatedPullRequest>;
 
 	/** Finds the most recently updated pull request for `owner:branch`, if any. */
@@ -95,6 +96,7 @@ export class AgentHostOctoKitService implements IAgentHostOctoKitService {
 		draft: boolean,
 		token: string,
 		signal: AbortSignal,
+		apiBaseUri?: string,
 	): Promise<CreatedPullRequest> {
 		const response = await this._makeGHAPIRequest(
 			`repos/${owner}/${repo}/pulls`,
@@ -102,6 +104,8 @@ export class AgentHostOctoKitService implements IAgentHostOctoKitService {
 			token,
 			signal,
 			{ title, body, head, base, draft },
+			undefined,
+			apiBaseUri,
 		);
 
 		const html_url = (response as { html_url?: unknown } | undefined)?.html_url;
@@ -129,6 +133,10 @@ export class AgentHostOctoKitService implements IAgentHostOctoKitService {
 		return typeof html_url === 'string' && typeof number === 'number'
 			? { url: html_url, number }
 			: undefined;
+		if (response.etag) {
+			this.pullRequestSearchCache.set(etagKey, { etag: response.etag, pullRequest });
+		}
+		return pullRequest;
 	}
 
 	private async _makeGHAPIRequest(
@@ -161,14 +169,23 @@ export class AgentHostOctoKitService implements IAgentHostOctoKitService {
 				throw err;
 			}
 			this._logService.error(`[AgentHostOctoKit] ${method} ${url} - Network error`, err);
-			throw err;
+			throw new AgentHostGitHubApiError(
+				`GitHub API request failed: ${method} ${routeSlug} - Network error`,
+				undefined,
+				undefined,
+				{ cause: err },
+			);
 		}
 
 		if (!response.ok) {
 			const errorText = await response.text().catch(() => undefined);
 			const errorDetail = this._formatErrorResponseBody(errorText);
 			this._logService.error(`[AgentHostOctoKit] ${method} ${url} - Status: ${response.status}${errorDetail ? ` - ${errorDetail}` : ''}`);
-			throw new Error(`GitHub API request failed: ${method} ${routeSlug} - ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`);
+			throw new AgentHostGitHubApiError(
+				`GitHub API request failed: ${method} ${routeSlug} - ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ''}`,
+				response.status,
+				parseRetryAfterHeader(response.headers.get('retry-after')),
+			);
 		}
 
 		try {

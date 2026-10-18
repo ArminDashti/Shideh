@@ -312,6 +312,47 @@ export class AgentHostGitStateService extends Disposable implements IAgentHostGi
 		} catch (error) {
 			this._logService.warn(`[AgentHostGitStateService][attachSessionGitHubPullRequest] Failed to find pull request for ${sessionKey}`, error);
 		}
+		const pendingSessions = this._pendingPullRequestSessions.get(resource);
+		if (!pendingSessions) {
+			return;
+		}
+		this._pendingPullRequestSessions.delete(resource);
+		for (const sessionKey of pendingSessions) {
+			if (this._stateManager.getSessionState(sessionKey)) {
+				await this.attachSessionGitHubPullRequest(sessionKey);
+			}
+		}
+	}
+
+	isAuthenticationTokenRejected(resource: string, token: string): boolean {
+		return resource === this._gitHubEndpointService.getRepoResource().resource
+			&& this._rejectedAuthTokens.get(resource)?.has(token) === true;
+	}
+
+	rejectAuthenticationToken(sessionKey: string, resource: string, token: string): boolean {
+		const repoResource = this._gitHubEndpointService.getRepoResource();
+		if (resource !== repoResource.resource) {
+			return false;
+		}
+		const currentToken = this._agentService.getAuthToken({
+			resource: repoResource.resource,
+			scopes: repoResource.scopes_supported,
+		});
+		if (currentToken && currentToken !== token) {
+			return false;
+		}
+		let rejectedTokens = this._rejectedAuthTokens.get(resource);
+		if (!rejectedTokens) {
+			rejectedTokens = new Set();
+			this._rejectedAuthTokens.set(resource, rejectedTokens);
+		}
+		rejectedTokens.add(token);
+		this._addPendingPullRequestSession(resource, sessionKey);
+		this._stateManager.emitAuthRequired({
+			resource,
+			reason: AuthRequiredReason.Expired,
+		});
+		return true;
 	}
 
 	/** Queues a pull request lookup for a folder other than the session folder. */
@@ -972,6 +1013,121 @@ export class AgentHostGitStateService extends Disposable implements IAgentHostGi
 			const gitData = readSessionGitData(this._stateManager.getSessionState(scope.sessionUri)?._meta);
 			await this._saveSessionState(scope.sessionUri, META_GIT_DATA_STATE, JSON.stringify(Object.fromEntries(gitData)));
 		});
+	}
+
+	private async _findPullRequestWithRetry(owner: string, repo: string, branch: string, authToken: string, endpoint: IPullRequestEndpointSnapshot): Promise<CreatedPullRequest | undefined> {
+		const controller = new AbortController();
+		const cancellationListener = this._gitStateRefreshCancellationTokenSource.token.onCancellationRequested(() => controller.abort());
+		try {
+			for (let attempt = 0; attempt < PULL_REQUEST_LOOKUP_MAX_ATTEMPTS; attempt++) {
+				try {
+					this._throwIfEndpointChanged(endpoint);
+					const result = await this._octoKitService.findPullRequestByHeadBranch(
+						owner,
+						repo,
+						branch,
+						authToken,
+						controller.signal,
+						endpoint.apiBaseUri,
+					);
+					this._throwIfEndpointChanged(endpoint);
+					return result;
+				} catch (error) {
+					this._throwIfEndpointChanged(endpoint);
+					const isLastAttempt = attempt + 1 === PULL_REQUEST_LOOKUP_MAX_ATTEMPTS;
+					if (isLastAttempt || !this._isRetryablePullRequestLookupError(error)) {
+						throw error;
+					}
+					const delay = Math.min(
+						error.retryAfterMs ?? this._pullRequestLookupRetryDelay(attempt),
+						PULL_REQUEST_LOOKUP_RETRY_MAX_DELAY_MS,
+					);
+					this._logService.warn(`[AgentHostGitStateService][attachSessionGitHubPullRequest] Pull request lookup failed (attempt ${attempt + 1}), retrying in ${delay}ms`, error);
+					await timeout(delay, this._gitStateRefreshCancellationTokenSource.token);
+				}
+			}
+
+			return undefined;
+		} finally {
+			cancellationListener.dispose();
+		}
+	}
+
+	private _throwIfEndpointChanged(endpoint: IPullRequestEndpointSnapshot): void {
+		if (
+			this._gitHubEndpointService.getRepoResource().resource !== endpoint.resource
+			|| this._gitHubEndpointService.getApiBaseUri() !== endpoint.apiBaseUri
+		) {
+			throw new PullRequestEndpointChangedError();
+		}
+	}
+
+	private _isRetryablePullRequestLookupError(error: unknown): error is AgentHostGitHubApiError {
+		if (!(error instanceof AgentHostGitHubApiError)) {
+			return false;
+		}
+		return error.statusCode === undefined
+			|| error.statusCode === 408
+			|| error.statusCode === 429
+			|| (error.statusCode === 403 && error.retryAfterMs !== undefined)
+			|| error.statusCode >= 500;
+	}
+
+	private _handleGitHubEndpointChanged(): void {
+		const sessionKeys = new Set<string>();
+		for (const pendingSessions of this._pendingPullRequestSessions.values()) {
+			for (const sessionKey of pendingSessions) {
+				if (this._stateManager.getSessionState(sessionKey)) {
+					sessionKeys.add(sessionKey);
+				}
+			}
+		}
+		this._pendingPullRequestSessions.clear();
+		this._rejectedAuthTokens.clear();
+		for (const sessionKey of sessionKeys) {
+			this._retryOrPendForCurrentEndpoint(sessionKey);
+		}
+	}
+
+	private _retryOrPendForCurrentEndpoint(sessionKey: string): void {
+		const resource = this._gitHubEndpointService.getRepoResource();
+		const token = this._agentService.getAuthToken({
+			resource: resource.resource,
+			scopes: resource.scopes_supported,
+		});
+		if (token && !this.isAuthenticationTokenRejected(resource.resource, token)) {
+			void this.attachSessionGitHubPullRequest(sessionKey);
+		} else {
+			this._addPendingPullRequestSession(resource.resource, sessionKey);
+		}
+	}
+
+	protected _pullRequestLookupRetryDelay(attempt: number): number {
+		const exponentialDelay = Math.min(
+			PULL_REQUEST_LOOKUP_RETRY_MAX_DELAY_MS,
+			PULL_REQUEST_LOOKUP_RETRY_BASE_DELAY_MS * 2 ** attempt,
+		);
+		return Math.round(exponentialDelay / 2 + Math.random() * exponentialDelay / 2);
+	}
+
+	private _addPendingPullRequestSession(resource: string, sessionKey: string): void {
+		if (!this._stateManager.getSessionState(sessionKey)) {
+			return;
+		}
+		let sessions = this._pendingPullRequestSessions.get(resource);
+		if (!sessions) {
+			sessions = new Set();
+			this._pendingPullRequestSessions.set(resource, sessions);
+		}
+		sessions.add(sessionKey);
+	}
+
+	private _removePendingPullRequestSession(resource: string, sessionKey: string): void {
+		const sessions = this._pendingPullRequestSessions.get(resource);
+		sessions?.delete(sessionKey);
+		if (sessions?.size === 0) {
+			this._pendingPullRequestSessions.delete(resource);
+		}
 	}
 
 	private async _saveSessionState(sessionKey: string, key: string, value: string): Promise<void> {

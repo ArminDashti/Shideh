@@ -311,6 +311,16 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 		}
 	}
 
+	private _handleAuthenticationRequired(resource: string, reason: AuthRequiredReason, rootState: RootState | undefined): void {
+		const protectedResource = rootState ? findProtectedResource(rootState.agents, resource) : undefined;
+		if (!protectedResource) {
+			this._pendingAuthenticationRequests.set(resource, reason);
+			return;
+		}
+		this._pendingAuthenticationRequests.delete(resource);
+		void this._authenticationRecovery?.recover(protectedResource, reason);
+	}
+
 	private _registerAgent(agent: AgentInfo): void {
 		const store = new DisposableStore();
 		this._agentRegistrations.set(agent.provider, store);

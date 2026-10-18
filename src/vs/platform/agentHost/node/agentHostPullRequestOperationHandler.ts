@@ -264,8 +264,7 @@ export class AgentHostPullRequestOperationHandler implements IChangesetOperation
 			scopes: repoResource.scopes_supported,
 		});
 		if (!authToken) {
-			throw new ProtocolError(
-				AHP_AUTH_REQUIRED,
+			throw this._createAuthRequiredError(
 				localize('agentHost.changeset.pr.authRequired', "Sign in to GitHub with repository access to create a pull request."),
 				[repoResource],
 			);
@@ -429,6 +428,7 @@ export class AgentHostPullRequestOperationHandler implements IChangesetOperation
 				foundAfterFailure = await client.query.findPullRequestByHeadBranch(ref, headBranch, headOwner, signal);
 			} catch {
 				this._throwIfCancelled(token);
+				this._throwIfGitHubAuthenticationFailure(findError, sessionUri, repoResource, authToken);
 				throw err;
 			}
 			if (foundAfterFailure) {

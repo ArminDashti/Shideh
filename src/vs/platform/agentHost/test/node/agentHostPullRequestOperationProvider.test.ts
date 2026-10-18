@@ -43,6 +43,9 @@ const nullGitStateService = new class implements IAgentHostGitStateService {
 	async setSessionGitHubState(): Promise<void> { }
 	async recordSessionMerge(): Promise<void> { }
 	async attachSessionGitHubPullRequest(): Promise<void> { }
+	async handleAuthenticationTokenUpdated(_resource: string): Promise<void> { }
+	isAuthenticationTokenRejected(): boolean { return false; }
+	rejectAuthenticationToken(): boolean { return false; }
 };
 
 function createStatusService(status?: IAgentHostPullRequestStatus, onDidChangePullRequestStatus = Event.None): IAgentHostPullRequestStatusService {

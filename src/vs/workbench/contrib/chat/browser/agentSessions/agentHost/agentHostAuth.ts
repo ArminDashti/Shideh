@@ -35,6 +35,11 @@ import { reportAgentHostAuthRecovery, reportAgentHostAuthSignInResult, type Agen
  */
 const copilotConnectorsScope = 'write:plugin_gateway_connections';
 
+const AUTHENTICATION_RECOVERY_MAX_ATTEMPTS = 3;
+const AUTHENTICATION_RECOVERY_RETRY_BASE_DELAY_MS = 500;
+const AUTHENTICATION_RECOVERY_RETRY_MAX_DELAY_MS = 5_000;
+const AUTHENTICATION_REPROMPT_COOLDOWN_MS = 5 * 60_000;
+
 /**
  * Stable identity for an agent-host MCP server, used as the key for
  * remembered authentication (allowed-server access, account preference and
@@ -163,6 +168,7 @@ export class AgentHostAuthTokenCache implements IDisposable {
 					this._pendingAuthentications.delete(key);
 				}
 			}
+
 		} else {
 			this._globalGeneration++;
 			this._completedTokens.clear();
@@ -468,6 +474,365 @@ export class AgentHostAuthenticationRecovery implements IDisposable {
 	}
 }
 
+export function findProtectedResource(agents: readonly AgentInfo[], resource: string): ProtectedResourceMetadata | undefined {
+	for (const agent of agents) {
+		const protectedResource = agent.protectedResources?.find(candidate => candidate.resource === resource);
+		if (protectedResource) {
+			return protectedResource;
+		}
+	}
+	return undefined;
+}
+
+export interface IAgentHostAuthenticationRecoveryOptions extends IAgentHostAuthenticationOptions {
+	readonly now?: () => number;
+	readonly recoveryKey: string;
+	readonly retryDelay?: (attempt: number) => number;
+}
+
+interface IPendingInteractiveRecovery {
+	readonly protectedResource: ProtectedResourceMetadata;
+	readonly reason: AuthRequiredReason;
+	readonly currentToken: string | undefined;
+	readonly forwardedToken: string | undefined;
+	readonly reportOnFocus: boolean;
+}
+
+export class AgentHostAuthenticationRecovery extends Disposable {
+	private readonly _sequencer = new SequencerByKey<string>();
+	private readonly _inFlightRecoveries = new Map<string, Promise<boolean>>();
+	private readonly _recentSuccessfulRecoveries = new Map<string, { readonly token: string; readonly completedAt: number }>();
+	private readonly _pendingInteractiveRecoveries = new Map<string, IPendingInteractiveRecovery>();
+	private readonly _reportedFailures = new Set<string>();
+	private readonly _cancellationTokenSource = new CancellationTokenSource();
+	private readonly _now: () => number;
+
+	constructor(
+		private readonly _options: IAgentHostAuthenticationRecoveryOptions,
+		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ILogService private readonly _logService: ILogService,
+		@IHostService private readonly _hostService: IHostService,
+		@IStorageService private readonly _storageService: IStorageService,
+	) {
+		super();
+		this._now = _options.now ?? Date.now;
+		this._register(toDisposable(() => this._cancellationTokenSource.dispose(true)));
+		this._register(this._hostService.onDidChangeFocus(focused => {
+			if (focused) {
+				this._resumePendingInteractiveRecoveries();
+			}
+		}));
+	}
+
+	reset(): void {
+		this._pendingInteractiveRecoveries.clear();
+		this._recentSuccessfulRecoveries.clear();
+		this._reportedFailures.clear();
+	}
+
+	recover(protectedResource: ProtectedResourceMetadata, reason = AuthRequiredReason.Required, acceptRecentSuccess = false): Promise<boolean> {
+		if (this._cancellationTokenSource.token.isCancellationRequested) {
+			return Promise.resolve(false);
+		}
+		const inFlight = this._inFlightRecoveries.get(protectedResource.resource);
+		if (inFlight) {
+			return inFlight;
+		}
+		if (acceptRecentSuccess && this._hasRecentSuccessfulRecovery(protectedResource)) {
+			return Promise.resolve(true);
+		}
+		const recovery = this._sequencer.queue(protectedResource.resource, () => this._recover(protectedResource, reason))
+			.finally(() => {
+				if (this._inFlightRecoveries.get(protectedResource.resource) === recovery) {
+					this._inFlightRecoveries.delete(protectedResource.resource);
+				}
+			});
+		this._inFlightRecoveries.set(protectedResource.resource, recovery);
+		return recovery;
+	}
+
+	private async _recover(protectedResource: ProtectedResourceMetadata, reason: AuthRequiredReason, deferredRecovery?: IPendingInteractiveRecovery): Promise<boolean> {
+		let currentToken: string | undefined;
+		let forwardedToken: string | undefined;
+		try {
+			if (this._cancellationTokenSource.token.isCancellationRequested) {
+				return false;
+			}
+			const scopes = protectedResource.scopes_supported ?? [];
+			currentToken = await resolveTokenForResource(
+				URI.parse(protectedResource.resource),
+				protectedResource.authorization_servers ?? [],
+				scopes,
+				this._authenticationService,
+				this._logService,
+				this._options.logPrefix,
+			);
+			forwardedToken = this._options.authTokenCache?.get(protectedResource.resource, scopes);
+			if (deferredRecovery) {
+				if (forwardedToken && forwardedToken !== deferredRecovery.forwardedToken) {
+					this._recordSuccessfulRecovery(protectedResource.resource, forwardedToken);
+					return true;
+				}
+				if (currentToken && currentToken !== deferredRecovery.currentToken) {
+					this._options.authTokenCache?.clear(protectedResource.resource, scopes);
+					await this._forwardWithRetry(protectedResource, currentToken);
+					this._recordSuccessfulRecovery(protectedResource.resource, currentToken);
+					return true;
+				}
+			}
+			if (reason !== AuthRequiredReason.Expired) {
+				this._options.authTokenCache?.clear(protectedResource.resource, scopes);
+				if (currentToken) {
+					await this._forwardWithRetry(protectedResource, currentToken);
+					this._recordSuccessfulRecovery(protectedResource.resource, currentToken);
+					return true;
+				}
+			} else {
+				if (forwardedToken && currentToken && forwardedToken !== currentToken) {
+					this._options.authTokenCache?.clear(protectedResource.resource, scopes);
+					await this._forwardWithRetry(protectedResource, currentToken);
+					this._recordSuccessfulRecovery(protectedResource.resource, currentToken);
+					return true;
+				}
+			}
+
+			if (this._wasRecentlyPrompted(protectedResource.resource)) {
+				if (deferredRecovery && !deferredRecovery.reportOnFocus) {
+					return false;
+				}
+				if (this._hostService.hasFocus) {
+					this._reportFailure(protectedResource);
+				} else {
+					this._deferInteractiveRecovery(protectedResource, reason, currentToken, forwardedToken, true);
+				}
+				return false;
+			}
+			if (!this._hostService.hasFocus) {
+				this._deferInteractiveRecovery(protectedResource, reason, currentToken, forwardedToken);
+				return false;
+			}
+			this._pendingInteractiveRecoveries.delete(protectedResource.resource);
+			if (reason === AuthRequiredReason.Expired) {
+				this._options.authTokenCache?.clear(protectedResource.resource, scopes);
+			}
+			const session = await createFreshAuthenticationSessionForResource(
+				protectedResource,
+				this._authenticationService,
+				this._logService,
+				this._options.logPrefix,
+				() => {
+					if (!this._hostService.hasFocus || this._cancellationTokenSource.token.isCancellationRequested) {
+						return false;
+					}
+					this._markPrompted(protectedResource.resource);
+					return true;
+				},
+			);
+			if (!session) {
+				this._reportFailure(protectedResource);
+				return false;
+			}
+			if (this._cancellationTokenSource.token.isCancellationRequested) {
+				return false;
+			}
+			await this._forwardWithRetry(protectedResource, session.accessToken);
+			this._recordSuccessfulRecovery(protectedResource.resource, session.accessToken);
+			return true;
+		} catch (error) {
+			if (isCancellationError(error) || this._cancellationTokenSource.token.isCancellationRequested) {
+				return false;
+			}
+			if (error instanceof AuthenticationInteractionDeferredError) {
+				this._deferInteractiveRecovery(protectedResource, reason, currentToken, forwardedToken);
+				return false;
+			}
+			this._logService.warn(`${this._options.logPrefix} Failed to refresh authentication for ${protectedResource.resource}`, error);
+			this._reportFailure(protectedResource);
+			return false;
+		}
+	}
+
+	private _resumePendingInteractiveRecoveries(): void {
+		const pending = [...this._pendingInteractiveRecoveries.values()];
+		this._pendingInteractiveRecoveries.clear();
+		for (const recovery of pending) {
+			if (this._inFlightRecoveries.has(recovery.protectedResource.resource)) {
+				continue;
+			}
+			const inFlight = this._sequencer.queue(
+				recovery.protectedResource.resource,
+				() => this._recover(recovery.protectedResource, recovery.reason, recovery),
+			).finally(() => {
+				if (this._inFlightRecoveries.get(recovery.protectedResource.resource) === inFlight) {
+					this._inFlightRecoveries.delete(recovery.protectedResource.resource);
+				}
+			});
+			this._inFlightRecoveries.set(recovery.protectedResource.resource, inFlight);
+			void inFlight;
+		}
+	}
+
+	private _deferInteractiveRecovery(protectedResource: ProtectedResourceMetadata, reason: AuthRequiredReason, currentToken: string | undefined, forwardedToken: string | undefined, reportOnFocus = false): void {
+		this._pendingInteractiveRecoveries.set(protectedResource.resource, {
+			protectedResource,
+			reason,
+			currentToken,
+			forwardedToken,
+			reportOnFocus,
+		});
+	}
+
+	private _recordSuccessfulRecovery(resource: string, token: string): void {
+		this._recentSuccessfulRecoveries.set(resource, { token, completedAt: this._now() });
+		this._reportedFailures.delete(resource);
+	}
+
+	private _hasRecentSuccessfulRecovery(resource: ProtectedResourceMetadata): boolean {
+		const successful = this._recentSuccessfulRecoveries.get(resource.resource);
+		return !!successful
+			&& this._now() - successful.completedAt <= AUTHENTICATION_REPROMPT_COOLDOWN_MS
+			&& this._options.authTokenCache?.get(resource.resource, resource.scopes_supported) === successful.token;
+	}
+
+	private async _forwardWithRetry(protectedResource: ProtectedResourceMetadata, token: string): Promise<void> {
+		const scopes = protectedResource.scopes_supported ?? [];
+		const authenticate = () => this._authenticateWithRetry({
+			resource: protectedResource.resource,
+			scopes,
+			token,
+		});
+		if (this._options.authTokenCache) {
+			await this._options.authTokenCache.authenticate(protectedResource.resource, scopes, token, authenticate);
+		} else {
+			await authenticate();
+		}
+	}
+
+	private async _authenticateWithRetry(request: IAgentHostAuthenticateRequest): Promise<void> {
+		for (let attempt = 0; attempt < AUTHENTICATION_RECOVERY_MAX_ATTEMPTS; attempt++) {
+			try {
+				const result = await this._options.authenticate(request);
+				if (isRejectedAuthenticationResult(result)) {
+					throw new AuthenticationRejectedError();
+				}
+				return;
+			} catch (error) {
+				if (error instanceof ProtocolError && error.code === AHP_AUTH_REQUIRED) {
+					throw new AuthenticationRejectedError();
+				}
+				const isLastAttempt = attempt + 1 === AUTHENTICATION_RECOVERY_MAX_ATTEMPTS;
+				if (isLastAttempt || error instanceof AuthenticationRejectedError) {
+					throw error;
+				}
+				const delay = this._options.retryDelay?.(attempt) ?? authenticationRecoveryRetryDelay(attempt);
+				this._logService.warn(`${this._options.logPrefix} Failed to forward refreshed authentication (attempt ${attempt + 1}), retrying in ${delay}ms`, error);
+				await timeout(delay, this._cancellationTokenSource.token);
+			}
+		}
+	}
+
+	private _wasRecentlyPrompted(resource: string): boolean {
+		try {
+			const promptedAt = Number(this._storageService.get(this._promptStorageKey(resource), StorageScope.APPLICATION_SHARED));
+			return Number.isFinite(promptedAt) && this._now() - promptedAt <= AUTHENTICATION_REPROMPT_COOLDOWN_MS;
+		} catch (error) {
+			this._logService.warn(`${this._options.logPrefix} Failed to read authentication recovery backoff`, error);
+			return false;
+		}
+	}
+
+	private _markPrompted(resource: string): void {
+		try {
+			this._storageService.store(
+				this._promptStorageKey(resource),
+				this._now(),
+				StorageScope.APPLICATION_SHARED,
+				StorageTarget.MACHINE,
+			);
+		} catch (error) {
+			this._logService.warn(`${this._options.logPrefix} Failed to store authentication recovery backoff`, error);
+		}
+	}
+
+	private _promptStorageKey(resource: string): string {
+		return `agentHost.authenticationRecoveryPrompt.${encodeURIComponent(this._options.recoveryKey)}.${encodeURIComponent(resource)}`;
+	}
+
+	private _reportFailure(protectedResource: ProtectedResourceMetadata): void {
+		if (this._reportedFailures.has(protectedResource.resource)) {
+			return;
+		}
+		this._reportedFailures.add(protectedResource.resource);
+		this._notificationService.error(localize(
+			'agentHost.authenticationRecoveryFailed',
+			"Agent Host authentication for {0} could not be refreshed. Sign in again to continue.",
+			protectedResource.resource_name ?? protectedResource.resource,
+		));
+	}
+}
+
+export const IAgentHostAuthenticationRecoveryService = createDecorator<IAgentHostAuthenticationRecoveryService>('agentHostAuthenticationRecoveryService');
+
+export interface IAgentHostAuthenticationRecoveryService {
+	readonly _serviceBrand: undefined;
+	register(connection: IAgentConnection, recovery: AgentHostAuthenticationRecovery): IDisposable;
+	recover(connection: IAgentConnection, resources: readonly ProtectedResourceMetadata[], reason: AuthRequiredReason): Promise<boolean>;
+}
+
+class AgentHostAuthenticationRecoveryService implements IAgentHostAuthenticationRecoveryService {
+	declare readonly _serviceBrand: undefined;
+
+	private readonly _recoveries = new Map<IAgentConnection, AgentHostAuthenticationRecovery>();
+
+	register(connection: IAgentConnection, recovery: AgentHostAuthenticationRecovery): IDisposable {
+		this._recoveries.set(connection, recovery);
+		return toDisposable(() => {
+			if (this._recoveries.get(connection) === recovery) {
+				this._recoveries.delete(connection);
+			}
+		});
+	}
+
+	async recover(connection: IAgentConnection, resources: readonly ProtectedResourceMetadata[], reason: AuthRequiredReason): Promise<boolean> {
+		const recovery = this._recoveries.get(connection);
+		if (!recovery) {
+			return false;
+		}
+		for (const resource of resources) {
+			if (await recovery.recover(resource, reason, true)) {
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+registerSingleton(IAgentHostAuthenticationRecoveryService, AgentHostAuthenticationRecoveryService, InstantiationType.Delayed);
+
+class AuthenticationRejectedError extends Error {
+	constructor() {
+		super('Agent Host rejected the refreshed authentication token');
+		this.name = 'AuthenticationRejectedError';
+	}
+}
+
+class AuthenticationInteractionDeferredError extends Error { }
+
+function isRejectedAuthenticationResult(result: unknown): boolean {
+	return typeof result === 'object'
+		&& result !== null
+		&& Object.getOwnPropertyDescriptor(result, 'authenticated')?.value === false;
+}
+
+function authenticationRecoveryRetryDelay(attempt: number): number {
+	const exponentialDelay = Math.min(
+		AUTHENTICATION_RECOVERY_RETRY_MAX_DELAY_MS,
+		AUTHENTICATION_RECOVERY_RETRY_BASE_DELAY_MS * 2 ** attempt,
+	);
+	return Math.round(exponentialDelay / 2 + Math.random() * exponentialDelay / 2);
+}
+
 /**
  * Resolves an authentication session for a protected resource by trying each
  * authorization server in order. First attempts an exact scope match,
@@ -639,6 +1004,46 @@ async function resolveAuthenticationSessionForProvider(
 		}
 	}
 	return bestSession ? { kind: 'resolved', session: bestSession } : { kind: 'signedOut' };
+}
+
+async function createFreshAuthenticationSessionForResource(
+	protectedResource: ProtectedResourceMetadata,
+	authenticationService: IAuthenticationService,
+	logService: ILogService,
+	logPrefix: string,
+	canInteract: () => boolean,
+): Promise<AuthenticationSession | undefined> {
+	const resourceUri = URI.parse(protectedResource.resource);
+	const scopes = protectedResource.scopes_supported ?? [];
+	for (const server of protectedResource.authorization_servers ?? []) {
+		const serverUri = URI.parse(server);
+		const providerId = await authenticationService.getOrActivateProviderIdForServer(serverUri, resourceUri);
+		if (!providerId) {
+			continue;
+		}
+		const existingSession = await resolveSessionForResource(
+			resourceUri,
+			[server],
+			scopes,
+			authenticationService,
+			logService,
+			logPrefix,
+		);
+		if (!canInteract()) {
+			throw new AuthenticationInteractionDeferredError();
+		}
+		const session = await authenticationService.createSession(providerId, [...scopes], {
+			account: existingSession?.account,
+			authorizationServer: serverUri,
+			resource: protectedResource.resource,
+			activateImmediate: true,
+		});
+		if (session.accessToken === existingSession?.accessToken) {
+			throw new Error('Authentication provider returned the rejected token');
+		}
+		return session;
+	}
+	return undefined;
 }
 
 export interface IAgentHostAuthenticateRequest {

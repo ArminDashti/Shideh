@@ -114,6 +114,12 @@ class TestGitStateService implements IAgentHostGitStateService {
 	async recordSessionMerge(_sessionKey: string, _commit?: string): Promise<void> { }
 
 	async attachSessionGitHubPullRequest(_sessionKey: string): Promise<void> { }
+
+	async handleAuthenticationTokenUpdated(_resource: string): Promise<void> { }
+
+	isAuthenticationTokenRejected(_resource: string, _token: string): boolean { return false; }
+
+	rejectAuthenticationToken(_sessionKey: string, _resource: string, _token: string): boolean { return false; }
 }
 
 /**

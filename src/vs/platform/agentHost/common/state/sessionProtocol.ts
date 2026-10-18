@@ -108,6 +108,7 @@ export const AHP_TURN_IN_PROGRESS = -32004 as const;
 export const AHP_UNSUPPORTED_PROTOCOL_VERSION = -32005 as const;
 export const AHP_CONTENT_NOT_FOUND = -32006 as const;
 export const AHP_AUTH_REQUIRED = -32007 as const;
+export const AHP_AUTH_REQUIRED_ERROR_NAME = 'AHPAuthRequiredError';
 
 /**
  * A named resource does not exist on the host. Not always a failure: a client may address a

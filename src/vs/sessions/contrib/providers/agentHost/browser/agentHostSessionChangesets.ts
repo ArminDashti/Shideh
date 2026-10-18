@@ -9,7 +9,7 @@ import { constObservable, derived, derivedObservableWithCache, derivedOpts, IObs
 import { basename, extUriBiasedIgnorePathCase, isEqual } from '../../../../../base/common/resources.js';
 import { format } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { isDefined } from '../../../../../base/common/types.js';
+import { isDefined, isObject } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { readAgentMergeSessionState } from '../../../../../platform/agentHost/common/agentMerge.js';
@@ -349,6 +349,53 @@ function toSessionChangesetOperation(operation: ChangesetOperation): ISessionCha
 	};
 }
 
+function getAuthRequiredResources(error: unknown, connection: IAgentConnection): readonly ProtectedResourceMetadata[] | undefined {
+	if (error instanceof ProtocolError && error.code === AHP_AUTH_REQUIRED) {
+		const resources = Array.isArray(error.data)
+			? error.data
+			: isObject(error.data)
+				? Object.getOwnPropertyDescriptor(error.data, 'resources')?.value
+				: undefined;
+		return Array.isArray(resources) && resources.every(isProtectedResourceMetadata) ? resources : undefined;
+	}
+	if (!(error instanceof Error) || error.name !== AHP_AUTH_REQUIRED_ERROR_NAME) {
+		return undefined;
+	}
+	const rootState = connection.rootState.value;
+	if (!rootState || rootState instanceof Error) {
+		return undefined;
+	}
+	const resources = new Map<string, ProtectedResourceMetadata>();
+	for (const agent of rootState.agents) {
+		for (const resource of agent.protectedResources ?? []) {
+			if (resource.scopes_supported?.includes('repo')) {
+				resources.set(resource.resource, resource);
+			}
+		}
+	}
+	return [...resources.values()];
+}
+
+function isProtectedResourceMetadata(value: unknown): value is ProtectedResourceMetadata {
+	return isObject(value) && typeof Object.getOwnPropertyDescriptor(value, 'resource')?.value === 'string';
+}
+
+export async function invokeChangesetOperationWithAuthenticationRecovery(
+	connection: IAgentConnection,
+	params: InvokeChangesetOperationParams,
+	authenticationRecoveryService: IAgentHostAuthenticationRecoveryService,
+): Promise<void> {
+	try {
+		await connection.invokeChangesetOperation(params);
+	} catch (error) {
+		const resources = getAuthRequiredResources(error, connection);
+		if (!resources || !await authenticationRecoveryService.recover(connection, resources, AuthRequiredReason.Expired)) {
+			throw error;
+		}
+		await connection.invokeChangesetOperation(params);
+	}
+}
+
 abstract class AbstractAgentHostChangeset implements ISessionChangeset {
 	abstract readonly id: string;
 	abstract readonly label: string;
@@ -377,6 +424,7 @@ abstract class AbstractAgentHostChangeset implements ISessionChangeset {
 		changeset: IAgentHostChangeset & { isDefault: boolean },
 		private readonly _options: IAgentHostAdapterOptions,
 		private readonly _dialogService: IDialogService,
+		private readonly _authenticationRecoveryService: IAgentHostAuthenticationRecoveryService,
 	) {
 		this._workingDirectories = changeset.workingDirectories;
 		this.capabilities = {
@@ -657,8 +705,9 @@ class AgentHostChangeset extends AbstractAgentHostChangeset {
 		isActiveSessionObs: IObservable<boolean>,
 		changesetSummary: IAgentHostChangeset & { isDefault: boolean },
 		@IDialogService dialogService: IDialogService,
+		@IAgentHostAuthenticationRecoveryService authenticationRecoveryService: IAgentHostAuthenticationRecoveryService,
 	) {
-		super(changesetSummary, options, dialogService);
+		super(changesetSummary, options, dialogService, authenticationRecoveryService);
 
 		this.resource = URI.parse(changesetSummary.uriTemplate);
 		this.channelUriObs = constObservable(this.resource);
@@ -705,8 +754,9 @@ class AgentHostLastTurnChangeset extends AbstractAgentHostChangeset {
 		isActiveSessionObs: IObservable<boolean>,
 		changesetSummary: IAgentHostChangeset & { isDefault: boolean },
 		@IDialogService dialogService: IDialogService,
+		@IAgentHostAuthenticationRecoveryService authenticationRecoveryService: IAgentHostAuthenticationRecoveryService,
 	) {
-		super(changesetSummary, options, dialogService);
+		super(changesetSummary, options, dialogService, authenticationRecoveryService);
 
 		this._workspaceObs = workspaceObs;
 		this.id = changesetSummary.changeKind;

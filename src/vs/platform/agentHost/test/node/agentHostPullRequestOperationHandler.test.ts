@@ -18,6 +18,7 @@ import { buildBranchChangesetUri, buildFolderChangesetOwnerUri, buildSessionChan
 import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
 import { buildChatUri, buildDefaultChatUri, withSessionGitHubState, withSessionGitState, type ISessionFileDiff, type ISessionGitState, MessageKind, ResponsePartKind, SessionStatus, TurnState, type Turn } from '../../common/state/sessionState.js';
 import type { IAgentHostGitService, IBranch, IDefaultBranch, IPushOptions } from '../../common/agentHostGitService.js';
+import type { IAgentHostGitStateService } from '../../common/agentHostGitStateService.js';
 import { AgentHostPullRequestOperationHandler } from '../../node/agentHostPullRequestOperationHandler.js';
 import { createTestGitHubEndpointService } from './testGitHubEndpointService.js';
 import { AgentHostStateManager } from '../../node/agentHostStateManager.js';
@@ -1459,6 +1460,59 @@ suite('AgentHostPullRequestOperationHandler', () => {
 			octoCalls: ['findPullRequestByHeadBranch:feature/test'],
 			followUp: { content: { uri: 'https://github.com/microsoft/vscode/pull/7', contentType: 'text/html' }, external: true },
 			createdEvents: ['agent:/session:https://github.com/microsoft/vscode/pull/7'],
+		});
+	});
+
+	test('maps a rejected repository token to auth-required recovery', async () => {
+		const gitService = new TestGitService();
+		const octoKitService = new TestOctoKitService();
+		octoKitService.findError = new AgentHostGitHubApiError('Bad credentials', 401, undefined);
+		const { handler, session, gitStateService } = setup(disposables, gitService, octoKitService);
+
+		await assert.rejects(
+			() => handler.invoke({ channel: buildSessionChangesetUri(session.toString()), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_PR }, CancellationToken.None),
+			error => {
+				if (!(error instanceof ProtocolError) || error.code !== AHP_AUTH_REQUIRED || typeof error.data !== 'object' || error.data === null) {
+					return false;
+				}
+				return Array.isArray(Object.getOwnPropertyDescriptor(error.data, 'resources')?.value);
+			},
+		);
+
+		assert.deepStrictEqual(gitStateService.rejectedTokens, [{
+			sessionKey: session.toString(),
+			resource: GITHUB_REPO_PROTECTED_RESOURCE.resource,
+			token: 'gh-token',
+		}]);
+	});
+
+	test('retries once when a stale 401 arrives after authentication changes', async () => {
+		const gitService = new TestGitService();
+		const octoKitService = new TestOctoKitService();
+		octoKitService.findError = new AgentHostGitHubApiError('Bad credentials', 401, undefined);
+		const { handler, session, gitStateService, createdEvents } = setup(disposables, gitService, octoKitService);
+		gitStateService.rejectResult = false;
+
+		const result = await handler.invoke({ channel: buildSessionChangesetUri(session.toString()), operationId: AgentHostPullRequestOperationHandler.OPERATION_CREATE_PR }, CancellationToken.None);
+
+		assert.deepStrictEqual({
+			message: result.message,
+			rejectedTokens: gitStateService.rejectedTokens,
+			octoCalls: octoKitService.calls,
+			createdEvents,
+		}, {
+			message: { markdown: 'Created pull request [#123](https://github.com/microsoft/vscode/pull/123).' },
+			rejectedTokens: [{
+				sessionKey: session.toString(),
+				resource: GITHUB_REPO_PROTECTED_RESOURCE.resource,
+				token: 'gh-token',
+			}],
+			octoCalls: [
+				'findPullRequestByHeadBranch:feature/test',
+				'findPullRequestByHeadBranch:feature/test',
+				'createPullRequest:false',
+			],
+			createdEvents: ['agent:/session:https://github.com/microsoft/vscode/pull/123'],
 		});
 	});
 

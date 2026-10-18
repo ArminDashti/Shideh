@@ -901,6 +901,7 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		requestDownload: () => { },
 	});
 	instantiationService.stub(ILogService, new NullLogService());
+	instantiationService.stub(INotificationService, new TestNotificationService());
 	instantiationService.stub(IProductService, { quality: 'insider' });
 	instantiationService.stub(ITelemetryService, NullTelemetryService);
 	instantiationService.stub(IChatEntitlementService, { entitlement: ChatEntitlement.Free, quotas: {}, anonymous: false, onDidChangeAnonymous: Event.None } as Partial<IChatEntitlementService> as IChatEntitlementService);
@@ -18665,6 +18666,55 @@ suite('AgentHostChatContribution', () => {
 				}) as unknown as IAuthenticationService['getSessions'],
 			};
 		}
+
+		test('sessions window replaces an expired token from auth/required', async () => {
+			const account = { id: '1', label: 'octocat' };
+			let token = 'rejected-token';
+			let createSessionCalls = 0;
+			const authService: Partial<IAuthenticationService> = {
+				onDidChangeSessions: Event.None,
+				getOrActivateProviderIdForServer: async () => 'github',
+				getSessions: async (_providerId, scopes) => !Array.isArray(scopes) ? [] : [{
+					id: 'github-session',
+					account,
+					scopes: [...scopes],
+					accessToken: token,
+				}],
+				createSession: async (_providerId, scopes) => {
+					createSessionCalls++;
+					token = 'fresh-token';
+					return {
+						id: 'fresh-github-session',
+						account,
+						scopes: Array.isArray(scopes) ? [...scopes] : [],
+						accessToken: token,
+					};
+				},
+			};
+			const { instantiationService, agentHostService } = createTestServices(disposables, undefined, authService, undefined, undefined, true);
+			disposables.add(instantiationService.createInstance(AgentHostContribution));
+			agentHostService.setRootState({ agents: protectedAgents(), activeSessions: 0 });
+			await timeout(0);
+
+			agentHostService.fireNotification({
+				type: 'auth/required',
+				channel: 'ahp-root://root',
+				resource: 'https://api.github.com',
+				reason: AuthRequiredReason.Expired,
+			});
+			await timeout(0);
+
+			assert.deepStrictEqual({
+				createSessionCalls,
+				authenticateCalls: agentHostService.authenticateCalls,
+			}, {
+				createSessionCalls: 1,
+				authenticateCalls: [
+					{ resource: 'https://api.github.com', scopes: ['read:user'], token: 'rejected-token' },
+					{ resource: 'https://api.github.com', scopes: ['read:user'], token: 'fresh-token' },
+				],
+			});
+		});
 
 		test('does not re-authenticate when token unchanged across rootState changes', async () => {
 			const tokenRef = { current: 'tok-1' };
