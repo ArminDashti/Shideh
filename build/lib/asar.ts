@@ -10,6 +10,7 @@ import Filesystem from 'asar/lib/filesystem.js';
 import VinylFile from 'vinyl';
 import minimatch from 'minimatch';
 
+
 export function createAsar(folderPath: string, unpackGlobs: string[], skipGlobs: string[], duplicateGlobs: string[], destFilename: string): NodeJS.ReadWriteStream {
 
 	const shouldUnpackFile = (file: VinylFile): boolean => {

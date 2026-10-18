@@ -708,6 +708,6 @@ async function _run() {
 	}
 }
 
-if (__filename === argv[1]) {
+if (import.meta.main) {
 	_run();
 }

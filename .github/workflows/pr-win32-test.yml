@@ -307,13 +307,13 @@ jobs:
         if: ${{ inputs.browser_tests && inputs.smoke_tests }}
         timeout-minutes: 20
         shell: pwsh
-        run: npm run smoketest-no-compile -- --web --tracing --headless
+        run: npm run smoketest-no-compile -- -- --web --tracing --headless
 
       - name: 🧪 Run smoke tests (Remote)
         if: ${{ inputs.remote_tests && inputs.smoke_tests }}
         timeout-minutes: 20
         shell: pwsh
-        run: npm run smoketest-no-compile -- --remote --tracing
+        run: npm run smoketest-no-compile -- -- --remote --tracing
 
       - name: Diagnostics after smoke test run
         if: ${{ inputs.smoke_tests && always() }}
