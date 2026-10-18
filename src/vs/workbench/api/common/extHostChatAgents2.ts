@@ -1105,6 +1105,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 					chatSessionItem: {
 						resource: sessionResource,
 						label: context.chatSessionContext.isUntitled ? 'Untitled Session' : 'Session',
+						metadata: context.chatSessionContext.metadata,
 					},
 					isUntitled: context.chatSessionContext.isUntitled,
 					initialSessionOptions: context.chatSessionContext.initialSessionOptions,
