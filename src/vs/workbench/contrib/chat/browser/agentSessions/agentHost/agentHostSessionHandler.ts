@@ -2307,6 +2307,30 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	/**
+	 * Mirrors `AgentHostUntitledProvisionalSessionService._getInitialConfig`:
+	 * workbench-side defaults seeded at session create time so the agent's
+	 * own server-side defaults don't fill `state.config.values` for keys the
+	 * workbench wants to control. Used by the `!existingState` fallback in
+	 * `_invokeAgent` when the provisional picker path didn't run (e.g.
+	 * headless invocations via `chat.open` that create a fresh session
+	 * resource separate from the picker's). Skipped in the Agents window,
+	 * where the sessions provider supplies config via
+	 * `request.agentHostSessionConfig` instead.
+	 */
+	private _getInitialConfig(): Record<string, unknown> | undefined {
+		if (this._environmentService.isSessionsWindow) {
+			return undefined;
+		}
+		const config: Record<string, unknown> = { [SessionConfigKey.Isolation]: 'folder' };
+		const configured = this._configurationService.getValue<string>(ChatConfiguration.DefaultPermissionLevel);
+		if (typeof configured === 'string' && KNOWN_AUTO_APPROVE_VALUES.has(configured)) {
+			const policyRestricted = this._configurationService.inspect<boolean>(ChatConfiguration.GlobalAutoApprove).policyValue === false;
+			config[SessionConfigKey.AutoApprove] = policyRestricted ? 'default' : configured;
+		}
+		return config;
+	}
+
+	/**
 	 * Returns the {@link SessionState} for a session that was eagerly created
 	 * at folder-pick time, or `undefined` if no such session exists. Uses the
 	 * unmanaged subscription accessor so we don't accidentally open a fresh
