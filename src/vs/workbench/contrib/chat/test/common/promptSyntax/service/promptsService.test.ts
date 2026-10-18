@@ -46,7 +46,7 @@ import { INSTRUCTIONS_LANGUAGE_ID, PROMPT_LANGUAGE_ID, PromptFileSource, Prompts
 import { IAgentDiscoveryResult, IAgentSource, ICustomAgent, IPromptFileContext, IPromptPath, IPromptsService, PromptsStorage } from '../../../../common/promptSyntax/service/promptsService.js';
 import { BUILTIN_SKILLS_URI, PromptsService } from '../../../../common/promptSyntax/service/promptsServiceImpl.js';
 import { mockFiles } from '../testUtils/mockFilesystem.js';
-import { InMemoryStorageService, IStorageService } from '../../../../../../../platform/storage/common/storage.js';
+import { InMemoryStorageService, IStorageService, StorageScope, StorageTarget } from '../../../../../../../platform/storage/common/storage.js';
 import { IPathService } from '../../../../../../services/path/common/pathService.js';
 import { IFileMatch, IFileQuery, ISearchService } from '../../../../../../services/search/common/search.js';
 import { IExtensionService } from '../../../../../../services/extensions/common/extensions.js';
@@ -3604,6 +3604,240 @@ suite('PromptsService', () => {
 		const actualAfterDispose = await service.listPromptFiles(PromptsType.skill, CancellationToken.None);
 		const foundAfterDispose = actualAfterDispose.find(i => i.uri.toString() === skillUri.toString());
 		assert.strictEqual(foundAfterDispose, undefined);
+	});
+
+	test('Instructions provider', async () => {
+		const instructionUri = URI.parse('file://extensions/my-extension/myInstruction.instructions.md');
+		const extension = {
+			identifier: { value: 'test.my-extension' },
+			enabledApiProposals: ['chatParticipantPrivate']
+		} as unknown as IExtensionDescription;
+
+		// Mock the instruction file content
+		await mockFiles(fileService, [
+			{
+				path: instructionUri.path,
+				contents: [
+					'# Test instruction content'
+				]
+			}
+		]);
+
+		const provider = {
+			providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+				return [
+					{
+						name: 'testInstruction',
+						description: 'Test instruction from provider',
+						uri: instructionUri
+					}
+				];
+			}
+		};
+
+		const registered = service.registerPromptFileProvider(extension, PromptsType.instructions, provider);
+
+		const actual = await service.listPromptFiles(PromptsType.instructions, CancellationToken.None);
+		const providerInstruction = actual.find(i => i.name === 'testInstruction');
+
+		assert.ok(providerInstruction, 'Provider instruction should be found');
+		assert.strictEqual(providerInstruction!.uri.toString(), instructionUri.toString());
+		assert.strictEqual(providerInstruction!.name, 'testInstruction');
+		assert.strictEqual(providerInstruction!.description, 'Test instruction from provider');
+		assert.strictEqual(providerInstruction!.storage, PromptsStorage.extension);
+		assert.strictEqual(providerInstruction!.source, ExtensionAgentSourceType.provider);
+
+		registered.dispose();
+
+		// After disposal, the instruction should no longer be listed
+		const actualAfterDispose = await service.listPromptFiles(PromptsType.instructions, CancellationToken.None);
+		const foundAfterDispose = actualAfterDispose.find(i => i.name === 'testInstruction');
+		assert.strictEqual(foundAfterDispose, undefined);
+	});
+
+	test('Instructions provider with isEditable flag', async () => {
+		const readonlyInstructionUri = URI.parse('file://extensions/my-extension/readonly.instructions.md');
+		const editableInstructionUri = URI.parse('file://extensions/my-extension/editable.instructions.md');
+		const extension = {
+			identifier: { value: 'test.my-extension' },
+			enabledApiProposals: ['chatParticipantPrivate']
+		} as unknown as IExtensionDescription;
+
+		// Mock the instruction file content
+		await mockFiles(fileService, [
+			{
+				path: readonlyInstructionUri.path,
+				contents: [
+					'# Readonly instruction content'
+				]
+			},
+			{
+				path: editableInstructionUri.path,
+				contents: [
+					'# Editable instruction content'
+				]
+			}
+		]);
+
+		const provider = {
+			providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+				return [
+					{
+						name: 'readonlyInstruction',
+						description: 'Readonly instruction from provider',
+						uri: readonlyInstructionUri,
+						isEditable: false
+					},
+					{
+						name: 'editableInstruction',
+						description: 'Editable instruction from provider',
+						uri: editableInstructionUri,
+						isEditable: true
+					}
+				];
+			}
+		};
+
+		const registered = service.registerPromptFileProvider(extension, PromptsType.instructions, provider);
+
+		// Spy on updateReadonly to verify it's called correctly
+		const filesConfigService = instaService.get(IFilesConfigurationService);
+		const updateReadonlySpy = sinon.spy(filesConfigService, 'updateReadonly');
+
+		// List prompt files to trigger the readonly check
+		await service.listPromptFiles(PromptsType.instructions, CancellationToken.None);
+
+		// Verify updateReadonly was called only for the non-editable instruction
+		assert.strictEqual(updateReadonlySpy.callCount, 1, 'updateReadonly should be called once');
+		assert.ok(updateReadonlySpy.calledWith(readonlyInstructionUri, true), 'updateReadonly should be called with readonly instruction URI and true');
+
+		const actual = await service.listPromptFiles(PromptsType.instructions, CancellationToken.None);
+		const readonlyInstruction = actual.find(i => i.name === 'readonlyInstruction');
+		const editableInstruction = actual.find(i => i.name === 'editableInstruction');
+
+		assert.ok(readonlyInstruction, 'Readonly instruction should be found');
+		assert.ok(editableInstruction, 'Editable instruction should be found');
+		assert.strictEqual(readonlyInstruction!.description, 'Readonly instruction from provider');
+		assert.strictEqual(editableInstruction!.description, 'Editable instruction from provider');
+
+		registered.dispose();
+	});
+
+	test('Prompt file provider', async () => {
+		const promptUri = URI.parse('file://extensions/my-extension/myPrompt.prompt.md');
+		const extension = {
+			identifier: { value: 'test.my-extension' },
+			enabledApiProposals: ['chatParticipantPrivate']
+		} as unknown as IExtensionDescription;
+
+		// Mock the prompt file content
+		await mockFiles(fileService, [
+			{
+				path: promptUri.path,
+				contents: [
+					'# Test prompt content'
+				]
+			}
+		]);
+
+		const provider = {
+			providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+				return [
+					{
+						name: 'testPrompt',
+						description: 'Test prompt from provider',
+						uri: promptUri
+					}
+				];
+			}
+		};
+
+		const registered = service.registerPromptFileProvider(extension, PromptsType.prompt, provider);
+
+		const actual = await service.listPromptFiles(PromptsType.prompt, CancellationToken.None);
+		const providerPrompt = actual.find(i => i.name === 'testPrompt');
+
+		assert.ok(providerPrompt, 'Provider prompt should be found');
+		assert.strictEqual(providerPrompt!.uri.toString(), promptUri.toString());
+		assert.strictEqual(providerPrompt!.name, 'testPrompt');
+		assert.strictEqual(providerPrompt!.description, 'Test prompt from provider');
+		assert.strictEqual(providerPrompt!.storage, PromptsStorage.extension);
+		assert.strictEqual(providerPrompt!.source, ExtensionAgentSourceType.provider);
+
+		registered.dispose();
+
+		// After disposal, the prompt should no longer be listed
+		const actualAfterDispose = await service.listPromptFiles(PromptsType.prompt, CancellationToken.None);
+		const foundAfterDispose = actualAfterDispose.find(i => i.name === 'testPrompt');
+		assert.strictEqual(foundAfterDispose, undefined);
+	});
+
+	test('Prompt file provider with isEditable flag', async () => {
+		const readonlyPromptUri = URI.parse('file://extensions/my-extension/readonly.prompt.md');
+		const editablePromptUri = URI.parse('file://extensions/my-extension/editable.prompt.md');
+		const extension = {
+			identifier: { value: 'test.my-extension' },
+			enabledApiProposals: ['chatParticipantPrivate']
+		} as unknown as IExtensionDescription;
+
+		// Mock the prompt file content
+		await mockFiles(fileService, [
+			{
+				path: readonlyPromptUri.path,
+				contents: [
+					'# Readonly prompt content'
+				]
+			},
+			{
+				path: editablePromptUri.path,
+				contents: [
+					'# Editable prompt content'
+				]
+			}
+		]);
+
+		const provider = {
+			providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+				return [
+					{
+						name: 'readonlyPrompt',
+						description: 'Readonly prompt from provider',
+						uri: readonlyPromptUri,
+						isEditable: false
+					},
+					{
+						name: 'editablePrompt',
+						description: 'Editable prompt from provider',
+						uri: editablePromptUri,
+						isEditable: true
+					}
+				];
+			}
+		};
+
+		const registered = service.registerPromptFileProvider(extension, PromptsType.prompt, provider);
+
+		// Spy on updateReadonly to verify it's called correctly
+		const filesConfigService = instaService.get(IFilesConfigurationService);
+		const updateReadonlySpy = sinon.spy(filesConfigService, 'updateReadonly');
+
+		// List prompt files to trigger the readonly check
+		await service.listPromptFiles(PromptsType.prompt, CancellationToken.None);
+
+		// Verify updateReadonly was called only for the non-editable prompt
+		assert.strictEqual(updateReadonlySpy.callCount, 1, 'updateReadonly should be called once');
+		assert.ok(updateReadonlySpy.calledWith(readonlyPromptUri, true), 'updateReadonly should be called with readonly prompt URI and true');
+
+		const actual = await service.listPromptFiles(PromptsType.prompt, CancellationToken.None);
+		const readonlyPrompt = actual.find(i => i.name === 'readonlyPrompt');
+		const editablePrompt = actual.find(i => i.name === 'editablePrompt');
+
+		assert.ok(readonlyPrompt, 'Readonly prompt should be found');
+		assert.ok(editablePrompt, 'Editable prompt should be found');
+		assert.strictEqual(readonlyPrompt!.description, 'Readonly prompt from provider');
+		assert.strictEqual(editablePrompt!.description, 'Editable prompt from provider');
+
+		registered.dispose();
 	});
 
 	suite('findAgentSkills', () => {
@@ -7315,6 +7549,296 @@ suite('PromptsService', () => {
 				cmd.promptPath.uri.path.includes('no-header-skill'));
 			assert.ok(noHeaderSkillInFiltered,
 				'Skill without header should be included when applying userInvokable filter (defaults to true)');
+		});
+	});
+
+	suite('Provider resource caching', () => {
+		let storageService: InMemoryStorageService;
+
+		setup(() => {
+			storageService = disposables.add(new InMemoryStorageService());
+			instaService.stub(IStorageService, storageService);
+			service = disposables.add(instaService.createInstance(PromptsService));
+		});
+
+		teardown(() => {
+			sinon.restore();
+		});
+
+		test('should cache provider resources marked as cacheable', async () => {
+			const agentUri = URI.parse('file://extensions/my-extension/agent.agent.md');
+			const extension = {
+				identifier: { value: 'test.caching-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			await mockFiles(fileService, [
+				{
+					path: agentUri.path,
+					contents: ['# Test agent content']
+				}
+			]);
+
+			const provider = {
+				providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+					return [
+						{
+							name: 'cacheableAgent',
+							description: 'Cacheable agent from provider',
+							uri: agentUri,
+							isCacheable: true
+						}
+					];
+				}
+			};
+
+			const registered = service.registerPromptFileProvider(extension, PromptsType.agent, provider);
+
+			// List agents to trigger caching
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			// Check that the resource was cached in storage
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			const cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			assert.ok(cachedValue, 'Cache should be stored');
+			const cached = JSON.parse(cachedValue);
+			assert.strictEqual(cached.length, 1, 'Should have one cached resource');
+			assert.strictEqual(cached[0].name, 'cacheableAgent');
+
+			registered.dispose();
+		});
+
+		test('should not cache provider resources marked as non-cacheable', async () => {
+			const agentUri = URI.parse('file://extensions/my-extension/non-cacheable.agent.md');
+			const extension = {
+				identifier: { value: 'test.non-caching-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			await mockFiles(fileService, [
+				{
+					path: agentUri.path,
+					contents: ['# Non-cacheable agent content']
+				}
+			]);
+
+			const provider = {
+				providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+					return [
+						{
+							name: 'nonCacheableAgent',
+							description: 'Non-cacheable agent from provider',
+							uri: agentUri,
+							isCacheable: false
+						}
+					];
+				}
+			};
+
+			const registered = service.registerPromptFileProvider(extension, PromptsType.agent, provider);
+
+			// List agents to trigger caching
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			// Check that the resource was NOT cached in storage
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			const cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			if (cachedValue) {
+				const cached = JSON.parse(cachedValue);
+				assert.strictEqual(cached.length, 0, 'Should not have cached non-cacheable resources');
+			}
+
+			registered.dispose();
+		});
+
+		test('should update cache when resources change', async () => {
+			const agentUri = URI.parse('file://extensions/my-extension/changing.agent.md');
+			const extension = {
+				identifier: { value: 'test.changing-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			await mockFiles(fileService, [
+				{
+					path: agentUri.path,
+					contents: ['# Changing agent content']
+				}
+			]);
+
+			let callCount = 0;
+			const provider = {
+				providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+					callCount++;
+					return [
+						{
+							name: `changingAgent_v${callCount}`,
+							description: `Changing agent version ${callCount}`,
+							uri: agentUri,
+							isCacheable: true
+						}
+					];
+				}
+			};
+
+			const registered = service.registerPromptFileProvider(extension, PromptsType.agent, provider);
+
+			// First call - should cache v1
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			let cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			let cached = JSON.parse(cachedValue!);
+			assert.strictEqual(cached[0].name, 'changingAgent_v1', 'Should cache first version');
+
+			// Second call - should update to v2
+			// Need to clear the internal cache first by disposing and recreating
+			registered.dispose();
+			const registered2 = service.registerPromptFileProvider(extension, PromptsType.agent, provider);
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			cached = JSON.parse(cachedValue!);
+			assert.strictEqual(cached[0].name, 'changingAgent_v2', 'Should update cache with new version');
+
+			registered2.dispose();
+		});
+
+		test('should clear cache when extension is not found', async () => {
+			const extension = {
+				identifier: { value: 'test.uninstalled-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			// Pre-populate the cache with some resources as if they were cached before
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			const extensionsKey = 'chat.cachedProviderExtensions';
+
+			storageService.store(cacheKey, JSON.stringify([
+				{ name: 'cachedAgent', description: 'Cached agent', uri: 'file://some/path.agent.md' }
+			]), StorageScope.PROFILE, StorageTarget.MACHINE);
+			storageService.store(extensionsKey, JSON.stringify({
+				[PromptsType.agent]: [extension.identifier.value]
+			}), StorageScope.PROFILE, StorageTarget.MACHINE);
+
+			// Stub extension service to return undefined (extension not found)
+			instaService.stub(IExtensionService, {
+				whenInstalledExtensionsRegistered: () => Promise.resolve(true),
+				activateByEvent: () => Promise.resolve(),
+				getExtension: (extensionId: string) => {
+					// Return undefined to simulate extension not found
+					return Promise.resolve(undefined);
+				}
+			});
+
+			// Recreate service with the updated stub
+			service = disposables.add(instaService.createInstance(PromptsService));
+
+			// List agents - this should detect the missing extension and clear its cache
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			// Verify cache was cleared
+			const cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			assert.strictEqual(cachedValue, undefined, 'Cache should be cleared for uninstalled extension');
+
+			// Verify extension was removed from tracked extensions
+			const extensionsValue = storageService.get(extensionsKey, StorageScope.PROFILE);
+			if (extensionsValue) {
+				const extensions = JSON.parse(extensionsValue);
+				const trackedExtensions = extensions[PromptsType.agent] ?? [];
+				assert.ok(!trackedExtensions.includes(extension.identifier.value), 'Extension should be removed from tracked list');
+			}
+		});
+
+		test('should use cached resources before extension activates', async () => {
+			const agentUri = URI.parse('file://extensions/my-extension/cached.agent.md');
+			const extension = {
+				identifier: { value: 'test.pre-activation-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			// Pre-populate the cache
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			const extensionsKey = 'chat.cachedProviderExtensions';
+
+			storageService.store(cacheKey, JSON.stringify([
+				{ name: 'cachedAgent', description: 'Cached agent before activation', uri: agentUri.toString() }
+			]), StorageScope.PROFILE, StorageTarget.MACHINE);
+			storageService.store(extensionsKey, JSON.stringify({
+				[PromptsType.agent]: [extension.identifier.value]
+			}), StorageScope.PROFILE, StorageTarget.MACHINE);
+
+			await mockFiles(fileService, [
+				{
+					path: agentUri.path,
+					contents: ['# Cached agent content']
+				}
+			]);
+
+			// Stub extension service to return the extension but not have a provider registered yet
+			instaService.stub(IExtensionService, {
+				whenInstalledExtensionsRegistered: () => Promise.resolve(true),
+				activateByEvent: () => Promise.resolve(),
+				getExtension: (extensionId: string) => {
+					if (extensionId === extension.identifier.value) {
+						return Promise.resolve(extension);
+					}
+					return Promise.resolve(undefined);
+				}
+			});
+
+			// Recreate service with the updated stub
+			service = disposables.add(instaService.createInstance(PromptsService));
+
+			// List agents - should return cached resources since no provider is registered
+			const agents = await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			const cachedAgent = agents.find(a => a.name === 'cachedAgent');
+			assert.ok(cachedAgent, 'Should find cached agent before extension activates');
+			assert.strictEqual(cachedAgent!.description, 'Cached agent before activation');
+			assert.strictEqual(cachedAgent!.storage, PromptsStorage.extension);
+			assert.strictEqual(cachedAgent!.source, ExtensionAgentSourceType.provider);
+		});
+
+		test('should default isCacheable to true when not specified', async () => {
+			const agentUri = URI.parse('file://extensions/my-extension/default-cacheable.agent.md');
+			const extension = {
+				identifier: { value: 'test.default-cacheable-extension' },
+				enabledApiProposals: ['chatParticipantPrivate']
+			} as unknown as IExtensionDescription;
+
+			await mockFiles(fileService, [
+				{
+					path: agentUri.path,
+					contents: ['# Default cacheable agent']
+				}
+			]);
+
+			const provider = {
+				providePromptFiles: async (_options: IPromptFileQueryOptions, _token: CancellationToken) => {
+					return [
+						{
+							name: 'defaultCacheableAgent',
+							description: 'Agent without isCacheable specified',
+							uri: agentUri
+							// isCacheable not specified - should default to true
+						}
+					];
+				}
+			};
+
+			const registered = service.registerPromptFileProvider(extension, PromptsType.agent, provider);
+
+			// List agents to trigger caching
+			await service.listPromptFiles(PromptsType.agent, CancellationToken.None);
+
+			// Check that the resource was cached (default isCacheable = true)
+			const cacheKey = `chat.cachedProviderResources.${extension.identifier.value}.${PromptsType.agent}`;
+			const cachedValue = storageService.get(cacheKey, StorageScope.PROFILE);
+			assert.ok(cachedValue, 'Cache should be stored when isCacheable is not specified');
+			const cached = JSON.parse(cachedValue);
+			assert.strictEqual(cached.length, 1, 'Should have one cached resource');
+			assert.strictEqual(cached[0].name, 'defaultCacheableAgent');
+
+			registered.dispose();
 		});
 	});
 });

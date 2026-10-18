@@ -10,10 +10,12 @@ import { illegalArgument, SerializedError } from '../../../base/common/errors.js
 import { IRelativePattern } from '../../../base/common/glob.js';
 import { MarshalledId } from '../../../base/common/marshallingIds.js';
 import { Mimes } from '../../../base/common/mime.js';
+import { Schemas } from '../../../base/common/network.js';
 import { nextCharLength } from '../../../base/common/strings.js';
 import { isNumber, isObject, isString, isStringArray } from '../../../base/common/types.js';
 import { isUriComponents, URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
+import { stringify as yamlStringify } from '../../../base/common/yaml.js';
 import { TextEditorSelectionSource } from '../../../platform/editor/common/editor.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
 import { FileSystemProviderErrorCode, markAsFileSystemProviderError } from '../../../platform/files/common/files.js';
