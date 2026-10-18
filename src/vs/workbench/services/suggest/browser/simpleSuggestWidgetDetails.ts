@@ -410,21 +410,25 @@ export class SimpleSuggestDetailsOverlay {
 		type Placement = { top: number; left: number; fit: number; maxSizeTop: dom.Dimension; maxSizeBottom: dom.Dimension; minSize: dom.Dimension };
 
 		// EAST
-		const eastPlacement: Placement = (function () {
-			const width = bodyBox.width - (anchorBox.left + anchorBox.width + info.borderWidth + info.horizontalPadding);
+		const eastPlacement: Placement = (() => {
+			const availableWidth = bodyBox.width - (anchorBox.left + anchorBox.width + info.borderWidth + info.horizontalPadding);
+			const baseWidth = this._preferredSide === 'right' ? Math.max(defaultMinSize.width, availableWidth) : availableWidth;
+			const clampedWidth = Math.max(0, baseWidth);
 			const left = -info.borderWidth + anchorBox.left + anchorBox.width;
-			const maxSizeTop = new dom.Dimension(width, bodyBox.height - anchorBox.top - info.borderHeight - info.verticalPadding);
+			const maxSizeTop = new dom.Dimension(clampedWidth, bodyBox.height - anchorBox.top - info.borderHeight - info.verticalPadding);
 			const maxSizeBottom = maxSizeTop.with(undefined, anchorBox.top + anchorBox.height - info.borderHeight - info.verticalPadding);
-			return { top: defaultTop, left, fit: width - size.width, maxSizeTop, maxSizeBottom, minSize: defaultMinSize.with(Math.min(width, defaultMinSize.width)) };
+			return { top: defaultTop, left, fit: clampedWidth - size.width, maxSizeTop, maxSizeBottom, minSize: defaultMinSize.with(Math.min(clampedWidth, defaultMinSize.width)) };
 		})();
 
 		// WEST
-		const westPlacement: Placement = (function () {
-			const width = anchorBox.left - info.borderWidth - info.horizontalPadding;
+		const westPlacement: Placement = (() => {
+			const availableWidth = anchorBox.left - info.borderWidth - info.horizontalPadding;
+			const baseWidth = this._preferredSide === 'left' ? Math.max(defaultMinSize.width, availableWidth) : availableWidth;
+			const clampedWidth = Math.max(0, baseWidth);
 			const left = Math.max(info.horizontalPadding, anchorBox.left - size.width - info.borderWidth);
-			const maxSizeTop = new dom.Dimension(width, bodyBox.height - anchorBox.top - info.borderHeight - info.verticalPadding);
+			const maxSizeTop = new dom.Dimension(clampedWidth, bodyBox.height - anchorBox.top - info.borderHeight - info.verticalPadding);
 			const maxSizeBottom = maxSizeTop.with(undefined, anchorBox.top + anchorBox.height - info.borderHeight - info.verticalPadding);
-			return { top: defaultTop, left, fit: width - size.width, maxSizeTop, maxSizeBottom, minSize: defaultMinSize.with(Math.min(width, defaultMinSize.width)) };
+			return { top: defaultTop, left, fit: clampedWidth - size.width, maxSizeTop, maxSizeBottom, minSize: defaultMinSize.with(Math.min(clampedWidth, defaultMinSize.width)) };
 		})();
 
 		// SOUTH
