@@ -7,6 +7,7 @@ import { DeferredPromise } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { autorun, IObservable } from '../../../base/common/observable.js';
 import { Emitter, Event } from '../../../base/common/event.js';
+import { generateUuid } from '../../../base/common/uuid.js';
 import { IMarkdownString } from '../../../base/common/htmlContent.js';
 import { Disposable, DisposableMap, IDisposable, IReference } from '../../../base/common/lifecycle.js';
 import { revive } from '../../../base/common/marshalling.js';
@@ -831,6 +832,8 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					source: folder.source,
 					destinationGroupId: folder.destinationGroupId,
 				}));
+				this._logCustomizationDiscovery(metadata.label, mapped, durationInMillis);
+				return mapped;
 			},
 		};
 
@@ -884,6 +887,59 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		if (emitter) {
 			emitter.fire();
 		}
+	}
+
+	private _logCustomizationDiscovery(label: string, items: IExternalCustomizationItem[], durationInMillis: number): void {
+		const sessionResource = this._chatDebugService.activeSessionResource;
+		if (!sessionResource) {
+			return;
+		}
+
+		const eventId = generateUuid();
+		this._customizationDebugDetails.set(eventId, { items, durationInMillis });
+
+		// Evict oldest entries when the map grows too large.
+		if (this._customizationDebugDetails.size > 10_000) {
+			const first = this._customizationDebugDetails.keys().next().value;
+			if (first !== undefined) {
+				this._customizationDebugDetails.delete(first);
+			}
+		}
+
+		// Group items by type for a concise summary.
+		const byType = new Map<string, number>();
+		for (const item of items) {
+			byType.set(item.type, (byType.get(item.type) ?? 0) + 1);
+		}
+		const typeSummary = [...byType.entries()].map(([type, count]) => `${count} ${type}`).join(', ');
+		const details = `${items.length} items (${typeSummary}) in ${durationInMillis.toFixed(1)}ms`;
+
+		this._chatDebugService.log(
+			sessionResource,
+			`Customization Provider (${label})`,
+			details,
+			ChatDebugLogLevel.Info,
+			{ id: eventId, category: 'discovery' },
+		);
+	}
+
+	private _resolveCustomizationDebugEvent(eventId: string): IChatDebugResolvedEventContent | undefined {
+		const data = this._customizationDebugDetails.get(eventId);
+		if (!data) {
+			return undefined;
+		}
+
+		return {
+			kind: 'fileList',
+			discoveryType: 'customization-provider',
+			durationInMillis: data.durationInMillis,
+			files: data.items.map(item => ({
+				uri: item.uri,
+				name: item.name,
+				status: 'loaded' as const,
+				storage: item.groupKey,
+			})),
+		};
 	}
 }
 
