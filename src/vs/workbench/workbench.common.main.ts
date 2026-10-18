@@ -212,6 +212,9 @@ import './services/policies/browser/managedSettingsUpdate.contribution.js';
 // Policy Telemetry
 import './services/policies/browser/policyTelemetry.contribution.js';
 
+// Policy Telemetry
+import './services/policies/browser/policyTelemetry.contribution.js';
+
 // Telemetry
 import './contrib/telemetry/browser/telemetry.contribution.js';
 
