@@ -46,18 +46,7 @@ suite('AccessibleView', () => {
 
 	test('disposes the toolbar menu when the context view hides', () => {
 		let disposeCount = 0;
-		let delegate: IContextViewDelegate | undefined;
-		const contextViewService = new class extends mock<IContextViewService>() {
-			override showContextView(contextViewDelegate: IContextViewDelegate): IOpenContextView {
-				delegate = contextViewDelegate;
-				return { close: () => this.hideContextView() };
-			}
-
-			override hideContextView(): void {
-				delegate?.onHide?.();
-				delegate = undefined;
-			}
-		};
+		const contextViewService = createContextViewService();
 		const instantiationService = workbenchInstantiationService({}, disposables);
 		instantiationService.stub(IContextViewService, contextViewService);
 		instantiationService.stub(IMenuService, new class extends mock<IMenuService>() {

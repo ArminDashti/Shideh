@@ -1166,6 +1166,13 @@ export class CopilotAgent extends Disposable implements IAgent {
 				this._logService.error('[Copilot] Failed to restart client after endpoint change', err)
 			);
 		}));
+		if (this.canvases) {
+			// Explicit dev-runtime selection starts only the owned client handshake here.
+			// No session or extension is created by this readiness probe or by catalogue reads.
+			this.canvases.trackStartup(this._ensureClient().then(() => undefined, () => {
+				this._logService.warn('[Copilot] The selected preview runtime did not negotiate canvas launch ownership.');
+			}));
+		}
 	}
 
 	/**
@@ -1418,6 +1425,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (!failureKind) {
 			return undefined;
 		}
+		if (this.canvases && failureKind === 'connectionClosed') {
+			this.canvases.loseAuthority();
+			return undefined;
+		}
 
 		const clientFailureId = this._closedConnectionRecovery?.clientFailureId ?? generateUuid();
 		const recoveryStarted = failureKind === 'connectionClosed' && !this._shutdownPromise && this._closedConnectionRecovery === undefined;
@@ -1506,7 +1517,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	/** Number of live chats (default or peer, across all sessions) with an in-flight turn. */
 	private _chatsWithActiveTurn(): number {
-		return this._allLiveSessions().filter(session => session.hasActiveTurn).length;
+		return this._allRoutableSessions().filter(session => session.hasActiveTurn).length;
 	}
 
 	private _chatsWithInFlightWork(): number {
@@ -2891,6 +2902,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				} : {}),
 				onGetTraceContext: () => this._otelService.getCurrentTraceContext() ?? {},
 				onGitHubTelemetry: notification => { void this._routeGitHubTelemetry(notification).catch(err => this._logService.trace(`[Copilot] GitHub telemetry routing failed: ${err instanceof Error ? err.message : String(err)}`)); },
+				...(this.canvases ? { extensionLaunchProvider: this.canvases.launchProvider } : {}),
 			};
 			const resolver = createCopilotCanvasLaunchProvider(this._canvasLaunchAuthority, () =>
 				this._canvasLaunchSupported && this._client === canvasClient?.client && !this._clientStopping && !this._shutdownPromise);
@@ -4027,8 +4039,8 @@ export class CopilotAgent extends Disposable implements IAgent {
 			const clientTelemetryContext = URI.isUri(operationContext) ? undefined : operationContext?.clientTelemetryContext;
 			return this._sendMessage(chatUri, prompt, attachments, turnId, senderClientId, clientType, workingDirectories, operationContext, clientTelemetryContext);
 		},
-		abort: (chatUri: URI, context: URI | IAgentChatContext): Promise<void> => {
-			return this._abortSession(chatUri, context);
+		abort: (chatUri: URI, context: URI | IAgentChatContext, turnId?: string): Promise<void> => {
+			return this._abortSession(chatUri, context, turnId);
 		},
 		getModel: (chatUri: URI): ModelSelection | undefined => this._chatBackings.get(chatUri.toString())?.model,
 		getAgent: async (chat, operationContext) => {
@@ -5317,8 +5329,8 @@ export class CopilotAgent extends Disposable implements IAgent {
 	/** Routes a completed client tool call to the runtime that owns it. */
 	onClientToolCallComplete(chat: URI, toolCallId: string, result: ToolCallResult, context?: IAgentChatContext): void {
 		const spawnedFrom = resolveSubagentChatParent(context);
-		const target = this._findChatByUri(chat)
-			?? (spawnedFrom ? this._findChatByUri(spawnedFrom.chat) : undefined)
+		const target = this._findRoutableChat(chat)
+			?? (spawnedFrom ? this._findRoutableChat(spawnedFrom.chat) : undefined)
 			?? (context ? this._findSessionChat(context.configurationResource) : undefined);
 		target?.handleClientToolCallComplete(toolCallId, result);
 	}
@@ -5605,9 +5617,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 		await this._applyPendingClientRestart();
 	}
 
-	private async _abortSession(chat: URI, operationContext: URI | IAgentChatContext): Promise<void> {
+	private async _abortSession(chat: URI, operationContext: URI | IAgentChatContext, turnId?: string): Promise<void> {
 		const context = this._resolveChatContext(chat, operationContext);
-		const abort = this._abortSessionWithRecovery(chat, operationContext);
+		const abort = this._abortSessionWithRecovery(chat, operationContext, turnId);
 		const barrier = abort.then(() => undefined, () => undefined);
 		const queuedBarrier = this._queueChat(context.configurationId, context.sequencerKey, 'abortBarrier', () => barrier);
 		void queuedBarrier.catch(error => {
@@ -5618,9 +5630,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 		await abort;
 	}
 
-	private async _abortSessionWithRecovery(chat: URI, operationContext: URI | IAgentChatContext): Promise<void> {
+	private async _abortSessionWithRecovery(chat: URI, operationContext: URI | IAgentChatContext, turnId?: string): Promise<void> {
 		try {
-			await this._abortSessionOnce(chat, operationContext);
+			await this._abortSessionOnce(chat, operationContext, turnId);
 		} catch (error) {
 			const correlation = this._clientFailureCorrelation(chat, undefined, operationContext);
 			if (!isCopilotConnectionClosedError(error)) {
@@ -5634,7 +5646,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		}
 	}
 
-	private async _abortSessionOnce(chat: URI, operationContext: URI | IAgentChatContext): Promise<void> {
+	private async _abortSessionOnce(chat: URI, operationContext: URI | IAgentChatContext, turnId?: string): Promise<void> {
 		const context = this._resolveChatContext(chat, operationContext);
 		const pendingTurns = this._pendingChatTurns.get(context.chatKey);
 		if (pendingTurns?.size) {
@@ -5646,7 +5658,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (!context.target) {
 			return;
 		}
-		await context.target.abort();
+		await context.target.abort(turnId);
 	}
 
 	/** Creates a concrete chat backing immediately, optionally by importing history from another chat. */
@@ -5860,6 +5872,33 @@ export class CopilotAgent extends Disposable implements IAgent {
 			}
 		}
 		return context.target;
+	}
+
+	private async _prepareCanvasChat(chat: string, operation: IAgentCanvasOperation): Promise<void> {
+		const parsed = parseChatUri(chat);
+		if (!parsed) {
+			throw new Error('Canvas initialization requires an exact registered chat.');
+		}
+		const resource = URI.parse(chat);
+		const context = this._resolveChatContext(resource, { configurationResource: URI.parse(parsed.session), resource: this._resolveChatStorageScope(resource) });
+		if (!context.target && this._provisionalSessions.has(context.configurationId)
+			&& this._configurationService.getSessionConfigValues(parsed.session)?.[SessionConfigKey.Isolation] === 'worktree' && !operation.workingDirectories?.length) {
+			throw new Error(localize('copilot.canvasWorktreePreparation', "Canvas execution requires host-owned worktree preparation. It cannot initialize in the picked repository before isolation is ready."));
+		}
+		await this._queueChat(context.configurationId, context.sequencerKey, 'prepareCanvas', async () => {
+			if (operation.token.isCancellationRequested) {
+				throw new CancellationError();
+			}
+			operation.willExecute();
+			const session = await this._ensureResolvedChatSession(context, operation.workingDirectories);
+			if (operation.token.isCancellationRequested) {
+				session?.dispose();
+				throw new CancellationError();
+			}
+			if (!session || session.chatUri.toString() !== chat) {
+				throw new Error('Canvas initialization could not acquire its exact backing chat.');
+			}
+		});
 	}
 
 	/**
@@ -6526,8 +6565,12 @@ export class CopilotAgent extends Disposable implements IAgent {
 		}
 	}
 
-	respondToUserInputRequest(requestId: string, response: ChatInputResponseKind, answers?: Record<string, ChatInputAnswer>): void {
-		for (const chat of this._allLiveSessions()) {
+	respondToUserInputRequest(requestId: string, response: ChatInputResponseKind, answers?: Record<string, ChatInputAnswer>, chat?: URI): void {
+		if (chat) {
+			this._findRoutableChat(chat)?.respondToUserInputRequest(requestId, response, answers);
+			return;
+		}
+		for (const chat of this._allRoutableSessions()) {
 			if (chat.respondToUserInputRequest(requestId, response, answers)) {
 				return;
 			}
@@ -6889,6 +6932,15 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	private _allLiveSessions(): CopilotAgentSession[] {
 		return [...this._chatEntriesBySdkId.values()].map(entry => entry.chatSession);
+	}
+
+	/** Creation can await callbacks from top-level extensions before the SDK session is registered. */
+	private _allRoutableSessions(): CopilotAgentSession[] {
+		return [...new Set([...this._sessionsPendingRegistration.values(), ...this._allLiveSessions()])];
+	}
+
+	private _findRoutableChat(chat: URI): CopilotAgentSession | undefined {
+		return this._findChatByUri(chat) ?? [...this._sessionsPendingRegistration.values()].find(session => isEqual(session.chatChannelUri, chat));
 	}
 
 	/** Keeps SDK callbacks routable until ownership transfers to the live-session map. */

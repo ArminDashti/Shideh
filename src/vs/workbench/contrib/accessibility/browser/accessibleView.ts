@@ -634,7 +634,7 @@ export class AccessibleView extends Disposable {
 		const widgetIsFocused = this._editorWidget.hasTextFocus() || this._editorWidget.hasWidgetFocus();
 		const stableUri = this._getStableUri(provider.id);
 		this._getTextModel(stableUri).then((model) => {
-			if (!model) {
+			if (!model || disposableStore.isDisposed || this._currentProvider !== provider) {
 				return;
 			}
 			// Update the content of the existing model instead of creating a new one
@@ -722,6 +722,7 @@ export class AccessibleView extends Disposable {
 				e?.stopPropagation();
 				return;
 			}
+			this._renderDisposables.clear();
 			if (!this._isInQuickPick) {
 				provider.onClose();
 			}

@@ -19,6 +19,7 @@ export interface IAgentHostClientConnectionSource {
 	hasSeenClient(clientId: string): boolean;
 	isClientConnected(clientId: string): boolean;
 	getConnectedClientTransportCounts(): ReadonlyMap<string, number>;
+	getSubscribedClients?(resource: string): readonly string[];
 	requestWorkspaceTrust(clientId: string, request: IAgentHostWorkspaceTrustRequest): Promise<boolean>;
 	/** Requests silent MCP authentication from connected clients. */
 	requestMcpAuthentication(request: IAgentHostMcpAuthenticationRequest): Promise<boolean>;
@@ -32,6 +33,7 @@ export interface IAgentHostClientConnectionService {
 	hasSeenClient(clientId: string): boolean;
 	isClientConnected(clientId: string): boolean;
 	getConnectionCounts(clientId: string): IAgentHostClientConnectionCounts;
+	getSubscribedClients(resource: string): readonly string[];
 	requestWorkspaceTrust(clientId: string, request: IAgentHostWorkspaceTrustRequest): Promise<boolean>;
 	/** Requests silent MCP authentication, stopping at the first successful source. */
 	requestMcpAuthentication(request: IAgentHostMcpAuthenticationRequest): Promise<boolean>;
@@ -108,5 +110,18 @@ export class AgentHostClientConnectionService extends Disposable implements IAge
 			}
 		}
 		return Promise.reject(new Error(`Cannot request workspace trust because client ${clientId} is not connected.`));
+	}
+
+	requestCanvasApproval(clientId: string, request: IAgentHostCanvasApprovalRequest, token: CancellationToken): Promise<boolean> {
+		for (const source of this._sources) {
+			if (source.isClientConnected(clientId)) {
+				return source.requestCanvasApproval?.(clientId, request, token) ?? Promise.resolve(false);
+			}
+		}
+		return Promise.resolve(false);
+	}
+
+	getSubscribedClients(resource: string): readonly string[] {
+		return [...new Set([...this._sources].flatMap(source => source.getSubscribedClients?.(resource) ?? []))];
 	}
 }

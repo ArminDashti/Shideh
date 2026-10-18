@@ -26,6 +26,9 @@ import { AgentMergeSessionOverrides, AgentMergeSessionState, readAgentMergeFolde
 import { readAgentSdkSetupInfos } from '../../../../../platform/agentHost/common/agentSdkSetup.js';
 import { readSessionArtifacts } from '../../../../../platform/agentHost/common/sessionArtifacts.js';
 import { IAgentConnection } from '../../../../../platform/agentHost/common/agentService.js';
+import type { CanvasEntry } from '../../../../../platform/agentHost/common/state/protocol/channels-canvas/state.js';
+import type { ISessionCanvases } from '../../../../services/sessions/common/sessionCanvases.js';
+import { AgentHostSessionCanvases, type IAgentHostCanvasBinding } from './agentHostSessionCanvases.js';
 import { fromAgentHostUri, type AgentHostUriMapper } from '../../../../../platform/agentHost/common/agentHostUri.js';
 import type { RemoteAgentHostConnectionStatus } from '../../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { AgentHostTransportFailureReason } from '../../../../../platform/agentHost/common/state/sessionTransport.js';
@@ -1163,13 +1166,13 @@ class AdditionalChat extends Disposable {
 		this._title.set(title || localize('newChatTab', "New Chat"), undefined);
 	}
 
-	/** Present as `Untitled` until the first request is sent so the view shows the composer. */
+	/** Present an empty chat as an untitled composer. */
 	markNew(): void {
 		this._isNew.set(true, undefined);
 	}
 
-	/** Clear the `new` presentation after the first request is sent. */
-	markSent(): void {
+	/** Use the host-reported status after the chat has content. */
+	markCreated(): void {
 		this._isNew.set(false, undefined);
 	}
 
@@ -2000,16 +2003,16 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 			: this.resource;
 	}
 
-	/** Mark a peer chat new so it shows as `Untitled` until its first request. */
+	/** Present an empty peer chat as an untitled composer. */
 	markChatAsNew(chatId: string): void {
 		this._newChatIds.add(chatId);
 		this._additionalChats.get(chatId)?.markNew();
 	}
 
-	/** Clear the `new` flag after the chat's first request is sent. */
-	markChatAsSent(chatId: string): void {
+	/** Clear the empty-chat presentation after its first request or canvas membership. */
+	markChatAsCreated(chatId: string): void {
 		this._newChatIds.delete(chatId);
-		this._additionalChats.get(chatId)?.markSent();
+		this._additionalChats.get(chatId)?.markCreated();
 	}
 
 	setChatModelId(chatResource: URI, modelId: string | undefined, source: ChatModelSource): void {
@@ -3548,6 +3551,9 @@ class NewSession extends Disposable {
 				if (initial && !(initial instanceof Error)) {
 					onSessionState(this.sessionId, initial);
 				}
+				if (this.cancellationToken.isCancellationRequested) {
+					return;
+				}
 				this._stateListener.value = ref.object.onDidChange(state => {
 					onSessionState(this.sessionId, state);
 				});
@@ -3844,6 +3850,12 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	 * `customizations` and `activeClient.customizations` for the picker.
 	 */
 	protected readonly _lastSessionStates = new Map<string, SessionState>();
+	protected readonly _canvasBinding = observableValue<IAgentHostCanvasBinding | undefined>(this, undefined);
+	protected readonly _canvasEnabled = observableValue(this, false);
+	private readonly _canvasEntries = new Map<string, ISettableObservable<readonly CanvasEntry[] | undefined>>();
+	private readonly _canvasCollections = this._register(new DisposableMap<string, DisposableMap<string, AgentHostSessionCanvases>>());
+	private readonly _canvasSupported = derived(this, reader => this._canvasEnabled.read(reader)
+		&& !!this._canvasBinding.read(reader)?.connection.initializeResult.read(reader)?.canvases);
 
 	/** Cache of adapted sessions, keyed by raw session ID. */
 	protected readonly _sessionCache = new Map<string, AgentHostSessionAdapter>();
@@ -3927,6 +3939,72 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		return this._sessionCache.get(rawId)?.backendUri ?? this._newSessions.get(sessionId)?.backendUri;
 	}
 
+	getSessionCanvases(sessionId: string, chat: URI): ISessionCanvases | undefined {
+		const session = this.getKnownSessions().find(session => session.sessionId === sessionId);
+		const ownedChat = session?.chats.get().find(candidate => isEqual(candidate.resource, chat));
+		const backendSession = this._getBackendSessionUri(sessionId);
+		if (!this._canvasEnabled.get() || !this._isCanvasExecutionSupported(sessionId) || !session || session.status.get() === SessionStatus.Untitled
+			|| session.sessionType !== 'copilotcli' || !backendSession || !ownedChat || ownedChat.status.get() === SessionStatus.Untitled) {
+			return undefined;
+		}
+		const backendChat = this._resolveBackendSourceChatUri(sessionId, backendSession, chat);
+		const key = backendChat.toString();
+		let collections = this._canvasCollections.get(sessionId);
+		if (!collections) {
+			collections = new DisposableMap<string, AgentHostSessionCanvases>();
+			this._canvasCollections.set(sessionId, collections);
+		}
+		let collection = collections.get(key);
+		if (!collection) {
+			let entries = this._canvasEntries.get(sessionId);
+			if (!entries) {
+				const state = this._lastSessionStates.get(sessionId);
+				entries = observableValue<readonly CanvasEntry[] | undefined>(this, state ? state.canvases ?? [] : undefined);
+				this._canvasEntries.set(sessionId, entries);
+			}
+			const enabled = derived(this, reader => this._canvasEnabled.read(reader) && this._isCanvasExecutionSupported(sessionId, reader));
+			collection = new AgentHostSessionCanvases(backendSession, backendChat, this._canvasBinding, enabled, entries,
+				() => this._canExecuteCanvasSession(sessionId),
+				() => this._keepSessionStateAlive(sessionId));
+			collections.set(key, collection);
+		}
+		return collection;
+	}
+
+	protected _isCanvasExecutionSupported(_sessionId: string, _reader?: IReader): boolean {
+		return true;
+	}
+
+	private async _canExecuteCanvasSession(sessionId: string): Promise<boolean> {
+		const session = this.getKnownSessions().find(session => session.sessionId === sessionId);
+		if (!session) {
+			return false;
+		}
+		if (session.workspace.get() === undefined && session.isQuickChat?.get() !== true) {
+			return false;
+		}
+		return this._sessionsService.canExecuteSession(session);
+	}
+
+	private _updateCanvasEntries(sessionId: string, state: SessionState): void {
+		this._canvasEntries.get(sessionId)?.set(state.canvases ?? [], undefined);
+		const chats = new Set(state.chats.map(chat => chat.resource));
+		if (state.defaultChat) {
+			chats.add(state.defaultChat);
+		}
+		const collections = this._canvasCollections.get(sessionId);
+		for (const chat of collections?.keys() ?? []) {
+			if (!chats.has(chat)) {
+				collections?.deleteAndDispose(chat);
+			}
+		}
+	}
+
+	private _disposeSessionCanvases(sessionId: string): void {
+		this._canvasCollections.deleteAndDispose(sessionId);
+		this._canvasEntries.delete(sessionId);
+	}
+
 	protected _hasSession(sessionId: string): boolean {
 		const rawId = this._rawIdFromChatId(sessionId);
 		return !!rawId && this._sessionCache.has(rawId);
@@ -3939,6 +4017,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	 */
 	protected _disposeAllNewSessions(): void {
 		for (const sessionId of this._newSessions.keys()) {
+			this._disposeSessionCanvases(sessionId);
 			this._onNewSessionAbandoned(sessionId, 'providerDisposed');
 		}
 		this._newSessions.clearAndDisposeAll();
@@ -3947,6 +4026,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 	deleteNewSession(sessionId: string): void {
 		if (this._newSessions.has(sessionId)) {
+			this._disposeSessionCanvases(sessionId);
 			this._onNewSessionAbandoned(sessionId, 'discarded');
 			this._newSessions.deleteAndDispose(sessionId);
 			this._onDidChangeDraftSessions.fire();
@@ -4881,6 +4961,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				mapBackendSessionResource: resource => this._mapBackendSessionResource(resource),
 				mapWorkingDirectoryUri: uri => this.mapWorkingDirectoryUri(uri),
 				connectionStatus: this.remoteConnectionStatus,
+				canvasSupported: (sessionId, reader) => sessionType.id === 'copilotcli' && this._canvasSupported.read(reader) && this._isCanvasExecutionSupported(sessionId, reader),
 				...this._adapterOptions(),
 			} satisfies IAgentHostAdapterOptions);
 		} catch (err) {
@@ -5945,6 +6026,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 	clearSessionConfig(sessionId: string): void {
 		if (this._newSessions.has(sessionId)) {
+			this._disposeSessionCanvases(sessionId);
 			this._onNewSessionAbandoned(sessionId, 'discarded');
 			this._newSessions.deleteAndDispose(sessionId);
 			this._onDidChangeDraftSessions.fire();
@@ -7029,6 +7111,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		// `cached.chats`.
 		this._keepSessionStateAlive(cached.sessionId);
 		await connection.disposeChat(ahpChatUri);
+		this._canvasCollections.get(sessionId)?.deleteAndDispose(ahpChatUri.toString());
 		return true;
 	}
 
@@ -7318,7 +7401,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 
 		// First request sent: revert to the host-reported status.
-		cached.markChatAsSent(chatResource.fragment);
+		cached.markChatAsCreated(chatResource.fragment);
 
 		return cached;
 	}
@@ -7538,6 +7621,9 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				// earlier), so the wire-level refcount stays positive.
 				newSession.graduate();
 				if (this._newSessions.get(newSession.sessionId) === newSession) {
+					if (committedSession.sessionId !== newSession.sessionId) {
+						this._disposeSessionCanvases(newSession.sessionId);
+					}
 					this._newSessions.deleteAndDispose(newSession.sessionId);
 					this._onDidChangeDraftSessions.fire();
 				}
@@ -7559,6 +7645,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		// Preserve the existing unclassified failure cleanup.
 		newSession.graduate();
 		if (this._newSessions.get(newSession.sessionId) === newSession) {
+			this._disposeSessionCanvases(newSession.sessionId);
 			this._onNewSessionAbandoned(newSession.sessionId, 'sendFailed');
 			this._newSessions.deleteAndDispose(newSession.sessionId);
 			this._onDidChangeDraftSessions.fire();
@@ -8026,6 +8113,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			.map(([key, folderState]) => ({ key, enabled: folderState.enabled, overrides: folderState.overrides }));
 		const previousAgentMergeSettings = agentMergeSettings();
 		this._lastSessionStates.set(sessionId, state);
+		this._updateCanvasEntries(sessionId, state);
 		this._updateAgentMergeFolders(sessionId, state);
 		const agentMergeSettingsChanged = !structuralEquals(previousAgentMergeSettings, agentMergeSettings());
 		// Only fire when the inputs to `getCustomAgents` actually change.
@@ -8101,6 +8189,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	private _handleNewSessionStateUpdate(sessionId: string, state: SessionState): void {
 		const previous = this._lastSessionStates.get(sessionId);
 		this._lastSessionStates.set(sessionId, state);
+		this._updateCanvasEntries(sessionId, state);
 		this._newSessions.get(sessionId)?.applySessionMeta(state._meta, state.workingDirectories?.[0]);
 		if (!structuralEquals(readSessionSandboxPolicy(previous), readSessionSandboxPolicy(state)) || readSessionSandboxState(previous)?.enabled !== readSessionSandboxState(state)?.enabled) {
 			this._onDidChangeSessionConfig.fire(sessionId);
@@ -8164,6 +8253,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	 * back to the empty list rather than rendering stale agents.
 	 */
 	private _handleNewSessionStateGone(sessionId: string): void {
+		this._disposeSessionCanvases(sessionId);
 		if (this._lastSessionStates.delete(sessionId)) {
 			this._onDidChangeCustomAgents.fire();
 			this._onDidChangeCustomizations.fire();
@@ -8800,6 +8890,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		this._observedAgentMergeSessionStates.delete(stateOwner.sessionId);
 		this._agentMergeFolders.delete(stateOwner.sessionId);
 		this._lastSessionStates.delete(stateOwner.sessionId);
+		this._disposeSessionCanvases(stateOwner.sessionId);
 		return cached;
 	}
 

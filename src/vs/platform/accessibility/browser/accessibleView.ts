@@ -65,6 +65,7 @@ export const enum AccessibleViewProviderId {
 	ConnectionDiagnostics = 'connectionDiagnostics',
 	Kanban = 'kanban',
 	BrowserElementCommenting = 'browserElementCommenting',
+	SessionCanvas = 'sessionCanvas',
 	ChatPetAchievements = 'chatPetAchievements',
 }
 

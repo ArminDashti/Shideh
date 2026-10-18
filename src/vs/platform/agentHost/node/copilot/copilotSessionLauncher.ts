@@ -9,6 +9,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { equals as objectsEqual } from '../../../../base/common/objects.js';
 import { isObject, isStringArray } from '../../../../base/common/types.js';
 import { StopWatch } from '../../../../base/common/stopwatch.js';
+import { raceCancellationError } from '../../../../base/common/async.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IFileService } from '../../../files/common/files.js';
@@ -233,6 +234,8 @@ export function toSdkToolFilterPatterns(patterns: readonly string[] | undefined)
 }
 
 export interface ICopilotSessionRuntime {
+	/** Installs host event handlers before effectful native extension initialization. */
+	onSessionStarting?(wrapper: CopilotSessionWrapper): void;
 	/** Chat channel that owns this session's turns, used to attribute terminal claims. */
 	readonly chatUri: URI;
 	/** Opaque scope shared by chats whose session configuration is shared. */
@@ -747,6 +750,29 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 	async launch(plan: CopilotSessionLaunchPlan, runtime: ICopilotSessionRuntime): Promise<CopilotSessionWrapper> {
 		this._logService.trace('[StartupProbe]', { component: 'launcher', stage: 'config_begin', sessionId: plan.sessionId, epochMs: performance.timeOrigin + performance.now() });
 		this._logService.info(`[Copilot:${plan.sessionId}] Preparing SDK session: kind=${plan.kind}, configuration=${runtime.configurationResource.toString()}, chat=${runtime.chatUri.toString()}`);
+		const canvas = plan.isEphemeral ? undefined : this._canvases?.beginLaunch(plan.sessionId, runtime.chatUri.toString(), plan.workingDirectory);
+		const requestExtensions = canvas !== undefined && plan.kind === 'resume';
+		let wrapper: CopilotSessionWrapper | undefined;
+		const cancellation = canvas?.token.onCancellationRequested(() => wrapper?.dispose());
+		try {
+			if (canvas && runtime.onSessionStarting) {
+				wrapper = new CopilotSessionWrapper(plan.sessionId, this._logService);
+				runtime.onSessionStarting(wrapper);
+			}
+			const launched = this._launch(plan, runtime, canvas, requestExtensions, wrapper);
+			wrapper = await (canvas ? raceCancellationError(launched, canvas.token) : launched);
+			await canvas?.attach(wrapper, requestExtensions);
+			return wrapper;
+		} catch (error) {
+			canvas?.dispose();
+			wrapper?.dispose();
+			throw error;
+		} finally {
+			cancellation?.dispose();
+		}
+	}
+
+	private async _launch(plan: CopilotSessionLaunchPlan, runtime: ICopilotSessionRuntime, canvas: ICopilotCanvasLaunch | undefined, requestExtensions: boolean, pendingWrapper?: CopilotSessionWrapper): Promise<CopilotSessionWrapper> {
 		let managedSettingsResolved = false;
 		plan.stageRecorder?.mark('config');
 		const config = await this._buildSessionConfig(plan, runtime, () => { managedSettingsResolved = true; });
@@ -789,7 +815,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 
 	private async _launchSession(plan: CopilotSessionLaunchPlan, config: ICopilotResumeSessionConfig, sandboxConfig: () => SandboxConfig, retained = false): Promise<CopilotSessionWrapper> {
 		if (plan.kind === 'create') {
-			return this._createSession(plan, config, sandboxConfig);
+			return this._createSession(plan, config, sandboxConfig, earlyEvents, pendingWrapper);
 		}
 
 		let fallbackPlan = plan;
@@ -830,7 +856,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 				model: fallbackPlan.fallback.model,
 				longContextWindow: fallbackPlan.fallback.longContextWindow,
 				freeLongContext: fallbackPlan.fallback.freeLongContext,
-			}, fallbackConfig, sandboxConfig);
+			}, fallbackConfig, sandboxConfig, earlyEvents, pendingWrapper);
 			this._sessionOpenTelemetry.sdkResumeFallbackCreated(session);
 			this._logService.info(`[Copilot:${plan.sessionId}] Fallback createSession succeeded`);
 			return wrapper;
@@ -967,7 +993,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 			// problems by failing the request, so this is the path a genuine failure
 			// takes. Log the reason before it propagates: the launch is aborted below
 			// and the raw RPC error alone would not say which option was refused.
-			this._logService.error(`[Copilot:${sessionId}] Could not enable script safety; managed permissions cannot govern shell paths`, err);
+			this._logService.error(`[Copilot:${sessionId}] Could not enable script safety classification`, err);
 			throw err;
 		}
 	}
@@ -1179,6 +1205,11 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 			...byok,
 			...disabledMcpServers,
 			onEvent: event => {
+				earlyEvents?.capture(event);
+				if (pendingWrapper && !pendingWrapper.isReady) {
+					pendingWrapper.acceptSessionEvent(event);
+				}
+				canvas?.onEvent(event);
 				const owner = runtime.configurationResource.toString();
 				if (event.type === 'session.managed_settings_resolved' && !event.agentId) {
 					this._configurationService.setSessionSandboxPolicy(owner, projectCopilotSandboxPolicy(event.data, plan.sessionId, this._logService));

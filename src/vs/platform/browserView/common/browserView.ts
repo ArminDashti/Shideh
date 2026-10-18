@@ -155,6 +155,25 @@ export interface IBrowserViewTheme {
 	readonly semanticTokens?: IBrowserViewSemanticTheme;
 }
 
+/** Value-only, one-way theme defaults for an external canvas's main frame. */
+export interface IBrowserCanvasTheme {
+	readonly cssVariables: Readonly<Record<string, string>>;
+	readonly attributes: Readonly<Record<string, string>>;
+	readonly colorScheme: 'dark' | 'light';
+	readonly stylesheets: Readonly<Record<string, string>>;
+}
+
+/** Schemes suitable for opening a user-initiated external canvas link in an OS application. */
+export function isExternalCanvasLinkAllowed(value: string): boolean {
+	try {
+		const uri = URI.parse(value, true);
+		return ['http', 'https', 'mailto'].includes(uri.scheme) && !uri.authority.includes('@')
+			&& (uri.scheme === 'mailto' || !!uri.authority);
+	} catch {
+		return false;
+	}
+}
+
 /**
  * The full set of configuration a window contributes for the browser views it
  * owns. Sent as a single unit by the owning window.
@@ -162,6 +181,7 @@ export interface IBrowserViewTheme {
 export interface IBrowserViewWindowConfiguration {
 	/** Theme variables for injected UI. */
 	readonly theme: IBrowserViewTheme;
+	readonly canvasTheme?: IBrowserCanvasTheme;
 	/** Map of command ID to accelerator label for context menus. */
 	readonly keybindings: { [commandId: string]: string };
 

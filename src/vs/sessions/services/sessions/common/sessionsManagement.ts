@@ -298,6 +298,11 @@ export interface IRecentlyOpenedSessions {
 	readonly other: ISession[];
 }
 
+export interface ISessionLookupOptions {
+	/** Include the currently owned composer and automation drafts. */
+	readonly includeDrafts?: boolean;
+}
+
 /**
  * An active session item extends IChatSessionItem with repository information.
  * - For agent session items: repository is the workingDirectory from metadata
@@ -324,7 +329,9 @@ export interface ISessionsManagementService {
 	/**
 	 * Get a session by its resource URI.
 	 */
-	getSession(resource: URI): ISession | undefined;
+	getSession(resource: URI, options?: ISessionLookupOptions): ISession | undefined;
+	/** Live canvas state owned by this exact session and chat, never a default-chat fallback. */
+	getSessionCanvases(session: URI, chat: URI): ISessionCanvases | undefined;
 
 	/**
 	 * Resolves a session resource to the one that should actually be opened.

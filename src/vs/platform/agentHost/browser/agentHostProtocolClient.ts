@@ -44,6 +44,7 @@ import { isClientTransport, NonReconnectableTransportError, type AgentHostTransp
 import { AhpErrorCodes, JsonRpcErrorCodes } from '../common/state/protocol/errors.js';
 import { ChatSourceKind, ContentEncoding, ResourceRequestParams, type CompletionsParams, type CompletionsResult, type CreateTerminalParams, type ResolveSessionConfigResult, type SessionConfigCompletionsResult } from '../common/state/protocol/commands.js';
 import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from '../common/state/protocol/channels-changeset/commands.js';
+import type { CloseCanvasParams, InvokeCanvasActionParams, InvokeCanvasActionResult, ListCanvasTypesParams, ListCanvasTypesResult, OpenCanvasParams, OpenCanvasResult, ResolveCanvasSourceParams, ResolveCanvasSourceResult, RestartCanvasProviderParams } from '../common/state/protocol/channels-canvas/commands.js';
 import { decodeBase64, encodeBase64 } from '../../../base/common/buffer.js';
 import { getExpirationTime, getRemainingTimeInSeconds, isExpired } from '../../../base/common/date.js';
 import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomationTriggerDefinitionsParams, ListAutomationTriggerDefinitionsResult, RunAutomationParams, RunAutomationResult } from '../common/state/protocol/channels-automation/commands.js';
@@ -83,6 +84,8 @@ import { AhpErrorCodes } from '../common/state/protocol/errors.js';
 import type { JsonRpcErrorResponse } from '../common/state/protocol/messages.js';
 import type { IProtocolTransport } from '../common/state/sessionTransport.js';
 import { isWorktreeUnderRepository } from '../common/worktreePaths.js';
+import { IDialogService } from '../../dialogs/common/dialogs.js';
+import { isCanvasRecord } from '../common/agentHostCanvasValidation.js';
 import { getConnectionDiagnosticError, sanitizeConnectionDiagnosticText, traceConnectionOperation, type IConnectionDiagnosticEvent } from '../common/connectionDiagnostics.js';
 import { DevContainerAgentHostProtocolClient } from '../common/devContainerAgentHostProtocolClient.js';
 import type { IDevContainerAgentHostMainService } from '../common/devContainerAgentHost.js';
@@ -91,6 +94,14 @@ const AHP_CLIENT_CONNECTION_CLOSED = -32000;
 const DISABLE_AI_FEATURES_SETTING_ID = 'chat.disableAIFeatures';
 // AHP 0.9 changed the automation catalog wire shape, so VS Code cannot safely negotiate 0.8.
 const CLIENT_SUPPORTED_PROTOCOL_VERSIONS = SUPPORTED_PROTOCOL_VERSIONS.filter(version => version !== '0.8.0');
+
+function canvasApprovalCancellation(message: unknown): string | undefined {
+	if (isCanvasRecord(message) && message.jsonrpc === '2.0' && message.method === CancelAgentHostCanvasApprovalExtensionMethod
+		&& !Object.hasOwn(message, 'id') && isCanvasRecord(message.params) && typeof message.params.requestId === 'string') {
+		return message.params.requestId;
+	}
+	return undefined;
+}
 
 /**
  * After this much inbound silence, send an application-level `ping` to
@@ -1952,6 +1963,69 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		return await this._sendRequest('invokeChangesetOperation', params);
 	}
 
+	async listCanvasTypes(params: ListCanvasTypesParams): Promise<ListCanvasTypesResult> {
+		this._assertCanvasConnection();
+		return this._sendRequest('listCanvasTypes', params);
+	}
+
+	async initializeCanvasChat(params: InitializeCanvasChatParams, token: CancellationToken = CancellationToken.None): Promise<void> {
+		this._assertCanvasConnection();
+		if (!supportsAgentHostCanvasChatInitialization(this.initializeResult.get())) {
+			throw new ProtocolError(JsonRpcErrorCodes.MethodNotFound, 'Canvas chat initialization was not negotiated.');
+		}
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		const connection = this._state;
+		const request = this._sendExtensionRequest(InitializeCanvasChatExtensionMethod, params);
+		const cancellation = token.onCancellationRequested(() => {
+			if (this._state === connection && this._state.kind === AgentHostClientState.Connected) {
+				void this._sendExtensionRequest(CancelCanvasChatInitializationExtensionMethod, params).catch(error => {
+					this._logService.warn('[AgentHost] Canvas initialization cancellation was not acknowledged', error);
+				});
+			}
+		});
+		try {
+			await request;
+		} finally {
+			cancellation.dispose();
+		}
+	}
+
+	async openCanvas(params: OpenCanvasParams): Promise<OpenCanvasResult> {
+		this._assertCanvasConnection();
+		return this._sendRequest('openCanvas', params);
+	}
+
+	async resolveCanvasSource(params: ResolveCanvasSourceParams): Promise<ResolveCanvasSourceResult> {
+		this._assertCanvasConnection();
+		return this._sendRequest('resolveCanvasSource', params);
+	}
+
+	async invokeCanvasAction(params: InvokeCanvasActionParams): Promise<InvokeCanvasActionResult> {
+		this._assertCanvasConnection();
+		return this._sendRequest('invokeCanvasAction', params);
+	}
+
+	async restartCanvasProvider(params: RestartCanvasProviderParams): Promise<void> {
+		this._assertCanvasConnection();
+		await this._sendRequest('restartCanvasProvider', params);
+	}
+
+	async closeCanvas(params: CloseCanvasParams): Promise<void> {
+		this._assertCanvasConnection();
+		await this._sendRequest('closeCanvas', params);
+	}
+
+	private _assertCanvasConnection(): void {
+		if (this._state.kind !== AgentHostClientState.Connected) {
+			throw new ProtocolError(AHP_CLIENT_CONNECTION_CLOSED, 'Canvas requests require a live connection and are never queued for replay.');
+		}
+		if (!this._initializeResult.get()?.canvases) {
+			throw new ProtocolError(JsonRpcErrorCodes.MethodNotFound, 'Canvas support was not negotiated.');
+		}
+	}
+
 	/**
 	 * Send a request on an `mcp://` AHP side channel. The agent-host
 	 * routes by `params.channel` so we inject it automatically.
@@ -2143,7 +2217,10 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		// schedules work.
 		this._recordInboundTraffic();
 
-		if (isJsonRpcRequest(msg)) {
+		const cancelledApproval = canvasApprovalCancellation(msg);
+		if (cancelledApproval !== undefined) {
+			this._canvasApprovals.deleteAndDispose(cancelledApproval);
+		} else if (isJsonRpcRequest(msg)) {
 			this._handleReverseRequest(msg.id, msg.method, msg.params);
 		} else if (isJsonRpcResponse(msg)) {
 			const pending = this._pendingRequests.get(msg.id);

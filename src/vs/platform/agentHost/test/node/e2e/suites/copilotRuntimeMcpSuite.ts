@@ -125,6 +125,9 @@ export function defineCopilotRuntimeMcpTests(context: IAgentHostE2ETestContext):
 			assert.strictEqual(plugin.clientId, clientId);
 			assert.ok(plugin.children?.some(child => child.type === CustomizationType.McpServer));
 		}, 100, 100);
+		const warmup = await driveTurnToCompletion(context.client, session.sessionUri, 'runtime-mcp-resume-warmup', 'Reply exactly RUNTIME_MCP_RESUMED_READY. Do not call tools.', 1);
+		assert.strictEqual(warmup.responseText.trim(), 'RUNTIME_MCP_RESUMED_READY');
+		await retry(async () => assert.strictEqual((await serverState(session.sessionUri, session.pluginUri)).state.kind, McpServerStatus.Ready), 100, 100);
 	}
 
 	async function pluginState(sessionUri: string, pluginUri: string): Promise<PluginCustomization> {

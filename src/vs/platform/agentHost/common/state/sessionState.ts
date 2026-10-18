@@ -62,6 +62,8 @@ import {
 	type AutomationRunState,
 } from './protocol/state.js';
 
+export type { CanvasState, CanvasEntry, CanvasIdentityKey, CanvasSource } from './protocol/channels-canvas/state.js';
+
 // Re-export everything from the protocol state module
 export {
 	ChangesetOperationScope, ChangesetOperationStatus, ChangesetStatus, CustomizationLoadStatus,

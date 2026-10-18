@@ -37,7 +37,7 @@ import { resolveChatAttachment } from '../common/state/chatAttachmentContext.js'
 import { buildOpenSessionLinkForChatResource } from '../common/openSessionLink.js';
 import { McpServerStatus, ToolCallContributorKind, type AgentInfo, type SessionActiveClient } from '../common/state/protocol/state.js';
 import type { CustomizationEnablement } from '../common/state/protocol/channels-session/state.js';
-import { ActionType, isChatAction, StateAction, type ChatDeltaAction, type ChatReasoningAction, type ChatResponsePartAction, type ChatToolCallCompleteAction, type ChatToolCallStartAction, type ChatTurnStartedAction } from '../common/state/sessionActions.js';
+import { ActionType, isChatAction, StateAction, type ActionOrigin, type ChatDeltaAction, type ChatReasoningAction, type ChatResponsePartAction, type ChatToolCallCompleteAction, type ChatToolCallStartAction, type ChatTurnCancelledAction, type ChatTurnStartedAction } from '../common/state/sessionActions.js';
 import {
 	buildDefaultChatUri,
 	buildSubagentChatUri,
@@ -61,6 +61,7 @@ import {
 	CustomizationType,
 	ToolCallStatus,
 	ToolCallConfirmationReason,
+	ToolCallCancellationReason,
 	ToolResultContentType,
 	type ErrorInfo,
 	type ISessionWithDefaultChat,
@@ -88,6 +89,8 @@ import { updateAgentHostTelemetryLevelFromConfig } from './agentHostTelemetrySer
 import { getConfiguredSessionMode, getModelTelemetryContext, getTurnTelemetryContext } from './agentHostTurnTelemetryContext.js';
 import { AgentHostTurnTracker, IAgentHostTurnTracker } from './agentHostTurnTracker.js';
 import { IAgentHostTurnService } from './agentHostTurnService.js';
+import { IAgentHostCanvasesService } from './agentHostCanvasesService.js';
+import { localize } from '../../../nls.js';
 import type { IAgentHostCustomizationEnablementService } from './agentHostCustomizationEnablementService.js';
 import './localCommands/localChatCommands.contribution.js';
 import { SessionPermissionManager } from './sessionPermissions.js';
@@ -305,6 +308,7 @@ export class AgentSideEffects extends Disposable {
 		@IAgentHostToolCallTracker private readonly _toolCallTracker: AgentHostToolCallTracker,
 		@IAgentHostWorktreeIsolation private readonly _worktree: IAgentHostWorktreeIsolation,
 		@IAgentHostTurnService private readonly _turnService: IAgentHostTurnService,
+		@IAgentHostCanvasesService private readonly _canvases: IAgentHostCanvasesService,
 	) {
 		super();
 		this.onDidStartTurn = this._turnTracker.onDidStartTurn;
@@ -1830,6 +1834,24 @@ export class AgentSideEffects extends Disposable {
 		// This action is synthesized here rather than routed through
 		// `_dispatchActionForSession`, so feed the hang watchdog explicitly.
 		this._turnTracker.markActivity(sessionKey, turnId, readyAction.type);
+		const initialization = this._canvases.getChatInitialization(sessionKey);
+		if (initialization && !this._stateManager.getSnapshot(sessionKey) && readyAction.confirmationTitle && !readyAction.confirmed
+			&& readyAction.contributor?.kind !== ToolCallContributorKind.Client) {
+			const generation = this._stateManager.getChatGeneration(sessionKey);
+			const approved = await this._canvases.requestApproval(sessionKey, localize(
+				'agentHost.initializingChatToolPermission',
+				"{0}\n\nThis tool is waiting while the chat initializes. Approval applies once to this call only.\n\n{1}",
+				typeof readyAction.confirmationTitle === 'string' ? readyAction.confirmationTitle : readyAction.confirmationTitle.markdown, getInlineToolInput(e.state.toolInput) ?? '',
+			), initialization.token, initialization.clientId, initialization.initiator);
+			if (generation === this._stateManager.getChatGeneration(sessionKey) && this._stateManager.getActiveTurnId(sessionKey) === turnId) {
+				const confirmation = {
+					type: ActionType.ChatToolCallConfirmed, turnId, toolCallId: e.state.toolCallId,
+					...(approved ? { approved: true, confirmed: ToolCallConfirmationReason.UserAction } as const : { approved: false, reason: ToolCallCancellationReason.Denied } as const),
+				} as const;
+				this._stateManager.dispatchServerAction(sessionKey, confirmation);
+				this.handleAction(sessionKey, confirmation, initialization.clientId);
+			}
+		}
 	}
 
 	handleAction(channel: ProtocolURI, action: StateAction, clientId?: string, clientContextOrType: IAgentHostClientTelemetryContext | AgentHostClientType = AgentHostClientType.Unknown, resumedTurn?: Turn, automaticArchive = false, clientSeq?: number): void {
@@ -1980,7 +2002,7 @@ export class AgentSideEffects extends Disposable {
 					throw new Error(`ChatInputCompleted must be handled on an AHP chat channel: ${channel}`);
 				}
 				const agent = this._options.getAgent(sessionChannel);
-				agent?.respondToUserInputRequest(action.requestId, action.response, action.answers);
+				agent?.respondToUserInputRequest(action.requestId, action.response, action.answers, URI.parse(channel));
 				break;
 			}
 			case ActionType.ChatTurnCancelled: {
@@ -2205,6 +2227,43 @@ export class AgentSideEffects extends Disposable {
 			}
 		}
 		this._chatContributions.didApplyClientAction({ channel, session: sessionChannel, action, clientId, clientContext });
+	}
+
+	handleDeferredTurn(channel: string, action: ChatTurnStartedAction, origin: ActionOrigin | undefined, clientContext: IAgentHostClientTelemetryContext): void {
+		this._stateManager.deferTurn(channel, action, origin, clientContext, () => {
+			if (origin) {
+				this._chatContributions.didApplyClientAction({ channel, session: parseRequiredSessionUriFromChatUri(channel), action, clientId: origin.clientId, clientContext });
+			}
+		});
+		this._turnService.handleTurnStarted(channel, action, origin?.clientId, clientContext);
+	}
+
+	/** Cancels a pending host request without tearing down another native turn or its subagents. */
+	handleDeferredTurnCancellation(channel: string, action: ChatTurnCancelledAction, origin: ActionOrigin, clientContext: IAgentHostClientTelemetryContext): void {
+		const session = parseRequiredSessionUriFromChatUri(channel);
+		const pending = this._stateManager.rejectDeferredTurn(channel, 'The requested turn was cancelled before its runtime boundary.');
+		this._completeTurn(channel, action.turnId, 'cancelled');
+		if (pending?.queuedMessageId) {
+			this._stateManager.dispatchServerAction(channel, {
+				type: ActionType.ChatPendingMessageRemoved, kind: PendingMessageKind.Queued, id: pending.queuedMessageId,
+			});
+		}
+		this._stateManager.dispatchClientAction(channel, action, origin, clientContext);
+		void this._checkpointService.discardTurnStartCheckpoint(URI.parse(session), URI.parse(channel), action.turnId).catch(error => {
+			this._logService.warn('[AgentSideEffects] Failed to discard a cancelled pending turn checkpoint', error);
+		});
+		this._abortTurn(channel, action.turnId, clientContext);
+		this._chatContributions.didApplyClientAction({ channel, session, action, clientId: origin.clientId, clientContext });
+	}
+
+	private _abortTurn(channel: string, turnId: string, clientContext: IAgentHostClientTelemetryContext): void {
+		const session = parseRequiredSessionUriFromChatUri(channel);
+		const agent = this._options.getAgent(session);
+		if (agent) {
+			void agent.chats.abort(URI.parse(channel), { ...this._chatContext(session, channel), clientTelemetryContext: clientContext }, turnId).catch(error => {
+				this._logService.error('[AgentSideEffects] abort failed', error);
+			});
+		}
 	}
 
 	private _recordCustomizationEnablement(session: ProtocolURI, candidate: ICustomizationEnablementCandidate, enablement: readonly CustomizationEnablement[]): void {

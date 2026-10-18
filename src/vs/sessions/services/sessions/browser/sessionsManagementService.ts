@@ -30,6 +30,7 @@ import { ICreateNewChatInSessionOptions, ICreateNewSessionOptions, IDeferredNewS
 import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from './sessionsProvidersService.js';
 import { IDeleteChatOptions, IPreparedNewSession, ISessionChangeEvent, ISessionsProvider, type ISessionsProviderCreateSessionOptions, type SessionResourceResolveReason } from '../common/sessionsProvider.js';
 import { ChatModelSource, IChat, ISession, ISessionWorkspace, ISideChatSelection, isActiveSessionStatus, SessionStatus, ISessionType } from '../common/session.js';
+import type { ISessionCanvases } from '../common/sessionCanvases.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -363,6 +364,12 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		}
 		return sessions.find(s =>
 			this.uriIdentityService.extUri.isEqual(s.resource, resource)
+		);
+		if (session || !options?.includeDrafts) {
+			return session;
+		}
+		return [this._newSession.get(), this._automationSession.get()].find(draft =>
+			draft && this.uriIdentityService.extUri.isEqual(draft.resource, resource)
 		);
 	}
 

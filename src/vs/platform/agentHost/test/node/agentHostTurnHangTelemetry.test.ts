@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { unavailableCanvases } from '../common/agentHostCanvasesTestUtils.js';
+import { IAgentHostCanvasesService } from '../../node/agentHostCanvasesService.js';
 import * as sinon from 'sinon';
 import { DeferredPromise, timeout } from '../../../../base/common/async.js';
 import { Event } from '../../../../base/common/event.js';

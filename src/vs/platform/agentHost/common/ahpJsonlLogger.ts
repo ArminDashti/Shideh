@@ -68,6 +68,15 @@ function isJsonRpcId(value: unknown): value is string | number {
 	return typeof value === 'string' || typeof value === 'number';
 }
 
+/** Uses the response shape so logging enabled after a request still cannot persist presentation credentials. */
+function redactCanvasSourceResponse(message: object): object {
+	if (isCanvasRecord(message) && isCanvasRecord(message.result)
+		&& typeof message.result.availability === 'string' && typeof message.result.incarnation === 'string'
+		&& typeof message.result.revision === 'number' && isCanvasRecord(message.result.source) && typeof message.result.source.url === 'string') {
+		return { ...message, result: { ...message.result, source: { redacted: true } } };
+	}
+	return message;
+}
 
 export class AhpJsonlLogger extends Disposable {
 

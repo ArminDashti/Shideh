@@ -45,6 +45,15 @@ class WebContentsViewRendererFeature extends BrowserEditorContribution {
 				};
 			},
 			priority: 1000,
+			compute: (current, pane) => {
+				const bounds = snapBrowserViewBounds({
+					x: pane.originX + (current.left ?? 0),
+					y: pane.originY + (current.top ?? 0),
+					width: current.width,
+					height: current.height,
+				}, getZoomFactor(this.editor.window));
+				return { ...current, width: bounds.width, height: bounds.height, left: bounds.x - pane.originX, top: bounds.y - pane.originY };
+			},
 		};
 	}
 

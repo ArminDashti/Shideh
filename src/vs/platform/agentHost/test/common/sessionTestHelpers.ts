@@ -328,6 +328,21 @@ export class TestSessionDatabase implements ISessionDatabase {
 		this._metadata.set(AH_META_HAS_WORKSPACE_TRANSITIONS_DB_KEY, 'true');
 	}
 
+	async setTurnMessageOrigin(turnId: string, origin: string): Promise<void> {
+		this._turnMessageOrigins.set(turnId, origin);
+	}
+
+	async getTurnMessageOrigins(): Promise<Map<string, string>> {
+		const result = new Map(this._turnMessageOrigins);
+		for (const [turnId, eventId] of this._turnEventIds) {
+			const origin = this._turnMessageOrigins.get(turnId);
+			if (origin) {
+				result.set(eventId, origin);
+			}
+		}
+		return result;
+	}
+
 	async setWorkspaceConversion(turnId: string, transition: string, metadata: Readonly<Record<string, string>>): Promise<void> {
 		this._turns.add(turnId);
 		for (const [key, value] of Object.entries(metadata)) {
@@ -448,6 +463,11 @@ export class TestSessionDatabase implements ISessionDatabase {
 				});
 			}
 		}
+		for (const turnId of [...this._turnMessageOrigins.keys()]) {
+			if (!mapping.has(turnId)) {
+				this._turnMessageOrigins.delete(turnId);
+			}
+		}
 		for (const turnId of [...this._turnDelegations.keys()]) {
 			if (!mapping.has(turnId)) {
 				this._turnDelegations.delete(turnId);
@@ -459,6 +479,11 @@ export class TestSessionDatabase implements ISessionDatabase {
 			}
 		}
 		for (const [oldId, newId] of mapping) {
+			const origin = this._turnMessageOrigins.get(oldId);
+			if (origin) {
+				this._turnMessageOrigins.delete(oldId);
+				this._turnMessageOrigins.set(newId, origin);
+			}
 			const delegation = this._turnDelegations.get(oldId);
 			if (delegation) {
 				this._turnDelegations.delete(oldId);

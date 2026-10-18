@@ -83,6 +83,8 @@ import { IAgentHostChatInputService } from './agentHostChatInputService.js';
 import { AgentSideEffects, type IAgentSideEffectsOptions } from './agentSideEffects.js';
 import { AgentHostLocalTurns, parsePersistedTurn } from './agentHostLocalTurns.js';
 import { AgentSessionResidency } from './agentSessionResidency.js';
+import { IAgentHostCanvasesService, type IAgentHostCanvasTurnPreparation } from './agentHostCanvasesService.js';
+import type { IAgentCanvasApprovalClient } from '../common/agentHostCanvases.js';
 import { resolveChangesetOwnerScope } from './agentHostBranchChangesetScope.js';
 import { IAgentHostSessionOpenTelemetry, type IAgentHostSessionOpenTelemetryScope } from './agentHostSessionOpenTelemetry.js';
 import { AgentServerToolHost } from './shared/agentServerToolHost.js';
@@ -1008,10 +1010,17 @@ export class AgentService extends Disposable implements IAgentService {
 			{
 				limit: options.sessionResidencyLimit,
 				releaseRetryMs: options.sessionReleaseRetryMs,
-				holdsSession: session => this._agentMergeController.holdsSession(session),
-				onDidReleaseHold: this._agentMergeController.onDidReleaseHold,
+				holdsSession: session => this._agentMergeController.holdsSession(session) || this._canvases.holdsSession(session),
+				onDidReleaseHold: Event.any(this._agentMergeController.onDidReleaseHold, this._canvases.onDidReleaseHold),
 			},
 		));
+		this._register(this._canvases.onDidReleaseHold(session => {
+			const resource = URI.parse(session);
+			this._sessionResidency.touch(resource);
+			if (!this._maybeScheduleEphemeralSessionGc(resource)) {
+				this._maybeScheduleSessionGc(resource);
+			}
+		}));
 		core.callbackBinder.bind({
 			canEvictChangeset: changeset => this._canEvictChangeset(changeset),
 			startAgentMergeTurn: (chat, turnId, prompt) => this._startAgentMergePrompt(chat, turnId, prompt),
@@ -4946,6 +4955,24 @@ export class AgentService extends Disposable implements IAgentService {
 
 	private async _createSession(config: IAgentCreateSessionConfig | undefined, origin?: SessionOrigin): Promise<URI> {
 		const provider = this._providerService.resolveProvider(config?.provider);
+		if (!provider?.canvases?.available) {
+			return this._createSession(config);
+		}
+		const session = config?.session ?? this._mintSessionUri(provider);
+		const chat = buildDefaultChatUri(session);
+		const initialization = !this._stateManager.getSessionState(session.toString()) && !this._canvases.getChatInitialization(chat)
+			? this._canvases.beginChatCreation(chat) : undefined;
+		try {
+			const result = await this._createSession({ ...config, session });
+			initialization?.commit();
+			return result;
+		} finally {
+			initialization?.dispose();
+		}
+	}
+
+	private async _createSession(config?: IAgentCreateSessionConfig): Promise<URI> {
+		const provider = this._providerService.resolveProvider(config?.provider);
 		const isEphemeral = config ? readEphemeralSessionMeta(config).isEphemeral === true : false;
 		if (!provider) {
 			throw new Error(`No agent provider registered for: ${config?.provider ?? '(none)'}`);
@@ -5156,6 +5183,15 @@ export class AgentService extends Disposable implements IAgentService {
 		]);
 		traceStartup('customizations_end');
 
+		try {
+			this._canvases.assertChatInitialization(defaultChat.toString());
+		} catch (error) {
+			await this._rollbackProviderSession(provider, session);
+			this._stateManager.removeSession(session.toString());
+			await this._sessionRegistry.tombstone(session);
+			throw error;
+		}
+
 		if (config?.importConversation) {
 			// An imported conversation arrives with pre-existing turns (assigned
 			// fresh UUID ids above). Seed them into the new session's protocol
@@ -5351,6 +5387,23 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	async createChat(session: URI, chat: URI, options?: IAgentCreateChatRequestOptions): Promise<void> {
+		if (parseChatUri(chat)?.session !== session.toString()) {
+			throw new Error('The new chat must belong to the exact creating session.');
+		}
+		if (this._stateManager.getSessionState(session.toString())?.chats.some(entry => entry.resource === chat.toString())) {
+			return;
+		}
+		const initialization = !this._canvases.getChatInitialization(chat.toString()) && this._providerService.getProviderForSession(session)?.canvases?.available
+			? this._canvases.beginChatCreation(chat.toString()) : undefined;
+		try {
+			await this._createAdditionalChat(session, chat, options);
+			initialization?.commit();
+		} finally {
+			initialization?.dispose();
+		}
+	}
+
+	private async _createAdditionalChat(session: URI, chat: URI, options?: IAgentCreateChatRequestOptions): Promise<void> {
 		const sessionKey = session.toString();
 		const creationError = this._worktree.getCreationError(AgentSession.id(session));
 		if (creationError) {
@@ -5478,6 +5531,7 @@ export class AgentService extends Disposable implements IAgentService {
 			// subscribers only see a chat that can already receive messages.
 			const createResult = await this._createChat(provider, chat, session, createOptions);
 			const providerData = createResult?.providerData;
+			this._canvases.assertChatInitialization(chat.toString());
 			const title = forkedTitle ?? options?.title;
 			const sessionState = this._stateManager.getSessionState(sessionKey);
 			if (!sessionState) {
@@ -5522,6 +5576,7 @@ export class AgentService extends Disposable implements IAgentService {
 					[customChatTitleMetadataKey(chat.toString())]: title,
 					[customChatTitleSourceMetadataKey(chat.toString())]: AGENT_HOST_TITLE_SOURCE_AUTO,
 				}, catalogChats);
+				this._canvases.assertChatInitialization(chat.toString());
 				this._stateManager.addChat(sessionKey, chat.toString(), {
 					...(forkedTitle !== undefined ? { title: forkedTitle } : options?.title !== undefined ? { title: options.title } : {}),
 					...(forkedTurns !== undefined ? { turns: forkedTurns } : {}),
@@ -5789,6 +5844,7 @@ export class AgentService extends Disposable implements IAgentService {
 				...(result?.provisional ? { provisional: true } : {}),
 				...(result ? { chat: result } : {}),
 			};
+			this._canvases.assertChatInitialization(defaultChatUri.toString());
 			if (deferWorktreeCreation && created.provisional) {
 				this._worktree.notePending(AgentSession.id(created.session));
 			}
@@ -6816,6 +6872,7 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	async disposeSession(session: URI): Promise<void> {
+		this._canvases.cancelSessionInitialization(session.toString());
 		this._logService.trace(`[AgentService] disposeSession: ${session.toString()}`);
 		await this._sessionResidency.runDisposal(session, () => this._doDisposeSession(session));
 	}
@@ -7288,8 +7345,9 @@ export class AgentService extends Disposable implements IAgentService {
 	addSubscriber(resource: URI, clientId: string): void {
 		// A new subscriber means the session is being observed again; cancel
 		// any pending GC armed while it had no subscribers.
-		this._cancelPendingSessionGc(resource);
-		this._cancelPendingEphemeralSessionGc(resource);
+		const owner = resolveAgentHostSession(resource, this._stateManager.getCanvasState(resource.toString())?.identity.chat);
+		this._cancelPendingSessionGc(owner);
+		this._cancelPendingEphemeralSessionGc(owner);
 		// 0→1 transition — covers both the full subscribe path AND the
 		// handshake fast-path used by `ProtocolServerHandler` when state is
 		// already cached. The coordinator decides whether the URI is one
@@ -7315,11 +7373,12 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 		this._changesetCoordinator.onLastSubscriber(resource);
 		this._stateManager.onChangesetLivenessChanged();
-		if (this._maybeScheduleEphemeralSessionGc(resource)) {
+		const owner = resolveAgentHostSession(resource, this._stateManager.getCanvasState(resource.toString())?.identity.chat);
+		if (this._maybeScheduleEphemeralSessionGc(owner)) {
 			return;
 		}
 		// Annotation subscribers block destructive GC, but must not suppress residency reconciliation.
-		this._maybeScheduleSessionGc(resource);
+		this._maybeScheduleSessionGc(owner);
 		void this._sessionResidency.reconcile();
 	}
 
@@ -7353,7 +7412,7 @@ export class AgentService extends Disposable implements IAgentService {
 		if (!this._stateManager.isEphemeralSession(sessionKey)) {
 			return false;
 		}
-		if (this._subscriptions.hasSessionSubscribers(session)) {
+		if (this._subscriptions.hasSessionSubscribers(session) || this._canvases.holdsSession(sessionKey)) {
 			return true;
 		}
 		this._pendingSessionGc.set(session, disposableTimeout(() => {
@@ -7407,7 +7466,7 @@ export class AgentService extends Disposable implements IAgentService {
 	 */
 	private _maybeScheduleSessionGc(resource: URI): void {
 		const session = resolveAgentHostSession(resource);
-		if (this._subscriptions.hasSessionSubscribers(session)) {
+		if (this._subscriptions.hasSessionSubscribers(session) || this._canvases.holdsSession(session.toString())) {
 			return;
 		}
 		const key = session.toString();
@@ -7458,7 +7517,7 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	private async _runEphemeralSessionGc(session: URI): Promise<void> {
-		if (this._subscriptions.hasSessionSubscribers(session)) {
+		if (this._subscriptions.hasSessionSubscribers(session) || this._canvases.holdsSession(session.toString())) {
 			return;
 		}
 		this._logService.info(`[AgentService] GC: disposing unsubscribed ephemeral session ${session.toString()}`);
@@ -7481,7 +7540,7 @@ export class AgentService extends Disposable implements IAgentService {
 	 */
 	private async _runSessionGc(resource: URI, token: CancellationToken): Promise<void> {
 		const key = resource.toString();
-		if (this._subscriptions.hasSessionSubscribers(resource)) {
+		if (this._subscriptions.hasSessionSubscribers(resource) || this._canvases.holdsSession(key)) {
 			return;
 		}
 		if (await this._hasPersistedSessionData(resource)) {
@@ -7825,10 +7884,28 @@ export class AgentService extends Disposable implements IAgentService {
 		const requiresAttachmentRewrite = this._needsAsyncRewrite(sessionChannel, action);
 		const requiresReviewStateUpdate = action.type === ActionType.ChangesetFilesReviewChanged;
 		const requiresAnnotationsRestore = isAnnotationsAction(action);
-		const requiresWorkspacePin = action.type === ActionType.SessionWorkingDirectorySet;
+		if (action.type === ActionType.ChatTurnCancelled && this._canvases.cancelTurnPreparation(channel, action.turnId)) {
+			this._stateManager.dispatchClientAction(channel, action, { clientId, clientSeq }, clientContext);
+			return;
+		}
+		if (this._canvases.isChatInitializing(channel) && (action.type === ActionType.ChatToolCallConfirmed || action.type === ActionType.ChatInputCompleted || action.type === ActionType.ChatTurnCancelled)) {
+			this._dispatchActionNow(channel, sessionChannel, action, clientId, clientSeq, clientContext);
+			return;
+		}
 
 		const pending = this._clientDispatchQueues.get(clientId);
-		if (!pending && !requiresSessionRestore && !requiresPeerResolution && !requiresTurnOwnerResolution && !requiresAttachmentRewrite && !requiresReviewStateUpdate && !requiresAnnotationsRestore && !requiresWorkspacePin) {
+		let canvasPreparation: IAgentHostCanvasTurnPreparation | undefined;
+		try {
+			if (action.type === ActionType.ChatTurnStarted && !requiresSessionRestore && !requiresPeerResolution) {
+				canvasPreparation = this._prepareCanvasTurn(channel, sessionChannel, action, clientId, clientContext, canvasInitiator);
+			}
+		} catch (error) {
+			this._stateManager.rejectClientAction(channel, action, { clientId, clientSeq }, toErrorMessage(error));
+			return;
+		}
+		const requiresWorkspacePin = action.type === ActionType.SessionWorkingDirectorySet;
+
+		if (!pending && !requiresSessionRestore && !requiresPeerResolution && !requiresTurnOwnerResolution && !requiresAttachmentRewrite && !requiresReviewStateUpdate && !requiresAnnotationsRestore && !requiresWorkspacePin && !canvasPreparation) {
 			this._dispatchActionNow(channel, sessionChannel, action, clientId, clientSeq, clientContext);
 			return;
 		}
@@ -7873,6 +7950,12 @@ export class AgentService extends Disposable implements IAgentService {
 			if (action.type === ActionType.ChatTurnStarted && requiresTurnOwnerResolution) {
 				await this._resolvePeerChatsForTurnValidation(sessionChannel);
 			}
+			if (action.type === ActionType.ChatTurnStarted) {
+				if (!canvasPreparation && (requiresSessionRestore || requiresPeerResolution)) {
+					canvasPreparation = this._prepareCanvasTurn(channel, sessionChannel, action, clientId, clientContext, canvasInitiator);
+				}
+				await canvasPreparation?.run(action.message.text);
+			}
 			let rewritten: SessionAction | ChatAction | TerminalAction | ClientChangesetAction | ClientAnnotationsAction | IRootConfigChangedAction = requiresAttachmentRewrite
 				? await this._rewriteUserMessageAttachments(sessionChannel, action, clientId)
 				: action;
@@ -7912,6 +7995,7 @@ export class AgentService extends Disposable implements IAgentService {
 			this._logService.error(`[AgentService] async dispatchAction failed: ${toErrorMessage(err)}`);
 			this._stateManager.rejectClientAction(channel, action, { clientId, clientSeq }, toErrorMessage(err));
 		}).finally(() => {
+			canvasPreparation?.dispose();
 			if (this._clientDispatchQueues.get(clientId) === next) {
 				this._clientDispatchQueues.delete(clientId);
 			}
@@ -8414,6 +8498,10 @@ export class AgentService extends Disposable implements IAgentService {
 			return;
 		}
 		if (action.type === ActionType.ChatTurnCancelled) {
+			if (this._stateManager.getDeferredTurnId(channel) === action.turnId) {
+				this._sideEffects.handleDeferredTurnCancellation(channel, action, origin, clientContext);
+				return;
+			}
 			// Match the turn before reduction so stale no-ops cannot trigger a chat-wide abort.
 			if (this._stateManager.getChatState(channel)?.activeTurn?.id !== action.turnId) {
 				this._logService.trace(`[AgentService] Ignoring cancellation of an inactive turn: channel=${channel}, turnId=${action.turnId}`);
@@ -8502,6 +8590,10 @@ export class AgentService extends Disposable implements IAgentService {
 				this._stateManager.rejectClientAction(channel, action, origin, toErrorMessage(error));
 				return false;
 			}
+		}
+		if (deferTurnStart && action.type === ActionType.ChatTurnStarted) {
+			this._sideEffects.handleDeferredTurn(channel, action, origin, clientContext);
+			return;
 		}
 		this._stateManager.dispatchClientAction(channel, action, origin, clientContext);
 		if (action.type === ActionType.RootConfigChanged) {
@@ -9234,7 +9326,7 @@ export class AgentService extends Disposable implements IAgentService {
 		const defaultChatWorkingDirectories = await this._readDefaultChatWorkingDirectories(defaultChatUri)
 			?? cachedDefaultChat?.workingDirectories;
 		// Restore host-owned tool strategy before the provider materializes its tool inventory.
-		const { draft: defaultDraft, title: defaultChatTitle } = await this._chatContributions.hydrateChat({
+		const { draft: defaultDraft, title: defaultChatTitle, canvases } = await this._chatContributions.hydrateChat({
 			session: sessionStr,
 			chat: defaultChatUri.toString(),
 		}, {});
@@ -9825,7 +9917,7 @@ export class AgentService extends Disposable implements IAgentService {
 			}
 			const cachedChat = cachedChats?.find(chat => chat.uri === entry.uri);
 			const cachedTitle = cachedChat?.title;
-			const { title, draft } = await this._chatContributions.hydrateChat({
+			const { title, draft, canvases } = await this._chatContributions.hydrateChat({
 				session: session.toString(),
 				chat: chatUri.toString(),
 			}, cachedTitle ? { title: cachedTitle } : {});
@@ -9833,6 +9925,7 @@ export class AgentService extends Disposable implements IAgentService {
 				chatUri,
 				title,
 				draft,
+				canvases,
 				providerData: entry.providerData,
 				origin: entry.origin,
 				interactivity: cachedChat?.interactivity,
@@ -11343,7 +11436,7 @@ export class AgentService extends Disposable implements IAgentService {
 			}
 			const origin = { kind: ChatOriginKind.Tool, chat: parentChat, toolCallId: child.toolCallId } as const;
 			const existing = this._stateManager.getSessionState(parentSessionStr)?.chats.find(chat => chat.resource === chatUri);
-			const { title: persistedTitle } = await this._chatContributions.hydrateChat({
+			const { title: persistedTitle, canvases } = await this._chatContributions.hydrateChat({
 				session: parentSessionStr,
 				chat: chatUri,
 			}, {});

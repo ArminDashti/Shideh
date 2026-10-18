@@ -38,7 +38,7 @@ suite('BrowserViewModel', () => {
 			onDidChangeZoom: Event.None,
 		});
 
-		const createModel = (storageScope: BrowserViewStorageScope, audiences: IBrowserViewAudience[]) => store.add(new BrowserViewModel(
+		const createModel = (storageScope: BrowserViewStorageScope, audiences: IBrowserViewAudience[], external = false) => store.add(new BrowserViewModel(
 			`browser-${storageScope}-${audiences.length}`,
 			{ windowId: 1 },
 			{ type: 'user' },
@@ -59,10 +59,12 @@ suite('BrowserViewModel', () => {
 			sharedWorkspace: createModel(BrowserViewStorageScope.Workspace, [{ type: 'agent' }]).sharingState,
 			unsharedWorkspace: createModel(BrowserViewStorageScope.Workspace, []).sharingState,
 			unsharedAgent: createModel(BrowserViewStorageScope.Agent, []).sharingState,
+			external: createModel(BrowserViewStorageScope.Agent, [], true).sharingState,
 		}, {
 			sharedWorkspace: BrowserViewSharingState.Shared,
 			unsharedWorkspace: BrowserViewSharingState.BlockedByNetworkPolicy,
 			unsharedAgent: BrowserViewSharingState.Available,
+			external: BrowserViewSharingState.Unavailable,
 		});
 	});
 

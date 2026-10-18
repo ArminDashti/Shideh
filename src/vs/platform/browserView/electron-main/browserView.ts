@@ -157,6 +157,7 @@ export class BrowserView extends Disposable {
 		public readonly session: BrowserSession,
 		private readonly _createChildView: (owner: IBrowserViewOwner, url: string, electronOptions: Electron.WebContentsViewConstructorOptions | undefined, editorOptions: IBrowserViewEditorOpenOptions) => BrowserView,
 		openContextMenu: (view: BrowserView, params: Electron.ContextMenuParams) => void,
+		private readonly _openExternalCanvasLink: (url: string) => void,
 		options: Electron.WebContentsViewConstructorOptions | undefined,
 		createWebContentsView: (options: Electron.WebContentsViewConstructorOptions) => WebContentsView = options => new electron.WebContentsView(options),
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
@@ -1054,6 +1055,20 @@ export class BrowserView extends Disposable {
 	 */
 	getConsoleLogs(): string {
 		return this._consoleLogs.join('\n');
+	}
+
+	revalidateFileAccess(): void {
+		if (this._isDisposed || this._view.webContents.isDestroyed()) {
+			return;
+		}
+		const error = BrowserSession.fileAccess.getError(this.getURL());
+		if (!error || this._lastError?.fileAccessDenied) {
+			return;
+		}
+		this._lastError = error;
+		this.setVisible(false);
+		this._onDidChangeLoadingState.fire({ loading: false, error });
+		this._view.webContents.reloadIgnoringCache();
 	}
 
 	/**

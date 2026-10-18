@@ -8,6 +8,7 @@ import type { WorkingDirectory } from '../../common/state/protocol/channels-sess
 import { getWorkingDirectoryUris } from '../../common/agentHostWorkingDirectories.js';
 import sinon from 'sinon';
 import { DeferredPromise, timeout } from '../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -93,6 +94,7 @@ const syncTestConfigurationNode = {
 	},
 };
 import type { Implementation } from '../../common/state/protocol/common/commands.js';
+import { SessionLifecycle, type SessionState } from '../../common/state/protocol/channels-session/state.js';
 import { agentsWindowAgentHostClientInfo, editorWindowAgentHostClientInfo } from '../../common/agentHostClientInfo.js';
 import { AgentHostClientConnectionKind } from '../../common/agentHostTelemetry.js';
 import type { IRemoteAgentHostReconnectPolicy } from '../../common/reconnectPolicy.js';
@@ -343,6 +345,14 @@ class ManagedPermissionsConfigurationService extends TestConfigurationService {
 
 suite('AgentHostProtocolClient', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const canvasDialogs = new class extends mock<IDialogService>() {
+		readonly requests: IConfirmation[] = [];
+		response: Promise<{ confirmed: boolean }> | undefined;
+		override async confirm(confirmation: IConfirmation): Promise<{ confirmed: boolean }> {
+			this.requests.push(confirmation);
+			return this.response ?? { confirmed: false };
+		}
+	}();
 
 	const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 	suiteSetup(() => configurationRegistry.registerConfiguration(syncTestConfigurationNode));
@@ -491,7 +501,7 @@ suite('AgentHostProtocolClient', () => {
 		transport.fireMessage({
 			jsonrpc: '2.0',
 			id: sent.id,
-			result: { protocolVersion: PROTOCOL_VERSION, serverSeq: 0, snapshots: [], _meta: meta },
+			result: { protocolVersion: PROTOCOL_VERSION, serverSeq: 0, snapshots: [], _meta: meta, ...(canvases ? { canvases: {} } : {}) },
 		});
 		await connectPromise;
 	}
@@ -826,6 +836,170 @@ suite('AgentHostProtocolClient', () => {
 			await Promise.resolve();
 		}
 	}
+
+	suite('canvas commands and consent', () => {
+		const owner = 'copilot:/canvas-client';
+		const chat = buildChatUri(owner, 'default');
+		const canvas: CanvasEntry = {
+			resource: 'ahp-canvas:/client', identity: { chat, source: { kind: CanvasSourceKind.Extension, extensionId: 'project:counter' }, canvasType: 'counter', instanceId: 'main', incarnation: 'first' },
+			title: 'Counter', trust: { status: CanvasTrustStatus.Trusted }, availability: CanvasAvailabilityStatus.Ready, revision: 1,
+		};
+		const openParams = { channel: owner, identity: canvas.identity, canvas: canvas.resource, title: canvas.title, requestId: 'open' };
+
+		setup(() => {
+			canvasDialogs.requests.length = 0;
+			canvasDialogs.response = undefined;
+		});
+
+		test('all six public methods send their canonical routes only after capability negotiation', async () => {
+			const { client, transport } = createClient();
+			await connectClient(client, transport, undefined, true);
+			const cases = [
+				{ method: 'listCanvasTypes', run: () => client.listCanvasTypes({ channel: chat }), result: { types: [] } },
+				{ method: 'openCanvas', run: () => client.openCanvas(openParams), result: { canvas } },
+				{ method: 'resolveCanvasSource', run: () => client.resolveCanvasSource({ channel: canvas.resource }), result: { availability: 'ready', incarnation: 'first', revision: 1, source: { url: 'http://127.0.0.1:8000/app' } } },
+				{ method: 'invokeCanvasAction', run: () => client.invokeCanvasAction({ channel: canvas.resource, actionId: 'increment', incarnation: 'first', requestId: 'action' }), result: { result: { count: 1 } } },
+				{ method: 'restartCanvasProvider', run: () => client.restartCanvasProvider({ channel: canvas.resource, incarnation: 'first', requestId: 'restart' }), result: null },
+				{ method: 'closeCanvas', run: () => client.closeCanvas({ channel: canvas.resource, revision: 1, requestId: 'close' }), result: null },
+			];
+			for (const entry of cases) {
+				const response = entry.run();
+				const request = transport.sentMessages.at(-1);
+				assert.ok(request && hasKey(request, { id: true, method: true }));
+				assert.strictEqual(request.method, entry.method);
+				transport.fireMessage({ jsonrpc: '2.0', id: request.id, result: entry.result });
+				assert.deepStrictEqual(await response, entry.result === null ? undefined : entry.result);
+			}
+			const initialize = transport.sentMessages[0] as JsonRpcRequest;
+			assert.deepStrictEqual((initialize.params as { capabilities: { canvases: object } }).capabilities.canvases, {});
+		});
+
+		test('cold canvas recovery only resubscribes the exact state channel after its owner is restored', async () => {
+			const { client, transport } = createClientForIdentity(LOCAL_AGENT_HOST_RESOURCE_IDENTITY);
+			await connectClient(client, transport, undefined, true);
+			const start = transport.sentMessages.length;
+			const requests = () => transport.sentMessages.slice(start).filter((message): message is JsonRpcRequest => hasKey(message, { id: true, method: true }));
+			disposables.add(client.getSubscription<SessionState>(StateComponents.Session, URI.parse(owner), 'Owner'));
+			const ref = disposables.add(client.getSubscription<CanvasState>(StateComponents.Canvas, URI.parse(canvas.resource), 'Editor'));
+			const observed: CanvasState[] = [];
+			disposables.add(ref.object.onDidChange(state => observed.push(state)));
+			await timeout(0);
+			const [ownerRead, initialRead] = requests();
+			assert.ok(ownerRead && initialRead);
+			transport.fireMessage({ jsonrpc: '2.0', id: initialRead.id, error: { code: AhpErrorCodes.NotFound, message: 'Canvas membership was not found.' } });
+			await timeout(0);
+			const originalError = ref.object.value;
+			assert.ok(originalError instanceof ProtocolError);
+			const cold: CanvasState = { ...canvas, trust: { status: CanvasTrustStatus.Pending }, availability: { status: CanvasAvailabilityStatus.NotLoaded } };
+			const ownerState: SessionState = {
+				provider: 'copilot', title: 'Cold owner', status: SessionStatus.Idle, lifecycle: SessionLifecycle.Ready, activeClients: [], chats: [],
+				canvases: [{ ...cold, availability: cold.availability.status }],
+			};
+			transport.fireMessage({ jsonrpc: '2.0', id: ownerRead.id, result: { snapshot: { resource: owner, state: ownerState, fromSeq: 5 } } });
+			await timeout(0);
+			const retry = requests()[2];
+			assert.ok(retry, 'The held failed canvas subscription must get a fresh state read after owner hydration.');
+			const originalErrorWhileReading = ref.object.value === originalError;
+			transport.fireMessage({ jsonrpc: '2.0', id: retry.id, result: { snapshot: { resource: canvas.resource, state: cold, fromSeq: 6 } } });
+			await timeout(0);
+			assert.deepStrictEqual({
+				errorCode: originalError.code, originalErrorWhileReading, state: ref.object.value, observed,
+				requests: requests().map(request => ({ method: request.method, params: request.params })), dialogs: canvasDialogs.requests,
+			}, {
+				errorCode: AhpErrorCodes.NotFound, originalErrorWhileReading: true, state: cold, observed: [cold],
+				requests: [
+					{ method: 'subscribe', params: { channel: owner } },
+					{ method: 'subscribe', params: { channel: canvas.resource } },
+					{ method: 'subscribe', params: { channel: canvas.resource } },
+				],
+				dialogs: [],
+			});
+		});
+
+		test('absent capability and a closed connection never queue a canvas request', async () => {
+			const { client, transport } = createClient();
+			await connectClient(client, transport);
+			const before = transport.sentMessages.length;
+			await assert.rejects(client.openCanvas(openParams), /not negotiated/);
+			await assert.rejects(client.listCanvasTypes({ channel: chat }), /not negotiated/);
+			transport.fireClose();
+			await assert.rejects(client.openCanvas(openParams), /never queued/);
+			assert.strictEqual(transport.sentMessages.length, before);
+		});
+
+		test('explicit initialization requires its own capability and cancellation reuses the exact chat and request ID', async () => {
+			const unsupported = createClient();
+			await connectClient(unsupported.client, unsupported.transport, undefined, true);
+			const before = unsupported.transport.sentMessages.length;
+			await assert.rejects(unsupported.client.initializeCanvasChat({ channel: chat, requestId: 'unsupported' }), /not negotiated/);
+			assert.strictEqual(unsupported.transport.sentMessages.length, before);
+
+			const { client, transport } = createClient();
+			await connectClient(client, transport, getAgentHostExtensionInitializeResultMeta(true, false, false, false, true), true);
+			const cancellation = disposables.add(new CancellationTokenSource());
+			const params = { channel: chat, requestId: 'original' };
+			const result = client.initializeCanvasChat(params, cancellation.token);
+			const initialize = transport.sentMessages.at(-1);
+			assert.ok(initialize && hasKey(initialize, { id: true, method: true }));
+			cancellation.cancel();
+			const cancel = transport.sentMessages.at(-1);
+			assert.ok(cancel && hasKey(cancel, { id: true, method: true }));
+			assert.deepStrictEqual([initialize.method, initialize.params, cancel.method, cancel.params], [
+				InitializeCanvasChatExtensionMethod, params, CancelCanvasChatInitializationExtensionMethod, params,
+			]);
+			transport.fireMessage({ jsonrpc: '2.0', id: cancel.id, result: null });
+			transport.fireMessage({ jsonrpc: '2.0', id: initialize.id, result: null });
+			await result;
+		});
+
+		test('a synchronous send/close race settles the existing request instead of leaking a rejected deferred', async () => {
+			const transport = disposables.add(new class extends TestProtocolTransport {
+				override send(message: ProtocolTransportMessage): void {
+					if (hasKey(message, { method: true }) && message.method === 'openCanvas') {
+						this.fireClose();
+						throw new Error('Socket closed during send');
+					}
+					super.send(message);
+				}
+			}());
+			const { client } = createClient(transport);
+			await connectClient(client, transport, undefined, true);
+			await assert.rejects(client.openCanvas(openParams));
+			await flushMicrotasks();
+		});
+
+		test('a real out-of-turn dialog is custom, cancellable, and late acceptance is denied', async () => {
+			const { client, transport } = createClient();
+			await connectClient(client, transport, undefined, true);
+			const answered = new DeferredPromise<{ confirmed: boolean }>();
+			canvasDialogs.response = answered.p;
+			transport.fireExtensionRequest(800, RequestAgentHostCanvasApprovalExtensionMethod, { requestId: 'nonce', chat, message: 'Allow this exact mutable source?' });
+			await flushMicrotasks();
+			const dialog = canvasDialogs.requests[0];
+			assert.ok(dialog.custom && dialog.token);
+			assert.ok(typeof dialog.detail === 'string');
+			assert.match(dialog.detail, /not a Workspace Trust grant/);
+			transport.fireExtensionNotification(CancelAgentHostCanvasApprovalExtensionMethod, { requestId: 'nonce' });
+			assert.strictEqual(dialog.token.isCancellationRequested, true);
+			await answered.complete({ confirmed: true });
+			await flushMicrotasks();
+			assert.deepStrictEqual(transport.sentMessages.find(message => hasKey(message, { id: true, result: true }) && message.id === 800), { jsonrpc: '2.0', id: 800, result: { requestId: 'nonce', approved: false } });
+		});
+
+		test('malformed and oversized consent requests never open a dialog', async () => {
+			const { client, transport } = createClient();
+			await connectClient(client, transport, undefined, true);
+			for (const [index, params] of [
+				{ requestId: '', chat, message: 'Invalid nonce' },
+				{ requestId: 'nonce', chat: owner, message: 'Not a chat' },
+				{ requestId: 'nonce', chat, message: 'x'.repeat(16_385) },
+			].entries()) {
+				transport.fireExtensionRequest(900 + index, RequestAgentHostCanvasApprovalExtensionMethod, params);
+			}
+			await flushMicrotasks();
+			assert.deepStrictEqual(canvasDialogs.requests, []);
+		});
+	});
 
 	function fireConfigurationChange(configurationService: TestConfigurationService, settingId: string, source = ConfigurationTarget.USER): void {
 		configurationService.onDidChangeConfigurationEmitter.fire({
@@ -3768,7 +3942,7 @@ suite('AgentHostProtocolClient', () => {
 			return { client, transports };
 		}
 
-		async function completeHandshake(transport: TestClientProtocolTransport, connectPromise: Promise<void>, meta?: Record<string, unknown>): Promise<void> {
+		async function completeHandshake(transport: TestClientProtocolTransport, connectPromise: Promise<void>, meta?: Record<string, unknown>, canvases = false): Promise<void> {
 			transport.connectDeferred.complete();
 			while (findRequest(transport, 'initialize') === undefined) {
 				await Promise.resolve();
@@ -3776,7 +3950,7 @@ suite('AgentHostProtocolClient', () => {
 			const init = findRequest(transport, 'initialize')!;
 			transport.fireMessage({
 				jsonrpc: '2.0', id: init.id,
-				result: { protocolVersion: PROTOCOL_VERSION, serverSeq: 5, snapshots: [], _meta: meta },
+				result: { protocolVersion: PROTOCOL_VERSION, serverSeq: 5, snapshots: [], _meta: meta, ...(canvases ? { canvases: {} } : {}) },
 			});
 			await connectPromise;
 		}

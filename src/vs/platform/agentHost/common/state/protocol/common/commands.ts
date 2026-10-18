@@ -347,6 +347,15 @@ export interface RepositoryPreparationCapabilities {
 }
 
 /**
+ * Local-canvas runtime features supported by this host authority. The empty
+ * object means "supported" — see {@link InitializeResult.canvases} for what
+ * presence/absence of this field itself means.
+ *
+ * @category Commands
+ */
+export interface CanvasCapabilities { }
+
+/**
  * Automation features supported by this host authority.
  *
  * The presence of this object advertises the baseline `ahp-automations://`

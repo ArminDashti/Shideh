@@ -9,9 +9,10 @@ import { Disposable, IReference } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { constObservable, derived, IObservable, observableFromEvent } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
-import { ActionEnvelope, ActionType, type AutomationAction, type AutomationRunAction, ChangesetAction, ChatAction, AnnotationsAction, ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, ClientChangesetAction, IRootConfigChangedAction, SessionAction, StateAction, isChangesetAction, isChatAction, isAnnotationsAction, isSessionAction } from './sessionActions.js';
+import { ActionEnvelope, ActionType, type AutomationAction, type AutomationRunAction, ChangesetAction, ChatAction, AnnotationsAction, ClientAnnotationsAction, type ClientAutomationAction, type ClientAutomationRunAction, ClientChangesetAction, IRootConfigChangedAction, SessionAction, StateAction, isChangesetAction, isChatAction, isAnnotationsAction, isSessionAction, isCanvasAction } from './sessionActions.js';
 import { automationReducer, automationRunReducer, changesetReducer, chatReducer, annotationsReducer, rootReducer, sessionReducer } from './sessionReducers.js';
-import { terminalReducer } from './protocol/reducers.js';
+import { canvasReducer, terminalReducer } from './protocol/reducers.js';
+import type { CanvasState } from './protocol/channels-canvas/state.js';
 import type { RootAction, SessionAction as IProtocolSessionAction, ChatAction as IProtocolChatAction, TerminalAction } from './protocol/action-origin.generated.js';
 import type { AnnotationsState, AutomationRunState, AutomationState, ChangesetState, ChatState, RootState, SessionState, TerminalState } from './protocol/state.js';
 import type { IStateSnapshot } from './sessionProtocol.js';
@@ -1090,7 +1091,7 @@ export class AgentSubscriptionManager extends Disposable {
 	getSubscription<T>(kind: StateComponents, resource: URI, owner: string): IReference<IAgentSubscription<T>> {
 		const existing = this._subscriptions.get(resource);
 		if (existing) {
-			if (existing.sub.value instanceof Error) {
+			if (existing.sub.value instanceof Error && !existing.isSubscribing) {
 				// Failed subscriptions should not poison the resource forever. Evict
 				// the errored entry so this acquire performs a fresh subscribe.
 				this._subscriptions.delete(resource);
@@ -1139,6 +1140,76 @@ export class AgentSubscriptionManager extends Disposable {
 		void entry.refresh.catch(() => { });
 
 		return this._acquireReference<T>(resource, entry, owner);
+	}
+
+	private async _subscribeEntry(resource: URI, entry: ManagedSubscriptionEntry): Promise<void> {
+		entry.isSubscribing = true;
+		const inflight = this._inflightCreates.get(resource);
+		if (inflight) {
+			try {
+				await inflight;
+			} catch {
+				// Fall through to subscribe so errors surface on the
+				// subscription consistently with the no-inflight path.
+			}
+		}
+		try {
+			if (this._subscriptions.get(resource) !== entry) {
+				return;
+			}
+			const snapshot = await this._subscribe(resource);
+			if (this._subscriptions.get(resource) === entry) {
+				entry.sub.handleSnapshot(snapshot.state as never, snapshot.fromSeq);
+				if (entry.sub instanceof SessionStateSubscription) {
+					this._recoverMissingCanvasSubscriptions(resource, entry.sub);
+				}
+			}
+		} catch (err) {
+			if (this._subscriptions.get(resource) === entry) {
+				entry.isSubscribing = false;
+				entry.sub.setError(err instanceof Error ? err : new Error(String(err)));
+			}
+		} finally {
+			entry.isSubscribing = false;
+			if (this._subscriptions.get(resource) === entry && entry.sub instanceof CanvasStateSubscription && entry.sub.value instanceof Error) {
+				// The owner snapshot may have arrived before the initial
+				// NotFound response. Reconcile either delivery order.
+				for (const [owner, { sub }] of this._subscriptions) {
+					if (sub instanceof SessionStateSubscription) {
+						this._recoverMissingCanvasSubscriptions(owner, sub);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * An opaque canvas URI can be subscribed before its owner's durable
+	 * membership is hydrated. Once that exact owner confirms the membership,
+	 * retry only the failed initial state read, once per incarnation. Keep
+	 * the held subscription and its original error until a real snapshot lands.
+	 */
+	private _recoverMissingCanvasSubscriptions(owner: URI, sub: SessionStateSubscription): void {
+		if (sub.value instanceof Error) {
+			return;
+		}
+		for (const canvas of sub.verifiedValue?.canvases ?? []) {
+			const chat = parseChatUri(canvas.identity.chat);
+			if (!chat || !isEqual(URI.parse(chat.session), owner)) {
+				continue;
+			}
+			const resource = URI.parse(canvas.resource);
+			const entry = this._subscriptions.get(resource);
+			if (!entry || !(entry.sub instanceof CanvasStateSubscription) || entry.isSubscribing || entry.sub.verifiedValue !== undefined) {
+				continue;
+			}
+			const error = entry.sub.value;
+			if (!(error instanceof ProtocolError) || error.code !== AhpErrorCodes.NotFound || entry.canvasRecoveryIncarnation === canvas.identity.incarnation) {
+				continue;
+			}
+			entry.canvasRecoveryIncarnation = canvas.identity.incarnation;
+			void this._subscribeEntry(resource, entry);
+		}
 	}
 
 	/**
@@ -1191,6 +1262,13 @@ export class AgentSubscriptionManager extends Disposable {
 		// Other subscriptions get filtered actions
 		for (const { sub } of this._subscriptions.values()) {
 			sub.receiveEnvelope(envelope);
+		}
+		if (envelope.action.type === ActionType.SessionCanvasSet && !envelope.rejectionReason) {
+			const owner = URI.parse(envelope.channel);
+			const sub = this._subscriptions.get(owner)?.sub;
+			if (sub instanceof SessionStateSubscription) {
+				this._recoverMissingCanvasSubscriptions(owner, sub);
+			}
 		}
 	}
 

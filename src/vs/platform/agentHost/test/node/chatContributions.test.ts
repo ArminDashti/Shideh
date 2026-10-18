@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { unavailableCanvases } from '../common/agentHostCanvasesTestUtils.js';
+import { IAgentHostCanvasesService } from '../../node/agentHostCanvasesService.js';
 import { DeferredPromise, timeout } from '../../../../base/common/async.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
@@ -1016,6 +1018,7 @@ function createQueueDrainContributions(disposables: ReturnType<typeof ensureNoDi
 		[ISessionDataService, sessionDataService],
 		[IAgentHostTerminalManager, disposables.add(new TestAgentHostTerminalManager())],
 		[IAgentHostClientConnectionService, disposables.add(new AgentHostClientConnectionService())],
+		[IAgentHostCanvasesService, unavailableCanvases],
 	);
 	let conversionPending = false;
 	services.set(ISessionWorkspaceConversionService, {

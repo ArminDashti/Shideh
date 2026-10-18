@@ -102,6 +102,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	}
 
 	async getOrCreateBrowserView(id: string, options: IBrowserViewCreateOptions): Promise<IBrowserViewInfo> {
+		validateExternalBrowserViewOptions(options);
 		if (this.browserViews.has(id)) {
 			const view = this.browserViews.get(id)!;
 			const info = this._getViewInfo(view);
@@ -219,6 +220,9 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	}
 
 	validateAgentAccess(view: BrowserView): void {
+		if (view.presentation) {
+			throw new Error('Externally presented pages are not available to browser automation.');
+		}
 		this.validateAgentStorageScope(view.session.storageScope);
 	}
 
@@ -241,6 +245,9 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	}
 
 	async setOwner(id: string, owner: IBrowserViewOwner): Promise<void> {
+		if (owner.type === 'agent') {
+			this.validateAgentAccess(this._getBrowserView(id));
+		}
 		this._getBrowserView(id).setOwner(owner);
 	}
 
@@ -432,6 +439,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	async updateWindowConfiguration(windowId: number, config: IBrowserViewWindowConfiguration): Promise<void> {
 		const oldConfig = this._windowConfigurations.get(windowId);
 		const didThemeChange = !equals(oldConfig?.theme, config.theme);
+		const didCanvasThemeChange = !equals(oldConfig?.canvasTheme, config.canvasTheme);
 		const didProxyChange = !equals(oldConfig?.proxyInfo, config.proxyInfo);
 
 		this._windowConfigurations.set(windowId, config);
@@ -442,6 +450,9 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 				if (didThemeChange) {
 					view.inspector.setTheme(config.theme);
 					view.applySemanticTheme(config.theme?.semanticTokens);
+				}
+				if (didCanvasThemeChange) {
+					view.inspector.setCanvasTheme(config.canvasTheme);
 				}
 				if (didProxyChange) {
 					view.session.remote.acquire(view.id, config.proxyInfo);
@@ -483,6 +494,9 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			trustAllFiles ||= configuration.trustAllFiles;
 		}
 		BrowserSession.setTrustedFileRoots([...roots], trustAllFiles);
+		for (const view of this.browserViews.values()) {
+			view.revalidateFileAccess();
+		}
 	}
 
 	/**
@@ -534,6 +548,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			view.inspector.setTheme(windowConfiguration.theme);
 			view.applySemanticTheme(windowConfiguration.theme.semanticTokens);
 		}
+		view.inspector.setCanvasTheme(windowConfiguration?.canvasTheme);
 
 		Event.once(view.onDidClose)(() => {
 			browserSession.remote.release(id);
@@ -545,6 +560,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	}
 
 	private _createBrowserView(id: string, options: IBrowserViewCreateOptions, editorOpenRequest?: IBrowserViewEditorOpenOptions, electronOptions?: Electron.WebContentsViewConstructorOptions): BrowserView {
+		validateExternalBrowserViewOptions(options, this.browserViews.values());
 		const hasAgentAccess = options.owner.type === 'agent' || options.initialAudiences?.some(audience => audience.type === 'agent') === true;
 		const browserSession = this._resolveBrowserSession(id, options.host.windowId, options.session);
 		assertBrowserViewCanInheritSession(browserSession.appPolicy, options.source);
@@ -566,7 +582,11 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		this._onDidCreateBrowserView.fire(created);
 		if (options.initialUrl) {
 			void view.loadURL(options.initialUrl).catch(error => {
-				this.logService.error(`[BrowserViewMainService] Failed to load initial URL for browser view ${id}`, error);
+				if (options.presentation) {
+					this.logService.warn('[BrowserViewMainService] Failed to load an external presentation source.');
+				} else {
+					this.logService.error(`[BrowserViewMainService] Failed to load initial URL for browser view ${id}`, error);
+				}
 			});
 		}
 		if (options.openSource) {
@@ -655,7 +675,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		}
 
 		const windowConfiguration = this._windowConfigurations.get(view.host.windowId);
-		const inspectTarget = windowConfiguration?.aiFeaturesDisabled
+		const inspectTarget = windowConfiguration?.aiFeaturesDisabled || view.presentation
 			? undefined
 			: params.frame && await view.inspector.getElementHandle(BrowserViewInspectElementId.ContextMenuTarget, params.frame);
 		const menu = new Menu();
@@ -675,10 +695,11 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 					}, { preserveFocus: true, background: true }, 'browserLinkBackground');
 				}
 			}));
-			menu.append(new MenuItem({
-				label: localize('browser.contextMenu.openLinkInExternalBrowser', 'Open Link in External Browser'),
-				click: () => { void this.nativeHostMainService.openExternal(undefined, params.linkURL); }
-			}));
+			menu.append(new MenuItem(createBrowserViewExternalLinkMenuItem(
+				view.presentation, params.linkURL,
+				url => this.nativeHostMainService.openExternal(undefined, url),
+				this.logService,
+			)));
 			menu.append(new MenuItem({ type: 'separator' }));
 			menu.append(new MenuItem({
 				label: localize('browser.contextMenu.copyLink', 'Copy Link'),

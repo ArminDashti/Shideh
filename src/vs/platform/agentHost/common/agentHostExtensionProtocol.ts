@@ -349,6 +349,10 @@ export interface IAgentHostMcpAuthenticationRequest {
 }
 
 export interface IAgentHostExtensionServerCommandMap {
+	[RequestAgentHostCanvasApprovalExtensionMethod]: {
+		params: IAgentHostCanvasApprovalRequest;
+		result: { requestId: string; approved: boolean };
+	};
 	[RequestAgentHostWorkspaceTrustExtensionMethod]: {
 		params: IAgentHostWorkspaceTrustRequest;
 		result: { trusted: boolean };

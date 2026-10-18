@@ -52,13 +52,6 @@ export enum BrowserActionGroup {
 }
 
 /**
- * Get the original implementation of HTMLElement focus (without window auto-focusing)
- * before it gets overridden by the workbench.
- */
-const originalHtmlElementFocus = HTMLElement.prototype.focus;
-
-
-/**
  * Base class for browser editor services that track the model lifecycle.
  *
  * Subclasses implement {@link onModelAttached} which is called whenever a new model is set.
@@ -686,8 +679,7 @@ export class BrowserEditor extends EditorPane {
 	 * Make the browser container the active element without moving focus from the browser view.
 	 */
 	ensureBrowserFocus(): void {
-		originalHtmlElementFocus.call(this._browserContainer);
-		this.window.document.getSelection()?.removeAllRanges();
+		focusWebContentsViewContainer(this._browserContainer);
 	}
 
 	private _updateInteractivityAccessibility(isInteractive: boolean, announce = false): void {

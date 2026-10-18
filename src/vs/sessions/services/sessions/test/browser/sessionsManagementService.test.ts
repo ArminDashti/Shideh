@@ -53,6 +53,7 @@ import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from '../../
 import { LOCAL_AGENT_HOST_PROVIDER_ID } from '../../../../common/agentHostSessionsProvider.js';
 import { SessionsHasClosedItemContext } from '../../../../common/contextkeys.js';
 import { COPILOT_CLI_EH_SCHEME, COPILOT_CLI_LOCAL_AH_SCHEME } from '../../../../../workbench/contrib/chat/browser/copilotCliEventsUri.js';
+import { ISessionCanvases } from '../../common/sessionCanvases.js';
 import type { SessionView } from '../../../../browser/parts/sessionView.js';
 import { Direction } from '../../../../../base/browser/ui/grid/grid.js';
 import { SessionsPart } from '../../../../browser/parts/sessionsPart.js';
@@ -2826,6 +2827,47 @@ suite('SessionsManagementService', () => {
 			pendingSession: 'quick',
 			activeSession: 'quick',
 			isQuickChat: true,
+		});
+	});
+
+	test('canExecuteSession rechecks an active session and permits retry after trust is granted', async () => {
+		const folder = URI.file('/revoked');
+		const session = stubSession({
+			sessionId: 'active-revoked',
+			providerId: 'test',
+			workspace: constObservable({
+				uri: folder,
+				label: 'revoked',
+				icon: Codicon.folder,
+				folders: [{ root: folder, workingDirectory: folder, name: 'revoked', description: undefined }],
+				requiresWorkspaceTrust: true,
+				isVirtualWorkspace: false,
+			}),
+		});
+		const trustManagement = new class extends TestWorkspaceTrustManagementService {
+			override async getUriTrustInfo(uri: URI) { return { uri, trusted: false }; }
+		};
+		let grantTrust = false;
+		const prompts: string[] = [];
+		const trustRequest = new class extends mock<IWorkspaceTrustRequestService>() {
+			override async requestResourcesTrust(options: ResourceTrustRequestOptions) {
+				prompts.push(options.uri.toString());
+				return grantTrust;
+			}
+		};
+		const { view } = createSessionsManagementService(session, disposables, new TestSessionsProvider(session), trustManagement, trustRequest);
+		view.showSession(session.resource);
+
+		const open = await view.canOpenSession(session);
+		const denied = await view.canExecuteSession(session);
+		grantTrust = true;
+		const retried = await view.canExecuteSession(session);
+
+		assert.deepStrictEqual({ open, denied, retried, prompts }, {
+			open: true,
+			denied: false,
+			retried: true,
+			prompts: [folder.toString(), folder.toString()],
 		});
 	});
 
@@ -6555,6 +6597,38 @@ suite('SessionsManagementService', () => {
 			});
 		});
 	}
+
+	test('provider replacement clears the pending draft without discarding the committed owner', async () => {
+		const draft = stubSession({ sessionId: 'replacement', providerId: 'test', status: constObservable(SessionStatus.Untitled) });
+		const committed = { ...draft, status: constObservable(SessionStatus.Completed) };
+		const onDidReplaceSession = disposables.add(new Emitter<{ readonly from: ISession; readonly to: ISession }>());
+		const discarded: string[] = [];
+		let sent = 0;
+		const provider = new class extends TestSessionsProvider {
+			override readonly onDidReplaceSession = onDidReplaceSession.event;
+			constructor() { super(draft); }
+			override resolveWorkspace(folder: URI): ISessionWorkspace {
+				return { uri: folder, label: 'Test', icon: Codicon.folder, folders: [], requiresWorkspaceTrust: false, isVirtualWorkspace: false };
+			}
+			override deleteNewSession(sessionId: string): void { discarded.push(sessionId); }
+			override async sendRequest(): Promise<ISession> { sent++; return committed; }
+		};
+		const { service, view } = createSessionsManagementService(draft, disposables, provider);
+		let discardedEvents = 0;
+		disposables.add(service.onDidDiscardNewSession(() => discardedEvents++));
+		await view.openNewSession({ folderUri: URI.parse('test:///folder') });
+		const before = service.newSession.get()?.sessionId;
+		onDidReplaceSession.fire({ from: draft, to: committed });
+		service.discardNewSession(draft);
+
+		assert.deepStrictEqual({
+			before, pending: service.newSession.get(), active: view.activeSession.get()?.sessionId,
+			status: view.activeSession.get()?.status.get(), discarded, discardedEvents, sent,
+		}, {
+			before: draft.sessionId, pending: undefined, active: committed.sessionId,
+			status: SessionStatus.Completed, discarded: [], discardedEvents: 0, sent: 0,
+		});
+	});
 
 	test('replacing a non-active session leaves the active session unchanged', async () => {
 		const active = stubSession({ sessionId: 'active', providerId: 'test' });

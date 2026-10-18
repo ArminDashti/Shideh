@@ -982,6 +982,67 @@ suite('CopilotSessionLauncher shared session config', () => {
 		}
 	});
 
+	test('loads canvas extensions only after the session is persisted', async () => {
+		const configs: ResumeSessionConfig[] = [];
+		const waits: boolean[] = [];
+		const raw = {
+			sessionId: 'session-1',
+			on: () => () => { },
+			disconnect: async () => { },
+			rpc: { options: { update: async () => ({ success: true }) } },
+		} as unknown as CopilotSession;
+		const client = {
+			createSession: async (config: ResumeSessionConfig) => {
+				configs.push(config);
+				reportManagedSettings(config);
+				return raw;
+			},
+			resumeSession: async (_sessionId: string, config: ResumeSessionConfig) => {
+				configs.push(config);
+				reportManagedSettings(config);
+				return raw;
+			},
+		} as unknown as CopilotClient;
+		const canvases = new class extends mock<CopilotCanvases>() {
+			override beginLaunch(): ICopilotCanvasLaunch {
+				return {
+					token: CancellationToken.None,
+					onEvent: () => { },
+					permission: async () => undefined,
+					attach: async (_wrapper, waitForExtensions = true) => { waits.push(waitForExtensions); },
+					dispose: () => { },
+				};
+			}
+		}();
+		const launcher = createTestLauncher(undefined, {}, new NullLogService(), noopSessionOpenTelemetry, undefined, canvases);
+		const shared = {
+			client,
+			sessionId: 'session-1',
+			workingDirectory: testWorkingDirectory,
+			resolvedAgentName: undefined,
+			snapshot: { tools: [], plugins: [], mcpServers: {} },
+			activeClientToolSet: new ActiveClientToolSet(),
+			shellManager: undefined,
+			githubCredentials: CopilotGitHubSessionCredentials.fromToken(undefined),
+		};
+		const sessions = new DisposableStore();
+		try {
+			sessions.add(await launcher.launch({ ...shared, kind: 'create', model: undefined }, testRuntime));
+			sessions.add(await launcher.launch({ ...shared, kind: 'resume', fallback: { model: undefined } }, testRuntime));
+			assert.deepStrictEqual({
+				requestExtensions: configs.map(config => config.requestExtensions),
+				requestCanvasRenderer: configs.map(config => config.requestCanvasRenderer),
+				waits,
+			}, {
+				requestExtensions: [false, true],
+				requestCanvasRenderer: [true, true],
+				waits: [false, true],
+			});
+		} finally {
+			sessions.dispose();
+		}
+	});
+
 	test('derives explicit MCP registration from client metadata rather than cwd equality', () => {
 		const pluginDir = URI.file('/tmp/plugin');
 		const workspace = URI.file('/workspace');
@@ -1025,6 +1086,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 	test('passes Agent Host defaults, managed permissions, and exit-plan handler to create and resume', async () => {
 		const createConfigs: Parameters<CopilotClient['createSession']>[0][] = [];
 		const resumeConfigs: Parameters<CopilotClient['resumeSession']>[1][] = [];
+		const initialScriptSafety: (boolean | undefined)[] = [];
 		const session = {
 			sessionId: 'session-1',
 			on: () => () => { },
@@ -1033,11 +1095,13 @@ suite('CopilotSessionLauncher shared session config', () => {
 		} as unknown as CopilotSession;
 		const client = {
 			createSession: async (config: Parameters<CopilotClient['createSession']>[0]) => {
+				initialScriptSafety.push(config.enableScriptSafety);
 				reportManagedSettings(config);
 				createConfigs.push(config);
 				return session;
 			},
 			resumeSession: async (_sessionId: string, config: Parameters<CopilotClient['resumeSession']>[1]) => {
+				initialScriptSafety.push(config.enableScriptSafety);
 				reportManagedSettings(config);
 				resumeConfigs.push(config);
 				return session;
@@ -1197,6 +1261,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 			]);
 
 			assert.deepStrictEqual({
+				initialScriptSafety,
 				createClientName: createConfigs[0].clientName,
 				createGitHubMcpToolConfig: createConfigs[0].githubMcpToolConfig,
 				createPluginDirectories: createConfigs[0].pluginDirectories,
@@ -1253,6 +1318,7 @@ suite('CopilotSessionLauncher shared session config', () => {
 				resumeLogs: logService.infos.filter(message => message.includes('SDK resumeSession '))
 					.map(message => message.replace(/attemptId=[\da-f-]+/g, 'attemptId=<id>').replace(/elapsedMs=\d+$/, 'elapsedMs=<ms>')),
 			}, {
+				initialScriptSafety: [true, true, true],
 				createClientName: 'vscode-agent-host',
 				createGitHubMcpToolConfig: { disableFormDeferral: true },
 				createPluginDirectories: [pluginDir.fsPath, syntheticPluginDir.fsPath],
@@ -1530,8 +1596,9 @@ suite('CopilotSessionLauncher resume fallback', () => {
 		}
 	}
 
-	function createResumeFailingLaunch(message: string, code = -32603, sessionOpenTelemetry: IAgentHostSessionOpenTelemetry = noopSessionOpenTelemetry, logService: ILogService = new NullLogService()): { readonly launcher: CopilotSessionLauncher; readonly plan: CopilotSessionLaunchPlan; readonly getCreateSessionCalls: () => number } {
+	function createResumeFailingLaunch(message: string, code = -32603, sessionOpenTelemetry: IAgentHostSessionOpenTelemetry = noopSessionOpenTelemetry, logService: ILogService = new NullLogService()): { readonly launcher: CopilotSessionLauncher; readonly plan: CopilotSessionLaunchPlan; readonly getCreateSessionCalls: () => number; readonly initialScriptSafety: readonly (boolean | undefined)[] } {
 		let createSessionCalls = 0;
+		const initialScriptSafety: (boolean | undefined)[] = [];
 		const session = {
 			sessionId: 'session-1',
 			on: () => () => { },
@@ -1540,11 +1607,13 @@ suite('CopilotSessionLauncher resume fallback', () => {
 		} as unknown as CopilotSession;
 		const client = {
 			createSession: async (config: ResumeSessionConfig) => {
+				initialScriptSafety.push(config.enableScriptSafety);
 				reportManagedSettings(config);
 				createSessionCalls++;
 				return session;
 			},
-			resumeSession: async () => {
+			resumeSession: async (_sessionId: string, config: ResumeSessionConfig) => {
+				initialScriptSafety.push(config.enableScriptSafety);
 				throw new TestSdkError(message, code);
 			},
 			rpc: { account: new class extends mock<CopilotClient['rpc']['account']>() { }, sandbox: { getHostSupport: async () => ({ supported: true, capabilities: [] }) } },
@@ -1565,16 +1634,17 @@ suite('CopilotSessionLauncher resume fallback', () => {
 				fallback: { model: undefined },
 			},
 			getCreateSessionCalls: () => createSessionCalls,
+			initialScriptSafety,
 		};
 	}
 
 	test('falls back to createSession after a Start Over truncate leaves the session empty', async () => {
-		const { launcher, plan, getCreateSessionCalls } = createResumeFailingLaunch(`Request session.resume failed with message: LocalRpcSession: 'session.getMessages' returned no events for session session-1`);
+		const { launcher, plan, getCreateSessionCalls, initialScriptSafety } = createResumeFailingLaunch(`Request session.resume failed with message: LocalRpcSession: 'session.getMessages' returned no events for session session-1`);
 
 		const sessions = new DisposableStore();
 		try {
 			sessions.add(await launcher.launch(plan, testRuntime));
-			assert.strictEqual(getCreateSessionCalls(), 1);
+			assert.deepStrictEqual({ createSessionCalls: getCreateSessionCalls(), initialScriptSafety }, { createSessionCalls: 1, initialScriptSafety: [true, true] });
 		} finally {
 			sessions.dispose();
 			await launcher.disposeByokProxyHandle();

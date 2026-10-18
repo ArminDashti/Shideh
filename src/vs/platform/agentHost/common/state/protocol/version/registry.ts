@@ -17,7 +17,7 @@ import type { ServerNotificationMap } from '../messages.js';
  *
  * Formatted as a [SemVer](https://semver.org) `MAJOR.MINOR.PATCH` string.
  */
-export const PROTOCOL_VERSION = '0.9.0';
+export const PROTOCOL_VERSION = '0.10.0';
 
 /**
  * Every protocol version a client built from this source tree is willing

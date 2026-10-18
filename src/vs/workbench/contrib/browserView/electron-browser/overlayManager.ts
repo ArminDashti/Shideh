@@ -28,6 +28,8 @@ const OVERLAY_DEFINITIONS: ReadonlyArray<{ className: string; type: BrowserOverl
 	{ className: 'monaco-dialog-modal-block', type: BrowserOverlayType.Dialog },
 	{ className: 'notifications-center', type: BrowserOverlayType.Notification },
 	{ className: 'notification-toast-container', type: BrowserOverlayType.Notification },
+	// Accessible View is absolutely positioned inside a zero-sized context view.
+	{ className: 'accessible-view', type: BrowserOverlayType.Unknown },
 	{ className: 'spotlight-overlay', type: BrowserOverlayType.Unknown },
 	// Context view is very generic, so treat the content as unknown
 	{ className: 'context-view', type: BrowserOverlayType.Unknown }

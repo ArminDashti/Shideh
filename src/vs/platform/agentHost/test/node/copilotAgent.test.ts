@@ -1426,7 +1426,7 @@ function createTestAgent(disposables: Pick<DisposableStore, 'add'>, options?: { 
 
 type CopilotCreateSessionOptions = Parameters<CopilotClient['createSession']>[0];
 
-function createAgentSessionThroughAgent(agent: CopilotAgent, instantiationService: IInstantiationService, options?: { readonly mockSession?: MockCopilotSession; readonly activeClientToolSet?: ActiveClientToolSet; readonly snapshot?: IActiveClientSnapshot; readonly workingDirectory?: URI; readonly additionalDirectories?: readonly URI[] }): { readonly session: CopilotAgentSession; readonly activeClient: unknown; readonly createOptions: () => CopilotCreateSessionOptions | undefined } {
+function createAgentSessionThroughAgent(agent: CopilotAgent, instantiationService: IInstantiationService, options?: { readonly mockSession?: MockCopilotSession; readonly activeClientToolSet?: ActiveClientToolSet; readonly snapshot?: IActiveClientSnapshot; readonly workingDirectory?: URI; readonly additionalDirectories?: readonly URI[]; readonly duringCreate?: (config: CopilotCreateSessionOptions) => Promise<void> }): { readonly session: CopilotAgentSession; readonly activeClient: unknown; readonly createOptions: () => CopilotCreateSessionOptions | undefined; readonly initializePending: () => Promise<void> } {
 	const sessionUri = AgentSession.uri('copilotcli', 'test-session-1');
 	const shellManager = instantiationService.createInstance(ShellManager, sessionUri, options?.workingDirectory);
 	let createOptions: CopilotCreateSessionOptions | undefined;
@@ -1434,6 +1434,7 @@ function createAgentSessionThroughAgent(agent: CopilotAgent, instantiationServic
 	const agentInternals = (agent as unknown as {
 		_getOrCreateActiveClient: (session: URI, directory: URI | undefined) => { readonly toolSet: ActiveClientToolSet };
 		_createAgentSession: (launchPlan: CopilotSessionLaunchPlan, customizationDirectory: URI | undefined, activeClient: unknown) => CopilotAgentSession;
+		_initializeAndRegisterSession: (session: CopilotAgentSession, register: () => void) => Promise<void>;
 	});
 	const activeClient = agentInternals._getOrCreateActiveClient(sessionUri, options?.workingDirectory);
 	const launchPlan: CopilotSessionLaunchPlan = {
@@ -1461,7 +1462,8 @@ function createAgentSessionThroughAgent(agent: CopilotAgent, instantiationServic
 		githubCredentials: CopilotGitHubSessionCredentials.fromToken('token'),
 		model: undefined,
 	};
-	return { session: agentInternals._createAgentSession(launchPlan, options?.workingDirectory, activeClient), activeClient, createOptions: () => createOptions };
+	const session = agentInternals._createAgentSession(launchPlan, options?.workingDirectory, activeClient);
+	return { session, activeClient, createOptions: () => createOptions, initializePending: () => agentInternals._initializeAndRegisterSession(session, () => { }) };
 }
 
 function withoutUndefinedProperties(metadata: IAgentChatMetadata): Record<string, unknown> {
@@ -14727,6 +14729,66 @@ suite('CopilotAgent', () => {
 	});
 
 	suite('exact chat routing and lifecycle', () => {
+
+		test('canvas preparation cannot initialize a provisional worktree in the picked repository', async () => {
+			const client = new TestCopilotClient([]);
+			const { agent, stateManager } = createTestAgentContext(disposables, { copilotClient: client, sessionDataService: disposables.add(new TestSessionDataService()) });
+			let executed = false;
+			try {
+				await agent.authenticate('https://api.github.com', 'test-token');
+				const result = await provisionSession(agent, { session: AgentSession.uri('copilotcli', 'unprepared-canvas'), workingDirectories: [URI.file('/workspace')] });
+				stateManager.createSession({ resource: result.session.toString(), provider: agent.id, title: 'Canvas', status: SessionStatus.Idle, createdAt: '2026-01-01T00:00:00Z', modifiedAt: '2026-01-01T00:00:00Z' });
+				stateManager.setSessionConfig(result.session.toString(), { schema: platformSessionSchema.toProtocol(), values: { isolation: 'worktree' } });
+				const preparation = agent as unknown as { _prepareCanvasChat(chat: string, operation: IAgentCanvasOperation): Promise<void> };
+				await assert.rejects(preparation._prepareCanvasChat(buildDefaultChatUri(result.session), { token: CancellationToken.None, willExecute: () => { executed = true; } }), /host-owned worktree preparation/);
+				assert.strictEqual(executed, false);
+			} finally {
+				await disposeAgent(agent);
+			}
+		});
+
+		test('permission, input and client-tool callbacks can finish before SDK create resolves', async () => {
+			const { agent, instantiationService, fileService } = createTestAgentContext(disposables, { environmentServiceRegistration: 'native', sessionDataService: disposables.add(new TestSessionDataService()) });
+			disposables.add(registerPendingEditContentProvider(fileService));
+			const responses: object[] = [];
+			const created = createAgentSessionThroughAgent(agent, instantiationService, {
+				duringCreate: async config => {
+					assert.ok(config.onPermissionRequest && config.onUserInputRequest);
+					const permission: PermissionRequest = {
+						kind: 'write', toolCallId: 'early-permission', canOfferSessionApproval: false,
+						fileName: URI.file('/outside/file.txt').fsPath, intention: 'write file',
+						diff: '--- a/file.txt\n+++ b/file.txt\n@@ -0,0 +1 @@\n+after', newFileContents: 'after',
+					};
+					const invocation = { sessionId: 'test-session-1' };
+					responses.push(await config.onPermissionRequest(permission, invocation));
+					responses.push(await config.onUserInputRequest({ question: 'Continue?', choices: ['Yes', 'No'] }, invocation));
+					responses.push(await config.onPermissionRequest({ ...permission, toolCallId: 'early-client-tool' }, invocation));
+				},
+			});
+			const session = disposables.add(created.session);
+			session.resetTurnState('early-runtime-turn');
+			disposables.add(agent.onDidChatProgress(signal => {
+				if (signal.kind === 'pending_confirmation') {
+					if (signal.state.toolCallId === 'early-client-tool') {
+						agent.onClientToolCallComplete(session.chatChannelUri, signal.state.toolCallId, { success: false, pastTenseMessage: 'Client tool failed', error: { message: 'Failed before permission' } });
+					} else {
+						agent.respondToPermissionRequest(signal.state.toolCallId, false);
+					}
+				} else if (signal.kind === 'action' && signal.action.type === ActionType.ChatInputRequested) {
+					agent.respondToUserInputRequest(signal.action.request.id, ChatInputResponseKind.Cancel);
+				}
+			}));
+			try {
+				await created.initializePending();
+				assert.deepStrictEqual(responses, [
+					{ kind: 'reject', feedback: 'The user denied permission.' },
+					{ answer: '', wasFreeform: true },
+					{ kind: 'approve-once' },
+				]);
+			} finally {
+				await disposeAgent(agent);
+			}
+		});
 
 		/** Installs a stub chat leaf into the owning session's entry, keyed by the chat URI. */
 		function installStubChat(agent: CopilotAgent, chatUri: URI, options?: { permissionOwner?: string; inputOwner?: string }) {

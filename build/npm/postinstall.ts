@@ -7,6 +7,7 @@ import * as child_process from 'child_process';
 import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
 import { ensureElectronTypes } from './electronTypes.ts';
+import { ensureCopilotSdkCanvasPatch } from './copilotSdkCanvasPatch.ts';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
@@ -305,6 +306,7 @@ async function main() {
 	await ensureElectronTypes();
 
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
+		ensureCopilotSdkCanvasPatch(root);
 		log('.', 'All dependencies up to date, skipping postinstall.');
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
@@ -388,9 +390,6 @@ async function main() {
 	child_process.execSync('git config pull.rebase merges');
 	child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 
-	fs.writeFileSync(stateFile, JSON.stringify(_state));
-	fs.writeFileSync(stateContentsFile, JSON.stringify(computeContents()));
-
 	// Symlink .claude/ files to their canonical locations to test Claude agent harness
 	const claudeDir = path.join(root, '.claude');
 	fs.mkdirSync(claudeDir, { recursive: true });
@@ -440,6 +439,9 @@ async function main() {
 		fs.writeFileSync(nativeLoaderFile, patched);
 		log(dir || '.', 'Patched foundry-local-sdk native loader (addons from libraryPath)');
 	}
+
+	fs.writeFileSync(stateFile, JSON.stringify(_state));
+	fs.writeFileSync(stateContentsFile, JSON.stringify(computeContents()));
 }
 
 main().catch(err => {

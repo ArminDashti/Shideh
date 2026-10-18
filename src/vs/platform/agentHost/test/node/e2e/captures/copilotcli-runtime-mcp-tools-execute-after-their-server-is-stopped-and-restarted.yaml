@@ -40,7 +40,6 @@ exchanges:
           content: Call runtime_probe exactly once with tag "before", then reply with its exact result.
         - role: assistant
           content:
-            - type: thinking
             - type: tool_use
               name: runtime-probe-runtime_probe
               input:
@@ -65,7 +64,6 @@ exchanges:
           content: Call runtime_probe exactly once with tag "before", then reply with its exact result.
         - role: assistant
           content:
-            - type: thinking
             - type: tool_use
               name: runtime-probe-runtime_probe
               input:
@@ -99,7 +97,6 @@ exchanges:
           content: Call runtime_probe exactly once with tag "before", then reply with its exact result.
         - role: assistant
           content:
-            - type: thinking
             - type: tool_use
               name: runtime-probe-runtime_probe
               input:

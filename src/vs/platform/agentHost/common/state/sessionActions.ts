@@ -152,8 +152,9 @@ import {
 } from './protocol/actions.js';
 
 import type { SessionSummary } from './protocol/state.js';
+export type { CanvasAction } from './protocol/action-origin.generated.js';
 import type { SessionAddedParams, SessionRemovedParams, SessionSummaryChangedParams as ProtocolSessionSummaryChangedParams, ProgressParams, AuthRequiredParams } from './protocol/notifications.js';
-import type { RootAction as IRootAction_, SessionAction as ISessionAction_, ChatAction as IChatAction_, ClientSessionAction as IClientSessionAction_, ServerSessionAction as IServerSessionAction_, ClientChatAction as IClientChatAction_, ServerChatAction as IServerChatAction_, TerminalAction as ITerminalAction_, ClientTerminalAction as IClientTerminalAction_, ChangesetAction as IChangesetAction_, ClientChangesetAction as IClientChangesetAction_, AnnotationsAction as IAnnotationsAction_, ClientAnnotationsAction as IClientAnnotationsAction_, AutomationAction as IAutomationAction_, ClientAutomationAction as IClientAutomationAction_, AutomationRunAction as IAutomationRunAction_, ClientAutomationRunAction as IClientAutomationRunAction_ } from './protocol/action-origin.generated.js';
+import type { CanvasAction, RootAction as IRootAction_, SessionAction as ISessionAction_, ChatAction as IChatAction_, ClientSessionAction as IClientSessionAction_, ServerSessionAction as IServerSessionAction_, ClientChatAction as IClientChatAction_, ServerChatAction as IServerChatAction_, TerminalAction as ITerminalAction_, ClientTerminalAction as IClientTerminalAction_, ChangesetAction as IChangesetAction_, ClientChangesetAction as IClientChangesetAction_, AnnotationsAction as IAnnotationsAction_, ClientAnnotationsAction as IClientAnnotationsAction_, AutomationAction as IAutomationAction_, ClientAutomationAction as IClientAutomationAction_, AutomationRunAction as IAutomationRunAction_, ClientAutomationRunAction as IClientAutomationRunAction_ } from './protocol/action-origin.generated.js';
 
 export type SessionSummaryChanges = Omit<Partial<SessionSummary>, 'activity'> & {
 	/** `null` explicitly clears activity; omission leaves it unchanged. */
@@ -257,6 +258,10 @@ export function isSessionCatalogFlagAction(action: StateAction): action is IIsAr
 
 export function isChatAction(action: StateAction): action is ChatAction {
 	return action.type.startsWith('chat/');
+}
+
+export function isCanvasAction(action: StateAction): action is CanvasAction {
+	return action.type.startsWith('canvas/');
 }
 
 export function isTerminalAction(action: StateAction): action is TerminalAction {

@@ -1025,15 +1025,16 @@ export async function mapSessionEvents(
  * copy of the bytes / paths it actually saw on send, which is the
  * authoritative record for replay.
  */
-function sdkAttachmentsToProtocol(
+export function sdkAttachmentsToProtocol(
 	attachments: readonly Attachment[] | undefined,
+	chat?: string,
 ): MessageAttachment[] | undefined {
 	if (!attachments?.length) {
 		return undefined;
 	}
 	const out: MessageAttachment[] = [];
 	for (const a of attachments) {
-		const converted = sdkAttachmentToProtocol(a);
+		const converted = sdkAttachmentToProtocol(a, chat);
 		if (converted) {
 			out.push(converted);
 		}
@@ -1043,8 +1044,11 @@ function sdkAttachmentsToProtocol(
 
 function sdkAttachmentToProtocol(
 	attachment: Attachment,
+	chat: string | undefined,
 ): MessageAttachment | undefined {
 	switch (attachment.type) {
+		case 'extension_context':
+			return extensionContextToProtocol(attachment, chat);
 		case 'file': {
 			return {
 				type: MessageAttachmentKind.Resource,

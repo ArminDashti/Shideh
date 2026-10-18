@@ -483,6 +483,7 @@ export interface IBrowserViewCDPService {
  */
 export interface IBrowserViewModel extends IDisposable {
 	readonly id: string;
+	readonly presentation?: IBrowserViewExternalPresentation;
 	readonly host: IBrowserViewHost;
 	readonly owner: IBrowserViewOwner;
 	readonly associatedResource: URI | undefined;
@@ -907,7 +908,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	get storageScope(): BrowserViewStorageScope { return this._storageScope; }
 	get isRemoteSession(): boolean { return this._isRemoteSession; }
 	get sharingState(): BrowserViewSharingState {
-		if (!this.browserViewWorkbenchService.isSharingAvailable) {
+		if (this.presentation || !this.browserViewWorkbenchService.isSharingAvailable) {
 			return BrowserViewSharingState.Unavailable;
 		}
 		if (this._audiences.some(audience => audience.type === 'agent')) {
@@ -919,7 +920,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 		return BrowserViewSharingState.Available;
 	}
 	get isDirectlyShareable(): boolean {
-		return isBrowserViewStorageScopeShareableWithAgent(this.storageScope, this.agentNetworkFilterService.isEnabled());
+		return !this.presentation && isBrowserViewStorageScopeShareableWithAgent(this.storageScope, this.agentNetworkFilterService.isEnabled());
 	}
 	get zoomFactor(): number { return browserZoomFactors[this._browserZoomIndex]; }
 	get canZoomIn(): boolean { return this._browserZoomIndex < browserZoomFactors.length - 1; }
@@ -1136,6 +1137,9 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	private static readonly SHARE_DONT_ASK_KEY = 'browserView.shareWithAgent.dontAskAgain';
 
 	async setSharedWithAgent(shared: boolean): Promise<IBrowserViewModel | undefined> {
+		if (shared && this.presentation) {
+			throw new Error('Externally presented pages cannot be shared through browser tools.');
+		}
 		if (!shared) {
 			await this.browserViewService.setAudience(this.id, { type: 'agent' }, false);
 			return this;

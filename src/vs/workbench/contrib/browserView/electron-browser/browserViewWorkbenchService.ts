@@ -156,17 +156,17 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 
 		// Send the full per-window configuration as a single unit, and resend it
 		// whenever any of its inputs change.
-		this._updateWindowConfiguration();
+		void this._updateWindowConfiguration();
 		const chatEnabledKeys = new Set(ChatContextKeys.enabled.keys());
-		this._register(this.keybindingService.onDidUpdateKeybindings(() => this._updateWindowConfiguration()));
-		this._register(this.themeService.onDidColorThemeChange(() => this._updateWindowConfiguration()));
-		this._register(this.accessibilityService.onDidChangeReducedMotion(() => this._updateWindowConfiguration()));
-		this._register(this.workspaceTrustManagementService.onDidChangeTrustedFolders(() => this._updateWindowConfiguration()));
-		this._register(this.workspaceTrustManagementService.onDidChangeTrust(() => this._updateWindowConfiguration()));
-		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(() => this._updateWindowConfiguration()));
+		this._register(this.keybindingService.onDidUpdateKeybindings(() => void this._updateWindowConfiguration()));
+		this._register(this.themeService.onDidColorThemeChange(() => void this._updateWindowConfiguration()));
+		this._register(this.accessibilityService.onDidChangeReducedMotion(() => void this._updateWindowConfiguration()));
+		this._register(this.workspaceTrustManagementService.onDidChangeTrustedFolders(() => void this._updateWindowConfiguration()));
+		this._register(this.workspaceTrustManagementService.onDidChangeTrust(() => void this._updateWindowConfiguration()));
+		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(() => void this._updateWindowConfiguration()));
 		this._register(this.contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(chatEnabledKeys)) {
-				this._updateWindowConfiguration();
+				void this._updateWindowConfiguration();
 			}
 		}));
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
@@ -178,7 +178,7 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 				this.notificationService.info(localize('browser.networkFilteringEnabled', "Agent access to browser tabs was revoked because network filtering was enabled."));
 			}
 			if (e.affectsConfiguration(BrowserMaxHistoryEntriesSettingId) || e.affectsConfiguration(BrowserRemoteProxyEnabledSettingId)) {
-				this._updateWindowConfiguration();
+				void this._updateWindowConfiguration();
 			}
 		}));
 
@@ -242,7 +242,7 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 
 	setRemoteProxyInfo(info: ITunnelProxyInfo | undefined): void {
 		this._remoteProxyInfo = info;
-		this._updateWindowConfiguration();
+		void this._updateWindowConfiguration();
 	}
 
 	getKnownBrowserViews(): Map<string, BrowserEditorInput> {
@@ -562,7 +562,10 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 		const associatedResource = URI.revive(info.associatedResource);
 		// Don't double-create
 		const input = this._known.get(info.id);
-		const existing = input?.model;
+		if (info.presentation ? input !== undefined : this._externalModels.has(info.id)) {
+			throw new Error('Native browser presentation cannot change its editor registration.');
+		}
+		const existing = input?.model ?? this._externalModels.get(info.id);
 		if (existing) {
 			return existing;
 		}
@@ -669,9 +672,10 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 		return undefined;
 	}
 
-	private _updateWindowConfiguration(): void {
-		void this._browserViewService.updateWindowConfiguration(this._mainWindowId, {
+	private _updateWindowConfiguration(): Promise<void> {
+		const result = this._browserViewService.updateWindowConfiguration(this._mainWindowId, {
 			theme: this._getTheme(),
+			canvasTheme: createBrowserCanvasTheme(this.themeService.getColorTheme(), DEFAULT_FONT_FAMILY),
 			keybindings: this._getKeybindings(),
 			aiFeaturesDisabled: !this.contextKeyService.contextMatchesRules(ChatContextKeys.enabled),
 			maxHistoryEntries: this.configurationService.getValue<number>(BrowserMaxHistoryEntriesSettingId),
@@ -679,6 +683,8 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 			trustedFileRoots: this._getTrustedFileRoots(),
 			trustAllFiles: !this.workspaceTrustEnablementService.isWorkspaceTrustEnabled(),
 		});
+		void result.catch(error => this.logService.error('[BrowserViewWorkbenchService] Failed to update native browser configuration.', error));
+		return result;
 	}
 
 	private _getKeybindings(): { [commandId: string]: string } {
