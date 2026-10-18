@@ -117,6 +117,11 @@ export class ContentHoverWidget extends ResizableContentWidget {
 		container.style.height = transformedHeight;
 	}
 
+	private _setScrollableDomNodeDimensions(width: number | string, height: number | string): void {
+		const scrollableDomNode = this._hover.scrollableDomNode;
+		return ContentHoverWidget._applyDimensions(scrollableDomNode, width, height);
+	}
+
 	private _setContentsDomNodeDimensions(width: number | string, height: number | string): void {
 		const contentsDomNode = this._hover.contentsDomNode;
 		console.log('contentsDomNode : ', contentsDomNode);

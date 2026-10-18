@@ -43,6 +43,13 @@
 .monaco-editor .monaco-hover .hover-row {
 	border-radius: var(--vscode-cornerRadius-large);
 	display: flex;
+	box-sizing: border-box;
+	border: 1px solid transparent;
+	/* margin: 1px 1px 1px 1px; */
+}
+
+.monaco-editor .monaco-hover .hover-row:focus {
+	border: 1px solid var(--vscode-focusBorder);
 }
 
 .monaco-editor .monaco-hover .hover-row.hover-row-with-copy {
