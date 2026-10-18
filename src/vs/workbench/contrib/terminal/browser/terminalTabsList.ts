@@ -108,6 +108,7 @@ export class TerminalTabList extends WorkbenchObjectTree<TerminalTabsElement, vo
 
 	constructor(
 		container: HTMLElement,
+		disposableStore: DisposableStore,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IListService listService: IListService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -364,6 +365,7 @@ class TerminalTabsRenderer implements ITreeRenderer<ITerminalInstance, void, ITe
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@ICommandService private readonly _commandService: ICommandService,
 	) {
+		super();
 	}
 
 	renderTemplate(container: HTMLElement): ITerminalTabEntryTemplate {
