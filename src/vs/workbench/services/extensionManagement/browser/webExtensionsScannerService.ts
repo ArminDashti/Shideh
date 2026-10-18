@@ -73,6 +73,7 @@ interface IStoredWebExtension {
 	// deprecated in favor of packageNLSUris & fallbackPackageNLSUri
 	readonly packageNLSUri?: UriComponents;
 	readonly packageNLSUris?: IStringDictionary<UriComponents>;
+	readonly bundleNLSUris?: IStringDictionary<UriComponents>;
 	readonly fallbackPackageNLSUri?: UriComponents;
 	readonly defaultManifestTranslations?: ITranslations | null;
 	readonly metadata?: Metadata;
@@ -895,6 +896,12 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 						Object.entries(e.packageNLSUris).forEach(([key, value]) => packageNLSUris!.set(key, URI.revive(value)));
 					}
 
+					let bundleNLSUris: Map<string, URI> | undefined;
+					if (e.bundleNLSUris) {
+						bundleNLSUris = new Map<string, URI>();
+						Object.entries(e.bundleNLSUris).forEach(([key, value]) => packageNLSUris!.set(key, URI.revive(value)));
+					}
+
 					webExtensions.push({
 						identifier: e.identifier,
 						version: e.version,
@@ -903,6 +910,7 @@ export class WebExtensionsScannerService extends Disposable implements IWebExten
 						readmeUri: URI.revive(e.readmeUri),
 						changelogUri: URI.revive(e.changelogUri),
 						packageNLSUris,
+						bundleNLSUris,
 						fallbackPackageNLSUri: URI.revive(e.fallbackPackageNLSUri),
 						defaultManifestTranslations: e.defaultManifestTranslations,
 						packageNLSUri: URI.revive(e.packageNLSUri),
