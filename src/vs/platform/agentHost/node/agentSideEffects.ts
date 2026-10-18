@@ -1825,6 +1825,13 @@ export class AgentSideEffects extends Disposable {
 				// once cancellation has cleared the active turn.)
 				break;
 			}
+			case ActionType.SessionAgentChanged: {
+				const agent = this._options.getAgent(action.session);
+				agent?.changeAgent?.(URI.parse(action.session), action.agent).catch(err => {
+					this._logService.error('[AgentSideEffects] changeAgent failed', err);
+				});
+				break;
+			}
 			case ActionType.SessionTitleChanged: {
 				break; // Session title updates live in SessionTitleContribution via onDidApplyClientAction.
 			}
