@@ -125,6 +125,10 @@ registerAction2(class CloseSessionAction extends Action2 {
 //  Open Session at Index (Ctrl/Cmd+1..9)
 
 const OPEN_SESSION_AT_INDEX_COMMAND_ID = 'sessionsViewPane.openSessionAtIndex';
+const OPEN_NEXT_SESSION_COMMAND_ID = 'workbench.action.agentSessions.nextSession';
+const OPEN_PREVIOUS_SESSION_COMMAND_ID = 'workbench.action.agentSessions.previousSession';
+const sessionsWindowWithoutModalEditor = ContextKeyExpr.and(IsSessionsWindowContext, EditorPartModalContext.negate());
+const sessionsWindowModalEditorNavigation = ContextKeyExpr.and(IsSessionsWindowContext, EditorPartModalNavigationContext);
 
 function digitToKeyCode(digit: number): KeyCode {
 	switch (digit) {
