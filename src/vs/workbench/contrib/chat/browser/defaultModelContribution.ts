@@ -75,7 +75,29 @@ export abstract class DefaultModelContribution extends Disposable {
 	) {
 		super();
 		this._register(_languageModelsService.onDidChangeLanguageModels(() => this._updateModelValues()));
+		// New vendors (e.g. BYOK Anthropic) may register after this contribution
+		// has already started. Re-trigger resolution so their models surface in
+		// the picker too — `selectLanguageModels({})` only resolves vendors that
+		// were registered at call time.
+		this._register(_languageModelsService.onDidChangeLanguageModelVendors(() => this._resolveAllVendors()));
 		this._updateModelValues();
+		this._resolveAllVendors();
+	}
+
+	private _resolveAllVendors(): void {
+		// Trigger resolution of every registered vendor so models from providers that
+		// haven't yet been touched by another consumer (e.g. BYOK Anthropic / OpenAI)
+		// also surface in the picker. Each vendor's resolution will fire
+		// `onDidChangeLanguageModels`, which re-runs `_updateModelValues` above.
+		// We additionally re-run `_updateModelValues` once everything resolves so that
+		// providers which add no new models (and therefore don't fire the change event)
+		// still get reflected in the picker.
+		const vendors = this._languageModelsService.getVendors().map(v => v.vendor);
+		this._logService.trace(`${this._options.logPrefix} Resolving all vendors: [${vendors.join(', ')}]`);
+		this._languageModelsService.selectLanguageModels({}).then(
+			() => this._updateModelValues(),
+			e => this._logService.error(`${this._options.logPrefix} Error resolving language models:`, e),
+		);
 	}
 
 	private _updateModelValues(): void {
