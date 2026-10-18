@@ -38,6 +38,8 @@ workbench.registerWorkbenchContribution(DefaultAccountUpdateContribution, Lifecy
 workbench.registerWorkbenchContribution(UpdateTitleBarContribution, LifecyclePhase.Restored);
 workbench.registerWorkbenchContribution(PostUpdateWidgetContribution, LifecyclePhase.Restored);
 
+import './update.test.contribution.js';
+
 // Release notes
 
 AccessibleViewRegistry.register(new ReleaseNotesAccessibilityHelp());
