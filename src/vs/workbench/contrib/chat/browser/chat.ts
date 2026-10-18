@@ -262,6 +262,10 @@ export interface IChatAccessibilityService {
 	acceptThinking(content: string): void;
 }
 
+export interface IChatAccessibilityRequestOptions {
+	readonly playProgressSignal?: boolean;
+}
+
 export interface IChatCodeBlockInfo {
 	readonly ownerMarkdownPartId: string;
 	readonly codeBlockIndex: number;
