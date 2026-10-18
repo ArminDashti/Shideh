@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AsyncClipboardStrategy, CommentModeController, CommentsModel, CommentsView, EditorController, EditorModel, EditorView, GutterMarker, OffsetRange, Selection, StringEdit, StringReplacement, StringValue, commands, findNodeOffsetById, vscodeHostKeyboardProfile, vscodeLocalKeyboardProfile, type CodeBlockAstNode, type LinkPresentationKind } from '@vscode/markdown-editor';
-import { VirtualizedIframeEmbeddedEditorFactory, type IframeEmbeddedEditorHostTransport, type IframeEmbeddedEditorProvider, type IframeEmbeddedEditorProviderSelector, type ResolvedIframeEmbeddedEditor } from '@vscode/markdown-editor/web-editors';
+import type { IframeEmbeddedEditorHostTransport, IframeEmbeddedEditorProvider, ResolvedIframeEmbeddedEditor } from '@vscode/markdown-editor/web-editors';
 import { Disposable, autorun, observableValue, transaction } from '@vscode/observables';
+import { HubRpcConnection } from '@vscode/hubrpc';
 import 'katex/dist/katex.min.css';
 import '@vscode/markdown-editor/editor.css';
 import '@vscode/markdown-editor/themes/vscode-default.css';
@@ -14,6 +15,9 @@ import '@vscode/markdown-editor/commentWidget.css';
 import './markdownEditor.css';
 import { WebviewSyntaxHighlighter } from './syntaxHighlighter';
 import { WebviewLinkPresentationProvider } from './linkPresentationProvider';
+import { markdownEditorHost, markdownEditorRenderer, type CodeBlockEditorProviderDefinition, type MarkdownEditorHost } from '../src/preview/markdownEditorProtocol';
+import { MarkdownEditorRpcTransport } from '../src/preview/markdownEditorRpc';
+import { LazyCodeBlockEditorFactory } from '../src/preview/lazyCodeBlockEditorFactory';
 
 interface VsCodeApi {
 	postMessage(message: unknown): void;
@@ -31,12 +35,6 @@ declare function acquireVsCodeApi(): VsCodeApi;
 interface PersistedViewState {
 	scrollTop?: number;
 	selection?: { anchor: number; active: number };
-}
-
-interface CodeBlockEditorProviderDefinition {
-	readonly id: string;
-	readonly selector: IframeEmbeddedEditorProviderSelector;
-	readonly source: { readonly kind: 'static'; readonly descriptor: ResolvedIframeEmbeddedEditor } | { readonly kind: 'exportApi' };
 }
 
 interface InitialState {
@@ -117,13 +115,11 @@ class Editor extends Disposable {
 	#isUpdatingComments = false;
 	#mermaidCounter = 0;
 	#codeBlockEditorProviders: readonly CodeBlockEditorProviderDefinition[] = [];
-	#nextCodeBlockEditorRequestId = 1;
 	#nextCodeBlockEditorRuntimeId = 1;
-	readonly #codeBlockEditorRequests = new Map<number, (descriptor: ResolvedIframeEmbeddedEditor | undefined) => void>();
 	readonly #codeBlockEditorHostTransports = new Map<string, CodeBlockEditorHostTransport>();
 	#controller: EditorController | undefined;
 	#view: EditorView | undefined;
-	#embeddedCodeEditorFactory: VirtualizedIframeEmbeddedEditorFactory | undefined;
+	#embeddedCodeEditorFactory: LazyCodeBlockEditorFactory | undefined;
 	/** Identifies the authoritative text baseline against which local edits are computed. */
 	#editEpoch: number;
 
@@ -131,11 +127,13 @@ class Editor extends Disposable {
 	#commentsView: CommentsView | undefined;
 	/** Whether the workbench feedback store currently accepts new comments for this resource. */
 	readonly #acceptsComments = observableValue<boolean>('acceptsComments', false);
-	// the message secret allows to distinguish vscode sending us a message vs a nested iframe
-	readonly #messageSecret: string;
 	readonly #vscode = acquireVsCodeApi();
-	readonly #syntaxHighlighter = new WebviewSyntaxHighlighter((message) => this.#vscode.postMessage(message));
+	readonly #connection: HubRpcConnection;
+	readonly #transport: MarkdownEditorRpcTransport;
+	readonly #host: MarkdownEditorHost;
+	readonly #syntaxHighlighter: WebviewSyntaxHighlighter;
 	readonly #linkPresentationProvider: WebviewLinkPresentationProvider | undefined;
+	#disposed = false;
 
 	constructor(host: HTMLElement, initialState: InitialState) {
 		super();
@@ -144,43 +142,38 @@ class Editor extends Disposable {
 		if (!messageSecret) {
 			throw new Error('Missing Markdown editor message secret');
 		}
-		this.#messageSecret = messageSecret;
+		this.#transport = new MarkdownEditorRpcTransport(
+			messageSecret,
+			message => this.#vscode.postMessage(message),
+			listener => {
+				const onMessage = (event: MessageEvent): void => listener(event.data);
+				window.addEventListener('message', onMessage);
+				return { dispose: () => window.removeEventListener('message', onMessage) };
+			},
+		);
+		this.#connection = HubRpcConnection.fromTransport(this.#transport);
+		this.#host = this.#connection.get(markdownEditorHost);
+		this.#syntaxHighlighter = new WebviewSyntaxHighlighter(this.#host);
 		this.#editEpoch = initialState.editEpoch;
 		this.#linkPresentationProvider = initialState.richLinksEnabled
 			? this._register(new WebviewLinkPresentationProvider(
 				initialState.linkPresentationRules,
-				message => this.#vscode.postMessage(message),
+				this.#host,
 			))
 			: undefined;
 
 		this.model.sourceText.set(new StringValue(initialState.content), undefined);
 		this.model.readonlyMode.set(initialState.readonly, undefined);
 
-		window.addEventListener('message', (event) => {
-			const message = event.data;
-			if (!message || typeof message !== 'object' || message.messageSecret !== this.#messageSecret) {
-				return;
-			}
-			if (this.#syntaxHighlighter.handleMessage(message)) {
-				return;
-			}
-			if (this.#linkPresentationProvider?.handleMessage(message)) {
-				return;
-			}
-			switch (message.type) {
-				case 'update': {
-					// `replaceSourceText` (not `sourceText.set`) applies authoritative host
-					// text: it maps the selection through the change and clears stale
-					// pending-paragraph state, so the caret stays valid after an undo shrinks
-					// the document. The guard stops this echoing back as a user edit.
-					if (typeof message.editEpoch !== 'number' || !Number.isInteger(message.editEpoch) || message.editEpoch < 0) {
-						break;
-					}
-					this.#editEpoch = message.editEpoch;
-					this.isUpdatingFromExtension = true;
-					this.model.replaceSourceText(new StringValue(message.content));
+		this._register(this.#connection.register(markdownEditorRenderer, {
+			update: ({ content, editEpoch }) => {
+				// Applying authoritative text maps selection and clears stale pending-paragraph state.
+				this.#editEpoch = editEpoch;
+				this.isUpdatingFromExtension = true;
+				try {
+					this.model.replaceSourceText(new StringValue(content));
+				} finally {
 					this.isUpdatingFromExtension = false;
-					break;
 				}
 				case 'codeBlockEditorProviders': {
 					const providers = readCodeBlockEditorProviderDefinitions(message.codeBlockEditorProviders);
@@ -233,56 +226,68 @@ class Editor extends Disposable {
 					}
 					break;
 				}
-				case 'revealComment': {
-					this.#commentsView?.revealComment(message.id);
-					break;
+				this.#acceptsComments.set(acceptsComments, undefined);
+			},
+			revealComment: ({ id }) => {
+				this.#commentsView?.revealComment(id);
+			},
+			revealLinkTarget: ({ start, endExclusive, selectionStart }) => {
+				const contentLength = this.model.sourceText.get().value.length;
+				if (start <= endExclusive && endExclusive <= contentLength && selectionStart <= contentLength) {
+					transaction(tx => {
+						this.model.pendingParagraph.set(undefined, tx);
+						this.model.selectionSource.set('user', tx);
+						this.model.selection.set(Selection.collapsed(selectionStart), tx);
+					});
+					this.#view?.focus();
+					this.#view?.revealRangeAtTop(OffsetRange.fromTo(start, endExclusive));
 				}
-				case 'revealLinkTarget': {
-					const contentLength = this.model.sourceText.get().value.length;
-					if (typeof message.start === 'number' && Number.isInteger(message.start) && message.start >= 0
-						&& typeof message.endExclusive === 'number' && Number.isInteger(message.endExclusive) && message.endExclusive >= message.start
-						&& message.endExclusive <= contentLength
-						&& typeof message.selectionStart === 'number' && Number.isInteger(message.selectionStart) && message.selectionStart >= 0
-						&& message.selectionStart <= contentLength) {
-						transaction(tx => {
-							this.model.pendingParagraph.set(undefined, tx);
-							this.model.selectionSource.set('user', tx);
-							this.model.selection.set(Selection.collapsed(message.selectionStart), tx);
-						});
-						this.#view?.focus();
-						this.#view?.revealRangeAtTop(OffsetRange.fromTo(message.start, message.endExclusive));
-					}
-					break;
+			},
+			command: ({ command: commandId }) => {
+				const command = commands.find(command => command.id === commandId);
+				if (command) {
+					this.#controller?.executeCommand(command);
 				}
-				case 'command': {
-					const command = commands.find(command => command.id === message.command);
-					if (command) {
-						this.#controller?.executeCommand(command);
-					}
-					break;
-				}
+			},
+			highlightThemeChanged: () => {
+				this.#syntaxHighlighter.themeChanged();
+			},
+			richLinkPresentations: ({ presentations }) => {
+				this.#linkPresentationProvider?.updatePresentations(presentations);
+			},
+		}));
+		this.#createView(host, initialState.content);
+		this.#send('ready', this.#host.ready({
+			documentVersion: initialState.documentVersion,
+			editEpoch: this.#editEpoch,
+		}));
+		window.addEventListener('pagehide', this.#onPageHide);
+	}
+
+	readonly #onPageHide = (): void => this.dispose();
+
+	#send(operation: string, request: Promise<void>): void {
+		void request.catch(error => {
+			if (!this.#disposed) {
+				console.error(`Markdown editor ${operation} failed`, error);
 			}
 		});
 
-		this.#createView(host, initialState.content);
-		this.#vscode.postMessage({
-			type: 'ready',
-			documentVersion: initialState.documentVersion,
-			editEpoch: this.#editEpoch,
-		});
-		this._register({
-			dispose: () => {
-				for (const resolve of this.#codeBlockEditorRequests.values()) {
-					resolve(undefined);
-				}
-				this.#codeBlockEditorRequests.clear();
-				for (const transport of Array.from(this.#codeBlockEditorHostTransports.values())) {
-					transport.dispose();
-				}
-			},
-		});
-
 		this.#vscode.postMessage({ type: 'ready' });
+	}
+
+	override dispose(): void {
+		if (this.#disposed) {
+			return;
+		}
+		window.removeEventListener('pagehide', this.#onPageHide);
+		for (const transport of Array.from(this.#codeBlockEditorHostTransports.values())) {
+			transport.dispose();
+		}
+		this.#disposed = true;
+		this.#syntaxHighlighter.dispose();
+		super.dispose();
+		this.#connection.close();
 	}
 
 	#createView(host: HTMLElement, content: string): void {
@@ -291,16 +296,23 @@ class Editor extends Disposable {
 		const iframeBootstrapUrl = new URL(location.href);
 		// Nested frames must use the empty webview bootstrap, not the restricted index.html entrypoint.
 		iframeBootstrapUrl.pathname = '/fake.html';
-		const embeddedCodeEditorFactory = this._register(new VirtualizedIframeEmbeddedEditorFactory({
+		const embeddedCodeEditorFactory = this._register(new LazyCodeBlockEditorFactory({
 			providers: this.#createIframeProviders(this.#codeBlockEditorProviders),
 			scriptNonce,
 			themeCss: () => `:root { ${document.documentElement.getAttribute('style') ?? ''} }`,
 			iframeBootstrapUrl: iframeBootstrapUrl.href,
-			onAmbiguous: (language, providers) => this.#vscode.postMessage({
-				type: 'codeBlockEditorDiagnostic',
+			onAmbiguous: (language, providers) => this.#send('codeBlockEditorDiagnostic', this.#host.codeBlockEditorDiagnostic({
 				message: `Ambiguous providers for ${language}: ${providers.map(provider => provider.id).join(', ')}`,
-			}),
+			})),
 			onDidChange: () => this.#view?.refreshEmbeddedCodeEditors(),
+		}, async () => {
+			const { VirtualizedIframeEmbeddedEditorFactory } = await import('@vscode/markdown-editor/web-editors');
+			return options => new VirtualizedIframeEmbeddedEditorFactory(options);
+		}, error => {
+			console.error('Markdown editor loading embedded editors failed', error);
+			this.#send('codeBlockEditorDiagnostic', this.#host.codeBlockEditorDiagnostic({
+				message: `Failed to load embedded editors: ${error instanceof Error ? error.message : String(error)}. Reopen the editor to retry.`,
+			}));
 		}));
 		this.#embeddedCodeEditorFactory = embeddedCodeEditorFactory;
 		// The scroll + cursor position last persisted for this document, captured
@@ -326,7 +338,7 @@ class Editor extends Disposable {
 				));
 			},
 			onOpenLink: url => {
-				this.#vscode.postMessage({ type: 'openLink', href: url });
+				this.#send('openLink', this.#host.openLink({ href: url }));
 			},
 			onToggleCheckbox: (item, newChecked) => {
 				model.setTaskCheckboxChecked(item, newChecked);
@@ -349,10 +361,9 @@ class Editor extends Disposable {
 					.catch(error => {
 						div.textContent = content;
 						div.setAttribute('aria-busy', 'false');
-						this.#vscode.postMessage({
-							type: 'codeBlockEditorDiagnostic',
+						this.#send('codeBlockEditorDiagnostic', this.#host.codeBlockEditorDiagnostic({
 							message: `Failed to render Mermaid diagram: ${error instanceof Error ? error.message : String(error)}`,
-						});
+						}));
 					});
 				return div;
 			},
@@ -368,8 +379,8 @@ class Editor extends Disposable {
 			keyboardProfile: vscodeLocalKeyboardProfile,
 			forwardedKeyboardProfile: vscodeHostKeyboardProfile,
 			historyStrategy: {
-				undo: () => this.#vscode.postMessage({ type: 'history', command: 'undo' }),
-				redo: () => this.#vscode.postMessage({ type: 'history', command: 'redo' }),
+				undo: () => this.#send('history undo', this.#host.history({ command: 'undo' })),
+				redo: () => this.#send('history redo', this.#host.history({ command: 'redo' })),
 			},
 		}));
 		let lastEditorFocus: boolean | undefined;
@@ -379,7 +390,7 @@ class Editor extends Disposable {
 				return;
 			}
 			lastEditorFocus = focused;
-			this.#vscode.postMessage({ type: 'editorFocusChanged', focused });
+			this.#send('editorFocusChanged', this.#host.editorFocusChanged({ focused }));
 		};
 		const onFocusOut = (): void => queueMicrotask(postEditorFocus);
 		document.addEventListener('focusin', postEditorFocus);
@@ -428,7 +439,7 @@ class Editor extends Disposable {
 			if (!this.#isUpdatingComments) {
 				for (const id of knownCommentIds) {
 					if (!currentIds.has(id)) {
-						this.#vscode.postMessage({ type: 'deleteComment', id });
+						this.#send('deleteComment', this.#host.deleteComment({ id }));
 					}
 				}
 			}
@@ -481,7 +492,7 @@ class Editor extends Disposable {
 		this._register(autorun((reader) => {
 			const isReadonly = reader.readObservable(this.model.readonlyMode);
 			if (!firstReadonly) {
-				this.#vscode.postMessage({ type: 'setReadonly', readonly: isReadonly });
+				this.#send('setReadonly', this.#host.setReadonly({ readonly: isReadonly }));
 			}
 			firstReadonly = false;
 		}));
@@ -493,11 +504,10 @@ class Editor extends Disposable {
 		this._register(autorun((reader) => {
 			const text = reader.readObservable(this.model.sourceText).value;
 			if (!this.isUpdatingFromExtension && text !== previousText) {
-				this.#vscode.postMessage({
-					type: 'edit',
+				this.#send('edit', this.#host.edit({
 					...computeTextEdit(previousText, text),
 					editEpoch: this.#editEpoch,
-				});
+				}));
 			}
 			previousText = text;
 		}));
@@ -523,26 +533,23 @@ class Editor extends Disposable {
 		const runtimeId = `${providerId}:${this.#nextCodeBlockEditorRuntimeId++}`;
 		const transport = new CodeBlockEditorHostTransport(
 			runtimeId,
-			message => this.#vscode.postMessage({
-				type: 'codeBlockEditorHostTransportMessage',
+			message => this.#send('codeBlockEditorHostTransportMessage', this.#host.codeBlockEditorHostTransportMessage({
 				runtimeId,
 				message,
-			}),
+			})),
 			() => {
 				this.#codeBlockEditorHostTransports.delete(runtimeId);
-				this.#vscode.postMessage({
-					type: 'disposeCodeBlockEditorHostTransport',
+				this.#send('disposeCodeBlockEditorHostTransport', this.#host.disposeCodeBlockEditorHostTransport({
 					runtimeId,
-				});
+				}));
 			},
 		);
 		this.#codeBlockEditorHostTransports.set(runtimeId, transport);
-		this.#vscode.postMessage({
-			type: 'createCodeBlockEditorHostTransport',
+		this.#send('createCodeBlockEditorHostTransport', this.#host.createCodeBlockEditorHostTransport({
 			runtimeId,
 			providerId,
 			runtimeKey,
-		});
+		}));
 		return transport;
 	}
 
