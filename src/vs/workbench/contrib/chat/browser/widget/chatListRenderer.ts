@@ -17,6 +17,7 @@ import { CachedListVirtualDelegate, IListElementRenderDetails } from '../../../.
 import { IStickyScrollNodeSourceRange } from '../../../../../base/browser/ui/tree/abstractTree.js';
 import { ITreeNode, ITreeRenderer } from '../../../../../base/browser/ui/tree/tree.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
 import { coalesce, distinct } from '../../../../../base/common/arrays.js';
 import { findLast } from '../../../../../base/common/arraysFind.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -1027,6 +1028,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	private readonly pendingQuestionCarousels = new ResourceMap<Set<ChatQuestionCarouselPart>>();
 	private readonly _notifiedQuestionCarousels = new Set<string>();
 	private readonly workingProgressConfirmationEndListeners = new WeakSet<IChatToolInvocation>();
+	private readonly workingProgressShowStartTimes = new Map<string, number>();
+	private readonly workingProgressShowTimers = this._register(new DisposableMap<string>());
 
 	private readonly chatContentMarkdownRenderer: IMarkdownRenderer;
 	private readonly markdownDecorationsRenderer: ChatMarkdownDecorationsRenderer;
@@ -3417,7 +3420,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		templateData.rowContainer.classList.toggle('chat-response-loading', true);
 
-		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData);
+		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData, index);
 		const partsToRender = this.diff(templateData.renderedParts ?? [], contentForThisTurn.content, element);
 		const contentIsAlreadyRendered = partsToRender.length === (templateData.renderedParts?.length ?? 0) && partsToRender.every(part => part === null);
 		if (!contentIsAlreadyRendered) {
@@ -3509,7 +3512,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		templateData.rowContainer.classList.toggle('chat-response-loading', true);
 		this.traceLayout('doNextProgressiveRender', `START progressive render, index=${index}`);
-		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData);
+		const contentForThisTurn = this.getNextProgressiveRenderContent(element, templateData, index);
 		const partsToRender = this.diff(templateData.renderedParts ?? [], contentForThisTurn.content, element);
 
 		const contentIsAlreadyRendered = partsToRender.length === (templateData.renderedParts?.length ?? 0) && partsToRender.every(part => part === null);
@@ -4203,7 +4206,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	/**
 	 * Returns all content parts that should be rendered, and trimmed markdown content. We will diff this with the current rendered set.
 	 */
-	private getNextProgressiveRenderContent(element: IChatResponseViewModel, templateData: IChatListItemTemplate): { content: IChatRendererContent[]; moreContentAvailable: boolean } {
+	private getNextProgressiveRenderContent(element: IChatResponseViewModel, templateData: IChatListItemTemplate, elementIndex: number): { content: IChatRendererContent[]; moreContentAvailable: boolean } {
 		const data = this.getDataForProgressiveRender(element);
 
 		// When incremental rendering is enabled, skip word-counting for markdown.
@@ -4273,7 +4276,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			element.renderData = { lastRenderTime: Date.now(), renderedWordCount: newRenderedWordCount, renderedParts: partsToRender };
 		}
 
-		const workingProgress = this.shouldShowWorkingProgress(element, partsToRender, moreContentAvailable, templateData);
+		const workingProgress = this.shouldShowWorkingProgress(element, partsToRender, moreContentAvailable, templateData, elementIndex);
 		if (workingProgress) {
 			partsToRender.push(workingProgress);
 		}
