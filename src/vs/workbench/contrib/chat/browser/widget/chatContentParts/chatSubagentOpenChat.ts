@@ -197,6 +197,10 @@ function createEditorOpenSubagentAction(action: IAction, chatWidgetService: ICha
 	});
 }
 
+interface IOpenSubagentChatActionViewItemOptions extends IActionViewItemOptions {
+	readonly showElapsedOnly?: boolean;
+}
+
 class OpenSubagentChatAction extends Action2 {
 	constructor() {
 		super({

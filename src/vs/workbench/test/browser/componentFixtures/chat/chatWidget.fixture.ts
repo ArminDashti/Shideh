@@ -23,6 +23,7 @@ import { ChatRequestTextPart } from '../../../../contrib/chat/common/requestPars
 import { ChatModel, ChatRequestSource } from '../../../../contrib/chat/common/model/chatModel.js';
 import { ChatViewModel } from '../../../../contrib/chat/common/model/chatViewModel.js';
 import { ChatListWidget } from '../../../../contrib/chat/browser/widget/chatListWidget.js';
+import { OpenSubagentChatActionViewItem } from '../../../../contrib/chat/browser/widget/chatContentParts/chatSubagentOpenChat.js';
 import { chatFloatingPersistentContentClass, chatPersistentContentHeightVariable } from '../../../../contrib/chat/browser/widget/chatWidget.js';
 import { ChatInputPart, IChatInputPartOptions, IChatInputStyles } from '../../../../contrib/chat/browser/widget/input/chatInputPart.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -77,6 +78,77 @@ export interface IFixtureFileChange {
 	/** Whether the file is outside the owning session workspace. */
 	readonly isOutsideWorkspace?: boolean;
 }
+
+export type IFixtureAssistantPart = ({
+	readonly kind: 'markdown';
+	readonly text: string;
+} | {
+	readonly kind: 'progress';
+	readonly text: string;
+} | {
+	readonly kind: 'thinking';
+	readonly id: string;
+	readonly text: string;
+	readonly generatedTitle?: string;
+	readonly reasoningDurationMs?: number;
+	readonly sectionBreak?: boolean;
+} | {
+	readonly kind: 'autoModeResolution';
+	readonly resolved?: { readonly id: string; readonly name: string };
+} | {
+	readonly kind: 'systemNotification';
+	readonly notification: IChatSystemNotificationPart;
+} | {
+	readonly kind: 'questionCarousel';
+	readonly questions: IChatQuestion[];
+	readonly message?: string;
+	readonly allowSkip?: boolean;
+} | {
+	readonly kind: 'terminalConfirmation';
+	readonly command: string;
+	readonly title?: string;
+	readonly disclaimer?: string;
+	readonly requestUnsandboxedExecution?: boolean;
+	readonly requestUnsandboxedExecutionReason?: string;
+	readonly riskAssessment?: { readonly risk: ToolRiskLevel; readonly explanation: string };
+	readonly riskLoading?: boolean;
+	readonly confirmation?: { readonly commandLine: string; readonly cwdLabel?: string; readonly cdPrefix?: string };
+} | {
+	readonly kind: 'elicitation';
+	readonly title: string;
+	readonly message: string;
+	readonly confirmation?: { readonly commandLine: string; readonly cwdLabel?: string; readonly cdPrefix?: string };
+	readonly riskAssessment?: { readonly risk: ToolRiskLevel; readonly explanation: string };
+	readonly riskLoading?: boolean;
+} | {
+	readonly kind: 'tool';
+	readonly toolCallId: string;
+	readonly toolId: string;
+	readonly displayName: string;
+	readonly invocationMessage: string;
+	readonly pastTenseMessage?: string;
+	readonly completed?: boolean;
+	readonly input?: string;
+	readonly inputLanguage?: string;
+	readonly output?: string;
+} | {
+	readonly kind: 'subagent';
+	readonly toolCallId: string;
+	readonly description: string;
+	readonly agentName?: string;
+	readonly completed?: boolean;
+	readonly durationMs?: number;
+	readonly credits?: number;
+	readonly startedAtOffsetMs?: number;
+} | {
+	readonly kind: 'toolCompletion';
+	readonly toolCallId: string;
+	readonly durationMs?: number;
+	readonly credits?: number;
+}) & {
+	readonly delayMs?: number;
+	readonly streamText?: boolean;
+};
 
 export interface IFixtureMessage {
 	readonly user: string; // user prompt text
@@ -203,6 +275,7 @@ function makeUserMessage(text: string) {
 
 export async function renderChatWidget(context: ComponentFixtureContext, options: IChatWidgetFixtureOptions): Promise<void> {
 	const { container, disposableStore } = context;
+	const models = options.models ?? [];
 
 	const widgetHolder: { current: IChatWidget | undefined } = { current: undefined };
 	const hasSubagents = options.messages.some(message => message.assistant?.some(part => part.kind === 'subagent'));
@@ -214,7 +287,8 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 		modelDescription: 'Run a command in the terminal',
 		source: ToolDataSource.Internal,
 	};
-
+	const hasSubagentParts = options.messages.some(message =>
+		[...(message.initialAssistant ?? []), ...(message.assistant ?? [])].some(part => part.kind === 'subagent'));
 	// Collect risk assessments from messages so the risk badge service can
 	// return them synchronously via getCached().
 	const hasRiskAssessment = options.messages.some(m => m.assistant?.some(p => (p.kind === 'terminalConfirmation' || p.kind === 'elicitation') && p.riskAssessment));
@@ -281,6 +355,37 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 			if (options.linkPresentationService) {
 				reg.defineInstance(ILinkPresentationService, options.linkPresentationService);
 			}
+			if (models.length > 0) {
+				const modelsById = new Map(models.map(model => [model.identifier, model]));
+				reg.defineInstance(ILanguageModelsService, new class extends mock<ILanguageModelsService>() {
+					override onDidChangeLanguageModels = Event.None;
+					override onDidChangeModelVisibility = Event.None;
+					override onDidChangePinnedModels = Event.None;
+					override getLanguageModelIds() { return [...modelsById.keys()]; }
+					override getHiddenModelIds() { return []; }
+					override getVendors() {
+						return [...new Set(models.map(model => model.metadata.vendor))].map(vendor => ({
+							vendor,
+							displayName: vendor === 'copilot' ? 'GitHub Copilot' : vendor,
+							isDefault: vendor === 'copilot',
+							configuration: undefined,
+							managementCommand: undefined,
+							when: undefined,
+						}));
+					}
+					override isModelHidden() { return false; }
+					override getRecentlyUsedModelIds() { return []; }
+					override getPinnedModelIds() { return [...modelsById.keys()]; }
+					override getModelsControlManifest() { return { free: {}, paid: {} }; }
+					override lookupLanguageModel(modelId: string) { return modelsById.get(modelId)?.metadata; }
+					override lookupLanguageModelByQualifiedName(qualifiedName: string) {
+						return models.find(model => `${model.metadata.name} (${model.metadata.vendor})` === qualifiedName);
+					}
+					override getModelConfiguration() { return undefined; }
+					override getLanguageModelGroups() { return []; }
+					override hasResolvedVendor() { return true; }
+				}());
+			}
 			// Override widget service so the chat list renderer can route tool
 			// confirmations to the carousel attached to our input part.
 			reg.defineInstance(IChatWidgetService, new class extends mock<IChatWidgetService>() {
@@ -299,6 +404,12 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 					return undefined;
 				}
 				override register() { return { dispose() { } }; }
+				override async openSession(resource: URI) {
+					// Component Explorer has no editor group, so record the native
+					// target and let interaction tests assert the dispatched URI.
+					container.dataset.openedChat = resource.toString();
+					return undefined;
+				}
 			}());
 
 			if (isAgentHostSession) {
@@ -420,6 +531,158 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 	if (editingSession) {
 		model.startEditingSession();
 	}
+
+	const pendingStreams: Array<{ readonly message: IFixtureMessage; readonly request: ReturnType<ChatModel['addRequest']> }> = [];
+	const fixtureInvocations = new Map<string, { readonly invocation: ChatToolInvocation; readonly result?: IToolResult; readonly subagentData?: IChatSubagentToolInvocationData }>();
+	const acceptAssistantPart = async (request: ReturnType<ChatModel['addRequest']>, part: IFixtureAssistantPart): Promise<void> => {
+		if (part.kind === 'markdown') {
+			model.acceptResponseProgress(request, { kind: 'markdownContent', content: new MarkdownString(part.text) });
+		} else if (part.kind === 'progress') {
+			model.acceptResponseProgress(request, { kind: 'progressMessage', content: new MarkdownString(part.text) });
+		} else if (part.kind === 'thinking') {
+			model.acceptResponseProgress(request, {
+				kind: 'thinking',
+				id: part.id,
+				value: part.text,
+				generatedTitle: part.generatedTitle,
+				reasoningDurationMs: part.reasoningDurationMs,
+				sectionBreak: part.sectionBreak,
+			});
+		} else if (part.kind === 'autoModeResolution') {
+			model.acceptResponseProgress(request, {
+				kind: 'autoModeResolution',
+				resolved: part.resolved,
+			});
+		} else if (part.kind === 'systemNotification') {
+			model.acceptResponseProgress(request, part.notification);
+		} else if (part.kind === 'questionCarousel') {
+			model.acceptResponseProgress(request, {
+				kind: 'questionCarousel',
+				questions: part.questions,
+				allowSkip: part.allowSkip ?? true,
+				message: part.message,
+			});
+		} else if (part.kind === 'elicitation') {
+			const elicitation = new ChatElicitationRequestPart(
+				part.title,
+				part.message,
+				'',
+				'Continue',
+				'Cancel',
+				async () => ElicitationState.Accepted,
+				async () => ElicitationState.Rejected,
+				undefined,
+				undefined,
+				undefined,
+				part.riskAssessment || part.riskLoading ? { toolId: fixtureToolData.id, parameters: undefined } : undefined,
+			);
+			model.acceptResponseProgress(request, elicitation);
+		} else if (part.kind === 'terminalConfirmation') {
+			const title = part.title ?? `Run pwsh command?`;
+			const toolInvocation = new ChatToolInvocation(
+				{
+					invocationMessage: new MarkdownString(`Running \`${part.command}\``),
+					pastTenseMessage: new MarkdownString(`Ran \`${part.command}\``),
+					confirmationMessages: { title, message: new MarkdownString(`\`${part.command}\``), disclaimer: part.disclaimer ? new MarkdownString(part.disclaimer, { supportThemeIcons: true }) : undefined },
+					toolSpecificData: {
+						kind: 'terminal',
+						commandLine: { original: part.command },
+						language: 'pwsh',
+						requestUnsandboxedExecution: part.requestUnsandboxedExecution,
+						requestUnsandboxedExecutionReason: part.requestUnsandboxedExecutionReason,
+						confirmation: part.confirmation,
+					},
+				},
+				fixtureToolData,
+				generateUuid(),
+				undefined,
+				{ command: part.command },
+			);
+			model.acceptResponseProgress(request, toolInvocation);
+		} else if (part.kind === 'tool') {
+			const toolData: IToolData = {
+				id: part.toolId,
+				displayName: part.displayName,
+				modelDescription: part.invocationMessage,
+				source: ToolDataSource.Internal,
+			};
+			const result: IToolResult | undefined = part.input !== undefined || part.output !== undefined
+				? {
+					content: [],
+					toolResultDetails: {
+						input: part.input ?? '',
+						inputLanguage: part.inputLanguage,
+						output: part.output === undefined
+							? []
+							: [{ type: 'embed', value: part.output, isText: true, mimeType: 'text/plain' }],
+					},
+				}
+				: undefined;
+			const toolInvocation = new ChatToolInvocation(
+				{
+					invocationMessage: new MarkdownString(part.invocationMessage),
+					pastTenseMessage: new MarkdownString(part.pastTenseMessage ?? part.invocationMessage),
+					toolSpecificData: part.input === undefined
+						? undefined
+						: { kind: 'input', rawInput: part.input, editable: false },
+				},
+				toolData,
+				part.toolCallId,
+				undefined,
+				part.input === undefined ? {} : { input: part.input },
+			);
+			fixtureInvocations.set(part.toolCallId, { invocation: toolInvocation, result });
+			model.acceptResponseProgress(request, toolInvocation);
+			if (part.completed) {
+				await toolInvocation.didExecuteTool(result);
+			}
+		} else if (part.kind === 'subagent') {
+			const subagentData: IChatSubagentToolInvocationData = {
+				kind: 'subagent',
+				description: part.description,
+				agentName: part.agentName,
+				isActive: !part.completed,
+				hasStarted: true,
+				isChatAvailable: true,
+				chatResource: buildSubagentChatUri(model.sessionResource, part.toolCallId).toString(),
+				duration: part.completed ? part.durationMs : undefined,
+				credits: part.credits,
+				startedAt: part.completed ? undefined : Date.now() - (part.startedAtOffsetMs ?? 0),
+			};
+			const toolInvocation = new ChatToolInvocation(
+				{
+					invocationMessage: new MarkdownString(`Delegating ${part.description}`),
+					pastTenseMessage: new MarkdownString(`Delegated ${part.description}`),
+					toolSpecificData: subagentData,
+				},
+				{
+					id: 'vscode.subagent',
+					displayName: 'Subagent',
+					modelDescription: 'Delegate focused work to a subagent',
+					source: ToolDataSource.Internal,
+				},
+				part.toolCallId,
+				undefined,
+				{},
+			);
+			fixtureInvocations.set(part.toolCallId, { invocation: toolInvocation, subagentData });
+			model.acceptResponseProgress(request, toolInvocation);
+			if (part.completed) {
+				await toolInvocation.didExecuteTool(undefined);
+			}
+		} else if (part.kind === 'toolCompletion') {
+			const entry = fixtureInvocations.get(part.toolCallId);
+			if (!entry) {
+				throw new Error(`Cannot complete missing fixture tool invocation: ${part.toolCallId}`);
+			}
+			if (entry.subagentData) {
+				entry.subagentData.isActive = false;
+				entry.subagentData.duration = part.durationMs;
+				entry.subagentData.credits = part.credits;
+			}
+			await entry.invocation.didExecuteTool(entry.result);
+		}
+	};
 
 	for (const message of options.messages) {
 		const request = model.addRequest(
@@ -622,8 +885,18 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 		if (message.details) {
 			response.setResult({ details: message.details });
 		}
-		if (message.responseComplete !== false) {
-			response.complete();
+		for (const part of message.initialAssistant ?? []) {
+			await acceptAssistantPart(request, part);
+		}
+		if (message.streaming) {
+			pendingStreams.push({ message, request });
+		} else {
+			for (const part of message.assistant ?? []) {
+				await acceptAssistantPart(request, part);
+			}
+			if (message.responseComplete !== false) {
+				response.complete();
+			}
 		}
 	}
 
@@ -668,9 +941,16 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 	// In production a chat widget always has an inputPart, so the fixture creates
 	// one unconditionally; `withInput` only controls whether it is rendered in DOM.
 	const menuService = instantiationService.get(IMenuService) as FixtureMenuService;
+	if (hasSubagentParts) {
+		menuService.addItem(MenuId.ChatSubagentContent, {
+			command: { id: CHAT_OPEN_AGENT_HOST_CHAT_COMMAND_ID, title: 'Open Subagent' },
+			group: 'navigation',
+			order: 1,
+		});
+	}
 	menuService.addItem(MenuId.ChatInput, { command: { id: 'workbench.action.chat.attachContext', title: '+', icon: Codicon.add }, group: 'navigation', order: -1 });
 	menuService.addItem(MenuId.ChatInput, { command: { id: 'workbench.action.chat.openModePicker', title: 'Agent' }, group: 'navigation', order: 1 });
-	menuService.addItem(MenuId.ChatInput, { command: { id: 'workbench.action.chat.openModelPicker', title: 'GPT-5.3-Codex' }, group: 'navigation', order: 3 });
+	menuService.addItem(MenuId.ChatInput, { command: { id: 'workbench.action.chat.openModelPicker', title: options.modelPickerLabel ?? 'GPT-5.3-Codex' }, group: 'navigation', order: 3 });
 	menuService.addItem(MenuId.ChatInput, { command: { id: 'workbench.action.chat.configureTools', title: '', icon: Codicon.settingsGear }, group: 'navigation', order: 100 });
 	menuService.addItem(MenuId.ChatExecute, { command: { id: 'workbench.action.chat.submit', title: 'Send', icon: Codicon.newLine }, group: 'navigation', order: 4 });
 	menuService.addItem(MenuId.ChatInputSecondary, { command: { id: 'workbench.action.chat.openSessionTargetPicker', title: 'Local' }, group: 'navigation', order: 0 });
@@ -714,6 +994,10 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 	inputPart.layout(width);
 
 	options.decorateInputPart?.(inputPart, instantiationService);
+	if (options.todos?.length) {
+		await inputPart.renderChatTodoListWidget(sessionResource ?? URI.parse('chat-session:fixture'));
+		inputPart.layout(width);
+	}
 	inputPart.element.classList.toggle('chat-input-hidden', options.inputVisible === false);
 
 	const listContainer = dom.$('.interactive-list');
@@ -804,6 +1088,93 @@ export async function renderChatWidget(context: ComponentFixtureContext, options
 			));
 		},
 	});
+
+	let streamsDisposed = false;
+	disposableStore.add({ dispose: () => streamsDisposed = true });
+
+	const waitForStream = (delayMs: number): Promise<void> => new Promise(resolve => {
+		dom.getWindow(container).setTimeout(resolve, delayMs);
+	});
+	const chunkText = (text: string, chunkSize: number): string[] => {
+		const chunks: string[] = [];
+		let offset = 0;
+		while (offset < text.length) {
+			let end = Math.min(text.length, offset + chunkSize);
+			if (end < text.length) {
+				const whitespace = Math.max(text.lastIndexOf(' ', end), text.lastIndexOf('\n', end));
+				if (whitespace > offset + Math.floor(chunkSize / 2)) {
+					end = whitespace + 1;
+				}
+			}
+			chunks.push(text.slice(offset, end));
+			offset = end;
+		}
+		return chunks;
+	};
+	const chunkThinkingText = (text: string, chunkSize: number): string[] => {
+		const firstLineEnd = text.startsWith('**') ? text.indexOf('\n') : -1;
+		if (firstLineEnd < 0) {
+			return chunkText(text, chunkSize);
+		}
+		return [
+			text.slice(0, firstLineEnd),
+			...chunkText(text.slice(firstLineEnd), chunkSize),
+		];
+	};
+
+	for (const { message, request } of pendingStreams) {
+		void (async () => {
+			const stream = message.streaming!;
+			await waitForStream(stream.initialDelayMs ?? 180);
+
+			for (const [index, part] of (message.assistant ?? []).entries()) {
+				if (streamsDisposed) {
+					return;
+				}
+
+				const partDelayMs = part.delayMs ?? (index === 0 ? 0 : (stream.partDelayMs ?? 240));
+				if (partDelayMs > 0) {
+					await waitForStream(partDelayMs);
+				}
+				if (streamsDisposed) {
+					return;
+				}
+
+				if (part.streamText && (part.kind === 'thinking' || part.kind === 'markdown') && part.text.length > 0) {
+					const chunks = part.kind === 'thinking'
+						? chunkThinkingText(part.text, stream.chunkSize ?? 36)
+						: chunkText(part.text, stream.chunkSize ?? 36);
+					for (const [chunkIndex, chunk] of chunks.entries()) {
+						if (streamsDisposed) {
+							return;
+						}
+						if (part.kind === 'thinking') {
+							await acceptAssistantPart(request, {
+								...part,
+								text: chunk,
+								generatedTitle: chunkIndex === 0 ? part.generatedTitle : undefined,
+							});
+						} else {
+							await acceptAssistantPart(request, { ...part, text: chunk });
+						}
+						listWidget.refresh();
+						if (chunkIndex < chunks.length - 1) {
+							await waitForStream(stream.chunkDelayMs ?? 40);
+						}
+					}
+				} else {
+					await acceptAssistantPart(request, part);
+					listWidget.refresh();
+				}
+			}
+
+			if (message.responseComplete !== false && !streamsDisposed) {
+				await waitForStream(stream.completionDelayMs ?? 280);
+				request.response?.complete();
+				listWidget.refresh();
+			}
+		})();
+	}
 }
 
 const SIMPLE_QA: IFixtureMessage[] = [

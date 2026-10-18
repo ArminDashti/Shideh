@@ -306,6 +306,8 @@ export enum ThinkingDisplayMode {
 	Collapsed = 'collapsed',
 	CollapsedPreview = 'collapsedPreview',
 	FixedScrolling = 'fixedScrolling',
+	FixedScrollingCollapsible = 'fixedScrollingCollapsible',
+	FixedScrollingCollapsibleCollapsed = 'fixedScrollingCollapsibleCollapsed',
 }
 
 export enum ChatProgressAnimation {
