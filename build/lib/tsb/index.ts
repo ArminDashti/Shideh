@@ -98,6 +98,9 @@ export function create(
 
 	// TRANSPILE ONLY stream doing just TS to JS conversion
 	function createTranspileStream(transpiler: ITranspiler): Readable & Writable {
+		const t1 = Date.now();
+		fancyLog('Starting', ansiColors.green('transpile'));
+
 		return through(function (this: through.ThroughStream & { queue(a: any): void }, file: Vinyl) {
 			// give the file to the compiler
 			if (file.isStream()) {
@@ -121,6 +124,7 @@ export function create(
 			transpiler.join().then(() => {
 				this.queue(null);
 				transpiler.onOutfile = undefined;
+				fancyLog('Finished', ansiColors.green('transpile'), 'after', ansiColors.magenta(`${Date.now() - t1} ms`));
 			});
 		});
 	}

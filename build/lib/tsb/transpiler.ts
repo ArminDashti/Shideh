@@ -378,7 +378,7 @@ export class ESBuildTranspiler implements ITranspiler {
 			const outBase = this._cmdLine.options.outDir ?? file.base;
 			const outPath = this._outputFileNames.getOutputFileName(file.path);
 
-			this.onOutfile!(new Vinyl({
+			const outFile: Vinyl & { sourceMap?: RawSourceMap } = new Vinyl({
 				path: outPath,
 				base: outBase,
 				contents: Buffer.from(result.code),
