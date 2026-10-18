@@ -98,7 +98,7 @@ export class Repl extends FilterViewPane implements IHistoryNavigationWidget {
 	declare readonly _serviceBrand: undefined;
 
 	private static readonly REFRESH_DELAY = 50; // delay in ms to refresh the repl for new elements to show
-	private static readonly URI = uri.parse(`${DEBUG_SCHEME}:replinput`);
+	static readonly URI = uri.parse(`${DEBUG_SCHEME}:replinput`);
 
 	private history: HistoryNavigator<string>;
 	private tree?: WorkbenchAsyncDataTree<IDebugSession, IReplElement, FuzzyScore>;
@@ -124,6 +124,7 @@ export class Repl extends FilterViewPane implements IHistoryNavigationWidget {
 	private styleElement: HTMLStyleElement | undefined;
 	private styleChangedWhenInvisible: boolean = false;
 	private completionItemProvider: IDisposable | undefined;
+	private completionItemProviderForNotebook: IDisposable | undefined;
 	private modelChangeListener: IDisposable = Disposable.None;
 	private filter: ReplFilter;
 	private multiSessionRepl: IContextKey<boolean>;
@@ -742,6 +743,9 @@ export class Repl extends FilterViewPane implements IHistoryNavigationWidget {
 		this.selectSession();
 		this.styleElement = domStylesheetsJs.createStyleSheet(this.container, undefined, this._store);
 		this.onDidStyleChange();
+
+		this.replKernel = this.instantiationService.createInstance(ReplKernel, this.tree);
+		this._register(this.replKernel);
 	}
 
 	private createReplInput(container: HTMLElement): void {
