@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { localize } from '../../../../nls.js';
+import { MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { AI_CUSTOMIZATION_CATEGORY, AI_CUSTOMIZATION_VIEW_ID, AICustomizationItemMenuId, FOCUS_AI_CUSTOMIZATION_VIEW_ID } from './aiCustomizationTreeView.js';
@@ -27,7 +27,7 @@ import { TerminalContextKeys } from '../../../../workbench/contrib/terminal/comm
 import { ChatContextKeys } from '../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
 import { IsPhoneLayoutContext } from '../../../common/contextkeys.js';
 
-//#region Utilities
+//#region Context Menu Items
 
 /**
  * Type for context passed to actions from tree context menus.
@@ -152,13 +152,13 @@ MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
 
 // Context menu items (shown on right-click)
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
-	command: { id: OPEN_AI_CUSTOMIZATION_FILE_ID, title: localize('open', "Open") },
+	command: { id: OPEN_AI_CUSTOMIZATION_MGMT_FILE_ID, title: localize('open', "Open") },
 	group: '1_open',
 	order: 1,
 });
 
 MenuRegistry.appendMenuItem(AICustomizationItemMenuId, {
-	command: { id: RUN_PROMPT_FROM_VIEW_ID, title: localize('runPrompt', "Run Prompt"), icon: Codicon.play },
+	command: { id: RUN_PROMPT_MGMT_ID, title: localize('runPrompt', "Run Prompt"), icon: Codicon.play },
 	group: '2_run',
 	order: 1,
 	when: ContextKeyExpr.equals(AICustomizationItemTypeContextKey.key, PromptsType.prompt),

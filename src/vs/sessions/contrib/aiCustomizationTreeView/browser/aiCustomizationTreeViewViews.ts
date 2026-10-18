@@ -655,6 +655,7 @@ export class AICustomizationViewPane extends ViewPane {
 	private dataSource: UnifiedAICustomizationDataSource | undefined;
 	private treeContainer: HTMLElement | undefined;
 	private readonly treeDisposables = this._register(new DisposableStore());
+	private readonly delayedRefresh = new Delayer<void>(100);
 
 	// Context keys for controlling menu visibility and welcome content
 	private readonly isEmptyContextKey: IContextKey<boolean>;
@@ -701,12 +702,13 @@ export class AICustomizationViewPane extends ViewPane {
 			this.isEmptyContextKey.set(totalCount$.read(reader) === 0);
 		}));
 
-		// Subscribe to prompt service events to refresh tree
-		this._register(this.promptsService.onDidChangeCustomAgents(() => this.refresh()));
-		this._register(this.promptsService.onDidChangeSlashCommands(() => this.refresh()));
+		// Subscribe to events to refresh tree (debounced to coalesce rapid events)
+		const scheduleRefresh = () => { this.delayedRefresh.trigger(() => this.refresh()); };
+		this._register(this.promptsService.onDidChangeCustomAgents(scheduleRefresh));
+		this._register(this.promptsService.onDidChangeSlashCommands(scheduleRefresh));
 
 		// Listen to workspace folder changes to refresh tree
-		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(() => this.refresh()));
+		this._register(this.workspaceContextService.onDidChangeWorkspaceFolders(scheduleRefresh));
 		this._register(autorun(reader => {
 			this.workspaceService.activeProjectRoot.read(reader);
 			this.refresh();

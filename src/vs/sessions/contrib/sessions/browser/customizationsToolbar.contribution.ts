@@ -7,6 +7,7 @@ import '../../../browser/media/sidebarActionButton.css';
 import './media/customizationsToolbar.css';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Delayer } from '../../../../base/common/async.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -215,6 +216,7 @@ async function openCustomizationSectionPage(editorService: IEditorService, harne
 export class CustomizationLinkViewItem extends BaseActionViewItem {
 
 	private readonly _viewItemDisposables: DisposableStore;
+	private readonly _delayedUpdateCounts: Delayer<void>;
 	private _button: Button | undefined;
 
 	constructor(
