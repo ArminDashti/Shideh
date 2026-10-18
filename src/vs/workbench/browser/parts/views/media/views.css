@@ -205,10 +205,9 @@
 .timeline-tree-view .monaco-list .monaco-list-row .custom-view-tree-node-item > .custom-view-tree-node-item-icon,
 .customview-tree .monaco-list .monaco-list-row .custom-view-tree-node-item > .custom-view-tree-node-item-resourceLabel > .custom-view-tree-node-item-icon {
 	background-size: 16px;
-	background-position: left center;
+	background-position: center;
 	background-repeat: no-repeat;
-	padding-right: 6px;
-	width: 16px;
+	width: 22px;
 	height: 22px;
 	display: flex;
 	align-items: center;
