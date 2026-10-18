@@ -312,7 +312,6 @@ export class ConfigurationModel implements IConfigurationModel {
 }
 
 export interface ConfigurationParseOptions {
-	skipUnregistered?: boolean;
 	scopes?: ConfigurationScope[];
 	skipRestricted?: boolean;
 	include?: string[];

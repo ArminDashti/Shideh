@@ -78,6 +78,16 @@ let intermdiateIdCounter = 0;
 // https://github.com/microsoft/vscode-prompt-tsx/blob/95db0af0474c479be54d7618bbe125fff7a73299/src/base/tsx.ts#L30
 const getFragmentCtor = () => (globalThis as any).vscppf;
 
+/**
+ * @deprecated
+ */
+type CompatLanguageModelToolInvocationOptions<T = any> = vscode.LanguageModelToolInvocationOptions<T> & { parameters?: any };
+
+/**
+ * @deprecated
+ */
+type CompactLanguageModelToolInvocationPrepareOptions<T> = vscode.LanguageModelToolInvocationPrepareOptions<T> & { parameters: any };
+
 export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape {
 	/** A map of tools that were registered in this EH */
 	private readonly _registeredTools = new Map<string, { extension: IExtensionDescription; tool: vscode.LanguageModelTool<Object> }>();

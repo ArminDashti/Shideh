@@ -980,8 +980,8 @@ async function processArtifact(
 
 async function main(args: string[]) {
 	if (!isMainThread) {
-		const { artifact, artifactFilePath } = workerData;
-		await processArtifact(artifact, artifactFilePath);
+		const { artifact, artifactFilePath, cosmosDBAccessToken } = workerData;
+		await processArtifact(artifact, artifactFilePath, cosmosDBAccessToken);
 		return;
 	}
 
@@ -1010,6 +1010,7 @@ async function main(args: string[]) {
 	const gateMessages = new Map<string, string>();
 	let resultPromise = Promise.resolve<PromiseSettledResult<void>[]>([]);
 	const operations: { name: string; operation: Promise<void> }[] = [];
+	const cosmosDBAccessToken = await getAccessToken(e('AZURE_DOCUMENTDB_ENDPOINT')!, e('AZURE_TENANT_ID')!, e('AZURE_CLIENT_ID')!, e('AZURE_ID_TOKEN')!);
 
 	while (true) {
 		[timeline, artifacts] = await Promise.all([retry(() => getPipelineTimeline()), retry(() => getPipelineArtifacts())]);
