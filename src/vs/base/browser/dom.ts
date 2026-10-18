@@ -398,12 +398,17 @@ class AnimationFrameQueueItem implements IDisposable {
 
 	private _runner: () => void;
 	public priority: number;
-	private _canceled: boolean;
+	private _disposed: boolean;
+	private _disposable?: IDisposable;
 
-	constructor(runner: () => void, priority: number = 0) {
+	constructor(runner: () => void, priority: number = 0, token?: CancellationToken) {
 		this._runner = runner;
 		this.priority = priority;
-		this._canceled = false;
+		this._disposed = false;
+
+		if (token) {
+			this._disposable = token.onCancellationRequested(() => this.dispose());
+		}
 	}
 
 	dispose(): void {
@@ -419,6 +424,8 @@ class AnimationFrameQueueItem implements IDisposable {
 			this._runner();
 		} catch (e) {
 			onUnexpectedError(e);
+		} finally {
+			this.dispose();
 		}
 	}
 
