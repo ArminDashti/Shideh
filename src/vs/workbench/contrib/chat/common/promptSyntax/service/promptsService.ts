@@ -304,6 +304,13 @@ export enum Target {
 	Undefined = 'undefined',
 }
 
+export enum Target {
+	VSCode = 'vscode',
+	GitHubCopilot = 'github-copilot',
+	Claude = 'claude',
+	Undefined = 'undefined',
+}
+
 export interface ICustomAgent {
 
 	readonly id: string;
@@ -535,6 +542,32 @@ export enum AgentInstructionFileSource {
 	ClaudePersonal = 'claudePersonal',
 	GitHubWorkspace = 'githubWorkspace',
 	CopilotPersonal = 'copilotPersonal',
+}
+
+export interface Logger {
+	logInfo(message: string): void;
+}
+
+/**
+ * Type of agent instruction file.
+ */
+export enum AgentFileType {
+	agentsMd = 'agentsMd',
+	claudeMd = 'claudeMd',
+	copilotInstructionsMd = 'copilotInstructionsMd',
+}
+
+/**
+ * Represents a resolved agent instruction file with its real path for duplicate detection.
+ * Used by listAgentInstructions to filter out symlinks pointing to the same file.
+ */
+export interface IResolvedAgentFile {
+	readonly uri: URI;
+	/**
+	 * The real path of the file, if it is a symlink.
+	 */
+	readonly realPath: URI | undefined;
+	readonly type: AgentFileType;
 }
 
 export interface Logger {

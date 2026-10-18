@@ -1234,6 +1234,42 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return result;
 	}
 
+	public async listAgentInstructions(token: CancellationToken, logger: Logger | undefined): Promise<IResolvedAgentFile[]> {
+		const [agentMDs, claudeMDs, copilotInstructionsMDs] = await Promise.all([
+			this.listAgentMDs(token, logger),
+			this.listClaudeMDs(token, logger),
+			this.listCopilotInstructionsMDs(token, logger)
+		]);
+		if (token.isCancellationRequested) {
+			return [];
+		}
+		// first look at non-symlinked files, then add symlinks only if target not already included
+		const seenFileURI = new ResourceSet();
+		const symlinks: (IResolvedAgentFile & { realPath: URI })[] = [];
+		const result: IResolvedAgentFile[] = [];
+		const add = (file: IResolvedAgentFile) => {
+			if (file.realPath) {
+				symlinks.push(file as IResolvedAgentFile & { realPath: URI });
+			} else {
+				result.push(file);
+				seenFileURI.add(file.uri);
+			}
+			return true;
+		};
+		agentMDs.forEach(add);
+		claudeMDs.forEach(add);
+		copilotInstructionsMDs.forEach(add);
+		for (const symlink of symlinks) {
+			if (seenFileURI.has(symlink.realPath)) {
+				logger?.logInfo(`Skipping symlinked agent instructions file ${symlink.uri} as target already included: ${symlink.realPath}`);
+			} else {
+				result.push(symlink);
+				seenFileURI.add(symlink.realPath);
+			}
+		}
+		return result;
+	}
+
 	public getAgentFileURIFromModeFile(oldURI: URI): URI | undefined {
 		return this.fileLocator.getAgentFileURIFromModeFile(oldURI);
 	}

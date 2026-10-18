@@ -13,6 +13,8 @@ const { basename, dirname } = posix;
 
 const { basename, dirname } = posix;
 
+const { basename, dirname } = posix;
+
 /**
  * File extension for the reusable prompt files.
  */
@@ -419,6 +421,11 @@ export function getCleanPromptName(fileUri: URI): string {
 	// For .md files in .claude/rules/ folder, treat them as instruction files
 	if (fileName.endsWith('.md') && fileName !== 'README.md' && isInClaudeRulesFolder(fileUri)) {
 		return basename(fileUri, '.md');
+	}
+
+	// For .md files in .claude/rules/ folder, treat them as instruction files
+	if (fileName.endsWith('.md') && fileName !== 'README.md' && isInClaudeRulesFolder(fileUri)) {
+		return basename(fileUri.path, '.md');
 	}
 
 	// For .md files in .claude/rules/ folder, treat them as instruction files
