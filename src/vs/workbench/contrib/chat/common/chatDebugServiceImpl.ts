@@ -542,6 +542,14 @@ export class ChatDebugServiceImpl extends Disposable implements IChatDebugServic
 		return !this._providerEvents.has(event);
 	}
 
+	setSessionSummary(sessionResource: URI, summary: IChatDebugSessionSummary): void {
+		this._sessionSummaries.set(sessionResource, summary);
+	}
+
+	getSessionSummary(sessionResource: URI): IChatDebugSessionSummary | undefined {
+		return this._sessionSummaries.get(sessionResource);
+	}
+
 	setImportedSessionTitle(sessionResource: URI, title: string): void {
 		this._importedSessionTitles.set(sessionResource, title);
 	}
