@@ -65,7 +65,7 @@ export async function askForPromptFileName(
 		return undefined;
 	};
 	const placeHolder = existingFileName ? getPlaceholderStringForRename(type) : getPlaceholderStringForNew(type);
-	const result = await quickInputService.input({ placeHolder, validateInput, value: existingFileName });
+	const result = await quickInputService.input({ placeHolder, validateInput, value: suggestedName || existingFileName });
 	if (!result) {
 		return undefined;
 	}
