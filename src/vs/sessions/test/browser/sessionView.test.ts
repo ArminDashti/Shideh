@@ -28,6 +28,7 @@ suite('Sessions - Session View', () => {
 
 	class TestNewSessionView extends AbstractChatView {
 		disposed = false;
+		readonly transferredDrafts: string[] = [];
 
 		constructor(readonly kind: ChatViewKind = 'newSession') {
 			super();
@@ -268,6 +269,7 @@ suite('Sessions - Session View', () => {
 			afterCancellation,
 			preparationViewsDisposed: preparationViews.every(view => view.disposed),
 			disposedAfterCreation: createdViews[0].disposed,
+			transferredDrafts: createdViews[0].transferredDrafts,
 			finalElement: contentContainer.firstElementChild,
 			shownSessions,
 			forwardedInstantiationServices,
@@ -280,6 +282,7 @@ suite('Sessions - Session View', () => {
 			afterCancellation: { restoredComposer: true, progressDisposed: true, focused: true },
 			preparationViewsDisposed: true,
 			disposedAfterCreation: true,
+			transferredDrafts: ['test:/canvas-first'],
 			finalElement: groupsElement,
 			shownSessions: [undefined, undefined, session],
 			forwardedInstantiationServices: [scopedInstantiationService],

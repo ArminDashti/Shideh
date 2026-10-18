@@ -38,7 +38,7 @@ export interface ICopilotByokSessionConfig {
 }
 
 /**
- * Thin wrapper around {@link CopilotSession} that exposes each SDK event as a
+ * Thin wrapper around {@link ICopilotSession} that exposes each SDK event as a
  * proper VS Code `Event<T>`. All subscriptions and the underlying SDK session
  * are cleaned up on dispose.
  */
@@ -129,6 +129,7 @@ export class CopilotSessionWrapper extends Disposable {
 						}
 						throw error;
 					}
+					throw error;
 				});
 			this._disconnectPromise = disconnectPromise;
 		}

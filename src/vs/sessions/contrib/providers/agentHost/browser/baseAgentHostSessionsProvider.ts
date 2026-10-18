@@ -9,6 +9,7 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { arrayEquals, structuralEquals } from '../../../../../base/common/equals.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { IMarkdownString, MarkdownString, markdownStringEqual } from '../../../../../base/common/htmlContent.js';
 import { Disposable, DisposableMap, DisposableStore, IDisposable, IReference, MutableDisposable, ReferenceCollection, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { mapsStrictEqualIgnoreOrder, ResourceSet } from '../../../../../base/common/map.js';
@@ -77,6 +78,8 @@ import { IAgentHostMessageContextOptions, IChatSessionFileChange, IChatSessionFi
 import { assertAutomationSessionTemplate, IAutomationSessionTemplate } from '../../../../../workbench/contrib/chat/common/automations/automation.js';
 import { AutomationModelConfiguration } from '../../../automations/browser/automationModelConfiguration.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind, ChatPermissionLevel, getChatPermissionLevelFromDefaultConfiguration, isChatPermissionLevel, type IChatDefaultConfiguration } from '../../../../../workbench/contrib/chat/common/constants.js';
+import type { ISessionCanvases } from '../../../../services/sessions/common/sessionCanvases.js';
+import type { CanvasEntry } from '../../../../../platform/agentHost/common/state/protocol/channels-canvas/state.js';
 import { isAutoApprovePolicyRestricted, normalizeSessionConfigValue } from '../../../../../workbench/contrib/chat/common/agentHostConfigPolicy.js';
 import { ILanguageModelsService } from '../../../../../workbench/contrib/chat/common/languageModels.js';
 import { getRegisteredLanguageModels, getVisibleLanguageModelsForTarget, resolveConfiguredModel, resolveModelIdentifier, resolveModelIdentifierFromLanguageModels } from '../../../../../workbench/contrib/chat/common/modelSelection.js';
@@ -792,6 +795,8 @@ function sessionKind(isQuickChat: boolean): IAgentHostSessionKind {
  */
 export interface IAgentHostAdapterOptions {
 	readonly icon: ThemeIcon;
+	/** Optional chat-scoped local canvas runtime. */
+	readonly createCanvases?: (chat: URI, metadata: IObservable<SessionMeta | undefined>, entries: IObservable<readonly CanvasEntry[]>, prepareOpen?: () => Promise<IDisposable>) => ISessionCanvases & IDisposable;
 	/** Loading observable wired to the provider's authentication-pending state. */
 	readonly loading: IObservable<boolean>;
 	/** Builds the session workspace from session metadata; provider-specific (icon, providerLabel, requiresWorkspaceTrust). */
@@ -1364,6 +1369,7 @@ export class AgentHostSessionAdapter extends Disposable implements ISession {
 	 * state and GitHub state live here.
 	 */
 	private readonly _metaObs: ISettableObservable<SessionMeta | undefined>;
+	private readonly _canvasEntries = observableValue<readonly CanvasEntry[]>(this, []);
 
 	/** Complete artifacts and references recorded by the agent. */
 	readonly recordedArtifacts: IObservable<readonly ISessionArtifact[]>;
@@ -2834,6 +2840,38 @@ class NewSession extends Disposable {
 	private _fatalInert = false;
 	private _selectedModelId: string | undefined;
 	private _selectedAgent: ISessionAgentRef | undefined;
+	private readonly _canvasMetadata = observableValue<SessionMeta | undefined>(this, undefined);
+	private readonly _canvasEntries = observableValue<readonly CanvasEntry[]>(this, []);
+	private _canvasOpenCount = 0;
+	private _canvasEffectsRequested = false;
+
+	get canGraduateCanvas(): boolean {
+		return this._canvasEffectsRequested && this._canvasOpenCount === 0;
+	}
+
+	updateCanvasState(state: SessionState): void {
+		transaction(tx => {
+			this._canvasMetadata.set(state._meta, tx);
+			this._canvasEntries.set(state.canvases ?? [], tx);
+		});
+	}
+
+	private async _prepareCanvasOpen(): Promise<IDisposable> {
+		await this.waitForConfigurationReady();
+		await this.waitForEagerCreate();
+		if (this.cancellationToken.isCancellationRequested || !this._backendUri || !this._connection) {
+			throw new CancellationError();
+		}
+		this._canvasOpenCount++;
+		this._canvasEffectsRequested = true;
+		return toDisposable(() => {
+			this._canvasOpenCount--;
+			const state = this._subscription?.object.value;
+			if (state && !(state instanceof Error)) {
+				this._onSessionState?.(this.sessionId, state);
+			}
+		});
+	}
 
 	observeClientCustomAgents(customAgents: IObservable<readonly AgentCustomization[]>, onDidChange: () => void): void {
 		let previous = customAgents.get();
@@ -2999,6 +3037,9 @@ class NewSession extends Disposable {
 			mode, isArchived, isRead,
 			interactivity: constObservable(ChatInteractivity.Full),
 			description: this._description, lastTurnEnd,
+			canvases: !this.isQuickChat && this._options.createCanvases
+				? this._register(this._options.createCanvases(URI.parse(buildDefaultChatUri(this.backendUri)), this._canvasMetadata, this._canvasEntries, () => this._prepareCanvasOpen()))
+				: undefined,
 		};
 		this._mainChat = observableValue<IChat>(this, mainChat);
 		const authPending = ctx.authenticationPending;
@@ -8068,6 +8109,33 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			this._onDidChangeCustomAgents.fire();
 			this._onDidChangeCustomizations.fire();
 		}
+		if (draft?.canGraduateCanvas && state.lifecycle === SessionLifecycle.Ready && state.canvases?.length) {
+			this._graduateCanvasDraft(draft, state);
+		}
+	}
+
+	private _graduateCanvasDraft(draft: NewSession, state: SessionState): void {
+		this._ensureSessionCache();
+		const rawId = this._rawIdFromChatId(draft.sessionId);
+		const committed = rawId ? this._sessionCache.get(rawId) : undefined;
+		if (!committed || this._newSessions.get(draft.sessionId) !== draft) {
+			return;
+		}
+		committed.applyChatCatalog(state);
+		this._preserveNewSessionConfig(draft, committed.sessionId);
+		const modelId = draft.getSelectedModelId();
+		if (modelId) {
+			committed.setChatModelId(committed.resource, modelId, ChatModelSource.Chosen);
+		}
+		const agent = draft.getSelectedAgent();
+		if (agent) {
+			committed.setChatAgent(committed.resource, agent);
+		}
+		this._ensureSessionStateSubscription(committed.sessionId);
+		draft.graduate();
+		this._newSessions.deleteAndDispose(draft.sessionId);
+		this._onDidChangeDraftSessions.fire();
+		this._onDidReplaceSession.fire({ from: draft.session, to: committed });
 	}
 
 	/**

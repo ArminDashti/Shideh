@@ -21,6 +21,7 @@ import { IntegratedBrowserOpenSource, logBrowserOpen } from '../common/browserVi
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { localize } from '../../../nls.js';
+import { assertBrowserViewCanInheritSession } from './browserViewWindowOpen.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { htmlAttributeEncodeValue } from '../../../base/common/strings.js';
 import { BrowserViewInspectElementId } from './browserViewInspector.js';
@@ -103,7 +104,11 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	async getOrCreateBrowserView(id: string, options: IBrowserViewCreateOptions): Promise<IBrowserViewInfo> {
 		if (this.browserViews.has(id)) {
 			const view = this.browserViews.get(id)!;
-			return this._getViewInfo(view);
+			const info = this._getViewInfo(view);
+			if (canReuseBrowserView(info, options)) {
+				return info;
+			}
+			this.browserViews.deleteAndDispose(id);
 		}
 
 		const view = this._createBrowserView(id, options);
@@ -156,10 +161,12 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	private _getViewInfo(view: BrowserView): IBrowserViewInfo {
 		return {
 			id: view.id,
+			source: view.source,
 			host: view.host,
 			owner: view.owner,
 			presentation: view.presentation,
 			associatedResource: view.associatedResource,
+			appPolicy: view.session.appPolicy,
 			state: view.getState()
 		};
 	}
@@ -434,6 +441,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			if (view.host.windowId === windowId) {
 				if (didThemeChange) {
 					view.inspector.setTheme(config.theme);
+					view.applySemanticTheme(config.theme?.semanticTokens);
 				}
 				if (didProxyChange) {
 					view.session.remote.acquire(view.id, config.proxyInfo);
@@ -493,6 +501,10 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 
 		// Hold a ref to the tunnel proxy for as long as this view is alive.
 		browserSession.remote.acquire(id, windowConfiguration?.proxyInfo);
+		// Marks this view as a live consumer of the session's app policy, so
+		// `setAppPolicy` can detect and reject an attempted silent policy swap
+		// underneath an attached view (see `BrowserSession.attachView`).
+		browserSession.attachView(id);
 
 		const view = this.instantiationService.createInstance(
 			BrowserView,
@@ -500,6 +512,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			host,
 			owner,
 			associatedResource,
+			source,
 			browserSession,
 			// Child views share their host, owner, and storage, but do not implicitly inherit agent access.
 			(childOwner, url, electronOptions, editorOptions) => {
@@ -519,10 +532,12 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		view.presentation = presentation;
 		if (windowConfiguration?.theme) {
 			view.inspector.setTheme(windowConfiguration.theme);
+			view.applySemanticTheme(windowConfiguration.theme.semanticTokens);
 		}
 
 		Event.once(view.onDidClose)(() => {
 			browserSession.remote.release(id);
+			browserSession.detachView(id);
 			this.browserViews.deleteAndDispose(id);
 		});
 
@@ -532,6 +547,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 	private _createBrowserView(id: string, options: IBrowserViewCreateOptions, editorOpenRequest?: IBrowserViewEditorOpenOptions, electronOptions?: Electron.WebContentsViewConstructorOptions): BrowserView {
 		const hasAgentAccess = options.owner.type === 'agent' || options.initialAudiences?.some(audience => audience.type === 'agent') === true;
 		const browserSession = this._resolveBrowserSession(id, options.host.windowId, options.session);
+		assertBrowserViewCanInheritSession(browserSession.appPolicy, options.source);
 		if (hasAgentAccess) {
 			this.validateAgentStorageScope(browserSession.storageScope);
 		}
@@ -647,7 +663,11 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		if (params.linkURL) {
 			menu.append(new MenuItem({
 				label: localize('browser.contextMenu.openLinkInNewTab', 'Open Link in New Tab'),
+				enabled: !view.appPolicy,
 				click: () => {
+					if (view.appPolicy) {
+						return;
+					}
 					void this.openNew(params.linkURL, {
 						host: view.host,
 						owner: view.owner,
@@ -677,7 +697,11 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			}
 			menu.append(new MenuItem({
 				label: localize('browser.contextMenu.openImageInNewTab', 'Open Image in New Tab'),
+				enabled: !view.appPolicy,
 				click: () => {
+					if (view.appPolicy) {
+						return;
+					}
 					void this.openNew(params.srcURL!, {
 						host: view.host,
 						owner: view.owner,

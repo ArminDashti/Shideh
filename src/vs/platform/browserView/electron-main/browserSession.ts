@@ -20,6 +20,24 @@ import { FileAccess, Schemas } from '../../../base/common/network.js';
 import { IInstantiationService } from '../../instantiation/common/instantiation.js';
 import { localize } from '../../../nls.js';
 import { IAgentNetworkFilterService } from '../../networkFilter/common/networkFilterService.js';
+import { BrowserViewAppPolicyDecision, BrowserViewAppPolicyRequestContext, decideBrowserViewAppPolicyNavigation, equalsBrowserViewAppPolicy, IBrowserViewAppPolicy } from '../common/browserAppPolicy.js';
+
+/**
+ * Maps an Electron `webRequest` resource type to the {@link BrowserViewAppPolicyRequestContext}
+ * it represents for app-policy purposes. Only `mainFrame` is a top-level navigation;
+ * `subFrame` is a nested frame; everything else (scripts, xhr, images, `webSocket`,
+ * etc.) is a passive subresource load initiated by already-loaded guest content.
+ */
+function requestContextForResourceType(resourceType: string): BrowserViewAppPolicyRequestContext {
+	switch (resourceType) {
+		case 'mainFrame':
+			return BrowserViewAppPolicyRequestContext.TopLevel;
+		case 'subFrame':
+			return BrowserViewAppPolicyRequestContext.Frame;
+		default:
+			return BrowserViewAppPolicyRequestContext.Subresource;
+	}
+}
 
 /**
  * Holds an Electron session along with its storage scope and unique browser
@@ -243,6 +261,18 @@ export class BrowserSession {
 	private readonly _remote: BrowserSessionRemote;
 	private readonly _permissions: BrowserSessionPermissions;
 	private _networkFilterEnabled = false;
+	private _appPolicy: IBrowserViewAppPolicy | undefined;
+	/**
+	 * View ids currently attached to this session (see {@link attachView}/
+	 * {@link detachView}). Because Electron's `session.fromPartition()`
+	 * caches by partition string, the same `BrowserSession` instance can
+	 * legitimately survive a view's destroy+recreate cycle (e.g. a dev
+	 * server restarting on a fresh port). {@link setAppPolicy} only rejects
+	 * a policy change while a view is still live, so it fails clearly on an
+	 * actual ownership change but allows valid recovery once the old view
+	 * has fully detached.
+	 */
+	private readonly _liveViewIds = new Set<string>();
 
 	/**
 	 * @deprecated Don't use this directly. Create sessions via the static factory methods.
@@ -326,9 +356,48 @@ export class BrowserSession {
 	}
 
 	/**
-	 * Dynamically apply network filtering to Agent sessions.
+	 * Dynamically apply network filtering to Agent sessions, or install a
+	 * fixed subresource/frame filter for an Ephemeral session that has opted
+	 * into a local custom-app policy (see {@link setAppPolicy}). These are
+	 * mutually exclusive by construction (an Ephemeral session never has the
+	 * Agent network filter service enabled path taken), which matters
+	 * because Electron only allows a single active `onBeforeRequest`
+	 * listener per session.
 	 */
 	private updateNetworkFilter(): void {
+		if (this.storageScope === BrowserViewStorageScope.Ephemeral) {
+			if (!this._appPolicy || this._networkFilterEnabled) {
+				return;
+			}
+			this._networkFilterEnabled = true;
+			this.electronSession.webRequest.onBeforeRequest((details, callback) => {
+				// Read `this._appPolicy` live on every request (not a value captured at
+				// install time): finding #6 allows `setAppPolicy` to re-confine this
+				// (Electron-cached) session under a fresh origin once no view remains
+				// attached, and enforcement must track that new origin immediately,
+				// not the one that existed when the listener happened to be installed.
+				const policy = this._appPolicy;
+				if (!policy) {
+					callback({ cancel: true });
+					return;
+				}
+				const context = requestContextForResourceType(details.resourceType);
+				const decision = decideBrowserViewAppPolicyNavigation(policy, details.url, context);
+				// Passive subresource/frame loads have no user-mediated "open externally"
+				// escape hatch -- only a top-level navigation (handled separately in
+				// BrowserView's will-navigate/loadURL/popup handling) may hand off to the
+				// OS. Here, anything other than an in-policy Allow must be cancelled.
+				callback({ cancel: decision !== BrowserViewAppPolicyDecision.Allow });
+			});
+			// Downloads are not part of the confined UI surface: an app-policed
+			// canvas has no user-mediated "Save As" affordance, so cancel outright
+			// rather than silently succeeding into an unmanaged download.
+			this.electronSession.on('will-download', event => {
+				event.preventDefault();
+			});
+			return;
+		}
+
 		if (this.storageScope !== BrowserViewStorageScope.Agent) {
 			return;
 		}

@@ -190,6 +190,14 @@ configurationRegistry.registerConfiguration({
 			experiment: { mode: 'auto' },
 			agentHost: { key: AgentHostAutoAttachPullRequestsConfigKey },
 		},
+		[AgentHostLocalCanvasesSettingId]: {
+			type: 'boolean',
+			description: nls.localize('chat.agentHost.localCanvases.enabled', "Enable the local canvas preview in the Agents Window (macOS arm64 source builds only). Packages run only after explicit approval with a compatible SDK/runtime. Other platforms are not yet qualified. Reload the window after enabling. Disabling stops new canvas operations."),
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			tags: ['experimental', 'advanced'],
+			agentHost: { key: AgentHostLocalCanvasesConfigKey },
+		},
 		[AgentHostMarkdownPlanRichLinksEnabledSettingId]: {
 			type: 'boolean',
 			description: nls.localize('chat.agentHost.experimental.markdownPlanRichLinks', "When enabled, agents receive guidance for using rich links to issues, pull requests, commits, sessions, and chats, plus running task markers, when creating or editing Markdown plan documents."),

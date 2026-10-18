@@ -137,6 +137,9 @@ export const ArtifactToolsSettingId = 'chat.artifactTools.enabled';
 /** Configuration key controlling automatic pull request association for the checked-out branch. */
 export const AgentHostAutoAttachPullRequestsSettingId = 'chat.agentHost.experimental.autoAttachPullRequests';
 
+/** Default-off preview of installed local canvas packages in the Agents Window. */
+export const AgentHostLocalCanvasesSettingId = 'chat.agentHost.localCanvases.enabled';
+
 /**
  * Configuration key gating multiple-working-directory support for the Copilot
  * agent-host provider. When `true`, the Copilot provider advertises the
@@ -1256,6 +1259,9 @@ export const IAgentService = createDecorator<IAgentService>('agentService');
 export interface IAgentService {
 	readonly artifactIntegrations?: IArtifactIntegrationAccess;
 	readonly _serviceBrand: undefined;
+	readonly canvasPackages?: IAgentHostCanvasPackagesService;
+	readonly canvasPackagesEnabled?: boolean;
+	readonly canvasProtocol?: IAgentHostCanvasProtocol;
 
 	/**
 	 * Authenticate for a protected resource on the server.

@@ -180,7 +180,7 @@ export class ElectronAgentHostStarter extends Disposable implements IAgentHostSt
 				entryPoint: 'vs/platform/agentHost/node/agentHostMain',
 				execArgv,
 				args,
-				env: {
+				env: createLocalCanvasPocHostEnvironment(this._environmentMainService.isBuilt, {
 					...deepClone(process.env),
 					...shellEnv,
 					// Announce that everything spawned below this process is driven by
@@ -194,7 +194,7 @@ export class ElectronAgentHostStarter extends Disposable implements IAgentHostSt
 					...sdkEnv,
 					...otelEnv,
 					...telemetryIdEnv,
-				}
+				}),
 			})) {
 				throw new Error('Agent Host utility process did not start.');
 			}

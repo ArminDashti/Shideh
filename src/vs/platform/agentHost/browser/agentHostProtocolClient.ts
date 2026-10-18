@@ -50,8 +50,8 @@ import type { FetchAutomationRunsParams, FetchAutomationRunsResult, ListAutomati
 import { ILoadEstimator, LoadEstimator } from '../../../base/parts/ipc/common/ipc.net.js';
 import { ITelemetryService, TelemetryLevel, TELEMETRY_CRASH_REPORTER_SETTING_ID, TELEMETRY_OLD_SETTING_ID, TELEMETRY_SETTING_ID } from '../../telemetry/common/telemetry.js';
 import { getTelemetryLevel } from '../../telemetry/common/telemetryUtils.js';
-import { AgentHostAutoApprovePolicyRestrictedConfigKey, AgentHostTelemetryLevelConfigKey, AgentHostTerminalAutoApproveEnabledConfigKey, AgentHostTerminalAutoApproveRulesConfigKey, AgentHostDisableRepoInfoTelemetryConfigKey, AgentHostWorkspaceTrustConfigKey, getAgentHostTerminalAutoApproveRulesConfig, GLOBAL_AUTO_APPROVE_SETTING_ID, TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID, TERMINAL_AUTO_APPROVE_SETTING_ID, TERMINAL_IGNORE_DEFAULT_AUTO_APPROVE_RULES_SETTING_ID, DISABLE_REPO_INFO_TELEMETRY_SETTING_ID, telemetryLevelToAgentHostConfigValue } from '../common/agentHostSchema.js';
-import { formatAgentHostConfigurationSyncValueForLog, getAgentHostConfigurationSyncEntries, getAgentHostConfigurationSyncTarget, resolveAgentHostConfigurationSyncPatch, resolveAgentHostConfigurationSyncValue } from '../common/agentHostConfigurationSync.js';
+import { AgentHostAutoApprovePolicyRestrictedConfigKey, AgentHostLocalCanvasesConfigKey, AgentHostTelemetryLevelConfigKey, AgentHostTerminalAutoApproveEnabledConfigKey, AgentHostTerminalAutoApproveRulesConfigKey, AgentHostDisableRepoInfoTelemetryConfigKey, AgentHostWorkspaceTrustConfigKey, getAgentHostTerminalAutoApproveRulesConfig, GLOBAL_AUTO_APPROVE_SETTING_ID, TERMINAL_AUTO_APPROVE_ENABLED_SETTING_ID, TERMINAL_AUTO_APPROVE_SETTING_ID, TERMINAL_IGNORE_DEFAULT_AUTO_APPROVE_RULES_SETTING_ID, DISABLE_REPO_INFO_TELEMETRY_SETTING_ID, telemetryLevelToAgentHostConfigValue } from '../common/agentHostSchema.js';
+import { formatAgentHostConfigurationSyncValueForLog, getAgentHostConfigurationSyncEntries, getAgentHostConfigurationSyncTarget, getGlobalConfigurationValue, resolveAgentHostConfigurationSyncPatch, resolveAgentHostConfigurationSyncValue } from '../common/agentHostConfigurationSync.js';
 import { managedPermissionsConfigurationIds, resolveManagedSettingsPermissions, type IAgentHostManagedSettingsPermissions } from '../common/agentHostManagedSettings.js';
 import { AgentHostClientConnectionKind, toAgentHostClientMeta } from '../common/agentHostTelemetry.js';
 import type { OtlpExportLogsParams } from '../common/state/protocol/channels-otlp/notifications.js';
@@ -88,6 +88,7 @@ import { DevContainerAgentHostProtocolClient } from '../common/devContainerAgent
 import type { IDevContainerAgentHostMainService } from '../common/devContainerAgentHost.js';
 
 const AHP_CLIENT_CONNECTION_CLOSED = -32000;
+const DISABLE_AI_FEATURES_SETTING_ID = 'chat.disableAIFeatures';
 // AHP 0.9 changed the automation catalog wire shape, so VS Code cannot safely negotiate 0.8.
 const CLIENT_SUPPORTED_PROTOCOL_VERSIONS = SUPPORTED_PROTOCOL_VERSIONS.filter(version => version !== '0.8.0');
 
@@ -533,7 +534,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			const mirrored: string[] = [];
 			if (e.source !== ConfigurationTarget.WORKSPACE && e.source !== ConfigurationTarget.WORKSPACE_FOLDER && e.source !== ConfigurationTarget.MEMORY) {
 				for (const entry of getAgentHostConfigurationSyncEntries(getAgentHostConfigurationSyncTarget(this._resourceIdentity))) {
-					if (!e.affectsConfiguration(entry.settingId)) {
+					if (entry.sync.key === AgentHostLocalCanvasesConfigKey || !e.affectsConfiguration(entry.settingId)) {
 						continue;
 					}
 					const value = resolveAgentHostConfigurationSyncValue(this._configurationService, entry);
@@ -541,6 +542,11 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 						patch[entry.sync.key] = value;
 						mirrored.push(`${entry.sync.key}=${formatAgentHostConfigurationSyncValueForLog(entry.settingId, value)} (${entry.settingId})`);
 					}
+				}
+				if (this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY
+					&& (e.affectsConfiguration(AgentHostLocalCanvasesSettingId) || e.affectsConfiguration(DISABLE_AI_FEATURES_SETTING_ID))) {
+					patch[AgentHostLocalCanvasesConfigKey] = this._localCanvasesEnabled();
+					mirrored.push(`${AgentHostLocalCanvasesConfigKey}=${patch[AgentHostLocalCanvasesConfigKey]}`);
 				}
 			}
 			if (Object.keys(patch).length) {
@@ -705,6 +711,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 				// older host (a cloud sandbox running a 0.5.x `copilotd`) can negotiate down
 				// instead of rejecting the connection. A current host still picks the newest.
 				protocolVersions: [...CLIENT_SUPPORTED_PROTOCOL_VERSIONS],
+				...(this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? { capabilities: { canvases: {} } } : {}),
 				clientId: this._clientId,
 				clientInfo: this._clientInfo,
 				capabilities: { workingDirectoryInfo: {} },
@@ -1077,6 +1084,7 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		const initializeResult = await this._dispatchRequest<IAgentHostExtensionInitializeResult>('initialize', {
 			channel: ROOT_STATE_URI,
 			protocolVersions: [...CLIENT_SUPPORTED_PROTOCOL_VERSIONS],
+			...(this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY ? { capabilities: { canvases: {} } } : {}),
 			clientId: this._clientId,
 			clientInfo: this._clientInfo,
 			capabilities: { workingDirectoryInfo: {} },
@@ -1288,6 +1296,9 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			sendIdentity ? this._telemetryService.machineId : undefined,
 			sendIdentity ? this._telemetryService.devDeviceId : undefined,
 		);
+		return this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY
+			? { ...meta, [AgentHostCanvasPreviewEnabledMetaKey]: this._localCanvasesEnabled() }
+			: meta;
 	}
 
 	protected override _forwardClientConfig(includeManagedSettings = true): void {
@@ -1543,6 +1554,75 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 			throw new Error('Agent Host does not support detached worktrees.');
 		}
 		return { handle: result.handle, worktree: URI.parse(result.resource) };
+	}
+
+	getCanvases(chat: URI): Promise<IAgentHostCanvasState> {
+		return this._sendExtensionRequest(GetAgentHostCanvasesExtensionMethod, { chat: chat.toString() });
+	}
+
+	private readonly _canvasPackages: IAgentHostCanvasPackagesClient = {
+		list: () => this._sendExtensionRequest(ListCanvasPackagesExtensionMethod, undefined),
+		prepare: source => this._sendExtensionRequest(PrepareCanvasPackageExtensionMethod, { source: source.toString() }),
+		approve: (id, revision, workspace) => this._sendExtensionRequest(ApproveCanvasPackageExtensionMethod, { id, revision, workspace: workspace?.toString() }),
+		revoke: id => this._sendExtensionRequest(RevokeCanvasPackageExtensionMethod, { id }),
+		remove: id => this._sendExtensionRequest(RemoveCanvasPackageExtensionMethod, { id }),
+	};
+
+	get canvasPackages(): IAgentHostCanvasPackagesClient | undefined {
+		return this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY && supportsAgentHostCanvasPackages(this._initializeResult.get()) ? this._canvasPackages : undefined;
+	}
+
+	private readonly _canvasProtocol: IAgentHostCanvasProtocolClient = {
+		getState: resource => this._readCanvasState(resource),
+		listTypes: params => this._sendRequest('listCanvasTypes', params),
+		open: params => this._sendRequest('openCanvas', params),
+		resolveSource: params => this._sendRequest('resolveCanvasSource', params),
+		invokeAction: params => this._sendRequest('invokeCanvasAction', params),
+		restart: async params => { await this._sendRequest('restartCanvasProvider', params); },
+		close: async params => { await this._sendRequest('closeCanvas', params); },
+	};
+
+	get canvasProtocol(): IAgentHostCanvasProtocolClient | undefined {
+		return this._resourceIdentity === LOCAL_AGENT_HOST_RESOURCE_IDENTITY && this._initializeResult.get()?.canvases !== undefined ? this._canvasProtocol : undefined;
+	}
+
+	private async _readCanvasState(resource: string): Promise<CanvasState> {
+		const store = new DisposableStore();
+		try {
+			const reference = store.add(this.getSubscription<CanvasState>(StateComponents.Canvas, URI.parse(resource), 'CanvasProtocolRead'));
+			const current = reference.object.value;
+			if (current instanceof Error) {
+				throw current;
+			}
+			if (current) {
+				return current;
+			}
+			const ready = new DeferredPromise<CanvasState>();
+			store.add(Event.once(reference.object.onDidChange)(state => { void ready.complete(state); }));
+			if (reference.object.onDidError) {
+				store.add(Event.once(reference.object.onDidError)(error => { void ready.error(error); }));
+			}
+			store.add(new TimeoutTimer(() => { void ready.error(new Error('Timed out reading canvas state.')); }, 10000));
+			return await ready.p;
+		} finally {
+			store.dispose();
+		}
+	}
+
+	openCanvas(chat: URI, params: IAgentHostCanvasOpenParams): Promise<IAgentHostCanvasInstance> {
+		return this._sendExtensionRequest(OpenAgentHostCanvasExtensionMethod, { ...params, chat: chat.toString() });
+	}
+
+	invokeCanvasAction(chat: URI, params: IAgentHostCanvasActionParams): Promise<AgentHostCanvasJson> {
+		return this._sendExtensionRequest(InvokeAgentHostCanvasActionExtensionMethod, { ...params, chat: chat.toString() });
+	}
+
+	closeCanvas(chat: URI, instanceId: string): Promise<void> {
+		return this._sendExtensionRequest(CloseAgentHostCanvasExtensionMethod, { chat: chat.toString(), instanceId });
+	}
+
+	reloadCanvases(chat: URI): Promise<void> {
+		return this._sendExtensionRequest(ReloadAgentHostCanvasesExtensionMethod, { chat: chat.toString() });
 	}
 
 	async setDetachedWorktreeArchived(handle: string, archived: boolean): Promise<void> {

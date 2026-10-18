@@ -1359,7 +1359,7 @@ export interface IAgentTelemetryContext {
  * The {@link IAgentService} dispatches to the appropriate agent based on
  * the agent id.
  */
-export interface IAgent {
+export interface IAgent extends IAgentHostCanvasOperations {
 	// ---- Identity and catalog -----------------------------------------------
 
 	/** Unique provider identifier. */
@@ -1390,6 +1390,22 @@ export interface IAgent {
 
 	/** Streamed progress for an exact chat. */
 	readonly onDidChatProgress: Event<AgentSignal>;
+
+	readonly onDidChangeCanvases?: Event<IAgentHostCanvasStateChange>;
+	readonly supportsCanvasProtocol?: boolean;
+	initializeCanvasRuntime?(): Promise<void>;
+	/** Compatibility projection for reviewed-fixture clients predating canonical canvas channels. */
+	readonly legacyCanvasMetadata?: boolean;
+	getCanvasSource?(chat: URI, extensionId: string): CanvasSource;
+	isCanvasExecutionAuthorized?(chat: URI, extensionId: string): boolean;
+	/** Materializes and retains an explicitly admitted canvas backing before executable effects. */
+	prepareCanvasExecution?(chat: URI, extensionId: string, workingDirectories: readonly URI[], onWillExecute: () => void, context: IAgentChatContext): Promise<void>;
+
+	/** Retires this chat's backing, optionally only if it includes the removed working directory. */
+	revokeCanvasExecution?(chat: URI, removedDirectory?: URI): Promise<void>;
+
+	/** Captures retirement authority for the current backing, never for a later replacement. */
+	getCanvasExecution?(chat: URI): { isCurrent(): boolean; retire(): Promise<void> } | undefined;
 
 	/** Fires when a provisional chat acquires its SDK backing and durable metadata. */
 	readonly onDidMaterializeChat: Event<IAgentMaterializeChatEvent>;

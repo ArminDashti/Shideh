@@ -560,6 +560,7 @@ suite('Agents Window workspace handoff', () => {
 	test('asks the target view rather than the most recently mounted composer whether a default is safe', async () => {
 		const harness = createHarness();
 		disposables.add(harness.composerService.registerComposer({
+			hasInputObs: constObservable(false),
 			canApplyWorkspaceDefault: false,
 			animatePrompt: async () => false,
 			showPromptOptions: () => false,

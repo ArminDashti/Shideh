@@ -1362,6 +1362,7 @@ function createTestAgentContext(disposables: Pick<DisposableStore, 'add'>, optio
 	const sessionDataService = options?.sessionDataService ?? createNullSessionDataService();
 	services.set(ISessionDataService, sessionDataService);
 	services.set(IAgentPluginManager, options?.pluginManager ?? new TestAgentPluginManager());
+	services.set(IAgentHostCanvasPackagesService, new UnsupportedCanvasPackagesService());
 	services.set(IAgentHostGitService, options?.gitService ?? new TestAgentHostGitService());
 	services.set(IAgentHostReviewService, NULL_REVIEW_SERVICE);
 	services.set(IAgentHostTerminalManager, new TestAgentHostTerminalManager());
@@ -10684,6 +10685,7 @@ suite('CopilotAgent', () => {
 				appliedSnapshot: { tools: [], plugins: [], mcpServers: {} } satisfies IActiveClientSnapshot,
 				onMcpNotification: Event.None,
 				onDidRequireAuth: Event.None,
+				onDidChangeCanvases: Event.None,
 				mcpServerStates: observableValue('test', []),
 				setExtensionLaunchAdmission(admission: IDisposable): void { admission.dispose(); },
 				async initializeSession(): Promise<void> { },
@@ -12850,6 +12852,7 @@ suite('CopilotAgent', () => {
 					appliedSnapshot: { tools: [], plugins: [], mcpServers: {} } satisfies IActiveClientSnapshot,
 					onMcpNotification: Event.None,
 					onDidRequireAuth: Event.None,
+					onDidChangeCanvases: Event.None,
 					mcpServerStates: observableValue('test', []),
 					setExtensionLaunchAdmission(admission: IDisposable): void { admission.dispose(); },
 					async initializeSession(): Promise<void> {
@@ -14282,6 +14285,7 @@ suite('CopilotAgent', () => {
 			services.set(IAgentHostGitHubEndpointService, createTestGitHubEndpointService());
 			services.set(ISessionDataService, createNullSessionDataService());
 			services.set(IAgentPluginManager, new TestAgentPluginManager());
+			services.set(IAgentHostCanvasPackagesService, new UnsupportedCanvasPackagesService());
 			services.set(IAgentHostGitService, new TestAgentHostGitService());
 			services.set(IAgentHostReviewService, NULL_REVIEW_SERVICE);
 			services.set(IAgentHostTerminalManager, new TestAgentHostTerminalManager());
@@ -14413,6 +14417,7 @@ suite('CopilotAgent', () => {
 			services.set(IAgentHostGitHubEndpointService, createTestGitHubEndpointService());
 			services.set(ISessionDataService, createNullSessionDataService());
 			services.set(IAgentPluginManager, new TestAgentPluginManager());
+			services.set(IAgentHostCanvasPackagesService, new UnsupportedCanvasPackagesService());
 			services.set(IAgentHostGitService, new TestAgentHostGitService());
 			services.set(IAgentHostReviewService, NULL_REVIEW_SERVICE);
 			services.set(IAgentHostTerminalManager, new TestAgentHostTerminalManager());
@@ -14427,6 +14432,7 @@ suite('CopilotAgent', () => {
 			services.set(IProductService, TEST_PRODUCT_SERVICE);
 			services.set(IAgentHostPromptCache, new AgentHostPromptCache(stateManager));
 			services.set(IAgentHostSessionTitleSignal, titleSignal);
+			services.set(IAgentHostCustomizationEnablementService, createNoopCustomizationEnablementService());
 			services.set(INativeEnvironmentService, {
 				_serviceBrand: undefined,
 				userHome: URI.from({ scheme: Schemas.inMemory, path: '/mock-home' }),
@@ -14946,6 +14952,7 @@ suite('CopilotAgent', () => {
 				hasActiveTurn: false,
 				onMcpNotification: Event.None,
 				onDidRequireAuth: Event.None,
+				onDidChangeCanvases: Event.None,
 				mcpServerStates: observableValue('test', []),
 				setExtensionLaunchAdmission(admission: IDisposable): void { admission.dispose(); },
 				async initializeSession(): Promise<void> { rec.initialized = true; },
@@ -17124,6 +17131,7 @@ suite('CopilotAgent', () => {
 					appliedSnapshot: { tools: [], plugins: [], mcpServers: {} } satisfies IActiveClientSnapshot,
 					onMcpNotification: Event.None,
 					onDidRequireAuth: Event.None,
+					onDidChangeCanvases: Event.None,
 					mcpServerStates: observableValue('test', []),
 					setExtensionLaunchAdmission(admission: IDisposable): void { admission.dispose(); },
 					async initializeSession(): Promise<void> { },

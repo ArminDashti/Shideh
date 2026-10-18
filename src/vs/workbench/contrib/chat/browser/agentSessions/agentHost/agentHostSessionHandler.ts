@@ -2584,7 +2584,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 		// --- Steering ---
 		if (currentSteering) {
-			if (currentSteering.id !== prevSteering?.id || !equals(currentSteering.message, prevSteering.message)) {
+			if (currentSteering.id !== prevSteering?.id || !equals(currentSteering.message, withoutCanvasContextSnapshot(prevSteering.message))) {
 				this._dispatchAction(backendSession, {
 					type: ActionType.ChatPendingMessageSet,
 					kind: PendingMessageKind.Steering,
@@ -2616,7 +2616,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const prevQueuedById = new Map(prevQueued.map(q => [q.id, q]));
 		for (const q of currentQueued) {
 			const prev = prevQueuedById.get(q.id);
-			if (!prev || !equals(q.message, prev.message)) {
+			if (!prev || !equals(q.message, withoutCanvasContextSnapshot(prev.message))) {
 				this._dispatchAction(backendSession, {
 					type: ActionType.ChatPendingMessageSet,
 					kind: PendingMessageKind.Queued,
@@ -7796,6 +7796,9 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	}
 
 	private _convertVariableToAttachment(v: IChatRequestVariableEntry, sessionResource: URI, messageText: string | undefined, materializePastes = true): MessageAttachment | MessageAttachment[] | undefined {
+		if (isCanvasContextVariableEntry(v)) {
+			return undefined;
+		}
 		const referenceRange = this._toAttachmentReferenceRange(messageText, v.range);
 		// Copilot CLI can't read unsaved content from disk, so inline the live buffer; drop unreadable schemes.
 		if ((v.kind === 'file' || v.kind === 'implicit') && this._backendInlinesUnsavedEditors()) {

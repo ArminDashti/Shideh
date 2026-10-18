@@ -91,6 +91,13 @@ import { buildSessionEventLogFromTurns } from './buildSessionEvents.js';
 import { CopilotAgentSession, type ICopilotWorkingDirectoryChangeTransaction } from './copilotAgentSession.js';
 import { deferCopilotSdkExecution, getDeferredCopilotSdkExecution } from './copilotSessionExecutionMarker.js';
 import { createCopilotCliEnvironment } from './copilotCliEnvironment.js';
+import { LocalCanvasPoc } from './localCanvasPoc.js';
+import { unsupportedAgentHostCanvasState, type AgentHostCanvasJson, type IAgentHostCanvasActionParams, type IAgentHostCanvasInstance, type IAgentHostCanvasOpenParams, type IAgentHostCanvasState, type IAgentHostCanvasStateChange } from '../../common/agentHostCanvases.js';
+import type { CopilotCanvases } from './copilotCanvases.js';
+import { canvasPackageExtensionId, IAgentHostCanvasPackagesService } from '../../common/agentHostCanvasPackages.js';
+import { canvasPackageCustomization, resolveCanvasPackagePlugins } from './copilotCanvasPackages.js';
+import { CopilotCanvasLaunchAuthority, type ICopilotCanvasLaunchLease } from './copilotCanvasLaunchAuthority.js';
+import { CanvasSourceKind, type CanvasSource } from '../../common/state/protocol/channels-canvas/state.js';
 import { ICopilotSessionContext, projectFromCopilotContext } from './copilotGitProject.js';
 import { parsedPluginsEqual, rebasePluginAgentHooks, toChildCustomizations } from './copilotPluginConverters.js';
 import { CopilotGitHubTelemetryForwarder, type ICopilotModelCallCorrelationTelemetry } from './copilotGitHubTelemetryForwarder.js';
@@ -636,6 +643,7 @@ class CopilotChatEntry extends Disposable {
 		activeClient: ActiveClient,
 		onMcpNotification: Emitter<IMcpNotification>,
 		onDidRequireAuth: () => void,
+		onDidChangeCanvases: Emitter<IAgentHostCanvasStateChange>,
 	) {
 		super();
 		this._register(chatSession);
@@ -902,7 +910,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * that all concurrent callers share a single, global retry budget for
 	 * startup-config-changed aborts (rather than each caller getting its own).
 	 */
-	private _ensureClientHealing: Promise<CopilotClient> | undefined;
+	private _ensureClientHealing: Promise<ICopilotClient> | undefined;
 	private _clientStopping: Promise<void> | undefined;
 	private _clientStartupAttemptCount = 0;
 	private _resolvedProxy: string | undefined;
@@ -1057,7 +1065,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			[CopilotCliVSCodeAssignmentContextKey]: undefined,
 		});
 		this._lastStartupConfig = this._readClientStartupConfig();
-		this._plugins = this._register(this._instantiationService.createInstance(PluginController, () => this._ensureClient()));
+		this._plugins = this._register(this._instantiationService.createInstance(PluginController, () => this._ensureClient(), this._getCopilotUserHome(), () => this._canvasLaunchSupported && this._canvasLaunchAuthority.enabled));
 		this._sessionLauncher = this._instantiationService.createInstance(CopilotSessionLauncher);
 		const discoveryRoot = URI.file(join(getCopilotHomePath(this._environmentService.userHome.fsPath, process.env), 'session-state'));
 		this._copilotChatDiscovery = this._register(this._instantiationService.createInstance(CopilotChatDiscovery,
@@ -1278,6 +1286,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			this._isGitHubMcpServerEnabled(),
 			this._areCopilotConnectorsEnabled(),
 			this._managedSettingsService.permissions,
+			this._canvasLaunchAuthority.enabled,
 		);
 	}
 
@@ -1477,7 +1486,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return { failedTurnIds, stopSucceeded };
 	}
 
-	private async _retryAfterClosedConnection<T>(operation: CopilotClientOperation, task: (client: CopilotClient) => Promise<T>, correlation?: ICopilotFailureCorrelation): Promise<T> {
+	private async _retryAfterClosedConnection<T>(operation: CopilotClientOperation, task: (client: ICopilotClient) => Promise<T>, correlation?: ICopilotFailureCorrelation): Promise<T> {
 		const client = await this._ensureClient();
 		try {
 			return await task(client);
@@ -1716,6 +1725,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	async setWorkingDirectory(chat: URI, context: URI | IAgentChatContext, workingDirectory: URI): Promise<URI> {
 		const initial = this._resolveLiveWorkingDirectoryContext(chat, context);
+		if (this._localCanvasPoc && !this._localCanvasPoc.allows(workingDirectory)) {
+			throw new Error('A local canvas demo chat must remain in its dedicated workspace.');
+		}
 		if (!isDefaultChatUri(chat)) {
 			throw new Error(`Cannot change the working directory for peer chat '${chat.toString()}': live working-directory changes are only supported for the owning default chat`);
 		}
@@ -2645,6 +2657,8 @@ export class CopilotAgent extends Disposable implements IAgent {
 			this._client = undefined;
 			this._clientConnectorAuthentication = undefined;
 			this._clientStarting = undefined;
+			this._canvasLaunchSupported = false;
+			this._canvasRetention = undefined;
 			await client?.stop();
 			// The runtime subprocess is now dead, so it is safe to release the BYOK
 			// proxy handle: the next session launch mints a fresh nonce. See the
@@ -2662,7 +2676,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	// ---- client lifecycle ---------------------------------------------------
 
-	private async _stopClientAfterStartupTermination(client: CopilotClient, terminalError: Error): Promise<never> {
+	private async _stopClientAfterStartupTermination(client: ICopilotClient, terminalError: Error): Promise<never> {
 		try {
 			await client.stop();
 		} catch (error) {
@@ -2685,7 +2699,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * The per-attempt coalescing in `_ensureClientOnce` (via `_clientStarting`) is
 	 * unchanged.
 	 */
-	private _ensureClient(): Promise<CopilotClient> {
+	private _ensureClient(): Promise<ICopilotClient> {
 		if (this._ensureClientHealing) {
 			return this._ensureClientHealing;
 		}
@@ -2721,7 +2735,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return healing;
 	}
 
-	private async _ensureClientOnce(): Promise<CopilotClient> {
+	private async _ensureClientOnce(): Promise<ICopilotClient> {
 		if (this._shutdownPromise) {
 			throw new CancellationError();
 		}
@@ -2866,6 +2880,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 					applicationName: 'vscode-agent-host',
 					applicationVersion: this._productService.version,
 				},
+				...(this._localCanvasPoc?.clientOptions ?? {}),
 				telemetry,
 				logLevel: copilotSdkLogLevelAtStartup,
 				enableRemoteSessions: startupConfig.sessionSync,
@@ -2877,8 +2892,11 @@ export class CopilotAgent extends Disposable implements IAgent {
 				onGetTraceContext: () => this._otelService.getCurrentTraceContext() ?? {},
 				onGitHubTelemetry: notification => { void this._routeGitHubTelemetry(notification).catch(err => this._logService.trace(`[Copilot] GitHub telemetry routing failed: ${err instanceof Error ? err.message : String(err)}`)); },
 			};
-			const client = this._createCopilotClient(clientOptions);
-			await client.start();
+			const resolver = createCopilotCanvasLaunchProvider(this._canvasLaunchAuthority, () =>
+				this._canvasLaunchSupported && this._client === canvasClient?.client && !this._clientStopping && !this._shutdownPromise);
+			const canvasClient = startupConfig.localCanvases ? await this._createCanvasClient(clientOptions, resolver) : undefined;
+			const client = canvasClient?.client ?? this._createCopilotClient(clientOptions);
+			await (canvasClient ? canvasClient.start() : client.start());
 			if (this._shutdownPromise) {
 				return this._stopClientAfterStartupTermination(client, new CancellationError());
 			}
@@ -3245,7 +3263,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (!sdkConversationId) {
 			return undefined;
 		}
-		const resource = URI.file(join(getCopilotHomePath(this._environmentService.userHome.fsPath, process.env), 'session-state', sdkConversationId, 'events.jsonl'));
+		const resource = URI.file(join(this._getCopilotHomePath(), 'session-state', sdkConversationId, 'events.jsonl'));
 		return await this._fileService.exists(resource) ? resource : undefined;
 	}
 
@@ -3763,7 +3781,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * cleaned up on session delete (see {@link _cleanupWorkspacelessScratchDir}).
 	 */
 	private _workspacelessScratchDir(sessionId: string): URI {
-		return workspacelessScratchDir(this._environmentService.userHome, sessionId);
+		return workspacelessScratchDir(this._getCopilotUserHome(), sessionId);
 	}
 
 	/** Whether `directory` is inside {@link workspacelessChatsRoot}, which only holds chats created without a user workspace. */
@@ -4142,6 +4160,164 @@ export class CopilotAgent extends Disposable implements IAgent {
 		}
 	}
 
+	async getCanvases(chat: URI): Promise<IAgentHostCanvasState> {
+		if (!this._localCanvasPoc && !(this._canvasLaunchSupported && this._canvasLaunchAuthority.enabled)) {
+			return unsupportedAgentHostCanvasState;
+		}
+		const session = this._findChatByUri(chat);
+		if (!session || !this._localCanvasPoc && !session.canvases) {
+			return { supported: true, loaded: false, catalog: [], instances: [] };
+		}
+		if ((this._localCanvasPoc && !this._localCanvasPoc.allows(session.workingDirectory)) || !session.canvases) {
+			return unsupportedAgentHostCanvasState;
+		}
+		return session.canvases.getState();
+	}
+
+	get supportsCanvasProtocol(): boolean {
+		return !!this._localCanvasPoc || this._canvasLaunchSupported && this._canvasLaunchAuthority.enabled;
+	}
+
+	async initializeCanvasRuntime(): Promise<void> {
+		if (this._canvasLaunchAuthority.enabled) {
+			await this._ensureClient();
+		}
+	}
+
+	async prepareCanvasExecution(chat: URI, extensionId: string, workingDirectories: readonly URI[], onWillExecute: () => void, operationContext: IAgentChatContext): Promise<void> {
+		if (this._localCanvasPoc) {
+			this._localCanvasPoc.assertWorkingDirectories(workingDirectories);
+			return;
+		}
+		const context = this._resolveSendChatContext(chat, operationContext);
+		await this._queueChat(context.configurationId, context.sequencerKey, 'prepareCanvas', async () => {
+			await this.initializeCanvasRuntime();
+			if (!this._canvasLaunchSupported || !this._canvasLaunchAuthority.enabled || !workingDirectories[0]) {
+				throw new Error('This SDK/runtime does not support approved local canvas execution.');
+			}
+			const item = this._canvasPackages.list().find(item => canvasPackageExtensionId(item.id) === extensionId);
+			const plugins = item ? await resolveCanvasPackagePlugins(this._canvasPackages, this._customizationEnablementService, context.configurationResource, workingDirectories[0]) : [];
+			if (!item || !plugins.some(plugin => plugin.sourceUri && isEqual(plugin.sourceUri, URI.parse(item.source)))) {
+				throw new Error('This canvas package is not approved and enabled for this workspace.');
+			}
+			await this._withCanvasExecution(chat, onWillExecute, async () => {
+				const previous = this._findChatByUri(chat);
+				const declarations = previous?.canvases?.state.catalog;
+				if (previous && (previous.requiresCanvasInitialization || declarations && !declarations.some(canvas => canvas.extensionId === extensionId))) {
+					await this._retainCanvasBacking(chat, previous);
+					await this._destroyLiveSession(previous, true);
+				}
+				const entry = await this._ensureResolvedChatSession(this._resolveSendChatContext(chat, operationContext), workingDirectories);
+				if (!entry?.canvases) {
+					throw new Error('The canvas backing did not initialize.');
+				}
+				await entry.canvases.whenExtensionDeclared(extensionId);
+				if (!this.isCanvasExecutionAuthorized(chat, extensionId)) {
+					throw new CancellationError();
+				}
+			});
+		});
+	}
+
+	private async _retainCanvasBacking(chat: URI, session: CopilotAgentSession): Promise<void> {
+		const client = this._client;
+		const retain = this._canvasRetention;
+		if (!client || !retain) {
+			throw new Error('This SDK does not expose the required public canvas retention API.');
+		}
+		this._canvasPreparations.get(chat)?.onWillExecute?.();
+		await session.retainForCanvas(retain);
+		this._throwIfClientReplaced(client, session);
+		if (this._findChatByUri(chat) !== session || !this._canvasLaunchAuthority.enabled) {
+			throw new CancellationError();
+		}
+	}
+
+	private async _withCanvasExecution<T>(chat: URI, onWillExecute: (() => void) | undefined, execute: () => Promise<T>): Promise<T> {
+		const admission = { onWillExecute };
+		this._canvasPreparations.set(chat, admission);
+		try {
+			return await execute();
+		} finally {
+			if (this._canvasPreparations.get(chat) === admission) {
+				this._canvasPreparations.delete(chat);
+			}
+		}
+	}
+
+	get legacyCanvasMetadata(): boolean {
+		return !!this._localCanvasPoc;
+	}
+
+	getCanvasSource(_chat: URI, extensionId: string): CanvasSource {
+		const item = this._canvasPackages.supported ? this._canvasPackages.list().find(item => extensionId === canvasPackageExtensionId(item.id)) : undefined;
+		return item ? { kind: CanvasSourceKind.Package, sourceId: extensionId, packageName: item.name, ...(item.approval ? { version: item.approval.revision } : {}) }
+			: { kind: CanvasSourceKind.Extension, extensionId };
+	}
+
+	isCanvasExecutionAuthorized(chat: URI, extensionId: string): boolean {
+		return this._localCanvasPoc ? this._localCanvasPoc.allows(this._findChatByUri(chat)?.workingDirectory) : this._canvasLaunchAuthority.isAuthorized(chat, extensionId);
+	}
+
+	openCanvas(chat: URI, params: IAgentHostCanvasOpenParams): Promise<IAgentHostCanvasInstance> {
+		return this._requireCanvases(chat).open(params);
+	}
+
+	invokeCanvasAction(chat: URI, params: IAgentHostCanvasActionParams): Promise<AgentHostCanvasJson> {
+		return this._requireCanvases(chat).invokeAction(params);
+	}
+
+	closeCanvas(chat: URI, instanceId: string): Promise<void> {
+		return this._requireCanvases(chat).close(instanceId);
+	}
+
+	reloadCanvases(chat: URI): Promise<void> {
+		return this._requireCanvases(chat).reload();
+	}
+
+	getCanvasExecution(chat: URI): ReturnType<NonNullable<IAgent['getCanvasExecution']>> {
+		const session = this._findChatByUri(chat);
+		if (!session?.canvases) {
+			return undefined;
+		}
+		return {
+			isCurrent: () => this._findChatByUri(chat) === session,
+			retire: () => this._stopCanvasSession(session, {
+				errorType: 'canvasOperationInterrupted',
+				message: localize('copilot.canvasOperationInterrupted', "The chat stopped because a canvas operation did not finish. Its documents have been preserved."),
+			}),
+		};
+	}
+
+	async revokeCanvasExecution(chat: URI, removedDirectory?: URI): Promise<void> {
+		this._canvasLaunchAuthority.revokeChat(chat, removedDirectory);
+		const session = this._findChatByUri(chat);
+		if (session?.canvases && (!removedDirectory || isEqual(session.workingDirectory, removedDirectory) || session.appliedAdditionalDirectories.some(directory => isEqual(directory, removedDirectory)))) {
+			await this._stopCanvasSession(session);
+		}
+		await this._canvasLaunchAuthority.whenIdle();
+	}
+
+	private async _stopCanvasSession(session: CopilotAgentSession, reason = {
+		errorType: 'canvasExecutionRevoked',
+		message: localize('copilot.canvasExecutionRevoked', "The chat stopped because its canvas execution approval was withdrawn."),
+	}): Promise<void> {
+		session.failActiveTurn(reason);
+		const stopping = session.stopCanvasExecution();
+		if (this._findChatByUri(session.chatChannelUri) === session) {
+			this._chatEntriesBySdkId.deleteAndDispose(session.sessionId);
+		}
+		await stopping;
+	}
+
+	private _requireCanvases(chat: URI): CopilotCanvases {
+		const session = this._findChatByUri(chat);
+		if (!session || !session.canvases || (this._localCanvasPoc ? !this._localCanvasPoc.allows(session.workingDirectory) : !this._canvasLaunchSupported || !this._canvasLaunchAuthority.enabled)) {
+			throw new Error('Local canvases require an opted-in, retained chat with approved executable packages.');
+		}
+		return session.canvases;
+	}
+
 	/** Creates one exact chat backing: fresh, deferred, imported, or forked. */
 	private async _createChat(chat: URI, context: IAgentChatContext, options: IAgentCreateChatOptions = {}): Promise<IAgentCreateChatResult> {
 		const scope = context.configurationResource;
@@ -4400,7 +4576,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			// Detect the project concurrently with the (independent) event-log write
 			// so the git probe and file I/O overlap on the session-creation path.
 			const projectPromise = projectFromCopilotContext({ cwd: workingDirectory.fsPath }, this._gitService);
-			const eventsPath = join(getCopilotHomePath(this._environmentService.userHome.fsPath, process.env), 'session-state', sessionId, 'events.jsonl');
+			const eventsPath = join(this._getCopilotHomePath(), 'session-state', sessionId, 'events.jsonl');
 			const jsonl = buildSessionEventLogFromTurns(importConfig.turns, {
 				sessionId,
 				workingDirectory: workingDirectory.fsPath,
@@ -4432,7 +4608,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	/** Absolute path of an extension-host Copilot CLI sidecar file for `sessionId`. */
 	private _extensionHostCliSidecarPath(sessionId: string, fileName: string): string {
-		return join(getCopilotHomePath(this._environmentService.userHome.fsPath, process.env), 'session-state', sessionId, fileName);
+		return join(this._getCopilotHomePath(), 'session-state', sessionId, fileName);
 	}
 
 	/** Memoizes the (stable) marker read so repeated `listSessions` calls don't re-read the disk. */
@@ -4909,6 +5085,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 		let agentSession: CopilotAgentSession | undefined = prepared?.session;
 		let agent: AgentSelection | undefined;
+		const materializedWorkingDirectories = resolvedWorkingDirectories ?? [workingDirectory];
+		let materialization: Promise<void> | undefined;
+		const commitMaterialization = () => materialization ??= this._commitProvisionalSession(provisional, materializedWorkingDirectories, customizationDirectory, agent);
 		try {
 			const resolvedAgent = provisional.isEphemeral ? undefined : await this._resolveAgentWhenMaterializing(provisional, snapshot, workingDirectory);
 			agent = resolvedAgent?.agent;
@@ -4985,7 +5164,6 @@ export class CopilotAgent extends Disposable implements IAgent {
 		this._checkpointService.captureBaselineCheckpoint(sessionUri, materializedWorkingDirectories).catch(err => {
 			this._logService.warn(`[Copilot:${sessionId}] Baseline checkpoint capture failed: ${err instanceof Error ? err.message : String(err)}`);
 		});
-
 		this._logService.info(`[Copilot] Session materialized: ${sessionUri.toString()}`);
 		// Emit the resolved working-directory set (index 0 = process root). The host
 		// replaces index 0 of the session set with it, preserving the tail.
@@ -5265,7 +5443,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 				this._logService.error(`[Copilot:${current.configurationId}] entry.send() failed: code=${errCode}, message=${errMsg}, hadCachedEntry=${hadCachedEntry}, errorType=${err?.constructor?.name}`);
 				throw err;
 			}
-		});
+		}));
 	}
 
 	private async _resumeTurn(chat: URI, turnId: string, senderClientId?: string): Promise<void> {
@@ -5690,7 +5868,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 * so the forked chat inherits turn event IDs and file-edit
 	 * snapshots. Returns the new SDK session id.
 	 */
-	private async _forkSdkChat(client: CopilotClient, sourceEntry: CopilotAgentSession, turnId: string, targetDbDir: URI): Promise<{ sessionId: string; inheritedTurnId: string | undefined }> {
+	private async _forkSdkChat(client: ICopilotClient, sourceEntry: CopilotAgentSession, turnId: string, targetDbDir: URI): Promise<{ sessionId: string; inheritedTurnId: string | undefined }> {
 		const sourceTurns = await sourceEntry.getMessages();
 		const sourceTurnIndex = sourceTurns.findIndex(turn => turn.id === turnId);
 		if (sourceTurnIndex === -1) {
@@ -6402,6 +6580,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 			this._isClaudeAdvisorEnabled(),
 			skillCharBudget,
 		);
+		this._localCanvasPoc?.applyEnvironment(env);
 		if (proxy) {
 			for (const key of COPILOT_PROXY_SET_ENV_KEYS) {
 				env[key] = proxy;
@@ -6417,6 +6596,14 @@ export class CopilotAgent extends Disposable implements IAgent {
 			env['COPILOT_PROXY_KERBEROS_SPN'] = kerberosSpn;
 		}
 		return env;
+	}
+
+	private _getCopilotHomePath(): string {
+		return this._localCanvasPoc?.copilotHome ?? getCopilotHomePath(this._environmentService.userHome.fsPath, process.env);
+	}
+
+	private _getCopilotUserHome(): URI {
+		return this._localCanvasPoc ? URI.file(this._localCanvasPoc.home) : this._environmentService.userHome;
 	}
 
 	private async _resolveProxyForSdk(env: Record<string, string | undefined> = process.env): Promise<string | undefined> {
@@ -6516,6 +6703,44 @@ export class CopilotAgent extends Disposable implements IAgent {
 	private _createAgentSession(launchPlan: CopilotSessionLaunchPlan, customizationDirectory: URI | undefined, activeClient: ActiveClient, identity?: ICopilotAgentSessionIdentity): CopilotAgentSession {
 		const sessionUri = identity?.sessionUri ?? AgentSession.uri(this.id, launchPlan.sessionId);
 		const chatChannelUri = identity?.chatChannelUri ?? this._findBoundSessionChatUri(launchPlan.sessionId) ?? URI.parse(buildDefaultChatUri(sessionUri));
+		if (this._localCanvasPoc) {
+			this._localCanvasPoc.assertWorkingDirectories(launchPlan.workingDirectory ? [launchPlan.workingDirectory, ...(launchPlan.additionalDirectories ?? [])] : undefined);
+			launchPlan = {
+				...launchPlan,
+				enableLocalCanvases: !launchPlan.isEphemeral && this._localCanvasPoc.allows(launchPlan.workingDirectory, launchPlan.additionalDirectories),
+				copilotHome: this._localCanvasPoc.copilotHome,
+			};
+		} else if (this._canvasLaunchSupported && this._canvasLaunchAuthority.enabled && this._canvasPreparations.has(chatChannelUri) && !launchPlan.isEphemeral && !launchPlan.workspaceless && launchPlan.workingDirectory) {
+			launchPlan = { ...launchPlan, enableLocalCanvases: true };
+		}
+		let canvasLease: ICopilotCanvasLaunchLease | undefined;
+		if (launchPlan.enableLocalCanvases && !this._localCanvasPoc) {
+			const retain = this._canvasRetention;
+			if (!retain) {
+				throw new Error('This SDK does not expose the required public canvas retention API.');
+			}
+			const plan = launchPlan;
+			launchPlan = {
+				...plan,
+				retainForCanvas: async session => {
+					if (session.sessionId !== plan.sessionId || this._client !== plan.client || this._shutdownPromise) {
+						throw new CancellationError();
+					}
+					if (!canvasLease) {
+						throw new Error('The canvas backing has no launch lease.');
+					}
+					canvasLease.assertCurrent();
+					this._canvasPreparations.get(chatChannelUri)?.onWillExecute?.();
+					await retain(session);
+					await plan.onCanvasRetained?.();
+					if (this._client !== plan.client || this._shutdownPromise) {
+						throw new CancellationError();
+					}
+					canvasLease.assertCurrent();
+					canvasLease.markRetained();
+				},
+			};
+		}
 
 		const agentSession = this._instantiationService.createInstance(
 			CopilotAgentSession,
@@ -6546,6 +6771,22 @@ export class CopilotAgent extends Disposable implements IAgent {
 				telemetryContext: () => this.getTelemetryContext(),
 			},
 		);
+		if (launchPlan.enableLocalCanvases && !this._localCanvasPoc && launchPlan.workingDirectory) {
+			try {
+				canvasLease = this._canvasLaunchAuthority.bind({
+					sessionId: launchPlan.sessionId,
+					session: sessionUri,
+					chat: chatChannelUri,
+					workingDirectories: [launchPlan.workingDirectory, ...(launchPlan.additionalDirectories ?? [])],
+					pluginDirectories: launchPlan.snapshot.plugins.flatMap(plugin => plugin.pluginDir ? [plugin.pluginDir] : []),
+					stop: () => this._stopCanvasSession(agentSession),
+				});
+				agentSession.setCanvasLaunchLease(canvasLease);
+			} catch (error) {
+				agentSession.dispose();
+				throw error;
+			}
+		}
 		return agentSession;
 	}
 
@@ -6579,7 +6820,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 	}
 
 	private _createChatEntry(session: CopilotAgentSession, activeClient: ActiveClient): CopilotChatEntry {
-		return new CopilotChatEntry(session, activeClient, this._onMcpNotification, () => this._handleCopilotSessionAuthRequired());
+		return new CopilotChatEntry(session, activeClient, this._onMcpNotification, () => this._handleCopilotSessionAuthRequired(), this._onDidChangeCanvases);
 	}
 
 	private _registerLiveChat(chat: URI, session: CopilotAgentSession, activeClient: ActiveClient): void {
@@ -6632,9 +6873,12 @@ export class CopilotAgent extends Disposable implements IAgent {
 
 	private async _destroyLiveSession(chatSession: CopilotAgentSession, preserveRouting = false): Promise<void> {
 		try {
-			await chatSession.destroySession();
+			await chatSession.destroySession(preserveRouting);
 		} catch (error) {
 			this._logService.warn(`[Copilot:${chatSession.sessionId}] Failed to destroy session before cleanup: ${error instanceof Error ? error.message : String(error)}`);
+			if (preserveRouting) {
+				throw error;
+			}
 		}
 		const chatChannelUri = chatSession.chatChannelUri;
 		if (!preserveRouting && chatChannelUri && this._chatBackings.get(chatChannelUri.toString())?.sdkSessionId === chatSession.sessionId) {
@@ -7294,7 +7538,7 @@ class SessionDiscoveredEntry extends Disposable {
 	constructor(
 		workingDirectories: readonly URI[],
 		userHome: URI,
-		private readonly _getClient: () => Promise<CopilotClient>,
+		private readonly _getClient: () => Promise<ICopilotClient>,
 		private readonly _onDidRefresh: () => void,
 		@ILogService private readonly _logService: ILogService,
 		@IInstantiationService instantiationService: IInstantiationService,
@@ -7545,13 +7789,15 @@ class PluginController extends Disposable {
 	private readonly _mcpDiscovery = this._register(new MutableDisposable<CopilotMcpDiscovery>());
 
 	constructor(
-		private readonly _getClient: () => Promise<CopilotClient>,
+		private readonly _getClient: () => Promise<ICopilotClient>,
+		private readonly _userHome: URI,
+		public readonly canvasesEnabled: () => boolean,
 		@IAgentPluginManager public readonly pluginManager: IAgentPluginManager,
 		@ILogService private readonly _logService: ILogService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentConfigurationService private readonly _configurationService: IAgentConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@INativeEnvironmentService private readonly _environmentService: INativeEnvironmentService,
+		@IAgentHostCanvasPackagesService public readonly canvasPackages: IAgentHostCanvasPackagesService,
 	) {
 		super();
 
@@ -7560,6 +7806,7 @@ class PluginController extends Disposable {
 		this._register(this._configurationService.onDidRootConfigChange(() => {
 			this._applyHostCustomizations();
 		}));
+		this._register(this.canvasPackages.onDidChange(() => this._onDidChange.fire()));
 	}
 
 	public getConfiguredHostCustomizations(): readonly Customization[] {
@@ -7584,10 +7831,10 @@ class PluginController extends Disposable {
 	}
 
 	public getUserHome(): URI {
-		return this._environmentService.userHome;
+		return this._userHome;
 	}
 
-	public async getClient(): Promise<CopilotClient> {
+	public async getClient(): Promise<ICopilotClient> {
 		return this._getClient();
 	}
 
@@ -7915,6 +8162,10 @@ class SessionPluginController extends Disposable {
 		return resolveCustomizationEnablement(this._customizationEnablementService, this._session, customizations, this._clientChildEnablement(), this._clientPlugins());
 	}
 
+	private _canvasPackagesEnabled(): boolean {
+		return this._parent.canvasesEnabled();
+	}
+
 	/**
 	 * The union of every active client's resolved customizations,
 	 * deduplicated by URI with the first-inserted client winning. Order
@@ -8041,7 +8292,11 @@ class SessionPluginController extends Disposable {
 			agents: [],
 			instructions: [],
 		} satisfies ICopilotPluginInfo] : [];
+		const canvasPlugins = this._canvasPackagesEnabled() && this._directory?.scheme === Schemas.file
+			? await resolveCanvasPackagePlugins(this._parent.canvasPackages, this._customizationEnablementService, this._session, this._directory)
+			: [];
 		return [
+			...canvasPlugins,
 			...workspaceMcp,
 			...host.filter(item => !!item.plugin && isEnabledForSdk(item.customization))
 				.map(item => ({ ...withSdkRegistration(item.plugin!, item.pluginDir), sourceUri: URI.parse(item.customization.uri), ...(disabledChildren(item.customization) ? { disabledMcpServers: disabledChildren(item.customization) } : {}) })),

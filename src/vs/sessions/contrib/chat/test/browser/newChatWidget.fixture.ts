@@ -461,6 +461,7 @@ async function renderNewChatWidget(context: ComponentFixtureContext, options: IN
 				override readonly onDidChangeSlashCommands = Event.None;
 				override async getSlashCommands() { return []; }
 			}());
+			reg.defineInstance(ISessionsChatViewStateService, new SessionsChatViewStateService());
 			reg.defineInstance(INewChatVoiceTargetService, disposableStore.add(new NewChatVoiceTargetService(
 				sessionsService,
 				new class extends mock<IChatWidgetService>() {

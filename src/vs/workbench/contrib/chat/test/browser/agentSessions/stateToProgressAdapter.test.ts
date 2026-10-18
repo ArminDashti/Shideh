@@ -26,6 +26,8 @@ import { IChatToolInvocation, IChatToolInvocationSerialized, ToolConfirmKind, ty
 import { isToolResultInputOutputDetails, type IToolResultInputOutputDetails, ToolDataSource, ToolInvocationPresentation } from '../../../common/tools/languageModelToolsService.js';
 import { appendToolOutput, turnsToHistory as rawTurnsToHistory, activeTurnToProgress as rawActiveTurnToProgress, completedToolCallToEditParts, completedToolCallToSerialized, containsAutomaticReplyAnswer, createInputRequestCarousel, getAgentHostActivityProgressId, systemNotificationToChatPart, messageAttachmentsToVariableData, shouldObserveSubagentChat, toolCallStateToInvocation as rawToolCallStateToInvocation, toolCallStateToPreparedInvocation as rawToolCallStateToPreparedInvocation, toolCallStateToStreamingInvocation, finalizeToolInvocation as rawFinalizeToolInvocation, updateRunningToolSpecificData as rawUpdateRunningToolSpecificData, updateStreamingToolInvocation, usageInfoToAutoModeResolution, usageInfoToChatUsage, usageInfoToQuotas, formatTurnResponseDetails, rewriteAgentHostLinkTarget, rewriteMarkdownLinks, type TurnModelLookup } from '../../../browser/agentSessions/agentHost/stateToProgressAdapter.js';
 import { getQuotaReset } from '../../../../../services/chat/common/chatEntitlementService.js';
+import { withCanvasContextReferences } from '../../../../../../platform/agentHost/common/agentHostCanvasContext.js';
+import { collectCanvasContextReferences } from '../../../common/attachments/chatCanvasContext.js';
 
 // ---- Helper factories -------------------------------------------------------
 

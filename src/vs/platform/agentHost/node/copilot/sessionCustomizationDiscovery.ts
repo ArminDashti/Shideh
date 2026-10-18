@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { CopilotClient } from '@github/copilot-sdk';
+import type { ICopilotClient } from './copilotSdkTypes.js';
 import { appendFile, mkdir } from 'fs/promises';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../base/common/errors.js';
@@ -288,7 +288,7 @@ export class SessionCustomizationDiscovery extends Disposable {
 		}
 	}
 
-	private async getDiscoveredDirectories(client: CopilotClient, token: CancellationToken): Promise<readonly IDiscoveredDirectory[]> {
+	private async getDiscoveredDirectories(client: ICopilotClient, token: CancellationToken): Promise<readonly IDiscoveredDirectory[]> {
 		throwIfCancelled(token);
 
 		const p: AgentsDiscoverRequest = { projectPaths: this._workingDirectories.map(uri => uri.fsPath) };

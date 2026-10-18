@@ -147,6 +147,7 @@ export function registerAgentHostHostServices(services: ServiceCollection, input
 	services.set(ISandboxHelperService, new SyncDescriptor(SandboxHelperService));
 	services.set(IAgentHostGitService, new SyncDescriptor(AgentHostGitService));
 	services.set(IAgentPluginManager, new SyncDescriptor(AgentPluginManager, [inputs.userDataPath]));
+	services.set(IAgentHostCanvasPackagesService, new SyncDescriptor(AgentHostCanvasPackagesService));
 	services.set(IAgentSdkDownloader, new SyncDescriptor(AgentSdkDownloader));
 	services.set(IClaudeAgentSdkService, new SyncDescriptor(ClaudeAgentSdkService));
 	services.set(IAgentHostOTelService, new SyncDescriptor(AgentHostOTelService, [inputs.fetchFn]));

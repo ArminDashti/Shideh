@@ -339,6 +339,27 @@ export type ServerAutomationRunAction =
 	| AutomationRunPrimarySessionChangedAction
 	;
 
+/** Union of all canvas-scoped actions. */
+export type CanvasAction =
+	| CanvasAvailabilityChangedAction
+	| CanvasTrustChangedAction
+	| CanvasIncarnationChangedAction
+	| CanvasTitleChangedAction
+	;
+
+/** Union of canvas actions that clients may dispatch. */
+export type ClientCanvasAction =
+	never
+	;
+
+/** Union of canvas actions that only the server may produce. */
+export type ServerCanvasAction =
+	| CanvasAvailabilityChangedAction
+	| CanvasTrustChangedAction
+	| CanvasIncarnationChangedAction
+	| CanvasTitleChangedAction
+	;
+
 // ─── Client-Dispatchable Map ─────────────────────────────────────────────────
 
 /**
@@ -380,6 +401,8 @@ export const IS_CLIENT_DISPATCHABLE: { readonly [K in StateAction['type']]: bool
 	[ActionType.SessionChangesetsChanged]: false,
 	[ActionType.SessionConfigChanged]: true,
 	[ActionType.SessionMetaChanged]: false,
+	[ActionType.SessionCanvasSet]: false,
+	[ActionType.SessionCanvasRemoved]: false,
 	[ActionType.ChatTurnStarted]: true,
 	[ActionType.ChatTurnResumed]: true,
 	[ActionType.ChatDelta]: false,
@@ -450,4 +473,8 @@ export const IS_CLIENT_DISPATCHABLE: { readonly [K in StateAction['type']]: bool
 	[ActionType.AutomationRunSessionRemoved]: false,
 	[ActionType.AutomationRunPrimarySessionChanged]: false,
 	[ActionType.AutomationRunCancelRequested]: true,
+	[ActionType.CanvasAvailabilityChanged]: false,
+	[ActionType.CanvasTrustChanged]: false,
+	[ActionType.CanvasIncarnationChanged]: false,
+	[ActionType.CanvasTitleChanged]: false,
 };

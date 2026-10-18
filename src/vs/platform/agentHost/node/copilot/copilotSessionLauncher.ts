@@ -79,7 +79,7 @@ export const AutoTierConfigKey = 'tier';
 const ReasoningEfforts = reasoningEffortLevels;
 type AgentHostReasoningEffort = ReasoningEffortLevel;
 
-function disabledMcpServersSessionOption(plugins: readonly ICopilotPluginInfo[], disabledRootMcpServers: readonly string[] | undefined, additionalDisabledMcpServers: readonly string[] | undefined): Partial<SessionConfig> {
+function disabledMcpServersSessionOption(plugins: readonly ICopilotPluginInfo[], disabledRootMcpServers: readonly string[] | undefined, additionalDisabledMcpServers: readonly string[] | undefined): Pick<SessionConfig, 'disabledMcpServers'> {
 	const disabledMcpServers = [...new Set([
 		...plugins.flatMap(plugin => plugin.disabledMcpServers ?? []),
 		...(disabledRootMcpServers ?? []),
@@ -761,6 +761,33 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 				this._configurationService.setSessionSandboxEnabled(owner, config.enabled);
 			}
 		};
+		if (plan.retainForCanvas) {
+			if (!plan.enableLocalCanvases || !plan.workingDirectory || plan.isEphemeral) {
+				throw new Error('Canvas retention requires a persistent workspace session.');
+			}
+			const dormant = await this._launchSession(plan, { ...config, requestExtensions: false, requestCanvasRenderer: false }, sandboxConfig, plan.kind === 'resume');
+			try {
+				await plan.retainForCanvas(dormant.session);
+			} finally {
+				try {
+					await dormant.disconnect(true);
+				} finally {
+					dormant.dispose();
+				}
+			}
+			const resumed: ICopilotResumeSessionLaunchPlan = {
+				...plan, kind: 'resume', workingDirectory: plan.workingDirectory,
+				fallback: plan.kind === 'resume' ? plan.fallback : {
+					model: plan.model, longContextWindow: plan.longContextWindow, freeLongContext: plan.freeLongContext,
+				},
+			};
+			managedSettingsResolved = false;
+			return this._launchSession(resumed, config, sandboxConfig, true);
+		}
+		return this._launchSession(plan, config, sandboxConfig);
+	}
+
+	private async _launchSession(plan: CopilotSessionLaunchPlan, config: ICopilotResumeSessionConfig, sandboxConfig: () => SandboxConfig, retained = false): Promise<CopilotSessionWrapper> {
 		if (plan.kind === 'create') {
 			return this._createSession(plan, config, sandboxConfig);
 		}
@@ -1004,7 +1031,7 @@ export class CopilotSessionLauncher implements ICopilotSessionLauncher {
 		}
 	}
 
-	private async _buildSessionConfig(plan: CopilotSessionLaunchPlan, runtime: ICopilotSessionRuntime, onManagedSettingsResolved: () => void): Promise<ResumeSessionConfig> {
+	private async _buildSessionConfig(plan: CopilotSessionLaunchPlan, runtime: ICopilotSessionRuntime, onManagedSettingsResolved: () => void): Promise<ICopilotResumeSessionConfig> {
 		const plugins = plan.snapshot.plugins;
 		const canvasRuntimeEnabled = !plan.isEphemeral;
 		if (canvasRuntimeEnabled && !plan.extensionSdkPath) {

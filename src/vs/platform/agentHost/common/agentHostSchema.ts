@@ -965,6 +965,12 @@ export const platformRootSchema = createSchema({
 		description: localize('agentHost.config.autoAttachPullRequests.description', "Whether the Agent Host automatically discovers and associates a pull request for the currently checked-out branch. When disabled, only pull requests recorded as artifacts or explicitly associated by session actions are considered."),
 		default: true,
 	}),
+	[AgentHostLocalCanvasesConfigKey]: schemaProperty<boolean>({
+		type: 'boolean',
+		title: localize('agentHost.config.localCanvases.title', "Local Canvases"),
+		description: localize('agentHost.config.localCanvases.description', "Whether the local canvas preview is available. Running a package still requires revision-specific approval and compatible runtime support."),
+		default: false,
+	}),
 	[AgentHostMigrateLegacyCopilotCliEnabledConfigKey]: schemaProperty<boolean>({
 		type: 'boolean',
 		title: localize('agentHost.config.migrateLegacyCopilotCliEnabled.title', "Migrate Legacy Copilot CLI Sessions"),

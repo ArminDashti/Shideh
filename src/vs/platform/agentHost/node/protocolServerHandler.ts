@@ -91,6 +91,12 @@ const CLIENT_TOOL_CALL_DISCONNECT_TIMEOUT = 30_000;
 const UNSUPPORTED_CLIENT_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
 	ActionType.ChatWorkingDirectorySet,
 	ActionType.ChatWorkingDirectoryRemoved,
+	ActionType.CanvasAvailabilityChanged,
+	ActionType.CanvasIncarnationChanged,
+	ActionType.CanvasTitleChanged,
+	ActionType.CanvasTrustChanged,
+	ActionType.SessionCanvasSet,
+	ActionType.SessionCanvasRemoved,
 ]);
 
 /** A client tool call in any of these statuses is still awaiting its result. */
@@ -233,6 +239,7 @@ interface IConnectedClient {
 	artifactIntegrations?: ArtifactIntegrationServer;
 	devContainers?: DevContainerAgentHostProtocol;
 	readonly clientId: string;
+	readonly canRenderCanvases: boolean;
 	readonly clientInfo: Implementation | undefined;
 	readonly telemetryContext: IAgentHostClientTelemetryContext;
 	readonly protocolVersion: string;
@@ -287,6 +294,7 @@ interface IActiveClientRecord {
 
 interface IGraceClientRecord {
 	readonly state: 'grace';
+	readonly canRenderCanvases?: boolean;
 	readonly seenConnection: boolean;
 	readonly clientInfo: Implementation | undefined;
 	readonly telemetryContext: IAgentHostClientTelemetryContext | undefined;
@@ -768,6 +776,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		const telemetryContext = this._createClientTelemetryContext(params.clientInfo, params._meta, transport);
 		const client: IConnectedClient = {
 			clientId: params.clientId,
+			canRenderCanvases: params.capabilities?.canvases !== undefined,
 			clientInfo: params.clientInfo,
 			telemetryContext,
 			protocolVersion: negotiated,
@@ -836,6 +845,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 				terminalCommandPrefix: this._config.terminalCommandPrefix,
 				telemetry: this._config.otlpLogEmitter ? { logs: OTLP_LOGS_CHANNEL_TEMPLATE } : undefined,
 				automations: this._agentService.automationCapabilities,
+				...(this._allowsCanvasProtocol(client) ? { canvases: {} } : {}),
 			};
 			return {
 				client,
@@ -871,6 +881,9 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 	 * remain subscribed even when their snapshot has not materialized yet.
 	 */
 	private _addInitialSubscription(client: IConnectedClient, channel: string): IStateSnapshot | undefined | Promise<IStateSnapshot | undefined> {
+		if (isAgentHostCanvasUri(channel) && !this._allowsCanvasProtocol(client)) {
+			return undefined;
+		}
 		const sub = classifyChannel(channel);
 		if (!sub) {
 			return undefined;
@@ -939,6 +952,17 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 	}
 
 	private async _subscribeStateChannel(channel: string, clientId: string, isActive?: () => boolean): Promise<IStateSnapshot> {
+		if (isAgentHostCanvasUri(channel)) {
+			const snapshot = this._stateManager.getSnapshot(channel);
+			if (!snapshot) {
+				throw new ProtocolError(AhpErrorCodes.NotFound, 'The canvas has not been admitted.');
+			}
+			if (isActive && !isActive()) {
+				throw new Error(`Subscription cancelled: ${channel}`);
+			}
+			this._agentService.addSubscriber(URI.parse(channel), clientId);
+			return snapshot;
+		}
 		if (!isAhpAutomationCatalogChannel(channel)) {
 			return this._agentService.subscribe(URI.parse(channel), clientId, isActive);
 		}
@@ -1010,6 +1034,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		const initializationDisposables = disposables.add(new DisposableStore());
 		const client: IConnectedClient = {
 			clientId: params.clientId,
+			canRenderCanvases: existingRecord.state === 'active' ? existingRecord.connections.at(-1)?.canRenderCanvases === true : existingRecord.canRenderCanvases === true,
 			clientInfo: existingRecord.clientInfo,
 			telemetryContext: this._createClientTelemetryContext(existingRecord.clientInfo, params._meta, transport, priorTelemetryContext?.connectionKind),
 			protocolVersion: priorProtocolVersion ?? PROTOCOL_VERSION,
@@ -1105,6 +1130,10 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 		const pendingSubscriptions: { readonly pending: ChannelSubscription; readonly active: ChannelSubscription }[] = [];
 		const snapshots = await Promise.all(params.subscriptions.map(async sub => {
 			const key = sub.toString();
+			if (isAgentHostCanvasUri(key) && !this._allowsCanvasProtocol(client)) {
+				missing.push(key);
+				return undefined;
+			}
 			const classified = classifyChannel(key);
 			if (!classified) {
 				return undefined;
@@ -1779,6 +1808,9 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
 	 */
 	private readonly _requestHandlers: RequestHandlerMap = {
 		subscribe: async (client, params) => {
+			if (isAgentHostCanvasUri(params.channel)) {
+				this._canvasProtocol(client);
+			}
 			const classified = classifyChannel(params.channel);
 			if (!classified) {
 				// OTLP-flavoured URI we don't understand (e.g. unknown

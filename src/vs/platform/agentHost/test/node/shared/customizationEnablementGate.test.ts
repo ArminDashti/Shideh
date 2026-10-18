@@ -11,7 +11,7 @@ import { isCustomizationEnabled, sortCustomizationEnablement } from '../../../co
 import { withMcpServerDiscoveryMeta } from '../../../common/meta/mcpCustomizationMeta.js';
 import { CustomizationEnablementKind, CustomizationType, McpServerStatus, type AgentCustomization, type ChildCustomization, type ClientPluginCustomization, type Customization, type CustomizationEnablement, type McpServerCustomization, type PluginCustomization } from '../../../common/state/protocol/channels-session/state.js';
 import { IAgentHostCustomizationEnablementService, type CustomizationEnablementResolution, type ICustomizationEnablementTarget, type WorkingDirectoryState } from '../../../node/agentHostCustomizationEnablementService.js';
-import { getSdkMcpServerEnablement, isCustomizationSdkEligible, recordClientPluginEnablement, resolveCustomizationEnablement } from '../../../node/shared/customizationEnablementGate.js';
+import { getSdkMcpServerEnablement, isCustomizationSdkEligible, recordClientPluginEnablement, resolveCustomizationEnablement, targetForPlugin } from '../../../node/shared/customizationEnablementGate.js';
 
 class TestEnablementService implements IAgentHostCustomizationEnablementService {
 	declare readonly _serviceBrand: undefined;

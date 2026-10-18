@@ -94,6 +94,7 @@ interface IRestoreStateHarness {
 }
 
 interface IUpdateDraftStateHarness extends IDraftStateHarness {
+	readonly _hasInput: ISettableObservable<boolean>;
 	readonly _editor: {
 		getModel(): { getValue(): string } | null;
 	};
@@ -793,6 +794,7 @@ suite('NewChatInputWidget', () => {
 		const saveHarness: IUpdateAndSaveDraftStateHarness = {
 			options: {},
 			storageService,
+			_hasInput: observableValue('hasInput', false),
 			_sending: false,
 			_editor: { getModel: () => ({ getValue: () => '' }) },
 			_contextAttachments: { attachments },
@@ -816,11 +818,13 @@ suite('NewChatInputWidget', () => {
 		});
 
 		assert.deepStrictEqual({
+			hasInput: saveHarness._hasInput.get(),
 			inputText: restored.inputText,
 			attachmentIds: restored.attachments?.map(attachment => attachment.id),
 			folderValue: restored.attachments?.[0].value,
 			repositoryValue: restored.attachments?.[1].value,
 		}, {
+			hasInput: true,
 			inputText: '',
 			attachmentIds: attachments.map(attachment => attachment.id),
 			folderValue: folder,
@@ -838,6 +842,7 @@ suite('NewChatInputWidget', () => {
 		const harness: IUpdateAndSaveDraftStateHarness = {
 			options: {},
 			storageService,
+			_hasInput: observableValue('hasInput', false),
 			_sending: false,
 			_editor: { getModel: () => ({ getValue: () => 'Fix this after reload' }) },
 			_contextAttachments: { attachments: [] },
@@ -869,6 +874,7 @@ suite('NewChatInputWidget', () => {
 		const harness: IUpdateAndSaveDraftStateHarness = {
 			options: {},
 			storageService,
+			_hasInput: observableValue('hasInput', true),
 			_sending: true,
 			_editor: { getModel: () => ({ getValue: () => editorValue }) },
 			_contextAttachments: { attachments: [] },

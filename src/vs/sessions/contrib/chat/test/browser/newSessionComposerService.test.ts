@@ -6,6 +6,7 @@
 import assert from 'assert';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { autorun, constObservable } from '../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { INewSessionComposer, NewSessionComposerService } from '../../browser/newSessionComposerService.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -18,6 +19,7 @@ suite('NewSessionComposerService', () => {
 
 	function composer(): INewSessionComposer {
 		return {
+			hasInputObs: constObservable(false),
 			animatePrompt: async (_text, _durationMs, _placeholder, _token: CancellationToken) => true,
 			showPromptOptions: () => true,
 		};

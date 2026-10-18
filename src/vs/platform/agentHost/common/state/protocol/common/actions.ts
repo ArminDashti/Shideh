@@ -23,6 +23,7 @@ import type { TerminalDataAction, TerminalInputAction, TerminalResizedAction, Te
 import type { ResourceWatchChangedAction } from '../channels-resource-watch/actions.js';
 import type { AutomationCreateRequestedAction, AutomationRemovedAction, AutomationSetAction, AutomationUpdateRequestedAction } from '../channels-automation/actions.js';
 import type { AutomationRunLifecycleChangedAction, AutomationRunSessionSetAction, AutomationRunSessionRemovedAction, AutomationRunPrimarySessionChangedAction, AutomationRunCancelRequestedAction } from '../channels-automation-run/actions.js';
+import type { CanvasAvailabilityChangedAction, CanvasTrustChangedAction, CanvasIncarnationChangedAction, CanvasTitleChangedAction } from '../channels-canvas/actions.js';
 
 // ─── Action Type Enum ────────────────────────────────────────────────────────
 
@@ -137,6 +138,12 @@ export const enum ActionType {
 	AutomationRunSessionRemoved = 'automationRun/sessionRemoved',
 	AutomationRunPrimarySessionChanged = 'automationRun/primarySessionChanged',
 	AutomationRunCancelRequested = 'automationRun/cancelRequested',
+	SessionCanvasSet = 'session/canvasSet',
+	SessionCanvasRemoved = 'session/canvasRemoved',
+	CanvasAvailabilityChanged = 'canvas/availabilityChanged',
+	CanvasTrustChanged = 'canvas/trustChanged',
+	CanvasIncarnationChanged = 'canvas/incarnationChanged',
+	CanvasTitleChanged = 'canvas/titleChanged',
 }
 
 // ─── Action Envelope ─────────────────────────────────────────────────────────
@@ -207,6 +214,8 @@ export type StateAction =
 	| SessionChangesetsChangedAction
 	| SessionConfigChangedAction
 	| SessionMetaChangedAction
+	| SessionCanvasSetAction
+	| SessionCanvasRemovedAction
 	| ChatTurnStartedAction
 	| ChatTurnResumedAction
 	| ChatDeltaAction
@@ -276,4 +285,8 @@ export type StateAction =
 	| AutomationRunSessionSetAction
 	| AutomationRunSessionRemovedAction
 	| AutomationRunPrimarySessionChangedAction
-	| AutomationRunCancelRequestedAction;
+	| AutomationRunCancelRequestedAction
+	| CanvasAvailabilityChangedAction
+	| CanvasTrustChangedAction
+	| CanvasIncarnationChangedAction
+	| CanvasTitleChangedAction;

@@ -732,6 +732,7 @@ export const enum StateComponents {
 	Annotations,
 	AutomationCatalog,
 	AutomationRun,
+	Canvas,
 }
 
 export type ComponentToState = {
@@ -743,6 +744,7 @@ export type ComponentToState = {
 	[StateComponents.Annotations]: AnnotationsState;
 	[StateComponents.AutomationCatalog]: AutomationState;
 	[StateComponents.AutomationRun]: AutomationRunState;
+	[StateComponents.Canvas]: import('./protocol/channels-canvas/state.js').CanvasState;
 };
 
 // ---- Default chat URI helpers ----------------------------------------------

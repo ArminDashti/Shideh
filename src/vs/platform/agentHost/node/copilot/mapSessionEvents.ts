@@ -75,6 +75,15 @@ function stripPromptScaffolding(text: string): string {
 	return inner ? inner[1].trim() : withoutAux.trim();
 }
 
+export function mapCopilotUserMessage(data: SessionEventPayload<'user.message'>['data']): Message {
+	const attachments = sdkAttachmentsToProtocol(data.attachments);
+	return {
+		text: stripPromptScaffolding(data.content ?? ''),
+		origin: { kind: MessageKind.User },
+		...(attachments?.length ? { attachments } : {}),
+	};
+}
+
 /**
  * Converts SDK `tool.execution_complete` image and shell result blocks into
  * AHP tool result content. A `shell_exit` block becomes {@link TerminalCommandResult} data on
@@ -704,8 +713,7 @@ export async function mapSessionEvents(
 				}
 				const d = e.data;
 				const messageId = d.interactionId ?? '';
-				const content = stripPromptScaffolding(d.content ?? '');
-				const attachments = sdkAttachmentsToProtocol(d.attachments);
+				const { text: content, attachments } = mapCopilotUserMessage(d);
 				// User messages carry no deprecated `parentToolCallId`; route
 				// sub-agent user messages by the envelope `agentId` only.
 				const parentToolCallId = resolveParentToolCallId(e.agentId, undefined);

@@ -27,4 +27,14 @@ suite('CopilotAgentStartupConfig', () => {
 			description: 'sessionSync=true, claudeAdvisor=true, tgrep=true, hydraFusion=true, skillCharBudget=30000, copilotSdkLogLevel=trace, runtimePath=/usr/local/bin/copilot-runtime, enterpriseHost=github.example.com, systemProxy=false, githubMcpServer=false, copilotConnectors=true, managedSettingsPermissions',
 		});
 	});
+
+	test('changing the local canvas gate requires a new SDK client negotiation', () => {
+		const previous = new CopilotAgentStartupConfig(false, false, false, false, 'info', undefined, false, false, {});
+		const enabled = new CopilotAgentStartupConfig(false, false, false, false, 'info', undefined, false, false, {}, true);
+		assert.deepStrictEqual({
+			equal: enabled.equals(previous),
+			description: enabled.describeChangesFrom(previous),
+			proxyChanged: enabled.proxyTargetChangedFrom(previous),
+		}, { equal: false, description: 'localCanvases=true', proxyChanged: false });
+	});
 });

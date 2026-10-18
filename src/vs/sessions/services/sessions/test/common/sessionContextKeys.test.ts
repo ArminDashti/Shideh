@@ -124,6 +124,22 @@ suite('Session Context Keys', () => {
 			second: true,
 		});
 
+		test('a supported untitled chat exposes canvas-first controls without a committed session', () => {
+			const context = store.add(new MockContextKeyService());
+			const chat: IChat = {
+				...stubChat,
+				status: constObservable(SessionStatus.Untitled),
+				canvases: upcastPartial<ISessionCanvases>({ state: constObservable({ supported: true, loaded: false, catalog: [], instances: [] }) }),
+			};
+			const session = upcastPartial<IActiveSession>({
+				...stubSession({ sessionId: 'canvas-first', chats: constObservable([chat]), mainChat: constObservable(chat) }),
+				activeChat: constObservable(chat), isCreated: constObservable(false), sticky: constObservable(false),
+				visibleChatTabs: constObservable([chat]), shouldShowChatTabs: constObservable(false),
+			});
+			setActiveSessionContextKeys(session, context, undefined);
+			assert.strictEqual(SessionCanvasesSupportedContext.getValue(context), true);
+		});
+
 		firstHasGit.set(false, undefined);
 
 		assert.deepStrictEqual({

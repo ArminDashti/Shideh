@@ -1863,6 +1863,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 			inputText: this._editor?.getModel()?.getValue() ?? '',
 			attachments: [...this._contextAttachments.attachments],
 		};
+		this._hasInput.set(this._draftState.inputText.length > 0 || this._draftState.attachments.length > 0, undefined);
 	}
 
 	private _updateAndSaveDraftState(): void {
@@ -2146,6 +2147,19 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 	private _clearDraftState(): void {
 		this._draftState = { inputText: '', attachments: [] };
 		writeNewChatDraftState(this.storageService, this._draftState, this.options?.draftStorageKey);
+	}
+
+	takeInputState(): Pick<IChatModelInputState, 'inputText' | 'attachments' | 'selections'> | undefined {
+		if (this._sending || !this._hasInput.get()) {
+			return undefined;
+		}
+		const state = {
+			inputText: this._editor?.getValue() ?? '',
+			attachments: [...this._contextAttachments.attachments],
+			selections: this._editor?.getSelections() ?? [],
+		};
+		this._clearDraftState();
+		return state;
 	}
 
 	saveState(): void {

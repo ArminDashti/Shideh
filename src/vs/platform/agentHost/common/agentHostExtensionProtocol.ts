@@ -85,6 +85,9 @@ export const SetSessionApproveAllExtensionMethod = 'extensions/setSessionApprove
 
 const AgentHostChatStateFileCapabilityMetaKey = 'vscode.getAgentHostSessionStateFile.chat';
 const AgentHostDetachedWorktreeCapabilityMetaKey = 'vscode.detachedWorktrees';
+const AgentHostLocalCanvasesCapabilityMetaKey = 'vscode.localCanvases';
+const AgentHostLocalCanvasWorkspaceMetaKey = 'vscode.localCanvases.workspace';
+const AgentHostCanvasPackagesMetaKey = 'vscode.localCanvasPackages';
 
 /** Namespaced VS Code implementation capabilities carried alongside standardized AHP initialize capabilities. */
 export interface IAgentHostExtensionInitializeResultMeta extends Record<string, unknown> {
@@ -121,6 +124,47 @@ export function getAgentHostExtensionInitializeResultMeta(artifactRemoval = true
 		...(timing ? { [ChatUserInteractionCapability]: true as const } : {}),
 		...(canvases ? { [AgentHostCanvasesCapabilityMetaKey]: true as const } : {}),
 	};
+}
+
+export function supportsAgentHostLocalCanvases(result: IAgentHostExtensionInitializeResult | undefined): boolean {
+	const meta = result?._meta;
+	return meta?.[AgentHostLocalCanvasesCapabilityMetaKey] === true;
+}
+
+export function supportsAgentHostCanvasPackages(result: IAgentHostExtensionInitializeResult | undefined): boolean {
+	const meta = result?._meta;
+	return meta?.[AgentHostCanvasPackagesMetaKey] === true;
+}
+
+export function isCanvasPackageExtensionMethod(method: string): boolean {
+	return method === ListCanvasPackagesExtensionMethod || method === PrepareCanvasPackageExtensionMethod
+		|| method === ApproveCanvasPackageExtensionMethod || method === RevokeCanvasPackageExtensionMethod
+		|| method === RemoveCanvasPackageExtensionMethod;
+}
+
+export const prepareCanvasPackageValidator = vObj({ source: vString() });
+export const approveCanvasPackageValidator = vObj({ id: vString(), revision: vString(), workspace: vOptionalProp(vString()) });
+export const canvasPackageIdValidator = vObj({ id: vString() });
+
+export function readAgentHostLocalCanvasWorkspace(result: IAgentHostExtensionInitializeResult | undefined): URI | undefined {
+	const meta = result?._meta;
+	const value = meta?.[AgentHostLocalCanvasWorkspaceMetaKey];
+	if (!supportsAgentHostLocalCanvases(result) || typeof value !== 'string') {
+		return undefined;
+	}
+	const uri = URI.parse(value, true);
+	if (uri.scheme !== Schemas.file || !uri.path.startsWith('/') || uri.query || uri.fragment) {
+		throw new Error('The local canvas demo workspace must be an absolute file URI.');
+	}
+	return uri;
+}
+
+export function isAgentHostCanvasExtensionMethod(method: string): boolean {
+	return method === GetAgentHostCanvasesExtensionMethod
+		|| method === OpenAgentHostCanvasExtensionMethod
+		|| method === InvokeAgentHostCanvasActionExtensionMethod
+		|| method === CloseAgentHostCanvasExtensionMethod
+		|| method === ReloadAgentHostCanvasesExtensionMethod;
 }
 
 export function supportsAgentHostChatStateFile(result: IAgentHostExtensionInitializeResult | undefined): boolean {

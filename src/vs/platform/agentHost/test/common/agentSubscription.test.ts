@@ -126,6 +126,26 @@ function makeAutomationRunState(): AutomationRunState {
 	};
 }
 
+suite('CanvasStateSubscription', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('reconciles only authoritative, current canvas revisions on the exact channel', () => {
+		const resource = 'ahp-canvas:/subscribed';
+		const state: CanvasState = {
+			resource, identity: { chat: chatUri, source: { kind: CanvasSourceKind.Extension, extensionId: 'fixture' }, canvasType: 'counter', instanceId: 'one', incarnation: 'first' },
+			title: 'Canvas', trust: { status: CanvasTrustStatus.Pending }, availability: { status: CanvasAvailabilityStatus.NotLoaded }, revision: 1,
+		};
+		const subscription = disposables.add(new CanvasStateSubscription(resource, 'client', noop));
+		subscription.receiveEnvelope(makeEnvelope({ type: ActionType.CanvasTitleChanged, title: 'Current', revision: 2 }, 2, undefined, undefined, resource));
+		subscription.receiveEnvelope(makeEnvelope({ type: ActionType.CanvasTrustChanged, trust: { status: CanvasTrustStatus.Trusted }, revision: 100 }, 3, { clientId: 'client', clientSeq: 1 }, 'server-only action', resource));
+		subscription.handleSnapshot(state, 1);
+		subscription.receiveEnvelope(makeEnvelope({ type: ActionType.CanvasIncarnationChanged, incarnation: 'obsolete', revision: 2 }, 4, undefined, undefined, resource));
+		subscription.receiveEnvelope(makeEnvelope({ type: ActionType.CanvasTitleChanged, title: 'Other chat', revision: 10 }, 5, undefined, undefined, 'ahp-canvas:/other'));
+		subscription.receiveEnvelope(makeEnvelope({ type: ActionType.CanvasIncarnationChanged, incarnation: 'second', revision: 3 }, 6, undefined, undefined, resource));
+		assert.deepStrictEqual(subscription.value, { ...state, identity: { ...state.identity, incarnation: 'second' }, title: 'Current', revision: 3 });
+	});
+});
+
 suite('Automation subscriptions', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 

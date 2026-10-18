@@ -14,6 +14,7 @@ import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { DisposableMap, DisposableStore, ImmortalReference, toDisposable, type IReference } from '../../../../../../base/common/lifecycle.js';
 import { equals } from '../../../../../../base/common/objects.js';
 import { autorun, constObservable, derived, ISettableObservable, observableFromEvent, observableValue, type IObservable } from '../../../../../../base/common/observable.js';
+import { isWeb } from '../../../../../../base/common/platform.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { extUriIgnorePathCase, isEqual } from '../../../../../../base/common/resources.js';
 import { mock, upcastPartial } from '../../../../../../base/test/common/mock.js';
@@ -114,6 +115,18 @@ function createVSCodeSessionConfigSchema(overrides: SessionConfigSchema['propert
 
 class MockAgentHostService extends mock<IAgentHostService>() {
 	declare readonly _serviceBrand: undefined;
+	canvasState: IAgentHostCanvasState = unsupportedAgentHostCanvasState;
+	onCanvasOpen: ((chat: URI, params: IAgentHostCanvasOpenParams) => Promise<IAgentHostCanvasInstance>) | undefined;
+	override async getCanvases(): Promise<IAgentHostCanvasState> { return this.canvasState; }
+	override async openCanvas(chat: URI, params: IAgentHostCanvasOpenParams): Promise<IAgentHostCanvasInstance> {
+		if (!this.onCanvasOpen) {
+			throw new Error('No canvas open implementation');
+		}
+		return this.onCanvasOpen(chat, params);
+	}
+	override async invokeCanvasAction(): Promise<null> { return null; }
+	override async closeCanvas(): Promise<void> { }
+	override async reloadCanvases(): Promise<void> { }
 
 	private _onDidAction = new Emitter<ActionEnvelope>();
 	override get onDidAction(): Event<ActionEnvelope> { return this._onDidAction.event; }

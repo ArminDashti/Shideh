@@ -285,6 +285,7 @@ export class AgentHostStateManager extends Disposable {
 	private readonly _annotations = new Map<string, AnnotationsState>();
 	private _automationCatalog: AutomationState | undefined;
 	private readonly _automationRuns = new Map<string, AutomationRunState>();
+	private readonly _canvases = new Map<string, CanvasState>();
 
 	/**
 	 * Active turns per session, keyed by session URI string with the value
@@ -825,6 +826,10 @@ export class AgentHostStateManager extends Disposable {
 	 * the client should process subsequent envelopes with serverSeq > fromSeq.
 	 */
 	getSnapshot(resource: URI): IStateSnapshot | undefined {
+		if (isAgentHostCanvasUri(resource)) {
+			const state = this._canvases.get(resource);
+			return state ? { resource, state, fromSeq: this._serverSeq } : undefined;
+		}
 		if (isAhpRootChannel(resource)) {
 			return {
 				resource: ROOT_STATE_URI,
@@ -2248,6 +2253,16 @@ export class AgentHostStateManager extends Disposable {
 				this._automationRuns.set(channel, newState);
 			}
 			resultingState = newState;
+		}
+
+		if (isCanvasAction(action)) {
+			const state = this._canvases.get(channel);
+			if (!state || !isAgentHostCanvasUri(channel)) {
+				return undefined;
+			}
+			const next = canvasReducer(state, action, this._log);
+			this._canvases.set(channel, next);
+			resultingState = next;
 		}
 
 		// Emit envelope

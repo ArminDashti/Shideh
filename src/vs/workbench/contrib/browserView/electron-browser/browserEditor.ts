@@ -98,6 +98,9 @@ export abstract class BrowserEditorContribution extends Disposable {
 	 */
 	prerenderInput(_input: BrowserEditorInput): void { }
 
+	/** An error resolving the editor's page, before a native model is available. */
+	onResolveError(_error: Error | undefined): void { }
+
 	/**
 	 * Widgets contributed by this feature. Each widget declares its target
 	 * {@link BrowserWidgetLocation}; the editor groups widgets by location
@@ -445,6 +448,7 @@ export class BrowserEditor extends EditorPane {
 	private _isInteractiveContext!: IContextKey<boolean>;
 
 	private readonly _inputDisposables = this._register(new DisposableStore());
+	private readonly _modelDisposables = this._register(new DisposableStore());
 	private _currentPadding: { top: number; right: number; bottom: number; left: number } = { top: 0, right: 0, bottom: 0, left: 0 };
 
 	override get input(): BrowserEditorInput | undefined { return super.input as BrowserEditorInput | undefined; }
@@ -565,6 +569,9 @@ export class BrowserEditor extends EditorPane {
 		this._updateInteractivityAccessibility(true);
 
 		let model = input.model;
+		if (this._model !== model) {
+			this.detachModel();
+		}
 		const isNew = !model;
 		if (!model) {
 			this._hasUrlContext.set(!!input.url);
@@ -577,13 +584,28 @@ export class BrowserEditor extends EditorPane {
 			}
 
 			// Resolve the browser view model from the input
-			model = await input.resolve();
+			try {
+				model = await input.resolve();
+			} catch (error) {
+				if (!input.source || input.isDisposed() || token.isCancellationRequested || this.input !== input) {
+					throw error;
+				}
+				return;
+			}
 		}
 
 		if (token.isCancellationRequested || this.input !== input) {
 			return;
 		}
 
+		this.attachModel(model, isNew);
+	}
+
+	private attachModel(model: IBrowserViewModel, isNew: boolean): void {
+		if (this._model === model) {
+			return;
+		}
+		this._modelDisposables.clear();
 		this._model = model;
 		this._isInteractiveContext.set(model.isInteractive);
 		this._updateInteractivityAccessibility(model.isInteractive);
@@ -594,7 +616,7 @@ export class BrowserEditor extends EditorPane {
 
 		// When closing a tab, the model gets disposed before the editor input is cleared.
 		// So we make sure we don't keep a reference to the disposed model.
-		this._inputDisposables.add(this._model.onWillDispose(() => {
+		this._modelDisposables.add(this._model.onWillDispose(() => {
 			if (this._model === model) {
 				this._model = undefined;
 				this._isInteractiveContext.reset();
@@ -613,16 +635,16 @@ export class BrowserEditor extends EditorPane {
 			this.ensureBrowserFocus();
 		}));
 
-		this._inputDisposables.add(this._model.onDidNavigate(() => {
+		this._modelDisposables.add(this._model.onDidNavigate(() => {
 			this.group.pinEditor(this.input); // pin editor on navigation
 			this._hasUrlContext.set(!!model.url);
 		}));
 
-		this._inputDisposables.add(this._model.onDidChangeLoadingState(() => {
+		this._modelDisposables.add(this._model.onDidChangeLoadingState(() => {
 			this._hasErrorContext.set(!!model.error);
 		}));
 
-		this._inputDisposables.add(model.onDidChangeFocus(({ focused }) => {
+		this._modelDisposables.add(model.onDidChangeFocus(({ focused }) => {
 			// When the view gets focused, make sure the editor reports that it has focus,
 			// but focus is removed from the workbench.
 			if (focused) {
@@ -632,7 +654,7 @@ export class BrowserEditor extends EditorPane {
 		}));
 
 		// Listen for workbench zoom level changes and update browser view placeholder screenshot's zoom factor
-		this._inputDisposables.add(onDidChangeZoomLevel(targetWindowId => {
+		this._modelDisposables.add(onDidChangeZoomLevel(targetWindowId => {
 			if (targetWindowId === this.window.vscodeWindowId) {
 				// Update CSS variable for size calculations
 				this._browserContainerWrapper.style.setProperty('--zoom-factor', String(getZoomFactor(this.window)));
@@ -644,6 +666,14 @@ export class BrowserEditor extends EditorPane {
 		}));
 
 		this.layout();
+	}
+
+	private detachModel(): void {
+		this._modelDisposables.clear();
+		if (this._model) {
+			this._model = undefined;
+			this._onDidChangeModel.fire({ model: undefined, isNew: false });
+		}
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -829,10 +859,9 @@ export class BrowserEditor extends EditorPane {
 
 	override clearInput(): void {
 		this._inputDisposables.clear();
-
-		if (this._model) {
-			this._model = undefined;
-			this._onDidChangeModel.fire({ model: undefined, isNew: false });
+		this.detachModel();
+		for (const contribution of this._contributionInstances.values()) {
+			contribution.onResolveError(undefined);
 		}
 
 		this._hasUrlContext.reset();

@@ -17886,6 +17886,36 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual(await db.getChatDraft(chat), expected);
 		}
 
+		test('publishes canvas state materialized before restored chat registration', async () => {
+			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			const changes = disposables.add(new Emitter<IAgentHostCanvasStateChange>());
+			const snapshot: IAgentHostCanvasState = {
+				supported: true, catalog: [],
+				instances: [{ instanceId: 'counter', extensionId: 'fixture', canvasId: 'counter', availability: 'ready', url: 'http://127.0.0.1:3000/current' }],
+			};
+			const registrations: boolean[] = [];
+			class CanvasAgent extends MockAgent {
+				readonly onDidChangeCanvases = changes.event;
+				override async getSessionMessages(chat: URI) {
+					const parsed = parseChatUri(chat);
+					if (parsed) {
+						registrations.push(!!getStateManager(svc).getSessionState(parsed.session));
+						changes.fire({ chat, state: snapshot });
+					}
+					return super.getSessionMessages(chat);
+				}
+			}
+			const agent = disposables.add(new CanvasAgent('copilot'));
+			registerTestAgentProvider(svc, agent);
+			const session = await svc.createSession({ provider: agent.id });
+			getStateManager(svc).removeSession(session.toString());
+			await svc.restoreSession(session);
+			assert.deepStrictEqual({
+				emittedBeforeRegistration: registrations.includes(false),
+				canvas: readAgentHostCanvasState(getStateManager(svc).getSessionState(session.toString())?._meta, buildDefaultChatUri(session)),
+			}, { emittedBeforeRegistration: true, canvas: snapshot });
+		});
+
 		test('refuses to restore a workspace-conversion quarantine before materializing the provider', async () => {
 			const database = new TestSessionDatabase();
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(database), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
@@ -20717,6 +20747,37 @@ suite('AgentService (node dispatcher)', () => {
 			await service.createChat(session, chatUri);
 
 			assert.strictEqual(catalogHadChatDuringCreate, false);
+		});
+
+		test('publishes a peer canvas after registration and evicts it on chat disposal', async () => {
+			const changes = disposables.add(new Emitter<IAgentHostCanvasStateChange>());
+			const snapshot: IAgentHostCanvasState = {
+				supported: true, catalog: [],
+				instances: [{ instanceId: 'counter', extensionId: 'fixture', canvasId: 'counter', availability: 'unavailable' }],
+			};
+			class CanvasAgent extends MockAgent {
+				readonly onDidChangeCanvases = changes.event;
+				override async createChat(_session: URI, chat: URI): Promise<void> {
+					changes.fire({ chat, state: snapshot });
+				}
+				override async disposeChat(_session: URI, _chat: URI): Promise<void> { }
+			}
+			const agent = disposables.add(new CanvasAgent('copilot'));
+			registerTestAgentProvider(service, agent);
+			const session = await service.createSession({ provider: agent.id });
+			const main = URI.parse(buildDefaultChatUri(session));
+			changes.fire({ chat: main, state: snapshot });
+			const peer = URI.parse(buildChatUri(session, 'peer-canvas'));
+			await service.createChat(session, peer);
+			const before = getStateManager(service).getSessionState(session.toString())?._meta?.[AgentHostCanvasesMetaKey];
+			await service.disposeChat(session, peer);
+			assert.deepStrictEqual({
+				before,
+				after: getStateManager(service).getSessionState(session.toString())?._meta?.[AgentHostCanvasesMetaKey],
+			}, {
+				before: { [main.toString()]: snapshot, [peer.toString()]: snapshot },
+				after: { [main.toString()]: snapshot },
+			});
 		});
 
 		test('throws when the provider does not support multiple chats', async () => {

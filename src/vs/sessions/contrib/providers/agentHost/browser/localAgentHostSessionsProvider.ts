@@ -45,6 +45,7 @@ import { ISessionsProvidersService } from '../../../../services/sessions/browser
 import { IGitHubService } from '../../../github/browser/githubService.js';
 import { DevContainerAgentHostSessionsProvider } from './devContainerAgentHostSessionsProvider.js';
 import { ReconnectableAgentHostAutomationStore } from './reconnectableAgentHostAutomationStore.js';
+import { AgentHostSessionCanvases } from './agentHostSessionCanvases.js';
 
 const LOCAL_RESOURCE_SCHEME_PREFIX = 'agent-host-';
 
@@ -194,6 +195,8 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 		updateResourceLabelHomes();
 		const connectionListeners = this._register(new DisposableStore());
 		const bindConnection = () => {
+			this._canvasHostOnline = true;
+			this._canvasConnectionVersion.set(this._canvasConnectionVersion.get() + 1, undefined);
 			connectionListeners.clear();
 			automations.setConnection(this._agentHostService);
 			this._attachConnectionListeners(this._agentHostService, connectionListeners);
@@ -216,6 +219,8 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 		this._register(this._agentHostService.onAgentHostExit(() => {
 			connectionListeners.clear();
 			automations.clearConnection();
+			this._canvasHostOnline = false;
+			this._canvasConnectionVersion.set(this._canvasConnectionVersion.get() + 1, undefined);
 		}));
 
 		// Eagerly populate the session cache once authentication has settled.
@@ -279,6 +284,8 @@ export class LocalAgentHostSessionsProvider extends DevContainerAgentHostSession
 
 	protected _adapterOptions() {
 		return {
+			createCanvases: isWeb || !this._isSessionsWindow ? undefined : (chat: URI, metadata: IObservable<SessionMeta | undefined>, entries: IObservable<readonly CanvasEntry[]>, prepareOpen?: () => Promise<IDisposable>) =>
+				new AgentHostSessionCanvases(chat, metadata, () => this._canvasHostOnline ? this._agentHostService : undefined, this._canvasConnectionVersion, this._canvasHostSupported, entries, prepareOpen),
 			buildWorkspace: (project: IAgentSessionMetadata['project'], workingDirectories: readonly URI[] | undefined, gitHubInfo: IObservable<IGitHubInfo | undefined>, gitState: ISessionGitState | undefined) => {
 				const primary = workingDirectories?.[0];
 				const uriForDescription = project?.uri ?? primary;

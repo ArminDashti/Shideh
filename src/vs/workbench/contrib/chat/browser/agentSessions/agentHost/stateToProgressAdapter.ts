@@ -62,6 +62,8 @@ import { ChatAutoModeExplainability } from '../../../common/constants.js';
 import type { IRange } from '../../../../../../editor/common/core/range.js';
 import { isSessionReferenceTrajectoryAttachment, restoreSessionReferenceVariableEntryFromAttachment } from './agentHostSessionReferenceAttachment.js';
 import { restoreChatReferenceVariableEntryFromAttachment } from './agentHostChatReferenceAttachment.js';
+import { readCanvasContextReferences } from '../../../../../../platform/agentHost/common/agentHostCanvasContext.js';
+import { toCanvasContextVariableEntry } from '../../../common/attachments/chatCanvasContext.js';
 
 export const BOOLEAN_TRUE_OPTION_ID = 'true';
 export const BOOLEAN_FALSE_OPTION_ID = 'false';
@@ -1345,7 +1347,9 @@ export function messageToRequestOrigin(backendSession: URI, message: Message, pa
  * `undefined` when the message has no convertible attachments.
  */
 export function messageToVariableData(message: Message, connectionAuthority: string): IChatRequestVariableData | undefined {
-	return messageAttachmentsToVariableData(message.attachments, connectionAuthority, message.text);
+	const attachments = messageAttachmentsToVariableData(message.attachments, connectionAuthority, message.text);
+	const canvases = readCanvasContextReferences(message).map(reference => toCanvasContextVariableEntry(reference, localize('agentHost.canvasContext', "Canvas")));
+	return canvases.length ? { variables: [...(attachments?.variables ?? []), ...canvases] } : attachments;
 }
 
 export function messageAttachmentsToVariableData(attachments: readonly MessageAttachment[] | undefined, connectionAuthority: string, messageText?: string): IChatRequestVariableData | undefined {

@@ -26,9 +26,12 @@ import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
 import { ChatConfiguration } from '../../chat/common/constants.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { contrastBorder, descriptionForeground, focusBorder } from '../../../../platform/theme/common/colors/baseColors.js';
-import { buttonForeground, buttonBackground, inputPlaceholderForeground } from '../../../../platform/theme/common/colors/inputColors.js';
-import { editorWidgetBackground, editorWidgetBorder, editorWidgetForeground, toolbarHoverBackground, widgetShadow } from '../../../../platform/theme/common/colors/editorColors.js';
+import { contrastBorder, descriptionForeground, disabledForeground, errorForeground, foreground, textLinkForeground, focusBorder } from '../../../../platform/theme/common/colors/baseColors.js';
+import { buttonForeground, buttonBackground, inputPlaceholderForeground, inputValidationErrorBackground, inputValidationErrorBorder, inputValidationWarningBackground, inputValidationWarningBorder } from '../../../../platform/theme/common/colors/inputColors.js';
+import { editorBackground, editorWidgetBackground, editorWidgetBorder, editorWidgetForeground, toolbarHoverBackground, widgetShadow, diffInserted, diffRemoved, diffInsertedOutline } from '../../../../platform/theme/common/colors/editorColors.js';
+import { chartsGreen, chartsYellow, chartsOrange, chartsPurple } from '../../../../platform/theme/common/colors/chartsColors.js';
+import { listInactiveSelectionBackground } from '../../../../platform/theme/common/colors/listColors.js';
+import { IBrowserViewSemanticTheme } from '../../../../platform/browserView/common/browserViewSemanticTheme.js';
 import { DEFAULT_FONT_FAMILY } from '../../../../base/browser/fonts.js';
 import { findGroup } from '../../../services/editor/common/editorGroupFinder.js';
 import { ChatEditorInput } from '../../chat/browser/widgetHosts/editor/chatEditorInput.js';
@@ -46,6 +49,8 @@ import { DeferredPromise, raceTimeout } from '../../../../base/common/async.js';
 import { AgentNetworkDomainSettingId } from '../../../../platform/networkFilter/common/settings.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 
 export const BrowserMaxHistoryEntriesSettingId = 'workbench.browser.maxHistoryEntries';
 export const BrowserRemoteProxyEnabledSettingId = 'workbench.browser.enableRemoteProxy';
@@ -78,8 +83,13 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 	private readonly _remoteEvents = this._register(new DisposableMap<string, IDisposable & { emitters: BrowserViewEventEmitters }>());
 	private readonly _contextualFilters = new Set<IBrowserViewContextualFilter>();
 	private readonly _openHandlers = new Set<IBrowserViewOpenHandler>();
+	private readonly _pageSourceResolvers = new Map<string, IBrowserViewPageSourceResolver>();
+	private readonly _creationQueue = new SequencerByKey<string>();
 	private readonly _mainWindowId: number;
 	private readonly _browserViewsReady = new DeferredPromise<void>();
+
+	private readonly _onDidUnregisterPageSourceResolver = this._register(new Emitter<string>());
+	readonly onDidUnregisterPageSourceResolver = this._onDidUnregisterPageSourceResolver.event;
 
 	/** Latest tunnel-proxy credentials pushed from the local extension host. */
 	private _remoteProxyInfo: ITunnelProxyInfo | undefined;
@@ -413,8 +423,62 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 		return this._getOrCreateLazy(data);
 	}
 
+	registerPageSourceResolver(scheme: string, resolver: IBrowserViewPageSourceResolver): IDisposable {
+		if (this._store.isDisposed) {
+			throw new Error('The browser view service is disposed.');
+		}
+		if (this._pageSourceResolvers.has(scheme)) {
+			throw new Error(`A browser page source resolver is already registered for '${scheme}'.`);
+		}
+		this._pageSourceResolvers.set(scheme, resolver);
+		return toDisposable(() => {
+			if (this._pageSourceResolvers.get(scheme) === resolver) {
+				this._pageSourceResolvers.delete(scheme);
+				this._onDidUnregisterPageSourceResolver.fire(scheme);
+			}
+		});
+	}
+
+	async resolvePageSource(source: URI, token: CancellationToken): Promise<IBrowserViewResolvedPageSource> {
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+		const resolver = this._pageSourceResolvers.get(source.scheme);
+		if (!resolver) {
+			throw new Error(localize('browser.noPageSourceResolver', "No page source resolver is available for '{0}'.", source.scheme));
+		}
+		const store = new DisposableStore();
+		const cancellation = store.add(new CancellationTokenSource(token));
+		store.add(this.onDidUnregisterPageSourceResolver(scheme => {
+			if (source.scheme === scheme) {
+				cancellation.cancel();
+			}
+		}));
+		try {
+			const resolved = await raceCancellationError(resolver.resolve(source, cancellation.token), cancellation.token);
+			if (cancellation.token.isCancellationRequested) {
+				throw new CancellationError();
+			}
+			if (!resolved.initialUrl.trim()) {
+				throw new Error(localize('browser.pageSourceMissingUrl', "The page source did not provide a URL."));
+			}
+			return resolved;
+		} catch (error) {
+			if (!token.isCancellationRequested && cancellation.token.isCancellationRequested) {
+				throw new Error(localize('browser.pageSourceResolverRemoved', "The page source resolver is no longer available."), { cause: error });
+			}
+			throw error;
+		} finally {
+			store.dispose();
+		}
+	}
+
 	private _getOrCreateLazy(data: IBrowserEditorInputData, model?: IBrowserViewModel, createOptions?: IBrowserViewWorkbenchCreateOptions): BrowserEditorInput {
 		const { id, associatedResource } = data;
+		const known = this._known.get(id);
+		if (known && !isEqual(known.source, URI.revive(data.source))) {
+			throw new Error('A browser editor cannot change its page source.');
+		}
 		if (!this._known.has(id)) {
 			const input = this.instantiationService.createInstance(BrowserEditorInput, data, async () => {
 				await this._browserViewsReady.p;
@@ -424,12 +488,14 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 						host: {
 							windowId: this._mainWindowId
 						},
-						owner: createOptions?.owner ?? { type: 'user' },
-						associatedResource,
-						session: createOptions?.session ?? { scope: await this._resolveStorageScope() },
-						initialAudiences: createOptions?.initialAudiences,
-						initialUrl: createOptions ? createOptions.initialUrl : data.url,
-						openSource: createOptions?.openSource
+						owner: options?.owner ?? { type: 'user' },
+						associatedResource: source?.associatedResource ?? associatedResource,
+						source: data.source,
+						session,
+						initialAudiences: options?.initialAudiences,
+						initialUrl: data.source ? undefined : options ? options.initialUrl : data.url,
+						openSource: options?.openSource,
+						appPolicy: options?.appPolicy
 					}
 				);
 				const model = this._known.get(id)?.model;
@@ -441,7 +507,10 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 			Event.once(input.onWillDispose)(() => {
 				this._known.delete(id);
 				this._onDidChangeBrowserViews.fire();
-			});
+			}));
+			if (data.source) {
+				store.add(input.onDidResolveModel(() => this._onDidChangeBrowserViews.fire()));
+			}
 			if (model) {
 				input.model = model;
 			}
@@ -640,6 +709,57 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 			toolbarHoverBackground: theme.getColor(toolbarHoverBackground)?.toString(),
 			font: DEFAULT_FONT_FAMILY,
 			reducedMotion: this.accessibilityService.isMotionReduced(),
+			semanticTokens: this._getSemanticTokens(),
+		};
+	}
+
+	/**
+	 * Computes the fixed GH-compatible semantic token set (see
+	 * {@link IBrowserViewSemanticTheme}) from the active VS Code color
+	 * theme. Every field maps to a specific, pre-existing registered color
+	 * ID — this never introduces new colors, and the resulting token names
+	 * are always drawn from the fixed table in `browserViewSemanticTheme.ts`.
+	 */
+	private _getSemanticTokens(): IBrowserViewSemanticTheme {
+		const theme = this.themeService.getColorTheme();
+		const color = (id: Parameters<typeof theme.getColor>[0]) => theme.getColor(id)?.toString();
+		return {
+			fgDefault: color(foreground),
+			fgMuted: color(descriptionForeground),
+			fgOnEmphasis: color(buttonForeground),
+			fgDisabled: color(disabledForeground),
+			fgLink: color(textLinkForeground),
+			fgAccent: color(textLinkForeground),
+			fgDanger: color(errorForeground),
+			fgSuccess: color(chartsGreen),
+			fgAttention: color(chartsYellow),
+			fgDone: color(chartsPurple),
+			fgSevere: color(chartsOrange),
+			fgNeutral: color(descriptionForeground),
+			fgSponsors: color(chartsPurple),
+
+			bgDefault: color(editorBackground),
+			bgMuted: color(editorWidgetBackground),
+			bgInset: color(editorWidgetBackground),
+			bgDisabled: color(editorWidgetBackground),
+			bgAccentEmphasis: color(buttonBackground),
+			bgAccentMuted: color(listInactiveSelectionBackground),
+			bgDangerEmphasis: color(inputValidationErrorBackground),
+			bgDangerMuted: color(diffRemoved),
+			bgSuccessEmphasis: color(chartsGreen),
+			bgSuccessMuted: color(diffInserted),
+			bgAttentionEmphasis: color(inputValidationWarningBackground),
+			bgAttentionMuted: color(inputValidationWarningBackground),
+
+			borderDefault: color(contrastBorder),
+			borderMuted: color(editorWidgetBorder),
+			borderDisabled: color(editorWidgetBorder),
+			borderAccentEmphasis: color(focusBorder),
+			borderDangerEmphasis: color(inputValidationErrorBorder),
+			borderSuccessEmphasis: color(diffInsertedOutline),
+			borderAttentionEmphasis: color(inputValidationWarningBorder),
+
+			focusOutlineColor: color(focusBorder),
 		};
 	}
 
@@ -659,5 +779,14 @@ export class BrowserViewWorkbenchService extends Disposable implements IBrowserV
 			}
 		}
 		return [...roots];
+	}
+
+	override dispose(): void {
+		const schemes = [...this._pageSourceResolvers.keys()];
+		this._pageSourceResolvers.clear();
+		for (const scheme of schemes) {
+			this._onDidUnregisterPageSourceResolver.fire(scheme);
+		}
+		super.dispose();
 	}
 }
