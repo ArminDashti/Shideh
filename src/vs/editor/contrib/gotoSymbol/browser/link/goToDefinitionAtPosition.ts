@@ -292,6 +292,7 @@ export class GotoDefinitionAtPositionEditorContribution implements IEditorContri
 		};
 
 		this.linkDecorations.set([newDecorations]);
+		ContentHoverController.get(this.editor)?.showContentHover(range, HoverStartMode.Immediate, HoverStartSource.Keyboard, false);
 	}
 
 	private removeLinkDecorations(): void {
