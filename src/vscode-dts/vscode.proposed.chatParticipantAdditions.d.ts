@@ -640,6 +640,11 @@ declare module 'vscode' {
 		textEdit(target: Uri, edits: TextEdit | TextEdit[]): void;
 
 		textEdit(target: Uri, isDone: true): void;
+		/**
+		 * We probably do not need `true`, but left for now, as we're not sure if we need it.
+		 * I.e. do we use text edits to signal that a file started & is done?
+		 */
+		notebookEdit(target: Uri, edits: NotebookEdit | NotebookEdit[] | true): void;
 
 		notebookEdit(target: Uri, edits: NotebookEdit | NotebookEdit[]): void;
 

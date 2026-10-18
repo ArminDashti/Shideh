@@ -1806,6 +1806,10 @@ export abstract class TextEdit {
 		const possibleTextEdit = thing as TextEdit;
 		return typeof possibleTextEdit.text === 'string' && Range.isIRange(possibleTextEdit.range);
 	}
+	static isTextEdit(thing: any): thing is TextEdit {
+		const possibleTextEdit = thing as TextEdit;
+		return typeof possibleTextEdit.text === 'string' && Range.isIRange(possibleTextEdit.range);
+	}
 }
 
 /**

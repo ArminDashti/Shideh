@@ -3355,6 +3355,73 @@ export namespace ChatResponseWorkspaceEditPart {
 	}
 }
 
+
+export namespace NotebookEdit {
+	export function from(edit: vscode.NotebookEdit): extHostProtocol.ICellEditOperationDto {
+		if (edit.newCellMetadata) {
+			return {
+				editType: CellEditType.Metadata,
+				index: edit.range.start,
+				metadata: edit.newCellMetadata
+			};
+		} else if (edit.newNotebookMetadata) {
+			return {
+				editType: CellEditType.DocumentMetadata,
+				metadata: edit.newNotebookMetadata
+			};
+		} else {
+			return {
+				editType: CellEditType.Replace,
+				index: edit.range.start,
+				count: edit.range.end - edit.range.start,
+				cells: edit.newCells.map(NotebookCellData.from)
+			};
+		}
+	}
+	export function to(edit: extHostProtocol.ICellEditOperationDto): vscode.NotebookEdit {
+		switch (edit.editType) {
+			case CellEditType.Metadata:
+				return types.NotebookEdit.updateCellMetadata(edit.index, edit.metadata);
+			case CellEditType.DocumentMetadata:
+				return types.NotebookEdit.updateNotebookMetadata(edit.metadata);
+			case CellEditType.Replace:
+				return new types.NotebookEdit(new types.NotebookRange(edit.index, edit.index + edit.count), edit.cells.map(NotebookCellData.to));
+			default:
+				// Not possible to get here.
+				throw new Error('Invalid edit type');
+		}
+	}
+
+	export function toEditReplaceOperation(edit: vscode.NotebookEdit): Dto<extHostProtocol.ICellEditReplaceOperationDto | undefined> {
+		// We are only interested in cell replaces (insertions, deletions, replacements)
+		if (!edit.newCellMetadata && !edit.newNotebookMetadata) {
+			return {
+				editType: CellEditType.Replace,
+				index: edit.range.start,
+				count: edit.range.end - edit.range.start,
+				cells: edit.newCells.map(NotebookCellData.from)
+			};
+		}
+		return undefined;
+	}
+
+	export function fromEditReplaceOperation(edit: Dto<extHostProtocol.ICellEditReplaceOperationDto>): vscode.NotebookEdit {
+		return new types.NotebookEdit(new types.NotebookRange(edit.index, edit.index + edit.count), edit.cells.map(NotebookCellData.to));
+	}
+}
+
+
+export namespace ChatResponseNotebookEditPart {
+	export function from(part: vscode.ChatResponseNotebookEditPart): extHostProtocol.IChatNotebookEditDto {
+		return {
+			kind: 'notebookEdit',
+			uri: URI.revive(part.uri),
+			edits: part.edits.map(NotebookEdit.from),
+			done: part.isDone
+		};
+	}
+}
+
 export namespace ChatResponseReferencePart {
 	export function from(part: types.ChatResponseReferencePart): Dto<IChatContentReference> {
 		const iconPath = ThemeIcon.isThemeIcon(part.iconPath) ? part.iconPath
