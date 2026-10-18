@@ -587,7 +587,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 		transcriptOverlayNode.style.display = 'none';
 		inputContainerEl.append(transcriptOverlayNode);
 
-		// Dynamic audio-reactive glow animation (matches aux window behavior)
+		// Dynamic, theme-aware ambient glow animation (matches aux window behavior).
 		let animFrameId: number | undefined;
 		const glowDataArrayRef: { value: Uint8Array | undefined } = { value: undefined };
 		const win = getWindow(inputContainerEl);
@@ -601,7 +601,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 		// commands drive the input-box glow exactly as a live session would.
 		const getEffectiveVoice = (): { connected: boolean; voiceState: VoiceGlowState; simulating: boolean } => {
 			const sim: SimulatedVoiceState | undefined = this.voiceInputModeService.simulatedVoiceState.get();
-			if (sim === 'idle' || sim === 'listening' || sim === 'speaking') {
+			if (sim === 'idle' || sim === 'listening' || sim === 'processing' || sim === 'speaking') {
 				return { connected: true, voiceState: sim, simulating: true };
 			}
 			if (sim === 'off' || sim === 'connecting' || sim === 'dictating') {
@@ -638,7 +638,8 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 					return;
 				}
 
-				// Get audio intensity from analyser
+				// Audio intensity from the analyser; processing has no live audio, so
+				// it breathes to signal the turn is still alive.
 				const analyser = this.ttsPlaybackService.analyserNode
 					?? (voiceState === 'listening' ? this.micCaptureService.analyserNode : null)
 					?? null;

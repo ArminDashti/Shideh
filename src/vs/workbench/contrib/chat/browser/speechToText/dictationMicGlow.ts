@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './media/dictationMicGlow.css';
 import { getWindow } from '../../../../../base/browser/dom.js';
 import { Color } from '../../../../../base/common/color.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -147,8 +146,7 @@ export function setupDictationMicGlow(
 		target.classList.toggle('dictation-mic-settling', phase === 'settling');
 		syncRim(phase !== 'off');
 
-		// With reduced motion the glow still shows, just held at a steady level.
-		if (phase === 'off' || accessibilityService.isMotionReduced()) {
+		if (phase === 'off') {
 			stopAnimation();
 			setLevel(phase === 'off' ? 0 : REDUCED_MOTION_LEVEL, false);
 			return;
@@ -171,7 +169,6 @@ export function setupDictationMicGlow(
 	store.add(toDisposable(() => {
 		stopAnimation();
 		target.classList.remove('dictation-mic-active', 'dictation-mic-settling');
-		target.style.removeProperty('--dictation-mic-level');
 	}));
 	update();
 

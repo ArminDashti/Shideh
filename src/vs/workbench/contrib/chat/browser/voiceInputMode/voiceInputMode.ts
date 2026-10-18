@@ -31,6 +31,7 @@ export type VoiceInputMode = 'dictation' | 'voice';
 export const CHAT_VOICE_INPUT_MODE = new RawContextKey<VoiceInputMode>('chatVoiceInputMode', 'voice', { type: 'string', description: localize('chatVoiceInputMode', "The currently selected voice input mode in the chat input (dictation or voice).") });
 
 const STORAGE_KEY = 'chat.voiceInputMode.selected';
+const ANIMATION_VARIATION_STORAGE_KEY = 'chat.voiceInputMode.animationVariation';
 
 export const IVoiceInputModeService = createDecorator<IVoiceInputModeService>('voiceInputModeService');
 
@@ -61,6 +62,9 @@ export class VoiceInputModeService extends Disposable implements IVoiceInputMode
 	private readonly _selectedMode: ISettableObservable<VoiceInputMode>;
 	readonly selectedMode: IObservable<VoiceInputMode>;
 
+	private readonly _voiceAnimationVariation: ISettableObservable<VoiceAnimationVariation>;
+	readonly voiceAnimationVariation: IObservable<VoiceAnimationVariation>;
+
 	readonly voiceAvailable: IObservable<boolean>;
 	readonly dictationAvailable: IObservable<boolean>;
 	readonly handsFree: IObservable<boolean>;
@@ -79,6 +83,13 @@ export class VoiceInputModeService extends Disposable implements IVoiceInputMode
 		const initial: VoiceInputMode = stored === 'dictation' ? 'dictation' : 'voice';
 		this._selectedMode = observableValue<VoiceInputMode>(this, initial);
 		this.selectedMode = this._selectedMode;
+
+		const storedVariation = this.storageService.get(ANIMATION_VARIATION_STORAGE_KEY, StorageScope.PROFILE);
+		const initialVariation: VoiceAnimationVariation =
+			storedVariation === 'border' ? 'border' :
+				storedVariation === 'rim' ? 'rim' : 'bloom';
+		this._voiceAnimationVariation = observableValue<VoiceAnimationVariation>(this, initialVariation);
+		this.voiceAnimationVariation = this._voiceAnimationVariation;
 
 		this.voiceAvailable = observableFromEvent(this,
 			Event.any(configurationService.onDidChangeConfiguration, contextKeyService.onDidChangeContext),

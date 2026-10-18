@@ -715,6 +715,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 		@IVoiceSessionController private readonly voiceSessionController: IVoiceSessionController,
 		@IVoiceInputModeService private readonly voiceInputModeService: IVoiceInputModeService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
+		@IThemeService private readonly themeService: IThemeService,
 		@IVoiceModeOnboardingService private readonly voiceModeOnboardingService: IVoiceModeOnboardingService,
 		@INewChatVoiceTargetService private readonly newChatVoiceTargetService: INewChatVoiceTargetService,
 		@IThemeService private readonly themeService: IThemeService,

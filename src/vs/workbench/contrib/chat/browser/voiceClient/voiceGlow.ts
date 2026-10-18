@@ -24,7 +24,7 @@ export type VoiceGlowState = 'idle' | 'listening' | 'processing' | 'speaking' | 
  * Glow states that render the audio-reactive rim.
  */
 export function isGlowingVoiceState(voiceState: VoiceGlowState): boolean {
-	return voiceState === 'listening' || voiceState === 'speaking';
+	return voiceState === 'listening' || voiceState === 'processing' || voiceState === 'speaking';
 }
 
 /**
@@ -186,4 +186,46 @@ export function computeVoiceMicGlowBoxShadow(voiceState: VoiceGlowState, intensi
 	const shadowSpread = 3 + intensity * 8;
 	const shadowAlpha = 0.2 + intensity * 0.45;
 	return `0 0 ${shadowSpread}px rgba(${r},${g},${b},${shadowAlpha})`;
+}
+
+// --- Beam (traveling comet) ----------------------------------------------
+
+export interface IVoiceBeamStyle {
+	/** CSS color for the comet head, e.g. `rgb(88,166,255)`. */
+	readonly color: string;
+	/** Overall ring opacity, [0, 1]. */
+	readonly opacity: number;
+	/** Seconds for one full lap of the perimeter. */
+	readonly durationSeconds: number;
+}
+
+/**
+ * Compute the Beam variation's comet color/opacity/speed for the given state.
+ * Listening and speaking track the audio level through brightness (opacity);
+ * processing travels slowly and a touch dimmer so it reads as a calm "thinking"
+ * loop that composes with the working comet rather than racing it. Duration is
+ * state-based (not audio-reactive) because CSS caches `animation-duration` at
+ * start time, so it must not change every frame.
+ */
+export function computeVoiceBeamStyle(voiceState: VoiceGlowState, intensity: number, colors: IVoiceGlowColors = DEFAULT_VOICE_GLOW_COLORS): IVoiceBeamStyle {
+	const rgb = voiceGlowStateRgb(voiceState, colors);
+	if (voiceState === 'processing') {
+		return { color: `rgb(${rgb})`, opacity: 0.45 + intensity * 0.2, durationSeconds: 3.2 };
+	}
+	return {
+		color: `rgb(${rgb})`,
+		opacity: Math.min(1, 0.6 + intensity * 0.35),
+		durationSeconds: 2,
+	};
+}
+
+/**
+ * Box-shadow for a voice mic/icon button glow, shared by surfaces that light up
+ * the microphone glyph in addition to the input border.
+ */
+export function computeVoiceMicGlowBoxShadow(voiceState: VoiceGlowState, intensity: number, colors: IVoiceGlowColors = DEFAULT_VOICE_GLOW_COLORS): string {
+	const rgb = voiceGlowStateRgb(voiceState, colors);
+	const shadowSpread = 3 + intensity * 8;
+	const shadowAlpha = 0.2 + intensity * 0.45;
+	return `0 0 ${shadowSpread}px rgba(${rgb},${shadowAlpha})`;
 }

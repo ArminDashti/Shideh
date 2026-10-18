@@ -72,6 +72,7 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
 	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
+	'!src/vs/workbench/contrib/chat/browser/voiceClient/borderBeam/**',
 
 	// Files with licences
 	'!src/vs/platform/endpoint/common/licenseAgreement.ts',

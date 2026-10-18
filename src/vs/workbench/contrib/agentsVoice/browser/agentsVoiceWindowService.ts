@@ -20,6 +20,7 @@ import { IAgentTitleBarStatusService } from '../../chat/browser/agentSessions/ex
 import { IMicCaptureService } from '../../chat/browser/voiceClient/micCaptureService.js';
 import { ITtsPlaybackService } from '../../chat/browser/voiceClient/ttsPlaybackService.js';
 import { IVoiceSessionController } from '../../chat/browser/voiceClient/voiceSessionController.js';
+import { resolveVoiceGlowColors } from '../../chat/browser/voiceClient/voiceGlow.js';
 import { IVoicePlaybackService } from '../../chat/common/voicePlaybackService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -216,6 +217,7 @@ export class AgentsVoiceWindowService extends Disposable implements IAgentsVoice
 					?? (state === 'listening' ? this.micCaptureService.analyserNode : null)
 					?? null;
 			},
+			getVoiceGlowColors: () => resolveVoiceGlowColors(this.themeService.getColorTheme()),
 			onResize: () => this._resizeWindow(auxiliaryWindow),
 			getGlowTheme: () => isDark(this.themeService.getColorTheme().type) ? 'dark' : 'light',
 			getGlowColors: () => resolveVoiceGlowColors(this.themeService.getColorTheme()),
