@@ -4095,6 +4095,19 @@ export interface MainThreadChatSessionsShape extends IDisposable {
 	$sendSystemInitiatedRequest(handle: number, sessionResource: UriComponents, prompt: string, options: { systemInitiatedLabel: string }): Promise<void>;
 }
 
+export interface IChatRequestTurnDto {
+
+}
+
+export interface ChatSessionDto {
+	id: string;
+
+	history: Array<
+		| { type: 'request'; prompt: string }
+		| { type: 'response'; parts: IChatProgressDto[] }>;
+}
+
+
 export interface ExtHostChatSessionsShape {
 	$refreshChatSessionItems(providerHandle: number, token: CancellationToken): Promise<void>;
 	$onDidChangeChatSessionItemState(providerHandle: number, sessionResource: UriComponents, archived: boolean): void;

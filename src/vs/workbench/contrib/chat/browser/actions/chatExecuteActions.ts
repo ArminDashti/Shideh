@@ -431,6 +431,7 @@ export class OpenModelPickerAction extends Action2 {
 								ChatContextKeys.agentSessionType.isEqualTo(AgentSessionProviders.AgentHostCopilot),
 								ContextKeyExpr.equals(`config.${AgentHostAllowSignedOutWhenUsableSettingId}`, true)))
 					)
+				)
 			}
 		});
 	}
