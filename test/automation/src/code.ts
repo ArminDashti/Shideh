@@ -11,7 +11,7 @@ import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
-import { teardown } from './processes';
+import { isProcessAlive, teardown, teardownAndWait } from './processes';
 import { Quality } from './application';
 
 export interface LaunchOptions {
@@ -20,6 +20,9 @@ export interface LaunchOptions {
 	codePath?: string;
 	/** Isolated source-app metadata and bootstrap overlay; ignored for packaged builds. */
 	readonly sourceAppRoot?: string;
+	readonly applicationPath?: string;
+	readonly electronPath?: string;
+	readonly launchTimeout?: number;
 	readonly workspacePath?: string;
 	userDataDir?: string;
 	readonly extensionsPath?: string;
@@ -39,6 +42,7 @@ export interface LaunchOptions {
 	readonly quality: Quality;
 	version: { major: number; minor: number; patch: number };
 	readonly extensionDevelopmentPath?: string;
+	readonly electronLaunchObserver?: ElectronLaunchObserver;
 
 	/**
 	 * Extra environment variables merged on top of the inherited `process.env`
@@ -47,6 +51,35 @@ export interface LaunchOptions {
 	 * mocks (e.g. `VSCODE_COPILOT_CHAT_TOKEN`).
 	 */
 	readonly extraEnv?: Readonly<Record<string, string | undefined>>;
+}
+
+export interface ElectronLaunchFailure {
+	readonly type: 'processExit' | 'rendererCrash' | 'playwrightDisconnect';
+	readonly message: string;
+	readonly code?: number | null;
+	readonly signal?: NodeJS.Signals | null;
+}
+
+export interface ElectronLaunchObserver {
+	/**
+	 * Called after Playwright has returned a connected Electron application.
+	 * This is not the operating-system process spawn boundary.
+	 */
+	onElectronLaunch?(): void;
+	/**
+	 * Supplies the connected child-process handle at the same boundary as
+	 * {@link onElectronLaunch}. Retained for existing observer integrations.
+	 */
+	onProcessSpawn?(process: cp.ChildProcess): void;
+	onFirstWindow?(): void;
+	onFailure?(failure: ElectronLaunchFailure): void;
+}
+
+export interface ElectronShutdownResult {
+	readonly status: 'clean' | 'timeout' | 'forced' | 'crash' | 'error';
+	readonly exitCode: number | null;
+	readonly signal: NodeJS.Signals | null;
+	readonly detail?: string;
 }
 
 interface ICodeInstance {
@@ -92,9 +125,14 @@ async function teardownAll(signal?: number) {
 }
 
 let stopped = false;
+let processSignalHandlingEnabled = true;
 process.on('exit', () => teardownAll());
-process.on('SIGINT', () => teardownAll(128 + 2)); 	 // https://nodejs.org/docs/v14.16.0/api/process.html#process_signal_events
-process.on('SIGTERM', () => teardownAll(128 + 15)); // same as above
+process.on('SIGINT', () => processSignalHandlingEnabled && teardownAll(128 + 2)); 	 // https://nodejs.org/docs/v14.16.0/api/process.html#process_signal_events
+process.on('SIGTERM', () => processSignalHandlingEnabled && teardownAll(128 + 15)); // same as above
+
+export function setProcessSignalHandlingEnabled(enabled: boolean): void {
+	processSignalHandlingEnabled = enabled;
+}
 
 export async function launch(options: LaunchOptions): Promise<Code> {
 	if (stopped) {
@@ -240,6 +278,75 @@ export class Code {
 				}
 			})();
 		}), 'Code#exit()', this.logger);
+	}
+
+	async shutdown(timeoutMs: number): Promise<ElectronShutdownResult> {
+		const pid = this.mainProcess.pid;
+		if (typeof pid !== 'number') {
+			return {
+				status: 'error',
+				exitCode: this.mainProcess.exitCode,
+				signal: this.mainProcess.signalCode,
+				detail: 'The launched process has no process identifier.'
+			};
+		}
+		if (!isProcessAlive(pid)) {
+			return {
+				status: this.mainProcess.exitCode === 0 ? 'clean' : 'crash',
+				exitCode: this.mainProcess.exitCode,
+				signal: this.mainProcess.signalCode,
+				detail: this.mainProcess.exitCode === 0 ? undefined : 'Electron exited before shutdown was requested.'
+			};
+		}
+
+		const shutdownStartedAt = Date.now();
+		let gracefulError: unknown;
+		const gracefulClose = this.driver.close({ throwOnError: true }).catch(error => gracefulError = error);
+		const gracefulTimedOut = await this.didTimeout(gracefulClose, Math.max(1, Math.floor(timeoutMs / 2)));
+
+		if (!isProcessAlive(pid)) {
+			return {
+				status: gracefulError ? 'error' : 'clean',
+				exitCode: this.mainProcess.exitCode,
+				signal: this.mainProcess.signalCode,
+				detail: gracefulError instanceof Error ? gracefulError.message : gracefulError ? String(gracefulError) : undefined
+			};
+		}
+
+		try {
+			const remainingTimeout = Math.max(1, timeoutMs - (Date.now() - shutdownStartedAt));
+			await teardownAndWait(this.mainProcess, this.logger, remainingTimeout);
+		} catch (error) {
+			return {
+				status: gracefulTimedOut ? 'timeout' : 'error',
+				exitCode: this.mainProcess.exitCode,
+				signal: this.mainProcess.signalCode,
+				detail: error instanceof Error ? error.message : String(error)
+			};
+		}
+
+		return {
+			status: 'forced',
+			exitCode: this.mainProcess.exitCode,
+			signal: this.mainProcess.signalCode,
+			detail: gracefulTimedOut
+				? `Graceful shutdown exceeded ${timeoutMs}ms; the Electron process tree was terminated.`
+				: `Graceful shutdown failed; the Electron process tree was terminated.${gracefulError ? ` ${String(gracefulError)}` : ''}`
+		};
+	}
+
+	private async didTimeout(operation: Promise<void>, timeoutMs: number): Promise<boolean> {
+		let handle: NodeJS.Timeout | undefined;
+		try {
+			return await Promise.race([
+				operation.then(() => false),
+				new Promise<true>(resolve => handle = setTimeout(() => resolve(true), timeoutMs))
+			]);
+		} finally {
+			if (handle) {
+				clearTimeout(handle);
+			}
+		}
 	}
 
 	private kill(pid: number): void {
