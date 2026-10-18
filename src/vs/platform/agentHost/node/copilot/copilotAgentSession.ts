@@ -78,7 +78,7 @@ import { isAutoModel } from './modelIdentifiers.js';
 import { applySandboxConfig, clientToolNamesFromSnapshot, isMcpServerExplicitlyProjected, mergeByokSessionConfig, toSessionConfigMcpServers, type CopilotSessionLaunchPlan, type IActiveClientSnapshot, type ICopilotSessionLauncher, type ICopilotSessionRuntime } from './copilotSessionLauncher.js';
 import { CLIENT_TOOL_SEARCH_REFERENCE_NAME, NON_DEFERRED_CLIENT_TOOL_NAMES, RUNTIME_TOOL_SEARCH_TOOL_NAME } from './toolSearchDeferral.js';
 import { ActiveClientToolSet } from '../activeClientState.js';
-import { AgentHostTelemetryReporter, toInitiatorTelemetry, type IAgentHostEventClassification, type IAgentHostEventTelemetry } from '../agentHostTelemetryReporter.js';
+import { AgentHostTelemetryReporter, toInitiatorTelemetry, type AgentHostProviderSendKind, type AgentHostProviderSendOutcome, type IAgentHostEventClassification, type IAgentHostEventTelemetry } from '../agentHostTelemetryReporter.js';
 import { AgentHostRepoInfoTelemetry } from '../agentHostRepoInfoTelemetry.js';
 import { PendingRequestRegistry } from '../../common/pendingRequestRegistry.js';
 import { buildCopilotSystemNotification, getCopilotSubagentDisplayNames } from './copilotSystemNotification.js';
@@ -1472,6 +1472,15 @@ export class CopilotAgentSession extends Disposable {
 	 * records when live events and RPC inventory refreshes report the same state.
 	 */
 	private readonly _lastLoggedMcpStatus = new Map<string, SdkMcpServerStatus>();
+
+	/**
+	 * Tracks MCP server startup timing for this session so a blocked provider
+	 * send can be attributed to the servers it waited on.
+	 */
+	private readonly _mcpReadiness = new CopilotMcpReadinessTracker();
+
+	/** Cleared after the first provider send, which is the one that pays session startup costs. */
+	private _pendingFirstSend = true;
 
 	/** Platform used to compute the SDK sandbox policy (injectable for tests). */
 	private readonly _platform: NodeJS.Platform;
@@ -4349,6 +4358,14 @@ export class CopilotAgentSession extends Disposable {
 		this._resumingTurnAwaitingProviderStart = turn;
 		const abortToken = this._abortToken;
 		turn?.markProviderCallPending();
+		// Resume runs the same `_prepareSdkTurn`, so it can pay the same MCP
+		// inventory cost as a message send and is reported on the same event.
+		const phaseWatch = StopWatch.create(false);
+		let prepareBlockedMs = 0;
+		let mcpReconcileMs = 0;
+		let outcome: AgentHostProviderSendOutcome = 'prepareFailed';
+		const isFirstSendOfSession = this._pendingFirstSend;
+		this._pendingFirstSend = false;
 		try {
 			await this._persistentTeams.retryTurn(this._ownerSessionUri.toString(), this._chatChannelUri.toString(), turnId);
 			await this._prepareSdkTurn(mode);
@@ -4371,6 +4388,8 @@ export class CopilotAgentSession extends Disposable {
 			}
 			this._rejectForegroundRequest(foregroundRequest, turn, abortToken, error);
 			throw error;
+		} finally {
+			this._reportSendPhases('resume', prepareBlockedMs, mcpReconcileMs, Math.round(phaseWatch.elapsed()) - prepareBlockedMs, outcome, isFirstSendOfSession);
 		}
 	}
 

@@ -984,6 +984,33 @@ class CapturingTelemetryService implements ITelemetryService {
 // ---- Helpers ----------------------------------------------------------------
 
 /**
+ * Projects `agentHost.providerSendBlocked` payloads into a stable shape for
+ * assertions: the duration fields are wall-clock measurements, so only their
+ * presence is comparable.
+ */
+function providerSendBlockedEvents(telemetryService: CapturingTelemetryService): unknown[] {
+	return telemetryService.events
+		.filter(event => event.eventName === 'agentHost.providerSendBlocked')
+		.map(event => {
+			const { sendBlockedMs, prepareBlockedMs, prepareMcpReconcileMs, slowestMcpServerMs, agentSessionId, ...rest } = event.data as Record<string, unknown>;
+			return {
+				...rest,
+				hasBlockedMs: typeof sendBlockedMs === 'number',
+				hasPrepareMs: typeof prepareBlockedMs === 'number',
+				hasMcpReconcileMs: typeof prepareMcpReconcileMs === 'number',
+				hasSlowestMcpServerMs: typeof slowestMcpServerMs === 'number',
+			};
+		});
+}
+
+/** Raw payload of the single `agentHost.providerSendBlocked` event, for timing assertions. */
+function singleProviderSendBlockedEvent(telemetryService: CapturingTelemetryService): Record<string, number> {
+	const events = telemetryService.events.filter(event => event.eventName === 'agentHost.providerSendBlocked');
+	assert.strictEqual(events.length, 1, 'expected exactly one providerSendBlocked event');
+	return events[0].data as Record<string, number>;
+}
+
+/**
  * Invokes a client-SDK tool's handler with the minimal fields the SDK
  * contract requires, and narrows the `unknown` return type to
  * {@link ToolResultObject} — which is what {@link CopilotAgentSession}'s
@@ -17427,7 +17454,7 @@ Use the attached image as context.
 			mockSession.fire('session.idle', { aborted: true } as SessionEventPayload<'session.idle'>['data']);
 
 			assert.deepStrictEqual({
-				telemetry: telemetryService.events.map(event => {
+				telemetry: telemetryService.events.filter(event => event.eventName === 'toolCallDetails').map(event => {
 					const data = event.data as Record<string, unknown>;
 					return {
 						eventName: event.eventName,
