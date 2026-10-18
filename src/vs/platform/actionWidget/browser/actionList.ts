@@ -654,6 +654,48 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 				data.container.removeAttribute('aria-expanded');
 			}
 		}
+
+		if (element.actions && element.actions.length > 0) {
+			data.container.classList.add('has-actions');
+			for (const action of element.actions) {
+				const actionButton = document.createElement('div');
+				actionButton.className = 'action-label ' + (action.class || '');
+				actionButton.tabIndex = 0;
+				actionButton.title = action.tooltip || action.label;
+				actionButton.setAttribute('aria-label', action.label || action.tooltip || '');
+				actionButton.setAttribute('role', 'button');
+				data.actionsContainer.appendChild(actionButton);
+
+				// Use capture phase to handle events before the list processes them
+				// Note: These must use direct addEventListener (not disposable) because
+				// elementDisposables is cleared on re-render which can happen during hover
+				actionButton.addEventListener('mousedown', e => {
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+					e.preventDefault();
+				}, true);
+				actionButton.addEventListener('mouseup', e => {
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+					e.preventDefault();
+					Promise.resolve(action.run()).catch(onUnexpectedError);
+				}, true);
+				actionButton.addEventListener('click', e => {
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+					e.preventDefault();
+				}, true);
+				data.elementDisposables.add(dom.addDisposableListener(actionButton, dom.EventType.KEY_DOWN, e => {
+					const event = new StandardKeyboardEvent(e);
+					if (event.keyCode === KeyCode.Enter || event.keyCode === KeyCode.Space) {
+						dom.EventHelper.stop(e, true);
+						Promise.resolve(action.run()).catch(onUnexpectedError);
+					}
+				}));
+			}
+		} else {
+			data.container.classList.remove('has-actions');
+		}
 	}
 
 	disposeTemplate(templateData: IActionMenuTemplateData): void {

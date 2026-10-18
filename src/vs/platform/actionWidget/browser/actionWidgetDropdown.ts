@@ -224,6 +224,7 @@ export class ActionWidgetDropdown extends BaseDropdown {
 					disabled: !action.enabled,
 					hideIcon: !isCheckable && !action.icon,
 					label: action.label,
+					actions: action.actions,
 					keybinding: this._options.showItemKeybindings ?
 						(action.keybinding ?? this.keybindingService.lookupKeybinding(action.id)) :
 						undefined,
