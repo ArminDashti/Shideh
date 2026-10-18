@@ -59,6 +59,11 @@ async function rmDirWithRetry(path: string | undefined): Promise<void> {
 	} catch { /* best-effort temp cleanup */ }
 }
 
+/** Resolves symlinks (e.g. macOS /var -> /private/var) so path comparisons match git's canonical output. */
+function canonicalizeForCompare(path: string): string {
+	try { return realpathSync(path); } catch { return path; }
+}
+
 suite('AgentHostGitService - getSessionGitState (real git)', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 

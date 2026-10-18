@@ -2614,7 +2614,7 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 	display: none;
 }
 
-.interactive-session .interactive-input-part.chat-input-hidden:not(:has(> .chat-input-persistent-content > :not(.hidden), > .chat-tool-confirmation-carousel-container:not(.hidden))) {
+.interactive-session .interactive-input-part.chat-input-hidden:not(:has(> .chat-input-persistent-content > :not(.hidden), > .chat-tool-confirmation-carousel-container:not(.hidden), > .chat-input-notification-container.has-notification.show-when-read-only)) {
 	display: none;
 }
 

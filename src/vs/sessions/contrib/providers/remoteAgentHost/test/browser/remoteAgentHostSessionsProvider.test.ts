@@ -354,6 +354,8 @@ function createProvider(disposables: DisposableStore, connection: MockAgentConne
 			dispose: () => { },
 		});
 	}());
+	const provisional = overrides?.provisionalSessionService ?? new FakeRemoteProvisionalSessionService();
+	instantiationService.stub(IAgentHostUntitledProvisionalSessionService, provisional);
 
 	const config: IRemoteAgentHostSessionsProviderConfig = {
 		address: overrides?.address ?? 'localhost:4321',

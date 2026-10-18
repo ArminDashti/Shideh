@@ -102,11 +102,12 @@ suite('WorktreeIsolation', () => {
 	const sessionUri = URI.parse('agent-session://test/s1');
 	const sessionId = 's1';
 
-	function createGitService(): IAgentHostGitService {
+	function createGitService(): TestGitService {
 		return {
 			...createNoopGitService(),
 			getRepositoryRoot: async () => repoRoot,
-			revParse: async (_root, expr) => expr === 'HEAD' ? headCommit : undefined,
+			revParse: async (_root, expr) => expr === 'HEAD' ? headCommit : (refOids.get(expr) ?? undefined),
+			getWorktreeEntries: async () => worktreeEntries,
 			getCurrentBranch: async () => 'feature',
 			getDefaultBranch: async () => ({ name: 'main', startPoint: 'main' }),
 			getBranches: async () => [
@@ -157,7 +158,7 @@ suite('WorktreeIsolation', () => {
 			_serviceBrand: undefined,
 			generateBranchName: async () => branchName,
 		};
-		return disposableStore.add(new WorktreeIsolation(
+		const args = [
 			branchNameGenerator,
 			options?.gitService ?? createGitService(),
 			options?.sessionDataService ?? createSessionDataService(db),
@@ -1672,6 +1673,441 @@ suite('WorktreeIsolation', () => {
 		}, {
 			retryRepositoryRoot: repoRoot.toString(),
 			retryWorktree: worktree.toString(),
+		});
+	});
+
+	test('N.0 initial worktree add failure surfaces a typed fatal payload and rolls back attributable residue', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: could not create work tree dir: No space left on device');
+		};
+		gitService.removeWorktree = async (_root, worktree, options) => {
+			removeCalls.push({ worktree, force: options?.force === true });
+			rmSync(worktree.fsPath, { recursive: true, force: true });
+			worktreeEntries = worktreeEntries.filter(entry => entry.path.toString() !== worktree.toString());
+		};
+		gitService.deleteRefs = async (_root, refs) => {
+			for (const ref of refs) {
+				refOids.delete(ref);
+			}
+		};
+		const isolation = createIsolation(disposables, { gitService });
+		const config = { [SessionConfigKey.Isolation]: 'worktree', [SessionConfigKey.Branch]: 'main' };
+
+		let caught: { errorType?: string; stage?: string; cleanup?: string; message?: string } | undefined;
+		try {
+			await isolation.resolveWorkingDirectory({ sessionUri, sessionId, workingDirectory: repoRoot, config, prompt: 'do a thing' });
+		} catch (error) {
+			caught = error as { errorType?: string; stage?: string; cleanup?: string; message?: string };
+		}
+
+		assert.deepStrictEqual({
+			errorType: caught?.errorType,
+			stage: caught?.stage,
+			cleanup: caught?.cleanup,
+			message: caught?.message,
+			residuePathExists: existsSync(worktreePath.fsPath),
+			removedWorktree: removeCalls.map(call => ({ worktree: call.worktree.toString(), force: call.force })),
+			branchRefDeleted: !refOids.has(`refs/heads/${branchName}`),
+			registrationCleared: worktreeEntries.length,
+		}, {
+			errorType: 'worktreeCreationFailed',
+			stage: 'addingWorktree',
+			cleanup: 'complete',
+			message: 'fatal: could not create work tree dir: No space left on device',
+			residuePathExists: false,
+			removedWorktree: [{ worktree: worktreePath.toString(), force: true }],
+			branchRefDeleted: true,
+			registrationCleared: 0,
+		});
+	});
+
+	test('rollback reports notNeeded when git left no attributable residue', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async () => { throw new Error('fatal: reference is not a tree'); };
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			errorType: caught?.errorType,
+			stage: caught?.stage,
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+		}, {
+			errorType: 'worktreeCreationFailed',
+			stage: 'addingWorktree',
+			cleanup: 'notNeeded',
+			removeCalled: 0,
+		});
+	});
+
+	test('rollback preserves branch-only residue as unverified', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, _worktree, branch) => {
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: could not create worktree');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			branchPreserved: refOids.has(`refs/heads/${branchName}`),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			branchPreserved: true,
+		});
+	});
+
+	test('rollback preserves an unregistered residual directory as unverified', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			throw new Error('fatal: unable to checkout');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			pathPreserved: existsSync(worktreePath.fsPath),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			pathPreserved: true,
+		});
+	});
+
+	test('rollback preserves a registered worktree whose branch moved off the start point', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'movedoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'movedoid');
+			throw new Error('fatal: post-add hook failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			pathPreserved: existsSync(worktreePath.fsPath),
+			branchPreserved: refOids.has(`refs/heads/${branchName}`),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			pathPreserved: true,
+			branchPreserved: true,
+		});
+	});
+
+	test('rollback preserves residue when another worktree already uses the branch', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			worktreeEntries.push({ path: URI.joinPath(worktreesRoot, 'other'), branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({ cleanup: caught?.cleanup, removeCalled: removeCalls.length }, { cleanup: 'unverified', removeCalled: 0 });
+	});
+
+	test('rollback preserves residue when the branch already existed before the attempt', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		refOids.set(`refs/heads/${branchName}`, 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			throw new Error('fatal: a branch named already exists');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			branchPreserved: refOids.has(`refs/heads/${branchName}`),
+			pathPreserved: existsSync(worktreePath.fsPath),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			branchPreserved: true,
+			pathPreserved: true,
+		});
+	});
+
+	test('rollback reports unverified when worktree state cannot be read', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.getWorktreeEntries = async () => { throw new Error('worktree list failed'); };
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({ cleanup: caught?.cleanup, removeCalled: removeCalls.length }, { cleanup: 'unverified', removeCalled: 0 });
+	});
+
+	test('rollback preserves otherwise-attributable residue as unverified when the path probe is unreadable', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		// Fully-attributable residue: registered entry on the created branch at the start point.
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		// A permission error (not ENOENT) on the target path must read as unreadable, never absent.
+		const isolation = createIsolation(disposables, {
+			gitService,
+			access: async path => {
+				if (path === worktreePath.fsPath) {
+					throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+				}
+			},
+		});
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			branchPreserved: refOids.has(`refs/heads/${branchName}`),
+			pathPreserved: existsSync(worktreePath.fsPath),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			branchPreserved: true,
+			pathPreserved: true,
+		});
+	});
+
+	test('rollback preserves otherwise-attributable residue as unverified when canonicalization cannot be read', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		// realpath failing means within-root proof is unreadable; must not fall back to the raw path.
+		const isolation = createIsolation(disposables, {
+			gitService,
+			realpath: async () => { throw Object.assign(new Error('EIO: i/o error'), { code: 'EIO' }); },
+		});
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			branchPreserved: refOids.has(`refs/heads/${branchName}`),
+			pathPreserved: existsSync(worktreePath.fsPath),
+		}, {
+			cleanup: 'unverified',
+			removeCalled: 0,
+			branchPreserved: true,
+			pathPreserved: true,
+		});
+	});
+
+	test('rollback completes for attributable residue behind a symlinked worktrees root', async () => {
+		const gitService = createGitService();
+		const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(branchName));
+		const canonicalRoot = `${worktreesRoot.fsPath}.target`;
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, {
+			gitService,
+			realpath: async path => {
+				if (path === worktreesRoot.fsPath) {
+					return canonicalRoot;
+				}
+				if (path === worktreePath.fsPath) {
+					return join(canonicalRoot, basename(worktreePath));
+				}
+				return path;
+			},
+		});
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+			branchRemoved: !refOids.has(`refs/heads/${branchName}`),
+		}, {
+			cleanup: 'complete',
+			removeCalled: 1,
+			branchRemoved: true,
+		});
+	});
+
+	test('rollback reports incomplete when removing the attributable worktree fails', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		gitService.deleteRefs = async (_root, refs) => { for (const ref of refs) { refOids.delete(ref); } };
+		gitService.removeWorktree = async (_root, worktree, options) => {
+			removeCalls.push({ worktree, force: options?.force === true });
+			throw new Error('remove failed');
+		};
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			removeCalled: removeCalls.length,
+		}, {
+			cleanup: 'incomplete',
+			removeCalled: 1,
+		});
+	});
+
+	test('rollback reports incomplete when the branch deletion postcondition is not met', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		gitService.removeWorktree = async (_root, worktree, options) => {
+			removeCalls.push({ worktree, force: options?.force === true });
+			rmSync(worktree.fsPath, { recursive: true, force: true });
+			worktreeEntries = worktreeEntries.filter(entry => entry.path.toString() !== worktree.toString());
+		};
+		gitService.deleteRefs = async () => { /* no-op: branch ref survives */ };
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			branchStillPresent: refOids.has(`refs/heads/${branchName}`),
+		}, {
+			cleanup: 'incomplete',
+			branchStillPresent: true,
+		});
+	});
+
+	test('a naming failure fails closed before any worktree mutation', async () => {
+		const gitService = createGitService();
+		wireResidueRemoval(gitService);
+		const isolation = createIsolation(disposables, {
+			gitService,
+			branchNameGenerator: { generateBranchName: async () => { throw new Error('naming service unavailable'); } },
+		});
+
+		const caught = await captureCreationFailure(isolation);
+
+		assert.deepStrictEqual({
+			errorType: caught?.errorType,
+			stage: caught?.stage,
+			cleanup: caught?.cleanup,
+			addCalls: addWorktreeCalls.length,
+			removeCalls: removeCalls.length,
+		}, {
+			errorType: 'worktreeCreationFailed',
+			stage: 'namingBranch',
+			cleanup: 'notNeeded',
+			addCalls: 0,
+			removeCalls: 0,
+		});
+	});
+
+	test('the fatal creation path writes no success or fallback metadata', async () => {
+		const gitService = createGitService();
+		refOids.set('main', 'startoid');
+		wireResidueRemoval(gitService);
+		gitService.addWorktree = async (_root, worktree, branch) => {
+			mkdirSync(worktree.fsPath, { recursive: true });
+			worktreeEntries.push({ path: worktree, branch: `refs/heads/${branch}`, head: 'startoid', locked: false, detached: false });
+			refOids.set(`refs/heads/${branch}`, 'startoid');
+			throw new Error('fatal: worktree add failed');
+		};
+		const isolation = createIsolation(disposables, { gitService });
+
+		const caught = await captureCreationFailure(isolation);
+		const meta = await isolation.readWorktreeMetadata(sessionUri);
+		const restored = await isolation.applyRestoreAnnouncement(sessionUri, [{
+			id: 't1',
+			message: { text: 'hi', origin: { kind: MessageKind.User } },
+			responseParts: [],
+			usage: undefined,
+			state: TurnState.Complete,
+		}]);
+
+		assert.deepStrictEqual({
+			cleanup: caught?.cleanup,
+			metaBranch: meta?.branchName,
+			resolvedWorktree: isolation.getResolvedWorktree(sessionId),
+			pendingAnnouncement: isolation.takePendingAnnouncement(sessionId),
+			restoredPartCount: restored[0].responseParts.length,
+		}, {
+			cleanup: 'complete',
+			metaBranch: undefined,
+			resolvedWorktree: undefined,
+			pendingAnnouncement: undefined,
+			restoredPartCount: 0,
 		});
 	});
 });

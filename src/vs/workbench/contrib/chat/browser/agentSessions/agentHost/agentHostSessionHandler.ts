@@ -39,6 +39,7 @@ import { BrowserViewAttachmentDisplayKind, BrowserViewAttachmentMetadataKey } fr
 import { readToolCallMeta } from '../../../../../../platform/agentHost/common/meta/agentToolCallMeta.js';
 import { readToolConfirmationId, withToolConfirmationId } from '../../../../../../platform/agentHost/common/meta/agentToolConfirmationMeta.js';
 import { readCompletionAttachmentMeta } from '../../../../../../platform/agentHost/common/meta/agentCompletionAttachmentMeta.js';
+import { readAgentWorktreeFailureMeta, WORKTREE_CREATION_FAILED_ERROR_TYPE, WorktreeGitCleanupOutcome } from '../../../../../../platform/agentHost/common/meta/agentWorktreeFailureMeta.js';
 import { IRemoteAgentHostService } from '../../../../../../platform/agentHost/common/remoteAgentHostService.js';
 import { SessionConfigKey } from '../../../../../../platform/agentHost/common/sessionConfigKeys.js';
 import { resolveAgentHostSessionTrustFolders } from '../../../../../../platform/agentHost/common/agentHostWorkspaceTrust.js';
@@ -790,6 +791,9 @@ class AgentHostChatSession extends Disposable implements IAgentHostChatSession {
 		this.isInputBlocked = this._inputState?.isInputBlocked ?? constObservable(false);
 		this.retryInput = this._inputState ? () => this._inputState!.retry() : undefined;
 		this.isReadOnly = derived(this, reader => {
+			if (this._fatalLatch.read(reader)) {
+				return true;
+			}
 			const sessionArchived = Boolean((this._sessionState.read(reader).read(reader)?.status ?? 0) & SessionStatus.IsArchived);
 			const chat = this._chatState.read(reader).read(reader);
 			return (!chat && new URLSearchParams(this.sessionResource.query).has(CHAT_SUBAGENT_RESOURCE_QUERY_PARAM))
@@ -825,6 +829,12 @@ class AgentHostChatSession extends Disposable implements IAgentHostChatSession {
 			this._sessionState.set(sessionSubscription ? observableFromSubscription(this, sessionSubscription) : constObservable(undefined), tx);
 			this._chatState.set(chatSubscription ? observableFromSubscription(this, chatSubscription) : constObservable(undefined), tx);
 		});
+	}
+
+	latchFatal(): void {
+		if (!this._fatalLatch.get()) {
+			this._fatalLatch.set(true, undefined);
+		}
 	}
 
 	override dispose(): void {
@@ -2080,6 +2090,15 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 					: completedTurn ? 'success' : 'notDispatched';
 			const details = this._getTurnResponseDetails(request.sessionResource, resolvedSession, completedTurn);
 			const errorDetails = this._getTurnErrorDetails(completedTurn);
+
+			// Latch inertness before ChatService stores the completed response.
+			if (errorDetails?.code === WORKTREE_CREATION_FAILED_ERROR_TYPE) {
+				const session = this._activeSessions.get(request.sessionResource);
+				if (session) {
+					session.latchFatal();
+					this._ensureFatalRecoveryNotification(request.sessionResource, readAgentWorktreeFailureMeta(completedTurn?.error)?.cleanup);
+				}
+			}
 
 			return {
 				timings: { firstProgress, totalElapsed: stopWatch.elapsed() },

@@ -118,6 +118,7 @@ import { OpenAgentHostFolderPickerAction } from '../../../browser/agentSessions/
 import { MenuId, MenuRegistry, isIMenuItem, type IMenuItem } from '../../../../../../platform/actions/common/actions.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { CHAT_SETUP_ACTION_ID } from '../../../browser/actions/chatActions.js';
+import { getAccessibilityHelpText } from '../../../browser/actions/chatAccessibilityHelp.js';
 import { type ContextKeyValue } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IAgentHostActiveClientService } from '../../../browser/agentSessions/agentHost/agentHostActiveClientService.js';
 import { IAgentHostProtectedResourcesService } from '../../../browser/agentSessions/agentHost/agentHostProtectedResourcesService.js';
@@ -1053,6 +1054,7 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		getActiveNotification: () => undefined,
 		handleMessageSent: () => { },
 		announceRendered: () => { },
+		...notificationServiceOverride,
 	});
 	instantiationService.stub(IAgentHostCustomizationService, customizationServiceOverride ?? new NullAgentHostCustomizationService());
 	const sessionCreationMetadata = new Map<string, Record<string, unknown>>();
@@ -1068,6 +1070,7 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 		getOrCreate: async () => undefined,
 		tryRebind: async () => undefined,
 		disposeSession: async () => { },
+		getBackendCleanupState: () => constObservable(AgentHostBackendCleanupState.None),
 		...provisionalServiceOverride,
 	} as Partial<IAgentHostUntitledProvisionalSessionService> as IAgentHostUntitledProvisionalSessionService);
 	instantiationService.stub(IAgentHostImportConversationStore, {
@@ -1354,7 +1357,7 @@ async function startTurn(
 		});
 	}
 
-	return { turnPromise, collected, chatSession, session, turnId, fire };
+	return { turnPromise, collected, chatSession, session, turnId, fire, sessionResource };
 }
 
 async function startDynamicAgentTurn(

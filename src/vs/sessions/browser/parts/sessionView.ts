@@ -48,6 +48,22 @@ export interface ISessionViewSidebar {
 	onHide(): void;
 }
 
+/** Routes read-only untitled sessions to the transcript instead of the composer. */
+export function resolveSessionViewKind(
+	isCreated: boolean | undefined,
+	activeChatStatus: SessionStatus | undefined,
+	activeChatInteractivity: ChatInteractivity | undefined,
+): ChatViewKind {
+	const readOnly = activeChatInteractivity !== undefined && activeChatInteractivity !== ChatInteractivity.Full;
+	if (isCreated === undefined || (isCreated === false && !readOnly)) {
+		return 'newSession';
+	}
+	if (activeChatStatus === SessionStatus.Untitled && !readOnly) {
+		return 'newChatInSession';
+	}
+	return 'chat';
+}
+
 /**
  * A stable single-slot grid leaf for the Sessions Part. `SessionsPart`
  * delegates `openSession(...)` to this host so it no longer needs to remove/add

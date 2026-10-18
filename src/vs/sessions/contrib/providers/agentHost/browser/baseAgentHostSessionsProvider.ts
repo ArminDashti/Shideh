@@ -2737,6 +2737,9 @@ class NewSession extends Disposable {
 	private readonly _isActiveSessionObs: IObservable<boolean>;
 	private readonly _loading: ISettableObservable<boolean>;
 	private readonly _mainChat: ISettableObservable<IChat>;
+	/** Interactivity of the draft's main chat. */
+	private readonly _interactivity: ISettableObservable<ChatInteractivity>;
+	private _fatalInert = false;
 	private _selectedModelId: string | undefined;
 	private _selectedAgent: ISessionAgentRef | undefined;
 
@@ -2858,6 +2861,10 @@ class NewSession extends Disposable {
 		this._initialSessionTemplate = initialSessionTemplate;
 
 		const resource = URI.from({ scheme: ctx.resourceScheme, path: `/${generateUuid()}` });
+		if (ctx.onDispose) {
+			const onDispose = ctx.onDispose;
+			this._register(toDisposable(() => onDispose(resource)));
+		}
 		this._isActiveSessionObs = derived(this, reader => isEqual(sessionsService.activeSession.read(reader)?.resource, resource));
 		// Defaults to scheme == provider; only hosts that address sessions under a different
 		// scheme (cloud sandbox: provider `copilot`, scheme `ahp-session`) override it.
@@ -2881,6 +2888,7 @@ class NewSession extends Disposable {
 		const lastTurnEnd = observableValue<Date | undefined>(this, undefined);
 		this._loading = observableValue(this, true);
 		this._isResolvingConfig = observableValue(this, false);
+		this._interactivity = observableValue<ChatInteractivity>(this, ChatInteractivity.Full);
 		const createdAt = new Date();
 
 		const mainChat: IChat = {
@@ -2989,6 +2997,8 @@ class NewSession extends Disposable {
 		this._selectedAgent = undefined;
 		this._mode.set(undefined, undefined);
 	}
+
+	get backendSessionUri(): URI { return this._backendSessionUri; }
 
 	setStatus(status: SessionStatus): void { this._status.set(status, undefined); }
 	setArchived(isArchived: boolean): void { this._isArchived.set(isArchived, undefined); }
@@ -3404,6 +3414,62 @@ class NewSession extends Disposable {
 		this._changesets.set(changesets, undefined);
 	}
 
+	/** Latch a fatal draft read-only without changing its Untitled status. */
+	markFatalInert(): void {
+		if (this._fatalInert) {
+			return;
+		}
+		this._fatalInert = true;
+		transaction(tx => {
+			// Keep this fatal draft out of persistence and restore.
+			this._status.set(SessionStatus.Untitled, tx);
+			this._interactivity.set(ChatInteractivity.ReadOnly, tx);
+			this._loading.set(false, tx);
+			this._worktreePending.set(false, tx);
+		});
+	}
+
+	private _detachOp: Promise<boolean> | undefined;
+	private _closeRetryOp: Promise<void> | undefined;
+
+	/** Detaches the fatal backend while retaining the frontend draft. */
+	detachFailedBackend(): Promise<boolean> {
+		if (this._detachOp) {
+			return this._detachOp;
+		}
+		this._lifetimeCts.cancel();
+		this._configRequestSeq++;
+		this._stateListener.clear();
+		this._subscription?.dispose();
+		this._subscription = undefined;
+		const backendUri = this._backendUri;
+		const connection = this._connection;
+		if (!backendUri || !connection) {
+			return this._detachOp = Promise.resolve(true);
+		}
+		const op = (async () => {
+			try {
+				await connection.disposeSession(backendUri);
+				if (this._backendUri?.toString() === backendUri.toString()) {
+					this._backendUri = undefined;
+					this._connection = undefined;
+				}
+				return true;
+			} catch (err) {
+				this._logService.warn(`[${this._providerId}] Failed to detach fatal backend session ${backendUri.toString()}: ${err}`);
+				return false;
+			} finally {
+				this._detachOp = undefined;
+			}
+		})();
+		this._detachOp = op;
+		return op;
+	}
+
+	hasRetainedFailedBackend(): boolean {
+		return !!this._backendUri && !!this._connection;
+	}
+
 	/**
 	 * Release the backend subscription without firing `disposeSession`.
 	 * Used on the success path in `sendRequest` when the session has
@@ -3459,9 +3525,18 @@ class NewSession extends Disposable {
 
 		const oldUri = this._backendUri;
 		const connection = this._connection;
+		const detachOp = this._detachOp;
 		this._backendUri = undefined;
 		this._connection = undefined;
-		if (oldUri && connection) {
+		if (oldUri && connection && detachOp) {
+			this._closeRetryOp ??= detachOp.then(async confirmed => {
+				if (!confirmed) {
+					await connection.disposeSession(oldUri).catch(err => {
+						this._logService.warn(`[${this._providerId}] Failed to retry disposal of eager backend session ${oldUri.toString()}: ${err}`);
+					});
+				}
+			});
+		} else if (oldUri && connection) {
 			connection.disposeSession(oldUri).catch(err => {
 				this._logService.warn(`[${this._providerId}] Failed to dispose eager backend session ${oldUri.toString()}: ${err}`);
 			});
@@ -3556,6 +3631,10 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 	/** Cache of adapted sessions, keyed by raw session ID. */
 	protected readonly _sessionCache = new Map<string, AgentHostSessionAdapter>();
+
+	/** Process-lifetime fatal identities and their expected backend URIs, never published or persisted. */
+	private readonly _fatalQuarantinedBackends = new Map<string, URI>();
+	private readonly _fatalQuarantineCleanupOps = new Map<string, Promise<boolean>>();
 
 	protected _refreshSessionWorkspaces(): void {
 		const changed = [...this._sessionCache.values()].filter(session => session.refreshWorkspace());
@@ -4212,10 +4291,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		// admits everything; only the local provider suppresses the agent host's
 		// Claude when the window prefers the extension-host Claude.
 		//
-		// Both `agentProvider` (cached) and `sessionType` (pending) carry the
-		// bare provider name (e.g. `claude`), which is what the gate expects —
-		// NOT the `agent-host-<provider>` resource scheme from
-		// `resourceSchemeForProvider`. Keep it that way.
+		// Drafts remain view-local until a committed adapter enters the cache.
 		//
 		// Subclasses whose `_shouldAdvertiseAgent` can change at runtime MUST
 		// fire `onDidChangeSessions` when it does, so consumers re-query and
@@ -6653,9 +6729,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		newSession.setStatus(SessionStatus.InProgress);
 		newSession.clearSelectedModelId();
 
-		// Seed the title from the first line of the query so the new-session
-		// tab shows something meaningful immediately. This skeleton is replaced
-		// by the committed AgentHostSession once it arrives.
+		// The retained draft still needs a meaningful title.
 		newSession.setTitle((options.title || query.split('\n')[0]).substring(0, 100) || newSession.untitledTitle);
 		const skeleton = newSession.session;
 		this._pendingSessions.set(newSession.sessionId, skeleton);
@@ -6704,24 +6778,20 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 				return committedSession;
 			}
 		} catch {
-			// Connection lost or timeout — fall through to the failure cleanup.
+			// Connection lost or cancellation — fall through to the failure cleanup.
 		} finally {
 			// Defensive clear: covers the failure path where the try block
 			// never reached the explicit clear above.
 			this._pendingSessions.delete(newSession.sessionId);
 		}
 
-		// On failure: drop the eager subscription without firing
-		// `disposeSession`. The server-side empty-session GC will clean up
-		// the provisional session if it remains; we lean on the GC rather
-		// than risking a double-dispose race on transient failures.
+		// Preserve the existing unclassified failure cleanup.
 		newSession.graduate();
 		if (this._newSessions.get(newSession.sessionId) === newSession) {
 			this._onNewSessionAbandoned(newSession.sessionId, 'sendFailed');
 			this._newSessions.deleteAndDispose(newSession.sessionId);
 			this._onDidChangeDraftSessions.fire();
 		}
-		this._onDidChangeSessions.fire({ added: [], removed: [skeleton], changed: [] });
 		throw new Error(localize('sessionNotCommitted', "Agent host session was not committed."));
 	}
 
@@ -7519,6 +7589,11 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 			for (const rawMeta of sessions) {
 				const meta = this._adoptSessionMeta(rawMeta);
 				const rawId = AgentSession.id(meta.session);
+				// Quarantined identities never re-enter the cache or list.
+				if (this._fatalQuarantinedBackends.has(rawId)) {
+					this._quarantineFatalIdentity(rawId, meta.session, 'listSessions');
+					continue;
+				}
 				currentKeys.add(rawId);
 				const agentProvider = AgentSession.provider(meta.session);
 				if (agentProvider) {
@@ -7782,6 +7857,12 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		const meta = this._adoptSessionMeta(rawMeta);
 		const rawId = AgentSession.id(meta.session);
 
+		// Late fatal identities are quarantined instead of being graduated.
+		if (this._fatalQuarantinedBackends.has(rawId)) {
+			this._quarantineFatalIdentity(rawId, meta.session, 'SessionAdded');
+			return;
+		}
+
 		const existing = this._sessionCache.get(rawId);
 		if (existing) {
 			if (this.updateAdapter(existing, meta)) {
@@ -7795,6 +7876,74 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		this._sessionCache.set(rawId, cached);
 		this._onDidChangeSessionsFromNotifications.fire({ added: [cached], removed: [], changed: [] });
 		this._syncActiveClient();
+	}
+
+	/** Suppress a late fatal identity and join its in-flight backend cleanup. */
+	private _quarantineFatalIdentity(rawId: string, session: URI | string, origin: string): void {
+		const expected = this._fatalQuarantinedBackends.get(rawId);
+		const actual = typeof session === 'string' ? URI.parse(session) : session;
+		const backend = actual.with({ scheme: this._backendSessionScheme(actual.scheme) });
+		if (!expected || !isEqual(expected, backend)) {
+			this._logService.warn(`[${this.id}] Contract violation: late '${origin}' for fatal-quarantined session ${rawId} had an unexpected backend URI; suppressing without disposal.`);
+			this._publishFatalCleanupState(this._fatalDraftForRawId(rawId), AgentHostBackendCleanupState.Failed);
+			return;
+		}
+		this._logService.warn(`[${this.id}] Contract violation: late '${origin}' for fatal-quarantined session ${rawId}; suppressing and joining backend cleanup.`);
+		this._startFatalQuarantineCleanup(rawId, backend);
+	}
+
+	private _fatalDraftForRawId(rawId: string): NewSession | undefined {
+		for (const newSession of this._newSessions.values()) {
+			if (AgentSession.id(newSession.session.resource) === rawId) {
+				return newSession;
+			}
+		}
+		return undefined;
+	}
+
+	private _publishFatalCleanupState(newSession: NewSession | undefined, state: AgentHostBackendCleanupState): void {
+		if (newSession && this._newSessions.get(newSession.sessionId) === newSession) {
+			this._provisionalSessionService.publishBackendCleanupState(newSession.session.resource, state);
+		}
+	}
+
+	private _startFatalQuarantineCleanup(rawId: string, session: URI | string, initialDraft?: NewSession): void {
+		if (this._fatalQuarantineCleanupOps.has(rawId)) {
+			return;
+		}
+
+		const draft = initialDraft ?? this._fatalDraftForRawId(rawId);
+		const connection = this.connection;
+		if (!initialDraft && !connection) {
+			this._publishFatalCleanupState(draft, AgentHostBackendCleanupState.Failed);
+			return;
+		}
+
+		this._publishFatalCleanupState(draft, AgentHostBackendCleanupState.Pending);
+		const backendUri = typeof session === 'string' ? URI.parse(session) : session;
+		const operation = initialDraft || draft?.hasRetainedFailedBackend()
+			? draft!.detachFailedBackend()
+			: connection!.disposeSession(backendUri).then(
+				() => true,
+				err => {
+					this._logService.warn(`[${this.id}] Failed to dispose quarantined fatal backend ${backendUri.toString()}: ${err}`);
+					return false;
+				},
+			);
+		const cleanup = operation.then(
+			confirmed => confirmed,
+			err => {
+				this._logService.warn(`[${this.id}] Failed to detach fatal backend ${backendUri.toString()}: ${err}`);
+				return false;
+			},
+		);
+		this._fatalQuarantineCleanupOps.set(rawId, cleanup);
+		void cleanup.then(confirmed => {
+			this._publishFatalCleanupState(draft, confirmed ? AgentHostBackendCleanupState.Confirmed : AgentHostBackendCleanupState.Failed);
+			if (this._fatalQuarantineCleanupOps.get(rawId) === cleanup) {
+				this._fatalQuarantineCleanupOps.delete(rawId);
+			}
+		});
 	}
 
 	private _handleSessionRemoved(session: URI | string): void {
@@ -7872,6 +8021,11 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		let reopenStateSubscriptionFor: string | undefined;
 		transaction((tx) => {
 			const rawId = AgentSession.id(session);
+			// A late summary must not resurrect a quarantined identity.
+			if (this._fatalQuarantinedBackends.has(rawId)) {
+				this._quarantineFatalIdentity(rawId, session, 'SessionSummaryChanged');
+				return;
+			}
 			const cached = this._sessionCache.get(rawId);
 			if (!cached) {
 				return;

@@ -21,6 +21,7 @@ import { ILogService } from '../../../log/common/log.js';
 import { AgentSession, IAgentSessionProjectInfo } from '../../common/agent.js';
 import { getBranchCompletions, GitRefType, IAgentHostGitService, IDefaultBranch, IWorktreeFileProgress, META_DIFF_BASE_BRANCH, tryResolvePrimaryWorktreeRoot } from '../../common/agentHostGitService.js';
 import { AgentSystemNotificationKind, AgentSystemNotificationSeverity, toAgentSystemNotificationMeta } from '../../common/meta/agentSystemNotificationMeta.js';
+import { boundWorktreeDiagnostic, IAgentWorktreeFailureMeta, WORKTREE_CREATION_FAILED_ERROR_TYPE, WorktreeCreationStage, WorktreeGitCleanupOutcome } from '../../common/meta/agentWorktreeFailureMeta.js';
 import { ISchemaProperty, schemaProperty } from '../../common/agentHostSchema.js';
 import { ISessionDataService, type ISessionDatabase } from '../../common/sessionDataService.js';
 import { SessionConfigKey } from '../../common/sessionConfigKeys.js';
@@ -129,6 +130,52 @@ export class SessionWorkingDirectoryMissingError extends Error {
 	}
 }
 
+/** Typed failure carrying the bounded diagnostic, creation stage, and cleanup outcome. */
+export class WorktreeCreationFailedError extends Error {
+	readonly errorType = WORKTREE_CREATION_FAILED_ERROR_TYPE;
+
+	constructor(
+		diagnostic: string | undefined,
+		readonly stage: WorktreeCreationStage,
+		readonly cleanup: WorktreeGitCleanupOutcome,
+		readonly cleanupDiagnostic: string | undefined,
+	) {
+		super(boundWorktreeDiagnostic(diagnostic) ?? localize('agentHost.worktreeCreationFailedGeneric', "Couldn't create the isolated worktree."));
+		this.name = 'WorktreeCreationFailedError';
+	}
+
+	toFailureMeta(): IAgentWorktreeFailureMeta {
+		return { stage: this.stage, cleanup: this.cleanup, cleanupDiagnostic: this.cleanupDiagnostic };
+	}
+}
+
+/** Bounded, in-memory evidence about a single live worktree-creation attempt. */
+interface IWorktreeAttemptContext {
+	readonly repositoryRoot: URI;
+	readonly worktree: URI;
+	readonly worktreesRoot: URI;
+	readonly branchRef: string;
+	readonly startPointOid: string | undefined;
+	readonly preAdd: {
+		readonly branchAbsent: boolean;
+		readonly pathAbsent: boolean;
+		readonly registrationAbsent: boolean;
+	};
+}
+
+/** Structural view of the optional richer worktree listing the concrete git service provides. */
+interface IWorktreeEntryReader {
+	getWorktreeEntries(repositoryRoot: URI): Promise<readonly IWorktreeEntry[]>;
+}
+
+function supportsWorktreeEntries(gitService: IAgentHostGitService): gitService is IAgentHostGitService & IWorktreeEntryReader {
+	return typeof (gitService as Partial<IWorktreeEntryReader>).getWorktreeEntries === 'function';
+}
+
+function isFileNotFoundError(error: unknown): error is NodeJS.ErrnoException {
+	return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
 /** Default upper bound on branch names returned for the branch picker. */
 const WORKTREE_PROGRESS_DEBOUNCE_MS = 40;
 
@@ -215,15 +262,9 @@ export function buildWorktreeFailureNotification(diagnostic?: string): Extract<R
 	};
 }
 
-/** Normalizes an arbitrary worktree failure into a bounded single-line diagnostic. */
+/** Legacy warning-path alias for {@link boundWorktreeDiagnostic}. */
 export function normalizeWorktreeFailureDiagnostic(diagnostic: string | undefined): string | undefined {
-	const normalized = diagnostic?.replace(/\s+/g, ' ').trim();
-	if (!normalized) {
-		return undefined;
-	}
-	return normalized.length > MAX_WORKTREE_FAILURE_DIAGNOSTIC_LENGTH
-		? `${normalized.slice(0, MAX_WORKTREE_FAILURE_DIAGNOSTIC_LENGTH - 3)}...`
-		: normalized;
+	return boundWorktreeDiagnostic(diagnostic);
 }
 
 /**
@@ -982,10 +1023,10 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				? selectedBranch
 				: (await this._gitService.getDefaultBranch(repositoryRoot))?.startPoint;
 
-			// Git suppresses progress for the first couple of seconds, so name
-			// the phase up front rather than leaving the label stale until the
-			// first percentage arrives.
-			onProgress?.(buildWorktreeProgressText(WorktreeCreationPhase.CheckingOut));
+				// Git suppresses progress for the first couple of seconds, so name
+				// the phase up front rather than leaving the label stale until the
+				// first percentage arrives.
+				onProgress?.(buildWorktreeProgressText(WorktreeCreationPhase.CheckingOut));
 
 			const worktreePath = URI.joinPath(worktreesRoot, getWorktreeName(newBranchName ?? selectedBranch, worktreeBranchPrefix));
 			await request.onWillCreate?.({ repositoryRoot, worktreePath, baseBranch, branchName: newBranchName ?? selectedBranch });
@@ -1850,4 +1891,18 @@ async function fileExists(path: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+/** Tri-state result of a path probe: absence is proven only by a genuine ENOENT. */
+const enum PathProbe {
+	Present,
+	Absent,
+	Unreadable,
+}
+
+/** Sentinel distinguishing an unreadable ref probe from a genuinely absent ref. */
+const UNREADABLE = Symbol('unreadable');
+
+function canonicalPathEqual(a: URI, b: URI): boolean {
+	return extUriBiasedIgnorePathCase.isEqual(a, b);
 }

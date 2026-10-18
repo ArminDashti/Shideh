@@ -75,6 +75,24 @@ suite('Sessions - Session View', () => {
 		});
 	});
 
+	test('routes a read-only untitled session to the standard chat view (Sessions read-only invariant)', () => {
+		assert.deepStrictEqual({
+			noSession: resolveSessionViewKind(undefined, undefined, undefined),
+			editableUntitledNewSession: resolveSessionViewKind(false, SessionStatus.Untitled, ChatInteractivity.Full),
+			editableUntitledInSession: resolveSessionViewKind(true, SessionStatus.Untitled, ChatInteractivity.Full),
+			readOnlyUntitled: resolveSessionViewKind(false, SessionStatus.Untitled, ChatInteractivity.ReadOnly),
+			readOnlyUntitledInProgress: resolveSessionViewKind(false, SessionStatus.InProgress, ChatInteractivity.ReadOnly),
+			committed: resolveSessionViewKind(true, SessionStatus.Completed, ChatInteractivity.Full),
+		}, {
+			noSession: 'newSession',
+			editableUntitledNewSession: 'newSession',
+			editableUntitledInSession: 'newChatInSession',
+			readOnlyUntitled: 'chat',
+			readOnlyUntitledInProgress: 'chat',
+			committed: 'chat',
+		});
+	});
+
 	test('forwards effective visibility (part and grid leaf) to the hosted chat view', () => {
 		const forwarded: boolean[] = [];
 		// Created from the prototype so the internal visibility helpers are present.

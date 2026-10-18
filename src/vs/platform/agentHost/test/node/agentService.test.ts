@@ -26835,6 +26835,14 @@ suite('AgentService (node dispatcher)', () => {
 			);
 			const chatState = getStateManager(localService).getChatState(chat);
 
+			// The typed fatal worktree-creation failure must propagate rather than
+			// fall back to the selected folder.
+			await assert.rejects(
+				resolver._resolveWorkingDirectoryBeforeSend({ session: sessionResource, chat, turnId: 'turn-1', prompt: 'test' }),
+				(err: unknown) => err instanceof WorktreeCreationFailedError && err.errorType === 'worktreeCreationFailed',
+			);
+
+			const chatState = localService.stateManager.getChatState(chat);
 			assert.deepStrictEqual({
 				lifecycle: getStateManager(localService).getSessionState(sessionResource)?.lifecycle,
 				published: added.length,

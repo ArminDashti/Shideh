@@ -2063,6 +2063,22 @@ export class AgentSideEffects extends Disposable {
 
 		const chatUri = URI.parse(chat);
 
+		// Only the fatal worktree classification permanently rejects later turns.
+		const creationState = this._stateManager.getSessionState(sessionChannel);
+		if (creationState?.lifecycle === SessionLifecycle.CreationFailed && creationState.creationError?.errorType === WORKTREE_CREATION_FAILED_ERROR_TYPE) {
+			const error = creationState.creationError;
+			this._logService.warn(`[AgentSideEffects] Rejecting turn on session with failed worktree creation session=${sessionChannel}, turnId=${turnId}`);
+			this._stateManager.dispatchServerAction(turnChannel, {
+				type: ActionType.ChatError,
+				turnId,
+				duration: this._turnDuration(turnStopWatch),
+				error,
+			});
+			this._completeTurn(turnChannel, turnId, 'error', { stage: 'validation', error });
+			this._toolCallTracker.clearSession(turnChannel);
+			return;
+		}
+
 		let failureStage: AgentHostTurnFailureStage = 'workingDirectory';
 		// Declared outside the `try` so a turn that fails before the provider is
 		// handed the prompt can discard the checkpoint it already started.
@@ -2280,6 +2296,8 @@ export class AgentSideEffects extends Disposable {
 	 * so subscribers render the session as failed immediately rather than
 	 * waiting on a client-side timeout. The provisional session survives on the
 	 * agent, so resending re-attempts materialization.
+	 *
+	 * Fatal worktree failures remain unannounced and reject later turns.
 	 */
 	private _failSessionCreationIfStillCreating(sessionChannel: ProtocolURI, error: ErrorInfo): void {
 		const state = this._stateManager.getSessionState(sessionChannel);
@@ -2290,6 +2308,10 @@ export class AgentSideEffects extends Disposable {
 			type: ActionType.SessionCreationFailed,
 			error,
 		});
+		// Generic creation failures remain catalog-visible; fatal worktree failures do not.
+		if (error.errorType === WORKTREE_CREATION_FAILED_ERROR_TYPE) {
+			return;
+		}
 		const summary = this._stateManager.getSessionSummary(sessionChannel);
 		if (summary) {
 			this._stateManager.markSessionPersisted(sessionChannel, summary);
