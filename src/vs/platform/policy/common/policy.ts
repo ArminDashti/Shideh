@@ -163,6 +163,7 @@ export abstract class AbstractPolicyService extends Disposable implements IPolic
 		this.policyValueSources.clear();
 	}
 
+	public abstract getPolicySource(name: PolicyName): { short: string; long: string } | undefined;
 	protected abstract _updatePolicyDefinitions(policyDefinitions: IStringDictionary<PolicyDefinition>): Promise<void>;
 }
 

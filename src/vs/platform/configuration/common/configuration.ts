@@ -104,6 +104,7 @@ export interface IConfigurationValue<T> {
 	readonly policy?: { value?: T };
 
 	readonly overrideIdentifiers?: string[];
+	readonly scopeOverrideCustomText?: { short: string; long: string };
 }
 
 export function getConfigValueInTarget<T>(configValue: IConfigurationValue<T>, scope: ConfigurationTarget): T | undefined {
@@ -204,6 +205,10 @@ export interface IConfigurationService {
 		workspaceFolder: string[];
 		memory?: string[];
 	};
+}
+
+export interface IConfiguratonModelMetadata {
+	scopeOverrideCustomText?: { short: string; long: string };
 }
 
 export interface IConfigurationModel {

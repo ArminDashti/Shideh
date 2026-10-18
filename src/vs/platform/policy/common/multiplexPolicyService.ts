@@ -33,6 +33,16 @@ export class MultiplexPolicyService extends AbstractPolicyService implements IPo
 		return this.getPolicyValues();
 	}
 
+	override getPolicySource(name: PolicyName): { short: string; long: string } | undefined {
+		for (const service of this.policyServices) {
+			const source = service.getPolicySource(name);
+			if (source) {
+				return source;
+			}
+		}
+		return;
+	}
+
 	protected async _updatePolicyDefinitions(policyDefinitions: IStringDictionary<PolicyDefinition>): Promise<void> {
 		await Promise.all(this.policyServices.map(service => service.updatePolicyDefinitions(policyDefinitions)));
 		this.updatePolicies();

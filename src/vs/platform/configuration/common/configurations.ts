@@ -260,11 +260,11 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 					}
 				}
 				if (wasEmpty ? policyValue !== undefined : !equals(this._configurationModel.getValue(key), policyValue)) {
-					changed.push([key, policyValue]);
+					changed.push([key, policyValue, source]);
 				}
 			} else {
 				if (this._configurationModel.getValue(key) !== undefined) {
-					changed.push([key, undefined]);
+					changed.push([key, undefined, undefined]);
 				}
 			}
 		}
@@ -279,13 +279,13 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 			const old = this._configurationModel;
 			this._configurationModel = ConfigurationModel.createEmptyModel(this.logService);
 			for (const key of old.keys) {
-				this._configurationModel.setValue(key, old.getValue(key));
+				this._configurationModel.setValue(key, old.getValue(key), old.metadata[key]);
 			}
-			for (const [key, policyValue] of changed) {
+			for (const [key, policyValue, source] of changed) {
 				if (policyValue === undefined) {
 					this._configurationModel.removeValue(key);
 				} else {
-					this._configurationModel.setValue(key, policyValue);
+					this._configurationModel.setValue(key, policyValue, source ? { scopeOverrideCustomText: source } : undefined);
 				}
 			}
 			if (trigger) {

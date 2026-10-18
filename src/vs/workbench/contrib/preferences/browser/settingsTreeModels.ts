@@ -781,6 +781,7 @@ interface IInspectResult {
 export function inspectSetting(key: string, target: SettingsTarget, languageFilter: string | undefined, configurationService: IWorkbenchConfigurationService): IInspectResult {
 	const inspectOverrides = URI.isUri(target) ? { resource: target } : undefined;
 	const inspected = configurationService.inspect(key, inspectOverrides);
+	// inspected.scopeOverrideCustomText
 	const targetSelector = target === ConfigurationTarget.APPLICATION ? 'applicationValue' :
 		target === ConfigurationTarget.USER_LOCAL ? 'userLocalValue' :
 			target === ConfigurationTarget.USER_REMOTE ? 'userRemoteValue' :
