@@ -1791,6 +1791,7 @@ export namespace NotebookCellData {
 export namespace NotebookCellOutputItem {
 	export function from(item: types.NotebookCellOutputItem): extHostProtocol.NotebookOutputItemDto {
 		return {
+			metadata: item.metadata,
 			mime: item.mime,
 			valueBytes: VSBuffer.wrap(item.data),
 		};
