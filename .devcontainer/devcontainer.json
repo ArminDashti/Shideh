@@ -39,7 +39,10 @@
 				"ms-vscode.vscode-github-issue-notebooks",
 				"ms-vscode.vscode-selfhost-test-provider",
 				"mutantdino.resourcemonitor"
-			]
+			],
+			"settings": {
+				"workbench.startupEditor": "readme"
+			}
 		}
 	},
 	"forwardPorts": [6080, 5901],
