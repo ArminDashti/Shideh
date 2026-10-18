@@ -1910,11 +1910,6 @@ export class PluginListWidget extends Disposable {
 		if (this.lastHeight > 0) {
 			this.layout(this.lastHeight, this.lastWidth);
 		}
-
-		// Re-layout to account for the back link height change
-		if (this.lastHeight > 0) {
-			this.layout(this.lastHeight, this.lastWidth);
-		}
 	}
 
 	private async queryMarketplace(): Promise<void> {

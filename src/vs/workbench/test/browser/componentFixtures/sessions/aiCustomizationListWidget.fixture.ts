@@ -189,7 +189,6 @@ async function renderInstructionsTab(ctx: ComponentFixtureContext, instructionFi
 			reg.defineInstance(IFileService, new class extends mock<IFileService>() {
 				override readonly onDidFilesChange = Event.None;
 			}());
-			reg.defineInstance(IProductService, new class extends mock<IProductService>() { }());
 			reg.defineInstance(IPathService, new class extends mock<IPathService>() {
 				override readonly defaultUriScheme = 'file';
 				override userHome(): URI;
