@@ -9,6 +9,7 @@ import { Code, findElement } from './code';
 import { Editors } from './editors';
 import { Editor } from './editor';
 import { IElement } from './driver';
+import { Quality } from './application';
 
 const VIEWLET = 'div[id="workbench.view.debug"]';
 const DEBUG_VIEW = `${VIEWLET}`;

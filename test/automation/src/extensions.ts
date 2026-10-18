@@ -8,6 +8,7 @@ import { Code } from './code';
 import { ncp } from 'ncp';
 import { promisify } from 'util';
 import { Commands } from './workbench';
+import { Quality } from './application';
 import path = require('path');
 import fs = require('fs');
 

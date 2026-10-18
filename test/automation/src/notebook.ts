@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Quality } from './application';
 import { Code } from './code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickinput';

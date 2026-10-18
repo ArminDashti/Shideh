@@ -6,6 +6,7 @@
 import { Viewlet } from './viewlet';
 import { IElement } from './driver';
 import { findElement, findElements, Code } from './code';
+import { Quality } from './application';
 
 const VIEWLET = 'div[id="workbench.view.scm"]';
 const SCM_INPUT_NATIVE_EDIT_CONTEXT = `${VIEWLET} .scm-editor .native-edit-context`;
