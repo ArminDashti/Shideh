@@ -25,6 +25,13 @@ const htmlContentsForInlineWrapTests = `
 	</ul>
 `;
 
+const htmlContentsForInlineWrapTests = `
+	<ul class="nav main">
+		<em class="item1">img</em>
+		<em class="item2">$hithere</em>
+	</ul>
+`;
+
 const wrapBlockElementExpected = `
 	<ul class="nav main">
 		<div>
