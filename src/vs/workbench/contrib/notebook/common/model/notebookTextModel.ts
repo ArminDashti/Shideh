@@ -510,6 +510,15 @@ export class NotebookTextModel extends Disposable implements INotebookTextModel 
 
 	}
 
+	private _bindCellContentHandler(cell: NotebookCellTextModel, e: 'content' | 'language') {
+		this._increaseVersionId(e === 'content');
+		if (e === 'content') {
+			this._eventEmitter.emit({ kind: NotebookCellsChangeType.ChangeCellContent, transient: false }, true);
+		} else {
+			this._eventEmitter.emit({ kind: NotebookCellsChangeType.ChangeLanguage, index: this._getCellIndexByHandle(cell.handle), language: cell.language, transient: false }, true);
+		}
+	}
+
 	private _generateAlternativeId() {
 		return `${this._notebookSpecificAlternativeId}_` + this.cells.map(cell => cell.handle + ',' + cell.alternativeId).join(';');
 	}
