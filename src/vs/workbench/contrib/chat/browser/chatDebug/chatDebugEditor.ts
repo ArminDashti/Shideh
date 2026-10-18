@@ -179,6 +179,7 @@ export class ChatDebugEditor extends EditorPane {
 				if (this.viewState === ViewState.Overview) {
 					this.overviewView?.refresh();
 				}
+				// Note: Logs view handles its own refresh via its onDidAddEvent listener
 			}
 		}));
 

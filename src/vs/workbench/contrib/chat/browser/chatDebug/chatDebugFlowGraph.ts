@@ -175,6 +175,8 @@ export function buildFlowGraph(events: readonly IChatDebugEvent[]): FlowNode[] {
 	const idToChildren = new Map<string, IChatDebugEvent[]>();
 	const roots: IChatDebugEvent[] = [];
 
+	// Build id→event map. Later occurrences overwrite earlier ones so that
+	// updated events (e.g. completed tool calls) take precedence.
 	for (const event of filtered) {
 		if (event.id) {
 			idToEvent.set(event.id, event);
@@ -182,6 +184,10 @@ export function buildFlowGraph(events: readonly IChatDebugEvent[]): FlowNode[] {
 	}
 
 	for (const event of filtered) {
+		// Skip duplicate ids — only the last (canonical) occurrence is kept.
+		if (event.id && idToEvent.get(event.id) !== event) {
+			continue;
+		}
 		if (event.parentEventId && idToEvent.has(event.parentEventId)) {
 			let children = idToChildren.get(event.parentEventId);
 			if (!children) {
