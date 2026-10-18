@@ -651,5 +651,8 @@ export class AgentHostChangesetCoordinator extends Disposable {
 				this._changesetFileMonitor.onSessionWorkingDirectoriesChanged(candidate);
 			}
 		}
+		if (this._pendingSessionRefreshes.delete(sessionStr)) {
+			this._triggerSessionRefresh(sessionStr);
+		}
 	}
 }
