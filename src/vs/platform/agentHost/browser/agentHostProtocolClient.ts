@@ -1906,6 +1906,13 @@ export class AgentHostProtocolClient extends Disposable implements IAgentConnect
 		await this._sendRequest('disposeSession', { channel: session.toString() });
 	}
 
+	async setSessionApproveAll(session: URI, enabled: boolean): Promise<void> {
+		await this._sendExtensionRequest(SetSessionApproveAllExtensionMethod, {
+			channel: session.toString(),
+			enabled,
+		});
+	}
+
 	async createChat(session: URI, chat: URI, options?: IAgentCreateChatRequestOptions): Promise<void> {
 		await this._sendRequest('createChat', {
 			channel: session.toString(),

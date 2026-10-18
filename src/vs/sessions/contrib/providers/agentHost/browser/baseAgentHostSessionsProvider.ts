@@ -3807,6 +3807,9 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 	 */
 	private readonly _carriedOverChatModelConfigurations = new Map<string, { readonly modelId: string; readonly configuration: IAutomationSessionTemplate['modelConfiguration'] }>();
 
+	/** Sessions with an approve-all write in flight, so writes stay ordered and a re-apply cannot overtake one. */
+	private readonly _approveAllInFlight = new Map<string, IApproveAllRequest>();
+
 	/**
 	 * Last authoritatively-resolved schemas for {@link SEEDED_CONFIG_SCHEMA_KEYS},
 	 * seeded into new drafts so their chips survive a workspace/agent switch. Lives
@@ -7643,6 +7646,7 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 
 		this._hydrateAgentFromDraft(connection, cached, sessionId, sessionUri, store);
 		this._hydrateModelFromDraft(connection, cached, sessionId, sessionUri, store);
+		this._reassertSessionApproveAll(connection, sessionId, sessionUri);
 	}
 
 	/**

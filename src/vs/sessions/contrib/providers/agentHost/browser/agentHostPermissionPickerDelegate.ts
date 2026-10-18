@@ -87,6 +87,13 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 		if (!session) {
 			return [ChatPermissionLevel.Default];
 		}
+		// A host with no `autoApprove` property drives approvals through the
+		// approve-all extension, which is a boolean — so it can offer only the
+		// two levels that boolean can express. `Assisted` has no representation
+		// there because the risk judge is not addressable over that call.
+		if (this._usesApproveAll(session)) {
+			return [ChatPermissionLevel.Default, ChatPermissionLevel.AutoApprove];
+		}
 		const provider = this._getProvider(session.providerId);
 		const schema = provider?.getSessionConfig(session.sessionId)?.schema.properties[SessionConfigKey.AutoApprove];
 		const values = schema?.type === 'string' && Array.isArray(schema.enum) ? schema.enum : [];
@@ -303,6 +310,13 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 		if (!provider) {
 			return ChatPermissionLevel.Default;
 		}
+		if (this._usesApproveAll(session)) {
+			// The confirmed value, not the requested one: the provider records
+			// it only after the host accepts.
+			return provider.getSessionApproveAll(session.sessionId)
+				? ChatPermissionLevel.AutoApprove
+				: ChatPermissionLevel.Default;
+		}
 		const value = provider.getSessionConfig(session.sessionId)?.values[SessionConfigKey.AutoApprove];
 		// Defensive: a legacy `autopilot` value on the autoApprove axis (from
 		// before Autopilot moved onto the mode axis) is no longer a valid
@@ -324,8 +338,41 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 		if (!provider) {
 			return false;
 		}
+		if (this._usesApproveAll(session)) {
+			return true;
+		}
 		const schema = provider.getSessionConfig(session.sessionId)?.schema.properties[SessionConfigKey.AutoApprove];
 		return !!schema && isWellKnownAutoApproveSchema(schema);
+	}
+
+	/**
+	 * Whether this session's approvals are driven by the approve-all extension
+	 * rather than a config property.
+	 *
+	 * Gated on the Copilot agent specifically. The extension is a Copilot host
+	 * extension, so that is exactly the set of sessions where it means anything
+	 * — and gating positively fails closed: an agent this client has never heard
+	 * of gets no picker rather than a Copilot-shaped request it never asked for.
+	 * Agents with their own approvals axis (Claude, Codex) are excluded by the
+	 * same rule and keep their dedicated pickers.
+	 *
+	 * The schema check still runs on top, because the Copilot agent also runs on
+	 * hosts that *do* declare an approvals property — those keep the richer
+	 * config-driven level set instead of being narrowed to a boolean.
+	 *
+	 * Requires the config to be resolved first: before that the schema is
+	 * legitimately empty, and treating "not yet known" as "no approvals
+	 * property" would flash the two-level picker at a session that turns out to
+	 * offer three.
+	 */
+	private _usesApproveAll(session: IActiveSession): boolean {
+		const provider = this._getProvider(session.providerId);
+		const config = provider?.getSessionConfig(session.sessionId);
+		if (!provider || !config || !provider.canRequestSessionApproveAll() || !isCopilotAgentSessionType(session.sessionType)) {
+			return false;
+		}
+		const schema = config.schema.properties[SessionConfigKey.AutoApprove];
+		return !schema || !isWellKnownAutoApproveSchema(schema);
 	}
 
 	private _getProvider(providerId: string): IAgentHostSessionsProvider | undefined {
