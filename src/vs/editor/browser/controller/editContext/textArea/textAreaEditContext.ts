@@ -478,6 +478,11 @@ export class TextAreaEditContext extends AbstractEditContext {
 		return this.textArea;
 	}
 
+	appendTo(overflowGuardContainer: FastDomNode<HTMLElement>): void {
+		overflowGuardContainer.appendChild(this.textArea);
+		overflowGuardContainer.appendChild(this.textAreaCover);
+	}
+
 	public writeScreenReaderContent(reason: string): void {
 		// write the screen reader content in the text area input
 		this._textAreaInput.writeNativeTextAreaContent(reason);

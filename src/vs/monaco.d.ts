@@ -5268,6 +5268,13 @@ declare namespace monaco.editor {
 		showDropSelector?: 'afterDrop' | 'never';
 	}
 
+	export interface IEditContextOptions {
+		/**
+		 * Controls the type of edit context that is used
+		 */
+		type?: 'native' | 'textarea';
+	}
+
 	/**
 	 * Configuration options for editor pasting as into behavior
 	 */
