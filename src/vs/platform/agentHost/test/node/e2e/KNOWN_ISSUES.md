@@ -313,6 +313,7 @@ A user can run a failing command through Copilot's custom terminal tool and expe
 A user can contribute lifecycle hooks through a client-pushed Copilot plugin to observe session creation, submitted prompts, tool calls, results, and session disposal. On Windows, the plugin's skill and MCP server work, but none of its hook commands write their expected output, so hook-driven automation never runs.
 
 - Tests:
+  - `VS Code-managed agent plugin reaches the runtime and runs plugin hooks`
   - `plugin SessionStart hook runs when the provider materializes`
   - `plugin UserPromptSubmit hook receives the submitted prompt`
   - `plugin PreToolUse hook runs before an MCP tool`
@@ -323,10 +324,14 @@ A user can contribute lifecycle hooks through a client-pushed Copilot plugin to 
 - Scope: Copilot client-pushed plugins on Windows.
 - Expected: each configured hook executes and writes its event payload; failure and non-JSON variants remain non-fatal to the provider turn.
 - Observed: each scenario completes its provider turn, but the expected hook log is never created or updated.
-- Gate: all seven Windows variants use the platform-scoped `pluginHookTest` registration in `mcpPluginSuite.ts`.
+- Gate: the VS Code-managed provider integration test and all seven client-pushed E2E variants are skipped on Windows.
 - Reproduce on Windows:
 
   ```powershell
+  .\scripts\test-integration.bat --run `
+    src\vs\platform\agentHost\test\node\providerIntegration\copilotCustomizations.integrationTest.ts `
+    --grep "VS Code-managed agent plugin reaches the runtime and runs plugin hooks"
+
   .\scripts\test-integration.bat --run `
     src\vs\platform\agentHost\test\node\e2e\providers\copilotAgentHostE2E.integrationTest.ts `
     --grep "plugin .* hook|failing plugin hook|non-JSON plugin hook"
