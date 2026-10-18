@@ -391,6 +391,9 @@ export interface ISessionDatabase extends IDisposable {
 	 */
 	getMetadataObject<T extends Record<string, unknown>>(obj: T): Promise<{ [K in keyof T]: string | undefined }>;
 
+	/** Reads prefixed turn metadata by both native and provider event identities. */
+	getTurnMetadata(prefix: string): Promise<Map<string, string>>;
+
 	/**
 	 * Store a metadata key-value pair. Overwrites any existing value for the key.
 	 * An optional owning turn makes the value follow that turn's deletion and fork remapping.

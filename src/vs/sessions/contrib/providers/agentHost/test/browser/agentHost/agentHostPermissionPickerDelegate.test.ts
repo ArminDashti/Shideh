@@ -100,6 +100,9 @@ class FakeProvider implements Pick<IAgentHostSessionsProvider, 'id' | 'onDidChan
 	getSessionConfig(sessionId: string): ResolveSessionConfigResult | undefined {
 		return this.sessionConfigs.get(sessionId) ?? this.config;
 	}
+	getCreateSessionConfig(): undefined {
+		return undefined;
+	}
 	getSessionSandboxPolicy(sessionId: string): ISessionSandboxPolicy | undefined {
 		return this.sandboxPolicies.get(sessionId);
 	}

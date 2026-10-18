@@ -307,8 +307,9 @@ export class AgentHostGenericConfigChips extends Disposable {
 		const isStartedSession = !!sessionResource && !(isUntitledChatSession(sessionResource) && toAgentHostBackendSessionUri(sessionResource));
 		const desired = new Set<string>();
 		if (entries) {
+			const configSchema = { type: 'object' as const, properties: Object.fromEntries(entries) };
 			for (const [property, schema] of entries) {
-				if (!isGenericConfigPickerProperty(property, schema, isStartedSession)) {
+				if (!isGenericConfigPickerProperty(property, schema, isStartedSession, configSchema)) {
 					continue;
 				}
 				desired.add(property);
@@ -343,7 +344,7 @@ export class AgentHostGenericConfigChips extends Disposable {
 				},
 			});
 			this._chipElements.set(property, slot);
-			chip.render(slot);
+			chip.render(slot, true);
 		}
 	}
 }

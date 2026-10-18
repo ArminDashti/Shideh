@@ -353,6 +353,7 @@ export class AgentHostLanguageModelProvider extends Disposable implements ILangu
 			// The Auto model has no thinking level, so its routing-profile picker takes that slot,
 			// matching how the Copilot Chat extension groups it.
 			case 'tier':
+			case 'autoTier':
 			case 'thinkingLevel':
 			// `reasoningEffort` / `contextTier` are what the Copilot agent host inside a cloud
 			// sandbox names the same two knobs. Without them the picker finds no property in

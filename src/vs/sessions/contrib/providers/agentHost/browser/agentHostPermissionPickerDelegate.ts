@@ -13,6 +13,7 @@ import { createAgentHostSandboxToggle } from '../../../../../platform/agentHost/
 import { IAgentHostEnablementService } from '../../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { AgentHostCustomTerminalToolEnabledSettingId } from '../../../../../platform/agentHost/common/copilotCliConfig.js';
 import { SessionConfigKey } from '../../../../../platform/agentHost/common/sessionConfigKeys.js';
+import { getAvailableSessionApprovalChoices, getEffectiveSessionApprovalValue, getSessionApprovalBinding, isSessionConfigWritable, readSessionConfigBinding, writeSessionConfigBinding } from '../../../../../platform/agentHost/common/sessionConfigBindings.js';
 import { narrowClaudePermissionMode } from '../../../../../platform/agentHost/common/claudeSessionConfigKeys.js';
 import { narrowApprovalPolicy, narrowSandboxMode } from '../../../../../platform/agentHost/common/codexSessionConfigKeys.js';
 import { SessionConfigPropertySchema } from '../../../../../platform/agentHost/common/state/protocol/commands.js';
@@ -95,13 +96,14 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 			return [ChatPermissionLevel.Default, ChatPermissionLevel.AutoApprove];
 		}
 		const provider = this._getProvider(session.providerId);
-		const schema = provider?.getSessionConfig(session.sessionId)?.schema.properties[SessionConfigKey.AutoApprove];
-		const values = schema?.type === 'string' && Array.isArray(schema.enum) ? schema.enum : [];
+		const config = provider?.getSessionConfig(session.sessionId);
+		const binding = getSessionApprovalBinding(config?.schema);
+		const values = config && binding ? getAvailableSessionApprovalChoices(binding, config.schema, config.values).map(choice => choice.value) : [];
 		return [
 			ChatPermissionLevel.Default,
 			ChatPermissionLevel.Assisted,
 			ChatPermissionLevel.AutoApprove,
-		].filter(level => values.includes(level));
+		].filter(level => values.some(value => value === level));
 	}
 
 	/** Agent-host sessions seed their default approval level from this setting. */
@@ -282,12 +284,28 @@ export class AgentHostPermissionPickerDelegate extends Disposable implements IPe
 		if (!this.availableLevels.includes(level)) {
 			return;
 		}
-		const operation = provider.setSessionConfigValue(session.sessionId, SessionConfigKey.AutoApprove, level);
+		const config = provider.getSessionConfig(session.sessionId);
+		const binding = getSessionApprovalBinding(config?.schema);
+		const value = writeSessionConfigBinding(binding, level);
+		if (!binding || value === undefined || !isSessionConfigWritable(binding.schema, provider.getCreateSessionConfig(session.sessionId) !== undefined)) {
+			throw new Error('Approval configuration is unavailable for this session');
+		}
+		const operation = provider.setSessionConfigValue(session.sessionId, binding.key, value);
 		provider.trackSessionConfigOperation(session.sessionId, operation);
 		await operation.catch(onUnexpectedError);
 	}
 
 	getPermissionLevelHover(level: ChatPermissionLevel, _meta: IPermissionLevelMeta): string {
+		const session = this._session.get();
+		const config = session && this._getProvider(session.providerId)?.getSessionConfig(session.sessionId);
+		const binding = getSessionApprovalBinding(config?.schema);
+		if (config && binding?.key === 'approvalMode') {
+			const requested = config.values[binding.key] ?? binding.schema.default;
+			const effective = getEffectiveSessionApprovalValue(binding, config.schema, config.values);
+			if (effective !== requested) {
+				return localize('agentHostPermissionPicker.effectiveApprovalsHover', "Effective permissions: {0}. Requested permissions: {1}.", String(effective), String(requested));
+			}
+		}
 		switch (level) {
 			case ChatPermissionLevel.Default:
 				return localize('agentHostPermissionPicker.defaultApprovalsHover', "Copilot asks before running tools unless your configured settings allow the tool.");

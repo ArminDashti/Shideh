@@ -6,9 +6,12 @@
 import type { Mutable } from '../../../../base/common/types.js';
 import { imageGenerationToolMetaKey, readImageGenerationToolMetadata, type IImageGenerationToolMetadata } from './agentImageGenerationMeta.js';
 
-/** Anything carrying a tool call's `_meta` bag (persisted state or wire actions). */
-interface IHasToolCallMeta {
-	readonly _meta?: Record<string, unknown>;
+export { isPresentationOnlyToolCall, toToolCallMeta } from './vscode/agentToolCallMeta.js';
+export type { AgentFusionPhaseStatus, IFusionPhaseMeta, IToolCallMeta, IToolCallUiMeta, IToolSearchCandidate, ToolKind } from './vscode/agentToolCallMeta.js';
+
+export interface IAgentToolOutputChunk {
+	readonly output: string;
+	readonly isPty: boolean;
 }
 
 /**
@@ -73,10 +76,8 @@ export interface IFusionPhaseMeta {
 	readonly rejectedByReview?: boolean;
 }
 
-/** Minimal metadata needed to embed and rank a deferred tool. */
-export interface IToolSearchCandidate {
-	readonly name: string;
-	readonly description: string;
+export function readAgentToolOutputDelta(action: IAgentMetadataSource, initial: Pick<ToolCallState, '_meta'>, current: Pick<ToolCallState, '_meta'>): IAgentToolOutputChunk | undefined {
+	return hasVSCodeToolCallMeta(initial) || hasVSCodeToolCallMeta(current) ? undefined : readCopilotToolOutputDelta(action);
 }
 
 /**
