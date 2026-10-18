@@ -23,6 +23,7 @@ import { instantiateTextModel } from '../../../test/common/testTextModel.js';
 import { TestLanguageConfigurationService } from '../../common/modes/testLanguageConfigurationService.js';
 import { TestConfiguration } from '../config/testConfiguration.js';
 import { createCodeEditorServices } from '../testCodeEditor.js';
+import { FontInfo } from '../../../common/config/fontInfo.js';
 
 suite('ViewController - Bracket content selection', () => {
 	let disposables: DisposableStore;
@@ -70,7 +71,8 @@ suite('ViewController - Bracket content selection', () => {
 			disposables.add(new TestLanguageConfigurationService()),
 			new TestThemeService(),
 			{ setVisibleLines() { } },
-			{ batchChanges: (cb: any) => cb() }
+			{ batchChanges: (cb: any) => cb() },
+			{ readFontInfo: (bareFontInfo) => bareFontInfo as FontInfo }
 		);
 
 		return new ViewController(
@@ -223,7 +225,8 @@ suite('ViewController - String content selection', () => {
 			disposables.add(new TestLanguageConfigurationService()),
 			new TestThemeService(),
 			{ setVisibleLines() { } },
-			{ batchChanges: (cb: any) => cb() }
+			{ batchChanges: (cb: any) => cb() },
+			{ readFontInfo: (bareFontInfo) => bareFontInfo as FontInfo }
 		);
 
 		return new ViewController(
