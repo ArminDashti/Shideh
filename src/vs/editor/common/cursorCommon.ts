@@ -3,14 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ConfigurationChangedEvent, EditorAutoClosingEditStrategy, EditorAutoClosingStrategy, EditorAutoIndentStrategy, EditorAutoSurroundStrategy, EditorOption } from './config/editorOptions.js';
-import { LineTokens } from './tokens/lineTokens.js';
+import { IEditorConfiguration } from './config/editorConfiguration.js';
+import { ConfigurationChangedEvent, EditorAutoClosingEditStrategy, EditorAutoClosingStrategy, EditorAutoIndentStrategy, EditorAutoSurroundStrategy, EditorOption, TextEditorCursorStyle } from './config/editorOptions.js';
+import { CursorColumns } from './core/cursorColumns.js';
+import { normalizeIndentation } from './core/misc/indentation.js';
 import { Position } from './core/position.js';
 import { Range } from './core/range.js';
 import { ISelection, Selection } from './core/selection.js';
 import { ICommand } from './editorCommon.js';
-import { IEditorConfiguration } from './config/editorConfiguration.js';
-import { PositionAffinity, TextModelResolvedOptions } from './model.js';
+import { InputMode } from './inputMode.js';
 import { AutoClosingPairs } from './languages/languageConfiguration.js';
 import { ILanguageConfigurationService } from './languages/languageConfigurationRegistry.js';
 import { createScopedLineTokens } from './languages/supports.js';
@@ -82,6 +83,8 @@ export class CursorConfiguration {
 	public readonly wordSegmenterLocales: string[];
 	public readonly overtypeOnPaste: boolean;
 
+	public readonly cursorStyle: TextEditorCursorStyle;
+
 	private readonly _languageId: string;
 	private _electricChars: { [key: string]: boolean } | null;
 
@@ -105,6 +108,7 @@ export class CursorConfiguration {
 			|| e.hasChanged(EditorOption.readOnly)
 			|| e.hasChanged(EditorOption.wordSegmenterLocales)
 			|| e.hasChanged(EditorOption.overtypeOnPaste)
+			|| e.hasChanged(EditorOption.cursorStyle)
 		);
 	}
 
@@ -145,6 +149,8 @@ export class CursorConfiguration {
 		this.autoIndent = options.get(EditorOption.autoIndent);
 		this.wordSegmenterLocales = options.get(EditorOption.wordSegmenterLocales);
 		this.overtypeOnPaste = options.get(EditorOption.overtypeOnPaste);
+
+		this.cursorStyle = options.get(EditorOption.cursorStyle);
 
 		this.surroundingPairs = {};
 		this._electricChars = null;
