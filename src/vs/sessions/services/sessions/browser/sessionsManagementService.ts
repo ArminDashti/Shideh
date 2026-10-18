@@ -228,6 +228,10 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			if (automationSession && e.removed.some(r => r.sessionId === automationSession.sessionId)) {
 				this._automationSession.set(undefined, undefined);
 			}
+			const chatComposerOverlaySession = this._chatComposerOverlaySession.get();
+			if (chatComposerOverlaySession && e.removed.some(r => r.sessionId === chatComposerOverlaySession.sessionId)) {
+				this._chatComposerOverlaySession.set(undefined, undefined);
+			}
 		}
 
 		// The view service reacts to this event to drop removed sessions from
@@ -503,6 +507,15 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			return;
 		}
 		this._automationSession.set(undefined, undefined);
+		this._getProvider(current)?.deleteNewSession(current.sessionId);
+	}
+
+	discardChatComposerOverlaySession(session?: ISession): void {
+		const current = this._chatComposerOverlaySession.get();
+		if (!current || (session && session.sessionId !== current.sessionId)) {
+			return;
+		}
+		this._chatComposerOverlaySession.set(undefined, undefined);
 		this._getProvider(current)?.deleteNewSession(current.sessionId);
 	}
 
@@ -945,6 +958,24 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 		return this._getProvider(session)?.usesCombinedNewSessionConfigPicker === true;
 	}
 
+	createChatComposerOverlaySession(folderUri?: URI, options?: ICreateNewSessionOptions): ISession {
+		const { provider, sessionTypeId } = folderUri
+			? this._resolveProviderForNewSession(folderUri, options)
+			: this._resolveProviderForQuickChat(options);
+		const previousOverlaySession = this._chatComposerOverlaySession.get();
+		const session = folderUri
+			? provider.createNewSession(folderUri, sessionTypeId, this._providerCreateSessionOptions(provider, options))
+			: provider.createQuickChat(sessionTypeId, this._providerCreateSessionOptions(provider, options));
+		if (previousOverlaySession && previousOverlaySession.sessionId !== session.sessionId) {
+			this._getProvider(previousOverlaySession)?.deleteNewSession(previousOverlaySession.sessionId);
+		}
+		this._chatComposerOverlaySession.set(session, undefined);
+		if (!folderUri) {
+			this.storageService.store(LAST_USED_QUICK_CHAT_SESSION_TYPE_STORAGE_KEY, sessionTypeId, StorageScope.PROFILE, StorageTarget.USER);
+		}
+		return session;
+	}
+
 	async createNewChatInSession(session: ISession, options?: ICreateNewChatInSessionOptions): Promise<IChat | undefined> {
 		const live = this._resolveLiveSession(session);
 		const provider = this._getProvider(live);
@@ -1250,6 +1281,25 @@ export class SessionsManagementService extends Disposable implements ISessionsMa
 			throw error;
 		}
 		return this._configureAndSendNewSession(provider, session, options, createOptions, false, token);
+	}
+
+	async sendChatComposerOverlayRequest(session: ISession, options: ISendRequestOptions, token: CancellationToken = CancellationToken.None): Promise<ISession | undefined> {
+		const current = this._chatComposerOverlaySession.get();
+		if (!current || current.sessionId !== session.sessionId) {
+			throw new Error(`Chat composer overlay session '${session.sessionId}' is no longer active`);
+		}
+		const provider = this._getProvider(session);
+		if (!provider) {
+			throw new Error(`Sessions provider '${session.providerId}' not found`);
+		}
+
+		this._chatComposerOverlaySession.set(undefined, undefined);
+		try {
+			return await this._sendNewChatRequestInBackground(provider, session, options, token);
+		} catch (error) {
+			provider.deleteNewSession(session.sessionId);
+			throw error;
+		}
 	}
 
 	private async _configureAndSendNewSession(

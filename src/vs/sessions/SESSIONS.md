@@ -221,6 +221,11 @@ Automation editing uses an independent draft so it cannot replace the ordinary N
 
 Provider-specific configuration remains opaque to shared Sessions code. Scoped Automation and New Session surfaces consume the same provider menu contributions and `ISessionContext`; providers may advertise presentation capabilities such as a combined phone Mode/Model picker without exposing provider identity checks to shared UI.
 
+The chat composer overlay has an independent draft that can switch between a
+workspace-less quick chat and a workspace-backed session, so opening it cannot
+replace a draft in the regular composer. Providers own the backend resources
+behind those drafts.
+
 ### Operations
 
 Providers implement only operations advertised by their contracts, including request sending, model selection, rename, archive, read state, deletion, chat creation, and optional worktree disk-usage measurement. Shared cleanup UI consumes the optional measurement through the management service and remains independent of provider transport or filesystem details. Capability checks happen before invocation. Once invoked, an operation returns a defined result or rejects; unsupported behavior must not be reported as a success-shaped fallback.

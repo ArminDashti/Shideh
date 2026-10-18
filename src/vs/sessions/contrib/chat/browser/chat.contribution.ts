@@ -38,6 +38,7 @@ import './newSessionOnboardingTargets.js';
 import './newSessionPickerTryout.js';
 import './agentHostDelegation.js';
 import './newSessionFolderQuickPickAction.js';
+import './chatComposerOverlayService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ISessionsTasksService, SessionsTasksService } from './sessionsTasksService.js';
 import { ISessionTaskRunnerRegistry, SessionTaskRunnerRegistry } from './sessionTaskRunner.js';

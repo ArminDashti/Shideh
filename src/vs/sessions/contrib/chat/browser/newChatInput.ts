@@ -683,6 +683,7 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 			accessibilityVerbositySetting?: AccessibilityVerbositySettingId;
 			renderSendButton?: boolean;
 			renderRepositoryControls?: boolean;
+			renderChatPet?: boolean;
 			sessionTypePickerOptions?: ISessionTypePickerOptions;
 			supportsBackground?: boolean;
 			sendButtonLabel?: IObservable<string | undefined>;
@@ -989,15 +990,15 @@ export class NewChatInputWidget extends Disposable implements IHistoryNavigation
 					if (pillTop !== undefined) {
 						return pillTop;
 					}
-				}
-				// Stand on the notice docked above the input, not on the input itself.
-				return getChatPetStackPlatformTop(chatInputContainer, inputArea);
-			},
-			onDidChangePlatform: Event.any(
-				this.options.onDidChangeChatPetPlatform ?? Event.None,
-				this.sessionTypePicker.onDidChangeChatPetPlatform,
-			),
-		}, this.options.petHostPreferred, this.onDidFocus));
+					// Stand on the notice docked above the input, not on the input itself.
+					return getChatPetStackPlatformTop(chatInputContainer, inputArea);
+				},
+				onDidChangePlatform: Event.any(
+					this.options.onDidChangeChatPetPlatform ?? Event.None,
+					this.sessionTypePicker.onDidChangeChatPetPlatform,
+				),
+			}, this.options.petHostPreferred, this.onDidFocus));
+		}
 		this._createInputToolbar(inputArea);
 
 		// Now that the input area is in place, park the below-input notification

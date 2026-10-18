@@ -36,6 +36,7 @@ import { IsWorkspaceGroupCappedContext, SessionsViewCompactContext, SessionsView
 import { Menus } from '../../../../browser/menus.js';
 import { ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
 import { ChatContextKeys } from '../../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
+import { AGENT_SESSIONS_CHAT_COMPOSER_OVERLAY_ENABLED_SETTING, ChatComposerOverlayVisibleContext, IChatComposerOverlayService, OPEN_NEW_SESSION_OVERLAY_COMMAND_ID, OPEN_QUICK_CHAT_OVERLAY_COMMAND_ID } from '../../../chat/common/chatComposerOverlay.js';
 import { ChatSessionArchiveActionWording, ChatSessionArchiveActionWordingSettingId, getChatSessionArchiveActionPresentation, getChatSessionArchiveActionWording } from '../../../../../platform/chat/common/sessionArchiveActions.js';
 import { AGENT_HOST_ENABLED_CONTEXT_KEY } from '../../../../../platform/agentHost/common/agentHostEnablementService.js';
 import { ISessionsPartService } from '../../../../services/sessions/browser/sessionsPartService.js';
@@ -600,6 +601,19 @@ const NEW_QUICK_CHAT_COMMAND_ID = 'sessionsView.newQuickChat';
 const QuickChatEnabledContext = ContextKeyExpr.and(
 	ChatContextKeys.enabled,
 	AGENT_HOST_ENABLED_CONTEXT_KEY,
+);
+const ChatComposerOverlayEnabledContext = ContextKeyExpr.equals(`config.${AGENT_SESSIONS_CHAT_COMPOSER_OVERLAY_ENABLED_SETTING}`, true);
+const QuickChatOverlayEnabledContext = ContextKeyExpr.and(
+	QuickChatEnabledContext,
+	ChatComposerOverlayEnabledContext,
+	IsNewChatSessionContext.negate(),
+	ChatComposerOverlayVisibleContext.negate(),
+);
+const NewSessionOverlayEnabledContext = ContextKeyExpr.and(
+	ChatContextKeys.enabled,
+	ChatComposerOverlayEnabledContext,
+	IsNewChatSessionContext.negate(),
+	ChatComposerOverlayVisibleContext.negate(),
 );
 
 registerAction2(class NewQuickChatAction extends Action2 {

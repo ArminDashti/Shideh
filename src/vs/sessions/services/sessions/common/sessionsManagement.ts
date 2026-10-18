@@ -485,6 +485,12 @@ export interface ISessionsManagementService {
 	 */
 	discardAutomationSession(session?: ISession): void;
 
+	/** Create and track a chat composer overlay draft, optionally in a workspace. */
+	createChatComposerOverlaySession(folderUri?: URI, options?: ICreateNewSessionOptions): ISession;
+
+	/** Discard the matching chat composer overlay session draft. */
+	discardChatComposerOverlaySession(session?: ISession): void;
+
 	/**
 	 * Capture the provider-owned values currently selected on an Automation draft.
 	 * `null` means the provider does not support capture; `undefined` means the draft was replaced.
@@ -608,6 +614,12 @@ export interface ISessionsManagementService {
 	 * into it. The quick chat appears in the sessions list after commit.
 	 */
 	createAndSendQuickChatRequest(options: ISendRequestOptions, createOptions?: ICreateNewSessionOptions, token?: CancellationToken): Promise<ISession | undefined>;
+
+	/**
+	 * Send the current chat composer overlay draft. The caller uses the returned
+	 * committed session to navigate after a foreground send.
+	 */
+	sendChatComposerOverlayRequest(session: ISession, options: ISendRequestOptions, token?: CancellationToken): Promise<ISession | undefined>;
 
 	/**
 	 * Send a request for an existing chat within a session.
