@@ -428,13 +428,13 @@ interface ILegacyRegisteredSessionMetadata {
 }
 
 /**
- * Tracks one provider's in-flight external-chat discovery attempt. `promise` is
+ * Tracks one provider's in-flight registry backfill attempt. `promise` is
  * reassigned in place when a `force` request is chained onto an attempt that
- * is already running, so
- * callers that captured an earlier reference to the same `IProviderDiscoveryState`
+ * is already running (see {@link AgentService._ensureProviderBackfilled}), so
+ * callers that captured an earlier reference to the same `IProviderBackfillState`
  * still observe the chained, forced re-run.
  */
-interface IProviderDiscoveryState {
+interface IProviderBackfillState {
 	promise: Promise<void>;
 	forceQueued: boolean;
 }
@@ -2936,10 +2936,11 @@ export class AgentService extends Disposable implements IAgentService {
 	}
 
 	/**
-	 * Runs one provider discovery at most once concurrently, sharing the
+	 * Runs one provider backfill at most once concurrently, sharing the
 	 * in-flight attempt across callers and clearing it on settle so failures
-	 * retry on the next trigger. `force` requests a fresh pass after an
-	 * provider catalog trigger.
+	 * retry on the next trigger. `force` bypasses the durable "done" marker for
+	 * `onDidChangeChatList`, which means the provider's persisted set may only
+	 * just have become enumerable; the re-run is additive and idempotent.
 	 *
 	 * A `force` request that arrives while a sweep — forced or not, freshly
 	 * started or already chained — is already in-flight is never dropped: it
@@ -2987,10 +2988,10 @@ export class AgentService extends Disposable implements IAgentService {
 					.catch(() => { /* the queued forced re-run must still happen even if the in-flight attempt failed */ })
 					.then(() => {
 						existing.forceQueued = false;
-						return run(true);
+						return this._backfillProviderFromLegacyChats(provider, true);
 					});
 				existing.promise = chained;
-				this._armProviderCatalogCleanup(provider, states, existing, chained);
+				this._armProviderBackfillCleanup(provider, existing, chained);
 			}
 			return existing.promise;
 		}
@@ -3001,41 +3002,59 @@ export class AgentService extends Disposable implements IAgentService {
 		// queued, causing a second `force` that arrives while this fresh
 		// attempt is still in flight to be silently dropped instead of
 		// chaining its own follow-up.
-		const state: IProviderDiscoveryState = { promise: Promise.resolve(), forceQueued: false };
-		const attempt = run(force);
+		const state: IProviderBackfillState = { promise: Promise.resolve(), forceQueued: false };
+		const attempt = this._backfillProviderFromLegacyChats(provider, force);
 		state.promise = attempt;
-		states.set(provider.id, state);
-		this._armProviderCatalogCleanup(provider, states, state, attempt);
+		this._providerBackfills.set(provider.id, state);
+		this._armProviderBackfillCleanup(provider, state, attempt);
 		return attempt;
 	}
 
 	/**
-	 * Clears `provider`'s in-flight discovery entry once `promise` (the entry's
+	 * Clears `provider`'s in-flight backfill entry once `promise` (the entry's
 	 * current attempt) settles, but only if the entry still points at that
 	 * exact promise — a `force` chain may have replaced it with a follow-up
 	 * attempt in the meantime, which arms its own cleanup in turn.
 	 */
-	private _armProviderCatalogCleanup(provider: IAgent, states: Map<AgentProvider, IProviderDiscoveryState>, state: IProviderDiscoveryState, promise: Promise<void>): void {
+	private _armProviderBackfillCleanup(provider: IAgent, state: IProviderBackfillState, promise: Promise<void>): void {
 		const clear = () => {
-			if (state.promise === promise && states.get(provider.id) === state) {
-				states.delete(provider.id);
+			if (state.promise === promise && this._providerBackfills.get(provider.id) === state) {
+				this._providerBackfills.delete(provider.id);
 			}
 		};
 		void promise.then(clear, clear);
 	}
 
 	/**
-	 * Additively discovers one provider's native top-level chats. Internal chat backings are
+	 * Seeds the registry from one provider's legacy chat enumeration when that
+	 * provider has not been backfilled yet, or when `force` requests a re-run.
+	 * Registration is additive and idempotent, internal chat backings are
 	 * filtered out, subagent sessions are filtered out, and explicitly-deleted
 	 * sessions are never resurrected: registration goes through
-	 * {@link AgentSessionRegistry.register}, which atomically declines to
-	 * (re-)register a session that is (or concurrently becomes)
+	 * {@link AgentSessionRegistry.registerIfNotTombstoned}, which atomically
+	 * declines to (re-)register a session that is (or concurrently becomes)
 	 * tombstoned, rather than trusting a separate up-front tombstone check that
-	 * could race a concurrent {@link disposeSession}.
+	 * could race a concurrent {@link disposeSession}. The provider's durable
+	 * marker is written only after a successful sweep so failures retry per
+	 * provider.
 	 *
 	 * `undefined` from the provider means it cannot enumerate yet (its SDK may
-	 * not be downloaded/started) — not an authoritative empty result — so its
-	 * next readiness signal retries.
+	 * not be downloaded/started) — not an authoritative "no legacy chats"
+	 * result — so nothing is registered and the provider's marker is left
+	 * unset; the next trigger (typically its own `onDidChangeChatList`) tries
+	 * again instead of this being mistaken for "done, found nothing".
+	 *
+	 * Non-forced calls also honor the legacy global marker
+	 * ({@link AgentSessionRegistry.isBackfilled}) as *implicit* completion for
+	 * a provider that has no per-provider marker yet: a database written by
+	 * pre-per-provider code has no tombstones for anything deleted under that
+	 * older code, so a genuine additive re-sweep here could silently
+	 * resurrect an old deletion. Converting without enumerating — durably
+	 * marking the provider backfilled without touching its legacy chats —
+	 * avoids that risk entirely while still converging this database onto
+	 * per-provider tracking. `force` intentionally bypasses this and always
+	 * performs a real sweep (see the class doc comment on
+	 * {@link AgentSessionRegistry} for the accepted, documented tradeoff).
 	 */
 
 	private async _registerDiscoveredChats(provider: IAgent, chats: readonly IAgentDiscoveredChat[], awaitReconciliation = true, observation?: IDiscoveryRegistrationObservation): Promise<boolean> {
@@ -4379,24 +4398,26 @@ export class AgentService extends Disposable implements IAgentService {
 	 * orchestrator-owned {@link AgentSessionRegistry}.
 	 */
 	async getRegisteredSessions(): Promise<URI[]> {
-		return (await this._listRegisteredSessions()).map(s => s.session);
+		return (await this._sessionRegistry.list()).map(s => s.session);
 	}
 
-	/** Test surface for the durable per-provider discovery marker. */
+	/** Test surface for the durable per-provider backfill marker. */
 	async isProviderRegistryBackfilled(provider: AgentProvider): Promise<boolean> {
 		return this._sessionRegistry.isProviderBackfilled(provider);
 	}
 
 	/**
 	 * Test surface for the legacy global backfill marker. Never written by the
-	 * per-provider discovery — see the removal of automatic mirroring in
+	 * per-provider backfill sweep — see the removal of automatic mirroring in
 	 * {@link AgentSessionRegistry}'s class doc comment.
 	 */
 	async isLegacyRegistryBackfilled(): Promise<boolean> {
 		return this._sessionRegistry.isBackfilled();
 	}
 
-	/** Session keys already announced this AH lifetime, so provider signals do not re-announce them. */
+	/** Debounces provider `onDidChangeChatList` bursts into one surface pass. */
+	private readonly _surfaceSessionsDebounce = this._register(new MutableDisposable());
+	/** Adoptable-legacy session keys already announced this AH lifetime, so bursts don't re-announce them. */
 	private readonly _announcedSurfacedKeys = new Set<string>();
 	/** External provenance for discovered sessions whose registration succeeded but announcement failed. */
 	private readonly _pendingDiscoveredSessionAnnouncements = new Map<string, boolean>();
@@ -4753,7 +4774,47 @@ export class AgentService extends Disposable implements IAgentService {
 		}
 	}
 
-	/** Synthesizes the minimal {@link SessionSummary} for a provider session surfaced outside the normal list response. */
+	private async _surfaceAdoptableLegacySessions(): Promise<void> {
+		try {
+			await this._ensureRegistryBackfilled();
+		} catch (err) {
+			this._logService.warn('[AgentService] surfaceAdoptableLegacySessions: registry backfill failed', err);
+			return;
+		}
+		const results = await Promise.allSettled([...this._providers.values()].map(provider => this._enumerateProviderSessions(provider)));
+		const listed: IAgentSessionMetadata[] = [];
+		for (const result of results) {
+			if (result.status === 'fulfilled' && result.value) {
+				listed.push(...result.value);
+			}
+		}
+		const registered = new Set((await this._sessionRegistry.list()).map(entry => entry.session.toString()));
+		for (const meta of listed) {
+			// Only announce sessions surfaced as adoptable-legacy — never native
+			// sessions (which clients already know from their own listSessions).
+			if (!registered.has(meta.session.toString()) || !readSessionEhcliAdoptable(meta._meta)) {
+				continue;
+			}
+			const provider = AgentSession.provider(meta.session);
+			if (!provider) {
+				continue; // defensive: malformed session URI
+			}
+			const key = meta.session.toString();
+			if (this._announcedSurfacedKeys.has(key)) {
+				continue; // already announced this lifetime
+			}
+			if (this._stateManager.getSessionState(key)) {
+				continue; // already adopted / restored
+			}
+			if (await this._sessionRegistry.isTombstoned(meta.session)) {
+				continue;
+			}
+			this._stateManager.announceSurfacedSession(this._surfacedSessionSummary(meta, provider));
+			this._announcedSurfacedKeys.add(key);
+		}
+	}
+
+	/** Synthesizes the minimal {@link SessionSummary} for an adoptable session surfaced by {@link listSessions}. */
 	private _surfacedSessionSummary(meta: IAgentSessionMetadata, provider: string): SessionSummary {
 		return {
 			resource: meta.session.toString(),
@@ -8800,7 +8861,7 @@ export class AgentService extends Disposable implements IAgentService {
 		// If no backing exists, restore the history but leave the missing live
 		// backing explicit.
 		const chatContext = this._chatContext(session, defaultChatUri);
-		const recoveredDefaultChat = !external && defaultChatProviderData === undefined
+		const recoveredDefaultChat = defaultChatProviderData === undefined
 			? await agent.recoverLegacyChat?.(defaultChatUri, chatContext)
 			: undefined;
 		if (recoveredDefaultChat?.providerData !== undefined) {
@@ -9761,7 +9822,7 @@ export class AgentService extends Disposable implements IAgentService {
 				throw err;
 			}
 			try {
-				return await this._withWorktreeProject(session, await this._getSessionMetadataFromCatalog(agent, session, external));
+				return await this._withWorktreeProject(session, await this._getSessionMetadataFromCatalog(agent, session));
 			} catch (fallbackErr) {
 				if (fallbackErr instanceof ProtocolError) {
 					const message = err instanceof Error ? err.message : String(err);
@@ -9798,14 +9859,11 @@ export class AgentService extends Disposable implements IAgentService {
 		return resolveWorkingDirectoryInfo(directories, this._gitService, worktree);
 	}
 
-	private async _getSessionMetadataFromCatalog(agent: IAgent, session: URI, external: boolean): Promise<IAgentSessionMetadata | undefined> {
+	private async _getSessionMetadataFromCatalog(agent: IAgent, session: URI): Promise<IAgentSessionMetadata | undefined> {
 		const sessionStr = session.toString();
 		let allSessions;
 		try {
-			if (external) {
-				return undefined;
-			}
-			allSessions = await this._enumerateLegacyProviderSessions(agent);
+			allSessions = await this._enumerateProviderSessions(agent);
 		} catch (err) {
 			if (err instanceof ProtocolError) {
 				throw err;

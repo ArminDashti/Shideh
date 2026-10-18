@@ -145,10 +145,6 @@ function sessionIdOfChat(chat: URI): string {
 	return AgentSession.id(URI.parse(parseRequiredSessionUriFromChatUri(chat)));
 }
 
-function discoverClaudeCodeChats(agent: ClaudeAgent): Promise<IAgentChatMetadata[] | undefined> {
-	return (agent as unknown as { _listClaudeCodeChats(): Promise<IAgentChatMetadata[] | undefined> })._listClaudeCodeChats();
-}
-
 /**
  * The host-owned {@link IAgentChatContext} Agent Host stamps on every addressed
  * chat operation, rebuilt here from the chat URI.
@@ -576,8 +572,8 @@ class FakeClaudeAgentSdkService implements IClaudeAgentSdkService {
 	 * Programmable result for {@link canLoadWithoutDownload}. Defaults to
 	 * `true` (SDK already local). Set to `false` to simulate the cold-start
 	 * case where the SDK isn't downloaded yet — restore-reachable reads
-	 * ({@link getSessionInfo} via `getChatMetadata`, {@link getSessionMessages})
-	 * MUST defer rather than trigger a download.
+	 * ({@link listSessions}, {@link getSessionInfo} via `getChatMetadata`,
+	 * {@link getSessionMessages}) MUST defer rather than trigger a download.
 	 */
 	canLoadWithoutDownloadResult = true;
 
@@ -5003,7 +4999,7 @@ suite('ClaudeAgent', () => {
 		}];
 
 		await disposeSession(agent, created.session);
-		const result = await discoverClaudeCodeChats(agent);
+		const result = await agent.listLegacyChats();
 		assert.ok(result);
 
 		assert.deepStrictEqual({
@@ -5031,33 +5027,20 @@ suite('ClaudeAgent', () => {
 		assert.deepStrictEqual({ a, b, distinct: a !== b }, { a: [], b: [], distinct: true });
 	});
 
-	test('native catalog returns every SDK entry while migration returns known sessions', async () => {
+	test('legacy discovery returns SDK entries decorated with the per-session DB overlay', async () => {
 		// Plan section 3.3.2: the SDK is the source of truth; the per-session DB
 		// is a pure overlay/cache. We seed two SDK entries and a single
 		// DB carrying `claude.customizationDirectory` for entry 'a'. The
 		// result must include both entries; the overlay value must
 		// surface only on the entry that has a DB.
 		const dbA = new TestSessionDatabase();
-		const dbB = new TestSessionDatabase();
-		const dbC = new TestSessionDatabase();
 		await dbA.setMetadata('claude.customizationDirectory', URI.file('/foo').toString());
-		await dbA.setMetadata('agentHost.workspaceless', 'false');
 
 		const sessionData: ISessionDataService = {
 			...createNullSessionDataService(),
-			openDatabase: session => ({
-				object: AgentSession.id(session) === 'a' ? dbA : AgentSession.id(session) === 'b' ? dbB : dbC,
-				dispose: () => { /* no-op */ },
-			}),
 			tryOpenDatabase: async session => {
 				if (AgentSession.id(session) === 'a') {
 					return { object: dbA, dispose: () => { /* no-op */ } };
-				}
-				if (AgentSession.id(session) === 'b') {
-					return { object: dbB, dispose: () => { /* no-op */ } };
-				}
-				if (AgentSession.id(session) === 'c') {
-					return { object: dbC, dispose: () => { /* no-op */ } };
 				}
 				return undefined;
 			},
@@ -5066,7 +5049,6 @@ suite('ClaudeAgent', () => {
 		sdk.sessionList = [
 			{ sessionId: 'a', summary: 'Session A', lastModified: 1000, createdAt: 900 },
 			{ sessionId: 'b', summary: 'Session B', lastModified: 2000, createdAt: 1900 },
-			{ sessionId: 'c', summary: 'Session C', lastModified: 3000, createdAt: 2900 },
 		];
 
 		const services = new ServiceCollection(
@@ -5082,12 +5064,9 @@ suite('ClaudeAgent', () => {
 		);
 		const instantiationService = disposables.add(new InstantiationService(services));
 		const agent = disposables.add(instantiationService.createInstance(ClaudeAgent));
-		await agent.materializeChat(defaultChatUri(AgentSession.uri('claude', 'b')), chatContext(defaultChatUri(AgentSession.uri('claude', 'b'))), undefined);
 
-		const result = await discoverClaudeCodeChats(agent);
-		const chatsToMigrate = await agent.listChatsToMigrate();
+		const result = await agent.listLegacyChats();
 		assert.ok(result);
-		assert.ok(chatsToMigrate);
 		const a = result.find(r => sessionIdOfChat(r.chat) === 'a');
 		const b = result.find(r => sessionIdOfChat(r.chat) === 'b');
 		assert.deepStrictEqual({
@@ -5101,8 +5080,8 @@ suite('ClaudeAgent', () => {
 			availabilityRequests: sdk.ensureAvailableCalls,
 			migrationChats: chatsToMigrate === AgentChatMigrationDeferred ? undefined : chatsToMigrate?.map(r => sessionIdOfChat(r.chat)),
 		}, {
-			count: 3,
-			ids: ['a', 'b', 'c'],
+			count: 2,
+			ids: ['a', 'b'],
 			summaryA: 'Session A',
 			summaryB: 'Session B',
 			modifiedA: 1000,
@@ -5196,7 +5175,7 @@ suite('ClaudeAgent', () => {
 		const instantiationService = disposables.add(new InstantiationService(services));
 		const agent = disposables.add(instantiationService.createInstance(ClaudeAgent));
 
-		const result = await discoverClaudeCodeChats(agent);
+		const result = await agent.listLegacyChats();
 		assert.ok(result);
 		const find = (id: string) => result.find(r => sessionIdOfChat(r.chat) === id);
 		assert.deepStrictEqual({
@@ -5210,7 +5189,7 @@ suite('ClaudeAgent', () => {
 		});
 	});
 
-	test('external chat discovery returns undefined (cannot enumerate yet) when the SDK fails to load', async () => {
+	test('legacy discovery returns undefined (cannot enumerate yet) when the SDK fails to load', async () => {
 		// Copilot-reviewer comment: `AgentService.listSessions` fans out
 		// across providers via `Promise.all` (agentService.ts:202-204).
 		// If our SDK dynamic import rejects (corrupt install, missing
@@ -5218,8 +5197,8 @@ suite('ClaudeAgent', () => {
 		// session list disappears too \u2014 the sibling Copilot provider
 		// goes blank. Catching here keeps Claude's row from poisoning the
 		// fan-out; `undefined` (not `[]`) signals "can't enumerate yet"
-		// rather than falsely claiming there are no external chats, so the
-		// caller retries on the next external discovery pass instead of
+		// rather than falsely claiming there are no legacy chats, so the
+		// caller retries on the next legacy discovery pass instead of
 		// permanently dropping this provider's chats from migration.
 		const sdk = new FakeClaudeAgentSdkService();
 		sdk.listSessionsRejection = new Error('simulated SDK load failure');
@@ -5238,7 +5217,7 @@ suite('ClaudeAgent', () => {
 		const instantiationService = disposables.add(new InstantiationService(services));
 		const agent = disposables.add(instantiationService.createInstance(ClaudeAgent));
 
-		const result = await discoverClaudeCodeChats(agent);
+		const result = await agent.listLegacyChats();
 		assert.deepStrictEqual(result, undefined);
 	});
 
@@ -5386,7 +5365,7 @@ suite('ClaudeAgent', () => {
 		const restoredMetadata = await agent.getChatMetadata(chat, chatContext(chat), undefined, { activation: 'restore' });
 		await bindDefaultChat(agent, sessionUri);
 		const messages = await agent.chats.getMessages(defaultChatUri(sessionUri), chatContext(defaultChatUri(sessionUri)));
-		await timeout(0);
+		const sessions = await agent.listLegacyChats();
 
 		assert.deepStrictEqual({
 			passiveMetadata,
@@ -11033,22 +11012,6 @@ suite('ClaudeAgent — materializeChat legacy default-chat recovery', () => {
 			liveChats: [chatUri.toString()],
 			resume: sessionId,
 			startupCount: 1,
-		});
-	});
-
-	test('materializeChat does not assign the default backing to a peer without providerData', async () => {
-		const { agent } = createTestContext(disposables);
-		const session = AgentSession.uri('claude', 'peer-without-backing');
-		const chat = URI.parse(buildChatUri(session, 'peer'));
-
-		const result = await agent.materializeChat!(chat, { configurationResource: session, resource: chat }, undefined);
-
-		assert.deepStrictEqual({
-			result,
-			backing: (agent as unknown as { _chatBackings: Map<string, unknown> })._chatBackings.get(chat.toString()),
-		}, {
-			result: undefined,
-			backing: undefined,
 		});
 	});
 });

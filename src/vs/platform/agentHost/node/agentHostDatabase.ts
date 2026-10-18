@@ -128,7 +128,7 @@ export interface IAgentHostDatabase extends IDisposable {
 	 * Records an identity in the legacy session registry for compatibility.
 	 * When requested, the tombstone check and registration are atomic.
 	 */
-	registerSession(session: string, sessionOptions: IAgentHostDatabaseSessionOptions, registerOptions: IAgentHostDatabaseRegisterOptions): Promise<boolean>;
+	registerSessionIfNotTombstoned(session: string, provider: AgentProvider, startTime: number): Promise<boolean>;
 	unregisterSession(session: string): Promise<void>;
 	/** Atomically tombstones and removes a session so concurrent backfill cannot re-register it. */
 	tombstoneAndUnregisterSession(session: string): Promise<void>;
@@ -142,15 +142,19 @@ export interface IAgentHostDatabase extends IDisposable {
 	isSessionRegistryEmpty(): Promise<boolean>;
 	/**
 	 * @deprecated superseded by per-provider {@link isProviderBackfilled}.
-	 * Retained only for reading databases written by pre-per-provider code.
-	 * Neither this marker nor per-provider markers gate native discovery.
+	 * Retained only so this database can still correctly interpret a
+	 * database written by pre-per-provider code (see the implicit-conversion
+	 * behavior in {@link AgentService}). Current code never writes this
+	 * marker, so it provides no benefit to a downgrade (new database opened
+	 * by old code) — see {@link AgentSessionRegistry} for that scenario's
+	 * documented behavior.
 	 */
 	isSessionRegistryBackfilled(): Promise<boolean>;
 	/** @deprecated see {@link isSessionRegistryBackfilled}. */
 	markSessionRegistryBackfilled(): Promise<void>;
-	/** Whether `provider` has completed native discovery at least once (for compatibility/diagnostics). */
+	/** Whether `provider`'s legacy chats have been durably imported into the session registry at least once. */
 	isProviderBackfilled(provider: AgentProvider): Promise<boolean>;
-	/** Durably records a completed provider-native discovery pass. */
+	/** Durably records that `provider`'s legacy chats have been imported into the session registry. */
 	markProviderBackfilled(provider: AgentProvider): Promise<void>;
 	/** Whether a provider has completed backfill for a specific v2 payload version. */
 	isSessionsV2Backfilled(provider: AgentProvider, payloadVersion: number): Promise<boolean>;

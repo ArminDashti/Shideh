@@ -9,7 +9,6 @@ import { ClaudePermissionMode, narrowClaudePermissionMode } from '../../common/c
 import { IAgentChatMetadata } from '../../common/agent.js';
 import { ISessionDataService } from '../../common/sessionDataService.js';
 import type { AgentSelection, ModelSelection } from '../../common/state/protocol/state.js';
-import { AH_META_WORKSPACELESS_DB_KEY } from '../../common/state/sessionState.js';
 
 /**
  * Read view of Claude's per-session DB overlay. SDK-supplied fields
@@ -189,7 +188,6 @@ export class ClaudeSessionMetadataStore {
 		} finally {
 			ref.dispose();
 		}
-
 	}
 
 	/**

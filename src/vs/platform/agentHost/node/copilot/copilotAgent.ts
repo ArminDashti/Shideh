@@ -829,8 +829,10 @@ export class CopilotAgent extends Disposable implements IAgent {
 	private readonly _onDidMaterializeChat = this._register(new Emitter<IAgentMaterializeChatEvent>());
 	readonly onDidMaterializeChat = this._onDidMaterializeChat.event;
 	/**
-	 * Fires when the native chat catalog may have changed. The {@link AgentService}
-	 * responds with an additive discovery pass.
+	 * Fires when the set of adoptable-legacy sessions the host should surface may
+	 * have changed — today only when the renderer's migrate-legacy flag flips on
+	 * (which can arrive after the first `listLegacyChats`). The {@link AgentService}
+	 * responds by re-listing and announcing any newly adoptable sessions.
 	 */
 	private readonly _onDidDiscoverChats = this._register(new Emitter<readonly IAgentDiscoveredChat[]>());
 	readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
@@ -1109,6 +1111,19 @@ export class CopilotAgent extends Disposable implements IAgent {
 			// republishes the whole catalog, which also re-applies the Claude default
 			// thinking level (see `_withClaudeDefaultReasoningEffort`).
 			this._refreshByokModels();
+		}));
+
+		// The migrate-legacy flag is pushed from the renderer after connect, which
+		// can land AFTER the first `listLegacyChats` (so it surfaced nothing). When it
+		// flips on, re-list so adoptable legacy sessions surface without a reload.
+		this._register(this._configurationService.onDidRootConfigChange(() => {
+			const enabled = this._isMigrateLegacyCopilotCliEnabled();
+			if (enabled !== this._lastMigrateLegacyEnabled) {
+				this._lastMigrateLegacyEnabled = enabled;
+				if (enabled) {
+					this._onDidChangeChatList.fire();
+				}
+			}
 		}));
 
 		// Surface renderer BYOK models in the picker: republish them whenever the
@@ -3089,8 +3104,8 @@ export class CopilotAgent extends Disposable implements IAgent {
 		if (!catalog) {
 			return undefined;
 		}
+		const migrateLegacy = this._isMigrateLegacyCopilotCliEnabled();
 		const projectLimiter = new Limiter<IAgentSessionProjectInfo | undefined>(4);
-		const metadataLimiter = new Limiter<IAgentChatMetadata | undefined>(4);
 		const projectByContext = new Map<string, Promise<IAgentSessionProjectInfo | undefined>>();
 		const mapped = await Promise.all([...catalog.metadata.values()].map(s => metadataLimiter.queue(async () => {
 			const session = AgentSession.uri(this.id, s.sessionId);
@@ -3123,9 +3138,9 @@ export class CopilotAgent extends Disposable implements IAgent {
 				workingDirectories,
 			};
 			return result;
-		})));
+		}));
 		const result = mapped.filter((s): s is IAgentChatMetadata => s !== undefined);
-		this._logService.info(`[Copilot] Found ${result.length} legacy sessions`);
+		this._logService.info(`[Copilot] Found ${result.length} sessions`);
 		return result;
 	}
 
@@ -3548,7 +3563,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		}
 
 		let project = storedMetadata?.project;
-		if (!storedMetadata?.resolved) {
+		if (storedMetadata && !storedMetadata.resolved) {
 			const projectLimiter = new Limiter<IAgentSessionProjectInfo | undefined>(1);
 			project = await this._resolveSessionProject(remoteSessionMetadata ? this._remoteSessionContext(remoteSessionMetadata) : sessionMetadata?.context, projectLimiter, new Map<string, Promise<IAgentSessionProjectInfo | undefined>>());
 			if (storedMetadata) {

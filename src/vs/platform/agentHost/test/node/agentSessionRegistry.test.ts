@@ -27,8 +27,6 @@ class TestAgentHostDatabase implements IAgentHostDatabase {
 	private readonly _tombstones = new Set<string>();
 	private _writeFailures = 0;
 	private _readFailures = 0;
-	listCalls = 0;
-	readonly externalUpdates: IAgentHostDatabaseExternalUpdate[] = [];
 
 	failNextWrite(): void {
 		this._writeFailures++;
@@ -38,9 +36,15 @@ class TestAgentHostDatabase implements IAgentHostDatabase {
 		this._readFailures++;
 	}
 
-	async registerSession(session: string, sessionOptions: IAgentHostDatabaseSessionOptions, registerOptions: IAgentHostDatabaseRegisterOptions): Promise<boolean> {
+	async registerSession(session: string, provider: string, startTime: number): Promise<void> {
 		this._throwWriteFailure();
-		if (registerOptions.checkTombstone && this._tombstones.has(session)) {
+		const existing = this.sessions.get(session);
+		this.sessions.set(session, { session, provider, startTime: existing?.startTime ?? startTime });
+	}
+
+	async registerSessionIfNotTombstoned(session: string, provider: string, startTime: number): Promise<boolean> {
+		this._throwWriteFailure();
+		if (this._tombstones.has(session)) {
 			return false;
 		}
 		const { provider, startTime, modifiedTime = startTime, source } = sessionOptions;
@@ -105,7 +109,6 @@ class TestAgentHostDatabase implements IAgentHostDatabase {
 
 	async listSessions(): Promise<readonly IAgentHostDatabaseSession[]> {
 		this._throwReadFailure();
-		this.listCalls++;
 		return [...this.sessions.values()];
 	}
 
@@ -328,8 +331,6 @@ suite('AgentSessionRegistry', () => {
 		return disposables.add(new AgentSessionRegistry(database));
 	}
 
-	const list = (registry: AgentSessionRegistry) => registry.list(async entry => entry.external === undefined ? { ...entry, external: false } : undefined);
-
 	const a = AgentSession.uri('copilot', 'a');
 	const b = AgentSession.uri('claude', 'b');
 	const registerExplicit = (registry: AgentSessionRegistry, session: typeof a, provider: 'copilot' | 'claude', startTime: number) =>
@@ -432,8 +433,8 @@ suite('AgentSessionRegistry', () => {
 		const registry = createRegistry();
 		assert.strictEqual(await registry.isEmpty(), true);
 
-		await registerExplicit(registry, a, 'copilot', 100);
-		await registerExplicit(registry, b, 'claude', 200);
+		await registry.register(a, 'copilot', 100);
+		await registry.register(b, 'claude', 200);
 
 		assert.strictEqual(await registry.isEmpty(), false);
 		assert.deepStrictEqual(
@@ -489,66 +490,25 @@ suite('AgentSessionRegistry', () => {
 			registry.tombstone(a),
 		]);
 
-		assert.deepStrictEqual(await list(registry), []);
+		assert.deepStrictEqual(await registry.list(), []);
 	});
 
-	test('external provenance survives a registry restart', async () => {
-		await database.close();
-		database = new TestAgentHostDatabase();
-		await registerDiscovered(createRegistry(), a, 'copilot', 100);
+	test('index persists across database instances', async () => {
+		const tempRoot = await fs.mkdtemp(join(tmpdir(), `agent-host-db-${generateUuid()}`));
+		const databasePath = join(tempRoot, 'agent-host.db');
+		try {
+			await database.close();
+			database = new AgentHostDatabase(databasePath);
+			await createRegistry().register(a, 'copilot', 100);
+			await database.close();
 
-		const restartedRegistry = createRegistry();
-		assert.deepStrictEqual((await list(restartedRegistry)).map(entry => ({
-			session: entry.session.toString(),
-			provider: 'copilot',
-			startTime: entry.startTime,
-			external: entry.external,
-		})), [{
-			session: a.toString(),
-			provider: 'copilot',
-			startTime: 100,
-			external: true,
-		}]);
-	});
-
-	test('an Agent Host marker correction restores internal provenance', async () => {
-		const registry = createRegistry();
-		await registerDiscovered(registry, a, 'copilot', 100);
-		await registerRestored(registry, a, 'copilot', 200);
-
-		assert.deepStrictEqual((await list(registry)).map(entry => ({
-			session: entry.session.toString(),
-			startTime: entry.startTime,
-			external: entry.external,
-		})), [{
-			session: a.toString(),
-			startTime: 100,
-			external: false,
-		}]);
-	});
-
-	test('discovery upgrades a restored row to external provenance', async () => {
-		const registry = createRegistry();
-		await registerRestored(registry, a, 'copilot', 100);
-		await registerDiscovered(registry, a, 'copilot', 200);
-
-		assert.deepStrictEqual((await list(registry)).map(entry => ({
-			external: entry.external,
-			source: entry.source,
-			startTime: entry.startTime,
-		})), [{ external: true, source: 'discovery', startTime: 100 }]);
-	});
-
-	test('discovery does not override an explicitly-registered session', async () => {
-		const registry = createRegistry();
-		await registerExplicit(registry, a, 'copilot', 100);
-		await registerDiscovered(registry, a, 'copilot', 200);
-
-		assert.deepStrictEqual((await list(registry)).map(entry => ({
-			external: entry.external,
-			source: entry.source,
-			startTime: entry.startTime,
-		})), [{ external: false, source: 'explicit', startTime: 100 }]);
+			database = new AgentHostDatabase(databasePath);
+			assert.deepStrictEqual((await createRegistry().list()).map(s => s.session.toString()), [a.toString()]);
+		} finally {
+			await database.close();
+			await fs.rm(tempRoot, { recursive: true, force: true });
+			database = new AgentHostDatabase(':memory:');
+		}
 	});
 
 	test('external session adoption is durable, idempotent, and protected from rediscovery', async () => {
@@ -645,12 +605,12 @@ suite('AgentSessionRegistry', () => {
 		assert.strictEqual(await registry.isBackfilled(), false);
 
 		// Simulate a one-time backfill: merge sessions, then set the marker.
-		await registerExplicit(registry, a, 'copilot', 100);
-		await registerExplicit(registry, b, 'claude', 200);
+		await registry.register(a, 'copilot', 100);
+		await registry.register(b, 'claude', 200);
 		await registry.markBackfilled();
 
 		assert.strictEqual(await registry.isBackfilled(), true);
-		assert.deepStrictEqual((await list(registry)).map(s => s.session.toString()).sort(), [a.toString(), b.toString()].sort());
+		assert.deepStrictEqual((await registry.list()).map(s => s.session.toString()).sort(), [a.toString(), b.toString()].sort());
 
 		// The marker persists across instances so the seed never runs twice.
 		const second = createRegistry();
@@ -662,7 +622,7 @@ suite('AgentSessionRegistry', () => {
 		assert.strictEqual(await registry.isProviderBackfilled('copilot'), false);
 		assert.strictEqual(await registry.isProviderBackfilled('claude'), false);
 
-		await registerExplicit(registry, a, 'copilot', 100);
+		await registry.register(a, 'copilot', 100);
 		await registry.markProviderBackfilled('copilot');
 
 		// Only the swept provider is marked — a provider that hasn't had its own
@@ -714,18 +674,18 @@ suite('AgentSessionRegistry', () => {
 		const registry = createRegistry();
 		(database as TestAgentHostDatabase).failNextWrite();
 
-		await assert.rejects(registerExplicit(registry, a, 'copilot', 100), /write failed/);
-		assert.deepStrictEqual(await list(registry), []);
+		await assert.rejects(registry.register(a, 'copilot', 100), /write failed/);
+		assert.deepStrictEqual(await registry.list(), []);
 
-		await registerExplicit(registry, a, 'copilot', 100);
-		assert.deepStrictEqual((await list(registry)).map(entry => entry.session.toString()), [a.toString()]);
+		await registry.register(a, 'copilot', 100);
+		assert.deepStrictEqual((await registry.list()).map(entry => entry.session.toString()), [a.toString()]);
 	});
 
 	test('tombstone persistence failure can be retried', async () => {
 		await database.close();
 		database = new TestAgentHostDatabase();
 		const registry = createRegistry();
-		await registerExplicit(registry, a, 'copilot', 100);
+		await registry.register(a, 'copilot', 100);
 		(database as TestAgentHostDatabase).failNextWrite();
 
 		await assert.rejects(registry.tombstone(a), /write failed/);
@@ -769,23 +729,23 @@ suite('AgentSessionRegistry', () => {
 		await database.close();
 		database = new TestAgentHostDatabase();
 		const first = createRegistry();
-		await registerExplicit(first, a, 'copilot', 100);
+		await first.register(a, 'copilot', 100);
 		const second = createRegistry();
 		(database as TestAgentHostDatabase).failNextRead();
 
-		await registerExplicit(second, b, 'claude', 200);
-		await assert.rejects(list(second), /read failed/);
-		await registerExplicit(second, b, 'claude', 200);
+		await second.register(b, 'claude', 200);
+		await assert.rejects(second.list(), /read failed/);
+		await second.register(b, 'claude', 200);
 
 		assert.deepStrictEqual(
-			(await list(second)).map(entry => entry.session.toString()).sort(),
+			(await second.list()).map(entry => entry.session.toString()).sort(),
 			[a.toString(), b.toString()].sort(),
 		);
 	});
 
 	test('tombstone durably prevents a session from being resurrected by register', async () => {
 		const registry = createRegistry();
-		await registerExplicit(registry, a, 'copilot', 100);
+		await registry.register(a, 'copilot', 100);
 		assert.strictEqual(await registry.isTombstoned(a), false);
 
 		await registry.tombstone(a);
@@ -804,9 +764,9 @@ suite('AgentSessionRegistry', () => {
 
 		// An explicit re-register (a genuine new `createSession`) must clear
 		// the tombstone so the session is usable again.
-		await registerExplicit(registry, a, 'copilot', 150);
+		await registry.register(a, 'copilot', 150);
 		assert.strictEqual(await registry.isTombstoned(a), false);
-		assert.deepStrictEqual((await list(registry)).map(s => s.session.toString()), [a.toString()]);
+		assert.deepStrictEqual((await registry.list()).map(s => s.session.toString()), [a.toString()]);
 	});
 
 	test('clearTombstone can also be called directly', async () => {
@@ -848,30 +808,30 @@ suite('AgentSessionRegistry', () => {
 
 		// Unlike `register`, a revival attempt (backfill, restore) must not
 		// resurrect an explicitly-deleted session.
-		const registered = await registerDiscovered(registry, a, 'copilot', 200);
+		const registered = await registry.registerIfNotTombstoned(a, 'copilot', 200);
 		assert.strictEqual(registered, false);
-		assert.deepStrictEqual(await list(registry), []);
+		assert.deepStrictEqual(await registry.list(), []);
 		assert.strictEqual(await registry.isTombstoned(a), true, 'the tombstone must remain in place');
 	});
 
-	test('discovery registers a session that is not tombstoned', async () => {
+	test('registerIfNotTombstoned registers a session that is not tombstoned', async () => {
 		const registry = createRegistry();
-		const registered = await registerDiscovered(registry, a, 'copilot', 100);
+		const registered = await registry.registerIfNotTombstoned(a, 'copilot', 100);
 		assert.strictEqual(registered, true);
-		assert.deepStrictEqual((await list(registry)).map(s => s.session.toString()), [a.toString()]);
+		assert.deepStrictEqual((await registry.list()).map(s => s.session.toString()), [a.toString()]);
 	});
 
-	test('discovery persistence failure can be retried', async () => {
+	test('registerIfNotTombstoned persistence failure can be retried', async () => {
 		await database.close();
 		database = new TestAgentHostDatabase();
 		const registry = createRegistry();
 		(database as TestAgentHostDatabase).failNextWrite();
 
-		await assert.rejects(registerDiscovered(registry, a, 'copilot', 100), /write failed/);
-		assert.deepStrictEqual(await list(registry), []);
+		await assert.rejects(registry.registerIfNotTombstoned(a, 'copilot', 100), /write failed/);
+		assert.deepStrictEqual(await registry.list(), []);
 
-		const registered = await registerDiscovered(registry, a, 'copilot', 100);
+		const registered = await registry.registerIfNotTombstoned(a, 'copilot', 100);
 		assert.strictEqual(registered, true);
-		assert.deepStrictEqual((await list(registry)).map(entry => entry.session.toString()), [a.toString()]);
+		assert.deepStrictEqual((await registry.list()).map(entry => entry.session.toString()), [a.toString()]);
 	});
 });

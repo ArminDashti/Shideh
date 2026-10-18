@@ -60,8 +60,6 @@ interface IMockSendMessageCall {
  * for assertion and exposes {@link fireProgress} to inject progress events.
  */
 export class MockAgent implements IAgent {
-	private readonly _discoveredChatsEmitter = new Emitter<readonly IAgentDiscoveredChat[]>();
-	readonly onDidDiscoverChats = this._discoveredChatsEmitter.event;
 	private readonly _onDidChatProgress = new Emitter<AgentSignal>();
 	readonly onDidChatProgress = this._onDidChatProgress.event;
 	readonly onDidMaterializeChat = Event.None;
@@ -180,7 +178,7 @@ export class MockAgent implements IAgent {
 		this._models.set(models, undefined);
 	}
 
-	async listExternalChats(): Promise<IAgentChatMetadata[]> {
+	async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 		return [...this._sessions.values()].map(session => ({ chat: URI.parse(buildDefaultChatUri(session)), startTime: Date.now(), modifiedTime: Date.now(), project: mockProject(this.id), ...this.sessionMetadataOverrides }));
 	}
 
@@ -504,7 +502,6 @@ export class MockAgent implements IAgent {
 	}
 
 	dispose(): void {
-		this._discoveredChatsEmitter.dispose();
 		this._onDidChatProgress.dispose();
 		this._onDidSendMessage.dispose();
 		this._onDidCustomizationsChange.dispose();
@@ -562,13 +559,6 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 		super();
 		// Seed the pre-existing session so it appears in listSessions()
 		this._sessions.set(AgentSession.id(PRE_EXISTING_SESSION_URI), PRE_EXISTING_SESSION_URI);
-		queueMicrotask(() => {
-			void this.listExternalChats().then(chats => {
-				if (chats) {
-					this.fireDiscoveredChats(chats.map(metadata => ({ ...metadata, external: true })));
-				}
-			}, () => { });
-		});
 
 		// Allow integration tests to seed additional pre-existing sessions across
 		// server restarts via env var. The value is a comma-separated list of
@@ -603,7 +593,7 @@ export class ScriptedMockAgent extends Disposable implements IAgent {
 		return [];
 	}
 
-	async listExternalChats(): Promise<IAgentChatMetadata[]> {
+	async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 		return [...this._sessions.values()].map(session => ({
 			chat: URI.parse(buildDefaultChatUri(session)),
 			startTime: Date.now(),

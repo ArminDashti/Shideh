@@ -5719,7 +5719,10 @@ suite('AgentService (node dispatcher)', () => {
 				registryWriteAttempts: db.registryWriteAttempts,
 				registeredSessions: (await svc.getRegisteredSessions()).map(resource => resource.toString()),
 			}, {
-				registryWriteAttempts: 2,
+				// register() now performs 2 durable writes (registerSession +
+				// clearSessionTombstone): 1 failed registerSession attempt above,
+				// then a successful registerSession + clearSessionTombstone pair here.
+				registryWriteAttempts: 3,
 				registeredSessions: [session.toString()],
 			});
 		});
@@ -9854,18 +9857,22 @@ suite('AgentService (node dispatcher)', () => {
 			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(external), external);
 			registerTestAgentProvider(svc, agent);
 
+			// Simulate a session that exists in the provider's store but was never
+			// registered (created before the registry shipped): seed the agent
+			// directly, bypassing createSession.
+			const legacy = AgentSession.uri('copilot', 'legacy-session');
+			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacy), legacy);
+			assert.deepStrictEqual(await svc.getRegisteredSessions(), []);
+
 			const listed = new Set((await svc.listSessions()).map(s => s.session.toString()));
 			assert.deepStrictEqual(listed, new Set([external.toString()]));
 			assert.strictEqual(readSessionExternal((await svc.listSessions())[0]._meta), true);
 			assert.strictEqual(await db.getMetadata(AH_META_IS_READ_DB_KEY), 'true');
 			await svc.restoreSession(external);
 
-			const registered = await (svc as unknown as { _sessionRegistry: AgentSessionRegistry })._sessionRegistry.list();
-			assert.deepStrictEqual(registered.map(entry => ({
-				session: entry.session.toString(),
-				external: entry.external,
-				source: entry.source,
-			})), [{ session: external.toString(), external: true, source: 'discovery' }]);
+			// The one-time backfill has now imported it into the registry.
+			const registered = new Set((await svc.getRegisteredSessions()).map(s => s.toString()));
+			assert.deepStrictEqual(registered, new Set([legacy.toString()]));
 		});
 
 		async function createExternalSessionForAdoption(opened = true) {
@@ -13988,7 +13995,7 @@ suite('AgentService (node dispatcher)', () => {
 				override async listChatsToMigrate(): Promise<IAgentChatMetadata[]> {
 					this.listCalls++;
 					await gate.p;
-					return super.listExternalChats();
+					return super.listLegacyChats();
 				}
 			}
 			const legacy = AgentSession.uri('copilot', 'legacy-concurrent');
@@ -14072,24 +14079,13 @@ suite('AgentService (node dispatcher)', () => {
 		test('a readiness signal retries provider-native discovery after a transient provider failure', async () => {
 			class TransientListFailureAgent extends MockAgent {
 				private _failList = true;
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
 
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					if (this._failList) {
 						this._failList = false;
 						throw new Error('transient list failure');
 					}
-					return super.listExternalChats();
-				}
-
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void {
-					this._onDidDiscoverChats.fire(chats);
-				}
-
-				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
-					super.dispose();
+					return super.listLegacyChats();
 				}
 			}
 			const db = new TestSessionDatabase();
@@ -14105,10 +14101,6 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual(await svc.listSessions(), []);
 			assert.deepStrictEqual(await svc.getRegisteredSessions(), []);
 
-			agent.fireDiscoveredChats([discoveredChat(legacy)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
-				await timeout(0);
-			}
 			assert.deepStrictEqual((await svc.listSessions()).map(session => session.session.toString()), [legacy.toString()]);
 			assert.deepStrictEqual((await svc.getRegisteredSessions()).map(session => session.toString()), [legacy.toString()]);
 		});
@@ -14119,7 +14111,8 @@ suite('AgentService (node dispatcher)', () => {
 			const early = disposables.add(new MockAgent('copilot'));
 			registerTestAgentProvider(svc, early);
 
-			// Run discovery for the first provider before the second registers.
+			// Complete (and durably mark) the first provider's backfill before the
+			// second provider ever registers.
 			await svc.listSessions();
 
 			const late = disposables.add(new MockAgent('claude'));
@@ -14128,7 +14121,7 @@ suite('AgentService (node dispatcher)', () => {
 			registerTestAgentProvider(svc, late);
 
 			// A subsequent listSessions call awaits the late provider's own
-			// discovery pass alongside the already-registered provider.
+			// (independently tracked) sweep alongside the already-completed one.
 			const listed = new Set((await svc.listSessions()).map(s => s.session.toString()));
 			assert.deepStrictEqual(listed, new Set([legacy.toString()]));
 
@@ -14164,21 +14157,21 @@ suite('AgentService (node dispatcher)', () => {
 
 		test('a provider whose native catalog gains a chat is discovered on its chat-list-changed signal', async () => {
 			class LateEnumerableAgent extends MockAgent {
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				listExternalChatsCalls = 0;
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				listLegacyChatsCalls = 0;
 
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
-					this.listExternalChatsCalls++;
-					return super.listExternalChats();
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
+					this.listLegacyChatsCalls++;
+					return super.listLegacyChats();
 				}
 
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void {
-					this._onDidDiscoverChats.fire(chats);
+				fireChatListChanged(): void {
+					this._onDidChangeChatList.fire();
 				}
 
 				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
+					this._onDidChangeChatList.dispose();
 					super.dispose();
 				}
 			}
@@ -14187,15 +14180,17 @@ suite('AgentService (node dispatcher)', () => {
 			const agent = disposables.add(new LateEnumerableAgent('copilot'));
 			registerTestAgentProvider(svc, agent);
 
-			// The first discovery completes with no native chats.
+			// First sweep completes with nothing to import — this is a legitimate
+			// empty result, not a failure, so it durably marks the provider done.
 			await svc.listSessions();
 			assert.deepStrictEqual(await svc.getRegisteredSessions(), []);
 			assert.strictEqual(await svc.isProviderRegistryBackfilled('copilot'), false);
 
-			// The provider's native catalog now has a session and reports the change.
+			// The provider's legacy store now has a session — simulate its store
+			// becoming enumerable and it reporting the change.
 			const legacy = AgentSession.uri('copilot', 'legacy-became-enumerable');
 			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacy), legacy);
-			agent.fireDiscoveredChats([discoveredChat(legacy)]);
+			agent.fireChatListChanged();
 
 			// Wait for the fire-and-forget forced re-sweep triggered by the signal.
 			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
@@ -14203,7 +14198,7 @@ suite('AgentService (node dispatcher)', () => {
 			}
 
 			assert.deepStrictEqual((await svc.getRegisteredSessions()).map(s => s.toString()), [legacy.toString()]);
-			assert.strictEqual(agent.listExternalChatsCalls, 1, 'event payload ingestion must not re-enumerate the provider');
+			assert.ok(agent.listLegacyChatsCalls >= 2, 'expected a re-sweep after the chat-list-changed signal');
 		});
 
 		test('does not surface adoptable legacy sessions (they belong to the extension host until opened)', async () => {
@@ -14248,35 +14243,30 @@ suite('AgentService (node dispatcher)', () => {
 			assert.strictEqual(getStateManager(svc).getSurfacedSessionSummary(legacy.toString()), undefined);
 		});
 
-		test('registry discovery retains one provider despite another provider failing', async () => {
+		test('registry backfill persists one provider despite another provider failing, and only the failing one is retried', async () => {
 			class CountingAgent extends MockAgent {
-				listExternalChatsCalls = 0;
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
-					this.listExternalChatsCalls++;
-					return super.listExternalChats();
+				listLegacyChatsCalls = 0;
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
+					this.listLegacyChatsCalls++;
+					return super.listLegacyChats();
 				}
 			}
 			class FailingThenRecoveringAgent extends MockAgent {
 				private _fail = true;
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
 				stopFailing(): void { this._fail = false; }
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					if (this._fail) {
 						throw new Error('provider B enumeration failed');
 					}
-					return super.listExternalChats();
-				}
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
-				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
-					super.dispose();
+					return super.listLegacyChats();
 				}
 			}
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
 			getConfigurationService(svc).updateRootConfig({ [AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.Last30Days });
 			const providerA = disposables.add(new CountingAgent('copilot'));
 			const providerB = disposables.add(new FailingThenRecoveringAgent('other'));
+			svc.registerProvider(providerA);
+			svc.registerProvider(providerB);
 
 			const legacyA = AgentSession.uri('copilot', 'legacy-a');
 			(providerA as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacyA), legacyA);
@@ -14289,67 +14279,61 @@ suite('AgentService (node dispatcher)', () => {
 			// (or registerable in the same sweep) by another provider.
 			assert.deepStrictEqual((await svc.listSessions()).map(s => s.session.toString()), [legacyA.toString()]);
 
+			// Provider A's sweep succeeded and is durably persisted even though
+			// provider B's failed in the same aggregate call.
 			assert.deepStrictEqual((await svc.getRegisteredSessions()).map(s => s.toString()), [legacyA.toString()]);
+			assert.strictEqual(await svc.isProviderRegistryBackfilled('copilot'), true);
+			assert.strictEqual(await svc.isProviderRegistryBackfilled('other'), false);
 
 			providerB.stopFailing();
-			providerB.fireDiscoveredChats([discoveredChat(legacyB)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length < 2; i++) {
-				await timeout(0);
-			}
 			const registered = new Set((await svc.listSessions()).map(s => s.session.toString()));
 			assert.deepStrictEqual(registered, new Set([legacyA.toString(), legacyB.toString()]));
 
-			// Provider A has no readiness change, so it is not re-enumerated
-			// merely because the aggregate session list refreshed.
-			assert.strictEqual(providerA.listExternalChatsCalls, 1);
+			// Provider A was not re-enumerated on retry: only the provider that
+			// previously failed needed to be swept again.
+			assert.strictEqual(providerA.listLegacyChatsCalls, 1);
 		});
 
-		test('a provider that cannot enumerate yet (undefined) retries on its readiness signal', async () => {
-			// `undefined` from `listExternalChats` means "cannot enumerate yet"
+		test('a provider that cannot enumerate yet (undefined) is never marked backfilled and is retried', async () => {
+			// `undefined` from `listLegacyChats` means "cannot enumerate yet"
 			// (e.g. SDK not downloaded), not an authoritative "no legacy
-			// chats" — a later discovery pass must retry it.
+			// chats" — the provider must stay unmarked so a later trigger
+			// retries it, unlike a legitimate empty array which does mark it.
 			//
-			// `MockAgent.listExternalChats` predates the `| undefined` contract
-			// (see `IAgent.listExternalChats`), so the override is monkey-patched
+			// `MockAgent.listLegacyChats` predates the `| undefined` contract
+			// (see `IAgent.listLegacyChats`), so the override is monkey-patched
 			// onto the instance rather than declared on a subclass to avoid a
 			// narrowing conflict with the base class's declared return type.
 			class NotYetEnumerableAgent extends MockAgent {
 				enumerable = false;
-				listExternalChatsCalls = 0;
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
-				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
-					super.dispose();
-				}
+				listLegacyChatsCalls = 0;
 			}
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
 			getConfigurationService(svc).updateRootConfig({ [AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.Last30Days });
 			const agent = disposables.add(new NotYetEnumerableAgent('copilot'));
-			const originalListExternalChats = agent.listExternalChats.bind(agent);
-			(agent as unknown as { listExternalChats: () => Promise<readonly IAgentChatMetadata[] | undefined> }).listExternalChats = async () => {
-				agent.listExternalChatsCalls++;
+			const originalListLegacyChats = agent.listLegacyChats.bind(agent);
+			(agent as unknown as { listLegacyChats: () => Promise<readonly IAgentChatMetadata[] | undefined> }).listLegacyChats = async () => {
+				agent.listLegacyChatsCalls++;
 				if (!agent.enumerable) {
 					return undefined;
 				}
-				return originalListExternalChats();
+				return originalListLegacyChats();
 			};
 			registerTestAgentProvider(svc, agent);
 			const legacy = AgentSession.uri('copilot', 'legacy-not-yet-enumerable');
 			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacy), legacy);
 
 			assert.deepStrictEqual(await svc.listSessions(), []);
+			assert.strictEqual(await svc.isProviderRegistryBackfilled('copilot'), false, 'an undefined result must never mark the provider backfilled');
 			assert.deepStrictEqual(await svc.getRegisteredSessions(), []);
 
-			// The provider's SDK becomes available and requests a retry.
+			// The provider's SDK becomes available and it can now enumerate; a
+			// later listSessions call (not a forced one) retries automatically
+			// because the marker was never set.
 			agent.enumerable = true;
-			agent.fireDiscoveredChats([discoveredChat(legacy)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
-				await timeout(0);
-			}
 			assert.deepStrictEqual((await svc.listSessions()).map(s => s.session.toString()), [legacy.toString()]);
-			assert.strictEqual(agent.listExternalChatsCalls, 1);
+			assert.strictEqual(await svc.isProviderRegistryBackfilled('copilot'), true);
+			assert.ok(agent.listLegacyChatsCalls >= 2);
 		});
 
 		test('a deferred provider does not block healthy listings and migrates when discovery signals readiness', async () => {
@@ -14687,23 +14671,23 @@ suite('AgentService (node dispatcher)', () => {
 			const gate = new DeferredPromise<void>();
 			class GatedListAgent extends MockAgent {
 				listCalls = 0;
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					this.listCalls++;
 					// Snapshot before gating so the first sweep reflects what
 					// the provider could enumerate at the time it was called,
 					// not whatever has since been added while it was stalled.
-					const snapshot = await super.listExternalChats();
+					const snapshot = await super.listLegacyChats();
 					if (this.listCalls === 1) {
 						await gate.p;
 						return snapshot;
 					}
 					return snapshot;
 				}
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				fireChatListChanged(): void { this._onDidChangeChatList.fire(); }
 				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
+					this._onDidChangeChatList.dispose();
 					super.dispose();
 				}
 			}
@@ -14712,7 +14696,7 @@ suite('AgentService (node dispatcher)', () => {
 			registerTestAgentProvider(svc, agent);
 
 			// Start the first (non-forced) sweep and let it stall inside
-			// `listExternalChats` before it can see any sessions.
+			// `listLegacyChats` before it can see any sessions.
 			const first = svc.listSessions();
 			for (let i = 0; i < 20 && agent.listCalls === 0; i++) {
 				await timeout(0);
@@ -14724,14 +14708,24 @@ suite('AgentService (node dispatcher)', () => {
 			// requesting a forced re-sweep.
 			const legacy = AgentSession.uri('copilot', 'legacy-race');
 			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(legacy), legacy);
-			agent.fireDiscoveredChats([discoveredChat(legacy)]);
+			agent.fireChatListChanged();
 
 			// The forced re-sweep cannot start until the in-flight one settles;
 			// let the first sweep's stale (empty) read complete now.
 			gate.complete();
-			await first;
+			const firstResult = await first;
+			assert.deepStrictEqual(firstResult, [], 'the first sweep started before the session existed and legitimately saw nothing');
 
-			assert.strictEqual(agent.listCalls, 1, 'event payload ingestion must not re-enumerate the provider');
+			// The chained forced re-sweep must still run afterwards and pick up
+			// the session that became enumerable mid-flight — the force intent
+			// must not have been dropped just because a sweep was in flight.
+			for (let i = 0; i < 50 && agent.listCalls < 2; i++) {
+				await timeout(0);
+			}
+			assert.strictEqual(agent.listCalls, 2, 'the queued forced re-sweep must still run after the in-flight attempt settles');
+			// `listCalls` increments as soon as `listLegacyChats` is invoked, but
+			// registering the discovered session still needs a few more
+			// microtasks to complete; poll until it lands.
 			let registered: readonly URI[] = [];
 			for (let i = 0; i < 50; i++) {
 				registered = await svc.getRegisteredSessions();
@@ -14773,11 +14767,11 @@ suite('AgentService (node dispatcher)', () => {
 
 		test('a forced re-sweep cannot resurrect a session that was explicitly deleted (tombstone)', async () => {
 			class ChatListChangeAgent extends MockAgent {
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				fireChatListChanged(): void { this._onDidChangeChatList.fire(); }
 				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
+					this._onDidChangeChatList.dispose();
 					super.dispose();
 				}
 			}
@@ -14800,7 +14794,7 @@ suite('AgentService (node dispatcher)', () => {
 
 			// A forced re-sweep triggered by the provider's own signal must not
 			// resurrect the explicitly-deleted session.
-			agent.fireDiscoveredChats([discoveredChat(session)]);
+			agent.fireChatListChanged();
 			for (let i = 0; i < 50; i++) {
 				await timeout(0);
 			}
@@ -14829,8 +14823,8 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual((await svc.listSessions()).map(s => s.session.toString()), [reusedUri.toString()]);
 		});
 
-		test('a forced discovery sweep cannot re-register a session concurrently, explicitly deleted mid-sweep', async () => {
-			// Guards the atomic tombstone check in discovery registration: discovery's own
+		test('a first-time backfill sweep cannot re-register a session concurrently, explicitly deleted mid-sweep', async () => {
+			// Guards the atomicity of `registerIfNotTombstoned`: backfill's own
 			// upfront tombstone filter was removed in favor of a single atomic
 			// DB write, precisely because a separate check-then-act would still
 			// race a concurrent explicit delete landing in between. This
@@ -14840,20 +14834,13 @@ suite('AgentService (node dispatcher)', () => {
 			const gate = new DeferredPromise<void>();
 			class GatedListAgent extends MockAgent {
 				listCalls = 0;
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					this.listCalls++;
-					const result = await super.listExternalChats();
-					if (this.listCalls === 2) {
+					const result = await super.listLegacyChats();
+					if (this.listCalls === 1) {
 						await gate.p;
 					}
 					return result;
-				}
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
-				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
-					super.dispose();
 				}
 			}
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService()));
@@ -14864,11 +14851,11 @@ suite('AgentService (node dispatcher)', () => {
 			const session = await svc.createSession({ provider: 'copilot', session: AgentSession.uri('copilot', 'race-delete-during-backfill') });
 			assert.ok((await svc.getRegisteredSessions()).some(s => s.toString() === session.toString()));
 
-			// Start a provider readiness-triggered sweep. It reads
+			// Start the provider's first (non-forced) backfill sweep. It reads
 			// the legacy list (which still includes the session) and then
 			// stalls before its registration write.
-			agent.fireDiscoveredChats([discoveredChat(session)]);
-			for (let i = 0; i < 20 && agent.listCalls < 2; i++) {
+			const listPromise = svc.listSessions();
+			for (let i = 0; i < 20 && agent.listCalls === 0; i++) {
 				await timeout(0);
 			}
 
@@ -14878,23 +14865,37 @@ suite('AgentService (node dispatcher)', () => {
 
 			// Let the stalled sweep's registration attempt proceed.
 			gate.complete();
-			for (let i = 0; i < 50 && agent.listCalls < 2; i++) {
-				await timeout(0);
-			}
+			await listPromise;
 
 			assert.deepStrictEqual(await svc.getRegisteredSessions(), [], 'the concurrently-tombstoned session must not be resurrected by the in-flight backfill sweep');
 		});
 
-		test('a legacy global marker does not gate registration-time native discovery', async () => {
-			class CountingAgent extends MockAgent {
-				listExternalChatsCalls = 0;
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
-					this.listExternalChatsCalls++;
-					return super.listExternalChats();
+		test('a provider that only has the legacy global marker (old database, no per-provider marker) does not run a fresh sweep', async () => {
+			// Compatibility semantics for an old (pre-per-provider) database:
+			// the legacy global marker being `true` with no per-provider
+			// marker and no tombstones (they did not exist under old code)
+			// must not trigger a real additive sweep, since that could
+			// resurrect a session explicitly deleted under the old code (no
+			// tombstone exists to protect it). A non-forced check instead
+			// treats the global marker as implicit per-provider completion.
+			class ChatListChangeAgent extends MockAgent {
+				listLegacyChatsCalls = 0;
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
+					this.listLegacyChatsCalls++;
+					return super.listLegacyChats();
+				}
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				fireChatListChanged(): void { this._onDidChangeChatList.fire(); }
+				override dispose(): void {
+					this._onDidChangeChatList.dispose();
+					super.dispose();
 				}
 			}
 			const db = new TransientRegistryWriteDatabase();
-			// Simulate an old database whose legacy one-time marker is set.
+			// Simulate an old database: the legacy global marker is already
+			// set, but nothing has ever written a per-provider marker (that
+			// concept did not exist yet), and there are no tombstones.
 			await db.markSessionRegistryBackfilled();
 			const svc = disposables.add(createTestAgentService(new NullLogService(), fileService, createSessionDataService(), { _serviceBrand: undefined } as IProductService, createNoopGitService(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, db));
 			getConfigurationService(svc).updateRootConfig({ [AgentHostShowExternalSessionsConfigKey]: AgentHostExternalSessionsMode.Last30Days });
@@ -14910,7 +14911,7 @@ suite('AgentService (node dispatcher)', () => {
 			assert.deepStrictEqual((await svc.getRegisteredSessions()).map(session => session.toString()), [legacy.toString()]);
 		});
 
-		test('repeated discovery payloads are idempotent and do not re-enumerate', async () => {
+		test('a second overlapping force arriving while a fresh forced sweep (no prior in-flight attempt) is still running is not dropped', async () => {
 			// A freshly-created backfill entry's `forceQueued` must always
 			// start `false`, even when the entry's own first attempt is
 			// itself invoked with `force` — seeding it from that `force` flag
@@ -14921,21 +14922,21 @@ suite('AgentService (node dispatcher)', () => {
 			class SequentiallyGatedListAgent extends MockAgent {
 				listCalls = 0;
 				private readonly _gates: DeferredPromise<void>[] = [];
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					this.listCalls++;
 					const gate = new DeferredPromise<void>();
 					this._gates[this.listCalls] = gate;
 					await gate.p;
-					return super.listExternalChats();
+					return super.listLegacyChats();
 				}
 				releaseCall(index: number): void {
 					this._gates[index]?.complete();
 				}
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				fireChatListChanged(): void { this._onDidChangeChatList.fire(); }
 				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
+					this._onDidChangeChatList.dispose();
 					super.dispose();
 				}
 			}
@@ -14956,22 +14957,39 @@ suite('AgentService (node dispatcher)', () => {
 				await timeout(0);
 			}
 
-			const discovered = AgentSession.uri('copilot', 'repeated-discovery');
-			agent.fireDiscoveredChats([discoveredChat(discovered)]);
-			agent.fireDiscoveredChats([discoveredChat(discovered)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
+			// Force #1 arrives with no existing entry for the provider: a
+			// brand-new, freshly-created forced sweep.
+			agent.fireChatListChanged();
+			for (let i = 0; i < 20 && agent.listCalls < 2; i++) {
 				await timeout(0);
 			}
-			assert.deepStrictEqual({
-				listCalls: agent.listCalls,
-				registered: (await svc.getRegisteredSessions()).map(session => session.toString()),
-			}, {
-				listCalls: 1,
-				registered: [discovered.toString()],
-			});
+			assert.strictEqual(agent.listCalls, 2, 'the fresh forced sweep must have started');
+
+			// Force #2 arrives while that very first forced attempt (not a
+			// chained one) is still in flight, gated on its `listLegacyChats`
+			// read. Without the fix, the fresh entry's `forceQueued` would
+			// already read `true` (seeded from force #1's own `force` flag)
+			// and this would be silently dropped.
+			agent.fireChatListChanged();
+
+			// Release call #2; a chained call #3 must start as a result of
+			// force #2 having been correctly queued rather than dropped.
+			agent.releaseCall(2);
+			for (let i = 0; i < 50 && agent.listCalls < 3; i++) {
+				await timeout(0);
+			}
+			assert.strictEqual(agent.listCalls, 3, 'the overlapping force arriving during a fresh forced sweep must not have been dropped');
+
+			agent.releaseCall(3);
+			for (let i = 0; i < 50; i++) {
+				if (agent.listCalls >= 3) {
+					break;
+				}
+				await timeout(0);
+			}
 		});
 
-		test('repeated discovery payloads are accepted while the initial sweep is running', async () => {
+		test('a second overlapping force arriving while a chained forced sweep is itself running is not dropped', async () => {
 			// Guards the N1 fix: `forceQueued` must be reset the moment the
 			// chained forced attempt actually *starts* running, not merely
 			// once it is scheduled — otherwise a second force arriving while
@@ -14981,21 +14999,21 @@ suite('AgentService (node dispatcher)', () => {
 			class SequentiallyGatedListAgent extends MockAgent {
 				listCalls = 0;
 				private readonly _gates: DeferredPromise<void>[] = [];
-				override async listExternalChats(): Promise<IAgentChatMetadata[]> {
+				override async listLegacyChats(): Promise<IAgentChatMetadata[]> {
 					this.listCalls++;
 					const gate = new DeferredPromise<void>();
 					this._gates[this.listCalls] = gate;
 					await gate.p;
-					return super.listExternalChats();
+					return super.listLegacyChats();
 				}
 				releaseCall(index: number): void {
 					this._gates[index]?.complete();
 				}
-				private readonly _onDidDiscoverChats = new Emitter<readonly IAgentDiscoveredChat[]>();
-				override readonly onDidDiscoverChats = this._onDidDiscoverChats.event;
-				override fireDiscoveredChats(chats: readonly IAgentDiscoveredChat[]): void { this._onDidDiscoverChats.fire(chats); }
+				private readonly _onDidChangeChatList = new Emitter<void>();
+				readonly onDidChangeChatList = this._onDidChangeChatList.event;
+				fireChatListChanged(): void { this._onDidChangeChatList.fire(); }
 				override dispose(): void {
-					this._onDidDiscoverChats.dispose();
+					this._onDidChangeChatList.dispose();
 					super.dispose();
 				}
 			}
@@ -15010,23 +15028,38 @@ suite('AgentService (node dispatcher)', () => {
 			}
 			assert.strictEqual(agent.listCalls, 1);
 
-			const discovered = AgentSession.uri('copilot', 'in-flight-discovery');
-			agent.fireDiscoveredChats([discoveredChat(discovered)]);
+			// Force #1 arrives while call #1 is in flight: chained to run
+			// again once call #1 settles.
+			agent.fireChatListChanged();
 
 			// Release call #1; the chained forced call #2 should start.
 			agent.releaseCall(1);
 			await first;
-			agent.fireDiscoveredChats([discoveredChat(discovered)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
+			for (let i = 0; i < 20 && agent.listCalls < 2; i++) {
 				await timeout(0);
 			}
-			assert.deepStrictEqual({
-				listCalls: agent.listCalls,
-				registered: (await svc.getRegisteredSessions()).map(session => session.toString()),
-			}, {
-				listCalls: 1,
-				registered: [discovered.toString()],
-			});
+			assert.strictEqual(agent.listCalls, 2, 'the chained forced re-sweep must have started');
+
+			// Force #2 arrives while call #2 (the chained forced sweep) is
+			// itself still in flight. Without the N1 fix, `forceQueued`
+			// would still be `true` from force #1 and this would be dropped.
+			agent.fireChatListChanged();
+
+			// Release call #2; a third, further-chained forced call #3 must
+			// start as a result of force #2 not having been dropped.
+			agent.releaseCall(2);
+			for (let i = 0; i < 50 && agent.listCalls < 3; i++) {
+				await timeout(0);
+			}
+			assert.strictEqual(agent.listCalls, 3, 'the second overlapping force must not have been dropped');
+
+			agent.releaseCall(3);
+			for (let i = 0; i < 50; i++) {
+				if (agent.listCalls >= 3) {
+					break;
+				}
+				await timeout(0);
+			}
 		});
 
 		test('listSessions keeps a registered session the provider transiently drops', async () => {
@@ -15484,10 +15517,6 @@ suite('AgentService (node dispatcher)', () => {
 			await createAgentSession(agent);
 			registerTestAgentProvider(svc, agent);
 			const sessionResource = (await agent.listSessions())[0].session;
-			agent.fireDiscoveredChats([discoveredChat(sessionResource)]);
-			for (let i = 0; i < 50 && (await svc.getRegisteredSessions()).length === 0; i++) {
-				await timeout(0);
-			}
 			agent.sessionMessages = [];
 
 			const before = await svc.listSessions();
@@ -19698,11 +19727,11 @@ suite('AgentService (node dispatcher)', () => {
 			copilotAgent.getChatMetadata = async () => {
 				throw new Error('direct metadata unavailable');
 			};
-			const originalListExternalChats = copilotAgent.listExternalChats.bind(copilotAgent);
-			let listChatsToMigrateCalled = false;
-			copilotAgent.listChatsToMigrate = async () => {
-				listChatsToMigrateCalled = true;
-				return originalListExternalChats();
+			const originalListLegacyChats = copilotAgent.listLegacyChats.bind(copilotAgent);
+			let listLegacyChatsCalled = false;
+			copilotAgent.listLegacyChats = async () => {
+				listLegacyChatsCalled = true;
+				return originalListLegacyChats();
 			};
 
 			await service.restoreSession(session);
@@ -19711,7 +19740,7 @@ suite('AgentService (node dispatcher)', () => {
 				listChatsToMigrateCalled,
 				restored: !!getStateManager(service).getSessionState(session.toString()),
 			}, {
-				listChatsToMigrateCalled: true,
+				listLegacyChatsCalled: true,
 				restored: true,
 			});
 		});
@@ -21073,7 +21102,7 @@ suite('AgentService (node dispatcher)', () => {
 			assert.strictEqual(db.setMetadataCalls.some(c => c.key === 'peerChatBacking' && c.value === chatUri.toString()), false, 'the marker never persisted durably');
 
 			// Simulate the provider's own SDK-level store also enumerating this
-			// backing session (as a real `listExternalChats` would), so a
+			// backing session (as a real `listLegacyChats` would), so a
 			// subsequent backfill sweep would resurrect it as a standalone
 			// top-level session if the in-process suppression did not protect it.
 			(agent as unknown as { _sessions: Map<string, URI> })._sessions.set(AgentSession.id(backingSession), backingSession);

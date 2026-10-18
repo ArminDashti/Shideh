@@ -27,12 +27,6 @@ export interface IRegisteredSession {
 	readonly source: AgentSessionRegistrationSource;
 }
 
-export interface IStoredRegisteredSession extends Omit<IRegisteredSession, 'external'> {
-	readonly external: boolean | undefined;
-}
-
-export type RegisteredSessionMigration = (entry: IStoredRegisteredSession) => Promise<IRegisteredSession | undefined>;
-
 /**
  * A durable, orchestrator-owned index of the sessions that exist, keyed by
  * session URI. Unlike the agents' `listSessions()` (which enumerates their own
@@ -40,10 +34,13 @@ export type RegisteredSessionMigration = (entry: IStoredRegisteredSession) => Pr
  * registry is authoritative on the AH side and does not depend on the agent
  * exposing a session whose SDK id equals the session id.
  *
- * Provider backfill markers are retained for compatibility/diagnostics.
- * AgentService starts native discovery at provider registration and reruns it
- * only when a provider reports a catalog/readiness change. Concurrent callers
- * in one host share a single in-flight pass per provider; concurrently running
+ * Provider backfill is tracked durably *per provider* (see
+ * {@link isProviderBackfilled} / {@link markProviderBackfilled}), so a provider
+ * that registers or becomes enumerable after another provider's sweep already
+ * completed still gets its own one-time sweep. Markers are written only after
+ * a provider's own sweep succeeds, so a crash before that point just repeats
+ * that provider's additive sweep. Concurrent callers in one host share a
+ * single in-flight sweep per provider in `AgentService`; concurrently running
  * host processes are outside the supported database contract.
  *
  * The legacy global marker ({@link isBackfilled} / {@link markBackfilled}) is
@@ -236,7 +233,8 @@ export class AgentSessionRegistry extends Disposable {
 	/**
 	 * @deprecated legacy global one-shot marker, retained for reading databases
 	 * written before per-provider tracking existed; see
-	 * {@link isProviderBackfilled} for per-provider discovery diagnostics.
+	 * {@link isProviderBackfilled} for the durable per-provider gate that
+	 * drives backfill decisions.
 	 */
 	async isBackfilled(): Promise<boolean> {
 		return this._database.isSessionRegistryBackfilled();
@@ -250,12 +248,12 @@ export class AgentSessionRegistry extends Disposable {
 		await this._database.markSessionRegistryBackfilled();
 	}
 
-	/** Whether a specific provider has completed native discovery at least once. */
+	/** Whether a specific provider's one-time backfill sweep has completed. */
 	async isProviderBackfilled(provider: AgentProvider): Promise<boolean> {
 		return this._database.isProviderBackfilled(provider);
 	}
 
-	/** Records a provider-native discovery pass idempotently. */
+	/** Records a provider's backfill completion idempotently, after its sessions were registered. */
 	async markProviderBackfilled(provider: AgentProvider): Promise<void> {
 		await this._database.markProviderBackfilled(provider);
 	}

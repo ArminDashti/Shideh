@@ -270,7 +270,6 @@ interface ISerializedSessionMetadata {
 	 * host's scratch dir as a workspace folder until the next listing arrives.
 	 */
 	readonly workspaceless?: boolean;
-	readonly external?: boolean;
 	readonly multiRoot?: ISessionMultiRootMetadata;
 	readonly createdBySession?: IProtocolSessionCreationReference;
 	readonly remoteOrigin?: IRemoteSessionOrigin;
@@ -316,7 +315,6 @@ function serializeMetadata(meta: IAgentSessionMetadata, discovery?: IAgentHostSe
 		workingDirectoryKeys: workingDirectoryKeys.size > 0 ? Object.fromEntries(workingDirectoryKeys) : undefined,
 		workingDirectoryScopeIds: workingDirectoryScopeIds.size > 0 ? Object.fromEntries(workingDirectoryScopeIds) : undefined,
 		workspaceless: readSessionWorkspaceless(meta._meta) || undefined,
-		external: readSessionExternal(meta._meta) || undefined,
 		multiRoot: readSessionMultiRootMetadata(meta._meta),
 		createdBySession: readSessionCreationReference(meta._meta),
 		remoteOrigin: readRemoteSessionOrigin(meta),
@@ -349,7 +347,6 @@ function sessionProjectsEqual(a: IAgentSessionMetadata['project'] | null, b: IAg
 function deserializeMetadata(raw: ISerializedSessionMetadata): IAgentSessionMetadata | undefined {
 	try {
 		let _meta = withSessionWorkspaceless(undefined, raw.workspaceless === true);
-		_meta = withSessionExternal(_meta, raw.external === true);
 		_meta = withSessionMultiRootMetadata(_meta, readSessionMultiRootMetadata({ [SESSION_META_MULTI_ROOT_KEY]: raw.multiRoot }));
 		_meta = withSessionGitHubData(_meta, parseSessionGitHubData(raw.githubData));
 		for (const [workingDirectory, folderKey] of Object.entries(raw.workingDirectoryKeys ?? {})) {

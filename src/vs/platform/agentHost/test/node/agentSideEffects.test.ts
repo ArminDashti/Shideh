@@ -7191,7 +7191,7 @@ suite('AgentSideEffects', () => {
 			const localService = disposables.add(createTestAgentService(new NullLogService(), fileService, sessionDataService, { _serviceBrand: undefined } as IProductService, createNoopGitService()));
 			registerTestAgentProvider(localService, localAgent);
 
-			await localService.createSession({ provider: localAgent.id });
+			await createAgentSession(localAgent);
 
 			// Persist a custom title in the DB
 			await sessionDb.setMetadata('customTitle', 'My Custom Title');

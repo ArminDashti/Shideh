@@ -1731,16 +1731,11 @@ export class ClaudeAgent extends Disposable implements IAgent {
 	 * path for a chat that was never (re-)created in this process — a cold
 	 * chat — so it is the only place that scope binding exists for it.
 	 */
-	async materializeChat(chat: URI, context: URI | IAgentChatContext, providerData: string | undefined): Promise<IAgentCreateChatResult | void> {
+	async materializeChat(chat: URI, context: URI | IAgentChatContext, providerData: string | undefined): Promise<void> {
 		const resolved = resolveAgentChatContext(context, chat);
 		this._recordChatScope(chat, resolved.configurationResource, resolved.resource);
 		if (providerData === undefined) {
-			if (!isDefaultChatUri(chat)) {
-				return;
-			}
-			const backing = { sdkSessionId: AgentSession.id(resolved.configurationResource) };
-			this._chatBackings.set(chat.toString(), backing);
-			return { providerData: encodeProviderData(_toPersistedChat(backing)) };
+			return;
 		}
 		const persisted = decodeProviderData(providerData);
 		if (!persisted) {
@@ -1910,21 +1905,32 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		// hydrates the additional-directory tail. External sessions without
 		// an overlay remain valid single-root entries.
 		//
-		// The orchestrator enumerates every provider independently. If our SDK dynamic import
+		// One-time legacy discovery only — the orchestrator fans this out
+		// across every provider via `Promise.all`. If our SDK dynamic import
 		// fails (corrupt install, missing optional dep) and we let it reject,
 		// *every* provider's legacy list disappears — the sibling Copilot
 		// provider gets nuked too. Catch and log instead.
 		let sdkEntries: readonly SDKSessionInfo[];
 		const timing = this._startupPerformance.start(kind === 'migration' ? 'sessionMigrationScan' : 'sessionDiscoveryScan', this.id);
 		try {
+			// Don't trigger a cold SDK download just to populate this list at
+			// startup. When the SDK isn't local yet, return `undefined` — this
+			// is NOT an authoritative "no legacy chats" answer, just "can't
+			// enumerate yet". The download fires (with host-level progress)
+			// once the user starts a session, and the next legacy discovery
+			// pass returns the full list.
+			if (!(await this._sdkService.canLoadWithoutDownload())) {
+				this._logService.info('[Claude] SDK not downloaded yet; deferring legacy chat list until a session triggers the download');
+				return undefined;
+			}
 			sdkEntries = await this._sdkService.listSessions();
 			timing?.complete('success', { scannedSessionCount: sdkEntries.length });
 		} catch (err) {
 			timing?.complete('error');
 			// SDK failed to load/enumerate — this is "can't enumerate yet",
 			// not an authoritative empty result, so callers must not treat it
-			// as "no external chats" and should retry later.
-			this._logService.warn('[Claude] SDK listSessions failed; deferring chat discovery', err);
+			// as "no legacy chats" and should retry later.
+			this._logService.warn('[Claude] SDK listSessions failed; deferring legacy chat list', err);
 			return undefined;
 		}
 		return Promise.all(sdkEntries.map(entry => {
