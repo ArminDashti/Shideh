@@ -121,6 +121,53 @@ export class CircularProgressIndicator {
 }
 
 /**
+ * Resolves the configured context-window size (in tokens) from a model's
+ * configuration, so a user-selected context size is reflected by the widget.
+ *
+ * The `'tokens'` configuration group comes in two shapes:
+ *  - A numeric enum value (e.g. Copilot's `contextSize`) is the token count itself.
+ *  - A string tier (e.g. Copilot CLI's `contextTier` = `'default'` | `'long_context'`):
+ *    a non-default selection maps to the model's long-context window, carried as
+ *    metadata in `longContextMaxInputTokens`.
+ *
+ * Returns `undefined` when no context-window override is configured, so callers
+ * fall back to the model's static `maxInputTokens`.
+ */
+function resolveConfiguredContextTokens(
+	modelConfiguration: IStringDictionary<unknown> | undefined,
+	modelMetadata: ILanguageModelChatMetadata | undefined,
+): number | undefined {
+	if (!modelConfiguration) {
+		return undefined;
+	}
+	const properties = modelMetadata?.configurationSchema?.properties;
+	if (properties) {
+		for (const [key, propSchema] of Object.entries(properties)) {
+			if (propSchema.group !== 'tokens') {
+				continue;
+			}
+			const value = modelConfiguration[key];
+			if (value === undefined) {
+				return undefined;
+			}
+			// Numeric enum (e.g. Copilot's `contextSize`): the value is the token count.
+			if (typeof value === 'number') {
+				return value;
+			}
+			// String tier (e.g. Copilot CLI's `contextTier`): a non-default selection
+			// uses the model's long-context window; the default tier falls back to
+			// `maxInputTokens`.
+			if (propSchema.default !== undefined && value !== propSchema.default) {
+				return modelMetadata?.longContextMaxInputTokens;
+			}
+			return undefined;
+		}
+	}
+	// No schema available: a numeric `contextSize` is the token count directly.
+	return typeof modelConfiguration.contextSize === 'number' ? modelConfiguration.contextSize : undefined;
+}
+
+/**
  * Widget that displays the context/token usage for the current chat session.
  * Shows a circular progress icon that expands on hover/focus to show token counts,
  * and on click shows the detailed context usage widget.
@@ -140,6 +187,7 @@ export class ChatContextUsageWidget extends Disposable {
 
 	private readonly _lastRequestDisposable = this._register(new MutableDisposable());
 	private readonly _modelConfigurationListener = this._register(new MutableDisposable());
+	private readonly _selectedModelListener = this._register(new MutableDisposable());
 	private _currentResponse: IChatResponseModel | undefined;
 	private _currentModelId: string | undefined;
 	/**
@@ -169,6 +217,18 @@ export class ChatContextUsageWidget extends Disposable {
 	 * lag the editor's actual selection (see issue #320393).
 	 */
 	private _modelConfigurationResolver: ((modelId: string) => IStringDictionary<unknown> | undefined) | undefined;
+
+	/**
+	 * Resolves the editor's currently-selected model id. The widget prefers this
+	 * over the request's recorded model when resolving the context window and
+	 * configuration, so toggling the context size (or switching models) is
+	 * reflected live — even when the last request was recorded against a
+	 * different model identifier. This matters for agent-host sessions, where the
+	 * model the user selects (e.g. `agent-host-copilot:<id>`) can differ from the
+	 * identifier stamped on an earlier request (e.g. a foreign `copilot/<id>`).
+	 * Falls back to the request's model when unset.
+	 */
+	private _currentModelIdResolver: (() => string | undefined) | undefined;
 
 	constructor(
 		@IHoverService private readonly hoverService: IHoverService,
@@ -292,7 +352,11 @@ export class ChatContextUsageWidget extends Disposable {
 
 	/**
 	 * Updates the widget with the latest request/response data.
-	 * The model is retrieved from the request's modelId.
+	 *
+	 * Usage numbers come from the request's response; the context window and
+	 * configuration are resolved from the editor's currently-selected model when
+	 * available (see {@link setCurrentModelResolver}), falling back to the
+	 * request's recorded model.
 	 * @param lastRequest The last request in the session
 	 */
 	update(lastRequest: IChatRequestModel | undefined): void {
@@ -316,16 +380,15 @@ export class ChatContextUsageWidget extends Disposable {
 		}
 
 		const response = lastRequest.response;
-		const modelId = lastRequest.modelId;
 		this._currentResponse = response;
-		this._currentModelId = modelId;
+		this._currentRequestModelId = lastRequest.modelId;
 
 		// Update immediately if usage data is already available
-		this.updateFromResponse(response, modelId);
+		this.updateFromResponse(response);
 
 		// Subscribe to response changes to update whenever usage data changes
 		this._lastRequestDisposable.value = response.onDidChange(() => {
-			this.updateFromResponse(response, modelId);
+			this.updateFromResponse(response);
 		});
 	}
 
@@ -339,7 +402,7 @@ export class ChatContextUsageWidget extends Disposable {
 	/**
 	 * Provides a per-editor resolver for the selected model's configuration
 	 * (notably the user-selected context size). The widget re-renders whenever
-	 * the supplied event fires for the currently displayed model. Without this,
+	 * the supplied event fires for the model it currently reflects. Without this,
 	 * the widget falls back to the profile-global value, which can drift from
 	 * the editor's actual selection (see issue #320393).
 	 */

@@ -8836,7 +8836,9 @@ suite('CopilotAgent', () => {
 			copilotClient: new TestCopilotClient([], [{
 				id: 'claude-sonnet',
 				name: 'Claude Sonnet',
-				capabilities: { limits: { max_context_window_tokens: 200_000 } },
+				// `max_context_window_tokens` is the model's absolute (long) maximum, which must NOT be used as
+				// the default-tier baseline; the default window comes from `tokenPrices.contextMax`.
+				capabilities: { limits: { max_context_window_tokens: 1_000_000 } },
 				billing: {
 					multiplier: 1,
 					tokenPrices: {
