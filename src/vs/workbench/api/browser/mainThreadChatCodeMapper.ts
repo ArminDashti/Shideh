@@ -73,3 +73,11 @@ export class MainThreadChatCodemapper extends Disposable implements MainThreadCo
 		return Promise.resolve();
 	}
 }
+
+function areTextEdits(edits: ICodeMapperProgressDto['edits']): edits is TextEdit[] {
+	if (edits.some(e => 'range' in e && 'text' in e)) {
+		return true;
+	} else {
+		return false;
+	}
+}
