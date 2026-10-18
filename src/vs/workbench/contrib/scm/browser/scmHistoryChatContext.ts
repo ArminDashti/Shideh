@@ -106,6 +106,20 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 	}
 
 	asPicker(_widget: IChatWidget) {
+		const placeholder = localize('chatContext.scmHistoryItems.placeholder', 'Select a change to attach');
+
+		const activeRepository = this._scmViewService.activeRepository.get();
+		const historyProvider = activeRepository?.provider.historyProvider.get();
+		if (!activeRepository || !historyProvider) {
+			return { placeholder, picks: Promise.resolve([]) };
+		}
+
+		const historyItemRefs = coalesce([
+			historyProvider.historyItemRef.get(),
+			historyProvider.historyItemRemoteRef.get(),
+			historyProvider.historyItemBaseRef.get(),
+		]).map(ref => ref.id);
+
 		return {
 			placeholder: localize('chatContext.scmHistoryItems.placeholder', 'Select a change'),
 			picks: picksWithPromiseFn((query: string, token: CancellationToken) => {
