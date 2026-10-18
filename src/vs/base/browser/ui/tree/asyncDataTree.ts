@@ -1643,6 +1643,10 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable
 		this.model.resort(this.getDataNode(element), recursive);
 	}
 
+	hasElement(element: TInput | T): boolean {
+		return this.tree.hasElement(this.getDataNode(element));
+	}
+
 	hasNode(element: TInput | T): boolean {
 		if (element === this.root.element) {
 			return true;
