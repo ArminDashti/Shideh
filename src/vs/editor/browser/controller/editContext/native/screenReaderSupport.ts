@@ -242,3 +242,27 @@ export class ScreenReaderSupport extends Disposable {
 		}
 	}
 }
+
+function createSimpleModelFromViewModel(viewModel: IViewModel): ISimpleModel {
+	return {
+		getLineCount: (): number => viewModel.getLineCount(),
+		getLineMaxColumn: (lineNumber: number): number => viewModel.getLineMaxColumn(lineNumber),
+		getValueInRange: (range: Range, eol: EndOfLinePreference): string => viewModel.getValueInRange(range, eol),
+		getValueLengthInRange: (range: Range, eol: EndOfLinePreference): number => viewModel.getValueLengthInRange(range, eol),
+		modifyPosition: (position: Position, offset: number): Position => viewModel.modifyPosition(position, offset)
+	};
+}
+
+function setDomSelection(node: Node, selection: OffsetRange): void {
+	const activeDocument = dom.getActiveWindow().document;
+	const activeDocumentSelection = activeDocument.getSelection();
+	if (!activeDocumentSelection) {
+		throw new BugIndicatingError();
+	}
+	activeDocumentSelection.removeAllRanges();
+
+	const range = new globalThis.Range();
+	range.setStart(node, selection.start);
+	range.setEnd(node, selection.endExclusive);
+	activeDocumentSelection.addRange(range);
+}
