@@ -129,6 +129,7 @@ class TestAuthProvider implements AuthenticationProvider {
 			account: {
 				label: this.authProviderName,
 				id: `${this.id}`,
+				iconPath: URI.parse('https://example.com'),
 			},
 			accessToken: Math.random() + '',
 		};
