@@ -732,7 +732,7 @@ suite('RunSubagentTool', () => {
 			};
 		}
 
-		test('throws error when subagent model has higher multiplier', async () => {
+		test('returns confirmation when subagent model has higher multiplier', async () => {
 			const mainMeta = createMetadata('GPT-4o', 1);
 			const expensiveMeta = createMetadata('O3 Pro', 50);
 			const models = new Map([
@@ -746,21 +746,26 @@ suite('RunSubagentTool', () => {
 			const agent = createAgent('ExpensiveAgent', ['O3 Pro (TestVendor)']);
 			const tool = createTool({ models, qualifiedNameMap, customAgents: [agent] });
 
-			await assert.rejects(
-				() => tool.prepareToolInvocation({
-					parameters: { prompt: 'test', description: 'test task', agentName: 'ExpensiveAgent' },
-					toolCallId: 'call-1',
-					modelId: 'main-model-id',
-					chatSessionResource: URI.parse('test://session'),
-				}, CancellationToken.None),
-				(err: Error) => {
-					assert.ok(err.message.includes('O3 Pro'));
-					assert.ok(err.message.includes('exceeds'));
-					assert.ok(err.message.includes('cost tier'));
-					assert.ok(err.message.includes('Unavailable'));
-					return true;
-				}
-			);
+			const result = await tool.prepareToolInvocation({
+				parameters: { prompt: 'test', description: 'test task', agentName: 'ExpensiveAgent' },
+				toolCallId: 'call-1',
+				modelId: 'main-model-id',
+				chatSessionResource: URI.parse('test://session'),
+			}, CancellationToken.None);
+
+			assert.ok(result);
+			assert.ok(result.confirmationMessages?.title, 'Should show confirmation for expensive model');
+			assert.ok(result.confirmationMessages?.customButtons, 'Should have custom buttons');
+			assert.strictEqual(result.confirmationMessages?.customButtons?.length, 2);
+			assert.strictEqual(result.confirmationMessages?.allowAutoConfirm, false);
+			// The resolved model name should still be the expensive one (user can approve)
+			assert.deepStrictEqual(result.toolSpecificData, {
+				kind: 'subagent',
+				description: 'test task',
+				agentName: 'ExpensiveAgent',
+				prompt: 'test',
+				modelName: 'O3 Pro',
+			});
 		});
 
 		test('uses subagent model when it has equal multiplier', async () => {
@@ -1475,7 +1480,7 @@ suite('RunSubagentTool', () => {
 			});
 		});
 
-		test('throws error when explicit model has higher multiplier', async () => {
+		test('returns confirmation when explicit model has higher multiplier', async () => {
 			const mainMeta = createMetadata('GPT-4o', 1);
 			const expensiveMeta = createMetadata('O3 Pro', 50);
 			const models = new Map([
@@ -1488,21 +1493,25 @@ suite('RunSubagentTool', () => {
 
 			const tool = createTool({ models, qualifiedNameMap });
 
-			await assert.rejects(
-				() => tool.prepareToolInvocation({
-					parameters: { prompt: 'test', description: 'test task', model: 'O3 Pro (TestVendor)' },
-					toolCallId: 'model-call-3',
-					modelId: 'main-model-id',
-					chatSessionResource: URI.parse('test://session'),
-				}, CancellationToken.None),
-				(err: Error) => {
-					assert.ok(err.message.includes('O3 Pro'));
-					assert.ok(err.message.includes('exceeds'));
-					assert.ok(err.message.includes('cost tier'));
-					assert.ok(err.message.includes('Unavailable'));
-					return true;
-				}
-			);
+			const result = await tool.prepareToolInvocation({
+				parameters: { prompt: 'test', description: 'test task', model: 'O3 Pro (TestVendor)' },
+				toolCallId: 'model-call-3',
+				modelId: 'main-model-id',
+				chatSessionResource: URI.parse('test://session'),
+			}, CancellationToken.None);
+
+			assert.ok(result);
+			assert.ok(result.confirmationMessages?.title, 'Should show confirmation for expensive model');
+			assert.ok(result.confirmationMessages?.customButtons, 'Should have custom buttons');
+			assert.strictEqual(result.confirmationMessages?.customButtons?.length, 2);
+			assert.strictEqual(result.confirmationMessages?.allowAutoConfirm, false);
+			assert.deepStrictEqual(result.toolSpecificData, {
+				kind: 'subagent',
+				description: 'test task',
+				agentName: undefined,
+				prompt: 'test',
+				modelName: 'O3 Pro',
+			});
 		});
 
 		test('throws error with available models when explicit model is not found', async () => {
