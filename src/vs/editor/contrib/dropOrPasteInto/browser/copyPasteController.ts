@@ -48,6 +48,8 @@ export const pasteWidgetVisibleCtx = new RawContextKey<boolean>('pasteWidgetVisi
 
 const vscodeClipboardMime = 'application/vnd.code.copymetadata';
 
+
+
 interface CopyMetadata {
 	readonly id?: string;
 	readonly providerCopyMimeTypes?: readonly string[];
@@ -195,6 +197,8 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			mode: null
 		};
 
+		const clipboardData = JSON.parse(await this._clipboardService.readText()) as ClipboardCopyData;
+		console.log('clipboardData : ', clipboardData);
 		const providers = this._languageFeaturesService.documentPasteEditProvider
 			.ordered(model)
 			.filter(x => !!x.prepareDocumentPaste);
@@ -206,14 +210,17 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 
 		const dataTransfer = new VSDataTransfer();
 		const providerCopyMimeTypes = providers.flatMap(x => x.copyMimeTypes ?? []);
+		console.log('dataTransfer : ', dataTransfer);
+		console.log('providerCopyMimeTypes : ', providerCopyMimeTypes);
 
 		// Save off a handle pointing to data that VS Code maintains.
 		const handle = generateUuid();
-		this.setCopyMetadata(e.clipboardData, {
+		this.setCopyMetadata(clipboardData, {
 			id: handle,
 			providerCopyMimeTypes,
 			defaultPastePayload
 		});
+		await this._clipboardService.writeText(JSON.stringify(clipboardData));
 
 		const operations = providers.map((provider): CopyOperation => {
 			return {
@@ -267,17 +274,14 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		const metadata = this.fetchCopyMetadata(e);
 		this._logService.trace('CopyPasteController#handlePaste with metadata : ', metadata?.id, ' and text.length : ', e.clipboardData.getData('text/plain').length);
 
-		const fileTypes = Array.from(e.clipboardData.files).map(file => file.type);
-
 		const allPotentialMimeTypes = [
-			...e.clipboardData.types,
-			...fileTypes,
 			...metadata?.providerCopyMimeTypes ?? [],
 			// TODO: always adds `uri-list` because this get set if there are resources in the system clipboard.
 			// However we can only check the system clipboard async. For this early check, just add it in.
 			// We filter providers again once we have the final dataTransfer we will use.
 			Mimes.uriList,
 		];
+		console.log('allPotentialMimeTypes : ', allPotentialMimeTypes);
 
 		const allProviders = this._languageFeaturesService.documentPasteEditProvider
 			.ordered(model)
@@ -293,6 +297,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 				// And providers that don't handle any of mime types in the clipboard
 				return provider.pasteMimeTypes?.some(type => matchesMimeType(type, allPotentialMimeTypes));
 			});
+		console.log('allProviders : ', allProviders);
 		if (!allProviders.length) {
 			if (this._pasteAsActionContext?.preferred) {
 				this.showPasteAsNoEditMessage(selections, this._pasteAsActionContext.preferred);
@@ -408,7 +413,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 				if (!supportedProviders.length
 					|| (supportedProviders.length === 1 && supportedProviders[0] instanceof DefaultTextPasteOrDropEditProvider) // Only our default text provider is active
 				) {
-					return this.applyDefaultPasteHandler(dataTransfer, metadata, token, clipboardEvent);
+					return this.applyDefaultPasteHandler(dataTransfer, metadata, token);
 				}
 
 				const context: DocumentPasteContext = {
@@ -423,7 +428,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 
 				// If the only edit returned is our default text edit, use the default paste handler
 				if (editSession.edits.length === 1 && editSession.edits[0].provider instanceof DefaultTextPasteOrDropEditProvider) {
-					return this.applyDefaultPasteHandler(dataTransfer, metadata, token, clipboardEvent);
+					return this.applyDefaultPasteHandler(dataTransfer, metadata, token);
 				}
 
 				if (editSession.edits.length) {
@@ -452,7 +457,7 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 					}, token);
 				}
 
-				await this.applyDefaultPasteHandler(dataTransfer, metadata, token, clipboardEvent);
+				await this.applyDefaultPasteHandler(dataTransfer, metadata, token);
 			} finally {
 				disposables.dispose();
 				if (this._currentPasteOperation === p) {
@@ -598,7 +603,8 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		this._logService.trace('CopyPasteController#fetchCopyMetadata');
 
 		// Prefer using the clipboard data we saved off
-		const rawMetadata = e.clipboardData.getData(vscodeClipboardMime);
+		const rawMetadata = clipboardData['application/vnd.code.copymetadata'];
+		console.log('rawMetadata : ', rawMetadata);
 		if (rawMetadata) {
 			try {
 				return JSON.parse(rawMetadata);
@@ -692,7 +698,6 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		}
 
 		const payload: PastePayload = {
-			clipboardEvent,
 			text,
 			pasteOnNewLine: metadata?.defaultPastePayload.pasteOnNewLine ?? false,
 			multicursorText: metadata?.defaultPastePayload.multicursorText ?? null,

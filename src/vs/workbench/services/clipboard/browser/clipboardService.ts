@@ -48,6 +48,8 @@ export class BrowserClipboardService extends BaseBrowserClipboardService {
 			return super.readText(type);
 		}
 
+		// If type is not defined
+
 		try {
 			const readText = await getActiveWindow().navigator.clipboard.readText();
 			this.logService.trace('BrowserClipboardService#readText with readText.length:', readText.length);

@@ -6904,7 +6904,6 @@ declare namespace monaco.editor {
 	export interface IPasteEvent {
 		readonly range: Range;
 		readonly languageId: string | null;
-		readonly clipboardEvent?: ClipboardEvent;
 	}
 
 	/**

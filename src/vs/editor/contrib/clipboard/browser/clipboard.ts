@@ -183,6 +183,7 @@ class ExecCommandCopyWithSyntaxHighlightingAction extends EditorAction {
 			return;
 		}
 
+		// When copying with syntax highlighting, need to have the editor focused
 		CopyOptions.forceCopyWithSyntaxHighlighting = true;
 		editor.focus();
 		logService.trace('ExecCommandCopyWithSyntaxHighlightingAction (before execCommand copy)');
@@ -211,6 +212,7 @@ function executeClipboardCopyWithWorkaround(editor: IActiveCodeEditor, clipboard
 }
 
 function registerExecCommandImpl(target: MultiCommand | undefined, browserCommand: 'cut' | 'copy'): void {
+	console.log('registerExecCommandImpl');
 	if (!target) {
 		return;
 	}
@@ -234,6 +236,8 @@ function registerExecCommandImpl(target: MultiCommand | undefined, browserComman
 				performance.mark(`code/registerExecCommandImpl/code-editor/${browserCommand}/earlyReturn`);
 				return true;
 			}
+			// Suppose the experimental edit context is enabled and we'd like to execute the cut command
+			// We are not able to use the cut command
 			// TODO this is very ugly. The entire copy/paste/cut system needs a complete refactoring.
 			if (focusedEditor.getOption(EditorOption.effectiveEditContext) && browserCommand === 'cut') {
 				performance.mark(`code/registerExecCommandImpl/code-editor/${browserCommand}/1stBranch`);
@@ -255,7 +259,37 @@ function registerExecCommandImpl(target: MultiCommand | undefined, browserComman
 				}
 				logService.trace('registerExecCommandImpl (after execCommand ' + browserCommand + ')');
 			}
-			return true;
+			const selections = viewModel.getCursorStates().map(cursorState => cursorState.modelState.selection);
+			const copyWithSyntaxHighlighting = focusedEditor.getOption(EditorOption.copyWithSyntaxHighlighting);
+			const dataToCopy = getDataToCopy(viewModel, selections, emptySelectionClipboard, copyWithSyntaxHighlighting);
+			const storedMetadata: ClipboardStoredMetadata = {
+				version: 1,
+				isFromEmptySelection: dataToCopy.isFromEmptySelection,
+				multicursorText: dataToCopy.multicursorText,
+				mode: dataToCopy.mode
+			};
+			InMemoryClipboardMetadataManager.INSTANCE.set(
+				// When writing "LINE\r\n" to the clipboard and then pasting,
+				// Firefox pastes "LINE\n", so let's work around this quirk
+				(browser.isFirefox ? dataToCopy.text.replace(/\r\n/g, '\n') : dataToCopy.text),
+				storedMetadata
+			);
+			// Need to write to the clipboard API instead
+			const clipboardCopyData: ClipboardCopyData = {
+				'text/plain': dataToCopy.text,
+				'text/html': dataToCopy.html ?? null,
+				'vscode-editor-data': JSON.stringify(storedMetadata)
+			};
+			console.log('clipboardCopyData : ', clipboardCopyData);
+			const clipboardService = accessor.get(IClipboardService);
+			return (async () => {
+				await clipboardService.writeText(JSON.stringify(clipboardCopyData));
+				const copyPasteController = focusedEditor.getContribution<CopyPasteController>(CopyPasteController.ID);
+				if (!copyPasteController) {
+					return;
+				}
+				copyPasteController.handleCopy();
+			})();
 		}
 		performance.mark(`code/registerExecCommandImpl/code-editor/${browserCommand}/editorNotFocused`);
 		return false;
@@ -327,8 +361,12 @@ if (PasteAction) {
 				performance.mark('code/registerExecCommandImpl/code-editor/paste/pastingOnWeb');
 				// Use the clipboard service if document.execCommand('paste') was not successful
 				return (async () => {
+					// need to call the code in copy/paste controller
 					const clipboardText = await clipboardService.readText();
+					console.log('clipboardText : ', clipboardText);
 					if (clipboardText !== '') {
+						// fetching the text from the instance of the in memory clipboard metadata manager
+						// singleton
 						const metadata = InMemoryClipboardMetadataManager.INSTANCE.get(clipboardText);
 						let pasteOnNewLine = false;
 						let multicursorText: string[] | null = null;
@@ -348,8 +386,17 @@ if (PasteAction) {
 					}
 					copyPasteController?.handlePasteWithoutEvent();
 				})();
+			} else {
+				// Maybe need to reorder the above branches, so this one appears before the one above
+				const copyPasteController = CopyPasteController.get(focusedEditor);
+				if (!copyPasteController) {
+					return false;
+				}
+				return (async () => {
+					await copyPasteController.handlePaste();
+					copyPasteController.finishedPaste();
+				})();
 			}
-			return true;
 		}
 		performance.mark('code/registerExecCommandImpl/code-editor/paste/editorNotFocusedOnPaste');
 		return false;

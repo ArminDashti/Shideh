@@ -152,10 +152,6 @@ export class TextAreaInput extends Disposable {
 	private _onSelectionChangeRequest = this._register(new Emitter<Selection>());
 	public readonly onSelectionChangeRequest: Event<Selection> = this._onSelectionChangeRequest.event;
 
-	// ---
-
-	private readonly _asyncTriggerCut: RunOnceScheduler;
-
 	private readonly _asyncFocusGainWriteScreenReaderContent: MutableDisposable<RunOnceScheduler> = this._register(new MutableDisposable());
 
 	private _textAreaState: TextAreaState;
@@ -178,7 +174,6 @@ export class TextAreaInput extends Disposable {
 		@ILogService private readonly _logService: ILogService
 	) {
 		super();
-		this._asyncTriggerCut = this._register(new RunOnceScheduler(() => this._onCut.fire(), 0));
 		this._textAreaState = TextAreaState.EMPTY;
 		this._selectionChangeListener = null;
 		if (this._accessibilityService.isScreenReaderOptimized()) {

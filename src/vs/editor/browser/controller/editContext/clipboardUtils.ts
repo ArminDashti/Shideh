@@ -100,10 +100,14 @@ export class InMemoryClipboardMetadataManager {
 	}
 
 	public set(lastCopiedValue: string, data: ClipboardStoredMetadata): void {
+		console.log('set in InMemoryClipboardMetadataManager');
+		console.log('lastCopiedValue: ', lastCopiedValue);
+		console.log('data: ', data);
 		this._lastState = { lastCopiedValue, data };
 	}
 
 	public get(pastedText: string): ClipboardStoredMetadata | null {
+		console.log('get in InMemoryClipboardMetadataManager, pastedText: ', pastedText);
 		if (this._lastState && this._lastState.lastCopiedValue === pastedText) {
 			// match!
 			return this._lastState.data;
@@ -161,6 +165,8 @@ const ClipboardEventUtils = {
 			const files: File[] = Array.prototype.slice.call(clipboardData.files, 0);
 			return [files.map(file => file.name).join('\n'), null];
 		}
+		console.log('text: ', text);
+		console.log('metadata: ', metadata);
 		return [text, metadata];
 	},
 

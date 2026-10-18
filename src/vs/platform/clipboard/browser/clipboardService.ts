@@ -40,6 +40,7 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		// copied resources: since we keep resources in memory
 		// and not in the clipboard, we have to invalidate
 		// that state when the user copies other data.
+		// If we detect copying to the clipboard, then clear the memory
 		this._register(Event.runAndSubscribe(onDidRegisterWindow, ({ window, disposables }) => {
 			disposables.add(addDisposableListener(window.document, 'copy', () => this.clearResourcesState()));
 		}, { window: mainWindow, disposables: this._store }));
@@ -51,11 +52,13 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 	}
 
 	async readImage(): Promise<Uint8Array> {
+		console.log('readImage of BrowserClipboardService');
 		try {
 			const clipboardItems = await navigator.clipboard.read();
 			const clipboardItem = clipboardItems[0];
 
 			const supportedImageTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/tiff', 'image/bmp'];
+			// we only read specific types of images
 			const mimeType = supportedImageTypes.find(type => clipboardItem.types.includes(type));
 
 			if (mimeType) {
@@ -235,6 +238,7 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		const activeDocument = getActiveDocument();
 		const activeElement = activeDocument.activeElement;
 
+		// Appending a temporary text area, setting the value of the text area, copying the content by executing the command and then removing it
 		const textArea: HTMLTextAreaElement = activeDocument.body.appendChild($('textarea', { 'aria-hidden': true }));
 		textArea.style.height = '1px';
 		textArea.style.width = '1px';
@@ -296,6 +300,9 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		// as we have seen DOMExceptions in certain browsers
 		// due to security policies.
 		try {
+
+			// ClipboardItem comes from the dom library
+			// defininig our own mime type
 			await getActiveWindow().navigator.clipboard.write([
 				new ClipboardItem({
 					[`web ${vscodeResourcesMime}`]: new Blob([
