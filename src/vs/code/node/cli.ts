@@ -173,6 +173,16 @@ export async function main(argv: string[]): Promise<void> {
 			}
 		}
 
+		// Windows: set the paths as allowed UNC paths given
+		// they are explicitly provided by the user as arguments
+		if (isWindows) {
+			for (const path of [source, target]) {
+				if (isUNC(path)) {
+					addUNCHostToAllowlist(URI.file(path).authority);
+				}
+			}
+		}
+
 		// Validate
 		if (
 			!source || !target || source === target ||				// make sure source and target are provided and are not the same

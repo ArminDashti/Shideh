@@ -1320,6 +1320,33 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		return undefined;
 	}
 
+	private async onUNCHostNotAllowed(path: string, options: IPathResolveOptions): Promise<IPathToOpen<ITextEditorOptions> | undefined> {
+		const uri = URI.file(path);
+
+		const { response } = await this.dialogMainService.showMessageBox({
+			type: 'warning',
+			buttons: [
+				localize({ key: 'yes', comment: ['&& denotes a mnemonic'] }, "&&Yes"),
+				localize({ key: 'no', comment: ['&& denotes a mnemonic'] }, "&&No"),
+				localize({ key: 'learnMore', comment: ['&& denotes a mnemonic'] }, "&&Learn More"),
+			],
+			message: localize('confirmOpenMessage', "The host '{0}' was not found in the list of allowed hosts. Do you want to open it anyway?", uri.authority),
+			detail: localize('confirmOpenDetail', "The path '{0}' uses a host that is not allowed. Unless you trust the host, you should press 'No'", getPathLabel(uri, { os: OS, tildify: this.environmentMainService }))
+		});
+
+		if (response === 0) {
+			addUNCHostToAllowlist(uri.authority);
+
+			return this.doResolveFilePath(path, options, true /* do not handle UNC error again */);
+		}
+
+		if (response === 2) {
+			shell.openExternal('https://aka.ms/vscode-windows-unc');
+		}
+
+		return undefined;
+	}
+
 	private doResolveRemotePath(path: string, options: IPathResolveOptions): IPathToOpen<ITextEditorOptions> | undefined {
 		const first = path.charCodeAt(0);
 		const remoteAuthority = options.remoteAuthority;
