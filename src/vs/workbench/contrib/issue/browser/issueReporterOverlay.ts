@@ -576,6 +576,29 @@ export class IssueReporterOverlay {
 		this.disposables.add(toDisposable(() => {
 			this.floatingBar?.remove();
 		}));
+
+		// Recording controls event handlers
+		if (this.recordingSupported) {
+			this.disposables.add(this.recordButton.onDidClick(() => {
+				if (this.recordingState === RecordingState.Idle) {
+					this._onDidRequestStartRecording.fire({ mimeType: this.selectedRecordingMimeType });
+				} else if (this.recordingState === RecordingState.Recording) {
+					this._onDidRequestStopRecording.fire();
+				}
+			}));
+
+			this.disposables.add(addDisposableListener(this.recordingFormatSelect, EventType.CHANGE, () => {
+				this.selectedRecordingMimeType = this.recordingFormatSelect.value;
+			}));
+
+			this.disposables.add(this.saveRecordingButton.onDidClick(() => {
+				this._onDidRequestSaveRecording.fire();
+			}));
+
+			this.disposables.add(addDisposableListener(this.discardRecordingButton, EventType.CLICK, () => {
+				this.setRecordingState(RecordingState.Idle);
+			}));
+		}
 	}
 
 	private updateCaptureStripVisibility(): void {
@@ -2184,6 +2207,22 @@ export class IssueReporterOverlay {
 		}));
 	}
 
+	private setScreenshotControlsEnabled(enabled: boolean): void {
+		if (this.isScreenshotCountdownActive) {
+			// Keep primary button label updates visible during countdown but block interaction.
+			this.screenshotButton.enabled = true;
+			this.screenshotButton.element.classList.add('disabled');
+			this.screenshotButton.element.setAttribute('aria-disabled', String(true));
+			this.delayButton.disabled = true;
+			this.delayButton.classList.add('disabled');
+			return;
+		}
+
+		this.screenshotButton.enabled = enabled;
+		this.delayButton.disabled = !enabled;
+		this.delayButton.classList.toggle('disabled', !enabled);
+	}
+
 	getScreenshots(): readonly IScreenshot[] {
 		return this.screenshots;
 	}
@@ -2758,6 +2797,49 @@ ${rows.map(row => row.map(value => this.escapeMarkdownTableCell(value ?? '')).jo
 		const label = this.disposables.add(new KeybindingLabel(parent, OS, { ...defaultKeybindingLabelStyles }));
 		label.set(keybinding);
 		label.element.classList.add('wizard-shortcut');
+	}
+
+	/** Disable or enable all issue reporter controls (except the recording stop button). */
+	private setIssueReporterControlsDisabled(disabled: boolean): void {
+		this.titleInput.disabled = disabled;
+		this.descriptionTextarea.disabled = disabled;
+		this.issueTypeSelect.disabled = disabled;
+		this.issueSourceSelect.disabled = disabled;
+		this.screenshotButton.enabled = !disabled;
+		this.delayButton.disabled = disabled;
+		this.submitButton.enabled = !disabled;
+		this.cancelButton.enabled = !disabled;
+		this.headerElement.classList.toggle('recording-disabled', disabled);
+		this.footerElement.classList.toggle('recording-disabled', disabled);
+	}
+
+	private savedWindowControlColors: { bg: string; fg: string } | undefined;
+
+	private syncWindowControlsColors(): void {
+		if (!this.updateWindowControlsColors) {
+			return;
+		}
+		// Save the original colors from the titlebar element
+		const workbench = this.layoutService.mainContainer;
+		const titlebar = workbench.querySelector('.part.titlebar') as HTMLElement | null;
+		if (titlebar) {
+			this.savedWindowControlColors = {
+				bg: titlebar.style.backgroundColor,
+				fg: titlebar.style.color,
+			};
+		}
+		// Set controls to match our header background
+		const targetWindow = getWindow(this.headerElement);
+		const computedStyle = targetWindow.getComputedStyle(this.headerElement);
+		this.updateWindowControlsColors(computedStyle.backgroundColor, computedStyle.color);
+	}
+
+	private restoreWindowControlsColors(): void {
+		if (!this.updateWindowControlsColors || !this.savedWindowControlColors) {
+			return;
+		}
+		this.updateWindowControlsColors(this.savedWindowControlColors.bg, this.savedWindowControlColors.fg);
+		this.savedWindowControlColors = undefined;
 	}
 
 	dispose(): void {
