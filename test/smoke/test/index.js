@@ -47,7 +47,7 @@ mocha.run(failures => {
 		const rootPath = join(__dirname, '..', '..', '..');
 		const logPath = join(rootPath, '.build', 'logs');
 
-		if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
+		if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || process.env.GITHUB_WORKSPACE) {
 			console.log(`
 ###################################################################
 #                                                                 #
