@@ -58,14 +58,21 @@ export class BinaryFileEditor extends BaseBinaryResourceEditor {
 				return; // we need untyped editor support
 			}
 
-			// Try to let the user pick an editor
-			let resolvedEditor: ResolvedEditor | undefined = await this.editorResolverService.resolveEditor({
+			const untypedEditorToResolve = {
 				...untypedActiveEditor,
 				options: {
-					...options,
-					override: EditorResolution.PICK
+					...options
 				}
-			}, this.group);
+			};
+
+			const resolvedOptions = await this.editorResolverService.showEditorPicker(this.quickInputService, untypedEditorToResolve);
+			if (!resolvedOptions) {
+				return; // user canceled
+			}
+			untypedEditorToResolve.options = resolvedOptions;
+
+			// Try to let the user pick an editor
+			let resolvedEditor: ResolvedEditor | undefined = await this.editorResolverService.resolveEditor(untypedEditorToResolve, this.group);
 
 			if (resolvedEditor === ResolvedStatus.NONE) {
 				resolvedEditor = undefined;

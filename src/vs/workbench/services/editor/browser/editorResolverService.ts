@@ -91,7 +91,6 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IExtensionService private readonly extensionService: IExtensionService,
@@ -168,16 +167,6 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 			resource = URI.from({ scheme: Schemas.untitled });
 		} else if (resource.scheme === undefined || resource === null) {
 			return ResolvedStatus.NONE;
-		}
-
-		if (untypedEditor.options?.override === EditorResolution.PICK) {
-			const picked = await this.doPickEditor(untypedEditor);
-			// If the picker was cancelled we will stop resolving the editor
-			if (!picked) {
-				return ResolvedStatus.ABORT;
-			}
-			// Populate the options with the new ones
-			untypedEditor.options = picked;
 		}
 
 		// Resolved the editor ID as much as possible, now find a given editor (cast here is ok because we resolve down to a string above)
@@ -956,33 +945,11 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 
 		const handle = this.notificationService.prompt(Severity.Warning,
 			localize('editorResolver.conflictingDefaults', 'There are multiple default editors available for the resource.'),
-			[{
-				label: localize('editorResolver.configureDefault', 'Configure Default'),
-				run: async () => {
-					// Show the picker and tell it to update the setting to whatever the user selected
-					const picked = await this.doPickEditor(untypedInput, true);
-					if (!picked) {
-						return;
-					}
-					untypedInput.options = picked;
-					const replacementEditor = await this.resolveEditor(untypedInput, group);
-					if (replacementEditor === ResolvedStatus.ABORT || replacementEditor === ResolvedStatus.NONE) {
-						return;
-					}
-					// Replace the current editor with the picked one
-					group.replaceEditors([
-						{
-							editor: currentEditor,
-							replacement: replacementEditor.editor,
-							options: replacementEditor.options ?? picked,
-						}
-					]);
+			[
+				{
+					label: localize('editorResolver.keepDefault', 'Keep {0}', editorName),
+					run: writeCurrentEditorsToStorage
 				}
-			},
-			{
-				label: localize('editorResolver.keepDefault', 'Keep {0}', editorName),
-				run: writeCurrentEditorsToStorage
-			}
 			]);
 		// If the user pressed X we assume they want to keep the current editor as default
 		const onCloseListener = handle.onDidClose(() => {

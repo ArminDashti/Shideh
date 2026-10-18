@@ -376,7 +376,13 @@ CommandsRegistry.registerCommand({
 		const listService = accessor.get(IListService);
 		const uri = getResourceForCommand(resource, editorService, listService);
 		if (uri) {
-			return editorService.openEditor({ resource: uri, options: { override: EditorResolution.PICK, source: EditorOpenSource.USER } });
+			const untypedEditor: IResourceEditorInput = { resource: uri, options: { source: EditorOpenSource.USER } };
+			const pickedEditor = await editorResolverService.showEditorPicker(quickInputService, untypedEditor);
+			if (!pickedEditor) {
+				return;
+			}
+			untypedEditor.options = pickedEditor;
+			return editorService.openEditor(untypedEditor);
 		}
 
 		return undefined;
