@@ -196,7 +196,7 @@ export class CellExecutionPart extends CellContentPart {
 				}
 			}
 		}
-
+		console.log(`Cell ${this._notebookEditor.getCellIndex(this.currentCell)}, Execution Order Label Top = ${top}`);
 		this._executionOrderLabel.style.top = `${top}px`;
 	}
 }

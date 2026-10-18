@@ -11,7 +11,7 @@ import { raceCancellation } from '../../../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Event } from '../../../../../../base/common/event.js';
-import { Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
+import { combinedDisposable, Disposable, IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { clamp } from '../../../../../../base/common/numbers.js';
 import * as strings from '../../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
@@ -124,9 +124,16 @@ export class CodeCell extends Disposable {
 		this.updateForOutputFocus();
 
 		this.cellParts.scheduleRenderCell(this.viewCell);
+		// const stickyEditor = this._register(registerStickyEditor(this.notebookEditor, this.viewCell, this.templateData.editorPart, templateData.editor, { extraOffset: 0 }));
+		this.adjustEditorHeight();
+		const stickyEditor = combinedDisposable(
+			notebookEditor.onDidScroll(() => this.adjustEditorHeight()),
+			notebookEditor.onDidChangeLayout(() => this.adjustEditorHeight())
+		);
 
 		this._register(toDisposable(() => {
 			this.cellParts.unrenderCell(this.viewCell);
+			stickyEditor.dispose();
 		}));
 
 
@@ -306,16 +313,20 @@ export class CodeCell extends Disposable {
 		const editorMaxHeight = notebookEditorLayout.height
 			- notebookEditorLayout.stickyHeight
 			- 26 /** notebook toolbar */;
+		console.log(`Editor Height = ${this.templateData.editor.getLayoutInfo().height}`);
 
+		const editorHeight = this.templateData.editor.getLayoutInfo().height;
+		// const editorHeight = this.viewCell.layoutInfo.editorHeight;
 		const maxTop =
-			this.viewCell.layoutInfo.editorHeight
+			editorHeight
 			// + this.viewCell.layoutInfo.statusBarHeight
-			- editorMaxHeight
+			// - editorMaxHeight
 			;
-		const top = maxTop > 20 ?
-			clamp(min, diff, maxTop) :
-			min;
-		this.templateData.editorPart.style.top = `${top}px`;
+		// const top = maxTop > 20 ?
+		// 	clamp(min, diff, maxTop) :
+		// 	min;
+		const top = diff;
+		// this.templateData.editorPart.style.top = `${top}px`;
 		// scroll the editor with top
 		this.templateData.editor.setScrollTop(top);
 	}
@@ -667,6 +678,10 @@ export class CodeCell extends Disposable {
 			width: dimension.width,
 			height: maxHeight
 		}, true);
+
+		if (this.viewCell.calculatedEditorHeight === undefined) {
+			this.viewCell.calculatedEditorHeight = dimension.height;
+		}
 	}
 
 	private onCellWidthChange(dbgReasonForChange: CellLayoutChangeReason): void {
@@ -726,6 +741,120 @@ export class CodeCell extends Disposable {
 		this._pendingLayout?.dispose();
 
 		super.dispose();
+	}
+
+	private adjustEditorHeight() {
+		const element = this.templateData.editorPart;
+		if (!this.viewCell.calculatedEditorHeight) {
+			return;
+		}
+		if (this.viewCell.isInputCollapsed) {
+			element.style.top = '';
+			return;
+		}
+		const editor = this.templateData.editor;
+		const extraOffset = 0;
+		const min = 0;
+		// if (editorHeight === lastUpdatedEditorHeight){
+		// 	return;
+		// }
+		const editorLayout = editor.getLayoutInfo();
+		const editorHeight = this.viewCell.layoutInfo.editorHeight;
+		// const editorHeight = editorLayout.height;
+		const scrollTop = this.notebookEditor.scrollTop;
+		const elementTop = this.notebookEditor.getAbsoluteTopOfElement(this.viewCell);
+		// notebookEditor.codeEditors[][1].layout({
+		const diff = scrollTop - elementTop + extraOffset;
+		const maxTop = editorHeight + this.viewCell.layoutInfo.statusBarHeight - 45; // subtract roughly the height of the execution order label plus padding
+		const top = maxTop > 20 ? // Don't move the run button if it can only move a very short distance
+			clamp(min, diff, maxTop) :
+			min;
+		element.style.top = `${top}px`;
+
+		// cell.edito
+		const cellIndex = this.notebookEditor.getCellIndex(this.viewCell);
+		// const runTop = top;
+		// if ((top - extraOffset) === 0) {
+		// 	const layout = { ...textEditor.getLayoutInfo() };
+		// 	layout.height = cell.calculatedEditorHeight;
+		// 	textEditor.layout(layout, true);
+		// }
+
+		if ((top - extraOffset) <= 0) {
+			let top = editorHeight - 22 + this.viewCell.layoutInfo.statusBarHeight;
+
+			const editorBottom = elementTop + this.viewCell.layoutInfo.outputContainerOffset;
+			const scrollBottom = this.notebookEditor.scrollBottom;
+			const lineHeight = 22;
+
+			const statusBarVisible = this.viewCell.layoutInfo.statusBarHeight > 0;
+
+			// Sticky mode: cell is running and editor is not fully visible
+			const offset = editorBottom - scrollBottom;
+			top -= offset;
+			top = clamp(
+				top,
+				lineHeight + 12, // line height + padding for single line
+				editorHeight - lineHeight + this.viewCell.layoutInfo.statusBarHeight
+			);
+
+			if (!statusBarVisible) {
+				top = editorHeight - lineHeight; // Place at the bottom of the editor
+			}
+			const height = top;
+			if (height > 0) {
+				console.log(`Cell ${cellIndex} Update (1) Editor Height = ${height}px`);
+				// lastUpdatedEditorHeight = height;
+				// this.onCellEditorHeightChange(height);
+				editor.layout({
+					width: editorLayout.width,
+					height
+				}, true);
+			}
+		}
+		if ((top - extraOffset) > 0) {
+			// const maxTop = cell.calculatedEditorHeight + cell.layoutInfo.statusBarHeight; // subtract roughly the height of the execution order label plus padding
+			// const top = clamp(min, diff, maxTop);
+			// const top = maxTop > 20 ? // Don't move the run button if it can only move a very short distance
+			// 	clamp(min, diff, maxTop) :
+			// 	min;
+			// const info = textEditor.getLayoutInfo();
+
+			let bottom = this.viewCell.calculatedEditorHeight - 22 + this.viewCell.layoutInfo.statusBarHeight;
+
+			const editorBottom = elementTop + this.viewCell.layoutInfo.outputContainerOffset;
+			const scrollBottom = this.notebookEditor.scrollBottom;
+			const lineHeight = 22;
+
+			const statusBarVisible = this.viewCell.layoutInfo.statusBarHeight > 0;
+
+			// Sticky mode: cell is running and editor is not fully visible
+			const offset = editorBottom - scrollBottom;
+			bottom -= offset;
+			bottom = clamp(
+				bottom,
+				lineHeight + 12, // line height + padding for single line
+				this.viewCell.calculatedEditorHeight - lineHeight + this.viewCell.layoutInfo.statusBarHeight
+			);
+
+			if (scrollBottom <= editorBottom) {
+				//
+			} else if (!statusBarVisible) {
+				bottom = this.viewCell.calculatedEditorHeight - lineHeight; // Place at the bottom of the editor
+			}
+
+			const height = (bottom - top + extraOffset);
+			if (height > 0) {
+				console.log(`Cell ${cellIndex} Update (2) Editor Height = ${height}px`);
+				// lastUpdatedEditorHeight = height;
+				// this.onCellEditorHeightChange(height);
+				editor.layout({
+					width: editorLayout.width,
+					height
+				}, true);
+			}
+		}
+
 	}
 }
 
