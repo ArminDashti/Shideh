@@ -35,6 +35,24 @@ const DEFAULT_MAX_PLUGIN_REVISIONS = 64;
  */
 const MAX_REVISIONS_PER_PLUGIN = 8;
 
+/**
+ * Layout version of the on-disk cache. Bumped whenever the nonce → directory
+ * mapping changes, so an upgrade can remove directories materialized under the
+ * previous scheme instead of orphaning them.
+ */
+const CACHE_LAYOUT_VERSION = 2;
+
+const MAX_KEY_LENGTH = 128;
+const NONCE_KEY_UNDEFINED = 'default';
+const NONCE_KEY_PREFIX_ENCODED = 'n-';
+const NONCE_KEY_PREFIX_HASHED = 'h-';
+
+/** On-disk cache file format. */
+interface ICacheFile {
+	readonly version: number;
+	readonly entries: ICacheEntry[];
+}
+
 /** On-disk cache entry format. */
 interface ICacheEntry {
 	readonly uri: string;
@@ -384,8 +402,38 @@ export class AgentPluginManager implements IAgentPluginManager {
 		return this._sanitize(uri);
 	}
 
+	/**
+	 * Directory-name key for a nonce.
+	 *
+	 * A nonce is an opaque client token, so this mapping must be **injective**:
+	 * two different nonces must never share a directory, or the LRU (which
+	 * tracks them as distinct revisions) will evict one and delete the other's
+	 * materialized content. {@link _sanitize} is lossy and cannot be used here —
+	 * content-hash nonces are signed 32-bit integers, so `-1234` and `1234`
+	 * would both reduce to `1234`.
+	 *
+	 * Every nonce is therefore encoded reversibly as URL-safe base64 (whose
+	 * alphabet is already path-safe) under a reserved `n-` prefix. Nonces too
+	 * long to encode within {@link MAX_KEY_LENGTH} fall back to a SHA-1 digest
+	 * under a distinct `h-` prefix, so the two schemes occupy separate
+	 * namespaces and a hashed key can never alias an encoded one.
+	 */
 	private _keyForNonce(nonce: string | undefined): string {
-		return (nonce && this._sanitize(nonce)) || 'default';
+		if (!nonce) {
+			return NONCE_KEY_UNDEFINED;
+		}
+		const encoded = encodeBase64(VSBuffer.fromString(nonce), false, true);
+		if (encoded.length <= MAX_KEY_LENGTH) {
+			return `${NONCE_KEY_PREFIX_ENCODED}${encoded}`;
+		}
+		const sha = new StringSHA1();
+		sha.update(nonce);
+		return `${NONCE_KEY_PREFIX_HASHED}${sha.digest()}`;
+	}
+
+	/** The pre-`n-`/`h-` directory name a nonce mapped to. Used only to clean up on upgrade. */
+	private _legacyKeyForNonce(nonce: string | undefined): string {
+		return (nonce && this._sanitize(nonce)) || NONCE_KEY_UNDEFINED;
 	}
 
 	private _sanitize(value: string): string {

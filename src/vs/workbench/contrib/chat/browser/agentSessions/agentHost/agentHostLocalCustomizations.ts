@@ -54,6 +54,50 @@ export const SYNCABLE_STORAGE_SOURCES: readonly PromptsStorage[] = [
 
 export interface ILocalCustomizationSyncOptions {
 	readonly includeUserStorage?: boolean;
+	/**
+	 * Whether workspace-scoped content — `PromptsStorage.local` files and
+	 * workspace-discovered MCP servers — may be bundled into the synthetic
+	 * synced plugin. Defaults to `true`.
+	 *
+	 * Every caller states this explicitly, because the correct value depends on
+	 * facts the service cannot see: whether the window's workspace is stable,
+	 * and whether the host can discover these files for itself.
+	 *
+	 * Must be `false` wherever the window's workspace folders are a transient
+	 * reflection of some *other* piece of state rather than a stable, user-chosen
+	 * workspace. The Agents window is exactly that case: it rewrites workspace
+	 * folder 0 to follow the active session (see
+	 * `WorkspaceFolderManagementContribution`), so workspace-scoped content
+	 * belongs to whichever session happens to be focused.
+	 *
+	 * The synthetic bundle, by contrast, is a single window-global artifact
+	 * shared by *every* session of a session type. Mixing the two means each
+	 * focus change rewrites the bundle, which changes its content nonce and
+	 * forces the agent host to destroy and resume the session on its next send
+	 * (`ActiveClient.requiresRestart`). It is also simply wrong: sessions get a
+	 * second copy of another worktree's instructions on top of their own.
+	 *
+	 * For a *local* agent host most workspace customization types remain
+	 * available: the host natively discovers `.github/instructions`,
+	 * `.github/skills`, `.github/agents` and friends from each session's own
+	 * working directory (see `SessionCustomizationDiscovery`), which is the
+	 * correct source. Workspace `.github/prompts` is the deliberate exception —
+	 * see below.
+	 *
+	 * A *remote* agent host is the opposite case and must pass `true`: it runs on
+	 * another machine and cannot discover any of this client's files, so the
+	 * client bundle is load-bearing rather than redundant. This is the same
+	 * reason remote registrations opt into user storage.
+	 *
+	 * Workspace `.github/prompts` (bundled as `commands/`) has no native
+	 * equivalent, so those slash commands — user-visible functionality — stop
+	 * working in the Agents window when this is `false`. That is an accepted
+	 * regression rather than a no-op: a slash command from an unrelated worktree
+	 * is worse than no slash command. Skills are the supported replacement for
+	 * prompt files on agent-host harnesses. Restoring them properly means
+	 * bundling per session rather than per window.
+	 */
+	readonly includeWorkspaceStorage?: boolean;
 }
 
 export interface ILocalCustomizationFile {
@@ -225,6 +269,11 @@ export async function collectNonPluginMcpServers(mcpService: IMcpService, config
  * belonging to installed plugins are de-duped to a single plugin ref;
  * remaining loose files — together with MCP servers configured directly in
  * VS Code — are bundled into a synthetic Open Plugin.
+ *
+ * Workspace-scoped content is omitted when
+ * {@link ILocalCustomizationSyncOptions.includeWorkspaceStorage} is `false`,
+ * because the bundle is shared by every session of `sessionType` while the
+ * workspace it would be read from is not.
  */
 export async function resolveCustomizationRefs(
 	fileService: IFileService,
@@ -242,6 +291,7 @@ export async function resolveCustomizationRefs(
 ): Promise<ClientPluginCustomization[]> {
 	const enumerated = await enumerateLocalCustomizationsForHarness(promptsService, syncProvider, sessionType, CancellationToken.None, options);
 	const enabled = enumerated.filter(e => !e.disabled);
+	const includeWorkspaceScoped = options?.includeWorkspaceStorage !== false;
 
 	const plugins = agentPluginService.plugins.get();
 	const pluginRefs = new Map<string, Promise<ClientPluginCustomization>>();
@@ -308,7 +358,7 @@ export async function resolveCustomizationRefs(
 				continue;
 			}
 			addPluginRef(plugin);
-		} else {
+		} else if (entry.source !== AICustomizationSources.local || includeWorkspaceScoped) {
 			looseFiles.push({ uri: entry.uri, type: entry.type, source: entry.source, extensionId: entry.extensionId, pluginUri: entry.pluginUri });
 		}
 	}
