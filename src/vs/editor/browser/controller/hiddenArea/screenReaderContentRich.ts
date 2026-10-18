@@ -104,6 +104,10 @@ export class RichScreenReaderContent extends Disposable implements IScreenReader
 		}
 	}
 
+	public onPaste(): void {
+		this._setIgnoreSelectionChangeTime('onPaste');
+	}
+
 	public onWillCut(): void {
 		this._setIgnoreSelectionChangeTime('onCut');
 	}

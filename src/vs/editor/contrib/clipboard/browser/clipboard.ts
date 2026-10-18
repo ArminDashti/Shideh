@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as browser from '../../../../base/browser/browser.js';
-import { getActiveDocument, getActiveWindow } from '../../../../base/browser/dom.js';
+import { getActiveDocument } from '../../../../base/browser/dom.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as platform from '../../../../base/common/platform.js';
 import * as nls from '../../../../nls.js';
@@ -356,7 +356,9 @@ if (PasteAction) {
 				performance.mark('code/registerExecCommandImpl/code-editor/paste/triggerPasteUndefined');
 				logService.trace('registerExecCommandImpl (triggerPaste undefined)');
 			}
-			if (platform.isWeb) {
+			if (result) {
+				return CopyPasteController.get(focusedEditor)?.finishedPaste() ?? Promise.resolve();
+			} else if (platform.isWeb) {
 				logService.trace('registerExecCommandImpl (Paste handling on web)');
 				performance.mark('code/registerExecCommandImpl/code-editor/paste/pastingOnWeb');
 				// Use the clipboard service if document.execCommand('paste') was not successful
