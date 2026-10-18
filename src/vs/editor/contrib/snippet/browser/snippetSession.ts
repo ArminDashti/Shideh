@@ -100,6 +100,8 @@ export class OneSnippet {
 
 		const model = this._editor.getModel();
 
+		const model = this._editor.getModel();
+
 		// Transform placeholder text if necessary
 		if (this._placeholderGroupsIdx >= 0) {
 			const operations: ISingleEditOperation[] = [];

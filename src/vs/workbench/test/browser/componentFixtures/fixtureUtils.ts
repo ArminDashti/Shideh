@@ -1102,6 +1102,9 @@ export function defineComponentFixture(options: ComponentFixtureOptions): Themed
 			// Replace Math.random with a seeded PRNG so fixtures render deterministically.
 			disposableStore.add(pushRandomOverwrite(42));
 
+			// Replace Math.random with a seeded PRNG so fixtures render deterministically.
+			disposableStore.add(pushRandomOverwrite(42));
+
 			// Do not enable virtual time in explorer ui, as multiple fixtures are rendered in parallel.
 			const virtualTimeEnabled = (options.virtualTime?.enabled ?? true) && context.host.kind !== 'explorer-ui';
 			// Detect disposable leaks the same way unit tests do (`ensureNoDisposablesAreLeakedInTestSuite`).

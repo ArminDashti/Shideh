@@ -130,6 +130,11 @@ export class ToolRiskBadgeWidget extends Disposable {
 		this._iconEl.className = 'tool-risk-icon ' + ThemeIcon.asClassName(icon);
 	}
 
+	private _setText(text: string): void {
+		this._iconEl.className = 'tool-risk-icon';
+		this._iconEl.textContent = text;
+	}
+
 	private _setHover(content: string): void {
 		this._hoverStore.clear();
 		this._hoverStore.add(this._hoverService.setupManagedHover(getDefaultHoverDelegate('mouse'), this.domNode, content));

@@ -581,7 +581,7 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 		return promptResult.result === true;
 	}
 
-	private _createRiskBadge(parameters: unknown): HTMLElement | undefined {
+	private _createRiskBadge(parameters: unknown): ToolRiskBadgeWidget | undefined {
 		if (!this.riskAssessmentService.isEnabled()) {
 			return undefined;
 		}
@@ -612,7 +612,7 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 				}
 			})();
 		}
-		return widget.domNode;
+		return widget;
 	}
 
 	private _appendMarkdownPart(container: HTMLElement, message: string | IMarkdownString, codeBlockRenderOptions: ICodeBlockRenderOptions) {
