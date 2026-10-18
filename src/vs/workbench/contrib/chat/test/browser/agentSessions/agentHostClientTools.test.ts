@@ -3190,6 +3190,8 @@ suite('AgentHostClientTools', () => {
 			} as ChatAction);
 
 			const session = await handler.provideChatSessionContent(sessionResource, CancellationToken.None);
+			await timeout(0);
+			await timeout(0);
 
 			await timeout(0);
 			await timeout(0);

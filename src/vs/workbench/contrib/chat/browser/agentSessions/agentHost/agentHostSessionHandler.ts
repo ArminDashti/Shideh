@@ -1176,6 +1176,14 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 	/** Waits for the ChatModel that will receive {@link _pendingToolCallEdits}. */
 	private readonly _pendingToolCallEditFlushes = this._register(new DisposableResourceMap());
 	/**
+	 * Tool call edits that arrived before the session's ChatModel existed, so
+	 * {@link _ensureSnapshotController} could not record them. Flushed into
+	 * the controller as soon as one can be obtained.
+	 */
+	private readonly _pendingToolCallEdits = new ResourceMap<{ requestId: string; toolCall: ToolCallState }[]>();
+	/** Waits for the ChatModel that will receive {@link _pendingToolCallEdits}. */
+	private readonly _pendingToolCallEditFlushes = this._register(new DisposableResourceMap());
+	/**
 	 * Requests a turn observer is currently rendering, keyed by
 	 * {@link _toolCallKey} for tool calls and {@link _inputRequestKey} for chat
 	 * input requests (the two key shapes differ in arity, so they cannot
