@@ -103,6 +103,8 @@ export interface IObservableWithChange<T, TChange = unknown> {
 	// #endregion
 }
 
+export type IObservableWithOptionalChange<T, TChange> = TChange extends void ? IObservable<T> : IObservableWithChange<T, TChange>;
+
 /**
  * Represents an observer that can be subscribed to an observable.
  *
