@@ -37,6 +37,8 @@ import { DiagnosticsMainService, IDiagnosticsMainService } from '../../platform/
 import { DialogMainService, IDialogMainService } from '../../platform/dialogs/electron-main/dialogMainService.js';
 import { IEncryptionMainService } from '../../platform/encryption/common/encryptionService.js';
 import { EncryptionMainService } from '../../platform/encryption/electron-main/encryptionMainService.js';
+import { ISharedKeychainMainService } from '../../platform/secrets/common/sharedKeychainService.js';
+import { SharedKeychainMainService } from '../../platform/secrets/electron-main/sharedKeychainMainService.js';
 import { ipcBrowserViewChannelName } from '../../platform/browserView/common/browserView.js';
 import { ipcBrowserViewGroupChannelName } from '../../platform/browserView/common/browserViewGroup.js';
 import { BrowserViewMainService, IBrowserViewMainService } from '../../platform/browserView/electron-main/browserViewMainService.js';
@@ -1612,6 +1614,10 @@ export class CodeApplication extends Disposable {
 		// Encryption
 		const encryptionChannel = ProxyChannel.fromService(accessor.get(IEncryptionMainService), disposables);
 		mainProcessElectronServer.registerChannel('encryption', encryptionChannel);
+
+		// Shared Keychain
+		const sharedKeychainChannel = ProxyChannel.fromService(accessor.get(ISharedKeychainMainService), disposables);
+		mainProcessElectronServer.registerChannel('sharedKeychain', sharedKeychainChannel);
 
 		// Browser View
 		const browserViewChannel = ProxyChannel.fromService(accessor.get(IBrowserViewMainService), disposables, { unbufferedEvents: ['onDidCreateBrowserView'] });

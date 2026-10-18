@@ -63,6 +63,7 @@ import './services/imageResize/electron-browser/imageResizeService.js';
 import './services/localTranscription/electron-browser/localTranscriptionService.js';
 import './contrib/externalEditorImport/electron-browser/externalEditorImportEnvironmentService.js';
 import './services/secrets/electron-browser/secretStorageService.js';
+import './services/secrets/electron-browser/sharedKeychainService.js';
 import './services/localization/electron-browser/languagePackService.js';
 import './services/telemetry/electron-browser/telemetryService.js';
 import './services/extensions/electron-browser/extensionHostStarter.js';

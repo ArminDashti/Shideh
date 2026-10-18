@@ -17,7 +17,14 @@ function getElectronVersion(): string {
 	return target;
 }*/
 
-function getEntitlementsForFile(filePath: string): string {
+const mainProvisioningProfilePath = path.join(baseDir, 'darwin', 'main.provisionprofile');
+const agentsProvisioningProfilePath = path.join(baseDir, 'darwin', 'agents.provisionprofile');
+
+function hasProvisioningProfile(): boolean {
+	return fs.existsSync(mainProvisioningProfilePath);
+}
+
+function getEntitlementsForFile(filePath: string, tempDir: string, useProvisioningProfile: boolean, teamId?: string): string {
 	if (filePath.includes(' Helper (GPU).app')) {
 		return paths.build.azurePipelines.darwin.helperGpuEntitlementsPlist.absPath;
 	} else if (filePath.includes(' Helper (Renderer).app')) {
@@ -59,7 +66,7 @@ async function retrySignOnKeychainError<T>(fn: () => Promise<T>, maxRetries: num
 	throw lastError;
 }
 
-async function main(buildDir?: string): Promise<void> {
+async function main(buildDir?: string, skipProvisioningProfile?: boolean): Promise<void> {
 	const tempDir = process.env['AGENT_TEMPDIRECTORY'];
 	const arch = process.env['VSCODE_ARCH'];
 	//const identity = process.env['CODESIGN_IDENTITY'];
@@ -81,11 +88,12 @@ async function main(buildDir?: string): Promise<void> {
 		app: path.join(appRoot, appName),
 		platform: 'darwin',
 		optionsForFile: (filePath) => ({
-			entitlements: getEntitlementsForFile(filePath),
+			entitlements: getEntitlementsForFile(filePath, tempDir, useProvisioningProfile, teamId),
 			hardenedRuntime: true,
 		}),
 		preAutoEntitlements: false,
-		preEmbedProvisioningProfile: false,
+		preEmbedProvisioningProfile: !!resolvedProvisioningProfile,
+		provisioningProfile: resolvedProvisioningProfile,
 		keychain: path.join(tempDir, 'buildagent.keychain'),
 		version: getElectronVersion(),
 		identity,
@@ -93,7 +101,8 @@ async function main(buildDir?: string): Promise<void> {
 
 	// Only overwrite plist entries for x64 and arm64 builds,
 	// universal will get its copy from the x64 build.
-	if (arch !== 'universal') {
+	// Skip when re-signing (skipProvisioningProfile) since entries already exist.
+	if (arch !== 'universal' && !skipProvisioningProfile) {
 		await spawn('plutil', [
 			'-insert',
 			'NSAppleEventsUsageDescription',
@@ -132,10 +141,19 @@ async function main(buildDir?: string): Promise<void> {
 	}
 
 	await retrySignOnKeychainError(() => sign(appOpts));
+
+	// Dump entitlements from the signed binary for diagnostic purposes
+	const mainBinary = path.join(appRoot, appName, 'Contents', 'MacOS', product.nameShort);
+	console.log(`Dumping entitlements from signed binary: ${mainBinary}`);
+	const entitlementsDump = await spawn('codesign', ['--display', '--entitlements', '-', '--xml', mainBinary]);
+	console.log(`Signed entitlements:\n${entitlementsDump}`);
 }
 
 if (import.meta.main) {
-	main(process.argv[2]).catch(async err => {
+	const args = process.argv.slice(2);
+	const skipProvisioningProfile = args.includes('--skip-provisioning-profile');
+	const buildDir = args.filter(a => !a.startsWith('--'))[0];
+	main(buildDir, skipProvisioningProfile).catch(async err => {
 		console.error(err);
 		const tempDir = process.env['AGENT_TEMPDIRECTORY'];
 		if (tempDir) {
