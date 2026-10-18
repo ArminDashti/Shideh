@@ -324,6 +324,18 @@ export function toPromptTextVariableEntry(content: string, settingId?: string, a
 	};
 }
 
+export function toPromptsTextVariableEntry(content: string, automaticallyAdded = false, toolReferences?: ChatRequestToolReferenceEntry[]): IPromptTextVariableEntry {
+	return {
+		id: `vscode.prompt.prompts.text`,
+		name: `prompt:promptsList`,
+		value: content,
+		kind: 'promptText',
+		modelDescription: 'Prompts list',
+		automaticallyAdded,
+		toolReferences
+	};
+}
+
 export function toFileVariableEntry(uri: URI, range?: IRange): IChatRequestFileEntry {
 	return {
 		kind: 'file',
