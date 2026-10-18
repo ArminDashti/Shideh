@@ -5081,6 +5081,31 @@ export class SessionsList extends Disposable implements ISessionsList {
 		this.update();
 	}
 
+	/**
+	 * Whether the given session would be excluded from the list by the current
+	 * filters (host filter, type, status, archived, read). Mirrors the filter
+	 * predicates in {@link update}.
+	 */
+	private _isFilteredOut(session: ISession): boolean {
+		const hostFilter = this._agentHostFilterService.selectedProviderId;
+		if (hostFilter !== undefined && session.providerId !== hostFilter) {
+			return true;
+		}
+		if (this.excludedSessionTypes.has(session.sessionType)) {
+			return true;
+		}
+		if (this.excludedStatuses.has(session.status.get())) {
+			return true;
+		}
+		if (this._excludeArchived && session.isArchived.get()) {
+			return true;
+		}
+		if (this._excludeRead && this.isSessionRead(session)) {
+			return true;
+		}
+		return false;
+	}
+
 	update(expandAll?: boolean): void {
 		const activeSession = this._sessionsService.activeSession.get();
 		const onboardingSession = this.onboardingTarget.get()?.session;
