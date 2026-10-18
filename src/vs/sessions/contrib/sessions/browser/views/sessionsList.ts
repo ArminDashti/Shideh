@@ -5112,6 +5112,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 
 		this._register(this.tree.onContextMenu(e => this.onContextMenu(e)));
 
+		let applyingFindPattern = false;
 		this._register(this.tree.onDidChangeCollapseState(e => {
 			const element = e.node.element;
 			if (element && isSessionGroupItem(element)) {
@@ -5124,7 +5125,7 @@ export class SessionsList extends Disposable implements ISessionsList {
 				}
 			} else if (element && isSessionItem(element)) {
 				this.syncCollapsedSessionIds();
-				if (!this.suspendCollapseStatePersistence) {
+				if (!this.suspendCollapseStatePersistence && !applyingFindPattern) {
 					this.saveSessionCollapseState(element, e.node.collapsed);
 				}
 			}
@@ -5133,6 +5134,9 @@ export class SessionsList extends Disposable implements ISessionsList {
 		let isFindOpen = false;
 		let findPattern = '';
 		const updateFindPatternState = () => {
+			if (this._store.isDisposed) {
+				return;
+			}
 			const hasFindPattern = isFindOpen && findPattern.length > 0;
 			if (hasFindPattern !== this.hasFindPattern) {
 				this.hasFindPattern = hasFindPattern;
@@ -5152,6 +5156,11 @@ export class SessionsList extends Disposable implements ISessionsList {
 		// and the find widget is open. Opening the empty find widget should not
 		// reorder the list, and closing find should restore the capped layout.
 		this._register(this.tree.onDidChangeFindPattern(pattern => {
+			// Native Find can synchronously reveal the focused row even when clearing its pattern.
+			if (!applyingFindPattern) {
+				applyingFindPattern = true;
+				queueMicrotask(() => applyingFindPattern = false);
+			}
 			findPattern = pattern;
 			updateFindPatternState();
 		}));
