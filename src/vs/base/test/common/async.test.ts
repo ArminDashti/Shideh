@@ -3260,4 +3260,10 @@ suite('Async', () => {
 			assert.strictEqual(deferred.isRejected, true);
 		});
 	});
+
+	suite('timeout', () => {
+		test('should not leak any disposables', async function () {
+			await async.timeout(0);
+		});
+	});
 });

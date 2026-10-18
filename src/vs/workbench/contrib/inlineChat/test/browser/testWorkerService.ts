@@ -40,6 +40,8 @@ export class TestWorkerService extends mock<IEditorWorkerService>() implements I
 			return null;
 		}
 
+		await timeout(0);
+
 		const originalModel = this._modelService.getModel(original);
 		const modifiedModel = this._modelService.getModel(modified);
 
