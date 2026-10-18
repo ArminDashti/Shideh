@@ -247,30 +247,45 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		if (module.scheme !== Schemas.file) {
 			throw new Error(`Cannot load URI: '${module}', must be of file-scheme`);
 		}
-		let r: T | null = null;
-		activationTimesBuilder.codeLoadingStart();
 		this._logService.trace(`ExtensionService#loadModule [${mode}] -> ${module.toString(true)}`);
 		this._logService.flush();
 		const extensionId = extension?.identifier.value;
 		if (extension) {
 			await this._extHostLocalizationService.initializeLocalizedMessages(extension);
 		}
+
+		// The marks cover the whole wait, so they still say when the extension was ready.
+		// `codeLoadingTime` below only covers the loading itself, so it says what it cost.
+		if (extensionId) {
+			performance.mark(`code/extHost/willLoadExtensionCode/${extensionId}`);
+		}
 		try {
-			if (extensionId) {
-				performance.mark(`code/extHost/willLoadExtensionCode/${extensionId}`);
-			}
-			if (mode === 'esm') {
-				r = <T>await import(module.toString(true));
-			} else {
-				r = <T>require(module.fsPath);
+			// Load synchronously when we can. Nothing else runs during a synchronous load, so
+			// the time below is this extension's own work and nothing else. Extensions that
+			// activate at the same time no longer end up counted against each other.
+			activationTimesBuilder.codeLoadingStart();
+			try {
+				const loaded = mode === 'esm'
+					? tryRequireSync<T>(module.fsPath)
+					: { module: <T>require(module.fsPath) };
+				if (loaded) {
+					return loaded.module;
+				}
+
+				// Only ESM modules using top-level await get here, and they have to be loaded
+				// asynchronously. The timer keeps running across both attempts: the first one
+				// still parsed the module graph, and that work belongs to this extension. Other
+				// extensions run while this one is suspended though, so the number is how long
+				// the load took rather than what it cost.
+				return <T>await import(module.toString(true));
+			} finally {
+				activationTimesBuilder.codeLoadingStop();
 			}
 		} finally {
 			if (extensionId) {
 				performance.mark(`code/extHost/didLoadExtensionCode/${extensionId}`);
 			}
-			activationTimesBuilder.codeLoadingStop();
 		}
-		return r;
 	}
 
 	protected async _loadCommonJSModule<T>(extension: IExtensionDescription | null, module: URI, activationTimesBuilder: ExtensionActivationTimesBuilder): Promise<T> {
