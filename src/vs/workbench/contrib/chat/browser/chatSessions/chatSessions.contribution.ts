@@ -1583,6 +1583,19 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 	}
 
 	/**
+	 * Resolve a resource through the alias map. If the resource is a real
+	 * resource that has been aliased to an untitled resource, return the
+	 * untitled resource (the canonical key in {@link _sessions}).
+	 */
+	private _resolveResource(resource: URI): URI {
+		return this._resourceAliases.get(resource) ?? resource;
+	}
+
+	public registerSessionResourceAlias(untitledResource: URI, realResource: URI): void {
+		this._resourceAliases.set(realResource, untitledResource);
+	}
+
+	/**
 	 * Store option groups for a session type
 	 */
 	public setOptionGroupsForSessionType(chatSessionType: string, handle: number, optionGroups?: IChatSessionProviderOptionGroup[]): void {

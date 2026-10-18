@@ -892,3 +892,26 @@ KeybindingsRegistry.registerKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib + 100,
 	when: ContextKeyExpr.and(IsWebContext.toNegated(), IsAuxiliaryWindowContext.toNegated())
 });
+
+// Disabled placeholder shown in the titlebar when the active session does not support running scripts
+class RunScriptNotAvailableAction extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.agentSessions.runScript.notAvailable',
+			title: localize2('run', "Run"),
+			tooltip: localize('runScriptNotAvailableTooltip', "Run Script is not available for this session type"),
+			icon: Codicon.play,
+			precondition: ContextKeyExpr.false(),
+			menu: [{
+				id: Menus.TitleBarRight,
+				group: 'navigation',
+				order: 8,
+				when: ContextKeyExpr.and(IsAuxiliaryWindowContext.toNegated(), SessionsWelcomeVisibleContext.toNegated(), IsActiveSessionBackgroundProviderContext.toNegated())
+			}]
+		});
+	}
+
+	override run(): void { }
+}
+
+registerAction2(RunScriptNotAvailableAction);

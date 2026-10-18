@@ -153,6 +153,18 @@ export async function playwrightInvokeRaw<TArgs extends unknown[], TReturn>(
 }
 
 /**
+ * Shared helper for running a Playwright function against a page and returning its result.
+ */
+export async function playwrightInvokeRaw<TArgs extends unknown[], TReturn>(
+	playwrightService: IPlaywrightService,
+	pageId: string,
+	fn: (page: Page, ...args: TArgs) => Promise<TReturn>,
+	...args: TArgs
+): Promise<TReturn> {
+	return playwrightService.invokeFunctionRaw(pageId, fn.toString(), ...args);
+}
+
+/**
  * Shared helper for running a Playwright function against a page and returning
  * a tool result. Handles success/error formatting.
  *

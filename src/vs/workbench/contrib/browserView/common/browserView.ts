@@ -353,6 +353,14 @@ export interface IBrowserViewWorkbenchService {
 	getOrCreateLazy(data: IBrowserEditorInputData): BrowserEditorInput;
 
 	/**
+	 * Get an existing browser view model for the given ID
+	 * @param id The browser view identifier
+	 * @returns A browser view model that proxies to the main process
+	 * @throws If no browser view exists for the given ID
+	 */
+	getBrowserViewModel(id: string): Promise<IBrowserViewModel>;
+
+	/**
 	 * Clear all storage data for the global browser session
 	 */
 	clearGlobalStorage(): Promise<void>;
@@ -839,6 +847,7 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	get device(): IBrowserDeviceProfile | undefined { return this._device; }
 
 	async layout(bounds: IBrowserViewBounds): Promise<void> {
+		this._zoomFactor = bounds.zoomFactor;
 		return this.browserViewService.layout(this.id, bounds);
 	}
 

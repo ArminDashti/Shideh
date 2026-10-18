@@ -58,6 +58,8 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 	) {
 		this._overrideRoot = observableValue(this, undefined);
 
+		this._overrideRoot = observableValue(this, undefined);
+
 		this.activeProjectRoot = derived(reader => {
 			const override = this._overrideRoot.read(reader);
 			if (override) {
@@ -85,6 +87,10 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 		this.hasOverrideProjectRoot = derived(reader => {
 			return this._overrideRoot.read(reader) !== undefined;
 		});
+
+		this.hasOverrideProjectRoot = derived(reader => {
+			return this._overrideRoot.read(reader) !== undefined;
+		});
 	}
 
 	getActiveProjectRoot(): URI | undefined {
@@ -104,6 +110,14 @@ export class SessionsAICustomizationWorkspaceService implements IAICustomization
 	getAllProjectRoots(): readonly URI[] {
 		const root = this.getActiveProjectRoot();
 		return root ? [root] : [];
+	}
+
+	setOverrideProjectRoot(root: URI): void {
+		this._overrideRoot.set(root, undefined);
+	}
+
+	clearOverrideProjectRoot(): void {
+		this._overrideRoot.set(undefined, undefined);
 	}
 
 	setOverrideProjectRoot(root: URI): void {

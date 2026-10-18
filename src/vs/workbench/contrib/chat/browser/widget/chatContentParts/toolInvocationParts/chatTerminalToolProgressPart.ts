@@ -1116,6 +1116,29 @@ export class ChatTerminalToolProgressPart extends BaseChatToolInvocationSubPart 
 		}
 	}
 
+	/**
+	 * Handles the completion of a terminal command by updating the UI state.
+	 * This includes marking the collapsible wrapper as complete, auto-collapsing
+	 * successful commands, and keeping failed commands expanded.
+	 *
+	 * @param resolvedCommand The completed terminal command with exit code information.
+	 */
+	private _handleCommandCompletion(resolvedCommand: ITerminalCommand | undefined): void {
+		// Update title to show completion state
+		this.markCollapsibleWrapperComplete();
+
+		// Auto-collapse on success (exit code 0)
+		if (resolvedCommand?.exitCode === 0 && this._outputView.isExpanded && !this._userToggledOutput) {
+			this._toggleOutput(false);
+		}
+
+		// Keep outer wrapper expanded on error for visibility
+		const autoExpandFailures = this._configurationService.getValue<boolean>(ChatConfiguration.AutoExpandToolFailures);
+		if (autoExpandFailures && resolvedCommand?.exitCode !== undefined && resolvedCommand.exitCode !== 0 && this._thinkingCollapsibleWrapper) {
+			this.expandCollapsibleWrapper();
+		}
+	}
+
 	private async _toggleOutput(expanded: boolean): Promise<boolean> {
 		const didChange = await this._outputView.toggle(expanded);
 		const isExpanded = this._outputView.isExpanded;

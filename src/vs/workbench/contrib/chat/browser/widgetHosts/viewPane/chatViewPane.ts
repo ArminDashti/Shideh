@@ -1242,6 +1242,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 				enableWorkingSet: 'explicit',
 				supportsChangingModes: true,
 				dndContainer: parent,
+				inputEditorMinLines: this.workbenchEnvironmentService.isSessionsWindow ? 2 : undefined,
 			},
 			{
 				listForeground: SIDE_BAR_FOREGROUND,

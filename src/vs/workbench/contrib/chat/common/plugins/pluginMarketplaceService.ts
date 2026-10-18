@@ -972,6 +972,8 @@ export class PluginMarketplaceService extends Disposable implements IPluginMarke
 				this._logService.debug(`[PluginMarketplaceService] Failed to hydrate metadata for ${key}:`, err);
 			}
 		}
+		this._installedPluginsStore.set([...current, { pluginUri, plugin, enabled: true }], undefined);
+	}
 
 		if (hydrated > 0) {
 			// Touch the store to trigger the derived observable to re-evaluate

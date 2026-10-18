@@ -1392,6 +1392,28 @@ export function registerChatActions() {
 		}
 	});
 
+	registerAction2(class InsertForkConversationSlashCommandAction extends Action2 {
+		constructor() {
+			super({
+				id: INSERT_FORK_CONVERSATION_COMMAND_ID,
+				title: localize2('insertForkConversationSlashCommand', "Insert Fork Command"),
+				shortTitle: localize2('insertForkConversationSlashCommand.short', "Insert /fork"),
+				category: CHAT_CATEGORY,
+				icon: Codicon.repoForked,
+				f1: true,
+				precondition: ChatContextKeys.enabled
+			});
+		}
+
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const commandService = accessor.get(ICommandService);
+			await commandService.executeCommand('workbench.action.chat.open', {
+				query: '/fork ',
+				isPartialQuery: true,
+			});
+		}
+	});
+
 	registerAction2(class OpenChatFeatureSettingsAction extends Action2 {
 		constructor() {
 			super({

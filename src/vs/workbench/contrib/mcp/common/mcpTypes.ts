@@ -162,6 +162,8 @@ export interface McpCollectionDefinition {
 	readonly scope: StorageScope;
 	/** Configuration target where configuration related to this server should be stored. */
 	readonly configTarget: ConfigurationTarget;
+	/** Root-level sandbox settings from the mcp config file. */
+	readonly sandbox?: IMcpSandboxConfiguration;
 
 	/** Resolves a server definition. If present, always called before a server starts. */
 	resolveServerLanch?(definition: McpServerDefinition): Promise<McpServerLaunch | undefined>;

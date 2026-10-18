@@ -20,6 +20,9 @@ parameters:
   - name: VSCODE_BUILD_ONLY
     type: boolean
     default: false
+  - name: VSCODE_RUN_CHECKS
+    type: boolean
+    default: false
 
 steps:
   - template: product-build-linux-setup.yml@self

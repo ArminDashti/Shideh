@@ -485,6 +485,45 @@ suite('SessionsTerminalContribution', () => {
 		activeSessionObs.set(session, undefined);
 		await tick();
 
+		assert.strictEqual(createdTerminals.length, 1);
+		assert.strictEqual(createdTerminals[0].cwd.fsPath, HOME_DIR.fsPath);
+	});
+
+	test('uses home directory for a local agent session', async () => {
+		const session = makeAgentSession({ worktree: URI.file('/worktree'), providerType: AgentSessionProviders.Local });
+		activeSessionObs.set(session, undefined);
+		await tick();
+
+		assert.strictEqual(createdTerminals.length, 1);
+		assert.strictEqual(createdTerminals[0].cwd.fsPath, HOME_DIR.fsPath);
+	});
+
+	test('uses home directory for a non-agent session', async () => {
+		const session = makeNonAgentSession({ repository: URI.file('/repo') });
+		activeSessionObs.set(session, undefined);
+		await tick();
+
+		assert.strictEqual(createdTerminals.length, 1);
+		assert.strictEqual(createdTerminals[0].cwd.fsPath, HOME_DIR.fsPath);
+	});
+
+	test('does not recreate terminal when multiple non-background sessions share the home directory', async () => {
+		const session1 = makeAgentSession({ providerType: AgentSessionProviders.Cloud });
+		activeSessionObs.set(session1, undefined);
+		await tick();
+		assert.strictEqual(createdTerminals.length, 1);
+
+		// Different non-background session — same home dir, no new terminal
+		const session2 = makeAgentSession({ providerType: AgentSessionProviders.Local });
+		activeSessionObs.set(session2, undefined);
+		await tick();
+		assert.strictEqual(createdTerminals.length, 1);
+	});
+
+	test('does not create a terminal when there is no active session', async () => {
+		activeSessionObs.set(undefined, undefined);
+		await tick();
+
 		assert.strictEqual(createdTerminals.length, 0);
 	});
 

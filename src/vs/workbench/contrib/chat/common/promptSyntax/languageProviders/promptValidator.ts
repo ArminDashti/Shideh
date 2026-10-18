@@ -24,7 +24,6 @@ import { ILabelService } from '../../../../../../platform/label/common/label.js'
 import { AGENTS_SOURCE_FOLDER, CLAUDE_AGENTS_SOURCE_FOLDER, isInClaudeRulesFolder, isSkillFilename, LEGACY_MODE_FILE_EXTENSION, VALID_SKILL_NAME_REGEX } from '../config/promptFileLocations.js';
 import { Lazy } from '../../../../../../base/common/lazy.js';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
-import { dirname } from '../../../../../../base/common/resources.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { HOOKS_BY_TARGET } from '../hookTypes.js';
 import { GithubPromptHeaderAttributes } from './promptFileAttributes.js';
@@ -1345,9 +1344,11 @@ export function isVSCodeOrDefaultTarget(target: Target): boolean {
 export function getTarget(promptType: PromptsType, header: PromptHeader | URI): Target {
 	const uri = header instanceof URI ? header : header.uri;
 	if (promptType === PromptsType.agent) {
-		const parentDir = dirname(uri);
-		if (parentDir.path.endsWith(`/${CLAUDE_AGENTS_SOURCE_FOLDER}`)) {
+		if (isInClaudeAgentsFolder(uri)) {
 			return Target.Claude;
+		}
+		if (isInCopilotAgentsFolder(uri)) {
+			return Target.GitHubCopilot;
 		}
 		if (!(header instanceof URI)) {
 			const target = header.target;

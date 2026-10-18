@@ -821,6 +821,10 @@
 .interactive-item-container .value .rendered-markdown .rendered-markdown-table-scroll-wrapper {
 	width: 100%;
 	margin-bottom: 16px;
+}
+
+.interactive-item-container .value .rendered-markdown table {
+	text-align: left;
 	border-radius: var(--vscode-cornerRadius-medium);
 	overflow: hidden;
 	border-spacing: 0;

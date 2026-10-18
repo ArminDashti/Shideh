@@ -425,4 +425,19 @@ export class TerminalSandboxService extends Disposable implements ITerminalSandb
 		}));
 		return store;
 	}
+
+	private _addTrustedDomainsToAllowedDomains(allowedDomains: string[]): string[] {
+		const allowedDomainsSet = new Set(allowedDomains);
+		for (const domain of this._trustedDomainService.trustedDomains) {
+			try {
+				const uri = new URL(domain);
+				allowedDomainsSet.add(uri.hostname);
+			} catch {
+				if (domain !== '*') {
+					allowedDomainsSet.add(domain);
+				}
+			}
+		}
+		return Array.from(allowedDomainsSet);
+	}
 }

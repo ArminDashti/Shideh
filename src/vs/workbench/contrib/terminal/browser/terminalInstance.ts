@@ -3048,9 +3048,6 @@ export class TerminalInstanceColorProvider implements IXtermColorProvider {
 		if (terminalBackground) {
 			return terminalBackground;
 		}
-		if (this._target.object === TerminalLocation.Editor) {
-			return theme.getColor(editorBackground);
-		}
 		const location = this._viewDescriptorService.getViewLocationById(TERMINAL_VIEW_ID)!;
 		if (location === ViewContainerLocation.Panel) {
 			return theme.getColor(PANEL_BACKGROUND);

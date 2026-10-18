@@ -116,6 +116,29 @@
 		.chat-question-close-container {
 			flex-shrink: 0;
 		}
+
+		.chat-question-message {
+			padding-top: 8px;
+			font-size: var(--vscode-chat-font-size-body-s);
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+			line-height: 1.4;
+
+			.rendered-markdown {
+				a {
+					color: var(--vscode-textLink-foreground);
+				}
+
+				a:hover,
+				a:active {
+					color: var(--vscode-textLink-activeForeground);
+				}
+
+				p {
+					margin: 0;
+				}
+			}
+		}
 	}
 }
 
@@ -189,7 +212,7 @@
 
 		.chat-question-list-item {
 			display: flex;
-			align-items: center;
+			align-items: flex-start;
 			gap: 8px;
 			padding: 6px 8px;
 			cursor: pointer;

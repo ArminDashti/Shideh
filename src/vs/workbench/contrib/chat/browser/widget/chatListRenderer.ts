@@ -2094,6 +2094,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		templateData.checkpointToolbar.refresh();
 		templateData.checkpointRestoreToolbar.refresh();
 
+		// Force toolbars to synchronously re-evaluate after context key changes
+		// to avoid size measurement issues from the debounced menu update.
+		templateData.footerToolbar.refresh();
+		templateData.checkpointToolbar.refresh();
+		templateData.checkpointRestoreToolbar.refresh();
+
 		// Track response template data by request ID for cross-row hover effects
 		if (isResponseVM(element)) {
 			this.responseTemplateDataByRequestId.set(element.requestId, templateData);
@@ -2304,6 +2310,14 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			dom.append(templateData.detail, $('span.confirmation-text', undefined, localize('chatConfirmationAction', 'Selected "{0}"', element.confirmation)));
 			templateData.header?.classList.remove('header-disabled');
 			templateData.header?.classList.add('partially-disabled');
+
+			const updateCheckmarks = () => templateData.detail.classList.toggle('show-checkmarks', !!this.configService.getValue<boolean>(AccessibilityWorkbenchSettingId.ShowChatCheckmarks));
+			updateCheckmarks();
+			templateData.elementDisposables.add(this.configService.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration(AccessibilityWorkbenchSettingId.ShowChatCheckmarks)) {
+					updateCheckmarks();
+				}
+			}));
 		}
 	}
 

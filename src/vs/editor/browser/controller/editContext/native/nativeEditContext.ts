@@ -330,25 +330,15 @@ export class NativeEditContext extends AbstractEditContext {
 	}
 
 	public override onLinesChanged(e: ViewLinesChangedEvent): boolean {
-		this._updateEditContextOnLineChange(e.fromLineNumber, e.fromLineNumber + e.count - 1);
 		return true;
 	}
 
 	public override onLinesDeleted(e: ViewLinesDeletedEvent): boolean {
-		this._updateEditContextOnLineChange(e.fromLineNumber, e.toLineNumber);
 		return true;
 	}
 
 	public override onLinesInserted(e: ViewLinesInsertedEvent): boolean {
-		this._updateEditContextOnLineChange(e.fromLineNumber, e.toLineNumber);
 		return true;
-	}
-
-	private _updateEditContextOnLineChange(fromLineNumber: number, toLineNumber: number): void {
-		if (this._editContextPrimarySelection.endLineNumber < fromLineNumber || this._editContextPrimarySelection.startLineNumber > toLineNumber) {
-			return;
-		}
-		this._updateEditContext();
 	}
 
 	public override onScrollChanged(e: ViewScrollChangedEvent): boolean {

@@ -146,6 +146,8 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 	private _prevButton: Button | undefined;
 	private _nextButton: Button | undefined;
 	private readonly _nextButtonHover: MutableDisposable<{ dispose(): void }> = this._register(new MutableDisposable());
+	private _submitButton: Button | undefined;
+	private readonly _submitButtonHover: MutableDisposable<{ dispose(): void }> = this._register(new MutableDisposable());
 	private _skipAllButton: Button | undefined;
 
 	private _isSkipped = false;
@@ -470,6 +472,15 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		if (this._options.onSubmit(this._answers) !== false) {
 			this.hideAndShowSummary();
 		}
+	}
+
+	/**
+	 * Handles explicit submit action from the dedicated submit button.
+	 */
+	private submit(): void {
+		this.saveCurrentAnswer();
+		this._options.onSubmit(this._answers);
+		this.hideAndShowSummary();
 	}
 
 	/**
@@ -880,6 +891,18 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 		this._validationMessageElement = dom.$('.chat-question-validation-message');
 		this._validationMessageElement.style.display = 'none';
 		this._questionContainer.appendChild(this._validationMessageElement);
+
+		// Render full question text below the header row (supports multi-line and markdown)
+		if (question.message) {
+			const messageEl = dom.$('.chat-question-message');
+			if (isMarkdownString(question.message)) {
+				const renderedMessage = questionRenderStore.add(this._markdownRendererService.render(MarkdownString.lift(question.message)));
+				messageEl.appendChild(renderedMessage.element);
+			} else {
+				messageEl.textContent = this.getQuestionText(question.message);
+			}
+			this._questionContainer.appendChild(messageEl);
+		}
 
 		const isSingleQuestion = this.carousel.questions.length === 1;
 
@@ -1531,7 +1554,7 @@ export class ChatQuestionCarouselPart extends Disposable implements IChatContent
 			} else if (event.keyCode === KeyCode.Enter) {
 				e.preventDefault();
 				e.stopPropagation();
-				this.handleNext();
+				this.handleNextOrSubmit();
 			} else if (event.keyCode === KeyCode.Space) {
 				e.preventDefault();
 				// Toggle the currently focused checkbox using click() to trigger onChange
