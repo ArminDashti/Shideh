@@ -397,11 +397,14 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 	 */
 	public clearPendingRestorationState(): void {
 		this._logger.log('cleared pending restoration state', {
-			hadDocStates: !!this._lastDocStates,
+			hadDocStates: this._documentViewStates.size > 0,
 			hadActiveDiffItemKey: !!this._lastActiveDiffItemKey,
 			hadScrollState: !!this._pendingScrollState,
 		});
-		this._lastDocStates = undefined;
+		this._documentViewStates.clear();
+		this._documentViewStateModel = undefined;
+		this._hasDocumentViewState = false;
+		this._initializedDocumentViewModels = new WeakSet();
 		this._lastActiveDiffItemKey = undefined;
 		this._pendingScrollState = undefined;
 		this._hasAppliedPendingScrollState = false;
@@ -508,8 +511,11 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 		return viewState;
 	}
 
-	/** This accounts for documents that are not loaded yet. */
-	private _lastDocStates: IMultiDiffEditorViewState['docStates'];
+	/** Latest state per document, seeded from restored state and updated from live view models. */
+	private _documentViewStates = new Map<string, IMultiDiffDocState>();
+	private _documentViewStateModel: MultiDiffEditorViewModel | undefined;
+	private _hasDocumentViewState = false;
+	private _initializedDocumentViewModels = new WeakSet<DocumentDiffItemViewModel>();
 
 	/**
 	 * The active diff item to restore once the documents are loaded. Restoring it
@@ -537,17 +543,26 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 		}
 		this.setScrollState(viewState.scrollState);
 
-		this._lastDocStates = viewState.docStates;
+		const viewModel = this._viewModel.get();
+		const docStates = Object.entries(viewState.docStates ?? {});
+		if (!this._hasDocumentViewState || this._documentViewStateModel !== viewModel) {
+			this._documentViewStateModel = viewModel;
+			this._hasDocumentViewState = true;
+			this._initializedDocumentViewModels = new WeakSet();
+			this._documentViewStates = new Map(docStates);
+		} else {
+			for (const [key, state] of docStates) {
+				if (!this._documentViewStates.has(key)) {
+					this._documentViewStates.set(key, state);
+				}
+			}
+		}
 		this._lastActiveDiffItemKey = viewState.activeDiffItemKey;
 
 		const applyDocStates = (tx: ITransaction) => {
-			if (viewState.docStates) {
-				for (const i of this._viewItems.get()) {
-					const state = viewState.docStates[i.getKey()];
-					if (state) {
-						i.setViewState(state, tx);
-					}
-				}
+			for (const item of this._viewItems.get()) {
+				this._applyDocumentViewStateOnce(item, tx);
+				this._documentViewStates.set(item.getKey(), item.getViewState());
 			}
 		};
 		if (tx) {
@@ -559,10 +574,28 @@ export class MultiDiffEditorWidgetImpl extends Disposable {
 		// If the documents are already loaded, restore the active item now (this
 		// overrides the first-change selection the init autorun may have made);
 		// otherwise the init autorun restores it once loading completes.
-		const viewModel = this._viewModel.get();
 		if (viewModel) {
 			this._restorePendingActiveDiffItem(viewModel, viewModel.items.get());
 		}
+	}
+
+	private _applyDocumentViewStateOnce(item: VirtualizedViewItem, tx?: ITransaction): boolean {
+		if (this._initializedDocumentViewModels.has(item.viewModel)) {
+			return false;
+		}
+
+		this._initializedDocumentViewModels.add(item.viewModel);
+		const state = this._documentViewStates.get(item.getKey());
+		if (!state) {
+			return false;
+		}
+
+		if (tx) {
+			item.setViewState(state, tx);
+		} else {
+			transaction(tx => item.setViewState(state, tx));
+		}
+		return true;
 	}
 
 	/**
@@ -904,6 +937,7 @@ class VirtualizedViewItem extends Disposable implements ILoggedDiffItem, ICompre
 		private readonly _managedItem: ManagedVirtualizedItem<DocumentDiffItemViewModel, DiffEditorItemBinding, DiffEditorItemTemplate>,
 		private readonly _scrollLeft: IObservable<number>,
 		private readonly _logger: MultiDiffEditorLogger,
+		private readonly _saveViewState: (state: IMultiDiffDocState) => void,
 	) {
 		super();
 		this.size = _managedItem.size;
