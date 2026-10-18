@@ -1427,7 +1427,7 @@ export interface MainThreadSpeechShape extends IDisposable {
 }
 
 export interface ExtHostSpeechShape {
-	$createSpeechToTextSession(handle: number, session: number, language?: string): Promise<void>;
+	$createSpeechToTextSession(handle: number, session: number, options?: ISpeechToTextSessionOptions): Promise<void>;
 	$cancelSpeechToTextSession(session: number): Promise<void>;
 
 	$createTextToSpeechSession(handle: number, session: number, language?: string): Promise<void>;

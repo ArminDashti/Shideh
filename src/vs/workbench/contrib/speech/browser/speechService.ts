@@ -171,11 +171,11 @@ export class SpeechService extends Disposable implements ISpeechService {
 
 	private readonly speechToTextInProgress: IContextKey<boolean>;
 
-	async createSpeechToTextSession(token: CancellationToken, context: string = 'speech'): Promise<ISpeechToTextSession> {
+	async createSpeechToTextSession(token: CancellationToken, context: string = 'speech', options?: ISpeechToTextSessionOptions): Promise<ISpeechToTextSession> {
 		const provider = await this.getProvider();
 
 		const language = speechLanguageConfigToLanguage(this.configurationService.getValue<unknown>(SPEECH_LANGUAGE_CONFIG));
-		const session = provider.createSpeechToTextSession(token, typeof language === 'string' ? { language } : undefined);
+		const session = provider.createSpeechToTextSession(token, { ...options, context, language });
 
 		const sessionStart = Date.now();
 		let sessionRecognized = false;
