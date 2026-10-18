@@ -1821,6 +1821,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 				// Use format-aware parsing that handles Copilot and Claude formats
 				const { format, hooks: parsedHooks, disabledAllHooks } = parseHooksFromFile(hookFile.uri, json, workspaceRootUri, userHome);
 
+				// Skip Claude hooks when the setting is disabled
+				if (format === HookSourceFormat.Claude && useClaudeHooks === false) {
+					this.logger.trace(`[PromptsService] Skipping Claude hook file (disabled via setting): ${hookFile.uri}`);
+					continue;
+				}
+
 				// Skip files that have all hooks disabled
 				if (disabledAllHooks) {
 					this.logger.trace(`[PromptsService] Skipping hook file with disableAllHooks: ${hookFile.uri}`);
