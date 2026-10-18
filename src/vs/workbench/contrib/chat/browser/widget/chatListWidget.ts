@@ -399,6 +399,10 @@ export class ChatListWidget extends Disposable {
 	private _scrollHeightReservation: { response: IChatResponseViewModel; height: number } | undefined;
 	private readonly _pendingScrollHeightRelease = this._register(new MutableDisposable<IDisposable>());
 
+	/** Pending height updates to batch into a single tree update per animation frame. */
+	private readonly _pendingHeightUpdates = new Map<ChatTreeItem, number>();
+	private readonly _pendingHeightFlush = this._register(new MutableDisposable());
+
 	//#endregion
 
 	//#region Properties
@@ -1231,6 +1235,40 @@ export class ChatListWidget extends Disposable {
 	private cancelUserToggleScrollRestoration(): void {
 		for (const tracker of this._userToggleResizeTrackers.values()) {
 			tracker.cancelScrollRestoration();
+		}
+	}
+
+	/**
+	 * Flush all batched height updates in a single pass, coalescing
+	 * multiple ResizeObserver callbacks into one tree update + scroll.
+	 */
+	private _flushPendingHeightUpdates(): void {
+		if (this._pendingHeightUpdates.size === 0) {
+			return;
+		}
+
+		const updates = new Map(this._pendingHeightUpdates);
+		this._pendingHeightUpdates.clear();
+
+		// Apply all height updates inside a single auto-scroll guard
+		this._withPersistedAutoScroll(() => {
+			for (const [element, height] of updates) {
+				if (this._tree.hasElement(element) && this._visible) {
+					this._tree.updateElementHeight(element, height);
+				}
+			}
+		});
+
+		// Check if the second-to-last item changed (for min height updates)
+		const secondToLastItem = this._viewModel?.getItems().at(-2);
+		if (secondToLastItem && updates.has(secondToLastItem)) {
+			this.updateLastItemMinHeight();
+		}
+
+		// Fire a single height change event for the last update
+		const lastEntry = [...updates.entries()].at(-1);
+		if (lastEntry) {
+			this._onDidChangeItemHeight.fire({ element: lastEntry[0], height: lastEntry[1] });
 		}
 	}
 
