@@ -33,6 +33,13 @@ enum CandidateSelection {
 	Missing,
 }
 
+/// Turns on verbose diagnostics like `--vscode-shim verbose`, where arguments can't be changed, such as in scripts.
+const VERBOSE_VARIABLE: &str = "VSCODE_COPILOT_SHIM_VERBOSE";
+
+/// Points to the verbose diagnostics after a failure that they explain.
+const VERBOSE_HINT: &str =
+	"For details, run copilot --vscode-shim verbose, or set VSCODE_COPILOT_SHIM_VERBOSE=1.";
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum ApplicationExit {
 	Code(i32),
@@ -419,7 +426,7 @@ pub(crate) fn run<R: Runtime>(
 	{
 		arguments.remove(0);
 		if let Err(error) = runtime.clear_terminal() {
-			runtime.write_diagnostic(&format!("failed to clear the terminal: {error}"));
+			runtime.write_message(&format!("Could not clear the terminal: {error}"));
 			return ApplicationExit::InternalFailure.code();
 		}
 	}
@@ -1015,6 +1022,13 @@ mod tests {
 		let selection =
 			select_candidate(&runtime, &InterpreterInventory::default()).expect("select candidate");
 
+		let environment = configured_runtime();
+		environment
+			.environment
+			.borrow_mut()
+			.insert(String::from(VERBOSE_VARIABLE), OsString::from("1"));
+		run(&environment, Vec::new(), Some(HostTarget::LinuxGnuX64));
+
 		assert_eq!(
 			(
 				selection,
@@ -1349,10 +1363,11 @@ mod tests {
 				unsupported_result,
 				unsupported.prompts.borrow().len(),
 				unsupported
-					.diagnostics
+					.messages
 					.borrow()
 					.iter()
 					.any(|message| message.contains("ARMhf")),
+				failed.messages.borrow().clone(),
 			),
 			(
 				Err(ApplicationExit::InternalFailure),
@@ -1365,6 +1380,9 @@ mod tests {
 				Err(ApplicationExit::InternalFailure),
 				0,
 				true,
+				vec![format!(
+					"GitHub Copilot CLI couldn't be installed. To install it manually, see {INSTALL_DOCUMENTATION_URL}"
+				)],
 			)
 		);
 	}
@@ -1661,7 +1679,7 @@ mod tests {
 				signal_exit,
 				cancellation_exit,
 				failure_exit,
-				failed.diagnostics.borrow().clone(),
+				failed.messages.borrow().clone(),
 			),
 			(
 				301,
