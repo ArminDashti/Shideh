@@ -190,6 +190,12 @@
 	margin-inline-start: 24px;
 }
 
+.monaco-workbench .part.editor.max-height-478px>.content.empty .editor-group-container.empty>.editor-group-letterpress {
+	mask-position: 50% 20%;
+	-webkit-mask-position: 50% 50%;
+}
+
+
 /* Title */
 
 .monaco-workbench .part.editor > .content .editor-group-container > .title {
