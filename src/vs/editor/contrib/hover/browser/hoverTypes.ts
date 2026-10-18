@@ -198,6 +198,24 @@ export const HoverParticipantRegistry = (new class HoverParticipantRegistry {
 
 }());
 
+/**
+ * Hover settings
+ */
+export interface IHoverSettings {
+	/**
+	 * Whether the hover is enabled
+	 */
+	readonly enabled: boolean;
+	/**
+	 * Whether the hover is sticky
+	 */
+	readonly sticky: boolean;
+	/**
+	 * The hiding delay of the hover
+	 */
+	readonly hidingDelay: number;
+}
+
 export interface IHoverWidget {
 	/**
 	 * Returns whether the hover widget is shown or should show in the future.

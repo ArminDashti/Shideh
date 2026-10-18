@@ -464,4 +464,10 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 		this._listenersStore.dispose();
 		this._contentWidget?.dispose();
 	}
+
+	public override dispose(): void {
+		super.dispose();
+		this._unhookListeners();
+		this._listenersStore.dispose();
+	}
 }
