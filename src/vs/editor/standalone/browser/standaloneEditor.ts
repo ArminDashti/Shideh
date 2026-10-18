@@ -219,6 +219,119 @@ export function addKeybindingRules(rules: IKeybindingRule[]): IDisposable {
 }
 
 /**
+ * Description of a command contribution
+ */
+export interface ICommandDescriptor {
+	/**
+	 * An unique identifier of the contributed command.
+	 */
+	id: string;
+	/**
+	 * Callback that will be executed when the command is triggered.
+	 */
+	run: ICommandHandler;
+}
+
+/**
+ * Add a command.
+ */
+export function addCommand(descriptor: ICommandDescriptor): IDisposable {
+	if ((typeof descriptor.id !== 'string') || (typeof descriptor.run !== 'function')) {
+		throw new Error('Invalid command descriptor, `id` and `run` are required properties!');
+	}
+	return CommandsRegistry.registerCommand(descriptor.id, descriptor.run);
+}
+
+/**
+ * Add an action to all editors.
+ */
+export function addEditorAction(descriptor: IActionDescriptor): IDisposable {
+	if ((typeof descriptor.id !== 'string') || (typeof descriptor.label !== 'string') || (typeof descriptor.run !== 'function')) {
+		throw new Error('Invalid action descriptor, `id`, `label` and `run` are required properties!');
+	}
+
+	const precondition = ContextKeyExpr.deserialize(descriptor.precondition);
+	const run = (accessor: ServicesAccessor, ...args: any[]): void | Promise<void> => {
+		return EditorCommand.runEditorCommand(accessor, args, precondition, (accessor, editor, args) => Promise.resolve(descriptor.run(editor, ...args)));
+	};
+
+	const toDispose = new DisposableStore();
+
+	// Register the command
+	toDispose.add(CommandsRegistry.registerCommand(descriptor.id, run));
+
+	// Register the context menu item
+	if (descriptor.contextMenuGroupId) {
+		const menuItem: IMenuItem = {
+			command: {
+				id: descriptor.id,
+				title: descriptor.label
+			},
+			when: precondition,
+			group: descriptor.contextMenuGroupId,
+			order: descriptor.contextMenuOrder || 0
+		};
+		toDispose.add(MenuRegistry.appendMenuItem(MenuId.EditorContext, menuItem));
+	}
+
+	// Register the keybindings
+	if (Array.isArray(descriptor.keybindings)) {
+		const keybindingService = StandaloneServices.get(IKeybindingService);
+		if (!(keybindingService instanceof StandaloneKeybindingService)) {
+			console.warn('Cannot add keybinding because the editor is configured with an unrecognized KeybindingService');
+		} else {
+			const keybindingsWhen = ContextKeyExpr.and(precondition, ContextKeyExpr.deserialize(descriptor.keybindingContext));
+			toDispose.add(keybindingService.addDynamicKeybindings(descriptor.keybindings.map((keybinding) => {
+				return {
+					keybinding,
+					command: descriptor.id,
+					when: keybindingsWhen
+				};
+			})));
+		}
+	}
+
+	return toDispose;
+}
+
+/**
+ * A keybinding rule.
+ */
+export interface IKeybindingRule {
+	keybinding: number;
+	command?: string | null;
+	commandArgs?: any;
+	when?: string | null;
+}
+
+/**
+ * Add a keybinding rule.
+ */
+export function addKeybindingRule(rule: IKeybindingRule): IDisposable {
+	return addKeybindingRules([rule]);
+}
+
+/**
+ * Add keybinding rules.
+ */
+export function addKeybindingRules(rules: IKeybindingRule[]): IDisposable {
+	const keybindingService = StandaloneServices.get(IKeybindingService);
+	if (!(keybindingService instanceof StandaloneKeybindingService)) {
+		console.warn('Cannot add keybinding because the editor is configured with an unrecognized KeybindingService');
+		return Disposable.None;
+	}
+
+	return keybindingService.addDynamicKeybindings(rules.map((rule) => {
+		return {
+			keybinding: rule.keybinding,
+			command: rule.command,
+			commandArgs: rule.commandArgs,
+			when: ContextKeyExpr.deserialize(rule.when),
+		};
+	}));
+}
+
+/**
  * Create a new editor model.
  * You can specify the language that should be set for this model or let the language be inferred from the `uri`.
  */
