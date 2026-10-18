@@ -1925,6 +1925,8 @@ export class AgentSessionsSorter implements ITreeSorter<IAgentSession> {
 
 export class AgentSessionsKeyboardNavigationLabelProvider implements ICompressibleKeyboardNavigationLabelProvider<AgentSessionListItem> {
 
+	constructor(private readonly getAdditionalLabel?: (session: IAgentSession) => string | undefined) { }
+
 	getKeyboardNavigationLabel(element: AgentSessionListItem): string {
 		if (isAgentSessionSection(element)) {
 			return element.label;

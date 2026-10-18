@@ -517,7 +517,7 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 				multipleSelectionSupport: true,
 				findWidgetEnabled: true,
 				defaultFindMode: TreeFindMode.Filter,
-				keyboardNavigationLabelProvider: new AgentSessionsKeyboardNavigationLabelProvider(),
+				keyboardNavigationLabelProvider: new AgentSessionsKeyboardNavigationLabelProvider(session => this.chatSessionEmbeddingsService.getSearchText(session.resource)),
 				overrideStyles: this.options.overrideStyles,
 				twistieAdditionalCssClass: (element: unknown) => isAgentSession(element) && element.children?.length ? 'agent-session-chat-twistie' : 'force-no-twistie',
 				collapseByDefault: (element: unknown) => collapseByDefault(element),

@@ -4786,6 +4786,11 @@ Total indent per level = padding-inline-start (1.625em) + li padding-left (0.375
 			gap: 4px;
 		}
 
+		.monaco-toolbar .actions-container {
+			gap: 4px;
+			align-items: center;
+		}
+
 		.monaco-toolbar .action-label {
 			box-sizing: border-box;
 			width: fit-content;
