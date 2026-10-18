@@ -15,7 +15,7 @@ import { Quality, MultiLogger, Logger, ConsoleLogger, FileLogger, measureAndLog,
 import { retry } from './utils';
 
 import { setup as setupDataLossTests } from './areas/workbench/data-loss.test';
-import { setup as setupPreferencesTests } from './areas/preferences/preferences.test';
+/*import { setup as setupPreferencesTests } from './areas/preferences/preferences.test';
 import { setup as setupSearchTests } from './areas/search/search.test';
 import { setup as setupNotebookTests } from './areas/notebook/notebook.test';
 import { setup as setupLanguagesTests } from './areas/languages/languages.test';

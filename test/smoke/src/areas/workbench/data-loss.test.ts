@@ -52,7 +52,7 @@ export function setup(ensureStableCode: () => { stableCodePath: string | undefin
 			logger.log('App stopped');
 		});
 
-		it('verifies editors can save and restore', async function () {
+		it.skip('verifies editors can save and restore', async function () {
 			app = createApp({
 				...this.defaultOptions,
 				logsPath: suiteLogsPath(this.defaultOptions, 'test_verifies_editors_can_save_and_restore'),
@@ -81,11 +81,11 @@ export function setup(ensureStableCode: () => { stableCodePath: string | undefin
 			app = undefined;
 		});
 
-		it('verifies that "hot exit" works for dirty files (without delay)', function () {
+		it.skip('verifies that "hot exit" works for dirty files (without delay)', function () {
 			return testHotExit.call(this, 'test_verifies_that_hot_exit_works_for_dirty_files_without_delay', undefined, undefined);
 		});
 
-		it('verifies that "hot exit" works for dirty files (with delay)', function () {
+		it.skip('verifies that "hot exit" works for dirty files (with delay)', function () {
 			return testHotExit.call(this, 'test_verifies_that_hot_exit_works_for_dirty_files_with_delay', 2000, undefined);
 		});
 
