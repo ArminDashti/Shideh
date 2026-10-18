@@ -35,11 +35,6 @@ export class MonospaceLineBreaksComputerFactory implements ILineBreaksComputerFa
 				previousBreakingData.push(previousLineBreakData);
 			},
 			finalize: () => {
-				const options = config.options;
-				const fontInfo = config.options.get(EditorOption.fontInfo);
-				const wrappingIndent = options.get(EditorOption.wrappingIndent);
-				const wrappingColumn = options.get(EditorOption.wrappingInfo).wrappingColumn;
-				const wordBreak = options.get(EditorOption.wordBreak);
 				const columnsForFullWidthChar = fontInfo.typicalFullwidthCharacterWidth / fontInfo.typicalHalfwidthCharacterWidth;
 				const result: (ModelLineProjectionData | null)[] = [];
 				for (let i = 0, len = lineNumbers.length; i < len; i++) {

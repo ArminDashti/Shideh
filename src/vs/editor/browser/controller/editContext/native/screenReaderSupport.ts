@@ -8,12 +8,10 @@ import { Disposable, MutableDisposable } from '../../../../../base/common/lifecy
 import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { EditorFontLigatures, EditorOption, FindComputedEditorOptionValueById } from '../../../../common/config/editorOptions.js';
+import { EditorOption } from '../../../../common/config/editorOptions.js';
 import { FontInfo } from '../../../../common/config/fontInfo.js';
 import { Selection } from '../../../../common/core/selection.js';
 import { ViewConfigurationChangedEvent, ViewCursorStateChangedEvent } from '../../../../common/viewEvents.js';
-import { LineDecoration } from '../../../../common/viewLayout/lineDecorations.js';
-import { CharacterMapping, RenderLineInput, renderViewLine } from '../../../../common/viewLayout/viewLineRenderer.js';
 import { ViewContext } from '../../../../common/viewModel/viewContext.js';
 import { applyFontInfo } from '../../../config/domFontInfo.js';
 import { IEditorAriaOptions } from '../../../editorBrowser.js';
@@ -201,11 +199,4 @@ export class ScreenReaderSupport extends Disposable {
 	public writeScreenReaderContent(): void {
 		this._state.value?.updateScreenReaderContent(this._primarySelection);
 	}
-}
-
-class RenderedScreenReaderLine {
-	constructor(
-		public readonly domNode: HTMLDivElement,
-		public readonly characterMapping: CharacterMapping
-	) { }
 }

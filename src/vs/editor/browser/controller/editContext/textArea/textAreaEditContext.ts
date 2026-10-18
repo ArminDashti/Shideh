@@ -151,7 +151,6 @@ export class TextAreaEditContext extends AbstractEditContext {
 	public readonly textArea: FastDomNode<HTMLTextAreaElement>;
 	public readonly textAreaCover: FastDomNode<HTMLElement>;
 	private readonly _textAreaInput: TextAreaInput;
-	private readonly _textAreaPagedScreenReaderStrategy: TextAreaPagedScreenReaderStrategy = new TextAreaPagedScreenReaderStrategy();
 
 	constructor(
 		ownerID: string,

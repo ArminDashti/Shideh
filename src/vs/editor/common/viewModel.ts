@@ -38,8 +38,6 @@ export interface IViewModel extends ICursorSimpleModel, ISimpleModel {
 
 	addViewEventHandler(eventHandler: ViewEventHandler): void;
 	removeViewEventHandler(eventHandler: ViewEventHandler): void;
-	getInlineDecorationsOnLine(lineNumber: number): InlineDecoration[];
-	getFontSizeAtPosition(position: IPosition): number;
 
 	getEditorOption<T extends EditorOption>(id: T): FindComputedEditorOptionValueById<T>;
 

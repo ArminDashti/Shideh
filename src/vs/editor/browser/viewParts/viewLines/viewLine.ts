@@ -15,12 +15,10 @@ import { LineDecoration } from '../../../common/viewLayout/lineDecorations.js';
 import { CharacterMapping, ForeignElementType, RenderLineInput, renderViewLine, DomPosition, RenderWhitespace } from '../../../common/viewLayout/viewLineRenderer.js';
 import { ViewportData } from '../../../common/viewLayout/viewLinesViewportData.js';
 import { isHighContrast } from '../../../../platform/theme/common/theme.js';
-import { EditorFontLigatures, EditorOption } from '../../../common/config/editorOptions.js';
+import { EditorFontLigatures } from '../../../common/config/editorOptions.js';
 import { DomReadingContext } from './domReadingContext.js';
 import type { ViewLineOptions } from './viewLineOptions.js';
 import { ViewGpuContext } from '../../gpu/viewGpuContext.js';
-import { ViewContext } from '../../../common/viewModel/viewContext.js';
-import { Position } from '../../../common/core/position.js';
 import { OffsetRange } from '../../../common/core/ranges/offsetRange.js';
 import { InlineDecorationType } from '../../../common/viewModel/inlineDecorations.js';
 import { TextDirection } from '../../../common/model.js';
@@ -60,7 +58,7 @@ export class ViewLine implements IVisibleLine {
 	private _isMaybeInvalid: boolean;
 	private _renderedViewLine: IRenderedViewLine | null;
 
-	constructor(private readonly _viewGpuContext: ViewGpuContext | undefined, private readonly _viewContext: ViewContext, options: ViewLineOptions) {
+	constructor(private readonly _viewGpuContext: ViewGpuContext | undefined, options: ViewLineOptions) {
 		this._options = options;
 		this._context = viewContext;
 		this._isMaybeInvalid = true;
@@ -152,10 +150,6 @@ export class ViewLine implements IVisibleLine {
 				}
 			}
 		}
-		const modelLineNumber = this._viewContext.viewModel.coordinatesConverter.convertViewPositionToModelPosition(new Position(lineNumber, 1)).lineNumber;
-		const fontDecorationsOnLine = this._viewContext.viewModel.model.getFontDecorations(modelLineNumber);
-		const fontDecorationsExistOnLine = fontDecorationsOnLine.length > 0;
-		const renderWhitespace = fontDecorationsExistOnLine ? this._viewContext.configuration.options.get(EditorOption.renderWhitespace) : options.renderWhitespace;
 
 		const renderLineInput = new RenderLineInput(
 			options.useMonospaceOptimizations,
@@ -227,7 +221,7 @@ export class ViewLine implements IVisibleLine {
 				this._context,
 				this._renderedViewLine ? this._renderedViewLine.domNode : null,
 				renderLineInput,
-				output
+				output.characterMapping
 			);
 		}
 
@@ -250,29 +244,6 @@ export class ViewLine implements IVisibleLine {
 			this._renderedViewLine.domNode.setTop(deltaTop);
 			this._renderedViewLine.domNode.setHeight(lineHeight);
 			this._renderedViewLine.domNode.setLineHeight(lineHeight);
-		}
-	}
-
-	public rerenderLineType(otherType: RenderViewLineType): void {
-		if (!this._renderedViewLine) {
-			return;
-		}
-		const currentType = this._renderedViewLine.type;
-		if (currentType === otherType) {
-			return;
-		}
-		if (currentType === RenderViewLineType.Fast) {
-			this._renderedViewLine = new FastRenderedViewLine(
-				this._renderedViewLine.domNode,
-				this._renderedViewLine.input,
-				this._renderedViewLine.output
-			);
-		} else {
-			this._renderedViewLine = createRenderedLine(
-				this._renderedViewLine.domNode,
-				this._renderedViewLine.input,
-				this._renderedViewLine.output
-			);
 		}
 	}
 
@@ -375,16 +346,9 @@ export class ViewLine implements IVisibleLine {
 	}
 }
 
-export enum RenderViewLineType {
-	Regular,
-	Fast
-}
-
 interface IRenderedViewLine {
-	type: RenderViewLineType;
 	domNode: FastDomNode<HTMLElement> | null;
 	readonly input: RenderLineInput;
-	readonly output: RenderLineOutput;
 	getWidth(context: DomReadingContext | null): number;
 	getWidthIsFast(): boolean;
 	resetCachedWidth(): void;
@@ -408,10 +372,8 @@ const enum Constants {
  */
 class FastRenderedViewLine implements IRenderedViewLine {
 
-	public type: RenderViewLineType = RenderViewLineType.Fast;
 	public domNode: FastDomNode<HTMLElement> | null;
 	public readonly input: RenderLineInput;
-	public readonly output: RenderLineOutput;
 
 	private readonly _characterMapping: CharacterMapping;
 	private readonly _charWidth: number;
@@ -419,10 +381,9 @@ class FastRenderedViewLine implements IRenderedViewLine {
 	private _cachedWidth: number = -1;
 	private _context: ViewContext;
 
-	constructor(domNode: FastDomNode<HTMLElement> | null, renderLineInput: RenderLineInput, output: RenderLineOutput) {
+	constructor(domNode: FastDomNode<HTMLElement> | null, renderLineInput: RenderLineInput, characterMapping: CharacterMapping) {
 		this.domNode = domNode;
 		this.input = renderLineInput;
-		this.output = output;
 		const keyColumnCount = Math.floor(renderLineInput.lineContent.length / Constants.MaxMonospaceDistance);
 		if (keyColumnCount > 0) {
 			this._keyColumnPixelOffsetCache = new Float32Array(keyColumnCount);
@@ -433,7 +394,7 @@ class FastRenderedViewLine implements IRenderedViewLine {
 			this._keyColumnPixelOffsetCache = null;
 		}
 
-		this._characterMapping = output.characterMapping;
+		this._characterMapping = characterMapping;
 		this._charWidth = renderLineInput.spaceWidth;
 		this._context = context;
 	}
@@ -543,10 +504,8 @@ class FastRenderedViewLine implements IRenderedViewLine {
  */
 class RenderedViewLine implements IRenderedViewLine {
 
-	public type: RenderViewLineType = RenderViewLineType.Regular;
 	public domNode: FastDomNode<HTMLElement> | null;
 	public readonly input: RenderLineInput;
-	public readonly output: RenderLineOutput;
 
 	protected readonly _characterMapping: CharacterMapping;
 	private readonly _isWhitespaceOnly: boolean;
@@ -561,10 +520,9 @@ class RenderedViewLine implements IRenderedViewLine {
 	constructor(domNode: FastDomNode<HTMLElement> | null, renderLineInput: RenderLineInput, characterMapping: CharacterMapping, containsForeignElements: ForeignElementType) {
 		this.domNode = domNode;
 		this.input = renderLineInput;
-		this.output = output;
-		this._characterMapping = output.characterMapping;
+		this._characterMapping = characterMapping;
 		this._isWhitespaceOnly = /^\s*$/.test(renderLineInput.lineContent);
-		this._containsForeignElements = output.containsForeignElements;
+		this._containsForeignElements = containsForeignElements;
 		this._cachedWidth = -1;
 		this._context = context;
 

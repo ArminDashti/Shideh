@@ -205,10 +205,10 @@ export class DiffEditorViewZones extends Disposable {
 							deletedCodeLineBreaksComputer?.addRequest(i, null);
 						}
 					}
+					lineBreakData = deletedCodeLineBreaksComputer.finalize();
 				}
 			}
 
-			const lineBreakData = deletedCodeLineBreaksComputer?.finalize() ?? [];
 			let lineBreakDataIdx = 0;
 
 			const modLineHeight = this._editors.modified.getOption(EditorOption.lineHeight);

@@ -9,9 +9,6 @@ import { FontInfo } from '../../../common/config/fontInfo.js';
 import { ILineBreaksComputerContext, ILineBreaksComputerFactory, ModelLineProjectionData } from '../../../common/modelLineProjectionData.js';
 import { LineInjectedText } from '../../../common/textModelEvents.js';
 import { MonospaceLineBreaksComputerFactory } from '../../../common/viewModel/monospaceLineBreaksComputer.js';
-import { TestConfiguration } from '../../browser/config/testConfiguration.js';
-import { LineTokens } from '../../../common/tokens/lineTokens.js';
-import { LanguageIdCodec } from '../../../common/services/languagesRegistry.js';
 
 function parseAnnotatedText(annotatedText: string): { text: string; indices: number[] } {
 	let text = '';

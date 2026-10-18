@@ -77,7 +77,6 @@ export class ViewModel extends Disposable implements IViewModel {
 		private readonly _themeService: IThemeService,
 		private readonly _attachedView: IAttachedView,
 		private readonly _transactionalTarget: IBatchableTarget,
-		private readonly accessibilityService: IAccessibilityService,
 	) {
 		super();
 
@@ -94,7 +93,7 @@ export class ViewModel extends Disposable implements IViewModel {
 
 		if (USE_IDENTITY_LINES_COLLECTION && this.model.isTooLargeForTokenization()) {
 
-			this._lines = new ViewModelLinesFromModelAsIs(this.model, this._configuration.options.get(EditorOption.fontInfo));
+			this._lines = new ViewModelLinesFromModelAsIs(this.model);
 
 		} else {
 			const options = this._configuration.options;
@@ -106,21 +105,11 @@ export class ViewModel extends Disposable implements IViewModel {
 			const wrapOnEscapedLineFeeds = options.get(EditorOption.wrapOnEscapedLineFeeds);
 			const useTwoCellFullwidthCharacters = options.get(EditorOption.effectiveFullwidthCharacterWidth) === 'twoCells';
 
-			const context: IViewModelLinesFromProjectedModelContext = {
-				getLineHeightForLineNumber: (lineNumber: number): number => {
-					if (this.viewLayout) {
-						return this.viewLayout.getLineHeightForLineNumber(lineNumber);
-					}
-					return fontInfo.lineHeight;
-				}
-			};
 			this._lines = new ViewModelLinesFromProjectedModel(
 				this._editorId,
 				this.model,
-				context,
 				domLineBreaksComputerFactory,
 				monospaceLineBreaksComputerFactory,
-				this._configuration,
 				fontInfo,
 				this.model.getOptions().tabSize,
 				wrappingStrategy,
@@ -242,24 +231,6 @@ export class ViewModel extends Disposable implements IViewModel {
 		);
 		const modelVisibleRanges = this._toModelVisibleRanges(viewVisibleRange);
 		return modelVisibleRanges;
-	}
-
-	public getFontSizeAtPosition(position: IPosition): number {
-		let fontSize: number = this._configuration.options.get(EditorOption.fontSize);
-		const screenReaderOptimized = this.accessibilityService.isScreenReaderOptimized();
-		if (screenReaderOptimized) {
-			return fontSize;
-		}
-		const decorationsInRange = this.model.getDecorationsInRange(Range.fromPositions(position, position));
-		if (decorationsInRange) {
-			for (const decoration of decorationsInRange) {
-				if (decoration.ownerId === this._editorId && decoration.options.fontSize) {
-					fontSize = decoration.options.fontSize;
-					break;
-				}
-			}
-		}
-		return fontSize;
 	}
 
 	public visibleLinesStabilized(): void {
@@ -1078,10 +1049,6 @@ export class ViewModel extends Disposable implements IViewModel {
 		const modelPosition = this.coordinatesConverter.convertViewPositionToModelPosition(position);
 		const resultModelPosition = this.model.modifyPosition(modelPosition, offset);
 		return this.coordinatesConverter.convertModelPositionToViewPosition(resultModelPosition);
-	}
-
-	public getInlineDecorationsOnLine(modelLineNumber: number): InlineDecoration[] {
-		return this._lines.getInlineDecorationsOnModelLine(modelLineNumber);
 	}
 
 	public deduceModelPositionRelativeToViewPosition(viewAnchorPosition: Position, deltaOffset: number, lineFeedCnt: number): Position {

@@ -134,7 +134,8 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			false,
+			null
 		));
 	});
 
@@ -149,7 +150,8 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			false,
+			null
 		));
 	});
 
@@ -220,7 +222,8 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			false,
+			null
 		));
 	});
 
@@ -234,7 +237,8 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			false,
+			null
 		));
 	});
 
@@ -264,7 +268,7 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			null
 		));
 	});
 
@@ -309,7 +313,8 @@ suite('Editor Model - Model', () => {
 			],
 			2,
 			false,
-			false
+			false,
+			null
 		));
 	});
 
