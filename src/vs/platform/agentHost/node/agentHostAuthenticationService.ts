@@ -35,6 +35,12 @@ export interface IAgentHostAuthenticationController {
 	replay(provider: IAgent): Promise<void>;
 }
 
+export interface IAgentHostAuthenticationController {
+	readonly _serviceBrand: undefined;
+	authenticate(params: AuthenticateParams, providers: Iterable<IAgent>): Promise<AuthenticateResult>;
+	replay(provider: IAgent): Promise<void>;
+}
+
 interface IStoredAuthToken {
 	readonly resource: string;
 	readonly scopes: readonly string[];

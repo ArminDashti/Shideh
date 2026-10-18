@@ -237,6 +237,9 @@ export function createTestAgentService(
 		emitSessionTitleChanged: () => { },
 		flush: async () => { },
 	});
+	services.set(IAgentHostFileMonitorService, effectiveFileMonitorService);
+	services.set(IAgentEditAttributionService, new NullAgentEditAttributionService());
+	services.set(IAgentHostWorktreeIsolation, worktreeIsolation.service);
 	const instantiationService = new InstantiationService(services, /*strict*/ true);
 	const gitHubService = instantiationService.invokeFunction(accessor => accessor.get(IAgentHostGitHubService));
 	const effectiveCopilotApiService = instantiationService.invokeFunction(accessor => accessor.get(ICopilotApiService));
