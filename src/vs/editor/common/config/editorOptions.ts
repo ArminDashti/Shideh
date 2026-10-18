@@ -2383,6 +2383,7 @@ class EditorFind extends BaseEditorOption<EditorOption.find, IEditorFindOptions,
 					enumDescriptions: [
 						nls.localize('editor.find.history.never', 'Do not store search history from the find widget.'),
 						nls.localize('editor.find.history.workspace', 'Store search history across the active workspace'),
+						nls.localize('editor.find.history.editorGroup', 'Store the search history per editor group'),
 					],
 					description: nls.localize('find.history', "Controls how the find widget history should be stored")
 				},

@@ -199,6 +199,8 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private _editorPane: MultiDiffEditor | undefined;
 	private _explanationHandle: IExplanationGenerationHandle | undefined;
 
+	private _editorPane: MultiDiffEditor | undefined;
+
 	get state(): IObservable<ChatEditingSessionState> {
 		return this._state;
 	}

@@ -120,6 +120,10 @@ async function getShellGlobals(
 				// (https://github.com/microsoft/vscode/issues/259343).
 				return cached.commands;
 			}
+			case 'pwsh': {
+				// native pwsh completions are builtin to vscode
+				return [];
+			}
 		}
 	}
 	// No cache or should refresh
@@ -307,6 +311,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					homeDirCompletion.kind = vscode.TerminalCompletionItemKind.Folder;
 				}
 			}
+			const commands = [...commandsInPath, ...builtinCommands];
 
 			const cwd = result.cwd ?? terminal.shellIntegration?.cwd;
 			if (cwd && (result.showFiles || result.showDirectories)) {

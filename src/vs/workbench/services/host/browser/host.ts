@@ -192,4 +192,13 @@ export interface IHostService {
 	showToast(options: IToastOptions, token: CancellationToken): Promise<IToastResult>;
 
 	//#endregion
+
+	//#region Native Handle
+
+	/**
+	 * Get the native handle of the window.
+	 */
+	getNativeWindowHandle(windowId: number): Promise<VSBuffer | undefined>;
+
+	//#endregion
 }

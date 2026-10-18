@@ -120,6 +120,7 @@ async function createModel(context: ExtensionContext, logger: LogOutputChannel, 
 		new GitBlameController(model),
 		new GitTimelineProvider(model, cc),
 		new GitEditSessionIdentityProvider(model),
+		new StagedResourceQuickDiffProvider(model),
 		new TerminalShellExecutionManager(model, logger)
 	);
 

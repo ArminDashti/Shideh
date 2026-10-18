@@ -1426,6 +1426,8 @@ export class TestHostService implements IHostService {
 
 	async setWindowDimmed(_targetWindow: Window, _dimmed: boolean): Promise<void> { }
 
+	async getNativeWindowHandle(_windowId: number): Promise<VSBuffer | undefined> { return undefined; }
+
 	readonly colorScheme = ColorScheme.DARK;
 	onDidChangeColorScheme = Event.None;
 }

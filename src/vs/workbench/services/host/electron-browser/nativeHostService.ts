@@ -276,6 +276,18 @@ class WorkbenchHostService extends Disposable implements IHostService {
 	}
 
 	//#endregion
+
+	//#region Native Handle
+
+	private _nativeWindowHandleCache = new Map<number, Promise<VSBuffer | undefined>>();
+	async getNativeWindowHandle(windowId: number): Promise<VSBuffer | undefined> {
+		if (!this._nativeWindowHandleCache.has(windowId)) {
+			this._nativeWindowHandleCache.set(windowId, this.nativeHostService.getNativeWindowHandle(windowId));
+		}
+		return this._nativeWindowHandleCache.get(windowId)!;
+	}
+
+	//#endregion
 }
 
 registerSingleton(IHostService, WorkbenchHostService, InstantiationType.Delayed);

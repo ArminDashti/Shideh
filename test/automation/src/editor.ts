@@ -6,6 +6,7 @@
 import { References } from './peek';
 import { Commands } from './workbench';
 import { Code } from './code';
+import { Quality } from './application';
 
 const RENAME_BOX = '.monaco-editor .monaco-editor.rename-box';
 const RENAME_INPUT = `${RENAME_BOX} .rename-input`;

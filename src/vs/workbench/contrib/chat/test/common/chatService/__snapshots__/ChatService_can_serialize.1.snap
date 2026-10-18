@@ -83,6 +83,7 @@
       terminalExecutionId: undefined,
       origin: undefined,
       responseId: undefined,
+      isHidden: false,
       result: { metadata: { metadataKey: "value" } },
       responseMarkdownInfo: undefined,
       followups: [

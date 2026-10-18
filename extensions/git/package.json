@@ -4295,6 +4295,15 @@
           "default": false,
           "markdownDescription": "%config.blameEditorDecoration.disableHover%"
         },
+        "git.blame.editorDecoration.template": {
+          "type": "string",
+          "default": "${subject}, ${authorName} (${authorDateAgo})",
+          "markdownDescription": "%config.blameEditorDecoration.template%",
+          "scope": "resource",
+          "tags": [
+            "experimental"
+          ]
+        },
         "git.blame.statusBarItem.enabled": {
           "type": "boolean",
           "default": true,

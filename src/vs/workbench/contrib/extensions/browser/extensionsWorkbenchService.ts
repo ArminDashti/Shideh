@@ -1214,6 +1214,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 			}
 		}));
 
+		this._register(this.allowedExtensionsService.onDidChangeAllowedExtensions(() => {
+			if (this.isAutoCheckUpdatesEnabled()) {
+				this.checkForUpdates();
+			}
+		}));
+
 		// Update AutoUpdate Contexts
 		this.hasOutdatedExtensionsContextKey.set(this.outdated.length > 0);
 

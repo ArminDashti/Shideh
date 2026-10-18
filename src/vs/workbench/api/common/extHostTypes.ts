@@ -1059,6 +1059,41 @@ export interface TerminalCompletionResourceOptions {
 	cwd?: vscode.Uri;
 }
 
+/**
+ * Represents a collection of {@link CompletionItem completion items} to be presented
+ * in the editor.
+ */
+export class TerminalCompletionList<T extends TerminalCompletionItem = TerminalCompletionItem> {
+
+	/**
+	 * Resources should be shown in the completions list
+	 */
+	resourceRequestConfig?: TerminalResourceRequestConfig;
+
+	/**
+	 * The completion items.
+	 */
+	items: T[];
+
+	/**
+	 * Creates a new completion list.
+	 *
+	 * @param items The completion items.
+	 * @param isIncomplete The list is not complete.
+	 */
+	constructor(items?: T[], resourceRequestConfig?: TerminalResourceRequestConfig) {
+		this.items = items ?? [];
+		this.resourceRequestConfig = resourceRequestConfig;
+	}
+}
+
+export interface TerminalResourceRequestConfig {
+	filesRequested?: boolean;
+	foldersRequested?: boolean;
+	cwd?: vscode.Uri;
+	pathSeparator: string;
+}
+
 export enum TaskRevealKind {
 	Always = 1,
 

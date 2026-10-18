@@ -133,6 +133,22 @@ suite('PolicyConfiguration', () => {
 					name: 'PolicyOrphanReference',
 				}
 			},
+			'policy.objectSetting': {
+				'type': 'object',
+				'default': {},
+				policy: {
+					name: 'PolicyObjectSetting',
+					minimumVersion: '1.0.0',
+				}
+			},
+			'policy.arraySetting': {
+				'type': 'object',
+				'default': [],
+				policy: {
+					name: 'PolicyArraySetting',
+					minimumVersion: '1.0.0',
+				}
+			},
 			'nonPolicy.setting': {
 				'type': 'boolean',
 				'default': true

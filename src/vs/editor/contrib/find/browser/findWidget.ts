@@ -1026,7 +1026,7 @@ export class FindWidget extends Widget implements IOverlayWidget, IVerticalSashL
 			showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
 			inputBoxStyles: defaultInputBoxStyles,
 			toggleStyles: defaultToggleStyles,
-			history: findSearchHistoryConfig === 'workspace' ? this._findWidgetSearchHistory : new Set([]),
+			history: findSearchHistoryConfig === 'never' ? new Set([]) : this._findWidgetSearchHistory,
 		}, this._contextKeyService));
 		this._findInput.setRegex(!!this._state.isRegex);
 		this._findInput.setCaseSensitive(!!this._state.matchCase);

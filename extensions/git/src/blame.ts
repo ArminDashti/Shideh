@@ -333,6 +333,41 @@ export class GitBlameController {
 		this._updateTextEditorBlameInformation(window.activeTextEditor);
 	}
 
+	getBlameInformationHover(documentUri: Uri, blameInformation: BlameInformation | string): MarkdownString {
+		if (typeof blameInformation === 'string') {
+			return new MarkdownString(blameInformation, true);
+		}
+
+		const markdownString = new MarkdownString();
+		markdownString.supportThemeIcons = true;
+		markdownString.isTrusted = true;
+
+		if (blameInformation.authorName) {
+			markdownString.appendMarkdown(`$(account) **${blameInformation.authorName}**`);
+
+			if (blameInformation.authorDate) {
+				const dateString = new Date(blameInformation.authorDate).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+				markdownString.appendMarkdown(`, $(history) ${fromNow(blameInformation.authorDate, true, true)} (${dateString})`);
+			}
+
+			markdownString.appendMarkdown('\n\n');
+		}
+
+		markdownString.appendMarkdown(`${blameInformation.subject}\n\n`);
+		markdownString.appendMarkdown(`---\n\n`);
+
+		markdownString.appendMarkdown(`[$(eye) View Commit](command:git.blameStatusBarItem.viewCommit?${encodeURIComponent(JSON.stringify([documentUri, blameInformation.hash]))} "${l10n.t('View Commit')}")`);
+		markdownString.appendMarkdown('&nbsp;&nbsp;|&nbsp;&nbsp;');
+		markdownString.appendMarkdown(`[$(copy) ${blameInformation.hash.substring(0, 8)}](command:git.blameStatusBarItem.copyContent?${encodeURIComponent(JSON.stringify(blameInformation.hash))} "${l10n.t('Copy Commit Hash')}")`);
+
+		if (blameInformation.subject) {
+			markdownString.appendMarkdown('&nbsp;&nbsp;');
+			markdownString.appendMarkdown(`[$(copy) Subject](command:git.blameStatusBarItem.copyContent?${encodeURIComponent(JSON.stringify(blameInformation.subject))} "${l10n.t('Copy Commit Subject')}")`);
+		}
+
+		return markdownString;
+	}
+
 	private _onDidOpenRepository(repository: Repository): void {
 		const repositoryDisposables: IDisposable[] = [];
 		repository.onDidRunGitStatus(() => this._onDidRunGitStatus(repository), this, repositoryDisposables);
