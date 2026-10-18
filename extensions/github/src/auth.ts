@@ -9,6 +9,7 @@ import { Octokit } from '@octokit/rest';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { URL } from 'url';
 import { DisposableStore, sequentialize } from './util.js';
+import { fetch as undiciFetch, ProxyAgent, type Dispatcher, type RequestInit as UndiciRequestInit } from 'undici';
 
 // Using a type import here would be cleaner, but this works with the existing code
 interface GraphqlFunction {
@@ -113,6 +114,7 @@ export class OctokitService {
 
 				const token = session.accessToken;
 				const { graphql } = await import('@octokit/graphql');
+				const fetch = createFetch(getDispatcher());
 
 				this._octokitGraphql = graphql.defaults({
 					headers: {

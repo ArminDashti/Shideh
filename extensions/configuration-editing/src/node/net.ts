@@ -27,3 +27,15 @@ function getProxyFetch(url: string | undefined = process.env.HTTPS_PROXY): typeo
 		return undiciFetch;
 	}
 }
+
+function createFetch(dispatcher: Dispatcher | undefined): typeof undiciFetch {
+	if (!dispatcher) {
+		return undiciFetch;
+	}
+
+	return (url, options) => {
+		const requestInit: UndiciRequestInit = options ? { ...options } : {};
+		requestInit.dispatcher = dispatcher;
+		return undiciFetch(url, requestInit);
+	};
+}
