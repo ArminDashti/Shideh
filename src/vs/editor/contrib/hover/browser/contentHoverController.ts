@@ -52,6 +52,8 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 	private _hoverQuickFixVisibleContextKey: IContextKey<boolean>;
 
 	private _mouseMoveEvent: IEditorMouseEvent | undefined;
+	private _mouseProjectedPosition: Range | undefined;
+	private _mouseProjectedPositionDecorations: IModelDecoration[] | null = null;
 	private _reactToEditorMouseMoveRunner: RunOnceScheduler;
 
 	// here
@@ -114,6 +116,17 @@ export class ContentHoverController extends Disposable implements IEditorContrib
 		this._listenersStore.add(this._editor.onDidChangeModel(() => this._cancelSchedulerAndHide()));
 		this._listenersStore.add(this._editor.onDidChangeModelContent(() => this._cancelScheduler()));
 		this._listenersStore.add(this._editor.onDidScrollChange((e: IScrollEvent) => this._onEditorScrollChanged(e)));
+		this._listenersStore.add(this._editor.onDidChangeModelDecorations((e) => {
+			if (this._contentWidget && this._contentWidget.isVisible && this._mouseMoveEvent && this._mouseProjectedPosition) {
+				const newDecorations = this._editor.getDecorationsInRange(this._mouseProjectedPosition);
+				console.log('newDecorations ', newDecorations);
+				console.log('this._mouseProjectedPositionDecorations ', this._mouseProjectedPositionDecorations);
+				if (this._mouseProjectedPositionDecorations === newDecorations) {
+					return;
+				}
+				this._contentWidget.showsOrWillShow(this._mouseMoveEvent);
+			}
+		}));
 	}
 
 	private _unhookListeners(): void {
