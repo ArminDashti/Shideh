@@ -29,9 +29,7 @@ import * as temp from './utils/temp.electron';
 import { conditionalRegistration, requireGlobalUnifiedConfig, requireHasVsCodeExtension } from './languageFeatures/util/dependentRegistration';
 import { DisposableStore } from './utils/dispose';
 
-export function activate(
-	context: vscode.ExtensionContext
-): Api {
+export function activate(context: vscode.ExtensionContext): Api {
 	const pluginManager = new PluginManager();
 	context.subscriptions.push(pluginManager);
 

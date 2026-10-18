@@ -257,7 +257,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 		}
 
 		if (isWeb()) {
-			if (this.isProjectWideIntellisenseOnWebEnabled()) {
+			if (this.supportsVirtualFileSystems()) {
 				return new ClientCapabilities(
 					ClientCapability.Syntax,
 					ClientCapability.EnhancedSyntax,
@@ -284,7 +284,8 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 	private readonly _onDidChangeCapabilities = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeCapabilities = this._onDidChangeCapabilities.event;
 
-	private isProjectWideIntellisenseOnWebEnabled(): boolean {
+	private supportsVirtualFileSystems(): boolean {
+		return true; // TODO
 		return isWebAndHasSharedArrayBuffers() && this._configuration.webProjectWideIntellisenseEnabled;
 	}
 
@@ -778,7 +779,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 			return resource.fsPath;
 		}
 
-		return (this.isProjectWideIntellisenseOnWebEnabled() ? '' : inMemoryResourcePrefix)
+		return (this.supportsVirtualFileSystems() ? '' : inMemoryResourcePrefix)
 			+ '/' + resource.scheme
 			+ '/' + (resource.authority || emptyAuthority)
 			+ (resource.path.startsWith('/') ? resource.path : '/' + resource.path)
