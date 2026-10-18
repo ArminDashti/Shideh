@@ -222,6 +222,10 @@ export interface IScrollableOptions {
 	scheduleAtNextAnimationFrame: (callback: () => void) => IDisposable;
 }
 
+export interface ISmoothScrollOptions {
+	duration: number;
+}
+
 export class Scrollable extends Disposable {
 
 	_scrollableBrand: void = undefined;
@@ -303,8 +307,10 @@ export class Scrollable extends Disposable {
 		this._setState(newState, false);
 	}
 
-	public setScrollPositionSmooth(update: INewScrollPosition, reuseAnimation?: boolean): void {
-		if (this._smoothScrollDuration === 0) {
+	public setScrollPositionSmooth(update: INewScrollPosition, reuseAnimation?: boolean | ISmoothScrollOptions): void {
+		const duration = typeof reuseAnimation === 'boolean' ? this._smoothScrollDuration : (reuseAnimation?.duration ?? this._smoothScrollDuration);
+
+		if (duration <= 0) {
 			// Smooth scrolling not supported.
 			return this.setScrollPositionNow(update);
 		}
@@ -327,7 +333,7 @@ export class Scrollable extends Disposable {
 			if (reuseAnimation) {
 				newSmoothScrolling = new SmoothScrollingOperation(this._smoothScrolling.from, validTarget, this._smoothScrolling.startTime, this._smoothScrolling.duration);
 			} else {
-				newSmoothScrolling = this._smoothScrolling.combine(this._state, validTarget, this._smoothScrollDuration);
+				newSmoothScrolling = this._smoothScrolling.combine(this._state, validTarget, duration);
 			}
 			this._smoothScrolling.dispose();
 			this._smoothScrolling = newSmoothScrolling;
@@ -335,7 +341,7 @@ export class Scrollable extends Disposable {
 			// Validate `update`
 			const validTarget = this._state.withScrollPosition(update);
 
-			this._smoothScrolling = SmoothScrollingOperation.start(this._state, validTarget, this._smoothScrollDuration);
+			this._smoothScrolling = SmoothScrollingOperation.start(this._state, validTarget, duration);
 		}
 
 		// Begin smooth scrolling animation
@@ -352,14 +358,14 @@ export class Scrollable extends Disposable {
 		return Boolean(this._smoothScrolling);
 	}
 
-	private _performSmoothScrolling(): void {
+	private _performSmoothScrolling(options?: ISmoothScrollOptions): void {
 		if (!this._smoothScrolling) {
 			return;
 		}
 		const update = this._smoothScrolling.tick();
 		const newState = this._state.withScrollPosition(update);
 
-		this._setState(newState, true);
+		this._setState(newState, options ?? true);
 
 		if (!this._smoothScrolling) {
 			// Looks like someone canceled the smooth scrolling
@@ -383,7 +389,7 @@ export class Scrollable extends Disposable {
 		});
 	}
 
-	private _setState(newState: ScrollState, inSmoothScrolling: boolean): void {
+	private _setState(newState: ScrollState, inSmoothScrolling: boolean | ISmoothScrollOptions): void {
 		const oldState = this._state;
 		if (oldState.equals(newState)) {
 			// no change
