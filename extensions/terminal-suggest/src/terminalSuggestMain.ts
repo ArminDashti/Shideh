@@ -59,6 +59,7 @@ export const availableSpecs: Fig.Spec[] = [
 	azdSpec,
 	cdSpec,
 	codeInsidersCompletionSpec,
+	codeTunnelCompletionSpec,
 	codeCompletionSpec,
 	codeTunnelCompletionSpec,
 	codeTunnelInsidersCompletionSpec,

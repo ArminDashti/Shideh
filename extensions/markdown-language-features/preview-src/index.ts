@@ -416,7 +416,7 @@ window.addEventListener('message', async event => {
 							domEval(childNode);
 						}
 					}
-				});
+				} as any);
 			}
 
 			++documentVersion;
