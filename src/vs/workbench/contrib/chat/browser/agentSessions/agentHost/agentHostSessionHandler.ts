@@ -4304,14 +4304,13 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		}));
 
 		store.add(opts.cancellationToken.onCancellationRequested(() => {
-			// On cancellation the protocol turn has not been finalized yet
-			// (the `ChatTurnCancelled` dispatch round-trips asynchronously), so
-			// resolve with the current turn rather than `undefined`. This keeps
-			// the turn's accumulated `usage` so the response footer still shows
-			// the model and the credits consumed before the interruption.
-			// Mark it `Cancelled` so error-detail extraction treats it as a
-			// non-error terminal turn (an already-finalized turn keeps its own
-			// state).
+			// Eagerly finish the response on cancel instead of waiting for the
+			// `ChatTurnCancelled` dispatch to round-trip and terminalize the turn
+			// in state (which may never be echoed back, e.g. in tests). Resolve
+			// with the current turn marked `Cancelled` so the footer keeps the
+			// usage accumulated before the interruption; any credits that settle
+			// afterwards are reconciled onto the response by `_forwardTurnUsage`,
+			// whose store outlives this finish.
 			const current = turn$.get();
 			finish(current ? { state: TurnState.Cancelled, ...current } : undefined);
 		}));
