@@ -191,6 +191,8 @@ function registerAgentHostSkillButton(spec: IAgentHostSkillButtonSpec): void {
 		async run(accessor: ServicesAccessor): Promise<void> {
 			const sessionsService = accessor.get(ISessionsService);
 			const chatService = accessor.get(IChatService);
+			const customizationHarnessService = accessor.get(ICustomizationHarnessService);
+			const toolsService = accessor.get(ILanguageModelToolsService);
 
 			const activeSession = sessionsService.activeSession.get();
 			if (!activeSession) {
@@ -206,12 +208,13 @@ function registerAgentHostSkillButton(spec: IAgentHostSkillButtonSpec): void {
 			// agent-host providers, so it is NOT a valid agent id here.
 			const agentId = activeSession.resource.scheme;
 			const prompt = `/${spec.skill}`;
+			const promptFile = await resolvePromptSlashCommandToVariableEntry(prompt, agentId, customizationHarnessService, toolsService, CancellationToken.None);
+			const attachedContext = promptFile ? [promptFile] : undefined;
+
+			await sessionsManagementService.openSession(activeSession.resource, { preserveFocus: true });
 			const ref = await chatService.acquireOrLoadSession(activeSession.resource, ChatAgentLocation.Chat, CancellationToken.None, 'AgentHostSkillButton');
 			try {
-				let result = await chatService.sendRequest(activeSession.resource, prompt, { agentIdSilent: agentId });
-				if (ChatSendResult.isQueued(result)) {
-					result = await result.deferred;
-				}
+				const result = await chatService.sendRequest(activeSession.resource, prompt, { agentIdSilent: agentId, attachedContext });
 				if (ChatSendResult.isSent(result)) {
 					await result.data.responseCompletePromise;
 				}

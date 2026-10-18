@@ -52,8 +52,6 @@ import { IEditorGroupsService } from '../../../../services/editor/common/editorG
 import { getChatSessionType, isUntitledChatSession, LocalChatSessionUri } from '../../common/model/chatUri.js';
 import { assertNever } from '../../../../../base/common/assert.js';
 import { Target } from '../../common/promptSyntax/promptTypes.js';
-import { slashReg } from '../../common/requestParser/chatRequestParser.js';
-import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { ILanguageModelToolsService } from '../../common/tools/languageModelToolsService.js';
 import { IChatModel } from '../../common/model/chatModel.js';
 import { ICustomizationHarnessService } from '../../common/customizationHarnessService.js';
