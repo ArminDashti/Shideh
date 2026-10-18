@@ -1660,9 +1660,7 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 
 	/**
 	 * Reads persisted worktree metadata, canonicalizing, repairing, and persisting the repository root when needed.
-	 * It probes an existing worktree when available and otherwise falls back to the persisted root for archived sessions.
-	 * The repair is only reachable when {@link WORKTREE_META_BRANCH} is present, so a root
-	 * persisted without its branch will never heal.
+	 * Adopted legacy sessions without a branch heal only when one local `agents/` branch maps to the worktree name.
 	 */
 	private async _readWorktreeMetadata(sessionUri: URI, repair = true): Promise<IWorktreeMetadata | undefined> {
 		const ref = await this._sessionDataService.tryOpenDatabase(sessionUri);
@@ -1679,9 +1677,6 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				ref.object.getMetadata(WORKTREE_META_SYMLINK_SOURCE_ROOT),
 				ref.object.getMetadata(LEGACY_WORKTREE_META_WORKING_DIRECTORY),
 			]);
-			if (!branchName) {
-				return undefined;
-			}
 			const worktreePath = worktreePathRaw
 				? URI.parse(worktreePathRaw)
 				: legacyWorkingDirectoryRaw
@@ -1700,6 +1695,24 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 				: worktreePath
 					? deriveRepositoryRootFromWorktree(worktreePath)
 					: undefined;
+			let branchName = persistedBranchName;
+			if (!branchName && worktreePath && repositoryRoot) {
+				branchName = await this._resolveLegacyWorktreeBranch(repositoryRoot, worktreePath);
+				if (branchName) {
+					try {
+						await Promise.all([
+							ref.object.setMetadata(WORKTREE_META_BRANCH, branchName),
+							ref.object.setMetadata(WORKTREE_META_PATH, worktreePath.toString()),
+							ref.object.setMetadata(WORKTREE_META_REPOSITORY_ROOT, repositoryRoot.toString()),
+						]);
+					} catch (error) {
+						this._logService.warn(`[${this._logLabel}] Failed to persist reconstructed worktree metadata for '${sessionUri.toString()}': ${errorMessage(error)}`);
+					}
+				}
+			}
+			if (!branchName) {
+				return undefined;
+			}
 			if (repositoryRoot) {
 				const checkoutRoot = worktreePath && await fileExists(worktreePath.fsPath) ? worktreePath : repositoryRoot;
 				const primaryRoot = await this._resolvePrimaryWorktreeRoot(checkoutRoot, repositoryRoot);
@@ -1729,6 +1742,25 @@ export class WorktreeIsolation extends Disposable implements IAgentHostWorktreeI
 		} finally {
 			ref.dispose();
 		}
+	}
+
+	private async _resolveLegacyWorktreeBranch(repositoryRoot: URI, worktreePath: URI): Promise<string | undefined> {
+		const worktreeName = basename(worktreePath.fsPath);
+		const branches = await this._gitService.getBranches(repositoryRoot).catch(() => []);
+		const matches = branches.filter(branch => {
+			if (branch.kind !== GitRefType.Head) {
+				return false;
+			}
+			const marker = `/${AGENT_BRANCH_PREFIX}`;
+			const markerIndex = branch.name.lastIndexOf(marker);
+			const agentBranchName = markerIndex >= 0
+				? branch.name.substring(markerIndex + 1)
+				: branch.name.startsWith(AGENT_BRANCH_PREFIX)
+					? branch.name
+					: undefined;
+			return agentBranchName?.replace(/\//g, '-') === worktreeName;
+		});
+		return matches.length === 1 ? matches[0].name : undefined;
 	}
 
 	private async _readWorktreeNotice(sessionUri: URI): Promise<{ kind: 'success'; branchName: string } | { kind: 'failure'; diagnostic?: string } | undefined> {
