@@ -32,6 +32,7 @@ import { setup as setupCopilotCliTests } from './areas/chat/copilotCli.test';
 import { setup as setupChatSandboxTests } from './areas/chat/chatSandbox.test';
 import { setup as setupChatSessionsTests } from './areas/chat/chatSessions.test';
 import { setup as setupChatModelConfigTests } from './areas/chat/chatModelConfig.test';
+import { setup as setupChatModelRestoreTests } from './areas/chat/chatModelRestore.test';
 import { setup as setupAccessibilityTests } from './areas/accessibility/accessibility.test';
 import { setup as setupAgentsWindowTests } from './areas/agentsWindow/agentsWindow.test';
 import { setup as setupBrowserViewTests } from './areas/browserView/browserView.test';
