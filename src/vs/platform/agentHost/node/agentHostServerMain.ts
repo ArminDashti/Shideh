@@ -15,6 +15,7 @@ globalThis._VSCODE_FILE_ROOT = fileURLToPath(new URL('../../../..', import.meta.
 
 import * as fs from 'fs';
 import * as os from 'os';
+import { findExecutable } from '../../../base/node/processes.js';
 import type { Event } from '../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../base/common/lifecycle.js';
 import { observableValue } from '../../../base/common/observable.js';

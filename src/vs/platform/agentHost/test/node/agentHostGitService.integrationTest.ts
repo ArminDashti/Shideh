@@ -46,7 +46,7 @@ function createGitService(disposables: Pick<DisposableStore, 'add'>, logService:
 	const fileService = disposables.add(new FileService(logService));
 	disposables.add(fileService.registerProvider(Schemas.file, disposables.add(new DiskFileSystemProvider(logService))));
 	const env: Partial<INativeEnvironmentService> = { tmpDir: URI.file(tmpdir()) };
-	return new AgentHostGitService(fileService, env as INativeEnvironmentService, logService);
+	return new AgentHostGitService(gitLfsExecutable, fileService, env as INativeEnvironmentService, logService);
 }
 
 async function rmDirWithRetry(path: string | undefined): Promise<void> {
@@ -1440,6 +1440,34 @@ suite('AgentHostGitService - worktree helpers (real git)', () => {
 			try { await svc!.removeWorktree(URI.file(dir), URI.file(wtPath), { force: true }); } catch { /* best-effort cleanup */ }
 			await rmDirWithRetry(wtPath);
 			try { cp.execFileSync('git', ['branch', '-D', 'agents/test-local-start-point'], { cwd: dir, env, stdio: 'ignore' }); } catch { /* best-effort cleanup */ }
+		}
+	});
+
+	(hasGit ? test : test.skip)('worktree creation and recreation keep LFS pointers when git-lfs is unavailable', async () => {
+		const dir = initRepo();
+		const fs = await import('fs/promises');
+		const run = (...args: string[]) => cp.execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
+		const pointer = 'version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n';
+		await fs.writeFile(join(dir, '.gitattributes'), '*.bin filter=lfs diff=lfs merge=lfs -text\n');
+		await fs.writeFile(join(dir, 'large.bin'), pointer);
+		run('-c', 'filter.lfs.process=', '-c', 'filter.lfs.clean=cat', '-c', 'filter.lfs.required=false', 'add', '.');
+		run('commit', '-q', '-m', 'add LFS pointer');
+		run('config', 'filter.lfs.process', 'git-lfs filter-process');
+		run('config', 'filter.lfs.smudge', 'git-lfs smudge -- %f');
+		run('config', 'filter.lfs.required', 'true');
+
+		const worktreePath = join(dir, '..', `wt-no-lfs-${Date.now()}`);
+		try {
+			svc = createGitService(disposables, Promise.resolve(undefined));
+			await svc.addWorktree(URI.file(dir), URI.file(worktreePath), 'agents/no-lfs', 'main');
+			assert.strictEqual(await fs.readFile(join(worktreePath, 'large.bin'), 'utf8'), pointer);
+			rmDirWithRetry(worktreePath);
+			await svc.addExistingWorktree(URI.file(dir), URI.file(worktreePath), 'agents/no-lfs');
+			assert.strictEqual(await fs.readFile(join(worktreePath, 'large.bin'), 'utf8'), pointer);
+		} finally {
+			try { await svc?.removeWorktree(URI.file(dir), URI.file(worktreePath)); } catch { /* best-effort cleanup */ }
+			rmDirWithRetry(worktreePath);
+			try { run('branch', '-D', 'agents/no-lfs'); } catch { /* best-effort cleanup */ }
 		}
 	});
 

@@ -16,6 +16,7 @@ import { tmpdir } from 'os';
 import { Event } from '../../../../base/common/event.js';
 import { join } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
+import { findExecutable } from '../../../../base/node/processes.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
@@ -56,7 +57,7 @@ suite.skip('AgentHostReviewService (real git)', () => {
 		const fileService = store.add(new FileService(logService));
 		store.add(fileService.registerProvider(Schemas.file, store.add(new DiskFileSystemProvider(logService))));
 		const env: Partial<INativeEnvironmentService> = { tmpDir: URI.file(tmpdir()) };
-		const gitService = new AgentHostGitService(fileService, env as INativeEnvironmentService, logService);
+		const gitService = new AgentHostGitService(findExecutable('git-lfs'), fileService, env as INativeEnvironmentService, logService);
 		db = new TestSessionDatabase();
 		const sessionDataService = createSessionDataService(db);
 		const stateManager = disposables.add(new AgentHostStateManager(logService));
