@@ -769,7 +769,6 @@ export class BackLayerWebView<T extends ICommonCellInfo> extends Themable {
 								if (group.activeEditor) {
 									group.pinEditor(group.activeEditor);
 								}
-							}
 
 							this.openerService.open(CellUri.generateCellOutputUriWithId(this.documentUri, outputId));
 							return;
