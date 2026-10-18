@@ -2018,6 +2018,14 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			}
 		};
 
+		// namespace: remoteCodingAgents
+		const remoteCodingAgents = {
+			registerCodingAgentInformationProvider(provider: vscode.RemoteCodingAgentInformationProvider) {
+				checkProposedApiEnabled(extension, 'remoteCodingAgents');
+				return extHostRemoteCodingAgents.registerCodingAgentInformationProvider(provider);
+			},
+		};
+
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		return <typeof vscode>{
 			version: initData.version,

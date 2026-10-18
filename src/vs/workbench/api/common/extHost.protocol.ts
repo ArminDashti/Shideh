@@ -74,6 +74,7 @@ import * as notebookCommon from '../../contrib/notebook/common/notebookCommon.js
 import { CellExecutionUpdateType } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { ICellExecutionComplete, ICellExecutionStateUpdate } from '../../contrib/notebook/common/notebookExecutionStateService.js';
 import { ICellRange } from '../../contrib/notebook/common/notebookRange.js';
+import { IRemoteCodingAgentInformation } from '../../contrib/remoteCodingAgents/common/remoteCodingAgentsService.js';
 import { ISCMHistoryOptions } from '../../contrib/scm/common/history.js';
 import { InputValidationType } from '../../contrib/scm/common/scm.js';
 import { IWorkspaceSymbol, NotebookPriorityInfo } from '../../contrib/search/common/search.js';
