@@ -76,6 +76,7 @@ class ChatModes extends Disposable implements IChatModes {
 	private static readonly CUSTOM_MODES_STORAGE_KEY_PREFIX = 'chat.customModes.';
 
 	private readonly hasCustomModes: IContextKey<boolean>;
+	private readonly agentModeDisabledByPolicy: IContextKey<boolean>;
 	private readonly _customModeInstances = new Map<string, CustomChatMode>();
 	private readonly _storageKey: string;
 
@@ -106,6 +107,10 @@ class ChatModes extends Disposable implements IChatModes {
 
 		this._storageKey = ChatModes.CUSTOM_MODES_STORAGE_KEY_PREFIX + sessionType;
 		this.hasCustomModes = ChatContextKeys.Modes.hasCustomChatModes.bindTo(contextKeyService);
+		this.agentModeDisabledByPolicy = ChatContextKeys.Modes.agentModeDisabledByPolicy.bindTo(contextKeyService);
+
+		// Initialize the policy context key
+		this.updateAgentModePolicyContextKey();
 
 		// Load cached modes from storage first
 		this.loadCachedModes();
@@ -370,6 +375,14 @@ export class ChatModeService extends Disposable implements IChatModeService {
 			})();
 		}
 		return this.localMode;
+	}
+
+	private updateAgentModePolicyContextKey(): void {
+		this.agentModeDisabledByPolicy.set(this.isAgentModeDisabledByPolicy());
+	}
+
+	private isAgentModeDisabledByPolicy(): boolean {
+		return this.configurationService.inspect<boolean>(ChatConfiguration.AgentEnabled).policyValue === false;
 	}
 
 	private updateAgentModePolicyContextKey(): void {

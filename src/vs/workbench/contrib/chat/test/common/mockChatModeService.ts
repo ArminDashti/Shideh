@@ -49,4 +49,8 @@ export class MockChatModeService implements IChatModeService {
 	fireDidChange(): void {
 		this._onDidChange.fire();
 	}
+
+	isAgentModeDisabledByPolicy(): boolean {
+		return this._isAgentModeDisabledByPolicy;
+	}
 }

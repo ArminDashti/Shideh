@@ -31,6 +31,7 @@ suite('ChatModeService', () => {
 	let instantiationService: TestInstantiationService;
 	let promptsService: MockPromptsService;
 	let storageService: TestStorageService;
+	let configurationService: TestConfigurationService;
 	let chatModeService: ChatModeService;
 	let customizationHarnessService: CustomizationHarnessServiceBase;
 
