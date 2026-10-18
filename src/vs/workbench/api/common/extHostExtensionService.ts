@@ -253,6 +253,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			return;
 		}
 		this._isTerminating = true;
+		(process as any).profile();
 		this._logService.info(`Extension host terminating: ${reason}`);
 		this._logService.flush();
 
@@ -288,6 +289,8 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			this._logService.flush();
 			this._logService.dispose();
 			this._hostUtils.exit(code);
+			await timeout(3000);
+			await (process as any).profileEnd();
 		});
 	}
 
