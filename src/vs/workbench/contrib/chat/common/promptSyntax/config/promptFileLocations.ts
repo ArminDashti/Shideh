@@ -228,6 +228,13 @@ export const DEFAULT_HOOK_FILE_PATHS: readonly IPromptSourceFolder[] = [
 ];
 
 /**
+ * Default hook source folders.
+ */
+export const DEFAULT_HOOK_SOURCE_FOLDERS: readonly IPromptSourceFolder[] = [
+	{ path: HOOKS_SOURCE_FOLDER, source: PromptFileSource.GitHubWorkspace, storage: PromptsStorage.local },
+];
+
+/**
  * Helper function to check if a file is directly in the .github/agents/ folder (not in subfolders).
  */
 function isInAgentsFolder(fileUri: URI): boolean {
@@ -258,6 +265,14 @@ export function isInCopilotAgentsFolder(fileUri: URI): boolean {
 export function isInClaudeRulesFolder(fileUri: URI): boolean {
 	const path = fileUri.path;
 	return path.includes('/' + CLAUDE_RULES_SOURCE_FOLDER + '/');
+}
+
+/**
+ * Helper function to check if a file is in the .github/hooks/ folder.
+ */
+function isInHooksFolder(fileUri: URI): boolean {
+	const dir = dirname(fileUri.path);
+	return dir.endsWith('/' + HOOKS_SOURCE_FOLDER) || dir === HOOKS_SOURCE_FOLDER;
 }
 
 /**

@@ -112,6 +112,12 @@ function newHelpButton(type: PromptsType): IQuickInputButton & { helpURI: URI } 
 				helpURI: URI.parse(HOOK_DOCUMENTATION_URL),
 				iconClass
 			};
+		case PromptsType.hook:
+			return {
+				tooltip: localize('help.hook', "Show help on hook files"),
+				helpURI: URI.parse(HOOK_DOCUMENTATION_URL),
+				iconClass
+			};
 	}
 }
 

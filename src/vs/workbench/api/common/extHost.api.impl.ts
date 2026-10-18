@@ -69,6 +69,7 @@ import { IExtHostConsumerFileSystem } from './extHostFileSystemConsumer.js';
 import { ExtHostFileSystemEventService, FileSystemWatcherCreateOptions } from './extHostFileSystemEventService.js';
 import { IExtHostFileSystemInfo } from './extHostFileSystemInfo.js';
 import { IExtHostInitDataService } from './extHostInitDataService.js';
+import { IExtHostHooks } from './extHostHooks.js';
 import { ExtHostInteractive } from './extHostInteractive.js';
 import { ExtHostLabelService } from './extHostLabelService.js';
 import { ExtHostLanguageFeatures } from './extHostLanguageFeatures.js';

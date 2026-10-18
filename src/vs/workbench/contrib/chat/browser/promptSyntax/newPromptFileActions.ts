@@ -246,6 +246,11 @@ function getDefaultContentSnippet(promptType: PromptsType, name: string | undefi
 				``,
 				`\${3:Define the functionality provided by this skill, including detailed instructions and examples}`,
 			].join('\n');
+		case PromptsType.hook:
+			return JSON.stringify({
+				version: 1,
+				hooks: {}
+			}, null, 4);
 		default:
 			throw new Error(`Unsupported prompt type: ${promptType}`);
 	}
@@ -257,6 +262,7 @@ export const NEW_PROMPT_COMMAND_ID = 'workbench.command.new.prompt';
 export const NEW_INSTRUCTIONS_COMMAND_ID = 'workbench.command.new.instructions';
 export const NEW_AGENT_COMMAND_ID = 'workbench.command.new.agent';
 export const NEW_SKILL_COMMAND_ID = 'workbench.command.new.skill';
+export const NEW_HOOK_COMMAND_ID = 'workbench.command.new.hook';
 
 class NewPromptFileAction extends AbstractNewPromptFileAction {
 	constructor() {
@@ -369,6 +375,111 @@ class NewSkillFileAction extends Action2 {
 	}
 }
 
+class NewHookFileAction extends Action2 {
+	constructor() {
+		super({
+			id: NEW_HOOK_COMMAND_ID,
+			title: localize('commands.new.hook.local.title', "New Hook File..."),
+			f1: false,
+			precondition: ChatContextKeys.enabled,
+			category: CHAT_CATEGORY,
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib
+			},
+			menu: {
+				id: MenuId.CommandPalette,
+				when: ChatContextKeys.enabled
+			}
+		});
+	}
+
+	public override async run(accessor: ServicesAccessor) {
+		const editorService = accessor.get(IEditorService);
+		const fileService = accessor.get(IFileService);
+		const instaService = accessor.get(IInstantiationService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, PromptsType.hook);
+		if (!selectedFolder) {
+			return;
+		}
+
+		// Ask which hook type to add
+		const hookTypeItems = HOOK_TYPES.map(hookType => ({
+			id: hookType.id,
+			label: hookType.label,
+			description: hookType.description
+		}));
+
+		const selectedHookType = await quickInputService.pick(hookTypeItems, {
+			placeHolder: localize('commands.new.hook.type.placeholder', "Select a hook type to add"),
+			title: localize('commands.new.hook.type.title', "Add Hook")
+		});
+
+		if (!selectedHookType) {
+			return;
+		}
+
+		// Create the hooks folder if it doesn't exist
+		await fileService.createFolder(selectedFolder.uri);
+
+		// Use fixed hooks.json filename
+		const hookFileUri = URI.joinPath(selectedFolder.uri, HOOKS_FILENAME);
+
+		// Check if hooks.json already exists
+		let hooksContent: { version: number; hooks: Record<string, unknown[]> };
+		const fileExists = await fileService.exists(hookFileUri);
+
+		if (fileExists) {
+			// Parse existing file
+			const existingContent = await fileService.readFile(hookFileUri);
+			try {
+				hooksContent = JSON.parse(existingContent.value.toString());
+				// Ensure hooks object exists
+				if (!hooksContent.hooks) {
+					hooksContent.hooks = {};
+				}
+			} catch {
+				// If parsing fails, start fresh
+				hooksContent = { version: 1, hooks: {} };
+			}
+		} else {
+			// Create new structure
+			hooksContent = { version: 1, hooks: {} };
+		}
+
+		// Add the new hook entry (append if hook type already exists)
+		const hookTypeId = selectedHookType.id as HookTypeId;
+		const newHookEntry = {
+			type: 'command',
+			command: ''
+		};
+		let newHookIndex: number;
+		if (!hooksContent.hooks[hookTypeId]) {
+			hooksContent.hooks[hookTypeId] = [newHookEntry];
+			newHookIndex = 0;
+		} else {
+			hooksContent.hooks[hookTypeId].push(newHookEntry);
+			newHookIndex = hooksContent.hooks[hookTypeId].length - 1;
+		}
+
+		// Write the file
+		const jsonContent = JSON.stringify(hooksContent, null, '\t');
+		await fileService.writeFile(hookFileUri, VSBuffer.fromString(jsonContent));
+
+		// Find the selection for the new hook's command field
+		const selection = findHookCommandSelection(jsonContent, hookTypeId, newHookIndex, 'command');
+
+		await editorService.openEditor({
+			resource: hookFileUri,
+			options: {
+				selection,
+				pinned: false
+			}
+		});
+	}
+}
+
 class NewUntitledPromptFileAction extends Action2 {
 	constructor() {
 		super({
@@ -414,5 +525,6 @@ export function registerNewPromptFileActions(): void {
 	registerAction2(NewInstructionsFileAction);
 	registerAction2(NewAgentFileAction);
 	registerAction2(NewSkillFileAction);
+	registerAction2(NewHookFileAction);
 	registerAction2(NewUntitledPromptFileAction);
 }
