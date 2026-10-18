@@ -301,7 +301,7 @@ export class SelectBoxList extends Disposable implements ISelectBoxDelegate, ILi
 
 			if (showDropDown) {
 				this.showSelectDropDown();
-				dom.EventHelper.stop(e, true);
+				dom.EventHelper.stop(e);
 			}
 		}));
 	}
