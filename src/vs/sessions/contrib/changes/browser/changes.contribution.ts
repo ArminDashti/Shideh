@@ -70,6 +70,9 @@ registerWorkbenchContribution2(DesktopChangesEditorContribution.ID, DesktopChang
 AccessibleViewRegistry.register(new SessionsChangesAccessibilityHelp());
 
 
+registerSingleton(ISessionChangesService, SessionChangesService, InstantiationType.Delayed);
+
+
 const changesViewIcon = registerIcon('changes-view-icon', Codicon.gitCompare, localize2('changesViewIcon', 'View icon for the Changes view.').value);
 
 const viewContainersRegistry = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry);
