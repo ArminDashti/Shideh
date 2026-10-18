@@ -158,6 +158,11 @@ export interface TestCodeEditorInstantiationOptions extends TestCodeEditorCreati
 	 * Services to use.
 	 */
 	serviceCollection?: ServiceCollection;
+	/**
+	 * If the editor has text focus.
+	 * Defaults to true.
+	 */
+	hasTextFocus?: boolean;
 }
 
 export interface ITestEnvConfiguration {
@@ -194,6 +199,9 @@ function _withTestCodeEditor(arg: ITextModel | string | string[] | ITextBufferFa
 		model = arg;
 	} else {
 		model = disposables.add(instantiateTextModel(instantiationService, Array.isArray(arg) ? arg.join('\n') : arg));
+	}
+	if (!services.has(ITelemetryService)) {
+		services.set(ITelemetryService, NullTelemetryService);
 	}
 
 	const editor = disposables.add(instantiateTestCodeEditor(instantiationService, model, options));

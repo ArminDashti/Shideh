@@ -271,6 +271,10 @@ export class StandaloneThemeService extends Disposable implements IStandaloneThe
 			// Update theme selection for auto-detecting high contrast
 			this._onOSSchemeChanged();
 		});
+
+		window.matchMedia('(forced-colors: active)').addEventListener('change', () => {
+			this._updateActualTheme();
+		});
 	}
 
 	public registerEditorContainer(domNode: HTMLElement): IDisposable {
