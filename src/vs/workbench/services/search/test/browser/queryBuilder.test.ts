@@ -148,8 +148,7 @@ suite('QueryBuilder', () => {
 				}],
 				type: QueryType.File,
 				includePattern: {
-					'**/foo': true,
-					'**/bar': true
+					'**/foo, **/bar': true
 				}
 			});
 	});
