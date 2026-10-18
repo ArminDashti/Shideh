@@ -95,6 +95,14 @@ export class ChatTipContentPart extends Disposable {
 			this._onDidHide.fire();
 		}));
 
+		this._register(this._chatTipService.onDidNavigateTip(tip => {
+			this._renderTip(tip);
+		}));
+
+		this._register(this._chatTipService.onDidHideTip(() => {
+			this._onDidHide.fire();
+		}));
+
 		this._register(this._chatTipService.onDidDisableTips(() => {
 			this._onDidHide.fire();
 		}));

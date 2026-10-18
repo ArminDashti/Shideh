@@ -50,6 +50,52 @@
 	color: var(--vscode-foreground);
 }
 
+.interactive-item-container .chat-tip-widget .chat-tip-toolbar,
+.chat-getting-started-tip-container .chat-tip-widget .chat-tip-toolbar {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.interactive-item-container .chat-tip-widget .chat-tip-toolbar > .monaco-toolbar,
+.chat-getting-started-tip-container .chat-tip-widget .chat-tip-toolbar > .monaco-toolbar {
+	position: absolute;
+	top: -18px;
+	right: 10px;
+	height: 26px;
+	line-height: 26px;
+	background-color: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-chat-requestBorder);
+	border-radius: var(--vscode-cornerRadius-medium);
+	z-index: 100;
+	transition: opacity 0.1s ease-in-out;
+}
+
+.interactive-item-container .chat-tip-widget:hover .chat-tip-toolbar,
+.interactive-item-container .chat-tip-widget:focus-within .chat-tip-toolbar,
+.chat-getting-started-tip-container .chat-tip-widget:hover .chat-tip-toolbar,
+.chat-getting-started-tip-container .chat-tip-widget:focus-within .chat-tip-toolbar {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.interactive-item-container .chat-tip-widget .chat-tip-toolbar .action-item,
+.chat-getting-started-tip-container .chat-tip-widget .chat-tip-toolbar .action-item {
+	height: 24px;
+	width: 24px;
+	margin: 1px 2px;
+}
+
+.interactive-item-container .chat-tip-widget .chat-tip-toolbar .action-item .action-label,
+.chat-getting-started-tip-container .chat-tip-widget .chat-tip-toolbar .action-item .action-label {
+	color: var(--vscode-descriptionForeground);
+}
+
+.interactive-item-container .chat-tip-widget .chat-tip-toolbar .action-item .action-label:hover,
+.chat-getting-started-tip-container .chat-tip-widget .chat-tip-toolbar .action-item .action-label:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+}
+
 .chat-getting-started-tip-container {
 	width: 100%;
 }
