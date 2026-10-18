@@ -158,6 +158,19 @@ export class ChatDebugEditor extends EditorPane {
 			}
 		}));
 
+		this.costView = this._register(this.instantiationService.createInstance(ChatDebugCostView, this.container));
+		this._register(this.costView.onNavigate(nav => {
+			switch (nav) {
+				case CostNavigation.Home:
+					this.endActiveSession();
+					this.showView(ViewState.Home);
+					break;
+				case CostNavigation.Overview:
+					this.showView(ViewState.Overview);
+					break;
+			}
+		}));
+
 		// When new debug events arrive, refresh the active session view
 		this._register(this.chatDebugService.onDidAddEvent(event => {
 			if (this.viewState === ViewState.Home) {
@@ -406,6 +419,8 @@ export class ChatDebugEditor extends EditorPane {
 			this.navigateToSession(sessionResource, 'flowchart');
 		} else if (viewHint === 'cache' && sessionResource) {
 			this.navigateToSession(sessionResource, 'cache');
+		} else if (viewHint === 'cost' && sessionResource) {
+			this.navigateToSession(sessionResource, 'cost');
 		} else if (viewHint === 'overview' && sessionResource) {
 			this.navigateToSession(sessionResource, 'overview');
 		} else if (viewHint === 'wirelog' && sessionResource) {

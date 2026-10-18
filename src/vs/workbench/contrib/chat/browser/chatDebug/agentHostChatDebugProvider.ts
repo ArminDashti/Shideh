@@ -1347,7 +1347,7 @@ export function convertAgentHostEventsToDebugEvents(
 			events[ref.index] = { ...turn, inputTokens, cachedTokens, totalTokens, copilotUsageNanoAiu };
 			const detail = resolved.get(ref.id);
 			if (detail?.kind === 'modelTurn') {
-				resolved.set(ref.id, { ...detail, inputTokens, cachedTokens, totalTokens });
+				resolved.set(ref.id, { ...detail, inputTokens, cachedTokens, totalTokens, copilotUsageNanoAiu });
 			}
 		}
 	};
@@ -1739,6 +1739,38 @@ function extractSessionUsageTotals(records: readonly IAgentHostEventRecord[]): I
 	// cache are then known to be zero (not unknown), so returning the totals here
 	// keeps the caller from falling back to live AIU for a finished session.
 	return { inputTokens, cacheReadTokens, totalNanoAiu };
+}
+
+/**
+ * Extracts exact per-model usage from the last `session.shutdown` record's
+ * `modelMetrics`, keyed by raw model id. Each entry carries that model's exact
+ * input/cache tokens and Copilot AIU. Returns `undefined` when there is no
+ * `session.shutdown` record or it carries no `modelMetrics` (e.g. an active
+ * session), so the caller can fall back to an even session-total distribution.
+ */
+function extractPerModelUsage(records: readonly IAgentHostEventRecord[]): Map<string, ISessionUsageTotals> | undefined {
+	let shutdown: IAgentHostEventRecord | undefined;
+	for (const record of records) {
+		if (record.type === 'session.shutdown') {
+			shutdown = record; // keep the last one
+		}
+	}
+	const modelMetrics = shutdown?.data.modelMetrics;
+	if (!modelMetrics || typeof modelMetrics !== 'object') {
+		return undefined;
+	}
+
+	const perModel = new Map<string, ISessionUsageTotals>();
+	for (const [model, metric] of Object.entries(modelMetrics as Record<string, unknown>)) {
+		const entry = metric as Record<string, unknown> | undefined;
+		const usage = entry?.usage as Record<string, unknown> | undefined;
+		perModel.set(model, {
+			inputTokens: asNumber(usage?.inputTokens),
+			cacheReadTokens: asNumber(usage?.cacheReadTokens),
+			totalNanoAiu: asNumber(entry?.totalNanoAiu) ?? 0,
+		});
+	}
+	return perModel.size > 0 ? perModel : undefined;
 }
 
 /** Splits `total` into `n` integer parts that sum exactly to `total`. */

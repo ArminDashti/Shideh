@@ -29,8 +29,6 @@ import { setupBreadcrumbKeyboardNavigation, TextBreadcrumbItem } from './chatDeb
 
 const $ = DOM.$;
 const numberFormatter = safeIntl.NumberFormat();
-const aicFormatter = safeIntl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const NANO_AIU_PER_AIC = 1_000_000_000;
 
 export const enum OverviewNavigation {
 	Home = 'home',
@@ -337,8 +335,7 @@ export class ChatDebugOverviewView extends Disposable {
 		];
 
 		if (totalCopilotUsageNanoAiu > 0) {
-			const aic = totalCopilotUsageNanoAiu / NANO_AIU_PER_AIC;
-			metrics.push({ label: localize('chatDebug.metric.copilotUsage', "Copilot Usage (AIC)"), value: aicFormatter.value.format(aic) });
+			metrics.push({ label: localize('chatDebug.metric.copilotUsage', "Copilot Usage (AIC)"), value: formatNanoAiuAsAic(totalCopilotUsageNanoAiu) });
 		}
 
 		for (const metric of metrics) {
