@@ -42,7 +42,6 @@ import { type IParsedHookCommand } from '../../../../../../platform/agentPlugins
 import { HookType } from '../hookTypes.js';
 import { HookSourceFormat, parseHooksFromFile } from '../hookCompatibility.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
-import { IWorkspaceTrustManagementService } from '../../../../../../platform/workspace/common/workspaceTrust.js';
 import { IPathService } from '../../../../../services/path/common/pathService.js';
 import { getTarget, mapClaudeModels, mapClaudeTools } from '../languageProviders/promptFileAttributes.js';
 import { getCanonicalPluginCommandId, IAgentPlugin, IAgentPluginService } from '../../plugins/agentPluginService.js';
@@ -285,7 +284,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 		@IWorkspaceContextService private readonly workspaceService: IWorkspaceContextService,
 		@IPathService protected readonly pathService: IPathService,
 		@IAgentPluginService private readonly agentPluginService: IAgentPluginService,
-		@IWorkspaceTrustManagementService private readonly workspaceTrustService: IWorkspaceTrustManagementService,
 	) {
 		super();
 
@@ -370,7 +368,6 @@ export class PromptsService extends Disposable implements IPromptsService {
 				Event.filter(this.configurationService.onDidChangeConfiguration, e => e.affectsConfiguration(PromptsConfig.USE_CHAT_HOOKS) || e.affectsConfiguration(PromptsConfig.USE_CLAUDE_HOOKS)),
 				onDidChangeCustomizationLockdown,
 				this._onDidPluginHooksChange.event,
-				this.workspaceTrustService.onDidChangeTrust,
 			)
 		));
 

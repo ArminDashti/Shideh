@@ -37,7 +37,7 @@ import { IWorkbenchEnvironmentService } from '../../../../../../services/environ
 import { IFilesConfigurationService } from '../../../../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { IUserDataProfileService } from '../../../../../../services/userDataProfile/common/userDataProfile.js';
 import { toUserDataProfile } from '../../../../../../../platform/userDataProfile/common/userDataProfile.js';
-import { TestContextService, TestUserDataProfileService, TestWorkspaceTrustManagementService } from '../../../../../../test/common/workbenchTestServices.js';
+import { TestContextService, TestUserDataProfileService } from '../../../../../../test/common/workbenchTestServices.js';
 import { ChatRequestVariableSet, isPromptFileVariableEntry, toFileVariableEntry } from '../../../../common/attachments/chatVariableEntries.js';
 import { ComputeAutomaticInstructions, newInstructionsCollectionEvent, newInstructionsCollectionDebugInfo } from '../../../../common/promptSyntax/computeAutomaticInstructions.js';
 import { PromptsConfig } from '../../../../common/promptSyntax/config/config.js';
