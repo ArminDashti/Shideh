@@ -907,7 +907,8 @@ function createTestServices(disposables: DisposableStore, workingDirectoryResolv
 	instantiationService.stub(IChatEntitlementService, { entitlement: ChatEntitlement.Free, quotas: {}, anonymous: false, onDidChangeAnonymous: Event.None } as Partial<IChatEntitlementService> as IChatEntitlementService);
 	instantiationService.stub(IChatAgentService, chatAgentService);
 	instantiationService.stub(IChatWidgetService, chatWidgetService);
-	instantiationService.stub(IFileService, TestFileService);
+	const fileService = new TestFileService();
+	instantiationService.stub(IFileService, fileService);
 	instantiationService.stub(ILabelService, MockLabelService);
 	instantiationService.stub(IPathService, new class extends mock<IPathService>() {
 		override userHome(options: { preferLocal: true }): URI;
@@ -3298,6 +3299,110 @@ suite('AgentHostChatContribution', () => {
 			await timeout(500);
 
 			assert.deepStrictEqual(agentHostService.dispatchedActions, []);
+		}));
+
+		test('uri-only image in a draft stays a resource reference without reading bytes', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+			const modelMetadata = upcastPartial<ILanguageModelChatMetadata>({ id: 'opus-4.7', name: 'Opus 4.7' });
+			const languageModels = new Map<string, ILanguageModelChatMetadata>([
+				['agent-host-copilot:opus-4.7', modelMetadata],
+			]);
+			const { sessionHandler, agentHostService, chatService, fileService } = createContribution(disposables, { languageModels });
+			// Content the draft path must never read. Drafts are persisted on every
+			// debounced input change and are not model-facing, so a uri-only image
+			// must stay a lightweight resource reference rather than hydrating bytes.
+			// If the non-hydrating default ever regressed, readFile would embed these
+			// bytes and both assertions below would fail.
+			fileService.setContent('draft image bytes');
+			const backendSession = AgentSession.uri('copilot', 'draft-image');
+			const sessionResource = URI.from({ scheme: 'agent-host-copilot', path: '/draft-image' });
+			const imageUri = URI.file('/workspace/draft-pic.png');
+
+			agentHostService.sessionStates.set(backendSession.toString(), {
+				...createSessionState({
+					resource: backendSession.toString(),
+					provider: 'copilot',
+					title: 'Draft Image',
+					status: SessionStatus.Idle,
+					createdAt: new Date().toISOString(),
+					modifiedAt: new Date().toISOString(),
+				}),
+				lifecycle: SessionLifecycle.Ready,
+				activeClients: [],
+				chats: [],
+			});
+
+			const inputState = observableValue<IChatModelInputState | undefined>('test.inputState', {
+				attachments: [
+					upcastPartial<IChatRequestVariableEntry>({
+						kind: 'image',
+						id: 'v-img',
+						name: 'draft-pic.png',
+						value: imageUri,
+						mimeType: 'image/png',
+						references: [{ reference: imageUri, kind: 'reference' }],
+					}),
+				],
+				mode: { id: 'agent://reviewer', kind: ChatModeKind.Agent },
+				selectedModel: { identifier: 'agent-host-copilot:opus-4.7', metadata: modelMetadata },
+				inputText: 'draft body',
+				selections: [],
+				contrib: {},
+			});
+			const inputModel = upcastPartial<IInputModel>({
+				state: inputState,
+				setState(state: Partial<IChatModelInputState>): void {
+					inputState.set({
+						attachments: [],
+						mode: { id: 'agent', kind: ChatModeKind.Agent },
+						selectedModel: undefined,
+						inputText: '',
+						selections: [],
+						contrib: {},
+						...inputState.get(),
+						...state,
+					}, undefined);
+				},
+				clearState(): void {
+					inputState.set(undefined, undefined);
+				},
+				toJSON: () => undefined,
+			});
+			const chatModel = upcastPartial<IChatModel>({
+				sessionResource,
+				inputModel,
+				onDidChangePendingRequests: Event.None,
+				getPendingRequests: () => [],
+			});
+
+			chatService.setSession(sessionResource, chatModel);
+			const chatSession = await sessionHandler.provideChatSessionContent(sessionResource, CancellationToken.None);
+			disposables.add(toDisposable(() => chatSession.dispose()));
+			agentHostService.dispatchedActions.length = 0;
+
+			await timeout(499);
+			assert.strictEqual(agentHostService.dispatchedActions.length, 0);
+
+			await timeout(1);
+			// Flush the now-async draft conversion chain.
+			await timeout(0);
+			assert.deepStrictEqual(agentHostService.dispatchedActions.map(d => ({ channel: d.channel, action: d.action })), [{
+				channel: buildDefaultChatUri(backendSession.toString()),
+				action: {
+					type: ActionType.ChatDraftChanged,
+					draft: {
+						text: 'draft body',
+						origin: { kind: MessageKind.User },
+						attachments: [
+							{ type: MessageAttachmentKind.Resource, uri: imageUri.toString(), label: 'draft-pic.png', displayKind: 'image' },
+						],
+						model: { id: 'opus-4.7' },
+						agent: { uri: 'agent://reviewer' },
+					},
+				},
+			}]);
+			// The draft path must stay a lightweight reference and never read bytes.
+			assert.strictEqual(fileService.readOperations.length, 0);
+
 		}));
 	});
 
@@ -12016,6 +12121,108 @@ suite('AgentHostChatContribution', () => {
 					contentType: 'image/png',
 				},
 			]);
+		}));
+
+		test('uri-only image variable is hydrated into an embedded image attachment', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService, chatAgentService, fileService } = createContribution(disposables);
+			fileService.setContent('fake-image-bytes');
+			const imageUri = URI.file('/workspace/pic.png');
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'describe this image',
+				variables: {
+					variables: [
+						upcastPartial<IChatRequestVariableEntry>({
+							kind: 'image',
+							id: 'v-img',
+							name: 'pic.png',
+							value: imageUri,
+							mimeType: 'image/png',
+							references: [{ reference: imageUri, kind: 'reference' }],
+						}),
+					],
+				},
+			});
+			fire({ type: 'chat/turnComplete', endedAt: '2025-01-01T00:00:00.000Z', session, turnId } as ChatAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.message.attachments, [
+				{
+					type: MessageAttachmentKind.EmbeddedResource,
+					label: 'pic.png',
+					displayKind: 'image',
+					data: encodeBase64(VSBuffer.fromString('fake-image-bytes')),
+					contentType: 'image/png',
+				},
+			]);
+		}));
+
+		test('uri-only image falls back to a resource reference when hydration fails', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService, chatAgentService, fileService } = createContribution(disposables);
+			fileService.readShouldThrowError = new Error('read failed');
+			const imageUri = URI.file('/workspace/pic.png');
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'describe this image',
+				variables: {
+					variables: [
+						upcastPartial<IChatRequestVariableEntry>({
+							kind: 'image',
+							id: 'v-img',
+							name: 'pic.png',
+							value: imageUri,
+							mimeType: 'image/png',
+							references: [{ reference: imageUri, kind: 'reference' }],
+						}),
+					],
+				},
+			});
+			fire({ type: 'chat/turnComplete', endedAt: '2025-01-01T00:00:00.000Z', session, turnId } as ChatAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.message.attachments, [
+				{ type: MessageAttachmentKind.Resource, uri: imageUri.toString(), label: 'pic.png', displayKind: 'image' },
+			]);
+		}));
+
+		test('inline-bytes image is embedded without reading from the file service', () => runWithFakedTimers({ useFakeTimers: true }, async () => {
+			const { sessionHandler, agentHostService, chatAgentService, fileService } = createContribution(disposables);
+			const imageBytes = VSBuffer.fromString('inline image bytes');
+
+			const { turnPromise, session, turnId, fire } = await startTurn(sessionHandler, agentHostService, chatAgentService, disposables, {
+				message: 'describe this image',
+				variables: {
+					variables: [
+						upcastPartial<IChatRequestVariableEntry>({
+							kind: 'image',
+							id: 'v-img',
+							name: 'pic.png',
+							value: imageBytes.buffer,
+							mimeType: 'image/png',
+						}),
+					],
+				},
+			});
+			fire({ type: 'chat/turnComplete', endedAt: '2025-01-01T00:00:00.000Z', session, turnId } as ChatAction);
+			await turnPromise;
+
+			assert.strictEqual(agentHostService.turnActions.length, 1);
+			const turnAction = agentHostService.turnActions[0].action as ITurnStartedAction;
+			assert.deepStrictEqual(turnAction.message.attachments, [
+				{
+					type: MessageAttachmentKind.EmbeddedResource,
+					label: 'pic.png',
+					displayKind: 'image',
+					data: encodeBase64(imageBytes),
+					contentType: 'image/png',
+				},
+			]);
+			// Inline bytes must never trigger a file read.
+			assert.strictEqual(fileService.readOperations.length, 0);
 		}));
 
 		test('browser view variable becomes a model-readable browser attachment', () => runWithFakedTimers({ useFakeTimers: true }, async () => {

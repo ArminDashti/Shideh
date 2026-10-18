@@ -58,6 +58,7 @@ import { ActionType, ChatTurnStartedAction, isChatAction, type ClientChatAction,
 import { AHP_AUTH_REQUIRED, AHP_NOT_FOUND, ProtocolError } from '../../../../../../platform/agentHost/common/state/sessionProtocol.js';
 import { buildChatUri, buildDefaultChatUri, buildSubagentChatUri, ChatOriginKind, getErrorResponsePart, getInlineToolInput, getTurnError, isChatReadOnly, isDefaultChatUri, isSubagentChatUri, MessageAttachmentKind, MessageKind, PendingMessageKind, ResponsePartKind, ChatInputAnswerState, ChatInputAnswerValueKind, ChatInputQuestionKind, ChatInputResponseKind, SessionStatus, StateComponents, ToolCallCancellationReason, ToolCallConfirmationReason, ToolCallStatus, TurnState, parseChatUri, mergeSessionWithDefaultChat, readSessionWorkspaceless, type ChatState, type ISessionWithDefaultChat, type ICompletedToolCall, type InputRequestResponsePart, type MarkdownResponsePart, type Message, type MessageAttachment, type MessageAnnotationsAttachment, type MessageChatAttachment, type MessageResourceAttachment, type MessageEmbeddedResourceAttachment, type ModelSelection, type PendingMessage, type ReasoningResponsePart, type RootState, type ChatInputAnswer, type ChatInputQuestion, type ChatInputRequest, type ChatSummary, type SessionState, type StringOrMarkdown, type ToolCallPendingConfirmationState, type ToolCallResponsePart, type ToolCallRunningState, type ToolCallState, type ToolInput, type Turn, type UsageInfo } from '../../../../../../platform/agentHost/common/state/sessionState.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
+import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
@@ -2563,7 +2564,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		const currentQueued: IPendingSnapshot[] = [];
 		for (const p of pending) {
 			const variables = p.request.variableData?.variables ?? [];
-			const messageAttachments = this._variableEntriesToAttachments(variables, sessionResource, p.request.message.text);
+			const messageAttachments = await this._variableEntriesToAttachments(variables, sessionResource, p.request.message.text, true);
 			const attachments = messageAttachments.length > 0 ? messageAttachments : undefined;
 			const model = this._createModelSelection(p.sendOptions.userSelectedModelId, p.sendOptions.userSelectedModelConfiguration);
 			const previousMessage = previousMessages.get(p.request.id);
@@ -6989,9 +6990,9 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			this._applyRemotePendingMessages(sessionResource, backendSession);
 
 			store.add(chatModel.onDidChangePendingRequests(() => {
-				this._syncPendingMessages(sessionResource, backendSession);
+				this._queuePendingMessageSync(sessionResource, backendSession);
 			}));
-			this._syncPendingMessages(sessionResource, backendSession);
+			this._queuePendingMessageSync(sessionResource, backendSession);
 
 			const sessionStr = backendSession.toString();
 			const chatURI = this._chatURIsBySessionResource.get(sessionResource);
@@ -7010,6 +7011,17 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			this._pendingMessageSubscriptions.deleteAndDispose(sessionResource);
 			this._ensurePendingMessageSubscription(sessionResource, backendSession);
 		}));
+	}
+
+	/**
+	 * Schedules a pending-message sync through {@link _pendingSyncThrottler} so
+	 * that rapid changes for the same session are serialized and coalesced (the
+	 * latest run wins), avoiding interleaved dispatches now that the sync awaits
+	 * image-hydration I/O.
+	 */
+	private _queuePendingMessageSync(sessionResource: URI, backendSession: URI): void {
+		this._pendingSyncThrottler.queue(sessionResource.toString(), () => this._syncPendingMessages(sessionResource, backendSession))
+			.catch(err => this._logService.error(`[AgentHost] Failed to sync pending messages: ${sessionResource.toString()}`, err));
 	}
 
 	private _ensureDraftSyncSubscription(sessionResource: URI, backendSession: URI, chatKey: string): void {
@@ -7184,7 +7196,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		inputModel.setState(partialState);
 	}
 
-	private _inputStateToDraft(sessionResource: URI, state: IChatModelInputState | undefined): Message | undefined {
+	private async _inputStateToDraft(sessionResource: URI, state: IChatModelInputState | undefined): Promise<Message | undefined> {
 		if (!state) {
 			return undefined;
 		}
@@ -7584,10 +7596,10 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return true;
 	}
 
-	private _convertVariablesToAttachments(request: IChatAgentRequest): MessageAttachment[] {
-		const attachments = this._variableEntriesToAttachments(request.variables.variables, request.sessionResource, request.message);
+	private async _convertVariablesToAttachments(request: IChatAgentRequest): Promise<MessageAttachment[]> {
+		const attachments = await this._variableEntriesToAttachments(request.variables.variables, request.sessionResource, request.message, true);
 		const explicitCount = attachments.length;
-		this._appendActiveEditorAttachments(attachments, request);
+		await this._appendActiveEditorAttachments(attachments, request, true);
 		if (attachments.length !== explicitCount) {
 			this._logService.trace(`[AgentHost] Forwarded ${attachments.length - explicitCount} active editor attachment(s); ${attachments.length} total`);
 		}
@@ -7834,10 +7846,11 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		if (v.kind === 'promptFile' && v.value instanceof URI) {
 			return this._toResourceAttachment(v.value, v.name, 'document', sessionResource, v._meta, referenceRange);
 		}
-		// Image: send inline as base64 when we have the bytes; otherwise fall
-		// back to a file resource reference.
+		// Image: send inline as base64 when we have the bytes; when hydrating a
+		// model-facing conversion, read a uri-only reference into bytes; otherwise
+		// fall back to a file resource reference.
 		if (isImageVariableEntry(v)) {
-			return this._toImageAttachment(v, sessionResource, referenceRange);
+			return this._toImageAttachment(v, sessionResource, referenceRange, hydrateImageBytes);
 		}
 		if (isAgentFeedbackVariableEntry(v)) {
 			return this._toAgentFeedbackAttachment(v);
@@ -8026,7 +8039,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 		return attachment;
 	}
 
-	private _toImageAttachment(v: IImageVariableEntry, sessionResource: URI, range?: MessageAttachment['range']): MessageAttachment | undefined {
+	private async _toImageAttachment(v: IImageVariableEntry, sessionResource: URI, range?: MessageAttachment['range'], hydrateImageBytes: boolean = false): Promise<MessageAttachment | undefined> {
 		const buffer = coerceImageBuffer(v.value);
 		const contentType = v.mimeType ?? 'image/png';
 		if (buffer) {
@@ -8045,9 +8058,34 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 			}
 			return attachment;
 		}
-		// No inline bytes — fall back to a file reference if one is available.
+		// No inline bytes. For model-facing conversions, hydrate the referenced
+		// file into embedded bytes so the agent can actually see the image;
+		// otherwise (e.g. draft sync) fall back to a lightweight file reference.
 		const refUri = v.references?.find(r => URI.isUri(r.reference))?.reference;
 		if (URI.isUri(refUri)) {
+			if (hydrateImageBytes) {
+				try {
+					// Read the original (non-rebased) URI; the registered
+					// vscode-agent-host file system provider handles remote reads.
+					const content = await this._fileService.readFile(refUri);
+					const attachment: MessageAttachment = {
+						type: MessageAttachmentKind.EmbeddedResource,
+						label: v.name,
+						displayKind: 'image',
+						data: encodeBase64(content.value),
+						contentType,
+					};
+					if (range) {
+						attachment.range = range;
+					}
+					if (v._meta) {
+						attachment._meta = v._meta;
+					}
+					return attachment;
+				} catch (err) {
+					this._logService.trace(`[AgentHost] Failed to hydrate image bytes for ${refUri.toString()}; falling back to resource reference: ${err}`);
+				}
+			}
 			return this._toResourceAttachment(refUri, v.name, 'image', sessionResource, v._meta, range);
 		}
 		return undefined;
