@@ -193,6 +193,42 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 		if (this.sessionsList) {
 			this.storageService.store(this.viewStateStorageKey, JSON.stringify(this.sessionsList.getViewState()), StorageScope.PROFILE, StorageTarget.MACHINE);
 		}
+		// Register to editing session changes to refresh the list when undo/redo state changes
+		const listeners = new ResourceMap<IDisposable>();
+		const previousEntryStates = new ResourceMap<Map<string, ModifiedFileEntryState>>();
+		const autoRunDisposable = autorunIterableDelta(
+			reader => this.chatEditingService.editingSessionsObs.read(reader),
+			({ addedValues, removedValues }) => {
+				removedValues.forEach((removed) => {
+					const listener = listeners.get(removed.chatSessionResource);
+					if (listener) {
+						listeners.delete(removed.chatSessionResource);
+						listener.dispose();
+					}
+					previousEntryStates.delete(removed.chatSessionResource);
+				});
+				addedValues.forEach((added) => {
+					previousEntryStates.set(added.chatSessionResource, new Map());
+					listeners.set(added.chatSessionResource, autorun(reader => {
+						const entries = added.entries.read(reader);
+						const previous = previousEntryStates.get(added.chatSessionResource);
+
+						entries.forEach(entry => {
+							const currentState = entry.state.read(reader);
+							const previousState = previous?.get(entry.entryId);
+							if (previous && currentState !== previousState) {
+								this.refresh();
+								previous.set(entry.entryId, currentState);
+							}
+						});
+					}));
+				});
+			}
+		);
+		this._register(toDisposable(() => {
+			for (const listener of listeners.values()) { listener.dispose(); }
+		}));
+		this._register(autoRunDisposable);
 	}
 
 	private revealAndFocusActiveEditorSession(): void {
