@@ -71,8 +71,8 @@ export function getCommandLabel(commandId: string): string {
  * Formats a keybinding for display in a tip message.
  * Returns empty string if no keybinding is bound.
  */
-function formatKeybinding(ctx: ITipBuildContext, commandId: string): string {
-	const kb = ctx.keybindingService.lookupKeybinding(commandId);
+export function formatKeybinding(keybindingService: IKeybindingService, commandId: string): string {
+	const kb = keybindingService.lookupKeybinding(commandId);
 	return kb ? ` (${kb.getLabel()})` : '';
 }
 
@@ -91,7 +91,7 @@ export function extractCommandIds(markdown: string): string[] {
 }
 
 /**
- * Interface for tip definitions in the catalog.
+ * Interface for tip definitions registered in the tip registry.
  */
 export interface ITipDefinition extends ITipExclusionConfig {
 	readonly id: string;
@@ -102,11 +102,9 @@ export interface ITipDefinition extends ITipExclusionConfig {
 	 */
 	readonly priority?: number;
 	/**
-	 * Builds the tip message dynamically at runtime.
-	 * This enables keybindings and command labels to be looked up fresh.
-	 * The returned MarkdownString should NOT include the "Tip:" prefix.
+	 * The tip message to display. Should NOT include the "Tip:" prefix.
 	 */
-	buildMessage(ctx: ITipBuildContext): MarkdownString;
+	readonly message: MarkdownString;
 	/**
 	 * When clause expression that determines if this tip is eligible to be shown.
 	 */
@@ -134,9 +132,6 @@ export interface ITipDefinition extends ITipExclusionConfig {
 	readonly dismissWhenCommandsClicked?: readonly string[];
 }
 
-// -----------------------------------------------------------------------------
-// Tip Catalog
-// -----------------------------------------------------------------------------
 
 /**
  * Static catalog of tips. Tips are built dynamically at runtime to enable
