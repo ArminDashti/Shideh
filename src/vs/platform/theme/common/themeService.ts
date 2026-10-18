@@ -7,16 +7,22 @@ import { Codicon } from '../../../base/common/codicons.js';
 import { Color } from '../../../base/common/color.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+import { Size } from '../../../base/common/size.js';
 import { IEnvironmentService } from '../../environment/common/environment.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import * as platform from '../../registry/common/platform.js';
 import { ColorIdentifier } from './colorRegistry.js';
 import { IconContribution, IconDefinition } from './iconRegistry.js';
-import { ColorScheme, ThemeTypeSelector } from './theme.js';
+import { SizeIdentifier } from './sizeUtils.js';
+import { ColorScheme, SizeScheme, ThemeTypeSelector } from './theme.js';
 
 export const IThemeService = createDecorator<IThemeService>('themeService');
 
 export function themeColorFromId(id: ColorIdentifier) {
+	return { id };
+}
+
+export function sizeFromId(id: SizeIdentifier) {
 	return { id };
 }
 

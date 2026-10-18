@@ -13,6 +13,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import * as errors from '../../../../base/common/errors.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { ColorThemeData } from '../common/colorThemeData.js';
+import { SizeThemeData } from '../common/sizeThemeData.js';
 import { IColorTheme, Extensions as ThemingExtensions, IThemingRegistry } from '../../../../platform/theme/common/themeService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { registerFileIconThemeSchemas } from '../common/fileIconThemeSchema.js';
@@ -83,6 +84,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 
 	private readonly colorThemeRegistry: ThemeRegistry<ColorThemeData>;
 	private currentColorTheme: ColorThemeData;
+	private readonly sizeThemeData: SizeThemeData;
 	private readonly onColorThemeChange: Emitter<IWorkbenchColorTheme>;
 	private readonly colorThemeWatcher: ThemeFileWatcher;
 	private colorThemingParticipantChangeListener: IDisposable | undefined;
@@ -126,6 +128,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 		this.colorThemeWatcher = this._register(new ThemeFileWatcher(fileService, environmentService, this.reloadCurrentColorTheme.bind(this)));
 		this.onColorThemeChange = this._register(new Emitter<IWorkbenchColorTheme>({ leakWarningThreshold: 400, leakWarningName: 'ThemeService.onColorThemeChange' }));
 		this.currentColorTheme = ColorThemeData.createUnloadedTheme('');
+		this.sizeThemeData = new SizeThemeData();
 		this.colorThemeSequencer = new Sequencer();
 
 		this.fileIconThemeWatcher = this._register(new ThemeFileWatcher(fileService, environmentService, this.reloadCurrentFileIconTheme.bind(this)));
@@ -360,6 +363,10 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 				let hasColorChanges = false;
 				if (e.affectsConfiguration(ThemeSettings.COLOR_CUSTOMIZATIONS)) {
 					this.currentColorTheme.setCustomColors(this.settings.colorCustomizations);
+					hasColorChanges = true;
+				}
+				if (e.affectsConfiguration(ThemeSettings.SIZE_CUSTOMIZATIONS)) {
+					this.sizeThemeData.setCustomSizes(this.settings.sizeCustomizations);
 					hasColorChanges = true;
 				}
 				if (e.affectsConfiguration(ThemeSettings.TOKEN_COLOR_CUSTOMIZATIONS)) {
@@ -599,6 +606,27 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 			this.environmentService
 		);
 		_applyRules(css.code, colorThemeRulesClassName);
+	}
+
+	private updateDynamicSizeCSSRules(themeData: any, ruleCollector: { addRule: (rule: string) => void }) {
+		const sizeVariables: string[] = [];
+		const sizeRegistry = getSizeRegistry();
+
+		// Use the size registry to get all registered sizes
+		for (const item of sizeRegistry.getSizes()) {
+			// Get size from size theme data (with defaults)
+			const size = this.sizeThemeData.getSize(item.id, true);
+
+			// If we have a size, add it to our CSS variables
+			if (size) {
+				sizeVariables.push(`${sizeAsCssVariableName(item.id)}: ${size.toString()};`);
+			}
+		}
+
+		// Add all size variables to the workbench CSS
+		if (sizeVariables.length > 0) {
+			ruleCollector.addRule(`.monaco-workbench { ${sizeVariables.join('\n')} }`);
+		}
 	}
 
 	private applyTheme(newTheme: ColorThemeData, settingsTarget: ThemeSettingTarget, silent = false): Promise<IWorkbenchColorTheme | null> {

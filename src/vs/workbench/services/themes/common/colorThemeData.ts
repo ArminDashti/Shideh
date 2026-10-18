@@ -171,6 +171,8 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 		return undefined;
 	}
 
+
+
 	private getTokenStyle(type: string, modifiers: string[], language: string, useDefault = true, definitions: TokenStyleDefinitions = {}): TokenStyle | undefined {
 		const result: any = {
 			foreground: undefined,
@@ -457,6 +459,8 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 			}
 		}
 	}
+
+
 
 	public setCustomTokenColors(customTokenColors: ITokenColorCustomizations) {
 		console.log('ColorThemeData.setCustomTokenColors', customTokenColors);

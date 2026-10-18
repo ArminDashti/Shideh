@@ -26,6 +26,7 @@ export enum ThemeSettings {
 	FILE_ICON_THEME = 'workbench.iconTheme',
 	PRODUCT_ICON_THEME = 'workbench.productIconTheme',
 	COLOR_CUSTOMIZATIONS = 'workbench.colorCustomizations',
+	SIZE_CUSTOMIZATIONS = 'workbench.sizeCustomizations',
 	TOKEN_COLOR_CUSTOMIZATIONS = 'editor.tokenColorCustomizations',
 	SEMANTIC_TOKEN_COLOR_CUSTOMIZATIONS = 'editor.semanticTokenColorCustomizations',
 
@@ -513,6 +514,14 @@ export interface ISemanticTokenColorizationSetting {
 	underline?: boolean;
 	strikethrough?: boolean;
 	italic?: boolean;
+}
+
+export interface IThemeScopedSizeCustomizations {
+	[sizeId: string]: string;
+}
+
+export interface ISizeCustomizations {
+	[sizeIdOrThemeScope: string]: IThemeScopedSizeCustomizations | string;
 }
 
 export interface ExtensionData {
