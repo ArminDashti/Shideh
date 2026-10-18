@@ -168,6 +168,8 @@ class PendingSubagentSignals extends Disposable {
 interface ISubagentSessionRef {
 	readonly parentChatUri: ProtocolURI;
 	readonly immediateParentChatUri: ProtocolURI | undefined;
+	/** Cancellation owner; absent after the spawning tool returns or the child is steered. */
+	readonly parentTurnId: string | undefined;
 	readonly toolCallId: string;
 	readonly sessionUri: ProtocolURI;
 	readonly chatUri: ProtocolURI;
@@ -1082,8 +1084,9 @@ export class AgentSideEffects extends Disposable {
 		// overwrite the ToolResultSubagentContent that was set via
 		// ChatToolCallContentChanged while running.
 		if (action.type === ActionType.ChatToolCallComplete) {
-			const subagent = this._subagentChats.get(sessionKey, action.toolCallId);
+			const subagent = this._findSubagentForSpawningToolCall(sessionKey, action.toolCallId);
 			if (subagent) {
+				this._subagentChats.set({ ...subagent, parentTurnId: undefined }, subagent.parentChatUri, subagent.toolCallId);
 				const parentState = this._stateManager.getSessionState(sessionKey);
 				const runningContent = this._getRunningToolCallContent(parentState, turnId, action.toolCallId);
 				const subagentEntry = runningContent.find(c => hasKey(c, { type: true }) && c.type === ToolResultContentType.Subagent);
@@ -1097,6 +1100,13 @@ export class AgentSideEffects extends Disposable {
 		}
 
 		this._stateManager.dispatchServerAction(sessionKey, action);
+
+		if (action.type === ActionType.ChatToolCallStart) {
+			const subagent = this._findSubagentForSpawningToolCall(sessionKey, action.toolCallId);
+			if (subagent) {
+				this._subagentChats.set({ ...subagent, parentTurnId: this._getSubagentParentTurnId(sessionKey, action.toolCallId) }, subagent.parentChatUri, subagent.toolCallId);
+			}
+		}
 
 		// Any turn-scoped action counts as activity for the hang watchdog: it is
 		// proof the agent loop is still alive, even when the action produces
@@ -1179,6 +1189,7 @@ export class AgentSideEffects extends Disposable {
 			const clientContext = this._turnTracker.getClientTelemetryContext(sessionKey, turnId);
 			this._completeTurn(sessionKey, turnId, 'cancelled');
 			this._toolCallTracker.clearSession(sessionKey);
+			this.cancelSubagentSessions(sessionKey, turnId);
 			this._chatContributions.turnEnd({ session: sessionUri, channel: sessionKey, turnId, reason: { kind: 'cancelled' }, clientContext });
 		}
 
@@ -1342,10 +1353,11 @@ export class AgentSideEffects extends Disposable {
 			? this._subagentChats.get(chatURI, spawningToolParentId)?.chatUri
 			: chatURI;
 		const contentChatUri = immediateParentChatUri ?? chatURI;
+		const owningParentTurnId = this._getSubagentParentTurnId(contentChatUri, toolCallId);
 
 		const existing = this._subagentChats.get(chatURI, toolCallId);
 		if (existing) {
-			this._resumeSubagentSession(chatURI, toolCallId, taskPrompt ? { text: taskPrompt, origin: { kind: MessageKind.User } } : undefined, immediateParentChatUri);
+			this._resumeSubagentSession(chatURI, toolCallId, taskPrompt ? { text: taskPrompt, origin: { kind: MessageKind.User } } : undefined, immediateParentChatUri, owningParentTurnId);
 			return;
 		}
 
@@ -1369,7 +1381,7 @@ export class AgentSideEffects extends Disposable {
 			this._turnTracker.setCurrentStage(subagentChatUri, turnId, 'provider');
 		}
 
-		this._subagentChats.set({ parentChatUri: chatURI, immediateParentChatUri, toolCallId, sessionUri: parentSessionUri, chatUri: subagentChatUri, turnStopWatch: StopWatch.create(false), taskModelSource }, chatURI, toolCallId);
+		this._subagentChats.set({ parentChatUri: chatURI, immediateParentChatUri, parentTurnId: owningParentTurnId, toolCallId, sessionUri: parentSessionUri, chatUri: subagentChatUri, turnStopWatch: StopWatch.create(false), taskModelSource }, chatURI, toolCallId);
 
 		// Dispatch the discovery content on the spawning tool call's own chat; the top-level chat is a no-op when nested.
 		if (parentTurnId) {
@@ -1391,6 +1403,29 @@ export class AgentSideEffects extends Disposable {
 				],
 			});
 		}
+	}
+
+	private _getSubagentParentTurnId(parentChatUri: ProtocolURI, toolCallId: string): string | undefined {
+		const turn = this._stateManager.getSessionState(parentChatUri)?.activeTurn;
+		return turn?.responseParts.some(part => part.kind === ResponsePartKind.ToolCall
+			&& part.toolCall.toolCallId === toolCallId
+			&& part.toolCall.status !== ToolCallStatus.Completed) ? turn.id : undefined;
+	}
+
+	private _findSubagentForSpawningToolCall(parentChatUri: ProtocolURI, toolCallId: string): ISubagentSessionRef | undefined {
+		const direct = this._subagentChats.get(parentChatUri, toolCallId);
+		if (direct && (direct.immediateParentChatUri ?? direct.parentChatUri) === parentChatUri) {
+			return direct;
+		}
+		if (!isSubagentChatUri(parentChatUri)) {
+			return undefined;
+		}
+		for (const subagent of this._subagentChats.values()) {
+			if (subagent.toolCallId === toolCallId && (subagent.immediateParentChatUri ?? subagent.parentChatUri) === parentChatUri) {
+				return subagent;
+			}
+		}
+		return undefined;
 	}
 
 	/**
@@ -1417,7 +1452,7 @@ export class AgentSideEffects extends Disposable {
 		return typeof elapsed === 'number' && Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0;
 	}
 
-	private _resumeSubagentSession(parentChatURI: ProtocolURI, toolCallId: string, message: Message | undefined, immediateParentChatURI?: ProtocolURI): void {
+	private _resumeSubagentSession(parentChatURI: ProtocolURI, toolCallId: string, message: Message | undefined, immediateParentChatURI?: ProtocolURI, parentTurnId?: string): void {
 		const subagent = this._subagentChats.get(parentChatURI, toolCallId);
 		if (!subagent) {
 			this._failPendingSubagentSignals(parentChatURI, toolCallId, 'Cannot resume unknown subagent');
@@ -1444,7 +1479,7 @@ export class AgentSideEffects extends Disposable {
 			this._turnTracker.turnStarted(agent, subagent.chatUri, turnId, undefined, undefined, 'default', undefined, interactionMode, parentClientContext, initiatorClientId, correlatedParentTurnId, toolCallId, messageOriginKind, subagent.taskModelSource, URI.parse(parentChatURI));
 			this._turnTracker.setCurrentStage(subagent.chatUri, turnId, 'provider');
 		}
-		this._subagentChats.set({ ...subagent, immediateParentChatUri: correlatedParentChatUri, turnStopWatch: StopWatch.create(false) }, parentChatURI, toolCallId);
+		this._subagentChats.set({ ...subagent, immediateParentChatUri: correlatedParentChatUri, parentTurnId, turnStopWatch: StopWatch.create(false) }, parentChatURI, toolCallId);
 	}
 
 	private _getSubagentParentTurnTelemetryContext(immediateParentChatUri: ProtocolURI | undefined, fallbackParentChatUri: ProtocolURI): ISubagentParentTurnTelemetryContext {
@@ -1470,7 +1505,13 @@ export class AgentSideEffects extends Disposable {
 		for (const subagent of this._subagentChats.getAll(parentChatURI)) {
 			this._clearPendingToolConfirmationsForChat(subagent.chatUri);
 			const turnId = this._stateManager.getActiveTurnId(subagent.chatUri);
+			if (parentTurnId !== undefined && !turnId) {
+				continue;
+			}
 			if (turnId) {
+				if (parentTurnId !== undefined) {
+					this.cancelSubagentSessions(subagent.chatUri, turnId);
+				}
 				this._stateManager.dispatchServerAction(subagent.chatUri, {
 					type: ActionType.ChatTurnCancelled,
 					turnId,
@@ -1480,6 +1521,15 @@ export class AgentSideEffects extends Disposable {
 			}
 			this._toolCallTracker.clearSession(subagent.chatUri);
 			this._turnTracker.clearSession(subagent.chatUri);
+			if (parentTurnId !== undefined) {
+				this._subagentChats.set({ ...subagent, parentTurnId: undefined }, subagent.parentChatUri, subagent.toolCallId);
+				this._pendingSubagentSignals.delete(subagent.parentChatUri, subagent.toolCallId);
+			}
+		}
+		if (parentTurnId === undefined) {
+			this._subagentChats.deleteAll(parentChatURI);
+			// Drop any buffered events targeted at subagents that never started.
+			this._pendingSubagentSignals.deleteAll(parentChatURI);
 		}
 		if (!options?.retainRegistrations) {
 			this._subagentChats.deleteAll(parentChatURI);

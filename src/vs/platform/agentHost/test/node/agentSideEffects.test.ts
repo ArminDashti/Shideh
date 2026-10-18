@@ -7604,6 +7604,19 @@ suite('AgentSideEffects', () => {
 
 	suite('subagent sessions', () => {
 
+		function startSpawningTool(toolCallId: string, turnId: string, parentToolCallId?: string): void {
+			agent.fireProgress({ kind: 'action', resource: URI.parse(defaultChatUri), parentToolCallId, action: { type: ActionType.ChatToolCallStart, turnId, toolCallId, toolName: 'runSubagent', displayName: 'Subagent', contributor: undefined, _meta: {} } });
+			agent.fireProgress({ kind: 'action', resource: URI.parse(defaultChatUri), parentToolCallId, action: { type: ActionType.ChatToolCallReady, turnId, toolCallId, invocationMessage: 'Delegating...', toolInput: undefined, confirmed: ToolCallConfirmationReason.NotNeeded } });
+		}
+
+		function startSubagent(toolCallId: string, parentToolCallId?: string): void {
+			agent.fireProgress({ kind: 'subagent_started', chat: URI.parse(defaultChatUri), toolCallId, parentToolCallId, agentName: 'subagent', agentDisplayName: 'Subagent' });
+		}
+
+		function completeSpawningTool(toolCallId: string, turnId: string, parentToolCallId?: string): void {
+			agent.fireProgress({ kind: 'action', resource: URI.parse(defaultChatUri), parentToolCallId, action: { type: ActionType.ChatToolCallComplete, turnId, toolCallId, result: { success: true, pastTenseMessage: 'Started in background' } } });
+		}
+
 		test('inherits the parent turn client identity for subagent telemetry', () => {
 			setupSession();
 			const action: ChatAction = {
