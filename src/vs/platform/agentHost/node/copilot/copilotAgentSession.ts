@@ -1896,6 +1896,9 @@ export class CopilotAgentSession extends Disposable {
 			this._subagentTaskCompletionSchedulers.get(e.agentId)?.schedule();
 			return;
 		}
+		if (!isTurnStart && this._completedSubagentAgentIds.has(e.agentId)) {
+			return;
+		}
 		const parentToolCallId = this._parentToolCallIdsByAgentId.get(e.agentId);
 		const execution = this._getOrCreateSubagentExecution(e.agentId);
 		const identity = e.type === 'user.message'
@@ -1931,6 +1934,8 @@ export class CopilotAgentSession extends Disposable {
 		if (this._currentTurn.value) {
 			this._rootTurnIdBySubagentToolCallId.set(parentToolCallId, this._currentTurn.value.id);
 		}
+		this._beginToolCallRound(parentToolCallId);
+		this._completedSubagentAgentIds.delete(e.agentId);
 		this._activeSubagentAgentIds.add(e.agentId);
 		this._beginToolCallRound(parentToolCallId, e.agentId);
 		this._subagentObservedTokenUsage.set(parentToolCallId, new ObservedTokenUsage());
@@ -1955,6 +1960,7 @@ export class CopilotAgentSession extends Disposable {
 			if (!this._activeSubagentAgentIds.delete(agentId)) {
 				return;
 			}
+			this._completedSubagentAgentIds.add(agentId);
 		} else if (!toolCallId) {
 			return;
 		}
@@ -9479,7 +9485,7 @@ export class CopilotAgentSession extends Disposable {
 				}
 			}
 			this._logService.trace(`[Copilot:${sessionId}] Turn started: ${e.data.turnId}`);
-			this._resumeSubagentForEvent(e);
+			this._resumeSubagentForEvent(e, undefined, true);
 			if (!e.agentId) {
 				if (this._currentTurn.value) {
 					this._currentTurn.value.activeSdkTurnId = e.data.turnId;
