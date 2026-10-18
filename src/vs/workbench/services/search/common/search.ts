@@ -507,6 +507,7 @@ export interface ISearchConfigurationProperties {
 		semanticSearchBehavior: string;
 		keywordSuggestions: boolean;
 	};
+	searchTimeOutPeriod: number;
 }
 
 export interface ISearchConfiguration extends IFilesConfiguration {
