@@ -12,7 +12,7 @@ import { IProductService } from '../../../../platform/product/common/productServ
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { IDialogsModel, IDialogViewItem } from '../../../common/dialogs.js';
 import { BrowserDialogHandler } from '../../../browser/parts/dialogs/dialogHandler.js';
-import { NativeDialogHandler } from './dialogHandler.js';
+import { NativeDialogHandler, UnexpectedNativeDialogResponseError } from './dialogHandler.js';
 import { DialogService } from '../../../services/dialogs/common/dialogService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -71,7 +71,10 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 					this.updateWindowControlsOverlay(useCustom);
 					result = useCustom ?
 						await this.browserImpl.value.confirm(args.confirmation) :
-						await this.nativeImpl.value.confirm(args.confirmation);
+						await this.showNativeDialogWithFallback(
+							() => this.nativeImpl.value.confirm(args.confirmation),
+							() => this.browserImpl.value.confirm(args.confirmation)
+						);
 				}
 
 				// Input (custom only)
@@ -89,7 +92,10 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 					this.updateWindowControlsOverlay(useCustom);
 					result = useCustom ?
 						await this.browserImpl.value.prompt(args.prompt) :
-						await this.nativeImpl.value.prompt(args.prompt);
+						await this.showNativeDialogWithFallback(
+							() => this.nativeImpl.value.prompt(args.prompt),
+							() => this.browserImpl.value.prompt(args.prompt)
+						);
 				}
 
 				// About
@@ -101,7 +107,10 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 					if (useCustom) {
 						await this.browserImpl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);
 					} else {
-						await this.nativeImpl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);
+						await this.showNativeDialogWithFallback(
+							() => this.nativeImpl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy),
+							() => this.browserImpl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy)
+						);
 					}
 				}
 			} catch (error) {
@@ -136,6 +145,18 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 			const backgroundColor = titleBackground?.toString();
 			const foregroundColor = titleForeground?.toString();
 			this.nativeHostService.updateWindowControls({ backgroundColor, foregroundColor });
+		}
+	}
+
+	private async showNativeDialogWithFallback<T>(showNative: () => Promise<T>, showCustom: () => Promise<T>): Promise<T> {
+		try {
+			return await showNative();
+		} catch (error) {
+			if (error instanceof UnexpectedNativeDialogResponseError) {
+				return showCustom();
+			}
+
+			throw error;
 		}
 	}
 
