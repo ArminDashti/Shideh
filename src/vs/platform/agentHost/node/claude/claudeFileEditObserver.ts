@@ -131,6 +131,10 @@ export class ClaudeFileEditObserver extends Disposable {
 				continue;
 			}
 			this._editToolPaths.delete(block.tool_use_id);
+			if (block.is_error === true) {
+				this._editTracker.discardEdit(tracked.filePath, block.tool_use_id);
+				continue;
+			}
 			try {
 				await this._editTracker.completeEdit(tracked.filePath);
 				const editChatUri = chatUri !== undefined && isSubagentChatUri(chatUri) ? chatUri : tracked.chatUri ?? chatUri;
@@ -139,12 +143,17 @@ export class ClaudeFileEditObserver extends Disposable {
 					mapperState.cacheFileEdit(block.tool_use_id, fileEdit);
 				}
 			} catch (err) {
+				this._editTracker.discardEdit(tracked.filePath, block.tool_use_id);
 				this._logService.warn(`[ClaudeFileEditObserver] file edit tracking failed for ${tracked.filePath}: ${err}`);
 			}
 		}
 	}
 
 	override dispose(): void {
+		for (const [toolUseId, tracked] of this._editToolPaths) {
+			this._editTracker.discardEdit(tracked.filePath, toolUseId);
+		}
+		this._editToolPaths.clear();
 		void this._editTracker.flushAttribution().catch(error => {
 			this._logService.warn(`[ClaudeFileEditObserver] Failed to flush edit attribution: ${error}`);
 		});

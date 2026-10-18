@@ -194,6 +194,8 @@ interface ICopilotActiveToolCall {
 	readonly displayName: string;
 	readonly parameters: Record<string, unknown> | undefined;
 	readonly content: ToolResultContent[];
+	readonly editFilePaths: readonly string[];
+	readonly editSnapshot: Promise<void> | undefined;
 	readonly parentToolCallId: string | undefined;
 	readonly mcpServerName: string | undefined;
 	readonly contributor: ToolCallContributor | undefined;
@@ -2612,6 +2614,21 @@ export class CopilotAgentSession extends Disposable {
 		return getEditFilePaths(parameters).map(path => this._resolveEditFilePath(path));
 	}
 
+	private _findActiveEditToolCalls(toolName: string, parameters: unknown): readonly ICopilotActiveToolCall[] {
+		const filePaths = this._getEditFilePaths(parameters);
+		return [...this._activeToolCalls.values()].filter(toolCall =>
+			toolCall.toolName === toolName
+			&& toolCall.editFilePaths.length === filePaths.length
+			&& toolCall.editFilePaths.every((filePath, fileIndex) => filePath === filePaths[fileIndex])
+		);
+	}
+
+	private _discardToolCallEdits(toolCallId: string, toolCall: ICopilotActiveToolCall): void {
+		for (const filePath of toolCall.editFilePaths) {
+			this._editTracker.discardEdit(filePath, toolCallId);
+		}
+	}
+
 	private _resolveEditFilePath(path: string): string {
 		if (isAbsolute(path) || !this._workingDirectory || this._workingDirectory.scheme !== Schemas.file) {
 			return path;
@@ -2971,6 +2988,9 @@ export class CopilotAgentSession extends Disposable {
 	private _beginAbort(): void {
 		if (this._abortToken.isCancellationRequested) {
 			return;
+		}
+		for (const [toolCallId, toolCall] of this._activeToolCalls) {
+			this._discardToolCallEdits(toolCallId, toolCall);
 		}
 		this._abortCts.value?.cancel();
 		this._cancelAllPendingInteractions();
@@ -6442,9 +6462,14 @@ export class CopilotAgentSession extends Disposable {
 				};
 			}
 			if (isEditTool(input.toolName, getToolCommand(input))) {
-				const filePaths = this._getEditFilePaths(input.toolArgs);
-				const mode = this._getConfiguredAgentMode();
-				await Promise.all(filePaths.map(p => this._editTracker.trackEditStart(p, mode)));
+				const activeToolCalls = this._findActiveEditToolCalls(input.toolName, input.toolArgs);
+				if (activeToolCalls.length > 0) {
+					await Promise.all(activeToolCalls.map(toolCall => toolCall.editSnapshot));
+				} else {
+					const filePaths = this._getEditFilePaths(input.toolArgs);
+					const mode = this._getConfiguredAgentMode();
+					await Promise.all(filePaths.map(path => this._editTracker.trackEditStart(path, mode)));
+				}
 			}
 		} catch (error) {
 			this._logService.error(error, `[Copilot:${this.sessionId}] Failed in onPreToolUse: tool=${input.toolName}`);
@@ -6455,8 +6480,10 @@ export class CopilotAgentSession extends Disposable {
 	private async _handlePostToolUse(input: PostToolUseHookInput): Promise<void> {
 		try {
 			if (isEditTool(input.toolName, getToolCommand(input))) {
-				const filePaths = this._getEditFilePaths(input.toolArgs);
-				await Promise.all(filePaths.map(p => this._editTracker.completeEdit(p)));
+				if (this._findActiveEditToolCalls(input.toolName, input.toolArgs).length === 0) {
+					const filePaths = this._getEditFilePaths(input.toolArgs);
+					await Promise.all(filePaths.map(path => this._editTracker.completeEdit(path)));
+				}
 			}
 		} catch (error) {
 			this._logService.error(error, `[Copilot:${this.sessionId}] Failed in onPostToolUse: tool=${input.toolName}`);
@@ -7040,12 +7067,23 @@ export class CopilotAgentSession extends Disposable {
 			const isToolSearch = this._isToolSearchActive() && e.data.toolName === RUNTIME_TOOL_SEARCH_TOOL_NAME;
 			const contributor = this._getToolCallContributor(e.data.toolName, mcpServerName);
 			const intention = getShellIntention(e.data.toolName, parameters);
+			const command = isString(parameters?.command) ? parameters.command : undefined;
+			const editFilePaths = isEditTool(e.data.toolName, command) ? this._getEditFilePaths(e.data.arguments) : [];
+			// Resumed runtimes can skip PreToolUse while still emitting tool lifecycle events.
+			const editSnapshot = editFilePaths.length > 0
+				? Promise.all(editFilePaths.map(path => this._editTracker.trackEditStart(path, this._getConfiguredAgentMode(), e.data.toolCallId))).then(
+					() => { },
+					error => this._logService.warn(`[Copilot:${sessionId}] Failed to snapshot edit tool inputs`, error),
+				)
+				: undefined;
 			this._activeToolCalls.set(e.data.toolCallId, {
 				turnId: this._turnId,
 				toolName: e.data.toolName,
 				displayName,
 				parameters,
 				content: [],
+				editFilePaths,
+				editSnapshot,
 				parentToolCallId,
 				mcpServerName,
 				contributor,
@@ -7120,6 +7158,9 @@ export class CopilotAgentSession extends Disposable {
 				this._logService.warn(`[Copilot:${sessionId}] Client tool '${e.data.toolName}' started with no connected client; failing it immediately.`);
 				this._reportToolApprovalIfNoPermission(e.data.toolCallId);
 				this._toolApprovalRecords.delete(e.data.toolCallId);
+				if (tracked) {
+					this._discardToolCallEdits(e.data.toolCallId, tracked);
+				}
 				this._activeToolCalls.delete(e.data.toolCallId);
 				this._emitAction({
 					type: ActionType.ChatToolCallReady,
@@ -7197,6 +7238,8 @@ export class CopilotAgentSession extends Disposable {
 			const parentToolCallId = tracked.parentToolCallId ?? this._subagentRouting.parentToolCallIdForEvent(e);
 			if (!parentToolCallId && e.agentId) {
 				this._logService.warn(`[Copilot:${this.sessionId}] Dropping tool.execution_complete for unknown subagent agentId=${e.agentId}`);
+				this._discardToolCallEdits(e.data.toolCallId, tracked);
+				this._activeToolCalls.delete(e.data.toolCallId);
 				return;
 			}
 			if (e.data.success && tracked.contributor === undefined) {
@@ -7207,7 +7250,6 @@ export class CopilotAgentSession extends Disposable {
 			}
 			this._logService.info(`[Copilot:${sessionId}] Tool completed: ${e.data.toolCallId}`);
 			this._reportToolApprovalIfNoPermission(e.data.toolCallId);
-			this._activeToolCalls.delete(e.data.toolCallId);
 			this._autoApprovals.delete(e.data.toolCallId);
 			this._toolApprovalRecords.delete(e.data.toolCallId);
 			this._pendingAutoApprovals.respond(e.data.toolCallId, undefined);
@@ -7257,6 +7299,7 @@ export class CopilotAgentSession extends Disposable {
 						part: { kind: ResponsePartKind.Markdown, id: generateUuid(), content: summary },
 					});
 				}
+				this._activeToolCalls.delete(e.data.toolCallId);
 				return;
 			}
 
