@@ -427,12 +427,6 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 
 		const collapseByDefault = (element: unknown) => {
 			if (isAgentSessionSection(element)) {
-				// Check for persisted user preference first
-				const saved = this.getSavedCollapseState(element.section);
-				if (saved !== undefined) {
-					return saved;
-				}
-
 				if (element.section === AgentSessionSection.More && !this.options.filter.getExcludes().read) {
 					return true; // More section is always collapsed unless only showing unread
 				}
