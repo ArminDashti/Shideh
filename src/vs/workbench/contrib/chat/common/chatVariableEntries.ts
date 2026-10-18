@@ -198,6 +198,13 @@ export interface IPromptTextVariableEntry extends IBaseChatRequestVariableEntry 
 	readonly automaticallyAdded: boolean;
 }
 
+export interface IPromptTextVariableEntry extends IBaseChatRequestVariableEntry {
+	readonly kind: 'promptText';
+	readonly value: string;
+	readonly settingId?: string;
+	readonly modelDescription: string;
+}
+
 export interface ISCMHistoryItemVariableEntry extends IBaseChatRequestVariableEntry {
 	readonly kind: 'scmHistoryItem';
 	readonly value: URI;
@@ -314,6 +321,26 @@ export function toPromptTextVariableEntry(content: string, settingId?: string, a
 		kind: 'promptText',
 		modelDescription: 'Prompt instructions text',
 		automaticallyAdded
+	};
+}
+
+export function toFileVariableEntry(uri: URI, range?: IRange): IChatRequestFileEntry {
+	return {
+		kind: 'file',
+		value: range ? { uri, range } : uri,
+		id: uri.toString() + (range?.toString() ?? ''),
+		name: basename(uri),
+	};
+}
+
+export function toPromptTextVariableEntry(content: string, settingId?: string): IPromptTextVariableEntry {
+	return {
+		id: `vscode.prompt.instructions.text${settingId ? `.${settingId}` : ''}`,
+		name: `prompt:text`,
+		value: content,
+		settingId,
+		kind: 'promptText',
+		modelDescription: 'Prompt instructions text'
 	};
 }
 
