@@ -440,3 +440,22 @@ suite('protectedResourcesRequireGitHubCopilotSignIn', () => {
 		assert.strictEqual(protectedResourcesRequireGitHubCopilotSignIn([GITHUB_REPO_PROTECTED_RESOURCE]), false);
 	});
 });
+
+suite('buildAgentSdkEnv (branch prefix forwarding)', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('forwards branch prefix values, including an explicit empty string, and respects developer overrides', () => {
+		assert.deepStrictEqual({
+			value: buildAgentSdkEnv({ gitBranchPrefix: 'team/agents/' }, {})[AgentHostGitBranchPrefixEnvVar],
+			empty: buildAgentSdkEnv({ gitBranchPrefix: '' }, {})[AgentHostGitBranchPrefixEnvVar],
+			unset: buildAgentSdkEnv({}, {})[AgentHostGitBranchPrefixEnvVar],
+			override: buildAgentSdkEnv({ gitBranchPrefix: 'team/agents/' }, { [AgentHostGitBranchPrefixEnvVar]: 'dev/' })[AgentHostGitBranchPrefixEnvVar],
+		}, {
+			value: 'team/agents/',
+			empty: '',
+			unset: undefined,
+			override: undefined,
+		});
+	});
+});
