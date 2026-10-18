@@ -295,6 +295,10 @@ export class ChatService extends Disposable implements IChatService {
 					// user has typed/attached unsent input we need to restore on next open.
 					await this._chatSessionStore.storeSessionsMetadataOnly([model]);
 				}
+
+				// Persist editing session state to
+				// disk before the model is disposed.
+				await model.editingSession?.storeState();
 			}
 		}));
 		this._register(this._sessionModels.onDidDisposeModel(model => {
