@@ -146,3 +146,39 @@ function parseRemoteUrl(fetchUrl: string): { scheme: string; host: string; rawHo
 		return undefined;
 	}
 }
+
+export function getGitHubRepoInfoFromRepository(repositoryState: GitRepositoryState): { owner: string; repo: string; host: string; remoteUrl: string } | undefined {
+	for (const remote of getOrderedRemotes(repositoryState)) {
+		if (remote.fetchUrl) {
+			const gitHubInfo = getGithubRepoIdFromFetchUrl(remote.fetchUrl);
+			if (gitHubInfo) {
+				return { ...gitHubInfo, remoteUrl: remote.fetchUrl };
+			}
+		}
+	}
+
+	return undefined;
+}
+
+export function getGithubRepoIdFromFetchUrl(fetchUrl: string): { owner: string; repo: string; host: string } | undefined {
+	const parsed = parseRemoteUrl(fetchUrl);
+	if (!parsed) {
+		return undefined;
+	}
+
+	const topLevelUrls = ['github.com', 'ghe.com'];
+	const matchedHost = topLevelUrls.find(topLevelUrl => parsed.host === topLevelUrl || parsed.host.endsWith('.' + topLevelUrl));
+	if (!matchedHost) {
+		return undefined;
+	}
+
+	// Determine the actual web-accessible hostname
+	// For ghe.com subdomains, use the raw host (e.g., 'myco.ghe.com')
+	// For github.com, always use 'github.com' (SSH aliases like 'alias-github.com' should map to github.com)
+	const webHost = matchedHost === 'ghe.com'
+		? parsed.rawHost
+		: 'github.com';
+
+	const pathMatch = parsed.path.match(/^\/?([^/]+)\/([^/]+?)(\/|\.git\/?)?$/i);
+	return pathMatch ? { owner: pathMatch[1], repo: pathMatch[2], host: webHost } : undefined;
+}
