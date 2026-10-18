@@ -95,6 +95,7 @@ class HoverSource {
 		readonly hover: Hover,
 		readonly hoverProvider: HoverProvider,
 		readonly hoverPosition: Position,
+		readonly hoverDepth: number | undefined
 	) { }
 
 	public supportsVerbosityAction(hoverVerbosityAction: HoverVerbosityAction): boolean {
@@ -219,7 +220,7 @@ export class MarkdownHoverParticipant implements IEditorHoverParticipant<Markdow
 		for await (const item of hoverProviderResults) {
 			if (!isEmptyMarkdownString(item.hover.contents)) {
 				const range = item.hover.range ? Range.lift(item.hover.range) : anchor.range;
-				const hoverSource = new HoverSource(item.hover, item.provider, position);
+				const hoverSource = new HoverSource(item.hover, item.provider, position, undefined);
 				yield new MarkdownHover(this, range, item.hover.contents, false, item.ordinal, hoverSource);
 			}
 		}
@@ -417,7 +418,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		if (!hoverRenderedPart || !hoverSource?.supportsVerbosityAction(action)) {
 			return undefined;
 		}
-		const newHover = await this._fetchHover(hoverSource, model, action);
+		const { hover: newHover, depth: newDepth } = await this._fetchHover(hoverSource, model, action);
 		if (!newHover) {
 			return undefined;
 		}
@@ -465,7 +466,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		return true;
 	}
 
-	private async _fetchHover(hoverSource: HoverSource, model: ITextModel, action: HoverVerbosityAction): Promise<Hover | null | undefined> {
+	private async _fetchHover(hoverSource: HoverSource, model: ITextModel, action: HoverVerbosityAction): Promise<{ hover: Hover | null | undefined; depth: number | undefined }> {
 		let verbosityDelta = action === HoverVerbosityAction.Increase ? 1 : -1;
 		const provider = hoverSource.hoverProvider;
 		const ongoingHoverOperation = this._ongoingHoverOperations.get(provider);
@@ -475,7 +476,8 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		}
 		const tokenSource = new CancellationTokenSource();
 		this._ongoingHoverOperations.set(provider, { verbosityDelta, tokenSource });
-		const context: HoverContext = { verbosityRequest: { verbosityDelta, previousHover: hoverSource.hover } };
+		const verbosityDepth = (hoverSource.hoverDepth ?? 0) + verbosityDelta;
+		const context: HoverContext = { verbosityRequest: { verbosityDepth } };
 		let hover: Hover | null | undefined;
 		try {
 			hover = await Promise.resolve(provider.provideHover(model, hoverSource.hoverPosition, tokenSource.token, context));
@@ -484,7 +486,7 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {
 		}
 		tokenSource.dispose();
 		this._ongoingHoverOperations.delete(provider);
-		return hover;
+		return { hover, depth: verbosityDepth };
 	}
 
 	private _updateRenderedHoverPart(index: number, hoverPart: MarkdownHover): RenderedMarkdownHoverPart | undefined {
