@@ -238,6 +238,20 @@ export interface ISSHRemoteAgentHostService {
 	reconnect(sshConfigHost: string, name: string, userInitiated?: boolean): Promise<ISSHAgentHostConnection>;
 }
 /**
+ * Stable identifier for an SSH connection derived from its config.
+ *
+ * The key intentionally collapses to the SSH config host alias when one is
+ * provided; otherwise it is `<user>@<host>:<port>`. The renderer uses this
+ * to detect whether it already has a live handle for a connection that the
+ * main process may have kept alive across a window reload.
+ */
+export function getSSHConnectionKey(config: ISSHAgentHostConfig): string {
+	return config.sshConfigHost
+		? `ssh:${config.sshConfigHost}`
+		: `${config.username}@${config.host}:${config.port ?? 22}`;
+}
+
+/**
  * Serializable result from a successful SSH connect operation.
  * Returned over IPC from the main process.
  */
