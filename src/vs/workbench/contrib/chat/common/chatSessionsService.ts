@@ -10,6 +10,7 @@ import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { IStringDictionary } from '../../../../base/common/collections.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IPosition } from '../../../../editor/common/core/position.js';
 import { isRemoteAgentHostSessionType, parseAgentHostHarness } from '../../../../platform/agentHost/common/agentHostSessionType.js';

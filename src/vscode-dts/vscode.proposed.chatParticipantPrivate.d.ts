@@ -243,6 +243,13 @@ declare module 'vscode' {
 		readonly isSystemInitiated?: boolean;
 
 		/**
+		 * Per-model configuration provided by the user. Contains resolved values based on the model's
+		 * {@linkcode LanguageModelChatInformation.configurationSchema configurationSchema},
+		 * with user overrides applied on top of schema defaults.
+		 */
+		readonly modelConfiguration?: { readonly [key: string]: unknown };
+
+		/**
 		 * @hidden
 		 */
 		constructor(prompt: string, command: string | undefined, references: ChatPromptReference[], participant: string, toolReferences: ChatLanguageModelToolReference[], editedFileEvents: ChatRequestEditedFileEvent[] | undefined, id: string | undefined, modelId: string | undefined, modeInstructions2: ChatRequestModeInstructions | undefined, isSystemInitiated?: boolean);

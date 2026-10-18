@@ -21,6 +21,7 @@ import { basename, isEqual } from '../../../../../base/common/resources.js';
 import { hasKey, WithDefinedProps } from '../../../../../base/common/types.js';
 import { isUriComponents, URI, UriDto } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { IStringDictionary } from '../../../../../base/common/collections.js';
 import { IRange } from '../../../../../editor/common/core/range.js';
 import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
 import { ISelection } from '../../../../../editor/common/core/selection.js';

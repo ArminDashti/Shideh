@@ -961,6 +961,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 			request.id,
 			request.modelId,
 			typeConvert.ChatRequestModeInstructions.to(request.modeInstructions),
+			request.modelConfiguration,
 		);
 	}
 
@@ -1175,6 +1176,7 @@ export class ExtHostChatSessions extends Disposable implements ExtHostChatSessio
 			command: turn.command,
 			variableData: variables.length > 0 ? { variables } : undefined,
 			modelId: turn.modelId,
+			modelConfiguration: turn.modelConfiguration,
 			modeInstructions: typeConvert.ChatRequestModeInstructions.from(turn.modeInstructions2),
 		};
 	}
