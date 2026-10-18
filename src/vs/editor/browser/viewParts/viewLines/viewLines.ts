@@ -160,6 +160,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 		this._canUseLayerHinting = !options.get(EditorOption.disableLayerHinting);
 		this._viewLineOptions = new ViewLineOptions(conf, this._context.theme.type);
 
+		this._editorContext = editorContext;
 		this._linesContent = linesContent;
 		this._textRangeRestingSpot = document.createElement('div');
 		this._visibleLines = new VisibleLinesCollection(this._context, {
@@ -796,6 +797,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 		let boxStartY: number;
 		let boxEndY: number;
 
+		let startLineNumberRevealed: number;
 		if (selections && selections.length > 0) {
 			let minLineNumber = selections[0].startLineNumber;
 			let maxLineNumber = selections[0].endLineNumber;
@@ -805,10 +807,12 @@ export class ViewLines extends ViewPart implements IViewLines {
 				maxLineNumber = Math.max(maxLineNumber, selection.endLineNumber);
 			}
 			boxIsSingleRange = false;
+			startLineNumberRevealed = minLineNumber;
 			boxStartY = this._context.viewLayout.getVerticalOffsetForLineNumber(minLineNumber);
 			boxEndY = this._context.viewLayout.getVerticalOffsetForLineNumber(maxLineNumber) + this._lineHeight;
 		} else if (range) {
 			boxIsSingleRange = true;
+			startLineNumberRevealed = range.startLineNumber;
 			boxStartY = this._context.viewLayout.getVerticalOffsetForLineNumber(range.startLineNumber);
 			boxEndY = this._context.viewLayout.getVerticalOffsetForLineNumber(range.endLineNumber) + this._lineHeight;
 		} else {
@@ -822,7 +826,13 @@ export class ViewLines extends ViewPart implements IViewLines {
 
 		if (!shouldIgnoreScrollOff) {
 			const maxLinesInViewport = (viewportHeight / this._lineHeight);
-			const surroundingLines = Math.max(this._cursorSurroundingLines, this._stickyScrollEnabled ? this._maxNumberStickyLines : 0);
+
+			let numberOfStickyLines: number = 0;
+			if (this._stickyScrollEnabled) {
+				const _numberOfStickyLines = this._editorContext.findNumberOfStickyLinesAboveLine(startLineNumberRevealed);
+				numberOfStickyLines = _numberOfStickyLines !== null ? _numberOfStickyLines : this._maxNumberStickyLines;
+			}
+			const surroundingLines = Math.max(this._cursorSurroundingLines, numberOfStickyLines);
 			const context = Math.min(maxLinesInViewport / 2, surroundingLines);
 			paddingTop = context * this._lineHeight;
 			paddingBottom = Math.max(0, (context - 1)) * this._lineHeight;

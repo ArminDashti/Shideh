@@ -409,6 +409,10 @@ export class StickyScrollController extends Disposable implements IEditorContrib
 		}));
 	}
 
+	public findNumberOfStickyLinesAboveLine(lineNumber: number): number {
+		return this._stickyLineCandidateProvider.findNumberOfStickyLinesAboveLine(lineNumber);
+	}
+
 	private _onContextMenu(targetWindow: Window, e: MouseEvent) {
 		const event = new StandardMouseEvent(targetWindow, e);
 

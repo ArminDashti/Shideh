@@ -248,4 +248,12 @@ export class StickyLineCandidateProvider extends Disposable implements IStickyLi
 		}
 		return index;
 	}
+
+	public findNumberOfStickyLinesAboveLine(lineNumber: number): number {
+		if (!this._model?.element) {
+			return -1;
+		}
+		console.log('this._model.element : ', this._model.element);
+		return -1;
+	}
 }
