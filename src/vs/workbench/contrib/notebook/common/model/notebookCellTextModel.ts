@@ -173,6 +173,7 @@ export class NotebookCellTextModel extends Disposable implements ICell {
 			this._textModel._overwriteAlternativeVersionId(this._versionId);
 			this._onDidChangeTextModel.fire();
 		}
+		this._onDidChangeTextModel.fire();
 	}
 
 	private setRegisteredLanguage(languageService: ILanguageService, newLanguage: string, currentLanguage: string) {

@@ -259,6 +259,7 @@ export interface ICell {
 	outputs: ICellOutput[];
 	metadata: NotebookCellMetadata;
 	internalMetadata: NotebookCellInternalMetadata;
+	getValue(): string;
 	getHashValue(): number;
 	textBuffer: IReadonlyTextBuffer;
 	textModel?: ITextModel;
