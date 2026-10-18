@@ -64,7 +64,6 @@ import { ChatPetAchievementIds } from '../../../../workbench/contrib/chat/browse
 import { IChatPetService } from '../../../../workbench/contrib/chat/browser/chatPetService.js';
 import { ChatContextKeys } from '../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
 import { createFileIconThemableTreeContainerScope } from '../../../../workbench/contrib/files/browser/views/explorerView.js';
-import { IActivityService, NumberBadge } from '../../../../workbench/services/activity/common/activity.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../../workbench/services/editor/common/editorService.js';
 import { IExtensionService } from '../../../../workbench/services/extensions/common/extensions.js';
 import { IWorkbenchLayoutService } from '../../../../workbench/services/layout/browser/layoutService.js';
@@ -833,6 +832,12 @@ registerWorkbenchContribution2(ChangesActionViewItemsContribution.ID, ChangesAct
 // --- View Pane
 
 export class ChangesViewPane extends ViewPane {
+
+	private _fileCountTitle: string | undefined;
+
+	public override get singleViewPaneContainerTitle(): string | undefined {
+		return this._fileCountTitle;
+	}
 
 	private bodyContainer: HTMLElement | undefined;
 	private welcomeContainer: HTMLElement | undefined;

@@ -17,7 +17,7 @@ const viewContainersRegistry = Registry.as<IViewContainersRegistry>(ViewContaine
 
 const changesViewContainer = viewContainersRegistry.registerViewContainer({
 	id: CHANGES_VIEW_CONTAINER_ID,
-	title: localize2('changes', 'Changes'),
+	title: changesContainerTitle,
 	ctorDescriptor: new SyncDescriptor(ChangesViewPaneContainer),
 	icon: changesViewIcon,
 	order: 11,
