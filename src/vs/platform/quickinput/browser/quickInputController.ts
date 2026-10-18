@@ -209,6 +209,7 @@ export class QuickInputController extends Disposable {
 				inputBox.setFocus();
 			}
 		}));
+		dom.append(headerContainer, checkAll.domNode);
 
 		const description2 = dom.append(headerContainer, $('.quick-input-description'));
 		const inputContainer = dom.append(headerContainer, $('.quick-input-and-message'));
