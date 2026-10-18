@@ -324,6 +324,9 @@ import './contrib/mergeEditor/browser/mergeEditor.contribution.js';
 // Multi Diff Editor
 import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
 
+// DiffList Editor
+import 'vs/workbench/contrib/diffListEditor/browser/diffListEditor.contribution';
+
 // Commands
 import './contrib/commands/common/commands.contribution.js';
 

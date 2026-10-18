@@ -664,6 +664,39 @@ function registerOpenEditorAPICommands(): void {
 			options: multiDiffEditorOptions,
 		});
 	});
+
+	// partial, renderer-side API command to open diff editor
+	// complements https://github.com/microsoft/vscode/blob/2b164efb0e6a5de3826bff62683eaeafe032284f/src/vs/workbench/api/common/extHostApiCommands.ts#L397
+	CommandsRegistry.registerCommand({
+		id: 'vscode.changes',
+		handler: (accessor, title: string, resources: [UriComponents, UriComponents?, UriComponents?][]) => {
+			accessor.get(ICommandService).executeCommand('_workbench.changes', title, resources);
+		},
+		description: {
+			description: 'Opens a list of resources in the changes editor to compare their contents.',
+			args: [
+				{ name: 'title', description: 'Human readable title for the diff editor' },
+				{ name: 'resources', description: 'List of resources to open in the changes editor' }
+			]
+		}
+	});
+
+	CommandsRegistry.registerCommand('_workbench.changes', async (accessor: ServicesAccessor, title: string, resources: [UriComponents, UriComponents?, UriComponents?][]) => {
+		const editorService = accessor.get(IEditorService);
+		// const editorGroupService = accessor.get(IEditorGroupsService);
+		// const configurationService = accessor.get(IConfigurationService);
+
+		const editor: (IResourceDiffEditorInput & { resource: URI })[] = [];
+		for (const [label, original, modified] of resources) {
+			editor.push({
+				resource: URI.revive(label),
+				original: { resource: URI.revive(original) },
+				modified: { resource: URI.revive(modified) },
+			});
+		}
+
+		await editorService.openEditor({ resources: editor, label: title });
+	});
 }
 
 interface OpenMultiFileDiffEditorOptions {
