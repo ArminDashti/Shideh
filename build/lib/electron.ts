@@ -350,7 +350,7 @@ export const config = {
 		darwinUTType(vscodeUTI('toml'), 'TOML document', ['public.text'], 'resources/darwin/default.icns', ['toml']),
 	],
 	darwinForceDarkModeSupport: true,
-	darwinCredits: darwinCreditsTemplate ? Buffer.from(darwinCreditsTemplate({ commit: commit, date: new Date().toISOString() })) : undefined,
+	darwinCredits: darwinCreditsTemplate ? Buffer.from(darwinCreditsTemplate({ commit: commit, date: getSourceDate().toISOString() })) : undefined,
 	linuxExecutableName: product.applicationName,
 	winIcon: 'resources/win32/shideh.ico',
 	token: process.env['GITHUB_TOKEN'],

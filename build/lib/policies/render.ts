@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { NlsString, LanguageTranslations, Category, Policy, Translations, ProductJson } from './types.ts';
+import { getSourceDate } from '../sourceDateEpoch.ts';
 
 export function escapeXml(value: string): string {
 	return value
@@ -202,7 +203,7 @@ export function renderProfileManifest(appName: string, bundleIdentifier: string,
     <key>pfm_interaction</key>
     <string>combined</string>
     <key>pfm_last_modified</key>
-    <date>${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</date>
+    <date>${getSourceDate().toISOString().replace(/\.\d+Z$/, 'Z')}</date>
     <key>pfm_platforms</key>
     <array>
         <string>macOS</string>
