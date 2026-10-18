@@ -332,6 +332,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 				this._horizontalRevealRequest = null;
 			}
 		}
+		console.log('e.scrollWidth ; ', e.scrollWidth);
 		this.domNode.setWidth(e.scrollWidth);
 		return this._visibleLines.onScrollChanged(e) || e.scrollTopChanged || e.scrollLeftChanged;
 	}
@@ -564,17 +565,24 @@ export class ViewLines extends ViewPart implements IViewLines {
 		const rendStartLineNumber = this._visibleLines.getStartLineNumber();
 		const rendEndLineNumber = this._visibleLines.getEndLineNumber();
 
+		console.log('rendStartLineNumber ; ', rendStartLineNumber);
+		console.log('rendEndLineNumber ; ', rendEndLineNumber);
+
 		let localMaxLineWidth = 1;
 		let allWidthsComputed = true;
 		for (let lineNumber = rendStartLineNumber; lineNumber <= rendEndLineNumber; lineNumber++) {
+			console.log('lineNumber ; ', lineNumber);
 			const visibleLine = this._visibleLines.getVisibleLine(lineNumber);
 
 			if (fast && !visibleLine.getWidthIsFast()) {
+				console.log('continue');
 				// Cannot compute width in a fast way for this line
 				allWidthsComputed = false;
 				continue;
 			}
 
+			const width = visibleLine.getWidth(null);
+			console.log('width : ', width);
 			localMaxLineWidth = Math.max(localMaxLineWidth, visibleLine.getWidth(null));
 		}
 
@@ -583,6 +591,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 			this._maxLineWidth = 0;
 		}
 
+		console.log('localMaxLineWidth ; ', localMaxLineWidth);
 		this._ensureMaxLineWidth(localMaxLineWidth);
 
 		return allWidthsComputed;
@@ -631,7 +640,9 @@ export class ViewLines extends ViewPart implements IViewLines {
 		// (1) render lines - ensures lines are in the DOM
 		this._visibleLines.renderLines(viewportData);
 		this._lastRenderedData.setCurrentVisibleRange(viewportData.visibleRange);
-		this.domNode.setWidth(this._context.viewLayout.getScrollWidth());
+		const scrollWidth = this._context.viewLayout.getScrollWidth();
+		console.log('scrollWidth ; ', scrollWidth);
+		this.domNode.setWidth(scrollWidth);
 		this.domNode.setHeight(Math.min(this._context.viewLayout.getScrollHeight(), 1000000));
 
 		// (2) compute horizontal scroll position:
@@ -655,6 +666,7 @@ export class ViewLines extends ViewPart implements IViewLines {
 				if (newScrollLeft) {
 					if (!this._isViewportWrapping && !newScrollLeft.hasRTL) {
 						// ensure `scrollWidth` is large enough
+						console.log('newScrollLeft.maxHorizontalOffset : ', newScrollLeft.maxHorizontalOffset);
 						this._ensureMaxLineWidth(newScrollLeft.maxHorizontalOffset);
 					}
 					// set `scrollLeft`
