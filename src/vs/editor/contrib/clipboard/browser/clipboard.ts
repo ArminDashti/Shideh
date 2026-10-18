@@ -346,6 +346,7 @@ if (PasteAction) {
 							mode
 						});
 					}
+					copyPasteController?.handlePasteWithoutEvent();
 				})();
 			}
 			return true;

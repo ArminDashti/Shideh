@@ -317,6 +317,56 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		performance.mark('code/CopyPasteController/endHandlePaste');
 	}
 
+	public async handlePasteWithoutEvent() {
+		if (!this._editor.hasTextFocus()) {
+			return;
+		}
+
+		MessageController.get(this._editor)?.closeMessage();
+		this._currentPasteOperation?.cancel();
+		this._currentPasteOperation = undefined;
+
+		const model = this._editor.getModel();
+		const selections = this._editor.getSelections();
+		if (!selections?.length || !model) {
+			return;
+		}
+
+		if (
+			this._editor.getOption(EditorOption.readOnly) // Never enabled if editor is readonly.
+			|| (!this.isPasteAsEnabled() && !this._pasteAsActionContext) // Or feature disabled (but still enable if paste was explicitly requested)
+		) {
+			return;
+		}
+
+		const allPotentialMimeTypes = [Mimes.uriList];
+		const allProviders = this._languageFeaturesService.documentPasteEditProvider
+			.ordered(model)
+			.filter(provider => {
+				// Filter out providers that don't match the requested paste types
+				const preference = this._pasteAsActionContext?.preferred;
+				if (preference) {
+					if (provider.providedPasteEditKinds && !this.providerMatchesPreference(provider, preference)) {
+						return false;
+					}
+				}
+				// And providers that don't handle any of mime types in the clipboard
+				return provider.pasteMimeTypes?.some(type => matchesMimeType(type, allPotentialMimeTypes));
+			});
+		if (!allProviders.length) {
+			if (this._pasteAsActionContext?.preferred) {
+				this.showPasteAsNoEditMessage(selections, this._pasteAsActionContext.preferred);
+			}
+			return;
+		}
+
+		if (this._pasteAsActionContext) {
+			this.showPasteAsPickWithoutEvent(this._pasteAsActionContext.preferred, allProviders, selections, dataTransfer, metadata);
+		} else {
+			this.doPasteInline(allProviders, selections, dataTransfer, metadata, e);
+		}
+	}
+
 	private showPasteAsNoEditMessage(selections: readonly Selection[], preference: PastePreference) {
 		const kindLabel = 'only' in preference
 			? preference.only.value
