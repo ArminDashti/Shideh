@@ -422,6 +422,7 @@ export abstract class EditorAction extends EditorCommand {
 
 	public readonly label: string;
 	public readonly alias: string;
+	public readonly metadata: ICommandMetadata | undefined;
 
 	constructor(opts: IActionOptions) {
 		super(EditorAction.convertOptions(opts));

@@ -54,6 +54,7 @@ export abstract class AbstractEditorCommandsQuickAccessProvider extends Abstract
 				commandAlias: editorAction.alias,
 				commandDescription,
 				label: stripIcons(editorAction.label) || editorAction.id,
+				commandDescription,
 			});
 		}
 
