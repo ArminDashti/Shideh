@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $ } from '../../../../../../base/browser/dom.js';
+import { $, DisposableResizeObserver } from '../../../../../../base/browser/dom.js';
 import { ButtonWithIcon } from '../../../../../../base/browser/ui/button/button.js';
 import { HoverStyle } from '../../../../../../base/browser/ui/hover/hover.js';
 import { IMarkdownString, MarkdownString } from '../../../../../../base/common/htmlContent.js';

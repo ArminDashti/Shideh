@@ -5867,8 +5867,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			const itemsShown = Math.min(allEntries.length, maxItemsShown);
 			const height = itemsShown * 22;
 			const list = this._chatEditList!.object;
+			const collapsed = this._workingSetCollapsed.read(reader);
 			list.layout(height);
 			list.getHTMLElement().style.height = `${height}px`;
+			workingSetContainer.style.maxHeight = collapsed ? '0px' : `${height}px`;
 			list.splice(0, list.length, allEntries);
 			workingSetContainer.classList.toggle('overflowing', allEntries.length > maxItemsShown);
 		}));
