@@ -1,10 +1,10 @@
 [
 	{
 		"c": "using",
-		"t": "source.cs keyword.other.directive.using.cs",
+		"t": "source.cs keyword.other.using.cs",
 		"r": {
-			"dark_plus": "keyword.other.directive.using: #C586C0",
-			"light_plus": "keyword.other.directive.using: #AF00DB",
+			"dark_plus": "keyword.other.using: #C586C0",
+			"light_plus": "keyword.other.using: #AF00DB",
 			"dark_vs": "keyword: #569CD6",
 			"light_vs": "keyword: #0000FF",
 			"hc_black": "keyword.other.directive.using: #C586C0",
@@ -65,7 +65,7 @@
 	},
 	{
 		"c": "namespace",
-		"t": "source.cs storage.type.namespace.cs",
+		"t": "source.cs keyword.other.namespace.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -145,7 +145,7 @@
 	},
 	{
 		"c": "class",
-		"t": "source.cs storage.type.class.cs",
+		"t": "source.cs keyword.other.class.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -241,7 +241,7 @@
 	},
 	{
 		"c": "static",
-		"t": "source.cs storage.modifier.static.cs",
+		"t": "source.cs storage.modifier.cs",
 		"r": {
 			"dark_plus": "storage.modifier: #569CD6",
 			"light_plus": "storage.modifier: #0000FF",
@@ -273,7 +273,7 @@
 	},
 	{
 		"c": "void",
-		"t": "source.cs keyword.type.void.cs",
+		"t": "source.cs keyword.type.cs",
 		"r": {
 			"dark_plus": "keyword: #569CD6",
 			"light_plus": "keyword: #0000FF",
@@ -337,7 +337,7 @@
 	},
 	{
 		"c": "string",
-		"t": "source.cs keyword.type.string.cs",
+		"t": "source.cs keyword.type.cs",
 		"r": {
 			"dark_plus": "keyword: #569CD6",
 			"light_plus": "keyword: #0000FF",

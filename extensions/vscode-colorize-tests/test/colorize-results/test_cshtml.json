@@ -49,7 +49,7 @@
 	},
 	{
 		"c": "var",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs storage.type.var.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs keyword.other.var.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -193,7 +193,7 @@
 	},
 	{
 		"c": "var",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs storage.type.var.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs keyword.other.var.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -577,7 +577,7 @@
 	},
 	{
 		"c": "        ",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock comment.line.double-slash.cs punctuation.whitespace.comment.leading.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock punctuation.whitespace.comment.leading.cs",
 		"r": {
 			"dark_plus": "comment: #6A9955",
 			"light_plus": "comment: #008000",
@@ -641,7 +641,7 @@
 	},
 	{
 		"c": "var",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock storage.type.var.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock keyword.other.var.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -865,7 +865,7 @@
 	},
 	{
 		"c": "var",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock storage.type.var.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock keyword.other.var.cs",
 		"r": {
 			"dark_plus": "storage.type: #569CD6",
 			"light_plus": "storage.type: #0000FF",
@@ -1073,7 +1073,7 @@
 	},
 	{
 		"c": "        ",
-		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock comment.line.double-slash.cs punctuation.whitespace.comment.leading.cs",
+		"t": "text.html.cshtml meta.structure.razor.codeblock source.cs meta.statement.if.razor meta.structure.razor.csharp.codeblock punctuation.whitespace.comment.leading.cs",
 		"r": {
 			"dark_plus": "comment: #6A9955",
 			"light_plus": "comment: #008000",
