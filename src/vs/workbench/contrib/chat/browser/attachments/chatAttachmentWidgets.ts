@@ -843,14 +843,7 @@ function createImageElements(resource: URI | undefined, name: string, fullName: 
 	const hoverElement = dom.$('div.chat-attached-context-hover');
 	hoverElement.setAttribute('aria-label', ariaLabel);
 
-	if (previewFeaturesDisabled) {
-		element.classList.add('warning');
-		hoverElement.textContent = localize('chat.imageAttachmentPreviewFeaturesDisabled', "Vision is disabled by your organization.");
-		disposable.add(hoverService.setupDelayedHover(element, {
-			content: hoverElement,
-			style: HoverStyle.Pointer,
-		}));
-	} else if ((!supportsVision && currentLanguageModel) || omittedState === OmittedState.Full) {
+	if ((!supportsVision && currentLanguageModel) || omittedState === OmittedState.Full) {
 		element.classList.add('warning');
 		hoverElement.textContent = localize('chat.imageAttachmentHover', "{0} does not support images.", currentLanguageModelName ?? 'This model');
 		disposable.add(hoverService.setupDelayedHover(element, {
@@ -1380,7 +1373,6 @@ export class NotebookCellOutputChatAttachmentWidget extends AbstractChatAttachme
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@INotebookService private readonly notebookService: INotebookService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 	) {
 		super(attachment, options, container, contextResourceLabels, currentLanguageModel, commandService, openerService, configurationService);
 
