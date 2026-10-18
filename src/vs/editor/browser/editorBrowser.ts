@@ -1520,6 +1520,12 @@ export function getCodeEditor(thing: unknown): ICodeEditor | null {
 	}
 
 	if (isDiffEditor(thing)) {
+		if (focused) {
+			let editor = thing.getOriginalEditor();
+			if (editor.hasTextFocus()) {
+				return editor;
+			}
+		}
 		return thing.getModifiedEditor();
 	}
 
