@@ -353,7 +353,7 @@ class CodeMain {
 		services.set(IRequestService, new SyncDescriptor(RequestService, undefined, true));
 
 		// Themes
-		services.set(IThemeMainService, new SyncDescriptor(ThemeMainService));
+		services.set(IThemeMainService, new SyncDescriptor(ThemeMainService, [nativeTheme]));
 
 		// Signing
 		services.set(ISignService, new SyncDescriptor(SignService, undefined, false /* proxied to other processes */));
