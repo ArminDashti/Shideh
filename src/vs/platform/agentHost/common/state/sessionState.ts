@@ -1392,6 +1392,17 @@ export function withSessionFolderPickerDecision(meta: SessionMeta | undefined, d
 }
 
 /**
+ * Reserved key under {@link SessionMeta} for the well-known debug-artifacts
+ * payload. Value at this key, when present, MUST be an array shaped like
+ * {@link IDebugArtifact}. The host (which owns the on-disk layout of its own
+ * logs and the provider SDK's transcript) advertises the concrete file paths
+ * here so clients — e.g. the "Export Agent Host Debug Logs" command — can
+ * collect them via the resource proxy without hard-coding provider-specific
+ * path conventions.
+ */
+export const SESSION_META_DEBUG_ARTIFACTS_KEY = 'debugArtifacts';
+
+/**
  * Git state of a session's working directory, carried under
  * {@link SessionMeta} at {@link SESSION_META_GIT_KEY}. Used by clients to
  * drive source-control affordances (e.g. PR/merge buttons in the Agents

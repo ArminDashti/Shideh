@@ -510,9 +510,11 @@ export class ExportAgentHostDebugLogsAction extends Action2 {
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const chatWidgetService = accessor.get(IChatWidgetService);
-		const widget = chatWidgetService.lastFocusedWidget;
-		const model = widget?.viewModel?.model;
+		const model = chatWidgetService.lastFocusedWidget?.viewModel?.model;
 		const activeSession = model ? toActiveAgentHostSession(model.sessionResource, model.title) : undefined;
+		// `collectAgentHostDebugLogs` resolves the host-advertised debug artifacts
+		// itself (it already holds the local + remote agent host services), so the
+		// accessor is used synchronously here with no `invokeFunction` re-entry.
 		await exportAgentHostDebugLogs(accessor, activeSession);
 	}
 }
@@ -602,6 +604,14 @@ async function copyHostArtifactDirectory(
 		throw new Error(`Agent Host debug-log directory manifest accounts for ${copiedSize} bytes, expected ${hostArtifact.artifact.uncompressedSize}`);
 	}
 }
+
+/**
+ * Cap for a single remote artifact read. The AHP filesystem provider has no
+ * ranged read, so a remote file is fetched whole into the renderer (and buffered
+ * again as a string); a runaway `--debug` log could exhaust memory. Above this we
+ * export a short note instead of the file.
+ */
+const MAX_REMOTE_ARTIFACT_BYTES = 50 * 1024 * 1024;
 
 async function createDebugLogFile(path: string, resource: URI, fileService: IFileService, size?: number): Promise<IAgentHostDebugLogFile> {
 	const observedSize = size ?? (await fileService.resolve(resource, { resolveMetadata: true })).size;

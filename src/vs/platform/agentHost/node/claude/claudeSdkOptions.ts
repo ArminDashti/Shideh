@@ -186,6 +186,7 @@ export async function buildOptions(
 			? { plugins: input.plugins.map(plugin => ({ type: 'local' as const, path: plugin.uri.fsPath, skipMcpDiscovery: plugin.skipMcpDiscovery })) }
 			: {}),
 		...(input.agent ? { agent: input.agent } : {}),
+		...(input.debugFile ? { debugFile: input.debugFile } : {}),
 		settingSources: ['user', 'project', 'local'],
 		settings: {
 			env: settingsEnv,

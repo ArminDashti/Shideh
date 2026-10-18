@@ -437,6 +437,35 @@ export class ClaudeAgentSession extends Disposable {
 	}
 
 	/**
+	 * Discovery of this session's debug artifacts (SDK debug logs + transcript),
+	 * assigned in the constructor. Stateless — {@link _publishDebugArtifacts} reads
+	 * it from disk and mirrors the result into `_meta`.
+	 */
+	private readonly _debugArtifacts: ClaudeDebugArtifacts;
+
+	/**
+	 * Re-read this session's debug artifacts from disk and publish them into the
+	 * well-known `_meta` key, so the export command reads concrete host-side paths
+	 * instead of re-deriving the on-disk layout. `withSessionDebugArtifacts` merges
+	 * with the existing `_meta` slots (git/github) and, on an empty set, clears only
+	 * this slot — so the advertised state stays a projection of disk truth. Called
+	 * at the moments the set can change: materialize/rematerialize (a new debug log)
+	 * and once after the first turn (the transcript file appears). Host-local
+	 * absolute paths; the client resolves them via the resource proxy (`file://`
+	 * local / `vscode-agent-host://` remote).
+	 */
+	private async _publishDebugArtifacts(): Promise<void> {
+		const cwd = this.workingDirectory;
+		if (!cwd) {
+			return; // Not materialized yet; nothing on disk to advertise.
+		}
+		const artifacts = await this._debugArtifacts.refresh(cwd);
+		const sessionKey = this.sessionUri.toString();
+		const current = this._stateManager.getSessionState(sessionKey)?._meta;
+		this._stateManager.setSessionMeta(sessionKey, withSessionDebugArtifacts(current, artifacts));
+	}
+
+	/**
 	 * One-shot SDK assistant-message uuid that the next materialize / rebuild
 	 * resumes *up to and including* (the SDK's `Options.resumeSessionAt`).
 	 * Staged by {@link truncateToTurn}; read by the next build and cleared
@@ -543,6 +572,7 @@ export class ClaudeAgentSession extends Disposable {
 		const telemetry = await this._otelService.getNativeSdkTelemetryConfig();
 		const traceContext = this._otelService.getSessionTraceContext(this.sessionId, ctx.resource.toString());
 
+		const debugFile = await this._debugArtifacts.prepareDebugFile();
 		const options = await buildOptions(
 			{
 				sessionId: this.sessionId,
