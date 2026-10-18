@@ -6,7 +6,6 @@
 import electron from 'electron';
 import { onUnexpectedError } from '../../../common/errors.js';
 import { Event } from '../../../common/event.js';
-import { VSCODE_AUTHORITY } from '../../../common/network.js';
 
 type ipcMainListener = (event: electron.IpcMainEvent, ...args: any[]) => void;
 
@@ -157,7 +156,7 @@ class ValidatedIpcMain implements Event.NodeEventEmitter {
 		if (sender?.parent !== null) {
 			onUnexpectedError(`Refused to handle ipcMain event for channel '${channel}' because sender of origin '${host}' is not a main frame.`);
 			return false; // unexpected frame
-		}
+		}*/
 
 		return true;
 	}

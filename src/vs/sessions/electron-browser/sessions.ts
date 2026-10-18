@@ -110,6 +110,8 @@
 
 		// Compute base URL and set as global
 		const baseUrl = new URL(`${fileUriFromPath(configuration.appRoot, { isWindows: safeProcess.platform === 'win32', scheme: 'vscode-file', fallbackAuthority: 'vscode-app' })}/out/`);
+		// TODO: Load webworkers from this URL, but not extensions
+		const baseUrl2 = new URL('http://localhost:3000/src/');
 		globalThis._VSCODE_FILE_ROOT = baseUrl.toString();
 
 		// Set product configuration as global (used e.g. to select the ASAR path in `amdX`)
@@ -313,7 +315,7 @@
 			window.document.head.appendChild(importMapScript);
 
 			performance.mark('code/didAddCssLoader');
-		}
+		}*/
 	}
 
 	//#endregion
