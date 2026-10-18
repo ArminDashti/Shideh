@@ -733,3 +733,14 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		return 0;
 	}
 }
+
+function matchesPreference(provider: DocumentPasteEditProvider, preference: PastePreference): boolean {
+	if ('kind' in preference) {
+		if (!provider.providedPasteEditKinds) {
+			return true;
+		}
+		return provider.providedPasteEditKinds.some(providedKind => preference.kind.contains(providedKind));
+	} else {
+		return provider.id === preference.providerId;
+	}
+}
