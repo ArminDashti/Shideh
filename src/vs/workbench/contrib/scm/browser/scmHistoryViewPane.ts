@@ -927,6 +927,9 @@ class SCMHistoryViewPaneActionRunner extends ActionRunner {
 	}
 }
 
+
+
+
 class SCMHistoryTreeAccessibilityProvider implements IListAccessibilityProvider<TreeElement> {
 
 	getWidgetAriaLabel(): string {
