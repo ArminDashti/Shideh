@@ -1026,6 +1026,10 @@ suite('AgentHostClientTools', () => {
 				registerChatSessionItemController: () => toDisposable(() => { }),
 				registerChatSessionContentProvider: () => toDisposable(() => { }),
 				registerChatSessionContribution: () => toDisposable(() => { }),
+				onDidChangeSessionOptions: Event.None,
+				setOptionGroupsForSessionType: () => { },
+				getSessionOption: () => undefined,
+				setSessionOption: () => false,
 			});
 			instantiationService.stub(IChatWidgetService, {
 				getWidgetBySessionResource: () => undefined,

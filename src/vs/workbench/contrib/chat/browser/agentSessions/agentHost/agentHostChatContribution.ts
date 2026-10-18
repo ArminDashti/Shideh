@@ -112,6 +112,8 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 	private readonly _modelProviders = new Map<AgentProvider, AgentHostLanguageModelProvider>();
 	/** List controllers keyed by agent provider, for cache resets on reconnect. */
 	private readonly _listControllers = new Map<AgentProvider, AgentHostSessionListController>();
+	/** Session handlers keyed by agent provider, for option-group cache resets on reconnect. */
+	private readonly _sessionHandlers = new Map<AgentProvider, AgentHostSessionHandler>();
 
 	/** Dedupes redundant `authenticate` RPCs when the resolved token hasn't changed. */
 	private readonly _authTokenCache = new AgentHostAuthTokenCache();
@@ -387,6 +389,8 @@ export class AgentHostContribution extends Disposable implements IWorkbenchContr
 			promptCacheNotification: this._promptCacheNotification,
 		}));
 		store.add(this._chatSessionsService.registerChatSessionContentProvider(sessionType, sessionHandler));
+		this._sessionHandlers.set(agent.provider, sessionHandler);
+		store.add({ dispose: () => this._sessionHandlers.delete(agent.provider) });
 
 		// Language model provider.
 		// Order matters: `updateModels` must be called after

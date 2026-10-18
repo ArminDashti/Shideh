@@ -6121,6 +6121,7 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 
 		// Start watching for server-initiated turns on this session
 		this._watchForServerInitiatedTurns(session, sessionResource);
+		this._watchSessionConfig(session, sessionResource);
 
 		return session;
 	}
