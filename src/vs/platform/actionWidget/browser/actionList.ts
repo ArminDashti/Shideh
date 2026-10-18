@@ -1417,15 +1417,17 @@ export class ActionListWidget<T> extends Disposable {
 
 		if (this._filterInput || this._options?.onType) {
 			this._register(dom.addDisposableListener(this.domNode, 'keydown', (e: KeyboardEvent) => {
-				const target = e.target;
-				if ((this._options?.onType || this._options?.filterAsCombobox) && dom.isHTMLElement(target)
-					&& (dom.isEditableElement(target) || target.closest('button, a, [contenteditable="true"], .action-list-submenu-panel'))) {
+				const target = dom.isHTMLElement(e.target) ? e.target : undefined;
+				if (target && this._typingBelongsTo(target)) {
 					return;
 				}
 				if ((!this._filterInput || !dom.isActiveElement(this._filterInput))
 					&& !e.isComposing && e.key.length === 1 && e.key !== ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
 					e.preventDefault();
 					e.stopPropagation();
+					// A detail panel would otherwise sit over the results the search is about
+					// to produce, so typing puts it away.
+					this._hideSubmenu();
 					if (this._filterInput) {
 						this._filterInput.focus();
 						this._filterInput.value = e.key;
@@ -1438,6 +1440,24 @@ export class ActionListWidget<T> extends Disposable {
 				}
 			}));
 		}
+	}
+
+	/**
+	 * Whether a printable key pressed on `target` belongs to it rather than to search.
+	 * Text fields and links own their keys, and a submenu list owns its own type-ahead;
+	 * a detail panel has no such claim, so typing over one searches instead.
+	 */
+	private _typingBelongsTo(target: HTMLElement): boolean {
+		if (!this._options?.onType && !this._options?.filterAsCombobox) {
+			return false;
+		}
+		if (dom.isEditableElement(target)) {
+			return true;
+		}
+		if (target.closest('.action-list-submenu-panel')) {
+			return !!this._currentSubmenuWidget;
+		}
+		return !!target.closest('button, a, [contenteditable="true"]');
 	}
 
 	private _toggleSection(section: string): void {
@@ -1790,9 +1810,25 @@ export class ActionListWidget<T> extends Disposable {
 	showHoverForCheckedItem(): void {
 		const element = this._allMenuItems.find(item => item.kind === ActionListItemKind.Action && (item.item as { checked?: boolean } | undefined)?.checked)
 			?? (this._options?.persistentHover ? this.getFocusedElement() : undefined);
-		if (!element) {
-			return;
+		if (element) {
+			this._revealAndShowHover(element);
 		}
+	}
+
+	/** The id of the item whose panel is open, so a rebuild can put the same one back. */
+	get expandedItemId(): string | undefined {
+		return (this._currentSubmenuElement?.item as { id?: string } | undefined)?.id;
+	}
+
+	/** Re-opens the panel of the item with this id, e.g. the one open before a rebuild. */
+	showHoverForItemId(id: string): void {
+		const element = this._allMenuItems.find(item => item.kind === ActionListItemKind.Action && (item.item as { id?: string } | undefined)?.id === id);
+		if (element) {
+			this._revealAndShowHover(element);
+		}
+	}
+
+	private _revealAndShowHover(element: IActionListItem<T>): void {
 		if (element.section && this._collapsedSections.has(element.section)) {
 			this._toggleSection(element.section);
 		}
@@ -1894,6 +1930,30 @@ export class ActionListWidget<T> extends Disposable {
 			{ ...frame, transform: 'translateY(0)' },
 		], { duration: 160, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
 		this._itemMoveAnimation.value = toDisposable(() => animation.cancel());
+	}
+
+	/**
+	 * Scrolls back to the first item. A list that swaps its whole contents — switching
+	 * source, category, or filter — keeps the previous scroll offset, which lands the new
+	 * contents part-way down and hides whatever heading introduces them.
+	 */
+	scrollToTop(): void {
+		this._list.scrollTop = 0;
+	}
+
+	/**
+	 * Scrolls the item into view without touching focus. Separate from
+	 * {@link focusItemById} because a list that is revealed on open should show the
+	 * relevant item without claiming the keyboard.
+	 */
+	revealItemById(itemId: string): void {
+		for (let i = 0; i < this._list.length; i++) {
+			const el = this._list.element(i);
+			if ((el.item as { id?: string })?.id === itemId) {
+				this._list.reveal(i);
+				return;
+			}
+		}
 	}
 
 	/**

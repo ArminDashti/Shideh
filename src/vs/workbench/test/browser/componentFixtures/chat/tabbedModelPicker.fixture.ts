@@ -164,12 +164,17 @@ const COPILOT_NOTICE_MODELS = [
 ];
 
 /** The full effort ladder a real model can publish, where the labels vary in width. */
-const MANY_EFFORT_MODEL = createModel('gpt-5-6-terra', 'GPT-5.6 Terra', {
+const MANY_EFFORT_MODEL_OPTIONS = {
 	category: 'powerful', priceCategory: 'medium', costs: true,
 	effortValues: ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
 	effortLabels: ['None', 'Low', 'Medium', 'High', 'Extra High', 'Max'],
 	contextLabels: ['272K', '1M'],
-});
+} satisfies IFixtureModelOptions;
+const MANY_EFFORT_MODEL = createModel('gpt-5-6-terra', 'GPT-5.6 Terra', MANY_EFFORT_MODEL_OPTIONS);
+const MANY_EFFORT_VARIANT_MODELS = [
+	MANY_EFFORT_MODEL,
+	createModel('gpt-5-6-terra-fast', 'GPT-5.6 Terra (fast mode)', { ...MANY_EFFORT_MODEL_OPTIONS, priceCategory: 'high' }),
+];
 
 const DEMOTED_MODELS = Array.from({ length: 21 }, (_, index) => createModel(`older-${index}`, `Older Model ${index + 1}`));
 
@@ -322,6 +327,8 @@ interface IPickerFixtureOptions {
 	readonly entitlement?: ChatEntitlement;
 	/** Settings to apply per model identifier, so rows can show what they were tuned to. */
 	readonly configured?: IStringDictionary<IStringDictionary<unknown>>;
+	/** Opens the hovered card's pricing breakdown. */
+	readonly pricingExpanded?: boolean;
 }
 
 async function renderPicker(context: ComponentFixtureContext, options: IPickerFixtureOptions = {}): Promise<void> {

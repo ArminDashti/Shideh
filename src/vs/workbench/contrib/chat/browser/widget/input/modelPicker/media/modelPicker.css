@@ -645,7 +645,7 @@
 	content: '';
 	flex: 1 1 auto;
 	height: var(--vscode-strokeThickness);
-	background: var(--vscode-menu-separatorBackground, var(--vscode-editorWidget-border));
+	background: var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-foreground) 10%, transparent));
 }
 
 .action-widget .chat-model-picker-tabbed .monaco-list-row.chat-model-picker-section-toggle {
@@ -939,8 +939,8 @@
 .chat-model-card {
 	display: flex;
 	flex-direction: column;
-	gap: var(--vscode-spacing-size100);
-	padding: var(--vscode-spacing-size100);
+	gap: var(--vscode-spacing-size120);
+	padding: var(--vscode-spacing-size120);
 	min-width: 220px;
 	max-width: 300px;
 	font-size: var(--vscode-fontSize-label1);
@@ -1003,6 +1003,7 @@
 .chat-model-card-name {
 	font-weight: var(--vscode-fontWeight-semiBold);
 	font-size: var(--vscode-fontSize-heading3);
+	line-height: var(--vscode-spacing-size200);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1013,6 +1014,10 @@
 }
 
 .chat-model-card-name + .chat-model-card-actions {
+	margin-left: auto;
+}
+
+.chat-model-card-header > .chat-model-card-name + :is(.chat-model-card-pin, .chat-model-card-reset) {
 	margin-left: auto;
 }
 
@@ -1035,7 +1040,7 @@
 .chat-model-card-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--vscode-spacing-size40);
+	gap: var(--vscode-spacing-size60);
 }
 
 .chat-model-card-section-heading {
@@ -1046,11 +1051,43 @@
 
 .chat-model-card-section-title {
 	flex: 1 1 auto;
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label2);
 	font-weight: var(--vscode-fontWeight-semiBold);
+	line-height: var(--vscode-spacing-size160);
 }
 
 .chat-model-card-section-value {
 	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * Keep the reel quiet and let the selected segment read as the card's top surface.
+ * High contrast themes retain a semantic border instead of relying on elevation.
+ */
+.chat-model-card .monaco-custom-radio.segmented,
+.chat-model-picker-auto-row .monaco-custom-radio.segmented {
+	border-radius: var(--vscode-cornerRadius-medium);
+	background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+}
+
+.chat-model-card .monaco-custom-radio.segmented > .monaco-button,
+.chat-model-picker-auto-row .monaco-custom-radio.segmented > .monaco-button {
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.chat-model-card .monaco-custom-radio.segmented > .monaco-button:hover:not(.active),
+.chat-model-picker-auto-row .monaco-custom-radio.segmented > .monaco-button:hover:not(.active) {
+	background: var(--vscode-modernTab-hoverBackground);
+}
+
+.chat-model-card .monaco-custom-radio.segmented > .monaco-button.active,
+.chat-model-card .monaco-custom-radio.segmented > .monaco-button.active:hover,
+.chat-model-picker-auto-row.enabled .monaco-custom-radio.segmented > .monaco-button.active,
+.chat-model-picker-auto-row.enabled .monaco-custom-radio.segmented > .monaco-button.active:hover {
+	background: var(--vscode-menu-background);
+	border-color: var(--vscode-contrastActiveBorder, transparent);
+	box-shadow: none;
 }
 
 .chat-model-card-options {
@@ -1117,8 +1154,9 @@
 
 .chat-model-card-pricing-toggle {
 	display: flex;
+	align-self: stretch;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-start;
 	gap: var(--vscode-spacing-size40);
 	width: 100%;
 	margin: var(--vscode-spacing-sizeNone);

@@ -636,7 +636,9 @@ export class ModelPickerWidget extends Disposable {
 				},
 				onUnavailableLinkClick: onLinkClick,
 				onSelect,
-				onTogglePin,
+				// The tabbed picker rebuilds its own list around the change, so it must not
+				// be torn down and re-shown from here.
+				onTogglePin: setModelPinned,
 				onManageModels: () => manageModelsAction?.run(),
 				onDidToggleOtherModels,
 				onDidSearch: () => telemetrySession.logSearch(),

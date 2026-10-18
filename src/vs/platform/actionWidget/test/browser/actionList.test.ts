@@ -1298,9 +1298,6 @@ suite('ActionListWidget', () => {
 		widget.domNode.appendChild(editable);
 		const text = editable.appendChild(document.createElement('span'));
 		events.push(dispatchKeyDown(text, { key: 'b', keyCode: 66 }));
-		const panel = widget.domNode.querySelector<HTMLElement>('.action-list-submenu-panel');
-		assert.ok(panel);
-		events.push(dispatchKeyDown(panel, { key: 'b', keyCode: 66 }));
 
 		assert.deepStrictEqual({
 			typed,

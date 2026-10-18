@@ -30,6 +30,12 @@ import './tabbedActionListWidget.css';
 const TAB_RESIZE_ANIMATION: KeyframeAnimationOptions = { duration: 300, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' };
 const BODY_COLLAPSE_ANIMATION: KeyframeAnimationOptions = { duration: 200, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' };
 
+/**
+ * Grace given to a pointer that has left an armed popup, so clipping a corner on the
+ * way between the list and its panel does not read as walking away from it.
+ */
+const POINTER_LEAVE_DISMISS_DELAY = 250;
+
 /** The box a tab occupied, including the spacing that travels with its width. */
 interface ITabBox {
 	readonly width: number;

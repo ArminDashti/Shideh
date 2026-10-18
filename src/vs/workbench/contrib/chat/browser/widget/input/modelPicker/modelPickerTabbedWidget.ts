@@ -381,8 +381,9 @@ export class TabbedModelPicker extends Disposable {
 			},
 			delegate: {
 				onSelect: action => {
+					// The popup stays up: several choices are usually made in one visit, and
+					// clicking away is what says the user is done.
 					void action.run();
-					this._widget.hide();
 				},
 				onHide: () => { },
 			},
@@ -440,6 +441,44 @@ export class TabbedModelPicker extends Disposable {
 		} else {
 			this._lastExplicitModelId = model.identifier;
 		}
+	}
+
+	/**
+	 * Applies a selection and rebuilds the list in place, so the popup stays up for the
+	 * next choice instead of dismissing itself on the first one. A detail panel the user
+	 * had open is kept open across the rebuild.
+	 */
+	private _selectModel(model: ILanguageModelChatMetadataAndIdentifier): void {
+		const context = this._context;
+		if (!context) {
+			return;
+		}
+		context.onSelect(model);
+		this._context = { ...context, selectedModelId: model.identifier };
+		if (!isAutoModel(model)) {
+			this._lastExplicitModelId = model.identifier;
+		}
+		this._widget.refreshActiveList(/* preserveExpandedPanel */ true);
+		this._autoRow.value?.render();
+		// The visit has served its purpose, so walking away from the picker ends it while
+		// staying inside leaves room for another change.
+		this._widget.dismissOnPointerLeave();
+	}
+
+	/** Pins or unpins a model, keeping the popup open over the list it reorders. */
+	private _togglePin(modelIdentifier: string, pinned: boolean): void {
+		const context = this._context;
+		if (!context?.onTogglePin) {
+			return;
+		}
+		context.onTogglePin(modelIdentifier, pinned);
+		this._context = {
+			...context,
+			pinnedModelIds: pinned
+				? [...context.pinnedModelIds, modelIdentifier]
+				: context.pinnedModelIds.filter(id => id !== modelIdentifier),
+		};
+		this._widget.refreshActiveList(/* preserveExpandedPanel */ true);
 	}
 
 	private _destinationForSelectedModel(destinations: readonly IModelPickerDestination[], context: ITabbedModelPickerContext): string | undefined {

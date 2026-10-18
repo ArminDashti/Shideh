@@ -189,6 +189,16 @@ export class ModelCard extends DisposableStore {
 		}
 	}
 
+	/** Puts focus back on the rebuilt card, preferring the control the user was using. */
+	private _restoreFocus(group?: string): void {
+		const control = group ? this._groupControls.get(group) : undefined;
+		if (control) {
+			control.focusActiveItem();
+			return;
+		}
+		this._pinButton?.focus();
+	}
+
 	private _render(): void {
 		this._contentDisposables.clear();
 		dom.clearNode(this.element);
