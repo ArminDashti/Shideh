@@ -21,6 +21,9 @@ import { BrowserViewWorkbenchService } from './browserViewWorkbenchService.js';
 import { BrowserViewCDPService } from './browserViewCDPService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { logBrowserOpen } from '../../../../platform/browserView/common/browserViewTelemetry.js';
+import { EnvironmentVariableMutatorType } from '../../../../platform/terminal/common/environmentVariable.js';
+import { IEnvironmentVariableCollectionWithPersistence, IEnvironmentVariableService } from '../../terminal/common/environmentVariable.js';
+import { IPlaywrightService, playwrightSessionName, playwrightSessionEnvVar } from '../../../../platform/browserView/common/playwrightService.js';
 
 // Register actions and browser features
 import './features/webContentsViewRendererFeature.js';
