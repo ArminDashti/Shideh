@@ -100,7 +100,7 @@ export class DiffEditorItemTemplate extends VirtualizedItemTemplate<DocumentDiff
 		const binaryFileChangedLabel = localize('binaryFileChanged', "Binary file changed");
 		this._elements = h('div.multiDiffEntry', [
 			h('div.header@header', [
-				h('div.header-content', [
+				h('div.header-content@headerContent', [
 					h('div.collapse-button@collapseButton'),
 					h('div.file-path', [
 						// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any

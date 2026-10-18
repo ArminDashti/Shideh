@@ -7,7 +7,7 @@ import '../../../workbench/browser/parts/auxiliarybar/media/auxiliaryBarPart.css
 import './media/auxiliaryBarPart.css';
 import './media/paneCompositeTabs.css';
 import { localize } from '../../../nls.js';
-import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, IContextKey } from '../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
@@ -96,6 +96,29 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	}
 
 	readonly priority = LayoutPriority.Low;
+
+	// Layout constants
+	private static readonly MIN_DIFF_PREVIEW_WIDTH = 200;
+	private static readonly MIN_CONTENT_WIDTH = 270;
+	private static readonly BORDER_TOTAL = 2; // 1px border on each side
+
+	// Diff preview state
+	private diffPreviewContainer: HTMLElement | undefined;
+	private diffPreviewWidget: DiffPreviewWidget | undefined;
+	private diffPreviewSash: Sash | undefined;
+	private diffPreviewWidth = 0;
+	private diffPreviewVisibleContextKey: IContextKey<boolean>;
+	private diffPreviewFullWidthContextKey: IContextKey<boolean>;
+	private lastLayoutWidth = 0;
+	private savedAuxBarWidth = 0; // absolute width before diff preview was opened
+
+	// Full-width mode: saved state to restore when exiting
+	private savedSidebarVisible: boolean | undefined;
+	private savedChatBarVisible: boolean | undefined;
+	private savedDiffPreviewWidth: number | undefined;
+	private savedAuxBarWidthForFullWidth = 0;
+	private savedContentWidth = 0;
+	private pendingRestoreWidth = 0; // width to apply when aux bar is re-shown
 
 	constructor(
 		@INotificationService notificationService: INotificationService,
@@ -338,7 +361,6 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 		);
 
 		// Restore the full grid-allocated dimensions so that Part.relayout() works correctly.
-		// Part.layout() only stores _dimension and _contentPosition - no other side effects.
 		Part.prototype.layout.call(this, width, height, top, left);
 	}
 

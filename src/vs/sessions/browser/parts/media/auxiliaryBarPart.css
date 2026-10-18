@@ -9,9 +9,35 @@
 	background-color: var(--vscode-agentsPanel-background);
 }
 
+/* Toggled state for view pane title toolbar actions (e.g. toggle diff preview) */
+.agent-sessions-workbench .part.auxiliarybar .title-actions .monaco-action-bar .action-item .action-label.checked {
+	background-color: var(--vscode-activityBarTop-activeBackground, color-mix(in srgb, var(--vscode-sideBarTitle-foreground) 10%, transparent));
+	border-radius: 4px;
+}
+
 /* Override base workbench monaco editor background in auxiliary bar content */
 .agent-sessions-workbench .part.auxiliarybar > .content .monaco-editor,
 .agent-sessions-workbench .part.auxiliarybar > .content .monaco-editor .margin,
 .agent-sessions-workbench .part.auxiliarybar > .content .monaco-editor .monaco-editor-background {
 	background-color: var(--vscode-agentsPanel-background);
+}
+
+/* ===== Diff Preview Layout ===== */
+
+/* Part container becomes a positioning context for the diff preview */
+.agent-sessions-workbench .part.auxiliarybar.has-diff-preview-host {
+	position: relative;
+}
+
+/* Diff preview: positioned absolutely on the left, full height */
+.agent-sessions-workbench .part.auxiliarybar .auxbar-diff-preview {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	height: 100%;
+	overflow: hidden;
+	z-index: 1;
+	border-right: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+	box-sizing: border-box;
 }

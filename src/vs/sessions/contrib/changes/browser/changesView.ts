@@ -1395,6 +1395,9 @@ export class ChangesViewPane extends ViewPane {
 
 			this.fireTreePaneSizeChange();
 			this.layoutSplitView();
+
+			// Keep the diff preview in sync with file changes
+			this.updateDiffPreview(changes);
 		}));
 	}
 
@@ -1964,6 +1967,13 @@ export class ChangesViewPane extends ViewPane {
 		}
 		this.ciStatusWidget.expand();
 		this.ciStatusWidget.focus();
+	}
+
+	/**
+	 * Open a specific file in the modal diff editor.
+	 */
+	async openFileInModal(item: IChangesFileItem, allItems: IChangesFileItem[]): Promise<void> {
+		await this._openFileItem(item, allItems, false, false, false, allItems.length > 1);
 	}
 
 	private async _openFileItem(item: IChangesFileItem, items: IChangesFileItem[], sideBySide: boolean, preserveFocus: boolean, pinned: boolean, includeSidebar: boolean): Promise<void> {
