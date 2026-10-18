@@ -51,6 +51,16 @@ export class TerminalEditorInput extends EditorInput implements IEditorCloseHand
 		return this._group;
 	}
 
+	private _group: IEditorGroup | undefined;
+
+	setGroup(group: IEditorGroup | undefined) {
+		this._group = group;
+	}
+
+	get group(): IEditorGroup | undefined {
+		return this._group;
+	}
+
 	override get typeId(): string {
 		return TerminalEditorInput.ID;
 	}

@@ -73,6 +73,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 
 	private readonly _onDidUninstallExtension = this._register(new Emitter<DidUninstallExtensionOnServerEvent>());
 	readonly onDidUninstallExtension: Event<DidUninstallExtensionOnServerEvent>;
+	readonly onDidInstallExtensions: Event<DidInstallExtensionEvent[]>;
 
 	readonly onDidUpdateExtensionMetadata: Event<DidUpdateExtensionMetadata>;
 
