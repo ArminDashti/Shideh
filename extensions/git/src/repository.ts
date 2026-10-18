@@ -28,6 +28,7 @@ import { StatusBarCommands } from './statusbar';
 import { toGitUri } from './uri';
 import { anyEvent, combinedDisposable, debounceEvent, dispose, EmptyDisposable, eventToPromise, filterEvent, find, getCommitShortHash, IDisposable, isCopilotWorktreeFolder, isDescendant, isLinuxSnap, isRemote, isWindows, Limiter, onceEvent, pathEquals, relativePath } from './util';
 import { IFileWatcher, watch } from './watch';
+import { detectEncoding } from './encoding';
 import { ISourceControlHistoryItemDetailsProviderRegistry } from './historyItemDetailsProvider';
 import { GitArtifactProvider } from './artifactProvider';
 import { RepositoryCache } from './repositoryCache';
@@ -1429,7 +1430,8 @@ export class Repository implements Disposable {
 		await this.run(Operation.Remove, () => this.repository.rm(resources.map(r => r.fsPath)));
 	}
 
-	async stage(resource: Uri, contents: string, encoding: string): Promise<void> {
+	async stage(resource: Uri, contents: string): Promise<void> {
+		const path = relativePath(this.repository.root, resource.fsPath).replace(/\\/g, '/');
 		await this.run(Operation.Stage, async () => {
 			const data = await workspace.encode(contents, { encoding });
 			await this.repository.stage(resource.fsPath, data);

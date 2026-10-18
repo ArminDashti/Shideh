@@ -809,13 +809,6 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 		const extensionsToRemove: ILocalExtension[] = [];
 
 		const installedExtensionsMap = new ResourceMap<ILocalExtension[]>();
-		const getInstalledExtensions = async (profileLocation: URI) => {
-			let installed = installedExtensionsMap.get(profileLocation);
-			if (!installed) {
-				installedExtensionsMap.set(profileLocation, installed = await this.getInstalled(ExtensionType.User, profileLocation));
-			}
-			return installed;
-		};
 
 		for (const { extension, options } of extensions) {
 			const uninstallOptions: UninstallExtensionTaskOptions = {

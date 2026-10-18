@@ -14,6 +14,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageStatusService } from '../../../services/languageStatus/common/languageStatusService.js';
+import { observableCodeEditor } from '../../../../editor/browser/observableCodeEditor.js';
 
 export class InlineCompletionLanguageStatusBarContribution extends Disposable implements IWorkbenchContribution {
 	public static readonly hot = createHotClass(this);

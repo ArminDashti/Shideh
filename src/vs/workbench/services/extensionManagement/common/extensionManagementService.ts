@@ -800,7 +800,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		if (this.extensionManagementServerService.webExtensionManagementServer) {
 			return this.extensionManagementServerService.webExtensionManagementServer.extensionManagementService.getExtensionsControlManifest();
 		}
-		return this.extensionGalleryService.getExtensionsControlManifest();
+		return Promise.resolve({ malicious: [], deprecated: {}, search: [] });
 	}
 
 	private getServer(extension: ILocalExtension): IExtensionManagementServer | null {

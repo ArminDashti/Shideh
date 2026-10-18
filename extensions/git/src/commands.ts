@@ -1891,8 +1891,6 @@ export class CommandCenter {
 		}
 
 		let modifiedUri = changes.modifiedUri;
-		let modifiedDocument: TextDocument | undefined;
-
 		if (!modifiedUri) {
 			const textEditor = window.activeTextEditor;
 			if (!textEditor) {
@@ -1901,18 +1899,11 @@ export class CommandCenter {
 			modifiedDocument = textEditor.document;
 			modifiedUri = modifiedDocument.uri;
 		}
-
 		if (modifiedUri.scheme !== 'file') {
 			return;
 		}
-
-		if (!modifiedDocument) {
-			modifiedDocument = await workspace.openTextDocument(modifiedUri);
-		}
-
 		const result = changes.originalWithModifiedChanges;
-		await this.runByRepository(modifiedUri, async (repository, resource) =>
-			await repository.stage(resource, result, modifiedDocument.encoding));
+		await this.runByRepository(modifiedUri, async (repository, resource) => await repository.stage(resource, result));
 	}
 
 	private async stageHunkAtCursor(): Promise<void> {
@@ -2120,8 +2111,7 @@ export class CommandCenter {
 		const originalDocument = await workspace.openTextDocument(originalUri);
 		const result = applyLineChanges(originalDocument, modifiedDocument, changes);
 
-		await this.runByRepository(modifiedUri, async (repository, resource) =>
-			await repository.stage(resource, result, modifiedDocument.encoding));
+		await this.runByRepository(modifiedUri, async (repository, resource) => await repository.stage(resource, result));
 	}
 
 	@command('git.revertChange')
