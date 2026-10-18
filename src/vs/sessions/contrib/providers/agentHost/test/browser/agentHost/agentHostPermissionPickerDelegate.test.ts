@@ -827,7 +827,7 @@ suite('AgentHostPermissionPickerDelegate', () => {
 		);
 	});
 
-	test('provides agent-host-specific hover copy for Approve When Safe', () => {
+	test('provides agent-host-specific hover copy for Assisted permissions (Preview)', () => {
 		const { delegate } = setup(store, makeActiveSession(), 'assisted');
 
 		assert.strictEqual(
