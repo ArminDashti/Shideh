@@ -80,6 +80,10 @@ export class BuiltinToolsContribution extends Disposable implements IWorkbenchCo
 			}
 		}));
 
+		// Register the ask questions tool
+		const askQuestionsTool = instantiationService.createInstance(AskQuestionsTool);
+		this._register(toolsService.registerTool(AskQuestionsToolData, askQuestionsTool));
+
 		const runSubagentTool = this._register(instantiationService.createInstance(RunSubagentTool));
 
 		let runSubagentRegistration: IDisposable | undefined;
