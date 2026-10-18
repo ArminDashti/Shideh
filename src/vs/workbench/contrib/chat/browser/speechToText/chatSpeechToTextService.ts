@@ -870,6 +870,12 @@ export class ChatSpeechToTextService extends Disposable implements IChatSpeechTo
 		this._deltaText = '';
 		this._backendFinalizedText = '';
 
+		// Show a plain spinner from the moment dictation is triggered so the
+		// wait until we are actually listening (microphone acquisition + session
+		// open) reads as active. If the model still needs downloading/loading,
+		// the determinate download ring takes over (see _setPreparingModel).
+		this._setStarting(true);
+
 		let stream: MediaStream;
 		try {
 			stream = await this._acquireStream(captureWindow);
@@ -935,6 +941,12 @@ export class ChatSpeechToTextService extends Disposable implements IChatSpeechTo
 			return;
 		}
 		this._setState(ChatSpeechToTextState.Recording);
+		// If the model is ready we are now listening, so retire the "starting"
+		// spinner. When it is still preparing, the download ring already took
+		// over and clears itself once the model becomes ready.
+		if (!this._isPreparingModel) {
+			this._setStarting(false);
+		}
 		// Only cue "recording started" once we are actually listening. If the
 		// model is still downloading/loading, defer the cue until it becomes
 		// ready (see _handleModelStatus), so it lands with the "Listening…"
@@ -1728,6 +1740,7 @@ export class ChatSpeechToTextService extends Disposable implements IChatSpeechTo
 
 	private _teardown(): void {
 		this._stopCapture();
+		this._setStarting(false);
 		this._setPreparingModel(false);
 		this._completeDownloadNotification();
 		// Drop any in-progress preparation timing; a session torn down before the

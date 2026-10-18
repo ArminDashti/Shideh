@@ -249,6 +249,40 @@ export class ChatSpeechToTextConnectingAction extends Action2 {
 	}
 }
 
+/**
+ * Shown in place of the mic button while dictation is starting up (acquiring the
+ * microphone and opening the session) before listening is ready. Renders a plain
+ * spinner — matching Voice Mode's "Connecting…" affordance — so the brief wait
+ * reads as active. Distinct from {@link ChatSpeechToTextPreparingAction}, which
+ * shows a determinate download ring while the on-device model downloads/loads.
+ */
+export class ChatSpeechToTextConnectingAction extends Action2 {
+	static readonly ID = 'workbench.action.chat.speechToTextConnecting';
+
+	constructor() {
+		super({
+			id: ChatSpeechToTextConnectingAction.ID,
+			title: localize2('chat.speechToText.connecting', "Starting Dictation…"),
+			category: CHAT_CATEGORY,
+			f1: false,
+			icon: Codicon.loading,
+			precondition: ChatSpeechToTextStarting,
+			menu: [{
+				id: MenuId.ChatExecute,
+				order: -11,
+				when: ContextKeyExpr.and(ChatSpeechToTextConfigured, ChatSpeechToTextStarting, ChatSpeechToTextPreparing.negate()),
+				group: 'navigation',
+			}],
+		});
+	}
+
+	async run(): Promise<void> {
+		if (isDictating()) {
+			cancelDictation();
+		}
+	}
+}
+
 class HoldToSpeechToTextAction extends Action2 {
 	static readonly ID = 'workbench.action.chat.holdToSpeechToText';
 
