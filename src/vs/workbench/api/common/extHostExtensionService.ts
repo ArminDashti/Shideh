@@ -256,6 +256,15 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		this._logService.info(`Extension host terminating: ${reason}`);
 		this._logService.flush();
 
+		// Start the utility process watchdog
+		// before deactivating extensions incase process.exit
+		// fails due to busy event loop.
+		if (!this._initData.parentPid) {
+			if (typeof (process as any).startWatchdog === 'function') {
+				(process as any).startWatchdog(10, 87);
+			}
+		}
+
 		this._extHostTerminalService.dispose();
 		this._activator.dispose();
 
