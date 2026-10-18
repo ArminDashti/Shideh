@@ -900,6 +900,18 @@ export class CopilotAgent extends Disposable implements IAgent {
 	 */
 	private _invalidatingModelRefresh: Promise<void> | undefined;
 
+	/**
+	 * Settles when the current *invalidating* model refresh has republished the
+	 * catalog. Unlike {@link _scheduledModelRefresh} — which the scheduler
+	 * clears before it awaits the `models.list` request — this spans the whole
+	 * window, from the credential or client change that scheduled the refresh
+	 * until the replacement catalog lands.
+	 *
+	 * While it is set, the published catalog still belongs to the superseded
+	 * credential, so a model found in it may be gone once the refresh settles.
+	 */
+	private _invalidatingModelRefresh: Promise<void> | undefined;
+
 	private _client: CopilotClient | undefined;
 	private readonly _extensionSdkPathByClient = new WeakMap<CopilotClient, string>();
 	private _clientGeneration = 0;

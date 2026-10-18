@@ -2631,6 +2631,31 @@ export class AgentSideEffects extends Disposable {
 			: { errorType: 'readOnly', message: 'This chat is read-only.' };
 	}
 
+	/**
+	 * Discards a turn-start checkpoint that was started concurrently with the
+	 * rest of the send path, for a turn that will never reach the provider.
+	 *
+	 * The capture is settled first so the discard observes a finished
+	 * checkpoint; a capture that failed left nothing to discard. The checkpoint
+	 * service sequences both operations on the session key, so a discard issued
+	 * elsewhere (the cancellation observer) already runs after this capture —
+	 * discarding here as well is idempotent, and keeps the send path
+	 * self-contained rather than relying on an invariant established by another
+	 * caller. It is the only cleanup on the failure path, where no such
+	 * cancellation discard exists.
+	 */
+	private async _discardPendingTurnStartCheckpoint(capture: Promise<void> | undefined, sessionChannel: ProtocolURI, chatUri: URI, turnId: string): Promise<void> {
+		if (!capture) {
+			return;
+		}
+		try {
+			await capture;
+		} catch {
+			return;
+		}
+		await this._checkpointService.discardTurnStartCheckpoint(URI.parse(sessionChannel), chatUri, turnId);
+	}
+
 	private async _resolveChatAttachments(attachments: readonly MessageAttachment[] | undefined): Promise<readonly MessageAttachment[] | undefined> {
 		if (!attachments?.some(attachment => attachment.type === MessageAttachmentKind.Chat)) {
 			return attachments;

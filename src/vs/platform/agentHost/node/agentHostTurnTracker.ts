@@ -452,6 +452,56 @@ export class AgentHostTurnTracker extends Disposable {
 	}
 
 	/**
+	 * Opens `stage` for timing and closes whichever pre-send stage was open.
+	 * Stages are timed off the turn's own stopwatch, so their durations share a
+	 * clock with {@link markFirstProgress} and can be subtracted from it.
+	 *
+	 * Only the host's pre-send work is accounted for here; call
+	 * {@link markSendDispatched} once the message reaches the provider. A turn
+	 * that never runs this sequence — a subagent turn, or one resumed straight
+	 * into the provider — simply reports no stage durations, which is why a
+	 * stage that did run but took no measurable time still reports `0` rather
+	 * than being omitted.
+	 */
+	markSendStage(session: string, turnId: string, stage: AgentHostTurnSendStage): void {
+		const timing = this._turnTimings.get(this._key(session, turnId));
+		if (!timing || timing.sendDispatchedMs !== undefined) {
+			return;
+		}
+		this._closeSendStage(timing);
+		timing.openSendStage = { stage, startedMs: timing.stopWatch.elapsed() };
+		// Seed the stage so a step that completes within the clock's resolution
+		// is still distinguishable from one that never ran.
+		if (!timing.sendStageDurationsMs.has(stage)) {
+			timing.sendStageDurationsMs.set(stage, 0);
+		}
+	}
+
+	/**
+	 * Marks the boundary where host pre-send work ends and the provider takes
+	 * over. Closes any open stage and stops further stage accounting, so work
+	 * the host does later in the turn cannot be mistaken for pre-send cost.
+	 */
+	markSendDispatched(session: string, turnId: string): void {
+		const timing = this._turnTimings.get(this._key(session, turnId));
+		if (!timing || timing.sendDispatchedMs !== undefined) {
+			return;
+		}
+		this._closeSendStage(timing);
+		timing.sendDispatchedMs = timing.stopWatch.elapsed();
+	}
+
+	private _closeSendStage(timing: ITurnTiming): void {
+		const open = timing.openSendStage;
+		if (!open) {
+			return;
+		}
+		const elapsed = Math.max(0, timing.stopWatch.elapsed() - open.startedMs);
+		timing.sendStageDurationsMs.set(open.stage, (timing.sendStageDurationsMs.get(open.stage) ?? 0) + elapsed);
+		timing.openSendStage = undefined;
+	}
+
+	/**
 	 * Records observed activity for a turn. `activityKind` is the protocol
 	 * action type that produced it, which is emitted verbatim in the hang event
 	 * so a hang can be attributed to what the turn was last doing.
