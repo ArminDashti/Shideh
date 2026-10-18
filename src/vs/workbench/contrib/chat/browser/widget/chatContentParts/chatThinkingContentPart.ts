@@ -1307,7 +1307,7 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 	}
 
 	private getFinalizedDisplayTitle(title: string): string {
-		if (this.thinkingDisplayMode !== ThinkingDisplayMode.Collapsed || !this.containsReasoning || this.containsGroupedItems || !this.reasoningDurationMs) {
+		if ((this.thinkingDisplayMode !== ThinkingDisplayMode.Collapsed && this.thinkingDisplayMode !== ThinkingDisplayMode.Scrolling) || !this.containsReasoning || this.containsGroupedItems || !this.reasoningDurationMs) {
 			return title;
 		}
 
@@ -1322,6 +1322,10 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 
 	public hasGroupedItems(): boolean {
 		return this.containsGroupedItems;
+	}
+
+	private isAlwaysVisibleGroupedItems(): boolean {
+		return this.thinkingDisplayMode === ThinkingDisplayMode.Scrolling && this.containsGroupedItems && !this.containsReasoning;
 	}
 
 	private recordReasoningContent(content: string): void {
@@ -1657,6 +1661,9 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 
 	public finalizeTitleIfDefault(): void {
 		this.processPendingRemovals();
+		if (this.thinkingDisplayMode === ThinkingDisplayMode.Scrolling && this.containsReasoning && !this.containsGroupedItems) {
+			this.setExpanded(false);
+		}
 
 		// With lazy rendering, wrapper may not be created yet if content hasn't been expanded
 		if (this.wrapper) {
@@ -1715,6 +1722,9 @@ export class ChatThinkingContentPart extends ChatThinkingStyleContentPart implem
 		}
 
 		this.updateDropdownClickability();
+		if (this.isAlwaysVisibleGroupedItems()) {
+			return;
+		}
 
 		if (this.isVerboseToolChain) {
 			return;
@@ -2180,6 +2190,11 @@ ${this.hookCount > 0 ? `EXAMPLES WITH BLOCKED CONTENT (from hooks):
 		this.trackToolMetadata(toolInvocationId, toolInvocationOrMarkdown);
 		this.updateWorkingSpinnerVisibility();
 		this.appendedItemCount++;
+		if (this.isAlwaysVisibleGroupedItems()) {
+			this.domNode.classList.add('chat-thinking-always-visible-items');
+			this._collapseButton?.element.parentElement?.remove();
+			this.setExpanded(true);
+		}
 
 		// Track edit-pill diffs, seeding from any value emitted before this subscription existed.
 		if (diffSource && toolInvocationId) {

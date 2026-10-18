@@ -733,20 +733,24 @@ suite('ChatListRenderer', () => {
 		});
 	});
 
-	suite('shouldStartNewCollapsedThinkingGroup', () => {
-		test('separates reasoning and grouped items only in collapsed mode', () => {
+	suite('shouldSeparateThinkingGroup', () => {
+		test('separates reasoning and grouped items in collapsed and scrolling modes', () => {
 			assert.deepStrictEqual({
-				reasoningToItems: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.Collapsed, 'reasoning', 'items'),
-				itemsToReasoning: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.Collapsed, 'items', 'reasoning'),
-				reasoningToReasoning: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.Collapsed, 'reasoning', 'reasoning'),
-				itemsToItems: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.Collapsed, 'items', 'items'),
-				fixedScrolling: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.FixedScrolling, 'reasoning', 'items'),
-				collapsedPreview: shouldStartNewCollapsedThinkingGroup(ThinkingDisplayMode.CollapsedPreview, 'reasoning', 'items'),
+				reasoningToItems: shouldSeparateThinkingGroup(ThinkingDisplayMode.Collapsed, 'reasoning', 'items'),
+				itemsToReasoning: shouldSeparateThinkingGroup(ThinkingDisplayMode.Collapsed, 'items', 'reasoning'),
+				reasoningToReasoning: shouldSeparateThinkingGroup(ThinkingDisplayMode.Collapsed, 'reasoning', 'reasoning'),
+				itemsToItems: shouldSeparateThinkingGroup(ThinkingDisplayMode.Collapsed, 'items', 'items'),
+				scrollingReasoningToItems: shouldSeparateThinkingGroup(ThinkingDisplayMode.Scrolling, 'reasoning', 'items'),
+				scrollingItemsToReasoning: shouldSeparateThinkingGroup(ThinkingDisplayMode.Scrolling, 'items', 'reasoning'),
+				fixedScrolling: shouldSeparateThinkingGroup(ThinkingDisplayMode.FixedScrolling, 'reasoning', 'items'),
+				collapsedPreview: shouldSeparateThinkingGroup(ThinkingDisplayMode.CollapsedPreview, 'reasoning', 'items'),
 			}, {
 				reasoningToItems: true,
 				itemsToReasoning: true,
 				reasoningToReasoning: false,
 				itemsToItems: false,
+				scrollingReasoningToItems: true,
+				scrollingItemsToReasoning: true,
 				fixedScrolling: false,
 				collapsedPreview: false,
 			});
@@ -763,6 +767,18 @@ suite('ChatListRenderer', () => {
 				withThinkingWithoutReasoning: false,
 				withThinkingAfterReasoning: true,
 				alwaysWithoutReasoning: true,
+			});
+		});
+	});
+
+	suite('getEffectiveCollapsedToolsDisplayMode', () => {
+		test('always groups tools for scrolling style', () => {
+			assert.deepStrictEqual({
+				scrollingWithConfiguredOff: getEffectiveCollapsedToolsDisplayMode(ThinkingDisplayMode.Scrolling, CollapsedToolsDisplayMode.Off),
+				collapsedWithConfiguredOff: getEffectiveCollapsedToolsDisplayMode(ThinkingDisplayMode.Collapsed, CollapsedToolsDisplayMode.Off),
+			}, {
+				scrollingWithConfiguredOff: CollapsedToolsDisplayMode.Always,
+				collapsedWithConfiguredOff: CollapsedToolsDisplayMode.Off,
 			});
 		});
 	});

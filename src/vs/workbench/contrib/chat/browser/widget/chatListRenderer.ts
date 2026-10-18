@@ -754,12 +754,16 @@ export function shouldRenderInitialProgressiveContentImmediately(isComplete: boo
 	return !isComplete && hasMarkdownParts && !hasRenderData;
 }
 
-export function shouldStartNewCollapsedThinkingGroup(displayMode: ThinkingDisplayMode, existingGroup: 'reasoning' | 'items', incomingGroup: 'reasoning' | 'items'): boolean {
-	return displayMode === ThinkingDisplayMode.Collapsed && existingGroup !== incomingGroup;
+export function shouldSeparateThinkingGroup(displayMode: ThinkingDisplayMode, existingGroup: 'reasoning' | 'items', incomingGroup: 'reasoning' | 'items'): boolean {
+	return (displayMode === ThinkingDisplayMode.Collapsed || displayMode === ThinkingDisplayMode.Scrolling) && existingGroup !== incomingGroup;
 }
 
 export function shouldCreateGroupedThinkingPart(collapsedToolsMode: CollapsedToolsDisplayMode, separatedFromReasoning: boolean): boolean {
 	return collapsedToolsMode === CollapsedToolsDisplayMode.Always || separatedFromReasoning;
+}
+
+export function getEffectiveCollapsedToolsDisplayMode(displayMode: ThinkingDisplayMode, configuredMode: CollapsedToolsDisplayMode): CollapsedToolsDisplayMode {
+	return displayMode === ThinkingDisplayMode.Scrolling ? CollapsedToolsDisplayMode.Always : configuredMode;
 }
 
 export function shouldShowFileChangesSummaryForSettings(isComplete: boolean, isLocalSession: boolean, showFileChanges: boolean): boolean {
@@ -2567,7 +2571,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 
 			const isEffectivelyHiddenToolInvocation = IChatToolInvocation.isEffectivelyHidden(lastPart);
-			const collapsedToolsMode = this.configService.getValue<CollapsedToolsDisplayMode>('chat.agent.thinking.collapsedTools');
+			const collapsedToolsMode = this.getCollapsedToolsDisplayMode();
 			if (!isEffectivelyHiddenToolInvocation && collapsedToolsMode !== CollapsedToolsDisplayMode.Off && this.shouldPinPart(lastPart, isResponseVM(element) ? element : undefined)) {
 				return undefined;
 			}
