@@ -2146,6 +2146,7 @@ export class AgentSideEffects extends Disposable {
 		const { agent, sessionChannel, turnChannel, chat, message, turnId, senderClientId, clientContext, turnStopWatch } = options;
 
 		const chatUri = URI.parse(chat);
+		const turnTelemetryContext = this._turnTracker.getTurnTelemetryContext(turnChannel, turnId);
 
 		// Only the fatal worktree classification permanently rejects later turns.
 		const creationState = this._stateManager.getSessionState(sessionChannel);

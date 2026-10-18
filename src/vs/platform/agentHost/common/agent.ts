@@ -507,6 +507,8 @@ export interface IAgentChatContext {
 	readonly resource: URI;
 	readonly configurationResource: URI;
 	readonly clientTelemetryContext?: IAgentHostClientTelemetryContext;
+	/** Bounded provider context captured at admission and forwarded unchanged for this send. */
+	readonly turnTelemetryContext?: IAgentTurnTelemetryContext;
 	/**
 	 * The addressed chat's origin, taken verbatim from the host-owned chat
 	 * catalog, and exhaustive across every way a chat comes into existence:
@@ -1419,6 +1421,9 @@ export interface IAgent {
 
 	/** Return bounded diagnostics for an in-flight turn when supported. */
 	getTurnDiagnosticSnapshot?(chat: URI, turnId: string): IAgentTurnDiagnosticSnapshot | undefined;
+
+	/** Capture bounded cached provider context synchronously at turn admission, without I/O. */
+	getTurnTelemetryContext?(): IAgentTurnTelemetryContext;
 
 	/** Read observed usage at terminal dispatch for this exact owning turn, excluding descendants and later delivery. */
 	getTurnTokenUsage?(chat: URI, turnId: string, parentToolCallId?: string): IAgentTurnTokenUsage | undefined;
