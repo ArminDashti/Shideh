@@ -2219,6 +2219,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (sessionType
 			&& this.chatSessionsService.requiresCustomModelsForSessionType(sessionType)
 			&& !hasModelsTargetingSession(allModels, sessionType)) {
+			this._traceModelFunnel(sessionType, `requiresCustomModels but none target session (merged=${allModels.length}) -> []`);
 			return [];
 		}
 
