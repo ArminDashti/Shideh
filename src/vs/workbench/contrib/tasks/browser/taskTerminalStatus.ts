@@ -16,6 +16,7 @@ import { spinningLoading } from '../../../../platform/theme/common/iconRegistry.
 import type { IMarker } from '@xterm/xterm';
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { ITerminalStatus } from '../../terminal/common/terminal.js';
+import { ITaskStartMarker } from '../common/taskSystem.js';
 
 interface ITerminalData extends IDisposable {
 	terminal: ITerminalInstance;
@@ -39,6 +40,9 @@ const INFO_INACTIVE_TASK_STATUS: ITerminalStatus = { id: TASK_TERMINAL_STATUS_ID
 export class TaskTerminalStatus extends Disposable {
 	private terminalMap: DisposableMap<number, ITerminalData> = this._register(new DisposableMap());
 	private _marker: IMarker | undefined;
+	private _shouldResetMarker: boolean = false;
+	private _initialProblemMarkers: Map<number, ITaskStartMarker & { marker: IMarker }> = new Map();
+
 	constructor(@ITaskService taskService: ITaskService, @IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService) {
 		super();
 		this._register(taskService.onDidStateChange((event) => {
@@ -92,6 +96,10 @@ export class TaskTerminalStatus extends Disposable {
 				store.dispose();
 			},
 		});
+	}
+
+	getTaskStartMarker(instanceId: number): ITaskStartMarker | undefined {
+		return this._initialProblemMarkers.get(instanceId);
 	}
 
 	private terminalFromEvent(event: { terminalId: number | undefined }): ITerminalData | undefined {
@@ -171,6 +179,19 @@ export class TaskTerminalStatus extends Disposable {
 		// We don't want to show an infinite status for a background task that doesn't have a problem matcher.
 		if ((terminalData.problemMatcher instanceof StartStopProblemCollector) || (terminalData.problemMatcher?.problemMatchers.length > 0) || event.runType === TaskRunType.SingleRun) {
 			terminalData.terminal.statusList.add(ACTIVE_TASK_STATUS);
+		}
+		let terminalMarker = this._initialProblemMarkers.get(event.terminalId!)?.marker;
+		if (terminalMarker && this._shouldResetMarker) {
+			terminalMarker.dispose();
+			terminalMarker = undefined;
+		}
+		if (!terminalMarker) {
+			const marker = terminalData.terminal.registerMarker();
+			if (marker) {
+				this._register(marker);
+				console.log('setting ', terminalData.terminal.xterm?.raw.buffer.active.getLine(marker.line)?.translateToString(true));
+				this._initialProblemMarkers.set(terminalData.terminal.instanceId, { line: marker.line, id: marker.id, marker });
+			}
 		}
 	}
 }
