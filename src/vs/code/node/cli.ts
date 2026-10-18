@@ -177,7 +177,7 @@ export async function main(argv: string[]): Promise<void> {
 		// they are explicitly provided by the user as arguments
 		if (isWindows) {
 			for (const path of [source, target]) {
-				if (isUNC(path)) {
+				if (typeof path === 'string' && isUNC(path)) {
 					addUNCHostToAllowlist(URI.file(path).authority);
 				}
 			}
