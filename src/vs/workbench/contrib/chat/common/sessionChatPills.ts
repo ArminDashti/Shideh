@@ -219,3 +219,5 @@ export class SessionChatPillVisibility extends Disposable implements ISessionCha
 		this._hiddenKinds.set(hidden.includes(kind) ? hidden.filter(hiddenKind => hiddenKind !== kind) : [...hidden, kind], undefined);
 	}
 }
+
+registerSingleton(ISessionChatPillVisibilityService, SessionChatPillVisibility, InstantiationType.Delayed);

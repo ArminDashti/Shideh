@@ -155,6 +155,7 @@ export function getAccessibilityHelpText(type: 'panelChat' | 'inlineChat' | 'qui
 		content.push(localize('chat.mockGeneratedImages', "In source builds, Copilot Agent Host sessions can run generate_image_mock to preview image controls with a fixed sample image. It does not generate a real image. Stop cancels the preview wait."));
 		if (type === 'agentView') {
 			content.push(localize('chat.voiceInputMode.agentProgress', 'When the experimental agents.voice.agentProgress setting is enabled, Voice Mode Agent requests may speak brief progress updates while investigating, planning, editing, validating, or recovering from a problem.'));
+			content.push(localize('chatAgent.sessionStatusPills', 'Agent Host sessions can show status pills above the input for session changes, pull requests, issues, artifacts, and browsers. Use Tab to focus the pill row, the left and right arrow keys to move between pills, and Enter or Space to activate one. Open a pill\u2019s context menu{0} to hide it or restore other pill kinds.', '<keybinding:editor.action.showContextMenu>'));
 		}
 		content.push(localize('chat.inspectResponse', 'In the input box, inspect the last response in the accessible view{0}. Thinking content is included in order by default.', '<keybinding:editor.action.accessibleView>'));
 		content.push(localize('chat.inspectResponseThinkingToggle', 'To include or exclude thinking content in the accessible view, run the Toggle Thinking Content in Accessible View command from the Command Palette.'));

@@ -442,6 +442,19 @@ export class ChatListWidget extends Disposable {
 		return this._tree.scrollTop + this._tree.renderHeight >= this._tree.scrollHeight - 2;
 	}
 
+	setPaddingBottom(paddingBottom: number): void {
+		if (paddingBottom === this._paddingBottom) {
+			return;
+		}
+		const wasAtBottom = this.isScrolledToBottom;
+		this._paddingBottom = paddingBottom;
+		this._tree.updateOptions({ paddingBottom });
+		if (wasAtBottom) {
+			this.scrollToEnd();
+		}
+		this.updateScrollDownButtonVisibility();
+	}
+
 	/**
 	 * The last item in the list.
 	 */
