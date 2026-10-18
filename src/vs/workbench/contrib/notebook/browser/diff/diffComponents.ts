@@ -1402,6 +1402,7 @@ export class DeletedElement extends SingleSideDiffElement {
 				this._diagonalFill.style.height = `${this.calculateDiagonalFillHeight()}px`;
 			}
 
+			this._editorLayoutInProgress = false;
 			this.layoutNotebookCell();
 		});
 	}
@@ -1549,6 +1550,8 @@ export class InsertElement extends SingleSideDiffElement {
 		}
 	}
 
+	private _editorLayoutInProgress = false;
+
 	layout(state: IDiffElementLayoutState) {
 		DOM.scheduleAtNextAnimationFrame(DOM.getWindow(this._diffEditorContainer), () => {
 			if ((state.editorHeight || state.outerWidth) && this._editor) {
@@ -1578,6 +1581,7 @@ export class InsertElement extends SingleSideDiffElement {
 				});
 			}
 
+			this._editorLayoutInProgress = false;
 			this.layoutNotebookCell();
 
 			if (this._diagonalFill) {
