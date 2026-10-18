@@ -1,0 +1,194 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container is rendered as a peer above the chat input. The widget toggles
+ * `has-billing-banner` on the container when it has content to show, so an
+ * empty container collapses out of the layout cleanly. (Using `:empty` here
+ * would not work — the widget always renders an inner element.) */
+.interactive-session .interactive-input-part > .chat-billing-banner-container,
+.new-chat-input-container > .chat-billing-banner-container {
+	display: none;
+}
+.interactive-session .interactive-input-part > .chat-billing-banner-container.has-billing-banner,
+.new-chat-input-container > .chat-billing-banner-container.has-billing-banner {
+	display: block;
+}
+
+/* Layout fallback: the chat input part hides the banner via this class when
+ * the available height would otherwise squeeze the input editor below its
+ * minimum (e.g. the welcome view in a narrow auxiliary bar). */
+.chat-billing-banner-container.chat-billing-banner-squeezed {
+	display: none;
+}
+
+/* Pull the banner down so its squared-off bottom slides behind the rounded
+ * top of the chat input, hiding the seam. Only applies when the banner is
+ * actually visible. */
+.interactive-session .interactive-input-part > .chat-billing-banner-container.has-billing-banner,
+.new-chat-input-container > .chat-billing-banner-container.has-billing-banner {
+	margin-bottom: -14px;
+}
+
+/* Match the existing input-notification convention: when the banner is
+ * visible, hide only the passive getting-started tip. All other functional
+ * above-input widgets (plan review, carousels, followups, todo, artifacts,
+ * editing session, notification) continue to coexist with the banner.
+ */
+.interactive-session .interactive-input-part.has-billing-banner > .chat-getting-started-tip-container {
+	display: none !important;
+}
+
+/* Card */
+.chat-billing-banner-widget {
+	width: 100%;
+
+	/* The chat input uses --vscode-input-background; the agents window uses
+	 * --vscode-agentsChatInput-background (which defaults to inputBackground).
+	 * Resolve the surface color once so the body, hero base, and bottom-fade
+	 * stay in lock-step — the banner card meets the chat input below with no
+	 * visible color seam.
+	 */
+	--chat-billing-banner-surface: var(--vscode-input-background);
+
+	/* Hero gets a faint Copilot-tinted wash so the ASCII characters POP
+	 * against a slightly accented surface instead of blending into the body.
+	 * Mixed against the surface color so it stays theme-correct in both
+	 * light and dark modes.
+	 */
+	--chat-billing-banner-hero-tint: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, var(--chat-billing-banner-surface));
+}
+
+.chat-billing-banner-widget.variant-agents {
+	--chat-billing-banner-surface: var(--vscode-agentsChatInput-background, var(--vscode-input-background));
+}
+
+.chat-billing-banner-widget .chat-billing-banner-card {
+	position: relative;
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+	/* Round the top, square the bottom so the card visually tucks under the
+	 * chat input. Drop the bottom border for the same reason. */
+	border-radius: 6px 6px 0 0;
+	border-bottom: none;
+	/* Add bottom padding equal to the overlap so content doesn't get clipped
+	 * by the chat input sitting on top. */
+	padding-bottom: 14px;
+	overflow: hidden;
+	background: var(--chat-billing-banner-surface);
+}
+
+/* Hero / ASCII canvas */
+.chat-billing-banner-widget .chat-billing-banner-hero {
+	position: relative;
+	width: 100%;
+	height: 84px;
+	overflow: hidden;
+	background: var(--chat-billing-banner-hero-tint);
+}
+
+.chat-billing-banner-widget .chat-billing-banner-canvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+/* Bottom fade transitions from the tinted hero into the body surface so the
+ * ASCII canvas dissolves cleanly into the text area with no visible edge. */
+.chat-billing-banner-widget .chat-billing-banner-hero::after {
+	content: '';
+	position: absolute;
+	bottom: 0; left: 0; right: 0;
+	height: 75%;
+	background: linear-gradient(to bottom, transparent 0%, var(--chat-billing-banner-surface) 100%);
+	pointer-events: none;
+}
+
+/* Body text */
+.chat-billing-banner-widget .chat-billing-banner-body {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 12px 16px 12px;
+}
+
+.chat-billing-banner-widget .chat-billing-banner-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin: 0 0 5px;
+	line-height: 1.3;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.chat-billing-banner-widget .chat-billing-banner-desc {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+	margin: 0;
+}
+
+/* Close (×) button floats top-right over the hero. Uses the secondary
+ * button palette so it stays legible over the animated canvas. */
+.chat-billing-banner-widget .chat-billing-banner-close {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	background: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-border, transparent);
+	color: var(--vscode-button-secondaryForeground);
+	line-height: 1;
+	cursor: pointer;
+	border-radius: 4px;
+	font-family: inherit;
+}
+.chat-billing-banner-widget .chat-billing-banner-close .codicon {
+	font-size: 14px;
+	line-height: 1;
+}
+.chat-billing-banner-widget .chat-billing-banner-close:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+.chat-billing-banner-widget .chat-billing-banner-close:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.chat-billing-banner-widget .chat-billing-banner-link {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	background: none;
+	border: none;
+	font: inherit;
+	padding: 0;
+	text-decoration: none;
+}
+.chat-billing-banner-widget .chat-billing-banner-link:hover {
+	text-decoration: underline;
+}
+.chat-billing-banner-widget .chat-billing-banner-link:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+/* Primary CTA sits below the body text. Uses standard `monaco-button`
+ * styles from defaultButtonStyles; override the default `width: 100%` so
+ * the button hugs its label. */
+.chat-billing-banner-widget .monaco-text-button.chat-billing-banner-cta {
+	align-self: flex-start;
+	margin-top: 10px;
+	width: auto;
+	flex: 0 0 auto;
+	min-width: auto;
+}

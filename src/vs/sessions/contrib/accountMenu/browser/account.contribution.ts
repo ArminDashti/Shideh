@@ -57,6 +57,21 @@ const AccountMenu = Menus.AccountMenu;
 const SessionsTitleBarAccountWidgetAction = 'sessions.action.titleBarAccountWidget';
 const SESSIONS_ACCOUNT_TITLEBAR_PANEL_WIDTH = 400;
 
+/**
+ * Command id for programmatically opening the Agents-window account panel
+ * (the popover anchored to the title-bar avatar). Used e.g. by the Copilot
+ * usage-based billing onboarding banner CTA.
+ */
+export const SESSIONS_OPEN_ACCOUNT_MENU_COMMAND_ID = 'workbench.action.agents.openAccountMenu';
+
+/**
+ * The most recently rendered title-bar account widget instance. There is
+ * only ever one of these in the Agents window, so a module-local handle is
+ * enough to let commands trigger {@link TitleBarAccountWidget.openAccountPanel}
+ * without plumbing a dedicated service.
+ */
+let activeTitleBarAccountWidget: TitleBarAccountWidget | undefined;
+
 const PERSONALIZE_ACTION_IDS: readonly string[] = [
 	'workbench.action.openSettings',
 	SHIDEH_OPEN_SETTINGS_COMMAND_ID,
@@ -236,6 +251,13 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 		// setting switches between them while the window is open.
 		this._register(runOnChange(this.allowSignedOutWhenUsable, () => this.renderState()));
 		this.refreshAccount();
+
+		activeTitleBarAccountWidget = this;
+		this._register(toDisposable(() => {
+			if (activeTitleBarAccountWidget === this) {
+				activeTitleBarAccountWidget = undefined;
+			}
+		}));
 	}
 
 	override setFocusable(_focusable: boolean): void {
@@ -282,6 +304,19 @@ export class TitleBarAccountWidget extends BaseActionViewItem {
 		}
 
 		try { logAccountMenuOpened(this.telemetryService, { source: 'titleBar' }); } catch { /* telemetry must never break */ }
+		this.showCombinedPanel();
+	}
+
+	/**
+	 * Programmatic entry point that mirrors clicking the title-bar avatar,
+	 * but is open-only — invoking this while the panel is already visible
+	 * is a no-op (whereas onClick toggles closed). Used by the Copilot
+	 * billing banner CTA to surface the account panel.
+	 */
+	public openAccountPanel(): void {
+		if (!this.container || this.isMenuVisible) {
+			return;
+		}
 		this.showCombinedPanel();
 	}
 

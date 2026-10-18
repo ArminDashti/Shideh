@@ -2708,6 +2708,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			sessionTypePickerDelegate: this.viewOptions.sessionTypePickerDelegate,
 			workspacePickerDelegate: this.viewOptions.workspacePickerDelegate,
 			isSessionsWindow: this.viewOptions.isSessionsWindow,
+			suppressBillingBanner: this.viewOptions.renderInputOnTop,
 		};
 
 		let input: ChatInputPart;

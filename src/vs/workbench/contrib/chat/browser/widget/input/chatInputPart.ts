@@ -2717,6 +2717,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// session so a message here doesn't hide notifications for other sessions.
 		this.chatInputNotificationService.handleMessageSent(this.getNotificationContext());
 
+		// First user-sent message is treated as an implicit acknowledgement of
+		// the billing onboarding banner, so we dismiss it permanently.
+		if (isUserQuery) {
+			this.chatBillingBannerService.markCompleted();
+		}
+
 		if (this._chatSessionIsEmpty) {
 			this._chatSessionIsEmpty = false;
 			this._emptyInputState.set(undefined, undefined);
@@ -3817,6 +3823,17 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}
 
 		this.ensureNotificationWidget();
+
+		// The billing banner's 3-slide carousel is too tall for compact surfaces
+		// (inline chat, narrow popovers) and competes for attention on launcher
+		// surfaces (welcome editor, quick chat). Skip creating it there; the
+		// banner container is hidden by default and only revealed when the
+		// widget toggles `.has-billing-banner` on it, so an unused container
+		// collapses out of the layout cleanly.
+		if (!this._billingBannerWidget.value && this.options.renderStyle !== 'compact' && !this.options.suppressBillingBanner) {
+			this._billingBannerWidget.value = this.instantiationService.createInstance(ChatBillingBannerWidget, ChatBillingBannerVariant.Panel);
+			this.chatBillingBannerContainer.appendChild(this._billingBannerWidget.value.domNode);
+		}
 
 		this._register(this._attachmentModel.onDidChange((e) => {
 			if (e.added.length > 0) {
@@ -5753,6 +5770,52 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const carouselHeight = this.chatToolConfirmationCarouselContainer.offsetHeight;
 		const otherInputHeight = Math.max(0, this.container.offsetHeight - carouselHeight);
 		carousel.setMaxHeight(this._maxHeight - otherInputHeight);
+	}
+
+	/**
+	 * The billing banner is ~250px tall. In short panels (the chat welcome view
+	 * in a narrow auxiliary bar, the inline chat, etc.) the banner can squeeze
+	 * the input editor below its minimum height, making the input vanish. When
+	 * we detect that, hide the banner so the user always has a usable input.
+	 *
+	 * The natural banner height is cached the last time it was measured while
+	 * visible. When the banner is currently hidden via the squeezed class its
+	 * `scrollHeight` would be 0, which would cause the decision to oscillate
+	 * between squeezed and unsqueezed states on every layout. Using the cache
+	 * when squeezed keeps the decision stable across the squeeze threshold.
+	 */
+	private _cachedBannerNaturalHeight = 0;
+	private _updateBillingBannerVisibility(): void {
+		if (!this.chatBillingBannerContainer) {
+			return;
+		}
+		if (this._maxHeight === undefined) {
+			this.chatBillingBannerContainer.classList.remove('chat-billing-banner-squeezed');
+			return;
+		}
+
+		const isCurrentlySqueezed = this.chatBillingBannerContainer.classList.contains('chat-billing-banner-squeezed');
+		if (!isCurrentlySqueezed) {
+			const measured = this.chatBillingBannerContainer.scrollHeight;
+			if (measured > 0) {
+				this._cachedBannerNaturalHeight = measured;
+			}
+		}
+		const bannerNaturalHeight = this._cachedBannerNaturalHeight;
+		if (bannerNaturalHeight === 0) {
+			this.chatBillingBannerContainer.classList.remove('chat-billing-banner-squeezed');
+			return;
+		}
+
+		const containerHeight = this.container.offsetHeight;
+		const currentBannerHeight = isCurrentlySqueezed ? 0 : bannerNaturalHeight;
+		const editorHeight = this.previousInputEditorDimension?.height ?? 0;
+		const otherChromeHeight = Math.max(0, containerHeight - currentBannerHeight - editorHeight);
+
+		const editorMinHeight = this.inputEditorMinHeight ?? INPUT_EDITOR_LINE_HEIGHT;
+		const requiredWithBanner = otherChromeHeight + bannerNaturalHeight + editorMinHeight;
+
+		this.chatBillingBannerContainer.classList.toggle('chat-billing-banner-squeezed', requiredWithBanner > this._maxHeight);
 	}
 
 	/**
