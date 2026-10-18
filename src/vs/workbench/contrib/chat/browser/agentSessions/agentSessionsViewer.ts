@@ -607,6 +607,18 @@ export class AgentSessionRenderer extends Disposable implements ICompressibleTre
 		return true;
 	}
 
+	private hasValidDiff(diff: IAgentSession['changes']): boolean {
+		if (!diff) {
+			return false;
+		}
+
+		if (diff instanceof Array) {
+			return diff.length > 0;
+		}
+
+		return diff.files > 0 || diff.insertions > 0 || diff.deletions > 0;
+	}
+
 	private getIcon(session: IAgentSession): ThemeIcon {
 		return getAgentSessionStatusIcon(session);
 	}
