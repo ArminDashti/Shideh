@@ -137,3 +137,10 @@ export class StartupProfiler implements IWorkbenchContribution {
 		this._openerService.open(URI.parse(`${baseUrl}${queryStringPrefix}body=${encodeURIComponent(body)}`));
 	}
 }
+
+// -- register as workbench contribution
+
+Registry.as<IWorkbenchContributionsRegistry>(Extensions.Workbench).registerWorkbenchContribution(
+	StartupProfiler,
+	LifecyclePhase.Restored
+);
